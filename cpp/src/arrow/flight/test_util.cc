@@ -203,6 +203,187 @@ class FlightTestServer : public FlightServerBase {
     return Status::OK();
   }
 
+  Status DoExchange(const ServerCallContext& context,
+                    std::unique_ptr<FlightMessageReader> reader,
+                    std::unique_ptr<FlightMessageWriter> writer) override {
+    // Test various scenarios for a DoExchange
+    if (reader->descriptor().type != FlightDescriptor::DescriptorType::CMD) {
+      return Status::Invalid("Must provide a command descriptor");
+    }
+
+    const std::string& cmd = reader->descriptor().cmd;
+    if (cmd == "error") {
+      // Immediately return an error to the client.
+      return Status::NotImplemented("Expected error");
+    } else if (cmd == "get") {
+      return RunExchangeGet(std::move(reader), std::move(writer));
+    } else if (cmd == "put") {
+      return RunExchangePut(std::move(reader), std::move(writer));
+    } else if (cmd == "counter") {
+      return RunExchangeCounter(std::move(reader), std::move(writer));
+    } else if (cmd == "total") {
+      return RunExchangeTotal(std::move(reader), std::move(writer));
+    } else if (cmd == "echo") {
+      return RunExchangeEcho(std::move(reader), std::move(writer));
+    } else {
+      return Status::NotImplemented("Scenario not implemented: ", cmd);
+    }
+  }
+
+  // A simple example - act like DoGet.
+  Status RunExchangeGet(std::unique_ptr<FlightMessageReader> reader,
+                        std::unique_ptr<FlightMessageWriter> writer) {
+    RETURN_NOT_OK(writer->Begin(ExampleIntSchema()));
+    BatchVector batches;
+    RETURN_NOT_OK(ExampleIntBatches(&batches));
+    for (const auto& batch : batches) {
+      RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
+    }
+    return Status::OK();
+  }
+
+  // A simple example - act like DoPut
+  Status RunExchangePut(std::unique_ptr<FlightMessageReader> reader,
+                        std::unique_ptr<FlightMessageWriter> writer) {
+    ARROW_ASSIGN_OR_RAISE(auto schema, reader->GetSchema());
+    if (!schema->Equals(ExampleIntSchema(), false)) {
+      return Status::Invalid("Schema is not as expected");
+    }
+    BatchVector batches;
+    RETURN_NOT_OK(ExampleIntBatches(&batches));
+    FlightStreamChunk chunk;
+    for (const auto& batch : batches) {
+      RETURN_NOT_OK(reader->Next(&chunk));
+      if (!chunk.data) {
+        return Status::Invalid("Expected another batch");
+      }
+      if (!batch->Equals(*chunk.data)) {
+        return Status::Invalid("Batch does not match");
+      }
+    }
+    RETURN_NOT_OK(reader->Next(&chunk));
+    if (chunk.data || chunk.app_metadata) {
+      return Status::Invalid("Too many batches");
+    }
+
+    RETURN_NOT_OK(writer->WriteMetadata(Buffer::FromString("done")));
+    return Status::OK();
+  }
+
+  // Read some number of record batches from the client, send a
+  // metadata message back with the count, then echo the batches back.
+  Status RunExchangeCounter(std::unique_ptr<FlightMessageReader> reader,
+                            std::unique_ptr<FlightMessageWriter> writer) {
+    std::vector<std::shared_ptr<RecordBatch>> batches;
+    FlightStreamChunk chunk;
+    int chunks = 0;
+    while (true) {
+      RETURN_NOT_OK(reader->Next(&chunk));
+      if (!chunk.data && !chunk.app_metadata) {
+        break;
+      }
+      if (chunk.data) {
+        batches.push_back(chunk.data);
+        chunks++;
+      }
+    }
+
+    // Echo back the number of record batches read.
+    std::shared_ptr<Buffer> buf = Buffer::FromString(std::to_string(chunks));
+    RETURN_NOT_OK(writer->WriteMetadata(buf));
+    // Echo the record batches themselves.
+    if (chunks > 0) {
+      ARROW_ASSIGN_OR_RAISE(auto schema, reader->GetSchema());
+      RETURN_NOT_OK(writer->Begin(schema));
+
+      for (const auto& batch : batches) {
+        RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
+      }
+    }
+
+    return Status::OK();
+  }
+
+  // Read int64 batches from the client, each time sending back a
+  // batch with a running sum of columns.
+  Status RunExchangeTotal(std::unique_ptr<FlightMessageReader> reader,
+                          std::unique_ptr<FlightMessageWriter> writer) {
+    FlightStreamChunk chunk{};
+    ARROW_ASSIGN_OR_RAISE(auto schema, reader->GetSchema());
+    // Ensure the schema contains only int64 columns
+    for (const auto& field : schema->fields()) {
+      if (field->type()->id() != Type::type::INT64) {
+        return Status::Invalid("Field is not INT64: ", field->name());
+      }
+    }
+    std::vector<int64_t> sums(schema->num_fields());
+    std::vector<std::shared_ptr<Array>> columns(schema->num_fields());
+    RETURN_NOT_OK(writer->Begin(schema));
+    while (true) {
+      RETURN_NOT_OK(reader->Next(&chunk));
+      if (!chunk.data && !chunk.app_metadata) {
+        break;
+      }
+      if (chunk.data) {
+        if (!chunk.data->schema()->Equals(schema, false)) {
+          // A compliant client implementation would make this impossible
+          return Status::Invalid("Schemas are incompatible");
+        }
+
+        // Update the running totals
+        auto builder = std::make_shared<Int64Builder>();
+        int col_index = 0;
+        for (const auto& column : chunk.data->columns()) {
+          auto arr = std::dynamic_pointer_cast<Int64Array>(column);
+          if (!arr) {
+            return MakeFlightError(FlightStatusCode::Internal, "Could not cast array");
+          }
+          for (int row = 0; row < column->length(); row++) {
+            if (!arr->IsNull(row)) {
+              sums[col_index] += arr->Value(row);
+            }
+          }
+
+          builder->Reset();
+          RETURN_NOT_OK(builder->Append(sums[col_index]));
+          RETURN_NOT_OK(builder->Finish(&columns[col_index]));
+
+          col_index++;
+        }
+
+        // Echo the totals to the client
+        auto response = RecordBatch::Make(schema, /* num_rows */ 1, columns);
+        RETURN_NOT_OK(writer->WriteRecordBatch(*response));
+      }
+    }
+    return Status::OK();
+  }
+
+  // Echo the client's messages back.
+  Status RunExchangeEcho(std::unique_ptr<FlightMessageReader> reader,
+                         std::unique_ptr<FlightMessageWriter> writer) {
+    FlightStreamChunk chunk;
+    bool begun = false;
+    while (true) {
+      RETURN_NOT_OK(reader->Next(&chunk));
+      if (!chunk.data && !chunk.app_metadata) {
+        break;
+      }
+      if (!begun && chunk.data) {
+        begun = true;
+        RETURN_NOT_OK(writer->Begin(chunk.data->schema()));
+      }
+      if (chunk.data && chunk.app_metadata) {
+        RETURN_NOT_OK(writer->WriteWithMetadata(*chunk.data, chunk.app_metadata));
+      } else if (chunk.data) {
+        RETURN_NOT_OK(writer->WriteRecordBatch(*chunk.data));
+      } else if (chunk.app_metadata) {
+        RETURN_NOT_OK(writer->WriteMetadata(chunk.app_metadata));
+      }
+    }
+    return Status::OK();
+  }
+
   Status RunAction1(const Action& action, std::unique_ptr<ResultStream>* out) {
     std::vector<Result> results;
     for (int i = 0; i < 3; ++i) {

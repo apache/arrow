@@ -138,7 +138,7 @@ class FlightIntegrationTestServer : public FlightServerBase {
     std::string key = descriptor.path[0];
 
     IntegrationDataset dataset;
-    dataset.schema = reader->schema();
+    ARROW_ASSIGN_OR_RAISE(dataset.schema, reader->GetSchema());
     arrow::flight::FlightStreamChunk chunk;
     while (true) {
       RETURN_NOT_OK(reader->Next(&chunk));

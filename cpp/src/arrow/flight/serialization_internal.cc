@@ -48,6 +48,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/flight/server.h"
+#include "arrow/ipc/message.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
@@ -75,7 +76,9 @@ bool ReadBytesZeroCopy(const std::shared_ptr<Buffer>& source_data,
   if (!input->ReadVarint32(&length)) {
     return false;
   }
-  *out = SliceBuffer(source_data, input->CurrentPosition(), static_cast<int64_t>(length));
+  auto buf =
+      SliceBuffer(source_data, input->CurrentPosition(), static_cast<int64_t>(length));
+  *out = buf;
   return input->Skip(static_cast<int>(length));
 }
 
@@ -116,7 +119,7 @@ class GrpcBuffer : public MutableBuffer {
         // Small slices (less than GRPC_SLICE_INLINED_SIZE bytes) are
         // inlined into the structure and must be copied.
         const uint8_t length = slice.data.inlined.length;
-        RETURN_NOT_OK(arrow::AllocateBuffer(length, out));
+        ARROW_ASSIGN_OR_RAISE(*out, arrow::AllocateBuffer(length));
         std::memcpy((*out)->mutable_data(), slice.data.inlined.bytes, length);
       }
     } else {
@@ -159,10 +162,41 @@ grpc::Slice SliceFromBuffer(const std::shared_ptr<Buffer>& buf) {
 
 static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
+// Update the sizes of our Protobuf fields based on the given IPC payload.
+grpc::Status IpcMessageHeaderSize(const arrow::ipc::internal::IpcPayload& ipc_msg,
+                                  bool has_body, size_t* body_size, size_t* header_size,
+                                  int32_t* metadata_size) {
+  DCHECK_LT(ipc_msg.metadata->size(), kInt32Max);
+  *metadata_size = static_cast<int32_t>(ipc_msg.metadata->size());
+
+  // 1 byte for metadata tag
+  *header_size += 1 + WireFormatLite::LengthDelimitedSize(*metadata_size);
+
+  for (const auto& buffer : ipc_msg.body_buffers) {
+    // Buffer may be null when the row length is zero, or when all
+    // entries are invalid.
+    if (!buffer) continue;
+
+    *body_size += static_cast<size_t>(BitUtil::RoundUpToMultipleOf8(buffer->size()));
+  }
+
+  // 2 bytes for body tag
+  if (has_body) {
+    // We write the body tag in the header but not the actual body data
+    *header_size += 2 + WireFormatLite::LengthDelimitedSize(*body_size) - *body_size;
+  }
+
+  return grpc::Status::OK;
+}
+
 grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
                                  bool* own_buffer) {
+  // Size of the IPC body (protobuf: data_body)
   size_t body_size = 0;
+  // Size of the Protobuf "header" (everything except for the body)
   size_t header_size = 0;
+  // Size of IPC header metadata (protobuf: data_header)
+  int32_t metadata_size = 0;
 
   // Write the descriptor if present
   int32_t descriptor_size = 0;
@@ -174,14 +208,6 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
     header_size += 1 + WireFormatLite::LengthDelimitedSize(descriptor_size);
   }
 
-  const arrow::ipc::internal::IpcPayload& ipc_msg = msg.ipc_message;
-
-  DCHECK_LT(ipc_msg.metadata->size(), kInt32Max);
-  const int32_t metadata_size = static_cast<int32_t>(ipc_msg.metadata->size());
-
-  // 1 byte for metadata tag
-  header_size += 1 + WireFormatLite::LengthDelimitedSize(metadata_size);
-
   // App metadata tag if appropriate
   int32_t app_metadata_size = 0;
   if (msg.app_metadata && msg.app_metadata->size() > 0) {
@@ -190,21 +216,15 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
     header_size += 1 + WireFormatLite::LengthDelimitedSize(app_metadata_size);
   }
 
-  for (const auto& buffer : ipc_msg.body_buffers) {
-    // Buffer may be null when the row length is zero, or when all
-    // entries are invalid.
-    if (!buffer) continue;
+  const arrow::ipc::internal::IpcPayload& ipc_msg = msg.ipc_message;
+  // No data in this payload (metadata-only).
+  bool has_ipc = ipc_msg.type != ipc::Message::NONE;
+  bool has_body = has_ipc ? ipc::Message::HasBody(ipc_msg.type) : false;
 
-    body_size += static_cast<size_t>(BitUtil::RoundUpToMultipleOf8(buffer->size()));
-  }
-
-  bool has_body = ipc::Message::HasBody(ipc_msg.type);
-  DCHECK(has_body || ipc_msg.body_length == 0);
-
-  // 2 bytes for body tag
-  if (has_body) {
-    // We write the body tag in the header but not the actual body data
-    header_size += 2 + WireFormatLite::LengthDelimitedSize(body_size) - body_size;
+  if (has_ipc) {
+    DCHECK(has_body || ipc_msg.body_length == 0);
+    GRPC_RETURN_NOT_GRPC_OK(IpcMessageHeaderSize(ipc_msg, has_body, &body_size,
+                                                 &header_size, &metadata_size));
   }
 
   // TODO(wesm): messages over 2GB unlikely to be yet supported
@@ -215,14 +235,10 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
 
   // Allocate and initialize slices
   std::vector<grpc::Slice> slices;
-  grpc::Slice header_slice(header_size);
-  slices.push_back(header_slice);
+  slices.emplace_back(header_size);
 
-  // XXX(wesm): for debugging
-  // std::cout << "Writing record batch with total size " << total_size << std::endl;
-
-  ArrayOutputStream header_writer(const_cast<uint8_t*>(header_slice.begin()),
-                                  static_cast<int>(header_slice.size()));
+  ArrayOutputStream header_writer(const_cast<uint8_t*>(slices[0].begin()),
+                                  static_cast<int>(slices[0].size()));
   CodedOutputStream header_stream(&header_writer);
 
   // Write descriptor
@@ -235,11 +251,13 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
   }
 
   // Write header
-  WireFormatLite::WriteTag(pb::FlightData::kDataHeaderFieldNumber,
-                           WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
-  header_stream.WriteVarint32(metadata_size);
-  header_stream.WriteRawMaybeAliased(ipc_msg.metadata->data(),
-                                     static_cast<int>(ipc_msg.metadata->size()));
+  if (has_ipc) {
+    WireFormatLite::WriteTag(pb::FlightData::kDataHeaderFieldNumber,
+                             WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
+    header_stream.WriteVarint32(metadata_size);
+    header_stream.WriteRawMaybeAliased(ipc_msg.metadata->data(),
+                                       static_cast<int>(ipc_msg.metadata->size()));
+  }
 
   // Write app metadata
   if (app_metadata_size > 0) {
@@ -287,6 +305,12 @@ grpc::Status FlightDataDeserialize(ByteBuffer* buffer, FlightData* out) {
   if (!buffer) {
     return grpc::Status(grpc::StatusCode::INTERNAL, "No payload");
   }
+
+  // Reset fields in case the caller reuses a single allocation
+  out->descriptor = nullptr;
+  out->app_metadata = nullptr;
+  out->metadata = nullptr;
+  out->body = nullptr;
 
   std::shared_ptr<arrow::Buffer> wrapped_buffer;
   GRPC_RETURN_NOT_OK(GrpcBuffer::Wrap(buffer, &wrapped_buffer));
@@ -378,6 +402,20 @@ bool WritePayload(const FlightPayload& payload,
 }
 
 bool WritePayload(const FlightPayload& payload,
+                  grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>* writer) {
+  // Pretend to be pb::FlightData and intercept in SerializationTraits
+  return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
+                       grpc::WriteOptions());
+}
+
+bool WritePayload(const FlightPayload& payload,
+                  grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* writer) {
+  // Pretend to be pb::FlightData and intercept in SerializationTraits
+  return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
+                       grpc::WriteOptions());
+}
+
+bool WritePayload(const FlightPayload& payload,
                   grpc::ServerWriter<pb::FlightData>* writer) {
   // Pretend to be pb::FlightData and intercept in SerializationTraits
   return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
@@ -389,10 +427,27 @@ bool ReadPayload(grpc::ClientReader<pb::FlightData>* reader, FlightData* data) {
   return reader->Read(reinterpret_cast<pb::FlightData*>(data));
 }
 
+bool ReadPayload(grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>* reader,
+                 FlightData* data) {
+  // Pretend to be pb::FlightData and intercept in SerializationTraits
+  return reader->Read(reinterpret_cast<pb::FlightData*>(data));
+}
+
 bool ReadPayload(grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader,
                  FlightData* data) {
   // Pretend to be pb::FlightData and intercept in SerializationTraits
   return reader->Read(reinterpret_cast<pb::FlightData*>(data));
+}
+
+bool ReadPayload(grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* reader,
+                 FlightData* data) {
+  // Pretend to be pb::FlightData and intercept in SerializationTraits
+  return reader->Read(reinterpret_cast<pb::FlightData*>(data));
+}
+
+bool ReadPayload(grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* reader,
+                 pb::PutResult* data) {
+  return reader->Read(data);
 }
 
 #ifndef _WIN32
