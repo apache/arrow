@@ -262,7 +262,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 Ok(Expr::Literal(ScalarValue::Float64(n)))
             }
             ASTNode::SQLValue(sqlparser::sqlast::Value::SingleQuotedString(ref s)) => {
-                Ok(Expr::Literal(ScalarValue::Utf8(Arc::new(s.clone()))))
+                Ok(Expr::Literal(ScalarValue::Utf8(s.clone())))
             }
 
             ASTNode::SQLIdentifier(ref id) => {

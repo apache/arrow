@@ -150,7 +150,7 @@ pub enum ScalarValue {
     /// unsigned 64bit int
     UInt64(u64),
     /// utf-8 encoded string
-    Utf8(Arc<String>),
+    Utf8(String),
     /// List of scalars packed as a struct
     Struct(Vec<ScalarValue>),
 }
@@ -350,7 +350,7 @@ pub fn col(index: usize) -> Expr {
 
 /// Create a literal string expression
 pub fn lit_str(str: &str) -> Expr {
-    Expr::Literal(ScalarValue::Utf8(Arc::new(str.to_owned())))
+    Expr::Literal(ScalarValue::Utf8(str.to_owned()))
 }
 
 /// Create an aggregate expression
