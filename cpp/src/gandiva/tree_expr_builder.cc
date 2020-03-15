@@ -99,6 +99,14 @@ NodePtr TreeExprBuilder::MakeNull(DataTypePtr data_type) {
       return std::make_shared<LiteralNode>(data_type, LiteralHolder((int64_t)0), true);
     case arrow::Type::TIMESTAMP:
       return std::make_shared<LiteralNode>(data_type, LiteralHolder((int64_t)0), true);
+    case arrow::Type::INTERVAL: {
+      std::shared_ptr<arrow::IntervalType> interval_type =
+          arrow::internal::checked_pointer_cast<arrow::IntervalType>(data_type);
+      if (interval_type->interval_type() == arrow::IntervalType::type::MONTHS) {
+        return std::make_shared<LiteralNode>(data_type, LiteralHolder((int32_t)0), true);
+      }
+      return std::make_shared<LiteralNode>(data_type, LiteralHolder((int64_t)0), true);
+    }
     case arrow::Type::DECIMAL: {
       std::shared_ptr<arrow::DecimalType> decimal_type =
           arrow::internal::checked_pointer_cast<arrow::DecimalType>(data_type);
