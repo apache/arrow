@@ -1216,9 +1216,7 @@ impl PhysicalExpr for Literal {
             ScalarValue::Float64(value) => {
                 build_literal_array!(batch, Float64Builder, *value)
             }
-            ScalarValue::Utf8(value) => {
-                build_literal_array!(batch, StringBuilder, value)
-            }
+            ScalarValue::Utf8(value) => build_literal_array!(batch, StringBuilder, value),
             other => Err(ExecutionError::General(format!(
                 "Unsupported literal type {:?}",
                 other

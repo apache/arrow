@@ -162,6 +162,12 @@ impl<S: SchemaProvider> SqlToRel<S> {
         let group_by_count = group_expr.len();
         let aggr_count = aggr_expr.len();
 
+        if group_by_count + aggr_count != projection_expr.len() {
+            return Err(ExecutionError::General(
+                "Projection references non-aggregate values".to_owned(),
+            ));
+        }
+
         let plan = LogicalPlanBuilder::from(&input)
             .aggregate(group_expr, aggr_expr)?
             .build()?;
@@ -613,6 +619,26 @@ mod tests {
                         \n  TableScan: person projection=None";
 
         quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_7480_1() {
+        let sql = "SELECT c1, MIN(c12) FROM aggregate_test_100 GROUP BY c1, c13";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "General(\"Projection references non-aggregate values\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_7480_2() {
+        let sql = "SELECT c1, c13, MIN(c12) FROM aggregate_test_100 GROUP BY c1";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "General(\"Projection references non-aggregate values\")",
+            format!("{:?}", err)
+        );
     }
 
     fn logical_plan(sql: &str) -> Result<LogicalPlan> {
