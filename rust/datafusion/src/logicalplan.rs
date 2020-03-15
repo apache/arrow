@@ -687,14 +687,14 @@ impl LogicalPlanBuilder {
     }
 
     /// Apply a projection
-    pub fn project(&self, expr: Vec<Expr>) -> Result<Self> {
+    pub fn project(&self, expr: &Vec<Expr>) -> Result<Self> {
         let input_schema = self.plan.schema();
 
         let schema =
             Schema::new(utils::exprlist_to_fields(&expr, input_schema.as_ref())?);
 
         Ok(Self::from(&LogicalPlan::Projection {
-            expr,
+            expr: expr.clone(),
             input: Arc::new(self.plan.clone()),
             schema: Arc::new(schema),
         }))
@@ -726,7 +726,7 @@ impl LogicalPlanBuilder {
         }))
     }
 
-    /// Apply a aggregate
+    /// Apply an aggregate
     pub fn aggregate(&self, group_expr: Vec<Expr>, aggr_expr: Vec<Expr>) -> Result<Self> {
         let mut all_fields: Vec<Expr> = group_expr.clone();
         aggr_expr.iter().for_each(|x| all_fields.push(x.clone()));
@@ -762,7 +762,7 @@ mod tests {
             Some(vec![0, 3]),
         )?
         .filter(col(1).eq(&lit_str("CO")))?
-        .project(vec![col(0)])?
+        .project(&vec![col(0)])?
         .build()?;
 
         // prove that a plan can be passed to a thread
@@ -783,7 +783,7 @@ mod tests {
             Some(vec![0, 3]),
         )?
         .filter(col(1).eq(&lit_str("CO")))?
-        .project(vec![col(0)])?
+        .project(&vec![col(0)])?
         .build()?;
 
         let expected = "Projection: #0\n  \

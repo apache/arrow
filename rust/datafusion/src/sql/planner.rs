@@ -61,109 +61,44 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 ref having,
                 ..
             } => {
+                if having.is_some() {
+                    return Err(ExecutionError::NotImplemented(
+                        "HAVING is not implemented yet".to_string(),
+                    ));
+                }
+
                 // parse the input relation so we have access to the row type
-                let input = match *relation {
+                let plan = match *relation {
                     Some(ref r) => self.sql_to_rel(r)?,
                     None => LogicalPlanBuilder::empty().build()?,
                 };
 
-                let input_schema = input.schema();
-
                 // selection first
-                let selection_plan = match *selection {
-                    Some(ref filter_expr) => Some(
-                        LogicalPlanBuilder::from(&input)
-                            .filter(self.sql_to_rex(filter_expr, &input_schema.clone())?)?
-                            .build()?,
-                    ),
-                    _ => None,
-                };
+                let plan = self.filter(&plan, selection)?;
 
-                let expr: Vec<Expr> = projection
+                let projection_expr: Vec<Expr> = projection
                     .iter()
-                    .map(|e| self.sql_to_rex(&e, &input_schema))
+                    .map(|e| self.sql_to_rex(&e, &plan.schema()))
                     .collect::<Result<Vec<Expr>>>()?;
 
-                // collect aggregate expressions
-                let aggr_expr: Vec<Expr> = expr
+                let aggr_expr: Vec<Expr> = projection_expr
                     .iter()
                     .filter(|e| is_aggregate_expr(e))
                     .map(|e| e.clone())
                     .collect();
 
-                if aggr_expr.len() > 0 {
-                    let aggregate_input = match selection_plan {
-                        Some(s) => s,
-                        _ => input.clone(),
-                    };
-
-                    let group_expr: Vec<Expr> = match group_by {
-                        Some(gbe) => gbe
-                            .iter()
-                            .map(|e| self.sql_to_rex(&e, &input_schema))
-                            .collect::<Result<Vec<Expr>>>()?,
-                        None => vec![],
-                    };
-
-                    let group_by_count = group_expr.len();
-                    let aggr_count = aggr_expr.len();
-
-                    let aggregate = LogicalPlanBuilder::from(&aggregate_input)
-                        .aggregate(group_expr, aggr_expr)?
-                        .build()?;
-
-                    // wrap in projection to preserve final order of fields
-                    let mut projected_fields =
-                        Vec::with_capacity(group_by_count + aggr_count);
-                    let mut group_expr_index = 0;
-                    let mut aggr_expr_index = 0;
-                    for i in 0..expr.len() {
-                        if is_aggregate_expr(&expr[i]) {
-                            projected_fields.push(group_by_count + aggr_expr_index);
-                            aggr_expr_index += 1;
-                        } else {
-                            projected_fields.push(group_expr_index);
-                            group_expr_index += 1;
-                        }
-                    }
-
-                    // determine if projection is needed or not
-                    // NOTE this would be better done later in a query optimizer rule
-                    let mut projection_needed = false;
-                    for i in 0..projected_fields.len() {
-                        if projected_fields[i] != i {
-                            projection_needed = true;
-                            break;
-                        }
-                    }
-
-                    if projection_needed {
-                        let projection = create_projection(
-                            projected_fields.iter().map(|i| Expr::Column(*i)).collect(),
-                            &aggregate,
-                        )?;
-                        Ok(projection)
-                    } else {
-                        Ok(aggregate)
-                    }
+                // apply projection or aggregate
+                let plan = if group_by.is_some() || aggr_expr.len() > 0 {
+                    self.aggregate(&plan, projection_expr, group_by, aggr_expr)?
                 } else {
-                    let projection_input = match selection_plan {
-                        Some(s) => s,
-                        _ => input.clone(),
-                    };
+                    self.project(&plan, &projection_expr)?
+                };
 
-                    let projection = create_projection(expr, &projection_input)?;
+                // apply ORDER BY
+                let plan = self.order_by(&plan, order_by)?;
 
-                    if having.is_some() {
-                        return Err(ExecutionError::General(
-                            "HAVING is not implemented yet".to_string(),
-                        ));
-                    }
-                    let plan = self.group_by(&projection, group_by)?;
-                    let plan = self.sort(&plan, order_by)?;
-                    let plan = self.limit(&plan, limit)?;
-                    Ok(plan)
-                }
+                // apply LIMIT
+                self.limit(&plan, limit)
             }
 
             ASTNode::SQLIdentifier(ref id) => {
@@ -189,24 +124,79 @@ impl<S: SchemaProvider> SqlToRel<S> {
         }
     }
 
+    /// Apply a filter to the plan
+    fn filter(
+        &self,
+        plan: &LogicalPlan,
+        selection: &Option<Box<ASTNode>>,
+    ) -> Result<LogicalPlan> {
+        match *selection {
+            Some(ref filter_expr) => LogicalPlanBuilder::from(&plan)
+                .filter(self.sql_to_rex(filter_expr, &plan.schema())?)?
+                .build(),
+            _ => Ok(plan.clone()),
+        }
+    }
+
+    /// Wrap a plan in a projection
+    fn project(&self, input: &LogicalPlan, expr: &Vec<Expr>) -> Result<LogicalPlan> {
+        LogicalPlanBuilder::from(input).project(expr)?.build()
+    }
+
     /// Wrap a plan in an aggregate
-    fn group_by(
+    fn aggregate(
         &self,
         input: &LogicalPlan,
+        projection_expr: Vec<Expr>,
         group_by: &Option<Vec<ASTNode>>,
+        aggr_expr: Vec<Expr>,
     ) -> Result<LogicalPlan> {
-        match *group_by {
-            Some(ref group_by_expr) => {
-                let group_by_rex: Vec<Expr> = group_by_expr
-                    .iter()
-                    .map(|e| self.sql_to_rex(&e, &input.schema()))
-                    .collect::<Result<Vec<Expr>>>()?;
+        let group_expr: Vec<Expr> = match group_by {
+            Some(gbe) => gbe
+                .iter()
+                .map(|e| self.sql_to_rex(&e, &input.schema()))
+                .collect::<Result<Vec<Expr>>>()?,
+            None => vec![],
+        };
 
-                LogicalPlanBuilder::from(&input)
-                    .aggregate(group_by_rex, vec![])?
-                    .build()
+        let group_by_count = group_expr.len();
+        let aggr_count = aggr_expr.len();
+
+        let plan = LogicalPlanBuilder::from(&input)
+            .aggregate(group_expr, aggr_expr)?
+            .build()?;
+
+        // wrap in projection to preserve final order of fields
+        let mut projected_fields = Vec::with_capacity(group_by_count + aggr_count);
+        let mut group_expr_index = 0;
+        let mut aggr_expr_index = 0;
+        for i in 0..projection_expr.len() {
+            if is_aggregate_expr(&projection_expr[i]) {
+                projected_fields.push(group_by_count + aggr_expr_index);
+                aggr_expr_index += 1;
+            } else {
+                projected_fields.push(group_expr_index);
+                group_expr_index += 1;
             }
-            _ => Ok(input.clone()),
+        }
+
+        // determine if projection is needed or not
+        // NOTE this would be better done later in a query optimizer rule
+        let mut projection_needed = false;
+        for i in 0..projected_fields.len() {
+            if projected_fields[i] != i {
+                projection_needed = true;
+                break;
+            }
+        }
+
+        if projection_needed {
+            self.project(
+                &plan,
+                &projected_fields.iter().map(|i| Expr::Column(*i)).collect(),
+            )
+        } else {
+            Ok(plan)
         }
     }
 
@@ -234,7 +224,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
     }
 
     /// Wrap the logical in a sort
-    fn sort(
+    fn order_by(
         &self,
         group_by_plan: &LogicalPlan,
         order_by: &Option<Vec<SQLOrderByExpr>>,
@@ -434,11 +424,6 @@ impl<S: SchemaProvider> SqlToRel<S> {
     }
 }
 
-/// Create a projection
-fn create_projection(expr: Vec<Expr>, input: &LogicalPlan) -> Result<LogicalPlan> {
-    LogicalPlanBuilder::from(input).project(expr)?.build()
-}
-
 /// Determine if an expression is an aggregate expression or not
 fn is_aggregate_expr(e: &Expr) -> bool {
     match e {
@@ -624,9 +609,8 @@ mod tests {
     #[test]
     fn select_group_by() {
         let sql = "SELECT state FROM person GROUP BY state";
-        let expected = "Aggregate: groupBy=[[#0]], aggr=[[]]\
-                        \n  Projection: #4\
-                        \n    TableScan: person projection=None";
+        let expected = "Aggregate: groupBy=[[#4]], aggr=[[]]\
+                        \n  TableScan: person projection=None";
 
         quick_test(sql, expected);
     }
