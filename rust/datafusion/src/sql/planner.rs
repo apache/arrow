@@ -168,18 +168,9 @@ impl<S: SchemaProvider> SqlToRel<S> {
                                 .map(|e| self.sql_to_rex(&e, &input_schema))
                                 .collect::<Result<Vec<Expr>>>()?;
 
-                            /*TODO
                             LogicalPlanBuilder::from(projection)
-                              .aggregate(group_by_rex, vec![])?
-                              .build()?
-                              */
-
-                            LogicalPlan::Aggregate {
-                                input: Arc::new(projection),
-                                group_expr: group_by_rex,
-                                aggr_expr: vec![],
-                                schema: input_schema.clone(), //TODO this is wrong!
-                            }
+                                .aggregate(group_by_rex, vec![])?
+                                .build()?
                         }
                         _ => projection,
                     };
