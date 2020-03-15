@@ -17,12 +17,12 @@
 
 //! SQL Query Planner (produces logical plan from SQL AST)
 
-use std::string::String;
 use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
-use crate::logicalplan::{Expr, FunctionMeta, LogicalPlan, Operator, ScalarValue};
-use crate::optimizer::utils;
+use crate::logicalplan::{
+    Expr, FunctionMeta, LogicalPlan, LogicalPlanBuilder, Operator, ScalarValue,
+};
 
 use arrow::datatypes::*;
 
@@ -64,19 +64,18 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 // parse the input relation so we have access to the row type
                 let input = match *relation {
                     Some(ref r) => self.sql_to_rel(r)?,
-                    None => Arc::new(LogicalPlan::EmptyRelation {
-                        schema: Arc::new(Schema::empty()),
-                    }),
+                    None => Arc::new(LogicalPlanBuilder::empty().build()?),
                 };
 
                 let input_schema = input.schema();
 
                 // selection first
                 let selection_plan = match *selection {
-                    Some(ref filter_expr) => Some(LogicalPlan::Selection {
-                        expr: self.sql_to_rex(&filter_expr, &input_schema.clone())?,
-                        input: input.clone(),
-                    }),
+                    Some(ref filter_expr) => Some(
+                        LogicalPlanBuilder::from(input.as_ref().clone())
+                            .filter(self.sql_to_rex(filter_expr, &input_schema.clone())?)?
+                            .build()?,
+                    ),
                     _ => None,
                 };
 
@@ -106,23 +105,13 @@ impl<S: SchemaProvider> SqlToRel<S> {
                         None => vec![],
                     };
 
-                    let mut all_fields: Vec<Expr> = group_expr.clone();
-                    aggr_expr.iter().for_each(|x| all_fields.push(x.clone()));
-
-                    let aggr_schema = Schema::new(utils::exprlist_to_fields(
-                        &all_fields,
-                        input_schema,
-                    )?);
-
                     let group_by_count = group_expr.len();
                     let aggr_count = aggr_expr.len();
 
-                    let aggregate = Arc::new(LogicalPlan::Aggregate {
-                        input: aggregate_input,
-                        group_expr,
-                        aggr_expr,
-                        schema: Arc::new(aggr_schema),
-                    });
+                    let aggregate =
+                        LogicalPlanBuilder::from(aggregate_input.as_ref().clone())
+                            .aggregate(group_expr, aggr_expr)?
+                            .build()?;
 
                     // wrap in projection to preserve final order of fields
                     let mut projected_fields =
@@ -152,11 +141,11 @@ impl<S: SchemaProvider> SqlToRel<S> {
                     if projection_needed {
                         let projection = create_projection(
                             projected_fields.iter().map(|i| Expr::Column(*i)).collect(),
-                            aggregate,
+                            Arc::new(aggregate),
                         )?;
                         Ok(Arc::new(projection))
                     } else {
-                        Ok(aggregate)
+                        Ok(Arc::new(aggregate))
                     }
                 } else {
                     let projection_input: Arc<LogicalPlan> = match selection_plan {
@@ -178,11 +167,18 @@ impl<S: SchemaProvider> SqlToRel<S> {
                                 .iter()
                                 .map(|e| self.sql_to_rex(&e, &input_schema))
                                 .collect::<Result<Vec<Expr>>>()?;
+
+                            /*TODO
+                            LogicalPlanBuilder::from(projection)
+                              .aggregate(group_by_rex, vec![])?
+                              .build()?
+                              */
+
                             LogicalPlan::Aggregate {
                                 input: Arc::new(projection),
                                 group_expr: group_by_rex,
                                 aggr_expr: vec![],
-                                schema: input_schema.clone(),
+                                schema: input_schema.clone(), //TODO this is wrong!
                             }
                         }
                         _ => projection,
@@ -204,11 +200,9 @@ impl<S: SchemaProvider> SqlToRel<S> {
                                 })
                                 .collect();
 
-                            LogicalPlan::Sort {
-                                expr: order_by_rex?,
-                                input: Arc::new(group_by_plan.clone()),
-                                schema: input_schema.clone(),
-                            }
+                            LogicalPlanBuilder::from(group_by_plan.clone())
+                                .sort(order_by_rex?)?
+                                .build()?
                         }
                         _ => group_by_plan,
                     };
@@ -228,11 +222,9 @@ impl<S: SchemaProvider> SqlToRel<S> {
                                 )),
                             }?;
 
-                            LogicalPlan::Limit {
-                                expr: limit_rex,
-                                input: Arc::new(order_by_plan.clone()),
-                                schema: input_schema.clone(),
-                            }
+                            LogicalPlanBuilder::from(order_by_plan.clone())
+                                .limit(limit_rex)?
+                                .build()?
                         }
                         _ => order_by_plan,
                     };
@@ -243,13 +235,10 @@ impl<S: SchemaProvider> SqlToRel<S> {
 
             ASTNode::SQLIdentifier(ref id) => {
                 match self.schema_provider.get_table_meta(id.as_ref()) {
-                    Some(schema) => Ok(Arc::new(LogicalPlan::TableScan {
-                        schema_name: String::from("default"),
-                        table_name: id.clone(),
-                        table_schema: schema.clone(),
-                        projected_schema: schema.clone(),
-                        projection: None,
-                    })),
+                    Some(schema) => Ok(Arc::new(
+                        LogicalPlanBuilder::scan("default", id, schema.as_ref(), None)?
+                            .build()?,
+                    )),
                     None => Err(ExecutionError::General(format!(
                         "no schema found for table {}",
                         id
@@ -438,18 +427,9 @@ impl<S: SchemaProvider> SqlToRel<S> {
 
 /// Create a projection
 fn create_projection(expr: Vec<Expr>, input: Arc<LogicalPlan>) -> Result<LogicalPlan> {
-    let input_schema = input.schema();
-
-    let schema = Arc::new(Schema::new(utils::exprlist_to_fields(
-        &expr,
-        input_schema.as_ref(),
-    )?));
-
-    Ok(LogicalPlan::Projection {
-        expr,
-        input,
-        schema,
-    })
+    LogicalPlanBuilder::from(input.as_ref().clone())
+        .project(expr)?
+        .build()
 }
 
 /// Determine if an expression is an aggregate expression or not
