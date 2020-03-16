@@ -426,7 +426,8 @@ class ScalarMemoTable : public MemoTable {
   }
 
   Status GetOrInsert(const Scalar& value, int32_t* out_memo_index) {
-    return GetOrInsert(value, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
+    return GetOrInsert(
+        value, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
   }
 
   int32_t GetNull() const { return null_index_; }
@@ -535,7 +536,8 @@ class SmallScalarMemoTable : public MemoTable {
   }
 
   Status GetOrInsert(const Scalar value, int32_t* out_memo_index) {
-    return GetOrInsert(value, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
+    return GetOrInsert(
+        value, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
   }
 
   int32_t GetNull() const { return value_to_index_[cardinality]; }
@@ -648,7 +650,8 @@ class BinaryMemoTable : public MemoTable {
 
   Status GetOrInsert(const void* data, builder_offset_type length,
                      int32_t* out_memo_index) {
-    return GetOrInsert(data, length, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
+    return GetOrInsert(
+        data, length, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
   }
 
   Status GetOrInsert(const util::string_view& value, int32_t* out_memo_index) {

@@ -211,7 +211,9 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int8_t type,
       *result = wrap_buffer(blobs.buffers[ref]);
       return Status::OK();
     }
-    default: { ARROW_CHECK(false) << "union tag " << type << "' not recognized"; }
+    default: {
+      ARROW_CHECK(false) << "union tag " << type << "' not recognized";
+    }
   }
   return Status::OK();
 }
@@ -265,41 +267,44 @@ Status DeserializeSequence(PyObject* context, const Array& array, int64_t start_
 Status DeserializeList(PyObject* context, const Array& array, int64_t start_idx,
                        int64_t stop_idx, PyObject* base, const SerializedPyObject& blobs,
                        PyObject** out) {
-  return DeserializeSequence(context, array, start_idx, stop_idx, base, blobs,
-                             [](int64_t size) { return PyList_New(size); },
-                             [](PyObject* seq, int64_t index, PyObject* item) {
-                               PyList_SET_ITEM(seq, index, item);
-                               return Status::OK();
-                             },
-                             out);
+  return DeserializeSequence(
+      context, array, start_idx, stop_idx, base, blobs,
+      [](int64_t size) { return PyList_New(size); },
+      [](PyObject* seq, int64_t index, PyObject* item) {
+        PyList_SET_ITEM(seq, index, item);
+        return Status::OK();
+      },
+      out);
 }
 
 Status DeserializeTuple(PyObject* context, const Array& array, int64_t start_idx,
                         int64_t stop_idx, PyObject* base, const SerializedPyObject& blobs,
                         PyObject** out) {
-  return DeserializeSequence(context, array, start_idx, stop_idx, base, blobs,
-                             [](int64_t size) { return PyTuple_New(size); },
-                             [](PyObject* seq, int64_t index, PyObject* item) {
-                               PyTuple_SET_ITEM(seq, index, item);
-                               return Status::OK();
-                             },
-                             out);
+  return DeserializeSequence(
+      context, array, start_idx, stop_idx, base, blobs,
+      [](int64_t size) { return PyTuple_New(size); },
+      [](PyObject* seq, int64_t index, PyObject* item) {
+        PyTuple_SET_ITEM(seq, index, item);
+        return Status::OK();
+      },
+      out);
 }
 
 Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
                       int64_t stop_idx, PyObject* base, const SerializedPyObject& blobs,
                       PyObject** out) {
-  return DeserializeSequence(context, array, start_idx, stop_idx, base, blobs,
-                             [](int64_t size) { return PySet_New(nullptr); },
-                             [](PyObject* seq, int64_t index, PyObject* item) {
-                               int err = PySet_Add(seq, item);
-                               Py_DECREF(item);
-                               if (err < 0) {
-                                 RETURN_IF_PYERROR();
-                               }
-                               return Status::OK();
-                             },
-                             out);
+  return DeserializeSequence(
+      context, array, start_idx, stop_idx, base, blobs,
+      [](int64_t size) { return PySet_New(nullptr); },
+      [](PyObject* seq, int64_t index, PyObject* item) {
+        int err = PySet_Add(seq, item);
+        Py_DECREF(item);
+        if (err < 0) {
+          RETURN_IF_PYERROR();
+        }
+        return Status::OK();
+      },
+      out);
 }
 
 Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) {
