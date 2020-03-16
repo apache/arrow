@@ -91,5 +91,8 @@ class FilterRelExpr;
 
 class Catalog;
 
+class LogicalPlan;
+class LogicalPlanBuilder;
+
 }  // namespace engine
 }  // namespace arrow
