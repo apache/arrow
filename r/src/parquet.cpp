@@ -83,6 +83,12 @@ std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable2(
 }
 
 // [[arrow::export]]
+int64_t parquet___arrow___FileReader__num_rows(
+    const std::unique_ptr<parquet::arrow::FileReader>& reader) {
+  return reader->parquet_reader()->metadata()->num_rows();
+}
+
+// [[arrow::export]]
 std::shared_ptr<parquet::ArrowWriterProperties::Builder>
 parquet___ArrowWriterProperties___Builder__create() {
   return std::make_shared<parquet::ArrowWriterProperties::Builder>();
