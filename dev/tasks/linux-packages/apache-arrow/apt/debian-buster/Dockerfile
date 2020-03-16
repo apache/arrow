@@ -30,6 +30,10 @@ RUN \
 
 RUN sed -i'' -e 's/main$/main contrib non-free/g' /etc/apt/sources.list
 
+RUN \
+  echo "deb http://deb.debian.org/debian buster-backports main" > \
+    /etc/apt/sources.list.d/backports.list
+
 ARG DEBUG
 ARG LLVM_VERSION
 RUN \
