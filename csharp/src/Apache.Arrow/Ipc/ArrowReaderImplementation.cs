@@ -216,8 +216,8 @@ namespace Apache.Arrow.Ipc
             var children = new ArrayData[childrenCount];
             for (var index = 0; index < childrenCount; index++)
             {
-                Flatbuf.FieldNode childFieldNode = recordBatchEnumerator.CurrentNode;
                 recordBatchEnumerator.MoveNextNode();
+                Flatbuf.FieldNode childFieldNode = recordBatchEnumerator.CurrentNode;
 
                 var childField = type.Children[index];
                 var child = childField.DataType.IsFixedPrimitive()
