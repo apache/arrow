@@ -29,7 +29,5 @@ jobs:
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
-        with:
-          submodules: true
       - run: ci/scripts/util_checkout.sh
       - run: git describe --dirty --tags --long --match "apache-arrow-[0-9].*"
