@@ -339,15 +339,4 @@ test_that("pull", {
     tbl
   )
 })
-test_that("dim errors on arrow dplyr queries", {
 
-  batch <- record_batch(tbl)
-  b_dim <- batch %>%
-    filter(int > 5)
-
-  expect_is(b_dim, "arrow_dplyr_query")
-  expect_error(
-    dim(b_dim),
-    "dim() is not currently implemented for arrow dplyr queries. Call collect() first to pull data into R."
-  )
-})
