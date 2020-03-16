@@ -299,7 +299,7 @@ class SerializedPageWriter : public PageWriter {
     // TODO(PARQUET-594) crc checksum
 
     PARQUET_ASSIGN_OR_THROW(int64_t start_pos, sink_->Tell());
-    if (data_page_offset_ == 0) {
+    if (page_ordinal_ == 0) {
       data_page_offset_ = start_pos;
     }
 
