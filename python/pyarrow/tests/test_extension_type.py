@@ -24,6 +24,15 @@ import pyarrow as pa
 import pytest
 
 
+class IntegerType(pa.PyExtensionType):
+
+    def __init__(self):
+        pa.PyExtensionType.__init__(self, pa.int64())
+
+    def __reduce__(self):
+        return IntegerType, ()
+
+
 class UuidType(pa.PyExtensionType):
 
     def __init__(self):
@@ -166,6 +175,17 @@ def test_ext_array_pickling():
         assert arr.type.storage_type == pa.binary(3)
         assert arr.storage.type == pa.binary(3)
         assert arr.storage.to_pylist() == [b"foo", b"bar"]
+
+
+def test_cast_kernel_on_extension_arrays():
+    # test array casting
+    storage = pa.array([1, 2, 3, 4], pa.int64())
+    arr = pa.ExtensionArray.from_storage(IntegerType(), storage)
+    assert arr.cast(pa.int32()).type == pa.int32()
+
+    # test chunked array casting
+    arr = pa.chunked_array([arr, arr])
+    assert arr.cast(pa.int16()).type == pa.int16()
 
 
 def example_batch():

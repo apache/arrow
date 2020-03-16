@@ -1278,6 +1278,9 @@ Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_ty
   if (in_type.id() == Type::NA) {
     kernel->reset(new FromNullCastKernel(std::move(out_type)));
     return Status::OK();
+  } else if (in_type.id() == Type::EXTENSION) {
+    auto storage_type = dynamic_cast<const ExtensionType&>(in_type).storage_type();
+    return GetCastFunction(*storage_type, out_type, options, kernel);
   }
 
   std::unique_ptr<CastKernelBase> cast_kernel;
