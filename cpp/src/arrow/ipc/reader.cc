@@ -373,7 +373,7 @@ class ArrayLoader {
   ArrayData* out_;
 };
 
-Status ReadRecordBatch(const flatbuf::RecordBatch* metadata,
+Status LoadRecordBatch(const flatbuf::RecordBatch* metadata,
                        const std::shared_ptr<Schema>& schema,
                        const DictionaryMemo* dictionary_memo, const IpcOptions& options,
                        io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
@@ -391,7 +391,7 @@ Status ReadRecordBatch(const flatbuf::RecordBatch* metadata,
   return Status::OK();
 }
 
-Status ReadRecordBatch(const flatbuf::RecordBatch* metadata,
+Status LoadRecordBatch(const flatbuf::RecordBatch* metadata,
                        const std::shared_ptr<Schema>& schema,
                        const std::unordered_set<int>& selected_fields,
                        const DictionaryMemo* dictionary_memo, const IpcOptions& options,
@@ -470,7 +470,7 @@ Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& sc
         "Header-type of flatbuffer-encoded Message is not RecordBatch.");
   }
   RETURN_NOT_OK(SetCompression(message, &options));
-  return ReadRecordBatch(batch, schema, dictionary_memo, options, file, out);
+  return LoadRecordBatch(batch, schema, dictionary_memo, options, file, out);
 }
 
 Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
@@ -500,7 +500,7 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
   std::shared_ptr<RecordBatch> batch;
   auto batch_meta = dictionary_batch->data();
   CHECK_FLATBUFFERS_NOT_NULL(batch_meta, "DictionaryBatch.data");
-  RETURN_NOT_OK(ReadRecordBatch(batch_meta, ::arrow::schema({value_field}),
+  RETURN_NOT_OK(LoadRecordBatch(batch_meta, ::arrow::schema({value_field}),
                                 dictionary_memo, options, file, &batch));
   if (batch->num_columns() != 1) {
     return Status::Invalid("Dictionary record batch must only contain one field");

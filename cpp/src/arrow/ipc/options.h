@@ -56,18 +56,18 @@ struct ARROW_EXPORT IpcOptions {
   /// consisting of a 4-byte prefix instead of 8 byte
   bool write_legacy_ipc_format = false;
 
+  /// \brief The memory pool to use for allocations made during IPC read or
+  /// write
+  MemoryPool* memory_pool = default_memory_pool();
+
   /// \brief EXPERIMENTAL: Codec to use for compressing and decompressing
   /// record batch body buffers. This is not part of the Arrow IPC protocol and
   /// only for internal use (e.g. Feather files)
   Compression::type compression = Compression::UNCOMPRESSED;
   int compression_level = Compression::kUseDefaultCompressionLevel;
 
-  /// \brief The memory pool to use for allocations made during IPC read or
-  /// write
-  MemoryPool* memory_pool = default_memory_pool();
-
-  /// \brief Schema fields to include when deserializing RecordBatch. Null
-  /// means to return all deserialized fields
+  /// \brief EXPERIMENTAL: Top-level schema fields to include when
+  /// deserializing RecordBatch. Null means to return all deserialized fields
   std::shared_ptr<std::unordered_set<int>> included_fields;
 
   static IpcOptions Defaults();
