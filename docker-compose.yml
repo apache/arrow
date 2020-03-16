@@ -198,7 +198,7 @@ services:
         - ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
       args:
         arch: ${ARCH}
-        llvm_version: ${LLVM_VERSION_MAJOR}
+        llvm_version: ${LLVM_VERSION}
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
@@ -224,7 +224,7 @@ services:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
       args:
         arch: ${ARCH}
-        llvm_version: ${LLVM_VERSION_MAJOR}
+        llvm_version: ${LLVM_VERSION}
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
@@ -253,13 +253,13 @@ services:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
       args:
         arch: ${ARCH}
-        llvm_version: ${LLVM_VERSION_MAJOR}
+        llvm_version: ${LLVM_VERSION}
     shm_size: *shm-size
     volumes: *ubuntu-volumes
     environment:
       <<: *ccache
-      CC: clang-${LLVM_VERSION_MAJOR}
-      CXX: clang++-${LLVM_VERSION_MAJOR}
+      CC: clang-${LLVM_VERSION}
+      CXX: clang++-${LLVM_VERSION}
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_FUZZING: "ON"  # Check fuzz regressions
       ARROW_JEMALLOC: "OFF"
@@ -283,8 +283,8 @@ services:
         - ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
       args:
         arch: ${ARCH}
-        llvm_version: ${LLVM_VERSION_MAJOR}
         fedora_version: ${FEDORA}
+        llvm_version: ${LLVM_VERSION}
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
@@ -987,7 +987,7 @@ services:
         - ${REPO}:${ARCH}-debian-9-java-jni
       args:
         base: ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
-        llvm_version: ${LLVM_VERSION_MAJOR}
+        llvm_version: ${LLVM_VERSION}
     shm_size: *shm-size
     environment:
       <<: *ccache
@@ -1082,9 +1082,10 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-lint
       args:
-        rust: ${RUST}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
-        llvm_version: ${LLVM_VERSION_MAJOR}
+        clang_tools_version: ${CLANG_TOOLS_VERSION}
+        llvm_version: ${LLVM_VERSION}
+        rust: ${RUST}
     environment:
       <<: *ccache
     volumes: *ubuntu-volumes
