@@ -19,20 +19,22 @@ ARG base
 FROM ${base}
 
 # pipefail is enabled for proper error detection in the `wget | apt-key add`
+# step
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV DEBIAN_FRONTEND noninteractive
 
 ARG llvm_version
-ENV llvm_apt_url="https://apt.llvm.org/stretch/"
-ENV llvm_apt_arch="llvm-toolchain-stretch-${llvm_version}"
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
       apt-transport-https \
+      lsb-release \
       software-properties-common \
       wget && \
+    code_name=$(lsb_release --codename --short) && \
     wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-    apt-add-repository -y "deb ${llvm_apt_url} ${llvm_apt_arch} main" && \
+    apt-add-repository -y \
+      "deb https://apt.llvm.org/${code_name}/ llvm-toolchain-${code_name}-${llvm_version} main" && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         ca-certificates \

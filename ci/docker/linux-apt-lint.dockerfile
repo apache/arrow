@@ -20,7 +20,6 @@ FROM hadolint/hadolint:v1.17.2 AS hadolint
 FROM ${base}
 
 ARG clang_tools_version
-
 RUN apt-get update && \
     apt-get install -y -q \
         clang-${clang_tools_version} \

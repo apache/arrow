@@ -68,7 +68,6 @@ RUN apt-get update -y -q && \
         pkg-config \
         protobuf-compiler \
         rapidjson-dev \
-        python \
         tzdata && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
