@@ -1085,7 +1085,6 @@ services:
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
         clang_tools: ${CLANG_TOOLS}
-        llvm: ${LLVM}
         rust: ${RUST}
     environment:
       <<: *ccache
