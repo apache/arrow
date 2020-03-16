@@ -27,7 +27,10 @@ ARG llvm_version
 ENV llvm_apt_url="https://apt.llvm.org/stretch/"
 ENV llvm_apt_arch="llvm-toolchain-stretch-${llvm_version}"
 RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends wget software-properties-common && \
+    apt-get install -y -q --no-install-recommends \
+      apt-transport-https \
+      software-properties-common \
+      wget && \
     wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
     apt-add-repository -y "deb ${llvm_apt_url} ${llvm_apt_arch} main" && \
     apt-get update -y -q && \
