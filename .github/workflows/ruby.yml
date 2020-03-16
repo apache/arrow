@@ -48,9 +48,12 @@ jobs:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Docker Pull
         shell: bash
         run: |
@@ -97,9 +100,12 @@ jobs:
       XML_CATALOG_FILES: /usr/local/etc/xml/catalog
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Install Dependencies
         shell: bash
         run: |
@@ -170,9 +176,11 @@ jobs:
             /f
       - name: Checkout Arrow
         uses: actions/checkout@v2
-      - name: Checkout submodules
-        run: |
-          git submodule update --init --force --recursive --depth 1
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Setup Ruby
         uses: actions/setup-ruby@v1
         with:

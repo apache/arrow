@@ -39,9 +39,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Docker Pull
         shell: bash
         run: docker-compose pull --ignore-pull-failures conda-cpp
@@ -74,9 +77,12 @@ jobs:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Docker Pull
         shell: bash
         run: docker-compose pull --ignore-pull-failures ubuntu-cpp-sanitizer
@@ -124,9 +130,12 @@ jobs:
       Protobuf_SOURCE: BUNDLED
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Install Dependencies
         shell: bash
         run: brew bundle --file=cpp/Brewfile
@@ -198,9 +207,12 @@ jobs:
       - name: Install Dependencies
         run: choco install -y --no-progress openssl boost-msvc-14.1
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Build
         shell: bash
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
@@ -256,9 +268,11 @@ jobs:
             /f
       - name: Checkout Arrow
         uses: actions/checkout@v2
-      - name: Checkout submodules
-        run: |
-          git submodule update --init --force --recursive --depth 1
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Bootstrap MSYS2
         run: |
           ci\scripts\msys2_bootstrap.ps1 ${{ matrix.mingw-n-bits }}

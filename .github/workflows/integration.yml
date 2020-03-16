@@ -50,9 +50,12 @@ jobs:
       MAVEN: 3.5
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Docker Pull
         run: |
           docker-compose pull --ignore-pull-failures conda-cpp

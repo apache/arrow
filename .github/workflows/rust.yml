@@ -42,9 +42,12 @@ jobs:
       RUST: ${{ matrix.rust }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Docker Pull
         run: docker-compose pull --ignore-pull-failures debian-rust
       - name: Docker Build
@@ -77,9 +80,12 @@ jobs:
         shell: bash
         run: choco install flatc
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Build
         shell: bash
         run: ci/scripts/rust_build.sh $(pwd) $(pwd)/build
@@ -104,9 +110,12 @@ jobs:
         shell: bash
         run: brew install flatbuffers
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Build
         shell: bash
         run: ci/scripts/rust_build.sh $(pwd) $(pwd)/build

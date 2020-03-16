@@ -41,9 +41,12 @@ jobs:
       DEBIAN: ${{ matrix.debian }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Docker Pull
         shell: bash
         run: |
@@ -77,9 +80,12 @@ jobs:
       FEDORA: ${{ matrix.fedora }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Docker Pull
         shell: bash
         run: |
@@ -145,9 +151,12 @@ jobs:
       KARTOTHEK: ${{ matrix.kartothek || 'latest' }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Docker Pull
         shell: bash
         run: |
