@@ -16,8 +16,7 @@
 # under the License.
 
 ARG arch
-ARG fedora_version
-FROM ${arch}/fedora:${fedora_version}
+FROM ${arch}/fedora:30
 
 # install dependencies
 RUN dnf update -y && \

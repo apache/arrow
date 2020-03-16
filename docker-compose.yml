@@ -283,7 +283,6 @@ services:
         - ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
       args:
         arch: ${ARCH}
-        fedora_version: ${FEDORA}
         llvm_version: ${LLVM_VERSION}
     shm_size: *shm-size
     ulimits: *ulimits
