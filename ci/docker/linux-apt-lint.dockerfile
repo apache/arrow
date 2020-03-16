@@ -29,6 +29,7 @@ RUN apt-get update && \
         cmake \
         curl \
         libclang-${clang_tools}-dev \
+        llvm-${clang_tools}-dev \
         openjdk-11-jdk-headless \
         python3 \
         python3-dev \
