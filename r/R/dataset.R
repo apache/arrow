@@ -148,6 +148,15 @@ dim.Dataset <- function(x) {
 
   c(rows, cols)
 }
+
+#' @export
+dim.arrow_dplyr_query <- function(x) {
+  stop("dim() is not currently implemented for arrow dplyr queries. ",
+       "Call collect() first to pull data into R.", call. = FALSE)
+}
+
+
+
 #' @name FileSystemDataset
 #' @rdname Dataset
 #' @export
