@@ -840,6 +840,15 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
   bool allow_move_dir() const override { return false; }
   bool allow_append_to_file() const override { return false; }
   bool have_directory_mtimes() const override { return false; }
+  bool have_flaky_directory_tree_deletion() const override {
+#ifdef _WIN32
+    // Recent Minio versions on Windows may not register deletion of all
+    // directories in a tree when doing a bulk delete.
+    return true;
+#else
+    return false;
+#endif
+  }
 
   S3Options options_;
   std::shared_ptr<S3FileSystem> s3fs_;

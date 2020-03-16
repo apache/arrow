@@ -132,6 +132,8 @@ class ARROW_EXPORT GenericFileSystemTest {
   virtual bool allow_append_to_file() const { return true; }
   // - Whether the filesystem supports directory modification times
   virtual bool have_directory_mtimes() const { return true; }
+  // - Whether some directory tree deletion tests may fail randomly
+  virtual bool have_flaky_directory_tree_deletion() const { return false; }
 
   void TestEmpty(FileSystem* fs);
   void TestCreateDir(FileSystem* fs);
