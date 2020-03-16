@@ -339,7 +339,7 @@ test_that("pull", {
     tbl
   )
 })
-test_that("Filtering on a column that doesn't exist errors correctly", {
+test_that("dim errors on arrow dplyr queries", {
 
   batch <- record_batch(tbl)
   b_dim <- batch %>%
