@@ -1179,7 +1179,9 @@ def get_generated_json_files(tempdir=None, flight=False):
                                        .skip_category('Java')
                                        .skip_category('JS'),
 
-        generate_duplicate_fieldnames_case(),
+        generate_duplicate_fieldnames_case().skip_category('Go')
+                                            .skip_category('Java')
+                                            .skip_category('JS'),
 
         # TODO(ARROW-3039, ARROW-5267): Dictionaries in GO
         generate_dictionary_case().skip_category('Go'),
