@@ -435,7 +435,7 @@ cdef class DictionaryArray(Array):
 
 
 cdef class ExtensionArray(Array):
-    pass
+    cdef dict __dict__
 
 
 cdef wrap_array_output(PyObject* output)
