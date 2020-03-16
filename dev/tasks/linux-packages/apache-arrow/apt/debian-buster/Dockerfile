@@ -31,7 +31,7 @@ RUN \
 RUN sed -i'' -e 's/main$/main contrib non-free/g' /etc/apt/sources.list
 
 ARG DEBUG
-ARG LLVM_VERSION=8
+ARG LLVM_VERSION
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \

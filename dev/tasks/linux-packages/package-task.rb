@@ -106,6 +106,12 @@ class PackageTask
     absolute_output_path
   end
 
+  def substitute_content(content)
+    content.gsub(/@(.+?)@/) do |matched|
+      yield($1, matched)
+    end
+  end
+
   def run_docker(os, architecture=nil)
     id = os
     id = "#{id}-#{architecture}" if architecture
@@ -135,11 +141,21 @@ class PackageTask
       build_command_line.concat(["--build-arg", "FROM=#{from.chomp}"])
       docker_context = os
     end
+    build_command_line.concat(docker_build_options(os, architecture))
+    run_command_line.concat(docker_run_options(os, architecture))
     build_command_line << docker_context
     run_command_line.concat([docker_tag, "/host/build.sh"])
 
     sh(*build_command_line)
     sh(*run_command_line)
+  end
+
+  def docker_build_options(os, architecture)
+    []
+  end
+
+  def docker_run_options(os, architecture)
+    []
   end
 
   def define_dist_task
@@ -327,8 +343,8 @@ RELEASE=#{@rpm_release}
 
     spec = "#{tmp_dir}/#{@rpm_package}.spec"
     spec_in_data = File.read(yum_spec_in_path)
-    spec_data = spec_in_data.gsub(/@(.+?)@/) do |matched|
-      yum_expand_variable($1) || matched
+    spec_data = substitute_content(spec_in_data) do |key, matched|
+      yum_expand_variable(key) || matched
     end
     File.open(spec, "w") do |spec_file|
       spec_file.print(spec_data)

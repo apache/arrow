@@ -34,7 +34,7 @@ RUN \
     /etc/apt/sources.list.d/backports.list
 
 ARG DEBUG
-ARG LLVM_VERSION=8
+ARG LLVM_VERSION
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
