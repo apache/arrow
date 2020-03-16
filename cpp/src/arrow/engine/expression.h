@@ -532,5 +532,44 @@ auto VisitExpr(const Expr& expr, Visitor&& visitor) -> decltype(visitor(expr)) {
   ARROW_UNREACHABLE;
 }
 
+///
+/// RTTI utilities
+///
+
+/// \defgroup isa-expr Family of functions to introspect if an expression of a
+/// given expression class.
+/// @{
+
+template <typename E>
+enable_if_simple_expr<E, bool> IsA(const Expr& expr) {
+  return expr.kind() == expr_traits<E>::kind_id;
+}
+
+template <typename E>
+enable_if_compare_expr<E, bool> IsA(const Expr& expr) {
+  if (expr.kind() != ExprKind::COMPARE_OP) {
+    return false;
+  }
+  const auto& cmp = internal::checked_cast<const CompareOpExpr&>(expr);
+  return cmp.compare_kind() == expr_traits<E>::compare_kind_id;
+}
+
+template <typename E>
+enable_if_aggregate_fn_expr<E, bool> IsA(const Expr& expr) {
+  if (expr.kind() != ExprKind::AGGREGATE_FN_OP) {
+    return false;
+  }
+  const auto& agg = internal::checked_cast<const AggregateFnExpr&>(expr);
+  return agg.aggregate_kind() == expr_traits<E>::aggregate_kind_id;
+}
+
+template <typename E>
+bool IsA(const std::shared_ptr<Expr>& expr) {
+  if (!expr) return false;
+  return IsA<E>(*expr);
+}
+
+/// @}
+
 }  // namespace engine
 }  // namespace arrow

@@ -83,6 +83,12 @@ struct expr_traits<CountExpr> {
 };
 
 template <>
+struct expr_traits<SumExpr> {
+  static constexpr auto kind_id = ExprKind::AGGREGATE_FN_OP;
+  static constexpr auto aggregate_kind_id = AggregateFnKind::SUM;
+};
+
+template <>
 struct expr_traits<EmptyRelExpr> {
   static constexpr auto kind_id = ExprKind::EMPTY_REL;
 };
@@ -103,6 +109,12 @@ struct expr_traits<FilterRelExpr> {
 };
 
 template <typename E>
+using is_expr = std::is_base_of<Expr, E>;
+
+template <typename E, typename Ret = void>
+using enable_if_expr = enable_if_t<is_expr<E>::value, Ret>;
+
+template <typename E>
 using is_compare_expr = std::is_base_of<CompareOpExpr, E>;
 
 template <typename E, typename Ret = void>
@@ -119,6 +131,11 @@ using is_relational_expr = std::is_base_of<RelExpr, E>;
 
 template <typename E, typename Ret = void>
 using enable_if_relational_expr = enable_if_t<is_relational_expr<E>::value, Ret>;
+
+// Catch-all used by `IsA` pattern matcher.
+template <typename E, typename Ret = void>
+using enable_if_simple_expr =
+    enable_if_t<!is_compare_expr<E>::value && !is_aggregate_fn_expr<E>::value, Ret>;
 
 }  // namespace engine
 }  // namespace arrow

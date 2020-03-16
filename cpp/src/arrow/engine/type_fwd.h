@@ -33,18 +33,19 @@ enum ExprKind : uint8_t {
   /// A Field reference in a schema.
   FIELD_REFERENCE,
 
-  // Comparison operators,
+  // Comparison operators, see CompareKind.
   COMPARE_OP,
-  // Aggregate function operators,
+
+  // Aggregate function operators, see AggregateFnKind.
   AGGREGATE_FN_OP,
 
   /// Empty relation with a known schema.
   EMPTY_REL,
-  /// Scan relational operator
+  /// Scan relational operator.
   SCAN_REL,
-  /// Projection relational operator
+  /// Projection relational operator.
   PROJECTION_REL,
-  /// Filter relational operator
+  /// Filter relational operator.
   FILTER_REL,
 };
 

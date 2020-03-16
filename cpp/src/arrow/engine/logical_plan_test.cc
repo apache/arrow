@@ -70,6 +70,7 @@ class LogicalPlanBuilderTest : public testing::Test {
 TEST_F(LogicalPlanBuilderTest, Scalar) {
   auto forthy_two = MakeScalar(42);
   EXPECT_OK_AND_ASSIGN(auto scalar, builder.Scalar(forthy_two));
+  ASSERT_TRUE(IsA<ScalarExpr>(scalar));
 }
 
 TEST_F(LogicalPlanBuilderTest, FieldReferences) {
@@ -86,13 +87,18 @@ TEST_F(LogicalPlanBuilderTest, FieldReferences) {
   ASSERT_RAISES(KeyError, builder.Field(table, 9000));
 
   EXPECT_OK_AND_ASSIGN(auto field_name_ref, builder.Field(table, "i32"));
+  ASSERT_TRUE(IsA<FieldRefExpr>(field_name_ref));
+
   EXPECT_OK_AND_ASSIGN(auto field_idx_ref, builder.Field(table, 0));
+  ASSERT_TRUE(IsA<FieldRefExpr>(field_idx_ref));
 }
 
 TEST_F(LogicalPlanBuilderTest, BasicScan) {
   ASSERT_RAISES(KeyError, builder.Scan(""));
   ASSERT_RAISES(KeyError, builder.Scan("not_found"));
-  ASSERT_OK(builder.Scan(table_1));
+
+  EXPECT_OK_AND_ASSIGN(auto scan, builder.Scan(table_1));
+  ASSERT_TRUE(IsA<ScanRelExpr>(scan));
 }
 
 TEST_F(LogicalPlanBuilderTest, Comparisons) {
@@ -101,26 +107,49 @@ TEST_F(LogicalPlanBuilderTest, Comparisons) {
   EXPECT_OK_AND_ASSIGN(auto scalar, scalar_expr());
 
   EXPECT_OK_AND_ASSIGN(auto eq, builder.Equal(field, scalar));
+  ASSERT_TRUE(IsA<EqualExpr>(eq));
+
   EXPECT_OK_AND_ASSIGN(auto ne, builder.NotEqual(field, scalar));
+  ASSERT_TRUE(IsA<NotEqualExpr>(ne));
+
   EXPECT_OK_AND_ASSIGN(auto gt, builder.GreaterThan(field, scalar));
+  ASSERT_TRUE(IsA<GreaterThanExpr>(gt));
+
   EXPECT_OK_AND_ASSIGN(auto ge, builder.GreaterThanEqual(field, scalar));
+  ASSERT_TRUE(IsA<GreaterThanEqualExpr>(ge));
+
   EXPECT_OK_AND_ASSIGN(auto lt, builder.LessThan(field, scalar));
+  ASSERT_TRUE(IsA<LessThanExpr>(lt));
+
   EXPECT_OK_AND_ASSIGN(auto le, builder.LessThanEqual(field, scalar));
+  ASSERT_TRUE(IsA<LessThanEqualExpr>(le));
 }
 
 TEST_F(LogicalPlanBuilderTest, Count) {
   EXPECT_OK_AND_ASSIGN(auto table, scan_expr());
   EXPECT_OK_AND_ASSIGN(auto field, field_expr("i32", table));
 
+  EXPECT_OK_AND_ASSIGN(auto scalar, scalar_expr());
+  EXPECT_OK_AND_ASSIGN(auto s_count, builder.Count(scalar));
+  ASSERT_TRUE(IsA<CountExpr>(s_count));
+
   EXPECT_OK_AND_ASSIGN(auto f_count, builder.Count(field));
+  ASSERT_TRUE(IsA<CountExpr>(f_count));
+
   EXPECT_OK_AND_ASSIGN(auto t_count, builder.Count(table));
+  ASSERT_TRUE(IsA<CountExpr>(t_count));
 }
 
 TEST_F(LogicalPlanBuilderTest, Sum) {
   EXPECT_OK_AND_ASSIGN(auto table, scan_expr());
 
+  EXPECT_OK_AND_ASSIGN(auto scalar, scalar_expr());
+  EXPECT_OK_AND_ASSIGN(auto s_sum, builder.Sum(scalar));
+  ASSERT_TRUE(IsA<SumExpr>(s_sum));
+
   EXPECT_OK_AND_ASSIGN(auto i32_field, field_expr("i32", table));
-  EXPECT_OK_AND_ASSIGN(auto f_count, builder.Sum(i32_field));
+  EXPECT_OK_AND_ASSIGN(auto f_sum, builder.Sum(i32_field));
+  ASSERT_TRUE(IsA<SumExpr>(s_sum));
 
   EXPECT_OK_AND_ASSIGN(auto str_field, field_expr("utf8", table));
   ASSERT_RAISES(Invalid, builder.Sum(str_field));
@@ -135,6 +164,7 @@ TEST_F(LogicalPlanBuilderTest, Filter) {
   EXPECT_OK_AND_ASSIGN(auto predicate, EqualExpr::Make(field, scalar));
 
   EXPECT_OK_AND_ASSIGN(auto filter, builder.Filter(table, predicate));
+  ASSERT_TRUE(IsA<FilterRelExpr>(filter));
 }
 
 TEST_F(LogicalPlanBuilderTest, ProjectionByNamesAndIndices) {
@@ -150,7 +180,8 @@ TEST_F(LogicalPlanBuilderTest, ProjectionByNamesAndIndices) {
   std::vector<std::string> valid_names{"u64", "f32"};
   ASSERT_OK(builder.Project(table, valid_names));
   std::vector<int> valid_idx{3, 1, 1};
-  ASSERT_OK(builder.Project(table, valid_idx));
+  EXPECT_OK_AND_ASSIGN(auto project, builder.Project(table, valid_idx));
+  ASSERT_TRUE(IsA<ProjectionRelExpr>(project));
 }
 
 }  // namespace engine
