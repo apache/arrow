@@ -187,13 +187,15 @@ namespace Apache.Arrow.Tests
                 var builder = new ListArray.Builder(type.ValueField).Reserve(Length);
 
                 //Todo : Support various types
-                var valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(Length);
+                var valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(Length + 1);
 
                 for (var i = 0; i < Length; i++)
                 {
                     builder.Append();
                     valueBuilder.Append(i);
                 }
+                //Add a value to check if Values.Length can exceed ListArray.Length
+                valueBuilder.Append(0);
 
                 Array = builder.Build();
 
