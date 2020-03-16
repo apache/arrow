@@ -98,6 +98,16 @@ test_that("Simple interface for datasets", {
   )
 })
 
+test_that("dim method returns the correct number of rows and columns",{
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+
+  expect_equivalent(
+    dim(collect(ds)),
+    dim(ds)
+  )
+
+})
+
 test_that("Simple interface for datasets (custom ParquetFileFormat)", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()),
                      format = FileFormat$create("parquet", dict_columns = c("chr")))
