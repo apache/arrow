@@ -19,8 +19,8 @@
 
 # this script is github actions specific
 
-# checkout the submodules, remove it once
-# https://github.com/actions/checkout/issues/176 is merged
+# checkout the submodules, remove it once the "submodules: recursive" feature
+# gets released again
 auth_header="$(git config --local --get http.https://github.com/.extraheader)"
 git submodule sync --recursive
 git -c "http.extraheader=$auth_header" -c protocol.version=2 submodule update --init --force --recursive --depth=1
