@@ -237,13 +237,17 @@ void GenericFileSystemTest::TestDeleteDirContents(FileSystem* fs) {
 
   // Also with "" (== wipe filesystem)
   ASSERT_OK(fs->DeleteDirContents(""));
-  AssertAllDirs(fs, {});
+  if (!have_flaky_directory_tree_deletion()) {
+    AssertAllDirs(fs, {});
+  }
   AssertAllFiles(fs, {});
 
   // Not a directory
   CreateFile(fs, "abc", "");
   ASSERT_RAISES(IOError, fs->DeleteDirContents("abc"));
-  AssertAllDirs(fs, {});
+  if (!have_flaky_directory_tree_deletion()) {
+    AssertAllDirs(fs, {});
+  }
   AssertAllFiles(fs, {"abc"});
 }
 

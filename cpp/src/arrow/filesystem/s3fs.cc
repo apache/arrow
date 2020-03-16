@@ -1144,7 +1144,9 @@ class S3FileSystem::Impl {
     }
     // First delete all "files", then delete all child "directories"
     RETURN_NOT_OK(DeleteObjects(bucket, file_keys));
-    // XXX This doesn't seem necessary on Minio
+    // Delete directories in reverse lexicographic order, to ensure children
+    // are deleted before their parents (Minio).
+    std::sort(dir_keys.rbegin(), dir_keys.rend());
     return DeleteObjects(bucket, dir_keys);
   }
 
