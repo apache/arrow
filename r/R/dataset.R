@@ -152,7 +152,7 @@ dim.Dataset <- function(x) {
     )
   }
 
-  if (any(!grepl("\\.parquet$", basename(x$files)))) {
+  if (!inherits(x$format, "ParquetFileFormat")) {
     stop(
       "dim() is only currently implemented for Datasets that use parquet files.",
       "Call collect() first to pull data into R.",
