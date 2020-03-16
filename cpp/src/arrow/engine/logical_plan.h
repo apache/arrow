@@ -78,18 +78,30 @@ class ARROW_EN_EXPORT LogicalPlanBuilder {
   /// \defgroup comparator-nodes Comparison operators
   /// @{
 
-  /*
-  TODO(fsaintjacques): This.
+  /// \brief Compare inputs.
+  ResultExpr Compare(CompareKind compare_kind, const std::shared_ptr<Expr>& lhs,
+                     const std::shared_ptr<Expr>& rhs);
+
+  /// \brief Compare if inputs are equal.
   ResultExpr Equal(const std::shared_ptr<Expr>& lhs, const std::shared_ptr<Expr>& rhs);
+
+  /// \brief Compare if inputs are not equal.
   ResultExpr NotEqual(const std::shared_ptr<Expr>& lhs, const std::shared_ptr<Expr>& rhs);
+
+  /// \brief Compare if lhs is greater than rhs.
   ResultExpr GreaterThan(const std::shared_ptr<Expr>& lhs,
                          const std::shared_ptr<Expr>& rhs);
-  ResultExpr GreaterEqualThan(const std::shared_ptr<Expr>& lhs,
+
+  /// \brief Compare if lhs is greater than equal rhs.
+  ResultExpr GreaterThanEqual(const std::shared_ptr<Expr>& lhs,
                               const std::shared_ptr<Expr>& rhs);
+
+  /// \brief Compare if lhs is less than rhs.
   ResultExpr LessThan(const std::shared_ptr<Expr>& lhs, const std::shared_ptr<Expr>& rhs);
-  ResultExpr LessEqualThan(const std::shared_ptr<Expr>& lhs,
+
+  /// \brief Compare if lhs is less than equal rhs.
+  ResultExpr LessThanEqual(const std::shared_ptr<Expr>& lhs,
                            const std::shared_ptr<Expr>& rhs);
-  */
 
   /// @}
 

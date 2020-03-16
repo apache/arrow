@@ -90,10 +90,22 @@ TEST_F(LogicalPlanBuilderTest, FieldReferences) {
 }
 
 TEST_F(LogicalPlanBuilderTest, BasicScan) {
-  LogicalPlanBuilder builder{options};
   ASSERT_RAISES(KeyError, builder.Scan(""));
   ASSERT_RAISES(KeyError, builder.Scan("not_found"));
   ASSERT_OK(builder.Scan(table_1));
+}
+
+TEST_F(LogicalPlanBuilderTest, Comparisons) {
+  EXPECT_OK_AND_ASSIGN(auto table, scan_expr());
+  EXPECT_OK_AND_ASSIGN(auto field, field_expr("i32", table));
+  EXPECT_OK_AND_ASSIGN(auto scalar, scalar_expr());
+
+  EXPECT_OK_AND_ASSIGN(auto eq, builder.Equal(field, scalar));
+  EXPECT_OK_AND_ASSIGN(auto ne, builder.NotEqual(field, scalar));
+  EXPECT_OK_AND_ASSIGN(auto gt, builder.GreaterThan(field, scalar));
+  EXPECT_OK_AND_ASSIGN(auto ge, builder.GreaterThanEqual(field, scalar));
+  EXPECT_OK_AND_ASSIGN(auto lt, builder.LessThan(field, scalar));
+  EXPECT_OK_AND_ASSIGN(auto le, builder.LessThanEqual(field, scalar));
 }
 
 TEST_F(LogicalPlanBuilderTest, Count) {

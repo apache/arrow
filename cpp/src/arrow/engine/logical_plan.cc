@@ -83,6 +83,57 @@ ResultExpr LogicalPlanBuilder::Field(const std::shared_ptr<Expr>& input,
   return FieldRefExpr::Make(input, field_index);
 }
 
+ResultExpr LogicalPlanBuilder::Compare(CompareKind compare_kind,
+                                       const std::shared_ptr<Expr>& lhs,
+                                       const std::shared_ptr<Expr>& rhs) {
+  switch (compare_kind) {
+    case (CompareKind::EQUAL):
+      return EqualExpr::Make(lhs, rhs);
+    case (CompareKind::NOT_EQUAL):
+      return NotEqualExpr::Make(lhs, rhs);
+    case (CompareKind::GREATER_THAN):
+      return GreaterThanExpr::Make(lhs, rhs);
+    case (CompareKind::GREATER_THAN_EQUAL):
+      return GreaterThanEqualExpr::Make(lhs, rhs);
+    case (CompareKind::LESS_THAN):
+      return LessThanExpr::Make(lhs, rhs);
+    case (CompareKind::LESS_THAN_EQUAL):
+      return LessThanEqualExpr::Make(lhs, rhs);
+  }
+
+  ARROW_UNREACHABLE;
+}
+
+ResultExpr LogicalPlanBuilder::Equal(const std::shared_ptr<Expr>& lhs,
+                                     const std::shared_ptr<Expr>& rhs) {
+  return Compare(CompareKind::EQUAL, lhs, rhs);
+}
+
+ResultExpr LogicalPlanBuilder::NotEqual(const std::shared_ptr<Expr>& lhs,
+                                        const std::shared_ptr<Expr>& rhs) {
+  return Compare(CompareKind::NOT_EQUAL, lhs, rhs);
+}
+
+ResultExpr LogicalPlanBuilder::GreaterThan(const std::shared_ptr<Expr>& lhs,
+                                           const std::shared_ptr<Expr>& rhs) {
+  return Compare(CompareKind::GREATER_THAN, lhs, rhs);
+}
+
+ResultExpr LogicalPlanBuilder::GreaterThanEqual(const std::shared_ptr<Expr>& lhs,
+                                                const std::shared_ptr<Expr>& rhs) {
+  return Compare(CompareKind::GREATER_THAN_EQUAL, lhs, rhs);
+}
+
+ResultExpr LogicalPlanBuilder::LessThan(const std::shared_ptr<Expr>& lhs,
+                                        const std::shared_ptr<Expr>& rhs) {
+  return Compare(CompareKind::LESS_THAN, lhs, rhs);
+}
+
+ResultExpr LogicalPlanBuilder::LessThanEqual(const std::shared_ptr<Expr>& lhs,
+                                             const std::shared_ptr<Expr>& rhs) {
+  return Compare(CompareKind::LESS_THAN_EQUAL, lhs, rhs);
+}
+
 //
 // Count
 //
@@ -102,12 +153,12 @@ ResultExpr LogicalPlanBuilder::Sum(const std::shared_ptr<Expr>& input) {
 ResultExpr LogicalPlanBuilder::Scan(const std::string& table_name) {
   ERROR_IF(catalog_ == nullptr, "Cannot scan from an empty catalog");
   ARROW_ASSIGN_OR_RAISE(auto table, catalog_->Get(table_name));
-  return ScanRelExpr::Make(std::move(table));
+  return ScanRelExpr::Make(table);
 }
 
 ResultExpr LogicalPlanBuilder::Filter(const std::shared_ptr<Expr>& input,
                                       const std::shared_ptr<Expr>& predicate) {
-  return FilterRelExpr::Make(std::move(input), std::move(predicate));
+  return FilterRelExpr::Make(input, predicate);
 }
 
 ResultExpr LogicalPlanBuilder::Project(
