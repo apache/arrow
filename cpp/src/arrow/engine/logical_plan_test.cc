@@ -60,7 +60,8 @@ class LogicalPlanBuilderTest : public testing::Test {
       field("bool", boolean()),
       field("i32", int32()),
       field("u64", uint64()),
-      field("f32", uint32()),
+      field("f32", float32()),
+      field("utf8", utf8()),
   });
   LogicalPlanBuilderOptions options{};
   LogicalPlanBuilder builder{};
@@ -93,6 +94,25 @@ TEST_F(LogicalPlanBuilderTest, BasicScan) {
   ASSERT_RAISES(KeyError, builder.Scan(""));
   ASSERT_RAISES(KeyError, builder.Scan("not_found"));
   ASSERT_OK(builder.Scan(table_1));
+}
+
+TEST_F(LogicalPlanBuilderTest, Count) {
+  EXPECT_OK_AND_ASSIGN(auto table, scan_expr());
+  EXPECT_OK_AND_ASSIGN(auto field, field_expr("i32", table));
+
+  EXPECT_OK_AND_ASSIGN(auto f_count, builder.Count(field));
+  EXPECT_OK_AND_ASSIGN(auto t_count, builder.Count(table));
+}
+
+TEST_F(LogicalPlanBuilderTest, Sum) {
+  EXPECT_OK_AND_ASSIGN(auto table, scan_expr());
+
+  EXPECT_OK_AND_ASSIGN(auto i32_field, field_expr("i32", table));
+  EXPECT_OK_AND_ASSIGN(auto f_count, builder.Sum(i32_field));
+
+  EXPECT_OK_AND_ASSIGN(auto str_field, field_expr("utf8", table));
+  ASSERT_RAISES(Invalid, builder.Sum(str_field));
+  ASSERT_RAISES(Invalid, builder.Sum(table));
 }
 
 TEST_F(LogicalPlanBuilderTest, Filter) {

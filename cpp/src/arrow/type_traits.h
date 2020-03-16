@@ -684,6 +684,10 @@ static inline bool is_floating(Type::type type_id) {
   return false;
 }
 
+static inline bool is_numeric(Type::type type_id) {
+  return is_integer(type_id) || is_floating(type_id);
+}
+
 static inline bool is_primitive(Type::type type_id) {
   switch (type_id) {
     case Type::NA:

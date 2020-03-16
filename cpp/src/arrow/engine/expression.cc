@@ -16,6 +16,8 @@
 // under the License.
 
 #include "arrow/engine/expression.h"
+
+#include "arrow/compute/kernels/sum_internal.h"
 #include "arrow/scalar.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
@@ -189,6 +191,8 @@ std::string Expr::kind_name() const {
       return "field_ref";
     case ExprKind::COMPARE_OP:
       return "compare_op";
+    case ExprKind::AGGREGATE_FN_OP:
+      return "aggregate_fn_op";
     case ExprKind::EMPTY_REL:
       return "empty_rel";
     case ExprKind::SCAN_REL:
@@ -330,6 +334,41 @@ Result<std::shared_ptr<FieldRefExpr>> FieldRefExpr::Make(std::shared_ptr<Expr> i
   ERROR_IF(index == -1, "FieldRefExpr's index by name is invalid.");
 
   return std::shared_ptr<FieldRefExpr>(new FieldRefExpr(std::move(input), index));
+}
+
+//
+// CountExpr
+//
+
+CountExpr::CountExpr(std::shared_ptr<Expr> input)
+    : UnaryOpMixin(std::move(input)),
+      AggregateFnExpr(ExprType::Scalar(int64()), AggregateFnKind::COUNT) {}
+
+Result<std::shared_ptr<CountExpr>> CountExpr::Make(std::shared_ptr<Expr> input) {
+  ERROR_IF(input == nullptr, "CountExpr's input must be non-null");
+  return std::shared_ptr<CountExpr>(new CountExpr(std::move(input)));
+}
+
+//
+// SumExpr
+//
+
+SumExpr::SumExpr(std::shared_ptr<Expr> input)
+    : UnaryOpMixin(std::move(input)),
+      AggregateFnExpr(
+          ExprType::Scalar(arrow::compute::GetAccumulatorType(operand()->type().type())),
+          AggregateFnKind::SUM) {}
+
+Result<std::shared_ptr<SumExpr>> SumExpr::Make(std::shared_ptr<Expr> input) {
+  ERROR_IF(input == nullptr, "SumExpr's input must be non-null");
+
+  auto expr_type = input->type();
+  ERROR_IF(!expr_type.HasType(), "SumExpr's input must be a Scalar or an Array");
+
+  auto type = expr_type.type();
+  ERROR_IF(!is_numeric(type->id()), "SumExpr's require an input with numeric type");
+
+  return std::shared_ptr<SumExpr>(new SumExpr(std::move(input)));
 }
 
 //

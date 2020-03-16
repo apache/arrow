@@ -26,6 +26,7 @@ using testing::HasSubstr;
 
 MATCHER_P(Equals, other, "") { return arg.Equals(other); }
 MATCHER_P(PtrEquals, other, "") { return arg->Equals(*other); }
+MATCHER(Ok, "") { return arg.ok(); }
 MATCHER_P(OkAndEq, other, "") { return arg.ok() && arg.ValueOrDie() == other; }
 
 }  // namespace arrow

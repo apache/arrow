@@ -54,6 +54,32 @@ struct FindAccumulatorType<I, enable_if_floating_point<I>> {
   using Type = DoubleType;
 };
 
+#define ACCUMULATOR_TYPE_CASE(ID, TYPE) \
+  case Type::ID:                        \
+    return TypeTraits<FindAccumulatorType<TYPE>::Type>::type_singleton();
+
+static inline std::shared_ptr<DataType> GetAccumulatorType(
+    const std::shared_ptr<DataType>& type) {
+  switch (type->id()) {
+    ACCUMULATOR_TYPE_CASE(INT8, Int8Type)
+    ACCUMULATOR_TYPE_CASE(INT16, Int16Type)
+    ACCUMULATOR_TYPE_CASE(INT32, Int32Type)
+    ACCUMULATOR_TYPE_CASE(INT64, Int64Type)
+    ACCUMULATOR_TYPE_CASE(UINT8, UInt8Type)
+    ACCUMULATOR_TYPE_CASE(UINT16, UInt16Type)
+    ACCUMULATOR_TYPE_CASE(UINT32, UInt32Type)
+    ACCUMULATOR_TYPE_CASE(UINT64, UInt64Type)
+    ACCUMULATOR_TYPE_CASE(FLOAT, FloatType)
+    ACCUMULATOR_TYPE_CASE(DOUBLE, DoubleType)
+    default:
+      return nullptr;
+  }
+
+  ARROW_UNREACHABLE;
+}
+
+#undef ACCUMULATOR_TYPE_CASE
+
 template <typename ArrowType, typename StateType>
 class SumAggregateFunction final : public AggregateFunctionStaticState<StateType> {
   using CType = typename TypeTraits<ArrowType>::CType;

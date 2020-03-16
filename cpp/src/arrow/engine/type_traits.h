@@ -77,6 +77,12 @@ struct expr_traits<LessThanEqualExpr> {
 };
 
 template <>
+struct expr_traits<CountExpr> {
+  static constexpr auto kind_id = ExprKind::AGGREGATE_FN_OP;
+  static constexpr auto aggregate_kind_id = AggregateFnKind::COUNT;
+};
+
+template <>
 struct expr_traits<EmptyRelExpr> {
   static constexpr auto kind_id = ExprKind::EMPTY_REL;
 };
@@ -101,6 +107,12 @@ using is_compare_expr = std::is_base_of<CompareOpExpr, E>;
 
 template <typename E, typename Ret = void>
 using enable_if_compare_expr = enable_if_t<is_compare_expr<E>::value, Ret>;
+
+template <typename E>
+using is_aggregate_fn_expr = std::is_base_of<AggregateFnExpr, E>;
+
+template <typename E, typename Ret = void>
+using enable_if_aggregate_fn_expr = enable_if_t<is_aggregate_fn_expr<E>::value, Ret>;
 
 template <typename E>
 using is_relational_expr = std::is_base_of<RelExpr, E>;

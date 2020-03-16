@@ -93,6 +93,17 @@ class ARROW_EN_EXPORT LogicalPlanBuilder {
 
   /// @}
 
+  /// \defgroup Aggregate function operators
+  /// @{
+
+  /// \brief Count the number of elements in the input.
+  ResultExpr Count(const std::shared_ptr<Expr>& input);
+
+  /// \brief Sum the elements of the input.
+  ResultExpr Sum(const std::shared_ptr<Expr>& input);
+
+  /// @}
+
   /// \defgroup rel-nodes Relational operator nodes in the logical plan
 
   /// \brief Filter rows of a relation with the given predicate.
@@ -106,14 +117,14 @@ class ARROW_EN_EXPORT LogicalPlanBuilder {
   /// \brief Project (select) columns by names.
   ///
   /// This is a simplified version of Project where columns are selected by
-  /// names. Duplicate and ordering are preserved.
+  /// names. Duplicates and ordering are preserved.
   ResultExpr Project(const std::shared_ptr<Expr>& input,
                      const std::vector<std::string>& column_names);
 
   /// \brief Project (select) columns by indices.
   ///
   /// This is a simplified version of Project where columns are selected by
-  /// indices. Duplicate and ordering are preserved.
+  /// indices. Duplicates and ordering are preserved.
   ResultExpr Project(const std::shared_ptr<Expr>& input,
                      const std::vector<int>& column_indices);
 

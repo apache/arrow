@@ -35,6 +35,8 @@ enum ExprKind : uint8_t {
 
   // Comparison operators,
   COMPARE_OP,
+  // Aggregate function operators,
+  AGGREGATE_FN_OP,
 
   /// Empty relation with a known schema.
   EMPTY_REL,
@@ -67,6 +69,18 @@ class GreaterThanExpr;
 class GreaterThanEqualExpr;
 class LessThanExpr;
 class LessThanEqualExpr;
+
+/// Tag identifier for aggregate function operators
+enum AggregateFnKind : uint8_t {
+  // Count the number of elements in the input array
+  COUNT,
+  // Sum the elements of the input array.
+  SUM,
+};
+
+class AggregateFnExpr;
+class CountExpr;
+class SumExpr;
 
 class RelExpr;
 

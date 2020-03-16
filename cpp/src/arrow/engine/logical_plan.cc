@@ -84,6 +84,18 @@ ResultExpr LogicalPlanBuilder::Field(const std::shared_ptr<Expr>& input,
 }
 
 //
+// Count
+//
+
+ResultExpr LogicalPlanBuilder::Count(const std::shared_ptr<Expr>& input) {
+  return CountExpr::Make(input);
+}
+
+ResultExpr LogicalPlanBuilder::Sum(const std::shared_ptr<Expr>& input) {
+  return SumExpr::Make(input);
+}
+
+//
 // Relational
 //
 

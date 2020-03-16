@@ -198,6 +198,63 @@ TYPED_TEST(CompareExprTest, BasicCompareExpr) {
   EXPECT_THAT(expr, PtrEquals(swapped));
 }
 
+TEST_F(ExprTest, CountExpr) {
+  ASSERT_RAISES(Invalid, CountExpr::Make(nullptr));
+
+  // Counting scalar is permitted.
+  ASSERT_OK_AND_ASSIGN(auto i32_lit, ScalarExpr::Make(MakeScalar(42)));
+  EXPECT_THAT(CountExpr::Make(i32_lit), Ok());
+
+  // Counting a string scalar is permitted
+  ASSERT_OK_AND_ASSIGN(auto str_lit, ScalarExpr::Make(MakeScalar("hi")));
+  EXPECT_THAT(CountExpr::Make(str_lit), Ok());
+
+  auto schema = arrow::schema({field("i32", int32()), field("str", utf8())});
+  ASSERT_OK_AND_ASSIGN(auto input, EmptyRelExpr::Make(schema));
+
+  // Counting an int column should be supported.
+  ASSERT_OK_AND_ASSIGN(auto i32_column, FieldRefExpr::Make(input, 0));
+  EXPECT_THAT(CountExpr::Make(i32_column), Ok());
+
+  // Counting a string column should be supported.
+  ASSERT_OK_AND_ASSIGN(auto str_column, FieldRefExpr::Make(input, 1));
+  EXPECT_THAT(CountExpr::Make(str_column), Ok());
+
+  // Counting a table should be supported
+  EXPECT_THAT(CountExpr::Make(input), Ok());
+}
+
+TEST_F(ExprTest, SumExpr) {
+  ASSERT_RAISES(Invalid, SumExpr::Make(nullptr));
+
+  // Summing a scalar is permitted.
+  ASSERT_OK_AND_ASSIGN(auto i32_lit, ScalarExpr::Make(MakeScalar(42)));
+  EXPECT_THAT(SumExpr::Make(i32_lit), Ok());
+
+  // Summing a string is not permitted.
+  ASSERT_OK_AND_ASSIGN(auto str_lit, ScalarExpr::Make(MakeScalar("hi")));
+  ASSERT_RAISES(Invalid, SumExpr::Make(str_lit));
+
+  auto schema = arrow::schema(
+      {field("i32", int32()), field("str", utf8()), field("list_i32", list(int32()))});
+  ASSERT_OK_AND_ASSIGN(auto input, EmptyRelExpr::Make(schema));
+
+  // Summing an integer column should be supported.
+  ASSERT_OK_AND_ASSIGN(auto i32_column, FieldRefExpr::Make(input, 0));
+  EXPECT_THAT(SumExpr::Make(i32_column), Ok());
+
+  // Summing a string column should not be supported.
+  ASSERT_OK_AND_ASSIGN(auto str_column, FieldRefExpr::Make(input, 1));
+  ASSERT_RAISES(Invalid, SumExpr::Make(str_column));
+
+  // Summing a list<i32> column should not be supported (yet).
+  ASSERT_OK_AND_ASSIGN(auto list_i32_column, FieldRefExpr::Make(input, 2));
+  ASSERT_RAISES(Invalid, SumExpr::Make(list_i32_column));
+
+  // Summing a table should not be supported
+  ASSERT_RAISES(Invalid, SumExpr::Make(input));
+}
+
 class RelExprTest : public ExprTest {
  protected:
   void SetUp() override {

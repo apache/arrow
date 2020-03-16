@@ -333,6 +333,40 @@ class ARROW_EN_EXPORT LessThanEqualExpr : public BaseCompareExpr<LessThanEqualEx
 };
 
 ///
+/// Aggregate Functions
+///
+
+/// \brief Aggregate function operators collapse arrays and scalars to scalar.
+class ARROW_EN_EXPORT AggregateFnExpr : public Expr {
+ public:
+  AggregateFnKind aggregate_kind() const { return aggregate_kind_; }
+
+ protected:
+  AggregateFnExpr(ExprType type, AggregateFnKind kind)
+      : Expr(AGGREGATE_FN_OP, std::move(type)), aggregate_kind_(kind) {}
+
+  AggregateFnKind aggregate_kind_;
+};
+
+/// \brief Count the number of values in the input expression.
+class ARROW_EN_EXPORT CountExpr : public UnaryOpMixin, public AggregateFnExpr {
+ public:
+  static Result<std::shared_ptr<CountExpr>> Make(std::shared_ptr<Expr> input);
+
+ protected:
+  explicit CountExpr(std::shared_ptr<Expr> input);
+};
+
+/// \brief Sum the input values.
+class ARROW_EN_EXPORT SumExpr : public UnaryOpMixin, public AggregateFnExpr {
+ public:
+  static Result<std::shared_ptr<SumExpr>> Make(std::shared_ptr<Expr> input);
+
+ protected:
+  explicit SumExpr(std::shared_ptr<Expr> input);
+};
+
+///
 /// Relational Expressions
 ///
 
@@ -468,6 +502,18 @@ auto VisitExpr(const Expr& expr, Visitor&& visitor) -> decltype(visitor(expr)) {
           return visitor(internal::checked_cast<const LessThanExpr&>(expr));
         case CompareKind::LESS_THAN_EQUAL:
           return visitor(internal::checked_cast<const LessThanEqualExpr&>(expr));
+      }
+
+      ARROW_UNREACHABLE;
+    }
+
+    case ExprKind::AGGREGATE_FN_OP: {
+      const auto& agg_expr = static_cast<const AggregateFnExpr&>(expr);
+      switch (agg_expr.aggregate_kind()) {
+        case AggregateFnKind::COUNT:
+          return visitor(internal::checked_cast<const CountExpr&>(expr));
+        case AggregateFnKind::SUM:
+          return visitor(internal::checked_cast<const SumExpr&>(expr));
       }
 
       ARROW_UNREACHABLE;
