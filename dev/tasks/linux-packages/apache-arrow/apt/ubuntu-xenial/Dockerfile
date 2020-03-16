@@ -29,7 +29,7 @@ RUN \
     /etc/apt/apt.conf.d/disable-install-recommends
 
 ARG DEBUG
-ARG LLVM_VERSION
+ARG LLVM
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
@@ -63,10 +63,10 @@ RUN \
     python3-dev \
     python3-numpy \
     zlib1g-dev && \
-  if apt list | grep '^clang-${LLVM_VERSION}/'; then \
+  if apt list | grep '^clang-${LLVM}/'; then \
     apt install -y -V ${quiet} \
-      clang-${LLVM_VERSION} \
-      llvm-${LLVM_VERSION}-dev; \
+      clang-${LLVM} \
+      llvm-${LLVM}-dev; \
   fi && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \

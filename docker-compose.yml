@@ -198,7 +198,7 @@ services:
         - ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
       args:
         arch: ${ARCH}
-        llvm_version: ${LLVM_VERSION}
+        llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
@@ -224,7 +224,8 @@ services:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
       args:
         arch: ${ARCH}
-        llvm_version: ${LLVM_VERSION}
+        clang_tools: ${CLANG_TOOLS}
+        llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
@@ -253,13 +254,14 @@ services:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
       args:
         arch: ${ARCH}
-        llvm_version: ${LLVM_VERSION}
+        clang_tools: ${CLANG_TOOLS}
+        llvm: ${LLVM}
     shm_size: *shm-size
     volumes: *ubuntu-volumes
     environment:
       <<: *ccache
-      CC: clang-${LLVM_VERSION}
-      CXX: clang++-${LLVM_VERSION}
+      CC: clang-${CLANG_TOOLS}
+      CXX: clang++-${CLANG_TOOLS}
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_FUZZING: "ON"  # Check fuzz regressions
       ARROW_JEMALLOC: "OFF"
@@ -283,7 +285,7 @@ services:
         - ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
       args:
         arch: ${ARCH}
-        llvm_version: ${LLVM_VERSION}
+        llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
@@ -986,7 +988,7 @@ services:
         - ${REPO}:${ARCH}-debian-9-java-jni
       args:
         base: ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
-        llvm_version: ${LLVM_VERSION}
+        llvm: ${LLVM}
     shm_size: *shm-size
     environment:
       <<: *ccache
@@ -1082,8 +1084,8 @@ services:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-lint
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
-        clang_tools_version: ${CLANG_TOOLS_VERSION}
-        llvm_version: ${LLVM_VERSION}
+        clang_tools: ${CLANG_TOOLS}
+        llvm: ${LLVM}
         rust: ${RUST}
     environment:
       <<: *ccache

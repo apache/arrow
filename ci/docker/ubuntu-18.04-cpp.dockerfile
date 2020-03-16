@@ -28,13 +28,15 @@ ENV DEBIAN_FRONTEND=noninteractive
 #
 # Note that this is installed before the base packages to improve iteration
 # while debugging package list with docker build.
-ARG llvm_version
+ARG clang_tools
+ARG llvm
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
-        clang-${llvm_version} \
-        clang-format-${llvm_version} \
-        clang-tidy-${llvm_version} \
-        llvm-${llvm_version}-dev && \
+        clang-${clang_tools} \
+        clang-${llvm} \
+        clang-format-${clang_tools} \
+        clang-tidy-${clang_tools} \
+        llvm-${llvm}-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 

@@ -24,13 +24,13 @@ RUN \
   echo "deb http://deb.debian.org/debian buster-backports main" > \
     /etc/apt/sources.list.d/backports.list
 
-ARG llvm_version
+ARG llvm
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
         ca-certificates \
         ccache \
-        clang-${llvm_version} \
+        clang-${llvm} \
         cmake \
         g++ \
         gcc \
@@ -51,7 +51,7 @@ RUN apt-get update -y -q && \
         libssl-dev \
         libthrift-dev \
         libzstd-dev \
-        llvm-${llvm_version}-dev \
+        llvm-${llvm}-dev \
         make \
         ninja-build \
         pkg-config \

@@ -34,7 +34,7 @@ RUN \
     /etc/apt/sources.list.d/backports.list
 
 ARG DEBUG
-ARG LLVM_VERSION
+ARG LLVM
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
@@ -44,12 +44,12 @@ RUN \
     gnupg \
     wget && \
   wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-  echo "deb https://apt.llvm.org/stretch/ llvm-toolchain-stretch-${LLVM_VERSION} main" > \
+  echo "deb https://apt.llvm.org/stretch/ llvm-toolchain-stretch-${LLVM} main" > \
     /etc/apt/sources.list.d/llvm.list && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     build-essential \
-    clang-${LLVM_VERSION} \
+    clang-${LLVM} \
     cmake \
     devscripts \
     fakeroot \
@@ -69,7 +69,7 @@ RUN \
     libsnappy-dev \
     libssl-dev \
     libzstd-dev \
-    llvm-${LLVM_VERSION}-dev \
+    llvm-${LLVM}-dev \
     lsb-release \
     ninja-build \
     pkg-config \

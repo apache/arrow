@@ -24,7 +24,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV DEBIAN_FRONTEND noninteractive
 
-ARG llvm_version
+ARG llvm
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
       apt-transport-https \
@@ -34,12 +34,12 @@ RUN apt-get update -y -q && \
     code_name=$(lsb_release --codename --short) && \
     wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
     apt-add-repository -y \
-      "deb https://apt.llvm.org/${code_name}/ llvm-toolchain-${code_name}-${llvm_version} main" && \
+      "deb https://apt.llvm.org/${code_name}/ llvm-toolchain-${code_name}-${llvm} main" && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         ca-certificates \
         ccache \
-        clang-${llvm_version} \
+        clang-${llvm} \
         cmake \
         git \
         g++ \
@@ -52,7 +52,7 @@ RUN apt-get update -y -q && \
         libre2-dev \
         libsnappy-dev \
         libssl-dev \
-        llvm-${llvm_version}-dev \
+        llvm-${llvm}-dev \
         make \
         ninja-build \
         pkg-config \

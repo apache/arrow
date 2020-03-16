@@ -88,7 +88,7 @@ class ApacheArrowPackageTask < PackageTask
     File.open(dot_env_path) do |dot_env|
       dot_env.each_line do |line|
         case line.chomp
-        when /\ALLVM_VERSION=(.*)/
+        when /\ALLVM=(.*)/
           return $1
         end
       end
@@ -98,7 +98,7 @@ class ApacheArrowPackageTask < PackageTask
 
   def docker_build_options(os, architecture)
     [
-      "--build-arg", "LLVM_VERSION=#{detect_llvm_version}",
+      "--build-arg", "LLVM=#{detect_llvm_version}",
     ]
   end
 end
