@@ -143,6 +143,24 @@ names.Dataset <- function(x) names(x$schema)
 
 #' @export
 dim.Dataset <- function(x) {
+
+  if (!inherits(x, "FileSystemDataset")) {
+    stop(
+      "dim() is not currently implemented for ", class(x)[1] ," Datasets. ",
+      "Call collect() first to pull data into R.",
+      call. = FALSE
+    )
+  }
+
+  if (any(!grepl("\\.parquet$", basename(x$files)))) {
+    stop(
+      "dim() is only currently implemented for Datasets that use parquet files.",
+      "Call collect() first to pull data into R.",
+      call. = FALSE
+    )
+  }
+
+
   rows <- sum(purrr::map_dbl(x$files, ~ParquetFileReader$create(.x)$ReadTable()$num_rows))
   cols <- length(x$schema)
 
