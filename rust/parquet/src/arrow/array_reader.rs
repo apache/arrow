@@ -964,7 +964,7 @@ mod tests {
         DataType as ArrowType, Field, Int32Type as ArrowInt32, UInt32Type as ArrowUInt32,
         UInt64Type as ArrowUInt64,
     };
-    use rand::distributions::range::SampleRange;
+    use rand::distributions::uniform::SampleUniform;
     use std::any::Any;
     use std::collections::VecDeque;
     use std::rc::Rc;
@@ -983,7 +983,7 @@ mod tests {
         use_v2: bool,
         num_chuncks: usize,
     ) where
-        T::T: PartialOrd + SampleRange + Copy,
+        T::T: PartialOrd + SampleUniform + Copy,
     {
         for _i in 0..num_chuncks {
             let mut pages = VecDeque::new();

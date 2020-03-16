@@ -45,7 +45,7 @@ fn bench_primitive(c: &mut Criterion) {
             })
         })
         .throughput(Throughput::Bytes(
-            (data.len() * NUM_BATCHES * size_of::<i64>()) as u32,
+            ((data.len() * NUM_BATCHES * size_of::<i64>()) as u32).into(),
         )),
     );
 }
@@ -68,7 +68,7 @@ fn bench_bool(c: &mut Criterion) {
             })
         })
         .throughput(Throughput::Bytes(
-            (data_len * NUM_BATCHES * size_of::<bool>()) as u32,
+            ((data_len * NUM_BATCHES * size_of::<bool>()) as u32).into(),
         )),
     );
 }
