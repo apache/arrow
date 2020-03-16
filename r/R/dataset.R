@@ -144,7 +144,7 @@ names.Dataset <- function(x) names(x$schema)
 #' @export
 dim.Dataset <- function(x) {
   rows <- sum(purrr::map_dbl(x$files, ~ParquetFileReader$create(.x)$ReadTable()$num_rows))
-  cols <- x$schema$num_fields
+  cols <- length(x$schema)
 
   c(rows, cols)
 }
