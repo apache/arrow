@@ -160,8 +160,6 @@ dim.Dataset <- function(x) {
     )
   }
 
-
-  rows <- sum(purrr::map_int(x$files, ~ParquetFileReader$create(.x)$ReadTable()$num_rows))
   rows <- as.integer(sum(purrr::map_dbl(x$files, ~ParquetFileReader$create(.x)$num_rows)))
   cols <- length(x$schema)
 
@@ -170,8 +168,19 @@ dim.Dataset <- function(x) {
 
 #' @export
 dim.arrow_dplyr_query <- function(x) {
-  stop("dim() is not currently implemented for arrow dplyr queries. ",
-       "Call collect() first to pull data into R.", call. = FALSE)
+
+  if (isTRUE(x$filtered)) {
+    rows <- nrow(x$.data)
+  } else {
+    warning("dim() is not fully implemented for arrow dplyr queries. ",
+            "Call collect() first to pull data into R to access the number of rows.", call. = FALSE)
+    rows <- NA
+
+  }
+  cols <- length(x$selected_columns)
+
+  c(rows, cols)
+
 }
 
 
