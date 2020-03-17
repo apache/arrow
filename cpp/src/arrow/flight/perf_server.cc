@@ -102,8 +102,8 @@ class PerfDataStream : public FlightDataStream {
     } else {
       records_sent_ += batch_length_;
     }
-    return ipc::internal::GetRecordBatchPayload(
-        *batch, ipc_options_, default_memory_pool(), &payload->ipc_message);
+    return ipc::internal::GetRecordBatchPayload(*batch, ipc_options_,
+                                                &payload->ipc_message);
   }
 
  private:
