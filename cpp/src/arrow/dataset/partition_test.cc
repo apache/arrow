@@ -60,6 +60,10 @@ class TestPartitioning : public ::testing::Test {
     ASSERT_OK(factory_->Finish(actual).status());
   }
 
+  void AssertInspectError(const std::vector<util::string_view>& paths) {
+    ASSERT_RAISES(Invalid, factory_->Inspect(paths));
+  }
+
  protected:
   static std::shared_ptr<Field> Int(std::string name) {
     return field(std::move(name), int32());
@@ -136,8 +140,7 @@ TEST_F(TestPartitioning, DiscoverSchema) {
 TEST_F(TestPartitioning, DiscoverSchemaSegfault) {
   // ARROW-7638
   factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"});
-  ASSERT_OK_AND_ASSIGN(auto actual, factory_->Inspect({"oops.txt"}));
-  ASSERT_EQ(*actual, Schema({Str("alpha")}));
+  AssertInspectError({"oops.txt"});
 }
 
 TEST_F(TestPartitioning, HivePartitioning) {
@@ -169,9 +172,13 @@ TEST_F(TestPartitioning, DiscoverHiveSchema) {
 
   // extra segments are ignored
   AssertInspect({"/gamma=0/unexpected/delta=1/dat.parquet"},
-                {Int("delta"), Int("gamma")});
+                {Int("gamma"), Int("delta")});
 
-  // order doesn't matter
+  // schema field names are in order of first occurrence
+  // (...so ensure your partitions are ordered the same for all paths)
+  AssertInspect({"/alpha=0/beta=1", "/beta=2/alpha=3"}, {Int("alpha"), Int("beta")});
+
+  // missing path segments will not cause an error
   AssertInspect({"/alpha=0/beta=1", "/beta=2/alpha=3", "/gamma=what"},
                 {Int("alpha"), Int("beta"), Str("gamma")});
 }

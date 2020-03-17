@@ -98,24 +98,62 @@ util::optional<KeyValuePartitioning::Key> DirectoryPartitioning::ParseKey(
   return Key{schema_->field(i)->name(), segment};
 }
 
-inline bool AllIntegral(const std::vector<std::string>& reprs) {
-  return std::all_of(reprs.begin(), reprs.end(), [](string_view repr) {
-    // TODO(bkietz) use ParseUnsigned or so
-    return repr.find_first_not_of("0123456789") == string_view::npos;
-  });
-}
+class KeyValuePartitioningInspectImpl {
+ public:
+  static Result<std::shared_ptr<DataType>> InferType(
+      const std::string& name, const std::vector<std::string>& reprs) {
+    if (reprs.empty()) {
+      return Status::Invalid("No segments were available for field '", name,
+                             "'; couldn't infer type");
+    }
 
-inline std::shared_ptr<Schema> InferSchema(
-    const std::map<std::string, std::vector<std::string>>& name_to_values) {
-  std::vector<std::shared_ptr<Field>> fields(name_to_values.size());
+    bool all_integral = std::all_of(reprs.begin(), reprs.end(), [](string_view repr) {
+      // TODO(bkietz) use ParseUnsigned or so
+      return repr.find_first_not_of("0123456789") == string_view::npos;
+    });
 
-  size_t field_index = 0;
-  for (const auto& name_values : name_to_values) {
-    auto type = AllIntegral(name_values.second) ? int32() : utf8();
-    fields[field_index++] = field(name_values.first, type);
+    if (all_integral) {
+      return int32();
+    }
+
+    return utf8();
   }
-  return ::arrow::schema(std::move(fields));
-}
+
+  int GetOrInsertField(const std::string& name) {
+    auto name_index =
+        name_to_index_.emplace(name, static_cast<int>(name_to_index_.size())).first;
+
+    if (static_cast<size_t>(name_index->second) >= values_.size()) {
+      values_.resize(name_index->second + 1);
+    }
+    return name_index->second;
+  }
+
+  void InsertRepr(const std::string& name, std::string repr) {
+    InsertRepr(GetOrInsertField(name), std::move(repr));
+  }
+
+  void InsertRepr(int index, std::string repr) {
+    values_[index].push_back(std::move(repr));
+  }
+
+  Result<std::shared_ptr<Schema>> Finish() {
+    std::vector<std::shared_ptr<Field>> fields(name_to_index_.size());
+
+    for (const auto& name_index : name_to_index_) {
+      const auto& name = name_index.first;
+      auto index = name_index.second;
+      ARROW_ASSIGN_OR_RAISE(auto type, InferType(name, values_[index]));
+      fields[index] = field(name, type);
+    }
+
+    return ::arrow::schema(std::move(fields));
+  }
+
+ private:
+  std::unordered_map<std::string, int> name_to_index_;
+  std::vector<std::vector<std::string>> values_;
+};
 
 class DirectoryPartitioningFactory : public PartitioningFactory {
  public:
@@ -124,19 +162,22 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
 
   Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<string_view>& paths) const override {
-    std::map<std::string, std::vector<std::string>> name_to_values;
+    KeyValuePartitioningInspectImpl impl;
+
+    for (const auto& name : field_names_) {
+      impl.GetOrInsertField(name);
+    }
 
     for (auto path : paths) {
       size_t field_index = 0;
       for (auto&& segment : fs::internal::SplitAbstractPath(path.to_string())) {
         if (field_index == field_names_.size()) break;
 
-        name_to_values[field_names_[field_index++]].push_back(std::move(segment));
+        impl.InsertRepr(static_cast<int>(field_index++), std::move(segment));
       }
     }
 
-    // ensure that the fields are ordered by field_names_
-    return SchemaFromColumnNames(InferSchema(name_to_values), field_names_);
+    return impl.Finish();
   }
 
   Result<std::shared_ptr<Partitioning>> Finish(
@@ -175,17 +216,17 @@ class HivePartitioningFactory : public PartitioningFactory {
  public:
   Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<string_view>& paths) const override {
-    std::map<std::string, std::vector<std::string>> name_to_values;
+    KeyValuePartitioningInspectImpl impl;
 
     for (auto path : paths) {
       for (auto&& segment : fs::internal::SplitAbstractPath(path.to_string())) {
         if (auto key = HivePartitioning::ParseKey(segment)) {
-          name_to_values[key->name].push_back(std::move(key->value));
+          impl.InsertRepr(key->name, key->value);
         }
       }
     }
 
-    return InferSchema(name_to_values);
+    return impl.Finish();
   }
 
   Result<std::shared_ptr<Partitioning>> Finish(
