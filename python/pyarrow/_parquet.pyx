@@ -1312,7 +1312,8 @@ cdef class ParquetWriter:
                 raise ValueError("Unsupported Parquet format version: {0}"
                                  .format(self.version))
 
-    cdef void _set_compression_props(self, WriterProperties.Builder* props):
+    cdef void _set_compression_props(self, WriterProperties.Builder* props) \
+            except *:
         if isinstance(self.compression, basestring):
             check_compression_name(self.compression)
             props.compression(compression_from_name(self.compression))
@@ -1325,9 +1326,10 @@ cdef class ParquetWriter:
             props.compression_level(self.compression_level)
         elif self.compression_level is not None:
             for column, level in self.compression_level.iteritems():
-                props.compression_level(column, level)
+                props.compression_level(tobytes(column), level)
 
-    cdef void _set_dictionary_props(self, WriterProperties.Builder* props):
+    cdef void _set_dictionary_props(self, WriterProperties.Builder* props) \
+            except *:
         if isinstance(self.use_dictionary, bool):
             if self.use_dictionary:
                 props.enable_dictionary()
@@ -1337,18 +1339,20 @@ cdef class ParquetWriter:
             # Deactivate dictionary encoding by default
             props.disable_dictionary()
             for column in self.use_dictionary:
-                props.enable_dictionary(column)
+                props.enable_dictionary(tobytes(column))
 
     cdef void _set_byte_stream_split_props(
-            self, WriterProperties.Builder* props):
+            self, WriterProperties.Builder* props) except *:
         if isinstance(self.use_byte_stream_split, bool):
             if self.use_byte_stream_split:
                 props.encoding(ParquetEncoding_BYTE_STREAM_SPLIT)
         elif self.use_byte_stream_split is not None:
             for column in self.use_byte_stream_split:
-                props.encoding(column, ParquetEncoding_BYTE_STREAM_SPLIT)
+                props.encoding(tobytes(column),
+                               ParquetEncoding_BYTE_STREAM_SPLIT)
 
-    cdef void _set_statistics_props(self, WriterProperties.Builder* props):
+    cdef void _set_statistics_props(self, WriterProperties.Builder* props) \
+            except *:
         if isinstance(self.write_statistics, bool):
             if self.write_statistics:
                 props.enable_statistics()
