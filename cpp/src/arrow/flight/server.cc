@@ -867,7 +867,6 @@ class RecordBatchStream::RecordBatchStreamImpl {
   }
 
   Stage stage_ = Stage::NEW;
-  MemoryPool* pool_;
   std::shared_ptr<RecordBatchReader> reader_;
   ipc::DictionaryMemo dictionary_memo_;
   ipc::IpcOptions ipc_options_;

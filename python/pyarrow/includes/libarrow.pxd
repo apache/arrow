@@ -1317,7 +1317,6 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         " arrow::ipc::internal::GetRecordBatchPayload"(
             const CRecordBatch& batch,
             const CIpcWriteOptions& options,
-            CMemoryPool* pool,
             CIpcPayload* out)
 
     cdef cppclass CFeatherWriter" arrow::ipc::feather::TableWriter":
