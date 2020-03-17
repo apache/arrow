@@ -404,268 +404,133 @@ struct CastFunctor<
   }
 };
 
+// ----------------------------------------------------------------------
+// Decimals
+
 // Decimal to Integer
 
-template <typename O, typename I, typename Enable = void>
-struct is_decimal_truncate {
-  static constexpr bool value = false;
-};
-
-template <typename O, typename I>
-struct is_decimal_truncate<
-    O, I, enable_if_t<(is_integer_type<O>::value && is_decimal_type<I>::value)>> {
-  static constexpr bool value = true;
-};
-
-template <typename O, typename I>
-struct CastFunctor<O, I, enable_if_t<is_decimal_truncate<O, I>::value>> {
+template <typename O>
+struct CastFunctor<O, Decimal128Type, enable_if_t<is_integer_type<O>::value>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    using in_type = typename I::c_type;
     using out_type = typename O::c_type;
-    const auto& in_type_inst = checked_cast<const I&>(*input.type);
+    const auto& in_type_inst = checked_cast<const Decimal128Type&>(*input.type);
     auto in_scale = in_type_inst.scale();
 
-    const in_type* in_data = input.GetValues<in_type>(1);
     auto out_data = output->GetMutableValues<out_type>(1);
 
-    if (input.null_count == 0) {             // no nulls
-      if (options.allow_decimal_truncate) {  // no nulls, truncate
-        if (options.allow_int_overflow) {    // no nulls, truncate, overflow
-          if (in_scale < 0) {
-            for (int64_t i = 0; i < input.length; ++i) {
-              *out_data++ =
-                  static_cast<out_type>(in_data++->IncreaseScaleBy(-in_scale).low_bits());
-            }
-          } else {
-            for (int64_t i = 0; i < input.length; ++i) {
-              *out_data++ = static_cast<out_type>(
-                  in_data++->ReduceScaleBy(in_scale, false).low_bits());
-            }
-          }
-        } else {  // no nulls, truncate, no overflow
-          auto min_value = std::numeric_limits<out_type>::min();
-          auto max_value = std::numeric_limits<out_type>::max();
+    constexpr auto min_value = std::numeric_limits<out_type>::min();
+    constexpr auto max_value = std::numeric_limits<out_type>::max();
 
-          if (in_scale < 0) {
-            for (int64_t i = 0; i < input.length; ++i) {
-              auto result = in_data++->IncreaseScaleBy(-in_scale);
-              if (result < min_value || result > max_value) {
-                ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
-              } else {
-                *out_data++ = static_cast<out_type>(result.low_bits());
-              }
-            }
-          } else {
-            for (int64_t i = 0; i < input.length; ++i) {
-              auto result = in_data++->ReduceScaleBy(in_scale, false);
-              if (result < min_value || result > max_value) {
-                ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
-              } else {
-                *out_data++ = static_cast<out_type>(result.low_bits());
-              }
-            }
-          }
-        }
-      } else {                             // no nulls, no truncate
-        if (options.allow_int_overflow) {  // no nulls, no truncate, overflow
-          for (int64_t i = 0; i < input.length; ++i) {
-            auto result = in_data++->Rescale(in_scale, 0);
-            if (result.ok()) {
-              auto result_value = result.ValueOrDie();
-              *out_data++ = static_cast<out_type>(result_value.low_bits());
+    if (options.allow_decimal_truncate) {
+      if (in_scale < 0) {
+        // Unsafe upscale
+        auto convert_value = [&](util::optional<util::string_view> v) {
+          if (v.has_value()) {
+            auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
+            auto converted = dec_value.IncreaseScaleBy(-in_scale);
+            if (!options.allow_int_overflow &&
+                ARROW_PREDICT_FALSE(converted < min_value || converted > max_value)) {
+              ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
             } else {
-              ctx->SetStatus(result.status());
+              *out_data = static_cast<out_type>(converted.low_bits());
             }
           }
-        } else {  // no nulls, no truncate, no overflow
-          auto min_value = std::numeric_limits<out_type>::min();
-          auto max_value = std::numeric_limits<out_type>::max();
-          for (int64_t i = 0; i < input.length; ++i) {
-            auto result = in_data++->Rescale(in_scale, 0);
-            if (result.ok()) {
-              auto result_value = result.ValueOrDie();
-              if (result_value < min_value || result_value > max_value) {
-                ctx->SetStatus(Status::Invalid("Invalid cast from Decimal128 to ",
-                                               sizeof(out_type), " byte integer"));
-              } else {
-                *out_data++ = static_cast<out_type>(result_value.low_bits());
-              }
+          ++out_data;
+        };
+        VisitArrayDataInline<Decimal128Type>(input, std::move(convert_value));
+      } else {
+        // Unsafe downscale
+        auto convert_value = [&](util::optional<util::string_view> v) {
+          if (v.has_value()) {
+            auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
+            auto converted = dec_value.ReduceScaleBy(in_scale, false);
+            if (!options.allow_int_overflow &&
+                ARROW_PREDICT_FALSE(converted < min_value || converted > max_value)) {
+              ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
             } else {
-              ctx->SetStatus(result.status());
+              *out_data = static_cast<out_type>(converted.low_bits());
             }
           }
-        }
+          ++out_data;
+        };
+        VisitArrayDataInline<Decimal128Type>(input, std::move(convert_value));
       }
-    } else {                                 // nulls
-      if (options.allow_decimal_truncate) {  // nulls, truncate
-        if (options.allow_int_overflow) {    // nulls, truncate, overflow
-          if (in_scale < 0) {
-            for (int64_t i = 0; i < input.length; ++i) {
-              *out_data++ =
-                  static_cast<out_type>(in_data++->IncreaseScaleBy(-in_scale).low_bits());
-            }
+    } else {
+      // Safe rescale
+      auto convert_value = [&](util::optional<util::string_view> v) {
+        if (v.has_value()) {
+          auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
+          auto result = dec_value.Rescale(in_scale, 0);
+          if (ARROW_PREDICT_FALSE(!result.ok())) {
+            ctx->SetStatus(result.status());
           } else {
-            for (int64_t i = 0; i < input.length; ++i) {
-              *out_data++ = static_cast<out_type>(
-                  in_data++->ReduceScaleBy(in_scale, false).low_bits());
-            }
-          }
-        } else {  // nulls, truncate, no overflow
-          auto min_value = std::numeric_limits<out_type>::min();
-          auto max_value = std::numeric_limits<out_type>::max();
-          internal::BitmapReader is_valid_reader(input.buffers[0]->data(), input.offset,
-                                                 input.length);
-
-          if (in_scale < 0) {
-            for (int64_t i = 0; i < input.length; ++i) {
-              if (ARROW_PREDICT_FALSE(is_valid_reader.IsSet())) {
-                if (*in_data > max_value || *in_data < min_value) {
-                  ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
-                } else {
-                  *out_data = static_cast<out_type>(
-                      in_data->IncreaseScaleBy(-in_scale).low_bits());
-                }
-              }
-              out_data++;
-              in_data++;
-              is_valid_reader.Next();
-            }
-          } else {
-            for (int64_t i = 0; i < input.length; ++i) {
-              if (ARROW_PREDICT_FALSE(is_valid_reader.IsSet())) {
-                if (*in_data > max_value || *in_data < min_value) {
-                  ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
-                } else {
-                  *out_data = static_cast<out_type>(
-                      in_data->ReduceScaleBy(in_scale, false).low_bits());
-                }
-              }
-              out_data++;
-              in_data++;
-              is_valid_reader.Next();
+            auto converted = *std::move(result);
+            if (!options.allow_int_overflow &&
+                ARROW_PREDICT_FALSE(converted < min_value || converted > max_value)) {
+              ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
+            } else {
+              *out_data = static_cast<out_type>(converted.low_bits());
             }
           }
         }
-      } else {  // nulls, no truncate
-        internal::BitmapReader is_valid_reader(input.buffers[0]->data(), input.offset,
-                                               input.length);
-
-        if (options.allow_int_overflow) {  // nulls, no truncate, overflow
-          for (int64_t i = 0; i < input.length; ++i) {
-            if (ARROW_PREDICT_FALSE(is_valid_reader.IsSet())) {
-              auto result = in_data->Rescale(in_scale, 0);
-              if (result.ok()) {
-                auto result_value = result.ValueOrDie();
-                *out_data = static_cast<out_type>(result_value.low_bits());
-              } else {
-                ctx->SetStatus(result.status());
-              }
-            }
-            out_data++;
-            in_data++;
-            is_valid_reader.Next();
-          }
-        } else {  // nulls, no truncate, no overflow
-          auto min_value = std::numeric_limits<out_type>::min();
-          auto max_value = std::numeric_limits<out_type>::max();
-
-          for (int64_t i = 0; i < input.length; ++i) {
-            if (ARROW_PREDICT_FALSE(is_valid_reader.IsSet())) {
-              if (*in_data > max_value || *in_data < min_value) {
-                ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
-              } else {
-                auto result = in_data->Rescale(in_scale, 0);
-                if (result.ok()) {
-                  auto result_value = result.ValueOrDie();
-                  *out_data = static_cast<out_type>(result_value.low_bits());
-                } else {
-                  ctx->SetStatus(result.status());
-                }
-              }
-            }
-            out_data++;
-            in_data++;
-            is_valid_reader.Next();
-          }
-        }
-      }
+        ++out_data;
+      };
+      VisitArrayDataInline<Decimal128Type>(input, std::move(convert_value));
     }
   }
 };
 
-// ----------------------------------------------------------------------
 // Decimal to Decimal
 
-template <typename O, typename I>
-struct CastFunctor<
-    O, I, enable_if_t<(is_decimal_type<O>::value && is_decimal_type<I>::value)>> {
+template <>
+struct CastFunctor<Decimal128Type, Decimal128Type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    using in_type = typename I::c_type;
-    using out_type = typename O::c_type;
-
-    const auto& in_type_inst = checked_cast<const I&>(*input.type);
-    const auto& out_type_inst = checked_cast<const O&>(*output->type);
+    const auto& in_type_inst = checked_cast<const Decimal128Type&>(*input.type);
+    const auto& out_type_inst = checked_cast<const Decimal128Type&>(*output->type);
     auto in_scale = in_type_inst.scale();
     auto out_scale = out_type_inst.scale();
 
-    const in_type* in_data = input.GetValues<in_type>(1);
-    auto out_data = output->GetMutableValues<out_type>(1);
+    auto out_data = output->GetMutableValues<uint8_t>(1);
 
-    if (input.null_count == 0) {             // no nulls
-      if (options.allow_decimal_truncate) {  // no nulls, truncate
-        if (in_scale < out_scale) {
-          for (int64_t i = 0; i < input.length; ++i) {
-            *out_data++ =
-                static_cast<out_type>(in_data++->IncreaseScaleBy(out_scale - in_scale));
+    if (options.allow_decimal_truncate) {
+      if (in_scale < out_scale) {
+        // Unsafe upscale
+        auto convert_value = [&](util::optional<util::string_view> v) {
+          if (v.has_value()) {
+            auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
+            dec_value.IncreaseScaleBy(out_scale - in_scale).ToBytes(out_data);
           }
-        } else {
-          for (int64_t i = 0; i < input.length; ++i) {
-            *out_data++ = static_cast<out_type>(
-                in_data++->ReduceScaleBy(in_scale - out_scale, false));
+          out_data += 16;
+        };
+        VisitArrayDataInline<Decimal128Type>(input, std::move(convert_value));
+      } else {
+        // Unsafe downscale
+        auto convert_value = [&](util::optional<util::string_view> v) {
+          if (v.has_value()) {
+            auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
+            dec_value.ReduceScaleBy(in_scale - out_scale, false).ToBytes(out_data);
           }
-        }
-      } else {  // no nulls, no truncate
-        for (int64_t i = 0; i < input.length; ++i) {
-          auto result = in_data++->Rescale(in_scale, out_scale);
-          if (result.ok()) {
-            *out_data = static_cast<out_type>(result.ValueOrDie());
-          } else {
+          out_data += 16;
+        };
+        VisitArrayDataInline<Decimal128Type>(input, std::move(convert_value));
+      }
+    } else {
+      // Safe rescale
+      auto convert_value = [&](util::optional<util::string_view> v) {
+        if (v.has_value()) {
+          auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
+          auto result = dec_value.Rescale(in_scale, out_scale);
+          if (ARROW_PREDICT_FALSE(!result.ok())) {
             ctx->SetStatus(result.status());
-          }
-          out_data++;
-        }
-      }
-    } else {                                 // nulls
-      if (options.allow_decimal_truncate) {  // nulls, truncate
-        if (in_scale < out_scale) {
-          for (int64_t i = 0; i < input.length; ++i) {
-            *out_data++ =
-                static_cast<out_type>(in_data++->IncreaseScaleBy(out_scale - in_scale));
-          }
-        } else {
-          for (int64_t i = 0; i < input.length; ++i) {
-            *out_data++ = static_cast<out_type>(
-                in_data++->ReduceScaleBy(in_scale - out_scale, false));
+          } else {
+            (*std::move(result)).ToBytes(out_data);
           }
         }
-      } else {  // nulls, no truncate
-        internal::BitmapReader is_valid_reader(input.buffers[0]->data(), input.offset,
-                                               input.length);
-        for (int64_t i = 0; i < input.length; ++i) {
-          if (ARROW_PREDICT_FALSE(is_valid_reader.IsSet())) {
-            auto result = in_data++->Rescale(in_scale, out_scale);
-            if (result.ok()) {
-              *out_data = static_cast<out_type>(result.ValueOrDie());
-            } else {
-              ctx->SetStatus(result.status());
-            }
-          }
-          out_data++;
-          is_valid_reader.Next();
-        }
-      }
+        out_data += 16;
+      };
+      VisitArrayDataInline<Decimal128Type>(input, std::move(convert_value));
     }
   }
 };

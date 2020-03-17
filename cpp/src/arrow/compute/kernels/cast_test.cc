@@ -618,13 +618,15 @@ TEST_F(TestCast, DecimalToInt) {
   std::vector<int64_t> e12 = {2, -11};
   std::vector<int64_t> e13 = {2, -11, 0};
 
-  for (int i = 0; i < 4; i++) {
-    options.allow_int_overflow = bool(i / 2);
-    options.allow_decimal_truncate = bool(i % 2);
-    CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
-        decimal(38, 10), v12, is_valid2, int64(), e12, options);
-    CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
-        decimal(38, 10), v13, is_valid3, int64(), e13, options);
+  for (bool allow_int_overflow : {false, true}) {
+    for (bool allow_decimal_truncate : {false, true}) {
+      options.allow_int_overflow = allow_int_overflow;
+      options.allow_decimal_truncate = allow_decimal_truncate;
+      CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
+          decimal(38, 10), v12, is_valid2, int64(), e12, options);
+      CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
+          decimal(38, 10), v13, is_valid3, int64(), e13, options);
+    }
   }
 
   // truncation, no overflow
@@ -636,18 +638,16 @@ TEST_F(TestCast, DecimalToInt) {
   std::vector<int64_t> e22 = {2, -11};
   std::vector<int64_t> e23 = {2, -11, 0};
 
-  for (int i = 0; i < 4; i++) {
-    options.allow_int_overflow = bool(i / 2);
-    options.allow_decimal_truncate = bool(i % 2);
-    if (options.allow_decimal_truncate) {
-      CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
-          decimal(38, 10), v22, is_valid2, int64(), e22, options);
-      CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
-          decimal(38, 10), v23, is_valid3, int64(), e23, options);
-    } else {
-      CheckFails<Decimal128Type>(decimal(38, 10), v22, is_valid2, int64(), options);
-      CheckFails<Decimal128Type>(decimal(38, 10), v23, is_valid3, int64(), options);
-    }
+  for (bool allow_int_overflow : {false, true}) {
+    options.allow_int_overflow = allow_int_overflow;
+    options.allow_decimal_truncate = true;
+    CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
+        decimal(38, 10), v22, is_valid2, int64(), e22, options);
+    CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
+        decimal(38, 10), v23, is_valid3, int64(), e23, options);
+    options.allow_decimal_truncate = false;
+    CheckFails<Decimal128Type>(decimal(38, 10), v22, is_valid2, int64(), options);
+    CheckFails<Decimal128Type>(decimal(38, 10), v23, is_valid3, int64(), options);
   }
 
   // overflow, no truncation
@@ -660,18 +660,16 @@ TEST_F(TestCast, DecimalToInt) {
   std::vector<int64_t> e32 = {4807115922877858896, 200376420520689663};
   std::vector<int64_t> e33 = {4807115922877858896, 200376420520689663, -2};
 
-  for (int i = 0; i < 4; i++) {
-    options.allow_int_overflow = bool(i / 2);
-    options.allow_decimal_truncate = bool(i % 2);
-    if (options.allow_int_overflow) {
-      CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
-          decimal(38, 10), v32, is_valid2, int64(), e32, options);
-      CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
-          decimal(38, 10), v33, is_valid3, int64(), e33, options);
-    } else {
-      CheckFails<Decimal128Type>(decimal(38, 10), v32, is_valid2, int64(), options);
-      CheckFails<Decimal128Type>(decimal(38, 10), v33, is_valid3, int64(), options);
-    }
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
+    options.allow_int_overflow = true;
+    CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
+        decimal(38, 10), v32, is_valid2, int64(), e32, options);
+    CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
+        decimal(38, 10), v33, is_valid3, int64(), e33, options);
+    options.allow_int_overflow = false;
+    CheckFails<Decimal128Type>(decimal(38, 10), v32, is_valid2, int64(), options);
+    CheckFails<Decimal128Type>(decimal(38, 10), v33, is_valid3, int64(), options);
   }
 
   // overflow, truncation
@@ -684,17 +682,19 @@ TEST_F(TestCast, DecimalToInt) {
   std::vector<int64_t> e42 = {4807115922877858896, 200376420520689663};
   std::vector<int64_t> e43 = {4807115922877858896, 200376420520689663, -2};
 
-  for (int i = 0; i < 4; i++) {
-    options.allow_int_overflow = bool(i / 2);
-    options.allow_decimal_truncate = bool(i % 2);
-    if (options.allow_int_overflow && options.allow_decimal_truncate) {
-      CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
-          decimal(38, 10), v42, is_valid2, int64(), e42, options);
-      CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
-          decimal(38, 10), v43, is_valid3, int64(), e43, options);
-    } else {
-      CheckFails<Decimal128Type>(decimal(38, 10), v42, is_valid2, int64(), options);
-      CheckFails<Decimal128Type>(decimal(38, 10), v43, is_valid3, int64(), options);
+  for (bool allow_int_overflow : {false, true}) {
+    for (bool allow_decimal_truncate : {false, true}) {
+      options.allow_int_overflow = allow_int_overflow;
+      options.allow_decimal_truncate = allow_decimal_truncate;
+      if (options.allow_int_overflow && options.allow_decimal_truncate) {
+        CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
+            decimal(38, 10), v42, is_valid2, int64(), e42, options);
+        CheckCase<Decimal128Type, Decimal128, Int64Type, int64_t>(
+            decimal(38, 10), v43, is_valid3, int64(), e43, options);
+      } else {
+        CheckFails<Decimal128Type>(decimal(38, 10), v42, is_valid2, int64(), options);
+        CheckFails<Decimal128Type>(decimal(38, 10), v43, is_valid3, int64(), options);
+      }
     }
   }
 
@@ -721,8 +721,8 @@ TEST_F(TestCast, DecimalToDecimal) {
                                  Decimal128("30.0000000000")};
   std::vector<Decimal128> e13 = {Decimal128("02."), Decimal128("30."), Decimal128("-1.")};
 
-  for (int i = 0; i < 2; i++) {
-    options.allow_decimal_truncate = bool(i % 2);
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
     CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
         decimal(38, 10), v12, is_valid2, decimal(28, 0), e12, options);
     CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
@@ -748,25 +748,25 @@ TEST_F(TestCast, DecimalToDecimal) {
                                  Decimal128("30.0000000000"),
                                  Decimal128("80.0000000000")};
 
-  for (int i = 0; i < 2; i++) {
-    options.allow_decimal_truncate = bool(i % 2);
-    if (options.allow_decimal_truncate) {
-      CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-          decimal(38, 10), v22, is_valid2, decimal(28, 0), e22, options);
-      CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-          decimal(38, 10), v23, is_valid3, decimal(28, 0), e23, options);
-      // and back
-      CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-          decimal(28, 0), e22, is_valid2, decimal(38, 10), f22, options);
-      CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
-          decimal(28, 0), e23, is_valid3, decimal(38, 10), f23, options);
-    } else {
-      CheckFails<Decimal128Type>(decimal(38, 10), v22, is_valid2, decimal(28, 0),
-                                 options);
-      CheckFails<Decimal128Type>(decimal(38, 10), v23, is_valid3, decimal(28, 0),
-                                 options);
-    }
-  }
+  options.allow_decimal_truncate = true;
+  CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
+      decimal(38, 10), v22, is_valid2, decimal(28, 0), e22, options);
+  CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
+      decimal(38, 10), v23, is_valid3, decimal(28, 0), e23, options);
+  // and back
+  CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
+      decimal(28, 0), e22, is_valid2, decimal(38, 10), f22, options);
+  CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
+      decimal(28, 0), e23, is_valid3, decimal(38, 10), f23, options);
+
+  options.allow_decimal_truncate = false;
+  CheckFails<Decimal128Type>(decimal(38, 10), v22, is_valid2, decimal(28, 0), options);
+  CheckFails<Decimal128Type>(decimal(38, 10), v23, is_valid3, decimal(28, 0), options);
+  // back case is ok
+  CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
+      decimal(28, 0), e22, is_valid2, decimal(38, 10), f22, options);
+  CheckCase<Decimal128Type, Decimal128, Decimal128Type, Decimal128>(
+      decimal(28, 0), e23, is_valid3, decimal(38, 10), f23, options);
 }
 
 TEST_F(TestCast, TimestampToTimestamp) {
