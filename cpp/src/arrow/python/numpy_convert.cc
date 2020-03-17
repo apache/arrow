@@ -399,13 +399,13 @@ Status SparseCSFTensorToNdarray(const std::shared_ptr<SparseCSFTensor>& sparse_t
   int ndim = static_cast<int>(sparse_index.indices().size());
   OwnedRef indptr(PyList_New(ndim - 1));
   OwnedRef indices(PyList_New(ndim));
+  RETURN_IF_PYERROR();
 
   for (int i = 0; i < ndim - 1; ++i) {
     PyObject* item;
     RETURN_NOT_OK(TensorToNdarray(sparse_index.indptr()[i], base, &item));
     if (PyList_SetItem(indptr.obj(), i, item) < 0) {
-      Py_XDECREF(indptr.obj());
-      Py_XDECREF(indices.obj());
+      Py_XDECREF(item);
       RETURN_IF_PYERROR();
     }
   }
@@ -413,8 +413,7 @@ Status SparseCSFTensorToNdarray(const std::shared_ptr<SparseCSFTensor>& sparse_t
     PyObject* item;
     RETURN_NOT_OK(TensorToNdarray(sparse_index.indices()[i], base, &item));
     if (PyList_SetItem(indices.obj(), i, item) < 0) {
-      Py_XDECREF(indptr.obj());
-      Py_XDECREF(indices.obj());
+      Py_XDECREF(item);
       RETURN_IF_PYERROR();
     }
   }
