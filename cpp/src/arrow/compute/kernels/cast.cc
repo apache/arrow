@@ -1161,10 +1161,12 @@ class ExtensionCastKernel : public CastKernelBase {
     // validate: type is the same as the type the kernel was constructed with
     auto& input_type = checked_cast<const ExtensionType&>(*input.type());
     if (input_type.extension_name() != extension_name_) {
-      return Status::TypeError("EEEE");
+      return Status::TypeError(
+          "The cast kernel was constructed with a differently named extension type");
     }
     if (!input_type.storage_type()->Equals(storage_type_)) {
-      return Status::TypeError("FFF");
+      return Status::TypeError(
+          "The cast kernel was constructed with a different extension type");
     }
 
     // construct an ArrayData object with the underlying storage type
