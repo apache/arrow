@@ -426,6 +426,81 @@ RcppExport SEXP _arrow_ListArray__raw_value_offsets(SEXP array_sexp){
 }
 #endif
 
+// arraydata.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> ArrayData__get_type(const std::shared_ptr<arrow::ArrayData>& x);
+RcppExport SEXP _arrow_ArrayData__get_type(SEXP x_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
+	return Rcpp::wrap(ArrayData__get_type(x));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ArrayData__get_type(SEXP x_sexp){
+	Rf_error("Cannot call ArrayData__get_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// arraydata.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int ArrayData__get_length(const std::shared_ptr<arrow::ArrayData>& x);
+RcppExport SEXP _arrow_ArrayData__get_length(SEXP x_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
+	return Rcpp::wrap(ArrayData__get_length(x));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ArrayData__get_length(SEXP x_sexp){
+	Rf_error("Cannot call ArrayData__get_length(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// arraydata.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int ArrayData__get_null_count(const std::shared_ptr<arrow::ArrayData>& x);
+RcppExport SEXP _arrow_ArrayData__get_null_count(SEXP x_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
+	return Rcpp::wrap(ArrayData__get_null_count(x));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ArrayData__get_null_count(SEXP x_sexp){
+	Rf_error("Cannot call ArrayData__get_null_count(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// arraydata.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int ArrayData__get_offset(const std::shared_ptr<arrow::ArrayData>& x);
+RcppExport SEXP _arrow_ArrayData__get_offset(SEXP x_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
+	return Rcpp::wrap(ArrayData__get_offset(x));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ArrayData__get_offset(SEXP x_sexp){
+	Rf_error("Cannot call ArrayData__get_offset(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// arraydata.cpp
+#if defined(ARROW_R_WITH_ARROW)
+List ArrayData__buffers(const std::shared_ptr<arrow::ArrayData>& x);
+RcppExport SEXP _arrow_ArrayData__buffers(SEXP x_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
+	return Rcpp::wrap(ArrayData__buffers(x));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ArrayData__buffers(SEXP x_sexp){
+	Rf_error("Cannot call ArrayData__buffers(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // array_from_vector.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x);
@@ -549,81 +624,6 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_Table__to_dataframe(SEXP table_sexp, SEXP use_threads_sexp){
 	Rf_error("Cannot call Table__to_dataframe(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// arraydata.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::DataType> ArrayData__get_type(const std::shared_ptr<arrow::ArrayData>& x);
-RcppExport SEXP _arrow_ArrayData__get_type(SEXP x_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
-	return Rcpp::wrap(ArrayData__get_type(x));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ArrayData__get_type(SEXP x_sexp){
-	Rf_error("Cannot call ArrayData__get_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// arraydata.cpp
-#if defined(ARROW_R_WITH_ARROW)
-int ArrayData__get_length(const std::shared_ptr<arrow::ArrayData>& x);
-RcppExport SEXP _arrow_ArrayData__get_length(SEXP x_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
-	return Rcpp::wrap(ArrayData__get_length(x));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ArrayData__get_length(SEXP x_sexp){
-	Rf_error("Cannot call ArrayData__get_length(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// arraydata.cpp
-#if defined(ARROW_R_WITH_ARROW)
-int ArrayData__get_null_count(const std::shared_ptr<arrow::ArrayData>& x);
-RcppExport SEXP _arrow_ArrayData__get_null_count(SEXP x_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
-	return Rcpp::wrap(ArrayData__get_null_count(x));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ArrayData__get_null_count(SEXP x_sexp){
-	Rf_error("Cannot call ArrayData__get_null_count(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// arraydata.cpp
-#if defined(ARROW_R_WITH_ARROW)
-int ArrayData__get_offset(const std::shared_ptr<arrow::ArrayData>& x);
-RcppExport SEXP _arrow_ArrayData__get_offset(SEXP x_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
-	return Rcpp::wrap(ArrayData__get_offset(x));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ArrayData__get_offset(SEXP x_sexp){
-	Rf_error("Cannot call ArrayData__get_offset(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// arraydata.cpp
-#if defined(ARROW_R_WITH_ARROW)
-List ArrayData__buffers(const std::shared_ptr<arrow::ArrayData>& x);
-RcppExport SEXP _arrow_ArrayData__buffers(SEXP x_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
-	return Rcpp::wrap(ArrayData__buffers(x));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ArrayData__buffers(SEXP x_sexp){
-	Rf_error("Cannot call ArrayData__buffers(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -4359,6 +4359,21 @@ RcppExport SEXP _arrow_parquet___arrow___FileReader__ReadTable2(SEXP reader_sexp
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
+int64_t parquet___arrow___FileReader__num_rows(const std::unique_ptr<parquet::arrow::FileReader>& reader);
+RcppExport SEXP _arrow_parquet___arrow___FileReader__num_rows(SEXP reader_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	return Rcpp::wrap(parquet___arrow___FileReader__num_rows(reader));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_parquet___arrow___FileReader__num_rows(SEXP reader_sexp){
+	Rf_error("Cannot call parquet___arrow___FileReader__num_rows(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<parquet::ArrowWriterProperties::Builder> parquet___ArrowWriterProperties___Builder__create();
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__create(){
 BEGIN_RCPP
@@ -5939,6 +5954,11 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ListArray__value_length", (DL_FUNC) &_arrow_ListArray__value_length, 2}, 
 		{ "_arrow_ListArray__value_offset", (DL_FUNC) &_arrow_ListArray__value_offset, 2}, 
 		{ "_arrow_ListArray__raw_value_offsets", (DL_FUNC) &_arrow_ListArray__raw_value_offsets, 1}, 
+		{ "_arrow_ArrayData__get_type", (DL_FUNC) &_arrow_ArrayData__get_type, 1}, 
+		{ "_arrow_ArrayData__get_length", (DL_FUNC) &_arrow_ArrayData__get_length, 1}, 
+		{ "_arrow_ArrayData__get_null_count", (DL_FUNC) &_arrow_ArrayData__get_null_count, 1}, 
+		{ "_arrow_ArrayData__get_offset", (DL_FUNC) &_arrow_ArrayData__get_offset, 1}, 
+		{ "_arrow_ArrayData__buffers", (DL_FUNC) &_arrow_ArrayData__buffers, 1}, 
 		{ "_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1}, 
 		{ "_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 2}, 
 		{ "_arrow_ChunkedArray__from_list", (DL_FUNC) &_arrow_ChunkedArray__from_list, 2}, 
@@ -5947,11 +5967,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1}, 
 		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2}, 
 		{ "_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 2}, 
-		{ "_arrow_ArrayData__get_type", (DL_FUNC) &_arrow_ArrayData__get_type, 1}, 
-		{ "_arrow_ArrayData__get_length", (DL_FUNC) &_arrow_ArrayData__get_length, 1}, 
-		{ "_arrow_ArrayData__get_null_count", (DL_FUNC) &_arrow_ArrayData__get_null_count, 1}, 
-		{ "_arrow_ArrayData__get_offset", (DL_FUNC) &_arrow_ArrayData__get_offset, 1}, 
-		{ "_arrow_ArrayData__buffers", (DL_FUNC) &_arrow_ArrayData__buffers, 1}, 
 		{ "_arrow_Buffer__is_mutable", (DL_FUNC) &_arrow_Buffer__is_mutable, 1}, 
 		{ "_arrow_Buffer__ZeroPadding", (DL_FUNC) &_arrow_Buffer__ZeroPadding, 1}, 
 		{ "_arrow_Buffer__capacity", (DL_FUNC) &_arrow_Buffer__capacity, 1}, 
@@ -6192,6 +6207,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___arrow___FileReader__OpenFile", (DL_FUNC) &_arrow_parquet___arrow___FileReader__OpenFile, 2}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadTable1", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable1, 1}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadTable2", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable2, 2}, 
+		{ "_arrow_parquet___arrow___FileReader__num_rows", (DL_FUNC) &_arrow_parquet___arrow___FileReader__num_rows, 1}, 
 		{ "_arrow_parquet___ArrowWriterProperties___Builder__create", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__create, 0}, 
 		{ "_arrow_parquet___ArrowWriterProperties___Builder__store_schema", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__store_schema, 1}, 
 		{ "_arrow_parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps, 1}, 
