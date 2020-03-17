@@ -18,6 +18,7 @@
 from datetime import datetime
 import gzip
 import pathlib
+import pickle
 import urllib.parse
 import sys
 
@@ -26,7 +27,7 @@ import pytest
 import pyarrow as pa
 from pyarrow.tests.test_io import assert_file_not_found
 from pyarrow.fs import (FileType, FileSelector, FileSystem, LocalFileSystem,
-                        LocalFileSystemOptions, SubTreeFileSystem,
+                        SubTreeFileSystem,
                         _MockFileSystem)
 
 
@@ -193,6 +194,13 @@ def allow_append_to_file(request, filesystem_config):
 def test_cannot_instantiate_base_filesystem():
     with pytest.raises(TypeError):
         FileSystem()
+
+
+def test_filesystem_pickling(fs):
+    restored = pickle.loads(pickle.dumps(fs))
+    assert isinstance(restored, FileSystem)
+    # TODO(kszucs): implement Equals
+    # assert restored == fs
 
 
 def test_non_path_like_input_raises(fs):
@@ -473,22 +481,10 @@ def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
 
 
 def test_localfs_options():
-    options = LocalFileSystemOptions()
-    assert options.use_mmap is False
-    options.use_mmap = True
-    assert options.use_mmap is True
-
-    with pytest.raises(AttributeError):
-        options.xxx = True
-
-    options = LocalFileSystemOptions(use_mmap=True)
-    assert options.use_mmap is True
-
     # LocalFileSystem instantiation
-    LocalFileSystem(LocalFileSystemOptions(use_mmap=True))
     LocalFileSystem(use_mmap=False)
 
-    with pytest.raises(AttributeError):
+    with pytest.raises(TypeError):
         LocalFileSystem(xxx=False)
 
 

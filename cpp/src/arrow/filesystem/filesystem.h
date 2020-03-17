@@ -258,6 +258,8 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
   ~SubTreeFileSystem() override;
 
   std::string type_name() const override { return "subtree"; }
+  std::string base_path() const { return base_path_; }
+  std::shared_ptr<FileSystem> base_fs() const { return base_fs_; }
 
   Result<std::string> NormalizePath(std::string path) override;
 

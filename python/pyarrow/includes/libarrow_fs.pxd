@@ -95,11 +95,14 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
     cdef cppclass CLocalFileSystem "arrow::fs::LocalFileSystem"(CFileSystem):
         CLocalFileSystem()
         CLocalFileSystem(CLocalFileSystemOptions)
+        CLocalFileSystemOptions options()
 
     cdef cppclass CSubTreeFileSystem \
             "arrow::fs::SubTreeFileSystem"(CFileSystem):
         CSubTreeFileSystem(const c_string& base_path,
                            shared_ptr[CFileSystem] base_fs)
+        c_string base_path()
+        shared_ptr[CFileSystem] base_fs()
 
     ctypedef enum CS3LogLevel "arrow::fs::S3LogLevel":
         CS3LogLevel_Off "arrow::fs::S3LogLevel::Off"

@@ -25,7 +25,6 @@ from pyarrow._fs import (  # noqa
     FileInfo,
     FileSystem,
     LocalFileSystem,
-    LocalFileSystemOptions,
     SubTreeFileSystem,
     _MockFileSystem,
     _normalize_path
