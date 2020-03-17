@@ -15,7 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import contextlib
 import operator
+import os
 
 import numpy as np
 import pytest
@@ -36,6 +38,16 @@ except ImportError:
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not dataset'
 pytestmark = pytest.mark.dataset
+
+
+@contextlib.contextmanager
+def change_cwd(path):
+    curdir = os.getcwd()
+    os.chdir(str(path))
+    try:
+        yield
+    finally:
+        os.chdir(curdir)
 
 
 def _generate_data(n):
@@ -600,6 +612,13 @@ def _check_dataset_from_path(path, table, **kwargs):
     assert dataset.schema.equals(table.schema)
     result = dataset.to_table(use_threads=False)  # deterministic row order
     assert result.equals(table)
+
+    # relative string path
+    with change_cwd(path.parent):
+        dataset = ds.dataset(ds.factory(path.name, **kwargs))
+        assert dataset.schema.equals(table.schema)
+        result = dataset.to_table(use_threads=False)  # deterministic row order
+        assert result.equals(table)
 
     # passing directly to dataset
     dataset = ds.dataset(str(path), **kwargs)
