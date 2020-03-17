@@ -32,6 +32,7 @@ pushd ${build_dir}
 
 cmake -DCMAKE_INSTALL_PREFIX=${ARROW_HOME} \
       -DCMAKE_CXX_FLAGS=${CXXFLAGS} \
+      -DPYTHON_EXECUTABLE=$(which python) \
       -GNinja \
       ${source_dir}
 ninja install

@@ -175,6 +175,12 @@ class DictionaryBuilderBase : public ArrayBuilder {
     return Append(util::string_view(value, length));
   }
 
+  /// \brief Append a string (only for string types)
+  template <typename T1 = T>
+  enable_if_string_like<T1, Status> Append(const char* value, int32_t length) {
+    return Append(util::string_view(value, length));
+  }
+
   /// \brief Append a scalar null value
   Status AppendNull() final {
     length_ += 1;
