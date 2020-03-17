@@ -390,20 +390,23 @@ class TimestampConverter : public ConcreteConverter {
     using value_type = TimestampType::c_type;
 
     TimestampBuilder builder(type_, pool_);
-    StringConverter<TimestampType> converter(type_);
+    auto& converters = options_.timestamp_converters;
 
     auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-      value_type value = 0;
-      if (IsNull(data, size, quoted)) {
-        builder.UnsafeAppendNull();
+      for (auto& converter : converters) {
+        value_type value = 0;
+        if (IsNull(data, size, quoted)) {
+          builder.UnsafeAppendNull();
+          return Status::OK();
+        }
+        if (ARROW_PREDICT_FALSE(
+                !converter(type_, reinterpret_cast<const char*>(data), size, &value))) {
+          continue;
+        }
+        builder.UnsafeAppend(value);
         return Status::OK();
       }
-      if (ARROW_PREDICT_FALSE(
-              !converter(reinterpret_cast<const char*>(data), size, &value))) {
-        return GenericConversionError(type_, data, size);
-      }
-      builder.UnsafeAppend(value);
-      return Status::OK();
+      return GenericConversionError(type_, data, size);
     };
     RETURN_NOT_OK(builder.Resize(parser.num_rows()));
     RETURN_NOT_OK(parser.VisitColumn(col_index, visit));

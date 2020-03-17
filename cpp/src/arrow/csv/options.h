@@ -24,6 +24,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/timestamp_converter.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -100,6 +101,9 @@ struct ARROW_EXPORT ConvertOptions {
   /// or null by default)
   /// This option is ignored if `include_columns` is empty.
   bool include_missing_columns = false;
+
+  std::vector<std::unique_ptr<TimestampConverter>> timestamp_converters = {
+      Iso8601Converter::Make()};
 
   /// Create conversion options with default values, including conventional
   /// values for `null_values`, `true_values` and `false_values`

@@ -143,6 +143,7 @@ set(ARROW_SRCS
     record_batch.cc
     result.cc
     scalar.cc
+    timestamp_converter.cc
     sparse_tensor.cc
     status.cc
     table.cc
