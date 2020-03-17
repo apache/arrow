@@ -46,7 +46,8 @@ RUN apt-get update -y && \
         pandoc \
         r-base=${r}* \
         rsync \
-        ruby-dev && \
+        ruby-dev \
+        wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
