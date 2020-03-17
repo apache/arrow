@@ -421,11 +421,13 @@ struct CastFunctor<O, Decimal128Type, enable_if_t<is_integer_type<O>::value>> {
 
     constexpr auto min_value = std::numeric_limits<out_type>::min();
     constexpr auto max_value = std::numeric_limits<out_type>::max();
+    constexpr auto zero = out_type{};
 
     if (options.allow_decimal_truncate) {
       if (in_scale < 0) {
         // Unsafe upscale
         auto convert_value = [&](util::optional<util::string_view> v) {
+          *out_data = zero;
           if (v.has_value()) {
             auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
             auto converted = dec_value.IncreaseScaleBy(-in_scale);
@@ -442,6 +444,7 @@ struct CastFunctor<O, Decimal128Type, enable_if_t<is_integer_type<O>::value>> {
       } else {
         // Unsafe downscale
         auto convert_value = [&](util::optional<util::string_view> v) {
+          *out_data = zero;
           if (v.has_value()) {
             auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
             auto converted = dec_value.ReduceScaleBy(in_scale, false);
@@ -459,6 +462,7 @@ struct CastFunctor<O, Decimal128Type, enable_if_t<is_integer_type<O>::value>> {
     } else {
       // Safe rescale
       auto convert_value = [&](util::optional<util::string_view> v) {
+        *out_data = zero;
         if (v.has_value()) {
           auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
           auto result = dec_value.Rescale(in_scale, 0);
@@ -494,6 +498,8 @@ struct CastFunctor<Decimal128Type, Decimal128Type> {
 
     auto out_data = output->GetMutableValues<uint8_t>(1);
 
+    const auto write_zero = [](uint8_t* out_data) { memset(out_data, 0, 16); };
+
     if (options.allow_decimal_truncate) {
       if (in_scale < out_scale) {
         // Unsafe upscale
@@ -501,6 +507,8 @@ struct CastFunctor<Decimal128Type, Decimal128Type> {
           if (v.has_value()) {
             auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
             dec_value.IncreaseScaleBy(out_scale - in_scale).ToBytes(out_data);
+          } else {
+            write_zero(out_data);
           }
           out_data += 16;
         };
@@ -511,6 +519,8 @@ struct CastFunctor<Decimal128Type, Decimal128Type> {
           if (v.has_value()) {
             auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
             dec_value.ReduceScaleBy(in_scale - out_scale, false).ToBytes(out_data);
+          } else {
+            write_zero(out_data);
           }
           out_data += 16;
         };
@@ -524,9 +534,12 @@ struct CastFunctor<Decimal128Type, Decimal128Type> {
           auto result = dec_value.Rescale(in_scale, out_scale);
           if (ARROW_PREDICT_FALSE(!result.ok())) {
             ctx->SetStatus(result.status());
+            write_zero(out_data);
           } else {
             (*std::move(result)).ToBytes(out_data);
           }
+        } else {
+          write_zero(out_data);
         }
         out_data += 16;
       };
