@@ -1127,6 +1127,42 @@ class ZeroCopyCast : public CastKernelBase {
   }
 };
 
+class ExtensionCastKernel : public CastKernelBase {
+ public:
+  static Status Make(const DataType& in_type, std::shared_ptr<DataType> out_type,
+                     const CastOptions& options,
+                     std::unique_ptr<CastKernelBase>* kernel) {
+    if (in_type.id() != Type::EXTENSION) {
+      return Status::TypeError("Not an extension type");
+    }
+    auto storage_type = checked_cast<const ExtensionType&>(in_type).storage_type();
+
+    std::unique_ptr<UnaryKernel> storage_caster;
+    RETURN_NOT_OK(GetCastFunction(*storage_type, out_type, options, &storage_caster));
+    kernel->reset(
+        new ExtensionCastKernel(std::move(storage_caster), std::move(out_type)));
+
+    return Status::OK();
+  }
+
+  Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
+    DCHECK_EQ(input.kind(), Datum::ARRAY);
+    if (input.type()->id() != Type::EXTENSION) {
+      return Status::TypeError("Not an extension type");
+    }
+    auto new_input = input.array()->Copy();
+    new_input->type = checked_cast<const ExtensionType&>(*new_input->type).storage_type();
+    return InvokeWithAllocation(ctx, storage_caster_.get(), new_input, out);
+  }
+
+ protected:
+  ExtensionCastKernel(std::unique_ptr<UnaryKernel> storage_caster,
+                      std::shared_ptr<DataType> out_type)
+      : CastKernelBase(std::move(out_type)), storage_caster_(std::move(storage_caster)) {}
+
+  std::unique_ptr<UnaryKernel> storage_caster_;
+};
+
 class CastKernel : public CastKernelBase {
  public:
   CastKernel(const CastOptions& options, const CastFunction& func,
@@ -1275,14 +1311,6 @@ Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_ty
     return Status::OK();
   }
 
-  if (in_type.id() == Type::NA) {
-    kernel->reset(new FromNullCastKernel(std::move(out_type)));
-    return Status::OK();
-  } else if (in_type.id() == Type::EXTENSION) {
-    auto storage_type = dynamic_cast<const ExtensionType&>(in_type).storage_type();
-    return GetCastFunction(*storage_type, out_type, options, kernel);
-  }
-
   std::unique_ptr<CastKernelBase> cast_kernel;
   switch (in_type.id()) {
     CAST_FUNCTION_CASE(BooleanType);
@@ -1307,6 +1335,9 @@ Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_ty
     CAST_FUNCTION_CASE(LargeBinaryType);
     CAST_FUNCTION_CASE(LargeStringType);
     CAST_FUNCTION_CASE(DictionaryType);
+    case Type::NA:
+      cast_kernel.reset(new FromNullCastKernel(std::move(out_type)));
+      break;
     case Type::LIST:
       RETURN_NOT_OK(
           GetListCastFunc<ListType>(in_type, std::move(out_type), options, &cast_kernel));
@@ -1314,6 +1345,10 @@ Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_ty
     case Type::LARGE_LIST:
       RETURN_NOT_OK(GetListCastFunc<LargeListType>(in_type, std::move(out_type), options,
                                                    &cast_kernel));
+      break;
+    case Type::EXTENSION:
+      RETURN_NOT_OK(ExtensionCastKernel::Make(std::move(in_type), std::move(out_type),
+                                              options, &cast_kernel));
       break;
     default:
       break;

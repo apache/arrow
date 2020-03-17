@@ -181,11 +181,31 @@ def test_cast_kernel_on_extension_arrays():
     # test array casting
     storage = pa.array([1, 2, 3, 4], pa.int64())
     arr = pa.ExtensionArray.from_storage(IntegerType(), storage)
-    assert arr.cast(pa.int32()).type == pa.int32()
+
+    cases = [
+        (pa.int64(), pa.Int64Array),
+        (pa.int32(), pa.Int32Array),
+        (pa.int16(), pa.Int16Array),
+        (pa.uint64(), pa.UInt64Array),
+        (pa.uint32(), pa.UInt32Array),
+        (pa.uint16(), pa.UInt16Array)
+    ]
+    for typ, klass in cases:
+        casted = arr.cast(typ)
+        assert casted.type == typ
+        assert isinstance(casted, klass)
 
     # test chunked array casting
     arr = pa.chunked_array([arr, arr])
-    assert arr.cast(pa.int16()).type == pa.int16()
+    casted = arr.cast(pa.int16())
+    assert casted.type == pa.int16()
+    assert isinstance(casted, pa.ChunkedArray)
+
+
+def test_casting_to_extension_type_raises():
+    arr = pa.array([1, 2, 3, 4], pa.int64())
+    with pytest.raises(pa.ArrowNotImplementedError):
+        arr.cast(IntegerType())
 
 
 def example_batch():
