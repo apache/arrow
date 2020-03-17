@@ -100,7 +100,7 @@ test_that("Simple interface for datasets", {
 
 test_that("dim method returns the correct number of rows and columns",{
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  expect_equal(dim(ds), c(20, 7))
+  expect_identical(dim(ds), c(20L, 7L))
 })
 
 test_that("Simple interface for datasets (custom ParquetFileFormat)", {
