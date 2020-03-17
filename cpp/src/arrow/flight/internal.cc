@@ -50,7 +50,7 @@ const char* kGrpcStatusCodeHeader = "x-arrow-status";
 const char* kGrpcStatusMessageHeader = "x-arrow-status-message-bin";
 const char* kGrpcStatusDetailHeader = "x-arrow-status-detail-bin";
 
-Status StatusCodeFromString(const grpc::string_ref& code_ref, StatusCode* code) {
+static Status StatusCodeFromString(const grpc::string_ref& code_ref, StatusCode* code) {
   // Bounce through std::string to get a proper null-terminated C string
   const auto code_int = std::atoi(std::string(code_ref.data(), code_ref.size()).c_str());
   switch (code_int) {
@@ -78,9 +78,9 @@ Status StatusCodeFromString(const grpc::string_ref& code_ref, StatusCode* code) 
   }
 }
 
-/// Try to extract a status from gRPC trailers. If not found, return
-/// Status::OK.
-Status FromGrpcContext(const grpc::ClientContext& ctx, Status* status) {
+/// Try to extract a status from gRPC trailers.
+/// Return Status::OK if found, an error otherwise.
+static Status FromGrpcContext(const grpc::ClientContext& ctx, Status* status) {
   const std::multimap<grpc::string_ref, grpc::string_ref>& trailers =
       ctx.GetServerTrailingMetadata();
   const auto code_val = trailers.find(kGrpcStatusCodeHeader);
@@ -111,7 +111,7 @@ Status FromGrpcContext(const grpc::ClientContext& ctx, Status* status) {
 
 /// Convert a gRPC status to an Arrow status, ignoring any
 /// implementation-defined headers that encode further detail.
-Status FromGrpcCode(const grpc::Status& grpc_status) {
+static Status FromGrpcCode(const grpc::Status& grpc_status) {
   switch (grpc_status.error_code()) {
     case grpc::StatusCode::OK:
       return Status::OK();
@@ -185,13 +185,9 @@ Status FromGrpcCode(const grpc::Status& grpc_status) {
 }
 
 Status FromGrpcStatus(const grpc::Status& grpc_status, grpc::ClientContext* ctx) {
-  if (grpc_status.ok()) {
-    return Status::OK();
-  }
-
   const Status status = FromGrpcCode(grpc_status);
 
-  if (ctx) {
+  if (!status.ok() && ctx) {
     Status arrow_status;
 
     if (!FromGrpcContext(*ctx, &arrow_status).ok()) {
@@ -209,7 +205,7 @@ Status FromGrpcStatus(const grpc::Status& grpc_status, grpc::ClientContext* ctx)
 }
 
 /// Convert an Arrow status to a gRPC status.
-grpc::Status ToRawGrpcStatus(const Status& arrow_status) {
+static grpc::Status ToRawGrpcStatus(const Status& arrow_status) {
   if (arrow_status.ok()) {
     return grpc::Status::OK;
   }
@@ -261,12 +257,8 @@ grpc::Status ToRawGrpcStatus(const Status& arrow_status) {
 /// Convert an Arrow status to a gRPC status, and add extra headers to
 /// the response to encode the original Arrow status.
 grpc::Status ToGrpcStatus(const Status& arrow_status, grpc::ServerContext* ctx) {
-  if (arrow_status.ok()) {
-    return grpc::Status::OK;
-  }
-
   grpc::Status status = ToRawGrpcStatus(arrow_status);
-  if (ARROW_PREDICT_FALSE(!status.ok()) && ctx) {
+  if (!status.ok() && ctx) {
     const std::string code = std::to_string(static_cast<int>(arrow_status.code()));
     ctx->AddTrailingMetadata(internal::kGrpcStatusCodeHeader, code);
     ctx->AddTrailingMetadata(internal::kGrpcStatusMessageHeader, arrow_status.message());
