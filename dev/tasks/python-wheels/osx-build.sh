@@ -38,7 +38,7 @@ function build_wheel {
     pushd $1
 
     # For bzip_ep to find the osx SDK headers
-    export CFLAGS="-isysroot $(xcrun --show-sdk-path)"
+    export SDKROOT="$(xcrun --show-sdk-path)"
 
     # Arrow is 64-bit-only at the moment
     export CFLAGS="-fPIC -arch x86_64 ${CFLAGS//"-arch i386"/}"
