@@ -1162,8 +1162,9 @@ class ExtensionCastKernel : public CastKernelBase {
     const auto& input_type = checked_cast<const ExtensionType&>(*input.type());
     if (input_type.extension_name() != extension_name_) {
       return Status::TypeError(
-          "The cast kernel was constructed to cast from the extension type named '", extension_name_, 
-          "' but input has named extension type name '", input_type.extension_name(), "'");
+          "The cast kernel was constructed to cast from the extension type named '",
+          extension_name_, "' but input has extension type named '",
+          input_type.extension_name(), "'");
     }
     if (!input_type.storage_type()->Equals(storage_type_)) {
       return Status::TypeError(
