@@ -1135,7 +1135,7 @@ class ExtensionCastKernel : public CastKernelBase {
     if (in_type.id() != Type::EXTENSION) {
       return Status::TypeError("Not an extension type");
     }
-    auto storage_type = checked_cast<const ExtensionType&>(in_type).storage_type();
+    const auto storage_type = checked_cast<const ExtensionType&>(in_type).storage_type();
 
     std::unique_ptr<UnaryKernel> storage_caster;
     RETURN_NOT_OK(GetCastFunction(*storage_type, out_type, options, &storage_caster));
@@ -1145,13 +1145,31 @@ class ExtensionCastKernel : public CastKernelBase {
     return Status::OK();
   }
 
+  Status Init(const DataType& in_type) override {
+    auto& type = checked_cast<const ExtensionType&>(in_type);
+    storage_type_ = type.storage_type();
+    extension_name_ = type.extension_name();
+    return Status::OK();
+  }
+
   Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
     DCHECK_EQ(input.kind(), Datum::ARRAY);
     if (input.type()->id() != Type::EXTENSION) {
       return Status::TypeError("Not an extension type");
     }
+
+    // validate: type is the same as the type the kernel was constructed with
+    auto& input_type = checked_cast<const ExtensionType&>(*input.type());
+    if (input_type.extension_name() != extension_name_) {
+      return Status::TypeError("EEEE");
+    }
+    if (!input_type.storage_type()->Equals(storage_type_)) {
+      return Status::TypeError("FFF");
+    }
+
+    // construct an ArrayData object with the underlying storage type
     auto new_input = input.array()->Copy();
-    new_input->type = checked_cast<const ExtensionType&>(*new_input->type).storage_type();
+    new_input->type = storage_type_;
     return InvokeWithAllocation(ctx, storage_caster_.get(), new_input, out);
   }
 
@@ -1160,6 +1178,8 @@ class ExtensionCastKernel : public CastKernelBase {
                       std::shared_ptr<DataType> out_type)
       : CastKernelBase(std::move(out_type)), storage_caster_(std::move(storage_caster)) {}
 
+  std::string extension_name_;
+  std::shared_ptr<DataType> storage_type_;
   std::unique_ptr<UnaryKernel> storage_caster_;
 };
 
