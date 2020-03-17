@@ -661,28 +661,39 @@ def test_open_dataset_list_of_files(tempdir):
 def test_open_dataset_partitioned_directory(tempdir):
     import pyarrow.parquet as pq
     table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
+
+    path = tempdir / "dataset"
+    path.mkdir()
+
     for part in range(3):
-        path = tempdir / "part={}".format(part)
-        path.mkdir()
-        pq.write_table(table, path / "test.parquet")
+        part = path / "part={}".format(part)
+        part.mkdir()
+        pq.write_table(table, part / "test.parquet")
 
     # no partitioning specified, just read all individual files
     full_table = pa.concat_tables([table] * 3)
-    _check_dataset_from_path(tempdir, full_table)
+    _check_dataset_from_path(path, full_table)
 
     # specify partition scheme with discovery
     dataset = ds.dataset(
-        str(tempdir), partitioning=ds.partitioning(flavor="hive"))
+        str(path), partitioning=ds.partitioning(flavor="hive"))
     expected_schema = table.schema.append(pa.field("part", pa.int32()))
     assert dataset.schema.equals(expected_schema)
 
+    # specify partition scheme with discovery and relative path
+    with change_cwd(tempdir):
+        dataset = ds.dataset(
+            "dataset/", partitioning=ds.partitioning(flavor="hive"))
+        expected_schema = table.schema.append(pa.field("part", pa.int32()))
+        assert dataset.schema.equals(expected_schema)
+
     # specify partition scheme with string short-cut
-    dataset = ds.dataset(str(tempdir), partitioning="hive")
+    dataset = ds.dataset(str(path), partitioning="hive")
     assert dataset.schema.equals(expected_schema)
 
     # specify partition scheme with explicit scheme
     dataset = ds.dataset(
-        str(tempdir),
+        str(path),
         partitioning=ds.partitioning(
             pa.schema([("part", pa.int8())]), flavor="hive"))
     expected_schema = table.schema.append(pa.field("part", pa.int8()))
@@ -706,6 +717,11 @@ def test_open_dataset_filesystem(tempdir):
     # filesystem specified
     dataset2 = ds.dataset(str(path), filesystem=fs.LocalFileSystem())
     assert dataset2.schema.equals(table.schema)
+
+    # local filesystem specified with relative path
+    with change_cwd(tempdir):
+        dataset3 = ds.dataset("test.parquet", filesystem=fs.LocalFileSystem())
+    assert dataset3.schema.equals(table.schema)
 
     # passing different filesystem
     with pytest.raises(FileNotFoundError):
