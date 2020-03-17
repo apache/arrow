@@ -1239,4 +1239,11 @@ public final class ArrowBuf implements AutoCloseable {
        "(expected:0 <= readerIndex <= writerIndex <= capacity(%d))", readerIndex, writerIndex, this.capacity()));
     }
   }
+
+  /**
+   * Create an empty ArrowBuf with length.
+   */
+  public static ArrowBuf empty(long length) {
+    return new ArrowBuf(ReferenceManager.NO_OP, null,length, new PooledByteBufAllocatorL().empty.memoryAddress());
+  }
 }

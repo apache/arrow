@@ -134,6 +134,9 @@ public class TestArrowBuf {
     assertEquals(3, buf.capacity());
     assertEquals(1, buf.getReferenceManager().getRefCount());
     buf.close();
+
+    ArrowBuf buf2 = ArrowBuf.empty(10);
+    assertEquals(10, buf2.capacity());
   }
 
 }
