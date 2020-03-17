@@ -20,7 +20,7 @@ from pyarrow.includes.libarrow cimport (CArray, CDataType, CField,
                                         CRecordBatch, CSchema,
                                         CTable, CTensor,
                                         CSparseCOOTensor, CSparseCSRMatrix,
-                                        CSparseCSCMatrix)
+                                        CSparseCSCMatrix, CSparseCSFTensor)
 
 # You cannot assign something to a dereferenced pointer in Cython thus these
 # methods don't use Status to indicate a successful operation.
@@ -344,6 +344,29 @@ cdef api object pyarrow_wrap_sparse_csc_matrix(
 
     cdef SparseCSCMatrix sparse_tensor = SparseCSCMatrix.__new__(
         SparseCSCMatrix)
+    sparse_tensor.init(sp_sparse_tensor)
+    return sparse_tensor
+
+
+cdef api bint pyarrow_is_sparse_csf_tensor(object sparse_tensor):
+    return isinstance(sparse_tensor, SparseCSFTensor)
+
+cdef api shared_ptr[CSparseCSFTensor] pyarrow_unwrap_sparse_csf_tensor(
+        object sparse_tensor):
+    cdef SparseCSFTensor sten
+    if pyarrow_is_sparse_csf_tensor(sparse_tensor):
+        sten = <SparseCSFTensor>(sparse_tensor)
+        return sten.sp_sparse_tensor
+
+    return shared_ptr[CSparseCSFTensor]()
+
+cdef api object pyarrow_wrap_sparse_csf_tensor(
+        const shared_ptr[CSparseCSFTensor]& sp_sparse_tensor):
+    if sp_sparse_tensor.get() == NULL:
+        raise ValueError('SparseCSFTensor was NULL')
+
+    cdef SparseCSFTensor sparse_tensor = SparseCSFTensor.__new__(
+        SparseCSFTensor)
     sparse_tensor.init(sp_sparse_tensor)
     return sparse_tensor
 

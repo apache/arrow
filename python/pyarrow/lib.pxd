@@ -325,6 +325,17 @@ cdef class SparseCOOTensor:
     cdef void init(self, const shared_ptr[CSparseCOOTensor]& sp_sparse_tensor)
 
 
+cdef class SparseCSFTensor:
+    cdef:
+        shared_ptr[CSparseCSFTensor] sp_sparse_tensor
+        CSparseCSFTensor* stp
+
+    cdef readonly:
+        DataType type
+
+    cdef void init(self, const shared_ptr[CSparseCSFTensor]& sp_sparse_tensor)
+
+
 cdef class NullArray(Array):
     pass
 
@@ -597,6 +608,8 @@ cdef public object pyarrow_wrap_sparse_csr_matrix(
     const shared_ptr[CSparseCSRMatrix]& sp_sparse_tensor)
 cdef public object pyarrow_wrap_sparse_csc_matrix(
     const shared_ptr[CSparseCSCMatrix]& sp_sparse_tensor)
+cdef public object pyarrow_wrap_sparse_csf_tensor(
+    const shared_ptr[CSparseCSFTensor]& sp_sparse_tensor)
 
 cdef public shared_ptr[CScalar] pyarrow_unwrap_scalar(object scalar)
 cdef public shared_ptr[CArray] pyarrow_unwrap_array(object array)
@@ -612,4 +625,6 @@ cdef public shared_ptr[CSparseCOOTensor] pyarrow_unwrap_sparse_coo_tensor(
 cdef public shared_ptr[CSparseCSRMatrix] pyarrow_unwrap_sparse_csr_matrix(
     object sparse_tensor)
 cdef public shared_ptr[CSparseCSCMatrix] pyarrow_unwrap_sparse_csc_matrix(
+    object sparse_tensor)
+cdef public shared_ptr[CSparseCSFTensor] pyarrow_unwrap_sparse_csf_tensor(
     object sparse_tensor)

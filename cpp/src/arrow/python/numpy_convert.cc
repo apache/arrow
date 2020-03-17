@@ -384,6 +384,46 @@ Status SparseCSCMatrixToNdarray(const std::shared_ptr<SparseCSCMatrix>& sparse_t
   return SparseCSXMatrixToNdarray(sparse_tensor, base, out_data, out_indptr, out_indices);
 }
 
+Status SparseCSFTensorToNdarray(const std::shared_ptr<SparseCSFTensor>& sparse_tensor,
+                                PyObject* base, PyObject** out_data,
+                                PyObject** out_indptr, PyObject** out_indices) {
+  const auto& sparse_index = arrow::internal::checked_cast<const SparseCSFIndex&>(
+      *sparse_tensor->sparse_index());
+
+  // Wrap tensor data
+  OwnedRef result_data;
+  RETURN_NOT_OK(SparseTensorDataToNdarray(
+      *sparse_tensor, {sparse_tensor->non_zero_length(), 1}, base, result_data.ref()));
+
+  // Wrap indices
+  int ndim = static_cast<int>(sparse_index.indices().size());
+  OwnedRef indptr(PyList_New(ndim - 1));
+  OwnedRef indices(PyList_New(ndim));
+  RETURN_IF_PYERROR();
+
+  for (int i = 0; i < ndim - 1; ++i) {
+    PyObject* item;
+    RETURN_NOT_OK(TensorToNdarray(sparse_index.indptr()[i], base, &item));
+    if (PyList_SetItem(indptr.obj(), i, item) < 0) {
+      Py_XDECREF(item);
+      RETURN_IF_PYERROR();
+    }
+  }
+  for (int i = 0; i < ndim; ++i) {
+    PyObject* item;
+    RETURN_NOT_OK(TensorToNdarray(sparse_index.indices()[i], base, &item));
+    if (PyList_SetItem(indices.obj(), i, item) < 0) {
+      Py_XDECREF(item);
+      RETURN_IF_PYERROR();
+    }
+  }
+
+  *out_indptr = indptr.detach();
+  *out_indices = indices.detach();
+  *out_data = result_data.detach();
+  return Status::OK();
+}
+
 Status NdarraysToSparseCOOTensor(MemoryPool* pool, PyObject* data_ao, PyObject* coords_ao,
                                  const std::vector<int64_t>& shape,
                                  const std::vector<std::string>& dim_names,
@@ -439,6 +479,48 @@ Status NdarraysToSparseCSXMatrix(MemoryPool* pool, PyObject* data_ao, PyObject* 
   return Status::OK();
 }
 
+Status NdarraysToSparseCSFTensor(MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao,
+                                 PyObject* indices_ao, const std::vector<int64_t>& shape,
+                                 const std::vector<int64_t>& axis_order,
+                                 const std::vector<std::string>& dim_names,
+                                 std::shared_ptr<SparseCSFTensor>* out) {
+  if (!PyArray_Check(data_ao)) {
+    return Status::TypeError("Did not pass ndarray object for data");
+  }
+  const int ndim = static_cast<const int>(shape.size());
+  PyArrayObject* ndarray_data = reinterpret_cast<PyArrayObject*>(data_ao);
+  std::shared_ptr<Buffer> data = std::make_shared<NumPyBuffer>(data_ao);
+  std::shared_ptr<DataType> type_data;
+  RETURN_NOT_OK(GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray_data)),
+                              &type_data));
+
+  std::vector<std::shared_ptr<Tensor>> indptr(ndim - 1);
+  std::vector<std::shared_ptr<Tensor>> indices(ndim);
+
+  for (int i = 0; i < ndim - 1; ++i) {
+    PyObject* item = PySequence_Fast_GET_ITEM(indptr_ao, i);
+    if (!PyArray_Check(item)) {
+      return Status::TypeError("Did not pass ndarray object for indptr");
+    }
+    RETURN_NOT_OK(NdarrayToTensor(pool, item, {}, &indptr[i]));
+    ARROW_CHECK_EQ(indptr[i]->type_id(), Type::INT64);  // Should be ensured by caller
+  }
+
+  for (int i = 0; i < ndim; ++i) {
+    PyObject* item = PySequence_Fast_GET_ITEM(indices_ao, i);
+    if (!PyArray_Check(item)) {
+      return Status::TypeError("Did not pass ndarray object for indices");
+    }
+    RETURN_NOT_OK(NdarrayToTensor(pool, item, {}, &indices[i]));
+    ARROW_CHECK_EQ(indices[i]->type_id(), Type::INT64);  // Should be ensured by caller
+  }
+
+  auto sparse_index = std::make_shared<SparseCSFIndex>(indptr, indices, axis_order);
+  *out = std::make_shared<SparseTensorImpl<SparseCSFIndex>>(sparse_index, type_data, data,
+                                                            shape, dim_names);
+  return Status::OK();
+}
+
 Status NdarraysToSparseCSRMatrix(MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao,
                                  PyObject* indices_ao, const std::vector<int64_t>& shape,
                                  const std::vector<std::string>& dim_names,
@@ -468,6 +550,11 @@ Status TensorToSparseCSRMatrix(const std::shared_ptr<Tensor>& tensor,
 Status TensorToSparseCSCMatrix(const std::shared_ptr<Tensor>& tensor,
                                std::shared_ptr<SparseCSCMatrix>* out) {
   return SparseCSCMatrix::Make(*tensor).Value(out);
+}
+
+Status TensorToSparseCSFTensor(const std::shared_ptr<Tensor>& tensor,
+                               std::shared_ptr<SparseCSFTensor>* out) {
+  return SparseCSFTensor::Make(*tensor).Value(out);
 }
 
 }  // namespace py

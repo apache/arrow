@@ -203,8 +203,8 @@ shape: {0.shape}""".format(self)
         coords = np.require(coords, dtype='i8', requirements='C')
 
         check_status(NdarraysToSparseCOOTensor(c_default_memory_pool(),
-                     obj.data, coords, c_shape, c_dim_names,
-                     &csparse_tensor))
+                                               obj.data, coords, c_shape,
+                                               c_dim_names, &csparse_tensor))
         return pyarrow_wrap_sparse_coo_tensor(csparse_tensor)
 
     @staticmethod
@@ -230,8 +230,8 @@ shape: {0.shape}""".format(self)
         coords = np.require(obj.coords.T, dtype='i8', requirements='C')
 
         check_status(NdarraysToSparseCOOTensor(c_default_memory_pool(),
-                     obj.data, coords, c_shape, c_dim_names,
-                     &csparse_tensor))
+                                               obj.data, coords, c_shape,
+                                               c_dim_names, &csparse_tensor))
         return pyarrow_wrap_sparse_coo_tensor(csparse_tensor)
 
     @staticmethod
@@ -422,8 +422,9 @@ shape: {0.shape}""".format(self)
         indices = np.require(obj.indices, dtype='i8')
 
         check_status(NdarraysToSparseCSRMatrix(c_default_memory_pool(),
-                     obj.data, indptr, indices, c_shape,
-                     c_dim_names, &csparse_tensor))
+                                               obj.data, indptr, indices,
+                                               c_shape, c_dim_names,
+                                               &csparse_tensor))
         return pyarrow_wrap_sparse_csr_matrix(csparse_tensor)
 
     @staticmethod
@@ -463,7 +464,8 @@ shape: {0.shape}""".format(self)
         cdef PyObject* out_indices
 
         check_status(SparseCSRMatrixToNdarray(self.sp_sparse_tensor, self,
-                     &out_data, &out_indptr, &out_indices))
+                                              &out_data, &out_indptr,
+                                              &out_indices))
 
         data = PyObject_to_object(out_data)
         indptr = PyObject_to_object(out_indptr)
@@ -477,7 +479,8 @@ shape: {0.shape}""".format(self)
         """
 
         cdef shared_ptr[CTensor] ctensor
-        check_status(self.stp.ToTensor(&ctensor))
+        with nogil:
+            check_status(self.stp.ToTensor(&ctensor))
 
         return pyarrow_wrap_tensor(ctensor)
 
@@ -671,6 +674,159 @@ shape: {0.shape}""".format(self)
 
     def __eq__(self, other):
         if isinstance(other, SparseCSCMatrix):
+            return self.equals(other)
+        else:
+            return NotImplemented
+
+    @property
+    def is_mutable(self):
+        return self.stp.is_mutable()
+
+    @property
+    def ndim(self):
+        return self.stp.ndim()
+
+    @property
+    def shape(self):
+        # Cython knows how to convert a vector[T] to a Python list
+        return tuple(self.stp.shape())
+
+    @property
+    def size(self):
+        return self.stp.size()
+
+    def dim_name(self, i):
+        return frombytes(self.stp.dim_name(i))
+
+    @property
+    def dim_names(self):
+        return tuple(frombytes(x) for x in tuple(self.stp.dim_names()))
+
+    @property
+    def non_zero_length(self):
+        return self.stp.non_zero_length()
+
+
+cdef class SparseCSFTensor:
+    """
+    A sparse CSF tensor.
+    """
+
+    def __init__(self):
+        raise TypeError("Do not call SparseCSFTensor's constructor directly, "
+                        "use one of the `pyarrow.SparseCSFTensor.from_*` "
+                        "functions instead.")
+
+    cdef void init(self, const shared_ptr[CSparseCSFTensor]& sp_sparse_tensor):
+        self.sp_sparse_tensor = sp_sparse_tensor
+        self.stp = sp_sparse_tensor.get()
+        self.type = pyarrow_wrap_data_type(self.stp.type())
+
+    def __repr__(self):
+        return """<pyarrow.SparseCSFTensor>
+type: {0.type}
+shape: {0.shape}""".format(self)
+
+    @classmethod
+    def from_dense_numpy(cls, obj, dim_names=None):
+        """
+        Convert numpy.ndarray to arrow::SparseCSFTensor
+        """
+        return cls.from_tensor(Tensor.from_numpy(obj, dim_names=dim_names))
+
+    @staticmethod
+    def from_numpy(data, indptr, indices, shape, axis_order=None,
+                   dim_names=None):
+        """
+        Create arrow::SparseCSFTensor from numpy.ndarrays
+        """
+        cdef shared_ptr[CSparseCSFTensor] csparse_tensor
+        cdef vector[int64_t] c_axis_order
+        cdef vector[int64_t] c_shape
+        cdef vector[c_string] c_dim_names
+
+        for x in shape:
+            c_shape.push_back(x)
+        if not axis_order:
+            axis_order = np.argsort(shape)
+        for x in axis_order:
+            c_axis_order.push_back(x)
+        if dim_names is not None:
+            for x in dim_names:
+                c_dim_names.push_back(tobytes(x))
+
+        # Enforce preconditions for SparseCSFTensor indices
+        if not (isinstance(indptr, (list, tuple)) and
+                isinstance(indices, (list, tuple))):
+            raise TypeError("Expected list or tuple, got {}, {}"
+                            .format(type(indptr), type(indices)))
+        if len(indptr) != len(shape) - 1:
+            raise ValueError("Expected list of {ndim} np.arrays for "
+                             "SparseCSFTensor.indptr".format(ndim=len(shape)))
+        if len(indices) != len(shape):
+            raise ValueError("Expected list of {ndim} np.arrays for "
+                             "SparseCSFTensor.indices".format(ndim=len(shape)))
+        if any([x.ndim != 1 for x in indptr]):
+            raise ValueError("Expected a list of 1-dimensional arrays for "
+                             "SparseCSFTensor.indptr")
+        if any([x.ndim != 1 for x in indices]):
+            raise ValueError("Expected a list of 1-dimensional arrays for "
+                             "SparseCSFTensor.indices")
+        indptr = [np.require(arr, dtype='i8') for arr in indptr]
+        indices = [np.require(arr, dtype='i8') for arr in indices]
+
+        check_status(NdarraysToSparseCSFTensor(c_default_memory_pool(), data,
+                                               indptr, indices, c_shape,
+                                               c_axis_order, c_dim_names,
+                                               &csparse_tensor))
+        return pyarrow_wrap_sparse_csf_tensor(csparse_tensor)
+
+    @staticmethod
+    def from_tensor(obj):
+        """
+        Convert arrow::Tensor to arrow::SparseCSFTensor
+        """
+        cdef shared_ptr[CSparseCSFTensor] csparse_tensor
+        cdef shared_ptr[CTensor] ctensor = pyarrow_unwrap_tensor(obj)
+
+        with nogil:
+            check_status(TensorToSparseCSFTensor(ctensor, &csparse_tensor))
+
+        return pyarrow_wrap_sparse_csf_tensor(csparse_tensor)
+
+    def to_numpy(self):
+        """
+        Convert arrow::SparseCSFTensor to numpy.ndarrays with zero copy
+        """
+        cdef PyObject* out_data
+        cdef PyObject* out_indptr
+        cdef PyObject* out_indices
+
+        check_status(SparseCSFTensorToNdarray(self.sp_sparse_tensor, self,
+                                              &out_data, &out_indptr,
+                                              &out_indices))
+        return (PyObject_to_object(out_data), PyObject_to_object(out_indptr),
+                PyObject_to_object(out_indices))
+
+    def to_tensor(self):
+        """
+        Convert arrow::SparseCSFTensor to arrow::Tensor
+        """
+
+        cdef shared_ptr[CTensor] ctensor
+        with nogil:
+            check_status(self.stp.ToTensor(&ctensor))
+
+        return pyarrow_wrap_tensor(ctensor)
+
+    def equals(self, SparseCSFTensor other):
+        """
+        Return true if sparse tensors contains exactly equal data
+        """
+        return self.stp.Equals(deref(other.stp))
+
+    def __eq__(self, other):
+        if isinstance(other, SparseCSFTensor):
             return self.equals(other)
         else:
             return NotImplemented
