@@ -628,3 +628,5 @@ cdef public shared_ptr[CSparseCSCMatrix] pyarrow_unwrap_sparse_csc_matrix(
     object sparse_tensor)
 cdef public shared_ptr[CSparseCSFTensor] pyarrow_unwrap_sparse_csf_tensor(
     object sparse_tensor)
+
+cdef public shared_ptr[CBuffer] as_c_buffer(object o) except *

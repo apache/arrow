@@ -39,6 +39,12 @@ Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
   return std::make_shared<::arrow::io::BufferReader>(buffer());
 }
 
+Result<std::shared_ptr<Fragment>> FileFormat::MakeFragment(FileSource source) {
+  ARROW_ASSIGN_OR_RAISE(auto schema, Inspect(source));
+  auto options = ScanOptions::Make(std::move(schema));
+  return MakeFragment(std::move(source), std::move(options), scalar(true));
+}
+
 Result<std::shared_ptr<Fragment>> FileFormat::MakeFragment(
     FileSource source, std::shared_ptr<ScanOptions> options) {
   return MakeFragment(std::move(source), std::move(options), scalar(true));

@@ -177,9 +177,6 @@ class ARROW_DS_EXPORT Scanner {
   const std::shared_ptr<ScanContext>& context() const { return context_; }
 
  protected:
-  /// \brief Return a TaskGroup according to ScanContext thread rules.
-  std::shared_ptr<internal::TaskGroup> TaskGroup() const;
-
   std::shared_ptr<Dataset> dataset_;
   std::shared_ptr<ScanOptions> options_;
   std::shared_ptr<ScanContext> context_;

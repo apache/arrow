@@ -38,6 +38,7 @@ from pyarrow._dataset import (  # noqa
     Fragment,
     HivePartitioning,
     InExpression,
+    InMemoryDataset,
     IpcFileFormat,
     IsValidExpression,
     NotExpression,

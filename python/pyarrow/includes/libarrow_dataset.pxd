@@ -30,6 +30,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             CIterator[shared_ptr[CRecordBatch]]):
         pass
 
+    cdef cppclass CRecordBatchVector "arrow::RecordBatchVector"(
+            vector[shared_ptr[CRecordBatch]]):
+        pass
+
 
 cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
@@ -196,15 +200,18 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             vector[shared_ptr[CDatasetFactory]] factories)
 
     cdef cppclass CFileSource "arrow::dataset::FileSource":
+        CFileSource(c_string path, CFileSystem* filesystem)
+        CFileSource(shared_ptr[CBuffer] buffer)
         const c_string& path()
-
-    cdef cppclass CFileFormat "arrow::dataset::FileFormat":
-        c_string type_name()
 
     cdef cppclass CFileFragment "arrow::dataset::FileFragment"(
             CFragment):
         const CFileSource& source()
         shared_ptr[CFileFormat] format()
+
+    cdef cppclass CFileFormat "arrow::dataset::FileFormat":
+        c_string type_name()
+        CResult[shared_ptr[CFragment]] MakeFragment(CFileSource source)
 
     cdef cppclass CFileSystemDataset \
             "arrow::dataset::FileSystemDataset"(CDataset):
@@ -216,9 +223,21 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             shared_ptr[CFileSystem] filesystem,
             vector[CFileInfo] infos,
             CExpressionVector partitions)
-        c_string type()
         vector[c_string] files()
         const shared_ptr[CFileFormat] format()
+
+    cdef cppclass CInMemoryDataset \
+            "arrow::dataset::InMemoryDataset"(CDataset):
+        CInMemoryDataset(shared_ptr[CTable] table)
+
+        @staticmethod
+        CResult[shared_ptr[CInMemoryDataset]] MakeFromBatches "Make"(
+            CRecordBatchVector batches)
+
+        @staticmethod
+        CResult[shared_ptr[CInMemoryDataset]] MakeFromFragment "Make"(
+            shared_ptr[CFragment] fragment,
+            shared_ptr[CScanContext] scan_context)
 
     cdef cppclass CParquetFileFormatReaderOptions \
             "arrow::dataset::ParquetFileFormat::ReaderOptions":

@@ -77,13 +77,7 @@ def _table_from_pandas(df):
     return table.replace_schema_metadata()
 
 
-@pytest.fixture
-def mockfs(request):
-    request.config.pyarrow.requires('parquet')
-    import pyarrow.parquet as pq
-
-    mockfs = fs._MockFileSystem()
-
+def _basic_table():
     data = [
         list(range(5)),
         list(map(float, range(5))),
@@ -95,7 +89,17 @@ def mockfs(request):
         pa.field('str', pa.string())
     ])
     batch = pa.record_batch(data, schema=schema)
-    table = pa.Table.from_batches([batch])
+    return pa.Table.from_batches([batch])
+
+
+@pytest.fixture
+def mockfs(request):
+    request.config.pyarrow.requires('parquet')
+    import pyarrow.parquet as pq
+
+    mockfs = fs._MockFileSystem()
+
+    table = _basic_table()
 
     directories = [
         'subdir/1/xxx',
@@ -109,6 +113,18 @@ def mockfs(request):
             pq.write_table(table, out)
 
     return mockfs
+
+
+@pytest.fixture
+def parquetbuffer(request):
+    request.config.pyarrow.requires('parquet')
+    import pyarrow.parquet as pq
+
+    table = _basic_table()
+
+    imos = pa.BufferOutputStream()
+    pq.write_table(table, imos)
+    return imos.getvalue()
 
 
 @pytest.fixture(scope='module')
@@ -843,3 +859,10 @@ def test_ipc_format(tempdir):
     dataset = ds.dataset(path, format="ipc")
     result = dataset.to_table()
     assert result.equals(table)
+
+
+def test_parquet_buffer(parquetbuffer):
+    fragment = ds.FileFragment(ds.ParquetFileFormat(), parquetbuffer)
+    dataset = ds.InMemoryDataset(fragment=fragment)
+    assert dataset.to_table().equals(_basic_table())
+

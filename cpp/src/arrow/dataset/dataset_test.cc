@@ -62,8 +62,10 @@ TEST_F(TestInMemoryDataset, GetFragments) {
 
   // It is safe to copy fragment multiple time since Scan() does not consume
   // the internal array.
-  auto dataset = std::make_shared<InMemoryDataset>(
-      schema_, RecordBatchVector{static_cast<size_t>(kNumberBatches), batch});
+  ASSERT_OK_AND_ASSIGN(
+      auto dataset,
+      InMemoryDataset::Make(
+          schema_, RecordBatchVector{static_cast<size_t>(kNumberBatches), batch}));
 
   AssertDatasetEquals(reader.get(), dataset.get());
 }
@@ -84,8 +86,10 @@ TEST_F(TestUnionDataset, GetFragments) {
   // Creates a complete binary tree of depth kCompleteBinaryTreeDepth where the
   // leaves are InMemoryDataset containing kChildPerNode fragments.
 
-  auto l1_leaf_dataset = std::make_shared<InMemoryDataset>(
-      schema_, RecordBatchVector{static_cast<size_t>(kChildPerNode), batch});
+  ASSERT_OK_AND_ASSIGN(
+      auto l1_leaf_dataset,
+      InMemoryDataset::Make(
+          schema_, RecordBatchVector{static_cast<size_t>(kChildPerNode), batch}));
 
   ASSERT_OK_AND_ASSIGN(
       auto l2_leaf_tree_dataset,
@@ -117,10 +121,9 @@ TEST_F(TestDataset, TrivialScan) {
   std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(kNumberBatches),
                                                     batch};
 
-  DatasetVector children = {
-      std::make_shared<InMemoryDataset>(schema_, batches),
-      std::make_shared<InMemoryDataset>(schema_, batches),
-  };
+  DatasetVector children(2, nullptr);
+  ASSERT_OK_AND_ASSIGN(children[0], InMemoryDataset::Make(schema_, batches));
+  ASSERT_OK_AND_ASSIGN(children[1], InMemoryDataset::Make(schema_, batches));
 
   const int64_t total_batches = children.size() * kNumberBatches;
   auto reader = ConstantArrayGenerator::Repeat(total_batches, batch);
@@ -231,7 +234,7 @@ TEST(TestProjector, NonTrivial) {
 }
 
 class TestEndToEnd : public TestDataset {
-  void SetUp() {
+  void SetUp() override {
     bool nullable = false;
     SetSchema({
         field("region", utf8(), nullable),
@@ -407,7 +410,7 @@ class TestSchemaUnification : public TestDataset {
  public:
   using i32 = util::optional<int32_t>;
 
-  void SetUp() {
+  void SetUp() override {
     using PathAndContent = std::vector<std::pair<std::string, std::string>>;
 
     // The following test creates 2 sources with divergent but compatible

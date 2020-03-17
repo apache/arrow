@@ -26,7 +26,8 @@ import pyarrow as pa
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.compat import frombytes, tobytes
-from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
+from pyarrow._fs cimport FileSystem, FileInfo, FileSelector, LocalFileSystem
+#from pyarrow.lib import as_c_buffer
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
@@ -70,6 +71,8 @@ cdef class Dataset:
             self = UnionDataset.__new__(UnionDataset)
         elif typ == 'filesystem':
             self = FileSystemDataset.__new__(FileSystemDataset)
+        elif typ == 'in-memory':
+            self = InMemoryDataset.__new__(InMemoryDataset)
         else:
             raise TypeError(typ)
 
@@ -259,6 +262,68 @@ cdef class UnionDataset(Dataset):
         self.union_dataset = <CUnionDataset*> sp.get()
 
 
+cdef class InMemoryDataset(Dataset):
+    """A Dataset wrapping in-memory RecordBatches.
+
+    RecordBatches' schemas must be uniform.
+    One of batches, fragment, or table must be provided.
+
+    Parameters
+    ----------
+    batches : list of RecordBatch
+        One or more explicit RecordBatches
+    fragment : Fragment
+        A fragment to be scanned for RecordBatches
+    table : Table
+        A table whose RecordBatches will be wrapped as an InMemoryDataset
+    memory_pool : MemoryPool
+        A MemoryPool from which memory for scanned RecordBatches will be
+        allocated. May only be specified if fragment is provided.
+    """
+
+    cdef:
+        CInMemoryDataset* inmem_dataset
+
+    def __init__(self, batches=None, Fragment fragment=None, Table table=None,
+            MemoryPool memory_pool=None):
+        cdef:
+            shared_ptr[CInMemoryDataset] inmem_dataset
+
+            RecordBatch batch
+            CRecordBatchVector c_batches
+
+            shared_ptr[CScanContext] context
+
+            shared_ptr[CTable] c_table
+
+        if batches is not None:
+            for batch in batches:
+                c_batches.push_back(pyarrow_unwrap_batch(batch))
+
+            inmem_dataset = GetResultValue(CInMemoryDataset.MakeFromBatches(
+                move(c_batches)))
+
+        elif fragment is not None:
+            context = make_shared[CScanContext]()
+            context.get().pool = maybe_unbox_memory_pool(memory_pool)
+            inmem_dataset = GetResultValue(CInMemoryDataset.MakeFromFragment(
+                fragment.wrapped, move(context)))
+
+        elif table is not None:
+            inmem_dataset = make_shared[CInMemoryDataset](
+                pyarrow_unwrap_table(table))
+
+        else:
+            raise ValueError("at least one of batches, fragment, "
+                             "or table must be provided")
+
+        self.init(<shared_ptr[CDataset]> inmem_dataset)
+
+    cdef void init(self, const shared_ptr[CDataset]& sp):
+        Dataset.init(self, sp)
+        self.inmem_dataset = <CInMemoryDataset*> sp.get()
+
+
 cdef class FileSystemDataset(Dataset):
     """A Dataset created from a set of files on a particular filesystem.
 
@@ -377,6 +442,9 @@ cdef class Fragment:
         self.wrapped = sp
         self.fragment = sp.get()
 
+    cdef inline shared_ptr[CFragment] unwrap(self):
+        return self.wrapped
+
     @staticmethod
     cdef wrap(const shared_ptr[CFragment]& sp):
         # there's no discriminant in Fragment, so we can't downcast
@@ -402,10 +470,45 @@ cdef class Fragment:
 
 
 cdef class FileFragment(Fragment):
-    """A Fragment representing a data file."""
+    """A Fragment representing a data file.
+
+    Parameters
+    ----------
+    file_format : FileFormat
+        The format of the created fragment.
+    source : str or buffer
+        The path or buffer from which the file's data will be read.
+    filesystem : FileSystem
+        The filesystem which files are from. Ignored if source is a Buffer.
+    """
 
     cdef:
         CFileFragment* file_fragment
+
+    def __init__(self, FileFormat file_format not None,
+                 source, FileSystem filesystem = None):
+        cdef:
+            CResult[shared_ptr[CFragment]] c_fragment
+            shared_ptr[CBuffer] c_buffer
+            c_string c_path
+            CFileSystem* c_fs
+            CFileFormat* c_format
+
+        c_format = file_format.unwrap().get()
+
+        try:
+            c_buffer = as_c_buffer(source)
+            c_fragment = c_format.MakeFragment(CFileSource(move(c_buffer)))
+
+        except ValueError:
+            if filesystem is None:
+                filesystem = LocalFileSystem()
+
+            c_path = tobytes(source)
+            c_fs = filesystem.unwrap().get()
+            c_fragment = c_format.MakeFragment(CFileSource(move(c_path), c_fs))
+
+        self.init(GetResultValue(move(c_fragment)))
 
     cdef void init(self, const shared_ptr[CFragment]& sp):
         Fragment.init(self, sp)

@@ -38,8 +38,8 @@ class TestScanner : public DatasetFixtureMixin {
     std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(kNumberBatches),
                                                       batch};
 
-    DatasetVector children{static_cast<size_t>(kNumberChildDatasets),
-                           std::make_shared<InMemoryDataset>(batch->schema(), batches)};
+    EXPECT_OK_AND_ASSIGN(auto child, InMemoryDataset::Make(batch->schema(), batches));
+    DatasetVector children{static_cast<size_t>(kNumberChildDatasets), child};
 
     EXPECT_OK_AND_ASSIGN(auto dataset, UnionDataset::Make(batch->schema(), children));
 

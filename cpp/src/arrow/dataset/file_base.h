@@ -138,6 +138,8 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 
   Result<std::shared_ptr<Fragment>> MakeFragment(FileSource source,
                                                  std::shared_ptr<ScanOptions> options);
+
+  Result<std::shared_ptr<Fragment>> MakeFragment(FileSource source);
 };
 
 /// \brief A Fragment that is stored in a file with a known format
