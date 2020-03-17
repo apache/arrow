@@ -394,20 +394,6 @@ inline Status CheckBufferLength(...) { return Status::OK(); }
 ARROW_EXPORT Status CheckBufferLength(const FixedSizeBinaryType* t,
                                       const std::shared_ptr<Buffer>* b);
 
-template <typename T, typename Enable = void>
-struct is_simple_scalar : std::false_type {};
-
-template <typename T>
-struct is_simple_scalar<
-    T,
-    typename std::enable_if<
-        // scalar has a single extra data member named "value" with type "ValueType"
-        std::is_same<decltype(std::declval<T>().value), typename T::ValueType>::value &&
-        // scalar is constructible from (value, type)
-        std::is_constructible<T, typename T::ValueType,
-                              std::shared_ptr<DataType>>::value>::type> : std::true_type {
-};
-
 }  // namespace internal
 
 template <typename ValueRef>
@@ -415,12 +401,13 @@ struct MakeScalarImpl {
   template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType,
             typename ValueType = typename ScalarType::ValueType,
             typename Enable = typename std::enable_if<
-                internal::is_simple_scalar<ScalarType>::value &&
-                std::is_constructible<ValueType, ValueRef>::value>::type>
+                std::is_constructible<ScalarType, ValueType,
+                                      std::shared_ptr<DataType>>::value &&
+                std::is_convertible<ValueRef, ValueType>::value>::type>
   Status Visit(const T& t) {
     ARROW_RETURN_NOT_OK(internal::CheckBufferLength(&t, &value_));
-    out_ = std::make_shared<ScalarType>(ValueType(static_cast<ValueRef>(value_)),
-                                        std::move(type_));
+    out_ = std::make_shared<ScalarType>(
+        static_cast<ValueType>(static_cast<ValueRef>(value_)), std::move(type_));
     return Status::OK();
   }
 
