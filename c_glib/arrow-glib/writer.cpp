@@ -244,11 +244,9 @@ garrow_record_batch_stream_writer_new(GArrowOutputStream *sink,
   auto arrow_sink = garrow_output_stream_get_raw(sink).get();
   std::shared_ptr<BaseType> arrow_writer;
   auto status = WriterType::Open(arrow_sink,
-                                 garrow_schema_get_raw(schema),
-                                 &arrow_writer);
+                                 garrow_schema_get_raw(schema)).Value(&arrow_writer);
   if (garrow_error_check(error, status, "[record-batch-stream-writer][open]")) {
-    auto subtype = std::dynamic_pointer_cast<WriterType>(arrow_writer);
-    return garrow_record_batch_stream_writer_new_raw(&subtype);
+    return garrow_record_batch_stream_writer_new_raw(&arrow_writer);
   } else {
     return NULL;
   }
@@ -291,11 +289,9 @@ garrow_record_batch_file_writer_new(GArrowOutputStream *sink,
   auto arrow_sink = garrow_output_stream_get_raw(sink);
   std::shared_ptr<BaseType> arrow_writer;
   auto status = WriterType::Open(arrow_sink.get(),
-                                 garrow_schema_get_raw(schema),
-                                 &arrow_writer);
+                                 garrow_schema_get_raw(schema)).Value(&arrow_writer);
   if (garrow_error_check(error, status, "[record-batch-file-writer][open]")) {
-    auto subtype = std::dynamic_pointer_cast<WriterType>(arrow_writer);
-    return garrow_record_batch_file_writer_new_raw(&subtype);
+    return garrow_record_batch_file_writer_new_raw(&arrow_writer);
   } else {
     return NULL;
   }
@@ -529,7 +525,7 @@ garrow_record_batch_writer_get_raw(GArrowRecordBatchWriter *writer)
 }
 
 GArrowRecordBatchStreamWriter *
-garrow_record_batch_stream_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchStreamWriter> *arrow_writer)
+garrow_record_batch_stream_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchWriter> *arrow_writer)
 {
   auto writer =
     GARROW_RECORD_BATCH_STREAM_WRITER(
@@ -540,7 +536,7 @@ garrow_record_batch_stream_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatc
 }
 
 GArrowRecordBatchFileWriter *
-garrow_record_batch_file_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchFileWriter> *arrow_writer)
+garrow_record_batch_file_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchWriter> *arrow_writer)
 {
   auto writer =
     GARROW_RECORD_BATCH_FILE_WRITER(

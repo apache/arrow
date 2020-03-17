@@ -549,7 +549,7 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
 // ----------------------------------------------------------------------
 // RecordBatchStreamReader implementation
 
-class RecordBatchStreamReaderImpl : public RecordBatchReader {
+class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
  public:
   Status Open(std::unique_ptr<MessageReader> message_reader,
               const IpcReadOptions& options) {

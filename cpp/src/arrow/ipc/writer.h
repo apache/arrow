@@ -84,20 +84,9 @@ class ARROW_EXPORT RecordBatchWriter {
 /// \class RecordBatchStreamWriter
 /// \brief Synchronous batch stream writer that writes the Arrow streaming
 /// format
-class ARROW_EXPORT RecordBatchStreamWriter {
+ARROW_DEPRECATED("RecordBatchStreamWriter class is deprecated")
+class ARROW_EXPORT RecordBatchStreamWriter : public RecordBatchWriter {
  public:
-  /// Create a new writer from stream sink and schema. User is responsible for
-  /// closing the actual OutputStream.
-  ///
-  /// \param[in] sink output stream to write to
-  /// \param[in] schema the schema of the record batches to be written
-  /// \return Result<std::shared_ptr<RecordBatchWriter>>
-  static Result<std::shared_ptr<RecordBatchWriter>> Open(
-      io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
-  static Result<std::shared_ptr<RecordBatchWriter>> Open(
-      io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-      const IpcOptions& options);
-
   /// Create a new writer from stream sink and schema. User is responsible for
   /// closing the actual OutputStream.
   ///
@@ -115,19 +104,9 @@ class ARROW_EXPORT RecordBatchStreamWriter {
 /// Implements the random access file format, which structurally is a record
 /// batch stream followed by a metadata footer at the end of the file. Magic
 /// numbers are written at the start and end of the file
-class ARROW_EXPORT RecordBatchFileWriter {
+ARROW_DEPRECATED("RecordBatchFileWriter class is deprecated")
+class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
  public:
-  /// Create a new writer from stream sink and schema
-  ///
-  /// \param[in] sink output stream to write to
-  /// \param[in] schema the schema of the record batches to be written
-  /// \return Status
-  static Result<std::shared_ptr<RecordBatchWriter>> Open(
-      io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
-  static Result<std::shared_ptr<RecordBatchWriter>> Open(
-      io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-      const IpcOptions& options);
-
   /// Create a new writer from stream sink and schema
   ///
   /// \param[in] sink output stream to write to
@@ -138,6 +117,33 @@ class ARROW_EXPORT RecordBatchFileWriter {
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
                      std::shared_ptr<RecordBatchWriter>* out);
 };
+
+/// Create a new writer from stream sink and schema. User is responsible for
+/// closing the actual OutputStream.
+///
+/// \param[in] sink output stream to write to
+/// \param[in] schema the schema of the record batches to be written
+/// \return Result<std::shared_ptr<RecordBatchWriter>>
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatchWriter>> NewRecordBatchStreamWriter(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatchWriter>> NewRecordBatchStreamWriter(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+    const IpcOptions& options);
+
+/// Create a new writer from stream sink and schema
+///
+/// \param[in] sink output stream to write to
+/// \param[in] schema the schema of the record batches to be written
+/// \return Status
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatchWriter>> NewRecordBatchFileWriter(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatchWriter>> NewRecordBatchFileWriter(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+    const IpcOptions& options);
 
 /// \brief Low-level API for writing a record batch (without schema)
 /// to an OutputStream as encapsulated IPC message. See Arrow format
