@@ -1657,7 +1657,7 @@ def test_array_from_masked():
 
 
 def test_array_from_shrunken_masked():
-    ma = np.ma.array([0])
+    ma = np.ma.array([0], dtype='int64')
     result = pa.array(ma)
     expected = pa.array([0], type='int64')
     assert expected.equals(result)
