@@ -1656,6 +1656,13 @@ def test_array_from_masked():
         pa.array(ma, mask=np.array([True, False, False, False]))
 
 
+def test_array_from_shrunken_masked():
+    ma = np.ma.array([0], dtype='int64')
+    result = pa.array(ma)
+    expected = pa.array([0], type='int64')
+    assert expected.equals(result)
+
+
 def test_array_from_invalid_dim_raises():
     msg = "only handle 1-dimensional arrays"
     arr2d = np.array([[1, 2, 3], [4, 5, 6]])
