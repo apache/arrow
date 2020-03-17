@@ -1,4 +1,4 @@
-﻿// Licensed to the Apache Software Foundation (ASF) under one
+// Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
 // regarding copyright ownership.  The ASF licenses this file
@@ -707,6 +707,17 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
     case arrow::Type::TIMESTAMP:
       value = types->i64_constant(arrow::util::get<int64_t>(dex.holder()));
       break;
+
+    case arrow::Type::INTERVAL: {
+      std::shared_ptr<arrow::IntervalType> interval_type =
+          arrow::internal::checked_pointer_cast<arrow::IntervalType>(dex.type());
+      if (interval_type->interval_type() == arrow::IntervalType::type::MONTHS) {
+        value = types->i32_constant(arrow::util::get<int32_t>(dex.holder()));
+      } else {
+        value = types->i64_constant(arrow::util::get<int64_t>(dex.holder()));
+      }
+      break;
+    }
 
     case arrow::Type::DECIMAL: {
       // build code for struct
