@@ -690,7 +690,7 @@ def test_compression_level():
 
     # Check that the user can provide a compression level per column
     _check_roundtrip(table, expected=table, compression="gzip",
-                     compression_level=[{'a': 2, 'b': 3}])
+                     compression_level={'a': 2, 'b': 3})
 
     # Check that specifying a compression level for a codec which does allow
     # specifying one, results into an error.
@@ -702,7 +702,7 @@ def test_compression_level():
                             ("None", 444), ("lzo", 14)]
     buf = io.BytesIO()
     for (codec, level) in invalid_combinations:
-        with pytest.raises(IOError):
+        with pytest.raises((ValueError, OSError)):
             _write_table(table, buf, compression=codec,
                          compression_level=level)
 
@@ -3241,13 +3241,13 @@ def test_dataset_metadata(tempdir):
 
 def test_parquet_file_too_small(tempdir):
     path = str(tempdir / "test.parquet")
-    with pytest.raises(pa.ArrowIOError,
+    with pytest.raises(pa.ArrowInvalid,
                        match='size is 0 bytes'):
         with open(path, 'wb') as f:
             pass
         pq.read_table(path)
 
-    with pytest.raises(pa.ArrowIOError,
+    with pytest.raises(pa.ArrowInvalid,
                        match='size is 4 bytes'):
         with open(path, 'wb') as f:
             f.write(b'ffff')
