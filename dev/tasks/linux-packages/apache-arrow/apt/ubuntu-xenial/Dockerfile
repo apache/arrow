@@ -63,7 +63,7 @@ RUN \
     python3-dev \
     python3-numpy \
     zlib1g-dev && \
-  if apt list | grep '^clang-${LLVM}/'; then \
+  if apt list | grep "^clang-${LLVM}/"; then \
     apt install -y -V ${quiet} \
       clang-${LLVM} \
       llvm-${LLVM}-dev; \
