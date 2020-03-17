@@ -63,7 +63,7 @@ std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__Message__Schema(
   arrow::ipc::DictionaryMemo memo;
   STOP_IF_NOT_OK(arrow::ipc::ReadRecordBatch(*message, schema, &memo,
                                              arrow::ipc::IpcReadOptions::Defaults())
-                 .Value(&batch));
+                     .Value(&batch));
   return batch;
 }
 
@@ -73,7 +73,7 @@ std::shared_ptr<arrow::Schema> ipc___ReadSchema_InputStream(
   std::shared_ptr<arrow::Schema> schema;
   // TODO: promote to function argument
   arrow::ipc::DictionaryMemo memo;
-  STOP_IF_NOT_OK(arrow::ipc::ReadSchema(stream.get(), &memo, &schema));
+  STOP_IF_NOT_OK(arrow::ipc::ReadSchema(stream.get(), &memo).Value(&schema));
   return schema;
 }
 
@@ -82,7 +82,7 @@ std::shared_ptr<arrow::Schema> ipc___ReadSchema_Message(
     const std::unique_ptr<arrow::ipc::Message>& message) {
   std::shared_ptr<arrow::Schema> schema;
   arrow::ipc::DictionaryMemo empty_memo;
-  STOP_IF_NOT_OK(arrow::ipc::ReadSchema(*message, &empty_memo, &schema));
+  STOP_IF_NOT_OK(arrow::ipc::ReadSchema(*message, &empty_memo).Value(&schema));
   return schema;
 }
 

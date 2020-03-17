@@ -1287,12 +1287,12 @@ Status RecordBatchStreamReader::Open(std::unique_ptr<MessageReader> message_read
 
 Status RecordBatchStreamReader::Open(io::InputStream* stream,
                                      std::shared_ptr<RecordBatchReader>* out) {
-  return Open(MessageReader::Open(stream), out);
+  return Open(MessageReader::Open(stream)).Value(out);
 }
 
 Status RecordBatchStreamReader::Open(const std::shared_ptr<io::InputStream>& stream,
                                      std::shared_ptr<RecordBatchReader>* out) {
-  return Open(MessageReader::Open(stream), out);
+  return Open(MessageReader::Open(stream)).Value(out);
 }
 
 Status RecordBatchFileReader::Open(io::RandomAccessFile* file,
