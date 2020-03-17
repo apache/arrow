@@ -993,6 +993,18 @@ def generate_custom_metadata_case():
                           metadata=meta('schema_custom_0 schema_custom_1'))
 
 
+def generate_duplicate_fieldnames_case():
+    fields = [
+        get_field('ints', 'int8'),
+        get_field('ints', 'int32'),
+
+        StructField('struct', [get_field('', 'int32'), get_field('', 'utf8')]),
+    ]
+
+    batch_sizes = [1]
+    return _generate_file('duplicate_fieldnames', fields, batch_sizes)
+
+
 def generate_primitive_case(batch_sizes, name='primitive'):
     types = ['bool', 'int8', 'int16', 'int32', 'int64',
              'uint8', 'uint16', 'uint32', 'uint64',
@@ -1166,6 +1178,10 @@ def get_generated_json_files(tempdir=None, flight=False):
         generate_custom_metadata_case().skip_category('Go')
                                        .skip_category('Java')
                                        .skip_category('JS'),
+
+        generate_duplicate_fieldnames_case().skip_category('Go')
+                                            .skip_category('Java')
+                                            .skip_category('JS'),
 
         # TODO(ARROW-3039, ARROW-5267): Dictionaries in GO
         generate_dictionary_case().skip_category('Go'),
