@@ -109,8 +109,16 @@ class GrpcBuffer : public MutableBuffer {
       // If it is, then we can reference the `grpc_slice` directly.
       grpc_slice slice = buffer->data.raw.slice_buffer.slices[0];
 
-      // Increment reference count so this memory remains valid
-      *out = std::make_shared<GrpcBuffer>(slice, true);
+      if (slice.refcount) {
+        // Increment reference count so this memory remains valid
+        *out = std::make_shared<GrpcBuffer>(slice, true);
+      } else {
+        // Small slices (less than GRPC_SLICE_INLINED_SIZE bytes) are
+        // inlined into the structure and must be copied.
+        const uint8_t length = slice.data.inlined.length;
+        RETURN_NOT_OK(arrow::AllocateBuffer(length, out));
+        std::memcpy((*out)->mutable_data(), slice.data.inlined.bytes, length);
+      }
     } else {
       // Otherwise, we need to use `grpc_byte_buffer_reader_readall` to read
       // `buffer` into a single contiguous `grpc_slice`. The gRPC reader gives
