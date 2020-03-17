@@ -794,21 +794,29 @@ TEST_F(TestRecordBatch, Equals) {
   auto f1 = field("f1", uint8());
   auto f2 = field("f2", int16());
 
+  auto metadata = key_value_metadata({"foo"}, {"bar"});
+
   std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
   auto schema = ::arrow::schema({f0, f1, f2});
   auto schema2 = ::arrow::schema({f0, f1});
+  auto schema3 = ::arrow::schema({f0, f1, f2}, metadata);
 
   auto a0 = MakeRandomArray<Int32Array>(length);
   auto a1 = MakeRandomArray<UInt8Array>(length);
   auto a2 = MakeRandomArray<Int16Array>(length);
 
   auto b1 = RecordBatch::Make(schema, length, {a0, a1, a2});
+  auto b2 = RecordBatch::Make(schema3, length, {a0, a1, a2});
   auto b3 = RecordBatch::Make(schema2, length, {a0, a1});
   auto b4 = RecordBatch::Make(schema, length, {a0, a1, a1});
 
   ASSERT_TRUE(b1->Equals(*b1));
   ASSERT_FALSE(b1->Equals(*b3));
   ASSERT_FALSE(b1->Equals(*b4));
+
+  // Different metadata
+  ASSERT_TRUE(b1->Equals(*b2));
+  ASSERT_FALSE(b1->Equals(*b2, /*check_metadata=*/true));
 }
 
 TEST_F(TestRecordBatch, Validate) {

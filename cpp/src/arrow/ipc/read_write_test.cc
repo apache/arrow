@@ -944,7 +944,9 @@ class ReaderWriterMixin {
     auto batch = RecordBatch::Make(my_schema, a0->length(), {a0, a1, a2, a3});
 
     IpcReadOptions options = IpcReadOptions::Defaults();
-    options.included_fields.reset(new std::unordered_set<int>({1, 3}));
+
+    // Include an index that is too large
+    options.included_fields.reset(new std::unordered_set<int>({1, 3, 5}));
 
     BatchVector out_batches;
     ASSERT_OK(RoundTripHelper({batch}, IpcOptions::Defaults(), options, &out_batches));

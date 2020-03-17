@@ -39,7 +39,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatchReader__ReadNext(
 std::shared_ptr<arrow::RecordBatchReader> ipc___RecordBatchStreamReader__Open(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
   std::shared_ptr<arrow::RecordBatchReader> reader;
-  STOP_IF_NOT_OK(arrow::ipc::RecordBatchStreamReader::Open(stream, &reader));
+  STOP_IF_NOT_OK(arrow::ipc::RecordBatchStreamReader::Open(stream).Value(&reader));
   return reader;
 }
 
@@ -87,7 +87,7 @@ std::shared_ptr<arrow::RecordBatch> ipc___RecordBatchFileReader__ReadRecordBatch
 std::shared_ptr<arrow::ipc::RecordBatchFileReader> ipc___RecordBatchFileReader__Open(
     const std::shared_ptr<arrow::io::RandomAccessFile>& file) {
   std::shared_ptr<arrow::ipc::RecordBatchFileReader> reader;
-  STOP_IF_NOT_OK(arrow::ipc::RecordBatchFileReader::Open(file, &reader));
+  STOP_IF_NOT_OK(arrow::ipc::RecordBatchFileReader::Open(file).Value(&reader));
   return reader;
 }
 

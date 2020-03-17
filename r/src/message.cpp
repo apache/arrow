@@ -61,7 +61,9 @@ std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__Message__Schema(
 
   // TODO: perhaps this should come from the R side
   arrow::ipc::DictionaryMemo memo;
-  STOP_IF_NOT_OK(arrow::ipc::ReadRecordBatch(*message, schema, &memo, &batch));
+  STOP_IF_NOT_OK(arrow::ipc::ReadRecordBatch(*message, schema, &memo,
+                                             arrow::ipc::IpcReadOptions::Defaults())
+                 .Value(&batch));
   return batch;
 }
 
