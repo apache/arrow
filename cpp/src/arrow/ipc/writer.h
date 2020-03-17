@@ -91,22 +91,23 @@ class ARROW_EXPORT RecordBatchStreamWriter {
   ///
   /// \param[in] sink output stream to write to
   /// \param[in] schema the schema of the record batches to be written
-  /// \param[out] out the created stream writer
-  /// \return Status
-  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-                     std::shared_ptr<RecordBatchWriter>* out);
-
-  /// Create a new writer from stream sink and schema. User is responsible for
-  /// closing the actual OutputStream.
-  ///
-  /// \param[in] sink output stream to write to
-  /// \param[in] schema the schema of the record batches to be written
   /// \return Result<std::shared_ptr<RecordBatchWriter>>
   static Result<std::shared_ptr<RecordBatchWriter>> Open(
       io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
   static Result<std::shared_ptr<RecordBatchWriter>> Open(
       io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
       const IpcOptions& options);
+
+  /// Create a new writer from stream sink and schema. User is responsible for
+  /// closing the actual OutputStream.
+  ///
+  /// \param[in] sink output stream to write to
+  /// \param[in] schema the schema of the record batches to be written
+  /// \param[out] out the created stream writer
+  /// \return Status
+  ARROW_DEPRECATED("Use Result-returning version")
+  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+                     std::shared_ptr<RecordBatchWriter>* out);
 };
 
 /// \brief Creates the Arrow record batch file format
@@ -120,21 +121,22 @@ class ARROW_EXPORT RecordBatchFileWriter {
   ///
   /// \param[in] sink output stream to write to
   /// \param[in] schema the schema of the record batches to be written
-  /// \param[out] out the created stream writer
-  /// \return Status
-  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-                     std::shared_ptr<RecordBatchWriter>* out);
-
-  /// Create a new writer from stream sink and schema
-  ///
-  /// \param[in] sink output stream to write to
-  /// \param[in] schema the schema of the record batches to be written
   /// \return Status
   static Result<std::shared_ptr<RecordBatchWriter>> Open(
       io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
   static Result<std::shared_ptr<RecordBatchWriter>> Open(
       io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
       const IpcOptions& options);
+
+  /// Create a new writer from stream sink and schema
+  ///
+  /// \param[in] sink output stream to write to
+  /// \param[in] schema the schema of the record batches to be written
+  /// \param[out] out the created stream writer
+  /// \return Status
+  ARROW_DEPRECATED("Use Result-returning version")
+  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+                     std::shared_ptr<RecordBatchWriter>* out);
 };
 
 /// \brief Low-level API for writing a record batch (without schema)

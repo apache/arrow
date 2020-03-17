@@ -592,7 +592,7 @@ Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
 
   ::arrow::ipc::DictionaryMemo dict_memo;
   ::arrow::io::BufferReader input(schema_buf);
-  RETURN_NOT_OK(::arrow::ipc::ReadSchema(&input, &dict_memo, out));
+  ARROW_ASSIGN_OR_RAISE(*out, ::arrow::ipc::ReadSchema(&input, &dict_memo));
 
   if (metadata->size() > 1) {
     // Copy the metadata without the schema key

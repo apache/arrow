@@ -172,7 +172,8 @@ using Datum = compute::Datum;
 ARROW_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual,
                                     bool verbose = false);
 ARROW_EXPORT void AssertBatchesEqual(const RecordBatch& expected,
-                                     const RecordBatch& actual);
+                                     const RecordBatch& actual,
+                                     bool check_metadata = false);
 ARROW_EXPORT void AssertChunkedEqual(const ChunkedArray& expected,
                                      const ChunkedArray& actual);
 ARROW_EXPORT void AssertChunkedEqual(const ChunkedArray& actual,

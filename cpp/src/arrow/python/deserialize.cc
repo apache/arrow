@@ -323,7 +323,7 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
   // Align stream to 8-byte offset
   RETURN_NOT_OK(ipc::AlignStream(src, ipc::kArrowIpcAlignment));
   std::shared_ptr<RecordBatchReader> reader;
-  RETURN_NOT_OK(ipc::RecordBatchStreamReader::Open(src, &reader));
+  ARROW_ASSIGN_OR_RAISE(reader, ipc::RecordBatchStreamReader::Open(src));
   RETURN_NOT_OK(reader->ReadNext(&out->batch));
 
   /// Skip EOS marker
@@ -403,7 +403,7 @@ Status GetSerializedFromComponents(int num_tensors,
     gil.release();
     io::BufferReader buf_reader(data_buffer);
     std::shared_ptr<RecordBatchReader> reader;
-    RETURN_NOT_OK(ipc::RecordBatchStreamReader::Open(&buf_reader, &reader));
+    ARROW_ASSIGN_OR_RAISE(reader, ipc::RecordBatchStreamReader::Open(&buf_reader));
     RETURN_NOT_OK(reader->ReadNext(&out->batch));
     gil.acquire();
   }

@@ -76,8 +76,11 @@ class ARROW_EXPORT RecordBatch {
                                 std::shared_ptr<RecordBatch>* out);
 
   /// \brief Determine if two record batches are exactly equal
+  ///
+  /// \param[in] other the RecordBatch to compare with
+  /// \param[in] check_metadata if true, check that Schema metadata is the same
   /// \return true if batches are equal
-  bool Equals(const RecordBatch& other) const;
+  bool Equals(const RecordBatch& other, bool check_metadata = false) const;
 
   /// \brief Determine if two record batches are approximately equal
   bool ApproxEquals(const RecordBatch& other) const;

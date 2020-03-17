@@ -22,5 +22,7 @@ namespace ipc {
 
 IpcOptions IpcOptions::Defaults() { return IpcOptions(); }
 
+IpcReadOptions IpcReadOptions::Defaults() { return IpcReadOptions(); }
+
 }  // namespace ipc
 }  // namespace arrow

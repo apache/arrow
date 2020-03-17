@@ -90,10 +90,9 @@ static void ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const refe
 
   ipc::DictionaryMemo empty_memo;
   while (state.KeepRunning()) {
-    std::shared_ptr<RecordBatch> result;
     io::BufferReader reader(buffer);
-
-    if (!ipc::ReadRecordBatch(record_batch->schema(), &empty_memo, &reader, &result)
+    if (!ipc::ReadRecordBatch(record_batch->schema(), &empty_memo,
+                              ipc::IpcReadOptions::Defaults(), &reader)
              .ok()) {
       state.SkipWithError("Failed to read!");
     }

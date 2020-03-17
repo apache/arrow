@@ -41,6 +41,9 @@ namespace ipc {
 // maximum allowed recursion depth
 constexpr int kMaxNestingDepth = 64;
 
+// TODO: Should IpcOptions be renamed IpcWriteOptions?
+
+/// \brief Options for writing Arrow IPC messages
 struct ARROW_EXPORT IpcOptions {
   // If true, allow field lengths that don't fit in a signed 32-bit int.
   // Some implementations may not be able to parse such streams.
@@ -56,8 +59,7 @@ struct ARROW_EXPORT IpcOptions {
   /// consisting of a 4-byte prefix instead of 8 byte
   bool write_legacy_ipc_format = false;
 
-  /// \brief The memory pool to use for allocations made during IPC read or
-  /// write
+  /// \brief The memory pool to use for allocations made during IPC writing
   MemoryPool* memory_pool = default_memory_pool();
 
   /// \brief EXPERIMENTAL: Codec to use for compressing and decompressing
@@ -66,11 +68,21 @@ struct ARROW_EXPORT IpcOptions {
   Compression::type compression = Compression::UNCOMPRESSED;
   int compression_level = Compression::kUseDefaultCompressionLevel;
 
+  static IpcOptions Defaults();
+};
+
+struct ARROW_EXPORT IpcReadOptions {
+  // The maximum permitted schema nesting depth.
+  int max_recursion_depth = kMaxNestingDepth;
+
+  /// \brief The memory pool to use for allocations made during IPC writing
+  MemoryPool* memory_pool = default_memory_pool();
+
   /// \brief EXPERIMENTAL: Top-level schema fields to include when
   /// deserializing RecordBatch. Null means to return all deserialized fields
   std::shared_ptr<std::unordered_set<int>> included_fields;
 
-  static IpcOptions Defaults();
+  static IpcReadOptions Defaults();
 };
 
 }  // namespace ipc

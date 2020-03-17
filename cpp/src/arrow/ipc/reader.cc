@@ -98,11 +98,14 @@ Status InvalidMessageType(Message::Type expected, Message::Type actual) {
 class ArrayLoader {
  public:
   explicit ArrayLoader(const flatbuf::RecordBatch* metadata, io::RandomAccessFile* file,
-                       const DictionaryMemo* dictionary_memo, const IpcOptions& options)
+                       const DictionaryMemo* dictionary_memo,
+                       const IpcReadOptions& options,
+                       Compression::type compression = Compression::UNCOMPRESSED)
       : metadata_(metadata),
         file_(file),
         dictionary_memo_(dictionary_memo),
         options_(options),
+        compression_(compression),
         max_recursion_depth_(options.max_recursion_depth),
         buffer_index_(0),
         field_index_(0),
@@ -130,7 +133,7 @@ class ArrayLoader {
     // If the buffers are indicated to be compressed, instantiate the codec and
     // decompress them
     std::unique_ptr<util::Codec> codec;
-    ARROW_ASSIGN_OR_RAISE(codec, util::Codec::Create(options_.compression));
+    ARROW_ASSIGN_OR_RAISE(codec, util::Codec::Create(compression_));
 
     // TODO: Parallelize decompression
     for (size_t i = 0; i < out_->buffers.size(); ++i) {
@@ -172,7 +175,7 @@ class ArrayLoader {
     out_->type = field_->type();
     RETURN_NOT_OK(LoadType(*field_->type()));
 
-    if (options_.compression != Compression::UNCOMPRESSED) {
+    if (compression_ != Compression::UNCOMPRESSED) {
       RETURN_NOT_OK(DecompressBuffers());
     }
     return Status::OK();
@@ -363,7 +366,8 @@ class ArrayLoader {
   const flatbuf::RecordBatch* metadata_;
   io::RandomAccessFile* file_;
   const DictionaryMemo* dictionary_memo_;
-  const IpcOptions& options_;
+  const IpcReadOptions& options_;
+  Compression::type compression_;
   int max_recursion_depth_;
   int buffer_index_;
   int field_index_;
@@ -373,11 +377,61 @@ class ArrayLoader {
   ArrayData* out_;
 };
 
-Status LoadRecordBatch(const flatbuf::RecordBatch* metadata,
-                       const std::shared_ptr<Schema>& schema,
-                       const DictionaryMemo* dictionary_memo, const IpcOptions& options,
-                       io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
-  ArrayLoader loader(metadata, file, dictionary_memo, options);
+Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
+    const flatbuf::RecordBatch* metadata, const std::shared_ptr<Schema>& schema,
+    const std::unordered_set<int>& included_fields, const DictionaryMemo* dictionary_memo,
+    const IpcReadOptions& options, Compression::type compression,
+    io::RandomAccessFile* file) {
+  ArrayLoader loader(metadata, file, dictionary_memo, options, compression);
+
+  std::vector<std::shared_ptr<ArrayData>> field_data(included_fields.size());
+  std::vector<std::shared_ptr<Field>> schema_fields(included_fields.size());
+
+  // The index of the next non-skipped field being read
+  int current_read_index = 0;
+
+  ArrayData dummy_for_skipped_fields;
+  for (int i = 0; i < schema->num_fields(); ++i) {
+    if (included_fields.find(i) != included_fields.end()) {
+      // Read field
+      auto arr = std::make_shared<ArrayData>();
+      loader.SkipIO(false);
+      RETURN_NOT_OK(loader.Load(schema->field(i).get(), arr.get()));
+      if (metadata->length() != arr->length) {
+        return Status::IOError("Array length did not match record batch length");
+      }
+      field_data[current_read_index] = std::move(arr);
+      schema_fields[current_read_index] = schema->field(i);
+      ++current_read_index;
+    } else {
+      // Skip field. We run the loading logic so the proper number of fields
+      // and buffers are skipped before moving onto the next field
+      loader.SkipIO();
+      RETURN_NOT_OK(loader.Load(schema->field(i).get(), &dummy_for_skipped_fields));
+    }
+  }
+
+  // If there were fields in the included set outside the range of 0 to
+  // schema.size() - 1
+  if (current_read_index < static_cast<int>(included_fields.size())) {
+    field_data.resize(current_read_index);
+    schema_fields.resize(current_read_index);
+  }
+
+  return RecordBatch::Make(::arrow::schema(std::move(schema_fields), schema->metadata()),
+                           metadata->length(), std::move(field_data));
+}
+
+Result<std::shared_ptr<RecordBatch>> LoadRecordBatch(
+    const flatbuf::RecordBatch* metadata, const std::shared_ptr<Schema>& schema,
+    const DictionaryMemo* dictionary_memo, const IpcReadOptions& options,
+    Compression::type compression, io::RandomAccessFile* file) {
+  if (options.included_fields != nullptr) {
+    return LoadRecordBatchSubset(metadata, schema, *options.included_fields,
+                                 dictionary_memo, options, compression, file);
+  }
+
+  ArrayLoader loader(metadata, file, dictionary_memo, options, compression);
   std::vector<std::shared_ptr<ArrayData>> arrays(schema->num_fields());
   for (int i = 0; i < schema->num_fields(); ++i) {
     auto arr = std::make_shared<ArrayData>();
@@ -387,81 +441,62 @@ Status LoadRecordBatch(const flatbuf::RecordBatch* metadata,
     }
     arrays[i] = std::move(arr);
   }
-  *out = RecordBatch::Make(schema, metadata->length(), std::move(arrays));
-  return Status::OK();
-}
-
-Status LoadRecordBatch(const flatbuf::RecordBatch* metadata,
-                       const std::shared_ptr<Schema>& schema,
-                       const std::unordered_set<int>& selected_fields,
-                       const DictionaryMemo* dictionary_memo, const IpcOptions& options,
-                       io::RandomAccessFile* file,
-                       std::vector<std::shared_ptr<ArrayData>>* fields) {
-  ArrayLoader loader(metadata, file, dictionary_memo, options);
-
-  fields->resize(selected_fields.size());
-
-  // The index of the nxt non-skipped field being read
-  int current_read_index = 0;
-
-  ArrayData dummy_for_skipped_fields;
-  for (int i = 0; i < schema->num_fields(); ++i) {
-    if (selected_fields.find(i) != selected_fields.end()) {
-      // Read field
-      auto arr = std::make_shared<ArrayData>();
-      loader.SkipIO(false);
-      RETURN_NOT_OK(loader.Load(schema->field(i).get(), arr.get()));
-      if (metadata->length() != arr->length) {
-        return Status::IOError("Array length did not match record batch length");
-      }
-      (*fields)[current_read_index++] = std::move(arr);
-    } else {
-      // Skip field. We run the loading logic so the proper number of fields
-      // and buffers are skipped before moving onto the next field
-      loader.SkipIO();
-      RETURN_NOT_OK(loader.Load(schema->field(i).get(), &dummy_for_skipped_fields));
-    }
-  }
-  return Status::OK();
-}
-
-Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& schema,
-                       const DictionaryMemo* dictionary_memo, io::RandomAccessFile* file,
-                       std::shared_ptr<RecordBatch>* out) {
-  return ReadRecordBatch(metadata, schema, dictionary_memo, IpcOptions::Defaults(), file,
-                         out);
-}
-
-Status ReadRecordBatch(const Message& message, const std::shared_ptr<Schema>& schema,
-                       const DictionaryMemo* dictionary_memo,
-                       std::shared_ptr<RecordBatch>* out) {
-  CHECK_MESSAGE_TYPE(Message::RECORD_BATCH, message.type());
-  CHECK_HAS_BODY(message);
-  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
-  return ReadRecordBatch(*message.metadata(), schema, dictionary_memo,
-                         IpcOptions::Defaults(), reader.get(), out);
+  return RecordBatch::Make(schema, metadata->length(), std::move(arrays));
 }
 
 // ----------------------------------------------------------------------
 // Array loading
 
-Status SetCompression(const flatbuf::Message* message, IpcOptions* out) {
+Status GetCompression(const flatbuf::Message* message, Compression::type* out) {
   if (message->custom_metadata() != nullptr) {
     // TODO: Ensure this deserialization only ever happens once
     std::shared_ptr<const KeyValueMetadata> metadata;
     RETURN_NOT_OK(internal::GetKeyValueMetadata(message->custom_metadata(), &metadata));
     int index = metadata->FindKey("ARROW:body_compression");
     if (index != -1) {
-      ARROW_ASSIGN_OR_RAISE(out->compression,
+      ARROW_ASSIGN_OR_RAISE(*out,
                             util::Codec::GetCompressionType(metadata->value(index)));
     }
+  } else {
+    *out = Compression::UNCOMPRESSED;
   }
   return Status::OK();
 }
 
-Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& schema,
-                       const DictionaryMemo* dictionary_memo, IpcOptions options,
-                       io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
+static Status ReadContiguousPayload(io::InputStream* file,
+                                    std::unique_ptr<Message>* message) {
+  RETURN_NOT_OK(ReadMessage(file, message));
+  if (*message == nullptr) {
+    return Status::Invalid("Unable to read metadata at offset");
+  }
+  return Status::OK();
+}
+
+Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
+    const std::shared_ptr<Schema>& schema, const DictionaryMemo* dictionary_memo,
+    const IpcReadOptions& options, io::InputStream* file) {
+  std::unique_ptr<Message> message;
+  RETURN_NOT_OK(ReadContiguousPayload(file, &message));
+  CHECK_HAS_BODY(*message);
+  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
+  return ReadRecordBatch(*message->metadata(), schema, dictionary_memo, options,
+                         reader.get());
+}
+
+Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
+    const Message& message, const std::shared_ptr<Schema>& schema,
+    const DictionaryMemo* dictionary_memo, const IpcReadOptions& options) {
+  CHECK_MESSAGE_TYPE(Message::RECORD_BATCH, message.type());
+  CHECK_HAS_BODY(message);
+  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
+  return ReadRecordBatch(*message.metadata(), schema, dictionary_memo, options,
+                         reader.get());
+}
+
+Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
+    const Buffer& metadata, const std::shared_ptr<Schema>& schema,
+    const DictionaryMemo* dictionary_memo, const IpcReadOptions& options,
+    io::RandomAccessFile* file) {
   const flatbuf::Message* message;
   RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
   auto batch = message->header_as_RecordBatch();
@@ -469,14 +504,13 @@ Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& sc
     return Status::IOError(
         "Header-type of flatbuffer-encoded Message is not RecordBatch.");
   }
-  RETURN_NOT_OK(SetCompression(message, &options));
-  return LoadRecordBatch(batch, schema, dictionary_memo, options, file, out);
+  Compression::type compression;
+  RETURN_NOT_OK(GetCompression(message, &compression));
+  return LoadRecordBatch(batch, schema, dictionary_memo, options, compression, file);
 }
 
 Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
-                      io::RandomAccessFile* file) {
-  IpcOptions options = IpcOptions::Defaults();
-
+                      const IpcReadOptions& options, io::RandomAccessFile* file) {
   const flatbuf::Message* message;
   RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
   auto dictionary_batch = message->header_as_DictionaryBatch();
@@ -485,7 +519,8 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
         "Header-type of flatbuffer-encoded Message is not DictionaryBatch.");
   }
 
-  RETURN_NOT_OK(SetCompression(message, &options));
+  Compression::type compression;
+  RETURN_NOT_OK(GetCompression(message, &compression));
 
   int64_t id = dictionary_batch->id();
 
@@ -497,11 +532,13 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
   auto value_field = ::arrow::field("dummy", value_type);
 
   // The dictionary is embedded in a record batch with a single column
-  std::shared_ptr<RecordBatch> batch;
   auto batch_meta = dictionary_batch->data();
   CHECK_FLATBUFFERS_NOT_NULL(batch_meta, "DictionaryBatch.data");
-  RETURN_NOT_OK(LoadRecordBatch(batch_meta, ::arrow::schema({value_field}),
-                                dictionary_memo, options, file, &batch));
+
+  std::shared_ptr<RecordBatch> batch;
+  ARROW_ASSIGN_OR_RAISE(
+      batch, LoadRecordBatch(batch_meta, ::arrow::schema({value_field}), dictionary_memo,
+                             options, compression, file));
   if (batch->num_columns() != 1) {
     return Status::Invalid("Dictionary record batch must only contain one field");
   }
@@ -514,8 +551,10 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
 
 class RecordBatchStreamReaderImpl : public RecordBatchReader {
  public:
-  Status Open(std::unique_ptr<MessageReader> message_reader) {
+  Status Open(std::unique_ptr<MessageReader> message_reader,
+              const IpcReadOptions& options) {
     message_reader_ = std::move(message_reader);
+    options_ = options;
     return ReadSchema();
   }
 
@@ -545,8 +584,9 @@ class RecordBatchStreamReaderImpl : public RecordBatchReader {
     } else {
       CHECK_HAS_BODY(*message);
       ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
-      return ReadRecordBatch(*message->metadata(), schema_, &dictionary_memo_,
-                             reader.get(), batch);
+      return ReadRecordBatch(*message->metadata(), schema_, &dictionary_memo_, options_,
+                             reader.get())
+          .Value(batch);
     }
   }
 
@@ -569,7 +609,7 @@ class RecordBatchStreamReaderImpl : public RecordBatchReader {
     DCHECK_EQ(message.type(), Message::DICTIONARY_BATCH);
     CHECK_HAS_BODY(message);
     ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
-    return ReadDictionary(*message.metadata(), &dictionary_memo_, reader.get());
+    return ReadDictionary(*message.metadata(), &dictionary_memo_, options_, reader.get());
   }
 
   Status ReadInitialDictionaries() {
@@ -611,6 +651,7 @@ class RecordBatchStreamReaderImpl : public RecordBatchReader {
   }
 
   std::unique_ptr<MessageReader> message_reader_;
+  IpcReadOptions options_;
 
   bool read_initial_dictionaries_ = false;
 
@@ -622,33 +663,25 @@ class RecordBatchStreamReaderImpl : public RecordBatchReader {
   std::shared_ptr<Schema> schema_;
 };
 
-Status RecordBatchStreamReader::Open(std::unique_ptr<MessageReader> message_reader,
-                                     std::shared_ptr<RecordBatchReader>* reader) {
+// ----------------------------------------------------------------------
+// Stream reader constructors
+
+Result<std::shared_ptr<RecordBatchReader>> RecordBatchStreamReader::Open(
+    std::unique_ptr<MessageReader> message_reader, const IpcReadOptions& options) {
   // Private ctor
   auto result = std::make_shared<RecordBatchStreamReaderImpl>();
-  RETURN_NOT_OK(result->Open(std::move(message_reader)));
-  *reader = result;
-  return Status::OK();
+  RETURN_NOT_OK(result->Open(std::move(message_reader), options));
+  return result;
 }
 
-Status RecordBatchStreamReader::Open(std::unique_ptr<MessageReader> message_reader,
-                                     std::unique_ptr<RecordBatchReader>* reader) {
-  // Private ctor
-  auto result =
-      std::unique_ptr<RecordBatchStreamReaderImpl>(new RecordBatchStreamReaderImpl());
-  RETURN_NOT_OK(result->Open(std::move(message_reader)));
-  *reader = std::move(result);
-  return Status::OK();
+Result<std::shared_ptr<RecordBatchReader>> RecordBatchStreamReader::Open(
+    io::InputStream* stream, const IpcReadOptions& options) {
+  return Open(MessageReader::Open(stream), options);
 }
 
-Status RecordBatchStreamReader::Open(io::InputStream* stream,
-                                     std::shared_ptr<RecordBatchReader>* out) {
-  return Open(MessageReader::Open(stream), out);
-}
-
-Status RecordBatchStreamReader::Open(const std::shared_ptr<io::InputStream>& stream,
-                                     std::shared_ptr<RecordBatchReader>* out) {
-  return Open(MessageReader::Open(stream), out);
+Result<std::shared_ptr<RecordBatchReader>> RecordBatchStreamReader::Open(
+    const std::shared_ptr<io::InputStream>& stream, const IpcReadOptions& options) {
+  return Open(MessageReader::Open(stream), options);
 }
 
 // ----------------------------------------------------------------------
@@ -685,16 +718,20 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     CHECK_HAS_BODY(*message);
     ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
     return ::arrow::ipc::ReadRecordBatch(*message->metadata(), schema_, &dictionary_memo_,
-                                         reader.get(), batch);
+                                         options_, reader.get())
+        .Value(batch);
   }
 
-  Status Open(const std::shared_ptr<io::RandomAccessFile>& file, int64_t footer_offset) {
+  Status Open(const std::shared_ptr<io::RandomAccessFile>& file, int64_t footer_offset,
+              const IpcReadOptions& options) {
     owned_file_ = file;
-    return Open(file.get(), footer_offset);
+    return Open(file.get(), footer_offset, options);
   }
 
-  Status Open(io::RandomAccessFile* file, int64_t footer_offset) {
+  Status Open(io::RandomAccessFile* file, int64_t footer_offset,
+              const IpcReadOptions& options) {
     file_ = file;
+    options_ = options;
     footer_offset_ = footer_offset;
     RETURN_NOT_OK(ReadFooter());
     return ReadSchema();
@@ -733,8 +770,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
       CHECK_HAS_BODY(*message);
       ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
-      RETURN_NOT_OK(
-          ReadDictionary(*message->metadata(), &dictionary_memo_, reader.get()));
+      RETURN_NOT_OK(ReadDictionary(*message->metadata(), &dictionary_memo_, options_,
+                                   reader.get()));
     }
     return Status::OK();
   }
@@ -790,6 +827,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
   }
 
   io::RandomAccessFile* file_;
+  IpcReadOptions options_;
 
   std::shared_ptr<io::RandomAccessFile> owned_file_;
 
@@ -808,46 +846,35 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
   std::shared_ptr<Schema> schema_;
 };
 
-Status RecordBatchFileReader::Open(io::RandomAccessFile* file,
-                                   std::shared_ptr<RecordBatchFileReader>* reader) {
+Result<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::Open(
+    io::RandomAccessFile* file, const IpcReadOptions& options) {
   ARROW_ASSIGN_OR_RAISE(int64_t footer_offset, file->GetSize());
-  return Open(file, footer_offset, reader);
+  return Open(file, footer_offset, options);
 }
 
-Status RecordBatchFileReader::Open(io::RandomAccessFile* file, int64_t footer_offset,
-                                   std::shared_ptr<RecordBatchFileReader>* out) {
+Result<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::Open(
+    io::RandomAccessFile* file, int64_t footer_offset, const IpcReadOptions& options) {
   auto result = std::make_shared<RecordBatchFileReaderImpl>();
-  RETURN_NOT_OK(result->Open(file, footer_offset));
-  *out = result;
-  return Status::OK();
+  RETURN_NOT_OK(result->Open(file, footer_offset, options));
+  return result;
 }
 
-Status RecordBatchFileReader::Open(const std::shared_ptr<io::RandomAccessFile>& file,
-                                   std::shared_ptr<RecordBatchFileReader>* out) {
+Result<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::Open(
+    const std::shared_ptr<io::RandomAccessFile>& file, const IpcReadOptions& options) {
   ARROW_ASSIGN_OR_RAISE(int64_t footer_offset, file->GetSize());
-  return Open(file, footer_offset, out);
+  return Open(file, footer_offset, options);
 }
 
-Status RecordBatchFileReader::Open(const std::shared_ptr<io::RandomAccessFile>& file,
-                                   int64_t footer_offset,
-                                   std::shared_ptr<RecordBatchFileReader>* out) {
+Result<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::Open(
+    const std::shared_ptr<io::RandomAccessFile>& file, int64_t footer_offset,
+    const IpcReadOptions& options) {
   auto result = std::make_shared<RecordBatchFileReaderImpl>();
-  RETURN_NOT_OK(result->Open(file, footer_offset));
-  *out = result;
-  return Status::OK();
+  RETURN_NOT_OK(result->Open(file, footer_offset, options));
+  return result;
 }
 
-static Status ReadContiguousPayload(io::InputStream* file,
-                                    std::unique_ptr<Message>* message) {
-  RETURN_NOT_OK(ReadMessage(file, message));
-  if (*message == nullptr) {
-    return Status::Invalid("Unable to read metadata at offset");
-  }
-  return Status::OK();
-}
-
-Status ReadSchema(io::InputStream* stream, DictionaryMemo* dictionary_memo,
-                  std::shared_ptr<Schema>* out) {
+Result<std::shared_ptr<Schema>> ReadSchema(io::InputStream* stream,
+                                           DictionaryMemo* dictionary_memo) {
   std::unique_ptr<MessageReader> reader = MessageReader::Open(stream);
   std::unique_ptr<Message> message;
   RETURN_NOT_OK(reader->ReadNextMessage(&message));
@@ -855,25 +882,14 @@ Status ReadSchema(io::InputStream* stream, DictionaryMemo* dictionary_memo,
     return Status::Invalid("Tried reading schema message, was null or length 0");
   }
   CHECK_MESSAGE_TYPE(Message::SCHEMA, message->type());
-  return ReadSchema(*message, dictionary_memo, out);
+  return ReadSchema(*message, dictionary_memo);
 }
 
-Status ReadSchema(const Message& message, DictionaryMemo* dictionary_memo,
-                  std::shared_ptr<Schema>* out) {
-  std::shared_ptr<RecordBatchReader> reader;
-  return internal::GetSchema(message.header(), dictionary_memo, &*out);
-}
-
-Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
-                       const DictionaryMemo* dictionary_memo, io::InputStream* file,
-                       std::shared_ptr<RecordBatch>* out) {
-  auto options = IpcOptions::Defaults();
-  std::unique_ptr<Message> message;
-  RETURN_NOT_OK(ReadContiguousPayload(file, &message));
-  CHECK_HAS_BODY(*message);
-  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
-  return ReadRecordBatch(*message->metadata(), schema, dictionary_memo, options,
-                         reader.get(), out);
+Result<std::shared_ptr<Schema>> ReadSchema(const Message& message,
+                                           DictionaryMemo* dictionary_memo) {
+  std::shared_ptr<Schema> result;
+  RETURN_NOT_OK(internal::GetSchema(message.header(), dictionary_memo, &result));
+  return result;
 }
 
 Result<std::shared_ptr<Tensor>> ReadTensor(io::InputStream* file) {
@@ -1219,7 +1235,7 @@ Status FuzzIpcStream(const uint8_t* data, int64_t size) {
   io::BufferReader buffer_reader(buffer);
 
   std::shared_ptr<RecordBatchReader> batch_reader;
-  RETURN_NOT_OK(RecordBatchStreamReader::Open(&buffer_reader, &batch_reader));
+  ARROW_ASSIGN_OR_RAISE(batch_reader, RecordBatchStreamReader::Open(&buffer_reader));
 
   while (true) {
     std::shared_ptr<arrow::RecordBatch> batch;
@@ -1238,7 +1254,7 @@ Status FuzzIpcFile(const uint8_t* data, int64_t size) {
   io::BufferReader buffer_reader(buffer);
 
   std::shared_ptr<RecordBatchFileReader> batch_reader;
-  RETURN_NOT_OK(RecordBatchFileReader::Open(&buffer_reader, &batch_reader));
+  ARROW_ASSIGN_OR_RAISE(batch_reader, RecordBatchFileReader::Open(&buffer_reader));
 
   const int n_batches = batch_reader->num_record_batches();
   for (int i = 0; i < n_batches; ++i) {
@@ -1251,5 +1267,86 @@ Status FuzzIpcFile(const uint8_t* data, int64_t size) {
 }
 
 }  // namespace internal
+
+// ----------------------------------------------------------------------
+// Deprecated functions
+
+Status RecordBatchStreamReader::Open(std::unique_ptr<MessageReader> message_reader,
+                                     std::shared_ptr<RecordBatchReader>* out) {
+  return Open(std::move(message_reader), IpcReadOptions::Defaults()).Value(out);
+}
+
+Status RecordBatchStreamReader::Open(std::unique_ptr<MessageReader> message_reader,
+                                     std::unique_ptr<RecordBatchReader>* out) {
+  auto result =
+      std::unique_ptr<RecordBatchStreamReaderImpl>(new RecordBatchStreamReaderImpl());
+  RETURN_NOT_OK(result->Open(std::move(message_reader), IpcReadOptions::Defaults()));
+  *out = std::move(result);
+  return Status::OK();
+}
+
+Status RecordBatchStreamReader::Open(io::InputStream* stream,
+                                     std::shared_ptr<RecordBatchReader>* out) {
+  return Open(MessageReader::Open(stream), out);
+}
+
+Status RecordBatchStreamReader::Open(const std::shared_ptr<io::InputStream>& stream,
+                                     std::shared_ptr<RecordBatchReader>* out) {
+  return Open(MessageReader::Open(stream), out);
+}
+
+Status RecordBatchFileReader::Open(io::RandomAccessFile* file,
+                                   std::shared_ptr<RecordBatchFileReader>* out) {
+  return Open(file).Value(out);
+}
+
+Status RecordBatchFileReader::Open(io::RandomAccessFile* file, int64_t footer_offset,
+                                   std::shared_ptr<RecordBatchFileReader>* out) {
+  return Open(file, footer_offset).Value(out);
+}
+
+Status RecordBatchFileReader::Open(const std::shared_ptr<io::RandomAccessFile>& file,
+                                   std::shared_ptr<RecordBatchFileReader>* out) {
+  return Open(file).Value(out);
+}
+
+Status RecordBatchFileReader::Open(const std::shared_ptr<io::RandomAccessFile>& file,
+                                   int64_t footer_offset,
+                                   std::shared_ptr<RecordBatchFileReader>* out) {
+  return Open(file, footer_offset).Value(out);
+}
+
+Status ReadSchema(io::InputStream* stream, DictionaryMemo* dictionary_memo,
+                  std::shared_ptr<Schema>* out) {
+  return ReadSchema(stream, dictionary_memo).Value(out);
+}
+
+Status ReadSchema(const Message& message, DictionaryMemo* dictionary_memo,
+                  std::shared_ptr<Schema>* out) {
+  return ReadSchema(message, dictionary_memo).Value(out);
+}
+
+Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
+                       const DictionaryMemo* dictionary_memo, io::InputStream* stream,
+                       std::shared_ptr<RecordBatch>* out) {
+  return ReadRecordBatch(schema, dictionary_memo, IpcReadOptions::Defaults(), stream)
+      .Value(out);
+}
+
+Status ReadRecordBatch(const Message& message, const std::shared_ptr<Schema>& schema,
+                       const DictionaryMemo* dictionary_memo,
+                       std::shared_ptr<RecordBatch>* out) {
+  return ReadRecordBatch(message, schema, dictionary_memo, IpcReadOptions::Defaults())
+      .Value(out);
+}
+
+Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& schema,
+                       const DictionaryMemo* dictionary_memo, io::RandomAccessFile* file,
+                       std::shared_ptr<RecordBatch>* out) {
+  return ReadRecordBatch(metadata, schema, dictionary_memo, IpcReadOptions::Defaults(),
+                         file)
+      .Value(out);
+}
+
 }  // namespace ipc
 }  // namespace arrow

@@ -1078,10 +1078,6 @@ class PayloadStreamWriter : public IpcPayloadWriter, protected StreamBookKeeper 
   Status Close() override { return WriteEOS(); }
 };
 
-// ipc_options.file_metadata = key_value_metadata(
-//     {"ARROW:feather:compression"},
-//     {Codec::GetCodecAsString(properties.compression)});
-
 /// A IpcPayloadWriter implementation that writes to a IPC file
 /// (with a footer as defined in File.fbs)
 class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBookKeeper {

@@ -21,6 +21,7 @@
 #include <memory>
 #include <ostream>
 #include <string>
+#include <unordered_set>
 
 #include <flatbuffers/flatbuffers.h>
 #include <gtest/gtest.h>
@@ -204,7 +205,7 @@ class TestSchemaMetadata : public ::testing::Test {
 
     std::shared_ptr<Schema> result;
     io::BufferReader reader(buffer);
-    ASSERT_OK(ReadSchema(&reader, &in_memo, &result));
+    ASSERT_OK_AND_ASSIGN(result, ReadSchema(&reader, &in_memo));
     AssertSchemaEqual(schema, *result);
   }
 };
@@ -291,18 +292,20 @@ class IpcTestFixture : public io::MemoryMapFixture {
 
     DictionaryMemo in_memo;
     io::BufferReader buf_reader(serialized_schema);
-    ASSERT_OK(ReadSchema(&buf_reader, &in_memo, result));
+    ASSERT_OK_AND_ASSIGN(*result, ReadSchema(&buf_reader, &in_memo));
     ASSERT_EQ(out_memo->num_fields(), in_memo.num_fields());
   }
 
   Status DoStandardRoundTrip(const RecordBatch& batch, const IpcOptions& options,
                              DictionaryMemo* dictionary_memo,
-                             std::shared_ptr<RecordBatch>* batch_result) {
+                             std::shared_ptr<RecordBatch>* result) {
     std::shared_ptr<Buffer> serialized_batch;
     RETURN_NOT_OK(SerializeRecordBatch(batch, options, &serialized_batch));
 
     io::BufferReader buf_reader(serialized_batch);
-    return ReadRecordBatch(batch.schema(), dictionary_memo, &buf_reader, batch_result);
+    return ReadRecordBatch(batch.schema(), dictionary_memo, IpcReadOptions::Defaults(),
+                           &buf_reader)
+        .Value(result);
   }
 
   Status DoLargeRoundTrip(const RecordBatch& batch, bool zero_data,
@@ -315,16 +318,16 @@ class IpcTestFixture : public io::MemoryMapFixture {
     auto options = options_;
     options.allow_64bit = true;
 
-    auto res = RecordBatchFileWriter::Open(mmap_.get(), batch.schema(), options);
-    RETURN_NOT_OK(res.status());
-    std::shared_ptr<RecordBatchWriter> file_writer = *res;
+    std::shared_ptr<RecordBatchWriter> file_writer;
+    ARROW_ASSIGN_OR_RAISE(
+        file_writer, RecordBatchFileWriter::Open(mmap_.get(), batch.schema(), options));
     RETURN_NOT_OK(file_writer->WriteRecordBatch(batch));
     RETURN_NOT_OK(file_writer->Close());
 
     ARROW_ASSIGN_OR_RAISE(int64_t offset, mmap_->Tell());
 
     std::shared_ptr<RecordBatchFileReader> file_reader;
-    RETURN_NOT_OK(RecordBatchFileReader::Open(mmap_.get(), offset, &file_reader));
+    ARROW_ASSIGN_OR_RAISE(file_reader, RecordBatchFileReader::Open(mmap_.get(), offset));
 
     return file_reader->ReadRecordBatch(0, result);
   }
@@ -724,9 +727,8 @@ TEST_F(RecursionLimits, ReadLimit) {
   io::BufferReader reader(message->body());
 
   DictionaryMemo empty_memo;
-  std::shared_ptr<RecordBatch> result;
   ASSERT_RAISES(Invalid, ReadRecordBatch(*message->metadata(), schema, &empty_memo,
-                                         &reader, &result));
+                                         IpcReadOptions::Defaults(), &reader));
 }
 
 // Test fails with a structured exception on Windows + Debug
@@ -745,12 +747,12 @@ TEST_F(RecursionLimits, StressLimit) {
 
     DictionaryMemo empty_memo;
 
-    auto options = IpcOptions::Defaults();
+    auto options = IpcReadOptions::Defaults();
     options.max_recursion_depth = recursion_depth + 1;
     io::BufferReader reader(message->body());
     std::shared_ptr<RecordBatch> result;
-    ASSERT_OK(ReadRecordBatch(*message->metadata(), schema, &empty_memo, options, &reader,
-                              &result));
+    ASSERT_OK_AND_ASSIGN(result, ReadRecordBatch(*message->metadata(), schema,
+                                                 &empty_memo, options, &reader));
     *it_works = result->Equals(*batch);
   };
 
@@ -790,10 +792,11 @@ struct FileWriterHelper {
     return sink_->Tell().Value(&footer_offset_);
   }
 
-  Status ReadBatches(BatchVector* out_batches) {
+  Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
     auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
     std::shared_ptr<RecordBatchFileReader> reader;
-    RETURN_NOT_OK(RecordBatchFileReader::Open(buf_reader.get(), footer_offset_, &reader));
+    ARROW_ASSIGN_OR_RAISE(
+        reader, RecordBatchFileReader::Open(buf_reader.get(), footer_offset_, options));
 
     EXPECT_EQ(num_batches_written_, reader->num_record_batches());
     for (int i = 0; i < num_batches_written_; ++i) {
@@ -840,10 +843,10 @@ struct StreamWriterHelper {
     return sink_->Close();
   }
 
-  Status ReadBatches(BatchVector* out_batches) {
+  Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
     auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
     std::shared_ptr<RecordBatchReader> reader;
-    RETURN_NOT_OK(RecordBatchStreamReader::Open(buf_reader, &reader));
+    ARROW_ASSIGN_OR_RAISE(reader, RecordBatchStreamReader::Open(buf_reader, options))
     return reader->ReadAll(out_batches);
   }
 
@@ -879,7 +882,8 @@ class ReaderWriterMixin {
     BatchVector in_batches = {batch1, batch2};
     BatchVector out_batches;
 
-    ASSERT_OK(RoundTripHelper(in_batches, options, &out_batches));
+    ASSERT_OK(
+        RoundTripHelper(in_batches, options, IpcReadOptions::Defaults(), &out_batches));
     ASSERT_EQ(out_batches.size(), in_batches.size());
 
     // Compare batches
@@ -900,7 +904,8 @@ class ReaderWriterMixin {
     BatchVector in_batches = {batch1, batch2};
     BatchVector out_batches;
 
-    ASSERT_OK(RoundTripHelper(in_batches, options, &out_batches));
+    ASSERT_OK(
+        RoundTripHelper(in_batches, options, IpcReadOptions::Defaults(), &out_batches));
     ASSERT_EQ(out_batches.size(), in_batches.size());
 
     // Compare batches
@@ -914,7 +919,8 @@ class ReaderWriterMixin {
     ASSERT_OK(MakeDictionary(&batch));
 
     BatchVector out_batches;
-    ASSERT_OK(RoundTripHelper({batch}, IpcOptions::Defaults(), &out_batches));
+    ASSERT_OK(RoundTripHelper({batch}, IpcOptions::Defaults(), IpcReadOptions::Defaults(),
+                              &out_batches));
     ASSERT_EQ(out_batches.size(), 1);
 
     // TODO(wesm): This was broken in ARROW-3144. I'm not sure how to
@@ -923,6 +929,30 @@ class ReaderWriterMixin {
     // DataType as before
 
     // CheckDictionariesDeduplicated(*out_batches[0]);
+  }
+
+  void TestReadSubsetOfFields() {
+    // Part of ARROW-7979
+    auto a0 = ArrayFromJSON(utf8(), "[\"a0\", null]");
+    auto a1 = ArrayFromJSON(utf8(), "[\"a1\", null]");
+    auto a2 = ArrayFromJSON(utf8(), "[\"a2\", null]");
+    auto a3 = ArrayFromJSON(utf8(), "[\"a3\", null]");
+
+    auto my_schema = schema({field("a0", utf8()), field("a1", utf8()),
+                             field("a2", utf8()), field("a3", utf8())},
+                            key_value_metadata({"key1"}, {"value1"}));
+    auto batch = RecordBatch::Make(my_schema, a0->length(), {a0, a1, a2, a3});
+
+    IpcReadOptions options = IpcReadOptions::Defaults();
+    options.included_fields.reset(new std::unordered_set<int>({1, 3}));
+
+    BatchVector out_batches;
+    ASSERT_OK(RoundTripHelper({batch}, IpcOptions::Defaults(), options, &out_batches));
+
+    auto ex_schema = schema({field("a1", utf8()), field("a3", utf8())},
+                            key_value_metadata({"key1"}, {"value1"}));
+    auto ex_batch = RecordBatch::Make(ex_schema, a0->length(), {a1, a3});
+    AssertBatchesEqual(*ex_batch, *out_batches[0], /*check_metadata=*/true);
   }
 
   void TestWriteDifferentSchema() {
@@ -946,7 +976,7 @@ class ReaderWriterMixin {
 
     // The single successful batch can be read again
     BatchVector out_batches;
-    ASSERT_OK(writer_helper.ReadBatches(&out_batches));
+    ASSERT_OK(writer_helper.ReadBatches(IpcReadOptions::Defaults(), &out_batches));
     ASSERT_EQ(out_batches.size(), 1);
     CompareBatch(*out_batches[0], *batch_bools, false /* compare_metadata */);
     // Metadata from the RecordBatchWriter initialization schema was kept
@@ -971,15 +1001,15 @@ class ReaderWriterMixin {
   }
 
  private:
-  Status RoundTripHelper(const BatchVector& in_batches, const IpcOptions& options,
-                         BatchVector* out_batches) {
+  Status RoundTripHelper(const BatchVector& in_batches, const IpcOptions& write_options,
+                         const IpcReadOptions& read_options, BatchVector* out_batches) {
     WriterHelper writer_helper;
-    RETURN_NOT_OK(writer_helper.Init(in_batches[0]->schema(), options));
+    RETURN_NOT_OK(writer_helper.Init(in_batches[0]->schema(), write_options));
     for (const auto& batch : in_batches) {
       RETURN_NOT_OK(writer_helper.WriteBatch(batch));
     }
     RETURN_NOT_OK(writer_helper.Finish());
-    RETURN_NOT_OK(writer_helper.ReadBatches(out_batches));
+    RETURN_NOT_OK(writer_helper.ReadBatches(read_options, out_batches));
     for (const auto& batch : *out_batches) {
       RETURN_NOT_OK(batch->ValidateFull());
     }
@@ -1077,6 +1107,10 @@ TEST_F(TestStreamFormat, NoRecordBatches) { TestWriteNoRecordBatches(); }
 
 TEST_F(TestFileFormat, NoRecordBatches) { TestWriteNoRecordBatches(); }
 
+TEST_F(TestStreamFormat, ReadFieldSubset) { TestReadSubsetOfFields(); }
+
+TEST_F(TestFileFormat, ReadFieldSubset) { TestReadSubsetOfFields(); }
+
 TEST(TestRecordBatchStreamReader, EmptyStreamWithDictionaries) {
   // ARROW-6006
   auto f0 = arrow::field("f0", arrow::dictionary(arrow::int8(), arrow::utf8()));
@@ -1085,13 +1119,13 @@ TEST(TestRecordBatchStreamReader, EmptyStreamWithDictionaries) {
   ASSERT_OK_AND_ASSIGN(auto stream, io::BufferOutputStream::Create(0));
 
   std::shared_ptr<RecordBatchWriter> writer;
-  ASSERT_OK(RecordBatchStreamWriter::Open(stream.get(), schema, &writer));
+  ASSERT_OK_AND_ASSIGN(writer, RecordBatchStreamWriter::Open(stream.get(), schema));
   ASSERT_OK(writer->Close());
 
   ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
   io::BufferReader buffer_reader(buffer);
   std::shared_ptr<RecordBatchReader> reader;
-  ASSERT_OK(RecordBatchStreamReader::Open(&buffer_reader, &reader));
+  ASSERT_OK_AND_ASSIGN(reader, RecordBatchStreamReader::Open(&buffer_reader));
 
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(reader->ReadNext(&batch));
@@ -1144,7 +1178,7 @@ TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
 
   ASSERT_OK_AND_ASSIGN(auto out, io::BufferOutputStream::Create(0));
   std::shared_ptr<RecordBatchWriter> writer;
-  ASSERT_OK(RecordBatchStreamWriter::Open(out.get(), batch->schema(), &writer));
+  ASSERT_OK_AND_ASSIGN(writer, RecordBatchStreamWriter::Open(out.get(), batch->schema()));
   ASSERT_OK(writer->WriteRecordBatch(*batch));
   ASSERT_OK(writer->Close());
 
@@ -1155,7 +1189,7 @@ TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
   auto AssertFailsWith = [](std::shared_ptr<Buffer> stream, const std::string& ex_error) {
     io::BufferReader reader(stream);
     std::shared_ptr<RecordBatchReader> ipc_reader;
-    ASSERT_OK(RecordBatchStreamReader::Open(&reader, &ipc_reader));
+    ASSERT_OK_AND_ASSIGN(ipc_reader, RecordBatchStreamReader::Open(&reader));
     std::shared_ptr<RecordBatch> batch;
     Status s = ipc_reader->ReadNext(&batch);
     ASSERT_TRUE(s.IsInvalid());
@@ -1526,13 +1560,11 @@ TEST(TestRecordBatchStreamReader, MalformedInput) {
   auto empty = std::make_shared<Buffer>(empty_str);
   auto garbage = std::make_shared<Buffer>(garbage_str);
 
-  std::shared_ptr<RecordBatchReader> batch_reader;
-
   io::BufferReader empty_reader(empty);
-  ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&empty_reader, &batch_reader));
+  ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&empty_reader));
 
   io::BufferReader garbage_reader(garbage);
-  ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&garbage_reader, &batch_reader));
+  ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&garbage_reader));
 }
 
 // ----------------------------------------------------------------------
