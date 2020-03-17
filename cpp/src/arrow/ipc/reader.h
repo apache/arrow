@@ -56,7 +56,7 @@ using RecordBatchReader = ::arrow::RecordBatchReader;
 /// This class reads the schema (plus any dictionaries) as the first messages
 /// in the stream, followed by record batches. For more granular zero-copy
 /// reads see the ReadRecordBatch functions
-class RecordBatchStreamReader {
+class ARROW_EXPORT RecordBatchStreamReader {
  public:
   /// Create batch reader from generic MessageReader.
   /// This will take ownership of the given MessageReader.
