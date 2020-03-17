@@ -42,11 +42,6 @@ can be installed from the Ursa Labs repository:
 install.packages("arrow", repos = "https://dl.bintray.com/ursalabs/arrow-r")
 ```
 
-In order for `install.packages()` to download C++ dependencies for `arrow` on
-Linux, first set the environment variable `LIBARROW_DOWNLOAD=true`. If you have
-set the `NOT_CRAN` environment variable, that will be used as a default value
-for `LIBARROW_DOWNLOAD`.
-
 There currently are no daily `conda` builds.
 
 You can also install the R package from a git checkout:
@@ -57,7 +52,30 @@ cd arrow/r
 R CMD INSTALL .
 ```
 
-If you have `arrow` installed and want to upgrade to a different version,
+If you don't already have the Arrow C++ libraries on your system,
+when installing the R package from source, it will also download and build
+the Arrow C++ libraries for you. To speed installation up, you can set
+
+```shell
+export LIBARROW_BINARY=true
+```
+
+to look for C++ binaries prebuilt for your Linux distribution/version.
+Alternatively, you can set
+
+```shell
+export LIBARROW_MINIMAL=false
+```
+
+to build the Arrow libraries with optional features such as compression libraries
+enabled. This will increase the build time but provides many useful features.
+Prebuilt binaries are built with this flag enabled, so you get the full
+functionality by using them as well.
+
+Both of these variables are also set this way if you have the `NOT_CRAN=true`
+environment variable set.
+
+If you already have `arrow` installed and want to upgrade to a different version,
 install a development build, or try to reinstall and fix issues with Linux
 C++ binaries, you can call `install_arrow()`.
 This function is part of the `arrow` package,
@@ -143,6 +161,11 @@ some convenience wrappers around the various environment variables described bel
 and has defaults that should isolate the package installation and make it
 more likely to succeed. See its help page for details.
 
+As of version 0.17, it is expected that C++ dependencies should be built successfully
+on all Linux distributions, so if you see this message because the C++ libraries
+errored while building,
+please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues).
+
 ## Using system libraries
 
 If a system library or other installed Arrow is found but it doesn't match the R package version
@@ -164,6 +187,9 @@ system packages may not be an option.
 
 Note also that once you have a working R package installation based on system (shared) libraries,
 if you update your system Arrow, you'll need to reinstall the R package to match its version.
+Similarly, if you're using Arrow system libraries, running `update.packages()`
+after a new release of the `arrow` package will likely fail unless you first
+update the system packages.
 
 ## Using a local Arrow C++ build
 
@@ -221,10 +247,6 @@ This table is checked during the installation process
 and tells the script to use binaries built on a different operating system/version
 because they're known to work.
 
-<!-- If no binary found for current nightly R package version but yes for yesterday? -->
-<!-- TODO add a function to the package to update dev version from bintray? -->
-<!-- If that exists, is there a flag to instruct building without arrow so you can access that fn? (yes: LIBARROW_BUILD=FALSE)-->
-
 ## Building C++ from source
 
 If building the C++ library from source fails, check the error message.
@@ -243,25 +265,31 @@ By default, these are all unset. All boolean variables are case-insensitive.
   won't look for Arrow libraries on your system and instead will look to download/build them.
   Use this if you have a version mismatch between installed system libraries
   and the version of the R package you're installing.
-* `LIBARROW_DOWNLOAD`: Unless set to `true`, the build script
-  will not attempt to download C++ binary or source bundles.
+* `LIBARROW_DOWNLOAD`: Unless set to `false`, the build script
+  will attempt to download C++ binary or source bundles.
   If you're in a checkout of the `apache/arrow` git repository
-  and want to build the C++ library from the local source, make this `FALSE`.
+  and want to build the C++ library from the local source, make this `false`.
+* `LIBARROW_BINARY`: If set to `true`, the script will try to download a binary
+  C++ library built for your operating system.
+  You may also set it to some other string,
+  a related "distro-version" that has binaries built that work for your OS.
+  If no binary is found, installation will fall back to building C++
+  dependencies from source.
 * `LIBARROW_BUILD`: If set to `false`, the build script
   will not attempt to build the C++ from source. This means you will only get
   a working `arrow` R package if a prebuilt binary is found.
   Use this if you want to avoid compiling the C++ library, which may be slow
   and resource-intensive, and ensure that you only use a prebuilt binary.
-* `LIBARROW_BINARY`: If set to `false`,
-  the script will not download a binary, but it may still download a source bundle.
-  You may also set it to some other string,
-  a related "distro-version" that has binaries built that work for your OS.
+* `LIBARROW_MINIMAL`: If set to `false`, the build script
+  will enable some optional features, including compression libraries and the
+  `jemalloc` memory allocator. This will increase the source build time but
+  results in a more fully functional library.
 * `NOT_CRAN`: If this variable is set to `true`, as the `devtools` package does,
-  the build script will attempt to download and/or build the Arrow C++ library, if necessary,
-  even when running `R CMD check`. Otherwise, it will only download/build C++
-  if you're not running `R CMD check`.
-  The purpose of this protection is to avoid expensive compilation in
-  automated testing environments (unless you opt-in).
+  the build script will set `LIBARROW_BINARY=true` and `LIBARROW_MINIMAL=false`
+  unless those environment variables are already set. This provides for a more
+  complete and fast installation experience for users who already have
+  `NOT_CRAN=true` as part of their workflow, without requiring additional
+  environment variables to be set.
 * `ARROW_R_DEV`: If set to `true`, more verbose messaging will be printed
   in the build script. This variable also is needed if you're modifying `Rcpp`
   code in the package: see "Editing Rcpp code" in the README.

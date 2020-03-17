@@ -112,8 +112,12 @@ else
       PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
       PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
     elif [ "$UNAME" = "Linux" ]; then
+      # Set some default values/backwards compatibility
       if [ "${LIBARROW_DOWNLOAD}" = "" ] && [ "${NOT_CRAN}" != "" ]; then
         export LIBARROW_DOWNLOAD=$NOT_CRAN
+      fi
+      if [ "${LIBARROW_BINARY}" = "" ] && [ "${NOT_CRAN}" != "" ]; then
+        export LIBARROW_BINARY=$NOT_CRAN
       fi
       if [ "${LIBARROW_MINIMAL}" = "" ] && [ "${LIBARROW_DOWNLOAD}" = "true" ]; then
         export LIBARROW_MINIMAL=false
