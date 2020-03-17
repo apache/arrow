@@ -41,16 +41,6 @@ class Comparator {
   bool operator()(const ArrayType& array, uint64_t lhs, uint64_t rhs) {
     if (array.IsNull(rhs)) return true;
     if (array.IsNull(lhs)) return false;
-    return array.Value(lhs) <= array.Value(rhs);
-  }
-};
-
-template <>
-class Comparator<StringArray> {
- public:
-  bool operator()(const BinaryArray& array, uint64_t lhs, uint64_t rhs) {
-    if (array.IsNull(rhs)) return true;
-    if (array.IsNull(lhs)) return false;
     return array.GetView(lhs) <= array.GetView(rhs);
   }
 };
