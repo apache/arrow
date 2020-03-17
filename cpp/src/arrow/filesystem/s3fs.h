@@ -86,6 +86,7 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   ~S3FileSystem() override;
 
   std::string type_name() const override { return "s3"; }
+  S3Options options() const { return options_; }
 
   /// \cond FALSE
   using FileSystem::GetFileInfo;
@@ -138,6 +139,8 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
 
   class Impl;
   std::unique_ptr<Impl> impl_;
+
+  S3Options options_;
 };
 
 enum class S3LogLevel : int8_t { Off, Fatal, Error, Warn, Info, Debug, Trace };

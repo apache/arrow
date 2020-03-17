@@ -39,12 +39,7 @@ except ImportError:
     pass
 
 try:
-    from pyarrow._s3fs import (  # noqa
-        initialize_s3,
-        finalize_s3,
-        S3Options,
-        S3FileSystem
-    )
+    from pyarrow._s3fs import initialize_s3, finalize_s3, S3FileSystem  # noqa
 except ImportError:
     pass
 else:
