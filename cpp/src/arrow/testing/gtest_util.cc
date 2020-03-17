@@ -382,11 +382,7 @@ void SleepFor(double seconds) {
 // Extension types
 
 bool UUIDType::ExtensionEquals(const ExtensionType& other) const {
-  const auto& other_ext = static_cast<const ExtensionType&>(other);
-  if (other_ext.extension_name() != this->extension_name()) {
-    return false;
-  }
-  return true;
+  return (other.extension_name() == this->extension_name());
 }
 
 std::shared_ptr<Array> UUIDType::MakeArray(std::shared_ptr<ArrayData> data) const {
@@ -418,6 +414,40 @@ std::shared_ptr<Array> ExampleUUID() {
       storage_type,
       "[null, \"abcdefghijklmno0\", \"abcdefghijklmno1\", \"abcdefghijklmno2\"]");
 
+  auto ext_data = arr->data()->Copy();
+  ext_data->type = ext_type;
+  return MakeArray(ext_data);
+}
+
+bool SmallintType::ExtensionEquals(const ExtensionType& other) const {
+  return (other.extension_name() == this->extension_name());
+}
+
+std::shared_ptr<Array> SmallintType::MakeArray(std::shared_ptr<ArrayData> data) const {
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK_EQ("smallint", static_cast<const ExtensionType&>(*data->type).extension_name());
+  return std::make_shared<SmallintArray>(data);
+}
+
+Status SmallintType::Deserialize(std::shared_ptr<DataType> storage_type,
+                                 const std::string& serialized,
+                                 std::shared_ptr<DataType>* out) const {
+  if (serialized != "smallint") {
+    return Status::Invalid("Type identifier did not match");
+  }
+  if (!storage_type->Equals(*int16())) {
+    return Status::Invalid("Invalid storage type for SmallintType");
+  }
+  *out = std::make_shared<SmallintType>();
+  return Status::OK();
+}
+
+std::shared_ptr<DataType> smallint() { return std::make_shared<SmallintType>(); }
+
+std::shared_ptr<Array> ExampleSmallint() {
+  auto storage_type = int16();
+  auto ext_type = smallint();
+  auto arr = ArrayFromJSON(storage_type, "[-32768, null, 1, 2, 3, 4, 32767]");
   auto ext_data = arr->data()->Copy();
   ext_data->type = ext_type;
   return MakeArray(ext_data);

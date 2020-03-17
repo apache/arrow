@@ -48,10 +48,38 @@ class ARROW_EXPORT UUIDType : public ExtensionType {
   std::string Serialize() const override { return "uuid-type-unique-code"; }
 };
 
+class ARROW_EXPORT SmallintArray : public ExtensionArray {
+ public:
+  using ExtensionArray::ExtensionArray;
+};
+
+class ARROW_EXPORT SmallintType : public ExtensionType {
+ public:
+  SmallintType() : ExtensionType(int16()) {}
+
+  std::string extension_name() const override { return "smallint"; }
+
+  bool ExtensionEquals(const ExtensionType& other) const override;
+
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
+
+  Status Deserialize(std::shared_ptr<DataType> storage_type,
+                     const std::string& serialized,
+                     std::shared_ptr<DataType>* out) const override;
+
+  std::string Serialize() const override { return "smallint"; }
+};
+
 ARROW_EXPORT
 std::shared_ptr<DataType> uuid();
 
 ARROW_EXPORT
+std::shared_ptr<DataType> smallint();
+
+ARROW_EXPORT
 std::shared_ptr<Array> ExampleUUID();
+
+ARROW_EXPORT
+std::shared_ptr<Array> ExampleSmallint();
 
 }  // namespace arrow
