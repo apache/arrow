@@ -20,6 +20,7 @@
 #include "arrow/flight/protocol_internal.h"
 
 #include <cstddef>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -45,12 +46,72 @@ namespace flight {
 namespace internal {
 
 const char* kGrpcAuthHeader = "auth-token-bin";
+const char* kGrpcStatusCodeHeader = "x-arrow-status";
+const char* kGrpcStatusMessageHeader = "x-arrow-status-message-bin";
+const char* kGrpcStatusDetailHeader = "x-arrow-status-detail-bin";
 
-Status FromGrpcStatus(const grpc::Status& grpc_status) {
-  if (grpc_status.ok()) {
-    return Status::OK();
+static Status StatusCodeFromString(const grpc::string_ref& code_ref, StatusCode* code) {
+  // Bounce through std::string to get a proper null-terminated C string
+  const auto code_int = std::atoi(std::string(code_ref.data(), code_ref.size()).c_str());
+  switch (code_int) {
+    case static_cast<int>(StatusCode::OutOfMemory):
+    case static_cast<int>(StatusCode::KeyError):
+    case static_cast<int>(StatusCode::TypeError):
+    case static_cast<int>(StatusCode::Invalid):
+    case static_cast<int>(StatusCode::IOError):
+    case static_cast<int>(StatusCode::CapacityError):
+    case static_cast<int>(StatusCode::IndexError):
+    case static_cast<int>(StatusCode::UnknownError):
+    case static_cast<int>(StatusCode::NotImplemented):
+    case static_cast<int>(StatusCode::SerializationError):
+    case static_cast<int>(StatusCode::RError):
+    case static_cast<int>(StatusCode::CodeGenError):
+    case static_cast<int>(StatusCode::ExpressionValidationError):
+    case static_cast<int>(StatusCode::ExecutionError):
+    case static_cast<int>(StatusCode::AlreadyExists): {
+      *code = static_cast<StatusCode>(code_int);
+      return Status::OK();
+    }
+    default:
+      // Code is invalid
+      return Status::UnknownError("Unknown Arrow status code", code_ref);
+  }
+}
+
+/// Try to extract a status from gRPC trailers.
+/// Return Status::OK if found, an error otherwise.
+static Status FromGrpcContext(const grpc::ClientContext& ctx, Status* status) {
+  const std::multimap<grpc::string_ref, grpc::string_ref>& trailers =
+      ctx.GetServerTrailingMetadata();
+  const auto code_val = trailers.find(kGrpcStatusCodeHeader);
+  if (code_val == trailers.end()) {
+    return Status::IOError("Status code header not found");
   }
 
+  const grpc::string_ref code_ref = (*code_val).second;
+  StatusCode code;
+  RETURN_NOT_OK(StatusCodeFromString(code_ref, &code));
+
+  const auto message_val = trailers.find(kGrpcStatusMessageHeader);
+  if (message_val == trailers.end()) {
+    return Status::IOError("Status message header not found");
+  }
+
+  const grpc::string_ref message_ref = (*message_val).second;
+  std::string message = std::string(message_ref.data(), message_ref.size());
+  const auto detail_val = trailers.find(kGrpcStatusDetailHeader);
+  if (detail_val != trailers.end()) {
+    const grpc::string_ref detail_ref = (*detail_val).second;
+    message += ". Detail: ";
+    message += std::string(detail_ref.data(), detail_ref.size());
+  }
+  *status = Status(code, message);
+  return Status::OK();
+}
+
+/// Convert a gRPC status to an Arrow status, ignoring any
+/// implementation-defined headers that encode further detail.
+static Status FromGrpcCode(const grpc::Status& grpc_status) {
   switch (grpc_status.error_code()) {
     case grpc::StatusCode::OK:
       return Status::OK();
@@ -123,7 +184,28 @@ Status FromGrpcStatus(const grpc::Status& grpc_status) {
   }
 }
 
-grpc::Status ToGrpcStatus(const Status& arrow_status) {
+Status FromGrpcStatus(const grpc::Status& grpc_status, grpc::ClientContext* ctx) {
+  const Status status = FromGrpcCode(grpc_status);
+
+  if (!status.ok() && ctx) {
+    Status arrow_status;
+
+    if (!FromGrpcContext(*ctx, &arrow_status).ok()) {
+      // If we fail to decode a more detailed status from the headers,
+      // proceed normally
+      return status;
+    }
+
+    if (status.detail()) {
+      return arrow_status.WithDetail(status.detail());
+    }
+    return arrow_status;
+  }
+  return status;
+}
+
+/// Convert an Arrow status to a gRPC status.
+static grpc::Status ToRawGrpcStatus(const Status& arrow_status) {
   if (arrow_status.ok()) {
     return grpc::Status::OK;
   }
@@ -164,8 +246,29 @@ grpc::Status ToGrpcStatus(const Status& arrow_status) {
     grpc_code = grpc::StatusCode::UNIMPLEMENTED;
   } else if (arrow_status.IsInvalid()) {
     grpc_code = grpc::StatusCode::INVALID_ARGUMENT;
+  } else if (arrow_status.IsKeyError()) {
+    grpc_code = grpc::StatusCode::NOT_FOUND;
+  } else if (arrow_status.IsAlreadyExists()) {
+    grpc_code = grpc::StatusCode::ALREADY_EXISTS;
   }
   return grpc::Status(grpc_code, message);
+}
+
+/// Convert an Arrow status to a gRPC status, and add extra headers to
+/// the response to encode the original Arrow status.
+grpc::Status ToGrpcStatus(const Status& arrow_status, grpc::ServerContext* ctx) {
+  grpc::Status status = ToRawGrpcStatus(arrow_status);
+  if (!status.ok() && ctx) {
+    const std::string code = std::to_string(static_cast<int>(arrow_status.code()));
+    ctx->AddTrailingMetadata(internal::kGrpcStatusCodeHeader, code);
+    ctx->AddTrailingMetadata(internal::kGrpcStatusMessageHeader, arrow_status.message());
+    if (arrow_status.detail()) {
+      const std::string detail_string = arrow_status.detail()->ToString();
+      ctx->AddTrailingMetadata(internal::kGrpcStatusDetailHeader, detail_string);
+    }
+  }
+
+  return status;
 }
 
 // ActionType
