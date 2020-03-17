@@ -144,14 +144,6 @@ names.Dataset <- function(x) names(x$schema)
 #' @export
 dim.Dataset <- function(x) {
 
-  if (!inherits(x, "FileSystemDataset")) {
-    stop(
-      "dim() is not currently implemented for ", class(x)[1] ," Datasets. ",
-      "Call collect() first to pull data into R.",
-      call. = FALSE
-    )
-  }
-
   if (!inherits(x$format, "ParquetFileFormat")) {
     stop(
       "dim() is only currently implemented for Datasets that use parquet files.",
