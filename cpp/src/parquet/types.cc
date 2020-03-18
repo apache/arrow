@@ -945,7 +945,9 @@ bool LogicalType::Impl::Decimal::is_applicable(parquet::Type::type primitive_typ
     case parquet::Type::BYTE_ARRAY: {
       ok = true;
     } break;
-    default: { } break; }
+    default: {
+    } break;
+  }
   return ok;
 }
 

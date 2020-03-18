@@ -29,13 +29,13 @@ RUN \
     /etc/apt/apt.conf.d/disable-install-recommends
 
 ARG DEBUG
-
+ARG LLVM
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     build-essential \
-    clang-7 \
+    clang-${LLVM} \
     cmake \
     devscripts \
     fakeroot \
@@ -55,7 +55,7 @@ RUN \
     libsnappy-dev \
     libssl-dev \
     libzstd-dev \
-    llvm-7-dev \
+    llvm-${LLVM}-dev \
     lsb-release \
     ninja-build \
     pkg-config \

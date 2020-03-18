@@ -108,11 +108,11 @@ def cmake_linter(src, fix=False):
 
 def python_linter(src):
     """Run flake8 linter on python/pyarrow, and dev/. """
-    logger.info("Running python linters")
+    logger.info("Running Python linters")
     flake8 = Flake8()
 
     if not flake8.available:
-        logger.error("python linter requested but flake8 binary not found.")
+        logger.error("Python linter requested but flake8 binary not found.")
         return
 
     setup_py = os.path.join(src.python, "setup.py")
@@ -128,7 +128,7 @@ def python_numpydoc(symbols=None, whitelist=None, blacklist=None):
 
     Pyarrow must be available for import.
     """
-    logger.info("Running python docstring linters")
+    logger.info("Running Python docstring linters")
     # by default try to run on all pyarrow package
     symbols = symbols or {
         'pyarrow',
@@ -237,18 +237,18 @@ def rat_linter(src, root):
 
 def r_linter(src):
     """Run R linter."""
-    logger.info("Running r linter")
+    logger.info("Running R linter")
     r_lint_sh = os.path.join(src.r, "lint.sh")
     yield LintResult.from_cmd(Bash().run(r_lint_sh, check=False))
 
 
 def rust_linter(src):
     """Run Rust linter."""
-    logger.info("Running rust linter")
+    logger.info("Running Rust linter")
     cargo = Cargo()
 
     if not cargo.available:
-        logger.error("rust linter requested but cargo executable not found.")
+        logger.error("Rust linter requested but cargo executable not found.")
         return
 
     yield LintResult.from_cmd(cargo.run("+stable", "fmt", "--all", "--",
@@ -273,7 +273,7 @@ def is_docker_image(path):
 
 def docker_linter(src):
     """Run Hadolint docker linter."""
-    logger.info("Running docker linter")
+    logger.info("Running Docker linter")
 
     hadolint = Hadolint()
 

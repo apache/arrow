@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# See https://quay.io/repository/pypa/manylinux2010_x86_64?tab=history
+# See https://quay.io/repository/pypa/manylinux2010_x86_64?tab=tags
 # to update base image.
-FROM quay.io/pypa/manylinux2010_x86_64@sha256:d41631c7360a0028876755aebb7036db639c24e7dcdaf3a9e6dcc0e74a681541
+FROM quay.io/pypa/manylinux2010_x86_64:2020-03-07-1825e8f
 
 # Install build dependencies
 RUN yum install -y xz bison ccache flex wget

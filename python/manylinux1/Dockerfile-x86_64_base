@@ -15,12 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# See https://quay.io/repository/pypa/manylinux1_x86_64?tab=history
+# See https://quay.io/repository/pypa/manylinux1_x86_64?tab=tags
 # to update base image.
-FROM quay.io/pypa/manylinux1_x86_64@sha256:e7ed385da2363ea796385bb106a98364f7a8a658a5e8dbf1b7e4c71f2f299251
+FROM quay.io/pypa/manylinux1_x86_64:2020-03-07-9c5ba95
 
 # Install dependencies
-RUN yum install -y xz ccache flex wget && yum clean all
+RUN yum install -y xz ccache flex && yum clean all
 
 ADD scripts/build_zlib.sh /
 RUN /build_zlib.sh

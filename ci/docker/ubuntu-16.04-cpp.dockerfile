@@ -21,19 +21,21 @@ FROM ${arch}/ubuntu:16.04
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV DEBIAN_FRONTEND noninteractive
+
+ARG llvm
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         apt-transport-https \
         software-properties-common \
         wget && \
     wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-    apt-add-repository -y "deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main" && \
+    apt-add-repository -y "deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-${llvm} main" && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
         ca-certificates \
         ccache \
-        clang-7 \
+        clang-${llvm} \
         cmake \
         g++ \
         gcc \
@@ -46,7 +48,7 @@ RUN apt-get update -y -q && \
         liblz4-dev \
         libre2-dev \
         libssl-dev \
-        llvm-7-dev \
+        llvm-${llvm}-dev \
         make \
         ninja-build \
         pkg-config \

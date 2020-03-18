@@ -65,7 +65,7 @@ volumes:
   amd64-cuda-10.1-cache:
   amd64-debian-9-cache:
   amd64-debian-10-cache:
-  amd64-fedora-29-cache:
+  amd64-fedora-30-cache:
   amd64-ubuntu-14.04-cache:
   amd64-ubuntu-16.04-cache:
   amd64-ubuntu-18.04-cache:
@@ -198,6 +198,7 @@ services:
         - ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
       args:
         arch: ${ARCH}
+        llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
@@ -223,6 +224,8 @@ services:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
       args:
         arch: ${ARCH}
+        clang_tools: ${CLANG_TOOLS}
+        llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
@@ -251,12 +254,14 @@ services:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
       args:
         arch: ${ARCH}
+        clang_tools: ${CLANG_TOOLS}
+        llvm: ${LLVM}
     shm_size: *shm-size
     volumes: *ubuntu-volumes
     environment:
       <<: *ccache
-      CC: clang-7
-      CXX: clang++-7
+      CC: clang-${CLANG_TOOLS}
+      CXX: clang++-${CLANG_TOOLS}
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_FUZZING: "ON"  # Check fuzz regressions
       ARROW_JEMALLOC: "OFF"
@@ -271,7 +276,7 @@ services:
     #   docker-compose run --rm fedora-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   FEDORA: 29, ...
+    #   FEDORA: 30, ...
     image: ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
     build:
       context: .
@@ -280,6 +285,7 @@ services:
         - ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
       args:
         arch: ${ARCH}
+        llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
@@ -982,6 +988,7 @@ services:
         - ${REPO}:${ARCH}-debian-9-java-jni
       args:
         base: ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
+        llvm: ${LLVM}
     shm_size: *shm-size
     environment:
       <<: *ccache
@@ -1076,8 +1083,9 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-lint
       args:
-        rust: ${RUST}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+        clang_tools: ${CLANG_TOOLS}
+        rust: ${RUST}
     environment:
       <<: *ccache
     volumes: *ubuntu-volumes

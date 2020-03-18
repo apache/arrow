@@ -418,7 +418,9 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
       *out = union_(fields, type_codes);
       break;
     }
-    default: { return Status::Invalid("Unknown Orc type kind: ", kind); }
+    default: {
+      return Status::Invalid("Unknown Orc type kind: ", kind);
+    }
   }
   return Status::OK();
 }

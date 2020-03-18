@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch
-FROM ${arch}/fedora:29
+FROM ${arch}/fedora:30
 
 # install dependencies
 RUN dnf update -y && \
@@ -55,7 +55,7 @@ RUN dnf update -y && \
 
 # * c-ares cmake config is not installed on Fedora but gRPC needs it
 #   when built via ExternalProject: https://bugzilla.redhat.com/show_bug.cgi?id=1687844
-# * protobuf libraries in Fedora 29 are too old for gRPC
+# * protobuf libraries in Fedora 30 are too old for gRPC
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \

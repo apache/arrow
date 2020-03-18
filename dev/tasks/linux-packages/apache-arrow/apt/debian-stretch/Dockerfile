@@ -28,13 +28,13 @@ RUN \
   echo 'APT::Install-Recommends "false";' > \
     /etc/apt/apt.conf.d/disable-install-recommends
 
-ARG DEBUG
-
 RUN sed -i'' -e 's/main$/main contrib non-free/g' /etc/apt/sources.list
 RUN \
   echo "deb http://deb.debian.org/debian stretch-backports main" > \
     /etc/apt/sources.list.d/backports.list
 
+ARG DEBUG
+ARG LLVM
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
@@ -44,12 +44,12 @@ RUN \
     gnupg \
     wget && \
   wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-  echo "deb https://apt.llvm.org/stretch/ llvm-toolchain-stretch-7 main" > \
+  echo "deb https://apt.llvm.org/stretch/ llvm-toolchain-stretch-${LLVM} main" > \
     /etc/apt/sources.list.d/llvm.list && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     build-essential \
-    clang-7 \
+    clang-${LLVM} \
     cmake \
     devscripts \
     fakeroot \
@@ -69,7 +69,7 @@ RUN \
     libsnappy-dev \
     libssl-dev \
     libzstd-dev \
-    llvm-7-dev \
+    llvm-${LLVM}-dev \
     lsb-release \
     ninja-build \
     pkg-config \

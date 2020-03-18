@@ -24,13 +24,6 @@ ARG DEBUG
 
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
-  # CentOS 8.0.1905 provides LLVM 7 but CentOS 8.1.1911 provides only
-  # LLVM 8. We should remove this when we support LLVM 8.
-  sed -i'' \
-    -e 's/^mirrorlist/#mirrorlist/' \
-    -e 's/^#baseurl/baseurl/' \
-    -e 's/$releasever/8.0.1905/g' \
-    /etc/yum.repos.d/*.repo && \
   dnf install -y ${quiet} epel-release && \
   dnf install --enablerepo=PowerTools -y ${quiet} \
     bison \

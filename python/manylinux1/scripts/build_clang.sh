@@ -33,7 +33,7 @@ cmake  \
     -DLLVM_INCLUDE_DOCS=OFF \
     -GNinja \
     ..
-ninja install
+ninja -w dupbuild=warn install # both clang and llvm builds generate llvm-config file
 popd
 popd
 rm -rf cfe-${LLVM_VERSION}.src.tar.xz cfe-${LLVM_VERSION}.src.tar cfe-${LLVM_VERSION}.src

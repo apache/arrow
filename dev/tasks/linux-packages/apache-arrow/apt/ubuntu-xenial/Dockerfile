@@ -29,18 +29,9 @@ RUN \
     /etc/apt/apt.conf.d/disable-install-recommends
 
 ARG DEBUG
-
+ARG LLVM
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
-  apt update ${quiet} && \
-  apt install -y -V ${quiet} \
-    apt-transport-https \
-    ca-certificates \
-    gnupg \
-    wget && \
-  wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-  echo "deb https://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main" > \
-    /etc/apt/sources.list.d/llvm.list && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     autoconf-archive \
@@ -72,10 +63,10 @@ RUN \
     python3-dev \
     python3-numpy \
     zlib1g-dev && \
-  if apt list | grep '^clang-7/'; then \
+  if apt list | grep "^clang-${LLVM}/"; then \
     apt install -y -V ${quiet} \
-      clang-7 \
-      llvm-7-dev; \
+      clang-${LLVM} \
+      llvm-${LLVM}-dev; \
   fi && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \

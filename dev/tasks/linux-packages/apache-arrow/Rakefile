@@ -82,6 +82,25 @@ class ApacheArrowPackageTask < PackageTask
          "--output", @full_archive_name)
     end
   end
+
+  def detect_llvm_version
+    dot_env_path = File.join(arrow_source_dir, ".env")
+    File.open(dot_env_path) do |dot_env|
+      dot_env.each_line do |line|
+        case line.chomp
+        when /\ALLVM=(.*)/
+          return $1
+        end
+      end
+    end
+    raise "Failed to detect LLVM version"
+  end
+
+  def docker_build_options(os, architecture)
+    [
+      "--build-arg", "LLVM=#{detect_llvm_version}",
+    ]
+  end
 end
 
 task = ApacheArrowPackageTask.new

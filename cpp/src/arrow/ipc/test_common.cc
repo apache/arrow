@@ -103,9 +103,10 @@ static Status MakeListArray(const std::shared_ptr<Array>& child_array, int num_l
     // Force invariants
     const auto child_length = static_cast<offset_type>(child_array->length());
     offsets[0] = 0;
-    std::replace_if(offsets.begin(), offsets.end(),
-                    [child_length](offset_type offset) { return offset > child_length; },
-                    child_length);
+    std::replace_if(
+        offsets.begin(), offsets.end(),
+        [child_length](offset_type offset) { return offset > child_length; },
+        child_length);
   }
 
   offsets[num_lists] = static_cast<offset_type>(child_array->length());
