@@ -339,4 +339,3 @@ test_that("pull", {
     tbl
   )
 })
-
