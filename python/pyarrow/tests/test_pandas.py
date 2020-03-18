@@ -2613,6 +2613,12 @@ def test_serialize_deserialize_pandas():
     _check_serialize_components_roundtrip(df)
 
 
+def test_serialize_deserialize_empty_pandas():
+    # ARROW-7996, serialize and deserialize empty pandas
+    df = pd.DataFrame({'col1': [], 'col2': [], 'col3': []})
+    _check_serialize_components_roundtrip(df)
+
+
 def _pytime_from_micros(val):
     microseconds = val % 1000000
     val //= 1000000
