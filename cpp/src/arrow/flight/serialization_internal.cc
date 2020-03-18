@@ -237,61 +237,65 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
   std::vector<grpc::Slice> slices;
   slices.emplace_back(header_size);
 
-  ArrayOutputStream header_writer(const_cast<uint8_t*>(slices[0].begin()),
-                                  static_cast<int>(slices[0].size()));
-  CodedOutputStream header_stream(&header_writer);
+  // Force the header_stream to be destructed, which actually flushes
+  // the data into the slice.
+  {
+    ArrayOutputStream header_writer(const_cast<uint8_t*>(slices[0].begin()),
+                                    static_cast<int>(slices[0].size()));
+    CodedOutputStream header_stream(&header_writer);
 
-  // Write descriptor
-  if (msg.descriptor != nullptr) {
-    WireFormatLite::WriteTag(pb::FlightData::kFlightDescriptorFieldNumber,
-                             WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
-    header_stream.WriteVarint32(descriptor_size);
-    header_stream.WriteRawMaybeAliased(msg.descriptor->data(),
-                                       static_cast<int>(msg.descriptor->size()));
-  }
+    // Write descriptor
+    if (msg.descriptor != nullptr) {
+      WireFormatLite::WriteTag(pb::FlightData::kFlightDescriptorFieldNumber,
+                               WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
+      header_stream.WriteVarint32(descriptor_size);
+      header_stream.WriteRawMaybeAliased(msg.descriptor->data(),
+                                         static_cast<int>(msg.descriptor->size()));
+    }
 
-  // Write header
-  if (has_ipc) {
-    WireFormatLite::WriteTag(pb::FlightData::kDataHeaderFieldNumber,
-                             WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
-    header_stream.WriteVarint32(metadata_size);
-    header_stream.WriteRawMaybeAliased(ipc_msg.metadata->data(),
-                                       static_cast<int>(ipc_msg.metadata->size()));
-  }
+    // Write header
+    if (has_ipc) {
+      WireFormatLite::WriteTag(pb::FlightData::kDataHeaderFieldNumber,
+                               WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
+      header_stream.WriteVarint32(metadata_size);
+      header_stream.WriteRawMaybeAliased(ipc_msg.metadata->data(),
+                                         static_cast<int>(ipc_msg.metadata->size()));
+    }
 
-  // Write app metadata
-  if (app_metadata_size > 0) {
-    WireFormatLite::WriteTag(pb::FlightData::kAppMetadataFieldNumber,
-                             WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
-    header_stream.WriteVarint32(app_metadata_size);
-    header_stream.WriteRawMaybeAliased(msg.app_metadata->data(),
-                                       static_cast<int>(msg.app_metadata->size()));
-  }
+    // Write app metadata
+    if (app_metadata_size > 0) {
+      WireFormatLite::WriteTag(pb::FlightData::kAppMetadataFieldNumber,
+                               WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
+      header_stream.WriteVarint32(app_metadata_size);
+      header_stream.WriteRawMaybeAliased(msg.app_metadata->data(),
+                                         static_cast<int>(msg.app_metadata->size()));
+    }
 
-  if (has_body) {
-    // Write body tag
-    WireFormatLite::WriteTag(pb::FlightData::kDataBodyFieldNumber,
-                             WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
-    header_stream.WriteVarint32(static_cast<uint32_t>(body_size));
+    if (has_body) {
+      // Write body tag
+      WireFormatLite::WriteTag(pb::FlightData::kDataBodyFieldNumber,
+                               WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
+      header_stream.WriteVarint32(static_cast<uint32_t>(body_size));
 
-    // Enqueue body buffers for writing, without copying
-    for (const auto& buffer : ipc_msg.body_buffers) {
-      // Buffer may be null when the row length is zero, or when all
-      // entries are invalid.
-      if (!buffer) continue;
+      // Enqueue body buffers for writing, without copying
+      for (const auto& buffer : ipc_msg.body_buffers) {
+        // Buffer may be null when the row length is zero, or when all
+        // entries are invalid.
+        if (!buffer) continue;
 
-      slices.push_back(SliceFromBuffer(buffer));
+        slices.push_back(SliceFromBuffer(buffer));
 
-      // Write padding if not multiple of 8
-      const auto remainder = static_cast<int>(
-          BitUtil::RoundUpToMultipleOf8(buffer->size()) - buffer->size());
-      if (remainder) {
-        slices.push_back(grpc::Slice(kPaddingBytes, remainder));
+        // Write padding if not multiple of 8
+        const auto remainder = static_cast<int>(
+            BitUtil::RoundUpToMultipleOf8(buffer->size()) - buffer->size());
+        if (remainder) {
+          slices.push_back(grpc::Slice(kPaddingBytes, remainder));
+        }
       }
     }
-  }
 
-  DCHECK_EQ(static_cast<int>(header_size), header_stream.ByteCount());
+    DCHECK_EQ(static_cast<int>(header_size), header_stream.ByteCount());
+  }
 
   // Hand off the slices to the returned ByteBuffer
   *out = grpc::ByteBuffer(slices.data(), slices.size());
