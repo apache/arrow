@@ -73,12 +73,9 @@ jobs:
   # (don't know why).
   # The tag upload took 43 minutes because of this scan, so use an
   # alternative upload script.
-  - task: CondaEnvironment@1
-    inputs:
-      packageSpecs: 'click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz'
-      installOptions: '-c conda-forge'
-      updateConda: false
   - script: |
+      source activate base
+      conda install -y click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz
       python arrow/dev/tasks/crossbow.py \
         --queue-path . \
         --queue-remote {{ queue.remote_url }} \
@@ -95,5 +92,5 @@ jobs:
       source activate base
       conda install -y anaconda-client
       anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload -l nightly --force build_artifacts/osx-64/*.tar.bz2
-    displayName: Upload packages
+    displayName: Upload packages to Anaconda
     workingDirectory: arrow/dev/tasks/conda-recipes

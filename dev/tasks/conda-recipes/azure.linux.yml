@@ -41,6 +41,8 @@ jobs:
       packageSpecs: 'click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz'
       installOptions: '-c conda-forge'
       updateConda: false
+
+  # Upload to github releases
   - script: |
       python arrow/dev/tasks/crossbow.py \
         --queue-path . \
@@ -55,8 +57,7 @@ jobs:
 
   # Upload to custom anaconda channel
   - script: |
-      source activate base
       conda install -y anaconda-client
       anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload -l nightly --force build_artifacts/linux-64/*.tar.bz2
-    displayName: Upload packages
+    displayName: Upload packages to Anaconda
     workingDirectory: arrow/dev/tasks/conda-recipes
