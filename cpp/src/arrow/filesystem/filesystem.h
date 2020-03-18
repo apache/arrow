@@ -162,6 +162,12 @@ class ARROW_EXPORT FileSystem {
 
   virtual std::string type_name() const = 0;
 
+  /// Normalize path for the given filesystem
+  ///
+  /// The default implementation of this method is a no-op, but subclasses
+  /// may allow normalizing irregular path forms (such as Windows local paths).
+  virtual Result<std::string> NormalizePath(std::string path);
+
   /// Get info for the given target.
   ///
   /// Any symlink is automatically dereferenced, recursively.
@@ -246,11 +252,14 @@ class ARROW_EXPORT FileSystem {
 /// "escape" the subtree and access other parts of the underlying filesystem.
 class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
  public:
+  // This constructor may abort if base_path is invalid.
   explicit SubTreeFileSystem(const std::string& base_path,
                              std::shared_ptr<FileSystem> base_fs);
   ~SubTreeFileSystem() override;
 
   std::string type_name() const override { return "subtree"; }
+
+  Result<std::string> NormalizePath(std::string path) override;
 
   /// \cond FALSE
   using FileSystem::GetTargetInfo;
@@ -280,13 +289,18 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
       const std::string& path) override;
 
  protected:
+  SubTreeFileSystem() {}
+
   const std::string base_path_;
   std::shared_ptr<FileSystem> base_fs_;
 
   std::string PrependBase(const std::string& s) const;
   Status PrependBaseNonEmpty(std::string* s) const;
-  Status StripBase(const std::string& s, std::string* out) const;
+  Result<std::string> StripBase(const std::string& s) const;
   Status FixInfo(FileInfo* info) const;
+
+  static Result<std::string> NormalizeBasePath(
+      std::string base_path, const std::shared_ptr<FileSystem>& base_fs);
 };
 
 /// \brief A FileSystem implementation that delegates to another

@@ -172,6 +172,12 @@ void GenericFileSystemTest::TestEmpty(FileSystem* fs) {
   ASSERT_EQ(files.size(), 0);
 }
 
+void GenericFileSystemTest::TestNormalizePath(FileSystem* fs) {
+  // Canonical abstract paths should go through unchanged
+  ASSERT_OK_AND_EQ("AB", fs->NormalizePath("AB"));
+  ASSERT_OK_AND_EQ("AB/CD/efg", fs->NormalizePath("AB/CD/efg"));
+}
+
 void GenericFileSystemTest::TestCreateDir(FileSystem* fs) {
   ASSERT_OK(fs->CreateDir("AB"));
   ASSERT_OK(fs->CreateDir("AB/CD/EF"));  // Recursive
@@ -845,6 +851,7 @@ void GenericFileSystemTest::TestOpenInputFile(FileSystem* fs) {
   void GenericFileSystemTest::FUNC_NAME() { FUNC_NAME(GetEmptyFileSystem().get()); }
 
 GENERIC_FS_TEST_DEFINE(TestEmpty)
+GENERIC_FS_TEST_DEFINE(TestNormalizePath)
 GENERIC_FS_TEST_DEFINE(TestCreateDir)
 GENERIC_FS_TEST_DEFINE(TestDeleteDir)
 GENERIC_FS_TEST_DEFINE(TestDeleteDirContents)
