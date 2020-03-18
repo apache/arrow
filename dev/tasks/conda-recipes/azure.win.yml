@@ -72,7 +72,7 @@ jobs:
 
     # Special cased version setting some more things!
     - script: |
-        conda.exe build recipe -m .ci_support\%CONFIG%.yaml
+        conda.exe build arrow-cpp parquet-cpp pyarrow -m .ci_support\%CONFIG%.yaml
       displayName: Build recipe (vs2008)
       env:
         VS90COMNTOOLS: "C:\\Program Files (x86)\\Common Files\\Microsoft\\Visual C++ for Python\\9.0\\VC\\bin"
