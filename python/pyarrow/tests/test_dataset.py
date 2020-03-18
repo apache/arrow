@@ -18,6 +18,7 @@
 import contextlib
 import operator
 import os
+import urllib
 
 import numpy as np
 import pytest
@@ -751,6 +752,33 @@ def test_open_dataset_from_source_additional_kwargs(multisourcefs):
     )
     with pytest.raises(ValueError, match="cannot pass any additional"):
         ds.dataset(child, format="parquet")
+
+
+@pytest.mark.parquet
+@pytest.mark.s3
+def test_open_dataset_from_uri_s3(minio_server):
+    # open dataset from non-localfs string path
+    from pyarrow.fs import FileSystem
+    import pyarrow.parquet as pq
+
+    address, access_key, secret_key = minio_server
+    uri = "s3://{}:{}@mybucket/data.parquet?scheme=http&endpoint_override={}" \
+        .format(access_key, secret_key, urllib.parse.quote(address))
+
+    fs, path = FileSystem.from_uri(uri)
+
+    fs.create_dir("mybucket")
+    table = pa.table({'a': [1, 2, 3]})
+    with fs.open_output_stream("mybucket/data.parquet") as out:
+        pq.write_table(table, out)
+
+    # full string URI
+    dataset = ds.dataset(uri, format="parquet")
+    assert dataset.to_table().equals(table)
+
+    # passing filesystem object
+    dataset = ds.dataset(path, format="parquet", filesystem=fs)
+    assert dataset.to_table().equals(table)
 
 
 @pytest.mark.parquet
