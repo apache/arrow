@@ -27,7 +27,6 @@ from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.compat import frombytes, tobytes
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector, LocalFileSystem
-#from pyarrow.lib import as_c_buffer
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
@@ -285,7 +284,7 @@ cdef class InMemoryDataset(Dataset):
         CInMemoryDataset* inmem_dataset
 
     def __init__(self, batches=None, Fragment fragment=None, Table table=None,
-            MemoryPool memory_pool=None):
+                 MemoryPool memory_pool=None):
         cdef:
             shared_ptr[CInMemoryDataset] inmem_dataset
 
@@ -486,7 +485,7 @@ cdef class FileFragment(Fragment):
         CFileFragment* file_fragment
 
     def __init__(self, FileFormat file_format not None,
-                 source, FileSystem filesystem = None):
+                 source, FileSystem filesystem=None):
         cdef:
             CResult[shared_ptr[CFragment]] c_fragment
             shared_ptr[CBuffer] c_buffer

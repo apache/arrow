@@ -865,4 +865,3 @@ def test_parquet_buffer(parquetbuffer):
     fragment = ds.FileFragment(ds.ParquetFileFormat(), parquetbuffer)
     dataset = ds.InMemoryDataset(fragment=fragment)
     assert dataset.to_table().equals(_basic_table())
-
