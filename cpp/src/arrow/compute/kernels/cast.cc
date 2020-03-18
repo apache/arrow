@@ -1132,9 +1132,6 @@ class ExtensionCastKernel : public CastKernelBase {
   static Status Make(const DataType& in_type, std::shared_ptr<DataType> out_type,
                      const CastOptions& options,
                      std::unique_ptr<CastKernelBase>* kernel) {
-    if (in_type.id() != Type::EXTENSION) {
-      return Status::TypeError("Not an extension type");
-    }
     const auto storage_type = checked_cast<const ExtensionType&>(in_type).storage_type();
 
     std::unique_ptr<UnaryKernel> storage_caster;
@@ -1154,9 +1151,6 @@ class ExtensionCastKernel : public CastKernelBase {
 
   Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
     DCHECK_EQ(input.kind(), Datum::ARRAY);
-    if (input.type()->id() != Type::EXTENSION) {
-      return Status::TypeError("Not an extension type");
-    }
 
     // validate: type is the same as the type the kernel was constructed with
     const auto& input_type = checked_cast<const ExtensionType&>(*input.type());
@@ -1167,8 +1161,10 @@ class ExtensionCastKernel : public CastKernelBase {
           input_type.extension_name(), "'");
     }
     if (!input_type.storage_type()->Equals(storage_type_)) {
-      return Status::TypeError(
-          "The cast kernel was constructed with a different extension type");
+      return Status::TypeError("The cast kernel was constructed with a storage type: ",
+                               storage_type_->ToString(),
+                               ", but it is called with a different storage type:",
+                               input_type.storage_type()->ToString());
     }
 
     // construct an ArrayData object with the underlying storage type

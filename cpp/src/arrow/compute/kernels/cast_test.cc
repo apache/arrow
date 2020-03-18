@@ -1499,6 +1499,10 @@ TEST_F(TestCast, ExtensionTypeToIntDowncast) {
   std::shared_ptr<Array> result;
   std::vector<bool> is_valid = {true, false, true, true, true};
 
+  // Smallint(int16) to int16
+  auto v0 = SmallintArrayFromJSON("[0, 100, 200, 1, 2]");
+  CheckZeroCopy(*v0, int16());
+
   // Smallint(int16) to uint8, no overflow/underrun
   auto v1 = SmallintArrayFromJSON("[0, 100, 200, 1, 2]");
   auto e1 = ArrayFromJSON(uint8(), "[0, 100, 200, 1, 2]");

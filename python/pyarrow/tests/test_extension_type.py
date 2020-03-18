@@ -182,6 +182,11 @@ def test_cast_kernel_on_extension_arrays():
     storage = pa.array([1, 2, 3, 4], pa.int64())
     arr = pa.ExtensionArray.from_storage(IntegerType(), storage)
 
+    # test that no allocation happens during identity cast
+    allocated_before_cast = pa.total_allocated_bytes()
+    casted = arr.cast(pa.int64())
+    assert pa.total_allocated_bytes() == allocated_before_cast
+
     cases = [
         (pa.int64(), pa.Int64Array),
         (pa.int32(), pa.Int32Array),
