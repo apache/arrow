@@ -6,7 +6,7 @@ jobs:
   variables:
     CONFIG: {{ config }}
     ARROW_VERSION: {{ arrow.no_rc_version }}
-    UPLOAD_PACKAGES: True
+    UPLOAD_PACKAGES: False
   steps:
   - script: |
       echo "Removing homebrew from Azure to avoid conflicts."
@@ -68,17 +68,6 @@ jobs:
     workingDirectory: arrow/dev/tasks/conda-recipes
     displayName: Build recipes
 
-  # Upload to custom anaconda channel
-  - script: |
-      source activate base
-      upload_package ./ arrow-cpp ./.ci_support/${CONFIG}.yaml
-      upload_package ./ parquet-cpp ./.ci_support/${CONFIG}.yaml
-      upload_package ./ pyarrow-cpp ./.ci_support/${CONFIG}.yaml
-    displayName: Upload package
-    env:
-      BINSTAR_TOKEN: $(CROSSBOW_ANACONDA_TOKEN)
-    condition: and(succeeded(), not(eq(variables['UPLOAD_PACKAGES'], 'False')))
-
   # Using github release tries to find a common ancestor between the
   # currently pushed tag and the latest tag of the github repository
   # (don't know why).
@@ -100,3 +89,11 @@ jobs:
     env:
       CROSSBOW_GITHUB_TOKEN: $(CROSSBOW_GITHUB_TOKEN)
     displayName: Upload packages as a GitHub release
+
+  # Upload to custom anaconda channel
+  - script: |
+      source activate base
+      conda install -y anaconda-client
+      anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload -l nightly --force build_artifacts/osx-64/*.tar.bz2
+    displayName: Upload packages
+    workingDirectory: arrow/dev/tasks/conda-recipes
