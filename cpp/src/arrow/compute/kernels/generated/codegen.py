@@ -23,9 +23,8 @@
 import io
 import os
 
-
-INTEGER_TYPES = ['UInt8', 'Int8', 'UInt16', 'Int16',
-                 'UInt32', 'Int32', 'UInt64', 'Int64']
+SIGNED_INTEGER_TYPES = ['Int8', 'Int16', 'Int32', 'Int64']
+INTEGER_TYPES = SIGNED_INTEGER_TYPES + ['UInt8', 'UInt16', 'UInt32', 'UInt64']
 FLOATING_TYPES = ['Float', 'Double']
 NUMERIC_TYPES = ['Boolean'] + INTEGER_TYPES + FLOATING_TYPES
 STRING_TYPES = ['String', 'LargeString']
@@ -78,6 +77,8 @@ CAST_GENERATORS = [
     CastCodeGenerator('Int64', NUMERIC_TYPES + STRING_TYPES),
     CastCodeGenerator('Float', NUMERIC_TYPES + STRING_TYPES),
     CastCodeGenerator('Double', NUMERIC_TYPES + STRING_TYPES),
+    CastCodeGenerator('Decimal128', ['Decimal128'] + SIGNED_INTEGER_TYPES,
+                      parametric=True),
     CastCodeGenerator('Date32', ['Date64']),
     CastCodeGenerator('Date64', ['Date32']),
     CastCodeGenerator('Time32', ['Time32', 'Time64'],

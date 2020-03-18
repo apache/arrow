@@ -405,6 +405,150 @@ struct CastFunctor<
 };
 
 // ----------------------------------------------------------------------
+// Decimals
+
+// Decimal to Integer
+
+template <typename O>
+struct CastFunctor<O, Decimal128Type, enable_if_t<is_integer_type<O>::value>> {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    using out_type = typename O::c_type;
+    const auto& in_type_inst = checked_cast<const Decimal128Type&>(*input.type);
+    auto in_scale = in_type_inst.scale();
+
+    auto out_data = output->GetMutableValues<out_type>(1);
+
+    constexpr auto min_value = std::numeric_limits<out_type>::min();
+    constexpr auto max_value = std::numeric_limits<out_type>::max();
+    constexpr auto zero = out_type{};
+
+    if (options.allow_decimal_truncate) {
+      if (in_scale < 0) {
+        // Unsafe upscale
+        auto convert_value = [&](util::optional<util::string_view> v) {
+          *out_data = zero;
+          if (v.has_value()) {
+            auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
+            auto converted = dec_value.IncreaseScaleBy(-in_scale);
+            if (!options.allow_int_overflow &&
+                ARROW_PREDICT_FALSE(converted < min_value || converted > max_value)) {
+              ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
+            } else {
+              *out_data = static_cast<out_type>(converted.low_bits());
+            }
+          }
+          ++out_data;
+        };
+        VisitArrayDataInline<Decimal128Type>(input, std::move(convert_value));
+      } else {
+        // Unsafe downscale
+        auto convert_value = [&](util::optional<util::string_view> v) {
+          *out_data = zero;
+          if (v.has_value()) {
+            auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
+            auto converted = dec_value.ReduceScaleBy(in_scale, false);
+            if (!options.allow_int_overflow &&
+                ARROW_PREDICT_FALSE(converted < min_value || converted > max_value)) {
+              ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
+            } else {
+              *out_data = static_cast<out_type>(converted.low_bits());
+            }
+          }
+          ++out_data;
+        };
+        VisitArrayDataInline<Decimal128Type>(input, std::move(convert_value));
+      }
+    } else {
+      // Safe rescale
+      auto convert_value = [&](util::optional<util::string_view> v) {
+        *out_data = zero;
+        if (v.has_value()) {
+          auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
+          auto result = dec_value.Rescale(in_scale, 0);
+          if (ARROW_PREDICT_FALSE(!result.ok())) {
+            ctx->SetStatus(result.status());
+          } else {
+            auto converted = *std::move(result);
+            if (!options.allow_int_overflow &&
+                ARROW_PREDICT_FALSE(converted < min_value || converted > max_value)) {
+              ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
+            } else {
+              *out_data = static_cast<out_type>(converted.low_bits());
+            }
+          }
+        }
+        ++out_data;
+      };
+      VisitArrayDataInline<Decimal128Type>(input, std::move(convert_value));
+    }
+  }
+};
+
+// Decimal to Decimal
+
+template <>
+struct CastFunctor<Decimal128Type, Decimal128Type> {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    const auto& in_type_inst = checked_cast<const Decimal128Type&>(*input.type);
+    const auto& out_type_inst = checked_cast<const Decimal128Type&>(*output->type);
+    auto in_scale = in_type_inst.scale();
+    auto out_scale = out_type_inst.scale();
+
+    auto out_data = output->GetMutableValues<uint8_t>(1);
+
+    const auto write_zero = [](uint8_t* out_data) { memset(out_data, 0, 16); };
+
+    if (options.allow_decimal_truncate) {
+      if (in_scale < out_scale) {
+        // Unsafe upscale
+        auto convert_value = [&](util::optional<util::string_view> v) {
+          if (v.has_value()) {
+            auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
+            dec_value.IncreaseScaleBy(out_scale - in_scale).ToBytes(out_data);
+          } else {
+            write_zero(out_data);
+          }
+          out_data += 16;
+        };
+        VisitArrayDataInline<Decimal128Type>(input, std::move(convert_value));
+      } else {
+        // Unsafe downscale
+        auto convert_value = [&](util::optional<util::string_view> v) {
+          if (v.has_value()) {
+            auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
+            dec_value.ReduceScaleBy(in_scale - out_scale, false).ToBytes(out_data);
+          } else {
+            write_zero(out_data);
+          }
+          out_data += 16;
+        };
+        VisitArrayDataInline<Decimal128Type>(input, std::move(convert_value));
+      }
+    } else {
+      // Safe rescale
+      auto convert_value = [&](util::optional<util::string_view> v) {
+        if (v.has_value()) {
+          auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
+          auto result = dec_value.Rescale(in_scale, out_scale);
+          if (ARROW_PREDICT_FALSE(!result.ok())) {
+            ctx->SetStatus(result.status());
+            write_zero(out_data);
+          } else {
+            (*std::move(result)).ToBytes(out_data);
+          }
+        } else {
+          write_zero(out_data);
+        }
+        out_data += 16;
+      };
+      VisitArrayDataInline<Decimal128Type>(input, std::move(convert_value));
+    }
+  }
+};
+
+// ----------------------------------------------------------------------
 // From one timestamp to another
 
 template <typename in_type, typename out_type>
@@ -1203,6 +1347,7 @@ GET_CAST_FUNCTION(UINT64_CASES, UInt64Type, CastKernel)
 GET_CAST_FUNCTION(INT64_CASES, Int64Type, CastKernel)
 GET_CAST_FUNCTION(FLOAT_CASES, FloatType, CastKernel)
 GET_CAST_FUNCTION(DOUBLE_CASES, DoubleType, CastKernel)
+GET_CAST_FUNCTION(DECIMAL128_CASES, Decimal128Type, CastKernel)
 GET_CAST_FUNCTION(DATE32_CASES, Date32Type, CastKernel)
 GET_CAST_FUNCTION(DATE64_CASES, Date64Type, CastKernel)
 GET_CAST_FUNCTION(TIME32_CASES, Time32Type, CastKernel)
@@ -1293,6 +1438,7 @@ Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_ty
     CAST_FUNCTION_CASE(Int64Type);
     CAST_FUNCTION_CASE(FloatType);
     CAST_FUNCTION_CASE(DoubleType);
+    CAST_FUNCTION_CASE(Decimal128Type);
     CAST_FUNCTION_CASE(Date32Type);
     CAST_FUNCTION_CASE(Date64Type);
     CAST_FUNCTION_CASE(Time32Type);
