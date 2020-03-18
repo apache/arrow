@@ -152,7 +152,7 @@ dim.Dataset <- function(x) {
     )
   }
 
-  rows <- as.integer(sum(purrr::map_dbl(x$files, ~ParquetFileReader$create(.x)$num_rows)))
+  rows <- sum(map_int(x$files, ~ParquetFileReader$create(.x)$num_rows))
   cols <- length(x$schema)
 
   c(rows, cols)
