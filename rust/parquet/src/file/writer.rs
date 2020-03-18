@@ -693,7 +693,7 @@ mod tests {
         );
         let props = Rc::new(
             WriterProperties::builder()
-                .set_key_value_metadata(Some(vec![parquet::KeyValue::new(
+                .set_key_value_metadata(Some(vec![KeyValue::new(
                     "key".to_string(),
                     "value".to_string(),
                 )]))

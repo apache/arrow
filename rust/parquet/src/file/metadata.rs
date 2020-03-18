@@ -35,7 +35,7 @@
 
 use std::rc::Rc;
 
-use parquet_format::{ColumnChunk, ColumnMetaData, KeyValue, RowGroup};
+use parquet_format::{ColumnChunk, ColumnMetaData, RowGroup};
 
 use crate::basic::{ColumnOrder, Compression, Encoding, Type};
 use crate::errors::{ParquetError, Result};
@@ -82,6 +82,8 @@ impl ParquetMetaData {
         &self.row_groups
     }
 }
+
+pub type KeyValue = parquet_format::KeyValue;
 
 /// Reference counted pointer for [`FileMetaData`].
 pub type FileMetaDataPtr = Rc<FileMetaData>;
