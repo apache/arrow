@@ -706,7 +706,25 @@ def get_version(root, **kwargs):
         'git describe --dirty --tags --long --match "apache-arrow-[0-9].*"'
     )
     version = parse_git_version(root, **kwargs)
-    return version.format_next_version(guess_next_version)
+    next_version = version.format_next_version(guess_next_version)
+    # Ensure using ${MAJOR}.${MINOR}.${PATCH}-${SUFFIX} for pre-release version
+    # number. Because NuGet package requires this format for version number:
+    # https://docs.microsoft.com/en-us/nuget/concepts/package-versioning
+    #
+    # NuGet package version number follows Semantic Versioning 1.0.0:
+    # https://semver.org/spec/v1.0.0.html
+    #
+    # > A pre-release version number MAY be denoted by appending an
+    # > arbitrary string immediately following the patch version and a
+    # > dash. The string MUST be comprised of only alphanumerics plus
+    # > dash [0-9A-Za-z-].
+    #
+    # Example:
+    #
+    #   '0.16.1.dev10' ->
+    #   '0.16.1-dev10'
+    next_version = re.sub(r'\.(dev\d+)$', r'-\1', next_version)
+    return next_version
 
 
 class Serializable:
