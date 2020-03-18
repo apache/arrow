@@ -17,7 +17,7 @@
 
 #include "benchmark/benchmark.h"
 
-#include "arrow/compute/kernels/sort_to_indices.h"
+#include "arrow/compute/kernels/nth_to_indices.h"
 
 #include "arrow/compute/benchmark_util.h"
 #include "arrow/compute/test_util.h"
@@ -28,29 +28,18 @@ namespace arrow {
 namespace compute {
 constexpr auto kSeed = 0x0ff1ce;
 
-static void SortToIndicesBenchmark(benchmark::State& state,
-                                   const std::shared_ptr<Array>& values) {
+static void NthToIndicesBenchmark(benchmark::State& state,
+                                  const std::shared_ptr<Array>& values, int64_t n) {
   FunctionContext ctx;
   for (auto _ : state) {
     std::shared_ptr<Array> out;
-    ABORT_NOT_OK(SortToIndices(&ctx, *values, &out));
+    ABORT_NOT_OK(NthToIndices(&ctx, *values, n, &out));
     benchmark::DoNotOptimize(out);
   }
   state.SetItemsProcessed(state.iterations() * values->length());
 }
 
-static void SortToIndicesInt64Count(benchmark::State& state) {
-  RegressionArgs args(state);
-
-  const int64_t array_size = args.size / sizeof(int64_t);
-  auto rand = random::RandomArrayGenerator(kSeed);
-
-  auto values = rand.Int64(array_size, -100, 100, args.null_proportion);
-
-  SortToIndicesBenchmark(state, values);
-}
-
-static void SortToIndicesInt64Compare(benchmark::State& state) {
+static void NthToIndicesInt64(benchmark::State& state) {
   RegressionArgs args(state);
 
   const int64_t array_size = args.size / sizeof(int64_t);
@@ -60,17 +49,10 @@ static void SortToIndicesInt64Compare(benchmark::State& state) {
   auto max = std::numeric_limits<int64_t>::max();
   auto values = rand.Int64(array_size, min, max, args.null_proportion);
 
-  SortToIndicesBenchmark(state, values);
+  NthToIndicesBenchmark(state, values, array_size / 2);
 }
 
-BENCHMARK(SortToIndicesInt64Count)
-    ->Apply(RegressionSetArgs)
-    ->Args({1 << 20, 1})
-    ->Args({1 << 23, 1})
-    ->MinTime(1.0)
-    ->Unit(benchmark::TimeUnit::kNanosecond);
-
-BENCHMARK(SortToIndicesInt64Compare)
+BENCHMARK(NthToIndicesInt64)
     ->Apply(RegressionSetArgs)
     ->Args({1 << 20, 1})
     ->Args({1 << 23, 1})
