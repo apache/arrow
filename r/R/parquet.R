@@ -445,7 +445,7 @@ ParquetFileReader <- R6Class("ParquetFileReader",
   inherit = ArrowObject,
   active = list(
     num_rows = function() {
-      parquet___arrow___FileReader__num_rows(self)
+      as.integer(parquet___arrow___FileReader__num_rows(self))
     }
   ),
   public = list(
