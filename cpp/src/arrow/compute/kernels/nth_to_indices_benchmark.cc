@@ -36,6 +36,7 @@ static void NthToIndicesBenchmark(benchmark::State& state,
     ABORT_NOT_OK(NthToIndices(&ctx, *values, n, &out));
     benchmark::DoNotOptimize(out);
   }
+  state.SetItemsProcessed(state.iterations() * values->length());
 }
 
 static void NthToIndicesInt64(benchmark::State& state) {
