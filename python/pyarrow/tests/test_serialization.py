@@ -1103,6 +1103,10 @@ def test_empty_tensor():
     y = pa.deserialize(pa.serialize(x).to_buffer())
     np.testing.assert_array_equal(x, y)
 
+    x = np.array([[], [], []], dtype=np.float64).T
+    y = pa.deserialize(pa.serialize(x).to_buffer())
+    np.testing.assert_array_equal(x, y)
+
 
 def test_serialization_determinism():
     for obj in COMPLEX_OBJECTS:
