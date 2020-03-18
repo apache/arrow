@@ -230,10 +230,11 @@ class PeriodArray(pa.ExtensionArray):
 
 class PeriodType(pa.ExtensionType):
 
-    def __init__(self, freq):
+    def __init__(self, freq, ext_class=None):
         # attributes need to be set first before calling
         # super init (as that calls serialize)
         self._freq = freq
+        self._ext_class = PeriodArray if ext_class is None else ext_class
         pa.ExtensionType.__init__(self, pa.int64(), 'pandas.period')
 
     @property
@@ -251,7 +252,7 @@ class PeriodType(pa.ExtensionType):
         return PeriodType(freq)
 
     def __arrow_ext_class__(self):
-        return PeriodArray
+        return self._ext_class
 
     def __eq__(self, other):
         if isinstance(other, pa.BaseExtensionType):
@@ -274,14 +275,17 @@ def registered_period_type():
         pass
 
 
-def test_generic_ext_type():
-    period_type = PeriodType('D')
+@pytest.mark.parametrize("test_ext_class", [pa.ExtensionArray, PeriodArray])
+def test_generic_ext_type(test_ext_class):
+    period_type = PeriodType('D', test_ext_class)
     assert period_type.extension_name == "pandas.period"
     assert period_type.storage_type == pa.int64()
+    assert period_type.__arrow_ext_class__() == test_ext_class
 
 
-def test_generic_ext_type_ipc(registered_period_type):
-    period_type = PeriodType('D')
+@pytest.mark.parametrize("test_ext_class", [pa.ExtensionArray, PeriodArray])
+def test_generic_ext_type_ipc(registered_period_type, test_ext_class):
+    period_type = PeriodType('D', test_ext_class)
     storage = pa.array([1, 2, 3, 4], pa.int64())
     arr = pa.ExtensionArray.from_storage(period_type, storage)
     batch = pa.RecordBatch.from_arrays([arr], ["ext"])
@@ -291,7 +295,7 @@ def test_generic_ext_type_ipc(registered_period_type):
     batch = ipc_read_batch(buf)
 
     result = batch.column(0)
-    assert isinstance(result, PeriodArray)
+    assert isinstance(result, test_ext_class)
     assert result.type.extension_name == "pandas.period"
     assert arr.storage.to_pylist() == [1, 2, 3, 4]
 
@@ -363,9 +367,10 @@ def test_generic_ext_type_register(registered_period_type):
 
 
 @pytest.mark.parquet
-def test_parquet(tmpdir, registered_period_type):
+@pytest.mark.parametrize("test_ext_class", [NotImplementedError, PeriodArray])
+def test_parquet(tmpdir, registered_period_type, test_ext_class):
     # parquet support for extension types
-    period_type = PeriodType('D')
+    period_type = PeriodType('D', test_ext_class)
     storage = pa.array([1, 2, 3, 4], pa.int64())
     arr = pa.ExtensionArray.from_storage(period_type, storage)
     table = pa.table([arr], names=["ext"])
