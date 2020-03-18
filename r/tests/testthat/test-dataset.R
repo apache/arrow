@@ -104,7 +104,7 @@ test_that("dim method returns the correct number of rows and columns",{
 })
 
 
-test_that("dim() correctly numbers of rows and columns on arrow_dplyr_query object",{
+test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_query object",{
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
 
   expect_warning(dim_fil <- dim(filter(ds, chr == 'A')))
