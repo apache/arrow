@@ -50,7 +50,7 @@ using TimePoint =
     std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
 
 /// \brief FileSystem entry type
-enum class ARROW_EXPORT FileType : int8_t {
+enum class FileType : int8_t {
   /// Entry does not exist
   NonExistent,
   /// Entry exists but its type is unknown
