@@ -22,6 +22,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -1271,6 +1272,62 @@ class ZeroCopyCast : public CastKernelBase {
   }
 };
 
+class ExtensionCastKernel : public CastKernelBase {
+ public:
+  static Status Make(const DataType& in_type, std::shared_ptr<DataType> out_type,
+                     const CastOptions& options,
+                     std::unique_ptr<CastKernelBase>* kernel) {
+    const auto storage_type = checked_cast<const ExtensionType&>(in_type).storage_type();
+
+    std::unique_ptr<UnaryKernel> storage_caster;
+    RETURN_NOT_OK(GetCastFunction(*storage_type, out_type, options, &storage_caster));
+    kernel->reset(
+        new ExtensionCastKernel(std::move(storage_caster), std::move(out_type)));
+
+    return Status::OK();
+  }
+
+  Status Init(const DataType& in_type) override {
+    auto& type = checked_cast<const ExtensionType&>(in_type);
+    storage_type_ = type.storage_type();
+    extension_name_ = type.extension_name();
+    return Status::OK();
+  }
+
+  Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
+    DCHECK_EQ(input.kind(), Datum::ARRAY);
+
+    // validate: type is the same as the type the kernel was constructed with
+    const auto& input_type = checked_cast<const ExtensionType&>(*input.type());
+    if (input_type.extension_name() != extension_name_) {
+      return Status::TypeError(
+          "The cast kernel was constructed to cast from the extension type named '",
+          extension_name_, "' but input has extension type named '",
+          input_type.extension_name(), "'");
+    }
+    if (!input_type.storage_type()->Equals(storage_type_)) {
+      return Status::TypeError("The cast kernel was constructed with a storage type: ",
+                               storage_type_->ToString(),
+                               ", but it is called with a different storage type:",
+                               input_type.storage_type()->ToString());
+    }
+
+    // construct an ArrayData object with the underlying storage type
+    auto new_input = input.array()->Copy();
+    new_input->type = storage_type_;
+    return InvokeWithAllocation(ctx, storage_caster_.get(), new_input, out);
+  }
+
+ protected:
+  ExtensionCastKernel(std::unique_ptr<UnaryKernel> storage_caster,
+                      std::shared_ptr<DataType> out_type)
+      : CastKernelBase(std::move(out_type)), storage_caster_(std::move(storage_caster)) {}
+
+  std::string extension_name_;
+  std::shared_ptr<DataType> storage_type_;
+  std::unique_ptr<UnaryKernel> storage_caster_;
+};
+
 class CastKernel : public CastKernelBase {
  public:
   CastKernel(const CastOptions& options, const CastFunction& func,
@@ -1420,11 +1477,6 @@ Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_ty
     return Status::OK();
   }
 
-  if (in_type.id() == Type::NA) {
-    kernel->reset(new FromNullCastKernel(std::move(out_type)));
-    return Status::OK();
-  }
-
   std::unique_ptr<CastKernelBase> cast_kernel;
   switch (in_type.id()) {
     CAST_FUNCTION_CASE(BooleanType);
@@ -1450,6 +1502,9 @@ Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_ty
     CAST_FUNCTION_CASE(LargeBinaryType);
     CAST_FUNCTION_CASE(LargeStringType);
     CAST_FUNCTION_CASE(DictionaryType);
+    case Type::NA:
+      cast_kernel.reset(new FromNullCastKernel(std::move(out_type)));
+      break;
     case Type::LIST:
       RETURN_NOT_OK(
           GetListCastFunc<ListType>(in_type, std::move(out_type), options, &cast_kernel));
@@ -1457,6 +1512,10 @@ Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_ty
     case Type::LARGE_LIST:
       RETURN_NOT_OK(GetListCastFunc<LargeListType>(in_type, std::move(out_type), options,
                                                    &cast_kernel));
+      break;
+    case Type::EXTENSION:
+      RETURN_NOT_OK(ExtensionCastKernel::Make(std::move(in_type), std::move(out_type),
+                                              options, &cast_kernel));
       break;
     default:
       break;

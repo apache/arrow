@@ -26,9 +26,11 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/extension_type.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -1644,6 +1646,55 @@ TYPED_TEST(TestDictionaryCast, OutTypeError) {
 
   this->CheckPass(*plain_array, *dict_array, dict_array->type(), options);
 }*/
+
+std::shared_ptr<Array> SmallintArrayFromJSON(const std::string& json_data) {
+  auto arr = ArrayFromJSON(int16(), json_data);
+  auto ext_data = arr->data()->Copy();
+  ext_data->type = smallint();
+  return MakeArray(ext_data);
+}
+
+TEST_F(TestCast, ExtensionTypeToIntDowncast) {
+  auto smallint = std::make_shared<SmallintType>();
+  ASSERT_OK(RegisterExtensionType(smallint));
+
+  CastOptions options;
+  options.allow_int_overflow = false;
+
+  std::shared_ptr<Array> result;
+  std::vector<bool> is_valid = {true, false, true, true, true};
+
+  // Smallint(int16) to int16
+  auto v0 = SmallintArrayFromJSON("[0, 100, 200, 1, 2]");
+  CheckZeroCopy(*v0, int16());
+
+  // Smallint(int16) to uint8, no overflow/underrun
+  auto v1 = SmallintArrayFromJSON("[0, 100, 200, 1, 2]");
+  auto e1 = ArrayFromJSON(uint8(), "[0, 100, 200, 1, 2]");
+  CheckPass(*v1, *e1, uint8(), options);
+
+  // Smallint(int16) to uint8, with overflow
+  auto v2 = SmallintArrayFromJSON("[0, null, 256, 1, 3]");
+  auto e2 = ArrayFromJSON(uint8(), "[0, null, 0, 1, 3]");
+  // allow overflow
+  options.allow_int_overflow = true;
+  CheckPass(*v2, *e2, uint8(), options);
+  // disallow overflow
+  options.allow_int_overflow = false;
+  ASSERT_RAISES(Invalid, Cast(&ctx_, *v2, uint8(), options, &result));
+
+  // Smallint(int16) to uint8, with underflow
+  auto v3 = SmallintArrayFromJSON("[0, null, -1, 1, 0]");
+  auto e3 = ArrayFromJSON(uint8(), "[0, null, 255, 1, 0]");
+  // allow overflow
+  options.allow_int_overflow = true;
+  CheckPass(*v3, *e3, uint8(), options);
+  // disallow overflow
+  options.allow_int_overflow = false;
+  ASSERT_RAISES(Invalid, Cast(&ctx_, *v3, uint8(), options, &result));
+
+  ASSERT_OK(UnregisterExtensionType("smallint"));
+}
 
 }  // namespace compute
 }  // namespace arrow

@@ -24,6 +24,15 @@ import pyarrow as pa
 import pytest
 
 
+class IntegerType(pa.PyExtensionType):
+
+    def __init__(self):
+        pa.PyExtensionType.__init__(self, pa.int64())
+
+    def __reduce__(self):
+        return IntegerType, ()
+
+
 class UuidType(pa.PyExtensionType):
 
     def __init__(self):
@@ -166,6 +175,42 @@ def test_ext_array_pickling():
         assert arr.type.storage_type == pa.binary(3)
         assert arr.storage.type == pa.binary(3)
         assert arr.storage.to_pylist() == [b"foo", b"bar"]
+
+
+def test_cast_kernel_on_extension_arrays():
+    # test array casting
+    storage = pa.array([1, 2, 3, 4], pa.int64())
+    arr = pa.ExtensionArray.from_storage(IntegerType(), storage)
+
+    # test that no allocation happens during identity cast
+    allocated_before_cast = pa.total_allocated_bytes()
+    casted = arr.cast(pa.int64())
+    assert pa.total_allocated_bytes() == allocated_before_cast
+
+    cases = [
+        (pa.int64(), pa.Int64Array),
+        (pa.int32(), pa.Int32Array),
+        (pa.int16(), pa.Int16Array),
+        (pa.uint64(), pa.UInt64Array),
+        (pa.uint32(), pa.UInt32Array),
+        (pa.uint16(), pa.UInt16Array)
+    ]
+    for typ, klass in cases:
+        casted = arr.cast(typ)
+        assert casted.type == typ
+        assert isinstance(casted, klass)
+
+    # test chunked array casting
+    arr = pa.chunked_array([arr, arr])
+    casted = arr.cast(pa.int16())
+    assert casted.type == pa.int16()
+    assert isinstance(casted, pa.ChunkedArray)
+
+
+def test_casting_to_extension_type_raises():
+    arr = pa.array([1, 2, 3, 4], pa.int64())
+    with pytest.raises(pa.ArrowNotImplementedError):
+        arr.cast(IntegerType())
 
 
 def example_batch():
