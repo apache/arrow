@@ -422,8 +422,8 @@ TEST_F(TestPartitioningWritePlan, Empty) {
   factory_ = DirectoryPartitioning::MakeFactory({"a", "b"});
 
   // no expressions from which to infer the types of fields a, b
-  MakeWritePlan();
-  AssertPlanIs({});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("No fragments"),
+                                  MakeWritePlanError());
 
   MakeWritePlanWithSchema(schema({field("a", int32()), field("b", utf8())}));
   AssertPlanIs({});
@@ -470,9 +470,9 @@ TEST_F(TestPartitioningWritePlan, Errors) {
       Invalid, testing::HasSubstr("no partition expression for field 'a'"),
       MakeWritePlanError("a"_ == 42, scalar(true), "a"_ == 101));
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("Unable to merge: Field a has incompatible types"),
-      MakeWritePlanError("a"_ == 42, "a"_ == "hello"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError,
+                                  testing::HasSubstr("expected RHS to have type int32"),
+                                  MakeWritePlanError("a"_ == 42, "a"_ == "hello"));
 
   factory_ = DirectoryPartitioning::MakeFactory({"a", "b"});
   EXPECT_RAISES_WITH_MESSAGE_THAT(
