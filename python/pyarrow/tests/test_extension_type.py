@@ -224,6 +224,10 @@ def test_ipc_unknown_type():
     assert arr.type == ParamExtType(3)
 
 
+class PeriodArray(pa.ExtensionArray):
+    pass
+
+
 class PeriodType(pa.ExtensionType):
 
     def __init__(self, freq):
@@ -245,6 +249,9 @@ class PeriodType(pa.ExtensionType):
         assert serialized.startswith("freq=")
         freq = serialized.split('=')[1]
         return PeriodType(freq)
+
+    def __arrow_ext_class__(self):
+        return PeriodArray
 
     def __eq__(self, other):
         if isinstance(other, pa.BaseExtensionType):
@@ -284,7 +291,7 @@ def test_generic_ext_type_ipc(registered_period_type):
     batch = ipc_read_batch(buf)
 
     result = batch.column(0)
-    assert isinstance(result, pa.ExtensionArray)
+    assert isinstance(result, PeriodArray)
     assert result.type.extension_name == "pandas.period"
     assert arr.storage.to_pylist() == [1, 2, 3, 4]
 
