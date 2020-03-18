@@ -122,6 +122,9 @@ else
       if [ "${LIBARROW_MINIMAL}" = "" ] && [ "${LIBARROW_DOWNLOAD}" = "true" ]; then
         export LIBARROW_MINIMAL=false
       fi
+      if [ "${LIBARROW_MINIMAL}" = "" ] && [ "${NOT_CRAN}" = "true" ]; then
+        export LIBARROW_MINIMAL=false
+      fi
       ${R_HOME}/bin/Rscript tools/linuxlibs.R $VERSION
       PKG_CFLAGS="-I$(pwd)/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
       # Also enumerate the static libs (technically repeating arrow libs so they're in the right order)
