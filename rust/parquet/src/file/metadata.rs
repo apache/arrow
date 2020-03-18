@@ -35,7 +35,7 @@
 
 use std::rc::Rc;
 
-use parquet_format::{ColumnChunk, ColumnMetaData, RowGroup};
+use parquet_format::{ColumnChunk, ColumnMetaData, KeyValue, RowGroup};
 
 use crate::basic::{ColumnOrder, Compression, Encoding, Type};
 use crate::errors::{ParquetError, Result};
@@ -91,6 +91,7 @@ pub struct FileMetaData {
     version: i32,
     num_rows: i64,
     created_by: Option<String>,
+    key_value_metadata: Option<Vec<KeyValue>>,
     schema: TypePtr,
     schema_descr: SchemaDescPtr,
     column_orders: Option<Vec<ColumnOrder>>,
@@ -102,6 +103,7 @@ impl FileMetaData {
         version: i32,
         num_rows: i64,
         created_by: Option<String>,
+        key_value_metadata: Option<Vec<KeyValue>>,
         schema: TypePtr,
         schema_descr: SchemaDescPtr,
         column_orders: Option<Vec<ColumnOrder>>,
@@ -110,6 +112,7 @@ impl FileMetaData {
             version,
             num_rows,
             created_by,
+            key_value_metadata,
             schema,
             schema_descr,
             column_orders,
@@ -136,6 +139,11 @@ impl FileMetaData {
     /// ```
     pub fn created_by(&self) -> &Option<String> {
         &self.created_by
+    }
+
+    /// Returns key_value_metadata of this file.
+    pub fn key_value_metadata(&self) -> &Option<Vec<KeyValue>> {
+        &self.key_value_metadata
     }
 
     /// Returns Parquet ['Type`] that describes schema in this file.
