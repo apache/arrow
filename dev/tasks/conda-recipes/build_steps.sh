@@ -41,10 +41,4 @@ conda build \
     --clobber-file "${CI_SUPPORT}/clobber_${CONFIG}.yaml" \
     --output-folder "${output_dir}"
 
-if [[ "${UPLOAD_PACKAGES}" != "False" ]]; then
-    upload_package "${FEEDSTOCK_ROOT}" "${FEEDSTOCK_ROOT}/arrow-cpp" "${CI_SUPPORT}/${CONFIG}.yaml"
-    upload_package "${FEEDSTOCK_ROOT}" "${FEEDSTOCK_ROOT}/parquet-cpp" "${CI_SUPPORT}/${CONFIG}.yaml"
-    upload_package "${FEEDSTOCK_ROOT}" "${FEEDSTOCK_ROOT}/pyarrow" "${CI_SUPPORT}/${CONFIG}.yaml"
-fi
-
 touch "${output_dir}/conda-forge-build-done-${CONFIG}"
