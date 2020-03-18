@@ -166,7 +166,7 @@ dim.arrow_dplyr_query <- function(x) {
   } else {
     warning("dim() is not fully implemented for arrow dplyr queries. ",
             "Call collect() first to pull data into R to access the number of rows.", call. = FALSE)
-    rows <- NA
+    rows <- NA_integer_
 
   }
   cols <- length(x$selected_columns)
