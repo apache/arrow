@@ -6,7 +6,7 @@ jobs:
   variables:
     CONFIG: {{ config }}
     ARROW_VERSION: {{ arrow.no_rc_version }}
-    UPLOAD_PACKAGES: False
+    UPLOAD_PACKAGES: True
   steps:
   - script: |
       echo "Removing homebrew from Azure to avoid conflicts."
@@ -67,6 +67,17 @@ jobs:
         --output-folder ./build_artifacts
     workingDirectory: arrow/dev/tasks/conda-recipes
     displayName: Build recipes
+
+  # Upload to custom anaconda channel
+  - script: |
+      source activate base
+      upload_package ./ arrow-cpp ./.ci_support/${CONFIG}.yaml
+      upload_package ./ parquet-cpp ./.ci_support/${CONFIG}.yaml
+      upload_package ./ pyarrow-cpp ./.ci_support/${CONFIG}.yaml
+    displayName: Upload package
+    env:
+      BINSTAR_TOKEN: $(CROSSBOW_ANACONDA_TOKEN)
+    condition: and(succeeded(), not(eq(variables['UPLOAD_PACKAGES'], 'False')))
 
   # Using github release tries to find a common ancestor between the
   # currently pushed tag and the latest tag of the github repository

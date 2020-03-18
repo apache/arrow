@@ -8,7 +8,7 @@ jobs:
     CONFIG: {{ config }}
     ARROW_VERSION: {{ arrow.no_rc_version }}
     DOCKER_IMAGE: condaforge/linux-anvil-comp7
-    UPLOAD_PACKAGES: False
+    UPLOAD_PACKAGES: True
 
   steps:
   # configure qemu binfmt-misc running.  This allows us to run docker containers
@@ -26,9 +26,12 @@ jobs:
       git -C arrow submodule update --init --recursive
     displayName: Clone arrow
 
-  - script: |
+  - env:
+      CI: azure
+      BINSTAR_TOKEN: $(CROSSBOW_ANACONDA_TOKEN)
+    script: |
       mkdir build_artifacts
-      CI=azure arrow/dev/tasks/conda-recipes/run_docker_build.sh $(pwd)/build_artifacts
+      arrow/dev/tasks/conda-recipes/run_docker_build.sh $(pwd)/build_artifacts
     displayName: Run docker build
 
   # Using github release tries to find a common ancestor between the

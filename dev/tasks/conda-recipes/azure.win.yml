@@ -7,7 +7,7 @@ jobs:
     CONFIG: {{ config }}
     ARROW_VERSION: {{ arrow.no_rc_version }}
     CONDA_BLD_PATH: D:\\bld\\
-    UPLOAD_PACKAGES: False
+    UPLOAD_PACKAGES: True
   steps:
     - script: |
         choco install vcpython27 -fdv -y --debug
@@ -72,9 +72,8 @@ jobs:
 
     # Special cased version setting some more things!
     - script: |
-        conda.exe build arrow-cpp parquet-cpp pyarrow -m .ci_support\%CONFIG%.yaml
+        conda.exe build recipe -m .ci_support\%CONFIG%.yaml
       displayName: Build recipe (vs2008)
-      workingDirectory: arrow\dev\tasks\conda-recipes
       env:
         VS90COMNTOOLS: "C:\\Program Files (x86)\\Common Files\\Microsoft\\Visual C++ for Python\\9.0\\VC\\bin"
         PYTHONUNBUFFERED: 1
@@ -87,6 +86,17 @@ jobs:
       env:
         PYTHONUNBUFFERED: 1
       condition: not(contains(variables['CONFIG'], 'vs2008'))
+
+    - script: |
+        set "GIT_BRANCH=%BUILD_SOURCEBRANCHNAME%"
+        upload_package .\ .\arrow-cpp .ci_support\%CONFIG%.yaml
+        upload_package .\ .\parquet-cpp .ci_support\%CONFIG%.yaml
+        upload_package .\ .\pyarrow .ci_support\%CONFIG%.yaml
+      displayName: Upload package
+      workingDirectory: arrow\dev\tasks\conda-recipes
+      env:
+        BINSTAR_TOKEN: $(CROSSBOW_ANACONDA_TOKEN)
+      condition: and(succeeded(), not(eq(variables['UPLOAD_PACKAGES'], 'False')))
 
     # Using github release tries to find a common ancestor between the
     # currently pushed tag and the latest tag of the github repository
