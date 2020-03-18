@@ -38,7 +38,7 @@ jobs:
   # alternative upload script.
   - task: CondaEnvironment@1
     inputs:
-      packageSpecs: 'click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz'
+      packageSpecs: 'click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz anaconda-client'
       installOptions: '-c conda-forge'
       updateConda: false
 
@@ -57,7 +57,6 @@ jobs:
 
   # Upload to custom anaconda channel
   - script: |
-      conda install -y anaconda-client
       anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload -l nightly --force build_artifacts/linux-64/*.tar.bz2
     displayName: Upload packages to Anaconda
     workingDirectory: arrow/dev/tasks/conda-recipes
