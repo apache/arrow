@@ -8,6 +8,7 @@ jobs:
     ARROW_VERSION: {{ arrow.no_rc_version }}
     CONDA_BLD_PATH: D:\\bld\\
     UPLOAD_PACKAGES: False
+
   steps:
     - script: |
         choco install vcpython27 -fdv -y --debug
@@ -16,26 +17,18 @@ jobs:
 
     - powershell: |
         Set-PSDebug -Trace 1
-
         $batchcontent = @"
         ECHO ON
         SET vcpython=C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python\9.0
-
         DIR "%vcpython%"
-
         CALL "%vcpython%\vcvarsall.bat" %*
         "@
-
         $batchDir = "C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python\9.0\VC"
         $batchPath = "$batchDir" + "\vcvarsall.bat"
         New-Item -Path $batchPath -ItemType "file" -Force
-
         Set-Content -Value $batchcontent -Path $batchPath
-
         Get-ChildItem -Path $batchDir
-
         Get-ChildItem -Path ($batchDir + '\..')
-
       condition: contains(variables['CONFIG'], 'vs2008')
       displayName: Patch vs2008 (if needed)
 
@@ -43,7 +36,7 @@ jobs:
       inputs:
         packageSpecs: 'python=3.6 conda-build conda conda-forge::conda-forge-ci-setup=2' # Optional
         installOptions: "-c conda-forge"
-        updateConda: false
+        updateConda: true
       displayName: Install conda-build and activate environment
 
     - script: set PYTHONUNBUFFERED=1
