@@ -164,8 +164,8 @@ dim.arrow_dplyr_query <- function(x) {
   if (isTRUE(x$filtered)) {
     rows <- nrow(x$.data)
   } else {
-    warning("dim() is not fully implemented for arrow dplyr queries. ",
-            "Call collect() first to pull data into R to access the number of rows.", call. = FALSE)
+    warning("For arrow dplyr queries that call filter, dim() returns NA for the number of rows.",
+            "\nCall collect() first to pull data into R to access the number of rows.", call. = FALSE)
     rows <- NA_integer_
 
   }
