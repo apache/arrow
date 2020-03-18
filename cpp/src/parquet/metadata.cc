@@ -214,7 +214,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     for (const auto& encoding : column_metadata_->encodings) {
       encodings_.push_back(LoadEnumSafe(&encoding));
     }
-    for (auto encoding_stats : column_metadata_->encoding_stats) {
+    for (const auto& encoding_stats : column_metadata_->encoding_stats) {
       encoding_stats_.push_back({LoadEnumSafe(&encoding_stats.page_type),
                                  LoadEnumSafe(&encoding_stats.encoding),
                                  encoding_stats.count});
@@ -642,10 +642,19 @@ class FileMetaData::FileMetaDataImpl {
   friend FileMetaDataBuilder;
   uint32_t metadata_len_;
   std::unique_ptr<format::FileMetaData> metadata_;
+  SchemaDescriptor schema_;
+  ApplicationVersion writer_version_;
+  std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
+  std::shared_ptr<InternalFileDecryptor> file_decryptor_;
+
   void InitSchema() {
+    if (metadata_->schema.empty()) {
+      throw ParquetException("Empty file schema (no root)");
+    }
     schema_.Init(schema::Unflatten(&metadata_->schema[0],
                                    static_cast<int>(metadata_->schema.size())));
   }
+
   void InitColumnOrders() {
     // update ColumnOrder
     std::vector<parquet::ColumnOrder> column_orders;
@@ -663,8 +672,6 @@ class FileMetaData::FileMetaDataImpl {
 
     schema_.updateColumnOrders(column_orders);
   }
-  SchemaDescriptor schema_;
-  ApplicationVersion writer_version_;
 
   void InitKeyValueMetadata() {
     std::shared_ptr<KeyValueMetadata> metadata = nullptr;
@@ -676,9 +683,6 @@ class FileMetaData::FileMetaDataImpl {
     }
     key_value_metadata_ = std::move(metadata);
   }
-
-  std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
-  std::shared_ptr<InternalFileDecryptor> file_decryptor_;
 };
 
 std::shared_ptr<FileMetaData> FileMetaData::Make(
