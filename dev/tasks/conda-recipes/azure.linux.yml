@@ -59,4 +59,3 @@ jobs:
   - script: |
       anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload -l nightly --force build_artifacts/linux-64/*.tar.bz2
     displayName: Upload packages to Anaconda
-    workingDirectory: arrow/dev/tasks/conda-recipes
