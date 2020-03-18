@@ -29,10 +29,37 @@
 
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
+#if defined(__AVX512F__)
+#include <immintrin.h>
+#endif
 
 namespace arrow {
 namespace internal {
 
+#if defined(__AVX512F__)
+inline const uint32_t* unpack1_32(const uint32_t* in, uint32_t* out) {
+  uint32_t inl = util::SafeLoad(in);
+  __m512i shifts, inls, masks;
+
+  inls = _mm512_set1_epi32(inl);
+  masks = _mm512_set1_epi32(1);
+
+  // shift the first 16 outs
+  shifts = _mm512_set_epi32(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+  *(__m512i_u*)out = _mm512_and_epi32(_mm512_srlv_epi32(inls, shifts), masks);
+  out += 16;
+
+  // shift the last 16 outs
+  shifts =
+      _mm512_set_epi32(31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16);
+  *(__m512i_u*)out = _mm512_and_epi32(_mm512_srlv_epi32(inls, shifts), masks);
+  out += 16;
+
+  ++in;
+
+  return in;
+}
+#else
 inline const uint32_t* unpack1_32(const uint32_t* in, uint32_t* out) {
   uint32_t inl = util::SafeLoad(in);
   *out = (inl >> 0) & 1;
@@ -103,6 +130,7 @@ inline const uint32_t* unpack1_32(const uint32_t* in, uint32_t* out) {
 
   return in;
 }
+#endif
 
 inline const uint32_t* unpack2_32(const uint32_t* in, uint32_t* out) {
   uint32_t inl = util::SafeLoad(in);
