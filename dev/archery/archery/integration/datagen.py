@@ -1036,7 +1036,7 @@ def generate_null_case(batch_sizes):
 def generate_null_trivial_case(batch_sizes):
     # Generate a case with no buffers
     fields = [
-        NullType(name='f0'),
+        NullField(name='f0'),
     ]
     return _generate_file('null_trivial', fields, batch_sizes)
 
