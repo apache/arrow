@@ -374,7 +374,7 @@ TEST(TestStringDictionaryBuilder, Basic) {
   StringDictionaryBuilder builder;
   ASSERT_OK(builder.Append("test"));
   ASSERT_OK(builder.Append("test2"));
-  ASSERT_OK(builder.Append("test"));
+  ASSERT_OK(builder.Append("test", 4));
 
   std::shared_ptr<Array> result;
   ASSERT_OK(builder.Finish(&result));
