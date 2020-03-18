@@ -704,6 +704,9 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>&
 
   auto type_id = field.field->type()->id();
   if (field.children.size() == 0) {
+    if (!field.is_leaf()) {
+      return Status::Invalid("Parquet non-leaf node has no children");
+    }
     std::unique_ptr<FileColumnIterator> input(
         ctx->iterator_factory(field.column_index, ctx->reader));
     out->reset(new LeafReader(ctx, field.field, std::move(input)));

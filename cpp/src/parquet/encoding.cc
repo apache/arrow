@@ -1149,15 +1149,19 @@ template <>
 inline int DecodePlain<ByteArray>(const uint8_t* data, int64_t data_size, int num_values,
                                   int type_length, ByteArray* out) {
   int bytes_decoded = 0;
-  int increment;
   for (int i = 0; i < num_values; ++i) {
-    uint32_t len = out[i].len = arrow::util::SafeLoadAs<uint32_t>(data);
-    increment = static_cast<int>(sizeof(uint32_t) + len);
-    if (data_size < increment) ParquetException::EofException();
+    const uint32_t len = out[i].len = arrow::util::SafeLoadAs<uint32_t>(data);
+    const int64_t increment = static_cast<int64_t>(sizeof(uint32_t) + len);
+    if (ARROW_PREDICT_FALSE(data_size < increment)) {
+      ParquetException::EofException();
+    }
     out[i].ptr = data + sizeof(uint32_t);
     data += increment;
     data_size -= increment;
-    bytes_decoded += increment;
+    if (ARROW_PREDICT_FALSE(increment > INT_MAX - bytes_decoded)) {
+      throw ParquetException("BYTE_ARRAY chunk too large");
+    }
+    bytes_decoded += static_cast<int>(increment);
   }
   return bytes_decoded;
 }
@@ -1468,7 +1472,9 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
         }
 
         auto increment = int32_s + value_len;
-        if (ARROW_PREDICT_FALSE(len_ < increment)) ParquetException::EofException();
+        if (ARROW_PREDICT_FALSE(len_ < increment)) {
+          ParquetException::EofException();
+        }
         if (ARROW_PREDICT_FALSE(!helper.CanFit(value_len))) {
           // This element would exceed the capacity of a chunk
           RETURN_NOT_OK(helper.PushChunk());
@@ -1500,9 +1506,18 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     RETURN_NOT_OK(helper.builder->ReserveData(
         std::min<int64_t>(len_, helper.chunk_space_remaining)));
     for (int i = 0; i < num_values; ++i) {
-      int32_t value_len = static_cast<int32_t>(arrow::util::SafeLoadAs<uint32_t>(data_));
-      int increment = static_cast<int>(sizeof(uint32_t) + value_len);
-      if (ARROW_PREDICT_FALSE(len_ < increment)) ParquetException::EofException();
+      // For compiler warnings on unsigned/signed arithmetic.
+      auto int32_s = static_cast<int32_t>(sizeof(int32_t));
+
+      auto value_len = arrow::util::SafeLoadAs<int32_t>(data_);
+      if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > INT32_MAX - int32_s)) {
+        return Status::Invalid("Invalid or corrupted value_len '", value_len, "'");
+      }
+
+      auto increment = int32_s + value_len;
+      if (ARROW_PREDICT_FALSE(len_ < increment)) {
+        ParquetException::EofException();
+      }
       if (ARROW_PREDICT_FALSE(!helper.CanFit(value_len))) {
         // This element would exceed the capacity of a chunk
         RETURN_NOT_OK(helper.PushChunk());
@@ -1529,9 +1544,16 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     int values_decoded = 0;
     for (int i = 0; i < num_values; ++i) {
       if (bit_reader.IsSet()) {
-        uint32_t value_len = arrow::util::SafeLoadAs<uint32_t>(data_);
-        int increment = static_cast<int>(sizeof(uint32_t) + value_len);
-        if (len_ < increment) {
+        // For compiler warnings on unsigned/signed arithmetic.
+        auto int32_s = static_cast<int32_t>(sizeof(int32_t));
+
+        auto value_len = arrow::util::SafeLoadAs<int32_t>(data_);
+        if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > INT32_MAX - int32_s)) {
+          return Status::Invalid("Invalid or corrupted value_len '", value_len, "'");
+        }
+
+        auto increment = int32_s + value_len;
+        if (ARROW_PREDICT_FALSE(len_ < increment)) {
           ParquetException::EofException();
         }
         RETURN_NOT_OK(builder->Append(data_ + sizeof(uint32_t), value_len));
@@ -1553,9 +1575,18 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     num_values = std::min(num_values, num_values_);
     RETURN_NOT_OK(builder->Reserve(num_values));
     for (int i = 0; i < num_values; ++i) {
-      uint32_t value_len = arrow::util::SafeLoadAs<uint32_t>(data_);
-      int increment = static_cast<int>(sizeof(uint32_t) + value_len);
-      if (len_ < increment) ParquetException::EofException();
+      // For compiler warnings on unsigned/signed arithmetic.
+      auto int32_s = static_cast<int32_t>(sizeof(int32_t));
+
+      auto value_len = arrow::util::SafeLoadAs<int32_t>(data_);
+      if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > INT32_MAX - int32_s)) {
+        return Status::Invalid("Invalid or corrupted value_len '", value_len, "'");
+      }
+
+      auto increment = int32_s + value_len;
+      if (ARROW_PREDICT_FALSE(len_ < increment)) {
+        ParquetException::EofException();
+      }
       RETURN_NOT_OK(builder->Append(data_ + sizeof(uint32_t), value_len));
       data_ += increment;
       len_ -= increment;

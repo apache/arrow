@@ -559,6 +559,10 @@ class ColumnReaderImplBase {
     const uint8_t* buffer = page.data() + levels_byte_size;
     const int64_t data_size = page.size() - levels_byte_size;
 
+    if (data_size < 0) {
+      throw ParquetException("Page smaller than size of encoded levels");
+    }
+
     Encoding::type encoding = page.encoding();
 
     if (IsDictionaryIndexEncoding(encoding)) {

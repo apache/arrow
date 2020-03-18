@@ -94,8 +94,7 @@ using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
 static Status MakeArrowDecimal(const LogicalType& logical_type,
                                std::shared_ptr<DataType>* out) {
   const auto& decimal = checked_cast<const DecimalLogicalType&>(logical_type);
-  *out = ::arrow::decimal(decimal.precision(), decimal.scale());
-  return Status::OK();
+  return ::arrow::Decimal128Type::Make(decimal.precision(), decimal.scale(), out);
 }
 
 static Status MakeArrowInt(const LogicalType& logical_type,
