@@ -75,10 +75,21 @@ install:
   - sudo mv $(brew --cellar){.bak,}
   # before_install activates a virtualenv but we need the system python3
   - deactivate
+
   # crossbow dependencies for deployment
   - unset MACOSX_DEPLOYMENT_TARGET
   - pip3 install click ruamel.yaml setuptools_scm github3.py toolz requests[security]
-  - python3 arrow/dev/tasks/crossbow.py --queue-path $(pwd) --queue-remote {{ queue.remote_url }} upload-artifacts --sha {{ task.branch }} --tag {{ task.tag }} --pattern "arrow/python/dist/*.whl"
+  - python3 arrow/dev/tasks/crossbow.py
+      --queue-path $(pwd)
+      --queue-remote {{ queue.remote_url }}
+      upload-artifacts
+      --sha {{ task.branch }}
+      --tag {{ task.tag }}
+      --pattern "arrow/python/dist/*.whl"
+
+  # upload to gemfury pypi repository, there should be a single wheel
+  - curl -F package=@$(ls arrow/python/dist/*.whl)
+    https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/
 
 notifications:
   email:
