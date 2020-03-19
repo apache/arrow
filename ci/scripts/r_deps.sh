@@ -30,3 +30,9 @@ ${R_BIN} -e "remotes::install_deps(dependencies = TRUE)"
 ${R_BIN} -e "remotes::install_github('nealrichardson/decor')"
 
 popd
+
+if [ "$RPREFIX" = "/opt/R-devel" ]; then
+  # We need this on R-devel, which we test on rhub images, which have this env var set
+  curl -L https://sourceforge.net/projects/checkbaskisms/files/2.0.0.2/checkbashisms/download > /usr/local/bin/checkbashisms
+  chmod 755 /usr/local/bin/checkbashisms
+fi
