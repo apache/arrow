@@ -26,8 +26,6 @@ on:
 
 jobs:
   as-cran:
-    runs-on: ubuntu-latest
-    steps:
     name: "rhub/{{ MATRIX }}"
     runs-on: ubuntu-latest
     strategy:
