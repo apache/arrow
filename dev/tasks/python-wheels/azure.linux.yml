@@ -22,7 +22,7 @@ jobs:
   steps:
     - task: CondaEnvironment@1
       inputs:
-        packageSpecs: 'click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz anaconda-client'
+        packageSpecs: 'click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz'
         installOptions: '-c conda-forge'
         updateConda: false
 
