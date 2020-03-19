@@ -1939,6 +1939,23 @@ class TestConvertListTypes:
 
         _check_pandas_roundtrip(df, expected_schema=expected_schema)
 
+    def test_fixed_size_list(self):
+        # ARROW-7365
+        fixed_ty = pa.list_(pa.int64(), list_size=4)
+        variable_ty = pa.list_(pa.int64())
+
+        data = [[0, 1, 2, 3], None, [4, 5, 6, 7], [8, 9, 10, 11]]
+        fixed_arr = pa.array(data, type=fixed_ty)
+        variable_arr = pa.array(data, type=variable_ty)
+
+        result = fixed_arr.to_pandas()
+        expected = variable_arr.to_pandas()
+
+        for left, right in zip(result, expected):
+            if left is None:
+                assert right is None
+            npt.assert_array_equal(left, right)
+
     def test_infer_numpy_array(self):
         data = OrderedDict([
             ('ints', [

@@ -163,12 +163,10 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::NA:  // empty list
       // The above types are all supported.
       return true;
-    case Type::LIST: {
-      const auto& list_type = checked_cast<const ListType&>(type);
-      return ListTypeSupported(*list_type.value_type());
-    }
+    case Type::FIXED_SIZE_LIST:
+    case Type::LIST:
     case Type::LARGE_LIST: {
-      const auto& list_type = checked_cast<const LargeListType&>(type);
+      const auto& list_type = checked_cast<const BaseListType&>(type);
       return ListTypeSupported(*list_type.value_type());
     }
     default:
@@ -960,22 +958,17 @@ struct ObjectWriterVisitor {
     return Status::OK();
   }
 
-  Status Visit(const ListType& type) {
+  template <typename T>
+  enable_if_t<is_fixed_size_list_type<T>::value || is_var_length_list_type<T>::value,
+              Status>
+  Visit(const T& type) {
+    using ArrayType = typename TypeTraits<T>::ArrayType;
     if (!ListTypeSupported(*type.value_type())) {
       return Status::NotImplemented(
           "Not implemented type for conversion from List to Pandas: ",
           type.value_type()->ToString());
     }
-    return ConvertListsLike<ListArray>(options, data, out_values);
-  }
-
-  Status Visit(const LargeListType& type) {
-    if (!ListTypeSupported(*type.value_type())) {
-      return Status::NotImplemented(
-          "Not implemented type for conversion from List to Pandas: ",
-          type.value_type()->ToString());
-    }
-    return ConvertListsLike<LargeListArray>(options, data, out_values);
+    return ConvertListsLike<ArrayType>(options, data, out_values);
   }
 
   Status Visit(const StructType& type) {
@@ -987,7 +980,6 @@ struct ObjectWriterVisitor {
                   std::is_same<DictionaryType, Type>::value ||
                   std::is_same<DurationType, Type>::value ||
                   std::is_same<ExtensionType, Type>::value ||
-                  std::is_same<FixedSizeListType, Type>::value ||
                   std::is_base_of<IntervalType, Type>::value ||
                   std::is_same<TimestampType, Type>::value ||
                   std::is_same<UnionType, Type>::value,
@@ -1760,16 +1752,10 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
         }
       }
     } break;
-    case Type::LIST: {
-      auto list_type = std::static_pointer_cast<ListType>(data.type());
-      if (!ListTypeSupported(*list_type->value_type())) {
-        return Status::NotImplemented("Not implemented type for Arrow list to pandas: ",
-                                      list_type->value_type()->ToString());
-      }
-      *output_type = PandasWriter::OBJECT;
-    } break;
+    case Type::FIXED_SIZE_LIST:
+    case Type::LIST:
     case Type::LARGE_LIST: {
-      auto list_type = std::static_pointer_cast<LargeListType>(data.type());
+      auto list_type = std::static_pointer_cast<BaseListType>(data.type());
       if (!ListTypeSupported(*list_type->value_type())) {
         return Status::NotImplemented("Not implemented type for Arrow list to pandas: ",
                                       list_type->value_type()->ToString());
