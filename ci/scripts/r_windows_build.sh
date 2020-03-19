@@ -44,6 +44,9 @@ unset BOOST_ROOT
 printenv
 makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --cleanbuild
 
+VERSION=$(grep Version $ARROW_HOME/r/DESCRIPTION | cut -d " " -f 2)
+DST_DIR="arrow-$VERSION"
+
 # Collect the build artifacts and make the shape of zip file that rwinlib expects
 ls
 mkdir build
@@ -55,9 +58,6 @@ MSYS_LIB_DIR="D:/a/_temp/msys/msys64"
 
 ls $MSYS_LIB_DIR/mingw64/lib/
 ls $MSYS_LIB_DIR/mingw32/lib/
-
-VERSION=$(grep Version $ARROW_HOME/r/DESCRIPTION | cut -d " " -f 2)
-DST_DIR="arrow-$VERSION"
 
 # Untar the two builds we made
 ls | xargs -n 1 tar -xJf
