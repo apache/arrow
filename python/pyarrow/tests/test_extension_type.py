@@ -229,12 +229,10 @@ class PeriodArray(pa.ExtensionArray):
 
 
 class PeriodType(pa.ExtensionType):
-
-    def __init__(self, freq, ext_class=None):
+    def __init__(self, freq):
         # attributes need to be set first before calling
         # super init (as that calls serialize)
         self._freq = freq
-        self._ext_class = PeriodArray if ext_class is None else ext_class
         pa.ExtensionType.__init__(self, pa.int64(), 'pandas.period')
 
     @property
@@ -251,9 +249,6 @@ class PeriodType(pa.ExtensionType):
         freq = serialized.split('=')[1]
         return PeriodType(freq)
 
-    def __arrow_ext_class__(self):
-        return self._ext_class
-
     def __eq__(self, other):
         if isinstance(other, pa.BaseExtensionType):
             return (type(self) == type(other) and
@@ -262,12 +257,27 @@ class PeriodType(pa.ExtensionType):
             return NotImplemented
 
 
-@pytest.fixture
-def registered_period_type():
+class PeriodTypeWithClass(PeriodType):
+    def __init__(self, freq):
+        PeriodType.__init__(self, freq)
+
+    def __arrow_ext_class__(self):
+        return PeriodArray
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        freq = PeriodType.__arrow_ext_deserialize__(
+            storage_type, serialized).freq
+        return PeriodTypeWithClass(freq)
+
+
+@pytest.fixture(params=[PeriodType('D'), PeriodTypeWithClass('D')])
+def registered_period_type(request):
     # setup
-    period_type = PeriodType('D')
+    period_type = request.param
+    period_class = period_type.__arrow_ext_class__()
     pa.register_extension_type(period_type)
-    yield
+    yield period_type, period_class
     # teardown
     try:
         pa.unregister_extension_type('pandas.period')
@@ -275,37 +285,39 @@ def registered_period_type():
         pass
 
 
-@pytest.mark.parametrize("test_ext_class", [pa.ExtensionArray, PeriodArray])
-def test_generic_ext_type(test_ext_class):
-    period_type = PeriodType('D', test_ext_class)
+def test_generic_ext_type():
+    period_type = PeriodType('D')
     assert period_type.extension_name == "pandas.period"
     assert period_type.storage_type == pa.int64()
-    assert period_type.__arrow_ext_class__() == test_ext_class
+    # default ext_class expected.
+    assert period_type.__arrow_ext_class__() == pa.ExtensionArray
 
 
-@pytest.mark.parametrize("test_ext_class", [pa.ExtensionArray, PeriodArray])
-def test_generic_ext_type_ipc(registered_period_type, test_ext_class):
-    period_type = PeriodType('D', test_ext_class)
+def test_generic_ext_type_ipc(registered_period_type):
+    period_type, period_class = registered_period_type
     storage = pa.array([1, 2, 3, 4], pa.int64())
     arr = pa.ExtensionArray.from_storage(period_type, storage)
     batch = pa.RecordBatch.from_arrays([arr], ["ext"])
+    # check the built array has exactly the expected clss
+    assert type(arr) == period_class
 
     buf = ipc_write_batch(batch)
     del batch
     batch = ipc_read_batch(buf)
 
     result = batch.column(0)
-    assert isinstance(result, test_ext_class)
+    # check the deserialized array class is the expected one
+    assert type(result) == period_class
     assert result.type.extension_name == "pandas.period"
     assert arr.storage.to_pylist() == [1, 2, 3, 4]
 
     # we get back an actual PeriodType
     assert isinstance(result.type, PeriodType)
     assert result.type.freq == 'D'
-    assert result.type == PeriodType('D')
+    assert result.type == period_type
 
     # using different parametrization as how it was registered
-    period_type_H = PeriodType('H')
+    period_type_H = period_type.__class__('H')
     assert period_type_H.extension_name == "pandas.period"
     assert period_type_H.freq == 'H'
 
@@ -318,11 +330,11 @@ def test_generic_ext_type_ipc(registered_period_type, test_ext_class):
     result = batch.column(0)
     assert isinstance(result.type, PeriodType)
     assert result.type.freq == 'H'
-    assert result.type == PeriodType('H')
+    assert type(result) == period_class
 
 
 def test_generic_ext_type_ipc_unknown(registered_period_type):
-    period_type = PeriodType('D')
+    period_type, _ = registered_period_type
     storage = pa.array([1, 2, 3, 4], pa.int64())
     arr = pa.ExtensionArray.from_storage(period_type, storage)
     batch = pa.RecordBatch.from_arrays([arr], ["ext"])
@@ -367,10 +379,9 @@ def test_generic_ext_type_register(registered_period_type):
 
 
 @pytest.mark.parquet
-@pytest.mark.parametrize("test_ext_class", [NotImplementedError, PeriodArray])
-def test_parquet(tmpdir, registered_period_type, test_ext_class):
+def test_parquet(tmpdir, registered_period_type):
     # parquet support for extension types
-    period_type = PeriodType('D', test_ext_class)
+    period_type, period_class = registered_period_type
     storage = pa.array([1, 2, 3, 4], pa.int64())
     arr = pa.ExtensionArray.from_storage(period_type, storage)
     table = pa.table([arr], names=["ext"])
@@ -396,6 +407,9 @@ def test_parquet(tmpdir, registered_period_type, test_ext_class):
     # when reading in, properly create extension type if it is registered
     result = pq.read_table(filename)
     assert result.column("ext").type == period_type
+    # get the exact array class defined by the registered type.
+    result_array = result.column("ext").chunk(0)
+    assert type(result_array) == period_class
 
     # when the type is not registered, read in as storage type
     pa.unregister_extension_type(period_type.extension_name)

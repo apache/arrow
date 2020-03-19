@@ -706,7 +706,7 @@ cdef class ExtensionType(BaseExtensionType):
     def __arrow_ext_class__(self):
         """Arrow extension array class.
         """
-        return NotImplementedError
+        return ExtensionArray
 
 
 cdef class PyExtensionType(ExtensionType):

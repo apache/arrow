@@ -2062,7 +2062,6 @@ cdef class ExtensionArray(Array):
 
         ext_array = make_shared[CExtensionArray](typ.sp_type, storage.sp_array)
         cdef Array result = pyarrow_wrap_array(<shared_ptr[CArray]> ext_array)
-
         result.validate()
         return result
 
@@ -2124,10 +2123,7 @@ cdef object get_array_class_from_type(
 
     if data_type.id() == _Type_EXTENSION:
         py_ext_data_type = pyarrow_wrap_data_type(sp_data_type)
-        py_ext_array_class = py_ext_data_type.__arrow_ext_class__()
-        if py_ext_array_class is NotImplementedError:
-            py_ext_array_class = ExtensionArray
-        return py_ext_array_class
+        return py_ext_data_type.__arrow_ext_class__()
     else:
         return _array_classes[data_type.id()]
 
