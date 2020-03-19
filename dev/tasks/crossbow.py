@@ -55,12 +55,12 @@ else:
 
 # initialize logging
 logging.basicConfig()
-logging.getLogger().setLevel(logging.DEBUG)
+logging.getLogger().setLevel(logging.ERROR)
 
 # enable verbose logging for requests
 # http_client.HTTPConnection.debuglevel = 1
 requests_log = logging.getLogger("requests.packages.urllib3")
-requests_log.setLevel(logging.DEBUG)
+requests_log.setLevel(logging.ERROR)
 requests_log.propagate = True
 
 
