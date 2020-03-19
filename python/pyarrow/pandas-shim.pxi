@@ -31,7 +31,7 @@ cdef class _PandasAPIShim(object):
         object _pd, _types_api, _compat_module
         object _data_frame, _index, _series, _categorical_type
         object _datetimetz_type, _extension_array, _extension_dtype
-        object _array_like_types
+        object _array_like_types, _is_extension_array_dtype
         bint has_sparse
         bint _pd024
 
@@ -71,6 +71,11 @@ cdef class _PandasAPIShim(object):
             self._array_like_types = (
                 self._series, self._index, self._categorical_type)
             self._extension_dtype = None
+        if self._loose_version >= LooseVersion('0.24.0'):
+            self._is_extension_array_dtype = \
+                pd.api.types.is_extension_array_dtype
+        else:
+            self._is_extension_array_dtype = None
 
         if self._loose_version >= LooseVersion('0.20.0'):
             from pandas.api.types import DatetimeTZDtype
@@ -180,6 +185,13 @@ cdef class _PandasAPIShim(object):
     cpdef is_datetimetz(self, obj):
         if self._have_pandas_internal():
             return isinstance(obj, self._datetimetz_type)
+        else:
+            return False
+
+    cpdef is_extension_array_dtype(self, obj):
+        self._check_import()
+        if self._is_extension_array_dtype:
+            return self._is_extension_array_dtype(obj)
         else:
             return False
 
