@@ -729,6 +729,60 @@ TEST_F(TestProjector, TestConcat) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_concat, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestCapture) {
+  // schema for input fields
+  auto field_source_string = field("source_string", arrow::utf8());
+  auto field_pattern_string = field("pattern_string", arrow::utf8());
+  auto schema = arrow::schema({field_source_string, field_pattern_string});
+
+  auto node_source_string = TreeExprBuilder::MakeField(field_source_string);
+  auto node_pattern_string = TreeExprBuilder::MakeField(field_pattern_string);
+
+  auto field_ret = field("ret", arrow::utf8());
+  auto cap_expr = TreeExprBuilder::MakeExpression(
+      "capture", {field_source_string, field_pattern_string}, field_ret);
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {cap_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 3;
+  auto array_source_string = MakeArrowArrayUtf8(
+      {"107.173.176.148 - - [13/Dec/2015:05:11:56 +0100] \"GET /apache-log/access.log "
+       "HTTP/1.1\" 200 97106 \"http://www.almhuette-raith.at/\" \"Mozilla/5.0 (Windows "
+       "NT "
+       "6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Iron/29.0.1600.1 "
+       "Chrome/29.0.1600.1 Safari/537.36\" \"-\"",
+       "157.55.39.8 - - [13/Dec/2015:04:55:12 +0100] \"GET / HTTP/1.1\" 200 10479 \"-\" "
+       "\"Mozilla/5.0 (iPhone; CPU iPhone OS 7_0 like Mac OS X) AppleWebKit/537.51.1 "
+       "(KHTML, like Gecko) Version/7.0 Mobile/11A465 Safari/9537.53 (compatible; "
+       "bingbot/2.0;  https://www.bing.com/bingbot.htm)\" \"-\"",
+       "10.1.1.140 - - [01/Aug/2014:09:36:58 -0700] \"GET "
+       "/~latrina/aug/themes/ComBeta/images/ara_rgprxu.png HTTP/1.1\" 304 - "
+       "\"http://webdev:2000/~latrina/aug/index.php/articles/news/10\" \"Mozilla/5.0 "
+       "(Macintosh; U; PPC Mac OS X Mach-O; en-US; sl:1.7.7) Gecko/00010100 "
+       "Firefox/1.0.3\""},
+      {true, true, true});
+  std::string pattern_string = "(?P<website>http://[0-9a-zA-Z\\./\\-\\_\\~]*)";
+  auto array_pattern_string = MakeArrowArrayUtf8(
+      {pattern_string, pattern_string, pattern_string}, {true, true, false});
+  // expected output
+  auto exp_ret =
+      MakeArrowArrayUtf8({"http://www.almhuette-raith.at/", "", ""}, {true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records,
+                                           {array_source_string, array_pattern_string});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_ret, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestOffset) {
   // schema for input fields
   auto field0 = field("f0", arrow::int32());

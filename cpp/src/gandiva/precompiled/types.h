@@ -210,6 +210,11 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
                                    gdv_int32 text_len, const char* from_str,
                                    gdv_int32 from_str_len, const char* to_str,
                                    gdv_int32 to_str_len, gdv_int32* out_len);
+
+const char* capture_utf8_utf8(gdv_int64 context, const char* source_string,
+                          gdv_int32 source_len, bool source_validity,
+                          const char* pattern_string, gdv_int32 pattern_len,
+                          bool pattern_validity, gdv_int32* out_len);
 }  // extern "C"
 
 #endif  // PRECOMPILED_TYPES_H

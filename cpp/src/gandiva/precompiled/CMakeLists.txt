@@ -25,6 +25,7 @@ set(PRECOMPILED_SRCS
     extended_math_ops.cc
     hash.cc
     print.cc
+    capture.cc
     string_ops.cc
     time.cc
     timestamp_arithmetic.cc
@@ -75,7 +76,8 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
            -o
            ${BC_FILE}
            ${ARROW_GANDIVA_PC_CXX_FLAGS}
-           -I${CMAKE_SOURCE_DIR}/src)
+           -I${CMAKE_SOURCE_DIR}/src
+           -I${RE2_INCLUDE_DIR})
   add_custom_command(OUTPUT ${BC_FILE} COMMAND ${PRECOMPILE_COMMAND} DEPENDS ${SRC_FILE})
   list(APPEND BC_FILES ${BC_FILE})
 endforeach()
@@ -122,7 +124,9 @@ if(ARROW_BUILD_TESTS)
                  decimal_ops_test.cc
                  decimal_ops.cc
                  ../decimal_type_util.cc
-                 ../decimal_xlarge.cc)
+                 ../decimal_xlarge.cc
+                 capture.cc
+                 capture_test.cc)
   target_include_directories(gandiva-precompiled-test PRIVATE ${CMAKE_SOURCE_DIR}/src)
   target_link_libraries(gandiva-precompiled-test PRIVATE ${ARROW_TEST_LINK_LIBS} RE2::re2)
   target_compile_definitions(gandiva-precompiled-test
