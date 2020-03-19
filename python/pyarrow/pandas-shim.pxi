@@ -72,7 +72,8 @@ cdef class _PandasAPIShim(object):
                 self._series, self._index, self._categorical_type)
             self._extension_dtype = None
         if self._loose_version >= LooseVersion('0.24.0'):
-            self._is_extension_array_dtype = pd.api.types.is_extension_array_dtype
+            self._is_extension_array_dtype = \
+                pd.api.types.is_extension_array_dtype
         else:
             self._is_extension_array_dtype = None
 
