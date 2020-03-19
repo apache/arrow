@@ -29,6 +29,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/range.h"
 #include "parquet/arrow/writer.h"
 
 namespace arrow {
@@ -162,6 +163,11 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
 
     EXPECT_EQ(actual_rows, expected_rows);
     EXPECT_EQ(actual_batches, expected_batches);
+  }
+
+  void CountRowsAndBatchesInScan(const std::shared_ptr<Fragment>& fragment,
+                                 int64_t expected_rows, int64_t expected_batches) {
+    return CountRowsAndBatchesInScan(fragment.get(), expected_rows, expected_batches);
   }
 
  protected:
@@ -369,33 +375,85 @@ TEST_F(TestParquetFileFormat, PredicatePushdown) {
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
 
   opts_->filter = scalar(true);
-  CountRowsAndBatchesInScan(fragment.get(), kTotalNumRows, kNumRowGroups);
+  CountRowsAndBatchesInScan(fragment, kTotalNumRows, kNumRowGroups);
 
   for (int64_t i = 1; i <= kNumRowGroups; i++) {
     opts_->filter = ("i64"_ == int64_t(i)).Copy();
-    CountRowsAndBatchesInScan(fragment.get(), i, 1);
+    CountRowsAndBatchesInScan(fragment, i, 1);
   }
 
-  /* Out of bound filters should skip all RowGroups. */
+  // Out of bound filters should skip all RowGroups.
   opts_->filter = scalar(false);
-  CountRowsAndBatchesInScan(fragment.get(), 0, 0);
+  CountRowsAndBatchesInScan(fragment, 0, 0);
   opts_->filter = ("i64"_ == int64_t(kNumRowGroups + 1)).Copy();
-  CountRowsAndBatchesInScan(fragment.get(), 0, 0);
+  CountRowsAndBatchesInScan(fragment, 0, 0);
   opts_->filter = ("i64"_ == int64_t(-1)).Copy();
-  CountRowsAndBatchesInScan(fragment.get(), 0, 0);
+  CountRowsAndBatchesInScan(fragment, 0, 0);
   // No rows match 1 and 2.
   opts_->filter = ("i64"_ == int64_t(1) and "u8"_ == uint8_t(2)).Copy();
-  CountRowsAndBatchesInScan(fragment.get(), 0, 0);
+  CountRowsAndBatchesInScan(fragment, 0, 0);
 
   opts_->filter = ("i64"_ == int64_t(2) or "i64"_ == int64_t(4)).Copy();
-  CountRowsAndBatchesInScan(fragment.get(), 2 + 4, 2);
+  CountRowsAndBatchesInScan(fragment, 2 + 4, 2);
 
   opts_->filter = ("i64"_ < int64_t(6)).Copy();
-  CountRowsAndBatchesInScan(fragment.get(), 5 * (5 + 1) / 2, 5);
+  CountRowsAndBatchesInScan(fragment, 5 * (5 + 1) / 2, 5);
 
   opts_->filter = ("i64"_ >= int64_t(6)).Copy();
-  CountRowsAndBatchesInScan(fragment.get(), kTotalNumRows - (5 * (5 + 1) / 2),
+  CountRowsAndBatchesInScan(fragment, kTotalNumRows - (5 * (5 + 1) / 2),
                             kNumRowGroups - 5);
+}
+
+TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
+  constexpr int64_t kNumRowGroups = 16;
+  constexpr int64_t kTotalNumRows = kNumRowGroups * (kNumRowGroups + 1) / 2;
+
+  auto reader = ArithmeticDatasetFixture::GetRecordBatchReader(kNumRowGroups);
+  auto source = GetFileSource(reader.get());
+
+  opts_ = ScanOptions::Make(reader->schema());
+
+  auto row_groups_fragment = [&](std::vector<int> row_groups) {
+    EXPECT_OK_AND_ASSIGN(auto fragment,
+                         format_->MakeFragment(*source, opts_, scalar(true), row_groups));
+    return internal::checked_pointer_cast<ParquetFileFragment>(fragment);
+  };
+
+  auto all_row_groups_fragment = [&]() {
+    EXPECT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
+    return internal::checked_pointer_cast<ParquetFileFragment>(fragment);
+  };
+
+  EXPECT_EQ(all_row_groups_fragment()->row_groups(), internal::Iota<int>(kNumRowGroups));
+  CountRowsAndBatchesInScan(all_row_groups_fragment(), kTotalNumRows, kNumRowGroups);
+
+  CountRowsAndBatchesInScan(row_groups_fragment({}), 0, 0);
+
+  // individual selection selects a single row group
+  for (int i = 0; i < kNumRowGroups; ++i) {
+    CountRowsAndBatchesInScan(row_groups_fragment({i}), i + 1, 1);
+    EXPECT_EQ(row_groups_fragment({i})->row_groups(), std::vector<int>{i});
+  }
+
+  for (int i = 0; i < kNumRowGroups; ++i) {
+    // conflicting selection/filter
+    opts_->filter = ("i64"_ == int64_t(i)).Copy();
+    CountRowsAndBatchesInScan(row_groups_fragment({i}), 0, 0);
+  }
+
+  for (int i = 0; i < kNumRowGroups; ++i) {
+    // identical selection/filter
+    opts_->filter = ("i64"_ == int64_t(i + 1)).Copy();
+    CountRowsAndBatchesInScan(row_groups_fragment({i}), i + 1, 1);
+  }
+
+  opts_->filter = ("i64"_ > int64_t(3)).Copy();
+  CountRowsAndBatchesInScan(row_groups_fragment({2, 3, 4, 5}), 4 + 5 + 6, 3);
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      IndexError,
+      testing::HasSubstr("only has " + std::to_string(kNumRowGroups) + " row groups"),
+      row_groups_fragment({kNumRowGroups + 1})->Scan(ctx_));
 }
 
 }  // namespace dataset

@@ -220,6 +220,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const CFileSource& source()
         shared_ptr[CFileFormat] format()
 
+    cdef cppclass CParquetFileFragment "arrow::dataset::ParquetFileFragment"(
+            CFileFragment):
+        const vector[int]& row_groups()
+
     cdef cppclass CFileSystemDataset \
             "arrow::dataset::FileSystemDataset"(CDataset):
         @staticmethod

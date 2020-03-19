@@ -386,8 +386,11 @@ cdef class Fragment:
         cdef Fragment self = Fragment()
 
         typ = frombytes(sp.get().type_name())
-        if typ == 'file':
+        if typ == 'ipc':
+            # IpcFileFormat does not have a corresponding subclass for FileFragment
             self = FileFragment.__new__(FileFragment)
+        elif typ == 'parquet':
+            self = ParquetFileFragment.__new__(ParquetFileFragment)
         else:
             self = Fragment()
 
@@ -426,6 +429,21 @@ cdef class FileFragment(Fragment):
         The format of the data file viewed by this fragment.
         """
         return FileFormat.wrap(self.file_fragment.format())
+
+
+cdef class ParquetFileFragment(FileFragment):
+    """A Fragment representing a parquet file."""
+
+    cdef:
+        CParquetFileFragment* parquet_file_fragment
+
+    cdef void init(self, const shared_ptr[CFragment]& sp):
+        FileFragment.init(self, sp)
+        self.parquet_file_fragment = <CParquetFileFragment*> sp.get()
+
+    @property
+    def row_groups(self):
+        return set(self.parquet_file_fragment.row_groups())
 
 
 cdef class ParquetFileFormatReaderOptions:

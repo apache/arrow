@@ -86,6 +86,46 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   Result<ScanTaskIterator> ScanFile(const FileSource& source,
                                     std::shared_ptr<ScanOptions> options,
                                     std::shared_ptr<ScanContext> context) const override;
+
+  /// \brief Open a file for scanning, restricted to the specified row groups.
+  Result<ScanTaskIterator> ScanFile(const FileSource& source,
+                                    std::shared_ptr<ScanOptions> options,
+                                    std::shared_ptr<ScanContext> context,
+                                    const std::vector<int>& row_groups) const;
+
+  using FileFormat::MakeFragment;
+
+  Result<std::shared_ptr<FileFragment>> MakeFragment(
+      FileSource source, std::shared_ptr<ScanOptions> options,
+      std::shared_ptr<Expression> partition_expression) override;
+
+  /// \brief Create a Fragment wrapping only the given row groups
+  Result<std::shared_ptr<FileFragment>> MakeFragment(
+      FileSource source, std::shared_ptr<ScanOptions> options,
+      std::shared_ptr<Expression> partition_expression, std::vector<int> row_groups);
+};
+
+class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
+ public:
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) override;
+
+  /// \brief The row groups viewed by this Fragment.
+  const std::vector<int>& row_groups() const { return row_groups_; }
+
+ private:
+  ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
+                      std::shared_ptr<ScanOptions> scan_options,
+                      std::shared_ptr<Expression> partition_expression,
+                      std::vector<int> row_groups)
+      : FileFragment(std::move(source), std::move(format), std::move(scan_options),
+                     std::move(partition_expression)),
+        row_groups_(std::move(row_groups)) {}
+
+  const ParquetFileFormat& parquet_format() const;
+
+  std::vector<int> row_groups_;
+
+  friend class ParquetFileFormat;
 };
 
 }  // namespace dataset
