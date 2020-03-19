@@ -93,9 +93,8 @@ jobs:
 
     # upload to gemfury
     - script: |
-        path=$(ls arrow/python/{{ wheel_dir }}/dist/*)
-        curl -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/ursa-labs/
+        path=$(ls arrow/python/{{ wheel_dir }}/dist/*.whl)
+        curl -f -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/ursa-labs/
       env:
-        CROSSBOW_GEMFURY_ORG: $(CROSSBOW_GEMFURY_ORG)
         CROSSBOW_GEMFURY_TOKEN: $(CROSSBOW_GEMFURY_TOKEN)
       displayName: Upload packages to Gemfury
