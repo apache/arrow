@@ -89,7 +89,7 @@ install:
 
   # upload to gemfury pypi repository, there should be a single wheel
   - path=$(ls arrow/python/dist/*.whl)
-  - curl -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/ursa-labs/
+  - curl -f -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/ursa-labs/
 
 notifications:
   email:
