@@ -153,14 +153,18 @@ def partitioning(schema=None, field_names=None, flavor=None):
 
 def _ensure_fs(filesystem, path):
     # Validate or infer the filesystem from the path
-    from pyarrow.fs import FileSystem, LocalFileSystem, FileType
+    from pyarrow.fs import (
+        FileSystem, LocalFileSystem, FileType, _normalize_path)
 
     if filesystem is None:
         # first check if the file exists as a local (relative) file path
         filesystem = LocalFileSystem()
+        path = _normalize_path(filesystem, path)
         infos = filesystem.get_target_infos([path])[0]
         if infos.type == FileType.NonExistent:
             return FileSystem.from_uri(path)
+    else:
+        path = _normalize_path(filesystem, path)
 
     return filesystem, path
 
