@@ -170,6 +170,10 @@ test_that("Partitioning inference", {
 test_that("IPC/Arrow format data", {
   ds <- open_dataset(ipc_dir, partitioning = "part", format = "arrow")
   expect_identical(names(ds), c(names(df1), "part"))
+  expect_warning(
+    dim(ds),
+    "Number of rows unknown; returning NA"
+  )
   expect_equivalent(
     ds %>%
       select(string = chr, integer = int, part) %>%

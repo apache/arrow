@@ -126,6 +126,11 @@ Dataset <- R6Class("Dataset", inherit = ArrowObject,
     #' Return the Dataset's `Schema`
     schema = function() shared_ptr(Schema, dataset___Dataset__schema(self)),
     metadata = function() self$schema$metadata,
+    num_rows = function() {
+      warning("Number of rows unknown; returning NA", call. = FALSE)
+      NA_integer_
+    },
+    num_cols = function() length(self$schema),
     #' @description
     #' Return the Dataset's type.
     type = function() dataset___Dataset__type_name(self)
@@ -142,40 +147,7 @@ Dataset$create <- function(children, schema) {
 names.Dataset <- function(x) names(x$schema)
 
 #' @export
-dim.Dataset <- function(x) {
-
-  if (!(inherits(x, "FileSystemDataset") && inherits(x$format, "ParquetFileFormat"))) {
-    stop(
-      "dim() is only currently implemented for Datasets that use parquet files.",
-      "Call collect() first to pull data into R.",
-      call. = FALSE
-    )
-  }
-
-  rows <- sum(map_int(x$files, ~ParquetFileReader$create(.x)$num_rows))
-  cols <- length(x$schema)
-
-  c(rows, cols)
-}
-
-#' @export
-dim.arrow_dplyr_query <- function(x) {
-
-  if (isTRUE(x$filtered)) {
-    rows <- nrow(x$.data)
-  } else {
-    warning("For arrow dplyr queries that call filter, dim() returns NA for the number of rows.",
-            "\nCall collect() first to pull data into R to access the number of rows.", call. = FALSE)
-    rows <- NA_integer_
-
-  }
-  cols <- length(x$selected_columns)
-
-  c(rows, cols)
-
-}
-
-
+dim.Dataset <- function(x) c(x$num_rows, x$num_cols)
 
 #' @name FileSystemDataset
 #' @rdname Dataset
@@ -189,6 +161,15 @@ FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
     #' Return the format of files in this `Dataset`
     format = function() {
       shared_ptr(FileFormat, dataset___FileSystemDataset__format(self))$..dispatch()
+    },
+    num_rows = function() {
+      if (!inherits(self$format, "ParquetFileFormat")) {
+        # TODO: implement for other file formats
+        warning("Number of rows unknown; returning NA", call. = FALSE)
+        NA_integer_
+      } else {
+        sum(map_int(self$files, ~ParquetFileReader$create(.x)$num_rows))
+      }
     }
   )
 )

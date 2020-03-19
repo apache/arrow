@@ -108,26 +108,6 @@ ListArray__raw_value_offsets <- function(array){
     .Call(`_arrow_ListArray__raw_value_offsets` , array)
 }
 
-ArrayData__get_type <- function(x){
-    .Call(`_arrow_ArrayData__get_type` , x)
-}
-
-ArrayData__get_length <- function(x){
-    .Call(`_arrow_ArrayData__get_length` , x)
-}
-
-ArrayData__get_null_count <- function(x){
-    .Call(`_arrow_ArrayData__get_null_count` , x)
-}
-
-ArrayData__get_offset <- function(x){
-    .Call(`_arrow_ArrayData__get_offset` , x)
-}
-
-ArrayData__buffers <- function(x){
-    .Call(`_arrow_ArrayData__buffers` , x)
-}
-
 Array__infer_type <- function(x){
     .Call(`_arrow_Array__infer_type` , x)
 }
@@ -158,6 +138,26 @@ RecordBatch__to_dataframe <- function(batch, use_threads){
 
 Table__to_dataframe <- function(table, use_threads){
     .Call(`_arrow_Table__to_dataframe` , table, use_threads)
+}
+
+ArrayData__get_type <- function(x){
+    .Call(`_arrow_ArrayData__get_type` , x)
+}
+
+ArrayData__get_length <- function(x){
+    .Call(`_arrow_ArrayData__get_length` , x)
+}
+
+ArrayData__get_null_count <- function(x){
+    .Call(`_arrow_ArrayData__get_null_count` , x)
+}
+
+ArrayData__get_offset <- function(x){
+    .Call(`_arrow_ArrayData__get_offset` , x)
+}
+
+ArrayData__buffers <- function(x){
+    .Call(`_arrow_ArrayData__buffers` , x)
 }
 
 Buffer__is_mutable <- function(buffer){
