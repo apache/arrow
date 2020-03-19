@@ -126,6 +126,11 @@ Dataset <- R6Class("Dataset", inherit = ArrowObject,
     #' Return the Dataset's `Schema`
     schema = function() shared_ptr(Schema, dataset___Dataset__schema(self)),
     metadata = function() self$schema$metadata,
+    num_rows = function() {
+      warning("Number of rows unknown; returning NA", call. = FALSE)
+      NA_integer_
+    },
+    num_cols = function() length(self$schema),
     #' @description
     #' Return the Dataset's type.
     type = function() dataset___Dataset__type_name(self)
@@ -141,6 +146,9 @@ Dataset$create <- function(children, schema) {
 #' @export
 names.Dataset <- function(x) names(x$schema)
 
+#' @export
+dim.Dataset <- function(x) c(x$num_rows, x$num_cols)
+
 #' @name FileSystemDataset
 #' @rdname Dataset
 #' @export
@@ -153,6 +161,15 @@ FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
     #' Return the format of files in this `Dataset`
     format = function() {
       shared_ptr(FileFormat, dataset___FileSystemDataset__format(self))$..dispatch()
+    },
+    num_rows = function() {
+      if (!inherits(self$format, "ParquetFileFormat")) {
+        # TODO: implement for other file formats
+        warning("Number of rows unknown; returning NA", call. = FALSE)
+        NA_integer_
+      } else {
+        sum(map_int(self$files, ~ParquetFileReader$create(.x)$num_rows))
+      }
     }
   )
 )

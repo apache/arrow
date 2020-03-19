@@ -443,6 +443,11 @@ ParquetFileWriter$create <- function(
 #' @include arrow-package.R
 ParquetFileReader <- R6Class("ParquetFileReader",
   inherit = ArrowObject,
+  active = list(
+    num_rows = function() {
+      as.integer(parquet___arrow___FileReader__num_rows(self))
+    }
+  ),
   public = list(
     ReadTable = function(col_select = NULL) {
       col_select <- enquo(col_select)

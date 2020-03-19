@@ -1120,6 +1120,10 @@ parquet___arrow___FileReader__ReadTable2 <- function(reader, column_indices){
     .Call(`_arrow_parquet___arrow___FileReader__ReadTable2` , reader, column_indices)
 }
 
+parquet___arrow___FileReader__num_rows <- function(reader){
+    .Call(`_arrow_parquet___arrow___FileReader__num_rows` , reader)
+}
+
 parquet___ArrowWriterProperties___Builder__create <- function(){
     .Call(`_arrow_parquet___ArrowWriterProperties___Builder__create` )
 }

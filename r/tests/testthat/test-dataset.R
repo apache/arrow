@@ -98,6 +98,26 @@ test_that("Simple interface for datasets", {
   )
 })
 
+test_that("dim method returns the correct number of rows and columns",{
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_identical(dim(ds), c(20L, 7L))
+})
+
+
+test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_query object",{
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+
+  expect_warning(dim_fil <- dim(filter(ds, chr == 'A')))
+  expect_identical(dim_fil, c(NA, 7L))
+
+  dim_sel <- dim(select(ds, chr, fct))
+  expect_identical(dim_sel, c(20L, 2L))
+
+  expect_warning(dim_sel_fil <- dim(select(ds, chr, fct) %>% filter(chr == 'A')))
+  expect_identical(dim_sel_fil, c(NA, 2L))
+
+})
+
 test_that("Simple interface for datasets (custom ParquetFileFormat)", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()),
                      format = FileFormat$create("parquet", dict_columns = c("chr")))
@@ -150,6 +170,10 @@ test_that("Partitioning inference", {
 test_that("IPC/Arrow format data", {
   ds <- open_dataset(ipc_dir, partitioning = "part", format = "arrow")
   expect_identical(names(ds), c(names(df1), "part"))
+  expect_warning(
+    dim(ds),
+    "Number of rows unknown; returning NA"
+  )
   expect_equivalent(
     ds %>%
       select(string = chr, integer = int, part) %>%
