@@ -226,6 +226,68 @@ data type from above would look like::
 
 Also the storage type does not need to be fixed but can be parametrized.
 
+Custom extension array class
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+By default, all arrays with an extension type are constructed or deserialized into
+a built-in :class:`ExtensionArray` object. Nevertheless, one could want to sub-class
+:class:`ExtensionArray` in order to add some custom logic specific to the extension
+type. Arrow allows to do so by adding a special method ``__arrow_ext_class__`` to the
+definition of the extension type.
+
+For instance, if we consider the case of a 3-dimensional vector, stored as a fixed-size
+list, where we wish to be able to extract the data as a Numpy matrix ``(N, 3)`` without
+any copy::
+
+    class Vector3dArray(pa.ExtensionArray):
+        def to_numpy_matrix(self):
+            return arr.storage.flatten().to_numpy().reshape((-1, 3))
+
+
+    class Vector3dType(pa.PyExtensionType):
+        def __init__(self):
+            pa.PyExtensionType.__init__(self, pa.list_(pa.float32(), 3))
+
+        def __reduce__(self):
+            return Vector3dType, ()
+
+        def __arrow_ext_class__(self):
+            return Vector3dArray
+
+Arrays built using this extension type now have the expected custom array class::
+
+    >>> storage = pa.array([[1, 2, 3], [4, 5, 6]], pa.list_(pa.float32(), 3))
+    >>> arr = pa.ExtensionArray.from_storage(Vector3dType(), storage)
+    >>> arr
+    <__main__.Vector3dArray object at 0x7f40dea80670>
+    [
+        [
+            1,
+            2,
+            3
+        ],
+        [
+            4,
+            5,
+            6
+        ]
+    ]
+
+The additional methods in the extension class are then available to the user::
+
+    >>> arr.to_numpy_matrix()
+    array([[1., 2., 3.],
+       [4., 5., 6.]], dtype=float32)
+
+
+This array can be sent over IPC, received in another Python process, and the custom
+extension array class will be preserved (as long as the definitions of the classes above
+are available).
+
+The same ``__arrow_ext_class__`` specialization can be used with custom types defined
+by subclassing :class:`ExtensionType`.
+
+
 Conversion to pandas
 ~~~~~~~~~~~~~~~~~~~~
 
