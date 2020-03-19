@@ -56,7 +56,7 @@ after_build:
   # upload to gemfury
   - conda install -y curl
   - for /f %%i in ('dir /b wheels\*.whl') do set WHEEL_PATH=wheels\%%i
-  - curl.exe -f -F "package=@%WHEEL_PATH%" https://%CROSSBOW_GEMFURY_TOKEN%@push.fury.io/ursa-labs/
+  - curl.exe -v -f -F "package=@%WHEEL_PATH%" "https://%CROSSBOW_GEMFURY_TOKEN%@push.fury.io/ursa-labs/"
 
 #on_finish:
   #- ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
