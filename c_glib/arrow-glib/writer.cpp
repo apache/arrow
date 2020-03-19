@@ -238,13 +238,10 @@ garrow_record_batch_stream_writer_new(GArrowOutputStream *sink,
                                       GArrowSchema *schema,
                                       GError **error)
 {
-  using BaseType = arrow::ipc::RecordBatchWriter;
-  using WriterType = arrow::ipc::RecordBatchStreamWriter;
-
   auto arrow_sink = garrow_output_stream_get_raw(sink).get();
-  std::shared_ptr<BaseType> arrow_writer;
-  auto status = WriterType::Open(arrow_sink,
-                                 garrow_schema_get_raw(schema)).Value(&arrow_writer);
+  std::shared_ptr<arrow::ipc::RecordBatchWriter> arrow_writer;
+  auto status = arrow::ipc::NewStreamWriter(
+      arrow_sink, garrow_schema_get_raw(schema)).Value(&arrow_writer);
   if (garrow_error_check(error, status, "[record-batch-stream-writer][open]")) {
     return garrow_record_batch_stream_writer_new_raw(&arrow_writer);
   } else {
@@ -283,13 +280,10 @@ garrow_record_batch_file_writer_new(GArrowOutputStream *sink,
                        GArrowSchema *schema,
                        GError **error)
 {
-  using BaseType = arrow::ipc::RecordBatchWriter;
-  using WriterType = arrow::ipc::RecordBatchFileWriter;
-
   auto arrow_sink = garrow_output_stream_get_raw(sink);
-  std::shared_ptr<BaseType> arrow_writer;
-  auto status = WriterType::Open(arrow_sink.get(),
-                                 garrow_schema_get_raw(schema)).Value(&arrow_writer);
+  std::shared_ptr<arrow::ipc::RecordBatchWriter> arrow_writer;
+  auto status = arrow::ipc::NewFileWriter(
+      arrow_sink.get(), garrow_schema_get_raw(schema)).Value(&arrow_writer);
   if (garrow_error_check(error, status, "[record-batch-file-writer][open]")) {
     return garrow_record_batch_file_writer_new_raw(&arrow_writer);
   } else {

@@ -108,7 +108,7 @@ class ARROW_EXPORT Message {
 
   /// \brief Custom metadata serialized in metadata Flatbuffer. Returns nullptr
   /// when none set
-  std::shared_ptr<const KeyValueMetadata> custom_metadata() const;
+  const std::shared_ptr<const KeyValueMetadata>& custom_metadata() const;
 
   /// \brief the Message body, if any
   ///
@@ -133,7 +133,7 @@ class ARROW_EXPORT Message {
   /// \param[in] options IPC writing options including alignment
   /// \param[out] output_length the number of bytes written
   /// \return Status
-  Status SerializeTo(io::OutputStream* file, const IpcOptions& options,
+  Status SerializeTo(io::OutputStream* file, const IpcWriteOptions& options,
                      int64_t* output_length) const;
 
   /// \brief Return true if the Message metadata passes Flatbuffer validation
@@ -248,7 +248,7 @@ Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* stream,
 /// \param[out] message_length the total size of the payload written including
 /// padding
 /// \return Status
-Status WriteMessage(const Buffer& message, const IpcOptions& options,
+Status WriteMessage(const Buffer& message, const IpcWriteOptions& options,
                     io::OutputStream* file, int32_t* message_length);
 
 }  // namespace ipc

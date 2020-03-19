@@ -92,7 +92,7 @@ class Message::MessageImpl {
 
   std::shared_ptr<Buffer> metadata() const { return metadata_; }
 
-  std::shared_ptr<const KeyValueMetadata> custom_metadata() const {
+  const std::shared_ptr<const KeyValueMetadata>& custom_metadata() const {
     return custom_metadata_;
   }
 
@@ -133,7 +133,7 @@ MetadataVersion Message::metadata_version() const { return impl_->version(); }
 
 const void* Message::header() const { return impl_->header(); }
 
-std::shared_ptr<const KeyValueMetadata> Message::custom_metadata() const {
+const std::shared_ptr<const KeyValueMetadata>& Message::custom_metadata() const {
   return impl_->custom_metadata();
 }
 
@@ -217,7 +217,7 @@ Status WritePadding(io::OutputStream* stream, int64_t nbytes) {
   return Status::OK();
 }
 
-Status Message::SerializeTo(io::OutputStream* stream, const IpcOptions& options,
+Status Message::SerializeTo(io::OutputStream* stream, const IpcWriteOptions& options,
                             int64_t* output_length) const {
   int32_t metadata_length = 0;
   RETURN_NOT_OK(WriteMessage(*metadata(), options, stream, &metadata_length));
@@ -385,7 +385,7 @@ Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* file, MemoryPool* 
   return DoReadMessage(file, pool);
 }
 
-Status WriteMessage(const Buffer& message, const IpcOptions& options,
+Status WriteMessage(const Buffer& message, const IpcWriteOptions& options,
                     io::OutputStream* file, int32_t* message_length) {
   const int32_t prefix_size = options.write_legacy_ipc_format ? 4 : 8;
   const int32_t flatbuffer_size = static_cast<int32_t>(message.size());

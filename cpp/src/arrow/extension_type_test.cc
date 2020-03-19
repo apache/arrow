@@ -218,7 +218,7 @@ TEST_F(TestExtensionType, ExtensionTypeTest) {
 auto RoundtripBatch = [](const std::shared_ptr<RecordBatch>& batch,
                          std::shared_ptr<RecordBatch>* out) {
   ASSERT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create());
-  ASSERT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcOptions::Defaults(),
+  ASSERT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcWriteOptions::Defaults(),
                                         out_stream.get()));
 
   ASSERT_OK_AND_ASSIGN(auto complete_ipc_stream, out_stream->Finish());
@@ -256,7 +256,7 @@ TEST_F(TestExtensionType, UnrecognizedExtension) {
   // Write full IPC stream including schema, then unregister type, then read
   // and ensure that a plain instance of the storage type is created
   ASSERT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create());
-  ASSERT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcOptions::Defaults(),
+  ASSERT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcWriteOptions::Defaults(),
                                         out_stream.get()));
 
   ASSERT_OK_AND_ASSIGN(auto complete_ipc_stream, out_stream->Finish());

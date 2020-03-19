@@ -272,8 +272,8 @@ cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
         get_writer(sink, &self.sink)
         with nogil:
             self.writer = GetResultValue(
-                CRecordBatchStreamWriter.Open(
-                    self.sink.get(), schema.sp_schema, self.options))
+                NewStreamWriter(self.sink.get(), schema.sp_schema,
+                                self.options))
 
 
 cdef _get_input_stream(object source, shared_ptr[CInputStream]* out):
@@ -363,8 +363,7 @@ cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
         get_writer(sink, &self.sink)
         with nogil:
             self.writer = GetResultValue(
-                CRecordBatchFileWriter.Open(
-                    self.sink.get(), schema.sp_schema, self.options))
+                NewFileWriter(self.sink.get(), schema.sp_schema, self.options))
 
 
 cdef class _RecordBatchFileReader:

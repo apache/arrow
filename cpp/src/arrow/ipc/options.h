@@ -41,10 +41,8 @@ namespace ipc {
 // maximum allowed recursion depth
 constexpr int kMaxNestingDepth = 64;
 
-// TODO: Should IpcOptions be renamed IpcWriteOptions?
-
 /// \brief Options for writing Arrow IPC messages
-struct ARROW_EXPORT IpcOptions {
+struct ARROW_EXPORT IpcWriteOptions {
   // If true, allow field lengths that don't fit in a signed 32-bit int.
   // Some implementations may not be able to parse such streams.
   bool allow_64bit = false;
@@ -68,8 +66,12 @@ struct ARROW_EXPORT IpcOptions {
   Compression::type compression = Compression::UNCOMPRESSED;
   int compression_level = Compression::kUseDefaultCompressionLevel;
 
-  static IpcOptions Defaults();
+  static IpcWriteOptions Defaults();
 };
+
+#ifndef ARROW_NO_DEPRECATED_API
+using IpcOptions = IpcWriteOptions;
+#endif
 
 struct ARROW_EXPORT IpcReadOptions {
   // The maximum permitted schema nesting depth.

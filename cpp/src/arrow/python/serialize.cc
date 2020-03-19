@@ -604,7 +604,8 @@ Status WriteNdarrayHeader(std::shared_ptr<DataType> dtype,
   return serialized_tensor.WriteTo(dst);
 }
 
-SerializedPyObject::SerializedPyObject() : ipc_options(ipc::IpcOptions::Defaults()) {}
+SerializedPyObject::SerializedPyObject()
+    : ipc_options(ipc::IpcWriteOptions::Defaults()) {}
 
 Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
   int32_t num_tensors = static_cast<int32_t>(this->tensors.size());

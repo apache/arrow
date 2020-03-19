@@ -114,7 +114,7 @@ class PerfDataStream : public FlightDataStream {
   int64_t records_sent_;
   std::shared_ptr<Schema> schema_;
   ipc::DictionaryMemo dictionary_memo_;
-  ipc::IpcOptions ipc_options_;
+  ipc::IpcWriteOptions ipc_options_;
   std::shared_ptr<RecordBatch> batch_;
   ArrayVector arrays_;
 };

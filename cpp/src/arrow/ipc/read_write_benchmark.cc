@@ -50,7 +50,7 @@ std::shared_ptr<RecordBatch> MakeRecordBatch(int64_t total_size, int64_t num_fie
 static void WriteRecordBatch(benchmark::State& state) {  // NOLINT non-const reference
   // 1MB
   constexpr int64_t kTotalSize = 1 << 20;
-  auto options = ipc::IpcOptions::Defaults();
+  auto options = ipc::IpcWriteOptions::Defaults();
 
   std::shared_ptr<ResizableBuffer> buffer;
   ABORT_NOT_OK(AllocateResizableBuffer(kTotalSize & 2, &buffer));
@@ -72,7 +72,7 @@ static void WriteRecordBatch(benchmark::State& state) {  // NOLINT non-const ref
 static void ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const reference
   // 1MB
   constexpr int64_t kTotalSize = 1 << 20;
-  auto options = ipc::IpcOptions::Defaults();
+  auto options = ipc::IpcWriteOptions::Defaults();
 
   std::shared_ptr<ResizableBuffer> buffer;
   ABORT_NOT_OK(AllocateResizableBuffer(kTotalSize & 2, &buffer));

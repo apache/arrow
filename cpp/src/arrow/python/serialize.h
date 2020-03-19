@@ -54,7 +54,7 @@ struct ARROW_PYTHON_EXPORT SerializedPyObject {
   std::vector<std::shared_ptr<SparseTensor>> sparse_tensors;
   std::vector<std::shared_ptr<Tensor>> ndarrays;
   std::vector<std::shared_ptr<Buffer>> buffers;
-  ipc::IpcOptions ipc_options;
+  ipc::IpcWriteOptions ipc_options;
 
   SerializedPyObject();
 

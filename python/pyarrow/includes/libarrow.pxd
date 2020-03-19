@@ -1176,7 +1176,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         MessageType_V3" arrow::ipc::MetadataVersion::V3"
         MessageType_V4" arrow::ipc::MetadataVersion::V4"
 
-    cdef cppclass CIpcWriteOptions" arrow::ipc::IpcOptions":
+    cdef cppclass CIpcWriteOptions" arrow::ipc::IpcWriteOptions":
         c_bool allow_64bit
         int max_recursion_depth
         int32_t alignment
@@ -1244,19 +1244,13 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
             unique_ptr[CMessageReader] message_reader,
             const CIpcReadOptions& options)
 
-    cdef cppclass CRecordBatchStreamWriter \
-            " arrow::ipc::RecordBatchStreamWriter"(CRecordBatchWriter):
-        @staticmethod
-        CResult[shared_ptr[CRecordBatchWriter]] Open(
-            COutputStream* sink, const shared_ptr[CSchema]& schema,
-            CIpcWriteOptions& options)
+    CResult[shared_ptr[CRecordBatchWriter]] NewStreamWriter(
+        COutputStream* sink, const shared_ptr[CSchema]& schema,
+        CIpcWriteOptions& options)
 
-    cdef cppclass CRecordBatchFileWriter \
-            " arrow::ipc::RecordBatchFileWriter"(CRecordBatchWriter):
-        @staticmethod
-        CResult[shared_ptr[CRecordBatchWriter]] Open(
-            COutputStream* sink, const shared_ptr[CSchema]& schema,
-            CIpcWriteOptions& options)
+    CResult[shared_ptr[CRecordBatchWriter]] NewFileWriter(
+        COutputStream* sink, const shared_ptr[CSchema]& schema,
+        CIpcWriteOptions& options)
 
     cdef cppclass CRecordBatchFileReader \
             " arrow::ipc::RecordBatchFileReader":

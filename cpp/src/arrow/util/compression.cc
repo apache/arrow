@@ -86,7 +86,6 @@ std::string Codec::GetCodecAsString(Compression::type t) {
 }
 
 Result<Compression::type> Codec::GetCompressionType(const std::string& name) {
-  // Could use an unordered_map, but probably not worth the trouble
   if (name == "UNCOMPRESSED") {
     return Compression::UNCOMPRESSED;
   } else if (name == "GZIP") {

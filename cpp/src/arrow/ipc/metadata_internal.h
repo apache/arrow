@@ -33,7 +33,6 @@
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/macros.h"
 
 #include "generated/Message_generated.h"

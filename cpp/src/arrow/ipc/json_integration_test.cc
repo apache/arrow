@@ -71,10 +71,7 @@ static Status ConvertJsonToArrow(const std::string& json_path,
               << reader->schema()->ToString(/* show_metadata = */ true) << std::endl;
   }
 
-  std::shared_ptr<RecordBatchWriter> writer;
-  ARROW_ASSIGN_OR_RAISE(writer,
-                        RecordBatchFileWriter::Open(out_file.get(), reader->schema()));
-
+  ARROW_ASSIGN_OR_RAISE(auto writer, NewFileWriter(out_file.get(), reader->schema()));
   for (int i = 0; i < reader->num_record_batches(); ++i) {
     std::shared_ptr<RecordBatch> batch;
     RETURN_NOT_OK(reader->ReadRecordBatch(i, &batch));

@@ -805,7 +805,7 @@ class RecordBatchStream::RecordBatchStreamImpl {
 
   RecordBatchStreamImpl(const std::shared_ptr<RecordBatchReader>& reader,
                         MemoryPool* pool)
-      : reader_(reader), ipc_options_(ipc::IpcOptions::Defaults()) {
+      : reader_(reader), ipc_options_(ipc::IpcWriteOptions::Defaults()) {
     ipc_options_.memory_pool = pool;
   }
 
@@ -869,7 +869,7 @@ class RecordBatchStream::RecordBatchStreamImpl {
   Stage stage_ = Stage::NEW;
   std::shared_ptr<RecordBatchReader> reader_;
   ipc::DictionaryMemo dictionary_memo_;
-  ipc::IpcOptions ipc_options_;
+  ipc::IpcWriteOptions ipc_options_;
   std::shared_ptr<RecordBatch> current_batch_;
   std::vector<std::pair<int64_t, std::shared_ptr<Array>>> dictionaries_;
 

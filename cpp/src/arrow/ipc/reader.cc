@@ -62,6 +62,8 @@ namespace ipc {
 using internal::FileBlock;
 using internal::kArrowMagicBytes;
 
+namespace {
+
 Status InvalidMessageType(Message::Type expected, Message::Type actual) {
   return Status::IOError("Expected IPC message of type ", FormatMessageType(expected),
                          " but got ", FormatMessageType(actual));
@@ -90,6 +92,8 @@ Status InvalidMessageType(Message::Type expected, Message::Type actual) {
     }                                                                   \
   } while (0)
 
+}  // namespace
+
 // ----------------------------------------------------------------------
 // Record batch read path
 
@@ -97,10 +101,10 @@ Status InvalidMessageType(Message::Type expected, Message::Type actual) {
 /// batch is "consumed" (through nested data reconstruction, for example)
 class ArrayLoader {
  public:
-  explicit ArrayLoader(const flatbuf::RecordBatch* metadata, io::RandomAccessFile* file,
+  explicit ArrayLoader(const flatbuf::RecordBatch* metadata,
                        const DictionaryMemo* dictionary_memo,
-                       const IpcReadOptions& options,
-                       Compression::type compression = Compression::UNCOMPRESSED)
+                       const IpcReadOptions& options, Compression::type compression,
+                       io::RandomAccessFile* file)
       : metadata_(metadata),
         file_(file),
         dictionary_memo_(dictionary_memo),
@@ -135,7 +139,7 @@ class ArrayLoader {
     std::unique_ptr<util::Codec> codec;
     ARROW_ASSIGN_OR_RAISE(codec, util::Codec::Create(compression_));
 
-    // TODO: Parallelize decompression
+    // TODO: Consider strategies to enable columns to decompress in parallel
     for (size_t i = 0; i < out_->buffers.size(); ++i) {
       if (out_->buffers[i] == nullptr) {
         continue;
@@ -382,7 +386,7 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
     const std::unordered_set<int>& included_fields, const DictionaryMemo* dictionary_memo,
     const IpcReadOptions& options, Compression::type compression,
     io::RandomAccessFile* file) {
-  ArrayLoader loader(metadata, file, dictionary_memo, options, compression);
+  ArrayLoader loader(metadata, dictionary_memo, options, compression, file);
 
   std::vector<std::shared_ptr<ArrayData>> field_data(included_fields.size());
   std::vector<std::shared_ptr<Field>> schema_fields(included_fields.size());
@@ -431,7 +435,7 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatch(
                                  dictionary_memo, options, compression, file);
   }
 
-  ArrayLoader loader(metadata, file, dictionary_memo, options, compression);
+  ArrayLoader loader(metadata, dictionary_memo, options, compression, file);
   std::vector<std::shared_ptr<ArrayData>> arrays(schema->num_fields());
   for (int i = 0; i < schema->num_fields(); ++i) {
     auto arr = std::make_shared<ArrayData>();

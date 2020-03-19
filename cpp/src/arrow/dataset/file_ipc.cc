@@ -160,10 +160,8 @@ Result<std::shared_ptr<WriteTask>> IpcFileFormat::WriteFragment(
       RETURN_NOT_OK(CreateDestinationParentDir());
 
       ARROW_ASSIGN_OR_RAISE(auto out_stream, destination_.OpenWritable());
-
-      ARROW_ASSIGN_OR_RAISE(auto writer, ipc::RecordBatchFileWriter::Open(
-                                             out_stream.get(), fragment_->schema()));
-
+      ARROW_ASSIGN_OR_RAISE(auto writer,
+                            ipc::NewFileWriter(out_stream.get(), fragment_->schema()));
       ARROW_ASSIGN_OR_RAISE(auto scan_task_it, fragment_->Scan(scan_context_));
 
       for (auto maybe_scan_task : scan_task_it) {
