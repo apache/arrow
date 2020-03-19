@@ -229,6 +229,8 @@ class TestLocalFS : public LocalFSTestMixin {
     ASSERT_EQ(size, expected_size);
   }
 
+  static void CheckNormalizePath(const std::shared_ptr<FileSystem>& fs) {}
+
  protected:
   PathFormatter path_formatter_;
   std::shared_ptr<LocalFileSystem> local_fs_;
@@ -249,6 +251,27 @@ TYPED_TEST(TestLocalFS, CorrectPathExists) {
 
   // Now check the file's existence directly, bypassing the FileSystem abstraction
   this->CheckConcreteFile(this->temp_dir_->path().ToString() + "abc", data_size);
+}
+
+TYPED_TEST(TestLocalFS, NormalizePath) {
+#ifdef _WIN32
+  ASSERT_OK_AND_EQ("AB/CD", this->local_fs_->NormalizePath("AB\\CD"));
+  ASSERT_OK_AND_EQ("/AB/CD", this->local_fs_->NormalizePath("\\AB\\CD"));
+  ASSERT_OK_AND_EQ("C:DE/fgh", this->local_fs_->NormalizePath("C:DE\\fgh"));
+  ASSERT_OK_AND_EQ("C:/DE/fgh", this->local_fs_->NormalizePath("C:\\DE\\fgh"));
+  ASSERT_OK_AND_EQ("//some/share/AB",
+                   this->local_fs_->NormalizePath("\\\\some\\share\\AB"));
+#else
+  ASSERT_OK_AND_EQ("AB\\CD", this->local_fs_->NormalizePath("AB\\CD"));
+#endif
+}
+
+TYPED_TEST(TestLocalFS, NormalizePathThroughSubtreeFS) {
+#ifdef _WIN32
+  ASSERT_OK_AND_EQ("AB/CD", this->fs_->NormalizePath("AB\\CD"));
+#else
+  ASSERT_OK_AND_EQ("AB\\CD", this->fs_->NormalizePath("AB\\CD"));
+#endif
 }
 
 TYPED_TEST(TestLocalFS, FileSystemFromUriFile) {

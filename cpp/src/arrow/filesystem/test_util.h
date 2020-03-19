@@ -99,6 +99,7 @@ class ARROW_EXPORT GenericFileSystemTest {
   virtual ~GenericFileSystemTest();
 
   void TestEmpty();
+  void TestNormalizePath();
   void TestCreateDir();
   void TestDeleteDir();
   void TestDeleteDirContents();
@@ -136,6 +137,7 @@ class ARROW_EXPORT GenericFileSystemTest {
   virtual bool have_flaky_directory_tree_deletion() const { return false; }
 
   void TestEmpty(FileSystem* fs);
+  void TestNormalizePath(FileSystem* fs);
   void TestCreateDir(FileSystem* fs);
   void TestDeleteDir(FileSystem* fs);
   void TestDeleteDirContents(FileSystem* fs);
@@ -159,6 +161,7 @@ class ARROW_EXPORT GenericFileSystemTest {
 
 #define GENERIC_FS_TEST_FUNCTIONS_MACROS(TEST_MACRO, TEST_CLASS)                        \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, Empty)                               \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, NormalizePath)                       \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, CreateDir)                           \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, DeleteDir)                           \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, DeleteDirContents)                   \

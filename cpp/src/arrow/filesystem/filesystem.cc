@@ -115,6 +115,8 @@ std::string FileInfo::extension() const {
 
 FileSystem::~FileSystem() {}
 
+Result<std::string> FileSystem::NormalizePath(std::string path) { return path; }
+
 Result<std::vector<FileInfo>> FileSystem::GetTargetInfos(
     const std::vector<std::string>& paths) {
   std::vector<FileInfo> res;
@@ -137,14 +139,17 @@ Status FileSystem::DeleteFiles(const std::vector<std::string>& paths) {
 //////////////////////////////////////////////////////////////////////////
 // SubTreeFileSystem implementation
 
-// FIXME EnsureTrailingSlash works on abstract paths... but we will be
-// passing a concrete path, e.g. "C:" on Windows.
-
 SubTreeFileSystem::SubTreeFileSystem(const std::string& base_path,
                                      std::shared_ptr<FileSystem> base_fs)
-    : base_path_(EnsureTrailingSlash(base_path)), base_fs_(base_fs) {}
+    : base_path_(NormalizeBasePath(base_path, base_fs).ValueOrDie()), base_fs_(base_fs) {}
 
 SubTreeFileSystem::~SubTreeFileSystem() {}
+
+Result<std::string> SubTreeFileSystem::NormalizeBasePath(
+    std::string base_path, const std::shared_ptr<FileSystem>& base_fs) {
+  ARROW_ASSIGN_OR_RAISE(base_path, base_fs->NormalizePath(std::move(base_path)));
+  return EnsureTrailingSlash(std::move(base_path));
+}
 
 std::string SubTreeFileSystem::PrependBase(const std::string& s) const {
   if (s.empty()) {
@@ -163,12 +168,11 @@ Status SubTreeFileSystem::PrependBaseNonEmpty(std::string* s) const {
   }
 }
 
-Status SubTreeFileSystem::StripBase(const std::string& s, std::string* out) const {
+Result<std::string> SubTreeFileSystem::StripBase(const std::string& s) const {
   auto len = base_path_.length();
   // Note base_path_ ends with a slash (if not empty)
   if (s.length() >= len && s.substr(0, len) == base_path_) {
-    *out = s.substr(len);
-    return Status::OK();
+    return s.substr(len);
   } else {
     return Status::UnknownError("Underlying filesystem returned path '", s,
                                 "', which is not a subpath of '", base_path_, "'");
@@ -176,10 +180,14 @@ Status SubTreeFileSystem::StripBase(const std::string& s, std::string* out) cons
 }
 
 Status SubTreeFileSystem::FixInfo(FileInfo* info) const {
-  std::string fixed_path;
-  RETURN_NOT_OK(StripBase(info->path(), &fixed_path));
-  info->set_path(fixed_path);
+  ARROW_ASSIGN_OR_RAISE(auto fixed_path, StripBase(info->path()));
+  info->set_path(std::move(fixed_path));
   return Status::OK();
+}
+
+Result<std::string> SubTreeFileSystem::NormalizePath(std::string path) {
+  ARROW_ASSIGN_OR_RAISE(auto normalized, base_fs_->NormalizePath(PrependBase(path)));
+  return StripBase(std::move(normalized));
 }
 
 Result<FileInfo> SubTreeFileSystem::GetTargetInfo(const std::string& path) {

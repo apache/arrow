@@ -240,6 +240,11 @@ LocalFileSystem::LocalFileSystem(const LocalFileSystemOptions& options)
 
 LocalFileSystem::~LocalFileSystem() {}
 
+Result<std::string> LocalFileSystem::NormalizePath(std::string path) {
+  ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
+  return fn.ToString();
+}
+
 Result<FileInfo> LocalFileSystem::GetTargetInfo(const std::string& path) {
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
   return StatFile(fn.ToNative());

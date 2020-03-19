@@ -50,6 +50,8 @@ class ARROW_EXPORT LocalFileSystem : public FileSystem {
 
   std::string type_name() const override { return "local"; }
 
+  Result<std::string> NormalizePath(std::string path) override;
+
   /// \cond FALSE
   using FileSystem::GetTargetInfo;
   using FileSystem::GetTargetInfos;
