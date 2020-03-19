@@ -17,12 +17,12 @@
 
 //! SQL Query Planner (produces logical plan from SQL AST)
 
-use std::string::String;
 use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
-use crate::logicalplan::{Expr, FunctionMeta, LogicalPlan, Operator, ScalarValue};
-use crate::optimizer::utils;
+use crate::logicalplan::{
+    Expr, FunctionMeta, LogicalPlan, LogicalPlanBuilder, Operator, ScalarValue,
+};
 
 use arrow::datatypes::*;
 
@@ -49,7 +49,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
     }
 
     /// Generate a logic plan from a SQL AST node
-    pub fn sql_to_rel(&self, sql: &ASTNode) -> Result<Arc<LogicalPlan>> {
+    pub fn sql_to_rel(&self, sql: &ASTNode) -> Result<LogicalPlan> {
         match *sql {
             ASTNode::SQLSelect {
                 ref projection,
@@ -61,195 +61,55 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 ref having,
                 ..
             } => {
-                // parse the input relation so we have access to the row type
-                let input = match *relation {
-                    Some(ref r) => self.sql_to_rel(r)?,
-                    None => Arc::new(LogicalPlan::EmptyRelation {
-                        schema: Arc::new(Schema::empty()),
-                    }),
-                };
+                if having.is_some() {
+                    return Err(ExecutionError::NotImplemented(
+                        "HAVING is not implemented yet".to_string(),
+                    ));
+                }
 
-                let input_schema = input.schema();
+                // parse the input relation so we have access to the row type
+                let plan = match *relation {
+                    Some(ref r) => self.sql_to_rel(r)?,
+                    None => LogicalPlanBuilder::empty().build()?,
+                };
 
                 // selection first
-                let selection_plan = match *selection {
-                    Some(ref filter_expr) => Some(LogicalPlan::Selection {
-                        expr: self.sql_to_rex(&filter_expr, &input_schema.clone())?,
-                        input: input.clone(),
-                    }),
-                    _ => None,
-                };
+                let plan = self.filter(&plan, selection)?;
 
-                let expr: Vec<Expr> = projection
+                let projection_expr: Vec<Expr> = projection
                     .iter()
-                    .map(|e| self.sql_to_rex(&e, &input_schema))
+                    .map(|e| self.sql_to_rex(&e, &plan.schema()))
                     .collect::<Result<Vec<Expr>>>()?;
 
-                // collect aggregate expressions
-                let aggr_expr: Vec<Expr> = expr
+                let aggr_expr: Vec<Expr> = projection_expr
                     .iter()
                     .filter(|e| is_aggregate_expr(e))
                     .map(|e| e.clone())
                     .collect();
 
-                if aggr_expr.len() > 0 {
-                    let aggregate_input: Arc<LogicalPlan> = match selection_plan {
-                        Some(s) => Arc::new(s),
-                        _ => input.clone(),
-                    };
-
-                    let group_expr: Vec<Expr> = match group_by {
-                        Some(gbe) => gbe
-                            .iter()
-                            .map(|e| self.sql_to_rex(&e, &input_schema))
-                            .collect::<Result<Vec<Expr>>>()?,
-                        None => vec![],
-                    };
-
-                    let mut all_fields: Vec<Expr> = group_expr.clone();
-                    aggr_expr.iter().for_each(|x| all_fields.push(x.clone()));
-
-                    let aggr_schema = Schema::new(utils::exprlist_to_fields(
-                        &all_fields,
-                        input_schema,
-                    )?);
-
-                    let group_by_count = group_expr.len();
-                    let aggr_count = aggr_expr.len();
-
-                    let aggregate = Arc::new(LogicalPlan::Aggregate {
-                        input: aggregate_input,
-                        group_expr,
-                        aggr_expr,
-                        schema: Arc::new(aggr_schema),
-                    });
-
-                    // wrap in projection to preserve final order of fields
-                    let mut projected_fields =
-                        Vec::with_capacity(group_by_count + aggr_count);
-                    let mut group_expr_index = 0;
-                    let mut aggr_expr_index = 0;
-                    for i in 0..expr.len() {
-                        if is_aggregate_expr(&expr[i]) {
-                            projected_fields.push(group_by_count + aggr_expr_index);
-                            aggr_expr_index += 1;
-                        } else {
-                            projected_fields.push(group_expr_index);
-                            group_expr_index += 1;
-                        }
-                    }
-
-                    // determine if projection is needed or not
-                    // NOTE this would be better done later in a query optimizer rule
-                    let mut projection_needed = false;
-                    for i in 0..projected_fields.len() {
-                        if projected_fields[i] != i {
-                            projection_needed = true;
-                            break;
-                        }
-                    }
-
-                    if projection_needed {
-                        let projection = create_projection(
-                            projected_fields.iter().map(|i| Expr::Column(*i)).collect(),
-                            aggregate,
-                        )?;
-                        Ok(Arc::new(projection))
-                    } else {
-                        Ok(aggregate)
-                    }
+                // apply projection or aggregate
+                let plan = if group_by.is_some() || aggr_expr.len() > 0 {
+                    self.aggregate(&plan, projection_expr, group_by, aggr_expr)?
                 } else {
-                    let projection_input: Arc<LogicalPlan> = match selection_plan {
-                        Some(s) => Arc::new(s),
-                        _ => input.clone(),
-                    };
+                    self.project(&plan, &projection_expr)?
+                };
 
-                    let projection = create_projection(expr, projection_input)?;
+                // apply ORDER BY
+                let plan = self.order_by(&plan, order_by)?;
 
-                    if having.is_some() {
-                        return Err(ExecutionError::General(
-                            "HAVING is not implemented yet".to_string(),
-                        ));
-                    }
-
-                    let group_by_plan = match *group_by {
-                        Some(ref group_by_expr) => {
-                            let group_by_rex: Vec<Expr> = group_by_expr
-                                .iter()
-                                .map(|e| self.sql_to_rex(&e, &input_schema))
-                                .collect::<Result<Vec<Expr>>>()?;
-                            LogicalPlan::Aggregate {
-                                input: Arc::new(projection),
-                                group_expr: group_by_rex,
-                                aggr_expr: vec![],
-                                schema: input_schema.clone(),
-                            }
-                        }
-                        _ => projection,
-                    };
-
-                    let order_by_plan = match *order_by {
-                        Some(ref order_by_expr) => {
-                            let input_schema = group_by_plan.schema();
-                            let order_by_rex: Result<Vec<Expr>> = order_by_expr
-                                .iter()
-                                .map(|e| {
-                                    Ok(Expr::Sort {
-                                        expr: Arc::new(
-                                            self.sql_to_rex(&e.expr, &input_schema)
-                                                .unwrap(),
-                                        ),
-                                        asc: e.asc,
-                                    })
-                                })
-                                .collect();
-
-                            LogicalPlan::Sort {
-                                expr: order_by_rex?,
-                                input: Arc::new(group_by_plan.clone()),
-                                schema: input_schema.clone(),
-                            }
-                        }
-                        _ => group_by_plan,
-                    };
-
-                    let limit_plan = match *limit {
-                        Some(ref limit_expr) => {
-                            let input_schema = order_by_plan.schema();
-
-                            let limit_rex = match self
-                                .sql_to_rex(&limit_expr, &input_schema.clone())?
-                            {
-                                Expr::Literal(ScalarValue::Int64(n)) => {
-                                    Ok(Expr::Literal(ScalarValue::UInt32(n as u32)))
-                                }
-                                _ => Err(ExecutionError::General(
-                                    "Unexpected expression for LIMIT clause".to_string(),
-                                )),
-                            }?;
-
-                            LogicalPlan::Limit {
-                                expr: limit_rex,
-                                input: Arc::new(order_by_plan.clone()),
-                                schema: input_schema.clone(),
-                            }
-                        }
-                        _ => order_by_plan,
-                    };
-
-                    Ok(Arc::new(limit_plan))
-                }
+                // apply LIMIT
+                self.limit(&plan, limit)
             }
 
             ASTNode::SQLIdentifier(ref id) => {
                 match self.schema_provider.get_table_meta(id.as_ref()) {
-                    Some(schema) => Ok(Arc::new(LogicalPlan::TableScan {
-                        schema_name: String::from("default"),
-                        table_name: id.clone(),
-                        table_schema: schema.clone(),
-                        projected_schema: schema.clone(),
-                        projection: None,
-                    })),
+                    Some(schema) => Ok(LogicalPlanBuilder::scan(
+                        "default",
+                        id,
+                        schema.as_ref(),
+                        None,
+                    )?
+                    .build()?),
                     None => Err(ExecutionError::General(format!(
                         "no schema found for table {}",
                         id
@@ -264,6 +124,140 @@ impl<S: SchemaProvider> SqlToRel<S> {
         }
     }
 
+    /// Apply a filter to the plan
+    fn filter(
+        &self,
+        plan: &LogicalPlan,
+        selection: &Option<Box<ASTNode>>,
+    ) -> Result<LogicalPlan> {
+        match *selection {
+            Some(ref filter_expr) => LogicalPlanBuilder::from(&plan)
+                .filter(self.sql_to_rex(filter_expr, &plan.schema())?)?
+                .build(),
+            _ => Ok(plan.clone()),
+        }
+    }
+
+    /// Wrap a plan in a projection
+    fn project(&self, input: &LogicalPlan, expr: &Vec<Expr>) -> Result<LogicalPlan> {
+        LogicalPlanBuilder::from(input).project(expr)?.build()
+    }
+
+    /// Wrap a plan in an aggregate
+    fn aggregate(
+        &self,
+        input: &LogicalPlan,
+        projection_expr: Vec<Expr>,
+        group_by: &Option<Vec<ASTNode>>,
+        aggr_expr: Vec<Expr>,
+    ) -> Result<LogicalPlan> {
+        let group_expr: Vec<Expr> = match group_by {
+            Some(gbe) => gbe
+                .iter()
+                .map(|e| self.sql_to_rex(&e, &input.schema()))
+                .collect::<Result<Vec<Expr>>>()?,
+            None => vec![],
+        };
+
+        let group_by_count = group_expr.len();
+        let aggr_count = aggr_expr.len();
+
+        if group_by_count + aggr_count != projection_expr.len() {
+            return Err(ExecutionError::General(
+                "Projection references non-aggregate values".to_owned(),
+            ));
+        }
+
+        let plan = LogicalPlanBuilder::from(&input)
+            .aggregate(group_expr, aggr_expr)?
+            .build()?;
+
+        // wrap in projection to preserve final order of fields
+        let mut projected_fields = Vec::with_capacity(group_by_count + aggr_count);
+        let mut group_expr_index = 0;
+        let mut aggr_expr_index = 0;
+        for i in 0..projection_expr.len() {
+            if is_aggregate_expr(&projection_expr[i]) {
+                projected_fields.push(group_by_count + aggr_expr_index);
+                aggr_expr_index += 1;
+            } else {
+                projected_fields.push(group_expr_index);
+                group_expr_index += 1;
+            }
+        }
+
+        // determine if projection is needed or not
+        // NOTE this would be better done later in a query optimizer rule
+        let mut projection_needed = false;
+        for i in 0..projected_fields.len() {
+            if projected_fields[i] != i {
+                projection_needed = true;
+                break;
+            }
+        }
+
+        if projection_needed {
+            self.project(
+                &plan,
+                &projected_fields.iter().map(|i| Expr::Column(*i)).collect(),
+            )
+        } else {
+            Ok(plan)
+        }
+    }
+
+    /// Wrap a plan in a limit
+    fn limit(
+        &self,
+        input: &LogicalPlan,
+        limit: &Option<Box<ASTNode>>,
+    ) -> Result<LogicalPlan> {
+        match *limit {
+            Some(ref limit_expr) => {
+                let limit_rex = match self.sql_to_rex(&limit_expr, &input.schema())? {
+                    Expr::Literal(ScalarValue::Int64(n)) => {
+                        Ok(Expr::Literal(ScalarValue::UInt32(n as u32)))
+                    }
+                    _ => Err(ExecutionError::General(
+                        "Unexpected expression for LIMIT clause".to_string(),
+                    )),
+                }?;
+
+                LogicalPlanBuilder::from(&input).limit(limit_rex)?.build()
+            }
+            _ => Ok(input.clone()),
+        }
+    }
+
+    /// Wrap the logical in a sort
+    fn order_by(
+        &self,
+        group_by_plan: &LogicalPlan,
+        order_by: &Option<Vec<SQLOrderByExpr>>,
+    ) -> Result<LogicalPlan> {
+        match *order_by {
+            Some(ref order_by_expr) => {
+                let input_schema = group_by_plan.schema();
+                let order_by_rex: Result<Vec<Expr>> = order_by_expr
+                    .iter()
+                    .map(|e| {
+                        Ok(Expr::Sort {
+                            expr: Arc::new(
+                                self.sql_to_rex(&e.expr, &input_schema).unwrap(),
+                            ),
+                            asc: e.asc,
+                        })
+                    })
+                    .collect();
+
+                LogicalPlanBuilder::from(&group_by_plan)
+                    .sort(order_by_rex?)?
+                    .build()
+            }
+            _ => Ok(group_by_plan.clone()),
+        }
+    }
+
     /// Generate a relational expression from a SQL expression
     pub fn sql_to_rex(&self, sql: &ASTNode, schema: &Schema) -> Result<Expr> {
         match *sql {
@@ -274,7 +268,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 Ok(Expr::Literal(ScalarValue::Float64(n)))
             }
             ASTNode::SQLValue(sqlparser::sqlast::Value::SingleQuotedString(ref s)) => {
-                Ok(Expr::Literal(ScalarValue::Utf8(Arc::new(s.clone()))))
+                Ok(Expr::Literal(ScalarValue::Utf8(s.clone())))
             }
 
             ASTNode::SQLIdentifier(ref id) => {
@@ -434,22 +428,6 @@ impl<S: SchemaProvider> SqlToRel<S> {
             ))),
         }
     }
-}
-
-/// Create a projection
-fn create_projection(expr: Vec<Expr>, input: Arc<LogicalPlan>) -> Result<LogicalPlan> {
-    let input_schema = input.schema();
-
-    let schema = Arc::new(Schema::new(utils::exprlist_to_fields(
-        &expr,
-        input_schema.as_ref(),
-    )?));
-
-    Ok(LogicalPlan::Projection {
-        expr,
-        input,
-        schema,
-    })
 }
 
 /// Determine if an expression is an aggregate expression or not
@@ -638,23 +616,42 @@ mod tests {
     fn select_group_by() {
         let sql = "SELECT state FROM person GROUP BY state";
         let expected = "Aggregate: groupBy=[[#4]], aggr=[[]]\
-                        \n  Projection: #4\
-                        \n    TableScan: person projection=None";
+                        \n  TableScan: person projection=None";
 
         quick_test(sql, expected);
     }
 
-    fn logical_plan(sql: &str) -> Arc<LogicalPlan> {
+    #[test]
+    fn select_7480_1() {
+        let sql = "SELECT c1, MIN(c12) FROM aggregate_test_100 GROUP BY c1, c13";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "General(\"Projection references non-aggregate values\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_7480_2() {
+        let sql = "SELECT c1, c13, MIN(c12) FROM aggregate_test_100 GROUP BY c1";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "General(\"Projection references non-aggregate values\")",
+            format!("{:?}", err)
+        );
+    }
+
+    fn logical_plan(sql: &str) -> Result<LogicalPlan> {
         use sqlparser::dialect::*;
         let dialect = GenericSqlDialect {};
         let planner = SqlToRel::new(MockSchemaProvider {});
         let ast = Parser::parse_sql(&dialect, sql.to_string()).unwrap();
-        planner.sql_to_rel(&ast).unwrap()
+        planner.sql_to_rel(&ast)
     }
 
     /// Create logical plan, write with formatter, compare to expected output
     fn quick_test(sql: &str, expected: &str) {
-        let plan = logical_plan(sql);
+        let plan = logical_plan(sql).unwrap();
         assert_eq!(expected, format!("{:?}", plan));
     }
 
@@ -675,6 +672,21 @@ mod tests {
                         DataType::Timestamp(TimeUnit::Nanosecond, None),
                         false,
                     ),
+                ]))),
+                "aggregate_test_100" => Some(Arc::new(Schema::new(vec![
+                    Field::new("c1", DataType::Utf8, false),
+                    Field::new("c2", DataType::UInt32, false),
+                    Field::new("c3", DataType::Int8, false),
+                    Field::new("c4", DataType::Int16, false),
+                    Field::new("c5", DataType::Int32, false),
+                    Field::new("c6", DataType::Int64, false),
+                    Field::new("c7", DataType::UInt8, false),
+                    Field::new("c8", DataType::UInt16, false),
+                    Field::new("c9", DataType::UInt32, false),
+                    Field::new("c10", DataType::UInt64, false),
+                    Field::new("c11", DataType::Float32, false),
+                    Field::new("c12", DataType::Float64, false),
+                    Field::new("c13", DataType::Utf8, false),
                 ]))),
                 _ => None,
             }

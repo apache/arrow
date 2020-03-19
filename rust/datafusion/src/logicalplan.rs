@@ -150,7 +150,7 @@ pub enum ScalarValue {
     /// unsigned 64bit int
     UInt64(u64),
     /// utf-8 encoded string
-    Utf8(Arc<String>),
+    Utf8(String),
     /// List of scalars packed as a struct
     Struct(Vec<ScalarValue>),
 }
@@ -340,6 +340,25 @@ impl Expr {
     /// Not
     pub fn not(&self) -> Expr {
         Expr::Not(Arc::new(self.clone()))
+    }
+}
+
+/// Create a column expression
+pub fn col(index: usize) -> Expr {
+    Expr::Column(index)
+}
+
+/// Create a literal string expression
+pub fn lit_str(str: &str) -> Expr {
+    Expr::Literal(ScalarValue::Utf8(str.to_owned()))
+}
+
+/// Create an aggregate expression
+pub fn aggregate_expr(name: &str, expr: Expr, return_type: DataType) -> Expr {
+    Expr::AggregateFunction {
+        name: name.to_owned(),
+        args: vec![expr],
+        return_type,
     }
 }
 
@@ -628,26 +647,183 @@ pub fn can_coerce_from(type_into: &DataType, type_from: &DataType) -> bool {
     }
 }
 
+/// Builder for logical plans
+pub struct LogicalPlanBuilder {
+    plan: LogicalPlan,
+}
+
+impl LogicalPlanBuilder {
+    /// Create a builder from an existing plan
+    pub fn from(plan: &LogicalPlan) -> Self {
+        Self { plan: plan.clone() }
+    }
+
+    /// Create an empty relation
+    pub fn empty() -> Self {
+        Self::from(&LogicalPlan::EmptyRelation {
+            schema: Arc::new(Schema::empty()),
+        })
+    }
+
+    /// Scan a data source
+    pub fn scan(
+        schema_name: &str,
+        table_name: &str,
+        table_schema: &Schema,
+        projection: Option<Vec<usize>>,
+    ) -> Result<Self> {
+        let projected_schema = projection.clone().map(|p| {
+            Schema::new(p.iter().map(|i| table_schema.field(*i).clone()).collect())
+        });
+        Ok(Self::from(&LogicalPlan::TableScan {
+            schema_name: schema_name.to_owned(),
+            table_name: table_name.to_owned(),
+            table_schema: Arc::new(table_schema.clone()),
+            projected_schema: Arc::new(
+                projected_schema.or(Some(table_schema.clone())).unwrap(),
+            ),
+            projection,
+        }))
+    }
+
+    /// Apply a projection
+    pub fn project(&self, expr: &Vec<Expr>) -> Result<Self> {
+        let input_schema = self.plan.schema();
+
+        let schema =
+            Schema::new(utils::exprlist_to_fields(&expr, input_schema.as_ref())?);
+
+        Ok(Self::from(&LogicalPlan::Projection {
+            expr: expr.clone(),
+            input: Arc::new(self.plan.clone()),
+            schema: Arc::new(schema),
+        }))
+    }
+
+    /// Apply a filter
+    pub fn filter(&self, expr: Expr) -> Result<Self> {
+        Ok(Self::from(&LogicalPlan::Selection {
+            expr,
+            input: Arc::new(self.plan.clone()),
+        }))
+    }
+
+    /// Apply a limit
+    pub fn limit(&self, expr: Expr) -> Result<Self> {
+        Ok(Self::from(&LogicalPlan::Limit {
+            expr,
+            input: Arc::new(self.plan.clone()),
+            schema: self.plan.schema().clone(),
+        }))
+    }
+
+    /// Apply a sort
+    pub fn sort(&self, expr: Vec<Expr>) -> Result<Self> {
+        Ok(Self::from(&LogicalPlan::Sort {
+            expr,
+            input: Arc::new(self.plan.clone()),
+            schema: self.plan.schema().clone(),
+        }))
+    }
+
+    /// Apply an aggregate
+    pub fn aggregate(&self, group_expr: Vec<Expr>, aggr_expr: Vec<Expr>) -> Result<Self> {
+        let mut all_fields: Vec<Expr> = group_expr.clone();
+        aggr_expr.iter().for_each(|x| all_fields.push(x.clone()));
+
+        let aggr_schema =
+            Schema::new(utils::exprlist_to_fields(&all_fields, self.plan.schema())?);
+
+        Ok(Self::from(&LogicalPlan::Aggregate {
+            input: Arc::new(self.plan.clone()),
+            group_expr,
+            aggr_expr,
+            schema: Arc::new(aggr_schema),
+        }))
+    }
+
+    /// Build the plan
+    pub fn build(&self) -> Result<LogicalPlan> {
+        Ok(self.plan.clone())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::thread;
 
     #[test]
-    fn logical_plan_can_be_shared_between_threads() {
-        let schema = Schema::new(vec![]);
-        let plan = Arc::new(LogicalPlan::TableScan {
-            schema_name: "".to_string(),
-            table_name: "people".to_string(),
-            table_schema: Arc::new(schema.clone()),
-            projected_schema: Arc::new(schema),
-            projection: Some(vec![0, 1, 4]),
-        });
+    fn logical_plan_can_be_shared_between_threads() -> Result<()> {
+        let plan = LogicalPlanBuilder::scan(
+            "default",
+            "employee.csv",
+            &employee_schema(),
+            Some(vec![0, 3]),
+        )?
+        .filter(col(1).eq(&lit_str("CO")))?
+        .project(&vec![col(0)])?
+        .build()?;
 
         // prove that a plan can be passed to a thread
         let plan1 = plan.clone();
         thread::spawn(move || {
             println!("plan: {:?}", plan1);
         });
+
+        Ok(())
+    }
+
+    #[test]
+    fn plan_builder_simple() -> Result<()> {
+        let plan = LogicalPlanBuilder::scan(
+            "default",
+            "employee.csv",
+            &employee_schema(),
+            Some(vec![0, 3]),
+        )?
+        .filter(col(1).eq(&lit_str("CO")))?
+        .project(&vec![col(0)])?
+        .build()?;
+
+        let expected = "Projection: #0\n  \
+                        Selection: #1 Eq Utf8(\"CO\")\n    \
+                        TableScan: employee.csv projection=Some([0, 3])";
+
+        assert_eq!(expected, format!("{:?}", plan));
+
+        Ok(())
+    }
+
+    #[test]
+    fn plan_builder_aggregate() -> Result<()> {
+        let plan = LogicalPlanBuilder::scan(
+            "default",
+            "employee.csv",
+            &employee_schema(),
+            Some(vec![3, 4]),
+        )?
+        .aggregate(
+            vec![col(0)],
+            vec![aggregate_expr("SUM", col(1), DataType::Int32)],
+        )?
+        .build()?;
+
+        let expected = "Aggregate: groupBy=[[#0]], aggr=[[SUM(#1)]]\n  \
+                        TableScan: employee.csv projection=Some([3, 4])";
+
+        assert_eq!(expected, format!("{:?}", plan));
+
+        Ok(())
+    }
+
+    fn employee_schema() -> Schema {
+        Schema::new(vec![
+            Field::new("id", DataType::Int32, false),
+            Field::new("first_name", DataType::Utf8, false),
+            Field::new("last_name", DataType::Utf8, false),
+            Field::new("state", DataType::Utf8, false),
+            Field::new("salary", DataType::Int32, false),
+        ])
     }
 }
