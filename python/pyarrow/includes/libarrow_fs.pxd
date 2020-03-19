@@ -60,6 +60,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     cdef cppclass CFileSystem "arrow::fs::FileSystem":
         c_string type_name() const
+        CResult[c_string] NormalizePath(c_string path)
         CResult[CFileInfo] GetTargetInfo(const c_string& path)
         CResult[vector[CFileInfo]] GetTargetInfos(
             const vector[c_string]& paths)

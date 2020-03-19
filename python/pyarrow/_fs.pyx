@@ -42,6 +42,20 @@ cdef inline c_string _path_as_bytes(path) except *:
     return tobytes(path)
 
 
+def _normalize_path(FileSystem filesystem, path):
+    """
+    Normalize path for the given filesystem.
+
+    The default implementation of this method is a no-op, but subclasses
+    may allow normalizing irregular path forms (such as Windows local paths).
+    """
+    cdef c_string c_path = _path_as_bytes(path)
+    cdef c_string c_path_normalized
+
+    c_path_normalized = GetResultValue(filesystem.fs.NormalizePath(c_path))
+    return frombytes(c_path_normalized)
+
+
 cdef class FileInfo:
     """FileSystem entry info"""
 
