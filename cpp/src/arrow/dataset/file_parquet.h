@@ -21,6 +21,7 @@
 #include <string>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
@@ -99,7 +100,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
       FileSource source, std::shared_ptr<ScanOptions> options,
       std::shared_ptr<Expression> partition_expression) override;
 
-  /// \brief Create a Fragment wrapping only the given row groups
+  /// \brief Create a Fragment, restricted to the specified row groups.
   Result<std::shared_ptr<FileFragment>> MakeFragment(
       FileSource source, std::shared_ptr<ScanOptions> options,
       std::shared_ptr<Expression> partition_expression, std::vector<int> row_groups);
@@ -109,7 +110,8 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
  public:
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) override;
 
-  /// \brief The row groups viewed by this Fragment.
+  /// \brief The row groups viewed by this Fragment. This may be empty which signifies all
+  /// row groups are selected.
   const std::vector<int>& row_groups() const { return row_groups_; }
 
  private:

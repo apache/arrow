@@ -27,8 +27,6 @@ from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.compat import frombytes, tobytes
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
-from pyarrow.types import (is_null, is_boolean, is_integer, is_floating,
-                           is_string)
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
@@ -443,7 +441,11 @@ cdef class ParquetFileFragment(FileFragment):
 
     @property
     def row_groups(self):
-        return set(self.parquet_file_fragment.row_groups())
+        row_groups = set(self.parquet_file_fragment.row_groups())
+        if len(row_groups) != 0:
+            return row_groups
+        # FIXME(bkietz) FileFragment may be backed by a buffer
+        return set(range(ParquetFile(self.path).num_row_groups))
 
 
 cdef class ParquetFileFormatReaderOptions:

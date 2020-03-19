@@ -224,6 +224,7 @@ class RowGroupSkipper {
   }
 
   bool IsExplicitlySkipped(int row_group_idx) const {
+    if (row_group_set_.empty()) return false;
     return row_group_set_.find(row_group_idx) == row_group_set_.end();
   }
 
@@ -417,13 +418,9 @@ Result<std::shared_ptr<FileFragment>> ParquetFileFormat::MakeFragment(
 Result<std::shared_ptr<FileFragment>> ParquetFileFormat::MakeFragment(
     FileSource source, std::shared_ptr<ScanOptions> options,
     std::shared_ptr<Expression> partition_expression) {
-  auto properties = MakeReaderProperties(*this);
-  ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source, std::move(properties)));
-  auto row_groups = internal::Iota(reader->metadata()->num_row_groups());
-
   return std::shared_ptr<FileFragment>(
       new ParquetFileFragment(std::move(source), shared_from_this(), std::move(options),
-                              std::move(partition_expression), std::move(row_groups)));
+                              std::move(partition_expression), {}));
 }
 
 Result<ScanTaskIterator> ParquetFileFragment::Scan(std::shared_ptr<ScanContext> context) {

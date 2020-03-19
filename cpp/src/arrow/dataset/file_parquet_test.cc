@@ -29,8 +29,8 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/range.h"
 #include "parquet/arrow/writer.h"
+#include "parquet/metadata.h"
 
 namespace arrow {
 namespace dataset {
@@ -424,7 +424,7 @@ TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
     return internal::checked_pointer_cast<ParquetFileFragment>(fragment);
   };
 
-  EXPECT_EQ(all_row_groups_fragment()->row_groups(), internal::Iota<int>(kNumRowGroups));
+  EXPECT_TRUE(all_row_groups_fragment()->row_groups().empty());
   CountRowsAndBatchesInScan(all_row_groups_fragment(), kTotalNumRows, kNumRowGroups);
 
   CountRowsAndBatchesInScan(row_groups_fragment({}), 0, 0);
