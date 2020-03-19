@@ -20,6 +20,8 @@
 set -x
 
 : ${ARROW_HOME:=$(pwd)}
+# Make sure it is absolute and exists
+ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 
 pacman --sync --noconfirm ccache
 
