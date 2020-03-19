@@ -159,7 +159,11 @@ def _ensure_fs(filesystem, path):
     if filesystem is None:
         # first check if the file exists as a local (relative) file path
         filesystem = LocalFileSystem()
-        infos = filesystem.get_target_infos([path])[0]
+        try:
+            infos = filesystem.get_target_infos([path])[0]
+        except OSError:
+            return FileSystem.from_uri(path)
+
         if infos.type == FileType.NonExistent:
             return FileSystem.from_uri(path)
 
