@@ -51,7 +51,7 @@ using TimePoint =
 
 /// \brief FileSystem entry type
 enum class FileType : int8_t {
-  /// Entry does not exist
+  /// Entry is not found
   NotFound,
   /// Entry exists but its type is unknown
   ///
@@ -144,7 +144,7 @@ struct ARROW_EXPORT FileSelector {
   /// The directory in which to select files.
   /// If the path exists but doesn't point to a directory, this should be an error.
   std::string base_dir;
-  /// The behavior if `base_dir` doesn't exist in the filesystem.  If false,
+  /// The behavior if `base_dir` isn't found in the filesystem.  If false,
   /// an error is returned.  If true, an empty selection is returned.
   bool allow_not_found = false;
   /// Whether to recurse into subdirectories.

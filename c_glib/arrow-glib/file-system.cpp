@@ -493,16 +493,16 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
                                   spec);
 
   /**
-   * GArrowFileSelector:allow-nonexistent:
+   * GArrowFileSelector:allow-not-found:
    *
-   * The behavior if `base_dir` doesn't exist in the file system.
+   * The behavior if `base_dir` isn't found in the file system.
    * If false, an error is returned.  If true, an empty selection is returned.
    *
    * Since: 1.0.0
    */
   spec = g_param_spec_boolean("allow-not-found",
                               "Allow not found",
-                              "The behavior if `base_dir` doesn't exist in the file system",
+                              "The behavior if `base_dir` isn't found in the file system",
                               file_selector.allow_not_found,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
