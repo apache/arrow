@@ -1855,7 +1855,7 @@ tasks:
     platform: linux
     template: r/github.linux.cran.yml
     params:
-      MATRIX: "{{ matrix.r_image }}"
+      MATRIX: "${{ matrix.r_image }}"
 
   test-r-rhub-ubuntu-gcc-release:
     ci: azure
