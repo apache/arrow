@@ -159,12 +159,12 @@ def _ensure_fs(filesystem, path):
     if filesystem is None:
         # first check if the file exists as a local (relative) file path
         filesystem = LocalFileSystem()
-        path = _normalize_path(filesystem, path)
         infos = filesystem.get_target_infos([path])[0]
         if infos.type == FileType.NonExistent:
             return FileSystem.from_uri(path)
-    else:
-        path = _normalize_path(filesystem, path)
+
+    # ensure we have a proper path (eg no backslashes on Windows)
+    path = _normalize_path(filesystem, path)
 
     return filesystem, path
 
