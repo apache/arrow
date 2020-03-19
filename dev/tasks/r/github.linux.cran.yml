@@ -28,7 +28,7 @@ jobs:
   as-cran:
     runs-on: ubuntu-latest
     steps:
-    name: "rhub/${{ matrix.r_image }}"
+    name: "rhub/{{ MATRIX }}"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -42,7 +42,7 @@ jobs:
           - fedora-clang-devel
     env:
       R_ORG: "rhub"
-      R_IMAGE: ${{ matrix.r_image }}
+      R_IMAGE: {{ MATRIX }}
       R_TAG: "latest"
       ARROW_R_DEV: "FALSE"
     steps:
