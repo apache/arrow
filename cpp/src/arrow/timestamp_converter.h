@@ -14,9 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
-#ifndef ARROW_TIMESTAMP_CONVERTER_H
-#define ARROW_TIMESTAMP_CONVERTER_H
+#pragma once
 
 #include <memory>
 
@@ -27,15 +25,17 @@ class TimestampConverter {
  public:
   using value_type = TimestampType::c_type;
   virtual bool operator()(const std::shared_ptr<DataType>& type, const char* s,
-                          size_t length, value_type* out) = 0;
+                          size_t length, value_type* out) const = 0;
 };
 
-class Iso8601Converter : public TimestampConverter {
+class StrptimeConverter : public TimestampConverter {
+ private:
+  std::string format_;
+
  public:
+  explicit StrptimeConverter(const std::string& format);
   bool operator()(const std::shared_ptr<DataType>& type, const char* s, size_t length,
-                  value_type* out) override;
-  static std::unique_ptr<TimestampConverter> Make();
+                  value_type* out) const override;
+  static std::unique_ptr<TimestampConverter> Make(const std::string& format);
 };
 }  // namespace arrow
-
-#endif  // ARROW_TIMESTAMP_CONVERTER_H
