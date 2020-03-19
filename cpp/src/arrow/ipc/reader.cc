@@ -110,16 +110,12 @@ class ArrayLoader {
         dictionary_memo_(dictionary_memo),
         options_(options),
         compression_(compression),
-        max_recursion_depth_(options.max_recursion_depth),
-        buffer_index_(0),
-        field_index_(0),
-        skip_io_(false) {}
+        max_recursion_depth_(options.max_recursion_depth) {}
 
   Status ReadBuffer(int64_t offset, int64_t length, std::shared_ptr<Buffer>* out) {
     if (skip_io_) {
       return Status::OK();
     }
-
     // This construct permits overriding GetBuffer at compile time
     if (!BitUtil::IsMultipleOf8(offset)) {
       return Status::Invalid("Buffer ", buffer_index_,
@@ -128,14 +124,12 @@ class ArrayLoader {
     return file_->ReadAt(offset, length).Value(out);
   }
 
-  // Use this to disable calls to RandomAccessFile::ReadAt, for field skipping
-  void SkipIO(bool skip_io = true) { skip_io_ = skip_io; }
-
   Status LoadType(const DataType& type) { return VisitTypeInline(type, this); }
 
   Status DecompressBuffers() {
-    // If the buffers are indicated to be compressed, instantiate the codec and
-    // decompress them
+    if (skip_io_) {
+      return Status::OK();
+    }
     std::unique_ptr<util::Codec> codec;
     ARROW_ASSIGN_OR_RAISE(codec, util::Codec::Create(compression_));
 
@@ -144,27 +138,28 @@ class ArrayLoader {
       if (out_->buffers[i] == nullptr) {
         continue;
       }
-      if (out_->buffers[i]->size() > 0) {
-        const uint8_t* data = out_->buffers[i]->data();
-        int64_t compressed_size = out_->buffers[i]->size() - sizeof(int64_t);
-        int64_t uncompressed_size = util::SafeLoadAs<int64_t>(data);
-
-        std::shared_ptr<Buffer> uncompressed;
-        RETURN_NOT_OK(
-            AllocateBuffer(options_.memory_pool, uncompressed_size, &uncompressed));
-
-        int64_t actual_decompressed;
-        ARROW_ASSIGN_OR_RAISE(
-            actual_decompressed,
-            codec->Decompress(compressed_size, data + sizeof(int64_t), uncompressed_size,
-                              uncompressed->mutable_data()));
-        if (actual_decompressed != uncompressed_size) {
-          return Status::Invalid("Failed to fully decompress buffer, expected ",
-                                 uncompressed_size, " bytes but decompressed ",
-                                 actual_decompressed);
-        }
-        out_->buffers[i] = uncompressed;
+      if (out_->buffers[i]->size() == 0) {
+        continue;
       }
+      const uint8_t* data = out_->buffers[i]->data();
+      int64_t compressed_size = out_->buffers[i]->size() - sizeof(int64_t);
+      int64_t uncompressed_size = util::SafeLoadAs<int64_t>(data);
+
+      std::shared_ptr<Buffer> uncompressed;
+      RETURN_NOT_OK(
+          AllocateBuffer(options_.memory_pool, uncompressed_size, &uncompressed));
+
+      int64_t actual_decompressed;
+      ARROW_ASSIGN_OR_RAISE(
+          actual_decompressed,
+          codec->Decompress(compressed_size, data + sizeof(int64_t), uncompressed_size,
+                            uncompressed->mutable_data()));
+      if (actual_decompressed != uncompressed_size) {
+        return Status::Invalid("Failed to fully decompress buffer, expected ",
+                               uncompressed_size, " bytes but decompressed ",
+                               actual_decompressed);
+      }
+      out_->buffers[i] = uncompressed;
     }
     return Status::OK();
   }
@@ -179,10 +174,20 @@ class ArrayLoader {
     out_->type = field_->type();
     RETURN_NOT_OK(LoadType(*field_->type()));
 
+    // If the buffers are indicated to be compressed, instantiate the codec and
+    // decompress them
     if (compression_ != Compression::UNCOMPRESSED) {
       RETURN_NOT_OK(DecompressBuffers());
     }
     return Status::OK();
+  }
+
+  Status SkipField(const Field* field) {
+    ArrayData dummy;
+    skip_io_ = true;
+    Status status = Load(field, &dummy);
+    skip_io_ = false;
+    return status;
   }
 
   Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) {
@@ -373,9 +378,9 @@ class ArrayLoader {
   const IpcReadOptions& options_;
   Compression::type compression_;
   int max_recursion_depth_;
-  int buffer_index_;
-  int field_index_;
-  bool skip_io_;
+  int buffer_index_ = 0;
+  int field_index_ = 0;
+  bool skip_io_ = false;
 
   const Field* field_;
   ArrayData* out_;
@@ -391,12 +396,10 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
   std::vector<std::shared_ptr<ArrayData>> field_data;
   std::vector<std::shared_ptr<Field>> schema_fields;
 
-  ArrayData dummy_for_skipped_fields;
   for (int i = 0; i < schema->num_fields(); ++i) {
     if (inclusion_mask[i]) {
       // Read field
       auto arr = std::make_shared<ArrayData>();
-      loader.SkipIO(false);
       RETURN_NOT_OK(loader.Load(schema->field(i).get(), arr.get()));
       if (metadata->length() != arr->length) {
         return Status::IOError("Array length did not match record batch length");
@@ -404,10 +407,9 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
       field_data.emplace_back(std::move(arr));
       schema_fields.emplace_back(schema->field(i));
     } else {
-      // Skip field. We run the loading logic so the proper number of fields
-      // and buffers are skipped before moving onto the next field
-      loader.SkipIO();
-      RETURN_NOT_OK(loader.Load(schema->field(i).get(), &dummy_for_skipped_fields));
+      // Skip field. This logic must be executed to advance the state of the
+      // loader to the next field
+      RETURN_NOT_OK(loader.SkipField(schema->field(i).get()));
     }
   }
 
@@ -504,16 +506,17 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatchInternal(
                          compression, file);
 }
 
-void PopulateInclusionMask(const std::vector<int>& included_indices,
-                           int schema_num_fields, std::vector<bool>* mask) {
+Status PopulateInclusionMask(const std::vector<int>& included_indices,
+                             int schema_num_fields, std::vector<bool>* mask) {
   mask->resize(included_indices.size());
   for (int i : included_indices) {
     // Ignore out of bounds indices
     if (i < 0 || i >= schema_num_fields) {
-      continue;
+      return Status::Invalid("Out of bounds field index: ", i);
     }
     (*mask)[i] = true;
   }
+  return Status::OK();
 }
 
 Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
@@ -523,8 +526,8 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
   // Empty means do not use
   std::vector<bool> inclusion_mask;
   if (options.included_fields) {
-    PopulateInclusionMask(*options.included_fields, schema->num_fields(),
-                          &inclusion_mask);
+    RETURN_NOT_OK(PopulateInclusionMask(*options.included_fields, schema->num_fields(),
+                                        &inclusion_mask));
   }
   return ReadRecordBatchInternal(metadata, schema, inclusion_mask, dictionary_memo,
                                  options, file);
@@ -592,14 +595,14 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
     // If we are selecting only certain fields, populate the inclusion mask now
     // for fast lookups
     if (options.included_fields) {
-      PopulateInclusionMask(*options.included_fields, schema_->num_fields(),
-                            &field_inclusion_mask_);
+      RETURN_NOT_OK(PopulateInclusionMask(*options.included_fields, schema_->num_fields(),
+                                          &field_inclusion_mask_));
     }
     return Status::OK();
   }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
-    if (!read_initial_dictionaries_) {
+    if (!have_read_initial_dictionaries_) {
       RETURN_NOT_OK(ReadInitialDictionaries());
     }
 
@@ -675,7 +678,7 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
       RETURN_NOT_OK(ParseDictionary(*message));
     }
 
-    read_initial_dictionaries_ = true;
+    have_read_initial_dictionaries_ = true;
     return Status::OK();
   }
 
@@ -683,7 +686,7 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
   IpcReadOptions options_;
   std::vector<bool> field_inclusion_mask_;
 
-  bool read_initial_dictionaries_ = false;
+  bool have_read_initial_dictionaries_ = false;
 
   // Flag to set in case where we fail to observe all dictionaries in a stream,
   // and so the reader should not attempt to parse any messages
@@ -771,8 +774,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     // If we are selecting only certain fields, populate the inclusion mask now
     // for fast lookups
     if (options.included_fields) {
-      PopulateInclusionMask(*options.included_fields, schema_->num_fields(),
-                            &field_inclusion_mask_);
+      RETURN_NOT_OK(PopulateInclusionMask(*options.included_fields, schema_->num_fields(),
+                                          &field_inclusion_mask_));
     }
     return Status::OK();
   }

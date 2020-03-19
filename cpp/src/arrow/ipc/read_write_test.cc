@@ -120,7 +120,10 @@ TEST(TestMessage, SerializeTo) {
 }
 
 TEST(TestMessage, SerializeCustomMetadata) {
-  auto CheckMetadata = [&](const std::shared_ptr<KeyValueMetadata>& metadata) {
+  std::vector<std::shared_ptr<KeyValueMetadata>> cases = {
+      nullptr, key_value_metadata({}, {}),
+      key_value_metadata({"foo", "bar"}, {"fizz", "buzz"})};
+  for (auto metadata : cases) {
     std::shared_ptr<Buffer> serialized;
     std::unique_ptr<Message> message;
     ASSERT_OK(internal::WriteRecordBatchMessage(/*length=*/0, /*body_length=*/0, metadata,
@@ -133,10 +136,7 @@ TEST(TestMessage, SerializeCustomMetadata) {
     } else {
       ASSERT_EQ(nullptr, message->custom_metadata());
     }
-  };
-  CheckMetadata(nullptr);
-  CheckMetadata(key_value_metadata({}, {}));
-  CheckMetadata(key_value_metadata({"foo", "bar"}, {"fizz", "buzz"}));
+  }
 }
 
 void BuffersOverlapEquals(const Buffer& left, const Buffer& right) {
@@ -203,10 +203,9 @@ class TestSchemaMetadata : public ::testing::Test {
     DictionaryMemo in_memo, out_memo;
     ASSERT_OK(SerializeSchema(schema, &out_memo, default_memory_pool(), &buffer));
 
-    std::shared_ptr<Schema> result;
     io::BufferReader reader(buffer);
-    ASSERT_OK_AND_ASSIGN(result, ReadSchema(&reader, &in_memo));
-    AssertSchemaEqual(schema, *result);
+    ASSERT_OK_AND_ASSIGN(auto actual_schema, ReadSchema(&reader, &in_memo));
+    AssertSchemaEqual(schema, *actual_schema);
   }
 };
 
@@ -484,8 +483,11 @@ TEST_F(TestWriteRecordBatch, WriteWithCompression) {
 
   int64_t length = 500;
 
-  std::shared_ptr<Array> dict = rg.String(50, 5, 5, 0);
-  std::shared_ptr<Array> indices = rg.Int32(length, 5, 5, 0);
+  int dict_size = 50;
+  std::shared_ptr<Array> dict = rg.String(dict_size, /*min_length=*/5, /*max_length=*/5,
+                                          /*null_probability=*/0);
+  std::shared_ptr<Array> indices = rg.Int32(length, /*min=*/0, /*max=*/dict_size - 1,
+                                            /*null_probability=*/0.1);
 
   auto dict_type = dictionary(int32(), utf8());
   auto dict_field = field("f1", dict_type);
@@ -941,8 +943,7 @@ class ReaderWriterMixin {
 
     IpcReadOptions options = IpcReadOptions::Defaults();
 
-    // Include an index that is too large
-    options.included_fields.reset(new std::vector<int>({1, 3, 5}));
+    options.included_fields = {1, 3};
 
     BatchVector out_batches;
     ASSERT_OK(
@@ -952,6 +953,14 @@ class ReaderWriterMixin {
                             key_value_metadata({"key1"}, {"value1"}));
     auto ex_batch = RecordBatch::Make(ex_schema, a0->length(), {a1, a3});
     AssertBatchesEqual(*ex_batch, *out_batches[0], /*check_metadata=*/true);
+
+    // Out of bounds cases
+    options.included_fields = {1, 3, 5};
+    ASSERT_RAISES(Invalid, RoundTripHelper({batch}, IpcWriteOptions::Defaults(), options,
+                                           &out_batches));
+    options.included_fields = {1, 3, -1};
+    ASSERT_RAISES(Invalid, RoundTripHelper({batch}, IpcWriteOptions::Defaults(), options,
+                                           &out_batches));
   }
 
   void TestWriteDifferentSchema() {

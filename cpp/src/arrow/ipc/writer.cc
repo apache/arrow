@@ -55,7 +55,6 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::CopyBitmap;
-using internal::make_unique;
 
 namespace ipc {
 
@@ -909,8 +908,6 @@ Status RecordBatchWriter::WriteTable(const Table& table, int64_t max_chunksize) 
 
 Status RecordBatchWriter::WriteTable(const Table& table) { return WriteTable(table, -1); }
 
-void RecordBatchWriter::set_memory_pool(MemoryPool* pool) {}
-
 // ----------------------------------------------------------------------
 // Payload writer implementation
 
@@ -1162,14 +1159,16 @@ Result<std::shared_ptr<RecordBatchWriter>> NewStreamWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options) {
   return std::make_shared<internal::IpcFormatWriter>(
-      make_unique<internal::PayloadStreamWriter>(sink, options), schema, options);
+      ::arrow::internal::make_unique<internal::PayloadStreamWriter>(sink, options),
+      schema, options);
 }
 
 Result<std::shared_ptr<RecordBatchWriter>> NewFileWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options) {
   return std::make_shared<internal::IpcFormatWriter>(
-      make_unique<internal::PayloadFileWriter>(options, schema, sink), schema, options);
+      ::arrow::internal::make_unique<internal::PayloadFileWriter>(options, schema, sink),
+      schema, options);
 }
 
 namespace internal {
@@ -1186,7 +1185,8 @@ Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
     std::unique_ptr<IpcPayloadWriter> sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options) {
   // XXX should we call Start()?
-  return make_unique<internal::IpcFormatWriter>(std::move(sink), schema, options);
+  return ::arrow::internal::make_unique<internal::IpcFormatWriter>(std::move(sink),
+                                                                   schema, options);
 }
 
 }  // namespace internal
@@ -1238,8 +1238,8 @@ Status SerializeSchema(const Schema& schema, DictionaryMemo* dictionary_memo,
 
   auto options = IpcWriteOptions::Defaults();
   internal::IpcFormatWriter writer(
-      make_unique<internal::PayloadStreamWriter>(stream.get()), schema, options,
-      dictionary_memo);
+      ::arrow::internal::make_unique<internal::PayloadStreamWriter>(stream.get()), schema,
+      options, dictionary_memo);
   // Write schema and populate fields (but not dictionaries) in dictionary_memo
   RETURN_NOT_OK(writer.Start());
   return stream->Finish().Value(out);

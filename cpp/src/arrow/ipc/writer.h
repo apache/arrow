@@ -78,7 +78,7 @@ class ARROW_EXPORT RecordBatchWriter {
   virtual Status Close() = 0;
 
   ARROW_DEPRECATED("No-op. Pass MemoryPool using IpcWriteOptions")
-  void set_memory_pool(MemoryPool* pool);
+  void set_memory_pool(MemoryPool* pool) {}
 };
 
 /// Create a new IPC stream writer from stream sink and schema. User is
