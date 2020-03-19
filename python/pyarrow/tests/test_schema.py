@@ -19,6 +19,8 @@ from collections import OrderedDict
 import pickle
 import sys
 
+from distutils.version import LooseVersion
+
 import pytest
 import numpy as np
 import pyarrow as pa
@@ -565,8 +567,9 @@ def test_schema_from_pandas():
             '2006-01-13T12:34:56.432539784',
             '2010-08-13T05:46:57.437699912'
         ], dtype='datetime64[ns]'),
-        pd.array([1, 2, None], dtype=pd.Int32Dtype()),
     ]
+    if LooseVersion(pd.__version__) >= '0.24.0':
+        inputs.append(pd.array([1, 2, None], dtype=pd.Int32Dtype()))
     for data in inputs:
         df = pd.DataFrame({'a': data})
         schema = pa.Schema.from_pandas(df)

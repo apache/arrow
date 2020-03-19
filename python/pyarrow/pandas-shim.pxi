@@ -189,6 +189,7 @@ cdef class _PandasAPIShim(object):
             return False
 
     cpdef is_extension_array_dtype(self, obj):
+        self._check_import()
         if self._is_extension_array_dtype:
             return self._is_extension_array_dtype(obj)
         else:
