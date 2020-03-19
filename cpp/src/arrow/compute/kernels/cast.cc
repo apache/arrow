@@ -800,7 +800,7 @@ Status InvokeWithAllocation(FunctionContext* ctx, UnaryKernel* func, const Datum
     RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, func, input, &result));
   }
   ARROW_RETURN_IF_ERROR(ctx);
-  *out = detail::WrapDatumsLike(input, result);
+  *out = detail::WrapDatumsLike(input, func->out_type(), result);
   return Status::OK();
 }
 

@@ -591,7 +591,7 @@ Status DictionaryEncode(FunctionContext* ctx, const Datum& value, Datum* out) {
       dict_chunks.emplace_back(std::make_shared<DictionaryArray>(
           dict_type, MakeArray(datum.array()), dictionary));
     }
-    *out = detail::WrapArraysLike(value, dict_chunks);
+    *out = detail::WrapArraysLike(value, func->out_type(), dict_chunks);
   }
 
   return Status::OK();
