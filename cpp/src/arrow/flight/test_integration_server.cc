@@ -40,6 +40,33 @@ DEFINE_int32(port, 31337, "Server port to listen on");
 namespace arrow {
 namespace flight {
 
+struct IntegrationDataset {
+  std::shared_ptr<Schema> schema;
+  std::vector<std::shared_ptr<RecordBatch>> chunks;
+};
+
+class RecordBatchListReader : public RecordBatchReader {
+ public:
+  explicit RecordBatchListReader(IntegrationDataset dataset)
+      : dataset_(dataset), current_(0) {}
+
+  std::shared_ptr<Schema> schema() const override { return dataset_.schema; }
+
+  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
+    if (current_ >= dataset_.chunks.size()) {
+      *batch = nullptr;
+      return Status::OK();
+    }
+    *batch = dataset_.chunks[current_];
+    current_++;
+    return Status::OK();
+  }
+
+ private:
+  IntegrationDataset dataset_;
+  uint64_t current_;
+};
+
 class FlightIntegrationTestServer : public FlightServerBase {
   Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
                        std::unique_ptr<FlightInfo>* info) override {
@@ -57,10 +84,13 @@ class FlightIntegrationTestServer : public FlightServerBase {
       FlightEndpoint endpoint1({{request.path[0]}, {}});
 
       FlightInfo::Data flight_data;
-      RETURN_NOT_OK(internal::SchemaToString(*flight->schema(), &flight_data.schema));
+      RETURN_NOT_OK(internal::SchemaToString(*flight.schema, &flight_data.schema));
       flight_data.descriptor = request;
       flight_data.endpoints = {endpoint1};
-      flight_data.total_records = flight->num_rows();
+      flight_data.total_records = 0;
+      for (const auto& chunk : flight.chunks) {
+        flight_data.total_records += chunk->num_rows();
+      }
       flight_data.total_bytes = -1;
       FlightInfo value(flight_data);
 
@@ -81,7 +111,7 @@ class FlightIntegrationTestServer : public FlightServerBase {
 
     *data_stream = std::unique_ptr<FlightDataStream>(
         new NumberingStream(std::unique_ptr<FlightDataStream>(new RecordBatchStream(
-            std::shared_ptr<RecordBatchReader>(new TableBatchReader(*flight))))));
+            std::shared_ptr<RecordBatchReader>(new RecordBatchListReader(flight))))));
 
     return Status::OK();
   }
@@ -99,24 +129,23 @@ class FlightIntegrationTestServer : public FlightServerBase {
 
     std::string key = descriptor.path[0];
 
-    std::vector<std::shared_ptr<arrow::RecordBatch>> retrieved_chunks;
+    IntegrationDataset dataset;
+    dataset.schema = reader->schema();
     arrow::flight::FlightStreamChunk chunk;
     while (true) {
       RETURN_NOT_OK(reader->Next(&chunk));
       if (chunk.data == nullptr) break;
-      retrieved_chunks.push_back(chunk.data);
+      RETURN_NOT_OK(chunk.data->ValidateFull());
+      dataset.chunks.push_back(chunk.data);
       if (chunk.app_metadata) {
         RETURN_NOT_OK(writer->WriteMetadata(*chunk.app_metadata));
       }
     }
-    std::shared_ptr<arrow::Table> retrieved_data;
-    RETURN_NOT_OK(arrow::Table::FromRecordBatches(reader->schema(), retrieved_chunks,
-                                                  &retrieved_data));
-    uploaded_chunks[key] = retrieved_data;
+    uploaded_chunks[key] = dataset;
     return Status::OK();
   }
 
-  std::unordered_map<std::string, std::shared_ptr<arrow::Table>> uploaded_chunks;
+  std::unordered_map<std::string, IntegrationDataset> uploaded_chunks;
 };
 
 }  // namespace flight
