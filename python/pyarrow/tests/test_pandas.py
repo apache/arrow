@@ -2595,13 +2595,16 @@ def test_roundtrip_with_bytes_unicode(columns):
     assert table1.schema.metadata == table2.schema.metadata
 
 
-def _check_serialize_components_roundtrip(df):
+def _check_serialize_components_roundtrip(pd_obj):
     ctx = pa.default_serialization_context()
 
-    components = ctx.serialize(df).to_components()
+    components = ctx.serialize(pd_obj).to_components()
     deserialized = ctx.deserialize_components(components)
 
-    tm.assert_frame_equal(df, deserialized)
+    if isinstance(pd_obj, pd.DataFrame):
+        tm.assert_frame_equal(pd_obj, deserialized)
+    else:
+        tm.assert_series_equal(pd_obj, deserialized)
 
 
 @pytest.mark.skipif(LooseVersion(np.__version__) >= '0.16',
@@ -2611,6 +2614,15 @@ def test_serialize_deserialize_pandas():
     # BlockManager
     df = _fully_loaded_dataframe_example()
     _check_serialize_components_roundtrip(df)
+
+
+def test_serialize_deserialize_empty_pandas():
+    # ARROW-7996, serialize and deserialize empty pandas objects
+    df = pd.DataFrame({'col1': [], 'col2': [], 'col3': []})
+    _check_serialize_components_roundtrip(df)
+
+    series = pd.Series([], dtype=np.float32, name='col')
+    _check_serialize_components_roundtrip(series)
 
 
 def _pytime_from_micros(val):
