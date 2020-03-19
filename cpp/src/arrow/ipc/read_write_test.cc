@@ -942,7 +942,7 @@ class ReaderWriterMixin {
     IpcReadOptions options = IpcReadOptions::Defaults();
 
     // Include an index that is too large
-    options.included_fields.reset(new std::unordered_set<int>({1, 3, 5}));
+    options.included_fields.reset(new std::vector<int>({1, 3, 5}));
 
     BatchVector out_batches;
     ASSERT_OK(

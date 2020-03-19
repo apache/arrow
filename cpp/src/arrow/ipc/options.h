@@ -82,7 +82,7 @@ struct ARROW_EXPORT IpcReadOptions {
 
   /// \brief EXPERIMENTAL: Top-level schema fields to include when
   /// deserializing RecordBatch. Null means to return all deserialized fields
-  std::shared_ptr<std::unordered_set<int>> included_fields;
+  std::shared_ptr<std::vector<int>> included_fields;
 
   static IpcReadOptions Defaults();
 };

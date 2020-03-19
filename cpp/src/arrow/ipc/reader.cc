@@ -383,20 +383,17 @@ class ArrayLoader {
 
 Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
     const flatbuf::RecordBatch* metadata, const std::shared_ptr<Schema>& schema,
-    const std::unordered_set<int>& included_fields, const DictionaryMemo* dictionary_memo,
+    const std::vector<bool>& inclusion_mask, const DictionaryMemo* dictionary_memo,
     const IpcReadOptions& options, Compression::type compression,
     io::RandomAccessFile* file) {
   ArrayLoader loader(metadata, dictionary_memo, options, compression, file);
 
-  std::vector<std::shared_ptr<ArrayData>> field_data(included_fields.size());
-  std::vector<std::shared_ptr<Field>> schema_fields(included_fields.size());
-
-  // The index of the next non-skipped field being read
-  int current_read_index = 0;
+  std::vector<std::shared_ptr<ArrayData>> field_data;
+  std::vector<std::shared_ptr<Field>> schema_fields;
 
   ArrayData dummy_for_skipped_fields;
   for (int i = 0; i < schema->num_fields(); ++i) {
-    if (included_fields.find(i) != included_fields.end()) {
+    if (inclusion_mask[i]) {
       // Read field
       auto arr = std::make_shared<ArrayData>();
       loader.SkipIO(false);
@@ -404,9 +401,8 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
       if (metadata->length() != arr->length) {
         return Status::IOError("Array length did not match record batch length");
       }
-      field_data[current_read_index] = std::move(arr);
-      schema_fields[current_read_index] = schema->field(i);
-      ++current_read_index;
+      field_data.emplace_back(std::move(arr));
+      schema_fields.emplace_back(schema->field(i));
     } else {
       // Skip field. We run the loading logic so the proper number of fields
       // and buffers are skipped before moving onto the next field
@@ -415,24 +411,18 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
     }
   }
 
-  // If there were fields in the included set outside the range of 0 to
-  // schema.size() - 1
-  if (current_read_index < static_cast<int>(included_fields.size())) {
-    field_data.resize(current_read_index);
-    schema_fields.resize(current_read_index);
-  }
-
   return RecordBatch::Make(::arrow::schema(std::move(schema_fields), schema->metadata()),
                            metadata->length(), std::move(field_data));
 }
 
 Result<std::shared_ptr<RecordBatch>> LoadRecordBatch(
     const flatbuf::RecordBatch* metadata, const std::shared_ptr<Schema>& schema,
-    const DictionaryMemo* dictionary_memo, const IpcReadOptions& options,
-    Compression::type compression, io::RandomAccessFile* file) {
-  if (options.included_fields != nullptr) {
-    return LoadRecordBatchSubset(metadata, schema, *options.included_fields,
-                                 dictionary_memo, options, compression, file);
+    const std::vector<bool>& inclusion_mask, const DictionaryMemo* dictionary_memo,
+    const IpcReadOptions& options, Compression::type compression,
+    io::RandomAccessFile* file) {
+  if (inclusion_mask.size() > 0) {
+    return LoadRecordBatchSubset(metadata, schema, inclusion_mask, dictionary_memo,
+                                 options, compression, file);
   }
 
   ArrayLoader loader(metadata, dictionary_memo, options, compression, file);
@@ -497,10 +487,10 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
                          reader.get());
 }
 
-Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
+Result<std::shared_ptr<RecordBatch>> ReadRecordBatchInternal(
     const Buffer& metadata, const std::shared_ptr<Schema>& schema,
-    const DictionaryMemo* dictionary_memo, const IpcReadOptions& options,
-    io::RandomAccessFile* file) {
+    const std::vector<bool>& inclusion_mask, const DictionaryMemo* dictionary_memo,
+    const IpcReadOptions& options, io::RandomAccessFile* file) {
   const flatbuf::Message* message;
   RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
   auto batch = message->header_as_RecordBatch();
@@ -510,7 +500,34 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
   }
   Compression::type compression;
   RETURN_NOT_OK(GetCompression(message, &compression));
-  return LoadRecordBatch(batch, schema, dictionary_memo, options, compression, file);
+  return LoadRecordBatch(batch, schema, inclusion_mask, dictionary_memo, options,
+                         compression, file);
+}
+
+void PopulateInclusionMask(const std::vector<int>& included_indices,
+                           int schema_num_fields, std::vector<bool>* mask) {
+  mask->resize(included_indices.size());
+  for (int i : included_indices) {
+    // Ignore out of bounds indices
+    if (i < 0 || i >= schema_num_fields) {
+      continue;
+    }
+    (*mask)[i] = true;
+  }
+}
+
+Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
+    const Buffer& metadata, const std::shared_ptr<Schema>& schema,
+    const DictionaryMemo* dictionary_memo, const IpcReadOptions& options,
+    io::RandomAccessFile* file) {
+  // Empty means do not use
+  std::vector<bool> inclusion_mask;
+  if (options.included_fields) {
+    PopulateInclusionMask(*options.included_fields, schema->num_fields(),
+                          &inclusion_mask);
+  }
+  return ReadRecordBatchInternal(metadata, schema, inclusion_mask, dictionary_memo,
+                                 options, file);
 }
 
 Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
@@ -541,8 +558,9 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
 
   std::shared_ptr<RecordBatch> batch;
   ARROW_ASSIGN_OR_RAISE(
-      batch, LoadRecordBatch(batch_meta, ::arrow::schema({value_field}), dictionary_memo,
-                             options, compression, file));
+      batch, LoadRecordBatch(batch_meta, ::arrow::schema({value_field}),
+                             /*field_inclusion_mask=*/{}, dictionary_memo, options,
+                             compression, file));
   if (batch->num_columns() != 1) {
     return Status::Invalid("Dictionary record batch must only contain one field");
   }
@@ -559,7 +577,25 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
               const IpcReadOptions& options) {
     message_reader_ = std::move(message_reader);
     options_ = options;
-    return ReadSchema();
+
+    // Read schema
+    std::unique_ptr<Message> message;
+    RETURN_NOT_OK(message_reader_->ReadNextMessage(&message));
+    if (!message) {
+      return Status::Invalid("Tried reading schema message, was null or length 0");
+    }
+    CHECK_MESSAGE_TYPE(Message::SCHEMA, message->type());
+    CHECK_HAS_NO_BODY(*message);
+
+    RETURN_NOT_OK(internal::GetSchema(message->header(), &dictionary_memo_, &schema_));
+
+    // If we are selecting only certain fields, populate the inclusion mask now
+    // for fast lookups
+    if (options.included_fields) {
+      PopulateInclusionMask(*options.included_fields, schema_->num_fields(),
+                            &field_inclusion_mask_);
+    }
+    return Status::OK();
   }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
@@ -588,8 +624,8 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
     } else {
       CHECK_HAS_BODY(*message);
       ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
-      return ReadRecordBatch(*message->metadata(), schema_, &dictionary_memo_, options_,
-                             reader.get())
+      return ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
+                                     &dictionary_memo_, options_, reader.get())
           .Value(batch);
     }
   }
@@ -597,17 +633,6 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
  private:
-  Status ReadSchema() {
-    std::unique_ptr<Message> message;
-    RETURN_NOT_OK(message_reader_->ReadNextMessage(&message));
-    if (!message) {
-      return Status::Invalid("Tried reading schema message, was null or length 0");
-    }
-    CHECK_MESSAGE_TYPE(Message::SCHEMA, message->type());
-    CHECK_HAS_NO_BODY(*message);
-    return internal::GetSchema(message->header(), &dictionary_memo_, &schema_);
-  }
-
   Status ParseDictionary(const Message& message) {
     // Only invoke this method if we already know we have a dictionary message
     DCHECK_EQ(message.type(), Message::DICTIONARY_BATCH);
@@ -656,6 +681,7 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
 
   std::unique_ptr<MessageReader> message_reader_;
   IpcReadOptions options_;
+  std::vector<bool> field_inclusion_mask_;
 
   bool read_initial_dictionaries_ = false;
 
@@ -738,7 +764,17 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     options_ = options;
     footer_offset_ = footer_offset;
     RETURN_NOT_OK(ReadFooter());
-    return ReadSchema();
+
+    // Get the schema and record any observed dictionaries
+    RETURN_NOT_OK(internal::GetSchema(footer_->schema(), &dictionary_memo_, &schema_));
+
+    // If we are selecting only certain fields, populate the inclusion mask now
+    // for fast lookups
+    if (options.included_fields) {
+      PopulateInclusionMask(*options.included_fields, schema_->num_fields(),
+                            &field_inclusion_mask_);
+    }
+    return Status::OK();
   }
 
   std::shared_ptr<Schema> schema() const override { return schema_; }
@@ -778,11 +814,6 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
                                    reader.get()));
     }
     return Status::OK();
-  }
-
-  Status ReadSchema() {
-    // Get the schema and record any observed dictionaries
-    return internal::GetSchema(footer_->schema(), &dictionary_memo_, &schema_);
   }
 
   Status ReadFooter() {
@@ -832,6 +863,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
   io::RandomAccessFile* file_;
   IpcReadOptions options_;
+  std::vector<bool> field_inclusion_mask_;
 
   std::shared_ptr<io::RandomAccessFile> owned_file_;
 
