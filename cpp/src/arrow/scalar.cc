@@ -28,6 +28,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/formatting.h"
+#include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parsing.h"
 #include "arrow/util/time.h"
@@ -39,6 +40,89 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 bool Scalar::Equals(const Scalar& other) const { return ScalarEquals(*this, other); }
+
+struct ScalarHashImpl {
+  static std::hash<std::string> string_hash;
+
+  Status Visit(const NullScalar& s) { return Status::OK(); }
+
+  template <typename T>
+  Status Visit(const internal::PrimitiveScalar<T>& s) {
+    return ValueHash(s);
+  }
+
+  Status Visit(const BaseBinaryScalar& s) { return BufferHash(*s.value); }
+
+  template <typename T>
+  Status Visit(const TemporalScalar<T>& s) {
+    return ValueHash(s);
+  }
+
+  Status Visit(const DayTimeIntervalScalar& s) {
+    return StdHash(s.value.days) & StdHash(s.value.days);
+  }
+
+  Status Visit(const Decimal128Scalar& s) {
+    return StdHash(s.value.low_bits()) & StdHash(s.value.high_bits());
+  }
+
+  Status Visit(const BaseListScalar& s) { return ArrayHash(*s.value); }
+
+  Status Visit(const StructScalar& s) {
+    for (const auto& child : s.value) {
+      AccumulateHashFrom(*child);
+    }
+    return Status::OK();
+  }
+
+  // TODO(bkietz) implement less wimpy hashing when these have ValueType
+  Status Visit(const UnionScalar& s) { return Status::OK(); }
+  Status Visit(const DictionaryScalar& s) { return Status::OK(); }
+  Status Visit(const ExtensionScalar& s) { return Status::OK(); }
+
+  template <typename T>
+  Status StdHash(const T& t) {
+    static std::hash<T> hash;
+    hash_ ^= hash(t);
+    return Status::OK();
+  }
+
+  template <typename S>
+  Status ValueHash(const S& s) {
+    return StdHash(s.value);
+  }
+
+  Status BufferHash(const Buffer& b) {
+    hash_ ^= internal::ComputeStringHash<1>(b.data(), b.size());
+    return Status::OK();
+  }
+
+  Status ArrayHash(const Array& a) { return ArrayHash(*a.data()); }
+
+  Status ArrayHash(const ArrayData& a) {
+    RETURN_NOT_OK(StdHash(a.length) & StdHash(a.GetNullCount()));
+    if (a.buffers[0] != nullptr) {
+      // We can't visit values without unboxing the whole array, so only hash
+      // the null bitmap for now.
+      RETURN_NOT_OK(BufferHash(*a.buffers[0]));
+    }
+    for (const auto& child : a.child_data) {
+      RETURN_NOT_OK(ArrayHash(*child));
+    }
+    return Status::OK();
+  }
+
+  explicit ScalarHashImpl(const Scalar& scalar) { AccumulateHashFrom(scalar); }
+
+  void AccumulateHashFrom(const Scalar& scalar) {
+    DCHECK_OK(StdHash(scalar.type->fingerprint()));
+    DCHECK_OK(VisitScalarInline(scalar, this));
+  }
+
+  size_t hash_ = 0;
+};
+
+size_t Scalar::Hash::hash(const Scalar& scalar) { return ScalarHashImpl(scalar).hash_; }
 
 StringScalar::StringScalar(std::string s)
     : StringScalar(Buffer::FromString(std::move(s))) {}
@@ -301,7 +385,8 @@ Status CastImpl(const BinaryScalar& from, StringScalar* to) {
 // formattable to string
 template <typename ScalarType, typename T = typename ScalarType::TypeClass,
           typename Formatter = internal::StringFormatter<T>,
-          // note: Value unused but necessary to trigger SFINAE if Formatter is undefined
+          // note: Value unused but necessary to trigger SFINAE if Formatter is
+          // undefined
           typename Value = typename Formatter::value_type>
 Status CastImpl(const ScalarType& from, StringScalar* to) {
   if (!from.is_valid) {

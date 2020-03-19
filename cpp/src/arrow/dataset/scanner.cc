@@ -41,7 +41,6 @@ ScanOptions::ScanOptions(std::shared_ptr<Schema> schema)
 std::shared_ptr<ScanOptions> ScanOptions::ReplaceSchema(
     std::shared_ptr<Schema> schema) const {
   auto copy = ScanOptions::Make(std::move(schema));
-  copy->use_threads = use_threads;
   copy->filter = filter;
   copy->evaluator = evaluator;
   return copy;
@@ -85,14 +84,14 @@ FragmentIterator Scanner::GetFragments() {
   // Transform Datasets in a flat Iterator<Fragment>. This
   // iterator is lazily constructed, i.e. Dataset::GetFragments is
   // not invoked until a Fragment is requested.
-  return GetFragmentsFromDatasets({dataset_}, options_);
+  return GetFragmentsFromDatasets({dataset_}, scan_options_);
 }
 
 Result<ScanTaskIterator> Scanner::Scan() {
   // Transforms Iterator<Fragment> into a unified
   // Iterator<ScanTask>. The first Iterator::Next invocation is going to do
   // all the work of unwinding the chained iterators.
-  auto scan_task_it = GetScanTaskIterator(GetFragments(), context_);
+  auto scan_task_it = GetScanTaskIterator(GetFragments(), scan_context_);
 
   // Apply the filter and/or projection to incoming RecordBatches by
   // wrapping the ScanTask with a FilterAndProjectScanTask
@@ -111,29 +110,29 @@ Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
 }
 
 ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
-                               std::shared_ptr<ScanContext> context)
+                               std::shared_ptr<ScanContext> scan_context)
     : dataset_(std::move(dataset)),
-      options_(ScanOptions::Make(dataset_->schema())),
-      context_(std::move(context)) {}
+      scan_options_(ScanOptions::Make(dataset_->schema())),
+      scan_context_(std::move(scan_context)) {}
 
-Status ScannerBuilder::Project(const std::vector<std::string>& columns) {
+Status ScannerBuilder::Project(std::vector<std::string> columns) {
   RETURN_NOT_OK(schema()->CanReferenceFieldsByNames(columns));
   has_projection_ = true;
-  project_columns_ = columns;
+  project_columns_ = std::move(columns);
   return Status::OK();
 }
 
 Status ScannerBuilder::Filter(std::shared_ptr<Expression> filter) {
   RETURN_NOT_OK(schema()->CanReferenceFieldsByNames(FieldsInExpression(*filter)));
   RETURN_NOT_OK(filter->Validate(*schema()).status());
-  options_->filter = std::move(filter);
+  scan_options_->filter = std::move(filter);
   return Status::OK();
 }
 
 Status ScannerBuilder::Filter(const Expression& filter) { return Filter(filter.Copy()); }
 
 Status ScannerBuilder::UseThreads(bool use_threads) {
-  options_->use_threads = use_threads;
+  scan_context_->use_threads = use_threads;
   return Status::OK();
 }
 
@@ -141,30 +140,32 @@ Status ScannerBuilder::BatchSize(int64_t batch_size) {
   if (batch_size <= 0) {
     return Status::Invalid("BatchSize must be greater than 0, got ", batch_size);
   }
-  options_->batch_size = batch_size;
+  scan_options_->batch_size = batch_size;
   return Status::OK();
 }
 
 Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() const {
-  std::shared_ptr<ScanOptions> options;
+  std::shared_ptr<ScanOptions> scan_options;
   if (has_projection_ && !project_columns_.empty()) {
-    options = options_->ReplaceSchema(SchemaFromColumnNames(schema(), project_columns_));
+    scan_options =
+        scan_options_->ReplaceSchema(SchemaFromColumnNames(schema(), project_columns_));
   } else {
-    options = std::make_shared<ScanOptions>(*options_);
+    scan_options = std::make_shared<ScanOptions>(*scan_options_);
   }
 
-  if (!options->filter->Equals(true)) {
-    options->evaluator = std::make_shared<TreeEvaluator>();
+  if (!scan_options->filter->Equals(true)) {
+    scan_options->evaluator = std::make_shared<TreeEvaluator>();
   }
 
-  return std::make_shared<Scanner>(dataset_, std::move(options), context_);
+  return std::make_shared<Scanner>(dataset_, std::move(scan_options), scan_context_);
 }
 
-using arrow::internal::TaskGroup;
-
-std::shared_ptr<TaskGroup> Scanner::TaskGroup() const {
-  return options_->use_threads ? TaskGroup::MakeThreaded(context_->thread_pool)
-                               : TaskGroup::MakeSerial();
+std::shared_ptr<internal::TaskGroup> ScanContext::TaskGroup() const {
+  if (use_threads) {
+    internal::ThreadPool* thread_pool = arrow::internal::GetCpuThreadPool();
+    return internal::TaskGroup::MakeThreaded(thread_pool);
+  }
+  return internal::TaskGroup::MakeSerial();
 }
 
 struct TableAggregator {
@@ -199,7 +200,7 @@ struct ScanTaskPromise {
 };
 
 Result<std::shared_ptr<Table>> Scanner::ToTable() {
-  auto task_group = TaskGroup();
+  auto task_group = scan_context_->TaskGroup();
 
   TableAggregator aggregator;
   ARROW_ASSIGN_OR_RAISE(auto it, Scan());
@@ -211,7 +212,7 @@ Result<std::shared_ptr<Table>> Scanner::ToTable() {
   // Wait for all tasks to complete, or the first error.
   RETURN_NOT_OK(task_group->Finish());
 
-  return aggregator.Finish(options_->schema());
+  return aggregator.Finish(scan_options_->schema());
 }
 
 }  // namespace dataset

@@ -37,15 +37,13 @@ const std::shared_ptr<Schema>& Fragment::schema() const {
   return scan_options_->schema();
 }
 
-InMemoryFragment::InMemoryFragment(
-    std::vector<std::shared_ptr<RecordBatch>> record_batches,
-    std::shared_ptr<ScanOptions> scan_options)
+InMemoryFragment::InMemoryFragment(RecordBatchVector record_batches,
+                                   std::shared_ptr<ScanOptions> scan_options)
     : Fragment(std::move(scan_options)), record_batches_(std::move(record_batches)) {}
 
-InMemoryFragment::InMemoryFragment(
-    std::vector<std::shared_ptr<RecordBatch>> record_batches,
-    std::shared_ptr<ScanOptions> scan_options,
-    std::shared_ptr<Expression> partition_expression)
+InMemoryFragment::InMemoryFragment(RecordBatchVector record_batches,
+                                   std::shared_ptr<ScanOptions> scan_options,
+                                   std::shared_ptr<Expression> partition_expression)
     : Fragment(std::move(scan_options), std::move(partition_expression)),
       record_batches_(std::move(record_batches)) {}
 
@@ -57,7 +55,7 @@ Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanContext> con
   // RecordBatch -> ScanTask
   auto scan_options = scan_options_;
   auto fn = [=](std::shared_ptr<RecordBatch> batch) -> std::shared_ptr<ScanTask> {
-    std::vector<std::shared_ptr<RecordBatch>> batches{batch};
+    RecordBatchVector batches{batch};
     return ::arrow::internal::make_unique<InMemoryScanTask>(
         std::move(batches), std::move(scan_options), std::move(context));
   };
@@ -107,16 +105,16 @@ FragmentIterator Dataset::GetFragments(std::shared_ptr<ScanOptions> scan_options
 }
 
 struct VectorRecordBatchGenerator : InMemoryDataset::RecordBatchGenerator {
-  explicit VectorRecordBatchGenerator(std::vector<std::shared_ptr<RecordBatch>> batches)
+  explicit VectorRecordBatchGenerator(RecordBatchVector batches)
       : batches_(std::move(batches)) {}
 
   RecordBatchIterator Get() const final { return MakeVectorIterator(batches_); }
 
-  std::vector<std::shared_ptr<RecordBatch>> batches_;
+  RecordBatchVector batches_;
 };
 
 InMemoryDataset::InMemoryDataset(std::shared_ptr<Schema> schema,
-                                 std::vector<std::shared_ptr<RecordBatch>> batches)
+                                 RecordBatchVector batches)
     : Dataset(std::move(schema)),
       get_batches_(new VectorRecordBatchGenerator(std::move(batches))) {}
 
@@ -149,7 +147,7 @@ FragmentIterator InMemoryDataset::GetFragmentsImpl(
                                " which did not match InMemorySource's: ", *schema);
     }
 
-    std::vector<std::shared_ptr<RecordBatch>> batches;
+    RecordBatchVector batches;
 
     auto batch_size = scan_options->batch_size;
     auto n_batches = BitUtil::CeilDiv(batch->num_rows(), batch_size);

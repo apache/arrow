@@ -29,7 +29,6 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/memory_pool.h"
-#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 
@@ -43,8 +42,14 @@ namespace dataset {
 
 /// \brief Shared state for a Scan operation
 struct ARROW_DS_EXPORT ScanContext {
+  /// A pool from which materialized and scanned arrays will be allocated.
   MemoryPool* pool = arrow::default_memory_pool();
-  internal::ThreadPool* thread_pool = arrow::internal::GetCpuThreadPool();
+
+  /// Indicate if the Scanner should make use of a ThreadPool.
+  bool use_threads = false;
+
+  /// Return a threaded or serial TaskGroup according to use_threads.
+  std::shared_ptr<internal::TaskGroup> TaskGroup() const;
 };
 
 class ARROW_DS_EXPORT ScanOptions {
@@ -56,11 +61,8 @@ class ARROW_DS_EXPORT ScanOptions {
   }
 
   // Construct a copy of these options with a different schema.
+  // The projector will be reconstructed.
   std::shared_ptr<ScanOptions> ReplaceSchema(std::shared_ptr<Schema> schema) const;
-
-  // Indicate if the Scanner should make use of the ThreadPool found in the
-  // ScanContext.
-  bool use_threads = false;
 
   // Filter
   std::shared_ptr<Expression> filter;
@@ -150,11 +152,11 @@ ARROW_DS_EXPORT Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
 ///          yield scan_task
 class ARROW_DS_EXPORT Scanner {
  public:
-  Scanner(std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanOptions> options,
-          std::shared_ptr<ScanContext> context)
+  Scanner(std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanOptions> scan_options,
+          std::shared_ptr<ScanContext> scan_context)
       : dataset_(std::move(dataset)),
-        options_(std::move(options)),
-        context_(std::move(context)) {}
+        scan_options_(std::move(scan_options)),
+        scan_context_(std::move(scan_context)) {}
 
   /// \brief The Scan operator returns a stream of ScanTask. The caller is
   /// responsible to dispatch/schedule said tasks. Tasks should be safe to run
@@ -170,19 +172,16 @@ class ARROW_DS_EXPORT Scanner {
   /// \brief GetFragments returns an iterator over all Fragments in this scan.
   FragmentIterator GetFragments();
 
-  const std::shared_ptr<Schema>& schema() const { return options_->schema(); }
+  const std::shared_ptr<Schema>& schema() const { return scan_options_->schema(); }
 
-  const std::shared_ptr<ScanOptions>& options() const { return options_; }
+  const std::shared_ptr<ScanOptions>& options() const { return scan_options_; }
 
-  const std::shared_ptr<ScanContext>& context() const { return context_; }
+  const std::shared_ptr<ScanContext>& context() const { return scan_context_; }
 
  protected:
-  /// \brief Return a TaskGroup according to ScanContext thread rules.
-  std::shared_ptr<internal::TaskGroup> TaskGroup() const;
-
   std::shared_ptr<Dataset> dataset_;
-  std::shared_ptr<ScanOptions> options_;
-  std::shared_ptr<ScanContext> context_;
+  std::shared_ptr<ScanOptions> scan_options_;
+  std::shared_ptr<ScanContext> scan_context_;
 };
 
 /// \brief ScannerBuilder is a factory class to construct a Scanner. It is used
@@ -190,7 +189,8 @@ class ARROW_DS_EXPORT Scanner {
 /// columns to materialize.
 class ARROW_DS_EXPORT ScannerBuilder {
  public:
-  ScannerBuilder(std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanContext> context);
+  ScannerBuilder(std::shared_ptr<Dataset> dataset,
+                 std::shared_ptr<ScanContext> scan_context);
 
   /// \brief Set the subset of columns to materialize.
   ///
@@ -203,7 +203,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///
   /// \return Failure if any column name does not exists in the dataset's
   ///         Schema.
-  Status Project(const std::vector<std::string>& columns);
+  Status Project(std::vector<std::string> columns);
 
   /// \brief Set the filter expression to return only rows matching the filter.
   ///
@@ -237,8 +237,8 @@ class ARROW_DS_EXPORT ScannerBuilder {
 
  private:
   std::shared_ptr<Dataset> dataset_;
-  std::shared_ptr<ScanOptions> options_;
-  std::shared_ptr<ScanContext> context_;
+  std::shared_ptr<ScanOptions> scan_options_;
+  std::shared_ptr<ScanContext> scan_context_;
   bool has_projection_ = false;
   std::vector<std::string> project_columns_;
 };

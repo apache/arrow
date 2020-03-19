@@ -22,11 +22,14 @@
 
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/filter.h"
+#include "arrow/dataset/scanner.h"
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/task_group.h"
 
 namespace arrow {
 namespace dataset {
@@ -39,16 +42,35 @@ Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
   return std::make_shared<::arrow::io::BufferReader>(buffer());
 }
 
-Result<std::shared_ptr<Fragment>> FileFormat::MakeFragment(
+Result<std::shared_ptr<arrow::io::OutputStream>> FileSource::OpenWritable() const {
+  if (!writable_) {
+    return Status::Invalid("file source '", path(), "' is not writable");
+  }
+
+  if (type() == PATH) {
+    return filesystem()->OpenOutputStream(path());
+  }
+
+  auto b = internal::checked_pointer_cast<ResizableBuffer>(buffer());
+  return std::make_shared<::arrow::io::BufferOutputStream>(b);
+}
+
+Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
     FileSource source, std::shared_ptr<ScanOptions> options) {
   return MakeFragment(std::move(source), std::move(options), scalar(true));
 }
 
-Result<std::shared_ptr<Fragment>> FileFormat::MakeFragment(
+Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
     FileSource source, std::shared_ptr<ScanOptions> options,
     std::shared_ptr<Expression> partition_expression) {
   return std::make_shared<FileFragment>(std::move(source), shared_from_this(), options,
                                         std::move(partition_expression));
+}
+
+Result<std::shared_ptr<WriteTask>> FileFormat::WriteFragment(
+    FileSource destination, std::shared_ptr<Fragment> fragment,
+    std::shared_ptr<ScanContext> scan_context) {
+  return Status::NotImplemented("writing fragment of format ", type_name());
 }
 
 Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanContext> context) {
@@ -69,7 +91,7 @@ FileSystemDataset::FileSystemDataset(std::shared_ptr<Schema> schema,
   DCHECK_EQ(static_cast<size_t>(forest_.size()), partitions_.size());
 }
 
-Result<std::shared_ptr<Dataset>> FileSystemDataset::Make(
+Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
     std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
     std::vector<fs::FileInfo> infos) {
@@ -78,7 +100,7 @@ Result<std::shared_ptr<Dataset>> FileSystemDataset::Make(
               std::move(filesystem), std::move(infos), std::move(partitions));
 }
 
-Result<std::shared_ptr<Dataset>> FileSystemDataset::Make(
+Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
     std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
     std::vector<fs::FileInfo> infos, ExpressionVector partitions) {
@@ -87,11 +109,11 @@ Result<std::shared_ptr<Dataset>> FileSystemDataset::Make(
               std::move(filesystem), std::move(forest), std::move(partitions));
 }
 
-Result<std::shared_ptr<Dataset>> FileSystemDataset::Make(
+Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
     std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
     fs::PathForest forest, ExpressionVector partitions) {
-  return std::shared_ptr<Dataset>(new FileSystemDataset(
+  return std::shared_ptr<FileSystemDataset>(new FileSystemDataset(
       std::move(schema), std::move(root_partition), std::move(format),
       std::move(filesystem), std::move(forest), std::move(partitions)));
 }
@@ -129,32 +151,6 @@ std::string FileSystemDataset::ToString() const {
   return repr;
 }
 
-util::optional<std::pair<std::string, std::shared_ptr<Scalar>>> GetKey(
-    const Expression& expr) {
-  if (expr.type() != ExpressionType::COMPARISON) {
-    return util::nullopt;
-  }
-
-  const auto& cmp = internal::checked_cast<const ComparisonExpression&>(expr);
-  if (cmp.op() != compute::CompareOperator::EQUAL) {
-    return util::nullopt;
-  }
-
-  // TODO(bkietz) allow this ordering to be flipped
-
-  if (cmp.left_operand()->type() != ExpressionType::FIELD) {
-    return util::nullopt;
-  }
-
-  if (cmp.right_operand()->type() != ExpressionType::SCALAR) {
-    return util::nullopt;
-  }
-
-  return std::make_pair(
-      internal::checked_cast<const FieldExpression&>(*cmp.left_operand()).name(),
-      internal::checked_cast<const ScalarExpression&>(*cmp.right_operand()).value());
-}
-
 std::shared_ptr<Expression> FoldingAnd(const std::shared_ptr<Expression>& l,
                                        const std::shared_ptr<Expression>& r) {
   if (l->Equals(true)) return r;
@@ -165,6 +161,7 @@ std::shared_ptr<Expression> FoldingAnd(const std::shared_ptr<Expression>& l,
 FragmentIterator FileSystemDataset::GetFragmentsImpl(
     std::shared_ptr<ScanOptions> root_options) {
   FragmentVector fragments;
+
   std::vector<std::shared_ptr<ScanOptions>> options(forest_.size());
 
   ExpressionVector fragment_partitions(forest_.size());
@@ -194,19 +191,31 @@ FragmentIterator FileSystemDataset::GetFragmentsImpl(
 
     // if possible, extract a partition key and pass it to the projector
     auto projector = &options[ref.i]->projector;
-    if (auto name_value = GetKey(*partition)) {
-      auto index = projector->schema()->GetFieldIndex(name_value->first);
+    {
+      int index = -1;
+      std::shared_ptr<Scalar> value_to_materialize;
+
+      DCHECK_OK(KeyValuePartitioning::VisitKeys(
+          *partition, [&](const std::string& name, const std::shared_ptr<Scalar>& value) {
+            if (index != -1) return Status::OK();
+
+            index = projector->schema()->GetFieldIndex(name);
+            if (index != -1) value_to_materialize = value;
+
+            return Status::OK();
+          }));
+
       if (index != -1) {
-        RETURN_NOT_OK(projector->SetDefaultValue(index, std::move(name_value->second)));
+        RETURN_NOT_OK(projector->SetDefaultValue(index, std::move(value_to_materialize)));
       }
     }
 
     if (ref.info().IsFile()) {
       // generate a fragment for this file
       FileSource src(ref.info().path(), filesystem_.get());
-      ARROW_ASSIGN_OR_RAISE(
-          auto fragment,
-          format_->MakeFragment(src, options[ref.i], fragment_partitions[ref.i]));
+      ARROW_ASSIGN_OR_RAISE(auto fragment,
+                            format_->MakeFragment(std::move(src), options[ref.i],
+                                                  std::move(fragment_partitions[ref.i])));
       fragments.push_back(std::move(fragment));
     }
 
@@ -219,6 +228,62 @@ FragmentIterator FileSystemDataset::GetFragmentsImpl(
   }
 
   return MakeVectorIterator(std::move(fragments));
+}
+
+Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Write(
+    const WritePlan& plan, std::shared_ptr<ScanContext> scan_context) {
+  std::vector<std::shared_ptr<ScanOptions>> options(plan.paths.size());
+
+  auto filesystem = plan.filesystem;
+  if (filesystem == nullptr) {
+    filesystem = std::make_shared<fs::LocalFileSystem>();
+  }
+
+  std::vector<fs::FileInfo> files(plan.paths.size());
+  ExpressionVector partition_expressions(plan.paths.size(), scalar(true));
+  auto task_group = scan_context->TaskGroup();
+
+  auto partition_base_dir = fs::internal::EnsureTrailingSlash(plan.partition_base_dir);
+  auto extension = "." + plan.format->type_name();
+
+  for (size_t i = 0; i < plan.paths.size(); ++i) {
+    const auto& op = plan.fragment_or_partition_expressions[i];
+    if (util::holds_alternative<std::shared_ptr<Expression>>(op)) {
+      files[i].set_type(fs::FileType::Directory);
+      files[i].set_path(partition_base_dir + plan.paths[i]);
+
+      partition_expressions[i] = util::get<std::shared_ptr<Expression>>(op);
+    } else {
+      files[i].set_type(fs::FileType::File);
+      files[i].set_path(partition_base_dir + plan.paths[i] + extension);
+
+      const auto& fragment = util::get<std::shared_ptr<Fragment>>(op);
+
+      FileSource dest(files[i].path(), filesystem.get());
+      ARROW_ASSIGN_OR_RAISE(
+          auto write_task,
+          plan.format->WriteFragment(std::move(dest), fragment, scan_context));
+
+      task_group->Append([write_task] { return write_task->Execute(); });
+    }
+  }
+
+  RETURN_NOT_OK(task_group->Finish());
+
+  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::MakeFromPreSorted(std::move(files)));
+
+  auto partition_expression = scalar(true);
+  return Make(plan.schema, partition_expression, plan.format, std::move(filesystem),
+              std::move(forest), std::move(partition_expressions));
+}
+
+Status WriteTask::CreateDestinationParentDir() const {
+  if (auto filesystem = destination_.filesystem()) {
+    auto parent = fs::internal::GetAbstractPathParent(destination_.path()).first;
+    return filesystem->CreateDir(parent, /* recursive = */ true);
+  }
+
+  return Status::OK();
 }
 
 }  // namespace dataset

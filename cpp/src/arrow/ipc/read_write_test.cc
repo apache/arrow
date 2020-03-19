@@ -750,6 +750,15 @@ struct FileWriterHelper {
     return Status::OK();
   }
 
+  Status ReadSchema(std::shared_ptr<Schema>* out) {
+    auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
+    std::shared_ptr<RecordBatchFileReader> reader;
+    RETURN_NOT_OK(RecordBatchFileReader::Open(buf_reader.get(), footer_offset_, &reader));
+
+    *out = reader->schema();
+    return Status::OK();
+  }
+
   std::shared_ptr<ResizableBuffer> buffer_;
   std::unique_ptr<io::BufferOutputStream> sink_;
   std::shared_ptr<RecordBatchWriter> writer_;
@@ -781,6 +790,15 @@ struct StreamWriterHelper {
     std::shared_ptr<RecordBatchReader> reader;
     RETURN_NOT_OK(RecordBatchStreamReader::Open(buf_reader, &reader));
     return reader->ReadAll(out_batches);
+  }
+
+  Status ReadSchema(std::shared_ptr<Schema>* out) {
+    auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
+    std::shared_ptr<RecordBatchReader> reader;
+    RETURN_NOT_OK(RecordBatchStreamReader::Open(buf_reader.get(), &reader));
+
+    *out = reader->schema();
+    return Status::OK();
   }
 
   std::shared_ptr<ResizableBuffer> buffer_;
@@ -878,6 +896,23 @@ class ReaderWriterMixin {
     CompareBatch(*out_batches[0], *batch_bools, false /* compare_metadata */);
     // Metadata from the RecordBatchWriter initialization schema was kept
     ASSERT_TRUE(out_batches[0]->schema()->Equals(*schema));
+  }
+
+  void TestWriteNoRecordBatches() {
+    // Test writing no batches.
+    auto schema = arrow::schema({field("a", int32())});
+
+    WriterHelper writer_helper;
+    ASSERT_OK(writer_helper.Init(schema, IpcOptions::Defaults()));
+    ASSERT_OK(writer_helper.Finish());
+
+    BatchVector out_batches;
+    ASSERT_OK(writer_helper.ReadBatches(&out_batches));
+    ASSERT_EQ(out_batches.size(), 0);
+
+    std::shared_ptr<Schema> actual_schema;
+    ASSERT_OK(writer_helper.ReadSchema(&actual_schema));
+    AssertSchemaEqual(*actual_schema, *schema);
   }
 
  private:
@@ -982,6 +1017,10 @@ TEST_F(TestFileFormat, DictionaryRoundTrip) { TestDictionaryRoundtrip(); }
 TEST_F(TestStreamFormat, DifferentSchema) { TestWriteDifferentSchema(); }
 
 TEST_F(TestFileFormat, DifferentSchema) { TestWriteDifferentSchema(); }
+
+TEST_F(TestStreamFormat, NoRecordBatches) { TestWriteNoRecordBatches(); }
+
+TEST_F(TestFileFormat, NoRecordBatches) { TestWriteNoRecordBatches(); }
 
 TEST(TestRecordBatchStreamReader, EmptyStreamWithDictionaries) {
   // ARROW-6006

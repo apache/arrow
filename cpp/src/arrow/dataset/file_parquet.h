@@ -47,6 +47,10 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   /// memory_pool will be ignored.
   explicit ParquetFileFormat(const parquet::ReaderProperties& reader_properties);
 
+  std::string type_name() const override { return "parquet"; }
+
+  bool splittable() const override { return true; }
+
   struct ReaderOptions {
     /// \defgroup parquet-file-format-reader-properties properties which correspond to
     /// members of parquet::ReaderProperties.
@@ -72,10 +76,6 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
     std::unordered_set<std::string> dict_columns;
     /// @}
   } reader_options;
-
-  std::string type_name() const override { return "parquet"; }
-
-  bool splittable() const override { return true; }
 
   Result<bool> IsSupported(const FileSource& source) const override;
 
