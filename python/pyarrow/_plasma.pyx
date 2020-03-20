@@ -261,7 +261,7 @@ cdef class PlasmaBuffer(Buffer):
         self.client._release(self.object_id)
 
 
-class PlasmaObjectNonexistent(ArrowException):
+class PlasmaObjectNotFound(ArrowException):
     pass
 
 
@@ -282,7 +282,7 @@ cdef int plasma_check_status(const CStatus& status) nogil except -1:
         if IsPlasmaObjectExists(status):
             raise PlasmaObjectExists(message)
         elif IsPlasmaObjectNotFound(status):
-            raise PlasmaObjectNonexistent(message)
+            raise PlasmaObjectNotFound(message)
         elif IsPlasmaStoreFull(status):
             raise PlasmaStoreFull(message)
 
