@@ -419,15 +419,9 @@ TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
     return internal::checked_pointer_cast<ParquetFileFragment>(fragment);
   };
 
-  auto all_row_groups_fragment = [&]() {
-    EXPECT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
-    return internal::checked_pointer_cast<ParquetFileFragment>(fragment);
-  };
-
-  EXPECT_TRUE(all_row_groups_fragment()->row_groups().empty());
-  CountRowsAndBatchesInScan(all_row_groups_fragment(), kTotalNumRows, kNumRowGroups);
-
-  CountRowsAndBatchesInScan(row_groups_fragment({}), 0, 0);
+  // empty selection is identical to selecting all row groups
+  EXPECT_TRUE(row_groups_fragment({})->row_groups().empty());
+  CountRowsAndBatchesInScan(row_groups_fragment({}), kTotalNumRows, kNumRowGroups);
 
   // individual selection selects a single row group
   for (int i = 0; i < kNumRowGroups; ++i) {

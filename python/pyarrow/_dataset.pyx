@@ -385,7 +385,8 @@ cdef class Fragment:
 
         typ = frombytes(sp.get().type_name())
         if typ == 'ipc':
-            # IpcFileFormat does not have a corresponding subclass for FileFragment
+            # IpcFileFormat does not have a corresponding subclass
+            # of FileFragment
             self = FileFragment.__new__(FileFragment)
         elif typ == 'parquet':
             self = ParquetFileFragment.__new__(ParquetFileFragment)
