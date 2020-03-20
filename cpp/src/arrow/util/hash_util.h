@@ -248,4 +248,3 @@ class HashUtil {
 };
 
 }  // namespace arrow
-

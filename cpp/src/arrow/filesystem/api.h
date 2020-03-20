@@ -22,4 +22,3 @@
 #include "arrow/filesystem/localfs.h"     // IWYU pragma: export
 #include "arrow/filesystem/mockfs.h"      // IWYU pragma: export
 #include "arrow/filesystem/s3fs.h"        // IWYU pragma: export
-

@@ -43,4 +43,3 @@ class GANDIVA_EXPORT RegexUtil {
 };
 
 }  // namespace gandiva
-

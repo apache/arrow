@@ -99,4 +99,3 @@ Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
 
 }  // namespace cuda
 }  // namespace arrow
-

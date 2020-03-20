@@ -240,4 +240,3 @@ class ARROW_EXPORT TrieBuilder {
 
 }  // namespace internal
 }  // namespace arrow
-

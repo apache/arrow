@@ -115,4 +115,3 @@ Status ReadArray(MemoryPool* pool, const rj::Value& json_obj, const Schema& sche
 }  // namespace internal
 }  // namespace ipc
 }  // namespace arrow
-

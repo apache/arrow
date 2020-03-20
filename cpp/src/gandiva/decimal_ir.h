@@ -186,4 +186,3 @@ class DecimalIR : public FunctionIRBuilder {
 };
 
 }  // namespace gandiva
-

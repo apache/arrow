@@ -177,4 +177,3 @@ Result<const uint8_t*> SkipUTF8BOM(const uint8_t* data, int64_t size);
 
 }  // namespace util
 }  // namespace arrow
-

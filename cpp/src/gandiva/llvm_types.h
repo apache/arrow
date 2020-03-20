@@ -128,4 +128,3 @@ class GANDIVA_EXPORT LLVMTypes {
 };
 
 }  // namespace gandiva
-

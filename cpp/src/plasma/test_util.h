@@ -44,4 +44,3 @@ ObjectID random_object_id() {
   } while (false);
 
 }  // namespace plasma
-

@@ -77,4 +77,3 @@ class GANDIVA_EXPORT BitMapAccumulator : public DexDefaultVisitor {
 };
 
 }  // namespace gandiva
-

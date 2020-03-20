@@ -43,4 +43,3 @@ static inline int64_t PaddedLength(int64_t nbytes, int32_t alignment = kArrowAli
 
 }  // namespace ipc
 }  // namespace arrow
-

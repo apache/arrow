@@ -57,4 +57,3 @@ class FilterHolder {
 };
 
 }  // namespace gandiva
-

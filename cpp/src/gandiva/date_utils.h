@@ -106,4 +106,3 @@ static inline bool ParseTimestamp(const char* buf, const char* format,
 
 }  // namespace internal
 }  // namespace gandiva
-

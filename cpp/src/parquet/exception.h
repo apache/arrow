@@ -133,4 +133,3 @@ void ThrowNotOk(StatusReturnBlock&& b) {
 }
 
 }  // namespace parquet
-

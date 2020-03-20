@@ -462,4 +462,3 @@ Status TupleRangeFromTable(const Table& table, const compute::CastOptions& cast_
 
 }  // namespace stl
 }  // namespace arrow
-

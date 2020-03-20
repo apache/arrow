@@ -3862,4 +3862,3 @@ inline int unpack32(const uint32_t* in, uint32_t* out, int batch_size, int num_b
 
 }  // namespace internal
 }  // namespace arrow
-

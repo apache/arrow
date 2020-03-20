@@ -418,4 +418,3 @@ inline bool BitReader::GetZigZagVlqInt(int32_t* v) {
 
 }  // namespace BitUtil
 }  // namespace arrow
-

@@ -41,4 +41,3 @@ bool SharedPtrEquals(const std::shared_ptr<T>& left, const std::shared_ptr<T>& r
 
 }  // namespace internal
 }  // namespace arrow
-

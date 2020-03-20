@@ -305,4 +305,3 @@ static inline PyObject* cpp_PyObject_CallMethod(PyObject* obj, const char* metho
 
 }  // namespace py
 }  // namespace arrow
-

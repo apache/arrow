@@ -34,4 +34,3 @@ void Benchmark_PandasObjectIsNull(PyObject* list);
 }  // namespace benchmark
 }  // namespace py
 }  // namespace arrow
-

@@ -57,4 +57,3 @@ class GANDIVA_EXPORT LikeHolder : public FunctionHolder {
 };
 
 }  // namespace gandiva
-

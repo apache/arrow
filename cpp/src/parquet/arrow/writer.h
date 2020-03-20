@@ -105,4 +105,3 @@ WriteTable(const ::arrow::Table& table, MemoryPool* pool,
 
 }  // namespace arrow
 }  // namespace parquet
-

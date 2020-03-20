@@ -145,4 +145,3 @@ class ARROW_EXPORT ScalarVisitor {
 };
 
 }  // namespace arrow
-

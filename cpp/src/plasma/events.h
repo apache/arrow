@@ -106,4 +106,3 @@ class EventLoop {
 };
 
 }  // namespace plasma
-

@@ -46,4 +46,3 @@ class ARROW_EXPORT SnappyCodec : public Codec {
 
 }  // namespace util
 }  // namespace arrow
-

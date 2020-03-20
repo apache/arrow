@@ -249,4 +249,3 @@ Status SendRefreshLRUReply(int sock);
 Status ReadRefreshLRUReply(const uint8_t* data, size_t size);
 
 }  // namespace plasma
-

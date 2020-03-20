@@ -62,4 +62,3 @@ static inline bool is_decimal_128(DataTypePtr type) {
   }
 }
 }  // namespace gandiva
-

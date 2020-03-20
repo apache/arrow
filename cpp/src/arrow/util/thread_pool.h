@@ -188,4 +188,3 @@ ARROW_EXPORT ThreadPool* GetCpuThreadPool();
 
 }  // namespace internal
 }  // namespace arrow
-

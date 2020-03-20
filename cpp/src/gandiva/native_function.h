@@ -78,4 +78,3 @@ class GANDIVA_EXPORT NativeFunction {
 };
 
 }  // end namespace gandiva
-

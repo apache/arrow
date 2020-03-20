@@ -106,4 +106,3 @@ using SelectionVectorInt64 =
     SelectionVectorImpl<uint64_t, arrow::UInt64Type, SelectionVector::MODE_UINT64>;
 
 }  // namespace gandiva
-

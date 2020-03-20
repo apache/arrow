@@ -23,4 +23,3 @@
 #include "parquet/exception.h"
 #include "parquet/file_writer.h"
 #include "parquet/statistics.h"
-

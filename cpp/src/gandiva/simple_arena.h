@@ -158,4 +158,3 @@ inline void SimpleArena::ReleaseChunks(bool retain_first) {
 }
 
 }  // namespace gandiva
-

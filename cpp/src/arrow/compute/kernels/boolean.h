@@ -103,4 +103,3 @@ Status Xor(FunctionContext* context, const Datum& left, const Datum& right, Datu
 
 }  // namespace compute
 }  // namespace arrow
-

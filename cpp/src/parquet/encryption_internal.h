@@ -112,4 +112,3 @@ void RandBytes(unsigned char* buf, int num);
 
 }  // namespace encryption
 }  // namespace parquet
-

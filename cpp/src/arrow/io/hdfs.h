@@ -255,4 +255,3 @@ Status ARROW_EXPORT HaveLibHdfs();
 
 }  // namespace io
 }  // namespace arrow
-

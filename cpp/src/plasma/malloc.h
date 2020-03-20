@@ -49,4 +49,3 @@ struct MmapRecord {
 extern std::unordered_map<void*, MmapRecord> mmap_records;
 
 }  // namespace plasma
-

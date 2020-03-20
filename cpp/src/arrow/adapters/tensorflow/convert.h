@@ -153,4 +153,3 @@ Status GetTensorFlowType(std::shared_ptr<DataType> dtype, ::tensorflow::DataType
 }  // namespace adapters
 
 }  // namespace arrow
-

@@ -220,4 +220,3 @@ Status ARROW_EXPORT ConnectLibHdfs(LibHdfsShim** driver);
 }  // namespace internal
 }  // namespace io
 }  // namespace arrow
-

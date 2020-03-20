@@ -118,4 +118,3 @@ TensorToSparseCSFTensor(const std::shared_ptr<Tensor>& tensor,
 
 }  // namespace py
 }  // namespace arrow
-

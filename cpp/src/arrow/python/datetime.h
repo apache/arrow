@@ -148,4 +148,3 @@ inline int64_t PyDelta_to_ns(PyDateTime_Delta* pytimedelta) {
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow
-

@@ -30,4 +30,3 @@ typedef __darwin_mach_port_t mach_port_t;
 mach_port_t pthread_mach_thread_np(pthread_t);
 #endif /* _MACH_PORT_T */
 #endif /* __APPLE__ */
-

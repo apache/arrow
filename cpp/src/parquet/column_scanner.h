@@ -260,4 +260,3 @@ int64_t PARQUET_EXPORT ScanAllValues(int32_t batch_size, int16_t* def_levels,
                                      parquet::ColumnReader* reader);
 
 }  // namespace parquet
-

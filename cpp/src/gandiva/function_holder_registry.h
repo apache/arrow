@@ -71,4 +71,3 @@ class FunctionHolderRegistry {
 };
 
 }  // namespace gandiva
-

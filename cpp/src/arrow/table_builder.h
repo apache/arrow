@@ -108,4 +108,3 @@ class ARROW_EXPORT RecordBatchBuilder {
 };
 
 }  // namespace arrow
-

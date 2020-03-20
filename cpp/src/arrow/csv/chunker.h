@@ -34,4 +34,3 @@ std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options);
 
 }  // namespace csv
 }  // namespace arrow
-

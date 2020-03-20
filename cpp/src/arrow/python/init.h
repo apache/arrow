@@ -24,4 +24,3 @@ extern "C" {
 ARROW_PYTHON_EXPORT
 int arrow_init_numpy();
 }
-

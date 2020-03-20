@@ -114,4 +114,3 @@ UpcastInt(Integer v) {
 
 }  // namespace internal
 }  // namespace arrow
-

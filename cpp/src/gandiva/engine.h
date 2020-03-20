@@ -102,4 +102,3 @@ class GANDIVA_EXPORT Engine {
 };
 
 }  // namespace gandiva
-

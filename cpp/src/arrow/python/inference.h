@@ -68,4 +68,3 @@ bool IsPyFloat(PyObject* obj);
 
 }  // namespace py
 }  // namespace arrow
-

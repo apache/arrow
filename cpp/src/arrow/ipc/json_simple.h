@@ -51,4 +51,3 @@ Status ArrayFromJSON(const std::shared_ptr<DataType>&, const char* json,
 }  // namespace internal
 }  // namespace ipc
 }  // namespace arrow
-

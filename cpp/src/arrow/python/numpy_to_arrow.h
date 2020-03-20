@@ -70,4 +70,3 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pa
 
 }  // namespace py
 }  // namespace arrow
-

@@ -112,4 +112,3 @@ bool ARROW_EXPORT TypeEquals(const DataType& left, const DataType& right,
 bool ARROW_EXPORT ScalarEquals(const Scalar& left, const Scalar& right);
 
 }  // namespace arrow
-

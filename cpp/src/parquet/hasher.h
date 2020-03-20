@@ -70,4 +70,3 @@ class Hasher {
 };
 
 }  // namespace parquet
-

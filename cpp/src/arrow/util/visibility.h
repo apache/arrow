@@ -43,4 +43,3 @@
 #define ARROW_FORCE_INLINE
 #endif
 #endif  // Non-Windows
-

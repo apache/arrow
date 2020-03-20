@@ -99,4 +99,3 @@ static inline std::shared_ptr<Configuration> TestConfiguration() {
 }
 
 }  // namespace gandiva
-

@@ -33,4 +33,3 @@ using LiteralHolder =
 std::string ToString(const LiteralHolder& holder);
 
 }  // namespace gandiva
-

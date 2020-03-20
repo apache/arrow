@@ -161,4 +161,3 @@ struct PARQUET_EXPORT SchemaManifest {
 
 }  // namespace arrow
 }  // namespace parquet
-

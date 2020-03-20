@@ -21,4 +21,3 @@
 #include "arrow/gpu/cuda_context.h"
 #include "arrow/gpu/cuda_memory.h"
 #include "arrow/gpu/cuda_version.h"
-

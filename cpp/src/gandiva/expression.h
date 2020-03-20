@@ -44,4 +44,3 @@ class GANDIVA_EXPORT Expression {
 };
 
 }  // namespace gandiva
-

@@ -134,4 +134,3 @@ Status TimedEvaluate(SchemaPtr schema, BaseEvaluator& evaluator,
 }
 
 }  // namespace gandiva
-

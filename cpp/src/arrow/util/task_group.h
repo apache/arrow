@@ -86,4 +86,3 @@ class ARROW_EXPORT TaskGroup : public std::enable_shared_from_this<TaskGroup> {
 
 }  // namespace internal
 }  // namespace arrow
-

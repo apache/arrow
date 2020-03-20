@@ -153,4 +153,3 @@ struct hash<::plasma::UniqueID> {
   size_t operator()(const ::plasma::UniqueID& id) const { return id.hash(); }
 };
 }  // namespace std
-

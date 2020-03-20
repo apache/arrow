@@ -128,4 +128,3 @@ class TestBuilder : public ::testing::Test {
 };
 
 }  // namespace arrow
-

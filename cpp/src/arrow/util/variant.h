@@ -31,4 +31,3 @@ using ::mpark::visit;
 
 }  // namespace util
 }  // namespace arrow
-

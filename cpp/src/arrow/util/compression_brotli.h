@@ -56,4 +56,3 @@ class ARROW_EXPORT BrotliCodec : public Codec {
 
 }  // namespace util
 }  // namespace arrow
-

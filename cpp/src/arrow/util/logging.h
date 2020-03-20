@@ -248,4 +248,3 @@ class NullLog {
 }  // namespace arrow
 
 #endif  // GANDIVA_IR
-

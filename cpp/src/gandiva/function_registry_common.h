@@ -227,4 +227,3 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
   NUMERIC_BOOL_DATE_TYPES(INNER, NAME, ALIASES), VAR_LEN_TYPES(INNER, NAME, ALIASES)
 
 }  // namespace gandiva
-

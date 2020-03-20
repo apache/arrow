@@ -65,4 +65,3 @@ int AcceptClient(int socket_fd);
 std::unique_ptr<uint8_t[]> ReadMessageAsync(int sock);
 
 }  // namespace plasma
-

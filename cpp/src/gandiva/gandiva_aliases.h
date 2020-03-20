@@ -60,4 +60,3 @@ using FuncSignaturePtr = std::shared_ptr<FunctionSignature>;
 using FuncSignatureVector = std::vector<FuncSignaturePtr>;
 
 }  // namespace gandiva
-

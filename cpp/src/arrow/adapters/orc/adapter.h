@@ -147,4 +147,3 @@ class ARROW_EXPORT ORCFileReader {
 }  // namespace adapters
 
 }  // namespace arrow
-

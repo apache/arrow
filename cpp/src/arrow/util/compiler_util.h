@@ -20,4 +20,3 @@
 #pragma once
 
 #include "arrow/util/macros.h"
-

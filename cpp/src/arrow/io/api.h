@@ -23,4 +23,3 @@
 #include "arrow/io/hdfs.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
-

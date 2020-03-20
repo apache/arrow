@@ -244,4 +244,3 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
 };
 
 }  // namespace parquet
-

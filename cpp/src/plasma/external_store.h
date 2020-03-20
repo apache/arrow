@@ -118,4 +118,3 @@ class ExternalStores {
   store##Class singleton_##store = store##Class()
 
 }  // namespace plasma
-

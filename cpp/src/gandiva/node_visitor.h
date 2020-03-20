@@ -50,4 +50,3 @@ class GANDIVA_EXPORT NodeVisitor {
 };
 
 }  // namespace gandiva
-

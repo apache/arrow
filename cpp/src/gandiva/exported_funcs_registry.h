@@ -52,4 +52,3 @@ class ExportedFuncsRegistry {
       ExportedFuncsRegistry::Register(std::make_shared<classname>())
 
 }  // namespace gandiva
-

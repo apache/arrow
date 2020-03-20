@@ -86,4 +86,3 @@ class QuotaAwarePolicy : public EvictionPolicy {
 };
 
 }  // namespace plasma
-

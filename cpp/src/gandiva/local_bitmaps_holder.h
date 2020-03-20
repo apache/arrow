@@ -83,4 +83,3 @@ inline LocalBitMapsHolder::LocalBitMapsHolder(int64_t num_records, int num_local
 }
 
 }  // namespace gandiva
-

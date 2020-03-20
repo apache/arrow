@@ -388,4 +388,3 @@ class TypedBufferBuilder<bool> {
 };
 
 }  // namespace arrow
-

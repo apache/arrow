@@ -115,4 +115,3 @@ ARROW_PYTHON_EXPORT int check_status(const Status& status);
 }  // namespace arrow
 
 }  // extern "C++"
-

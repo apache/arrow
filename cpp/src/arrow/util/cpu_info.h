@@ -97,4 +97,3 @@ class ARROW_EXPORT CpuInfo {
 
 }  // namespace internal
 }  // namespace arrow
-

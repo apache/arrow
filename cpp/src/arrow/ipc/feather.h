@@ -168,4 +168,3 @@ class ARROW_EXPORT TableWriter {
 }  // namespace feather
 }  // namespace ipc
 }  // namespace arrow
-

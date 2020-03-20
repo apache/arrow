@@ -44,4 +44,3 @@ class PARQUET_EXPORT ParquetFilePrinter {
 };
 
 }  // namespace parquet
-

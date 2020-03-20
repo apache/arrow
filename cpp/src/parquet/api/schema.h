@@ -19,4 +19,3 @@
 
 // Schemas
 #include "parquet/schema.h"
-

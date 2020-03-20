@@ -82,4 +82,3 @@ class ToStringOstreamable {
 
 }  // namespace util
 }  // namespace arrow
-

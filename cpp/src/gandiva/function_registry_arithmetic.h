@@ -25,4 +25,3 @@ namespace gandiva {
 std::vector<NativeFunction> GetArithmeticFunctionRegistry();
 
 }  // namespace gandiva
-

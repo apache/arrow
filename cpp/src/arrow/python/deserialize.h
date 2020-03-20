@@ -100,4 +100,3 @@ Status NdarrayFromBuffer(std::shared_ptr<Buffer> src, std::shared_ptr<Tensor>* o
 
 }  // namespace py
 }  // namespace arrow
-

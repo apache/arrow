@@ -248,4 +248,3 @@ class GANDIVA_EXPORT LLVMGenerator {
 };
 
 }  // namespace gandiva
-

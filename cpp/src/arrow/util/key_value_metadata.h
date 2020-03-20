@@ -82,4 +82,3 @@ std::shared_ptr<KeyValueMetadata> ARROW_EXPORT
 key_value_metadata(std::vector<std::string> keys, std::vector<std::string> values);
 
 }  // namespace arrow
-

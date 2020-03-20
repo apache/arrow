@@ -40,4 +40,3 @@
 
 /// \brief Top-level namespace for Apache Arrow C++ API
 namespace arrow {}
-

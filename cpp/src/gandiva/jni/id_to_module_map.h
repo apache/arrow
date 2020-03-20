@@ -64,4 +64,3 @@ class IdToModuleMap {
 };
 
 }  // namespace gandiva
-

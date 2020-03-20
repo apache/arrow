@@ -21,4 +21,3 @@
 
 // class references
 extern jclass configuration_builder_class_;
-

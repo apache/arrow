@@ -57,4 +57,3 @@ class ExportedDecimalFunctions : public ExportedFuncsBase {
 REGISTER_EXPORTED_FUNCS(ExportedDecimalFunctions);
 
 }  // namespace gandiva
-

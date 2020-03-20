@@ -744,4 +744,3 @@ inline void RleEncoder::Clear() {
 
 }  // namespace util
 }  // namespace arrow
-

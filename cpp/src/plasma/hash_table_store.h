@@ -48,4 +48,3 @@ class HashTableStore : public ExternalStore {
 };
 
 }  // namespace plasma
-

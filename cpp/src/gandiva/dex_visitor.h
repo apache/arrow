@@ -87,4 +87,3 @@ class GANDIVA_EXPORT DexDefaultVisitor : public DexVisitor {
 };
 
 }  // namespace gandiva
-

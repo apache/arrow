@@ -75,4 +75,3 @@ class GANDIVA_EXPORT DecimalLValue : public LValue {
 };
 
 }  // namespace gandiva
-

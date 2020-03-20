@@ -241,4 +241,3 @@ PARQUET_EXPORT
 StreamWriter& operator<<(StreamWriter&, EndRowGroupType);
 
 }  // namespace parquet
-

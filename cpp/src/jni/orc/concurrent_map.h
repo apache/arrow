@@ -75,4 +75,3 @@ class ConcurrentMap {
 
 }  // namespace jni
 }  // namespace arrow
-

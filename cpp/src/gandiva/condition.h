@@ -35,4 +35,3 @@ class Condition : public Expression {
 };
 
 }  // namespace gandiva
-

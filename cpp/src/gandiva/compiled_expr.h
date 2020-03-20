@@ -69,4 +69,3 @@ class CompiledExpr {
 };
 
 }  // namespace gandiva
-

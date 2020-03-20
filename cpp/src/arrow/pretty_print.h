@@ -110,4 +110,3 @@ ARROW_EXPORT
 Status DebugPrint(const Array& arr, int indent);
 
 }  // namespace arrow
-

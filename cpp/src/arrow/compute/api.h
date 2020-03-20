@@ -32,4 +32,3 @@
 #include "arrow/compute/kernels/sort_to_indices.h"  // IWYU pragma: export
 #include "arrow/compute/kernels/sum.h"              // IWYU pragma: export
 #include "arrow/compute/kernels/take.h"             // IWYU pragma: export
-

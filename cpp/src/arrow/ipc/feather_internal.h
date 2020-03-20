@@ -231,4 +231,3 @@ class ARROW_EXPORT ColumnBuilder {
 }  // namespace feather
 }  // namespace ipc
 }  // namespace arrow
-

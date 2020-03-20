@@ -32,4 +32,3 @@ class GANDIVA_EXPORT FunctionHolder {
 using FunctionHolderPtr = std::shared_ptr<FunctionHolder>;
 
 }  // namespace gandiva
-

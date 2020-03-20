@@ -139,4 +139,3 @@ void DebugPrint(PyObject* obj);
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow
-

@@ -130,4 +130,3 @@ class FastUtf8DataGenerator : public DataGenerator<std::string> {
 };
 
 }  // namespace gandiva
-

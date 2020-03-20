@@ -67,4 +67,3 @@ class ARROW_EXPORT GZipCodec : public Codec {
 
 }  // namespace util
 }  // namespace arrow
-

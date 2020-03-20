@@ -108,4 +108,3 @@ class ARROW_PYTHON_EXPORT DecimalMetadata {
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow
-

@@ -176,4 +176,3 @@ class ARROW_EXPORT BufferedInputStream
 
 }  // namespace io
 }  // namespace arrow
-

@@ -532,4 +532,3 @@ class StringConverter<TimestampType> {
 
 }  // namespace internal
 }  // namespace arrow
-

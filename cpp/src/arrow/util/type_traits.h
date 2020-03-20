@@ -43,4 +43,3 @@ struct is_null_pointer : std::is_same<std::nullptr_t, typename std::remove_cv<T>
 
 }  // namespace internal
 }  // namespace arrow
-

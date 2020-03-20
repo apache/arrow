@@ -55,4 +55,3 @@ class ARROW_EXPORT ZSTDCodec : public Codec {
 
 }  // namespace util
 }  // namespace arrow
-

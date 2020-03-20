@@ -100,4 +100,3 @@ Status DictionaryEncode(FunctionContext* context, const Datum& data, Datum* out)
 
 }  // namespace compute
 }  // namespace arrow
-

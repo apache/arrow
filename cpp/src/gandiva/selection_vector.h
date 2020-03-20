@@ -149,4 +149,3 @@ class GANDIVA_EXPORT SelectionVector {
 };
 
 }  // namespace gandiva
-

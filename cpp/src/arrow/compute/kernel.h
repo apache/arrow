@@ -285,4 +285,3 @@ static inline bool CollectionEquals(const std::vector<Datum>& left,
 
 }  // namespace compute
 }  // namespace arrow
-

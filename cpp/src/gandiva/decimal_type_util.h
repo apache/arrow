@@ -83,4 +83,3 @@ inline Decimal128TypePtr DecimalTypeUtil::MakeType(int32_t precision, int32_t sc
 }
 
 }  // namespace gandiva
-

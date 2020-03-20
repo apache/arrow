@@ -173,4 +173,3 @@ std::unique_ptr<uint8_t[]> CreatePlasmaNotificationBuffer(
     std::vector<flatbuf::ObjectInfoT>& object_info);
 
 }  // namespace plasma
-

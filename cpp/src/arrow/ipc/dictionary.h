@@ -101,4 +101,3 @@ Status CollectDictionaries(const RecordBatch& batch, DictionaryMemo* memo);
 
 }  // namespace ipc
 }  // namespace arrow
-

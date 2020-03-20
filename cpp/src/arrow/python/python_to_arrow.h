@@ -78,4 +78,3 @@ Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,
 
 }  // namespace py
 }  // namespace arrow
-

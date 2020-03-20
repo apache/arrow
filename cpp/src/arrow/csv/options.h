@@ -130,4 +130,3 @@ struct ARROW_EXPORT ReadOptions {
 
 }  // namespace csv
 }  // namespace arrow
-

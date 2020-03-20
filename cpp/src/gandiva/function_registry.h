@@ -45,4 +45,3 @@ class GANDIVA_EXPORT FunctionRegistry {
 };
 
 }  // namespace gandiva
-

@@ -174,4 +174,3 @@ Status jemalloc_set_decay_ms(int ms);
 ARROW_EXPORT Status mimalloc_memory_pool(MemoryPool** out);
 
 }  // namespace arrow
-

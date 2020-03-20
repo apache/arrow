@@ -54,4 +54,3 @@ class ARROW_EXPORT BZ2Codec : public Codec {
 
 }  // namespace util
 }  // namespace arrow
-

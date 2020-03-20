@@ -79,4 +79,3 @@ class GANDIVA_EXPORT Annotator {
 };
 
 }  // namespace gandiva
-

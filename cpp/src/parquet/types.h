@@ -709,4 +709,3 @@ int32_t DecimalSize(int32_t precision);
 
 }  // namespace internal
 }  // namespace parquet
-

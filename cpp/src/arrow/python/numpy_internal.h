@@ -180,4 +180,3 @@ static inline PyArray_Descr* GetSafeNumPyDtype(int type) {
 
 }  // namespace py
 }  // namespace arrow
-

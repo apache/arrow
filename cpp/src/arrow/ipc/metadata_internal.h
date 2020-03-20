@@ -191,4 +191,3 @@ static inline Result<std::shared_ptr<Buffer>> WriteFlatbufferBuilder(
 }  // namespace internal
 }  // namespace ipc
 }  // namespace arrow
-

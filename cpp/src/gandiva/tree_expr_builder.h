@@ -125,4 +125,3 @@ class GANDIVA_EXPORT TreeExprBuilder {
 };
 
 }  // namespace gandiva
-

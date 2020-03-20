@@ -103,4 +103,3 @@ struct DatumEqual<Type, enable_if_integer<Type>> {
 
 }  // namespace compute
 }  // namespace arrow
-

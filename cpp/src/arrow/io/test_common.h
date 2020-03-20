@@ -56,4 +56,3 @@ class ARROW_EXPORT MemoryMapFixture {
 
 }  // namespace io
 }  // namespace arrow
-

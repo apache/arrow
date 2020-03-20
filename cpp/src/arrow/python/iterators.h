@@ -152,4 +152,3 @@ inline Status VisitIterable(PyObject* obj, VisitorFunc&& func) {
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow
-

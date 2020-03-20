@@ -252,4 +252,3 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
 
 }  // namespace io
 }  // namespace arrow
-

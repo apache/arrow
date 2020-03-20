@@ -76,4 +76,3 @@ class ExprValidator : public NodeVisitor {
 };
 
 }  // namespace gandiva
-

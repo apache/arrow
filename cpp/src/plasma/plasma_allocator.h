@@ -59,4 +59,3 @@ class PlasmaAllocator {
 };
 
 }  // namespace plasma
-

@@ -55,4 +55,3 @@ class GANDIVA_EXPORT RandomGeneratorHolder : public FunctionHolder {
 };
 
 }  // namespace gandiva
-

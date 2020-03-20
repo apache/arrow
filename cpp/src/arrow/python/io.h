@@ -101,4 +101,3 @@ class ARROW_PYTHON_EXPORT PyForeignBuffer : public Buffer {
 
 }  // namespace py
 }  // namespace arrow
-

@@ -25,4 +25,3 @@ namespace gandiva {
 std::vector<NativeFunction> GetDateTimeFunctionRegistry();
 
 }  // namespace gandiva
-

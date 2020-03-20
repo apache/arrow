@@ -333,4 +333,3 @@ class InExprDex<std::string> : public InExprDexBase<std::string> {
 };
 
 }  // namespace gandiva
-

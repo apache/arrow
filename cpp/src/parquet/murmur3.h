@@ -52,4 +52,3 @@ class PARQUET_EXPORT MurmurHash3 : public Hasher {
 };
 
 }  // namespace parquet
-

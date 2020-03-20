@@ -307,4 +307,3 @@ class ARROW_EXPORT PlasmaClient {
 };
 
 }  // namespace plasma
-

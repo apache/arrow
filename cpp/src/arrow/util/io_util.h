@@ -346,4 +346,3 @@ Result<SignalHandler> SetSignalHandler(int signum, const SignalHandler& handler)
 
 }  // namespace internal
 }  // namespace arrow
-

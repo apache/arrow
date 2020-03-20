@@ -141,4 +141,3 @@ struct PythonType {
 }  // namespace py
 
 }  // namespace arrow
-

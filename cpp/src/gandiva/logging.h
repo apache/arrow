@@ -19,4 +19,3 @@
 
 // TODO : setup logging or use glog.
 #include <arrow/util/logging.h>
-

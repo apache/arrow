@@ -77,4 +77,3 @@ class ARROW_EXPORT FunctionContext {
 
 }  // namespace compute
 }  // namespace arrow
-

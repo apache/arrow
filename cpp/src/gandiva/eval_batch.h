@@ -105,4 +105,3 @@ class EvalBatch {
 };
 
 }  // namespace gandiva
-

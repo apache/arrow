@@ -28,4 +28,3 @@
 #include "arrow/python/numpy_to_arrow.h"
 #include "arrow/python/python_to_arrow.h"
 #include "arrow/python/serialize.h"
-

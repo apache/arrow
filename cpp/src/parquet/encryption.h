@@ -509,4 +509,3 @@ class PARQUET_EXPORT FileEncryptionProperties {
 };
 
 }  // namespace parquet
-

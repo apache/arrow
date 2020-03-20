@@ -80,4 +80,3 @@ class GANDIVA_EXPORT FunctionSignature {
 };
 
 }  // namespace gandiva
-

@@ -119,4 +119,3 @@ class GANDIVA_EXPORT ExprDecomposer : public NodeVisitor {
 };
 
 }  // namespace gandiva
-

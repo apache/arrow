@@ -227,4 +227,3 @@ class NumericTensor : public Tensor {
 };
 
 }  // namespace arrow
-

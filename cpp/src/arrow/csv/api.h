@@ -19,4 +19,3 @@
 
 #include "arrow/csv/options.h"
 #include "arrow/csv/reader.h"
-

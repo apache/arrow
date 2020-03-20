@@ -107,4 +107,3 @@ class InternalFileEncryptor {
 };
 
 }  // namespace parquet
-

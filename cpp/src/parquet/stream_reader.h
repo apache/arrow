@@ -297,4 +297,3 @@ PARQUET_EXPORT
 StreamReader& operator>>(StreamReader&, EndRowType);
 
 }  // namespace parquet
-

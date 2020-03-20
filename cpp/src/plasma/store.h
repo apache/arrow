@@ -245,4 +245,3 @@ class PlasmaStore {
 };
 
 }  // namespace plasma
-

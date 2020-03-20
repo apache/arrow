@@ -94,4 +94,3 @@ inline int fix_numpy_type_num(int type_num) {
 
 }  // namespace py
 }  // namespace arrow
-

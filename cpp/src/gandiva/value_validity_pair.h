@@ -46,4 +46,3 @@ class GANDIVA_EXPORT ValueValidityPair {
 };
 
 }  // namespace gandiva
-

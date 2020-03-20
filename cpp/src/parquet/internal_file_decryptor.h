@@ -119,4 +119,3 @@ class InternalFileDecryptor {
 };
 
 }  // namespace parquet
-

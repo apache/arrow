@@ -58,4 +58,3 @@ std::unique_ptr<T> checked_pointer_cast(std::unique_ptr<U> r) noexcept {
 
 }  // namespace internal
 }  // namespace arrow
-

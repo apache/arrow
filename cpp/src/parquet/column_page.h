@@ -168,4 +168,3 @@ class DictionaryPage : public Page {
 };
 
 }  // namespace parquet
-

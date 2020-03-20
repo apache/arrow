@@ -348,4 +348,3 @@ Status CreateSchemaResult(const std::shared_ptr<arrow::Schema>& schema,
 }  // namespace flight
 }  // namespace py
 }  // namespace arrow
-

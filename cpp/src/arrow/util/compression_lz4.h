@@ -47,4 +47,3 @@ class ARROW_EXPORT Lz4Codec : public Codec {
 
 }  // namespace util
 }  // namespace arrow
-

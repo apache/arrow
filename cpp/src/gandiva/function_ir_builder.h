@@ -59,4 +59,3 @@ class FunctionIRBuilder {
 };
 
 }  // namespace gandiva
-

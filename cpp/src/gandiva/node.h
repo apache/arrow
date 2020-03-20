@@ -253,4 +253,3 @@ class InExpressionNode : public Node {
 };
 
 }  // namespace gandiva
-

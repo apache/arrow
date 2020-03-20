@@ -129,4 +129,3 @@ class ARROW_EXPORT CompressedInputStream
 
 }  // namespace io
 }  // namespace arrow
-
