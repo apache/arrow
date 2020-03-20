@@ -37,15 +37,44 @@
 namespace arrow {
 namespace dataset {
 
-/// \brief SourceFactory provides a way to inspect/discover a Source's expected
-/// schema before materializing said Source.
+struct InspectOptions {
+  /// See `depth` property.
+  static constexpr int kInspectAllFragments = -1;
+
+  /// Indicate how many fragments' schema should be inspected. This limits the
+  /// number of fragment accessed to inquire their schemas, thus improving the
+  /// latency of the discovery process when dealing with a high number of fragment
+  /// and/or high latency file systems.
+  ///
+  /// The default value of `1` inspect the schema of the first fragment only,
+  /// in no particular order. If the dataset has a uniform schema for all fragments,
+  /// this default is the optimal value. In order to inspect all fragments, set
+  /// this option to `kInspectAllFragments`.
+  int depth = 1;
+
+  /// Indicate if the inspection process should also invoke the
+  /// PartitioningFactory::Inspect if the Dataset supports Partitioning.
+  bool with_partition_inspection = false;
+};
+
+struct FinishOptions {
+  std::shared_ptr<Schema> schema;
+
+  // Indicate if the factory should validate the schema with every schemas
+  // returned by InspectSchemas().
+  bool validate_schema = false;
+};
+
+/// \brief DatasetFactory provides a way to inspect/discover a Dataset's expected
+/// schema before materializing said Dataset.
 class ARROW_DS_EXPORT DatasetFactory {
  public:
   /// \brief Get the schemas of the Fragments and Partitioning.
-  virtual Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas() = 0;
+  virtual Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas(
+      InspectOptions options) = 0;
 
   /// \brief Get unified schema for the resulting Dataset.
-  virtual Result<std::shared_ptr<Schema>> Inspect();
+  Result<std::shared_ptr<Schema>> Inspect(InspectOptions options = {});
 
   /// \brief Create a Dataset with the given schema.
   virtual Result<std::shared_ptr<Dataset>> Finish(
@@ -82,10 +111,8 @@ class ARROW_DS_EXPORT UnionDatasetFactory : public DatasetFactory {
   }
 
   /// \brief Get the schemas of the Datasets.
-  Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas() override;
-
-  /// \brief Get unified schema for the resulting Dataset.
-  Result<std::shared_ptr<Schema>> Inspect() override;
+  Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas(
+      InspectOptions options) override;
 
   /// \brief Create a Dataset with the given schema.
   Result<std::shared_ptr<Dataset>> Finish(const std::shared_ptr<Schema>& schema) override;
@@ -131,7 +158,7 @@ struct FileSystemFactoryOptions {
   // in a serial and single threaded fashion. Disabling this feature will skip the
   // IO, but unsupported files may be present in the Dataset
   // (resulting in an error at scan time).
-  bool exclude_invalid_files = true;
+  bool exclude_invalid_files = false;
 
   // Files matching one of the following prefix will be ignored by the
   // discovery process. This is matched to the basename of a path.
@@ -180,7 +207,8 @@ class ARROW_DS_EXPORT FileSystemDatasetFactory : public DatasetFactory {
       std::shared_ptr<fs::FileSystem> filesystem, fs::FileSelector selector,
       std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options);
 
-  Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas() override;
+  Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas(
+      InspectOptions options) override;
 
   Result<std::shared_ptr<Dataset>> Finish(const std::shared_ptr<Schema>& schema) override;
 

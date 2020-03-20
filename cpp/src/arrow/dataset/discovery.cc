@@ -36,14 +36,19 @@ namespace dataset {
 
 DatasetFactory::DatasetFactory() : root_partition_(scalar(true)) {}
 
-Result<std::shared_ptr<Schema>> DatasetFactory::Inspect() {
-  ARROW_ASSIGN_OR_RAISE(auto schemas, InspectSchemas());
+Result<std::shared_ptr<Schema>> DatasetFactory::Inspect(InspectOptions options) {
+  ARROW_ASSIGN_OR_RAISE(auto schemas, InspectSchemas(std::move(options)));
 
   if (schemas.empty()) {
-    schemas.push_back(arrow::schema({}));
+    return arrow::schema({});
   }
 
   return UnifySchemas(schemas);
+}
+
+Result<std::shared_ptr<Dataset>> DatasetFactory::Finish() {
+  ARROW_ASSIGN_OR_RAISE(auto schema, Inspect());
+  return Finish(schema);
 }
 
 UnionDatasetFactory::UnionDatasetFactory(
@@ -62,25 +67,20 @@ Result<std::shared_ptr<DatasetFactory>> UnionDatasetFactory::Make(
       new UnionDatasetFactory(std::move(factories))};
 }
 
-Result<std::vector<std::shared_ptr<Schema>>> UnionDatasetFactory::InspectSchemas() {
+Result<std::vector<std::shared_ptr<Schema>>> UnionDatasetFactory::InspectSchemas(
+    InspectOptions options) {
   std::vector<std::shared_ptr<Schema>> schemas;
 
   for (const auto& child_factory : factories_) {
-    ARROW_ASSIGN_OR_RAISE(auto schema, child_factory->Inspect());
-    schemas.emplace_back(schema);
+    // Instead of applying options globally, apply it at each child factory.
+    // This will not respect `options.depth` exactly, but will respect the
+    // spirit of peeking the first fragments or all of them.
+    ARROW_ASSIGN_OR_RAISE(auto child_schemas, child_factory->InspectSchemas(options));
+    ARROW_ASSIGN_OR_RAISE(auto child_schema, UnifySchemas(child_schemas));
+    schemas.emplace_back(child_schema);
   }
 
   return schemas;
-}
-
-Result<std::shared_ptr<Schema>> UnionDatasetFactory::Inspect() {
-  ARROW_ASSIGN_OR_RAISE(auto schemas, InspectSchemas());
-
-  if (schemas.empty()) {
-    return arrow::schema({});
-  }
-
-  return UnifySchemas(schemas);
 }
 
 Result<std::shared_ptr<Dataset>> UnionDatasetFactory::Finish(
@@ -220,31 +220,33 @@ Result<std::shared_ptr<Schema>> FileSystemDatasetFactory::PartitionSchema() {
   return options_.partitioning.factory()->Inspect(paths);
 }
 
-Result<std::vector<std::shared_ptr<Schema>>> FileSystemDatasetFactory::InspectSchemas() {
+Result<std::vector<std::shared_ptr<Schema>>> FileSystemDatasetFactory::InspectSchemas(
+    InspectOptions options) {
   std::vector<std::shared_ptr<Schema>> schemas;
 
+  int depth = options.depth;
   for (const auto& f : forest_.infos()) {
     if (!f.IsFile()) continue;
+    if (options.depth >= 0 && depth-- == 0) break;
     FileSource src(f.path(), fs_.get());
     ARROW_ASSIGN_OR_RAISE(auto schema, format_->Inspect(src));
     schemas.push_back(schema);
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto partition_schema, PartitionSchema());
-  schemas.push_back(partition_schema);
+  // Inspecting the schema of a PartitioningFactory can be costly.
+  bool partition_requires_inspection = options_.partitioning.partitioning() == nullptr;
+  if (!partition_requires_inspection || options.with_partition_inspection) {
+    ARROW_ASSIGN_OR_RAISE(auto partition_schema, PartitionSchema());
+    schemas.push_back(partition_schema);
+  }
 
   return schemas;
-}
-
-Result<std::shared_ptr<Dataset>> DatasetFactory::Finish() {
-  ARROW_ASSIGN_OR_RAISE(auto schema, Inspect());
-  return Finish(schema);
 }
 
 Result<std::shared_ptr<Dataset>> FileSystemDatasetFactory::Finish(
     const std::shared_ptr<Schema>& schema) {
   // This validation can be costly, but better safe than sorry.
-  ARROW_ASSIGN_OR_RAISE(auto schemas, InspectSchemas());
+  ARROW_ASSIGN_OR_RAISE(auto schemas, InspectSchemas({}));
   for (const auto& s : schemas) {
     RETURN_NOT_OK(SchemaBuilder::AreCompatible({schema, s}));
   }
