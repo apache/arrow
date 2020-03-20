@@ -660,110 +660,6 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
 };
 
 // ------------------------------------------------------------------------
-// Converter for dictionary arrays
-
-class DictionaryConverter final : public ConcreteConverter<DictionaryConverter> {
- public:
-  explicit DictionaryConverter(const std::shared_ptr<DataType>& type) { type_ = type; }
-
-  struct FixedDictionaryBuilder : ArrayBuilder {
-    using ArrayBuilder::ArrayBuilder;
-
-    Status AppendNull() override { return index_builder_->AppendNull(); }
-
-    Status AppendNulls(int64_t length) override {
-      return index_builder_->AppendNulls(length);
-    }
-
-    Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
-      if (dictionary_ == nullptr) {
-        return Status::Invalid("dictionary was never supplied");
-      }
-
-      if (max_index_ >= dictionary_->length()) {
-        return Status::IndexError("An index was out of bounds: ", max_index_,
-                                  " cannot refer to an element of ",
-                                  dictionary_->ToString());
-      }
-
-      RETURN_NOT_OK(index_builder_->FinishInternal(out));
-      (*out)->type = type_;
-      (*out)->dictionary = dictionary_;
-
-      Reset();
-      return Status::OK();
-    }
-
-    void Reset() override {
-      index_builder_->Reset();
-      dictionary_ = nullptr;
-      max_index_ = 0;
-    }
-
-    std::shared_ptr<DataType> type() const override { return type_; }
-
-    void UpdateMax(const rj::Value& json_index) {
-      if (json_index.IsNull()) return;
-
-      auto index = json_index.GetInt64();
-      if (index > max_index_) max_index_ = index;
-    }
-
-    int64_t max_index_ = 0;
-    ArrayBuilder* index_builder_;
-    std::shared_ptr<DataType> type_;
-    std::shared_ptr<Array> dictionary_;
-  };
-
-  Status Init() override {
-    auto dictionary_type = checked_cast<const DictionaryType*>(type_.get());
-    RETURN_NOT_OK(GetConverter(dictionary_type->index_type(), &index_converter_));
-    RETURN_NOT_OK(GetConverter(dictionary_type->value_type(), &dictionary_converter_));
-
-    builder_.reset(new FixedDictionaryBuilder(default_memory_pool()));
-    builder_->index_builder_ = index_converter_->builder().get();
-    builder_->type_ = type_;
-
-    return Status::OK();
-  }
-
-  Status AppendNull() override { return builder_->AppendNull(); }
-
-  Status AppendValue(const rj::Value& json_obj) override {
-    if (json_obj.IsNull()) {
-      return AppendNull();
-    }
-
-    if (!json_obj.IsArray()) {
-      return JSONTypeError("array", json_obj.GetType());
-    }
-
-    if (json_obj.Size() != 1 && json_obj.Size() != 2) {
-      return Status::Invalid(
-          "Expected [index] or [index, dictionary], got array of size ", json_obj.Size());
-    }
-
-    RETURN_NOT_OK(index_converter_->AppendValue(json_obj[0]));
-    builder_->UpdateMax(json_obj[0]);
-
-    if (json_obj.Size() == 1) return Status::OK();
-
-    if (builder_->dictionary_ != nullptr) {
-      return Status::Invalid("dictionary was already specified");
-    }
-
-    RETURN_NOT_OK(dictionary_converter_->AppendValues(json_obj[1]));
-    return dictionary_converter_->Finish(&builder_->dictionary_);
-  }
-
-  std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
-
- private:
-  std::shared_ptr<FixedDictionaryBuilder> builder_;
-  std::shared_ptr<Converter> index_converter_, dictionary_converter_;
-};
-
-// ------------------------------------------------------------------------
 // Converter for union arrays
 
 class UnionConverter final : public ConcreteConverter<UnionConverter> {
@@ -901,7 +797,6 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL, DecimalConverter)
     SIMPLE_CONVERTER_CASE(Type::UNION, UnionConverter)
-    SIMPLE_CONVERTER_CASE(Type::DICTIONARY, DictionaryConverter)
     case Type::INTERVAL: {
       switch (checked_cast<const IntervalType&>(*type).interval_type()) {
         case IntervalType::MONTHS:
@@ -926,8 +821,8 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
   return Status::OK();
 }
 
-Status ArrayFromJSON(const std::shared_ptr<DataType>& type,
-                     const util::string_view& json_string, std::shared_ptr<Array>* out) {
+Status ArrayFromJSON(const std::shared_ptr<DataType>& type, util::string_view json_string,
+                     std::shared_ptr<Array>* out) {
   std::shared_ptr<Converter> converter;
   RETURN_NOT_OK(GetConverter(type, &converter));
 
@@ -951,6 +846,24 @@ Status ArrayFromJSON(const std::shared_ptr<DataType>& type,
 Status ArrayFromJSON(const std::shared_ptr<DataType>& type, const char* json_string,
                      std::shared_ptr<Array>* out) {
   return ArrayFromJSON(type, util::string_view(json_string), out);
+}
+
+Status DictArrayFromJSON(const std::shared_ptr<DataType>& type,
+                         util::string_view indices_json,
+                         util::string_view dictionary_json, std::shared_ptr<Array>* out) {
+  if (type->id() != Type::DICTIONARY) {
+    return Status::TypeError("DictArrayFromJSON requires dictionary type, got ", *type);
+  }
+
+  const auto& dictionary_type = checked_cast<const DictionaryType&>(*type);
+
+  std::shared_ptr<Array> indices, dictionary;
+  RETURN_NOT_OK(ArrayFromJSON(dictionary_type.index_type(), indices_json, &indices));
+  RETURN_NOT_OK(
+      ArrayFromJSON(dictionary_type.value_type(), dictionary_json, &dictionary));
+
+  return DictionaryArray::FromArrays(type, std::move(indices), std::move(dictionary),
+                                     out);
 }
 
 }  // namespace json

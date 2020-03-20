@@ -218,6 +218,15 @@ std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
   return out;
 }
 
+std::shared_ptr<Array> DictArrayFromJSON(const std::shared_ptr<DataType>& type,
+                                         util::string_view indices_json,
+                                         util::string_view dictionary_json) {
+  std::shared_ptr<Array> out;
+  ABORT_NOT_OK(
+      ipc::internal::json::DictArrayFromJSON(type, indices_json, dictionary_json, &out));
+  return out;
+}
+
 std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
                                                    const std::vector<std::string>& json) {
   ArrayVector out_chunks;

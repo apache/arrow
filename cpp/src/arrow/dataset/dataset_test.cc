@@ -673,9 +673,7 @@ TEST(TestDictPartitionColumn, SelectPartitionColumnFilterPhysicalColumn) {
   ASSERT_OK_AND_ASSIGN(auto scanner, scan_builder->Finish());
   ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
   AssertArraysEqual(*table->column(0)->chunk(0),
-                    *ArrayFromJSON(partition_field->type(), R"([
-    [0, ["one"]]
-  ])"));
+                    *DictArrayFromJSON(partition_field->type(), "[0]", "[\"one\"]"));
 }
 
 }  // namespace dataset
