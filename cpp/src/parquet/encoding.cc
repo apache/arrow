@@ -28,6 +28,7 @@
 #include "arrow/array.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/byte_stream_split.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
@@ -2310,7 +2311,7 @@ class ByteStreamSplitDecoder : public DecoderImpl, virtual public TypedDecoder<D
   void SetData(int num_values, const uint8_t* data, int len) override;
 
  private:
-  int num_values_in_buffer{0U};
+  int num_values_in_buffer_{0};
 
   static constexpr size_t kNumStreams = sizeof(T);
 };
@@ -2323,21 +2324,22 @@ template <typename DType>
 void ByteStreamSplitDecoder<DType>::SetData(int num_values, const uint8_t* data,
                                             int len) {
   DecoderImpl::SetData(num_values, data, len);
-  num_values_in_buffer = num_values;
+  num_values_in_buffer_ = num_values;
 }
 
 template <typename DType>
 int ByteStreamSplitDecoder<DType>::Decode(T* buffer, int max_values) {
   const int values_to_decode = std::min(num_values_, max_values);
-  const int num_decoded_previously = num_values_in_buffer - num_values_;
-  for (int i = 0; i < values_to_decode; ++i) {
-    uint8_t gathered_byte_data[kNumStreams];
-    for (size_t b = 0; b < kNumStreams; ++b) {
-      const size_t byte_index = b * num_values_in_buffer + num_decoded_previously + i;
-      gathered_byte_data[b] = data_[byte_index];
-    }
-    buffer[i] = arrow::util::SafeLoadAs<T>(&gathered_byte_data[0]);
-  }
+  const int num_decoded_previously = num_values_in_buffer_ - num_values_;
+  const uint8_t* data = data_ + num_decoded_previously;
+
+#if defined(ARROW_HAVE_SSE2)
+  arrow::util::internal::ByteStreamSlitDecodeSSE2<T>(data, values_to_decode,
+                                                     num_values_in_buffer_, buffer);
+#else
+  arrow::util::internal::ByteStreamSlitDecodeScalar<T>(data, values_to_decode,
+                                                       num_values_in_buffer_, buffer);
+#endif
   num_values_ -= values_to_decode;
   len_ -= sizeof(T) * values_to_decode;
   return values_to_decode;
@@ -2355,16 +2357,16 @@ int ByteStreamSplitDecoder<DType>::DecodeArrow(
 
   PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
-  const int num_decoded_previously = num_values_in_buffer - num_values_;
+  const int num_decoded_previously = num_values_in_buffer_ - num_values_;
+  const uint8_t* data = data_ + num_decoded_previously;
   int offset = 0;
 
   auto decode_value = [&](bool is_valid) {
     if (is_valid) {
       uint8_t gathered_byte_data[kNumStreams];
       for (size_t b = 0; b < kNumStreams; ++b) {
-        const size_t byte_index =
-            b * num_values_in_buffer + num_decoded_previously + offset;
-        gathered_byte_data[b] = data_[byte_index];
+        const size_t byte_index = b * num_values_in_buffer_ + offset;
+        gathered_byte_data[b] = data[byte_index];
       }
       builder->UnsafeAppend(arrow::util::SafeLoadAs<T>(&gathered_byte_data[0]));
       ++offset;

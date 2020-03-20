@@ -1090,7 +1090,22 @@ typedef ::testing::Types<FloatType, DoubleType> ByteStreamSplitTypes;
 TYPED_TEST_SUITE(TestByteStreamSplitEncoding, ByteStreamSplitTypes);
 
 TYPED_TEST(TestByteStreamSplitEncoding, BasicRoundTrip) {
-  ASSERT_NO_FATAL_FAILURE(this->Execute(1000, 1));
+  // We need to test with different sizes to guarantee that the SIMD implementation
+  // can handle both inputs with size divisible by 4/8 and sizes which would
+  // require a scalar loop for the suffix.
+
+  // Exercise only the scalar loop.
+  ASSERT_NO_FATAL_FAILURE(this->Execute(3, 1));
+
+  // Exercise only the SIMD loop.
+  ASSERT_NO_FATAL_FAILURE(this->Execute(256, 1));
+
+  // Exercise both.
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1337, 1));
+
+  for (int values = 0; values < 32; ++values) {
+    ASSERT_NO_FATAL_FAILURE(this->Execute(values, 1));
+  }
 }
 
 TYPED_TEST(TestByteStreamSplitEncoding, RoundTripSingleElement) {
