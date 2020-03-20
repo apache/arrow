@@ -264,14 +264,6 @@ struct IpcPayload {
   int64_t body_length = 0;
 };
 
-// To allow overriding serialization behaviors
-class ARROW_EXPORT IpcSerializer {
- public:
-  virtual ~IpcSerializer();
-
-  virtual Status Serialize(const RecordBatch& batch, IpcPayload* out) = 0;
-};
-
 class ARROW_EXPORT IpcPayloadWriter {
  public:
   virtual ~IpcPayloadWriter();
