@@ -126,8 +126,8 @@ cdef class S3FileSystem(FileSystem):
         cdef CS3Options opts = self.s3fs.options()
         return (
             S3FileSystem, (
-                None,  # frombytes(opts.access_key),
-                None,  # frombytes(opts.secret_key),
+                None,  # frombytes(opts.GetAccessKey()),
+                None,  # frombytes(opts.GetSecretKey()),
                 frombytes(opts.region),
                 frombytes(opts.scheme),
                 frombytes(opts.endpoint_override),

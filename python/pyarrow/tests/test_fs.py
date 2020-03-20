@@ -196,11 +196,37 @@ def test_cannot_instantiate_base_filesystem():
         FileSystem()
 
 
+def test_filesystem_equals():
+    fs0 = LocalFileSystem()
+    fs1 = LocalFileSystem()
+    fs2 = _MockFileSystem()
+
+    assert fs0.equals(fs0)
+    assert fs0.equals(fs1)
+    with pytest.raises(TypeError):
+        fs0.equals('string')
+    assert fs0 == fs0 == fs1
+    assert fs0 != 4
+
+    assert fs2 == fs2
+    assert fs2 != _MockFileSystem()
+
+    assert SubTreeFileSystem('/base', fs0) == SubTreeFileSystem('/base', fs0)
+    assert SubTreeFileSystem('/base', fs0) != SubTreeFileSystem('/base', fs2)
+    assert SubTreeFileSystem('/base', fs0) != SubTreeFileSystem('/other', fs0)
+
+
 def test_filesystem_pickling(fs):
     restored = pickle.loads(pickle.dumps(fs))
     assert isinstance(restored, FileSystem)
-    # TODO(kszucs): implement Equals
-    # assert restored == fs
+    # assert restored.equals(fs)
+
+
+# TODO(kszucs): test that the filesystem objects are functional after pickling
+#               especially S3 and HDFS
+# TODO(kszucs): convert hdfs options to kwargs
+# TODO(kszucs): create a fixture which returns the defined objects without
+#               any service integration, e.g. s3 without minio running
 
 
 def test_non_path_like_input_raises(fs):

@@ -168,6 +168,10 @@ class ARROW_EXPORT FileSystem {
   /// may allow normalizing irregular path forms (such as Windows local paths).
   virtual Result<std::string> NormalizePath(std::string path);
 
+  virtual bool Equals(const FileSystem& other) const { return this == &other; }
+
+  virtual bool Equals(std::shared_ptr<FileSystem> other) const { return Equals(*other); }
+
   /// Get info for the given target.
   ///
   /// Any symlink is automatically dereferenced, recursively.
@@ -262,6 +266,8 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
   std::shared_ptr<FileSystem> base_fs() const { return base_fs_; }
 
   Result<std::string> NormalizePath(std::string path) override;
+
+  bool Equals(const FileSystem& other) const override;
 
   /// \cond FALSE
   using FileSystem::GetFileInfo;

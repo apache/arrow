@@ -270,6 +270,15 @@ void HdfsOptions::ConfigureHdfsBlockSize(int64_t default_block_size) {
   this->default_block_size = default_block_size;
 }
 
+bool HdfsOptions::Equals(const HdfsOptions& other) const {
+  return (buffer_size == other.buffer_size && replication == other.replication &&
+          default_block_size == other.default_block_size &&
+          connection_config.host == other.connection_config.host &&
+          connection_config.port == other.connection_config.port &&
+          connection_config.kerb_ticket == other.connection_config.kerb_ticket &&
+          connection_config.extra_conf == other.connection_config.extra_conf);
+}
+
 Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
   HdfsOptions options;
 
@@ -315,7 +324,7 @@ Result<HdfsOptions> HdfsOptions::FromUri(const std::string& uri_string) {
 }
 
 HadoopFileSystem::HadoopFileSystem(const HdfsOptions& options)
-    : impl_(new Impl{options}) {}
+    : impl_(new Impl{options}), options_(options) {}
 
 HadoopFileSystem::~HadoopFileSystem() {}
 
@@ -328,6 +337,16 @@ Result<std::shared_ptr<HadoopFileSystem>> HadoopFileSystem::Make(
 
 Result<FileInfo> HadoopFileSystem::GetFileInfo(const std::string& path) {
   return impl_->GetFileInfo(path);
+}
+
+bool HadoopFileSystem::Equals(const FileSystem& other) const {
+  if (this == &other) {
+    return true;
+  }
+  if (other.type_name() != type_name()) {
+    return false;
+  }
+  return options_.Equals(static_cast<const HadoopFileSystem&>(other).options_);
 }
 
 Result<std::vector<FileInfo>> HadoopFileSystem::GetFileInfo(const FileSelector& select) {

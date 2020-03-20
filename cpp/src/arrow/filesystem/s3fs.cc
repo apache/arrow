@@ -168,6 +168,16 @@ void S3Options::ConfigureAccessKey(const std::string& access_key,
       ToAwsString(access_key), ToAwsString(secret_key));
 }
 
+std::string S3Options::GetAccessKey() const {
+  auto credentials = credentials_provider->GetAWSCredentials();
+  return std::string(FromAwsString(credentials.GetAWSAccessKeyId()));
+}
+
+std::string S3Options::GetSecretKey() const {
+  auto credentials = credentials_provider->GetAWSCredentials();
+  return std::string(FromAwsString(credentials.GetAWSSecretKey()));
+}
+
 S3Options S3Options::Defaults() {
   S3Options options;
   options.ConfigureDefaultCredentials();
@@ -238,6 +248,13 @@ Result<S3Options> S3Options::FromUri(const std::string& uri_string,
   Uri uri;
   RETURN_NOT_OK(uri.Parse(uri_string));
   return FromUri(uri, out_path);
+}
+
+bool S3Options::Equals(const S3Options& other) const {
+  return (region == other.region && endpoint_override == other.endpoint_override &&
+          scheme == other.scheme && background_writes == other.background_writes &&
+          GetAccessKey() == other.GetAccessKey() &&
+          GetSecretKey() == other.GetAccessKey());
 }
 
 namespace {
@@ -1188,6 +1205,16 @@ Result<std::shared_ptr<S3FileSystem>> S3FileSystem::Make(const S3Options& option
   std::shared_ptr<S3FileSystem> ptr(new S3FileSystem(options));
   RETURN_NOT_OK(ptr->impl_->Init());
   return ptr;
+}
+
+bool S3FileSystem::Equals(const FileSystem& other) const {
+  if (this == &other) {
+    return true;
+  }
+  if (other.type_name() != type_name()) {
+    return false;
+  }
+  return options_.Equals(static_cast<const S3FileSystem&>(other).options_);
 }
 
 Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {

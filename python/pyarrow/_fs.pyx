@@ -283,6 +283,15 @@ cdef class FileSystem:
     cdef inline shared_ptr[CFileSystem] unwrap(self) nogil:
         return self.wrapped
 
+    def equals(self, FileSystem other):
+        return self.fs.Equals(other.unwrap())
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
     def get_file_info(self, paths_or_selector):
         """
         Get info for the given files.

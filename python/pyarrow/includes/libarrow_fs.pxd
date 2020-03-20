@@ -79,6 +79,8 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
             const c_string& path)
         CResult[shared_ptr[COutputStream]] OpenAppendStream(
             const c_string& path)
+        c_bool Equals(const CFileSystem& other)
+        c_bool Equals(shared_ptr[CFileSystem] other)
 
     CResult[shared_ptr[CFileSystem]] CFileSystemFromUri \
         "arrow::fs::FileSystemFromUri"(const c_string& uri, c_string* out_path)
@@ -91,6 +93,8 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
         @staticmethod
         CLocalFileSystemOptions Defaults()
+
+        c_bool Equals(const CLocalFileSystemOptions& other)
 
     cdef cppclass CLocalFileSystem "arrow::fs::LocalFileSystem"(CFileSystem):
         CLocalFileSystem()
@@ -124,6 +128,9 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         void ConfigureDefaultCredentials()
         void ConfigureAccessKey(const c_string& access_key,
                                 const c_string& secret_key)
+        c_string GetAccessKey()
+        c_string GetSecretKey()
+        c_bool Equals(const CS3Options& other)
 
         @staticmethod
         CS3Options Defaults()

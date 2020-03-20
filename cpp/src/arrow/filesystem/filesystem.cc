@@ -151,6 +151,17 @@ Result<std::string> SubTreeFileSystem::NormalizeBasePath(
   return EnsureTrailingSlash(std::move(base_path));
 }
 
+bool SubTreeFileSystem::Equals(const FileSystem& other) const {
+  if (this == &other) {
+    return true;
+  }
+  if (other.type_name() != type_name()) {
+    return false;
+  }
+  const auto& subtreefs = static_cast<const SubTreeFileSystem&>(other);
+  return base_path_ == subtreefs.base_path_ && base_fs_->Equals(subtreefs.base_fs_);
+}
+
 std::string SubTreeFileSystem::PrependBase(const std::string& s) const {
   if (s.empty()) {
     return base_path_;
