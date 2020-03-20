@@ -677,8 +677,7 @@ class FieldToFlatbufferVisitor {
       type_ids.push_back(code);
     }
 
-    auto fb_type_ids =
-        fbb_.CreateVector(util::MakeNonNull(type_ids.data()), type_ids.size());
+    auto fb_type_ids = fbb_.CreateVector(type_ids.data(), type_ids.size());
 
     type_offset_ = flatbuf::CreateUnion(fbb_, mode, fb_type_ids).Union();
     return Status::OK();
@@ -701,8 +700,7 @@ class FieldToFlatbufferVisitor {
   Status GetResult(const std::shared_ptr<Field>& field, FieldOffset* offset) {
     auto fb_name = fbb_.CreateString(field->name());
     RETURN_NOT_OK(VisitType(*field->type()));
-    auto fb_children =
-        fbb_.CreateVector(util::MakeNonNull(children_.data()), children_.size());
+    auto fb_children = fbb_.CreateVector(children_.data(), children_.size());
 
     DictionaryOffset dictionary = 0;
     if (field->type()->id() == Type::DICTIONARY) {
@@ -855,7 +853,7 @@ static Status WriteFieldNodes(FBB& fbb, const std::vector<FieldMetadata>& nodes,
     }
     fb_nodes.emplace_back(node.length, node.null_count);
   }
-  *out = fbb.CreateVectorOfStructs(util::MakeNonNull(fb_nodes.data()), fb_nodes.size());
+  *out = fbb.CreateVectorOfStructs(fb_nodes.data(), fb_nodes.size());
   return Status::OK();
 }
 
@@ -868,8 +866,7 @@ static Status WriteBuffers(FBB& fbb, const std::vector<BufferMetadata>& buffers,
     const BufferMetadata& buffer = buffers[i];
     fb_buffers.emplace_back(buffer.offset, buffer.length);
   }
-  *out =
-      fbb.CreateVectorOfStructs(util::MakeNonNull(fb_buffers.data()), fb_buffers.size());
+  *out = fbb.CreateVectorOfStructs(fb_buffers.data(), fb_buffers.size());
 
   return Status::OK();
 }
@@ -900,9 +897,8 @@ Status MakeSparseTensorIndexCOO(FBB& fbb, const SparseCOOIndex& sparse_index,
   auto indices_type_offset =
       flatbuf::CreateInt(fbb, index_value_type.bit_width(), index_value_type.is_signed());
 
-  auto fb_strides =
-      fbb.CreateVector(util::MakeNonNull(sparse_index.indices()->strides().data()),
-                       sparse_index.indices()->strides().size());
+  auto fb_strides = fbb.CreateVector(sparse_index.indices()->strides().data(),
+                                     sparse_index.indices()->strides().size());
 
   const BufferMetadata& indices_metadata = buffers[0];
   flatbuf::Buffer indices(indices_metadata.offset, indices_metadata.length);
@@ -1072,11 +1068,10 @@ Result<std::shared_ptr<Buffer>> WriteTensorMessage(const Tensor& tensor,
     dims.push_back(flatbuf::CreateTensorDim(fbb, tensor.shape()[i], name));
   }
 
-  auto fb_shape = fbb.CreateVector(util::MakeNonNull(dims.data()), dims.size());
+  auto fb_shape = fbb.CreateVector(dims.data(), dims.size());
 
   flatbuffers::Offset<flatbuffers::Vector<int64_t>> fb_strides;
-  fb_strides = fbb.CreateVector(util::MakeNonNull(tensor.strides().data()),
-                                tensor.strides().size());
+  fb_strides = fbb.CreateVector(tensor.strides().data(), tensor.strides().size());
   int64_t body_length = tensor.size() * elem_size;
   flatbuf::Buffer buffer(buffer_start_offset, body_length);
 
@@ -1119,7 +1114,7 @@ FileBlocksToFlatbuffer(FBB& fbb, const std::vector<FileBlock>& blocks) {
     fb_blocks.emplace_back(block.offset, block.metadata_length, block.body_length);
   }
 
-  return fbb.CreateVectorOfStructs(util::MakeNonNull(fb_blocks.data()), fb_blocks.size());
+  return fbb.CreateVectorOfStructs(fb_blocks.data(), fb_blocks.size());
 }
 
 Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,

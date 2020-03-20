@@ -10,6 +10,7 @@ namespace plasma {
 namespace flatbuf {
 
 struct ObjectInfo;
+struct ObjectInfoBuilder;
 struct ObjectInfoT;
 
 struct ObjectInfoT : public flatbuffers::NativeTable {
@@ -34,6 +35,7 @@ struct ObjectInfoT : public flatbuffers::NativeTable {
 
 struct ObjectInfo FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef ObjectInfoT NativeTableType;
+  typedef ObjectInfoBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_ID = 4,
     VT_DATA_SIZE = 6,
@@ -88,6 +90,7 @@ struct ObjectInfo FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct ObjectInfoBuilder {
+  typedef ObjectInfo Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_object_id(flatbuffers::Offset<flatbuffers::String> object_id) {
@@ -175,22 +178,22 @@ inline flatbuffers::Offset<ObjectInfo> CreateObjectInfoDirect(
 flatbuffers::Offset<ObjectInfo> CreateObjectInfo(flatbuffers::FlatBufferBuilder &_fbb, const ObjectInfoT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
 inline ObjectInfoT *ObjectInfo::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new ObjectInfoT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::ObjectInfoT> _o = std::unique_ptr<plasma::flatbuf::ObjectInfoT>(new ObjectInfoT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void ObjectInfo::UnPackTo(ObjectInfoT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); };
-  { auto _e = data_size(); _o->data_size = _e; };
-  { auto _e = metadata_size(); _o->metadata_size = _e; };
-  { auto _e = ref_count(); _o->ref_count = _e; };
-  { auto _e = create_time(); _o->create_time = _e; };
-  { auto _e = construct_duration(); _o->construct_duration = _e; };
-  { auto _e = digest(); if (_e) _o->digest = _e->str(); };
-  { auto _e = is_deletion(); _o->is_deletion = _e; };
+  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); }
+  { auto _e = data_size(); _o->data_size = _e; }
+  { auto _e = metadata_size(); _o->metadata_size = _e; }
+  { auto _e = ref_count(); _o->ref_count = _e; }
+  { auto _e = create_time(); _o->create_time = _e; }
+  { auto _e = construct_duration(); _o->construct_duration = _e; }
+  { auto _e = digest(); if (_e) _o->digest = _e->str(); }
+  { auto _e = is_deletion(); _o->is_deletion = _e; }
 }
 
 inline flatbuffers::Offset<ObjectInfo> ObjectInfo::Pack(flatbuffers::FlatBufferBuilder &_fbb, const ObjectInfoT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
