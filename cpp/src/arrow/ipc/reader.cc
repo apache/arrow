@@ -285,6 +285,7 @@ class ArrayLoader {
       ++max_recursion_depth_;
       parent->child_data.emplace_back(field_array);
     }
+    out_ = parent;
     return Status::OK();
   }
 

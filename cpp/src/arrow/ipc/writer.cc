@@ -283,56 +283,6 @@ class RecordBatchSerializer {
     return Status::OK();
   }
 
-  template <typename ArrayType>
-  Status VisitBinary(const ArrayType& array) {
-    std::shared_ptr<Buffer> value_offsets;
-    RETURN_NOT_OK(GetZeroBasedValueOffsets<ArrayType>(array, &value_offsets));
-    auto data = array.value_data();
-
-    int64_t total_data_bytes = 0;
-    if (value_offsets) {
-      total_data_bytes = array.value_offset(array.length()) - array.value_offset(0);
-    }
-    if (NeedTruncate(array.offset(), data.get(), total_data_bytes)) {
-      // Slice the data buffer to include only the range we need now
-      const int64_t start_offset = array.value_offset(0);
-      const int64_t slice_length =
-          std::min(PaddedLength(total_data_bytes), data->size() - start_offset);
-      data = SliceBuffer(data, start_offset, slice_length);
-    }
-
-    out_->body_buffers.emplace_back(value_offsets);
-    out_->body_buffers.emplace_back(data);
-    return Status::OK();
-  }
-
-  template <typename ArrayType>
-  Status VisitList(const ArrayType& array) {
-    using offset_type = typename ArrayType::offset_type;
-
-    std::shared_ptr<Buffer> value_offsets;
-    RETURN_NOT_OK(GetZeroBasedValueOffsets<ArrayType>(array, &value_offsets));
-    out_->body_buffers.emplace_back(value_offsets);
-
-    --max_recursion_depth_;
-    std::shared_ptr<Array> values = array.values();
-
-    offset_type values_offset = 0;
-    offset_type values_length = 0;
-    if (value_offsets) {
-      values_offset = array.value_offset(0);
-      values_length = array.value_offset(array.length()) - values_offset;
-    }
-
-    if (array.offset() != 0 || values_length < values->length()) {
-      // Must also slice the values
-      values = values->Slice(values_offset, values_length);
-    }
-    RETURN_NOT_OK(VisitArray(*values));
-    ++max_recursion_depth_;
-    return Status::OK();
-  }
-
   Status Visit(const BooleanArray& array) {
     std::shared_ptr<Buffer> data;
     RETURN_NOT_OK(GetTruncatedBitmap(array.offset(), array.length(), array.values(),
@@ -371,12 +321,52 @@ class RecordBatchSerializer {
 
   template <typename T>
   enable_if_base_binary<typename T::TypeClass, Status> Visit(const T& array) {
-    return VisitBinary(array);
+    std::shared_ptr<Buffer> value_offsets;
+    RETURN_NOT_OK(GetZeroBasedValueOffsets<T>(array, &value_offsets));
+    auto data = array.value_data();
+
+    int64_t total_data_bytes = 0;
+    if (value_offsets) {
+      total_data_bytes = array.value_offset(array.length()) - array.value_offset(0);
+    }
+    if (NeedTruncate(array.offset(), data.get(), total_data_bytes)) {
+      // Slice the data buffer to include only the range we need now
+      const int64_t start_offset = array.value_offset(0);
+      const int64_t slice_length =
+          std::min(PaddedLength(total_data_bytes), data->size() - start_offset);
+      data = SliceBuffer(data, start_offset, slice_length);
+    }
+
+    out_->body_buffers.emplace_back(value_offsets);
+    out_->body_buffers.emplace_back(data);
+    return Status::OK();
   }
 
   template <typename T>
   enable_if_base_list<typename T::TypeClass, Status> Visit(const T& array) {
-    return VisitList(array);
+    using offset_type = typename T::offset_type;
+
+    std::shared_ptr<Buffer> value_offsets;
+    RETURN_NOT_OK(GetZeroBasedValueOffsets<T>(array, &value_offsets));
+    out_->body_buffers.emplace_back(value_offsets);
+
+    --max_recursion_depth_;
+    std::shared_ptr<Array> values = array.values();
+
+    offset_type values_offset = 0;
+    offset_type values_length = 0;
+    if (value_offsets) {
+      values_offset = array.value_offset(0);
+      values_length = array.value_offset(array.length()) - values_offset;
+    }
+
+    if (array.offset() != 0 || values_length < values->length()) {
+      // Must also slice the values
+      values = values->Slice(values_offset, values_length);
+    }
+    RETURN_NOT_OK(VisitArray(*values));
+    ++max_recursion_depth_;
+    return Status::OK();
   }
 
   Status Visit(const FixedSizeListArray& array) {

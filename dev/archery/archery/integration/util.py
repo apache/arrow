@@ -131,7 +131,7 @@ def run_cmd(cmd):
     except subprocess.CalledProcessError as e:
         # this avoids hiding the stdout / stderr of failed processes
         sio = io.StringIO()
-        print('Command failed:', cmd, file=sio)
+        print('Command failed:', " ".join(cmd), file=sio)
         print('With output:', file=sio)
         print('--------------', file=sio)
         print(frombytes(e.output), file=sio)
