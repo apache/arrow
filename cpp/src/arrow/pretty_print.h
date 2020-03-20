@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PRETTY_PRINT_H
-#define ARROW_PRETTY_PRINT_H
+#pragma once
 
 #include <iosfwd>
 #include <string>
@@ -112,4 +111,3 @@ Status DebugPrint(const Array& arr, int indent);
 
 }  // namespace arrow
 
-#endif  // ARROW_PRETTY_PRINT_H

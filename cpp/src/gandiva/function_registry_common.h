@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_FUNCTION_REGISTRY_COMMON_H
-#define GANDIVA_FUNCTION_REGISTRY_COMMON_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -229,4 +228,3 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
 
 }  // namespace gandiva
 
-#endif

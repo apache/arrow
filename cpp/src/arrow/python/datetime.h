@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_UTIL_DATETIME_H
-#define PYARROW_UTIL_DATETIME_H
+#pragma once
 
 #include <algorithm>
 #include <chrono>
@@ -150,4 +149,3 @@ inline int64_t PyDelta_to_ns(PyDateTime_Delta* pytimedelta) {
 }  // namespace py
 }  // namespace arrow
 
-#endif  // PYARROW_UTIL_DATETIME_H

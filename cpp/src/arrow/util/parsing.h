@@ -17,8 +17,7 @@
 
 // This is a private header for string-to-number parsing utilities
 
-#ifndef ARROW_UTIL_PARSING_H
-#define ARROW_UTIL_PARSING_H
+#pragma once
 
 #include <cassert>
 #include <chrono>
@@ -534,4 +533,3 @@ class StringConverter<TimestampType> {
 }  // namespace internal
 }  // namespace arrow
 
-#endif  // ARROW_UTIL_PARSING_H

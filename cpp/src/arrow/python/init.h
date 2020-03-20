@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_INIT_H
-#define ARROW_PYTHON_INIT_H
+#pragma once
 
 #include "arrow/python/platform.h"
 #include "arrow/python/visibility.h"
@@ -26,4 +25,3 @@ ARROW_PYTHON_EXPORT
 int arrow_init_numpy();
 }
 
-#endif  // ARROW_PYTHON_INIT_H

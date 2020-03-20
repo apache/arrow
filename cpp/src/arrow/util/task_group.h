@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_TASK_GROUP_H
-#define ARROW_UTIL_TASK_GROUP_H
+#pragma once
 
 #include <functional>
 #include <memory>
@@ -88,4 +87,3 @@ class ARROW_EXPORT TaskGroup : public std::enable_shared_from_this<TaskGroup> {
 }  // namespace internal
 }  // namespace arrow
 
-#endif  // ARROW_UTIL_TASK_GROUP_H

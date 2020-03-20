@@ -17,9 +17,7 @@
 
 // Deprecated header, here for backwards compatibility in parquet-cpp
 
-#ifndef ARROW_UTIL_COMPILER_UTIL_H
-#define ARROW_UTIL_COMPILER_UTIL_H
+#pragma once
 
 #include "arrow/util/macros.h"
 
-#endif  // ARROW_UTIL_COMPILER_UTIL_H

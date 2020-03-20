@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_FILESYSTEM_API_H
-#define ARROW_FILESYSTEM_API_H
+#pragma once
 
 #include "arrow/filesystem/filesystem.h"  // IWYU pragma: export
 #include "arrow/filesystem/hdfs.h"        // IWYU pragma: export
@@ -24,4 +23,3 @@
 #include "arrow/filesystem/mockfs.h"      // IWYU pragma: export
 #include "arrow/filesystem/s3fs.h"        // IWYU pragma: export
 
-#endif  // ARROW_FILESYSTEM_API_H

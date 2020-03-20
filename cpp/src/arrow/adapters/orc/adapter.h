@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_ORC_CONVERTER_H
-#define ARROW_ORC_CONVERTER_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -149,4 +148,3 @@ class ARROW_EXPORT ORCFileReader {
 
 }  // namespace arrow
 
-#endif  // ARROW_ORC_CONVERTER_H

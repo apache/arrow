@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_INT_UTIL_H
-#define ARROW_UTIL_INT_UTIL_H
+#pragma once
 
 #include <cstdint>
 #include <limits>
@@ -116,4 +115,3 @@ UpcastInt(Integer v) {
 }  // namespace internal
 }  // namespace arrow
 
-#endif  // ARROW_UTIL_INT_UTIL_H

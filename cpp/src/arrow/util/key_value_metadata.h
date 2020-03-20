@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_KEY_VALUE_METADATA_H
-#define ARROW_UTIL_KEY_VALUE_METADATA_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -84,4 +83,3 @@ key_value_metadata(std::vector<std::string> keys, std::vector<std::string> value
 
 }  // namespace arrow
 
-#endif  //  ARROW_UTIL_KEY_VALUE_METADATA_H

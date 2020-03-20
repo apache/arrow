@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef LRU_CACHE_H
-#define LRU_CACHE_H
+#pragma once
 
 #include <list>
 #include <unordered_map>
@@ -120,4 +119,3 @@ class LruCache {
   size_t cache_capacity_;
 };
 }  // namespace gandiva
-#endif  // LRU_CACHE_H

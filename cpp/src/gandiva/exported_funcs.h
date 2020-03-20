@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_EXPORTED_FUNCS_H
-#define GANDIVA_EXPORTED_FUNCS_H
+#pragma once
 
 #include <gandiva/exported_funcs_registry.h>
 #include <vector>
@@ -59,4 +58,3 @@ REGISTER_EXPORTED_FUNCS(ExportedDecimalFunctions);
 
 }  // namespace gandiva
 
-#endif  // GANDIVA_EXPORTED_FUNCS_H

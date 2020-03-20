@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_FIELDDESCRIPTOR_H
-#define GANDIVA_FIELDDESCRIPTOR_H
+#pragma once
 
 #include <string>
 
@@ -69,4 +68,3 @@ class FieldDescriptor {
 
 }  // namespace gandiva
 
-#endif  // GANDIVA_FIELDDESCRIPTOR_H

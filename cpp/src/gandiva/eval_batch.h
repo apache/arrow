@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_EXPR_EVALBATCH_H
-#define GANDIVA_EXPR_EVALBATCH_H
+#pragma once
 
 #include <memory>
 
@@ -107,4 +106,3 @@ class EvalBatch {
 
 }  // namespace gandiva
 
-#endif  // GANDIVA_EXPR_EVALBATCH_H

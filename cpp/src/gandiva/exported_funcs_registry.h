@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_EXPORTED_FUNCS_REGISTRY_H
-#define GANDIVA_EXPORTED_FUNCS_REGISTRY_H
+#pragma once
 
 #include <memory>
 #include <vector>
@@ -54,4 +53,3 @@ class ExportedFuncsRegistry {
 
 }  // namespace gandiva
 
-#endif  // GANDIVA_EXPORTED_FUNCS_REGISTRY_H

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_STREAM_READER_H
-#define PARQUET_STREAM_READER_H
+#pragma once
 
 #include <array>
 #include <chrono>
@@ -299,4 +298,3 @@ StreamReader& operator>>(StreamReader&, EndRowType);
 
 }  // namespace parquet
 
-#endif  // PARQUET_STREAM_READER_H

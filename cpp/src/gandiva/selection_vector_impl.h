@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_SELECTION_VECTOR_IMP_H
-#define GANDIVA_SELECTION_VECTOR_IMP_H
+#pragma once
 
 #include <limits>
 #include <memory>
@@ -108,4 +107,3 @@ using SelectionVectorInt64 =
 
 }  // namespace gandiva
 
-#endif  // GANDIVA_SELECTION_VECTOR_IMPL_H

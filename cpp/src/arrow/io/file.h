@@ -17,8 +17,7 @@
 
 // IO interface implementations for OS files
 
-#ifndef ARROW_IO_FILE_H
-#define ARROW_IO_FILE_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -254,4 +253,3 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
 }  // namespace io
 }  // namespace arrow
 
-#endif  // ARROW_IO_FILE_H

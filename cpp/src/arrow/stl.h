@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_STL_H
-#define ARROW_STL_H
+#pragma once
 
 #include <algorithm>
 #include <cstddef>
@@ -464,4 +463,3 @@ Status TupleRangeFromTable(const Table& table, const compute::CastOptions& cast_
 }  // namespace stl
 }  // namespace arrow
 
-#endif  // ARROW_STL_H

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PLASMA_MALLOC_H
-#define PLASMA_MALLOC_H
+#pragma once
 
 #include <inttypes.h>
 #include <stddef.h>
@@ -51,4 +50,3 @@ extern std::unordered_map<void*, MmapRecord> mmap_records;
 
 }  // namespace plasma
 
-#endif  // PLASMA_MALLOC_H

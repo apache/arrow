@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_EXPR_EXPRESSION_H
-#define GANDIVA_EXPR_EXPRESSION_H
+#pragma once
 
 #include <string>
 
@@ -46,4 +45,3 @@ class GANDIVA_EXPORT Expression {
 
 }  // namespace gandiva
 
-#endif  // GANDIVA_EXPR_EXPRESSION_H

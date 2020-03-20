@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_IO_HDFS_INTERNAL
-#define ARROW_IO_HDFS_INTERNAL
+#pragma once
 
 #include <cstddef>
 #include <cstdint>
@@ -222,4 +221,3 @@ Status ARROW_EXPORT ConnectLibHdfs(LibHdfsShim** driver);
 }  // namespace io
 }  // namespace arrow
 
-#endif  // ARROW_IO_HDFS_INTERNAL

@@ -18,8 +18,7 @@
 // Public API for the "Feather" file format, originally created at
 // http://github.com/wesm/feather
 
-#ifndef ARROW_IPC_FEATHER_H
-#define ARROW_IPC_FEATHER_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -170,4 +169,3 @@ class ARROW_EXPORT TableWriter {
 }  // namespace ipc
 }  // namespace arrow
 
-#endif  // ARROW_IPC_FEATHER_H

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_TYPES_H
-#define GANDIVA_TYPES_H
+#pragma once
 
 #include <memory>
 #include <vector>
@@ -72,4 +71,3 @@ GANDIVA_EXPORT
 std::vector<std::shared_ptr<FunctionSignature>> GetRegisteredFunctionSignatures();
 
 }  // namespace gandiva
-#endif  // GANDIVA_TYPES_H

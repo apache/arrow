@@ -21,8 +21,7 @@
 
 #include "arrow/util/decimal.h"
 
-#ifndef GANDIVA_GENERATE_DATA_H
-#define GANDIVA_GENERATE_DATA_H
+#pragma once
 
 namespace gandiva {
 
@@ -132,4 +131,3 @@ class FastUtf8DataGenerator : public DataGenerator<std::string> {
 
 }  // namespace gandiva
 
-#endif  // GANDIVA_GENERATE_DATA_H

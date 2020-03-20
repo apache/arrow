@@ -15,8 +15,7 @@
  * See the License for the specific language governing permissions and
  */
 
-#ifndef JNI_ID_TO_MODULE_MAP_H
-#define JNI_ID_TO_MODULE_MAP_H
+#pragma once
 
 #include <memory>
 #include <mutex>
@@ -77,4 +76,3 @@ class ConcurrentMap {
 }  // namespace jni
 }  // namespace arrow
 
-#endif  // JNI_ID_TO_MODULE_MAP_H

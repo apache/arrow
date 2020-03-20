@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_FUNCTION_HOLDER_REGISTRY_H
-#define GANDIVA_FUNCTION_HOLDER_REGISTRY_H
+#pragma once
 
 #include <functional>
 #include <memory>
@@ -73,4 +72,3 @@ class FunctionHolderRegistry {
 
 }  // namespace gandiva
 
-#endif  // GANDIVA_FUNCTION_HOLDER_REGISTRY_H

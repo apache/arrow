@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PLASMA_COMMON_H
-#define PLASMA_COMMON_H
+#pragma once
 
 #include <stddef.h>
 
@@ -155,4 +154,3 @@ struct hash<::plasma::UniqueID> {
 };
 }  // namespace std
 
-#endif  // PLASMA_COMMON_H

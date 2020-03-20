@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_PYTHON_TO_ARROW_H
-#define ARROW_PYTHON_PYTHON_TO_ARROW_H
+#pragma once
 
 #include <memory>
 #include <vector>
@@ -143,4 +142,3 @@ struct PythonType {
 
 }  // namespace arrow
 
-#endif  // ARROW_PYTHON_PYTHON_TO_ARROW_H

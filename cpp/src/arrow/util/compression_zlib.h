@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_COMPRESSION_ZLIB_H
-#define ARROW_UTIL_COMPRESSION_ZLIB_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -69,4 +68,3 @@ class ARROW_EXPORT GZipCodec : public Codec {
 }  // namespace util
 }  // namespace arrow
 
-#endif  // ARROW_UTIL_COMPRESSION_ZLIB_H

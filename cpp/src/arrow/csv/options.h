@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_CSV_OPTIONS_H
-#define ARROW_CSV_OPTIONS_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -132,4 +131,3 @@ struct ARROW_EXPORT ReadOptions {
 }  // namespace csv
 }  // namespace arrow
 
-#endif  // ARROW_CSV_OPTIONS_H
