@@ -492,24 +492,27 @@ class SerializedRowGroup : public RowGroupReader::Contents {
          case Type::BYTE_ARRAY:
          {
              char* v = (char*) predicate;
+             std::string str(v);
              if(sorted){
                   if(col_index.min_values.size() >= 2){
                     uint64_t last_index = col_index.min_values.size()-1;
                     uint64_t itemindex = last_index/2;
                     bool found = false;
                     while(!found) {
-                     char* page_min_curr = (char*)col_index.min_values[itemindex].c_str(); 
-                     if ( strcmp(v,page_min_curr) < 0 ){
+                      std::string page_min_curr(col_index.min_values[itemindex]);
+
+                     if ( str.compare(page_min_curr) < 0 ){
                        itemindex  = itemindex/2;
                        continue;
                      }
                      if (itemindex < last_index){
-                        char* page_min_next = (char*)col_index.min_values[itemindex+1].c_str();
-                        if ( strcmp(v,page_min_next) > 0 ){
+                       std::string page_min_next(col_index.min_values[itemindex+1]);
+
+                        if ( str.compare(page_min_next) > 0 ){
                           itemindex = (itemindex + last_index)/2;
                           continue;
                         }
-                        if ( strcmp(page_min_next,v) > 0 && strcmp(page_min_curr,v) < 0 ){
+                        if ( str.compare(page_min_curr) > 0 && str.compare(page_min_next) < 0 ){
                            found = true;
                         }
                      }
@@ -527,10 +530,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
               }
               else {
                  for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
-                   char* page_min = (char*)(void *)col_index.min_values[itemindex].c_str();
-                   char* page_max = (char*)(void *)col_index.max_values[itemindex].c_str();
+                    std::string page_min = col_index.min_values[itemindex];
+                    std::string page_max = col_index.min_values[itemindex];
 
-                   if ( strcmp(page_min,v)<0 && strcmp(page_max,v)>0 ) {
+                   if ( str.compare(page_min)>0 && str.compare(page_max)<0 ) {
                       min_index = itemindex;
                    }
                 }
@@ -540,24 +543,25 @@ class SerializedRowGroup : public RowGroupReader::Contents {
          case Type::FIXED_LEN_BYTE_ARRAY:
          {
              char* v = (char*) predicate;
+             std::string str(v);
              if(sorted){
                   if(col_index.min_values.size() >= 2){
                     uint64_t last_index = col_index.min_values.size()-1;
                     uint64_t itemindex = last_index/2;
                     bool found = false;
                     while(!found) {
-                     char* page_min_curr = (char*)col_index.min_values[itemindex].c_str(); 
-                     if ( strcmp(v,page_min_curr) < 0 ){
+                     std::string page_min_curr = col_index.min_values[itemindex]; 
+                     if ( str.compare(page_min_curr) < 0 ){
                        itemindex  = itemindex/2;
                        continue;
                      }
                      if (itemindex < last_index){
-                        char* page_min_next = (char*)col_index.min_values[itemindex+1].c_str();
-                        if ( strcmp(v,page_min_next) > 0 ){
+                        std::string page_min_next = col_index.min_values[itemindex+1];
+                        if ( str.compare(page_min_next) > 0 ){
                           itemindex = (itemindex + last_index)/2;
                           continue;
                         }
-                        if ( strcmp(page_min_next,v) > 0 && strcmp(page_min_curr,v) < 0 ){
+                        if ( str.compare(page_min_curr) > 0 && str.compare(page_min_next) < 0 ){
                            found = true;
                         }
                      }
@@ -575,11 +579,11 @@ class SerializedRowGroup : public RowGroupReader::Contents {
               }
               else {
                 for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
-                  char* page_min = (char*)(void *)col_index.min_values[itemindex].c_str();
-                  char* page_max = (char*)(void *)col_index.max_values[itemindex].c_str();
-                  int32_t max_diff = (int32_t)(*page_max-*page_min);
+                  std::string page_min = col_index.min_values[itemindex];
+                    std::string page_max = col_index.min_values[itemindex];
+
           
-                  if ( strcmp(page_min,v)<0 && strcmp(page_max,v)>0 ) {
+                  if ( str.compare(page_min)>0 && str.compare(page_max)<0 ) {
                     min_index = itemindex;
                   }
                 }
