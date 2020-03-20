@@ -23,15 +23,26 @@
 #include <memory>
 #include <string>
 
-#include "arrow/io/type_fwd.h"
-#include "arrow/ipc/options.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+namespace io {
+
+class FileInterface;
+class InputStream;
+class OutputStream;
+class RandomAccessFile;
+
+}  // namespace io
+
 namespace ipc {
+
+struct IpcWriteOptions;
 
 enum class MetadataVersion : char {
   /// 0.1.0

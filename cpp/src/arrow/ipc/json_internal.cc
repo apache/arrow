@@ -20,18 +20,18 @@
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <type_traits>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"  // IWYU pragma: keep
+#include "arrow/extension_type.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/record_batch.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"

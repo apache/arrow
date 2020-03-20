@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <atomic>
+#include <atomic>  // IWYU pragma: export
 #include <cstdint>
 #include <iosfwd>
 #include <memory>

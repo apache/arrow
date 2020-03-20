@@ -23,11 +23,13 @@
 #include <limits>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/device.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
@@ -35,16 +37,16 @@
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/metadata_internal.h"
 #include "arrow/ipc/util.h"
-#include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/result_internal.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
-#include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/compression.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"

@@ -18,17 +18,17 @@
 #include "arrow/ipc/message.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <utility>
 
-#include <flatbuffers/flatbuffers.h>
-
 #include "arrow/buffer.h"
+#include "arrow/device.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/metadata_internal.h"
+#include "arrow/ipc/options.h"
 #include "arrow/ipc/util.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
@@ -37,6 +37,10 @@
 #include "generated/Message_generated.h"
 
 namespace arrow {
+
+class KeyValueMetadata;
+class MemoryPool;
+
 namespace ipc {
 
 class Message::MessageImpl {

@@ -28,19 +28,25 @@
 #include <flatbuffers/flatbuffers.h>
 
 #include "arrow/buffer.h"
-#include "arrow/ipc/dictionary.h"  // IYWU pragma: keep
 #include "arrow/ipc/message.h"
+#include "arrow/result.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 #include "generated/Message_generated.h"
 #include "generated/Schema_generated.h"
+#include "generated/SparseTensor_generated.h"  // IWYU pragma: keep
 
 namespace arrow {
 
 namespace flatbuf = org::apache::arrow::flatbuf;
+
+class DataType;
+class KeyValueMetadata;
+class Schema;
 
 namespace io {
 

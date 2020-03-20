@@ -21,17 +21,22 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"
 #include "arrow/builder.h"
-#include "arrow/ipc/json_internal.h"
 #include "arrow/ipc/json_simple.h"
-#include "arrow/memory_pool.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/parsing.h"
 #include "arrow/util/string_view.h"
+
+#include "arrow/json/rapidjson_defs.h"
+
+#include <rapidjson/document.h>
+#include <rapidjson/error/en.h>
+#include <rapidjson/rapidjson.h>
+#include <rapidjson/reader.h>
+
+namespace rj = arrow::rapidjson;
 
 namespace arrow {
 namespace ipc {

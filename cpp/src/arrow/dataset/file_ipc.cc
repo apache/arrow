@@ -19,15 +19,14 @@
 
 #include <algorithm>
 #include <memory>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"
-#include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/ipc/reader.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/util/iterator.h"
 
 namespace arrow {

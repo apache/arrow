@@ -18,22 +18,16 @@
 #pragma once
 
 #include <cstdint>
-#include <memory>
-#include <unordered_set>
 #include <vector>
 
-#include "arrow/memory_pool.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
-namespace util {
-
-class Codec;
-
-}  // namespace util
+class MemoryPool;
 
 namespace ipc {
 

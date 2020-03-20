@@ -19,16 +19,15 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 
-#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/options.h"
-#include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
-#include "arrow/sparse_tensor.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -47,6 +46,14 @@ class RandomAccessFile;
 }  // namespace io
 
 namespace ipc {
+
+class DictionaryMemo;
+
+namespace internal {
+
+struct IpcPayload;
+
+}  // namespace internal
 
 using RecordBatchReader = ::arrow::RecordBatchReader;
 

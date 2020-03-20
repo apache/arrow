@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/record_batch.h"

@@ -35,6 +35,7 @@
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
