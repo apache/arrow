@@ -160,6 +160,8 @@ static inline Status VerifyMessage(const uint8_t* data, int64_t size,
 Status WriteSchemaMessage(const Schema& schema, DictionaryMemo* dictionary_memo,
                           std::shared_ptr<Buffer>* out);
 
+// This function is used in a unit test
+ARROW_EXPORT
 Status WriteRecordBatchMessage(
     const int64_t length, const int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
