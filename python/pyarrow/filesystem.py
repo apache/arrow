@@ -20,6 +20,7 @@ import os
 import inspect
 import posixpath
 import urllib.parse
+from typing import Optional
 
 from os.path import join as pjoin
 
@@ -235,7 +236,7 @@ class FileSystem:
 
 class LocalFileSystem(FileSystem):
 
-    _instance = None
+    _instance: Optional["LocalFileSystem"] = None
 
     @classmethod
     def get_instance(cls):

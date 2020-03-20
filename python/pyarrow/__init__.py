@@ -29,6 +29,8 @@ streaming messaging and interprocess communication.
 For more information see the official page at https://arrow.apache.org
 """
 
+from typing import Optional
+
 import os as _os
 import sys as _sys
 
@@ -51,7 +53,7 @@ except ImportError:
         __version__ = setuptools_scm.get_version('../',
                                                  parse=parse_git)
     except ImportError:
-        __version__ = None
+        __version__ = None  # type: ignore
 
 
 import pyarrow.compat as compat

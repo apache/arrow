@@ -34,7 +34,7 @@ except ImportError:
 try:
     import pyarrow.dataset as ds
 except ImportError:
-    ds = None
+    ds = None  # type: ignore
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not dataset'

@@ -37,10 +37,14 @@ from pyarrow._plasma import (ObjectID, ObjectNotAvailable, # noqa
 # the function build_plasma_tensorflow_op can be used to compile it.
 
 
-TF_PLASMA_OP_PATH = os.path.join(pa.__path__[0], "tensorflow", "plasma_op.so")
+TF_PLASMA_OP_PATH = os.path.join(
+    pa.__path__[0],  # type: ignore
+    "tensorflow",
+    "plasma_op.so",
+)
 
 
-tf_plasma_op = None
+tf_plasma_op = None  # type: ignore
 
 
 def load_plasma_tensorflow_op():

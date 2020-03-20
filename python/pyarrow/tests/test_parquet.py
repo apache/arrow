@@ -35,7 +35,7 @@ from pyarrow.filesystem import LocalFileSystem, FileSystem
 try:
     import pyarrow.parquet as pq
 except ImportError:
-    pq = None
+    pq = None  # type: ignore
 
 
 try:

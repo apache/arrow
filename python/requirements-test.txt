@@ -2,6 +2,7 @@ cffi
 cython
 hypothesis==5.0; python_version <= "3.5.2"
 hypothesis; python_version > "3.5.2"
+mypy==0.770
 pandas==0.24; python_version <= "3.5.2"
 pandas; python_version > "3.5.2"
 pickle5; python_version == "3.6" or python_version == "3.7"

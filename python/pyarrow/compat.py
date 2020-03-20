@@ -26,9 +26,10 @@ import numpy as np
 try:
     import pickle5 as builtin_pickle
 except ImportError:
-    import pickle as builtin_pickle
+    import pickle as builtin_pickle  # type: ignore
 
 from collections.abc import Iterable, Mapping, Sequence
+from typing import List
 
 def guid():
     from uuid import uuid4
@@ -122,4 +123,4 @@ except ImportError:
         return np.dtype({'names': names, 'formats': formats, 'titles': titles,
                             'offsets': offsets, 'itemsize': offset})
 
-__all__ = []
+__all__: List[str] = []

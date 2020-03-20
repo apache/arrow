@@ -18,6 +18,7 @@
 
 import ast
 from itertools import zip_longest
+from typing import Any, Dict
 import json
 import operator
 import re
@@ -32,7 +33,7 @@ from pyarrow.compat import (builtin_pickle,  # noqa
                             frombytes, Sequence)
 
 
-_logical_type_map = {}
+_logical_type_map: Dict[Any, str] = {}
 
 
 def get_logical_type_map():

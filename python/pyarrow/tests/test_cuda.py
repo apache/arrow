@@ -39,20 +39,18 @@ cuda_ipc = pytest.mark.skipif(
     not has_ipc_support,
     reason='CUDA IPC not supported in platform `%s`' % (platform))
 
-global_context = None  # for flake8
-global_context1 = None  # for flake8
+
+@pytest.fixture(scope="module")
+def global_context():
+    return cuda.Context(0)
 
 
-def setup_module(module):
-    module.global_context = cuda.Context(0)
-    module.global_context1 = cuda.Context(cuda.Context.get_num_devices() - 1)
+@pytest.fixture(scope="module")
+def global_context1():
+    return cuda.Context(cuda.Context.get_num_devices() - 1)
 
 
-def teardown_module(module):
-    del module.global_context
-
-
-def test_Context():
+def test_Context(global_context, global_context1):
     assert cuda.Context.get_num_devices() > 0
     assert global_context.device_number == 0
     assert global_context1.device_number == cuda.Context.get_num_devices() - 1
@@ -74,7 +72,7 @@ def test_manage_allocate_free_host(size):
     assert buf.size == size
 
 
-def test_context_allocate_del():
+def test_context_allocate_del(global_context):
     bytes_allocated = global_context.bytes_allocated
     cudabuf = global_context.new_buffer(128)
     assert global_context.bytes_allocated == bytes_allocated + 128
@@ -82,7 +80,7 @@ def test_context_allocate_del():
     assert global_context.bytes_allocated == bytes_allocated
 
 
-def make_random_buffer(size, target='host'):
+def make_random_buffer(size, target='host', context=None):
     """Return a host or device buffer with random data.
     """
     if target == 'host':
@@ -97,8 +95,8 @@ def make_random_buffer(size, target='host'):
         np.testing.assert_equal(arr, arr_)
         return arr, buf
     elif target == 'device':
-        arr, buf = make_random_buffer(size, target='host')
-        dbuf = global_context.new_buffer(size)
+        arr, buf = make_random_buffer(size, target='host', context=context)
+        dbuf = context.new_buffer(size)
         assert dbuf.size == size
         dbuf.copy_from_host(buf, position=0, nbytes=size)
         return arr, dbuf
@@ -106,9 +104,9 @@ def make_random_buffer(size, target='host'):
 
 
 @pytest.mark.parametrize("size", [0, 1, 1000])
-def test_context_device_buffer(size):
+def test_context_device_buffer(size, global_context):
     # Creating device buffer from host buffer;
-    arr, buf = make_random_buffer(size)
+    arr, buf = make_random_buffer(size, context=global_context)
     cudabuf = global_context.buffer_from_data(buf)
     assert cudabuf.size == size
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
@@ -234,9 +232,9 @@ def test_context_device_buffer(size):
 
 
 @pytest.mark.parametrize("size", [0, 1, 1000])
-def test_context_from_object(size):
+def test_context_from_object(size, global_context):
     ctx = global_context
-    arr, cbuf = make_random_buffer(size, target='device')
+    arr, cbuf = make_random_buffer(size, target='device', contect=ctx)
     dtype = arr.dtype
 
     # Creating device buffer from a CUDA host buffer
@@ -265,7 +263,7 @@ def test_context_from_object(size):
         ctx.buffer_from_object(np.array([1, 2, 3]))
 
 
-def test_foreign_buffer():
+def test_foreign_buffer(global_context):
     ctx = global_context
     dtype = np.dtype(np.uint8)
     size = 10
@@ -293,8 +291,8 @@ def test_foreign_buffer():
 
 
 @pytest.mark.parametrize("size", [0, 1, 1000])
-def test_CudaBuffer(size):
-    arr, buf = make_random_buffer(size)
+def test_CudaBuffer(size, global_context):
+    arr, buf = make_random_buffer(size, context=global_context)
     assert arr.tobytes() == buf.to_pybytes()
     cbuf = global_context.buffer_from_data(buf)
     assert cbuf.size == size
@@ -321,8 +319,8 @@ def test_CudaBuffer(size):
 
 
 @pytest.mark.parametrize("size", [0, 1, 1000])
-def test_HostBuffer(size):
-    arr, buf = make_random_buffer(size)
+def test_HostBuffer(size, global_context):
+    arr, buf = make_random_buffer(size, context=global_context)
     assert arr.tobytes() == buf.to_pybytes()
     hbuf = cuda.new_host_buffer(size)
     np.frombuffer(hbuf, dtype=np.uint8)[:] = arr
@@ -348,7 +346,7 @@ def test_HostBuffer(size):
 
 
 @pytest.mark.parametrize("size", [0, 1, 1000])
-def test_copy_from_to_host(size):
+def test_copy_from_to_host(size, global_context):
 
     # Create a buffer in host containing range(size)
     buf = pa.allocate_buffer(size, resizable=True)  # in host
@@ -374,8 +372,9 @@ def test_copy_from_to_host(size):
 
 
 @pytest.mark.parametrize("size", [0, 1, 1000])
-def test_copy_to_host(size):
-    arr, dbuf = make_random_buffer(size, target='device')
+def test_copy_to_host(size, global_context):
+    arr, dbuf = make_random_buffer(size, target='device',
+                                   context=global_context)
 
     buf = dbuf.copy_to_host()
     assert buf.is_cpu
@@ -439,8 +438,9 @@ def test_copy_to_host(size):
 
 @pytest.mark.parametrize("dest_ctx", ['same', 'another'])
 @pytest.mark.parametrize("size", [0, 1, 1000])
-def test_copy_from_device(dest_ctx, size):
-    arr, buf = make_random_buffer(size=size, target='device')
+def test_copy_from_device(dest_ctx, size, global_context):
+    arr, buf = make_random_buffer(size=size, target='device',
+                                  context=global_context)
     lst = arr.tolist()
     if dest_ctx == 'another':
         dest_ctx = global_context1
@@ -489,8 +489,9 @@ def test_copy_from_device(dest_ctx, size):
 
 
 @pytest.mark.parametrize("size", [0, 1, 1000])
-def test_copy_from_host(size):
-    arr, buf = make_random_buffer(size=size, target='host')
+def test_copy_from_host(size, global_context):
+    arr, buf = make_random_buffer(size=size, target='host',
+                                  context=global_context)
     lst = arr.tolist()
     dbuf = global_context.new_buffer(size)
 
@@ -532,7 +533,7 @@ def test_copy_from_host(size):
             put(position=position, nbytes=nbytes)
 
 
-def test_BufferWriter():
+def test_BufferWriter(global_context):
     def allocate(size):
         cbuf = global_context.new_buffer(size)
         writer = cuda.BufferWriter(cbuf)
@@ -540,7 +541,8 @@ def test_BufferWriter():
 
     def test_writes(total_size, chunksize, buffer_size=0):
         cbuf, writer = allocate(total_size)
-        arr, buf = make_random_buffer(size=total_size, target='host')
+        arr, buf = make_random_buffer(size=total_size, target='host',
+                                      contect=global_context)
 
         if buffer_size > 0:
             writer.buffer_size = buffer_size
@@ -583,12 +585,13 @@ def test_BufferWriter():
     np.testing.assert_equal(arr[75:], np.arange(25, dtype=np.uint8))
 
 
-def test_BufferWriter_edge_cases():
+def test_BufferWriter_edge_cases(global_context):
     # edge cases, see cuda-test.cc for more information:
     size = 1000
     cbuf = global_context.new_buffer(size)
     writer = cuda.BufferWriter(cbuf)
-    arr, buf = make_random_buffer(size=size, target='host')
+    arr, buf = make_random_buffer(size=size, target='host',
+                                  context=global_context)
 
     assert writer.buffer_size == 0
     writer.buffer_size = 100
@@ -619,9 +622,10 @@ def test_BufferWriter_edge_cases():
     np.testing.assert_equal(arr, arr2)
 
 
-def test_BufferReader():
+def test_BufferReader(global_context):
     size = 1000
-    arr, cbuf = make_random_buffer(size=size, target='device')
+    arr, cbuf = make_random_buffer(size=size, target='device',
+                                   context=global_context)
 
     reader = cuda.BufferReader(cbuf)
     reader.seek(950)
@@ -645,8 +649,9 @@ def test_BufferReader():
     np.testing.assert_equal(arr, arr2)
 
 
-def test_BufferReader_zero_size():
-    arr, cbuf = make_random_buffer(size=0, target='device')
+def test_BufferReader_zero_size(global_context):
+    arr, cbuf = make_random_buffer(size=0, target='device',
+                                   context=global_context1)
     reader = cuda.BufferReader(cbuf)
     reader.seek(0)
     data = reader.read()
@@ -666,7 +671,7 @@ def make_recordbatch(length):
     return batch
 
 
-def test_batch_serialize():
+def test_batch_serialize(global_context):
     batch = make_recordbatch(10)
     hbuf = batch.serialize()
     cbuf = cuda.serialize_record_batch(batch, global_context)
@@ -695,10 +700,11 @@ def other_process_for_test_IPC(handle_buffer, expected_arr):
 
 @cuda_ipc
 @pytest.mark.parametrize("size", [0, 1, 1000])
-def test_IPC(size):
+def test_IPC(size, global_context):
     import multiprocessing
     ctx = multiprocessing.get_context('spawn')
-    arr, cbuf = make_random_buffer(size=size, target='device')
+    arr, cbuf = make_random_buffer(size=size, target='device',
+                                   context=global_context)
     ipc_handle = cbuf.export_for_ipc()
     handle_buffer = ipc_handle.serialize()
     p = ctx.Process(target=other_process_for_test_IPC,

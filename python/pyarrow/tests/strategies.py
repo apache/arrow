@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from typing import Any
+
 import pytz
 import hypothesis as h
 import hypothesis.strategies as st
@@ -60,7 +62,7 @@ floating_types = st.sampled_from([
     pa.float32(),
     pa.float64()
 ])
-decimal_type = st.builds(
+decimal_type: Any = st.builds(
     pa.decimal128,
     precision=st.integers(min_value=1, max_value=38),
     scale=st.integers(min_value=1, max_value=38)
@@ -77,7 +79,7 @@ time_types = st.sampled_from([
     pa.time64('us'),
     pa.time64('ns')
 ])
-timestamp_types = st.builds(
+timestamp_types: Any = st.builds(
     pa.timestamp,
     unit=st.sampled_from(['s', 'ms', 'us', 'ns']),
     tz=tzst.timezones()

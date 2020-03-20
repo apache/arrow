@@ -37,7 +37,7 @@ except ImportError:
     torch = None
     # Blacklist the module in case `import torch` is costly before
     # failing (ARROW-2071)
-    sys.modules['torch'] = None
+    sys.modules['torch'] = None  # type: ignore
 
 try:
     from scipy.sparse import coo_matrix, csr_matrix, csc_matrix

@@ -38,7 +38,7 @@ try:
         ClientMiddleware, ClientMiddlewareFactory,
     )
 except ImportError:
-    flight = None
+    flight = None  # type: ignore
     FlightClient, FlightServerBase = object, object
     ServerAuthHandler, ClientAuthHandler = object, object
     ServerMiddleware, ServerMiddlewareFactory = object, object
