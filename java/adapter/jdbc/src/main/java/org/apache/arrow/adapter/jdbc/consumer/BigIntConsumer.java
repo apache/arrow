@@ -55,7 +55,7 @@ public class BigIntConsumer {
     public void consume(ResultSet resultSet) throws SQLException {
       long value = resultSet.getLong(columnIndexInResultSet);
       if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, value);
+        vector.set(currentIndex, value);
       }
       currentIndex++;
     }
@@ -76,7 +76,7 @@ public class BigIntConsumer {
     @Override
     public void consume(ResultSet resultSet) throws SQLException {
       long value = resultSet.getLong(columnIndexInResultSet);
-      vector.setSafe(currentIndex, value);
+      vector.set(currentIndex, value);
       currentIndex++;
     }
   }

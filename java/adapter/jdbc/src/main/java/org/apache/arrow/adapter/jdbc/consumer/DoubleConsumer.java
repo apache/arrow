@@ -55,7 +55,7 @@ public class DoubleConsumer {
     public void consume(ResultSet resultSet) throws SQLException {
       double value = resultSet.getDouble(columnIndexInResultSet);
       if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, value);
+        vector.set(currentIndex, value);
       }
       currentIndex++;
     }
@@ -76,7 +76,7 @@ public class DoubleConsumer {
     @Override
     public void consume(ResultSet resultSet) throws SQLException {
       double value = resultSet.getDouble(columnIndexInResultSet);
-      vector.setSafe(currentIndex, value);
+      vector.set(currentIndex, value);
       currentIndex++;
     }
   }

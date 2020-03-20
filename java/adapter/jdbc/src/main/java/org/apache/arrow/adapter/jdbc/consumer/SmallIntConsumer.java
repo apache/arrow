@@ -55,7 +55,7 @@ public class SmallIntConsumer {
     public void consume(ResultSet resultSet) throws SQLException {
       short value = resultSet.getShort(columnIndexInResultSet);
       if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, value);
+        vector.set(currentIndex, value);
       }
       currentIndex++;
     }
@@ -76,7 +76,7 @@ public class SmallIntConsumer {
     @Override
     public void consume(ResultSet resultSet) throws SQLException {
       short value = resultSet.getShort(columnIndexInResultSet);
-      vector.setSafe(currentIndex, value);
+      vector.set(currentIndex, value);
       currentIndex++;
     }
   }

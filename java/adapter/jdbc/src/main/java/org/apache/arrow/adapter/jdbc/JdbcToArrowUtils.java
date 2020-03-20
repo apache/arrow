@@ -365,6 +365,7 @@ public class JdbcToArrowUtils {
       if (compositeConsumer != null) {
         compositeConsumer.close();
       }
+      throw e;
     }
   }
 

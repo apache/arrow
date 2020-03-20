@@ -69,7 +69,7 @@ public abstract class TimeConsumer {
       Time time = calendar == null ? resultSet.getTime(columnIndexInResultSet) :
           resultSet.getTime(columnIndexInResultSet, calendar);
       if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, (int) time.getTime());
+        vector.set(currentIndex, (int) time.getTime());
       }
       currentIndex++;
     }
@@ -101,7 +101,7 @@ public abstract class TimeConsumer {
     public void consume(ResultSet resultSet) throws SQLException {
       Time time = calendar == null ? resultSet.getTime(columnIndexInResultSet) :
           resultSet.getTime(columnIndexInResultSet, calendar);
-      vector.setSafe(currentIndex, (int) time.getTime());
+      vector.set(currentIndex, (int) time.getTime());
       currentIndex++;
     }
   }

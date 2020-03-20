@@ -56,7 +56,7 @@ public class DecimalConsumer {
     public void consume(ResultSet resultSet) throws SQLException {
       BigDecimal value = resultSet.getBigDecimal(columnIndexInResultSet);
       if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, value);
+        vector.set(currentIndex, value);
       }
       currentIndex++;
     }
@@ -77,7 +77,7 @@ public class DecimalConsumer {
     @Override
     public void consume(ResultSet resultSet) throws SQLException {
       BigDecimal value = resultSet.getBigDecimal(columnIndexInResultSet);
-      vector.setSafe(currentIndex, value);
+      vector.set(currentIndex, value);
       currentIndex++;
     }
   }

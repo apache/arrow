@@ -22,6 +22,7 @@ import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.ListVector;
 
 /**
@@ -44,18 +45,29 @@ public abstract class ArrayConsumer extends BaseConsumer<ListVector> {
 
   protected final JdbcConsumer delegate;
 
+  private final ValueVector innerVector;
+
+  protected int innerVectorIndex = 0;
+
   /**
    * Instantiate a ArrayConsumer.
    */
   public ArrayConsumer(ListVector vector, JdbcConsumer delegate, int index) {
     super(vector, index);
     this.delegate = delegate;
+    this.innerVector = vector.getDataVector();
   }
 
   @Override
   public void close() throws Exception {
     this.vector.close();
     this.delegate.close();
+  }
+
+  void ensureInnerVectorCapacity(int targetCapacity) {
+    while (innerVector.getValueCapacity() < targetCapacity) {
+      innerVector.reAlloc();
+    }
   }
 
   /**
@@ -78,11 +90,13 @@ public abstract class ArrayConsumer extends BaseConsumer<ListVector> {
         int count = 0;
         try (ResultSet rs = array.getResultSet()) {
           while (rs.next()) {
+            ensureInnerVectorCapacity(innerVectorIndex + count + 1);
             delegate.consume(rs);
             count++;
           }
         }
         vector.endValue(currentIndex, count);
+        innerVectorIndex += count;
       }
       currentIndex++;
     }
@@ -107,11 +121,13 @@ public abstract class ArrayConsumer extends BaseConsumer<ListVector> {
       int count = 0;
       try (ResultSet rs = array.getResultSet()) {
         while (rs.next()) {
+          ensureInnerVectorCapacity(innerVectorIndex + count + 1);
           delegate.consume(rs);
           count++;
         }
       }
       vector.endValue(currentIndex, count);
+      innerVectorIndex += count;
       currentIndex++;
     }
   }

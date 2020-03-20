@@ -55,7 +55,7 @@ public abstract class TinyIntConsumer {
     public void consume(ResultSet resultSet) throws SQLException {
       byte value = resultSet.getByte(columnIndexInResultSet);
       if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, value);
+        vector.set(currentIndex, value);
       }
       currentIndex++;
     }
@@ -76,7 +76,7 @@ public abstract class TinyIntConsumer {
     @Override
     public void consume(ResultSet resultSet) throws SQLException {
       byte value = resultSet.getByte(columnIndexInResultSet);
-      vector.setSafe(currentIndex, value);
+      vector.set(currentIndex, value);
       currentIndex++;
     }
   }

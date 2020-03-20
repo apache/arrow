@@ -25,6 +25,8 @@ import java.util.Iterator;
 import org.apache.arrow.adapter.jdbc.consumer.CompositeJdbcConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.BaseFixedWidthVector;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -109,6 +111,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
     VectorSchemaRoot root = null;
     try {
       root = VectorSchemaRoot.create(schema, config.getAllocator());
+      preAllocate(root, config);
     } catch (Exception e) {
       if (root != null) {
         root.close();
@@ -116,6 +119,15 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       throw new RuntimeException("Error occurred while creating schema root.", e);
     }
     return root;
+  }
+
+  static void preAllocate(VectorSchemaRoot root, JdbcToArrowConfig config) {
+    int targetSize = config.getTargetBatchSize();
+    for (ValueVector vector : root.getFieldVectors()) {
+      if (vector instanceof BaseFixedWidthVector) {
+        ((BaseFixedWidthVector) vector).allocateNew(targetSize);
+      }
+    }
   }
 
   // Loads the next schema root or null if no more rows are available.

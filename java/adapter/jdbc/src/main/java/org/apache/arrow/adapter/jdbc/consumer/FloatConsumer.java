@@ -55,7 +55,7 @@ public class FloatConsumer {
     public void consume(ResultSet resultSet) throws SQLException {
       float value = resultSet.getFloat(columnIndexInResultSet);
       if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, value);
+        vector.set(currentIndex, value);
       }
       currentIndex++;
     }
@@ -76,7 +76,7 @@ public class FloatConsumer {
     @Override
     public void consume(ResultSet resultSet) throws SQLException {
       float value = resultSet.getFloat(columnIndexInResultSet);
-      vector.setSafe(currentIndex, value);
+      vector.set(currentIndex, value);
       currentIndex++;
     }
   }

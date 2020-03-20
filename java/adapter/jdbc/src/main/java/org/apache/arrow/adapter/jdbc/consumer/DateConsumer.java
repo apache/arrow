@@ -89,7 +89,7 @@ public class DateConsumer {
         if (day < 0 || day > MAX_DAY) {
           throw new IllegalArgumentException("Day overflow: " + day);
         }
-        vector.setSafe(currentIndex, day);
+        vector.set(currentIndex, day);
       }
       currentIndex++;
     }
@@ -125,7 +125,7 @@ public class DateConsumer {
       if (day < 0 || day > MAX_DAY) {
         throw new IllegalArgumentException("Day overflow: " + day);
       }
-      vector.setSafe(currentIndex, day);
+      vector.set(currentIndex, day);
       currentIndex++;
     }
   }
