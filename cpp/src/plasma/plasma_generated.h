@@ -14,147 +14,182 @@ namespace flatbuf {
 struct PlasmaObjectSpec;
 
 struct PlasmaSetOptionsRequest;
+struct PlasmaSetOptionsRequestBuilder;
 struct PlasmaSetOptionsRequestT;
 
 struct PlasmaSetOptionsReply;
+struct PlasmaSetOptionsReplyBuilder;
 struct PlasmaSetOptionsReplyT;
 
 struct PlasmaGetDebugStringRequest;
+struct PlasmaGetDebugStringRequestBuilder;
 struct PlasmaGetDebugStringRequestT;
 
 struct PlasmaGetDebugStringReply;
+struct PlasmaGetDebugStringReplyBuilder;
 struct PlasmaGetDebugStringReplyT;
 
 struct PlasmaCreateRequest;
+struct PlasmaCreateRequestBuilder;
 struct PlasmaCreateRequestT;
 
 struct CudaHandle;
+struct CudaHandleBuilder;
 struct CudaHandleT;
 
 struct PlasmaCreateReply;
+struct PlasmaCreateReplyBuilder;
 struct PlasmaCreateReplyT;
 
 struct PlasmaCreateAndSealRequest;
+struct PlasmaCreateAndSealRequestBuilder;
 struct PlasmaCreateAndSealRequestT;
 
 struct PlasmaCreateAndSealReply;
+struct PlasmaCreateAndSealReplyBuilder;
 struct PlasmaCreateAndSealReplyT;
 
 struct PlasmaCreateAndSealBatchRequest;
+struct PlasmaCreateAndSealBatchRequestBuilder;
 struct PlasmaCreateAndSealBatchRequestT;
 
 struct PlasmaCreateAndSealBatchReply;
+struct PlasmaCreateAndSealBatchReplyBuilder;
 struct PlasmaCreateAndSealBatchReplyT;
 
 struct PlasmaAbortRequest;
+struct PlasmaAbortRequestBuilder;
 struct PlasmaAbortRequestT;
 
 struct PlasmaAbortReply;
+struct PlasmaAbortReplyBuilder;
 struct PlasmaAbortReplyT;
 
 struct PlasmaSealRequest;
+struct PlasmaSealRequestBuilder;
 struct PlasmaSealRequestT;
 
 struct PlasmaSealReply;
+struct PlasmaSealReplyBuilder;
 struct PlasmaSealReplyT;
 
 struct PlasmaGetRequest;
+struct PlasmaGetRequestBuilder;
 struct PlasmaGetRequestT;
 
 struct PlasmaGetReply;
+struct PlasmaGetReplyBuilder;
 struct PlasmaGetReplyT;
 
 struct PlasmaReleaseRequest;
+struct PlasmaReleaseRequestBuilder;
 struct PlasmaReleaseRequestT;
 
 struct PlasmaReleaseReply;
+struct PlasmaReleaseReplyBuilder;
 struct PlasmaReleaseReplyT;
 
 struct PlasmaDeleteRequest;
+struct PlasmaDeleteRequestBuilder;
 struct PlasmaDeleteRequestT;
 
 struct PlasmaDeleteReply;
+struct PlasmaDeleteReplyBuilder;
 struct PlasmaDeleteReplyT;
 
 struct PlasmaContainsRequest;
+struct PlasmaContainsRequestBuilder;
 struct PlasmaContainsRequestT;
 
 struct PlasmaContainsReply;
+struct PlasmaContainsReplyBuilder;
 struct PlasmaContainsReplyT;
 
 struct PlasmaListRequest;
+struct PlasmaListRequestBuilder;
 struct PlasmaListRequestT;
 
 struct PlasmaListReply;
+struct PlasmaListReplyBuilder;
 struct PlasmaListReplyT;
 
 struct PlasmaConnectRequest;
+struct PlasmaConnectRequestBuilder;
 struct PlasmaConnectRequestT;
 
 struct PlasmaConnectReply;
+struct PlasmaConnectReplyBuilder;
 struct PlasmaConnectReplyT;
 
 struct PlasmaEvictRequest;
+struct PlasmaEvictRequestBuilder;
 struct PlasmaEvictRequestT;
 
 struct PlasmaEvictReply;
+struct PlasmaEvictReplyBuilder;
 struct PlasmaEvictReplyT;
 
 struct PlasmaSubscribeRequest;
+struct PlasmaSubscribeRequestBuilder;
 struct PlasmaSubscribeRequestT;
 
 struct PlasmaNotification;
+struct PlasmaNotificationBuilder;
 struct PlasmaNotificationT;
 
 struct PlasmaDataRequest;
+struct PlasmaDataRequestBuilder;
 struct PlasmaDataRequestT;
 
 struct PlasmaDataReply;
+struct PlasmaDataReplyBuilder;
 struct PlasmaDataReplyT;
 
 struct PlasmaRefreshLRURequest;
+struct PlasmaRefreshLRURequestBuilder;
 struct PlasmaRefreshLRURequestT;
 
 struct PlasmaRefreshLRUReply;
+struct PlasmaRefreshLRUReplyBuilder;
 struct PlasmaRefreshLRUReplyT;
 
 enum class MessageType : int64_t {
   PlasmaDisconnectClient = 0,
-  PlasmaCreateRequest = 1,
-  PlasmaCreateReply = 2,
-  PlasmaCreateAndSealRequest = 3,
-  PlasmaCreateAndSealReply = 4,
-  PlasmaAbortRequest = 5,
-  PlasmaAbortReply = 6,
-  PlasmaSealRequest = 7,
-  PlasmaSealReply = 8,
-  PlasmaGetRequest = 9,
-  PlasmaGetReply = 10,
-  PlasmaReleaseRequest = 11,
-  PlasmaReleaseReply = 12,
-  PlasmaDeleteRequest = 13,
-  PlasmaDeleteReply = 14,
-  PlasmaContainsRequest = 15,
-  PlasmaContainsReply = 16,
-  PlasmaListRequest = 17,
-  PlasmaListReply = 18,
-  PlasmaConnectRequest = 19,
-  PlasmaConnectReply = 20,
-  PlasmaEvictRequest = 21,
-  PlasmaEvictReply = 22,
-  PlasmaSubscribeRequest = 23,
-  PlasmaUnsubscribeRequest = 24,
-  PlasmaDataRequest = 25,
-  PlasmaDataReply = 26,
-  PlasmaNotification = 27,
-  PlasmaSetOptionsRequest = 28,
-  PlasmaSetOptionsReply = 29,
-  PlasmaGetDebugStringRequest = 30,
-  PlasmaGetDebugStringReply = 31,
-  PlasmaCreateAndSealBatchRequest = 32,
-  PlasmaCreateAndSealBatchReply = 33,
-  PlasmaRefreshLRURequest = 34,
-  PlasmaRefreshLRUReply = 35,
+  PlasmaCreateRequest = 1LL,
+  PlasmaCreateReply = 2LL,
+  PlasmaCreateAndSealRequest = 3LL,
+  PlasmaCreateAndSealReply = 4LL,
+  PlasmaAbortRequest = 5LL,
+  PlasmaAbortReply = 6LL,
+  PlasmaSealRequest = 7LL,
+  PlasmaSealReply = 8LL,
+  PlasmaGetRequest = 9LL,
+  PlasmaGetReply = 10LL,
+  PlasmaReleaseRequest = 11LL,
+  PlasmaReleaseReply = 12LL,
+  PlasmaDeleteRequest = 13LL,
+  PlasmaDeleteReply = 14LL,
+  PlasmaContainsRequest = 15LL,
+  PlasmaContainsReply = 16LL,
+  PlasmaListRequest = 17LL,
+  PlasmaListReply = 18LL,
+  PlasmaConnectRequest = 19LL,
+  PlasmaConnectReply = 20LL,
+  PlasmaEvictRequest = 21LL,
+  PlasmaEvictReply = 22LL,
+  PlasmaSubscribeRequest = 23LL,
+  PlasmaUnsubscribeRequest = 24LL,
+  PlasmaDataRequest = 25LL,
+  PlasmaDataReply = 26LL,
+  PlasmaNotification = 27LL,
+  PlasmaSetOptionsRequest = 28LL,
+  PlasmaSetOptionsReply = 29LL,
+  PlasmaGetDebugStringRequest = 30LL,
+  PlasmaGetDebugStringReply = 31LL,
+  PlasmaCreateAndSealBatchRequest = 32LL,
+  PlasmaCreateAndSealBatchReply = 33LL,
+  PlasmaRefreshLRURequest = 34LL,
+  PlasmaRefreshLRUReply = 35LL,
   MIN = PlasmaDisconnectClient,
   MAX = PlasmaRefreshLRUReply
 };
@@ -202,7 +237,7 @@ inline const MessageType (&EnumValuesMessageType())[36] {
 }
 
 inline const char * const *EnumNamesMessageType() {
-  static const char * const names[] = {
+  static const char * const names[37] = {
     "PlasmaDisconnectClient",
     "PlasmaCreateRequest",
     "PlasmaCreateReply",
@@ -245,7 +280,7 @@ inline const char * const *EnumNamesMessageType() {
 }
 
 inline const char *EnumNameMessageType(MessageType e) {
-  if (e < MessageType::PlasmaDisconnectClient || e > MessageType::PlasmaRefreshLRUReply) return "";
+  if (flatbuffers::IsOutRange(e, MessageType::PlasmaDisconnectClient, MessageType::PlasmaRefreshLRUReply)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesMessageType()[index];
 }
@@ -274,7 +309,7 @@ inline const PlasmaError (&EnumValuesPlasmaError())[6] {
 }
 
 inline const char * const *EnumNamesPlasmaError() {
-  static const char * const names[] = {
+  static const char * const names[7] = {
     "OK",
     "ObjectExists",
     "ObjectNonexistent",
@@ -287,7 +322,7 @@ inline const char * const *EnumNamesPlasmaError() {
 }
 
 inline const char *EnumNamePlasmaError(PlasmaError e) {
-  if (e < PlasmaError::OK || e > PlasmaError::ObjectInUse) return "";
+  if (flatbuffers::IsOutRange(e, PlasmaError::OK, PlasmaError::ObjectInUse)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesPlasmaError()[index];
 }
@@ -351,6 +386,7 @@ struct PlasmaSetOptionsRequestT : public flatbuffers::NativeTable {
 
 struct PlasmaSetOptionsRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaSetOptionsRequestT NativeTableType;
+  typedef PlasmaSetOptionsRequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CLIENT_NAME = 4,
     VT_OUTPUT_MEMORY_QUOTA = 6
@@ -374,6 +410,7 @@ struct PlasmaSetOptionsRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Ta
 };
 
 struct PlasmaSetOptionsRequestBuilder {
+  typedef PlasmaSetOptionsRequest Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_client_name(flatbuffers::Offset<flatbuffers::String> client_name) {
@@ -419,19 +456,20 @@ flatbuffers::Offset<PlasmaSetOptionsRequest> CreatePlasmaSetOptionsRequest(flatb
 
 struct PlasmaSetOptionsReplyT : public flatbuffers::NativeTable {
   typedef PlasmaSetOptionsReply TableType;
-  PlasmaError error;
+  plasma::flatbuf::PlasmaError error;
   PlasmaSetOptionsReplyT()
-      : error(PlasmaError::OK) {
+      : error(plasma::flatbuf::PlasmaError::OK) {
   }
 };
 
 struct PlasmaSetOptionsReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaSetOptionsReplyT NativeTableType;
+  typedef PlasmaSetOptionsReplyBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ERROR = 4
   };
-  PlasmaError error() const {
-    return static_cast<PlasmaError>(GetField<int32_t>(VT_ERROR, 0));
+  plasma::flatbuf::PlasmaError error() const {
+    return static_cast<plasma::flatbuf::PlasmaError>(GetField<int32_t>(VT_ERROR, 0));
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -444,9 +482,10 @@ struct PlasmaSetOptionsReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
 };
 
 struct PlasmaSetOptionsReplyBuilder {
+  typedef PlasmaSetOptionsReply Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_error(PlasmaError error) {
+  void add_error(plasma::flatbuf::PlasmaError error) {
     fbb_.AddElement<int32_t>(PlasmaSetOptionsReply::VT_ERROR, static_cast<int32_t>(error), 0);
   }
   explicit PlasmaSetOptionsReplyBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -463,7 +502,7 @@ struct PlasmaSetOptionsReplyBuilder {
 
 inline flatbuffers::Offset<PlasmaSetOptionsReply> CreatePlasmaSetOptionsReply(
     flatbuffers::FlatBufferBuilder &_fbb,
-    PlasmaError error = PlasmaError::OK) {
+    plasma::flatbuf::PlasmaError error = plasma::flatbuf::PlasmaError::OK) {
   PlasmaSetOptionsReplyBuilder builder_(_fbb);
   builder_.add_error(error);
   return builder_.Finish();
@@ -479,6 +518,7 @@ struct PlasmaGetDebugStringRequestT : public flatbuffers::NativeTable {
 
 struct PlasmaGetDebugStringRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaGetDebugStringRequestT NativeTableType;
+  typedef PlasmaGetDebugStringRequestBuilder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            verifier.EndTable();
@@ -489,6 +529,7 @@ struct PlasmaGetDebugStringRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers
 };
 
 struct PlasmaGetDebugStringRequestBuilder {
+  typedef PlasmaGetDebugStringRequest Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   explicit PlasmaGetDebugStringRequestBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -520,6 +561,7 @@ struct PlasmaGetDebugStringReplyT : public flatbuffers::NativeTable {
 
 struct PlasmaGetDebugStringReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaGetDebugStringReplyT NativeTableType;
+  typedef PlasmaGetDebugStringReplyBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_DEBUG_STRING = 4
   };
@@ -538,6 +580,7 @@ struct PlasmaGetDebugStringReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::
 };
 
 struct PlasmaGetDebugStringReplyBuilder {
+  typedef PlasmaGetDebugStringReply Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_debug_string(flatbuffers::Offset<flatbuffers::String> debug_string) {
@@ -591,6 +634,7 @@ struct PlasmaCreateRequestT : public flatbuffers::NativeTable {
 
 struct PlasmaCreateRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaCreateRequestT NativeTableType;
+  typedef PlasmaCreateRequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_ID = 4,
     VT_EVICT_IF_FULL = 6,
@@ -629,6 +673,7 @@ struct PlasmaCreateRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table 
 };
 
 struct PlasmaCreateRequestBuilder {
+  typedef PlasmaCreateRequest Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_object_id(flatbuffers::Offset<flatbuffers::String> object_id) {
@@ -702,6 +747,7 @@ struct CudaHandleT : public flatbuffers::NativeTable {
 
 struct CudaHandle FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef CudaHandleT NativeTableType;
+  typedef CudaHandleBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_HANDLE = 4
   };
@@ -720,6 +766,7 @@ struct CudaHandle FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct CudaHandleBuilder {
+  typedef CudaHandle Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_handle(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> handle) {
@@ -759,13 +806,13 @@ flatbuffers::Offset<CudaHandle> CreateCudaHandle(flatbuffers::FlatBufferBuilder 
 struct PlasmaCreateReplyT : public flatbuffers::NativeTable {
   typedef PlasmaCreateReply TableType;
   std::string object_id;
-  std::unique_ptr<PlasmaObjectSpec> plasma_object;
-  PlasmaError error;
+  std::unique_ptr<plasma::flatbuf::PlasmaObjectSpec> plasma_object;
+  plasma::flatbuf::PlasmaError error;
   int32_t store_fd;
   int64_t mmap_size;
-  std::unique_ptr<CudaHandleT> ipc_handle;
+  std::unique_ptr<plasma::flatbuf::CudaHandleT> ipc_handle;
   PlasmaCreateReplyT()
-      : error(PlasmaError::OK),
+      : error(plasma::flatbuf::PlasmaError::OK),
         store_fd(0),
         mmap_size(0) {
   }
@@ -773,6 +820,7 @@ struct PlasmaCreateReplyT : public flatbuffers::NativeTable {
 
 struct PlasmaCreateReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaCreateReplyT NativeTableType;
+  typedef PlasmaCreateReplyBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_ID = 4,
     VT_PLASMA_OBJECT = 6,
@@ -784,11 +832,11 @@ struct PlasmaCreateReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const flatbuffers::String *object_id() const {
     return GetPointer<const flatbuffers::String *>(VT_OBJECT_ID);
   }
-  const PlasmaObjectSpec *plasma_object() const {
-    return GetStruct<const PlasmaObjectSpec *>(VT_PLASMA_OBJECT);
+  const plasma::flatbuf::PlasmaObjectSpec *plasma_object() const {
+    return GetStruct<const plasma::flatbuf::PlasmaObjectSpec *>(VT_PLASMA_OBJECT);
   }
-  PlasmaError error() const {
-    return static_cast<PlasmaError>(GetField<int32_t>(VT_ERROR, 0));
+  plasma::flatbuf::PlasmaError error() const {
+    return static_cast<plasma::flatbuf::PlasmaError>(GetField<int32_t>(VT_ERROR, 0));
   }
   int32_t store_fd() const {
     return GetField<int32_t>(VT_STORE_FD, 0);
@@ -796,14 +844,14 @@ struct PlasmaCreateReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int64_t mmap_size() const {
     return GetField<int64_t>(VT_MMAP_SIZE, 0);
   }
-  const CudaHandle *ipc_handle() const {
-    return GetPointer<const CudaHandle *>(VT_IPC_HANDLE);
+  const plasma::flatbuf::CudaHandle *ipc_handle() const {
+    return GetPointer<const plasma::flatbuf::CudaHandle *>(VT_IPC_HANDLE);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_OBJECT_ID) &&
            verifier.VerifyString(object_id()) &&
-           VerifyField<PlasmaObjectSpec>(verifier, VT_PLASMA_OBJECT) &&
+           VerifyField<plasma::flatbuf::PlasmaObjectSpec>(verifier, VT_PLASMA_OBJECT) &&
            VerifyField<int32_t>(verifier, VT_ERROR) &&
            VerifyField<int32_t>(verifier, VT_STORE_FD) &&
            VerifyField<int64_t>(verifier, VT_MMAP_SIZE) &&
@@ -817,15 +865,16 @@ struct PlasmaCreateReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct PlasmaCreateReplyBuilder {
+  typedef PlasmaCreateReply Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_object_id(flatbuffers::Offset<flatbuffers::String> object_id) {
     fbb_.AddOffset(PlasmaCreateReply::VT_OBJECT_ID, object_id);
   }
-  void add_plasma_object(const PlasmaObjectSpec *plasma_object) {
+  void add_plasma_object(const plasma::flatbuf::PlasmaObjectSpec *plasma_object) {
     fbb_.AddStruct(PlasmaCreateReply::VT_PLASMA_OBJECT, plasma_object);
   }
-  void add_error(PlasmaError error) {
+  void add_error(plasma::flatbuf::PlasmaError error) {
     fbb_.AddElement<int32_t>(PlasmaCreateReply::VT_ERROR, static_cast<int32_t>(error), 0);
   }
   void add_store_fd(int32_t store_fd) {
@@ -834,7 +883,7 @@ struct PlasmaCreateReplyBuilder {
   void add_mmap_size(int64_t mmap_size) {
     fbb_.AddElement<int64_t>(PlasmaCreateReply::VT_MMAP_SIZE, mmap_size, 0);
   }
-  void add_ipc_handle(flatbuffers::Offset<CudaHandle> ipc_handle) {
+  void add_ipc_handle(flatbuffers::Offset<plasma::flatbuf::CudaHandle> ipc_handle) {
     fbb_.AddOffset(PlasmaCreateReply::VT_IPC_HANDLE, ipc_handle);
   }
   explicit PlasmaCreateReplyBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -852,11 +901,11 @@ struct PlasmaCreateReplyBuilder {
 inline flatbuffers::Offset<PlasmaCreateReply> CreatePlasmaCreateReply(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> object_id = 0,
-    const PlasmaObjectSpec *plasma_object = 0,
-    PlasmaError error = PlasmaError::OK,
+    const plasma::flatbuf::PlasmaObjectSpec *plasma_object = 0,
+    plasma::flatbuf::PlasmaError error = plasma::flatbuf::PlasmaError::OK,
     int32_t store_fd = 0,
     int64_t mmap_size = 0,
-    flatbuffers::Offset<CudaHandle> ipc_handle = 0) {
+    flatbuffers::Offset<plasma::flatbuf::CudaHandle> ipc_handle = 0) {
   PlasmaCreateReplyBuilder builder_(_fbb);
   builder_.add_mmap_size(mmap_size);
   builder_.add_ipc_handle(ipc_handle);
@@ -870,11 +919,11 @@ inline flatbuffers::Offset<PlasmaCreateReply> CreatePlasmaCreateReply(
 inline flatbuffers::Offset<PlasmaCreateReply> CreatePlasmaCreateReplyDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *object_id = nullptr,
-    const PlasmaObjectSpec *plasma_object = 0,
-    PlasmaError error = PlasmaError::OK,
+    const plasma::flatbuf::PlasmaObjectSpec *plasma_object = 0,
+    plasma::flatbuf::PlasmaError error = plasma::flatbuf::PlasmaError::OK,
     int32_t store_fd = 0,
     int64_t mmap_size = 0,
-    flatbuffers::Offset<CudaHandle> ipc_handle = 0) {
+    flatbuffers::Offset<plasma::flatbuf::CudaHandle> ipc_handle = 0) {
   auto object_id__ = object_id ? _fbb.CreateString(object_id) : 0;
   return plasma::flatbuf::CreatePlasmaCreateReply(
       _fbb,
@@ -902,6 +951,7 @@ struct PlasmaCreateAndSealRequestT : public flatbuffers::NativeTable {
 
 struct PlasmaCreateAndSealRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaCreateAndSealRequestT NativeTableType;
+  typedef PlasmaCreateAndSealRequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_ID = 4,
     VT_EVICT_IF_FULL = 6,
@@ -943,6 +993,7 @@ struct PlasmaCreateAndSealRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers:
 };
 
 struct PlasmaCreateAndSealRequestBuilder {
+  typedef PlasmaCreateAndSealRequest Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_object_id(flatbuffers::Offset<flatbuffers::String> object_id) {
@@ -1012,19 +1063,20 @@ flatbuffers::Offset<PlasmaCreateAndSealRequest> CreatePlasmaCreateAndSealRequest
 
 struct PlasmaCreateAndSealReplyT : public flatbuffers::NativeTable {
   typedef PlasmaCreateAndSealReply TableType;
-  PlasmaError error;
+  plasma::flatbuf::PlasmaError error;
   PlasmaCreateAndSealReplyT()
-      : error(PlasmaError::OK) {
+      : error(plasma::flatbuf::PlasmaError::OK) {
   }
 };
 
 struct PlasmaCreateAndSealReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaCreateAndSealReplyT NativeTableType;
+  typedef PlasmaCreateAndSealReplyBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ERROR = 4
   };
-  PlasmaError error() const {
-    return static_cast<PlasmaError>(GetField<int32_t>(VT_ERROR, 0));
+  plasma::flatbuf::PlasmaError error() const {
+    return static_cast<plasma::flatbuf::PlasmaError>(GetField<int32_t>(VT_ERROR, 0));
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1037,9 +1089,10 @@ struct PlasmaCreateAndSealReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::T
 };
 
 struct PlasmaCreateAndSealReplyBuilder {
+  typedef PlasmaCreateAndSealReply Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_error(PlasmaError error) {
+  void add_error(plasma::flatbuf::PlasmaError error) {
     fbb_.AddElement<int32_t>(PlasmaCreateAndSealReply::VT_ERROR, static_cast<int32_t>(error), 0);
   }
   explicit PlasmaCreateAndSealReplyBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1056,7 +1109,7 @@ struct PlasmaCreateAndSealReplyBuilder {
 
 inline flatbuffers::Offset<PlasmaCreateAndSealReply> CreatePlasmaCreateAndSealReply(
     flatbuffers::FlatBufferBuilder &_fbb,
-    PlasmaError error = PlasmaError::OK) {
+    plasma::flatbuf::PlasmaError error = plasma::flatbuf::PlasmaError::OK) {
   PlasmaCreateAndSealReplyBuilder builder_(_fbb);
   builder_.add_error(error);
   return builder_.Finish();
@@ -1078,6 +1131,7 @@ struct PlasmaCreateAndSealBatchRequestT : public flatbuffers::NativeTable {
 
 struct PlasmaCreateAndSealBatchRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaCreateAndSealBatchRequestT NativeTableType;
+  typedef PlasmaCreateAndSealBatchRequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_IDS = 4,
     VT_EVICT_IF_FULL = 6,
@@ -1123,6 +1177,7 @@ struct PlasmaCreateAndSealBatchRequest FLATBUFFERS_FINAL_CLASS : private flatbuf
 };
 
 struct PlasmaCreateAndSealBatchRequestBuilder {
+  typedef PlasmaCreateAndSealBatchRequest Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_object_ids(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> object_ids) {
@@ -1192,19 +1247,20 @@ flatbuffers::Offset<PlasmaCreateAndSealBatchRequest> CreatePlasmaCreateAndSealBa
 
 struct PlasmaCreateAndSealBatchReplyT : public flatbuffers::NativeTable {
   typedef PlasmaCreateAndSealBatchReply TableType;
-  PlasmaError error;
+  plasma::flatbuf::PlasmaError error;
   PlasmaCreateAndSealBatchReplyT()
-      : error(PlasmaError::OK) {
+      : error(plasma::flatbuf::PlasmaError::OK) {
   }
 };
 
 struct PlasmaCreateAndSealBatchReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaCreateAndSealBatchReplyT NativeTableType;
+  typedef PlasmaCreateAndSealBatchReplyBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ERROR = 4
   };
-  PlasmaError error() const {
-    return static_cast<PlasmaError>(GetField<int32_t>(VT_ERROR, 0));
+  plasma::flatbuf::PlasmaError error() const {
+    return static_cast<plasma::flatbuf::PlasmaError>(GetField<int32_t>(VT_ERROR, 0));
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1217,9 +1273,10 @@ struct PlasmaCreateAndSealBatchReply FLATBUFFERS_FINAL_CLASS : private flatbuffe
 };
 
 struct PlasmaCreateAndSealBatchReplyBuilder {
+  typedef PlasmaCreateAndSealBatchReply Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_error(PlasmaError error) {
+  void add_error(plasma::flatbuf::PlasmaError error) {
     fbb_.AddElement<int32_t>(PlasmaCreateAndSealBatchReply::VT_ERROR, static_cast<int32_t>(error), 0);
   }
   explicit PlasmaCreateAndSealBatchReplyBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1236,7 +1293,7 @@ struct PlasmaCreateAndSealBatchReplyBuilder {
 
 inline flatbuffers::Offset<PlasmaCreateAndSealBatchReply> CreatePlasmaCreateAndSealBatchReply(
     flatbuffers::FlatBufferBuilder &_fbb,
-    PlasmaError error = PlasmaError::OK) {
+    plasma::flatbuf::PlasmaError error = plasma::flatbuf::PlasmaError::OK) {
   PlasmaCreateAndSealBatchReplyBuilder builder_(_fbb);
   builder_.add_error(error);
   return builder_.Finish();
@@ -1253,6 +1310,7 @@ struct PlasmaAbortRequestT : public flatbuffers::NativeTable {
 
 struct PlasmaAbortRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaAbortRequestT NativeTableType;
+  typedef PlasmaAbortRequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_ID = 4
   };
@@ -1271,6 +1329,7 @@ struct PlasmaAbortRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct PlasmaAbortRequestBuilder {
+  typedef PlasmaAbortRequest Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_object_id(flatbuffers::Offset<flatbuffers::String> object_id) {
@@ -1316,6 +1375,7 @@ struct PlasmaAbortReplyT : public flatbuffers::NativeTable {
 
 struct PlasmaAbortReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaAbortReplyT NativeTableType;
+  typedef PlasmaAbortReplyBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_ID = 4
   };
@@ -1334,6 +1394,7 @@ struct PlasmaAbortReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct PlasmaAbortReplyBuilder {
+  typedef PlasmaAbortReply Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_object_id(flatbuffers::Offset<flatbuffers::String> object_id) {
@@ -1380,6 +1441,7 @@ struct PlasmaSealRequestT : public flatbuffers::NativeTable {
 
 struct PlasmaSealRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaSealRequestT NativeTableType;
+  typedef PlasmaSealRequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_ID = 4,
     VT_DIGEST = 6
@@ -1404,6 +1466,7 @@ struct PlasmaSealRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct PlasmaSealRequestBuilder {
+  typedef PlasmaSealRequest Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_object_id(flatbuffers::Offset<flatbuffers::String> object_id) {
@@ -1451,14 +1514,15 @@ flatbuffers::Offset<PlasmaSealRequest> CreatePlasmaSealRequest(flatbuffers::Flat
 struct PlasmaSealReplyT : public flatbuffers::NativeTable {
   typedef PlasmaSealReply TableType;
   std::string object_id;
-  PlasmaError error;
+  plasma::flatbuf::PlasmaError error;
   PlasmaSealReplyT()
-      : error(PlasmaError::OK) {
+      : error(plasma::flatbuf::PlasmaError::OK) {
   }
 };
 
 struct PlasmaSealReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaSealReplyT NativeTableType;
+  typedef PlasmaSealReplyBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_ID = 4,
     VT_ERROR = 6
@@ -1466,8 +1530,8 @@ struct PlasmaSealReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const flatbuffers::String *object_id() const {
     return GetPointer<const flatbuffers::String *>(VT_OBJECT_ID);
   }
-  PlasmaError error() const {
-    return static_cast<PlasmaError>(GetField<int32_t>(VT_ERROR, 0));
+  plasma::flatbuf::PlasmaError error() const {
+    return static_cast<plasma::flatbuf::PlasmaError>(GetField<int32_t>(VT_ERROR, 0));
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1482,12 +1546,13 @@ struct PlasmaSealReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct PlasmaSealReplyBuilder {
+  typedef PlasmaSealReply Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_object_id(flatbuffers::Offset<flatbuffers::String> object_id) {
     fbb_.AddOffset(PlasmaSealReply::VT_OBJECT_ID, object_id);
   }
-  void add_error(PlasmaError error) {
+  void add_error(plasma::flatbuf::PlasmaError error) {
     fbb_.AddElement<int32_t>(PlasmaSealReply::VT_ERROR, static_cast<int32_t>(error), 0);
   }
   explicit PlasmaSealReplyBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1505,7 +1570,7 @@ struct PlasmaSealReplyBuilder {
 inline flatbuffers::Offset<PlasmaSealReply> CreatePlasmaSealReply(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> object_id = 0,
-    PlasmaError error = PlasmaError::OK) {
+    plasma::flatbuf::PlasmaError error = plasma::flatbuf::PlasmaError::OK) {
   PlasmaSealReplyBuilder builder_(_fbb);
   builder_.add_error(error);
   builder_.add_object_id(object_id);
@@ -1515,7 +1580,7 @@ inline flatbuffers::Offset<PlasmaSealReply> CreatePlasmaSealReply(
 inline flatbuffers::Offset<PlasmaSealReply> CreatePlasmaSealReplyDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *object_id = nullptr,
-    PlasmaError error = PlasmaError::OK) {
+    plasma::flatbuf::PlasmaError error = plasma::flatbuf::PlasmaError::OK) {
   auto object_id__ = object_id ? _fbb.CreateString(object_id) : 0;
   return plasma::flatbuf::CreatePlasmaSealReply(
       _fbb,
@@ -1536,6 +1601,7 @@ struct PlasmaGetRequestT : public flatbuffers::NativeTable {
 
 struct PlasmaGetRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaGetRequestT NativeTableType;
+  typedef PlasmaGetRequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_IDS = 4,
     VT_TIMEOUT_MS = 6
@@ -1560,6 +1626,7 @@ struct PlasmaGetRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct PlasmaGetRequestBuilder {
+  typedef PlasmaGetRequest Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_object_ids(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> object_ids) {
@@ -1606,16 +1673,17 @@ flatbuffers::Offset<PlasmaGetRequest> CreatePlasmaGetRequest(flatbuffers::FlatBu
 struct PlasmaGetReplyT : public flatbuffers::NativeTable {
   typedef PlasmaGetReply TableType;
   std::vector<std::string> object_ids;
-  std::vector<PlasmaObjectSpec> plasma_objects;
+  std::vector<plasma::flatbuf::PlasmaObjectSpec> plasma_objects;
   std::vector<int32_t> store_fds;
   std::vector<int64_t> mmap_sizes;
-  std::vector<std::unique_ptr<CudaHandleT>> handles;
+  std::vector<std::unique_ptr<plasma::flatbuf::CudaHandleT>> handles;
   PlasmaGetReplyT() {
   }
 };
 
 struct PlasmaGetReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaGetReplyT NativeTableType;
+  typedef PlasmaGetReplyBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_IDS = 4,
     VT_PLASMA_OBJECTS = 6,
@@ -1626,8 +1694,8 @@ struct PlasmaGetReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *object_ids() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *>(VT_OBJECT_IDS);
   }
-  const flatbuffers::Vector<const PlasmaObjectSpec *> *plasma_objects() const {
-    return GetPointer<const flatbuffers::Vector<const PlasmaObjectSpec *> *>(VT_PLASMA_OBJECTS);
+  const flatbuffers::Vector<const plasma::flatbuf::PlasmaObjectSpec *> *plasma_objects() const {
+    return GetPointer<const flatbuffers::Vector<const plasma::flatbuf::PlasmaObjectSpec *> *>(VT_PLASMA_OBJECTS);
   }
   const flatbuffers::Vector<int32_t> *store_fds() const {
     return GetPointer<const flatbuffers::Vector<int32_t> *>(VT_STORE_FDS);
@@ -1635,8 +1703,8 @@ struct PlasmaGetReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const flatbuffers::Vector<int64_t> *mmap_sizes() const {
     return GetPointer<const flatbuffers::Vector<int64_t> *>(VT_MMAP_SIZES);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<CudaHandle>> *handles() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<CudaHandle>> *>(VT_HANDLES);
+  const flatbuffers::Vector<flatbuffers::Offset<plasma::flatbuf::CudaHandle>> *handles() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<plasma::flatbuf::CudaHandle>> *>(VT_HANDLES);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1660,12 +1728,13 @@ struct PlasmaGetReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct PlasmaGetReplyBuilder {
+  typedef PlasmaGetReply Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_object_ids(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> object_ids) {
     fbb_.AddOffset(PlasmaGetReply::VT_OBJECT_IDS, object_ids);
   }
-  void add_plasma_objects(flatbuffers::Offset<flatbuffers::Vector<const PlasmaObjectSpec *>> plasma_objects) {
+  void add_plasma_objects(flatbuffers::Offset<flatbuffers::Vector<const plasma::flatbuf::PlasmaObjectSpec *>> plasma_objects) {
     fbb_.AddOffset(PlasmaGetReply::VT_PLASMA_OBJECTS, plasma_objects);
   }
   void add_store_fds(flatbuffers::Offset<flatbuffers::Vector<int32_t>> store_fds) {
@@ -1674,7 +1743,7 @@ struct PlasmaGetReplyBuilder {
   void add_mmap_sizes(flatbuffers::Offset<flatbuffers::Vector<int64_t>> mmap_sizes) {
     fbb_.AddOffset(PlasmaGetReply::VT_MMAP_SIZES, mmap_sizes);
   }
-  void add_handles(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<CudaHandle>>> handles) {
+  void add_handles(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<plasma::flatbuf::CudaHandle>>> handles) {
     fbb_.AddOffset(PlasmaGetReply::VT_HANDLES, handles);
   }
   explicit PlasmaGetReplyBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1692,10 +1761,10 @@ struct PlasmaGetReplyBuilder {
 inline flatbuffers::Offset<PlasmaGetReply> CreatePlasmaGetReply(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> object_ids = 0,
-    flatbuffers::Offset<flatbuffers::Vector<const PlasmaObjectSpec *>> plasma_objects = 0,
+    flatbuffers::Offset<flatbuffers::Vector<const plasma::flatbuf::PlasmaObjectSpec *>> plasma_objects = 0,
     flatbuffers::Offset<flatbuffers::Vector<int32_t>> store_fds = 0,
     flatbuffers::Offset<flatbuffers::Vector<int64_t>> mmap_sizes = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<CudaHandle>>> handles = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<plasma::flatbuf::CudaHandle>>> handles = 0) {
   PlasmaGetReplyBuilder builder_(_fbb);
   builder_.add_handles(handles);
   builder_.add_mmap_sizes(mmap_sizes);
@@ -1708,15 +1777,15 @@ inline flatbuffers::Offset<PlasmaGetReply> CreatePlasmaGetReply(
 inline flatbuffers::Offset<PlasmaGetReply> CreatePlasmaGetReplyDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<flatbuffers::Offset<flatbuffers::String>> *object_ids = nullptr,
-    const std::vector<PlasmaObjectSpec> *plasma_objects = nullptr,
+    const std::vector<plasma::flatbuf::PlasmaObjectSpec> *plasma_objects = nullptr,
     const std::vector<int32_t> *store_fds = nullptr,
     const std::vector<int64_t> *mmap_sizes = nullptr,
-    const std::vector<flatbuffers::Offset<CudaHandle>> *handles = nullptr) {
+    const std::vector<flatbuffers::Offset<plasma::flatbuf::CudaHandle>> *handles = nullptr) {
   auto object_ids__ = object_ids ? _fbb.CreateVector<flatbuffers::Offset<flatbuffers::String>>(*object_ids) : 0;
-  auto plasma_objects__ = plasma_objects ? _fbb.CreateVectorOfStructs<PlasmaObjectSpec>(*plasma_objects) : 0;
+  auto plasma_objects__ = plasma_objects ? _fbb.CreateVectorOfStructs<plasma::flatbuf::PlasmaObjectSpec>(*plasma_objects) : 0;
   auto store_fds__ = store_fds ? _fbb.CreateVector<int32_t>(*store_fds) : 0;
   auto mmap_sizes__ = mmap_sizes ? _fbb.CreateVector<int64_t>(*mmap_sizes) : 0;
-  auto handles__ = handles ? _fbb.CreateVector<flatbuffers::Offset<CudaHandle>>(*handles) : 0;
+  auto handles__ = handles ? _fbb.CreateVector<flatbuffers::Offset<plasma::flatbuf::CudaHandle>>(*handles) : 0;
   return plasma::flatbuf::CreatePlasmaGetReply(
       _fbb,
       object_ids__,
@@ -1737,6 +1806,7 @@ struct PlasmaReleaseRequestT : public flatbuffers::NativeTable {
 
 struct PlasmaReleaseRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaReleaseRequestT NativeTableType;
+  typedef PlasmaReleaseRequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_ID = 4
   };
@@ -1755,6 +1825,7 @@ struct PlasmaReleaseRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
 };
 
 struct PlasmaReleaseRequestBuilder {
+  typedef PlasmaReleaseRequest Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_object_id(flatbuffers::Offset<flatbuffers::String> object_id) {
@@ -1794,14 +1865,15 @@ flatbuffers::Offset<PlasmaReleaseRequest> CreatePlasmaReleaseRequest(flatbuffers
 struct PlasmaReleaseReplyT : public flatbuffers::NativeTable {
   typedef PlasmaReleaseReply TableType;
   std::string object_id;
-  PlasmaError error;
+  plasma::flatbuf::PlasmaError error;
   PlasmaReleaseReplyT()
-      : error(PlasmaError::OK) {
+      : error(plasma::flatbuf::PlasmaError::OK) {
   }
 };
 
 struct PlasmaReleaseReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaReleaseReplyT NativeTableType;
+  typedef PlasmaReleaseReplyBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_ID = 4,
     VT_ERROR = 6
@@ -1809,8 +1881,8 @@ struct PlasmaReleaseReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const flatbuffers::String *object_id() const {
     return GetPointer<const flatbuffers::String *>(VT_OBJECT_ID);
   }
-  PlasmaError error() const {
-    return static_cast<PlasmaError>(GetField<int32_t>(VT_ERROR, 0));
+  plasma::flatbuf::PlasmaError error() const {
+    return static_cast<plasma::flatbuf::PlasmaError>(GetField<int32_t>(VT_ERROR, 0));
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1825,12 +1897,13 @@ struct PlasmaReleaseReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct PlasmaReleaseReplyBuilder {
+  typedef PlasmaReleaseReply Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_object_id(flatbuffers::Offset<flatbuffers::String> object_id) {
     fbb_.AddOffset(PlasmaReleaseReply::VT_OBJECT_ID, object_id);
   }
-  void add_error(PlasmaError error) {
+  void add_error(plasma::flatbuf::PlasmaError error) {
     fbb_.AddElement<int32_t>(PlasmaReleaseReply::VT_ERROR, static_cast<int32_t>(error), 0);
   }
   explicit PlasmaReleaseReplyBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1848,7 +1921,7 @@ struct PlasmaReleaseReplyBuilder {
 inline flatbuffers::Offset<PlasmaReleaseReply> CreatePlasmaReleaseReply(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> object_id = 0,
-    PlasmaError error = PlasmaError::OK) {
+    plasma::flatbuf::PlasmaError error = plasma::flatbuf::PlasmaError::OK) {
   PlasmaReleaseReplyBuilder builder_(_fbb);
   builder_.add_error(error);
   builder_.add_object_id(object_id);
@@ -1858,7 +1931,7 @@ inline flatbuffers::Offset<PlasmaReleaseReply> CreatePlasmaReleaseReply(
 inline flatbuffers::Offset<PlasmaReleaseReply> CreatePlasmaReleaseReplyDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *object_id = nullptr,
-    PlasmaError error = PlasmaError::OK) {
+    plasma::flatbuf::PlasmaError error = plasma::flatbuf::PlasmaError::OK) {
   auto object_id__ = object_id ? _fbb.CreateString(object_id) : 0;
   return plasma::flatbuf::CreatePlasmaReleaseReply(
       _fbb,
@@ -1879,6 +1952,7 @@ struct PlasmaDeleteRequestT : public flatbuffers::NativeTable {
 
 struct PlasmaDeleteRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaDeleteRequestT NativeTableType;
+  typedef PlasmaDeleteRequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_COUNT = 4,
     VT_OBJECT_IDS = 6
@@ -1903,6 +1977,7 @@ struct PlasmaDeleteRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table 
 };
 
 struct PlasmaDeleteRequestBuilder {
+  typedef PlasmaDeleteRequest Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_count(int32_t count) {
@@ -1950,7 +2025,7 @@ struct PlasmaDeleteReplyT : public flatbuffers::NativeTable {
   typedef PlasmaDeleteReply TableType;
   int32_t count;
   std::vector<std::string> object_ids;
-  std::vector<PlasmaError> errors;
+  std::vector<plasma::flatbuf::PlasmaError> errors;
   PlasmaDeleteReplyT()
       : count(0) {
   }
@@ -1958,6 +2033,7 @@ struct PlasmaDeleteReplyT : public flatbuffers::NativeTable {
 
 struct PlasmaDeleteReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaDeleteReplyT NativeTableType;
+  typedef PlasmaDeleteReplyBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_COUNT = 4,
     VT_OBJECT_IDS = 6,
@@ -1988,6 +2064,7 @@ struct PlasmaDeleteReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct PlasmaDeleteReplyBuilder {
+  typedef PlasmaDeleteReply Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_count(int32_t count) {
@@ -2048,6 +2125,7 @@ struct PlasmaContainsRequestT : public flatbuffers::NativeTable {
 
 struct PlasmaContainsRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaContainsRequestT NativeTableType;
+  typedef PlasmaContainsRequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_ID = 4
   };
@@ -2066,6 +2144,7 @@ struct PlasmaContainsRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
 };
 
 struct PlasmaContainsRequestBuilder {
+  typedef PlasmaContainsRequest Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_object_id(flatbuffers::Offset<flatbuffers::String> object_id) {
@@ -2113,6 +2192,7 @@ struct PlasmaContainsReplyT : public flatbuffers::NativeTable {
 
 struct PlasmaContainsReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaContainsReplyT NativeTableType;
+  typedef PlasmaContainsReplyBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_ID = 4,
     VT_HAS_OBJECT = 6
@@ -2136,6 +2216,7 @@ struct PlasmaContainsReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table 
 };
 
 struct PlasmaContainsReplyBuilder {
+  typedef PlasmaContainsReply Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_object_id(flatbuffers::Offset<flatbuffers::String> object_id) {
@@ -2187,6 +2268,7 @@ struct PlasmaListRequestT : public flatbuffers::NativeTable {
 
 struct PlasmaListRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaListRequestT NativeTableType;
+  typedef PlasmaListRequestBuilder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            verifier.EndTable();
@@ -2197,6 +2279,7 @@ struct PlasmaListRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct PlasmaListRequestBuilder {
+  typedef PlasmaListRequest Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   explicit PlasmaListRequestBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -2221,18 +2304,19 @@ flatbuffers::Offset<PlasmaListRequest> CreatePlasmaListRequest(flatbuffers::Flat
 
 struct PlasmaListReplyT : public flatbuffers::NativeTable {
   typedef PlasmaListReply TableType;
-  std::vector<std::unique_ptr<ObjectInfoT>> objects;
+  std::vector<std::unique_ptr<plasma::flatbuf::ObjectInfoT>> objects;
   PlasmaListReplyT() {
   }
 };
 
 struct PlasmaListReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaListReplyT NativeTableType;
+  typedef PlasmaListReplyBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECTS = 4
   };
-  const flatbuffers::Vector<flatbuffers::Offset<ObjectInfo>> *objects() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<ObjectInfo>> *>(VT_OBJECTS);
+  const flatbuffers::Vector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>> *objects() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>> *>(VT_OBJECTS);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -2247,9 +2331,10 @@ struct PlasmaListReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct PlasmaListReplyBuilder {
+  typedef PlasmaListReply Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_objects(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ObjectInfo>>> objects) {
+  void add_objects(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>>> objects) {
     fbb_.AddOffset(PlasmaListReply::VT_OBJECTS, objects);
   }
   explicit PlasmaListReplyBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -2266,7 +2351,7 @@ struct PlasmaListReplyBuilder {
 
 inline flatbuffers::Offset<PlasmaListReply> CreatePlasmaListReply(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ObjectInfo>>> objects = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>>> objects = 0) {
   PlasmaListReplyBuilder builder_(_fbb);
   builder_.add_objects(objects);
   return builder_.Finish();
@@ -2274,8 +2359,8 @@ inline flatbuffers::Offset<PlasmaListReply> CreatePlasmaListReply(
 
 inline flatbuffers::Offset<PlasmaListReply> CreatePlasmaListReplyDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<flatbuffers::Offset<ObjectInfo>> *objects = nullptr) {
-  auto objects__ = objects ? _fbb.CreateVector<flatbuffers::Offset<ObjectInfo>>(*objects) : 0;
+    const std::vector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>> *objects = nullptr) {
+  auto objects__ = objects ? _fbb.CreateVector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>>(*objects) : 0;
   return plasma::flatbuf::CreatePlasmaListReply(
       _fbb,
       objects__);
@@ -2291,6 +2376,7 @@ struct PlasmaConnectRequestT : public flatbuffers::NativeTable {
 
 struct PlasmaConnectRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaConnectRequestT NativeTableType;
+  typedef PlasmaConnectRequestBuilder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            verifier.EndTable();
@@ -2301,6 +2387,7 @@ struct PlasmaConnectRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
 };
 
 struct PlasmaConnectRequestBuilder {
+  typedef PlasmaConnectRequest Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   explicit PlasmaConnectRequestBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -2333,6 +2420,7 @@ struct PlasmaConnectReplyT : public flatbuffers::NativeTable {
 
 struct PlasmaConnectReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaConnectReplyT NativeTableType;
+  typedef PlasmaConnectReplyBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_MEMORY_CAPACITY = 4
   };
@@ -2350,6 +2438,7 @@ struct PlasmaConnectReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct PlasmaConnectReplyBuilder {
+  typedef PlasmaConnectReply Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_memory_capacity(int64_t memory_capacity) {
@@ -2387,6 +2476,7 @@ struct PlasmaEvictRequestT : public flatbuffers::NativeTable {
 
 struct PlasmaEvictRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaEvictRequestT NativeTableType;
+  typedef PlasmaEvictRequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_NUM_BYTES = 4
   };
@@ -2404,6 +2494,7 @@ struct PlasmaEvictRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct PlasmaEvictRequestBuilder {
+  typedef PlasmaEvictRequest Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_num_bytes(uint64_t num_bytes) {
@@ -2441,6 +2532,7 @@ struct PlasmaEvictReplyT : public flatbuffers::NativeTable {
 
 struct PlasmaEvictReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaEvictReplyT NativeTableType;
+  typedef PlasmaEvictReplyBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_NUM_BYTES = 4
   };
@@ -2458,6 +2550,7 @@ struct PlasmaEvictReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct PlasmaEvictReplyBuilder {
+  typedef PlasmaEvictReply Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_num_bytes(uint64_t num_bytes) {
@@ -2493,6 +2586,7 @@ struct PlasmaSubscribeRequestT : public flatbuffers::NativeTable {
 
 struct PlasmaSubscribeRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaSubscribeRequestT NativeTableType;
+  typedef PlasmaSubscribeRequestBuilder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            verifier.EndTable();
@@ -2503,6 +2597,7 @@ struct PlasmaSubscribeRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tab
 };
 
 struct PlasmaSubscribeRequestBuilder {
+  typedef PlasmaSubscribeRequest Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   explicit PlasmaSubscribeRequestBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -2527,18 +2622,19 @@ flatbuffers::Offset<PlasmaSubscribeRequest> CreatePlasmaSubscribeRequest(flatbuf
 
 struct PlasmaNotificationT : public flatbuffers::NativeTable {
   typedef PlasmaNotification TableType;
-  std::vector<std::unique_ptr<ObjectInfoT>> object_info;
+  std::vector<std::unique_ptr<plasma::flatbuf::ObjectInfoT>> object_info;
   PlasmaNotificationT() {
   }
 };
 
 struct PlasmaNotification FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaNotificationT NativeTableType;
+  typedef PlasmaNotificationBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_INFO = 4
   };
-  const flatbuffers::Vector<flatbuffers::Offset<ObjectInfo>> *object_info() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<ObjectInfo>> *>(VT_OBJECT_INFO);
+  const flatbuffers::Vector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>> *object_info() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>> *>(VT_OBJECT_INFO);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -2553,9 +2649,10 @@ struct PlasmaNotification FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct PlasmaNotificationBuilder {
+  typedef PlasmaNotification Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_object_info(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ObjectInfo>>> object_info) {
+  void add_object_info(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>>> object_info) {
     fbb_.AddOffset(PlasmaNotification::VT_OBJECT_INFO, object_info);
   }
   explicit PlasmaNotificationBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -2572,7 +2669,7 @@ struct PlasmaNotificationBuilder {
 
 inline flatbuffers::Offset<PlasmaNotification> CreatePlasmaNotification(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ObjectInfo>>> object_info = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>>> object_info = 0) {
   PlasmaNotificationBuilder builder_(_fbb);
   builder_.add_object_info(object_info);
   return builder_.Finish();
@@ -2580,8 +2677,8 @@ inline flatbuffers::Offset<PlasmaNotification> CreatePlasmaNotification(
 
 inline flatbuffers::Offset<PlasmaNotification> CreatePlasmaNotificationDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<flatbuffers::Offset<ObjectInfo>> *object_info = nullptr) {
-  auto object_info__ = object_info ? _fbb.CreateVector<flatbuffers::Offset<ObjectInfo>>(*object_info) : 0;
+    const std::vector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>> *object_info = nullptr) {
+  auto object_info__ = object_info ? _fbb.CreateVector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>>(*object_info) : 0;
   return plasma::flatbuf::CreatePlasmaNotification(
       _fbb,
       object_info__);
@@ -2601,6 +2698,7 @@ struct PlasmaDataRequestT : public flatbuffers::NativeTable {
 
 struct PlasmaDataRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaDataRequestT NativeTableType;
+  typedef PlasmaDataRequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_ID = 4,
     VT_ADDRESS = 6,
@@ -2630,6 +2728,7 @@ struct PlasmaDataRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct PlasmaDataRequestBuilder {
+  typedef PlasmaDataRequest Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_object_id(flatbuffers::Offset<flatbuffers::String> object_id) {
@@ -2694,6 +2793,7 @@ struct PlasmaDataReplyT : public flatbuffers::NativeTable {
 
 struct PlasmaDataReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaDataReplyT NativeTableType;
+  typedef PlasmaDataReplyBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_ID = 4,
     VT_OBJECT_SIZE = 6,
@@ -2722,6 +2822,7 @@ struct PlasmaDataReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct PlasmaDataReplyBuilder {
+  typedef PlasmaDataReply Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_object_id(flatbuffers::Offset<flatbuffers::String> object_id) {
@@ -2781,6 +2882,7 @@ struct PlasmaRefreshLRURequestT : public flatbuffers::NativeTable {
 
 struct PlasmaRefreshLRURequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaRefreshLRURequestT NativeTableType;
+  typedef PlasmaRefreshLRURequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBJECT_IDS = 4
   };
@@ -2800,6 +2902,7 @@ struct PlasmaRefreshLRURequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Ta
 };
 
 struct PlasmaRefreshLRURequestBuilder {
+  typedef PlasmaRefreshLRURequest Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_object_ids(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> object_ids) {
@@ -2844,6 +2947,7 @@ struct PlasmaRefreshLRUReplyT : public flatbuffers::NativeTable {
 
 struct PlasmaRefreshLRUReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaRefreshLRUReplyT NativeTableType;
+  typedef PlasmaRefreshLRUReplyBuilder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            verifier.EndTable();
@@ -2854,6 +2958,7 @@ struct PlasmaRefreshLRUReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
 };
 
 struct PlasmaRefreshLRUReplyBuilder {
+  typedef PlasmaRefreshLRUReply Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   explicit PlasmaRefreshLRUReplyBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -2877,16 +2982,16 @@ inline flatbuffers::Offset<PlasmaRefreshLRUReply> CreatePlasmaRefreshLRUReply(
 flatbuffers::Offset<PlasmaRefreshLRUReply> CreatePlasmaRefreshLRUReply(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaRefreshLRUReplyT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
 inline PlasmaSetOptionsRequestT *PlasmaSetOptionsRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaSetOptionsRequestT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaSetOptionsRequestT> _o = std::unique_ptr<plasma::flatbuf::PlasmaSetOptionsRequestT>(new PlasmaSetOptionsRequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaSetOptionsRequest::UnPackTo(PlasmaSetOptionsRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = client_name(); if (_e) _o->client_name = _e->str(); };
-  { auto _e = output_memory_quota(); _o->output_memory_quota = _e; };
+  { auto _e = client_name(); if (_e) _o->client_name = _e->str(); }
+  { auto _e = output_memory_quota(); _o->output_memory_quota = _e; }
 }
 
 inline flatbuffers::Offset<PlasmaSetOptionsRequest> PlasmaSetOptionsRequest::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaSetOptionsRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -2906,15 +3011,15 @@ inline flatbuffers::Offset<PlasmaSetOptionsRequest> CreatePlasmaSetOptionsReques
 }
 
 inline PlasmaSetOptionsReplyT *PlasmaSetOptionsReply::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaSetOptionsReplyT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaSetOptionsReplyT> _o = std::unique_ptr<plasma::flatbuf::PlasmaSetOptionsReplyT>(new PlasmaSetOptionsReplyT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaSetOptionsReply::UnPackTo(PlasmaSetOptionsReplyT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = error(); _o->error = _e; };
+  { auto _e = error(); _o->error = _e; }
 }
 
 inline flatbuffers::Offset<PlasmaSetOptionsReply> PlasmaSetOptionsReply::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaSetOptionsReplyT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -2932,9 +3037,9 @@ inline flatbuffers::Offset<PlasmaSetOptionsReply> CreatePlasmaSetOptionsReply(fl
 }
 
 inline PlasmaGetDebugStringRequestT *PlasmaGetDebugStringRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaGetDebugStringRequestT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaGetDebugStringRequestT> _o = std::unique_ptr<plasma::flatbuf::PlasmaGetDebugStringRequestT>(new PlasmaGetDebugStringRequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaGetDebugStringRequest::UnPackTo(PlasmaGetDebugStringRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
@@ -2955,15 +3060,15 @@ inline flatbuffers::Offset<PlasmaGetDebugStringRequest> CreatePlasmaGetDebugStri
 }
 
 inline PlasmaGetDebugStringReplyT *PlasmaGetDebugStringReply::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaGetDebugStringReplyT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaGetDebugStringReplyT> _o = std::unique_ptr<plasma::flatbuf::PlasmaGetDebugStringReplyT>(new PlasmaGetDebugStringReplyT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaGetDebugStringReply::UnPackTo(PlasmaGetDebugStringReplyT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = debug_string(); if (_e) _o->debug_string = _e->str(); };
+  { auto _e = debug_string(); if (_e) _o->debug_string = _e->str(); }
 }
 
 inline flatbuffers::Offset<PlasmaGetDebugStringReply> PlasmaGetDebugStringReply::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaGetDebugStringReplyT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -2981,19 +3086,19 @@ inline flatbuffers::Offset<PlasmaGetDebugStringReply> CreatePlasmaGetDebugString
 }
 
 inline PlasmaCreateRequestT *PlasmaCreateRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaCreateRequestT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaCreateRequestT> _o = std::unique_ptr<plasma::flatbuf::PlasmaCreateRequestT>(new PlasmaCreateRequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaCreateRequest::UnPackTo(PlasmaCreateRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); };
-  { auto _e = evict_if_full(); _o->evict_if_full = _e; };
-  { auto _e = data_size(); _o->data_size = _e; };
-  { auto _e = metadata_size(); _o->metadata_size = _e; };
-  { auto _e = device_num(); _o->device_num = _e; };
+  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); }
+  { auto _e = evict_if_full(); _o->evict_if_full = _e; }
+  { auto _e = data_size(); _o->data_size = _e; }
+  { auto _e = metadata_size(); _o->metadata_size = _e; }
+  { auto _e = device_num(); _o->device_num = _e; }
 }
 
 inline flatbuffers::Offset<PlasmaCreateRequest> PlasmaCreateRequest::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaCreateRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3019,15 +3124,15 @@ inline flatbuffers::Offset<PlasmaCreateRequest> CreatePlasmaCreateRequest(flatbu
 }
 
 inline CudaHandleT *CudaHandle::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new CudaHandleT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::CudaHandleT> _o = std::unique_ptr<plasma::flatbuf::CudaHandleT>(new CudaHandleT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void CudaHandle::UnPackTo(CudaHandleT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = handle(); if (_e) { _o->handle.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->handle[_i] = _e->Get(_i); } } };
+  { auto _e = handle(); if (_e) { _o->handle.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->handle[_i] = _e->Get(_i); } } }
 }
 
 inline flatbuffers::Offset<CudaHandle> CudaHandle::Pack(flatbuffers::FlatBufferBuilder &_fbb, const CudaHandleT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3045,20 +3150,20 @@ inline flatbuffers::Offset<CudaHandle> CreateCudaHandle(flatbuffers::FlatBufferB
 }
 
 inline PlasmaCreateReplyT *PlasmaCreateReply::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaCreateReplyT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaCreateReplyT> _o = std::unique_ptr<plasma::flatbuf::PlasmaCreateReplyT>(new PlasmaCreateReplyT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaCreateReply::UnPackTo(PlasmaCreateReplyT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); };
-  { auto _e = plasma_object(); if (_e) _o->plasma_object = std::unique_ptr<PlasmaObjectSpec>(new PlasmaObjectSpec(*_e)); };
-  { auto _e = error(); _o->error = _e; };
-  { auto _e = store_fd(); _o->store_fd = _e; };
-  { auto _e = mmap_size(); _o->mmap_size = _e; };
-  { auto _e = ipc_handle(); if (_e) _o->ipc_handle = std::unique_ptr<CudaHandleT>(_e->UnPack(_resolver)); };
+  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); }
+  { auto _e = plasma_object(); if (_e) _o->plasma_object = std::unique_ptr<plasma::flatbuf::PlasmaObjectSpec>(new plasma::flatbuf::PlasmaObjectSpec(*_e)); }
+  { auto _e = error(); _o->error = _e; }
+  { auto _e = store_fd(); _o->store_fd = _e; }
+  { auto _e = mmap_size(); _o->mmap_size = _e; }
+  { auto _e = ipc_handle(); if (_e) _o->ipc_handle = std::unique_ptr<plasma::flatbuf::CudaHandleT>(_e->UnPack(_resolver)); }
 }
 
 inline flatbuffers::Offset<PlasmaCreateReply> PlasmaCreateReply::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaCreateReplyT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3086,19 +3191,19 @@ inline flatbuffers::Offset<PlasmaCreateReply> CreatePlasmaCreateReply(flatbuffer
 }
 
 inline PlasmaCreateAndSealRequestT *PlasmaCreateAndSealRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaCreateAndSealRequestT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaCreateAndSealRequestT> _o = std::unique_ptr<plasma::flatbuf::PlasmaCreateAndSealRequestT>(new PlasmaCreateAndSealRequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaCreateAndSealRequest::UnPackTo(PlasmaCreateAndSealRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); };
-  { auto _e = evict_if_full(); _o->evict_if_full = _e; };
-  { auto _e = data(); if (_e) _o->data = _e->str(); };
-  { auto _e = metadata(); if (_e) _o->metadata = _e->str(); };
-  { auto _e = digest(); if (_e) _o->digest = _e->str(); };
+  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); }
+  { auto _e = evict_if_full(); _o->evict_if_full = _e; }
+  { auto _e = data(); if (_e) _o->data = _e->str(); }
+  { auto _e = metadata(); if (_e) _o->metadata = _e->str(); }
+  { auto _e = digest(); if (_e) _o->digest = _e->str(); }
 }
 
 inline flatbuffers::Offset<PlasmaCreateAndSealRequest> PlasmaCreateAndSealRequest::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaCreateAndSealRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3124,15 +3229,15 @@ inline flatbuffers::Offset<PlasmaCreateAndSealRequest> CreatePlasmaCreateAndSeal
 }
 
 inline PlasmaCreateAndSealReplyT *PlasmaCreateAndSealReply::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaCreateAndSealReplyT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaCreateAndSealReplyT> _o = std::unique_ptr<plasma::flatbuf::PlasmaCreateAndSealReplyT>(new PlasmaCreateAndSealReplyT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaCreateAndSealReply::UnPackTo(PlasmaCreateAndSealReplyT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = error(); _o->error = _e; };
+  { auto _e = error(); _o->error = _e; }
 }
 
 inline flatbuffers::Offset<PlasmaCreateAndSealReply> PlasmaCreateAndSealReply::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaCreateAndSealReplyT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3150,19 +3255,19 @@ inline flatbuffers::Offset<PlasmaCreateAndSealReply> CreatePlasmaCreateAndSealRe
 }
 
 inline PlasmaCreateAndSealBatchRequestT *PlasmaCreateAndSealBatchRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaCreateAndSealBatchRequestT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaCreateAndSealBatchRequestT> _o = std::unique_ptr<plasma::flatbuf::PlasmaCreateAndSealBatchRequestT>(new PlasmaCreateAndSealBatchRequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaCreateAndSealBatchRequest::UnPackTo(PlasmaCreateAndSealBatchRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_ids(); if (_e) { _o->object_ids.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->object_ids[_i] = _e->Get(_i)->str(); } } };
-  { auto _e = evict_if_full(); _o->evict_if_full = _e; };
-  { auto _e = data(); if (_e) { _o->data.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->data[_i] = _e->Get(_i)->str(); } } };
-  { auto _e = metadata(); if (_e) { _o->metadata.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->metadata[_i] = _e->Get(_i)->str(); } } };
-  { auto _e = digest(); if (_e) { _o->digest.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->digest[_i] = _e->Get(_i)->str(); } } };
+  { auto _e = object_ids(); if (_e) { _o->object_ids.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->object_ids[_i] = _e->Get(_i)->str(); } } }
+  { auto _e = evict_if_full(); _o->evict_if_full = _e; }
+  { auto _e = data(); if (_e) { _o->data.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->data[_i] = _e->Get(_i)->str(); } } }
+  { auto _e = metadata(); if (_e) { _o->metadata.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->metadata[_i] = _e->Get(_i)->str(); } } }
+  { auto _e = digest(); if (_e) { _o->digest.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->digest[_i] = _e->Get(_i)->str(); } } }
 }
 
 inline flatbuffers::Offset<PlasmaCreateAndSealBatchRequest> PlasmaCreateAndSealBatchRequest::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaCreateAndSealBatchRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3188,15 +3293,15 @@ inline flatbuffers::Offset<PlasmaCreateAndSealBatchRequest> CreatePlasmaCreateAn
 }
 
 inline PlasmaCreateAndSealBatchReplyT *PlasmaCreateAndSealBatchReply::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaCreateAndSealBatchReplyT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaCreateAndSealBatchReplyT> _o = std::unique_ptr<plasma::flatbuf::PlasmaCreateAndSealBatchReplyT>(new PlasmaCreateAndSealBatchReplyT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaCreateAndSealBatchReply::UnPackTo(PlasmaCreateAndSealBatchReplyT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = error(); _o->error = _e; };
+  { auto _e = error(); _o->error = _e; }
 }
 
 inline flatbuffers::Offset<PlasmaCreateAndSealBatchReply> PlasmaCreateAndSealBatchReply::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaCreateAndSealBatchReplyT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3214,15 +3319,15 @@ inline flatbuffers::Offset<PlasmaCreateAndSealBatchReply> CreatePlasmaCreateAndS
 }
 
 inline PlasmaAbortRequestT *PlasmaAbortRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaAbortRequestT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaAbortRequestT> _o = std::unique_ptr<plasma::flatbuf::PlasmaAbortRequestT>(new PlasmaAbortRequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaAbortRequest::UnPackTo(PlasmaAbortRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); };
+  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); }
 }
 
 inline flatbuffers::Offset<PlasmaAbortRequest> PlasmaAbortRequest::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaAbortRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3240,15 +3345,15 @@ inline flatbuffers::Offset<PlasmaAbortRequest> CreatePlasmaAbortRequest(flatbuff
 }
 
 inline PlasmaAbortReplyT *PlasmaAbortReply::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaAbortReplyT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaAbortReplyT> _o = std::unique_ptr<plasma::flatbuf::PlasmaAbortReplyT>(new PlasmaAbortReplyT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaAbortReply::UnPackTo(PlasmaAbortReplyT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); };
+  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); }
 }
 
 inline flatbuffers::Offset<PlasmaAbortReply> PlasmaAbortReply::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaAbortReplyT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3266,16 +3371,16 @@ inline flatbuffers::Offset<PlasmaAbortReply> CreatePlasmaAbortReply(flatbuffers:
 }
 
 inline PlasmaSealRequestT *PlasmaSealRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaSealRequestT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaSealRequestT> _o = std::unique_ptr<plasma::flatbuf::PlasmaSealRequestT>(new PlasmaSealRequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaSealRequest::UnPackTo(PlasmaSealRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); };
-  { auto _e = digest(); if (_e) _o->digest = _e->str(); };
+  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); }
+  { auto _e = digest(); if (_e) _o->digest = _e->str(); }
 }
 
 inline flatbuffers::Offset<PlasmaSealRequest> PlasmaSealRequest::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaSealRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3295,16 +3400,16 @@ inline flatbuffers::Offset<PlasmaSealRequest> CreatePlasmaSealRequest(flatbuffer
 }
 
 inline PlasmaSealReplyT *PlasmaSealReply::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaSealReplyT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaSealReplyT> _o = std::unique_ptr<plasma::flatbuf::PlasmaSealReplyT>(new PlasmaSealReplyT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaSealReply::UnPackTo(PlasmaSealReplyT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); };
-  { auto _e = error(); _o->error = _e; };
+  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); }
+  { auto _e = error(); _o->error = _e; }
 }
 
 inline flatbuffers::Offset<PlasmaSealReply> PlasmaSealReply::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaSealReplyT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3324,16 +3429,16 @@ inline flatbuffers::Offset<PlasmaSealReply> CreatePlasmaSealReply(flatbuffers::F
 }
 
 inline PlasmaGetRequestT *PlasmaGetRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaGetRequestT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaGetRequestT> _o = std::unique_ptr<plasma::flatbuf::PlasmaGetRequestT>(new PlasmaGetRequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaGetRequest::UnPackTo(PlasmaGetRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_ids(); if (_e) { _o->object_ids.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->object_ids[_i] = _e->Get(_i)->str(); } } };
-  { auto _e = timeout_ms(); _o->timeout_ms = _e; };
+  { auto _e = object_ids(); if (_e) { _o->object_ids.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->object_ids[_i] = _e->Get(_i)->str(); } } }
+  { auto _e = timeout_ms(); _o->timeout_ms = _e; }
 }
 
 inline flatbuffers::Offset<PlasmaGetRequest> PlasmaGetRequest::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaGetRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3353,19 +3458,19 @@ inline flatbuffers::Offset<PlasmaGetRequest> CreatePlasmaGetRequest(flatbuffers:
 }
 
 inline PlasmaGetReplyT *PlasmaGetReply::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaGetReplyT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaGetReplyT> _o = std::unique_ptr<plasma::flatbuf::PlasmaGetReplyT>(new PlasmaGetReplyT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaGetReply::UnPackTo(PlasmaGetReplyT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_ids(); if (_e) { _o->object_ids.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->object_ids[_i] = _e->Get(_i)->str(); } } };
-  { auto _e = plasma_objects(); if (_e) { _o->plasma_objects.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->plasma_objects[_i] = *_e->Get(_i); } } };
-  { auto _e = store_fds(); if (_e) { _o->store_fds.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->store_fds[_i] = _e->Get(_i); } } };
-  { auto _e = mmap_sizes(); if (_e) { _o->mmap_sizes.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->mmap_sizes[_i] = _e->Get(_i); } } };
-  { auto _e = handles(); if (_e) { _o->handles.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->handles[_i] = std::unique_ptr<CudaHandleT>(_e->Get(_i)->UnPack(_resolver)); } } };
+  { auto _e = object_ids(); if (_e) { _o->object_ids.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->object_ids[_i] = _e->Get(_i)->str(); } } }
+  { auto _e = plasma_objects(); if (_e) { _o->plasma_objects.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->plasma_objects[_i] = *_e->Get(_i); } } }
+  { auto _e = store_fds(); if (_e) { _o->store_fds.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->store_fds[_i] = _e->Get(_i); } } }
+  { auto _e = mmap_sizes(); if (_e) { _o->mmap_sizes.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->mmap_sizes[_i] = _e->Get(_i); } } }
+  { auto _e = handles(); if (_e) { _o->handles.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->handles[_i] = std::unique_ptr<plasma::flatbuf::CudaHandleT>(_e->Get(_i)->UnPack(_resolver)); } } }
 }
 
 inline flatbuffers::Offset<PlasmaGetReply> PlasmaGetReply::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaGetReplyT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3380,7 +3485,7 @@ inline flatbuffers::Offset<PlasmaGetReply> CreatePlasmaGetReply(flatbuffers::Fla
   auto _plasma_objects = _o->plasma_objects.size() ? _fbb.CreateVectorOfStructs(_o->plasma_objects) : 0;
   auto _store_fds = _o->store_fds.size() ? _fbb.CreateVector(_o->store_fds) : 0;
   auto _mmap_sizes = _o->mmap_sizes.size() ? _fbb.CreateVector(_o->mmap_sizes) : 0;
-  auto _handles = _o->handles.size() ? _fbb.CreateVector<flatbuffers::Offset<CudaHandle>> (_o->handles.size(), [](size_t i, _VectorArgs *__va) { return CreateCudaHandle(*__va->__fbb, __va->__o->handles[i].get(), __va->__rehasher); }, &_va ) : 0;
+  auto _handles = _o->handles.size() ? _fbb.CreateVector<flatbuffers::Offset<plasma::flatbuf::CudaHandle>> (_o->handles.size(), [](size_t i, _VectorArgs *__va) { return CreateCudaHandle(*__va->__fbb, __va->__o->handles[i].get(), __va->__rehasher); }, &_va ) : 0;
   return plasma::flatbuf::CreatePlasmaGetReply(
       _fbb,
       _object_ids,
@@ -3391,15 +3496,15 @@ inline flatbuffers::Offset<PlasmaGetReply> CreatePlasmaGetReply(flatbuffers::Fla
 }
 
 inline PlasmaReleaseRequestT *PlasmaReleaseRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaReleaseRequestT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaReleaseRequestT> _o = std::unique_ptr<plasma::flatbuf::PlasmaReleaseRequestT>(new PlasmaReleaseRequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaReleaseRequest::UnPackTo(PlasmaReleaseRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); };
+  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); }
 }
 
 inline flatbuffers::Offset<PlasmaReleaseRequest> PlasmaReleaseRequest::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaReleaseRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3417,16 +3522,16 @@ inline flatbuffers::Offset<PlasmaReleaseRequest> CreatePlasmaReleaseRequest(flat
 }
 
 inline PlasmaReleaseReplyT *PlasmaReleaseReply::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaReleaseReplyT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaReleaseReplyT> _o = std::unique_ptr<plasma::flatbuf::PlasmaReleaseReplyT>(new PlasmaReleaseReplyT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaReleaseReply::UnPackTo(PlasmaReleaseReplyT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); };
-  { auto _e = error(); _o->error = _e; };
+  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); }
+  { auto _e = error(); _o->error = _e; }
 }
 
 inline flatbuffers::Offset<PlasmaReleaseReply> PlasmaReleaseReply::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaReleaseReplyT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3446,16 +3551,16 @@ inline flatbuffers::Offset<PlasmaReleaseReply> CreatePlasmaReleaseReply(flatbuff
 }
 
 inline PlasmaDeleteRequestT *PlasmaDeleteRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaDeleteRequestT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaDeleteRequestT> _o = std::unique_ptr<plasma::flatbuf::PlasmaDeleteRequestT>(new PlasmaDeleteRequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaDeleteRequest::UnPackTo(PlasmaDeleteRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = count(); _o->count = _e; };
-  { auto _e = object_ids(); if (_e) { _o->object_ids.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->object_ids[_i] = _e->Get(_i)->str(); } } };
+  { auto _e = count(); _o->count = _e; }
+  { auto _e = object_ids(); if (_e) { _o->object_ids.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->object_ids[_i] = _e->Get(_i)->str(); } } }
 }
 
 inline flatbuffers::Offset<PlasmaDeleteRequest> PlasmaDeleteRequest::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaDeleteRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3475,17 +3580,17 @@ inline flatbuffers::Offset<PlasmaDeleteRequest> CreatePlasmaDeleteRequest(flatbu
 }
 
 inline PlasmaDeleteReplyT *PlasmaDeleteReply::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaDeleteReplyT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaDeleteReplyT> _o = std::unique_ptr<plasma::flatbuf::PlasmaDeleteReplyT>(new PlasmaDeleteReplyT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaDeleteReply::UnPackTo(PlasmaDeleteReplyT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = count(); _o->count = _e; };
-  { auto _e = object_ids(); if (_e) { _o->object_ids.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->object_ids[_i] = _e->Get(_i)->str(); } } };
-  { auto _e = errors(); if (_e) { _o->errors.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->errors[_i] = static_cast<PlasmaError>(_e->Get(_i)); } } };
+  { auto _e = count(); _o->count = _e; }
+  { auto _e = object_ids(); if (_e) { _o->object_ids.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->object_ids[_i] = _e->Get(_i)->str(); } } }
+  { auto _e = errors(); if (_e) { _o->errors.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->errors[_i] = static_cast<plasma::flatbuf::PlasmaError>(_e->Get(_i)); } } }
 }
 
 inline flatbuffers::Offset<PlasmaDeleteReply> PlasmaDeleteReply::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaDeleteReplyT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3507,15 +3612,15 @@ inline flatbuffers::Offset<PlasmaDeleteReply> CreatePlasmaDeleteReply(flatbuffer
 }
 
 inline PlasmaContainsRequestT *PlasmaContainsRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaContainsRequestT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaContainsRequestT> _o = std::unique_ptr<plasma::flatbuf::PlasmaContainsRequestT>(new PlasmaContainsRequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaContainsRequest::UnPackTo(PlasmaContainsRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); };
+  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); }
 }
 
 inline flatbuffers::Offset<PlasmaContainsRequest> PlasmaContainsRequest::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaContainsRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3533,16 +3638,16 @@ inline flatbuffers::Offset<PlasmaContainsRequest> CreatePlasmaContainsRequest(fl
 }
 
 inline PlasmaContainsReplyT *PlasmaContainsReply::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaContainsReplyT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaContainsReplyT> _o = std::unique_ptr<plasma::flatbuf::PlasmaContainsReplyT>(new PlasmaContainsReplyT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaContainsReply::UnPackTo(PlasmaContainsReplyT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); };
-  { auto _e = has_object(); _o->has_object = _e; };
+  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); }
+  { auto _e = has_object(); _o->has_object = _e; }
 }
 
 inline flatbuffers::Offset<PlasmaContainsReply> PlasmaContainsReply::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaContainsReplyT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3562,9 +3667,9 @@ inline flatbuffers::Offset<PlasmaContainsReply> CreatePlasmaContainsReply(flatbu
 }
 
 inline PlasmaListRequestT *PlasmaListRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaListRequestT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaListRequestT> _o = std::unique_ptr<plasma::flatbuf::PlasmaListRequestT>(new PlasmaListRequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaListRequest::UnPackTo(PlasmaListRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
@@ -3585,15 +3690,15 @@ inline flatbuffers::Offset<PlasmaListRequest> CreatePlasmaListRequest(flatbuffer
 }
 
 inline PlasmaListReplyT *PlasmaListReply::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaListReplyT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaListReplyT> _o = std::unique_ptr<plasma::flatbuf::PlasmaListReplyT>(new PlasmaListReplyT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaListReply::UnPackTo(PlasmaListReplyT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = objects(); if (_e) { _o->objects.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->objects[_i] = std::unique_ptr<ObjectInfoT>(_e->Get(_i)->UnPack(_resolver)); } } };
+  { auto _e = objects(); if (_e) { _o->objects.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->objects[_i] = std::unique_ptr<plasma::flatbuf::ObjectInfoT>(_e->Get(_i)->UnPack(_resolver)); } } }
 }
 
 inline flatbuffers::Offset<PlasmaListReply> PlasmaListReply::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaListReplyT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3604,16 +3709,16 @@ inline flatbuffers::Offset<PlasmaListReply> CreatePlasmaListReply(flatbuffers::F
   (void)_rehasher;
   (void)_o;
   struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const PlasmaListReplyT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _objects = _o->objects.size() ? _fbb.CreateVector<flatbuffers::Offset<ObjectInfo>> (_o->objects.size(), [](size_t i, _VectorArgs *__va) { return CreateObjectInfo(*__va->__fbb, __va->__o->objects[i].get(), __va->__rehasher); }, &_va ) : 0;
+  auto _objects = _o->objects.size() ? _fbb.CreateVector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>> (_o->objects.size(), [](size_t i, _VectorArgs *__va) { return CreateObjectInfo(*__va->__fbb, __va->__o->objects[i].get(), __va->__rehasher); }, &_va ) : 0;
   return plasma::flatbuf::CreatePlasmaListReply(
       _fbb,
       _objects);
 }
 
 inline PlasmaConnectRequestT *PlasmaConnectRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaConnectRequestT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaConnectRequestT> _o = std::unique_ptr<plasma::flatbuf::PlasmaConnectRequestT>(new PlasmaConnectRequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaConnectRequest::UnPackTo(PlasmaConnectRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
@@ -3634,15 +3739,15 @@ inline flatbuffers::Offset<PlasmaConnectRequest> CreatePlasmaConnectRequest(flat
 }
 
 inline PlasmaConnectReplyT *PlasmaConnectReply::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaConnectReplyT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaConnectReplyT> _o = std::unique_ptr<plasma::flatbuf::PlasmaConnectReplyT>(new PlasmaConnectReplyT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaConnectReply::UnPackTo(PlasmaConnectReplyT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = memory_capacity(); _o->memory_capacity = _e; };
+  { auto _e = memory_capacity(); _o->memory_capacity = _e; }
 }
 
 inline flatbuffers::Offset<PlasmaConnectReply> PlasmaConnectReply::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaConnectReplyT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3660,15 +3765,15 @@ inline flatbuffers::Offset<PlasmaConnectReply> CreatePlasmaConnectReply(flatbuff
 }
 
 inline PlasmaEvictRequestT *PlasmaEvictRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaEvictRequestT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaEvictRequestT> _o = std::unique_ptr<plasma::flatbuf::PlasmaEvictRequestT>(new PlasmaEvictRequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaEvictRequest::UnPackTo(PlasmaEvictRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = num_bytes(); _o->num_bytes = _e; };
+  { auto _e = num_bytes(); _o->num_bytes = _e; }
 }
 
 inline flatbuffers::Offset<PlasmaEvictRequest> PlasmaEvictRequest::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaEvictRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3686,15 +3791,15 @@ inline flatbuffers::Offset<PlasmaEvictRequest> CreatePlasmaEvictRequest(flatbuff
 }
 
 inline PlasmaEvictReplyT *PlasmaEvictReply::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaEvictReplyT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaEvictReplyT> _o = std::unique_ptr<plasma::flatbuf::PlasmaEvictReplyT>(new PlasmaEvictReplyT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaEvictReply::UnPackTo(PlasmaEvictReplyT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = num_bytes(); _o->num_bytes = _e; };
+  { auto _e = num_bytes(); _o->num_bytes = _e; }
 }
 
 inline flatbuffers::Offset<PlasmaEvictReply> PlasmaEvictReply::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaEvictReplyT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3712,9 +3817,9 @@ inline flatbuffers::Offset<PlasmaEvictReply> CreatePlasmaEvictReply(flatbuffers:
 }
 
 inline PlasmaSubscribeRequestT *PlasmaSubscribeRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaSubscribeRequestT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaSubscribeRequestT> _o = std::unique_ptr<plasma::flatbuf::PlasmaSubscribeRequestT>(new PlasmaSubscribeRequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaSubscribeRequest::UnPackTo(PlasmaSubscribeRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
@@ -3735,15 +3840,15 @@ inline flatbuffers::Offset<PlasmaSubscribeRequest> CreatePlasmaSubscribeRequest(
 }
 
 inline PlasmaNotificationT *PlasmaNotification::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaNotificationT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaNotificationT> _o = std::unique_ptr<plasma::flatbuf::PlasmaNotificationT>(new PlasmaNotificationT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaNotification::UnPackTo(PlasmaNotificationT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_info(); if (_e) { _o->object_info.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->object_info[_i] = std::unique_ptr<ObjectInfoT>(_e->Get(_i)->UnPack(_resolver)); } } };
+  { auto _e = object_info(); if (_e) { _o->object_info.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->object_info[_i] = std::unique_ptr<plasma::flatbuf::ObjectInfoT>(_e->Get(_i)->UnPack(_resolver)); } } }
 }
 
 inline flatbuffers::Offset<PlasmaNotification> PlasmaNotification::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaNotificationT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3754,24 +3859,24 @@ inline flatbuffers::Offset<PlasmaNotification> CreatePlasmaNotification(flatbuff
   (void)_rehasher;
   (void)_o;
   struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const PlasmaNotificationT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _object_info = _o->object_info.size() ? _fbb.CreateVector<flatbuffers::Offset<ObjectInfo>> (_o->object_info.size(), [](size_t i, _VectorArgs *__va) { return CreateObjectInfo(*__va->__fbb, __va->__o->object_info[i].get(), __va->__rehasher); }, &_va ) : 0;
+  auto _object_info = _o->object_info.size() ? _fbb.CreateVector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>> (_o->object_info.size(), [](size_t i, _VectorArgs *__va) { return CreateObjectInfo(*__va->__fbb, __va->__o->object_info[i].get(), __va->__rehasher); }, &_va ) : 0;
   return plasma::flatbuf::CreatePlasmaNotification(
       _fbb,
       _object_info);
 }
 
 inline PlasmaDataRequestT *PlasmaDataRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaDataRequestT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaDataRequestT> _o = std::unique_ptr<plasma::flatbuf::PlasmaDataRequestT>(new PlasmaDataRequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaDataRequest::UnPackTo(PlasmaDataRequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); };
-  { auto _e = address(); if (_e) _o->address = _e->str(); };
-  { auto _e = port(); _o->port = _e; };
+  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); }
+  { auto _e = address(); if (_e) _o->address = _e->str(); }
+  { auto _e = port(); _o->port = _e; }
 }
 
 inline flatbuffers::Offset<PlasmaDataRequest> PlasmaDataRequest::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaDataRequestT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3793,17 +3898,17 @@ inline flatbuffers::Offset<PlasmaDataRequest> CreatePlasmaDataRequest(flatbuffer
 }
 
 inline PlasmaDataReplyT *PlasmaDataReply::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaDataReplyT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaDataReplyT> _o = std::unique_ptr<plasma::flatbuf::PlasmaDataReplyT>(new PlasmaDataReplyT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaDataReply::UnPackTo(PlasmaDataReplyT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); };
-  { auto _e = object_size(); _o->object_size = _e; };
-  { auto _e = metadata_size(); _o->metadata_size = _e; };
+  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); }
+  { auto _e = object_size(); _o->object_size = _e; }
+  { auto _e = metadata_size(); _o->metadata_size = _e; }
 }
 
 inline flatbuffers::Offset<PlasmaDataReply> PlasmaDataReply::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaDataReplyT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3825,15 +3930,15 @@ inline flatbuffers::Offset<PlasmaDataReply> CreatePlasmaDataReply(flatbuffers::F
 }
 
 inline PlasmaRefreshLRURequestT *PlasmaRefreshLRURequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaRefreshLRURequestT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaRefreshLRURequestT> _o = std::unique_ptr<plasma::flatbuf::PlasmaRefreshLRURequestT>(new PlasmaRefreshLRURequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaRefreshLRURequest::UnPackTo(PlasmaRefreshLRURequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_ids(); if (_e) { _o->object_ids.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->object_ids[_i] = _e->Get(_i)->str(); } } };
+  { auto _e = object_ids(); if (_e) { _o->object_ids.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->object_ids[_i] = _e->Get(_i)->str(); } } }
 }
 
 inline flatbuffers::Offset<PlasmaRefreshLRURequest> PlasmaRefreshLRURequest::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaRefreshLRURequestT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3851,9 +3956,9 @@ inline flatbuffers::Offset<PlasmaRefreshLRURequest> CreatePlasmaRefreshLRUReques
 }
 
 inline PlasmaRefreshLRUReplyT *PlasmaRefreshLRUReply::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  auto _o = new PlasmaRefreshLRUReplyT();
-  UnPackTo(_o, _resolver);
-  return _o;
+  std::unique_ptr<plasma::flatbuf::PlasmaRefreshLRUReplyT> _o = std::unique_ptr<plasma::flatbuf::PlasmaRefreshLRUReplyT>(new PlasmaRefreshLRUReplyT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
 }
 
 inline void PlasmaRefreshLRUReply::UnPackTo(PlasmaRefreshLRUReplyT *_o, const flatbuffers::resolver_function_t *_resolver) const {
