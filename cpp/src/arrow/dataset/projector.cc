@@ -63,7 +63,7 @@ Status RecordBatchProjector::SetDefaultValue(FieldRef ref,
 
 Result<std::shared_ptr<RecordBatch>> RecordBatchProjector::Project(
     const RecordBatch& batch, MemoryPool* pool) {
-  if (from_ == nullptr || !batch.schema()->Equals(*from_)) {
+  if (from_ == nullptr || !batch.schema()->Equals(*from_, /*check_metadata=*/false)) {
     RETURN_NOT_OK(SetInputSchema(batch.schema(), pool));
   }
 
@@ -103,7 +103,7 @@ Status RecordBatchProjector::SetInputSchema(std::shared_ptr<Schema> from,
       RETURN_NOT_OK(ref.CheckNonMultiple(matches, *from_));
       int matching_index = matches[0][0];
 
-      if (!from_->field(matching_index)->Equals(field)) {
+      if (!from_->field(matching_index)->Equals(field, /*check_metadata=*/false)) {
         return Status::TypeError("fields had matching names but were not equivalent ",
                                  from_->field(matching_index)->ToString(), " vs ",
                                  field->ToString());
