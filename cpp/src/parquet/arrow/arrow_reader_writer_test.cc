@@ -1931,6 +1931,54 @@ TEST(TestArrowReadWrite, ReadSingleRowGroup) {
   AssertTablesEqual(*table, *concatenated, /*same_chunk_layout=*/false);
 }
 
+//  Exercise reading table manually with nested RowGroup and Column loops, i.e.
+//
+//  for (int i = 0; i < n_row_groups; i++)
+//    for (int j = 0; j < n_cols; j++)
+//      reader->RowGroup(i)->Column(j)->Read(&chunked_array);
+::arrow::Result<std::shared_ptr<Table>> ReadTableManually(FileReader* reader) {
+  std::vector<std::shared_ptr<Table>> tables;
+
+  std::shared_ptr<::arrow::Schema> schema;
+  RETURN_NOT_OK(reader->GetSchema(&schema));
+
+  int n_row_groups = reader->num_row_groups();
+  int n_columns = schema->num_fields();
+  for (int i = 0; i < n_row_groups; i++) {
+    std::vector<std::shared_ptr<ChunkedArray>> columns{static_cast<size_t>(n_columns)};
+
+    for (int j = 0; j < n_columns; j++) {
+      RETURN_NOT_OK(reader->RowGroup(i)->Column(j)->Read(&columns[j]));
+    }
+
+    tables.push_back(Table::Make(schema, columns));
+  }
+
+  return ConcatenateTables(tables);
+}
+
+TEST(TestArrowReadWrite, ReadTableManually) {
+  const int num_columns = 1;
+  const int num_rows = 128;
+
+  std::shared_ptr<Table> expected;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &expected));
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(expected, num_rows / 2,
+                                             default_arrow_writer_properties(), &buffer));
+
+  std::unique_ptr<FileReader> reader;
+  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
+                              ::arrow::default_memory_pool(), &reader));
+
+  ASSERT_EQ(2, reader->num_row_groups());
+
+  ASSERT_OK_AND_ASSIGN(auto actual, ReadTableManually(reader.get()));
+
+  AssertTablesEqual(*actual, *expected, /*same_chunk_layout=*/false);
+}
+
 TEST(TestArrowReadWrite, GetRecordBatchReader) {
   const int num_columns = 20;
   const int num_rows = 1000;

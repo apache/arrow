@@ -783,7 +783,7 @@ Status FileReaderImpl::GetColumn(int i, FileColumnIteratorFactory iterator_facto
   auto ctx = std::make_shared<ReaderContext>();
   ctx->reader = reader_.get();
   ctx->pool = pool_;
-  ctx->iterator_factory = AllRowGroupsFactory();
+  ctx->iterator_factory = iterator_factory;
   ctx->filter_leaves = false;
   std::unique_ptr<ColumnReaderImpl> result;
   RETURN_NOT_OK(GetReader(manifest_.schema_fields[i], ctx, &result));
