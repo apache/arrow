@@ -117,116 +117,473 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
   const ReaderProperties* properties() const override { return &properties_; }
 
+  bool isSorted(parquet::format::ColumnIndex col_index,parquet::format::OffsetIndex offset_index,Type::type type_num) const {
+      bool sorted = false;
+      switch(type_num) {
+         case Type::BOOLEAN:{
+
+           break;
+         }
+         case Type::INT32:{
+           int32_t* page_min_prev = (int32_t*)(void*)col_index.min_values[0].c_str();
+           for (uint64_t itemindex = 1;itemindex < offset_index.page_locations.size();) {
+               int32_t* page_min_curr = (int32_t*)(void*)col_index.min_values[itemindex].c_str();
+               if ( *page_min_prev <= *page_min_curr ){
+                  itemindex++;
+                  page_min_prev = page_min_curr;
+               }else{
+                  return sorted;
+               }
+           }
+           sorted = true;
+           break;
+         }
+         case Type::INT64:{
+           int64_t* page_min_prev = (int64_t*)(void*)col_index.min_values[0].c_str();
+           for (uint64_t itemindex = 1;itemindex < offset_index.page_locations.size();) {
+               int64_t* page_min_curr = (int64_t*)(void*)col_index.min_values[itemindex].c_str();
+               if ( *page_min_prev <= *page_min_curr ){
+                  itemindex++;
+                  page_min_prev = page_min_curr;
+               }else{
+                  return sorted;
+               }
+           }
+           sorted = true;
+           break;
+         }
+         case Type::INT96:{
+           uint32_t* page_min_prev = (uint32_t*)(void*)col_index.min_values[0].c_str();
+           for (uint64_t itemindex = 1;itemindex < offset_index.page_locations.size();) {
+               uint32_t* page_min_curr = (uint32_t*)(void*)col_index.min_values[itemindex].c_str();
+               if ( *page_min_prev <= *page_min_curr ){
+                  itemindex++;
+                  page_min_prev = page_min_curr;
+               }else{
+                  return sorted;
+               }
+           }
+           sorted = true;
+           break;
+         }
+         case Type::FLOAT:{
+           float* page_min_prev = (float*)(void*)col_index.min_values[0].c_str();
+           for (uint64_t itemindex = 1;itemindex < offset_index.page_locations.size();) {
+               float* page_min_curr = (float*)(void*)col_index.min_values[itemindex].c_str();
+               if ( *page_min_prev <= *page_min_curr ){
+                  itemindex++;
+                  page_min_prev = page_min_curr;
+               }else{
+                  return sorted;
+               }
+           }
+           sorted = true;
+           break;
+         }
+         case Type::DOUBLE:{
+           double* page_min_prev = (double*)(void*)col_index.min_values[0].c_str();
+           for (uint64_t itemindex = 1;itemindex < offset_index.page_locations.size();) {
+               double* page_min_curr = (double*)(void*)col_index.min_values[itemindex].c_str();
+               if ( *page_min_prev <= *page_min_curr ){
+                  itemindex++;
+                  page_min_prev = page_min_curr;
+               }else{
+                  return sorted;
+               }
+           }
+           sorted = true;
+           break;
+         }
+         case Type::BYTE_ARRAY:{
+           char* page_min_prev = (char*)(void*)col_index.min_values[0].c_str();
+           for (uint64_t itemindex = 1;itemindex < offset_index.page_locations.size();) {
+               char* page_min_curr = (char*)(void*)col_index.min_values[itemindex].c_str();
+               if ( strcmp(page_min_prev,page_min_curr) <= 0 ){
+                  itemindex++;
+                  page_min_prev = page_min_curr;
+               }else{
+                  return sorted;
+               }
+           }
+           sorted = true;
+           break;
+         }
+         case Type::FIXED_LEN_BYTE_ARRAY:{
+           char* page_min_prev = (char*)(void*)col_index.min_values[0].c_str();
+           for (uint64_t itemindex = 1;itemindex < offset_index.page_locations.size();) {
+               char* page_min_curr = (char*)(void*)col_index.min_values[itemindex].c_str();
+               if ( strcmp(page_min_prev,page_min_curr) <= 0 ){
+                  itemindex++;
+                  page_min_prev = page_min_curr;
+               }else{
+                  return sorted;
+               }
+           }
+           sorted = true;
+           break;
+         }
+         default:{
+           break;
+         }
+      }
+      return sorted;
+  }
+
   void GetPageIndex(void* predicate, int64_t& min_index,int64_t& row_index, parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index,Type::type type_num) const {
+      bool sorted = isSorted(col_index,offset_index,type_num);
       switch(type_num) {
          case Type::BOOLEAN:{
            // doesn't make sense for bool
            break;
          }
          case Type::INT32:{
-             int32_t v = *((int32_t*) predicate);
-             for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
-             int32_t* page_min = (int32_t*)(void *)col_index.min_values[itemindex].c_str();
-             int32_t* page_max = (int32_t*)(void *)col_index.max_values[itemindex].c_str();
-             int32_t max_diff = *page_max - *page_min;
-
-              if ( *page_min <= v && max_diff >= abs(v - *page_min) ) {
-               min_index = itemindex;
+              int32_t v = *((int32_t*) predicate);
+              if(sorted){
+                  if(col_index.min_values.size() >= 2){
+                    uint64_t last_index = col_index.min_values.size()-1;
+                    uint64_t itemindex = last_index/2;
+                    bool found = false;
+                    while(!found) {
+                     int32_t* page_min_curr = (int32_t*)col_index.min_values[itemindex].c_str(); 
+                     if ( v < *page_min_curr ){
+                       itemindex  = itemindex/2;
+                       continue;
+                     }
+                     if (itemindex < last_index){
+                        int32_t* page_min_next = (int32_t*)col_index.min_values[itemindex+1].c_str();
+                        if ( v > *page_min_next ){
+                          itemindex = (itemindex + last_index)/2;
+                          continue;
+                        }
+                        if ( v < *page_min_next && v > *page_min_curr ){
+                           found = true;
+                        }
+                     }
+                     if (itemindex == last_index) {
+                        found = true;
+                     }
+                     found = found || itemindex == 0;
+                   }
+                    min_index = itemindex;
+                  }
+                  else
+                  {
+                    min_index = 0;
+                  }
               }
-            }
+              else{
+                for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+                 int32_t* page_min = (int32_t*)(void *)col_index.min_values[itemindex].c_str();
+                 int32_t* page_max = (int32_t*)(void *)col_index.max_values[itemindex].c_str();
+                 int32_t max_diff = *page_max - *page_min;
+
+                  if ( *page_min <= v && max_diff >= abs(v - *page_min) ) {
+                    min_index = itemindex;
+                  }
+                }
+              }
            break;
          }
          case Type::INT64:
          {
              int64_t v = *((int64_t*) predicate);
-             
-             for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
-             int64_t* page_min = (int64_t*)(void *)col_index.min_values[itemindex].c_str();
-             int64_t* page_max = (int64_t*)(void *)col_index.max_values[itemindex].c_str();
-             int64_t max_diff = *page_max - *page_min;
-           
-              if ( *page_min <= v && max_diff >= abs(v - *page_min) ) {
-               min_index = itemindex;
+             if(sorted){
+                  if(col_index.min_values.size() >= 2){
+                    uint64_t last_index = col_index.min_values.size()-1;
+                    uint64_t itemindex = last_index/2;
+                    bool found = false;
+                    while(!found) {
+                     int64_t* page_min_curr = (int64_t*)col_index.min_values[itemindex].c_str(); 
+                     if ( v < *page_min_curr ){
+                       itemindex  = itemindex/2;
+                       continue;
+                     }
+                     if (itemindex < last_index){
+                        int64_t* page_min_next = (int64_t*)col_index.min_values[itemindex+1].c_str();
+                        if ( v > *page_min_next ){
+                          itemindex = (itemindex + last_index)/2;
+                          continue;
+                        }
+                        if ( v < *page_min_next && v > *page_min_curr ){
+                           found = true;
+                        }
+                     }
+                     if (itemindex == last_index) {
+                        found = true;
+                     }
+                     found = found || itemindex == 0;
+                   }
+                    min_index = itemindex;
+                  }
+                  else
+                  {
+                    min_index = 0;
+                  }
               }
-            }
+              else{
+                 for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+                  int64_t* page_min = (int64_t*)(void *)col_index.min_values[itemindex].c_str();
+                  int64_t* page_max = (int64_t*)(void *)col_index.max_values[itemindex].c_str();
+                  int64_t max_diff = *page_max - *page_min;
+           
+                  if ( *page_min <= v && max_diff >= abs(v - *page_min) ) {
+                    min_index = itemindex;
+                  }
+                }
+              }
             break;
          }
          case Type::INT96:
          {
              uint32_t v = *((uint32_t*) predicate);
-             for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
-             uint32_t* page_min = (uint32_t*)(void *)col_index.min_values[itemindex].c_str();
-             uint32_t* page_max = (uint32_t*)(void *)col_index.max_values[itemindex].c_str();
-             uint32_t max_diff = (*page_max - *page_min);
-            
-              if ( *page_min <= v && max_diff >= (uint32_t) abs(v - *page_min) ) {
-               min_index = itemindex;
+              if(sorted){
+                  if(col_index.min_values.size() >= 2){
+                    uint64_t last_index = col_index.min_values.size()-1;
+                    uint64_t itemindex = last_index/2;
+                    bool found = false;
+                    while(!found) {
+                     uint32_t* page_min_curr = (uint32_t*)col_index.min_values[itemindex].c_str(); 
+                     if ( v < *page_min_curr ){
+                       itemindex  = itemindex/2;
+                       continue;
+                     }
+                     if (itemindex < last_index){
+                        uint32_t* page_min_next = (uint32_t*)col_index.min_values[itemindex+1].c_str();
+                        if ( v > *page_min_next ){
+                          itemindex = (itemindex + last_index)/2;
+                          continue;
+                        }
+                        if ( v < *page_min_next && v > *page_min_curr ){
+                           found = true;
+                        }
+                     }
+                     if (itemindex == last_index) {
+                        found = true;
+                     }
+                     found = found || itemindex == 0;
+                   }
+                    min_index = itemindex;
+                  }
+                  else
+                  {
+                    min_index = 0;
+                  }
               }
-            }
+              else {
+                for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+                  uint32_t* page_min = (uint32_t*)(void *)col_index.min_values[itemindex].c_str();
+                  uint32_t* page_max = (uint32_t*)(void *)col_index.max_values[itemindex].c_str();
+                  uint32_t max_diff = (*page_max - *page_min);
+            
+                  if ( *page_min <= v && max_diff >= (uint32_t) abs(v - *page_min) ) {
+                   min_index = itemindex;
+                  }
+                }
+              }
            break;
          }
          case Type::FLOAT:
          {
              float v = *((float*) predicate);
-             for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
-             float* page_min = (float*)(void *)col_index.min_values[itemindex].c_str();
-             float* page_max = (float*)(void *)col_index.max_values[itemindex].c_str();
-             
-             auto epsilon = std::numeric_limits<float>::epsilon();
-             float error_factor = 100000000000.0;
-             float max_diff = *page_max - *page_min;
-
-              if ( fabs(max_diff - (fabs(v-*page_min)+fabs(*page_max-v))) <= error_factor*epsilon ) {
-
-               min_index = itemindex;
-
+             if(sorted){
+                  if(col_index.min_values.size() >= 2){
+                    uint64_t last_index = col_index.min_values.size()-1;
+                    uint64_t itemindex = last_index/2;
+                    bool found = false;
+                    while(!found) {
+                     float* page_min_curr = (float*)col_index.min_values[itemindex].c_str(); 
+                     if ( v < *page_min_curr ){
+                       itemindex  = itemindex/2;
+                       continue;
+                     }
+                     if (itemindex < last_index){
+                        float* page_min_next = (float*)col_index.min_values[itemindex+1].c_str();
+                        if ( v > *page_min_next ){
+                          itemindex = (itemindex + last_index)/2;
+                          continue;
+                        }
+                        if ( v < *page_min_next && v > *page_min_curr ){
+                           found = true;
+                        }
+                     }
+                     if (itemindex == last_index) {
+                        found = true;
+                     }
+                     found = found || itemindex == 0;
+                   }
+                    min_index = itemindex;
+                  }
+                  else
+                  {
+                    min_index = 0;
+                  }
               }
-             }
+              else{
+                for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+                  float* page_min = (float*)(void *)col_index.min_values[itemindex].c_str();
+                  float* page_max = (float*)(void *)col_index.max_values[itemindex].c_str();
+             
+                  auto epsilon = std::numeric_limits<float>::epsilon();
+                  float error_factor = 100000000000.0;
+                  float max_diff = *page_max - *page_min;
+
+                  if ( fabs(max_diff - (fabs(v-*page_min)+fabs(*page_max-v))) <= error_factor*epsilon ) {
+
+                    min_index = itemindex;
+
+                  }
+                }
+              }
            break;
          }
          case Type::DOUBLE:
          {
              double v = *((double*) predicate);
-             for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
-             double* page_min = (double*)(void *)col_index.min_values[itemindex].c_str();
-             double* page_max = (double*)(void *)col_index.max_values[itemindex].c_str();
-             double max_diff = *page_max - *page_min;
-
-             auto epsilon = std::numeric_limits<double>::epsilon();
-             double error_factor = 1000000000000.0;
-
-              if ( fabs(max_diff - (fabs(v-*page_min)+fabs(*page_max-v))) <= error_factor*epsilon  ) {
-
-               min_index = itemindex;
+             if(sorted){
+                  if(col_index.min_values.size() >= 2){
+                    uint64_t last_index = col_index.min_values.size()-1;
+                    uint64_t itemindex = last_index/2;
+                    bool found = false;
+                    while(!found) {
+                     double* page_min_curr = (double*)col_index.min_values[itemindex].c_str(); 
+                     if ( v < *page_min_curr ){
+                       itemindex  = itemindex/2;
+                       continue;
+                     }
+                     if (itemindex < last_index){
+                        double* page_min_next = (double*)col_index.min_values[itemindex+1].c_str();
+                        if ( v > *page_min_next ){
+                          itemindex = (itemindex + last_index)/2;
+                          continue;
+                        }
+                        if ( v < *page_min_next && v > *page_min_curr ){
+                           found = true;
+                        }
+                     }
+                     if (itemindex == last_index) {
+                        found = true;
+                     }
+                     found = found || itemindex == 0;
+                   }
+                    min_index = itemindex;
+                  }
+                  else
+                  {
+                    min_index = 0;
+                  }
               }
-            }
+              else{
+                for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+                   double* page_min = (double*)(void *)col_index.min_values[itemindex].c_str();
+                   double* page_max = (double*)(void *)col_index.max_values[itemindex].c_str();
+                   double max_diff = *page_max - *page_min;
+
+                   auto epsilon = std::numeric_limits<double>::epsilon();
+                   double error_factor = 1000000000000.0;
+
+                   if ( fabs(max_diff - (fabs(v-*page_min)+fabs(*page_max-v))) <= error_factor*epsilon  ) {
+
+                    min_index = itemindex;
+                   }
+                }
+              }
            break;
          }
          case Type::BYTE_ARRAY:
          {
              char* v = (char*) predicate;
-             for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
-             char* page_min = (char*)(void *)col_index.min_values[itemindex].c_str();
-             char* page_max = (char*)(void *)col_index.max_values[itemindex].c_str();
+             if(sorted){
+                  if(col_index.min_values.size() >= 2){
+                    uint64_t last_index = col_index.min_values.size()-1;
+                    uint64_t itemindex = last_index/2;
+                    bool found = false;
+                    while(!found) {
+                     char* page_min_curr = (char*)col_index.min_values[itemindex].c_str(); 
+                     if ( strcmp(v,page_min_curr) < 0 ){
+                       itemindex  = itemindex/2;
+                       continue;
+                     }
+                     if (itemindex < last_index){
+                        char* page_min_next = (char*)col_index.min_values[itemindex+1].c_str();
+                        if ( strcmp(v,page_min_next) > 0 ){
+                          itemindex = (itemindex + last_index)/2;
+                          continue;
+                        }
+                        if ( strcmp(page_min_next,v) > 0 && strcmp(page_min_curr,v) < 0 ){
+                           found = true;
+                        }
+                     }
+                     if (itemindex == last_index) {
+                        found = true;
+                     }
+                     found = found || itemindex == 0;
+                   }
+                    min_index = itemindex;
+                  }
+                  else
+                  {
+                    min_index = 0;
+                  }
+              }
+              else {
+                 for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+                   char* page_min = (char*)(void *)col_index.min_values[itemindex].c_str();
+                   char* page_max = (char*)(void *)col_index.max_values[itemindex].c_str();
 
-                if ( strcmp(page_min,v)<0 && strcmp(page_max,v)>0 ) {
-                min_index = itemindex;
+                   if ( strcmp(page_min,v)<0 && strcmp(page_max,v)>0 ) {
+                      min_index = itemindex;
+                   }
                 }
-            }
+              }
            break;
          }
          case Type::FIXED_LEN_BYTE_ARRAY:
          {
              char* v = (char*) predicate;
-             for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
-             char* page_min = (char*)(void *)col_index.min_values[itemindex].c_str();
-             char* page_max = (char*)(void *)col_index.max_values[itemindex].c_str();
-             int32_t max_diff = (int32_t)(*page_max-*page_min);
-          
-              if ( strcmp(page_min,v)<0 && strcmp(page_max,v)>0 ) {
-               min_index = itemindex;
+             if(sorted){
+                  if(col_index.min_values.size() >= 2){
+                    uint64_t last_index = col_index.min_values.size()-1;
+                    uint64_t itemindex = last_index/2;
+                    bool found = false;
+                    while(!found) {
+                     char* page_min_curr = (char*)col_index.min_values[itemindex].c_str(); 
+                     if ( strcmp(v,page_min_curr) < 0 ){
+                       itemindex  = itemindex/2;
+                       continue;
+                     }
+                     if (itemindex < last_index){
+                        char* page_min_next = (char*)col_index.min_values[itemindex+1].c_str();
+                        if ( strcmp(v,page_min_next) > 0 ){
+                          itemindex = (itemindex + last_index)/2;
+                          continue;
+                        }
+                        if ( strcmp(page_min_next,v) > 0 && strcmp(page_min_curr,v) < 0 ){
+                           found = true;
+                        }
+                     }
+                     if (itemindex == last_index) {
+                        found = true;
+                     }
+                     found = found || itemindex == 0;
+                   }
+                    min_index = itemindex;
+                  }
+                  else
+                  {
+                    min_index = 0;
+                  }
               }
-            }
+              else {
+                for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+                  char* page_min = (char*)(void *)col_index.min_values[itemindex].c_str();
+                  char* page_max = (char*)(void *)col_index.max_values[itemindex].c_str();
+                  int32_t max_diff = (int32_t)(*page_max-*page_min);
+          
+                  if ( strcmp(page_min,v)<0 && strcmp(page_max,v)>0 ) {
+                    min_index = itemindex;
+                  }
+                }
+              }
            break;
          }
          default:
