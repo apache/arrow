@@ -37,8 +37,6 @@ add_arrow_compute_test(compare_test)
 add_arrow_compute_test(take_test)
 add_arrow_compute_test(filter_test)
 
-
-
 add_arrow_benchmark(sort_to_indices_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(nth_to_indices_benchmark PREFIX "arrow-compute")
 
