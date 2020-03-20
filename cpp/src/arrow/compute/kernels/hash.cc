@@ -401,7 +401,7 @@ class NullHashKernelImpl : public HashKernelImpl {
     return Status::OK();
   }
 
-  std::shared_ptr<DataType> out_type() const override { return null(); }
+  std::shared_ptr<DataType> out_type() const override { return action_.out_type(); }
 
  protected:
   MemoryPool* pool_;
