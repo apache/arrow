@@ -114,9 +114,86 @@ table SparseMatrixIndexCSX {
   indicesBuffer: Buffer (required);
 }
 
+/// Compressed Sparse Fiber (CSF) sparse tensor index.
+table SparseTensorIndexCSF {
+  /// CSF is a generalization of compressed sparse row (CSR) index.
+  /// See [smith2017knl]: http://shaden.io/pub-files/smith2017knl.pdf
+  ///
+  /// CSF index recursively compresses each dimension of a tensor into a set
+  /// of prefix trees. Each path from a root to leaf forms one tensor
+  /// non-zero index. CSF is implemented with two arrays of buffers and one
+  /// arrays of integers.
+  ///
+  /// For example, let X be a 2x3x4x5 tensor and let it have the following
+  /// 8 non-zero values:
+  ///
+  ///   X[0, 0, 0, 1] := 1
+  ///   X[0, 0, 0, 2] := 2
+  ///   X[0, 1, 0, 0] := 3
+  ///   X[0, 1, 0, 2] := 4
+  ///   X[0, 1, 1, 0] := 5
+  ///   X[1, 1, 1, 0] := 6
+  ///   X[1, 1, 1, 1] := 7
+  ///   X[1, 1, 1, 2] := 8
+  ///
+  /// As a prefix tree this would be represented as:
+  ///
+  ///         0          1
+  ///        / \         |
+  ///       0   1        1
+  ///      /   / \       |
+  ///     0   0   1      1
+  ///    /|  /|   |    /| |
+  ///   1 2 0 2   0   0 1 2
+
+  /// The type of values in indptrBuffers
+  indptrType: Int (required);
+
+  /// indptrBuffers stores the sparsity structure.
+  /// Each two consecutive dimensions in a tensor correspond to a buffer in
+  /// indptrBuffers. A pair of consecutive values at indptrBuffers[dim][i]
+  /// and indptrBuffers[dim][i + 1] signify a range of nodes in
+  /// indicesBuffers[dim + 1] who are children of indicesBuffers[dim][i] node.
+  ///
+  /// For example, the indptrBuffers for the above X is:
+  ///
+  ///   indptrBuffer(X) = [
+  ///                       [0, 2, 3],
+  ///                       [0, 1, 3, 4],
+  ///                       [0, 2, 4, 5, 8]
+  ///                     ].
+  ///
+  indptrBuffers: [Buffer] (required);
+
+  /// The type of values in indicesBuffers
+  indicesType: Int (required);
+
+  /// indicesBuffers stores values of nodes.
+  /// Each tensor dimension corresponds to a buffer in indicesBuffers.
+  /// For example, the indicesBuffers for the above X is:
+  ///
+  ///   indicesBuffer(X) = [
+  ///                        [0, 1],
+  ///                        [0, 1, 1],
+  ///                        [0, 0, 1, 1],
+  ///                        [1, 2, 0, 2, 0, 0, 1, 2]
+  ///                      ].
+  ///
+  indicesBuffers: [Buffer] (required);
+
+  /// axisOrder stores the sequence in which dimensions were traversed to
+  /// produce the prefix tree.
+  /// For example, the axisOrder for the above X is:
+  ///
+  ///   axisOrder(X) = [0, 1, 2, 3].
+  ///
+  axisOrder: [int] (required);
+}
+
 union SparseTensorIndex {
   SparseTensorIndexCOO,
-  SparseMatrixIndexCSX
+  SparseMatrixIndexCSX,
+  SparseTensorIndexCSF
 }
 
 table SparseTensor {
