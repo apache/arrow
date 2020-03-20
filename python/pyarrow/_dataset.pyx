@@ -418,9 +418,47 @@ cdef class FileFragment(Fragment):
     @property
     def path(self):
         """
-        The path of the data file viewed by this fragment.
+        The path of the data file viewed by this fragment, if it views a
+        file. If instead it views a buffer, this will be "<Buffer>".
         """
         return frombytes(self.file_fragment.source().path())
+
+    def open(self):
+        """
+        Open a NativeFile of the buffer or file viewed by this fragment.
+        """
+        cdef:
+            CFileSystem* c_filesystem
+            shared_ptr[CRandomAccessFile] opened
+            NativeFile out = NativeFile()
+
+        buf = self.buffer
+        if buf is not None:
+            return pa.io.BufferReader(buf)
+
+        with nogil:
+            c_filesystem = self.file_fragment.source().filesystem()
+            opened = GetResultValue(c_filesystem.OpenInputFile(
+                self.file_fragment.source().path()))
+
+        out.set_random_access_file(opened)
+        out.is_readable = True
+        return out
+
+    @property
+    def buffer(self):
+        """
+        The buffer viewed by this fragment, if it views a buffer. If
+        instead it views a file, this will be None.
+        """
+        cdef:
+            shared_ptr[CBuffer] c_buffer
+        c_buffer = self.file_fragment.source().buffer()
+
+        if c_buffer.get() == nullptr:
+            return None
+
+        return pyarrow_wrap_buffer(c_buffer)
 
     @property
     def format(self):
@@ -435,18 +473,25 @@ cdef class ParquetFileFragment(FileFragment):
 
     cdef:
         CParquetFileFragment* parquet_file_fragment
+        int _num_row_groups
 
     cdef void init(self, const shared_ptr[CFragment]& sp):
         FileFragment.init(self, sp)
         self.parquet_file_fragment = <CParquetFileFragment*> sp.get()
+        self._num_row_groups = -1
 
     @property
     def row_groups(self):
         row_groups = set(self.parquet_file_fragment.row_groups())
         if len(row_groups) != 0:
             return row_groups
-        # FIXME(bkietz) FileFragment may be backed by a buffer
-        return set(range(ParquetFile(self.path).num_row_groups))
+
+        if self._num_row_groups == -1:
+            reader = ParquetReader()
+            reader.open(self.open())
+            self._num_row_groups = reader.num_row_groups
+
+        return set(range(self._num_row_groups))
 
 
 cdef class ParquetFileFormatReaderOptions:

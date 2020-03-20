@@ -211,6 +211,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CFileSource "arrow::dataset::FileSource":
         const c_string& path()
+        const shared_ptr[CBuffer]& buffer()
+        CFileSystem* filesystem()
 
     cdef cppclass CFileFormat "arrow::dataset::FileFormat":
         c_string type_name()
