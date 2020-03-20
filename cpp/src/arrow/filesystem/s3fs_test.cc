@@ -54,13 +54,13 @@
 
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/s3_internal.h"
+#include "arrow/filesystem/s3_test_util.h"
 #include "arrow/filesystem/s3fs.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
-#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
@@ -68,7 +68,6 @@ namespace arrow {
 namespace fs {
 
 using ::arrow::internal::PlatformFilename;
-using ::arrow::internal::TemporaryDir;
 using ::arrow::internal::UriEscape;
 
 using ::arrow::fs::internal::ConnectRetryStrategy;
@@ -101,95 +100,6 @@ namespace bp = boost::process;
 #define ARROW_AWS_ASSIGN_OR_FAIL(lhs, rexpr) \
   ARROW_AWS_ASSIGN_OR_FAIL_IMPL(             \
       ARROW_AWS_ASSIGN_OR_FAIL_NAME(_aws_error_or_value, __COUNTER__), lhs, rexpr);
-
-// TODO: allocate an ephemeral port
-static const char* kMinioExecutableName = "minio";
-static const char* kMinioAccessKey = "minio";
-static const char* kMinioSecretKey = "miniopass";
-
-static std::string GenerateConnectString() {
-  std::stringstream ss;
-  ss << "127.0.0.1:" << GetListenPort();
-  return ss.str();
-}
-
-// A minio test server, managed as a child process
-
-class MinioTestServer {
- public:
-  Status Start();
-
-  Status Stop();
-
-  std::string connect_string() const { return connect_string_; }
-
-  std::string access_key() const { return kMinioAccessKey; }
-
-  std::string secret_key() const { return kMinioSecretKey; }
-
- private:
-  std::unique_ptr<TemporaryDir> temp_dir_;
-  std::string connect_string_;
-  std::shared_ptr<::boost::process::child> server_process_;
-};
-
-Status MinioTestServer::Start() {
-  ARROW_ASSIGN_OR_RAISE(temp_dir_, TemporaryDir::Make("s3fs-test-"));
-
-  // Get a copy of the current environment.
-  // (NOTE: using "auto" would return a native_environment that mutates
-  //  the current environment)
-  bp::environment env = boost::this_process::environment();
-  env["MINIO_ACCESS_KEY"] = kMinioAccessKey;
-  env["MINIO_SECRET_KEY"] = kMinioSecretKey;
-
-  connect_string_ = GenerateConnectString();
-
-  auto exe_path = bp::search_path(kMinioExecutableName);
-  if (exe_path.empty()) {
-    return Status::IOError("Failed to find minio executable ('", kMinioExecutableName,
-                           "') in PATH");
-  }
-
-  try {
-    // NOTE: --quiet makes startup faster by suppressing remote version check
-    server_process_ = std::make_shared<bp::child>(
-        env, exe_path, "server", "--quiet", "--compat", "--address", connect_string_,
-        temp_dir_->path().ToString());
-  } catch (const std::exception& e) {
-    return Status::IOError("Failed to launch Minio server: ", e.what());
-  }
-  return Status::OK();
-}
-
-Status MinioTestServer::Stop() {
-  if (server_process_ && server_process_->valid()) {
-    // Brutal shutdown
-    server_process_->terminate();
-    server_process_->wait();
-  }
-  return Status::OK();
-}
-
-// A global test "environment", to ensure that the S3 API is initialized before
-// running unit tests.
-
-class S3Environment : public ::testing::Environment {
- public:
-  void SetUp() override {
-    // Change this to increase logging during tests
-    S3GlobalOptions options;
-    options.log_level = S3LogLevel::Fatal;
-    ASSERT_OK(InitializeS3(options));
-  }
-
-  void TearDown() override { ASSERT_OK(FinalizeS3()); }
-
- protected:
-  Aws::SDKOptions options_;
-};
-
-::testing::Environment* s3_env = ::testing::AddGlobalTestEnvironment(new S3Environment);
 
 class S3TestMixin : public ::testing::Test {
  public:
