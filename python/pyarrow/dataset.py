@@ -164,7 +164,7 @@ def _ensure_fs(filesystem, path):
         except OSError:
             return FileSystem.from_uri(path)
 
-        if infos.type == FileType.NonExistent:
+        if infos.type == FileType.NotFound:
             return FileSystem.from_uri(path)
 
     # ensure we have a proper path (eg no backslashes on Windows)
