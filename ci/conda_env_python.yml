@@ -20,6 +20,7 @@ cffi
 cython
 cloudpickle
 hypothesis
+mypy=0.770
 numpy>=1.14
 pytest
 pytest-faulthandler
