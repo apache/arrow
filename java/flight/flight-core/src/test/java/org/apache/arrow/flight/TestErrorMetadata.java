@@ -24,6 +24,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import com.google.protobuf.Any;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.rpc.Status;
 
 import io.grpc.Metadata;
@@ -32,11 +33,11 @@ import io.grpc.protobuf.ProtoUtils;
 import io.grpc.protobuf.StatusProto;
 
 public class TestErrorMetadata {
-  private static final Metadata.BinaryMarshaller<PerfOuterClass.Perf> marshaller =
-          ProtoUtils.metadataMarshaller(PerfOuterClass.Perf.getDefaultInstance());
+  private static final Metadata.BinaryMarshaller<Status> marshaller =
+          ProtoUtils.metadataMarshaller(Status.getDefaultInstance());
 
   @Test
-  public void testMetadata() {
+  public void testMetadata() throws Exception {
     PerfOuterClass.Perf perf = PerfOuterClass.Perf.newBuilder()
                 .setStreamCount(12)
                 .setRecordsPerBatch(1000)
@@ -47,15 +48,29 @@ public class TestErrorMetadata {
              FlightTestUtil.getStartedServer(
                (location) -> FlightServer.builder(allocator, location, new TestFlightProducer(perf)).build());
           final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
-      client.getStream(new Ticket("abs".getBytes()));
+      FlightStream stream = client.getStream(new Ticket("abs".getBytes()));
+      stream.next();
+      Assert.fail();
     } catch (FlightRuntimeException fre) {
+      PerfOuterClass.Perf newPerf = null;
       FlightMetadata metadata = fre.status().metadata();
       Assert.assertNotNull(metadata);
-      Assert.assertEquals(1, metadata.size());
-      Assert.assertTrue(metadata.containsKey("Testing 1 2 3"));
-      Assert.assertEquals(perf, metadata.get("Testing 1 2 3", marshaller::parseBytes));
-    } catch (Exception e) {
-      throw new RuntimeException(e);
+      Assert.assertEquals(2, metadata.size());
+      Assert.assertTrue(metadata.containsKey("grpc-status-details-bin"));
+      Status status = marshaller.parseBytes(metadata.get("grpc-status-details-bin"));
+      for (Any details : status.getDetailsList()) {
+        if (details.is(PerfOuterClass.Perf.class)) {
+          try {
+            newPerf = details.unpack(PerfOuterClass.Perf.class);
+          } catch (InvalidProtocolBufferException e) {
+            Assert.fail();
+          }
+        }
+      }
+      if (newPerf == null) {
+        Assert.fail();
+      }
+      Assert.assertEquals(perf, newPerf);
     }
   }
 

@@ -19,7 +19,6 @@ package org.apache.arrow.flight;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 
 import com.google.common.collect.Maps;
 
@@ -46,10 +45,6 @@ public class FlightMetadata {
 
   public boolean containsKey(String key) {
     return metadata.containsKey(key);
-  }
-
-  public <T> T get(String key, Function<byte[], T> transform) {
-    return transform.apply(metadata.get(key));
   }
 
   public int size() {
