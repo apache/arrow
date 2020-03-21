@@ -125,6 +125,12 @@
       <groupId>javax.annotation</groupId>
       <artifactId>javax.annotation-api</artifactId>
      </dependency>
+
+    <dependency>
+      <groupId>com.google.api.grpc</groupId>
+      <artifactId>proto-google-common-protos</artifactId>
+      <version>1.12.0</version>
+    </dependency>
   </dependencies>
   <build>
     <extensions>
