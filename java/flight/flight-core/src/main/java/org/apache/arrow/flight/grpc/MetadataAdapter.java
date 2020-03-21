@@ -19,6 +19,7 @@ package org.apache.arrow.flight.grpc;
 
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import org.apache.arrow.flight.CallHeaders;
 
@@ -44,13 +45,35 @@ class MetadataAdapter implements CallHeaders {
   }
 
   @Override
+  public byte[] getByte(String key) {
+    if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
+      return this.metadata.get(Key.of(key, Metadata.BINARY_BYTE_MARSHALLER));
+    }
+    return get(key).getBytes();
+  }
+
+  @Override
   public Iterable<String> getAll(String key) {
     return this.metadata.getAll(Key.of(key, Metadata.ASCII_STRING_MARSHALLER));
   }
 
   @Override
+  public Iterable<byte[]> getAllByte(String key) {
+    if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
+      return this.metadata.getAll(Key.of(key, Metadata.BINARY_BYTE_MARSHALLER));
+    }
+    return StreamSupport.stream(getAll(key).spliterator(), false)
+        .map(String::getBytes).collect(Collectors.toList());
+  }
+
+  @Override
   public void insert(String key, String value) {
     this.metadata.put(Key.of(key, Metadata.ASCII_STRING_MARSHALLER), value);
+  }
+
+  @Override
+  public void insert(String key, byte[] value) {
+    this.metadata.put(Key.of(key, Metadata.BINARY_BYTE_MARSHALLER), value);
   }
 
   @Override

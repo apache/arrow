@@ -36,7 +36,7 @@ public class CallStatus {
   private final FlightStatusCode code;
   private final Throwable cause;
   private final String description;
-  private final FlightMetadata metadata;
+  private final ErrorFlightMetadata metadata;
 
   public static final CallStatus UNKNOWN = FlightStatusCode.UNKNOWN.toStatus();
   public static final CallStatus INTERNAL = FlightStatusCode.INTERNAL.toStatus();
@@ -57,11 +57,11 @@ public class CallStatus {
    * @param cause An exception that resulted in this status (or null).
    * @param description A description of the status (or null).
    */
-  public CallStatus(FlightStatusCode code, Throwable cause, String description, FlightMetadata metadata) {
+  public CallStatus(FlightStatusCode code, Throwable cause, String description, ErrorFlightMetadata metadata) {
     this.code = Objects.requireNonNull(code);
     this.cause = cause;
     this.description = description == null ? "" : description;
-    this.metadata = metadata == null ? new FlightMetadata() : metadata;
+    this.metadata = metadata == null ? new ErrorFlightMetadata() : metadata;
   }
 
   /**
@@ -97,7 +97,7 @@ public class CallStatus {
   /**
    * Metadata associated with the exception.
    */
-  public FlightMetadata metadata() {
+  public ErrorFlightMetadata metadata() {
     return metadata;
   }
 
@@ -118,7 +118,7 @@ public class CallStatus {
   /**
    * Return a copy of this status with associated exception metadata.
    */
-  public CallStatus withMetadata(FlightMetadata metadata) {
+  public CallStatus withMetadata(ErrorFlightMetadata metadata) {
     return new CallStatus(code, cause, description, metadata);
   }
 

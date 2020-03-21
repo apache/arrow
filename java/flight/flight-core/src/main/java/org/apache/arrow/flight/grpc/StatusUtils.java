@@ -22,7 +22,7 @@ import java.util.Objects;
 import java.util.function.Function;
 
 import org.apache.arrow.flight.CallStatus;
-import org.apache.arrow.flight.FlightMetadata;
+import org.apache.arrow.flight.ErrorFlightMetadata;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightStatusCode;
 
@@ -150,13 +150,13 @@ public class StatusUtils {
   }
 
 
-  private static FlightMetadata parseTrailers(Metadata trailers) {
-    FlightMetadata metadata = new FlightMetadata();
+  private static ErrorFlightMetadata parseTrailers(Metadata trailers) {
+    ErrorFlightMetadata metadata = new ErrorFlightMetadata();
     for (String key : trailers.keys()) {
       if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
-        metadata.put(key, trailers.get(Metadata.Key.of(key, Metadata.BINARY_BYTE_MARSHALLER)));
+        metadata.insert(key, trailers.get(Metadata.Key.of(key, Metadata.BINARY_BYTE_MARSHALLER)));
       } else {
-        metadata.put(key,
+        metadata.insert(key,
                      Objects.requireNonNull(
                      trailers.get(Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER))).getBytes()
         );

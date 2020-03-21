@@ -53,11 +53,11 @@ public class TestErrorMetadata {
       Assert.fail();
     } catch (FlightRuntimeException fre) {
       PerfOuterClass.Perf newPerf = null;
-      FlightMetadata metadata = fre.status().metadata();
+      ErrorFlightMetadata metadata = fre.status().metadata();
       Assert.assertNotNull(metadata);
-      Assert.assertEquals(2, metadata.size());
+      Assert.assertEquals(2, metadata.keys().size());
       Assert.assertTrue(metadata.containsKey("grpc-status-details-bin"));
-      Status status = marshaller.parseBytes(metadata.get("grpc-status-details-bin"));
+      Status status = marshaller.parseBytes(metadata.getByte("grpc-status-details-bin"));
       for (Any details : status.getDetailsList()) {
         if (details.is(PerfOuterClass.Perf.class)) {
           try {
@@ -67,9 +67,7 @@ public class TestErrorMetadata {
           }
         }
       }
-      if (newPerf == null) {
-        Assert.fail();
-      }
+      Assert.assertNotNull(newPerf);
       Assert.assertEquals(perf, newPerf);
     }
   }

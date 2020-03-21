@@ -130,6 +130,7 @@
       <groupId>com.google.api.grpc</groupId>
       <artifactId>proto-google-common-protos</artifactId>
       <version>1.12.0</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
   <build>
