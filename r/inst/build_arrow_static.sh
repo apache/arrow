@@ -43,6 +43,16 @@ if [ "$CMAKE_GENERATOR" = "" ]; then
   fi
 fi
 
+if [ "$LIBARROW_MINIMAL" = "false" ]; then
+  ARROW_JEMALLOC=ON
+  ARROW_WITH_BROTLI=ON
+  ARROW_WITH_BZ2=ON
+  ARROW_WITH_LZ4=ON
+  ARROW_WITH_SNAPPY=ON
+  ARROW_WITH_ZLIB=ON
+  ARROW_WITH_ZSTD=ON
+fi
+
 mkdir -p "${BUILD_DIR}"
 pushd "${BUILD_DIR}"
 ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
@@ -52,17 +62,17 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_COMPUTE=ON \
     -DARROW_CSV=ON \
     -DARROW_DATASET=ON \
-    -DARROW_DEPENDENCY_SOURCE=BUNDLED \
+    -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-AUTO} \
     -DARROW_FILESYSTEM=ON \
-    -DARROW_JEMALLOC=ON \
+    -DARROW_JEMALLOC=${ARROW_JEMALLOC:-ON} \
     -DARROW_JSON=ON \
     -DARROW_PARQUET=ON \
-    -DARROW_WITH_BROTLI=ON \
-    -DARROW_WITH_BZ2=ON \
-    -DARROW_WITH_LZ4=ON \
-    -DARROW_WITH_SNAPPY=ON \
-    -DARROW_WITH_ZLIB=ON \
-    -DARROW_WITH_ZSTD=ON \
+    -DARROW_WITH_BROTLI=${ARROW_WITH_BROTLI:-OFF} \
+    -DARROW_WITH_BZ2=${ARROW_WITH_BZ2:-OFF} \
+    -DARROW_WITH_LZ4=${ARROW_WITH_LZ4:-OFF} \
+    -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY:-OFF} \
+    -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB:-OFF} \
+    -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD:-OFF} \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=${DEST_DIR} \
@@ -83,4 +93,10 @@ fi
 # Copy the bundled static libs from the build to the install dir
 # See https://issues.apache.org/jira/browse/ARROW-7499 for moving this to CMake
 find . -regex .*/.*/lib/.*\\.a\$ | xargs -I{} cp -u {} ${DEST_DIR}/lib
+# jemalloc makes both libjemalloc.a and libjemalloc_pic.a; we can't use the former, only the latter
+rm ${DEST_DIR}/lib/libjemalloc.a || true
+# -lbrotlicommon-static needs to come after the other brotli libs, so rename it so alpha sort works
+if [ -f "${DEST_DIR}/lib/libbrotlicommon-static.a" ]; then
+  mv "${DEST_DIR}/lib/libbrotlicommon-static.a" "${DEST_DIR}/lib/libbrotlizzz-static.a"
+fi
 popd

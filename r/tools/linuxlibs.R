@@ -32,8 +32,11 @@ env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
 # * no download, build_ok: Only build with local git checkout
 # * download_ok, no build: Only use prebuilt binary, if found
 # * neither: Get the arrow-without-arrow package
-download_ok <- env_is("LIBARROW_DOWNLOAD", "true") || !(tolower(Sys.getenv("LIBARROW_BINARY")) %in% c("", "false"))
+# Download and build are OK unless you say not to
+download_ok <- !env_is("LIBARROW_DOWNLOAD", "false")
 build_ok <- !env_is("LIBARROW_BUILD", "false")
+# But binary defaults to not OK
+binary_ok <- !identical(tolower(Sys.getenv("LIBARROW_BINARY", "false")), "false")
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
 
@@ -198,6 +201,7 @@ build_libarrow <- function(src_dir, dst_dir) {
 
 ensure_cmake <- function() {
   cmake <- Sys.which("cmake")
+  # TODO: should check that cmake is of sufficient version
   if (!nzchar(cmake)) {
     # If not found, download it
     cat("**** cmake\n")
@@ -231,7 +235,7 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
   # don't need to do anything. Otherwise,
   # (1) Look for a prebuilt binary for this version
   bin_file <- src_dir <- NULL
-  if (download_ok) {
+  if (download_ok && binary_ok) {
     bin_file <- download_binary()
   }
   if (!is.null(bin_file)) {

@@ -104,8 +104,8 @@ groups:
     - test-ubuntu-18.04-python-3
     - test-fedora-30-python-3
     - test-r-rhub-ubuntu-gcc-release
-    - test-r-rhub-debian-gcc-devel
-    - test-r-rocker-r-base-latest    
+    - test-r-linux-as-cran
+    - test-r-rocker-r-base-latest
     - test-r-rstudio-r-base-3.6-bionic
     - test-r-rstudio-r-base-3.6-centos6
     - test-r-rstudio-r-base-3.6-opensuse15
@@ -149,7 +149,7 @@ groups:
     - test-ubuntu-18.04-python-3
     - test-fedora-30-python-3
     - test-r-rhub-ubuntu-gcc-release
-    - test-r-rhub-debian-gcc-devel
+    - test-r-linux-as-cran
     - test-r-rocker-r-base-latest
     - test-r-rstudio-r-base-3.6-bionic
     - test-r-rstudio-r-base-3.6-centos6
@@ -187,7 +187,7 @@ groups:
     - test-conda-r-3.6
     - test-ubuntu-18.04-r-sanitizer
     - test-r-rhub-ubuntu-gcc-release
-    - test-r-rhub-debian-gcc-devel
+    - test-r-linux-as-cran
     - test-r-rocker-r-base-latest
     - test-r-rstudio-r-base-3.6-bionic
     - test-r-rstudio-r-base-3.6-centos6
@@ -276,7 +276,7 @@ groups:
     - test-ubuntu-18.04-python-3
     - test-fedora-30-python-3
     - test-r-rhub-ubuntu-gcc-release
-    - test-r-rhub-debian-gcc-devel
+    - test-r-linux-as-cran
     - test-r-rocker-r-base-latest
     - test-r-rstudio-r-base-3.6-bionic
     - test-r-rstudio-r-base-3.6-centos6
@@ -1850,15 +1850,12 @@ tasks:
         - docker-compose build fedora-python
         - docker-compose run fedora-python
 
-  test-r-rhub-debian-gcc-devel:
-    ci: azure
+  test-r-linux-as-cran:
+    ci: github
     platform: linux
-    template: r/azure.linux.yml
+    template: r/github.linux.cran.yml
     params:
-      r_org: rhub
-      r_image: debian-gcc-devel
-      r_tag: latest
-      verbose: "TRUE"
+      MATRIX: "${{ matrix.r_image }}"
 
   test-r-rhub-ubuntu-gcc-release:
     ci: azure
@@ -1868,7 +1865,7 @@ tasks:
       r_org: rhub
       r_image: ubuntu-gcc-release
       r_tag: latest
-      verbose: "TRUE"
+      not_cran: "TRUE"
 
   test-r-rocker-r-base-latest:
     ci: azure
@@ -1878,7 +1875,7 @@ tasks:
       r_org: rocker
       r_image: r-base
       r_tag: latest
-      verbose: "TRUE"
+      not_cran: "TRUE"
 
   test-r-rstudio-r-base-3.6-bionic:
     ci: azure
@@ -1888,8 +1885,7 @@ tasks:
       r_org: rstudio
       r_image: r-base
       r_tag: 3.6-bionic
-      # Turn off verbosity on some tests in order to check compiler flags
-      verbose: "FALSE"
+      not_cran: "TRUE"
 
   test-r-rstudio-r-base-3.6-centos6:
     ci: azure
@@ -1899,7 +1895,7 @@ tasks:
       r_org: rstudio
       r_image: r-base
       r_tag: 3.6-centos6
-      verbose: "FALSE"
+      not_cran: "TRUE"
 
   test-r-rstudio-r-base-3.6-opensuse15:
     ci: azure
@@ -1909,7 +1905,7 @@ tasks:
       r_org: rstudio
       r_image: r-base
       r_tag: 3.6-opensuse15
-      verbose: "TRUE"
+      not_cran: "TRUE"
 
   test-r-rstudio-r-base-3.6-opensuse42:
     ci: azure
@@ -1919,7 +1915,7 @@ tasks:
       r_org: rstudio
       r_image: r-base
       r_tag: 3.6-opensuse24
-      verbose: "TRUE"
+      not_cran: "TRUE"
 
   test-ubuntu-18.04-r-3.6:
     ci: circle

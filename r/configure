@@ -112,15 +112,26 @@ else
       PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
       PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
     elif [ "$UNAME" = "Linux" ]; then
+      # Set some default values/backwards compatibility
       if [ "${LIBARROW_DOWNLOAD}" = "" ] && [ "${NOT_CRAN}" != "" ]; then
         export LIBARROW_DOWNLOAD=$NOT_CRAN
       fi
+      if [ "${LIBARROW_BINARY}" = "" ] && [ "${NOT_CRAN}" != "" ]; then
+        export LIBARROW_BINARY=$NOT_CRAN
+      fi
+      if [ "${LIBARROW_MINIMAL}" = "" ] && [ "${LIBARROW_DOWNLOAD}" = "true" ]; then
+        export LIBARROW_MINIMAL=false
+      fi
+      if [ "${LIBARROW_MINIMAL}" = "" ] && [ "${NOT_CRAN}" = "true" ]; then
+        export LIBARROW_MINIMAL=false
+      fi
       ${R_HOME}/bin/Rscript tools/linuxlibs.R $VERSION
       PKG_CFLAGS="-I$(pwd)/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
-      PKG_LIBS="-L$(pwd)/libarrow/arrow-${VERSION}/lib $PKG_LIBS"
-      # Also enumerate the static libs included in there
-      # TODO: this should be generated based on what's in the lib dir
-      PKG_LIBS="$PKG_LIBS -lthrift -lsnappy -lz -lzstd -llz4 -lbrotlidec-static -lbrotlienc-static -lbrotlicommon-static -lboost_filesystem -lboost_regex -lboost_system -ljemalloc_pic"
+      # Also enumerate the static libs (technically repeating arrow libs so they're in the right order)
+      # TODO: there must be a better way; also what about non-bundled deps?
+      BUNDLED_LIBS=`cd libarrow/arrow-${VERSION}/lib && ls *.a`
+      BUNDLED_LIBS=`echo $BUNDLED_LIBS | sed -E "s/lib(.*)\.a/-l\1/" | sed -e "s/\\.a lib/ -l/g"`
+      PKG_LIBS="-L$(pwd)/libarrow/arrow-${VERSION}/lib $PKG_LIBS $BUNDLED_LIBS"
     fi
   fi
 fi

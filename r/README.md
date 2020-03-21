@@ -33,8 +33,8 @@ install.packages("arrow")
 Installing a released version of the `arrow` package should require no
 additional system dependencies. For macOS and Windows, CRAN hosts binary
 packages that contain the Arrow C++ library. On Linux, source package
-installation will download necessary C++ dependencies if you set the
-environment variable `LIBARROW_DOWNLOAD=true`.
+installation will also build necessary C++ dependencies. For a faster,
+more complete installation, set the environment variable `NOT_CRAN=true`.
 See `vignette("install", package = "arrow")` for details.
 
 If you install the `arrow` package from source and the C++ library is
@@ -61,7 +61,7 @@ Conda users on Linux and macOS can install `arrow` from conda-forge with
 
 ## Installing a development version
 
-Binary R packages for macOS and Windows are built daily and hosted at
+Development versions of the package (binary and source) are built daily and hosted at
 <https://dl.bintray.com/ursalabs/arrow-r/>. To install from there:
 
 ``` r
