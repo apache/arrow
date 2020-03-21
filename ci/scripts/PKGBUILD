@@ -36,7 +36,7 @@ options=("staticlibs" "strip" "!buildflags")
 
 # For installing from a local checkout, set source_dir to . and don't include
 # a "source" param below
-source_dir="$GITHUB_WORKSPACE"
+source_dir="$ARROW_HOME"
 # else
 # source_dir=apache-${_realname}-${pkgver}
 

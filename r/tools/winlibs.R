@@ -28,19 +28,30 @@ if(!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))){
     file.copy(localfile, "lib.zip")
   } else {
     # Download static arrow from rwinlib
-    if(getRversion() < "3.3.0") setInternet2()
-    try(download.file(sprintf("https://github.com/rwinlib/arrow/archive/v%s.zip", VERSION), "lib.zip", quiet = TRUE), silent = TRUE)
-    if(!file.exists("lib.zip")){
+    if (getRversion() < "3.3.0") setInternet2()
+    get_file <- function(template, version) {
+      try(download.file(sprintf(template, version), "lib.zip", quiet = TRUE), silent = TRUE)
+    }
+    # URL templates
+    # TODO: don't hard-code RTools 3.5? Can we detect which toolchain we have?
+    nightly <- "https://dl.bintray.com/ursalabs/arrow-r/libarrow/bin/windows-35/arrow-%s.zip"
+    rwinlib <- "https://github.com/rwinlib/arrow/archive/v%s.zip"
+    # First look for a nightly
+    get_file(nightly, VERSION)
+    # If not found, then check rwinlib
+    if (!file.exists("lib.zip")) {
+      get_file(rwinlib, VERSION)
+    }
+    if (!file.exists("lib.zip")) {
       # Try a different version
       # First, try pruning off a dev number, i.e. go from 0.14.1.1 to 0.14.1
       VERSION <- sub("^([0-9]+\\.[0-9]+\\.[0-9]+).*$", "\\1", VERSION)
-      try(download.file(sprintf("https://github.com/rwinlib/arrow/archive/v%s.zip", VERSION), "lib.zip", quiet = TRUE), silent = TRUE)
+      get_file(rwinlib, VERSION)
     }
-    if(!file.exists("lib.zip")){
+    if (!file.exists("lib.zip")) {
       # Next, try without a patch release, i.e. go from 0.14.1 to 0.14.0
       VERSION <- sub("^([0-9]+\\.[0-9]+\\.).*$", "\\10", VERSION)
-      cat(sprintf("Downloading https://github.com/rwinlib/arrow/archive/v%s.zip\n", VERSION))
-      download.file(sprintf("https://github.com/rwinlib/arrow/archive/v%s.zip", VERSION), "lib.zip", quiet = TRUE)
+      get_file(rwinlib, VERSION)
     }
   }
   dir.create("windows", showWarnings = FALSE)

@@ -19,6 +19,10 @@
 
 set -x
 
+: ${ARROW_HOME:=$(pwd)}
+# Make sure it is absolute and exported
+export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
+
 pacman --sync --noconfirm ccache
 
 wget https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf
@@ -36,11 +40,14 @@ rm -f /mingw32/lib/*.dll.a
 rm -f /mingw64/lib/*.dll.a
 export PKG_CONFIG="/${MINGW_PREFIX}/bin/pkg-config --static"
 
-cp ci/scripts/PKGBUILD .
+cp $ARROW_HOME/ci/scripts/PKGBUILD .
 export PKGEXT='.pkg.tar.xz' # pacman default changed to .zst in 2020, but keep the old ext for compat
 unset BOOST_ROOT
 printenv
 makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --cleanbuild
+
+VERSION=$(grep Version $ARROW_HOME/r/DESCRIPTION | cut -d " " -f 2)
+DST_DIR="arrow-$VERSION"
 
 # Collect the build artifacts and make the shape of zip file that rwinlib expects
 ls
@@ -53,9 +60,6 @@ MSYS_LIB_DIR="D:/a/_temp/msys/msys64"
 
 ls $MSYS_LIB_DIR/mingw64/lib/
 ls $MSYS_LIB_DIR/mingw32/lib/
-
-VERSION=$(grep Version ../r/DESCRIPTION | cut -d " " -f 2)
-DST_DIR="arrow-$VERSION"
 
 # Untar the two builds we made
 ls | xargs -n 1 tar -xJf
