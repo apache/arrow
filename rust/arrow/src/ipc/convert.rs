@@ -75,7 +75,7 @@ pub(crate) fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
     fbb
 }
 
-pub(crate) fn schema_to_fb_offset<'a: 'b, 'b>(
+pub fn schema_to_fb_offset<'a: 'b, 'b>(
     mut fbb: &'a mut FlatBufferBuilder,
     schema: &Schema,
 ) -> WIPOffset<ipc::Schema<'b>> {
