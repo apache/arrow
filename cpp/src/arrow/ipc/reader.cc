@@ -449,6 +449,7 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatch(
 // Array loading
 
 Status GetCompression(const flatbuf::Message* message, Compression::type* out) {
+  *out = Compression::UNCOMPRESSED;
   if (message->custom_metadata() != nullptr) {
     // TODO: Ensure this deserialization only ever happens once
     std::shared_ptr<const KeyValueMetadata> metadata;
@@ -458,8 +459,6 @@ Status GetCompression(const flatbuf::Message* message, Compression::type* out) {
       ARROW_ASSIGN_OR_RAISE(*out,
                             util::Codec::GetCompressionType(metadata->value(index)));
     }
-  } else {
-    *out = Compression::UNCOMPRESSED;
   }
   return Status::OK();
 }
@@ -513,7 +512,7 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatchInternal(
 
 Status PopulateInclusionMask(const std::vector<int>& included_indices,
                              int schema_num_fields, std::vector<bool>* mask) {
-  mask->resize(included_indices.size());
+  mask->resize(schema_num_fields, false);
   for (int i : included_indices) {
     // Ignore out of bounds indices
     if (i < 0 || i >= schema_num_fields) {
