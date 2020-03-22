@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_COMPUTE_KERNEL_H
-#define ARROW_COMPUTE_KERNEL_H
+#pragma once
 
 #include <memory>
 #include <utility>
@@ -286,5 +285,3 @@ static inline bool CollectionEquals(const std::vector<Datum>& left,
 
 }  // namespace compute
 }  // namespace arrow
-
-#endif  // ARROW_COMPUTE_KERNEL_H

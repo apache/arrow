@@ -18,8 +18,7 @@
 // Imported from Apache Impala (incubating) on 2016-01-29 and modified for use
 // in parquet-cpp, Arrow
 
-#ifndef ARROW_UTIL_RLE_ENCODING_H
-#define ARROW_UTIL_RLE_ENCODING_H
+#pragma once
 
 #include <algorithm>
 #include <cmath>
@@ -745,5 +744,3 @@ inline void RleEncoder::Clear() {
 
 }  // namespace util
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_RLE_ENCODING_H

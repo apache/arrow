@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_EXPR_NODE_H
-#define GANDIVA_EXPR_NODE_H
+#pragma once
 
 #include <sstream>
 #include <string>
@@ -254,5 +253,3 @@ class InExpressionNode : public Node {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_EXPR_NODE_H

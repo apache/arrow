@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef INTERNAL_FILE_ENCRYPTOR_H
-#define INTERNAL_FILE_ENCRYPTOR_H
+#pragma once
 
 #include <map>
 #include <memory>
@@ -108,5 +107,3 @@ class InternalFileEncryptor {
 };
 
 }  // namespace parquet
-
-#endif  // INTERNAL_FILE_ENCRYPTORS_H

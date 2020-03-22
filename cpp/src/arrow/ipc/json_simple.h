@@ -17,8 +17,7 @@
 
 // Implement a simple JSON representation format for arrays
 
-#ifndef ARROW_IPC_JSON_SIMPLE_H
-#define ARROW_IPC_JSON_SIMPLE_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -52,5 +51,3 @@ Status ArrayFromJSON(const std::shared_ptr<DataType>&, const char* json,
 }  // namespace internal
 }  // namespace ipc
 }  // namespace arrow
-
-#endif  // ARROW_IPC_JSON_SIMPLE_H

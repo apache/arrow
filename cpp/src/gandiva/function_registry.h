@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_FUNCTION_REGISTRY_H
-#define GANDIVA_FUNCTION_REGISTRY_H
+#pragma once
 
 #include <vector>
 #include "gandiva/function_registry_common.h"
@@ -46,5 +45,3 @@ class GANDIVA_EXPORT FunctionRegistry {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_FUNCTION_REGISTRY_H

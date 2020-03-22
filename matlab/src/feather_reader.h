@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_MATLAB_FEATHER_READER_H
-#define ARROW_MATLAB_FEATHER_READER_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -76,4 +75,3 @@ class FeatherReader {
 }  // namespace matlab
 }  // namespace arrow
 
-#endif  // ARROW_MATLAB_FEATHER_READER_H

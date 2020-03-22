@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_LLVMGENERATOR_H
-#define GANDIVA_LLVMGENERATOR_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -249,5 +248,3 @@ class GANDIVA_EXPORT LLVMGenerator {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_LLVMGENERATOR_H

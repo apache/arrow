@@ -23,8 +23,7 @@
 #include "gandiva/arrow.h"
 #include "gandiva/configuration.h"
 
-#ifndef GANDIVA_TEST_UTIL_H
-#define GANDIVA_TEST_UTIL_H
+#pragma once
 
 namespace gandiva {
 
@@ -100,5 +99,3 @@ static inline std::shared_ptr<Configuration> TestConfiguration() {
 }
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_TEST_UTIL_H

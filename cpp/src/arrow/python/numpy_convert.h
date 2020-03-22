@@ -18,8 +18,7 @@
 // Functions for converting between pandas's NumPy-based data representation
 // and Arrow data structures
 
-#ifndef ARROW_PYTHON_NUMPY_CONVERT_H
-#define ARROW_PYTHON_NUMPY_CONVERT_H
+#pragma once
 
 #include "arrow/python/platform.h"
 
@@ -119,5 +118,3 @@ TensorToSparseCSFTensor(const std::shared_ptr<Tensor>& tensor,
 
 }  // namespace py
 }  // namespace arrow
-
-#endif  // ARROW_PYTHON_NUMPY_CONVERT_H

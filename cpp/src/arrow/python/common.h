@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_COMMON_H
-#define ARROW_PYTHON_COMMON_H
+#pragma once
 
 #include <memory>
 #include <utility>
@@ -306,5 +305,3 @@ static inline PyObject* cpp_PyObject_CallMethod(PyObject* obj, const char* metho
 
 }  // namespace py
 }  // namespace arrow
-
-#endif  // ARROW_PYTHON_COMMON_H

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_BUFFER_BUILDER_H
-#define ARROW_BUFFER_BUILDER_H
+#pragma once
 
 #include <algorithm>
 #include <cstdint>
@@ -389,5 +388,3 @@ class TypedBufferBuilder<bool> {
 };
 
 }  // namespace arrow
-
-#endif  // ARROW_BUFFER_BUILDER_H

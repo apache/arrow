@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_IO_UTIL_H
-#define ARROW_UTIL_IO_UTIL_H
+#pragma once
 
 #ifndef _WIN32
 #define ARROW_HAVE_SIGACTION 1
@@ -347,5 +346,3 @@ Result<SignalHandler> SetSignalHandler(int signum, const SignalHandler& handler)
 
 }  // namespace internal
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_IO_UTIL_H

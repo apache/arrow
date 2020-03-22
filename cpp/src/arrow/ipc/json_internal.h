@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_IPC_JSON_INTERNAL_H
-#define ARROW_IPC_JSON_INTERNAL_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -116,5 +115,3 @@ Status ReadArray(MemoryPool* pool, const rj::Value& json_obj, const Schema& sche
 }  // namespace internal
 }  // namespace ipc
 }  // namespace arrow
-
-#endif  // ARROW_IPC_JSON_INTERNAL_H

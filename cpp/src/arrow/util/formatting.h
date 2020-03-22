@@ -17,6 +17,8 @@
 
 // This is a private header for number-to-string formatting utilities
 
+#pragma once
+
 #include <cassert>
 #include <limits>
 #include <memory>

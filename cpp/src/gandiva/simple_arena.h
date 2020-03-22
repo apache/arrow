@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_SIMPLE_ARENA_H
-#define GANDIVA_SIMPLE_ARENA_H
+#pragma once
 
 #include <algorithm>
 #include <memory>
@@ -159,5 +158,3 @@ inline void SimpleArena::ReleaseChunks(bool retain_first) {
 }
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_SIMPLE_ARENA_H

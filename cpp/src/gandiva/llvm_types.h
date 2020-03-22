@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_LLVM_TYPES_H
-#define GANDIVA_LLVM_TYPES_H
+#pragma once
 
 #include <map>
 #include <vector>
@@ -129,5 +128,3 @@ class GANDIVA_EXPORT LLVMTypes {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_LLVM_TYPES_H

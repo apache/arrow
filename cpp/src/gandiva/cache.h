@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_MODULE_CACHE_H
-#define GANDIVA_MODULE_CACHE_H
+#pragma once
 
 #include <mutex>
 
@@ -48,4 +47,3 @@ class Cache {
   std::mutex mtx_;
 };
 }  // namespace gandiva
-#endif  // GANDIVA_MODULE_CACHE_H

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_CAST_H
-#define ARROW_CAST_H
+#pragma once
 
 #include <memory>
 #include <type_traits>
@@ -59,5 +58,3 @@ std::unique_ptr<T> checked_pointer_cast(std::unique_ptr<U> r) noexcept {
 
 }  // namespace internal
 }  // namespace arrow
-
-#endif  // ARROW_CAST_H

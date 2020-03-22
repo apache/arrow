@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TEST_COMMON_H
-#define ARROW_TEST_COMMON_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -129,5 +128,3 @@ class TestBuilder : public ::testing::Test {
 };
 
 }  // namespace arrow
-
-#endif  // ARROW_TEST_COMMON_H_

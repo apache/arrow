@@ -19,8 +19,7 @@
 // Parquet column chunk within a row group. It could be extended in the future
 // to iterate through all data pages in all chunks in a file.
 
-#ifndef PARQUET_COLUMN_PAGE_H
-#define PARQUET_COLUMN_PAGE_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -169,5 +168,3 @@ class DictionaryPage : public Page {
 };
 
 }  // namespace parquet
-
-#endif  // PARQUET_COLUMN_PAGE_H

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef TO_DATE_HELPER_H
-#define TO_DATE_HELPER_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -107,5 +106,3 @@ static inline bool ParseTimestamp(const char* buf, const char* format,
 
 }  // namespace internal
 }  // namespace gandiva
-
-#endif  // TO_DATE_HELPER_H

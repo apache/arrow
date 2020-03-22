@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_FUNCDESCRIPTOR_H
-#define GANDIVA_FUNCDESCRIPTOR_H
+#pragma once
 
 #include <string>
 #include <vector>
@@ -49,5 +48,3 @@ class GANDIVA_EXPORT FuncDescriptor {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_FUNCDESCRIPTOR_H

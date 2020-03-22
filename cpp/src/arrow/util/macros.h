@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_MACROS_H
-#define ARROW_UTIL_MACROS_H
+#pragma once
 
 #include <cstdint>
 
@@ -174,4 +173,3 @@
 #define FRIEND_TEST(test_case_name, test_name) \
   friend class test_case_name##_##test_name##_Test
 
-#endif  // ARROW_UTIL_MACROS_H

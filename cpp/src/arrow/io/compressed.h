@@ -17,8 +17,7 @@
 
 // Compressed stream implementations
 
-#ifndef ARROW_IO_COMPRESSED_H
-#define ARROW_IO_COMPRESSED_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -130,5 +129,3 @@ class ARROW_EXPORT CompressedInputStream
 
 }  // namespace io
 }  // namespace arrow
-
-#endif  // ARROW_IO_COMPRESSED_H

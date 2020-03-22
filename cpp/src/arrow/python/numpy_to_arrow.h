@@ -17,8 +17,7 @@
 
 // Converting from pandas memory representation to Arrow data structures
 
-#ifndef ARROW_PYTHON_NUMPY_TO_ARROW_H
-#define ARROW_PYTHON_NUMPY_TO_ARROW_H
+#pragma once
 
 #include "arrow/python/platform.h"
 
@@ -71,5 +70,3 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pa
 
 }  // namespace py
 }  // namespace arrow
-
-#endif  // ARROW_PYTHON_NUMPY_TO_ARROW_H

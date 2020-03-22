@@ -17,8 +17,7 @@
 
 // Tools for dictionaries in IPC context
 
-#ifndef ARROW_IPC_DICTIONARY_H
-#define ARROW_IPC_DICTIONARY_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -102,5 +101,3 @@ Status CollectDictionaries(const RecordBatch& batch, DictionaryMemo* memo);
 
 }  // namespace ipc
 }  // namespace arrow
-
-#endif  // ARROW_IPC_DICTIONARY_H

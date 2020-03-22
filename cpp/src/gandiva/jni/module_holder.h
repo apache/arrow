@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef JNI_MODULE_HOLDER_H
-#define JNI_MODULE_HOLDER_H
+#pragma once
 
 #include <memory>
 #include <utility>
@@ -58,5 +57,3 @@ class FilterHolder {
 };
 
 }  // namespace gandiva
-
-#endif  // JNI_MODULE_HOLDER_H

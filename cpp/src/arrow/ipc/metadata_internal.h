@@ -17,8 +17,7 @@
 
 // Internal metadata serialization matters
 
-#ifndef ARROW_IPC_METADATA_INTERNAL_H
-#define ARROW_IPC_METADATA_INTERNAL_H
+#pragma once
 
 #include <cstdint>
 #include <cstring>
@@ -192,5 +191,3 @@ static inline Result<std::shared_ptr<Buffer>> WriteFlatbufferBuilder(
 }  // namespace internal
 }  // namespace ipc
 }  // namespace arrow
-
-#endif  // ARROW_IPC_METADATA_H

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_CONFIG_H
-#define ARROW_PYTHON_CONFIG_H
+#pragma once
 
 #include "arrow/python/platform.h"
 
@@ -35,4 +34,3 @@ void set_numpy_nan(PyObject* obj);
 }  // namespace py
 }  // namespace arrow
 
-#endif  // ARROW_PYTHON_CONFIG_H

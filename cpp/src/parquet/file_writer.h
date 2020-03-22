@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_FILE_WRITER_H
-#define PARQUET_FILE_WRITER_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -245,5 +244,3 @@ class PARQUET_EXPORT ParquetFileWriter {
 };
 
 }  // namespace parquet
-
-#endif  // PARQUET_FILE_WRITER_H

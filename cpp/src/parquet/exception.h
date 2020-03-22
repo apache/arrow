@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_EXCEPTION_H
-#define PARQUET_EXCEPTION_H
+#pragma once
 
 #include <exception>
 #include <sstream>
@@ -134,5 +133,3 @@ void ThrowNotOk(StatusReturnBlock&& b) {
 }
 
 }  // namespace parquet
-
-#endif  // PARQUET_EXCEPTION_H

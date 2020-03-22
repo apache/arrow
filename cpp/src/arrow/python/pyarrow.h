@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_PYARROW_H
-#define ARROW_PYTHON_PYARROW_H
+#pragma once
 
 #include "arrow/python/platform.h"
 
@@ -116,5 +115,3 @@ ARROW_PYTHON_EXPORT int check_status(const Status& status);
 }  // namespace arrow
 
 }  // extern "C++"
-
-#endif  // ARROW_PYTHON_PYARROW_H

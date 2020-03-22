@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_TYPES_H
-#define PARQUET_TYPES_H
+#pragma once
 
 #include <algorithm>
 #include <cstdint>
@@ -710,5 +709,3 @@ int32_t DecimalSize(int32_t precision);
 
 }  // namespace internal
 }  // namespace parquet
-
-#endif  // PARQUET_TYPES_H

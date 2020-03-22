@@ -17,8 +17,7 @@
 
 // Adapted from Apache Impala
 
-#ifndef GANDIVA_DECIMAL_TYPE_SQL_H
-#define GANDIVA_DECIMAL_TYPE_SQL_H
+#pragma once
 
 #include <algorithm>
 #include <memory>
@@ -84,5 +83,3 @@ inline Decimal128TypePtr DecimalTypeUtil::MakeType(int32_t precision, int32_t sc
 }
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_DECIMAL_TYPE_SQL_H

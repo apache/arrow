@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_FUNCTION_SIGNATURE_H
-#define GANDIVA_FUNCTION_SIGNATURE_H
+#pragma once
 
 #include <sstream>
 #include <string>
@@ -81,5 +80,3 @@ class GANDIVA_EXPORT FunctionSignature {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_FUNCTION_SIGNATURE_H

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_COMPUTE_KERNELS_BOOLEAN_H
-#define ARROW_COMPUTE_KERNELS_BOOLEAN_H
+#pragma once
 
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
@@ -104,5 +103,3 @@ Status Xor(FunctionContext* context, const Datum& left, const Datum& right, Datu
 
 }  // namespace compute
 }  // namespace arrow
-
-#endif  // ARROW_COMPUTE_KERNELS_CAST_H

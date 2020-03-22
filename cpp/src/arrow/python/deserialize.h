@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_ARROW_TO_PYTHON_H
-#define ARROW_PYTHON_ARROW_TO_PYTHON_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -101,5 +100,3 @@ Status NdarrayFromBuffer(std::shared_ptr<Buffer> src, std::shared_ptr<Tensor>* o
 
 }  // namespace py
 }  // namespace arrow
-
-#endif  // ARROW_PYTHON_ARROW_TO_PYTHON_H

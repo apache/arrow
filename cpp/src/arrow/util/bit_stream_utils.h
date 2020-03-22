@@ -17,8 +17,7 @@
 
 // From Apache Impala (incubating) as of 2016-01-29
 
-#ifndef ARROW_UTIL_BIT_STREAM_UTILS_H
-#define ARROW_UTIL_BIT_STREAM_UTILS_H
+#pragma once
 
 #include <string.h>
 #include <algorithm>
@@ -419,5 +418,3 @@ inline bool BitReader::GetZigZagVlqInt(int32_t* v) {
 
 }  // namespace BitUtil
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_BIT_STREAM_UTILS_H

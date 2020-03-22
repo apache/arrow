@@ -24,8 +24,7 @@
 // Apache License Version 2.0 http://www.apache.org/licenses/.
 // (c) Daniel Lemire 2013
 
-#ifndef ARROW_UTIL_BPACKING_H
-#define ARROW_UTIL_BPACKING_H
+#pragma once
 
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
@@ -3863,5 +3862,3 @@ inline int unpack32(const uint32_t* in, uint32_t* out, int batch_size, int num_b
 
 }  // namespace internal
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_BPACKING_H

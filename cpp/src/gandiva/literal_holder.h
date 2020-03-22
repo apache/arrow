@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_LITERAL_HOLDER
-#define GANDIVA_LITERAL_HOLDER
+#pragma once
 
 #include <string>
 
@@ -34,5 +33,3 @@ using LiteralHolder =
 std::string ToString(const LiteralHolder& holder);
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_LITERAL_HOLDER
