@@ -20,32 +20,49 @@ package org.apache.arrow.flight;
 import java.util.Set;
 
 /**
- * A set of headers for a call (request or response).
- *
- * <p>Only text (ASCII) headers are supported.
+ * A set of metadata key value pairs for a call (request or response).
  */
 public interface CallHeaders {
-
   /**
-   * Get the value of a header. If multiple values are present, then get the last one.
+   * Get the value of a metadata key. If multiple values are present, then get the last one.
    */
+  @Deprecated()
   String get(String key);
 
   /**
-   * Get all values present for the given header.
+   * Get the value of a metadata key. If multiple values are present, then get the last one.
    */
+  byte[] getByte(String key);
+
+  /**
+   * Get all values present for the given metadata key.
+   */
+  @Deprecated
   Iterable<String> getAll(String key);
 
   /**
-   * Insert a header with the given value.
-   *
-   * <p>Duplicate headers are permitted.
+   * Get all values present for the given metadata key.
    */
+  Iterable<byte[]> getAllByte(String key);
+
+  /**
+   * Insert a metadata pair with the given value.
+   *
+   * <p>Duplicate metadata are permitted.
+   */
+  @Deprecated
   void insert(String key, String value);
 
-  /** Get a set of all the headers. */
+  /**
+   * Insert a metadata pair with the given value.
+   *
+   * <p>Duplicate metadata are permitted.
+   */
+  void insert(String key, byte[] value);
+
+  /** Get a set of all the metadata keys. */
   Set<String> keys();
 
-  /** Check whether the given header is present. */
+  /** Check whether the given metadata key is present. */
   boolean containsKey(String key);
 }
