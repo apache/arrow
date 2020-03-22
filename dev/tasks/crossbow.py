@@ -36,6 +36,7 @@ from collections import namedtuple
 import click
 import toolz
 from setuptools_scm.git import parse as parse_git_version
+from setuptools_scm.version import guess_next_version
 from ruamel.yaml import YAML
 
 try:
@@ -758,7 +759,8 @@ def get_version(root, **kwargs):
     """
     kwargs['describe_command'] =\
         'git describe --dirty --tags --long --match "apache-arrow-[0-9].*"'
-    return parse_git_version(root, **kwargs)
+    version = parse_git_version(root, **kwargs)
+    return version.format_next_version(guess_next_version)
 
 
 class Serializable:
@@ -802,7 +804,7 @@ class Target(Serializable):
         if remote is None:
             remote = repo.remote_url
         if version is None:
-            version = get_version(repo.path).format_with('{tag}.dev{distance}')
+            version = get_version(repo.path)
         if email is None:
             email = repo.user_email
 
