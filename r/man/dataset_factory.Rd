@@ -9,7 +9,7 @@ dataset_factory(
   filesystem = c("auto", "local"),
   format = c("parquet", "arrow", "ipc"),
   partitioning = NULL,
-  allow_non_existent = FALSE,
+  allow_not_found = FALSE,
   recursive = TRUE,
   ...
 )
@@ -42,7 +42,7 @@ Hive-style path segments
 \item \code{NULL} for no partitioning
 }}
 
-\item{allow_non_existent}{logical: is \code{x} allowed to not exist? Default
+\item{allow_not_found}{logical: is \code{x} allowed to not exist? Default
 \code{FALSE}. See \link{FileSelector}.}
 
 \item{recursive}{logical: should files be discovered in subdirectories of

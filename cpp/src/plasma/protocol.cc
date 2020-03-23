@@ -113,8 +113,8 @@ Status PlasmaErrorStatus(fb::PlasmaError plasma_error) {
     case fb::PlasmaError::ObjectExists:
       return MakePlasmaError(PlasmaErrorCode::PlasmaObjectExists,
                              "object already exists in the plasma store");
-    case fb::PlasmaError::ObjectNonexistent:
-      return MakePlasmaError(PlasmaErrorCode::PlasmaObjectNonexistent,
+    case fb::PlasmaError::ObjectNotFound:
+      return MakePlasmaError(PlasmaErrorCode::PlasmaObjectNotFound,
                              "object does not exist in the plasma store");
     case fb::PlasmaError::OutOfMemory:
       return MakePlasmaError(PlasmaErrorCode::PlasmaStoreFull,

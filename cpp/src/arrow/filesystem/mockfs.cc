@@ -480,7 +480,7 @@ Result<FileInfo> MockFileSystem::GetTargetInfo(const std::string& path) {
   FileInfo info;
   Entry* entry = impl_->FindEntry(parts);
   if (entry == nullptr) {
-    info.set_type(FileType::NonExistent);
+    info.set_type(FileType::NotFound);
   } else {
     info = entry->GetInfo();
   }
@@ -498,7 +498,7 @@ Result<std::vector<FileInfo>> MockFileSystem::GetTargetInfos(
   Entry* base_dir = impl_->FindEntry(parts);
   if (base_dir == nullptr) {
     // Base directory does not exist
-    if (selector.allow_non_existent) {
+    if (selector.allow_not_found) {
       return results;
     } else {
       return PathNotFound(selector.base_dir);

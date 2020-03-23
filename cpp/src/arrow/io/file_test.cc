@@ -390,7 +390,7 @@ TEST_F(TestReadableFile, SeekingRequired) {
   AssertBufferEqual(*buffer, "test");
 }
 
-TEST_F(TestReadableFile, NonExistentFile) {
+TEST_F(TestReadableFile, NonexistentFile) {
   std::string path = "0xDEADBEEF.txt";
   auto maybe_file = ReadableFile::Open(path);
   ASSERT_RAISES(IOError, maybe_file);
@@ -977,9 +977,9 @@ TEST_F(TestMemoryMappedFile, InvalidMode) {
 }
 
 TEST_F(TestMemoryMappedFile, InvalidFile) {
-  std::string non_existent_path = "invalid-file-name-asfd";
+  std::string nonexistent_path = "invalid-file-name-asfd";
 
-  ASSERT_RAISES(IOError, MemoryMappedFile::Open(non_existent_path, FileMode::READ));
+  ASSERT_RAISES(IOError, MemoryMappedFile::Open(nonexistent_path, FileMode::READ));
 }
 
 TEST_F(TestMemoryMappedFile, CastableToFileInterface) {

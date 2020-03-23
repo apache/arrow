@@ -91,7 +91,7 @@ cdef class FileInfo:
 
         The returned enum values can be the following:
 
-        - FileType.NonExistent: target does not exist
+        - FileType.NotFound: target does not exist
         - FileType.Unknown: target exists but its type is unknown (could be a
           special file such as a Unix socket or character device, or
           Windows NUL / CON / ...)
@@ -156,7 +156,7 @@ cdef class FileSelector:
     base_dir : str
         The directory in which to select files. Relative paths also work, use
         '.' for the current directory and '..' for the parent.
-    allow_non_existent : bool, default False
+    allow_not_found : bool, default False
         The behavior if `base_dir` doesn't exist in the filesystem.
         If false, an error is returned.
         If true, an empty selection is returned.
@@ -164,11 +164,11 @@ cdef class FileSelector:
         Whether to recurse into subdirectories.
     """
 
-    def __init__(self, base_dir, bint allow_non_existent=False,
+    def __init__(self, base_dir, bint allow_not_found=False,
                  bint recursive=False):
         self.base_dir = base_dir
         self.recursive = recursive
-        self.allow_non_existent = allow_non_existent
+        self.allow_not_found = allow_not_found
 
     cdef inline CFileSelector unwrap(self) nogil:
         return self.selector
@@ -182,12 +182,12 @@ cdef class FileSelector:
         self.selector.base_dir = _path_as_bytes(base_dir)
 
     @property
-    def allow_non_existent(self):
-        return self.selector.allow_non_existent
+    def allow_not_found(self):
+        return self.selector.allow_not_found
 
-    @allow_non_existent.setter
-    def allow_non_existent(self, bint allow_non_existent):
-        self.selector.allow_non_existent = allow_non_existent
+    @allow_not_found.setter
+    def allow_not_found(self, bint allow_not_found):
+        self.selector.allow_not_found = allow_not_found
 
     @property
     def recursive(self):
@@ -274,7 +274,7 @@ cdef class FileSystem:
 
         Any symlink is automatically dereferenced, recursively. A non-existing
         or unreachable file returns a FileStat object and has a FileType of
-        value NonExistent. An exception indicates a truly exceptional condition
+        value NotFound. An exception indicates a truly exceptional condition
         (low-level I/O error, etc.).
 
         Parameters
@@ -282,7 +282,7 @@ cdef class FileSystem:
         paths_or_selector: FileSelector or list of path-likes
             Either a selector object or a list of path-like objects.
             The selector's base directory will not be part of the results, even
-            if it exists. If it doesn't exist, use `allow_non_existent`.
+            if it exists. If it doesn't exist, use `allow_not_found`.
 
         Returns
         -------

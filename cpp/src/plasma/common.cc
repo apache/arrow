@@ -40,10 +40,10 @@ class PlasmaStatusDetail : public arrow::StatusDetail {
     const char* type;
     switch (code()) {
       case PlasmaErrorCode::PlasmaObjectExists:
-        type = "Plasma object exists";
+        type = "Plasma object is exists";
         break;
-      case PlasmaErrorCode::PlasmaObjectNonexistent:
-        type = "Plasma object is nonexistent";
+      case PlasmaErrorCode::PlasmaObjectNotFound:
+        type = "Plasma object is not found";
         break;
       case PlasmaErrorCode::PlasmaStoreFull:
         type = "Plasma store is full";
@@ -82,7 +82,7 @@ arrow::Status MakePlasmaError(PlasmaErrorCode code, std::string message) {
     case PlasmaErrorCode::PlasmaObjectExists:
       arrow_code = arrow::StatusCode::AlreadyExists;
       break;
-    case PlasmaErrorCode::PlasmaObjectNonexistent:
+    case PlasmaErrorCode::PlasmaObjectNotFound:
       arrow_code = arrow::StatusCode::KeyError;
       break;
     case PlasmaErrorCode::PlasmaStoreFull:
@@ -100,8 +100,8 @@ arrow::Status MakePlasmaError(PlasmaErrorCode code, std::string message) {
 bool IsPlasmaObjectExists(const arrow::Status& status) {
   return IsPlasmaStatus(status, PlasmaErrorCode::PlasmaObjectExists);
 }
-bool IsPlasmaObjectNonexistent(const arrow::Status& status) {
-  return IsPlasmaStatus(status, PlasmaErrorCode::PlasmaObjectNonexistent);
+bool IsPlasmaObjectNotFound(const arrow::Status& status) {
+  return IsPlasmaStatus(status, PlasmaErrorCode::PlasmaObjectNotFound);
 }
 bool IsPlasmaObjectAlreadySealed(const arrow::Status& status) {
   return IsPlasmaStatus(status, PlasmaErrorCode::PlasmaObjectAlreadySealed);

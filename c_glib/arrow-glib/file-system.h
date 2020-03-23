@@ -34,7 +34,7 @@ typedef gint64 GArrowTimePoint;
 
 /**
  * GArrowFileType
- * @GARROW_FILE_TYPE_NONEXISTENT: Entry does not exist
+ * @GARROW_FILE_TYPE_NOT_FOUND: Entry is not found
  * @GARROW_FILE_TYPE_UNKNOWN: Entry exists but its type is unknown
  * @GARROW_FILE_TYPE_FILE: Entry is a regular file
  * @GARROW_FILE_TYPE_DIR: Entry is a directory
@@ -44,7 +44,7 @@ typedef gint64 GArrowTimePoint;
  * Since: 1.0.0
  */
 typedef enum {
-  GARROW_FILE_TYPE_NONEXISTENT,
+  GARROW_FILE_TYPE_NOT_FOUND,
   GARROW_FILE_TYPE_UNKNOWN,
   GARROW_FILE_TYPE_FILE,
   GARROW_FILE_TYPE_DIR

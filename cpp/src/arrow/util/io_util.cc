@@ -646,11 +646,11 @@ Status DeleteDirTreeInternal(const PlatformFilename& dir_path) {
   return Status::OK();
 }
 
-Result<bool> DeleteDirContents(const PlatformFilename& dir_path, bool allow_non_existent,
+Result<bool> DeleteDirContents(const PlatformFilename& dir_path, bool allow_not_found,
                                bool remove_top_dir) {
   bool exists = true;
   WIN32_FIND_DATAW entry;
-  if (allow_non_existent) {
+  if (allow_not_found) {
     RETURN_NOT_OK(FindOneFile(dir_path, &entry, &exists));
   } else {
     // Will raise if dir_path does not exist
@@ -721,11 +721,11 @@ Status DeleteDirTreeInternal(const PlatformFilename& dir_path) {
   return Status::OK();
 }
 
-Result<bool> DeleteDirContents(const PlatformFilename& dir_path, bool allow_non_existent,
+Result<bool> DeleteDirContents(const PlatformFilename& dir_path, bool allow_not_found,
                                bool remove_top_dir) {
   bool exists = true;
   struct stat lst;
-  if (allow_non_existent) {
+  if (allow_not_found) {
     RETURN_NOT_OK(LinkStat(dir_path, &lst, &exists));
   } else {
     // Will raise if dir_path does not exist
@@ -745,22 +745,21 @@ Result<bool> DeleteDirContents(const PlatformFilename& dir_path, bool allow_non_
 
 }  // namespace
 
-Result<bool> DeleteDirContents(const PlatformFilename& dir_path,
-                               bool allow_non_existent) {
-  return DeleteDirContents(dir_path, allow_non_existent, /*remove_top_dir=*/false);
+Result<bool> DeleteDirContents(const PlatformFilename& dir_path, bool allow_not_found) {
+  return DeleteDirContents(dir_path, allow_not_found, /*remove_top_dir=*/false);
 }
 
-Result<bool> DeleteDirTree(const PlatformFilename& dir_path, bool allow_non_existent) {
-  return DeleteDirContents(dir_path, allow_non_existent, /*remove_top_dir=*/true);
+Result<bool> DeleteDirTree(const PlatformFilename& dir_path, bool allow_not_found) {
+  return DeleteDirContents(dir_path, allow_not_found, /*remove_top_dir=*/true);
 }
 
-Result<bool> DeleteFile(const PlatformFilename& file_path, bool allow_non_existent) {
+Result<bool> DeleteFile(const PlatformFilename& file_path, bool allow_not_found) {
 #ifdef _WIN32
   if (DeleteFileW(file_path.ToNative().c_str())) {
     return true;
   } else {
     int errnum = GetLastError();
-    if (!allow_non_existent || errnum != ERROR_FILE_NOT_FOUND) {
+    if (!allow_not_found || errnum != ERROR_FILE_NOT_FOUND) {
       return IOErrorFromWinError(GetLastError(), "Cannot delete file '",
                                  file_path.ToString(), "'");
     }
@@ -769,7 +768,7 @@ Result<bool> DeleteFile(const PlatformFilename& file_path, bool allow_non_existe
   if (unlink(file_path.ToNative().c_str()) == 0) {
     return true;
   } else {
-    if (!allow_non_existent || errno != ENOENT) {
+    if (!allow_not_found || errno != ENOENT) {
       return IOErrorFromErrno(errno, "Cannot delete file '", file_path.ToString(), "'");
     }
   }

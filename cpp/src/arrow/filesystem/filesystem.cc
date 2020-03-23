@@ -53,8 +53,8 @@ using internal::ToSlashes;
 
 std::string ToString(FileType ftype) {
   switch (ftype) {
-    case FileType::NonExistent:
-      return "non-existent";
+    case FileType::NotFound:
+      return "not-found";
     case FileType::Unknown:
       return "unknown";
     case FileType::File:
@@ -75,7 +75,7 @@ ARROW_EXPORT std::ostream& operator<<(std::ostream& os, FileType ftype) {
     break;
 
   switch (ftype) {
-    FILE_TYPE_CASE(NonExistent)
+    FILE_TYPE_CASE(NotFound)
     FILE_TYPE_CASE(Unknown)
     FILE_TYPE_CASE(File)
     FILE_TYPE_CASE(Directory)

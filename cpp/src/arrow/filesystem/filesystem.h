@@ -51,8 +51,8 @@ using TimePoint =
 
 /// \brief FileSystem entry type
 enum class FileType : int8_t {
-  /// Entry does not exist
-  NonExistent,
+  /// Entry is not found
+  NotFound,
   /// Entry exists but its type is unknown
   ///
   /// This can designate a special file such as a Unix socket or character
@@ -144,9 +144,9 @@ struct ARROW_EXPORT FileSelector {
   /// The directory in which to select files.
   /// If the path exists but doesn't point to a directory, this should be an error.
   std::string base_dir;
-  /// The behavior if `base_dir` doesn't exist in the filesystem.  If false,
+  /// The behavior if `base_dir` isn't found in the filesystem.  If false,
   /// an error is returned.  If true, an empty selection is returned.
-  bool allow_non_existent = false;
+  bool allow_not_found = false;
   /// Whether to recurse into subdirectories.
   bool recursive = false;
   /// The maximum number of subdirectories to recurse into.
@@ -171,8 +171,8 @@ class ARROW_EXPORT FileSystem {
   /// Get info for the given target.
   ///
   /// Any symlink is automatically dereferenced, recursively.
-  /// A non-existing or unreachable file returns an Ok status and
-  /// has a FileType of value NonExistent.  An error status indicates
+  /// A nonexistent or unreachable file returns an Ok status and
+  /// has a FileType of value NotFound.  An error status indicates
   /// a truly exceptional condition (low-level I/O error, etc.).
   virtual Result<FileInfo> GetTargetInfo(const std::string& path) = 0;
   /// Same, for many targets at once.

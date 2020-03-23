@@ -110,7 +110,7 @@ class PlasmaStore {
   /// \param object_id Object ID of the object to be deleted.
   /// \return One of the following error codes:
   ///  - PlasmaError::OK, if the object was delete successfully.
-  ///  - PlasmaError::ObjectNonexistent, if ths object isn't existed.
+  ///  - PlasmaError::ObjectNotFound, if ths object isn't existed.
   ///  - PlasmaError::ObjectInUse, if the object is in use.
   PlasmaError DeleteObject(ObjectID& object_id);
 

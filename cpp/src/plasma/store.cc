@@ -646,7 +646,7 @@ PlasmaError PlasmaStore::DeleteObject(ObjectID& object_id) {
   // created but not sealed.
   if (entry == nullptr) {
     // To delete an object it must be in the object table.
-    return PlasmaError::ObjectNonexistent;
+    return PlasmaError::ObjectNotFound;
   }
 
   if (entry->state != ObjectState::PLASMA_SEALED) {

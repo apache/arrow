@@ -226,7 +226,7 @@ class ARROW_EXPORT PlasmaClient {
   /// it is a no operation.
   ///
   /// \param object_ids The list of IDs of the objects to delete.
-  /// \return The return status. If all the objects are non-existent, return OK.
+  /// \return The return status. If all the objects are nonexistent, return OK.
   Status Delete(const std::vector<ObjectID>& object_ids);
 
   /// Delete objects until we have freed up num_bytes bytes or there are no more

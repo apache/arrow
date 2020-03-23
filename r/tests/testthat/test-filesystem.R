@@ -42,15 +42,15 @@ test_that("LocalFilesystem", {
   tf2 <- tempfile(fileext = ".txt")
   fs$Move(tf, tf2)
   infos <- fs$GetTargetInfos(c(tf, tf2, dirname(tf)))
-  expect_equal(infos[[1]]$type, FileType$NonExistent)
+  expect_equal(infos[[1]]$type, FileType$NotFound)
   expect_equal(infos[[2]]$type, FileType$File)
   expect_equal(infos[[3]]$type, FileType$Directory)
 
   fs$DeleteFile(tf2)
-  expect_equal(fs$GetTargetInfos(tf2)[[1L]]$type, FileType$NonExistent)
+  expect_equal(fs$GetTargetInfos(tf2)[[1L]]$type, FileType$NotFound)
   expect_true(!file.exists(tf2))
 
-  expect_equal(fs$GetTargetInfos(tf)[[1L]]$type, FileType$NonExistent)
+  expect_equal(fs$GetTargetInfos(tf)[[1L]]$type, FileType$NotFound)
   expect_true(!file.exists(tf))
 
   td <- tempfile()
@@ -60,7 +60,7 @@ test_that("LocalFilesystem", {
   fs$DeleteDirContents(td)
   expect_equal(length(dir(td)), 0L)
   fs$DeleteDir(td)
-  expect_equal(fs$GetTargetInfos(td)[[1L]]$type, FileType$NonExistent)
+  expect_equal(fs$GetTargetInfos(td)[[1L]]$type, FileType$NotFound)
 
   tf3 <- tempfile()
   os <- fs$OpenOutputStream(path = tf3)
@@ -88,16 +88,16 @@ test_that("SubTreeFilesystem", {
   infos <- st_fs$GetTargetInfos(c("DESCRIPTION", "test", "nope", "DESC.txt"))
   expect_equal(infos[[1L]]$type, FileType$File)
   expect_equal(infos[[2L]]$type, FileType$Directory)
-  expect_equal(infos[[3L]]$type, FileType$NonExistent)
+  expect_equal(infos[[3L]]$type, FileType$NotFound)
   expect_equal(infos[[4L]]$type, FileType$File)
   expect_equal(infos[[4L]]$extension(), "txt")
 
   local_fs$DeleteDirContents(td)
   infos <- st_fs$GetTargetInfos(c("DESCRIPTION", "test", "nope", "DESC.txt"))
-  expect_equal(infos[[1L]]$type, FileType$NonExistent)
-  expect_equal(infos[[2L]]$type, FileType$NonExistent)
-  expect_equal(infos[[3L]]$type, FileType$NonExistent)
-  expect_equal(infos[[4L]]$type, FileType$NonExistent)
+  expect_equal(infos[[1L]]$type, FileType$NotFound)
+  expect_equal(infos[[2L]]$type, FileType$NotFound)
+  expect_equal(infos[[3L]]$type, FileType$NotFound)
+  expect_equal(infos[[4L]]$type, FileType$NotFound)
 })
 
 test_that("LocalFileSystem + Selector", {

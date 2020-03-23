@@ -26,7 +26,7 @@ from pyarrow.includes.libarrow cimport *
 cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     ctypedef enum CFileType "arrow::fs::FileType":
-        CFileType_NonExistent "arrow::fs::FileType::NonExistent"
+        CFileType_NotFound "arrow::fs::FileType::NotFound"
         CFileType_Unknown "arrow::fs::FileType::Unknown"
         CFileType_File "arrow::fs::FileType::File"
         CFileType_Directory "arrow::fs::FileType::Directory"
@@ -55,7 +55,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
     cdef cppclass CFileSelector "arrow::fs::FileSelector":
         CFileSelector()
         c_string base_dir
-        c_bool allow_non_existent
+        c_bool allow_not_found
         c_bool recursive
 
     cdef cppclass CFileSystem "arrow::fs::FileSystem":
