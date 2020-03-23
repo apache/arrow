@@ -27,6 +27,8 @@
 namespace arrow {
 namespace dataset {
 
+ARROW_DS_EXPORT Status CheckProjectable(const Schema& from, const Schema& to);
+
 /// \brief Project a RecordBatch to a given schema.
 ///
 /// Projected record batches will reorder columns from input record batches when possible,

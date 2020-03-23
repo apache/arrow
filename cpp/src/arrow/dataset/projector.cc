@@ -34,6 +34,30 @@
 namespace arrow {
 namespace dataset {
 
+Status CheckProjectable(const Schema& from, const Schema& to) {
+  for (const auto& to_field : to.fields()) {
+    ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(to_field->name()).FindOneOrNone(from));
+    DCHECK_LE(match.indices().size(), 1);  // name FieldRef returns non nested path
+
+    if (match.indices().empty()) {
+      if (to_field->nullable()) continue;
+
+      return Status::TypeError("field ", to_field->ToString(),
+                               " is not nullable and does not exist in origin schema ",
+                               from);
+    }
+
+    const auto& from_field = from.field(match.indices()[0]);
+    if (!from_field->Equals(to_field, /*check_metadata=*/false)) {
+      return Status::TypeError(
+          "fields had matching names but were not equivalent. From: ",
+          from_field->ToString(), " To: ", to_field->ToString());
+    }
+  }
+
+  return Status::OK();
+}
+
 RecordBatchProjector::RecordBatchProjector(std::shared_ptr<Schema> to)
     : to_(std::move(to)),
       missing_columns_(to_->num_fields(), nullptr),
@@ -86,32 +110,23 @@ Result<std::shared_ptr<RecordBatch>> RecordBatchProjector::Project(
 
 Status RecordBatchProjector::SetInputSchema(std::shared_ptr<Schema> from,
                                             MemoryPool* pool) {
+  RETURN_NOT_OK(CheckProjectable(*from, *to_));
   from_ = std::move(from);
 
   for (int i = 0; i < to_->num_fields(); ++i) {
-    const auto& field = to_->field(i);
-    FieldRef ref(field->name());
-    auto matches = ref.FindAll(*from_);
+    ARROW_ASSIGN_OR_RAISE(auto match,
+                          FieldRef(to_->field(i)->name()).FindOneOrNone(*from_));
 
-    if (matches.empty()) {
+    if (match.indices().empty()) {
       // Mark column i as missing by setting missing_columns_[i]
       // to a non-null placeholder.
       ARROW_ASSIGN_OR_RAISE(missing_columns_[i],
                             MakeArrayOfNull(to_->field(i)->type(), 0, pool));
       column_indices_[i] = kNoMatch;
     } else {
-      RETURN_NOT_OK(ref.CheckNonMultiple(matches, *from_));
-      int matching_index = matches[0].indices()[0];
-
-      if (!from_->field(matching_index)->Equals(field, /*check_metadata=*/false)) {
-        return Status::TypeError("fields had matching names but were not equivalent ",
-                                 from_->field(matching_index)->ToString(), " vs ",
-                                 field->ToString());
-      }
-
       // Mark column i as not missing by setting missing_columns_[i] to nullptr
       missing_columns_[i] = nullptr;
-      column_indices_[i] = matching_index;
+      column_indices_[i] = match.indices()[0];
     }
   }
   return Status::OK();

@@ -62,7 +62,7 @@ cdef class Dataset:
         self.dataset = sp.get()
 
     @staticmethod
-    cdef wrap(shared_ptr[CDataset]& sp):
+    cdef wrap(const shared_ptr[CDataset]& sp):
         cdef Dataset self
 
         typ = frombytes(sp.get().type_name())
@@ -91,6 +91,18 @@ cdef class Dataset:
             return None
         else:
             return Expression.wrap(expr)
+
+    def replace_schema(self, Schema schema not None):
+        """
+        Return a copy of this Dataset with a different schema.
+
+        The copy will view the same Fragments. If the new schema is not
+        compatible with the original dataset's schema then an error will
+        be raised.
+        """
+        cdef shared_ptr[CDataset] copy = GetResultValue(
+            self.dataset.ReplaceSchema(pyarrow_unwrap_schema(schema)))
+        return Dataset.wrap(move(copy))
 
     def get_fragments(self, columns=None, filter=None):
         """Returns an iterator over the fragments in this dataset.

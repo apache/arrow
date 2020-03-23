@@ -356,6 +356,10 @@ dataset___Dataset__type_name <- function(dataset){
     .Call(`_arrow_dataset___Dataset__type_name` , dataset)
 }
 
+dataset___Dataset__ReplaceSchema <- function(dataset, schm){
+    .Call(`_arrow_dataset___Dataset__ReplaceSchema` , dataset, schm)
+}
+
 dataset___UnionDataset__create <- function(datasets, schm){
     .Call(`_arrow_dataset___UnionDataset__create` , datasets, schm)
 }

@@ -45,6 +45,12 @@ ARROW_EXPORT void InvalidValueOrDie(const Status& st);
 
 }  // namespace internal
 
+#if defined(__clang__)
+// Only clang supports warn_unused_result as a type annotation.
+template <class T>
+class ARROW_MUST_USE_RESULT Result;
+#endif
+
 // A class for representing either a usable value, or an error.
 ///
 /// A Result object either contains a value of type `T` or a Status object

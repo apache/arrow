@@ -244,6 +244,9 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
 
   std::string type_name() const override { return "filesystem"; }
 
+  Result<std::shared_ptr<Dataset>> ReplaceSchema(
+      std::shared_ptr<Schema> schema) const override;
+
   const std::shared_ptr<FileFormat>& format() const { return format_; }
 
   std::vector<std::string> files() const;

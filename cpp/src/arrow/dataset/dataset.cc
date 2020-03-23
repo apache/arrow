@@ -135,6 +135,12 @@ InMemoryDataset::InMemoryDataset(std::shared_ptr<Table> table)
     : Dataset(table->schema()),
       get_batches_(new TableRecordBatchGenerator(std::move(table))) {}
 
+Result<std::shared_ptr<Dataset>> InMemoryDataset::ReplaceSchema(
+    std::shared_ptr<Schema> schema) const {
+  RETURN_NOT_OK(CheckProjectable(*schema_, *schema));
+  return std::make_shared<InMemoryDataset>(std::move(schema), get_batches_);
+}
+
 FragmentIterator InMemoryDataset::GetFragmentsImpl(
     std::shared_ptr<ScanOptions> scan_options) {
   auto schema = this->schema();
@@ -172,6 +178,17 @@ Result<std::shared_ptr<UnionDataset>> UnionDataset::Make(std::shared_ptr<Schema>
   }
 
   return std::shared_ptr<UnionDataset>(
+      new UnionDataset(std::move(schema), std::move(children)));
+}
+
+Result<std::shared_ptr<Dataset>> UnionDataset::ReplaceSchema(
+    std::shared_ptr<Schema> schema) const {
+  auto children = children_;
+  for (auto& child : children) {
+    ARROW_ASSIGN_OR_RAISE(child, child->ReplaceSchema(schema));
+  }
+
+  return std::shared_ptr<Dataset>(
       new UnionDataset(std::move(schema), std::move(children)));
 }
 

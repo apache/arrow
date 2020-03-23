@@ -52,6 +52,35 @@ TEST_F(TestInMemoryFragment, Scan) {
 
 class TestInMemoryDataset : public DatasetFixtureMixin {};
 
+TEST_F(TestInMemoryDataset, ReplaceSchema) {
+  constexpr int64_t kBatchSize = 1;
+  constexpr int64_t kNumberBatches = 1;
+
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
+
+  auto dataset = std::make_shared<InMemoryDataset>(
+      schema_, RecordBatchVector{static_cast<size_t>(kNumberBatches), batch});
+
+  // drop field
+  ASSERT_OK(dataset->ReplaceSchema(schema({field("i32", int32())})).status());
+  // add field (will be materialized as null during projection)
+  ASSERT_OK(dataset->ReplaceSchema(schema({field("str", utf8())})).status());
+  // incompatible type
+  ASSERT_RAISES(TypeError,
+                dataset->ReplaceSchema(schema({field("i32", utf8())})).status());
+  // incompatible nullability
+  ASSERT_RAISES(
+      TypeError,
+      dataset->ReplaceSchema(schema({field("f64", float64(), /*nullable=*/false)}))
+          .status());
+  // add non-nullable field
+  ASSERT_RAISES(TypeError,
+                dataset->ReplaceSchema(schema({field("str", utf8(), /*nullable=*/false)}))
+                    .status());
+}
+
 TEST_F(TestInMemoryDataset, GetFragments) {
   constexpr int64_t kBatchSize = 1024;
   constexpr int64_t kNumberBatches = 16;
@@ -60,8 +89,6 @@ TEST_F(TestInMemoryDataset, GetFragments) {
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
-  // It is safe to copy fragment multiple time since Scan() does not consume
-  // the internal array.
   auto dataset = std::make_shared<InMemoryDataset>(
       schema_, RecordBatchVector{static_cast<size_t>(kNumberBatches), batch});
 
@@ -69,6 +96,45 @@ TEST_F(TestInMemoryDataset, GetFragments) {
 }
 
 class TestUnionDataset : public DatasetFixtureMixin {};
+
+TEST_F(TestUnionDataset, ReplaceSchema) {
+  constexpr int64_t kBatchSize = 1;
+  constexpr int64_t kNumberBatches = 1;
+
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+
+  std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(kNumberBatches),
+                                                    batch};
+
+  DatasetVector children = {
+      std::make_shared<InMemoryDataset>(schema_, batches),
+      std::make_shared<InMemoryDataset>(schema_, batches),
+  };
+
+  const int64_t total_batches = children.size() * kNumberBatches;
+  auto reader = ConstantArrayGenerator::Repeat(total_batches, batch);
+
+  ASSERT_OK_AND_ASSIGN(auto dataset, UnionDataset::Make(schema_, children));
+  AssertDatasetEquals(reader.get(), dataset.get());
+
+  // drop field
+  ASSERT_OK(dataset->ReplaceSchema(schema({field("i32", int32())})).status());
+  // add nullable field (will be materialized as null during projection)
+  ASSERT_OK(dataset->ReplaceSchema(schema({field("str", utf8())})).status());
+  // incompatible type
+  ASSERT_RAISES(TypeError,
+                dataset->ReplaceSchema(schema({field("i32", utf8())})).status());
+  // incompatible nullability
+  ASSERT_RAISES(
+      TypeError,
+      dataset->ReplaceSchema(schema({field("f64", float64(), /*nullable=*/false)}))
+          .status());
+  // add non-nullable field
+  ASSERT_RAISES(TypeError,
+                dataset->ReplaceSchema(schema({field("str", utf8(), /*nullable=*/false)}))
+                    .status());
+}
 
 TEST_F(TestUnionDataset, GetFragments) {
   constexpr int64_t kBatchSize = 1024;
@@ -105,9 +171,7 @@ TEST_F(TestUnionDataset, GetFragments) {
   AssertDatasetEquals(reader.get(), root_dataset.get());
 }
 
-class TestDataset : public DatasetFixtureMixin {};
-
-TEST_F(TestDataset, TrivialScan) {
+TEST_F(TestUnionDataset, TrivialScan) {
   constexpr int64_t kNumberBatches = 16;
   constexpr int64_t kBatchSize = 1024;
 
@@ -229,8 +293,8 @@ TEST(TestProjector, NonTrivial) {
   AssertBatchesEqual(*expected_batch, *reconciled_batch);
 }
 
-class TestEndToEnd : public TestDataset {
-  void SetUp() {
+class TestEndToEnd : public TestUnionDataset {
+  void SetUp() override {
     bool nullable = false;
     SetSchema({
         field("region", utf8(), nullable),
@@ -413,7 +477,7 @@ inline std::shared_ptr<Schema> SchemaFromNames(const std::vector<std::string> na
   return schema(fields);
 }
 
-class TestSchemaUnification : public TestDataset {
+class TestSchemaUnification : public TestUnionDataset {
  public:
   using i32 = util::optional<int32_t>;
   using PathAndContent = std::vector<std::pair<std::string, std::string>>;
