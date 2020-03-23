@@ -234,7 +234,7 @@ def test_context_device_buffer(size, global_context):
 @pytest.mark.parametrize("size", [0, 1, 1000])
 def test_context_from_object(size, global_context):
     ctx = global_context
-    arr, cbuf = make_random_buffer(size, target='device', contect=ctx)
+    arr, cbuf = make_random_buffer(size, target='device', context=ctx)
     dtype = arr.dtype
 
     # Creating device buffer from a CUDA host buffer
@@ -438,7 +438,7 @@ def test_copy_to_host(size, global_context):
 
 @pytest.mark.parametrize("dest_ctx", ['same', 'another'])
 @pytest.mark.parametrize("size", [0, 1, 1000])
-def test_copy_from_device(dest_ctx, size, global_context):
+def test_copy_from_device(dest_ctx, size, global_context, global_context1):
     arr, buf = make_random_buffer(size=size, target='device',
                                   context=global_context)
     lst = arr.tolist()
@@ -539,10 +539,10 @@ def test_BufferWriter(global_context):
         writer = cuda.BufferWriter(cbuf)
         return cbuf, writer
 
-    def test_writes(total_size, chunksize, buffer_size=0):
+    def test_writes(total_size, global_context, chunksize, buffer_size=0):
         cbuf, writer = allocate(total_size)
         arr, buf = make_random_buffer(size=total_size, target='host',
-                                      contect=global_context)
+                                      context=global_context)
 
         if buffer_size > 0:
             writer.buffer_size = buffer_size
@@ -570,8 +570,8 @@ def test_BufferWriter(global_context):
         np.testing.assert_equal(arr, arr2)
 
     total_size, chunk_size = 1 << 16, 1000
-    test_writes(total_size, chunk_size)
-    test_writes(total_size, chunk_size, total_size // 16)
+    test_writes(total_size, global_context, chunk_size)
+    test_writes(total_size, global_context, chunk_size, total_size // 16)
 
     cbuf, writer = allocate(100)
     writer.write(np.arange(100, dtype=np.uint8))
@@ -649,7 +649,7 @@ def test_BufferReader(global_context):
     np.testing.assert_equal(arr, arr2)
 
 
-def test_BufferReader_zero_size(global_context):
+def test_BufferReader_zero_size(global_context1):
     arr, cbuf = make_random_buffer(size=0, target='device',
                                    context=global_context1)
     reader = cuda.BufferReader(cbuf)

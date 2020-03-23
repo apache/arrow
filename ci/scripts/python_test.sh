@@ -30,4 +30,6 @@ export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 export PYTHONDEVMODE=1
 
 pytest -r s --pyargs pyarrow
+pushd ${arrow_dir}/python
 mypy pyarrow
+popd
