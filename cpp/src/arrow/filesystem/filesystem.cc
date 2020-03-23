@@ -117,12 +117,12 @@ FileSystem::~FileSystem() {}
 
 Result<std::string> FileSystem::NormalizePath(std::string path) { return path; }
 
-Result<std::vector<FileInfo>> FileSystem::GetTargetInfos(
+Result<std::vector<FileInfo>> FileSystem::GetFileInfo(
     const std::vector<std::string>& paths) {
   std::vector<FileInfo> res;
   res.reserve(paths.size());
   for (const auto& path : paths) {
-    ARROW_ASSIGN_OR_RAISE(FileInfo info, GetTargetInfo(path));
+    ARROW_ASSIGN_OR_RAISE(FileInfo info, GetFileInfo(path));
     res.push_back(std::move(info));
   }
   return res;
@@ -190,17 +190,16 @@ Result<std::string> SubTreeFileSystem::NormalizePath(std::string path) {
   return StripBase(std::move(normalized));
 }
 
-Result<FileInfo> SubTreeFileSystem::GetTargetInfo(const std::string& path) {
-  ARROW_ASSIGN_OR_RAISE(FileInfo info, base_fs_->GetTargetInfo(PrependBase(path)));
+Result<FileInfo> SubTreeFileSystem::GetFileInfo(const std::string& path) {
+  ARROW_ASSIGN_OR_RAISE(FileInfo info, base_fs_->GetFileInfo(PrependBase(path)));
   RETURN_NOT_OK(FixInfo(&info));
   return info;
 }
 
-Result<std::vector<FileInfo>> SubTreeFileSystem::GetTargetInfos(
-    const FileSelector& select) {
+Result<std::vector<FileInfo>> SubTreeFileSystem::GetFileInfo(const FileSelector& select) {
   auto selector = select;
   selector.base_dir = PrependBase(selector.base_dir);
-  ARROW_ASSIGN_OR_RAISE(auto infos, base_fs_->GetTargetInfos(selector));
+  ARROW_ASSIGN_OR_RAISE(auto infos, base_fs_->GetFileInfo(selector));
   for (auto& info : infos) {
     RETURN_NOT_OK(FixInfo(&info));
   }
@@ -289,15 +288,14 @@ SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
                                double average_latency, int32_t seed)
     : base_fs_(base_fs), latencies_(io::LatencyGenerator::Make(average_latency, seed)) {}
 
-Result<FileInfo> SlowFileSystem::GetTargetInfo(const std::string& path) {
+Result<FileInfo> SlowFileSystem::GetFileInfo(const std::string& path) {
   latencies_->Sleep();
-  return base_fs_->GetTargetInfo(path);
+  return base_fs_->GetFileInfo(path);
 }
 
-Result<std::vector<FileInfo>> SlowFileSystem::GetTargetInfos(
-    const FileSelector& selector) {
+Result<std::vector<FileInfo>> SlowFileSystem::GetFileInfo(const FileSelector& selector) {
   latencies_->Sleep();
-  return base_fs_->GetTargetInfos(selector);
+  return base_fs_->GetFileInfo(selector);
 }
 
 Status SlowFileSystem::CreateDir(const std::string& path, bool recursive) {

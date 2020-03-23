@@ -62,11 +62,10 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   std::string type_name() const override { return "hdfs"; }
 
   /// \cond FALSE
-  using FileSystem::GetTargetInfo;
-  using FileSystem::GetTargetInfos;
+  using FileSystem::GetFileInfo;
   /// \endcond
-  Result<FileInfo> GetTargetInfo(const std::string& path) override;
-  Result<std::vector<FileInfo>> GetTargetInfos(const FileSelector& select) override;
+  Result<FileInfo> GetFileInfo(const std::string& path) override;
+  Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 

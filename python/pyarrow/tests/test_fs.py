@@ -219,7 +219,7 @@ def test_get_target_infos(fs, pathfn):
         fp.write(b'test')
 
     aaa_info, bb_info, c_info, zzz_info = \
-        fs.get_target_infos([aaa, bb, c, zzz])
+        fs.get_file_info([aaa, bb, c, zzz])
 
     assert aaa_info.path == aaa
     assert 'aaa' in repr(aaa_info)
@@ -269,7 +269,7 @@ def test_get_target_infos_with_selector(fs, pathfn):
                                 recursive=True)
         assert selector.base_dir == base_dir
 
-        infos = fs.get_target_infos(selector)
+        infos = fs.get_file_info(selector)
         assert len(infos) == 3
 
         for info in infos:
@@ -582,7 +582,7 @@ def test_hdfs_options(hdfs_server):
     host, port, user = hdfs_server
     uri = "hdfs://{}:{}/?user={}".format(host, port, user)
     fs = HadoopFileSystem(uri)
-    assert fs.get_target_infos(FileSelector('/'))
+    assert fs.get_file_info(FileSelector('/'))
 
 
 @pytest.mark.parametrize(('uri', 'expected_klass', 'expected_path'), [
@@ -633,6 +633,6 @@ def test_filesystem_from_uri_s3(minio_server):
     assert path == "mybucket/foo/bar"
 
     fs.create_dir(path)
-    [info] = fs.get_target_infos([path])
+    [info] = fs.get_file_info([path])
     assert info.path == path
     assert info.type == FileType.Directory

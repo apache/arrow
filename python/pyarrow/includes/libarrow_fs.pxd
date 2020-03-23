@@ -61,10 +61,10 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
     cdef cppclass CFileSystem "arrow::fs::FileSystem":
         c_string type_name() const
         CResult[c_string] NormalizePath(c_string path)
-        CResult[CFileInfo] GetTargetInfo(const c_string& path)
-        CResult[vector[CFileInfo]] GetTargetInfos(
+        CResult[CFileInfo] GetFileInfo(const c_string& path)
+        CResult[vector[CFileInfo]] GetFileInfo(
             const vector[c_string]& paths)
-        CResult[vector[CFileInfo]] GetTargetInfos(const CFileSelector& select)
+        CResult[vector[CFileInfo]] GetFileInfo(const CFileSelector& select)
         CStatus CreateDir(const c_string& path, c_bool recursive)
         CStatus DeleteDir(const c_string& path)
         CStatus DeleteFile(const c_string& path)

@@ -155,7 +155,7 @@ Result<fs::PathForest> FileSystemDatasetFactory::Filter(
 Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
     std::shared_ptr<fs::FileSystem> filesystem, const std::vector<std::string>& paths,
     std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options) {
-  ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetTargetInfos(paths));
+  ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetFileInfo(paths));
   ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(files)));
 
   std::unordered_set<fs::FileInfo, fs::FileInfo::ByPath> missing;
@@ -167,7 +167,7 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
 
     for (auto&& path :
          fs::internal::AncestorsFromBasePath(parent_path, ref.info().path())) {
-      ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetTargetInfo(std::move(path)));
+      ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetFileInfo(std::move(path)));
       missing.insert(std::move(file));
     }
     return Status::OK();
@@ -187,7 +187,7 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
 Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
     std::shared_ptr<fs::FileSystem> filesystem, fs::FileSelector selector,
     std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options) {
-  ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetTargetInfos(selector));
+  ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetFileInfo(selector));
 
   ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(files)));
 

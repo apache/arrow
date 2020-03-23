@@ -41,7 +41,7 @@ std::vector<FileInfo> GetAllWithType(FileSystem* fs, FileType type) {
   FileSelector selector;
   selector.base_dir = "";
   selector.recursive = true;
-  std::vector<FileInfo> infos = std::move(fs->GetTargetInfos(selector)).ValueOrDie();
+  std::vector<FileInfo> infos = std::move(fs->GetFileInfo(selector)).ValueOrDie();
   std::vector<FileInfo> result;
   for (const auto& info : infos) {
     if (info.type() == type) {
@@ -84,7 +84,7 @@ void ValidateTimePoint(TimePoint tp) { ASSERT_GE(tp.time_since_epoch().count(), 
 
 void AssertFileContents(FileSystem* fs, const std::string& path,
                         const std::string& expected_data) {
-  ASSERT_OK_AND_ASSIGN(FileInfo info, fs->GetTargetInfo(path));
+  ASSERT_OK_AND_ASSIGN(FileInfo info, fs->GetFileInfo(path));
   ASSERT_EQ(info.type(), FileType::File) << "For path '" << path << "'";
   ASSERT_EQ(info.size(), static_cast<int64_t>(expected_data.length()))
       << "For path '" << path << "'";
@@ -136,25 +136,25 @@ void AssertFileInfo(const FileInfo& info, const std::string& path, FileType type
 }
 
 void AssertFileInfo(FileSystem* fs, const std::string& path, FileType type) {
-  ASSERT_OK_AND_ASSIGN(FileInfo info, fs->GetTargetInfo(path));
+  ASSERT_OK_AND_ASSIGN(FileInfo info, fs->GetFileInfo(path));
   AssertFileInfo(info, path, type);
 }
 
 void AssertFileInfo(FileSystem* fs, const std::string& path, FileType type,
                     TimePoint mtime) {
-  ASSERT_OK_AND_ASSIGN(FileInfo info, fs->GetTargetInfo(path));
+  ASSERT_OK_AND_ASSIGN(FileInfo info, fs->GetFileInfo(path));
   AssertFileInfo(info, path, type, mtime);
 }
 
 void AssertFileInfo(FileSystem* fs, const std::string& path, FileType type,
                     TimePoint mtime, int64_t size) {
-  ASSERT_OK_AND_ASSIGN(FileInfo info, fs->GetTargetInfo(path));
+  ASSERT_OK_AND_ASSIGN(FileInfo info, fs->GetFileInfo(path));
   AssertFileInfo(info, path, type, mtime, size);
 }
 
 void AssertFileInfo(FileSystem* fs, const std::string& path, FileType type,
                     int64_t size) {
-  ASSERT_OK_AND_ASSIGN(FileInfo info, fs->GetTargetInfo(path));
+  ASSERT_OK_AND_ASSIGN(FileInfo info, fs->GetFileInfo(path));
   AssertFileInfo(info, path, type, size);
 }
 
@@ -491,7 +491,7 @@ void GenericFileSystemTest::TestCopyFile(FileSystem* fs) {
   AssertAllFiles(fs, {"AB/abc", "EF/ghi", "def"});
 }
 
-void GenericFileSystemTest::TestGetTargetInfo(FileSystem* fs) {
+void GenericFileSystemTest::TestGetFileInfo(FileSystem* fs) {
   ASSERT_OK(fs->CreateDir("AB/CD/EF"));
   CreateFile(fs, "AB/CD/ghi", "some data");
   CreateFile(fs, "AB/CD/jkl", "some other data");
@@ -499,7 +499,7 @@ void GenericFileSystemTest::TestGetTargetInfo(FileSystem* fs) {
   FileInfo info;
   TimePoint first_dir_time, first_file_time;
 
-  ASSERT_OK_AND_ASSIGN(info, fs->GetTargetInfo("AB"));
+  ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("AB"));
   AssertFileInfo(info, "AB", FileType::Directory);
   ASSERT_EQ(info.base_name(), "AB");
   ASSERT_EQ(info.size(), kNoSize);
@@ -508,7 +508,7 @@ void GenericFileSystemTest::TestGetTargetInfo(FileSystem* fs) {
     ValidateTimePoint(first_dir_time);
   }
 
-  ASSERT_OK_AND_ASSIGN(info, fs->GetTargetInfo("AB/CD/EF"));
+  ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("AB/CD/EF"));
   AssertFileInfo(info, "AB/CD/EF", FileType::Directory);
   ASSERT_EQ(info.base_name(), "EF");
   ASSERT_EQ(info.size(), kNoSize);
@@ -518,7 +518,7 @@ void GenericFileSystemTest::TestGetTargetInfo(FileSystem* fs) {
     AssertDurationBetween(info.mtime() - first_dir_time, 0.0, kTimeSlack);
   }
 
-  ASSERT_OK_AND_ASSIGN(info, fs->GetTargetInfo("AB/CD/ghi"));
+  ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("AB/CD/ghi"));
   AssertFileInfo(info, "AB/CD/ghi", FileType::File, 9);
   ASSERT_EQ(info.base_name(), "ghi");
   first_file_time = info.mtime();
@@ -527,26 +527,26 @@ void GenericFileSystemTest::TestGetTargetInfo(FileSystem* fs) {
   if (have_directory_mtimes()) {
     AssertDurationBetween(first_file_time - first_dir_time, 0.0, kTimeSlack);
   }
-  ASSERT_OK_AND_ASSIGN(info, fs->GetTargetInfo("AB/CD/jkl"));
+  ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("AB/CD/jkl"));
   AssertFileInfo(info, "AB/CD/jkl", FileType::File, 15);
   // This file was created after the one above
   AssertDurationBetween(info.mtime() - first_file_time, 0.0, kTimeSlack);
 
-  ASSERT_OK_AND_ASSIGN(info, fs->GetTargetInfo("zz"));
+  ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("zz"));
   AssertFileInfo(info, "zz", FileType::NotFound);
   ASSERT_EQ(info.base_name(), "zz");
   ASSERT_EQ(info.size(), kNoSize);
   ASSERT_EQ(info.mtime(), kNoTime);
 }
 
-void GenericFileSystemTest::TestGetTargetInfosVector(FileSystem* fs) {
+void GenericFileSystemTest::TestGetFileInfoVector(FileSystem* fs) {
   ASSERT_OK(fs->CreateDir("AB/CD"));
   CreateFile(fs, "AB/CD/ghi", "some data");
 
   std::vector<FileInfo> infos;
   TimePoint dir_time, file_time;
   ASSERT_OK_AND_ASSIGN(
-      infos, fs->GetTargetInfos({"AB", "AB/CD", "AB/zz", "zz", "XX/zz", "AB/CD/ghi"}));
+      infos, fs->GetFileInfo({"AB", "AB/CD", "AB/zz", "zz", "XX/zz", "AB/CD/ghi"}));
   ASSERT_EQ(infos.size(), 6);
   AssertFileInfo(infos[0], "AB", FileType::Directory);
   dir_time = infos[0].mtime();
@@ -570,16 +570,16 @@ void GenericFileSystemTest::TestGetTargetInfosVector(FileSystem* fs) {
   // Check the mtime is the same from one call to the other
   FileInfo info;
   if (have_directory_mtimes()) {
-    ASSERT_OK_AND_ASSIGN(info, fs->GetTargetInfo("AB"));
+    ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("AB"));
     AssertFileInfo(info, "AB", FileType::Directory);
     ASSERT_EQ(info.mtime(), dir_time);
   }
-  ASSERT_OK_AND_ASSIGN(info, fs->GetTargetInfo("AB/CD/ghi"));
+  ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("AB/CD/ghi"));
   AssertFileInfo(info, "AB/CD/ghi", FileType::File, 9);
   ASSERT_EQ(info.mtime(), file_time);
 }
 
-void GenericFileSystemTest::TestGetTargetInfosSelector(FileSystem* fs) {
+void GenericFileSystemTest::TestGetFileInfoSelector(FileSystem* fs) {
   ASSERT_OK(fs->CreateDir("AB/CD"));
   CreateFile(fs, "abc", "data");
   CreateFile(fs, "AB/def", "some data");
@@ -590,7 +590,7 @@ void GenericFileSystemTest::TestGetTargetInfosSelector(FileSystem* fs) {
   FileSelector s;
   s.base_dir = "";
   std::vector<FileInfo> infos;
-  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(s));
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(s));
   // Need to sort results to make testing deterministic
   SortInfos(&infos);
   ASSERT_EQ(infos.size(), 2);
@@ -602,14 +602,14 @@ void GenericFileSystemTest::TestGetTargetInfosSelector(FileSystem* fs) {
   AssertFileInfo(infos[1], "abc", FileType::File, 4);
 
   s.base_dir = "AB";
-  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(s));
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(s));
   SortInfos(&infos);
   ASSERT_EQ(infos.size(), 2);
   AssertFileInfo(infos[0], "AB/CD", FileType::Directory);
   AssertFileInfo(infos[1], "AB/def", FileType::File, 9);
 
   s.base_dir = "AB/CD";
-  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(s));
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(s));
   SortInfos(&infos);
   ASSERT_EQ(infos.size(), 2);
   AssertFileInfo(infos[0], "AB/CD/ghi", FileType::File, 15);
@@ -623,7 +623,7 @@ void GenericFileSystemTest::TestGetTargetInfosSelector(FileSystem* fs) {
   // Recursive
   s.base_dir = "AB";
   s.recursive = true;
-  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(s));
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(s));
   SortInfos(&infos);
   ASSERT_EQ(infos.size(), 4);
   AssertFileInfo(infos[0], "AB/CD", FileType::Directory);
@@ -633,26 +633,26 @@ void GenericFileSystemTest::TestGetTargetInfosSelector(FileSystem* fs) {
 
   // Check the mtime is the same from one call to the other
   FileInfo info;
-  ASSERT_OK_AND_ASSIGN(info, fs->GetTargetInfo("AB"));
+  ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("AB"));
   AssertFileInfo(info, "AB", FileType::Directory, first_dir_time);
-  ASSERT_OK_AND_ASSIGN(info, fs->GetTargetInfo("AB/CD/ghi"));
+  ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("AB/CD/ghi"));
   AssertFileInfo(info, "AB/CD/ghi", FileType::File, first_file_time, 15);
 
   // Doesn't exist
   s.base_dir = "XX";
-  ASSERT_RAISES(IOError, fs->GetTargetInfos(s));
+  ASSERT_RAISES(IOError, fs->GetFileInfo(s));
   s.allow_not_found = true;
-  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(s));
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(s));
   ASSERT_EQ(infos.size(), 0);
   s.allow_not_found = false;
 
   // Not a dir
   s.base_dir = "abc";
-  ASSERT_RAISES(IOError, fs->GetTargetInfos(s));
+  ASSERT_RAISES(IOError, fs->GetFileInfo(s));
 }
 
 void GetSortedInfos(FileSystem* fs, FileSelector s, std::vector<FileInfo>& infos) {
-  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(s));
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(s));
   // Clear mtime & size for easier testing.
   for_each(infos.begin(), infos.end(), [](FileInfo& info) {
     info.set_mtime(kNoTime);
@@ -661,7 +661,7 @@ void GetSortedInfos(FileSystem* fs, FileSelector s, std::vector<FileInfo>& infos
   SortInfos(&infos);
 }
 
-void GenericFileSystemTest::TestGetTargetInfosSelectorWithRecursion(FileSystem* fs) {
+void GenericFileSystemTest::TestGetFileInfoSelectorWithRecursion(FileSystem* fs) {
   ASSERT_OK(fs->CreateDir("01/02/03/04"));
   ASSERT_OK(fs->CreateDir("AA"));
   CreateFile(fs, "00.file", "00");
@@ -860,10 +860,10 @@ GENERIC_FS_TEST_DEFINE(TestDeleteFiles)
 GENERIC_FS_TEST_DEFINE(TestMoveFile)
 GENERIC_FS_TEST_DEFINE(TestMoveDir)
 GENERIC_FS_TEST_DEFINE(TestCopyFile)
-GENERIC_FS_TEST_DEFINE(TestGetTargetInfo)
-GENERIC_FS_TEST_DEFINE(TestGetTargetInfosVector)
-GENERIC_FS_TEST_DEFINE(TestGetTargetInfosSelector)
-GENERIC_FS_TEST_DEFINE(TestGetTargetInfosSelectorWithRecursion)
+GENERIC_FS_TEST_DEFINE(TestGetFileInfo)
+GENERIC_FS_TEST_DEFINE(TestGetFileInfoVector)
+GENERIC_FS_TEST_DEFINE(TestGetFileInfoSelector)
+GENERIC_FS_TEST_DEFINE(TestGetFileInfoSelectorWithRecursion)
 GENERIC_FS_TEST_DEFINE(TestOpenOutputStream)
 GENERIC_FS_TEST_DEFINE(TestOpenAppendStream)
 GENERIC_FS_TEST_DEFINE(TestOpenInputStream)

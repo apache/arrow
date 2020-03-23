@@ -245,13 +245,12 @@ Result<std::string> LocalFileSystem::NormalizePath(std::string path) {
   return fn.ToString();
 }
 
-Result<FileInfo> LocalFileSystem::GetTargetInfo(const std::string& path) {
+Result<FileInfo> LocalFileSystem::GetFileInfo(const std::string& path) {
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
   return StatFile(fn.ToNative());
 }
 
-Result<std::vector<FileInfo>> LocalFileSystem::GetTargetInfos(
-    const FileSelector& select) {
+Result<std::vector<FileInfo>> LocalFileSystem::GetFileInfo(const FileSelector& select) {
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(select.base_dir));
   std::vector<FileInfo> results;
   RETURN_NOT_OK(StatSelector(fn, select, 0, &results));

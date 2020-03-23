@@ -339,7 +339,7 @@ TYPED_TEST(TestLocalFS, DirectoryMTime) {
   TimePoint t2 = CurrentTimePoint();
 
   std::vector<FileInfo> infos;
-  ASSERT_OK_AND_ASSIGN(infos, this->fs_->GetTargetInfos({"AB", "AB/CD/EF", "xxx"}));
+  ASSERT_OK_AND_ASSIGN(infos, this->fs_->GetFileInfo({"AB", "AB/CD/EF", "xxx"}));
   ASSERT_EQ(infos.size(), 3);
   AssertFileInfo(infos[0], "AB", FileType::Directory);
   AssertFileInfo(infos[1], "AB/CD/EF", FileType::Directory);
@@ -362,7 +362,7 @@ TYPED_TEST(TestLocalFS, FileMTime) {
   TimePoint t2 = CurrentTimePoint();
 
   std::vector<FileInfo> infos;
-  ASSERT_OK_AND_ASSIGN(infos, this->fs_->GetTargetInfos({"AB", "AB/CD/ab", "xxx"}));
+  ASSERT_OK_AND_ASSIGN(infos, this->fs_->GetFileInfo({"AB", "AB/CD/ab", "xxx"}));
   ASSERT_EQ(infos.size(), 3);
   AssertFileInfo(infos[0], "AB", FileType::Directory);
   AssertFileInfo(infos[1], "AB/CD/ab", FileType::File, 4);
