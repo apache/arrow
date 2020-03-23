@@ -181,6 +181,7 @@ set(PARQUET_SRCS
     column_scanner.cc
     column_writer.cc
     deprecated_io.cc
+    decoding.cc
     encoding.cc
     encryption.cc
     file_reader.cc
