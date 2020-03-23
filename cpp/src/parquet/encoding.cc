@@ -1074,12 +1074,12 @@ static inline int64_t ReadByteArray(const uint8_t* data, int64_t data_size,
     ParquetException::EofException();
   }
   const uint32_t len = arrow::util::SafeLoadAs<uint32_t>(data);
-  const int64_t increment = static_cast<int64_t>(4 + len);
-  if (ARROW_PREDICT_FALSE(data_size < increment)) {
+  const int64_t consumed_length = static_cast<int64_t>(4 + len);
+  if (ARROW_PREDICT_FALSE(data_size < consumed_length)) {
     ParquetException::EofException();
   }
   *out = ByteArray{len, data + 4};
-  return increment;
+  return consumed_length;
 }
 
 template <>
