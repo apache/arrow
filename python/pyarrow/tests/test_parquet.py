@@ -59,6 +59,8 @@ def datadir(datadir):
 parametrize_use_dataset = pytest.mark.parametrize("use_dataset", [False, True])
 parametrize_use_dataset_not_supported = pytest.mark.parametrize(
     "use_dataset", [False, pytest.param(True, marks=pytest.mark.skip)])
+parametrize_use_dataset_skip_buffer = pytest.mark.parametrize(
+    "use_dataset", [False, pytest.param(True, marks=pytest.mark.skip)])
 
 
 # @pytest.fixture(params=[False, True])
@@ -82,19 +84,26 @@ def _read_table(*args, **kwargs):
 
 
 def _roundtrip_table(table, read_table_kwargs=None,
-                     write_table_kwargs=None):
+                     write_table_kwargs=None, use_dataset=False):
     read_table_kwargs = read_table_kwargs or {}
     write_table_kwargs = write_table_kwargs or {}
 
-    from pyarrow.fs import _MockFileSystem
-    mockfs = _MockFileSystem()
-    with mockfs.open_output_stream("test") as out:
-        _write_table(table, out, **write_table_kwargs)
-    return _read_table("test", filesystem=mockfs, **read_table_kwargs)
+    if use_dataset:
+        from pyarrow.fs import _MockFileSystem
+        mockfs = _MockFileSystem()
+        with mockfs.open_output_stream("test") as out:
+            _write_table(table, out, **write_table_kwargs)
+        return _read_table("test", filesystem=mockfs, use_dataset=True,
+                           **read_table_kwargs)
+    else:
+        buf = io.BytesIO()
+        _write_table(table, buf, **write_table_kwargs)
+        buf.seek(0)
+        return _read_table(buf, **read_table_kwargs)
 
 
 def _check_roundtrip(table, expected=None, read_table_kwargs=None,
-                     **write_table_kwargs):
+                     use_dataset=False, **write_table_kwargs):
     if expected is None:
         expected = table
 
@@ -102,37 +111,43 @@ def _check_roundtrip(table, expected=None, read_table_kwargs=None,
 
     # intentionally check twice
     result = _roundtrip_table(table, read_table_kwargs=read_table_kwargs,
-                              write_table_kwargs=write_table_kwargs)
+                              write_table_kwargs=write_table_kwargs,
+                              use_dataset=use_dataset)
     assert result.equals(expected)
     result = _roundtrip_table(result, read_table_kwargs=read_table_kwargs,
-                              write_table_kwargs=write_table_kwargs)
+                              write_table_kwargs=write_table_kwargs,
+                              use_dataset=use_dataset)
     assert result.equals(expected)
 
 
-def _roundtrip_pandas_dataframe(df, write_kwargs):
+def _roundtrip_pandas_dataframe(df, write_kwargs, use_dataset=False):
     table = pa.Table.from_pandas(df)
 
-    # buf = io.BytesIO()
-    # _write_table(table, buf, **write_kwargs)
+    if use_dataset:
+        from pyarrow.fs import _MockFileSystem
+        mockfs = _MockFileSystem()
+        with mockfs.open_output_stream("test") as out:
+            _write_table(table, out, **write_kwargs)
 
-    # buf.seek(0)
+        table1 = _read_table("test", filesystem=mockfs, use_dataset=True)
+    else:
+        buf = io.BytesIO()
+        _write_table(table, buf, **write_kwargs)
 
-    from pyarrow.fs import _MockFileSystem
-    mockfs = _MockFileSystem()
-    with mockfs.open_output_stream("test") as out:
-        _write_table(table, out, **write_kwargs)
+        buf.seek(0)
+        table1 = _read_table(buf)
 
-    table1 = _read_table("test", filesystem=mockfs)
     return table1.to_pandas()
 
 
+@parametrize_use_dataset
 @pytest.mark.parametrize('dtype', [int, float])
-def test_single_pylist_column_roundtrip(tempdir, dtype):
+def test_single_pylist_column_roundtrip(tempdir, dtype, use_dataset):
     filename = tempdir / 'single_{}_column.parquet'.format(dtype.__name__)
     data = [pa.array(list(map(dtype, range(5))))]
     table = pa.Table.from_arrays(data, names=['a'])
     _write_table(table, filename)
-    table_read = _read_table(filename)
+    table_read = _read_table(filename, use_dataset=use_dataset)
     for i in range(table.num_columns):
         col_written = table[i]
         col_read = table_read[i]
@@ -172,11 +187,11 @@ def alltypes_sample(size=10000, seed=0, categorical=False):
     return pd.DataFrame(arrays)
 
 
-# TODO non-deterministic order
-@pytest.mark.skip
+# TODO(dataset) non-deterministic order
+@parametrize_use_dataset_not_supported
 @pytest.mark.pandas
 @pytest.mark.parametrize('chunk_size', [None, 1000])
-def test_pandas_parquet_2_0_roundtrip(tempdir, chunk_size):
+def test_pandas_parquet_2_0_roundtrip(tempdir, chunk_size, use_dataset):
     df = alltypes_sample(size=10000, categorical=True)
 
     filename = tempdir / 'pandas_roundtrip.parquet'
@@ -200,39 +215,45 @@ def test_parquet_invalid_version(tempdir):
         _write_table(table, tempdir / 'test_version.parquet', version="2.2")
 
 
-def test_set_data_page_size():
+@parametrize_use_dataset
+def test_set_data_page_size(use_dataset):
     arr = pa.array([1, 2, 3] * 100000)
     t = pa.Table.from_arrays([arr], names=['f0'])
 
     # 128K, 512K
     page_sizes = [2 << 16, 2 << 18]
     for target_page_size in page_sizes:
-        _check_roundtrip(t, data_page_size=target_page_size)
+        _check_roundtrip(t, data_page_size=target_page_size,
+                         use_dataset=use_dataset)
 
 
 @pytest.mark.pandas
-def test_chunked_table_write():
+@parametrize_use_dataset
+def test_chunked_table_write(use_dataset):
     # ARROW-232
     df = alltypes_sample(size=10)
 
     batch = pa.RecordBatch.from_pandas(df)
     table = pa.Table.from_batches([batch] * 3)
-    _check_roundtrip(table, version='2.0')
+    _check_roundtrip(table, version='2.0', use_dataset=use_dataset)
 
     df, _ = dataframe_with_lists()
     batch = pa.RecordBatch.from_pandas(df)
     table = pa.Table.from_batches([batch] * 3)
-    _check_roundtrip(table, version='2.0')
+    _check_roundtrip(table, version='2.0', use_dataset=use_dataset)
 
 
 @pytest.mark.pandas
-def test_memory_map(tempdir):
+@parametrize_use_dataset
+def test_memory_map(tempdir, use_dataset):
     df = alltypes_sample(size=10)
 
     table = pa.Table.from_pandas(df)
+    # TODO(dataset) memory_map is still ignored for now
     _check_roundtrip(table, read_table_kwargs={'memory_map': True},
-                     version='2.0')
+                     version='2.0', use_dataset=use_dataset)
 
+    # TODO add use_dataset to read_pandas as well
     filename = str(tempdir / 'tmp_file')
     with open(filename, 'wb') as f:
         _write_table(table, f, version='2.0')
@@ -241,13 +262,15 @@ def test_memory_map(tempdir):
 
 
 @pytest.mark.pandas
-def test_enable_buffered_stream(tempdir):
+@parametrize_use_dataset
+def test_enable_buffered_stream(tempdir, use_dataset):
     df = alltypes_sample(size=10)
 
     table = pa.Table.from_pandas(df)
     _check_roundtrip(table, read_table_kwargs={'buffer_size': 1025},
-                     version='2.0')
+                     version='2.0', use_dataset=use_dataset)
 
+    # TODO add use_dataset to read_pandas as well
     filename = str(tempdir / 'tmp_file')
     with open(filename, 'wb') as f:
         _write_table(table, f, version='2.0')
@@ -255,19 +278,21 @@ def test_enable_buffered_stream(tempdir):
     assert table_read.equals(table)
 
 
-def test_special_chars_filename(tempdir):
+@parametrize_use_dataset
+def test_special_chars_filename(tempdir, use_dataset):
     table = pa.Table.from_arrays([pa.array([42])], ["ints"])
     filename = "foo # bar"
     path = tempdir / filename
     assert not path.exists()
     _write_table(table, str(path))
     assert path.exists()
-    table_read = _read_table(str(path))
+    table_read = _read_table(str(path), use_dataset=use_dataset)
     assert table_read.equals(table)
 
 
 @pytest.mark.pandas
-def test_empty_table_roundtrip():
+@parametrize_use_dataset
+def test_empty_table_roundtrip(use_dataset):
     df = alltypes_sample(size=10)
 
     # Create a non-empty table to infer the types correctly, then slice to 0
@@ -278,24 +303,27 @@ def test_empty_table_roundtrip():
 
     assert table.schema.field('null').type == pa.null()
     assert table.schema.field('null_list').type == pa.list_(pa.null())
-    _check_roundtrip(table, version='2.0')
+    _check_roundtrip(table, version='2.0', use_dataset=use_dataset)
 
 
 @pytest.mark.pandas
-def test_empty_table_no_columns():
+@parametrize_use_dataset
+def test_empty_table_no_columns(use_dataset):
     df = pd.DataFrame()
     empty = pa.Table.from_pandas(df, preserve_index=False)
-    _check_roundtrip(empty)
+    _check_roundtrip(empty, use_dataset=use_dataset)
 
 
-def test_empty_lists_table_roundtrip():
+@parametrize_use_dataset
+def test_empty_lists_table_roundtrip(use_dataset):
     # ARROW-2744: Shouldn't crash when writing an array of empty lists
     arr = pa.array([[], []], type=pa.list_(pa.int32()))
     table = pa.Table.from_arrays([arr], ["A"])
-    _check_roundtrip(table)
+    _check_roundtrip(table, use_dataset=use_dataset)
 
 
-def test_nested_list_nonnullable_roundtrip_bug():
+@parametrize_use_dataset
+def test_nested_list_nonnullable_roundtrip_bug(use_dataset):
     # Reproduce failure in ARROW-5630
     typ = pa.list_(pa.field("item", pa.float32(), False))
     num_rows = 10000
@@ -303,13 +331,12 @@ def test_nested_list_nonnullable_roundtrip_bug():
         pa.array(([[0] * ((i + 5) % 10) for i in range(0, 10)]
                   * (num_rows // 10)), type=typ)
     ], ['a'])
-    _check_roundtrip(t, data_page_size=4096)
+    _check_roundtrip(t, data_page_size=4096, use_dataset=use_dataset)
 
 
-# TODO BytesIO
-@pytest.mark.skip
 @pytest.mark.pandas
-def test_pandas_parquet_datetime_tz():
+@parametrize_use_dataset_skip_buffer
+def test_pandas_parquet_datetime_tz(use_dataset):
     s = pd.Series([datetime.datetime(2017, 9, 6)])
     s = s.dt.tz_localize('utc')
 
@@ -334,12 +361,13 @@ def test_pandas_parquet_datetime_tz():
 
 
 @pytest.mark.pandas
-def test_datetime_timezone_tzinfo():
+@parametrize_use_dataset
+def test_datetime_timezone_tzinfo(use_dataset):
     value = datetime.datetime(2018, 1, 1, 1, 23, 45,
                               tzinfo=datetime.timezone.utc)
     df = pd.DataFrame({'foo': [value]})
 
-    _roundtrip_pandas_dataframe(df, write_kwargs={})
+    _roundtrip_pandas_dataframe(df, write_kwargs={}, use_dataset=use_dataset)
 
 
 @pytest.mark.pandas
@@ -362,6 +390,7 @@ def test_pandas_parquet_custom_metadata(tempdir):
                                     'step': 1}]
 
 
+# TODO support read_pandas for use_dataset
 @pytest.mark.pandas
 def test_pandas_parquet_column_multiindex(tempdir):
     df = alltypes_sample(size=10)
@@ -381,6 +410,7 @@ def test_pandas_parquet_column_multiindex(tempdir):
     tm.assert_frame_equal(df, df_read)
 
 
+# TODO support read_pandas for use_dataset
 @pytest.mark.pandas
 def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(tempdir):
     df = alltypes_sample(size=10000)
@@ -406,7 +436,8 @@ def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(tempdir):
 
 
 @pytest.mark.pandas
-def test_pandas_parquet_1_0_roundtrip(tempdir):
+@parametrize_use_dataset
+def test_pandas_parquet_1_0_roundtrip(tempdir, use_dataset):
     size = 10000
     np.random.seed(0)
     df = pd.DataFrame({
@@ -428,7 +459,7 @@ def test_pandas_parquet_1_0_roundtrip(tempdir):
     filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df)
     _write_table(arrow_table, filename, version='1.0')
-    table_read = _read_table(filename)
+    table_read = _read_table(filename, use_dataset=use_dataset)
     df_read = table_read.to_pandas()
 
     # We pass uint32_t as int64_t if we write Parquet version 1.0
@@ -438,12 +469,13 @@ def test_pandas_parquet_1_0_roundtrip(tempdir):
 
 
 @pytest.mark.pandas
-def test_multiple_path_types(tempdir):
+@parametrize_use_dataset
+def test_multiple_path_types(tempdir, use_dataset):
     # Test compatibility with PEP 519 path-like objects
     path = tempdir / 'zzz.parquet'
     df = pd.DataFrame({'x': np.arange(10, dtype=np.int64)})
     _write_table(df, path)
-    table_read = _read_table(path)
+    table_read = _read_table(path, use_dataset=use_dataset)
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
 
@@ -451,15 +483,15 @@ def test_multiple_path_types(tempdir):
     path = str(tempdir) + 'zzz.parquet'
     df = pd.DataFrame({'x': np.arange(10, dtype=np.int64)})
     _write_table(df, path)
-    table_read = _read_table(path)
+    table_read = _read_table(path, use_dataset=use_dataset)
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
 
 
-# TODO duplicate column selection actually gives duplicate columns now
-@pytest.mark.skip
+# TODO(dataset) duplicate column selection actually gives duplicate columns now
 @pytest.mark.pandas
-def test_pandas_column_selection(tempdir):
+@parametrize_use_dataset_not_supported
+def test_pandas_column_selection(tempdir, use_dataset):
     size = 10000
     np.random.seed(0)
     df = pd.DataFrame({
@@ -469,14 +501,16 @@ def test_pandas_column_selection(tempdir):
     filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df)
     _write_table(arrow_table, filename)
-    table_read = _read_table(filename, columns=['uint8'])
+    table_read = _read_table(
+        filename, columns=['uint8'], use_dataset=use_dataset)
     df_read = table_read.to_pandas()
 
     tm.assert_frame_equal(df[['uint8']], df_read)
 
     # ARROW-4267: Selection of duplicate columns still leads to these columns
     # being read uniquely.
-    table_read = _read_table(filename, columns=['uint8', 'uint8'])
+    table_read = _read_table(
+        filename, columns=['uint8', 'uint8'], use_dataset=use_dataset)
     df_read = table_read.to_pandas()
 
     tm.assert_frame_equal(df[['uint8']], df_read)
@@ -515,23 +549,22 @@ def _test_dataframe(size=10000, seed=0):
 
 
 # TODO NativeFile support
-@pytest.mark.skip
 @pytest.mark.pandas
-def test_pandas_parquet_native_file_roundtrip(tempdir):
+@parametrize_use_dataset_skip_buffer
+def test_pandas_parquet_native_file_roundtrip(tempdir, use_dataset):
     df = _test_dataframe(10000)
     arrow_table = pa.Table.from_pandas(df)
     imos = pa.BufferOutputStream()
     _write_table(arrow_table, imos, version="2.0")
     buf = imos.getvalue()
     reader = pa.BufferReader(buf)
-    df_read = _read_table(reader).to_pandas()
+    df_read = _read_table(reader, use_dataset=use_dataset).to_pandas()
     tm.assert_frame_equal(df, df_read)
 
 
-# TODO buffer
-@pytest.mark.skip
 @pytest.mark.pandas
-def test_parquet_incremental_file_build(tempdir):
+@parametrize_use_dataset_skip_buffer
+def test_parquet_incremental_file_build(tempdir, use_dataset):
     df = _test_dataframe(100)
     df['unique_id'] = 0
 
@@ -551,42 +584,40 @@ def test_parquet_incremental_file_build(tempdir):
     writer.close()
 
     buf = out.getvalue()
-    result = _read_table(pa.BufferReader(buf))
+    result = _read_table(pa.BufferReader(buf), use_dataset=use_dataset)
 
     expected = pd.concat(frames, ignore_index=True)
     tm.assert_frame_equal(result.to_pandas(), expected)
 
 
-# TODO buffer
-@pytest.mark.skip
 @pytest.mark.pandas
-def test_read_pandas_column_subset(tempdir):
+@parametrize_use_dataset_skip_buffer
+def test_read_pandas_column_subset(tempdir, use_dataset):
     df = _test_dataframe(10000)
     arrow_table = pa.Table.from_pandas(df)
     imos = pa.BufferOutputStream()
     _write_table(arrow_table, imos, version="2.0")
     buf = imos.getvalue()
     reader = pa.BufferReader(buf)
-    df_read = pq.read_pandas(reader, columns=['strings', 'uint8']).to_pandas()
+    df_read = pq.read_pandas(
+        reader, columns=['strings', 'uint8'], use_dataset=use_dataset
+    ).to_pandas()
     tm.assert_frame_equal(df[['strings', 'uint8']], df_read)
 
 
-# TODO buffer
-@pytest.mark.skip
 @pytest.mark.pandas
-def test_pandas_parquet_empty_roundtrip(tempdir):
+@parametrize_use_dataset_skip_buffer
+def test_pandas_parquet_empty_roundtrip(tempdir, use_dataset):
     df = _test_dataframe(0)
     arrow_table = pa.Table.from_pandas(df)
     imos = pa.BufferOutputStream()
     _write_table(arrow_table, imos, version="2.0")
     buf = imos.getvalue()
     reader = pa.BufferReader(buf)
-    df_read = _read_table(reader).to_pandas()
+    df_read = _read_table(reader, use_dataset=use_dataset).to_pandas()
     tm.assert_frame_equal(df, df_read)
 
 
-# TODO buffer
-@pytest.mark.skip
 @pytest.mark.pandas
 def test_pandas_can_write_nested_data(tempdir):
     data = {
@@ -613,7 +644,8 @@ def test_pandas_can_write_nested_data(tempdir):
 
 
 @pytest.mark.pandas
-def test_pandas_parquet_pyfile_roundtrip(tempdir):
+@parametrize_use_dataset_skip_buffer
+def test_pandas_parquet_pyfile_roundtrip(tempdir, use_dataset):
     filename = tempdir / 'pandas_pyfile_roundtrip.parquet'
     size = 5
     df = pd.DataFrame({
@@ -631,13 +663,14 @@ def test_pandas_parquet_pyfile_roundtrip(tempdir):
 
     data = io.BytesIO(filename.read_bytes())
 
-    table_read = _read_table(data)
+    table_read = _read_table(data, use_dataset=use_dataset)
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
 
 
 @pytest.mark.pandas
-def test_pandas_parquet_configuration_options(tempdir):
+@parametrize_use_dataset
+def test_pandas_parquet_configuration_options(tempdir, use_dataset):
     size = 10000
     np.random.seed(0)
     df = pd.DataFrame({
@@ -659,14 +692,14 @@ def test_pandas_parquet_configuration_options(tempdir):
     for use_dictionary in [True, False]:
         _write_table(arrow_table, filename, version='2.0',
                      use_dictionary=use_dictionary)
-        table_read = _read_table(filename)
+        table_read = _read_table(filename, use_dataset=use_dataset)
         df_read = table_read.to_pandas()
         tm.assert_frame_equal(df, df_read)
 
     for write_statistics in [True, False]:
         _write_table(arrow_table, filename, version='2.0',
                      write_statistics=write_statistics)
-        table_read = _read_table(filename)
+        table_read = _read_table(filename, use_dataset=use_dataset)
         df_read = table_read.to_pandas()
         tm.assert_frame_equal(df, df_read)
 
@@ -676,7 +709,7 @@ def test_pandas_parquet_configuration_options(tempdir):
             continue
         _write_table(arrow_table, filename, version='2.0',
                      compression=compression)
-        table_read = _read_table(filename)
+        table_read = _read_table(filename, use_dataset=use_dataset)
         df_read = table_read.to_pandas()
         tm.assert_frame_equal(df, df_read)
 
@@ -695,7 +728,8 @@ def make_sample_file(table_or_df):
     return pq.ParquetFile(buf)
 
 
-def test_byte_stream_split():
+@parametrize_use_dataset
+def test_byte_stream_split(use_dataset):
     # This is only a smoke test.
     arr_float = pa.array(list(map(float, range(100))))
     arr_int = pa.array(list(map(int, range(100))))
@@ -729,26 +763,28 @@ def test_byte_stream_split():
     table = pa.Table.from_arrays([arr_int], names=['tmp'])
     with pytest.raises(IOError):
         _check_roundtrip(table, expected=table, use_byte_stream_split=True,
-                         use_dictionary=False)
+                         use_dictionary=False, use_dataset=use_dataset)
 
 
-def test_compression_level():
+@parametrize_use_dataset
+def test_compression_level(use_dataset):
     arr = pa.array(list(map(int, range(1000))))
     data = [arr, arr]
     table = pa.Table.from_arrays(data, names=['a', 'b'])
 
     # Check one compression level.
     _check_roundtrip(table, expected=table, compression="gzip",
-                     compression_level=1)
+                     compression_level=1, use_dataset=use_dataset)
 
     # Check another one to make sure that compression_level=1 does not
     # coincide with the default one in Arrow.
     _check_roundtrip(table, expected=table, compression="gzip",
-                     compression_level=5)
+                     compression_level=5, use_dataset=use_dataset)
 
     # Check that the user can provide a compression level per column
     _check_roundtrip(table, expected=table, compression="gzip",
-                     compression_level={'a': 2, 'b': 3})
+                     compression_level={'a': 2, 'b': 3},
+                     use_dataset=use_dataset)
 
     # Check that specifying a compression level for a codec which does allow
     # specifying one, results into an error.
@@ -1388,10 +1424,9 @@ def test_fixed_size_binary():
     _check_roundtrip(table)
 
 
-# TODO buffer
-@pytest.mark.skip
 @pytest.mark.pandas
-def test_multithreaded_read():
+@parametrize_use_dataset_skip_buffer
+def test_multithreaded_read(use_dataset):
     df = alltypes_sample(size=10000)
 
     table = pa.Table.from_pandas(df)
@@ -1400,18 +1435,17 @@ def test_multithreaded_read():
     _write_table(table, buf, compression='SNAPPY', version='2.0')
 
     buf.seek(0)
-    table1 = _read_table(buf, use_threads=True)
+    table1 = _read_table(buf, use_threads=True, use_dataset=use_dataset)
 
     buf.seek(0)
-    table2 = _read_table(buf, use_threads=False)
+    table2 = _read_table(buf, use_threads=False, use_dataset=use_dataset)
 
     assert table1.equals(table2)
 
 
-# TODO buffer
-@pytest.mark.skip
 @pytest.mark.pandas
-def test_min_chunksize():
+@parametrize_use_dataset_skip_buffer
+def test_min_chunksize(use_dataset):
     data = pd.DataFrame([np.arange(4)], columns=['A', 'B', 'C', 'D'])
     table = pa.Table.from_pandas(data.reset_index())
 
@@ -1419,7 +1453,7 @@ def test_min_chunksize():
     _write_table(table, buf, chunk_size=-1)
 
     buf.seek(0)
-    result = _read_table(buf)
+    result = _read_table(buf, use_dataset=use_dataset)
 
     assert result.equals(table)
 
@@ -2483,7 +2517,8 @@ def test_ignore_hidden_files_underscore(tempdir, use_dataset):
 
 
 @pytest.mark.pandas
-def test_multiindex_duplicate_values(tempdir):
+@parametrize_use_dataset
+def test_multiindex_duplicate_values(tempdir, use_dataset):
     num_rows = 3
     numbers = list(range(num_rows))
     index = pd.MultiIndex.from_arrays(
@@ -2497,7 +2532,7 @@ def test_multiindex_duplicate_values(tempdir):
     filename = tempdir / 'dup_multi_index_levels.parquet'
 
     _write_table(table, filename)
-    result_table = _read_table(filename)
+    result_table = _read_table(filename, use_dataset=use_dataset)
     assert table.equals(result_table)
 
     result_df = result_table.to_pandas()
@@ -2554,17 +2589,19 @@ def test_noncoerced_nanoseconds_written_without_exception(tempdir):
         pq.write_table(tb, filename, coerce_timestamps='ms', version='2.0')
 
 
-def test_read_non_existent_file(tempdir):
+@parametrize_use_dataset
+def test_read_non_existent_file(tempdir, use_dataset):
     path = 'non-existent-file.parquet'
     try:
-        pq.read_table(path)
+        pq.read_table(path, use_dataset=use_dataset)
     except Exception as e:
         assert path in e.args[0]
 
 
-def test_read_table_doesnt_warn(datadir):
+@parametrize_use_dataset
+def test_read_table_doesnt_warn(datadir, use_dataset):
     with pytest.warns(None) as record:
-        pq.read_table(datadir / 'v0.7.1.parquet')
+        pq.read_table(datadir / 'v0.7.1.parquet', use_dataset=use_dataset)
 
     assert len(record) == 0
 
@@ -2738,6 +2775,7 @@ def test_large_table_int32_overflow():
     _write_table(table, f)
 
 
+# TODO buffer support
 def _simple_table_roundtrip(table, **write_kwargs):
     stream = pa.BufferOutputStream()
     _write_table(table, stream, **write_kwargs)
@@ -2806,7 +2844,8 @@ def test_list_of_binary_large_cell():
 
 
 @pytest.mark.pandas
-def test_index_column_name_duplicate(tempdir):
+@parametrize_use_dataset
+def test_index_column_name_duplicate(tempdir, use_dataset):
     data = {
         'close': {
             pd.Timestamp('2017-06-30 01:31:00'): 154.99958999999998,
@@ -2825,13 +2864,14 @@ def test_index_column_name_duplicate(tempdir):
     dfx = pd.DataFrame(data).set_index('time', drop=False)
     tdfx = pa.Table.from_pandas(dfx)
     _write_table(tdfx, path)
-    arrow_table = _read_table(path)
+    arrow_table = _read_table(path, use_dataset=use_dataset)
     result_df = arrow_table.to_pandas()
     tm.assert_frame_equal(result_df, dfx)
 
 
 @pytest.mark.pandas
-def test_parquet_nested_convenience(tempdir):
+@parametrize_use_dataset
+def test_parquet_nested_convenience(tempdir, use_dataset):
     # ARROW-1684
     df = pd.DataFrame({
         'a': [[1, 2, 3], None, [4, 5], []],
@@ -2843,15 +2883,16 @@ def test_parquet_nested_convenience(tempdir):
     table = pa.Table.from_pandas(df, preserve_index=False)
     _write_table(table, path)
 
-    read = pq.read_table(path, columns=['a'])
+    read = pq.read_table(path, columns=['a'], use_dataset=use_dataset)
     tm.assert_frame_equal(read.to_pandas(), df[['a']])
 
-    read = pq.read_table(path, columns=['a', 'b'])
+    read = pq.read_table(path, columns=['a', 'b'], use_dataset=use_dataset)
     tm.assert_frame_equal(read.to_pandas(), df)
 
 
 @pytest.mark.pandas
-def test_backwards_compatible_index_naming(datadir):
+@parametrize_use_dataset
+def test_backwards_compatible_index_naming(datadir, use_dataset):
     expected_string = b"""\
 carat        cut  color  clarity  depth  table  price     x     y     z
  0.23      Ideal      E      SI2   61.5   55.0    326  3.95  3.98  2.43
@@ -2866,13 +2907,14 @@ carat        cut  color  clarity  depth  table  price     x     y     z
  0.23  Very Good      H      VS1   59.4   61.0    338  4.00  4.05  2.39"""
     expected = pd.read_csv(io.BytesIO(expected_string), sep=r'\s{2,}',
                            index_col=None, header=0, engine='python')
-    table = _read_table(datadir / 'v0.7.1.parquet')
+    table = _read_table(datadir / 'v0.7.1.parquet', use_dataset=use_dataset)
     result = table.to_pandas()
     tm.assert_frame_equal(result, expected)
 
 
 @pytest.mark.pandas
-def test_backwards_compatible_index_multi_level_named(datadir):
+@parametrize_use_dataset
+def test_backwards_compatible_index_multi_level_named(datadir, use_dataset):
     expected_string = b"""\
 carat        cut  color  clarity  depth  table  price     x     y     z
  0.23      Ideal      E      SI2   61.5   55.0    326  3.95  3.98  2.43
@@ -2891,13 +2933,17 @@ carat        cut  color  clarity  depth  table  price     x     y     z
         header=0, engine='python'
     ).sort_index()
 
-    table = _read_table(datadir / 'v0.7.1.all-named-index.parquet')
+    table = _read_table(datadir / 'v0.7.1.all-named-index.parquet',
+                        use_dataset=use_dataset)
     result = table.to_pandas()
     tm.assert_frame_equal(result, expected)
 
 
 @pytest.mark.pandas
-def test_backwards_compatible_index_multi_level_some_named(datadir):
+@parametrize_use_dataset
+def test_backwards_compatible_index_multi_level_some_named(
+        datadir, use_dataset
+):
     expected_string = b"""\
 carat        cut  color  clarity  depth  table  price     x     y     z
  0.23      Ideal      E      SI2   61.5   55.0    326  3.95  3.98  2.43
@@ -2917,13 +2963,15 @@ carat        cut  color  clarity  depth  table  price     x     y     z
     ).sort_index()
     expected.index = expected.index.set_names(['cut', None, 'clarity'])
 
-    table = _read_table(datadir / 'v0.7.1.some-named-index.parquet')
+    table = _read_table(datadir / 'v0.7.1.some-named-index.parquet',
+                        use_dataset=use_dataset)
     result = table.to_pandas()
     tm.assert_frame_equal(result, expected)
 
 
 @pytest.mark.pandas
-def test_backwards_compatible_column_metadata_handling(datadir):
+@parametrize_use_dataset
+def test_backwards_compatible_column_metadata_handling(datadir, use_dataset):
     expected = pd.DataFrame(
         {'a': [1, 2, 3], 'b': [.1, .2, .3],
          'c': pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')})
@@ -2933,15 +2981,16 @@ def test_backwards_compatible_column_metadata_handling(datadir):
         names=['index', None])
 
     path = datadir / 'v0.7.1.column-metadata-handling.parquet'
-    table = _read_table(path)
+    table = _read_table(path, use_dataset=use_dataset)
     result = table.to_pandas()
     tm.assert_frame_equal(result, expected)
 
-    table = _read_table(path, columns=['a'])
+    table = _read_table(path, columns=['a'], use_dataset=use_dataset)
     result = table.to_pandas()
     tm.assert_frame_equal(result, expected[['a']].reset_index(drop=True))
 
 
+# TODO(dataset) support pickling
 def _make_dataset_for_pickling(tempdir, N=100):
     path = tempdir / 'data.parquet'
     fs = LocalFileSystem.get_instance()
@@ -3004,7 +3053,8 @@ def test_cloudpickle_dataset(tempdir, datadir):
 
 
 @pytest.mark.pandas
-def test_decimal_roundtrip(tempdir):
+@parametrize_use_dataset
+def test_decimal_roundtrip(tempdir, use_dataset):
     num_values = 10
 
     columns = {}
@@ -3024,7 +3074,7 @@ def test_decimal_roundtrip(tempdir):
     string_filename = str(filename)
     table = pa.Table.from_pandas(expected)
     _write_table(table, string_filename)
-    result_table = _read_table(string_filename)
+    result_table = _read_table(string_filename, use_dataset=use_dataset)
     result = result_table.to_pandas()
     tm.assert_frame_equal(result, expected)
 
@@ -3044,10 +3094,9 @@ def test_decimal_roundtrip_negative_scale(tempdir):
     tm.assert_frame_equal(result, expected)
 
 
-# TODO buffer
-@pytest.mark.skip
 @pytest.mark.pandas
-def test_parquet_writer_context_obj(tempdir):
+@parametrize_use_dataset_skip_buffer
+def test_parquet_writer_context_obj(tempdir, use_dataset):
     df = _test_dataframe(100)
     df['unique_id'] = 0
 
@@ -3065,16 +3114,15 @@ def test_parquet_writer_context_obj(tempdir):
             frames.append(df.copy())
 
     buf = out.getvalue()
-    result = _read_table(pa.BufferReader(buf))
+    result = _read_table(pa.BufferReader(buf), use_dataset=use_dataset)
 
     expected = pd.concat(frames, ignore_index=True)
     tm.assert_frame_equal(result.to_pandas(), expected)
 
 
-# TODO buffer
-@pytest.mark.skip
 @pytest.mark.pandas
-def test_parquet_writer_context_obj_with_exception(tempdir):
+@parametrize_use_dataset_skip_buffer
+def test_parquet_writer_context_obj_with_exception(tempdir, use_dataset):
     df = _test_dataframe(100)
     df['unique_id'] = 0
 
@@ -3099,23 +3147,22 @@ def test_parquet_writer_context_obj_with_exception(tempdir):
         assert str(e) == error_text
 
     buf = out.getvalue()
-    result = _read_table(pa.BufferReader(buf))
+    result = _read_table(pa.BufferReader(buf), use_dataset=use_dataset)
 
     expected = pd.concat(frames, ignore_index=True)
     tm.assert_frame_equal(result.to_pandas(), expected)
 
 
-# TODO buffer
-@pytest.mark.skip
 @pytest.mark.pandas
-def test_zlib_compression_bug():
+@parametrize_use_dataset_skip_buffer
+def test_zlib_compression_bug(use_dataset):
     # ARROW-3514: "zlib deflate failed, output buffer too small"
     table = pa.Table.from_arrays([pa.array(['abc', 'def'])], ['some_col'])
     f = io.BytesIO()
     pq.write_table(table, f, compression='gzip')
 
     f.seek(0)
-    roundtrip = pq.read_table(f)
+    roundtrip = pq.read_table(f, use_dataset=use_dataset)
     tm.assert_frame_equal(roundtrip.to_pandas(), table.to_pandas())
 
 
@@ -3166,10 +3213,9 @@ def test_empty_row_groups(tempdir):
         assert reader.read_row_group(i).equals(table)
 
 
-# TODO buffer
-@pytest.mark.skip
 @pytest.mark.pandas
-def test_parquet_writer_with_caller_provided_filesystem():
+@parametrize_use_dataset_skip_buffer
+def test_parquet_writer_with_caller_provided_filesystem(use_dataset):
     out = pa.BufferOutputStream()
 
     class CustomFS(FileSystem):
@@ -3196,7 +3242,7 @@ def test_parquet_writer_with_caller_provided_filesystem():
     assert out.closed
 
     buf = out.getvalue()
-    table_read = _read_table(pa.BufferReader(buf))
+    table_read = _read_table(pa.BufferReader(buf), use_dataset=use_dataset)
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df_read, df)
 
@@ -3215,7 +3261,8 @@ def test_writing_empty_lists():
     _check_roundtrip(table)
 
 
-def test_write_nested_zero_length_array_chunk_failure():
+@parametrize_use_dataset
+def test_write_nested_zero_length_array_chunk_failure(use_dataset):
     # Bug report in ARROW-3792
     cols = OrderedDict(
         int32=pa.int32(),
@@ -3240,7 +3287,7 @@ def test_write_nested_zero_length_array_chunk_failure():
     my_batches = [pa.RecordBatch.from_arrays(batch, schema=pa.schema(cols))
                   for batch in my_arrays]
     tbl = pa.Table.from_batches(my_batches, pa.schema(cols))
-    _check_roundtrip(tbl)
+    _check_roundtrip(tbl, use_dataset=use_dataset)
 
 
 @pytest.mark.pandas
@@ -3274,10 +3321,9 @@ def test_read_column_invalid_index():
             f.reader.read_column(index)
 
 
-# TODO buffer
-@pytest.mark.skip
 @pytest.mark.pandas
-def test_direct_read_dictionary():
+@parametrize_use_dataset_skip_buffer
+def test_direct_read_dictionary(use_dataset):
     # ARROW-3325
     repeats = 10
     nunique = 5
@@ -3293,7 +3339,7 @@ def test_direct_read_dictionary():
     contents = bio.getvalue()
 
     result = pq.read_table(pa.BufferReader(contents),
-                           read_dictionary=['f0'])
+                           read_dictionary=['f0'], use_dataset=use_dataset)
 
     # Compute dictionary-encoded subfield
     expected = pa.table([table[0].dictionary_encode()], names=['f0'])
@@ -3325,10 +3371,9 @@ def test_dataset_read_dictionary(tempdir, use_dataset):
         assert c1.equals(ex_chunks[0])
 
 
-# TODO buffer
-@pytest.mark.skip
 @pytest.mark.pandas
-def test_direct_read_dictionary_subfield():
+@parametrize_use_dataset_skip_buffer
+def test_direct_read_dictionary_subfield(use_dataset):
     repeats = 10
     nunique = 5
 
@@ -3341,7 +3386,8 @@ def test_direct_read_dictionary_subfield():
     pq.write_table(table, bio)
     contents = bio.getvalue()
     result = pq.read_table(pa.BufferReader(contents),
-                           read_dictionary=['f0.list.item'])
+                           read_dictionary=['f0.list.item'],
+                           use_dataset=use_dataset)
 
     arr = pa.array(data[0])
     values_as_dict = arr.values.dictionary_encode()
@@ -3423,9 +3469,10 @@ def test_write_to_dataset_metadata(tempdir):
     assert d1 == d2
 
 
-# TODO better error message for invalid files (certainly if it is the only one)
-@pytest.mark.skip
-def test_parquet_file_too_small(tempdir):
+# TODO(dataset) better error message for invalid files (certainly if it
+#  is the only one)
+@parametrize_use_dataset_not_supported
+def test_parquet_file_too_small(tempdir, use_dataset):
     path = str(tempdir / "test.parquet")
     with pytest.raises(pa.ArrowInvalid,
                        match='size is 0 bytes'):
@@ -3440,10 +3487,9 @@ def test_parquet_file_too_small(tempdir):
         pq.read_table(path)
 
 
-# TODO buffer
-@pytest.mark.skip
 @pytest.mark.pandas
-def test_categorical_index_survives_roundtrip():
+@parametrize_use_dataset_skip_buffer
+def test_categorical_index_survives_roundtrip(use_dataset):
     # ARROW-3652, addressed by ARROW-3246
     df = pd.DataFrame([['a', 'b'], ['c', 'd']], columns=['c1', 'c2'])
     df['c1'] = df['c1'].astype('category')
@@ -3452,15 +3498,15 @@ def test_categorical_index_survives_roundtrip():
     table = pa.Table.from_pandas(df)
     bos = pa.BufferOutputStream()
     pq.write_table(table, bos)
-    ref_df = pq.read_pandas(bos.getvalue()).to_pandas()
+    ref_df = pq.read_pandas(
+        bos.getvalue(), use_dataset=use_dataset).to_pandas()
     assert isinstance(ref_df.index, pd.CategoricalIndex)
     assert ref_df.index.equals(df.index)
 
 
-# TODO buffer
-@pytest.mark.skip
 @pytest.mark.pandas
-def test_categorical_order_survives_roundtrip():
+@parametrize_use_dataset_skip_buffer
+def test_categorical_order_survives_roundtrip(use_dataset):
     # ARROW-6302
     df = pd.DataFrame({"a": pd.Categorical(
         ["a", "b", "c", "a"], categories=["b", "c", "d"], ordered=True)})
@@ -3470,7 +3516,7 @@ def test_categorical_order_survives_roundtrip():
     pq.write_table(table, bos)
 
     contents = bos.getvalue()
-    result = pq.read_pandas(contents).to_pandas()
+    result = pq.read_pandas(contents, use_dataset=use_dataset).to_pandas()
 
     tm.assert_frame_equal(result, df)
 
@@ -3482,9 +3528,8 @@ def _simple_table_write_read(table):
     return pq.read_table(pa.BufferReader(contents))
 
 
-# TODO buffer
-@pytest.mark.skip
-def test_dictionary_array_automatically_read():
+@parametrize_use_dataset_skip_buffer
+def test_dictionary_array_automatically_read(use_dataset):
     # ARROW-3246
 
     # Make a large dictionary, a little over 4MB of data
@@ -3548,10 +3593,9 @@ def test_field_id_metadata():
     assert schema[2].metadata[field_name] == b'5'
 
 
-# TODO buffer
-@pytest.mark.skip
 @pytest.mark.pandas
-def test_pandas_categorical_na_type_row_groups():
+@parametrize_use_dataset_skip_buffer
+def test_pandas_categorical_na_type_row_groups(use_dataset):
     # ARROW-5085
     df = pd.DataFrame({"col": [None] * 100, "int": [1.0] * 100})
     df_category = df.astype({"col": "category", "int": "category"})
@@ -3561,17 +3605,16 @@ def test_pandas_categorical_na_type_row_groups():
 
     # it works
     pq.write_table(table_cat, buf, version="2.0", chunk_size=10)
-    result = pq.read_table(buf.getvalue())
+    result = pq.read_table(buf.getvalue(), use_dataset=use_dataset)
 
     # Result is non-categorical
     assert result[0].equals(table[0])
     assert result[1].equals(table[1])
 
 
-# TODO buffer
-@pytest.mark.skip
 @pytest.mark.pandas
-def test_pandas_categorical_roundtrip():
+@parametrize_use_dataset_skip_buffer
+def test_pandas_categorical_roundtrip(use_dataset):
     # ARROW-5480, this was enabled by ARROW-3246
 
     # Have one of the categories unobserved and include a null (-1)
@@ -3583,7 +3626,7 @@ def test_pandas_categorical_roundtrip():
     buf = pa.BufferOutputStream()
     pq.write_table(pa.table(df), buf)
 
-    result = pq.read_table(buf.getvalue()).to_pandas()
+    result = pq.read_table(buf.getvalue(), use_dataset=use_dataset).to_pandas()
     assert result.x.dtype == 'category'
     assert (result.x.cat.categories == categories).all()
     tm.assert_frame_equal(result, df)
@@ -3632,10 +3675,10 @@ def test_multi_dataset_metadata(tempdir):
     assert md['serialized_size'] > 0
 
 
-# WONTFIX schema unification now happens when dataset is created
-@pytest.mark.skip
+# WONTFIX(dataset) schema unification now happens when dataset is created
+@parametrize_use_dataset_not_supported
 @pytest.mark.pandas
-def test_filter_before_validate_schema(tempdir):
+def test_filter_before_validate_schema(tempdir, use_dataset):
     # ARROW-4076 apply filter before schema validation
     # to avoid checking unneeded schemas
 
@@ -3695,8 +3738,7 @@ def test_fastparquet_cross_compatibility(tempdir):
     tm.assert_frame_equal(table_fp.to_pandas(), df)
 
 
-# TODO buffer
-@pytest.mark.skip
+@parametrize_use_dataset_skip_buffer
 @pytest.mark.parametrize('array_factory', [
     lambda: pa.array([0, None] * 10),
     lambda: pa.array([0, None] * 10).dictionary_encode(),
@@ -3705,7 +3747,9 @@ def test_fastparquet_cross_compatibility(tempdir):
 ])
 @pytest.mark.parametrize('use_dictionary', [False, True])
 @pytest.mark.parametrize('read_dictionary', [False, True])
-def test_buffer_contents(array_factory, use_dictionary, read_dictionary):
+def test_buffer_contents(
+        array_factory, use_dictionary, read_dictionary, use_dataset
+):
     # Test that null values are deterministically initialized to zero
     # after a roundtrip through Parquet.
     # See ARROW-8006 and ARROW-8011.
@@ -3715,7 +3759,8 @@ def test_buffer_contents(array_factory, use_dictionary, read_dictionary):
     bio.seek(0)
     read_dictionary = ['col'] if read_dictionary else None
     table = pq.read_table(bio, use_threads=False,
-                          read_dictionary=read_dictionary)
+                          read_dictionary=read_dictionary,
+                          use_dataset=use_dataset)
 
     for col in table.columns:
         [chunk] = col.chunks

@@ -1404,8 +1404,8 @@ Returns
 def read_table(source, columns=None, use_threads=True, metadata=None,
                use_pandas_metadata=False, memory_map=False,
                read_dictionary=None, filesystem=None, filters=None,
-               buffer_size=0, use_datasets=True):
-    if use_datasets:
+               buffer_size=0, use_dataset=False):
+    if use_dataset:
         import pyarrow.dataset as ds
         import pyarrow.fs
 
@@ -1413,8 +1413,18 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
         if isinstance(filesystem, LocalFileSystem):
             filesystem = pyarrow.fs.LocalFileSystem()
 
-        dataset = ds.dataset(source, filesystem=filesystem, format="parquet",
-                             partitioning="hive")
+        # map additional arguments
+        # TODO raise warning when unsupported arguments are passed
+        reader_options = {}
+        if buffer_size:
+            reader_options.update(use_buffered_stream=True,
+                                  buffer_size=buffer_size)
+        if read_dictionary is not None:
+            reader_options.update(dict_columns=read_dictionary)
+        parquat_format = ds.ParquetFileFormat(reader_options=reader_options)
+
+        dataset = ds.dataset(source, filesystem=filesystem,
+                             format=parquat_format, partitioning="hive")
         if filters is not None and not isinstance(filters, ds.Expression):
             filters = _filters_to_expression(filters)
         table = dataset.to_table(columns=columns, filter=filters)
@@ -1454,7 +1464,7 @@ read_table.__doc__ = _read_table_docstring.format(
 
 
 def read_pandas(source, columns=None, use_threads=True, memory_map=False,
-                metadata=None, filters=None, buffer_size=0):
+                metadata=None, filters=None, buffer_size=0, use_dataset=False):
     return read_table(
         source,
         columns=columns,
@@ -1464,6 +1474,7 @@ def read_pandas(source, columns=None, use_threads=True, memory_map=False,
         memory_map=memory_map,
         buffer_size=buffer_size,
         use_pandas_metadata=True,
+        use_dataset=use_dataset,
     )
 
 
