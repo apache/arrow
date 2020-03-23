@@ -61,7 +61,7 @@ cdef class FileInfo:
 
     def __init__(self):
         raise TypeError("FileInfo cannot be instantiated directly, use "
-                        "FileSystem.get_target_infos method instead.")
+                        "FileSystem.get_file_info method instead.")
 
     @staticmethod
     cdef wrap(CFileInfo info):
@@ -269,8 +269,8 @@ cdef class FileSystem:
     cdef inline shared_ptr[CFileSystem] unwrap(self) nogil:
         return self.wrapped
 
-    def get_target_infos(self, paths_or_selector):
-        """Get infos for the given target.
+    def get_file_info(self, paths_or_selector):
+        """Get info for the given files.
 
         Any symlink is automatically dereferenced, recursively. A non-existing
         or unreachable file returns a FileStat object and has a FileType of
@@ -296,11 +296,11 @@ cdef class FileSystem:
         if isinstance(paths_or_selector, FileSelector):
             with nogil:
                 selector = (<FileSelector>paths_or_selector).selector
-                infos = GetResultValue(self.fs.GetTargetInfos(selector))
+                infos = GetResultValue(self.fs.GetFileInfo(selector))
         elif isinstance(paths_or_selector, (list, tuple)):
             paths = [_path_as_bytes(s) for s in paths_or_selector]
             with nogil:
-                infos = GetResultValue(self.fs.GetTargetInfos(paths))
+                infos = GetResultValue(self.fs.GetFileInfo(paths))
         else:
             raise TypeError('Must pass either paths or a FileSelector')
 

@@ -422,11 +422,9 @@ class TestS3FS : public S3TestMixin {
   std::shared_ptr<S3FileSystem> fs_;
 };
 
-TEST_F(TestS3FS, GetTargetInfoRoot) {
-  AssertFileInfo(fs_.get(), "", FileType::Directory);
-}
+TEST_F(TestS3FS, GetFileInfoRoot) { AssertFileInfo(fs_.get(), "", FileType::Directory); }
 
-TEST_F(TestS3FS, GetTargetInfoBucket) {
+TEST_F(TestS3FS, GetFileInfoBucket) {
   AssertFileInfo(fs_.get(), "bucket", FileType::Directory);
   AssertFileInfo(fs_.get(), "empty-bucket", FileType::Directory);
   AssertFileInfo(fs_.get(), "nonexistent-bucket", FileType::NotFound);
@@ -436,7 +434,7 @@ TEST_F(TestS3FS, GetTargetInfoBucket) {
   AssertFileInfo(fs_.get(), "nonexistent-bucket/", FileType::NotFound);
 }
 
-TEST_F(TestS3FS, GetTargetInfoObject) {
+TEST_F(TestS3FS, GetFileInfoObject) {
   // "Directories"
   AssertFileInfo(fs_.get(), "bucket/emptydir", FileType::Directory, kNoSize);
   AssertFileInfo(fs_.get(), "bucket/somedir", FileType::Directory, kNoSize);
@@ -458,13 +456,13 @@ TEST_F(TestS3FS, GetTargetInfoObject) {
   AssertFileInfo(fs_.get(), "non-existent-bucket/somed/", FileType::NotFound);
 }
 
-TEST_F(TestS3FS, GetTargetInfosSelector) {
+TEST_F(TestS3FS, GetFileInfoSelector) {
   FileSelector select;
   std::vector<FileInfo> infos;
 
   // Root dir
   select.base_dir = "";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 2);
   SortInfos(&infos);
   AssertFileInfo(infos[0], "bucket", FileType::Directory);
@@ -472,18 +470,18 @@ TEST_F(TestS3FS, GetTargetInfosSelector) {
 
   // Empty bucket
   select.base_dir = "empty-bucket";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 0);
   // Nonexistent bucket
   select.base_dir = "nonexistent-bucket";
-  ASSERT_RAISES(IOError, fs_->GetTargetInfos(select));
+  ASSERT_RAISES(IOError, fs_->GetFileInfo(select));
   select.allow_not_found = true;
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 0);
   select.allow_not_found = false;
   // Non-empty bucket
   select.base_dir = "bucket";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   SortInfos(&infos);
   ASSERT_EQ(infos.size(), 3);
   AssertFileInfo(infos[0], "bucket/emptydir", FileType::Directory);
@@ -492,45 +490,45 @@ TEST_F(TestS3FS, GetTargetInfosSelector) {
 
   // Empty "directory"
   select.base_dir = "bucket/emptydir";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 0);
   // Non-empty "directories"
   select.base_dir = "bucket/somedir";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 1);
   AssertFileInfo(infos[0], "bucket/somedir/subdir", FileType::Directory);
   select.base_dir = "bucket/somedir/subdir";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 1);
   AssertFileInfo(infos[0], "bucket/somedir/subdir/subfile", FileType::File, 8);
   // Nonexistent
   select.base_dir = "bucket/nonexistent";
-  ASSERT_RAISES(IOError, fs_->GetTargetInfos(select));
+  ASSERT_RAISES(IOError, fs_->GetFileInfo(select));
   select.allow_not_found = true;
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 0);
   select.allow_not_found = false;
 
   // Trailing slashes
   select.base_dir = "empty-bucket/";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 0);
   select.base_dir = "nonexistent-bucket/";
-  ASSERT_RAISES(IOError, fs_->GetTargetInfos(select));
+  ASSERT_RAISES(IOError, fs_->GetFileInfo(select));
   select.base_dir = "bucket/";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   SortInfos(&infos);
   ASSERT_EQ(infos.size(), 3);
 }
 
-TEST_F(TestS3FS, GetTargetInfosSelectorRecursive) {
+TEST_F(TestS3FS, GetFileInfoSelectorRecursive) {
   FileSelector select;
   std::vector<FileInfo> infos;
   select.recursive = true;
 
   // Root dir
   select.base_dir = "";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 7);
   SortInfos(&infos);
   AssertFileInfo(infos[0], "bucket", FileType::Directory);
@@ -543,12 +541,12 @@ TEST_F(TestS3FS, GetTargetInfosSelectorRecursive) {
 
   // Empty bucket
   select.base_dir = "empty-bucket";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 0);
 
   // Non-empty bucket
   select.base_dir = "bucket";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   SortInfos(&infos);
   ASSERT_EQ(infos.size(), 5);
   AssertFileInfo(infos[0], "bucket/emptydir", FileType::Directory);
@@ -559,12 +557,12 @@ TEST_F(TestS3FS, GetTargetInfosSelectorRecursive) {
 
   // Empty "directory"
   select.base_dir = "bucket/emptydir";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 0);
 
   // Non-empty "directories"
   select.base_dir = "bucket/somedir";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   SortInfos(&infos);
   ASSERT_EQ(infos.size(), 2);
   AssertFileInfo(infos[0], "bucket/somedir/subdir", FileType::Directory);
@@ -630,7 +628,7 @@ TEST_F(TestS3FS, DeleteDir) {
 
   // Empty "directory"
   ASSERT_OK(fs_->DeleteDir("bucket/emptydir"));
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 2);
   SortInfos(&infos);
   AssertFileInfo(infos[0], "bucket/somedir", FileType::Directory);
@@ -638,14 +636,14 @@ TEST_F(TestS3FS, DeleteDir) {
 
   // Non-empty "directory"
   ASSERT_OK(fs_->DeleteDir("bucket/somedir"));
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 1);
   AssertFileInfo(infos[0], "bucket/somefile", FileType::File);
 
   // Leaving parent "directory" empty
   ASSERT_OK(fs_->CreateDir("bucket/newdir/newsub/newsubsub"));
   ASSERT_OK(fs_->DeleteDir("bucket/newdir/newsub"));
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 2);
   SortInfos(&infos);
   AssertFileInfo(infos[0], "bucket/newdir", FileType::Directory);  // still exists

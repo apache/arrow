@@ -63,7 +63,7 @@ class HadoopFileSystem::Impl {
     return Status::OK();
   }
 
-  Result<FileInfo> GetTargetInfo(const std::string& path) {
+  Result<FileInfo> GetFileInfo(const std::string& path) {
     FileInfo info;
     io::HdfsPathInfo path_info;
     auto status = client_->GetPathInfo(path, &path_info);
@@ -84,7 +84,7 @@ class HadoopFileSystem::Impl {
     Status st = client_->ListDirectory(path, &children);
     if (!st.ok()) {
       if (select.allow_not_found) {
-        ARROW_ASSIGN_OR_RAISE(auto info, GetTargetInfo(path));
+        ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(path));
         if (info.type() == FileType::NotFound) {
           return Status::OK();
         }
@@ -112,7 +112,7 @@ class HadoopFileSystem::Impl {
     return Status::OK();
   }
 
-  Result<std::vector<FileInfo>> GetTargetInfos(const FileSelector& select) {
+  Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) {
     std::vector<FileInfo> results;
 
     std::string wd;
@@ -125,10 +125,10 @@ class HadoopFileSystem::Impl {
       wd = wd_uri.path();
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto info, GetTargetInfo(select.base_dir));
+    ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(select.base_dir));
     if (info.type() == FileType::File) {
       return Status::Invalid(
-          "GetTargetInfos expects base_dir of selector to be a directory, while '",
+          "GetFileInfo expects base_dir of selector to be a directory, while '",
           select.base_dir, "' is a file");
     }
     RETURN_NOT_OK(StatSelector(wd, select.base_dir, select, 0, &results));
@@ -326,13 +326,12 @@ Result<std::shared_ptr<HadoopFileSystem>> HadoopFileSystem::Make(
   return ptr;
 }
 
-Result<FileInfo> HadoopFileSystem::GetTargetInfo(const std::string& path) {
-  return impl_->GetTargetInfo(path);
+Result<FileInfo> HadoopFileSystem::GetFileInfo(const std::string& path) {
+  return impl_->GetFileInfo(path);
 }
 
-Result<std::vector<FileInfo>> HadoopFileSystem::GetTargetInfos(
-    const FileSelector& select) {
-  return impl_->GetTargetInfos(select);
+Result<std::vector<FileInfo>> HadoopFileSystem::GetFileInfo(const FileSelector& select) {
+  return impl_->GetFileInfo(select);
 }
 
 Status HadoopFileSystem::CreateDir(const std::string& path, bool recursive) {

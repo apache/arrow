@@ -139,7 +139,7 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #'
 #' @section Methods:
 #'
-#' - `$GetTargetInfos(x)`: `x` may be a [FileSelector][FileSelector] or a character
+#' - `$GetFileInfo(x)`: `x` may be a [FileSelector][FileSelector] or a character
 #'    vector of paths. Returns a list of [FileInfo][FileInfo]
 #' - `$CreateDir(path, recursive = TRUE)`: Create a directory and subdirectories.
 #' - `$DeleteDir(path)`: Delete a directory and its contents, recursively.
@@ -175,7 +175,7 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' @export
 FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
   public = list(
-    GetTargetInfos = function(x) {
+    GetFileInfo = function(x) {
       if (inherits(x, "FileSelector")) {
         map(
           fs___FileSystem__GetTargetInfos_FileSelector(self, x),
@@ -189,7 +189,7 @@ FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
           class = FileInfo
         )
       } else {
-        abort("incompatible type for FileSystem$GetTargetInfos()")
+        abort("incompatible type for FileSystem$GetFileInfo()")
       }
     },
 

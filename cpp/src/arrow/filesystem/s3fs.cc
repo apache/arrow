@@ -1190,7 +1190,7 @@ Result<std::shared_ptr<S3FileSystem>> S3FileSystem::Make(const S3Options& option
   return ptr;
 }
 
-Result<FileInfo> S3FileSystem::GetTargetInfo(const std::string& s) {
+Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
   S3Path path;
   RETURN_NOT_OK(S3Path::FromString(s, &path));
   FileInfo info;
@@ -1256,7 +1256,7 @@ Result<FileInfo> S3FileSystem::GetTargetInfo(const std::string& s) {
   }
 }
 
-Result<std::vector<FileInfo>> S3FileSystem::GetTargetInfos(const FileSelector& select) {
+Result<std::vector<FileInfo>> S3FileSystem::GetFileInfo(const FileSelector& select) {
   S3Path base_path;
   RETURN_NOT_OK(S3Path::FromString(select.base_dir, &base_path));
 

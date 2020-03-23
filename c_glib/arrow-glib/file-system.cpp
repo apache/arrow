@@ -659,7 +659,7 @@ garrow_file_system_get_target_info(GArrowFileSystem *file_system,
                                    GError **error)
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
-  auto arrow_result = arrow_file_system->GetTargetInfo(path);
+  auto arrow_result = arrow_file_system->GetFileInfo(path);
   if (garrow::check(error, arrow_result, "[file-system][get-target-info]")) {
     const auto &arrow_file_info = *arrow_result;
     return garrow_file_info_new_raw(arrow_file_info);
@@ -712,7 +712,7 @@ garrow_file_system_get_target_infos_paths(GArrowFileSystem *file_system,
   for (gsize i = 0; i < n_paths; ++i) {
     arrow_paths.push_back(paths[i]);
   }
-  return garrow_file_infos_new(arrow_file_system->GetTargetInfos(arrow_paths),
+  return garrow_file_infos_new(arrow_file_system->GetFileInfo(arrow_paths),
                                error,
                                "[file-system][get-target-infos][paths]");
 }
@@ -742,7 +742,7 @@ garrow_file_system_get_target_infos_selector(GArrowFileSystem *file_system,
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   const auto &arrow_file_selector =
     GARROW_FILE_SELECTOR_GET_PRIVATE(file_selector)->file_selector;
-  return garrow_file_infos_new(arrow_file_system->GetTargetInfos(arrow_file_selector),
+  return garrow_file_infos_new(arrow_file_system->GetFileInfo(arrow_file_selector),
                                error,
                                "[file-system][get-target-infos][selector]");
 }

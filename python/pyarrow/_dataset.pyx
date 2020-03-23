@@ -293,7 +293,7 @@ cdef class FileSystemDataset(Dataset):
             vector[shared_ptr[CExpression]] c_partitions
             CResult[shared_ptr[CDataset]] result
 
-        for info in filesystem.get_target_infos(paths_or_selector):
+        for info in filesystem.get_file_info(paths_or_selector):
             c_file_infos.push_back(info.unwrap())
 
         for expr in partitions:
