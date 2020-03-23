@@ -1438,6 +1438,8 @@ class ByteStreamSplitDecoder : public DecoderImpl, virtual public TypedDecoder<D
 
  private:
   int num_values_in_buffer{0U};
+
+  static constexpr size_t kNumStreams = sizeof(T);
 };
 
 template <typename DType>
@@ -1453,12 +1455,11 @@ void ByteStreamSplitDecoder<DType>::SetData(int num_values, const uint8_t* data,
 
 template <typename DType>
 int ByteStreamSplitDecoder<DType>::Decode(T* buffer, int max_values) {
-  constexpr size_t num_streams = sizeof(T);
   const int values_to_decode = std::min(num_values_, max_values);
   const int num_decoded_previously = num_values_in_buffer - num_values_;
   for (int i = 0; i < values_to_decode; ++i) {
-    uint8_t gathered_byte_data[num_streams];
-    for (size_t b = 0; b < num_streams; ++b) {
+    uint8_t gathered_byte_data[kNumStreams];
+    for (size_t b = 0; b < kNumStreams; ++b) {
       const size_t byte_index = b * num_values_in_buffer + num_decoded_previously + i;
       gathered_byte_data[b] = data_[byte_index];
     }
@@ -1473,8 +1474,7 @@ template <typename DType>
 int ByteStreamSplitDecoder<DType>::DecodeArrow(
     int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
     typename EncodingTraits<DType>::Accumulator* builder) {
-  constexpr size_t num_streams = sizeof(T);
-  constexpr int value_size = static_cast<int>(num_streams);
+  constexpr int value_size = static_cast<int>(kNumStreams);
   int values_decoded = num_values - null_count;
   if (ARROW_PREDICT_FALSE(len_ < value_size * values_decoded)) {
     ParquetException::EofException();
@@ -1487,8 +1487,8 @@ int ByteStreamSplitDecoder<DType>::DecodeArrow(
 
   auto decode_value = [&](bool is_valid) {
     if (is_valid) {
-      uint8_t gathered_byte_data[num_streams];
-      for (size_t b = 0; b < num_streams; ++b) {
+      uint8_t gathered_byte_data[kNumStreams];
+      for (size_t b = 0; b < kNumStreams; ++b) {
         const size_t byte_index =
             b * num_values_in_buffer + num_decoded_previously + offset;
         gathered_byte_data[b] = data_[byte_index];
@@ -1504,7 +1504,7 @@ int ByteStreamSplitDecoder<DType>::DecodeArrow(
                         std::move(decode_value));
 
   num_values_ -= values_decoded;
-  len_ -= sizeof(num_streams) * values_decoded;
+  len_ -= sizeof(T) * values_decoded;
   return values_decoded;
 }
 
