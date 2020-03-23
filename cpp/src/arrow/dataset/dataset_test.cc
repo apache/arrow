@@ -403,13 +403,21 @@ TEST_F(TestEndToEnd, EndToEndSingleDataset) {
   AssertTablesEqual(*expected, *table, false, true);
 }
 
+inline std::shared_ptr<Schema> SchemaFromNames(const std::vector<std::string> names) {
+  std::vector<std::shared_ptr<Field>> fields;
+  for (const auto& name : names) {
+    fields.push_back(field(name, int32()));
+  }
+
+  return schema(fields);
+}
+
 class TestSchemaUnification : public TestDataset {
  public:
   using i32 = util::optional<int32_t>;
+  using PathAndContent = std::vector<std::pair<std::string, std::string>>;
 
-  void SetUp() {
-    using PathAndContent = std::vector<std::pair<std::string, std::string>>;
-
+  void SetUp() override {
     // The following test creates 2 sources with divergent but compatible
     // schemas. Each source have a common partitioning where the
     // fields are not materialized in the data fragments.
@@ -443,7 +451,7 @@ class TestSchemaUnification : public TestDataset {
     auto get_source =
         [this](std::string base,
                std::vector<std::string> paths) -> Result<std::shared_ptr<Dataset>> {
-      auto resolver = [this](const FileSource& source) -> std::shared_ptr<Schema> {
+      auto resolver = [](const FileSource& source) -> std::shared_ptr<Schema> {
         auto path = source.path();
         // A different schema for each data fragment.
         if (path == ds1_df1) {
@@ -486,15 +494,6 @@ class TestSchemaUnification : public TestDataset {
     };
     dataset_ =
         std::make_shared<DisparateSchemasUnionDataset>(schema_, DatasetVector{ds1, ds2});
-  }
-
-  std::shared_ptr<Schema> SchemaFromNames(const std::vector<std::string> names) {
-    std::vector<std::shared_ptr<Field>> fields;
-    for (const auto& name : names) {
-      fields.push_back(field(name, int32()));
-    }
-
-    return schema(fields);
   }
 
   template <typename TupleType>
@@ -640,6 +639,41 @@ TEST_F(TestSchemaUnification, SelectMixedColumnsAndFilter) {
       TupleType(2, nullopt, 2, nullopt),
   };
   AssertBuilderEquals(scan_builder, rows);
+}
+
+TEST(TestDictPartitionColumn, SelectPartitionColumnFilterPhysicalColumn) {
+  auto partition_field = field("part", dictionary(int32(), utf8()));
+  auto path = "/dataset/part=one/data.json";
+
+  auto mock_fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
+  ARROW_EXPECT_OK(mock_fs->CreateFile(path, R"([ {"phy_1": 111, "phy_2": 211} ])",
+                                      /* recursive */ true));
+
+  auto physical_schema = SchemaFromNames({"phy_1", "phy_2"});
+  auto format = std::make_shared<JSONRecordBatchFileFormat>(
+      [=](const FileSource&) { return physical_schema; });
+
+  FileSystemFactoryOptions options;
+  options.partition_base_dir = "/dataset";
+  options.partitioning = std::make_shared<HivePartitioning>(schema({partition_field}));
+
+  ASSERT_OK_AND_ASSIGN(auto factory,
+                       FileSystemDatasetFactory::Make(mock_fs, {path}, format, options));
+
+  ASSERT_OK_AND_ASSIGN(auto schema, factory->Inspect());
+
+  ASSERT_OK_AND_ASSIGN(auto dataset, factory->Finish(schema));
+
+  // Selects re-ordered virtual column with a filter on a physical column
+  ASSERT_OK_AND_ASSIGN(auto scan_builder, dataset->NewScan());
+  ASSERT_OK(scan_builder->Filter("phy_1"_ == 111));
+
+  ASSERT_OK(scan_builder->Project({"part"}));
+
+  ASSERT_OK_AND_ASSIGN(auto scanner, scan_builder->Finish());
+  ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
+  AssertArraysEqual(*table->column(0)->chunk(0),
+                    *DictArrayFromJSON(partition_field->type(), "[0]", "[\"one\"]"));
 }
 
 }  // namespace dataset

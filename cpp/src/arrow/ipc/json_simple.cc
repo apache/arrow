@@ -660,7 +660,7 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
 };
 
 // ------------------------------------------------------------------------
-// Converter for struct arrays
+// Converter for union arrays
 
 class UnionConverter final : public ConcreteConverter<UnionConverter> {
  public:
@@ -701,9 +701,8 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
     return builder_->AppendNull();
   }
 
-  // Append a JSON value that is either an array of N elements in order
-  // or an object mapping struct names to values (omitted struct members
-  // are mapped to null).
+  // Append a JSON value that must be a 2-long array, containing the type_id
+  // and value of the UnionArray's slot.
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
       return AppendNull();
@@ -822,8 +821,8 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
   return Status::OK();
 }
 
-Status ArrayFromJSON(const std::shared_ptr<DataType>& type,
-                     const util::string_view& json_string, std::shared_ptr<Array>* out) {
+Status ArrayFromJSON(const std::shared_ptr<DataType>& type, util::string_view json_string,
+                     std::shared_ptr<Array>* out) {
   std::shared_ptr<Converter> converter;
   RETURN_NOT_OK(GetConverter(type, &converter));
 
@@ -847,6 +846,24 @@ Status ArrayFromJSON(const std::shared_ptr<DataType>& type,
 Status ArrayFromJSON(const std::shared_ptr<DataType>& type, const char* json_string,
                      std::shared_ptr<Array>* out) {
   return ArrayFromJSON(type, util::string_view(json_string), out);
+}
+
+Status DictArrayFromJSON(const std::shared_ptr<DataType>& type,
+                         util::string_view indices_json,
+                         util::string_view dictionary_json, std::shared_ptr<Array>* out) {
+  if (type->id() != Type::DICTIONARY) {
+    return Status::TypeError("DictArrayFromJSON requires dictionary type, got ", *type);
+  }
+
+  const auto& dictionary_type = checked_cast<const DictionaryType&>(*type);
+
+  std::shared_ptr<Array> indices, dictionary;
+  RETURN_NOT_OK(ArrayFromJSON(dictionary_type.index_type(), indices_json, &indices));
+  RETURN_NOT_OK(
+      ArrayFromJSON(dictionary_type.value_type(), dictionary_json, &dictionary));
+
+  return DictionaryArray::FromArrays(type, std::move(indices), std::move(dictionary),
+                                     out);
 }
 
 }  // namespace json

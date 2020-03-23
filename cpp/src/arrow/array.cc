@@ -1569,6 +1569,20 @@ class RepeatedArrayFactory {
     return FinishFixedWidth(value.data(), value.size());
   }
 
+  Status Visit(const DictionaryType& type) {
+    std::shared_ptr<Array> dictionary, indices;
+
+    const auto& value = checked_cast<const DictionaryScalar&>(scalar_).value;
+    RETURN_NOT_OK(MakeArrayFromScalar(pool_, *value, 1, &dictionary));
+
+    ARROW_ASSIGN_OR_RAISE(auto zero, MakeScalar(type.index_type(), 0));
+    RETURN_NOT_OK(MakeArrayFromScalar(pool_, *zero, length_, &indices));
+
+    *out_ = std::make_shared<DictionaryArray>(scalar_.type, std::move(indices),
+                                              std::move(dictionary));
+    return Status::OK();
+  }
+
   Status Visit(const DataType& type) {
     return Status::NotImplemented("construction from scalar of type ", *scalar_.type);
   }

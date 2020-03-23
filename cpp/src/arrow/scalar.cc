@@ -127,25 +127,31 @@ size_t Scalar::Hash::hash(const Scalar& scalar) { return ScalarHashImpl(scalar).
 StringScalar::StringScalar(std::string s)
     : StringScalar(Buffer::FromString(std::move(s))) {}
 
-FixedSizeBinaryScalar::FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& value,
-                                             const std::shared_ptr<DataType>& type)
-    : BinaryScalar(value, type) {
-  ARROW_CHECK_EQ(checked_cast<const FixedSizeBinaryType&>(*type).byte_width(),
-                 value->size());
+FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::shared_ptr<Buffer> value,
+                                             std::shared_ptr<DataType> type)
+    : BinaryScalar(std::move(value), std::move(type)) {
+  ARROW_CHECK_EQ(checked_cast<const FixedSizeBinaryType&>(*this->type).byte_width(),
+                 this->value->size());
 }
 
-BaseListScalar::BaseListScalar(const std::shared_ptr<Array>& value,
-                               const std::shared_ptr<DataType>& type)
-    : Scalar{type, true}, value(value) {}
+BaseListScalar::BaseListScalar(std::shared_ptr<Array> value,
+                               std::shared_ptr<DataType> type)
+    : Scalar{std::move(type), true}, value(std::move(value)) {}
 
-BaseListScalar::BaseListScalar(const std::shared_ptr<Array>& value)
-    : BaseListScalar(value, value->type()) {}
+BaseListScalar::BaseListScalar(std::shared_ptr<Array> value)
+    : Scalar(value->type(), true), value(std::move(value)) {}
 
-FixedSizeListScalar::FixedSizeListScalar(const std::shared_ptr<Array>& value,
-                                         const std::shared_ptr<DataType>& type)
-    : BaseListScalar(value, type) {
-  ARROW_CHECK_EQ(value->length(),
-                 checked_cast<const FixedSizeListType*>(type.get())->list_size());
+FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value,
+                                         std::shared_ptr<DataType> type)
+    : BaseListScalar(std::move(value), std::move(type)) {
+  ARROW_CHECK_EQ(this->value->length(),
+                 checked_cast<const FixedSizeListType&>(*this->type).list_size());
+}
+
+DictionaryScalar::DictionaryScalar(std::shared_ptr<DataType> type)
+    : Scalar(std::move(type)),
+      value(
+          MakeNullScalar(checked_cast<const DictionaryType&>(*this->type).value_type())) {
 }
 
 template <typename T>
@@ -173,15 +179,18 @@ struct MakeNullImpl {
     return Status::OK();
   }
 
-  const std::shared_ptr<DataType>& type_;
+  std::shared_ptr<Scalar> Finish() && {
+    // Should not fail.
+    DCHECK_OK(VisitTypeInline(*type_, this));
+    return std::move(out_);
+  }
+
+  std::shared_ptr<DataType> type_;
   std::shared_ptr<Scalar> out_;
 };
 
-std::shared_ptr<Scalar> MakeNullScalar(const std::shared_ptr<DataType>& type) {
-  MakeNullImpl impl = {type, nullptr};
-  // Should not fail.
-  DCHECK_OK(VisitTypeInline(*type, &impl));
-  return std::move(impl.out_);
+std::shared_ptr<Scalar> MakeNullScalar(std::shared_ptr<DataType> type) {
+  return MakeNullImpl{std::move(type), nullptr}.Finish();
 }
 
 std::string Scalar::ToString() const {
@@ -207,7 +216,12 @@ struct ScalarParseImpl {
 
   Status Visit(const LargeBinaryType&) { return FinishWithBuffer(); }
 
-  Status Visit(const FixedSizeBinaryType& t) { return FinishWithBuffer(); }
+  Status Visit(const FixedSizeBinaryType&) { return FinishWithBuffer(); }
+
+  Status Visit(const DictionaryType& t) {
+    ARROW_ASSIGN_OR_RAISE(auto value, Scalar::Parse(t.value_type(), s_));
+    return Finish(std::move(value));
+  }
 
   Status Visit(const DataType& t) {
     return Status::NotImplemented("parsing scalars of type ", t);
@@ -215,26 +229,27 @@ struct ScalarParseImpl {
 
   template <typename Arg>
   Status Finish(Arg&& arg) {
-    return MakeScalar(type_, std::forward<Arg>(arg)).Value(out_);
+    return MakeScalar(std::move(type_), std::forward<Arg>(arg)).Value(&out_);
   }
 
   Status FinishWithBuffer() { return Finish(Buffer::FromString(s_.to_string())); }
 
-  ScalarParseImpl(const std::shared_ptr<DataType>& type, util::string_view s,
-                  std::shared_ptr<Scalar>* out)
-      : type_(type), s_(s), out_(out) {}
+  Result<std::shared_ptr<Scalar>> Finish() && {
+    RETURN_NOT_OK(VisitTypeInline(*type_, this));
+    return std::move(out_);
+  }
 
-  const std::shared_ptr<DataType>& type_;
+  ScalarParseImpl(std::shared_ptr<DataType> type, util::string_view s)
+      : type_(std::move(type)), s_(s) {}
+
+  std::shared_ptr<DataType> type_;
   util::string_view s_;
-  std::shared_ptr<Scalar>* out_;
+  std::shared_ptr<Scalar> out_;
 };
 
 Result<std::shared_ptr<Scalar>> Scalar::Parse(const std::shared_ptr<DataType>& type,
                                               util::string_view s) {
-  std::shared_ptr<Scalar> out;
-  ScalarParseImpl impl = {type, s, &out};
-  RETURN_NOT_OK(VisitTypeInline(*type, &impl));
-  return out;
+  return ScalarParseImpl{type, s}.Finish();
 }
 
 namespace internal {

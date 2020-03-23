@@ -35,8 +35,8 @@ class MemoryPool;
 // Helper functions
 
 struct DictionaryBuilderCase {
-  template <typename ValueType>
-  Status Visit(const ValueType&, typename ValueType::c_type* = nullptr) {
+  template <typename ValueType, typename Enable = typename ValueType::c_type>
+  Status Visit(const ValueType&) {
     return CreateFor<ValueType>();
   }
 

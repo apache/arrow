@@ -40,12 +40,16 @@ Status ArrayFromJSON(const std::shared_ptr<DataType>&, const std::string& json,
                      std::shared_ptr<Array>* out);
 
 ARROW_EXPORT
-Status ArrayFromJSON(const std::shared_ptr<DataType>&, const util::string_view& json,
+Status ArrayFromJSON(const std::shared_ptr<DataType>&, util::string_view json,
                      std::shared_ptr<Array>* out);
 
 ARROW_EXPORT
 Status ArrayFromJSON(const std::shared_ptr<DataType>&, const char* json,
                      std::shared_ptr<Array>* out);
+
+ARROW_EXPORT
+Status DictArrayFromJSON(const std::shared_ptr<DataType>&, util::string_view indices_json,
+                         util::string_view dictionary_json, std::shared_ptr<Array>* out);
 
 }  // namespace json
 }  // namespace internal

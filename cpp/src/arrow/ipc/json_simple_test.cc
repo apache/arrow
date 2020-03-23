@@ -1179,10 +1179,14 @@ TEST(TestDenseUnion, Errors) {
   std::shared_ptr<DataType> type = union_({field_a, field_b}, {4, 8}, UnionMode::DENSE);
   std::shared_ptr<Array> array;
 
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"\"]", &array));
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0, 8]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"not a valid type_id\"]", &array));
+  ASSERT_RAISES(Invalid,
+                ArrayFromJSON(type, "[[0, 99]]", &array));  // 0 is not one of {4, 8}
+  ASSERT_RAISES(Invalid,
+                ArrayFromJSON(type, "[[4, \"\"]]", &array));  // "" is not a valid int8()
+
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"not a pair\"]", &array));
   ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0]]", &array));
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[4, \"\"]]", &array));
   ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[8, true, 1]]", &array));
 }
 
@@ -1192,11 +1196,35 @@ TEST(TestSparseUnion, Errors) {
   std::shared_ptr<DataType> type = union_({field_a, field_b}, {4, 8}, UnionMode::SPARSE);
   std::shared_ptr<Array> array;
 
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"\"]", &array));
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0, 8]]", &array));
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"not a valid type_id\"]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0, 99]]", &array));
   ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[4, \"\"]]", &array));
+
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"not a pair\"]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0]]", &array));
   ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[8, true, 1]]", &array));
+}
+
+TEST(TestDictionary, Basics) {
+  auto type = dictionary(int32(), utf8());
+  auto array =
+      DictArrayFromJSON(type, "[null, 2, 1, 0]", R"(["whiskey", "tango", "foxtrot"])");
+
+  auto expected_indices = ArrayFromJSON(int32(), "[null, 2, 1, 0]");
+  auto expected_dictionary = ArrayFromJSON(utf8(), R"(["whiskey", "tango", "foxtrot"])");
+
+  ASSERT_ARRAYS_EQUAL(DictionaryArray(type, expected_indices, expected_dictionary),
+                      *array);
+}
+
+TEST(TestDictionary, Errors) {
+  auto type = dictionary(int32(), utf8());
+  std::shared_ptr<Array> array;
+
+  ASSERT_RAISES(Invalid,
+                DictArrayFromJSON(type, "[\"not a valid index\"]", "[\"\"]", &array));
+  ASSERT_RAISES(Invalid, DictArrayFromJSON(type, "[0, 1]", "[1]",
+                                           &array));  // dict value isn't string
 }
 
 }  // namespace json

@@ -256,8 +256,14 @@ ARROW_EXPORT
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>&,
                                      util::string_view json);
 
-ARROW_EXPORT std::shared_ptr<RecordBatch> RecordBatchFromJSON(
-    const std::shared_ptr<Schema>&, util::string_view);
+ARROW_EXPORT
+std::shared_ptr<Array> DictArrayFromJSON(const std::shared_ptr<DataType>& type,
+                                         util::string_view indices_json,
+                                         util::string_view dictionary_json);
+
+ARROW_EXPORT
+std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>&,
+                                                 util::string_view);
 
 ARROW_EXPORT
 std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>&,
