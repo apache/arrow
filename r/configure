@@ -114,16 +114,16 @@ else
     elif [ "$UNAME" = "Linux" ]; then
       # Set some default values/backwards compatibility
       if [ "${LIBARROW_DOWNLOAD}" = "" ] && [ "${NOT_CRAN}" != "" ]; then
-        export LIBARROW_DOWNLOAD=$NOT_CRAN
+        LIBARROW_DOWNLOAD=$NOT_CRAN; export LIBARROW_DOWNLOAD
       fi
       if [ "${LIBARROW_BINARY}" = "" ] && [ "${NOT_CRAN}" != "" ]; then
-        export LIBARROW_BINARY=$NOT_CRAN
+        LIBARROW_BINARY=$NOT_CRAN; export LIBARROW_BINARY
       fi
       if [ "${LIBARROW_MINIMAL}" = "" ] && [ "${LIBARROW_DOWNLOAD}" = "true" ]; then
-        export LIBARROW_MINIMAL=false
+        LIBARROW_MINIMAL=false; export LIBARROW_MINIMAL
       fi
       if [ "${LIBARROW_MINIMAL}" = "" ] && [ "${NOT_CRAN}" = "true" ]; then
-        export LIBARROW_MINIMAL=false
+        LIBARROW_MINIMAL=false; export LIBARROW_MINIMAL
       fi
       ${R_HOME}/bin/Rscript tools/linuxlibs.R $VERSION
       PKG_CFLAGS="-I$(pwd)/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"

@@ -28,7 +28,10 @@
 #' `TRUE` (the default).
 #' @examples
 #' \donttest{
-#' df <- read_parquet(system.file("v0.7.1.parquet", package="arrow"))
+#' tf <- tempfile()
+#' on.exit(unlink(tf))
+#' write_parquet(mtcars, tf)
+#' df <- read_parquet(tf)
 #' head(df)
 #' }
 #' @export
@@ -437,8 +440,11 @@ ParquetFileWriter$create <- function(
 #' f <- system.file("v0.7.1.parquet", package="arrow")
 #' pq <- ParquetFileReader$create(f)
 #' pq$GetSchema()
-#' tab <- pq$ReadTable(starts_with("c"))
-#' tab$schema
+#' if (codec_is_available("snappy")) {
+#'   # This file has compressed data columns
+#'   tab <- pq$ReadTable(starts_with("c"))
+#'   tab$schema
+#' }
 #' }
 #' @include arrow-package.R
 ParquetFileReader <- R6Class("ParquetFileReader",
