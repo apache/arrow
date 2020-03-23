@@ -31,7 +31,7 @@ from .tester_go import GoTester
 from .tester_java import JavaTester
 from .tester_js import JSTester
 from .util import (ARROW_ROOT_DEFAULT, guid, SKIP_ARROW, SKIP_FLIGHT,
-                   find_unused_port, printer)
+                   printer)
 from . import datagen
 
 
@@ -280,8 +280,7 @@ class IntegrationRunner(object):
 
         else:
             try:
-                port = find_unused_port()
-                with producer.flight_server(port):
+                with producer.flight_server() as port:
                     # Have the client upload the file, then download and
                     # compare
                     consumer.flight_request(port, json_path)
