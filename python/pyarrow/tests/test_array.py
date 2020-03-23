@@ -1150,6 +1150,7 @@ def test_dictionary_encode_sliced():
         assert result.equals(expected)
         result = pa.chunked_array([arr]).dictionary_encode()
         assert result.num_chunks == 1
+        assert result.type == expected.type
         assert result.chunk(0).equals(expected)
         result = pa.chunked_array([], type=arr.type).dictionary_encode()
         assert result.num_chunks == 0
