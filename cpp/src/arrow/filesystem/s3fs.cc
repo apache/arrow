@@ -254,7 +254,7 @@ bool S3Options::Equals(const S3Options& other) const {
   return (region == other.region && endpoint_override == other.endpoint_override &&
           scheme == other.scheme && background_writes == other.background_writes &&
           GetAccessKey() == other.GetAccessKey() &&
-          GetSecretKey() == other.GetAccessKey());
+          GetSecretKey() == other.GetSecretKey());
 }
 
 namespace {
@@ -853,6 +853,8 @@ class S3FileSystem::Impl {
     return Status::OK();
   }
 
+  S3Options options() const { return options_; }
+
   // Create a bucket.  Successful if bucket already exists.
   Status CreateBucket(const std::string& bucket) {
     S3Model::CreateBucketConfiguration config;
@@ -1214,8 +1216,10 @@ bool S3FileSystem::Equals(const FileSystem& other) const {
   if (other.type_name() != type_name()) {
     return false;
   }
-  return options_.Equals(static_cast<const S3FileSystem&>(other).options_);
+  return options().Equals(static_cast<const S3FileSystem&>(other).options());
 }
+
+S3Options S3FileSystem::options() const { return impl_->options(); }
 
 Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
   S3Path path;

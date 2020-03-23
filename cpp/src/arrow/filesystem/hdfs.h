@@ -62,6 +62,7 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   ~HadoopFileSystem() override;
 
   std::string type_name() const override { return "hdfs"; }
+  HdfsOptions options() const;
   bool Equals(const FileSystem& other) const override;
 
   /// \cond FALSE
@@ -99,8 +100,6 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
 
   class Impl;
   std::unique_ptr<Impl> impl_;
-
-  HdfsOptions options_;
 };
 
 }  // namespace fs

@@ -166,6 +166,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         @staticmethod
         CResult[shared_ptr[CHadoopFileSystem]] Make(
             const CHdfsOptions& options)
+        CHdfsOptions options()
 
     cdef cppclass CMockFileSystem "arrow::fs::internal::MockFileSystem"(
             CFileSystem):

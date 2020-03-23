@@ -229,7 +229,7 @@ def datadir():
 
 @pytest.mark.hdfs
 @pytest.fixture(scope='session')
-def hdfs_server():
+def hdfs_connection():
     host = os.environ.get('ARROW_HDFS_TEST_HOST', 'default')
     port = int(os.environ.get('ARROW_HDFS_TEST_PORT', 0))
     user = os.environ.get('ARROW_HDFS_TEST_USER', 'hdfs')
@@ -238,9 +238,15 @@ def hdfs_server():
 
 @pytest.mark.s3
 @pytest.fixture(scope='session')
-def minio_server():
+def s3_connection():
     host, port = 'localhost', find_free_port()
     access_key, secret_key = 'arrow', 'apachearrow'
+    return host, port, access_key, secret_key
+
+
+@pytest.fixture(scope='session')
+def s3_server(s3_connection):
+    host, port, access_key, secret_key = s3_connection
 
     address = '{}:{}'.format(host, port)
     env = os.environ.copy()
@@ -258,7 +264,7 @@ def minio_server():
         except OSError:
             pytest.skip('`minio` command cannot be located')
         else:
-            yield address, access_key, secret_key
+            yield proc
         finally:
             if proc is not None:
                 proc.kill()

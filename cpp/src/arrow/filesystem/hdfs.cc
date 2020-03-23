@@ -63,6 +63,8 @@ class HadoopFileSystem::Impl {
     return Status::OK();
   }
 
+  HdfsOptions options() const { return options_; }
+
   Result<FileInfo> GetFileInfo(const std::string& path) {
     FileInfo info;
     io::HdfsPathInfo path_info;
@@ -275,6 +277,7 @@ bool HdfsOptions::Equals(const HdfsOptions& other) const {
           default_block_size == other.default_block_size &&
           connection_config.host == other.connection_config.host &&
           connection_config.port == other.connection_config.port &&
+          connection_config.user == other.connection_config.user &&
           connection_config.kerb_ticket == other.connection_config.kerb_ticket &&
           connection_config.extra_conf == other.connection_config.extra_conf);
 }
@@ -291,6 +294,7 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
   std::string host;
   host = uri.scheme() + "://" + uri.host();
 
+  // configure endpoint
   const auto port = uri.port();
   if (port == -1) {
     // default port will be determined by hdfs FileSystem impl
@@ -299,6 +303,7 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
     options.ConfigureEndPoint(host, port);
   }
 
+  // configure replication
   auto it = options_map.find("replication");
   if (it != options_map.end()) {
     const auto& v = it->second;
@@ -309,11 +314,38 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
     }
     options.ConfigureHdfsReplication(reps);
   }
+
+  // configure buffer_size
+  it = options_map.find("buffer_size");
+  if (it != options_map.end()) {
+    const auto& v = it->second;
+    ::arrow::internal::StringConverter<Int32Type> converter;
+    int32_t reps;
+    if (!converter(v.data(), v.size(), &reps)) {
+      return Status::Invalid("Invalid value for option 'buffer_size': '", v, "'");
+    }
+    options.ConfigureHdfsBufferSize(reps);
+  }
+
+  // configure default_block_size
+  it = options_map.find("default_block_size");
+  if (it != options_map.end()) {
+    const auto& v = it->second;
+    ::arrow::internal::StringConverter<Int64Type> converter;
+    int64_t reps;
+    if (!converter(v.data(), v.size(), &reps)) {
+      return Status::Invalid("Invalid value for option 'default_block_size': '", v, "'");
+    }
+    options.ConfigureHdfsBlockSize(reps);
+  }
+
+  // configure user
   it = options_map.find("user");
   if (it != options_map.end()) {
     const auto& v = it->second;
     options.ConfigureHdfsUser(v);
   }
+
   return options;
 }
 
@@ -324,7 +356,7 @@ Result<HdfsOptions> HdfsOptions::FromUri(const std::string& uri_string) {
 }
 
 HadoopFileSystem::HadoopFileSystem(const HdfsOptions& options)
-    : impl_(new Impl{options}), options_(options) {}
+    : impl_(new Impl{options}) {}
 
 HadoopFileSystem::~HadoopFileSystem() {}
 
@@ -339,6 +371,8 @@ Result<FileInfo> HadoopFileSystem::GetFileInfo(const std::string& path) {
   return impl_->GetFileInfo(path);
 }
 
+HdfsOptions HadoopFileSystem::options() const { return impl_->options(); }
+
 bool HadoopFileSystem::Equals(const FileSystem& other) const {
   if (this == &other) {
     return true;
@@ -346,7 +380,7 @@ bool HadoopFileSystem::Equals(const FileSystem& other) const {
   if (other.type_name() != type_name()) {
     return false;
   }
-  return options_.Equals(static_cast<const HadoopFileSystem&>(other).options_);
+  return options().Equals(static_cast<const HadoopFileSystem&>(other).options());
 }
 
 Result<std::vector<FileInfo>> HadoopFileSystem::GetFileInfo(const FileSelector& select) {
