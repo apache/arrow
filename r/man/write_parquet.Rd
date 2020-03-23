@@ -20,7 +20,8 @@ write_parquet(
   use_deprecated_int96_timestamps = FALSE,
   coerce_timestamps = NULL,
   allow_truncated_timestamps = FALSE,
-  arrow_properties = ParquetArrowWriterProperties$create(use_deprecated_int96_timestamps
+ 
+    arrow_properties = ParquetArrowWriterProperties$create(use_deprecated_int96_timestamps
     = use_deprecated_int96_timestamps, coerce_timestamps = coerce_timestamps,
     allow_truncated_timestamps = allow_truncated_timestamps)
 )
