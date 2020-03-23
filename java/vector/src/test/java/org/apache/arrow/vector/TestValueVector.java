@@ -2701,4 +2701,28 @@ public class TestValueVector {
     }
     writer.endList();
   }
+
+  @Test
+  public void testVariableVectorGetEndOffset() {
+    try (final VarCharVector vector1 = new VarCharVector("v1", allocator);
+         final VarBinaryVector vector2 = new VarBinaryVector("v2", allocator)) {
+
+      setVector(vector1, STR1, null, STR2);
+      setVector(vector2, STR1, STR2, STR3);
+
+      assertEquals(0, vector1.getStartOffset(0));
+      assertEquals(6, vector1.getEndOffset(0));
+      assertEquals(6, vector1.getStartOffset(1));
+      assertEquals(6, vector1.getEndOffset(1));
+      assertEquals(6, vector1.getStartOffset(2));
+      assertEquals(16, vector1.getEndOffset(2));
+
+      assertEquals(0, vector2.getStartOffset(0));
+      assertEquals(6, vector2.getEndOffset(0));
+      assertEquals(6, vector2.getStartOffset(1));
+      assertEquals(16, vector2.getEndOffset(1));
+      assertEquals(16, vector2.getStartOffset(2));
+      assertEquals(21, vector2.getEndOffset(2));
+    }
+  }
 }
