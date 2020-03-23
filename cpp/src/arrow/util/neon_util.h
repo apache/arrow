@@ -17,38 +17,17 @@
 
 #pragma once
 
+#ifdef ARROW_HAVE_NEON
+#include <arm_neon.h>
+#endif
+
+#ifdef ARROW_HAVE_ARMV8_CRC
+#include <arm_acle.h>
+#endif
+
 namespace arrow {
 
-#if defined(__aarch64__) || defined(__AARCH64__)
-
-#ifdef __ARM_NEON
-#define ARROW_HAVE_NEON
-#endif
-
-#ifdef __ARM_FEATURE_CRC32
-#define ARROW_HAVE_ARM_CRC
-#include <arm_acle.h>
-
-#ifdef __ARM_FEATURE_CRYPTO
-#include <arm_neon.h>
-#define ARROW_HAVE_ARMV8_CRYPTO
-#endif  // __ARM_FEATURE_CRYPTO
-
-#endif  // __ARM_FEATURE_CRC32
-
-#endif  // defined(__aarch64__) || defined(__AARCH64__)
-
-#if defined(__GNUC__) && defined(__linux__) && defined(ARROW_HAVE_ARM_CRC)
-
-#include <asm/hwcap.h>
-#include <sys/auxv.h>
-#ifndef HWCAP_CRC32
-#define HWCAP_CRC32 (1 << 7)
-#endif
-static inline uint32_t crc32c_runtime_check(void) {
-  uint64_t auxv = getauxval(AT_HWCAP);
-  return (auxv & HWCAP_CRC32) != 0;
-}
+#ifdef ARROW_HAVE_ARMV8_CRC
 
 static inline uint32_t ARMCE_crc32_u8(uint32_t crc, uint8_t v) {
   return __crc32cb(crc, v);
@@ -66,6 +45,6 @@ static inline uint32_t ARMCE_crc32_u64(uint32_t crc, uint64_t v) {
   return __crc32cd(crc, v);
 }
 
-#endif  // defined(__GNUC__) && defined(__linux__) && defined(ARROW_HAVE_ARM_CRC)
+#endif  // ARROW_HAVE_ARMV8_CRC
 
 }  // namespace arrow

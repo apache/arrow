@@ -22,31 +22,20 @@
 
 #include "arrow/util/macros.h"
 
-#ifdef ARROW_USE_SIMD
+#if defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_SSE2)
 
 // MSVC x86-64
-
 #if (defined(_M_AMD64) || defined(_M_X64))
-#define ARROW_HAVE_SSE2 1
-#define ARROW_HAVE_SSE4_2 1
 #include <intrin.h>
-#endif
-
+#else
 // gcc/clang (possibly others)
-
-#if defined(__SSE2__)
-#define ARROW_HAVE_SSE2 1
 #include <emmintrin.h>
-#endif
-
-#if defined(__SSE4_2__)
-#define ARROW_HAVE_SSE4_2 1
+#ifdef ARROW_HAVE_SSE4_2
 #include <nmmintrin.h>
 #endif
+#endif
 
-#endif  // ARROW_USE_SIMD
-
-// MSVC x86-64
+#endif  // ARROW_HAVE_SSE4_2 || ARROW_HAVE_SSE2
 
 namespace arrow {
 
