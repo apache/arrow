@@ -1086,10 +1086,23 @@ metadata_nthreads: int, default 1
 {}
 """.format(_read_docstring_common)
 
+    def __new__(cls, path_or_paths=None, filesystem=None, schema=None,
+                metadata=None, split_row_groups=False, validate_schema=True,
+                filters=None, metadata_nthreads=1, read_dictionary=None,
+                memory_map=False, buffer_size=0, use_dataset=False):
+        if use_dataset:
+            # TODO raise warning on unsupported keywords
+            return ParquetDatasetV2(path_or_paths, filesystem=filesystem,
+                                    filters=filters,
+                                    read_dictionary=read_dictionary,
+                                    buffer_size=buffer_size)
+        self = object.__new__(cls)
+        return self
+
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True,
                  filters=None, metadata_nthreads=1, read_dictionary=None,
-                 memory_map=False, buffer_size=0):
+                 memory_map=False, buffer_size=0, use_dataset=False):
         self._metadata = _ParquetDatasetMetadata()
         a_path = path_or_paths
         if isinstance(a_path, list):
@@ -1310,6 +1323,52 @@ def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
             pieces.append(piece)
 
     return pieces, partitions, common_metadata_path, metadata_path
+
+
+class ParquetDatasetV2:
+    """
+    ParquetDataset shim using the Dataset API under the hood.
+    """
+    def __init__(self, path_or_paths, filesystem=None, filters=None,
+                 read_dictionary=None, buffer_size=None):
+        import pyarrow.dataset as ds
+        import pyarrow.fs
+
+        # map old filesystems to new one
+        if isinstance(filesystem, LocalFileSystem):
+            filesystem = pyarrow.fs.LocalFileSystem()
+
+        reader_options = {}
+        if buffer_size:
+            reader_options.update(use_buffered_stream=True,
+                                  buffer_size=buffer_size)
+        if read_dictionary is not None:
+            reader_options.update(dict_columns=read_dictionary)
+        parquat_format = ds.ParquetFileFormat(reader_options=reader_options)
+
+        dataset = ds.dataset(path_or_paths, filesystem=filesystem,
+                             format=parquat_format, partitioning="hive")
+        self._dataset = dataset
+        self.filters = filters
+        if filters is not None:
+            self.filter_expression = _filters_to_expression(filters)
+        else:
+            self.filter_expression = None
+
+    @property
+    def schema(self):
+        return self._dataset.schema
+
+    def read(self, columns=None, use_threads=False):
+        return self._dataset.to_table(
+            columns=columns, filter=self.filter_expression,
+            use_threads=use_threads
+        )
+
+    @property
+    def pieces(self):
+        # TODO raise deprecation warning
+        return list(self._dataset.get_fragments())
 
 
 _read_table_docstring = """

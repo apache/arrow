@@ -56,6 +56,16 @@ def datadir(datadir):
     return datadir / 'parquet'
 
 
+parametrize_use_dataset = pytest.mark.parametrize("use_dataset", [False, True])
+parametrize_use_dataset_not_supported = pytest.mark.parametrize(
+    "use_dataset", [False, pytest.param(True, marks=pytest.mark.skip)])
+
+
+# @pytest.fixture(params=[False, True])
+# def use_dataset(request):
+#     return request.param
+
+
 def _write_table(table, path, **kwargs):
     # So we see the ImportError somewhere
     import pyarrow.parquet as pq
@@ -1608,9 +1618,10 @@ def test_partition_set_dictionary_type():
 
 
 @pytest.mark.pandas
-def test_read_partitioned_directory(tempdir):
+@parametrize_use_dataset
+def test_read_partitioned_directory(tempdir, use_dataset):
     fs = LocalFileSystem.get_instance()
-    _partition_test_for_filesystem(fs, tempdir)
+    _partition_test_for_filesystem(fs, tempdir, use_dataset)
 
 
 @pytest.mark.pandas
@@ -1631,7 +1642,8 @@ def test_create_parquet_dataset_multi_threaded(tempdir):
 
 
 @pytest.mark.pandas
-def test_equivalency(tempdir):
+@parametrize_use_dataset
+def test_equivalency(tempdir, use_dataset):
     fs = LocalFileSystem.get_instance()
     base_path = tempdir
 
@@ -1658,7 +1670,8 @@ def test_equivalency(tempdir):
     dataset = pq.ParquetDataset(
         base_path, filesystem=fs,
         filters=[('integer', '=', 1), ('string', '!=', 'b'),
-                 ('boolean', '==', True)]
+                 ('boolean', '==', True)],
+        use_dataset=use_dataset,
     )
     table = dataset.read()
     result_df = (table.to_pandas().reset_index(drop=True))
@@ -1679,7 +1692,8 @@ def test_equivalency(tempdir):
         ],
         [('integer', '=', 0), ('boolean', '==', 'False')]
     ]
-    dataset = pq.ParquetDataset(base_path, filesystem=fs, filters=filters)
+    dataset = pq.ParquetDataset(
+        base_path, filesystem=fs, filters=filters, use_dataset=use_dataset)
     table = dataset.read()
     result_df = table.to_pandas().reset_index(drop=True)
 
@@ -1700,14 +1714,17 @@ def test_equivalency(tempdir):
     # current code.
     with pytest.raises(NotImplementedError):
         filters = [[('string', '==', b'1\0a')]]
-        pq.ParquetDataset(base_path, filesystem=fs, filters=filters)
+        pq.ParquetDataset(
+            base_path, filesystem=fs, filters=filters, use_dataset=use_dataset)
     with pytest.raises(NotImplementedError):
         filters = [[('string', '==', '1\0a')]]
-        pq.ParquetDataset(base_path, filesystem=fs, filters=filters)
+        pq.ParquetDataset(
+            base_path, filesystem=fs, filters=filters, use_dataset=use_dataset)
 
 
 @pytest.mark.pandas
-def test_cutoff_exclusive_integer(tempdir):
+@parametrize_use_dataset
+def test_cutoff_exclusive_integer(tempdir, use_dataset):
     fs = LocalFileSystem.get_instance()
     base_path = tempdir
 
@@ -1729,7 +1746,8 @@ def test_cutoff_exclusive_integer(tempdir):
         filters=[
             ('integers', '<', 4),
             ('integers', '>', 1),
-        ]
+        ],
+        use_dataset=use_dataset
     )
     table = dataset.read()
     result_df = (table.to_pandas()
@@ -1741,11 +1759,14 @@ def test_cutoff_exclusive_integer(tempdir):
 
 
 @pytest.mark.pandas
+@parametrize_use_dataset
 @pytest.mark.xfail(
-    raises=TypeError,
+    # different error with use_datasets because result_df is no longer
+    # categorical
+    raises=(TypeError, AssertionError),
     reason='Loss of type information in creation of categoricals.'
 )
-def test_cutoff_exclusive_datetime(tempdir):
+def test_cutoff_exclusive_datetime(tempdir, use_dataset):
     fs = LocalFileSystem.get_instance()
     base_path = tempdir
 
@@ -1773,7 +1794,8 @@ def test_cutoff_exclusive_datetime(tempdir):
         filters=[
             ('dates', '<', "2018-04-12"),
             ('dates', '>', "2018-04-10")
-        ]
+        ],
+        use_dataset=use_dataset
     )
     table = dataset.read()
     result_df = (table.to_pandas()
@@ -1788,7 +1810,8 @@ def test_cutoff_exclusive_datetime(tempdir):
 
 
 @pytest.mark.pandas
-def test_inclusive_integer(tempdir):
+@parametrize_use_dataset
+def test_inclusive_integer(tempdir, use_dataset):
     fs = LocalFileSystem.get_instance()
     base_path = tempdir
 
@@ -1810,7 +1833,8 @@ def test_inclusive_integer(tempdir):
         filters=[
             ('integers', '<=', 3),
             ('integers', '>=', 2),
-        ]
+        ],
+        use_dataset=use_dataset
     )
     table = dataset.read()
     result_df = (table.to_pandas()
@@ -1822,7 +1846,8 @@ def test_inclusive_integer(tempdir):
 
 
 @pytest.mark.pandas
-def test_inclusive_set(tempdir):
+@parametrize_use_dataset
+def test_inclusive_set(tempdir, use_dataset):
     fs = LocalFileSystem.get_instance()
     base_path = tempdir
 
@@ -1847,7 +1872,8 @@ def test_inclusive_set(tempdir):
     dataset = pq.ParquetDataset(
         base_path, filesystem=fs,
         filters=[('integer', 'in', {1}), ('string', 'in', {'a', 'b'}),
-                 ('boolean', 'in', {True})]
+                 ('boolean', 'in', {True})],
+        use_dataset=use_dataset
     )
     table = dataset.read()
     result_df = (table.to_pandas().reset_index(drop=True))
@@ -1858,7 +1884,8 @@ def test_inclusive_set(tempdir):
 
 
 @pytest.mark.pandas
-def test_invalid_pred_op(tempdir):
+@parametrize_use_dataset
+def test_invalid_pred_op(tempdir, use_dataset):
     fs = LocalFileSystem.get_instance()
     base_path = tempdir
 
@@ -1878,23 +1905,39 @@ def test_invalid_pred_op(tempdir):
     with pytest.raises(ValueError):
         pq.ParquetDataset(base_path,
                           filesystem=fs,
-                          filters=[
-                            ('integers', '=<', 3),
-                          ])
+                          filters=[('integers', '=<', 3), ],
+                          use_dataset=use_dataset)
 
-    with pytest.raises(ValueError):
-        pq.ParquetDataset(base_path,
-                          filesystem=fs,
-                          filters=[
-                            ('integers', 'in', set()),
-                          ])
+    if not use_dataset:
+        with pytest.raises(ValueError):
+            pq.ParquetDataset(base_path,
+                              filesystem=fs,
+                              filters=[('integers', 'in', set()), ],
+                              use_dataset=use_dataset)
+    else:
+        # Dataset API returns empty table instead
+        dataset = pq.ParquetDataset(base_path,
+                                    filesystem=fs,
+                                    filters=[('integers', 'in', set()), ],
+                                    use_dataset=use_dataset)
+        assert dataset.read().num_rows == 0
 
-    with pytest.raises(ValueError):
-        pq.ParquetDataset(base_path,
-                          filesystem=fs,
-                          filters=[
-                            ('integers', '!=', {3}),
-                          ])
+    if not use_dataset:
+        with pytest.raises(ValueError):
+            pq.ParquetDataset(base_path,
+                              filesystem=fs,
+                              filters=[('integers', '!=', {3})],
+                              use_dataset=use_dataset)
+    else:
+        # TODO(dataset) ARROW-8186:
+        #  `ds.field('int') != {3}` returns bool instead of expression
+        with pytest.raises(TypeError):
+            # Datasets API gives filter expression that is always true
+            dataset = pq.ParquetDataset(base_path,
+                                        filesystem=fs,
+                                        filters=[('integers', '!=', {3})],
+                                        use_dataset=use_dataset)
+            assert dataset.read().num_rows == 5
 
 
 @pytest.mark.pandas
@@ -1983,7 +2026,7 @@ def test_read_partitioned_directory_s3fs(s3_example):
     dataset.read()
 
 
-def _partition_test_for_filesystem(fs, base_path):
+def _partition_test_for_filesystem(fs, base_path, use_dataset=False):
     foo_keys = [0, 1]
     bar_keys = ['a', 'b', 'c']
     partition_spec = [
@@ -2001,7 +2044,8 @@ def _partition_test_for_filesystem(fs, base_path):
 
     _generate_partition_directories(fs, base_path, partition_spec, df)
 
-    dataset = pq.ParquetDataset(base_path, filesystem=fs)
+    dataset = pq.ParquetDataset(
+        base_path, filesystem=fs, use_dataset=use_dataset)
     table = dataset.read()
     result_df = (table.to_pandas()
                  .sort_values(by='index')
@@ -2010,8 +2054,11 @@ def _partition_test_for_filesystem(fs, base_path):
     expected_df = (df.sort_values(by='index')
                    .reset_index(drop=True)
                    .reindex(columns=result_df.columns))
-    expected_df['foo'] = pd.Categorical(df['foo'], categories=foo_keys)
-    expected_df['bar'] = pd.Categorical(df['bar'], categories=bar_keys)
+    if not use_dataset:
+        # TODO(dataset) Dataset API does not create categorical columns
+        # for partition keys
+        expected_df['foo'] = pd.Categorical(df['foo'], categories=foo_keys)
+        expected_df['bar'] = pd.Categorical(df['bar'], categories=bar_keys)
 
     assert (result_df.columns == ['index', 'values', 'foo', 'bar']).all()
 
@@ -2160,7 +2207,8 @@ def _filter_partition(df, part_keys):
 
 
 @pytest.mark.pandas
-def test_read_multiple_files(tempdir):
+@parametrize_use_dataset
+def test_read_multiple_files(tempdir, use_dataset):
     nfiles = 10
     size = 5
 
@@ -2187,7 +2235,7 @@ def test_read_multiple_files(tempdir):
     (dirpath / '_SUCCESS.crc').touch()
 
     def read_multiple_files(paths, columns=None, use_threads=True, **kwargs):
-        dataset = pq.ParquetDataset(paths, **kwargs)
+        dataset = pq.ParquetDataset(paths, use_dataset=use_dataset, **kwargs)
         return dataset.read(columns=columns, use_threads=use_threads)
 
     result = read_multiple_files(paths)
@@ -2223,6 +2271,10 @@ def test_read_multiple_files(tempdir):
 
     t = pa.Table.from_pandas(bad_apple)
     _write_table(t, bad_apple_path)
+
+    if use_dataset:
+        # TODO(dataset) Dataset API skips bad files
+        return
 
     bad_meta = pq.read_metadata(bad_apple_path)
 
@@ -2265,6 +2317,7 @@ def test_dataset_read_pandas(tempdir):
         frames.append(df)
         paths.append(path)
 
+    # TODO check read_pandas semantics
     dataset = pq.ParquetDataset(dirpath)
     columns = ['uint8', 'strings']
     result = dataset.read_pandas(columns=columns).to_pandas()
@@ -2274,7 +2327,8 @@ def test_dataset_read_pandas(tempdir):
 
 
 @pytest.mark.pandas
-def test_dataset_memory_map(tempdir):
+@parametrize_use_dataset_not_supported  # TODO(dataset) support memory map
+def test_dataset_memory_map(tempdir, use_dataset):
     # ARROW-2627: Check that we can use ParquetDataset with memory-mapping
     dirpath = tempdir / guid()
     dirpath.mkdir()
@@ -2284,12 +2338,14 @@ def test_dataset_memory_map(tempdir):
     table = pa.Table.from_pandas(df)
     _write_table(table, path, version='2.0')
 
-    dataset = pq.ParquetDataset(dirpath, memory_map=True)
+    dataset = pq.ParquetDataset(
+        dirpath, memory_map=True, use_dataset=use_dataset)
     assert dataset.pieces[0].read().equals(table)
 
 
 @pytest.mark.pandas
-def test_dataset_enable_buffered_stream(tempdir):
+@parametrize_use_dataset
+def test_dataset_enable_buffered_stream(tempdir, use_dataset):
     dirpath = tempdir / guid()
     dirpath.mkdir()
 
@@ -2298,12 +2354,20 @@ def test_dataset_enable_buffered_stream(tempdir):
     table = pa.Table.from_pandas(df)
     _write_table(table, path, version='2.0')
 
-    with pytest.raises(ValueError):
-        pq.ParquetDataset(dirpath, buffer_size=-64)
+    # TODO(dataset) raises an OSError instead of ValueError
+    with pytest.raises((ValueError, OSError)):
+        if use_dataset:
+            # Dataset API only raises when reading
+            pq.ParquetDataset(
+                dirpath, buffer_size=-64, use_dataset=True).read()
+        else:
+            pq.ParquetDataset(
+                dirpath, buffer_size=-64, use_dataset=use_dataset)
 
     for buffer_size in [128, 1024]:
-        dataset = pq.ParquetDataset(dirpath, buffer_size=buffer_size)
-        assert dataset.pieces[0].read().equals(table)
+        dataset = pq.ParquetDataset(
+            dirpath, buffer_size=buffer_size, use_dataset=use_dataset)
+        assert dataset.read().equals(table)
 
 
 @pytest.mark.pandas
@@ -2364,8 +2428,9 @@ def _make_example_multifile_dataset(base_path, nfiles=10, file_nrows=5):
 
 
 @pytest.mark.pandas
+@parametrize_use_dataset
 @pytest.mark.parametrize('dir_prefix', ['_', '.'])
-def test_ignore_private_directories(tempdir, dir_prefix):
+def test_ignore_private_directories(tempdir, dir_prefix, use_dataset):
     dirpath = tempdir / guid()
     dirpath.mkdir()
 
@@ -2375,12 +2440,13 @@ def test_ignore_private_directories(tempdir, dir_prefix):
     # private directory
     (dirpath / '{}staging'.format(dir_prefix)).mkdir()
 
-    dataset = pq.ParquetDataset(dirpath)
+    dataset = pq.ParquetDataset(dirpath, use_dataset=use_dataset)
     assert set(map(str, paths)) == {x.path for x in dataset.pieces}
 
 
 @pytest.mark.pandas
-def test_ignore_hidden_files_dot(tempdir):
+@parametrize_use_dataset
+def test_ignore_hidden_files_dot(tempdir, use_dataset):
     dirpath = tempdir / guid()
     dirpath.mkdir()
 
@@ -2393,12 +2459,13 @@ def test_ignore_hidden_files_dot(tempdir):
     with (dirpath / '.private').open('wb') as f:
         f.write(b'gibberish')
 
-    dataset = pq.ParquetDataset(dirpath)
+    dataset = pq.ParquetDataset(dirpath, use_dataset=use_dataset)
     assert set(map(str, paths)) == {x.path for x in dataset.pieces}
 
 
 @pytest.mark.pandas
-def test_ignore_hidden_files_underscore(tempdir):
+@parametrize_use_dataset
+def test_ignore_hidden_files_underscore(tempdir, use_dataset):
     dirpath = tempdir / guid()
     dirpath.mkdir()
 
@@ -2411,7 +2478,7 @@ def test_ignore_hidden_files_underscore(tempdir):
     with (dirpath / '_started_321').open('wb') as f:
         f.write(b'abcd')
 
-    dataset = pq.ParquetDataset(dirpath)
+    dataset = pq.ParquetDataset(dirpath, use_dataset=use_dataset)
     assert set(map(str, paths)) == {x.path for x in dataset.pieces}
 
 
@@ -2503,6 +2570,7 @@ def test_read_table_doesnt_warn(datadir):
 
 
 def _test_write_to_dataset_with_partitions(base_path,
+                                           use_dataset=False,
                                            filesystem=None,
                                            schema=None,
                                            index_name=None):
@@ -2532,9 +2600,15 @@ def _test_write_to_dataset_with_partitions(base_path,
     # partitioned dataset
     dataset = pq.ParquetDataset(base_path,
                                 filesystem=filesystem,
-                                validate_schema=True)
+                                validate_schema=True,
+                                use_dataset=use_dataset)
     # ARROW-2209: Ensure the dataset schema also includes the partition columns
-    dataset_cols = set(dataset.schema.to_arrow_schema().names)
+    if not use_dataset:
+        dataset_cols = set(dataset.schema.to_arrow_schema().names)
+    else:
+        # TODO(dataset) schema property is an arrow and not parquet schema
+        dataset_cols = set(dataset.schema.names)
+
     assert dataset_cols == set(output_table.schema.names)
 
     input_table = dataset.read()
@@ -2547,12 +2621,15 @@ def _test_write_to_dataset_with_partitions(base_path,
 
     # Partitioned columns become 'categorical' dtypes
     input_df = input_df[cols]
-    for col in partition_by:
-        output_df[col] = output_df[col].astype('category')
+    if not use_dataset:
+        for col in partition_by:
+            output_df[col] = output_df[col].astype('category')
     assert output_df.equals(input_df)
 
 
-def _test_write_to_dataset_no_partitions(base_path, filesystem=None):
+def _test_write_to_dataset_no_partitions(base_path,
+                                         use_dataset=False,
+                                         filesystem=None):
     # ARROW-1400
     output_df = pd.DataFrame({'group1': list('aaabbbbccc'),
                               'group2': list('eefeffgeee'),
@@ -2577,7 +2654,8 @@ def _test_write_to_dataset_no_partitions(base_path, filesystem=None):
     # Deduplicated incoming DataFrame should match
     # original outgoing Dataframe
     input_table = pq.ParquetDataset(base_path,
-                                    filesystem=filesystem).read()
+                                    filesystem=filesystem,
+                                    use_dataset=use_dataset).read()
     input_df = input_table.to_pandas()
     input_df = input_df.drop_duplicates()
     input_df = input_df[cols]
@@ -2585,28 +2663,33 @@ def _test_write_to_dataset_no_partitions(base_path, filesystem=None):
 
 
 @pytest.mark.pandas
-def test_write_to_dataset_with_partitions(tempdir):
-    _test_write_to_dataset_with_partitions(str(tempdir))
+@parametrize_use_dataset
+def test_write_to_dataset_with_partitions(tempdir, use_dataset):
+    _test_write_to_dataset_with_partitions(str(tempdir), use_dataset)
 
 
 @pytest.mark.pandas
-def test_write_to_dataset_with_partitions_and_schema(tempdir):
+@parametrize_use_dataset
+def test_write_to_dataset_with_partitions_and_schema(tempdir, use_dataset):
     schema = pa.schema([pa.field('group1', type=pa.string()),
                         pa.field('group2', type=pa.string()),
                         pa.field('num', type=pa.int64()),
                         pa.field('nan', type=pa.int32()),
                         pa.field('date', type=pa.timestamp(unit='us'))])
-    _test_write_to_dataset_with_partitions(str(tempdir), schema=schema)
+    _test_write_to_dataset_with_partitions(
+        str(tempdir), use_dataset, schema=schema)
 
 
 @pytest.mark.pandas
-def test_write_to_dataset_with_partitions_and_index_name(tempdir):
-    _test_write_to_dataset_with_partitions(str(tempdir),
-                                           index_name='index_name')
+@parametrize_use_dataset
+def test_write_to_dataset_with_partitions_and_index_name(tempdir, use_dataset):
+    _test_write_to_dataset_with_partitions(
+        str(tempdir), use_dataset, index_name='index_name')
 
 
 @pytest.mark.pandas
-def test_write_to_dataset_no_partitions(tempdir):
+@parametrize_use_dataset
+def test_write_to_dataset_no_partitions(tempdir, use_dataset):
     _test_write_to_dataset_no_partitions(str(tempdir))
 
 
@@ -3161,7 +3244,8 @@ def test_write_nested_zero_length_array_chunk_failure():
 
 
 @pytest.mark.pandas
-def test_partitioned_dataset(tempdir):
+@parametrize_use_dataset
+def test_partitioned_dataset(tempdir, use_dataset):
     # ARROW-3208: Segmentation fault when reading a Parquet partitioned dataset
     # to a Parquet file
     path = tempdir / "ARROW-3208"
@@ -3173,7 +3257,7 @@ def test_partitioned_dataset(tempdir):
     table = pa.Table.from_pandas(df)
     pq.write_to_dataset(table, root_path=str(path),
                         partition_cols=['one', 'two'])
-    table = pq.ParquetDataset(path).read()
+    table = pq.ParquetDataset(path, use_dataset=use_dataset).read()
     pq.write_table(table, path / "output.parquet")
 
 
@@ -3217,14 +3301,16 @@ def test_direct_read_dictionary():
 
 
 @pytest.mark.pandas
-def test_dataset_read_dictionary(tempdir):
+@parametrize_use_dataset
+def test_dataset_read_dictionary(tempdir, use_dataset):
     path = tempdir / "ARROW-3325-dataset"
     t1 = pa.table([[util.rands(10) for i in range(5)] * 10], names=['f0'])
     t2 = pa.table([[util.rands(10) for i in range(5)] * 10], names=['f0'])
     pq.write_to_dataset(t1, root_path=str(path))
     pq.write_to_dataset(t2, root_path=str(path))
 
-    result = pq.ParquetDataset(path, read_dictionary=['f0']).read()
+    result = pq.ParquetDataset(
+        path, read_dictionary=['f0'], use_dataset=use_dataset).read()
 
     # The order of the chunks is non-deterministic
     ex_chunks = [t1[0].chunk(0).dictionary_encode(),
@@ -3609,6 +3695,8 @@ def test_fastparquet_cross_compatibility(tempdir):
     tm.assert_frame_equal(table_fp.to_pandas(), df)
 
 
+# TODO buffer
+@pytest.mark.skip
 @pytest.mark.parametrize('array_factory', [
     lambda: pa.array([0, None] * 10),
     lambda: pa.array([0, None] * 10).dictionary_encode(),
