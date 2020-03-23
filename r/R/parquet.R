@@ -110,9 +110,10 @@ read_parquet <- function(file,
 #' write_parquet(data.frame(x = 1:5), tf1)
 #'
 #' # using compression
-#' tf2 <- tempfile(fileext = ".gz.parquet")
-#' write_parquet(data.frame(x = 1:5), tf2, compression = "gzip", compression_level = 5)
-#'
+#' if (codec_is_available("gzip")) {
+#'   tf2 <- tempfile(fileext = ".gz.parquet")
+#'   write_parquet(data.frame(x = 1:5), tf2, compression = "gzip", compression_level = 5)
+#' }
 #' }
 #' @export
 write_parquet <- function(x,
