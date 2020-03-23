@@ -344,8 +344,7 @@ TEST_F(TestEndToEnd, EndToEndSingleDataset) {
   // passed to the dataset constructor.
   // The inspected_schema may optionally be modified before being finalized.
   InspectOptions inspect_options;
-  inspect_options.depth = InspectOptions::kInspectAllFragments;
-  inspect_options.with_partition_inspection = true;
+  inspect_options.fragments = InspectOptions::kInspectAllFragments;
   ASSERT_OK_AND_ASSIGN(auto inspected_schema, factory->Inspect(inspect_options));
   EXPECT_EQ(*schema_, *inspected_schema);
 

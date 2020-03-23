@@ -69,9 +69,8 @@ class MockDatasetFactory : public DatasetFactory {
     return schemas_;
   }
 
-  Result<std::shared_ptr<Dataset>> Finish(
-      const std::shared_ptr<Schema>& schema) override {
-    return std::make_shared<InMemoryDataset>(schema,
+  Result<std::shared_ptr<Dataset>> Finish(FinishOptions options) override {
+    return std::make_shared<InMemoryDataset>(options.schema,
                                              std::vector<std::shared_ptr<RecordBatch>>{});
   }
 
@@ -191,15 +190,8 @@ TEST_F(FileSystemDatasetFactoryTest, ExplicitPartition) {
   MakeFactory({fs::File(a_1)});
 
   InspectOptions options;
-
-  // Should add the partition schema when requested
-  options.with_partition_inspection = true;
-  AssertInspect(schema({part_field}), options);
-  AssertFinishWithPaths({a_1}, nullptr, options);
-
-  // When given an explicit partition, add the schema irregardless of
-  // `with_partition_inspection` since the cost is free.
-  options.with_partition_inspection = false;
+  // Should inspect the Schema even if no files are inspected.
+  options.fragments = 0;
   AssertInspect(schema({part_field}), options);
   AssertFinishWithPaths({a_1}, nullptr, options);
 }
@@ -213,13 +205,6 @@ TEST_F(FileSystemDatasetFactoryTest, DiscoveredPartition) {
 
   InspectOptions options;
 
-  // Ensure no partitions is inspected if the option disable it.
-  options.with_partition_inspection = false;
-  auto schema_without = schema({});
-  AssertInspect(schema_without, options);
-  AssertFinishWithPaths({a_1}, schema_without);
-
-  options.with_partition_inspection = true;
   auto schema_with = schema({field("a", int32())});
   AssertInspect(schema_with, options);
   AssertFinishWithPaths({a_1}, schema_with);
@@ -239,8 +224,6 @@ TEST_F(FileSystemDatasetFactoryTest, MissingDirectories) {
                                                format_, factory_options_));
 
   InspectOptions options;
-  options.with_partition_inspection = true;
-
   AssertInspect(schema({field("a", int32()), field("b", int32())}), options);
   AssertFinishWithPaths({partition_path, unpartition_path});
 }
@@ -287,12 +270,21 @@ TEST_F(FileSystemDatasetFactoryTest, FinishWithIncompatibleSchemaShouldFail) {
   format_ = std::make_shared<DummyFileFormat>(s);
 
   auto broken_s = schema({field("f64", utf8())});
-  // No files
+
+  FinishOptions options;
+  options.schema = broken_s;
+  options.validate_fragments = true;
+
+  // No files and validation
   MakeFactory({});
-  ASSERT_OK_AND_ASSIGN(auto dataset, factory_->Finish(broken_s));
+  ASSERT_OK_AND_ASSIGN(auto dataset, factory_->Finish(options));
 
   MakeFactory({fs::File("test")});
-  ASSERT_RAISES(Invalid, factory_->Finish(broken_s));
+  ASSERT_RAISES(Invalid, factory_->Finish(options));
+
+  // Disable validation
+  options.validate_fragments = false;
+  ASSERT_OK_AND_ASSIGN(dataset, factory_->Finish(options));
 }
 
 TEST_F(FileSystemDatasetFactoryTest, InspectFragmentsLimit) {
@@ -303,10 +295,10 @@ TEST_F(FileSystemDatasetFactoryTest, InspectFragmentsLimit) {
   ASSERT_OK_AND_ASSIGN(auto schemas, factory_->InspectSchemas(options));
   EXPECT_THAT(schemas, SizeIs(2));
 
-  for (int depth = 0; depth < 3; depth++) {
-    options.depth = depth;
+  for (int fragments = 0; fragments < 3; fragments++) {
+    options.fragments = fragments;
     ASSERT_OK_AND_ASSIGN(auto schemas, factory_->InspectSchemas(options));
-    EXPECT_THAT(schemas, SizeIs(depth + 1));
+    EXPECT_THAT(schemas, SizeIs(fragments + 1));
   }
 }
 

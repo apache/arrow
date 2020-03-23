@@ -38,7 +38,7 @@ namespace arrow {
 namespace dataset {
 
 struct InspectOptions {
-  /// See `depth` property.
+  /// See `fragments` property.
   static constexpr int kInspectAllFragments = -1;
 
   /// Indicate how many fragments' schema should be inspected. This limits the
@@ -49,20 +49,25 @@ struct InspectOptions {
   /// The default value of `1` inspect the schema of the first fragment only,
   /// in no particular order. If the dataset has a uniform schema for all fragments,
   /// this default is the optimal value. In order to inspect all fragments, set
-  /// this option to `kInspectAllFragments`.
-  int depth = 1;
-
-  /// Indicate if the inspection process should also invoke the
-  /// PartitioningFactory::Inspect if the Dataset supports Partitioning.
-  bool with_partition_inspection = false;
+  /// this option to `kInspectAllFragments`. A value of `0` disable inspection
+  /// of fragments.
+  int fragments = 1;
 };
 
 struct FinishOptions {
-  std::shared_ptr<Schema> schema;
+  /// Finalize the dataset with this given schema. If the schema is not
+  /// provided, infer the schema via the Inspect, see the `inspect_options`
+  /// property.
+  std::shared_ptr<Schema> schema = NULLPTR;
 
-  // Indicate if the factory should validate the schema with every schemas
-  // returned by InspectSchemas().
-  bool validate_schema = false;
+  /// If the schema is not provided, it will be discovered by passing the
+  /// following options to `DatasetDiscovery::Inspect`.
+  InspectOptions inspect_options{};
+
+  /// Indicate if the given Schema (when inferred), should be validated against
+  /// the fragments' schemas. `inspect_options` will control how many fragments
+  /// are checked.
+  bool validate_fragments = false;
 };
 
 /// \brief DatasetFactory provides a way to inspect/discover a Dataset's expected
@@ -76,12 +81,10 @@ class ARROW_DS_EXPORT DatasetFactory {
   /// \brief Get unified schema for the resulting Dataset.
   Result<std::shared_ptr<Schema>> Inspect(InspectOptions options = {});
 
-  /// \brief Create a Dataset with the given schema.
-  virtual Result<std::shared_ptr<Dataset>> Finish(
-      const std::shared_ptr<Schema>& schema) = 0;
-
-  /// \brief Create a Dataset using the inspected schema.
-  virtual Result<std::shared_ptr<Dataset>> Finish();
+  /// \brief Create a Dataset
+  Result<std::shared_ptr<Dataset>> Finish();
+  Result<std::shared_ptr<Dataset>> Finish(std::shared_ptr<Schema> schema);
+  virtual Result<std::shared_ptr<Dataset>> Finish(FinishOptions options) = 0;
 
   /// \brief Optional root partition for the resulting Dataset.
   const std::shared_ptr<Expression>& root_partition() const { return root_partition_; }
@@ -114,11 +117,8 @@ class ARROW_DS_EXPORT UnionDatasetFactory : public DatasetFactory {
   Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas(
       InspectOptions options) override;
 
-  /// \brief Create a Dataset with the given schema.
-  Result<std::shared_ptr<Dataset>> Finish(const std::shared_ptr<Schema>& schema) override;
-
-  /// \brief Create a Dataset using the inspected schema.
-  Result<std::shared_ptr<Dataset>> Finish() override;
+  /// \brief Create a Dataset.
+  Result<std::shared_ptr<Dataset>> Finish(FinishOptions options) override;
 
  protected:
   explicit UnionDatasetFactory(std::vector<std::shared_ptr<DatasetFactory>> factories);
@@ -210,7 +210,7 @@ class ARROW_DS_EXPORT FileSystemDatasetFactory : public DatasetFactory {
   Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas(
       InspectOptions options) override;
 
-  Result<std::shared_ptr<Dataset>> Finish(const std::shared_ptr<Schema>& schema) override;
+  Result<std::shared_ptr<Dataset>> Finish(FinishOptions options) override;
 
  protected:
   FileSystemDatasetFactory(std::shared_ptr<fs::FileSystem> filesystem,
