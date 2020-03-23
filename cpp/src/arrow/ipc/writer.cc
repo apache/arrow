@@ -1247,11 +1247,21 @@ Status RecordBatchStreamWriter::Open(io::OutputStream* sink,
   return Status::OK();
 }
 
+Result<std::shared_ptr<RecordBatchWriter>> RecordBatchStreamWriter::Open(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema) {
+  return NewStreamWriter(sink, schema);
+}
+
 Status RecordBatchFileWriter::Open(io::OutputStream* sink,
                                    const std::shared_ptr<Schema>& schema,
                                    std::shared_ptr<RecordBatchWriter>* out) {
   ASSIGN_OR_RAISE(*out, NewFileWriter(sink, schema));
   return Status::OK();
+}
+
+Result<std::shared_ptr<RecordBatchWriter>> RecordBatchFileWriter::Open(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema) {
+  return NewFileWriter(sink, schema);
 }
 
 Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
