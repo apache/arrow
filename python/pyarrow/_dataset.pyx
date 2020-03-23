@@ -473,12 +473,10 @@ cdef class ParquetFileFragment(FileFragment):
 
     cdef:
         CParquetFileFragment* parquet_file_fragment
-        int _num_row_groups
 
     cdef void init(self, const shared_ptr[CFragment]& sp):
         FileFragment.init(self, sp)
         self.parquet_file_fragment = <CParquetFileFragment*> sp.get()
-        self._num_row_groups = -1
 
     @property
     def row_groups(self):
@@ -486,12 +484,13 @@ cdef class ParquetFileFragment(FileFragment):
         if len(row_groups) != 0:
             return row_groups
 
-        if self._num_row_groups == -1:
-            reader = ParquetReader()
-            reader.open(self.open())
-            self._num_row_groups = reader.num_row_groups
+        return None
 
-        return set(range(self._num_row_groups))
+    @property
+    def metadata(self):
+        reader = ParquetReader()
+        reader.open(self.open())
+        return reader.metadata
 
 
 cdef class ParquetFileFormatReaderOptions:

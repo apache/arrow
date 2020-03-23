@@ -230,7 +230,8 @@ def test_filesystem_dataset(mockfs):
             ds.AndExpression(root_partition, partition))
         assert fragment.path == path
         assert isinstance(fragment, ds.ParquetFileFragment)
-        assert fragment.row_groups == {0}
+        assert fragment.row_groups is None
+        assert fragment.metadata.num_row_groups == 1
 
 
 def test_dataset(dataset):

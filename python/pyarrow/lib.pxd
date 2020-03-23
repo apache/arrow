@@ -525,11 +525,6 @@ cdef class NativeFile:
     cdef shared_ptr[COutputStream] get_output_stream(self) except *
 
 
-cdef class BufferReader(NativeFile):
-    cdef:
-        Buffer buffer
-
-
 cdef class BufferedInputStream(NativeFile):
     pass
 

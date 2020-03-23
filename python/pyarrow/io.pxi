@@ -1172,6 +1172,8 @@ cdef class BufferReader(NativeFile):
     ----------
     obj : Python bytes or pyarrow.Buffer
     """
+    cdef:
+        Buffer buffer
 
     def __cinit__(self, object obj):
         self.buffer = as_buffer(obj)
