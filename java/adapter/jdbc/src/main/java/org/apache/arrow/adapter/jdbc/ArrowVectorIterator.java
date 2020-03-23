@@ -94,11 +94,19 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
     // consume data
     try {
       int readRowCount = 0;
-      while ((targetBatchSize == JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE || readRowCount < targetBatchSize) &&
-          resultSet.next()) {
-        compositeConsumer.consume(resultSet);
-        readRowCount++;
+      if (targetBatchSize == JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE) {
+        while (resultSet.next()) {
+          ensureCapacity(root, readRowCount + 1);
+          compositeConsumer.consume(resultSet);
+          readRowCount++;
+        }
+      } else {
+        while (readRowCount < targetBatchSize && resultSet.next()) {
+          compositeConsumer.consume(resultSet);
+          readRowCount++;
+        }
       }
+
 
       root.setRowCount(readRowCount);
     } catch (Exception e) {
@@ -111,7 +119,9 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
     VectorSchemaRoot root = null;
     try {
       root = VectorSchemaRoot.create(schema, config.getAllocator());
-      preAllocate(root, config);
+      if (config.getTargetBatchSize() != JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE) {
+        preAllocate(root, config);
+      }
     } catch (Exception e) {
       if (root != null) {
         root.close();
@@ -126,6 +136,16 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
     for (ValueVector vector : root.getFieldVectors()) {
       if (vector instanceof BaseFixedWidthVector) {
         ((BaseFixedWidthVector) vector).allocateNew(targetSize);
+      }
+    }
+  }
+
+  static void ensureCapacity(VectorSchemaRoot root, int targetCapacity) {
+    for (ValueVector vector : root.getFieldVectors()) {
+      if (vector instanceof BaseFixedWidthVector) {
+        while (vector.getValueCapacity() < targetCapacity) {
+          vector.reAlloc();
+        }
       }
     }
   }
