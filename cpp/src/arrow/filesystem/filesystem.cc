@@ -299,9 +299,7 @@ SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
                                double average_latency, int32_t seed)
     : base_fs_(base_fs), latencies_(io::LatencyGenerator::Make(average_latency, seed)) {}
 
-bool SlowFileSystem::Equals(const FileSystem& other) const {
-  return this == &other;
-}
+bool SlowFileSystem::Equals(const FileSystem& other) const { return this == &other; }
 
 Result<FileInfo> SlowFileSystem::GetFileInfo(const std::string& path) {
   latencies_->Sleep();
