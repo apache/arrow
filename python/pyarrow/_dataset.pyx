@@ -1165,20 +1165,12 @@ cdef class Scanner:
 def _binop(fn, left, right):
     # cython doesn't support reverse operands like __radd__ just passes the
     # arguments in the same order as the binary operator called
-
     if isinstance(left, Expression) and isinstance(right, Expression):
         pass
     elif isinstance(left, Expression):
-        try:
-            right = ScalarExpression(right)
-        except TypeError:
-            return NotImplemented
-
+        right = ScalarExpression(right)
     elif isinstance(right, Expression):
-        try:
-            left = ScalarExpression(left)
-        except TypeError:
-            return NotImplemented
+        left = ScalarExpression(left)
     else:
         raise TypeError('Neither left nor right arguments are Expressions')
 
@@ -1282,10 +1274,7 @@ cdef class Expression:
         }
 
         if not isinstance(other, Expression):
-            try:
-                other = ScalarExpression(other)
-            except TypeError:
-                return NotImplemented
+            other = ScalarExpression(other)
 
         return ComparisonExpression(operator_mapping[op], self, other)
 
