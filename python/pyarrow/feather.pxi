@@ -37,6 +37,8 @@ def write_feather(Table table, object dest, compression=None,
 
     if compression == 'zstd':
         properties.compression = CCompressionType_ZSTD
+    elif compression == 'lz4':
+        properties.compression = CCompressionType_LZ4
     else:
         properties.compression = CCompressionType_UNCOMPRESSED
 

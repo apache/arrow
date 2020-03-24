@@ -124,7 +124,7 @@ def write_feather(df, dest, compression=None, compression_level=None,
     dest : str
         Local destination path.
     compression : string, default None
-        Either "zstd" or None (for now)
+        {"zstd", "lz4", None}
     compression_level : int, default None
         Use a compression level particular to the chosen compressor. If None
         use the default compression level
