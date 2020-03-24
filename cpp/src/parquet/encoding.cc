@@ -1073,12 +1073,15 @@ static inline int64_t ReadByteArray(const uint8_t* data, int64_t data_size,
   if (ARROW_PREDICT_FALSE(data_size < 4)) {
     ParquetException::EofException();
   }
-  const uint32_t len = arrow::util::SafeLoadAs<uint32_t>(data);
+  const int32_t len = arrow::util::SafeLoadAs<int32_t>(data);
+  if (len < 0) {
+    throw ParquetException("Invalid BYTE_ARRAY value");
+  }
   const int64_t consumed_length = static_cast<int64_t>(4 + len);
   if (ARROW_PREDICT_FALSE(data_size < consumed_length)) {
     ParquetException::EofException();
   }
-  *out = ByteArray{len, data + 4};
+  *out = ByteArray{static_cast<uint32_t>(len), data + 4};
   return consumed_length;
 }
 
@@ -1574,6 +1577,13 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
   }
 
  protected:
+  Status IndexInBounds(int32_t index) {
+    if (ARROW_PREDICT_TRUE(0 <= index && index < dictionary_length_)) {
+      return Status::OK();
+    }
+    return Status::Invalid("Index not in dictionary bounds");
+  }
+
   inline void DecodeDict(TypedDecoder<Type>* dictionary) {
     dictionary_length_ = static_cast<int32_t>(dictionary->values_left());
     PARQUET_THROW_NOT_OK(dictionary_->Resize(dictionary_length_ * sizeof(T),
@@ -1706,6 +1716,7 @@ int DictDecoderImpl<DType>::DecodeArrow(
       if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
         throw ParquetException("");
       }
+      PARQUET_THROW_NOT_OK(IndexInBounds(index));
       PARQUET_THROW_NOT_OK(builder->Append(dict_values[index]));
     } else {
       PARQUET_THROW_NOT_OK(builder->AppendNull());
@@ -1745,6 +1756,7 @@ inline int DictDecoderImpl<FLBAType>::DecodeArrow(
       if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
         throw ParquetException("");
       }
+      PARQUET_THROW_NOT_OK(IndexInBounds(index));
       builder->UnsafeAppend(dict_values[index].ptr);
     } else {
       builder->UnsafeAppendNull();
@@ -1781,6 +1793,7 @@ int DictDecoderImpl<FLBAType>::DecodeArrow(
       if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
         throw ParquetException("");
       }
+      PARQUET_THROW_NOT_OK(IndexInBounds(index));
       PARQUET_THROW_NOT_OK(builder->Append(dict_values[index].ptr));
     } else {
       PARQUET_THROW_NOT_OK(builder->AppendNull());
@@ -1808,6 +1821,7 @@ int DictDecoderImpl<Type>::DecodeArrow(
       if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
         throw ParquetException("");
       }
+      PARQUET_THROW_NOT_OK(IndexInBounds(index));
       builder->UnsafeAppend(dict_values[index]);
     } else {
       builder->UnsafeAppendNull();
@@ -1868,13 +1882,6 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
   }
 
  private:
-  Status IndexInBounds(int32_t index) {
-    if (ARROW_PREDICT_TRUE(0 <= index && index < dictionary_length_)) {
-      return Status::OK();
-    }
-    return Status::Invalid("Index not in dictionary bounds");
-  }
-
   Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
                           typename EncodingTraits<ByteArrayType>::Accumulator* out,
