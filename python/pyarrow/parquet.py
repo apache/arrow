@@ -1428,7 +1428,8 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                              format=parquat_format, partitioning="hive")
         if filters is not None and not isinstance(filters, ds.Expression):
             filters = _filters_to_expression(filters)
-        table = dataset.to_table(columns=columns, filter=filters)
+        table = dataset.to_table(columns=columns, filter=filters,
+                                 use_threads=use_threads)
 
         # remove ARROW:schema metadata, current parquet version doesn't
         # preserve this

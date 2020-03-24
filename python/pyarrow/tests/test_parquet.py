@@ -188,9 +188,8 @@ def alltypes_sample(size=10000, seed=0, categorical=False):
     return pd.DataFrame(arrays)
 
 
-# TODO(dataset) non-deterministic order
-@parametrize_use_dataset_not_supported
 @pytest.mark.pandas
+@parametrize_use_dataset
 @pytest.mark.parametrize('chunk_size', [None, 1000])
 def test_pandas_parquet_2_0_roundtrip(tempdir, chunk_size, use_dataset):
     df = alltypes_sample(size=10000, categorical=True)
@@ -201,7 +200,10 @@ def test_pandas_parquet_2_0_roundtrip(tempdir, chunk_size, use_dataset):
 
     _write_table(arrow_table, filename, version="2.0",
                  coerce_timestamps='ms', chunk_size=chunk_size)
-    table_read = pq.read_pandas(filename)
+    # TODO(datasets)
+    use_threads = False if use_dataset and chunk_size is not None else True
+    table_read = pq.read_pandas(
+        filename, use_dataset=use_dataset, use_threads=use_threads)
     assert table_read.schema.pandas_metadata is not None
 
     assert arrow_table.schema.metadata == table_read.schema.metadata
@@ -2274,7 +2276,9 @@ def test_read_multiple_files(tempdir, use_dataset):
     # Write a _SUCCESS.crc file
     (dirpath / '_SUCCESS.crc').touch()
 
-    def read_multiple_files(paths, columns=None, use_threads=True, **kwargs):
+    # TODO(datasets) changed to use_threads=False because otherwise the
+    # row order is not deterministic
+    def read_multiple_files(paths, columns=None, use_threads=False, **kwargs):
         dataset = pq.ParquetDataset(paths, use_dataset=use_dataset, **kwargs)
         return dataset.read(columns=columns, use_threads=use_threads)
 
@@ -2654,7 +2658,10 @@ def _test_write_to_dataset_with_partitions(base_path,
 
     assert dataset_cols == set(output_table.schema.names)
 
-    input_table = dataset.read()
+    # TODO(datasets) changed to use_threads=False because otherwise the
+    # row order is not deterministic
+    kwargs = dict(use_threads=False) if use_dataset else {}
+    input_table = dataset.read(**kwargs)
     input_df = input_table.to_pandas()
 
     # Read data back in and compare with original DataFrame
