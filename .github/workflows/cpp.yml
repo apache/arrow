@@ -193,6 +193,7 @@ jobs:
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
       BOOST_ROOT: C:\local\boost_1_67_0
       BOOST_LIBRARYDIR: C:\local\boost_1_67_0\lib64-msvc-14.1\
+      NPROC: 2
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -257,6 +258,7 @@ jobs:
         -DBoost_NO_BOOST_CMAKE=ON
       CMAKE_GENERATOR: MSYS Makefiles
       CMAKE_UNITY_BUILD: ON
+      NPROC: 2
     steps:
       - name: Disable Crash Dialogs
         run: |
