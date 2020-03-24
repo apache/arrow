@@ -400,8 +400,7 @@ class TimestampConverter : public ConcreteConverter {
             builder.UnsafeAppendNull();
             return Status::OK();
           }
-          if (ARROW_PREDICT_FALSE(
-                  !converter(type_, reinterpret_cast<const char*>(data), size, &value))) {
+          if (!converter(type_, reinterpret_cast<const char*>(data), size, &value)) {
             continue;
           }
           builder.UnsafeAppend(value);
