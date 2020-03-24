@@ -636,7 +636,7 @@ garrow_file_system_get_type_name(GArrowFileSystem *file_system)
 }
 
 /**
- * garrow_file_system_get_target_info:
+ * garrow_file_system_get_file_info:
  * @file_system: A #GArrowFileSystem.
  * @path: The path of the target.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -654,13 +654,13 @@ garrow_file_system_get_type_name(GArrowFileSystem *file_system)
  * Since: 1.0.0
  */
 GArrowFileInfo *
-garrow_file_system_get_target_info(GArrowFileSystem *file_system,
-                                   const gchar *path,
-                                   GError **error)
+garrow_file_system_get_file_info(GArrowFileSystem *file_system,
+                                 const gchar *path,
+                                 GError **error)
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto arrow_result = arrow_file_system->GetFileInfo(path);
-  if (garrow::check(error, arrow_result, "[file-system][get-target-info]")) {
+  if (garrow::check(error, arrow_result, "[file-system][get-file-info]")) {
     const auto &arrow_file_info = *arrow_result;
     return garrow_file_info_new_raw(arrow_file_info);
   } else {
@@ -687,13 +687,13 @@ garrow_file_infos_new(arrow::Result<std::vector<arrow::fs::FileInfo>>&& arrow_re
 }
 
 /**
- * garrow_file_system_get_target_infos_paths:
+ * garrow_file_system_get_file_infos_paths:
  * @file_system: A #GArrowFileSystem.
  * @paths: (array length=n_paths): The paths of the targets.
  * @n_paths: The number of items in @paths.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Get information same as garrow_file_system_get_target_info()
+ * Get information same as garrow_file_system_get_file_info()
  * for the given many targets at once.
  *
  * Returns: (element-type GArrowFileInfo) (transfer full):
@@ -702,10 +702,10 @@ garrow_file_infos_new(arrow::Result<std::vector<arrow::fs::FileInfo>>&& arrow_re
  * Since: 1.0.0
  */
 GList *
-garrow_file_system_get_target_infos_paths(GArrowFileSystem *file_system,
-                                          const gchar **paths,
-                                          gsize n_paths,
-                                          GError **error)
+garrow_file_system_get_file_infos_paths(GArrowFileSystem *file_system,
+                                        const gchar **paths,
+                                        gsize n_paths,
+                                        GError **error)
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   std::vector<std::string> arrow_paths;
@@ -714,16 +714,16 @@ garrow_file_system_get_target_infos_paths(GArrowFileSystem *file_system,
   }
   return garrow_file_infos_new(arrow_file_system->GetFileInfo(arrow_paths),
                                error,
-                               "[file-system][get-target-infos][paths]");
+                               "[file-system][get-file-infos][paths]");
 }
 
 /**
- * garrow_file_system_get_target_infos_selector:
+ * garrow_file_system_get_file_infos_selector:
  * @file_system: A #GArrowFileSystem.
  * @file_selector: A #GArrowFileSelector.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Get information same as garrow_file_system_get_target_info()
+ * Get information same as garrow_file_system_get_file_info()
  * according to a selector.
  *
  * The selector's base directory will not be part of the results,
@@ -735,16 +735,16 @@ garrow_file_system_get_target_infos_paths(GArrowFileSystem *file_system,
  * Since: 1.0.0
  */
 GList *
-garrow_file_system_get_target_infos_selector(GArrowFileSystem *file_system,
-                                             GArrowFileSelector *file_selector,
-                                             GError **error)
+garrow_file_system_get_file_infos_selector(GArrowFileSystem *file_system,
+                                           GArrowFileSelector *file_selector,
+                                           GError **error)
 {
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   const auto &arrow_file_selector =
     GARROW_FILE_SELECTOR_GET_PRIVATE(file_selector)->file_selector;
   return garrow_file_infos_new(arrow_file_system->GetFileInfo(arrow_file_selector),
                                error,
-                               "[file-system][get-target-infos][selector]");
+                               "[file-system][get-file-infos][selector]");
 }
 
 /**

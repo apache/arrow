@@ -109,21 +109,21 @@ gchar *garrow_file_system_get_type_name(GArrowFileSystem *file_system);
 
 GARROW_AVAILABLE_IN_1_0
 GArrowFileInfo *
-garrow_file_system_get_target_info(GArrowFileSystem *file_system,
-                                   const gchar *path,
-                                   GError **error);
+garrow_file_system_get_file_info(GArrowFileSystem *file_system,
+                                 const gchar *path,
+                                 GError **error);
 
 GARROW_AVAILABLE_IN_1_0
-GList *garrow_file_system_get_target_infos_paths(GArrowFileSystem *file_system,
-                                                 const gchar **paths,
-                                                 gsize n_paths,
-                                                 GError **error);
+GList *garrow_file_system_get_file_infos_paths(GArrowFileSystem *file_system,
+                                               const gchar **paths,
+                                               gsize n_paths,
+                                               GError **error);
 
 GARROW_AVAILABLE_IN_1_0
 GList *
-garrow_file_system_get_target_infos_selector(GArrowFileSystem *file_system,
-                                             GArrowFileSelector *file_selector,
-                                             GError **error);
+garrow_file_system_get_file_infos_selector(GArrowFileSystem *file_system,
+                                           GArrowFileSelector *file_selector,
+                                           GError **error);
 
 GARROW_AVAILABLE_IN_1_0
 gboolean garrow_file_system_create_dir(GArrowFileSystem *file_system,
