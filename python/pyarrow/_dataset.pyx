@@ -1493,9 +1493,8 @@ cdef class CastExpression(UnaryExpression):
         -------
         bool
         """
-        cdef CCastOptions options = self.cast.options()
-        # infer safeness from any of the allow_* properties of the cast option
-        return not options.allow_int_overflow
+        cdef CastOptions options = CastOptions.wrap(self.cast.options())
+        return options.is_safe()
 
     def __reduce__(self):
         return CastExpression, (self.operand, self.to, self.safe)
@@ -1506,10 +1505,10 @@ cdef class InExpression(UnaryExpression):
     cdef:
         CInExpression* inexpr
 
-    def __init__(self, Expression operand not None, Array haystack not None):
+    def __init__(self, Expression operand not None, Array set_ not None):
         cdef shared_ptr[CExpression] expr
         expr.reset(
-            new CInExpression(operand.unwrap(), pyarrow_unwrap_array(haystack))
+            new CInExpression(operand.unwrap(), pyarrow_unwrap_array(set_))
         )
         self.init(expr)
 
@@ -1518,11 +1517,11 @@ cdef class InExpression(UnaryExpression):
         self.inexpr = <CInExpression*> sp.get()
 
     @property
-    def values(self):
+    def set_(self):
         return pyarrow_wrap_array(self.inexpr.set())
 
     def __reduce__(self):
-        return InExpression, (self.operand, self.values)
+        return InExpression, (self.operand, self.set_)
 
 
 cdef class NotExpression(UnaryExpression):

@@ -354,9 +354,15 @@ def test_expression():
     or_ = ds.OrExpression(a, b)
     not_ = ds.NotExpression(ds.OrExpression(a, b))
     is_valid = ds.IsValidExpression(a)
-    cast_unsafe = ds.CastExpression(a, pa.int32())
-    cast_safe = ds.CastExpression(a, pa.int32(), safe=True)
+    cast_safe = ds.CastExpression(a, pa.int32())
+    cast_unsafe = ds.CastExpression(a, pa.int32(), safe=False)
     in_ = ds.InExpression(a, pa.array([1, 2, 3]))
+
+    assert is_valid.operand == a
+    assert in_.set_.equals(pa.array([1, 2, 3]))
+    assert cast_unsafe.to == pa.int32()
+    assert cast_unsafe.safe is False
+    assert cast_safe.safe is True
 
     condition = ds.ComparisonExpression(
         ds.CompareOperator.Greater,
