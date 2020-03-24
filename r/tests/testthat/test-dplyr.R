@@ -166,6 +166,7 @@ test_that("filter environment scope", {
 })
 
 test_that("Filtering on a column that doesn't exist errors correctly", {
+  skip("Error handling in filter() needs to be internationalized")
   expect_error(
     batch %>% filter(not_a_col == 42) %>% collect(),
     "object 'not_a_col' not found"
