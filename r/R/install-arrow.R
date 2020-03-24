@@ -36,7 +36,7 @@
 #' faster, but there is a risk of version mismatch.
 #' @param minimal logical: If building from source, should we build without
 #' optional dependencies (compression libraries, for example)? Default is
-#' `FALSE`. 
+#' `FALSE`.
 #' @param repos character vector of base URLs of the repositories to install
 #' from (passed to `install.packages()`)
 #' @param ... Additional arguments passed to `install.packages()`
@@ -51,14 +51,21 @@ install_arrow <- function(nightly = FALSE,
                           minimal = Sys.getenv("LIBARROW_MINIMAL", FALSE),
                           repos = getOption("repos"),
                           ...) {
-  if (tolower(Sys.info()[["sysname"]]) %in% c("windows", "darwin", "linux")) {
-    Sys.setenv(
-      LIBARROW_DOWNLOAD = "true",
-      LIBARROW_BINARY = binary,
-      LIBARRWOW_MINIMAL = minimal,
-      ARROW_USE_PKG_CONFIG = use_system
-    )
-    install.packages("arrow", repos = arrow_repos(repos, nightly), ...)
+  sysname <- tolower(Sys.info()[["sysname"]])
+  conda <- isTRUE(grepl("conda", R.Version()$platform))
+
+  if (sysname %in% c("windows", "darwin", "linux")) {
+    if (conda && !nightly && (sysname %in% c("darwin", "linux"))) {
+      system("conda install -y -c conda-forge --strict-channel-priority r-arrow")
+    } else {
+      Sys.setenv(
+        LIBARROW_DOWNLOAD = "true",
+        LIBARROW_BINARY = binary,
+        LIBARRWOW_MINIMAL = minimal,
+        ARROW_USE_PKG_CONFIG = use_system
+      )
+      install.packages("arrow", repos = arrow_repos(repos, nightly), ...)
+    }
     if ("arrow" %in% loadedNamespaces()) {
       # If you've just sourced this file, "arrow" won't be (re)loaded
       reload_arrow()
