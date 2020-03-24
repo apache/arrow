@@ -1960,7 +1960,8 @@ TEST(TestArrowReadWrite, ReadTableManually) {
   AssertTablesEqual(*actual, *expected, /*same_chunk_layout=*/false);
 }
 
-TEST(TestArrowReadWrite, GetRecordBatchReader) {
+void TestGetRecordBatchReader(
+    ReaderProperties parquet_properties = default_reader_properties()) {
   const int num_columns = 20;
   const int num_rows = 1000;
   const int batch_size = 100;
@@ -2012,6 +2013,15 @@ TEST(TestArrowReadWrite, GetRecordBatchReader) {
   ASSERT_EQ(nullptr, actual_batch);
 }
 
+TEST(TestArrowReadWrite, GetRecordBatchReader) { TestGetRecordBatchReader(); }
+
+// Same as the test above, but using coalesced reads.
+TEST(TestArrowReadWrite, CoalescedReads) {
+  ReaderProperties parquet_properties = default_reader_properties();
+  parquet_properties.enable_coalesced_stream();
+  TestGetRecordBatchReader(parquet_properties);
+}
+
 TEST(TestArrowReadWrite, ScanContents) {
   const int num_columns = 20;
   const int num_rows = 1000;
@@ -2058,6 +2068,45 @@ TEST(TestArrowReadWrite, ReadColumnSubset) {
   auto ex_schema = ::arrow::schema(ex_fields);
   auto expected = Table::Make(ex_schema, ex_columns);
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*expected, *result));
+}
+
+TEST(TestArrowReadWrite, ReadCoalescedColumnSubset) {
+  const int num_columns = 20;
+  const int num_rows = 1000;
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, num_rows / 2,
+                                             default_arrow_writer_properties(), &buffer));
+
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ReaderProperties properties = default_reader_properties();
+  properties.enable_coalesced_stream();
+  ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer), properties));
+  ASSERT_OK(builder.Build(&reader));
+  reader->set_use_threads(true);
+
+  // Test multiple subsets to ensure we can read from the file multiple times
+  std::vector<std::vector<int>> column_subsets = {
+      {0, 4, 8, 10}, {0, 1, 2, 3}, {5, 17, 18, 19}};
+
+  for (std::vector<int>& column_subset : column_subsets) {
+    std::shared_ptr<Table> result;
+    ASSERT_OK(reader->ReadTable(column_subset, &result));
+
+    std::vector<std::shared_ptr<::arrow::ChunkedArray>> ex_columns;
+    std::vector<std::shared_ptr<::arrow::Field>> ex_fields;
+    for (int i : column_subset) {
+      ex_columns.push_back(table->column(i));
+      ex_fields.push_back(table->field(i));
+    }
+
+    auto ex_schema = ::arrow::schema(ex_fields);
+    auto expected = Table::Make(ex_schema, ex_columns);
+    ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*expected, *result));
+  }
 }
 
 TEST(TestArrowReadWrite, ListLargeRecords) {
