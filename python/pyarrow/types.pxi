@@ -1036,7 +1036,7 @@ cdef class Schema:
         arrays = []
         names = []
         for field in self:
-            arrays.append(array([], type=field.type))
+            arrays.append(_empty_array(field.type))
             names.append(field.name)
         return Table.from_arrays(
             arrays=arrays,
