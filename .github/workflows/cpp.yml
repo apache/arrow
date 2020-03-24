@@ -191,8 +191,6 @@ jobs:
       ARROW_BUILD_STATIC: OFF
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
-      BOOST_ROOT: C:\local\boost_1_67_0
-      BOOST_LIBRARYDIR: C:\local\boost_1_67_0\lib64-msvc-14.1\
       NPROC: 2
     steps:
       - name: Disable Crash Dialogs
@@ -206,7 +204,7 @@ jobs:
       - name: Installed Packages
         run: choco list -l
       - name: Install Dependencies
-        run: choco install -y --no-progress openssl boost-msvc-14.1
+        run: choco install -y --no-progress openssl
       - name: Checkout Arrow
         uses: actions/checkout@v2
         with:
