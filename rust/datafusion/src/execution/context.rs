@@ -380,7 +380,9 @@ impl ExecutionContext {
         input_schema: &Schema,
     ) -> Result<Arc<dyn PhysicalExpr>> {
         match e {
-            Expr::Column(i) => Ok(Arc::new(Column::new(*i))),
+            Expr::Column(i) => {
+                Ok(Arc::new(Column::new(*i, &input_schema.field(*i).name())))
+            }
             Expr::Literal(value) => Ok(Arc::new(Literal::new(value.clone()))),
             Expr::BinaryExpr { left, op, right } => Ok(Arc::new(BinaryExpr::new(
                 self.create_physical_expr(left, input_schema)?,
