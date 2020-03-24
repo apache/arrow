@@ -56,7 +56,8 @@ def datadir(datadir):
     return datadir / 'parquet'
 
 
-parametrize_use_dataset = pytest.mark.parametrize("use_dataset", [False, True])
+parametrize_use_dataset = pytest.mark.parametrize(
+    "use_dataset", [False, pytest.param(True, marks=pytest.mark.dataset)])
 parametrize_use_dataset_not_supported = pytest.mark.parametrize(
     "use_dataset", [False, pytest.param(True, marks=pytest.mark.skip)])
 parametrize_use_dataset_skip_buffer = pytest.mark.parametrize(
