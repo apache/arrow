@@ -163,6 +163,35 @@ def _filters_to_expression(filters):
     return expr
 
 
+def _dataset_from_legacy_args(
+    path_or_paths, filesystem=None, read_dictionary=None, buffer_size=None
+):
+    """
+    Create a pyarrow.dataset.FileSystemDataset to use inside read_table
+    and ParquetDataset.
+    """
+    import pyarrow.dataset as ds
+    import pyarrow.fs
+
+    # map old filesystems to new one
+    if isinstance(filesystem, LocalFileSystem):
+        filesystem = pyarrow.fs.LocalFileSystem()
+
+    # map additional arguments
+    # TODO raise warning when unsupported arguments are passed
+    reader_options = {}
+    if buffer_size:
+        reader_options.update(use_buffered_stream=True,
+                              buffer_size=buffer_size)
+    if read_dictionary is not None:
+        reader_options.update(dict_columns=read_dictionary)
+    parquet_format = ds.ParquetFileFormat(reader_options=reader_options)
+
+    dataset = ds.dataset(path_or_paths, filesystem=filesystem,
+                         format=parquet_format, partitioning="hive")
+    return dataset
+
+
 # ----------------------------------------------------------------------
 # Reading a single Parquet file
 
@@ -1332,23 +1361,9 @@ class ParquetDatasetV2:
     """
     def __init__(self, path_or_paths, filesystem=None, filters=None,
                  read_dictionary=None, buffer_size=None):
-        import pyarrow.dataset as ds
-        import pyarrow.fs
-
-        # map old filesystems to new one
-        if isinstance(filesystem, LocalFileSystem):
-            filesystem = pyarrow.fs.LocalFileSystem()
-
-        reader_options = {}
-        if buffer_size:
-            reader_options.update(use_buffered_stream=True,
-                                  buffer_size=buffer_size)
-        if read_dictionary is not None:
-            reader_options.update(dict_columns=read_dictionary)
-        parquat_format = ds.ParquetFileFormat(reader_options=reader_options)
-
-        dataset = ds.dataset(path_or_paths, filesystem=filesystem,
-                             format=parquat_format, partitioning="hive")
+        dataset = _dataset_from_legacy_args(
+            path_or_paths, filesystem=filesystem,
+            read_dictionary=read_dictionary, buffer_size=buffer_size)
         self._dataset = dataset
         self.filters = filters
         if filters is not None:
@@ -1360,7 +1375,7 @@ class ParquetDatasetV2:
     def schema(self):
         return self._dataset.schema
 
-    def read(self, columns=None, use_threads=False):
+    def read(self, columns=None, use_threads=True):
         return self._dataset.to_table(
             columns=columns, filter=self.filter_expression,
             use_threads=use_threads
@@ -1408,24 +1423,10 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                buffer_size=0, use_dataset=False):
     if use_dataset:
         import pyarrow.dataset as ds
-        import pyarrow.fs
+        dataset = _dataset_from_legacy_args(
+            source, filesystem=filesystem, read_dictionary=read_dictionary,
+            buffer_size=buffer_size)
 
-        # map old filesystems to new one
-        if isinstance(filesystem, LocalFileSystem):
-            filesystem = pyarrow.fs.LocalFileSystem()
-
-        # map additional arguments
-        # TODO raise warning when unsupported arguments are passed
-        reader_options = {}
-        if buffer_size:
-            reader_options.update(use_buffered_stream=True,
-                                  buffer_size=buffer_size)
-        if read_dictionary is not None:
-            reader_options.update(dict_columns=read_dictionary)
-        parquat_format = ds.ParquetFileFormat(reader_options=reader_options)
-
-        dataset = ds.dataset(source, filesystem=filesystem,
-                             format=parquat_format, partitioning="hive")
         if filters is not None and not isinstance(filters, ds.Expression):
             filters = _filters_to_expression(filters)
         table = dataset.to_table(columns=columns, filter=filters,
