@@ -102,23 +102,6 @@ Java_org_apache_arrow_plasma_PlasmaClientJNI_contains(JNIEnv*, jclass, jlong, jb
 
 /*
  * Class:     org_apache_arrow_plasma_PlasmaClientJNI
- * Method:    fetch
- * Signature: (J[[B)V
- */
-JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_fetch(JNIEnv*, jclass,
-                                                                          jlong,
-                                                                          jobjectArray);
-
-/*
- * Class:     org_apache_arrow_plasma_PlasmaClientJNI
- * Method:    wait
- * Signature: (J[[BII)[[B
- */
-JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_wait(
-    JNIEnv*, jclass, jlong, jobjectArray, jint, jint);
-
-/*
- * Class:     org_apache_arrow_plasma_PlasmaClientJNI
  * Method:    evict
  * Signature: (JJ)J
  */

@@ -46,11 +46,6 @@ public class PlasmaClientJNI {
 
   public static native boolean contains(long conn, byte[] objectId);
 
-  public static native void fetch(long conn, byte[][] objectIds);
-
-  public static native byte[][] wait(long conn, byte[][] objectIds, int timeoutMs,
-      int numReturns);
-
   public static native long evict(long conn, long numBytes);
 
 }
