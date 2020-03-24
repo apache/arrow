@@ -83,9 +83,10 @@ RUN \
     python3-wheel \
     tzdata \
     zlib1g-dev && \
-  apt install -y -V -t stretch-backports -t stretch-backports-sloppy ${quiet} \
-    debhelper && \
+  apt install -y -V -t stretch-backports-sloppy ${quiet} \
+    libarchive13 && \
   apt install -y -V -t stretch-backports ${quiet} \
+    debhelper && \
     libgmock-dev \
     libgtest-dev \
     rapidjson-dev && \
