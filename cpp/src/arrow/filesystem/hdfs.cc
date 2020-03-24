@@ -308,11 +308,11 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
   if (it != options_map.end()) {
     const auto& v = it->second;
     ::arrow::internal::StringConverter<Int16Type> converter;
-    int16_t reps;
-    if (!converter(v.data(), v.size(), &reps)) {
+    int16_t replication;
+    if (!converter(v.data(), v.size(), &replication)) {
       return Status::Invalid("Invalid value for option 'replication': '", v, "'");
     }
-    options.ConfigureHdfsReplication(reps);
+    options.ConfigureHdfsReplication(replication);
   }
 
   // configure buffer_size
@@ -320,11 +320,11 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
   if (it != options_map.end()) {
     const auto& v = it->second;
     ::arrow::internal::StringConverter<Int32Type> converter;
-    int32_t reps;
-    if (!converter(v.data(), v.size(), &reps)) {
+    int32_t buffer_size;
+    if (!converter(v.data(), v.size(), &buffer_size)) {
       return Status::Invalid("Invalid value for option 'buffer_size': '", v, "'");
     }
-    options.ConfigureHdfsBufferSize(reps);
+    options.ConfigureHdfsBufferSize(buffer_size);
   }
 
   // configure default_block_size
@@ -332,18 +332,18 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
   if (it != options_map.end()) {
     const auto& v = it->second;
     ::arrow::internal::StringConverter<Int64Type> converter;
-    int64_t reps;
-    if (!converter(v.data(), v.size(), &reps)) {
+    int64_t default_block_size;
+    if (!converter(v.data(), v.size(), &default_block_size)) {
       return Status::Invalid("Invalid value for option 'default_block_size': '", v, "'");
     }
-    options.ConfigureHdfsBlockSize(reps);
+    options.ConfigureHdfsBlockSize(default_block_size);
   }
 
   // configure user
   it = options_map.find("user");
   if (it != options_map.end()) {
-    const auto& v = it->second;
-    options.ConfigureHdfsUser(v);
+    const auto& user = it->second;
+    options.ConfigureHdfsUser(user);
   }
 
   return options;

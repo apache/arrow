@@ -40,8 +40,8 @@ cdef class HadoopFileSystem(FileSystem):
     buffer_size : int, default 0
         If 0, no buffering will happen otherwise the size of the temporary read
         and write buffer.
-    default_block_size : int, default 0
-        0 means the default configuration for HDFS, a typical block size is
+    default_block_size : int, default None
+        None means the default configuration for HDFS, a typical block size is
         128 MB.
     """
 
@@ -58,14 +58,15 @@ cdef class HadoopFileSystem(FileSystem):
         if not host.startswith('hdfs://'):
             # TODO(kszucs): do more sanitization
             host = 'hdfs://{}'.format(host)
+
         options.ConfigureEndPoint(tobytes(host), int(port))
+        options.ConfigureHdfsReplication(replication)
+        options.ConfigureHdfsBufferSize(buffer_size)
 
         if user is not None:
-            options.connection_config.user = tobytes(user)
-
-        options.replication = replication
-        options.buffer_size = buffer_size
-        options.default_block_size = default_block_size
+            options.ConfigureHdfsUser(tobytes(user))
+        if default_block_size is not None:
+            options.ConfigureHdfsBlockSize(default_block_size)
 
         with nogil:
             wrapped = GetResultValue(CHadoopFileSystem.Make(options))

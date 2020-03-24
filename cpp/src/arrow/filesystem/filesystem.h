@@ -168,7 +168,7 @@ class ARROW_EXPORT FileSystem {
   /// may allow normalizing irregular path forms (such as Windows local paths).
   virtual Result<std::string> NormalizePath(std::string path);
 
-  virtual bool Equals(const FileSystem& other) const { return this == &other; }
+  virtual bool Equals(const FileSystem& other) const = 0;
 
   virtual bool Equals(std::shared_ptr<FileSystem> other) const { return Equals(*other); }
 
@@ -321,6 +321,7 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
                  int32_t seed);
 
   std::string type_name() const override { return "slow"; }
+  bool Equals(const FileSystem& other) const override;
 
   using FileSystem::GetFileInfo;
   Result<FileInfo> GetFileInfo(const std::string& path) override;

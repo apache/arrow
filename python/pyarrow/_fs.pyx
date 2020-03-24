@@ -661,6 +661,3 @@ cdef class _MockFileSystem(FileSystem):
     cdef init(self, const shared_ptr[CFileSystem]& wrapped):
         FileSystem.init(self, wrapped)
         self.mockfs = <CMockFileSystem*> wrapped.get()
-
-    def __reduce__(self):
-        return _MockFileSystem, tuple()

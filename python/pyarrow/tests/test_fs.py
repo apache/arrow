@@ -214,13 +214,35 @@ def test_filesystem_equals():
 
 
 def test_filesystem_pickling(fs):
+    if isinstance(fs, _MockFileSystem):
+        pytest.xfail(reason='MockFileSystem is not serializable')
+
     serialized = pickle.dumps(fs)
     restored = pickle.loads(serialized)
     assert isinstance(restored, FileSystem)
+    assert restored.equals(fs)
+
+
+def test_filesystem_is_functional_after_pickling(fs, pathfn):
     if isinstance(fs, _MockFileSystem):
-        assert not restored.equals(fs)
-    else:
-        assert restored.equals(fs)
+        pytest.xfail(reason='MockFileSystem is not serializable')
+
+    restored = pickle.loads(pickle.dumps(fs))
+
+    aaa = pathfn('a/aa/aaa/')
+    bb = pathfn('a/bb')
+    c = pathfn('c.txt')
+
+    restored.create_dir(aaa)
+    with restored.open_output_stream(bb):
+        pass  # touch
+    with restored.open_output_stream(c) as fp:
+        fp.write(b'test')
+
+    aaa_info, bb_info, c_info = restored.get_file_info([aaa, bb, c])
+    assert aaa_info.type == FileType.Directory
+    assert bb_info.type == FileType.File
+    assert c_info.type == FileType.File
 
 
 def test_non_path_like_input_raises(fs):
@@ -240,48 +262,42 @@ def test_get_target_infos(fs, pathfn):
     c = pathfn('c.txt')
     zzz = pathfn('zzz')
 
-    # also test that the filesystem object is functional after a serialization
-    # roundtrip
-    fs_ = pickle.loads(pickle.dumps(fs))
+    fs.create_dir(aaa)
+    with fs.open_output_stream(bb):
+        pass  # touch
+    with fs.open_output_stream(c) as fp:
+        fp.write(b'test')
 
-    for fs in [fs, fs_]:
-        fs.create_dir(aaa)
-        with fs.open_output_stream(bb):
-            pass  # touch
-        with fs.open_output_stream(c) as fp:
-            fp.write(b'test')
+    aaa_info, bb_info, c_info, zzz_info = fs.get_file_info([aaa, bb, c, zzz])
 
-        aaa_info, bb_info, c_info, zzz_info = \
-            fs.get_file_info([aaa, bb, c, zzz])
+    assert aaa_info.path == aaa
+    assert 'aaa' in repr(aaa_info)
+    assert aaa_info.extension == ''
+    assert 'FileType.Directory' in repr(aaa_info)
+    assert isinstance(aaa_info.mtime, datetime)
 
-        assert aaa_info.path == aaa
-        assert 'aaa' in repr(aaa_info)
-        assert aaa_info.extension == ''
-        assert 'FileType.Directory' in repr(aaa_info)
-        assert isinstance(aaa_info.mtime, datetime)
+    assert bb_info.path == str(bb)
+    assert bb_info.base_name == 'bb'
+    assert bb_info.extension == ''
+    assert bb_info.type == FileType.File
+    assert 'FileType.File' in repr(bb_info)
+    assert bb_info.size == 0
+    assert isinstance(bb_info.mtime, datetime)
 
-        assert bb_info.path == str(bb)
-        assert bb_info.base_name == 'bb'
-        assert bb_info.extension == ''
-        assert bb_info.type == FileType.File
-        assert 'FileType.File' in repr(bb_info)
-        assert bb_info.size == 0
-        assert isinstance(bb_info.mtime, datetime)
+    assert c_info.path == str(c)
+    assert c_info.base_name == 'c.txt'
+    assert c_info.extension == 'txt'
+    assert c_info.type == FileType.File
+    assert 'FileType.File' in repr(c_info)
+    assert c_info.size == 4
+    assert isinstance(c_info.mtime, datetime)
 
-        assert c_info.path == str(c)
-        assert c_info.base_name == 'c.txt'
-        assert c_info.extension == 'txt'
-        assert c_info.type == FileType.File
-        assert 'FileType.File' in repr(c_info)
-        assert c_info.size == 4
-        assert isinstance(c_info.mtime, datetime)
-
-        assert zzz_info.path == str(zzz)
-        assert zzz_info.base_name == 'zzz'
-        assert zzz_info.extension == ''
-        assert zzz_info.type == FileType.NotFound
-        assert 'FileType.NotFound' in repr(zzz_info)
-        assert isinstance(c_info.mtime, datetime)
+    assert zzz_info.path == str(zzz)
+    assert zzz_info.base_name == 'zzz'
+    assert zzz_info.extension == ''
+    assert zzz_info.type == FileType.NotFound
+    assert 'FileType.NotFound' in repr(zzz_info)
+    assert isinstance(c_info.mtime, datetime)
 
 
 def test_get_target_infos_with_selector(fs, pathfn):
@@ -579,8 +595,6 @@ def test_hdfs_options(hdfs_connection):
     hdfs6 = HadoopFileSystem.from_uri('hdfs://{}:{}'.format(host, port))
     hdfs7 = HadoopFileSystem(host, port, user='localuser')
 
-    print(hdfs1.__reduce__())
-    print(hdfs2.__reduce__())
     assert hdfs1 == hdfs2
     assert hdfs5 == hdfs6
     assert hdfs6 != hdfs7
@@ -601,7 +615,6 @@ def test_hdfs_options(hdfs_connection):
     hdfs = HadoopFileSystem(host, port, user=user)
     assert hdfs.get_target_infos(FileSelector('/'))
 
-    host, port, user = hdfs_server
     hdfs = HadoopFileSystem.from_uri(
         "hdfs://{}:{}/?user={}".format(host, port, user)
     )
@@ -644,7 +657,7 @@ def test_filesystem_from_path_object(path):
 
 
 @pytest.mark.s3
-def test_filesystem_from_uri_s3(s3_connection):
+def test_filesystem_from_uri_s3(s3_connection, s3_server):
     from pyarrow.fs import S3FileSystem
 
     host, port, access_key, secret_key = s3_connection
