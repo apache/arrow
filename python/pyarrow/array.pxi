@@ -2155,3 +2155,16 @@ def concat_arrays(arrays, MemoryPool memory_pool=None):
         check_status(Concatenate(c_arrays, pool, &c_result))
 
     return pyarrow_wrap_array(c_result)
+
+
+def _empty_array(DataType type):
+    """
+    Create empty array of the given type.
+    """
+    if type.id == Type_DICTIONARY:
+        arr = DictionaryArray.from_arrays(
+            _empty_array(type.index_type), _empty_array(type.value_type),
+            ordered=type.ordered)
+    else:
+        arr = array([], type=type)
+    return arr
