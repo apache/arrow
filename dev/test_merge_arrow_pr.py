@@ -26,10 +26,11 @@ import merge_arrow_pr
 
 FakeIssue = namedtuple('issue', ['fields'])
 FakeFields = namedtuple('fields', ['status', 'summary', 'assignee',
-                                   'components'])
+                                   'components', 'fixVersions'])
 FakeAssignee = namedtuple('assignee', ['displayName'])
 FakeStatus = namedtuple('status', ['name'])
 FakeComponent = namedtuple('component', ['name'])
+FakeFixVersion = namedtuple('fixVersion', ['name'])
 FakeProjectVersion = namedtuple('version', ['name', 'raw'])
 
 RAW_VERSION_JSON = [
@@ -49,13 +50,15 @@ TRANSITIONS = [{'name': 'Resolve Issue', 'id': 1}]
 jira_id = 'ARROW-1234'
 status = FakeStatus('In Progress')
 fields = FakeFields(status, 'issue summary', FakeAssignee('groundhog'),
-                    [FakeComponent('C++'), FakeComponent('Format')])
+                    [FakeComponent('C++'), FakeComponent('Format')],
+                    [])
 FAKE_ISSUE_1 = FakeIssue(fields)
 
 
 class FakeJIRA:
 
-    def __init__(self, issue=None, project_versions=None, transitions=None):
+    def __init__(self, issue=None, project_versions=None, transitions=None,
+                 current_fix_versions=None):
         self._issue = issue
         self._project_versions = project_versions
         self._transitions = transitions
@@ -231,7 +234,7 @@ def test_multiple_authors_bad_input():
 def test_jira_already_resolved():
     status = FakeStatus('Resolved')
     fields = FakeFields(status, 'issue summary', FakeAssignee('groundhog'),
-                        [FakeComponent('Java')])
+                        [FakeComponent('Java')], [])
     issue = FakeIssue(fields)
 
     jira = FakeJIRA(issue=issue,
@@ -244,6 +247,32 @@ def test_jira_already_resolved():
     with pytest.raises(Exception,
                        match="ARROW-1234 already has status 'Resolved'"):
         issue.resolve(fix_versions, "")
+
+
+def test_no_unset_point_release_fix_version():
+    # ARROW-6915: We have had the problem of issues marked with a point release
+    # having their fix versions overwritten by the merge tool. This verifies
+    # that existing patch release versions are carried over
+    status = FakeStatus('In Progress')
+    fields = FakeFields(status, 'summary', FakeAssignee('someone'),
+                        [FakeComponent('Java')],
+                        [FakeFixVersion('0.17.0'),
+                         FakeFixVersion('0.15.1'),
+                         FakeFixVersion('0.14.2')])
+    issue = FakeIssue(fields)
+
+    jira = FakeJIRA(issue=issue, project_versions=SOURCE_VERSIONS,
+                    transitions=TRANSITIONS)
+
+    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
+    issue.resolve(['0.16.0'], "a comment")
+
+    assert jira.captured_transition == {
+        'jira_id': 'ARROW-1234',
+        'transition_id': 1,
+        'comment': 'a comment',
+        'fixVersions': ['0.16.0', '0.15.1', '0.14.2']
+    }
 
 
 def test_jira_output_no_components():

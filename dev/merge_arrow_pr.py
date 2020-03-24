@@ -148,6 +148,10 @@ class JiraIssue(object):
         except Exception as e:
             self.cmd.fail("ASF JIRA could not find %s\n%s" % (jira_id, e))
 
+    @property
+    def current_fix_versions(self):
+        return [version.name for version in self.issue.fields.fixVersions]
+
     def get_candidate_fix_versions(self, merge_branches=('master',)):
         # Only suggest versions starting with a number, like 0.x but not JS-0.x
         all_versions = self.jira_con.project_versions(self.project)
@@ -193,6 +197,15 @@ class JiraIssue(object):
 
         resolve = [x for x in self.jira_con.transitions(self.jira_id)
                    if x['name'] == "Resolve Issue"][0]
+
+        # ARROW-6915: do not overwrite existing fix versions corresponding to
+        # point releases
+        fix_versions = list(fix_versions)
+        for version in self.current_fix_versions:
+            major, minor, patch = version.split('.')
+            if patch != '0':
+                fix_versions.append(version)
+
         self.jira_con.transition_issue(self.jira_id, resolve["id"],
                                        comment=comment,
                                        fixVersions=fix_versions)
