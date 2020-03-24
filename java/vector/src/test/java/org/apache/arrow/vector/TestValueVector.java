@@ -2711,18 +2711,18 @@ public class TestValueVector {
       setVector(vector2, STR1, STR2, STR3);
 
       assertEquals(0, vector1.getStartOffset(0));
-      assertEquals(6, vector1.getEndOffset(0));
-      assertEquals(6, vector1.getStartOffset(1));
-      assertEquals(6, vector1.getEndOffset(1));
-      assertEquals(6, vector1.getStartOffset(2));
-      assertEquals(16, vector1.getEndOffset(2));
+      assertEquals(STR1.length, vector1.getEndOffset(0));
+      assertEquals(STR1.length, vector1.getStartOffset(1));
+      assertEquals(STR1.length, vector1.getEndOffset(1));
+      assertEquals(STR1.length, vector1.getStartOffset(2));
+      assertEquals(STR1.length + STR2.length, vector1.getEndOffset(2));
 
       assertEquals(0, vector2.getStartOffset(0));
-      assertEquals(6, vector2.getEndOffset(0));
-      assertEquals(6, vector2.getStartOffset(1));
-      assertEquals(16, vector2.getEndOffset(1));
-      assertEquals(16, vector2.getStartOffset(2));
-      assertEquals(21, vector2.getEndOffset(2));
+      assertEquals(STR1.length, vector2.getEndOffset(0));
+      assertEquals(STR1.length, vector2.getStartOffset(1));
+      assertEquals(STR1.length + STR2.length, vector2.getEndOffset(1));
+      assertEquals(STR1.length + STR2.length, vector2.getStartOffset(2));
+      assertEquals(STR1.length + STR2.length + STR3.length, vector2.getEndOffset(2));
     }
   }
 }
