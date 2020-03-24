@@ -1252,6 +1252,12 @@ Result<std::shared_ptr<RecordBatchWriter>> RecordBatchStreamWriter::Open(
   return NewStreamWriter(sink, schema);
 }
 
+Result<std::shared_ptr<RecordBatchWriter>> RecordBatchStreamWriter::Open(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+    const IpcWriteOptions& options) {
+  return NewStreamWriter(sink, schema, options);
+}
+
 Status RecordBatchFileWriter::Open(io::OutputStream* sink,
                                    const std::shared_ptr<Schema>& schema,
                                    std::shared_ptr<RecordBatchWriter>* out) {
@@ -1262,6 +1268,12 @@ Status RecordBatchFileWriter::Open(io::OutputStream* sink,
 Result<std::shared_ptr<RecordBatchWriter>> RecordBatchFileWriter::Open(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema) {
   return NewFileWriter(sink, schema);
+}
+
+Result<std::shared_ptr<RecordBatchWriter>> RecordBatchFileWriter::Open(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+    const IpcWriteOptions& options) {
+  return NewFileWriter(sink, schema, options);
 }
 
 Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,

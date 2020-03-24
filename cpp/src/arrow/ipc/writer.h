@@ -371,6 +371,11 @@ class ARROW_EXPORT RecordBatchStreamWriter : public RecordBatchWriter {
   ARROW_DEPRECATED("Use arrow::ipc::NewStreamWriter()")
   static Result<std::shared_ptr<RecordBatchWriter>> Open(
       io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
+
+  ARROW_DEPRECATED("Use arrow::ipc::NewStreamWriter()")
+  static Result<std::shared_ptr<RecordBatchWriter>> Open(
+      io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+      const IpcWriteOptions& options);
 };
 
 /// \brief Creates the Arrow record batch file format
@@ -398,6 +403,11 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
   ARROW_DEPRECATED("Use arrow::ipc::NewFileWriter")
   static Result<std::shared_ptr<RecordBatchWriter>> Open(
       io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
+
+  ARROW_DEPRECATED("Use arrow::ipc::NewFileWriter")
+  static Result<std::shared_ptr<RecordBatchWriter>> Open(
+      io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+      const IpcWriteOptions& options);
 };
 
 ARROW_DEPRECATED(
