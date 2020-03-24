@@ -170,7 +170,9 @@ class ARROW_EXPORT FileSystem {
 
   virtual bool Equals(const FileSystem& other) const = 0;
 
-  virtual bool Equals(std::shared_ptr<FileSystem> other) const { return Equals(*other); }
+  virtual bool Equals(const std::shared_ptr<FileSystem>& other) const {
+    return Equals(*other);
+  }
 
   /// Get info for the given target.
   ///

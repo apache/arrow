@@ -227,18 +227,17 @@ def test_filesystem_is_functional_after_pickling(fs, pathfn):
     if isinstance(fs, _MockFileSystem):
         pytest.xfail(reason='MockFileSystem is not serializable')
 
-    restored = pickle.loads(pickle.dumps(fs))
-
     aaa = pathfn('a/aa/aaa/')
     bb = pathfn('a/bb')
     c = pathfn('c.txt')
 
-    restored.create_dir(aaa)
-    with restored.open_output_stream(bb):
+    fs.create_dir(aaa)
+    with fs.open_output_stream(bb):
         pass  # touch
-    with restored.open_output_stream(c) as fp:
+    with fs.open_output_stream(c) as fp:
         fp.write(b'test')
 
+    restored = pickle.loads(pickle.dumps(fs))
     aaa_info, bb_info, c_info = restored.get_file_info([aaa, bb, c])
     assert aaa_info.type == FileType.Directory
     assert bb_info.type == FileType.File

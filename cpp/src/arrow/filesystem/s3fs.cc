@@ -69,6 +69,7 @@
 #include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/windows_fixup.h"
 
@@ -1216,7 +1217,8 @@ bool S3FileSystem::Equals(const FileSystem& other) const {
   if (other.type_name() != type_name()) {
     return false;
   }
-  return options().Equals(static_cast<const S3FileSystem&>(other).options());
+  const auto& s3fs = ::arrow::internal::checked_cast<const S3FileSystem&>(other);
+  return options().Equals(s3fs.options());
 }
 
 S3Options S3FileSystem::options() const { return impl_->options(); }

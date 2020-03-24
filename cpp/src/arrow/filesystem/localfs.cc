@@ -253,7 +253,8 @@ bool LocalFileSystem::Equals(const FileSystem& other) const {
   if (other.type_name() != type_name()) {
     return false;
   } else {
-    return options_.Equals(static_cast<const LocalFileSystem&>(other).options_);
+    const auto& localfs = ::arrow::internal::checked_cast<const LocalFileSystem&>(other);
+    return options_.Equals(localfs.options());
   }
 }
 

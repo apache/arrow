@@ -32,6 +32,7 @@
 #include "arrow/io/slow.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/uri.h"
@@ -158,8 +159,8 @@ bool SubTreeFileSystem::Equals(const FileSystem& other) const {
   if (other.type_name() != type_name()) {
     return false;
   }
-  const auto& subtreefs = static_cast<const SubTreeFileSystem&>(other);
-  return base_path_ == subtreefs.base_path_ && base_fs_->Equals(subtreefs.base_fs_);
+  const auto& subfs = ::arrow::internal::checked_cast<const SubTreeFileSystem&>(other);
+  return base_path_ == subfs.base_path_ && base_fs_->Equals(subfs.base_fs_);
 }
 
 std::string SubTreeFileSystem::PrependBase(const std::string& s) const {

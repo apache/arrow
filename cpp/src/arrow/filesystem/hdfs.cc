@@ -24,6 +24,7 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/io/hdfs.h"
 #include "arrow/io/hdfs_internal.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parsing.h"
 #include "arrow/util/windows_fixup.h"
@@ -380,7 +381,8 @@ bool HadoopFileSystem::Equals(const FileSystem& other) const {
   if (other.type_name() != type_name()) {
     return false;
   }
-  return options().Equals(static_cast<const HadoopFileSystem&>(other).options());
+  const auto& hdfs = ::arrow::internal::checked_cast<const HadoopFileSystem&>(other);
+  return options().Equals(hdfs.options());
 }
 
 Result<std::vector<FileInfo>> HadoopFileSystem::GetFileInfo(const FileSelector& select) {
