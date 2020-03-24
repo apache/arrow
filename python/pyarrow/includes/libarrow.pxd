@@ -819,6 +819,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CNullScalar" arrow::NullScalar"(CScalar):
         CNullScalar()
 
+    cdef cppclass CBooleanScalar" arrow::BooleanScalar"(CScalar):
+        c_bool value
+
     cdef cppclass CInt8Scalar" arrow::Int8Scalar"(CScalar):
         int8_t value
 
@@ -850,7 +853,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         double value
 
     cdef cppclass CStringScalar" arrow::StringScalar"(CScalar):
-        pass
+        shared_ptr[CBuffer] value
 
     shared_ptr[CScalar] MakeScalar[Value](Value value)
     shared_ptr[CScalar] MakeStringScalar" arrow::MakeScalar"(c_string value)

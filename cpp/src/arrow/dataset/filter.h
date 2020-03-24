@@ -377,6 +377,7 @@ class ARROW_DS_EXPORT CastExpression final
 
   const compute::CastOptions& options() const { return options_; }
 
+  /// Try to return with the DataType variant of the cast target.
   std::shared_ptr<DataType> to_type() const;
 
  private:

@@ -1360,32 +1360,8 @@ cdef class ScalarExpression(Expression):
 
     @property
     def value(self):
-        cdef:
-            shared_ptr[CScalar] scalar = self.scalar.value()
-            DataType typ = pyarrow_wrap_data_type(scalar.get().type)
-            c_string val
-
-        if is_null(typ):
-            return None
-
-        val = scalar.get().ToString()
-        if is_integer(typ):
-            return int(val)
-        elif is_floating(typ):
-            return float(val)
-        elif is_string(typ):
-            return frombytes(val)
-        elif is_boolean(typ):
-            if val == b'true':
-                return True
-            elif val == b'false':
-                return False
-            else:
-                raise ValueError(
-                    'Unexpected boolean value: {}'.format(frombytes(val))
-                )
-        else:
-            raise TypeError('Not yet supported scalar type: {}'.format(typ))
+        cdef ScalarValue scalar = pyarrow_wrap_scalar(self.scalar.value())
+        return scalar.as_py()
 
     def __reduce__(self):
         return ScalarExpression, (self.value,)
@@ -1489,12 +1465,26 @@ cdef class CastExpression(UnaryExpression):
 
     @property
     def to(self):
+        """
+        Target DataType of the cast operation.
+
+        Returns
+        -------
+        DataType
+        """
         # safe to assume that CastExpression::to_ variant holds a DataType
         # instance because the construction from python only allows that
         return pyarrow_wrap_data_type(self.cast.to_type())
 
     @property
     def safe(self):
+        """
+        Whether to check for overflows or other unsafe conversions.
+
+        Returns
+        -------
+        bool
+        """
         cdef CCastOptions options = self.cast.options()
         # infer safeness from any of the allow_* properties of the cast option
         return not options.allow_int_overflow
