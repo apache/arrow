@@ -27,6 +27,8 @@ from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.compat import frombytes, tobytes
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
+from pyarrow.types import (is_null, is_boolean, is_integer, is_floating,
+                           is_string)
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
@@ -1305,6 +1307,10 @@ cdef class UnaryExpression(Expression):
         Expression.init(self, sp)
         self.unary = <CUnaryExpression*> sp.get()
 
+    @property
+    def operand(self):
+        return Expression.wrap(self.unary.operand())
+
 
 cdef class BinaryExpression(Expression):
 
@@ -1332,7 +1338,9 @@ cdef class ScalarExpression(Expression):
             shared_ptr[CScalar] scalar
             shared_ptr[CScalarExpression] expr
 
-        if isinstance(value, bool):
+        if value is None:
+            scalar.reset(new CNullScalar())
+        elif isinstance(value, bool):
             scalar = MakeScalar(<c_bool>value)
         elif isinstance(value, float):
             scalar = MakeScalar(<double>value)
@@ -1350,6 +1358,38 @@ cdef class ScalarExpression(Expression):
         Expression.init(self, sp)
         self.scalar = <CScalarExpression*> sp.get()
 
+    @property
+    def value(self):
+        cdef:
+            shared_ptr[CScalar] scalar = self.scalar.value()
+            DataType typ = pyarrow_wrap_data_type(scalar.get().type)
+            c_string val
+
+        if is_null(typ):
+            return None
+
+        val = scalar.get().ToString()
+        if is_integer(typ):
+            return int(val)
+        elif is_floating(typ):
+            return float(val)
+        elif is_string(typ):
+            return frombytes(val)
+        elif is_boolean(typ):
+            if val == b'true':
+                return True
+            elif val == b'false':
+                return False
+            else:
+                raise ValueError(
+                    'Unexpected boolean value: {}'.format(frombytes(val))
+                )
+        else:
+            raise TypeError('Not yet supported scalar type: {}'.format(typ))
+
+    def __reduce__(self):
+        return ScalarExpression, (self.value,)
+
 
 cdef class FieldExpression(Expression):
 
@@ -1366,8 +1406,12 @@ cdef class FieldExpression(Expression):
         Expression.init(self, sp)
         self.scalar = <CFieldExpression*> sp.get()
 
+    @property
     def name(self):
         return frombytes(self.scalar.name())
+
+    def __reduce__(self):
+        return FieldExpression, (self.name,)
 
 
 cpdef enum CompareOperator:
@@ -1399,8 +1443,14 @@ cdef class ComparisonExpression(BinaryExpression):
         BinaryExpression.init(self, sp)
         self.comparison = <CComparisonExpression*> sp.get()
 
+    @property
     def op(self):
         return <CompareOperator> self.comparison.op()
+
+    def __reduce__(self):
+        return ComparisonExpression, (
+            self.op, self.left_operand, self.right_operand
+        )
 
 
 cdef class IsValidExpression(UnaryExpression):
@@ -1410,26 +1460,53 @@ cdef class IsValidExpression(UnaryExpression):
         expr = make_shared[CIsValidExpression](operand.unwrap())
         self.init(<shared_ptr[CExpression]> expr)
 
+    def __reduce__(self):
+        return IsValidExpression, (self.operand,)
+
 
 cdef class CastExpression(UnaryExpression):
 
+    cdef CCastExpression *cast
+
     def __init__(self, Expression operand not None, DataType to not None,
                  bint safe=True):
-        # TODO(kszucs): safe is consistently used across pyarrow, but on long
-        #               term we should expose the CastOptions object
         cdef:
             CastOptions options
             shared_ptr[CExpression] expr
         options = CastOptions.safe() if safe else CastOptions.unsafe()
-        expr.reset(new CCastExpression(
-            operand.unwrap(),
-            pyarrow_unwrap_data_type(to),
-            options.unwrap()
-        ))
+        expr.reset(
+            new CCastExpression(
+                operand.unwrap(),
+                pyarrow_unwrap_data_type(to),
+                options.unwrap()
+            )
+        )
         self.init(expr)
+
+    cdef void init(self, const shared_ptr[CExpression]& sp):
+        UnaryExpression.init(self, sp)
+        self.cast = <CCastExpression*> sp.get()
+
+    @property
+    def to(self):
+        # safe to assume that CastExpression::to_ variant holds a DataType
+        # instance because the construction from python only allows that
+        return pyarrow_wrap_data_type(self.cast.to_type())
+
+    @property
+    def safe(self):
+        cdef CCastOptions options = self.cast.options()
+        # infer safeness from any of the allow_* properties of the cast option
+        return not options.allow_int_overflow
+
+    def __reduce__(self):
+        return CastExpression, (self.operand, self.to, self.safe)
 
 
 cdef class InExpression(UnaryExpression):
+
+    cdef:
+        CInExpression* inexpr
 
     def __init__(self, Expression operand not None, Array haystack not None):
         cdef shared_ptr[CExpression] expr
@@ -1437,6 +1514,17 @@ cdef class InExpression(UnaryExpression):
             new CInExpression(operand.unwrap(), pyarrow_unwrap_array(haystack))
         )
         self.init(expr)
+
+    cdef void init(self, const shared_ptr[CExpression]& sp):
+        UnaryExpression.init(self, sp)
+        self.inexpr = <CInExpression*> sp.get()
+
+    @property
+    def values(self):
+        return pyarrow_wrap_array(self.inexpr.set())
+
+    def __reduce__(self):
+        return InExpression, (self.operand, self.values)
 
 
 cdef class NotExpression(UnaryExpression):
@@ -1446,30 +1534,27 @@ cdef class NotExpression(UnaryExpression):
         expr = CMakeNotExpression(operand.unwrap())
         self.init(<shared_ptr[CExpression]> expr)
 
+    def __reduce__(self):
+        return NotExpression, (self.operand,)
+
 
 cdef class AndExpression(BinaryExpression):
 
-    def __init__(self, Expression left not None, Expression right not None,
-                 *additional_operands):
-        cdef:
-            Expression operand
-            vector[shared_ptr[CExpression]] exprs
-        exprs.push_back(left.unwrap())
-        exprs.push_back(right.unwrap())
-        for operand in additional_operands:
-            exprs.push_back(operand.unwrap())
-        self.init(CMakeAndExpression(exprs))
+    def __init__(self, Expression left not None, Expression right not None):
+        cdef shared_ptr[CAndExpression] expr
+        expr.reset(new CAndExpression(left.unwrap(), right.unwrap()))
+        self.init(<shared_ptr[CExpression]> expr)
+
+    def __reduce__(self):
+        return AndExpression, (self.left_operand, self.right_operand)
 
 
 cdef class OrExpression(BinaryExpression):
 
-    def __init__(self, Expression left not None, Expression right not None,
-                 *additional_operands):
-        cdef:
-            Expression operand
-            vector[shared_ptr[CExpression]] exprs
-        exprs.push_back(left.unwrap())
-        exprs.push_back(right.unwrap())
-        for operand in additional_operands:
-            exprs.push_back(operand.unwrap())
-        self.init(CMakeOrExpression(exprs))
+    def __init__(self, Expression left not None, Expression right not None):
+        cdef shared_ptr[COrExpression] expr
+        expr.reset(new COrExpression(left.unwrap(), right.unwrap()))
+        self.init(<shared_ptr[CExpression]> expr)
+
+    def __reduce__(self):
+        return OrExpression, (self.left_operand, self.right_operand)

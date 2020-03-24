@@ -814,6 +814,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CScalar" arrow::Scalar":
         shared_ptr[CDataType] type
         c_bool is_valid
+        c_string ToString() const
+
+    cdef cppclass CNullScalar" arrow::NullScalar"(CScalar):
+        CNullScalar()
 
     cdef cppclass CInt8Scalar" arrow::Int8Scalar"(CScalar):
         int8_t value
