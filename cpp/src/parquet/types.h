@@ -24,6 +24,8 @@
 #include <sstream>
 #include <string>
 
+#include "arrow/util/int_util.h"
+
 #include "parquet/platform.h"
 
 namespace arrow {
@@ -571,11 +573,14 @@ static inline void Int96SetNanoSeconds(parquet::Int96& i96, int64_t nanoseconds)
 }
 
 static inline int64_t Int96GetNanoSeconds(const parquet::Int96& i96) {
-  int64_t days_since_epoch = i96.value[2] - kJulianToUnixEpochDays;
-  int64_t nanoseconds = 0;
+  // We do the computations in the unsigned domain to avoid unsigned behaviour
+  // on overflow.
+  uint64_t days_since_epoch =
+      i96.value[2] - static_cast<uint64_t>(kJulianToUnixEpochDays);
+  uint64_t nanoseconds = 0;
 
-  memcpy(&nanoseconds, &i96.value, sizeof(int64_t));
-  return days_since_epoch * kNanosecondsPerDay + nanoseconds;
+  memcpy(&nanoseconds, &i96.value, sizeof(uint64_t));
+  return static_cast<int64_t>(days_since_epoch * kNanosecondsPerDay + nanoseconds);
 }
 
 static inline std::string Int96ToString(const Int96& a) {
