@@ -77,7 +77,7 @@ def _check_contains_null(val):
     return False
 
 
-def _check_filters(filters):
+def _check_filters(filters, check_null_strings=True):
     """
     Check if filters are well-formed.
     """
@@ -89,17 +89,18 @@ def _check_filters(filters):
             # too few:
             #   We have [(,,), ..] instead of [[(,,), ..]]
             filters = [filters]
-        for conjunction in filters:
-            for col, op, val in conjunction:
-                if (
-                    isinstance(val, list)
-                    and all(_check_contains_null(v) for v in val)
-                    or _check_contains_null(val)
-                ):
-                    raise NotImplementedError(
-                        "Null-terminated binary strings are not supported as"
-                        " filter values."
-                    )
+        if check_null_strings:
+            for conjunction in filters:
+                for col, op, val in conjunction:
+                    if (
+                        isinstance(val, list)
+                        and all(_check_contains_null(v) for v in val)
+                        or _check_contains_null(val)
+                    ):
+                        raise NotImplementedError(
+                            "Null-terminated binary strings are not supported "
+                            "as filter values."
+                        )
     return filters
 
 
@@ -116,7 +117,7 @@ def _filters_to_expression(filters):
     """
     import pyarrow.dataset as ds
 
-    filters = _check_filters(filters)
+    filters = _check_filters(filters, check_null_strings=False)
 
     def convert_single_predicate(col, op, val):
         field = ds.field(col)

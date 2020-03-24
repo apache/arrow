@@ -1743,17 +1743,22 @@ def test_equivalency(tempdir, use_dataset):
     assert df_filter_2.sum() > 0
     assert result_df.shape[0] == (df_filter_1.sum() + df_filter_2.sum())
 
-    # Check for \0 in predicate values. Until they are correctly implemented
-    # in ARROW-3391, they would otherwise lead to weird results with the
-    # current code.
-    with pytest.raises(NotImplementedError):
-        filters = [[('string', '==', b'1\0a')]]
-        pq.ParquetDataset(
-            base_path, filesystem=fs, filters=filters, use_dataset=use_dataset)
-    with pytest.raises(NotImplementedError):
-        filters = [[('string', '==', '1\0a')]]
-        pq.ParquetDataset(
-            base_path, filesystem=fs, filters=filters, use_dataset=use_dataset)
+    if not use_dataset:
+        # Check for \0 in predicate values. Until they are correctly
+        # implemented in ARROW-3391, they would otherwise lead to weird
+        # results with the current code.
+        with pytest.raises(NotImplementedError):
+            filters = [[('string', '==', b'1\0a')]]
+            pq.ParquetDataset(base_path, filesystem=fs, filters=filters)
+        with pytest.raises(NotImplementedError):
+            filters = [[('string', '==', '1\0a')]]
+            pq.ParquetDataset(base_path, filesystem=fs, filters=filters)
+    else:
+        for filters in [[[('string', '==', b'1\0a')]],
+                        [[('string', '==', '1\0a')]]]:
+            dataset = pq.ParquetDataset(
+                base_path, filesystem=fs, filters=filters, use_dataset=True)
+            assert dataset.read().num_rows == 0
 
 
 @pytest.mark.pandas
