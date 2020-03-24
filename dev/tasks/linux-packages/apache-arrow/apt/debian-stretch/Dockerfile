@@ -84,7 +84,8 @@ RUN \
     tzdata \
     zlib1g-dev && \
   apt install -y -V -t stretch-backports -t stretch-backports-sloppy ${quiet} \
-    debhelper \
+    debhelper && \
+  apt install -y -V -t stretch-backports ${quiet} \
     libgmock-dev \
     libgtest-dev \
     rapidjson-dev && \
