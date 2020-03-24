@@ -2310,8 +2310,17 @@ class ByteStreamSplitDecoder : public DecoderImpl, virtual public TypedDecoder<D
 
   void SetData(int num_values, const uint8_t* data, int len) override;
 
+  T* EnsureDecodeBuffer(int64_t min_values) {
+    const int64_t size = sizeof(T) * min_values;
+    if (!decode_buffer_ || decode_buffer_->size() < size) {
+      PARQUET_THROW_NOT_OK(AllocateBuffer(size, &decode_buffer_));
+    }
+    return reinterpret_cast<T*>(decode_buffer_->mutable_data());
+  }
+
  private:
   int num_values_in_buffer_{0};
+  std::shared_ptr<Buffer> decode_buffer_;
 
   static constexpr size_t kNumStreams = sizeof(T);
 };
@@ -2361,6 +2370,27 @@ int ByteStreamSplitDecoder<DType>::DecodeArrow(
   const uint8_t* data = data_ + num_decoded_previously;
   int offset = 0;
 
+#if defined(ARROW_HAVE_SSE2)
+  // Use fast decoding into intermediate buffer.  This will also decode
+  // some null values, but it's fast enough that we don't care.
+  T* decode_out = EnsureDecodeBuffer(values_decoded);
+  arrow::util::internal::ByteStreamSlitDecodeSSE2<T>(data, values_decoded,
+                                                     num_values_in_buffer_, decode_out);
+
+  // XXX If null_count is 0, we could even append in bulk or decode directly into
+  // builder
+  auto decode_value = [&](bool is_valid) {
+    if (is_valid) {
+      builder->UnsafeAppend(decode_out[offset]);
+      ++offset;
+    } else {
+      builder->UnsafeAppendNull();
+    }
+  };
+
+  VisitNullBitmapInline(valid_bits, valid_bits_offset, num_values, null_count,
+                        std::move(decode_value));
+#else
   auto decode_value = [&](bool is_valid) {
     if (is_valid) {
       uint8_t gathered_byte_data[kNumStreams];
@@ -2377,6 +2407,7 @@ int ByteStreamSplitDecoder<DType>::DecodeArrow(
 
   VisitNullBitmapInline(valid_bits, valid_bits_offset, num_values, null_count,
                         std::move(decode_value));
+#endif
 
   num_values_ -= values_decoded;
   len_ -= sizeof(T) * values_decoded;
