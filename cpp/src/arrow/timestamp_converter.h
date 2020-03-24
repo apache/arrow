@@ -28,12 +28,12 @@ class TimestampConverter {
                           size_t length, value_type* out) const = 0;
 };
 
-class StrptimeConverter : public TimestampConverter {
+class FormattedTimestampConverter : public TimestampConverter {
  private:
   std::string format_;
 
  public:
-  explicit StrptimeConverter(const std::string& format);
+  explicit FormattedTimestampConverter(const std::string& format);
   bool operator()(const std::shared_ptr<DataType>& type, const char* s, size_t length,
                   value_type* out) const override;
   static std::unique_ptr<TimestampConverter> Make(const std::string& format);

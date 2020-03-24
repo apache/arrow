@@ -20,52 +20,38 @@
 #include <cstring>
 #include <ctime>
 #include <iomanip>
-
+#include "arrow/vendored/datetime.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/parsing.h"
 namespace arrow {
-StrptimeConverter::StrptimeConverter(const std::string& format) : format_(format) {}
+FormattedTimestampConverter::FormattedTimestampConverter(const std::string& format) : format_(format) {}
 
-template <class TimePoint>
-bool ConvertTimePoint(const std::shared_ptr<DataType>& type, TimePoint tp,
-                      TimestampType::c_type* out) {
+int64_t ConvertTimePoint(const std::shared_ptr<DataType>& type, arrow_vendored::date::sys_time<std::chrono::seconds> tp) {
   auto duration = tp.time_since_epoch();
   switch (internal::checked_cast<TimestampType*>(type.get())->unit()) {
     case TimeUnit::SECOND:
-      *out = std::chrono::duration_cast<std::chrono::seconds>(duration).count();
-      return true;
+      return std::chrono::duration_cast<std::chrono::seconds>(duration).count();
     case TimeUnit::MILLI:
-      *out = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
-      return true;
+      return std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
     case TimeUnit::MICRO:
-      *out = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
-      return true;
+      return std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
     case TimeUnit::NANO:
-      *out = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
-      return true;
+      return std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
   }
-  // Unreachable, but suppress compiler warning
-  assert(0);
-  *out = 0;
-  return true;
+  return 0;
 }
 
-bool StrptimeConverter::operator()(const std::shared_ptr<DataType>& type, const char* s,
+bool FormattedTimestampConverter::operator()(const std::shared_ptr<DataType>& type, const char* s,
                                    size_t length, value_type* out) const{
-  std::tm tm;
-  std::stringstream ss;
-  ss << s;
-  ss >> std::get_time(&tm, format_.c_str());
-  if (ss.fail()) {
-    return false;
+  arrow_vendored::date::sys_time<std::chrono::seconds> time_point;
+  if (std::stringstream({s, length}) >> arrow_vendored::date::parse(format_, time_point)) {
+    *out = ConvertTimePoint(type, time_point);
+    return true;
   }
-  std::time_t t = std::mktime(&tm);
-  auto tp = std::chrono::system_clock::from_time_t(t);
-
-  return ConvertTimePoint(type, tp, out);
+  return false;
 }
 
-std::unique_ptr<TimestampConverter> StrptimeConverter::Make(const std::string& format) {
-  return internal::make_unique<StrptimeConverter>(format);
+std::unique_ptr<TimestampConverter> FormattedTimestampConverter::Make(const std::string& format) {
+  return internal::make_unique<FormattedTimestampConverter>(format);
 }
 }  // namespace arrow
