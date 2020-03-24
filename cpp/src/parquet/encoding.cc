@@ -28,6 +28,7 @@
 #include "arrow/array.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/byte_stream_split.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
@@ -2309,8 +2310,17 @@ class ByteStreamSplitDecoder : public DecoderImpl, virtual public TypedDecoder<D
 
   void SetData(int num_values, const uint8_t* data, int len) override;
 
+  T* EnsureDecodeBuffer(int64_t min_values) {
+    const int64_t size = sizeof(T) * min_values;
+    if (!decode_buffer_ || decode_buffer_->size() < size) {
+      PARQUET_THROW_NOT_OK(AllocateBuffer(size, &decode_buffer_));
+    }
+    return reinterpret_cast<T*>(decode_buffer_->mutable_data());
+  }
+
  private:
-  int num_values_in_buffer{0U};
+  int num_values_in_buffer_{0};
+  std::shared_ptr<Buffer> decode_buffer_;
 
   static constexpr size_t kNumStreams = sizeof(T);
 };
@@ -2323,21 +2333,22 @@ template <typename DType>
 void ByteStreamSplitDecoder<DType>::SetData(int num_values, const uint8_t* data,
                                             int len) {
   DecoderImpl::SetData(num_values, data, len);
-  num_values_in_buffer = num_values;
+  num_values_in_buffer_ = num_values;
 }
 
 template <typename DType>
 int ByteStreamSplitDecoder<DType>::Decode(T* buffer, int max_values) {
   const int values_to_decode = std::min(num_values_, max_values);
-  const int num_decoded_previously = num_values_in_buffer - num_values_;
-  for (int i = 0; i < values_to_decode; ++i) {
-    uint8_t gathered_byte_data[kNumStreams];
-    for (size_t b = 0; b < kNumStreams; ++b) {
-      const size_t byte_index = b * num_values_in_buffer + num_decoded_previously + i;
-      gathered_byte_data[b] = data_[byte_index];
-    }
-    buffer[i] = arrow::util::SafeLoadAs<T>(&gathered_byte_data[0]);
-  }
+  const int num_decoded_previously = num_values_in_buffer_ - num_values_;
+  const uint8_t* data = data_ + num_decoded_previously;
+
+#if defined(ARROW_HAVE_SSE2)
+  arrow::util::internal::ByteStreamSlitDecodeSSE2<T>(data, values_to_decode,
+                                                     num_values_in_buffer_, buffer);
+#else
+  arrow::util::internal::ByteStreamSlitDecodeScalar<T>(data, values_to_decode,
+                                                       num_values_in_buffer_, buffer);
+#endif
   num_values_ -= values_to_decode;
   len_ -= sizeof(T) * values_to_decode;
   return values_to_decode;
@@ -2355,16 +2366,37 @@ int ByteStreamSplitDecoder<DType>::DecodeArrow(
 
   PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
-  const int num_decoded_previously = num_values_in_buffer - num_values_;
+  const int num_decoded_previously = num_values_in_buffer_ - num_values_;
+  const uint8_t* data = data_ + num_decoded_previously;
   int offset = 0;
 
+#if defined(ARROW_HAVE_SSE2)
+  // Use fast decoding into intermediate buffer.  This will also decode
+  // some null values, but it's fast enough that we don't care.
+  T* decode_out = EnsureDecodeBuffer(values_decoded);
+  arrow::util::internal::ByteStreamSlitDecodeSSE2<T>(data, values_decoded,
+                                                     num_values_in_buffer_, decode_out);
+
+  // XXX If null_count is 0, we could even append in bulk or decode directly into
+  // builder
+  auto decode_value = [&](bool is_valid) {
+    if (is_valid) {
+      builder->UnsafeAppend(decode_out[offset]);
+      ++offset;
+    } else {
+      builder->UnsafeAppendNull();
+    }
+  };
+
+  VisitNullBitmapInline(valid_bits, valid_bits_offset, num_values, null_count,
+                        std::move(decode_value));
+#else
   auto decode_value = [&](bool is_valid) {
     if (is_valid) {
       uint8_t gathered_byte_data[kNumStreams];
       for (size_t b = 0; b < kNumStreams; ++b) {
-        const size_t byte_index =
-            b * num_values_in_buffer + num_decoded_previously + offset;
-        gathered_byte_data[b] = data_[byte_index];
+        const size_t byte_index = b * num_values_in_buffer_ + offset;
+        gathered_byte_data[b] = data[byte_index];
       }
       builder->UnsafeAppend(arrow::util::SafeLoadAs<T>(&gathered_byte_data[0]));
       ++offset;
@@ -2375,6 +2407,7 @@ int ByteStreamSplitDecoder<DType>::DecodeArrow(
 
   VisitNullBitmapInline(valid_bits, valid_bits_offset, num_values, null_count,
                         std::move(decode_value));
+#endif
 
   num_values_ -= values_decoded;
   len_ -= sizeof(T) * values_decoded;
