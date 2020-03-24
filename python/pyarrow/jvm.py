@@ -40,7 +40,7 @@ def jvm_buffer(arrowbuf):
 
     Returns
     -------
-    pyarrow.Buffer :
+    pyarrow.Buffer
         Python Buffer that references the JVM memory.
     """
     address = arrowbuf.memoryAddress()
