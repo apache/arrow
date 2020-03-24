@@ -33,6 +33,24 @@ use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
 
+// TODO: CAN I USE FROM
+pub(crate) fn mutable_buffer_to_builder<T: ArrowPrimitiveType>(
+    mutable_buffer: MutableBuffer,
+    slots: usize,
+) -> BufferBuilder<T> {
+    BufferBuilder::<T> {
+        buffer: mutable_buffer,
+        len: slots,
+        _marker: PhantomData,
+    }
+}
+
+pub(crate) fn builder_to_mutable_buffer<T: ArrowPrimitiveType>(
+    builder: BufferBuilder<T>,
+) -> MutableBuffer {
+    builder.buffer
+}
+
 /// Builder for creating a [`Buffer`](crate::buffer::Buffer) object.
 ///
 /// This builder is implemented for primitive types and creates a

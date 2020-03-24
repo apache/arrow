@@ -85,6 +85,7 @@ mod array;
 mod builder;
 mod data;
 mod equal;
+mod union;
 
 use crate::datatypes::*;
 
@@ -104,7 +105,7 @@ pub use self::array::ListArray;
 pub use self::array::PrimitiveArray;
 pub use self::array::StringArray;
 pub use self::array::StructArray;
-pub use self::array::UnionArray;
+pub use self::union::UnionArray;
 
 pub(crate) use self::array::make_array;
 
