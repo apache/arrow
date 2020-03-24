@@ -444,6 +444,19 @@ def test_expression_ergonomics():
     with pytest.raises(TypeError):
         field.isin(1)
 
+    # operations with non-scalar values
+    with pytest.raises(TypeError):
+        field == [1]
+
+    with pytest.raises(TypeError):
+        field != {1}
+
+    with pytest.raises(TypeError):
+        field & [1]
+
+    with pytest.raises(TypeError):
+        field | [1]
+
 
 @pytest.mark.parametrize('paths_or_selector', [
     fs.FileSelector('subdir', recursive=True),
