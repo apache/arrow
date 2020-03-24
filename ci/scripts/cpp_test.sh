@@ -36,7 +36,7 @@ case "$(uname)" in
     n_jobs=$(sysctl -n hw.ncpu)
     ;;
   *)
-    n_jobs=1
+    n_jobs=${NPROC:-1}
     ;;
 esac
 
