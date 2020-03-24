@@ -76,8 +76,8 @@ class CPPTester(Tester):
         self.run_shell_command(cmd)
 
     @contextlib.contextmanager
-    def flight_server(self, port):
-        cmd = self.FLIGHT_SERVER_CMD + ['-port=' + str(port)]
+    def flight_server(self):
+        cmd = self.FLIGHT_SERVER_CMD + ['-port=0']
         if self.debug:
             log(' '.join(cmd))
         server = subprocess.Popen(cmd,
@@ -85,14 +85,15 @@ class CPPTester(Tester):
                                   stderr=subprocess.PIPE)
         try:
             output = server.stdout.readline().decode()
-            if not output.startswith("Server listening on localhost"):
+            if not output.startswith("Server listening on localhost:"):
                 server.kill()
                 out, err = server.communicate()
                 raise RuntimeError(
                     "Flight-C++ server did not start properly, "
                     "stdout:\n{}\n\nstderr:\n{}\n"
                     .format(output + out.decode(), err.decode()))
-            yield
+            port = int(output.split(":")[1])
+            yield port
         finally:
             server.kill()
             server.wait(5)

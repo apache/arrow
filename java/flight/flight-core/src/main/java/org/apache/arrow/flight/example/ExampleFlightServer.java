@@ -52,6 +52,10 @@ public class ExampleFlightServer implements AutoCloseable {
     return location;
   }
 
+  public int getPort() {
+    return this.flightServer.getPort();
+  }
+
   public void start() throws IOException {
     flightServer.start();
   }

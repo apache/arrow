@@ -105,24 +105,25 @@ class JavaTester(Tester):
         run_cmd(cmd)
 
     @contextlib.contextmanager
-    def flight_server(self, port):
+    def flight_server(self):
         cmd = ['java'] + self.JAVA_OPTS + \
             ['-cp', self.ARROW_FLIGHT_JAR, self.ARROW_FLIGHT_SERVER,
-             '-port', str(port)]
+             '-port', '0']
         if self.debug:
             log(' '.join(cmd))
         server = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                   stderr=subprocess.PIPE)
         try:
             output = server.stdout.readline().decode()
-            if not output.startswith("Server listening on localhost"):
+            if not output.startswith("Server listening on localhost:"):
                 server.kill()
                 out, err = server.communicate()
                 raise RuntimeError(
                     "Flight-Java server did not start properly, "
                     "stdout:\n{}\n\nstderr:\n{}\n"
                     .format(output + out.decode(), err.decode()))
-            yield
+            port = int(output.split(":")[1])
+            yield port
         finally:
             server.kill()
             server.wait(5)
