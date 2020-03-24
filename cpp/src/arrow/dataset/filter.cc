@@ -607,12 +607,20 @@ std::shared_ptr<Expression> CastExpression::Assume(const Expression& given) cons
   return std::make_shared<CastExpression>(std::move(operand), std::move(like), options_);
 }
 
-std::shared_ptr<DataType> CastExpression::to_type() const {
+const std::shared_ptr<DataType>& CastExpression::to_type() const {
   if (arrow::util::holds_alternative<std::shared_ptr<DataType>>(to_)) {
     return arrow::util::get<std::shared_ptr<DataType>>(to_);
-  } else {
-    return std::shared_ptr<DataType>(nullptr);
   }
+  static std::shared_ptr<DataType> null;
+  return null;
+}
+
+const std::shared_ptr<Expression>& CastExpression::like_expr() const {
+  if (arrow::util::holds_alternative<std::shared_ptr<Expression>>(to_)) {
+    return arrow::util::get<std::shared_ptr<Expression>>(to_);
+  }
+  static std::shared_ptr<Expression> null;
+  return null;
 }
 
 std::string FieldExpression::ToString() const { return name_; }

@@ -1466,15 +1466,23 @@ cdef class CastExpression(UnaryExpression):
     @property
     def to(self):
         """
-        Target DataType of the cast operation.
+        Target DataType or Expression of the cast operation.
 
         Returns
         -------
-        DataType
+        DataType or Expression
         """
-        # safe to assume that CastExpression::to_ variant holds a DataType
-        # instance because the construction from python only allows that
-        return pyarrow_wrap_data_type(self.cast.to_type())
+        cdef:
+            shared_ptr[CDataType] typ = self.cast.to_type()
+            shared_ptr[CExpression] expr = self.cast.like_expr()
+        if typ.get() != nullptr:
+            return pyarrow_wrap_data_type(typ)
+        elif expr.get() != nullptr:
+            return Expression.wrap(expr)
+        else:
+            raise TypeError(
+                'Cannot determine the target type of the cast expression'
+            )
 
     @property
     def safe(self):

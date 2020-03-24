@@ -114,6 +114,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
                         CCastOptions options)
         const CCastOptions& options() const
         const shared_ptr[CDataType]& to_type() const
+        const shared_ptr[CExpression]& like_expr() const
 
     cdef cppclass CInExpression "arrow::dataset::InExpression"(
             CUnaryExpression):
