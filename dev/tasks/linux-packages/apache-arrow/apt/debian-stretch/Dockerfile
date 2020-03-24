@@ -86,7 +86,7 @@ RUN \
   apt install -y -V -t stretch-backports-sloppy ${quiet} \
     libarchive13 && \
   apt install -y -V -t stretch-backports ${quiet} \
-    debhelper && \
+    debhelper \
     libgmock-dev \
     libgtest-dev \
     rapidjson-dev && \
