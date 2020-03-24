@@ -54,7 +54,7 @@ Result<std::shared_ptr<Dataset>> DatasetFactory::Finish() {
 Result<std::shared_ptr<Dataset>> DatasetFactory::Finish(std::shared_ptr<Schema> schema) {
   FinishOptions options;
   options.schema = schema;
-  return Finish(options);
+  return Finish(std::move(options));
 }
 
 UnionDatasetFactory::UnionDatasetFactory(
@@ -78,9 +78,6 @@ Result<std::vector<std::shared_ptr<Schema>>> UnionDatasetFactory::InspectSchemas
   std::vector<std::shared_ptr<Schema>> schemas;
 
   for (const auto& child_factory : factories_) {
-    // Instead of applying options globally, apply it at each child factory.
-    // This will not respect `options.fragments` exactly, but will respect the
-    // spirit of peeking the first fragments or all of them.
     ARROW_ASSIGN_OR_RAISE(auto child_schemas, child_factory->InspectSchemas(options));
     ARROW_ASSIGN_OR_RAISE(auto child_schema, UnifySchemas(child_schemas));
     schemas.emplace_back(child_schema);
@@ -93,7 +90,7 @@ Result<std::shared_ptr<Dataset>> UnionDatasetFactory::Finish(FinishOptions optio
   std::vector<std::shared_ptr<Dataset>> children;
 
   if (options.schema == nullptr) {
-    // Set the schema in the option directly for the next `child_factory->Finish()`
+    // Set the schema in the option directly for use in `child_factory->Finish()`
     ARROW_ASSIGN_OR_RAISE(options.schema, Inspect(options.inspect_options));
   }
 
@@ -229,10 +226,11 @@ Result<std::vector<std::shared_ptr<Schema>>> FileSystemDatasetFactory::InspectSc
     InspectOptions options) {
   std::vector<std::shared_ptr<Schema>> schemas;
 
+  const bool has_fragments_limit = options.fragments >= 0;
   int fragments = options.fragments;
   for (const auto& f : forest_.infos()) {
     if (!f.IsFile()) continue;
-    if (options.fragments >= 0 && fragments-- == 0) break;
+    if (has_fragments_limit && fragments-- == 0) break;
     FileSource src(f.path(), fs_.get());
     ARROW_ASSIGN_OR_RAISE(auto schema, format_->Inspect(src));
     schemas.push_back(schema);
@@ -252,7 +250,8 @@ Result<std::shared_ptr<Dataset>> FileSystemDatasetFactory::Finish(FinishOptions 
   }
 
   if (options.validate_fragments && !schema_missing) {
-    // If the schema is not provided, the unification will implicitly valid
+    // If the schema was not explicitly provided we don't need to validate
+    // since Inspect has already succeeded in producing a valid unified schema.
     ARROW_ASSIGN_OR_RAISE(auto schemas, InspectSchemas(options.inspect_options));
     for (const auto& s : schemas) {
       RETURN_NOT_OK(SchemaBuilder::AreCompatible({schema, s}));

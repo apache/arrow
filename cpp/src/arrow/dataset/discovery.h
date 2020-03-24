@@ -41,16 +41,17 @@ struct InspectOptions {
   /// See `fragments` property.
   static constexpr int kInspectAllFragments = -1;
 
-  /// Indicate how many fragments' schema should be inspected. This limits the
-  /// number of fragment accessed to inquire their schemas, thus improving the
-  /// latency of the discovery process when dealing with a high number of fragment
-  /// and/or high latency file systems.
+  /// Indicate how many fragments should be inspected to infer the unified dataset
+  /// schema. Limiting the number of fragments accessed improves the latency of
+  /// the discovery process when dealing with a high number of fragments and/or
+  /// high latency file systems.
   ///
-  /// The default value of `1` inspect the schema of the first fragment only,
-  /// in no particular order. If the dataset has a uniform schema for all fragments,
-  /// this default is the optimal value. In order to inspect all fragments, set
-  /// this option to `kInspectAllFragments`. A value of `0` disable inspection
-  /// of fragments.
+  /// The default value of `1` inspects the schema of the first (in no particular
+  /// order) fragment only. If the dataset has a uniform schema for all fragments,
+  /// this default is the optimal value. In order to inspect all fragments and
+  /// robustly unify their potentially varying schemas, set this option to
+  /// `kInspectAllFragments`. A value of `0` disables inspection of fragments
+  /// altogether so only the partitioning schema will be inspected.
   int fragments = 1;
 };
 
@@ -64,7 +65,7 @@ struct FinishOptions {
   /// following options to `DatasetDiscovery::Inspect`.
   InspectOptions inspect_options{};
 
-  /// Indicate if the given Schema (when inferred), should be validated against
+  /// Indicate if the given Schema (when specified), should be validated against
   /// the fragments' schemas. `inspect_options` will control how many fragments
   /// are checked.
   bool validate_fragments = false;
@@ -114,6 +115,10 @@ class ARROW_DS_EXPORT UnionDatasetFactory : public DatasetFactory {
   }
 
   /// \brief Get the schemas of the Datasets.
+  ///
+  /// Instead of applying options globally, it applies at each child factory.
+  /// This will not respect `options.fragments` exactly, but will respect the
+  /// spirit of peeking the first fragments or all of them.
   Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas(
       InspectOptions options) override;
 

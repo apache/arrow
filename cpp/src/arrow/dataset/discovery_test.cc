@@ -190,7 +190,7 @@ TEST_F(FileSystemDatasetFactoryTest, ExplicitPartition) {
   MakeFactory({fs::File(a_1)});
 
   InspectOptions options;
-  // Should inspect the Schema even if no files are inspected.
+  // Should inspect the partition's Schema even if no files are inspected.
   options.fragments = 0;
   AssertInspect(schema({part_field}), options);
   AssertFinishWithPaths({a_1}, nullptr, options);
