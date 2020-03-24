@@ -765,7 +765,7 @@ else
   TEST_WHEELS=0
 fi
 
-NEED_MINICONDA=$((${TEST_CPP} + ${TEST_WHEELS}))
+NEED_MINICONDA=$((${TEST_CPP} + ${TEST_WHEELS} + ${TEST_INTEGRATION}))
 
 : ${TEST_ARCHIVE:=apache-arrow-${VERSION}.tar.gz}
 case "${TEST_ARCHIVE}" in
