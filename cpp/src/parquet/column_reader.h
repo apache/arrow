@@ -61,7 +61,7 @@ class PARQUET_EXPORT LevelDecoder {
   // Initialize the LevelDecoder state with new data
   // and return the number of bytes consumed
   int SetData(Encoding::type encoding, int16_t max_level, int num_buffered_values,
-              const uint8_t* data);
+              const uint8_t* data, int32_t data_size);
 
   // Decodes a batch of levels into an array and returns the number of levels decoded
   int Decode(int batch_size, int16_t* levels);

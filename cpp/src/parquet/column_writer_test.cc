@@ -815,7 +815,8 @@ void VerifyDecodingLevels(Encoding::type encoding, int16_t max_level,
   ASSERT_EQ(num_levels, static_cast<int>(output_levels.size()));
 
   // Decode levels and test with multiple decode calls
-  decoder.SetData(encoding, max_level, num_levels, bytes.data());
+  decoder.SetData(encoding, max_level, num_levels, bytes.data(),
+                  static_cast<int32_t>(bytes.size()));
   int decode_count = 4;
   int num_inner_levels = num_levels / decode_count;
   // Try multiple decoding on a single SetData call
@@ -856,7 +857,8 @@ void VerifyDecodingMultipleSetData(Encoding::type encoding, int16_t max_level,
   for (int ct = 0; ct < setdata_count; ct++) {
     int offset = ct * num_levels;
     ASSERT_EQ(num_levels, static_cast<int>(output_levels.size()));
-    decoder.SetData(encoding, max_level, num_levels, bytes[ct].data());
+    decoder.SetData(encoding, max_level, num_levels, bytes[ct].data(),
+                    static_cast<int32_t>(bytes[ct].size()));
     levels_count = decoder.Decode(num_levels, output_levels.data());
     ASSERT_EQ(num_levels, levels_count);
     for (int i = 0; i < num_levels; i++) {

@@ -55,29 +55,36 @@ LevelDecoder::LevelDecoder() : num_values_remaining_(0) {}
 LevelDecoder::~LevelDecoder() {}
 
 int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
-                          int num_buffered_values, const uint8_t* data) {
+                          int num_buffered_values, const uint8_t* data,
+                          int32_t data_size) {
   int32_t num_bytes = 0;
   encoding_ = encoding;
   num_values_remaining_ = num_buffered_values;
   bit_width_ = BitUtil::Log2(max_level + 1);
   switch (encoding) {
     case Encoding::RLE: {
-      num_bytes = ::arrow::util::SafeLoadAs<int32_t>(data);
-      if (num_bytes < 0) {
-        throw ParquetException("Received invalid number of bytes");
+      if (data_size < 4) {
+        throw ParquetException("Received invalid levels (corrupt data page?)");
       }
-      const uint8_t* decoder_data = data + sizeof(int32_t);
+      num_bytes = ::arrow::util::SafeLoadAs<int32_t>(data);
+      if (num_bytes < 0 || num_bytes > data_size - 4) {
+        throw ParquetException("Received invalid number of bytes (corrupt data page?)");
+      }
+      const uint8_t* decoder_data = data + 4;
       if (!rle_decoder_) {
         rle_decoder_.reset(
             new ::arrow::util::RleDecoder(decoder_data, num_bytes, bit_width_));
       } else {
         rle_decoder_->Reset(decoder_data, num_bytes, bit_width_);
       }
-      return static_cast<int>(sizeof(int32_t)) + num_bytes;
+      return 4 + num_bytes;
     }
     case Encoding::BIT_PACKED: {
       num_bytes =
           static_cast<int32_t>(BitUtil::BytesForBits(num_buffered_values * bit_width_));
+      if (num_bytes > data_size) {
+        throw ParquetException("Received invalid number of bytes (corrupt data page?)");
+      }
       if (!bit_packed_decoder_) {
         bit_packed_decoder_.reset(new ::arrow::BitUtil::BitReader(data, num_bytes));
       } else {
@@ -527,27 +534,30 @@ class ColumnReaderImplBase {
     num_decoded_values_ = 0;
 
     const uint8_t* buffer = page.data();
-    int64_t levels_byte_size = 0;
+    int32_t levels_byte_size = 0;
+    int32_t max_size = page.size();
 
     // Data page Layout: Repetition Levels - Definition Levels - encoded values.
     // Levels are encoded as rle or bit-packed.
     // Init repetition levels
     if (max_rep_level_ > 0) {
-      int64_t rep_levels_bytes = repetition_level_decoder_.SetData(
+      int32_t rep_levels_bytes = repetition_level_decoder_.SetData(
           repetition_level_encoding, max_rep_level_,
-          static_cast<int>(num_buffered_values_), buffer);
+          static_cast<int>(num_buffered_values_), buffer, max_size);
       buffer += rep_levels_bytes;
       levels_byte_size += rep_levels_bytes;
+      max_size -= rep_levels_bytes;
     }
     // TODO figure a way to set max_def_level_ to 0
     // if the initial value is invalid
 
     // Init definition levels
     if (max_def_level_ > 0) {
-      int64_t def_levels_bytes = definition_level_decoder_.SetData(
+      int32_t def_levels_bytes = definition_level_decoder_.SetData(
           definition_level_encoding, max_def_level_,
-          static_cast<int>(num_buffered_values_), buffer);
+          static_cast<int>(num_buffered_values_), buffer, max_size);
       levels_byte_size += def_levels_bytes;
+      max_size -= def_levels_bytes;
     }
 
     return levels_byte_size;
