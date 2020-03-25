@@ -116,8 +116,8 @@ else
       if [ "${LIBARROW_DOWNLOAD}" = "" ] && [ "${NOT_CRAN}" != "" ]; then
         LIBARROW_DOWNLOAD=$NOT_CRAN; export LIBARROW_DOWNLOAD
       fi
-      if [ "${LIBARROW_BINARY}" = "" ] && [ "${NOT_CRAN}" != "" ]; then
-        LIBARROW_BINARY=$NOT_CRAN; export LIBARROW_BINARY
+      if [ "${LIBARROW_BINARY}" = "" ] && [ "${LIBARROW_DOWNLOAD}" != "" ]; then
+        LIBARROW_BINARY=$LIBARROW_DOWNLOAD; export LIBARROW_BINARY
       fi
       if [ "${LIBARROW_MINIMAL}" = "" ] && [ "${LIBARROW_DOWNLOAD}" = "true" ]; then
         LIBARROW_MINIMAL=false; export LIBARROW_MINIMAL
