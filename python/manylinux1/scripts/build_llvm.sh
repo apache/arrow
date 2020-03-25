@@ -1,4 +1,5 @@
 #!/bin/bash -ex
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,17 +17,28 @@
 # specific language governing permissions and limitations
 # under the License.
 
+LLVM_VERSION_MAJOR=$1
+
 source /multibuild/manylinux_utils.sh
 
-export LLVM_VERSION="8.0.1"
+detect_llvm_version() {
+  curl -sL https://api.github.com/repos/llvm/llvm-project/releases | \
+    grep tag_name | \
+    grep -o "llvmorg-${LLVM_VERSION_MAJOR}[^\"]*" | \
+    sed -e "s/^llvmorg-//g" | \
+    head -n 1
+}
+
+LLVM_VERSION=$(detect_llvm_version)
 curl -sL https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/llvm-${LLVM_VERSION}.src.tar.xz -o llvm-${LLVM_VERSION}.src.tar.xz
 unxz llvm-${LLVM_VERSION}.src.tar.xz
 tar xf llvm-${LLVM_VERSION}.src.tar
 pushd llvm-${LLVM_VERSION}.src
 mkdir build
 pushd build
-cmake -DCMAKE_INSTALL_PREFIX=$PREFIX \
+cmake \
     -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
     -DLLVM_TARGETS_TO_BUILD=host \
     -DLLVM_INCLUDE_DOCS=OFF \
     -DLLVM_INCLUDE_EXAMPLES=OFF \
@@ -45,3 +57,26 @@ ninja install
 popd
 popd
 rm -rf llvm-${LLVM_VERSION}.src.tar.xz llvm-${LLVM_VERSION}.src.tar llvm-${LLVM_VERSION}.src
+
+
+# clang is only used to precompile Gandiva bitcode
+curl -sL https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/cfe-${LLVM_VERSION}.src.tar.xz -o cfe-${LLVM_VERSION}.src.tar.xz
+unxz cfe-${LLVM_VERSION}.src.tar.xz
+tar xf cfe-${LLVM_VERSION}.src.tar
+pushd cfe-${LLVM_VERSION}.src
+mkdir build
+pushd build
+cmake \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCLANG_INCLUDE_TESTS=OFF \
+    -DCLANG_INCLUDE_DOCS=OFF \
+    -DLLVM_INCLUDE_TESTS=OFF \
+    -DLLVM_INCLUDE_DOCS=OFF \
+    -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=ON \
+    -GNinja \
+    ..
+ninja -w dupbuild=warn install # both clang and llvm builds generate llvm-config file
+popd
+popd
+rm -rf cfe-${LLVM_VERSION}.src.tar.xz cfe-${LLVM_VERSION}.src.tar cfe-${LLVM_VERSION}.src

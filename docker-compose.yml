@@ -712,6 +712,8 @@ services:
       dockerfile: Dockerfile-x86_64_base
       cache_from:
         - ${REPO}:amd64-centos-5.11-python-manylinux1
+      args:
+        llvm: ${LLVM}
     shm_size: *shm-size
     environment:
       PYARROW_PARALLEL: 3
@@ -729,6 +731,8 @@ services:
       dockerfile: Dockerfile-x86_64_base_2010
       cache_from:
         - ${REPO}:amd64-centos-6.10-python-manylinux2010
+      args:
+        llvm: ${LLVM}
     shm_size: *shm-size
     environment:
       PYARROW_PARALLEL: 3
@@ -746,6 +750,8 @@ services:
       dockerfile: Dockerfile-x86_64_base_2014
       cache_from:
         - ${REPO}:amd64-centos-7.7-python-manylinux2014
+      args:
+        llvm: ${LLVM}
     shm_size: *shm-size
     environment:
       PYARROW_PARALLEL: 3

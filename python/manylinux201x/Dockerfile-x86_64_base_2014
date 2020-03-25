@@ -34,12 +34,9 @@ RUN /build_zlib.sh
 WORKDIR /
 RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout 68a4af043e2adb0d9353d4a0e1f3d871203237aa
 
+ARG llvm
 ADD scripts/build_llvm.sh /
-RUN /build_llvm.sh
-
-# clang is only used to precompile Gandiva bitcode
-ADD scripts/build_clang.sh /
-RUN /build_clang.sh
+RUN /build_llvm.sh ${llvm}
 
 ADD scripts/build_openssl.sh /
 RUN /build_openssl.sh
