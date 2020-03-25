@@ -456,10 +456,31 @@ test_ruby() {
 }
 
 test_go() {
+  local VERSION=1.14.1
+  local ARCH=amd64
+
+  if [ "$(uname)" == "Darwin" ]; then
+    local OS=darwin
+  else
+    local OS=linux
+  fi
+
+  local GO_ARCHIVE=go$VERSION.$OS-$ARCH.tar.gz
+  wget https://dl.google.com/go/$GO_ARCHIVE
+
+  mkdir -p local-go
+  tar -xzf $GO_ARCHIVE -C local-go
+  rm -f $GO_ARCHIVE
+
+  export GOROOT=`pwd`/local-go/go
+  export GOPATH=`pwd`/local-go/gopath
+  export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+
   pushd go/arrow
 
   go get -v ./...
   go test ./...
+  go clean -modcache
 
   popd
 }
@@ -705,8 +726,11 @@ test_wheels() {
 # By default test all functionalities.
 # To deactivate one test, deactivate the test and all of its dependents
 # To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
+if [ "${ARTIFACT}" == "source" ]; then
+  TEST_SOURCE=1
+fi
+
 : ${TEST_DEFAULT:=1}
-: ${TEST_SOURCE:=${TEST_DEFAULT}}
 : ${TEST_JAVA:=${TEST_DEFAULT}}
 : ${TEST_CPP:=${TEST_DEFAULT}}
 : ${TEST_CSHARP:=${TEST_DEFAULT}}
@@ -735,6 +759,14 @@ TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
 TEST_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
 TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
 
+if [ "${ARTIFACT}" == "wheels" ]; then
+  TEST_WHEELS=1
+else
+  TEST_WHEELS=0
+fi
+
+NEED_MINICONDA=$((${TEST_CPP} + ${TEST_WHEELS} + ${TEST_INTEGRATION}))
+
 : ${TEST_ARCHIVE:=apache-arrow-${VERSION}.tar.gz}
 case "${TEST_ARCHIVE}" in
   /*)
@@ -750,8 +782,10 @@ setup_tempdir "arrow-${VERSION}"
 echo "Working in sandbox ${TMPDIR}"
 cd ${TMPDIR}
 
-setup_miniconda
-echo "Using miniconda environment ${MINICONDA}"
+if [ ${NEED_MINICONDA} -gt 0 ]; then
+  setup_miniconda
+  echo "Using miniconda environment ${MINICONDA}"
+fi
 
 if [ "${ARTIFACT}" == "source" ]; then
   dist_name="apache-arrow-${VERSION}"
@@ -762,7 +796,7 @@ if [ "${ARTIFACT}" == "source" ]; then
   else
     mkdir -p ${dist_name}
     if [ ! -f ${TEST_ARCHIVE} ]; then
-      echo "${TEST_ARCHIVE} not found, did you mean to pass TEST_SOURCE=1?"
+      echo "${TEST_ARCHIVE} not found"
       exit 1
     fi
     tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1
