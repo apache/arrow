@@ -334,6 +334,11 @@ cdef class FileSystemDataset(Dataset):
         return FileFormat.wrap(self.filesystem_dataset.format())
 
 
+def empty_dataset_scanner(Schema schema not None, columns=None, filter=None):
+    dataset = UnionDataset(schema, children=[])
+    return Scanner(dataset, columns=columns, filter=filter)
+
+
 cdef class FileFormat:
 
     cdef:
@@ -365,31 +370,33 @@ cdef class FileFormat:
     cdef inline shared_ptr[CFileFormat] unwrap(self):
         return self.wrapped
 
-    def make_fragment(self, str path not None, FileSystem filesystem not None,
-                      columns=None, filter=None,
-                      Expression partition_expression=None):
+    def inspect(self, str path not None, FileSystem filesystem not None):
         cdef:
-            CFileSystem* c_filesystem
-            unique_ptr[CFileSource] c_source
+            shared_ptr[CSchema] c_schema
+
+        c_schema = GetResultValue(self.format.Inspect(CFileSource(
+            tobytes(path), filesystem.unwrap().get())))
+        return pyarrow_wrap_schema(move(c_schema))
+
+    def make_fragment(self, str path not None, FileSystem filesystem not None,
+                      Schema schema=None, columns=None, filter=None,
+                      Expression partition_expression=ScalarExpression(True)):
+        cdef:
             shared_ptr[CScanOptions] c_options
-            shared_ptr[CExpression] c_expression
             shared_ptr[CFileFragment] c_fragment
+            Scanner scanner
 
-        c_filesystem = filesystem.unwrap().get()
+        if schema is None:
+            schema = self.inspect(path, filesystem)
 
-        c_source.reset(new CFileSource(tobytes(path), c_filesystem))
-
-        scanner = Scanner(dataset=None, columns=columns, filter=filter)
+        scanner = empty_dataset_scanner(schema, columns, filter)
         c_options = scanner.unwrap().get().options()
 
-        if partition_expression is None:
-            partition_expression = ScalarExpression(True)
-
-        c_expression = partition_expression.unwrap()
-
         c_fragment = GetResultValue(
-            self.format.MakeFragment(move(deref(c_source)),
-                                     move(c_options), move(c_expression)))
+            self.format.MakeFragment(CFileSource(tobytes(path),
+                                                 filesystem.unwrap().get()),
+                                     move(c_options),
+                                     partition_expression.unwrap()))
         return Fragment.wrap(<shared_ptr[CFragment]> move(c_fragment))
 
 
@@ -606,40 +613,34 @@ cdef class ParquetFileFormat(FileFormat):
         return ParquetFileFormatReaderOptions(self)
 
     def make_fragment(self, str path not None, FileSystem filesystem not None,
-                      columns=None, filter=None,
-                      Expression partition_expression=None, row_groups=None):
+                      Schema schema=None, columns=None, filter=None,
+                      Expression partition_expression=ScalarExpression(True),
+                      row_groups=None):
         cdef:
-            CFileSystem* c_filesystem
-            unique_ptr[CFileSource] c_source
             shared_ptr[CScanOptions] c_options
-            shared_ptr[CExpression] c_expression
             shared_ptr[CFileFragment] c_fragment
+            Scanner scanner
             vector[int] c_row_groups
 
-        if row_groups is None or len(row_groups) == 0:
-            return super().make_fragment(path, filesystem, columns, filter,
-                                         partition_expression)
-
-        c_filesystem = filesystem.unwrap().get()
-
-        c_source.reset(new CFileSource(tobytes(path), c_filesystem))
-
-        scanner = Scanner(dataset=None, columns=columns, filter=filter)
-        c_options = scanner.unwrap().get().options()
-
-        if partition_expression is None:
-            partition_expression = ScalarExpression(True)
-
-        c_expression = partition_expression.unwrap()
-
+        if row_groups is None:
+            return super().make_fragment(path, filesystem, schema, columns,
+                                         filter, partition_expression)
         for row_group in set(row_groups):
             c_row_groups.push_back(<int> row_group)
 
+        if schema is None:
+            schema = self.inspect(path, filesystem)
+
+        scanner = empty_dataset_scanner(schema, columns, filter)
+        c_options = scanner.unwrap().get().options()
+
         c_fragment = GetResultValue(
-            self.parquet_format.MakeFragment(move(deref(c_source)),
-                                             move(c_options),
-                                             move(c_expression),
-                                             move(c_row_groups)))
+            self.parquet_format.MakeFragment(CFileSource(tobytes(path),
+                                                         filesystem.unwrap()
+                                                             .get()),
+                                     move(c_options),
+                                     partition_expression.unwrap(),
+                                     move(c_row_groups)))
         return Fragment.wrap(<shared_ptr[CFragment]> move(c_fragment))
 
 

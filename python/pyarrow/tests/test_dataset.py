@@ -560,6 +560,19 @@ def test_filesystem_factory(mockfs, paths_or_selector):
     assert table.num_columns == 6
 
 
+def test_make_fragment(multisourcefs):
+    parquet_format = ds.ParquetFileFormat()
+    dataset = ds.dataset('/plain', filesystem=multisourcefs,
+                         format=parquet_format)
+
+    for path in dataset.files:
+        fragment = parquet_format.make_fragment(path, multisourcefs)
+        row_group_fragment = parquet_format.make_fragment(path, multisourcefs,
+                                                          row_groups=[0])
+        assert fragment.path == path
+        assert isinstance(fragment.filesystem, type(multisourcefs))
+
+
 def test_partitioning_factory(mockfs):
     paths_or_selector = fs.FileSelector('subdir', recursive=True)
     format = ds.ParquetFileFormat()

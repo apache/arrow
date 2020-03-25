@@ -221,13 +221,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CFileFormat "arrow::dataset::FileFormat":
         c_string type_name() const
+        CResult[shared_ptr[CSchema]] Inspect(const CFileSource&) const
         CResult[shared_ptr[CFileFragment]] MakeFragment(
             CFileSource source,
             shared_ptr[CScanOptions] options,
             shared_ptr[CExpression] partition_expression)
-        CResult[shared_ptr[CFileFragment]] MakeFragment(
-            CFileSource source,
-            shared_ptr[CScanOptions] options)
 
     cdef cppclass CFileFragment "arrow::dataset::FileFragment"(
             CFragment):
