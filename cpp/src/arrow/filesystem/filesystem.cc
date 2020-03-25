@@ -32,6 +32,7 @@
 #include "arrow/io/slow.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/uri.h"
@@ -149,6 +150,17 @@ Result<std::string> SubTreeFileSystem::NormalizeBasePath(
     std::string base_path, const std::shared_ptr<FileSystem>& base_fs) {
   ARROW_ASSIGN_OR_RAISE(base_path, base_fs->NormalizePath(std::move(base_path)));
   return EnsureTrailingSlash(std::move(base_path));
+}
+
+bool SubTreeFileSystem::Equals(const FileSystem& other) const {
+  if (this == &other) {
+    return true;
+  }
+  if (other.type_name() != type_name()) {
+    return false;
+  }
+  const auto& subfs = ::arrow::internal::checked_cast<const SubTreeFileSystem&>(other);
+  return base_path_ == subfs.base_path_ && base_fs_->Equals(subfs.base_fs_);
 }
 
 std::string SubTreeFileSystem::PrependBase(const std::string& s) const {
@@ -287,6 +299,8 @@ SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
 SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
                                double average_latency, int32_t seed)
     : base_fs_(base_fs), latencies_(io::LatencyGenerator::Make(average_latency, seed)) {}
+
+bool SlowFileSystem::Equals(const FileSystem& other) const { return this == &other; }
 
 Result<FileInfo> SlowFileSystem::GetFileInfo(const std::string& path) {
   latencies_->Sleep();

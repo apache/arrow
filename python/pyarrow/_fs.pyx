@@ -258,7 +258,7 @@ cdef class FileSystem:
         self.fs = wrapped.get()
 
     @staticmethod
-    cdef wrap(shared_ptr[CFileSystem]& sp):
+    cdef wrap(const shared_ptr[CFileSystem]& sp):
         cdef FileSystem self
 
         typ = frombytes(sp.get().type_name())
@@ -282,6 +282,15 @@ cdef class FileSystem:
 
     cdef inline shared_ptr[CFileSystem] unwrap(self) nogil:
         return self.wrapped
+
+    def equals(self, FileSystem other):
+        return self.fs.Equals(other.unwrap())
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
 
     def get_file_info(self, paths_or_selector):
         """
@@ -564,40 +573,6 @@ cdef class FileSystem:
         )
 
 
-cdef class LocalFileSystemOptions:
-    """
-    Options for LocalFileSystemOptions.
-
-    Parameters
-    ----------
-    use_mmap: bool, default False
-        Whether open_input_stream and open_input_file should return
-        a mmap'ed file or a regular file.
-    """
-    cdef:
-        CLocalFileSystemOptions options
-
-    # Avoid mistakingly creating attributes
-    __slots__ = ()
-
-    def __init__(self, use_mmap=None):
-        self.options = CLocalFileSystemOptions.Defaults()
-        if use_mmap is not None:
-            self.use_mmap = use_mmap
-
-    @property
-    def use_mmap(self):
-        """
-        Whether open_input_stream and open_input_file should return
-        a mmap'ed file or a regular file.
-        """
-        return self.options.use_mmap
-
-    @use_mmap.setter
-    def use_mmap(self, value):
-        self.options.use_mmap = value
-
-
 cdef class LocalFileSystem(FileSystem):
     """
     A FileSystem implementation accessing files on the local machine.
@@ -607,26 +582,29 @@ cdef class LocalFileSystem(FileSystem):
 
     Parameters
     ----------
-    options: LocalFileSystemOptions, default None
-    kwargs: individual named options, for convenience
-
+    use_mmap: bool, default False
+        Whether open_input_stream and open_input_file should return
+        a mmap'ed file or a regular file.
     """
 
-    def __init__(self, LocalFileSystemOptions options=None, **kwargs):
+    def __init__(self, use_mmap=False):
         cdef:
-            CLocalFileSystemOptions c_options
-            shared_ptr[CLocalFileSystem] c_fs
+            CLocalFileSystemOptions opts
+            shared_ptr[CLocalFileSystem] fs
 
-        options = options or LocalFileSystemOptions()
-        for k, v in kwargs.items():
-            setattr(options, k, v)
-        c_options = options.options
-        c_fs = make_shared[CLocalFileSystem](c_options)
-        self.init(<shared_ptr[CFileSystem]> c_fs)
+        opts = CLocalFileSystemOptions.Defaults()
+        opts.use_mmap = use_mmap
+
+        fs = make_shared[CLocalFileSystem](opts)
+        self.init(<shared_ptr[CFileSystem]> fs)
 
     cdef init(self, const shared_ptr[CFileSystem]& c_fs):
         FileSystem.init(self, c_fs)
         self.localfs = <CLocalFileSystem*> c_fs.get()
+
+    def __reduce__(self):
+        cdef CLocalFileSystemOptions opts = self.localfs.options()
+        return LocalFileSystem, (opts.use_mmap,)
 
 
 cdef class SubTreeFileSystem(FileSystem):
@@ -662,6 +640,11 @@ cdef class SubTreeFileSystem(FileSystem):
         FileSystem.init(self, wrapped)
         self.subtreefs = <CSubTreeFileSystem*> wrapped.get()
 
+    def __reduce__(self):
+        return SubTreeFileSystem, (
+            frombytes(self.subtreefs.base_path()),
+            FileSystem.wrap(self.subtreefs.base_fs())
+        )
 
 cdef class _MockFileSystem(FileSystem):
 

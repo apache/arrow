@@ -18,7 +18,6 @@
 import contextlib
 import operator
 import os
-import urllib
 
 import numpy as np
 import pytest
@@ -769,14 +768,16 @@ def test_open_dataset_from_source_additional_kwargs(multisourcefs):
 
 @pytest.mark.parquet
 @pytest.mark.s3
-def test_open_dataset_from_uri_s3(minio_server):
+def test_open_dataset_from_uri_s3(s3_connection, s3_server):
     # open dataset from non-localfs string path
     from pyarrow.fs import FileSystem
     import pyarrow.parquet as pq
 
-    address, access_key, secret_key = minio_server
-    uri = "s3://{}:{}@mybucket/data.parquet?scheme=http&endpoint_override={}" \
-        .format(access_key, secret_key, urllib.parse.quote(address))
+    host, port, access_key, secret_key = s3_connection
+    uri = (
+        "s3://{}:{}@mybucket/data.parquet?scheme=http&endpoint_override={}:{}"
+        .format(access_key, secret_key, host, port)
+    )
 
     fs, path = FileSystem.from_uri(uri)
 

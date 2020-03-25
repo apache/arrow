@@ -233,6 +233,10 @@ LocalFileSystemOptions LocalFileSystemOptions::Defaults() {
   return LocalFileSystemOptions();
 }
 
+bool LocalFileSystemOptions::Equals(const LocalFileSystemOptions& other) const {
+  return use_mmap == other.use_mmap;
+}
+
 LocalFileSystem::LocalFileSystem() : options_(LocalFileSystemOptions::Defaults()) {}
 
 LocalFileSystem::LocalFileSystem(const LocalFileSystemOptions& options)
@@ -243,6 +247,15 @@ LocalFileSystem::~LocalFileSystem() {}
 Result<std::string> LocalFileSystem::NormalizePath(std::string path) {
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
   return fn.ToString();
+}
+
+bool LocalFileSystem::Equals(const FileSystem& other) const {
+  if (other.type_name() != type_name()) {
+    return false;
+  } else {
+    const auto& localfs = ::arrow::internal::checked_cast<const LocalFileSystem&>(other);
+    return options_.Equals(localfs.options());
+  }
 }
 
 Result<FileInfo> LocalFileSystem::GetFileInfo(const std::string& path) {

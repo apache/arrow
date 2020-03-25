@@ -63,6 +63,8 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
 
   std::string type_name() const override { return "mock"; }
 
+  bool Equals(const FileSystem& other) const override;
+
   // XXX It's not very practical to have to explicitly declare inheritance
   // of default overrides.
   using FileSystem::GetFileInfo;

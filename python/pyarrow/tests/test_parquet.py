@@ -1878,14 +1878,14 @@ def test_filters_read_table(tempdir):
 
 
 @pytest.fixture
-def s3_bucket(request, minio_server):
+def s3_bucket(request, s3_connection, s3_server):
     boto3 = pytest.importorskip('boto3')
     botocore = pytest.importorskip('botocore')
 
-    address, access_key, secret_key = minio_server
+    host, port, access_key, secret_key = s3_connection
     s3 = boto3.resource(
         's3',
-        endpoint_url='http://{}'.format(address),
+        endpoint_url='http://{}:{}'.format(host, port),
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
         config=botocore.client.Config(signature_version='s3v4'),
@@ -1897,15 +1897,15 @@ def s3_bucket(request, minio_server):
 
 
 @pytest.fixture
-def s3_example(minio_server, s3_bucket):
+def s3_example(s3_connection, s3_server, s3_bucket):
     s3fs = pytest.importorskip('s3fs')
 
-    address, access_key, secret_key = minio_server
+    host, port, access_key, secret_key = s3_connection
     fs = s3fs.S3FileSystem(
         key=access_key,
         secret=secret_key,
         client_kwargs={
-            'endpoint_url': 'http://{}'.format(address)
+            'endpoint_url': 'http://{}:{}'.format(host, port)
         }
     )
 

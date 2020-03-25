@@ -57,7 +57,7 @@ cdef class FileSystem:
     cdef init(self, const shared_ptr[CFileSystem]& wrapped)
 
     @staticmethod
-    cdef wrap(shared_ptr[CFileSystem]& sp)
+    cdef wrap(const shared_ptr[CFileSystem]& sp)
 
     cdef inline shared_ptr[CFileSystem] unwrap(self) nogil
 

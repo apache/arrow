@@ -47,6 +47,8 @@ struct ARROW_EXPORT HdfsOptions {
   void ConfigureHdfsBufferSize(int32_t buffer_size);
   void ConfigureHdfsBlockSize(int64_t default_block_size);
 
+  bool Equals(const HdfsOptions& other) const;
+
   static Result<HdfsOptions> FromUri(const ::arrow::internal::Uri& uri);
   static Result<HdfsOptions> FromUri(const std::string& uri);
 };
@@ -60,6 +62,8 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   ~HadoopFileSystem() override;
 
   std::string type_name() const override { return "hdfs"; }
+  HdfsOptions options() const;
+  bool Equals(const FileSystem& other) const override;
 
   /// \cond FALSE
   using FileSystem::GetFileInfo;

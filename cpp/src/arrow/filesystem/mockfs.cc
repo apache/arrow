@@ -383,6 +383,8 @@ MockFileSystem::MockFileSystem(TimePoint current_time) {
   impl_ = std::unique_ptr<Impl>(new Impl(current_time));
 }
 
+bool MockFileSystem::Equals(const FileSystem& other) const { return this == &other; }
+
 Status MockFileSystem::CreateDir(const std::string& path, bool recursive) {
   auto parts = SplitAbstractPath(path);
   RETURN_NOT_OK(ValidateAbstractPathParts(parts));
