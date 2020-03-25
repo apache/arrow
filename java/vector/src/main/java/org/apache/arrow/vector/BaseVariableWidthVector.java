@@ -1217,7 +1217,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     return getStartOffset(index);
   }
 
-  protected final int getStartOffset(int index) {
+  public final int getStartOffset(int index) {
     return offsetBuffer.getInt(index * OFFSET_WIDTH);
   }
 
@@ -1399,7 +1399,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   /**
    * Gets the ending offset of a record, given its index.
    */
-  protected final int getEndOffset(int index) {
+  public final int getEndOffset(int index) {
     return offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
   }
 }
