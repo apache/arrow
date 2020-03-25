@@ -180,10 +180,15 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
   }
 
   void CountRowGroupsInFragment(const std::shared_ptr<Fragment>& fragment,
-                                std::vector<int> expected_row_groups) {
+                                std::vector<int> expected_row_groups,
+                                const Expression& filter,
+                                const Expression& extra_filter = *scalar(true)) {
+    fragment->scan_options()->filter = filter.Copy();
+
     auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
-    ASSERT_OK_AND_ASSIGN(auto row_group_fragments,
-                         format_->GetRowGroupFragments(*parquet_fragment));
+    ASSERT_OK_AND_ASSIGN(
+        auto row_group_fragments,
+        format_->GetRowGroupFragments(*parquet_fragment, extra_filter.Copy()));
 
     auto expected_row_group = expected_row_groups.begin();
     for (auto maybe_fragment : row_group_fragments) {
@@ -441,34 +446,32 @@ TEST_F(TestParquetFileFormat, PredicatePushdownRowGroupFragments) {
   opts_ = ScanOptions::Make(reader->schema());
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
 
-  opts_->filter = scalar(true);
-  CountRowGroupsInFragment(fragment, internal::Iota(static_cast<int>(kTotalNumRows)));
+  CountRowGroupsInFragment(fragment, internal::Iota(static_cast<int>(kTotalNumRows)),
+                           *scalar(true));
 
   for (int i = 0; i < kNumRowGroups; ++i) {
-    opts_->filter = ("i64"_ == int64_t(i + 1)).Copy();
-    CountRowGroupsInFragment(fragment, {i});
+    CountRowGroupsInFragment(fragment, {i}, "i64"_ == int64_t(i + 1));
   }
 
   // Out of bound filters should skip all RowGroups.
-  opts_->filter = scalar(false);
-  CountRowGroupsInFragment(fragment, {});
-  opts_->filter = ("i64"_ == int64_t(kNumRowGroups + 1)).Copy();
-  CountRowGroupsInFragment(fragment, {});
-  opts_->filter = ("i64"_ == int64_t(-1)).Copy();
-  CountRowGroupsInFragment(fragment, {});
+  CountRowGroupsInFragment(fragment, {}, *scalar(false));
+  CountRowGroupsInFragment(fragment, {}, "i64"_ == int64_t(kNumRowGroups + 1));
+  CountRowGroupsInFragment(fragment, {}, "i64"_ == int64_t(-1));
 
   // No rows match 1 and 2.
-  opts_->filter = ("i64"_ == int64_t(1) and "u8"_ == uint8_t(2)).Copy();
-  CountRowGroupsInFragment(fragment, {});
+  CountRowGroupsInFragment(fragment, {}, "i64"_ == int64_t(1) and "u8"_ == uint8_t(2));
+  CountRowGroupsInFragment(fragment, {}, "i64"_ == int64_t(2), "i64"_ == int64_t(4));
 
-  opts_->filter = ("i64"_ == int64_t(2) or "i64"_ == int64_t(4)).Copy();
-  CountRowGroupsInFragment(fragment, {1, 3});
+  CountRowGroupsInFragment(fragment, {1, 3},
+                           "i64"_ == int64_t(2) or "i64"_ == int64_t(4));
 
-  opts_->filter = ("i64"_ < int64_t(6)).Copy();
-  CountRowGroupsInFragment(fragment, {0, 1, 2, 3, 4});
+  CountRowGroupsInFragment(fragment, {0, 1, 2, 3, 4}, "i64"_ < int64_t(6));
 
-  opts_->filter = ("i64"_ >= int64_t(6)).Copy();
-  CountRowGroupsInFragment(fragment, internal::Iota(5, static_cast<int>(kNumRowGroups)));
+  CountRowGroupsInFragment(fragment, internal::Iota(5, static_cast<int>(kNumRowGroups)),
+                           "i64"_ >= int64_t(6));
+
+  CountRowGroupsInFragment(fragment, {5, 6, 7}, "i64"_ >= int64_t(6),
+                           "i64"_ < int64_t(8));
 }
 
 TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {

@@ -418,7 +418,7 @@ Result<std::shared_ptr<FileFragment>> ParquetFileFormat::MakeFragment(
 }
 
 Result<FragmentIterator> ParquetFileFormat::GetRowGroupFragments(
-    const ParquetFileFragment& fragment) {
+    const ParquetFileFragment& fragment, std::shared_ptr<Expression> extra_filter) {
   auto properties = MakeReaderProperties(*this);
   ARROW_ASSIGN_OR_RAISE(auto reader,
                         OpenReader(fragment.source(), std::move(properties)));
@@ -433,13 +433,18 @@ Result<FragmentIterator> ParquetFileFormat::GetRowGroupFragments(
   }
   FragmentVector fragments(row_groups.size());
 
+  auto new_options = std::make_shared<ScanOptions>(*fragment.scan_options());
+  if (!extra_filter->Equals(true)) {
+    new_options->filter = and_(std::move(extra_filter), std::move(new_options->filter));
+  }
+
   RowGroupSkipper skipper(std::move(metadata), std::move(arrow_properties),
-                          fragment.scan_options()->filter, std::move(row_groups));
+                          new_options->filter, std::move(row_groups));
 
   for (int i = 0, row_group = skipper.Next();
        row_group != RowGroupSkipper::kIterationDone; row_group = skipper.Next()) {
     ARROW_ASSIGN_OR_RAISE(fragments[i++],
-                          MakeFragment(fragment.source(), fragment.scan_options(),
+                          MakeFragment(fragment.source(), new_options,
                                        fragment.partition_expression(), {row_group}));
   }
 

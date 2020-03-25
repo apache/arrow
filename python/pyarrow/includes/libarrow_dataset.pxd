@@ -260,7 +260,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CFileFormat):
         CParquetFileFormatReaderOptions reader_options
         CResult[CFragmentIterator] GetRowGroupFragments(
-            const CParquetFileFragment&)
+            const CParquetFileFragment&,
+            shared_ptr[CExpression] extra_filter)
         CResult[shared_ptr[CFileFragment]] MakeFragment(
             CFileSource source,
             shared_ptr[CScanOptions] options,

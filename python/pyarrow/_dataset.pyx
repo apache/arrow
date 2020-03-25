@@ -334,7 +334,7 @@ cdef class FileSystemDataset(Dataset):
         return FileFormat.wrap(self.filesystem_dataset.format())
 
 
-def empty_dataset_scanner(Schema schema not None, columns=None, filter=None):
+def _empty_dataset_scanner(Schema schema not None, columns=None, filter=None):
     dataset = UnionDataset(schema, children=[])
     return Scanner(dataset, columns=columns, filter=filter)
 
@@ -389,7 +389,7 @@ cdef class FileFormat:
         if schema is None:
             schema = self.inspect(path, filesystem)
 
-        scanner = empty_dataset_scanner(schema, columns, filter)
+        scanner = _empty_dataset_scanner(schema, columns, filter)
         c_options = scanner.unwrap().get().options()
 
         c_fragment = GetResultValue(
@@ -536,19 +536,27 @@ cdef class ParquetFileFragment(FileFragment):
             return row_groups
         return None
 
-    def get_row_group_fragments(self):
+    def get_row_group_fragments(self, Expression extra_filter=None):
         """
         Yield a Fragment wrapping each row group in this ParquetFileFragment.
-        Row groups whose metadata contradicts the filter will be excluded.
+        Row groups will be excluded whose metadata contradicts the either the
+        filter provided on construction of this Fragment or the extra_filter
+        argument.
         """
         cdef:
             CParquetFileFormat* c_format
             CFragmentIterator c_iterator
+            shared_ptr[CExpression] c_extra_filter
             shared_ptr[CFragment] c_fragment
+
+        if extra_filter is None:
+            c_extra_filter = extra_filter.unwrap()
+        else:
+            c_extra_filter = ScalarExpression(True).unwrap()
 
         c_format = <CParquetFileFormat*> self.file_fragment.format().get()
         c_iterator = move(GetResultValue(c_format.GetRowGroupFragments(deref(
-            self.parquet_file_fragment))))
+            self.parquet_file_fragment), move(c_extra_filter))))
 
         while True:
             c_fragment = GetResultValue(c_iterator.Next())
@@ -631,7 +639,7 @@ cdef class ParquetFileFormat(FileFormat):
         if schema is None:
             schema = self.inspect(path, filesystem)
 
-        scanner = empty_dataset_scanner(schema, columns, filter)
+        scanner = _empty_dataset_scanner(schema, columns, filter)
         c_options = scanner.unwrap().get().options()
 
         c_fragment = GetResultValue(
