@@ -579,7 +579,7 @@ def cli():
     cmd.continue_maybe("Proceed with merging pull request #%s?" % pr_num)
 
     # merged hash not used
-    # pr.merge()
+    pr.merge()
 
     cmd.continue_maybe("Would you like to update the associated JIRA?")
     jira_comment = (
