@@ -863,7 +863,9 @@ class MultipathLevelBuilderImpl : public MultipathLevelBuilder {
         data_(std::move(data)),
         path_builder_(std::move(path_builder)) {}
 
-  int GetLeafCount() const override { return path_builder_->paths().size(); }
+  int GetLeafCount() const override {
+    return static_cast<int>(path_builder_->paths().size());
+  }
 
   ::arrow::Status Write(int leaf_index, ArrowWriteContext* context,
                         CallbackFunction write_leaf_callback) override {
