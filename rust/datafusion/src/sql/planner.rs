@@ -363,7 +363,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
 
                         // return type is same as the argument type for these aggregate
                         // functions
-                        let return_type = rex_args[0].get_type(schema).clone();
+                        let return_type = rex_args[0].get_type(schema)?.clone();
 
                         Ok(Expr::AggregateFunction {
                             name: id.clone(),

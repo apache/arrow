@@ -96,8 +96,8 @@ fn rewrite_expr(expr: &Expr, schema: &Schema) -> Result<Expr> {
         Expr::BinaryExpr { left, op, right } => {
             let left = rewrite_expr(left, schema)?;
             let right = rewrite_expr(right, schema)?;
-            let left_type = left.get_type(schema);
-            let right_type = right.get_type(schema);
+            let left_type = left.get_type(schema)?;
+            let right_type = right.get_type(schema)?;
             if left_type == right_type {
                 Ok(Expr::BinaryExpr {
                     left: Arc::new(left),
