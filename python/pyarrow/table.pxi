@@ -22,8 +22,8 @@ cdef class ChunkedArray(_PandasConvertible):
     """
     An array-like composed from a (possibly empty) collection of pyarrow.Arrays
 
-    Warning
-    -------
+    Warnings
+    --------
     Do not call this class's constructor directly.
     """
 
@@ -159,15 +159,16 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def equals(self, ChunkedArray other):
         """
-        Return whether the contents of two chunked arrays are equal
+        Return whether the contents of two chunked arrays are equal.
 
         Parameters
         ----------
         other : pyarrow.ChunkedArray
+            Chunked array to compare against.
 
         Returns
         -------
-        are_equal : boolean
+        are_equal : bool
         """
         cdef:
             CChunkedArray* this_arr = self.chunked_array
@@ -223,7 +224,7 @@ cdef class ChunkedArray(_PandasConvertible):
         ----------
         target_type : DataType
             Type to cast to
-        safe : boolean, default True
+        safe : bool, default True
             Check for overflows or other unsafe conversions
 
         Returns
@@ -395,9 +396,9 @@ def chunked_array(arrays, type=None):
     Parameters
     ----------
     arrays : Array, list of Array, or values coercible to arrays
-        Must all be the same data type. Can be empty only if type also
-        passed
+        Must all be the same data type. Can be empty only if type also passed.
     type : DataType or string coercible to DataType
+
 
     Returns
     -------
@@ -511,8 +512,8 @@ cdef class RecordBatch(_PandasConvertible):
     """
     Batch of rows of columns of equal length
 
-    Warning
-    -------
+    Warnings
+    --------
     Do not call this class's constructor directly, use one of the
     ``RecordBatch.from_*`` functions instead.
     """
@@ -670,7 +671,7 @@ cdef class RecordBatch(_PandasConvertible):
 
     def serialize(self, memory_pool=None):
         """
-        Write RecordBatch to Buffer as encapsulated IPC message
+        Write RecordBatch to Buffer as encapsulated IPC message.
 
         Parameters
         ----------
@@ -849,7 +850,8 @@ cdef class RecordBatch(_PandasConvertible):
 
         Parameters
         ----------
-        struct_array: a StructArray.
+        struct_array : StructArray
+            Array to construct the record batch from.
 
         Returns
         -------
@@ -1131,17 +1133,18 @@ cdef class Table(_PandasConvertible):
 
     def equals(self, Table other, bint check_metadata=False):
         """
-        Check if contents of two tables are equal
+        Check if contents of two tables are equal.
 
         Parameters
         ----------
         other : pyarrow.Table
+            Table to compare against.
         check_metadata : bool, default False
             Whether schema metadata equality should be checked as well.
 
         Returns
         -------
-        are_equal : boolean
+        are_equal : bool
         """
         cdef:
             CTable* this_table = self.table
@@ -1164,7 +1167,7 @@ cdef class Table(_PandasConvertible):
         ----------
         target_schema : Schema
             Schema to cast to, the names and order of fields must match
-        safe : boolean, default True
+        safe : bool, default True
             Check for overflows or other unsafe conversions
 
         Returns
@@ -1227,7 +1230,7 @@ cdef class Table(_PandasConvertible):
             indicated number of threads
         columns : list, optional
            List of column to be converted. If None, use all columns.
-        safe : boolean, default True
+        safe : bool, default True
            Check for overflows or other unsafe conversions
 
         Returns
@@ -1353,14 +1356,14 @@ cdef class Table(_PandasConvertible):
     @staticmethod
     def from_batches(batches, Schema schema=None):
         """
-        Construct a Table from a sequence or iterator of Arrow RecordBatches
+        Construct a Table from a sequence or iterator of Arrow RecordBatches.
 
         Parameters
         ----------
         batches : sequence or iterator of RecordBatch
-            Sequence of RecordBatch to be converted, all schemas must be equal
+            Sequence of RecordBatch to be converted, all schemas must be equal.
         schema : Schema, default None
-            If not passed, will be inferred from the first RecordBatch
+            If not passed, will be inferred from the first RecordBatch.
 
         Returns
         -------
@@ -1391,14 +1394,13 @@ cdef class Table(_PandasConvertible):
 
     def to_batches(self, max_chunksize=None, **kwargs):
         """
-        Convert Table to list of (contiguous) RecordBatch objects, with maximum
-        chunk size
+        Convert Table to list of (contiguous) RecordBatch objects.
 
         Parameters
         ----------
         max_chunksize : int, default None
             Maximum size for RecordBatch chunks. Individual chunks may be
-            smaller depending on the chunk layout of individual columns
+            smaller depending on the chunk layout of individual columns.
 
         Returns
         -------
@@ -1466,7 +1468,7 @@ cdef class Table(_PandasConvertible):
     @property
     def schema(self):
         """
-        Schema of the table and its columns
+        Schema of the table and its columns.
 
         Returns
         -------
@@ -1481,6 +1483,7 @@ cdef class Table(_PandasConvertible):
         Parameters
         ----------
         i : int or string
+            The index or name of the field to retrieve.
 
         Returns
         -------
@@ -1495,6 +1498,7 @@ cdef class Table(_PandasConvertible):
         Parameters
         ----------
         i : int or string
+            The index or name of the column to retrieve.
 
         Returns
         -------
@@ -1518,6 +1522,7 @@ cdef class Table(_PandasConvertible):
         Parameters
         ----------
         i : int
+            The index of the column to retrieve.
 
         Returns
         -------
@@ -1531,7 +1536,11 @@ cdef class Table(_PandasConvertible):
 
     def itercolumns(self):
         """
-        Iterator over all columns in their numerical order
+        Iterator over all columns in their numerical order.
+
+        Yields
+        ------
+        pyarrow.ChunkedArray
         """
         for i in range(self.num_columns):
             yield self._column(i)
@@ -1539,7 +1548,7 @@ cdef class Table(_PandasConvertible):
     @property
     def columns(self):
         """
-        List of all columns in numerical order
+        List of all columns in numerical order.
 
         Returns
         -------
@@ -1550,7 +1559,7 @@ cdef class Table(_PandasConvertible):
     @property
     def num_columns(self):
         """
-        Number of columns in this table
+        Number of columns in this table.
 
         Returns
         -------
@@ -1578,11 +1587,12 @@ cdef class Table(_PandasConvertible):
     @property
     def shape(self):
         """
-        Dimensions of the table: (#rows, #columns)
+        Dimensions of the table: (#rows, #columns).
 
         Returns
         -------
         (int, int)
+            Number of rows and number of columns.
         """
         return (self.num_rows, self.num_columns)
 
@@ -1601,7 +1611,24 @@ cdef class Table(_PandasConvertible):
 
     def add_column(self, int i, field_, column):
         """
-        Add column to Table at position. Returns new table
+        Add column to Table at position.
+
+        A new table is returned with the column added, the original table
+        object is left unchanged.
+
+        Parameters
+        ----------
+        i : int
+            Index to place the column at.
+        field_ : str or Field
+            If a string is passed then the type is deduced from the column
+            data.
+        column : Array, list of Array, or values coercible to arrays
+            Column data.
+
+        Returns
+        -------
+        pyarrow.Table : New table with the passed column added.
         """
         cdef:
             shared_ptr[CTable] c_table
@@ -1627,13 +1654,36 @@ cdef class Table(_PandasConvertible):
 
     def append_column(self, field_, column):
         """
-        Append column at end of columns. Returns new table
+        Append column at end of columns.
+
+        Parameters
+        ----------
+        field_ : str or Field
+            If a string is passed then the type is deduced from the column
+            data.
+        column : Array, list of Array, or values coercible to arrays
+            Column data.
+
+        Returns
+        -------
+        pyarrow.Table :
+            New table with the passed column added.
         """
         return self.add_column(self.num_columns, field_, column)
 
     def remove_column(self, int i):
         """
-        Create new Table with the indicated column removed
+        Create new Table with the indicated column removed.
+
+        Parameters
+        ----------
+        i : int
+            Index of column to remove.
+
+        Returns
+        -------
+        pyarrow.Table :
+            New table without the column.
         """
         cdef shared_ptr[CTable] c_table
 
@@ -1644,7 +1694,22 @@ cdef class Table(_PandasConvertible):
 
     def set_column(self, int i, field_, column):
         """
-        Replace column in Table at position. Returns new table
+        Replace column in Table at position.
+
+        Parameters
+        ----------
+        i : int
+            Index to place the column at.
+        field_ : str or Field
+            If a string is passed then the type is deduced from the column
+            data.
+        column : Array, list of Array, or values coercible to arrays
+            Column data.
+
+        Returns
+        -------
+        pyarrow.Table :
+            New table with the passed column set.
         """
         cdef:
             shared_ptr[CTable] c_table
@@ -1678,7 +1743,7 @@ cdef class Table(_PandasConvertible):
 
     def rename_columns(self, names):
         """
-        Create new table with columns renamed to provided names
+        Create new table with columns renamed to provided names.
         """
         cdef:
             shared_ptr[CTable] c_table
@@ -1696,9 +1761,19 @@ cdef class Table(_PandasConvertible):
         """
         Drop one or more columns and return a new table.
 
-        columns: list of str
+        Parameters
+        ----------
+        columns : list of str
+            List of field names referencing existing columns.
 
-        Returns pa.Table
+        Raises
+        ------
+        KeyError : if any of the passed columns name are not existing.
+
+        Returns
+        -------
+        pyarrow.Table :
+            New table without the columns.
         """
         indices = []
         for col in columns:
@@ -1727,7 +1802,7 @@ def _reconstruct_table(arrays, schema):
 def record_batch(data, names=None, schema=None, metadata=None):
     """
     Create a pyarrow.RecordBatch from another Python data structure or sequence
-    of arrays
+    of arrays.
 
     Parameters
     ----------
@@ -1735,10 +1810,10 @@ def record_batch(data, names=None, schema=None, metadata=None):
         A DataFrame or list of arrays or chunked arrays.
     names : list, default None
         Column names if list of arrays passed as data. Mutually exclusive with
-        'schema' argument
+        'schema' argument.
     schema : Schema, default None
         The expected schema of the RecordBatch. If not passed, will be inferred
-        from the data. Mutually exclusive with 'names' argument
+        from the data. Mutually exclusive with 'names' argument.
     metadata : dict or Mapping, default None
         Optional metadata for the schema (if schema not passed).
 
@@ -1766,8 +1841,7 @@ def record_batch(data, names=None, schema=None, metadata=None):
 
 def table(data, names=None, schema=None, metadata=None):
     """
-    Create a pyarrow.Table from another Python data structure or sequence of
-    arrays
+    Create a pyarrow.Table from a Python data structure or sequence of arrays.
 
     Parameters
     ----------
@@ -1838,10 +1912,11 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
     Parameters
     ----------
     tables : iterable of pyarrow.Table objects
+        Pyarrow tables to concatenate into a single Table.
     promote: bool, default False
         If True, concatenate tables with null-filling and null type promotion.
     memory_pool : MemoryPool, default None
-        For memory allocations, if required, otherwise use default pool
+        For memory allocations, if required, otherwise use default pool.
     """
     cdef:
         vector[shared_ptr[CTable]] c_tables

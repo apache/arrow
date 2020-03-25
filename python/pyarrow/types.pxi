@@ -140,7 +140,7 @@ cdef class DataType:
     def num_buffers(self):
         """
         Number of data buffers required to construct Array type
-        excluding children
+        excluding children.
         """
         return self.type.layout().buffers.size()
 
@@ -164,7 +164,7 @@ cdef class DataType:
 
     def equals(self, other):
         """
-        Return true if type is equivalent to passed value
+        Return true if type is equivalent to passed value.
 
         Parameters
         ----------
@@ -172,7 +172,7 @@ cdef class DataType:
 
         Returns
         -------
-        is_equal : boolean
+        is_equal : bool
         """
         cdef DataType other_type
 
@@ -212,7 +212,7 @@ cdef class DataType:
 
 cdef class DictionaryMemo:
     """
-    Tracking container for dictionary-encoded fields
+    Tracking container for dictionary-encoded fields.
     """
     def __cinit__(self):
         self.sp_memo.reset(new CDictionaryMemo())
@@ -249,8 +249,9 @@ cdef class DictionaryType(DataType):
     @property
     def value_type(self):
         """
-        The dictionary value type. The dictionary values are found in an
-        instance of DictionaryArray
+        The dictionary value type.
+
+        The dictionary values are found in an instance of DictionaryArray.
         """
         return pyarrow_wrap_data_type(self.dict_type.value_type())
 
@@ -444,7 +445,7 @@ cdef class UnionType(DataType):
 
     def __len__(self):
         """
-        Like num_children()
+        Like num_children().
         """
         return self.type.num_children()
 
@@ -839,7 +840,7 @@ cdef class Field:
 
         Returns
         -------
-        is_equal : boolean
+        is_equal : bool
         """
         return self.field.Equals(deref(other.field), check_metadata)
 
@@ -1056,7 +1057,7 @@ cdef class Schema:
 
         Returns
         -------
-        is_equal : boolean
+        is_equal : bool
         """
         return self.sp_schema.get().Equals(deref(other.schema),
                                            check_metadata)
@@ -1405,15 +1406,19 @@ cdef DataType primitive_type(Type type):
 
 def field(name, type, bint nullable=True, metadata=None):
     """
-    Create a pyarrow.Field instance
+    Create a pyarrow.Field instance.
 
     Parameters
     ----------
-    name : string or bytes
+    name : str or bytes
+        Name of the field.
     type : pyarrow.DataType
-    nullable : boolean, default True
+        Arrow datatype of the field.
+    nullable : bool, default True
+        Whether the field's values are nullable.
     metadata : dict, default None
-        Keys and values must be coercible to bytes
+        Optional field metadata, the keys and values must be coercible to
+        bytes.
 
     Returns
     -------
@@ -1454,70 +1459,70 @@ cdef set PRIMITIVE_TYPES = set([
 
 def null():
     """
-    Create instance of null type
+    Create instance of null type.
     """
     return primitive_type(_Type_NA)
 
 
 def bool_():
     """
-    Create instance of boolean type
+    Create instance of boolean type.
     """
     return primitive_type(_Type_BOOL)
 
 
 def uint8():
     """
-    Create instance of unsigned int8 type
+    Create instance of unsigned int8 type.
     """
     return primitive_type(_Type_UINT8)
 
 
 def int8():
     """
-    Create instance of signed int8 type
+    Create instance of signed int8 type.
     """
     return primitive_type(_Type_INT8)
 
 
 def uint16():
     """
-    Create instance of unsigned uint16 type
+    Create instance of unsigned uint16 type.
     """
     return primitive_type(_Type_UINT16)
 
 
 def int16():
     """
-    Create instance of signed int16 type
+    Create instance of signed int16 type.
     """
     return primitive_type(_Type_INT16)
 
 
 def uint32():
     """
-    Create instance of unsigned uint32 type
+    Create instance of unsigned uint32 type.
     """
     return primitive_type(_Type_UINT32)
 
 
 def int32():
     """
-    Create instance of signed int32 type
+    Create instance of signed int32 type.
     """
     return primitive_type(_Type_INT32)
 
 
 def uint64():
     """
-    Create instance of unsigned uint64 type
+    Create instance of unsigned uint64 type.
     """
     return primitive_type(_Type_UINT64)
 
 
 def int64():
     """
-    Create instance of signed int64 type
+    Create instance of signed int64 type.
     """
     return primitive_type(_Type_INT64)
 
@@ -1556,7 +1561,7 @@ def tzinfo_to_string(tz):
 
     Returns
     -------
-      name : string
+      name : str
         Time zone name
     """
     import pytz
@@ -1589,16 +1594,17 @@ def tzinfo_to_string(tz):
 
 def string_to_tzinfo(name):
     """
-    Converts a string indicating the name of a time zone into a time zone
-    object, one of:
+    Convert a time zone name into a time zone object.
+
+    Supported input strings are:
     * As used in the Olson time zone database (the "tz database" or
       "tzdata"), such as "America/New_York"
     * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
 
     Parameters
     ----------
-      name: string
-        Time zone name
+      name: str
+        Time zone name.
 
     Returns
     -------
@@ -1617,22 +1623,25 @@ def string_to_tzinfo(name):
 
 def timestamp(unit, tz=None):
     """
-    Create instance of timestamp type with resolution and optional time zone
+    Create instance of timestamp type with resolution and optional time zone.
 
     Parameters
     ----------
-    unit : string
+    unit : str
         one of 's' [second], 'ms' [millisecond], 'us' [microsecond], or 'ns'
         [nanosecond]
-    tz : string, default None
+    tz : str, default None
         Time zone name. None indicates time zone naive
 
     Examples
     --------
-    ::
-
-        t1 = pa.timestamp('us')
-        t2 = pa.timestamp('s', tz='America/New_York')
+    >>> import pyarrow as pa
+    >>> pa.timestamp('us')
+    TimestampType(timestamp[us])
+    >>> pa.timestamp('s', tz='America/New_York')
+    TimestampType(timestamp[s, tz=America/New_York])
+    >>> pa.timestamp('s', tz='+07:30')
+    TimestampType(timestamp[s, tz=+07:30])
 
     Returns
     -------
@@ -1672,19 +1681,24 @@ def timestamp(unit, tz=None):
 
 def time32(unit):
     """
-    Create instance of 32-bit time (time of day) type with unit resolution
+    Create instance of 32-bit time (time of day) type with unit resolution.
 
     Parameters
     ----------
-    unit : string
+    unit : str
         one of 's' [second], or 'ms' [millisecond]
+
+    Returns
+    -------
+    type : pyarrow.Time32Type
 
     Examples
     --------
-    ::
-
-        t1 = pa.time32('s')
-        t2 = pa.time32('ms')
+    >>> import pyarrow as pa
+    >>> pa.time32('s')
+    Time32Type(time32[s])
+    >>> pa.time32('ms')
+    Time32Type(time32[ms])
     """
     cdef:
         TimeUnit unit_code
@@ -1710,19 +1724,24 @@ def time32(unit):
 
 def time64(unit):
     """
-    Create instance of 64-bit time (time of day) type with unit resolution
+    Create instance of 64-bit time (time of day) type with unit resolution.
 
     Parameters
     ----------
-    unit : string
-        one of 'us' [microsecond], or 'ns' [nanosecond]
+    unit : str
+        One of 'us' [microsecond], or 'ns' [nanosecond].
+
+    Returns
+    -------
+    type : pyarrow.Time64Type
 
     Examples
     --------
-    ::
-
-        t1 = pa.time64('us')
-        t2 = pa.time64('ns')
+    >>> import pyarrow as pa
+    >>> pa.time64('us')
+    Time64Type(time64[us])
+    >>> pa.time64('ns')
+    Time64Type(time64[ns])
     """
     cdef:
         TimeUnit unit_code
@@ -1752,16 +1771,21 @@ def duration(unit):
 
     Parameters
     ----------
-    unit : string
-        one of 's' [second], 'ms' [millisecond], 'us' [microsecond], or 'ns'
-        [nanosecond]
+    unit : str
+        One of 's' [second], 'ms' [millisecond], 'us' [microsecond], or
+        'ns' [nanosecond].
+
+    Returns
+    -------
+    type : pyarrow.DurationType
 
     Examples
     --------
-    ::
-
-        t1 = pa.duration('us')
-        t2 = pa.duration('s')
+    >>> import pyarrow as pa
+    >>> pa.duration('us')
+    DurationType(duration[us])
+    >>> pa.duration('s')
+    DurationType(duration[s])
     """
     cdef:
         TimeUnit unit_code
@@ -1790,42 +1814,42 @@ def duration(unit):
 
 def date32():
     """
-    Create instance of 32-bit date (days since UNIX epoch 1970-01-01)
+    Create instance of 32-bit date (days since UNIX epoch 1970-01-01).
     """
     return primitive_type(_Type_DATE32)
 
 
 def date64():
     """
-    Create instance of 64-bit date (milliseconds since UNIX epoch 1970-01-01)
+    Create instance of 64-bit date (milliseconds since UNIX epoch 1970-01-01).
     """
     return primitive_type(_Type_DATE64)
 
 
 def float16():
     """
-    Create half-precision floating point type
+    Create half-precision floating point type.
     """
     return primitive_type(_Type_HALF_FLOAT)
 
 
 def float32():
     """
-    Create single-precision floating point type
+    Create single-precision floating point type.
     """
     return primitive_type(_Type_FLOAT)
 
 
 def float64():
     """
-    Create double-precision floating point type
+    Create double-precision floating point type.
     """
     return primitive_type(_Type_DOUBLE)
 
 
 cpdef DataType decimal128(int precision, int scale=0):
     """
-    Create decimal type with precision and scale and 128bit width
+    Create decimal type with precision and scale and 128bit width.
 
     Parameters
     ----------
@@ -1845,21 +1869,21 @@ cpdef DataType decimal128(int precision, int scale=0):
 
 def string():
     """
-    Create UTF8 variable-length string type
+    Create UTF8 variable-length string type.
     """
     return primitive_type(_Type_STRING)
 
 
 def utf8():
     """
-    Alias for string()
+    Alias for string().
     """
     return string()
 
 
 def binary(int length=-1):
     """
-    Create variable-length binary type
+    Create variable-length binary type.
 
     Parameters
     ----------
@@ -1878,7 +1902,7 @@ def binary(int length=-1):
 
 def large_binary():
     """
-    Create large variable-length binary type
+    Create large variable-length binary type.
 
     This data type may not be supported by all Arrow implementations.  Unless
     you need to represent data larger than 2GB, you should prefer binary().
@@ -1888,7 +1912,7 @@ def large_binary():
 
 def large_string():
     """
-    Create large UTF8 variable-length string type
+    Create large UTF8 variable-length string type.
 
     This data type may not be supported by all Arrow implementations.  Unless
     you need to represent data larger than 2GB, you should prefer string().
@@ -1898,14 +1922,14 @@ def large_string():
 
 def large_utf8():
     """
-    Alias for large_string()
+    Alias for large_string().
     """
     return large_string()
 
 
 def list_(value_type, int list_size=-1):
     """
-    Create ListType instance from child data type or field
+    Create ListType instance from child data type or field.
 
     Parameters
     ----------
@@ -1941,7 +1965,7 @@ def list_(value_type, int list_size=-1):
 
 cpdef LargeListType large_list(value_type):
     """
-    Create LargeListType instance from child data type or field
+    Create LargeListType instance from child data type or field.
 
     This data type may not be supported by all Arrow implementations.
     Unless you need to represent data larger than 2**31 elements, you should
@@ -1975,13 +1999,13 @@ cpdef LargeListType large_list(value_type):
 
 cpdef MapType map_(key_type, item_type, keys_sorted=False):
     """
-    Create MapType instance from key and item data types
+    Create MapType instance from key and item data types.
 
     Parameters
     ----------
     key_type : DataType
     item_type : DataType
-    keys_sorted : boolean
+    keys_sorted : bool
 
     Returns
     -------
@@ -2001,13 +2025,13 @@ cpdef MapType map_(key_type, item_type, keys_sorted=False):
 
 cpdef DictionaryType dictionary(index_type, value_type, bint ordered=False):
     """
-    Dictionary (categorical, or simply encoded) type
+    Dictionary (categorical, or simply encoded) type.
 
     Parameters
     ----------
     index_type : DataType
     value_type : DataType
-    ordered : boolean
+    ordered : bool
 
     Returns
     -------
@@ -2030,28 +2054,33 @@ cpdef DictionaryType dictionary(index_type, value_type, bint ordered=False):
 
 def struct(fields):
     """
-    Create StructType instance from fields
+    Create StructType instance from fields.
+
+    A struct is a nested type parameterized by an ordered sequence of types
+    (which can all be distinct), called its fields.
 
     Parameters
     ----------
     fields : iterable of Fields or tuples, or mapping of strings to DataTypes
+        Each field must have a UTF8-encoded name, and these field names are
+        part of the type metadata.
 
     Examples
     --------
-    ::
-
-        import pyarrow as pa
-        fields = [
-            ('f1', pa.int32()),
-            ('f2', pa.string()),
-        ]
-        struct_type = pa.struct(fields)
-
-        fields = [
-            pa.field('f1', pa.int32()),
-            pa.field('f2', pa.string(), nullable=false),
-        ]
-        struct_type = pa.struct(fields)
+    >>> import pyarrow as pa
+    >>> fields = [
+    ...     ('f1', pa.int32()),
+    ...     ('f2', pa.string()),
+    ... ]
+    >>> struct_type = pa.struct(fields)
+    >>> struct_type
+    StructType(struct<f1: int32, f2: string>)
+    >>> fields = [
+    ...     pa.field('f1', pa.int32()),
+    ...     pa.field('f2', pa.string(), nullable=False),
+    ... ]
+    >>> pa.struct(fields)
+    StructType(struct<f1: int32, f2: string not null>)
 
     Returns
     -------
@@ -2080,11 +2109,16 @@ def union(children_fields, mode, type_codes=None):
     """
     Create UnionType from children fields.
 
+    A union is defined by an ordered sequence of types; each slot in the union
+    can have a value chosen from these types.
+
     Parameters
     ----------
     fields : sequence of Field values
+        Each field must have a UTF8-encoded name, and these field names are
+        part of the type metadata.
     mode : str
-        'dense' or 'sparse'
+        Either 'dense' or 'sparse'.
     type_codes : list of integers, default None
 
     Returns
@@ -2189,7 +2223,7 @@ cdef dict _type_aliases = {
 
 def type_for_alias(name):
     """
-    Return DataType given a string alias if one exists
+    Return DataType given a string alias if one exists.
 
     Returns
     -------
@@ -2219,24 +2253,29 @@ cdef DataType ensure_type(object ty, c_bool allow_none=False):
 
 def schema(fields, metadata=None):
     """
-    Construct pyarrow.Schema from collection of fields
+    Construct pyarrow.Schema from collection of fields.
 
     Parameters
     ----------
     field : iterable of Fields or tuples, or mapping of strings to DataTypes
     metadata : dict, default None
-        Keys and values must be coercible to bytes
+        Keys and values must be coercible to bytes.
 
     Examples
     --------
-    ::
-
-        import pyarrow as pa
-        fields = [
-            ('some_int', pa.int32()),
-            ('some_string', pa.string()),
-        ]
-        schema = pa.schema(fields)
+    >>> import pyarrow as pa
+    >>> pa.schema([
+    ...     ('some_int', pa.int32()),
+    ...     ('some_string', pa.string())
+    ... ])
+    some_int: int32
+    some_string: string
+    >>> pa.schema([
+    ...     pa.field('some_int', pa.int32()),
+    ...     pa.field('some_string', pa.string())
+    ... ])
+    some_int: int32
+    some_string: string
 
     Returns
     -------
@@ -2275,7 +2314,7 @@ def schema(fields, metadata=None):
 
 def from_numpy_dtype(object dtype):
     """
-    Convert NumPy dtype to pyarrow.DataType
+    Convert NumPy dtype to pyarrow.DataType.
     """
     cdef shared_ptr[CDataType] c_type
     dtype = np.dtype(dtype)

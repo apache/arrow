@@ -36,12 +36,12 @@ def jvm_buffer(arrowbuf):
     ----------
 
     arrowbuf: io.netty.buffer.ArrowBuf
-        Arrow Buffer representation on the JVM
+        Arrow Buffer representation on the JVM.
 
     Returns
     -------
     pyarrow.Buffer
-        Python Buffer that references the JVM memory
+        Python Buffer that references the JVM memory.
     """
     address = arrowbuf.memoryAddress()
     size = arrowbuf.capacity()
@@ -54,11 +54,11 @@ def _from_jvm_int_type(jvm_type):
 
     Parameters
     ----------
-    jvm_type: org.apache.arrow.vector.types.pojo.ArrowType$Int
+    jvm_type : org.apache.arrow.vector.types.pojo.ArrowType$Int
 
     Returns
     -------
-    typ: pyarrow.DataType
+    typ : pyarrow.DataType
     """
 
     bit_width = jvm_type.getBitWidth()

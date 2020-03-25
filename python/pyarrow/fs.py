@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+FileSystem abstraction to interact with various local and remote filesystems.
+"""
 
 from pyarrow._fs import (  # noqa
     FileSelector,

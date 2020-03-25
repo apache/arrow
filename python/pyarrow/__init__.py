@@ -17,6 +17,17 @@
 
 # flake8: noqa
 
+"""
+PyArrow is the python implementation of Apache Arrow.
+
+Apache Arrow is a cross-language development platform for in-memory data.
+It specifies a standardized language-independent columnar memory format for
+flat and hierarchical data, organized for efficient analytic operations on
+modern hardware. It also provides computational libraries and zero-copy
+streaming messaging and interprocess communication.
+
+For more information see the official page at https://arrow.apache.org
+"""
 
 import os as _os
 import sys as _sys

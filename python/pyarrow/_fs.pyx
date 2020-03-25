@@ -57,7 +57,9 @@ def _normalize_path(FileSystem filesystem, path):
 
 
 cdef class FileInfo:
-    """FileSystem entry info"""
+    """
+    FileSystem entry info.
+    """
 
     def __init__(self):
         raise TypeError("FileInfo cannot be instantiated directly, use "
@@ -87,7 +89,8 @@ cdef class FileInfo:
 
     @property
     def type(self):
-        """Type of the file
+        """
+        Type of the file.
 
         The returned enum values can be the following:
 
@@ -106,12 +109,15 @@ cdef class FileInfo:
 
     @property
     def path(self):
-        """The full file path in the filesystem."""
+        """
+        The full file path in the filesystem.
+        """
         return frombytes(self.info.path())
 
     @property
     def base_name(self):
-        """The file base name
+        """
+        The file base name.
 
         Component after the last directory separator.
         """
@@ -119,7 +125,8 @@ cdef class FileInfo:
 
     @property
     def size(self):
-        """The size in bytes, if available
+        """
+        The size in bytes, if available.
 
         Only regular files are guaranteed to have a size.
         """
@@ -129,12 +136,15 @@ cdef class FileInfo:
 
     @property
     def extension(self):
-        """The file extension"""
+        """
+        The file extension.
+        """
         return frombytes(self.info.extension())
 
     @property
     def mtime(self):
-        """The time of last modification, if available.
+        """
+        The time of last modification, if available.
 
         Returns
         -------
@@ -146,7 +156,8 @@ cdef class FileInfo:
 
 
 cdef class FileSelector:
-    """File and directory selector.
+    """
+    File and directory selector.
 
     It contains a set of options that describes how to search for files and
     directories.
@@ -203,7 +214,9 @@ cdef class FileSelector:
 
 
 cdef class FileSystem:
-    """Abstract file system API"""
+    """
+    Abstract file system API.
+    """
 
     def __init__(self):
         raise TypeError("FileSystem is an abstract class, instantiate one of "
@@ -212,7 +225,8 @@ cdef class FileSystem:
 
     @staticmethod
     def from_uri(uri):
-        """Create a new FileSystem from URI or Path
+        """
+        Create a new FileSystem from URI or Path.
 
         Recognized URI schemes are "file", "mock", "s3fs", "hdfs" and "viewfs".
         In addition, the argument can be a pathlib.Path object, or a string
@@ -221,7 +235,7 @@ cdef class FileSystem:
         Parameters
         ----------
         uri : string
-            URI-based path, for example: file:///some/local/path
+            URI-based path, for example: file:///some/local/path.
 
         Returns
         -------
@@ -270,7 +284,8 @@ cdef class FileSystem:
         return self.wrapped
 
     def get_file_info(self, paths_or_selector):
-        """Get info for the given files.
+        """
+        Get info for the given files.
 
         Any symlink is automatically dereferenced, recursively. A non-existing
         or unreachable file returns a FileStat object and has a FileType of
@@ -307,7 +322,8 @@ cdef class FileSystem:
         return [FileInfo.wrap(info) for info in infos]
 
     def create_dir(self, path, *, bint recursive=True):
-        """Create a directory and subdirectories.
+        """
+        Create a directory and subdirectories.
 
         This function succeeds if the directory already exists.
 
@@ -335,7 +351,8 @@ cdef class FileSystem:
             check_status(self.fs.DeleteDir(directory))
 
     def move(self, src, dest):
-        """Move / rename a file or directory.
+        """
+        Move / rename a file or directory.
 
         If the destination exists:
         - if it is a non-empty directory, an error is returned
@@ -356,7 +373,8 @@ cdef class FileSystem:
             check_status(self.fs.Move(source, destination))
 
     def copy_file(self, src, dest):
-        """Copy a file.
+        """
+        Copy a file.
 
         If the destination exists and is a directory, an error is returned.
         Otherwise, it is replaced.
@@ -375,7 +393,8 @@ cdef class FileSystem:
             check_status(self.fs.CopyFile(source, destination))
 
     def delete_file(self, path):
-        """Delete a file.
+        """
+        Delete a file.
 
         Parameters
         ----------
@@ -405,7 +424,8 @@ cdef class FileSystem:
         return stream
 
     def open_input_file(self, path):
-        """Open an input file for random access reading.
+        """
+        Open an input file for random access reading.
 
         Parameters
         ----------
@@ -429,7 +449,8 @@ cdef class FileSystem:
         return stream
 
     def open_input_stream(self, path, compression='detect', buffer_size=None):
-        """Open an input stream for sequential reading.
+        """
+        Open an input stream for sequential reading.
 
         Parameters
         ----------
@@ -465,7 +486,8 @@ cdef class FileSystem:
         )
 
     def open_output_stream(self, path, compression='detect', buffer_size=None):
-        """Open an output stream for sequential writing.
+        """
+        Open an output stream for sequential writing.
 
         If the target already exists, existing data is truncated.
 
@@ -503,7 +525,8 @@ cdef class FileSystem:
         )
 
     def open_append_stream(self, path, compression='detect', buffer_size=None):
-        """Open an output stream for appending.
+        """
+        Open an output stream for appending.
 
         If the target doesn't exist, a new empty file is created.
 
@@ -542,7 +565,8 @@ cdef class FileSystem:
 
 
 cdef class LocalFileSystemOptions:
-    """Options for LocalFileSystemOptions.
+    """
+    Options for LocalFileSystemOptions.
 
     Parameters
     ----------
@@ -575,7 +599,8 @@ cdef class LocalFileSystemOptions:
 
 
 cdef class LocalFileSystem(FileSystem):
-    """A FileSystem implementation accessing files on the local machine.
+    """
+    A FileSystem implementation accessing files on the local machine.
 
     Details such as symlinks are abstracted away (symlinks are always followed,
     except when deleting an entry).
@@ -605,7 +630,8 @@ cdef class LocalFileSystem(FileSystem):
 
 
 cdef class SubTreeFileSystem(FileSystem):
-    """Delegates to another implementation after prepending a fixed base path.
+    """
+    Delegates to another implementation after prepending a fixed base path.
 
     This is useful to expose a logical view of a subtree of a filesystem,
     for example a directory in a LocalFileSystem.

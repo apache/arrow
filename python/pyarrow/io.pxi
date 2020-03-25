@@ -764,11 +764,11 @@ cdef class MemoryMappedFile(NativeFile):
 
 def memory_map(path, mode='r'):
     """
-    Open memory map at file path. Size of the memory map cannot change
+    Open memory map at file path. Size of the memory map cannot change.
 
     Parameters
     ----------
-    path : string
+    path : str
     mode : {'r', 'r+', 'w'}, default 'r'
         Whether the file is opened for reading ('r+'), writing ('w')
         or both ('r+').
@@ -788,7 +788,7 @@ def create_memory_map(path, size):
 
     Parameters
     ----------
-    path : string
+    path : str
         The file path to create, on the local filesystem.
     size : int
         The file size to create.
@@ -961,10 +961,10 @@ cdef class Buffer:
         Parameters
         ----------
         offset : int, default 0
-            Offset from start of buffer to slice
+            Offset from start of buffer to slice.
         length : int, default None
             Length of slice (default is until end of Buffer starting from
-            offset)
+            offset).
 
         Returns
         -------
@@ -1014,7 +1014,7 @@ cdef class Buffer:
 
     def to_pybytes(self):
         """
-        Return this buffer as a Python bytes object.  Memory is copied.
+        Return this buffer as a Python bytes object. Memory is copied.
         """
         return cp.PyBytes_FromStringAndSize(
             <const char*>self.buffer.get().data(),
@@ -1076,8 +1076,8 @@ cdef class ResizableBuffer(Buffer):
         Parameters
         ----------
         new_size : int
-            New size of buffer (padding may be added internally)
-        shrink_to_fit : boolean, default False
+            New size of buffer (padding may be added internally).
+        shrink_to_fit : bool, default False
             If this is true, the buffer is shrunk when new_size is less
             than the current size.
             If this is false, the buffer is never shrunk.
@@ -1107,7 +1107,7 @@ def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
     memory_pool : MemoryPool, optional
         The pool to allocate memory from.
         If not given, the default memory pool is used.
-    resizable : boolean, default False
+    resizable : bool, default False
         If true, the returned buffer is resizable.
 
     Returns
@@ -1166,7 +1166,7 @@ cdef class MockOutputStream(NativeFile):
 
 cdef class BufferReader(NativeFile):
     """
-    Zero-copy reader from objects convertible to Arrow buffer
+    Zero-copy reader from objects convertible to Arrow buffer.
 
     Parameters
     ----------
@@ -1189,8 +1189,9 @@ cdef class CompressedInputStream(NativeFile):
     Parameters
     ----------
     stream : pa.NativeFile
+        Input stream object to wrap with the compression.
     compression : str
-        The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd")
+        The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd").
     """
     def __init__(self, NativeFile stream, str compression not None):
         cdef:
@@ -1213,8 +1214,9 @@ cdef class CompressedOutputStream(NativeFile):
     Parameters
     ----------
     stream : pa.NativeFile
+        Input stream object to wrap with the compression.
     compression : str
-        The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd")
+        The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd").
     """
 
     def __init__(self, NativeFile stream, str compression not None):
@@ -1309,7 +1311,7 @@ cdef class BufferedOutputStream(NativeFile):
         Returns
         -------
         raw : NativeFile
-            The underlying raw output stream
+            The underlying raw output stream.
         """
         cdef:
             shared_ptr[COutputStream] c_raw
@@ -1340,12 +1342,12 @@ def py_buffer(object obj):
 
 def foreign_buffer(address, size, base=None):
     """
-    Construct an Arrow buffer with the given *address* and *size*,
-    optionally backed by the Python *base* object.
+    Construct an Arrow buffer with the given *address* and *size*.
 
-    The *base* object, if given, will be kept alive as long as this buffer
-    is alive, including across language boundaries (for example if the
-    buffer is referenced by C++ code).
+    The buffer will be optionally backed by the Python *base* object, if given.
+    The *base* object will be kept alive as long as this buffer is alive,
+    including across language boundaries (for example if the buffer is
+    referenced by C++ code).
     """
     cdef:
         intptr_t c_addr = address
@@ -1671,10 +1673,10 @@ def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
     Parameters
     ----------
     buf : pyarrow.Buffer, bytes, or other object supporting buffer protocol
-    codec : string, default 'lz4'
+    codec : str, default 'lz4'
         Compression codec.
         Supported types: {'brotli, 'gzip', 'lz4', 'snappy', 'zstd'}
-    asbytes : boolean, default False
+    asbytes : bool, default False
         Return result as Python bytes object, otherwise Buffer.
     memory_pool : MemoryPool, default None
         Memory pool to use for buffer allocations, if any.
@@ -1695,16 +1697,17 @@ def decompress(object buf, decompressed_size=None, codec='lz4',
     Parameters
     ----------
     buf : pyarrow.Buffer, bytes, or memoryview-compatible object
+        Input object to decompress data from.
     decompressed_size : int64_t, default None
         If not specified, will be computed if the codec is able to determine
-        the uncompressed buffer size
-    codec : string, default 'lz4'
+        the uncompressed buffer size.
+    codec : str, default 'lz4'
         Compression codec.
         Supported types: {'brotli, 'gzip', 'lz4', 'snappy', 'zstd'}
-    asbytes : boolean, default False
-        Return result as Python bytes object, otherwise Buffer
+    asbytes : bool, default False
+        Return result as Python bytes object, otherwise Buffer.
     memory_pool : MemoryPool, default None
-        Memory pool to use for buffer allocations, if any
+        Memory pool to use for buffer allocations, if any.
 
     Returns
     -------
@@ -1722,15 +1725,15 @@ def input_stream(source, compression='detect', buffer_size=None):
     Parameters
     ----------
     source: str, Path, buffer, file-like object, ...
-        The source to open for reading
+        The source to open for reading.
     compression: str optional, default 'detect'
         The compression algorithm to use for on-the-fly decompression.
         If "detect" and source is a file path, then compression will be
         chosen based on the file extension.
         If None, no compression will be applied.
-        Otherwise, a well-known algorithm name must be supplied (e.g. "gzip")
+        Otherwise, a well-known algorithm name must be supplied (e.g. "gzip").
     buffer_size: int, default None
-        If None or 0, no buffering will happen.  Otherwise the size of the
+        If None or 0, no buffering will happen. Otherwise the size of the
         temporary read buffer.
     """
     cdef NativeFile stream
@@ -1774,15 +1777,15 @@ def output_stream(source, compression='detect', buffer_size=None):
     Parameters
     ----------
     source: str, Path, buffer, file-like object, ...
-        The source to open for writing
+        The source to open for writing.
     compression: str optional, default 'detect'
         The compression algorithm to use for on-the-fly compression.
         If "detect" and source is a file path, then compression will be
         chosen based on the file extension.
         If None, no compression will be applied.
-        Otherwise, a well-known algorithm name must be supplied (e.g. "gzip")
+        Otherwise, a well-known algorithm name must be supplied (e.g. "gzip").
     buffer_size: int, default None
-        If None or 0, no buffering will happen.  Otherwise the size of the
+        If None or 0, no buffering will happen. Otherwise the size of the
         temporary write buffer.
     """
     cdef NativeFile stream

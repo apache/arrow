@@ -155,8 +155,11 @@ cdef class MessageReader:
 
     def read_next_message(self):
         """
-        Read next Message from the stream. Raises StopIteration at end of
-        stream
+        Read next Message from the stream.
+
+        Raises
+        ------
+        StopIteration : at end of stream
         """
         cdef Message result = Message.__new__(Message)
 
@@ -182,7 +185,7 @@ cdef class _CRecordBatchWriter:
 
     def write(self, table_or_batch):
         """
-        Write RecordBatch or Table to stream
+        Write RecordBatch or Table to stream.
 
         Parameters
         ----------
@@ -197,7 +200,7 @@ cdef class _CRecordBatchWriter:
 
     def write_batch(self, RecordBatch batch):
         """
-        Write RecordBatch to stream
+        Write RecordBatch to stream.
 
         Parameters
         ----------
@@ -209,15 +212,14 @@ cdef class _CRecordBatchWriter:
 
     def write_table(self, Table table, max_chunksize=None, **kwargs):
         """
-        Write Table to stream in (contiguous) RecordBatch objects, with maximum
-        chunk size
+        Write Table to stream in (contiguous) RecordBatch objects.
 
         Parameters
         ----------
         table : Table
         max_chunksize : int, default None
             Maximum size for RecordBatch chunks. Individual chunks may be
-            smaller depending on the chunk layout of individual columns
+            smaller depending on the chunk layout of individual columns.
         """
         cdef:
             # max_chunksize must be > 0 to have any impact
@@ -239,7 +241,7 @@ cdef class _CRecordBatchWriter:
 
     def close(self):
         """
-        Close stream and write end-of-stream 0 marker
+        Close stream and write end-of-stream 0 marker.
         """
         with nogil:
             check_status(self.writer.get().Close())
@@ -307,8 +309,12 @@ cdef class _CRecordBatchReader:
 
     def read_next_batch(self):
         """
-        Read next RecordBatch from the stream. Raises StopIteration at end of
-        stream
+        Read next RecordBatch from the stream.
+
+        Raises
+        ------
+        StopIteration:
+            At end of stream.
         """
         cdef shared_ptr[CRecordBatch] batch
 
@@ -322,7 +328,7 @@ cdef class _CRecordBatchReader:
 
     def read_all(self):
         """
-        Read all record batches as a pyarrow.Table
+        Read all record batches as a pyarrow.Table.
         """
         cdef shared_ptr[CTable] table
         with nogil:
@@ -448,7 +454,7 @@ cdef class _RecordBatchFileReader:
 
 def get_tensor_size(Tensor tensor):
     """
-    Return total size of serialized Tensor including metadata and padding
+    Return total size of serialized Tensor including metadata and padding.
     """
     cdef int64_t size
     with nogil:
@@ -458,7 +464,7 @@ def get_tensor_size(Tensor tensor):
 
 def get_record_batch_size(RecordBatch batch):
     """
-    Return total size of serialized RecordBatch including metadata and padding
+    Return total size of serialized RecordBatch including metadata and padding.
     """
     cdef int64_t size
     with nogil:
@@ -468,7 +474,7 @@ def get_record_batch_size(RecordBatch batch):
 
 def write_tensor(Tensor tensor, NativeFile dest):
     """
-    Write pyarrow.Tensor to pyarrow.NativeFile object its current position
+    Write pyarrow.Tensor to pyarrow.NativeFile object its current position.
 
     Parameters
     ----------
