@@ -181,9 +181,17 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[shared_ptr[CUnionDataset]] Make(shared_ptr[CSchema] schema,
                                                 CDatasetVector children)
 
+    cdef cppclass CInspectOptions "arrow::dataset::InspectOptions":
+        int fragments
+
+    cdef cppclass CFinishOptions "arrow::dataset::FinishOptions":
+        shared_ptr[CSchema] schema
+        CInspectOptions inspect_options
+        c_bool validate_fragments
+
     cdef cppclass CDatasetFactory "arrow::dataset::DatasetFactory":
-        CResult[vector[shared_ptr[CSchema]]] InspectSchemas()
-        CResult[shared_ptr[CSchema]] Inspect()
+        CResult[vector[shared_ptr[CSchema]]] InspectSchemas(CInspectOptions)
+        CResult[shared_ptr[CSchema]] Inspect(CInspectOptions)
         CResult[shared_ptr[CDataset]] FinishWithSchema "Finish"(
             const shared_ptr[CSchema] & schema)
         CResult[shared_ptr[CDataset]] Finish()

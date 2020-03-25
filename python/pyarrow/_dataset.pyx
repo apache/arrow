@@ -724,8 +724,9 @@ cdef class DatasetFactory:
 
     def inspect_schemas(self):
         cdef CResult[vector[shared_ptr[CSchema]]] result
+        cdef CInspectOptions options
         with nogil:
-            result = self.factory.InspectSchemas()
+            result = self.factory.InspectSchemas(options)
 
         schemas = []
         for s in GetResultValue(result):
@@ -741,8 +742,9 @@ cdef class DatasetFactory:
         Schema
         """
         cdef CResult[shared_ptr[CSchema]] result
+        cdef CInspectOptions options
         with nogil:
-            result = self.factory.Inspect()
+            result = self.factory.Inspect(options)
         return pyarrow_wrap_schema(GetResultValue(result))
 
     def finish(self, Schema schema=None):
