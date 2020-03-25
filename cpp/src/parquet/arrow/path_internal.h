@@ -118,7 +118,7 @@ class PARQUET_EXPORT MultipathLevelBuilder {
   /// \param[in, out] context for use when allocating memory, etc.
   /// \param[out] write_leaf_callback Callback to receive results.
   /// There will be one call to the write_leaf_callback for each leaf node.
-  static ::arrow::Status Write(const ::arrow::Array& array, bool array_nullable,
+  static ::arrow::Status Write(const ::arrow::Array& array, bool array_field_nullable,
                                ArrowWriteContext* context,
                                CallbackFunction write_leaf_callback);
 
@@ -139,9 +139,10 @@ class PARQUET_EXPORT MultipathLevelBuilder {
 
   /// \brief Calls write_leaf_callback with the MultipathLevelBuilderResult corresponding
   /// to |leaf_index|.
-
-  /// \param[in] The index of the leaf column to write.  Must be in the range [0,
-  /// GetLeafCount()]. \param[in, out] context for use when allocating memory, etc.
+  ///
+  /// \param[in] leaf_index The index of the leaf column to write.  Must be in the range
+  /// [0, GetLeafCount()].
+  /// \param[in, out] context for use when allocating memory, etc.
   /// \param[out] write_leaf_callback Callback to receive the result.
   virtual ::arrow::Status Write(int leaf_index, ArrowWriteContext* context,
                                 CallbackFunction write_leaf_callback) = 0;
