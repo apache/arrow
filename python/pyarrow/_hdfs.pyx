@@ -50,7 +50,7 @@ cdef class HadoopFileSystem(FileSystem):
 
     def __init__(self, str host, int port=8020, str user=None,
                  int replication=3, int buffer_size=0,
-                 int default_block_size=None):
+                 default_block_size=None):
         cdef:
             CHdfsOptions options
             shared_ptr[CHadoopFileSystem] wrapped
