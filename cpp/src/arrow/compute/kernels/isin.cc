@@ -298,7 +298,7 @@ Status IsIn(FunctionContext* ctx, const Datum& left, const Datum& right, Datum* 
   detail::PrimitiveAllocatingUnaryKernel kernel(lkernel.get());
   RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, &kernel, left, &outputs));
 
-  *out = detail::WrapDatumsLike(left, outputs);
+  *out = detail::WrapDatumsLike(left, lkernel->out_type(), outputs);
   return Status::OK();
 }
 

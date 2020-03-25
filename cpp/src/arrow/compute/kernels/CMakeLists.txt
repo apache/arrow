@@ -17,28 +17,35 @@
 
 arrow_install_all_headers("arrow/compute/kernels")
 
-add_arrow_test(boolean_test PREFIX "arrow-compute")
-add_arrow_test(cast_test PREFIX "arrow-compute")
-add_arrow_test(hash_test PREFIX "arrow-compute")
-add_arrow_test(isin_test PREFIX "arrow-compute")
-add_arrow_test(match_test PREFIX "arrow-compute")
-add_arrow_test(sort_to_indices_test PREFIX "arrow-compute")
-add_arrow_test(nth_to_indices_test PREFIX "arrow-compute")
-add_arrow_test(util_internal_test PREFIX "arrow-compute")
-add_arrow_test(add-test PREFIX "arrow-compute")
+add_arrow_compute_test(boolean_test)
+add_arrow_compute_test(cast_test)
+add_arrow_compute_test(hash_test)
+add_arrow_compute_test(isin_test)
+add_arrow_compute_test(match_test)
+add_arrow_compute_test(sort_to_indices_test)
+add_arrow_compute_test(nth_to_indices_test)
+add_arrow_compute_test(util_internal_test)
+add_arrow_compute_test(add_test)
+
+# Aggregates
+add_arrow_compute_test(aggregate_test)
+
+# Comparison
+add_arrow_compute_test(compare_test)
+
+# Selection
+add_arrow_compute_test(take_test)
+add_arrow_compute_test(filter_test)
+
 add_arrow_benchmark(sort_to_indices_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(nth_to_indices_benchmark PREFIX "arrow-compute")
 
 # Aggregates
-add_arrow_test(aggregate_test PREFIX "arrow-compute")
 add_arrow_benchmark(aggregate_benchmark PREFIX "arrow-compute")
 
 # Comparison
-add_arrow_test(compare_test PREFIX "arrow-compute")
 add_arrow_benchmark(compare_benchmark PREFIX "arrow-compute")
 
 # Selection
-add_arrow_test(take_test PREFIX "arrow-compute")
-add_arrow_test(filter_test PREFIX "arrow-compute")
 add_arrow_benchmark(filter_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(take_benchmark PREFIX "arrow-compute")
