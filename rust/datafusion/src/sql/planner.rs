@@ -26,6 +26,7 @@ use crate::logicalplan::{
 
 use arrow::datatypes::*;
 
+use crate::logicalplan::Expr::Alias;
 use sqlparser::sqlast::*;
 
 /// The SchemaProvider trait allows the query planner to obtain meta-data about tables and
@@ -269,6 +270,10 @@ impl<S: SchemaProvider> SqlToRel<S> {
             }
             ASTNode::SQLValue(sqlparser::sqlast::Value::SingleQuotedString(ref s)) => {
                 Ok(Expr::Literal(ScalarValue::Utf8(s.clone())))
+            }
+
+            ASTNode::SQLAliasedExpr(ref expr, ref alias) => {
+                Ok(Alias(Arc::new(self.sql_to_rex(&expr, schema)?), alias.to_owned()))
             }
 
             ASTNode::SQLIdentifier(ref id) => {
@@ -591,6 +596,14 @@ mod tests {
         let sql = "SELECT sqrt(age) FROM person";
         let expected = "Projection: sqrt(CAST(#3 AS Float64))\
                         \n  TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_aliased_scalar_func() {
+        let sql = "SELECT sqrt(age) AS square_people FROM person";
+        let expected = "Projection: sqrt(CAST(#3 AS Float64)) AS square_people\
+        \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }
 
