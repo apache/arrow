@@ -29,7 +29,7 @@
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
 # LD_LIBRARY_PATH.
 #
-# To reuse build artifacts between runs set TMPDIR environment variable to
+# To reuse build artifacts between runs set ARROW_TMPDIR environment variable to
 # a directory where the temporary files should be placed to, note that this
 # directory is not cleaned up automatically.
 
@@ -203,19 +203,19 @@ test_yum() {
 setup_tempdir() {
   cleanup() {
     if [ "${TEST_SUCCESS}" = "yes" ]; then
-      rm -fr "${TMPDIR}"
+      rm -fr "${ARROW_TMPDIR}"
     else
-      echo "Failed to verify release candidate. See ${TMPDIR} for details."
+      echo "Failed to verify release candidate. See ${ARROW_TMPDIR} for details."
     fi
   }
 
-  if [ -z "${TMPDIR}" ]; then
-    # clean up automatically if TMPDIR is not defined
-    TMPDIR=$(mktemp -d -t "$1.XXXXX")
+  if [ -z "${ARROW_TMPDIR}" ]; then
+    # clean up automatically if ARROW_TMPDIR is not defined
+    ARROW_TMPDIR=$(mktemp -d -t "$1.XXXXX")
     trap cleanup EXIT
   else
     # don't clean up automatically
-    mkdir -p "${TMPDIR}"
+    mkdir -p "${ARROW_TMPDIR}"
   fi
 }
 
@@ -560,8 +560,8 @@ clone_testing_repositories() {
 }
 
 test_source_distribution() {
-  export ARROW_HOME=$TMPDIR/install
-  export PARQUET_HOME=$TMPDIR/install
+  export ARROW_HOME=$ARROW_TMPDIR/install
+  export PARQUET_HOME=$ARROW_TMPDIR/install
   export LD_LIBRARY_PATH=$ARROW_HOME/lib:${LD_LIBRARY_PATH:-}
   export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig:${PKG_CONFIG_PATH:-}
 
@@ -779,8 +779,8 @@ esac
 TEST_SUCCESS=no
 
 setup_tempdir "arrow-${VERSION}"
-echo "Working in sandbox ${TMPDIR}"
-cd ${TMPDIR}
+echo "Working in sandbox ${ARROW_TMPDIR}"
+cd ${ARROW_TMPDIR}
 
 if [ ${NEED_MINICONDA} -gt 0 ]; then
   setup_miniconda
