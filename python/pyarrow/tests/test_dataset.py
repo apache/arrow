@@ -85,19 +85,6 @@ def mockfs(request):
 
     mockfs = fs._MockFileSystem()
 
-    data = [
-        list(range(5)),
-        list(map(float, range(5))),
-        list(map(str, range(5)))
-    ]
-    schema = pa.schema([
-        pa.field('i64', pa.int64()),
-        pa.field('f64', pa.float64()),
-        pa.field('str', pa.string())
-    ])
-    batch = pa.record_batch(data, schema=schema)
-    table = pa.Table.from_batches([batch])
-
     directories = [
         'subdir/1/xxx',
         'subdir/2/yyy',
@@ -107,6 +94,21 @@ def mockfs(request):
         path = '{}/file{}.parquet'.format(directory, i)
         mockfs.create_dir(directory)
         with mockfs.open_output_stream(path) as out:
+            data = [
+                list(range(5)),
+                list(map(float, range(5))),
+                list(map(str, range(5))),
+                [i] * 5
+            ]
+            schema = pa.schema([
+                pa.field('i64', pa.int64()),
+                pa.field('f64', pa.float64()),
+                pa.field('str', pa.string()),
+                pa.field('const', pa.int64()),
+            ])
+            batch = pa.record_batch(data, schema=schema)
+            table = pa.Table.from_batches([batch])
+
             pq.write_table(table, out)
 
     return mockfs
@@ -179,7 +181,9 @@ def dataset(mockfs):
 
 
 def test_filesystem_dataset(mockfs):
-    schema = pa.schema([])
+    schema = pa.schema([
+        pa.field('const', pa.int64())
+    ])
 
     file_format = ds.ParquetFileFormat()
 
@@ -231,7 +235,18 @@ def test_filesystem_dataset(mockfs):
         assert fragment.path == path
         assert isinstance(fragment, ds.ParquetFileFragment)
         assert fragment.row_groups is None
-        assert fragment.metadata.num_row_groups == 1
+
+        row_group_fragments = list(fragment.get_row_group_fragments())
+        assert len(row_group_fragments) == 1
+        assert isinstance(fragment, ds.ParquetFileFragment)
+        assert row_group_fragments[0].path == path
+        assert row_group_fragments[0].row_groups == {0}
+
+    # test predicate pushdown using row group metadata
+    fragments = list(dataset.get_fragments(filter=ds.field("const") == 0))
+    assert len(fragments) == 2
+    assert len(list(fragments[0].get_row_group_fragments())) == 1
+    assert len(list(fragments[1].get_row_group_fragments())) == 0
 
 
 def test_dataset(dataset):
@@ -506,6 +521,7 @@ def test_filesystem_factory(mockfs, paths_or_selector):
         pa.field('i64', pa.int64()),
         pa.field('f64', pa.float64()),
         pa.field('str', pa.dictionary(pa.int32(), pa.string())),
+        pa.field('const', pa.int64()),
         pa.field('group', pa.int32()),
         pa.field('key', pa.string()),
     ]), check_metadata=False)
@@ -526,20 +542,22 @@ def test_filesystem_factory(mockfs, paths_or_selector):
         pa.array([0, 1, 2, 3, 4], type=pa.int32()),
         pa.array("0 1 2 3 4".split(), type=pa.string()))
     for task, group, key in zip(scanner.scan(), [1, 2], ['xxx', 'yyy']):
-        expected_group_column = pa.array([group] * 5, type=pa.int32())
-        expected_key_column = pa.array([key] * 5, type=pa.string())
+        expected_group = pa.array([group] * 5, type=pa.int32())
+        expected_key = pa.array([key] * 5, type=pa.string())
+        expected_const = pa.array([group - 1] * 5, type=pa.int64())
         for batch in task.execute():
-            assert batch.num_columns == 5
+            assert batch.num_columns == 6
             assert batch[0].equals(expected_i64)
             assert batch[1].equals(expected_f64)
             assert batch[2].equals(expected_str)
-            assert batch[3].equals(expected_group_column)
-            assert batch[4].equals(expected_key_column)
+            assert batch[3].equals(expected_const)
+            assert batch[4].equals(expected_group)
+            assert batch[5].equals(expected_key)
 
     table = dataset.to_table()
     assert isinstance(table, pa.Table)
     assert len(table) == 10
-    assert table.num_columns == 5
+    assert table.num_columns == 6
 
 
 def test_partitioning_factory(mockfs):
@@ -560,6 +578,7 @@ def test_partitioning_factory(mockfs):
         ("i64", pa.int64()),
         ("f64", pa.float64()),
         ("str", pa.string()),
+        ("const", pa.int64()),
         ("group", pa.int32()),
         ("key", pa.string()),
     ])

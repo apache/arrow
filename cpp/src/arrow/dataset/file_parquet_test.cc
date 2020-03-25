@@ -29,6 +29,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/range.h"
 #include "parquet/arrow/writer.h"
 #include "parquet/metadata.h"
 
@@ -50,6 +51,8 @@ using parquet::arrow::FileWriter;
 using parquet::arrow::WriteTable;
 
 using testing::Pointee;
+
+using internal::checked_pointer_cast;
 
 class ArrowParquetWriterMixin : public ::testing::Test {
  public:
@@ -150,6 +153,12 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
     return Batches(std::move(scan_task_it));
   }
 
+  std::shared_ptr<RecordBatch> SingleBatch(Fragment* fragment) {
+    auto batches = IteratorToVector(Batches(fragment));
+    EXPECT_EQ(batches.size(), 1);
+    return batches.front();
+  }
+
   void CountRowsAndBatchesInScan(Fragment* fragment, int64_t expected_rows,
                                  int64_t expected_batches) {
     int64_t actual_rows = 0;
@@ -168,6 +177,24 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
   void CountRowsAndBatchesInScan(const std::shared_ptr<Fragment>& fragment,
                                  int64_t expected_rows, int64_t expected_batches) {
     return CountRowsAndBatchesInScan(fragment.get(), expected_rows, expected_batches);
+  }
+
+  void CountRowGroupsInFragment(const std::shared_ptr<Fragment>& fragment,
+                                std::vector<int> expected_row_groups) {
+    auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
+    ASSERT_OK_AND_ASSIGN(auto row_group_fragments,
+                         format_->GetRowGroupFragments(*parquet_fragment));
+
+    auto expected_row_group = expected_row_groups.begin();
+    for (auto maybe_fragment : row_group_fragments) {
+      ASSERT_OK_AND_ASSIGN(auto fragment, std::move(maybe_fragment));
+      auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
+
+      auto i = *expected_row_group++;
+      EXPECT_EQ(parquet_fragment->row_groups(), std::vector<int>{i});
+
+      EXPECT_EQ(SingleBatch(parquet_fragment.get())->num_rows(), i + 1);
+    }
   }
 
  protected:
@@ -402,6 +429,46 @@ TEST_F(TestParquetFileFormat, PredicatePushdown) {
   opts_->filter = ("i64"_ >= int64_t(6)).Copy();
   CountRowsAndBatchesInScan(fragment, kTotalNumRows - (5 * (5 + 1) / 2),
                             kNumRowGroups - 5);
+}
+
+TEST_F(TestParquetFileFormat, PredicatePushdownRowGroupFragments) {
+  constexpr int64_t kNumRowGroups = 16;
+  constexpr int64_t kTotalNumRows = kNumRowGroups * (kNumRowGroups + 1) / 2;
+
+  auto reader = ArithmeticDatasetFixture::GetRecordBatchReader(kNumRowGroups);
+  auto source = GetFileSource(reader.get());
+
+  opts_ = ScanOptions::Make(reader->schema());
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
+
+  opts_->filter = scalar(true);
+  CountRowGroupsInFragment(fragment, internal::Iota(static_cast<int>(kTotalNumRows)));
+
+  for (int i = 0; i < kNumRowGroups; ++i) {
+    opts_->filter = ("i64"_ == int64_t(i + 1)).Copy();
+    CountRowGroupsInFragment(fragment, {i});
+  }
+
+  // Out of bound filters should skip all RowGroups.
+  opts_->filter = scalar(false);
+  CountRowGroupsInFragment(fragment, {});
+  opts_->filter = ("i64"_ == int64_t(kNumRowGroups + 1)).Copy();
+  CountRowGroupsInFragment(fragment, {});
+  opts_->filter = ("i64"_ == int64_t(-1)).Copy();
+  CountRowGroupsInFragment(fragment, {});
+
+  // No rows match 1 and 2.
+  opts_->filter = ("i64"_ == int64_t(1) and "u8"_ == uint8_t(2)).Copy();
+  CountRowGroupsInFragment(fragment, {});
+
+  opts_->filter = ("i64"_ == int64_t(2) or "i64"_ == int64_t(4)).Copy();
+  CountRowGroupsInFragment(fragment, {1, 3});
+
+  opts_->filter = ("i64"_ < int64_t(6)).Copy();
+  CountRowGroupsInFragment(fragment, {0, 1, 2, 3, 4});
+
+  opts_->filter = ("i64"_ >= int64_t(6)).Copy();
+  CountRowGroupsInFragment(fragment, internal::Iota(5, static_cast<int>(kNumRowGroups)));
 }
 
 TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {

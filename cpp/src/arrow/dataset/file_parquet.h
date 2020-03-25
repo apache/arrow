@@ -104,6 +104,10 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   Result<std::shared_ptr<FileFragment>> MakeFragment(
       FileSource source, std::shared_ptr<ScanOptions> options,
       std::shared_ptr<Expression> partition_expression, std::vector<int> row_groups);
+
+  /// \brief Split a ParquetFileFragment into a Fragment for each row group.
+  /// Row groups whose metadata contradicts the fragment's filter will be excluded.
+  Result<FragmentIterator> GetRowGroupFragments(const ParquetFileFragment& fragment);
 };
 
 class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {

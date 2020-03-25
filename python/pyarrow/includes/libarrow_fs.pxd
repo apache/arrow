@@ -59,6 +59,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_bool recursive
 
     cdef cppclass CFileSystem "arrow::fs::FileSystem":
+        shared_ptr[CFileSystem] shared_from_this()
         c_string type_name() const
         CResult[c_string] NormalizePath(c_string path)
         CResult[CFileInfo] GetFileInfo(const c_string& path)

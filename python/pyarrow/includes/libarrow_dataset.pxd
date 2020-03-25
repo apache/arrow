@@ -132,6 +132,9 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         "arrow::dataset::InsertImplicitCasts"(
             const CExpression &, const CSchema&)
 
+    cdef cppclass CScanOptions "arrow::dataset::ScanOptions":
+        pass
+
     cdef cppclass CScanContext "arrow::dataset::ScanContext":
         CMemoryPool * pool
 
@@ -157,6 +160,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[CScanTaskIterator] Scan()
         CResult[shared_ptr[CTable]] ToTable()
         CFragmentIterator GetFragments()
+        const shared_ptr[CScanOptions]& options()
 
     cdef cppclass CScannerBuilder "arrow::dataset::ScannerBuilder":
         CScannerBuilder(shared_ptr[CDataset],
@@ -210,21 +214,29 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             vector[shared_ptr[CDatasetFactory]] factories)
 
     cdef cppclass CFileSource "arrow::dataset::FileSource":
-        const c_string& path()
-        const shared_ptr[CBuffer]& buffer()
-        CFileSystem* filesystem()
+        const c_string& path() const
+        CFileSystem* filesystem() const
+        const shared_ptr[CBuffer]& buffer() const
+        CFileSource(c_string path, CFileSystem* filesystem)
 
     cdef cppclass CFileFormat "arrow::dataset::FileFormat":
-        c_string type_name()
+        c_string type_name() const
+        CResult[shared_ptr[CFileFragment]] MakeFragment(
+            CFileSource source,
+            shared_ptr[CScanOptions] options,
+            shared_ptr[CExpression] partition_expression)
+        CResult[shared_ptr[CFileFragment]] MakeFragment(
+            CFileSource source,
+            shared_ptr[CScanOptions] options)
 
     cdef cppclass CFileFragment "arrow::dataset::FileFragment"(
             CFragment):
-        const CFileSource& source()
-        shared_ptr[CFileFormat] format()
+        const CFileSource& source() const
+        const shared_ptr[CFileFormat]& format() const
 
     cdef cppclass CParquetFileFragment "arrow::dataset::ParquetFileFragment"(
             CFileFragment):
-        const vector[int]& row_groups()
+        const vector[int]& row_groups() const
 
     cdef cppclass CFileSystemDataset \
             "arrow::dataset::FileSystemDataset"(CDataset):
@@ -249,6 +261,13 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CParquetFileFormat "arrow::dataset::ParquetFileFormat"(
             CFileFormat):
         CParquetFileFormatReaderOptions reader_options
+        CResult[CFragmentIterator] GetRowGroupFragments(
+            const CParquetFileFragment&)
+        CResult[shared_ptr[CFileFragment]] MakeFragment(
+            CFileSource source,
+            shared_ptr[CScanOptions] options,
+            shared_ptr[CExpression] partition_expression,
+            vector[int] row_groups)
 
     cdef cppclass CIpcFileFormat "arrow::dataset::IpcFileFormat"(
             CFileFormat):

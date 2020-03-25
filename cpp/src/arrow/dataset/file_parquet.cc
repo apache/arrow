@@ -417,6 +417,35 @@ Result<std::shared_ptr<FileFragment>> ParquetFileFormat::MakeFragment(
                               std::move(partition_expression), {}));
 }
 
+Result<FragmentIterator> ParquetFileFormat::GetRowGroupFragments(
+    const ParquetFileFragment& fragment) {
+  auto properties = MakeReaderProperties(*this);
+  ARROW_ASSIGN_OR_RAISE(auto reader,
+                        OpenReader(fragment.source(), std::move(properties)));
+
+  auto arrow_properties =
+      MakeArrowReaderProperties(*this, parquet::kArrowDefaultBatchSize, *reader);
+  auto metadata = reader->metadata();
+
+  auto row_groups = fragment.row_groups();
+  if (row_groups.empty()) {
+    row_groups = internal::Iota(metadata->num_row_groups());
+  }
+  FragmentVector fragments(row_groups.size());
+
+  RowGroupSkipper skipper(std::move(metadata), std::move(arrow_properties),
+                          fragment.scan_options()->filter, std::move(row_groups));
+
+  for (int i = 0, row_group = skipper.Next();
+       row_group != RowGroupSkipper::kIterationDone; row_group = skipper.Next()) {
+    ARROW_ASSIGN_OR_RAISE(fragments[i++],
+                          MakeFragment(fragment.source(), fragment.scan_options(),
+                                       fragment.partition_expression(), {row_group}));
+  }
+
+  return MakeVectorIterator(std::move(fragments));
+}
+
 Result<ScanTaskIterator> ParquetFileFragment::Scan(std::shared_ptr<ScanContext> context) {
   return parquet_format().ScanFile(source_, scan_options_, std::move(context),
                                    row_groups_);

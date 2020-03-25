@@ -156,7 +156,7 @@ struct ARROW_EXPORT FileSelector {
 };
 
 /// \brief Abstract file system API
-class ARROW_EXPORT FileSystem {
+class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> {
  public:
   virtual ~FileSystem();
 
