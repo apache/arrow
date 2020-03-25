@@ -35,7 +35,7 @@ use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::datasource::DatasourceExec;
 use crate::execution::physical_plan::expressions::{
-    Avg, BinaryExpr, CastExpr, Column, Count, Literal, Max, Min, Sum,
+    Alias, Avg, BinaryExpr, CastExpr, Column, Count, Literal, Max, Min, Sum,
 };
 use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
 use crate::execution::physical_plan::limit::LimitExec;
@@ -380,7 +380,13 @@ impl ExecutionContext {
         input_schema: &Schema,
     ) -> Result<Arc<dyn PhysicalExpr>> {
         match e {
-            Expr::Column(i) => Ok(Arc::new(Column::new(*i))),
+            Expr::Alias(expr, name) => {
+                let expr = self.create_physical_expr(expr, input_schema)?;
+                Ok(Arc::new(Alias::new(expr, &name)))
+            }
+            Expr::Column(i) => {
+                Ok(Arc::new(Column::new(*i, &input_schema.field(*i).name())))
+            }
             Expr::Literal(value) => Ok(Arc::new(Literal::new(value.clone()))),
             Expr::BinaryExpr { left, op, right } => Ok(Arc::new(BinaryExpr::new(
                 self.create_physical_expr(left, input_schema)?,
@@ -716,6 +722,38 @@ mod tests {
         let mut rows = test::format_batch(&batch);
         rows.sort();
         assert_eq!(rows, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn aggregate_with_alias() -> Result<()> {
+        let tmp_dir = TempDir::new("execute")?;
+        let mut ctx = create_ctx(&tmp_dir, 1)?;
+
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("c1", DataType::UInt32, false),
+            Field::new("c2", DataType::UInt64, false),
+        ]));
+
+        let plan = LogicalPlanBuilder::scan(
+            "default",
+            "test",
+            schema.as_ref(),
+            Some(vec![0, 1]),
+        )?
+        .aggregate(
+            vec![col(0)],
+            vec![aggregate_expr("SUM", col(1), DataType::Int32)],
+        )?
+        .project(&vec![col(0), col(1).alias("total_salary")])?
+        .build()?;
+
+        let physical_plan = ctx.create_physical_plan(&Arc::new(plan), 1024)?;
+        assert_eq!("c1", physical_plan.schema().field(0).name().as_str());
+        assert_eq!(
+            "total_salary",
+            physical_plan.schema().field(1).name().as_str()
+        );
         Ok(())
     }
 

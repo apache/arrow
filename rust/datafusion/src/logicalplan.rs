@@ -179,6 +179,8 @@ impl ScalarValue {
 /// Relation expression
 #[derive(Clone, PartialEq)]
 pub enum Expr {
+    /// An aliased expression
+    Alias(Arc<Expr>, String),
     /// index into a value within the row or complex value
     Column(usize),
     /// literal value
@@ -236,6 +238,7 @@ impl Expr {
     /// Find the `DataType` for the expression
     pub fn get_type(&self, schema: &Schema) -> DataType {
         match self {
+            Expr::Alias(expr, _) => expr.get_type(schema),
             Expr::Column(n) => schema.field(*n).data_type().clone(),
             Expr::Literal(l) => l.get_datatype(),
             Expr::Cast { data_type, .. } => data_type.clone(),
@@ -341,6 +344,11 @@ impl Expr {
     pub fn not(&self) -> Expr {
         Expr::Not(Arc::new(self.clone()))
     }
+
+    /// Alias
+    pub fn alias(&self, name: &str) -> Expr {
+        Expr::Alias(Arc::new(self.clone()), name.to_owned())
+    }
 }
 
 /// Create a column expression
@@ -365,6 +373,7 @@ pub fn aggregate_expr(name: &str, expr: Expr, return_type: DataType) -> Expr {
 impl fmt::Debug for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Expr::Alias(expr, alias) => write!(f, "{:?} AS {}", expr, alias),
             Expr::Column(i) => write!(f, "#{}", i),
             Expr::Literal(v) => write!(f, "{:?}", v),
             Expr::Cast { expr, data_type } => {
@@ -807,10 +816,12 @@ mod tests {
             vec![col(0)],
             vec![aggregate_expr("SUM", col(1), DataType::Int32)],
         )?
+        .project(&vec![col(0), col(1).alias("total_salary")])?
         .build()?;
 
-        let expected = "Aggregate: groupBy=[[#0]], aggr=[[SUM(#1)]]\n  \
-                        TableScan: employee.csv projection=Some([3, 4])";
+        let expected = "Projection: #0, #1 AS total_salary\
+        \n  Aggregate: groupBy=[[#0]], aggr=[[SUM(#1)]]\
+        \n    TableScan: employee.csv projection=Some([3, 4])";
 
         assert_eq!(expected, format!("{:?}", plan));
 
