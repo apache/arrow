@@ -598,6 +598,20 @@ cdef class ParquetFileFragment(FileFragment):
 
 
 cdef class ParquetFileFormat(FileFormat):
+    """
+    Format and options for reading Parquet files.
+
+    Parameters
+    ----------
+    use_buffered_stream : bool, default False
+        Read files through buffered input streams rather than loading entire
+        row groups at once. This may be enabled to reduce memory overhead.
+        Disabled by default.
+    buffer_size : int, default 8192
+        Size of buffered stream, if enabled. Default is 8KB.
+    dictionary_columns : list of string, default None
+        Names of columns which should be read as dictionaries.
+    """
 
     cdef:
         CParquetFileFormat* parquet_format
@@ -629,15 +643,13 @@ cdef class ParquetFileFormat(FileFormat):
         """
         Read files through buffered input streams rather than loading entire
         row groups at once.
-
-        This may be enabled to reduce memory overhead. Disabled by default.
         """
         return self.parquet_format.reader_options.use_buffered_stream
 
     @property
     def buffer_size(self):
         """
-        Size of buffered stream, if enabled. Default is 8KB.
+        Size of buffered stream, if enabled.
         """
         return self.parquet_format.reader_options.buffer_size
 
