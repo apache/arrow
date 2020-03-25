@@ -1,17 +1,219 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
-use crate::array::builder::{
-    builder_to_mutable_buffer, mutable_buffer_to_builder, BufferBuilderTrait,
-};
+/// Contains the implementation of the `UnionArray` array and the `UnionBuilder`.
+///
+/// Each slot in a `UnionArray` can have a value chosen from a number of types.  Each of the
+/// possible types are named like the fields of a `StructArray`.  A `UnionArray` can have two
+/// possible memory layouts, "dense" or "sparse".  For more information on please
+/// see the [specification](https://arrow.apache.org/docs/format/Columnar.html#union-layout).
+// TODO: Examples
 use crate::array::{
+    builder::{builder_to_mutable_buffer, mutable_buffer_to_builder, BufferBuilderTrait},
     make_array, Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef,
     BooleanBufferBuilder, BufferBuilder, Int32BufferBuilder, Int8BufferBuilder,
 };
 use crate::buffer::{Buffer, MutableBuffer};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
+
 use core::fmt;
 use std::any::Any;
 use std::collections::HashMap;
+
+/// An Array that can represent slots of varying types
+pub struct UnionArray {
+    data: ArrayDataRef,
+    boxed_fields: Vec<ArrayRef>,
+}
+
+impl UnionArray {
+    // TODO: Docs
+    pub unsafe fn new(
+        type_ids: Buffer,
+        value_offsets: Option<Buffer>,
+        child_arrays: Vec<(Field, ArrayRef)>,
+    ) -> Self {
+        let (field_types, field_values): (Vec<_>, Vec<_>) =
+            child_arrays.into_iter().unzip();
+        let len = type_ids.len();
+        let builder = ArrayData::builder(DataType::Union(field_types))
+            .add_buffer(type_ids)
+            .child_data(field_values.into_iter().map(|a| a.data()).collect())
+            .len(len);
+        let data = match value_offsets {
+            Some(b) => builder.add_buffer(b).build(),
+            None => builder.build(),
+        };
+        Self::from(data)
+    }
+    /// Attempts to create a new `UnionArray`
+    pub fn try_new(
+        type_ids: Buffer,
+        value_offsets: Option<Buffer>,
+        child_arrays: Vec<(Field, ArrayRef)>,
+    ) -> Result<Self> {
+        if let Some(b) = &value_offsets {
+            if (type_ids.len() * 4) != b.len() {
+                return Err(ArrowError::InvalidArgumentError(
+                    "Type Ids and Offsets represent a different number of array slots."
+                        .to_string(),
+                ));
+            }
+        }
+
+        // Check the type_ids
+        let type_id_slice: &[i8] = unsafe { type_ids.typed_data() };
+        let invalid_type_ids = type_id_slice
+            .iter()
+            .filter(|i| *i < &0)
+            .collect::<Vec<&i8>>();
+        if invalid_type_ids.len() > 0 {
+            return Err(ArrowError::InvalidArgumentError(
+                format!("Type Ids must be positive and within the length of the Array, found:\n{:?}", invalid_type_ids)));
+        }
+
+        // Check the value offsets if provided
+        if let Some(offset_buffer) = &value_offsets {
+            let max_len = type_ids.len() as i32;
+            let offsets_slice: &[i32] = unsafe { offset_buffer.typed_data() };
+            let invalid_offsets = offsets_slice
+                .iter()
+                .filter(|i| *i < &0 || *i > &max_len)
+                .collect::<Vec<&i32>>();
+            if invalid_offsets.len() > 0 {
+                return Err(ArrowError::InvalidArgumentError(
+                    format!("Offsets must be positive and within the length of the Array, found:\n{:?}", invalid_offsets)));
+            }
+        }
+
+        Ok(unsafe { Self::new(type_ids, value_offsets, child_arrays) })
+    }
+
+    /// Accesses the child array for `type_id`
+    pub fn child(&self, type_id: i8) -> Result<ArrayRef> {
+        if type_id < 0 {
+            return Err(ArrowError::InvalidArgumentError(format!(
+                "'type_id' cannot be negative, {} provided.",
+                type_id
+            )));
+        }
+        if type_id as usize > self.boxed_fields.len() {
+            return Err(ArrowError::InvalidArgumentError(format!(
+                "'type_id' cannot be larger than the number of types ({}), {} provided.",
+                self.boxed_fields.len(),
+                type_id
+            )));
+        }
+        Ok(unsafe { self.child_unchecked(type_id) })
+    }
+
+    /// Unsafe version of `child` that does not validate the `type_id` provided
+    pub unsafe fn child_unchecked(&self, type_id: i8) -> ArrayRef {
+        self.boxed_fields[type_id as usize].clone()
+    }
+
+    /// Returns the `type_id` for the array slot at index `i`
+    pub fn type_id(&self, i: usize) -> Result<i8> {
+        if i > self.len() {
+            Err(ArrowError::InvalidArgumentError(format!(
+                "The index provided ({}) exceeds the length of the Array ({}).",
+                i,
+                self.len()
+            )))
+        } else {
+            Ok(unsafe { self.type_id_unchecked(i) })
+        }
+    }
+
+    /// Unsafe version of `type_id` that does not validate `i`
+    pub unsafe fn type_id_unchecked(&self, i: usize) -> i8 {
+        self.data().buffers()[0].data()[i] as i8
+    }
+
+    /// Returns the offset into the underlying values array for the array slot at index `i`
+    pub fn value_offset(&self, i: usize) -> Result<i32> {
+        if i > self.len() {
+            Err(ArrowError::InvalidArgumentError(format!(
+                "The index provided ({}) exceeds the length of the Array ({}).",
+                i,
+                self.len()
+            )))
+        } else {
+            Ok(unsafe { self.value_offset_unchecked(i) })
+        }
+    }
+
+    /// Unsafe version of `value_offset` that does not validate `i`
+    pub unsafe fn value_offset_unchecked(&self, i: usize) -> i32 {
+        // TODO: panics...
+        if self.data().buffers().len() == 2 {
+            self.data().buffers()[1].data()[i * 4] as i32
+        } else {
+            i as i32
+        }
+    }
+
+    /// Returns array slot at index `i`
+    pub fn value(&self, i: usize) -> Result<ArrayRef> {
+        let type_id = self.type_id(i)?;
+        let value_offset = unsafe { self.value_offset_unchecked(i) } as usize;
+        let child_data = unsafe { self.child_unchecked(type_id) };
+        Ok(child_data.slice(value_offset, 1))
+    }
+
+    /// Unsafe version of `value` that does not validate `i`
+    pub unsafe fn value_unchecked(&self, i: usize) -> ArrayRef {
+        let type_id = self.type_id_unchecked(i);
+        let value_offset = self.value_offset_unchecked(i) as usize;
+        let child_data = self.child_unchecked(type_id);
+        child_data.slice(value_offset, 1)
+    }
+}
+
+impl From<ArrayDataRef> for UnionArray {
+    fn from(data: ArrayDataRef) -> Self {
+        let mut boxed_fields = vec![];
+        for cd in data.child_data() {
+            boxed_fields.push(make_array(cd.clone()));
+        }
+        Self { data, boxed_fields }
+    }
+}
+
+impl Array for UnionArray {
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    fn data(&self) -> ArrayDataRef {
+        self.data.clone()
+    }
+
+    fn data_ref(&self) -> &ArrayDataRef {
+        &self.data
+    }
+}
+
+impl fmt::Debug for UnionArray {
+    fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
+        unimplemented!()
+    }
+}
 
 /// `FieldData` is a helper struct to track the state of the fields in the `UnionBuilder`.
 struct FieldData {
@@ -206,172 +408,6 @@ impl UnionBuilder {
         let children: Vec<_> = children.into_iter().map(|(_, b)| b).collect();
 
         UnionArray::try_new(type_id_buffer, value_offsets_buffer, children).unwrap()
-    }
-}
-// TODO: http://casualhacks.net/blog/2018-03-10/exploring-function-overloading/
-//default fn append(&mut self, v: T::Native) -> Result<()> {
-//    self.reserve(1)?;
-//    self.write_bytes(v.to_byte_slice(), 1)
-//}
-
-// TODO: Docs
-pub struct UnionArray {
-    data: ArrayDataRef,
-    boxed_fields: Vec<ArrayRef>,
-}
-
-impl UnionArray {
-    // TODO: Docs
-    pub unsafe fn new(
-        type_ids: Buffer,
-        value_offsets: Option<Buffer>,
-        child_arrays: Vec<(Field, ArrayRef)>,
-    ) -> Self {
-        let (field_types, field_values): (Vec<_>, Vec<_>) =
-            child_arrays.into_iter().unzip();
-        let len = type_ids.len();
-        let builder = ArrayData::builder(DataType::Union(field_types))
-            .add_buffer(type_ids)
-            .child_data(field_values.into_iter().map(|a| a.data()).collect())
-            .len(len);
-        let data = match value_offsets {
-            Some(b) => builder.add_buffer(b).build(),
-            None => builder.build(),
-        };
-        //        let data = ArrayData::builder(DataType::Union(field_types))
-        //            .add_buffer(type_ids)
-        //            .add_buffer(value_offsets)
-        //            .child_data(field_values.into_iter().map(|a| a.data()).collect())
-        //            .len(len)
-        //            .build();
-        Self::from(data)
-    }
-    // TODO: Docs
-    pub fn try_new(
-        type_ids: Buffer,
-        value_offsets: Option<Buffer>,
-        child_arrays: Vec<(Field, ArrayRef)>,
-    ) -> Result<Self> {
-        if let Some(b) = &value_offsets {
-            if (type_ids.len() * 4) != b.len() {
-                return Err(ArrowError::InvalidArgumentError(
-                    "Type Ids and Offsets represent a different number of array slots."
-                        .to_string(),
-                ));
-            }
-        }
-        // TODO: check for negative values in the type ids and offsets
-        Ok(unsafe { Self::new(type_ids, value_offsets, child_arrays) })
-    }
-
-    /// Accesses the child array for `type_id`
-    pub fn child(&self, type_id: i8) -> Result<ArrayRef> {
-        if type_id < 0 {
-            return Err(ArrowError::InvalidArgumentError(format!(
-                "'type_id' cannot be negative, {} provided.",
-                type_id
-            )));
-        }
-        if type_id as usize > self.boxed_fields.len() {
-            return Err(ArrowError::InvalidArgumentError(format!(
-                "'type_id' cannot be larger than the number of types ({}), {} provided.",
-                self.boxed_fields.len(),
-                type_id
-            )));
-        }
-        Ok(unsafe { self.child_unchecked(type_id) })
-    }
-
-    /// Unsafe version of `child` that does not validate the `type_id` provided
-    pub unsafe fn child_unchecked(&self, type_id: i8) -> ArrayRef {
-        self.boxed_fields[type_id as usize].clone()
-    }
-
-    /// Returns the `type_id` for the array slot at index `i`
-    pub fn type_id(&self, i: usize) -> Result<i8> {
-        if i > self.len() {
-            Err(ArrowError::InvalidArgumentError(format!(
-                "The index provided ({}) exceeds the length of the Array ({}).",
-                i,
-                self.len()
-            )))
-        } else {
-            Ok(unsafe { self.type_id_unchecked(i) })
-        }
-    }
-
-    /// Unsafe version of `type_id` that does not validate `i`
-    pub unsafe fn type_id_unchecked(&self, i: usize) -> i8 {
-        self.data().buffers()[0].data()[i] as i8
-    }
-
-    /// Returns the offset into the underlying values array for the array slot at index `i`
-    pub fn value_offset(&self, i: usize) -> Result<i32> {
-        if i > self.len() {
-            Err(ArrowError::InvalidArgumentError(format!(
-                "The index provided ({}) exceeds the length of the Array ({}).",
-                i,
-                self.len()
-            )))
-        } else {
-            Ok(unsafe { self.value_offset_unchecked(i) })
-        }
-    }
-
-    /// Unsafe version of `value_offset` that does not validate `i`
-    pub unsafe fn value_offset_unchecked(&self, i: usize) -> i32 {
-        // TODO: panics...
-        if self.data().buffers().len() == 2 {
-            self.data().buffers()[1].data()[i * 4] as i32
-        } else {
-            i as i32
-        }
-    }
-
-    /// Returns array slot at index `i`
-    pub fn value(&self, i: usize) -> Result<ArrayRef> {
-        let type_id = self.type_id(i)?;
-        let value_offset = unsafe { self.value_offset_unchecked(i) } as usize;
-        let child_data = unsafe { self.child_unchecked(type_id) };
-        Ok(child_data.slice(value_offset, 1))
-    }
-
-    /// Unsafe version of `value` that does not validate `i`
-    pub unsafe fn value_unchecked(&self, i: usize) -> ArrayRef {
-        let type_id = self.type_id_unchecked(i);
-        let value_offset = self.value_offset_unchecked(i) as usize;
-        let child_data = self.child_unchecked(type_id);
-        child_data.slice(value_offset, 1)
-    }
-}
-
-impl From<ArrayDataRef> for UnionArray {
-    fn from(data: ArrayDataRef) -> Self {
-        let mut boxed_fields = vec![];
-        for cd in data.child_data() {
-            boxed_fields.push(make_array(cd.clone()));
-        }
-        Self { data, boxed_fields }
-    }
-}
-
-impl Array for UnionArray {
-    fn as_any(&self) -> &Any {
-        self
-    }
-
-    fn data(&self) -> ArrayDataRef {
-        self.data.clone()
-    }
-
-    fn data_ref(&self) -> &ArrayDataRef {
-        &self.data
-    }
-}
-
-impl fmt::Debug for UnionArray {
-    fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
-        unimplemented!()
     }
 }
 
