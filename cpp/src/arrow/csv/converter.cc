@@ -211,11 +211,11 @@ class DictionaryBinaryConverter : public ConcreteDictionaryConverter {
                                          int32_t col_index) override {
     // We use a fixed index width so that all column chunks get the same index type
     using BuilderType = Dictionary32Builder<T>;
-    BuilderType builder(type_, pool_);
+    BuilderType builder(value_type_, pool_);
 
     auto visit_non_null = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
       if (CheckUTF8 && ARROW_PREDICT_FALSE(!util::ValidateUTF8(data, size))) {
-        return Status::Invalid("CSV conversion error to ", type_->ToString(),
+        return Status::Invalid("CSV conversion error to ", value_type_->ToString(),
                                ": invalid UTF8 data");
       }
       RETURN_NOT_OK(
@@ -466,6 +466,11 @@ class DecimalConverter : public ConcreteConverter {
 Converter::Converter(const std::shared_ptr<DataType>& type, const ConvertOptions& options,
                      MemoryPool* pool)
     : options_(options), pool_(pool), type_(type) {}
+
+DictionaryConverter::DictionaryConverter(const std::shared_ptr<DataType>& value_type,
+                                         const ConvertOptions& options, MemoryPool* pool)
+    : Converter(dictionary(int32(), value_type), options, pool),
+      value_type_(value_type) {}
 
 Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataType>& type,
                                                    const ConvertOptions& options,
