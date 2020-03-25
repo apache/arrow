@@ -1472,13 +1472,10 @@ cdef class CastExpression(UnaryExpression):
         -------
         DataType or Expression
         """
-        cdef:
-            shared_ptr[CDataType] typ = self.cast.to_type()
-            shared_ptr[CExpression] expr = self.cast.like_expr()
+        cdef shared_ptr[CDataType] typ = self.cast.to_type()
+
         if typ.get() != nullptr:
             return pyarrow_wrap_data_type(typ)
-        elif expr.get() != nullptr:
-            return Expression.wrap(expr)
         else:
             raise TypeError(
                 'Cannot determine the target type of the cast expression'
