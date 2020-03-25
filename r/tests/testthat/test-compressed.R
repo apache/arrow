@@ -19,7 +19,7 @@ context("Compressed.*Stream")
 
 test_that("codec_is_available", {
   expect_true(codec_is_available("uncompressed")) # Always true
-  expect_error(codec_is_available("sdfasdf"), "'arg' should be one of")
+  expect_match_arg_error(codec_is_available("sdfasdf"))
   skip_if_not_available("gzip")
   expect_true(codec_is_available("gzip"))
   expect_true(codec_is_available("GZIP"))

@@ -295,14 +295,14 @@ test_that("time type unit validation", {
   expect_equal(time32(), time32(TimeUnit$MILLI))
   expect_error(time32(4), '"unit" should be one of 1 or 0')
   expect_error(time32(NULL), '"unit" should be one of "ms" or "s"')
-  expect_error(time32("years"), "'arg' should be one of")
+  expect_match_arg_error(time32("years"))
 
   expect_equal(time64(TimeUnit$NANO), time64("n"))
   expect_equal(time64(TimeUnit$MICRO), time64("us"))
   expect_equal(time64(), time64(TimeUnit$NANO))
   expect_error(time64(4), '"unit" should be one of 3 or 2')
   expect_error(time64(NULL), '"unit" should be one of "ns" or "us"')
-  expect_error(time64("years"), "'arg' should be one of")
+  expect_match_arg_error(time64("years"))
 })
 
 test_that("timestamp type input validation", {
@@ -384,9 +384,9 @@ test_that("DictionaryType validation", {
 })
 
 test_that("decimal type and validation", {
-  expect_error(decimal(), 'argument "precision" is missing, with no default')
+  expect_error(decimal())
   expect_error(decimal("four"), '"precision" must be an integer')
-  expect_error(decimal(4), 'argument "scale" is missing, with no default')
+  expect_error(decimal(4))
   expect_error(decimal(4, "two"), '"scale" must be an integer')
   expect_error(decimal(NA, 2), '"precision" must be an integer')
   expect_error(decimal(0, 2), "Invalid: Decimal precision out of range: 0")
