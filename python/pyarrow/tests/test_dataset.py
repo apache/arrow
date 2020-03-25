@@ -18,6 +18,7 @@
 import contextlib
 import operator
 import os
+import pickle
 
 import numpy as np
 import pytest
@@ -337,9 +338,11 @@ def test_expression():
     b = ds.ScalarExpression(1.1)
     c = ds.ScalarExpression(True)
     d = ds.ScalarExpression("string")
+    e = ds.ScalarExpression(None)
 
     equal = ds.ComparisonExpression(ds.CompareOperator.Equal, a, b)
-    assert equal.op() == ds.CompareOperator.Equal
+    greater = a > b
+    assert equal.op == ds.CompareOperator.Equal
 
     and_ = ds.AndExpression(a, b)
     assert and_.left_operand.equals(a)
@@ -347,14 +350,18 @@ def test_expression():
     assert and_.equals(ds.AndExpression(a, b))
     assert and_.equals(and_)
 
-    ds.AndExpression(a, b, c)
-    ds.OrExpression(a, b)
-    ds.OrExpression(a, b, c, d)
-    ds.NotExpression(ds.OrExpression(a, b, c))
-    ds.IsValidExpression(a)
-    ds.CastExpression(a, pa.int32())
-    ds.CastExpression(a, pa.int32(), safe=True)
-    ds.InExpression(a, pa.array([1, 2, 3]))
+    or_ = ds.OrExpression(a, b)
+    not_ = ds.NotExpression(ds.OrExpression(a, b))
+    is_valid = ds.IsValidExpression(a)
+    cast_safe = ds.CastExpression(a, pa.int32())
+    cast_unsafe = ds.CastExpression(a, pa.int32(), safe=False)
+    in_ = ds.InExpression(a, pa.array([1, 2, 3]))
+
+    assert is_valid.operand == a
+    assert in_.set_.equals(pa.array([1, 2, 3]))
+    assert cast_unsafe.to == pa.int32()
+    assert cast_unsafe.safe is False
+    assert cast_safe.safe is True
 
     condition = ds.ComparisonExpression(
         ds.CompareOperator.Greater,
@@ -381,6 +388,12 @@ def test_expression():
     assert condition.assume(i64_is_7).equals(ds.ScalarExpression(True))
     assert str(condition) == "(i64 > 5:int64)"
     assert "(i64 > 5:int64)" in repr(condition)
+
+    all_exprs = [a, b, c, d, e, equal, greater, and_, or_, not_, is_valid,
+                 cast_unsafe, cast_safe, in_, condition, i64_is_5, i64_is_7]
+    for expr in all_exprs:
+        restored = pickle.loads(pickle.dumps(expr))
+        assert expr.equals(restored)
 
 
 def test_expression_ergonomics():
