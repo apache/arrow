@@ -107,7 +107,7 @@ jobs:
     - script: |
         source activate base
         conda install -y anaconda-client
-        anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload -l nightly --force D:\bld\win-64\*.tar.bz2
+        anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload --force D:\bld\win-64\*.tar.bz2
       displayName: Upload packages to Anaconda
       workingDirectory: arrow/dev/tasks/conda-recipes
     {% endif %}
