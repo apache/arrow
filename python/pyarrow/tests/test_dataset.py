@@ -569,8 +569,12 @@ def test_make_fragment(multisourcefs):
         fragment = parquet_format.make_fragment(path, multisourcefs)
         row_group_fragment = parquet_format.make_fragment(path, multisourcefs,
                                                           row_groups=[0])
-        assert fragment.path == path
-        assert isinstance(fragment.filesystem, type(multisourcefs))
+        for f in [fragment, row_group_fragment]:
+            assert isinstance(f, ds.ParquetFileFragment)
+            assert f.path == path
+            assert isinstance(f.filesystem, type(multisourcefs))
+        assert fragment.row_groups is None
+        assert row_group_fragment.row_groups == {0}
 
 
 def test_partitioning_factory(mockfs):

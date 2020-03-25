@@ -637,10 +637,10 @@ cdef class ParquetFileFormat(FileFormat):
         c_fragment = GetResultValue(
             self.parquet_format.MakeFragment(CFileSource(tobytes(path),
                                                          filesystem.unwrap()
-                                                             .get()),
-                                     move(c_options),
-                                     partition_expression.unwrap(),
-                                     move(c_row_groups)))
+                                                         .get()),
+                                             move(c_options),
+                                             partition_expression.unwrap(),
+                                             move(c_row_groups)))
         return Fragment.wrap(<shared_ptr[CFragment]> move(c_fragment))
 
 
