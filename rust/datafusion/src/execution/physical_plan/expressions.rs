@@ -46,6 +46,36 @@ use arrow::compute::kernels::comparison::{
 use arrow::datatypes::{DataType, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
 
+/// Represents an aliased expression
+pub struct Alias {
+    expr: Arc<dyn PhysicalExpr>,
+    alias: String,
+}
+
+impl Alias {
+    /// Create a new aliased expression
+    pub fn new(expr: Arc<dyn PhysicalExpr>, alias: &str) -> Self {
+        Self {
+            expr: expr.clone(),
+            alias: alias.to_owned(),
+        }
+    }
+}
+
+impl PhysicalExpr for Alias {
+    fn name(&self) -> String {
+        self.alias.clone()
+    }
+
+    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
+        self.expr.data_type(input_schema)
+    }
+
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+        self.expr.evaluate(batch)
+    }
+}
+
 /// Represents the column at a given index in a RecordBatch
 pub struct Column {
     index: usize,
@@ -127,7 +157,7 @@ impl AggregateExpr for Sum {
     }
 
     fn create_reducer(&self, column_index: usize) -> Arc<dyn AggregateExpr> {
-        Arc::new(Sum::new(Arc::new(Column::new(column_index, "tbd"))))
+        Arc::new(Sum::new(Arc::new(Column::new(column_index, &self.name()))))
     }
 }
 
@@ -328,7 +358,7 @@ impl AggregateExpr for Avg {
     }
 
     fn create_reducer(&self, column_index: usize) -> Arc<dyn AggregateExpr> {
-        Arc::new(Avg::new(Arc::new(Column::new(column_index, "tbd"))))
+        Arc::new(Avg::new(Arc::new(Column::new(column_index, &self.name()))))
     }
 }
 
@@ -441,7 +471,7 @@ impl AggregateExpr for Max {
     }
 
     fn create_reducer(&self, column_index: usize) -> Arc<dyn AggregateExpr> {
-        Arc::new(Max::new(Arc::new(Column::new(column_index, "MAX"))))
+        Arc::new(Max::new(Arc::new(Column::new(column_index, &self.name()))))
     }
 }
 
@@ -640,7 +670,7 @@ impl AggregateExpr for Min {
     }
 
     fn create_reducer(&self, column_index: usize) -> Arc<dyn AggregateExpr> {
-        Arc::new(Min::new(Arc::new(Column::new(column_index, "MIN"))))
+        Arc::new(Min::new(Arc::new(Column::new(column_index, &self.name()))))
     }
 }
 
@@ -827,7 +857,7 @@ impl AggregateExpr for Count {
     }
 
     fn create_reducer(&self, column_index: usize) -> Arc<dyn AggregateExpr> {
-        Arc::new(Sum::new(Arc::new(Column::new(column_index, "COUNT"))))
+        Arc::new(Sum::new(Arc::new(Column::new(column_index, &self.name()))))
     }
 }
 
@@ -1929,9 +1959,8 @@ mod tests {
         op: Operator,
         expected: PrimitiveArray<T>,
     ) -> Result<()> {
-        let batch = RecordBatch::try_new(schema.clone(), data)?;
-
         let arithmetic_op = binary(col(0, schema.as_ref()), op, col(1, schema.as_ref()));
+        let batch = RecordBatch::try_new(schema, data)?;
         let result = arithmetic_op.evaluate(&batch)?;
 
         assert_array_eq::<T>(expected, result);

@@ -157,6 +157,8 @@ mod tests {
             Arc::new(csv),
         )?;
 
+        assert_eq!("c1", projection.schema.field(0).name().as_str());
+
         let mut partition_count = 0;
         let mut row_count = 0;
         for partition in projection.partitions()? {
