@@ -271,6 +271,7 @@ impl ProjectionPushDown {
                 args: self.rewrite_exprs(args, mapping)?,
                 return_type: return_type.clone(),
             }),
+            Expr::Wildcard => panic!(),
         }
     }
 

@@ -232,6 +232,8 @@ pub enum Expr {
         /// The `DataType` the expression will yield
         return_type: DataType,
     },
+    /// Wildcard
+    Wildcard,
 }
 
 impl Expr {
@@ -263,6 +265,7 @@ impl Expr {
                 }
             },
             Expr::Sort { ref expr, .. } => expr.get_type(schema),
+            Expr::Wildcard => panic!(),
         }
     }
 
@@ -414,6 +417,7 @@ impl fmt::Debug for Expr {
 
                 write!(f, ")")
             }
+            Expr::Wildcard => write!(f, "*"),
         }
     }
 }
@@ -698,12 +702,27 @@ impl LogicalPlanBuilder {
     /// Apply a projection
     pub fn project(&self, expr: &Vec<Expr>) -> Result<Self> {
         let input_schema = self.plan.schema();
+        let projected_expr = if expr.contains(&Expr::Wildcard) {
+            let mut expr_vec = vec![];
+            (0..expr.len()).for_each(|i| match &expr[i] {
+                Expr::Wildcard => {
+                    (0..input_schema.fields().len())
+                        .for_each(|i| expr_vec.push(col(i).clone()));
+                }
+                _ => expr_vec.push(expr[i].clone()),
+            });
+            expr_vec
+        } else {
+            expr.clone()
+        };
 
-        let schema =
-            Schema::new(utils::exprlist_to_fields(&expr, input_schema.as_ref())?);
+        let schema = Schema::new(utils::exprlist_to_fields(
+            &projected_expr,
+            input_schema.as_ref(),
+        )?);
 
         Ok(Self::from(&LogicalPlan::Projection {
-            expr: expr.clone(),
+            expr: projected_expr,
             input: Arc::new(self.plan.clone()),
             schema: Arc::new(schema),
         }))

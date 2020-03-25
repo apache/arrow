@@ -50,6 +50,7 @@ pub fn expr_to_column_indices(expr: &Expr, accum: &mut HashSet<usize>) {
         Expr::Sort { expr, .. } => expr_to_column_indices(expr, accum),
         Expr::AggregateFunction { args, .. } => exprlist_to_column_indices(args, accum),
         Expr::ScalarFunction { args, .. } => exprlist_to_column_indices(args, accum),
+        Expr::Wildcard => panic!(),
     }
 }
 
