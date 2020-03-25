@@ -19,7 +19,6 @@ import contextlib
 import operator
 import os
 import pickle
-import urllib
 
 import numpy as np
 import pytest
