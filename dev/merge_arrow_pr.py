@@ -150,7 +150,7 @@ class JiraIssue(object):
 
     @property
     def current_fix_versions(self):
-        return [version.name for version in self.issue.fields.fixVersions]
+        return self.issue.fields.fixVersions
 
     def get_candidate_fix_versions(self, merge_branches=('master',)):
         # Only suggest versions starting with a number, like 0.x but not JS-0.x
@@ -201,10 +201,11 @@ class JiraIssue(object):
         # ARROW-6915: do not overwrite existing fix versions corresponding to
         # point releases
         fix_versions = list(fix_versions)
+        fix_version_names = set(x['name'] for x in fix_versions)
         for version in self.current_fix_versions:
-            major, minor, patch = version.split('.')
-            if patch != '0':
-                fix_versions.append(version)
+            major, minor, patch = version.name.split('.')
+            if patch != '0' and version.name not in fix_version_names:
+                fix_versions.append(version.raw)
 
         self.jira_con.transition_issue(self.jira_id, resolve["id"],
                                        comment=comment,
@@ -578,7 +579,7 @@ def cli():
     cmd.continue_maybe("Proceed with merging pull request #%s?" % pr_num)
 
     # merged hash not used
-    pr.merge()
+    # pr.merge()
 
     cmd.continue_maybe("Would you like to update the associated JIRA?")
     jira_comment = (
