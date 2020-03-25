@@ -631,9 +631,7 @@ class ColumnReaderImplBase {
                                           static_cast<int>(num_buffered_values_), buffer);
     }
 
-    int64_t levels_byte_size =
-        page.repetition_levels_byte_length() + page.definition_levels_byte_length();
-    return levels_byte_size;
+    return page.repetition_levels_byte_length() + page.definition_levels_byte_length();
   }
 
   // Get a decoder object for this page or create a new decoder if this is the

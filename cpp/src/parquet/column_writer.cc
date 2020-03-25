@@ -288,10 +288,10 @@ class SerializedPageWriter : public PageWriter {
     // TODO(PARQUET-594) crc checksum
 
     if (page.type() == PageType::DATA_PAGE) {
-      const DataPageV1& v1_page = dynamic_cast<const DataPageV1&>(page);
+      const DataPageV1& v1_page = checked_cast<const DataPageV1&>(page);
       SetDataPageHeader(page_header, v1_page);
     } else if (page.type() == PageType::DATA_PAGE_V2) {
-      const DataPageV2& v2_page = dynamic_cast<const DataPageV2&>(page);
+      const DataPageV2& v2_page = checked_cast<const DataPageV2&>(page);
       SetDataPageV2Header(page_header, v2_page);
     } else {
       throw ParquetException("Unexpected page type");
@@ -564,7 +564,7 @@ class ColumnWriterImpl {
     uncompressed_data_ =
         std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
     if (pager_->has_compressor()) {
-      compressed_data_ =
+      compressor_temp_buffer_ =
           std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
     }
   }
@@ -672,9 +672,9 @@ class ColumnWriterImpl {
   std::shared_ptr<ResizableBuffer> repetition_levels_rle_;
 
   std::shared_ptr<ResizableBuffer> uncompressed_data_;
-  std::shared_ptr<ResizableBuffer> compressed_data_;
+  std::shared_ptr<ResizableBuffer> compressor_temp_buffer_;
 
-  std::vector<std::unique_ptr<DataPage>> data_page_ptrs_;
+  std::vector<std::unique_ptr<DataPage>> data_pages_;
 
  private:
   void InitSinks() {
@@ -721,8 +721,7 @@ int64_t ColumnWriterImpl::RleEncodeLevels(const void* src_buffer,
     reinterpret_cast<int32_t*>(dest_buffer->mutable_data())[0] = level_encoder_.len();
   }
 
-  int64_t encoded_size = level_encoder_.len() + prefix_size;
-  return encoded_size;
+  return level_encoder_.len() + prefix_size;
 }
 
 void ColumnWriterImpl::AddDataPage() {
@@ -735,13 +734,13 @@ void ColumnWriterImpl::AddDataPage() {
   if (descr_->max_definition_level() > 0) {
     definition_levels_rle_size =
         RleEncodeLevels(definition_levels_sink_.data(), definition_levels_rle_.get(),
-                        descr_->max_definition_level(), is_v1);
+                        descr_->max_definition_level(), /*include_length_prefix=*/is_v1);
   }
 
   if (descr_->max_repetition_level() > 0) {
     repetition_levels_rle_size =
         RleEncodeLevels(repetition_levels_sink_.data(), repetition_levels_rle_.get(),
-                        descr_->max_repetition_level(), is_v1);
+                        descr_->max_repetition_level(), /*include_length_prefix=*/is_v1);
   }
 
   int64_t uncompressed_size =
@@ -778,8 +777,8 @@ void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
 
   std::shared_ptr<Buffer> compressed_data;
   if (pager_->has_compressor()) {
-    pager_->Compress(*(uncompressed_data_.get()), compressed_data_.get());
-    compressed_data = compressed_data_;
+    pager_->Compress(*(uncompressed_data_.get()), compressor_temp_buffer_.get());
+    compressed_data = compressor_temp_buffer_;
   } else {
     compressed_data = uncompressed_data_;
   }
@@ -795,7 +794,7 @@ void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
         Encoding::RLE, Encoding::RLE, uncompressed_size, page_stats));
     total_compressed_bytes_ += page_ptr->size() + sizeof(format::PageHeader);
 
-    data_page_ptrs_.push_back(std::move(page_ptr));
+    data_pages_.push_back(std::move(page_ptr));
   } else {  // Eagerly write pages
     DataPageV1 page(compressed_data, static_cast<int32_t>(num_buffered_values_),
                     encoding_, Encoding::RLE, Encoding::RLE, uncompressed_size,
@@ -812,8 +811,8 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
   // V2.
   std::shared_ptr<Buffer> compressed_values;
   if (pager_->has_compressor()) {
-    pager_->Compress(*(values.get()), compressed_data_.get());
-    compressed_values = compressed_data_;
+    pager_->Compress(*values, compressor_temp_buffer_.get());
+    compressed_values = compressor_temp_buffer_;
   } else {
     compressed_values = values;
   }
@@ -845,7 +844,7 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
         combined, num_values, null_count, num_values, encoding_, def_levels_byte_length,
         rep_levels_byte_length, uncompressed_size, pager_->has_compressor()));
     total_compressed_bytes_ += page_ptr->size() + sizeof(format::PageHeader);
-    data_page_ptrs_.push_back(std::move(page_ptr));
+    data_pages_.push_back(std::move(page_ptr));
   } else {
     DataPageV2 page(combined, num_values, null_count, num_values, encoding_,
                     def_levels_byte_length, rep_levels_byte_length, uncompressed_size);
@@ -882,10 +881,10 @@ void ColumnWriterImpl::FlushBufferedDataPages() {
   if (num_buffered_values_ > 0) {
     AddDataPage();
   }
-  for (const auto& page_ptr : data_page_ptrs_) {
+  for (const auto& page_ptr : data_pages_) {
     WriteDataPage(*page_ptr);
   }
-  data_page_ptrs_.clear();
+  data_pages_.clear();
   total_compressed_bytes_ = 0;
 }
 
