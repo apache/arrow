@@ -17,15 +17,18 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <string>
 
-#include "arrow/json/rapidjson_defs.h"
-#include "rapidjson/document.h"      // IWYU pragma: export
-#include "rapidjson/encodings.h"     // IWYU pragma: export
-#include "rapidjson/error/en.h"      // IWYU pragma: export
-#include "rapidjson/stringbuffer.h"  // IWYU pragma: export
-#include "rapidjson/writer.h"        // IWYU pragma: export
+#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
+
+#include <rapidjson/document.h>      // IWYU pragma: export
+#include <rapidjson/encodings.h>     // IWYU pragma: export
+#include <rapidjson/error/en.h>      // IWYU pragma: export
+#include <rapidjson/rapidjson.h>     // IWYU pragma: export
+#include <rapidjson/stringbuffer.h>  // IWYU pragma: export
+#include <rapidjson/writer.h>        // IWYU pragma: export
 
 #include "arrow/status.h"    // IWYU pragma: export
 #include "arrow/type_fwd.h"  // IWYU pragma: keep
@@ -72,6 +75,13 @@ using RjObject = rj::Value::ConstObject;
   }
 
 namespace arrow {
+
+class Array;
+class Field;
+class MemoryPool;
+class RecordBatch;
+class Schema;
+
 namespace ipc {
 
 class DictionaryMemo;

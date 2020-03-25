@@ -19,15 +19,14 @@
 
 #include <algorithm>
 #include <memory>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"
-#include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/ipc/reader.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/util/iterator.h"
 
 namespace arrow {
@@ -40,12 +39,11 @@ Result<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReader(
   }
 
   std::shared_ptr<ipc::RecordBatchFileReader> reader;
-  auto status = ipc::RecordBatchFileReader::Open(std::move(input), &reader);
+  auto status = ipc::RecordBatchFileReader::Open(std::move(input)).Value(&reader);
   if (!status.ok()) {
     return status.WithMessage("Could not open IPC input source '", source.path(),
                               "': ", status.message());
   }
-
   return reader;
 }
 
@@ -161,10 +159,8 @@ Result<std::shared_ptr<WriteTask>> IpcFileFormat::WriteFragment(
       RETURN_NOT_OK(CreateDestinationParentDir());
 
       ARROW_ASSIGN_OR_RAISE(auto out_stream, destination_.OpenWritable());
-
-      ARROW_ASSIGN_OR_RAISE(auto writer, ipc::RecordBatchFileWriter::Open(
-                                             out_stream.get(), fragment_->schema()));
-
+      ARROW_ASSIGN_OR_RAISE(auto writer,
+                            ipc::NewFileWriter(out_stream.get(), fragment_->schema()));
       ARROW_ASSIGN_OR_RAISE(auto scan_task_it, fragment_->Scan(scan_context_));
 
       for (auto maybe_scan_task : scan_task_it) {

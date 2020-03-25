@@ -682,13 +682,13 @@ cdef class RecordBatch(_PandasConvertible):
         -------
         serialized : Buffer
         """
-        cdef:
-            shared_ptr[CBuffer] buffer
-            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+        cdef shared_ptr[CBuffer] buffer
+        cdef CIpcWriteOptions options = CIpcWriteOptions.Defaults()
+        options.memory_pool = maybe_unbox_memory_pool(memory_pool)
 
         with nogil:
             check_status(SerializeRecordBatch(deref(self.batch),
-                                              pool, &buffer))
+                                              options, &buffer))
         return pyarrow_wrap_buffer(buffer)
 
     def slice(self, offset=0, length=None):

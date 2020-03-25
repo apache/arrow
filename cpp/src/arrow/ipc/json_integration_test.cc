@@ -71,9 +71,7 @@ static Status ConvertJsonToArrow(const std::string& json_path,
               << reader->schema()->ToString(/* show_metadata = */ true) << std::endl;
   }
 
-  std::shared_ptr<RecordBatchWriter> writer;
-  RETURN_NOT_OK(RecordBatchFileWriter::Open(out_file.get(), reader->schema(), &writer));
-
+  ARROW_ASSIGN_OR_RAISE(auto writer, NewFileWriter(out_file.get(), reader->schema()));
   for (int i = 0; i < reader->num_record_batches(); ++i) {
     std::shared_ptr<RecordBatch> batch;
     RETURN_NOT_OK(reader->ReadRecordBatch(i, &batch));
@@ -89,7 +87,7 @@ static Status ConvertArrowToJson(const std::string& arrow_path,
   ARROW_ASSIGN_OR_RAISE(auto out_file, io::FileOutputStream::Open(json_path));
 
   std::shared_ptr<RecordBatchFileReader> reader;
-  RETURN_NOT_OK(RecordBatchFileReader::Open(in_file.get(), &reader));
+  ARROW_ASSIGN_OR_RAISE(reader, RecordBatchFileReader::Open(in_file.get()));
 
   if (FLAGS_verbose) {
     std::cout << "Found schema:\n" << reader->schema()->ToString() << std::endl;
@@ -124,7 +122,7 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
   ARROW_ASSIGN_OR_RAISE(auto arrow_file, io::ReadableFile::Open(arrow_path));
 
   std::shared_ptr<RecordBatchFileReader> arrow_reader;
-  RETURN_NOT_OK(RecordBatchFileReader::Open(arrow_file.get(), &arrow_reader));
+  ARROW_ASSIGN_OR_RAISE(arrow_reader, RecordBatchFileReader::Open(arrow_file.get()));
 
   auto json_schema = json_reader->schema();
   auto arrow_schema = arrow_reader->schema();

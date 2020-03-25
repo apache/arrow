@@ -1176,14 +1176,23 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         MessageType_V3" arrow::ipc::MetadataVersion::V3"
         MessageType_V4" arrow::ipc::MetadataVersion::V4"
 
-    cdef cppclass CIpcOptions" arrow::ipc::IpcOptions":
+    cdef cppclass CIpcWriteOptions" arrow::ipc::IpcWriteOptions":
         c_bool allow_64bit
         int max_recursion_depth
         int32_t alignment
         c_bool write_legacy_ipc_format
+        CMemoryPool* memory_pool
 
         @staticmethod
-        CIpcOptions Defaults()
+        CIpcWriteOptions Defaults()
+
+    cdef cppclass CIpcReadOptions" arrow::ipc::IpcReadOptions":
+        int max_recursion_depth
+        CMemoryPool* memory_pool
+        shared_ptr[unordered_set[int]] included_fields
+
+        @staticmethod
+        CIpcReadOptions Defaults()
 
     cdef cppclass CDictionaryMemo" arrow::ipc::DictionaryMemo":
         pass
@@ -1207,7 +1216,8 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         MetadataVersion metadata_version()
         MessageType type()
 
-        CStatus SerializeTo(COutputStream* stream, const CIpcOptions& options,
+        CStatus SerializeTo(COutputStream* stream,
+                            const CIpcWriteOptions& options,
                             int64_t* output_length)
 
     c_string FormatMessageType(MessageType type)
@@ -1226,37 +1236,33 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     cdef cppclass CRecordBatchStreamReader \
             " arrow::ipc::RecordBatchStreamReader"(CRecordBatchReader):
         @staticmethod
-        CStatus Open(const CInputStream* stream,
-                     shared_ptr[CRecordBatchReader]* out)
+        CResult[shared_ptr[CRecordBatchReader]] Open(
+            const CInputStream* stream, const CIpcReadOptions& options)
 
         @staticmethod
-        CStatus Open2" Open"(unique_ptr[CMessageReader] message_reader,
-                             shared_ptr[CRecordBatchReader]* out)
+        CResult[shared_ptr[CRecordBatchReader]] Open2" Open"(
+            unique_ptr[CMessageReader] message_reader,
+            const CIpcReadOptions& options)
 
-    cdef cppclass CRecordBatchStreamWriter \
-            " arrow::ipc::RecordBatchStreamWriter"(CRecordBatchWriter):
-        @staticmethod
-        CResult[shared_ptr[CRecordBatchWriter]] Open(
-            COutputStream* sink, const shared_ptr[CSchema]& schema,
-            CIpcOptions& options)
+    CResult[shared_ptr[CRecordBatchWriter]] NewStreamWriter(
+        COutputStream* sink, const shared_ptr[CSchema]& schema,
+        CIpcWriteOptions& options)
 
-    cdef cppclass CRecordBatchFileWriter \
-            " arrow::ipc::RecordBatchFileWriter"(CRecordBatchWriter):
-        @staticmethod
-        CResult[shared_ptr[CRecordBatchWriter]] Open(
-            COutputStream* sink, const shared_ptr[CSchema]& schema,
-            CIpcOptions& options)
+    CResult[shared_ptr[CRecordBatchWriter]] NewFileWriter(
+        COutputStream* sink, const shared_ptr[CSchema]& schema,
+        CIpcWriteOptions& options)
 
     cdef cppclass CRecordBatchFileReader \
             " arrow::ipc::RecordBatchFileReader":
         @staticmethod
-        CStatus Open(CRandomAccessFile* file,
-                     shared_ptr[CRecordBatchFileReader]* out)
+        CResult[shared_ptr[CRecordBatchFileReader]] Open(
+            CRandomAccessFile* file,
+            const CIpcReadOptions& options)
 
         @staticmethod
-        CStatus Open2" Open"(CRandomAccessFile* file,
-                             int64_t footer_offset,
-                             shared_ptr[CRecordBatchFileReader]* out)
+        CResult[shared_ptr[CRecordBatchFileReader]] Open2" Open"(
+            CRandomAccessFile* file, int64_t footer_offset,
+            const CIpcReadOptions& options)
 
         shared_ptr[CSchema] schema()
 
@@ -1276,26 +1282,27 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
     CResult[shared_ptr[CTensor]] ReadTensor(CInputStream* stream)
 
-    CStatus ReadRecordBatch(const CMessage& message,
-                            const shared_ptr[CSchema]& schema,
-                            CDictionaryMemo* dictionary_memo,
-                            shared_ptr[CRecordBatch]* out)
+    CResult[shared_ptr[CRecordBatch]] ReadRecordBatch(
+        const CMessage& message, const shared_ptr[CSchema]& schema,
+        CDictionaryMemo* dictionary_memo,
+        const CIpcReadOptions& options)
 
     CStatus SerializeSchema(const CSchema& schema,
                             CDictionaryMemo* dictionary_memo,
                             CMemoryPool* pool, shared_ptr[CBuffer]* out)
 
     CStatus SerializeRecordBatch(const CRecordBatch& schema,
-                                 CMemoryPool* pool,
+                                 const CIpcWriteOptions& options,
                                  shared_ptr[CBuffer]* out)
 
-    CStatus ReadSchema(CInputStream* stream, CDictionaryMemo* dictionary_memo,
-                       shared_ptr[CSchema]* out)
+    CResult[shared_ptr[CSchema]] ReadSchema(CInputStream* stream,
+                                            CDictionaryMemo* dictionary_memo)
 
-    CStatus ReadRecordBatch(const shared_ptr[CSchema]& schema,
-                            CDictionaryMemo* dictionary_memo,
-                            CInputStream* stream,
-                            shared_ptr[CRecordBatch]* out)
+    CResult[shared_ptr[CRecordBatch]] ReadRecordBatch(
+        const shared_ptr[CSchema]& schema,
+        CDictionaryMemo* dictionary_memo,
+        const CIpcReadOptions& options,
+        CInputStream* stream)
 
     CStatus AlignStream(CInputStream* stream, int64_t alignment)
     CStatus AlignStream(COutputStream* stream, int64_t alignment)
@@ -1303,8 +1310,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     cdef CStatus GetRecordBatchPayload\
         " arrow::ipc::internal::GetRecordBatchPayload"(
             const CRecordBatch& batch,
-            const CIpcOptions& options,
-            CMemoryPool* pool,
+            const CIpcWriteOptions& options,
             CIpcPayload* out)
 
     cdef cppclass CFeatherWriter" arrow::ipc::feather::TableWriter":

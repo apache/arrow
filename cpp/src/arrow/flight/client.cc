@@ -265,7 +265,7 @@ class GrpcStreamReader : public FlightStreamReader {
 
  private:
   friend class GrpcIpcMessageReader;
-  std::unique_ptr<ipc::RecordBatchReader> batch_reader_;
+  std::shared_ptr<ipc::RecordBatchReader> batch_reader_;
   std::shared_ptr<Buffer> last_app_metadata_;
   std::shared_ptr<ClientRpc> rpc_;
 };
@@ -327,8 +327,8 @@ Status GrpcStreamReader::Open(std::unique_ptr<ClientRpc> rpc,
   out->get()->rpc_ = std::move(rpc);
   std::unique_ptr<GrpcIpcMessageReader> message_reader(
       new GrpcIpcMessageReader(out->get(), out->get()->rpc_, std::move(stream)));
-  return ipc::RecordBatchStreamReader::Open(std::move(message_reader),
-                                            &(*out)->batch_reader_);
+  return (ipc::RecordBatchStreamReader::Open(std::move(message_reader))
+              .Value(&(*out)->batch_reader_));
 }
 
 std::shared_ptr<Schema> GrpcStreamReader::schema() const {
@@ -384,9 +384,6 @@ class GrpcStreamWriter : public FlightStreamWriter {
       return Status::IOError("Could not flush pending record batches.");
     }
     return Status::OK();
-  }
-  void set_memory_pool(MemoryPool* pool) override {
-    batch_writer_->set_memory_pool(pool);
   }
   Status Close() override { return batch_writer_->Close(); }
 

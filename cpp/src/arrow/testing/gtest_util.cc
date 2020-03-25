@@ -50,9 +50,9 @@
 
 namespace arrow {
 
-template <typename T>
-void AssertTsEqual(const T& expected, const T& actual) {
-  if (!expected.Equals(actual)) {
+template <typename T, typename... ExtraArgs>
+void AssertTsEqual(const T& expected, const T& actual, ExtraArgs... args) {
+  if (!expected.Equals(actual, args...)) {
     std::stringstream pp_expected;
     std::stringstream pp_actual;
     ::arrow::PrettyPrintOptions options(/*indent=*/2);
@@ -78,7 +78,8 @@ void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose)
   }
 }
 
-void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual) {
+void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual,
+                        bool check_metadata) {
   AssertTsEqual(expected, actual);
 }
 

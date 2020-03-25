@@ -94,12 +94,15 @@ Result<std::vector<std::shared_ptr<RecordBatch>>> Batches() {
   return batches;
 }
 
-template <typename RecordBatchWriterClass>
 Result<std::shared_ptr<Buffer>> SerializeRecordBatch(
-    const std::shared_ptr<RecordBatch>& batch) {
+    const std::shared_ptr<RecordBatch>& batch, bool is_stream_format) {
   ARROW_ASSIGN_OR_RAISE(auto sink, io::BufferOutputStream::Create(1024));
-  ARROW_ASSIGN_OR_RAISE(auto writer,
-                        RecordBatchWriterClass::Open(sink.get(), batch->schema()));
+  std::shared_ptr<RecordBatchWriter> writer;
+  if (is_stream_format) {
+    ARROW_ASSIGN_OR_RAISE(writer, NewStreamWriter(sink.get(), batch->schema()));
+  } else {
+    ARROW_ASSIGN_OR_RAISE(writer, NewFileWriter(sink.get(), batch->schema()));
+  }
   RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   RETURN_NOT_OK(writer->Close());
   return sink->Finish();
@@ -114,13 +117,11 @@ Status DoMain(bool is_stream_format, const std::string& out_dir) {
     return "batch-" + std::to_string(sample_num++);
   };
 
-  auto serialize_func = is_stream_format ? SerializeRecordBatch<RecordBatchStreamWriter>
-                                         : SerializeRecordBatch<RecordBatchFileWriter>;
   ARROW_ASSIGN_OR_RAISE(auto batches, Batches());
 
   for (const auto& batch : batches) {
     RETURN_NOT_OK(batch->ValidateFull());
-    ARROW_ASSIGN_OR_RAISE(auto buf, serialize_func(batch));
+    ARROW_ASSIGN_OR_RAISE(auto buf, SerializeRecordBatch(batch, is_stream_format));
     ARROW_ASSIGN_OR_RAISE(auto sample_fn, dir_fn.Join(sample_name()));
     std::cerr << sample_fn.ToString() << std::endl;
     ARROW_ASSIGN_OR_RAISE(auto file, io::FileOutputStream::Open(sample_fn.ToString()));

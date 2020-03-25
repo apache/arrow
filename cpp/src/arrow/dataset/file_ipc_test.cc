@@ -46,8 +46,7 @@ class ArrowIpcWriterMixin : public ::testing::Test {
   std::shared_ptr<Buffer> Write(RecordBatchReader* reader) {
     EXPECT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create());
 
-    EXPECT_OK_AND_ASSIGN(auto writer,
-                         ipc::RecordBatchFileWriter::Open(sink.get(), reader->schema()));
+    EXPECT_OK_AND_ASSIGN(auto writer, ipc::NewFileWriter(sink.get(), reader->schema()));
 
     std::vector<std::shared_ptr<RecordBatch>> batches;
     ARROW_EXPECT_OK(reader->ReadAll(&batches));
@@ -63,9 +62,7 @@ class ArrowIpcWriterMixin : public ::testing::Test {
 
   std::shared_ptr<Buffer> Write(const Table& table) {
     EXPECT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create());
-
-    EXPECT_OK_AND_ASSIGN(auto writer,
-                         ipc::RecordBatchFileWriter::Open(sink.get(), table.schema()));
+    EXPECT_OK_AND_ASSIGN(auto writer, ipc::NewFileWriter(sink.get(), table.schema()));
 
     ARROW_EXPECT_OK(writer->WriteTable(table));
 

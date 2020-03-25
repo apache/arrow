@@ -78,7 +78,7 @@ cdef class Message:
         cdef:
             int64_t output_length = 0
             COutputStream* out
-            CIpcOptions options
+            CIpcWriteOptions options
 
         options.alignment = alignment
         out = sink.get_output_stream().get()
@@ -256,7 +256,7 @@ cdef class _CRecordBatchWriter:
 cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
     cdef:
         shared_ptr[COutputStream] sink
-        CIpcOptions options
+        CIpcWriteOptions options
         bint closed
 
     def __cinit__(self):
@@ -274,8 +274,8 @@ cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
         get_writer(sink, &self.sink)
         with nogil:
             self.writer = GetResultValue(
-                CRecordBatchStreamWriter.Open(
-                    self.sink.get(), schema.sp_schema, self.options))
+                NewStreamWriter(self.sink.get(), schema.sp_schema,
+                                self.options))
 
 
 cdef _get_input_stream(object source, shared_ptr[CInputStream]* out):
@@ -345,6 +345,7 @@ cdef class _CRecordBatchReader:
 cdef class _RecordBatchStreamReader(_CRecordBatchReader):
     cdef:
         shared_ptr[CInputStream] in_stream
+        CIpcReadOptions options
 
     cdef readonly:
         Schema schema
@@ -355,8 +356,8 @@ cdef class _RecordBatchStreamReader(_CRecordBatchReader):
     def _open(self, source):
         _get_input_stream(source, &self.in_stream)
         with nogil:
-            check_status(CRecordBatchStreamReader.Open(
-                self.in_stream.get(), &self.reader))
+            self.reader = GetResultValue(CRecordBatchStreamReader.Open(
+                self.in_stream.get(), self.options))
 
         self.schema = pyarrow_wrap_schema(self.reader.get().schema())
 
@@ -368,14 +369,14 @@ cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
         get_writer(sink, &self.sink)
         with nogil:
             self.writer = GetResultValue(
-                CRecordBatchFileWriter.Open(
-                    self.sink.get(), schema.sp_schema, self.options))
+                NewFileWriter(self.sink.get(), schema.sp_schema, self.options))
 
 
 cdef class _RecordBatchFileReader:
     cdef:
         shared_ptr[CRecordBatchFileReader] reader
         shared_ptr[CRandomAccessFile] file
+        CIpcReadOptions options
 
     cdef readonly:
         Schema schema
@@ -397,12 +398,14 @@ cdef class _RecordBatchFileReader:
 
         with nogil:
             if offset != 0:
-                check_status(
+                self.reader = GetResultValue(
                     CRecordBatchFileReader.Open2(self.file.get(), offset,
-                                                 &self.reader))
+                                                 self.options))
+
             else:
-                check_status(
-                    CRecordBatchFileReader.Open(self.file.get(), &self.reader))
+                self.reader = GetResultValue(
+                    CRecordBatchFileReader.Open(self.file.get(),
+                                                self.options))
 
         self.schema = pyarrow_wrap_schema(self.reader.get().schema())
 
@@ -600,7 +603,7 @@ def read_schema(obj, DictionaryMemo dictionary_memo=None):
         arg_dict_memo = &temp_memo
 
     with nogil:
-        check_status(ReadSchema(cpp_file.get(), arg_dict_memo, &result))
+        result = GetResultValue(ReadSchema(cpp_file.get(), arg_dict_memo))
 
     return pyarrow_wrap_schema(result)
 
@@ -640,8 +643,10 @@ def read_record_batch(obj, Schema schema,
         arg_dict_memo = &temp_memo
 
     with nogil:
-        check_status(ReadRecordBatch(deref(message.message.get()),
-                                     schema.sp_schema,
-                                     arg_dict_memo, &result))
+        result = GetResultValue(
+            ReadRecordBatch(deref(message.message.get()),
+                            schema.sp_schema,
+                            arg_dict_memo,
+                            CIpcReadOptions.Defaults()))
 
     return pyarrow_wrap_batch(result)
