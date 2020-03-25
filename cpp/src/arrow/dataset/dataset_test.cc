@@ -343,7 +343,9 @@ TEST_F(TestEndToEnd, EndToEndSingleDataset) {
   // schema evolved by adding/renaming columns. In this case, the schema is
   // passed to the dataset constructor.
   // The inspected_schema may optionally be modified before being finalized.
-  ASSERT_OK_AND_ASSIGN(auto inspected_schema, factory->Inspect());
+  InspectOptions inspect_options;
+  inspect_options.fragments = InspectOptions::kInspectAllFragments;
+  ASSERT_OK_AND_ASSIGN(auto inspected_schema, factory->Inspect(inspect_options));
   EXPECT_EQ(*schema_, *inspected_schema);
 
   // Build the Dataset where partitions are attached to fragments (files).
