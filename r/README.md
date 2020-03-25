@@ -57,7 +57,7 @@ install_arrow()
 
 Conda users on Linux and macOS can install `arrow` from conda-forge with
 
-    conda install -c conda-forge r-arrow
+    conda install -c conda-forge --strict-channel-priority r-arrow
 
 ## Installing a development version
 
