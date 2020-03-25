@@ -486,6 +486,35 @@ def test_expression_ergonomics():
         field | [1]
 
 
+def test_file_format_options():
+    if1 = ds.IpcFileFormat()
+
+    pf1 = ds.ParquetFileFormat()
+    pf2 = ds.ParquetFileFormat(buffer_size=4096, dictionary_columns=['a', 'b'])
+    pf3 = ds.ParquetFileFormat(buffer_size=2**13, use_buffered_stream=True,
+                               dictionary_columns={'a', 'b'})
+
+    assert pf1.use_buffered_stream is False
+    assert pf1.buffer_size == 2**13
+    assert pf1.dictionary_columns == set()
+
+    assert pf2.use_buffered_stream is False
+    assert pf2.buffer_size == 2**12
+    assert pf2.dictionary_columns == {'a', 'b'}
+
+    assert pf3.use_buffered_stream is True
+    assert pf3.buffer_size == 2**13
+    assert pf3.dictionary_columns == {'a', 'b'}
+
+    assert if1 != "format"
+    assert if1 != pf2
+    assert pf2 != pf3
+
+    for format_ in [if1, pf1, pf2, pf3]:
+        restored = pickle.loads(pickle.dumps(format_))
+        assert format_.equals(restored)
+
+
 @pytest.mark.parametrize('paths_or_selector', [
     fs.FileSelector('subdir', recursive=True),
     [
@@ -499,7 +528,7 @@ def test_expression_ergonomics():
     ]
 ])
 def test_filesystem_factory(mockfs, paths_or_selector):
-    format = ds.ParquetFileFormat(reader_options=dict(dict_columns={"str"}))
+    format = ds.ParquetFileFormat(dictionary_columns={"str"})
 
     options = ds.FileSystemFactoryOptions('subdir')
     options.partitioning = ds.DirectoryPartitioning(
