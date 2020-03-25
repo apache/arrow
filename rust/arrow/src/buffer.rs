@@ -31,7 +31,7 @@ use std::slice::{from_raw_parts, from_raw_parts_mut};
 use std::sync::Arc;
 
 use crate::array::{BufferBuilderTrait, UInt8BufferBuilder};
-use crate::datatypes::{ArrowNativeType, ArrowPrimitiveType, BooleanType, ToByteSlice};
+use crate::datatypes::{ArrowNativeType, ArrowPrimitiveType};
 use crate::error::{ArrowError, Result};
 use crate::memory;
 use crate::util::bit_util;
@@ -597,49 +597,49 @@ impl MutableBuffer {
     }
 }
 
-impl<T: ArrowPrimitiveType> UnionBufferBuilderTrait<T> for MutableBuffer {
-    /// Reserves memory for `n` elements of type `T`.
-    default fn reserve(&mut self, n: usize) -> Result<()> {
-        let new_capacity = self.len + n;
-        let byte_capacity = mem::size_of::<T::Native>() * new_capacity;
-        self.reserve(byte_capacity)?;
-        Ok(())
-    }
-
-    /// Appends a value into the builder, growing the internal buffer as needed.
-    default fn append(&mut self, v: T::Native) -> Result<()> {
-        self.reserve(1)?;
-        self.write_bytes(v.to_byte_slice(), 1)
-    }
-}
-
-impl UnionBufferBuilderTrait<BooleanType> for MutableBuffer {
-    /// Appends a value into the builder, growing the internal buffer as needed.
-    fn append(&mut self, v: bool) -> Result<()> {
-        self.reserve(1)?;
-        if v {
-            // For performance the `len` of the buffer is not updated on each append but
-            // is updated in the `freeze` method instead.
-            unsafe {
-                bit_util::set_bit_raw(self.raw_data() as *mut u8, self.len);
-            }
-        }
-        self.len += 1;
-        Ok(())
-    }
-
-    /// Reserves memory for `n` elements of type `T`.
-    fn reserve(&mut self, n: usize) -> Result<()> {
-        let new_capacity = self.len + n;
-        if new_capacity > self.capacity() {
-            let new_byte_capacity = bit_util::ceil(new_capacity, 8);
-            let existing_capacity = self.capacity();
-            let new_capacity = self.reserve(new_byte_capacity)?;
-            self.set_null_bits(existing_capacity, new_capacity - existing_capacity);
-        }
-        Ok(())
-    }
-}
+//impl<T: ArrowPrimitiveType> UnionBufferBuilderTrait<T> for MutableBuffer {
+//    /// Reserves memory for `n` elements of type `T`.
+//    default fn reserve(&mut self, n: usize) -> Result<()> {
+//        let new_capacity = self.len + n;
+//        let byte_capacity = mem::size_of::<T::Native>() * new_capacity;
+//        self.reserve(byte_capacity)?;
+//        Ok(())
+//    }
+//
+//    /// Appends a value into the builder, growing the internal buffer as needed.
+//    default fn append(&mut self, v: T::Native) -> Result<()> {
+//        self.reserve(1)?;
+//        self.write_bytes(v.to_byte_slice(), 1)
+//    }
+//}
+//
+//impl UnionBufferBuilderTrait<BooleanType> for MutableBuffer {
+//    /// Appends a value into the builder, growing the internal buffer as needed.
+//    fn append(&mut self, v: bool) -> Result<()> {
+//        self.reserve(1)?;
+//        if v {
+//            // For performance the `len` of the buffer is not updated on each append but
+//            // is updated in the `freeze` method instead.
+//            unsafe {
+//                bit_util::set_bit_raw(self.raw_data() as *mut u8, self.len);
+//            }
+//        }
+//        self.len += 1;
+//        Ok(())
+//    }
+//
+//    /// Reserves memory for `n` elements of type `T`.
+//    fn reserve(&mut self, n: usize) -> Result<()> {
+//        let new_capacity = self.len + n;
+//        if new_capacity > self.capacity() {
+//            let new_byte_capacity = bit_util::ceil(new_capacity, 8);
+//            let existing_capacity = self.capacity();
+//            let new_capacity = self.reserve(new_byte_capacity)?;
+//            self.set_null_bits(existing_capacity, new_capacity - existing_capacity);
+//        }
+//        Ok(())
+//    }
+//}
 
 impl Drop for MutableBuffer {
     fn drop(&mut self) {
