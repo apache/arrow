@@ -42,7 +42,25 @@ pub struct UnionArray {
 }
 
 impl UnionArray {
-    // TODO: Docs
+    /// Creates a new `UnionArray`.
+    ///
+    /// Accepts type ids, child arrays and optionally offsets (for /// dense unions) to create
+    /// a new `UnionArray`.  This method makes no attempt to validate the data provided by the
+    /// caller and assumes that each of the components are correct and consistent with each other.
+    /// See `try_new` for an alternative that validates the data provided.
+    ///
+    /// # Safety
+    ///
+    /// The `type_ids` `Buffer` should contain `i8` values.  These values should be greater than
+    /// zero and must be less than the number of children provided in `child_arrays`.  These values
+    /// are used to index into the `child_arrays`.
+    ///
+    /// The `value_offsets` `Buffer` should contain `i32` values.  These values should be greater
+    /// than zero and must be less than the length of the overall array.
+    ///
+    /// In both of the cases above we are accepting `Buffer`'s which are assumed to be representing
+    /// `i8` and `i32` values respectively.  `Buffer` objects are untyped and no attempt is made
+    /// to ensure that the data provided is valid.
     pub unsafe fn new(
         type_ids: Buffer,
         value_offsets: Option<Buffer>,
@@ -61,7 +79,7 @@ impl UnionArray {
         };
         Self::from(data)
     }
-    /// Attempts to create a new `UnionArray`
+    /// Attempts to create a new `UnionArray` which validating inputs.
     pub fn try_new(
         type_ids: Buffer,
         value_offsets: Option<Buffer>,
@@ -84,7 +102,8 @@ impl UnionArray {
             .collect::<Vec<&i8>>();
         if invalid_type_ids.len() > 0 {
             return Err(ArrowError::InvalidArgumentError(
-                format!("Type Ids must be positive and within the length of the Array, found:\n{:?}", invalid_type_ids)));
+                format!("Type Ids must be positive and cannot be greater than the number of \
+                child arrays, found:\n{:?}", invalid_type_ids)));
         }
 
         // Check the value offsets if provided
@@ -97,7 +116,8 @@ impl UnionArray {
                 .collect::<Vec<&i32>>();
             if invalid_offsets.len() > 0 {
                 return Err(ArrowError::InvalidArgumentError(
-                    format!("Offsets must be positive and within the length of the Array, found:\n{:?}", invalid_offsets)));
+                    format!("Offsets must be positive and within the length of the Array, \
+                    found:\n{:?}", invalid_offsets)));
             }
         }
 
