@@ -281,7 +281,7 @@ else()
                  ${ARROW_BOOST_BUILD_VERSION})
   set(
     BOOST_SOURCE_URL
-    "https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
+    "https://dl.bintray.com/nealrichardson/arrow-boost/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
     )
 endif()
 
