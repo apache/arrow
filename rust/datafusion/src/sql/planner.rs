@@ -287,9 +287,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 }
             }
 
-            ASTNode::SQLWildcard => {
-                Err(ExecutionError::NotImplemented("SQL wildcard operator is not supported in projection - please use explicit column names".to_string()))
-            }
+            ASTNode::SQLWildcard => Ok(Expr::Wildcard),
 
             ASTNode::SQLCast {
                 ref expr,
@@ -307,17 +305,17 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 Ok(Expr::IsNotNull(Arc::new(self.sql_to_rex(expr, schema)?)))
             }
 
-            ASTNode::SQLUnary{
+            ASTNode::SQLUnary {
                 ref operator,
                 ref expr,
-            } => {
-                match *operator {
-                    SQLOperator::Not => Ok(Expr::Not(Arc::new(self.sql_to_rex(expr, schema)?))),
-                    _ => Err(ExecutionError::InternalError(format!(
-                        "SQL binary operator cannot be interpreted as a unary operator"
-                    ))),
+            } => match *operator {
+                SQLOperator::Not => {
+                    Ok(Expr::Not(Arc::new(self.sql_to_rex(expr, schema)?)))
                 }
-            }
+                _ => Err(ExecutionError::InternalError(format!(
+                    "SQL binary operator cannot be interpreted as a unary operator"
+                ))),
+            },
 
             ASTNode::SQLBinaryExpr {
                 ref left,
@@ -370,7 +368,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
 
                         // return type is same as the argument type for these aggregate
                         // functions
-                        let return_type = rex_args[0].get_type(schema).clone();
+                        let return_type = rex_args[0].get_type(schema)?.clone();
 
                         Ok(Expr::AggregateFunction {
                             name: id.clone(),
@@ -387,7 +385,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
                                 }
                                 ASTNode::SQLWildcard => {
                                     Ok(Expr::Literal(ScalarValue::UInt8(1)))
-                                },
+                                }
                                 _ => self.sql_to_rex(a, schema),
                             })
                             .collect::<Result<Vec<Expr>>>()?;
@@ -572,6 +570,15 @@ mod tests {
             "SELECT state, MIN(age), MAX(age) FROM person GROUP BY state",
             "Aggregate: groupBy=[[#4]], aggr=[[MIN(#3), MAX(#3)]]\
              \n  TableScan: person projection=None",
+        );
+    }
+
+    #[test]
+    fn test_wildcard() {
+        quick_test(
+            "SELECT * from person",
+            "Projection: #0, #1, #2, #3, #4, #5, #6\
+            \n  TableScan: person projection=None",
         );
     }
 

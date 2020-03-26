@@ -26,30 +26,44 @@ use crate::logicalplan::Expr;
 
 /// Recursively walk a list of expression trees, collecting the unique set of column
 /// indexes referenced in the expression
-pub fn exprlist_to_column_indices(expr: &Vec<Expr>, accum: &mut HashSet<usize>) {
-    expr.iter().for_each(|e| expr_to_column_indices(e, accum));
+pub fn exprlist_to_column_indices(
+    expr: &Vec<Expr>,
+    accum: &mut HashSet<usize>,
+) -> Result<()> {
+    for e in expr {
+        expr_to_column_indices(e, accum)?;
+    }
+    Ok(())
 }
 
 /// Recursively walk an expression tree, collecting the unique set of column indexes
 /// referenced in the expression
-pub fn expr_to_column_indices(expr: &Expr, accum: &mut HashSet<usize>) {
+pub fn expr_to_column_indices(expr: &Expr, accum: &mut HashSet<usize>) -> Result<()> {
     match expr {
         Expr::Alias(expr, _) => expr_to_column_indices(expr, accum),
         Expr::Column(i) => {
             accum.insert(*i);
+            Ok(())
         }
-        Expr::Literal(_) => { /* not needed */ }
+        Expr::Literal(_) => {
+            // not needed
+            Ok(())
+        }
         Expr::Not(e) => expr_to_column_indices(e, accum),
         Expr::IsNull(e) => expr_to_column_indices(e, accum),
         Expr::IsNotNull(e) => expr_to_column_indices(e, accum),
         Expr::BinaryExpr { left, right, .. } => {
-            expr_to_column_indices(left, accum);
-            expr_to_column_indices(right, accum);
+            expr_to_column_indices(left, accum)?;
+            expr_to_column_indices(right, accum)?;
+            Ok(())
         }
         Expr::Cast { expr, .. } => expr_to_column_indices(expr, accum),
         Expr::Sort { expr, .. } => expr_to_column_indices(expr, accum),
         Expr::AggregateFunction { args, .. } => exprlist_to_column_indices(args, accum),
         Expr::ScalarFunction { args, .. } => exprlist_to_column_indices(args, accum),
+        Expr::Wildcard => Err(ExecutionError::General(
+            "Wildcard expressions are not valid in a logical query plan".to_owned(),
+        )),
     }
 }
 
@@ -57,7 +71,7 @@ pub fn expr_to_column_indices(expr: &Expr, accum: &mut HashSet<usize>) {
 pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
     match e {
         Expr::Alias(expr, name) => {
-            Ok(Field::new(name, expr.get_type(input_schema), true))
+            Ok(Field::new(name, expr.get_type(input_schema)?, true))
         }
         Expr::Column(i) => {
             let input_schema_field_count = input_schema.fields().len();
@@ -89,8 +103,8 @@ pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
             ref right,
             ..
         } => {
-            let left_type = left.get_type(input_schema);
-            let right_type = right.get_type(input_schema);
+            let left_type = left.get_type(input_schema)?;
+            let right_type = right.get_type(input_schema)?;
             Ok(Field::new(
                 "binary_expr",
                 get_supertype(&left_type, &right_type).unwrap(),
@@ -235,7 +249,7 @@ mod tests {
     use std::sync::Arc;
 
     #[test]
-    fn test_collect_expr() {
+    fn test_collect_expr() -> Result<()> {
         let mut accum: HashSet<usize> = HashSet::new();
         expr_to_column_indices(
             &Expr::Cast {
@@ -243,15 +257,16 @@ mod tests {
                 data_type: DataType::Float64,
             },
             &mut accum,
-        );
+        )?;
         expr_to_column_indices(
             &Expr::Cast {
                 expr: Arc::new(Expr::Column(3)),
                 data_type: DataType::Float64,
             },
             &mut accum,
-        );
+        )?;
         assert_eq!(1, accum.len());
         assert!(accum.contains(&3));
+        Ok(())
     }
 }

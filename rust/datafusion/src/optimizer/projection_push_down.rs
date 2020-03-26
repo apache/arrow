@@ -58,7 +58,7 @@ impl ProjectionPushDown {
                 schema,
             } => {
                 // collect all columns referenced by projection expressions
-                utils::exprlist_to_column_indices(&expr, accum);
+                utils::exprlist_to_column_indices(&expr, accum)?;
 
                 // push projection down
                 let input = self.optimize_plan(&input, accum, mapping)?;
@@ -74,7 +74,7 @@ impl ProjectionPushDown {
             }
             LogicalPlan::Selection { expr, input } => {
                 // collect all columns referenced by filter expression
-                utils::expr_to_column_indices(expr, accum);
+                utils::expr_to_column_indices(expr, accum)?;
 
                 // push projection down
                 let input = self.optimize_plan(&input, accum, mapping)?;
@@ -94,8 +94,8 @@ impl ProjectionPushDown {
                 schema,
             } => {
                 // collect all columns referenced by grouping and aggregate expressions
-                utils::exprlist_to_column_indices(&group_expr, accum);
-                utils::exprlist_to_column_indices(&aggr_expr, accum);
+                utils::exprlist_to_column_indices(&group_expr, accum)?;
+                utils::exprlist_to_column_indices(&aggr_expr, accum)?;
 
                 // push projection down
                 let input = self.optimize_plan(&input, accum, mapping)?;
@@ -117,7 +117,7 @@ impl ProjectionPushDown {
                 schema,
             } => {
                 // collect all columns referenced by sort expressions
-                utils::exprlist_to_column_indices(&expr, accum);
+                utils::exprlist_to_column_indices(&expr, accum)?;
 
                 // push projection down
                 let input = self.optimize_plan(&input, accum, mapping)?;
@@ -271,6 +271,9 @@ impl ProjectionPushDown {
                 args: self.rewrite_exprs(args, mapping)?,
                 return_type: return_type.clone(),
             }),
+            Expr::Wildcard => Err(ExecutionError::General(
+                "Wildcard expressions are not valid in a logical query plan".to_owned(),
+            )),
         }
     }
 
