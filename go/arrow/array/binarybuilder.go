@@ -249,7 +249,11 @@ func (b *BinaryBuilder) NewArray() Interface {
 // so it can be used to build a new array.
 func (b *BinaryBuilder) NewBinaryArray() (a *Binary) {
 	data := b.newData()
-	a = NewBinaryData(data)
+	if b.offsets32 != nil {
+		a = NewBinaryData(data)
+	} else {
+		a = New64BitOffsetsBinaryData(data)
+	}
 	data.Release()
 	return
 }
