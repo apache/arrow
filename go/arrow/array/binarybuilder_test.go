@@ -18,7 +18,6 @@ package array_test
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow"
@@ -145,7 +144,6 @@ func Test64BitBinaryBuilderReuse(t *testing.T) {
 	defer assertMem()
 
 	for i := 0; i < 10; i++ {
-		fmt.Println(i)
 		ab.Reset()
 
 		for _, v := range exp {
