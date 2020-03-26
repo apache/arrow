@@ -247,12 +247,12 @@ func (b *BinaryBuilder) newData() (data *Data) {
 
 	var (
 		offsets *memory.Buffer
-		values  *memory.Buffer
+		values  = b.values.Finish()
 	)
 	if b.offsets32 != nil {
-		offsets, values = b.offsets32.Finish(), b.values.Finish()
+		offsets = b.offsets32.Finish()
 	} else {
-		offsets, values = b.offsets64.Finish(), b.values.Finish()
+		offsets = b.offsets64.Finish()
 	}
 	data = NewData(b.dtype, b.length, []*memory.Buffer{b.nullBitmap, offsets, values}, nil, b.nulls, 0)
 	if offsets != nil {
