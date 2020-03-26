@@ -21,11 +21,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.Test;
 
-import io.netty.buffer.ArrowBuf;
 import io.netty.buffer.PooledByteBufAllocatorL;
 import io.netty.util.internal.PlatformDependent;
 

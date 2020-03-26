@@ -40,7 +40,6 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
 
-import io.netty.buffer.ArrowBuf;
 import sun.misc.Unsafe;
 
 public class TestBaseAllocator {

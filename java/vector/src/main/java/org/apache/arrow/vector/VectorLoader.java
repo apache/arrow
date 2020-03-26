@@ -23,12 +23,11 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.util.Collections2;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Field;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Loads buffers into vectors.

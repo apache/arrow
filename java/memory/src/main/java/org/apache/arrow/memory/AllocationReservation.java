@@ -17,8 +17,6 @@
 
 package org.apache.arrow.memory;
 
-import io.netty.buffer.ArrowBuf;
-
 /**
  * Supports cumulative allocation reservation. Clients may increase the size of the reservation
  * repeatedly until they

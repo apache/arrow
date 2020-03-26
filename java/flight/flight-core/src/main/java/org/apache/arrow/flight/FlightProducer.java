@@ -19,10 +19,9 @@ package org.apache.arrow.flight;
 
 import java.util.Map;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * API to Implement an Arrow Flight producer.

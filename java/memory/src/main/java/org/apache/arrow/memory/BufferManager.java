@@ -17,8 +17,6 @@
 
 package org.apache.arrow.memory;
 
-import io.netty.buffer.ArrowBuf;
-
 /**
  * Manages a list of {@link ArrowBuf}s that can be reallocated as needed. Upon
  * re-allocation the old buffer will be freed. Managing a list of these buffers

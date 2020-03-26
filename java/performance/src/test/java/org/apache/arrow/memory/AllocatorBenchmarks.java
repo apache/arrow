@@ -19,6 +19,7 @@ package org.apache.arrow.memory;
 
 import java.util.concurrent.TimeUnit;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.memory.rounding.SegmentRoundingPolicy;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -29,8 +30,6 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Benchmarks for allocators.

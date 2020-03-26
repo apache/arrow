@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.util.DataSizeRoundingUtil;
@@ -47,7 +47,6 @@ import java.util.stream.Collectors;
 package org.apache.arrow.vector.complex;
 
 <#include "/@includes/vv_imports.ftl" />
-import io.netty.buffer.ArrowBuf;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;

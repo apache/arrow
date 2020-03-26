@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package io.netty.buffer;
+package org.apache.arrow.memory;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;

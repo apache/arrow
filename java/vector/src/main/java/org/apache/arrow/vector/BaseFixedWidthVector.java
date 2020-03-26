@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
@@ -36,7 +37,6 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
-import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
 
 /**
@@ -389,7 +389,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    *
    * @param clear Whether to clear vector before returning; the buffers will still be refcounted
    *              but the returned array will be the only reference to them
-   * @return The underlying {@link io.netty.buffer.ArrowBuf buffers} that is used by this
+   * @return The underlying {@link ArrowBuf buffers} that is used by this
    *         vector instance.
    */
   @Override

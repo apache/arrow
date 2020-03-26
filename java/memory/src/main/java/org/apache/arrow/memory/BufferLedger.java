@@ -26,7 +26,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
 
-import io.netty.buffer.ArrowBuf;
 import io.netty.buffer.UnsafeDirectLittleEndian;
 
 /**
