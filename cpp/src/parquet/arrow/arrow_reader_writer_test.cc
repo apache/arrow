@@ -26,10 +26,13 @@
 #include <arrow/compute/api.h>
 #include <cstdint>
 #include <functional>
+#include <iostream>
 #include <sstream>
 #include <vector>
 
 #include "arrow/api.h"
+#include "arrow/compute/kernels/cast.h"
+#include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -353,25 +356,6 @@ void WriteTableToBuffer(const std::shared_ptr<Table>& table, int64_t row_group_s
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
                                 row_group_size, write_props, arrow_properties));
   ASSERT_OK_AND_ASSIGN(*out, sink->Finish());
-}
-
-void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
-  ASSERT_EQ(expected.num_chunks(), actual.num_chunks()) << "# chunks unequal";
-  if (!actual.Equals(expected)) {
-    std::stringstream pp_result;
-    std::stringstream pp_expected;
-
-    for (int i = 0; i < actual.num_chunks(); ++i) {
-      auto c1 = actual.chunk(i);
-      auto c2 = expected.chunk(i);
-      if (!c1->Equals(*c2)) {
-        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, 0, &pp_result));
-        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c2, 0, &pp_expected));
-        FAIL() << "Chunk " << i << " Got: " << pp_result.str()
-               << "\nExpected: " << pp_expected.str();
-      }
-    }
-  }
 }
 
 void DoRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group_size,
@@ -2263,15 +2247,14 @@ TEST(TestArrowReadWrite, DISABLED_CanonicalNestedRoundTrip) {
 
   // Written without C++11 string literal because many editors don't have C++11
   // string literals implemented properly
-  auto name_array =
-      ::arrow::ArrayFromJSON(
-           name->type(),
-           "([[{\"Language\": [{\"Code\": \"en_us\", \"Country\":\"us\"},"
-           "{\"Code\": \"en_us\", \"Country\": null}],"
-           "\"Url\": \"http://A\"},"
-           "{\"Url\": \"http://B\"},"
-           "{\"Language\": [{\"Code\": \"en-gb\", \"Country\": \"gb\"}]}],"
-           "[{\"Url\": \"http://C\"}]]");
+  auto name_array = ::arrow::ArrayFromJSON(
+      name->type(),
+      "([[{\"Language\": [{\"Code\": \"en_us\", \"Country\":\"us\"},"
+      "{\"Code\": \"en_us\", \"Country\": null}],"
+      "\"Url\": \"http://A\"},"
+      "{\"Url\": \"http://B\"},"
+      "{\"Language\": [{\"Code\": \"en-gb\", \"Country\": \"gb\"}]}],"
+      "[{\"Url\": \"http://C\"}]]");
   auto expected =
       ::arrow::Table::Make(schema, {doc_id_array, links_id_array, name_array});
   CheckSimpleRoundtrip(expected, 2);
@@ -2992,13 +2975,15 @@ TEST_P(TestArrowReadDictionary, ReadWholeFileDict) {
 
 TEST_P(TestArrowReadDictionary, IncrementalReads) {
   // ARROW-6895
+  options.num_rows = 100;
+  options.num_uniques = 10;
+  SetUp();
 
   properties_.set_read_dictionary(0, true);
 
   // Just write a single row group
-  ASSERT_NO_FATAL_FAILURE(
-      WriteTableToBuffer(expected_dense_, options.num_rows,
-                         default_arrow_writer_properties(), &buffer_));
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(
+      expected_dense_, options.num_rows, default_arrow_writer_properties(), &buffer_));
 
   // Read in one shot
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<FileReader> reader, GetReader());
@@ -3011,12 +2996,17 @@ TEST_P(TestArrowReadDictionary, IncrementalReads) {
 
   int num_reads = 4;
   int batch_size = options.num_rows / num_reads;
+
+  ::arrow::compute::FunctionContext fc;
   for (int i = 0; i < num_reads; ++i) {
     std::shared_ptr<ChunkedArray> chunk;
     ASSERT_OK(col->NextBatch(batch_size, &chunk));
-    AssertChunkedEqual(*expected->column(0)->Slice(num_reads * batch_size,
-                                                   batch_size),
-                       *chunk);
+
+    std::shared_ptr<Array> result_dense;
+    ASSERT_OK(::arrow::compute::Cast(&fc, *chunk->chunk(0), ::arrow::utf8(),
+                                     ::arrow::compute::CastOptions::Safe(),
+                                     &result_dense));
+    AssertArraysEqual(*dense_values_->Slice(i * batch_size, batch_size), *result_dense);
   }
 }
 
