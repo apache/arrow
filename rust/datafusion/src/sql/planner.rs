@@ -603,7 +603,7 @@ mod tests {
     fn select_aliased_scalar_func() {
         let sql = "SELECT sqrt(age) AS square_people FROM person";
         let expected = "Projection: sqrt(CAST(#3 AS Float64)) AS square_people\
-        \n  TableScan: person projection=None";
+                        \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }
 
