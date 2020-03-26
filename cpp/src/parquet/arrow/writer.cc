@@ -340,14 +340,25 @@ Status GetLeafType(const ::arrow::DataType& type, ::arrow::Type::type* leaf_type
   }
 }
 
+// Manages writing nested parquet columns with support for all nested types
+// supported by parquet.
 class ArrowColumnWriterV2 {
  public:
+  // Constructs a new object (use Make() method below to construct from 
+  // A ChunkedArray).  
+  // level_builders should contain one MultipathLevelBuilder per chunk of the
+  // Arrow-column to write.
   ArrowColumnWriterV2(std::vector<std::unique_ptr<MultipathLevelBuilder>> level_builders,
                       int leaf_count, RowGroupWriter* row_group_writer)
       : level_builders_(std::move(level_builders)),
         leaf_count_(leaf_count),
         row_group_writer_(row_group_writer) {}
 
+  // Writes out all leaf parquet columns to the RowGroupWriter that this
+  // object was constructed with.  Each leaf column is written fully before
+  // the next column is written (i.e. no buffering is assumed).
+  //
+  // Columns are written in DFS order.
   Status Write(ArrowWriteContext* ctx) {
     for (int leaf_idx = 0; leaf_idx < leaf_count_; leaf_idx++) {
       ColumnWriter* column_writer;
@@ -377,6 +388,14 @@ class ArrowColumnWriterV2 {
     return Status::OK();
   }
 
+  // Make a new object by converting each chunk in |data| to a MultipathLevelBuilder.
+  //
+  // It is necessary to create a new builder per array because the MultipathlevelBuilder
+  // extracts the data necessary for writing each leaf column at construction time.
+  // (it optimizes based on null count) and with slicing via |offset| ephemeral
+  // chunks are created which need to be tracked across each leaf column-write.
+  // This decision could potentially be revisited if we wanted to use "buffered"
+  // RowGroupWriters (we could construct each builder on demand in that case).
   static ::arrow::Result<std::unique_ptr<ArrowColumnWriterV2>> Make(
       const ChunkedArray& data, int64_t offset, const int64_t size,
       const SchemaManifest& schema_manifest, RowGroupWriter* row_group_writer) {
@@ -462,6 +481,7 @@ class ArrowColumnWriterV2 {
   }
 
  private:
+  // One builder per column-chunk.
   std::vector<std::unique_ptr<MultipathLevelBuilder>> level_builders_;
   int leaf_count_;
   RowGroupWriter* row_group_writer_;
