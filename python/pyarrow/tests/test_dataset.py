@@ -510,15 +510,16 @@ def test_parquet_read_options():
     assert opts2 != opts3
 
 
-@pytest.mark.parametrize('file_format', [
-    ds.IpcFileFormat(),
-    ds.ParquetFileFormat(),
-    ds.ParquetFileFormat(
-        read_options=ds.ParquetReadOptions(use_buffered_stream=True)
-    )
-])
-def test_file_format_pickling(file_format):
-    assert pickle.loads(pickle.dumps(file_format)) == file_format
+def test_file_format_pickling():
+    formats = [
+        ds.IpcFileFormat(),
+        ds.ParquetFileFormat(),
+        ds.ParquetFileFormat(
+            read_options=ds.ParquetReadOptions(use_buffered_stream=True)
+        )
+    ]
+    for file_format in formats:
+        assert pickle.loads(pickle.dumps(file_format)) == file_format
 
 
 @pytest.mark.parametrize('paths_or_selector', [
