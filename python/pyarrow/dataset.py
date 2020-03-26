@@ -44,6 +44,7 @@ from pyarrow._dataset import (  # noqa
     OrExpression,
     ParquetFileFormat,
     ParquetFileFragment,
+    ParquetReadOptions,
     Partitioning,
     PartitioningFactory,
     ScalarExpression,
