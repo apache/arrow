@@ -17,6 +17,7 @@
 package array
 
 import (
+	"fmt"
 	"math"
 	"sync/atomic"
 
@@ -33,17 +34,38 @@ const (
 type BinaryBuilder struct {
 	builder
 
-	dtype   arrow.BinaryDataType
-	offsets *int32BufferBuilder
-	values  *byteBufferBuilder
+	dtype     arrow.BinaryDataType
+	offsets32 *int32BufferBuilder
+	offsets64 *int64BufferBuilder
+	values    *byteBufferBuilder
 }
 
+// NewBinaryBuilder creates a new binary builder. It uses 32-bit integers for the offsets.
 func NewBinaryBuilder(mem memory.Allocator, dtype arrow.BinaryDataType) *BinaryBuilder {
+	return newBinaryBuilder(mem, dtype, false)
+}
+
+// New64BitOffsetsBinaryBuilder creates a new binary builder. It uses 64-bit integers for the offsets.
+func New64BitOffsetsBinaryBuilder(mem memory.Allocator, dtype arrow.BinaryDataType) *BinaryBuilder {
+	return newBinaryBuilder(mem, dtype, true)
+}
+
+func newBinaryBuilder(mem memory.Allocator, dtype arrow.BinaryDataType, int64Offsets bool) *BinaryBuilder {
+	var (
+		offsets32 *int32BufferBuilder
+		offsets64 *int64BufferBuilder
+	)
+	if int64Offsets {
+		offsets64 = newInt64BufferBuilder(mem)
+	} else {
+		offsets32 = newInt32BufferBuilder(mem)
+	}
 	b := &BinaryBuilder{
-		builder: builder{refCount: 1, mem: mem},
-		dtype:   dtype,
-		offsets: newInt32BufferBuilder(mem),
-		values:  newByteBufferBuilder(mem),
+		builder:   builder{refCount: 1, mem: mem},
+		dtype:     dtype,
+		offsets32: offsets32,
+		offsets64: offsets64,
+		values:    newByteBufferBuilder(mem),
 	}
 	return b
 }
@@ -59,9 +81,13 @@ func (b *BinaryBuilder) Release() {
 			b.nullBitmap.Release()
 			b.nullBitmap = nil
 		}
-		if b.offsets != nil {
-			b.offsets.Release()
-			b.offsets = nil
+		if b.offsets32 != nil {
+			b.offsets32.Release()
+			b.offsets32 = nil
+		}
+		if b.offsets64 != nil {
+			b.offsets64.Release()
+			b.offsets64 = nil
 		}
 		if b.values != nil {
 			b.values.Release()
@@ -70,6 +96,7 @@ func (b *BinaryBuilder) Release() {
 	}
 }
 
+// Append appends the byte slice to the binary builder.
 func (b *BinaryBuilder) Append(v []byte) {
 	b.Reserve(1)
 	b.appendNextOffset()
@@ -77,10 +104,13 @@ func (b *BinaryBuilder) Append(v []byte) {
 	b.UnsafeAppendBoolToBitmap(true)
 }
 
+// AppendString appends the string to the binary builder. This method will
+// allocate a new byte slice.
 func (b *BinaryBuilder) AppendString(v string) {
 	b.Append([]byte(v))
 }
 
+// AppendNull appends a null value to the binary builder.
 func (b *BinaryBuilder) AppendNull() {
 	b.Reserve(1)
 	b.appendNextOffset()
@@ -129,21 +159,40 @@ func (b *BinaryBuilder) AppendStringValues(v []string, valid []bool) {
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 
+// Value returns the byte slice at index i.
 func (b *BinaryBuilder) Value(i int) []byte {
-	offsets := b.offsets.Values()
-	start := int(offsets[i])
-	var end int
-	if i == (b.length - 1) {
-		end = b.values.Len()
+	var (
+		start int64
+		end   int64
+	)
+	if b.offsets32 != nil {
+		offsets := b.offsets32.Values()
+		start = int64(offsets[i])
+		if i == (b.length - 1) {
+			end = int64(b.values.Len())
+		} else {
+			end = int64(offsets[i+1])
+		}
 	} else {
-		end = int(offsets[i+1])
+		offsets := b.offsets64.Values()
+		start = int64(offsets[i])
+		if i == (b.length - 1) {
+			end = int64(b.values.Len())
+		} else {
+			end = int64(offsets[i+1])
+		}
 	}
+
 	return b.values.Bytes()[start:end]
 }
 
 func (b *BinaryBuilder) init(capacity int) {
 	b.builder.init(capacity)
-	b.offsets.resize((capacity + 1) * arrow.Int32SizeBytes)
+	if b.offsets32 != nil {
+		b.offsets32.resize((capacity + 1) * arrow.Int32SizeBytes)
+	} else {
+		b.offsets64.resize((capacity + 1) * arrow.Int64SizeBytes)
+	}
 }
 
 // DataLen returns the number of bytes in the data array.
@@ -170,7 +219,11 @@ func (b *BinaryBuilder) ReserveData(n int) {
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may be reduced.
 func (b *BinaryBuilder) Resize(n int) {
-	b.offsets.resize((n + 1) * arrow.Int32SizeBytes)
+	if b.offsets32 != nil {
+		b.offsets32.resize((n + 1) * arrow.Int32SizeBytes)
+	} else {
+		b.offsets64.resize((n + 1) * arrow.Int64SizeBytes)
+	}
 	b.builder.resize(n, b.init)
 }
 
@@ -191,7 +244,16 @@ func (b *BinaryBuilder) NewBinaryArray() (a *Binary) {
 
 func (b *BinaryBuilder) newData() (data *Data) {
 	b.appendNextOffset()
-	offsets, values := b.offsets.Finish(), b.values.Finish()
+
+	var (
+		offsets *memory.Buffer
+		values  *memory.Buffer
+	)
+	if b.offsets32 != nil {
+		offsets, values = b.offsets32.Finish(), b.values.Finish()
+	} else {
+		offsets, values = b.offsets64.Finish(), b.values.Finish()
+	}
 	data = NewData(b.dtype, b.length, []*memory.Buffer{b.nullBitmap, offsets, values}, nil, b.nulls, 0)
 	if offsets != nil {
 		offsets.Release()
@@ -208,8 +270,14 @@ func (b *BinaryBuilder) newData() (data *Data) {
 
 func (b *BinaryBuilder) appendNextOffset() {
 	numBytes := b.values.Len()
-	// TODO(sgc): check binaryArrayMaximumCapacity?
-	b.offsets.AppendValue(int32(numBytes))
+	if b.offsets32 != nil {
+		if numBytes > binaryArrayMaximumCapacity {
+			panic(fmt.Sprintf("BinaryBuilder: append would overflow offsets"))
+		}
+		b.offsets32.AppendValue(int32(numBytes))
+	} else {
+		b.offsets64.AppendValue(int64(numBytes))
+	}
 }
 
 var (
