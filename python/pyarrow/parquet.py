@@ -1120,8 +1120,8 @@ metadata_nthreads: int, default 1
     def __new__(cls, path_or_paths=None, filesystem=None, schema=None,
                 metadata=None, split_row_groups=False, validate_schema=True,
                 filters=None, metadata_nthreads=1, read_dictionary=None,
-                memory_map=False, buffer_size=0, use_dataset=False):
-        if use_dataset:
+                memory_map=False, buffer_size=0, use_legacy_dataset=True):
+        if not use_legacy_dataset:
             # TODO raise warning on unsupported keywords
             return _ParquetDatasetV2(path_or_paths, filesystem=filesystem,
                                      filters=filters,
@@ -1133,7 +1133,7 @@ metadata_nthreads: int, default 1
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True,
                  filters=None, metadata_nthreads=1, read_dictionary=None,
-                 memory_map=False, buffer_size=0, use_dataset=False):
+                 memory_map=False, buffer_size=0, use_legacy_dataset=True):
         self._metadata = _ParquetDatasetMetadata()
         a_path = path_or_paths
         if isinstance(a_path, list):
@@ -1451,8 +1451,8 @@ Returns
 def read_table(source, columns=None, use_threads=True, metadata=None,
                use_pandas_metadata=False, memory_map=False,
                read_dictionary=None, filesystem=None, filters=None,
-               buffer_size=0, use_dataset=False):
-    if use_dataset:
+               buffer_size=0, use_legacy_dataset=True):
+    if not use_legacy_dataset:
         import pyarrow.dataset as ds
         dataset = _dataset_from_legacy_args(
             source, filesystem=filesystem, read_dictionary=read_dictionary,
@@ -1498,7 +1498,8 @@ read_table.__doc__ = _read_table_docstring.format(
 
 
 def read_pandas(source, columns=None, use_threads=True, memory_map=False,
-                metadata=None, filters=None, buffer_size=0, use_dataset=False):
+                metadata=None, filters=None, buffer_size=0,
+                use_legacy_dataset=True):
     return read_table(
         source,
         columns=columns,
@@ -1508,7 +1509,7 @@ def read_pandas(source, columns=None, use_threads=True, memory_map=False,
         memory_map=memory_map,
         buffer_size=buffer_size,
         use_pandas_metadata=True,
-        use_dataset=use_dataset,
+        use_legacy_dataset=use_legacy_dataset,
     )
 
 
