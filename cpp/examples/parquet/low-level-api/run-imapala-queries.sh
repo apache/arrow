@@ -22,10 +22,10 @@ $IMPALA_HOME/bin/impala-shell.sh -q "DROP TABLE all_types_table_u_100k";
 $IMPALA_HOME/bin/impala-shell.sh -q "DROP TABLE all_types_table_u_1M";
 $IMPALA_HOME/bin/impala-shell.sh -q "DROP TABLE all_types_table_u_10M";
 
-$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;CREATE EXTERNAL TABLE all_types_table_u_10k LIKE PARQUET '/panos/import_dir/UNCOMPRESSED/10k/all-types-10k.parquet' STORED AS PARQUET LOCATION '/panos/import_dir/UNCOMPRESSED/10k';"
-$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;CREATE EXTERNAL TABLE all_types_table_u_100k LIKE PARQUET '/panos/import_dir/UNCOMPRESSED/100k/all-types-100k.parquet' STORED AS PARQUET LOCATION '/panos/import_dir/UNCOMPRESSED/100k';"
-$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;CREATE EXTERNAL TABLE all_types_table_u_1M LIKE PARQUET '/panos/import_dir/UNCOMPRESSED/1M/all-types-1M.parquet' STORED AS PARQUET LOCATION '/panos/import_dir/UNCOMPRESSED/1M';"
-$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;CREATE EXTERNAL TABLE all_types_table_u_10M LIKE PARQUET '/panos/import_dir/UNCOMPRESSED/10M/all-types-10M.parquet' STORED AS PARQUET LOCATION '/panos/import_dir/UNCOMPRESSED/10M';"
+$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;set PARQUET_FILE_SIZE=1g;CREATE EXTERNAL TABLE all_types_table_u_10k LIKE PARQUET '/panos/import_dir/UNCOMPRESSED/10k/all-types-10k.parquet' STORED AS PARQUET LOCATION '/panos/import_dir/UNCOMPRESSED/10k';"
+$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;set PARQUET_FILE_SIZE=1g;CREATE EXTERNAL TABLE all_types_table_u_100k LIKE PARQUET '/panos/import_dir/UNCOMPRESSED/100k/all-types-100k.parquet' STORED AS PARQUET LOCATION '/panos/import_dir/UNCOMPRESSED/100k';"
+$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;set PARQUET_FILE_SIZE=1g;CREATE EXTERNAL TABLE all_types_table_u_1M LIKE PARQUET '/panos/import_dir/UNCOMPRESSED/1M/all-types-1M.parquet' STORED AS PARQUET LOCATION '/panos/import_dir/UNCOMPRESSED/1M';"
+$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;set PARQUET_FILE_SIZE=1g;CREATE EXTERNAL TABLE all_types_table_u_10M LIKE PARQUET '/panos/import_dir/UNCOMPRESSED/10M/all-types-10M.parquet' STORED AS PARQUET LOCATION '/panos/import_dir/UNCOMPRESSED/10M';"
 
 $IMPALA_HOME/bin/impala-shell.sh -q "select count(*) from all_types_table_u_10k;"
 $IMPALA_HOME/bin/impala-shell.sh -q "select count(*) from all_types_table_u_100k;"
@@ -45,15 +45,15 @@ $IMPALA_HOME/bin/impala-shell.sh -q "DROP TABLE export_all_types_table_100k";
 $IMPALA_HOME/bin/impala-shell.sh -q "DROP TABLE export_all_types_table_1M";
 $IMPALA_HOME/bin/impala-shell.sh -q "DROP TABLE export_all_types_table_10M";
 
-$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;create table export_all_types_table_u_10k LIKE all_types_table_u_10k STORED AS PARQUET LOCATION '/panos/export_dir/UNCOMPRESSED/10k';"
-$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;create table export_all_types_table_u_100k LIKE all_types_table_u_100k STORED AS PARQUET LOCATION '/panos/export_dir/UNCOMPRESSED/100k';"
-$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;create table export_all_types_table_u_1M LIKE all_types_table_u_1M STORED AS PARQUET LOCATION '/panos/export_dir/UNCOMPRESSED/1M';"
-$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;create table export_all_types_table_u_10M LIKE all_types_table_u_10M STORED AS PARQUET LOCATION '/panos/export_dir/UNCOMPRESSED/10M';"
+$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;set PARQUET_FILE_SIZE=1g;create table export_all_types_table_u_10k LIKE all_types_table_u_10k STORED AS PARQUET LOCATION '/panos/export_dir/UNCOMPRESSED/10k';"
+$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;set PARQUET_FILE_SIZE=1g;create table export_all_types_table_u_100k LIKE all_types_table_u_100k STORED AS PARQUET LOCATION '/panos/export_dir/UNCOMPRESSED/100k';"
+$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;set PARQUET_FILE_SIZE=1g;create table export_all_types_table_u_1M LIKE all_types_table_u_1M STORED AS PARQUET LOCATION '/panos/export_dir/UNCOMPRESSED/1M';"
+$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;set PARQUET_FILE_SIZE=1g;create table export_all_types_table_u_10M LIKE all_types_table_u_10M STORED AS PARQUET LOCATION '/panos/export_dir/UNCOMPRESSED/10M';"
 
-$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;INSERT INTO TABLE  export_all_types_table_u_10k SELECT * FROM all_types_table_u_10k;"
-$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;INSERT INTO TABLE  export_all_types_table_u_100k SELECT * FROM all_types_table_u_100k;"
-$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;INSERT INTO TABLE  export_all_types_table_u_1M SELECT * FROM all_types_table_u_1M;"
-$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;INSERT INTO TABLE  export_all_types_table_u_10M SELECT * FROM all_types_table_u_10M;"
+$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;set PARQUET_FILE_SIZE=1g;INSERT INTO TABLE  export_all_types_table_u_10k SELECT * FROM all_types_table_u_10k;"
+$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;set PARQUET_FILE_SIZE=1g;INSERT INTO TABLE  export_all_types_table_u_100k SELECT * FROM all_types_table_u_100k;"
+$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;set PARQUET_FILE_SIZE=1g;INSERT INTO TABLE  export_all_types_table_u_1M SELECT * FROM all_types_table_u_1M;"
+$IMPALA_HOME/bin/impala-shell.sh -q "SET COMPRESSION_CODEC=NONE;set PARQUET_FILE_SIZE=1g;INSERT INTO TABLE  export_all_types_table_u_10M SELECT * FROM all_types_table_u_10M;"
 
 $IMPALA_HOME/bin/impala-shell.sh -q "select count(*) from export_all_types_table_u_10k;"
 $IMPALA_HOME/bin/impala-shell.sh -q "select count(*) from export_all_types_table_u_100k;"
