@@ -24,7 +24,6 @@ import (
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestBinaryBuilder(t *testing.T) {
@@ -77,14 +76,14 @@ func Test64BitBinaryBuilder(t *testing.T) {
 		}
 	}
 
-	require.Equal(t, len(exp), ab.Len(), "unexpected Len()")
-	require.Equal(t, 1, ab.NullN(), "unexpected NullN()")
+	assert.Equal(t, len(exp), ab.Len(), "unexpected Len()")
+	assert.Equal(t, 1, ab.NullN(), "unexpected NullN()")
 
 	for i, v := range exp {
 		if v == nil {
 			v = []byte{}
 		}
-		require.Equal(t, string(v), string(ab.Value(i)), "unexpected BinaryArrayBuilder.Value")
+		assert.Equal(t, string(v), string(ab.Value(i)), "unexpected BinaryArrayBuilder.Value")
 	}
 
 	ar := ab.NewBinaryArray()
@@ -92,9 +91,9 @@ func Test64BitBinaryBuilder(t *testing.T) {
 	ar.Release()
 
 	// check state of builder after NewBinaryArray
-	require.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), NewBinaryArray did not reset state")
-	require.Zero(t, ab.Cap(), "unexpected ArrayBuilder.Cap(), NewBinaryArray did not reset state")
-	require.Zero(t, ab.NullN(), "unexpected ArrayBuilder.NullN(), NewBinaryArray did not reset state")
+	assert.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), NewBinaryArray did not reset state")
+	assert.Zero(t, ab.Cap(), "unexpected ArrayBuilder.Cap(), NewBinaryArray did not reset state")
+	assert.Zero(t, ab.NullN(), "unexpected ArrayBuilder.NullN(), NewBinaryArray did not reset state")
 }
 
 func TestBinaryBuilder_ReserveData(t *testing.T) {
