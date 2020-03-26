@@ -140,11 +140,17 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CScanTask" arrow::dataset::ScanTask":
         CResult[CRecordBatchIterator] Execute()
+        @staticmethod
+        CResult[shared_ptr[CTable]] ToTable(
+            const shared_ptr[CScanOptions]&,
+            const shared_ptr[CScanContext]&,
+            CScanTaskIterator)
 
     ctypedef CIterator[shared_ptr[CScanTask]] CScanTaskIterator \
         "arrow::dataset::ScanTaskIterator"
 
     cdef cppclass CFragment "arrow::dataset::Fragment":
+        const shared_ptr[CScanOptions]& scan_options() const
         CResult[CScanTaskIterator] Scan(shared_ptr[CScanContext] context)
         c_bool splittable()
         c_string type_name()

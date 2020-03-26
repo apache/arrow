@@ -577,6 +577,28 @@ def test_make_fragment(multisourcefs):
         assert row_group_fragment.row_groups == {0}
 
 
+def test_parquet_row_group_fragments(tempdir):
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    table = pa.table({'a': ['a', 'a', 'b', 'b'], 'b': [1, 2, 3, 4]})
+    pq.write_to_dataset(table, str(tempdir / "test_parquet_dataset"),
+                        partition_cols=["a"])
+
+    import pyarrow.dataset as ds
+    dataset = ds.dataset(str(tempdir / "test_parquet_dataset/"),
+                         format="parquet", partitioning="hive")
+
+    fragments = list(dataset.get_fragments())
+    f = fragments[0]
+    parquet_format = f.format
+    parquet_format.make_fragment(f.path, f.filesystem,
+                                 partition_expression=f.partition_expression)
+    parquet_format.make_fragment(
+        f.path, f.filesystem, partition_expression=f.partition_expression,
+        row_groups={1})
+
+
 def test_partitioning_factory(mockfs):
     paths_or_selector = fs.FileSelector('subdir', recursive=True)
     format = ds.ParquetFileFormat()

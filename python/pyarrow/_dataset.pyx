@@ -432,11 +432,37 @@ cdef class Fragment:
 
     @property
     def partition_expression(self):
-        """
-        An Expression which evaluates to true for all data viewed by this
+        """An Expression which evaluates to true for all data viewed by this
         Fragment.
         """
         return Expression.wrap(self.fragment.partition_expression())
+
+    def to_table(self, use_threads=True, MemoryPool memory_pool=None):
+        """Convert this Fragment into a Table.
+
+        Use this convenience utility with care. This will serially materialize
+        the Scan result in memory before creating the Table.
+
+        Returns
+        -------
+        table : Table
+        """
+        cdef:
+            shared_ptr[CScanContext] context
+            shared_ptr[CScanOptions] options
+            CScanTaskIterator iterator
+            shared_ptr[CTable] table
+
+        options = self.fragment.scan_options()
+
+        context = make_shared[CScanContext]()
+        context.get().pool = maybe_unbox_memory_pool(memory_pool)
+
+        iterator = move(GetResultValue(self.fragment.Scan(context)))
+        table = GetResultValue(CScanTask.ToTable(options, context,
+                                                 move(iterator)))
+
+        return pyarrow_wrap_table(table)
 
     def scan(self, MemoryPool memory_pool=None):
         """Returns a stream of ScanTasks
@@ -611,9 +637,12 @@ cdef class ParquetFileFormat(FileFormat):
 
     def __init__(self, dict reader_options=dict()):
         self.init(<shared_ptr[CFileFormat]> make_shared[CParquetFileFormat]())
-        self.parquet_format = <CParquetFileFormat*> self.wrapped.get()
         for name, value in reader_options.items():
             setattr(self.reader_options, name, value)
+
+    cdef void init(self, const shared_ptr[CFileFormat]& sp):
+        FileFormat.init(self, sp)
+        self.parquet_format = <CParquetFileFormat*> self.wrapped.get()
 
     @property
     def reader_options(self):
