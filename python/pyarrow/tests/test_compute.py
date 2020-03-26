@@ -149,11 +149,12 @@ def test_filter(ty, values):
     arr = pa.array(values, type=ty)
 
     mask = pa.array([True, False, False, True, None])
-    result = arr.filter(mask)
+    result = arr.filter(mask, drop_nulls=True)
     result.validate()
-
-    expected = pa.array([values[0], values[3], None], type=ty)
-    assert result.equals(expected)
+    assert result.equals(pa.array([values[0], values[3]], type=ty))
+    result = arr.filter(mask, drop_nulls=False)
+    result.validate()
+    assert result.equals(pa.array([values[0], values[3], None], type=ty))
 
     # non-boolean dtype
     mask = pa.array([0, 1, 0, 1, 0])

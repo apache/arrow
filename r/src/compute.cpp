@@ -165,58 +165,58 @@ std::shared_ptr<arrow::Table> Table__TakeChunked(
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__Filter(const std::shared_ptr<arrow::Array>& values,
                                             const std::shared_ptr<arrow::Array>& filter) {
-  std::shared_ptr<arrow::Array> out;
   arrow::compute::FunctionContext context;
-  STOP_IF_NOT_OK(arrow::compute::Filter(&context, *values, *filter, &out));
-  return out;
+  arrow::compute::Datum out;
+  STOP_IF_NOT_OK(arrow::compute::Filter(&context, values, filter, {}, &out));
+  return out.make_array();
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Filter(
     const std::shared_ptr<arrow::RecordBatch>& batch,
     const std::shared_ptr<arrow::Array>& filter) {
-  std::shared_ptr<arrow::RecordBatch> out;
   arrow::compute::FunctionContext context;
-  STOP_IF_NOT_OK(arrow::compute::Filter(&context, *batch, *filter, &out));
-  return out;
+  arrow::compute::Datum out;
+  STOP_IF_NOT_OK(arrow::compute::Filter(&context, batch, filter, {}, &out));
+  return out.record_batch();
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Filter(
     const std::shared_ptr<arrow::ChunkedArray>& values,
     const std::shared_ptr<arrow::Array>& filter) {
-  std::shared_ptr<arrow::ChunkedArray> out;
   arrow::compute::FunctionContext context;
-  STOP_IF_NOT_OK(arrow::compute::Filter(&context, *values, *filter, &out));
-  return out;
+  arrow::compute::Datum out;
+  STOP_IF_NOT_OK(arrow::compute::Filter(&context, values, filter, {}, &out));
+  return out.chunked_array();
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__FilterChunked(
     const std::shared_ptr<arrow::ChunkedArray>& values,
     const std::shared_ptr<arrow::ChunkedArray>& filter) {
-  std::shared_ptr<arrow::ChunkedArray> out;
   arrow::compute::FunctionContext context;
-  STOP_IF_NOT_OK(arrow::compute::Filter(&context, *values, *filter, &out));
-  return out;
+  arrow::compute::Datum out;
+  STOP_IF_NOT_OK(arrow::compute::Filter(&context, values, filter, {}, &out));
+  return out.chunked_array();
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__Filter(const std::shared_ptr<arrow::Table>& table,
                                             const std::shared_ptr<arrow::Array>& filter) {
-  std::shared_ptr<arrow::Table> out;
   arrow::compute::FunctionContext context;
-  STOP_IF_NOT_OK(arrow::compute::Filter(&context, *table, *filter, &out));
-  return out;
+  arrow::compute::Datum out;
+  STOP_IF_NOT_OK(arrow::compute::Filter(&context, table, filter, {}, &out));
+  return out.table();
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__FilterChunked(
     const std::shared_ptr<arrow::Table>& table,
     const std::shared_ptr<arrow::ChunkedArray>& filter) {
-  std::shared_ptr<arrow::Table> out;
   arrow::compute::FunctionContext context;
-  STOP_IF_NOT_OK(arrow::compute::Filter(&context, *table, *filter, &out));
-  return out;
+  arrow::compute::Datum out;
+  STOP_IF_NOT_OK(arrow::compute::Filter(&context, table, filter, {}, &out));
+  return out.table();
 }
 #endif

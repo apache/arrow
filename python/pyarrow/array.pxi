@@ -1002,7 +1002,7 @@ cdef class Array(_PandasConvertible):
 
         return wrap_datum(out)
 
-    def filter(self, Array mask):
+    def filter(self, Array mask, drop_nulls=True):
         """
         Filter the array with a boolean mask.
 
@@ -1010,6 +1010,9 @@ cdef class Array(_PandasConvertible):
         ----------
         mask : Array
             The boolean mask indicating which values to extract.
+        drop_nulls : bool, default True
+            A null slot in the mask will be treated as equivalent to False.
+            Otherwise the null will be emitted in the output.
 
         Returns
         -------
@@ -1025,16 +1028,27 @@ cdef class Array(_PandasConvertible):
         <pyarrow.lib.StringArray object at 0x7fa826df9200>
         [
           "a",
+          "e"
+        ]
+        >>> arr.filter(mask, drop_nulls=False)
+        <pyarrow.lib.StringArray object at 0x7fa826df9200>
+        [
+          "a",
           null,
           "e"
         ]
         """
         cdef:
             cdef CDatum out
+            CFilterOptions options
+
+        if not drop_nulls:
+            options.null_selection_behavior = \
+                CFilterNullSelectionBehavior_EMIT_NULL
 
         with nogil:
             check_status(FilterKernel(_context(), CDatum(self.sp_array),
-                                      CDatum(mask.sp_array), &out))
+                                      CDatum(mask.sp_array), options, &out))
 
         return wrap_datum(out)
 

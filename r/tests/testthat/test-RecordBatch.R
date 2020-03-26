@@ -136,7 +136,7 @@ test_that("[ on RecordBatch", {
     tbl[c(2, 4, 6, 8, 10),]
   )
   # bool Array
-  expect_data_frame(batch[batch$lgl,], tbl[tbl$lgl,])
+  expect_data_frame(batch[batch$lgl,], tbl[coalesce(tbl$lgl, FALSE),])
   # int Array
   expect_data_frame(batch[Array$create(5:6), 2:4], tbl[6:7, 2:4])
 })
