@@ -1636,13 +1636,11 @@ void DictDecoderImpl<ByteArrayType>::SetDict(TypedDecoder<ByteArrayType>* dictio
   for (int i = 0; i < dictionary_length_; ++i) {
     total_size += dict_values[i].len;
   }
-  if (total_size > 0) {
-    PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
-                                                  /*shrink_to_fit=*/false));
-    PARQUET_THROW_NOT_OK(
-        byte_array_offsets_->Resize((dictionary_length_ + 1) * sizeof(int32_t),
-                                    /*shrink_to_fit=*/false));
-  }
+  PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
+                                                /*shrink_to_fit=*/false));
+  PARQUET_THROW_NOT_OK(
+      byte_array_offsets_->Resize((dictionary_length_ + 1) * sizeof(int32_t),
+                                  /*shrink_to_fit=*/false));
 
   int32_t offset = 0;
   uint8_t* bytes_data = byte_array_data_->mutable_data();
