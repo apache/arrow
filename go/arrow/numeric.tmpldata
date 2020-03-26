@@ -4,7 +4,10 @@
     "name": "int64",
     "Type": "int64",
     "Default": "0",
-    "Size": "8"
+    "Size": "8",
+    "Opt": {
+      "BufferBuilder": true
+    }
   },
   {
     "Name": "Uint64",

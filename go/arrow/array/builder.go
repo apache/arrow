@@ -97,7 +97,8 @@ func (b *builder) NullN() int { return b.nulls }
 func (b *builder) Reset() {
 	if b.nullBitmap != nil {
 		bitmapBuf := b.nullBitmap.Buf()
-		b.nullBitmap = memory.NewBufferBytes(bitmapBuf)
+		b.nullBitmap = memory.NewResizableBuffer(b.mem)
+		b.nullBitmap.Reset(bitmapBuf)
 	}
 	b.nulls = 0
 	b.length = 0

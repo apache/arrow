@@ -115,7 +115,8 @@ func (b *bufferBuilder) Reset() {
 func (b *bufferBuilder) ResetRetain() {
 	if b.buffer != nil {
 		fullBuf := b.buffer.Buf()
-		b.buffer = memory.NewBufferBytes(fullBuf)
+		b.buffer = memory.NewResizableBuffer(b.mem)
+		b.buffer.Reset(fullBuf)
 		b.bytes = b.buffer.Bytes()
 	}
 	b.length = 0

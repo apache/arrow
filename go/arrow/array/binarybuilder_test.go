@@ -61,6 +61,113 @@ func TestBinaryBuilder(t *testing.T) {
 	assert.Zero(t, ab.NullN(), "unexpected ArrayBuilder.NullN(), NewBinaryArray did not reset state")
 }
 
+func Test64BitBinaryBuilder(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	ab := array.New64BitOffsetsBinaryBuilder(mem, arrow.BinaryTypes.Binary)
+
+	exp := [][]byte{[]byte("foo"), []byte("bar"), nil, []byte("sydney"), []byte("cameron")}
+	for _, v := range exp {
+		if v == nil {
+			ab.AppendNull()
+		} else {
+			ab.Append(v)
+		}
+	}
+
+	assert.Equal(t, len(exp), ab.Len(), "unexpected Len()")
+	assert.Equal(t, 1, ab.NullN(), "unexpected NullN()")
+
+	for i, v := range exp {
+		if v == nil {
+			v = []byte{}
+		}
+		assert.Equal(t, string(v), string(ab.Value(i)), "unexpected BinaryArrayBuilder.Value")
+	}
+
+	ar := ab.NewBinaryArray()
+	ab.Release()
+	ar.Release()
+
+	// check state of builder after NewBinaryArray
+	assert.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), NewBinaryArray did not reset state")
+	assert.Zero(t, ab.Cap(), "unexpected ArrayBuilder.Cap(), NewBinaryArray did not reset state")
+	assert.Zero(t, ab.NullN(), "unexpected ArrayBuilder.NullN(), NewBinaryArray did not reset state")
+}
+
+func TestBinaryBuilderReuse(t *testing.T) {
+	var (
+		mem = memory.NewCheckedAllocator(memory.NewGoAllocator())
+		ab  = array.NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
+		exp = [][]byte{[]byte("foo"), []byte("bar"), nil, []byte("sydney"), []byte("cameron")}
+	)
+	assertMem := func() {
+		mem.AssertSize(t, 192)
+	}
+	defer assertMem()
+
+	for i := 0; i < 10; i++ {
+		ab.Reset()
+
+		for _, v := range exp {
+			if v == nil {
+				ab.AppendNull()
+			} else {
+				ab.Append(v)
+			}
+		}
+
+		assert.Equal(t, len(exp), ab.Len(), "unexpected Len()")
+		assert.Equal(t, 1, ab.NullN(), "unexpected NullN()")
+
+		for i, v := range exp {
+			if v == nil {
+				v = []byte{}
+			}
+			assert.Equal(t, v, ab.Value(i), "unexpected BinaryArrayBuilder.Value(%d)", i)
+		}
+
+		assertMem()
+	}
+}
+
+func Test64BitBinaryBuilderReuse(t *testing.T) {
+	var (
+		mem = memory.NewCheckedAllocator(memory.NewGoAllocator())
+		ab  = array.New64BitOffsetsBinaryBuilder(mem, arrow.BinaryTypes.Binary)
+		exp = [][]byte{[]byte("foo"), []byte("bar"), nil, []byte("sydney"), []byte("cameron")}
+	)
+	assertMem := func() {
+		mem.AssertSize(t, 256)
+	}
+	defer assertMem()
+
+	for i := 0; i < 10; i++ {
+		ab.Reset()
+
+		for _, v := range exp {
+			if v == nil {
+				ab.AppendNull()
+			} else {
+				ab.Append(v)
+			}
+		}
+
+		assert.Equal(t, len(exp), ab.Len(), "unexpected Len()")
+		assert.Equal(t, 1, ab.NullN(), "unexpected NullN()")
+
+		for i, v := range exp {
+			if v == nil {
+				v = []byte{}
+			}
+			assert.Equal(t, v, ab.Value(i), "unexpected BinaryArrayBuilder.Value(%d)", i)
+		}
+
+		assertMem()
+	}
+}
+
 func TestBinaryBuilder_ReserveData(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -86,31 +193,27 @@ func TestBinaryBuilder_ReserveData(t *testing.T) {
 	assert.Zero(t, ab.NullN(), "unexpected ArrayBuilder.NullN(), NewBinaryArray did not reset state")
 }
 
-func TestBinaryBuilderReuse(t *testing.T) {
-	var (
-		mem = memory.NewGoAllocator()
-		ab  = array.NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
-		exp = [][]byte{[]byte("foo"), []byte("bar"), nil, []byte("sydney"), []byte("cameron")}
-	)
-	for i := 0; i < 10; i++ {
-		ab.Reset()
+func Test64BitBinaryBuilder_ReserveData(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
 
-		for _, v := range exp {
-			if v == nil {
-				ab.AppendNull()
-			} else {
-				ab.Append(v)
-			}
-		}
+	ab := array.NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
 
-		assert.Equal(t, len(exp), ab.Len(), "unexpected Len()")
-		assert.Equal(t, 1, ab.NullN(), "unexpected NullN()")
-
-		for i, v := range exp {
-			if v == nil {
-				v = []byte{}
-			}
-			assert.Equal(t, v, ab.Value(i), "unexpected BinaryArrayBuilder.Value(%d)", i)
-		}
+	// call ReserveData and ensure the capacity doesn't change
+	// when appending entries until that count.
+	ab.ReserveData(256)
+	expCap := ab.DataCap()
+	for i := 0; i < 256/8; i++ {
+		ab.Append(bytes.Repeat([]byte("a"), 8))
 	}
+	assert.Equal(t, expCap, ab.DataCap(), "unexpected BinaryArrayBuilder.DataCap()")
+
+	ar := ab.NewBinaryArray()
+	ab.Release()
+	ar.Release()
+
+	// check state of builder after NewBinaryArray
+	assert.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), NewBinaryArray did not reset state")
+	assert.Zero(t, ab.Cap(), "unexpected ArrayBuilder.Cap(), NewBinaryArray did not reset state")
+	assert.Zero(t, ab.NullN(), "unexpected ArrayBuilder.NullN(), NewBinaryArray did not reset state")
 }
