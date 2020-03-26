@@ -223,7 +223,7 @@ public class TestSplitAndTransfer {
           IllegalArgumentException.class,
           () -> tp.splitAndTransfer(valueCount, 10));
 
-      assertEquals("Invalid startIndex: 500", e.getMessage());
+      assertEquals("Invalid parameters startIndex: 500, length: 10 for valueCount: 500", e.getMessage());
 
       newVarCharVector.clear();
     }
@@ -244,7 +244,43 @@ public class TestSplitAndTransfer {
           IllegalArgumentException.class,
           () -> tp.splitAndTransfer(0, valueCount * 2));
 
-      assertEquals("Invalid length: 1000", e.getMessage());
+      assertEquals("Invalid parameters startIndex: 0, length: 1000 for valueCount: 500", e.getMessage());
+
+      newVarCharVector.clear();
+    }
+  }
+
+  @Test
+  public void testZeroStartIndexAndLength() {
+    try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator);
+         final VarCharVector newVarCharVector = new VarCharVector("newvector", allocator)) {
+
+      varCharVector.allocateNew(0, 0);
+      final int valueCount = 0;
+      populateVarcharVector(varCharVector, valueCount, null);
+
+      final TransferPair tp = varCharVector.makeTransferPair(newVarCharVector);
+
+      tp.splitAndTransfer(0, 0);
+      assertEquals(valueCount, newVarCharVector.getValueCount());
+
+      newVarCharVector.clear();
+    }
+  }
+
+  @Test
+  public void testZeroLength() {
+    try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator);
+         final VarCharVector newVarCharVector = new VarCharVector("newvector", allocator)) {
+
+      varCharVector.allocateNew(10000, 1000);
+      final int valueCount = 500;
+      populateVarcharVector(varCharVector, valueCount, null);
+
+      final TransferPair tp = varCharVector.makeTransferPair(newVarCharVector);
+
+      tp.splitAndTransfer(500, 0);
+      assertEquals(0, newVarCharVector.getValueCount());
 
       newVarCharVector.clear();
     }
