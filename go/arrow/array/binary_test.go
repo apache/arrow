@@ -27,7 +27,7 @@ import (
 )
 
 func TestBinary(t *testing.T) {
-	runFor32And64Bits(t, func(ctor binaryBuilderFn) {
+	runFor32And64Bits(t, func(t *testing.T, ctor testBinaryBuilderFn) {
 		mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 		defer mem.AssertSize(t, 0)
 
@@ -67,7 +67,7 @@ func TestBinary(t *testing.T) {
 }
 
 func TestBinarySliceData(t *testing.T) {
-	runFor32And64Bits(t, func(ctor binaryBuilderFn) {
+	runFor32And64Bits(t, func(t *testing.T, ctor testBinaryBuilderFn) {
 		mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 		defer mem.AssertSize(t, 0)
 
@@ -152,7 +152,7 @@ func TestBinarySliceData(t *testing.T) {
 }
 
 func TestBinarySliceDataWithNull(t *testing.T) {
-	runFor32And64Bits(t, func(ctor binaryBuilderFn) {
+	runFor32And64Bits(t, func(t *testing.T, ctor testBinaryBuilderFn) {
 		mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 		defer mem.AssertSize(t, 0)
 
@@ -246,7 +246,7 @@ func TestBinarySliceDataWithNull(t *testing.T) {
 }
 
 func TestBinarySliceOutOfBounds(t *testing.T) {
-	runFor32And64Bits(t, func(ctor binaryBuilderFn) {
+	runFor32And64Bits(t, func(t *testing.T, ctor testBinaryBuilderFn) {
 		mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 		defer mem.AssertSize(t, 0)
 
@@ -317,7 +317,7 @@ func TestBinarySliceOutOfBounds(t *testing.T) {
 }
 
 func TestBinaryValueOffset(t *testing.T) {
-	runFor32And64Bits(t, func(ctor binaryBuilderFn) {
+	runFor32And64Bits(t, func(t *testing.T, ctor testBinaryBuilderFn) {
 		mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 		defer mem.AssertSize(t, 0)
 
@@ -371,7 +371,7 @@ func TestBinaryValueLen(t *testing.T) {
 }
 
 func TestBinaryValueOffsets(t *testing.T) {
-	runFor32And64Bits(t, func(ctor binaryBuilderFn) {
+	runFor32And64Bits(t, func(t *testing.T, ctor testBinaryBuilderFn) {
 		mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 		defer mem.AssertSize(t, 0)
 
@@ -419,7 +419,7 @@ func TestBinaryValueBytes(t *testing.T) {
 }
 
 func TestBinaryStringer(t *testing.T) {
-	runFor32And64Bits(t, func(ctor binaryBuilderFn) {
+	runFor32And64Bits(t, func(t *testing.T, ctor testBinaryBuilderFn) {
 		mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 		defer mem.AssertSize(t, 0)
 
@@ -443,10 +443,13 @@ func TestBinaryStringer(t *testing.T) {
 	})
 }
 
-type binaryBuilderFn func(memory.Allocator, arrow.BinaryDataType) *BinaryBuilder
+type testBinaryBuilderFn func(memory.Allocator, arrow.BinaryDataType) *BinaryBuilder
 
-func runFor32And64Bits(t *testing.T, testFn func(ctor binaryBuilderFn)) {
-	for _, b := range []binaryBuilderFn{NewBinaryBuilder, New64BitOffsetsBinaryBuilder} {
-		testFn(b)
-	}
+func runFor32And64Bits(t *testing.T, testFn func(t *testing.T, ctor testBinaryBuilderFn)) {
+	t.Run("32-bit", func(t *testing.T) {
+		testFn(t, NewBinaryBuilder)
+	})
+	t.Run("64-bit", func(t *testing.T) {
+		testFn(t, New64BitOffsetsBinaryBuilder)
+	})
 }
