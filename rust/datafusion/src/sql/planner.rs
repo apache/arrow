@@ -272,9 +272,10 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 Ok(Expr::Literal(ScalarValue::Utf8(s.clone())))
             }
 
-            ASTNode::SQLAliasedExpr(ref expr, ref alias) => {
-                Ok(Alias(Arc::new(self.sql_to_rex(&expr, schema)?), alias.to_owned()))
-            }
+            ASTNode::SQLAliasedExpr(ref expr, ref alias) => Ok(Alias(
+                Arc::new(self.sql_to_rex(&expr, schema)?),
+                alias.to_owned(),
+            )),
 
             ASTNode::SQLIdentifier(ref id) => {
                 match schema.fields().iter().position(|c| c.name().eq(id)) {
