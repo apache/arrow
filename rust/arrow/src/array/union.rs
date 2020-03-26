@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/// Contains the implementation of the `UnionArray` array and the `UnionBuilder`.
+/// Contains the `UnionArray` and `UnionBuilder` types.
 ///
 /// Each slot in a `UnionArray` can have a value chosen from a number of types.  Each of the
 /// possible types are named like the fields of a `StructArray`.  A `UnionArray` can have two
@@ -34,6 +34,7 @@ use crate::error::{ArrowError, Result};
 use core::fmt;
 use std::any::Any;
 use std::collections::HashMap;
+use std::mem::size_of;
 
 /// An Array that can represent slots of varying types
 pub struct UnionArray {
@@ -44,7 +45,7 @@ pub struct UnionArray {
 impl UnionArray {
     /// Creates a new `UnionArray`.
     ///
-    /// Accepts type ids, child arrays and optionally offsets (for /// dense unions) to create
+    /// Accepts type ids, child arrays and optionally offsets (for dense unions) to create
     /// a new `UnionArray`.  This method makes no attempt to validate the data provided by the
     /// caller and assumes that each of the components are correct and consistent with each other.
     /// See `try_new` for an alternative that validates the data provided.
@@ -57,6 +58,9 @@ impl UnionArray {
     ///
     /// The `value_offsets` `Buffer` should contain `i32` values.  These values should be greater
     /// than zero and must be less than the length of the overall array.
+    ///
+    /// In both cases above we use signed integer types to maintain compatibility with other
+    /// Arrow implementations.
     ///
     /// In both of the cases above we are accepting `Buffer`'s which are assumed to be representing
     /// `i8` and `i32` values respectively.  `Buffer` objects are untyped and no attempt is made
@@ -101,9 +105,11 @@ impl UnionArray {
             .filter(|i| *i < &0)
             .collect::<Vec<&i8>>();
         if invalid_type_ids.len() > 0 {
-            return Err(ArrowError::InvalidArgumentError(
-                format!("Type Ids must be positive and cannot be greater than the number of \
-                child arrays, found:\n{:?}", invalid_type_ids)));
+            return Err(ArrowError::InvalidArgumentError(format!(
+                "Type Ids must be positive and cannot be greater than the number of \
+                child arrays, found:\n{:?}",
+                invalid_type_ids
+            )));
         }
 
         // Check the value offsets if provided
@@ -115,9 +121,11 @@ impl UnionArray {
                 .filter(|i| *i < &0 || *i > &max_len)
                 .collect::<Vec<&i32>>();
             if invalid_offsets.len() > 0 {
-                return Err(ArrowError::InvalidArgumentError(
-                    format!("Offsets must be positive and within the length of the Array, \
-                    found:\n{:?}", invalid_offsets)));
+                return Err(ArrowError::InvalidArgumentError(format!(
+                    "Offsets must be positive and within the length of the Array, \
+                    found:\n{:?}",
+                    invalid_offsets
+                )));
             }
         }
 
@@ -180,9 +188,8 @@ impl UnionArray {
 
     /// Unsafe version of `value_offset` that does not validate `i`
     pub unsafe fn value_offset_unchecked(&self, i: usize) -> i32 {
-        // TODO: panics...
-        if self.data().buffers().len() == 2 {
-            self.data().buffers()[1].data()[i * 4] as i32
+        if self.is_dense() {
+            self.data().buffers()[1].data()[i * size_of::<i32>()] as i32
         } else {
             i as i32
         }
@@ -202,6 +209,11 @@ impl UnionArray {
         let value_offset = self.value_offset_unchecked(i) as usize;
         let child_data = self.child_unchecked(type_id);
         child_data.slice(value_offset, 1)
+    }
+
+    /// Returns whether the `UnionArray` is dense (or sparse)
+    fn is_dense(&self) -> bool {
+        self.data().buffers().len() == 2
     }
 }
 
@@ -237,19 +249,22 @@ impl fmt::Debug for UnionArray {
 
 /// `FieldData` is a helper struct to track the state of the fields in the `UnionBuilder`.
 struct FieldData {
-    // The type id for this field
+    /// The type id for this field
     type_id: i8,
-    // The Arrow data type represented in the `values_buffer`
+    /// The Arrow data type represented in the `values_buffer`, which is untyped
     data_type: DataType,
-    // A buffer containing the values for this field
+    /// A buffer containing the values for this field in raw bytes
     values_buffer: Option<MutableBuffer>,
-    //  The number of array slots represented by the buffer
+    ///  The number of array slots represented by the buffer
     slots: usize,
+    /// The number of null array slots in this child array
     null_count: usize,
+    /// A builder for the bitmap if required
     bitmap_builder: Option<BooleanBufferBuilder>,
 }
 
 impl FieldData {
+    /// Creates a new `FieldData`.
     fn new(
         type_id: i8,
         data_type: DataType,
@@ -258,6 +273,7 @@ impl FieldData {
         Self {
             type_id,
             data_type,
+            // TODO: Should `MutableBuffer` implement `Default`?
             values_buffer: Some(MutableBuffer::new(1)),
             slots: 0,
             null_count: 0,
@@ -265,6 +281,7 @@ impl FieldData {
         }
     }
 
+    /// Appends a single value to this `FieldData`'s `values_buffer`.
     fn append_to_values_buffer<T: ArrowPrimitiveType>(&mut self, v: T::Native) {
         let values_buffer = self
             .values_buffer
@@ -282,6 +299,7 @@ impl FieldData {
         }
     }
 
+    /// Appends a null to this `FieldData`.
     fn append_null<T: ArrowPrimitiveType>(&mut self) {
         if let Some(b) = &mut self.bitmap_builder {
             let values_buffer = self
@@ -299,8 +317,8 @@ impl FieldData {
     }
 }
 
+/// Builder type for creating a new `UnionArray`.
 pub struct UnionBuilder {
-    current_type_id: i8,
     len: usize,
     fields: HashMap<String, FieldData>,
     type_id_builder: Int8BufferBuilder,
@@ -310,7 +328,6 @@ pub struct UnionBuilder {
 impl UnionBuilder {
     pub fn new_dense() -> Self {
         Self {
-            current_type_id: 0,
             len: 0,
             fields: HashMap::default(),
             type_id_builder: Int8BufferBuilder::new(0),
@@ -320,7 +337,6 @@ impl UnionBuilder {
 
     pub fn new_sparse() -> Self {
         Self {
-            current_type_id: 0,
             len: 0,
             fields: HashMap::default(),
             type_id_builder: Int8BufferBuilder::new(0),
@@ -338,11 +354,11 @@ impl UnionBuilder {
             None => {
                 let field_data = match self.value_offset_builder {
                     Some(_) => {
-                        FieldData::new(self.current_type_id, T::get_data_type(), None)
+                        FieldData::new(self.fields.len() as i8, T::get_data_type(), None)
                     }
                     None => {
                         let mut fd = FieldData::new(
-                            self.current_type_id,
+                            self.fields.len() as i8,
                             T::get_data_type(),
                             Some(BooleanBufferBuilder::new(1)),
                         );
@@ -352,7 +368,6 @@ impl UnionBuilder {
                         fd
                     }
                 };
-                self.current_type_id += 1;
                 field_data
             }
         };
