@@ -120,7 +120,7 @@ if(APPLE)
                       OUTPUT_STRIP_TRAILING_WHITESPACE)
     endif()
 
-    execute_process(COMMAND ${BREW_BIN} --prefix "llvm@${ARROW_CLANG_TOOLS_MAJOR_VERSION}"
+    execute_process(COMMAND ${BREW_BIN} --prefix "llvm@${ARROW_CLANG_TOOLS_VERSION_MAJOR}"
                     OUTPUT_VARIABLE CLANG_TOOLS_BREW_PREFIX
                     OUTPUT_STRIP_TRAILING_WHITESPACE)
     if(NOT CLANG_TOOLS_BREW_PREFIX)
