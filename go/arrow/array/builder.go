@@ -93,6 +93,18 @@ func (b *builder) Cap() int { return b.capacity }
 // NullN returns the number of null values in the array builder.
 func (b *builder) NullN() int { return b.nulls }
 
+// Reset resets the builder for reuse preserving any allocated datastructures.
+func (b *builder) Reset() {
+	if b.nullBitmap != nil {
+		bitmapBuf := b.nullBitmap.Buf()
+		b.nullBitmap = memory.NewResizableBuffer(b.mem)
+		b.nullBitmap.Reset(bitmapBuf)
+	}
+	b.nulls = 0
+	b.length = 0
+	b.capacity = 0
+}
+
 func (b *builder) init(capacity int) {
 	toAlloc := bitutil.CeilByte(capacity) / 8
 	b.nullBitmap = memory.NewResizableBuffer(b.mem)

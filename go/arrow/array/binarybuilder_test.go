@@ -18,6 +18,7 @@ package array_test
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow"
@@ -94,6 +95,79 @@ func Test64BitBinaryBuilder(t *testing.T) {
 	assert.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), NewBinaryArray did not reset state")
 	assert.Zero(t, ab.Cap(), "unexpected ArrayBuilder.Cap(), NewBinaryArray did not reset state")
 	assert.Zero(t, ab.NullN(), "unexpected ArrayBuilder.NullN(), NewBinaryArray did not reset state")
+}
+
+func TestBinaryBuilderReuse(t *testing.T) {
+	var (
+		mem = memory.NewCheckedAllocator(memory.NewGoAllocator())
+		ab  = array.NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
+		exp = [][]byte{[]byte("foo"), []byte("bar"), nil, []byte("sydney"), []byte("cameron")}
+	)
+	assertMem := func() {
+		mem.AssertSize(t, 192)
+	}
+	defer assertMem()
+
+	for i := 0; i < 10; i++ {
+		ab.Reset()
+
+		for _, v := range exp {
+			if v == nil {
+				ab.AppendNull()
+			} else {
+				ab.Append(v)
+			}
+		}
+
+		assert.Equal(t, len(exp), ab.Len(), "unexpected Len()")
+		assert.Equal(t, 1, ab.NullN(), "unexpected NullN()")
+
+		for i, v := range exp {
+			if v == nil {
+				v = []byte{}
+			}
+			assert.Equal(t, v, ab.Value(i), "unexpected BinaryArrayBuilder.Value(%d)", i)
+		}
+
+		assertMem()
+	}
+}
+
+func Test64BitBinaryBuilderReuse(t *testing.T) {
+	var (
+		mem = memory.NewCheckedAllocator(memory.NewGoAllocator())
+		ab  = array.New64BitOffsetsBinaryBuilder(mem, arrow.BinaryTypes.Binary)
+		exp = [][]byte{[]byte("foo"), []byte("bar"), nil, []byte("sydney"), []byte("cameron")}
+	)
+	assertMem := func() {
+		mem.AssertSize(t, 256)
+	}
+	defer assertMem()
+
+	for i := 0; i < 10; i++ {
+		fmt.Println(i)
+		ab.Reset()
+
+		for _, v := range exp {
+			if v == nil {
+				ab.AppendNull()
+			} else {
+				ab.Append(v)
+			}
+		}
+
+		assert.Equal(t, len(exp), ab.Len(), "unexpected Len()")
+		assert.Equal(t, 1, ab.NullN(), "unexpected NullN()")
+
+		for i, v := range exp {
+			if v == nil {
+				v = []byte{}
+			}
+			assert.Equal(t, v, ab.Value(i), "unexpected BinaryArrayBuilder.Value(%d)", i)
+		}
+
+		assertMem()
+	}
 }
 
 func TestBinaryBuilder_ReserveData(t *testing.T) {
