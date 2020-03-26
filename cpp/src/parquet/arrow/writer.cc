@@ -344,8 +344,8 @@ Status GetLeafType(const ::arrow::DataType& type, ::arrow::Type::type* leaf_type
 // supported by parquet.
 class ArrowColumnWriterV2 {
  public:
-  // Constructs a new object (use Make() method below to construct from 
-  // A ChunkedArray).  
+  // Constructs a new object (use Make() method below to construct from
+  // A ChunkedArray).
   // level_builders should contain one MultipathLevelBuilder per chunk of the
   // Arrow-column to write.
   ArrowColumnWriterV2(std::vector<std::unique_ptr<MultipathLevelBuilder>> level_builders,
