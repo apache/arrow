@@ -113,14 +113,14 @@ def check_chunked_overflow(name, col):
 
 
 def write_feather(df, dest, compression=None, compression_level=None,
-                  version=2):
+                  chunksize=None, version=2):
     """
     Write a pandas.DataFrame to Feather format.
 
     Parameters
     ----------
-    df : pandas.DataFrame
-        Dataframe to write out as feather format.
+    df : pandas.DataFrame or pyarrow.Table
+        Data to write out as Feather format.
     dest : str
         Local destination path.
     compression : string, default None
@@ -128,6 +128,9 @@ def write_feather(df, dest, compression=None, compression_level=None,
     compression_level : int, default None
         Use a compression level particular to the chosen compressor. If None
         use the default compression level
+    chunksize : int, default None
+        For V2 files, the size of chunks to split the data into. None means use
+        the default, which is currently 64K
     version : int, default 2
         Feather file version. Version 2 is the current. Version 1 is the more
         limited legacy format
@@ -153,7 +156,8 @@ def write_feather(df, dest, compression=None, compression_level=None,
 
     try:
         ext.write_feather(table, dest, compression=compression,
-                          compression_level=compression_level, version=version)
+                          compression_level=compression_level,
+                          chunksize=chunksize, version=version)
     except Exception:
         if isinstance(dest, str):
             try:

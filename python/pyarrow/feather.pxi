@@ -24,8 +24,7 @@ class FeatherError(Exception):
 
 
 def write_feather(Table table, object dest, compression=None,
-                  compression_level=None,
-                  version=2):
+                  compression_level=None, chunksize=None, version=2):
     cdef shared_ptr[COutputStream] sink
     get_writer(dest, &sink)
 
@@ -41,6 +40,9 @@ def write_feather(Table table, object dest, compression=None,
         properties.compression = CCompressionType_LZ4
     else:
         properties.compression = CCompressionType_UNCOMPRESSED
+
+    if chunksize is not None:
+        properties.chunksize = chunksize
 
     if compression_level is not None:
         properties.compression_level = compression_level

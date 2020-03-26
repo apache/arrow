@@ -473,9 +473,7 @@ def test_overwritten_file(version):
 
 
 def test_filelike_objects(version):
-    from io import BytesIO
-
-    buf = BytesIO()
+    buf = io.BytesIO()
 
     # the copy makes it non-strided
     df = pd.DataFrame(np.arange(12).reshape(4, 3),
@@ -526,6 +524,19 @@ def test_unsupported():
     _assert_error_on_write(df, TypeError)
 
 
+def test_v2_set_chunksize():
+    df = pd.DataFrame({'A': np.arange(1000)})
+
+    buf = io.BytesIO()
+    write_feather(df, buf, chunksize=250, version=2)
+
+    result = buf.getvalue()
+
+    ipc_file = pa.ipc.open_file(pa.BufferReader(result))
+    assert ipc_file.num_record_batches == 4
+    assert len(ipc_file.get_batch(0)) == 250
+
+
 @pytest.mark.slow
 def test_large_dataframe(version):
     df = pd.DataFrame({'A': np.arange(400000000)})
@@ -546,7 +557,7 @@ def test_chunked_binary_error_message():
     # Works fine with version 2
     buf = io.BytesIO()
     write_feather(df, buf, version=2)
-    result = read_feather(pa.input_file(buf.getvalue()))
+    result = read_feather(pa.BufferReader(buf.getvalue()))
     assert_frame_equal(result, df)
 
     with pytest.raises(ValueError, match="'byte_col' exceeds 2GB maximum "
