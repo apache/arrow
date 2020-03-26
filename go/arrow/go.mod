@@ -20,8 +20,10 @@ go 1.12
 
 require (
 	github.com/davecgh/go-spew v1.1.0 // indirect
+	github.com/gogo/protobuf v1.3.1
 	github.com/google/flatbuffers v1.11.0
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/stretchr/testify v1.2.0
 	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
+	google.golang.org/grpc v1.28.0
 )

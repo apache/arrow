@@ -19,7 +19,16 @@
 syntax = "proto3";
 
 option java_package = "org.apache.arrow.flight.impl";
+option go_package = "ipc";
 package arrow.flight.protocol;
+
+import "gogoproto/gogo.proto";
+
+option (gogoproto.marshaler_all) = true;
+option (gogoproto.sizer_all) = true;
+option (gogoproto.unmarshaler_all) = true;
+option (gogoproto.goproto_getters_all) = false;
+
 
 /*
  * A flight service is an endpoint for retrieving or storing Arrow data. A
