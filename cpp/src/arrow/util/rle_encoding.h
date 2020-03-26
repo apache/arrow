@@ -337,6 +337,7 @@ inline int RleDecoder::GetBatchSpaced(int batch_size, int null_count,
   arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, batch_size);
 
   while (values_read < batch_size) {
+    DCHECK_LT(bit_reader.position(), batch_size);
     bool is_valid = bit_reader.IsSet();
     bit_reader.Next();
 
@@ -350,6 +351,7 @@ inline int RleDecoder::GetBatchSpaced(int batch_size, int null_count,
         repeat_count_--;
 
         while (repeat_count_ > 0 && (values_read + repeat_batch) < batch_size) {
+          DCHECK_LT(bit_reader.position(), batch_size);
           if (bit_reader.IsSet()) {
             repeat_count_--;
           } else {
@@ -379,6 +381,7 @@ inline int RleDecoder::GetBatchSpaced(int batch_size, int null_count,
 
         // Read the first bitset to the end
         while (literals_read < literal_batch) {
+          DCHECK_LT(bit_reader.position(), batch_size);
           if (bit_reader.IsSet()) {
             *out = indices[literals_read];
             literals_read++;
@@ -479,6 +482,7 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
   arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, batch_size);
 
   while (values_read < batch_size) {
+    DCHECK_LT(bit_reader.position(), batch_size);
     bool is_valid = bit_reader.IsSet();
     bit_reader.Next();
 
@@ -497,6 +501,7 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
         repeat_count_--;
 
         while (repeat_count_ > 0 && (values_read + repeat_batch) < batch_size) {
+          DCHECK_LT(bit_reader.position(), batch_size);
           if (bit_reader.IsSet()) {
             repeat_count_--;
           } else {
@@ -531,6 +536,7 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
 
         // Read the first bitset to the end
         while (literals_read < literal_batch) {
+          DCHECK_LT(bit_reader.position(), batch_size);
           if (bit_reader.IsSet()) {
             int idx = indices[literals_read];
             if (ARROW_PREDICT_FALSE(!IndexInRange(idx, dictionary_length))) {
@@ -571,12 +577,12 @@ bool RleDecoder::NextCounts() {
   bool is_literal = indicator_value & 1;
   uint32_t count = indicator_value >> 1;
   if (is_literal) {
-    if (ARROW_PREDICT_FALSE(count > static_cast<uint32_t>(INT32_MAX) / 8)) {
+    if (ARROW_PREDICT_FALSE(count == 0 || count > static_cast<uint32_t>(INT32_MAX) / 8)) {
       return false;
     }
     literal_count_ = count * 8;
   } else {
-    if (ARROW_PREDICT_FALSE(count > static_cast<uint32_t>(INT32_MAX))) {
+    if (ARROW_PREDICT_FALSE(count == 0 || count > static_cast<uint32_t>(INT32_MAX))) {
       return false;
     }
     repeat_count_ = count;

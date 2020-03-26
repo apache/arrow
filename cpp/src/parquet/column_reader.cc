@@ -102,6 +102,9 @@ void LevelDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
                              int num_buffered_values, const uint8_t* data) {
   // Repetition and definition levels always uses RLE encoding
   // in the DataPageV2 format.
+  if (num_bytes < 0) {
+    throw ParquetException("Invalid page header (corrupt data page?)");
+  }
   encoding_ = Encoding::RLE;
   num_values_remaining_ = num_buffered_values;
   bit_width_ = BitUtil::Log2(max_level + 1);
@@ -343,6 +346,9 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           current_page_header_.dictionary_page_header;
 
       bool is_sorted = dict_header.__isset.is_sorted ? dict_header.is_sorted : false;
+      if (dict_header.num_values < 0) {
+        throw ParquetException("Invalid page header (negative number of values)");
+      }
 
       return std::make_shared<DictionaryPage>(page_buffer, dict_header.num_values,
                                               LoadEnumSafe(&dict_header.encoding),
@@ -350,6 +356,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     } else if (page_type == PageType::DATA_PAGE) {
       ++page_ordinal_;
       const format::DataPageHeader& header = current_page_header_.data_page_header;
+
+      if (header.num_values < 0) {
+        throw ParquetException("Invalid page header (negative number of values)");
+      }
       EncodedStatistics page_statistics = ExtractStatsFromHeader(header);
       seen_num_rows_ += header.num_values;
 
@@ -361,6 +371,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     } else if (page_type == PageType::DATA_PAGE_V2) {
       ++page_ordinal_;
       const format::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
+
+      if (header.num_values < 0) {
+        throw ParquetException("Invalid page header (negative number of values)");
+      }
       bool is_compressed = header.__isset.is_compressed ? header.is_compressed : false;
       EncodedStatistics page_statistics = ExtractStatsFromHeader(header);
       seen_num_rows_ += header.num_values;
@@ -1282,8 +1296,10 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
           this->max_def_level_, this->max_rep_level_, &values_with_nulls, &null_count,
           valid_bits_->mutable_data(), values_written_);
       values_to_read = values_with_nulls - null_count;
+      DCHECK_GE(values_to_read, 0);
       ReadValuesSpaced(values_with_nulls, null_count);
     } else {
+      DCHECK_GE(values_to_read, 0);
       ReadValuesDense(values_to_read);
     }
     if (this->max_def_level_ > 0) {
