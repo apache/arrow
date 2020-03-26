@@ -174,6 +174,7 @@ def _dataset_from_legacy_args(
     import pyarrow.fs
 
     # map old filesystems to new one
+    # TODO(dataset) deal with other file systems
     if isinstance(filesystem, LocalFileSystem):
         filesystem = pyarrow.fs.LocalFileSystem()
 
@@ -1122,10 +1123,10 @@ metadata_nthreads: int, default 1
                 memory_map=False, buffer_size=0, use_dataset=False):
         if use_dataset:
             # TODO raise warning on unsupported keywords
-            return ParquetDatasetV2(path_or_paths, filesystem=filesystem,
-                                    filters=filters,
-                                    read_dictionary=read_dictionary,
-                                    buffer_size=buffer_size)
+            return _ParquetDatasetV2(path_or_paths, filesystem=filesystem,
+                                     filters=filters,
+                                     read_dictionary=read_dictionary,
+                                     buffer_size=buffer_size)
         self = object.__new__(cls)
         return self
 
@@ -1355,7 +1356,7 @@ def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
     return pieces, partitions, common_metadata_path, metadata_path
 
 
-class ParquetDatasetV2:
+class _ParquetDatasetV2:
     """
     ParquetDataset shim using the Dataset API under the hood.
     """
@@ -1375,11 +1376,41 @@ class ParquetDatasetV2:
     def schema(self):
         return self._dataset.schema
 
-    def read(self, columns=None, use_threads=True):
-        return self._dataset.to_table(
+    def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
+
+        # if use_pandas_metadata, we need to include index columns in the
+        # column selection, to be able to restore those in the pandas DataFrame
+        metadata = self._dataset.schema.metadata
+        if use_pandas_metadata:
+            if metadata and b'pandas' in metadata:
+                index_columns = _get_pandas_index_columns(metadata)
+
+            columns = list(columns)
+            for index_col in index_columns:
+                if index_col not in columns:
+                    columns += [index_col]
+
+        table = self._dataset.to_table(
             columns=columns, filter=self.filter_expression,
             use_threads=use_threads
         )
+
+        # if use_pandas_metadata, restore the pandas metadata (which gets
+        # lost if doing a specific `columns` selection in to_table)
+        if use_pandas_metadata:
+            if metadata and b"pandas" in metadata:
+                new_metadata = table.schema.metadata or {}
+                new_metadata.update({b"pandas": metadata[b"pandas"]})
+                table = table.replace_schema_metadata(new_metadata)
+
+        return table
+
+    def read_pandas(self, **kwargs):
+        """
+        Read dataset including pandas metadata, if any. Other arguments passed
+        through to ParquetDataset.read, see docstring for further details.
+        """
+        return self.read(use_pandas_metadata=True, **kwargs)
 
     @property
     def pieces(self):

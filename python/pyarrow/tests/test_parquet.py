@@ -256,11 +256,11 @@ def test_memory_map(tempdir, use_dataset):
     _check_roundtrip(table, read_table_kwargs={'memory_map': True},
                      version='2.0', use_dataset=use_dataset)
 
-    # TODO add use_dataset to read_pandas as well
     filename = str(tempdir / 'tmp_file')
     with open(filename, 'wb') as f:
         _write_table(table, f, version='2.0')
-    table_read = pq.read_pandas(filename, memory_map=True)
+    table_read = pq.read_pandas(filename, memory_map=True,
+                                use_dataset=use_dataset)
     assert table_read.equals(table)
 
 
@@ -273,11 +273,11 @@ def test_enable_buffered_stream(tempdir, use_dataset):
     _check_roundtrip(table, read_table_kwargs={'buffer_size': 1025},
                      version='2.0', use_dataset=use_dataset)
 
-    # TODO add use_dataset to read_pandas as well
     filename = str(tempdir / 'tmp_file')
     with open(filename, 'wb') as f:
         _write_table(table, f, version='2.0')
-    table_read = pq.read_pandas(filename, buffer_size=4096)
+    table_read = pq.read_pandas(filename, buffer_size=4096,
+                                use_dataset=use_dataset)
     assert table_read.equals(table)
 
 
@@ -393,9 +393,9 @@ def test_pandas_parquet_custom_metadata(tempdir):
                                     'step': 1}]
 
 
-# TODO support read_pandas for use_dataset
 @pytest.mark.pandas
-def test_pandas_parquet_column_multiindex(tempdir):
+@parametrize_use_dataset
+def test_pandas_parquet_column_multiindex(tempdir, use_dataset):
     df = alltypes_sample(size=10)
     df.columns = pd.MultiIndex.from_tuples(
         list(zip(df.columns, df.columns[::-1])),
@@ -408,14 +408,16 @@ def test_pandas_parquet_column_multiindex(tempdir):
 
     _write_table(arrow_table, filename, version='2.0', coerce_timestamps='ms')
 
-    table_read = pq.read_pandas(filename)
+    table_read = pq.read_pandas(filename, use_dataset=use_dataset)
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
 
 
-# TODO support read_pandas for use_dataset
 @pytest.mark.pandas
-def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(tempdir):
+@parametrize_use_dataset
+def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(
+    tempdir, use_dataset
+):
     df = alltypes_sample(size=10000)
 
     filename = tempdir / 'pandas_roundtrip.parquet'
@@ -427,7 +429,7 @@ def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(tempdir):
     assert js['columns']
 
     _write_table(arrow_table, filename, version='2.0', coerce_timestamps='ms')
-    table_read = pq.read_pandas(filename)
+    table_read = pq.read_pandas(filename, use_dataset=use_dataset)
 
     js = table_read.schema.pandas_metadata
     assert not js['index_columns']
@@ -1964,22 +1966,12 @@ def test_invalid_pred_op(tempdir, use_dataset):
                                     use_dataset=use_dataset)
         assert dataset.read().num_rows == 0
 
-    if not use_dataset:
-        with pytest.raises(ValueError):
-            pq.ParquetDataset(base_path,
-                              filesystem=fs,
-                              filters=[('integers', '!=', {3})],
-                              use_dataset=use_dataset)
-    else:
-        # TODO(dataset) ARROW-8186:
-        #  `ds.field('int') != {3}` returns bool instead of expression
-        with pytest.raises(TypeError):
-            # Datasets API gives filter expression that is always true
-            dataset = pq.ParquetDataset(base_path,
-                                        filesystem=fs,
-                                        filters=[('integers', '!=', {3})],
-                                        use_dataset=use_dataset)
-            assert dataset.read().num_rows == 5
+    with pytest.raises((ValueError, TypeError)):
+        # dataset API returns TypeError when trying create invalid comparison
+        pq.ParquetDataset(base_path,
+                          filesystem=fs,
+                          filters=[('integers', '!=', {3})],
+                          use_dataset=use_dataset)
 
 
 @pytest.mark.pandas
@@ -2338,7 +2330,8 @@ def test_read_multiple_files(tempdir, use_dataset):
 
 
 @pytest.mark.pandas
-def test_dataset_read_pandas(tempdir):
+@parametrize_use_dataset
+def test_dataset_read_pandas(tempdir, use_dataset):
     nfiles = 5
     size = 5
 
@@ -2361,8 +2354,7 @@ def test_dataset_read_pandas(tempdir):
         frames.append(df)
         paths.append(path)
 
-    # TODO check read_pandas semantics
-    dataset = pq.ParquetDataset(dirpath)
+    dataset = pq.ParquetDataset(dirpath, use_dataset=use_dataset)
     columns = ['uint8', 'strings']
     result = dataset.read_pandas(columns=columns).to_pandas()
     expected = pd.concat([x[columns] for x in frames])
@@ -2485,7 +2477,10 @@ def test_ignore_private_directories(tempdir, dir_prefix, use_dataset):
     (dirpath / '{}staging'.format(dir_prefix)).mkdir()
 
     dataset = pq.ParquetDataset(dirpath, use_dataset=use_dataset)
-    assert set(map(str, paths)) == {x.path for x in dataset.pieces}
+    if not use_dataset:
+        assert set(map(str, paths)) == {x.path for x in dataset.pieces}
+    else:
+        assert set(map(str, paths)) == set(dataset._dataset.files)
 
 
 @pytest.mark.pandas
@@ -2504,7 +2499,10 @@ def test_ignore_hidden_files_dot(tempdir, use_dataset):
         f.write(b'gibberish')
 
     dataset = pq.ParquetDataset(dirpath, use_dataset=use_dataset)
-    assert set(map(str, paths)) == {x.path for x in dataset.pieces}
+    if not use_dataset:
+        assert set(map(str, paths)) == {x.path for x in dataset.pieces}
+    else:
+        assert set(map(str, paths)) == set(dataset._dataset.files)
 
 
 @pytest.mark.pandas
@@ -2523,7 +2521,10 @@ def test_ignore_hidden_files_underscore(tempdir, use_dataset):
         f.write(b'abcd')
 
     dataset = pq.ParquetDataset(dirpath, use_dataset=use_dataset)
-    assert set(map(str, paths)) == {x.path for x in dataset.pieces}
+    if not use_dataset:
+        assert set(map(str, paths)) == {x.path for x in dataset.pieces}
+    else:
+        assert set(map(str, paths)) == set(dataset._dataset.files)
 
 
 @pytest.mark.pandas
@@ -3688,8 +3689,7 @@ def test_multi_dataset_metadata(tempdir):
     assert md['serialized_size'] > 0
 
 
-# WONTFIX(dataset) schema unification now happens when dataset is created
-@parametrize_use_dataset_not_supported
+@parametrize_use_dataset
 @pytest.mark.pandas
 def test_filter_before_validate_schema(tempdir, use_dataset):
     # ARROW-4076 apply filter before schema validation
@@ -3708,7 +3708,8 @@ def test_filter_before_validate_schema(tempdir, use_dataset):
     pq.write_table(table2, dir2 / 'data.parquet')
 
     # read single file using filter
-    table = pq.read_table(tempdir, filters=[[('A', '==', 0)]])
+    table = pq.read_table(tempdir, filters=[[('A', '==', 0)]],
+                          use_dataset=use_dataset)
     assert table.column('B').equals(pa.chunked_array([[1, 2, 3]]))
 
 
