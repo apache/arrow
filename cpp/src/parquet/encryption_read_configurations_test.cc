@@ -21,6 +21,8 @@
 #include <fstream>
 
 #include "arrow/io/file.h"
+#include "arrow/testing/gtest_compat.h"
+
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
@@ -521,7 +523,7 @@ TEST_P(TestDecryptionConfiguration, TestDecryption) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     DecryptionTests, TestDecryptionConfiguration,
     ::testing::Values(
         std::make_tuple(1, "uniform_encryption.parquet.encrypted"),

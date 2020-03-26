@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_ARROW_SCHEMA_H
-#define PARQUET_ARROW_SCHEMA_H
+#pragma once
 
 #include <memory>
 #include <unordered_map>
@@ -162,5 +161,3 @@ struct PARQUET_EXPORT SchemaManifest {
 
 }  // namespace arrow
 }  // namespace parquet
-
-#endif  // PARQUET_ARROW_SCHEMA_H

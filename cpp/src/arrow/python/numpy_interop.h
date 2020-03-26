@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_NUMPY_INTEROP_H
-#define PYARROW_NUMPY_INTEROP_H
+#pragma once
 
 #include "arrow/python/platform.h"  // IWYU pragma: export
 
@@ -95,5 +94,3 @@ inline int fix_numpy_type_num(int type_num) {
 
 }  // namespace py
 }  // namespace arrow
-
-#endif  // PYARROW_NUMPY_INTEROP_H

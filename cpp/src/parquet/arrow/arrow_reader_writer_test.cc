@@ -640,7 +640,7 @@ typedef ::testing::Types<
     DecimalWithPrecisionAndScale<34>, DecimalWithPrecisionAndScale<38>>
     TestTypes;
 
-TYPED_TEST_CASE(TestParquetIO, TestTypes);
+TYPED_TEST_SUITE(TestParquetIO, TestTypes);
 
 TYPED_TEST(TestParquetIO, SingleColumnRequiredWrite) {
   std::shared_ptr<Array> values;
@@ -1304,7 +1304,7 @@ typedef ::testing::Types<::arrow::BooleanType, ::arrow::UInt8Type, ::arrow::Int8
                          ::arrow::FloatType, ::arrow::DoubleType>
     PrimitiveTestTypes;
 
-TYPED_TEST_CASE(TestPrimitiveParquetIO, PrimitiveTestTypes);
+TYPED_TEST_SUITE(TestPrimitiveParquetIO, PrimitiveTestTypes);
 
 TYPED_TEST(TestPrimitiveParquetIO, SingleColumnRequiredRead) {
   ASSERT_NO_FATAL_FAILURE(this->CheckSingleColumnRequiredRead(1));
@@ -1929,6 +1929,54 @@ TEST(TestArrowReadWrite, ReadSingleRowGroup) {
   ASSERT_OK_AND_ASSIGN(concatenated, ::arrow::ConcatenateTables({r1, r4}));
 
   AssertTablesEqual(*table, *concatenated, /*same_chunk_layout=*/false);
+}
+
+//  Exercise reading table manually with nested RowGroup and Column loops, i.e.
+//
+//  for (int i = 0; i < n_row_groups; i++)
+//    for (int j = 0; j < n_cols; j++)
+//      reader->RowGroup(i)->Column(j)->Read(&chunked_array);
+::arrow::Result<std::shared_ptr<Table>> ReadTableManually(FileReader* reader) {
+  std::vector<std::shared_ptr<Table>> tables;
+
+  std::shared_ptr<::arrow::Schema> schema;
+  RETURN_NOT_OK(reader->GetSchema(&schema));
+
+  int n_row_groups = reader->num_row_groups();
+  int n_columns = schema->num_fields();
+  for (int i = 0; i < n_row_groups; i++) {
+    std::vector<std::shared_ptr<ChunkedArray>> columns{static_cast<size_t>(n_columns)};
+
+    for (int j = 0; j < n_columns; j++) {
+      RETURN_NOT_OK(reader->RowGroup(i)->Column(j)->Read(&columns[j]));
+    }
+
+    tables.push_back(Table::Make(schema, columns));
+  }
+
+  return ConcatenateTables(tables);
+}
+
+TEST(TestArrowReadWrite, ReadTableManually) {
+  const int num_columns = 1;
+  const int num_rows = 128;
+
+  std::shared_ptr<Table> expected;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &expected));
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(expected, num_rows / 2,
+                                             default_arrow_writer_properties(), &buffer));
+
+  std::unique_ptr<FileReader> reader;
+  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
+                              ::arrow::default_memory_pool(), &reader));
+
+  ASSERT_EQ(2, reader->num_row_groups());
+
+  ASSERT_OK_AND_ASSIGN(auto actual, ReadTableManually(reader.get()));
+
+  AssertTablesEqual(*actual, *expected, /*same_chunk_layout=*/false);
 }
 
 TEST(TestArrowReadWrite, GetRecordBatchReader) {
@@ -2663,8 +2711,8 @@ TEST_P(TestNestedSchemaRead, DeepNestedSchemaRead) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(Repetition_type, TestNestedSchemaRead,
-                        ::testing::Values(Repetition::REQUIRED, Repetition::OPTIONAL));
+INSTANTIATE_TEST_SUITE_P(Repetition_type, TestNestedSchemaRead,
+                         ::testing::Values(Repetition::REQUIRED, Repetition::OPTIONAL));
 
 TEST(TestImpalaConversion, ArrowTimestampToImpalaTimestamp) {
   // June 20, 2017 16:32:56 and 123456789 nanoseconds
@@ -2809,7 +2857,7 @@ TEST_P(TestArrowReaderAdHocSparkAndHvr, ReadDecimals) {
   AssertArraysEqual(*expected_array, *chunk);
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     ReadDecimals, TestArrowReaderAdHocSparkAndHvr,
     ::testing::Values(
         std::make_tuple("int32_decimal.parquet", ::arrow::decimal(4, 2)),
@@ -2956,7 +3004,7 @@ TEST_P(TestArrowReadDictionary, ReadWholeFileDense) {
   CheckReadWholeFile(*expected_dense_);
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     ReadDictionary, TestArrowReadDictionary,
     ::testing::ValuesIn(TestArrowReadDictionary::null_probabilities()));
 

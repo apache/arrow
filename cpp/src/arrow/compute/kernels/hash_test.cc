@@ -50,6 +50,9 @@
 namespace arrow {
 namespace compute {
 
+using StringTypes =
+    ::testing::Types<StringType, LargeStringType, BinaryType, LargeBinaryType>;
+
 // ----------------------------------------------------------------------
 // Dictionary tests
 
@@ -160,7 +163,7 @@ typedef ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
                          Date32Type, Date64Type>
     PrimitiveDictionaries;
 
-TYPED_TEST_CASE(TestHashKernelPrimitive, PrimitiveDictionaries);
+TYPED_TEST_SUITE(TestHashKernelPrimitive, PrimitiveDictionaries);
 
 TYPED_TEST(TestHashKernelPrimitive, Unique) {
   using T = typename TypeParam::c_type;
@@ -201,6 +204,18 @@ TYPED_TEST(TestHashKernelPrimitive, DictEncode) {
   CheckDictEncode(
       &this->ctx_, ArrayFromJSON(type, "[2, 1, null, 4, 3, 1, 42]")->Slice(1, 5),
       ArrayFromJSON(type, "[1, 4, 3]"), ArrayFromJSON(int32(), "[0, null, 1, 2, 0]"));
+}
+
+TYPED_TEST(TestHashKernelPrimitive, ZeroChunks) {
+  auto type = TypeTraits<TypeParam>::type_singleton();
+
+  Datum result;
+  auto zero_chunks = std::make_shared<ChunkedArray>(ArrayVector{}, type);
+  ASSERT_OK(DictionaryEncode(&this->ctx_, zero_chunks, &result));
+
+  ASSERT_EQ(result.kind(), Datum::CHUNKED_ARRAY);
+  AssertChunkedEqual(*result.chunked_array(),
+                     ChunkedArray({}, dictionary(int32(), type)));
 }
 
 TYPED_TEST(TestHashKernelPrimitive, PrimitiveResizeTable) {
@@ -325,57 +340,114 @@ TEST_F(TestHashKernel, DictEncodeBoolean) {
       ArrayFromJSON(boolean(), "[true]"), ArrayFromJSON(int32(), "[0, null, 0]"));
 }
 
-TEST_F(TestHashKernel, UniqueBinary) {
-  CheckUnique<BinaryType, std::string>(
-      &this->ctx_, binary(), {"test", "", "test2", "test"}, {true, false, true, true},
-      {"test", "", "test2"}, {1, 0, 1});
+template <typename ArrowType>
+class TestHashKernelBinaryTypes : public TestHashKernel {
+ protected:
+  std::shared_ptr<DataType> type() { return TypeTraits<ArrowType>::type_singleton(); }
 
-  CheckUnique<StringType, std::string>(&this->ctx_, utf8(), {"test", "", "test2", "test"},
-                                       {true, false, true, true}, {"test", "", "test2"},
-                                       {1, 0, 1});
+  void CheckDictEncodeP(const std::vector<std::string>& in_values,
+                        const std::vector<bool>& in_is_valid,
+                        const std::vector<std::string>& out_values,
+                        const std::vector<bool>& out_is_valid,
+                        const std::vector<int32_t>& out_indices) {
+    CheckDictEncode<ArrowType, std::string>(&this->ctx_, type(), in_values, in_is_valid,
+                                            out_values, out_is_valid, out_indices);
+  }
+
+  void CheckValueCountsP(const std::vector<std::string>& in_values,
+                         const std::vector<bool>& in_is_valid,
+                         const std::vector<std::string>& out_values,
+                         const std::vector<bool>& out_is_valid,
+                         const std::vector<int64_t>& out_counts) {
+    CheckValueCounts<ArrowType, std::string>(&this->ctx_, type(), in_values, in_is_valid,
+                                             out_values, out_is_valid, out_counts);
+  }
+
+  void CheckUniqueP(const std::vector<std::string>& in_values,
+                    const std::vector<bool>& in_is_valid,
+                    const std::vector<std::string>& out_values,
+                    const std::vector<bool>& out_is_valid) {
+    CheckUnique<ArrowType, std::string>(&this->ctx_, type(), in_values, in_is_valid,
+                                        out_values, out_is_valid);
+  }
+};
+
+TYPED_TEST_SUITE(TestHashKernelBinaryTypes, StringTypes);
+
+TYPED_TEST(TestHashKernelBinaryTypes, ZeroChunks) {
+  auto type = this->type();
+
+  Datum result;
+  auto zero_chunks = std::make_shared<ChunkedArray>(ArrayVector{}, type);
+  ASSERT_OK(DictionaryEncode(&this->ctx_, zero_chunks, &result));
+
+  ASSERT_EQ(result.kind(), Datum::CHUNKED_ARRAY);
+  AssertChunkedEqual(*result.chunked_array(),
+                     ChunkedArray({}, dictionary(int32(), type)));
+}
+
+TYPED_TEST(TestHashKernelBinaryTypes, TwoChunks) {
+  auto type = this->type();
+
+  Datum result;
+  auto two_chunks = std::make_shared<ChunkedArray>(
+      ArrayVector{
+          ArrayFromJSON(type, "[\"a\"]"),
+          ArrayFromJSON(type, "[\"b\"]"),
+      },
+      type);
+  ASSERT_OK(DictionaryEncode(&this->ctx_, two_chunks, &result));
+
+  auto dict_type = dictionary(int32(), type);
+  auto dictionary = ArrayFromJSON(type, R"(["a", "b"])");
+
+  auto chunk_0 = std::make_shared<DictionaryArray>(
+      dict_type, ArrayFromJSON(int32(), "[0]"), dictionary);
+  auto chunk_1 = std::make_shared<DictionaryArray>(
+      dict_type, ArrayFromJSON(int32(), "[1]"), dictionary);
+
+  ASSERT_EQ(result.kind(), Datum::CHUNKED_ARRAY);
+  AssertChunkedEqual(*result.chunked_array(),
+                     ChunkedArray({chunk_0, chunk_1}, dict_type));
+}
+
+TYPED_TEST(TestHashKernelBinaryTypes, Unique) {
+  this->CheckUniqueP({"test", "", "test2", "test"}, {true, false, true, true},
+                     {"test", "", "test2"}, {1, 0, 1});
 
   // Sliced
   CheckUnique(
       &this->ctx_,
-      ArrayFromJSON(binary(), R"(["ab", null, "cd", "ef", "cd", "gh"])")->Slice(1, 4),
-      ArrayFromJSON(binary(), R"([null, "cd", "ef"])"));
+      ArrayFromJSON(this->type(), R"(["ab", null, "cd", "ef", "cd", "gh"])")->Slice(1, 4),
+      ArrayFromJSON(this->type(), R"([null, "cd", "ef"])"));
 }
 
-TEST_F(TestHashKernel, ValueCountsBinary) {
-  CheckValueCounts<BinaryType, std::string>(
-      &this->ctx_, binary(), {"test", "", "test2", "test"}, {true, false, true, true},
-      {"test", "", "test2"}, {1, 0, 1}, {2, 1, 1});
-
-  CheckValueCounts<StringType, std::string>(
-      &this->ctx_, utf8(), {"test", "", "test2", "test"}, {true, false, true, true},
-      {"test", "", "test2"}, {1, 0, 1}, {2, 1, 1});
+TYPED_TEST(TestHashKernelBinaryTypes, ValueCounts) {
+  this->CheckValueCountsP({"test", "", "test2", "test"}, {true, false, true, true},
+                          {"test", "", "test2"}, {1, 0, 1}, {2, 1, 1});
 
   // Sliced
   CheckValueCounts(
       &this->ctx_,
-      ArrayFromJSON(binary(), R"(["ab", null, "cd", "ab", "cd", "ef"])")->Slice(1, 4),
-      ArrayFromJSON(binary(), R"([null, "cd", "ab"])"),
+      ArrayFromJSON(this->type(), R"(["ab", null, "cd", "ab", "cd", "ef"])")->Slice(1, 4),
+      ArrayFromJSON(this->type(), R"([null, "cd", "ab"])"),
       ArrayFromJSON(int64(), "[1, 2, 1]"));
 }
 
-TEST_F(TestHashKernel, DictEncodeBinary) {
-  CheckDictEncode<BinaryType, std::string>(
-      &this->ctx_, binary(), {"test", "", "test2", "test", "baz"},
-      {true, false, true, true, true}, {"test", "test2", "baz"}, {}, {0, 0, 1, 0, 2});
-
-  CheckDictEncode<StringType, std::string>(
-      &this->ctx_, utf8(), {"test", "", "test2", "test", "baz"},
-      {true, false, true, true, true}, {"test", "test2", "baz"}, {}, {0, 0, 1, 0, 2});
+TYPED_TEST(TestHashKernelBinaryTypes, DictEncode) {
+  this->CheckDictEncodeP({"test", "", "test2", "test", "baz"},
+                         {true, false, true, true, true}, {"test", "test2", "baz"}, {},
+                         {0, 0, 1, 0, 2});
 
   // Sliced
   CheckDictEncode(
       &this->ctx_,
-      ArrayFromJSON(binary(), R"(["ab", null, "cd", "ab", "cd", "ef"])")->Slice(1, 4),
-      ArrayFromJSON(binary(), R"(["cd", "ab"])"),
+      ArrayFromJSON(this->type(), R"(["ab", null, "cd", "ab", "cd", "ef"])")->Slice(1, 4),
+      ArrayFromJSON(this->type(), R"(["cd", "ab"])"),
       ArrayFromJSON(int32(), "[null, 0, 1, 0]"));
 }
 
-TEST_F(TestHashKernel, BinaryResizeTable) {
+TYPED_TEST(TestHashKernelBinaryTypes, BinaryResizeTable) {
   const int32_t kTotalValues = 10000;
 #if !defined(ARROW_VALGRIND)
   const int32_t kRepeats = 10;
@@ -403,18 +475,9 @@ TEST_F(TestHashKernel, BinaryResizeTable) {
     indices.push_back(index);
   }
 
-  CheckUnique<BinaryType, std::string>(&this->ctx_, binary(), values, {}, uniques, {});
-  CheckValueCounts<BinaryType, std::string>(&this->ctx_, binary(), values, {}, uniques,
-                                            {}, counts);
-
-  CheckDictEncode<BinaryType, std::string>(&this->ctx_, binary(), values, {}, uniques, {},
-                                           indices);
-
-  CheckUnique<StringType, std::string>(&this->ctx_, utf8(), values, {}, uniques, {});
-  CheckValueCounts<StringType, std::string>(&this->ctx_, utf8(), values, {}, uniques, {},
-                                            counts);
-  CheckDictEncode<StringType, std::string>(&this->ctx_, utf8(), values, {}, uniques, {},
-                                           indices);
+  this->CheckUniqueP(values, {}, uniques, {});
+  this->CheckValueCountsP(values, {}, uniques, {}, counts);
+  this->CheckDictEncodeP(values, {}, uniques, {}, indices);
 }
 
 TEST_F(TestHashKernel, UniqueFixedSizeBinary) {

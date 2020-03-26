@@ -71,13 +71,6 @@ def _read_table(*args, **kwargs):
     return pq.read_table(*args, **kwargs)
 
 
-def assert_tables_equal(left, right):
-    # This is a helper method particular to this testing module because the
-    # round trip to Parquet adds extra Field-level metadata for the Parquet
-    # field_ids
-    assert left.equals(right, check_metadata=False)
-
-
 def _roundtrip_table(table, read_table_kwargs=None,
                      write_table_kwargs=None):
     read_table_kwargs = read_table_kwargs or {}
@@ -99,10 +92,10 @@ def _check_roundtrip(table, expected=None, read_table_kwargs=None,
     # intentionally check twice
     result = _roundtrip_table(table, read_table_kwargs=read_table_kwargs,
                               write_table_kwargs=write_table_kwargs)
-    assert_tables_equal(result, expected)
+    assert result.equals(expected)
     result = _roundtrip_table(result, read_table_kwargs=read_table_kwargs,
                               write_table_kwargs=write_table_kwargs)
-    assert_tables_equal(result, expected)
+    assert result.equals(expected)
 
 
 def _roundtrip_pandas_dataframe(df, write_kwargs):
@@ -225,7 +218,7 @@ def test_memory_map(tempdir):
     with open(filename, 'wb') as f:
         _write_table(table, f, version='2.0')
     table_read = pq.read_pandas(filename, memory_map=True)
-    assert_tables_equal(table_read, table)
+    assert table_read.equals(table)
 
 
 @pytest.mark.pandas
@@ -240,7 +233,7 @@ def test_enable_buffered_stream(tempdir):
     with open(filename, 'wb') as f:
         _write_table(table, f, version='2.0')
     table_read = pq.read_pandas(filename, buffer_size=4096)
-    assert_tables_equal(table_read, table)
+    assert table_read.equals(table)
 
 
 def test_special_chars_filename(tempdir):
@@ -251,7 +244,7 @@ def test_special_chars_filename(tempdir):
     _write_table(table, str(path))
     assert path.exists()
     table_read = _read_table(str(path))
-    assert_tables_equal(table_read, table)
+    assert table_read.equals(table)
 
 
 @pytest.mark.pandas
@@ -644,6 +637,43 @@ def make_sample_file(table_or_df):
     return pq.ParquetFile(buf)
 
 
+def test_byte_stream_split():
+    # This is only a smoke test.
+    arr_float = pa.array(list(map(float, range(100))))
+    arr_int = pa.array(list(map(int, range(100))))
+    data_float = [arr_float, arr_float]
+    table = pa.Table.from_arrays(data_float, names=['a', 'b'])
+
+    # Check with byte_stream_split for both columns.
+    _check_roundtrip(table, expected=table, compression="gzip",
+                     use_dictionary=False, use_byte_stream_split=True)
+
+    # Check with byte_stream_split for column 'b' and dictionary
+    # for column 'a'.
+    _check_roundtrip(table, expected=table, compression="gzip",
+                     use_dictionary=['a'],
+                     use_byte_stream_split=['b'])
+
+    # Check with a collision for both columns.
+    _check_roundtrip(table, expected=table, compression="gzip",
+                     use_dictionary=['a', 'b'],
+                     use_byte_stream_split=['a', 'b'])
+
+    # Check with mixed column types.
+    mixed_table = pa.Table.from_arrays([arr_float, arr_int],
+                                       names=['a', 'b'])
+    _check_roundtrip(mixed_table, expected=mixed_table,
+                     use_dictionary=['b'],
+                     use_byte_stream_split=['a'])
+
+    # Try to use the wrong data type with the byte_stream_split encoding.
+    # This should throw an exception.
+    table = pa.Table.from_arrays([arr_int], names=['tmp'])
+    with pytest.raises(IOError):
+        _check_roundtrip(table, expected=table, use_byte_stream_split=True,
+                         use_dictionary=False)
+
+
 def test_compression_level():
     arr = pa.array(list(map(int, range(1000))))
     data = [arr, arr]
@@ -660,7 +690,7 @@ def test_compression_level():
 
     # Check that the user can provide a compression level per column
     _check_roundtrip(table, expected=table, compression="gzip",
-                     compression_level=[{'a': 2, 'b': 3}])
+                     compression_level={'a': 2, 'b': 3})
 
     # Check that specifying a compression level for a codec which does allow
     # specifying one, results into an error.
@@ -672,7 +702,7 @@ def test_compression_level():
                             ("None", 444), ("lzo", 14)]
     buf = io.BytesIO()
     for (codec, level) in invalid_combinations:
-        with pytest.raises(IOError):
+        with pytest.raises((ValueError, OSError)):
             _write_table(table, buf, compression=codec,
                          compression_level=level)
 
@@ -1143,7 +1173,7 @@ def test_date_time_types(tempdir):
     for i in range(3):
         assert parquet_schema.column(i).physical_type == 'INT64'
     read_table = _read_table(filename)
-    assert_tables_equal(read_table, expected)
+    assert read_table.equals(expected)
 
     t0_ns = pa.timestamp('ns')
     data0_ns = np.array(data0 * 1000000, dtype='int64')
@@ -1164,7 +1194,7 @@ def test_date_time_types(tempdir):
     for i in range(3):
         assert parquet_schema.column(i).physical_type == 'INT96'
     read_table = _read_table(filename)
-    assert_tables_equal(read_table, expected)
+    assert read_table.equals(expected)
 
     # int96 nanosecond timestamps implied by flavor 'spark'
     filename = tempdir / 'spark_int96_timestamps.parquet'
@@ -1174,7 +1204,7 @@ def test_date_time_types(tempdir):
     for i in range(3):
         assert parquet_schema.column(i).physical_type == 'INT96'
     read_table = _read_table(filename)
-    assert_tables_equal(read_table, expected)
+    assert read_table.equals(expected)
 
 
 def test_timestamp_restore_timezone():
@@ -1315,7 +1345,7 @@ def test_multithreaded_read():
     buf.seek(0)
     table2 = _read_table(buf, use_threads=False)
 
-    assert_tables_equal(table1, table2)
+    assert table1.equals(table2)
 
 
 @pytest.mark.pandas
@@ -1329,7 +1359,7 @@ def test_min_chunksize():
     buf.seek(0)
     result = _read_table(buf)
 
-    assert_tables_equal(result, table)
+    assert result.equals(table)
 
     with pytest.raises(ValueError):
         _write_table(table, buf, chunk_size=0)
@@ -1475,7 +1505,7 @@ def test_parquet_piece_read(tempdir):
     piece1 = pq.ParquetDatasetPiece(path)
 
     result = piece1.read()
-    assert_tables_equal(result, table)
+    assert result.equals(table)
 
 
 @pytest.mark.pandas
@@ -1492,7 +1522,7 @@ def test_parquet_piece_open_and_get_metadata(tempdir):
     meta1 = piece.get_metadata()
     assert isinstance(meta1, pq.FileMetaData)
 
-    assert_tables_equal(table, table1)
+    assert table.equals(table1)
 
 
 def test_parquet_piece_basics():
@@ -1848,14 +1878,14 @@ def test_filters_read_table(tempdir):
 
 
 @pytest.fixture
-def s3_bucket(request, minio_server):
+def s3_bucket(request, s3_connection, s3_server):
     boto3 = pytest.importorskip('boto3')
     botocore = pytest.importorskip('botocore')
 
-    address, access_key, secret_key = minio_server
+    host, port, access_key, secret_key = s3_connection
     s3 = boto3.resource(
         's3',
-        endpoint_url='http://{}'.format(address),
+        endpoint_url='http://{}:{}'.format(host, port),
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
         config=botocore.client.Config(signature_version='s3v4'),
@@ -1867,15 +1897,15 @@ def s3_bucket(request, minio_server):
 
 
 @pytest.fixture
-def s3_example(minio_server, s3_bucket):
+def s3_example(s3_connection, s3_server, s3_bucket):
     s3fs = pytest.importorskip('s3fs')
 
-    address, access_key, secret_key = minio_server
+    host, port, access_key, secret_key = s3_connection
     fs = s3fs.S3FileSystem(
         key=access_key,
         secret=secret_key,
         client_kwargs={
-            'endpoint_url': 'http://{}'.format(address)
+            'endpoint_url': 'http://{}:{}'.format(host, port)
         }
     )
 
@@ -2055,8 +2085,8 @@ def test_read_schema(tempdir):
 
     read1 = pq.read_schema(data_path)
     read2 = pq.read_schema(data_path, memory_map=True)
-    assert table.schema.equals(read1, check_metadata=False)
-    assert table.schema.equals(read2, check_metadata=False)
+    assert table.schema.equals(read1)
+    assert table.schema.equals(read2)
 
     assert table.schema.metadata[b'pandas'] == read1.metadata[b'pandas']
 
@@ -2111,16 +2141,16 @@ def test_read_multiple_files(tempdir):
     result = read_multiple_files(paths)
     expected = pa.concat_tables(test_data)
 
-    assert_tables_equal(result, expected)
+    assert result.equals(expected)
 
     # Read with provided metadata
     metadata = pq.read_metadata(paths[0])
 
     result2 = read_multiple_files(paths, metadata=metadata)
-    assert_tables_equal(result2, expected)
+    assert result2.equals(expected)
 
     result3 = pa.localfs.read_parquet(dirpath, schema=metadata.schema)
-    assert_tables_equal(result3, expected)
+    assert result3.equals(expected)
 
     # Read column subset
     to_read = [0, 2, 6, result.num_columns - 1]
@@ -2130,7 +2160,7 @@ def test_read_multiple_files(tempdir):
     expected = pa.Table.from_arrays([result.column(i) for i in to_read],
                                     names=col_names,
                                     metadata=result.schema.metadata)
-    assert_tables_equal(out, expected)
+    assert out.equals(expected)
 
     # Read with multiple threads
     pa.localfs.read_parquet(dirpath, use_threads=True)
@@ -2203,7 +2233,7 @@ def test_dataset_memory_map(tempdir):
     _write_table(table, path, version='2.0')
 
     dataset = pq.ParquetDataset(dirpath, memory_map=True)
-    assert_tables_equal(dataset.pieces[0].read(), table)
+    assert dataset.pieces[0].read().equals(table)
 
 
 @pytest.mark.pandas
@@ -2221,7 +2251,7 @@ def test_dataset_enable_buffered_stream(tempdir):
 
     for buffer_size in [128, 1024]:
         dataset = pq.ParquetDataset(dirpath, buffer_size=buffer_size)
-        assert_tables_equal(dataset.pieces[0].read(), table)
+        assert dataset.pieces[0].read().equals(table)
 
 
 @pytest.mark.pandas
@@ -2348,7 +2378,7 @@ def test_multiindex_duplicate_values(tempdir):
 
     _write_table(table, filename)
     result_table = _read_table(filename)
-    assert_tables_equal(table, result_table)
+    assert table.equals(result_table)
 
     result_df = result_table.to_pandas()
     tm.assert_frame_equal(result_df, df)
@@ -2396,7 +2426,7 @@ def test_noncoerced_nanoseconds_written_without_exception(tempdir):
     assert filename.exists()
 
     recovered_table = pq.read_table(filename)
-    assert_tables_equal(tb, recovered_table)
+    assert tb.equals(recovered_table)
 
     # Loss of data thru coercion (without explicit override) still an error
     filename = tempdir / 'not_written.parquet'
@@ -2594,7 +2624,7 @@ def test_byte_array_exactly_2gb():
         values = pa.chunked_array([base, pa.array(case)])
         t = pa.table([values], names=['f0'])
         result = _simple_table_roundtrip(t, use_dictionary=False)
-        assert_tables_equal(t, result)
+        assert t.equals(result)
 
 
 @pytest.mark.pandas
@@ -2617,7 +2647,7 @@ def test_binary_array_overflow_to_chunked():
     # Split up into 2GB chunks
     assert col0_data.num_chunks == 2
 
-    assert_tables_equal(tbl, read_tbl)
+    assert tbl.equals(read_tbl)
 
 
 @pytest.mark.pandas
@@ -2636,7 +2666,7 @@ def test_list_of_binary_large_cell():
     arr = pa.array(data)
     table = pa.Table.from_arrays([arr], ['chunky_cells'])
     read_table = _simple_table_roundtrip(table)
-    assert_tables_equal(table, read_table)
+    assert table.equals(read_table)
 
 
 @pytest.mark.pandas
@@ -2968,8 +2998,8 @@ def test_merging_parquet_tables_with_different_pandas_metadata(tempdir):
     table1 = pa.Table.from_pandas(df1, schema=schema, preserve_index=False)
     table2 = pa.Table.from_pandas(df2, schema=schema, preserve_index=False)
 
-    assert not table1.schema.equals(table2.schema)
-    assert table1.schema.equals(table2.schema, check_metadata=False)
+    assert not table1.schema.equals(table2.schema, check_metadata=True)
+    assert table1.schema.equals(table2.schema)
 
     writer = pq.ParquetWriter(tempdir / 'merged.parquet', schema=schema)
     writer.write_table(table1)
@@ -2991,7 +3021,7 @@ def test_empty_row_groups(tempdir):
     assert reader.metadata.num_row_groups == num_groups
 
     for i in range(num_groups):
-        assert_tables_equal(reader.read_row_group(i), table)
+        assert reader.read_row_group(i).equals(table)
 
 
 @pytest.mark.pandas
@@ -3120,7 +3150,7 @@ def test_direct_read_dictionary():
 
     # Compute dictionary-encoded subfield
     expected = pa.table([table[0].dictionary_encode()], names=['f0'])
-    assert_tables_equal(result, expected)
+    assert result.equals(expected)
 
 
 @pytest.mark.pandas
@@ -3173,7 +3203,7 @@ def test_direct_read_dictionary_subfield():
     expected_arr = pa.ListArray.from_arrays(offsets, new_values)
     expected = pa.table([expected_arr], names=['f0'])
 
-    assert_tables_equal(result, expected)
+    assert result.equals(expected)
     assert result[0].num_chunks == 1
 
 
@@ -3211,13 +3241,13 @@ def test_dataset_metadata(tempdir):
 
 def test_parquet_file_too_small(tempdir):
     path = str(tempdir / "test.parquet")
-    with pytest.raises(pa.ArrowIOError,
+    with pytest.raises(pa.ArrowInvalid,
                        match='size is 0 bytes'):
         with open(path, 'wb') as f:
             pass
         pq.read_table(path)
 
-    with pytest.raises(pa.ArrowIOError,
+    with pytest.raises(pa.ArrowInvalid,
                        match='size is 4 bytes'):
         with open(path, 'wb') as f:
             f.write(b'ffff')
@@ -3282,7 +3312,7 @@ def test_dictionary_array_automatically_read():
     table = pa.table([pa.chunked_array(chunks)], names=['f0'])
     result = _simple_table_write_read(table)
 
-    assert_tables_equal(result, table)
+    assert result.equals(table)
 
     # The only key in the metadata was the Arrow schema key
     assert result.schema.metadata is None
@@ -3465,3 +3495,29 @@ def test_fastparquet_cross_compatibility(tempdir):
     # (no arrow schema in parquet metadata)
     df['f'] = df['f'].astype(object)
     tm.assert_frame_equal(table_fp.to_pandas(), df)
+
+
+@pytest.mark.parametrize('array_factory', [
+    lambda: pa.array([0, None] * 10),
+    lambda: pa.array([0, None] * 10).dictionary_encode(),
+    lambda: pa.array(["", None] * 10),
+    lambda: pa.array(["", None] * 10).dictionary_encode(),
+])
+@pytest.mark.parametrize('use_dictionary', [False, True])
+@pytest.mark.parametrize('read_dictionary', [False, True])
+def test_buffer_contents(array_factory, use_dictionary, read_dictionary):
+    # Test that null values are deterministically initialized to zero
+    # after a roundtrip through Parquet.
+    # See ARROW-8006 and ARROW-8011.
+    orig_table = pa.Table.from_pydict({"col": array_factory()})
+    bio = io.BytesIO()
+    pq.write_table(orig_table, bio, use_dictionary=True)
+    bio.seek(0)
+    read_dictionary = ['col'] if read_dictionary else None
+    table = pq.read_table(bio, use_threads=False,
+                          read_dictionary=read_dictionary)
+
+    for col in table.columns:
+        [chunk] = col.chunks
+        buf = chunk.buffers()[1]
+        assert buf.to_pybytes() == buf.size * b"\0"

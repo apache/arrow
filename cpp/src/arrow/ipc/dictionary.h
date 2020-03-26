@@ -17,8 +17,7 @@
 
 // Tools for dictionaries in IPC context
 
-#ifndef ARROW_IPC_DICTIONARY_H
-#define ARROW_IPC_DICTIONARY_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -62,7 +61,7 @@ class ARROW_EXPORT DictionaryMemo {
 
   /// \brief Return id for dictionary if it exists, otherwise return
   /// KeyError
-  Status GetId(const Field& type, int64_t* id) const;
+  Status GetId(const Field* type, int64_t* id) const;
 
   /// \brief Return true if dictionary for type is in this memo
   bool HasDictionary(const Field& type) const;
@@ -102,5 +101,3 @@ Status CollectDictionaries(const RecordBatch& batch, DictionaryMemo* memo);
 
 }  // namespace ipc
 }  // namespace arrow
-
-#endif  // ARROW_IPC_DICTIONARY_H

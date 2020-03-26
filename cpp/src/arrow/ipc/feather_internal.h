@@ -18,8 +18,7 @@
 // Public API for the "Feather" file format, originally created at
 // http://github.com/wesm/feather
 
-#ifndef ARROW_IPC_FEATHER_INTERNAL_H
-#define ARROW_IPC_FEATHER_INTERNAL_H
+#pragma once
 
 #include <cstdint>
 #include <iostream>
@@ -232,5 +231,3 @@ class ARROW_EXPORT ColumnBuilder {
 }  // namespace feather
 }  // namespace ipc
 }  // namespace arrow
-
-#endif  // ARROW_IPC_FEATHER_INTERNAL_H

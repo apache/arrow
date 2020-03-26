@@ -33,8 +33,8 @@ install.packages("arrow")
 Installing a released version of the `arrow` package should require no
 additional system dependencies. For macOS and Windows, CRAN hosts binary
 packages that contain the Arrow C++ library. On Linux, source package
-installation will download necessary C++ dependencies if you set the
-environment variable `LIBARROW_DOWNLOAD=true`.
+installation will also build necessary C++ dependencies. For a faster,
+more complete installation, set the environment variable `NOT_CRAN=true`.
 See `vignette("install", package = "arrow")` for details.
 
 If you install the `arrow` package from source and the C++ library is
@@ -57,11 +57,11 @@ install_arrow()
 
 Conda users on Linux and macOS can install `arrow` from conda-forge with
 
-    conda install -c conda-forge r-arrow
+    conda install -c conda-forge --strict-channel-priority r-arrow
 
 ## Installing a development version
 
-Binary R packages for macOS and Windows are built daily and hosted at
+Development versions of the package (binary and source) are built daily and hosted at
 <https://dl.bintray.com/ursalabs/arrow-r/>. To install from there:
 
 ``` r
@@ -180,11 +180,11 @@ Fix any style issues before committing with
 
     ./lint.sh --fix
 
-The lint script requires Python 3 and `clang-format-7`. If the command
+The lint script requires Python 3 and `clang-format-8`. If the command
 isn’t found, you can explicitly provide the path to it like
-`CLANG_FORMAT=$(which clang-format-7) ./lint.sh`. On macOS, you can get
+`CLANG_FORMAT=$(which clang-format-8) ./lint.sh`. On macOS, you can get
 this by installing LLVM via Homebrew and running the script as
-`CLANG_FORMAT=$(brew --prefix llvm@7)/bin/clang-format ./lint.sh`
+`CLANG_FORMAT=$(brew --prefix llvm@8)/bin/clang-format ./lint.sh`
 
 ### Useful functions
 

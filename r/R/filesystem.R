@@ -100,7 +100,7 @@ FileStats <- FileInfo
 #'
 #' - `base_dir`: The directory in which to select files. If the path exists but
 #'    doesn't point to a directory, this should be an error.
-#' - `allow_non_existent`: The behavior if `base_dir` doesn't exist in the
+#' - `allow_not_found`: The behavior if `base_dir` doesn't exist in the
 #'    filesystem. If `FALSE`, an error is returned.  If `TRUE`, an empty
 #'    selection is returned
 #' - `recursive`: Whether to recurse into subdirectories.
@@ -111,15 +111,15 @@ FileSelector <- R6Class("FileSelector",
   inherit = ArrowObject,
   active = list(
     base_dir = function() fs___FileSelector__base_dir(self),
-    allow_non_existent = function() fs___FileSelector__allow_non_existent(self),
+    allow_not_found = function() fs___FileSelector__allow_not_found(self),
     recursive = function() fs___FileSelector__recursive(self)
   )
 )
 
-FileSelector$create <- function(base_dir, allow_non_existent = FALSE, recursive = FALSE) {
+FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = FALSE) {
   shared_ptr(
     FileSelector,
-    fs___FileSelector__create(clean_path_rel(base_dir), allow_non_existent, recursive)
+    fs___FileSelector__create(clean_path_rel(base_dir), allow_not_found, recursive)
   )
 }
 
@@ -139,7 +139,7 @@ FileSelector$create <- function(base_dir, allow_non_existent = FALSE, recursive 
 #'
 #' @section Methods:
 #'
-#' - `$GetTargetInfos(x)`: `x` may be a [FileSelector][FileSelector] or a character
+#' - `$GetFileInfo(x)`: `x` may be a [FileSelector][FileSelector] or a character
 #'    vector of paths. Returns a list of [FileInfo][FileInfo]
 #' - `$CreateDir(path, recursive = TRUE)`: Create a directory and subdirectories.
 #' - `$DeleteDir(path)`: Delete a directory and its contents, recursively.
@@ -175,7 +175,7 @@ FileSelector$create <- function(base_dir, allow_non_existent = FALSE, recursive 
 #' @export
 FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
   public = list(
-    GetTargetInfos = function(x) {
+    GetFileInfo = function(x) {
       if (inherits(x, "FileSelector")) {
         map(
           fs___FileSystem__GetTargetInfos_FileSelector(self, x),
@@ -189,7 +189,7 @@ FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
           class = FileInfo
         )
       } else {
-        abort("incompatible type for FileSystem$GetTargetInfos()")
+        abort("incompatible type for FileSystem$GetFileInfo()")
       }
     },
 

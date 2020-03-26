@@ -42,9 +42,12 @@ jobs:
       NODE: ${{ matrix.node }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Docker Pull
         run: docker-compose pull --ignore-pull-failures debian-js
       - name: Docker Build
@@ -70,9 +73,12 @@ jobs:
         node: [11]
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Install NodeJS
         uses: actions/setup-node@v1
         with:

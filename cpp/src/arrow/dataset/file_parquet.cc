@@ -63,9 +63,7 @@ class ParquetScanTask : public ScanTask {
     std::unique_ptr<RecordBatchReader> record_batch_reader;
     RETURN_NOT_OK(reader_->GetRecordBatchReader({row_group_}, column_projection_,
                                                 &record_batch_reader));
-
-    std::shared_ptr<RecordBatchReader> r = std::move(record_batch_reader);
-    return MakeFunctionIterator([r] { return r->Next(); });
+    return IteratorFromReader(std::move(record_batch_reader));
   }
 
  private:
@@ -379,14 +377,8 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
   ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source, std::move(properties)));
 
   auto arrow_properties = MakeArrowReaderProperties(*this, options->batch_size, *reader);
-  return ParquetScanTaskIterator::Make(options, context, std::move(reader),
-                                       std::move(arrow_properties));
-}
-
-Result<std::shared_ptr<Fragment>> ParquetFileFormat::MakeFragment(
-    FileSource source, std::shared_ptr<ScanOptions> options) {
-  return std::make_shared<ParquetFragment>(std::move(source), shared_from_this(),
-                                           std::move(options));
+  return ParquetScanTaskIterator::Make(std::move(options), std::move(context),
+                                       std::move(reader), std::move(arrow_properties));
 }
 
 }  // namespace dataset

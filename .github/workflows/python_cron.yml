@@ -41,9 +41,12 @@ jobs:
       DEBIAN: ${{ matrix.debian }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Docker Pull
         shell: bash
         run: |
@@ -72,14 +75,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        fedora: [29]
+        fedora: [30]
     env:
       FEDORA: ${{ matrix.fedora }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Docker Pull
         shell: bash
         run: |
@@ -112,6 +118,7 @@ jobs:
           - dask
           - hdfs
           - turbodbc
+          - kartothek-latest
           - pandas-master
           - pandas-0.24
         include:
@@ -121,6 +128,10 @@ jobs:
           - name: turbodbc
             library: turbodbc
             title: Turbodbc
+          - name: kartothek-latest
+            library: kartothek
+            kartothek: latest
+            title: Kartothek latest
           - name: pandas-0.24
             library: pandas
             title: Pandas 0.24
@@ -137,11 +148,15 @@ jobs:
       DASK: latest
       TURBODBC: latest
       PANDAS: ${{ matrix.pandas || 'latest' }}
+      KARTOTHEK: ${{ matrix.kartothek || 'latest' }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Docker Pull
         shell: bash
         run: |

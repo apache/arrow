@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_LVALUE_H
-#define GANDIVA_LVALUE_H
+#pragma once
 
 #include <vector>
 
@@ -76,5 +75,3 @@ class GANDIVA_EXPORT DecimalLValue : public LValue {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_LVALUE_H

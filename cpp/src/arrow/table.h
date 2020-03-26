@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/record_batch.h"
@@ -30,8 +31,6 @@
 
 namespace arrow {
 
-using ArrayVector = std::vector<std::shared_ptr<Array>>;
-
 /// \class ChunkedArray
 /// \brief A data structure managing a list of primitive Arrow arrays logically
 /// as one large array
@@ -41,16 +40,16 @@ class ARROW_EXPORT ChunkedArray {
   ///
   /// The vector must be non-empty and all its elements must have the same
   /// data type.
-  explicit ChunkedArray(const ArrayVector& chunks);
+  explicit ChunkedArray(ArrayVector chunks);
 
   /// \brief Construct a chunked array from a single Array
-  explicit ChunkedArray(const std::shared_ptr<Array>& chunk)
-      : ChunkedArray(ArrayVector({chunk})) {}
+  explicit ChunkedArray(std::shared_ptr<Array> chunk)
+      : ChunkedArray(ArrayVector{std::move(chunk)}) {}
 
   /// \brief Construct a chunked array from a vector of arrays and a data type
   ///
   /// As the data type is passed explicitly, the vector may be empty.
-  ChunkedArray(const ArrayVector& chunks, const std::shared_ptr<DataType>& type);
+  ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type);
 
   /// \return the total length of the chunked array; computed on construction
   int64_t length() const { return length_; }

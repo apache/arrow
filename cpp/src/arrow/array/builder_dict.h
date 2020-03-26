@@ -175,6 +175,12 @@ class DictionaryBuilderBase : public ArrayBuilder {
     return Append(util::string_view(value, length));
   }
 
+  /// \brief Append a string (only for string types)
+  template <typename T1 = T>
+  enable_if_string_like<T1, Status> Append(const char* value, int32_t length) {
+    return Append(util::string_view(value, length));
+  }
+
   /// \brief Append a scalar null value
   Status AppendNull() final {
     length_ += 1;
@@ -248,7 +254,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
   }
 
   Status Resize(int64_t capacity) override {
-    ARROW_RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+    ARROW_RETURN_NOT_OK(CheckCapacity(capacity));
     capacity = std::max(capacity, kMinBuilderCapacity);
     ARROW_RETURN_NOT_OK(indices_builder_.Resize(capacity));
     capacity_ = indices_builder_.capacity();
@@ -356,7 +362,7 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
   }
 
   Status Resize(int64_t capacity) override {
-    ARROW_RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+    ARROW_RETURN_NOT_OK(CheckCapacity(capacity));
     capacity = std::max(capacity, kMinBuilderCapacity);
 
     ARROW_RETURN_NOT_OK(indices_builder_.Resize(capacity));

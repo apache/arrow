@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_COMMON_H
-#define ARROW_PYTHON_COMMON_H
+#pragma once
 
 #include <memory>
 #include <utility>
@@ -257,6 +256,14 @@ struct PyBytesView {
       this->size = PyByteArray_GET_SIZE(obj);
       this->ref.reset();
       return Status::OK();
+    } else if (PyMemoryView_Check(obj)) {
+      PyObject* contig_view = PyMemoryView_GetContiguous(obj, PyBUF_READ, 'C');
+      RETURN_IF_PYERROR();
+      this->ref.reset(contig_view);
+      Py_buffer* buf = PyMemoryView_GET_BUFFER(contig_view);
+      this->bytes = reinterpret_cast<const char*>(buf->buf);
+      this->size = buf->len;
+      return Status::OK();
     } else {
       return Status::TypeError("Expected ", expected_msg, ", got a '",
                                Py_TYPE(obj)->tp_name, "' object");
@@ -265,10 +272,6 @@ struct PyBytesView {
 
   OwnedRef ref;
 };
-
-// Return the common PyArrow memory pool
-ARROW_PYTHON_EXPORT void set_default_memory_pool(MemoryPool* pool);
-ARROW_PYTHON_EXPORT MemoryPool* get_memory_pool();
 
 class ARROW_PYTHON_EXPORT PyBuffer : public Buffer {
  public:
@@ -285,6 +288,10 @@ class ARROW_PYTHON_EXPORT PyBuffer : public Buffer {
   Py_buffer py_buf_;
 };
 
+// Return the common PyArrow memory pool
+ARROW_PYTHON_EXPORT void set_default_memory_pool(MemoryPool* pool);
+ARROW_PYTHON_EXPORT MemoryPool* get_memory_pool();
+
 // This is annoying: because C++11 does not allow implicit conversion of string
 // literals to non-const char*, we need to go through some gymnastics to use
 // PyObject_CallMethod without a lot of pain (its arguments are non-const
@@ -298,5 +305,3 @@ static inline PyObject* cpp_PyObject_CallMethod(PyObject* obj, const char* metho
 
 }  // namespace py
 }  // namespace arrow
-
-#endif  // ARROW_PYTHON_COMMON_H

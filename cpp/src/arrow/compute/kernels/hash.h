@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_COMPUTE_KERNELS_HASH_H
-#define ARROW_COMPUTE_KERNELS_HASH_H
+#pragma once
 
 #include <memory>
 
@@ -101,5 +100,3 @@ Status DictionaryEncode(FunctionContext* context, const Datum& data, Datum* out)
 
 }  // namespace compute
 }  // namespace arrow
-
-#endif  // ARROW_COMPUTE_KERNELS_HASH_H

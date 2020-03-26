@@ -258,6 +258,24 @@ TEST(TestFlight, RoundtripStatus) {
       MakeFlightError(FlightStatusCode::Unavailable, "Test message"));
   ASSERT_NE(nullptr, detail);
   ASSERT_EQ(FlightStatusCode::Unavailable, detail->code());
+
+  Status status = internal::FromGrpcStatus(
+      internal::ToGrpcStatus(Status::NotImplemented("Sentinel")));
+  ASSERT_TRUE(status.IsNotImplemented());
+  ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
+
+  status = internal::FromGrpcStatus(internal::ToGrpcStatus(Status::Invalid("Sentinel")));
+  ASSERT_TRUE(status.IsInvalid());
+  ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
+
+  status = internal::FromGrpcStatus(internal::ToGrpcStatus(Status::KeyError("Sentinel")));
+  ASSERT_TRUE(status.IsKeyError());
+  ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
+
+  status =
+      internal::FromGrpcStatus(internal::ToGrpcStatus(Status::AlreadyExists("Sentinel")));
+  ASSERT_TRUE(status.IsAlreadyExists());
+  ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
 }
 
 TEST(TestFlight, GetPort) {
@@ -963,6 +981,13 @@ TEST_F(TestFlightClient, DoAction) {
 
   ASSERT_OK(stream->Next(&result));
   ASSERT_EQ(nullptr, result);
+}
+
+TEST_F(TestFlightClient, RoundTripStatus) {
+  const auto descr = FlightDescriptor::Command("status-outofmemory");
+  std::unique_ptr<FlightInfo> info;
+  const auto status = client_->GetFlightInfo(descr, &info);
+  ASSERT_RAISES(OutOfMemory, status);
 }
 
 TEST_F(TestFlightClient, Issue5095) {

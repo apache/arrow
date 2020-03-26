@@ -607,6 +607,22 @@ std::shared_ptr<Expression> CastExpression::Assume(const Expression& given) cons
   return std::make_shared<CastExpression>(std::move(operand), std::move(like), options_);
 }
 
+const std::shared_ptr<DataType>& CastExpression::to_type() const {
+  if (arrow::util::holds_alternative<std::shared_ptr<DataType>>(to_)) {
+    return arrow::util::get<std::shared_ptr<DataType>>(to_);
+  }
+  static std::shared_ptr<DataType> null;
+  return null;
+}
+
+const std::shared_ptr<Expression>& CastExpression::like_expr() const {
+  if (arrow::util::holds_alternative<std::shared_ptr<Expression>>(to_)) {
+    return arrow::util::get<std::shared_ptr<Expression>>(to_);
+  }
+  static std::shared_ptr<Expression> null;
+  return null;
+}
+
 std::string FieldExpression::ToString() const { return name_; }
 
 std::string OperatorName(compute::CompareOperator op) {
@@ -713,7 +729,7 @@ bool FieldExpression::Equals(const Expression& other) const {
 }
 
 bool Expression::Equals(const std::shared_ptr<Expression>& other) const {
-  if (other == NULLPTR) {
+  if (other == nullptr) {
     return false;
   }
   return Equals(*other);
@@ -898,7 +914,8 @@ Result<std::shared_ptr<DataType>> ScalarExpression::Validate(const Schema& schem
 }
 
 Result<std::shared_ptr<DataType>> FieldExpression::Validate(const Schema& schema) const {
-  if (auto field = schema.GetFieldByName(name_)) {
+  ARROW_ASSIGN_OR_RAISE(auto field, FieldRef(name_).GetOneOrNone(schema));
+  if (field != nullptr) {
     return field->type();
   }
   return null();

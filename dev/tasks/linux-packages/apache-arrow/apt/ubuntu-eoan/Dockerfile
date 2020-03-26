@@ -24,19 +24,21 @@ RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
     debconf-set-selections
 
-ARG DEBUG
+RUN \
+  echo 'APT::Install-Recommends "false";' > \
+    /etc/apt/apt.conf.d/disable-install-recommends
 
+ARG DEBUG
+ARG LLVM
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
-    bison \
     build-essential \
-    clang-7 \
+    clang-${LLVM} \
     cmake \
     debhelper \
     devscripts \
-    flex \
     git \
     gtk-doc-tools \
     libboost-filesystem-dev \
@@ -54,6 +56,7 @@ RUN \
     libsnappy-dev \
     libssl-dev \
     libzstd-dev \
+    llvm-${LLVM}-dev \
     lsb-release \
     ninja-build \
     pkg-config \

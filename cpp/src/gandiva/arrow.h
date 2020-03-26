@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_EXPR_ARROW_H
-#define GANDIVA_EXPR_ARROW_H
+#pragma once
 
 #include <memory>
 #include <vector>
@@ -63,5 +62,3 @@ static inline bool is_decimal_128(DataTypePtr type) {
   }
 }
 }  // namespace gandiva
-
-#endif  // GANDIVA_EXPR_ARROW_H

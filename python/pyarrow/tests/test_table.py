@@ -31,6 +31,9 @@ def test_chunked_array_basics():
     assert data.to_pylist() == []
     data.validate()
 
+    data2 = pa.chunked_array([], type='binary')
+    assert data2.type == pa.binary()
+
     with pytest.raises(ValueError):
         pa.chunked_array([])
 
@@ -457,6 +460,17 @@ def test_table_slice_getitem():
     return _table_like_slice_tests(pa.table)
 
 
+@pytest.mark.pandas
+def test_slice_zero_length_table():
+    # ARROW-7907: a segfault on this code was fixed after 0.16.0
+    table = pa.table({'a': pa.array([], type=pa.timestamp('us'))})
+    table_slice = table.slice(0, 0)
+    table_slice.to_pandas()
+
+    table = pa.table({'a': pa.chunked_array([], type=pa.string())})
+    table.to_pandas()
+
+
 def test_recordbatchlist_schema_equals():
     a1 = np.array([1], dtype='uint32')
     a2 = np.array([4.0, 5.0], dtype='float64')
@@ -481,8 +495,8 @@ def test_table_equals():
     assert not table.equals(None)
 
     other = pa.Table.from_arrays([], names=[], metadata={'key': 'value'})
-    assert not table.equals(other)
-    assert table.equals(other, check_metadata=False)
+    assert not table.equals(other, check_metadata=True)
+    assert table.equals(other)
 
 
 def test_table_from_batches_and_schema():
@@ -857,12 +871,12 @@ def test_concat_tables_with_different_schema_metadata():
 
     table1 = pa.Table.from_pandas(df1, schema=schema, preserve_index=False)
     table2 = pa.Table.from_pandas(df2, schema=schema, preserve_index=False)
-    assert table1.schema.equals(table2.schema, check_metadata=False)
+    assert table1.schema.equals(table2.schema)
     assert not table1.schema.equals(table2.schema, check_metadata=True)
 
     table3 = pa.concat_tables([table1, table2])
     assert table1.schema.equals(table3.schema, check_metadata=True)
-    assert table2.schema.equals(table3.schema, check_metadata=False)
+    assert table2.schema.equals(table3.schema)
 
 
 def test_concat_tables_with_promotion():

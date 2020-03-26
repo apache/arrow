@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_BITMAP_ACCUMULATOR_H
-#define GANDIVA_BITMAP_ACCUMULATOR_H
+#pragma once
 
 #include <vector>
 
@@ -78,5 +77,3 @@ class GANDIVA_EXPORT BitMapAccumulator : public DexDefaultVisitor {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_BITMAP_ACCUMULATOR_H

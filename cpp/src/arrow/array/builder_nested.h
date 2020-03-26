@@ -54,9 +54,9 @@ class BaseListBuilder : public ArrayBuilder {
       return Status::CapacityError("List array cannot reserve space for more than ",
                                    maximum_elements(), " got ", capacity);
     }
-    ARROW_RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+    ARROW_RETURN_NOT_OK(CheckCapacity(capacity));
 
-    // one more then requested for offsets
+    // One more than requested for offsets
     ARROW_RETURN_NOT_OK(offsets_builder_.Resize(capacity + 1));
     return ArrayBuilder::Resize(capacity);
   }

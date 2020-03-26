@@ -332,8 +332,6 @@ class ARROW_EXPORT Buffer {
   ARROW_DISALLOW_COPY_AND_ASSIGN(Buffer);
 };
 
-using BufferVector = std::vector<std::shared_ptr<Buffer>>;
-
 /// \defgroup buffer-slicing-functions Functions for slicing buffers
 ///
 /// @{

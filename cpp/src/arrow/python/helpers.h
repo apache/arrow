@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_HELPERS_H
-#define ARROW_PYTHON_HELPERS_H
+#pragma once
 
 #include "arrow/python/platform.h"
 
@@ -78,7 +77,7 @@ ARROW_PYTHON_EXPORT
 bool PyFloat_IsNaN(PyObject* obj);
 
 inline bool IsPyBinary(PyObject* obj) {
-  return PyBytes_Check(obj) || PyByteArray_Check(obj);
+  return PyBytes_Check(obj) || PyByteArray_Check(obj) || PyMemoryView_Check(obj);
 }
 
 // \brief Convert a Python integer into a C integer
@@ -140,5 +139,3 @@ void DebugPrint(PyObject* obj);
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow
-
-#endif  // ARROW_PYTHON_HELPERS_H

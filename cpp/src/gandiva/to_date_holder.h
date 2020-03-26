@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef TO_DATE_HOLDER_H
-#define TO_DATE_HOLDER_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -57,4 +56,3 @@ class GANDIVA_EXPORT ToDateHolder : public FunctionHolder {
 };
 
 }  // namespace gandiva
-#endif  // TO_DATE_HOLDER_H

@@ -197,6 +197,14 @@ public class UnionFixedSizeListWriter extends AbstractFieldWriter {
     writer.setPosition(writer.idx() + 1);
   }
 
+  public void writeBigEndianBytesToDecimal(byte[] value, ArrowType arrowType) {
+    if (writer.idx() >= (idx() + 1) * listSize) {
+      throw new IllegalStateException(String.format("values at index %s is greater than listSize %s", idx(), listSize));
+    }
+    writer.writeBigEndianBytesToDecimal(value, arrowType);
+    writer.setPosition(writer.idx() + 1);
+  }
+
   <#list vv.types as type>
     <#list type.minor as minor>
       <#assign name = minor.class?cap_first />

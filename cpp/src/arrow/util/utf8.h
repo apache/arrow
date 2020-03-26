@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_UTF8_H
-#define ARROW_UTIL_UTF8_H
+#pragma once
 
 #include <cassert>
 #include <cstdint>
@@ -178,5 +177,3 @@ Result<const uint8_t*> SkipUTF8BOM(const uint8_t* data, int64_t size);
 
 }  // namespace util
 }  // namespace arrow
-
-#endif

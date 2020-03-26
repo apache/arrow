@@ -51,6 +51,8 @@ class ARROW_DS_EXPORT Fragment {
   /// \brief Return true if the fragment can benefit from parallel scanning.
   virtual bool splittable() const = 0;
 
+  virtual std::string type_name() const = 0;
+
   /// \brief Filtering, schema reconciliation, and partition options to use when
   /// scanning this fragment.
   const std::shared_ptr<ScanOptions>& scan_options() const { return scan_options_; }
@@ -81,15 +83,21 @@ class ARROW_DS_EXPORT Fragment {
 /// RecordBatch.
 class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
  public:
-  InMemoryFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches,
+  InMemoryFragment(RecordBatchVector record_batches,
                    std::shared_ptr<ScanOptions> scan_options);
+
+  InMemoryFragment(RecordBatchVector record_batches,
+                   std::shared_ptr<ScanOptions> scan_options,
+                   std::shared_ptr<Expression> partition_expression);
 
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) override;
 
   bool splittable() const override { return false; }
 
+  std::string type_name() const override { return "in-memory"; }
+
  protected:
-  std::vector<std::shared_ptr<RecordBatch>> record_batches_;
+  RecordBatchVector record_batches_;
 };
 
 /// \brief A container of zero or more Fragments. A Dataset acts as a discovery mechanism
@@ -100,8 +108,7 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   Result<std::shared_ptr<ScannerBuilder>> NewScan(std::shared_ptr<ScanContext> context);
   Result<std::shared_ptr<ScannerBuilder>> NewScan();
 
-  /// \brief GetFragments returns an iterator of Fragments. The ScanOptions
-  /// controls filtering and schema inference.
+  /// \brief GetFragments returns an iterator of Fragments given ScanOptions.
   FragmentIterator GetFragments(std::shared_ptr<ScanOptions> options);
 
   const std::shared_ptr<Schema>& schema() const { return schema_; }
@@ -152,8 +159,7 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
       : Dataset(std::move(schema)), get_batches_(std::move(get_batches)) {}
 
   // Convenience constructor taking a fixed list of batches
-  InMemoryDataset(std::shared_ptr<Schema> schema,
-                  std::vector<std::shared_ptr<RecordBatch>> batches);
+  InMemoryDataset(std::shared_ptr<Schema> schema, RecordBatchVector batches);
 
   explicit InMemoryDataset(std::shared_ptr<Table> table);
 

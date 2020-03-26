@@ -361,7 +361,7 @@ TEST(TestTensor, EqualsInt64) {
 template <typename DataType>
 class TestFloatTensor : public ::testing::Test {};
 
-TYPED_TEST_CASE_P(TestFloatTensor);
+TYPED_TEST_SUITE_P(TestFloatTensor);
 
 TYPED_TEST_P(TestFloatTensor, Equals) {
   using DataType = TypeParam;
@@ -449,10 +449,10 @@ TYPED_TEST_P(TestFloatTensor, Equals) {
   EXPECT_TRUE(tc1.Equals(tc2, EqualOptions().nans_equal(true)));  // different memory
 }
 
-REGISTER_TYPED_TEST_CASE_P(TestFloatTensor, Equals);
+REGISTER_TYPED_TEST_SUITE_P(TestFloatTensor, Equals);
 
-INSTANTIATE_TYPED_TEST_CASE_P(Float32, TestFloatTensor, FloatType);
-INSTANTIATE_TYPED_TEST_CASE_P(Float64, TestFloatTensor, DoubleType);
+INSTANTIATE_TYPED_TEST_SUITE_P(Float32, TestFloatTensor, FloatType);
+INSTANTIATE_TYPED_TEST_SUITE_P(Float64, TestFloatTensor, DoubleType);
 
 TEST(TestNumericTensor, Make) {
   std::vector<int64_t> shape = {3, 6};

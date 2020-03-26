@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_EXPR_VALIDATOR_H
-#define GANDIVA_EXPR_VALIDATOR_H
+#pragma once
 
 #include <string>
 #include <unordered_map>
@@ -77,5 +76,3 @@ class ExprValidator : public NodeVisitor {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_EXPR_VALIDATOR_H

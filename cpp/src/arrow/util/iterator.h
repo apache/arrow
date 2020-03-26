@@ -149,6 +149,18 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
 
   RangeIterator end() { return RangeIterator(); }
 
+  /// \brief Move every element of this iterator into a vector.
+  Result<std::vector<T>> ToVector() {
+    std::vector<T> out;
+    for (auto maybe_element : *this) {
+      ARROW_ASSIGN_OR_RAISE(auto element, std::move(maybe_element));
+      out.push_back(std::move(element));
+    }
+    // ARROW-8193: On gcc-4.8 without the explicit move it tries to use the
+    // copy constructor, which may be deleted on the elements of type T
+    return std::move(out);
+  }
+
  private:
   /// Implementation of deleter for ptr_: Casts from void* to the wrapped type and
   /// deletes that.

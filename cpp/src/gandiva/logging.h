@@ -15,10 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_LOGGING_H
-#define GANDIVA_LOGGING_H
+#pragma once
 
 // TODO : setup logging or use glog.
 #include <arrow/util/logging.h>
-
-#endif  // GANDIVA_LOGGING_H

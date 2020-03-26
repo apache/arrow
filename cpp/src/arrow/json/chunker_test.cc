@@ -185,9 +185,9 @@ class BaseChunkerTest : public ::testing::TestWithParam<bool> {
   std::unique_ptr<Chunker> chunker_;
 };
 
-INSTANTIATE_TEST_CASE_P(NoNewlineChunkerTest, BaseChunkerTest, ::testing::Values(false));
+INSTANTIATE_TEST_SUITE_P(NoNewlineChunkerTest, BaseChunkerTest, ::testing::Values(false));
 
-INSTANTIATE_TEST_CASE_P(ChunkerTest, BaseChunkerTest, ::testing::Values(true));
+INSTANTIATE_TEST_SUITE_P(ChunkerTest, BaseChunkerTest, ::testing::Values(true));
 
 constexpr int object_count = 4;
 constexpr int min_block_size = 28;

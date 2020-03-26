@@ -516,6 +516,10 @@ Utf8__initialize <- function(){
     .Call(`_arrow_Utf8__initialize` )
 }
 
+Binary__initialize <- function(){
+    .Call(`_arrow_Binary__initialize` )
+}
+
 Date32__initialize <- function(){
     .Call(`_arrow_Date32__initialize` )
 }
@@ -836,16 +840,16 @@ fs___FileSelector__base_dir <- function(selector){
     .Call(`_arrow_fs___FileSelector__base_dir` , selector)
 }
 
-fs___FileSelector__allow_non_existent <- function(selector){
-    .Call(`_arrow_fs___FileSelector__allow_non_existent` , selector)
+fs___FileSelector__allow_not_found <- function(selector){
+    .Call(`_arrow_fs___FileSelector__allow_not_found` , selector)
 }
 
 fs___FileSelector__recursive <- function(selector){
     .Call(`_arrow_fs___FileSelector__recursive` , selector)
 }
 
-fs___FileSelector__create <- function(base_dir, allow_non_existent, recursive){
-    .Call(`_arrow_fs___FileSelector__create` , base_dir, allow_non_existent, recursive)
+fs___FileSelector__create <- function(base_dir, allow_not_found, recursive){
+    .Call(`_arrow_fs___FileSelector__create` , base_dir, allow_not_found, recursive)
 }
 
 fs___FileSystem__GetTargetInfos_Paths <- function(file_system, paths){
@@ -1114,6 +1118,10 @@ parquet___arrow___FileReader__ReadTable1 <- function(reader){
 
 parquet___arrow___FileReader__ReadTable2 <- function(reader, column_indices){
     .Call(`_arrow_parquet___arrow___FileReader__ReadTable2` , reader, column_indices)
+}
+
+parquet___arrow___FileReader__num_rows <- function(reader){
+    .Call(`_arrow_parquet___arrow___FileReader__num_rows` , reader)
 }
 
 parquet___ArrowWriterProperties___Builder__create <- function(){

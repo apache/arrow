@@ -907,6 +907,17 @@ def test_cast_chunked_array():
     assert casted.equals(expected)
 
 
+def test_cast_chunked_array_empty():
+    # ARROW-8142
+    for typ1, typ2 in [(pa.dictionary(pa.int8(), pa.string()), pa.string()),
+                       (pa.int64(), pa.int32())]:
+
+        arr = pa.chunked_array([], type=typ1)
+        result = arr.cast(typ2)
+        expected = pa.chunked_array([], type=typ2)
+        assert result.equals(expected)
+
+
 def test_chunked_array_data_warns():
     with pytest.warns(FutureWarning):
         res = pa.chunked_array([[]]).data
@@ -1059,13 +1070,37 @@ def test_unique_simple():
     cases = [
         (pa.array([1, 2, 3, 1, 2, 3]), pa.array([1, 2, 3])),
         (pa.array(['foo', None, 'bar', 'foo']),
-         pa.array(['foo', None, 'bar']))
+         pa.array(['foo', None, 'bar'])),
+        (pa.array(['foo', None, 'bar', 'foo'], pa.large_binary()),
+         pa.array(['foo', None, 'bar'], pa.large_binary())),
     ]
     for arr, expected in cases:
         result = arr.unique()
         assert result.equals(expected)
         result = pa.chunked_array([arr]).unique()
         assert result.equals(expected)
+
+
+def test_value_counts_simple():
+    cases = [
+        (pa.array([1, 2, 3, 1, 2, 3]),
+         pa.array([1, 2, 3]),
+         pa.array([2, 2, 2], type=pa.int64())),
+        (pa.array(['foo', None, 'bar', 'foo']),
+         pa.array(['foo', None, 'bar']),
+         pa.array([2, 1, 1], type=pa.int64())),
+        (pa.array(['foo', None, 'bar', 'foo'], pa.large_binary()),
+         pa.array(['foo', None, 'bar'], pa.large_binary()),
+         pa.array([2, 1, 1], type=pa.int64())),
+    ]
+    for arr, expected_values, expected_counts in cases:
+        for arr_in in (arr, pa.chunked_array([arr])):
+            result = arr_in.value_counts()
+            assert result.type.equals(
+                pa.struct([pa.field("values", arr.type),
+                           pa.field("counts", pa.int64())]))
+            assert result.field("values").equals(expected_values)
+            assert result.field("counts").equals(expected_counts)
 
 
 def test_dictionary_encode_simple():
@@ -1077,7 +1112,11 @@ def test_dictionary_encode_simple():
         (pa.array(['foo', None, 'bar', 'foo']),
          pa.DictionaryArray.from_arrays(
              pa.array([0, None, 1, 0], type='int32'),
-             ['foo', 'bar']))
+             ['foo', 'bar'])),
+        (pa.array(['foo', None, 'bar', 'foo'], type=pa.large_binary()),
+         pa.DictionaryArray.from_arrays(
+             pa.array([0, None, 1, 0], type='int32'),
+             pa.array(['foo', 'bar'], type=pa.large_binary()))),
     ]
     for arr, expected in cases:
         result = arr.dictionary_encode()
@@ -1099,13 +1138,19 @@ def test_dictionary_encode_sliced():
         (pa.array([None, 'foo', 'bar', 'foo', 'xyzzy'])[1:-1],
          pa.DictionaryArray.from_arrays(
              pa.array([0, 1, 0], type='int32'),
-             ['foo', 'bar']))
+             ['foo', 'bar'])),
+        (pa.array([None, 'foo', 'bar', 'foo', 'xyzzy'],
+                  type=pa.large_string())[1:-1],
+         pa.DictionaryArray.from_arrays(
+             pa.array([0, 1, 0], type='int32'),
+             pa.array(['foo', 'bar'], type=pa.large_string()))),
     ]
     for arr, expected in cases:
         result = arr.dictionary_encode()
         assert result.equals(expected)
         result = pa.chunked_array([arr]).dictionary_encode()
         assert result.num_chunks == 1
+        assert result.type == expected.type
         assert result.chunk(0).equals(expected)
         result = pa.chunked_array([], type=arr.type).dictionary_encode()
         assert result.num_chunks == 0
@@ -1621,6 +1666,13 @@ def test_array_from_masked():
 
     with pytest.raises(ValueError, match="Cannot pass a numpy masked array"):
         pa.array(ma, mask=np.array([True, False, False, False]))
+
+
+def test_array_from_shrunken_masked():
+    ma = np.ma.array([0], dtype='int64')
+    result = pa.array(ma)
+    expected = pa.array([0], type='int64')
+    assert expected.equals(result)
 
 
 def test_array_from_invalid_dim_raises():

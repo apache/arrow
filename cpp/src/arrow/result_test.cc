@@ -25,6 +25,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/testing/gtest_compat.h"
+
 namespace arrow {
 
 namespace {
@@ -186,7 +188,7 @@ typedef ::testing::Types<IntCtor, FooCtor, StringCtor, StringVectorCtor,
                          HeapAllocatedObjectCtor>
     TestTypes;
 
-TYPED_TEST_CASE(ResultTest, TestTypes);
+TYPED_TEST_SUITE(ResultTest, TestTypes);
 
 // Verify that the default constructor for Result constructs an object with a
 // non-ok status.

@@ -17,8 +17,7 @@
 
 // Internal utilities for dealing with NumPy
 
-#ifndef ARROW_PYTHON_NUMPY_INTERNAL_H
-#define ARROW_PYTHON_NUMPY_INTERNAL_H
+#pragma once
 
 #include "arrow/python/numpy_interop.h"
 
@@ -181,5 +180,3 @@ static inline PyArray_Descr* GetSafeNumPyDtype(int type) {
 
 }  // namespace py
 }  // namespace arrow
-
-#endif  // ARROW_PYTHON_NUMPY_INTERNAL_H

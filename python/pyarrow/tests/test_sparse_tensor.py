@@ -50,7 +50,9 @@ tensor_type_pairs = [
 
 @pytest.mark.parametrize('sparse_tensor_type', [
     pa.SparseCSRMatrix,
+    pa.SparseCSCMatrix,
     pa.SparseCOOTensor,
+    pa.SparseCSFTensor,
 ])
 def test_sparse_tensor_attrs(sparse_tensor_type):
     data = np.array([
@@ -115,9 +117,36 @@ def test_sparse_csr_matrix_base_object():
     assert np.array_equal(indices, result_indices)
 
 
+def test_sparse_csf_tensor_base_object():
+    data = np.array([[8, 2, 5, 3, 4, 6]]).T
+    indptr = [np.array([0, 2, 3, 4, 6])]
+    indices = [
+        np.array([0, 1, 2, 3]),
+        np.array([0, 2, 5, 0, 4, 5])
+    ]
+    array = np.array([
+        [8, 0, 2, 0, 0, 0],
+        [0, 0, 0, 0, 0, 5],
+        [3, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 4, 6],
+    ])
+    sparse_tensor = pa.SparseCSFTensor.from_dense_numpy(array)
+    n = sys.getrefcount(sparse_tensor)
+    result_data, result_indptr, result_indices = sparse_tensor.to_numpy()
+    assert sys.getrefcount(sparse_tensor) == n + 4
+
+    sparse_tensor = None
+    assert np.array_equal(data, result_data)
+    assert np.array_equal(indptr[0], result_indptr[0])
+    assert np.array_equal(indices[0], result_indices[0])
+    assert np.array_equal(indices[1], result_indices[1])
+
+
 @pytest.mark.parametrize('sparse_tensor_type', [
     pa.SparseCSRMatrix,
+    pa.SparseCSCMatrix,
     pa.SparseCOOTensor,
+    pa.SparseCSFTensor,
 ])
 def test_sparse_tensor_equals(sparse_tensor_type):
     def eq(a, b):
@@ -209,6 +238,61 @@ def test_sparse_csr_matrix_from_dense(dtype_str, arrow_type):
 
 
 @pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
+def test_sparse_csf_tensor_from_dense_numpy(dtype_str, arrow_type):
+    dtype = np.dtype(dtype_str)
+    data = np.array([[8, 2, 5, 3, 4, 6]]).T.astype(dtype)
+    indptr = [np.array([0, 2, 3, 4, 6])]
+    indices = [
+        np.array([0, 1, 2, 3]),
+        np.array([0, 2, 5, 0, 4, 5])
+    ]
+    array = np.array([
+        [8, 0, 2, 0, 0, 0],
+        [0, 0, 0, 0, 0, 5],
+        [3, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 4, 6],
+    ]).astype(dtype)
+
+    # Test from numpy array
+    sparse_tensor = pa.SparseCSFTensor.from_dense_numpy(array)
+    repr(sparse_tensor)
+    result_data, result_indptr, result_indices = sparse_tensor.to_numpy()
+    assert sparse_tensor.type == arrow_type
+    assert np.array_equal(data, result_data)
+    assert np.array_equal(indptr[0], result_indptr[0])
+    assert np.array_equal(indices[0], result_indices[0])
+    assert np.array_equal(indices[1], result_indices[1])
+
+
+@pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
+def test_sparse_csf_tensor_from_dense_tensor(dtype_str, arrow_type):
+    dtype = np.dtype(dtype_str)
+    data = np.array([[8, 2, 5, 3, 4, 6]]).T.astype(dtype)
+    indptr = [np.array([0, 2, 3, 4, 6])]
+    indices = [
+        np.array([0, 1, 2, 3]),
+        np.array([0, 2, 5, 0, 4, 5])
+    ]
+    array = np.array([
+        [8, 0, 2, 0, 0, 0],
+        [0, 0, 0, 0, 0, 5],
+        [3, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 4, 6],
+    ]).astype(dtype)
+    tensor = pa.Tensor.from_numpy(array)
+
+    # Test from Tensor
+    sparse_tensor = pa.SparseCSFTensor.from_tensor(tensor)
+    repr(sparse_tensor)
+    result_data, result_indptr, result_indices = sparse_tensor.to_numpy()
+    assert sparse_tensor.type == arrow_type
+    assert np.array_equal(data, result_data)
+    assert np.array_equal(indptr[0], result_indptr[0])
+    assert np.array_equal(indices[0], result_indices[0])
+    assert np.array_equal(indices[1], result_indices[1])
+
+
+@pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
 def test_sparse_coo_tensor_numpy_roundtrip(dtype_str, arrow_type):
     dtype = np.dtype(dtype_str)
     data = np.array([[1, 2, 3, 4, 5, 6]]).T.astype(dtype)
@@ -249,9 +333,37 @@ def test_sparse_csr_matrix_numpy_roundtrip(dtype_str, arrow_type):
     assert sparse_tensor.dim_names == dim_names
 
 
+@pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
+def test_sparse_csf_tensor_numpy_roundtrip(dtype_str, arrow_type):
+    dtype = np.dtype(dtype_str)
+    data = np.array([[8, 2, 5, 3, 4, 6]]).T.astype(dtype)
+    indptr = [np.array([0, 2, 3, 4, 6])]
+    indices = [
+        np.array([0, 1, 2, 3]),
+        np.array([0, 2, 5, 0, 4, 5])
+    ]
+    axis_order = (0, 1)
+    shape = (4, 6)
+    dim_names = ('x', 'y')
+
+    sparse_tensor = pa.SparseCSFTensor.from_numpy(data, indptr, indices,
+                                                  shape, axis_order,
+                                                  dim_names)
+    repr(sparse_tensor)
+    result_data, result_indptr, result_indices = sparse_tensor.to_numpy()
+    assert sparse_tensor.type == arrow_type
+    assert np.array_equal(data, result_data)
+    assert np.array_equal(indptr[0], result_indptr[0])
+    assert np.array_equal(indices[0], result_indices[0])
+    assert np.array_equal(indices[1], result_indices[1])
+    assert sparse_tensor.dim_names == dim_names
+
+
 @pytest.mark.parametrize('sparse_tensor_type', [
     pa.SparseCSRMatrix,
+    pa.SparseCSCMatrix,
     pa.SparseCOOTensor,
+    pa.SparseCSFTensor,
 ])
 @pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
 def test_dense_to_sparse_tensor(dtype_str, arrow_type, sparse_tensor_type):

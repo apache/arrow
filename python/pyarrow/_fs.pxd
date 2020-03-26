@@ -26,7 +26,7 @@ from pyarrow.lib cimport *
 
 
 cpdef enum FileType:
-    NonExistent = <int8_t> CFileType_NonExistent
+    NotFound = <int8_t> CFileType_NotFound
     Unknown = <int8_t> CFileType_Unknown
     File = <int8_t> CFileType_File
     Directory = <int8_t> CFileType_Directory
@@ -57,7 +57,7 @@ cdef class FileSystem:
     cdef init(self, const shared_ptr[CFileSystem]& wrapped)
 
     @staticmethod
-    cdef wrap(shared_ptr[CFileSystem]& sp)
+    cdef wrap(const shared_ptr[CFileSystem]& sp)
 
     cdef inline shared_ptr[CFileSystem] unwrap(self) nogil
 

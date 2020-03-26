@@ -273,17 +273,24 @@ public class TestComplexWriter {
       UnionListWriter listWriter = new UnionListWriter(listVector);
       DecimalHolder holder = new DecimalHolder();
       holder.buffer = allocator.buffer(DecimalUtility.DECIMAL_BYTE_LENGTH);
+      ArrowType arrowType = new ArrowType.Decimal(10, 0);
       for (int i = 0; i < COUNT; i++) {
         listWriter.startList();
         for (int j = 0; j < i % 7; j++) {
-          if (j % 2 == 0) {
+          if (j % 4 == 0) {
             listWriter.writeDecimal(new BigDecimal(j));
-          } else {
+          } else if (j % 4 == 1) {
             DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(j), holder.buffer, 0);
             holder.start = 0;
             holder.scale = 0;
             holder.precision = 10;
             listWriter.write(holder);
+          } else if (j % 4 == 2) {
+            DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(j), holder.buffer, 0);
+            listWriter.writeDecimal(0, holder.buffer, arrowType);
+          } else {
+            byte[] value = BigDecimal.valueOf(j).unscaledValue().toByteArray();
+            listWriter.writeBigEndianBytesToDecimal(value, arrowType);
           }
         }
         listWriter.endList();

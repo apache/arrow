@@ -20,8 +20,7 @@
 // XXX(ARROW-6468): this header is now unused.  We keep CRC hash implementations
 // around in case they're useful some day (Parquet checksumming?).
 
-#ifndef ARROW_UTIL_HASH_UTIL_H
-#define ARROW_UTIL_HASH_UTIL_H
+#pragma once
 
 #include <cassert>
 #include <cstdint>
@@ -249,5 +248,3 @@ class HashUtil {
 };
 
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_HASH_UTIL_H

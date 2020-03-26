@@ -342,7 +342,7 @@ template <typename ValueType>
 class TestIntegerSparseCOOTensorEquality : public TestSparseCOOTensorEquality<ValueType> {
 };
 
-TYPED_TEST_CASE_P(TestIntegerSparseCOOTensorEquality);
+TYPED_TEST_SUITE_P(TestIntegerSparseCOOTensorEquality);
 
 TYPED_TEST_P(TestIntegerSparseCOOTensorEquality, TestEquality) {
   using ValueType = TypeParam;
@@ -358,22 +358,25 @@ TYPED_TEST_P(TestIntegerSparseCOOTensorEquality, TestEquality) {
   ASSERT_TRUE(st1->Equals(*st3));
 }
 
-REGISTER_TYPED_TEST_CASE_P(TestIntegerSparseCOOTensorEquality, TestEquality);
+REGISTER_TYPED_TEST_SUITE_P(TestIntegerSparseCOOTensorEquality, TestEquality);
 
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt8, TestIntegerSparseCOOTensorEquality, Int8Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt8, TestIntegerSparseCOOTensorEquality, UInt8Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt16, TestIntegerSparseCOOTensorEquality, Int16Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt16, TestIntegerSparseCOOTensorEquality, UInt16Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt32, TestIntegerSparseCOOTensorEquality, Int32Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt32, TestIntegerSparseCOOTensorEquality, UInt32Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt64, TestIntegerSparseCOOTensorEquality, Int64Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt64, TestIntegerSparseCOOTensorEquality, UInt64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt8, TestIntegerSparseCOOTensorEquality, Int8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8, TestIntegerSparseCOOTensorEquality, UInt8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt16, TestIntegerSparseCOOTensorEquality, Int16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt16, TestIntegerSparseCOOTensorEquality,
+                               UInt16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt32, TestIntegerSparseCOOTensorEquality, Int32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestIntegerSparseCOOTensorEquality,
+                               UInt32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestIntegerSparseCOOTensorEquality, Int64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestIntegerSparseCOOTensorEquality,
+                               UInt64Type);
 
 template <typename ValueType>
 class TestFloatingSparseCOOTensorEquality
     : public TestSparseCOOTensorEquality<ValueType> {};
 
-TYPED_TEST_CASE_P(TestFloatingSparseCOOTensorEquality);
+TYPED_TEST_SUITE_P(TestFloatingSparseCOOTensorEquality);
 
 TYPED_TEST_P(TestFloatingSparseCOOTensorEquality, TestEquality) {
   using ValueType = TypeParam;
@@ -408,11 +411,11 @@ TYPED_TEST_P(TestFloatingSparseCOOTensorEquality, TestEquality) {
   EXPECT_TRUE(st4->Equals(*st5, EqualOptions().nans_equal(true)));  // different memory
 }
 
-REGISTER_TYPED_TEST_CASE_P(TestFloatingSparseCOOTensorEquality, TestEquality);
+REGISTER_TYPED_TEST_SUITE_P(TestFloatingSparseCOOTensorEquality, TestEquality);
 
-INSTANTIATE_TYPED_TEST_CASE_P(TestFloat, TestFloatingSparseCOOTensorEquality, FloatType);
-INSTANTIATE_TYPED_TEST_CASE_P(TestDouble, TestFloatingSparseCOOTensorEquality,
-                              DoubleType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestFloat, TestFloatingSparseCOOTensorEquality, FloatType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestDouble, TestFloatingSparseCOOTensorEquality,
+                               DoubleType);
 
 template <typename IndexValueType>
 class TestSparseCOOTensorForIndexValueType
@@ -461,7 +464,7 @@ class TestSparseCOOTensorForIndexValueType
   }
 };
 
-TYPED_TEST_CASE_P(TestSparseCOOTensorForIndexValueType);
+TYPED_TEST_SUITE_P(TestSparseCOOTensorForIndexValueType);
 
 TYPED_TEST_P(TestSparseCOOTensorForIndexValueType, Make) {
   using IndexValueType = TypeParam;
@@ -581,21 +584,25 @@ TYPED_TEST_P(TestSparseCOOTensorForIndexValueType,
   ASSERT_TRUE(st2->Equals(*st1));
 }
 
-REGISTER_TYPED_TEST_CASE_P(TestSparseCOOTensorForIndexValueType, Make,
-                           CreationWithRowMajorIndex, CreationWithColumnMajorIndex,
-                           EqualityBetweenRowAndColumnMajorIndices);
+REGISTER_TYPED_TEST_SUITE_P(TestSparseCOOTensorForIndexValueType, Make,
+                            CreationWithRowMajorIndex, CreationWithColumnMajorIndex,
+                            EqualityBetweenRowAndColumnMajorIndices);
 
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt8, TestSparseCOOTensorForIndexValueType, Int8Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt8, TestSparseCOOTensorForIndexValueType, UInt8Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt16, TestSparseCOOTensorForIndexValueType, Int16Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt16, TestSparseCOOTensorForIndexValueType,
-                              UInt16Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt32, TestSparseCOOTensorForIndexValueType, Int32Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt32, TestSparseCOOTensorForIndexValueType,
-                              UInt32Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt64, TestSparseCOOTensorForIndexValueType, Int64Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt64, TestSparseCOOTensorForIndexValueType,
-                              UInt64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt8, TestSparseCOOTensorForIndexValueType, Int8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8, TestSparseCOOTensorForIndexValueType,
+                               UInt8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt16, TestSparseCOOTensorForIndexValueType,
+                               Int16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt16, TestSparseCOOTensorForIndexValueType,
+                               UInt16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt32, TestSparseCOOTensorForIndexValueType,
+                               Int32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestSparseCOOTensorForIndexValueType,
+                               UInt32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestSparseCOOTensorForIndexValueType,
+                               Int64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestSparseCOOTensorForIndexValueType,
+                               UInt64Type);
 
 template <typename IndexValueType>
 class TestSparseCSRMatrixBase : public TestSparseTensorBase<Int64Type> {
@@ -762,7 +769,7 @@ template <typename ValueType>
 class TestIntegerSparseCSRMatrixEquality : public TestSparseCSRMatrixEquality<ValueType> {
 };
 
-TYPED_TEST_CASE_P(TestIntegerSparseCSRMatrixEquality);
+TYPED_TEST_SUITE_P(TestIntegerSparseCSRMatrixEquality);
 
 TYPED_TEST_P(TestIntegerSparseCSRMatrixEquality, TestEquality) {
   using ValueType = TypeParam;
@@ -778,22 +785,25 @@ TYPED_TEST_P(TestIntegerSparseCSRMatrixEquality, TestEquality) {
   ASSERT_TRUE(st1->Equals(*st3));
 }
 
-REGISTER_TYPED_TEST_CASE_P(TestIntegerSparseCSRMatrixEquality, TestEquality);
+REGISTER_TYPED_TEST_SUITE_P(TestIntegerSparseCSRMatrixEquality, TestEquality);
 
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt8, TestIntegerSparseCSRMatrixEquality, Int8Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt8, TestIntegerSparseCSRMatrixEquality, UInt8Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt16, TestIntegerSparseCSRMatrixEquality, Int16Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt16, TestIntegerSparseCSRMatrixEquality, UInt16Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt32, TestIntegerSparseCSRMatrixEquality, Int32Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt32, TestIntegerSparseCSRMatrixEquality, UInt32Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt64, TestIntegerSparseCSRMatrixEquality, Int64Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt64, TestIntegerSparseCSRMatrixEquality, UInt64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt8, TestIntegerSparseCSRMatrixEquality, Int8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8, TestIntegerSparseCSRMatrixEquality, UInt8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt16, TestIntegerSparseCSRMatrixEquality, Int16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt16, TestIntegerSparseCSRMatrixEquality,
+                               UInt16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt32, TestIntegerSparseCSRMatrixEquality, Int32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestIntegerSparseCSRMatrixEquality,
+                               UInt32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestIntegerSparseCSRMatrixEquality, Int64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestIntegerSparseCSRMatrixEquality,
+                               UInt64Type);
 
 template <typename ValueType>
 class TestFloatingSparseCSRMatrixEquality
     : public TestSparseCSRMatrixEquality<ValueType> {};
 
-TYPED_TEST_CASE_P(TestFloatingSparseCSRMatrixEquality);
+TYPED_TEST_SUITE_P(TestFloatingSparseCSRMatrixEquality);
 
 TYPED_TEST_P(TestFloatingSparseCSRMatrixEquality, TestEquality) {
   using ValueType = TypeParam;
@@ -828,17 +838,17 @@ TYPED_TEST_P(TestFloatingSparseCSRMatrixEquality, TestEquality) {
   EXPECT_TRUE(st4->Equals(*st5, EqualOptions().nans_equal(true)));  // different memory
 }
 
-REGISTER_TYPED_TEST_CASE_P(TestFloatingSparseCSRMatrixEquality, TestEquality);
+REGISTER_TYPED_TEST_SUITE_P(TestFloatingSparseCSRMatrixEquality, TestEquality);
 
-INSTANTIATE_TYPED_TEST_CASE_P(TestFloat, TestFloatingSparseCSRMatrixEquality, FloatType);
-INSTANTIATE_TYPED_TEST_CASE_P(TestDouble, TestFloatingSparseCSRMatrixEquality,
-                              DoubleType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestFloat, TestFloatingSparseCSRMatrixEquality, FloatType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestDouble, TestFloatingSparseCSRMatrixEquality,
+                               DoubleType);
 
 template <typename IndexValueType>
 class TestSparseCSRMatrixForIndexValueType
     : public TestSparseCSRMatrixBase<IndexValueType> {};
 
-TYPED_TEST_CASE_P(TestSparseCSRMatrixForIndexValueType);
+TYPED_TEST_SUITE_P(TestSparseCSRMatrixForIndexValueType);
 
 TYPED_TEST_P(TestSparseCSRMatrixForIndexValueType, Make) {
   using IndexValueType = TypeParam;
@@ -890,19 +900,23 @@ TYPED_TEST_P(TestSparseCSRMatrixForIndexValueType, Make) {
                                                std::vector<std::string>{"foo"}));
 }
 
-REGISTER_TYPED_TEST_CASE_P(TestSparseCSRMatrixForIndexValueType, Make);
+REGISTER_TYPED_TEST_SUITE_P(TestSparseCSRMatrixForIndexValueType, Make);
 
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt8, TestSparseCSRMatrixForIndexValueType, Int8Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt8, TestSparseCSRMatrixForIndexValueType, UInt8Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt16, TestSparseCSRMatrixForIndexValueType, Int16Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt16, TestSparseCSRMatrixForIndexValueType,
-                              UInt16Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt32, TestSparseCSRMatrixForIndexValueType, Int32Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt32, TestSparseCSRMatrixForIndexValueType,
-                              UInt32Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt64, TestSparseCSRMatrixForIndexValueType, Int64Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt64, TestSparseCSRMatrixForIndexValueType,
-                              UInt64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt8, TestSparseCSRMatrixForIndexValueType, Int8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8, TestSparseCSRMatrixForIndexValueType,
+                               UInt8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt16, TestSparseCSRMatrixForIndexValueType,
+                               Int16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt16, TestSparseCSRMatrixForIndexValueType,
+                               UInt16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt32, TestSparseCSRMatrixForIndexValueType,
+                               Int32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestSparseCSRMatrixForIndexValueType,
+                               UInt32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestSparseCSRMatrixForIndexValueType,
+                               Int64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestSparseCSRMatrixForIndexValueType,
+                               UInt64Type);
 
 template <typename IndexValueType>
 class TestSparseCSCMatrixBase : public TestSparseTensorBase<Int64Type> {
@@ -1069,7 +1083,7 @@ template <typename ValueType>
 class TestIntegerSparseCSCMatrixEquality : public TestSparseCSCMatrixEquality<ValueType> {
 };
 
-TYPED_TEST_CASE_P(TestIntegerSparseCSCMatrixEquality);
+TYPED_TEST_SUITE_P(TestIntegerSparseCSCMatrixEquality);
 
 TYPED_TEST_P(TestIntegerSparseCSCMatrixEquality, TestEquality) {
   using ValueType = TypeParam;
@@ -1085,22 +1099,25 @@ TYPED_TEST_P(TestIntegerSparseCSCMatrixEquality, TestEquality) {
   ASSERT_TRUE(st1->Equals(*st3));
 }
 
-REGISTER_TYPED_TEST_CASE_P(TestIntegerSparseCSCMatrixEquality, TestEquality);
+REGISTER_TYPED_TEST_SUITE_P(TestIntegerSparseCSCMatrixEquality, TestEquality);
 
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt8, TestIntegerSparseCSCMatrixEquality, Int8Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt8, TestIntegerSparseCSCMatrixEquality, UInt8Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt16, TestIntegerSparseCSCMatrixEquality, Int16Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt16, TestIntegerSparseCSCMatrixEquality, UInt16Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt32, TestIntegerSparseCSCMatrixEquality, Int32Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt32, TestIntegerSparseCSCMatrixEquality, UInt32Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt64, TestIntegerSparseCSCMatrixEquality, Int64Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt64, TestIntegerSparseCSCMatrixEquality, UInt64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt8, TestIntegerSparseCSCMatrixEquality, Int8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8, TestIntegerSparseCSCMatrixEquality, UInt8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt16, TestIntegerSparseCSCMatrixEquality, Int16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt16, TestIntegerSparseCSCMatrixEquality,
+                               UInt16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt32, TestIntegerSparseCSCMatrixEquality, Int32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestIntegerSparseCSCMatrixEquality,
+                               UInt32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestIntegerSparseCSCMatrixEquality, Int64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestIntegerSparseCSCMatrixEquality,
+                               UInt64Type);
 
 template <typename ValueType>
 class TestFloatingSparseCSCMatrixEquality
     : public TestSparseCSCMatrixEquality<ValueType> {};
 
-TYPED_TEST_CASE_P(TestFloatingSparseCSCMatrixEquality);
+TYPED_TEST_SUITE_P(TestFloatingSparseCSCMatrixEquality);
 
 TYPED_TEST_P(TestFloatingSparseCSCMatrixEquality, TestEquality) {
   using ValueType = TypeParam;
@@ -1135,11 +1152,11 @@ TYPED_TEST_P(TestFloatingSparseCSCMatrixEquality, TestEquality) {
   EXPECT_TRUE(st4->Equals(*st5, EqualOptions().nans_equal(true)));  // different memory
 }
 
-REGISTER_TYPED_TEST_CASE_P(TestFloatingSparseCSCMatrixEquality, TestEquality);
+REGISTER_TYPED_TEST_SUITE_P(TestFloatingSparseCSCMatrixEquality, TestEquality);
 
-INSTANTIATE_TYPED_TEST_CASE_P(TestFloat, TestFloatingSparseCSCMatrixEquality, FloatType);
-INSTANTIATE_TYPED_TEST_CASE_P(TestDouble, TestFloatingSparseCSCMatrixEquality,
-                              DoubleType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestFloat, TestFloatingSparseCSCMatrixEquality, FloatType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestDouble, TestFloatingSparseCSCMatrixEquality,
+                               DoubleType);
 
 template <typename ValueType>
 class TestSparseCSFTensorEquality : public TestSparseTensorBase<ValueType> {
@@ -1187,7 +1204,7 @@ template <typename ValueType>
 class TestIntegerSparseCSFTensorEquality : public TestSparseCSFTensorEquality<ValueType> {
 };
 
-TYPED_TEST_CASE_P(TestIntegerSparseCSFTensorEquality);
+TYPED_TEST_SUITE_P(TestIntegerSparseCSFTensorEquality);
 
 TYPED_TEST_P(TestIntegerSparseCSFTensorEquality, TestEquality) {
   using ValueType = TypeParam;
@@ -1203,22 +1220,25 @@ TYPED_TEST_P(TestIntegerSparseCSFTensorEquality, TestEquality) {
   ASSERT_TRUE(st1->Equals(*st3));
 }
 
-REGISTER_TYPED_TEST_CASE_P(TestIntegerSparseCSFTensorEquality, TestEquality);
+REGISTER_TYPED_TEST_SUITE_P(TestIntegerSparseCSFTensorEquality, TestEquality);
 
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt8, TestIntegerSparseCSFTensorEquality, Int8Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt8, TestIntegerSparseCSFTensorEquality, UInt8Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt16, TestIntegerSparseCSFTensorEquality, Int16Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt16, TestIntegerSparseCSFTensorEquality, UInt16Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt32, TestIntegerSparseCSFTensorEquality, Int32Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt32, TestIntegerSparseCSFTensorEquality, UInt32Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt64, TestIntegerSparseCSFTensorEquality, Int64Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt64, TestIntegerSparseCSFTensorEquality, UInt64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt8, TestIntegerSparseCSFTensorEquality, Int8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8, TestIntegerSparseCSFTensorEquality, UInt8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt16, TestIntegerSparseCSFTensorEquality, Int16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt16, TestIntegerSparseCSFTensorEquality,
+                               UInt16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt32, TestIntegerSparseCSFTensorEquality, Int32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestIntegerSparseCSFTensorEquality,
+                               UInt32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestIntegerSparseCSFTensorEquality, Int64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestIntegerSparseCSFTensorEquality,
+                               UInt64Type);
 
 template <typename ValueType>
 class TestFloatingSparseCSFTensorEquality
     : public TestSparseCSFTensorEquality<ValueType> {};
 
-TYPED_TEST_CASE_P(TestFloatingSparseCSFTensorEquality);
+TYPED_TEST_SUITE_P(TestFloatingSparseCSFTensorEquality);
 
 TYPED_TEST_P(TestFloatingSparseCSFTensorEquality, TestEquality) {
   using ValueType = TypeParam;
@@ -1255,11 +1275,11 @@ TYPED_TEST_P(TestFloatingSparseCSFTensorEquality, TestEquality) {
   EXPECT_TRUE(st4->Equals(*st5, EqualOptions().nans_equal(true)));  // different memory
 }
 
-REGISTER_TYPED_TEST_CASE_P(TestFloatingSparseCSFTensorEquality, TestEquality);
+REGISTER_TYPED_TEST_SUITE_P(TestFloatingSparseCSFTensorEquality, TestEquality);
 
-INSTANTIATE_TYPED_TEST_CASE_P(TestFloat, TestFloatingSparseCSFTensorEquality, FloatType);
-INSTANTIATE_TYPED_TEST_CASE_P(TestDouble, TestFloatingSparseCSFTensorEquality,
-                              DoubleType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestFloat, TestFloatingSparseCSFTensorEquality, FloatType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestDouble, TestFloatingSparseCSFTensorEquality,
+                               DoubleType);
 
 template <typename IndexValueType>
 class TestSparseCSFTensorBase : public TestSparseTensorBase<Int16Type> {
@@ -1329,7 +1349,7 @@ class TestSparseCSFTensorForIndexValueType
   }
 };
 
-TYPED_TEST_CASE_P(TestSparseCSFTensorForIndexValueType);
+TYPED_TEST_SUITE_P(TestSparseCSFTensorForIndexValueType);
 
 TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, TestCreateSparseTensor) {
   using IndexValueType = TypeParam;
@@ -1455,20 +1475,24 @@ TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, TestNonAscendingShape) {
   ASSERT_TRUE(st->Equals(*sparse_tensor));
 }
 
-REGISTER_TYPED_TEST_CASE_P(TestSparseCSFTensorForIndexValueType, TestCreateSparseTensor,
-                           TestTensorToSparseTensor, TestSparseTensorToTensor,
-                           TestAlternativeAxisOrder, TestNonAscendingShape,
-                           TestRoundTrip);
+REGISTER_TYPED_TEST_SUITE_P(TestSparseCSFTensorForIndexValueType, TestCreateSparseTensor,
+                            TestTensorToSparseTensor, TestSparseTensorToTensor,
+                            TestAlternativeAxisOrder, TestNonAscendingShape,
+                            TestRoundTrip);
 
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt8, TestSparseCSFTensorForIndexValueType, Int8Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt8, TestSparseCSFTensorForIndexValueType, UInt8Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt16, TestSparseCSFTensorForIndexValueType, Int16Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt16, TestSparseCSFTensorForIndexValueType,
-                              UInt16Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt32, TestSparseCSFTensorForIndexValueType, Int32Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt32, TestSparseCSFTensorForIndexValueType,
-                              UInt32Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestInt64, TestSparseCSFTensorForIndexValueType, Int64Type);
-INSTANTIATE_TYPED_TEST_CASE_P(TestUInt64, TestSparseCSFTensorForIndexValueType,
-                              UInt64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt8, TestSparseCSFTensorForIndexValueType, Int8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8, TestSparseCSFTensorForIndexValueType,
+                               UInt8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt16, TestSparseCSFTensorForIndexValueType,
+                               Int16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt16, TestSparseCSFTensorForIndexValueType,
+                               UInt16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt32, TestSparseCSFTensorForIndexValueType,
+                               Int32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestSparseCSFTensorForIndexValueType,
+                               UInt32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestSparseCSFTensorForIndexValueType,
+                               Int64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestSparseCSFTensorForIndexValueType,
+                               UInt64Type);
 }  // namespace arrow

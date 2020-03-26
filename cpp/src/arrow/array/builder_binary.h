@@ -235,7 +235,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
       return Status::CapacityError("BinaryBuilder cannot reserve space for more than ",
                                    memory_limit(), " child elements, got ", capacity);
     }
-    ARROW_RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+    ARROW_RETURN_NOT_OK(CheckCapacity(capacity));
 
     // One more than requested for offsets
     ARROW_RETURN_NOT_OK(offsets_builder_.Resize(capacity + 1));

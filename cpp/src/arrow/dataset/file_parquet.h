@@ -39,15 +39,17 @@ namespace arrow {
 namespace dataset {
 
 /// \brief A FileFormat implementation that reads from Parquet files
-class ARROW_DS_EXPORT ParquetFileFormat
-    : public FileFormat,
-      public std::enable_shared_from_this<ParquetFileFormat> {
+class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
  public:
   ParquetFileFormat() = default;
 
   /// Convenience constructor which copies properties from a parquet::ReaderProperties.
   /// memory_pool will be ignored.
   explicit ParquetFileFormat(const parquet::ReaderProperties& reader_properties);
+
+  std::string type_name() const override { return "parquet"; }
+
+  bool splittable() const override { return true; }
 
   struct ReaderOptions {
     /// \defgroup parquet-file-format-reader-properties properties which correspond to
@@ -75,8 +77,6 @@ class ARROW_DS_EXPORT ParquetFileFormat
     /// @}
   } reader_options;
 
-  std::string type_name() const override { return "parquet"; }
-
   Result<bool> IsSupported(const FileSource& source) const override;
 
   /// \brief Return the schema of the file if possible.
@@ -86,18 +86,6 @@ class ARROW_DS_EXPORT ParquetFileFormat
   Result<ScanTaskIterator> ScanFile(const FileSource& source,
                                     std::shared_ptr<ScanOptions> options,
                                     std::shared_ptr<ScanContext> context) const override;
-
-  Result<std::shared_ptr<Fragment>> MakeFragment(
-      FileSource source, std::shared_ptr<ScanOptions> options) override;
-};
-
-class ARROW_DS_EXPORT ParquetFragment : public FileFragment {
- public:
-  ParquetFragment(FileSource source, std::shared_ptr<ParquetFileFormat> format,
-                  std::shared_ptr<ScanOptions> options)
-      : FileFragment(std::move(source), std::move(format), std::move(options)) {}
-
-  bool splittable() const override { return true; }
 };
 
 }  // namespace dataset

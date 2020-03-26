@@ -84,7 +84,10 @@ impl HashAggregateExec {
         &self,
     ) -> (Vec<Arc<dyn PhysicalExpr>>, Vec<Arc<dyn AggregateExpr>>) {
         let final_group: Vec<Arc<dyn PhysicalExpr>> = (0..self.group_expr.len())
-            .map(|i| Arc::new(Column::new(i)) as Arc<dyn PhysicalExpr>)
+            .map(|i| {
+                Arc::new(Column::new(i, &self.group_expr[i].name()))
+                    as Arc<dyn PhysicalExpr>
+            })
             .collect();
 
         let final_aggr: Vec<Arc<dyn AggregateExpr>> = (0..self.aggr_expr.len())
@@ -733,11 +736,11 @@ mod tests {
         let partitions = 4;
         let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
 
-        let csv = CsvExec::try_new(&path, schema, true, None, 1024)?;
+        let csv = CsvExec::try_new(&path, schema.clone(), true, None, 1024)?;
 
-        let group_expr: Vec<Arc<dyn PhysicalExpr>> = vec![col(1)];
+        let group_expr: Vec<Arc<dyn PhysicalExpr>> = vec![col(1, schema.as_ref())];
 
-        let aggr_expr: Vec<Arc<dyn AggregateExpr>> = vec![sum(col(3))];
+        let aggr_expr: Vec<Arc<dyn AggregateExpr>> = vec![sum(col(3, schema.as_ref()))];
 
         let partition_aggregate = HashAggregateExec::try_new(
             group_expr.clone(),

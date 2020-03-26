@@ -41,25 +41,24 @@ using internal::checked_cast;
 // ----------------------------------------------------------------------
 // ChunkedArray methods
 
-ChunkedArray::ChunkedArray(const ArrayVector& chunks) : chunks_(chunks) {
+ChunkedArray::ChunkedArray(ArrayVector chunks) : chunks_(std::move(chunks)) {
   length_ = 0;
   null_count_ = 0;
 
-  ARROW_CHECK_GT(chunks.size(), 0)
+  ARROW_CHECK_GT(chunks_.size(), 0)
       << "cannot construct ChunkedArray from empty vector and omitted type";
-  type_ = chunks[0]->type();
-  for (const std::shared_ptr<Array>& chunk : chunks) {
+  type_ = chunks_[0]->type();
+  for (const std::shared_ptr<Array>& chunk : chunks_) {
     length_ += chunk->length();
     null_count_ += chunk->null_count();
   }
 }
 
-ChunkedArray::ChunkedArray(const ArrayVector& chunks,
-                           const std::shared_ptr<DataType>& type)
-    : chunks_(chunks), type_(type) {
+ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
+    : chunks_(std::move(chunks)), type_(std::move(type)) {
   length_ = 0;
   null_count_ = 0;
-  for (const std::shared_ptr<Array>& chunk : chunks) {
+  for (const std::shared_ptr<Array>& chunk : chunks_) {
     length_ += chunk->length();
     null_count_ += chunk->null_count();
   }
@@ -72,9 +71,9 @@ bool ChunkedArray::Equals(const ChunkedArray& other) const {
   if (null_count_ != other.null_count()) {
     return false;
   }
-  if (length_ == 0) {
-    // We cannot toggle check_metadata here yet, so we don't check it
-    return type_->Equals(*other.type_, /*check_metadata=*/false);
+  // We cannot toggle check_metadata here yet, so we don't check it
+  if (!type_->Equals(*other.type_, /*check_metadata=*/false)) {
+    return false;
   }
 
   // Check contents of the underlying arrays. This checks for equality of
@@ -135,7 +134,7 @@ Status ChunkedArray::Flatten(MemoryPool* pool,
                              std::vector<std::shared_ptr<ChunkedArray>>* out) const {
   out->clear();
   if (type()->id() != Type::STRUCT) {
-    // Emulate non-existent copy constructor
+    // Emulate nonexistent copy constructor
     *out = {std::make_shared<ChunkedArray>(chunks_, type_)};
     return Status::OK();
   }

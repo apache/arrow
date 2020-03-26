@@ -34,7 +34,7 @@ typedef gint64 GArrowTimePoint;
 
 /**
  * GArrowFileType
- * @GARROW_FILE_TYPE_NONEXISTENT: Entry does not exist
+ * @GARROW_FILE_TYPE_NOT_FOUND: Entry is not found
  * @GARROW_FILE_TYPE_UNKNOWN: Entry exists but its type is unknown
  * @GARROW_FILE_TYPE_FILE: Entry is a regular file
  * @GARROW_FILE_TYPE_DIR: Entry is a directory
@@ -44,7 +44,7 @@ typedef gint64 GArrowTimePoint;
  * Since: 1.0.0
  */
 typedef enum {
-  GARROW_FILE_TYPE_NONEXISTENT,
+  GARROW_FILE_TYPE_NOT_FOUND,
   GARROW_FILE_TYPE_UNKNOWN,
   GARROW_FILE_TYPE_FILE,
   GARROW_FILE_TYPE_DIR
@@ -109,21 +109,21 @@ gchar *garrow_file_system_get_type_name(GArrowFileSystem *file_system);
 
 GARROW_AVAILABLE_IN_1_0
 GArrowFileInfo *
-garrow_file_system_get_target_info(GArrowFileSystem *file_system,
-                                   const gchar *path,
-                                   GError **error);
+garrow_file_system_get_file_info(GArrowFileSystem *file_system,
+                                 const gchar *path,
+                                 GError **error);
 
 GARROW_AVAILABLE_IN_1_0
-GList *garrow_file_system_get_target_infos_paths(GArrowFileSystem *file_system,
-                                                 const gchar **paths,
-                                                 gsize n_paths,
-                                                 GError **error);
+GList *garrow_file_system_get_file_infos_paths(GArrowFileSystem *file_system,
+                                               const gchar **paths,
+                                               gsize n_paths,
+                                               GError **error);
 
 GARROW_AVAILABLE_IN_1_0
 GList *
-garrow_file_system_get_target_infos_selector(GArrowFileSystem *file_system,
-                                             GArrowFileSelector *file_selector,
-                                             GError **error);
+garrow_file_system_get_file_infos_selector(GArrowFileSystem *file_system,
+                                           GArrowFileSelector *file_selector,
+                                           GError **error);
 
 GARROW_AVAILABLE_IN_1_0
 gboolean garrow_file_system_create_dir(GArrowFileSystem *file_system,

@@ -35,7 +35,7 @@ class TestProjector : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
-TEST_F(TestProjector, TestNonExistentFunction) {
+TEST_F(TestProjector, TestNonexistentFunction) {
   // schema for input fields
   auto field0 = field("f0", float32());
   auto field1 = field("f2", float32());
@@ -45,15 +45,15 @@ TEST_F(TestProjector, TestNonExistentFunction) {
   auto field_result = field("res", boolean());
 
   // Build expression
-  auto lt_expr = TreeExprBuilder::MakeExpression("non_existent_function",
-                                                 {field0, field1}, field_result);
+  auto lt_expr = TreeExprBuilder::MakeExpression("nonexistent_function", {field0, field1},
+                                                 field_result);
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {lt_expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.IsExpressionValidationError());
   std::string expected_error =
-      "Function bool non_existent_function(float, float) not supported yet.";
+      "Function bool nonexistent_function(float, float) not supported yet.";
   EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
 }
 
@@ -159,7 +159,7 @@ TEST_F(TestProjector, TestIfNotSupportedFunction) {
   auto node_a = TreeExprBuilder::MakeField(fielda);
   auto node_b = TreeExprBuilder::MakeField(fieldb);
   auto condition =
-      TreeExprBuilder::MakeFunction("non_existent_function", {node_a, node_b}, boolean());
+      TreeExprBuilder::MakeFunction("nonexistent_function", {node_a, node_b}, boolean());
   auto if_node = TreeExprBuilder::MakeIf(condition, node_a, node_b, int32());
 
   auto expr = TreeExprBuilder::MakeExpression(if_node, field_result);

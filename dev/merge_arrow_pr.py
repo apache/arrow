@@ -148,6 +148,10 @@ class JiraIssue(object):
         except Exception as e:
             self.cmd.fail("ASF JIRA could not find %s\n%s" % (jira_id, e))
 
+    @property
+    def current_fix_versions(self):
+        return self.issue.fields.fixVersions
+
     def get_candidate_fix_versions(self, merge_branches=('master',)):
         # Only suggest versions starting with a number, like 0.x but not JS-0.x
         all_versions = self.jira_con.project_versions(self.project)
@@ -193,6 +197,16 @@ class JiraIssue(object):
 
         resolve = [x for x in self.jira_con.transitions(self.jira_id)
                    if x['name'] == "Resolve Issue"][0]
+
+        # ARROW-6915: do not overwrite existing fix versions corresponding to
+        # point releases
+        fix_versions = list(fix_versions)
+        fix_version_names = set(x['name'] for x in fix_versions)
+        for version in self.current_fix_versions:
+            major, minor, patch = version.name.split('.')
+            if patch != '0' and version.name not in fix_version_names:
+                fix_versions.append(version.raw)
+
         self.jira_con.transition_issue(self.jira_id, resolve["id"],
                                        comment=comment,
                                        fixVersions=fix_versions)
@@ -367,9 +381,6 @@ class PullRequest(object):
             # If there is only one author, do not prompt for a lead author
             primary_author = distinct_authors[0]
 
-        commits = run_cmd(['git', 'log', 'HEAD..%s' % pr_branch_name,
-                          '--pretty=format:%h <%an> %s']).split("\n\n")
-
         merge_message_flags = []
 
         merge_message_flags += ["-m", self.title]
@@ -400,12 +411,8 @@ class PullRequest(object):
         # close the PR
         merge_message_flags += [
             "-m",
-            "Closes #%s from %s and squashes the following commits:"
+            "Closes #%s from %s"
             % (self.number, self.description)]
-        for c in commits:
-            stripped_message = strip_ci_directives(c).strip()
-            merge_message_flags += ["-m", stripped_message]
-
         merge_message_flags += ["-m", authors]
 
         if DEBUG:

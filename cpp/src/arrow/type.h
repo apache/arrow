@@ -26,9 +26,11 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visitor.h"  // IWYU pragma: keep
 
@@ -243,7 +245,7 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   /// \brief Return whether the types are equal
   bool Equals(const std::shared_ptr<DataType>& other) const;
 
-  std::shared_ptr<Field> child(int i) const { return children_[i]; }
+  const std::shared_ptr<Field>& child(int i) const { return children_[i]; }
 
   const std::vector<std::shared_ptr<Field>>& children() const { return children_; }
 
@@ -991,10 +993,6 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
   static constexpr int32_t kMaxPrecision = 38;
 };
 
-struct UnionMode {
-  enum type { SPARSE, DENSE };
-};
-
 /// \brief Concrete type class for union data
 class ARROW_EXPORT UnionType : public NestedType {
  public:
@@ -1111,11 +1109,6 @@ class ARROW_EXPORT Date64Type : public DateType {
 
  protected:
   std::string ComputeFingerprint() const override;
-};
-
-struct TimeUnit {
-  /// The unit for a time or timestamp DataType
-  enum type { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
 };
 
 ARROW_EXPORT
@@ -1399,6 +1392,238 @@ class ARROW_EXPORT DictionaryUnifier {
 };
 
 // ----------------------------------------------------------------------
+// FieldRef
+
+/// \class FieldPath
+///
+/// Represents a path to a nested field using indices of child fields.
+/// For example, given indices {5, 9, 3} the field would be retrieved with
+/// schema->field(5)->type()->child(9)->type()->child(3)
+///
+/// Attempting to retrieve a child field using a FieldPath which is not valid for
+/// a given schema will raise an error. Invalid FieldPaths include:
+/// - an index is out of range
+/// - the path is empty (note: a default constructed FieldPath will be empty)
+///
+/// FieldPaths provide a number of accessors for drilling down to potentially nested
+/// children. They are overloaded for convenience to support Schema (returns a field),
+/// DataType (returns a child field), Field (returns a child field of this field's type)
+/// Array (returns a child array), RecordBatch (returns a column), ChunkedArray (returns a
+/// ChunkedArray where each chunk is a child array of the corresponding original chunk)
+/// and Table (returns a column).
+class ARROW_EXPORT FieldPath : public std::vector<int> {
+ public:
+  using std::vector<int>::vector;
+
+  FieldPath() = default;
+
+  FieldPath(std::vector<int> indices)  // NOLINT runtime/explicit
+      : std::vector<int>(std::move(indices)) {}
+
+  std::string ToString() const;
+
+  size_t hash() const;
+
+  explicit operator bool() const { return !empty(); }
+
+  /// \brief Retrieve the referenced child Field from a Schema, Field, or DataType
+  Result<std::shared_ptr<Field>> Get(const Schema& schema) const;
+  Result<std::shared_ptr<Field>> Get(const Field& field) const;
+  Result<std::shared_ptr<Field>> Get(const DataType& type) const;
+  Result<std::shared_ptr<Field>> Get(const FieldVector& fields) const;
+
+  /// \brief Retrieve the referenced column from a RecordBatch or Table
+  Result<std::shared_ptr<Array>> Get(const RecordBatch& batch) const;
+  Result<std::shared_ptr<ChunkedArray>> Get(const Table& table) const;
+
+  /// \brief Retrieve the referenced child Array from an Array or ChunkedArray
+  Result<std::shared_ptr<Array>> Get(const Array& array) const;
+  Result<std::shared_ptr<ChunkedArray>> Get(const ChunkedArray& array) const;
+};
+
+/// \class FieldRef
+/// \brief Descriptor of a (potentially nested) field within a schema.
+///
+/// Unlike FieldPath (which exclusively uses indices of child fields), FieldRef may
+/// reference a field by name. It is intended to replace parameters like `int field_index`
+/// and `const std::string& field_name`; it can be implicitly constructed from either a
+/// field index or a name.
+///
+/// Nested fields can be referenced as well. Given
+///     schema({field("a", struct_({field("n", null())})), field("b", int32())})
+///
+/// the following all indicate the nested field named "n":
+///     FieldRef ref1(0, 0);
+///     FieldRef ref2("a", 0);
+///     FieldRef ref3("a", "n");
+///     FieldRef ref4(0, "n");
+///     ARROW_ASSIGN_OR_RAISE(FieldRef ref5,
+///                           FieldRef::FromDotPath(".a[0]"));
+///
+/// FieldPaths matching a FieldRef are retrieved using the member function FindAll.
+/// Multiple matches are possible because field names may be duplicated within a schema.
+/// For example:
+///     Schema a_is_ambiguous({field("a", int32()), field("a", float32())});
+///     auto matches = FieldRef("a").FindAll(a_is_ambiguous);
+///     assert(matches.size() == 2);
+///     assert(matches[0].Get(a_is_ambiguous)->Equals(a_is_ambiguous.field(0)));
+///     assert(matches[1].Get(a_is_ambiguous)->Equals(a_is_ambiguous.field(1)));
+///
+/// Convenience accessors are available which raise a helpful error if the field is not
+/// found or ambiguous, and for immediately calling FieldPath::Get to retrieve any
+/// matching children:
+///     auto maybe_match = FieldRef("struct", "field_i32").FindOneOrNone(schema);
+///     auto maybe_column = FieldRef("struct", "field_i32").GetOne(some_table);
+class ARROW_EXPORT FieldRef {
+ public:
+  FieldRef() = default;
+
+  /// Construct a FieldRef using a string of indices. The reference will be retrieved as:
+  /// schema.fields[self.indices[0]].type.fields[self.indices[1]] ...
+  ///
+  /// Empty indices are not valid.
+  FieldRef(FieldPath indices);  // NOLINT runtime/explicit
+
+  /// Construct a by-name FieldRef. Multiple fields may match a by-name FieldRef:
+  /// [f for f in schema.fields where f.name == self.name]
+  FieldRef(std::string name) : impl_(std::move(name)) {}  // NOLINT runtime/explicit
+
+  /// Equivalent to a single index string of indices.
+  FieldRef(int index) : impl_(FieldPath({index})) {}  // NOLINT runtime/explicit
+
+  /// Convenience constructor for nested FieldRefs: each argument will be used to
+  /// construct a FieldRef
+  template <typename A0, typename A1, typename... A>
+  FieldRef(A0&& a0, A1&& a1, A&&... a) {
+    Flatten({// cpplint thinks the following are constructor decls
+             FieldRef(std::forward<A0>(a0)),     // NOLINT runtime/explicit
+             FieldRef(std::forward<A1>(a1)),     // NOLINT runtime/explicit
+             FieldRef(std::forward<A>(a))...});  // NOLINT runtime/explicit
+  }
+
+  /// Parse a dot path into a FieldRef.
+  ///
+  /// dot_path = '.' name
+  ///          | '[' digit+ ']'
+  ///          | dot_path+
+  ///
+  /// Examples:
+  ///   ".alpha" => FieldRef("alpha")
+  ///   "[2]" => FieldRef(2)
+  ///   ".beta[3]" => FieldRef("beta", 3)
+  ///   "[5].gamma.delta[7]" => FieldRef(5, "gamma", "delta", 7)
+  ///   ".hello world" => FieldRef("hello world")
+  ///   R"(.\[y\]\\tho\.\)" => FieldRef(R"([y]\tho.\)")
+  ///
+  /// Note: When parsing a name, a '\' preceding any other character will be dropped from
+  /// the resulting name. Therefore if a name must contain the characters '.', '\', or '['
+  /// those must be escaped with a preceding '\'.
+  static Result<FieldRef> FromDotPath(const std::string& dot_path);
+
+  bool Equals(const FieldRef& other) const { return impl_ == other.impl_; }
+  bool operator==(const FieldRef& other) const { return Equals(other); }
+
+  std::string ToString() const;
+
+  size_t hash() const;
+
+  bool IsFieldPath() const { return util::holds_alternative<FieldPath>(impl_); }
+  bool IsName() const { return util::holds_alternative<std::string>(impl_); }
+  bool IsNested() const {
+    if (IsName()) return false;
+    if (IsFieldPath()) return util::get<FieldPath>(impl_).size() > 1;
+    return true;
+  }
+
+  /// \brief Retrieve FieldPath of every child field which matches this FieldRef.
+  std::vector<FieldPath> FindAll(const Schema& schema) const;
+  std::vector<FieldPath> FindAll(const Field& field) const;
+  std::vector<FieldPath> FindAll(const DataType& type) const;
+  std::vector<FieldPath> FindAll(const FieldVector& fields) const;
+
+  /// \brief Convenience function: raise an error if matches is empty.
+  template <typename T>
+  Status CheckNonEmpty(const std::vector<FieldPath>& matches, const T& root) const {
+    if (matches.empty()) {
+      return Status::Invalid("No match for ", ToString(), " in ", root.ToString());
+    }
+    return Status::OK();
+  }
+
+  /// \brief Convenience function: raise an error if matches contains multiple FieldPaths.
+  template <typename T>
+  Status CheckNonMultiple(const std::vector<FieldPath>& matches, const T& root) const {
+    if (matches.size() > 1) {
+      return Status::Invalid("Multiple matches for ", ToString(), " in ",
+                             root.ToString());
+    }
+    return Status::OK();
+  }
+
+  /// \brief Retrieve FieldPath of a single child field which matches this
+  /// FieldRef. Emit an error if none or multiple match.
+  template <typename T>
+  Result<FieldPath> FindOne(const T& root) const {
+    auto matches = FindAll(root);
+    ARROW_RETURN_NOT_OK(CheckNonEmpty(matches, root));
+    ARROW_RETURN_NOT_OK(CheckNonMultiple(matches, root));
+    return std::move(matches[0]);
+  }
+
+  /// \brief Retrieve FieldPath of a single child field which matches this
+  /// FieldRef. Emit an error if multiple match. An empty (invalid) FieldPath
+  /// will be returned if none match.
+  template <typename T>
+  Result<FieldPath> FindOneOrNone(const T& root) const {
+    auto matches = FindAll(root);
+    ARROW_RETURN_NOT_OK(CheckNonMultiple(matches, root));
+    if (matches.empty()) {
+      return FieldPath();
+    }
+    return std::move(matches[0]);
+  }
+
+  template <typename T>
+  using GetType = decltype(std::declval<FieldPath>().Get(std::declval<T>()).ValueOrDie());
+
+  /// \brief Get all children matching this FieldRef.
+  template <typename T>
+  std::vector<GetType<T>> GetAll(const T& root) const {
+    std::vector<GetType<T>> out;
+    for (const auto& match : FindAll(root)) {
+      out.push_back(match.Get(root).ValueOrDie());
+    }
+    return out;
+  }
+
+  /// \brief Get the single child matching this FieldRef.
+  /// Emit an error if none or multiple match.
+  template <typename T>
+  Result<GetType<T>> GetOne(const T& root) const {
+    ARROW_ASSIGN_OR_RAISE(auto match, FindOne(root));
+    return match.Get(root).ValueOrDie();
+  }
+
+  /// \brief Get the single child matching this FieldRef.
+  /// Return nullptr if none match, emit an error if multiple match.
+  template <typename T>
+  Result<GetType<T>> GetOneOrNone(const T& root) const {
+    ARROW_ASSIGN_OR_RAISE(auto match, FindOneOrNone(root));
+    if (match) {
+      return match.Get(root).ValueOrDie();
+    }
+    return NULLPTR;
+  }
+
+ private:
+  void Flatten(std::vector<FieldRef> children);
+
+  util::variant<FieldPath, std::string, std::vector<FieldRef>> impl_;
+
+  ARROW_EXPORT friend void PrintTo(const FieldRef& ref, std::ostream* os);
+};
+
+// ----------------------------------------------------------------------
 // Schema
 
 /// \class Schema
@@ -1423,7 +1648,7 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   int num_fields() const;
 
   /// Return the ith schema element. Does not boundscheck
-  std::shared_ptr<Field> field(int i) const;
+  const std::shared_ptr<Field>& field(int i) const;
 
   const std::vector<std::shared_ptr<Field>>& fields() const;
 
@@ -1492,164 +1717,6 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
 };
 
 // ----------------------------------------------------------------------
-// Parametric factory functions
-// Other factory functions are in type_fwd.h
-
-/// \addtogroup type-factories
-/// @{
-
-/// \brief Create a FixedSizeBinaryType instance.
-ARROW_EXPORT
-std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
-
-/// \brief Create a Decimal128Type instance
-ARROW_EXPORT
-std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale);
-
-/// \brief Create a ListType instance from its child Field type
-ARROW_EXPORT
-std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_type);
-
-/// \brief Create a ListType instance from its child DataType
-ARROW_EXPORT
-std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type);
-
-/// \brief Create a LargeListType instance from its child Field type
-ARROW_EXPORT
-std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_type);
-
-/// \brief Create a LargeListType instance from its child DataType
-ARROW_EXPORT
-std::shared_ptr<DataType> large_list(const std::shared_ptr<DataType>& value_type);
-
-/// \brief Create a MapType instance from its key and value DataTypes
-ARROW_EXPORT
-std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
-                              const std::shared_ptr<DataType>& item_type,
-                              bool keys_sorted = false);
-
-/// \brief Create a MapType instance from its key DataType and value field.
-///
-/// The field override is provided to communicate nullability of the value.
-ARROW_EXPORT
-std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
-                              const std::shared_ptr<Field>& item_field,
-                              bool keys_sorted = false);
-
-/// \brief Create a FixedSizeListType instance from its child Field type
-ARROW_EXPORT
-std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_type,
-                                          int32_t list_size);
-
-/// \brief Create a FixedSizeListType instance from its child DataType
-ARROW_EXPORT
-std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,
-                                          int32_t list_size);
-/// \brief Return a Duration instance (naming use _type to avoid namespace conflict with
-/// built in time clases).
-std::shared_ptr<DataType> ARROW_EXPORT duration(TimeUnit::type unit);
-
-/// \brief Return a DayTimeIntervalType instance
-std::shared_ptr<DataType> ARROW_EXPORT day_time_interval();
-
-/// \brief Return a MonthIntervalType instance
-std::shared_ptr<DataType> ARROW_EXPORT month_interval();
-
-/// \brief Create a TimestampType instance from its unit
-ARROW_EXPORT
-std::shared_ptr<DataType> timestamp(TimeUnit::type unit);
-
-/// \brief Create a TimestampType instance from its unit and timezone
-ARROW_EXPORT
-std::shared_ptr<DataType> timestamp(TimeUnit::type unit, const std::string& timezone);
-
-/// \brief Create a 32-bit time type instance
-///
-/// Unit can be either SECOND or MILLI
-std::shared_ptr<DataType> ARROW_EXPORT time32(TimeUnit::type unit);
-
-/// \brief Create a 64-bit time type instance
-///
-/// Unit can be either MICRO or NANO
-std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit::type unit);
-
-/// \brief Create a StructType instance
-std::shared_ptr<DataType> ARROW_EXPORT
-struct_(const std::vector<std::shared_ptr<Field>>& fields);
-
-/// \brief Create a UnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT
-union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-       const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
-
-/// \brief Create a UnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT
-union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-       UnionMode::type mode = UnionMode::SPARSE);
-
-/// \brief Create a UnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT union_(UnionMode::type mode = UnionMode::SPARSE);
-
-/// \brief Create a UnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT
-union_(const std::vector<std::shared_ptr<Array>>& children,
-       const std::vector<std::string>& field_names, const std::vector<int8_t>& type_codes,
-       UnionMode::type mode = UnionMode::SPARSE);
-
-/// \brief Create a UnionType instance
-inline std::shared_ptr<DataType> ARROW_EXPORT
-union_(const std::vector<std::shared_ptr<Array>>& children,
-       const std::vector<std::string>& field_names,
-       UnionMode::type mode = UnionMode::SPARSE) {
-  return union_(children, field_names, {}, mode);
-}
-
-/// \brief Create a UnionType instance
-inline std::shared_ptr<DataType> ARROW_EXPORT
-union_(const std::vector<std::shared_ptr<Array>>& children,
-       UnionMode::type mode = UnionMode::SPARSE) {
-  return union_(children, {}, {}, mode);
-}
-
-/// \brief Create a DictionaryType instance
-/// \param[in] index_type the type of the dictionary indices (must be
-/// a signed integer)
-/// \param[in] dict_type the type of the values in the variable dictionary
-/// \param[in] ordered true if the order of the dictionary values has
-/// semantic meaning and should be preserved where possible
-ARROW_EXPORT
-std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,
-                                     const std::shared_ptr<DataType>& dict_type,
-                                     bool ordered = false);
-
-/// @}
-
-/// \defgroup schema-factories Factory functions for fields and schemas
-///
-/// Factory functions for fields and schemas
-/// @{
-
-/// \brief Create a Field instance
-///
-/// \param name the field name
-/// \param type the field value type
-/// \param nullable whether the values are nullable, default true
-/// \param metadata any custom key-value metadata, default null
-std::shared_ptr<Field> ARROW_EXPORT
-field(std::string name, std::shared_ptr<DataType> type, bool nullable = true,
-      std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
-
-/// \brief Create a Schema instance
-///
-/// \param fields the schema's fields
-/// \param metadata any custom key-value metadata, default null
-/// \return schema shared_ptr to Schema
-ARROW_EXPORT
-std::shared_ptr<Schema> schema(
-    std::vector<std::shared_ptr<Field>> fields,
-    std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
-
-/// @}
 
 /// \brief Convenience class to incrementally construct/merge schemas.
 ///

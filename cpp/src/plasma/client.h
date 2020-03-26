@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PLASMA_CLIENT_H
-#define PLASMA_CLIENT_H
+#pragma once
 
 #include <functional>
 #include <memory>
@@ -90,12 +89,15 @@ class ARROW_EXPORT PlasmaClient {
   ///        device_num = 0 corresponds to the host,
   ///        device_num = 1 corresponds to GPU0,
   ///        device_num = 2 corresponds to GPU1, etc.
+  /// \param evict_if_full Whether to evict other objects to make space for
+  ///        this object.
   /// \return The return status.
   ///
   /// The returned object must be released once it is done with.  It must also
   /// be either sealed or aborted.
   Status Create(const ObjectID& object_id, int64_t data_size, const uint8_t* metadata,
-                int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0);
+                int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0,
+                bool evict_if_full = true);
 
   /// Create and seal an object in the object store. This is an optimization
   /// which allows small objects to be created quickly with fewer messages to
@@ -104,9 +106,11 @@ class ARROW_EXPORT PlasmaClient {
   /// \param object_id The ID of the object to create.
   /// \param data The data for the object to create.
   /// \param metadata The metadata for the object to create.
+  /// \param evict_if_full Whether to evict other objects to make space for
+  ///        this object.
   /// \return The return status.
   Status CreateAndSeal(const ObjectID& object_id, const std::string& data,
-                       const std::string& metadata);
+                       const std::string& metadata, bool evict_if_full = true);
 
   /// Create and seal multiple objects in the object store. This is an optimization
   /// of CreateAndSeal to eliminate the cost of IPC per object.
@@ -114,10 +118,13 @@ class ARROW_EXPORT PlasmaClient {
   /// \param object_ids The vector of IDs of the objects to create.
   /// \param data The vector of data for the objects to create.
   /// \param metadata The vector of metadata for the objects to create.
+  /// \param evict_if_full Whether to evict other objects to make space for
+  ///        these objects.
   /// \return The return status.
   Status CreateAndSealBatch(const std::vector<ObjectID>& object_ids,
                             const std::vector<std::string>& data,
-                            const std::vector<std::string>& metadata);
+                            const std::vector<std::string>& metadata,
+                            bool evict_if_full = true);
 
   /// Get some objects from the Plasma Store. This function will block until the
   /// objects have all been created and sealed in the Plasma Store or the
@@ -207,7 +214,7 @@ class ARROW_EXPORT PlasmaClient {
   /// object is present, has been sealed and not used by another client. Otherwise,
   /// it is a no operation.
   ///
-  /// @todo We may want to allow the deletion of objects that are not present or
+  /// \todo We may want to allow the deletion of objects that are not present or
   ///       haven't been sealed.
   ///
   /// \param object_id The ID of the object to delete.
@@ -219,7 +226,7 @@ class ARROW_EXPORT PlasmaClient {
   /// it is a no operation.
   ///
   /// \param object_ids The list of IDs of the objects to delete.
-  /// \return The return status. If all the objects are non-existent, return OK.
+  /// \return The return status. If all the objects are nonexistent, return OK.
   Status Delete(const std::vector<ObjectID>& object_ids);
 
   /// Delete objects until we have freed up num_bytes bytes or there are no more
@@ -300,5 +307,3 @@ class ARROW_EXPORT PlasmaClient {
 };
 
 }  // namespace plasma
-
-#endif  // PLASMA_CLIENT_H

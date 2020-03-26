@@ -37,7 +37,10 @@ This function enables you to read Parquet files into R.
 }
 \examples{
 \donttest{
-df <- read_parquet(system.file("v0.7.1.parquet", package="arrow"))
+tf <- tempfile()
+on.exit(unlink(tf))
+write_parquet(mtcars, tf)
+df <- read_parquet(tf)
 head(df)
 }
 }

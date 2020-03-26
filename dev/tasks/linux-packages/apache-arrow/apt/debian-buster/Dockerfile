@@ -24,21 +24,27 @@ RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
     debconf-set-selections
 
-ARG DEBUG
+RUN \
+  echo 'APT::Install-Recommends "false";' > \
+    /etc/apt/apt.conf.d/disable-install-recommends
 
 RUN sed -i'' -e 's/main$/main contrib non-free/g' /etc/apt/sources.list
 
 RUN \
+  echo "deb http://deb.debian.org/debian buster-backports main" > \
+    /etc/apt/sources.list.d/backports.list
+
+ARG DEBUG
+ARG LLVM
+RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
-    bison \
     build-essential \
-    clang-7 \
+    clang-${LLVM} \
     cmake \
     debhelper \
     devscripts \
-    flex \
     git \
     gtk-doc-tools \
     libboost-filesystem-dev \
@@ -57,6 +63,7 @@ RUN \
     libsnappy-dev \
     libssl-dev \
     libzstd-dev \
+    llvm-${LLVM}-dev \
     lsb-release \
     ninja-build \
     pkg-config \

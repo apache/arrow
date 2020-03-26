@@ -128,7 +128,7 @@ Result<FileInfo> StatFile(const std::wstring& path) {
     DWORD err = GetLastError();
     if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
       info.set_path(bytes_path);
-      info.set_type(FileType::NonExistent);
+      info.set_type(FileType::NotFound);
       info.set_mtime(kNoTime);
       info.set_size(kNoSize);
       return info;
@@ -184,7 +184,7 @@ Result<FileInfo> StatFile(const std::string& path) {
   int r = stat(path.c_str(), &s);
   if (r == -1) {
     if (errno == ENOENT || errno == ENOTDIR || errno == ELOOP) {
-      info.set_type(FileType::NonExistent);
+      info.set_type(FileType::NotFound);
       info.set_mtime(kNoTime);
       info.set_size(kNoSize);
     } else {
@@ -204,7 +204,7 @@ Status StatSelector(const PlatformFilename& dir_fn, const FileSelector& select,
   auto result = ListDir(dir_fn);
   if (!result.ok()) {
     auto status = result.status();
-    if (select.allow_non_existent && status.IsIOError()) {
+    if (select.allow_not_found && status.IsIOError()) {
       ARROW_ASSIGN_OR_RAISE(bool exists, FileExists(dir_fn));
       if (!exists) {
         return Status::OK();
@@ -216,7 +216,7 @@ Status StatSelector(const PlatformFilename& dir_fn, const FileSelector& select,
   for (const auto& child_fn : *result) {
     PlatformFilename full_fn = dir_fn.Join(child_fn);
     ARROW_ASSIGN_OR_RAISE(FileInfo info, StatFile(full_fn.ToNative()));
-    if (info.type() != FileType::NonExistent) {
+    if (info.type() != FileType::NotFound) {
       out->push_back(std::move(info));
     }
     if (nesting_depth < select.max_recursion && select.recursive &&
@@ -233,6 +233,10 @@ LocalFileSystemOptions LocalFileSystemOptions::Defaults() {
   return LocalFileSystemOptions();
 }
 
+bool LocalFileSystemOptions::Equals(const LocalFileSystemOptions& other) const {
+  return use_mmap == other.use_mmap;
+}
+
 LocalFileSystem::LocalFileSystem() : options_(LocalFileSystemOptions::Defaults()) {}
 
 LocalFileSystem::LocalFileSystem(const LocalFileSystemOptions& options)
@@ -240,13 +244,26 @@ LocalFileSystem::LocalFileSystem(const LocalFileSystemOptions& options)
 
 LocalFileSystem::~LocalFileSystem() {}
 
-Result<FileInfo> LocalFileSystem::GetTargetInfo(const std::string& path) {
+Result<std::string> LocalFileSystem::NormalizePath(std::string path) {
+  ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
+  return fn.ToString();
+}
+
+bool LocalFileSystem::Equals(const FileSystem& other) const {
+  if (other.type_name() != type_name()) {
+    return false;
+  } else {
+    const auto& localfs = ::arrow::internal::checked_cast<const LocalFileSystem&>(other);
+    return options_.Equals(localfs.options());
+  }
+}
+
+Result<FileInfo> LocalFileSystem::GetFileInfo(const std::string& path) {
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
   return StatFile(fn.ToNative());
 }
 
-Result<std::vector<FileInfo>> LocalFileSystem::GetTargetInfos(
-    const FileSelector& select) {
+Result<std::vector<FileInfo>> LocalFileSystem::GetFileInfo(const FileSelector& select) {
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(select.base_dir));
   std::vector<FileInfo> results;
   RETURN_NOT_OK(StatSelector(fn, select, 0, &results));
@@ -264,7 +281,7 @@ Status LocalFileSystem::CreateDir(const std::string& path, bool recursive) {
 
 Status LocalFileSystem::DeleteDir(const std::string& path) {
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
-  auto st = ::arrow::internal::DeleteDirTree(fn, /*allow_non_existent=*/false).status();
+  auto st = ::arrow::internal::DeleteDirTree(fn, /*allow_not_found=*/false).status();
   if (!st.ok()) {
     // TODO Status::WithPrefix()?
     std::stringstream ss;
@@ -276,8 +293,7 @@ Status LocalFileSystem::DeleteDir(const std::string& path) {
 
 Status LocalFileSystem::DeleteDirContents(const std::string& path) {
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
-  auto st =
-      ::arrow::internal::DeleteDirContents(fn, /*allow_non_existent=*/false).status();
+  auto st = ::arrow::internal::DeleteDirContents(fn, /*allow_not_found=*/false).status();
   if (!st.ok()) {
     std::stringstream ss;
     ss << "Cannot delete directory contents in '" << path << "': " << st.message();
@@ -288,7 +304,7 @@ Status LocalFileSystem::DeleteDirContents(const std::string& path) {
 
 Status LocalFileSystem::DeleteFile(const std::string& path) {
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
-  return ::arrow::internal::DeleteFile(fn, /*allow_non_existent=*/false).status();
+  return ::arrow::internal::DeleteFile(fn, /*allow_not_found=*/false).status();
 }
 
 Status LocalFileSystem::Move(const std::string& src, const std::string& dest) {

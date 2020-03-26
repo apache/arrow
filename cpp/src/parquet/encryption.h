@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_ENCRYPTION_H
-#define PARQUET_ENCRYPTION_H
+#pragma once
 
 #include <map>
 #include <memory>
@@ -510,5 +509,3 @@ class PARQUET_EXPORT FileEncryptionProperties {
 };
 
 }  // namespace parquet
-
-#endif  // PARQUET_ENCRYPTION_H

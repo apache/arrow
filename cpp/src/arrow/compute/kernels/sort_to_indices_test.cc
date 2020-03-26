@@ -32,6 +32,8 @@
 namespace arrow {
 namespace compute {
 
+using arrow::internal::checked_pointer_cast;
+
 template <typename ArrowType>
 class TestSortToIndicesKernel : public ComputeFixture, public TestBase {
  private:
@@ -54,15 +56,15 @@ class TestSortToIndicesKernel : public ComputeFixture, public TestBase {
 
 template <typename ArrowType>
 class TestSortToIndicesKernelForReal : public TestSortToIndicesKernel<ArrowType> {};
-TYPED_TEST_CASE(TestSortToIndicesKernelForReal, RealArrowTypes);
+TYPED_TEST_SUITE(TestSortToIndicesKernelForReal, RealArrowTypes);
 
 template <typename ArrowType>
 class TestSortToIndicesKernelForIntegral : public TestSortToIndicesKernel<ArrowType> {};
-TYPED_TEST_CASE(TestSortToIndicesKernelForIntegral, IntegralArrowTypes);
+TYPED_TEST_SUITE(TestSortToIndicesKernelForIntegral, IntegralArrowTypes);
 
 template <typename ArrowType>
 class TestSortToIndicesKernelForStrings : public TestSortToIndicesKernel<ArrowType> {};
-TYPED_TEST_CASE(TestSortToIndicesKernelForStrings, testing::Types<StringType>);
+TYPED_TEST_SUITE(TestSortToIndicesKernelForStrings, testing::Types<StringType>);
 
 TYPED_TEST(TestSortToIndicesKernelForReal, SortReal) {
   this->AssertSortToIndices("[]", "[]");
@@ -104,11 +106,11 @@ TYPED_TEST(TestSortToIndicesKernelForStrings, SortStrings) {
 
 template <typename ArrowType>
 class TestSortToIndicesKernelForUInt8 : public TestSortToIndicesKernel<ArrowType> {};
-TYPED_TEST_CASE(TestSortToIndicesKernelForUInt8, UInt8Type);
+TYPED_TEST_SUITE(TestSortToIndicesKernelForUInt8, UInt8Type);
 
 template <typename ArrowType>
 class TestSortToIndicesKernelForInt8 : public TestSortToIndicesKernel<ArrowType> {};
-TYPED_TEST_CASE(TestSortToIndicesKernelForInt8, Int8Type);
+TYPED_TEST_SUITE(TestSortToIndicesKernelForInt8, Int8Type);
 
 TYPED_TEST(TestSortToIndicesKernelForUInt8, SortUInt8) {
   this->AssertSortToIndices("[255, null, 0, 255, 10, null, 128, 0]", "[2,7,4,6,0,3,1,5]");
@@ -131,26 +133,10 @@ using SortToIndicesableTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, StringType>;
 
-using SortToIndicesIntegerTypes =
-    ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
-                     Int32Type, Int64Type>;
-
 template <typename ArrayType>
 class Comparator {
  public:
   bool operator()(const ArrayType& array, uint64_t lhs, uint64_t rhs) {
-    if (array.IsNull(rhs) && array.IsNull(lhs)) return lhs < rhs;
-    if (array.IsNull(rhs)) return true;
-    if (array.IsNull(lhs)) return false;
-    if (array.Value(lhs) == array.Value(rhs)) return lhs < rhs;
-    return array.Value(lhs) < array.Value(rhs);
-  }
-};
-
-template <>
-class Comparator<StringArray> {
- public:
-  bool operator()(const BinaryArray& array, uint64_t lhs, uint64_t rhs) {
     if (array.IsNull(rhs) && array.IsNull(lhs)) return lhs < rhs;
     if (array.IsNull(rhs)) return true;
     if (array.IsNull(lhs)) return false;
@@ -217,7 +203,7 @@ class RandomRange : public RandomImpl {
   }
 };
 
-TYPED_TEST_CASE(TestSortToIndicesKernelRandom, SortToIndicesableTypes);
+TYPED_TEST_SUITE(TestSortToIndicesKernelRandom, SortToIndicesableTypes);
 
 TYPED_TEST(TestSortToIndicesKernelRandom, SortRandomValues) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
@@ -230,8 +216,8 @@ TYPED_TEST(TestSortToIndicesKernelRandom, SortRandomValues) {
       auto array = rand.Generate(length, null_probability);
       std::shared_ptr<Array> offsets;
       ASSERT_OK(arrow::compute::SortToIndices(&this->ctx_, *array, &offsets));
-      ValidateSorted<ArrayType>(*std::static_pointer_cast<ArrayType>(array),
-                                *std::static_pointer_cast<UInt64Array>(offsets));
+      ValidateSorted<ArrayType>(*checked_pointer_cast<ArrayType>(array),
+                                *checked_pointer_cast<UInt64Array>(offsets));
     }
   }
 }
@@ -239,7 +225,7 @@ TYPED_TEST(TestSortToIndicesKernelRandom, SortRandomValues) {
 // Long array with small value range: counting sort
 // - length >= 1024(CountCompareSorter::countsort_min_len_)
 // - range  <= 4096(CountCompareSorter::countsort_max_range_)
-TYPED_TEST_CASE(TestSortToIndicesKernelRandomCount, SortToIndicesIntegerTypes);
+TYPED_TEST_SUITE(TestSortToIndicesKernelRandomCount, IntegralArrowTypes);
 
 TYPED_TEST(TestSortToIndicesKernelRandomCount, SortRandomValuesCount) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
@@ -253,14 +239,14 @@ TYPED_TEST(TestSortToIndicesKernelRandomCount, SortRandomValuesCount) {
       auto array = rand.Generate(length, range, null_probability);
       std::shared_ptr<Array> offsets;
       ASSERT_OK(arrow::compute::SortToIndices(&this->ctx_, *array, &offsets));
-      ValidateSorted<ArrayType>(*std::static_pointer_cast<ArrayType>(array),
-                                *std::static_pointer_cast<UInt64Array>(offsets));
+      ValidateSorted<ArrayType>(*checked_pointer_cast<ArrayType>(array),
+                                *checked_pointer_cast<UInt64Array>(offsets));
     }
   }
 }
 
 // Long array with big value range: std::stable_sort
-TYPED_TEST_CASE(TestSortToIndicesKernelRandomCompare, SortToIndicesIntegerTypes);
+TYPED_TEST_SUITE(TestSortToIndicesKernelRandomCompare, IntegralArrowTypes);
 
 TYPED_TEST(TestSortToIndicesKernelRandomCompare, SortRandomValuesCompare) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
@@ -273,8 +259,8 @@ TYPED_TEST(TestSortToIndicesKernelRandomCompare, SortRandomValuesCompare) {
       auto array = rand.Generate(length, null_probability);
       std::shared_ptr<Array> offsets;
       ASSERT_OK(arrow::compute::SortToIndices(&this->ctx_, *array, &offsets));
-      ValidateSorted<ArrayType>(*std::static_pointer_cast<ArrayType>(array),
-                                *std::static_pointer_cast<UInt64Array>(offsets));
+      ValidateSorted<ArrayType>(*checked_pointer_cast<ArrayType>(array),
+                                *checked_pointer_cast<UInt64Array>(offsets));
     }
   }
 }

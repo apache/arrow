@@ -32,6 +32,7 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/feather_internal.h"
 #include "arrow/ipc/util.h"  // IWYU pragma: keep
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/table.h"  // IWYU pragma: keep
 #include "arrow/type.h"

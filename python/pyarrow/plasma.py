@@ -27,7 +27,7 @@ import time
 
 from pyarrow._plasma import (ObjectID, ObjectNotAvailable, # noqa
                              PlasmaBuffer, PlasmaClient, connect,
-                             PlasmaObjectExists, PlasmaObjectNonexistent,
+                             PlasmaObjectExists, PlasmaObjectNotFound,
                              PlasmaStoreFull)
 
 

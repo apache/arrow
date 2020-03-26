@@ -20,7 +20,9 @@
 namespace arrow {
 namespace ipc {
 
-IpcOptions IpcOptions::Defaults() { return IpcOptions(); }
+IpcWriteOptions IpcWriteOptions::Defaults() { return IpcWriteOptions(); }
+
+IpcReadOptions IpcReadOptions::Defaults() { return IpcReadOptions(); }
 
 }  // namespace ipc
 }  // namespace arrow

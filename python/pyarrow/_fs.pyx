@@ -42,12 +42,28 @@ cdef inline c_string _path_as_bytes(path) except *:
     return tobytes(path)
 
 
+def _normalize_path(FileSystem filesystem, path):
+    """
+    Normalize path for the given filesystem.
+
+    The default implementation of this method is a no-op, but subclasses
+    may allow normalizing irregular path forms (such as Windows local paths).
+    """
+    cdef c_string c_path = _path_as_bytes(path)
+    cdef c_string c_path_normalized
+
+    c_path_normalized = GetResultValue(filesystem.fs.NormalizePath(c_path))
+    return frombytes(c_path_normalized)
+
+
 cdef class FileInfo:
-    """FileSystem entry info"""
+    """
+    FileSystem entry info.
+    """
 
     def __init__(self):
         raise TypeError("FileInfo cannot be instantiated directly, use "
-                        "FileSystem.get_target_infos method instead.")
+                        "FileSystem.get_file_info method instead.")
 
     @staticmethod
     cdef wrap(CFileInfo info):
@@ -73,11 +89,12 @@ cdef class FileInfo:
 
     @property
     def type(self):
-        """Type of the file
+        """
+        Type of the file.
 
         The returned enum values can be the following:
 
-        - FileType.NonExistent: target does not exist
+        - FileType.NotFound: target does not exist
         - FileType.Unknown: target exists but its type is unknown (could be a
           special file such as a Unix socket or character device, or
           Windows NUL / CON / ...)
@@ -92,12 +109,15 @@ cdef class FileInfo:
 
     @property
     def path(self):
-        """The full file path in the filesystem."""
+        """
+        The full file path in the filesystem.
+        """
         return frombytes(self.info.path())
 
     @property
     def base_name(self):
-        """The file base name
+        """
+        The file base name.
 
         Component after the last directory separator.
         """
@@ -105,7 +125,8 @@ cdef class FileInfo:
 
     @property
     def size(self):
-        """The size in bytes, if available
+        """
+        The size in bytes, if available.
 
         Only regular files are guaranteed to have a size.
         """
@@ -115,12 +136,15 @@ cdef class FileInfo:
 
     @property
     def extension(self):
-        """The file extension"""
+        """
+        The file extension.
+        """
         return frombytes(self.info.extension())
 
     @property
     def mtime(self):
-        """The time of last modification, if available.
+        """
+        The time of last modification, if available.
 
         Returns
         -------
@@ -132,7 +156,8 @@ cdef class FileInfo:
 
 
 cdef class FileSelector:
-    """File and directory selector.
+    """
+    File and directory selector.
 
     It contains a set of options that describes how to search for files and
     directories.
@@ -142,7 +167,7 @@ cdef class FileSelector:
     base_dir : str
         The directory in which to select files. Relative paths also work, use
         '.' for the current directory and '..' for the parent.
-    allow_non_existent : bool, default False
+    allow_not_found : bool, default False
         The behavior if `base_dir` doesn't exist in the filesystem.
         If false, an error is returned.
         If true, an empty selection is returned.
@@ -150,11 +175,11 @@ cdef class FileSelector:
         Whether to recurse into subdirectories.
     """
 
-    def __init__(self, base_dir, bint allow_non_existent=False,
+    def __init__(self, base_dir, bint allow_not_found=False,
                  bint recursive=False):
         self.base_dir = base_dir
         self.recursive = recursive
-        self.allow_non_existent = allow_non_existent
+        self.allow_not_found = allow_not_found
 
     cdef inline CFileSelector unwrap(self) nogil:
         return self.selector
@@ -168,12 +193,12 @@ cdef class FileSelector:
         self.selector.base_dir = _path_as_bytes(base_dir)
 
     @property
-    def allow_non_existent(self):
-        return self.selector.allow_non_existent
+    def allow_not_found(self):
+        return self.selector.allow_not_found
 
-    @allow_non_existent.setter
-    def allow_non_existent(self, bint allow_non_existent):
-        self.selector.allow_non_existent = allow_non_existent
+    @allow_not_found.setter
+    def allow_not_found(self, bint allow_not_found):
+        self.selector.allow_not_found = allow_not_found
 
     @property
     def recursive(self):
@@ -183,9 +208,15 @@ cdef class FileSelector:
     def recursive(self, bint recursive):
         self.selector.recursive = recursive
 
+    def __repr__(self):
+        return ("<FileSelector base_dir={0.base_dir!r} "
+                "recursive={0.recursive}>".format(self))
+
 
 cdef class FileSystem:
-    """Abstract file system API"""
+    """
+    Abstract file system API.
+    """
 
     def __init__(self):
         raise TypeError("FileSystem is an abstract class, instantiate one of "
@@ -194,7 +225,8 @@ cdef class FileSystem:
 
     @staticmethod
     def from_uri(uri):
-        """Create a new FileSystem from URI or Path
+        """
+        Create a new FileSystem from URI or Path.
 
         Recognized URI schemes are "file", "mock", "s3fs", "hdfs" and "viewfs".
         In addition, the argument can be a pathlib.Path object, or a string
@@ -203,7 +235,7 @@ cdef class FileSystem:
         Parameters
         ----------
         uri : string
-            URI-based path, for example: file:///some/local/path
+            URI-based path, for example: file:///some/local/path.
 
         Returns
         -------
@@ -226,7 +258,7 @@ cdef class FileSystem:
         self.fs = wrapped.get()
 
     @staticmethod
-    cdef wrap(shared_ptr[CFileSystem]& sp):
+    cdef wrap(const shared_ptr[CFileSystem]& sp):
         cdef FileSystem self
 
         typ = frombytes(sp.get().type_name())
@@ -251,12 +283,22 @@ cdef class FileSystem:
     cdef inline shared_ptr[CFileSystem] unwrap(self) nogil:
         return self.wrapped
 
-    def get_target_infos(self, paths_or_selector):
-        """Get infos for the given target.
+    def equals(self, FileSystem other):
+        return self.fs.Equals(other.unwrap())
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def get_file_info(self, paths_or_selector):
+        """
+        Get info for the given files.
 
         Any symlink is automatically dereferenced, recursively. A non-existing
         or unreachable file returns a FileStat object and has a FileType of
-        value NonExistent. An exception indicates a truly exceptional condition
+        value NotFound. An exception indicates a truly exceptional condition
         (low-level I/O error, etc.).
 
         Parameters
@@ -264,7 +306,7 @@ cdef class FileSystem:
         paths_or_selector: FileSelector or list of path-likes
             Either a selector object or a list of path-like objects.
             The selector's base directory will not be part of the results, even
-            if it exists. If it doesn't exist, use `allow_non_existent`.
+            if it exists. If it doesn't exist, use `allow_not_found`.
 
         Returns
         -------
@@ -278,18 +320,19 @@ cdef class FileSystem:
         if isinstance(paths_or_selector, FileSelector):
             with nogil:
                 selector = (<FileSelector>paths_or_selector).selector
-                infos = GetResultValue(self.fs.GetTargetInfos(selector))
+                infos = GetResultValue(self.fs.GetFileInfo(selector))
         elif isinstance(paths_or_selector, (list, tuple)):
             paths = [_path_as_bytes(s) for s in paths_or_selector]
             with nogil:
-                infos = GetResultValue(self.fs.GetTargetInfos(paths))
+                infos = GetResultValue(self.fs.GetFileInfo(paths))
         else:
             raise TypeError('Must pass either paths or a FileSelector')
 
         return [FileInfo.wrap(info) for info in infos]
 
     def create_dir(self, path, *, bint recursive=True):
-        """Create a directory and subdirectories.
+        """
+        Create a directory and subdirectories.
 
         This function succeeds if the directory already exists.
 
@@ -317,7 +360,8 @@ cdef class FileSystem:
             check_status(self.fs.DeleteDir(directory))
 
     def move(self, src, dest):
-        """Move / rename a file or directory.
+        """
+        Move / rename a file or directory.
 
         If the destination exists:
         - if it is a non-empty directory, an error is returned
@@ -338,7 +382,8 @@ cdef class FileSystem:
             check_status(self.fs.Move(source, destination))
 
     def copy_file(self, src, dest):
-        """Copy a file.
+        """
+        Copy a file.
 
         If the destination exists and is a directory, an error is returned.
         Otherwise, it is replaced.
@@ -357,7 +402,8 @@ cdef class FileSystem:
             check_status(self.fs.CopyFile(source, destination))
 
     def delete_file(self, path):
-        """Delete a file.
+        """
+        Delete a file.
 
         Parameters
         ----------
@@ -387,7 +433,8 @@ cdef class FileSystem:
         return stream
 
     def open_input_file(self, path):
-        """Open an input file for random access reading.
+        """
+        Open an input file for random access reading.
 
         Parameters
         ----------
@@ -411,7 +458,8 @@ cdef class FileSystem:
         return stream
 
     def open_input_stream(self, path, compression='detect', buffer_size=None):
-        """Open an input stream for sequential reading.
+        """
+        Open an input stream for sequential reading.
 
         Parameters
         ----------
@@ -447,7 +495,8 @@ cdef class FileSystem:
         )
 
     def open_output_stream(self, path, compression='detect', buffer_size=None):
-        """Open an output stream for sequential writing.
+        """
+        Open an output stream for sequential writing.
 
         If the target already exists, existing data is truncated.
 
@@ -485,7 +534,8 @@ cdef class FileSystem:
         )
 
     def open_append_stream(self, path, compression='detect', buffer_size=None):
-        """Open an output stream for appending.
+        """
+        Open an output stream for appending.
 
         If the target doesn't exist, a new empty file is created.
 
@@ -523,8 +573,12 @@ cdef class FileSystem:
         )
 
 
-cdef class LocalFileSystemOptions:
-    """Options for LocalFileSystemOptions.
+cdef class LocalFileSystem(FileSystem):
+    """
+    A FileSystem implementation accessing files on the local machine.
+
+    Details such as symlinks are abstracted away (symlinks are always followed,
+    except when deleting an entry).
 
     Parameters
     ----------
@@ -532,62 +586,30 @@ cdef class LocalFileSystemOptions:
         Whether open_input_stream and open_input_file should return
         a mmap'ed file or a regular file.
     """
-    cdef:
-        CLocalFileSystemOptions options
 
-    # Avoid mistakingly creating attributes
-    __slots__ = ()
-
-    def __init__(self, use_mmap=None):
-        self.options = CLocalFileSystemOptions.Defaults()
-        if use_mmap is not None:
-            self.use_mmap = use_mmap
-
-    @property
-    def use_mmap(self):
-        """
-        Whether open_input_stream and open_input_file should return
-        a mmap'ed file or a regular file.
-        """
-        return self.options.use_mmap
-
-    @use_mmap.setter
-    def use_mmap(self, value):
-        self.options.use_mmap = value
-
-
-cdef class LocalFileSystem(FileSystem):
-    """A FileSystem implementation accessing files on the local machine.
-
-    Details such as symlinks are abstracted away (symlinks are always followed,
-    except when deleting an entry).
-
-    Parameters
-    ----------
-    options: LocalFileSystemOptions, default None
-    kwargs: individual named options, for convenience
-
-    """
-
-    def __init__(self, LocalFileSystemOptions options=None, **kwargs):
+    def __init__(self, use_mmap=False):
         cdef:
-            CLocalFileSystemOptions c_options
-            shared_ptr[CLocalFileSystem] c_fs
+            CLocalFileSystemOptions opts
+            shared_ptr[CLocalFileSystem] fs
 
-        options = options or LocalFileSystemOptions()
-        for k, v in kwargs.items():
-            setattr(options, k, v)
-        c_options = options.options
-        c_fs = make_shared[CLocalFileSystem](c_options)
-        self.init(<shared_ptr[CFileSystem]> c_fs)
+        opts = CLocalFileSystemOptions.Defaults()
+        opts.use_mmap = use_mmap
+
+        fs = make_shared[CLocalFileSystem](opts)
+        self.init(<shared_ptr[CFileSystem]> fs)
 
     cdef init(self, const shared_ptr[CFileSystem]& c_fs):
         FileSystem.init(self, c_fs)
         self.localfs = <CLocalFileSystem*> c_fs.get()
 
+    def __reduce__(self):
+        cdef CLocalFileSystemOptions opts = self.localfs.options()
+        return LocalFileSystem, (opts.use_mmap,)
+
 
 cdef class SubTreeFileSystem(FileSystem):
-    """Delegates to another implementation after prepending a fixed base path.
+    """
+    Delegates to another implementation after prepending a fixed base path.
 
     This is useful to expose a logical view of a subtree of a filesystem,
     for example a directory in a LocalFileSystem.
@@ -618,6 +640,11 @@ cdef class SubTreeFileSystem(FileSystem):
         FileSystem.init(self, wrapped)
         self.subtreefs = <CSubTreeFileSystem*> wrapped.get()
 
+    def __reduce__(self):
+        return SubTreeFileSystem, (
+            frombytes(self.subtreefs.base_path()),
+            FileSystem.wrap(self.subtreefs.base_fs())
+        )
 
 cdef class _MockFileSystem(FileSystem):
 

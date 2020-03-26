@@ -51,12 +51,18 @@ static inline FragmentIterator GetFragmentsFromDatasets(
   return MakeFlattenIterator(std::move(fragments_it));
 }
 
-inline std::shared_ptr<Schema> SchemaFromColumnNames(
+static inline RecordBatchIterator IteratorFromReader(
+    std::shared_ptr<RecordBatchReader> reader) {
+  return MakeFunctionIterator([reader] { return reader->Next(); });
+}
+
+static inline std::shared_ptr<Schema> SchemaFromColumnNames(
     const std::shared_ptr<Schema>& input, const std::vector<std::string>& column_names) {
   std::vector<std::shared_ptr<Field>> columns;
-  for (const auto& name : column_names) {
-    if (auto field = input->GetFieldByName(name)) {
-      columns.push_back(std::move(field));
+  for (FieldRef ref : column_names) {
+    auto maybe_field = ref.GetOne(*input);
+    if (maybe_field.ok()) {
+      columns.push_back(std::move(maybe_field).ValueOrDie());
     }
   }
 

@@ -435,6 +435,27 @@ class TestListArray : public TestBuilder {
     ASSERT_RAISES(Invalid, ValidateOffsets(2, {0, 7, 4}, values));
   }
 
+  void TestCornerCases() {
+    // ARROW-7985
+    ASSERT_OK(builder_->AppendNull());
+    Done();
+    auto expected = ArrayFromJSON(type_, "[null]");
+    AssertArraysEqual(*result_, *expected);
+
+    SetUp();
+    ASSERT_OK(builder_->Append());
+    Done();
+    expected = ArrayFromJSON(type_, "[[]]");
+    AssertArraysEqual(*result_, *expected);
+
+    SetUp();
+    ASSERT_OK(builder_->AppendNull());
+    ASSERT_OK(builder_->value_builder()->Reserve(100));
+    Done();
+    expected = ArrayFromJSON(type_, "[null]");
+    AssertArraysEqual(*result_, *expected);
+  }
+
  protected:
   std::shared_ptr<DataType> value_type_;
 
@@ -442,7 +463,7 @@ class TestListArray : public TestBuilder {
   std::shared_ptr<ArrayType> result_;
 };
 
-TYPED_TEST_CASE(TestListArray, ListTypes);
+TYPED_TEST_SUITE(TestListArray, ListTypes);
 
 TYPED_TEST(TestListArray, Basics) { this->TestBasics(); }
 
@@ -473,6 +494,8 @@ TYPED_TEST(TestListArray, TestFlattenNonEmptyBackingNulls) {
 }
 
 TYPED_TEST(TestListArray, ValidateOffsets) { this->TestValidateOffsets(); }
+
+TYPED_TEST(TestListArray, CornerCases) { this->TestCornerCases(); }
 
 // ----------------------------------------------------------------------
 // Map tests

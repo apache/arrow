@@ -175,7 +175,7 @@ Status FixedSizeListBuilder::AppendNulls(int64_t length) {
 }
 
 Status FixedSizeListBuilder::Resize(int64_t capacity) {
-  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+  RETURN_NOT_OK(CheckCapacity(capacity));
   return ArrayBuilder::Resize(capacity);
 }
 

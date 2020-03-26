@@ -18,6 +18,7 @@
 package org.apache.arrow.gandiva.expression;
 
 import org.apache.arrow.flatbuf.DateUnit;
+import org.apache.arrow.flatbuf.IntervalUnit;
 import org.apache.arrow.flatbuf.TimeUnit;
 import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.gandiva.exceptions.GandivaException;
@@ -202,6 +203,26 @@ public class ArrowTypeHelper {
     }
   }
 
+  private static void initArrowTypeInterval(ArrowType.Interval interval,
+                                             GandivaTypes.ExtGandivaType.Builder builder) {
+    short intervalUnit = interval.getUnit().getFlatbufID();
+    switch (intervalUnit) {
+      case IntervalUnit.YEAR_MONTH: {
+        builder.setType(GandivaTypes.GandivaType.INTERVAL);
+        builder.setIntervalType(GandivaTypes.IntervalType.YEAR_MONTH);
+        break;
+      }
+      case IntervalUnit.DAY_TIME: {
+        builder.setType(GandivaTypes.GandivaType.INTERVAL);
+        builder.setIntervalType(GandivaTypes.IntervalType.DAY_TIME);
+        break;
+      }
+      default: {
+        // not supported
+      }
+    }
+  }
+
   /**
    * Converts an arrow type into a protobuf.
    *
@@ -259,6 +280,7 @@ public class ArrowTypeHelper {
         break;
       }
       case Type.Interval: { // 11
+        ArrowTypeHelper.initArrowTypeInterval((ArrowType.Interval) arrowType, builder);
         break;
       }
       case Type.List: { // 12
@@ -287,7 +309,7 @@ public class ArrowTypeHelper {
     if (!builder.hasType()) {
       // type has not been set
       // throw an exception
-      throw new UnsupportedTypeException("Unsupported type" + arrowType.toString());
+      throw new UnsupportedTypeException("Unsupported type " + arrowType.toString());
     }
 
     return builder.build();

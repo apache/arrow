@@ -180,8 +180,10 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
 
   @Override
   public Boolean visit(DenseUnionVector left, Range range) {
-    // TODO: support dense union
-    throw new UnsupportedOperationException();
+    if (!validate(left)) {
+      return false;
+    }
+    return compareDenseUnionVectors(range);
   }
 
   @Override
@@ -215,6 +217,61 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
           return false;
         }
       }
+      TypeEqualsVisitor typeVisitor = new TypeEqualsVisitor(rightSubVector);
+      RangeEqualsVisitor visitor =
+          createInnerVisitor(leftSubVector, rightSubVector, (left, right) -> typeVisitor.equals(left));
+      if (!visitor.rangeEquals(subRange)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  protected boolean compareDenseUnionVectors(Range range) {
+    DenseUnionVector leftVector = (DenseUnionVector) left;
+    DenseUnionVector rightVector = (DenseUnionVector) right;
+
+    Range subRange = new Range(0, 0, 1);
+    for (int i = 0; i < range.getLength(); i++) {
+      boolean isLeftNull = leftVector.isNull(range.getLeftStart() + i);
+      boolean isRightNull = rightVector.isNull(range.getRightStart() + i);
+
+      // compare nullabilities
+      if (isLeftNull || isRightNull) {
+        if (isLeftNull != isRightNull) {
+          // exactly one slot is null, unequal
+          return false;
+        } else {
+          // both slots are null, pass this iteration
+          continue;
+        }
+      }
+
+      // compare type ids
+      byte leftTypeId = leftVector.getTypeId(range.getLeftStart() + i);
+      byte rightTypeId = rightVector.getTypeId(range.getRightStart() + i);
+
+      if (leftTypeId != rightTypeId) {
+        return false;
+      }
+
+      ValueVector leftSubVector = leftVector.getVectorByType(leftTypeId);
+      ValueVector rightSubVector = rightVector.getVectorByType(rightTypeId);
+
+      if (leftSubVector == null || rightSubVector == null) {
+        if (leftSubVector != rightSubVector) {
+          // exactly one of the sub-vectors is null, unequal
+          return false;
+        } else {
+          // both sub-vectors are null, pass this iteration
+          continue;
+        }
+      }
+
+      // compare values
+      int leftOffset = leftVector.getOffset(range.getLeftStart() + i);
+      int rightOffset = rightVector.getOffset(range.getRightStart() + i);
+      subRange.setLeftStart(leftOffset).setRightStart(rightOffset);
       TypeEqualsVisitor typeVisitor = new TypeEqualsVisitor(rightSubVector);
       RangeEqualsVisitor visitor =
           createInnerVisitor(leftSubVector, rightSubVector, (left, right) -> typeVisitor.equals(left));

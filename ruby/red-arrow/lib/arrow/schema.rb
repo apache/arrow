@@ -91,5 +91,10 @@ module Arrow
     end
 
     alias_method :[], :find_field
+
+    alias_method :to_s_raw, :to_s
+    def to_s(show_metadata: false)
+      to_string_metadata(show_metadata)
+    end
   end
 end

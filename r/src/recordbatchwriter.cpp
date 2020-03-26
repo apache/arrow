@@ -43,20 +43,18 @@ void ipc___RecordBatchWriter__Close(
 std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open(
     const std::shared_ptr<arrow::io::OutputStream>& stream,
     const std::shared_ptr<arrow::Schema>& schema, bool use_legacy_format) {
-  auto options = arrow::ipc::IpcOptions::Defaults();
+  auto options = arrow::ipc::IpcWriteOptions::Defaults();
   options.write_legacy_ipc_format = use_legacy_format;
-  return VALUE_OR_STOP(
-      arrow::ipc::RecordBatchFileWriter::Open(stream.get(), schema, options));
+  return VALUE_OR_STOP(arrow::ipc::NewFileWriter(stream.get(), schema, options));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchStreamWriter__Open(
     const std::shared_ptr<arrow::io::OutputStream>& stream,
     const std::shared_ptr<arrow::Schema>& schema, bool use_legacy_format) {
-  auto options = arrow::ipc::IpcOptions::Defaults();
+  auto options = arrow::ipc::IpcWriteOptions::Defaults();
   options.write_legacy_ipc_format = use_legacy_format;
-  return VALUE_OR_STOP(
-      arrow::ipc::RecordBatchStreamWriter::Open(stream.get(), schema, options));
+  return VALUE_OR_STOP(NewStreamWriter(stream.get(), schema, options));
 }
 
 #endif

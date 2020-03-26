@@ -1418,7 +1418,7 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
     cdef:
         unique_ptr[CFlightDataStream] data_stream
         # TODO make it possible to pass IPC options around?
-        cdef CIpcOptions c_ipc_options = CIpcOptions.Defaults()
+        cdef CIpcWriteOptions c_ipc_options = CIpcWriteOptions.Defaults()
 
     py_stream = <object> self
     if not isinstance(py_stream, GeneratorStream):
@@ -1480,7 +1480,6 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
         check_flight_status(GetRecordBatchPayload(
             deref(batch.batch),
             c_ipc_options,
-            c_default_memory_pool(),
             &payload.ipc_message))
         if metadata:
             payload.app_metadata = pyarrow_unwrap_buffer(as_buffer(metadata))

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_THREAD_POOL_H
-#define ARROW_UTIL_THREAD_POOL_H
+#pragma once
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -189,5 +188,3 @@ ARROW_EXPORT ThreadPool* GetCpuThreadPool();
 
 }  // namespace internal
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_THREAD_POOL_H

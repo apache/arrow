@@ -48,8 +48,9 @@ class IntegrationTestServer {
     final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
     final ExampleFlightServer efs = new ExampleFlightServer(allocator, Location.forGrpcInsecure("localhost", port));
     efs.start();
+    efs.getStore().setLocation(Location.forGrpcInsecure("localhost", efs.getPort()));
     // Print out message for integration test script
-    System.out.println("Server listening on localhost:" + port);
+    System.out.println("Server listening on localhost:" + efs.getPort());
 
     Runtime.getRuntime().addShutdownHook(new Thread(() -> {
       try {

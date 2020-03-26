@@ -40,10 +40,10 @@ using arrow::internal::TemporaryDir;
 /**
  * Seek to the beginning of a file and read a message from it.
  *
- * @param fd File descriptor of the file.
- * @param message_type Message type that we expect in the file.
+ * \param fd File descriptor of the file.
+ * \param message_type Message type that we expect in the file.
  *
- * @return Pointer to the content of the message. Needs to be freed by the
+ * \return Pointer to the content of the message. Needs to be freed by the
  * caller.
  */
 std::vector<uint8_t> read_message_from_file(int fd, MessageType message_type) {
@@ -97,15 +97,18 @@ TEST_F(TestPlasmaSerialization, CreateRequest) {
   int64_t data_size1 = 42;
   int64_t metadata_size1 = 11;
   int device_num1 = 0;
-  ASSERT_OK(SendCreateRequest(fd, object_id1, data_size1, metadata_size1, device_num1));
+  ASSERT_OK(SendCreateRequest(fd, object_id1, /*evict_if_full=*/true, data_size1,
+                              metadata_size1, device_num1));
   std::vector<uint8_t> data =
       read_message_from_file(fd, MessageType::PlasmaCreateRequest);
   ObjectID object_id2;
+  bool evict_if_full;
   int64_t data_size2;
   int64_t metadata_size2;
   int device_num2;
-  ASSERT_OK(ReadCreateRequest(data.data(), data.size(), &object_id2, &data_size2,
-                              &metadata_size2, &device_num2));
+  ASSERT_OK(ReadCreateRequest(data.data(), data.size(), &object_id2, &evict_if_full,
+                              &data_size2, &metadata_size2, &device_num2));
+  ASSERT_TRUE(evict_if_full);
   ASSERT_EQ(data_size1, data_size2);
   ASSERT_EQ(metadata_size1, metadata_size2);
   ASSERT_EQ(object_id1, object_id2);

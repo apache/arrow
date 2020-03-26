@@ -17,8 +17,7 @@
 
 // Coarse public API while the library is in development
 
-#ifndef ARROW_API_H
-#define ARROW_API_H
+#pragma once
 
 #include "arrow/array.h"                    // IYWU pragma: export
 #include "arrow/array/concatenate.h"        // IYWU pragma: export
@@ -41,5 +40,3 @@
 
 /// \brief Top-level namespace for Apache Arrow C++ API
 namespace arrow {}
-
-#endif  // ARROW_API_H

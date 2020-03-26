@@ -1,7 +1,7 @@
 MACOSX_DEPLOYMENT_TARGET:
 - '10.9'
 boost_cpp:
-- 1.70.0
+- '1.72'
 bzip2:
 - '1'
 c_compiler:
@@ -19,7 +19,7 @@ cxx_compiler_version:
 glog:
 - 0.4.0
 grpc_cpp:
-- '1.25'
+- '1.27'
 libprotobuf:
 - '3.11'
 lz4_c:
@@ -40,8 +40,6 @@ pin_run_as_build:
   python:
     min_pin: x.x
     max_pin: x.x
-  snappy:
-    max_pin: x.x.x
   zlib:
     max_pin: x.x
   zstd:
@@ -49,7 +47,7 @@ pin_run_as_build:
 python:
 - '3.7'
 snappy:
-- 1.1.7
+- '1'
 zlib:
 - '1.2'
 zstd:

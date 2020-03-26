@@ -168,7 +168,7 @@ garrow_local_file_system_class_init(GArrowLocalFileSystemClass *klass)
 
 /**
  * garrow_local_file_system_new:
- * @options: (nullable) A #GArrowLocalFileSystemOptions.
+ * @options: (nullable): A #GArrowLocalFileSystemOptions.
  *
  * Returns: (transfer full): A newly created #GArrowLocalFileSystem.
  *

@@ -46,6 +46,7 @@ namespace arrow {
 namespace dataset {
 
 using fs::internal::GetAbstractPathExtension;
+using internal::checked_cast;
 using internal::TemporaryDir;
 
 class FileSourceFixtureMixin : public ::testing::Test {
@@ -132,9 +133,9 @@ class DatasetFixtureMixin : public ::testing::Test {
 
   /// \brief Ensure that record batches found in reader are equals to the
   /// record batches yielded by the data fragments of a dataset.
-  void AssertDatasetFragmentsEqual(RecordBatchReader* expected, Dataset* source,
+  void AssertDatasetFragmentsEqual(RecordBatchReader* expected, Dataset* dataset,
                                    bool ensure_drained = true) {
-    auto it = source->GetFragments(options_);
+    auto it = dataset->GetFragments(options_);
 
     ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<Fragment> fragment) -> Status {
       AssertFragmentEquals(expected, fragment.get(), false);
@@ -207,25 +208,9 @@ class DummyFileFormat : public FileFormat {
     return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
   }
 
-  inline Result<std::shared_ptr<Fragment>> MakeFragment(
-      FileSource source, std::shared_ptr<ScanOptions> options) override;
-
  protected:
   std::shared_ptr<Schema> schema_;
 };
-
-class DummyFragment : public FileFragment {
- public:
-  DummyFragment(const FileSource& source, std::shared_ptr<ScanOptions> options)
-      : FileFragment(source, std::make_shared<DummyFileFormat>(), options) {}
-
-  bool splittable() const override { return false; }
-};
-
-Result<std::shared_ptr<Fragment>> DummyFileFormat::MakeFragment(
-    FileSource source, std::shared_ptr<ScanOptions> options) {
-  return std::make_shared<DummyFragment>(source, options);
-}
 
 class JSONRecordBatchFileFormat : public FileFormat {
  public:
@@ -262,30 +247,36 @@ class JSONRecordBatchFileFormat : public FileFormat {
                                            std::move(context));
   }
 
-  inline Result<std::shared_ptr<Fragment>> MakeFragment(
-      FileSource source, std::shared_ptr<ScanOptions> options) override;
-
  protected:
   SchemaResolver resolver_;
 };
 
-class JSONRecordBatchFragment : public FileFragment {
- public:
-  JSONRecordBatchFragment(const FileSource& source, std::shared_ptr<Schema> schema,
-                          std::shared_ptr<ScanOptions> options)
-      : FileFragment(source, std::make_shared<JSONRecordBatchFileFormat>(schema),
-                     options) {}
+struct MakeFileSystemDatasetMixin {
+  std::vector<fs::FileInfo> ParsePathList(const std::string& pathlist) {
+    std::vector<fs::FileInfo> infos;
 
-  bool splittable() const override { return false; }
-};
+    std::stringstream ss(pathlist);
+    std::string line;
+    while (std::getline(ss, line)) {
+      if (std::all_of(line.begin(), line.end(), [](char c) { return isspace(c); })) {
+        continue;
+      }
 
-Result<std::shared_ptr<Fragment>> JSONRecordBatchFileFormat::MakeFragment(
-    FileSource source, std::shared_ptr<ScanOptions> options) {
-  return std::make_shared<JSONRecordBatchFragment>(source, resolver_(source), options);
-}
+      if (line.front() == '#') {
+        continue;
+      }
 
-class TestFileSystemDataset : public ::testing::Test {
- public:
+      if (line.back() == '/') {
+        infos.push_back(fs::Dir(line));
+        continue;
+      }
+
+      infos.push_back(fs::File(line));
+    }
+
+    return infos;
+  }
+
   void MakeFileSystem(const std::vector<fs::FileInfo>& infos) {
     ASSERT_OK_AND_ASSIGN(fs_, fs::internal::MockFileSystem::Make(fs::kNoTime, infos));
   }
@@ -299,7 +290,7 @@ class TestFileSystemDataset : public ::testing::Test {
   }
 
   void MakeDataset(const std::vector<fs::FileInfo>& infos,
-                   std::shared_ptr<Expression> source_partition = scalar(true),
+                   std::shared_ptr<Expression> root_partition = scalar(true),
                    ExpressionVector partitions = {}) {
     if (partitions.empty()) {
       partitions.resize(infos.size(), scalar(true));
@@ -308,35 +299,46 @@ class TestFileSystemDataset : public ::testing::Test {
     MakeFileSystem(infos);
     auto format = std::make_shared<DummyFileFormat>();
     ASSERT_OK_AND_ASSIGN(
-        source_, FileSystemDataset::Make(schema({}), source_partition, format, fs_, infos,
-                                         partitions));
+        dataset_, FileSystemDataset::Make(schema({}), root_partition, format, fs_, infos,
+                                          partitions));
   }
 
- protected:
+  void MakeDatasetFromPathlist(const std::string& pathlist,
+                               std::shared_ptr<Expression> root_partition = scalar(true),
+                               ExpressionVector partitions = {}) {
+    MakeDataset(ParsePathList(pathlist), root_partition, partitions);
+  }
+
   std::shared_ptr<fs::FileSystem> fs_;
-  std::shared_ptr<Dataset> source_;
+  std::shared_ptr<Dataset> dataset_;
   std::shared_ptr<ScanOptions> options_ = ScanOptions::Make(schema({}));
 };
 
-void AssertFilesAre(const std::shared_ptr<Dataset>& source,
+static const std::string& PathOf(const std::shared_ptr<Fragment>& fragment) {
+  EXPECT_NE(fragment, nullptr);
+  EXPECT_EQ(fragment->type_name(), "file");
+  return internal::checked_cast<const FileFragment&>(*fragment).source().path();
+}
+
+class TestFileSystemDataset : public ::testing::Test,
+                              public MakeFileSystemDatasetMixin {};
+
+static std::vector<std::string> PathsOf(const FragmentVector& fragments) {
+  std::vector<std::string> paths(fragments.size());
+  std::transform(fragments.begin(), fragments.end(), paths.begin(), PathOf);
+  return paths;
+}
+
+void AssertFilesAre(const std::shared_ptr<Dataset>& dataset,
                     std::vector<std::string> expected) {
-  auto fs_source = internal::checked_cast<FileSystemDataset*>(source.get());
-  EXPECT_THAT(fs_source->files(), testing::UnorderedElementsAreArray(expected));
+  auto fs_dataset = internal::checked_cast<FileSystemDataset*>(dataset.get());
+  EXPECT_THAT(fs_dataset->files(), testing::UnorderedElementsAreArray(expected));
 }
 
 void AssertFragmentsAreFromPath(FragmentIterator it, std::vector<std::string> expected) {
-  std::vector<std::string> actual;
-
-  auto v = [&actual](std::shared_ptr<Fragment> fragment) -> Status {
-    EXPECT_NE(fragment, nullptr);
-    auto dummy = std::static_pointer_cast<DummyFragment>(fragment);
-    actual.push_back(dummy->source().path());
-    return Status::OK();
-  };
-
-  ASSERT_OK(it.Visit(v));
   // Ordering is not guaranteed.
-  EXPECT_THAT(actual, testing::UnorderedElementsAreArray(expected));
+  EXPECT_THAT(PathsOf(IteratorToVector(std::move(it))),
+              testing::UnorderedElementsAreArray(expected));
 }
 
 // A frozen shared_ptr<Expression> with behavior expected by GTest
@@ -350,16 +352,40 @@ struct TestExpression : util::EqualityComparable<TestExpression>,
 
   std::shared_ptr<Expression> expression;
 
+  using util::EqualityComparable<TestExpression>::operator==;
   bool Equals(const TestExpression& other) const {
     return expression->Equals(other.expression);
   }
 
   std::string ToString() const { return expression->ToString(); }
 
+  friend bool operator==(const std::shared_ptr<Expression>& lhs,
+                         const TestExpression& rhs) {
+    return TestExpression(lhs) == rhs;
+  }
+
   friend void PrintTo(const TestExpression& expr, std::ostream* os) {
     *os << expr.ToString();
   }
 };
+
+static std::vector<TestExpression> PartitionExpressionsOf(
+    const FragmentVector& fragments) {
+  std::vector<TestExpression> partition_expressions;
+  std::transform(fragments.begin(), fragments.end(),
+                 std::back_inserter(partition_expressions),
+                 [](const std::shared_ptr<Fragment>& fragment) {
+                   return TestExpression(fragment->partition_expression());
+                 });
+  return partition_expressions;
+}
+
+void AssertFragmentsHavePartitionExpressions(FragmentIterator it,
+                                             ExpressionVector expected) {
+  // Ordering is not guaranteed.
+  EXPECT_THAT(PartitionExpressionsOf(IteratorToVector(std::move(it))),
+              testing::UnorderedElementsAreArray(expected));
+}
 
 struct ArithmeticDatasetFixture {
   static std::shared_ptr<Schema> schema() {

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_FILTER_CACHE_KEY_H
-#define GANDIVA_FILTER_CACHE_KEY_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -95,4 +94,3 @@ class FilterCacheKey {
   uint32_t uniqifier_;
 };
 }  // namespace gandiva
-#endif  // GANDIVA_FILTER_CACHE_KEY_H

@@ -26,8 +26,9 @@
 #include "arrow/util/logging.h"
 
 #include "parquet/exception.h"
-#include "parquet/parquet_types.h"
 #include "parquet/types.h"
+
+#include "generated/parquet_types.h"
 
 using ::arrow::internal::checked_cast;
 using arrow::util::Codec;
@@ -944,7 +945,9 @@ bool LogicalType::Impl::Decimal::is_applicable(parquet::Type::type primitive_typ
     case parquet::Type::BYTE_ARRAY: {
       ok = true;
     } break;
-    default: { } break; }
+    default: {
+    } break;
+  }
   return ok;
 }
 

@@ -136,7 +136,7 @@ void ValidateSum(FunctionContext* ctx, const Array& array) {
 template <typename ArrowType>
 class TestNumericSumKernel : public ComputeFixture, public TestBase {};
 
-TYPED_TEST_CASE(TestNumericSumKernel, NumericArrowTypes);
+TYPED_TEST_SUITE(TestNumericSumKernel, NumericArrowTypes);
 TYPED_TEST(TestNumericSumKernel, SimpleSum) {
   using SumType = typename FindAccumulatorType<TypeParam>::Type;
   using ScalarType = typename TypeTraits<SumType>::ScalarType;
@@ -173,7 +173,7 @@ TYPED_TEST(TestNumericSumKernel, SimpleSum) {
 template <typename ArrowType>
 class TestRandomNumericSumKernel : public ComputeFixture, public TestBase {};
 
-TYPED_TEST_CASE(TestRandomNumericSumKernel, NumericArrowTypes);
+TYPED_TEST_SUITE(TestRandomNumericSumKernel, NumericArrowTypes);
 TYPED_TEST(TestRandomNumericSumKernel, RandomArraySum) {
   auto rand = random::RandomArrayGenerator(0x5487655);
   for (size_t i = 3; i < 14; i += 2) {
@@ -248,7 +248,7 @@ void ValidateMean(FunctionContext* ctx, const Array& array) {
 template <typename ArrowType>
 class TestMeanKernelNumeric : public ComputeFixture, public TestBase {};
 
-TYPED_TEST_CASE(TestMeanKernelNumeric, NumericArrowTypes);
+TYPED_TEST_SUITE(TestMeanKernelNumeric, NumericArrowTypes);
 TYPED_TEST(TestMeanKernelNumeric, SimpleMean) {
   using ScalarType = typename TypeTraits<DoubleType>::ScalarType;
 
@@ -272,7 +272,7 @@ TYPED_TEST(TestMeanKernelNumeric, SimpleMean) {
 template <typename ArrowType>
 class TestRandomNumericMeanKernel : public ComputeFixture, public TestBase {};
 
-TYPED_TEST_CASE(TestRandomNumericMeanKernel, NumericArrowTypes);
+TYPED_TEST_SUITE(TestRandomNumericMeanKernel, NumericArrowTypes);
 TYPED_TEST(TestRandomNumericMeanKernel, RandomArrayMean) {
   auto rand = random::RandomArrayGenerator(0x8afc055);
   for (size_t i = 3; i < 14; i += 2) {
@@ -326,7 +326,7 @@ void ValidateCount(FunctionContext* ctx, const Array& input) {
 template <typename ArrowType>
 class TestCountKernel : public ComputeFixture, public TestBase {};
 
-TYPED_TEST_CASE(TestCountKernel, NumericArrowTypes);
+TYPED_TEST_SUITE(TestCountKernel, NumericArrowTypes);
 TYPED_TEST(TestCountKernel, SimpleCount) {
   ValidateCount<TypeParam>(&this->ctx_, "[]", {0, 0});
   ValidateCount<TypeParam>(&this->ctx_, "[null]", {0, 1});
@@ -338,7 +338,7 @@ TYPED_TEST(TestCountKernel, SimpleCount) {
 template <typename ArrowType>
 class TestRandomNumericCountKernel : public ComputeFixture, public TestBase {};
 
-TYPED_TEST_CASE(TestRandomNumericCountKernel, NumericArrowTypes);
+TYPED_TEST_SUITE(TestRandomNumericCountKernel, NumericArrowTypes);
 TYPED_TEST(TestRandomNumericCountKernel, RandomArrayCount) {
   auto rand = random::RandomArrayGenerator(0x1205643);
   for (size_t i = 3; i < 14; i++) {
@@ -389,14 +389,14 @@ class TestNumericMinMaxKernel : public ComputeFixture, public TestBase {
 template <typename ArrowType>
 class TestFloatingMinMaxKernel : public TestNumericMinMaxKernel<ArrowType> {};
 
-TYPED_TEST_CASE(TestNumericMinMaxKernel, IntegralArrowTypes);
+TYPED_TEST_SUITE(TestNumericMinMaxKernel, IntegralArrowTypes);
 TYPED_TEST(TestNumericMinMaxKernel, Basics) {
   MinMaxOptions options;
   this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
   this->AssertMinMaxIs("[5, null, 2, 3, 4]", 2, 5, options);
 }
 
-TYPED_TEST_CASE(TestFloatingMinMaxKernel, RealArrowTypes);
+TYPED_TEST_SUITE(TestFloatingMinMaxKernel, RealArrowTypes);
 TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   MinMaxOptions options;
   this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);

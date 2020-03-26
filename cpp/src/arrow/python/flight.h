@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_FLIGHT_H
-#define PYARROW_FLIGHT_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -323,7 +322,7 @@ class ARROW_PYFLIGHT_EXPORT PyGeneratorFlightDataStream
   OwnedRefNoGIL generator_;
   std::shared_ptr<arrow::Schema> schema_;
   ipc::DictionaryMemo dictionary_memo_;
-  ipc::IpcOptions options_;
+  ipc::IpcWriteOptions options_;
   PyGeneratorFlightDataStreamCallback callback_;
 };
 
@@ -349,5 +348,3 @@ Status CreateSchemaResult(const std::shared_ptr<arrow::Schema>& schema,
 }  // namespace flight
 }  // namespace py
 }  // namespace arrow
-
-#endif  // PYARROW_FLIGHT_H

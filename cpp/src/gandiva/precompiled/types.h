@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PRECOMPILED_TYPES_H
-#define PRECOMPILED_TYPES_H
+#pragma once
 
 #include <cstdint>
 #include "gandiva/gdv_function_stubs.h"
@@ -38,6 +37,7 @@ using gdv_time32 = int32_t;
 using gdv_timestamp = int64_t;
 using gdv_utf8 = char*;
 using gdv_binary = char*;
+using gdv_day_time_interval = int64_t;
 
 #ifdef GANDIVA_UNIT_TEST
 // unit tests may be compiled without O2, so inlining may not happen.
@@ -210,5 +210,3 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
                                    gdv_int32 from_str_len, const char* to_str,
                                    gdv_int32 to_str_len, gdv_int32* out_len);
 }  // extern "C"
-
-#endif  // PRECOMPILED_TYPES_H

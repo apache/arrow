@@ -101,12 +101,12 @@ cdef extern from "plasma/client.h" nogil:
                         const c_string& manager_socket_name,
                         int release_delay, int num_retries)
 
-        CStatus Create(const CUniqueID& object_id, int64_t data_size,
-                       const uint8_t* metadata, int64_t metadata_size,
-                       const shared_ptr[CBuffer]* data)
+        CStatus Create(const CUniqueID& object_id,
+                       int64_t data_size, const uint8_t* metadata, int64_t
+                       metadata_size, const shared_ptr[CBuffer]* data)
 
-        CStatus CreateAndSeal(const CUniqueID& object_id, const c_string& data,
-                              const c_string& metadata)
+        CStatus CreateAndSeal(const CUniqueID& object_id,
+                              const c_string& data, const c_string& metadata)
 
         CStatus Get(const c_vector[CUniqueID] object_ids, int64_t timeout_ms,
                     c_vector[CObjectBuffer]* object_buffers)
@@ -261,7 +261,7 @@ cdef class PlasmaBuffer(Buffer):
         self.client._release(self.object_id)
 
 
-class PlasmaObjectNonexistent(ArrowException):
+class PlasmaObjectNotFound(ArrowException):
     pass
 
 
@@ -281,8 +281,8 @@ cdef int plasma_check_status(const CStatus& status) nogil except -1:
         message = compat.frombytes(status.message())
         if IsPlasmaObjectExists(status):
             raise PlasmaObjectExists(message)
-        elif IsPlasmaObjectNonexistent(status):
-            raise PlasmaObjectNonexistent(message)
+        elif IsPlasmaObjectNotFound(status):
+            raise PlasmaObjectNotFound(message)
         elif IsPlasmaStoreFull(status):
             raise PlasmaStoreFull(message)
 

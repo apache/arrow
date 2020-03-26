@@ -813,13 +813,13 @@ TEST_F(TestOptionalFields, ReadOptionalFieldAsRequiredField) {
     }
     if (TestData::GetOptFloat(i)) {
       reader_ >> f;
-      EXPECT_EQ(f, *TestData::GetOptFloat(i)) << "index: " << i;
+      EXPECT_FLOAT_EQ(f, *TestData::GetOptFloat(i)) << "index: " << i;
     } else {
       EXPECT_THROW(reader_ >> f, ParquetException) << "index: " << i;
     }
     if (TestData::GetOptDouble(i)) {
       reader_ >> d;
-      EXPECT_EQ(d, *TestData::GetOptDouble(i)) << "index: " << i;
+      EXPECT_DOUBLE_EQ(d, *TestData::GetOptDouble(i)) << "index: " << i;
     } else {
       EXPECT_THROW(reader_ >> d, ParquetException) << "index: " << i;
     }

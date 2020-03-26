@@ -342,7 +342,7 @@ static std::shared_ptr<DataPageV1> MakeDataPage(
 
   return std::make_shared<DataPageV1>(buffer, num_values, encoding,
                                       page_builder.def_level_encoding(),
-                                      page_builder.rep_level_encoding());
+                                      page_builder.rep_level_encoding(), buffer->size());
 }
 
 template <typename TYPE>

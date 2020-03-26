@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GDV_FUNCTION_STUBS_H
-#define GDV_FUNCTION_STUBS_H
+#pragma once
 
 #include <cstdint>
 
@@ -54,5 +53,3 @@ int32_t gdv_fn_dec_from_string(int64_t context, const char* in, int32_t in_lengt
 char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
                            int32_t x_scale, int32_t* dec_str_len);
 }
-
-#endif  // GDV_FUNCTION_STUBS_H

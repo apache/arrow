@@ -34,6 +34,8 @@ export _R_CHECK_COMPILATION_FLAGS_KNOWN_=${ARROW_R_CXXFLAGS}
 if [ "$ARROW_R_DEV" = "TRUE" ]; then
   # These are used in the Arrow C++ build and are not a problem
   export _R_CHECK_COMPILATION_FLAGS_KNOWN_="${_R_CHECK_COMPILATION_FLAGS_KNOWN_} -Wno-attributes -msse4.2"
+  # Note that NOT_CRAN=true means (among other things) that optional dependencies are built
+  export NOT_CRAN=true
 fi
 export TEST_R_WITH_ARROW=TRUE
 export _R_CHECK_TESTS_NLINES_=0
@@ -46,7 +48,8 @@ BEFORE=$(ls -alh ~/)
 
 # Conditionally run --as-cran because crossbow jobs aren't using _R_CHECK_COMPILATION_FLAGS_KNOWN_
 # (maybe an R version thing, needs 3.6.2?)
-${R_BIN} -e "rcmdcheck::rcmdcheck(build_args = '--no-build-vignettes', args = c('--no-manual', if (!identical(Sys.getenv('ARROW_R_DEV'), 'TRUE')) '--as-cran', '--ignore-vignettes', '--run-donttest'), error_on = 'warning', check_dir = 'check')"
+# Also only --run-donttest if NOT_CRAN because Parquet example requires snappy (optional dependency)
+${R_BIN} -e "cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true'); rcmdcheck::rcmdcheck(build_args = '--no-build-vignettes', args = c('--no-manual', '--ignore-vignettes', ifelse(cran, '--as-cran', '--run-donttest')), error_on = 'warning', check_dir = 'check')"
 
 AFTER=$(ls -alh ~/)
 if [ "$BEFORE" != "$AFTER" ]; then

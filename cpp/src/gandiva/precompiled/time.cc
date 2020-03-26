@@ -738,4 +738,23 @@ const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,
   memcpy(ret, char_buffer, *out_len);
   return ret;
 }
+
+FORCE_INLINE
+gdv_int64 extractDay_daytimeinterval(gdv_day_time_interval in) {
+  gdv_int32 days = static_cast<gdv_int32>(in & 0x00000000FFFFFFFF);
+  return static_cast<gdv_int64>(days);
+}
+
+FORCE_INLINE
+gdv_int64 extractMillis_daytimeinterval(gdv_day_time_interval in) {
+  gdv_int32 millis = static_cast<gdv_int32>((in & 0xFFFFFFFF00000000) >> 32);
+  return static_cast<gdv_int64>(millis);
+}
+
+FORCE_INLINE
+gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
+  return extractMillis_daytimeinterval(in) +
+         extractDay_daytimeinterval(in) * MILLIS_IN_DAY;
+}
+
 }  // extern "C"

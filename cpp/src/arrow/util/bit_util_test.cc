@@ -338,7 +338,7 @@ class TestGenerateBits : public ::testing::Test {};
 
 typedef ::testing::Types<GenerateBitsFunctor, GenerateBitsUnrolledFunctor>
     GenerateBitsTypes;
-TYPED_TEST_CASE(TestGenerateBits, GenerateBitsTypes);
+TYPED_TEST_SUITE(TestGenerateBits, GenerateBitsTypes);
 
 TYPED_TEST(TestGenerateBits, NormalOperation) {
   const int kSourceSize = 256;
@@ -459,7 +459,7 @@ class TestVisitBits : public ::testing::Test {
 };
 
 using VisitBitsTestTypes = ::testing::Types<VisitBitsFunctor, VisitBitsUnrolledFunctor>;
-TYPED_TEST_CASE(TestVisitBits, VisitBitsTestTypes);
+TYPED_TEST_SUITE(TestVisitBits, VisitBitsTestTypes);
 
 /* Test bit-unpacking when reading less than eight bits from the input */
 TYPED_TEST(TestVisitBits, NormalOperation) {

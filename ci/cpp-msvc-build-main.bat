@@ -103,7 +103,8 @@ popd
 
 pushd python
 
-pip install -r requirements.txt
+call conda install -y --file=..\ci\conda_env_python.yml ^
+           pandas -c conda-forge
 
 set PYARROW_CXXFLAGS=%ARROW_CXXFLAGS%
 set PYARROW_CMAKE_GENERATOR=%GENERATOR%

@@ -50,7 +50,7 @@
 #include "parquet/statistics.h"
 #include "parquet/types.h"
 
-#include "parquet/parquet_types.h"  // IYWU pragma: export
+#include "generated/parquet_types.h"  // IYWU pragma: export
 
 namespace parquet {
 
@@ -361,6 +361,9 @@ inline void DeserializeThriftUnencryptedMsg(const uint8_t* buf, uint32_t* len,
   shared_ptr<ThriftBuffer> tmem_transport(
       new ThriftBuffer(const_cast<uint8_t*>(buf), *len));
   apache::thrift::protocol::TCompactProtocolFactoryT<ThriftBuffer> tproto_factory;
+  // Protect against CPU and memory bombs
+  tproto_factory.setStringSizeLimit(10 * 1000 * 1000);
+  tproto_factory.setContainerSizeLimit(10 * 1000 * 1000);
   shared_ptr<apache::thrift::protocol::TProtocol> tproto =  //
       tproto_factory.getProtocol(tmem_transport);
   try {

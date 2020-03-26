@@ -80,6 +80,8 @@ class SimpleRecordBatch : public RecordBatch {
 
   std::shared_ptr<ArrayData> column_data(int i) const override { return columns_[i]; }
 
+  ArrayDataVector column_data() const override { return columns_; }
+
   Status AddColumn(int i, const std::shared_ptr<Field>& field,
                    const std::shared_ptr<Array>& column,
                    std::shared_ptr<RecordBatch>* out) const override {
@@ -197,9 +199,15 @@ const std::string& RecordBatch::column_name(int i) const {
   return schema_->field(i)->name();
 }
 
-bool RecordBatch::Equals(const RecordBatch& other) const {
+bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata) const {
   if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
     return false;
+  }
+
+  if (check_metadata) {
+    if (!schema_->Equals(*other.schema(), /*check_metadata=*/true)) {
+      return false;
+    }
   }
 
   for (int i = 0; i < num_columns(); ++i) {

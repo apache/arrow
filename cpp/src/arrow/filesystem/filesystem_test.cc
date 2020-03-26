@@ -362,55 +362,55 @@ TEST_F(TestMockFS, DeleteFile) {
   CheckFiles({});
 }
 
-TEST_F(TestMockFS, GetTargetInfo) {
+TEST_F(TestMockFS, GetFileInfo) {
   ASSERT_OK(fs_->CreateDir("AB/CD"));
   CreateFile("AB/CD/ef", "some data");
 
   FileInfo info;
-  ASSERT_OK_AND_ASSIGN(info, fs_->GetTargetInfo("AB"));
+  ASSERT_OK_AND_ASSIGN(info, fs_->GetFileInfo("AB"));
   AssertFileInfo(info, "AB", FileType::Directory, time_);
   ASSERT_EQ(info.base_name(), "AB");
-  ASSERT_OK_AND_ASSIGN(info, fs_->GetTargetInfo("AB/CD/ef"));
+  ASSERT_OK_AND_ASSIGN(info, fs_->GetFileInfo("AB/CD/ef"));
   AssertFileInfo(info, "AB/CD/ef", FileType::File, time_, 9);
   ASSERT_EQ(info.base_name(), "ef");
 
   // Invalid path
-  ASSERT_RAISES(Invalid, fs_->GetTargetInfo("//foo//bar//baz//"));
+  ASSERT_RAISES(Invalid, fs_->GetFileInfo("//foo//bar//baz//"));
 }
 
-TEST_F(TestMockFS, GetTargetInfosVector) {
+TEST_F(TestMockFS, GetFileInfoVector) {
   ASSERT_OK(fs_->CreateDir("AB/CD"));
   CreateFile("AB/CD/ef", "some data");
 
   std::vector<FileInfo> infos;
   ASSERT_OK_AND_ASSIGN(
-      infos, fs_->GetTargetInfos({"AB", "AB/CD", "AB/zz", "zz", "XX/zz", "AB/CD/ef"}));
+      infos, fs_->GetFileInfo({"AB", "AB/CD", "AB/zz", "zz", "XX/zz", "AB/CD/ef"}));
   ASSERT_EQ(infos.size(), 6);
   AssertFileInfo(infos[0], "AB", FileType::Directory, time_);
   AssertFileInfo(infos[1], "AB/CD", FileType::Directory, time_);
-  AssertFileInfo(infos[2], "AB/zz", FileType::NonExistent);
-  AssertFileInfo(infos[3], "zz", FileType::NonExistent);
-  AssertFileInfo(infos[4], "XX/zz", FileType::NonExistent);
+  AssertFileInfo(infos[2], "AB/zz", FileType::NotFound);
+  AssertFileInfo(infos[3], "zz", FileType::NotFound);
+  AssertFileInfo(infos[4], "XX/zz", FileType::NotFound);
   AssertFileInfo(infos[5], "AB/CD/ef", FileType::File, time_, 9);
 
   // Invalid path
-  ASSERT_RAISES(Invalid, fs_->GetTargetInfos({"AB", "AB/CD", "//foo//bar//baz//"}));
+  ASSERT_RAISES(Invalid, fs_->GetFileInfo({"AB", "AB/CD", "//foo//bar//baz//"}));
 }
 
-TEST_F(TestMockFS, GetTargetInfosSelector) {
+TEST_F(TestMockFS, GetFileInfoSelector) {
   ASSERT_OK(fs_->CreateDir("AB/CD"));
   CreateFile("ab", "data");
 
   FileSelector s;
   s.base_dir = "";
   std::vector<FileInfo> infos;
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(s));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(s));
   ASSERT_EQ(infos.size(), 2);
   AssertFileInfo(infos[0], "AB", FileType::Directory, time_);
   AssertFileInfo(infos[1], "ab", FileType::File, time_, 4);
 
   s.recursive = true;
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(s));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(s));
   ASSERT_EQ(infos.size(), 3);
   AssertFileInfo(infos[0], "AB", FileType::Directory, time_);
   AssertFileInfo(infos[1], "AB/CD", FileType::Directory, time_);
@@ -418,7 +418,7 @@ TEST_F(TestMockFS, GetTargetInfosSelector) {
 
   // Invalid path
   s.base_dir = "//foo//bar//baz//";
-  ASSERT_RAISES(Invalid, fs_->GetTargetInfos(s));
+  ASSERT_RAISES(Invalid, fs_->GetFileInfo(s));
 }
 
 TEST_F(TestMockFS, OpenOutputStream) {
@@ -544,7 +544,7 @@ TEST_F(TestSubTreeFileSystem, DeleteFile) {
   ASSERT_OK(subfs_->DeleteFile("AB/cd"));
   CheckFiles({});
 
-  ASSERT_RAISES(IOError, subfs_->DeleteFile("non-existent"));
+  ASSERT_RAISES(IOError, subfs_->DeleteFile("nonexistent"));
   ASSERT_RAISES(IOError, subfs_->DeleteFile(""));
 }
 
@@ -604,7 +604,7 @@ TEST_F(TestSubTreeFileSystem, OpenInputStream) {
   AssertBufferEqual(*buffer, "data");
   ASSERT_OK(stream->Close());
 
-  ASSERT_RAISES(IOError, subfs_->OpenInputStream("non-existent"));
+  ASSERT_RAISES(IOError, subfs_->OpenInputStream("nonexistent"));
   ASSERT_RAISES(IOError, subfs_->OpenInputStream(""));
 }
 
@@ -617,7 +617,7 @@ TEST_F(TestSubTreeFileSystem, OpenInputFile) {
   AssertBufferEqual(*buffer, "data");
   ASSERT_OK(stream->Close());
 
-  ASSERT_RAISES(IOError, subfs_->OpenInputFile("non-existent"));
+  ASSERT_RAISES(IOError, subfs_->OpenInputFile("nonexistent"));
   ASSERT_RAISES(IOError, subfs_->OpenInputFile(""));
 }
 
@@ -635,7 +635,7 @@ TEST_F(TestSubTreeFileSystem, OpenOutputStream) {
   ASSERT_OK(stream->Close());
   CheckFiles({{"sub/tree/AB/cd", time_, "other"}, {"sub/tree/ab", time_, "data"}});
 
-  ASSERT_RAISES(IOError, subfs_->OpenOutputStream("non-existent/xxx"));
+  ASSERT_RAISES(IOError, subfs_->OpenOutputStream("nonexistent/xxx"));
   ASSERT_RAISES(IOError, subfs_->OpenOutputStream("AB"));
   ASSERT_RAISES(IOError, subfs_->OpenOutputStream(""));
   CheckFiles({{"sub/tree/AB/cd", time_, "other"}, {"sub/tree/ab", time_, "data"}});
@@ -655,7 +655,7 @@ TEST_F(TestSubTreeFileSystem, OpenAppendStream) {
   CheckFiles({{"sub/tree/ab", time_, "some data"}});
 }
 
-TEST_F(TestSubTreeFileSystem, GetTargetInfo) {
+TEST_F(TestSubTreeFileSystem, GetFileInfo) {
   ASSERT_OK(subfs_->CreateDir("AB/CD"));
 
   AssertFileInfo(subfs_.get(), "AB", FileType::Directory, time_);
@@ -664,26 +664,25 @@ TEST_F(TestSubTreeFileSystem, GetTargetInfo) {
   CreateFile("ab", "data");
   AssertFileInfo(subfs_.get(), "ab", FileType::File, time_, 4);
 
-  AssertFileInfo(subfs_.get(), "non-existent", FileType::NonExistent);
+  AssertFileInfo(subfs_.get(), "nonexistent", FileType::NotFound);
 }
 
-TEST_F(TestSubTreeFileSystem, GetTargetInfosVector) {
+TEST_F(TestSubTreeFileSystem, GetFileInfoVector) {
   std::vector<FileInfo> infos;
 
   ASSERT_OK(subfs_->CreateDir("AB/CD"));
   CreateFile("ab", "data");
   CreateFile("AB/cd", "other data");
 
-  ASSERT_OK_AND_ASSIGN(infos,
-                       subfs_->GetTargetInfos({"ab", "AB", "AB/cd", "non-existent"}));
+  ASSERT_OK_AND_ASSIGN(infos, subfs_->GetFileInfo({"ab", "AB", "AB/cd", "nonexistent"}));
   ASSERT_EQ(infos.size(), 4);
   AssertFileInfo(infos[0], "ab", FileType::File, time_, 4);
   AssertFileInfo(infos[1], "AB", FileType::Directory, time_);
   AssertFileInfo(infos[2], "AB/cd", FileType::File, time_, 10);
-  AssertFileInfo(infos[3], "non-existent", FileType::NonExistent);
+  AssertFileInfo(infos[3], "nonexistent", FileType::NotFound);
 }
 
-TEST_F(TestSubTreeFileSystem, GetTargetInfosSelector) {
+TEST_F(TestSubTreeFileSystem, GetFileInfoSelector) {
   std::vector<FileInfo> infos;
   FileSelector selector;
 
@@ -694,13 +693,13 @@ TEST_F(TestSubTreeFileSystem, GetTargetInfosSelector) {
 
   selector.base_dir = "AB";
   selector.recursive = false;
-  ASSERT_OK_AND_ASSIGN(infos, subfs_->GetTargetInfos(selector));
+  ASSERT_OK_AND_ASSIGN(infos, subfs_->GetFileInfo(selector));
   ASSERT_EQ(infos.size(), 2);
   AssertFileInfo(infos[0], "AB/CD", FileType::Directory, time_);
   AssertFileInfo(infos[1], "AB/cd", FileType::File, time_, 5);
 
   selector.recursive = true;
-  ASSERT_OK_AND_ASSIGN(infos, subfs_->GetTargetInfos(selector));
+  ASSERT_OK_AND_ASSIGN(infos, subfs_->GetFileInfo(selector));
   ASSERT_EQ(infos.size(), 3);
   AssertFileInfo(infos[0], "AB/CD", FileType::Directory, time_);
   AssertFileInfo(infos[1], "AB/CD/ef", FileType::File, time_, 6);
@@ -708,13 +707,13 @@ TEST_F(TestSubTreeFileSystem, GetTargetInfosSelector) {
 
   selector.base_dir = "";
   selector.recursive = false;
-  ASSERT_OK_AND_ASSIGN(infos, subfs_->GetTargetInfos(selector));
+  ASSERT_OK_AND_ASSIGN(infos, subfs_->GetFileInfo(selector));
   ASSERT_EQ(infos.size(), 2);
   AssertFileInfo(infos[0], "AB", FileType::Directory, time_);
   AssertFileInfo(infos[1], "ab", FileType::File, time_, 4);
 
   selector.recursive = true;
-  ASSERT_OK_AND_ASSIGN(infos, subfs_->GetTargetInfos(selector));
+  ASSERT_OK_AND_ASSIGN(infos, subfs_->GetFileInfo(selector));
   ASSERT_EQ(infos.size(), 5);
   AssertFileInfo(infos[0], "AB", FileType::Directory, time_);
   AssertFileInfo(infos[1], "AB/CD", FileType::Directory, time_);
@@ -722,10 +721,10 @@ TEST_F(TestSubTreeFileSystem, GetTargetInfosSelector) {
   AssertFileInfo(infos[3], "AB/cd", FileType::File, time_, 5);
   AssertFileInfo(infos[4], "ab", FileType::File, time_, 4);
 
-  selector.base_dir = "non-existent";
-  ASSERT_RAISES(IOError, subfs_->GetTargetInfos(selector));
-  selector.allow_non_existent = true;
-  ASSERT_OK_AND_ASSIGN(infos, subfs_->GetTargetInfos(selector));
+  selector.base_dir = "nonexistent";
+  ASSERT_RAISES(IOError, subfs_->GetFileInfo(selector));
+  selector.allow_not_found = true;
+  ASSERT_OK_AND_ASSIGN(infos, subfs_->GetFileInfo(selector));
   ASSERT_EQ(infos.size(), 0);
 }
 

@@ -32,6 +32,7 @@ from .utils.lint import linter, python_numpydoc, LintValidationException
 from .utils.logger import logger, ctx as log_ctx
 from .utils.source import ArrowSources
 from .utils.tmpdir import tmpdir
+from .bot import CommentBot, actions
 
 # Set default logging to INFO in command line.
 logging.basicConfig(level=logging.INFO)
@@ -184,9 +185,9 @@ def build(ctx, src, build_dir, force, targets, **kwargs):
     Examples:
 
     \b
-    # Initialize build with clang7 and avx2 support in directory `clang7-build`
+    # Initialize build with clang8 and avx2 support in directory `clang8-build`
     \b
-    archery build --cc=clang-7 --cxx=clang++-7 --cxx-flags=-mavx2 clang7-build
+    archery build --cc=clang-8 --cxx=clang++-8 --cxx-flags=-mavx2 clang8-build
 
     \b
     # Builds and run test
@@ -456,7 +457,7 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
     archery benchmark diff master "$LAST"
 
     \b
-    # Compare g++7 (contender) with clang++-7 (baseline) builds
+    # Compare g++7 (contender) with clang++-8 (baseline) builds
     \b
     archery build --with-benchmarks=true \\
             --cxx-flags=-ftree-vectorize \\
@@ -464,9 +465,9 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
     \b
     archery build --with-benchmarks=true \\
             --cxx-flags=-flax-vector-conversions \\
-            --cc=clang-7 --cxx=clang++-7 clang7-build
+            --cc=clang-8 --cxx=clang++-8 clang8-build
     \b
-    archery benchmark diff gcc7-build clang7-build
+    archery benchmark diff gcc7-build clang8-build
 
     \b
     # Compare default targets but scoped to the suites matching
@@ -525,7 +526,7 @@ def _set_default(opt, default):
 @archery.command(short_help="Execute protocol and Flight integration tests")
 @click.option('--with-all', is_flag=True, default=False,
               help=('Include all known languages by default '
-                    ' in integration tests'))
+                    'in integration tests'))
 @click.option('--random-seed', type=int, default=12345,
               help="Seed for PRNG when generating test data")
 @click.option('--with-cpp', type=bool, default=False,
@@ -559,6 +560,9 @@ def integration(with_all=False, random_seed=12345, **args):
     from .integration.runner import write_js_test_json, run_all_tests
     import numpy as np
 
+    # FIXME(bkietz) Include help strings for individual testers.
+    # For example, CPPTester's ARROW_CPP_EXE_PATH environment variable.
+
     # Make runs involving data generation deterministic
     np.random.seed(random_seed)
 
@@ -586,6 +590,21 @@ def integration(with_all=False, random_seed=12345, **args):
         if enabled_languages == 0:
             raise Exception("Must enable at least 1 language to test")
         run_all_tests(**args)
+
+
+@archery.command()
+@click.option('--event-name', '-n', required=True)
+@click.option('--event-payload', '-p', type=click.File('r', encoding='utf8'),
+              default='-', required=True)
+@click.option('--arrow-token', envvar='ARROW_GITHUB_TOKEN',
+              help='OAuth token for responding comment in the arrow repo')
+@click.option('--crossbow-token', '-ct', envvar='CROSSBOW_GITHUB_TOKEN',
+              help='OAuth token for pushing to the crossow repository')
+def trigger_bot(event_name, event_payload, arrow_token, crossbow_token):
+    event_payload = json.loads(event_payload.read())
+
+    bot = CommentBot(name='github-actions', handler=actions, token=arrow_token)
+    bot.handle(event_name, event_payload)
 
 
 if __name__ == "__main__":

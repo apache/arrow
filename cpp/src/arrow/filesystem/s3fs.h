@@ -61,6 +61,11 @@ struct ARROW_EXPORT S3Options {
   /// Configure with explicit access and secret key.
   void ConfigureAccessKey(const std::string& access_key, const std::string& secret_key);
 
+  std::string GetAccessKey() const;
+  std::string GetSecretKey() const;
+
+  bool Equals(const S3Options& other) const;
+
   /// \brief Initialize with default credentials provider chain
   ///
   /// This is recommended if you use the standard AWS environment variables
@@ -86,13 +91,15 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   ~S3FileSystem() override;
 
   std::string type_name() const override { return "s3"; }
+  S3Options options() const;
+
+  bool Equals(const FileSystem& other) const override;
 
   /// \cond FALSE
-  using FileSystem::GetTargetInfo;
-  using FileSystem::GetTargetInfos;
+  using FileSystem::GetFileInfo;
   /// \endcond
-  Result<FileInfo> GetTargetInfo(const std::string& path) override;
-  Result<std::vector<FileInfo>> GetTargetInfos(const FileSelector& select) override;
+  Result<FileInfo> GetFileInfo(const std::string& path) override;
+  Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 

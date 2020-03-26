@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_PROJECTOR_CACHE_KEY_H
-#define GANDIVA_PROJECTOR_CACHE_KEY_H
+#pragma once
 
 #include <algorithm>
 #include <memory>
@@ -118,4 +117,3 @@ class ProjectorCacheKey {
   uint32_t uniqifier_;
 };
 }  // namespace gandiva
-#endif  // GANDIVA_PROJECTOR_CACHE_KEY_H

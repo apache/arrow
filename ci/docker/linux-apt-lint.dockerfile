@@ -19,15 +19,17 @@ ARG base
 FROM hadolint/hadolint:v1.17.2 AS hadolint
 FROM ${base}
 
+ARG clang_tools
 RUN apt-get update && \
     apt-get install -y -q \
-        clang-7 \
-        clang-format-7 \
-        clang-tidy-7 \
-        clang-tools-7 \
+        clang-${clang_tools} \
+        clang-format-${clang_tools} \
+        clang-tidy-${clang_tools} \
+        clang-tools-${clang_tools} \
         cmake \
         curl \
-        libclang-7-dev \
+        libclang-${clang_tools}-dev \
+        llvm-${clang_tools}-dev \
         openjdk-11-jdk-headless \
         python3 \
         python3-dev \
@@ -41,7 +43,7 @@ COPY --from=hadolint /bin/hadolint /usr/bin/hadolint
 
 # IWYU
 COPY ci/scripts/install_iwyu.sh /arrow/ci/scripts/
-RUN arrow/ci/scripts/install_iwyu.sh /tmp/iwyu /usr/local 7
+RUN arrow/ci/scripts/install_iwyu.sh /tmp/iwyu /usr/local ${clang_tools}
 
 # Rust linter
 ARG rust=nightly-2019-09-25
@@ -55,7 +57,13 @@ RUN rustup install ${rust} && \
 # Use python3 by default in scripts
 RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
     ln -s /usr/bin/pip3 /usr/local/bin/pip
-RUN pip install flake8 cmake_format==0.5.2 click
+
+COPY dev/archery/requirements.txt \
+     dev/archery/requirements-lint.txt \
+     /arrow/dev/archery/
+RUN pip install \
+      -r arrow/dev/archery/requirements.txt \
+      -r arrow/dev/archery/requirements-lint.txt
 
 ENV LC_ALL=C.UTF-8 \
     LANG=C.UTF-8

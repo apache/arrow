@@ -303,6 +303,10 @@ class PARQUET_EXPORT GroupNode : public Node {
   void Visit(Visitor* visitor) override;
   void VisitConst(ConstVisitor* visitor) const override;
 
+  /// \brief Return true if this node or any child node has REPEATED repetition
+  /// type
+  bool HasRepeatedFields() const;
+
  private:
   GroupNode(const std::string& name, Repetition::type repetition,
             const NodeVector& fields,
@@ -453,6 +457,10 @@ class PARQUET_EXPORT SchemaDescriptor {
   /// \brief Return column index corresponding to a particular
   /// PrimitiveNode. Returns -1 if not found
   int GetColumnIndex(const schema::PrimitiveNode& node) const;
+
+  /// \brief Return true if any field or their children have REPEATED repetition
+  /// type
+  bool HasRepeatedFields() const;
 
  private:
   friend class ColumnDescriptor;

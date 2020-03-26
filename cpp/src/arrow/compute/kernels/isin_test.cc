@@ -79,7 +79,7 @@ typedef ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
                          Date32Type, Date64Type>
     PrimitiveDictionaries;
 
-TYPED_TEST_CASE(TestIsInKernelPrimitive, PrimitiveDictionaries);
+TYPED_TEST_SUITE(TestIsInKernelPrimitive, PrimitiveDictionaries);
 
 TYPED_TEST(TestIsInKernelPrimitive, IsIn) {
   using T = typename TypeParam::c_type;
@@ -247,7 +247,7 @@ template <typename Type>
 class TestIsInKernelBinary : public ComputeFixture, public TestBase {};
 
 using BinaryTypes = ::testing::Types<BinaryType, StringType>;
-TYPED_TEST_CASE(TestIsInKernelBinary, BinaryTypes);
+TYPED_TEST_SUITE(TestIsInKernelBinary, BinaryTypes);
 
 TYPED_TEST(TestIsInKernelBinary, IsInBinary) {
   auto type = TypeTraits<TypeParam>::type_singleton();

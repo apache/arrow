@@ -18,13 +18,28 @@
 ARG base
 FROM ${base}
 
-# install build essentials
-RUN export DEBIAN_FRONTEND=noninteractive && \
+# pipefail is enabled for proper error detection in the `wget | apt-key add`
+# step
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+ENV DEBIAN_FRONTEND noninteractive
+
+ARG llvm
+RUN apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
+      apt-transport-https \
+      lsb-release \
+      software-properties-common \
+      wget && \
+    code_name=$(lsb_release --codename --short) && \
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+    apt-add-repository -y \
+      "deb https://apt.llvm.org/${code_name}/ llvm-toolchain-${code_name}-${llvm} main" && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         ca-certificates \
         ccache \
-        clang-7 \
+        clang-${llvm} \
         cmake \
         git \
         g++ \
@@ -37,16 +52,14 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         libre2-dev \
         libsnappy-dev \
         libssl-dev \
-        llvm-7-dev \
+        llvm-${llvm}-dev \
         make \
         ninja-build \
         pkg-config \
         protobuf-compiler \
         rapidjson-dev \
-        thrift-compiler \
         tzdata \
-        zlib1g-dev \
-        wget && \
+        zlib1g-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

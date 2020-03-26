@@ -16,6 +16,8 @@
 # under the License.
 
 class TestSchema < Test::Unit::TestCase
+  include Helper::Omittable
+
   def test_equal
     fields1 = [
       Arrow::Field.new("enabled", Arrow::BooleanDataType.new),
@@ -92,6 +94,35 @@ required: bool
     SCHEMA
   end
 
+  sub_test_case("#to_string_metadata") do
+    def setup
+      require_gi_bindings(3, 4, 2)
+
+      fields = [
+        Arrow::Field.new("enabled", Arrow::BooleanDataType.new),
+        Arrow::Field.new("required", Arrow::BooleanDataType.new),
+      ]
+      schema = Arrow::Schema.new(fields)
+      @schema = schema.with_metadata("key" => "value")
+    end
+
+    def test_true
+      assert_equal(<<-SCHEMA.chomp, @schema.to_string_metadata(true))
+enabled: bool
+required: bool
+-- metadata --
+key: value
+      SCHEMA
+    end
+
+    def test_false
+      assert_equal(<<-SCHEMA.chomp, @schema.to_string_metadata(false))
+enabled: bool
+required: bool
+      SCHEMA
+    end
+  end
+
   def test_add_field
     fields = [
       Arrow::Field.new("enabled", Arrow::BooleanDataType.new),
@@ -131,5 +162,27 @@ required: bool
 enabled: bool
 new: bool
     SCHEMA
+  end
+
+  sub_test_case("#metadata") do
+    def setup
+      require_gi_bindings(3, 4, 2)
+
+      fields = [
+        Arrow::Field.new("enabled", Arrow::BooleanDataType.new),
+        Arrow::Field.new("required", Arrow::BooleanDataType.new),
+      ]
+      @schema = Arrow::Schema.new(fields)
+    end
+
+    def test_existent
+      schema_with_metadata = @schema.with_metadata("key" => "value")
+      assert_equal({"key" => "value"},
+                   schema_with_metadata.metadata)
+    end
+
+    def test_nonexistent
+      assert_nil(@schema.metadata)
+    end
   end
 end

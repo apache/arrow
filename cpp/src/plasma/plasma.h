@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PLASMA_PLASMA_H
-#define PLASMA_PLASMA_H
+#pragma once
 
 #include <errno.h>
 #include <inttypes.h>
@@ -145,9 +144,9 @@ struct PlasmaStoreInfo {
 /// Get an entry from the object table and return NULL if the object_id
 /// is not present.
 ///
-/// @param store_info The PlasmaStoreInfo that contains the object table.
-/// @param object_id The object_id of the entry we are looking for.
-/// @return The entry associated with the object_id or NULL if the object_id
+/// \param store_info The PlasmaStoreInfo that contains the object table.
+/// \param object_id The object_id of the entry we are looking for.
+/// \return The entry associated with the object_id or NULL if the object_id
 ///         is not present.
 ObjectTableEntry* GetObjectTableEntry(PlasmaStoreInfo* store_info,
                                       const ObjectID& object_id);
@@ -161,11 +160,11 @@ ObjectTableEntry* GetObjectTableEntry(PlasmaStoreInfo* store_info,
 /// have not, then we should get a SIGPIPE. If we write to a TCP socket that
 /// isn't connected yet, then we should get an ECONNRESET.
 ///
-/// @param status The status to check. If it is less less than zero, we will
+/// \param status The status to check. If it is less less than zero, we will
 ///        print a warning.
-/// @param client_sock The client socket. This is just used to print some extra
+/// \param client_sock The client socket. This is just used to print some extra
 ///        information.
-/// @return The errno set.
+/// \return The errno set.
 int WarnIfSigpipe(int status, int client_sock);
 
 std::unique_ptr<uint8_t[]> CreateObjectInfoBuffer(flatbuf::ObjectInfoT* object_info);
@@ -174,5 +173,3 @@ std::unique_ptr<uint8_t[]> CreatePlasmaNotificationBuffer(
     std::vector<flatbuf::ObjectInfoT>& object_info);
 
 }  // namespace plasma
-
-#endif  // PLASMA_PLASMA_H

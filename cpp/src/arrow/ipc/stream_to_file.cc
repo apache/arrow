@@ -34,13 +34,10 @@ namespace ipc {
 // $ <program that produces streaming output> | stream-to-file > file.arrow
 Status ConvertToFile() {
   io::StdinStream input;
-  std::shared_ptr<RecordBatchReader> reader;
-  RETURN_NOT_OK(RecordBatchStreamReader::Open(&input, &reader));
-
   io::StdoutStream sink;
-  std::shared_ptr<RecordBatchWriter> writer;
-  RETURN_NOT_OK(RecordBatchFileWriter::Open(&sink, reader->schema(), &writer));
 
+  ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchStreamReader::Open(&input));
+  ARROW_ASSIGN_OR_RAISE(auto writer, NewFileWriter(&sink, reader->schema()));
   std::shared_ptr<RecordBatch> batch;
   while (true) {
     RETURN_NOT_OK(reader->ReadNext(&batch));

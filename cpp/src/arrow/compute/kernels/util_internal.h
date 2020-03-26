@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_COMPUTE_KERNELS_UTIL_INTERNAL_H
-#define ARROW_COMPUTE_KERNELS_UTIL_INTERNAL_H
+#pragma once
 
 #include <memory>
 #include <vector>
@@ -104,11 +103,12 @@ Status AssignNullIntersection(FunctionContext* ctx, const ArrayData& left,
                               const ArrayData& right, ArrayData* output);
 
 ARROW_EXPORT
-Datum WrapArraysLike(const Datum& value,
+Datum WrapArraysLike(const Datum& value, std::shared_ptr<DataType> type,
                      const std::vector<std::shared_ptr<Array>>& arrays);
 
 ARROW_EXPORT
-Datum WrapDatumsLike(const Datum& value, const std::vector<Datum>& datums);
+Datum WrapDatumsLike(const Datum& value, std::shared_ptr<DataType> type,
+                     const std::vector<Datum>& datums);
 
 /// \brief Kernel used to preallocate outputs for primitive types. This
 /// does not include allocations for the validity bitmap (PropagateNulls
@@ -152,5 +152,3 @@ class ARROW_EXPORT PrimitiveAllocatingBinaryKernel : public BinaryKernel {
 
 }  // namespace compute
 }  // namespace arrow
-
-#endif  // ARROW_COMPUTE_KERNELS_UTIL_INTERNAL_H

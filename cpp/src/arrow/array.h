@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <atomic>
+#include <atomic>  // IWYU pragma: export
 #include <cstdint>
 #include <iosfwd>
 #include <memory>
@@ -425,8 +425,6 @@ class ARROW_EXPORT Array {
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Array);
 };
-
-using ArrayVector = std::vector<std::shared_ptr<Array>>;
 
 namespace internal {
 

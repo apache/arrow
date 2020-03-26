@@ -45,7 +45,7 @@ use std::io::{self, Read, Write};
 use brotli;
 use flate2::{read, write, Compression};
 use lz4;
-use snap::{decompress_len, max_compress_len, Decoder, Encoder};
+use snap::raw::{decompress_len, max_compress_len, Decoder, Encoder};
 use zstd;
 
 use crate::basic::Compression as CodecType;

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_IO_H
-#define PYARROW_IO_H
+#pragma once
 
 #include <memory>
 
@@ -102,5 +101,3 @@ class ARROW_PYTHON_EXPORT PyForeignBuffer : public Buffer {
 
 }  // namespace py
 }  // namespace arrow
-
-#endif  // PYARROW_IO_H

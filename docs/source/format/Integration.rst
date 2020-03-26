@@ -128,7 +128,8 @@ present if there are dictionary type fields in the schema.
     {
       "fields" : [
         /* Field */
-      ]
+      ],
+      "metadata" : /* Metadata */
     }
 
 **Field** ::
@@ -138,20 +139,30 @@ present if there are dictionary type fields in the schema.
       "nullable" : /* boolean */,
       "type" : /* Type */,
       "children" : [ /* Field */ ],
+      "dictionary": {
+        "id": /* integer */,
+        "indexType": /* Type */,
+        "isOrdered": /* boolean */
+      },
+      "metadata" : /* Metadata */
     }
 
-If the Field corresponds to a dictionary type, the "type" attribute
-corresponds to the dictionary values, and the Field includes an additional
-"dictionary" member, the "id" of which maps onto a column in the
-``DictionaryBatch`` : ::
+The ``dictionary`` attribute is present if and only if the ``Field`` corresponds to a
+dictionary type, and its ``id`` maps onto a column in the ``DictionaryBatch``. In this
+case the ``type`` attribute describes the value type of the dictionary.
 
-    "dictionary": {
-      "id": /* integer */,
-      "indexType": /* Type */,
-      "isOrdered": /* boolean */
-    }
+For primitive types, ``children`` is an empty array.
 
-For primitive types, "children" is an empty array.
+**Metadata** ::
+
+    null |
+    [ {
+      "key": /* string */,
+      "value": /* string */
+    } ]
+
+A key-value mapping of custom metadata. It may be omitted or null, in which case it is
+considered equivalent to ``[]`` (no metadata). Duplicated keys are not forbidden here.
 
 **Type**: ::
 
@@ -159,9 +170,9 @@ For primitive types, "children" is an empty array.
       "name" : "null|struct|list|largelist|fixedsizelist|union|int|floatingpoint|utf8|largeutf8|binary|largebinary|fixedsizebinary|bool|decimal|date|time|timestamp|interval|duration|map"
     }
 
-A ``Type`` will have other fields as defined in `Schema.fbs <https://github.com/apache/arrow/tree/master/format/Schema.fbs>`_
+A ``Type`` will have other fields as defined in
+`Schema.fbs <https://github.com/apache/arrow/tree/master/format/Schema.fbs>`_
 depending on its name.
-    }
 
 Int: ::
 
@@ -197,7 +208,7 @@ Timestamp: ::
 
     {
       "name" : "timestamp",
-      "unit" : "$TIME_UNIT"
+      "unit" : "$TIME_UNIT",
       "timezone": "$timezone"
     }
 

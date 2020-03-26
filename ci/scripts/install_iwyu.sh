@@ -20,19 +20,19 @@ set -eu
 
 source_dir=${1:-/tmp/iwyu}
 install_prefix=${2:-/usr/local}
-llvm_major=${3:-7}
+clang_tools_version=${3:-7}
 
-git clone --single-branch --branch "clang_${llvm_major}.0" \
+git clone --single-branch --branch "clang_${clang_tools_version}.0" \
     https://github.com/include-what-you-use/include-what-you-use.git ${source_dir}
 
 mkdir -p ${source_dir}/build
 pushd ${source_dir}/build
 
 # Build IWYU for current Clang
-export CC=clang-${llvm_major}
-export CXX=clang++-${llvm_major}
+export CC=clang-${clang_tools_version}
+export CXX=clang++-${clang_tools_version}
 
-cmake -DCMAKE_PREFIX_PATH=/usr/lib/llvm-${llvm_major} \
+cmake -DCMAKE_PREFIX_PATH=/usr/lib/llvm-${clang_tools_version} \
       -DCMAKE_INSTALL_PREFIX=${install_prefix} \
       ${source_dir}
 make -j4

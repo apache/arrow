@@ -64,7 +64,7 @@ class ReaderTest : public ::testing::TestWithParam<bool> {
   std::shared_ptr<Table> table_;
 };
 
-INSTANTIATE_TEST_CASE_P(ReaderTest, ReaderTest, ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(ReaderTest, ReaderTest, ::testing::Values(false, true));
 
 TEST_P(ReaderTest, Empty) {
   SetUpReader("{}\n{}\n");

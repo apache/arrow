@@ -29,7 +29,7 @@ DEPENDS_ON_CPP = build-c_glib build-python build-r
 DEPENDS_ON_CPP_ALPINE = build-python-alpine
 DEPENDS_ON_PYTHON = build-lint build-docs build-dask build-hdfs-integration \
                     build-spark-integration build-python-nopandas \
-                    build-turbodbc-integration
+                    build-turbodbc-integration build-kartothek-integration
 DEPENDS_ON_LINT = build-iwyu build-clang-format
 
 SERVICES = $(LANGUAGES) $(MISC) $(TESTS)

@@ -48,8 +48,10 @@ class Fragment;
 using FragmentIterator = Iterator<std::shared_ptr<Fragment>>;
 using FragmentVector = std::vector<std::shared_ptr<Fragment>>;
 
+class FileSource;
 class FileFormat;
 class FileFragment;
+class FileSystemDataset;
 
 class Expression;
 using ExpressionVector = std::vector<std::shared_ptr<Expression>>;
@@ -82,6 +84,9 @@ using ScanTaskVector = std::vector<std::shared_ptr<ScanTask>>;
 using ScanTaskIterator = Iterator<std::shared_ptr<ScanTask>>;
 
 class RecordBatchProjector;
+
+class WriteTask;
+class WritePlan;
 
 }  // namespace dataset
 }  // namespace arrow

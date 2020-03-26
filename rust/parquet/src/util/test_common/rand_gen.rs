@@ -16,7 +16,7 @@
 // under the License.
 
 use rand::{
-    distributions::{range::SampleRange, Distribution, Standard},
+    distributions::{uniform::SampleUniform, Distribution, Standard},
     thread_rng, Rng,
 };
 
@@ -86,7 +86,7 @@ impl RandGen<ByteArrayType> for ByteArrayType {
         let mut rng = thread_rng();
         let mut result = ByteArray::new();
         let mut value = vec![];
-        let len = rng.gen_range::<usize>(0, 128);
+        let len = rng.gen_range(0, 128);
         for _ in 0..len {
             value.push(rng.gen_range(0, 255) & 0xFF);
         }
@@ -99,7 +99,7 @@ impl RandGen<FixedLenByteArrayType> for FixedLenByteArrayType {
     fn gen(len: i32) -> ByteArray {
         let mut rng = thread_rng();
         let value_len = if len < 0 {
-            rng.gen_range::<usize>(0, 128)
+            rng.gen_range(0, 128)
         } else {
             len as usize
         };
@@ -136,7 +136,7 @@ where
 
 pub fn random_numbers_range<T>(n: usize, low: T, high: T, result: &mut Vec<T>)
 where
-    T: PartialOrd + SampleRange + Copy,
+    T: PartialOrd + SampleUniform + Copy,
 {
     let mut rng = thread_rng();
     for _ in 0..n {

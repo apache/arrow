@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_IO_TEST_COMMON_H
-#define ARROW_IO_TEST_COMMON_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -57,5 +56,3 @@ class ARROW_EXPORT MemoryMapFixture {
 
 }  // namespace io
 }  // namespace arrow
-
-#endif  // ARROW_IO_TEST_COMMON_H

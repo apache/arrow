@@ -17,8 +17,7 @@
 
 // Buffered stream implementations
 
-#ifndef ARROW_IO_BUFFERED_H
-#define ARROW_IO_BUFFERED_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -177,5 +176,3 @@ class ARROW_EXPORT BufferedInputStream
 
 }  // namespace io
 }  // namespace arrow
-
-#endif  // ARROW_IO_BUFFERED_H

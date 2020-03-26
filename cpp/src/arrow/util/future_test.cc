@@ -678,7 +678,7 @@ class FutureTest : public FutureTestBase<T> {};
 
 typedef ::testing::Types<int, Foo, MoveOnlyDataType> FutureTestTypes;
 
-TYPED_TEST_CASE(FutureTest, FutureTestTypes);
+TYPED_TEST_SUITE(FutureTest, FutureTestTypes);
 
 TYPED_TEST(FutureTest, BasicWait) { this->TestBasicWait(); }
 
@@ -703,7 +703,7 @@ class FutureIteratorTest : public FutureTestBase<T> {};
 
 typedef ::testing::Types<Foo, MoveOnlyDataType> FutureIteratorTestTypes;
 
-TYPED_TEST_CASE(FutureIteratorTest, FutureIteratorTestTypes);
+TYPED_TEST_SUITE(FutureIteratorTest, FutureIteratorTestTypes);
 
 TYPED_TEST(FutureIteratorTest, BasicAsCompleted) { this->TestBasicAsCompleted(); }
 

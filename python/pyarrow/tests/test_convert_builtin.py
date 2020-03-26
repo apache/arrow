@@ -711,16 +711,19 @@ def test_large_binary_value(ty):
 
 def test_sequence_bytes():
     u1 = b'ma\xc3\xb1ana'
+
     data = [b'foo',
+            memoryview(b'dada'),
+            memoryview(b'd-a-t-a')[::2],  # non-contiguous is made contiguous
             u1.decode('utf-8'),  # unicode gets encoded,
             bytearray(b'bar'),
             None]
     for ty in [None, pa.binary(), pa.large_binary()]:
         arr = pa.array(data, type=ty)
-        assert len(arr) == 4
+        assert len(arr) == 6
         assert arr.null_count == 1
         assert arr.type == ty or pa.binary()
-        assert arr.to_pylist() == [b'foo', u1, b'bar', None]
+        assert arr.to_pylist() == [b'foo', b'dada', b'data', u1, b'bar', None]
 
 
 @pytest.mark.parametrize("ty", [pa.string(), pa.large_string()])

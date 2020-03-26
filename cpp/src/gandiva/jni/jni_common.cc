@@ -169,6 +169,18 @@ DataTypePtr ProtoTypeToTimestamp(const types::ExtGandivaType& ext_type) {
   }
 }
 
+DataTypePtr ProtoTypeToInterval(const types::ExtGandivaType& ext_type) {
+  switch (ext_type.intervaltype()) {
+    case types::YEAR_MONTH:
+      return arrow::month_interval();
+    case types::DAY_TIME:
+      return arrow::day_time_interval();
+    default:
+      std::cerr << "Unknown interval type: " << ext_type.intervaltype() << "\n";
+      return nullptr;
+  }
+}
+
 DataTypePtr ProtoTypeToDataType(const types::ExtGandivaType& ext_type) {
   switch (ext_type.type()) {
     case types::NONE:
@@ -214,9 +226,9 @@ DataTypePtr ProtoTypeToDataType(const types::ExtGandivaType& ext_type) {
       return ProtoTypeToTime64(ext_type);
     case types::TIMESTAMP:
       return ProtoTypeToTimestamp(ext_type);
-
-    case types::FIXED_SIZE_BINARY:
     case types::INTERVAL:
+      return ProtoTypeToInterval(ext_type);
+    case types::FIXED_SIZE_BINARY:
     case types::LIST:
     case types::STRUCT:
     case types::UNION:

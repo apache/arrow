@@ -126,6 +126,11 @@ Dataset <- R6Class("Dataset", inherit = ArrowObject,
     #' Return the Dataset's `Schema`
     schema = function() shared_ptr(Schema, dataset___Dataset__schema(self)),
     metadata = function() self$schema$metadata,
+    num_rows = function() {
+      warning("Number of rows unknown; returning NA", call. = FALSE)
+      NA_integer_
+    },
+    num_cols = function() length(self$schema),
     #' @description
     #' Return the Dataset's type.
     type = function() dataset___Dataset__type_name(self)
@@ -141,6 +146,9 @@ Dataset$create <- function(children, schema) {
 #' @export
 names.Dataset <- function(x) names(x$schema)
 
+#' @export
+dim.Dataset <- function(x) c(x$num_rows, x$num_cols)
+
 #' @name FileSystemDataset
 #' @rdname Dataset
 #' @export
@@ -153,6 +161,15 @@ FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
     #' Return the format of files in this `Dataset`
     format = function() {
       shared_ptr(FileFormat, dataset___FileSystemDataset__format(self))$..dispatch()
+    },
+    num_rows = function() {
+      if (!inherits(self$format, "ParquetFileFormat")) {
+        # TODO: implement for other file formats
+        warning("Number of rows unknown; returning NA", call. = FALSE)
+        NA_integer_
+      } else {
+        sum(map_int(self$files, ~ParquetFileReader$create(.x)$num_rows))
+      }
     }
   )
 )
@@ -191,7 +208,7 @@ DatasetFactory$create <- function(x,
                                   filesystem = c("auto", "local"),
                                   format = c("parquet", "arrow", "ipc"),
                                   partitioning = NULL,
-                                  allow_non_existent = FALSE,
+                                  allow_not_found = FALSE,
                                   recursive = TRUE,
                                   ...) {
   if (is.list(x) && all(map_lgl(x, ~inherits(., "DatasetFactory")))) {
@@ -211,7 +228,7 @@ DatasetFactory$create <- function(x,
   }
   selector <- FileSelector$create(
     x,
-    allow_non_existent = allow_non_existent,
+    allow_not_found = allow_not_found,
     recursive = recursive
   )
 
@@ -265,7 +282,7 @@ DatasetFactory$create <- function(x,
 #'    by [hive_partition()] which parses explicit or autodetected fields from
 #'    Hive-style path segments
 #'   * `NULL` for no partitioning
-#' @param allow_non_existent logical: is `x` allowed to not exist? Default
+#' @param allow_not_found logical: is `x` allowed to not exist? Default
 #' `FALSE`. See [FileSelector].
 #' @param recursive logical: should files be discovered in subdirectories of
 #' `x`? Default `TRUE`.

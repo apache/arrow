@@ -22,6 +22,8 @@
 #include <string>
 #include <vector>
 
+#include <gmock/gmock.h>
+
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
@@ -31,6 +33,8 @@
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
+
+using testing::ElementsAre;
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
@@ -311,6 +315,101 @@ TEST(TestField, TestMerge) {
   }
 }
 
+TEST(TestFieldPath, Basics) {
+  auto f0 = field("alpha", int32());
+  auto f1 = field("beta", int32());
+  auto f2 = field("alpha", int32());
+  auto f3 = field("beta", int32());
+  Schema s({f0, f1, f2, f3});
+
+  // retrieving a field with single-element FieldPath is equivalent to Schema::field
+  for (int index = 0; index < s.num_fields(); ++index) {
+    ASSERT_OK_AND_EQ(s.field(index), FieldPath({index}).Get(s));
+  }
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("empty indices cannot be traversed"),
+                                  FieldPath().Get(s));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, testing::HasSubstr("index out of range"),
+                                  FieldPath({s.num_fields() * 2}).Get(s));
+}
+
+TEST(TestFieldRef, Basics) {
+  auto f0 = field("alpha", int32());
+  auto f1 = field("beta", int32());
+  auto f2 = field("alpha", int32());
+  auto f3 = field("beta", int32());
+  Schema s({f0, f1, f2, f3});
+
+  // lookup by index returns Indices{index}
+  for (int index = 0; index < s.num_fields(); ++index) {
+    EXPECT_THAT(FieldRef(index).FindAll(s), ElementsAre(FieldPath{index}));
+  }
+  // out of range index results in a failure to match
+  EXPECT_THAT(FieldRef(s.num_fields() * 2).FindAll(s), ElementsAre());
+
+  // lookup by name returns the Indices of both matching fields
+  EXPECT_THAT(FieldRef("alpha").FindAll(s), ElementsAre(FieldPath{0}, FieldPath{2}));
+  EXPECT_THAT(FieldRef("beta").FindAll(s), ElementsAre(FieldPath{1}, FieldPath{3}));
+}
+
+TEST(TestFieldRef, FromDotPath) {
+  ASSERT_OK_AND_EQ(FieldRef("alpha"), FieldRef::FromDotPath(R"(.alpha)"));
+
+  ASSERT_OK_AND_EQ(FieldRef("", ""), FieldRef::FromDotPath(R"(..)"));
+
+  ASSERT_OK_AND_EQ(FieldRef(2), FieldRef::FromDotPath(R"([2])"));
+
+  ASSERT_OK_AND_EQ(FieldRef("beta", 3), FieldRef::FromDotPath(R"(.beta[3])"));
+
+  ASSERT_OK_AND_EQ(FieldRef(5, "gamma", "delta", 7),
+                   FieldRef::FromDotPath(R"([5].gamma.delta[7])"));
+
+  ASSERT_OK_AND_EQ(FieldRef("hello world"), FieldRef::FromDotPath(R"(.hello world)"));
+
+  ASSERT_OK_AND_EQ(FieldRef(R"([y]\tho.\)"), FieldRef::FromDotPath(R"(.\[y\]\\tho\.\)"));
+
+  ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"()"));
+  ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"(alpha)"));
+  ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"([134234)"));
+  ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"([1stuf])"));
+}
+
+TEST(TestFieldPath, Nested) {
+  auto f0 = field("alpha", int32());
+  auto f1_0 = field("alpha", int32());
+  auto f1 = field("beta", struct_({f1_0}));
+  auto f2_0 = field("alpha", int32());
+  auto f2_1_0 = field("alpha", int32());
+  auto f2_1_1 = field("alpha", int32());
+  auto f2_1 = field("gamma", struct_({f2_1_0, f2_1_1}));
+  auto f2 = field("beta", struct_({f2_0, f2_1}));
+  Schema s({f0, f1, f2});
+
+  // retrieving fields with nested indices
+  EXPECT_EQ(FieldPath({0}).Get(s), f0);
+  EXPECT_EQ(FieldPath({1, 0}).Get(s), f1_0);
+  EXPECT_EQ(FieldPath({2, 0}).Get(s), f2_0);
+  EXPECT_EQ(FieldPath({2, 1, 0}).Get(s), f2_1_0);
+  EXPECT_EQ(FieldPath({2, 1, 1}).Get(s), f2_1_1);
+}
+
+TEST(TestFieldRef, Nested) {
+  auto f0 = field("alpha", int32());
+  auto f1_0 = field("alpha", int32());
+  auto f1 = field("beta", struct_({f1_0}));
+  auto f2_0 = field("alpha", int32());
+  auto f2_1_0 = field("alpha", int32());
+  auto f2_1_1 = field("alpha", int32());
+  auto f2_1 = field("gamma", struct_({f2_1_0, f2_1_1}));
+  auto f2 = field("beta", struct_({f2_0, f2_1}));
+  Schema s({f0, f1, f2});
+
+  EXPECT_THAT(FieldRef("beta", "alpha").FindAll(s),
+              ElementsAre(FieldPath{1, 0}, FieldPath{2, 0}));
+  EXPECT_THAT(FieldRef("beta", "gamma", "alpha").FindAll(s),
+              ElementsAre(FieldPath{2, 1, 0}, FieldPath{2, 1, 1}));
+}
+
 using TestSchema = ::testing::Test;
 
 TEST_F(TestSchema, Basics) {
@@ -494,6 +593,48 @@ TEST_F(TestSchema, TestMetadataConstruction) {
   AssertSchemaEqual(schema0, schema1, false);
   AssertSchemaEqual(schema2, schema1, false);
   AssertSchemaEqual(schema2, schema3, false);
+}
+
+TEST_F(TestSchema, TestNestedMetadataComparison) {
+  auto item0 = field("item", int32(), true);
+  auto item1 = field("item", int32(), true, key_value_metadata({{"foo", "baz"}}));
+
+  Schema schema0({field("f", list(item0))});
+  Schema schema1({field("f", list(item1))});
+
+  ASSERT_EQ(schema0.fingerprint(), schema1.fingerprint());
+  ASSERT_NE(schema0.metadata_fingerprint(), schema1.metadata_fingerprint());
+
+  AssertSchemaEqual(schema0, schema1, /* check_metadata = */ false);
+  AssertSchemaNotEqual(schema0, schema1);
+}
+
+TEST_F(TestSchema, TestDeeplyNestedMetadataComparison) {
+  auto item0 = field("item", int32(), true);
+  auto item1 = field("item", int32(), true, key_value_metadata({{"foo", "baz"}}));
+
+  Schema schema0({field("f", list(list(union_({field("struct", struct_({item0}))}))))});
+  Schema schema1({field("f", list(list(union_({field("struct", struct_({item1}))}))))});
+
+  ASSERT_EQ(schema0.fingerprint(), schema1.fingerprint());
+  ASSERT_NE(schema0.metadata_fingerprint(), schema1.metadata_fingerprint());
+
+  AssertSchemaEqual(schema0, schema1, /* check_metadata = */ false);
+  AssertSchemaNotEqual(schema0, schema1);
+}
+
+TEST_F(TestSchema, TestFieldsDifferOnlyInMetadata) {
+  auto f0 = field("f", utf8(), true, nullptr);
+  auto f1 = field("f", utf8(), true, key_value_metadata({{"foo", "baz"}}));
+
+  Schema schema0({f0, f1});
+  Schema schema1({f1, f0});
+
+  AssertSchemaEqual(schema0, schema1, /* check_metadata = */ false);
+  AssertSchemaNotEqual(schema0, schema1);
+
+  ASSERT_EQ(schema0.fingerprint(), schema1.fingerprint());
+  ASSERT_NE(schema0.metadata_fingerprint(), schema1.metadata_fingerprint());
 }
 
 TEST_F(TestSchema, TestEmptyMetadata) {
@@ -1318,6 +1459,20 @@ TEST(TestStructType, GetFieldDuplicates) {
 
   results = struct_type.GetAllFieldsByName("not-found");
   ASSERT_EQ(results.size(), 0);
+}
+
+TEST(TestStructType, TestFieldsDifferOnlyInMetadata) {
+  auto f0 = field("f", utf8(), true, nullptr);
+  auto f1 = field("f", utf8(), true, key_value_metadata({{"foo", "baz"}}));
+
+  StructType s0({f0, f1});
+  StructType s1({f1, f0});
+
+  AssertTypeEqual(s0, s1, /* check_metadata = */ false);
+  AssertTypeNotEqual(s0, s1);
+
+  ASSERT_EQ(s0.fingerprint(), s1.fingerprint());
+  ASSERT_NE(s0.metadata_fingerprint(), s1.metadata_fingerprint());
 }
 
 TEST(TestUnionType, Basics) {

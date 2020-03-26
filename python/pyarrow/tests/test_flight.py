@@ -597,7 +597,7 @@ def test_list_actions():
         client = FlightClient(('localhost', server.port))
         with pytest.raises(
                 flight.FlightServerError,
-                match=("TypeError: Results of list_actions must be "
+                match=("Results of list_actions must be "
                        "ActionType or tuple")
         ):
             list(client.list_actions())
@@ -623,6 +623,8 @@ class ConvenienceServer(FlightServerBase):
             return iter([action.body])
         elif action.type == 'bad-action':
             return iter(['foo'])
+        elif action.type == 'arrow-exception':
+            raise pa.ArrowMemoryError()
 
 
 def test_do_action_result_convenience():
@@ -643,8 +645,15 @@ def test_nicer_server_exceptions():
     with ConvenienceServer() as server:
         client = FlightClient(('localhost', server.port))
         with pytest.raises(flight.FlightServerError,
-                           match="TypeError: a bytes-like object is required"):
+                           match="a bytes-like object is required"):
             list(client.do_action('bad-action'))
+        # While Flight/C++ sends across the original status code, it
+        # doesn't get mapped to the equivalent code here, since we
+        # want to be able to distinguish between client- and server-
+        # side errors.
+        with pytest.raises(flight.FlightServerError,
+                           match="ArrowMemoryError"):
+            list(client.do_action('arrow-exception'))
 
 
 def test_get_port():

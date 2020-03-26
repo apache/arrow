@@ -1015,8 +1015,8 @@ class BinaryTask
       ["debian", "buster", "main"],
       ["ubuntu", "xenial", "main"],
       ["ubuntu", "bionic", "main"],
-      ["ubuntu", "disco", "main"],
       ["ubuntu", "eoan", "main"],
+      ["ubuntu", "focal", "main"],
     ]
   end
 

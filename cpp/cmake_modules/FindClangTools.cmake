@@ -41,14 +41,15 @@ set(CLANG_TOOLS_SEARCH_PATHS
     /usr/bin
     "C:/Program Files/LLVM/bin" # Windows, non-conda
     "$ENV{CONDA_PREFIX}/Library/bin") # Windows, conda
-if(LLVM_BREW_PREFIX)
-  list(APPEND CLANG_TOOLS_SEARCH_PATHS "${LLVM_BREW_PREFIX}/bin")
+if(CLANG_TOOLS_BREW_PREFIX)
+  list(APPEND CLANG_TOOLS_SEARCH_PATHS "${CLANG_TOOLS_BREW}/bin")
 endif()
 
 function(FIND_CLANG_TOOL NAME OUTPUT VERSION_CHECK_PATTERN)
   unset(CLANG_TOOL_BIN CACHE)
   find_program(CLANG_TOOL_BIN
-               NAMES ${NAME}-${ARROW_LLVM_VERSION} ${NAME}-${ARROW_LLVM_MAJOR_VERSION}
+               NAMES ${NAME}-${ARROW_CLANG_TOOLS_VERSION}
+                     ${NAME}-${ARROW_CLANG_TOOLS_VERSION_MAJOR}
                PATHS ${CLANG_TOOLS_SEARCH_PATHS}
                NO_DEFAULT_PATH)
   if(NOT CLANG_TOOL_BIN)
@@ -74,8 +75,12 @@ function(FIND_CLANG_TOOL NAME OUTPUT VERSION_CHECK_PATTERN)
   endif()
 endfunction()
 
+string(REGEX
+       REPLACE "\\." "\\\\." ARROW_CLANG_TOOLS_VERSION_ESCAPED
+               "${ARROW_CLANG_TOOLS_VERSION}")
+
 find_clang_tool(clang-tidy CLANG_TIDY_BIN
-                "LLVM version ${ARROW_LLVM_MAJOR_VERSION}\\.${ARROW_LLVM_MINOR_VERSION}")
+                "LLVM version ${ARROW_CLANG_TOOLS_VERSION_ESCAPED}")
 if(CLANG_TIDY_BIN)
   set(CLANG_TIDY_FOUND 1)
   message(STATUS "clang-tidy found at ${CLANG_TIDY_BIN}")
@@ -84,9 +89,8 @@ else()
   message(STATUS "clang-tidy not found")
 endif()
 
-find_clang_tool(
-  clang-format CLANG_FORMAT_BIN
-  "^clang-format version ${ARROW_LLVM_MAJOR_VERSION}\\.${ARROW_LLVM_MINOR_VERSION}")
+find_clang_tool(clang-format CLANG_FORMAT_BIN
+                "^clang-format version ${ARROW_CLANG_TOOLS_VERSION_ESCAPED}")
 if(CLANG_FORMAT_BIN)
   set(CLANG_FORMAT_FOUND 1)
   message(STATUS "clang-format found at ${CLANG_FORMAT_BIN}")
@@ -94,3 +98,6 @@ else()
   set(CLANG_FORMAT_FOUND 0)
   message(STATUS "clang-format not found")
 endif()
+
+find_package_handle_standard_args(ClangTools REQUIRED_VARS CLANG_FORMAT_BIN
+                                  CLANG_TIDY_BIN)

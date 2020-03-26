@@ -282,6 +282,15 @@ class BaseEvaluatorTest {
     return buffer;
   }
 
+  ArrowBuf stringToDayInterval(String[] values) {
+    ArrowBuf buffer = allocator.buffer(values.length * 8);
+    for (int i = 0; i < values.length; i++) {
+      buffer.writeInt(Integer.parseInt(values[i].split(" ")[0])); // days
+      buffer.writeInt(Integer.parseInt(values[i].split(" ")[1])); // millis
+    }
+    return buffer;
+  }
+
   void releaseRecordBatch(ArrowRecordBatch recordBatch) {
     // There are 2 references to the buffers
     // One in the recordBatch - release that by calling close()

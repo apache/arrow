@@ -36,6 +36,7 @@ public class CallStatus {
   private final FlightStatusCode code;
   private final Throwable cause;
   private final String description;
+  private final ErrorFlightMetadata metadata;
 
   public static final CallStatus UNKNOWN = FlightStatusCode.UNKNOWN.toStatus();
   public static final CallStatus INTERNAL = FlightStatusCode.INTERNAL.toStatus();
@@ -56,10 +57,11 @@ public class CallStatus {
    * @param cause An exception that resulted in this status (or null).
    * @param description A description of the status (or null).
    */
-  public CallStatus(FlightStatusCode code, Throwable cause, String description) {
+  public CallStatus(FlightStatusCode code, Throwable cause, String description, ErrorFlightMetadata metadata) {
     this.code = Objects.requireNonNull(code);
     this.cause = cause;
     this.description = description == null ? "" : description;
+    this.metadata = metadata == null ? new ErrorFlightMetadata() : metadata;
   }
 
   /**
@@ -68,7 +70,7 @@ public class CallStatus {
    * @param code The status code.
    */
   public CallStatus(FlightStatusCode code) {
-    this(code, /* no cause */ null, /* no description */ null);
+    this(code, /* no cause */ null, /* no description */ null, /* no metadata */ null);
   }
 
   /**
@@ -93,17 +95,31 @@ public class CallStatus {
   }
 
   /**
+   * Metadata associated with the exception.
+   */
+  public ErrorFlightMetadata metadata() {
+    return metadata;
+  }
+
+  /**
    * Return a copy of this status with an error message.
    */
   public CallStatus withDescription(String message) {
-    return new CallStatus(code, cause, message);
+    return new CallStatus(code, cause, message, metadata);
   }
 
   /**
    * Return a copy of this status with the given exception as the cause. This will not be sent over the wire.
    */
   public CallStatus withCause(Throwable t) {
-    return new CallStatus(code, t, description);
+    return new CallStatus(code, t, description, metadata);
+  }
+
+  /**
+   * Return a copy of this status with associated exception metadata.
+   */
+  public CallStatus withMetadata(ErrorFlightMetadata metadata) {
+    return new CallStatus(code, cause, description, metadata);
   }
 
   /**
@@ -118,7 +134,8 @@ public class CallStatus {
     return "CallStatus{" +
         "code=" + code +
         ", cause=" + cause +
-        ", description='" + description + '\'' +
+        ", description='" + description +
+        ", metadata='" + metadata + '\'' +
         '}';
   }
 }

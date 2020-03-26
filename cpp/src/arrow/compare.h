@@ -17,8 +17,7 @@
 
 // Functions for comparing Arrow data structures
 
-#ifndef ARROW_COMPARE_H
-#define ARROW_COMPARE_H
+#pragma once
 
 #include <cstdint>
 #include <iosfwd>
@@ -113,5 +112,3 @@ bool ARROW_EXPORT TypeEquals(const DataType& left, const DataType& right,
 bool ARROW_EXPORT ScalarEquals(const Scalar& left, const Scalar& right);
 
 }  // namespace arrow
-
-#endif  // ARROW_COMPARE_H

@@ -33,6 +33,7 @@
 #include "arrow/builder.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/testing/gtest_compat.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
@@ -163,8 +164,6 @@ struct Datum;
 
 using Datum = compute::Datum;
 
-using ArrayVector = std::vector<std::shared_ptr<Array>>;
-
 #define ASSERT_ARRAYS_EQUAL(lhs, rhs) AssertArraysEqual((lhs), (rhs))
 #define ASSERT_BATCHES_EQUAL(lhs, rhs) AssertBatchesEqual((lhs), (rhs))
 #define ASSERT_TABLES_EQUAL(lhs, rhs) AssertTablesEqual((lhs), (rhs))
@@ -173,7 +172,8 @@ using ArrayVector = std::vector<std::shared_ptr<Array>>;
 ARROW_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual,
                                     bool verbose = false);
 ARROW_EXPORT void AssertBatchesEqual(const RecordBatch& expected,
-                                     const RecordBatch& actual);
+                                     const RecordBatch& actual,
+                                     bool check_metadata = false);
 ARROW_EXPORT void AssertChunkedEqual(const ChunkedArray& expected,
                                      const ChunkedArray& actual);
 ARROW_EXPORT void AssertChunkedEqual(const ChunkedArray& actual,
@@ -257,8 +257,14 @@ ARROW_EXPORT
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>&,
                                      util::string_view json);
 
-ARROW_EXPORT std::shared_ptr<RecordBatch> RecordBatchFromJSON(
-    const std::shared_ptr<Schema>&, util::string_view);
+ARROW_EXPORT
+std::shared_ptr<Array> DictArrayFromJSON(const std::shared_ptr<DataType>& type,
+                                         util::string_view indices_json,
+                                         util::string_view dictionary_json);
+
+ARROW_EXPORT
+std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>&,
+                                                 util::string_view);
 
 ARROW_EXPORT
 std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>&,
@@ -410,14 +416,7 @@ void SleepFor(double seconds);
 
 template <typename T>
 std::vector<T> IteratorToVector(Iterator<T> iterator) {
-  std::vector<T> out;
-
-  auto fn = [&out](T value) -> Status {
-    out.emplace_back(std::move(value));
-    return Status::OK();
-  };
-
-  ARROW_EXPECT_OK(iterator.Visit(fn));
+  EXPECT_OK_AND_ASSIGN(auto out, iterator.ToVector());
   return out;
 }
 

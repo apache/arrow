@@ -48,6 +48,15 @@ cdef class CastOptions:
     def unsafe():
         return CastOptions.wrap(CCastOptions.Unsafe())
 
+    def is_safe(self):
+        return not (
+            self.options.allow_int_overflow or
+            self.options.allow_time_truncate or
+            self.options.allow_time_overflow or
+            self.options.allow_float_truncate or
+            self.options.allow_invalid_utf8
+        )
+
     cdef inline CCastOptions unwrap(self) nogil:
         return self.options
 

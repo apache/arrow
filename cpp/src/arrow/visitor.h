@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_VISITOR_H
-#define ARROW_VISITOR_H
+#pragma once
 
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
@@ -146,5 +145,3 @@ class ARROW_EXPORT ScalarVisitor {
 };
 
 }  // namespace arrow
-
-#endif  // ARROW_VISITOR_H

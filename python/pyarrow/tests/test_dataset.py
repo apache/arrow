@@ -15,8 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import sys
+import contextlib
 import operator
+import os
+import pickle
 
 import numpy as np
 import pytest
@@ -37,6 +39,16 @@ except ImportError:
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not dataset'
 pytestmark = pytest.mark.dataset
+
+
+@contextlib.contextmanager
+def change_cwd(path):
+    curdir = os.getcwd()
+    os.chdir(str(path))
+    try:
+        yield
+    finally:
+        os.chdir(curdir)
 
 
 def _generate_data(n):
@@ -174,7 +186,7 @@ def test_filesystem_dataset(mockfs):
     paths = ['subdir/1/xxx/file0.parquet', 'subdir/2/yyy/file1.parquet']
     partitions = [ds.ScalarExpression(True), ds.ScalarExpression(True)]
 
-    source = ds.FileSystemDataset(
+    dataset = ds.FileSystemDataset(
         schema,
         root_partition=None,
         file_format=file_format,
@@ -182,11 +194,11 @@ def test_filesystem_dataset(mockfs):
         paths_or_selector=paths,
         partitions=partitions
     )
-    assert isinstance(source.format, ds.ParquetFileFormat)
+    assert isinstance(dataset.format, ds.ParquetFileFormat)
 
     root_partition = ds.ComparisonExpression(
         ds.CompareOperator.Equal,
-        ds.FieldExpression('source'),
+        ds.FieldExpression('level'),
         ds.ScalarExpression(1337)
     )
     partitions = [
@@ -201,7 +213,7 @@ def test_filesystem_dataset(mockfs):
             ds.ScalarExpression(2)
         )
     ]
-    source = ds.FileSystemDataset(
+    dataset = ds.FileSystemDataset(
         paths_or_selector=paths,
         schema=schema,
         root_partition=root_partition,
@@ -209,8 +221,16 @@ def test_filesystem_dataset(mockfs):
         partitions=partitions,
         file_format=file_format
     )
-    assert source.partition_expression.equals(root_partition)
-    assert set(source.files) == set(paths)
+    assert dataset.partition_expression.equals(root_partition)
+    assert set(dataset.files) == set(paths)
+
+    fragments = list(dataset.get_fragments())
+    assert fragments[0].partition_expression.equals(
+        ds.AndExpression(root_partition, partitions[0]))
+    assert fragments[1].partition_expression.equals(
+        ds.AndExpression(root_partition, partitions[1]))
+    assert fragments[0].path == paths[0]
+    assert fragments[1].path == paths[1]
 
 
 def test_dataset(dataset):
@@ -318,9 +338,11 @@ def test_expression():
     b = ds.ScalarExpression(1.1)
     c = ds.ScalarExpression(True)
     d = ds.ScalarExpression("string")
+    e = ds.ScalarExpression(None)
 
     equal = ds.ComparisonExpression(ds.CompareOperator.Equal, a, b)
-    assert equal.op() == ds.CompareOperator.Equal
+    greater = a > b
+    assert equal.op == ds.CompareOperator.Equal
 
     and_ = ds.AndExpression(a, b)
     assert and_.left_operand.equals(a)
@@ -328,14 +350,18 @@ def test_expression():
     assert and_.equals(ds.AndExpression(a, b))
     assert and_.equals(and_)
 
-    ds.AndExpression(a, b, c)
-    ds.OrExpression(a, b)
-    ds.OrExpression(a, b, c, d)
-    ds.NotExpression(ds.OrExpression(a, b, c))
-    ds.IsValidExpression(a)
-    ds.CastExpression(a, pa.int32())
-    ds.CastExpression(a, pa.int32(), safe=True)
-    ds.InExpression(a, pa.array([1, 2, 3]))
+    or_ = ds.OrExpression(a, b)
+    not_ = ds.NotExpression(ds.OrExpression(a, b))
+    is_valid = ds.IsValidExpression(a)
+    cast_safe = ds.CastExpression(a, pa.int32())
+    cast_unsafe = ds.CastExpression(a, pa.int32(), safe=False)
+    in_ = ds.InExpression(a, pa.array([1, 2, 3]))
+
+    assert is_valid.operand == a
+    assert in_.set_.equals(pa.array([1, 2, 3]))
+    assert cast_unsafe.to == pa.int32()
+    assert cast_unsafe.safe is False
+    assert cast_safe.safe is True
 
     condition = ds.ComparisonExpression(
         ds.CompareOperator.Greater,
@@ -362,6 +388,12 @@ def test_expression():
     assert condition.assume(i64_is_7).equals(ds.ScalarExpression(True))
     assert str(condition) == "(i64 > 5:int64)"
     assert "(i64 > 5:int64)" in repr(condition)
+
+    all_exprs = [a, b, c, d, e, equal, greater, and_, or_, not_, is_valid,
+                 cast_unsafe, cast_safe, in_, condition, i64_is_5, i64_is_7]
+    for expr in all_exprs:
+        restored = pickle.loads(pickle.dumps(expr))
+        assert expr.equals(restored)
 
 
 def test_expression_ergonomics():
@@ -424,6 +456,19 @@ def test_expression_ergonomics():
     with pytest.raises(TypeError):
         field.isin(1)
 
+    # operations with non-scalar values
+    with pytest.raises(TypeError):
+        field == [1]
+
+    with pytest.raises(TypeError):
+        field != {1}
+
+    with pytest.raises(TypeError):
+        field & [1]
+
+    with pytest.raises(TypeError):
+        field | [1]
+
 
 @pytest.mark.parametrize('paths_or_selector', [
     fs.FileSelector('subdir', recursive=True),
@@ -437,7 +482,7 @@ def test_expression_ergonomics():
         'subdir/2/yyy/file1.parquet',
     ]
 ])
-def test_file_system_factory(mockfs, paths_or_selector):
+def test_filesystem_factory(mockfs, paths_or_selector):
     format = ds.ParquetFileFormat(reader_options=dict(dict_columns={"str"}))
 
     options = ds.FileSystemFactoryOptions('subdir')
@@ -449,14 +494,21 @@ def test_file_system_factory(mockfs, paths_or_selector):
     )
     assert options.partition_base_dir == 'subdir'
     assert options.ignore_prefixes == ['.', '_']
-    assert options.exclude_invalid_files is True
+    assert options.exclude_invalid_files is False
 
     factory = ds.FileSystemDatasetFactory(
         mockfs, paths_or_selector, format, options
     )
     inspected_schema = factory.inspect()
 
-    assert isinstance(factory.inspect(), pa.Schema)
+    assert factory.inspect().equals(pa.schema([
+        pa.field('i64', pa.int64()),
+        pa.field('f64', pa.float64()),
+        pa.field('str', pa.dictionary(pa.int32(), pa.string())),
+        pa.field('group', pa.int32()),
+        pa.field('key', pa.string()),
+    ]), check_metadata=False)
+
     assert isinstance(factory.inspect_schemas(), list)
     assert isinstance(factory.finish(inspected_schema),
                       ds.FileSystemDataset)
@@ -510,7 +562,7 @@ def test_partitioning_factory(mockfs):
         ("group", pa.int32()),
         ("key", pa.string()),
     ])
-    assert inspected_schema.equals(expected_schema, check_metadata=False)
+    assert inspected_schema.equals(expected_schema)
 
     hive_partitioning_factory = ds.HivePartitioning.discover()
     assert isinstance(hive_partitioning_factory, ds.PartitioningFactory)
@@ -577,21 +629,28 @@ def _check_dataset_from_path(path, table, **kwargs):
     # pathlib object
     assert isinstance(path, pathlib.Path)
     dataset = ds.dataset(ds.factory(path, **kwargs))
-    assert dataset.schema.equals(table.schema, check_metadata=False)
+    assert dataset.schema.equals(table.schema)
     result = dataset.to_table(use_threads=False)  # deterministic row order
-    assert result.equals(table, check_metadata=False)
+    assert result.equals(table)
 
     # string path
     dataset = ds.dataset(ds.factory(str(path), **kwargs))
-    assert dataset.schema.equals(table.schema, check_metadata=False)
+    assert dataset.schema.equals(table.schema)
     result = dataset.to_table(use_threads=False)  # deterministic row order
-    assert result.equals(table, check_metadata=False)
+    assert result.equals(table)
+
+    # relative string path
+    with change_cwd(path.parent):
+        dataset = ds.dataset(ds.factory(path.name, **kwargs))
+        assert dataset.schema.equals(table.schema)
+        result = dataset.to_table(use_threads=False)  # deterministic row order
+        assert result.equals(table)
 
     # passing directly to dataset
     dataset = ds.dataset(str(path), **kwargs)
-    assert dataset.schema.equals(table.schema, check_metadata=False)
+    assert dataset.schema.equals(table.schema)
     result = dataset.to_table(use_threads=False)  # deterministic row order
-    assert result.equals(table, check_metadata=False)
+    assert result.equals(table)
 
 
 @pytest.mark.parquet
@@ -619,47 +678,57 @@ def test_open_dataset_list_of_files(tempdir):
         ds.dataset(ds.factory([str(path1), str(path2)]))
     ]
     for dataset in datasets:
-        assert dataset.schema.equals(table.schema, check_metadata=False)
+        assert dataset.schema.equals(table.schema)
         result = dataset.to_table(use_threads=False)  # deterministic row order
-        assert result.equals(table, check_metadata=False)
+        assert result.equals(table)
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="fails on windows")
 @pytest.mark.parquet
 def test_open_dataset_partitioned_directory(tempdir):
     import pyarrow.parquet as pq
     table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
+
+    path = tempdir / "dataset"
+    path.mkdir()
+
     for part in range(3):
-        path = tempdir / "part={}".format(part)
-        path.mkdir()
-        pq.write_table(table, path / "test.parquet")
+        part = path / "part={}".format(part)
+        part.mkdir()
+        pq.write_table(table, part / "test.parquet")
 
     # no partitioning specified, just read all individual files
     full_table = pa.concat_tables([table] * 3)
-    _check_dataset_from_path(tempdir, full_table)
+    _check_dataset_from_path(path, full_table)
 
     # specify partition scheme with discovery
     dataset = ds.dataset(
-        str(tempdir), partitioning=ds.partitioning(flavor="hive"))
+        str(path), partitioning=ds.partitioning(flavor="hive"))
     expected_schema = table.schema.append(pa.field("part", pa.int32()))
-    assert dataset.schema.equals(expected_schema, check_metadata=False)
+    assert dataset.schema.equals(expected_schema)
+
+    # specify partition scheme with discovery and relative path
+    with change_cwd(tempdir):
+        dataset = ds.dataset(
+            "dataset/", partitioning=ds.partitioning(flavor="hive"))
+        expected_schema = table.schema.append(pa.field("part", pa.int32()))
+        assert dataset.schema.equals(expected_schema)
 
     # specify partition scheme with string short-cut
-    dataset = ds.dataset(str(tempdir), partitioning="hive")
-    assert dataset.schema.equals(expected_schema, check_metadata=False)
+    dataset = ds.dataset(str(path), partitioning="hive")
+    assert dataset.schema.equals(expected_schema)
 
     # specify partition scheme with explicit scheme
     dataset = ds.dataset(
-        str(tempdir),
+        str(path),
         partitioning=ds.partitioning(
             pa.schema([("part", pa.int8())]), flavor="hive"))
     expected_schema = table.schema.append(pa.field("part", pa.int8()))
-    assert dataset.schema.equals(expected_schema, check_metadata=False)
+    assert dataset.schema.equals(expected_schema)
 
     result = dataset.to_table(use_threads=False)
     expected = full_table.append_column(
         "part", pa.array(np.repeat([0, 1, 2], 9), type=pa.int8()))
-    assert result.equals(expected, check_metadata=False)
+    assert result.equals(expected)
 
 
 @pytest.mark.parquet
@@ -669,11 +738,16 @@ def test_open_dataset_filesystem(tempdir):
 
     # filesystem inferred from path
     dataset1 = ds.dataset(str(path))
-    assert dataset1.schema.equals(table.schema, check_metadata=False)
+    assert dataset1.schema.equals(table.schema)
 
     # filesystem specified
     dataset2 = ds.dataset(str(path), filesystem=fs.LocalFileSystem())
-    assert dataset2.schema.equals(table.schema, check_metadata=False)
+    assert dataset2.schema.equals(table.schema)
+
+    # local filesystem specified with relative path
+    with change_cwd(tempdir):
+        dataset3 = ds.dataset("test.parquet", filesystem=fs.LocalFileSystem())
+    assert dataset3.schema.equals(table.schema)
 
     # passing different filesystem
     with pytest.raises(FileNotFoundError):
@@ -703,6 +777,35 @@ def test_open_dataset_from_source_additional_kwargs(multisourcefs):
     )
     with pytest.raises(ValueError, match="cannot pass any additional"):
         ds.dataset(child, format="parquet")
+
+
+@pytest.mark.parquet
+@pytest.mark.s3
+def test_open_dataset_from_uri_s3(s3_connection, s3_server):
+    # open dataset from non-localfs string path
+    from pyarrow.fs import FileSystem
+    import pyarrow.parquet as pq
+
+    host, port, access_key, secret_key = s3_connection
+    uri = (
+        "s3://{}:{}@mybucket/data.parquet?scheme=http&endpoint_override={}:{}"
+        .format(access_key, secret_key, host, port)
+    )
+
+    fs, path = FileSystem.from_uri(uri)
+
+    fs.create_dir("mybucket")
+    table = pa.table({'a': [1, 2, 3]})
+    with fs.open_output_stream("mybucket/data.parquet") as out:
+        pq.write_table(table, out)
+
+    # full string URI
+    dataset = ds.dataset(uri, format="parquet")
+    assert dataset.to_table().equals(table)
+
+    # passing filesystem object
+    dataset = ds.dataset(path, format="parquet", filesystem=fs)
+    assert dataset.to_table().equals(table)
 
 
 @pytest.mark.parquet
@@ -746,10 +849,10 @@ def test_multiple_factories(multisourcefs):
         ('value', pa.float64()),
         ('color', pa.string()),
         ('week', pa.int32()),
-        ('month', pa.int32()),
         ('year', pa.int32()),
+        ('month', pa.int32()),
     ])
-    assert assembled.schema.equals(expected_schema, check_metadata=False)
+    assert assembled.schema.equals(expected_schema)
 
 
 def test_multiple_factories_with_selectors(multisourcefs):
@@ -760,9 +863,9 @@ def test_multiple_factories_with_selectors(multisourcefs):
         ('date', pa.date32()),
         ('index', pa.int64()),
         ('value', pa.float64()),
-        ('color', pa.string())
+        ('color', pa.string()),
     ])
-    assert dataset.schema.equals(expected_schema, check_metadata=False)
+    assert dataset.schema.equals(expected_schema)
 
     # with hive partitioning for two hive sources
     dataset = ds.dataset(['/hive', '/hive_color'], filesystem=multisourcefs,
@@ -772,10 +875,10 @@ def test_multiple_factories_with_selectors(multisourcefs):
         ('index', pa.int64()),
         ('value', pa.float64()),
         ('color', pa.string()),
+        ('year', pa.int32()),
         ('month', pa.int32()),
-        ('year', pa.int32())
     ])
-    assert dataset.schema.equals(expected_schema, check_metadata=False)
+    assert dataset.schema.equals(expected_schema)
 
 
 def test_ipc_format(tempdir):

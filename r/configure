@@ -40,13 +40,14 @@ LOCAL_AUTOBREW=`echo $LOCAL_AUTOBREW | tr '[:upper:]' '[:lower:]'`
 FORCE_AUTOBREW=`echo $FORCE_AUTOBREW | tr '[:upper:]' '[:lower:]'`
 ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
 
+VERSION=`grep ^Version DESCRIPTION | sed s/Version:\ //`
+UNAME=`uname -s`
+
 # generate code
 if [ "$ARROW_R_DEV" = "true" ]; then
   echo "*** Generating code with data-raw/codegen.R"
   ${R_HOME}/bin/Rscript data-raw/codegen.R
 fi
-
-UNAME=`uname -s`
 
 if [ "$LOCAL_AUTOBREW" = "true" ]; then
   # LOCAL_AUTOBREW means use the script in tools/
@@ -62,7 +63,7 @@ fi
 
 # Note that cflags may be empty in case of success
 if [ "$INCLUDE_DIR" ] || [ "$LIB_DIR" ]; then
-  echo "Found INCLUDE_DIR and/or LIB_DIR!"
+  echo "*** Using INCLUDE_DIR/LIB_DIR"
   PKG_CFLAGS="-I$INCLUDE_DIR $PKG_CFLAGS"
   PKG_LIBS="-L$LIB_DIR $PKG_LIBS"
 else
@@ -74,18 +75,29 @@ else
   fi
 
   if [ "$PKGCONFIG_CFLAGS" ] || [ "$PKGCONFIG_LIBS" ]; then
-    echo "Arrow C++ libraries found via pkg-config"
+    echo "*** Arrow C++ libraries found via pkg-config"
     PKG_CFLAGS="$PKGCONFIG_CFLAGS"
     PKG_LIBS=${PKGCONFIG_LIBS}
+
+    # Check for version mismatch
+    PC_LIB_VERSION=`pkg-config --modversion arrow`
+    echo $PC_LIB_VERSION | grep -e 'SNAPSHOT$' >/dev/null 2>&1
+    # If on a release (i.e. not SNAPSHOT) and version != R package version, warn
+    if [ $? -eq 1 ] && [ "$PC_LIB_VERSION" != "$VERSION" ]; then
+      echo "**** Warning: library version mismatch"
+      echo "**** C++ is $PC_LIB_VERSION but R is $VERSION"
+      echo "**** If installation fails, upgrade the C++ library to match"
+      echo "**** or retry with ARROW_USE_PKG_CONFIG=false"
+    fi
   else
     if [ "$UNAME" = "Darwin" ]; then
       if [ "$FORCE_AUTOBREW" != "true" ] && [ "`command -v brew`" ] && [ "`brew ls --versions ${PKG_BREW_NAME}`" != "" ]; then
-        echo "Using Homebrew ${PKG_BREW_NAME}"
+        echo "*** Using Homebrew ${PKG_BREW_NAME}"
         BREWDIR=`brew --prefix`
       else
-        echo "Downloading ${PKG_BREW_NAME}"
+        echo "*** Downloading ${PKG_BREW_NAME}"
         if [ -f "autobrew" ]; then
-          echo "Using local manifest for ${PKG_BREW_NAME}"
+          echo "**** Using local manifest for ${PKG_BREW_NAME}"
         else
           curl -sfL "https://jeroen.github.io/autobrew/$PKG_BREW_NAME" > autobrew
           if [ $? -ne 0 ]; then
@@ -100,16 +112,26 @@ else
       PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
       PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
     elif [ "$UNAME" = "Linux" ]; then
-      VERSION=`grep ^Version DESCRIPTION | sed s/Version:\ //`
+      # Set some default values/backwards compatibility
       if [ "${LIBARROW_DOWNLOAD}" = "" ] && [ "${NOT_CRAN}" != "" ]; then
-        export LIBARROW_DOWNLOAD=$NOT_CRAN
+        LIBARROW_DOWNLOAD=$NOT_CRAN; export LIBARROW_DOWNLOAD
+      fi
+      if [ "${LIBARROW_BINARY}" = "" ] && [ "${LIBARROW_DOWNLOAD}" != "" ]; then
+        LIBARROW_BINARY=$LIBARROW_DOWNLOAD; export LIBARROW_BINARY
+      fi
+      if [ "${LIBARROW_MINIMAL}" = "" ] && [ "${LIBARROW_DOWNLOAD}" = "true" ]; then
+        LIBARROW_MINIMAL=false; export LIBARROW_MINIMAL
+      fi
+      if [ "${LIBARROW_MINIMAL}" = "" ] && [ "${NOT_CRAN}" = "true" ]; then
+        LIBARROW_MINIMAL=false; export LIBARROW_MINIMAL
       fi
       ${R_HOME}/bin/Rscript tools/linuxlibs.R $VERSION
       PKG_CFLAGS="-I$(pwd)/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
-      PKG_LIBS="-L$(pwd)/libarrow/arrow-${VERSION}/lib $PKG_LIBS"
-      # Also enumerate the static libs included in there
-      # TODO: this should be generated based on what's in the lib dir
-      PKG_LIBS="$PKG_LIBS -lthrift -lsnappy -lz -lzstd -llz4 -lbrotlidec-static -lbrotlienc-static -lbrotlicommon-static -lboost_filesystem -lboost_regex -lboost_system -ljemalloc_pic"
+      # Also enumerate the static libs (technically repeating arrow libs so they're in the right order)
+      # TODO: there must be a better way; also what about non-bundled deps?
+      BUNDLED_LIBS=`cd libarrow/arrow-${VERSION}/lib && ls *.a`
+      BUNDLED_LIBS=`echo $BUNDLED_LIBS | sed -E "s/lib(.*)\.a/-l\1/" | sed -e "s/\\.a lib/ -l/g"`
+      PKG_LIBS="-L$(pwd)/libarrow/arrow-${VERSION}/lib $PKG_LIBS $BUNDLED_LIBS"
     fi
   fi
 fi

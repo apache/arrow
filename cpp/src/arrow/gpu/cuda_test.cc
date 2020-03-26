@@ -575,7 +575,9 @@ TEST_F(TestCudaArrowIpc, BasicWriteRead) {
   std::shared_ptr<RecordBatch> cpu_batch;
   io::BufferReader cpu_reader(host_buffer);
   ipc::DictionaryMemo unused_memo;
-  ASSERT_OK(ipc::ReadRecordBatch(batch->schema(), &unused_memo, &cpu_reader, &cpu_batch));
+  ASSERT_OK_AND_ASSIGN(
+      cpu_batch, ipc::ReadRecordBatch(batch->schema(), &unused_memo,
+                                      ipc::IpcReadOptions::Defaults(), &cpu_reader));
 
   CompareBatch(*batch, *cpu_batch);
 }

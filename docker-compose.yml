@@ -65,7 +65,7 @@ volumes:
   amd64-cuda-10.1-cache:
   amd64-debian-9-cache:
   amd64-debian-10-cache:
-  amd64-fedora-29-cache:
+  amd64-fedora-30-cache:
   amd64-ubuntu-14.04-cache:
   amd64-ubuntu-16.04-cache:
   amd64-ubuntu-18.04-cache:
@@ -198,6 +198,7 @@ services:
         - ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
       args:
         arch: ${ARCH}
+        llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
@@ -223,6 +224,8 @@ services:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
       args:
         arch: ${ARCH}
+        clang_tools: ${CLANG_TOOLS}
+        llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
@@ -251,12 +254,14 @@ services:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
       args:
         arch: ${ARCH}
+        clang_tools: ${CLANG_TOOLS}
+        llvm: ${LLVM}
     shm_size: *shm-size
     volumes: *ubuntu-volumes
     environment:
       <<: *ccache
-      CC: clang-7
-      CXX: clang++-7
+      CC: clang-${CLANG_TOOLS}
+      CXX: clang++-${CLANG_TOOLS}
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_FUZZING: "ON"  # Check fuzz regressions
       ARROW_JEMALLOC: "OFF"
@@ -271,7 +276,7 @@ services:
     #   docker-compose run --rm fedora-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   FEDORA: 29, ...
+    #   FEDORA: 30, ...
     image: ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
     build:
       context: .
@@ -280,6 +285,7 @@ services:
         - ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
       args:
         arch: ${ARCH}
+        llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
@@ -341,7 +347,6 @@ services:
     environment:
       <<: *ccache
       ARROW_GLIB_GTK_DOC: "true"
-    shm_size: *shm-size
     volumes: *ubuntu-volumes
     command: *c-glib-command
 
@@ -369,6 +374,7 @@ services:
       args:
         base: ${REPO}:${ARCH}-debian-${DEBIAN}-c-glib
     shm_size: *shm-size
+    ulimits: *ulimits
     environment:
       <<: *ccache
     volumes: *debian-volumes
@@ -377,7 +383,7 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
         /arrow/ci/scripts/c_glib_test.sh /arrow /build &&
-        /arrow/ci/scripts/ruby_test.sh /arrow"
+        /arrow/ci/scripts/ruby_test.sh /arrow /build"
 
   ubuntu-ruby:
     # Usage:
@@ -397,6 +403,7 @@ services:
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
     shm_size: *shm-size
+    ulimits: *ulimits
     environment:
       <<: *ccache
     volumes: *ubuntu-volumes
@@ -637,7 +644,7 @@ services:
         /arrow/ci/scripts/python_test.sh /arrow"]
 
   conda-python-turbodbc:
-    # Possible $DASK parameters:
+    # Possible $TURBODBC parameters:
     #  - `latest`: latest release
     #  - `master`: git master branch, use `docker-compose run --no-cache`
     #  - `<version>`: specific version available under github releases
@@ -666,6 +673,36 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_turbodbc.sh /turbodbc /build"]
 
+  conda-python-kartothek:
+    # Possible $KARTOTHEK parameters:
+    #  - `latest`: latest release
+    #  - `master`: git master branch, use `docker-compose run --no-cache`
+    #  - `<version>`: specific version available under github releases
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-kartothek
+    #   docker-compose run --rm conda-python-kartothek
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-kartothek-${KARTOTHEK}
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python-kartothek.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}-kartothek-${KARTOTHEK}
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        python: ${PYTHON}
+        kartothek: ${KARTOTHEK}
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+    volumes: *conda-volumes
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/integration_kartothek.sh /kartothek /build"]
+
   ########################## Python Wheels ####################################
 
   centos-python-manylinux1:
@@ -675,6 +712,8 @@ services:
       dockerfile: Dockerfile-x86_64_base
       cache_from:
         - ${REPO}:amd64-centos-5.11-python-manylinux1
+      args:
+        llvm: ${LLVM}
     shm_size: *shm-size
     environment:
       PYARROW_PARALLEL: 3
@@ -692,6 +731,8 @@ services:
       dockerfile: Dockerfile-x86_64_base_2010
       cache_from:
         - ${REPO}:amd64-centos-6.10-python-manylinux2010
+      args:
+        llvm: ${LLVM}
     shm_size: *shm-size
     environment:
       PYARROW_PARALLEL: 3
@@ -709,6 +750,8 @@ services:
       dockerfile: Dockerfile-x86_64_base_2014
       cache_from:
         - ${REPO}:amd64-centos-7.7-python-manylinux2014
+      args:
+        llvm: ${LLVM}
     shm_size: *shm-size
     environment:
       PYARROW_PARALLEL: 3
@@ -787,7 +830,6 @@ services:
         base: ${R_ORG}/${R_IMAGE}:${R_TAG}
     shm_size: *shm-size
     environment:
-      NOT_CRAN: "true"
       LIBARROW_DOWNLOAD: "false"
       ARROW_HOME: "/arrow"
       ARROW_USE_PKG_CONFIG: "false"
@@ -951,6 +993,7 @@ services:
         - ${REPO}:${ARCH}-debian-9-java-jni
       args:
         base: ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
+        llvm: ${LLVM}
     shm_size: *shm-size
     environment:
       <<: *ccache
@@ -991,13 +1034,14 @@ services:
       <<: *ccache
       # tell archery where the arrow binaries are located
       ARROW_CPP_EXE_PATH: /build/cpp/debug
+    # Running integration tests serially until ARROW-8176 resolved
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/go_build.sh /arrow &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/js_build.sh /arrow /build &&
         pip install -e /arrow/dev/archery &&
-        archery integration --with-all --run-flight"]
+        archery integration --with-all --serial --run-flight"]
 
   ################################ Docs #######################################
 
@@ -1045,8 +1089,9 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-lint
       args:
-        rust: ${RUST}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+        clang_tools: ${CLANG_TOOLS}
+        rust: ${RUST}
     environment:
       <<: *ccache
     volumes: *ubuntu-volumes

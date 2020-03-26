@@ -63,6 +63,9 @@ struct Configuration {
   // Indicates the filter by which rows will be filtered. This optimization can
   // make use of partition information and/or file metadata if possible.
   std::shared_ptr<ds::Expression> filter = ("total_amount"_ > 1000.0f).Copy();
+
+  ds::InspectOptions inspect_options{};
+  ds::FinishOptions finish_options{};
 } conf;
 
 std::shared_ptr<fs::FileSystem> GetFileSystemFromUri(const std::string& uri,
@@ -83,10 +86,10 @@ std::shared_ptr<ds::Dataset> GetDatasetFromPath(std::shared_ptr<fs::FileSystem> 
   auto factory = ds::FileSystemDatasetFactory::Make(fs, s, format, options).ValueOrDie();
 
   // Try to infer a common schema for all files.
-  auto schema = factory->Inspect().ValueOrDie();
+  auto schema = factory->Inspect(conf.inspect_options).ValueOrDie();
   // Caller can optionally decide another schema as long as it is compatible
   // with the previous one, e.g. `factory->Finish(compatible_schema)`.
-  auto child = factory->Finish().ValueOrDie();
+  auto child = factory->Finish(conf.finish_options).ValueOrDie();
 
   ds::DatasetVector children{conf.repeat, child};
   auto dataset = ds::UnionDataset::Make(std::move(schema), std::move(children));

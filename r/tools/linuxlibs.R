@@ -32,14 +32,19 @@ env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
 # * no download, build_ok: Only build with local git checkout
 # * download_ok, no build: Only use prebuilt binary, if found
 # * neither: Get the arrow-without-arrow package
-download_ok <- env_is("LIBARROW_DOWNLOAD", "true") || !(tolower(Sys.getenv("LIBARROW_BINARY")) %in% c("", "false"))
+# Download and build are OK unless you say not to
+download_ok <- !env_is("LIBARROW_DOWNLOAD", "false")
 build_ok <- !env_is("LIBARROW_BUILD", "false")
+# But binary defaults to not OK
+binary_ok <- !identical(tolower(Sys.getenv("LIBARROW_BINARY", "false")), "false")
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
 
 download_binary <- function(os = identify_os()) {
   libfile <- tempfile()
   if (!is.null(os)) {
+    # See if we can map this os-version to one we have binaries for
+    os <- find_available_binary(os)
     binary_url <- paste0(arrow_repo, "bin/", os, "/arrow-", VERSION, ".zip")
     try(
       download.file(binary_url, libfile, quiet = quietly),
@@ -84,14 +89,20 @@ identify_os <- function(os = Sys.getenv("LIBARROW_BINARY", Sys.getenv("LIBARROW_
     vals <- sub("^.*=(.*)$", "\\1", os_release)
     names(vals) <- sub("^(.*)=.*$", "\\1", os_release)
     distro <- gsub('"', '', vals["ID"])
-    if (distro == "ubuntu") {
-      # Keep major.minor version
-      version_regex <- '^"?([0-9]+\\.[0-9]+).*"?.*$'
-    } else {
-      # Only major version number
-      version_regex <- '^"?([0-9]+).*"?.*$'
+    os_version <- "unknown" # default value
+    if ("VERSION_ID" %in% names(vals)) {
+      if (distro == "ubuntu") {
+        # Keep major.minor version
+        version_regex <- '^"?([0-9]+\\.[0-9]+).*"?.*$'
+      } else {
+        # Only major version number
+        version_regex <- '^"?([0-9]+).*"?.*$'
+      }
+      os_version <- sub(version_regex, "\\1", vals["VERSION_ID"])
+    } else if ("PRETTY_NAME" %in% names(vals) && grepl("bullseye", vals["PRETTY_NAME"])) {
+      # debian unstable doesn't include a number but we can map from pretty name
+      os_version <- "11"
     }
-    os_version <- sub(version_regex, "\\1", vals["VERSION_ID"])
     os <- paste0(distro, "-", os_version)
   } else if (file.exists("/etc/system-release")) {
     # Something like "CentOS Linux release 7.7.1908 (Core)"
@@ -103,8 +114,6 @@ identify_os <- function(os = Sys.getenv("LIBARROW_BINARY", Sys.getenv("LIBARROW_
     os <- NULL
   }
 
-  # Now look to see if we can map this os-version to one we have binaries for
-  os <- find_available_binary(os)
   os
 }
 
@@ -175,12 +184,7 @@ build_libarrow <- function(src_dir, dst_dir) {
   }
   # Check for libarrow build dependencies:
   # * cmake
-  # * flex and bison (for building thrift)
-  # * m4 (for building flex and bison)
   cmake <- ensure_cmake()
-  m4 <- ensure_m4()
-  flex <- ensure_flex(m4)
-  bison <- ensure_bison(m4)
 
   build_dir <- tempfile()
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), build_dir))
@@ -188,21 +192,6 @@ build_libarrow <- function(src_dir, dst_dir) {
     "SOURCE_DIR=%s BUILD_DIR=%s DEST_DIR=%s CMAKE=%s",
     src_dir,       build_dir,   dst_dir,    cmake
   )
-  if (!is.null(flex)) {
-    if (!quietly) {
-      system(paste0(flex, "/flex --version"))
-    }
-    env_vars <- paste0(env_vars, " FLEX_ROOT=", flex)
-  }
-  if (!is.null(bison)) {
-    if (!quietly) {
-      system(paste0(bison, "/bison --version"))
-    }
-    env_vars <- sprintf(
-      "PATH=%s:$PATH %s BISON_PKGDATADIR=%s/../share/bison",
-            bison,   env_vars,           bison
-    )
-  }
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
   system(
     paste(env_vars, "inst/build_arrow_static.sh"),
@@ -212,6 +201,7 @@ build_libarrow <- function(src_dir, dst_dir) {
 
 ensure_cmake <- function() {
   cmake <- Sys.which("cmake")
+  # TODO: should check that cmake is of sufficient version
   if (!nzchar(cmake)) {
     # If not found, download it
     cat("**** cmake\n")
@@ -238,119 +228,6 @@ ensure_cmake <- function() {
   cmake
 }
 
-# TODO: move ensure_flex/bison/m4 to cmake: https://issues.apache.org/jira/browse/ARROW-7501
-ensure_flex <- function(m4 = ensure_m4()) {
-  if (nzchar(Sys.which("flex"))) {
-    # We already have flex.
-    # NULL will tell the caller not to append FLEX_ROOT to env vars bc it's not needed
-    return(NULL)
-  }
-  # If not found, download it
-  cat("**** flex\n")
-  # Flex 2.6.4 (latest release) causes segfaults on some platforms (ubuntu bionic, debian e.g.)
-  # See https://github.com/westes/flex/issues/219
-  # Allegedly it has been fixed in master but there hasn't been a release since May 2017
-  FLEX_VERSION <- Sys.getenv("FLEX_VERSION", "2.6.3")
-  flex_source_url <- paste0(
-    "https://github.com/westes/flex/releases/download/v", FLEX_VERSION,
-    "/flex-", FLEX_VERSION, ".tar.gz"
-  )
-  flex_tar <- tempfile()
-  flex_dir <- tempfile()
-  try(
-    download.file(flex_source_url, flex_tar, quiet = quietly),
-    silent = quietly
-  )
-  untar(flex_tar, exdir = flex_dir)
-  unlink(flex_tar)
-  options(.arrow.cleanup = c(getOption(".arrow.cleanup"), flex_dir))
-  # flex also needs m4
-  if (!is.null(m4)) {
-    # If we just built it, put it on PATH for building bison
-    path <- sprintf('export PATH="%s:$PATH" && ', m4)
-  } else {
-    path <- ""
-  }
-  # Now, build flex
-  flex_dir <- paste0(flex_dir, "/flex-", FLEX_VERSION)
-  base_cmd <- paste0(path, "cd ", shQuote(flex_dir), " &&")
-  for (cmd in c("./configure", "make")) {
-    system(paste(base_cmd, cmd), ignore.stdout = quietly, ignore.stderr = quietly)
-  }
-  # The built flex should be in ./src. Return that so we can set as FLEX_ROOT
-  paste0(flex_dir, "/src")
-}
-
-ensure_bison <- function(m4 = ensure_m4()) {
-  if (nzchar(Sys.which("bison"))) {
-    # We already have bison.
-    # NULL will tell the caller not to append BISON_ROOT to env vars bc it's not needed
-    return(NULL)
-  }
-  # If not found, download it
-  cat("**** bison\n")
-  BISON_VERSION <- Sys.getenv("BISON_VERSION", "3.5")
-  source_url <- paste0("https://ftp.gnu.org/gnu/bison/bison-", BISON_VERSION, ".tar.gz")
-  tar_file <- tempfile()
-  build_dir <- tempfile()
-  install_dir <- tempfile()
-  try(
-    download.file(source_url, tar_file, quiet = quietly),
-    silent = quietly
-  )
-  untar(tar_file, exdir = build_dir)
-  unlink(tar_file)
-  on.exit(unlink(build_dir))
-  options(.arrow.cleanup = c(getOption(".arrow.cleanup"), install_dir))
-  # bison also needs m4, so let's make sure we have that too
-  # (we probably don't if we're here)
-  if (!is.null(m4)) {
-    # If we just built it, put it on PATH for building bison
-    path <- sprintf('export PATH="%s:$PATH" && ', m4)
-  } else {
-    path <- ""
-  }
-  # Now, build bison
-  build_dir <- paste0(build_dir, "/bison-", BISON_VERSION)
-  base_cmd <- paste0(path, "cd ", shQuote(build_dir), " &&")
-  for (cmd in c(paste0("./configure --prefix=", install_dir), "make", "make install")) {
-    system(paste(base_cmd, cmd), ignore.stdout = quietly, ignore.stderr = quietly)
-  }
-  # Return the path to the bison binaries
-  paste0(install_dir, "/bin")
-}
-
-ensure_m4 <- function() {
-  if (nzchar(Sys.which("m4"))) {
-    # We already have m4.
-    return(NULL)
-  }
-  # If not found, download it
-  cat("**** m4\n")
-  M4_VERSION <- Sys.getenv("M4_VERSION", "1.4.18")
-  source_url <- paste0("https://ftp.gnu.org/gnu/m4/m4-", M4_VERSION, ".tar.gz")
-  tar_file <- tempfile()
-  dst_dir <- tempfile()
-  try(
-    download.file(source_url, tar_file, quiet = quietly),
-    silent = quietly
-  )
-  untar(tar_file, exdir = dst_dir)
-  unlink(tar_file)
-  options(.arrow.cleanup = c(getOption(".arrow.cleanup"), dst_dir))
-  # bison also needs m4, so let's make sure we have that too
-  # (we probably don't if we're here)
-
-  # Now, build it
-  dst_dir <- paste0(dst_dir, "/m4-", M4_VERSION)
-  base_cmd <- paste("cd", shQuote(dst_dir), "&&")
-  for (cmd in c("./configure", "make")) {
-    system(paste(base_cmd, cmd), ignore.stdout = quietly, ignore.stderr = quietly)
-  }
-  # The built m4 should be in ./src. Return that so we can put that on the PATH
-  paste0(dst_dir, "/src")
-}
-
 #####
 
 if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
@@ -358,7 +235,7 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
   # don't need to do anything. Otherwise,
   # (1) Look for a prebuilt binary for this version
   bin_file <- src_dir <- NULL
-  if (download_ok) {
+  if (download_ok && binary_ok) {
     bin_file <- download_binary()
   }
   if (!is.null(bin_file)) {
@@ -377,6 +254,8 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     if (!is.null(src_dir)) {
       cat("*** Building C++ libraries\n")
       build_libarrow(src_dir, dst_dir)
+    } else {
+      cat("*** Proceeding without C++ dependencies\n")
     }
   } else {
    cat("*** Proceeding without C++ dependencies\n")

@@ -18,8 +18,7 @@
 // From Apache Impala (incubating) as of 2016-01-29. Pared down to a minimal
 // set of functions needed for Apache Arrow / Apache parquet-cpp
 
-#ifndef ARROW_UTIL_CPU_INFO_H
-#define ARROW_UTIL_CPU_INFO_H
+#pragma once
 
 #include <cstdint>
 #include <string>
@@ -98,5 +97,3 @@ class ARROW_EXPORT CpuInfo {
 
 }  // namespace internal
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_CPU_INFO_H

@@ -76,8 +76,11 @@ class ARROW_EXPORT RecordBatch {
                                 std::shared_ptr<RecordBatch>* out);
 
   /// \brief Determine if two record batches are exactly equal
+  ///
+  /// \param[in] other the RecordBatch to compare with
+  /// \param[in] check_metadata if true, check that Schema metadata is the same
   /// \return true if batches are equal
-  bool Equals(const RecordBatch& other) const;
+  bool Equals(const RecordBatch& other, bool check_metadata = false) const;
 
   /// \brief Determine if two record batches are approximately equal
   bool ApproxEquals(const RecordBatch& other) const;
@@ -99,10 +102,13 @@ class ARROW_EXPORT RecordBatch {
   /// \return an Array or null if no field was found
   std::shared_ptr<Array> GetColumnByName(const std::string& name) const;
 
-  /// \brief Retrieve an array's internaldata from the record batch
+  /// \brief Retrieve an array's internal data from the record batch
   /// \param[in] i field index, does not boundscheck
   /// \return an internal ArrayData object
   virtual std::shared_ptr<ArrayData> column_data(int i) const = 0;
+
+  /// \brief Retrieve all arrays' internal data from the record batch.
+  virtual ArrayDataVector column_data() const = 0;
 
   /// \brief Add column to the record batch, producing a new RecordBatch
   ///

@@ -19,19 +19,21 @@
 
 #include <memory>
 #include <string>
-#include <utility>
 
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/result.h"
 
 namespace arrow {
 namespace dataset {
 
-/// \brief A FileFormat implementation that reads from Ipc files
+/// \brief A FileFormat implementation that reads from and writes to Ipc files
 class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
  public:
   std::string type_name() const override { return "ipc"; }
+
+  bool splittable() const override { return true; }
 
   Result<bool> IsSupported(const FileSource& source) const override;
 
@@ -43,16 +45,9 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
                                     std::shared_ptr<ScanOptions> options,
                                     std::shared_ptr<ScanContext> context) const override;
 
-  Result<std::shared_ptr<Fragment>> MakeFragment(
-      FileSource source, std::shared_ptr<ScanOptions> options) override;
-};
-
-class ARROW_DS_EXPORT IpcFragment : public FileFragment {
- public:
-  IpcFragment(FileSource source, std::shared_ptr<ScanOptions> options)
-      : FileFragment(std::move(source), std::make_shared<IpcFileFormat>(), options) {}
-
-  bool splittable() const override { return true; }
+  Result<std::shared_ptr<WriteTask>> WriteFragment(
+      FileSource destination, std::shared_ptr<Fragment> fragment,
+      std::shared_ptr<ScanContext> context) override;
 };
 
 }  // namespace dataset

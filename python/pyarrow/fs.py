@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+FileSystem abstraction to interact with various local and remote filesystems.
+"""
 
 from pyarrow._fs import (  # noqa
     FileSelector,
@@ -22,26 +25,21 @@ from pyarrow._fs import (  # noqa
     FileInfo,
     FileSystem,
     LocalFileSystem,
-    LocalFileSystemOptions,
     SubTreeFileSystem,
-    _MockFileSystem
+    _MockFileSystem,
+    _normalize_path
 )
 
 # For backward compatibility.
 FileStats = FileInfo
 
 try:
-    from pyarrow._hdfs import HdfsOptions, HadoopFileSystem  # noqa
+    from pyarrow._hdfs import HadoopFileSystem  # noqa
 except ImportError:
     pass
 
 try:
-    from pyarrow._s3fs import (  # noqa
-        initialize_s3,
-        finalize_s3,
-        S3Options,
-        S3FileSystem
-    )
+    from pyarrow._s3fs import S3FileSystem, initialize_s3, finalize_s3  # noqa
 except ImportError:
     pass
 else:

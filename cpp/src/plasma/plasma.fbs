@@ -89,7 +89,7 @@ enum PlasmaError:int {
   // Trying to create an object that already exists.
   ObjectExists,
   // Trying to access an object that doesn't exist.
-  ObjectNonexistent,
+  ObjectNotFound,
   // Trying to create an object but there isn't enough space in the store.
   OutOfMemory,
   // Trying to delete an object but it's not sealed.
@@ -139,6 +139,8 @@ table PlasmaGetDebugStringReply {
 table PlasmaCreateRequest {
   // ID of the object to be created.
   object_id: string;
+  // Whether to evict other objects to make room for this one.
+  evict_if_full: bool;
   // The size of the object's data in bytes.
   data_size: ulong;
   // The size of the object's metadata in bytes.
@@ -171,6 +173,8 @@ table PlasmaCreateReply {
 table PlasmaCreateAndSealRequest {
   // ID of the object to be created.
   object_id: string;
+  // Whether to evict other objects to make room for this one.
+  evict_if_full: bool;
   // The object's data.
   data: string;
   // The object's metadata.
@@ -186,6 +190,8 @@ table PlasmaCreateAndSealReply {
 
 table PlasmaCreateAndSealBatchRequest {
     object_ids: [string];
+    // Whether to evict other objects to make room for these objects.
+    evict_if_full: bool;
     data: [string];
     metadata: [string];
     digest: [string];

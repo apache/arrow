@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_MATLAB_UTIL_UNICODE_CONVERSION_H
-#define ARROW_MATLAB_UTIL_UNICODE_CONVERSION_H
+#pragma once
 
 #include <string>
 #include <mex.h>
@@ -31,4 +30,3 @@ mxArray* ConvertUTF8StringToUTF16CharMatrix(const std::string& utf8_string);
 }  // namespace matlab
 }  // namespace arrow
 
-#endif /* ARROW_MATLAB_UTIL_UNICODE_CONVERSION_H */

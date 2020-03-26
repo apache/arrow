@@ -24,6 +24,10 @@ cpp/cmake_modules/SnappyCMakeLists.txt
 cpp/cmake_modules/SnappyConfig.h
 cpp/examples/parquet/parquet-arrow/cmake_modules/FindArrow.cmake
 cpp/src/parquet/.parquetcppversion
+cpp/src/generated/parquet_constants.cpp
+cpp/src/generated/parquet_constants.h
+cpp/src/generated/parquet_types.cpp
+cpp/src/generated/parquet_types.h
 cpp/src/plasma/thirdparty/ae/ae.c
 cpp/src/plasma/thirdparty/ae/ae.h
 cpp/src/plasma/thirdparty/ae/ae_epoll.c
@@ -36,6 +40,8 @@ cpp/src/plasma/thirdparty/dlmalloc.c
 cpp/thirdparty/flatbuffers/include/flatbuffers/base.h
 cpp/thirdparty/flatbuffers/include/flatbuffers/flatbuffers.h
 cpp/thirdparty/flatbuffers/include/flatbuffers/stl_emulation.h
+dev/archery/requirements*.txt
+dev/archery/archery/tests/fixtures/*
 dev/release/rat_exclude_files.txt
 dev/tasks/homebrew-formulae/apache-arrow.rb
 dev/tasks/linux-packages/apache-arrow-archive-keyring/debian/apache-arrow-archive-keyring.install

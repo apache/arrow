@@ -33,16 +33,16 @@ parquet-format = "~2.6"
 quick-error = "1.2"
 byteorder = "1"
 thrift = "0.12"
-snap = "0.2"
-brotli = "2.5"
-flate2 = "1.0.2"
+snap = "1.0"
+brotli = "3.3"
+flate2 = "1.0"
 lz4 = "1.23"
-zstd = "0.4"
+zstd = "0.5"
 chrono = "0.4"
 num-bigint = "0.2"
 arrow = { path = "../arrow", version = "1.0.0-SNAPSHOT" }
-serde_json = { version = "1.0.13", features = ["preserve_order"] }
+serde_json = { version = "1.0", features = ["preserve_order"] }
 
 [dev-dependencies]
 lazy_static = "1"
-rand = "0.5"
+rand = "0.6"

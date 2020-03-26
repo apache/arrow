@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_EXPR_ANNOTATOR_H
-#define GANDIVA_EXPR_ANNOTATOR_H
+#pragma once
 
 #include <list>
 #include <string>
@@ -80,5 +79,3 @@ class GANDIVA_EXPORT Annotator {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_EXPR_ANNOTATOR_H

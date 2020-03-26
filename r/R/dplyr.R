@@ -72,6 +72,23 @@ print.arrow_dplyr_query <- function(x, ...) {
 #' @export
 names.arrow_dplyr_query <- function(x) names(x$selected_columns)
 
+#' @export
+dim.arrow_dplyr_query <- function(x) {
+  if (isTRUE(x$filtered)) {
+    rows <- x$.data$num_rows
+  } else {
+    warning(
+      "For arrow dplyr queries that call filter(), ",
+      "dim() returns NA for the number of rows.\n",
+      "Call collect() to pull data into R to access the number of rows.",
+      call. = FALSE
+    )
+    rows <- NA_integer_
+  }
+  cols <- length(names(x))
+  c(rows, cols)
+}
+
 # The following S3 methods are registered on load if dplyr is present
 select.arrow_dplyr_query <- function(.data, ...) {
   column_select(arrow_dplyr_query(.data), !!!enquos(...))
@@ -129,6 +146,7 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
       # else, for things not supported by Arrow return a "try-error",
       # which we'll handle differently
       msg <- conditionMessage(e)
+      # TODO: internationalization?
       if (grepl("object '.*'.not.found", msg)) {
         stop(e)
       }

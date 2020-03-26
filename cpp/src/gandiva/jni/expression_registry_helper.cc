@@ -41,6 +41,17 @@ types::TimeUnit MapTimeUnit(arrow::TimeUnit::type& unit) {
   return types::TimeUnit::SEC;
 }
 
+types::IntervalType MapIntervalType(arrow::IntervalType::type& type) {
+  switch (type) {
+    case arrow::IntervalType::MONTHS:
+      return types::IntervalType::YEAR_MONTH;
+    case arrow::IntervalType::DAY_TIME:
+      return types::IntervalType::DAY_TIME;
+  }
+  // satifsy gcc. should be unreachable.
+  return types::IntervalType::DAY_TIME;
+}
+
 void ArrowToProtobuf(DataTypePtr type, types::ExtGandivaType* gandiva_data_type) {
   switch (type->id()) {
     case arrow::Type::type::BOOL:
@@ -125,6 +136,15 @@ void ArrowToProtobuf(DataTypePtr type, types::ExtGandivaType* gandiva_data_type)
       gandiva_data_type->set_type(types::GandivaType::DECIMAL);
       gandiva_data_type->set_precision(0);
       gandiva_data_type->set_scale(0);
+      break;
+    }
+    case arrow::Type::type::INTERVAL: {
+      gandiva_data_type->set_type(types::GandivaType::INTERVAL);
+      std::shared_ptr<arrow::IntervalType> cast_interval_type =
+          std::dynamic_pointer_cast<arrow::IntervalType>(type);
+      arrow::IntervalType::type type = cast_interval_type->interval_type();
+      types::IntervalType interval_type = MapIntervalType(type);
+      gandiva_data_type->set_intervaltype(interval_type);
       break;
     }
     default:

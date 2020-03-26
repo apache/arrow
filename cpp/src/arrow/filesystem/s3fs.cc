@@ -69,6 +69,7 @@
 #include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/windows_fixup.h"
 
@@ -168,6 +169,16 @@ void S3Options::ConfigureAccessKey(const std::string& access_key,
       ToAwsString(access_key), ToAwsString(secret_key));
 }
 
+std::string S3Options::GetAccessKey() const {
+  auto credentials = credentials_provider->GetAWSCredentials();
+  return std::string(FromAwsString(credentials.GetAWSAccessKeyId()));
+}
+
+std::string S3Options::GetSecretKey() const {
+  auto credentials = credentials_provider->GetAWSCredentials();
+  return std::string(FromAwsString(credentials.GetAWSSecretKey()));
+}
+
 S3Options S3Options::Defaults() {
   S3Options options;
   options.ConfigureDefaultCredentials();
@@ -238,6 +249,13 @@ Result<S3Options> S3Options::FromUri(const std::string& uri_string,
   Uri uri;
   RETURN_NOT_OK(uri.Parse(uri_string));
   return FromUri(uri, out_path);
+}
+
+bool S3Options::Equals(const S3Options& other) const {
+  return (region == other.region && endpoint_override == other.endpoint_override &&
+          scheme == other.scheme && background_writes == other.background_writes &&
+          GetAccessKey() == other.GetAccessKey() &&
+          GetSecretKey() == other.GetSecretKey());
 }
 
 namespace {
@@ -836,6 +854,8 @@ class S3FileSystem::Impl {
     return Status::OK();
   }
 
+  S3Options options() const { return options_; }
+
   // Create a bucket.  Successful if bucket already exists.
   Status CreateBucket(const std::string& bucket) {
     S3Model::CreateBucketConfiguration config;
@@ -1021,7 +1041,7 @@ class S3FileSystem::Impl {
     };
 
     auto handle_error = [&](const AWSError<S3Errors>& error) -> Status {
-      if (select.allow_non_existent && IsNotFound(error)) {
+      if (select.allow_not_found && IsNotFound(error)) {
         return Status::OK();
       }
       return ErrorToStatus(std::forward_as_tuple("When listing objects under key '", key,
@@ -1040,8 +1060,8 @@ class S3FileSystem::Impl {
     }
 
     // If no contents were found, perhaps it's an empty "directory",
-    // or perhaps it's a non-existent entry.  Check.
-    if (is_empty && !select.allow_non_existent) {
+    // or perhaps it's a nonexistent entry.  Check.
+    if (is_empty && !select.allow_not_found) {
       RETURN_NOT_OK(IsEmptyDirectory(bucket, key, &is_empty));
       if (!is_empty) {
         return PathNotFound(bucket, key);
@@ -1144,7 +1164,9 @@ class S3FileSystem::Impl {
     }
     // First delete all "files", then delete all child "directories"
     RETURN_NOT_OK(DeleteObjects(bucket, file_keys));
-    // XXX This doesn't seem necessary on Minio
+    // Delete directories in reverse lexicographic order, to ensure children
+    // are deleted before their parents (Minio).
+    std::sort(dir_keys.rbegin(), dir_keys.rend());
     return DeleteObjects(bucket, dir_keys);
   }
 
@@ -1188,7 +1210,20 @@ Result<std::shared_ptr<S3FileSystem>> S3FileSystem::Make(const S3Options& option
   return ptr;
 }
 
-Result<FileInfo> S3FileSystem::GetTargetInfo(const std::string& s) {
+bool S3FileSystem::Equals(const FileSystem& other) const {
+  if (this == &other) {
+    return true;
+  }
+  if (other.type_name() != type_name()) {
+    return false;
+  }
+  const auto& s3fs = ::arrow::internal::checked_cast<const S3FileSystem&>(other);
+  return options().Equals(s3fs.options());
+}
+
+S3Options S3FileSystem::options() const { return impl_->options(); }
+
+Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
   S3Path path;
   RETURN_NOT_OK(S3Path::FromString(s, &path));
   FileInfo info;
@@ -1211,7 +1246,7 @@ Result<FileInfo> S3FileSystem::GetTargetInfo(const std::string& s) {
                                   "': "),
             outcome.GetError());
       }
-      info.set_type(FileType::NonExistent);
+      info.set_type(FileType::NotFound);
       return info;
     }
     // NOTE: S3 doesn't have a bucket modification time.  Only a creation
@@ -1248,13 +1283,13 @@ Result<FileInfo> S3FileSystem::GetTargetInfo(const std::string& s) {
     if (is_dir) {
       info.set_type(FileType::Directory);
     } else {
-      info.set_type(FileType::NonExistent);
+      info.set_type(FileType::NotFound);
     }
     return info;
   }
 }
 
-Result<std::vector<FileInfo>> S3FileSystem::GetTargetInfos(const FileSelector& select) {
+Result<std::vector<FileInfo>> S3FileSystem::GetFileInfo(const FileSelector& select) {
   S3Path base_path;
   RETURN_NOT_OK(S3Path::FromString(select.base_dir, &base_path));
 

@@ -162,8 +162,8 @@ Rcpp::RawVector ipc___SerializeRecordBatch__Raw(
   // serialize into the bytes of the raw vector
   auto buffer = std::make_shared<arrow::r::RBuffer<RAWSXP, Rcpp::RawVector>>(out);
   arrow::io::FixedSizeBufferWriter stream(buffer);
-  STOP_IF_NOT_OK(
-      arrow::ipc::SerializeRecordBatch(*batch, arrow::default_memory_pool(), &stream));
+  STOP_IF_NOT_OK(arrow::ipc::SerializeRecordBatch(
+      *batch, arrow::ipc::IpcWriteOptions::Defaults(), &stream));
   STOP_IF_NOT_OK(stream.Close());
 
   return out;
@@ -173,11 +173,10 @@ Rcpp::RawVector ipc___SerializeRecordBatch__Raw(
 std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__InputStream__Schema(
     const std::shared_ptr<arrow::io::InputStream>& stream,
     const std::shared_ptr<arrow::Schema>& schema) {
-  std::shared_ptr<arrow::RecordBatch> batch;
   // TODO: promote to function arg
   arrow::ipc::DictionaryMemo memo;
-  STOP_IF_NOT_OK(arrow::ipc::ReadRecordBatch(schema, &memo, stream.get(), &batch));
-  return batch;
+  return VALUE_OR_STOP(arrow::ipc::ReadRecordBatch(
+      schema, &memo, arrow::ipc::IpcReadOptions::Defaults(), stream.get()));
 }
 
 namespace arrow {

@@ -331,11 +331,11 @@ TEST(CreateDirDeleteDir, Basics) {
   // Parent is deleted, cannot create child again
   ASSERT_RAISES(IOError, CreateDir(child));
 
-  // It's not an error to call DeleteDirTree on a non-existent path.
+  // It's not an error to call DeleteDirTree on a nonexistent path.
   ASSERT_OK_AND_ASSIGN(deleted, DeleteDirTree(parent));
   ASSERT_FALSE(deleted);
   // ... unless asked so
-  auto status = DeleteDirTree(parent, /*allow_non_existent=*/false).status();
+  auto status = DeleteDirTree(parent, /*allow_not_found=*/false).status();
   ASSERT_RAISES(IOError, status);
 #ifdef _WIN32
   ASSERT_EQ(WinErrorFromStatus(status), ERROR_FILE_NOT_FOUND);
@@ -383,11 +383,11 @@ TEST(DeleteDirContents, Basics) {
   ASSERT_TRUE(deleted);
   AssertExists(parent);
 
-  // It's not an error to call DeleteDirContents on a non-existent path.
+  // It's not an error to call DeleteDirContents on a nonexistent path.
   ASSERT_OK_AND_ASSIGN(deleted, DeleteDirContents(child1));
   ASSERT_FALSE(deleted);
   // ... unless asked so
-  auto status = DeleteDirContents(child1, /*allow_non_existent=*/false).status();
+  auto status = DeleteDirContents(child1, /*allow_not_found=*/false).status();
   ASSERT_RAISES(IOError, status);
 #ifdef _WIN32
   ASSERT_EQ(WinErrorFromStatus(status), ERROR_FILE_NOT_FOUND);
@@ -483,7 +483,7 @@ TEST(ListDir, Basics) {
   check_entries(entries, {});
 
   // Errors
-  ASSERT_OK_AND_ASSIGN(fn, temp_dir->path().Join("non-existent"));
+  ASSERT_OK_AND_ASSIGN(fn, temp_dir->path().Join("nonexistent"));
   ASSERT_RAISES(IOError, ListDir(fn));
   ASSERT_OK_AND_ASSIGN(fn, temp_dir->path().Join("AB/ghi.txt"));
   ASSERT_RAISES(IOError, ListDir(fn));
@@ -508,7 +508,7 @@ TEST(DeleteFile, Basics) {
   ASSERT_OK_AND_ASSIGN(deleted, DeleteFile(fn));
   ASSERT_FALSE(deleted);
   AssertNotExists(fn);
-  auto status = DeleteFile(fn, /*allow_non_existent=*/false).status();
+  auto status = DeleteFile(fn, /*allow_not_found=*/false).status();
   ASSERT_RAISES(IOError, status);
 #ifdef _WIN32
   ASSERT_EQ(WinErrorFromStatus(status), ERROR_FILE_NOT_FOUND);

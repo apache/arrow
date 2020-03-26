@@ -54,13 +54,13 @@
 
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/s3_internal.h"
+#include "arrow/filesystem/s3_test_util.h"
 #include "arrow/filesystem/s3fs.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
-#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
@@ -68,7 +68,6 @@ namespace arrow {
 namespace fs {
 
 using ::arrow::internal::PlatformFilename;
-using ::arrow::internal::TemporaryDir;
 using ::arrow::internal::UriEscape;
 
 using ::arrow::fs::internal::ConnectRetryStrategy;
@@ -101,95 +100,6 @@ namespace bp = boost::process;
 #define ARROW_AWS_ASSIGN_OR_FAIL(lhs, rexpr) \
   ARROW_AWS_ASSIGN_OR_FAIL_IMPL(             \
       ARROW_AWS_ASSIGN_OR_FAIL_NAME(_aws_error_or_value, __COUNTER__), lhs, rexpr);
-
-// TODO: allocate an ephemeral port
-static const char* kMinioExecutableName = "minio";
-static const char* kMinioAccessKey = "minio";
-static const char* kMinioSecretKey = "miniopass";
-
-static std::string GenerateConnectString() {
-  std::stringstream ss;
-  ss << "127.0.0.1:" << GetListenPort();
-  return ss.str();
-}
-
-// A minio test server, managed as a child process
-
-class MinioTestServer {
- public:
-  Status Start();
-
-  Status Stop();
-
-  std::string connect_string() const { return connect_string_; }
-
-  std::string access_key() const { return kMinioAccessKey; }
-
-  std::string secret_key() const { return kMinioSecretKey; }
-
- private:
-  std::unique_ptr<TemporaryDir> temp_dir_;
-  std::string connect_string_;
-  std::shared_ptr<::boost::process::child> server_process_;
-};
-
-Status MinioTestServer::Start() {
-  ARROW_ASSIGN_OR_RAISE(temp_dir_, TemporaryDir::Make("s3fs-test-"));
-
-  // Get a copy of the current environment.
-  // (NOTE: using "auto" would return a native_environment that mutates
-  //  the current environment)
-  bp::environment env = boost::this_process::environment();
-  env["MINIO_ACCESS_KEY"] = kMinioAccessKey;
-  env["MINIO_SECRET_KEY"] = kMinioSecretKey;
-
-  connect_string_ = GenerateConnectString();
-
-  auto exe_path = bp::search_path(kMinioExecutableName);
-  if (exe_path.empty()) {
-    return Status::IOError("Failed to find minio executable ('", kMinioExecutableName,
-                           "') in PATH");
-  }
-
-  try {
-    // NOTE: --quiet makes startup faster by suppressing remote version check
-    server_process_ = std::make_shared<bp::child>(
-        env, exe_path, "server", "--quiet", "--compat", "--address", connect_string_,
-        temp_dir_->path().ToString());
-  } catch (const std::exception& e) {
-    return Status::IOError("Failed to launch Minio server: ", e.what());
-  }
-  return Status::OK();
-}
-
-Status MinioTestServer::Stop() {
-  if (server_process_ && server_process_->valid()) {
-    // Brutal shutdown
-    server_process_->terminate();
-    server_process_->wait();
-  }
-  return Status::OK();
-}
-
-// A global test "environment", to ensure that the S3 API is initialized before
-// running unit tests.
-
-class S3Environment : public ::testing::Environment {
- public:
-  void SetUp() override {
-    // Change this to increase logging during tests
-    S3GlobalOptions options;
-    options.log_level = S3LogLevel::Fatal;
-    ASSERT_OK(InitializeS3(options));
-  }
-
-  void TearDown() override { ASSERT_OK(FinalizeS3()); }
-
- protected:
-  Aws::SDKOptions options_;
-};
-
-::testing::Environment* s3_env = ::testing::AddGlobalTestEnvironment(new S3Environment);
 
 class S3TestMixin : public ::testing::Test {
  public:
@@ -346,8 +256,8 @@ class TestS3FS : public S3TestMixin {
   void TestOpenOutputStream() {
     std::shared_ptr<io::OutputStream> stream;
 
-    // Non-existent
-    ASSERT_RAISES(IOError, fs_->OpenOutputStream("non-existent-bucket/somefile"));
+    // Nonexistent
+    ASSERT_RAISES(IOError, fs_->OpenOutputStream("nonexistent-bucket/somefile"));
 
     // Create new empty file
     ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile1"));
@@ -422,21 +332,19 @@ class TestS3FS : public S3TestMixin {
   std::shared_ptr<S3FileSystem> fs_;
 };
 
-TEST_F(TestS3FS, GetTargetInfoRoot) {
-  AssertFileInfo(fs_.get(), "", FileType::Directory);
-}
+TEST_F(TestS3FS, GetFileInfoRoot) { AssertFileInfo(fs_.get(), "", FileType::Directory); }
 
-TEST_F(TestS3FS, GetTargetInfoBucket) {
+TEST_F(TestS3FS, GetFileInfoBucket) {
   AssertFileInfo(fs_.get(), "bucket", FileType::Directory);
   AssertFileInfo(fs_.get(), "empty-bucket", FileType::Directory);
-  AssertFileInfo(fs_.get(), "non-existent-bucket", FileType::NonExistent);
+  AssertFileInfo(fs_.get(), "nonexistent-bucket", FileType::NotFound);
   // Trailing slashes
   AssertFileInfo(fs_.get(), "bucket/", FileType::Directory);
   AssertFileInfo(fs_.get(), "empty-bucket/", FileType::Directory);
-  AssertFileInfo(fs_.get(), "non-existent-bucket/", FileType::NonExistent);
+  AssertFileInfo(fs_.get(), "nonexistent-bucket/", FileType::NotFound);
 }
 
-TEST_F(TestS3FS, GetTargetInfoObject) {
+TEST_F(TestS3FS, GetFileInfoObject) {
   // "Directories"
   AssertFileInfo(fs_.get(), "bucket/emptydir", FileType::Directory, kNoSize);
   AssertFileInfo(fs_.get(), "bucket/somedir", FileType::Directory, kNoSize);
@@ -446,25 +354,25 @@ TEST_F(TestS3FS, GetTargetInfoObject) {
   AssertFileInfo(fs_.get(), "bucket/somefile", FileType::File, 9);
   AssertFileInfo(fs_.get(), "bucket/somedir/subdir/subfile", FileType::File, 8);
 
-  // Non-existent
-  AssertFileInfo(fs_.get(), "bucket/emptyd", FileType::NonExistent);
-  AssertFileInfo(fs_.get(), "bucket/somed", FileType::NonExistent);
-  AssertFileInfo(fs_.get(), "non-existent-bucket/somed", FileType::NonExistent);
+  // Nonexistent
+  AssertFileInfo(fs_.get(), "bucket/emptyd", FileType::NotFound);
+  AssertFileInfo(fs_.get(), "bucket/somed", FileType::NotFound);
+  AssertFileInfo(fs_.get(), "non-existent-bucket/somed", FileType::NotFound);
 
   // Trailing slashes
   AssertFileInfo(fs_.get(), "bucket/emptydir/", FileType::Directory, kNoSize);
   AssertFileInfo(fs_.get(), "bucket/somefile/", FileType::File, 9);
-  AssertFileInfo(fs_.get(), "bucket/emptyd/", FileType::NonExistent);
-  AssertFileInfo(fs_.get(), "non-existent-bucket/somed/", FileType::NonExistent);
+  AssertFileInfo(fs_.get(), "bucket/emptyd/", FileType::NotFound);
+  AssertFileInfo(fs_.get(), "non-existent-bucket/somed/", FileType::NotFound);
 }
 
-TEST_F(TestS3FS, GetTargetInfosSelector) {
+TEST_F(TestS3FS, GetFileInfoSelector) {
   FileSelector select;
   std::vector<FileInfo> infos;
 
   // Root dir
   select.base_dir = "";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 2);
   SortInfos(&infos);
   AssertFileInfo(infos[0], "bucket", FileType::Directory);
@@ -472,18 +380,18 @@ TEST_F(TestS3FS, GetTargetInfosSelector) {
 
   // Empty bucket
   select.base_dir = "empty-bucket";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 0);
-  // Non-existent bucket
-  select.base_dir = "non-existent-bucket";
-  ASSERT_RAISES(IOError, fs_->GetTargetInfos(select));
-  select.allow_non_existent = true;
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  // Nonexistent bucket
+  select.base_dir = "nonexistent-bucket";
+  ASSERT_RAISES(IOError, fs_->GetFileInfo(select));
+  select.allow_not_found = true;
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 0);
-  select.allow_non_existent = false;
+  select.allow_not_found = false;
   // Non-empty bucket
   select.base_dir = "bucket";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   SortInfos(&infos);
   ASSERT_EQ(infos.size(), 3);
   AssertFileInfo(infos[0], "bucket/emptydir", FileType::Directory);
@@ -492,45 +400,45 @@ TEST_F(TestS3FS, GetTargetInfosSelector) {
 
   // Empty "directory"
   select.base_dir = "bucket/emptydir";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 0);
   // Non-empty "directories"
   select.base_dir = "bucket/somedir";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 1);
   AssertFileInfo(infos[0], "bucket/somedir/subdir", FileType::Directory);
   select.base_dir = "bucket/somedir/subdir";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 1);
   AssertFileInfo(infos[0], "bucket/somedir/subdir/subfile", FileType::File, 8);
-  // Non-existent
-  select.base_dir = "bucket/non-existent";
-  ASSERT_RAISES(IOError, fs_->GetTargetInfos(select));
-  select.allow_non_existent = true;
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  // Nonexistent
+  select.base_dir = "bucket/nonexistent";
+  ASSERT_RAISES(IOError, fs_->GetFileInfo(select));
+  select.allow_not_found = true;
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 0);
-  select.allow_non_existent = false;
+  select.allow_not_found = false;
 
   // Trailing slashes
   select.base_dir = "empty-bucket/";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 0);
-  select.base_dir = "non-existent-bucket/";
-  ASSERT_RAISES(IOError, fs_->GetTargetInfos(select));
+  select.base_dir = "nonexistent-bucket/";
+  ASSERT_RAISES(IOError, fs_->GetFileInfo(select));
   select.base_dir = "bucket/";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   SortInfos(&infos);
   ASSERT_EQ(infos.size(), 3);
 }
 
-TEST_F(TestS3FS, GetTargetInfosSelectorRecursive) {
+TEST_F(TestS3FS, GetFileInfoSelectorRecursive) {
   FileSelector select;
   std::vector<FileInfo> infos;
   select.recursive = true;
 
   // Root dir
   select.base_dir = "";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 7);
   SortInfos(&infos);
   AssertFileInfo(infos[0], "bucket", FileType::Directory);
@@ -543,12 +451,12 @@ TEST_F(TestS3FS, GetTargetInfosSelectorRecursive) {
 
   // Empty bucket
   select.base_dir = "empty-bucket";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 0);
 
   // Non-empty bucket
   select.base_dir = "bucket";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   SortInfos(&infos);
   ASSERT_EQ(infos.size(), 5);
   AssertFileInfo(infos[0], "bucket/emptydir", FileType::Directory);
@@ -559,12 +467,12 @@ TEST_F(TestS3FS, GetTargetInfosSelectorRecursive) {
 
   // Empty "directory"
   select.base_dir = "bucket/emptydir";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 0);
 
   // Non-empty "directories"
   select.base_dir = "bucket/somedir";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   SortInfos(&infos);
   ASSERT_EQ(infos.size(), 2);
   AssertFileInfo(infos[0], "bucket/somedir/subdir", FileType::Directory);
@@ -579,7 +487,7 @@ TEST_F(TestS3FS, CreateDir) {
   AssertFileInfo(fs_.get(), "bucket", FileType::Directory);
 
   // New bucket
-  AssertFileInfo(fs_.get(), "new-bucket", FileType::NonExistent);
+  AssertFileInfo(fs_.get(), "new-bucket", FileType::NotFound);
   ASSERT_OK(fs_->CreateDir("new-bucket"));
   AssertFileInfo(fs_.get(), "new-bucket", FileType::Directory);
 
@@ -593,7 +501,7 @@ TEST_F(TestS3FS, CreateDir) {
   AssertFileInfo(fs_.get(), "bucket/emptydir", FileType::Directory);
 
   // New "directory"
-  AssertFileInfo(fs_.get(), "bucket/newdir", FileType::NonExistent);
+  AssertFileInfo(fs_.get(), "bucket/newdir", FileType::NotFound);
   ASSERT_OK(fs_->CreateDir("bucket/newdir"));
   AssertFileInfo(fs_.get(), "bucket/newdir", FileType::Directory);
 
@@ -610,13 +518,13 @@ TEST_F(TestS3FS, DeleteFile) {
   // Bucket
   ASSERT_RAISES(IOError, fs_->DeleteFile("bucket"));
   ASSERT_RAISES(IOError, fs_->DeleteFile("empty-bucket"));
-  ASSERT_RAISES(IOError, fs_->DeleteFile("non-existent-bucket"));
+  ASSERT_RAISES(IOError, fs_->DeleteFile("nonexistent-bucket"));
 
   // "File"
   ASSERT_OK(fs_->DeleteFile("bucket/somefile"));
-  AssertFileInfo(fs_.get(), "bucket/somefile", FileType::NonExistent);
+  AssertFileInfo(fs_.get(), "bucket/somefile", FileType::NotFound);
   ASSERT_RAISES(IOError, fs_->DeleteFile("bucket/somefile"));
-  ASSERT_RAISES(IOError, fs_->DeleteFile("bucket/non-existent"));
+  ASSERT_RAISES(IOError, fs_->DeleteFile("bucket/nonexistent"));
 
   // "Directory"
   ASSERT_RAISES(IOError, fs_->DeleteFile("bucket/somedir"));
@@ -630,7 +538,7 @@ TEST_F(TestS3FS, DeleteDir) {
 
   // Empty "directory"
   ASSERT_OK(fs_->DeleteDir("bucket/emptydir"));
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 2);
   SortInfos(&infos);
   AssertFileInfo(infos[0], "bucket/somedir", FileType::Directory);
@@ -638,14 +546,14 @@ TEST_F(TestS3FS, DeleteDir) {
 
   // Non-empty "directory"
   ASSERT_OK(fs_->DeleteDir("bucket/somedir"));
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 1);
   AssertFileInfo(infos[0], "bucket/somefile", FileType::File);
 
   // Leaving parent "directory" empty
   ASSERT_OK(fs_->CreateDir("bucket/newdir/newsub/newsubsub"));
   ASSERT_OK(fs_->DeleteDir("bucket/newdir/newsub"));
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 2);
   SortInfos(&infos);
   AssertFileInfo(infos[0], "bucket/newdir", FileType::Directory);  // still exists
@@ -653,7 +561,7 @@ TEST_F(TestS3FS, DeleteDir) {
 
   // Bucket
   ASSERT_OK(fs_->DeleteDir("bucket"));
-  AssertFileInfo(fs_.get(), "bucket", FileType::NonExistent);
+  AssertFileInfo(fs_.get(), "bucket", FileType::NotFound);
 }
 
 TEST_F(TestS3FS, CopyFile) {
@@ -667,13 +575,11 @@ TEST_F(TestS3FS, CopyFile) {
   AssertFileInfo(fs_.get(), "bucket/newfile", FileType::File, 8);
   AssertObjectContents(client_.get(), "bucket", "newfile", "sub data");
 
-  // Non-existent
-  ASSERT_RAISES(IOError, fs_->CopyFile("bucket/non-existent", "bucket/newfile2"));
-  ASSERT_RAISES(IOError,
-                fs_->CopyFile("non-existent-bucket/somefile", "bucket/newfile2"));
-  ASSERT_RAISES(IOError,
-                fs_->CopyFile("bucket/somefile", "non-existent-bucket/newfile2"));
-  AssertFileInfo(fs_.get(), "bucket/newfile2", FileType::NonExistent);
+  // Nonexistent
+  ASSERT_RAISES(IOError, fs_->CopyFile("bucket/nonexistent", "bucket/newfile2"));
+  ASSERT_RAISES(IOError, fs_->CopyFile("nonexistent-bucket/somefile", "bucket/newfile2"));
+  ASSERT_RAISES(IOError, fs_->CopyFile("bucket/somefile", "nonexistent-bucket/newfile2"));
+  AssertFileInfo(fs_.get(), "bucket/newfile2", FileType::NotFound);
 }
 
 TEST_F(TestS3FS, Move) {
@@ -682,28 +588,28 @@ TEST_F(TestS3FS, Move) {
   AssertFileInfo(fs_.get(), "bucket/newfile", FileType::File, 9);
   AssertObjectContents(client_.get(), "bucket", "newfile", "some data");
   // Source was deleted
-  AssertFileInfo(fs_.get(), "bucket/somefile", FileType::NonExistent);
+  AssertFileInfo(fs_.get(), "bucket/somefile", FileType::NotFound);
 
   // Overwrite
   ASSERT_OK(fs_->Move("bucket/somedir/subdir/subfile", "bucket/newfile"));
   AssertFileInfo(fs_.get(), "bucket/newfile", FileType::File, 8);
   AssertObjectContents(client_.get(), "bucket", "newfile", "sub data");
   // Source was deleted
-  AssertFileInfo(fs_.get(), "bucket/somedir/subdir/subfile", FileType::NonExistent);
+  AssertFileInfo(fs_.get(), "bucket/somedir/subdir/subfile", FileType::NotFound);
 
-  // Non-existent
+  // Nonexistent
   ASSERT_RAISES(IOError, fs_->Move("bucket/non-existent", "bucket/newfile2"));
-  ASSERT_RAISES(IOError, fs_->Move("non-existent-bucket/somefile", "bucket/newfile2"));
-  ASSERT_RAISES(IOError, fs_->Move("bucket/somefile", "non-existent-bucket/newfile2"));
-  AssertFileInfo(fs_.get(), "bucket/newfile2", FileType::NonExistent);
+  ASSERT_RAISES(IOError, fs_->Move("nonexistent-bucket/somefile", "bucket/newfile2"));
+  ASSERT_RAISES(IOError, fs_->Move("bucket/somefile", "nonexistent-bucket/newfile2"));
+  AssertFileInfo(fs_.get(), "bucket/newfile2", FileType::NotFound);
 }
 
 TEST_F(TestS3FS, OpenInputStream) {
   std::shared_ptr<io::InputStream> stream;
   std::shared_ptr<Buffer> buf;
 
-  // Non-existent
-  ASSERT_RAISES(IOError, fs_->OpenInputStream("non-existent-bucket/somefile"));
+  // Nonexistent
+  ASSERT_RAISES(IOError, fs_->OpenInputStream("nonexistent-bucket/somefile"));
   ASSERT_RAISES(IOError, fs_->OpenInputStream("bucket/zzzt"));
 
   // "Files"
@@ -733,8 +639,8 @@ TEST_F(TestS3FS, OpenInputFile) {
   std::shared_ptr<io::RandomAccessFile> file;
   std::shared_ptr<Buffer> buf;
 
-  // Non-existent
-  ASSERT_RAISES(IOError, fs_->OpenInputFile("non-existent-bucket/somefile"));
+  // Nonexistent
+  ASSERT_RAISES(IOError, fs_->OpenInputFile("nonexistent-bucket/somefile"));
   ASSERT_RAISES(IOError, fs_->OpenInputFile("bucket/zzzt"));
 
   // "Files"
@@ -840,6 +746,15 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
   bool allow_move_dir() const override { return false; }
   bool allow_append_to_file() const override { return false; }
   bool have_directory_mtimes() const override { return false; }
+  bool have_flaky_directory_tree_deletion() const override {
+#ifdef _WIN32
+    // Recent Minio versions on Windows may not register deletion of all
+    // directories in a tree when doing a bulk delete.
+    return true;
+#else
+    return false;
+#endif
+  }
 
   S3Options options_;
   std::shared_ptr<S3FileSystem> s3fs_;

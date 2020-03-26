@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_COMPUTE_KERNEL_H
-#define ARROW_COMPUTE_KERNEL_H
+#pragma once
 
 #include <memory>
 #include <utility>
@@ -274,17 +273,24 @@ class ARROW_EXPORT BinaryKernel : public OpKernel {
                       Datum* out) = 0;
 };
 
+// TODO doxygen 1.8.16 does not like the following code
+///@cond INTERNAL
+
 static inline bool CollectionEquals(const std::vector<Datum>& left,
                                     const std::vector<Datum>& right) {
-  if (left.size() != right.size()) return false;
+  if (left.size() != right.size()) {
+    return false;
+  }
 
-  for (size_t i = 0; i < left.size(); i++)
-    if (!left[i].Equals(right[i])) return false;
-
+  for (size_t i = 0; i < left.size(); i++) {
+    if (!left[i].Equals(right[i])) {
+      return false;
+    }
+  }
   return true;
 }
 
+///@endcond
+
 }  // namespace compute
 }  // namespace arrow
-
-#endif  // ARROW_COMPUTE_KERNEL_H

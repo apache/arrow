@@ -30,10 +30,12 @@ release_task.prerequisites.replace(["build", "release:rubygem_push"])
 
 desc "Run tests"
 task :test do
-  cd("dependency-check") do
-    ruby("-S", "rake")
+  cd(base_dir) do
+    cd("dependency-check") do
+      ruby("-S", "rake")
+    end
+    ruby("test/run-test.rb")
   end
-  ruby("test/run-test.rb")
 end
 
 task default: :test

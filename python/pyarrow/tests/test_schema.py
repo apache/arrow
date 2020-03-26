@@ -19,6 +19,8 @@ from collections import OrderedDict
 import pickle
 import sys
 
+from distutils.version import LooseVersion
+
 import pytest
 import numpy as np
 import pyarrow as pa
@@ -380,11 +382,11 @@ def test_schema_equals():
     sch3 = pa.schema(fields, metadata=metadata)
     sch4 = pa.schema(fields, metadata=metadata)
 
-    assert sch1.equals(sch2)
-    assert sch3.equals(sch4)
-    assert sch1.equals(sch3, check_metadata=False)
+    assert sch1.equals(sch2, check_metadata=True)
+    assert sch3.equals(sch4, check_metadata=True)
+    assert sch1.equals(sch3)
     assert not sch1.equals(sch3, check_metadata=True)
-    assert not sch1.equals(sch3)
+    assert not sch1.equals(sch3, check_metadata=True)
 
     del fields[-1]
     sch3 = pa.schema(fields)
@@ -401,8 +403,8 @@ def test_schema_equals_propagates_check_metadata():
         pa.field('foo', pa.int32()),
         pa.field('bar', pa.string(), metadata={'a': 'alpha'}),
     ])
-    assert not schema1.equals(schema2)
-    assert schema1.equals(schema2, check_metadata=False)
+    assert not schema1.equals(schema2, check_metadata=True)
+    assert schema1.equals(schema2)
 
 
 def test_schema_equals_invalid_type():
@@ -429,8 +431,12 @@ def test_schema_equality_operators():
 
     assert sch1 == sch2
     assert sch3 == sch4
-    assert sch1 != sch3
-    assert sch2 != sch4
+
+    # __eq__ and __ne__ do not check metadata
+    assert sch1 == sch3
+    assert not sch1 != sch3
+
+    assert sch2 == sch4
 
     # comparison with other types doesn't raise
     assert sch1 != []
@@ -541,7 +547,9 @@ def test_type_schema_pickling():
 
 def test_empty_table():
     schema = pa.schema([
-        pa.field('oneField', pa.int64())
+        pa.field('f0', pa.int64()),
+        pa.field('f1', pa.dictionary(pa.int32(), pa.string())),
+        pa.field('f2', pa.list_(pa.list_(pa.int64()))),
     ])
     table = schema.empty_table()
     assert isinstance(table, pa.Table)
@@ -560,8 +568,10 @@ def test_schema_from_pandas():
             '2007-07-13T01:23:34.123456789',
             '2006-01-13T12:34:56.432539784',
             '2010-08-13T05:46:57.437699912'
-        ], dtype='datetime64[ns]')
+        ], dtype='datetime64[ns]'),
     ]
+    if LooseVersion(pd.__version__) >= '1.0.0':
+        inputs.append(pd.array([1, 2, None], dtype=pd.Int32Dtype()))
     for data in inputs:
         df = pd.DataFrame({'a': data})
         schema = pa.Schema.from_pandas(df)

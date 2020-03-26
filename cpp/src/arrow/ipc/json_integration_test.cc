@@ -54,11 +54,6 @@ using internal::TemporaryDir;
 
 namespace ipc {
 
-bool file_exists(const char* path) {
-  std::ifstream handle(path);
-  return handle.good();
-}
-
 // Convert JSON file to IPC binary format
 static Status ConvertJsonToArrow(const std::string& json_path,
                                  const std::string& arrow_path) {
@@ -72,12 +67,11 @@ static Status ConvertJsonToArrow(const std::string& json_path,
   RETURN_NOT_OK(internal::json::JsonReader::Open(json_buffer, &reader));
 
   if (FLAGS_verbose) {
-    std::cout << "Found schema:\n" << reader->schema()->ToString() << std::endl;
+    std::cout << "Found schema:\n"
+              << reader->schema()->ToString(/* show_metadata = */ true) << std::endl;
   }
 
-  std::shared_ptr<RecordBatchWriter> writer;
-  RETURN_NOT_OK(RecordBatchFileWriter::Open(out_file.get(), reader->schema(), &writer));
-
+  ARROW_ASSIGN_OR_RAISE(auto writer, NewFileWriter(out_file.get(), reader->schema()));
   for (int i = 0; i < reader->num_record_batches(); ++i) {
     std::shared_ptr<RecordBatch> batch;
     RETURN_NOT_OK(reader->ReadRecordBatch(i, &batch));
@@ -93,7 +87,7 @@ static Status ConvertArrowToJson(const std::string& arrow_path,
   ARROW_ASSIGN_OR_RAISE(auto out_file, io::FileOutputStream::Open(json_path));
 
   std::shared_ptr<RecordBatchFileReader> reader;
-  RETURN_NOT_OK(RecordBatchFileReader::Open(in_file.get(), &reader));
+  ARROW_ASSIGN_OR_RAISE(reader, RecordBatchFileReader::Open(in_file.get()));
 
   if (FLAGS_verbose) {
     std::cout << "Found schema:\n" << reader->schema()->ToString() << std::endl;
@@ -128,7 +122,7 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
   ARROW_ASSIGN_OR_RAISE(auto arrow_file, io::ReadableFile::Open(arrow_path));
 
   std::shared_ptr<RecordBatchFileReader> arrow_reader;
-  RETURN_NOT_OK(RecordBatchFileReader::Open(arrow_file.get(), &arrow_reader));
+  ARROW_ASSIGN_OR_RAISE(arrow_reader, RecordBatchFileReader::Open(arrow_file.get()));
 
   auto json_schema = json_reader->schema();
   auto arrow_schema = arrow_reader->schema();
@@ -136,9 +130,9 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
   if (!json_schema->Equals(*arrow_schema)) {
     std::stringstream ss;
     ss << "JSON schema: \n"
-       << json_schema->ToString() << "\n"
+       << json_schema->ToString(/* show_metadata = */ true) << "\n\n"
        << "Arrow schema: \n"
-       << arrow_schema->ToString();
+       << arrow_schema->ToString(/* show_metadata = */ true) << "\n";
 
     if (FLAGS_verbose) {
       std::cout << ss.str() << std::endl;
@@ -195,6 +189,8 @@ Status RunCommand(const std::string& json_path, const std::string& arrow_path,
   if (arrow_path == "") {
     return Status::Invalid("Must specify arrow file name");
   }
+
+  auto file_exists = [](const char* path) { return std::ifstream(path).good(); };
 
   if (command == "ARROW_TO_JSON") {
     if (!file_exists(arrow_path.c_str())) {
@@ -328,8 +324,14 @@ static const char* JSON_EXAMPLE2 = R"example(
             {"type": "VALIDITY", "typeBitWidth": 1},
             {"type": "DATA", "typeBitWidth": 32}
           ]
-        }
+        },
+        "metadata": [
+          {"key": "converted_from_time32", "value": "true"}
+        ]
       }
+    ],
+    "metadata": [
+      {"key": "schema_custom_0", "value": "eh"}
     ]
   },
   "batches": [

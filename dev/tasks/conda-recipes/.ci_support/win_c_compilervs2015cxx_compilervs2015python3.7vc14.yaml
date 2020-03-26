@@ -1,5 +1,5 @@
 boost_cpp:
-- 1.70.0
+- '1.72'
 bzip2:
 - '1'
 c_compiler:
@@ -13,7 +13,7 @@ cxx_compiler:
 glog:
 - 0.4.0
 grpc_cpp:
-- '1.25'
+- '1.27'
 libprotobuf:
 - '3.11'
 lz4_c:
@@ -30,8 +30,6 @@ pin_run_as_build:
   python:
     min_pin: x.x
     max_pin: x.x
-  snappy:
-    max_pin: x.x.x
   vc:
     max_pin: x
   zlib:
@@ -41,7 +39,7 @@ pin_run_as_build:
 python:
 - '3.7'
 snappy:
-- 1.1.7
+- '1'
 vc:
 - '14'
 zip_keys:

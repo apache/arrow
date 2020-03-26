@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_FUNCTION_REGISTRY_COMMON_H
-#define GANDIVA_FUNCTION_REGISTRY_COMMON_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -36,6 +35,7 @@ namespace gandiva {
 using arrow::binary;
 using arrow::boolean;
 using arrow::date64;
+using arrow::day_time_interval;
 using arrow::float32;
 using arrow::float64;
 using arrow::int16;
@@ -227,5 +227,3 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
   NUMERIC_BOOL_DATE_TYPES(INNER, NAME, ALIASES), VAR_LEN_TYPES(INNER, NAME, ALIASES)
 
 }  // namespace gandiva
-
-#endif

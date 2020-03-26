@@ -26,7 +26,7 @@ from pyarrow.includes.libarrow cimport *
 cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     ctypedef enum CFileType "arrow::fs::FileType":
-        CFileType_NonExistent "arrow::fs::FileType::NonExistent"
+        CFileType_NotFound "arrow::fs::FileType::NotFound"
         CFileType_Unknown "arrow::fs::FileType::Unknown"
         CFileType_File "arrow::fs::FileType::File"
         CFileType_Directory "arrow::fs::FileType::Directory"
@@ -55,15 +55,16 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
     cdef cppclass CFileSelector "arrow::fs::FileSelector":
         CFileSelector()
         c_string base_dir
-        c_bool allow_non_existent
+        c_bool allow_not_found
         c_bool recursive
 
     cdef cppclass CFileSystem "arrow::fs::FileSystem":
         c_string type_name() const
-        CResult[CFileInfo] GetTargetInfo(const c_string& path)
-        CResult[vector[CFileInfo]] GetTargetInfos(
+        CResult[c_string] NormalizePath(c_string path)
+        CResult[CFileInfo] GetFileInfo(const c_string& path)
+        CResult[vector[CFileInfo]] GetFileInfo(
             const vector[c_string]& paths)
-        CResult[vector[CFileInfo]] GetTargetInfos(const CFileSelector& select)
+        CResult[vector[CFileInfo]] GetFileInfo(const CFileSelector& select)
         CStatus CreateDir(const c_string& path, c_bool recursive)
         CStatus DeleteDir(const c_string& path)
         CStatus DeleteFile(const c_string& path)
@@ -78,6 +79,8 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
             const c_string& path)
         CResult[shared_ptr[COutputStream]] OpenAppendStream(
             const c_string& path)
+        c_bool Equals(const CFileSystem& other)
+        c_bool Equals(shared_ptr[CFileSystem] other)
 
     CResult[shared_ptr[CFileSystem]] CFileSystemFromUri \
         "arrow::fs::FileSystemFromUri"(const c_string& uri, c_string* out_path)
@@ -91,14 +94,19 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         @staticmethod
         CLocalFileSystemOptions Defaults()
 
+        c_bool Equals(const CLocalFileSystemOptions& other)
+
     cdef cppclass CLocalFileSystem "arrow::fs::LocalFileSystem"(CFileSystem):
         CLocalFileSystem()
         CLocalFileSystem(CLocalFileSystemOptions)
+        CLocalFileSystemOptions options()
 
     cdef cppclass CSubTreeFileSystem \
             "arrow::fs::SubTreeFileSystem"(CFileSystem):
         CSubTreeFileSystem(const c_string& base_path,
                            shared_ptr[CFileSystem] base_fs)
+        c_string base_path()
+        shared_ptr[CFileSystem] base_fs()
 
     ctypedef enum CS3LogLevel "arrow::fs::S3LogLevel":
         CS3LogLevel_Off "arrow::fs::S3LogLevel::Off"
@@ -120,6 +128,9 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         void ConfigureDefaultCredentials()
         void ConfigureAccessKey(const c_string& access_key,
                                 const c_string& secret_key)
+        c_string GetAccessKey()
+        c_string GetSecretKey()
+        c_bool Equals(const CS3Options& other)
 
         @staticmethod
         CS3Options Defaults()
@@ -130,6 +141,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
     cdef cppclass CS3FileSystem "arrow::fs::S3FileSystem"(CFileSystem):
         @staticmethod
         CResult[shared_ptr[CS3FileSystem]] Make(const CS3Options& options)
+        CS3Options options()
 
     cdef CStatus CInitializeS3 "arrow::fs::InitializeS3"(
         const CS3GlobalOptions& options)
@@ -154,6 +166,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         @staticmethod
         CResult[shared_ptr[CHadoopFileSystem]] Make(
             const CHdfsOptions& options)
+        CHdfsOptions options()
 
     cdef cppclass CMockFileSystem "arrow::fs::internal::MockFileSystem"(
             CFileSystem):

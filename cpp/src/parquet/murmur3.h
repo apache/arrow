@@ -19,8 +19,7 @@
 // MurmurHash3 was written by Austin Appleby, and is placed in the public
 // domain. The author hereby disclaims copyright to this source code.
 
-#ifndef PARQUET_MURMURHASH3_H_
-#define PARQUET_MURMURHASH3_H_
+#pragma once
 
 #include <cstdint>
 
@@ -53,5 +52,3 @@ class PARQUET_EXPORT MurmurHash3 : public Hasher {
 };
 
 }  // namespace parquet
-
-#endif  // PARQUET_MURMURHASH3_H_

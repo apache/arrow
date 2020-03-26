@@ -19,6 +19,7 @@
 
 $VERBOSE = true
 
+require "fileutils"
 require "pathname"
 
 (ENV["ARROW_DLL_PATH"] || "").split(File::PATH_SEPARATOR).each do |path|
@@ -31,6 +32,14 @@ lib_dir = base_dir + "lib"
 ext_dir = base_dir + "ext" + "arrow"
 test_dir = base_dir + "test"
 
+build_dir = ENV["BUILD_DIR"]
+if build_dir
+  build_dir = File.join(build_dir, "red-arrow")
+  FileUtils.mkdir_p(build_dir)
+else
+  build_dir = ext_dir
+end
+
 make = nil
 if ENV["NO_MAKE"] != "yes"
   if ENV["MAKE"]
@@ -42,15 +51,17 @@ if ENV["NO_MAKE"] != "yes"
   end
 end
 if make
-  Dir.chdir(ext_dir.to_s) do
+  Dir.chdir(build_dir.to_s) do
     unless File.exist?("Makefile")
-      system(RbConfig.ruby, "extconf.rb", "--enable-debug-build") or exit(false)
+      system(RbConfig.ruby,
+             (ext_dir + "extconf.rb").to_s,
+             "--enable-debug-build") or exit(false)
     end
     system("#{make} > #{File::NULL}") or exit(false)
   end
 end
 
-$LOAD_PATH.unshift(ext_dir.to_s)
+$LOAD_PATH.unshift(build_dir.to_s)
 $LOAD_PATH.unshift(lib_dir.to_s)
 
 require_relative "helper"

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_COMPUTE_CONTEXT_H
-#define ARROW_COMPUTE_CONTEXT_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -78,5 +77,3 @@ class ARROW_EXPORT FunctionContext {
 
 }  // namespace compute
 }  // namespace arrow
-
-#endif  // ARROW_COMPUTE_CONTEXT_H

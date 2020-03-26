@@ -85,9 +85,9 @@ std::string fs___FileSelector__base_dir(
 }
 
 // [[arrow::export]]
-bool fs___FileSelector__allow_non_existent(
+bool fs___FileSelector__allow_not_found(
     const std::shared_ptr<fs::FileSelector>& selector) {
-  return selector->allow_non_existent;
+  return selector->allow_not_found;
 }
 
 // [[arrow::export]]
@@ -97,11 +97,11 @@ bool fs___FileSelector__recursive(const std::shared_ptr<fs::FileSelector>& selec
 
 // [[arrow::export]]
 std::shared_ptr<fs::FileSelector> fs___FileSelector__create(const std::string& base_dir,
-                                                            bool allow_non_existent,
+                                                            bool allow_not_found,
                                                             bool recursive) {
   auto selector = std::make_shared<fs::FileSelector>();
   selector->base_dir = base_dir;
-  selector->allow_non_existent = allow_non_existent;
+  selector->allow_not_found = allow_not_found;
   selector->recursive = recursive;
   return selector;
 }
@@ -120,7 +120,7 @@ std::vector<std::shared_ptr<T>> shared_ptr_vector(const std::vector<T>& vec) {
 std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_Paths(
     const std::shared_ptr<fs::FileSystem>& file_system,
     const std::vector<std::string>& paths) {
-  auto results = VALUE_OR_STOP(file_system->GetTargetInfos(paths));
+  auto results = VALUE_OR_STOP(file_system->GetFileInfo(paths));
   return shared_ptr_vector(results);
 }
 
@@ -128,7 +128,7 @@ std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_Paths
 std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_FileSelector(
     const std::shared_ptr<fs::FileSystem>& file_system,
     const std::shared_ptr<fs::FileSelector>& selector) {
-  auto results = VALUE_OR_STOP(file_system->GetTargetInfos(*selector));
+  auto results = VALUE_OR_STOP(file_system->GetFileInfo(*selector));
   return shared_ptr_vector(results);
 }
 

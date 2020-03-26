@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TENSORFLOW_CONVERTER_H
-#define ARROW_TENSORFLOW_CONVERTER_H
+#pragma once
 
 #include <memory>
 
@@ -154,5 +153,3 @@ Status GetTensorFlowType(std::shared_ptr<DataType> dtype, ::tensorflow::DataType
 }  // namespace adapters
 
 }  // namespace arrow
-
-#endif  // ARROW_TENSORFLOW_CONVERTER_H

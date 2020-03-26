@@ -117,6 +117,9 @@ Status CheckTensorStridesValidity(const std::shared_ptr<Buffer>& data,
   if (strides.size() != shape.size()) {
     return Status::Invalid("strides must have the same length as shape");
   }
+  if (data->size() == 0 && std::find(shape.begin(), shape.end(), 0) != shape.end()) {
+    return Status::OK();
+  }
 
   std::vector<int64_t> last_index(shape);
   const int64_t n = static_cast<int64_t>(shape.size());

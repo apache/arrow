@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_IO_HDFS
-#define ARROW_IO_HDFS
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -256,5 +255,3 @@ Status ARROW_EXPORT HaveLibHdfs();
 
 }  // namespace io
 }  // namespace arrow
-
-#endif  // ARROW_IO_HDFS

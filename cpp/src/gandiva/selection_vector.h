@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_SELECTION_VECTOR__H
-#define GANDIVA_SELECTION_VECTOR__H
+#pragma once
 
 #include <memory>
 
@@ -150,5 +149,3 @@ class GANDIVA_EXPORT SelectionVector {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_SELECTION_VECTOR__H
