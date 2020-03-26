@@ -21,6 +21,14 @@
 set -eu
 
 BOOST_VERSION=1.71.0
+# These are the ones Arrow uses directly
+BOOST_LIBS="system.hpp filesystem.hpp regex.hpp"
+# Add these to be able to build those
+BOOST_LIBS="$BOOST_LIBS config build boost_install headers"
+# Maybe log is only needed for debug build? (predef is needed for log)
+BOOST_LIBS="$BOOST_LIBS log predef"
+# These are for Thrift
+BOOST_LIBS="$BOOST_LIBS algorithm/string.hpp locale.hpp noncopyable.hpp numeric/conversion/cast.hpp scope_exit.hpp scoped_array.hpp shared_array.hpp tokenizer.hpp version.hpp"
 
 BOOST_VERSION_=`echo $BOOST_VERSION | sed -e 's/\./_/g'`
 BOOST_FILE="boost_${BOOST_VERSION_}"
@@ -32,7 +40,7 @@ cd ${BOOST_FILE}
 ./bootstrap.sh
 ./b2 tools/bcp
 mkdir ${BOOST_FILE}
-./dist/bin/bcp system.hpp filesystem.hpp regex.hpp config build boost_install headers log predef ${BOOST_FILE}
+./dist/bin/bcp ${BOOST_LIBS} ${BOOST_FILE}
 
 # Resulting tarball is in ${BOOST_FILE}/${BOOST_FILE}.tar.gz
 tar -czf ${BOOST_FILE}.tar.gz ${BOOST_FILE}/
