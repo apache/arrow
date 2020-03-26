@@ -550,9 +550,8 @@ cdef class ParquetFileFragment(FileFragment):
             shared_ptr[CFragment] c_fragment
 
         if extra_filter is None:
-            c_extra_filter = extra_filter.unwrap()
-        else:
-            c_extra_filter = ScalarExpression(True).unwrap()
+            extra_filter = ScalarExpression(True)
+        c_extra_filter = extra_filter.unwrap()
 
         c_format = <CParquetFileFormat*> self.file_fragment.format().get()
         c_iterator = move(GetResultValue(c_format.GetRowGroupFragments(deref(
