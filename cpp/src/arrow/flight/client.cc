@@ -325,10 +325,11 @@ Status GrpcStreamReader::Open(std::unique_ptr<ClientRpc> rpc,
                               std::unique_ptr<GrpcStreamReader>* out) {
   *out = std::unique_ptr<GrpcStreamReader>(new GrpcStreamReader);
   out->get()->rpc_ = std::move(rpc);
-  std::unique_ptr<GrpcIpcMessageReader> message_reader(
+  auto reader = std::unique_ptr<ipc::MessageReader>(
       new GrpcIpcMessageReader(out->get(), out->get()->rpc_, std::move(stream)));
-  return (ipc::RecordBatchStreamReader::Open(std::move(message_reader))
-              .Value(&(*out)->batch_reader_));
+  ARROW_ASSIGN_OR_RAISE((*out)->batch_reader_,
+                        ipc::RecordBatchStreamReader::Open(std::move(reader)));
+  return Status::OK();
 }
 
 std::shared_ptr<Schema> GrpcStreamReader::schema() const {

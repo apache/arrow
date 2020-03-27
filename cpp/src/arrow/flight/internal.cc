@@ -89,7 +89,7 @@ static Status FromGrpcContext(const grpc::ClientContext& ctx, Status* status) {
   }
 
   const grpc::string_ref code_ref = (*code_val).second;
-  StatusCode code;
+  StatusCode code = {};
   RETURN_NOT_OK(StatusCodeFromString(code_ref, &code));
 
   const auto message_val = trailers.find(kGrpcStatusMessageHeader);
