@@ -745,7 +745,7 @@ mod tests {
             vec![col(0)],
             vec![aggregate_expr("SUM", col(1), DataType::Int32)],
         )?
-        .project(&vec![col(0), col(1).alias("total_salary")])?
+        .project(vec![col(0), col(1).alias("total_salary")])?
         .build()?;
 
         let physical_plan = ctx.create_physical_plan(&Arc::new(plan), 1024)?;

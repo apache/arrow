@@ -702,7 +702,7 @@ impl LogicalPlanBuilder {
     }
 
     /// Apply a projection
-    pub fn project(&self, expr: &Vec<Expr>) -> Result<Self> {
+    pub fn project(&self, expr: Vec<Expr>) -> Result<Self> {
         let input_schema = self.plan.schema();
         let projected_expr = if expr.contains(&Expr::Wildcard) {
             let mut expr_vec = vec![];
@@ -792,7 +792,7 @@ mod tests {
             Some(vec![0, 3]),
         )?
         .filter(col(1).eq(&lit_str("CO")))?
-        .project(&vec![col(0)])?
+        .project(vec![col(0)])?
         .build()?;
 
         // prove that a plan can be passed to a thread
@@ -813,7 +813,7 @@ mod tests {
             Some(vec![0, 3]),
         )?
         .filter(col(1).eq(&lit_str("CO")))?
-        .project(&vec![col(0)])?
+        .project(vec![col(0)])?
         .build()?;
 
         let expected = "Projection: #0\n  \
@@ -837,7 +837,7 @@ mod tests {
             vec![col(0)],
             vec![aggregate_expr("SUM", col(1), DataType::Int32)],
         )?
-        .project(&vec![col(0), col(1).alias("total_salary")])?
+        .project(vec![col(0), col(1).alias("total_salary")])?
         .build()?;
 
         let expected = "Projection: #0, #1 AS total_salary\
