@@ -162,19 +162,13 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
  public:
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) override;
 
-  // XXX should this include format_->type_name?
-  std::string type_name() const override { return "file"; }
+  std::string type_name() const override { return format_->type_name(); }
   bool splittable() const override { return format_->splittable(); }
 
   const FileSource& source() const { return source_; }
   const std::shared_ptr<FileFormat>& format() const { return format_; }
 
-  FileFragment(FileSource source, std::shared_ptr<FileFormat> format,
-               std::shared_ptr<ScanOptions> scan_options)
-      : Fragment(std::move(scan_options)),
-        source_(std::move(source)),
-        format_(std::move(format)) {}
-
+ protected:
   FileFragment(FileSource source, std::shared_ptr<FileFormat> format,
                std::shared_ptr<ScanOptions> scan_options,
                std::shared_ptr<Expression> partition_expression)
@@ -182,7 +176,6 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
         source_(std::move(source)),
         format_(std::move(format)) {}
 
- protected:
   FileSource source_;
   std::shared_ptr<FileFormat> format_;
 

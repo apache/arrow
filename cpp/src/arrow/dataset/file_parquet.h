@@ -21,6 +21,7 @@
 #include <string>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
@@ -86,6 +87,54 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   Result<ScanTaskIterator> ScanFile(const FileSource& source,
                                     std::shared_ptr<ScanOptions> options,
                                     std::shared_ptr<ScanContext> context) const override;
+
+  /// \brief Open a file for scanning, restricted to the specified row groups.
+  Result<ScanTaskIterator> ScanFile(const FileSource& source,
+                                    std::shared_ptr<ScanOptions> options,
+                                    std::shared_ptr<ScanContext> context,
+                                    const std::vector<int>& row_groups) const;
+
+  using FileFormat::MakeFragment;
+
+  Result<std::shared_ptr<FileFragment>> MakeFragment(
+      FileSource source, std::shared_ptr<ScanOptions> options,
+      std::shared_ptr<Expression> partition_expression) override;
+
+  /// \brief Create a Fragment, restricted to the specified row groups.
+  Result<std::shared_ptr<FileFragment>> MakeFragment(
+      FileSource source, std::shared_ptr<ScanOptions> options,
+      std::shared_ptr<Expression> partition_expression, std::vector<int> row_groups);
+
+  /// \brief Split a ParquetFileFragment into a Fragment for each row group.
+  /// Row groups whose metadata contradicts the fragment's filter or the extra_filter
+  /// will be excluded.
+  Result<FragmentIterator> GetRowGroupFragments(
+      const ParquetFileFragment& fragment,
+      std::shared_ptr<Expression> extra_filter = scalar(true));
+};
+
+class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
+ public:
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) override;
+
+  /// \brief The row groups viewed by this Fragment. This may be empty which signifies all
+  /// row groups are selected.
+  const std::vector<int>& row_groups() const { return row_groups_; }
+
+ private:
+  ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
+                      std::shared_ptr<ScanOptions> scan_options,
+                      std::shared_ptr<Expression> partition_expression,
+                      std::vector<int> row_groups)
+      : FileFragment(std::move(source), std::move(format), std::move(scan_options),
+                     std::move(partition_expression)),
+        row_groups_(std::move(row_groups)) {}
+
+  const ParquetFileFormat& parquet_format() const;
+
+  std::vector<int> row_groups_;
+
+  friend class ParquetFileFormat;
 };
 
 }  // namespace dataset

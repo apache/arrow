@@ -114,6 +114,14 @@ class ARROW_DS_EXPORT ScanTask {
   const std::shared_ptr<ScanOptions>& options() const { return options_; }
   const std::shared_ptr<ScanContext>& context() const { return context_; }
 
+  /// \brief Convert a sequence of ScanTasks into a Table.
+  ///
+  /// Use this convenience utility with care. This will serially materialize the
+  /// Scan result in memory before creating the Table.
+  static Result<std::shared_ptr<Table>> ToTable(
+      const std::shared_ptr<ScanOptions>& options,
+      const std::shared_ptr<ScanContext>& context, ScanTaskIterator scan_tasks);
+
  protected:
   ScanTask(std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context)
       : options_(std::move(options)), context_(std::move(context)) {}

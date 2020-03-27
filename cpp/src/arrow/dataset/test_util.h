@@ -316,7 +316,7 @@ struct MakeFileSystemDatasetMixin {
 
 static const std::string& PathOf(const std::shared_ptr<Fragment>& fragment) {
   EXPECT_NE(fragment, nullptr);
-  EXPECT_EQ(fragment->type_name(), "file");
+  EXPECT_THAT(fragment->type_name(), "dummy");
   return internal::checked_cast<const FileFragment&>(*fragment).source().path();
 }
 

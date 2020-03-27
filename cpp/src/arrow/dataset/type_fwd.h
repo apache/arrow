@@ -53,6 +53,11 @@ class FileFormat;
 class FileFragment;
 class FileSystemDataset;
 
+class ParquetFileFormat;
+class ParquetFileFragment;
+
+class IpcFileFormat;
+
 class Expression;
 using ExpressionVector = std::vector<std::shared_ptr<Expression>>;
 
@@ -66,6 +71,10 @@ class CastExpression;
 class ScalarExpression;
 class FieldReferenceExpression;
 class ExpressionEvaluator;
+
+/// forward declared to facilitate scalar(true) as a default for Expression parameters
+ARROW_DS_EXPORT
+std::shared_ptr<ScalarExpression> scalar(bool);
 
 class Partitioning;
 class PartitioningFactory;
