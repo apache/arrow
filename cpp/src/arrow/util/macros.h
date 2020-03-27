@@ -71,6 +71,8 @@
 #if defined(__clang__)
 // Only clang supports warn_unused_result as a type annotation.
 #define ARROW_MUST_USE_TYPE ARROW_MUST_USE_RESULT
+#else
+#define ARROW_MUST_USE_TYPE
 #endif
 
 // ----------------------------------------------------------------------
