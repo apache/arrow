@@ -841,8 +841,8 @@ mod tests {
         .build()?;
 
         let expected = "Projection: #0, #1 AS total_salary\
-        \n  Aggregate: groupBy=[[#0]], aggr=[[SUM(#1)]]\
-        \n    TableScan: employee.csv projection=Some([3, 4])";
+                        \n  Aggregate: groupBy=[[#0]], aggr=[[SUM(#1)]]\
+                        \n    TableScan: employee.csv projection=Some([3, 4])";
 
         assert_eq!(expected, format!("{:?}", plan));
 

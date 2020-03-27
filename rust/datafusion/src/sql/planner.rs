@@ -272,9 +272,10 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 Ok(Expr::Literal(ScalarValue::Utf8(s.clone())))
             }
 
-            ASTNode::SQLAliasedExpr(ref expr, ref alias) => {
-                Ok(Alias(Arc::new(self.sql_to_rex(&expr, schema)?), alias.to_owned()))
-            }
+            ASTNode::SQLAliasedExpr(ref expr, ref alias) => Ok(Alias(
+                Arc::new(self.sql_to_rex(&expr, schema)?),
+                alias.to_owned(),
+            )),
 
             ASTNode::SQLIdentifier(ref id) => {
                 match schema.fields().iter().position(|c| c.name().eq(id)) {
@@ -610,7 +611,7 @@ mod tests {
     fn select_aliased_scalar_func() {
         let sql = "SELECT sqrt(age) AS square_people FROM person";
         let expected = "Projection: sqrt(CAST(#3 AS Float64)) AS square_people\
-        \n  TableScan: person projection=None";
+                        \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }
 
