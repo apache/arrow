@@ -25,6 +25,7 @@
 #include <string>
 
 #include "arrow/util/int_util.h"
+#include "arrow/util/string_view.h"
 
 #include "parquet/platform.h"
 
@@ -691,7 +692,7 @@ PARQUET_EXPORT std::string ConvertedTypeToString(ConvertedType::type t);
 PARQUET_EXPORT std::string TypeToString(Type::type t);
 
 PARQUET_EXPORT std::string FormatStatValue(Type::type parquet_type,
-                                           const std::string& val);
+                                           ::arrow::util::string_view val);
 
 PARQUET_EXPORT int GetTypeByteSize(Type::type t);
 
