@@ -63,7 +63,7 @@ where
     }
 
     let metadata = metadata.map(|m| m.clone())
-        .unwrap_or_else(|| HashMap::new());
+        .unwrap_or(HashMap::default());
 
     base_nodes
         .into_iter()
