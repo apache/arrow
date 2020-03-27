@@ -34,6 +34,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/compression.h"
 
 namespace arrow {
 
@@ -59,9 +60,16 @@ class TestFeather : public ::testing::TestWithParam<TestParam> {
 
   WriteProperties GetProperties() {
     auto param = GetParam();
+
     auto props = WriteProperties::Defaults();
     props.version = param.version;
-    props.compression = param.compression;
+
+    // Don't fail if the build doesn't have LZ4 or ZSTD enabled
+    if (util::Codec::IsAvailable(param.compression)) {
+      props.compression = param.compression;
+    } else {
+      props.compression = Compression::UNCOMPRESSED;
+    }
     return props;
   }
 
@@ -116,6 +124,16 @@ class TestFeather : public ::testing::TestWithParam<TestParam> {
   std::shared_ptr<Reader> reader_;
   std::shared_ptr<Buffer> output_;
 };
+
+TEST(TestFeatherWriteProperties, Defaults) {
+  auto props = WriteProperties::Defaults();
+
+#ifdef ARROW_WITH_LZ4
+  ASSERT_EQ(Compression::LZ4, props.compression);
+#else
+  ASSERT_EQ(Compression::UNCOMPRESSED, props.compression);
+#endif
+}
 
 TEST_P(TestFeather, ReadIndicesOrNames) {
   std::shared_ptr<RecordBatch> batch1;
@@ -278,6 +296,7 @@ TEST_P(TestFeather, SliceBooleanRoundTrip) {
 INSTANTIATE_TEST_SUITE_P(
     FeatherTests, TestFeather,
     ::testing::Values(TestParam(kFeatherV1Version), TestParam(kFeatherV2Version),
+                      TestParam(kFeatherV2Version, Compression::LZ4),
                       TestParam(kFeatherV2Version, Compression::ZSTD)));
 
 }  // namespace feather

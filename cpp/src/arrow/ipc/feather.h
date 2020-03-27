@@ -98,10 +98,10 @@ class ARROW_EXPORT Reader {
 };
 
 struct ARROW_EXPORT WriteProperties {
-  static WriteProperties Defaults() { return WriteProperties(); }
+  static WriteProperties Defaults();
 
   static WriteProperties DefaultsV1() {
-    WriteProperties props;
+    WriteProperties props = Defaults();
     props.version = kFeatherV1Version;
     return props;
   }
@@ -118,8 +118,14 @@ struct ARROW_EXPORT WriteProperties {
   /// faster random row access
   int64_t chunksize = 1LL << 16;
 
-  /// Compression type to use
-  Compression::type compression = Compression::ZSTD;
+  /// Compression type to use. Only UNCOMPRESSED, LZ4, and ZSTD are
+  /// supported. The default compression returned by Defaults() is LZ4 if the
+  /// project is built with support for it, otherwise
+  /// UNCOMPRESSED. UNCOMPRESSED is set as the object default here so that if
+  /// WriteProperties::Defaults() is not used, the default constructor for
+  /// WriteProperties will work regardless of the options used to build the C++
+  /// project.
+  Compression::type compression = Compression::UNCOMPRESSED;
 
   /// Compressor-specific compression level
   int compression_level = Compression::kUseDefaultCompressionLevel;

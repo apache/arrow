@@ -794,6 +794,16 @@ Result<std::shared_ptr<Reader>> Reader::Open(
   }
 }
 
+WriteProperties WriteProperties::Defaults() {
+  WriteProperties result;
+#ifdef ARROW_WITH_LZ4
+  result.compression = Compression::LZ4;
+#else
+  result.compression = Compression::UNCOMPRESSED;
+#endif
+  return result;
+}
+
 Status WriteTable(const Table& table, io::OutputStream* dst,
                   const WriteProperties& properties) {
   if (properties.version == kFeatherV1Version) {
