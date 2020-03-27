@@ -1693,17 +1693,16 @@ garrow_array_filter(GArrowArray *array,
                     GError **error)
 {
   auto arrow_array = garrow_array_get_raw(array);
-  auto arrow_array_raw = arrow_array.get();
   auto arrow_filter = garrow_array_get_raw(GARROW_ARRAY(filter));
-  auto arrow_filter_raw = arrow_filter.get();
   auto memory_pool = arrow::default_memory_pool();
   arrow::compute::FunctionContext context(memory_pool);
   arrow::compute::Datum arrow_filtered;
   using arrow::compute::FilterOptions;
-  FilterOptions options{FilterOptions::EMIT_NULL};
+  FilterOptions options;
+  options.null_selection_behavior = FilterOptions::EMIT_NULL;
   auto status = arrow::compute::Filter(&context,
-                                       arrow_array_raw,
-                                       arrow_filter_raw,
+                                       arrow_array,
+                                       arrow_filter,
                                        options,
                                        &arrow_filtered);
   if (garrow_error_check(error, status, "[array][filter]")) {
@@ -1838,10 +1837,12 @@ garrow_table_filter(GArrowTable *table,
   arrow::compute::FunctionContext context(memory_pool);
   arrow::compute::Datum arrow_filtered;
   using arrow::compute::FilterOptions;
-  FilterOptions options{FilterOptions::EMIT_NULL};
+  FilterOptions options;
+  options.null_selection_behavior = FilterOptions::EMIT_NULL;
   auto status = arrow::compute::Filter(&context,
                                        arrow_table,
                                        arrow_filter,
+                                       options,
                                        &arrow_filtered);
   if (garrow_error_check(error, status, "[table][filter]")) {
     auto arrow_filtered_table = arrow_filtered.table();
@@ -1872,12 +1873,17 @@ garrow_table_filter_chunked_array(GArrowTable *table,
   auto arrow_filter = garrow_chunked_array_get_raw(filter);
   auto memory_pool = arrow::default_memory_pool();
   arrow::compute::FunctionContext context(memory_pool);
-  std::shared_ptr<arrow::Table> arrow_filtered_table;
+  arrow::compute::Datum arrow_filtered;
+  using arrow::compute::FilterOptions;
+  FilterOptions options;
+  options.null_selection_behavior = FilterOptions::EMIT_NULL;
   auto status = arrow::compute::Filter(&context,
                                        arrow_table,
                                        arrow_filter,
-                                       &arrow_filtered_table);
+                                       options,
+                                       &arrow_filtered);
   if (garrow_error_check(error, status, "[table][filter][chunked-array]")) {
+    auto arrow_filtered_table = arrow_filtered.table();
     return garrow_table_new_raw(&arrow_filtered_table);
   } else {
     return NULL;
@@ -1908,10 +1914,12 @@ garrow_chunked_array_filter(GArrowChunkedArray *chunked_array,
   arrow::compute::FunctionContext context(memory_pool);
   arrow::compute::Datum arrow_filtered;
   using arrow::compute::FilterOptions;
-  FilterOptions options{FilterOptions::EMIT_NULL};
+  FilterOptions options;
+  options.null_selection_behavior = FilterOptions::EMIT_NULL;
   auto status = arrow::compute::Filter(&context,
                                        arrow_chunked_array,
                                        arrow_filter,
+                                       options,
                                        &arrow_filtered);
   if (garrow_error_check(error, status, "[chunked-array][filter]")) {
     auto arrow_filtered_chunked_array = arrow_filtered.chunked_array();
@@ -1945,10 +1953,12 @@ garrow_chunked_array_filter_chunked_array(GArrowChunkedArray *chunked_array,
   arrow::compute::FunctionContext context(memory_pool);
   arrow::compute::Datum arrow_filtered;
   using arrow::compute::FilterOptions;
-  FilterOptions options{FilterOptions::EMIT_NULL};
+  FilterOptions options;
+  options.null_selection_behavior = FilterOptions::EMIT_NULL;
   auto status = arrow::compute::Filter(&context,
                                        arrow_chunked_array,
                                        arrow_filter,
+                                       options,
                                        &arrow_filtered);
   if (garrow_error_check(error, status, "[chunked-array][filter][chunked-array]")) {
     auto arrow_filtered_chunked_array = arrow_filtered.chunked_array();
@@ -1982,10 +1992,12 @@ garrow_record_batch_filter(GArrowRecordBatch *record_batch,
   arrow::compute::FunctionContext context(memory_pool);
   arrow::compute::Datum arrow_filtered;
   using arrow::compute::FilterOptions;
-  FilterOptions options{FilterOptions::EMIT_NULL};
+  FilterOptions options;
+  options.null_selection_behavior = FilterOptions::EMIT_NULL;
   auto status = arrow::compute::Filter(&context,
                                        arrow_record_batch,
                                        arrow_filter,
+                                       options,
                                        &arrow_filtered);
   if (garrow_error_check(error, status, "[record-batch][filter]")) {
     auto arrow_filtered_record_batch = arrow_filtered.record_batch();

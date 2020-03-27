@@ -17,6 +17,8 @@
 
 context("Table")
 
+library(dplyr)
+
 test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   tbl <- tibble::tibble(
     int = 1:10, dbl = as.numeric(1:10),
