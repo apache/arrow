@@ -45,13 +45,7 @@ ARROW_EXPORT void InvalidValueOrDie(const Status& st);
 
 }  // namespace internal
 
-#if defined(__clang__)
-// Only clang supports warn_unused_result as a type annotation.
-template <class T>
-class ARROW_MUST_USE_RESULT Result;
-#endif
-
-// A class for representing either a usable value, or an error.
+/// A class for representing either a usable value, or an error.
 ///
 /// A Result object either contains a value of type `T` or a Status object
 /// explaining why such a value is not present. The type `T` must be
@@ -104,7 +98,7 @@ class ARROW_MUST_USE_RESULT Result;
 ///   arrow::Result<int> CalculateFoo();
 /// ```
 template <class T>
-class Result : public util::EqualityComparable<Result<T>> {
+class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
   template <typename U>
   friend class Result;
 

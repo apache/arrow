@@ -36,10 +36,9 @@ namespace dataset {
 
 Status CheckProjectable(const Schema& from, const Schema& to) {
   for (const auto& to_field : to.fields()) {
-    ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(to_field->name()).FindOneOrNone(from));
-    DCHECK_LE(match.indices().size(), 1);  // name FieldRef returns non nested path
+    ARROW_ASSIGN_OR_RAISE(auto from_field, FieldRef(to_field->name()).GetOneOrNone(from));
 
-    if (match.indices().empty()) {
+    if (from_field == nullptr) {
       if (to_field->nullable()) continue;
 
       return Status::TypeError("field ", to_field->ToString(),
@@ -47,11 +46,15 @@ Status CheckProjectable(const Schema& from, const Schema& to) {
                                from);
     }
 
-    const auto& from_field = from.field(match.indices()[0]);
-    if (!from_field->Equals(to_field, /*check_metadata=*/false)) {
-      return Status::TypeError(
-          "fields had matching names but were not equivalent. From: ",
-          from_field->ToString(), " To: ", to_field->ToString());
+    if (!from_field->type()->Equals(to_field->type())) {
+      return Status::TypeError("fields had matching names but differing types. From: ",
+                               from_field->ToString(), " To: ", to_field->ToString());
+    }
+
+    if (from_field->nullable() && !to_field->nullable()) {
+      return Status::TypeError("field ", to_field->ToString(),
+                               " is not nullable but is not required in origin schema ",
+                               from);
     }
   }
 

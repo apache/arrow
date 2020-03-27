@@ -193,6 +193,57 @@ TEST_F(TestUnionDataset, TrivialScan) {
   AssertDatasetEquals(reader.get(), dataset.get());
 }
 
+TEST(TestProjector, CheckProjectable) {
+  struct Assert {
+    explicit Assert(FieldVector from) : from_(from) {}
+    Schema from_;
+
+    void ProjectableTo(FieldVector to) {
+      ARROW_EXPECT_OK(CheckProjectable(from_, Schema(to)));
+    }
+
+    void NotProjectableTo(FieldVector to, std::string substr = "") {
+      EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, testing::HasSubstr(substr),
+                                      CheckProjectable(from_, Schema(to)));
+    }
+  };
+
+  auto i8 = field("i8", int8());
+  auto u16 = field("u16", uint16());
+  auto str = field("str", utf8());
+  auto i8_req = field("i8", int8(), false);
+  auto u16_req = field("u16", uint16(), false);
+  auto str_req = field("str", utf8(), false);
+
+  // trivial
+  Assert({}).ProjectableTo({});
+  Assert({i8}).ProjectableTo({i8});
+  Assert({i8, u16_req}).ProjectableTo({i8, u16_req});
+
+  // reorder
+  Assert({i8, u16}).ProjectableTo({u16, i8});
+  Assert({i8, str, u16}).ProjectableTo({u16, i8, str});
+
+  // drop field(s)
+  Assert({i8}).ProjectableTo({});
+
+  // add field(s)
+  Assert({}).ProjectableTo({i8});
+  Assert({}).ProjectableTo({i8, u16});
+  Assert({}).NotProjectableTo({u16_req},
+                              "is not nullable and does not exist in origin schema");
+  Assert({i8}).NotProjectableTo({u16_req, i8});
+
+  // change nullability
+  Assert({i8}).NotProjectableTo({i8_req},
+                                "not nullable but is not required in origin schema");
+  Assert({i8_req}).ProjectableTo({i8});
+
+  // change field type
+  Assert({i8}).NotProjectableTo({field("i8", utf8())},
+                                "fields had matching names but differing types");
+}
+
 TEST(TestProjector, MismatchedType) {
   constexpr int64_t kBatchSize = 1024;
 
@@ -441,9 +492,9 @@ TEST_F(TestEndToEnd, EndToEndSingleDataset) {
   ASSERT_OK(scanner_builder->Project(columns));
 
   // An optional filter expression may also be specified. The filter expression
-  // is evaluated against input rows. Only rows for which the filter evaluates to true are
-  // yielded. Predicate pushdown optimizations are applied using partition information if
-  // available.
+  // is evaluated against input rows. Only rows for which the filter evaluates to true
+  // are yielded. Predicate pushdown optimizations are applied using partition
+  // information if available.
   //
   // This API decouples predicate pushdown from the Dataset implementation
   // and partition discovery.
@@ -551,7 +602,8 @@ class TestSchemaUnification : public TestUnionDataset {
     ASSERT_OK_AND_ASSIGN(auto ds1, get_source("/dataset/alpha", {ds1_df1, ds1_df2}));
     ASSERT_OK_AND_ASSIGN(auto ds2, get_source("/dataset/beta", {ds2_df1, ds2_df2}));
 
-    // FIXME(bkietz) this is a hack: allow differing schemas for the purposes of this test
+    // FIXME(bkietz) this is a hack: allow differing schemas for the purposes of this
+    // test
     class DisparateSchemasUnionDataset : public UnionDataset {
      public:
       DisparateSchemasUnionDataset(std::shared_ptr<Schema> schema, DatasetVector children)
