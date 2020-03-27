@@ -109,6 +109,19 @@ void ByteStreamSplitEncodeSSE2(const uint8_t* raw_values, const size_t num_value
       output_buffer_raw[j * num_values + i] = byte_in_value;
     }
   }
+  // The current shuffling algorithm diverges for float and double types but the compiler
+  // should be able to remove the branch since only one path is taken for each template
+  // instantiation.
+  // Example run for floats:
+  // Step 0, copy:
+  //   0: ABCD ABCD ABCD ABCD 1: ABCD ABCD ABCD ABCD 2: ABCD ABCD ABCD ABCD 3: ABCD ABCD ABCD ABCD
+  // Step 1: _mm_unpacklo_epi8 and mm_unpackhi_epi8:
+  //   0: AABB CCDD AABB CCDD 1: AABB CCDD AABB CCDD 2: AABB CCDD AABB CCDD 3: AABB CCDD AABB CCDD
+  //   0: AAAA BBBB CCCC DDDD 1: AAAA BBBB CCCC DDDD 2: AAAA BBBB CCCC DDDD 3: AAAA BBBB CCCC DDDD
+  // Step 3: __mm_unpacklo_epi8 and _mm_unpackhi_epi8:
+  //   0: AAAA AAAA BBBB BBBB 1: CCCC CCCC DDDD DDDD 2: AAAA AAAA BBBB BBBB 3: CCCC CCCC DDDD DDDD
+  // Step 4: __mm_unpacklo_epi64 and _mm_unpackhi_epi64:
+  //   0: AAAA AAAA AAAA AAAA 1: BBBB BBBB BBBB BBBB 3: CCCC CCCC CCCC CCCC 4: DDDD DDDD DDDD DDDD
   for (size_t block_index = 0; block_index < num_blocks; ++block_index) {
     // First copy the data to stage 0.
     for (size_t i = 0; i < num_streams; ++i) {
