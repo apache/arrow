@@ -648,20 +648,6 @@ Status HadoopFileSystem::Rename(const std::string& src, const std::string& dst) 
   return impl_->Rename(src, dst);
 }
 
-// Deprecated in 0.11
-
-Status HadoopFileSystem::OpenWriteable(const std::string& path, bool append,
-                                       int32_t buffer_size, int16_t replication,
-                                       int64_t default_block_size,
-                                       std::shared_ptr<HdfsOutputStream>* file) {
-  return OpenWritable(path, append, buffer_size, replication, default_block_size, file);
-}
-
-Status HadoopFileSystem::OpenWriteable(const std::string& path, bool append,
-                                       std::shared_ptr<HdfsOutputStream>* file) {
-  return OpenWritable(path, append, 0, 0, 0, file);
-}
-
 // ----------------------------------------------------------------------
 // Allow public API users to check whether we are set up correctly
 

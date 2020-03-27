@@ -48,14 +48,6 @@ class ARROW_EXPORT CompressedOutputStream : public OutputStream {
       util::Codec* codec, const std::shared_ptr<OutputStream>& raw,
       MemoryPool* pool = default_memory_pool());
 
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Make(util::Codec* codec, const std::shared_ptr<OutputStream>& raw,
-                     std::shared_ptr<CompressedOutputStream>* out);
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Make(MemoryPool* pool, util::Codec* codec,
-                     const std::shared_ptr<OutputStream>& raw,
-                     std::shared_ptr<CompressedOutputStream>* out);
-
   // OutputStream interface
 
   /// \brief Close the compressed output stream.  This implicitly closes the
@@ -93,14 +85,6 @@ class ARROW_EXPORT CompressedInputStream
   static Result<std::shared_ptr<CompressedInputStream>> Make(
       util::Codec* codec, const std::shared_ptr<InputStream>& raw,
       MemoryPool* pool = default_memory_pool());
-
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Make(util::Codec* codec, const std::shared_ptr<InputStream>& raw,
-                     std::shared_ptr<CompressedInputStream>* out);
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Make(MemoryPool* pool, util::Codec* codec,
-                     const std::shared_ptr<InputStream>& raw,
-                     std::shared_ptr<CompressedInputStream>* out);
 
   // InputStream interface
 

@@ -50,17 +50,6 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
   static Result<std::shared_ptr<FileOutputStream>> Open(const std::string& path,
                                                         bool append = false);
 
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Open(const std::string& path, std::shared_ptr<OutputStream>* out);
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Open(const std::string& path, bool append,
-                     std::shared_ptr<OutputStream>* out);
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Open(const std::string& path, std::shared_ptr<FileOutputStream>* file);
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Open(const std::string& path, bool append,
-                     std::shared_ptr<FileOutputStream>* file);
-
   /// \brief Open a file descriptor for writing.  The underlying file isn't
   /// truncated.
   /// \param[in] fd file descriptor
@@ -69,11 +58,6 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
   /// The file descriptor becomes owned by the OutputStream, and will be closed
   /// on Close() or destruction.
   static Result<std::shared_ptr<FileOutputStream>> Open(int fd);
-
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Open(int fd, std::shared_ptr<OutputStream>* out);
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Open(int fd, std::shared_ptr<FileOutputStream>* out);
 
   // OutputStream interface
   Status Close() override;
@@ -112,12 +96,6 @@ class ARROW_EXPORT ReadableFile
   static Result<std::shared_ptr<ReadableFile>> Open(
       const std::string& path, MemoryPool* pool = default_memory_pool());
 
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Open(const std::string& path, std::shared_ptr<ReadableFile>* file);
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Open(const std::string& path, MemoryPool* pool,
-                     std::shared_ptr<ReadableFile>* file);
-
   /// \brief Open a local file for reading
   /// \param[in] fd file descriptor
   /// \param[in] pool a MemoryPool for memory allocations
@@ -127,11 +105,6 @@ class ARROW_EXPORT ReadableFile
   /// on Close() or destruction.
   static Result<std::shared_ptr<ReadableFile>> Open(
       int fd, MemoryPool* pool = default_memory_pool());
-
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Open(int fd, std::shared_ptr<ReadableFile>* file);
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Open(int fd, MemoryPool* pool, std::shared_ptr<ReadableFile>* file);
 
   bool closed() const override;
 
@@ -175,27 +148,15 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
   static Result<std::shared_ptr<MemoryMappedFile>> Create(const std::string& path,
                                                           int64_t size);
 
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Create(const std::string& path, int64_t size,
-                       std::shared_ptr<MemoryMappedFile>* out);
-
   // mmap() with whole file
   static Result<std::shared_ptr<MemoryMappedFile>> Open(const std::string& path,
                                                         FileMode::type mode);
-
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Open(const std::string& path, FileMode::type mode,
-                     std::shared_ptr<MemoryMappedFile>* out);
 
   // mmap() with a region of file, the offset must be a multiple of the page size
   static Result<std::shared_ptr<MemoryMappedFile>> Open(const std::string& path,
                                                         FileMode::type mode,
                                                         const int64_t offset,
                                                         const int64_t length);
-
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Open(const std::string& path, FileMode::type mode, const int64_t offset,
-                     const int64_t length, std::shared_ptr<MemoryMappedFile>* out);
 
   Status Close() override;
 

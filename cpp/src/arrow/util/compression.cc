@@ -225,35 +225,5 @@ bool Codec::IsAvailable(Compression::type codec_type) {
   }
 }
 
-// Deprecated APIs
-
-Status Codec::Create(Compression::type codec_type, std::unique_ptr<Codec>* result) {
-  return Create(codec_type).Value(result);
-}
-
-Status Codec::Create(Compression::type codec_type, int compression_level,
-                     std::unique_ptr<Codec>* result) {
-  return Create(codec_type, compression_level).Value(result);
-}
-
-Status Codec::MakeCompressor(std::shared_ptr<Compressor>* out) {
-  return MakeCompressor().Value(out);
-}
-
-Status Codec::MakeDecompressor(std::shared_ptr<Decompressor>* out) {
-  return MakeDecompressor().Value(out);
-}
-
-Status Codec::Compress(int64_t input_len, const uint8_t* input, int64_t output_buffer_len,
-                       uint8_t* output_buffer, int64_t* output_len) {
-  return Compress(input_len, input, output_buffer_len, output_buffer).Value(output_len);
-}
-
-Status Codec::Decompress(int64_t input_len, const uint8_t* input,
-                         int64_t output_buffer_len, uint8_t* output_buffer,
-                         int64_t* output_len) {
-  return Decompress(input_len, input, output_buffer_len, output_buffer).Value(output_len);
-}
-
 }  // namespace util
 }  // namespace arrow

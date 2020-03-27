@@ -48,8 +48,6 @@ FileInterface::~FileInterface() = default;
 
 Status FileInterface::Abort() { return Close(); }
 
-Status FileInterface::Tell(int64_t* position) const { return Tell().Value(position); }
-
 class InputStreamBlockIterator {
  public:
   InputStreamBlockIterator(std::shared_ptr<InputStream> stream, int64_t block_size)
@@ -83,10 +81,6 @@ Result<util::string_view> InputStream::Peek(int64_t ARROW_ARG_UNUSED(nbytes)) {
   return Status::NotImplemented("Peek not implemented");
 }
 
-Status InputStream::Peek(int64_t nbytes, util::string_view* out) {
-  return Peek(nbytes).Value(out);
-}
-
 bool InputStream::supports_zero_copy() const { return false; }
 
 Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
@@ -96,14 +90,6 @@ Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
   }
   DCHECK_GT(block_size, 0);
   return Iterator<std::shared_ptr<Buffer>>(InputStreamBlockIterator(stream, block_size));
-}
-
-Status Readable::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
-  return Read(nbytes, out).Value(bytes_read);
-}
-
-Status Readable::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  return Read(nbytes).Value(out);
 }
 
 struct RandomAccessFile::RandomAccessFileImpl {
@@ -127,18 +113,6 @@ Result<std::shared_ptr<Buffer>> RandomAccessFile::ReadAt(int64_t position,
   RETURN_NOT_OK(Seek(position));
   return Read(nbytes);
 }
-
-Status RandomAccessFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                                void* out) {
-  return ReadAt(position, nbytes, out).Value(bytes_read);
-}
-
-Status RandomAccessFile::ReadAt(int64_t position, int64_t nbytes,
-                                std::shared_ptr<Buffer>* out) {
-  return ReadAt(position, nbytes).Value(out);
-}
-
-Status RandomAccessFile::GetSize(int64_t* size) { return GetSize().Value(size); }
 
 // Default ReadAsync() implementation: simply issue the read on one of the IO threads
 Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(int64_t position,

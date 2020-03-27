@@ -526,21 +526,6 @@ std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
   return result;
 }
 
-// Deprecated methods
-
-std::shared_ptr<Field> Field::AddMetadata(
-    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
-  return WithMetadata(metadata);
-}
-
-std::shared_ptr<Field> StructType::GetChildByName(const std::string& name) const {
-  return GetFieldByName(name);
-}
-
-int StructType::GetChildIndex(const std::string& name) const {
-  return GetFieldIndex(name);
-}
-
 // ----------------------------------------------------------------------
 // Decimal128 type
 
@@ -1177,12 +1162,6 @@ bool Schema::HasDistinctFieldNames() const {
 std::shared_ptr<Schema> Schema::WithMetadata(
     const std::shared_ptr<const KeyValueMetadata>& metadata) const {
   return std::make_shared<Schema>(impl_->fields_, metadata);
-}
-
-// deprecated method
-std::shared_ptr<Schema> Schema::AddMetadata(
-    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
-  return WithMetadata(metadata);
 }
 
 std::shared_ptr<const KeyValueMetadata> Schema::metadata() const {

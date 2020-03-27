@@ -366,10 +366,6 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   std::shared_ptr<Field> WithMergedMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
 
-  ARROW_DEPRECATED("Use WithMetadata")
-  std::shared_ptr<Field> AddMetadata(
-      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
-
   /// \brief Return a copy of this field without any metadata attached to it
   std::shared_ptr<Field> RemoveMetadata() const;
 
@@ -941,12 +937,6 @@ class ARROW_EXPORT StructType : public NestedType {
 
   /// Return the indices of all fields having this name
   std::vector<int> GetAllFieldIndices(const std::string& name) const;
-
-  ARROW_DEPRECATED("Use GetFieldByName")
-  std::shared_ptr<Field> GetChildByName(const std::string& name) const;
-
-  ARROW_DEPRECATED("Use GetFieldIndex")
-  int GetChildIndex(const std::string& name) const;
 
  private:
   std::string ComputeFingerprint() const override;
@@ -1690,10 +1680,6 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// \param[in] metadata new KeyValueMetadata
   /// \return new Schema
   std::shared_ptr<Schema> WithMetadata(
-      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
-
-  ARROW_DEPRECATED("Use WithMetadata")
-  std::shared_ptr<Schema> AddMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
 
   /// \brief Return copy of Schema without the KeyValueMetadata

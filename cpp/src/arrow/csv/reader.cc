@@ -504,19 +504,5 @@ Result<std::shared_ptr<TableReader>> TableReader::Make(
   return reader;
 }
 
-/////////////////////////////////////////////////////////////////////////
-// Deprecated API(s)
-
-Status TableReader::Make(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
-                         const ReadOptions& read_options,
-                         const ParseOptions& parse_options,
-                         const ConvertOptions& convert_options,
-                         std::shared_ptr<TableReader>* out) {
-  return Make(pool, std::move(input), read_options, parse_options, convert_options)
-      .Value(out);
-}
-
-Status TableReader::Read(std::shared_ptr<Table>* out) { return Read().Value(out); }
-
 }  // namespace csv
 }  // namespace arrow
