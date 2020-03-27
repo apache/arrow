@@ -92,7 +92,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 let plan = if group_by.is_some() || aggr_expr.len() > 0 {
                     self.aggregate(&plan, projection_expr, group_by, aggr_expr)?
                 } else {
-                    self.project(&plan, &projection_expr)?
+                    self.project(&plan, projection_expr)?
                 };
 
                 // apply ORDER BY
@@ -140,7 +140,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
     }
 
     /// Wrap a plan in a projection
-    fn project(&self, input: &LogicalPlan, expr: &Vec<Expr>) -> Result<LogicalPlan> {
+    fn project(&self, input: &LogicalPlan, expr: Vec<Expr>) -> Result<LogicalPlan> {
         LogicalPlanBuilder::from(input).project(expr)?.build()
     }
 
@@ -200,7 +200,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
         if projection_needed {
             self.project(
                 &plan,
-                &projected_fields.iter().map(|i| Expr::Column(*i)).collect(),
+                projected_fields.iter().map(|i| Expr::Column(*i)).collect(),
             )
         } else {
             Ok(plan)
