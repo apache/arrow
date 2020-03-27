@@ -235,31 +235,31 @@ a built-in :class:`ExtensionArray` object. Nevertheless, one could want to subcl
 type. Arrow allows to do so by adding a special method ``__arrow_ext_class__`` to the
 definition of the extension type.
 
-For instance, if we consider the case of a 3-dimensional vector, stored as a fixed-size
-list, where we wish to be able to extract the data as a Numpy matrix ``(N, 3)`` without
-any copy::
+For instance, let us consider the example from the `Numpy Quickstart <https://docs.scipy.org/doc/numpy-1.13.0/user/quickstart.html>`_ of points in 3D space.
+We can store these as a fixed-size list, where we wish to be able to extract
+the data as a 2-D Numpy array ``(N, 3)`` without any copy::
 
-    class Vector3dArray(pa.ExtensionArray):
-        def to_numpy_matrix(self):
+    class Point3DArray(pa.ExtensionArray):
+        def to_numpy_array(self):
             return arr.storage.flatten().to_numpy().reshape((-1, 3))
 
 
-    class Vector3dType(pa.PyExtensionType):
+    class Point3DType(pa.PyExtensionType):
         def __init__(self):
             pa.PyExtensionType.__init__(self, pa.list_(pa.float32(), 3))
 
         def __reduce__(self):
-            return Vector3dType, ()
+            return Point3DType, ()
 
         def __arrow_ext_class__(self):
-            return Vector3dArray
+            return Point3DArray
 
 Arrays built using this extension type now have the expected custom array class::
 
     >>> storage = pa.array([[1, 2, 3], [4, 5, 6]], pa.list_(pa.float32(), 3))
-    >>> arr = pa.ExtensionArray.from_storage(Vector3dType(), storage)
+    >>> arr = pa.ExtensionArray.from_storage(Point3DType(), storage)
     >>> arr
-    <__main__.Vector3dArray object at 0x7f40dea80670>
+    <__main__.Point3DArray object at 0x7f40dea80670>
     [
         [
             1,
@@ -275,7 +275,7 @@ Arrays built using this extension type now have the expected custom array class:
 
 The additional methods in the extension class are then available to the user::
 
-    >>> arr.to_numpy_matrix()
+    >>> arr.to_numpy_array()
     array([[1., 2., 3.],
        [4., 5., 6.]], dtype=float32)
 
