@@ -30,8 +30,8 @@ uncompressed; "lz4" and "zstd" are valid options, but only if your version
 of the Arrow C++ library was built with support for them.
 See \code{\link[=codec_is_available]{codec_is_available()}}. This option is not supported for V1.}
 
-\item{compression_level}{If \code{compression} is "lz4" or "zstd", you may
-specify an integer compression level. If omitted, the selected compression's
+\item{compression_level}{If \code{compression} is "zstd", you may
+specify an integer compression level. If omitted, the compression codec's
 default compression level is used.}
 }
 \value{

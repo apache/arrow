@@ -28,8 +28,8 @@
 #' uncompressed; "lz4" and "zstd" are valid options, but only if your version
 #' of the Arrow C++ library was built with support for them.
 #' See [codec_is_available()]. This option is not supported for V1.
-#' @param compression_level If `compression` is "lz4" or "zstd", you may
-#' specify an integer compression level. If omitted, the selected compression's
+#' @param compression_level If `compression` is "zstd", you may
+#' specify an integer compression level. If omitted, the compression codec's
 #' default compression level is used.
 #'
 #' @return The input `x`, invisibly.
@@ -50,7 +50,7 @@ write_feather <- function(x,
   # Handle and validate options before touching data
   version <- as.integer(version)
   assert_that(version %in% 1:2)
-  compression <- compression_from_name(match.arg(compression))
+  compression <- match.arg(compression)
   chunk_size <- as.integer(chunk_size)
   assert_that(chunk_size > 0)
   if (is.null(compression_level)) {
@@ -63,18 +63,19 @@ write_feather <- function(x,
     if (chunk_size != 65536L) {
       stop("Feather version 1 does not support the 'chunk_size' option", call. = FALSE)
     }
-    if (compression > 0) {
+    if (compression != "uncompressed") {
       stop("Feather version 1 does not support the 'compression' option", call. = FALSE)
     }
     if (compression_level != -1L) {
       stop("Feather version 1 does not support the 'compression_level' option", call. = FALSE)
     }
   }
-  if (compression == 0 && compression_level != -1L) {
-    stop("Cannot specify a 'compression_level' when 'compression' is 'uncompressed'", call. = FALSE)
+  if (compression != "zstd" && compression_level != -1L) {
+    stop("Can only specify a 'compression_level' when 'compression' is 'zstd'", call. = FALSE)
   }
   # Finally, add 1 to version because 2 means V1 and 3 means V2 :shrug:
   version <- version + 1L
+  compression <- compression_from_name(compression)
 
   x_out <- x
   if (is.data.frame(x)) {

@@ -71,7 +71,6 @@ test_that("feather read/write round trip", {
   expect_feather_roundtrip(function(x, f) write_feather(x, f, chunk_size = 32))
   if (codec_is_available("lz4")) {
     expect_feather_roundtrip(function(x, f) write_feather(x, f, compression = "lz4"))
-    expect_feather_roundtrip(function(x, f) write_feather(x, f, compression = "lz4", compression_level = 3))
   }
   if (codec_is_available("zstd")) {
     expect_feather_roundtrip(function(x, f) write_feather(x, f, compression = "zstd"))
@@ -96,7 +95,7 @@ test_that("write_feather option error handling", {
   )
   expect_error(
     write_feather(tib, tf, compression_level = 1024),
-    "Cannot specify a 'compression_level' when 'compression' is 'uncompressed'"
+    "Can only specify a 'compression_level' when 'compression' is 'zstd'"
   )
   expect_match_arg_error(write_feather(tib, tf, compression = "bz2"))
   expect_false(file.exists(tf))
