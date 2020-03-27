@@ -48,7 +48,6 @@ use crate::schema::types::{
     self, ColumnDescPtr, SchemaDescPtr, SchemaDescriptor, Type as SchemaType,
 };
 use crate::util::{io::FileSource, memory::ByteBufferPtr};
-use std::collections::HashMap;
 
 // ----------------------------------------------------------------------
 // APIs for file & row group readers
@@ -221,9 +220,6 @@ impl<R: ParquetReader> SerializedFileReader<R> {
         let column_orders =
             Self::parse_column_orders(t_file_metadata.column_orders, &schema_descr);
 
-        let key_value_metadata =
-            Self::parse_key_value_metadata(t_file_metadata.key_value_metadata);
-
         let file_metadata = FileMetaData::new(
             t_file_metadata.version,
             t_file_metadata.num_rows,
@@ -232,7 +228,6 @@ impl<R: ParquetReader> SerializedFileReader<R> {
             schema,
             schema_descr,
             column_orders,
-            key_value_metadata,
         );
         Ok(ParquetMetaData::new(file_metadata, row_groups))
     }
@@ -264,29 +259,6 @@ impl<R: ParquetReader> SerializedFileReader<R> {
                     }
                 }
                 Some(res)
-            }
-            None => None,
-        }
-    }
-
-    fn parse_key_value_metadata(
-        key_value_metadata: Option<Vec<KeyValue>>,
-    ) -> Option<HashMap<String, String>> {
-        match key_value_metadata {
-            Some(key_values) => {
-                let map: HashMap<String, String> = key_values
-                    .into_iter()
-                    .filter_map(|kv| {
-                        let key = kv.key;
-                        kv.value.map(|value| (key, value))
-                    })
-                    .collect();
-
-                if map.is_empty() {
-                    None
-                } else {
-                    Some(map)
-                }
             }
             None => None,
         }
@@ -1133,17 +1105,24 @@ mod tests {
         let file = get_test_file("binary.parquet");
         let file_reader = Rc::new(SerializedFileReader::new(file).unwrap());
 
-        let metadata = file_reader.metadata.file_metadata().metadata().unwrap();
+        let metadata = file_reader
+            .metadata
+            .file_metadata()
+            .key_value_metadata()
+            .as_ref()
+            .unwrap();
 
-        assert!(metadata.contains_key("parquet.proto.descriptor"));
+        assert_eq!(metadata.len(), 3);
 
+        assert_eq!(metadata.get(0).unwrap().key, "parquet.proto.descriptor");
+
+        assert_eq!(metadata.get(1).unwrap().key, "writer.model.name");
+        assert_eq!(metadata.get(1).unwrap().value, Some("protobuf".to_owned()));
+
+        assert_eq!(metadata.get(2).unwrap().key, "parquet.proto.class");
         assert_eq!(
-            metadata.get("parquet.proto.class"),
-            Some("foo.baz.Foobaz$Event".to_owned()).as_ref()
-        );
-        assert_eq!(
-            metadata.get("writer.model.name"),
-            Some("protobuf".to_owned()).as_ref()
+            metadata.get(2).unwrap().value,
+            Some("foo.baz.Foobaz$Event".to_owned())
         );
     }
 }
