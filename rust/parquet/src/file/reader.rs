@@ -27,9 +27,7 @@ use std::{
 };
 
 use byteorder::{ByteOrder, LittleEndian};
-use parquet_format::{
-    ColumnOrder as TColumnOrder, FileMetaData as TFileMetaData, PageHeader, PageType,
-};
+use parquet_format::{ColumnOrder as TColumnOrder, FileMetaData as TFileMetaData, PageHeader, PageType, KeyValue};
 use thrift::protocol::TCompactInputProtocol;
 
 use crate::basic::{ColumnOrder, Compression, Encoding, Type};
@@ -47,6 +45,7 @@ use crate::schema::types::{
     self, ColumnDescPtr, SchemaDescPtr, SchemaDescriptor, Type as SchemaType,
 };
 use crate::util::{io::FileSource, memory::ByteBufferPtr};
+use std::collections::HashMap;
 
 // ----------------------------------------------------------------------
 // APIs for file & row group readers
@@ -219,6 +218,8 @@ impl<R: ParquetReader> SerializedFileReader<R> {
         let column_orders =
             Self::parse_column_orders(t_file_metadata.column_orders, &schema_descr);
 
+        let key_value_metadata = Self::parse_key_value_metadata(t_file_metadata.key_value_metadata);
+
         let file_metadata = FileMetaData::new(
             t_file_metadata.version,
             t_file_metadata.num_rows,
@@ -226,6 +227,7 @@ impl<R: ParquetReader> SerializedFileReader<R> {
             schema,
             schema_descr,
             column_orders,
+            key_value_metadata,
         );
         Ok(ParquetMetaData::new(file_metadata, row_groups))
     }
@@ -259,6 +261,24 @@ impl<R: ParquetReader> SerializedFileReader<R> {
                 Some(res)
             }
             None => None,
+        }
+    }
+
+    fn parse_key_value_metadata(key_value_metadata: Option<Vec<KeyValue>>) -> Option<HashMap<String, String>> {
+        match key_value_metadata {
+            Some (key_values) => {
+                let map : HashMap<String, String> = key_values.into_iter()
+                    .filter(|kv| kv.value.is_some()) // skip keys without corresponding value
+                    .map(|kv| (kv.key, kv.value.unwrap()))
+                    .collect();
+
+                if map.is_empty() {
+                    None
+                } else {
+                    Some(map)
+                }
+            }
+            None => None
         }
     }
 }
@@ -1089,5 +1109,18 @@ mod tests {
         // reach end of file
         let page = page_iterator.next();
         assert!(page.is_none());
+    }
+
+    #[test]
+    fn test_file_reader_key_value_metadata() {
+        let file = get_test_file("binary.parquet");
+        let file_reader = Rc::new(SerializedFileReader::new(file).unwrap());
+
+        let metadata = file_reader.metadata.file_metadata().metadata().unwrap();
+
+        assert!(metadata.contains_key("parquet.proto.descriptor"));
+
+        assert_eq!(metadata.get("parquet.proto.class"), Some("foo.baz.Foobaz$Event".to_owned()).as_ref());
+        assert_eq!(metadata.get("writer.model.name"), Some("protobuf".to_owned()).as_ref());
     }
 }

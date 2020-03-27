@@ -44,6 +44,7 @@ use crate::schema::types::{
     ColumnDescPtr, ColumnDescriptor, ColumnPath, SchemaDescPtr, SchemaDescriptor,
     Type as SchemaType, TypePtr,
 };
+use std::collections::HashMap;
 
 /// Global Parquet metadata.
 pub struct ParquetMetaData {
@@ -94,6 +95,7 @@ pub struct FileMetaData {
     schema: TypePtr,
     schema_descr: SchemaDescPtr,
     column_orders: Option<Vec<ColumnOrder>>,
+    metadata: Option<HashMap<String, String>>,
 }
 
 impl FileMetaData {
@@ -105,6 +107,7 @@ impl FileMetaData {
         schema: TypePtr,
         schema_descr: SchemaDescPtr,
         column_orders: Option<Vec<ColumnOrder>>,
+        metadata: Option<HashMap<String, String>>,
     ) -> Self {
         FileMetaData {
             version,
@@ -113,6 +116,7 @@ impl FileMetaData {
             schema,
             schema_descr,
             column_orders,
+            metadata,
         }
     }
 
@@ -171,6 +175,10 @@ impl FileMetaData {
             .as_ref()
             .map(|data| data[i])
             .unwrap_or(ColumnOrder::UNDEFINED)
+    }
+
+    pub fn metadata(&self) -> Option<&HashMap<String, String>> {
+        self.metadata.as_ref()
     }
 }
 
