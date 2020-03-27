@@ -233,6 +233,10 @@ LocalFileSystemOptions LocalFileSystemOptions::Defaults() {
   return LocalFileSystemOptions();
 }
 
+bool LocalFileSystemOptions::Equals(const LocalFileSystemOptions& other) const {
+  return use_mmap == other.use_mmap;
+}
+
 LocalFileSystem::LocalFileSystem() : options_(LocalFileSystemOptions::Defaults()) {}
 
 LocalFileSystem::LocalFileSystem(const LocalFileSystemOptions& options)
@@ -245,13 +249,21 @@ Result<std::string> LocalFileSystem::NormalizePath(std::string path) {
   return fn.ToString();
 }
 
-Result<FileInfo> LocalFileSystem::GetTargetInfo(const std::string& path) {
+bool LocalFileSystem::Equals(const FileSystem& other) const {
+  if (other.type_name() != type_name()) {
+    return false;
+  } else {
+    const auto& localfs = ::arrow::internal::checked_cast<const LocalFileSystem&>(other);
+    return options_.Equals(localfs.options());
+  }
+}
+
+Result<FileInfo> LocalFileSystem::GetFileInfo(const std::string& path) {
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
   return StatFile(fn.ToNative());
 }
 
-Result<std::vector<FileInfo>> LocalFileSystem::GetTargetInfos(
-    const FileSelector& select) {
+Result<std::vector<FileInfo>> LocalFileSystem::GetFileInfo(const FileSelector& select) {
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(select.base_dir));
   std::vector<FileInfo> results;
   RETURN_NOT_OK(StatSelector(fn, select, 0, &results));

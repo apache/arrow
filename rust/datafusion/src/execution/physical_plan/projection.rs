@@ -150,10 +150,14 @@ mod tests {
         let partitions = 4;
         let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
 
-        let csv = CsvExec::try_new(&path, schema, true, None, 1024)?;
+        let csv = CsvExec::try_new(&path, schema.clone(), true, None, 1024)?;
 
-        let projection =
-            ProjectionExec::try_new(vec![Arc::new(Column::new(0))], Arc::new(csv))?;
+        let projection = ProjectionExec::try_new(
+            vec![Arc::new(Column::new(0, &schema.as_ref().field(0).name()))],
+            Arc::new(csv),
+        )?;
+
+        assert_eq!("c1", projection.schema.field(0).name().as_str());
 
         let mut partition_count = 0;
         let mut row_count = 0;

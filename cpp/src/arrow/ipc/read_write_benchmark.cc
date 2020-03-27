@@ -50,7 +50,7 @@ std::shared_ptr<RecordBatch> MakeRecordBatch(int64_t total_size, int64_t num_fie
 static void WriteRecordBatch(benchmark::State& state) {  // NOLINT non-const reference
   // 1MB
   constexpr int64_t kTotalSize = 1 << 20;
-  auto options = ipc::IpcOptions::Defaults();
+  auto options = ipc::IpcWriteOptions::Defaults();
 
   std::shared_ptr<ResizableBuffer> buffer;
   ABORT_NOT_OK(AllocateResizableBuffer(kTotalSize & 2, &buffer));
@@ -61,7 +61,7 @@ static void WriteRecordBatch(benchmark::State& state) {  // NOLINT non-const ref
     int32_t metadata_length;
     int64_t body_length;
     if (!ipc::WriteRecordBatch(*record_batch, 0, &stream, &metadata_length, &body_length,
-                               options, default_memory_pool())
+                               options)
              .ok()) {
       state.SkipWithError("Failed to write!");
     }
@@ -72,7 +72,7 @@ static void WriteRecordBatch(benchmark::State& state) {  // NOLINT non-const ref
 static void ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const reference
   // 1MB
   constexpr int64_t kTotalSize = 1 << 20;
-  auto options = ipc::IpcOptions::Defaults();
+  auto options = ipc::IpcWriteOptions::Defaults();
 
   std::shared_ptr<ResizableBuffer> buffer;
   ABORT_NOT_OK(AllocateResizableBuffer(kTotalSize & 2, &buffer));
@@ -83,17 +83,16 @@ static void ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const refe
   int32_t metadata_length;
   int64_t body_length;
   if (!ipc::WriteRecordBatch(*record_batch, 0, &stream, &metadata_length, &body_length,
-                             options, default_memory_pool())
+                             options)
            .ok()) {
     state.SkipWithError("Failed to write!");
   }
 
   ipc::DictionaryMemo empty_memo;
   while (state.KeepRunning()) {
-    std::shared_ptr<RecordBatch> result;
     io::BufferReader reader(buffer);
-
-    if (!ipc::ReadRecordBatch(record_batch->schema(), &empty_memo, &reader, &result)
+    if (!ipc::ReadRecordBatch(record_batch->schema(), &empty_memo,
+                              ipc::IpcReadOptions::Defaults(), &reader)
              .ok()) {
       state.SkipWithError("Failed to read!");
     }

@@ -34,6 +34,8 @@ struct ARROW_EXPORT LocalFileSystemOptions {
 
   /// \brief Initialize with defaults
   static LocalFileSystemOptions Defaults();
+
+  bool Equals(const LocalFileSystemOptions& other) const;
 };
 
 /// \brief A FileSystem implementation accessing files on the local machine.
@@ -52,12 +54,15 @@ class ARROW_EXPORT LocalFileSystem : public FileSystem {
 
   Result<std::string> NormalizePath(std::string path) override;
 
+  bool Equals(const FileSystem& other) const override;
+
+  LocalFileSystemOptions options() const { return options_; }
+
   /// \cond FALSE
-  using FileSystem::GetTargetInfo;
-  using FileSystem::GetTargetInfos;
+  using FileSystem::GetFileInfo;
   /// \endcond
-  Result<FileInfo> GetTargetInfo(const std::string& path) override;
-  Result<std::vector<FileInfo>> GetTargetInfos(const FileSelector& select) override;
+  Result<FileInfo> GetFileInfo(const std::string& path) override;
+  Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 

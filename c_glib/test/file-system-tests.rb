@@ -20,7 +20,7 @@ module FileSystemTests
     selector = Arrow::FileSelector.new
     selector.base_dir = ""
     selector.recursive = true
-    infos = @fs.get_target_infos_selector(selector)
+    infos = @fs.get_file_infos_selector(selector)
     infos.map {|info| [info.path, info.type.nick.to_sym]}.to_h
   end
 
@@ -36,21 +36,21 @@ module FileSystemTests
 
   private def read_file(path)
     stream = @fs.open_input_stream(path)
-    size = @fs.get_target_info(path).size
+    size = @fs.get_file_info(path).size
     bytes = stream.read_bytes(size)
     stream.close
     bytes.to_s
   end
 
   private def file?(path)
-    info = @fs.get_target_info(path)
+    info = @fs.get_file_info(path)
     info.file?
   rescue Arrow::Error::Io
     false
   end
 
   private def directory?(path)
-    info = @fs.get_target_info(path)
+    info = @fs.get_file_info(path)
     info.dir?
   rescue Arrow::Error::Io
     false
@@ -240,11 +240,11 @@ module FileSystemTests
                  read_file("def"))
   end
 
-  def test_get_target_info
+  def test_get_file_info
     mkpath("AB/CD")
     create_file("AB/CD/ghi", "some data")
 
-    info = @fs.get_target_info("AB")
+    info = @fs.get_file_info("AB")
     assert_equal(Arrow::FileType::DIR,
                  info.type)
     assert_equal("AB",
@@ -255,7 +255,7 @@ module FileSystemTests
       info.mtime > 0
     end
 
-    info = @fs.get_target_info("AB/CD/ghi")
+    info = @fs.get_file_info("AB/CD/ghi")
     assert_equal(Arrow::FileType::FILE,
                  info.type)
     assert_equal("ghi",
@@ -267,11 +267,11 @@ module FileSystemTests
     end
   end
 
-  def test_get_target_infos_paths
+  def test_get_file_infos_paths
     mkpath("AB/CD")
     create_file("AB/CD/ghi", "some data")
 
-    infos = @fs.get_target_infos_paths(["AB", "AB/CD/ghi"])
+    infos = @fs.get_file_infos_paths(["AB", "AB/CD/ghi"])
     assert_equal({
                    "AB" => -1,
                    "AB/CD/ghi" => 9
@@ -279,14 +279,14 @@ module FileSystemTests
                  infos.map {|info| [info.path, info.size]}.to_h)
   end
 
-  def test_get_target_infos_selector
+  def test_get_file_infos_selector
     mkpath("AB/CD")
     create_file("abc", "data")
     create_file("AB/def", "some data")
     create_file("AB/CD/ghi", "some other data")
 
     selector = Arrow::FileSelector.new
-    infos = @fs.get_target_infos_selector(selector)
+    infos = @fs.get_file_infos_selector(selector)
     assert_equal({
                    "AB" => -1,
                    "abc" => 4
@@ -294,7 +294,7 @@ module FileSystemTests
                  infos.map {|info| [info.path, info.size]}.to_h)
 
     selector.base_dir = "AB"
-    infos = @fs.get_target_infos_selector(selector)
+    infos = @fs.get_file_infos_selector(selector)
     assert_equal({
                    "AB/CD" => -1,
                    "AB/def" => 9
@@ -302,7 +302,7 @@ module FileSystemTests
                  infos.map {|info| [info.path, info.size]}.to_h)
   end
 
-  def test_get_target_infos_selector_with_recursion
+  def test_get_file_infos_selector_with_recursion
     mkpath("AB/CD")
     create_file("abc", "data")
     create_file("AB/def", "some data")
@@ -310,7 +310,7 @@ module FileSystemTests
 
     selector = Arrow::FileSelector.new
     selector.recursive = true
-    infos = @fs.get_target_infos_selector(selector)
+    infos = @fs.get_file_infos_selector(selector)
     assert_equal({
                    "AB" => -1,
                    "AB/CD" => -1,

@@ -18,17 +18,17 @@
 #include "arrow/ipc/message.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <utility>
 
-#include <flatbuffers/flatbuffers.h>
-
 #include "arrow/buffer.h"
+#include "arrow/device.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/metadata_internal.h"
+#include "arrow/ipc/options.h"
 #include "arrow/ipc/util.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
@@ -37,6 +37,10 @@
 #include "generated/Message_generated.h"
 
 namespace arrow {
+
+class KeyValueMetadata;
+class MemoryPool;
+
 namespace ipc {
 
 class Message::MessageImpl {
@@ -52,6 +56,12 @@ class Message::MessageImpl {
     // Check that the metadata version is supported
     if (message_->version() < internal::kMinMetadataVersion) {
       return Status::Invalid("Old metadata version not supported");
+    }
+
+    if (message_->custom_metadata() != nullptr) {
+      // Deserialize from Flatbuffers if first time called
+      RETURN_NOT_OK(
+          internal::GetKeyValueMetadata(message_->custom_metadata(), &custom_metadata_));
     }
 
     return Status::OK();
@@ -86,10 +96,17 @@ class Message::MessageImpl {
 
   std::shared_ptr<Buffer> metadata() const { return metadata_; }
 
+  const std::shared_ptr<const KeyValueMetadata>& custom_metadata() const {
+    return custom_metadata_;
+  }
+
  private:
   // The Flatbuffer metadata
   std::shared_ptr<Buffer> metadata_;
   const flatbuf::Message* message_;
+
+  // The recontructed custom_metadata field from the Message Flatbuffer
+  std::shared_ptr<const KeyValueMetadata> custom_metadata_;
 
   // The message body, if any
   std::shared_ptr<Buffer> body_;
@@ -119,6 +136,10 @@ Message::Type Message::type() const { return impl_->type(); }
 MetadataVersion Message::metadata_version() const { return impl_->version(); }
 
 const void* Message::header() const { return impl_->header(); }
+
+const std::shared_ptr<const KeyValueMetadata>& Message::custom_metadata() const {
+  return impl_->custom_metadata();
+}
 
 bool Message::Equals(const Message& other) const {
   int64_t metadata_bytes = std::min(metadata()->size(), other.metadata()->size());
@@ -200,7 +221,7 @@ Status WritePadding(io::OutputStream* stream, int64_t nbytes) {
   return Status::OK();
 }
 
-Status Message::SerializeTo(io::OutputStream* stream, const IpcOptions& options,
+Status Message::SerializeTo(io::OutputStream* stream, const IpcWriteOptions& options,
                             int64_t* output_length) const {
   int32_t metadata_length = 0;
   RETURN_NOT_OK(WriteMessage(*metadata(), options, stream, &metadata_length));
@@ -368,7 +389,7 @@ Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* file, MemoryPool* 
   return DoReadMessage(file, pool);
 }
 
-Status WriteMessage(const Buffer& message, const IpcOptions& options,
+Status WriteMessage(const Buffer& message, const IpcWriteOptions& options,
                     io::OutputStream* file, int32_t* message_length) {
   const int32_t prefix_size = options.write_legacy_ipc_format ? 4 : 8;
   const int32_t flatbuffer_size = static_cast<int32_t>(message.size());

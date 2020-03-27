@@ -160,7 +160,7 @@ def _ensure_fs(filesystem, path):
         # first check if the file exists as a local (relative) file path
         filesystem = LocalFileSystem()
         try:
-            infos = filesystem.get_target_infos([path])[0]
+            infos = filesystem.get_file_info([path])[0]
         except OSError:
             return FileSystem.from_uri(path)
 
@@ -178,7 +178,7 @@ def _ensure_fs_and_paths(path, filesystem=None):
     from pyarrow.fs import FileType, FileSelector
 
     filesystem, path = _ensure_fs(filesystem, _stringify_path(path))
-    infos = filesystem.get_target_infos([path])[0]
+    infos = filesystem.get_file_info([path])[0]
     if infos.type == FileType.Directory:
         # for directory, pass a selector
         paths_or_selector = FileSelector(path, recursive=True)

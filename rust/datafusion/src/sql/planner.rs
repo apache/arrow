@@ -26,6 +26,7 @@ use crate::logicalplan::{
 
 use arrow::datatypes::*;
 
+use crate::logicalplan::Expr::Alias;
 use sqlparser::sqlast::*;
 
 /// The SchemaProvider trait allows the query planner to obtain meta-data about tables and
@@ -271,6 +272,11 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 Ok(Expr::Literal(ScalarValue::Utf8(s.clone())))
             }
 
+            ASTNode::SQLAliasedExpr(ref expr, ref alias) => Ok(Alias(
+                Arc::new(self.sql_to_rex(&expr, schema)?),
+                alias.to_owned(),
+            )),
+
             ASTNode::SQLIdentifier(ref id) => {
                 match schema.fields().iter().position(|c| c.name().eq(id)) {
                     Some(index) => Ok(Expr::Column(index)),
@@ -282,9 +288,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 }
             }
 
-            ASTNode::SQLWildcard => {
-                Err(ExecutionError::NotImplemented("SQL wildcard operator is not supported in projection - please use explicit column names".to_string()))
-            }
+            ASTNode::SQLWildcard => Ok(Expr::Wildcard),
 
             ASTNode::SQLCast {
                 ref expr,
@@ -302,17 +306,17 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 Ok(Expr::IsNotNull(Arc::new(self.sql_to_rex(expr, schema)?)))
             }
 
-            ASTNode::SQLUnary{
+            ASTNode::SQLUnary {
                 ref operator,
                 ref expr,
-            } => {
-                match *operator {
-                    SQLOperator::Not => Ok(Expr::Not(Arc::new(self.sql_to_rex(expr, schema)?))),
-                    _ => Err(ExecutionError::InternalError(format!(
-                        "SQL binary operator cannot be interpreted as a unary operator"
-                    ))),
+            } => match *operator {
+                SQLOperator::Not => {
+                    Ok(Expr::Not(Arc::new(self.sql_to_rex(expr, schema)?)))
                 }
-            }
+                _ => Err(ExecutionError::InternalError(format!(
+                    "SQL binary operator cannot be interpreted as a unary operator"
+                ))),
+            },
 
             ASTNode::SQLBinaryExpr {
                 ref left,
@@ -365,7 +369,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
 
                         // return type is same as the argument type for these aggregate
                         // functions
-                        let return_type = rex_args[0].get_type(schema).clone();
+                        let return_type = rex_args[0].get_type(schema)?.clone();
 
                         Ok(Expr::AggregateFunction {
                             name: id.clone(),
@@ -382,7 +386,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
                                 }
                                 ASTNode::SQLWildcard => {
                                     Ok(Expr::Literal(ScalarValue::UInt8(1)))
-                                },
+                                }
                                 _ => self.sql_to_rex(a, schema),
                             })
                             .collect::<Result<Vec<Expr>>>()?;
@@ -571,6 +575,15 @@ mod tests {
     }
 
     #[test]
+    fn test_wildcard() {
+        quick_test(
+            "SELECT * from person",
+            "Projection: #0, #1, #2, #3, #4, #5, #6\
+            \n  TableScan: person projection=None",
+        );
+    }
+
+    #[test]
     fn select_count_one() {
         let sql = "SELECT COUNT(1) FROM person";
         let expected = "Aggregate: groupBy=[[]], aggr=[[COUNT(UInt8(1))]]\
@@ -590,6 +603,14 @@ mod tests {
     fn select_scalar_func() {
         let sql = "SELECT sqrt(age) FROM person";
         let expected = "Projection: sqrt(CAST(#3 AS Float64))\
+                        \n  TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_aliased_scalar_func() {
+        let sql = "SELECT sqrt(age) AS square_people FROM person";
+        let expected = "Projection: sqrt(CAST(#3 AS Float64)) AS square_people\
                         \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }

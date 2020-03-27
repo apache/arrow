@@ -907,6 +907,17 @@ def test_cast_chunked_array():
     assert casted.equals(expected)
 
 
+def test_cast_chunked_array_empty():
+    # ARROW-8142
+    for typ1, typ2 in [(pa.dictionary(pa.int8(), pa.string()), pa.string()),
+                       (pa.int64(), pa.int32())]:
+
+        arr = pa.chunked_array([], type=typ1)
+        result = arr.cast(typ2)
+        expected = pa.chunked_array([], type=typ2)
+        assert result.equals(expected)
+
+
 def test_chunked_array_data_warns():
     with pytest.warns(FutureWarning):
         res = pa.chunked_array([[]]).data
@@ -1139,6 +1150,7 @@ def test_dictionary_encode_sliced():
         assert result.equals(expected)
         result = pa.chunked_array([arr]).dictionary_encode()
         assert result.num_chunks == 1
+        assert result.type == expected.type
         assert result.chunk(0).equals(expected)
         result = pa.chunked_array([], type=arr.type).dictionary_encode()
         assert result.num_chunks == 0

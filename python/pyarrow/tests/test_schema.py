@@ -547,7 +547,9 @@ def test_type_schema_pickling():
 
 def test_empty_table():
     schema = pa.schema([
-        pa.field('oneField', pa.int64())
+        pa.field('f0', pa.int64()),
+        pa.field('f1', pa.dictionary(pa.int32(), pa.string())),
+        pa.field('f2', pa.list_(pa.list_(pa.int64()))),
     ])
     table = schema.empty_table()
     assert isinstance(table, pa.Table)

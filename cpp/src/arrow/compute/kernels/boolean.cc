@@ -75,7 +75,7 @@ Status Invert(FunctionContext* ctx, const Datum& value, Datum* out) {
   std::vector<Datum> result;
   RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, &kernel, value, &result));
 
-  *out = detail::WrapDatumsLike(value, result);
+  *out = detail::WrapDatumsLike(value, invert.out_type(), result);
   return Status::OK();
 }
 

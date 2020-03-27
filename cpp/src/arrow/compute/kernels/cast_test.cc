@@ -303,6 +303,15 @@ TEST_F(TestCast, SameTypeZeroCopy) {
   AssertBufferSame(*arr, *result, 1);
 }
 
+TEST_F(TestCast, ZeroChunks) {
+  auto chunked_i32 = std::make_shared<ChunkedArray>(ArrayVector{}, int32());
+  Datum result;
+  ASSERT_OK(Cast(&this->ctx_, chunked_i32, utf8(), {}, &result));
+
+  ASSERT_EQ(result.kind(), Datum::CHUNKED_ARRAY);
+  AssertChunkedEqual(*result.chunked_array(), ChunkedArray({}, utf8()));
+}
+
 TEST_F(TestCast, FromBoolean) {
   CastOptions options;
 

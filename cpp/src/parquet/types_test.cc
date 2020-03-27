@@ -142,6 +142,34 @@ TEST(TypePrinter, StatisticsTypes) {
                FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smax.c_str()).c_str());
 }
 
+TEST(TestInt96Timestamp, Decoding) {
+  auto check = [](int32_t julian_day, uint64_t nanoseconds) {
+    Int96 i96{static_cast<uint32_t>(nanoseconds),
+              static_cast<uint32_t>(nanoseconds >> 32),
+              static_cast<uint32_t>(julian_day)};
+    // Official formula according to https://github.com/apache/parquet-format/pull/49
+    int64_t expected =
+        (julian_day - 2440588) * (86400LL * 1000 * 1000 * 1000) + nanoseconds;
+    int64_t actual = Int96GetNanoSeconds(i96);
+    ASSERT_EQ(expected, actual);
+  };
+
+  // [2333837, 2547339] is the range of Julian days that can be converted to
+  // 64-bit Unix timestamps.
+  check(2333837, 0);
+  check(2333855, 0);
+  check(2547330, 0);
+  check(2547338, 0);
+  check(2547339, 0);
+
+  check(2547330, 13);
+  check(2547330, 32769);
+  check(2547330, 87654);
+  check(2547330, 0x123456789abcdefULL);
+  check(2547330, 0xfedcba9876543210ULL);
+  check(2547339, 0xffffffffffffffffULL);
+}
+
 #if !(defined(_WIN32) || defined(__CYGWIN__))
 #pragma GCC diagnostic pop
 #elif _MSC_VER

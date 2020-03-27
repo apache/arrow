@@ -33,6 +33,8 @@ use crate::ipc;
 use crate::record_batch::{RecordBatch, RecordBatchReader};
 use DataType::*;
 
+const CONTINUATION_MARKER: u32 = 0xffff_ffff;
+
 /// Read a buffer based on offset and length
 fn read_buffer(buf: &ipc::Buffer, a_data: &Vec<u8>) -> Buffer {
     let start_offset = buf.offset() as usize;
@@ -730,6 +732,12 @@ impl<R: Read> StreamReader<R> {
         let mut meta_buffer = vec![0; meta_len as usize];
         reader.read_exact(&mut meta_buffer)?;
 
+        // If a continuation marker is encountered, skip over it and read
+        // the size from the next four bytes.
+        if u32::from_le_bytes(meta_size) == CONTINUATION_MARKER {
+            reader.read_exact(&mut meta_size)?;
+        }
+
         let vecs = &meta_buffer.to_vec();
         let message = ipc::get_root_as_message(vecs);
         // message header is a Schema, so read it
@@ -762,7 +770,18 @@ impl<R: Read> StreamReader<R> {
         // determine metadata length
         let mut meta_size: [u8; 4] = [0; 4];
         self.reader.read_exact(&mut meta_size)?;
-        let meta_len = u32::from_le_bytes(meta_size);
+        let meta_len = {
+            let meta_len = u32::from_le_bytes(meta_size);
+
+            // If a continuation marker is encountered, skip over it and read
+            // the size from the next four bytes.
+            if meta_len == CONTINUATION_MARKER {
+                self.reader.read_exact(&mut meta_size)?;
+                u32::from_le_bytes(meta_size)
+            } else {
+                meta_len
+            }
+        };
 
         if meta_len == 0 {
             // the stream has ended, mark the reader as finished

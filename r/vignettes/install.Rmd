@@ -24,7 +24,7 @@ The intended audience for this document is `arrow` R package users on Linux, not
 If you're contributing to the Arrow project,
 you'll probably want to manage your C++ installation more directly.
 Note also that if you use `conda` to manage your R environment, this document does not apply.
-You can `conda install -c conda-forge r-arrow` and you'll get the latest official
+You can `conda install -c conda-forge --strict-channel-priority r-arrow` and you'll get the latest official
 release of the R package along with any C++ dependencies.
 
 # Installation basics

@@ -29,6 +29,8 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
 
+using testing::SizeIs;
+
 namespace arrow {
 namespace dataset {
 
@@ -42,13 +44,14 @@ void AssertSchemasAre(std::vector<std::shared_ptr<Schema>> actual,
 
 class DatasetFactoryTest : public TestFileSystemDataset {
  public:
-  void AssertInspect(const std::vector<std::shared_ptr<Field>>& expected_fields) {
-    ASSERT_OK_AND_ASSIGN(auto actual, factory_->Inspect());
-    EXPECT_EQ(*actual, Schema(expected_fields));
+  void AssertInspect(std::shared_ptr<Schema> expected, InspectOptions options = {}) {
+    ASSERT_OK_AND_ASSIGN(auto actual, factory_->Inspect(options));
+    EXPECT_EQ(*actual, *expected);
   }
 
-  void AssertInspectSchemas(std::vector<std::shared_ptr<Schema>> expected) {
-    ASSERT_OK_AND_ASSIGN(auto actual, factory_->InspectSchemas());
+  void AssertInspectSchemas(std::vector<std::shared_ptr<Schema>> expected,
+                            InspectOptions options = {}) {
+    ASSERT_OK_AND_ASSIGN(auto actual, factory_->InspectSchemas(options));
     AssertSchemasAre(actual, expected);
   }
 
@@ -61,13 +64,13 @@ class MockDatasetFactory : public DatasetFactory {
   explicit MockDatasetFactory(std::vector<std::shared_ptr<Schema>> schemas)
       : schemas_(std::move(schemas)) {}
 
-  Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas() override {
+  Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas(
+      InspectOptions options) override {
     return schemas_;
   }
 
-  Result<std::shared_ptr<Dataset>> Finish(
-      const std::shared_ptr<Schema>& schema) override {
-    return std::make_shared<InMemoryDataset>(schema,
+  Result<std::shared_ptr<Dataset>> Finish(FinishOptions options) override {
+    return std::make_shared<InMemoryDataset>(options.schema,
                                              std::vector<std::shared_ptr<RecordBatch>>{});
   }
 
@@ -107,22 +110,22 @@ class MockDatasetFactoryTest : public DatasetFactoryTest {
 
 TEST_F(MockDatasetFactoryTest, UnifySchemas) {
   MakeFactory({});
-  AssertInspect({});
+  AssertInspect(schema({}));
 
   MakeFactory({schema({i32}), schema({i32})});
-  AssertInspect({i32});
+  AssertInspect(schema({i32}));
 
   MakeFactory({schema({i32}), schema({i64})});
-  AssertInspect({i32, i64});
+  AssertInspect(schema({i32, i64}));
 
   MakeFactory({schema({i32}), schema({i64})});
-  AssertInspect({i32, i64});
+  AssertInspect(schema({i32, i64}));
 
   MakeFactory({schema({i32}), schema({i32_req})});
-  AssertInspect({i32});
+  AssertInspect(schema({i32}));
 
   MakeFactory({schema({i32, f64}), schema({i32_req, i64})});
-  AssertInspect({i32, f64, i64});
+  AssertInspect(schema({i32, f64, i64}));
 
   MakeFactory({schema({i32, f64}), schema({f64, i32_fake})});
   // Unification fails when fields with the same name have clashing types.
@@ -140,9 +143,10 @@ class FileSystemDatasetFactoryTest : public DatasetFactoryTest {
   }
 
   void AssertFinishWithPaths(std::vector<std::string> paths,
-                             std::shared_ptr<Schema> schema = nullptr) {
+                             std::shared_ptr<Schema> schema = nullptr,
+                             InspectOptions options = {}) {
     if (schema == nullptr) {
-      ASSERT_OK_AND_ASSIGN(schema, factory_->Inspect());
+      ASSERT_OK_AND_ASSIGN(schema, factory_->Inspect(options));
     }
     options_ = ScanOptions::Make(schema);
     ASSERT_OK_AND_ASSIGN(dataset_, factory_->Finish(schema));
@@ -172,46 +176,56 @@ TEST_F(FileSystemDatasetFactoryTest, Selector) {
   factory_options_.partition_base_dir = "A/A";
   MakeFactory({fs::File("0"), fs::File("A/a"), fs::File("A/A/a")});
   // partition_base_dir should not affect filtered files, only the applied partition
-  AssertInspect({});
+  AssertInspect(schema({}));
   AssertFinishWithPaths({"A/a", "A/A/a"});
 }
 
 TEST_F(FileSystemDatasetFactoryTest, ExplicitPartition) {
   selector_.base_dir = "a=ignored/base";
+  auto part_field = field("a", int32());
   factory_options_.partitioning =
-      std::make_shared<HivePartitioning>(schema({field("a", float64())}));
+      std::make_shared<HivePartitioning>(schema({part_field}));
 
-  MakeFactory(
-      {fs::File(selector_.base_dir + "/a=1"), fs::File(selector_.base_dir + "/a=2")});
+  auto a_1 = "a=ignored/base/a=1";
+  MakeFactory({fs::File(a_1)});
 
-  AssertInspect({field("a", float64())});
-  AssertFinishWithPaths({selector_.base_dir + "/a=1", selector_.base_dir + "/a=2"});
+  InspectOptions options;
+  // Should inspect the partition's Schema even if no files are inspected.
+  options.fragments = 0;
+  AssertInspect(schema({part_field}), options);
+  AssertFinishWithPaths({a_1}, nullptr, options);
 }
 
 TEST_F(FileSystemDatasetFactoryTest, DiscoveredPartition) {
   selector_.base_dir = "a=ignored/base";
   factory_options_.partitioning = HivePartitioning::MakeFactory();
-  MakeFactory(
-      {fs::File(selector_.base_dir + "/a=1"), fs::File(selector_.base_dir + "/a=2")});
 
-  AssertInspect({field("a", int32())});
-  AssertFinishWithPaths({selector_.base_dir + "/a=1", selector_.base_dir + "/a=2"});
+  auto a_1 = "a=ignored/base/a=1";
+  MakeFactory({fs::File(a_1)});
+
+  InspectOptions options;
+
+  auto schema_with = schema({field("a", int32())});
+  AssertInspect(schema_with, options);
+  AssertFinishWithPaths({a_1}, schema_with);
 }
 
 TEST_F(FileSystemDatasetFactoryTest, MissingDirectories) {
-  MakeFileSystem({fs::File("base_dir/a=3/b=3/dat"), fs::File("unpartitioned/ignored=3")});
+  auto partition_path = "base_dir/a=3/b=3/dat";
+  auto unpartition_path = "unpartitioned/ignored=3";
+  MakeFileSystem({fs::File(partition_path), fs::File(unpartition_path)});
 
   factory_options_.partition_base_dir = "base_dir";
   factory_options_.partitioning = std::make_shared<HivePartitioning>(
       schema({field("a", int32()), field("b", int32())}));
 
   ASSERT_OK_AND_ASSIGN(
-      factory_, FileSystemDatasetFactory::Make(
-                    fs_, {"base_dir/a=3/b=3/dat", "unpartitioned/ignored=3"}, format_,
-                    factory_options_));
+      factory_, FileSystemDatasetFactory::Make(fs_, {partition_path, unpartition_path},
+                                               format_, factory_options_));
 
-  AssertInspect({field("a", int32()), field("b", int32())});
-  AssertFinishWithPaths({"base_dir/a=3/b=3/dat", "unpartitioned/ignored=3"});
+  InspectOptions options;
+  AssertInspect(schema({field("a", int32()), field("b", int32())}), options);
+  AssertFinishWithPaths({partition_path, unpartition_path});
 }
 
 TEST_F(FileSystemDatasetFactoryTest, OptionsIgnoredDefaultPrefixes) {
@@ -245,10 +259,10 @@ TEST_F(FileSystemDatasetFactoryTest, Inspect) {
 
   // No files
   MakeFactory({});
-  AssertInspect({});
+  AssertInspect(schema({}));
 
   MakeFactory({fs::File("test")});
-  AssertInspect(s->fields());
+  AssertInspect(s);
 }
 
 TEST_F(FileSystemDatasetFactoryTest, FinishWithIncompatibleSchemaShouldFail) {
@@ -256,12 +270,36 @@ TEST_F(FileSystemDatasetFactoryTest, FinishWithIncompatibleSchemaShouldFail) {
   format_ = std::make_shared<DummyFileFormat>(s);
 
   auto broken_s = schema({field("f64", utf8())});
-  // No files
+
+  FinishOptions options;
+  options.schema = broken_s;
+  options.validate_fragments = true;
+
+  // No files and validation
   MakeFactory({});
-  ASSERT_OK_AND_ASSIGN(auto dataset, factory_->Finish(broken_s));
+  ASSERT_OK_AND_ASSIGN(auto dataset, factory_->Finish(options));
 
   MakeFactory({fs::File("test")});
-  ASSERT_RAISES(Invalid, factory_->Finish(broken_s));
+  ASSERT_RAISES(Invalid, factory_->Finish(options));
+
+  // Disable validation
+  options.validate_fragments = false;
+  ASSERT_OK_AND_ASSIGN(dataset, factory_->Finish(options));
+}
+
+TEST_F(FileSystemDatasetFactoryTest, InspectFragmentsLimit) {
+  MakeFactory({fs::File("a"), fs::File("b"), fs::File("c")});
+
+  InspectOptions options;
+  // By default, inspect one fragment and the partitioning.
+  ASSERT_OK_AND_ASSIGN(auto schemas, factory_->InspectSchemas(options));
+  EXPECT_THAT(schemas, SizeIs(2));
+
+  for (int fragments = 0; fragments < 3; fragments++) {
+    options.fragments = fragments;
+    ASSERT_OK_AND_ASSIGN(auto schemas, factory_->InspectSchemas(options));
+    EXPECT_THAT(schemas, SizeIs(fragments + 1));
+  }
 }
 
 std::shared_ptr<DatasetFactory> DatasetFactoryFromSchemas(
@@ -286,7 +324,7 @@ TEST(UnionDatasetFactoryTest, Basic) {
   ASSERT_OK_AND_ASSIGN(auto factory,
                        UnionDatasetFactory::Make({dataset_1, dataset_2, dataset_3}));
 
-  ASSERT_OK_AND_ASSIGN(auto schemas, factory->InspectSchemas());
+  ASSERT_OK_AND_ASSIGN(auto schemas, factory->InspectSchemas({}));
   AssertSchemasAre(schemas, {schema_2, schema_2, schema_3});
 
   auto expected_schema = schema({f64, i32, str});
@@ -325,7 +363,7 @@ TEST(UnionDatasetFactoryTest, ConflictingSchemas) {
   ASSERT_RAISES(Invalid, factory->Finish());
 
   // The user can inspect without error
-  ASSERT_OK_AND_ASSIGN(auto schemas, factory->InspectSchemas());
+  ASSERT_OK_AND_ASSIGN(auto schemas, factory->InspectSchemas({}));
   AssertSchemasAre(schemas, {schema_2, schema_2, schema_3});
 
   // The user decided to ignore the conflicting `f64` field.

@@ -105,7 +105,7 @@ class FeatherDataset:
     ----------
     path_or_paths : List[str]
         A list of file names
-    validate_schema : boolean, default True
+    validate_schema : bool, default True
         Check that individual file schemas are all the same / compatible
     """
     def __init__(self, path_or_paths, validate_schema=True):
@@ -153,7 +153,7 @@ class FeatherDataset:
         ----------
         columns : List[str]
             Names of columns to read from the file
-        use_threads : boolean, default True
+        use_threads : bool, default True
             Use multiple threads when converting to pandas
 
         Returns
@@ -167,13 +167,14 @@ class FeatherDataset:
 
 def write_feather(df, dest):
     """
-    Write a pandas.DataFrame to Feather format
+    Write a pandas.DataFrame to Feather format.
 
     Parameters
     ----------
     df : pandas.DataFrame
-    dest : string
-        Local file path
+        Dataframe to write out as feather format.
+    dest : str
+        Local destination path.
     """
     writer = FeatherWriter(dest)
     try:
@@ -193,16 +194,17 @@ def write_feather(df, dest):
 
 def read_feather(source, columns=None, use_threads=True):
     """
-    Read a pandas.DataFrame from Feather format
+    Read a pandas.DataFrame from Feather format.
 
     Parameters
     ----------
-    source : string file path, or file-like object
+    source : str file path, or file-like object
+
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
-        read
+        read.
     use_threads: bool, default True
-        Whether to parallelize reading using multiple threads
+        Whether to parallelize reading using multiple threads.
 
     Returns
     -------
@@ -218,10 +220,10 @@ def read_table(source, columns=None):
 
     Parameters
     ----------
-    source : string file path, or file-like object
+    source : str file path, or file-like object
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
-        read
+        read.
 
     Returns
     -------

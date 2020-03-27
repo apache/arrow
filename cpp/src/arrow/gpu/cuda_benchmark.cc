@@ -37,12 +37,12 @@ static void CudaBufferWriterBenchmark(benchmark::State& state, const int64_t tot
                                       const int64_t chunksize,
                                       const int64_t buffer_size) {
   CudaDeviceManager* manager;
-  ABORT_NOT_OK(CudaDeviceManager::GetInstance(&manager));
+  ABORT_NOT_OK(CudaDeviceManager::Instance().Value(&manager));
   std::shared_ptr<CudaContext> context;
-  ABORT_NOT_OK(manager->GetContext(kGpuNumber, &context));
+  ABORT_NOT_OK(manager->GetContext(kGpuNumber).Value(&context));
 
   std::shared_ptr<CudaBuffer> device_buffer;
-  ABORT_NOT_OK(context->Allocate(total_bytes, &device_buffer));
+  ABORT_NOT_OK(context->Allocate(total_bytes).Value(&device_buffer));
   CudaBufferWriter writer(device_buffer);
 
   if (buffer_size > 0) {

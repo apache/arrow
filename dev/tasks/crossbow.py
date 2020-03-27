@@ -602,6 +602,7 @@ class Repo:
 
         command = [
             'curl',
+            '--fail',
             '-H', "Authorization: token {}".format(self.github_token),
             '-H', "Content-Type: {}".format(mime),
             '--data-binary', '@{}'.format(path),

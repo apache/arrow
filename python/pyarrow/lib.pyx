@@ -48,7 +48,7 @@ def cpu_count():
     The number of threads is determined at startup by inspecting the
     ``OMP_NUM_THREADS`` and ``OMP_THREAD_LIMIT`` environment variables.
     If neither is present, it will default to the number of hardware threads
-    on the system.  It can be modified at runtime by calling
+    on the system. It can be modified at runtime by calling
     :func:`set_cpu_count()`.
     """
     return GetCpuThreadPoolCapacity()

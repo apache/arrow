@@ -18,8 +18,10 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <vector>
 
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -140,6 +142,9 @@ struct Decimal128Scalar;
 class UnionType;
 class UnionArray;
 struct UnionScalar;
+struct UnionMode {
+  enum type { SPARSE, DENSE };
+};
 
 template <typename TypeClass>
 class NumericArray;
@@ -181,6 +186,11 @@ using Date64Array = NumericArray<Date64Type>;
 using Date64Builder = NumericBuilder<Date64Type>;
 struct Date64Scalar;
 
+struct TimeUnit {
+  /// The unit for a time or timestamp DataType
+  enum type { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
+};
+
 class Time32Type;
 using Time32Array = NumericArray<Time32Type>;
 using Time32Builder = NumericBuilder<Time32Type>;
@@ -216,8 +226,6 @@ class ExtensionArray;
 struct ExtensionScalar;
 
 // ----------------------------------------------------------------------
-// (parameter-free) Factory functions
-// Other factory functions are in type.h
 
 /// \defgroup type-factories Factory functions for creating data types
 ///
@@ -262,6 +270,157 @@ std::shared_ptr<DataType> ARROW_EXPORT large_binary();
 std::shared_ptr<DataType> ARROW_EXPORT date32();
 /// \brief Return a Date64Type instance
 std::shared_ptr<DataType> ARROW_EXPORT date64();
+
+/// \brief Create a FixedSizeBinaryType instance.
+ARROW_EXPORT
+std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
+
+/// \brief Create a Decimal128Type instance
+ARROW_EXPORT
+std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale);
+
+/// \brief Create a ListType instance from its child Field type
+ARROW_EXPORT
+std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_type);
+
+/// \brief Create a ListType instance from its child DataType
+ARROW_EXPORT
+std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type);
+
+/// \brief Create a LargeListType instance from its child Field type
+ARROW_EXPORT
+std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_type);
+
+/// \brief Create a LargeListType instance from its child DataType
+ARROW_EXPORT
+std::shared_ptr<DataType> large_list(const std::shared_ptr<DataType>& value_type);
+
+/// \brief Create a MapType instance from its key and value DataTypes
+ARROW_EXPORT
+std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
+                              const std::shared_ptr<DataType>& item_type,
+                              bool keys_sorted = false);
+
+/// \brief Create a MapType instance from its key DataType and value field.
+///
+/// The field override is provided to communicate nullability of the value.
+ARROW_EXPORT
+std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
+                              const std::shared_ptr<Field>& item_field,
+                              bool keys_sorted = false);
+
+/// \brief Create a FixedSizeListType instance from its child Field type
+ARROW_EXPORT
+std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_type,
+                                          int32_t list_size);
+
+/// \brief Create a FixedSizeListType instance from its child DataType
+ARROW_EXPORT
+std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,
+                                          int32_t list_size);
+/// \brief Return a Duration instance (naming use _type to avoid namespace conflict with
+/// built in time clases).
+std::shared_ptr<DataType> ARROW_EXPORT duration(TimeUnit::type unit);
+
+/// \brief Return a DayTimeIntervalType instance
+std::shared_ptr<DataType> ARROW_EXPORT day_time_interval();
+
+/// \brief Return a MonthIntervalType instance
+std::shared_ptr<DataType> ARROW_EXPORT month_interval();
+
+/// \brief Create a TimestampType instance from its unit
+ARROW_EXPORT
+std::shared_ptr<DataType> timestamp(TimeUnit::type unit);
+
+/// \brief Create a TimestampType instance from its unit and timezone
+ARROW_EXPORT
+std::shared_ptr<DataType> timestamp(TimeUnit::type unit, const std::string& timezone);
+
+/// \brief Create a 32-bit time type instance
+///
+/// Unit can be either SECOND or MILLI
+std::shared_ptr<DataType> ARROW_EXPORT time32(TimeUnit::type unit);
+
+/// \brief Create a 64-bit time type instance
+///
+/// Unit can be either MICRO or NANO
+std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit::type unit);
+
+/// \brief Create a StructType instance
+std::shared_ptr<DataType> ARROW_EXPORT
+struct_(const std::vector<std::shared_ptr<Field>>& fields);
+
+/// \brief Create a UnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Field>>& child_fields,
+       const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+
+/// \brief Create a UnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Field>>& child_fields,
+       UnionMode::type mode = UnionMode::SPARSE);
+
+/// \brief Create a UnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT union_(UnionMode::type mode = UnionMode::SPARSE);
+
+/// \brief Create a UnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Array>>& children,
+       const std::vector<std::string>& field_names, const std::vector<int8_t>& type_codes,
+       UnionMode::type mode = UnionMode::SPARSE);
+
+/// \brief Create a UnionType instance
+inline std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Array>>& children,
+       const std::vector<std::string>& field_names,
+       UnionMode::type mode = UnionMode::SPARSE) {
+  return union_(children, field_names, {}, mode);
+}
+
+/// \brief Create a UnionType instance
+inline std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Array>>& children,
+       UnionMode::type mode = UnionMode::SPARSE) {
+  return union_(children, {}, {}, mode);
+}
+
+/// \brief Create a DictionaryType instance
+/// \param[in] index_type the type of the dictionary indices (must be
+/// a signed integer)
+/// \param[in] dict_type the type of the values in the variable dictionary
+/// \param[in] ordered true if the order of the dictionary values has
+/// semantic meaning and should be preserved where possible
+ARROW_EXPORT
+std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,
+                                     const std::shared_ptr<DataType>& dict_type,
+                                     bool ordered = false);
+
+/// @}
+
+/// \defgroup schema-factories Factory functions for fields and schemas
+///
+/// Factory functions for fields and schemas
+/// @{
+
+/// \brief Create a Field instance
+///
+/// \param name the field name
+/// \param type the field value type
+/// \param nullable whether the values are nullable, default true
+/// \param metadata any custom key-value metadata, default null
+std::shared_ptr<Field> ARROW_EXPORT
+field(std::string name, std::shared_ptr<DataType> type, bool nullable = true,
+      std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
+
+/// \brief Create a Schema instance
+///
+/// \param fields the schema's fields
+/// \param metadata any custom key-value metadata, default null
+/// \return schema shared_ptr to Schema
+ARROW_EXPORT
+std::shared_ptr<Schema> schema(
+    std::vector<std::shared_ptr<Field>> fields,
+    std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
 /// @}
 

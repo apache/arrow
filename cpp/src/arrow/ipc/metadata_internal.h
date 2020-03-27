@@ -28,19 +28,25 @@
 #include <flatbuffers/flatbuffers.h>
 
 #include "arrow/buffer.h"
-#include "arrow/ipc/dictionary.h"  // IYWU pragma: keep
 #include "arrow/ipc/message.h"
+#include "arrow/result.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 #include "generated/Message_generated.h"
 #include "generated/Schema_generated.h"
+#include "generated/SparseTensor_generated.h"  // IWYU pragma: keep
 
 namespace arrow {
 
 namespace flatbuf = org::apache::arrow::flatbuf;
+
+class DataType;
+class KeyValueMetadata;
+class Schema;
 
 namespace io {
 
@@ -53,6 +59,9 @@ namespace ipc {
 class DictionaryMemo;
 
 namespace internal {
+
+using KeyValueOffset = flatbuffers::Offset<flatbuf::KeyValue>;
+using KVVector = flatbuffers::Vector<KeyValueOffset>;
 
 // This 0xFFFFFFFF value is the first 4 bytes of a valid IPC message
 constexpr int32_t kIpcContinuationToken = -1;
@@ -134,6 +143,9 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
                                std::vector<std::string>* dim_names, int64_t* length,
                                SparseTensorFormat::type* sparse_tensor_format_id);
 
+Status GetKeyValueMetadata(const KVVector* fb_metadata,
+                           std::shared_ptr<const KeyValueMetadata>* out);
+
 static inline Status VerifyMessage(const uint8_t* data, int64_t size,
                                    const flatbuf::Message** out) {
   flatbuffers::Verifier verifier(data, size, /*max_depth=*/128);
@@ -154,10 +166,13 @@ static inline Status VerifyMessage(const uint8_t* data, int64_t size,
 Status WriteSchemaMessage(const Schema& schema, DictionaryMemo* dictionary_memo,
                           std::shared_ptr<Buffer>* out);
 
-Status WriteRecordBatchMessage(const int64_t length, const int64_t body_length,
-                               const std::vector<FieldMetadata>& nodes,
-                               const std::vector<BufferMetadata>& buffers,
-                               std::shared_ptr<Buffer>* out);
+// This function is used in a unit test
+ARROW_EXPORT
+Status WriteRecordBatchMessage(
+    const int64_t length, const int64_t body_length,
+    const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
+    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
+    std::shared_ptr<Buffer>* out);
 
 Result<std::shared_ptr<Buffer>> WriteTensorMessage(const Tensor& tensor,
                                                    const int64_t buffer_start_offset);
@@ -170,11 +185,11 @@ Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dicti
                        const std::vector<FileBlock>& record_batches,
                        io::OutputStream* out);
 
-Status WriteDictionaryMessage(const int64_t id, const int64_t length,
-                              const int64_t body_length,
-                              const std::vector<FieldMetadata>& nodes,
-                              const std::vector<BufferMetadata>& buffers,
-                              std::shared_ptr<Buffer>* out);
+Status WriteDictionaryMessage(
+    const int64_t id, const int64_t length, const int64_t body_length,
+    const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
+    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
+    std::shared_ptr<Buffer>* out);
 
 static inline Result<std::shared_ptr<Buffer>> WriteFlatbufferBuilder(
     flatbuffers::FlatBufferBuilder& fbb) {

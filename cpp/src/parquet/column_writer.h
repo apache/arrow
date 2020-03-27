@@ -43,7 +43,7 @@ namespace parquet {
 
 struct ArrowWriteContext;
 class ColumnDescriptor;
-class CompressedDataPage;
+class DataPage;
 class DictionaryPage;
 class ColumnChunkMetaDataBuilder;
 class Encryptor;
@@ -97,7 +97,7 @@ class PARQUET_EXPORT PageWriter {
   // page limit
   virtual void Close(bool has_dictionary, bool fallback) = 0;
 
-  virtual int64_t WriteDataPage(const CompressedDataPage& page) = 0;
+  virtual int64_t WriteDataPage(const DataPage& page) = 0;
 
   virtual int64_t WriteDictionaryPage(const DictionaryPage& page) = 0;
 

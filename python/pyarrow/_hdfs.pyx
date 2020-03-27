@@ -25,13 +25,16 @@ from pyarrow.includes.libarrow_fs cimport *
 from pyarrow._fs cimport FileSystem
 
 
-cdef class HdfsOptions:
-    """Options for HadoopFileSystem.
+cdef class HadoopFileSystem(FileSystem):
+    """
+    HDFS backed FileSystem implementation
 
     Parameters
     ----------
-    endpoint : tuple of (host, port) pair
-        For example ('localhost', 8020).
+    host : str
+        HDFS host to connect to.
+    port : int, default 8020
+        HDFS port to connect to.
     replication : int, default 3
         Number of copies each block will have.
     buffer_size : int, default 0
@@ -41,121 +44,83 @@ cdef class HdfsOptions:
         None means the default configuration for HDFS, a typical block size is
         128 MB.
     """
-    cdef:
-        CHdfsOptions options
-
-    # Avoid mistakingly creating attributes
-    __slots__ = ()
-
-    def __init__(self, endpoint=None, replication=None,
-                 user=None, buffer_size=None, default_block_size=None):
-        if endpoint is not None:
-            self.endpoint = endpoint
-        if replication is not None:
-            self.replication = replication
-        if user is not None:
-            self.user = user
-        if buffer_size is not None:
-            self.buffer_size = buffer_size
-        if default_block_size is not None:
-            self.default_block_size = default_block_size
-
-    @staticmethod
-    cdef wrap(CHdfsOptions wrapped):
-        cdef HdfsOptions self = HdfsOptions.__new__(HdfsOptions)
-        self.options = wrapped
-        return self
-
-    cdef inline CHdfsOptions unwrap(self) nogil:
-        return self.options
-
-    @staticmethod
-    def from_uri(uri):
-        cdef CResult[CHdfsOptions] result
-        result = CHdfsOptions.FromUriString(tobytes(uri))
-        return HdfsOptions.wrap(GetResultValue(result))
-
-    @property
-    def endpoint(self):
-        return (
-            frombytes(self.options.connection_config.host),
-            self.options.connection_config.port
-        )
-
-    @endpoint.setter
-    def endpoint(self, value):
-        if not isinstance(value, tuple) or len(value) != 2:
-            raise TypeError('Endpoint must be a tuple of host port pair')
-        self.options.connection_config.host = tobytes(value[0])
-        self.options.connection_config.port = int(value[1])
-
-    @property
-    def user(self):
-        return frombytes(self.options.connection_config.user)
-
-    @user.setter
-    def user(self, value):
-        self.options.connection_config.user = tobytes(value)
-
-    @property
-    def replication(self):
-        return self.options.replication
-
-    @replication.setter
-    def replication(self, int value):
-        self.options.replication = value
-
-    @property
-    def buffer_size(self):
-        return self.options.buffer_size
-
-    @buffer_size.setter
-    def buffer_size(self, int value):
-        self.options.buffer_size = value
-
-    @property
-    def default_block_size(self):
-        return self.options.default_block_size
-
-    @default_block_size.setter
-    def default_block_size(self, int value):
-        self.options.default_block_size = value
-
-
-cdef class HadoopFileSystem(FileSystem):
-    """HDFS backed FileSystem implementation
-
-    Parameters
-    ----------
-    options_or_uri: HdfsOptions or str, default None
-        Either an options object or a string URI describing the connection to
-        HDFS. HdfsOptions(endpoint=('localhost', 8020), user='test') and
-        'hdfs://localhost:8020/?user=test' are equivalent.
-        In order to change the used driver, replication, buffer_size or
-        default_block_size use the HdfsOptions object.
-    """
 
     cdef:
         CHadoopFileSystem* hdfs
 
-    def __init__(self, options_or_uri=None):
+    def __init__(self, str host, int port=8020, str user=None,
+                 int replication=3, int buffer_size=0,
+                 default_block_size=None):
         cdef:
-            HdfsOptions options
+            CHdfsOptions options
             shared_ptr[CHadoopFileSystem] wrapped
 
-        if isinstance(options_or_uri, str):
-            options = HdfsOptions.from_uri(options_or_uri)
-        elif isinstance(options_or_uri, HdfsOptions):
-            options = options_or_uri
-        elif options_or_uri is None:
-            options = HdfsOptions()
-        else:
-            raise TypeError('Must pass either a string or HdfsOptions')
+        if not host.startswith(('hdfs://', 'viewfs://')):
+            # TODO(kszucs): do more sanitization
+            host = 'hdfs://{}'.format(host)
+
+        options.ConfigureEndPoint(tobytes(host), int(port))
+        options.ConfigureHdfsReplication(replication)
+        options.ConfigureHdfsBufferSize(buffer_size)
+
+        if user is not None:
+            options.ConfigureHdfsUser(tobytes(user))
+        if default_block_size is not None:
+            options.ConfigureHdfsBlockSize(default_block_size)
 
         with nogil:
-            wrapped = GetResultValue(CHadoopFileSystem.Make(options.unwrap()))
+            wrapped = GetResultValue(CHadoopFileSystem.Make(options))
         self.init(<shared_ptr[CFileSystem]> wrapped)
 
     cdef init(self, const shared_ptr[CFileSystem]& wrapped):
         FileSystem.init(self, wrapped)
         self.hdfs = <CHadoopFileSystem*> wrapped.get()
+
+    @staticmethod
+    def from_uri(uri):
+        """
+        Instantiate HadoopFileSystem object from an URI string.
+
+        The following two calls are equivalent:
+
+        HadoopFileSystem.from_uri(
+            'hdfs://localhost:8020/?user=test&replication=1'
+        )
+
+        HadoopFileSystem('localhost', port=8020, user='test', replication=1)
+
+        Parameters
+        ----------
+        uri : str
+            A string URI describing the connection to HDFS.
+            In order to change the user, replication, buffer_size or
+            default_block_size pass the values as query parts.
+
+        Returns
+        -------
+        HadoopFileSystem
+        """
+        cdef:
+            HadoopFileSystem self = HadoopFileSystem.__new__(HadoopFileSystem)
+            shared_ptr[CHadoopFileSystem] wrapped
+            CHdfsOptions options
+
+        options = GetResultValue(CHdfsOptions.FromUriString(tobytes(uri)))
+        with nogil:
+            wrapped = GetResultValue(CHadoopFileSystem.Make(options))
+
+        self.init(<shared_ptr[CFileSystem]> wrapped)
+        return self
+
+    def __reduce__(self):
+        cdef CHdfsOptions opts = self.hdfs.options()
+        return (
+            HadoopFileSystem, (
+                frombytes(opts.connection_config.host),
+                opts.connection_config.port,
+                frombytes(opts.connection_config.user),
+                opts.replication,
+                opts.buffer_size,
+                opts.default_block_size,
+            )
+        )

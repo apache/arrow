@@ -120,7 +120,7 @@ std::vector<std::shared_ptr<T>> shared_ptr_vector(const std::vector<T>& vec) {
 std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_Paths(
     const std::shared_ptr<fs::FileSystem>& file_system,
     const std::vector<std::string>& paths) {
-  auto results = VALUE_OR_STOP(file_system->GetTargetInfos(paths));
+  auto results = VALUE_OR_STOP(file_system->GetFileInfo(paths));
   return shared_ptr_vector(results);
 }
 
@@ -128,7 +128,7 @@ std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_Paths
 std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_FileSelector(
     const std::shared_ptr<fs::FileSystem>& file_system,
     const std::shared_ptr<fs::FileSelector>& selector) {
-  auto results = VALUE_OR_STOP(file_system->GetTargetInfos(*selector));
+  auto results = VALUE_OR_STOP(file_system->GetFileInfo(*selector));
   return shared_ptr_vector(results);
 }
 

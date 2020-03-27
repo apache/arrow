@@ -206,6 +206,18 @@ TYPED_TEST(TestHashKernelPrimitive, DictEncode) {
       ArrayFromJSON(type, "[1, 4, 3]"), ArrayFromJSON(int32(), "[0, null, 1, 2, 0]"));
 }
 
+TYPED_TEST(TestHashKernelPrimitive, ZeroChunks) {
+  auto type = TypeTraits<TypeParam>::type_singleton();
+
+  Datum result;
+  auto zero_chunks = std::make_shared<ChunkedArray>(ArrayVector{}, type);
+  ASSERT_OK(DictionaryEncode(&this->ctx_, zero_chunks, &result));
+
+  ASSERT_EQ(result.kind(), Datum::CHUNKED_ARRAY);
+  AssertChunkedEqual(*result.chunked_array(),
+                     ChunkedArray({}, dictionary(int32(), type)));
+}
+
 TYPED_TEST(TestHashKernelPrimitive, PrimitiveResizeTable) {
   using T = typename TypeParam::c_type;
 
@@ -361,6 +373,43 @@ class TestHashKernelBinaryTypes : public TestHashKernel {
 };
 
 TYPED_TEST_SUITE(TestHashKernelBinaryTypes, StringTypes);
+
+TYPED_TEST(TestHashKernelBinaryTypes, ZeroChunks) {
+  auto type = this->type();
+
+  Datum result;
+  auto zero_chunks = std::make_shared<ChunkedArray>(ArrayVector{}, type);
+  ASSERT_OK(DictionaryEncode(&this->ctx_, zero_chunks, &result));
+
+  ASSERT_EQ(result.kind(), Datum::CHUNKED_ARRAY);
+  AssertChunkedEqual(*result.chunked_array(),
+                     ChunkedArray({}, dictionary(int32(), type)));
+}
+
+TYPED_TEST(TestHashKernelBinaryTypes, TwoChunks) {
+  auto type = this->type();
+
+  Datum result;
+  auto two_chunks = std::make_shared<ChunkedArray>(
+      ArrayVector{
+          ArrayFromJSON(type, "[\"a\"]"),
+          ArrayFromJSON(type, "[\"b\"]"),
+      },
+      type);
+  ASSERT_OK(DictionaryEncode(&this->ctx_, two_chunks, &result));
+
+  auto dict_type = dictionary(int32(), type);
+  auto dictionary = ArrayFromJSON(type, R"(["a", "b"])");
+
+  auto chunk_0 = std::make_shared<DictionaryArray>(
+      dict_type, ArrayFromJSON(int32(), "[0]"), dictionary);
+  auto chunk_1 = std::make_shared<DictionaryArray>(
+      dict_type, ArrayFromJSON(int32(), "[1]"), dictionary);
+
+  ASSERT_EQ(result.kind(), Datum::CHUNKED_ARRAY);
+  AssertChunkedEqual(*result.chunked_array(),
+                     ChunkedArray({chunk_0, chunk_1}, dict_type));
+}
 
 TYPED_TEST(TestHashKernelBinaryTypes, Unique) {
   this->CheckUniqueP({"test", "", "test2", "test"}, {true, false, true, true},

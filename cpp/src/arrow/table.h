@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/record_batch.h"
@@ -42,8 +43,8 @@ class ARROW_EXPORT ChunkedArray {
   explicit ChunkedArray(ArrayVector chunks);
 
   /// \brief Construct a chunked array from a single Array
-  explicit ChunkedArray(const std::shared_ptr<Array>& chunk)
-      : ChunkedArray(ArrayVector({chunk})) {}
+  explicit ChunkedArray(std::shared_ptr<Array> chunk)
+      : ChunkedArray(ArrayVector{std::move(chunk)}) {}
 
   /// \brief Construct a chunked array from a vector of arrays and a data type
   ///

@@ -32,6 +32,9 @@ RUN sed -i'' -e 's/main$/main contrib non-free/g' /etc/apt/sources.list
 RUN \
   echo "deb http://deb.debian.org/debian stretch-backports main" > \
     /etc/apt/sources.list.d/backports.list
+RUN \
+  echo "deb http://deb.debian.org/debian stretch-backports-sloppy main" > \
+    /etc/apt/sources.list.d/backports-sloppy.list
 
 ARG DEBUG
 ARG LLVM
@@ -80,6 +83,8 @@ RUN \
     python3-wheel \
     tzdata \
     zlib1g-dev && \
+  apt install -y -V -t stretch-backports-sloppy ${quiet} \
+    libarchive13 && \
   apt install -y -V -t stretch-backports ${quiet} \
     debhelper \
     libgmock-dev \

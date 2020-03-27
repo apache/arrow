@@ -13,7 +13,25 @@
 \alias{FileType}
 \alias{ParquetVersionType}
 \title{Arrow enums}
-\format{An object of class \code{TimeUnit::type} (inherits from \code{arrow-enum}) of length 4.}
+\format{
+An object of class \code{TimeUnit::type} (inherits from \code{arrow-enum}) of length 4.
+
+An object of class \code{DateUnit} (inherits from \code{arrow-enum}) of length 2.
+
+An object of class \code{Type::type} (inherits from \code{arrow-enum}) of length 28.
+
+An object of class \code{StatusCode} (inherits from \code{arrow-enum}) of length 17.
+
+An object of class \code{FileMode} (inherits from \code{arrow-enum}) of length 3.
+
+An object of class \code{Message::Type} (inherits from \code{arrow-enum}) of length 5.
+
+An object of class \code{Compression::type} (inherits from \code{arrow-enum}) of length 8.
+
+An object of class \code{FileType} (inherits from \code{arrow-enum}) of length 4.
+
+An object of class \code{ParquetVersionType} (inherits from \code{arrow-enum}) of length 2.
+}
 \usage{
 TimeUnit
 

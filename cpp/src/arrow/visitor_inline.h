@@ -474,4 +474,45 @@ inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor) {
 
 #undef TYPE_VISIT_INLINE
 
+// Visit a null bitmap, in order, without overhead.
+//
+// The given `VisitFunc` should be a callable with either of these signatures:
+// - void(bool is_valid)
+// - Status(bool is_valid)
+
+template <typename VisitFunc>
+typename internal::call_traits::enable_if_return<VisitFunc, Status>::type
+VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
+                      int64_t num_values, int64_t null_count, VisitFunc&& func) {
+  if (null_count != 0) {
+    internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
+    for (int i = 0; i < num_values; ++i) {
+      RETURN_NOT_OK(func(bit_reader.IsSet()));
+      bit_reader.Next();
+    }
+  } else {
+    for (int i = 0; i < num_values; ++i) {
+      RETURN_NOT_OK(func(true));
+    }
+  }
+  return Status::OK();
+}
+
+template <typename VisitFunc>
+typename internal::call_traits::enable_if_return<VisitFunc, void>::type
+VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
+                      int64_t num_values, int64_t null_count, VisitFunc&& func) {
+  if (null_count != 0) {
+    internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
+    for (int64_t i = 0; i < num_values; ++i) {
+      func(bit_reader.IsSet());
+      bit_reader.Next();
+    }
+  } else {
+    for (int64_t i = 0; i < num_values; ++i) {
+      func(true);
+    }
+  }
+}
+
 }  // namespace arrow

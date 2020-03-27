@@ -71,9 +71,9 @@ bool ChunkedArray::Equals(const ChunkedArray& other) const {
   if (null_count_ != other.null_count()) {
     return false;
   }
-  if (length_ == 0) {
-    // We cannot toggle check_metadata here yet, so we don't check it
-    return type_->Equals(*other.type_, /*check_metadata=*/false);
+  // We cannot toggle check_metadata here yet, so we don't check it
+  if (!type_->Equals(*other.type_, /*check_metadata=*/false)) {
+    return false;
   }
 
   // Check contents of the underlying arrays. This checks for equality of

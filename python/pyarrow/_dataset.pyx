@@ -27,6 +27,8 @@ from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.compat import frombytes, tobytes
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
+from pyarrow.types import (is_null, is_boolean, is_integer, is_floating,
+                           is_string)
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
@@ -293,7 +295,7 @@ cdef class FileSystemDataset(Dataset):
             vector[shared_ptr[CExpression]] c_partitions
             CResult[shared_ptr[CDataset]] result
 
-        for info in filesystem.get_target_infos(paths_or_selector):
+        for info in filesystem.get_file_info(paths_or_selector):
             c_file_infos.push_back(info.unwrap())
 
         for expr in partitions:
@@ -724,8 +726,9 @@ cdef class DatasetFactory:
 
     def inspect_schemas(self):
         cdef CResult[vector[shared_ptr[CSchema]]] result
+        cdef CInspectOptions options
         with nogil:
-            result = self.factory.InspectSchemas()
+            result = self.factory.InspectSchemas(options)
 
         schemas = []
         for s in GetResultValue(result):
@@ -741,8 +744,9 @@ cdef class DatasetFactory:
         Schema
         """
         cdef CResult[shared_ptr[CSchema]] result
+        cdef CInspectOptions options
         with nogil:
-            result = self.factory.Inspect()
+            result = self.factory.Inspect(options)
         return pyarrow_wrap_schema(GetResultValue(result))
 
     def finish(self, Schema schema=None):
@@ -1040,7 +1044,7 @@ cdef class Scanner:
         partition information or internal metadata found in the data
         source, e.g. Parquet statistics. Otherwise filters the loaded
         RecordBatches before yielding them.
-    use_threads : boolean, default True
+    use_threads : bool, default True
         If enabled, then maximum paralellism will be used determined by
         the number of available CPU cores.
     batch_size : int, default 32K
@@ -1165,20 +1169,12 @@ cdef class Scanner:
 def _binop(fn, left, right):
     # cython doesn't support reverse operands like __radd__ just passes the
     # arguments in the same order as the binary operator called
-
     if isinstance(left, Expression) and isinstance(right, Expression):
         pass
     elif isinstance(left, Expression):
-        try:
-            right = ScalarExpression(right)
-        except TypeError:
-            return NotImplemented
-
+        right = ScalarExpression(right)
     elif isinstance(right, Expression):
-        try:
-            left = ScalarExpression(left)
-        except TypeError:
-            return NotImplemented
+        left = ScalarExpression(left)
     else:
         raise TypeError('Neither left nor right arguments are Expressions')
 
@@ -1282,10 +1278,7 @@ cdef class Expression:
         }
 
         if not isinstance(other, Expression):
-            try:
-                other = ScalarExpression(other)
-            except TypeError:
-                return NotImplemented
+            other = ScalarExpression(other)
 
         return ComparisonExpression(operator_mapping[op], self, other)
 
@@ -1316,6 +1309,10 @@ cdef class UnaryExpression(Expression):
         Expression.init(self, sp)
         self.unary = <CUnaryExpression*> sp.get()
 
+    @property
+    def operand(self):
+        return Expression.wrap(self.unary.operand())
+
 
 cdef class BinaryExpression(Expression):
 
@@ -1343,7 +1340,9 @@ cdef class ScalarExpression(Expression):
             shared_ptr[CScalar] scalar
             shared_ptr[CScalarExpression] expr
 
-        if isinstance(value, bool):
+        if value is None:
+            scalar.reset(new CNullScalar())
+        elif isinstance(value, bool):
             scalar = MakeScalar(<c_bool>value)
         elif isinstance(value, float):
             scalar = MakeScalar(<double>value)
@@ -1361,6 +1360,14 @@ cdef class ScalarExpression(Expression):
         Expression.init(self, sp)
         self.scalar = <CScalarExpression*> sp.get()
 
+    @property
+    def value(self):
+        cdef ScalarValue scalar = pyarrow_wrap_scalar(self.scalar.value())
+        return scalar.as_py()
+
+    def __reduce__(self):
+        return ScalarExpression, (self.value,)
+
 
 cdef class FieldExpression(Expression):
 
@@ -1377,8 +1384,12 @@ cdef class FieldExpression(Expression):
         Expression.init(self, sp)
         self.scalar = <CFieldExpression*> sp.get()
 
+    @property
     def name(self):
         return frombytes(self.scalar.name())
+
+    def __reduce__(self):
+        return FieldExpression, (self.name,)
 
 
 cpdef enum CompareOperator:
@@ -1410,8 +1421,14 @@ cdef class ComparisonExpression(BinaryExpression):
         BinaryExpression.init(self, sp)
         self.comparison = <CComparisonExpression*> sp.get()
 
+    @property
     def op(self):
         return <CompareOperator> self.comparison.op()
+
+    def __reduce__(self):
+        return ComparisonExpression, (
+            self.op, self.left_operand, self.right_operand
+        )
 
 
 cdef class IsValidExpression(UnaryExpression):
@@ -1421,33 +1438,89 @@ cdef class IsValidExpression(UnaryExpression):
         expr = make_shared[CIsValidExpression](operand.unwrap())
         self.init(<shared_ptr[CExpression]> expr)
 
+    def __reduce__(self):
+        return IsValidExpression, (self.operand,)
+
 
 cdef class CastExpression(UnaryExpression):
 
+    cdef CCastExpression *cast
+
     def __init__(self, Expression operand not None, DataType to not None,
                  bint safe=True):
-        # TODO(kszucs): safe is consistently used across pyarrow, but on long
-        #               term we should expose the CastOptions object
         cdef:
             CastOptions options
             shared_ptr[CExpression] expr
         options = CastOptions.safe() if safe else CastOptions.unsafe()
-        expr.reset(new CCastExpression(
-            operand.unwrap(),
-            pyarrow_unwrap_data_type(to),
-            options.unwrap()
-        ))
+        expr.reset(
+            new CCastExpression(
+                operand.unwrap(),
+                pyarrow_unwrap_data_type(to),
+                options.unwrap()
+            )
+        )
         self.init(expr)
+
+    cdef void init(self, const shared_ptr[CExpression]& sp):
+        UnaryExpression.init(self, sp)
+        self.cast = <CCastExpression*> sp.get()
+
+    @property
+    def to(self):
+        """
+        Target DataType or Expression of the cast operation.
+
+        Returns
+        -------
+        DataType or Expression
+        """
+        cdef shared_ptr[CDataType] typ = self.cast.to_type()
+
+        if typ.get() != nullptr:
+            return pyarrow_wrap_data_type(typ)
+        else:
+            raise TypeError(
+                'Cannot determine the target type of the cast expression'
+            )
+
+    @property
+    def safe(self):
+        """
+        Whether to check for overflows or other unsafe conversions.
+
+        Returns
+        -------
+        bool
+        """
+        cdef CastOptions options = CastOptions.wrap(self.cast.options())
+        return options.is_safe()
+
+    def __reduce__(self):
+        return CastExpression, (self.operand, self.to, self.safe)
 
 
 cdef class InExpression(UnaryExpression):
 
-    def __init__(self, Expression operand not None, Array haystack not None):
+    cdef:
+        CInExpression* inexpr
+
+    def __init__(self, Expression operand not None, Array set_ not None):
         cdef shared_ptr[CExpression] expr
         expr.reset(
-            new CInExpression(operand.unwrap(), pyarrow_unwrap_array(haystack))
+            new CInExpression(operand.unwrap(), pyarrow_unwrap_array(set_))
         )
         self.init(expr)
+
+    cdef void init(self, const shared_ptr[CExpression]& sp):
+        UnaryExpression.init(self, sp)
+        self.inexpr = <CInExpression*> sp.get()
+
+    @property
+    def set_(self):
+        return pyarrow_wrap_array(self.inexpr.set())
+
+    def __reduce__(self):
+        return InExpression, (self.operand, self.set_)
 
 
 cdef class NotExpression(UnaryExpression):
@@ -1457,30 +1530,27 @@ cdef class NotExpression(UnaryExpression):
         expr = CMakeNotExpression(operand.unwrap())
         self.init(<shared_ptr[CExpression]> expr)
 
+    def __reduce__(self):
+        return NotExpression, (self.operand,)
+
 
 cdef class AndExpression(BinaryExpression):
 
-    def __init__(self, Expression left not None, Expression right not None,
-                 *additional_operands):
-        cdef:
-            Expression operand
-            vector[shared_ptr[CExpression]] exprs
-        exprs.push_back(left.unwrap())
-        exprs.push_back(right.unwrap())
-        for operand in additional_operands:
-            exprs.push_back(operand.unwrap())
-        self.init(CMakeAndExpression(exprs))
+    def __init__(self, Expression left not None, Expression right not None):
+        cdef shared_ptr[CAndExpression] expr
+        expr.reset(new CAndExpression(left.unwrap(), right.unwrap()))
+        self.init(<shared_ptr[CExpression]> expr)
+
+    def __reduce__(self):
+        return AndExpression, (self.left_operand, self.right_operand)
 
 
 cdef class OrExpression(BinaryExpression):
 
-    def __init__(self, Expression left not None, Expression right not None,
-                 *additional_operands):
-        cdef:
-            Expression operand
-            vector[shared_ptr[CExpression]] exprs
-        exprs.push_back(left.unwrap())
-        exprs.push_back(right.unwrap())
-        for operand in additional_operands:
-            exprs.push_back(operand.unwrap())
-        self.init(CMakeOrExpression(exprs))
+    def __init__(self, Expression left not None, Expression right not None):
+        cdef shared_ptr[COrExpression] expr
+        expr.reset(new COrExpression(left.unwrap(), right.unwrap()))
+        self.init(<shared_ptr[CExpression]> expr)
+
+    def __reduce__(self):
+        return OrExpression, (self.left_operand, self.right_operand)

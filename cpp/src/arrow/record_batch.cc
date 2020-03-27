@@ -199,9 +199,15 @@ const std::string& RecordBatch::column_name(int i) const {
   return schema_->field(i)->name();
 }
 
-bool RecordBatch::Equals(const RecordBatch& other) const {
+bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata) const {
   if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
     return false;
+  }
+
+  if (check_metadata) {
+    if (!schema_->Equals(*other.schema(), /*check_metadata=*/true)) {
+      return false;
+    }
   }
 
   for (int i = 0; i < num_columns(); ++i) {

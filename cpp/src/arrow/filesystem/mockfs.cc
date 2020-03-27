@@ -383,6 +383,8 @@ MockFileSystem::MockFileSystem(TimePoint current_time) {
   impl_ = std::unique_ptr<Impl>(new Impl(current_time));
 }
 
+bool MockFileSystem::Equals(const FileSystem& other) const { return this == &other; }
+
 Status MockFileSystem::CreateDir(const std::string& path, bool recursive) {
   auto parts = SplitAbstractPath(path);
   RETURN_NOT_OK(ValidateAbstractPathParts(parts));
@@ -473,7 +475,7 @@ Status MockFileSystem::DeleteFile(const std::string& path) {
   return Status::OK();
 }
 
-Result<FileInfo> MockFileSystem::GetTargetInfo(const std::string& path) {
+Result<FileInfo> MockFileSystem::GetFileInfo(const std::string& path) {
   auto parts = SplitAbstractPath(path);
   RETURN_NOT_OK(ValidateAbstractPathParts(parts));
 
@@ -488,8 +490,7 @@ Result<FileInfo> MockFileSystem::GetTargetInfo(const std::string& path) {
   return info;
 }
 
-Result<std::vector<FileInfo>> MockFileSystem::GetTargetInfos(
-    const FileSelector& selector) {
+Result<std::vector<FileInfo>> MockFileSystem::GetFileInfo(const FileSelector& selector) {
   auto parts = SplitAbstractPath(selector.base_dir);
   RETURN_NOT_OK(ValidateAbstractPathParts(parts));
 

@@ -704,7 +704,7 @@ struct FieldPathGetImpl {
   template <typename T, typename GetChildren>
   static Result<T> Get(const FieldPath* path, const std::vector<T>* children,
                        GetChildren&& get_children) {
-    int out_of_range_depth;
+    int out_of_range_depth = -1;
     ARROW_ASSIGN_OR_RAISE(auto child,
                           Get(path, children, std::forward<GetChildren>(get_children),
                               &out_of_range_depth));

@@ -146,6 +146,7 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
       # else, for things not supported by Arrow return a "try-error",
       # which we'll handle differently
       msg <- conditionMessage(e)
+      # TODO: internationalization?
       if (grepl("object '.*'.not.found", msg)) {
         stop(e)
       }

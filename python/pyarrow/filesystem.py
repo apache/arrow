@@ -29,11 +29,17 @@ from pyarrow.util import implements, _stringify_path, _is_path_like
 
 class FileSystem:
     """
-    Abstract filesystem interface
+    Abstract filesystem interface.
     """
+
     def cat(self, path):
         """
-        Return contents of file as a bytes object
+        Return contents of file as a bytes object.
+
+        Parameters
+        ----------
+        path : str
+            File path to read content from.
 
         Returns
         -------
@@ -44,30 +50,36 @@ class FileSystem:
 
     def ls(self, path):
         """
-        Return list of file paths
+        Return list of file paths.
+
+        Parameters
+        ----------
+        path : str
+            Directory to list contents from.
         """
         raise NotImplementedError
 
     def delete(self, path, recursive=False):
         """
-        Delete the indicated file or directory
+        Delete the indicated file or directory.
 
         Parameters
         ----------
-        path : string
-        recursive : boolean, default False
-            If True, also delete child paths for directories
+        path : str
+            Path to delete.
+        recursive : bool, default False
+            If True, also delete child paths for directories.
         """
         raise NotImplementedError
 
     def disk_usage(self, path):
         """
-        Compute bytes used by all contents under indicated path in file tree
+        Compute bytes used by all contents under indicated path in file tree.
 
         Parameters
         ----------
-        path : string
-            Can be a file path or directory
+        path : str
+            Can be a file path or directory.
 
         Returns
         -------
@@ -91,6 +103,7 @@ class FileSystem:
 
     def stat(self, path):
         """
+        Information about a filesystem entry.
 
         Returns
         -------
@@ -100,44 +113,72 @@ class FileSystem:
 
     def rm(self, path, recursive=False):
         """
-        Alias for FileSystem.delete
+        Alias for FileSystem.delete.
         """
         return self.delete(path, recursive=recursive)
 
     def mv(self, path, new_path):
         """
-        Alias for FileSystem.rename
+        Alias for FileSystem.rename.
         """
         return self.rename(path, new_path)
 
     def rename(self, path, new_path):
         """
-        Rename file, like UNIX mv command
+        Rename file, like UNIX mv command.
 
         Parameters
         ----------
-        path : string
-            Path to alter
-        new_path : string
-            Path to move to
+        path : str
+            Path to alter.
+        new_path : str
+            Path to move to.
         """
         raise NotImplementedError('FileSystem.rename')
 
     def mkdir(self, path, create_parents=True):
+        """
+        Create a directory.
+
+        Parameters
+        ----------
+        path : str
+            Path to the directory.
+        create_parents : bool, default True
+            If the parent directories don't exists create them as well.
+        """
         raise NotImplementedError
 
     def exists(self, path):
+        """
+        Return True if path exists.
+
+        Parameters
+        ----------
+        path : str
+            Path to check.
+        """
         raise NotImplementedError
 
     def isdir(self, path):
         """
-        Return True if path is a directory
+        Return True if path is a directory.
+
+        Parameters
+        ----------
+        path : str
+            Path to check.
         """
         raise NotImplementedError
 
     def isfile(self, path):
         """
-        Return True if path is a file
+        Return True if path is a file.
+
+        Parameters
+        ----------
+        path : str
+            Path to check.
         """
         raise NotImplementedError
 
@@ -152,24 +193,24 @@ class FileSystem:
                      use_threads=True, use_pandas_metadata=False):
         """
         Read Parquet data from path in file system. Can read from a single file
-        or a directory of files
+        or a directory of files.
 
         Parameters
         ----------
         path : str
             Single file path or directory
         columns : List[str], optional
-            Subset of columns to read
+            Subset of columns to read.
         metadata : pyarrow.parquet.FileMetaData
-            Known metadata to validate files against
+            Known metadata to validate files against.
         schema : pyarrow.parquet.Schema
             Known schema to validate files against. Alternative to metadata
-            argument
-        use_threads : boolean, default True
-            Perform multi-threaded column reads
-        use_pandas_metadata : boolean, default False
+            argument.
+        use_threads : bool, default True
+            Perform multi-threaded column reads.
+        use_pandas_metadata : bool, default False
             If True and file has custom pandas schema metadata, ensure that
-            index columns are also loaded
+            index columns are also loaded.
 
         Returns
         -------
@@ -183,7 +224,7 @@ class FileSystem:
 
     def open(self, path, mode='rb'):
         """
-        Open file for reading or writing
+        Open file for reading or writing.
         """
         raise NotImplementedError
 
@@ -237,7 +278,7 @@ class LocalFileSystem(FileSystem):
     @implements(FileSystem.open)
     def open(self, path, mode='rb'):
         """
-        Open file for reading or writing
+        Open file for reading or writing.
         """
         path = _stringify_path(path)
         return open(path, mode=mode)
@@ -248,7 +289,7 @@ class LocalFileSystem(FileSystem):
 
     def walk(self, path):
         """
-        Directory tree generator, see os.walk
+        Directory tree generator, see os.walk.
         """
         path = _stringify_path(path)
         return os.walk(path)
@@ -274,7 +315,7 @@ class DaskFileSystem(FileSystem):
     def _isfilestore(self):
         """
         Object Stores like S3 and GCSFS are based on key lookups, not true
-        file-paths
+        file-paths.
         """
         return False
 
@@ -299,7 +340,7 @@ class DaskFileSystem(FileSystem):
     @implements(FileSystem.open)
     def open(self, path, mode='rb'):
         """
-        Open file for reading or writing
+        Open file for reading or writing.
         """
         path = _stringify_path(path)
         return self.fs.open(path, mode=mode)
@@ -310,7 +351,7 @@ class DaskFileSystem(FileSystem):
 
     def walk(self, path):
         """
-        Directory tree generator, like os.walk
+        Directory tree generator, like os.walk.
         """
         path = _stringify_path(path)
         return self.fs.walk(path)
@@ -341,10 +382,10 @@ class S3FSWrapper(DaskFileSystem):
 
     def walk(self, path, refresh=False):
         """
-        Directory tree generator, like os.walk
+        Directory tree generator, like os.walk.
 
         Generator version of what is in s3fs, which yields a flattened list of
-        files
+        files.
         """
         path = _sanitize_s3(_stringify_path(path))
         directories = set()

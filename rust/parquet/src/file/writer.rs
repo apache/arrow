@@ -179,7 +179,7 @@ impl<W: ParquetWriter> SerializedFileWriter<W> {
                 .into_iter()
                 .map(|v| v.to_thrift())
                 .collect(),
-            key_value_metadata: None,
+            key_value_metadata: self.props.key_value_metadata().to_owned(),
             created_by: Some(self.props.created_by().to_owned()),
             column_orders: None,
         };
@@ -675,6 +675,45 @@ mod tests {
 
         let reader = SerializedFileReader::new(file).unwrap();
         assert_eq!(reader.get_row_iter(None).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn test_file_writer_with_metadata() {
+        let file = get_temp_file("test_file_writer_write_with_metadata", &[]);
+
+        let schema = Rc::new(
+            types::Type::group_type_builder("schema")
+                .with_fields(&mut vec![Rc::new(
+                    types::Type::primitive_type_builder("col1", Type::INT32)
+                        .build()
+                        .unwrap(),
+                )])
+                .build()
+                .unwrap(),
+        );
+        let props = Rc::new(
+            WriterProperties::builder()
+                .set_key_value_metadata(Some(vec![KeyValue::new(
+                    "key".to_string(),
+                    "value".to_string(),
+                )]))
+                .build(),
+        );
+        let mut writer =
+            SerializedFileWriter::new(file.try_clone().unwrap(), schema, props).unwrap();
+        writer.close().unwrap();
+
+        let reader = SerializedFileReader::new(file).unwrap();
+        assert_eq!(
+            reader
+                .metadata()
+                .file_metadata()
+                .key_value_metadata()
+                .to_owned()
+                .unwrap()
+                .len(),
+            1
+        );
     }
 
     #[test]

@@ -85,6 +85,28 @@ std::string Codec::GetCodecAsString(Compression::type t) {
   }
 }
 
+Result<Compression::type> Codec::GetCompressionType(const std::string& name) {
+  if (name == "UNCOMPRESSED") {
+    return Compression::UNCOMPRESSED;
+  } else if (name == "GZIP") {
+    return Compression::GZIP;
+  } else if (name == "SNAPPY") {
+    return Compression::SNAPPY;
+  } else if (name == "LZO") {
+    return Compression::LZO;
+  } else if (name == "BROTLI") {
+    return Compression::BROTLI;
+  } else if (name == "LZ4") {
+    return Compression::LZ4;
+  } else if (name == "ZSTD") {
+    return Compression::ZSTD;
+  } else if (name == "BZ2") {
+    return Compression::BZ2;
+  } else {
+    return Status::Invalid("Unrecognized compression type: ", name);
+  }
+}
+
 Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
                                              int compression_level) {
   std::unique_ptr<Codec> codec;

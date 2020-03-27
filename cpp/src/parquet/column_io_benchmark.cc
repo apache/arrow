@@ -237,7 +237,7 @@ static void BM_RleDecoding(::benchmark::State& state) {
   while (state.KeepRunning()) {
     LevelDecoder level_decoder;
     level_decoder.SetData(Encoding::RLE, max_level, static_cast<int>(levels.size()),
-                          buffer_rle->data());
+                          buffer_rle->data(), rle_size);
     level_decoder.Decode(static_cast<int>(state.range(0)), levels.data());
   }
 

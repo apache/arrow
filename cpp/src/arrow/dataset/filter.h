@@ -377,6 +377,14 @@ class ARROW_DS_EXPORT CastExpression final
 
   const compute::CastOptions& options() const { return options_; }
 
+  /// Return the target type of this CastTo expression, or nullptr if this is a
+  /// CastLike expression.
+  const std::shared_ptr<DataType>& to_type() const;
+
+  /// Return the target expression of this CastLike expression, or nullptr if
+  /// this is a CastTo expression.
+  const std::shared_ptr<Expression>& like_expr() const;
+
  private:
   util::variant<std::shared_ptr<DataType>, std::shared_ptr<Expression>> to_;
   compute::CastOptions options_;

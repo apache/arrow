@@ -150,7 +150,8 @@ class FlightMessageReaderImpl : public FlightMessageReader {
   Status Init() {
     message_reader_ = new FlightIpcMessageReader(reader_, &last_metadata_);
     return ipc::RecordBatchStreamReader::Open(
-        std::unique_ptr<ipc::MessageReader>(message_reader_), &batch_reader_);
+               std::unique_ptr<ipc::MessageReader>(message_reader_))
+        .Value(&batch_reader_);
   }
 
   const FlightDescriptor& descriptor() const override {
@@ -804,7 +805,9 @@ class RecordBatchStream::RecordBatchStreamImpl {
 
   RecordBatchStreamImpl(const std::shared_ptr<RecordBatchReader>& reader,
                         MemoryPool* pool)
-      : pool_(pool), reader_(reader), ipc_options_(ipc::IpcOptions::Defaults()) {}
+      : reader_(reader), ipc_options_(ipc::IpcWriteOptions::Defaults()) {
+    ipc_options_.memory_pool = pool;
+  }
 
   std::shared_ptr<Schema> schema() { return reader_->schema(); }
 
@@ -828,7 +831,7 @@ class RecordBatchStream::RecordBatchStreamImpl {
     if (stage_ == Stage::DICTIONARY) {
       if (dictionary_index_ == static_cast<int>(dictionaries_.size())) {
         stage_ = Stage::RECORD_BATCH;
-        return ipc::internal::GetRecordBatchPayload(*current_batch_, ipc_options_, pool_,
+        return ipc::internal::GetRecordBatchPayload(*current_batch_, ipc_options_,
                                                     &payload->ipc_message);
       } else {
         return GetNextDictionary(payload);
@@ -843,7 +846,7 @@ class RecordBatchStream::RecordBatchStreamImpl {
       payload->ipc_message.metadata = nullptr;
       return Status::OK();
     } else {
-      return ipc::internal::GetRecordBatchPayload(*current_batch_, ipc_options_, pool_,
+      return ipc::internal::GetRecordBatchPayload(*current_batch_, ipc_options_,
                                                   &payload->ipc_message);
     }
   }
@@ -851,7 +854,7 @@ class RecordBatchStream::RecordBatchStreamImpl {
  private:
   Status GetNextDictionary(FlightPayload* payload) {
     const auto& it = dictionaries_[dictionary_index_++];
-    return ipc::internal::GetDictionaryPayload(it.first, it.second, ipc_options_, pool_,
+    return ipc::internal::GetDictionaryPayload(it.first, it.second, ipc_options_,
                                                &payload->ipc_message);
   }
 
@@ -864,10 +867,9 @@ class RecordBatchStream::RecordBatchStreamImpl {
   }
 
   Stage stage_ = Stage::NEW;
-  MemoryPool* pool_;
   std::shared_ptr<RecordBatchReader> reader_;
   ipc::DictionaryMemo dictionary_memo_;
-  ipc::IpcOptions ipc_options_;
+  ipc::IpcWriteOptions ipc_options_;
   std::shared_ptr<RecordBatch> current_batch_;
   std::vector<std::pair<int64_t, std::shared_ptr<Array>>> dictionaries_;
 

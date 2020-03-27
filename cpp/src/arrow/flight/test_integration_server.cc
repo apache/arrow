@@ -81,7 +81,9 @@ class FlightIntegrationTestServer : public FlightServerBase {
       }
       auto flight = data->second;
 
-      FlightEndpoint endpoint1({{request.path[0]}, {}});
+      Location server_location;
+      RETURN_NOT_OK(Location::ForGrpcTcp("127.0.0.1", port(), &server_location));
+      FlightEndpoint endpoint1({{request.path[0]}, {server_location}});
 
       FlightInfo::Data flight_data;
       RETURN_NOT_OK(internal::SchemaToString(*flight.schema, &flight_data.schema));
@@ -166,7 +168,7 @@ int main(int argc, char** argv) {
   // Exit with a clean error code (0) on SIGTERM
   ARROW_CHECK_OK(g_server->SetShutdownOnSignals({SIGTERM}));
 
-  std::cout << "Server listening on localhost:" << FLAGS_port << std::endl;
+  std::cout << "Server listening on localhost:" << g_server->port() << std::endl;
   ARROW_CHECK_OK(g_server->Serve());
   return 0;
 }

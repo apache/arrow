@@ -1365,6 +1365,13 @@ class TestConvertDateTimeLikeTypes:
                 table.to_pandas(safe=False)
                 table.column('a').to_pandas(safe=False)
 
+    def test_timestamp_to_pandas_empty_chunked(self):
+        # ARROW-7907 table with chunked array with 0 chunks
+        table = pa.table({'a': pa.chunked_array([], type=pa.timestamp('us'))})
+        result = table.to_pandas()
+        expected = pd.DataFrame({'a': pd.Series([], dtype="datetime64[ns]")})
+        tm.assert_frame_equal(result, expected)
+
     @pytest.mark.parametrize('dtype', [pa.date32(), pa.date64()])
     def test_numpy_datetime64_day_unit(self, dtype):
         datetime64_d = np.array([

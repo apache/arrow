@@ -45,7 +45,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
 
   private final ConcurrentMap<FlightDescriptor, FlightHolder> holders = new ConcurrentHashMap<>();
   private final BufferAllocator allocator;
-  private final Location location;
+  private Location location;
 
   /**
    * Constructs a new instance.
@@ -56,6 +56,15 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   public InMemoryStore(BufferAllocator allocator, Location location) {
     super();
     this.allocator = allocator;
+    this.location = location;
+  }
+
+  /**
+   * Update the location after server start.
+   *
+   * <p>Useful for binding to port 0 to get a free port.
+   */
+  public void setLocation(Location location) {
     this.location = location;
   }
 

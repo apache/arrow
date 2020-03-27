@@ -103,7 +103,7 @@ void TestBucket(int argc, char** argv) {
   select.base_dir = "";
   select.allow_not_found = false;
   select.recursive = false;
-  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 0) << "Bucket should be empty, perhaps use --clear?";
 
   // Create directory structure
@@ -117,9 +117,9 @@ void TestBucket(int argc, char** argv) {
   CreateFile(fs.get(), "Dir1/File2", "second data");
   CreateFile(fs.get(), "Dir2/Subdir/File3", "third data");
 
-  // GetTargetInfos(Selector)
+  // GetFileInfo(Selector)
   select.base_dir = "";
-  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 4);
   SortInfos(&infos);
   AssertFileInfo(infos[0], "Dir1", FileType::Directory);
@@ -128,22 +128,22 @@ void TestBucket(int argc, char** argv) {
   AssertFileInfo(infos[3], "File1", FileType::File, 10);
 
   select.base_dir = "zzzz";
-  ASSERT_RAISES_PRINT("GetTargetInfos(Selector) with nonexisting base_dir", IOError,
-                      fs->GetTargetInfos(select));
+  ASSERT_RAISES_PRINT("GetFileInfo(Selector) with nonexisting base_dir", IOError,
+                      fs->GetFileInfo(select));
   select.allow_not_found = true;
-  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 0);
 
   select.base_dir = "Dir1";
   select.allow_not_found = false;
-  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 2);
   AssertFileInfo(infos[0], "Dir1/File2", FileType::File, 11);
   AssertFileInfo(infos[1], "Dir1/Subdir", FileType::Directory);
 
   select.base_dir = "Dir2";
   select.recursive = true;
-  ASSERT_OK_AND_ASSIGN(infos, fs->GetTargetInfos(select));
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 2);
   AssertFileInfo(infos[0], "Dir2/Subdir", FileType::Directory);
   AssertFileInfo(infos[1], "Dir2/Subdir/File3", FileType::File, 10);

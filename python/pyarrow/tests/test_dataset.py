@@ -18,7 +18,7 @@
 import contextlib
 import operator
 import os
-import urllib
+import pickle
 
 import numpy as np
 import pytest
@@ -338,9 +338,11 @@ def test_expression():
     b = ds.ScalarExpression(1.1)
     c = ds.ScalarExpression(True)
     d = ds.ScalarExpression("string")
+    e = ds.ScalarExpression(None)
 
     equal = ds.ComparisonExpression(ds.CompareOperator.Equal, a, b)
-    assert equal.op() == ds.CompareOperator.Equal
+    greater = a > b
+    assert equal.op == ds.CompareOperator.Equal
 
     and_ = ds.AndExpression(a, b)
     assert and_.left_operand.equals(a)
@@ -348,14 +350,18 @@ def test_expression():
     assert and_.equals(ds.AndExpression(a, b))
     assert and_.equals(and_)
 
-    ds.AndExpression(a, b, c)
-    ds.OrExpression(a, b)
-    ds.OrExpression(a, b, c, d)
-    ds.NotExpression(ds.OrExpression(a, b, c))
-    ds.IsValidExpression(a)
-    ds.CastExpression(a, pa.int32())
-    ds.CastExpression(a, pa.int32(), safe=True)
-    ds.InExpression(a, pa.array([1, 2, 3]))
+    or_ = ds.OrExpression(a, b)
+    not_ = ds.NotExpression(ds.OrExpression(a, b))
+    is_valid = ds.IsValidExpression(a)
+    cast_safe = ds.CastExpression(a, pa.int32())
+    cast_unsafe = ds.CastExpression(a, pa.int32(), safe=False)
+    in_ = ds.InExpression(a, pa.array([1, 2, 3]))
+
+    assert is_valid.operand == a
+    assert in_.set_.equals(pa.array([1, 2, 3]))
+    assert cast_unsafe.to == pa.int32()
+    assert cast_unsafe.safe is False
+    assert cast_safe.safe is True
 
     condition = ds.ComparisonExpression(
         ds.CompareOperator.Greater,
@@ -382,6 +388,12 @@ def test_expression():
     assert condition.assume(i64_is_7).equals(ds.ScalarExpression(True))
     assert str(condition) == "(i64 > 5:int64)"
     assert "(i64 > 5:int64)" in repr(condition)
+
+    all_exprs = [a, b, c, d, e, equal, greater, and_, or_, not_, is_valid,
+                 cast_unsafe, cast_safe, in_, condition, i64_is_5, i64_is_7]
+    for expr in all_exprs:
+        restored = pickle.loads(pickle.dumps(expr))
+        assert expr.equals(restored)
 
 
 def test_expression_ergonomics():
@@ -444,6 +456,19 @@ def test_expression_ergonomics():
     with pytest.raises(TypeError):
         field.isin(1)
 
+    # operations with non-scalar values
+    with pytest.raises(TypeError):
+        field == [1]
+
+    with pytest.raises(TypeError):
+        field != {1}
+
+    with pytest.raises(TypeError):
+        field & [1]
+
+    with pytest.raises(TypeError):
+        field | [1]
+
 
 @pytest.mark.parametrize('paths_or_selector', [
     fs.FileSelector('subdir', recursive=True),
@@ -469,7 +494,7 @@ def test_filesystem_factory(mockfs, paths_or_selector):
     )
     assert options.partition_base_dir == 'subdir'
     assert options.ignore_prefixes == ['.', '_']
-    assert options.exclude_invalid_files is True
+    assert options.exclude_invalid_files is False
 
     factory = ds.FileSystemDatasetFactory(
         mockfs, paths_or_selector, format, options
@@ -756,14 +781,16 @@ def test_open_dataset_from_source_additional_kwargs(multisourcefs):
 
 @pytest.mark.parquet
 @pytest.mark.s3
-def test_open_dataset_from_uri_s3(minio_server):
+def test_open_dataset_from_uri_s3(s3_connection, s3_server):
     # open dataset from non-localfs string path
     from pyarrow.fs import FileSystem
     import pyarrow.parquet as pq
 
-    address, access_key, secret_key = minio_server
-    uri = "s3://{}:{}@mybucket/data.parquet?scheme=http&endpoint_override={}" \
-        .format(access_key, secret_key, urllib.parse.quote(address))
+    host, port, access_key, secret_key = s3_connection
+    uri = (
+        "s3://{}:{}@mybucket/data.parquet?scheme=http&endpoint_override={}:{}"
+        .format(access_key, secret_key, host, port)
+    )
 
     fs, path = FileSystem.from_uri(uri)
 
