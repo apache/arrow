@@ -28,8 +28,7 @@ use std::{
 
 use byteorder::{ByteOrder, LittleEndian};
 use parquet_format::{
-    ColumnOrder as TColumnOrder, FileMetaData as TFileMetaData, KeyValue, PageHeader,
-    PageType,
+    ColumnOrder as TColumnOrder, FileMetaData as TFileMetaData, PageHeader, PageType,
 };
 use thrift::protocol::TCompactInputProtocol;
 

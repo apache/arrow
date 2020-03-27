@@ -44,7 +44,6 @@ use crate::schema::types::{
     ColumnDescPtr, ColumnDescriptor, ColumnPath, SchemaDescPtr, SchemaDescriptor,
     Type as SchemaType, TypePtr,
 };
-use std::collections::HashMap;
 
 /// Global Parquet metadata.
 pub struct ParquetMetaData {
