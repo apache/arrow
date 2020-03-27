@@ -1429,8 +1429,8 @@ Status GetListCastFunc(const DataType& in_type, std::shared_ptr<DataType> out_ty
                        const CastOptions& options,
                        std::unique_ptr<CastKernelBase>* kernel) {
   if (out_type->id() != TypeClass::type_id) {
-    // Kernel will be null
-    return Status::OK();
+    return Status::Invalid("Cannot cast from ", in_type.ToString(), " to ",
+                           out_type->ToString());
   }
   const DataType& in_value_type = *checked_cast<const TypeClass&>(in_type).value_type();
   std::shared_ptr<DataType> out_value_type =
@@ -1503,19 +1503,18 @@ Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_ty
     CAST_FUNCTION_CASE(LargeStringType);
     CAST_FUNCTION_CASE(DictionaryType);
     case Type::NA:
-      cast_kernel.reset(new FromNullCastKernel(std::move(out_type)));
+      cast_kernel.reset(new FromNullCastKernel(out_type));
       break;
     case Type::LIST:
-      RETURN_NOT_OK(
-          GetListCastFunc<ListType>(in_type, std::move(out_type), options, &cast_kernel));
+      RETURN_NOT_OK(GetListCastFunc<ListType>(in_type, out_type, options, &cast_kernel));
       break;
     case Type::LARGE_LIST:
-      RETURN_NOT_OK(GetListCastFunc<LargeListType>(in_type, std::move(out_type), options,
-                                                   &cast_kernel));
+      RETURN_NOT_OK(
+          GetListCastFunc<LargeListType>(in_type, out_type, options, &cast_kernel));
       break;
     case Type::EXTENSION:
-      RETURN_NOT_OK(ExtensionCastKernel::Make(std::move(in_type), std::move(out_type),
-                                              options, &cast_kernel));
+      RETURN_NOT_OK(
+          ExtensionCastKernel::Make(std::move(in_type), out_type, options, &cast_kernel));
       break;
     default:
       break;
