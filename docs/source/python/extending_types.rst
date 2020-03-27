@@ -227,7 +227,7 @@ data type from above would look like::
 Also the storage type does not need to be fixed but can be parametrized.
 
 Custom extension array class
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 By default, all arrays with an extension type are constructed or deserialized into
 a built-in :class:`ExtensionArray` object. Nevertheless, one could want to subclass
