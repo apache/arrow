@@ -17,11 +17,22 @@
 
 #' Write data in the Feather format
 #'
-#' @param x `data.frame` or RecordBatch
-#' @param sink A file path or an OutputStream
+#' @param x `data.frame` or `RecordBatch`
+#' @param sink A file path or an `OutputStream`
+#' @param version integer Feather file version. Version 2 is the current.
+#' Version 1 is the more limited legacy format.
+#' @param chunk_size For V2 files, the number of rows that each chunk of data
+#' should have in the file. Use a smaller `chunk_size` when you need faster
+#' random row access. Default is 64K. This option is not supported for V1.
+#' @param compression Name of compression codec to use, if any. Default is
+#' uncompressed; "lz4" and "zstd" are valid options, but only if your version
+#' of the Arrow C++ library was built with support for them.
+#' See [codec_is_available()]. This option is not supported for V1.
+#' @param compression_level If `compression` is "lz4" or "zstd", you may
+#' specify an integer compression level. If omitted, the selected compression's
+#' default compression level is used.
 #'
-#' @return the input `x` invisibly.
-#'
+#' @return The input `x`, invisibly.
 #' @export
 #' @examples
 #' \donttest{
@@ -30,9 +41,42 @@
 #' write_feather(mtcars, tf)
 #' }
 #' @include arrow-package.R
-write_feather <- function(x, sink) {
-  x_out <- x
+write_feather <- function(x,
+                          sink,
+                          version = 2,
+                          chunk_size = 65536L,
+                          compression = c("uncompressed", "lz4", "zstd"),
+                          compression_level = NULL) {
+  # Handle and validate options before touching data
+  version <- as.integer(version)
+  assert_that(version %in% 1:2)
+  compression <- compression_from_name(match.arg(compression))
+  chunk_size <- as.integer(chunk_size)
+  assert_that(chunk_size > 0)
+  if (is.null(compression_level)) {
+    # Use -1 as sentinal for "default"
+    compression_level <- -1L
+  }
+  compression_level <- as.integer(compression_level)
+  # Now make sure that options make sense together
+  if (version == 1) {
+    if (chunk_size != 65536L) {
+      stop("Feather version 1 does not support the 'chunk_size' option", call. = FALSE)
+    }
+    if (compression > 0) {
+      stop("Feather version 1 does not support the 'compression' option", call. = FALSE)
+    }
+    if (compression_level != -1L) {
+      stop("Feather version 1 does not support the 'compression_level' option", call. = FALSE)
+    }
+  }
+  if (compression == 0 && compression_level != -1L) {
+    stop("Cannot specify a 'compression_level' when 'compression' is 'uncompressed'", call. = FALSE)
+  }
+  # Finally, add 1 to version because 2 means V1 and 3 means V2 :shrug:
+  version <- version + 1L
 
+  x_out <- x
   if (is.data.frame(x)) {
     x <- record_batch(x)
   }
@@ -43,8 +87,7 @@ write_feather <- function(x, sink) {
     on.exit(sink$close())
   }
   assert_is(sink, "OutputStream")
-
-  ipc___WriteFeather__RecordBatch(sink, x)
+  ipc___WriteFeather__RecordBatch(sink, x, version, chunk_size, compression, compression_level)
 
   invisible(x_out)
 }
@@ -108,17 +151,22 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
 #'
 #' @section Methods:
 #'
-#' - `$version()`
-#' - `$Read(columns)`
+#' - `$Read(columns)`: Returns a `Table` of the selected columns, a vector of
+#'   integer indices
+#' - `$version`: Active binding, returns `1` or `2`, according to the Feather
+#'   file version
 #'
 #' @export
 #' @include arrow-package.R
 FeatherReader <- R6Class("FeatherReader", inherit = ArrowObject,
   public = list(
-    version = function() ipc___feather___Reader__version(self),
     Read = function(columns) {
       shared_ptr(Table, ipc___feather___Reader__Read(self, columns))
     }
+  ),
+  active = list(
+    # versions are officially 2 for V1 and 3 for V2 :shrug:
+    version = function() ipc___feather___Reader__version(self) - 1L
   )
 )
 

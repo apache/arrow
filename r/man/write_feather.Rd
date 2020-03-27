@@ -4,15 +4,38 @@
 \alias{write_feather}
 \title{Write data in the Feather format}
 \usage{
-write_feather(x, sink)
+write_feather(
+  x,
+  sink,
+  version = 2,
+  chunk_size = 65536L,
+  compression = c("uncompressed", "lz4", "zstd"),
+  compression_level = NULL
+)
 }
 \arguments{
-\item{x}{\code{data.frame} or RecordBatch}
+\item{x}{\code{data.frame} or \code{RecordBatch}}
 
-\item{sink}{A file path or an OutputStream}
+\item{sink}{A file path or an \code{OutputStream}}
+
+\item{version}{integer Feather file version. Version 2 is the current.
+Version 1 is the more limited legacy format.}
+
+\item{chunk_size}{For V2 files, the number of rows that each chunk of data
+should have in the file. Use a smaller \code{chunk_size} when you need faster
+random row access. Default is 64K. This option is not supported for V1.}
+
+\item{compression}{Name of compression codec to use, if any. Default is
+uncompressed; "lz4" and "zstd" are valid options, but only if your version
+of the Arrow C++ library was built with support for them.
+See \code{\link[=codec_is_available]{codec_is_available()}}. This option is not supported for V1.}
+
+\item{compression_level}{If \code{compression} is "lz4" or "zstd", you may
+specify an integer compression level. If omitted, the selected compression's
+default compression level is used.}
 }
 \value{
-the input \code{x} invisibly.
+The input \code{x}, invisibly.
 }
 \description{
 Write data in the Feather format

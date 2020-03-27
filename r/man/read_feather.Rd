@@ -8,7 +8,7 @@ read_feather(file, col_select = NULL, as_data_frame = TRUE, ...)
 }
 \arguments{
 \item{file}{A character file path, a raw vector, or \code{InputStream}, passed to
-\code{FeatherTableReader$create()}.}
+\code{FeatherReader$create()}.}
 
 \item{col_select}{A character vector of column names to keep, as in the
 "select" argument to \code{data.table::fread()}, or a
