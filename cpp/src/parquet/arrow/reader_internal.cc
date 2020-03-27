@@ -747,8 +747,7 @@ Status TypedIntegralStatisticsAsScalars(const Statistics& statistics,
       using CType = typename StatisticsType::T;
       return MakeMinMaxScalar<CType, StatisticsType>(statistics, min, max);
     default:
-      return Status::NotImplemented("Cannot extract statistics for type ",
-                                    logical_type->ToString());
+      return Status::NotImplemented("Cannot extract statistics for type ");
   }
 
   return Status::OK();

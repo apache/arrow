@@ -211,6 +211,8 @@ class PARQUET_EXPORT FileReader {
   /// By default only one thread is used.
   virtual void set_use_threads(bool use_threads) = 0;
 
+  virtual const ArrowReaderProperties& properties() const = 0;
+
   virtual ~FileReader() = default;
 };
 

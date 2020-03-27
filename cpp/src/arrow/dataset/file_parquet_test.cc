@@ -184,12 +184,11 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
                                 const Expression& filter) {
     auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
     ASSERT_OK_AND_ASSIGN(auto row_group_fragments,
-                         format_->GetRowGroupFragments(*parquet_fragment, filter.Copy()));
+                         parquet_fragment->SplitByRowGroup(filter.Copy()))
 
     auto expected_row_group = expected_row_groups.begin();
-    for (auto maybe_fragment : row_group_fragments) {
-      ASSERT_OK_AND_ASSIGN(auto fragment, std::move(maybe_fragment));
-      auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
+    for (const auto& fragment : row_group_fragments) {
+      const auto& parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
 
       auto i = *expected_row_group++;
       EXPECT_EQ(parquet_fragment->row_groups(), std::vector<int>{i});

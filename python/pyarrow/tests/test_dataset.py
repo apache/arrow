@@ -250,7 +250,7 @@ def test_filesystem_dataset(mockfs):
         assert isinstance(fragment, ds.ParquetFileFragment)
         assert fragment.row_groups is None
 
-        row_group_fragments = list(fragment.get_row_group_fragments())
+        row_group_fragments = list(fragment.split_by_row_group())
         assert len(row_group_fragments) == 1
         assert isinstance(fragment, ds.ParquetFileFragment)
         assert row_group_fragments[0].path == path
@@ -683,7 +683,7 @@ def test_fragments_parquet_row_groups(tempdir):
     fragment = list(dataset.get_fragments())[0]
 
     # list and scan row group fragments
-    row_group_fragments = list(fragment.get_row_group_fragments())
+    row_group_fragments = list(fragment.split_by_row_group())
     assert len(row_group_fragments) == 2
     result = row_group_fragments[0].to_table(schema=dataset.schema)
     assert result.column_names == ['f1', 'f2', 'part']
@@ -691,7 +691,7 @@ def test_fragments_parquet_row_groups(tempdir):
     assert result.equals(table.slice(0, 2))
 
     fragment = list(dataset.get_fragments(filter=ds.field('f1') < 1))[0]
-    row_group_fragments = list(fragment.get_row_group_fragments())
+    row_group_fragments = list(fragment.split_by_row_group())
     assert len(row_group_fragments) == 1
     result = row_group_fragments[0].to_table(filter=ds.field('f1') < 1)
     assert len(result) == 1
@@ -705,7 +705,7 @@ def test_fragments_parquet_row_groups_reconstruct(tempdir):
 
     fragment = list(dataset.get_fragments())[0]
     parquet_format = fragment.format
-    row_group_fragments = list(fragment.get_row_group_fragments())
+    row_group_fragments = list(fragment.split_by_row_group())
 
     # manually re-construct row group fragments
     new_fragment = parquet_format.make_fragment(

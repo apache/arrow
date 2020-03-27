@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
@@ -36,6 +37,9 @@ class FileMetaData;
 class FileDecryptionProperties;
 class ReaderProperties;
 class ArrowReaderProperties;
+namespace arrow {
+class FileReader;
+};
 }  // namespace parquet
 
 namespace arrow {
@@ -94,10 +98,10 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
                                     std::shared_ptr<ScanContext> context) const override;
 
   /// \brief Open a file for scanning, restricted to the specified row groups.
-  Result<ScanTaskIterator> ScanFile(const FileSource& source,
-                                    std::shared_ptr<ScanOptions> options,
+  Result<ScanTaskIterator> ScanFile(std::shared_ptr<ScanOptions> options,
                                     std::shared_ptr<ScanContext> context,
-                                    const std::vector<int>& row_groups) const;
+                                    std::unique_ptr<parquet::ParquetFileReader> reader,
+                                    std::vector<int> row_groups) const;
 
   using FileFormat::MakeFragment;
 
@@ -109,40 +113,123 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
       FileSource source, std::shared_ptr<Expression> partition_expression,
       std::vector<int> row_groups);
 
-  /// \brief Split a ParquetFileFragment into a Fragment for each row group.
-  ///
-  /// \param[in] fragment to split
-  /// \param[in] filter expression that will ignore RowGroup that can't satisfy
-  ///            the filter.
-  ///
-  /// \return An iterator of fragment.
-  Result<FragmentIterator> GetRowGroupFragments(
-      const ParquetFileFragment& fragment,
-      std::shared_ptr<Expression> filter = scalar(true));
+  Result<std::shared_ptr<FileFragment>> MakeFragment(
+      FileSource source, std::shared_ptr<Expression> partition_expression,
+      std::vector<int> row_groups, ExpressionVector statistics);
+
+  /// \brief Return a FileReader on the given source.
+  Result<std::unique_ptr<parquet::arrow::FileReader>> GetReader(
+      const FileSource& source, MemoryPool* pool = default_memory_pool()) const;
 };
 
+/// \brief A FileFragment with parquet logic.
+///
+/// ParquetFileFragment provides a lazy (with respect to IO) interface to
+/// scan parquet files. Any heavy IO calls is deferred in the Scan() method.
+///
+/// The caller can provide an optional list of selected RowGroups to limit the
+/// number of scanned RowGroups, or control parallelism partitioning.
+///
+/// It can also attach optional statistics with each RowGroups, providing
+/// pushdown predicate benefits before invoking any heavy IO. This can induce
+/// significant performance boost when scanning high latency file systems.
 class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
  public:
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
                                 std::shared_ptr<ScanContext> context) override;
 
-  /// \brief The row groups viewed by this Fragment. This may be empty which signifies all
-  /// row groups are selected.
+  /// \brief Return the RowGroups selected by this fragment. An empty list
+  /// represents all RowGroups in the parquet file.
   const std::vector<int>& row_groups() const { return row_groups_; }
+
+  /// \brief Split into a vector of Fragment for each row group.
+  ///
+  /// This method incurs IO on backed source.
+  ///
+  /// \param[in] predicate expression ignoring RowGroups which can't satisfy
+  ///             the predicate.
+  ///
+  /// \return A vector of fragment.
+  Result<FragmentVector> SplitByRowGroup(
+      std::shared_ptr<Expression> predicate = scalar(true));
 
  private:
   ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
                       std::shared_ptr<Expression> partition_expression,
-                      std::vector<int> row_groups)
+                      std::vector<int> row_groups, ExpressionVector row_group_statistics)
       : FileFragment(std::move(source), std::move(format),
                      std::move(partition_expression)),
-        row_groups_(std::move(row_groups)) {}
+        row_groups_(std::move(row_groups)),
+        statistics_(std::move(row_group_statistics)),
+        parquet_format_(internal::checked_cast<ParquetFileFormat&>(*format_)) {}
 
-  const ParquetFileFormat& parquet_format() const;
+  /// \brief Returns a subset of the selected RowGroups matching a given predicate.
+  Result<std::vector<int>> RowGroupsWithFilter(
+      const parquet::FileMetaData& metadata,
+      const parquet::ArrowReaderProperties& properties,
+      const Expression& predicate) const;
+
+  struct RowGroup {
+    int id;
+    std::shared_ptr<Expression> statistics;
+  };
 
   std::vector<int> row_groups_;
+  ExpressionVector statistics_;
+  ParquetFileFormat& parquet_format_;
 
   friend class ParquetFileFormat;
+};
+
+class ARROW_DS_EXPORT ParquetDatasetFactory : public DatasetFactory {
+ public:
+  /// \brief Create a ParquetDatasetFactory from a metadata path.
+  ///
+  /// The `metadata_path` will be read from `filesystem`. Each RowGroup
+  /// contained in the metadata file will be relative to `dirname(metadata_path)`.
+  ///
+  /// \param[in] metadata_path path of the metadata parquet file
+  /// \param[in] filesystem from which to open/read the path
+  /// \param[in] format
+  static Result<std::shared_ptr<DatasetFactory>> Make(
+      const std::string& metadata_path, std::shared_ptr<fs::FileSystem> filesystem,
+      std::shared_ptr<ParquetFileFormat> format);
+
+  /// \brief Create a ParquetDatasetFactory from a metadata source.
+  ///
+  /// Similar to the previous Make definition, but the metadata can be a Buffer
+  /// and the base_path is explicited instead of inferred from the metadata
+  /// path.
+  ///
+  /// \param[in] metadata_source source to open the metadata parquet file from
+  /// \param[in] base_path used as the prefix of every parquet files referenced
+  /// \param[in] filesystem from which to read the files referenced.
+  /// \param[in] format
+  static Result<std::shared_ptr<DatasetFactory>> Make(
+      const FileSource& metadata, const std::string& base_path,
+      std::shared_ptr<fs::FileSystem> filesystem,
+      std::shared_ptr<ParquetFileFormat> format);
+
+  Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas(
+      InspectOptions options) override;
+
+  Result<std::shared_ptr<Dataset>> Finish(FinishOptions options) override;
+
+ protected:
+  ParquetDatasetFactory(std::shared_ptr<fs::FileSystem> fs,
+                        std::shared_ptr<ParquetFileFormat> format,
+                        std::shared_ptr<parquet::FileMetaData> metadata,
+                        std::string base_path);
+
+  std::shared_ptr<fs::FileSystem> filesystem_;
+  std::shared_ptr<ParquetFileFormat> format_;
+  std::shared_ptr<parquet::FileMetaData> metadata_;
+  std::string base_path_;
+
+ private:
+  Result<std::vector<std::shared_ptr<FileFragment>>> CollectParquetFragments(
+      const parquet::FileMetaData& metadata,
+      const parquet::ArrowReaderProperties& properties);
 };
 
 }  // namespace dataset

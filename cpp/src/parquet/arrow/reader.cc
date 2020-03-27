@@ -280,6 +280,8 @@ class FileReaderImpl : public FileReader {
     reader_properties_.set_use_threads(use_threads);
   }
 
+  const ArrowReaderProperties& properties() const override { return reader_properties_; }
+
   Status ScanContents(std::vector<int> columns, const int32_t column_batch_size,
                       int64_t* num_rows) override {
     BEGIN_PARQUET_CATCH_EXCEPTIONS

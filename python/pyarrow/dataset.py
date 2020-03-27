@@ -35,6 +35,7 @@ from pyarrow._dataset import (  # noqa
     Fragment,
     HivePartitioning,
     IpcFileFormat,
+    ParquetDatasetFactory,
     ParquetFileFormat,
     ParquetFileFragment,
     ParquetReadOptions,
@@ -441,6 +442,53 @@ def _union_dataset(children, schema=None, **kwargs):
     children = [child.replace_schema(schema) for child in children]
 
     return UnionDataset(schema, children)
+
+
+def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None):
+    """
+    Create a FileSystemDataset from a `_metadata` file created via
+    `pyarrrow.parquet.write_metadata`.
+
+    Parameters
+    ----------
+    metadata_path : path,
+        Path pointing to a single file parquet metadata file
+    schema : Schema, optional
+        Optionally provide the Schema for the Dataset, in which case it will
+        not be inferred from the source.
+    filesystem : FileSystem or URI string, default None
+        If a single path is given as source and filesystem is None, then the
+        filesystem will be inferred from the path.
+        If an URI string is passed, then a filesystem object is constructed
+        using the URI's optional path component as a directory prefix. See the
+        examples below.
+        Note that the URIs on Windows must follow 'file:///C:...' or
+        'file:/C:...' patterns.
+    format : ParquetFileFormat
+        An instance of a ParquetFileFormat if special options needs to be
+        passed.
+
+    Returns
+    -------
+    FileSystemDataset
+    """
+    from pyarrow.fs import LocalFileSystem
+
+    if not isinstance(metadata_path, str):
+        raise ValueError("metadata_path argument must be a string")
+
+    if format is None:
+        format = ParquetFileFormat()
+    elif not isinstance(format, ParquetFileFormat):
+        raise ValueError("format argument must be a ParquetFileFormat")
+
+    if filesystem is None:
+        filesystem = LocalFileSystem()
+    else:
+        filesystem, _ = _ensure_filesystem(filesystem)
+
+    factory = ParquetDatasetFactory(metadata_path, filesystem, format)
+    return factory.finish(schema)
 
 
 def dataset(source, schema=None, format=None, filesystem=None,
