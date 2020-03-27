@@ -42,8 +42,8 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/ubsan.h"
 #include "arrow/util/string_view.h"
+#include "arrow/util/ubsan.h"
 
 #include "parquet/arrow/reader.h"
 #include "parquet/column_reader.h"

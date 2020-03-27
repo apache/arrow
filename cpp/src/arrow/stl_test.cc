@@ -252,8 +252,8 @@ TEST(TestTableFromTupleVector, ReferenceTuple) {
       {-1, -2, -3, -4, 1, 2, 3, 4, true, std::string("Tests")},
       {-10, -20, -30, -40, 10, 20, 30, 40, false, std::string("Other")}};
   std::vector<decltype(rows[0].tie())> rng_rows{
-    rows[0].tie(),
-    rows[1].tie(),
+      rows[0].tie(),
+      rows[1].tie(),
   };
   std::shared_ptr<Table> table;
   ASSERT_OK(TableFromTupleRange(default_memory_pool(), rng_rows, names, &table));
