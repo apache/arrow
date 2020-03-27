@@ -403,15 +403,25 @@ impl UnionBuilder {
                             DataType::Boolean => fd.append_null::<BooleanType>(),
                             DataType::Int8 => fd.append_null::<Int8Type>(),
                             DataType::Int16 => fd.append_null::<Int16Type>(),
-                            DataType::Int32 => fd.append_null::<Int32Type>(),
-                            DataType::Int64 => fd.append_null::<Int64Type>(),
+                            DataType::Int32
+                            | DataType::Date32(_)
+                            | DataType::Time32(_)
+                            | DataType::Interval(IntervalUnit::YearMonth) => {
+                                fd.append_null::<Int32Type>()
+                            }
+                            DataType::Int64
+                            | DataType::Timestamp(_, _)
+                            | DataType::Date64(_)
+                            | DataType::Time64(_)
+                            | DataType::Interval(IntervalUnit::DayTime)
+                            | DataType::Duration(_) => fd.append_null::<Int64Type>(),
                             DataType::UInt8 => fd.append_null::<UInt8Type>(),
                             DataType::UInt16 => fd.append_null::<UInt16Type>(),
                             DataType::UInt32 => fd.append_null::<UInt32Type>(),
                             DataType::UInt64 => fd.append_null::<UInt64Type>(),
                             DataType::Float32 => fd.append_null::<Float32Type>(),
                             DataType::Float64 => fd.append_null::<Float64Type>(),
-                            _ => unreachable!(),
+                            _ => unreachable!("All cases of types that satisfy the trait bounds over T are covered above."),
                         };
                     }
                 }
