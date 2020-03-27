@@ -27,7 +27,10 @@ use std::{
 };
 
 use byteorder::{ByteOrder, LittleEndian};
-use parquet_format::{ColumnOrder as TColumnOrder, FileMetaData as TFileMetaData, PageHeader, PageType, KeyValue};
+use parquet_format::{
+    ColumnOrder as TColumnOrder, FileMetaData as TFileMetaData, KeyValue, PageHeader,
+    PageType,
+};
 use thrift::protocol::TCompactInputProtocol;
 
 use crate::basic::{ColumnOrder, Compression, Encoding, Type};
@@ -218,7 +221,8 @@ impl<R: ParquetReader> SerializedFileReader<R> {
         let column_orders =
             Self::parse_column_orders(t_file_metadata.column_orders, &schema_descr);
 
-        let key_value_metadata = Self::parse_key_value_metadata(t_file_metadata.key_value_metadata);
+        let key_value_metadata =
+            Self::parse_key_value_metadata(t_file_metadata.key_value_metadata);
 
         let file_metadata = FileMetaData::new(
             t_file_metadata.version,
@@ -264,10 +268,13 @@ impl<R: ParquetReader> SerializedFileReader<R> {
         }
     }
 
-    fn parse_key_value_metadata(key_value_metadata: Option<Vec<KeyValue>>) -> Option<HashMap<String, String>> {
+    fn parse_key_value_metadata(
+        key_value_metadata: Option<Vec<KeyValue>>,
+    ) -> Option<HashMap<String, String>> {
         match key_value_metadata {
-            Some (key_values) => {
-                let map : HashMap<String, String> = key_values.into_iter()
+            Some(key_values) => {
+                let map: HashMap<String, String> = key_values
+                    .into_iter()
                     .filter(|kv| kv.value.is_some()) // skip keys without corresponding value
                     .map(|kv| (kv.key, kv.value.unwrap()))
                     .collect();
@@ -278,7 +285,7 @@ impl<R: ParquetReader> SerializedFileReader<R> {
                     Some(map)
                 }
             }
-            None => None
+            None => None,
         }
     }
 }
@@ -1120,7 +1127,13 @@ mod tests {
 
         assert!(metadata.contains_key("parquet.proto.descriptor"));
 
-        assert_eq!(metadata.get("parquet.proto.class"), Some("foo.baz.Foobaz$Event".to_owned()).as_ref());
-        assert_eq!(metadata.get("writer.model.name"), Some("protobuf".to_owned()).as_ref());
+        assert_eq!(
+            metadata.get("parquet.proto.class"),
+            Some("foo.baz.Foobaz$Event".to_owned()).as_ref()
+        );
+        assert_eq!(
+            metadata.get("writer.model.name"),
+            Some("protobuf".to_owned()).as_ref()
+        );
     }
 }

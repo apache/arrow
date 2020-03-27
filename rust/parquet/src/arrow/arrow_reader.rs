@@ -78,10 +78,7 @@ impl ArrowReader for ParquetFileArrowReader {
 
     fn get_schema(&mut self) -> Result<Schema> {
         let file_metadata = self.file_reader.metadata().file_metadata();
-        parquet_to_arrow_schema(
-            file_metadata.schema_descr(),
-            file_metadata.metadata(),
-        )
+        parquet_to_arrow_schema(file_metadata.schema_descr(), file_metadata.metadata())
     }
 
     fn get_schema_by_columns<T>(&mut self, column_indices: T) -> Result<Schema>
