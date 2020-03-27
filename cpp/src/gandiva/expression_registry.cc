@@ -17,7 +17,7 @@
 
 #include "gandiva/expression_registry.h"
 
-#include "boost/iterator/transform_iterator.hpp"
+#include <boost/iterator/transform_iterator.hpp>
 
 #include "gandiva/function_registry.h"
 #include "gandiva/llvm_types.h"

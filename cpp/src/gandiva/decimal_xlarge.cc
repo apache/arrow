@@ -26,7 +26,7 @@
 
 #include <limits>
 #include <vector>
-#include "boost/multiprecision/cpp_int.hpp"
+#include <boost/multiprecision/cpp_int.hpp>
 
 #include "arrow/util/basic_decimal.h"
 #include "gandiva/decimal_type_util.h"

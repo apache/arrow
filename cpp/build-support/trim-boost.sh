@@ -22,13 +22,15 @@ set -eu
 
 BOOST_VERSION=1.71.0
 # These are the ones Arrow uses directly
-BOOST_LIBS="system.hpp filesystem.hpp regex.hpp"
+BOOST_LIBS="regex.hpp"
+# Arrow tests require these
+BOOST_LIBS="system.hpp filesystem.hpp"
 # Add these to be able to build those
 BOOST_LIBS="$BOOST_LIBS config build boost_install headers"
 # Maybe log is only needed for debug build? (predef is needed for log)
 BOOST_LIBS="$BOOST_LIBS log predef"
-# Gandiva needs this
-BOOST_LIBS="$BOOST_LIBS optional.hpp"
+# Gandiva needs these
+BOOST_LIBS="$BOOST_LIBS functional/hash.hpp iterator/transform_iterator.hpp multiprecision/cpp_int.hpp optional.hpp"
 # These are for Thrift
 BOOST_LIBS="$BOOST_LIBS algorithm/string.hpp locale.hpp noncopyable.hpp numeric/conversion/cast.hpp scope_exit.hpp scoped_array.hpp shared_array.hpp tokenizer.hpp version.hpp"
 

@@ -17,7 +17,7 @@
 
 #include "gandiva/configuration.h"
 
-#include "boost/functional/hash.hpp"
+#include <boost/functional/hash.hpp>
 
 namespace gandiva {
 
