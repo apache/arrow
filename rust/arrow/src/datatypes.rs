@@ -1223,12 +1223,7 @@ impl Schema {
 
     /// Returns an immutable reference of a specific `Field` instance selected by name
     pub fn field_with_name(&self, name: &str) -> Result<&Field> {
-        for i in 0..self.fields.len() {
-            if self.fields[i].name == name {
-                return Ok(&self.fields[i]);
-            }
-        }
-        Err(ArrowError::InvalidArgumentError(name.to_owned()))
+        return Ok(&self.fields[self.index_of(name)?]);
     }
 
     /// Find the index of the column with the given name
