@@ -43,7 +43,6 @@ export PKG_CONFIG="/${MINGW_PREFIX}/bin/pkg-config --static"
 
 cp $ARROW_HOME/ci/scripts/PKGBUILD .
 export PKGEXT='.pkg.tar.xz' # pacman default changed to .zst in 2020, but keep the old ext for compat
-unset BOOST_ROOT
 printenv
 makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --cleanbuild
 
