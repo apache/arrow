@@ -180,6 +180,195 @@ class ARROW_EXPORT Message {
 
 ARROW_EXPORT std::string FormatMessageType(Message::Type type);
 
+/// \class MessageReceiver
+/// \brief An abstract class to receive read messages from
+/// MessageEmitter.
+class ARROW_EXPORT MessageReceiver {
+ public:
+  virtual ~MessageReceiver() = default;
+
+  /// \brief Receive a message.
+  ///
+  /// MessageEmitter calls this method when it read a message. This
+  /// method is called multiple times when the target stream stream
+  /// has multiple messages.
+  ///
+  /// \param[in] message a read message
+  /// \return Status
+  virtual Status Received(std::unique_ptr<Message> message) = 0;
+};
+
+/// \class MessageReceiverAssign
+/// \brief Assign a message read by MessageEmitter.
+class ARROW_EXPORT MessageReceiverAssign : public MessageReceiver {
+ public:
+  /// \brief Construct a message receiver that assign a read message
+  /// to the specified location.
+  ///
+  /// \param[in] message a location to store the received message
+  explicit MessageReceiverAssign(std::unique_ptr<Message>* message) : message_(message) {}
+
+  virtual ~MessageReceiverAssign() = default;
+
+  Status Received(std::unique_ptr<Message> message) override {
+    *message_ = std::move(message);
+    return Status::OK();
+  }
+
+ private:
+  std::unique_ptr<Message>* message_;
+
+  ARROW_DISALLOW_COPY_AND_ASSIGN(MessageReceiverAssign);
+};
+
+/// \class MessageEmitter
+/// \brief Push style message reader that receives data from user.
+class ARROW_EXPORT MessageEmitter {
+ public:
+  /// \brief State for reading a message
+  enum State {
+    /// The initial state. It requires one of the followings as the next data:
+    ///
+    ///   * int32_t continuation token
+    ///   * int32_t end-of-stream mark (== 0)
+    ///   * int32_t metadata length (backward compatibility for
+    ///     reading old IPC messages produced prior to version 0.15.0
+    INITIAL,
+
+    /// It requires int32_t metadata length.
+    METADATA_LENGTH,
+
+    /// It requires metadata.
+    METADATA,
+
+    /// It requires message body.
+    BODY,
+
+    /// The end-of-stream state. No more data is processed.
+    EOS,
+  };
+
+  /// \brief Construct a message emitter.
+  ///
+  /// \param[in] receiver a MessageReceiver that receives read messages
+  /// \param[in] pool an optional MemoryPool to copy metadata on the
+  /// CPU, if required
+  explicit MessageEmitter(std::shared_ptr<MessageReceiver> receiver,
+                          MemoryPool* pool = default_memory_pool());
+
+  /// \brief Construct a message emitter with the specified state.
+  ///
+  /// This is a construct for advanced users that know how to read
+  /// Message.
+  ///
+  /// \param[in] receiver a MessageReceiver that receives read messages
+  /// \param[in] initial_state an initial state of the emitter
+  /// \param[in] initial_next_required_size the number of bytes needed
+  /// to run the next action
+  /// \param[in] pool an optional MemoryPool to copy metadata on the
+  /// CPU, if required
+  MessageEmitter(std::shared_ptr<MessageReceiver> receiver, State initial_state,
+                 int64_t initial_next_required_size,
+                 MemoryPool* pool = default_memory_pool());
+
+  virtual ~MessageEmitter();
+
+  /// \brief Feed data to the emitter as a raw data.
+  ///
+  /// If the emitter can read one or more messages by the data, the
+  /// emitter emits read batches by calling receiver->Receive()
+  /// multiple times.
+  ///
+  /// \param[in] data a raw data to be processed. This data isn't
+  /// copied. The passed memory must be kept alive through message
+  /// processing.
+  /// \param[in] size raw data size.
+  /// \return Status
+  Status Consume(const uint8_t* data, int64_t size);
+
+  /// \brief Feed data to the emitter as a Buffer.
+  ///
+  /// If the emitter can read one or more messages by the Buffer, the
+  /// emitter emits read messages by calling receiver->Receive()
+  /// multiple times.
+  ///
+  /// \param[in] buffer a Buffer to be processed.
+  /// \return Status
+  Status Consume(std::shared_ptr<Buffer> buffer);
+
+  /// \brief Return the number of bytes needed to advance the state of
+  /// the emitter.
+  ///
+  /// This method is provided for users who want to optimize performance.
+  /// Normal users don't need to use this method.
+  ///
+  /// Here is an example usage for normal users:
+  ///
+  /// ~~~{.cpp}
+  /// emitter.Consume(buffer1);
+  /// emitter.Consume(buffer2);
+  /// emitter.Consume(buffer3);
+  /// ~~~
+  ///
+  /// Emitter has internal buffer. If consumed data isn't enough to
+  /// advance the state of the emitter, consumed data is buffered to
+  /// the internal buffer. It causes performance overhead.
+  ///
+  /// If you pass next_required_size() size data to each Consume()
+  /// call, the emitter doesn't use its internal buffer. It improves
+  /// performance.
+  ///
+  /// Here is an example usage to avoid using internal buffer:
+  ///
+  /// ~~~{.cpp}
+  /// buffer1 = get_data(emitter.next_required_size());
+  /// emitter.Consume(buffer1);
+  /// buffer2 = get_data(emitter.next_required_size());
+  /// emitter.Consume(buffer2);
+  /// ~~~
+  ///
+  /// Users can use this method to avoid creating small
+  /// chunks. Message body must be contiguous data. If users pass
+  /// small chunks to the emitter, the emitter needs concatenate small
+  /// chunks internally. It causes performance overhead.
+  ///
+  /// Here is an example usage to reduce small chunks:
+  ///
+  /// ~~~{.cpp}
+  /// buffer = AllocateResizableBuffer();
+  /// while ((small_chunk = get_data(&small_chunk_size))) {
+  ///   auto current_buffer_size = buffer->size();
+  ///   buffer->Resize(current_buffer_size + small_chunk_size);
+  ///   memcpy(buffer->mutable_data() + current_buffer_size,
+  ///          small_chunk,
+  ///          small_chunk_size);
+  ///   if (buffer->size() < emitter.next_requied_size()) {
+  ///     continue;
+  ///   }
+  ///   std::shared_ptr<arrow::Buffer> chunk(buffer.release());
+  ///   emitter.Consume(chunk);
+  ///   buffer = AllocateResizableBuffer();
+  /// }
+  /// if (buffer->size() > 0) {
+  ///   std::shared_ptr<arrow::Buffer> chunk(buffer.release());
+  ///   emitter.Consume(chunk);
+  /// }
+  /// ~~~
+  ///
+  /// \return the number of bytes needed to advance the state of the
+  /// emitter
+  int64_t next_required_size() const;
+
+  /// \return the current state
+  State state() const;
+
+ private:
+  class MessageEmitterImpl;
+  std::unique_ptr<MessageEmitterImpl> impl_;
+
+  ARROW_DISALLOW_COPY_AND_ASSIGN(MessageEmitter);
+};
+
 /// \brief Abstract interface for a sequence of messages
 /// \since 0.5.0
 class ARROW_EXPORT MessageReader {

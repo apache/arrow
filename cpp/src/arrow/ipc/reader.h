@@ -22,12 +22,15 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <utility>
+#include <vector>
 
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/options.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/receiver.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -192,6 +195,150 @@ class ARROW_EXPORT RecordBatchFileReader {
   Status ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
     return ReadRecordBatch(i).Value(batch);
   }
+};
+
+/// \class RecordBatchReceiverCollect
+/// \brief Collect record batches read by RecordBatchStreamEmitter.
+class ARROW_EXPORT RecordBatchReceiverCollect : public Receiver {
+ public:
+  RecordBatchReceiverCollect() : schema_(), record_batches_() {}
+  virtual ~RecordBatchReceiverCollect() = default;
+
+  Status SchemaReceived(std::shared_ptr<Schema> schema) override {
+    schema_ = std::move(schema);
+    return Status::OK();
+  }
+
+  Status RecordBatchReceived(std::shared_ptr<RecordBatch> record_batch) override {
+    record_batches_.push_back(std::move(record_batch));
+    return Status::OK();
+  }
+
+  /// \return the read schema
+  std::shared_ptr<Schema> schema() const { return schema_; }
+
+  /// \return the all read record batches
+  std::vector<std::shared_ptr<RecordBatch>> record_batches() const {
+    return record_batches_;
+  }
+
+ private:
+  std::shared_ptr<Schema> schema_;
+  std::vector<std::shared_ptr<RecordBatch>> record_batches_;
+};
+
+/// \class RecordBatchStreamEmitter
+/// \brief Push style record batch stream reader that receives data
+/// from user.
+///
+/// This class reads the schema (plus any dictionaries) as the first
+/// messages in the fed data, followed by record batches.
+class ARROW_EXPORT RecordBatchStreamEmitter {
+ public:
+  /// \brief Construct a record batch emitter.
+  ///
+  /// \param[in] receiver a Receiver that must implement
+  /// Receiver::MessageReceived to receive read record batches
+  /// \param[in] options any IPC reading options (optional)
+  RecordBatchStreamEmitter(std::shared_ptr<Receiver> receiver,
+                           const IpcReadOptions& options = IpcReadOptions::Defaults());
+
+  virtual ~RecordBatchStreamEmitter();
+
+  /// \brief Feed data to the emitter as a raw data.
+  ///
+  /// If the emitter can read one or more record batches by the data,
+  /// the emitter emits read record batches by calling
+  /// receiver->Receive() multiple times.
+  ///
+  /// \param[in] data a raw data to be processed. This data isn't
+  /// copied. The passed memory must be kept alive through record
+  /// batch processing.
+  /// \param[in] size raw data size.
+  /// \return Status
+  Status Consume(const uint8_t* data, int64_t size);
+
+  /// \brief Feed data to the emitter as a Buffer.
+  ///
+  /// If the emitter can read one or more record batches by the
+  /// Buffer, the emitter emits read record batches by calling
+  /// receiver->Receive() multiple times.
+  ///
+  /// \param[in] buffer a Buffer to be processed.
+  /// \return Status
+  Status Consume(std::shared_ptr<Buffer> buffer);
+
+  /// \return the shared schema of the record batches in the stream
+  std::shared_ptr<Schema> schema() const;
+
+  /// \brief Return the number of bytes needed to advance the state of
+  /// the emitter.
+  ///
+  /// This method is provided for users who want to optimize performance.
+  /// Normal users don't need to use this method.
+  ///
+  /// Here is an example usage for normal users:
+  ///
+  /// ~~~{.cpp}
+  /// emitter.Consume(buffer1);
+  /// emitter.Consume(buffer2);
+  /// emitter.Consume(buffer3);
+  /// ~~~
+  ///
+  /// Emitter has internal buffer. If consumed data isn't enough to
+  /// advance the state of the emitter, consumed data is buffered to
+  /// the internal buffer. It causes performance overhead.
+  ///
+  /// If you pass next_required_size() size data to each Consume()
+  /// call, the emitter doesn't use its internal buffer. It improves
+  /// performance.
+  ///
+  /// Here is an example usage to avoid using internal buffer:
+  ///
+  /// ~~~{.cpp}
+  /// buffer1 = get_data(emitter.next_required_size());
+  /// emitter.Consume(buffer1);
+  /// buffer2 = get_data(emitter.next_required_size());
+  /// emitter.Consume(buffer2);
+  /// ~~~
+  ///
+  /// Users can use this method to avoid creating small chunks. Record
+  /// batch data must be contiguous data. If users pass small chunks
+  /// to the emitter, the emitter needs concatenate small chunks
+  /// internally. It causes performance overhead.
+  ///
+  /// Here is an example usage to reduce small chunks:
+  ///
+  /// ~~~{.cpp}
+  /// buffer = AllocateResizableBuffer();
+  /// while ((small_chunk = get_data(&small_chunk_size))) {
+  ///   auto current_buffer_size = buffer->size();
+  ///   buffer->Resize(current_buffer_size + small_chunk_size);
+  ///   memcpy(buffer->mutable_data() + current_buffer_size,
+  ///          small_chunk,
+  ///          small_chunk_size);
+  ///   if (buffer->size() < emitter.next_requied_size()) {
+  ///     continue;
+  ///   }
+  ///   std::shared_ptr<arrow::Buffer> chunk(buffer.release());
+  ///   emitter.Consume(chunk);
+  ///   buffer = AllocateResizableBuffer();
+  /// }
+  /// if (buffer->size() > 0) {
+  ///   std::shared_ptr<arrow::Buffer> chunk(buffer.release());
+  ///   emitter.Consume(chunk);
+  /// }
+  /// ~~~
+  ///
+  /// \return the number of bytes needed to advance the state of the
+  /// emitter
+  int64_t next_required_size() const;
+
+ private:
+  class RecordBatchStreamEmitterImpl;
+  std::unique_ptr<RecordBatchStreamEmitterImpl> impl_;
+
+  ARROW_DISALLOW_COPY_AND_ASSIGN(RecordBatchStreamEmitter);
 };
 
 // Generic read functions; does not copy data if the input supports zero copy reads
