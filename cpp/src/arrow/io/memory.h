@@ -48,10 +48,6 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   static Result<std::shared_ptr<BufferOutputStream>> Create(
       int64_t initial_capacity = 4096, MemoryPool* pool = default_memory_pool());
 
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Create(int64_t initial_capacity, MemoryPool* pool,
-                       std::shared_ptr<BufferOutputStream>* out);
-
   ~BufferOutputStream() override;
 
   // Implement the OutputStream interface
@@ -68,9 +64,6 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
 
   /// Close the stream and return the buffer
   Result<std::shared_ptr<Buffer>> Finish();
-
-  ARROW_DEPRECATED("Use Result-returning overload")
-  Status Finish(std::shared_ptr<Buffer>* result);
 
   /// \brief Initialize state of OutputStream with newly allocated memory and
   /// set position to 0

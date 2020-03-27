@@ -558,37 +558,6 @@ class SparseTensorImpl : public SparseTensor {
     return Make(tensor, int64(), pool);
   }
 
-  /// \brief Create a sparse tensor from a dense tensor
-  ///
-  /// The dense tensor is re-encoded as a sparse index and a physical
-  /// data buffer for the non-zero value.
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status Make(const Tensor& tensor,
-                     const std::shared_ptr<DataType>& index_value_type, MemoryPool* pool,
-                     std::shared_ptr<SparseTensorImpl<SparseIndexType>>* out) {
-    auto result = Make(tensor, index_value_type, pool);
-    return std::move(result).Value(out);
-  }
-
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status Make(const Tensor& tensor,
-                     const std::shared_ptr<DataType>& index_value_type,
-                     std::shared_ptr<SparseTensorImpl<SparseIndexType>>* out) {
-    return Make(tensor, index_value_type, default_memory_pool(), out);
-  }
-
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status Make(const Tensor& tensor, MemoryPool* pool,
-                     std::shared_ptr<SparseTensorImpl<SparseIndexType>>* out) {
-    return Make(tensor, int64(), pool, out);
-  }
-
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status Make(const Tensor& tensor,
-                     std::shared_ptr<SparseTensorImpl<SparseIndexType>>* out) {
-    return Make(tensor, default_memory_pool(), out);
-  }
-
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(SparseTensorImpl);
 };

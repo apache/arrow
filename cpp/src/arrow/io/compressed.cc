@@ -206,18 +206,6 @@ Result<std::shared_ptr<CompressedOutputStream>> CompressedOutputStream::Make(
   return res;
 }
 
-Status CompressedOutputStream::Make(util::Codec* codec,
-                                    const std::shared_ptr<OutputStream>& raw,
-                                    std::shared_ptr<CompressedOutputStream>* out) {
-  return Make(codec, raw).Value(out);
-}
-
-Status CompressedOutputStream::Make(MemoryPool* pool, util::Codec* codec,
-                                    const std::shared_ptr<OutputStream>& raw,
-                                    std::shared_ptr<CompressedOutputStream>* out) {
-  return Make(codec, raw, pool).Value(out);
-}
-
 CompressedOutputStream::~CompressedOutputStream() { internal::CloseFromDestructor(this); }
 
 Status CompressedOutputStream::Close() { return impl_->Close(); }
@@ -427,17 +415,6 @@ Result<std::shared_ptr<CompressedInputStream>> CompressedInputStream::Make(
   RETURN_NOT_OK(res->impl_->Init(codec));
   return res;
   return Status::OK();
-}
-
-Status CompressedInputStream::Make(Codec* codec, const std::shared_ptr<InputStream>& raw,
-                                   std::shared_ptr<CompressedInputStream>* out) {
-  return Make(codec, raw).Value(out);
-}
-
-Status CompressedInputStream::Make(MemoryPool* pool, Codec* codec,
-                                   const std::shared_ptr<InputStream>& raw,
-                                   std::shared_ptr<CompressedInputStream>* out) {
-  return Make(codec, raw, pool).Value(out);
 }
 
 CompressedInputStream::~CompressedInputStream() { internal::CloseFromDestructor(this); }

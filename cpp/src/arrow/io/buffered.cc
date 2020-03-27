@@ -209,12 +209,6 @@ Result<std::shared_ptr<BufferedOutputStream>> BufferedOutputStream::Create(
   return result;
 }
 
-Status BufferedOutputStream::Create(int64_t buffer_size, MemoryPool* pool,
-                                    std::shared_ptr<OutputStream> raw,
-                                    std::shared_ptr<BufferedOutputStream>* out) {
-  return Create(buffer_size, pool, std::move(raw)).Value(out);
-}
-
 BufferedOutputStream::~BufferedOutputStream() { internal::CloseFromDestructor(this); }
 
 Status BufferedOutputStream::SetBufferSize(int64_t new_buffer_size) {
@@ -227,10 +221,6 @@ int64_t BufferedOutputStream::bytes_buffered() const { return impl_->buffer_pos(
 
 Result<std::shared_ptr<OutputStream>> BufferedOutputStream::Detach() {
   return impl_->Detach();
-}
-
-Status BufferedOutputStream::Detach(std::shared_ptr<OutputStream>* raw) {
-  return Detach().Value(raw);
 }
 
 Status BufferedOutputStream::Close() { return impl_->Close(); }
@@ -451,13 +441,6 @@ Result<std::shared_ptr<BufferedInputStream>> BufferedInputStream::Create(
       new BufferedInputStream(std::move(raw), pool, raw_total_bytes_bound));
   RETURN_NOT_OK(result->SetBufferSize(buffer_size));
   return result;
-}
-
-Status BufferedInputStream::Create(int64_t buffer_size, MemoryPool* pool,
-                                   std::shared_ptr<InputStream> raw,
-                                   std::shared_ptr<BufferedInputStream>* out,
-                                   int64_t raw_total_bytes_bound) {
-  return Create(buffer_size, pool, std::move(raw)).Value(out);
 }
 
 Status BufferedInputStream::DoClose() { return impl_->Close(); }

@@ -169,35 +169,6 @@ class ARROW_EXPORT Codec {
 
   virtual const char* name() const = 0;
 
-  // Deprecated APIs
-
-  /// \brief Create a codec for the given compression algorithm
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status Create(Compression::type codec, std::unique_ptr<Codec>* out);
-
-  /// \brief Create a codec for the given compression algorithm and level
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status Create(Compression::type codec, int compression_level,
-                       std::unique_ptr<Codec>* out);
-
-  /// \brief One-shot decompression function
-  ARROW_DEPRECATED("Use Result-returning version")
-  Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_buffer_len,
-                    uint8_t* output_buffer, int64_t* output_len);
-
-  /// \brief One-shot compression function
-  ARROW_DEPRECATED("Use Result-returning version")
-  Status Compress(int64_t input_len, const uint8_t* input, int64_t output_buffer_len,
-                  uint8_t* output_buffer, int64_t* output_len);
-
-  /// \brief Create a streaming compressor instance
-  ARROW_DEPRECATED("Use Result-returning version")
-  virtual Status MakeCompressor(std::shared_ptr<Compressor>* out);
-
-  /// \brief Create a streaming decompressor instance
-  ARROW_DEPRECATED("Use Result-returning version")
-  virtual Status MakeDecompressor(std::shared_ptr<Decompressor>* out);
-
  private:
   /// \brief Initializes the codec's resources.
   virtual Status Init();

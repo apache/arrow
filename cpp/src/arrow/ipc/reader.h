@@ -93,15 +93,15 @@ class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
       const std::shared_ptr<io::InputStream>& stream,
       const IpcReadOptions& options = IpcReadOptions::Defaults());
 
-  ARROW_DEPRECATED("Use Result-returning version")
+  ARROW_DEPRECATED("Deprecated in 0.17.0. Use Result-returning version")
   static Status Open(std::unique_ptr<MessageReader> message_reader,
                      std::shared_ptr<RecordBatchReader>* out);
-  ARROW_DEPRECATED("Use Result-returning version")
+  ARROW_DEPRECATED("Deprecated in 0.17.0. Use Result-returning version")
   static Status Open(std::unique_ptr<MessageReader> message_reader,
                      std::unique_ptr<RecordBatchReader>* out);
-  ARROW_DEPRECATED("Use Result-returning version")
+  ARROW_DEPRECATED("Deprecated in 0.17.0. Use Result-returning version")
   static Status Open(io::InputStream* stream, std::shared_ptr<RecordBatchReader>* out);
-  ARROW_DEPRECATED("Use Result-returning version")
+  ARROW_DEPRECATED("Deprecated in 0.17.0. Use Result-returning version")
   static Status Open(const std::shared_ptr<io::InputStream>& stream,
                      std::shared_ptr<RecordBatchReader>* out);
 };
@@ -155,16 +155,16 @@ class ARROW_EXPORT RecordBatchFileReader {
       const std::shared_ptr<io::RandomAccessFile>& file, int64_t footer_offset,
       const IpcReadOptions& options = IpcReadOptions::Defaults());
 
-  ARROW_DEPRECATED("Use Result-returning version")
+  ARROW_DEPRECATED("Deprecated in 0.17.0. Use Result-returning version")
   static Status Open(const std::shared_ptr<io::RandomAccessFile>& file,
                      int64_t footer_offset, std::shared_ptr<RecordBatchFileReader>* out);
-  ARROW_DEPRECATED("Use Result-returning version")
+  ARROW_DEPRECATED("Deprecated in 0.17.0. Use Result-returning version")
   static Status Open(const std::shared_ptr<io::RandomAccessFile>& file,
                      std::shared_ptr<RecordBatchFileReader>* out);
-  ARROW_DEPRECATED("Use Result-returning version")
+  ARROW_DEPRECATED("Deprecated in 0.17.0. Use Result-returning version")
   static Status Open(io::RandomAccessFile* file, int64_t footer_offset,
                      std::shared_ptr<RecordBatchFileReader>* out);
-  ARROW_DEPRECATED("Use Result-returning version")
+  ARROW_DEPRECATED("Deprecated in 0.17.0. Use Result-returning version")
   static Status Open(io::RandomAccessFile* file,
                      std::shared_ptr<RecordBatchFileReader>* out);
 
@@ -309,29 +309,29 @@ Status FuzzIpcFile(const uint8_t* data, int64_t size);
 
 }  // namespace internal
 
-ARROW_DEPRECATED("Use version with Result return value")
+ARROW_DEPRECATED("Deprecated in 0.17.0. Use version with Result return value")
 ARROW_EXPORT
 Status ReadSchema(io::InputStream* stream, DictionaryMemo* dictionary_memo,
                   std::shared_ptr<Schema>* out);
 
-ARROW_DEPRECATED("Use version with Result return value")
+ARROW_DEPRECATED("Deprecated in 0.17.0. Use version with Result return value")
 ARROW_EXPORT
 Status ReadSchema(const Message& message, DictionaryMemo* dictionary_memo,
                   std::shared_ptr<Schema>* out);
 
-ARROW_DEPRECATED("Use version with Result return value")
+ARROW_DEPRECATED("Deprecated in 0.17.0. Use version with Result return value")
 ARROW_EXPORT
 Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
                        const DictionaryMemo* dictionary_memo, io::InputStream* stream,
                        std::shared_ptr<RecordBatch>* out);
 
-ARROW_DEPRECATED("Use version with Result return value")
+ARROW_DEPRECATED("Deprecated in 0.17.0. Use version with Result return value")
 ARROW_EXPORT
 Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& schema,
                        const DictionaryMemo* dictionary_memo, io::RandomAccessFile* file,
                        std::shared_ptr<RecordBatch>* out);
 
-ARROW_DEPRECATED("Use version with Result return value")
+ARROW_DEPRECATED("Deprecated in 0.17.0. Use version with Result return value")
 ARROW_EXPORT
 Status ReadRecordBatch(const Message& message, const std::shared_ptr<Schema>& schema,
                        const DictionaryMemo* dictionary_memo,

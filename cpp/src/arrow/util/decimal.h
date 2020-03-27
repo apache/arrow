@@ -80,26 +80,6 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
     return std::move(result);
   }
 
-  /// Divide this number by right and return the result.
-  ///
-  /// This operation is not destructive.
-  /// The answer rounds to zero. Signs work like:
-  ///   21 /  5 ->  4,  1
-  ///  -21 /  5 -> -4, -1
-  ///   21 / -5 -> -4,  1
-  ///  -21 / -5 ->  4, -1
-  /// \param[in] divisor the number to divide by
-  /// \param[out] result the quotient
-  /// \param[out] remainder the remainder after the division
-  ARROW_DEPRECATED("Use Result-returning version")
-  Status Divide(const Decimal128& divisor, Decimal128* result,
-                Decimal128* remainder) const {
-    std::pair<Decimal128, Decimal128> out;
-    ARROW_ASSIGN_OR_RAISE(out, Divide(divisor));
-    std::tie(*result, *remainder) = out;
-    return Status::OK();
-  }
-
   /// \brief Convert the Decimal128 value to a base 10 decimal string with the given
   /// scale.
   std::string ToString(int32_t scale) const;
@@ -122,26 +102,10 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
   static Result<Decimal128> FromString(const std::string& s);
   static Result<Decimal128> FromString(const char* s);
 
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status FromString(const util::string_view& s, Decimal128* out);
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status FromString(const std::string& s, Decimal128* out);
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status FromString(const char* s, Decimal128* out);
-
   /// \brief Convert from a big-endian byte representation. The length must be
   ///        between 1 and 16.
   /// \return error status if the length is an invalid value
   static Result<Decimal128> FromBigEndian(const uint8_t* data, int32_t length);
-
-  /// \brief Convert from a big-endian byte representation. The length must be
-  ///        between 1 and 16.
-  /// \return error status if the length is an invalid value
-  ARROW_DEPRECATED("Use Result-returning version")
-  static inline Status FromBigEndian(const uint8_t* data, int32_t length,
-                                     Decimal128* out) {
-    return FromBigEndian(data, length).Value(out);
-  }
 
   /// \brief Convert Decimal128 from one scale to another
   Result<Decimal128> Rescale(int32_t original_scale, int32_t new_scale) const {
@@ -149,12 +113,6 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
     auto dstatus = BasicDecimal128::Rescale(original_scale, new_scale, &out);
     ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
     return std::move(out);
-  }
-
-  /// \brief Convert Decimal128 from one scale to another
-  ARROW_DEPRECATED("Use Result-returning version")
-  Status Rescale(int32_t original_scale, int32_t new_scale, Decimal128* out) const {
-    return Rescale(original_scale, new_scale).Value(out);
   }
 
   /// \brief Convert to a signed integer

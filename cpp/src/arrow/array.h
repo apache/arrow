@@ -1224,12 +1224,6 @@ class ARROW_EXPORT UnionArray : public Array {
 
   const type_code_t* raw_type_codes() const { return raw_type_codes_ + data_->offset; }
 
-  ARROW_DEPRECATED("Use UnionArray::type_codes")
-  std::shared_ptr<Buffer> type_ids() const { return type_codes(); }
-
-  ARROW_DEPRECATED("Use UnionArray::raw_type_codes")
-  const type_code_t* raw_type_ids() const { return raw_type_codes(); }
-
   /// The physical child id containing value at index.
   int child_id(int64_t i) const {
     return union_type_->child_ids()[raw_type_codes_[i + data_->offset]];
