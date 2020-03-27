@@ -475,7 +475,7 @@ mod tests {
 
     #[test]
     fn test_union_i32_dense() {
-        let mut builder = UnionBuilder::new_dense();
+        let mut builder = UnionBuilder::new_dense(7);
         builder.append::<Int32Type>("a", 1);
         builder.append::<Int32Type>("b", 2);
         builder.append::<Int32Type>("c", 3);
@@ -533,7 +533,7 @@ mod tests {
 
     #[test]
     fn test_dense_union_mixed() {
-        let mut builder = UnionBuilder::new_dense();
+        let mut builder = UnionBuilder::new_dense(7);
         builder.append::<Int32Type>("a", 1);
         builder.append::<BooleanType>("b", false);
         builder.append::<Int64Type>("c", 3);
@@ -596,7 +596,7 @@ mod tests {
 
     #[test]
     fn test_union_i32_sparse() {
-        let mut builder = UnionBuilder::new_sparse();
+        let mut builder = UnionBuilder::new_sparse(7);
         builder.append::<Int32Type>("a", 1);
         builder.append::<Int32Type>("b", 2);
         builder.append::<Int32Type>("c", 3);
@@ -647,7 +647,7 @@ mod tests {
 
     #[test]
     fn test_union_i32_sparse_mixed() {
-        let mut builder = UnionBuilder::new_sparse();
+        let mut builder = UnionBuilder::new_sparse(7);
         builder.append::<Int32Type>("a", 1);
         builder.append::<BooleanType>("b", true);
         builder.append::<Float64Type>("c", 3.0);
