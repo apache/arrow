@@ -897,6 +897,17 @@ def test_cast_none():
         arr.cast(None)
 
 
+def test_cast_list_to_primitive():
+    # ARROW-8070: cast segfaults on unsupported cast from list<binary> to utf8
+    arr = pa.array([[1, 2], [3, 4]])
+    with pytest.raises(pa.ArrowInvalid):
+        arr.cast(pa.int8())
+
+    arr = pa.array([[b"a", b"b"], [b"c"]], pa.list_(pa.binary()))
+    with pytest.raises(pa.ArrowInvalid):
+        arr.cast(pa.binary())
+
+
 def test_cast_chunked_array():
     arrays = [pa.array([1, 2, 3]), pa.array([4, 5, 6])]
     carr = pa.chunked_array(arrays)
