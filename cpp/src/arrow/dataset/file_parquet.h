@@ -52,6 +52,9 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 
   bool splittable() const override { return true; }
 
+  // Note: the default values are exposed in the python bindings and documented
+  //       in the docstrings, if any of the default values gets changed please
+  //       update there as well.
   struct ReaderOptions {
     /// \defgroup parquet-file-format-reader-properties properties which correspond to
     /// members of parquet::ReaderProperties.
