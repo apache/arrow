@@ -23,7 +23,8 @@ set -x
 # Make sure it is absolute and exported
 export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 
-pacman --sync --noconfirm ccache
+# ccache may be broken on MinGW.
+# pacman --sync --noconfirm ccache
 
 wget https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf
 cp -f pacman.conf /etc/pacman.conf

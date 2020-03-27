@@ -24,7 +24,8 @@ target=$1
 packages=()
 case "${target}" in
   cpp|c_glib|ruby)
-    packages+=(ccache)
+    # ccache may be broken on MinGW.
+    # packages+=(ccache)
     packages+=(${MINGW_PACKAGE_PREFIX}-boost)
     packages+=(${MINGW_PACKAGE_PREFIX}-brotli)
     packages+=(${MINGW_PACKAGE_PREFIX}-cmake)
