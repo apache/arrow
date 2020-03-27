@@ -27,6 +27,8 @@ BOOST_LIBS="system.hpp filesystem.hpp regex.hpp"
 BOOST_LIBS="$BOOST_LIBS config build boost_install headers"
 # Maybe log is only needed for debug build? (predef is needed for log)
 BOOST_LIBS="$BOOST_LIBS log predef"
+# Gandiva needs this
+BOOST_LIBS="$BOOST_LIBS optional.hpp"
 # These are for Thrift
 BOOST_LIBS="$BOOST_LIBS algorithm/string.hpp locale.hpp noncopyable.hpp numeric/conversion/cast.hpp scope_exit.hpp scoped_array.hpp shared_array.hpp tokenizer.hpp version.hpp"
 
