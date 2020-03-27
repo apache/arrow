@@ -82,6 +82,15 @@ class CapturedResult {
     EXPECT_THAT(rep_levels_, ElementsAreArray(expected_rep));
   }
 
+  friend std::ostream& operator<<(std::ostream& os, const CapturedResult& result) {
+    // This print method is to silence valgrind issues.  Whats printed
+    // is not important because all asserts happen directly on
+    // members.
+    os << "CapturedResult (null def, null_rep):" << result.null_def_levels << " "
+       << result.null_rep_levels;
+    return os;
+  }
+
  private:
   std::vector<int16_t> def_levels_;
   std::vector<int16_t> rep_levels_;
@@ -158,6 +167,32 @@ TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllNullsLists) {
   ASSERT_THAT(results_, SizeIs(1));
   const CapturedResult& result = results_[0];
   result.CheckLevels(/*def_levels=*/std::vector<int16_t>(/*count=*/4, 0),
+                     /*rep_levels=*/std::vector<int16_t>(4, 0));
+}
+
+TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllEmptyLists) {
+  auto entries = field("Entries", ::arrow::int64(), /*nullable=*/false);
+  auto list_type = list(entries);
+  // Translates to parquet schema:
+  // optional group bag {
+  //   repeated group [unseen] (List) {
+  //       required int64 Entries;
+  //   }
+  // }
+  // So:
+  // def level 0: a null list
+  // def level 1: an empty list
+  // def level 2: a null entry
+  // def level 3: a non-null entry
+
+  auto array = ::arrow::ArrayFromJSON(list_type, R"([[], [], [], []])");
+
+  ASSERT_OK(
+      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+
+  ASSERT_THAT(results_, SizeIs(1));
+  const CapturedResult& result = results_[0];
+  result.CheckLevels(/*def_levels=*/std::vector<int16_t>(/*count=*/4, 1),
                      /*rep_levels=*/std::vector<int16_t>(4, 0));
 }
 

@@ -105,7 +105,11 @@ ArrayData ArrayData::Slice(int64_t off, int64_t len) const {
   auto copy = *this;
   copy.length = len;
   copy.offset = off;
-  copy.null_count = null_count != 0 ? kUnknownNullCount : 0;
+  if (null_count == length) {
+    copy.null_count = len;
+  } else {
+    copy.null_count = null_count != 0 ? kUnknownNullCount : 0;
+  }
   return copy;
 }
 

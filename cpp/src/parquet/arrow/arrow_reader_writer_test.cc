@@ -445,8 +445,8 @@ void CheckSimpleRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group
                           const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
                               default_arrow_writer_properties()) {
   std::shared_ptr<Table> result;
-  DoSimpleRoundtrip(table, false /* use_threads */, row_group_size, {}, &result,
-                    arrow_properties);
+  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(
+      table, false /* use_threads */, row_group_size, {}, &result, arrow_properties));
   ::arrow::AssertSchemaEqual(*table->schema(), *result->schema(),
                              /*check_metadata=*/false);
   ::arrow::AssertTablesEqual(*table, *result, false);
@@ -2233,6 +2233,22 @@ TEST(TestArrowReadWrite, TableWithDuplicateColumns) {
 
   auto table = Table::Make(schema, {a0, a1});
   ASSERT_NO_FATAL_FAILURE(CheckSimpleRoundtrip(table, table->num_rows()));
+}
+
+TEST(ArrowReadWrite, SimpleStructRoundTrip) {
+  auto links = field(
+      "Links", ::arrow::struct_({field("Backward", ::arrow::int64(), /*nullable=*/true),
+                                 field("Forward", ::arrow::int64(), /*nullable=*/true)}));
+
+  auto links_id_array = ::arrow::ArrayFromJSON(links->type(),
+                                               "[{\"Backward\": null, \"Forward\": 20}, "
+                                               "{\"Backward\": 10, \"Forward\": 40}]");
+
+  CheckSimpleRoundtrip(
+      ::arrow::Table::Make(std::make_shared<::arrow::Schema>(
+                               std::vector<std::shared_ptr<::arrow::Field>>{links}),
+                           {links_id_array}),
+      2);
 }
 
 // Disabled until implementation can be finished.
