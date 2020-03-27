@@ -275,8 +275,10 @@ impl<R: ParquetReader> SerializedFileReader<R> {
             Some(key_values) => {
                 let map: HashMap<String, String> = key_values
                     .into_iter()
-                    .filter(|kv| kv.value.is_some()) // skip keys without corresponding value
-                    .map(|kv| (kv.key, kv.value.unwrap()))
+                    .filter_map(|kv| {
+                        let key = kv.key;
+                        kv.value.map(|value| (key, value))
+                    })
                     .collect();
 
                 if map.is_empty() {
