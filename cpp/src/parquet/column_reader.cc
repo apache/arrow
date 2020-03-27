@@ -1478,7 +1478,7 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
       result_chunks_.emplace_back(std::move(chunk));
 
       // Also clears the dictionary memo table
-      builder_.ResetFull();
+      builder_.Reset();
     }
   }
 
@@ -1487,6 +1487,7 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
       /// If there is a new dictionary, we may need to flush the builder, then
       /// insert the new dictionary values
       FlushBuilder();
+      builder_.ResetFull();
       auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_);
       decoder->InsertDictionary(&builder_);
       this->new_dictionary_ = false;
