@@ -618,7 +618,8 @@ cdef class ParquetReadOptions:
         uint32_t buffer_size
         set dictionary_columns
 
-    def __init__(self, bint use_buffered_stream=False, buffer_size=8192,
+    def __init__(self, bint use_buffered_stream=False,
+                 uint32_t buffer_size=8192,
                  dictionary_columns=None):
         self.use_buffered_stream = use_buffered_stream
         self.buffer_size = buffer_size
@@ -643,12 +644,18 @@ cdef class ParquetFileFormat(FileFormat):
     cdef:
         CParquetFileFormat* parquet_format
 
-    def __init__(self, ParquetReadOptions read_options=None):
+    def __init__(self, read_options=None):
         cdef:
             shared_ptr[CParquetFileFormat] wrapped
             CParquetFileFormatReaderOptions* options
 
-        read_options = read_options or ParquetReadOptions()
+        if read_options is None:
+            read_options = ParquetReadOptions()
+        elif isinstance(read_options, dict):
+            read_options = ParquetReadOptions(**read_options)
+        elif not isinstance(read_options, ParquetReadOptions):
+            raise TypeError('`read_options` must be either a dictionary or an '
+                            'instance of ParquetReadOptions')
 
         wrapped = make_shared[CParquetFileFormat]()
         options = &(wrapped.get().reader_options)

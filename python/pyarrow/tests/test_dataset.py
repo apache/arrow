@@ -516,6 +516,12 @@ def test_file_format_pickling():
         ds.ParquetFileFormat(),
         ds.ParquetFileFormat(
             read_options=ds.ParquetReadOptions(use_buffered_stream=True)
+        ),
+        ds.ParquetFileFormat(
+            read_options={
+                'use_buffered_stream': True,
+                'buffer_size': 4096,
+            }
         )
     ]
     for file_format in formats:
