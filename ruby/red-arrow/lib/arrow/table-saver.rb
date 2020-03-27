@@ -156,9 +156,7 @@ module Arrow
 
     def save_as_feather
       open_output_stream do |output|
-        FeatherFileWriter.open(output) do |writer|
-          writer.write(@table)
-        end
+        write_feather_file(output, @table)
       end
     end
   end

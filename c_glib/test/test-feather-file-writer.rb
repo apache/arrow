@@ -18,58 +18,6 @@
 class TestFeatherFileWriter < Test::Unit::TestCase
   include Helper::Buildable
 
-  def test_append
-    tempfile = Tempfile.open("arrow-feather-file-writer")
-    output = Arrow::FileOutputStream.new(tempfile.path, false)
-    begin
-      writer = Arrow::FeatherFileWriter.new(output)
-      begin
-        writer.description = "Log"
-        writer.n_rows = 3
-        writer.append("message",
-                      build_string_array(["Crash", "Error", "Shutdown"]))
-        writer.append("is_critical",
-                      build_boolean_array([true, true, false]))
-      ensure
-        writer.close
-      end
-    ensure
-      output.close
-    end
-
-    input = Arrow::MemoryMappedInputStream.new(tempfile.path)
-    begin
-      reader = Arrow::FeatherFileReader.new(input)
-      columns = reader.n_columns.times.collect do |i|
-        [
-          reader.get_column_name(i),
-          reader.get_column_data(i).get_chunk(0),
-        ]
-      end
-      assert_equal([
-                     true,
-                     "Log",
-                     [
-                       [
-                         "message",
-                         build_string_array(["Crash", "Error", "Shutdown"]),
-                       ],
-                       [
-                         "is_critical",
-                         build_boolean_array([true, true, false]),
-                       ],
-                     ],
-                   ],
-                   [
-                     reader.has_description?,
-                     reader.description,
-                     columns,
-                   ])
-    ensure
-      input.close
-    end
-  end
-
   def test_write
     messages = build_string_array(["Crash", "Error", "Shutdown"])
     is_criticals = build_boolean_array([true, true, false])
@@ -79,16 +27,12 @@ class TestFeatherFileWriter < Test::Unit::TestCase
     tempfile = Tempfile.open("arrow-feather-file-writer")
 
     output = Arrow::FileOutputStream.new(tempfile.path, false)
-    writer = Arrow::FeatherFileWriter.new(output)
-    writer.n_rows = table.n_rows
-    writer.write(table)
-    writer.close
+    Arrow::feather_write_file(table, output)
     output.close
 
     input = Arrow::MemoryMappedInputStream.new(tempfile.path)
     reader = Arrow::FeatherFileReader.new(input)
-    assert_equal([table.n_rows, table],
-                 [reader.n_rows, reader.read])
+    assert_equal(table, reader.read)
     input.close
   end
 end
