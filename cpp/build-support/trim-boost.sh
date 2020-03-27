@@ -20,24 +20,25 @@
 
 set -eu
 
-BOOST_VERSION=1.71.0
-# These are the ones Arrow uses directly
-BOOST_LIBS="regex.hpp"
+# if version is not defined by the caller, set a default.
+: ${BOOST_VERSION:=1.71.0}
+: ${BOOST_FILE:=boost_${BOOST_VERSION//./_}}
+: ${BOOST_URL:=https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/${BOOST_FILE}.tar.gz}
+
 # Arrow tests require these
 BOOST_LIBS="system.hpp filesystem.hpp"
 # Add these to be able to build those
 BOOST_LIBS="$BOOST_LIBS config build boost_install headers"
 # Maybe log is only needed for debug build? (predef is needed for log)
 BOOST_LIBS="$BOOST_LIBS log predef"
+# Parquet needs these
+BOOST_LIBS="$BOOST_LIBS regex.hpp"
 # Gandiva needs these
-BOOST_LIBS="$BOOST_LIBS functional/hash.hpp iterator/transform_iterator.hpp multiprecision/cpp_int.hpp optional.hpp"
+BOOST_LIBS="$BOOST_LIBS functional/hash.hpp multiprecision/cpp_int.hpp"
 # These are for Thrift
 BOOST_LIBS="$BOOST_LIBS algorithm/string.hpp locale.hpp noncopyable.hpp numeric/conversion/cast.hpp scope_exit.hpp scoped_array.hpp shared_array.hpp tokenizer.hpp version.hpp"
 
-BOOST_VERSION_=`echo $BOOST_VERSION | sed -e 's/\./_/g'`
-BOOST_FILE="boost_${BOOST_VERSION_}"
-
-curl -L https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/${BOOST_FILE}.tar.gz > ${BOOST_FILE}.tar.gz
+curl -L "${BOOST_URL}" > ${BOOST_FILE}.tar.gz
 tar -xzf ${BOOST_FILE}.tar.gz
 cd ${BOOST_FILE}
 
