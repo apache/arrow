@@ -230,7 +230,7 @@ Custom extension array class
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 By default, all arrays with an extension type are constructed or deserialized into
-a built-in :class:`ExtensionArray` object. Nevertheless, one could want to sub-class
+a built-in :class:`ExtensionArray` object. Nevertheless, one could want to subclass
 :class:`ExtensionArray` in order to add some custom logic specific to the extension
 type. Arrow allows to do so by adding a special method ``__arrow_ext_class__`` to the
 definition of the extension type.
