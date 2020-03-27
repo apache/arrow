@@ -24,9 +24,8 @@
 // [[arrow::export]]
 void ipc___WriteFeather__RecordBatch(
     const std::shared_ptr<arrow::io::OutputStream>& stream,
-    const std::shared_ptr<arrow::RecordBatch>& batch,
-    int version, int chunk_size, arrow::Compression::type compression,
-    int compression_level) {
+    const std::shared_ptr<arrow::RecordBatch>& batch, int version, int chunk_size,
+    arrow::Compression::type compression, int compression_level) {
   auto properties = arrow::ipc::feather::WriteProperties::Defaults();
   properties.version = version;
   properties.chunksize = chunk_size;
