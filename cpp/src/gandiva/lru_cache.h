@@ -21,7 +21,7 @@
 #include <unordered_map>
 #include <utility>
 
-#include <boost/optional.hpp>
+#include "arrow/util/optional.h"
 
 // modified from boost LRU cache -> the boost cache supported only an
 // ordered map.
@@ -70,12 +70,12 @@ class LruCache {
     }
   }
 
-  boost::optional<value_type> get(const key_type& key) {
+  arrow::util::optional<value_type> get(const key_type& key) {
     // lookup value in the cache
     typename map_type::iterator value_for_key = map_.find(key);
     if (value_for_key == map_.end()) {
       // value not in cache
-      return boost::none;
+      return arrow::util::nullopt;
     }
 
     // return the value, but first update its place in the most

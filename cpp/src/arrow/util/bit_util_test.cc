@@ -28,8 +28,6 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/utility.hpp>  // IWYU pragma: export
-
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_common.h"
@@ -920,12 +918,10 @@ TEST(BitUtil, CoveringBytes) {
 }
 
 TEST(BitUtil, TrailingBits) {
-  EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 0), 0);
-  EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 1), 1);
-  EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 64),
-            BOOST_BINARY(1 1 1 1 1 1 1 1));
-  EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 100),
-            BOOST_BINARY(1 1 1 1 1 1 1 1));
+  EXPECT_EQ(BitUtil::TrailingBits(0xFF, 0), 0);
+  EXPECT_EQ(BitUtil::TrailingBits(0xFF, 1), 1);
+  EXPECT_EQ(BitUtil::TrailingBits(0xFF, 64), 0xFF);
+  EXPECT_EQ(BitUtil::TrailingBits(0xFF, 100), 0xFF);
   EXPECT_EQ(BitUtil::TrailingBits(0, 1), 0);
   EXPECT_EQ(BitUtil::TrailingBits(0, 64), 0);
   EXPECT_EQ(BitUtil::TrailingBits(1LL << 63, 0), 0);

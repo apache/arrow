@@ -24,8 +24,6 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/utility.hpp>  // IWYU pragma: export
-
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/testing/random.h"
@@ -47,11 +45,11 @@ TEST(BitArray, TestBool) {
 
   // Write alternating 0's and 1's
   for (int i = 0; i < 8; ++i) {
-    bool result = writer.PutValue(i % 2, 1);
-    EXPECT_TRUE(result);
+    EXPECT_TRUE(writer.PutValue(i % 2, 1));
   }
   writer.Flush();
-  EXPECT_EQ((int)buffer[0], BOOST_BINARY(1 0 1 0 1 0 1 0));
+
+  EXPECT_EQ(buffer[0], 0xAA /* 0b10101010 */);
 
   // Write 00110011
   for (int i = 0; i < 8; ++i) {
@@ -72,8 +70,8 @@ TEST(BitArray, TestBool) {
   writer.Flush();
 
   // Validate the exact bit value
-  EXPECT_EQ((int)buffer[0], BOOST_BINARY(1 0 1 0 1 0 1 0));
-  EXPECT_EQ((int)buffer[1], BOOST_BINARY(1 1 0 0 1 1 0 0));
+  EXPECT_EQ(buffer[0], 0xAA /* 0b10101010 */);
+  EXPECT_EQ(buffer[1], 0xCC /* 0b11001100 */);
 
   // Use the reader and validate
   BitUtil::BitReader reader(buffer, len);
@@ -285,7 +283,7 @@ TEST(Rle, SpecificSequences) {
   }
 
   for (int width = 9; width <= MAX_WIDTH; ++width) {
-    ValidateRle(values, width, NULL,
+    ValidateRle(values, width, nullptr,
                 2 * (1 + static_cast<int>(BitUtil::CeilDiv(width, 8))));
   }
 
@@ -296,16 +294,16 @@ TEST(Rle, SpecificSequences) {
   int num_groups = static_cast<int>(BitUtil::CeilDiv(100, 8));
   expected_buffer[0] = static_cast<uint8_t>((num_groups << 1) | 1);
   for (int i = 1; i <= 100 / 8; ++i) {
-    expected_buffer[i] = BOOST_BINARY(1 0 1 0 1 0 1 0);
+    expected_buffer[i] = 0xAA /* 0b10101010 */;
   }
   // Values for the last 4 0 and 1's. The upper 4 bits should be padded to 0.
-  expected_buffer[100 / 8 + 1] = BOOST_BINARY(0 0 0 0 1 0 1 0);
+  expected_buffer[100 / 8 + 1] = 0x0A /* 0b00001010 */;
 
   // num_groups and expected_buffer only valid for bit width = 1
   ValidateRle(values, 1, expected_buffer, 1 + num_groups);
   for (int width = 2; width <= MAX_WIDTH; ++width) {
     int num_values = static_cast<int>(BitUtil::CeilDiv(100, 8)) * 8;
-    ValidateRle(values, width, NULL,
+    ValidateRle(values, width, nullptr,
                 1 + static_cast<int>(BitUtil::CeilDiv(width * num_values, 8)));
   }
 }
