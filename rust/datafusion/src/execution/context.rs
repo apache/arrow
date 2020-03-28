@@ -866,7 +866,7 @@ mod tests {
 
         let mut ctx = ExecutionContext::new();
 
-        let provider = MemTable::new(schema, vec![batch]).unwrap();
+        let provider = MemTable::new(schema, vec![batch])?;
         ctx.register_table("t", Box::new(provider));
 
         let myfunc: ScalarUdf = |args: &Vec<ArrayRef>| {
@@ -878,7 +878,7 @@ mod tests {
                 .as_any()
                 .downcast_ref::<Int32Array>()
                 .expect("cast failed");
-            Ok(Arc::new(add(l, r).unwrap()))
+            Ok(Arc::new(add(l, r)?))
         };
 
         let def = ScalarFunction::new(
@@ -893,7 +893,7 @@ mod tests {
 
         ctx.register_udf("my_add", def);
 
-        let t = ctx.table("t").unwrap();
+        let t = ctx.table("t")?;
 
         let plan = LogicalPlanBuilder::from(t.to_logical_plan().as_ref())
             .project(vec![
