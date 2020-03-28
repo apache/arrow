@@ -26,35 +26,53 @@ use arrow::datatypes::{DataType, Field};
 
 use std::sync::Arc;
 
-/// Register math scalar functions with the context
-pub fn register_math_functions(ctx: &mut ExecutionContext) {
-    ctx.register_udf(sqrt_fn());
+macro_rules! math_unary_function {
+    ($NAME:expr, $FUNC:ident) => {
+        ScalarFunction::new(
+            $NAME,
+            vec![Field::new("n", DataType::Float64, true)],
+            DataType::Float64,
+            |args: &Vec<ArrayRef>| {
+                let n = &args[0].as_any().downcast_ref::<Float64Array>();
+                match n {
+                    Some(array) => {
+                        let mut builder = Float64Builder::new(array.len());
+                        for i in 0..array.len() {
+                            if array.is_null(i) {
+                                builder.append_null()?;
+                            } else {
+                                builder.append_value(array.value(i).$FUNC())?;
+                            }
+                        }
+                        Ok(Arc::new(builder.finish()))
+                    }
+                    _ => Err(ExecutionError::General(format!(
+                        "Invalid data type for {}",
+                        $NAME
+                    ))),
+                }
+            },
+        )
+    };
 }
 
-fn sqrt_fn() -> ScalarFunction {
-    ScalarFunction::new(
-        "sqrt",
-        vec![Field::new("n", DataType::Float64, true)],
-        DataType::Float64,
-        |args: &Vec<ArrayRef>| {
-            let n = &args[0].as_any().downcast_ref::<Float64Array>();
-
-            match n {
-                Some(array) => {
-                    let mut builder = Float64Builder::new(array.len());
-                    for i in 0..array.len() {
-                        if array.is_null(i) {
-                            builder.append_null()?;
-                        } else {
-                            builder.append_value(array.value(i).sqrt())?;
-                        }
-                    }
-                    Ok(Arc::new(builder.finish()))
-                }
-                _ => Err(ExecutionError::General(
-                    "Invalid data type for sqrt".to_owned(),
-                )),
-            }
-        },
-    )
+/// Register math scalar functions with the context
+pub fn register_math_functions(ctx: &mut ExecutionContext) {
+    ctx.register_udf(math_unary_function!("sqrt", sqrt));
+    ctx.register_udf(math_unary_function!("sin", sin));
+    ctx.register_udf(math_unary_function!("cos", cos));
+    ctx.register_udf(math_unary_function!("tan", tan));
+    ctx.register_udf(math_unary_function!("asin", asin));
+    ctx.register_udf(math_unary_function!("acos", acos));
+    ctx.register_udf(math_unary_function!("atan", atan));
+    ctx.register_udf(math_unary_function!("floor", floor));
+    ctx.register_udf(math_unary_function!("ceil", ceil));
+    ctx.register_udf(math_unary_function!("round", round));
+    ctx.register_udf(math_unary_function!("trunc", trunc));
+    ctx.register_udf(math_unary_function!("abs", abs));
+    ctx.register_udf(math_unary_function!("signum", signum));
+    ctx.register_udf(math_unary_function!("exp", exp));
+    ctx.register_udf(math_unary_function!("log", ln));
+    ctx.register_udf(math_unary_function!("log2", log2));
+    ctx.register_udf(math_unary_function!("log10", log10));
 }
