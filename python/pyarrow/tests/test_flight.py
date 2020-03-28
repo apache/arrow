@@ -331,6 +331,9 @@ class ErrorFlightServer(FlightServerBase):
             raise flight.FlightUnauthenticatedError("foo")
         elif action.type == "unauthorized":
             raise flight.FlightUnauthorizedError("foo")
+        elif action.type == "protobuf":
+            err_msg = b'this is an error message'
+            raise flight.FlightUnauthorizedError("foo", err_msg)
         raise NotImplementedError
 
     def list_flights(self, context, criteria):
@@ -1086,3 +1089,15 @@ def test_middleware_reject():
         )
         response = next(client.do_action(flight.Action(b"", b"")))
         assert b"password" == response.body.to_pybytes()
+
+
+def test_extra_info():
+    with ErrorFlightServer() as server:
+        client = FlightClient(('localhost', server.port))
+        try:
+            list(client.do_action(flight.Action("protobuf", b"")))
+            assert False
+        except flight.FlightUnauthorizedError as e:
+            assert e.extra_info is not None
+            ei = e.extra_info
+            assert ei == b'this is an error message'

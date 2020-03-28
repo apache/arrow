@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -27,16 +30,12 @@
 #include <thread>
 #include <vector>
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
+#include "arrow/flight/api.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/make_unique.h"
-
-#include "arrow/flight/api.h"
 
 #ifdef GRPCPP_GRPCPP_H
 #error "gRPC headers should not be in public API"
@@ -728,6 +727,22 @@ class ReportContextTestServer : public FlightServerBase {
   }
 };
 
+class ErrorMiddlewareServer : public FlightServerBase {
+  Status DoAction(const ServerCallContext& context, const Action& action,
+                  std::unique_ptr<ResultStream>* result) override {
+    std::shared_ptr<Buffer> buf;
+    std::string msg = "error_message";
+    Status s = Buffer::FromString("", &buf);
+
+    std::shared_ptr<FlightStatusDetail> flightStatusDetail(
+        new FlightStatusDetail(FlightStatusCode::Failed, msg));
+    *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
+    Status s_err = Status(StatusCode::ExecutionError, "test failed", flightStatusDetail);
+    RETURN_NOT_OK(s_err);
+    return Status::OK();
+  }
+};
+
 class PropagatingTestServer : public FlightServerBase {
  public:
   explicit PropagatingTestServer(std::unique_ptr<FlightClient> client)
@@ -857,6 +872,38 @@ class TestPropagatingMiddleware : public ::testing::Test {
   std::shared_ptr<PropagatingClientMiddlewareFactory> second_client_middleware_;
   std::shared_ptr<PropagatingClientMiddlewareFactory> client_middleware_;
 };
+
+class TestErrorMiddleware : public ::testing::Test {
+ public:
+  void SetUp() {
+    ASSERT_OK(MakeServer<ErrorMiddlewareServer>(
+        &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
+        [](FlightClientOptions* options) { return Status::OK(); }));
+  }
+
+  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+
+ protected:
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<FlightServerBase> server_;
+};
+
+TEST_F(TestErrorMiddleware, TestMetadata) {
+  Action action;
+  std::unique_ptr<ResultStream> stream;
+
+  // Run action1
+  action.type = "action1";
+
+  const std::string action1_value = "action1-content";
+  ASSERT_OK(Buffer::FromString(action1_value, &action.body));
+  Status s = client_->DoAction(action, &stream);
+  ASSERT_FALSE(s.ok());
+  std::shared_ptr<FlightStatusDetail> flightStatusDetail =
+      FlightStatusDetail::UnwrapStatus(s);
+  ASSERT_TRUE(flightStatusDetail);
+  ASSERT_EQ(flightStatusDetail->extra_info(), "error_message");
+}
 
 TEST_F(TestFlightClient, ListFlights) {
   std::unique_ptr<FlightListing> listing;

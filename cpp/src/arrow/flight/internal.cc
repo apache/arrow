@@ -16,8 +16,6 @@
 // under the License.
 
 #include "arrow/flight/internal.h"
-#include "arrow/flight/platform.h"
-#include "arrow/flight/protocol_internal.h"
 
 #include <cstddef>
 #include <map>
@@ -25,6 +23,10 @@
 #include <sstream>
 #include <string>
 #include <utility>
+
+#include "arrow/flight/platform.h"
+#include "arrow/flight/protocol_internal.h"
+#include "arrow/flight/types.h"
 
 #ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
@@ -49,6 +51,7 @@ const char* kGrpcAuthHeader = "auth-token-bin";
 const char* kGrpcStatusCodeHeader = "x-arrow-status";
 const char* kGrpcStatusMessageHeader = "x-arrow-status-message-bin";
 const char* kGrpcStatusDetailHeader = "x-arrow-status-detail-bin";
+const char* kBinaryErrorDetailsKey = "grpc-status-details-bin";
 
 static Status StatusCodeFromString(const grpc::string_ref& code_ref, StatusCode* code) {
   // Bounce through std::string to get a proper null-terminated C string
@@ -80,7 +83,8 @@ static Status StatusCodeFromString(const grpc::string_ref& code_ref, StatusCode*
 
 /// Try to extract a status from gRPC trailers.
 /// Return Status::OK if found, an error otherwise.
-static Status FromGrpcContext(const grpc::ClientContext& ctx, Status* status) {
+static Status FromGrpcContext(const grpc::ClientContext& ctx, Status* status,
+                              std::shared_ptr<FlightStatusDetail> flightStatusDetail) {
   const std::multimap<grpc::string_ref, grpc::string_ref>& trailers =
       ctx.GetServerTrailingMetadata();
   const auto code_val = trailers.find(kGrpcStatusCodeHeader);
@@ -88,7 +92,7 @@ static Status FromGrpcContext(const grpc::ClientContext& ctx, Status* status) {
     return Status::IOError("Status code header not found");
   }
 
-  const grpc::string_ref code_ref = (*code_val).second;
+  const grpc::string_ref code_ref = code_val->second;
   StatusCode code = {};
   RETURN_NOT_OK(StatusCodeFromString(code_ref, &code));
 
@@ -97,15 +101,25 @@ static Status FromGrpcContext(const grpc::ClientContext& ctx, Status* status) {
     return Status::IOError("Status message header not found");
   }
 
-  const grpc::string_ref message_ref = (*message_val).second;
+  const grpc::string_ref message_ref = message_val->second;
   std::string message = std::string(message_ref.data(), message_ref.size());
   const auto detail_val = trailers.find(kGrpcStatusDetailHeader);
   if (detail_val != trailers.end()) {
-    const grpc::string_ref detail_ref = (*detail_val).second;
+    const grpc::string_ref detail_ref = detail_val->second;
     message += ". Detail: ";
     message += std::string(detail_ref.data(), detail_ref.size());
   }
-  *status = Status(code, message);
+  const auto grpc_detail_val = trailers.find(kBinaryErrorDetailsKey);
+  if (grpc_detail_val != trailers.end()) {
+    const grpc::string_ref detail_ref = grpc_detail_val->second;
+    std::string bin_detail = std::string(detail_ref.data(), detail_ref.size());
+    if (!flightStatusDetail) {
+      flightStatusDetail =
+          std::make_shared<FlightStatusDetail>(FlightStatusCode::Internal);
+    }
+    flightStatusDetail->set_extra_info(bin_detail);
+  }
+  *status = Status(code, message, flightStatusDetail);
   return Status::OK();
 }
 
@@ -190,15 +204,13 @@ Status FromGrpcStatus(const grpc::Status& grpc_status, grpc::ClientContext* ctx)
   if (!status.ok() && ctx) {
     Status arrow_status;
 
-    if (!FromGrpcContext(*ctx, &arrow_status).ok()) {
+    if (!FromGrpcContext(*ctx, &arrow_status, FlightStatusDetail::UnwrapStatus(status))
+             .ok()) {
       // If we fail to decode a more detailed status from the headers,
       // proceed normally
       return status;
     }
 
-    if (status.detail()) {
-      return arrow_status.WithDetail(status.detail());
-    }
     return arrow_status;
   }
   return status;
@@ -265,6 +277,10 @@ grpc::Status ToGrpcStatus(const Status& arrow_status, grpc::ServerContext* ctx) 
     if (arrow_status.detail()) {
       const std::string detail_string = arrow_status.detail()->ToString();
       ctx->AddTrailingMetadata(internal::kGrpcStatusDetailHeader, detail_string);
+    }
+    auto fsd = FlightStatusDetail::UnwrapStatus(arrow_status);
+    if (fsd && !fsd->extra_info().empty()) {
+      ctx->AddTrailingMetadata(internal::kBinaryErrorDetailsKey, fsd->extra_info());
     }
   }
 
