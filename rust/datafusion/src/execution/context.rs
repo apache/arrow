@@ -216,13 +216,16 @@ impl ExecutionContext {
     pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn Table>> {
         match self.datasources.get(table_name) {
             Some(provider) => {
-                Ok(Arc::new(TableImpl::new(Arc::new(LogicalPlan::TableScan {
+                let table_scan = LogicalPlan::TableScan {
                     schema_name: "".to_string(),
                     table_name: table_name.to_string(),
                     table_schema: provider.schema().clone(),
                     projected_schema: provider.schema().clone(),
                     projection: None,
-                }))))
+                };
+                Ok(Arc::new(TableImpl::new(
+                    &LogicalPlanBuilder::from(&table_scan).build()?,
+                )))
             }
             _ => Err(ExecutionError::General(format!(
                 "No table named '{}'",
