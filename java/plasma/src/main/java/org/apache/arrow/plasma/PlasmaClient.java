@@ -112,7 +112,7 @@ public class PlasmaClient implements ObjectStoreLink {
    * @param timeoutMs time in milliseconfs to wait before this request time out.
    * @param isMetadata get this object's metadata or data.
    */
-  public ByteBuffer getByteBuffer(byte[] objectId, int timeoutMs, boolean isMetadata) {
+  public ByteBuffer getObjAsByteBuffer(byte[] objectId, int timeoutMs, boolean isMetadata) {
     byte[][] objectIds = new byte[][]{objectId};
     ByteBuffer[][] bufs = PlasmaClientJNI.get(conn, objectIds, timeoutMs);
     return bufs[0][isMetadata ? 1 : 0];

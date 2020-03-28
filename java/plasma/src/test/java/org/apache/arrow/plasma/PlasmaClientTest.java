@@ -254,12 +254,12 @@ public class PlasmaClientTest {
     assert client.contains(id);
     System.out.println("Plasma java client create test success.");
 
-    ByteBuffer buf1 = client.getByteBuffer(id, -1, false);
+    ByteBuffer buf1 = client.getObjAsByteBuffer(id, -1, false);
     assert buf1.limit() == 100;
     for (int i = 0; i < 10; i++) {
       assert buf1.getInt() == i;
     }
-    System.out.println("Plasma java client getByteBuffer test success");
+    System.out.println("Plasma java client getObjAsByteBuffer test success");
     client.release(id);
   }
 
