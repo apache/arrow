@@ -884,10 +884,10 @@ mod tests {
         let def = ScalarFunction::new(
             "my_add",
             vec![
-                Field::new("a", DataType::Float64, true),
-                Field::new("b", DataType::Float64, true),
+                Field::new("a", DataType::Int32, true),
+                Field::new("b", DataType::Int32, true),
             ],
-            DataType::Float64,
+            DataType::Int32,
             myfunc,
         );
 
@@ -916,7 +916,28 @@ mod tests {
         assert_eq!(3, batch.num_columns());
         assert_eq!(4, batch.num_rows());
 
-        //TODO assert correct results
+        let a = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<Int32Array>()
+            .expect("failed to cast a");
+        let b = batch
+            .column(1)
+            .as_any()
+            .downcast_ref::<Int32Array>()
+            .expect("failed to cast b");
+        let sum = batch
+            .column(2)
+            .as_any()
+            .downcast_ref::<Int32Array>()
+            .expect("failed to cast sum");
+
+        assert_eq!(4, a.len());
+        assert_eq!(4, b.len());
+        assert_eq!(4, sum.len());
+        for i in 0..sum.len() {
+            assert_eq!(a.value(i) + b.value(i), sum.value(i));
+        }
 
         Ok(())
     }
