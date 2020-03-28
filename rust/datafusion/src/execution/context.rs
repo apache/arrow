@@ -878,7 +878,6 @@ mod tests {
                 .as_any()
                 .downcast_ref::<Int32Array>()
                 .expect("cast failed");
-            println!("Running my_add");
             Ok(Arc::new(add(l, r).unwrap()))
         };
 
@@ -898,15 +897,15 @@ mod tests {
 
         let plan = LogicalPlanBuilder::from(t.to_logical_plan().as_ref())
             .project(vec![
-                col(0),
-                col(1),
-                scalar_function("my_add", vec![col(0), col(1)], DataType::Int32),
+                col("a"),
+                col("b"),
+                scalar_function("my_add", vec![col("a"), col("b")], DataType::Int32),
             ])?
             .build()?;
 
         assert_eq!(
             format!("{:?}", plan),
-            "Projection: #0, #1, my_add(#0, #1)\n  TableScan: t projection=None"
+            "Projection: #a, #b, my_add(#a, #b)\n  TableScan: t projection=None"
         );
 
         let plan = ctx.optimize(&plan)?;
