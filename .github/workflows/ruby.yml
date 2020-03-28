@@ -44,6 +44,7 @@ jobs:
         ubuntu:
           - 16.04
           - 18.04
+          - 20.04
     env:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
