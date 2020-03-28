@@ -18,6 +18,12 @@
 # under the License.
 #
 
+# This script is used to make the subset of boost that we actually use,
+# so that we don't have to download the whole big boost project when we build
+# boost from source.
+#
+# After running this script, run upload-boost.sh to put the bundle on bintray
+
 set -eu
 
 # if version is not defined by the caller, set a default.
@@ -28,24 +34,29 @@ set -eu
 # Arrow tests require these
 BOOST_LIBS="system.hpp filesystem.hpp"
 # Add these to be able to build those
-BOOST_LIBS="$BOOST_LIBS config build boost_install headers"
-# Maybe log is only needed for debug build? (predef is needed for log)
-BOOST_LIBS="$BOOST_LIBS log predef"
-# Parquet needs these
+BOOST_LIBS="$BOOST_LIBS config build boost_install headers log predef"
+# Parquet needs this (if using gcc < 4.9)
 BOOST_LIBS="$BOOST_LIBS regex.hpp"
 # Gandiva needs these
 BOOST_LIBS="$BOOST_LIBS functional/hash.hpp multiprecision/cpp_int.hpp"
-# These are for Thrift
+# These are for Thrift when Thrift_SOURCE=BUNDLED
 BOOST_LIBS="$BOOST_LIBS algorithm/string.hpp locale.hpp noncopyable.hpp numeric/conversion/cast.hpp scope_exit.hpp scoped_array.hpp shared_array.hpp tokenizer.hpp version.hpp"
 
-curl -L "${BOOST_URL}" > ${BOOST_FILE}.tar.gz
-tar -xzf ${BOOST_FILE}.tar.gz
-cd ${BOOST_FILE}
+if [ -e ${BOOST_FILE} ]; then
+  curl -L "${BOOST_URL}" > ${BOOST_FILE}.tar.gz
+  tar -xzf ${BOOST_FILE}.tar.gz
+fi
 
-./bootstrap.sh
-./b2 tools/bcp
-mkdir ${BOOST_FILE}
+pushd ${BOOST_FILE}
+
+if [ -f "dist/bin/bcp" ]; then
+  ./bootstrap.sh
+  ./b2 tools/bcp
+fi
+mkdir -p ${BOOST_FILE}
 ./dist/bin/bcp ${BOOST_LIBS} ${BOOST_FILE}
 
-# Resulting tarball is in ${BOOST_FILE}/${BOOST_FILE}.tar.gz
 tar -czf ${BOOST_FILE}.tar.gz ${BOOST_FILE}/
+# Resulting tarball is in ${BOOST_FILE}/${BOOST_FILE}.tar.gz
+
+popd

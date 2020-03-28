@@ -279,9 +279,26 @@ if(DEFINED ENV{ARROW_BOOST_URL})
 else()
   string(REPLACE "." "_" ARROW_BOOST_BUILD_VERSION_UNDERSCORES
                  ${ARROW_BOOST_BUILD_VERSION})
+  # This is the trimmed boost bundle we maintain.
+  # See cpp/build_support/trim-boost.sh
+  # To rebuild and publish, edit the boost version in that script, make a PR,
+  # and trigger a build with `@github-actions crossbow submit build-boost` in a
+  # comment on the PR.
   set(
     BOOST_SOURCE_URL
+    "https://dl.bintray.com/ursalabs/arrow-boost/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
+    )
+  # Temporary: use this testing location as a backup
+  list(
+    APPEND
+    BOOST_SOURCE_URL
     "https://dl.bintray.com/nealrichardson/arrow-boost/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
+    )
+  # Append as a backup URL the full source from boostorg
+  list(
+    APPEND
+    BOOST_SOURCE_URL
+    "https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
     )
 endif()
 
