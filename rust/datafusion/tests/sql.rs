@@ -149,7 +149,7 @@ fn csv_query_group_by_int_min_max() {
 fn csv_query_avg_sqrt() -> Result<()> {
     let mut ctx = create_ctx()?;
     register_aggregate_csv(&mut ctx);
-    let sql = "SELECT avg(sqrt(c12)) FROM aggregate_test_100";
+    let sql = "SELECT avg(custom_sqrt(c12)) FROM aggregate_test_100";
     let mut actual = execute(&mut ctx, sql);
     actual.sort();
     let expected = "0.6706002946036462".to_string();
@@ -174,13 +174,13 @@ fn create_ctx() -> Result<ExecutionContext> {
     };
 
     let sqrt_meta = ScalarFunction::new(
-        "sqrt",
+        "custom_sqrt",
         vec![Field::new("n", DataType::Float64, true)],
         DataType::Float64,
         sqrt,
     );
 
-    ctx.register_udf("sqrt", sqrt_meta);
+    ctx.register_udf(sqrt_meta);
     Ok(ctx)
 }
 

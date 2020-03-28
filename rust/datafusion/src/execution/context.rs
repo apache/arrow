@@ -39,6 +39,7 @@ use crate::execution::physical_plan::expressions::{
 };
 use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
 use crate::execution::physical_plan::limit::LimitExec;
+use crate::execution::physical_plan::math_expressions::register_math_functions;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
 use crate::execution::physical_plan::selection::SelectionExec;
@@ -64,10 +65,12 @@ pub struct ExecutionContext {
 impl ExecutionContext {
     /// Create a new execution context for in-memory queries
     pub fn new() -> Self {
-        Self {
+        let mut ctx = Self {
             datasources: HashMap::new(),
             scalar_functions: HashMap::new(),
-        }
+        };
+        register_math_functions(&mut ctx);
+        ctx
     }
 
     /// Execute a SQL query and produce a Relation (a schema-aware iterator over a series
@@ -155,8 +158,8 @@ impl ExecutionContext {
     }
 
     /// Register a scalar UDF
-    pub fn register_udf(&mut self, name: &str, f: ScalarFunction) {
-        self.scalar_functions.insert(name.to_owned(), Box::new(f));
+    pub fn register_udf(&mut self, f: ScalarFunction) {
+        self.scalar_functions.insert(f.name.clone(), Box::new(f));
     }
 
     fn build_schema(&self, columns: Vec<SQLColumnDef>) -> Result<Schema> {
@@ -881,7 +884,7 @@ mod tests {
             Ok(Arc::new(add(l, r)?))
         };
 
-        let def = ScalarFunction::new(
+        let my_add = ScalarFunction::new(
             "my_add",
             vec![
                 Field::new("a", DataType::Int32, true),
@@ -891,7 +894,7 @@ mod tests {
             myfunc,
         );
 
-        ctx.register_udf("my_add", def);
+        ctx.register_udf(my_add);
 
         let t = ctx.table("t")?;
 
