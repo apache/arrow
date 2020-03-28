@@ -64,7 +64,7 @@ fn nyc() -> Result<()> {
 
     let optimized_plan = ctx.optimize(&logical_plan)?;
 
-    match optimized_plan.as_ref() {
+    match &optimized_plan {
         LogicalPlan::Aggregate { input, .. } => match input.as_ref() {
             LogicalPlan::TableScan {
                 ref projected_schema,

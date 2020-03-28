@@ -25,8 +25,8 @@ use std::sync::Arc;
 use arrow::datatypes::Schema;
 
 use crate::error::{ExecutionError, Result};
-use crate::logicalplan::Expr;
 use crate::logicalplan::LogicalPlan;
+use crate::logicalplan::{Expr, LogicalPlanBuilder};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
 
@@ -34,47 +34,33 @@ use crate::optimizer::utils;
 pub struct TypeCoercionRule {}
 
 impl OptimizerRule for TypeCoercionRule {
-    fn optimize(&mut self, plan: &LogicalPlan) -> Result<Arc<LogicalPlan>> {
+    fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         match plan {
-            LogicalPlan::Projection {
-                expr,
-                input,
-                schema,
-            } => Ok(Arc::new(LogicalPlan::Projection {
-                expr: expr
-                    .iter()
-                    .map(|e| rewrite_expr(e, &schema))
-                    .collect::<Result<Vec<_>>>()?,
-                input: self.optimize(input)?,
-                schema: schema.clone(),
-            })),
-            LogicalPlan::Selection { expr, input } => {
-                Ok(Arc::new(LogicalPlan::Selection {
-                    expr: rewrite_expr(expr, input.schema())?,
-                    input: self.optimize(input)?,
-                }))
+            LogicalPlan::Projection { expr, input, .. } => {
+                LogicalPlanBuilder::from(&self.optimize(input)?)
+                    .project(rewrite_expr_list(expr, input.schema())?)?
+                    .build()
+            }
+            LogicalPlan::Selection { expr, input, .. } => {
+                LogicalPlanBuilder::from(&self.optimize(input)?)
+                    .filter(rewrite_expr(expr, input.schema())?)?
+                    .build()
             }
             LogicalPlan::Aggregate {
                 input,
                 group_expr,
                 aggr_expr,
-                schema,
-            } => Ok(Arc::new(LogicalPlan::Aggregate {
-                group_expr: group_expr
-                    .iter()
-                    .map(|e| rewrite_expr(e, &schema))
-                    .collect::<Result<Vec<_>>>()?,
-                aggr_expr: aggr_expr
-                    .iter()
-                    .map(|e| rewrite_expr(e, &schema))
-                    .collect::<Result<Vec<_>>>()?,
-                input: self.optimize(input)?,
-                schema: schema.clone(),
-            })),
-            LogicalPlan::TableScan { .. } => Ok(Arc::new(plan.clone())),
-            LogicalPlan::EmptyRelation { .. } => Ok(Arc::new(plan.clone())),
-            LogicalPlan::Limit { .. } => Ok(Arc::new(plan.clone())),
-            LogicalPlan::CreateExternalTable { .. } => Ok(Arc::new(plan.clone())),
+                ..
+            } => LogicalPlanBuilder::from(&self.optimize(input)?)
+                .aggregate(
+                    rewrite_expr_list(group_expr, input.schema())?,
+                    rewrite_expr_list(aggr_expr, input.schema())?,
+                )?
+                .build(),
+            LogicalPlan::TableScan { .. } => Ok(plan.clone()),
+            LogicalPlan::EmptyRelation { .. } => Ok(plan.clone()),
+            LogicalPlan::Limit { .. } => Ok(plan.clone()),
+            LogicalPlan::CreateExternalTable { .. } => Ok(plan.clone()),
             other => Err(ExecutionError::NotImplemented(format!(
                 "Type coercion optimizer rule does not support relation: {:?}",
                 other
@@ -88,6 +74,13 @@ impl TypeCoercionRule {
     pub fn new() -> Self {
         Self {}
     }
+}
+
+fn rewrite_expr_list(expr: &Vec<Expr>, schema: &Schema) -> Result<Vec<Expr>> {
+    Ok(expr
+        .iter()
+        .map(|e| rewrite_expr(e, schema))
+        .collect::<Result<Vec<_>>>()?)
 }
 
 /// Rewrite an expression to include explicit CAST operations when required
@@ -141,11 +134,17 @@ fn rewrite_expr(expr: &Expr, schema: &Schema) -> Result<Expr> {
         }),
         Expr::Cast { .. } => Ok(expr.clone()),
         Expr::Column(_) => Ok(expr.clone()),
+        Expr::Alias(expr, alias) => Ok(Expr::Alias(
+            Arc::new(rewrite_expr(expr, schema)?),
+            alias.to_owned(),
+        )),
         Expr::Literal(_) => Ok(expr.clone()),
-        other => Err(ExecutionError::NotImplemented(format!(
-            "Type coercion optimizer rule does not support expression: {:?}",
-            other
-        ))),
+        Expr::UnresolvedColumn(_) => Ok(expr.clone()),
+        Expr::Not(_) => Ok(expr.clone()),
+        Expr::Sort { .. } => Ok(expr.clone()),
+        Expr::Wildcard { .. } => Err(ExecutionError::General(
+            "Wildcard expressions are not valid in a logical query plan".to_owned(),
+        )),
     }
 }
 
