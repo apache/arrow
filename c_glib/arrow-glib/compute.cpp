@@ -360,6 +360,108 @@ garrow_count_options_new(void)
 }
 
 
+typedef struct GArrowFilterOptionsPrivate_ {
+  arrow::compute::FilterOptions options;
+} GArrowFilterOptionsPrivate;
+
+enum {
+  PROP_NULL_SELECTION_BEHAVIOR = 1,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowFilterOptions,
+                           garrow_filter_options,
+                           G_TYPE_OBJECT)
+
+#define GARROW_FILTER_OPTIONS_GET_PRIVATE(object)        \
+  static_cast<GArrowFilterOptionsPrivate *>(             \
+    garrow_filter_options_get_instance_private(          \
+      GARROW_FILTER_OPTIONS(object)))
+
+static void
+garrow_filter_options_set_property(GObject *object,
+                                   guint prop_id,
+                                   const GValue *value,
+                                   GParamSpec *pspec)
+{
+  auto priv = GARROW_FILTER_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_NULL_SELECTION_BEHAVIOR:
+    priv->options.null_selection_behavior =
+      static_cast<arrow::compute::FilterOptions::NullSelectionBehavior>(g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_filter_options_get_property(GObject *object,
+                                  guint prop_id,
+                                  GValue *value,
+                                  GParamSpec *pspec)
+{
+  auto priv = GARROW_FILTER_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_NULL_SELECTION_BEHAVIOR:
+    g_value_set_enum(value, priv->options.null_selection_behavior);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_filter_options_init(GArrowFilterOptions *object)
+{
+}
+
+static void
+garrow_filter_options_class_init(GArrowFilterOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_filter_options_set_property;
+  gobject_class->get_property = garrow_filter_options_get_property;
+
+  arrow::compute::FilterOptions default_options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowFilterOptions:null_selection_behavior:
+   *
+   * How to handle filtered values.
+   *
+   * Since: 1.0.0
+   */
+  spec = g_param_spec_enum("null_selection_behavior",
+                           "Null selection behavior",
+                           "How to handle filtered values",
+                           GARROW_TYPE_FILTER_NULL_SELECTION_BEHAVIOR,
+                           static_cast<GArrowFilterNullSelectionBehavior>(
+                             default_options.null_selection_behavior),
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_NULL_SELECTION_BEHAVIOR, spec);
+}
+
+/**
+ * garrow_filter_options_new:
+ *
+ * Returns: A newly created #GArrowFilterOptions.
+ *
+ * Since: 1.0.0
+ */
+GArrowFilterOptions *
+garrow_filter_options_new(void)
+{
+  auto filter_options = g_object_new(GARROW_TYPE_FILTER_OPTIONS, NULL);
+  return GARROW_FILTER_OPTIONS(filter_options);
+}
+
+
 typedef struct GArrowTakeOptionsPrivate_ {
   arrow::compute::TakeOptions options;
 } GArrowTakeOptionsPrivate;
@@ -1679,6 +1781,7 @@ garrow_double_array_compare(GArrowDoubleArray *array,
  * garrow_array_filter:
  * @array: A #GArrowArray.
  * @filter: The values indicates which values should be filtered out.
+ * @options: (nullable): A #GArrowFilterOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full): The #GArrowArray filterd
@@ -1690,6 +1793,7 @@ garrow_double_array_compare(GArrowDoubleArray *array,
 GArrowArray *
 garrow_array_filter(GArrowArray *array,
                     GArrowBooleanArray *filter,
+                    GArrowFilterOptions *options,
                     GError **error)
 {
   auto arrow_array = garrow_array_get_raw(array);
@@ -1697,14 +1801,22 @@ garrow_array_filter(GArrowArray *array,
   auto memory_pool = arrow::default_memory_pool();
   arrow::compute::FunctionContext context(memory_pool);
   arrow::compute::Datum arrow_filtered;
-  using arrow::compute::FilterOptions;
-  FilterOptions options;
-  options.null_selection_behavior = FilterOptions::EMIT_NULL;
-  auto status = arrow::compute::Filter(&context,
-                                       arrow_array,
-                                       arrow_filter,
-                                       options,
-                                       &arrow_filtered);
+  arrow::Status status;
+  if (options) {
+    auto arrow_options = garrow_filter_options_get_raw(options);
+    status = arrow::compute::Filter(&context,
+                                    arrow_array,
+                                    arrow_filter,
+                                    *arrow_options,
+                                    &arrow_filtered);
+  } else {
+    arrow::compute::FilterOptions arrow_options;
+    status = arrow::compute::Filter(&context,
+                                    arrow_array,
+                                    arrow_filter,
+                                    arrow_options,
+                                    &arrow_filtered);
+  }
   if (garrow_error_check(error, status, "[array][filter]")) {
     auto arrow_filtered_array = arrow_filtered.make_array();
     return garrow_array_new_raw(&arrow_filtered_array);
@@ -1818,6 +1930,7 @@ garrow_array_sort_to_indices(GArrowArray *array,
  * garrow_table_filter:
  * @table: A #GArrowTable.
  * @filter: The values indicates which values should be filtered out.
+ * @options: (nullable): A #GArrowFilterOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full): The #GArrowTable filterd
@@ -1829,6 +1942,7 @@ garrow_array_sort_to_indices(GArrowArray *array,
 GArrowTable *
 garrow_table_filter(GArrowTable *table,
                     GArrowBooleanArray *filter,
+                    GArrowFilterOptions *options,
                     GError **error)
 {
   auto arrow_table = garrow_table_get_raw(table);
@@ -1836,14 +1950,22 @@ garrow_table_filter(GArrowTable *table,
   auto memory_pool = arrow::default_memory_pool();
   arrow::compute::FunctionContext context(memory_pool);
   arrow::compute::Datum arrow_filtered;
-  using arrow::compute::FilterOptions;
-  FilterOptions options;
-  options.null_selection_behavior = FilterOptions::EMIT_NULL;
-  auto status = arrow::compute::Filter(&context,
-                                       arrow_table,
-                                       arrow_filter,
-                                       options,
-                                       &arrow_filtered);
+  arrow::Status status;
+  if (options) {
+    auto arrow_options = garrow_filter_options_get_raw(options);
+    status = arrow::compute::Filter(&context,
+                                    arrow_table,
+                                    arrow_filter,
+                                    *arrow_options,
+                                    &arrow_filtered);
+  } else {
+    arrow::compute::FilterOptions arrow_options;
+    status = arrow::compute::Filter(&context,
+                                    arrow_table,
+                                    arrow_filter,
+                                    arrow_options,
+                                    &arrow_filtered);
+  }
   if (garrow_error_check(error, status, "[table][filter]")) {
     auto arrow_filtered_table = arrow_filtered.table();
     return garrow_table_new_raw(&arrow_filtered_table);
@@ -1856,6 +1978,7 @@ garrow_table_filter(GArrowTable *table,
  * garrow_table_filter_chunked_array:
  * @table: A #GArrowTable.
  * @filter: The values indicates which values should be filtered out.
+ * @options: (nullable): A #GArrowFilterOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full): The #GArrowTable filterd
@@ -1867,6 +1990,7 @@ garrow_table_filter(GArrowTable *table,
 GArrowTable *
 garrow_table_filter_chunked_array(GArrowTable *table,
                                   GArrowChunkedArray *filter,
+                                  GArrowFilterOptions *options,
                                   GError **error)
 {
   auto arrow_table = garrow_table_get_raw(table);
@@ -1874,14 +1998,22 @@ garrow_table_filter_chunked_array(GArrowTable *table,
   auto memory_pool = arrow::default_memory_pool();
   arrow::compute::FunctionContext context(memory_pool);
   arrow::compute::Datum arrow_filtered;
-  using arrow::compute::FilterOptions;
-  FilterOptions options;
-  options.null_selection_behavior = FilterOptions::EMIT_NULL;
-  auto status = arrow::compute::Filter(&context,
-                                       arrow_table,
-                                       arrow_filter,
-                                       options,
-                                       &arrow_filtered);
+  arrow::Status status;
+  if (options) {
+    auto arrow_options = garrow_filter_options_get_raw(options);
+    status = arrow::compute::Filter(&context,
+                                    arrow_table,
+                                    arrow_filter,
+                                    *arrow_options,
+                                    &arrow_filtered);
+  } else {
+    arrow::compute::FilterOptions arrow_options;
+    status = arrow::compute::Filter(&context,
+                                    arrow_table,
+                                    arrow_filter,
+                                    arrow_options,
+                                    &arrow_filtered);
+  }
   if (garrow_error_check(error, status, "[table][filter][chunked-array]")) {
     auto arrow_filtered_table = arrow_filtered.table();
     return garrow_table_new_raw(&arrow_filtered_table);
@@ -1894,6 +2026,7 @@ garrow_table_filter_chunked_array(GArrowTable *table,
  * garrow_chunked_array_filter:
  * @chunked_array: A #GArrowChunkedArray.
  * @filter: The values indicates which values should be filtered out.
+ * @options: (nullable): A #GArrowFilterOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full): The #GArrowChunkedArray filterd
@@ -1905,6 +2038,7 @@ garrow_table_filter_chunked_array(GArrowTable *table,
 GArrowChunkedArray *
 garrow_chunked_array_filter(GArrowChunkedArray *chunked_array,
                             GArrowBooleanArray *filter,
+                            GArrowFilterOptions *options,
                             GError **error)
 {
   auto arrow_chunked_array =
@@ -1913,14 +2047,22 @@ garrow_chunked_array_filter(GArrowChunkedArray *chunked_array,
   auto memory_pool = arrow::default_memory_pool();
   arrow::compute::FunctionContext context(memory_pool);
   arrow::compute::Datum arrow_filtered;
-  using arrow::compute::FilterOptions;
-  FilterOptions options;
-  options.null_selection_behavior = FilterOptions::EMIT_NULL;
-  auto status = arrow::compute::Filter(&context,
-                                       arrow_chunked_array,
-                                       arrow_filter,
-                                       options,
-                                       &arrow_filtered);
+  arrow::Status status;
+  if (options) {
+    auto arrow_options = garrow_filter_options_get_raw(options);
+    status = arrow::compute::Filter(&context,
+                                    arrow_chunked_array,
+                                    arrow_filter,
+                                    *arrow_options,
+                                    &arrow_filtered);
+  } else {
+    arrow::compute::FilterOptions arrow_options;
+    status = arrow::compute::Filter(&context,
+                                    arrow_chunked_array,
+                                    arrow_filter,
+                                    arrow_options,
+                                    &arrow_filtered);
+  }
   if (garrow_error_check(error, status, "[chunked-array][filter]")) {
     auto arrow_filtered_chunked_array = arrow_filtered.chunked_array();
     return garrow_chunked_array_new_raw(&arrow_filtered_chunked_array);
@@ -1933,6 +2075,7 @@ garrow_chunked_array_filter(GArrowChunkedArray *chunked_array,
  * garrow_chunked_array_filter_chunked_array:
  * @chunked_array: A #GArrowChunkedArray.
  * @filter: The values indicates which values should be filtered out.
+ * @options: (nullable): A #GArrowFilterOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full): The #GArrowChunkedArray filterd
@@ -1944,6 +2087,7 @@ garrow_chunked_array_filter(GArrowChunkedArray *chunked_array,
 GArrowChunkedArray *
 garrow_chunked_array_filter_chunked_array(GArrowChunkedArray *chunked_array,
                                           GArrowChunkedArray *filter,
+                                          GArrowFilterOptions *options,
                                           GError **error)
 {
   auto arrow_chunked_array =
@@ -1952,14 +2096,22 @@ garrow_chunked_array_filter_chunked_array(GArrowChunkedArray *chunked_array,
   auto memory_pool = arrow::default_memory_pool();
   arrow::compute::FunctionContext context(memory_pool);
   arrow::compute::Datum arrow_filtered;
-  using arrow::compute::FilterOptions;
-  FilterOptions options;
-  options.null_selection_behavior = FilterOptions::EMIT_NULL;
-  auto status = arrow::compute::Filter(&context,
-                                       arrow_chunked_array,
-                                       arrow_filter,
-                                       options,
-                                       &arrow_filtered);
+  arrow::Status status;
+  if (options) {
+    auto arrow_options = garrow_filter_options_get_raw(options);
+    status = arrow::compute::Filter(&context,
+                                    arrow_chunked_array,
+                                    arrow_filter,
+                                    *arrow_options,
+                                    &arrow_filtered);
+  } else {
+    arrow::compute::FilterOptions arrow_options;
+    status = arrow::compute::Filter(&context,
+                                    arrow_chunked_array,
+                                    arrow_filter,
+                                    arrow_options,
+                                    &arrow_filtered);
+  }
   if (garrow_error_check(error, status, "[chunked-array][filter][chunked-array]")) {
     auto arrow_filtered_chunked_array = arrow_filtered.chunked_array();
     return garrow_chunked_array_new_raw(&arrow_filtered_chunked_array);
@@ -1972,6 +2124,7 @@ garrow_chunked_array_filter_chunked_array(GArrowChunkedArray *chunked_array,
  * garrow_record_batch_filter:
  * @record_batch: A #GArrowRecordBatch.
  * @filter: The values indicates which values should be filtered out.
+ * @options: (nullable): A #GArrowFilterOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full): The #GArrowRecordBatch filterd
@@ -1983,6 +2136,7 @@ garrow_chunked_array_filter_chunked_array(GArrowChunkedArray *chunked_array,
 GArrowRecordBatch *
 garrow_record_batch_filter(GArrowRecordBatch *record_batch,
                            GArrowBooleanArray *filter,
+                           GArrowFilterOptions *options,
                            GError **error)
 {
   auto arrow_record_batch =
@@ -1991,14 +2145,22 @@ garrow_record_batch_filter(GArrowRecordBatch *record_batch,
   auto memory_pool = arrow::default_memory_pool();
   arrow::compute::FunctionContext context(memory_pool);
   arrow::compute::Datum arrow_filtered;
-  using arrow::compute::FilterOptions;
-  FilterOptions options;
-  options.null_selection_behavior = FilterOptions::EMIT_NULL;
-  auto status = arrow::compute::Filter(&context,
-                                       arrow_record_batch,
-                                       arrow_filter,
-                                       options,
-                                       &arrow_filtered);
+  arrow::Status status;
+  if (options) {
+    auto arrow_options = garrow_filter_options_get_raw(options);
+    status = arrow::compute::Filter(&context,
+                                    arrow_record_batch,
+                                    arrow_filter,
+                                    *arrow_options,
+                                    &arrow_filtered);
+  } else {
+    arrow::compute::FilterOptions arrow_options;
+    status = arrow::compute::Filter(&context,
+                                    arrow_record_batch,
+                                    arrow_filter,
+                                    arrow_options,
+                                    &arrow_filtered);
+  }
   if (garrow_error_check(error, status, "[record-batch][filter]")) {
     auto arrow_filtered_record_batch = arrow_filtered.record_batch();
     return garrow_record_batch_new_raw(&arrow_filtered_record_batch);
@@ -2043,6 +2205,13 @@ arrow::compute::CountOptions *
 garrow_count_options_get_raw(GArrowCountOptions *count_options)
 {
   auto priv = GARROW_COUNT_OPTIONS_GET_PRIVATE(count_options);
+  return &(priv->options);
+}
+
+arrow::compute::FilterOptions *
+garrow_filter_options_get_raw(GArrowFilterOptions *filter_options)
+{
+  auto priv = GARROW_FILTER_OPTIONS_GET_PRIVATE(filter_options);
   return &(priv->options);
 }
 
