@@ -17,10 +17,11 @@
 
 //! Math expressions
 
+use crate::error::ExecutionError;
 use crate::execution::context::ExecutionContext;
 use crate::execution::physical_plan::udf::ScalarFunction;
 
-use arrow::array::{ArrayRef, Float64Array, Float64Builder};
+use arrow::array::{Array, ArrayRef, Float64Array, Float64Builder};
 use arrow::datatypes::{DataType, Field};
 
 use std::sync::Arc;
@@ -36,16 +37,24 @@ fn sqrt_fn() -> ScalarFunction {
         vec![Field::new("n", DataType::Float64, true)],
         DataType::Float64,
         |args: &Vec<ArrayRef>| {
-            let input = &args[0]
-                .as_any()
-                .downcast_ref::<Float64Array>()
-                .expect("cast failed");
+            let n = &args[0].as_any().downcast_ref::<Float64Array>();
 
-            let mut builder = Float64Builder::new(input.len());
-            for i in 0..input.len() {
-                builder.append_value(input.value(i).sqrt())?;
+            match n {
+                Some(array) => {
+                    let mut builder = Float64Builder::new(array.len());
+                    for i in 0..array.len() {
+                        if array.is_null(i) {
+                            builder.append_null()?;
+                        } else {
+                            builder.append_value(array.value(i).sqrt())?;
+                        }
+                    }
+                    Ok(Arc::new(builder.finish()))
+                }
+                _ => Err(ExecutionError::General(
+                    "Invalid data type for sqrt".to_owned(),
+                )),
             }
-            Ok(Arc::new(builder.finish()))
         },
     )
 }
