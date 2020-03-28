@@ -26,11 +26,12 @@ use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 
 use datafusion::datasource::MemTable;
+use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
 use datafusion::logicalplan::{Expr, ScalarValue};
 
 /// This example demonstrates basic uses of the Table API on an in-memory table
-fn main() {
+fn main() -> Result<()> {
     // define a schema.
     let schema = Arc::new(Schema::new(vec![
         Field::new("a", DataType::Utf8, false),
@@ -44,31 +45,23 @@ fn main() {
             Arc::new(StringArray::from(vec!["a", "b", "c", "d"])),
             Arc::new(Int32Array::from(vec![1, 10, 10, 100])),
         ],
-    )
-    .unwrap();
+    )?;
 
     // declare a new context. In spark API, this corresponds to a new spark SQLsession
     let mut ctx = ExecutionContext::new();
 
     // declare a table in memory. In spark API, this corresponds to createDataFrame(...).
-    let provider = MemTable::new(schema, vec![batch]).unwrap();
+    let provider = MemTable::new(schema, vec![batch])?;
     ctx.register_table("t", Box::new(provider));
-    let t = ctx.table("t").unwrap();
+    let t = ctx.table("t")?;
 
     // construct an expression corresponding to "SELECT a, b FROM t WHERE b = 10" in SQL
-    let filter = t
-        .col("b")
-        .unwrap()
-        .eq(&Expr::Literal(ScalarValue::Int32(10)));
+    let filter = t.col("b")?.eq(&Expr::Literal(ScalarValue::Int32(10)));
 
-    let t = t
-        .select_columns(vec!["a", "b"])
-        .unwrap()
-        .filter(filter)
-        .unwrap();
+    let t = t.select_columns(vec!["a", "b"])?.filter(filter)?;
 
     // execute
-    let results = t.collect(&mut ctx, 10).unwrap();
+    let results = t.collect(&mut ctx, 10)?;
 
     // print results
     results.iter().for_each(|batch| {
@@ -94,4 +87,6 @@ fn main() {
             println!("{}, {}", c1.value(i), c2.value(i),);
         }
     });
+
+    Ok(())
 }

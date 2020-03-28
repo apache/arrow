@@ -19,72 +19,54 @@
 
 use std::sync::Arc;
 
-use crate::arrow::datatypes::{DataType, Field, Schema};
+use crate::arrow::datatypes::DataType;
 use crate::arrow::record_batch::RecordBatch;
 use crate::error::{ExecutionError, Result};
 use crate::execution::context::ExecutionContext;
-use crate::logicalplan::Expr::Literal;
-use crate::logicalplan::ScalarValue;
 use crate::logicalplan::{Expr, LogicalPlan};
+use crate::logicalplan::{LogicalPlanBuilder, ScalarValue};
 use crate::table::*;
 
 /// Implementation of Table API
 pub struct TableImpl {
-    plan: Arc<LogicalPlan>,
+    plan: LogicalPlan,
 }
 
 impl TableImpl {
     /// Create a new Table based on an existing logical plan
-    pub fn new(plan: Arc<LogicalPlan>) -> Self {
-        Self { plan }
+    pub fn new(plan: &LogicalPlan) -> Self {
+        Self { plan: plan.clone() }
     }
 }
 
 impl Table for TableImpl {
     /// Apply a projection based on a list of column names
     fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<dyn Table>> {
-        let mut expr: Vec<Expr> = Vec::with_capacity(columns.len());
-        for column_name in columns {
-            let i = self.column_index(column_name)?;
-            expr.push(Expr::Column(i));
-        }
-        self.select(expr)
+        let exprs = columns
+            .iter()
+            .map(|name| {
+                self.plan
+                    .schema()
+                    .index_of(name.to_owned())
+                    .and_then(|i| Ok(Expr::Column(i)))
+                    .map_err(|e| e.into())
+            })
+            .collect::<Result<Vec<_>>>()?;
+        self.select(exprs)
     }
 
     /// Create a projection based on arbitrary expressions
     fn select(&self, expr_list: Vec<Expr>) -> Result<Arc<dyn Table>> {
-        let schema = self.plan.schema();
-        let mut field: Vec<Field> = Vec::with_capacity(expr_list.len());
-
-        for expr in &expr_list {
-            match expr {
-                Expr::Column(i) => {
-                    field.push(schema.field(*i).clone());
-                }
-                other => {
-                    return Err(ExecutionError::NotImplemented(format!(
-                        "Expr {:?} is not currently supported in this context",
-                        other
-                    )))
-                }
-            }
-        }
-
-        Ok(Arc::new(TableImpl::new(Arc::new(
-            LogicalPlan::Projection {
-                expr: expr_list.clone(),
-                input: self.plan.clone(),
-                schema: Arc::new(Schema::new(field)),
-            },
-        ))))
+        let plan = LogicalPlanBuilder::from(&self.plan)
+            .project(expr_list)?
+            .build()?;
+        Ok(Arc::new(TableImpl::new(&plan)))
     }
 
     /// Create a selection based on a filter expression
     fn filter(&self, expr: Expr) -> Result<Arc<dyn Table>> {
-        Ok(Arc::new(TableImpl::new(Arc::new(LogicalPlan::Selection {
-            expr,
-            input: self.plan.clone(),
-        }))))
+        let plan = LogicalPlanBuilder::from(&self.plan).filter(expr)?.build()?;
+        Ok(Arc::new(TableImpl::new(&plan)))
     }
 
     /// Perform an aggregate query
@@ -93,38 +75,23 @@ impl Table for TableImpl {
         group_expr: Vec<Expr>,
         aggr_expr: Vec<Expr>,
     ) -> Result<Arc<dyn Table>> {
-        Ok(Arc::new(TableImpl::new(Arc::new(LogicalPlan::Aggregate {
-            input: self.plan.clone(),
-            group_expr,
-            aggr_expr,
-            schema: Arc::new(Schema::new(vec![])),
-        }))))
+        let plan = LogicalPlanBuilder::from(&self.plan)
+            .aggregate(group_expr, aggr_expr)?
+            .build()?;
+        Ok(Arc::new(TableImpl::new(&plan)))
     }
 
     /// Limit the number of rows
-    fn limit(&self, n: usize) -> Result<Arc<dyn Table>> {
-        Ok(Arc::new(TableImpl::new(Arc::new(LogicalPlan::Limit {
-            expr: Literal(ScalarValue::UInt32(n as u32)),
-            input: self.plan.clone(),
-            schema: self.plan.schema().clone(),
-        }))))
+    fn limit(&self, n: u32) -> Result<Arc<dyn Table>> {
+        let plan = LogicalPlanBuilder::from(&self.plan)
+            .limit(Expr::Literal(ScalarValue::UInt32(n)))?
+            .build()?;
+        Ok(Arc::new(TableImpl::new(&plan)))
     }
 
     /// Return an expression representing a column within this table
     fn col(&self, name: &str) -> Result<Expr> {
-        Ok(Expr::Column(self.column_index(name)?))
-    }
-
-    /// Return the index of a column within this table's schema
-    fn column_index(&self, name: &str) -> Result<usize> {
-        let schema = self.plan.schema();
-        match schema.column_with_name(name) {
-            Some((i, _)) => Ok(i),
-            _ => Err(ExecutionError::InvalidColumn(format!(
-                "No column named '{}'",
-                name
-            ))),
-        }
+        Ok(Expr::Column(self.plan.schema().index_of(name)?))
     }
 
     /// Create an expression to represent the min() aggregate function
@@ -153,7 +120,7 @@ impl Table for TableImpl {
     }
 
     /// Convert to logical plan
-    fn to_logical_plan(&self) -> Arc<LogicalPlan> {
+    fn to_logical_plan(&self) -> LogicalPlan {
         self.plan.clone()
     }
 
@@ -196,14 +163,6 @@ mod tests {
     use crate::test;
 
     #[test]
-    fn column_index() {
-        let t = test_table();
-        assert_eq!(0, t.column_index("c1").unwrap());
-        assert_eq!(1, t.column_index("c2").unwrap());
-        assert_eq!(12, t.column_index("c13").unwrap());
-    }
-
-    #[test]
     fn select_columns() -> Result<()> {
         // build plan using Table API
         let t = test_table();
@@ -231,21 +190,6 @@ mod tests {
 
         // the two plans should be identical
         assert_same_plan(&plan, &sql_plan);
-
-        Ok(())
-    }
-
-    #[test]
-    fn select_invalid_column() -> Result<()> {
-        let t = test_table();
-
-        match t.col("invalid_column_name") {
-            Ok(_) => panic!(),
-            Err(e) => assert_eq!(
-                "InvalidColumn(\"No column named \\\'invalid_column_name\\\'\")",
-                format!("{:?}", e)
-            ),
-        }
 
         Ok(())
     }
