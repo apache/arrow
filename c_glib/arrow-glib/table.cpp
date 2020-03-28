@@ -794,7 +794,7 @@ garrow_table_write_as_feather(GArrowTable *table,
     auto arrow_properties = garrow_feather_write_properties_get_raw(properties);
     status = arrow::ipc::feather::WriteTable(*arrow_table,
                                              arrow_sink.get(),
-                                             arrow_properties);
+                                             *arrow_properties);
   } else {
     status = arrow::ipc::feather::WriteTable(*arrow_table, arrow_sink.get());
   }
@@ -819,8 +819,9 @@ garrow_table_get_raw(GArrowTable *table)
   return priv->table;
 }
 
-arrow::ipc::feather::WriteProperties &
+arrow::ipc::feather::WriteProperties *
 garrow_feather_write_properties_get_raw(GArrowFeatherWriteProperties *properties)
 {
-  return GARROW_FEATHER_WRITE_PROPERTIES_GET_PRIVATE(properties)->properties;
+  auto priv = GARROW_FEATHER_WRITE_PROPERTIES_GET_PRIVATE(properties);
+  return &(priv->properties);
 }

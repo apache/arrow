@@ -27,5 +27,5 @@
 GArrowTable *garrow_table_new_raw(std::shared_ptr<arrow::Table> *arrow_table);
 std::shared_ptr<arrow::Table> garrow_table_get_raw(GArrowTable *table);
 
-arrow::ipc::feather::WriteProperties &
+arrow::ipc::feather::WriteProperties *
 garrow_feather_write_properties_get_raw(GArrowFeatherWriteProperties *properties);
