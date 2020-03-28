@@ -898,7 +898,7 @@ mod tests {
 
         let t = ctx.table("t")?;
 
-        let plan = LogicalPlanBuilder::from(t.to_logical_plan().as_ref())
+        let plan = LogicalPlanBuilder::from(&t.to_logical_plan())
             .project(vec![
                 col("a"),
                 col("b"),
