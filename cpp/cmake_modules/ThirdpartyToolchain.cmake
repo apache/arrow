@@ -289,17 +289,11 @@ else()
     "https://dl.bintray.com/ursalabs/arrow-boost/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
     )
   # Temporary: use this testing location as a backup
-  list(
-    APPEND
-    BOOST_SOURCE_URL
-    "https://dl.bintray.com/nealrichardson/arrow-boost/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
-    )
+  list(APPEND BOOST_SOURCE_URL
+              "https://dl.bintray.com/nealrichardson/arrow-boost/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz")
   # Append as a backup URL the full source from boostorg
-  list(
-    APPEND
-    BOOST_SOURCE_URL
-    "https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
-    )
+  list(APPEND BOOST_SOURCE_URL
+              "https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_BROTLI_URL})
