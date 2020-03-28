@@ -189,8 +189,4 @@ GArrowRecordBatchFileWriter *garrow_record_batch_file_writer_new(
   GArrowSchema *schema,
   GError **error);
 
-gboolean garrow_feather_write_file(GArrowTable *table,
-                                   GArrowOutputStream *sink,
-                                   GError **error);
-
 G_END_DECLS

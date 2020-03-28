@@ -525,8 +525,7 @@ typedef struct GArrowFeatherFileReaderPrivate_ {
 } GArrowFeatherFileReaderPrivate;
 
 enum {
-  PROP_0__,
-  PROP_FEATHER_READER
+  PROP_FEATHER_READER = 1,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowFeatherFileReader,
@@ -588,15 +587,13 @@ garrow_feather_file_reader_init(GArrowFeatherFileReader *object)
 static void
 garrow_feather_file_reader_class_init(GArrowFeatherFileReaderClass *klass)
 {
-  GObjectClass *gobject_class;
-  GParamSpec *spec;
-
-  gobject_class = G_OBJECT_CLASS(klass);
+  auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->finalize     = garrow_feather_file_reader_finalize;
   gobject_class->set_property = garrow_feather_file_reader_set_property;
   gobject_class->get_property = garrow_feather_file_reader_get_property;
 
+  GParamSpec *spec;
   spec = g_param_spec_pointer("feather-reader",
                               "arrow::ipc::feather::Reader",
                               "The raw std::shared<arrow::ipc::feather::Reader> *",
@@ -621,13 +618,9 @@ garrow_feather_file_reader_new(GArrowSeekableInputStream *file,
                                GError **error)
 {
   auto arrow_random_access_file = garrow_seekable_input_stream_get_raw(file);
-  std::unique_ptr<arrow::ipc::feather::Reader> arrow_reader;
-
-  auto reader =
-    arrow::ipc::feather::Reader::Open(arrow_random_access_file);
-
+  auto reader = arrow::ipc::feather::Reader::Open(arrow_random_access_file);
   if (garrow::check(error, reader, "[feather-file-reader][new]")) {
-    return garrow_feather_file_reader_new_raw(&(reader.ValueOrDie()));
+    return garrow_feather_file_reader_new_raw(&(*reader));
   } else {
     return NULL;
   }

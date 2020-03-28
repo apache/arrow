@@ -22,7 +22,7 @@ class TestFeatherFileReader < Test::Unit::TestCase
     tempfile = Tempfile.open("arrow-feather-file-reader")
     output = Arrow::FileOutputStream.new(tempfile.path, false)
     begin
-      Arrow::feather_write_file(table, output)
+      table.write_as_feather(output)
     ensure
       output.close
     end

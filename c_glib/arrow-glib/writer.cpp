@@ -295,29 +295,6 @@ garrow_record_batch_file_writer_new(GArrowOutputStream *sink,
   }
 }
 
-/**
- * garrow_feather_write_file:
- * @table: The table to be written.
- * @sink: The output of the writer.
- * @error: (nullable): Return location for a #GError or %NULL.
- *
- * Returns: %TRUE on success, %FALSE if there was an error.
- *
- * Since: 0.17.0
- */
-gboolean
-garrow_feather_write_file(GArrowTable *table,
-                          GArrowOutputStream *sink,
-                          GError **error)
-{
-  auto arrow_sink = garrow_output_stream_get_raw(sink);
-  auto arrow_table = garrow_table_get_raw(table);
-
-  // TODO: Write with options
-  auto status = arrow::ipc::feather::WriteTable(*arrow_table, arrow_sink.get());
-  return garrow_error_check(error, status, "[feather-write-file]");
-}
-
 G_END_DECLS
 
 GArrowRecordBatchWriter *
