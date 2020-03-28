@@ -47,6 +47,7 @@ use crate::execution::table_impl::TableImpl;
 use crate::logicalplan::*;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
+use crate::optimizer::resolve_columns::ResolveColumnsRule;
 use crate::optimizer::type_coercion::TypeCoercionRule;
 use crate::sql::parser::{DFASTNode, DFParser, FileType};
 use crate::sql::planner::{SchemaProvider, SqlToRel};
@@ -231,12 +232,13 @@ impl ExecutionContext {
     }
 
     /// Optimize the logical plan by applying optimizer rules
-    pub fn optimize(&self, plan: &LogicalPlan) -> Result<Arc<LogicalPlan>> {
+    pub fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         let rules: Vec<Box<dyn OptimizerRule>> = vec![
+            Box::new(ResolveColumnsRule::new()),
             Box::new(ProjectionPushDown::new()),
             Box::new(TypeCoercionRule::new()),
         ];
-        let mut plan = Arc::new(plan.clone());
+        let mut plan = plan.clone();
         for mut rule in rules {
             plan = rule.optimize(&plan)?;
         }
@@ -246,10 +248,10 @@ impl ExecutionContext {
     /// Create a physical plan from a logical plan
     pub fn create_physical_plan(
         &mut self,
-        logical_plan: &Arc<LogicalPlan>,
+        logical_plan: &LogicalPlan,
         batch_size: usize,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        match logical_plan.as_ref() {
+        match logical_plan {
             LogicalPlan::TableScan {
                 table_name,
                 projection,
@@ -435,9 +437,10 @@ impl ExecutionContext {
                     ))),
                 }
             }
-            _ => Err(ExecutionError::NotImplemented(
-                "Unsupported aggregate expression".to_string(),
-            )),
+            other => Err(ExecutionError::General(format!(
+                "Invalid aggregate expression '{:?}'",
+                other
+            ))),
         }
     }
 
@@ -731,22 +734,19 @@ mod tests {
         let mut ctx = create_ctx(&tmp_dir, 1)?;
 
         let schema = Arc::new(Schema::new(vec![
-            Field::new("c1", DataType::UInt32, false),
-            Field::new("c2", DataType::UInt64, false),
+            Field::new("state", DataType::Utf8, false),
+            Field::new("salary", DataType::UInt32, false),
         ]));
 
-        let plan = LogicalPlanBuilder::scan(
-            "default",
-            "test",
-            schema.as_ref(),
-            Some(vec![0, 1]),
-        )?
-        .aggregate(
-            vec![col(0)],
-            vec![aggregate_expr("SUM", col(1), DataType::Int32)],
-        )?
-        .project(vec![col(0), col(1).alias("total_salary")])?
-        .build()?;
+        let plan = LogicalPlanBuilder::scan("default", "test", schema.as_ref(), None)?
+            .aggregate(
+                vec![col("state")],
+                vec![aggregate_expr("SUM", col("salary"), DataType::UInt32)],
+            )?
+            .project(vec![col("state"), col_index(1).alias("total_salary")])?
+            .build()?;
+
+        let plan = ctx.optimize(&plan)?;
 
         let physical_plan = ctx.create_physical_plan(&Arc::new(plan), 1024)?;
         assert_eq!("c1", physical_plan.schema().field(0).name().as_str());
