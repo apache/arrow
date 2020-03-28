@@ -58,7 +58,8 @@ impl ScalarFunction {
         }
     }
 }
-/// Scalar UDF Expression
+
+/// Scalar UDF Physical Expression
 pub struct ScalarFunctionExpr {
     name: String,
     fun: Box<ScalarUdf>,
@@ -69,16 +70,16 @@ pub struct ScalarFunctionExpr {
 impl ScalarFunctionExpr {
     /// Create a new Scalar function
     pub fn new(
-        name: String,
+        name: &str,
         fun: Box<ScalarUdf>,
         args: Vec<Arc<dyn PhysicalExpr>>,
-        return_type: DataType,
+        return_type: &DataType,
     ) -> Self {
         Self {
-            name,
+            name: name.to_owned(),
             fun,
             args,
-            return_type,
+            return_type: return_type.clone(),
         }
     }
 }
@@ -93,12 +94,14 @@ impl PhysicalExpr for ScalarFunctionExpr {
     }
 
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+        // evaluate the arguments
         let inputs = self
             .args
             .iter()
             .map(|e| e.evaluate(batch))
             .collect::<Result<Vec<_>>>()?;
 
+        // evaluate the function
         let fun = self.fun.as_ref();
         (fun)(&inputs)
     }

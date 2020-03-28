@@ -416,25 +416,24 @@ impl ExecutionContext {
                 name,
                 args,
                 return_type,
-            } => {
-                match &self.scalar_functions.get(name) {
-                    Some(f) => {
-                        let mut physical_args = vec![];
-                        for e in args {
-                            physical_args
-                                .push(self.create_physical_expr(e, input_schema)?);
-                        }
-                        //TODO pass refs not clone
-                        Ok(Arc::new(ScalarFunctionExpr::new(
-                            name.to_owned(),
-                            Box::new(f.fun.clone()),
-                            physical_args,
-                            return_type.clone(),
-                        )))
+            } => match &self.scalar_functions.get(name) {
+                Some(f) => {
+                    let mut physical_args = vec![];
+                    for e in args {
+                        physical_args.push(self.create_physical_expr(e, input_schema)?);
                     }
-                    _ => panic!(),
+                    Ok(Arc::new(ScalarFunctionExpr::new(
+                        name,
+                        Box::new(f.fun.clone()),
+                        physical_args,
+                        return_type,
+                    )))
                 }
-            }
+                _ => Err(ExecutionError::General(format!(
+                    "Invalid scalar function '{:?}'",
+                    name
+                ))),
+            },
             other => Err(ExecutionError::NotImplemented(format!(
                 "Physical plan does not support logical expression {:?}",
                 other
