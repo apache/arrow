@@ -95,3 +95,4 @@ pub mod merge;
 pub mod parquet;
 pub mod projection;
 pub mod selection;
+pub mod udf;

@@ -385,6 +385,15 @@ pub fn aggregate_expr(name: &str, expr: Expr, return_type: DataType) -> Expr {
     }
 }
 
+/// Create an aggregate expression
+pub fn scalar_function(name: &str, expr: Vec<Expr>, return_type: DataType) -> Expr {
+    Expr::ScalarFunction {
+        name: name.to_owned(),
+        args: expr,
+        return_type,
+    }
+}
+
 impl fmt::Debug for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
