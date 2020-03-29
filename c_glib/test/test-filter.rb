@@ -18,6 +18,13 @@
 class TestFilter < Test::Unit::TestCase
   include Helper::Buildable
 
+  sub_test_case("FilterOptions") do
+    def test_default_null_selection_behavior
+      assert_equal(Arrow::FilterNullSelectionBehavior::DROP,
+                   Arrow::FilterOptions.new.null_selection_behavior)
+    end
+  end
+
   sub_test_case("Array") do
     def setup
       @filter = build_boolean_array([false, true, true, nil])

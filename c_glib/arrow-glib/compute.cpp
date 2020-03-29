@@ -122,6 +122,14 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowCastOptions,
       GARROW_CAST_OPTIONS(object)))
 
 static void
+garrow_cast_options_finalize(GObject *object)
+{
+  auto priv = GARROW_CAST_OPTIONS_GET_PRIVATE(object);
+  priv->options.~CastOptions();
+  G_OBJECT_CLASS(garrow_cast_options_parent_class)->finalize(object);
+}
+
+static void
 garrow_cast_options_set_property(GObject *object,
                                  guint prop_id,
                                  const GValue *value,
@@ -178,6 +186,8 @@ garrow_cast_options_get_property(GObject *object,
 static void
 garrow_cast_options_init(GArrowCastOptions *object)
 {
+  auto priv = GARROW_CAST_OPTIONS_GET_PRIVATE(object);
+  new(&priv->options) arrow::compute::CastOptions;
 }
 
 static void
@@ -185,6 +195,7 @@ garrow_cast_options_class_init(GArrowCastOptionsClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
+  gobject_class->finalize     = garrow_cast_options_finalize;
   gobject_class->set_property = garrow_cast_options_set_property;
   gobject_class->get_property = garrow_cast_options_get_property;
 
@@ -279,6 +290,14 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowCountOptions,
       GARROW_COUNT_OPTIONS(object)))
 
 static void
+garrow_count_options_finalize(GObject *object)
+{
+  auto priv = GARROW_COUNT_OPTIONS_GET_PRIVATE(object);
+  priv->options.~CountOptions();
+  G_OBJECT_CLASS(garrow_count_options_parent_class)->finalize(object);
+}
+
+static void
 garrow_count_options_set_property(GObject *object,
                                   guint prop_id,
                                   const GValue *value,
@@ -318,6 +337,8 @@ garrow_count_options_get_property(GObject *object,
 static void
 garrow_count_options_init(GArrowCountOptions *object)
 {
+  auto priv = GARROW_COUNT_OPTIONS_GET_PRIVATE(object);
+  new(&priv->options) arrow::compute::CountOptions(arrow::compute::CountOptions::COUNT_ALL);
 }
 
 static void
@@ -325,6 +346,7 @@ garrow_count_options_class_init(GArrowCountOptionsClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
+  gobject_class->finalize     = garrow_count_options_finalize;
   gobject_class->set_property = garrow_count_options_set_property;
   gobject_class->get_property = garrow_count_options_get_property;
 
@@ -378,6 +400,14 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowFilterOptions,
       GARROW_FILTER_OPTIONS(object)))
 
 static void
+garrow_filter_options_finalize(GObject *object)
+{
+  auto priv = GARROW_FILTER_OPTIONS_GET_PRIVATE(object);
+  priv->options.~FilterOptions();
+  G_OBJECT_CLASS(garrow_filter_options_parent_class)->finalize(object);
+}
+
+static void
 garrow_filter_options_set_property(GObject *object,
                                    guint prop_id,
                                    const GValue *value,
@@ -417,6 +447,8 @@ garrow_filter_options_get_property(GObject *object,
 static void
 garrow_filter_options_init(GArrowFilterOptions *object)
 {
+  auto priv = GARROW_FILTER_OPTIONS_GET_PRIVATE(object);
+  new(&priv->options) arrow::compute::FilterOptions;
 }
 
 static void
@@ -424,6 +456,7 @@ garrow_filter_options_class_init(GArrowFilterOptionsClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
+  gobject_class->finalize     = garrow_filter_options_finalize;
   gobject_class->set_property = garrow_filter_options_set_property;
   gobject_class->get_property = garrow_filter_options_get_property;
 
@@ -476,13 +509,26 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowTakeOptions,
       GARROW_TAKE_OPTIONS(object)))
 
 static void
+garrow_take_options_finalize(GObject *object)
+{
+  auto priv = GARROW_TAKE_OPTIONS_GET_PRIVATE(object);
+  priv->options.~TakeOptions();
+  G_OBJECT_CLASS(garrow_take_options_parent_class)->finalize(object);
+}
+
+static void
 garrow_take_options_init(GArrowTakeOptions *object)
 {
+  auto priv = GARROW_TAKE_OPTIONS_GET_PRIVATE(object);
+  new(&priv->options) arrow::compute::TakeOptions;
 }
 
 static void
 garrow_take_options_class_init(GArrowTakeOptionsClass *klass)
 {
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->finalize = garrow_take_options_finalize;
 }
 
 /**
@@ -516,6 +562,14 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowCompareOptions,
   static_cast<GArrowCompareOptionsPrivate *>(             \
     garrow_compare_options_get_instance_private(          \
       GARROW_COMPARE_OPTIONS(object)))
+
+static void
+garrow_compare_options_finalize(GObject *object)
+{
+  auto priv = GARROW_COMPARE_OPTIONS_GET_PRIVATE(object);
+  priv->options.~CompareOptions();
+  G_OBJECT_CLASS(garrow_compare_options_parent_class)->finalize(object);
+}
 
 static void
 garrow_compare_options_set_property(GObject *object,
@@ -557,6 +611,8 @@ garrow_compare_options_get_property(GObject *object,
 static void
 garrow_compare_options_init(GArrowCompareOptions *object)
 {
+  auto priv = GARROW_COMPARE_OPTIONS_GET_PRIVATE(object);
+  new(&priv->options) arrow::compute::CompareOptions(arrow::compute::EQUAL);
 }
 
 static void
@@ -564,6 +620,7 @@ garrow_compare_options_class_init(GArrowCompareOptionsClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
+  gobject_class->finalize     = garrow_compare_options_finalize;
   gobject_class->set_property = garrow_compare_options_set_property;
   gobject_class->get_property = garrow_compare_options_get_property;
 
