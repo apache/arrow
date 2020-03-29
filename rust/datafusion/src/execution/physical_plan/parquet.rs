@@ -145,7 +145,6 @@ impl ParquetPartition {
                             while let Ok(_) = request_rx.recv() {
                                 match batch_reader.next_batch() {
                                     Ok(Some(batch)) => {
-                                        println!("XX {:?}", batch.schema());
                                         response_tx.send(Ok(Some(batch))).unwrap();
                                     }
                                     Ok(None) => {

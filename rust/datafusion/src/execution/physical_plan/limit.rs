@@ -100,7 +100,6 @@ impl Partition for LimitPartition {
             let join = thread.join().expect("Failed to join thread");
             let result = join?;
             for batch in result {
-                println!("{:?}", batch.schema());
                 let capacity = self.limit - count;
                 if batch.num_rows() <= capacity {
                     count += batch.num_rows();
