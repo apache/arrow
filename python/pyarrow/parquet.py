@@ -400,7 +400,13 @@ use_byte_stream_split: bool or list, default False
     only for some columns. If both dictionary and byte_stream_stream are
     enabled, then dictionary is prefered.
     The byte_stream_split encoding is valid only for floating-point data types
-    and should be combined with a compression codec."""
+    and should be combined with a compression codec.
+writer_engine_version: str, default "V2"
+    The engine version to use when writing out Arrow data.  V2 supports
+    all nested types. V1 is legacy and will be removed in a future release.
+    Setting the environment variable ARROW_PARQUET_WRITER_ENGINE will
+    override the default.
+"""
 
 
 class ParquetWriter:
@@ -429,6 +435,7 @@ schema : arrow Schema
                  use_deprecated_int96_timestamps=None,
                  compression_level=None,
                  use_byte_stream_split=False,
+                 writer_engine_version=None,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -456,6 +463,7 @@ schema : arrow Schema
         else:
             sink = where
         self._metadata_collector = options.pop('metadata_collector', None)
+        engine_version = os.environ.get('ARROW_PARQUET_WRITER_ENGINE', 'V2')
         self.writer = _parquet.ParquetWriter(
             sink, schema,
             version=version,
@@ -465,6 +473,7 @@ schema : arrow Schema
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
             compression_level=compression_level,
             use_byte_stream_split=use_byte_stream_split,
+            writer_engine_version=engine_version,
             **options)
         self.is_open = True
 

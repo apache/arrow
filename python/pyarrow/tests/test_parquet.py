@@ -555,6 +555,31 @@ def test_pandas_parquet_empty_roundtrip(tempdir):
 
 
 @pytest.mark.pandas
+def test_pandas_can_write_nested_data(tempdir):
+    data = {
+        "agg_col": [
+            {"page_type": 1},
+            {"record_type": 1},
+            {"non_consectutive_home": 0},
+        ],
+        "uid_first": "1001"
+    }
+    df = pd.DataFrame(data=data)
+    arrow_table = pa.Table.from_pandas(df)
+    imos = pa.BufferOutputStream()
+    # This succeeds under V2
+    _write_table(arrow_table, imos)
+
+    # Under V1 it fails.
+    with pytest.raises(ValueError):
+        import os
+        os.environ['ARROW_PARQUET_WRITER_ENGINE'] = 'V1'
+        imos = pa.BufferOutputStream()
+        _write_table(arrow_table, imos)
+    del os.environ['ARROW_PARQUET_WRITER_ENGINE']
+
+
+@pytest.mark.pandas
 def test_pandas_parquet_pyfile_roundtrip(tempdir):
     filename = tempdir / 'pandas_pyfile_roundtrip.parquet'
     size = 5
