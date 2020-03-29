@@ -285,10 +285,14 @@ else()
     BOOST_SOURCE_URL
     "https://dl.bintray.com/ursalabs/arrow-boost/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
     )
-  # Append as a backup URL the full source from boostorg
-  list(
-    APPEND BOOST_SOURCE_URL
-           "https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz")
+  if(NOT CMAKE_VERSION VERSION_LESS 3.7)
+    # Append as a backup URL the full source from boostorg
+    # Feature only available starting in 3.7
+    # (and VERSION_GREATER_EQUAL also only available starting in 3.7)
+    list(
+      APPEND BOOST_SOURCE_URL
+             "https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz")
+  endif()
 endif()
 
 if(DEFINED ENV{ARROW_BROTLI_URL})
