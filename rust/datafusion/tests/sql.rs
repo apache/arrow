@@ -253,9 +253,9 @@ fn csv_query_cast_literal() {
 fn csv_query_limit() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx);
-    let sql = "SELECT 0 FROM aggregate_test_100 LIMIT 2";
+    let sql = "SELECT c1 FROM aggregate_test_100 LIMIT 2";
     let actual = execute(&mut ctx, sql).join("\n");
-    let expected = "0\n0".to_string();
+    let expected = "\"c\"\n\"d\"".to_string();
     assert_eq!(expected, actual);
 }
 
@@ -283,7 +283,7 @@ fn csv_query_limit_with_same_nbr_of_rows() {
 fn csv_query_limit_zero() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx);
-    let sql = "SELECT 0 FROM aggregate_test_100 LIMIT 0";
+    let sql = "SELECT c1 FROM aggregate_test_100 LIMIT 0";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "".to_string();
     assert_eq!(expected, actual);

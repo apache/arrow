@@ -151,15 +151,13 @@ impl ProjectionPushDown {
                     projection: Some(projection),
                 })
             }
-            LogicalPlan::Limit {
-                expr,
-                input,
-                schema,
-            } => Ok(LogicalPlan::Limit {
-                expr: expr.clone(),
-                input: input.clone(),
-                schema: schema.clone(),
-            }),
+            LogicalPlan::Limit { expr, input, .. } => {
+                // Note that limit expressions are scalar values so there is no need to
+                // rewrite them but we do need to optimize the input to the limit plan
+                LogicalPlanBuilder::from(&self.optimize_plan(&input, accum, mapping)?)
+                    .limit(expr.clone())?
+                    .build()
+            }
             LogicalPlan::CreateExternalTable {
                 schema,
                 name,
@@ -255,6 +253,7 @@ mod tests {
 
     use super::*;
     use crate::logicalplan::Expr::*;
+    use crate::logicalplan::ScalarValue;
     use crate::test::*;
     use arrow::datatypes::DataType;
     use std::sync::Arc;
@@ -342,6 +341,28 @@ mod tests {
 
         let expected = "Projection: #0, #1\
         \n  TableScan: test projection=Some([0, 1])";
+
+        assert_optimized_plan_eq(&plan, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn table_limit() -> Result<()> {
+        let table_scan = test_table_scan()?;
+        assert_eq!(3, table_scan.schema().fields().len());
+        assert_fields_eq(&table_scan, vec!["a", "b", "c"]);
+
+        let plan = LogicalPlanBuilder::from(&table_scan)
+            .project(vec![Column(2), Column(0)])?
+            .limit(Expr::Literal(ScalarValue::UInt32(5)))?
+            .build()?;
+
+        assert_fields_eq(&plan, vec!["c", "a"]);
+
+        let expected = "Limit: UInt32(5)\
+        \n  Projection: #1, #0\
+        \n    TableScan: test projection=Some([0, 2])";
 
         assert_optimized_plan_eq(&plan, expected);
 
