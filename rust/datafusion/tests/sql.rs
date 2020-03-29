@@ -309,6 +309,26 @@ fn csv_query_external_table_count() {
     assert_eq!(expected, actual);
 }
 
+#[test]
+fn csv_query_count_star() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv_by_sql(&mut ctx);
+    let sql = "SELECT COUNT(*) FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql).join("\n");
+    let expected = "100".to_string();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn csv_query_count_one() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv_by_sql(&mut ctx);
+    let sql = "SELECT COUNT(1) FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql).join("\n");
+    let expected = "100".to_string();
+    assert_eq!(expected, actual);
+}
+
 fn aggr_test_schema() -> Arc<Schema> {
     Arc::new(Schema::new(vec![
         Field::new("c1", DataType::Utf8, false),

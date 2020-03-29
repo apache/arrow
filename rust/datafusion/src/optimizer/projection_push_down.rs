@@ -114,6 +114,12 @@ impl ProjectionPushDown {
                 let mut projection: Vec<usize> = Vec::with_capacity(accum.len());
                 accum.iter().for_each(|i| projection.push(*i));
 
+                // Ensure that we are reading at least one column from the table in case the query
+                // does not reference any columns directly such as "SELECT COUNT(1) FROM table"
+                if projection.is_empty() {
+                    projection.push(0);
+                }
+
                 // sort the projection otherwise we get non-deterministic behavior
                 projection.sort();
 
@@ -123,6 +129,7 @@ impl ProjectionPushDown {
                 for i in &projection {
                     projected_fields.push(table_schema.fields()[*i].clone());
                 }
+
                 let projected_schema = Schema::new(projected_fields);
 
                 // now that the table scan is returning a different schema we need to
