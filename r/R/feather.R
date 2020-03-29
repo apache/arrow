@@ -86,11 +86,7 @@ write_feather <- function(x,
   compression <- compression_from_name(compression)
 
   x_out <- x
-  if (is.data.frame(x)) {
-    x <- record_batch(x)
-  }
-
-  if (inherits(x, "RecordBatch")) {
+  if (is.data.frame(x) || inherits(x, "RecordBatch")) {
     x <- Table$create(x)
   }
   assert_is(x, "Table")
