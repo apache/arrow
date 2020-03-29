@@ -76,6 +76,10 @@ test_that("feather read/write round trip", {
     expect_feather_roundtrip(function(x, f) write_feather(x, f, compression = "zstd"))
     expect_feather_roundtrip(function(x, f) write_feather(x, f, compression = "zstd", compression_level = 3))
   }
+
+  # Write from Arrow data structures
+  expect_feather_roundtrip(function(x, f) write_feather(RecordBatch$create(x), f))
+  expect_feather_roundtrip(function(x, f) write_feather(Table$create(x), f))
 })
 
 test_that("write_feather option error handling", {

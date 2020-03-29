@@ -17,7 +17,7 @@
 
 #' Write data in the Feather format
 #'
-#' @param x `data.frame` or `RecordBatch`
+#' @param x `data.frame`, `RecordBatch`, or `Table`
 #' @param sink A file path or an `OutputStream`
 #' @param version integer Feather file version. Version 2 is the current.
 #' Version 1 is the more limited legacy format.
@@ -25,8 +25,9 @@
 #' should have in the file. Use a smaller `chunk_size` when you need faster
 #' random row access. Default is 64K. This option is not supported for V1.
 #' @param compression Name of compression codec to use, if any. Default is
-#' uncompressed; "lz4" and "zstd" are valid options, but only if your version
-#' of the Arrow C++ library was built with support for them.
+#' "lz4" if LZ4 is available in your build of the Arrow C++ library, otherwise
+#' "uncompressed". "zstd" is the other available codec and generally has better
+#' compression ratios in exchange for slower read and write performance
 #' See [codec_is_available()]. This option is not supported for V1.
 #' @param compression_level If `compression` is "zstd", you may
 #' specify an integer compression level. If omitted, the compression codec's
@@ -45,7 +46,7 @@ write_feather <- function(x,
                           sink,
                           version = 2,
                           chunk_size = 65536L,
-                          compression = c("uncompressed", "lz4", "zstd"),
+                          compression = c("default", "lz4", "uncompressed", "zstd"),
                           compression_level = NULL) {
   # Handle and validate options before touching data
   version <- as.integer(version)
@@ -53,6 +54,13 @@ write_feather <- function(x,
   compression <- match.arg(compression)
   chunk_size <- as.integer(chunk_size)
   assert_that(chunk_size > 0)
+  if (compression == "default") {
+    if (version == 2 && codec_is_available("lz4")) {
+      compression <- "lz4"
+    } else {
+      compression <- "uncompressed"
+    }
+  }
   if (is.null(compression_level)) {
     # Use -1 as sentinal for "default"
     compression_level <- -1L
@@ -81,14 +89,18 @@ write_feather <- function(x,
   if (is.data.frame(x)) {
     x <- record_batch(x)
   }
-  assert_is(x, "RecordBatch")
+
+  if (inherits(x, "RecordBatch")) {
+    x <- Table$create(x)
+  }
+  assert_is(x, "Table")
 
   if (is.character(sink)) {
     sink <- FileOutputStream$create(sink)
     on.exit(sink$close())
   }
   assert_is(sink, "OutputStream")
-  ipc___WriteFeather__RecordBatch(sink, x, version, chunk_size, compression, compression_level)
+  ipc___WriteFeather__Table(sink, x, version, chunk_size, compression, compression_level)
 
   invisible(x_out)
 }

@@ -708,8 +708,8 @@ dataset___expr__ToString <- function(x){
     .Call(`_arrow_dataset___expr__ToString` , x)
 }
 
-ipc___WriteFeather__RecordBatch <- function(stream, batch, version, chunk_size, compression, compression_level){
-    invisible(.Call(`_arrow_ipc___WriteFeather__RecordBatch` , stream, batch, version, chunk_size, compression, compression_level))
+ipc___WriteFeather__Table <- function(stream, table, version, chunk_size, compression, compression_level){
+    invisible(.Call(`_arrow_ipc___WriteFeather__Table` , stream, table, version, chunk_size, compression, compression_level))
 }
 
 ipc___feather___Reader__version <- function(reader){

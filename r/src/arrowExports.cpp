@@ -2739,22 +2739,22 @@ RcppExport SEXP _arrow_dataset___expr__ToString(SEXP x_sexp){
 
 // feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void ipc___WriteFeather__RecordBatch(const std::shared_ptr<arrow::io::OutputStream>& stream, const std::shared_ptr<arrow::RecordBatch>& batch, int version, int chunk_size, arrow::Compression::type compression, int compression_level);
-RcppExport SEXP _arrow_ipc___WriteFeather__RecordBatch(SEXP stream_sexp, SEXP batch_sexp, SEXP version_sexp, SEXP chunk_size_sexp, SEXP compression_sexp, SEXP compression_level_sexp){
+void ipc___WriteFeather__Table(const std::shared_ptr<arrow::io::OutputStream>& stream, const std::shared_ptr<arrow::Table>& table, int version, int chunk_size, arrow::Compression::type compression, int compression_level);
+RcppExport SEXP _arrow_ipc___WriteFeather__Table(SEXP stream_sexp, SEXP table_sexp, SEXP version_sexp, SEXP chunk_size_sexp, SEXP compression_sexp, SEXP compression_level_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
 	Rcpp::traits::input_parameter<int>::type version(version_sexp);
 	Rcpp::traits::input_parameter<int>::type chunk_size(chunk_size_sexp);
 	Rcpp::traits::input_parameter<arrow::Compression::type>::type compression(compression_sexp);
 	Rcpp::traits::input_parameter<int>::type compression_level(compression_level_sexp);
-	ipc___WriteFeather__RecordBatch(stream, batch, version, chunk_size, compression, compression_level);
+	ipc___WriteFeather__Table(stream, table, version, chunk_size, compression, compression_level);
 	return R_NilValue;
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_ipc___WriteFeather__RecordBatch(SEXP stream_sexp, SEXP batch_sexp, SEXP version_sexp, SEXP chunk_size_sexp, SEXP compression_sexp, SEXP compression_level_sexp){
-	Rf_error("Cannot call ipc___WriteFeather__RecordBatch(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_ipc___WriteFeather__Table(SEXP stream_sexp, SEXP table_sexp, SEXP version_sexp, SEXP chunk_size_sexp, SEXP compression_sexp, SEXP compression_level_sexp){
+	Rf_error("Cannot call ipc___WriteFeather__Table(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -5933,7 +5933,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___expr__is_valid", (DL_FUNC) &_arrow_dataset___expr__is_valid, 1}, 
 		{ "_arrow_dataset___expr__scalar", (DL_FUNC) &_arrow_dataset___expr__scalar, 1}, 
 		{ "_arrow_dataset___expr__ToString", (DL_FUNC) &_arrow_dataset___expr__ToString, 1}, 
-		{ "_arrow_ipc___WriteFeather__RecordBatch", (DL_FUNC) &_arrow_ipc___WriteFeather__RecordBatch, 6}, 
+		{ "_arrow_ipc___WriteFeather__Table", (DL_FUNC) &_arrow_ipc___WriteFeather__Table, 6}, 
 		{ "_arrow_ipc___feather___Reader__version", (DL_FUNC) &_arrow_ipc___feather___Reader__version, 1}, 
 		{ "_arrow_ipc___feather___Reader__Read", (DL_FUNC) &_arrow_ipc___feather___Reader__Read, 2}, 
 		{ "_arrow_ipc___feather___Reader__Open", (DL_FUNC) &_arrow_ipc___feather___Reader__Open, 1}, 

@@ -22,10 +22,10 @@
 // ---------- WriteFeather
 
 // [[arrow::export]]
-void ipc___WriteFeather__RecordBatch(
-    const std::shared_ptr<arrow::io::OutputStream>& stream,
-    const std::shared_ptr<arrow::RecordBatch>& batch, int version, int chunk_size,
-    arrow::Compression::type compression, int compression_level) {
+void ipc___WriteFeather__Table(const std::shared_ptr<arrow::io::OutputStream>& stream,
+                               const std::shared_ptr<arrow::Table>& table, int version,
+                               int chunk_size, arrow::Compression::type compression,
+                               int compression_level) {
   auto properties = arrow::ipc::feather::WriteProperties::Defaults();
   properties.version = version;
   properties.chunksize = chunk_size;
@@ -33,8 +33,6 @@ void ipc___WriteFeather__RecordBatch(
   if (compression_level != -1) {
     properties.compression_level = compression_level;
   }
-  std::shared_ptr<arrow::Table> table;
-  STOP_IF_NOT_OK(arrow::Table::FromRecordBatches({batch}, &table));
   STOP_IF_NOT_OK(arrow::ipc::feather::WriteTable(*table, stream.get(), properties));
 }
 

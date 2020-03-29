@@ -9,12 +9,12 @@ write_feather(
   sink,
   version = 2,
   chunk_size = 65536L,
-  compression = c("uncompressed", "lz4", "zstd"),
+  compression = c("default", "lz4", "uncompressed", "zstd"),
   compression_level = NULL
 )
 }
 \arguments{
-\item{x}{\code{data.frame} or \code{RecordBatch}}
+\item{x}{\code{data.frame}, \code{RecordBatch}, or \code{Table}}
 
 \item{sink}{A file path or an \code{OutputStream}}
 
@@ -26,8 +26,9 @@ should have in the file. Use a smaller \code{chunk_size} when you need faster
 random row access. Default is 64K. This option is not supported for V1.}
 
 \item{compression}{Name of compression codec to use, if any. Default is
-uncompressed; "lz4" and "zstd" are valid options, but only if your version
-of the Arrow C++ library was built with support for them.
+"lz4" if LZ4 is available in your build of the Arrow C++ library, otherwise
+"uncompressed". "zstd" is the other available codec and generally has better
+compression ratios in exchange for slower read and write performance
 See \code{\link[=codec_is_available]{codec_is_available()}}. This option is not supported for V1.}
 
 \item{compression_level}{If \code{compression} is "zstd", you may
