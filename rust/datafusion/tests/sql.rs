@@ -160,28 +160,32 @@ fn csv_query_avg_sqrt() -> Result<()> {
 fn create_ctx() -> Result<ExecutionContext> {
     let mut ctx = ExecutionContext::new();
 
-    let sqrt: ScalarUdf = |args: &Vec<ArrayRef>| {
-        let input = &args[0]
-            .as_any()
-            .downcast_ref::<Float64Array>()
-            .expect("cast failed");
-
-        let mut builder = Float64Builder::new(input.len());
-        for i in 0..input.len() {
-            builder.append_value(input.value(i).sqrt())?;
-        }
-        Ok(Arc::new(builder.finish()))
-    };
-
-    let sqrt_meta = ScalarFunction::new(
+    // register a custom UDF
+    ctx.register_udf(ScalarFunction::new(
         "custom_sqrt",
         vec![Field::new("n", DataType::Float64, true)],
         DataType::Float64,
-        sqrt,
-    );
+        custom_sqrt,
+    ));
 
-    ctx.register_udf(sqrt_meta);
     Ok(ctx)
+}
+
+fn custom_sqrt(args: &Vec<ArrayRef>) -> Result<ArrayRef> {
+    let input = &args[0]
+        .as_any()
+        .downcast_ref::<Float64Array>()
+        .expect("cast failed");
+
+    let mut builder = Float64Builder::new(input.len());
+    for i in 0..input.len() {
+        if input.is_null(i) {
+            builder.append_null();
+        } else {
+            builder.append_value(input.value(i).sqrt())?;
+        }
+    }
+    Ok(Arc::new(builder.finish()))
 }
 
 #[test]
