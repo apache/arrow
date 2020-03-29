@@ -74,12 +74,14 @@ def test_file_not_exist():
 
 def _check_pandas_roundtrip(df, expected=None, path=None,
                             columns=None, use_threads=False,
-                            version=None, compression=None):
+                            version=None, compression=None,
+                            compression_level=None):
     if path is None:
         path = random_path()
 
     TEST_FILES.append(path)
-    write_feather(df, path, compression=compression, version=version)
+    write_feather(df, path, compression=compression,
+                  compression_level=compression_level, version=version)
     if not os.path.exists(path):
         raise Exception('file not written')
 
@@ -526,15 +528,56 @@ def test_unsupported():
 
 def test_v2_set_chunksize():
     df = pd.DataFrame({'A': np.arange(1000)})
+    table = pa.table(df)
 
     buf = io.BytesIO()
-    write_feather(df, buf, chunksize=250, version=2)
+    write_feather(table, buf, chunksize=250, version=2)
 
     result = buf.getvalue()
 
     ipc_file = pa.ipc.open_file(pa.BufferReader(result))
     assert ipc_file.num_record_batches == 4
     assert len(ipc_file.get_batch(0)) == 250
+
+
+def test_v2_compression_options():
+    df = pd.DataFrame({'A': np.arange(1000)})
+
+    cases = [
+        # compression, compression_level
+        ('uncompressed', None),
+        ('lz4', None),
+        ('zstd', 1),
+        ('zstd', 10)
+    ]
+
+    for compression, compression_level in cases:
+        _check_pandas_roundtrip(df, compression=compression,
+                                compression_level=compression_level)
+
+    buf = io.BytesIO()
+
+    # LZ4 doesn't support compression_level
+    with pytest.raises(pa.ArrowInvalid,
+                       match="doesn't support setting a compression level"):
+        write_feather(df, buf, compression='lz4', compression_level=10)
+
+    # Trying to compress with V1
+    with pytest.raises(
+            ValueError,
+            match="Feather V1 files do not support compression option"):
+        write_feather(df, buf, compression='lz4', version=1)
+
+    # Trying to set chunksize with V1
+    with pytest.raises(
+            ValueError,
+            match="Feather V1 files do not support chunksize option"):
+        write_feather(df, buf, chunksize=4096, version=1)
+
+    # Unsupported compressor
+    with pytest.raises(ValueError,
+                       match='compression="snappy" not supported'):
+        write_feather(df, buf, compression='snappy')
 
 
 @pytest.mark.slow

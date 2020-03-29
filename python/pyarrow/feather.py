@@ -124,13 +124,15 @@ def write_feather(df, dest, compression=None, compression_level=None,
     dest : str
         Local destination path.
     compression : string, default None
-        {"zstd", "lz4", None}
+        Can be one of {"zstd", "lz4", "uncompressed"}. The default of None uses
+        LZ4 for V2 files if it is available, otherwise uncompressed.
     compression_level : int, default None
         Use a compression level particular to the chosen compressor. If None
         use the default compression level
     chunksize : int, default None
-        For V2 files, the size of chunks to split the data into. None means use
-        the default, which is currently 64K
+        For V2 files, the internal maximum size of Arrow RecordBatch chunks
+        when writing the Arrow IPC file format. None means use the default,
+        which is currently 64K
     version : int, default 2
         Feather file version. Version 2 is the current. Version 1 is the more
         limited legacy format
@@ -151,8 +153,22 @@ def write_feather(df, dest, compression=None, compression_level=None,
     else:
         table = df
 
-    if version == 1 and len(table.column_names) > len(set(table.column_names)):
-        raise ValueError("cannot serialize duplicate column names")
+    if version == 1:
+        if len(table.column_names) > len(set(table.column_names)):
+            raise ValueError("cannot serialize duplicate column names")
+
+        if compression is not None:
+            raise ValueError("Feather V1 files do not support compression "
+                             "option")
+
+        if chunksize is not None:
+            raise ValueError("Feather V1 files do not support chunksize "
+                             "option")
+
+    supported_compression_options = (None, 'lz4', 'zstd', 'uncompressed')
+    if compression not in supported_compression_options:
+        raise ValueError('compression="{}" not supported, must be one of {}'
+                         .format(compression, supported_compression_options))
 
     try:
         ext.write_feather(table, dest, compression=compression,
@@ -167,19 +183,17 @@ def write_feather(df, dest, compression=None, compression_level=None,
         raise
 
 
-def read_feather(source, columns=None, as_pandas=True, use_threads=True):
+def read_feather(source, columns=None, use_threads=True):
     """
-    Read a pandas.DataFrame from Feather format.
+    Read a pandas.DataFrame from Feather format. To read as pyarrow.Table use
+    feather.read_table.
 
     Parameters
     ----------
     source : str file path, or file-like object
-
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
         read.
-    as_pandas : bool, default True
-        Convert result to pandas.DataFrame
     use_threads: bool, default True
         Whether to parallelize reading using multiple threads.
 
@@ -187,28 +201,7 @@ def read_feather(source, columns=None, as_pandas=True, use_threads=True):
     -------
     df : pandas.DataFrame
     """
-    _check_pandas_version()
-    reader = ext.FeatherReader()
-    reader.open(source)
-
-    def _handle_result(result):
-        if as_pandas:
-            result = result.to_pandas(use_threads=use_threads)
-        return result
-
-    if columns is None:
-        return _handle_result(reader.read())
-
-    column_types = [type(column) for column in columns]
-    if all(map(lambda t: t == int, column_types)):
-        return _handle_result(reader.read_indices(columns))
-    elif all(map(lambda t: t == str, column_types)):
-        return _handle_result(reader.read_names(columns))
-
-    column_type_names = [t.__name__ for t in column_types]
-    raise TypeError("Columns must be indices or names. "
-                    "Got columns {} of types {}"
-                    .format(columns, column_type_names))
+    return read_table(source, columns=columns).to_pandas(use_threads=True)
 
 
 def read_table(source, columns=None):
@@ -226,4 +219,20 @@ def read_table(source, columns=None):
     -------
     table : pyarrow.Table
     """
-    return read_feather(source, columns=columns, as_pandas=False)
+    _check_pandas_version()
+    reader = ext.FeatherReader()
+    reader.open(source)
+
+    if columns is None:
+        return reader.read()
+
+    column_types = [type(column) for column in columns]
+    if all(map(lambda t: t == int, column_types)):
+        return reader.read_indices(columns)
+    elif all(map(lambda t: t == str, column_types)):
+        return reader.read_names(columns)
+
+    column_type_names = [t.__name__ for t in column_types]
+    raise TypeError("Columns must be indices or names. "
+                    "Got columns {} of types {}"
+                    .format(columns, column_type_names))
