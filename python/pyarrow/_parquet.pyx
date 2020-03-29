@@ -1306,10 +1306,13 @@ cdef class ParquetWriter:
         else:
             props.disallow_truncated_timestamps()
 
-    cdef void _set_writer_engine_version(self, ArrowWriterProperties.Builder* props) \
-            except *:
-                if self.writer_engine_version == "V1":
-                    props.set_engine_version(ArrowWriterEngineVersion.V1)
+    cdef int _set_writer_engine_version(
+            self, ArrowWriterProperties.Builder* props) except -1:
+        if self.writer_engine_version == "V1":
+            props.set_engine_version(ArrowWriterEngineVersion.V1)
+        elif self.writer_engine_version != "V2":
+            raise ValueError("Unsupported Writer Engine Version: {0}"
+                             .format(self.writer_engine_version))
 
     cdef int _set_version(self, WriterProperties.Builder* props) except -1:
         if self.version is not None:

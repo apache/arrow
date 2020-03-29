@@ -463,6 +463,7 @@ schema : arrow Schema
         else:
             sink = where
         self._metadata_collector = options.pop('metadata_collector', None)
+        engine_version = os.environ.get('ARROW_PARQUET_WRITER_ENGINE', 'V2')
         self.writer = _parquet.ParquetWriter(
             sink, schema,
             version=version,
@@ -472,7 +473,7 @@ schema : arrow Schema
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
             compression_level=compression_level,
             use_byte_stream_split=use_byte_stream_split,
-            writer_engine_version=os.environ.get('ARROW_PARQUET_WRITER_ENGINE', 'V2'),
+            writer_engine_version=engine_version,
             **options)
         self.is_open = True
 
