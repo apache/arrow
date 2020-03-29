@@ -19,7 +19,6 @@
 
 use arrow::array::*;
 use arrow::datatypes::{DataType, TimeUnit};
-use arrow::record_batch::RecordBatch;
 use clap::{crate_version, App, Arg};
 use datafusion::error::{ExecutionError, Result};
 use datafusion::execution::context::ExecutionContext;
@@ -27,6 +26,7 @@ use prettytable::{Cell, Row, Table};
 use rustyline::Editor;
 use std::env;
 use std::path::Path;
+use std::time::Instant;
 
 pub fn main() {
     let matches = App::new("DataFusion")
@@ -71,6 +71,9 @@ pub fn main() {
     loop {
         let readline = rl.readline("> ");
         match readline {
+            Ok(ref line) if is_exit_command(line) && query.is_empty() => {
+                break;
+            }
             Ok(ref line) if line.trim_end().ends_with(';') => {
                 query.push_str(line.trim_end());
                 rl.add_history_entry(query.clone());
@@ -93,25 +96,30 @@ pub fn main() {
     rl.save_history(".history").ok();
 }
 
+fn is_exit_command(line: &str) -> bool {
+    let line = line.trim_end().to_lowercase();
+    line == "quit" || line == "exit"
+}
+
 fn exec_and_print(
     ctx: &mut ExecutionContext,
     sql: String,
     batch_size: usize,
 ) -> Result<()> {
+    let now = Instant::now();
+
     let results = ctx.sql(&sql, batch_size)?;
-    print_result(&results)?;
-
-    Ok(())
-}
-
-fn print_result(results: &Vec<RecordBatch>) -> Result<()> {
-    let mut row_count = 0;
-    let mut table = Table::new();
 
     if results.is_empty() {
+        println!(
+            "0 rows in set. Query took {} seconds.",
+            now.elapsed().as_secs()
+        );
         return Ok(());
     }
 
+    let mut row_count = 0;
+    let mut table = Table::new();
     let schema = results[0].schema();
 
     let mut header = Vec::new();
@@ -135,9 +143,17 @@ fn print_result(results: &Vec<RecordBatch>) -> Result<()> {
     table.printstd();
 
     if row_count > 1 {
-        println!("{} rows in set.", row_count);
+        println!(
+            "{} row in set. Query took {} seconds.",
+            row_count,
+            now.elapsed().as_secs()
+        );
     } else {
-        println!("{} row in set.", row_count);
+        println!(
+            "{} rows in set. Query took {} seconds.",
+            row_count,
+            now.elapsed().as_secs()
+        );
     }
 
     Ok(())
