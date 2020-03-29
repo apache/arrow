@@ -376,6 +376,11 @@ pub fn lit_str(str: &str) -> Expr {
     Expr::Literal(ScalarValue::Utf8(str.to_owned()))
 }
 
+/// Create an expression representing the sqrt scalar function
+pub fn sqrt(e: Expr) -> Expr {
+    scalar_function("sqrt", vec![e], DataType::Float64)
+}
+
 /// Create an aggregate expression
 pub fn aggregate_expr(name: &str, expr: Expr, return_type: DataType) -> Expr {
     Expr::AggregateFunction {

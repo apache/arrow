@@ -162,6 +162,11 @@ impl ExecutionContext {
         self.scalar_functions.insert(f.name.clone(), Box::new(f));
     }
 
+    /// Get a reference to the registered scalar functions
+    pub fn scalar_functions(&self) -> &HashMap<String, Box<ScalarFunction>> {
+        &self.scalar_functions
+    }
+
     fn build_schema(&self, columns: Vec<SQLColumnDef>) -> Result<Schema> {
         let mut fields = Vec::new();
 
@@ -251,7 +256,7 @@ impl ExecutionContext {
         let rules: Vec<Box<dyn OptimizerRule>> = vec![
             Box::new(ResolveColumnsRule::new()),
             Box::new(ProjectionPushDown::new()),
-            Box::new(TypeCoercionRule::new()),
+            Box::new(TypeCoercionRule::new(&self.scalar_functions)),
         ];
         let mut plan = plan.clone();
         for mut rule in rules {
