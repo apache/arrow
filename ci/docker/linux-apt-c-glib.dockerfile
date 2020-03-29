@@ -28,6 +28,10 @@ RUN apt-get update -y -q && \
         luarocks \
         pkg-config \
         ruby-dev && \
+    if [ "$(lsb_release --codename --short)" = "xenial" ]; then \
+      apt-get install -y -q --no-install-recommends -t xenial-backports \
+        ninja-build; \
+    fi && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
