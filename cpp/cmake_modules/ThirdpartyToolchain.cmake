@@ -290,8 +290,10 @@ else()
     # Feature only available starting in 3.7
     # (and VERSION_GREATER_EQUAL also only available starting in 3.7)
     list(
-      APPEND BOOST_SOURCE_URL
-             "https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz")
+      APPEND
+        BOOST_SOURCE_URL
+        "https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
+      )
   endif()
 endif()
 
@@ -652,17 +654,24 @@ set(Boost_ADDITIONAL_VERSIONS
     "1.60.0"
     "1.60")
 
+# Thrift needs Boost if we're building the bundled version,
+# so we first need to determine whether we're building it
+if(Thrift_SOURCE STREQUAL "AUTO")
+  find_package(Thrift 0.11.0 MODULE)
+  if(NOT Thrift_FOUND)
+    set(Thrift_SOURCE "BUNDLED")
+  endif()
+endif()
 # - Parquet requires boost only with gcc 4.8 (because of missing std::regex).
 # - Gandiva has a compile-time (header-only) dependency on Boost, not runtime.
 # - Tests needs Boost at runtime.
-# if(ARROW_BUILD_INTEGRATION OR ARROW_BUILD_TESTS OR ARROW_GANDIVA OR ARROW_PARQUET)
 if(ARROW_BUILD_INTEGRATION
    OR ARROW_BUILD_TESTS
    OR ARROW_GANDIVA
+   OR Thrift_SOURCE STREQUAL "BUNDLED"
    OR (ARROW_PARQUET
        AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
-       AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.9")
-   OR Thrift_SOURCE STREQUAL "BUNDLED")
+       AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.9"))
   set(ARROW_BOOST_REQUIRED TRUE)
 else()
   set(ARROW_BOOST_REQUIRED FALSE)
