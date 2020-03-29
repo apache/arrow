@@ -658,7 +658,7 @@ set(Boost_ADDITIONAL_VERSIONS
 # so we first need to determine whether we're building it
 if(ARROW_WITH_THRIFT AND Thrift_SOURCE STREQUAL "AUTO")
   find_package(Thrift 0.11.0 MODULE)
-  if(NOT Thrift_FOUND)
+  if(NOT Thrift_FOUND AND NOT Thrift_FOUND)
     set(Thrift_SOURCE "BUNDLED")
   endif()
 endif()
