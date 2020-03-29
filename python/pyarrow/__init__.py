@@ -167,8 +167,6 @@ from pyarrow.ipc import (Message, MessageReader,
                          read_message, read_record_batch, read_schema,
                          read_tensor, write_tensor,
                          get_record_batch_size, get_tensor_size,
-                         open_stream,
-                         open_file,
                          serialize_pandas, deserialize_pandas)
 import pyarrow.ipc as ipc
 
@@ -200,6 +198,13 @@ def _plasma_store_entry_point():
 # Deprecations
 
 from pyarrow.util import _deprecate_api  # noqa
+
+
+open_stream = _deprecate_api("open_stream", "ipc.open_stream",
+                             ipc.open_stream, "0.17.0")
+
+open_file = _deprecate_api("open_file", "ipc.open_file", ipc.open_file,
+                           "0.17.0")
 
 # ----------------------------------------------------------------------
 # Returning absolute path to the pyarrow include directory (if bundled, e.g. in
