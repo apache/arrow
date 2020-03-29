@@ -402,6 +402,54 @@ Status GroupToStruct(const GroupNode& node, int16_t max_def_level, int16_t max_r
   return Status::OK();
 }
 
+Status MapToSchemaField(const GroupNode& group, int16_t max_def_level,
+                        int16_t max_rep_level, SchemaTreeContext* ctx,
+                        const SchemaField* parent, SchemaField* out) {
+  if (group.field_count() != 1) {
+    return Status::NotImplemented(
+        "Only MAP-annotated groups with a single child can handled");
+  }
+  out->children.resize(1);
+  SchemaField* child_field = &out->children[0];
+  ctx->LinkParent(out, parent);
+  ctx->LinkParent(child_field, out);
+
+  const Node& key_val_node = *group.field(0);
+
+  if (!key_val_node.is_repeated()) {
+    return Status::NotImplemented(
+        "Non-repeated nodes in MAP-annotated group are not supported.");
+  }
+
+  if (!key_val_node.is_group()) {
+    return Status::NotImplemented(
+        "Non-group nodes in MAP-annotated group are not supported.");
+  }
+
+  ++max_def_level;
+  ++max_rep_level;
+
+  const auto& key_val_group = static_cast<const GroupNode&>(key_val_node);
+
+  if (key_val_group.field_count() != 2) {
+    return Status::NotImplemented(
+        "Only groups with 2 fields are supported on MAP-annoted key val group");
+  }
+
+  RETURN_NOT_OK(arrow::GroupToStruct(key_val_group, max_def_level, max_rep_level, ctx,
+                                     out, child_field));
+
+  const auto key_field = child_field->children[0].field;
+  const auto val_field = child_field->children[1].field;
+
+  out->field = ::arrow::field(group.name(), ::arrow::map(key_field->type(), val_field),
+                              group.is_optional(), FieldIdMetadata(group.field_id()));
+  out->max_definition_level = max_def_level;
+  out->max_repetition_level = max_rep_level;
+
+  return Status::OK();
+}
+
 Status ListToSchemaField(const GroupNode& group, int16_t max_def_level,
                          int16_t max_rep_level, SchemaTreeContext* ctx,
                          const SchemaField* parent, SchemaField* out) {
@@ -487,6 +535,8 @@ Status GroupToSchemaField(const GroupNode& node, int16_t max_def_level,
                           const SchemaField* parent, SchemaField* out) {
   if (node.logical_type()->is_list()) {
     return ListToSchemaField(node, max_def_level, max_rep_level, ctx, parent, out);
+  } else if (node.logical_type()->is_map()) {
+    return MapToSchemaField(node, max_def_level, max_rep_level, ctx, parent, out);
   }
   std::shared_ptr<DataType> type;
   if (node.is_repeated()) {
