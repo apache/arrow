@@ -383,7 +383,7 @@ macro_rules! unary_math_expr {
         pub fn $FUNC(e: Expr) -> Expr {
             scalar_function($NAME, vec![e], DataType::Float64)
         }
-    }
+    };
 }
 
 // generate methods for creating the supported unary math expressions

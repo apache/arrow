@@ -27,7 +27,7 @@ use arrow::record_batch::RecordBatch;
 
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
-use datafusion::execution::physical_plan::udf::{ScalarFunction, ScalarUdf};
+use datafusion::execution::physical_plan::udf::ScalarFunction;
 use datafusion::logicalplan::LogicalPlan;
 
 const DEFAULT_BATCH_SIZE: usize = 1024 * 1024;
@@ -180,7 +180,7 @@ fn custom_sqrt(args: &Vec<ArrayRef>) -> Result<ArrayRef> {
     let mut builder = Float64Builder::new(input.len());
     for i in 0..input.len() {
         if input.is_null(i) {
-            builder.append_null();
+            builder.append_null()?;
         } else {
             builder.append_value(input.value(i).sqrt())?;
         }
