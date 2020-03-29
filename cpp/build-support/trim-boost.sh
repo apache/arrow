@@ -42,14 +42,14 @@ BOOST_LIBS="$BOOST_LIBS functional/hash.hpp multiprecision/cpp_int.hpp"
 # These are for Thrift when Thrift_SOURCE=BUNDLED
 BOOST_LIBS="$BOOST_LIBS algorithm/string.hpp locale.hpp noncopyable.hpp numeric/conversion/cast.hpp scope_exit.hpp scoped_array.hpp shared_array.hpp tokenizer.hpp version.hpp"
 
-if [ -e ${BOOST_FILE} ]; then
+if [ ! -d ${BOOST_FILE} ]; then
   curl -L "${BOOST_URL}" > ${BOOST_FILE}.tar.gz
   tar -xzf ${BOOST_FILE}.tar.gz
 fi
 
 pushd ${BOOST_FILE}
 
-if [ -f "dist/bin/bcp" ]; then
+if [ ! -f "dist/bin/bcp" ]; then
   ./bootstrap.sh
   ./b2 tools/bcp
 fi
