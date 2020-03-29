@@ -580,6 +580,17 @@ def test_v2_compression_options():
         write_feather(df, buf, compression='snappy')
 
 
+def test_v1_unsupported_types():
+    table = pa.table([pa.array([[1, 2, 3], [], None])], names=['f0'])
+
+    buf = io.BytesIO()
+    with pytest.raises(TypeError,
+                       match=("Unsupported Feather V1 type: "
+                              "list<item: int64>. "
+                              "Use V2 format to serialize all Arrow types.")):
+        write_feather(table, buf, version=1)
+
+
 @pytest.mark.slow
 def test_large_dataframe(version):
     df = pd.DataFrame({'A': np.arange(400000000)})

@@ -433,7 +433,8 @@ Result<fbs::Type> ToFlatbufferType(const DataType& type) {
     case Type::TIME64:
       return fbs::Type::INT64;
     default:
-      return Status::TypeError("Unsupported Feather V1 type: ", type.ToString());
+      return Status::TypeError("Unsupported Feather V1 type: ", type.ToString(),
+                               ". Use V2 format to serialize all Arrow types.");
   }
 }
 
