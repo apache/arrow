@@ -574,10 +574,21 @@ class Converter_List : public Converter {
     auto list_array = checked_cast<arrow::ListArray*>(array.get());
     auto values_array = list_array->values();
 
+    for (const auto& array : arrays_) {
+      Status s = array->Validate();
+      if (!s.ok()) {
+        STOP_IF_NOT_OK(s);
+      }
+    }
+
     auto ingest_one = [&](R_xlen_t i) {
       auto slice =
           values_array->Slice(list_array->value_offset(i), list_array->value_length(i));
+      STOP_IF_NOT_OK(slice->Validate());
+      STOP_IF_NOT_OK(values_array->Validate());
       SET_VECTOR_ELT(data, i + start, Array__as_vector(slice));
+      STOP_IF_NOT_OK(values_array->Validate());
+      STOP_IF_NOT_OK(slice->Validate());
     };
 
     if (array->null_count()) {

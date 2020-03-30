@@ -163,6 +163,14 @@ Table <- R6Class("Table", inherit = ArrowObject,
 
     Equals = function(other, check_metadata = TRUE, ...) {
       inherits(other, "Table") && Table__Equals(self, other, isTRUE(check_metadata))
+    },
+
+    Validate = function() {
+      Table__Validate(self)
+    },
+
+    ValidateFull = function() {
+      Table__ValidateFull(self)
     }
   ),
 
