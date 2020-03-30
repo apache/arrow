@@ -32,7 +32,7 @@ use arrow::array::{
 };
 use arrow::array::{
     Float32Builder, Float64Builder, Int16Builder, Int32Builder, Int64Builder,
-    Int8Builder, ListArray, StringBuilder, UInt16Builder, UInt32Builder, UInt64Builder,
+    Int8Builder, StringBuilder, UInt16Builder, UInt32Builder, UInt64Builder,
     UInt8Builder,
 };
 use arrow::compute;
@@ -40,8 +40,8 @@ use arrow::compute::kernels::arithmetic::{add, divide, multiply, subtract};
 use arrow::compute::kernels::boolean::{and, or};
 use arrow::compute::kernels::cast::cast;
 use arrow::compute::kernels::comparison::{
-    contains, contains_utf8, eq, eq_utf8, gt, gt_eq, gt_eq_utf8, gt_utf8, like_utf8, lt,
-    lt_eq, lt_eq_utf8, lt_utf8, neq, neq_utf8, nlike_utf8,
+    eq, eq_utf8, gt, gt_eq, gt_eq_utf8, gt_utf8, like_utf8, lt, lt_eq, lt_eq_utf8,
+    lt_utf8, neq, neq_utf8, nlike_utf8,
 };
 use arrow::datatypes::{DataType, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
@@ -918,60 +918,6 @@ macro_rules! compute_op {
     }};
 }
 
-macro_rules! list_array_op {
-    ($LEFT:expr, $RIGHT:expr, $OP:ident) => {{
-        match $LEFT.data_type() {
-            DataType::Int8 => compute_list_array_op!($LEFT, $RIGHT, $OP, Int8Array),
-            DataType::Int16 => compute_list_array_op!($LEFT, $RIGHT, $OP, Int16Array),
-            DataType::Int32 => compute_list_array_op!($LEFT, $RIGHT, $OP, Int32Array),
-            DataType::Int64 => compute_list_array_op!($LEFT, $RIGHT, $OP, Int64Array),
-            DataType::UInt8 => compute_list_array_op!($LEFT, $RIGHT, $OP, UInt8Array),
-            DataType::UInt16 => compute_list_array_op!($LEFT, $RIGHT, $OP, UInt16Array),
-            DataType::UInt32 => compute_list_array_op!($LEFT, $RIGHT, $OP, UInt32Array),
-            DataType::UInt64 => compute_list_array_op!($LEFT, $RIGHT, $OP, UInt64Array),
-            DataType::Float32 => compute_list_array_op!($LEFT, $RIGHT, $OP, Float32Array),
-            DataType::Float64 => compute_list_array_op!($LEFT, $RIGHT, $OP, Float64Array),
-            DataType::Utf8 => {
-                compute_list_array_utf8_op!($LEFT, $RIGHT, $OP, StringArray)
-            }
-            other => Err(ExecutionError::General(format!(
-                "Unsupported data type {:?} for Contains operator",
-                other
-            ))),
-        }
-    }};
-}
-
-/// Invoke a compute kernel on a primitive array and a ListArray
-macro_rules! compute_list_array_op {
-    ($LEFT:expr, $RIGHT:expr, $OP:ident, $DT:ident) => {{
-        let ll = $LEFT
-            .as_any()
-            .downcast_ref::<$DT>()
-            .expect("compute_op failed to downcast array");
-        let rr = $RIGHT
-            .as_any()
-            .downcast_ref::<ListArray>()
-            .expect("compute_op failed to downcast array");
-        Ok(Arc::new($OP(&ll, &rr)?))
-    }};
-}
-
-/// Invoke a compute kernel on a binary data array and a ListArray
-macro_rules! compute_list_array_utf8_op {
-    ($LEFT:expr, $RIGHT:expr, $OP:ident, $DT:ident) => {{
-        let ll = $LEFT
-            .as_any()
-            .downcast_ref::<$DT>()
-            .expect("compute_op failed to downcast array");
-        let rr = $RIGHT
-            .as_any()
-            .downcast_ref::<ListArray>()
-            .expect("compute_op failed to downcast array");
-        Ok(Arc::new(paste::expr! {[<$OP _utf8>]}(&ll, &rr)?))
-    }};
-}
-
 macro_rules! binary_string_array_op {
     ($LEFT:expr, $RIGHT:expr, $OP:ident) => {{
         match $LEFT.data_type() {
@@ -1080,22 +1026,12 @@ impl PhysicalExpr for BinaryExpr {
         let left = self.left.evaluate(batch)?;
         let right = self.right.evaluate(batch)?;
         if left.data_type() != right.data_type() {
-            let mut invalid_type_combination = true;
-            if self.op == Operator::Contains {
-                if let DataType::List(dt) = right.data_type() {
-                    if **dt == left.data_type().clone() {
-                        invalid_type_combination = false;
-                    }
-                }
-            }
-            if invalid_type_combination {
-                return Err(ExecutionError::General(format!(
-                    "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
-                    self.op,
-                    left.data_type(),
-                    right.data_type()
-                )));
-            }
+            return Err(ExecutionError::General(format!(
+                "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
+                self.op,
+                left.data_type(),
+                right.data_type()
+            )));
         }
         match &self.op {
             Operator::Like => binary_string_array_op!(left, right, like),
@@ -1106,7 +1042,6 @@ impl PhysicalExpr for BinaryExpr {
             Operator::GtEq => binary_array_op!(left, right, gt_eq),
             Operator::Eq => binary_array_op!(left, right, eq),
             Operator::NotEq => binary_array_op!(left, right, neq),
-            Operator::Contains => list_array_op!(left, right, contains),
             Operator::Plus => binary_primitive_array_op!(left, right, add),
             Operator::Minus => binary_primitive_array_op!(left, right, subtract),
             Operator::Multiply => binary_primitive_array_op!(left, right, multiply),
@@ -1334,8 +1269,7 @@ mod tests {
     use super::*;
     use crate::error::Result;
     use crate::execution::physical_plan::common::get_scalar_value;
-    use arrow::array::{ArrayData, PrimitiveArray, StringArray, Time64NanosecondArray};
-    use arrow::buffer::Buffer;
+    use arrow::array::{PrimitiveArray, StringArray, Time64NanosecondArray};
     use arrow::datatypes::*;
 
     #[test]
@@ -1362,56 +1296,6 @@ mod tests {
             .downcast_ref::<BooleanArray>()
             .expect("failed to downcast to BooleanArray");
         for i in 0..5 {
-            assert_eq!(result.value(i), expected[i]);
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn contains_comparison() -> Result<()> {
-        let schema = Schema::new(vec![
-            Field::new("a", DataType::Int32, false),
-            Field::new("b", DataType::List(Box::new(DataType::Int32)), false),
-        ]);
-        // Construct a value array
-        let value_data = ArrayData::builder(DataType::Int32)
-            .len(8)
-            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
-            .build();
-
-        // Construct a buffer for value offsets, for the nested array:
-        //  [[0, 1, 2], [3, 4, 5], [6, 7]]
-        let value_offsets = Buffer::from(&[0, 3, 6, 8].to_byte_slice());
-
-        // Construct a list array from the above two
-        let list_data_type = DataType::List(Box::new(DataType::Int32));
-        let list_data = ArrayData::builder(list_data_type.clone())
-            .len(3)
-            .add_buffer(value_offsets.clone())
-            .add_child_data(value_data.clone())
-            .build();
-
-        let a = Int32Array::from(vec![Some(1), Some(1), Some(1)]);
-        let b = ListArray::from(list_data);
-
-        let batch = RecordBatch::try_new(
-            Arc::new(schema.clone()),
-            vec![Arc::new(a), Arc::new(b)],
-        )?;
-
-        // expression: "a >] b"
-        let contains = binary(col(0), Operator::Contains, col(1));
-
-        let result = contains.evaluate(&batch)?;
-        assert_eq!(result.len(), 3);
-
-        let expected = vec![true, false, false];
-        let result = result
-            .as_any()
-            .downcast_ref::<BooleanArray>()
-            .expect("failed to downcast to BooleanArray");
-        for i in 0..3 {
             assert_eq!(result.value(i), expected[i]);
         }
 

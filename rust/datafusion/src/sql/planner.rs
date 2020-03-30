@@ -340,7 +340,6 @@ impl<S: SchemaProvider> SqlToRel<S> {
                     SQLOperator::Not => Operator::Not,
                     SQLOperator::Like => Operator::Like,
                     SQLOperator::NotLike => Operator::NotLike,
-                    SQLOperator::Contains => Operator::Contains,
                 };
 
                 match operator {
@@ -580,7 +579,7 @@ mod tests {
         quick_test(
             "SELECT * from person",
             "Projection: #0, #1, #2, #3, #4, #5, #6\
-            \n  TableScan: person projection=None",
+             \n  TableScan: person projection=None",
         );
     }
 
