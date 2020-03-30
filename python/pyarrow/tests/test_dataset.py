@@ -577,7 +577,7 @@ def test_make_fragment(multisourcefs):
         assert row_group_fragment.row_groups == {0}
 
 
-@pyarrow.mark.pandas
+@pytest.mark.pandas
 def test_parquet_row_group_fragments(tempdir):
     import pyarrow as pa
     import pyarrow.parquet as pq
