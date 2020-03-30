@@ -188,7 +188,7 @@ jobs:
     env:
       # the defaults here should correspond to the values in .env
       PYTHON: 3.7
-      HDFS: ${{ matric.hdfs || '2.9.2' }}
+      HDFS: ${{ matrix.hdfs || '2.9.2' }}
       DASK: ${{ matrix.dask || 'latest' }}
       TURBODBC: ${{ matrix.turbodbc || 'latest' }}
       PANDAS: ${{ matrix.pandas || 'latest' }}
