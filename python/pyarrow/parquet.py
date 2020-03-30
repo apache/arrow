@@ -152,16 +152,19 @@ def _filters_to_expression(filters):
         and_exprs = []
         for col, op, val in conjunction:
             and_exprs.append(convert_single_predicate(col, op, val))
+
+        expr = and_exprs[0]
         if len(and_exprs) > 1:
-            expr = ds.AndExpression(*and_exprs)
-        else:
-            expr = and_exprs[0]
+            for and_expr in and_exprs[1:]:
+                expr = ds.AndExpression(expr, and_expr)
+
         or_exprs.append(expr)
 
+    expr = or_exprs[0]
     if len(or_exprs) > 1:
         expr = ds.OrExpression(*or_exprs)
-    else:
-        expr = or_exprs[0]
+        for or_expr in or_exprs[1:]:
+            expr = ds.OrExpression(expr, or_expr)
 
     return expr
 
@@ -1043,7 +1046,11 @@ memory_map : bool, default False
     improve performance in some environments.
 buffer_size : int, default 0
     If positive, perform read buffering when deserializing individual
-    column chunks. Otherwise IO calls are unbuffered."""
+    column chunks. Otherwise IO calls are unbuffered.
+use_legacy_dataset : bool, default True
+    Set to False to enable the new code path (experimental, using the
+    new Arrow Dataset API). This allows to pass `filters` for all columns
+    and not only the partition keys."""
 
 
 class ParquetDataset:
