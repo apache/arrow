@@ -323,12 +323,17 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
     cdef cppclass FlightStatusDetail" arrow::flight::FlightStatusDetail":
         CFlightStatusCode code()
+        c_string extra_info()
         @staticmethod
         shared_ptr[FlightStatusDetail] UnwrapStatus(const CStatus& status)
 
     cdef CStatus MakeFlightError" arrow::flight::MakeFlightError" \
         (CFlightStatusCode code, const c_string& message)
 
+    cdef CStatus MakeFlightError" arrow::flight::MakeFlightError" \
+        (CFlightStatusCode code,
+         const c_string& message,
+         const c_string& extra_info)
 
 # Callbacks for implementing Flight servers
 # Use typedef to emulate syntax for std::function<void(..)>

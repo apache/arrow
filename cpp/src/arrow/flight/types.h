@@ -80,13 +80,19 @@ enum class FlightStatusCode : int8_t {
 class ARROW_FLIGHT_EXPORT FlightStatusDetail : public arrow::StatusDetail {
  public:
   explicit FlightStatusDetail(FlightStatusCode code) : code_{code} {}
+  explicit FlightStatusDetail(FlightStatusCode code, std::string extra_info)
+      : code_{code}, extra_info_(std::move(extra_info)) {}
   const char* type_id() const override;
   std::string ToString() const override;
 
   /// \brief Get the Flight status code.
   FlightStatusCode code() const;
+  /// \brief Get the extra error info
+  std::string extra_info() const;
   /// \brief Get the human-readable name of the status code.
   std::string CodeAsString() const;
+  /// \brief Set the extra error info
+  void set_extra_info(std::string extra_info);
 
   /// \brief Try to extract a \a FlightStatusDetail from any Arrow
   /// status.
@@ -97,6 +103,7 @@ class ARROW_FLIGHT_EXPORT FlightStatusDetail : public arrow::StatusDetail {
 
  private:
   FlightStatusCode code_;
+  std::string extra_info_;
 };
 
 #ifdef _MSC_VER
@@ -110,6 +117,16 @@ class ARROW_FLIGHT_EXPORT FlightStatusDetail : public arrow::StatusDetail {
 /// \param message The message for the error.
 ARROW_FLIGHT_EXPORT
 Status MakeFlightError(FlightStatusCode code, const std::string& message);
+
+/// \brief Make an appropriate Arrow status for the given
+/// Flight-specific status.
+///
+/// \param code The status code.
+/// \param message The message for the error.
+/// \param extra_info The extra binary info for the error (eg protobuf)
+ARROW_FLIGHT_EXPORT
+Status MakeFlightError(FlightStatusCode code, const std::string& message,
+                       const std::string& extra_info);
 
 /// \brief A TLS certificate plus key.
 struct ARROW_FLIGHT_EXPORT CertKeyPair {

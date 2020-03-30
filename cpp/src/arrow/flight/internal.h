@@ -80,6 +80,9 @@ ARROW_FLIGHT_EXPORT
 extern const char* kGrpcStatusDetailHeader;
 
 ARROW_FLIGHT_EXPORT
+extern const char* kBinaryErrorDetailsKey;
+
+ARROW_FLIGHT_EXPORT
 Status SchemaToString(const Schema& schema, std::string* out);
 
 /// Convert a gRPC status to an Arrow status. Optionally, provide a

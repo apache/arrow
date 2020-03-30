@@ -52,21 +52,22 @@ cdef int check_flight_status(const CStatus& status) nogil except -1:
     if detail:
         with gil:
             message = frombytes(status.message())
+            detail_msg = detail.get().extra_info()
             if detail.get().code() == CFlightStatusInternal:
-                raise FlightInternalError(message)
+                raise FlightInternalError(message, detail_msg)
             elif detail.get().code() == CFlightStatusFailed:
                 message = _munge_grpc_python_error(message)
-                raise FlightServerError(message)
+                raise FlightServerError(message, detail_msg)
             elif detail.get().code() == CFlightStatusTimedOut:
-                raise FlightTimedOutError(message)
+                raise FlightTimedOutError(message, detail_msg)
             elif detail.get().code() == CFlightStatusCancelled:
-                raise FlightCancelledError(message)
+                raise FlightCancelledError(message, detail_msg)
             elif detail.get().code() == CFlightStatusUnauthenticated:
-                raise FlightUnauthenticatedError(message)
+                raise FlightUnauthenticatedError(message, detail_msg)
             elif detail.get().code() == CFlightStatusUnauthorized:
-                raise FlightUnauthorizedError(message)
+                raise FlightUnauthorizedError(message, detail_msg)
             elif detail.get().code() == CFlightStatusUnavailable:
-                raise FlightUnavailableError(message)
+                raise FlightUnavailableError(message, detail_msg)
 
     return check_status(status)
 
@@ -126,46 +127,54 @@ class CertKeyPair(_CertKeyPair):
 cdef class FlightError(Exception):
     cdef dict __dict__
 
+    def __init__(self, message='', extra_info=b''):
+        super().__init__(message)
+        self.extra_info = tobytes(extra_info)
+
     cdef CStatus to_status(self):
         message = tobytes("Flight error: {}".format(str(self)))
         return CStatus_UnknownError(message)
 
-
 cdef class FlightInternalError(FlightError, ArrowException):
     cdef CStatus to_status(self):
-        return MakeFlightError(CFlightStatusInternal, tobytes(str(self)))
+        return MakeFlightError(CFlightStatusInternal,
+                               tobytes(str(self)), self.extra_info)
 
 
 cdef class FlightTimedOutError(FlightError, ArrowException):
     cdef CStatus to_status(self):
-        return MakeFlightError(CFlightStatusTimedOut, tobytes(str(self)))
+        return MakeFlightError(CFlightStatusTimedOut,
+                               tobytes(str(self)), self.extra_info)
 
 
 cdef class FlightCancelledError(FlightError, ArrowException):
     cdef CStatus to_status(self):
-        return MakeFlightError(CFlightStatusCancelled, tobytes(str(self)))
+        return MakeFlightError(CFlightStatusCancelled, tobytes(str(self)),
+                               self.extra_info)
 
 
 cdef class FlightServerError(FlightError, ArrowException):
     cdef CStatus to_status(self):
-        return MakeFlightError(CFlightStatusFailed, tobytes(str(self)))
+        return MakeFlightError(CFlightStatusFailed, tobytes(str(self)),
+                               self.extra_info)
 
 
 cdef class FlightUnauthenticatedError(FlightError, ArrowException):
     cdef CStatus to_status(self):
         return MakeFlightError(
-            CFlightStatusUnauthenticated, tobytes(str(self)))
+            CFlightStatusUnauthenticated, tobytes(str(self)), self.extra_info)
 
 
 cdef class FlightUnauthorizedError(FlightError, ArrowException):
     cdef CStatus to_status(self):
-        return MakeFlightError(CFlightStatusUnauthorized, tobytes(str(self)))
+        return MakeFlightError(CFlightStatusUnauthorized, tobytes(str(self)),
+                               self.extra_info)
 
 
 cdef class FlightUnavailableError(FlightError, ArrowException):
     cdef CStatus to_status(self):
-        return MakeFlightError(CFlightStatusUnavailable, tobytes(str(self)))
-
+        return MakeFlightError(CFlightStatusUnavailable, tobytes(str(self)),
+                               self.extra_info)
 
 cdef class Action:
     """An action executable on a Flight service."""
