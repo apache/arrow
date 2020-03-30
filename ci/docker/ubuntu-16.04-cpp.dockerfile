@@ -48,6 +48,7 @@ RUN apt-get update -y -q && \
         liblz4-dev \
         libre2-dev \
         libssl-dev \
+        libzstd1-dev \
         llvm-${llvm}-dev \
         make \
         ninja-build \
@@ -60,7 +61,6 @@ RUN apt-get update -y -q && \
 
 # Benchmark is deactivated as the external project requires CMake 3.6+
 # Gandiva JNI is deactivated as it requires CMake 3.11+
-# TODO(ARROW-4761): libzstd is too old and external project requires CMake 3.7+
 # - c-ares in Xenial isn't recognized by gRPC build system
 # - libprotobuf-dev / libprotoc-dev in Xenial too old for gRPC
 # - libboost-all-dev does not include Boost.Process, needed for Flight
@@ -79,7 +79,7 @@ ENV ARROW_BUILD_BENCHMARKS=OFF \
     ARROW_WITH_LZ4=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
-    ARROW_WITH_ZSTD=OFF \
+    ARROW_WITH_ZSTD=ON \
     BOOST_SOURCE=BUNDLED \
     cares_SOURCE=BUNDLED \
     CC=gcc \
