@@ -52,52 +52,35 @@ to_arrow.data.frame <- function(x) Table$create(!!!x)
 #' @return the input `x` invisibly.
 #' @export
 write_arrow <- function(x, sink, ...) {
-  UseMethod("write_arrow", sink)
+  if (inherits(sink, c("RecordBatchStreamWriter", "raw"))) {
+    write_stream(x, sink, ...)
+  } else {
+    write_feather(x, sink, ...)
+  }
 }
 
-#' @export
-write_arrow.RecordBatchWriter <- function(x, sink, ...){
-  sink$write(x)
-}
+write_stream <- function(x, sink, ...) {
+  if (inherits(sink, "raw")) {
+    x <- to_arrow(x)
+    schema <- x$schema
 
-#' @export
-write_arrow.character <- function(x, sink, ...) {
-  x_out <- x
-  assert_that(length(sink) == 1L)
-  x <- to_arrow(x)
-  file_stream <- FileOutputStream$create(sink)
-  on.exit(file_stream$close())
-  file_writer <- RecordBatchFileWriter$create(file_stream, x$schema)
-  on.exit({
-    # Re-set the exit code to close both connections, LIFO
-    file_writer$close()
-    file_stream$close()
-  })
-  # Available on R >= 3.5
-  # on.exit(file_writer$close(), add = TRUE, after = FALSE)
-  write_arrow(x, file_writer, ...)
+    # how many bytes do we need
+    mock_stream <- MockOutputStream$create()
+    writer <- RecordBatchStreamWriter$create(mock_stream, schema)
+    writer$write(x)
+    writer$close()
+    n <- mock_stream$GetExtentBytesWritten()
 
-  invisible(x_out)
-}
-
-#' @export
-write_arrow.raw <- function(x, sink, ...) {
-  x <- to_arrow(x)
-  schema <- x$schema
-
-  # how many bytes do we need
-  mock_stream <- MockOutputStream$create()
-  writer <- RecordBatchStreamWriter$create(mock_stream, schema)
-  writer$write(x)
-  writer$close()
-  n <- mock_stream$GetExtentBytesWritten()
-
-  # now that we know the size, stream in a buffer backed by an R raw vector
-  bytes <- raw(n)
-  buffer_writer <- FixedSizeBufferWriter$create(buffer(bytes))
-  writer <- RecordBatchStreamWriter$create(buffer_writer, schema)
-  writer$write(x)
-  writer$close()
-
-  bytes
+    # now that we know the size, stream in a buffer backed by an R raw vector
+    bytes <- raw(n)
+    buffer_writer <- FixedSizeBufferWriter$create(buffer(bytes))
+    sink <- RecordBatchStreamWriter$create(buffer_writer, schema)
+    on.exit(sink$close())
+    sink$write(x)
+    # Note that this returns the R raw vector, not the Arrow object
+    bytes
+  } else {
+    assert_is(sink, "RecordBatchStreamWriter")
+    sink$write(x)
+  }
 }

@@ -45,39 +45,33 @@
 #' flexibility. The other methods are for convenience.
 #'
 #' @export
-read_table <- function(stream){
-  UseMethod("read_table")
+read_arrow <- function(x, ...) {
+  if (inherits(x, c("RecordBatchStreamReader", "raw"))) {
+    read_stream(x, ...)
+  } else {
+    read_feather(x, ...)
+  }
 }
 
+#' @rdname read_arrow
 #' @export
-read_table.RecordBatchFileReader <- function(stream) {
-  shared_ptr(Table, Table__from_RecordBatchFileReader(stream))
+read_stream <- function(stream, as_data_frame = TRUE, ...) {
+  if (inherits(stream, "raw")) {
+    buf <- BufferReader$create(stream)
+    on.exit(buf$close())
+    stream <- RecordBatchStreamReader$create(buf)
+  }
+  assert_is(stream, "RecordBatchStreamReader")
+  out <- shared_ptr(Table, Table__from_RecordBatchStreamReader(stream))
+  if (as_data_frame) {
+    out <- as.data.frame(out)
+  }
+  out
 }
 
+#' @rdname read_arrow
 #' @export
-read_table.RecordBatchStreamReader <- function(stream) {
-  shared_ptr(Table, Table__from_RecordBatchStreamReader(stream))
-}
-
-#' @export
-read_table.character <- function(stream) {
-  assert_that(length(stream) == 1L)
-  stream <- ReadableFile$create(stream)
-  on.exit(stream$close())
-  batch_reader <- RecordBatchFileReader$create(stream)
-  shared_ptr(Table, Table__from_RecordBatchFileReader(batch_reader))
-}
-
-#' @export
-read_table.raw <- function(stream) {
-  stream <- BufferReader$create(stream)
-  on.exit(stream$close())
-  batch_reader <- RecordBatchStreamReader$create(stream)
-  shared_ptr(Table, Table__from_RecordBatchStreamReader(batch_reader))
-}
-
-#' @rdname read_table
-#' @export
-read_arrow <- function(stream) {
-  as.data.frame(read_table(stream))
+read_table <- function(x, ...) {
+  .Deprecated("read_arrow")
+  read_arrow(x, ..., as_data_frame = FALSE)
 }

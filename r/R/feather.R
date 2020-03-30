@@ -97,6 +97,10 @@ write_feather <- function(x,
   }
   assert_is(x, "Table")
 
+  if (inherits(sink, "RecordBatchWriter")) {
+    sink$write(x)
+    return(sink)
+  }
   if (is.character(sink)) {
     sink <- FileOutputStream$create(sink)
     on.exit(sink$close())
@@ -129,19 +133,24 @@ write_feather <- function(x,
 #' df <- read_feather(tf, col_select = starts_with("Sepal"))
 #' }
 read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
-  if (is.character(file)) {
-    file <- make_readable_file(file)
-    on.exit(file$close())
-  }
-  reader <- FeatherReader$create(file, ...)
+  if (inherits(file, "RecordBatchFileReader")) {
+    out <- shared_ptr(Table, Table__from_RecordBatchFileReader(file))
+    # TODO: apply col_select
+  } else {
+    if (is.character(file)) {
+      file <- make_readable_file(file)
+      on.exit(file$close())
+    }
+    reader <- FeatherReader$create(file, ...)
 
-  all_columns <- ipc___feather___Reader__column_names(reader)
-  col_select <- enquo(col_select)
-  columns <- if (!quo_is_null(col_select)) {
-    vars_select(all_columns, !!col_select)
-  }
+    all_columns <- ipc___feather___Reader__column_names(reader)
+    col_select <- enquo(col_select)
+    columns <- if (!quo_is_null(col_select)) {
+      vars_select(all_columns, !!col_select)
+    }
 
-  out <- reader$Read(columns)
+    out <- reader$Read(columns)
+  }
   if (isTRUE(as_data_frame)) {
     out <- as.data.frame(out)
   }
