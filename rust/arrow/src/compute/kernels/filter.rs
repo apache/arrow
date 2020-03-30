@@ -20,7 +20,7 @@
 use std::sync::Arc;
 
 use crate::array::*;
-use crate::datatypes::{ArrowNumericType, DataType, TimeUnit};
+use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 
 /// Helper function to perform boolean lambda function on values from two arrays.
@@ -66,6 +66,66 @@ macro_rules! filter_array {
                     builder.append_null()?;
                 } else {
                     builder.append_value(b.value(i))?;
+                }
+            }
+        }
+        Ok(Arc::new(builder.finish()))
+    }};
+}
+
+macro_rules! filter_primitive_item_list_array {
+    ($array:expr, $filter:expr, $item_type:ident) => {{
+        let list_of_lists = $array.as_any().downcast_ref::<ListArray>().unwrap();
+        let values_builder = PrimitiveBuilder::<$item_type>::new(list_of_lists.len());
+        let mut builder = ListBuilder::new(values_builder);
+        for i in 0..list_of_lists.len() {
+            if $filter.value(i) {
+                if list_of_lists.is_null(i) {
+                    builder.append(false)?;
+                } else {
+                    let this_inner_list = list_of_lists.value(i);
+                    let inner_list = this_inner_list
+                        .as_any()
+                        .downcast_ref::<PrimitiveArray<$item_type>>()
+                        .unwrap();
+                    for j in 0..inner_list.len() {
+                        if inner_list.is_null(j) {
+                            builder.values().append_null()?;
+                        } else {
+                            builder.values().append_value(inner_list.value(j))?;
+                        }
+                    }
+                    builder.append(true)?;
+                }
+            }
+        }
+        Ok(Arc::new(builder.finish()))
+    }};
+}
+
+macro_rules! filter_non_primitive_item_list_array {
+    ($array:expr, $filter:expr, $item_array_type:ident, $item_builder:ident) => {{
+        let list_of_lists = $array.as_any().downcast_ref::<ListArray>().unwrap();
+        let values_builder = $item_builder::new(list_of_lists.len());
+        let mut builder = ListBuilder::new(values_builder);
+        for i in 0..list_of_lists.len() {
+            if $filter.value(i) {
+                if list_of_lists.is_null(i) {
+                    builder.append(false)?;
+                } else {
+                    let this_inner_list = list_of_lists.value(i);
+                    let inner_list = this_inner_list
+                        .as_any()
+                        .downcast_ref::<$item_array_type>()
+                        .unwrap();
+                    for j in 0..inner_list.len() {
+                        if inner_list.is_null(j) {
+                            builder.values().append_null()?;
+                        } else {
+                            builder.values().append_value(inner_list.value(j))?;
+                        }
+                    }
+                    builder.append(true)?;
                 }
             }
         }
@@ -125,6 +185,99 @@ pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
         DataType::Timestamp(TimeUnit::Nanosecond, _) => {
             filter_array!(array, filter, TimestampNanosecondArray)
         }
+        DataType::List(dt) => match &**dt {
+            DataType::UInt8 => {
+                filter_primitive_item_list_array!(array, filter, UInt8Type)
+            }
+            DataType::UInt16 => {
+                filter_primitive_item_list_array!(array, filter, UInt16Type)
+            }
+            DataType::UInt32 => {
+                filter_primitive_item_list_array!(array, filter, UInt32Type)
+            }
+            DataType::UInt64 => {
+                filter_primitive_item_list_array!(array, filter, UInt64Type)
+            }
+            DataType::Int8 => filter_primitive_item_list_array!(array, filter, Int8Type),
+            DataType::Int16 => {
+                filter_primitive_item_list_array!(array, filter, Int16Type)
+            }
+            DataType::Int32 => {
+                filter_primitive_item_list_array!(array, filter, Int32Type)
+            }
+            DataType::Int64 => {
+                filter_primitive_item_list_array!(array, filter, Int64Type)
+            }
+            DataType::Float32 => {
+                filter_primitive_item_list_array!(array, filter, Float32Type)
+            }
+            DataType::Float64 => {
+                filter_primitive_item_list_array!(array, filter, Float64Type)
+            }
+            DataType::Boolean => {
+                filter_primitive_item_list_array!(array, filter, BooleanType)
+            }
+            DataType::Date32(_) => {
+                filter_primitive_item_list_array!(array, filter, Date32Type)
+            }
+            DataType::Date64(_) => {
+                filter_primitive_item_list_array!(array, filter, Date64Type)
+            }
+            DataType::Time32(TimeUnit::Second) => {
+                filter_primitive_item_list_array!(array, filter, Time32SecondType)
+            }
+            DataType::Time32(TimeUnit::Millisecond) => {
+                filter_primitive_item_list_array!(array, filter, Time32MillisecondType)
+            }
+            DataType::Time64(TimeUnit::Microsecond) => {
+                filter_primitive_item_list_array!(array, filter, Time64MicrosecondType)
+            }
+            DataType::Time64(TimeUnit::Nanosecond) => {
+                filter_primitive_item_list_array!(array, filter, Time64NanosecondType)
+            }
+            DataType::Duration(TimeUnit::Second) => {
+                filter_primitive_item_list_array!(array, filter, DurationSecondType)
+            }
+            DataType::Duration(TimeUnit::Millisecond) => {
+                filter_primitive_item_list_array!(array, filter, DurationMillisecondType)
+            }
+            DataType::Duration(TimeUnit::Microsecond) => {
+                filter_primitive_item_list_array!(array, filter, DurationMicrosecondType)
+            }
+            DataType::Duration(TimeUnit::Nanosecond) => {
+                filter_primitive_item_list_array!(array, filter, DurationNanosecondType)
+            }
+            DataType::Timestamp(TimeUnit::Second, _) => {
+                filter_primitive_item_list_array!(array, filter, TimestampSecondType)
+            }
+            DataType::Timestamp(TimeUnit::Millisecond, _) => {
+                filter_primitive_item_list_array!(array, filter, TimestampMillisecondType)
+            }
+            DataType::Timestamp(TimeUnit::Microsecond, _) => {
+                filter_primitive_item_list_array!(array, filter, TimestampMicrosecondType)
+            }
+            DataType::Timestamp(TimeUnit::Nanosecond, _) => {
+                filter_primitive_item_list_array!(array, filter, TimestampNanosecondType)
+            }
+            DataType::Binary => filter_non_primitive_item_list_array!(
+                array,
+                filter,
+                BinaryArray,
+                BinaryBuilder
+            ),
+            DataType::Utf8 => filter_non_primitive_item_list_array!(
+                array,
+                filter,
+                StringArray,
+                StringBuilder
+            ),
+            other => {
+                return Err(ArrowError::ComputeError(format!(
+                    "filter not supported for List({:?})",
+                    other
+                )));
+            }
+        },
         DataType::Binary => {
             let b = array.as_any().downcast_ref::<BinaryArray>().unwrap();
             let mut values: Vec<&[u8]> = Vec::with_capacity(b.len());
@@ -155,6 +308,8 @@ pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::buffer::Buffer;
+    use crate::datatypes::ToByteSlice;
 
     macro_rules! def_temporal_test {
         ($test:ident, $array_type: ident, $data: expr) => {
@@ -272,5 +427,54 @@ mod tests {
         let d = c.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
         assert_eq!(1, d.len());
         assert_eq!(true, d.is_null(0));
+    }
+
+    #[test]
+    fn test_filter_list_array() {
+        let value_data = ArrayData::builder(DataType::Int32)
+            .len(8)
+            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
+            .build();
+
+        let value_offsets = Buffer::from(&[0, 3, 6, 8, 8].to_byte_slice());
+
+        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(4)
+            .add_buffer(value_offsets.clone())
+            .add_child_data(value_data.clone())
+            .null_bit_buffer(Buffer::from([0b00000111]))
+            .build();
+
+        //  a = [[0, 1, 2], [3, 4, 5], [6, 7], null]
+        let a = ListArray::from(list_data);
+        let b = BooleanArray::from(vec![false, true, false, true]);
+        let c = filter(&a, &b).unwrap();
+        let d = c.as_ref().as_any().downcast_ref::<ListArray>().unwrap();
+
+        assert_eq!(DataType::Int32, d.value_type());
+
+        // result should be [[3, 4, 5], null]
+        assert_eq!(2, d.len());
+        assert_eq!(1, d.null_count());
+        assert_eq!(true, d.is_null(1));
+
+        assert_eq!(0, d.value_offset(0));
+        assert_eq!(3, d.value_length(0));
+        assert_eq!(3, d.value_offset(1));
+        assert_eq!(0, d.value_length(1));
+        assert_eq!(
+            Buffer::from(&[3, 4, 5].to_byte_slice()),
+            d.values().data().buffers()[0].clone()
+        );
+        assert_eq!(
+            Buffer::from(&[0, 3, 3].to_byte_slice()),
+            d.data().buffers()[0].clone()
+        );
+        let inner_list = d.value(0);
+        let inner_list = inner_list.as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(3, inner_list.len());
+        assert_eq!(0, inner_list.null_count());
+        assert_eq!(inner_list, &Int32Array::from(vec![3, 4, 5]));
     }
 }

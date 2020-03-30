@@ -511,10 +511,11 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
         }
         List(ref list_type) => {
             let inner_types = get_fb_field_type(list_type, &mut fbb);
+            let field_name = fbb.create_string("list"); // field schema requires name to be not None
             let child = ipc::Field::create(
                 &mut fbb,
                 &ipc::FieldArgs {
-                    name: None,
+                    name: Some(field_name),
                     nullable: false,
                     type_type: inner_types.0,
                     type_: Some(inner_types.1),

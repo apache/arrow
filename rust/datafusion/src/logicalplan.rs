@@ -110,6 +110,8 @@ pub enum Operator {
     Divide,
     /// Remainder operator, like `%`
     Modulus,
+    /// Contains operator, like `>]`
+    Contains,
     /// Logical AND, like `&&`
     And,
     /// Logical OR, like `||`

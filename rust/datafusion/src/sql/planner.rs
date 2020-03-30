@@ -340,6 +340,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
                     SQLOperator::Not => Operator::Not,
                     SQLOperator::Like => Operator::Like,
                     SQLOperator::NotLike => Operator::NotLike,
+                    SQLOperator::Contains => Operator::Contains,
                 };
 
                 match operator {

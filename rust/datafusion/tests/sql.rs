@@ -114,6 +114,50 @@ fn parquet_single_nan_schema() {
 }
 
 #[test]
+fn parquet_query_int_array() {
+    //TO DO: this test file is not part of parquet-testing submodule (Morgan, 16/03/2020)
+    let mut ctx = ExecutionContext::new();
+    let testdata = env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+    ctx.register_parquet(
+        "int_array_test",
+        &format!("{}/int_array_test_file.parquet", testdata),
+    )
+    .unwrap();
+    let sql = "SELECT int_array FROM int_array_test WHERE 7006 >] int_array";
+    let plan = ctx.create_logical_plan(&sql).unwrap();
+    let plan = ctx.optimize(&plan).unwrap();
+    let plan = ctx.create_physical_plan(&plan, DEFAULT_BATCH_SIZE).unwrap();
+    let results = ctx.collect(plan.as_ref()).unwrap();
+    for batch in results {
+        assert_eq!(2, batch.num_rows());
+        assert_eq!(1, batch.num_columns());
+    }
+}
+
+#[test]
+fn string_parquet_query_array() {
+    //TODO: this test file is not part of parquet-testing submodule (Morgan, 16/03/2020)
+    let mut ctx = ExecutionContext::new();
+    let testdata = env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+    ctx.register_parquet(
+        "string_array_table",
+        &format!("{}/string_array.parquet", testdata),
+    )
+    .unwrap();
+    let sql = "SELECT string_array FROM string_array_table WHERE 'abc' >] string_array";
+    let plan = ctx.create_logical_plan(&sql).expect("logical");
+    let plan = ctx.optimize(&plan).expect("optimize");
+    let plan = ctx
+        .create_physical_plan(&plan, DEFAULT_BATCH_SIZE)
+        .expect("physical");
+    let results = ctx.collect(plan.as_ref()).expect("record batches");
+    for batch in results {
+        assert_eq!(8, batch.num_rows());
+        assert_eq!(1, batch.num_columns());
+    }
+}
+
+#[test]
 fn csv_count_star() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx);

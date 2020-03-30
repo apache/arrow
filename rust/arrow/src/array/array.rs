@@ -2324,6 +2324,14 @@ mod tests {
     }
 
     #[test]
+    fn test_empty_list_array() {
+        let values_builder = Int32Builder::new(10);
+        let mut builder = ListBuilder::new(values_builder);
+        let list_array = builder.finish();
+        assert_eq!(0, list_array.len());
+    }
+
+    #[test]
     fn test_list_array() {
         // Construct a value array
         let value_data = ArrayData::builder(DataType::Int32)

@@ -56,6 +56,9 @@ impl ProjectionPushDown {
                 // collect all columns referenced by projection expressions
                 utils::exprlist_to_column_indices(&expr, accum)?;
 
+                // push projection down
+                let input = self.optimize_plan(&input, accum, mapping)?;
+
                 LogicalPlanBuilder::from(&self.optimize_plan(&input, accum, mapping)?)
                     .project(self.rewrite_expr_list(expr, mapping)?)?
                     .build()

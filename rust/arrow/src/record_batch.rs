@@ -214,6 +214,25 @@ mod tests {
             .len(4)
             .add_buffer(Buffer::from([42, 28, 19, 31].to_byte_slice()))
             .build();
+
+        // Construct a value array
+        let value_data = ArrayData::builder(DataType::Int32)
+            .len(9)
+            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7, 8].to_byte_slice()))
+            .build();
+
+        // Construct a buffer for value offsets, for the nested array:
+        //  [[0, 1, 2], [3, 4, 5], [6, 7], [8]]
+        let value_offsets = Buffer::from(&[0, 3, 6, 8, 9].to_byte_slice());
+
+        // Construct a list array from the above two
+        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(4)
+            .add_buffer(value_offsets.clone())
+            .add_child_data(value_data.clone())
+            .build();
+
         let struct_array = StructArray::from(vec![
             (
                 Field::new("b", DataType::Boolean, false),
@@ -224,10 +243,14 @@ mod tests {
                 Field::new("c", DataType::Int32, false),
                 Arc::new(Int32Array::from(vec![42, 28, 19, 31])),
             ),
+            (
+                Field::new("d", DataType::List(Box::new(DataType::Int32)), false),
+                Arc::new(ListArray::from(list_data.clone())),
+            ),
         ]);
 
         let batch = RecordBatch::from(&struct_array);
-        assert_eq!(2, batch.num_columns());
+        assert_eq!(3, batch.num_columns());
         assert_eq!(4, batch.num_rows());
         assert_eq!(
             struct_array.data_type(),
@@ -235,5 +258,96 @@ mod tests {
         );
         assert_eq!(batch.column(0).data(), boolean_data);
         assert_eq!(batch.column(1).data(), int_data);
+        assert_eq!(batch.column(2).data(), list_data);
+    }
+
+    #[test]
+    fn create_record_batch_with_list_column() {
+        let schema = Schema::new(vec![Field::new(
+            "a",
+            DataType::List(Box::new(DataType::Int32)),
+            false,
+        )]);
+
+        // Construct a value array
+        let value_data = ArrayData::builder(DataType::Int32)
+            .len(8)
+            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
+            .build();
+
+        // Construct a buffer for value offsets, for the nested array:
+        //  [[0, 1, 2], [3, 4, 5], [6, 7]]
+        let value_offsets = Buffer::from(&[0, 3, 6, 8].to_byte_slice());
+
+        // Construct a list array from the above two
+        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(3)
+            .add_buffer(value_offsets.clone())
+            .add_child_data(value_data.clone())
+            .build();
+        let a = ListArray::from(list_data);
+
+        let record_batch =
+            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a)]).unwrap();
+
+        assert_eq!(3, record_batch.num_rows());
+        assert_eq!(1, record_batch.num_columns());
+        assert_eq!(
+            &DataType::List(Box::new(DataType::Int32)),
+            record_batch.schema().field(0).data_type()
+        );
+        assert_eq!(3, record_batch.column(0).data().len());
+    }
+
+    #[test]
+    fn create_record_batch_with_list_column_nulls() {
+        let schema = Schema::new(vec![Field::new(
+            "a",
+            DataType::List(Box::new(DataType::Int32)),
+            false,
+        )]);
+
+        let values_builder = PrimitiveBuilder::<Int32Type>::new(10);
+        let mut builder = ListBuilder::new(values_builder);
+
+        builder.values().append_null().unwrap();
+        builder.values().append_null().unwrap();
+        builder.append(true).unwrap();
+        builder.append(false).unwrap();
+        builder.append(true).unwrap();
+
+        // [[null, null], null, []]
+        let list_array = builder.finish();
+
+        let record_batch =
+            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(list_array)]).unwrap();
+
+        assert_eq!(3, record_batch.num_rows());
+        assert_eq!(1, record_batch.num_columns());
+        assert_eq!(
+            &DataType::List(Box::new(DataType::Int32)),
+            record_batch.schema().field(0).data_type()
+        );
+        assert_eq!(3, record_batch.column(0).data().len());
+
+        assert_eq!(false, record_batch.column(0).is_null(0));
+        assert_eq!(true, record_batch.column(0).is_null(1));
+        assert_eq!(false, record_batch.column(0).is_null(2));
+
+        let col_as_list_array = record_batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .unwrap();
+
+        assert_eq!(2, col_as_list_array.value(0).len());
+        assert_eq!(0, col_as_list_array.value(2).len());
+
+        let sublist_0_val = col_as_list_array.value(0);
+        let sublist_0 = sublist_0_val.as_any().downcast_ref::<Int32Array>().unwrap();
+
+        assert_eq!(true, sublist_0.is_null(0));
+        assert_eq!(true, sublist_0.is_null(1));
     }
 }
