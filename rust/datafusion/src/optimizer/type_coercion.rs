@@ -99,11 +99,11 @@ fn rewrite_expr(expr: &Expr, schema: &Schema) -> Result<Expr> {
                 })
             } else {
                 let super_type = utils::get_supertype(&left_type, &right_type)?;
-                return Ok(Expr::BinaryExpr {
+                Ok(Expr::BinaryExpr {
                     left: Arc::new(left.cast_to(&super_type, schema)?),
                     op: op.clone(),
                     right: Arc::new(right.cast_to(&super_type, schema)?),
-                });
+                })
             }
         }
         Expr::IsNull(e) => Ok(Expr::IsNull(Arc::new(rewrite_expr(e, schema)?))),

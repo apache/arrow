@@ -159,6 +159,7 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
 
             let records_read_once = self.record_reader.read_records(records_to_read)?;
             records_read = records_read + records_read_once;
+
             // Record reader exhausted
             if records_read_once < records_to_read {
                 if let Some(page_reader) = self.pages.next() {
@@ -1824,7 +1825,7 @@ mod tests {
             1,
         );
 
-        let struct_array = struct_array_reader.next_batch(1024).unwrap();
+        let struct_array = struct_array_reader.next_batch(5).unwrap();
         let struct_array = struct_array.as_any().downcast_ref::<StructArray>().unwrap();
 
         assert_eq!(5, struct_array.len());

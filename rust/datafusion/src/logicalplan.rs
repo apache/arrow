@@ -828,8 +828,8 @@ mod tests {
         .build()?;
 
         let expected = "Projection: #id\
-        \n  Selection: #state Eq Utf8(\"CO\")\
-        \n    TableScan: employee.csv projection=Some([0, 3])";
+                        \n  Selection: #state Eq Utf8(\"CO\")\
+                        \n    TableScan: employee.csv projection=Some([0, 3])";
 
         assert_eq!(expected, format!("{:?}", plan));
 
@@ -852,9 +852,10 @@ mod tests {
         .project(vec![col("state"), col("total_salary")])?
         .build()?;
 
-        let expected = "Projection: #state, #total_salary\
-        \n  Aggregate: groupBy=[[#state]], aggr=[[SUM(#salary) AS total_salary]]\
-        \n    TableScan: employee.csv projection=Some([3, 4])";
+        let expected =
+            "Projection: #state, #total_salary\
+             \n  Aggregate: groupBy=[[#state]], aggr=[[SUM(#salary) AS total_salary]]\
+             \n    TableScan: employee.csv projection=Some([3, 4])";
 
         assert_eq!(expected, format!("{:?}", plan));
 

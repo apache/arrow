@@ -56,9 +56,6 @@ impl ProjectionPushDown {
                 // collect all columns referenced by projection expressions
                 utils::exprlist_to_column_indices(&expr, accum)?;
 
-                // push projection down
-                let input = self.optimize_plan(&input, accum, mapping)?;
-
                 LogicalPlanBuilder::from(&self.optimize_plan(&input, accum, mapping)?)
                     .project(self.rewrite_expr_list(expr, mapping)?)?
                     .build()
@@ -277,7 +274,7 @@ mod tests {
             .build()?;
 
         let expected = "Aggregate: groupBy=[[]], aggr=[[MAX(#0)]]\
-        \n  TableScan: test projection=Some([1])";
+                        \n  TableScan: test projection=Some([1])";
 
         assert_optimized_plan_eq(&plan, expected);
 
@@ -293,7 +290,7 @@ mod tests {
             .build()?;
 
         let expected = "Aggregate: groupBy=[[#1]], aggr=[[MAX(#0)]]\
-        \n  TableScan: test projection=Some([1, 2])";
+                        \n  TableScan: test projection=Some([1, 2])";
 
         assert_optimized_plan_eq(&plan, expected);
 
@@ -310,8 +307,8 @@ mod tests {
             .build()?;
 
         let expected = "Aggregate: groupBy=[[]], aggr=[[MAX(#0)]]\
-        \n  Selection: #1\
-        \n    TableScan: test projection=Some([1, 2])";
+                        \n  Selection: #1\
+                        \n    TableScan: test projection=Some([1, 2])";
 
         assert_optimized_plan_eq(&plan, expected);
 
@@ -330,7 +327,7 @@ mod tests {
             .build()?;
 
         let expected = "Projection: CAST(#0 AS Float64)\
-        \n  TableScan: test projection=Some([2])";
+                        \n  TableScan: test projection=Some([2])";
 
         assert_optimized_plan_eq(&projection, expected);
 
@@ -350,7 +347,7 @@ mod tests {
         assert_fields_eq(&plan, vec!["a", "b"]);
 
         let expected = "Projection: #0, #1\
-        \n  TableScan: test projection=Some([0, 1])";
+                        \n  TableScan: test projection=Some([0, 1])";
 
         assert_optimized_plan_eq(&plan, expected);
 
@@ -371,8 +368,8 @@ mod tests {
         assert_fields_eq(&plan, vec!["c", "a"]);
 
         let expected = "Limit: UInt32(5)\
-        \n  Projection: #1, #0\
-        \n    TableScan: test projection=Some([0, 2])";
+                        \n  Projection: #1, #0\
+                        \n    TableScan: test projection=Some([0, 2])";
 
         assert_optimized_plan_eq(&plan, expected);
 
