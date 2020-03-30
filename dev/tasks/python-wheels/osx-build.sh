@@ -50,7 +50,7 @@ function build_wheel {
     export ARROW_HOME=`pwd`/arrow-dist
     export PARQUET_HOME=`pwd`/arrow-dist
 
-    pip install $(pip_opts) -r python/requirements-wheel.txt cython
+    pip install $(pip_opts) -r python/requirements-wheel-build.txt
 
     export PYARROW_WITH_GANDIVA=1
     export BUILD_ARROW_GANDIVA=ON
@@ -138,7 +138,7 @@ function run_unit_tests {
     pushd $1
 
     # Install test dependencies
-    pip install $(pip_opts) -r python/requirements-test.txt
+    pip install $(pip_opts) -r python/requirements-wheel-test.txt
 
     # Run pyarrow tests
     pytest -rs --pyargs pyarrow

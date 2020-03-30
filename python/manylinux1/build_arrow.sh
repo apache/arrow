@@ -73,7 +73,7 @@ py_libname=$(${PYTHON_INTERPRETER} -c "import sysconfig; print(sysconfig.get_con
 touch ${CPYTHON_PATH}/lib/${py_libname}
 
 echo "=== (${PYTHON_VERSION}) Install the wheel build dependencies ==="
-$PIP install -r requirements-wheel.txt
+$PIP install -r requirements-wheel-build.txt
 
 export PYARROW_WITH_DATASET=1
 export PYARROW_WITH_FLIGHT=1
