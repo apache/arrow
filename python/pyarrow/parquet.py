@@ -117,6 +117,9 @@ def _filters_to_expression(filters):
     """
     import pyarrow.dataset as ds
 
+    if isinstance(filters, ds.Expression):
+        return filters
+
     filters = _check_filters(filters, check_null_strings=False)
 
     def convert_single_predicate(col, op, val):
@@ -161,36 +164,6 @@ def _filters_to_expression(filters):
         expr = or_exprs[0]
 
     return expr
-
-
-def _dataset_from_legacy_args(
-    path_or_paths, filesystem=None, read_dictionary=None, buffer_size=None
-):
-    """
-    Create a pyarrow.dataset.FileSystemDataset to use inside read_table
-    and ParquetDataset.
-    """
-    import pyarrow.dataset as ds
-    import pyarrow.fs
-
-    # map old filesystems to new one
-    # TODO(dataset) deal with other file systems
-    if isinstance(filesystem, LocalFileSystem):
-        filesystem = pyarrow.fs.LocalFileSystem()
-
-    # map additional arguments
-    # TODO raise warning when unsupported arguments are passed
-    reader_options = {}
-    if buffer_size:
-        reader_options.update(use_buffered_stream=True,
-                              buffer_size=buffer_size)
-    if read_dictionary is not None:
-        reader_options.update(dict_columns=read_dictionary)
-    parquet_format = ds.ParquetFileFormat(reader_options=reader_options)
-
-    dataset = ds.dataset(path_or_paths, filesystem=filesystem,
-                         format=parquet_format, partitioning="hive")
-    return dataset
 
 
 # ----------------------------------------------------------------------
@@ -1122,11 +1095,16 @@ metadata_nthreads: int, default 1
                 filters=None, metadata_nthreads=1, read_dictionary=None,
                 memory_map=False, buffer_size=0, use_legacy_dataset=True):
         if not use_legacy_dataset:
-            # TODO raise warning on unsupported keywords
             return _ParquetDatasetV2(path_or_paths, filesystem=filesystem,
                                      filters=filters,
                                      read_dictionary=read_dictionary,
-                                     buffer_size=buffer_size)
+                                     buffer_size=buffer_size,
+                                     # unsupported keywords
+                                     schema=schema, metadata=metadata,
+                                     split_row_groups=split_row_groups,
+                                     validate_schema=validate_schema,
+                                     metadata_nthreads=metadata_nthreads,
+                                     memory_map=memory_map)
         self = object.__new__(cls)
         return self
 
@@ -1361,16 +1339,43 @@ class _ParquetDatasetV2:
     ParquetDataset shim using the Dataset API under the hood.
     """
     def __init__(self, path_or_paths, filesystem=None, filters=None,
-                 read_dictionary=None, buffer_size=None):
-        dataset = _dataset_from_legacy_args(
-            path_or_paths, filesystem=filesystem,
-            read_dictionary=read_dictionary, buffer_size=buffer_size)
+                 read_dictionary=None, buffer_size=None, **kwargs):
+        import pyarrow.dataset as ds
+        import pyarrow.fs
+
+        # Raise error for not supported keywords
+        for keyword, default in [
+                ("schema", None), ("metadata", None),
+                ("split_row_groups", False), ("validate_schema", True),
+                ("metadata_nthreads", 1), ("memory_map", False)]:
+            if keyword in kwargs and kwargs[keyword] is not default:
+                raise ValueError(
+                    "Keyword '{0}' is not yet supported with the new "
+                    "Dataset API".format(keyword))
+
+        # map old filesystems to new one
+        # TODO(dataset) deal with other file systems
+        if isinstance(filesystem, LocalFileSystem):
+            filesystem = pyarrow.fs.LocalFileSystem()
+
+        # map additional arguments
+        reader_options = {}
+        if buffer_size:
+            reader_options.update(use_buffered_stream=True,
+                                  buffer_size=buffer_size)
+        if read_dictionary is not None:
+            reader_options.update(dict_columns=read_dictionary)
+        parquet_format = ds.ParquetFileFormat(reader_options=reader_options)
+
+        dataset = ds.dataset(path_or_paths, filesystem=filesystem,
+                             format=parquet_format, partitioning="hive")
+
         self._dataset = dataset
-        self.filters = filters
+        self._filters = filters
         if filters is not None:
-            self.filter_expression = _filters_to_expression(filters)
+            self._filter_expression = _filters_to_expression(filters)
         else:
-            self.filter_expression = None
+            self._filter_expression = None
 
     @property
     def schema(self):
@@ -1381,7 +1386,7 @@ class _ParquetDatasetV2:
         # if use_pandas_metadata, we need to include index columns in the
         # column selection, to be able to restore those in the pandas DataFrame
         metadata = self._dataset.schema.metadata
-        if use_pandas_metadata:
+        if columns is not None and use_pandas_metadata:
             if metadata and b'pandas' in metadata:
                 index_columns = _get_pandas_index_columns(metadata)
 
@@ -1391,7 +1396,7 @@ class _ParquetDatasetV2:
                     columns += [index_col]
 
         table = self._dataset.to_table(
-            columns=columns, filter=self.filter_expression,
+            columns=columns, filter=self._filter_expression,
             use_threads=use_threads
         )
 
@@ -1453,15 +1458,22 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                read_dictionary=None, filesystem=None, filters=None,
                buffer_size=0, use_legacy_dataset=True):
     if not use_legacy_dataset:
-        import pyarrow.dataset as ds
-        dataset = _dataset_from_legacy_args(
-            source, filesystem=filesystem, read_dictionary=read_dictionary,
-            buffer_size=buffer_size)
+        if not _is_path_like(source):
+            raise ValueError("File-like objects are not yet supported with "
+                             "the new Dataset API")
 
-        if filters is not None and not isinstance(filters, ds.Expression):
-            filters = _filters_to_expression(filters)
-        table = dataset.to_table(columns=columns, filter=filters,
-                                 use_threads=use_threads)
+        dataset = _ParquetDatasetV2(
+            source,
+            filesystem=filesystem,
+            read_dictionary=read_dictionary,
+            buffer_size=buffer_size,
+            filters=filters,
+            # unsupported keywords
+            metadata=metadata,
+            memory_map=memory_map
+        )
+        table = dataset.read(columns=columns, use_threads=use_threads,
+                             use_pandas_metadata=use_pandas_metadata)
 
         # remove ARROW:schema metadata, current parquet version doesn't
         # preserve this

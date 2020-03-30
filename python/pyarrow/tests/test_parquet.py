@@ -247,8 +247,9 @@ def test_chunked_table_write(use_legacy_dataset):
         table, version='2.0', use_legacy_dataset=use_legacy_dataset)
 
 
+# TODO(dataset) support memory map
 @pytest.mark.pandas
-@parametrize_legacy_dataset
+@parametrize_legacy_dataset_not_supported
 def test_memory_map(tempdir, use_legacy_dataset):
     df = alltypes_sample(size=10)
 
@@ -2302,13 +2303,15 @@ def test_read_multiple_files(tempdir, use_legacy_dataset):
     assert result.equals(expected)
 
     # Read with provided metadata
-    metadata = pq.read_metadata(paths[0])
+    # TODO(dataset) specifying metadata not yet supported
+    if use_legacy_dataset:
+        metadata = pq.read_metadata(paths[0])
 
-    result2 = read_multiple_files(paths, metadata=metadata)
-    assert result2.equals(expected)
+        result2 = read_multiple_files(paths, metadata=metadata)
+        assert result2.equals(expected)
 
-    result3 = pa.localfs.read_parquet(dirpath, schema=metadata.schema)
-    assert result3.equals(expected)
+        result3 = pa.localfs.read_parquet(dirpath, schema=metadata.schema)
+        assert result3.equals(expected)
 
     # Read column subset
     to_read = [0, 2, 6, result.num_columns - 1]
@@ -2384,8 +2387,9 @@ def test_dataset_read_pandas(tempdir, use_legacy_dataset):
     tm.assert_frame_equal(result, expected)
 
 
+# TODO(dataset) support memory map
 @pytest.mark.pandas
-@parametrize_legacy_dataset_not_supported  # TODO(dataset) support memory map
+@parametrize_legacy_dataset_not_supported
 def test_dataset_memory_map(tempdir, use_legacy_dataset):
     # ARROW-2627: Check that we can use ParquetDataset with memory-mapping
     dirpath = tempdir / guid()
@@ -3830,3 +3834,31 @@ def test_buffer_contents(
         [chunk] = col.chunks
         buf = chunk.buffers()[1]
         assert buf.to_pybytes() == buf.size * b"\0"
+
+
+@pytest.mark.dataset
+def test_dataset_unsupported_keywords():
+
+    with pytest.raises(ValueError, match="not yet supported with the new"):
+        pq.ParquetDataset("", use_legacy_dataset=False, schema=pa.schema([]))
+
+    with pytest.raises(ValueError, match="not yet supported with the new"):
+        pq.ParquetDataset("", use_legacy_dataset=False, metadata=pa.schema([]))
+
+    with pytest.raises(ValueError, match="not yet supported with the new"):
+        pq.ParquetDataset("", use_legacy_dataset=False, validate_schema=False)
+
+    with pytest.raises(ValueError, match="not yet supported with the new"):
+        pq.ParquetDataset("", use_legacy_dataset=False, split_row_groups=True)
+
+    with pytest.raises(ValueError, match="not yet supported with the new"):
+        pq.ParquetDataset("", use_legacy_dataset=False, metadata_nthreads=4)
+
+    with pytest.raises(ValueError, match="not yet supported with the new"):
+        pq.ParquetDataset("", use_legacy_dataset=False, memory_map=True)
+
+    with pytest.raises(ValueError, match="not yet supported with the new"):
+        pq.read_table("", use_legacy_dataset=False, metadata=pa.schema([]))
+
+    with pytest.raises(ValueError, match="not yet supported with the new"):
+        pq.read_table("", use_legacy_dataset=False, memory_map=True)
