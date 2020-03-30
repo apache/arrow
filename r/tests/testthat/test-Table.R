@@ -17,8 +17,6 @@
 
 context("Table")
 
-library(dplyr)
-
 test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   tbl <- tibble::tibble(
     int = 1:10, dbl = as.numeric(1:10),
@@ -112,7 +110,7 @@ test_that("[, [[, $ for Table", {
   expect_data_frame(tab[c(7, 3, 5), 2:4], tbl[c(7, 3, 5), 2:4])
   expect_data_frame(tab[rep(c(FALSE, TRUE), 5),], tbl[c(2, 4, 6, 8, 10),])
   # bool ChunkedArray (with one chunk)
-  expect_data_frame(tab[tab$lgl,], tbl[coalesce(tbl$lgl, FALSE),])
+  expect_data_frame(tab[tab$lgl,], tbl[tbl$lgl,])
   # ChunkedArray with multiple chunks
   c1 <- c(TRUE, FALSE, TRUE, TRUE, FALSE)
   c2 <- c(FALSE, FALSE, TRUE, TRUE, FALSE)

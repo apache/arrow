@@ -177,7 +177,10 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__Filter(
     const std::shared_ptr<arrow::Array>& filter) {
   arrow::compute::FunctionContext context;
   arrow::compute::Datum out;
-  STOP_IF_NOT_OK(arrow::compute::Filter(&context, batch, filter, {}, &out));
+  // Use the EMIT_NULL filter option to match R's behavior in [
+  arrow::compute::FilterOptions options;
+  options.null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
+  STOP_IF_NOT_OK(arrow::compute::Filter(&context, batch, filter, options, &out));
   return out.record_batch();
 }
 
@@ -187,7 +190,10 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Filter(
     const std::shared_ptr<arrow::Array>& filter) {
   arrow::compute::FunctionContext context;
   arrow::compute::Datum out;
-  STOP_IF_NOT_OK(arrow::compute::Filter(&context, values, filter, {}, &out));
+  // Use the EMIT_NULL filter option to match R's behavior in [
+  arrow::compute::FilterOptions options;
+  options.null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
+  STOP_IF_NOT_OK(arrow::compute::Filter(&context, values, filter, options, &out));
   return out.chunked_array();
 }
 
@@ -197,7 +203,10 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__FilterChunked(
     const std::shared_ptr<arrow::ChunkedArray>& filter) {
   arrow::compute::FunctionContext context;
   arrow::compute::Datum out;
-  STOP_IF_NOT_OK(arrow::compute::Filter(&context, values, filter, {}, &out));
+  // Use the EMIT_NULL filter option to match R's behavior in [
+  arrow::compute::FilterOptions options;
+  options.null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
+  STOP_IF_NOT_OK(arrow::compute::Filter(&context, values, filter, options, &out));
   return out.chunked_array();
 }
 
@@ -206,7 +215,10 @@ std::shared_ptr<arrow::Table> Table__Filter(const std::shared_ptr<arrow::Table>&
                                             const std::shared_ptr<arrow::Array>& filter) {
   arrow::compute::FunctionContext context;
   arrow::compute::Datum out;
-  STOP_IF_NOT_OK(arrow::compute::Filter(&context, table, filter, {}, &out));
+  // Use the EMIT_NULL filter option to match R's behavior in [
+  arrow::compute::FilterOptions options;
+  options.null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
+  STOP_IF_NOT_OK(arrow::compute::Filter(&context, table, filter, options, &out));
   return out.table();
 }
 
@@ -216,7 +228,10 @@ std::shared_ptr<arrow::Table> Table__FilterChunked(
     const std::shared_ptr<arrow::ChunkedArray>& filter) {
   arrow::compute::FunctionContext context;
   arrow::compute::Datum out;
-  STOP_IF_NOT_OK(arrow::compute::Filter(&context, table, filter, {}, &out));
+  // Use the EMIT_NULL filter option to match R's behavior in [
+  arrow::compute::FilterOptions options;
+  options.null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
+  STOP_IF_NOT_OK(arrow::compute::Filter(&context, table, filter, options, &out));
   return out.table();
 }
 #endif
