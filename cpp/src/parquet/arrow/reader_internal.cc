@@ -27,8 +27,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <boost/algorithm/string/predicate.hpp>
-
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/compute/kernel.h"
@@ -44,6 +42,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/ubsan.h"
 
 #include "parquet/arrow/reader.h"
@@ -377,7 +376,8 @@ Status PopulateLeaf(int column_index, const std::shared_ptr<Field>& field,
 //   If the name is array or ends in _tuple, this should be a list of struct
 //   even for single child elements.
 bool HasStructListName(const GroupNode& node) {
-  return node.name() == "array" || boost::algorithm::ends_with(node.name(), "_tuple");
+  ::arrow::util::string_view name{node.name()};
+  return name == "array" || name.ends_with("_tuple");
 }
 
 std::shared_ptr<::arrow::KeyValueMetadata> FieldIdMetadata(int field_id) {
