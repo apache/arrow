@@ -189,8 +189,8 @@ BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::ZSTD);
 #endif
 
 #ifdef ARROW_WITH_LZ4
-BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::LZ4);
-BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::LZ4);
+BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::LZ4_FRAME);
+BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::LZ4_FRAME);
 #endif
 
 #endif

@@ -1474,7 +1474,7 @@ cdef CCompressionType _ensure_compression(str name) except *:
     elif uppercase == 'BROTLI':
         return CCompressionType_BROTLI
     elif uppercase == 'LZ4':
-        return CCompressionType_LZ4
+        return CCompressionType_LZ4_FRAME
     elif uppercase == 'ZSTD':
         return CCompressionType_ZSTD
     elif uppercase == 'SNAPPY':

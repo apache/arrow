@@ -75,6 +75,8 @@ std::string Codec::GetCodecAsString(Compression::type t) {
     case Compression::BROTLI:
       return "BROTLI";
     case Compression::LZ4:
+      return "LZ4_RAW";
+    case Compression::LZ4_FRAME:
       return "LZ4";
     case Compression::ZSTD:
       return "ZSTD";
@@ -96,8 +98,10 @@ Result<Compression::type> Codec::GetCompressionType(const std::string& name) {
     return Compression::LZO;
   } else if (name == "BROTLI") {
     return Compression::BROTLI;
-  } else if (name == "LZ4") {
+  } else if (name == "LZ4_RAW") {
     return Compression::LZ4;
+  } else if (name == "LZ4") {
+    return Compression::LZ4_FRAME;
   } else if (name == "ZSTD") {
     return Compression::ZSTD;
   } else if (name == "BZ2") {
@@ -156,6 +160,16 @@ Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
 #else
       return Status::NotImplemented("LZ4 codec support not built");
 #endif
+    case Compression::LZ4_FRAME:
+#ifdef ARROW_WITH_LZ4
+      if (compression_level_set) {
+        return Status::Invalid("LZ4 doesn't support setting a compression level.");
+      }
+      codec.reset(new Lz4FrameCodec());
+      break;
+#else
+      return Status::NotImplemented("LZ4 codec support not built");
+#endif
     case Compression::ZSTD:
 #ifdef ARROW_WITH_ZSTD
       codec.reset(new ZSTDCodec(compression_level));
@@ -203,6 +217,7 @@ bool Codec::IsAvailable(Compression::type codec_type) {
       return false;
 #endif
     case Compression::LZ4:
+    case Compression::LZ4_FRAME:
 #ifdef ARROW_WITH_LZ4
       return true;
 #else

@@ -27,7 +27,7 @@
 namespace arrow {
 namespace util {
 
-// Lz4 codec.
+// Lz4 "raw" format codec.
 class ARROW_EXPORT Lz4Codec : public Codec {
  public:
   Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
@@ -42,7 +42,32 @@ class ARROW_EXPORT Lz4Codec : public Codec {
 
   Result<std::shared_ptr<Decompressor>> MakeDecompressor() override;
 
+  const char* name() const override { return "lz4_raw"; }
+};
+
+// Lz4 frame format codec.
+class ARROW_EXPORT Lz4FrameCodec : public Codec {
+ public:
+  Lz4FrameCodec();
+  ~Lz4FrameCodec();
+
+  Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
+                             int64_t output_buffer_len, uint8_t* output_buffer) override;
+
+  Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
+                           int64_t output_buffer_len, uint8_t* output_buffer) override;
+
+  int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) override;
+
+  Result<std::shared_ptr<Compressor>> MakeCompressor() override;
+
+  Result<std::shared_ptr<Decompressor>> MakeDecompressor() override;
+
   const char* name() const override { return "lz4"; }
+
+ protected:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace util
