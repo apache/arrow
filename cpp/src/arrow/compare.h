@@ -63,6 +63,8 @@ class EqualOptions {
   std::ostream* diff_sink() const { return diff_sink_; }
 
   /// Return a new EqualOptions object with the "diff_sink" property changed.
+  /// This option will be ignored if diff formatting of the types of compared arrays is
+  /// not supported.
   EqualOptions diff_sink(std::ostream* diff_sink) const {
     auto res = EqualOptions(*this);
     res.diff_sink_ = diff_sink;
