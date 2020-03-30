@@ -2505,10 +2505,12 @@ def test_ignore_private_directories(tempdir, dir_prefix, use_legacy_dataset):
     (dirpath / '{}staging'.format(dir_prefix)).mkdir()
 
     dataset = pq.ParquetDataset(dirpath, use_legacy_dataset=use_legacy_dataset)
+
     if use_legacy_dataset:
         assert set(map(str, paths)) == {x.path for x in dataset.pieces}
     else:
-        assert set(map(str, paths)) == set(dataset._dataset.files)
+        paths = [str(path.as_posix()) for path in paths]
+        assert set(paths) == set(dataset._dataset.files)
 
 
 @pytest.mark.pandas
@@ -2527,10 +2529,12 @@ def test_ignore_hidden_files_dot(tempdir, use_legacy_dataset):
         f.write(b'gibberish')
 
     dataset = pq.ParquetDataset(dirpath, use_legacy_dataset=use_legacy_dataset)
+
     if use_legacy_dataset:
         assert set(map(str, paths)) == {x.path for x in dataset.pieces}
     else:
-        assert set(map(str, paths)) == set(dataset._dataset.files)
+        paths = [str(path.as_posix()) for path in paths]
+        assert set(paths) == set(dataset._dataset.files)
 
 
 @pytest.mark.pandas
@@ -2549,10 +2553,12 @@ def test_ignore_hidden_files_underscore(tempdir, use_legacy_dataset):
         f.write(b'abcd')
 
     dataset = pq.ParquetDataset(dirpath, use_legacy_dataset=use_legacy_dataset)
+
     if use_legacy_dataset:
         assert set(map(str, paths)) == {x.path for x in dataset.pieces}
     else:
-        assert set(map(str, paths)) == set(dataset._dataset.files)
+        paths = [str(path.as_posix()) for path in paths]
+        assert set(paths) == set(dataset._dataset.files)
 
 
 @pytest.mark.pandas
