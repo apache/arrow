@@ -580,6 +580,24 @@ class SchemaPrinter : public PrettyPrinter {
     }
   }
 
+  void PrintMetadataLines(const KeyValueMetadata& metadata) {
+    if (metadata.size() > 0) {
+      Newline();
+      Write("-- metadata --");
+      for (int64_t i = 0; i < metadata.size(); ++i) {
+        Newline();
+        size_t size = metadata.value(i).size(), truncated_size = 70 - indent_;
+        if (size < truncated_size) {
+          Write(metadata.key(i) + ": '" + metadata.value(i) + "'");
+          continue;
+        }
+
+        Write(metadata.key(i) + ": '" + metadata.value(i).substr(0, truncated_size) +
+              "' + " + std::to_string(size - truncated_size));
+      }
+    }
+  }
+
   void PrintMetadataKeys(const KeyValueMetadata& metadata) {
     if (metadata.size() > 0) {
       Write("metadata.keys: [");
@@ -609,9 +627,7 @@ class SchemaPrinter : public PrettyPrinter {
       if (verbose_metadata_) {
         PrintVerboseMetadata(*schema_.metadata());
       } else {
-        Newline();
-        Write("-- schema.");
-        PrintMetadataKeys(*schema_.metadata());
+        PrintMetadataLines(*schema_.metadata());
       }
     }
     Flush();

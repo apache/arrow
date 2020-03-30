@@ -245,17 +245,31 @@ baz: list<item: int8>
 
 
 def test_schema_to_string_with_metadata():
+    lorem = """\
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla accumsan vel
+turpis et mollis. Aliquam tincidunt arcu id tortor blandit blandit. Donec
+eget leo quis lectus scelerisque varius. Class aptent taciti sociosqu ad
+litora torquent per conubia nostra, per inceptos himenaeos. Praesent
+faucibus, diam eu volutpat iaculis, tellus est porta ligula, a efficitur
+turpis nulla facilisis quam. Aliquam vitae lorem erat. Proin a dolor ac libero
+dignissim mollis vitae eu mauris. Quisque posuere tellus vitae massa
+pellentesque sagittis. Aenean feugiat, diam ac dignissim fermentum, lorem
+sapien commodo massa, vel volutpat orci nisi eu justo. Nulla non blandit
+sapien. Quisque pretium vestibulum urna eu vehicula."""
     # ARROW-7063
     my_schema = pa.schema([pa.field("foo", "int32", False,
                                     metadata={"key1": "value1"}),
                            pa.field("bar", "string", True,
                                     metadata={"key3": "value3"})],
-                          metadata={"key2": "value2"})
+                          metadata={"key2": "value2",
+                                    "lorem": lorem})
 
     assert my_schema.to_string() == """\
 foo: int32 not null, metadata.keys: ['key1']
 bar: string, metadata.keys: ['key3']
--- schema.metadata.keys: ['key2']"""
+-- metadata --
+key2: 'value2'
+lorem: '""" + lorem[:70] + "' + " + str(len(lorem) - 70)
 
     assert my_schema.to_string(verbose_metadata=True) == """\
 foo: int32 not null
@@ -265,7 +279,8 @@ bar: string
   -- metadata --
   key3: value3
 -- metadata --
-key2: value2"""
+key2: value2
+lorem: """ + lorem
 
 
 def test_schema_from_tuples():
