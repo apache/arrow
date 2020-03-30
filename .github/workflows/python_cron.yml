@@ -154,19 +154,21 @@ jobs:
       fail-fast: false
       matrix:
         name:
-          - dask
-          - hdfs
-          - turbodbc
+          - dask-latest
+          - hdfs-2.9.2
+          - turbodbc-latest
           - kartothek-latest
           - pandas-master
           - pandas-0.24
         include:
-          - name: dask
+          - name: dask-latest
             library: dask
-            title: Dask
-          - name: turbodbc
+            dask: latest
+            title: Dask latest
+          - name: turbodbc-latest
             library: turbodbc
-            title: Turbodbc
+            turbodbc: lates
+            title: Turbodbc latest
           - name: kartothek-latest
             library: kartothek
             kartothek: latest
@@ -179,13 +181,16 @@ jobs:
             library: pandas
             title: Pandas master
             pandas: master
-          - name: hdfs
+          - name: hdfs-2.9.2
             library: hdfs
-            title: HDFS
+            hdfs: 2.9.2
+            title: HDFS 2.9.2
     env:
+      # the defaults here should correspond to the values in .env
       PYTHON: 3.7
-      DASK: latest
-      TURBODBC: latest
+      HDFS: ${{ matric.hdfs || '2.9.2' }}
+      DASK: ${{ matrix.dask || 'latest' }}
+      TURBODBC: ${{ matrix.turbodbc || 'latest' }}
       PANDAS: ${{ matrix.pandas || 'latest' }}
       KARTOTHEK: ${{ matrix.kartothek || 'latest' }}
     steps:
