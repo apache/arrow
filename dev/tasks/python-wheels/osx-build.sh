@@ -138,7 +138,7 @@ function run_unit_tests {
     pushd $1
 
     # Install test dependencies
-    pip install $(pip_opts) -r python/requirements-test.txt "numpy==1.14.*"
+    pip install $(pip_opts) -r python/requirements-test.txt
 
     # Run pyarrow tests
     pytest -rs --pyargs pyarrow
