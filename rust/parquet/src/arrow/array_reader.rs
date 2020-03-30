@@ -490,7 +490,7 @@ where
     }
 }
 
-/// Implementation of struct array reader.
+/// Implementation of list array reader.
 pub struct ListArrayReader {
     item_reader: Box<dyn ArrayReader>,
     data_type: ArrowType,
@@ -502,7 +502,7 @@ pub struct ListArrayReader {
 }
 
 impl ListArrayReader {
-    /// Construct struct array reader.
+    /// Construct list array reader.
     pub fn new(
         item_reader: Box<dyn ArrayReader>,
         data_type: ArrowType,
@@ -943,9 +943,6 @@ impl ArrayReader for StructArrayReader {
             .children
             .iter_mut()
             .map(|reader| reader.next_batch(batch_size))
-            .map(|batch| {
-                return batch;
-            })
             .try_fold(
                 Vec::new(),
                 |mut result, child_array| -> Result<Vec<ArrayRef>> {
@@ -983,9 +980,7 @@ impl ArrayReader for StructArrayReader {
 
         for child in &self.children {
             if let Some(current_child_def_levels) = child.get_def_levels() {
-                if current_child_def_levels.len() != children_array_len
-                    && children_array.len() != 1
-                {
+                if current_child_def_levels.len() != children_array_len {
                     return Err(general_err!("Child array length are not equal!"));
                 } else {
                     for i in 0..children_array_len {
@@ -1039,9 +1034,7 @@ impl ArrayReader for StructArrayReader {
 
         self.def_level_buffer = Some(def_level_data_buffer.freeze());
         self.rep_level_buffer = rep_level_data;
-        let result_array = StructArray::from(array_data);
-
-        return Ok(Arc::new(result_array));
+        Ok(Arc::new(StructArray::from(array_data)))
     }
 
     fn get_def_levels(&self) -> Option<&[i16]> {
@@ -1133,9 +1126,8 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
     ) -> Result<Option<Box<dyn ArrayReader>>> {
         if self.is_included(cur_type.as_ref()) {
             let mut new_context = context.clone();
-            if cur_type.name().to_string() != "item" {
-                new_context.path.append(vec![cur_type.name().to_string()]);
-            }
+            new_context.path.append(vec![cur_type.name().to_string()]);
+
             match cur_type.get_basic_info().repetition() {
                 Repetition::REPEATED => {
                     new_context.def_level += 1;
@@ -1146,8 +1138,10 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
                 }
                 _ => (),
             }
+
             let reader =
                 self.build_for_primitive_type_inner(cur_type.clone(), &new_context)?;
+
             if cur_type.get_basic_info().repetition() == Repetition::REPEATED {
                 Err(ArrowError(
                     "Reading repeated field is not supported yet!".to_string(),
@@ -1210,7 +1204,6 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
     }
 
     /// Build array reader for list type.
-    /// List type is a special case of struct type (see https://github.com/apache/parquet-format/blob/master/LogicalTypes.md)
     fn visit_list_with_item(
         &mut self,
         list_type: Rc<Type>,
@@ -1410,16 +1403,18 @@ impl<'a> ArrayReaderBuilder {
 #[cfg(test)]
 mod tests {
     use crate::arrow::array_reader::{
-        ArrayReader, ListArrayReader, PrimitiveArrayReader, StructArrayReader,
+        build_array_reader, ArrayReader, ListArrayReader, PrimitiveArrayReader,
+        StructArrayReader,
     };
     use crate::basic::{Encoding, Type as PhysicalType};
     use crate::column::page::Page;
     use crate::data_type::{DataType, Int32Type, Int64Type};
     use crate::errors::Result;
+    use crate::file::reader::{FileReader, SerializedFileReader};
     use crate::schema::parser::parse_message_type;
     use crate::schema::types::{ColumnDescPtr, SchemaDescriptor};
-    use crate::util::test_common::make_pages;
     use crate::util::test_common::page_util::InMemoryPageIterator;
+    use crate::util::test_common::{get_test_file, make_pages};
     use arrow::array::{Array, ArrayRef, ListArray, PrimitiveArray, StructArray};
     use arrow::datatypes::{
         DataType as ArrowType, Field, Int32Type as ArrowInt32, UInt32Type as ArrowUInt32,
@@ -1847,6 +1842,28 @@ mod tests {
             Some(vec![1, 1, 1, 1, 1].as_slice()),
             struct_array_reader.get_rep_levels()
         );
+    }
+
+    #[test]
+    fn test_create_array_reader() {
+        let file = get_test_file("nulls.snappy.parquet");
+        let file_reader = Rc::new(SerializedFileReader::new(file).unwrap());
+
+        let array_reader = build_array_reader(
+            file_reader.metadata().file_metadata().schema_descr_ptr(),
+            vec![0usize].into_iter(),
+            file_reader,
+        )
+        .unwrap();
+
+        // Create arrow types
+        let arrow_type = ArrowType::Struct(vec![Field::new(
+            "b_struct",
+            ArrowType::Struct(vec![Field::new("b_c_int", ArrowType::Int32, true)]),
+            true,
+        )]);
+
+        assert_eq!(array_reader.get_data_type(), &arrow_type);
     }
 
     #[test]

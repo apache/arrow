@@ -27,7 +27,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::array::*;
-use crate::buffer::{Buffer, MutableBuffer};
 use crate::compute::util::apply_bin_op_to_option_bitmap;
 use crate::datatypes::{ArrowNumericType, BooleanType, DataType};
 use crate::error::{ArrowError, Result};
@@ -348,14 +347,6 @@ where
     compare_op!(left, right, |a, b| a >= b)
 }
 
-// create a buffer and fill it with valid bits
-fn new_all_set_buffer(len: usize) -> Buffer {
-    let buffer = MutableBuffer::new(len);
-    let buffer = buffer.with_bitset(len, true);
-    let buffer = buffer.freeze();
-    buffer
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -466,7 +457,7 @@ mod tests {
     #[test]
     fn test_primitive_array_gt_eq_nulls() {
         let a = Int32Array::from(vec![None, None, Some(1)]);
-        let b = Int32Array::from(vec![None, Some(1), Some(1)]);
+        let b = Int32Array::from(vec![None, Some(1), None]);
         let c = gt_eq(&a, &b).unwrap();
         assert_eq!(true, c.value(0));
         assert_eq!(false, c.value(1));
