@@ -114,6 +114,10 @@ read_delim_arrow <- function(file,
     convert_options <- readr_to_csv_convert_options(na, quoted_na)
   }
 
+  if (is.character(file)) {
+    file <- make_readable_file(file)
+    on.exit(file$close())
+  }
   reader <- CsvTableReader$create(
     file,
     read_options = read_options,

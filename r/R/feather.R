@@ -123,6 +123,10 @@ write_feather <- function(x,
 #' df <- read_feather(tf, col_select = starts_with("Sepal"))
 #' }
 read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
+  if (is.character(file)) {
+    file <- make_readable_file(file)
+    on.exit(file$close())
+  }
   reader <- FeatherReader$create(file, ...)
 
   all_columns <- ipc___feather___Reader__column_names(reader)
