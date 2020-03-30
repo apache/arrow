@@ -155,8 +155,6 @@ pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::buffer::Buffer;
-    use crate::datatypes::ToByteSlice;
 
     macro_rules! def_temporal_test {
         ($test:ident, $array_type: ident, $data: expr) => {
