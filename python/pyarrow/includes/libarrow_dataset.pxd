@@ -136,6 +136,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         pass
 
     cdef cppclass CScanContext "arrow::dataset::ScanContext":
+        c_bool use_threads
         CMemoryPool * pool
 
     ctypedef CIterator[shared_ptr[CScanTask]] CScanTaskIterator \
@@ -143,14 +144,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CScanTask" arrow::dataset::ScanTask":
         CResult[CRecordBatchIterator] Execute()
-        @staticmethod
-        CResult[shared_ptr[CTable]] ToTable(
-            const shared_ptr[CScanOptions]&,
-            const shared_ptr[CScanContext]&,
-            CScanTaskIterator)
 
     cdef cppclass CFragment "arrow::dataset::Fragment":
-        const shared_ptr[CScanOptions]& scan_options() const
         CResult[CScanTaskIterator] Scan(shared_ptr[CScanContext] context)
         c_bool splittable()
         c_string type_name()
@@ -163,6 +158,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         "arrow::dataset::FragmentIterator"
 
     cdef cppclass CScanner "arrow::dataset::Scanner":
+        CScanner(shared_ptr[CFragment], shared_ptr[CScanContext])
         CResult[CScanTaskIterator] Scan()
         CResult[shared_ptr[CTable]] ToTable()
         CFragmentIterator GetFragments()

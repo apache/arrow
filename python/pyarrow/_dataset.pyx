@@ -455,19 +455,13 @@ cdef class Fragment:
         """
         cdef:
             shared_ptr[CScanContext] context
-            shared_ptr[CScanOptions] options
-            CScanTaskIterator iterator
             shared_ptr[CTable] table
-
-        options = self.fragment.scan_options()
 
         context = make_shared[CScanContext]()
         context.get().pool = maybe_unbox_memory_pool(memory_pool)
+        context.get().use_threads = use_threads
 
-        iterator = move(GetResultValue(self.fragment.Scan(context)))
-        table = GetResultValue(CScanTask.ToTable(options, context,
-                                                 move(iterator)))
-
+        table = GetResultValue(CScanner(self.wrapped, context).ToTable())
         return pyarrow_wrap_table(table)
 
     def scan(self, MemoryPool memory_pool=None):
@@ -489,7 +483,7 @@ cdef class Fragment:
         context = make_shared[CScanContext]()
         context.get().pool = maybe_unbox_memory_pool(memory_pool)
 
-        iterator = move(GetResultValue(self.fragment.Scan(move(context))))
+        iterator = move(GetResultValue(CScanner(self.wrapped, context).Scan()))
 
         while True:
             task = GetResultValue(iterator.Next())
