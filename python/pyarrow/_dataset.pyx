@@ -453,16 +453,8 @@ cdef class Fragment:
         -------
         table : Table
         """
-        cdef:
-            shared_ptr[CScanContext] context
-            shared_ptr[CTable] table
-
-        context = make_shared[CScanContext]()
-        context.get().pool = maybe_unbox_memory_pool(memory_pool)
-        context.get().use_threads = use_threads
-
-        table = GetResultValue(CScanner(self.wrapped, context).ToTable())
-        return pyarrow_wrap_table(table)
+        scanner = Scanner._from_fragment(self, use_threads, memory_pool)
+        return scanner.to_table()
 
     def scan(self, MemoryPool memory_pool=None):
         """Returns a stream of ScanTasks
@@ -474,23 +466,7 @@ cdef class Fragment:
         -------
         scan_tasks : iterator of ScanTask
         """
-        cdef:
-            shared_ptr[CScanContext] context
-            CScanTaskIterator iterator
-            shared_ptr[CScanTask] task
-
-        # create scan context
-        context = make_shared[CScanContext]()
-        context.get().pool = maybe_unbox_memory_pool(memory_pool)
-
-        iterator = move(GetResultValue(CScanner(self.wrapped, context).Scan()))
-
-        while True:
-            task = GetResultValue(iterator.Next())
-            if task.get() == nullptr:
-                raise StopIteration()
-            else:
-                yield ScanTask.wrap(task)
+        return Scanner._from_fragment(self, memory_pool).scan()
 
 
 cdef class FileFragment(Fragment):
@@ -1335,15 +1311,27 @@ cdef class Scanner:
         scanner = GetResultValue(builder.get().Finish())
         self.init(scanner)
 
-    cdef void init(self, shared_ptr[CScanner]& sp):
+    cdef void init(self, const shared_ptr[CScanner]& sp):
         self.wrapped = sp
         self.scanner = sp.get()
 
     @staticmethod
-    cdef wrap(shared_ptr[CScanner]& sp):
+    cdef wrap(const shared_ptr[CScanner]& sp):
         cdef Scanner self = Scanner.__new__(Scanner)
         self.init(sp)
         return self
+
+    @staticmethod
+    def _from_fragment(Fragment fragment not None, bint use_threads=True,
+                       MemoryPool memory_pool=None):
+        cdef:
+            shared_ptr[CScanContext] context
+
+        context = make_shared[CScanContext]()
+        context.get().pool = maybe_unbox_memory_pool(memory_pool)
+        context.get().use_threads = use_threads
+
+        return Scanner.wrap(make_shared[CScanner](self.wrapped, context))
 
     cdef inline shared_ptr[CScanner] unwrap(self):
         return self.wrapped
