@@ -300,28 +300,28 @@ Table__TakeChunked <- function(table, indices){
     .Call(`_arrow_Table__TakeChunked` , table, indices)
 }
 
-Array__Filter <- function(values, filter){
-    .Call(`_arrow_Array__Filter` , values, filter)
+Array__Filter <- function(values, filter, keep_na){
+    .Call(`_arrow_Array__Filter` , values, filter, keep_na)
 }
 
-RecordBatch__Filter <- function(batch, filter){
-    .Call(`_arrow_RecordBatch__Filter` , batch, filter)
+RecordBatch__Filter <- function(batch, filter, keep_na){
+    .Call(`_arrow_RecordBatch__Filter` , batch, filter, keep_na)
 }
 
-ChunkedArray__Filter <- function(values, filter){
-    .Call(`_arrow_ChunkedArray__Filter` , values, filter)
+ChunkedArray__Filter <- function(values, filter, keep_na){
+    .Call(`_arrow_ChunkedArray__Filter` , values, filter, keep_na)
 }
 
-ChunkedArray__FilterChunked <- function(values, filter){
-    .Call(`_arrow_ChunkedArray__FilterChunked` , values, filter)
+ChunkedArray__FilterChunked <- function(values, filter, keep_na){
+    .Call(`_arrow_ChunkedArray__FilterChunked` , values, filter, keep_na)
 }
 
-Table__Filter <- function(table, filter){
-    .Call(`_arrow_Table__Filter` , table, filter)
+Table__Filter <- function(table, filter, keep_na){
+    .Call(`_arrow_Table__Filter` , table, filter, keep_na)
 }
 
-Table__FilterChunked <- function(table, filter){
-    .Call(`_arrow_Table__FilterChunked` , table, filter)
+Table__FilterChunked <- function(table, filter, keep_na){
+    .Call(`_arrow_Table__FilterChunked` , table, filter, keep_na)
 }
 
 csv___ReadOptions__initialize <- function(options){

@@ -248,7 +248,7 @@ collect.arrow_dplyr_query <- function(x, ...) {
     df <- as.data.frame(scanner_builder$Finish()$ToTable())
   } else {
     # This is a Table/RecordBatch. See record-batch.R for the [ method
-    df <- as.data.frame(x$.data[x$filtered_rows, colnames])
+    df <- as.data.frame(x$.data[x$filtered_rows, colnames, keep_na = FALSE])
   }
   # In case variables were renamed, apply those names
   names(df) <- names(colnames)

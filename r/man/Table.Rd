@@ -60,7 +60,7 @@ of the table if \code{NULL}, the default.
 \item \verb{$Take(i)}: return an \code{Table} with rows at positions given by
 integers \code{i}. If \code{i} is an Arrow \code{Array} or \code{ChunkedArray}, it will be
 coerced to an R vector before taking.
-\item \verb{$Filter(i)}: return an \code{Table} with rows at positions where logical
+\item \verb{$Filter(i, keep_na = TRUE)}: return an \code{Table} with rows at positions where logical
 vector or Arrow boolean-type \verb{(Chunked)Array} \code{i} is \code{TRUE}.
 \item \verb{$serialize(output_stream, ...)}: Write the table to the given
 \link{OutputStream}

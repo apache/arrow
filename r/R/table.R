@@ -69,7 +69,7 @@
 #' - `$Take(i)`: return an `Table` with rows at positions given by
 #'    integers `i`. If `i` is an Arrow `Array` or `ChunkedArray`, it will be
 #'    coerced to an R vector before taking.
-#' - `$Filter(i)`: return an `Table` with rows at positions where logical
+#' - `$Filter(i, keep_na = TRUE)`: return an `Table` with rows at positions where logical
 #'    vector or Arrow boolean-type `(Chunked)Array` `i` is `TRUE`.
 #' - `$serialize(output_stream, ...)`: Write the table to the given
 #'    [OutputStream]
@@ -150,15 +150,15 @@ Table <- R6Class("Table", inherit = ArrowObject,
       assert_is(i, "Array")
       shared_ptr(Table, Table__Take(self, i))
     },
-    Filter = function(i) {
+    Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
       if (inherits(i, "ChunkedArray")) {
-        return(shared_ptr(Table, Table__FilterChunked(self, i)))
+        return(shared_ptr(Table, Table__FilterChunked(self, i, keep_na)))
       }
       assert_is(i, "Array")
-      shared_ptr(Table, Table__Filter(self, i))
+      shared_ptr(Table, Table__Filter(self, i, keep_na))
     },
 
     Equals = function(other, check_metadata = TRUE, ...) {

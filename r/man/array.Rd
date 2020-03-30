@@ -65,7 +65,7 @@ with the indicated offset and length. If length is \code{NULL}, the slice goes
 until the end of the array.
 \item \verb{$Take(i)}: return an \code{Array} with values at positions given by integers
 (R vector or Array Array) \code{i}.
-\item \verb{$Filter(i)}: return an \code{Array} with values at positions where logical
+\item \verb{$Filter(i, keep_na = TRUE)}: return an \code{Array} with values at positions where logical
 vector (or Arrow boolean Array) \code{i} is \code{TRUE}.
 \item \verb{$RangeEquals(other, start_idx, end_idx, other_start_idx)} :
 \item \verb{$cast(target_type, safe = TRUE, options = cast_options(safe))}: Alter the
