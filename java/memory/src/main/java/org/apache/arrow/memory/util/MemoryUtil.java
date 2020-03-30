@@ -17,13 +17,12 @@
 
 package org.apache.arrow.memory.util;
 
+import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.util.internal.ReflectionUtil;
 import sun.misc.Unsafe;
 
 /**
@@ -54,7 +53,7 @@ public class MemoryUtil {
         public Object run() {
           try {
             final Field unsafeField = Unsafe.class.getDeclaredField("theUnsafe");
-            Throwable cause = ReflectionUtil.trySetAccessible(unsafeField, false);
+            Throwable cause = trySetAccessible(unsafeField, false);
             if (cause != null) {
               return cause;
             }
@@ -84,7 +83,7 @@ public class MemoryUtil {
   }
 
   /**
-   * Given a {@link ByteBuf}, gets the address the underlying memory space.
+   * Given a {@link ByteBuffer}, gets the address the underlying memory space.
    *
    * @param buf the byte buffer.
    * @return address of the underlying memory.
@@ -94,5 +93,46 @@ public class MemoryUtil {
   }
 
   private MemoryUtil() {
+  }
+
+  /**
+   * Try to call {@link AccessibleObject#setAccessible(boolean)} but will catch any {@link SecurityException} and
+   * {@link java.lang.reflect.InaccessibleObjectException} and return it.
+   * The caller must check if it returns {@code null} and if not handle the returned exception.
+   */
+  private static Throwable trySetAccessible(AccessibleObject object, boolean checkAccessible) {
+    if (checkAccessible && javaVersion() > 9) {
+      return new UnsupportedOperationException("Reflective setAccessible(true) disabled");
+    }
+    try {
+      object.setAccessible(true);
+      return null;
+    } catch (SecurityException e) {
+      return e;
+    } catch (RuntimeException e) {
+      if ("java.lang.reflect.InaccessibleObjectException".equals(e.getClass().getName())) {
+        return e;
+      }
+      throw e;
+    }
+  }
+
+  private static int javaVersion() {
+    return majorVersion(System.getProperty("java.specification.version", "1.6"));
+  }
+
+  private static int majorVersion(final String javaSpecVersion) {
+    final String[] components = javaSpecVersion.split("\\.");
+    final int[] version = new int[components.length];
+    for (int i = 0; i < components.length; i++) {
+      version[i] = Integer.parseInt(components[i]);
+    }
+
+    if (version[0] == 1) {
+      assert version[1] >= 6;
+      return version[1];
+    } else {
+      return version[0];
+    }
   }
 }

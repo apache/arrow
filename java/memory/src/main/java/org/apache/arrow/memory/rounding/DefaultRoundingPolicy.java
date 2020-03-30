@@ -20,7 +20,6 @@ package org.apache.arrow.memory.rounding;
 import java.lang.reflect.Field;
 
 import org.apache.arrow.memory.BaseAllocator;
-import org.apache.arrow.memory.NettyAllocationManager;
 
 /**
  * The default rounding policy. That is, if the requested size is within the chunk size,
@@ -38,7 +37,8 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
 
   private DefaultRoundingPolicy() {
     try {
-      Field field = NettyAllocationManager.class.getDeclaredField("CHUNK_SIZE");
+      Class<?> clazz = Class.forName("org.apache.arrow.memory.NettyAllocationManager");
+      Field field = clazz.getDeclaredField("CHUNK_SIZE");
       field.setAccessible(true);
       chunkSize = (Long) field.get(null);
     } catch (Exception e) {

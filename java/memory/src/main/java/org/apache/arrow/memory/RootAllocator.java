@@ -43,21 +43,45 @@ public class RootAllocator extends BaseAllocator {
   /**
    * Constructor.
    *
-   * @param listener        the allocation listener
-   * @param limit           max allocation size in bytes
-   * @param roundingPolicy  the policy for rounding the buffer size
+   * @param listener       the allocation listener
+   * @param limit          max allocation size in bytes
+   * @param roundingPolicy the policy for rounding the buffer size
    */
   public RootAllocator(final AllocationListener listener, final long limit, RoundingPolicy roundingPolicy) {
     this(configBuilder()
         .listener(listener)
         .maxAllocation(limit)
         .roundingPolicy(roundingPolicy)
+        .allocationManagerFactory(getFactory())
         .build()
     );
   }
 
   public RootAllocator(Config config) {
     super(null, "ROOT", config);
+
+  }
+
+  private static AllocationManager.Factory getFactory() {
+    String className = System.getProperty("arrow.default.allocation-manager");
+    if (className == null) {
+      try {
+        return getFactory("org.apache.arrow.memory.NettyAllocationManager");
+      } catch (Throwable t) {
+        return getFactory("org.apache.arrow.memory.TrivialAllocationManager");
+      }
+    } else {
+      return getFactory(className);
+    }
+  }
+
+  private static AllocationManager.Factory getFactory(String className) {
+    try {
+      Class<?> clazz = Class.forName(className);
+      return (AllocationManager.Factory) clazz.getConstructor().newInstance();
+    } catch (Throwable t) {
+      throw new RuntimeException("Could not instantiate AllocationManager with type " + className, t);
+    }
   }
 
   /**

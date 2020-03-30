@@ -75,7 +75,6 @@ public class NettyAllocationManager extends AllocationManager {
    * Factory for creating {@link NettyAllocationManager}.
    */
   public static class Factory implements AllocationManager.Factory {
-    private Factory() {}
 
     @Override
     public AllocationManager create(BaseAllocator accountingAllocator, long size) {

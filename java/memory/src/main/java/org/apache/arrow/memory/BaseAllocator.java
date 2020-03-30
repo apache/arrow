@@ -55,7 +55,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   private final Object DEBUG_LOCK = DEBUG ? new Object() : null;
   final AllocationListener listener;
   private final BaseAllocator parentAllocator;
-  private final ArrowByteBufAllocator thisAsByteBufAllocator;
+  //private final ArrowByteBufAllocator thisAsByteBufAllocator;
   private final Map<BaseAllocator, Object> childAllocators;
   private final ArrowBuf empty;
   // members used purely for debugging
@@ -99,7 +99,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     this.parentAllocator = parentAllocator;
     this.name = name;
 
-    this.thisAsByteBufAllocator = new ArrowByteBufAllocator(this);
+    //this.thisAsByteBufAllocator = new ArrowByteBufAllocator(this);
     this.childAllocators = Collections.synchronizedMap(new IdentityHashMap<>());
 
     if (DEBUG) {
@@ -281,7 +281,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   private ArrowBuf createEmpty() {
-    return new ArrowBuf(ReferenceManager.NO_OP, null, 0, NettyAllocationManager.EMPTY.memoryAddress(), true);
+    return new ArrowBuf(ReferenceManager.NO_OP, null, 0, 0, true);
   }
 
   @Override
@@ -355,10 +355,10 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     return allocationManagerFactory.create(accountingAllocator, size);
   }
 
-  @Override
-  public ArrowByteBufAllocator getAsByteBufAllocator() {
-    return thisAsByteBufAllocator;
-  }
+  //@Override
+  //public ArrowByteBufAllocator getAsByteBufAllocator() {
+  //  return thisAsByteBufAllocator;
+  //}
 
   @Override
   public BufferAllocator newChildAllocator(
@@ -765,7 +765,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
      */
     @Value.Default
     AllocationManager.Factory getAllocationManagerFactory() {
-      return NettyAllocationManager.FACTORY;
+      return TrivialAllocationManager.FACTORY;
     }
 
     /**

@@ -51,7 +51,7 @@ public class PooledByteBufAllocatorL {
   }
 
   /**
-   * Returns a {@linkplain io.netty.buffer.UnsafeDirectLittleEndian} of the given size.
+   * Returns a {@linkplain UnsafeDirectLittleEndian} of the given size.
    */
   public UnsafeDirectLittleEndian allocate(long size) {
     try {

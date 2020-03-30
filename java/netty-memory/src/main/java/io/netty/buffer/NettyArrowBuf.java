@@ -163,12 +163,12 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   @Override
   public NettyArrowBuf slice() {
-    return arrowBuf.slice(readerIndex, writerIndex - readerIndex).asNettyBuffer();
+    return NettyArrowBuf.arrowBufToNettyBuf(arrowBuf.slice(readerIndex, writerIndex - readerIndex));
   }
 
   @Override
   public NettyArrowBuf slice(int index, int length) {
-    return arrowBuf.slice(index, length).asNettyBuffer();
+    return NettyArrowBuf.arrowBufToNettyBuf(arrowBuf.slice(index, length));
   }
 
   @Override
@@ -599,5 +599,30 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   public NettyArrowBuf setLong(int index, long value) {
     arrowBuf.setLong(index, value);
     return this;
+  }
+
+  /**
+   * Get a wrapper buffer to comply with Netty interfaces and
+   * can be used in RPC/RPC allocator code.
+   * @return netty compliant {@link NettyArrowBuf}
+   */
+  public static NettyArrowBuf arrowBufToNettyBuf(ArrowBuf buf) {
+
+    NettyArrowBuf nettyArrowBuf = new NettyArrowBuf(
+        buf,
+        buf.isEmpty() ? null : new ArrowByteBufAllocator(buf.getReferenceManager().getAllocator()),
+        checkedCastToInt(buf.capacity()));
+    nettyArrowBuf.readerIndex(checkedCastToInt(buf.readerIndex()));
+    nettyArrowBuf.writerIndex(checkedCastToInt(buf.writerIndex()));
+    return nettyArrowBuf;
+  }
+
+
+  public static ByteBuffer arrowBufToNioBuffer(ArrowBuf buf) {
+    return buf.isEmpty() ? ByteBuffer.allocateDirect(0) : arrowBufToNettyBuf(buf).nioBuffer();
+  }
+
+  public static ByteBuffer arrowBufToNioBuffer(ArrowBuf buf, long index, int length) {
+    return buf.isEmpty() ? ByteBuffer.allocateDirect(0) : arrowBufToNettyBuf(buf).nioBuffer(index, length);
   }
 }

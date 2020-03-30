@@ -686,6 +686,7 @@
     <module>performance</module>
     <module>algorithm</module>
     <module>adapter/avro</module>
+    <module>netty-memory</module>
   </modules>
 
   <profiles>
