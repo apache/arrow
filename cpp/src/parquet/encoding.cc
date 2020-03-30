@@ -858,18 +858,18 @@ int64_t ByteStreamSplitEncoder<DType>::EstimatedDataEncodedSize() {
 
 template <typename DType>
 std::shared_ptr<Buffer> ByteStreamSplitEncoder<DType>::FlushValues() {
-  constexpr size_t num_streams = sizeof(T);
   std::shared_ptr<ResizableBuffer> output_buffer =
       AllocateBuffer(this->memory_pool(), EstimatedDataEncodedSize());
   uint8_t* output_buffer_raw = output_buffer->mutable_data();
   const size_t num_values = values_.length();
   const uint8_t* raw_values = reinterpret_cast<const uint8_t*>(values_.data());
-  for (size_t i = 0; i < num_values; ++i) {
-    for (size_t j = 0U; j < num_streams; ++j) {
-      const uint8_t byte_in_value = raw_values[i * num_streams + j];
-      output_buffer_raw[j * num_values + i] = byte_in_value;
-    }
-  }
+#if defined(ARROW_HAVE_SSE2)
+  arrow::util::internal::ByteStreamSplitEncodeSSE2<T>(raw_values, num_values,
+                                                      output_buffer_raw);
+#else
+  arrow::util::internal::ByteStreamSplitEncodeScalar<T>(raw_values, num_values,
+                                                        output_buffer_raw);
+#endif
   values_.Reset();
   return std::move(output_buffer);
 }
@@ -2341,11 +2341,11 @@ int ByteStreamSplitDecoder<DType>::Decode(T* buffer, int max_values) {
   const uint8_t* data = data_ + num_decoded_previously;
 
 #if defined(ARROW_HAVE_SSE2)
-  arrow::util::internal::ByteStreamSlitDecodeSSE2<T>(data, values_to_decode,
-                                                     num_values_in_buffer_, buffer);
+  arrow::util::internal::ByteStreamSplitDecodeSSE2<T>(data, values_to_decode,
+                                                      num_values_in_buffer_, buffer);
 #else
-  arrow::util::internal::ByteStreamSlitDecodeScalar<T>(data, values_to_decode,
-                                                       num_values_in_buffer_, buffer);
+  arrow::util::internal::ByteStreamSplitDecodeScalar<T>(data, values_to_decode,
+                                                        num_values_in_buffer_, buffer);
 #endif
   num_values_ -= values_to_decode;
   len_ -= sizeof(T) * values_to_decode;
@@ -2372,8 +2372,8 @@ int ByteStreamSplitDecoder<DType>::DecodeArrow(
   // Use fast decoding into intermediate buffer.  This will also decode
   // some null values, but it's fast enough that we don't care.
   T* decode_out = EnsureDecodeBuffer(values_decoded);
-  arrow::util::internal::ByteStreamSlitDecodeSSE2<T>(data, values_decoded,
-                                                     num_values_in_buffer_, decode_out);
+  arrow::util::internal::ByteStreamSplitDecodeSSE2<T>(data, values_decoded,
+                                                      num_values_in_buffer_, decode_out);
 
   // XXX If null_count is 0, we could even append in bulk or decode directly into
   // builder
