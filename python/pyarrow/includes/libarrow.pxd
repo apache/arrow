@@ -1320,32 +1320,25 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
             const CIpcWriteOptions& options,
             CIpcPayload* out)
 
-    cdef cppclass CFeatherWriter" arrow::ipc::feather::TableWriter":
+    int kFeatherV1Version" arrow::ipc::feather::kFeatherV1Version"
+    int kFeatherV2Version" arrow::ipc::feather::kFeatherV2Version"
+
+    cdef cppclass CFeatherProperties" arrow::ipc::feather::WriteProperties":
+        int version
+        int chunksize
+        CCompressionType compression
+        int compression_level
+
+    CStatus WriteFeather" arrow::ipc::feather::WriteTable"\
+        (const CTable& table, COutputStream* out,
+         CFeatherProperties properties)
+
+    cdef cppclass CFeatherReader" arrow::ipc::feather::Reader":
         @staticmethod
-        CStatus Open(const shared_ptr[COutputStream]& stream,
-                     unique_ptr[CFeatherWriter]* out)
-
-        void SetDescription(const c_string& desc)
-        void SetNumRows(int64_t num_rows)
-
-        CStatus Append(const c_string& name, const CArray& values)
-        CStatus Finalize()
-
-    cdef cppclass CFeatherReader" arrow::ipc::feather::TableReader":
-        @staticmethod
-        CStatus Open(const shared_ptr[CRandomAccessFile]& file,
-                     unique_ptr[CFeatherReader]* out)
-
-        c_string GetDescription()
-        c_bool HasDescription()
-
-        int64_t num_rows()
-        int64_t num_columns()
-
+        CResult[shared_ptr[CFeatherReader]] Open(
+            const shared_ptr[CRandomAccessFile]& file)
+        int version()
         shared_ptr[CSchema] schema()
-
-        CStatus GetColumn(int i, shared_ptr[CChunkedArray]* out)
-        c_string GetColumnName(int i)
 
         CStatus Read(shared_ptr[CTable]* out)
         CStatus Read(const vector[int] indices, shared_ptr[CTable]* out)

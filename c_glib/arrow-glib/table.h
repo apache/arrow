@@ -20,6 +20,7 @@
 #pragma once
 
 #include <arrow-glib/chunked-array.h>
+#include <arrow-glib/output-stream.h>
 #include <arrow-glib/record-batch.h>
 #include <arrow-glib/schema.h>
 #include <arrow-glib/version.h>
@@ -109,5 +110,29 @@ GARROW_AVAILABLE_IN_1_0
 GArrowTable*
 garrow_table_combine_chunks(GArrowTable *table,
                             GError **error);
+
+
+#define GARROW_TYPE_FEATHER_WRITE_PROPERTIES    \
+  (garrow_feather_write_properties_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowFeatherWriteProperties,
+                         garrow_feather_write_properties,
+                         GARROW,
+                         FEATHER_WRITE_PROPERTIES,
+                         GObject)
+struct _GArrowFeatherWritePropertiesClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_17
+GArrowFeatherWriteProperties *
+garrow_feather_write_properties_new(void);
+
+GARROW_AVAILABLE_IN_0_17
+gboolean
+garrow_table_write_as_feather(GArrowTable *table,
+                              GArrowOutputStream *sink,
+                              GArrowFeatherWriteProperties *properties,
+                              GError **error);
 
 G_END_DECLS

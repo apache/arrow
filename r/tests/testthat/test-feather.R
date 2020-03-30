@@ -21,29 +21,30 @@ feather_file <- tempfile()
 tib <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
 
 test_that("Write a feather file", {
-  write_feather(tib, feather_file)
-  expect_true(file.exists(feather_file))
-})
-
-test_that("write_feather() returns its input", {
   tib_out <- write_feather(tib, feather_file)
+  expect_true(file.exists(feather_file))
+  # Input is returned unmodified
   expect_identical(tib_out, tib)
 })
 
-test_that("feather read/write round trip", {
+expect_feather_roundtrip <- function(write_fun) {
   tf2 <- normalizePath(tempfile(), mustWork = FALSE)
-  write_feather(tib, tf2)
+  tf3 <- tempfile()
+  on.exit({
+    unlink(tf2)
+    unlink(tf3)
+  })
+
+  # Write two ways. These are what varies with each run
+  write_fun(tib, tf2)
   expect_true(file.exists(tf2))
 
-  tf3 <- tempfile()
   stream <- FileOutputStream$create(tf3)
-  write_feather(tib, stream)
+  write_fun(tib, stream)
   stream$close()
   expect_true(file.exists(tf3))
 
-  tab1 <- read_feather(feather_file)
-  expect_is(tab1, "data.frame")
-
+  # Read both back
   tab2 <- read_feather(tf2)
   expect_is(tab2, "data.frame")
 
@@ -58,17 +59,53 @@ test_that("feather read/write round trip", {
   tab5 <- read_feather(ReadableFile$create(tf3))
   expect_is(tab5, "data.frame")
 
-  expect_equal(tib, tab1)
   expect_equal(tib, tab2)
   expect_equal(tib, tab3)
   expect_equal(tib, tab4)
   expect_equal(tib, tab5)
+}
 
-  unlink(tf2)
-  unlink(tf3)
+test_that("feather read/write round trip", {
+  expect_feather_roundtrip(function(x, f) write_feather(x, f, version = 1))
+  expect_feather_roundtrip(function(x, f) write_feather(x, f, version = 2))
+  expect_feather_roundtrip(function(x, f) write_feather(x, f, chunk_size = 32))
+  if (codec_is_available("lz4")) {
+    expect_feather_roundtrip(function(x, f) write_feather(x, f, compression = "lz4"))
+  }
+  if (codec_is_available("zstd")) {
+    expect_feather_roundtrip(function(x, f) write_feather(x, f, compression = "zstd"))
+    expect_feather_roundtrip(function(x, f) write_feather(x, f, compression = "zstd", compression_level = 3))
+  }
+
+  # Write from Arrow data structures
+  expect_feather_roundtrip(function(x, f) write_feather(RecordBatch$create(x), f))
+  expect_feather_roundtrip(function(x, f) write_feather(Table$create(x), f))
 })
 
-test_that("feather handles col_select = <names>", {
+test_that("write_feather option error handling", {
+  tf <- tempfile()
+  expect_false(file.exists(tf))
+  expect_error(
+    write_feather(tib, tf, version = 1, chunk_size = 1024),
+    "Feather version 1 does not support the 'chunk_size' option"
+  )
+  expect_error(
+    write_feather(tib, tf, version = 1, compression = "lz4"),
+    "Feather version 1 does not support the 'compression' option"
+  )
+  expect_error(
+    write_feather(tib, tf, version = 1, compression_level = 1024),
+    "Feather version 1 does not support the 'compression_level' option"
+  )
+  expect_error(
+    write_feather(tib, tf, compression_level = 1024),
+    "Can only specify a 'compression_level' when 'compression' is 'zstd'"
+  )
+  expect_match_arg_error(write_feather(tib, tf, compression = "bz2"))
+  expect_false(file.exists(tf))
+})
+
+test_that("read_feather supports col_select = <names>", {
   tab1 <- read_feather(feather_file, col_select = c("x", "y"))
   expect_is(tab1, "data.frame")
 
@@ -109,6 +146,21 @@ test_that("Read feather from raw vector", {
   test_raw <- readBin(feather_file, what = "raw", n = 5000)
   df <- read_feather(test_raw)
   expect_is(df, "data.frame")
+})
+
+test_that("FeatherReader", {
+  v1 <- tempfile()
+  v2 <- tempfile()
+  on.exit({
+    unlink(v1)
+    unlink(v2)
+  })
+  write_feather(tib, v1, version = 1)
+  write_feather(tib, v2)
+  reader1 <- FeatherReader$create(v1)
+  expect_identical(reader1$version, 1L)
+  reader2 <- FeatherReader$create(v2)
+  expect_identical(reader2$version, 2L)
 })
 
 unlink(feather_file)

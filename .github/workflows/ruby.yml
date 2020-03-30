@@ -97,6 +97,7 @@ jobs:
       ARROW_WITH_LZ4: ON
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
+      ARROW_WITH_ZSTD: ON
       XML_CATALOG_FILES: /usr/local/etc/xml/catalog
     steps:
       - name: Checkout Arrow

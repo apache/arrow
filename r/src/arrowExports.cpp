@@ -2739,254 +2739,83 @@ RcppExport SEXP _arrow_dataset___expr__ToString(SEXP x_sexp){
 
 // feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void ipc___feather___TableWriter__SetDescription(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer, const std::string& description);
-RcppExport SEXP _arrow_ipc___feather___TableWriter__SetDescription(SEXP writer_sexp, SEXP description_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableWriter>&>::type writer(writer_sexp);
-	Rcpp::traits::input_parameter<const std::string&>::type description(description_sexp);
-	ipc___feather___TableWriter__SetDescription(writer, description);
-	return R_NilValue;
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ipc___feather___TableWriter__SetDescription(SEXP writer_sexp, SEXP description_sexp){
-	Rf_error("Cannot call ipc___feather___TableWriter__SetDescription(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// feather.cpp
-#if defined(ARROW_R_WITH_ARROW)
-void ipc___feather___TableWriter__SetNumRows(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer, int64_t num_rows);
-RcppExport SEXP _arrow_ipc___feather___TableWriter__SetNumRows(SEXP writer_sexp, SEXP num_rows_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableWriter>&>::type writer(writer_sexp);
-	Rcpp::traits::input_parameter<int64_t>::type num_rows(num_rows_sexp);
-	ipc___feather___TableWriter__SetNumRows(writer, num_rows);
-	return R_NilValue;
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ipc___feather___TableWriter__SetNumRows(SEXP writer_sexp, SEXP num_rows_sexp){
-	Rf_error("Cannot call ipc___feather___TableWriter__SetNumRows(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// feather.cpp
-#if defined(ARROW_R_WITH_ARROW)
-void ipc___feather___TableWriter__Append(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer, const std::string& name, const std::shared_ptr<arrow::Array>& values);
-RcppExport SEXP _arrow_ipc___feather___TableWriter__Append(SEXP writer_sexp, SEXP name_sexp, SEXP values_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableWriter>&>::type writer(writer_sexp);
-	Rcpp::traits::input_parameter<const std::string&>::type name(name_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type values(values_sexp);
-	ipc___feather___TableWriter__Append(writer, name, values);
-	return R_NilValue;
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ipc___feather___TableWriter__Append(SEXP writer_sexp, SEXP name_sexp, SEXP values_sexp){
-	Rf_error("Cannot call ipc___feather___TableWriter__Append(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// feather.cpp
-#if defined(ARROW_R_WITH_ARROW)
-void ipc___feather___TableWriter__Finalize(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer);
-RcppExport SEXP _arrow_ipc___feather___TableWriter__Finalize(SEXP writer_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableWriter>&>::type writer(writer_sexp);
-	ipc___feather___TableWriter__Finalize(writer);
-	return R_NilValue;
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ipc___feather___TableWriter__Finalize(SEXP writer_sexp){
-	Rf_error("Cannot call ipc___feather___TableWriter__Finalize(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// feather.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::unique_ptr<arrow::ipc::feather::TableWriter> ipc___feather___TableWriter__Open(const std::shared_ptr<arrow::io::OutputStream>& stream);
-RcppExport SEXP _arrow_ipc___feather___TableWriter__Open(SEXP stream_sexp){
+void ipc___WriteFeather__Table(const std::shared_ptr<arrow::io::OutputStream>& stream, const std::shared_ptr<arrow::Table>& table, int version, int chunk_size, arrow::Compression::type compression, int compression_level);
+RcppExport SEXP _arrow_ipc___WriteFeather__Table(SEXP stream_sexp, SEXP table_sexp, SEXP version_sexp, SEXP chunk_size_sexp, SEXP compression_sexp, SEXP compression_level_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
-	return Rcpp::wrap(ipc___feather___TableWriter__Open(stream));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ipc___feather___TableWriter__Open(SEXP stream_sexp){
-	Rf_error("Cannot call ipc___feather___TableWriter__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// feather.cpp
-#if defined(ARROW_R_WITH_ARROW)
-void ipc___TableWriter__RecordBatch__WriteFeather(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer, const std::shared_ptr<arrow::RecordBatch>& batch);
-RcppExport SEXP _arrow_ipc___TableWriter__RecordBatch__WriteFeather(SEXP writer_sexp, SEXP batch_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableWriter>&>::type writer(writer_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-	ipc___TableWriter__RecordBatch__WriteFeather(writer, batch);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	Rcpp::traits::input_parameter<int>::type version(version_sexp);
+	Rcpp::traits::input_parameter<int>::type chunk_size(chunk_size_sexp);
+	Rcpp::traits::input_parameter<arrow::Compression::type>::type compression(compression_sexp);
+	Rcpp::traits::input_parameter<int>::type compression_level(compression_level_sexp);
+	ipc___WriteFeather__Table(stream, table, version, chunk_size, compression, compression_level);
 	return R_NilValue;
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_ipc___TableWriter__RecordBatch__WriteFeather(SEXP writer_sexp, SEXP batch_sexp){
-	Rf_error("Cannot call ipc___TableWriter__RecordBatch__WriteFeather(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_ipc___WriteFeather__Table(SEXP stream_sexp, SEXP table_sexp, SEXP version_sexp, SEXP chunk_size_sexp, SEXP compression_sexp, SEXP compression_level_sexp){
+	Rf_error("Cannot call ipc___WriteFeather__Table(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::string ipc___feather___TableReader__GetDescription(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
-RcppExport SEXP _arrow_ipc___feather___TableReader__GetDescription(SEXP reader_sexp){
+int ipc___feather___Reader__version(const std::shared_ptr<arrow::ipc::feather::Reader>& reader);
+RcppExport SEXP _arrow_ipc___feather___Reader__version(SEXP reader_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
-	return Rcpp::wrap(ipc___feather___TableReader__GetDescription(reader));
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::feather::Reader>&>::type reader(reader_sexp);
+	return Rcpp::wrap(ipc___feather___Reader__version(reader));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_ipc___feather___TableReader__GetDescription(SEXP reader_sexp){
-	Rf_error("Cannot call ipc___feather___TableReader__GetDescription(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_ipc___feather___Reader__version(SEXP reader_sexp){
+	Rf_error("Cannot call ipc___feather___Reader__version(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
-bool ipc___feather___TableReader__HasDescription(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
-RcppExport SEXP _arrow_ipc___feather___TableReader__HasDescription(SEXP reader_sexp){
+std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(const std::shared_ptr<arrow::ipc::feather::Reader>& reader, SEXP columns);
+RcppExport SEXP _arrow_ipc___feather___Reader__Read(SEXP reader_sexp, SEXP columns_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
-	return Rcpp::wrap(ipc___feather___TableReader__HasDescription(reader));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ipc___feather___TableReader__HasDescription(SEXP reader_sexp){
-	Rf_error("Cannot call ipc___feather___TableReader__HasDescription(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// feather.cpp
-#if defined(ARROW_R_WITH_ARROW)
-int ipc___feather___TableReader__version(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
-RcppExport SEXP _arrow_ipc___feather___TableReader__version(SEXP reader_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
-	return Rcpp::wrap(ipc___feather___TableReader__version(reader));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ipc___feather___TableReader__version(SEXP reader_sexp){
-	Rf_error("Cannot call ipc___feather___TableReader__version(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// feather.cpp
-#if defined(ARROW_R_WITH_ARROW)
-int64_t ipc___feather___TableReader__num_rows(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
-RcppExport SEXP _arrow_ipc___feather___TableReader__num_rows(SEXP reader_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
-	return Rcpp::wrap(ipc___feather___TableReader__num_rows(reader));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ipc___feather___TableReader__num_rows(SEXP reader_sexp){
-	Rf_error("Cannot call ipc___feather___TableReader__num_rows(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// feather.cpp
-#if defined(ARROW_R_WITH_ARROW)
-int64_t ipc___feather___TableReader__num_columns(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
-RcppExport SEXP _arrow_ipc___feather___TableReader__num_columns(SEXP reader_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
-	return Rcpp::wrap(ipc___feather___TableReader__num_columns(reader));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ipc___feather___TableReader__num_columns(SEXP reader_sexp){
-	Rf_error("Cannot call ipc___feather___TableReader__num_columns(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// feather.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::string ipc___feather___TableReader__GetColumnName(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i);
-RcppExport SEXP _arrow_ipc___feather___TableReader__GetColumnName(SEXP reader_sexp, SEXP i_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
-	Rcpp::traits::input_parameter<int>::type i(i_sexp);
-	return Rcpp::wrap(ipc___feather___TableReader__GetColumnName(reader, i));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ipc___feather___TableReader__GetColumnName(SEXP reader_sexp, SEXP i_sexp){
-	Rf_error("Cannot call ipc___feather___TableReader__GetColumnName(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// feather.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::ChunkedArray> ipc___feather___TableReader__GetColumn(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i);
-RcppExport SEXP _arrow_ipc___feather___TableReader__GetColumn(SEXP reader_sexp, SEXP i_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
-	Rcpp::traits::input_parameter<int>::type i(i_sexp);
-	return Rcpp::wrap(ipc___feather___TableReader__GetColumn(reader, i));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_ipc___feather___TableReader__GetColumn(SEXP reader_sexp, SEXP i_sexp){
-	Rf_error("Cannot call ipc___feather___TableReader__GetColumn(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// feather.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, SEXP columns);
-RcppExport SEXP _arrow_ipc___feather___TableReader__Read(SEXP reader_sexp, SEXP columns_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::feather::Reader>&>::type reader(reader_sexp);
 	Rcpp::traits::input_parameter<SEXP>::type columns(columns_sexp);
-	return Rcpp::wrap(ipc___feather___TableReader__Read(reader, columns));
+	return Rcpp::wrap(ipc___feather___Reader__Read(reader, columns));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_ipc___feather___TableReader__Read(SEXP reader_sexp, SEXP columns_sexp){
-	Rf_error("Cannot call ipc___feather___TableReader__Read(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_ipc___feather___Reader__Read(SEXP reader_sexp, SEXP columns_sexp){
+	Rf_error("Cannot call ipc___feather___Reader__Read(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::unique_ptr<arrow::ipc::feather::TableReader> ipc___feather___TableReader__Open(const std::shared_ptr<arrow::io::RandomAccessFile>& stream);
-RcppExport SEXP _arrow_ipc___feather___TableReader__Open(SEXP stream_sexp){
+std::shared_ptr<arrow::ipc::feather::Reader> ipc___feather___Reader__Open(const std::shared_ptr<arrow::io::RandomAccessFile>& stream);
+RcppExport SEXP _arrow_ipc___feather___Reader__Open(SEXP stream_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type stream(stream_sexp);
-	return Rcpp::wrap(ipc___feather___TableReader__Open(stream));
+	return Rcpp::wrap(ipc___feather___Reader__Open(stream));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_ipc___feather___TableReader__Open(SEXP stream_sexp){
-	Rf_error("Cannot call ipc___feather___TableReader__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_ipc___feather___Reader__Open(SEXP stream_sexp){
+	Rf_error("Cannot call ipc___feather___Reader__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
-Rcpp::CharacterVector ipc___feather___TableReader__column_names(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
-RcppExport SEXP _arrow_ipc___feather___TableReader__column_names(SEXP reader_sexp){
+Rcpp::CharacterVector ipc___feather___Reader__column_names(const std::shared_ptr<arrow::ipc::feather::Reader>& reader);
+RcppExport SEXP _arrow_ipc___feather___Reader__column_names(SEXP reader_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
-	return Rcpp::wrap(ipc___feather___TableReader__column_names(reader));
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::feather::Reader>&>::type reader(reader_sexp);
+	return Rcpp::wrap(ipc___feather___Reader__column_names(reader));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_ipc___feather___TableReader__column_names(SEXP reader_sexp){
-	Rf_error("Cannot call ipc___feather___TableReader__column_names(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_ipc___feather___Reader__column_names(SEXP reader_sexp){
+	Rf_error("Cannot call ipc___feather___Reader__column_names(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -6104,22 +5933,11 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___expr__is_valid", (DL_FUNC) &_arrow_dataset___expr__is_valid, 1}, 
 		{ "_arrow_dataset___expr__scalar", (DL_FUNC) &_arrow_dataset___expr__scalar, 1}, 
 		{ "_arrow_dataset___expr__ToString", (DL_FUNC) &_arrow_dataset___expr__ToString, 1}, 
-		{ "_arrow_ipc___feather___TableWriter__SetDescription", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetDescription, 2}, 
-		{ "_arrow_ipc___feather___TableWriter__SetNumRows", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetNumRows, 2}, 
-		{ "_arrow_ipc___feather___TableWriter__Append", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Append, 3}, 
-		{ "_arrow_ipc___feather___TableWriter__Finalize", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Finalize, 1}, 
-		{ "_arrow_ipc___feather___TableWriter__Open", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Open, 1}, 
-		{ "_arrow_ipc___TableWriter__RecordBatch__WriteFeather", (DL_FUNC) &_arrow_ipc___TableWriter__RecordBatch__WriteFeather, 2}, 
-		{ "_arrow_ipc___feather___TableReader__GetDescription", (DL_FUNC) &_arrow_ipc___feather___TableReader__GetDescription, 1}, 
-		{ "_arrow_ipc___feather___TableReader__HasDescription", (DL_FUNC) &_arrow_ipc___feather___TableReader__HasDescription, 1}, 
-		{ "_arrow_ipc___feather___TableReader__version", (DL_FUNC) &_arrow_ipc___feather___TableReader__version, 1}, 
-		{ "_arrow_ipc___feather___TableReader__num_rows", (DL_FUNC) &_arrow_ipc___feather___TableReader__num_rows, 1}, 
-		{ "_arrow_ipc___feather___TableReader__num_columns", (DL_FUNC) &_arrow_ipc___feather___TableReader__num_columns, 1}, 
-		{ "_arrow_ipc___feather___TableReader__GetColumnName", (DL_FUNC) &_arrow_ipc___feather___TableReader__GetColumnName, 2}, 
-		{ "_arrow_ipc___feather___TableReader__GetColumn", (DL_FUNC) &_arrow_ipc___feather___TableReader__GetColumn, 2}, 
-		{ "_arrow_ipc___feather___TableReader__Read", (DL_FUNC) &_arrow_ipc___feather___TableReader__Read, 2}, 
-		{ "_arrow_ipc___feather___TableReader__Open", (DL_FUNC) &_arrow_ipc___feather___TableReader__Open, 1}, 
-		{ "_arrow_ipc___feather___TableReader__column_names", (DL_FUNC) &_arrow_ipc___feather___TableReader__column_names, 1}, 
+		{ "_arrow_ipc___WriteFeather__Table", (DL_FUNC) &_arrow_ipc___WriteFeather__Table, 6}, 
+		{ "_arrow_ipc___feather___Reader__version", (DL_FUNC) &_arrow_ipc___feather___Reader__version, 1}, 
+		{ "_arrow_ipc___feather___Reader__Read", (DL_FUNC) &_arrow_ipc___feather___Reader__Read, 2}, 
+		{ "_arrow_ipc___feather___Reader__Open", (DL_FUNC) &_arrow_ipc___feather___Reader__Open, 1}, 
+		{ "_arrow_ipc___feather___Reader__column_names", (DL_FUNC) &_arrow_ipc___feather___Reader__column_names, 1}, 
 		{ "_arrow_Field__initialize", (DL_FUNC) &_arrow_Field__initialize, 3}, 
 		{ "_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1}, 
 		{ "_arrow_Field__name", (DL_FUNC) &_arrow_Field__name, 1}, 

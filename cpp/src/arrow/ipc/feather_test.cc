@@ -15,367 +15,104 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <functional>
 #include <memory>
-#include <sstream>
 #include <string>
+#include <tuple>
+#include <utility>
 
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/io/memory.h"
-#include "arrow/ipc/feather_internal.h"
+#include "arrow/ipc/feather.h"
 #include "arrow/ipc/test_common.h"
-#include "arrow/memory_pool.h"
-#include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
-
-#include "generated/feather_generated.h"
+#include "arrow/util/compression.h"
 
 namespace arrow {
-
-class Buffer;
 
 using internal::checked_cast;
 
 namespace ipc {
 namespace feather {
 
-template <typename T>
-inline void assert_vector_equal(const std::vector<T>& left, const std::vector<T>& right) {
-  ASSERT_EQ(left.size(), right.size());
+struct TestParam {
+  TestParam(int arg_version,
+            Compression::type arg_compression = Compression::UNCOMPRESSED)
+      : version(arg_version), compression(arg_compression) {}
 
-  for (size_t i = 0; i < left.size(); ++i) {
-    ASSERT_EQ(left[i], right[i]) << i;
-  }
-}
-
-class TestTableBuilder : public ::testing::Test {
- public:
-  void SetUp() { tb_.reset(new TableBuilder(1000)); }
-
-  virtual void Finish() {
-    ASSERT_OK(tb_->Finish());
-
-    table_.reset(new TableMetadata());
-    ASSERT_OK(table_->Open(tb_->GetBuffer()));
-  }
-
- protected:
-  std::unique_ptr<TableBuilder> tb_;
-  std::unique_ptr<TableMetadata> table_;
+  int version;
+  Compression::type compression;
 };
 
-TEST_F(TestTableBuilder, Version) {
-  Finish();
-  ASSERT_EQ(kFeatherVersion, table_->version());
-}
-
-TEST_F(TestTableBuilder, EmptyTable) {
-  Finish();
-
-  ASSERT_FALSE(table_->HasDescription());
-  ASSERT_EQ("", table_->GetDescription());
-  ASSERT_EQ(1000, table_->num_rows());
-  ASSERT_EQ(0, table_->num_columns());
-}
-
-TEST_F(TestTableBuilder, SetDescription) {
-  std::string desc("this is some good data");
-  tb_->SetDescription(desc);
-  Finish();
-  ASSERT_TRUE(table_->HasDescription());
-  ASSERT_EQ(desc, table_->GetDescription());
-}
-
-void AssertArrayEquals(const ArrayMetadata& left, const ArrayMetadata& right) {
-  EXPECT_EQ(left.type, right.type);
-  EXPECT_EQ(left.offset, right.offset);
-  EXPECT_EQ(left.length, right.length);
-  EXPECT_EQ(left.null_count, right.null_count);
-  EXPECT_EQ(left.total_bytes, right.total_bytes);
-}
-
-TEST_F(TestTableBuilder, AddPrimitiveColumn) {
-  std::unique_ptr<ColumnBuilder> cb = tb_->AddColumn("f0");
-
-  ArrayMetadata values1;
-  ArrayMetadata values2;
-  values1.type = fbs::Type::INT32;
-  values1.offset = 10000;
-  values1.length = 1000;
-  values1.null_count = 100;
-  values1.total_bytes = 4000;
-
-  cb->SetValues(values1);
-
-  std::string user_meta = "as you wish";
-  cb->SetUserMetadata(user_meta);
-
-  ASSERT_OK(cb->Finish());
-
-  cb = tb_->AddColumn("f1");
-
-  values2.type = fbs::Type::UTF8;
-  values2.offset = 14000;
-  values2.length = 1000;
-  values2.null_count = 100;
-  values2.total_bytes = 10000;
-
-  cb->SetValues(values2);
-  ASSERT_OK(cb->Finish());
-
-  Finish();
-
-  ASSERT_EQ(2, table_->num_columns());
-
-  auto col = table_->column(0);
-
-  ASSERT_EQ("f0", col->name()->str());
-  ASSERT_EQ(user_meta, col->user_metadata()->str());
-
-  ArrayMetadata values3;
-  FromFlatbuffer(col->values(), &values3);
-  AssertArrayEquals(values3, values1);
-
-  col = table_->column(1);
-  ASSERT_EQ("f1", col->name()->str());
-
-  ArrayMetadata values4;
-  FromFlatbuffer(col->values(), &values4);
-  AssertArrayEquals(values4, values2);
-}
-
-TEST_F(TestTableBuilder, AddCategoryColumn) {
-  ArrayMetadata values1(fbs::Type::UINT8, 10000, 1000, 100, 4000);
-  ArrayMetadata levels(fbs::Type::UTF8, 14000, 10, 0, 300);
-
-  std::unique_ptr<ColumnBuilder> cb = tb_->AddColumn("c0");
-  cb->SetValues(values1);
-  cb->SetCategory(levels);
-  ASSERT_OK(cb->Finish());
-
-  cb = tb_->AddColumn("c1");
-  cb->SetValues(values1);
-  cb->SetCategory(levels, true);
-  ASSERT_OK(cb->Finish());
-
-  Finish();
-
-  auto col = table_->column(0);
-  ASSERT_EQ(fbs::TypeMetadata::CategoryMetadata, col->metadata_type());
-
-  ArrayMetadata result;
-  FromFlatbuffer(col->values(), &result);
-  AssertArrayEquals(result, values1);
-
-  auto cat_ptr = static_cast<const fbs::CategoryMetadata*>(col->metadata());
-  ASSERT_FALSE(cat_ptr->ordered());
-
-  FromFlatbuffer(cat_ptr->levels(), &result);
-  AssertArrayEquals(result, levels);
-
-  col = table_->column(1);
-  cat_ptr = static_cast<const fbs::CategoryMetadata*>(col->metadata());
-  ASSERT_TRUE(cat_ptr->ordered());
-  FromFlatbuffer(cat_ptr->levels(), &result);
-  AssertArrayEquals(result, levels);
-}
-
-TEST_F(TestTableBuilder, AddTimestampColumn) {
-  ArrayMetadata values1(fbs::Type::INT64, 10000, 1000, 100, 4000);
-  std::unique_ptr<ColumnBuilder> cb = tb_->AddColumn("c0");
-  cb->SetValues(values1);
-  cb->SetTimestamp(TimeUnit::MILLI);
-  ASSERT_OK(cb->Finish());
-
-  cb = tb_->AddColumn("c1");
-
-  std::string tz("America/Los_Angeles");
-
-  cb->SetValues(values1);
-  cb->SetTimestamp(TimeUnit::SECOND, tz);
-  ASSERT_OK(cb->Finish());
-
-  Finish();
-
-  auto col = table_->column(0);
-
-  ASSERT_EQ(fbs::TypeMetadata::TimestampMetadata, col->metadata_type());
-
-  ArrayMetadata result;
-  FromFlatbuffer(col->values(), &result);
-  AssertArrayEquals(result, values1);
-
-  auto ts_ptr = static_cast<const fbs::TimestampMetadata*>(col->metadata());
-  ASSERT_EQ(fbs::TimeUnit::MILLISECOND, ts_ptr->unit());
-
-  col = table_->column(1);
-  ts_ptr = static_cast<const fbs::TimestampMetadata*>(col->metadata());
-  ASSERT_EQ(fbs::TimeUnit::SECOND, ts_ptr->unit());
-  ASSERT_EQ(tz, ts_ptr->timezone()->str());
-}
-
-TEST_F(TestTableBuilder, AddDateColumn) {
-  ArrayMetadata values1(fbs::Type::INT64, 10000, 1000, 100, 4000);
-  std::unique_ptr<ColumnBuilder> cb = tb_->AddColumn("d0");
-  cb->SetValues(values1);
-  cb->SetDate();
-  ASSERT_OK(cb->Finish());
-
-  Finish();
-
-  auto col = table_->column(0);
-
-  ASSERT_EQ(fbs::TypeMetadata::DateMetadata, col->metadata_type());
-  ArrayMetadata result;
-  FromFlatbuffer(col->values(), &result);
-  AssertArrayEquals(result, values1);
-}
-
-TEST_F(TestTableBuilder, AddTimeColumn) {
-  ArrayMetadata values1(fbs::Type::INT64, 10000, 1000, 100, 4000);
-  std::unique_ptr<ColumnBuilder> cb = tb_->AddColumn("c0");
-  cb->SetValues(values1);
-  cb->SetTime(TimeUnit::SECOND);
-  ASSERT_OK(cb->Finish());
-  Finish();
-
-  auto col = table_->column(0);
-
-  ASSERT_EQ(fbs::TypeMetadata::TimeMetadata, col->metadata_type());
-  ArrayMetadata result;
-  FromFlatbuffer(col->values(), &result);
-  AssertArrayEquals(result, values1);
-
-  auto t_ptr = static_cast<const fbs::TimeMetadata*>(col->metadata());
-  ASSERT_EQ(fbs::TimeUnit::SECOND, t_ptr->unit());
-}
-
-void CheckArrays(const Array& expected, const Array& result) {
-  if (!result.Equals(expected)) {
-    std::stringstream pp_result;
-    std::stringstream pp_expected;
-
-    ARROW_EXPECT_OK(PrettyPrint(result, 0, &pp_result));
-    ARROW_EXPECT_OK(PrettyPrint(expected, 0, &pp_expected));
-    FAIL() << "Got: " << pp_result.str() << "\nExpected: " << pp_expected.str();
-  }
-}
-
-void CheckBatches(const RecordBatch& expected, const RecordBatch& result) {
-  if (!result.Equals(expected)) {
-    std::stringstream pp_result;
-    std::stringstream pp_expected;
-
-    ARROW_EXPECT_OK(PrettyPrint(result, 0, &pp_result));
-    ARROW_EXPECT_OK(PrettyPrint(expected, 0, &pp_expected));
-    FAIL() << "Got: " << pp_result.str() << "\nExpected: " << pp_expected.str();
-  }
-}
-
-class TestTableReader : public ::testing::Test {
+class TestFeather : public ::testing::TestWithParam<TestParam> {
  public:
-  void SetUp() {
-    ASSERT_OK_AND_ASSIGN(stream_, io::BufferOutputStream::Create());
-    ASSERT_OK(TableWriter::Open(stream_, &writer_));
+  void SetUp() { Initialize(); }
+
+  void Initialize() { ASSERT_OK_AND_ASSIGN(stream_, io::BufferOutputStream::Create()); }
+
+  WriteProperties GetProperties() {
+    auto param = GetParam();
+
+    auto props = WriteProperties::Defaults();
+    props.version = param.version;
+
+    // Don't fail if the build doesn't have LZ4 or ZSTD enabled
+    if (util::Codec::IsAvailable(param.compression)) {
+      props.compression = param.compression;
+    } else {
+      props.compression = Compression::UNCOMPRESSED;
+    }
+    return props;
   }
 
-  void Finish() {
-    // Write table footer
-    ASSERT_OK(writer_->Finalize());
-
+  void DoWrite(const Table& table) {
+    Initialize();
+    ASSERT_OK(WriteTable(table, stream_.get(), GetProperties()));
     ASSERT_OK_AND_ASSIGN(output_, stream_->Finish());
-
     auto buffer = std::make_shared<io::BufferReader>(output_);
-    ASSERT_OK(TableReader::Open(buffer, &reader_));
+    ASSERT_OK_AND_ASSIGN(reader_, Reader::Open(buffer));
   }
 
- protected:
-  std::shared_ptr<io::BufferOutputStream> stream_;
-  std::unique_ptr<TableWriter> writer_;
-  std::unique_ptr<TableReader> reader_;
+  void CheckSlice(std::shared_ptr<RecordBatch> batch, int start, int size) {
+    batch = batch->Slice(start, size);
+    std::shared_ptr<Table> table;
+    ASSERT_OK(Table::FromRecordBatches({batch}, &table));
 
-  std::shared_ptr<Buffer> output_;
-};
-
-TEST_F(TestTableReader, ReadIndices) {
-  std::shared_ptr<RecordBatch> batch1;
-  ASSERT_OK(ipc::test::MakeIntRecordBatch(&batch1));
-  std::shared_ptr<RecordBatch> batch2;
-  ASSERT_OK(ipc::test::MakeIntRecordBatch(&batch2));
-
-  ASSERT_OK(writer_->Append("f0", *batch1->column(0)));
-  ASSERT_OK(writer_->Append("f1", *batch1->column(1)));
-  ASSERT_OK(writer_->Append("f2", *batch2->column(0)));
-  ASSERT_OK(writer_->Append("f3", *batch2->column(1)));
-  Finish();
-
-  std::vector<int> indices({3, 0, 5});
-  std::shared_ptr<Table> result;
-  ASSERT_OK(reader_->Read(indices, &result));
-  std::vector<std::shared_ptr<Field>> fields;
-  std::vector<std::shared_ptr<Array>> arrays;
-  fields.push_back(std::make_shared<Field>("f0", int32()));
-  arrays.push_back(batch1->column(0));
-  fields.push_back(std::make_shared<Field>("f3", int32()));
-  arrays.push_back(batch2->column(1));
-  auto expected = Table::Make(std::make_shared<Schema>(fields), arrays);
-  AssertTablesEqual(*expected, *result);
-}
-
-TEST_F(TestTableReader, ReadNames) {
-  std::shared_ptr<RecordBatch> batch1;
-  ASSERT_OK(ipc::test::MakeIntRecordBatch(&batch1));
-  std::shared_ptr<RecordBatch> batch2;
-  ASSERT_OK(ipc::test::MakeIntRecordBatch(&batch2));
-
-  ASSERT_OK(writer_->Append("f0", *batch1->column(0)));
-  ASSERT_OK(writer_->Append("f1", *batch1->column(1)));
-  ASSERT_OK(writer_->Append("f2", *batch2->column(0)));
-  ASSERT_OK(writer_->Append("f3", *batch2->column(1)));
-  Finish();
-
-  std::vector<std::string> names({"f3", "f0", "f5"});
-  std::shared_ptr<Table> result;
-  ASSERT_OK(reader_->Read(names, &result));
-  std::vector<std::shared_ptr<Field>> fields;
-  std::vector<std::shared_ptr<Array>> arrays;
-  fields.push_back(std::make_shared<Field>("f0", int32()));
-  arrays.push_back(batch1->column(0));
-  fields.push_back(std::make_shared<Field>("f3", int32()));
-  arrays.push_back(batch2->column(1));
-  auto expected = Table::Make(std::make_shared<Schema>(fields), arrays);
-  AssertTablesEqual(*expected, *result);
-}
-
-class TestTableWriter : public ::testing::Test {
- public:
-  void SetUp() {
-    ASSERT_OK_AND_ASSIGN(stream_, io::BufferOutputStream::Create());
-    ASSERT_OK(TableWriter::Open(stream_, &writer_));
+    DoWrite(*table);
+    std::shared_ptr<Table> result;
+    ASSERT_OK(reader_->Read(&result));
+    if (table->num_rows() > 0) {
+      AssertTablesEqual(*table, *result);
+    } else {
+      ASSERT_EQ(0, result->num_rows());
+      ASSERT_TRUE(result->schema()->Equals(*table->schema()));
+    }
   }
 
-  void Finish() {
-    // Write table footer
-    ASSERT_OK(writer_->Finalize());
-
-    ASSERT_OK_AND_ASSIGN(output_, stream_->Finish());
-
-    auto buffer = std::make_shared<io::BufferReader>(output_);
-    ASSERT_OK(TableReader::Open(buffer, &reader_));
+  void CheckSlices(std::shared_ptr<RecordBatch> batch) {
+    std::vector<int> starts = {0, 1, 300, 301, 302, 303, 304, 305, 306, 307};
+    std::vector<int> sizes = {0, 1, 7, 8, 30, 32, 100};
+    for (auto start : starts) {
+      for (auto size : sizes) {
+        CheckSlice(batch, start, size);
+      }
+    }
   }
 
-  void CheckBatch(std::shared_ptr<RecordBatch> batch) {
+  void CheckRoundtrip(std::shared_ptr<RecordBatch> batch) {
     std::shared_ptr<Table> table;
     std::vector<std::shared_ptr<RecordBatch>> batches = {batch};
     ASSERT_OK(Table::FromRecordBatches(batches, &table));
-    ASSERT_OK(writer_->Write(*table));
-    Finish();
+
+    DoWrite(*table);
 
     std::shared_ptr<Table> read_table;
     ASSERT_OK(reader_->Read(&read_table));
@@ -384,65 +121,83 @@ class TestTableWriter : public ::testing::Test {
 
  protected:
   std::shared_ptr<io::BufferOutputStream> stream_;
-  std::unique_ptr<TableWriter> writer_;
-  std::unique_ptr<TableReader> reader_;
-
+  std::shared_ptr<Reader> reader_;
   std::shared_ptr<Buffer> output_;
 };
 
-TEST_F(TestTableWriter, EmptyTable) {
-  Finish();
+TEST(TestFeatherWriteProperties, Defaults) {
+  auto props = WriteProperties::Defaults();
 
-  ASSERT_FALSE(reader_->HasDescription());
-  ASSERT_EQ("", reader_->GetDescription());
-
-  ASSERT_EQ(0, reader_->num_rows());
-  ASSERT_EQ(0, reader_->num_columns());
+#ifdef ARROW_WITH_LZ4
+  ASSERT_EQ(Compression::LZ4, props.compression);
+#else
+  ASSERT_EQ(Compression::UNCOMPRESSED, props.compression);
+#endif
 }
 
-TEST_F(TestTableWriter, SetNumRows) {
-  writer_->SetNumRows(1000);
-  Finish();
-  ASSERT_EQ(1000, reader_->num_rows());
+TEST_P(TestFeather, ReadIndicesOrNames) {
+  std::shared_ptr<RecordBatch> batch1;
+  ASSERT_OK(ipc::test::MakeIntRecordBatch(&batch1));
+
+  std::shared_ptr<Table> table;
+  ASSERT_OK(Table::FromRecordBatches({batch1}, &table));
+
+  DoWrite(*table);
+
+  auto expected = Table::Make(schema({field("f1", int32())}), {batch1->column(1)});
+
+  std::shared_ptr<Table> result1, result2;
+
+  std::vector<int> indices = {1};
+  ASSERT_OK(reader_->Read(indices, &result1));
+  AssertTablesEqual(*expected, *result1);
+
+  std::vector<std::string> names = {"f1"};
+  ASSERT_OK(reader_->Read(names, &result2));
+  AssertTablesEqual(*expected, *result2);
 }
 
-TEST_F(TestTableWriter, SetDescription) {
-  std::string desc("contents of the file");
-  writer_->SetDescription(desc);
-  Finish();
+TEST_P(TestFeather, EmptyTable) {
+  std::vector<std::shared_ptr<ChunkedArray>> columns;
+  auto table = Table::Make(schema({}), columns, 0);
 
-  ASSERT_TRUE(reader_->HasDescription());
-  ASSERT_EQ(desc, reader_->GetDescription());
+  DoWrite(*table);
 
-  ASSERT_EQ(0, reader_->num_rows());
-  ASSERT_EQ(0, reader_->num_columns());
+  std::shared_ptr<Table> result;
+  ASSERT_OK(reader_->Read(&result));
+  AssertTablesEqual(*table, *result);
 }
 
-TEST_F(TestTableWriter, PrimitiveRoundTrip) {
+TEST_P(TestFeather, SetNumRows) {
+  std::vector<std::shared_ptr<ChunkedArray>> columns;
+  auto table = Table::Make(schema({}), columns, 1000);
+  DoWrite(*table);
+  std::shared_ptr<Table> result;
+  ASSERT_OK(reader_->Read(&result));
+  ASSERT_EQ(1000, result->num_rows());
+}
+
+TEST_P(TestFeather, PrimitiveRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(ipc::test::MakeIntRecordBatch(&batch));
 
-  ASSERT_OK(writer_->Append("f0", *batch->column(0)));
-  ASSERT_OK(writer_->Append("f1", *batch->column(1)));
-  Finish();
+  std::shared_ptr<Table> table;
+  ASSERT_OK(Table::FromRecordBatches({batch}, &table));
 
-  std::shared_ptr<ChunkedArray> col;
-  ASSERT_OK(reader_->GetColumn(0, &col));
-  ASSERT_TRUE(col->chunk(0)->Equals(batch->column(0)));
-  ASSERT_EQ("f0", reader_->GetColumnName(0));
+  DoWrite(*table);
 
-  ASSERT_OK(reader_->GetColumn(1, &col));
-  ASSERT_TRUE(col->chunk(0)->Equals(batch->column(1)));
-  ASSERT_EQ("f1", reader_->GetColumnName(1));
+  std::shared_ptr<Table> result;
+  ASSERT_OK(reader_->Read(&result));
+  AssertTablesEqual(*table, *result);
 }
 
-TEST_F(TestTableWriter, CategoryRoundtrip) {
+TEST_P(TestFeather, CategoryRoundtrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(ipc::test::MakeDictionaryFlat(&batch));
-  CheckBatch(batch);
+  CheckRoundtrip(batch);
 }
 
-TEST_F(TestTableWriter, TimeTypes) {
+TEST_P(TestFeather, TimeTypes) {
   std::vector<bool> is_valid = {true, true, true, false, true, true, true};
   auto f0 = field("f0", date32());
   auto f1 = field("f1", time32(TimeUnit::MILLI));
@@ -485,85 +240,64 @@ TEST_F(TestTableWriter, TimeTypes) {
   }
 
   auto batch = RecordBatch::Make(schema, 7, std::move(arrays));
-  CheckBatch(batch);
+  CheckRoundtrip(batch);
 }
 
-TEST_F(TestTableWriter, VLenPrimitiveRoundTrip) {
+TEST_P(TestFeather, VLenPrimitiveRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(ipc::test::MakeStringTypesRecordBatch(&batch));
-  CheckBatch(batch);
+  CheckRoundtrip(batch);
 }
 
-TEST_F(TestTableWriter, PrimitiveNullRoundTrip) {
+TEST_P(TestFeather, PrimitiveNullRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(ipc::test::MakeNullRecordBatch(&batch));
 
-  for (int i = 0; i < batch->num_columns(); ++i) {
-    ASSERT_OK(writer_->Append(batch->column_name(i), *batch->column(i)));
-  }
-  Finish();
+  std::shared_ptr<Table> table;
+  ASSERT_OK(Table::FromRecordBatches({batch}, &table));
 
-  std::shared_ptr<ChunkedArray> col;
-  for (int i = 0; i < batch->num_columns(); ++i) {
-    ASSERT_OK(reader_->GetColumn(i, &col));
-    ASSERT_EQ(batch->column_name(i), reader_->GetColumnName(i));
-    StringArray str_values(batch->column(i)->length(), nullptr, nullptr,
-                           batch->column(i)->null_bitmap(),
-                           batch->column(i)->null_count());
-    CheckArrays(str_values, *col->chunk(0));
+  DoWrite(*table);
+
+  std::shared_ptr<Table> result;
+  ASSERT_OK(reader_->Read(&result));
+
+  if (GetParam().version == kFeatherV1Version) {
+    std::vector<std::shared_ptr<Array>> expected_fields;
+    for (int i = 0; i < batch->num_columns(); ++i) {
+      ASSERT_EQ(batch->column_name(i), reader_->schema()->field(i)->name());
+      StringArray str_values(batch->column(i)->length(), nullptr, nullptr,
+                             batch->column(i)->null_bitmap(),
+                             batch->column(i)->null_count());
+      AssertArraysEqual(str_values, *result->column(i)->chunk(0));
+    }
+  } else {
+    AssertTablesEqual(*table, *result);
   }
 }
 
-class TestTableWriterSlice : public TestTableWriter,
-                             public ::testing::WithParamInterface<std::tuple<int, int>> {
- public:
-  void CheckSlice(std::shared_ptr<RecordBatch> batch) {
-    auto p = GetParam();
-    auto start = std::get<0>(p);
-    auto size = std::get<1>(p);
-
-    batch = batch->Slice(start, size);
-
-    ASSERT_OK(writer_->Append("f0", *batch->column(0)));
-    ASSERT_OK(writer_->Append("f1", *batch->column(1)));
-    Finish();
-
-    std::shared_ptr<ChunkedArray> col;
-    ASSERT_OK(reader_->GetColumn(0, &col));
-    ASSERT_TRUE(col->chunk(0)->Equals(batch->column(0)));
-    ASSERT_EQ("f0", reader_->GetColumnName(0));
-
-    ASSERT_OK(reader_->GetColumn(1, &col));
-    ASSERT_TRUE(col->chunk(0)->Equals(batch->column(1)));
-    ASSERT_EQ("f1", reader_->GetColumnName(1));
-  }
-};
-
-TEST_P(TestTableWriterSlice, SliceRoundTrip) {
+TEST_P(TestFeather, SliceRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(ipc::test::MakeIntBatchSized(600, &batch));
-  CheckSlice(batch);
+  CheckSlices(batch);
 }
 
-TEST_P(TestTableWriterSlice, SliceStringsRoundTrip) {
-  auto p = GetParam();
-  auto start = std::get<0>(p);
-  auto with_nulls = start % 2 == 0;
+TEST_P(TestFeather, SliceStringsRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(ipc::test::MakeStringTypesRecordBatch(&batch, with_nulls));
-  CheckSlice(batch);
+  ASSERT_OK(ipc::test::MakeStringTypesRecordBatch(&batch, /*with_nulls=*/true));
+  CheckSlices(batch);
 }
 
-TEST_P(TestTableWriterSlice, SliceBooleanRoundTrip) {
+TEST_P(TestFeather, SliceBooleanRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(ipc::test::MakeBooleanBatchSized(600, &batch));
-  CheckSlice(batch);
+  CheckSlices(batch);
 }
 
-INSTANTIATE_TEST_SUITE_P(TestTableWriterSliceOffsets, TestTableWriterSlice,
-                         ::testing::Combine(::testing::Values(0, 1, 300, 301, 302, 303,
-                                                              304, 305, 306, 307),
-                                            ::testing::Values(0, 1, 7, 8, 30, 32, 100)));
+INSTANTIATE_TEST_SUITE_P(
+    FeatherTests, TestFeather,
+    ::testing::Values(TestParam(kFeatherV1Version), TestParam(kFeatherV2Version),
+                      TestParam(kFeatherV2Version, Compression::LZ4),
+                      TestParam(kFeatherV2Version, Compression::ZSTD)));
 
 }  // namespace feather
 }  // namespace ipc

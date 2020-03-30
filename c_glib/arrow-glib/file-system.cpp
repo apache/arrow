@@ -85,27 +85,27 @@ garrow_file_info_set_property(GObject *object,
                               const GValue *value,
                               GParamSpec *pspec)
 {
-  auto &arrow_file_info = garrow_file_info_get_raw(GARROW_FILE_INFO(object));
+  auto arrow_file_info = garrow_file_info_get_raw(GARROW_FILE_INFO(object));
 
   switch (prop_id) {
   case PROP_FILE_INFO_TYPE:
     {
       auto arrow_file_type =
         static_cast<arrow::fs::FileType>(g_value_get_enum(value));
-      arrow_file_info.set_type(arrow_file_type);
+      arrow_file_info->set_type(arrow_file_type);
     }
     break;
   case PROP_FILE_INFO_PATH:
-    arrow_file_info.set_path(g_value_get_string(value));
+    arrow_file_info->set_path(g_value_get_string(value));
     break;
   case PROP_FILE_INFO_SIZE:
-    arrow_file_info.set_size(g_value_get_int64(value));
+    arrow_file_info->set_size(g_value_get_int64(value));
     break;
   case PROP_FILE_INFO_MTIME:
     {
       const gint64 mtime = g_value_get_int64(value);
       const arrow::fs::TimePoint::duration duration(mtime);
-      arrow_file_info.set_mtime(arrow::fs::TimePoint(duration));
+      arrow_file_info->set_mtime(arrow::fs::TimePoint(duration));
     }
     break;
   default:
@@ -120,35 +120,35 @@ garrow_file_info_get_property(GObject *object,
                               GValue *value,
                               GParamSpec *pspec)
 {
-  const auto &arrow_file_info =
+  const auto arrow_file_info =
     garrow_file_info_get_raw(GARROW_FILE_INFO(object));
 
   switch (prop_id) {
   case PROP_FILE_INFO_TYPE:
     {
-      const auto arrow_file_type = arrow_file_info.type();
+      const auto arrow_file_type = arrow_file_info->type();
       const auto file_type = static_cast<GArrowFileType>(arrow_file_type);
       g_value_set_enum(value, file_type);
     }
     break;
   case PROP_FILE_INFO_PATH:
-    g_value_set_string(value, arrow_file_info.path().c_str());
+    g_value_set_string(value, arrow_file_info->path().c_str());
     break;
   case PROP_FILE_INFO_BASE_NAME:
-    g_value_set_string(value, arrow_file_info.base_name().c_str());
+    g_value_set_string(value, arrow_file_info->base_name().c_str());
     break;
   case PROP_FILE_INFO_DIR_NAME:
-    g_value_set_string(value, arrow_file_info.dir_name().c_str());
+    g_value_set_string(value, arrow_file_info->dir_name().c_str());
     break;
   case PROP_FILE_INFO_EXTENSION:
-    g_value_set_string(value, arrow_file_info.extension().c_str());
+    g_value_set_string(value, arrow_file_info->extension().c_str());
     break;
   case PROP_FILE_INFO_SIZE:
-    g_value_set_int64(value, arrow_file_info.size());
+    g_value_set_int64(value, arrow_file_info->size());
     break;
   case PROP_FILE_INFO_MTIME:
     {
-      const auto arrow_mtime = arrow_file_info.mtime();
+      const auto arrow_mtime = arrow_file_info->mtime();
       const auto mtime = arrow_mtime.time_since_epoch().count();
       g_value_set_int64(value, mtime);
     }
@@ -317,9 +317,9 @@ gboolean
 garrow_file_info_equal(GArrowFileInfo *file_info,
                        GArrowFileInfo *other_file_info)
 {
-  const auto &arrow_file_info = garrow_file_info_get_raw(file_info);
-  const auto &arrow_other_file_info = garrow_file_info_get_raw(other_file_info);
-  return arrow_file_info.Equals(arrow_other_file_info);
+  const auto arrow_file_info = garrow_file_info_get_raw(file_info);
+  const auto arrow_other_file_info = garrow_file_info_get_raw(other_file_info);
+  return arrow_file_info->Equals(*arrow_other_file_info);
 }
 
 /**
@@ -333,8 +333,8 @@ garrow_file_info_equal(GArrowFileInfo *file_info,
 gboolean
 garrow_file_info_is_file(GArrowFileInfo *file_info)
 {
-  const auto &arrow_file_info = garrow_file_info_get_raw(file_info);
-  return arrow_file_info.IsFile();
+  const auto arrow_file_info = garrow_file_info_get_raw(file_info);
+  return arrow_file_info->IsFile();
 }
 
 /**
@@ -348,8 +348,8 @@ garrow_file_info_is_file(GArrowFileInfo *file_info)
 gboolean
 garrow_file_info_is_dir(GArrowFileInfo *file_info)
 {
-  const auto &arrow_file_info = garrow_file_info_get_raw(file_info);
-  return arrow_file_info.IsDirectory();
+  const auto arrow_file_info = garrow_file_info_get_raw(file_info);
+  return arrow_file_info->IsDirectory();
 }
 
 /**
@@ -365,8 +365,8 @@ garrow_file_info_is_dir(GArrowFileInfo *file_info)
 gchar *
 garrow_file_info_to_string(GArrowFileInfo *file_info)
 {
-  const auto &arrow_file_info = garrow_file_info_get_raw(file_info);
-  auto string = arrow_file_info.ToString();
+  const auto arrow_file_info = garrow_file_info_get_raw(file_info);
+  auto string = arrow_file_info->ToString();
   return g_strndup(string.data(), string.size());
 }
 
@@ -1308,10 +1308,11 @@ garrow_file_info_new_raw(const arrow::fs::FileInfo &arrow_file_info)
   return file_info;
 }
 
-arrow::fs::FileInfo &
+arrow::fs::FileInfo *
 garrow_file_info_get_raw(GArrowFileInfo *file_info)
 {
-  return GARROW_FILE_INFO_GET_PRIVATE(file_info)->file_info;
+  auto priv = GARROW_FILE_INFO_GET_PRIVATE(file_info);
+  return &(priv->file_info);
 }
 
 std::shared_ptr<arrow::fs::FileSystem>
