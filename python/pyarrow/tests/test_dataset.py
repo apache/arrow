@@ -486,6 +486,48 @@ def test_expression_ergonomics():
         field | [1]
 
 
+def test_parquet_read_options():
+    opts1 = ds.ParquetReadOptions()
+    opts2 = ds.ParquetReadOptions(buffer_size=4096,
+                                  dictionary_columns=['a', 'b'])
+    opts3 = ds.ParquetReadOptions(buffer_size=2**13, use_buffered_stream=True,
+                                  dictionary_columns={'a', 'b'})
+
+    assert opts1.use_buffered_stream is False
+    assert opts1.buffer_size == 2**13
+    assert opts1.dictionary_columns == set()
+
+    assert opts2.use_buffered_stream is False
+    assert opts2.buffer_size == 2**12
+    assert opts2.dictionary_columns == {'a', 'b'}
+
+    assert opts3.use_buffered_stream is True
+    assert opts3.buffer_size == 2**13
+    assert opts3.dictionary_columns == {'a', 'b'}
+
+    assert opts1 == opts1
+    assert opts1 != opts2
+    assert opts2 != opts3
+
+
+def test_file_format_pickling():
+    formats = [
+        ds.IpcFileFormat(),
+        ds.ParquetFileFormat(),
+        ds.ParquetFileFormat(
+            read_options=ds.ParquetReadOptions(use_buffered_stream=True)
+        ),
+        ds.ParquetFileFormat(
+            read_options={
+                'use_buffered_stream': True,
+                'buffer_size': 4096,
+            }
+        )
+    ]
+    for file_format in formats:
+        assert pickle.loads(pickle.dumps(file_format)) == file_format
+
+
 @pytest.mark.parametrize('paths_or_selector', [
     fs.FileSelector('subdir', recursive=True),
     [
@@ -499,7 +541,9 @@ def test_expression_ergonomics():
     ]
 ])
 def test_filesystem_factory(mockfs, paths_or_selector):
-    format = ds.ParquetFileFormat(reader_options=dict(dict_columns={"str"}))
+    format = ds.ParquetFileFormat(
+        read_options=ds.ParquetReadOptions(dictionary_columns={"str"})
+    )
 
     options = ds.FileSystemFactoryOptions('subdir')
     options.partitioning = ds.DirectoryPartitioning(

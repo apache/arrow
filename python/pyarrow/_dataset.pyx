@@ -399,6 +399,12 @@ cdef class FileFormat:
                                      partition_expression.unwrap()))
         return Fragment.wrap(<shared_ptr[CFragment]> move(c_fragment))
 
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
+
 
 cdef class Fragment:
     """Fragment of data from a Dataset."""
@@ -591,43 +597,46 @@ cdef class ParquetFileFragment(FileFragment):
                 yield Fragment.wrap(c_fragment)
 
 
-cdef class ParquetFileFormatReaderOptions:
-    cdef:
-        CParquetFileFormatReaderOptions* options
+cdef class ParquetReadOptions:
+    """
+    Parquet format specific options for reading.
 
-    def __init__(self, ParquetFileFormat fmt):
-        self.options = &fmt.parquet_format.reader_options
+    Parameters
+    ----------
+    use_buffered_stream : bool, default False
+        Read files through buffered input streams rather than loading entire
+        row groups at once. This may be enabled to reduce memory overhead.
+        Disabled by default.
+    buffer_size : int, default 8192
+        Size of buffered stream, if enabled. Default is 8KB.
+    dictionary_columns : list of string, default None
+        Names of columns which should be read as dictionaries.
+    """
 
-    @property
-    def use_buffered_stream(self):
-        """Read files through buffered input streams rather than
-        loading entire row groups at once. This may be enabled to
-        reduce memory overhead. Disabled by default."""
-        return self.options.use_buffered_stream
+    cdef public:
+        bint use_buffered_stream
+        uint32_t buffer_size
+        set dictionary_columns
 
-    @use_buffered_stream.setter
-    def use_buffered_stream(self, bint value):
-        self.options.use_buffered_stream = value
+    def __init__(self, bint use_buffered_stream=False,
+                 uint32_t buffer_size=8192,
+                 dictionary_columns=None):
+        self.use_buffered_stream = use_buffered_stream
+        self.buffer_size = buffer_size
+        self.dictionary_columns = set(dictionary_columns or set())
 
-    @property
-    def buffer_size(self):
-        """Size of buffered stream, if enabled. Default is 8KB."""
-        return self.options.buffer_size
+    def equals(self, ParquetReadOptions other):
+        return (
+            self.use_buffered_stream == other.use_buffered_stream and
+            self.buffer_size == other.buffer_size and
+            self.dictionary_columns == other.dictionary_columns
+        )
 
-    @buffer_size.setter
-    def buffer_size(self, int value):
-        self.options.buffer_size = value
-
-    @property
-    def dict_columns(self):
-        """Names of columns which should be read as dictionaries."""
-        return self.options.dict_columns
-
-    @dict_columns.setter
-    def dict_columns(self, values):
-        self.options.dict_columns.clear()
-        for value in set(values):
-            self.options.dict_columns.insert(tobytes(value))
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
 
 
 cdef class ParquetFileFormat(FileFormat):
@@ -635,18 +644,48 @@ cdef class ParquetFileFormat(FileFormat):
     cdef:
         CParquetFileFormat* parquet_format
 
-    def __init__(self, dict reader_options=dict()):
-        self.init(<shared_ptr[CFileFormat]> make_shared[CParquetFileFormat]())
-        for name, value in reader_options.items():
-            setattr(self.reader_options, name, value)
+    def __init__(self, read_options=None):
+        cdef:
+            shared_ptr[CParquetFileFormat] wrapped
+            CParquetFileFormatReaderOptions* options
+
+        if read_options is None:
+            read_options = ParquetReadOptions()
+        elif isinstance(read_options, dict):
+            read_options = ParquetReadOptions(**read_options)
+        elif not isinstance(read_options, ParquetReadOptions):
+            raise TypeError('`read_options` must be either a dictionary or an '
+                            'instance of ParquetReadOptions')
+
+        wrapped = make_shared[CParquetFileFormat]()
+        options = &(wrapped.get().reader_options)
+        options.use_buffered_stream = read_options.use_buffered_stream
+        options.buffer_size = read_options.buffer_size
+        if read_options.dictionary_columns is not None:
+            for column in read_options.dictionary_columns:
+                options.dict_columns.insert(tobytes(column))
+
+        self.init(<shared_ptr[CFileFormat]> wrapped)
 
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         FileFormat.init(self, sp)
-        self.parquet_format = <CParquetFileFormat*> self.wrapped.get()
+        self.parquet_format = <CParquetFileFormat*> sp.get()
 
     @property
-    def reader_options(self):
-        return ParquetFileFormatReaderOptions(self)
+    def read_options(self):
+        cdef CParquetFileFormatReaderOptions* options
+        options = &self.parquet_format.reader_options
+        return ParquetReadOptions(
+            use_buffered_stream=options.use_buffered_stream,
+            buffer_size=options.buffer_size,
+            dictionary_columns={frombytes(col) for col in options.dict_columns}
+        )
+
+    def equals(self, ParquetFileFormat other):
+        return self.read_options.equals(other.read_options)
+
+    def __reduce__(self):
+        return ParquetFileFormat, (self.read_options,)
 
     def make_fragment(self, str path not None, FileSystem filesystem not None,
                       Schema schema=None, columns=None, filter=None,
@@ -684,6 +723,12 @@ cdef class IpcFileFormat(FileFormat):
 
     def __init__(self):
         self.init(shared_ptr[CFileFormat](new CIpcFileFormat()))
+
+    def equals(self, IpcFileFormat other):
+        return True
+
+    def __reduce__(self):
+        return IpcFileFormat, tuple()
 
 
 cdef class Partitioning:
