@@ -1,6 +1,6 @@
 Keras-Preprocessing
 cython
-numpy>=1.16
+numpy==1.14.6
 pandas
 setuptools_scm==3.2.0
 wheel

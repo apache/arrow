@@ -24,7 +24,7 @@ conda create -n wheel-build -q -y -c conda-forge ^
     --file=%ARROW_SRC%\ci\conda_env_cpp.yml ^
     --file=%ARROW_SRC%\ci\conda_env_gandiva.yml ^
     python=%PYTHON_VERSION% ^
-    numpy=%NUMPY_VERSION% ^
+    numpy=1.14 ^
     || exit /B
 
 call conda.bat activate wheel-build
@@ -93,7 +93,7 @@ set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
 conda create -n wheel-test -c conda-forge -q -y ^
     --file %ARROW_SRC%\ci\conda_env_python.yml ^
     python=%PYTHON_VERSION% ^
-    numpy=%NUMPY_VERSION% || exit /B
+    numpy=1.14 || exit /B
 call conda.bat activate wheel-test
 
 @rem install the built wheel
