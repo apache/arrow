@@ -577,11 +577,14 @@ def test_make_fragment(multisourcefs):
         assert row_group_fragment.row_groups == {0}
 
 
+@pytest.mark.pandas
 def test_parquet_row_group_fragments(tempdir):
     import pyarrow as pa
     import pyarrow.parquet as pq
 
     table = pa.table({'a': ['a', 'a', 'b', 'b'], 'b': [1, 2, 3, 4]})
+
+    # write_to_dataset currently requires pandas
     pq.write_to_dataset(table, str(tempdir / "test_parquet_dataset"),
                         partition_cols=["a"])
 
