@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections import OrderedDict
 import io
 import os
 import sys
@@ -452,13 +451,15 @@ def test_unicode_filename(version):
 
 
 def test_read_columns(version):
-    data = OrderedDict({'foo': [1, 2, 3, 4],
-                        'boo': [5, 6, 7, 8],
-                        'woo': [1, 3, 5, 7]})
-    columns = list(data.keys())[1:3]
-    df = pd.DataFrame(data)
-    expected = pd.DataFrame(OrderedDict([(c, data[c]) for c in columns]))
-    _check_pandas_roundtrip(df, expected, version=version, columns=columns)
+    df = pd.DataFrame({
+        'foo': [1, 2, 3, 4],
+        'boo': [5, 6, 7, 8],
+        'woo': [1, 3, 5, 7]
+    })
+    expected = df[['boo', 'woo']]
+
+    _check_pandas_roundtrip(df, expected, version=version,
+                            columns=['boo', 'woo'])
 
 
 def test_overwritten_file(version):
