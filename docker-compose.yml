@@ -69,6 +69,7 @@ volumes:
   amd64-ubuntu-14.04-cache:
   amd64-ubuntu-16.04-cache:
   amd64-ubuntu-18.04-cache:
+  amd64-ubuntu-20.04-cache:
   maven-cache:
 
 x-ccache: &ccache
@@ -215,7 +216,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 18.04, 16.04, 14.04
+    #   UBUNTU: 16.04, 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -242,7 +243,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp-sanitizer
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 18.04, 16.04, 14.04
+    #   UBUNTU: 16.04, 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     cap_add:
       # For LeakSanitizer
@@ -276,7 +277,7 @@ services:
     #   docker-compose run --rm fedora-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   FEDORA: 30, ...
+    #   FEDORA: 30
     image: ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
     build:
       context: .
@@ -333,7 +334,7 @@ services:
     #   docker-compose run --rm ubuntu-c-glib
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 18.04, 16.04, 14.04
+    #   UBUNTU: 16.04, 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
     build:
       context: .
@@ -393,7 +394,7 @@ services:
     #   docker-compose run --rm ubuntu-ruby
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 18.04, 16.04, 14.04
+    #   UBUNTU: 16.04, 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-ruby
     build:
       context: .
@@ -493,7 +494,7 @@ services:
     #   docker-compose run --rm ubuntu-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 18.04, 16.04, 14.04
+    #   UBUNTU: 16.04, 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
@@ -515,7 +516,7 @@ services:
     #   docker-compose run --rm fedora-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 29, ...
+    #   FEDORA: 30
     image: ${REPO}:${ARCH}-fedora-${FEDORA}-python-3
     build:
       context: .

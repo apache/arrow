@@ -63,6 +63,7 @@ RUN \
     python3-dev \
     python3-numpy \
     python3-pip \
+    python3-setuptools \
     rapidjson-dev \
     tzdata \
     zlib1g-dev && \
@@ -70,6 +71,6 @@ RUN \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \
   apt clean && \
-  pip3 install --upgrade meson && \
+  python3 -m pip install --no-use-pep517 meson && \
   ln -s /usr/local/bin/meson /usr/bin/ && \
   rm -rf /var/lib/apt/lists/*

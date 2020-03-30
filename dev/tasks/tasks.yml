@@ -250,6 +250,7 @@ groups:
     - ubuntu-xenial
     - ubuntu-bionic
     - ubuntu-eoan
+    - ubuntu-focal
     - centos-6
     - centos-7
     - centos-8
