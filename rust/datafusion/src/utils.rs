@@ -151,18 +151,20 @@ mod tests {
             ],
         )?;
 
-        let table = create_table(&vec![batch])?;
+        let table = create_table(&vec![batch])?.to_string();
 
-        let expected = "+---+-----+\
-            \n| a | b   |\
-            \n+---+-----+\
-            \n| a | 1   |\
-            \n| b | 10  |\
-            \n| c | 10  |\
-            \n| d | 100 |\
-            \n+---+-----+\
-            \n";
-        let actual = table.to_string();
+        let expected = vec![
+            "+---+-----+",
+            "| a | b   |",
+            "+---+-----+",
+            "| a | 1   |",
+            "| b | 10  |",
+            "| c | 10  |",
+            "| d | 100 |",
+            "+---+-----+",
+        ];
+
+        let actual: Vec<&str> = table.lines().collect();
 
         assert_eq!(expected, actual);
 
