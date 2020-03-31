@@ -822,6 +822,17 @@ class UnifiedDiffFormatter {
 
 Result<std::function<Status(const Array& edits, const Array& base, const Array& target)>>
 MakeUnifiedDiffFormatter(const DataType& type, std::ostream* os) {
+  if (type.id() == Type::NA) {
+    return [os](const Array& edits, const Array& base, const Array& target) {
+      if (base.length() != target.length()) {
+        *os << "# Null arrays differed" << std::endl
+            << "-" << base.length() << " nulls" << std::endl
+            << "+" << target.length() << " nulls" << std::endl;
+      }
+      return Status::OK();
+    };
+  }
+
   ARROW_ASSIGN_OR_RAISE(auto formatter, MakeFormatter(type));
   return UnifiedDiffFormatter(os, std::move(formatter));
 }
