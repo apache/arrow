@@ -538,6 +538,92 @@ mod tests {
     use crate::record::RowAccessor;
     use crate::util::{memory::ByteBufferPtr, test_common::get_temp_file};
 
+    use arrow::array::Int32Array;
+    use arrow::datatypes::{DataType, Field, Schema};
+    use arrow::record_batch::RecordBatch;
+    use std::sync::Arc;
+
+    #[test]
+    fn arrow_writer() {
+        // define schema
+        let schema = Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("b", DataType::Int32, false),
+        ]);
+
+        // create some data
+        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
+        let b = Int32Array::from(vec![1, 2, 3, 4, 5]);
+
+        // build a record batch
+        let batch =
+            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])
+                .unwrap();
+
+        let file = File::create("test.parquet").unwrap();
+        //let file = File::create(path)?;
+
+        //pub fn new() {
+        //TODO convert Arrow schema to Parquet schema
+        let schema = Rc::new(
+            types::Type::group_type_builder("schema")
+                .with_fields(&mut vec![
+                    Rc::new(
+                        types::Type::primitive_type_builder("a", Type::INT32)
+                            .with_repetition(Repetition::REQUIRED)
+                            .build()
+                            .unwrap(),
+                    ),
+                    Rc::new(
+                        types::Type::primitive_type_builder("b", Type::INT32)
+                            .with_repetition(Repetition::REQUIRED)
+                            .build()
+                            .unwrap(),
+                    ),
+                ])
+                .build()
+                .unwrap(),
+        );
+        let props = Rc::new(WriterProperties::builder().build());
+        let mut file_writer =
+            SerializedFileWriter::new(file.try_clone().unwrap(), schema, props).unwrap();
+
+        //Self { file_writer: file_writer, rows: 0 }
+        //}
+
+        //pub fn write(&mut self, batch: &RecordBatch) {
+        let mut _rows: i64 = 0;
+        let mut row_group_writer = file_writer.next_row_group().unwrap();
+        for i in 0..batch.schema().fields().len() {
+            let col_writer = row_group_writer.next_column().unwrap();
+            if let Some(mut writer) = col_writer {
+                match writer {
+                    ColumnWriter::Int32ColumnWriter(ref mut typed) => {
+                        let array = batch
+                            .column(i)
+                            .as_any()
+                            .downcast_ref::<Int32Array>()
+                            .unwrap();
+                        _rows += typed
+                            .write_batch(array.value_slice(0, array.len()), None, None)
+                            .unwrap() as i64;
+                    }
+                    //TODO add other types
+                    _ => {
+                        unimplemented!();
+                    }
+                }
+                row_group_writer.close_column(writer).unwrap();
+            }
+        }
+        file_writer.close_row_group(row_group_writer).unwrap();
+        //}
+
+        //pub fn close(&mut self) {
+        file_writer.close().unwrap();
+        //}
+    }
+
     #[test]
     fn test_file_writer_error_after_close() {
         let file = get_temp_file("test_file_writer_error_after_close", &[]);
