@@ -1105,13 +1105,13 @@ metadata_nthreads: int, default 1
             return _ParquetDatasetV2(path_or_paths, filesystem=filesystem,
                                      filters=filters,
                                      read_dictionary=read_dictionary,
+                                     memory_map=memory_map,
                                      buffer_size=buffer_size,
                                      # unsupported keywords
                                      schema=schema, metadata=metadata,
                                      split_row_groups=split_row_groups,
                                      validate_schema=validate_schema,
-                                     metadata_nthreads=metadata_nthreads,
-                                     memory_map=memory_map)
+                                     metadata_nthreads=metadata_nthreads)
         self = object.__new__(cls)
         return self
 
@@ -1346,7 +1346,8 @@ class _ParquetDatasetV2:
     ParquetDataset shim using the Dataset API under the hood.
     """
     def __init__(self, path_or_paths, filesystem=None, filters=None,
-                 read_dictionary=None, buffer_size=None, **kwargs):
+                 read_dictionary=None, buffer_size=None, memory_map=False,
+                 **kwargs):
         import pyarrow.dataset as ds
         import pyarrow.fs
 
@@ -1354,7 +1355,7 @@ class _ParquetDatasetV2:
         for keyword, default in [
                 ("schema", None), ("metadata", None),
                 ("split_row_groups", False), ("validate_schema", True),
-                ("metadata_nthreads", 1), ("memory_map", False)]:
+                ("metadata_nthreads", 1)]:
             if keyword in kwargs and kwargs[keyword] is not default:
                 raise ValueError(
                     "Keyword '{0}' is not yet supported with the new "
@@ -1363,16 +1364,18 @@ class _ParquetDatasetV2:
         # map old filesystems to new one
         # TODO(dataset) deal with other file systems
         if isinstance(filesystem, LocalFileSystem):
-            filesystem = pyarrow.fs.LocalFileSystem()
+            filesystem = pyarrow.fs.LocalFileSystem(use_mmap=memory_map)
+        elif filesystem is None and memory_map:
+            filesystem = pyarrow.fs.LocalFileSystem(use_mmap=True)
 
         # map additional arguments
-        reader_options = {}
+        read_options = {}
         if buffer_size:
-            reader_options.update(use_buffered_stream=True,
-                                  buffer_size=buffer_size)
+            read_options.update(use_buffered_stream=True,
+                                buffer_size=buffer_size)
         if read_dictionary is not None:
-            reader_options.update(dict_columns=read_dictionary)
-        parquet_format = ds.ParquetFileFormat(reader_options=reader_options)
+            read_options.update(dict_columns=read_dictionary)
+        parquet_format = ds.ParquetFileFormat(read_options=read_options)
 
         dataset = ds.dataset(path_or_paths, filesystem=filesystem,
                              format=parquet_format, partitioning="hive")
@@ -1470,12 +1473,12 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
         dataset = _ParquetDatasetV2(
             source,
             filesystem=filesystem,
+            memory_map=memory_map,
             read_dictionary=read_dictionary,
             buffer_size=buffer_size,
             filters=filters,
             # unsupported keywords
-            metadata=metadata,
-            memory_map=memory_map
+            metadata=metadata
         )
         table = dataset.read(columns=columns, use_threads=use_threads,
                              use_pandas_metadata=use_pandas_metadata)

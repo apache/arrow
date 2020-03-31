@@ -247,14 +247,12 @@ def test_chunked_table_write(use_legacy_dataset):
         table, version='2.0', use_legacy_dataset=use_legacy_dataset)
 
 
-# TODO(dataset) support memory map
 @pytest.mark.pandas
-@parametrize_legacy_dataset_not_supported
+@parametrize_legacy_dataset
 def test_memory_map(tempdir, use_legacy_dataset):
     df = alltypes_sample(size=10)
 
     table = pa.Table.from_pandas(df)
-    # TODO(dataset) memory_map is still ignored for now
     _check_roundtrip(table, read_table_kwargs={'memory_map': True},
                      version='2.0', use_legacy_dataset=use_legacy_dataset)
 
@@ -2387,9 +2385,8 @@ def test_dataset_read_pandas(tempdir, use_legacy_dataset):
     tm.assert_frame_equal(result, expected)
 
 
-# TODO(dataset) support memory map
 @pytest.mark.pandas
-@parametrize_legacy_dataset_not_supported
+@parametrize_legacy_dataset
 def test_dataset_memory_map(tempdir, use_legacy_dataset):
     # ARROW-2627: Check that we can use ParquetDataset with memory-mapping
     dirpath = tempdir / guid()
@@ -2402,7 +2399,9 @@ def test_dataset_memory_map(tempdir, use_legacy_dataset):
 
     dataset = pq.ParquetDataset(
         dirpath, memory_map=True, use_legacy_dataset=use_legacy_dataset)
-    assert dataset.pieces[0].read().equals(table)
+    assert dataset.read().equals(table)
+    if use_legacy_dataset:
+        assert dataset.pieces[0].read().equals(table)
 
 
 @pytest.mark.pandas
@@ -3861,10 +3860,4 @@ def test_dataset_unsupported_keywords():
         pq.ParquetDataset("", use_legacy_dataset=False, metadata_nthreads=4)
 
     with pytest.raises(ValueError, match="not yet supported with the new"):
-        pq.ParquetDataset("", use_legacy_dataset=False, memory_map=True)
-
-    with pytest.raises(ValueError, match="not yet supported with the new"):
         pq.read_table("", use_legacy_dataset=False, metadata=pa.schema([]))
-
-    with pytest.raises(ValueError, match="not yet supported with the new"):
-        pq.read_table("", use_legacy_dataset=False, memory_map=True)
