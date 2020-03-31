@@ -309,9 +309,9 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         shared_ptr[CPartitioningFactory] factory() const
 
     cdef CStatus CSetPartitionKeysInProjector \
-            "arrow::dataset::KeyValuePartitioning::SetDefaultValuesFromKeys"(
-                const CExpression& partition_expression,
-                CRecordBatchProjector* projector)
+        "arrow::dataset::KeyValuePartitioning::SetDefaultValuesFromKeys"(
+            const CExpression& partition_expression,
+            CRecordBatchProjector* projector)
 
     cdef cppclass CFileSystemFactoryOptions \
             "arrow::dataset::FileSystemFactoryOptions":

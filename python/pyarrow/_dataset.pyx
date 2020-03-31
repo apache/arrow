@@ -334,9 +334,9 @@ cdef class FileSystemDataset(Dataset):
         return FileFormat.wrap(self.filesystem_dataset.format())
 
 
-cdef shared_ptr[CScanOptions] _make_scan_options(Schema schema,
-        Expression partition_expression,
-        object columns=None, Expression filter=None):
+cdef shared_ptr[CScanOptions] _make_scan_options(
+        Schema schema, Expression partition_expression, object columns=None,
+        Expression filter=None):
     cdef:
         shared_ptr[CScanOptions] options
         CExpression* c_partition_expression
@@ -347,7 +347,7 @@ cdef shared_ptr[CScanOptions] _make_scan_options(Schema schema,
 
     c_partition_expression = partition_expression.unwrap().get()
     check_status(CSetPartitionKeysInProjector(deref(c_partition_expression),
-        &options.get().projector))
+                                              &options.get().projector))
 
     return options
 
