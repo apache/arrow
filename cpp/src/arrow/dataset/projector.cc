@@ -48,7 +48,7 @@ Status RecordBatchProjector::SetDefaultValue(FieldRef ref,
   }
 
   ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(*to_));
-  auto index = match[0];
+  auto index = match.indices()[0];
 
   auto field_type = to_->field(index)->type();
   if (!field_type->Equals(scalar->type)) {
@@ -101,7 +101,7 @@ Status RecordBatchProjector::SetInputSchema(std::shared_ptr<Schema> from,
       column_indices_[i] = kNoMatch;
     } else {
       RETURN_NOT_OK(ref.CheckNonMultiple(matches, *from_));
-      int matching_index = matches[0][0];
+      int matching_index = matches[0].indices()[0];
 
       if (!from_->field(matching_index)->Equals(field, /*check_metadata=*/false)) {
         return Status::TypeError("fields had matching names but were not equivalent ",

@@ -1401,20 +1401,26 @@ class ARROW_EXPORT DictionaryUnifier {
 /// Array (returns a child array), RecordBatch (returns a column), ChunkedArray (returns a
 /// ChunkedArray where each chunk is a child array of the corresponding original chunk)
 /// and Table (returns a column).
-class ARROW_EXPORT FieldPath : public std::vector<int> {
+class ARROW_EXPORT FieldPath {
  public:
-  using std::vector<int>::vector;
-
   FieldPath() = default;
 
   FieldPath(std::vector<int> indices)  // NOLINT runtime/explicit
-      : std::vector<int>(std::move(indices)) {}
+      : indices_(std::move(indices)) {}
+
+  FieldPath(std::initializer_list<int> indices)  // NOLINT runtime/explicit
+      : indices_(std::move(indices)) {}
 
   std::string ToString() const;
 
   size_t hash() const;
 
-  explicit operator bool() const { return !empty(); }
+  explicit operator bool() const { return !indices_.empty(); }
+  bool operator==(const FieldPath& other) const { return indices() == other.indices(); }
+  bool operator!=(const FieldPath& other) const { return !(*this == other); }
+
+  std::vector<int>& indices() { return indices_; }
+  const std::vector<int>& indices() const { return indices_; }
 
   /// \brief Retrieve the referenced child Field from a Schema, Field, or DataType
   Result<std::shared_ptr<Field>> Get(const Schema& schema) const;
@@ -1429,6 +1435,9 @@ class ARROW_EXPORT FieldPath : public std::vector<int> {
   /// \brief Retrieve the referenced child Array from an Array or ChunkedArray
   Result<std::shared_ptr<Array>> Get(const Array& array) const;
   Result<std::shared_ptr<ChunkedArray>> Get(const ChunkedArray& array) const;
+
+ private:
+  std::vector<int> indices_;
 };
 
 /// \class FieldRef
@@ -1521,7 +1530,7 @@ class ARROW_EXPORT FieldRef {
   bool IsName() const { return util::holds_alternative<std::string>(impl_); }
   bool IsNested() const {
     if (IsName()) return false;
-    if (IsFieldPath()) return util::get<FieldPath>(impl_).size() > 1;
+    if (IsFieldPath()) return util::get<FieldPath>(impl_).indices().size() > 1;
     return true;
   }
 
