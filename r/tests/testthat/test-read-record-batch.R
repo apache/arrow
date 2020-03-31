@@ -24,23 +24,29 @@ test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
     chr = letters[1:10]
   )
-  tf <- tempfile()
 
+  tf <- tempfile()
   writer <- RecordBatchFileWriter$create(tf, tab$schema)
   expect_is(writer, "RecordBatchFileWriter")
   writer$write_table(tab)
   writer$close()
   tab2 <- read_arrow(tf, as_data_frame = FALSE)
   expect_equal(tab, tab2)
+  # Make sure connections are closed
+  expect_error(file.remove(tf), NA)
+  expect_false(file.exists(tf))
 
-  stream <- FileOutputStream$create(tf)
+  tf2 <- tempfile()
+  stream <- FileOutputStream$create(tf2)
   writer <- RecordBatchFileWriter$create(stream, tab$schema)
   expect_is(writer, "RecordBatchFileWriter")
   writer$write_table(tab)
   writer$close()
-  tab3 <- read_arrow(tf, as_data_frame = FALSE)
+  tab3 <- read_arrow(tf2, as_data_frame = FALSE)
   expect_equal(tab, tab3)
-  unlink(tf)
+  # Make sure connections are closed
+  expect_error(file.remove(tf2), NA)
+  expect_false(file.exists(tf2))
 })
 
 test_that("record_batch() handles (raw|Buffer|InputStream, Schema) (ARROW-3450, ARROW-3505)", {
