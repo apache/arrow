@@ -64,7 +64,7 @@ class TestFeather : public ::testing::TestWithParam<TestParam> {
     auto props = WriteProperties::Defaults();
     props.version = param.version;
 
-    // Don't fail if the build doesn't have LZ4 or ZSTD enabled
+    // Don't fail if the build doesn't have LZ4_FRAME or ZSTD enabled
     if (util::Codec::IsAvailable(param.compression)) {
       props.compression = param.compression;
     } else {
@@ -129,7 +129,7 @@ TEST(TestFeatherWriteProperties, Defaults) {
   auto props = WriteProperties::Defaults();
 
 #ifdef ARROW_WITH_LZ4
-  ASSERT_EQ(Compression::LZ4, props.compression);
+  ASSERT_EQ(Compression::LZ4_FRAME, props.compression);
 #else
   ASSERT_EQ(Compression::UNCOMPRESSED, props.compression);
 #endif
@@ -296,7 +296,7 @@ TEST_P(TestFeather, SliceBooleanRoundTrip) {
 INSTANTIATE_TEST_SUITE_P(
     FeatherTests, TestFeather,
     ::testing::Values(TestParam(kFeatherV1Version), TestParam(kFeatherV2Version),
-                      TestParam(kFeatherV2Version, Compression::LZ4),
+                      TestParam(kFeatherV2Version, Compression::LZ4_FRAME),
                       TestParam(kFeatherV2Version, Compression::ZSTD)));
 
 }  // namespace feather

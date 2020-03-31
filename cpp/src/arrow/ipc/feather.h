@@ -118,7 +118,7 @@ struct ARROW_EXPORT WriteProperties {
   /// faster random row access
   int64_t chunksize = 1LL << 16;
 
-  /// Compression type to use. Only UNCOMPRESSED, LZ4, and ZSTD are
+  /// Compression type to use. Only UNCOMPRESSED, LZ4_FRAME, and ZSTD are
   /// supported. The default compression returned by Defaults() is LZ4 if the
   /// project is built with support for it, otherwise
   /// UNCOMPRESSED. UNCOMPRESSED is set as the object default here so that if

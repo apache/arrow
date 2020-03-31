@@ -39,8 +39,14 @@ static Status LZ4Error(LZ4F_errorCode_t ret, const char* prefix_msg) {
   return Status::IOError(prefix_msg, LZ4F_getErrorName(ret));
 }
 
+static LZ4F_preferences_t DefaultPreferences() {
+  LZ4F_preferences_t prefs;
+  memset(&prefs, 0, sizeof(prefs));
+  return prefs;
+}
+
 // ----------------------------------------------------------------------
-// Lz4 decompressor implementation
+// Lz4 frame decompressor implementation
 
 class LZ4Decompressor : public Decompressor {
  public:
@@ -106,7 +112,7 @@ class LZ4Decompressor : public Decompressor {
 };
 
 // ----------------------------------------------------------------------
-// Lz4 compressor implementation
+// Lz4 frame compressor implementation
 
 class LZ4Compressor : public Compressor {
  public:
@@ -120,7 +126,7 @@ class LZ4Compressor : public Compressor {
 
   Status Init() {
     LZ4F_errorCode_t ret;
-    memset(&prefs_, 0, sizeof(prefs_));
+    prefs_ = DefaultPreferences();
     first_time_ = true;
 
     ret = LZ4F_createCompressionContext(&ctx_, LZ4F_VERSION);
@@ -225,18 +231,88 @@ class LZ4Compressor : public Compressor {
 };
 
 // ----------------------------------------------------------------------
-// Lz4 codec implementation
+// Lz4 frame codec implementation
 
-Result<std::shared_ptr<Compressor>> Lz4Codec::MakeCompressor() {
+struct Lz4FrameCodec::Impl {
+  Impl() : prefs_(DefaultPreferences()) {}
+
+  LZ4F_preferences_t prefs_;
+};
+
+Lz4FrameCodec::Lz4FrameCodec() : impl_(new Impl()) {}
+
+Lz4FrameCodec::~Lz4FrameCodec() {}
+
+Result<std::shared_ptr<Compressor>> Lz4FrameCodec::MakeCompressor() {
   auto ptr = std::make_shared<LZ4Compressor>();
   RETURN_NOT_OK(ptr->Init());
   return ptr;
 }
 
-Result<std::shared_ptr<Decompressor>> Lz4Codec::MakeDecompressor() {
+Result<std::shared_ptr<Decompressor>> Lz4FrameCodec::MakeDecompressor() {
   auto ptr = std::make_shared<LZ4Decompressor>();
   RETURN_NOT_OK(ptr->Init());
   return ptr;
+}
+
+int64_t Lz4FrameCodec::MaxCompressedLen(int64_t input_len,
+                                        const uint8_t* ARROW_ARG_UNUSED(input)) {
+  return static_cast<int64_t>(
+      LZ4F_compressFrameBound(static_cast<size_t>(input_len), &impl_->prefs_));
+}
+
+Result<int64_t> Lz4FrameCodec::Compress(int64_t input_len, const uint8_t* input,
+                                        int64_t output_buffer_len,
+                                        uint8_t* output_buffer) {
+  auto output_len =
+      LZ4F_compressFrame(output_buffer, static_cast<size_t>(output_buffer_len), input,
+                         static_cast<size_t>(input_len), &impl_->prefs_);
+  if (LZ4F_isError(output_len)) {
+    return LZ4Error(output_len, "Lz4 compression failure: ");
+  }
+  return static_cast<int64_t>(output_len);
+}
+
+Result<int64_t> Lz4FrameCodec::Decompress(int64_t input_len, const uint8_t* input,
+                                          int64_t output_buffer_len,
+                                          uint8_t* output_buffer) {
+  ARROW_ASSIGN_OR_RAISE(auto decomp, MakeDecompressor());
+
+  int64_t total_bytes_written = 0;
+  while (!decomp->IsFinished() && input_len != 0) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto res, decomp->Decompress(input_len, input, output_buffer_len, output_buffer));
+    input += res.bytes_read;
+    input_len -= res.bytes_read;
+    output_buffer += res.bytes_written;
+    output_buffer_len -= res.bytes_written;
+    total_bytes_written += res.bytes_written;
+    if (res.need_more_output) {
+      return Status::IOError("Lz4 decompression buffer too small");
+    }
+  }
+  if (!decomp->IsFinished()) {
+    return Status::IOError("Lz4 compressed input contains less than one frame");
+  }
+  if (input_len != 0) {
+    return Status::IOError("Lz4 compressed input contains more than one frame");
+  }
+  return total_bytes_written;
+}
+
+// ----------------------------------------------------------------------
+// Lz4 "raw" codec implementation
+
+Result<std::shared_ptr<Compressor>> Lz4Codec::MakeCompressor() {
+  return Status::NotImplemented(
+      "Streaming compression unsupported with LZ4 raw format. "
+      "Try using LZ4 frame format instead.");
+}
+
+Result<std::shared_ptr<Decompressor>> Lz4Codec::MakeDecompressor() {
+  return Status::NotImplemented(
+      "Streaming decompression unsupported with LZ4 raw format. "
+      "Try using LZ4 frame format instead.");
 }
 
 Result<int64_t> Lz4Codec::Decompress(int64_t input_len, const uint8_t* input,

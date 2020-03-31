@@ -322,7 +322,8 @@ TEST(TestCodecMisc, GetCodecAsString) {
   ASSERT_EQ("GZIP", Codec::GetCodecAsString(Compression::GZIP));
   ASSERT_EQ("LZO", Codec::GetCodecAsString(Compression::LZO));
   ASSERT_EQ("BROTLI", Codec::GetCodecAsString(Compression::BROTLI));
-  ASSERT_EQ("LZ4", Codec::GetCodecAsString(Compression::LZ4));
+  ASSERT_EQ("LZ4_RAW", Codec::GetCodecAsString(Compression::LZ4));
+  ASSERT_EQ("LZ4", Codec::GetCodecAsString(Compression::LZ4_FRAME));
   ASSERT_EQ("ZSTD", Codec::GetCodecAsString(Compression::ZSTD));
   ASSERT_EQ("BZ2", Codec::GetCodecAsString(Compression::BZ2));
 }
@@ -333,7 +334,8 @@ TEST(TestCodecMisc, GetCompressionType) {
   ASSERT_OK_AND_EQ(Compression::GZIP, Codec::GetCompressionType("GZIP"));
   ASSERT_OK_AND_EQ(Compression::LZO, Codec::GetCompressionType("LZO"));
   ASSERT_OK_AND_EQ(Compression::BROTLI, Codec::GetCompressionType("BROTLI"));
-  ASSERT_OK_AND_EQ(Compression::LZ4, Codec::GetCompressionType("LZ4"));
+  ASSERT_OK_AND_EQ(Compression::LZ4, Codec::GetCompressionType("LZ4_RAW"));
+  ASSERT_OK_AND_EQ(Compression::LZ4_FRAME, Codec::GetCompressionType("LZ4"));
   ASSERT_OK_AND_EQ(Compression::ZSTD, Codec::GetCompressionType("ZSTD"));
   ASSERT_OK_AND_EQ(Compression::BZ2, Codec::GetCompressionType("BZ2"));
 
@@ -432,8 +434,7 @@ TEST_P(CodecTest, StreamingCompressor) {
     return;
   }
   if (GetCompression() == Compression::LZ4) {
-    // SKIP: LZ4 streaming compression uses the LZ4 framing format,
-    // which must be tested against a streaming decompressor
+    // SKIP: LZ4 raw format doesn't support streaming compression.
     return;
   }
 
@@ -459,8 +460,7 @@ TEST_P(CodecTest, StreamingDecompressor) {
     return;
   }
   if (GetCompression() == Compression::LZ4) {
-    // SKIP: LZ4 streaming decompression uses the LZ4 framing format,
-    // which must be tested against a streaming compressor
+    // SKIP: LZ4 raw format doesn't support streaming decompression.
     return;
   }
 
@@ -481,6 +481,10 @@ TEST_P(CodecTest, StreamingRoundtrip) {
     // SKIP: snappy doesn't support streaming decompression
     return;
   }
+  if (GetCompression() == Compression::LZ4) {
+    // SKIP: LZ4 raw format doesn't support streaming compression.
+    return;
+  }
 
   int sizes[] = {0, 10, 100000};
   for (int data_size : sizes) {
@@ -497,6 +501,10 @@ TEST_P(CodecTest, StreamingRoundtrip) {
 TEST_P(CodecTest, StreamingDecompressorReuse) {
   if (GetCompression() == Compression::SNAPPY) {
     // SKIP: snappy doesn't support streaming decompression
+    return;
+  }
+  if (GetCompression() == Compression::LZ4) {
+    // SKIP: LZ4 raw format doesn't support streaming decompression.
     return;
   }
 
@@ -525,6 +533,11 @@ INSTANTIATE_TEST_SUITE_P(TestSnappy, CodecTest, ::testing::Values(Compression::S
 
 #ifdef ARROW_WITH_LZ4
 INSTANTIATE_TEST_SUITE_P(TestLZ4, CodecTest, ::testing::Values(Compression::LZ4));
+#endif
+
+#ifdef ARROW_WITH_LZ4
+INSTANTIATE_TEST_SUITE_P(TestLZ4Frame, CodecTest,
+                         ::testing::Values(Compression::LZ4_FRAME));
 #endif
 
 #ifdef ARROW_WITH_BROTLI

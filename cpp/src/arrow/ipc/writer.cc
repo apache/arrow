@@ -182,6 +182,7 @@ class RecordBatchSerializer {
   Status CompressBodyBuffers() {
     std::unique_ptr<util::Codec> codec;
 
+    // TODO check allowed values for compression?
     AppendCustomMetadata("ARROW:body_compression",
                          util::Codec::GetCodecAsString(options_.compression));
 
