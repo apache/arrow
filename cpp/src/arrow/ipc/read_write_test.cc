@@ -824,9 +824,14 @@ struct FileWriterHelper {
   }
 
   Status ReadSchema(std::shared_ptr<Schema>* out) {
+    return ReadSchema(ipc::IpcReadOptions::Defaults(), out);
+  }
+
+  Status ReadSchema(const IpcReadOptions& read_options, std::shared_ptr<Schema>* out) {
     auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
-    ARROW_ASSIGN_OR_RAISE(auto reader,
-                          RecordBatchFileReader::Open(buf_reader.get(), footer_offset_));
+    ARROW_ASSIGN_OR_RAISE(
+        auto reader,
+        RecordBatchFileReader::Open(buf_reader.get(), footer_offset_, read_options));
 
     *out = reader->schema();
     return Status::OK();
@@ -864,7 +869,7 @@ struct StreamWriterHelper {
     return sink_->Close();
   }
 
-  Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
+  virtual Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
     auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
     std::shared_ptr<RecordBatchReader> reader;
     ARROW_ASSIGN_OR_RAISE(reader, RecordBatchStreamReader::Open(buf_reader, options))
@@ -872,9 +877,14 @@ struct StreamWriterHelper {
   }
 
   Status ReadSchema(std::shared_ptr<Schema>* out) {
-    auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
-    ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchStreamReader::Open(buf_reader.get()));
+    return ReadSchema(ipc::IpcReadOptions::Defaults(), out);
+  }
 
+  virtual Status ReadSchema(const IpcReadOptions& read_options,
+                            std::shared_ptr<Schema>* out) {
+    auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
+    ARROW_ASSIGN_OR_RAISE(auto reader,
+                          RecordBatchStreamReader::Open(buf_reader.get(), read_options));
     *out = reader->schema();
     return Status::OK();
   }
@@ -884,80 +894,50 @@ struct StreamWriterHelper {
   std::shared_ptr<RecordBatchWriter> writer_;
 };
 
-struct StreamDecoderDataWriterHelper : public StreamWriterHelper {
-  Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
+struct StreamDecoderWriterHelper : public StreamWriterHelper {
+  Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) override {
     auto listener = std::make_shared<CollectListener>();
     StreamDecoder decoder(listener, options);
-    ARROW_RETURN_NOT_OK(decoder.Consume(buffer_->data(), buffer_->size()));
+    RETURN_NOT_OK(DoConsume(&decoder));
     *out_batches = listener->record_batches();
     return Status::OK();
   }
 
-  Status ReadSchema(std::shared_ptr<Schema>* out) {
+  Status ReadSchema(const IpcReadOptions& read_options,
+                    std::shared_ptr<Schema>* out) override {
     auto listener = std::make_shared<CollectListener>();
-    StreamDecoder decoder(listener);
-    ARROW_RETURN_NOT_OK(decoder.Consume(buffer_->data(), buffer_->size()));
+    StreamDecoder decoder(listener, read_options);
+    RETURN_NOT_OK(DoConsume(&decoder));
     *out = listener->schema();
     return Status::OK();
   }
+
+  virtual Status DoConsume(StreamDecoder* decoder) = 0;
 };
 
-struct StreamDecoderBufferWriterHelper : public StreamWriterHelper {
-  Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
-    auto listener = std::make_shared<CollectListener>();
-    StreamDecoder decoder(listener, options);
-    ARROW_RETURN_NOT_OK(decoder.Consume(buffer_));
-    *out_batches = listener->record_batches();
-    return Status::OK();
-  }
-
-  Status ReadSchema(std::shared_ptr<Schema>* out) {
-    auto listener = std::make_shared<CollectListener>();
-    StreamDecoder decoder(listener);
-    ARROW_RETURN_NOT_OK(decoder.Consume(buffer_));
-    *out = listener->schema();
-    return Status::OK();
+struct StreamDecoderDataWriterHelper : public StreamDecoderWriterHelper {
+  Status DoConsume(StreamDecoder* decoder) override {
+    return decoder->Consume(buffer_->data(), buffer_->size());
   }
 };
 
-struct StreamDecoderSmallChunksWriterHelper : public StreamWriterHelper {
-  Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
-    auto listener = std::make_shared<CollectListener>();
-    StreamDecoder decoder(listener, options);
+struct StreamDecoderBufferWriterHelper : public StreamDecoderWriterHelper {
+  Status DoConsume(StreamDecoder* decoder) override { return decoder->Consume(buffer_); }
+};
+
+struct StreamDecoderSmallChunksWriterHelper : public StreamDecoderWriterHelper {
+  Status DoConsume(StreamDecoder* decoder) override {
     for (int64_t offset = 0; offset < buffer_->size() - 1; ++offset) {
-      ARROW_RETURN_NOT_OK(decoder.Consume(buffer_->data() + offset, 1));
+      RETURN_NOT_OK(decoder->Consume(buffer_->data() + offset, 1));
     }
-    *out_batches = listener->record_batches();
-    return Status::OK();
-  }
-
-  Status ReadSchema(std::shared_ptr<Schema>* out) {
-    auto listener = std::make_shared<CollectListener>();
-    StreamDecoder decoder(listener);
-    for (int64_t offset = 0; offset < buffer_->size() - 1; ++offset) {
-      ARROW_RETURN_NOT_OK(decoder.Consume(buffer_->data() + offset, 1));
-    }
-    *out = listener->schema();
     return Status::OK();
   }
 };
 
-struct StreamDecoderLargeChunksWriterHelper : public StreamWriterHelper {
-  Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
-    auto listener = std::make_shared<CollectListener>();
-    StreamDecoder decoder(listener, options);
-    ARROW_RETURN_NOT_OK(decoder.Consume(SliceBuffer(buffer_, 0, 1)));
-    ARROW_RETURN_NOT_OK(decoder.Consume(SliceBuffer(buffer_, 1)));
-    *out_batches = listener->record_batches();
-    return Status::OK();
-  }
-
-  Status ReadSchema(std::shared_ptr<Schema>* out) {
-    auto listener = std::make_shared<CollectListener>();
-    StreamDecoder decoder(listener);
-    ARROW_RETURN_NOT_OK(decoder.Consume(SliceBuffer(buffer_, 0, 1)));
-    ARROW_RETURN_NOT_OK(decoder.Consume(SliceBuffer(buffer_, 1)));
-    *out = listener->schema();
+struct StreamDecoderLargeChunksWriterHelper : public StreamDecoderWriterHelper {
+  Status DoConsume(StreamDecoder* decoder) override {
+    RETURN_NOT_OK(decoder->Consume(SliceBuffer(buffer_, 0, 1)));
+    RETURN_NOT_OK(decoder->Consume(SliceBuffer(buffer_, 1)));
     return Status::OK();
   }
 };
@@ -1051,11 +1031,14 @@ class ReaderWriterMixin {
     {
       WriterHelper writer_helper;
       BatchVector out_batches;
+      std::shared_ptr<Schema> out_schema;
       ASSERT_OK(RoundTripHelper(writer_helper, {batch}, IpcWriteOptions::Defaults(),
-                                options, &out_batches));
+                                options, &out_batches, &out_schema));
 
       auto ex_schema = schema({field("a1", utf8()), field("a3", utf8())},
                               key_value_metadata({"key1"}, {"value1"}));
+      AssertSchemaEqual(*ex_schema, *out_schema);
+
       auto ex_batch = RecordBatch::Make(ex_schema, a0->length(), {a1, a3});
       AssertBatchesEqual(*ex_batch, *out_batches[0], /*check_metadata=*/true);
     }
@@ -1127,13 +1110,17 @@ class ReaderWriterMixin {
  private:
   Status RoundTripHelper(WriterHelper& writer_helper, const BatchVector& in_batches,
                          const IpcWriteOptions& write_options,
-                         const IpcReadOptions& read_options, BatchVector* out_batches) {
+                         const IpcReadOptions& read_options, BatchVector* out_batches,
+                         std::shared_ptr<Schema>* out_schema = nullptr) {
     RETURN_NOT_OK(writer_helper.Init(in_batches[0]->schema(), write_options));
     for (const auto& batch : in_batches) {
       RETURN_NOT_OK(writer_helper.WriteBatch(batch));
     }
     RETURN_NOT_OK(writer_helper.Finish());
     RETURN_NOT_OK(writer_helper.ReadBatches(read_options, out_batches));
+    if (out_schema) {
+      RETURN_NOT_OK(writer_helper.ReadSchema(read_options, out_schema));
+    }
     for (const auto& batch : *out_batches) {
       RETURN_NOT_OK(batch->ValidateFull());
     }
@@ -1154,7 +1141,7 @@ class ReaderWriterMixin {
     const auto& b3_value = checked_cast<const DictionaryArray&>(*b3.values());
     ASSERT_EQ(b0.dictionary().get(), b3_value.dictionary().get());
   }
-};
+};  // namespace test
 
 class TestFileFormat : public ReaderWriterMixin<FileWriterHelper>,
                        public ::testing::TestWithParam<MakeRecordBatch*> {};
