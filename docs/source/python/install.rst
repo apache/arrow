@@ -70,7 +70,7 @@ PyArrow has nightly wheels and conda packages for testing purposes.
 
 These may be suitable for downstream libraries in their continuous integration
 setup to maintain compatibility with the upcoming PyArrow features,
-deprecations or feature removals.
+deprecations and/or feature removals.
 
 Install development version of PyArrow from `arrow-nightlies
 <https://anaconda.org/arrow-nightlies/pyarrow>`_ conda channel:
