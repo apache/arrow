@@ -918,6 +918,69 @@ cdef class Field:
             new_field = self.field.RemoveMetadata()
         return pyarrow_wrap_field(new_field)
 
+    def with_type(self, DataType new_type):
+        """
+        A copy of this field with the replaced type
+
+        Parameters
+        ----------
+        new_type : pyarrow.DataType
+
+        Returns
+        -------
+        field : pyarrow.Field
+        """
+        cdef:
+            shared_ptr[CField] c_field
+            shared_ptr[CDataType] c_datatype
+
+        c_datatype = pyarrow_unwrap_data_type(new_type)
+        with nogil:
+            c_field = self.field.WithType(c_datatype)
+
+        return pyarrow_wrap_field(c_field)
+
+    def with_name(self, name):
+        """
+        A copy of this field with the replaced name
+
+        Parameters
+        ----------
+        name : str
+
+        Returns
+        -------
+        field : pyarrow.Field
+        """
+        cdef:
+            shared_ptr[CField] c_field
+
+        c_field = self.field.WithName(tobytes(name))
+
+        return pyarrow_wrap_field(c_field)
+
+    def with_nullable(self, nullable):
+        """
+        A copy of this field with the replaced nullability
+
+        Parameters
+        ----------
+        nullable : bool
+
+        Returns
+        -------
+        field: pyarrow.Field
+        """
+        cdef:
+            shared_ptr[CField] field
+            c_bool c_nullable
+
+        c_nullable = bool(nullable)
+        with nogil:
+            c_field = self.field.WithNullable(c_nullable)
+
+        return pyarrow_wrap_field(c_field)
+
     def flatten(self):
         """
         Flatten this field.  If a struct field, individual child fields
