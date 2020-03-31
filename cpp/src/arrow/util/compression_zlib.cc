@@ -15,14 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/compression_zlib.h"
+#include "arrow/util/compression_internal.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <limits>
 #include <memory>
-#include <string>
 
 #include <zconf.h>
 #include <zlib.h>
@@ -34,8 +33,10 @@
 
 namespace arrow {
 namespace util {
+namespace internal {
 
 namespace {
+
 // ----------------------------------------------------------------------
 // gzip implementation
 
@@ -51,23 +52,23 @@ constexpr int GZIP_CODEC = 16;
 // Determine if this is libz or gzip from header.
 constexpr int DETECT_CODEC = 32;
 
-int CompressionWindowBitsForFormat(GZipCodec::Format format) {
+int CompressionWindowBitsForFormat(GZipFormat::type format) {
   int window_bits = WINDOW_BITS;
   switch (format) {
-    case GZipCodec::DEFLATE:
+    case GZipFormat::DEFLATE:
       window_bits = -window_bits;
       break;
-    case GZipCodec::GZIP:
+    case GZipFormat::GZIP:
       window_bits += GZIP_CODEC;
       break;
-    case GZipCodec::ZLIB:
+    case GZipFormat::ZLIB:
       break;
   }
   return window_bits;
 }
 
-int DecompressionWindowBitsForFormat(GZipCodec::Format format) {
-  if (format == GZipCodec::DEFLATE) {
+int DecompressionWindowBitsForFormat(GZipFormat::type format) {
+  if (format == GZipFormat::DEFLATE) {
     return -WINDOW_BITS;
   } else {
     /* If not deflate, autodetect format from header */
@@ -79,14 +80,12 @@ Status ZlibErrorPrefix(const char* prefix_msg, const char* msg) {
   return Status::IOError(prefix_msg, (msg) ? msg : "(unknown error)");
 }
 
-}  // namespace
-
 // ----------------------------------------------------------------------
 // gzip decompressor implementation
 
 class GZipDecompressor : public Decompressor {
  public:
-  explicit GZipDecompressor(GZipCodec::Format format)
+  explicit GZipDecompressor(GZipFormat::type format)
       : format_(format), initialized_(false), finished_(false) {}
 
   ~GZipDecompressor() override {
@@ -159,7 +158,7 @@ class GZipDecompressor : public Decompressor {
   }
 
   z_stream stream_;
-  GZipCodec::Format format_;
+  GZipFormat::type format_;
   bool initialized_;
   bool finished_;
 };
@@ -178,7 +177,7 @@ class GZipCompressor : public Compressor {
     }
   }
 
-  Status Init(GZipCodec::Format format) {
+  Status Init(GZipFormat::type format) {
     DCHECK(!initialized_);
     memset(&stream_, 0, sizeof(stream_));
 
@@ -294,26 +293,29 @@ class GZipCompressor : public Compressor {
 // ----------------------------------------------------------------------
 // gzip codec implementation
 
-class GZipCodec::GZipCodecImpl {
+class GZipCodec : public Codec {
  public:
-  explicit GZipCodecImpl(int compression_level, GZipCodec::Format format)
+  explicit GZipCodec(int compression_level, GZipFormat::type format)
       : format_(format),
         compressor_initialized_(false),
-        decompressor_initialized_(false),
-        compression_level_(compression_level) {}
+        decompressor_initialized_(false) {
+    compression_level_ = compression_level == kUseDefaultCompressionLevel
+                             ? kGZipDefaultCompressionLevel
+                             : compression_level;
+  }
 
-  ~GZipCodecImpl() {
+  ~GZipCodec() override {
     EndCompressor();
     EndDecompressor();
   }
 
-  Result<std::shared_ptr<Compressor>> MakeCompressor() {
+  Result<std::shared_ptr<Compressor>> MakeCompressor() override {
     auto ptr = std::make_shared<GZipCompressor>(compression_level_);
     RETURN_NOT_OK(ptr->Init(format_));
     return ptr;
   }
 
-  Result<std::shared_ptr<Decompressor>> MakeDecompressor() {
+  Result<std::shared_ptr<Decompressor>> MakeDecompressor() override {
     auto ptr = std::make_shared<GZipDecompressor>(format_);
     RETURN_NOT_OK(ptr->Init());
     return ptr;
@@ -363,7 +365,7 @@ class GZipCodec::GZipCodecImpl {
   }
 
   Result<int64_t> Decompress(int64_t input_length, const uint8_t* input,
-                             int64_t output_buffer_length, uint8_t* output) {
+                             int64_t output_buffer_length, uint8_t* output) override {
     if (!decompressor_initialized_) {
       RETURN_NOT_OK(InitDecompressor());
     }
@@ -411,7 +413,8 @@ class GZipCodec::GZipCodecImpl {
     return stream_.total_out;
   }
 
-  int64_t MaxCompressedLen(int64_t input_length, const uint8_t* ARROW_ARG_UNUSED(input)) {
+  int64_t MaxCompressedLen(int64_t input_length,
+                           const uint8_t* ARROW_ARG_UNUSED(input)) override {
     // Must be in compression mode
     if (!compressor_initialized_) {
       Status s = InitCompressor();
@@ -424,7 +427,7 @@ class GZipCodec::GZipCodecImpl {
   }
 
   Result<int64_t> Compress(int64_t input_length, const uint8_t* input,
-                           int64_t output_buffer_len, uint8_t* output) {
+                           int64_t output_buffer_len, uint8_t* output) override {
     if (!compressor_initialized_) {
       RETURN_NOT_OK(InitCompressor());
     }
@@ -452,6 +455,16 @@ class GZipCodec::GZipCodecImpl {
     return output_buffer_len - stream_.avail_out;
   }
 
+  Status Init() override {
+    const Status init_compressor_status = InitCompressor();
+    if (!init_compressor_status.ok()) {
+      return init_compressor_status;
+    }
+    return InitDecompressor();
+  }
+
+  const char* name() const override { return "gzip"; }
+
  private:
   // zlib is stateful and the z_stream state variable must be initialized
   // before
@@ -459,7 +472,7 @@ class GZipCodec::GZipCodecImpl {
 
   // Realistically, this will always be GZIP, but we leave the option open to
   // configure
-  GZipCodec::Format format_;
+  GZipFormat::type format_;
 
   // These variables are mutually exclusive. When the codec is in "compressor"
   // state, compressor_initialized_ is true while decompressor_initialized_ is
@@ -473,46 +486,12 @@ class GZipCodec::GZipCodecImpl {
   int compression_level_;
 };
 
-GZipCodec::GZipCodec(int compression_level, Format format) {
-  compression_level = compression_level == kUseDefaultCompressionLevel
-                          ? kGZipDefaultCompressionLevel
-                          : compression_level;
-  impl_.reset(new GZipCodecImpl(compression_level, format));
+}  // namespace
+
+std::unique_ptr<Codec> MakeGZipCodec(int compression_level, GZipFormat::type format) {
+  return std::unique_ptr<Codec>(new GZipCodec(compression_level, format));
 }
 
-Status GZipCodec::Init() {
-  const Status init_compressor_status = impl_->InitCompressor();
-  if (!init_compressor_status.ok()) {
-    return init_compressor_status;
-  }
-  return impl_->InitDecompressor();
-}
-
-GZipCodec::~GZipCodec() {}
-
-Result<int64_t> GZipCodec::Decompress(int64_t input_length, const uint8_t* input,
-                                      int64_t output_buffer_len, uint8_t* output) {
-  return impl_->Decompress(input_length, input, output_buffer_len, output);
-}
-
-int64_t GZipCodec::MaxCompressedLen(int64_t input_length, const uint8_t* input) {
-  return impl_->MaxCompressedLen(input_length, input);
-}
-
-Result<int64_t> GZipCodec::Compress(int64_t input_length, const uint8_t* input,
-                                    int64_t output_buffer_len, uint8_t* output) {
-  return impl_->Compress(input_length, input, output_buffer_len, output);
-}
-
-Result<std::shared_ptr<Compressor>> GZipCodec::MakeCompressor() {
-  return impl_->MakeCompressor();
-}
-
-Result<std::shared_ptr<Decompressor>> GZipCodec::MakeDecompressor() {
-  return impl_->MakeDecompressor();
-}
-
-const char* GZipCodec::name() const { return "gzip"; }
-
+}  // namespace internal
 }  // namespace util
 }  // namespace arrow
