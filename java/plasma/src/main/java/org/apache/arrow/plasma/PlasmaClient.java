@@ -108,10 +108,7 @@ public class PlasmaClient implements ObjectStoreLink {
 
   @Override
   public List<byte[]> list() {
-    List<byte[]> ret = new ArrayList<>();
-    byte[][] objects = PlasmaClientJNI.list(conn);
-    ret.addAll(Arrays.asList(objects));
-    return ret;
+    return Arrays.asList(PlasmaClientJNI.list(conn));
   }
 
   @Override
