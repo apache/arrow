@@ -170,7 +170,7 @@ class BrotliCompressor : public Compressor {
 // ----------------------------------------------------------------------
 // Brotli codec implementation
 
-class ARROW_EXPORT BrotliCodec : public Codec {
+class BrotliCodec : public Codec {
  public:
   explicit BrotliCodec(int compression_level) {
     compression_level_ = compression_level == kUseDefaultCompressionLevel
