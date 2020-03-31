@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <memory>
 
 #include <lz4.h>
 #include <lz4frame.h>
@@ -34,7 +35,8 @@
 
 namespace arrow {
 namespace util {
-namespace internal {
+
+namespace {
 
 static Status LZ4Error(LZ4F_errorCode_t ret, const char* prefix_msg) {
   return Status::IOError(prefix_msg, LZ4F_getErrorName(ret));
@@ -238,13 +240,49 @@ class Lz4FrameCodec : public Codec {
  public:
   Lz4FrameCodec() : prefs_(DefaultPreferences()) {}
 
-  Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
-                             int64_t output_buffer_len, uint8_t* output_buffer) override;
+  int64_t MaxCompressedLen(int64_t input_len,
+                           const uint8_t* ARROW_ARG_UNUSED(input)) override {
+    return static_cast<int64_t>(
+        LZ4F_compressFrameBound(static_cast<size_t>(input_len), &prefs_));
+  }
 
   Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
-                           int64_t output_buffer_len, uint8_t* output_buffer) override;
+                           int64_t output_buffer_len, uint8_t* output_buffer) override {
+    auto output_len =
+        LZ4F_compressFrame(output_buffer, static_cast<size_t>(output_buffer_len), input,
+                           static_cast<size_t>(input_len), &prefs_);
+    if (LZ4F_isError(output_len)) {
+      return LZ4Error(output_len, "Lz4 compression failure: ");
+    }
+    return static_cast<int64_t>(output_len);
+  }
 
-  int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) override;
+  Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
+                             int64_t output_buffer_len, uint8_t* output_buffer) override {
+    ARROW_ASSIGN_OR_RAISE(auto decomp, MakeDecompressor());
+
+    int64_t total_bytes_written = 0;
+    while (!decomp->IsFinished() && input_len != 0) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto res,
+          decomp->Decompress(input_len, input, output_buffer_len, output_buffer));
+      input += res.bytes_read;
+      input_len -= res.bytes_read;
+      output_buffer += res.bytes_written;
+      output_buffer_len -= res.bytes_written;
+      total_bytes_written += res.bytes_written;
+      if (res.need_more_output) {
+        return Status::IOError("Lz4 decompression buffer too small");
+      }
+    }
+    if (!decomp->IsFinished()) {
+      return Status::IOError("Lz4 compressed input contains less than one frame");
+    }
+    if (input_len != 0) {
+      return Status::IOError("Lz4 compressed input contains more than one frame");
+    }
+    return total_bytes_written;
+  }
 
   Result<std::shared_ptr<Compressor>> MakeCompressor() override {
     auto ptr = std::make_shared<LZ4Compressor>();
@@ -264,67 +302,37 @@ class Lz4FrameCodec : public Codec {
   LZ4F_preferences_t prefs_;
 };
 
-int64_t Lz4FrameCodec::MaxCompressedLen(int64_t input_len,
-                                        const uint8_t* ARROW_ARG_UNUSED(input)) {
-  return static_cast<int64_t>(
-      LZ4F_compressFrameBound(static_cast<size_t>(input_len), &prefs_));
-}
-
-Result<int64_t> Lz4FrameCodec::Compress(int64_t input_len, const uint8_t* input,
-                                        int64_t output_buffer_len,
-                                        uint8_t* output_buffer) {
-  auto output_len =
-      LZ4F_compressFrame(output_buffer, static_cast<size_t>(output_buffer_len), input,
-                         static_cast<size_t>(input_len), &prefs_);
-  if (LZ4F_isError(output_len)) {
-    return LZ4Error(output_len, "Lz4 compression failure: ");
-  }
-  return static_cast<int64_t>(output_len);
-}
-
-Result<int64_t> Lz4FrameCodec::Decompress(int64_t input_len, const uint8_t* input,
-                                          int64_t output_buffer_len,
-                                          uint8_t* output_buffer) {
-  ARROW_ASSIGN_OR_RAISE(auto decomp, MakeDecompressor());
-
-  int64_t total_bytes_written = 0;
-  while (!decomp->IsFinished() && input_len != 0) {
-    ARROW_ASSIGN_OR_RAISE(
-        auto res, decomp->Decompress(input_len, input, output_buffer_len, output_buffer));
-    input += res.bytes_read;
-    input_len -= res.bytes_read;
-    output_buffer += res.bytes_written;
-    output_buffer_len -= res.bytes_written;
-    total_bytes_written += res.bytes_written;
-    if (res.need_more_output) {
-      return Status::IOError("Lz4 decompression buffer too small");
-    }
-  }
-  if (!decomp->IsFinished()) {
-    return Status::IOError("Lz4 compressed input contains less than one frame");
-  }
-  if (input_len != 0) {
-    return Status::IOError("Lz4 compressed input contains more than one frame");
-  }
-  return total_bytes_written;
-}
-
-std::unique_ptr<Codec> MakeLz4FrameCodec() {
-  return std::unique_ptr<Codec>(new Lz4FrameCodec());
-}
-
 // ----------------------------------------------------------------------
 // Lz4 "raw" codec implementation
 
 class Lz4Codec : public Codec {
  public:
   Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
-                             int64_t output_buffer_len, uint8_t* output_buffer) override;
+                             int64_t output_buffer_len, uint8_t* output_buffer) override {
+    int64_t decompressed_size = LZ4_decompress_safe(
+        reinterpret_cast<const char*>(input), reinterpret_cast<char*>(output_buffer),
+        static_cast<int>(input_len), static_cast<int>(output_buffer_len));
+    if (decompressed_size < 0) {
+      return Status::IOError("Corrupt Lz4 compressed data.");
+    }
+    return decompressed_size;
+  }
+
+  int64_t MaxCompressedLen(int64_t input_len,
+                           const uint8_t* ARROW_ARG_UNUSED(input)) override {
+    return LZ4_compressBound(static_cast<int>(input_len));
+  }
 
   Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
-                           int64_t output_buffer_len, uint8_t* output_buffer) override;
-
-  int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) override;
+                           int64_t output_buffer_len, uint8_t* output_buffer) override {
+    int64_t output_len = LZ4_compress_default(
+        reinterpret_cast<const char*>(input), reinterpret_cast<char*>(output_buffer),
+        static_cast<int>(input_len), static_cast<int>(output_buffer_len));
+    if (output_len == 0) {
+      return Status::IOError("Lz4 compression failure.");
+    }
+    return output_len;
+  }
 
   Result<std::shared_ptr<Compressor>> MakeCompressor() override {
     return Status::NotImplemented(
@@ -341,31 +349,12 @@ class Lz4Codec : public Codec {
   const char* name() const override { return "lz4_raw"; }
 };
 
-Result<int64_t> Lz4Codec::Decompress(int64_t input_len, const uint8_t* input,
-                                     int64_t output_buffer_len, uint8_t* output_buffer) {
-  int64_t decompressed_size = LZ4_decompress_safe(
-      reinterpret_cast<const char*>(input), reinterpret_cast<char*>(output_buffer),
-      static_cast<int>(input_len), static_cast<int>(output_buffer_len));
-  if (decompressed_size < 0) {
-    return Status::IOError("Corrupt Lz4 compressed data.");
-  }
-  return decompressed_size;
-}
+}  // namespace
 
-int64_t Lz4Codec::MaxCompressedLen(int64_t input_len,
-                                   const uint8_t* ARROW_ARG_UNUSED(input)) {
-  return LZ4_compressBound(static_cast<int>(input_len));
-}
+namespace internal {
 
-Result<int64_t> Lz4Codec::Compress(int64_t input_len, const uint8_t* input,
-                                   int64_t output_buffer_len, uint8_t* output_buffer) {
-  int64_t output_len = LZ4_compress_default(
-      reinterpret_cast<const char*>(input), reinterpret_cast<char*>(output_buffer),
-      static_cast<int>(input_len), static_cast<int>(output_buffer_len));
-  if (output_len == 0) {
-    return Status::IOError("Lz4 compression failure.");
-  }
-  return output_len;
+std::unique_ptr<Codec> MakeLz4FrameCodec() {
+  return std::unique_ptr<Codec>(new Lz4FrameCodec());
 }
 
 std::unique_ptr<Codec> MakeLz4RawCodec() {
@@ -373,5 +362,6 @@ std::unique_ptr<Codec> MakeLz4RawCodec() {
 }
 
 }  // namespace internal
+
 }  // namespace util
 }  // namespace arrow

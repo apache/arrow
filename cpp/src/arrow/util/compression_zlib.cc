@@ -15,14 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/compression.h"
+#include "arrow/util/compression_internal.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <limits>
 #include <memory>
-#include <string>
 
 #include <zconf.h>
 #include <zlib.h>
@@ -37,6 +36,7 @@ namespace util {
 namespace internal {
 
 namespace {
+
 // ----------------------------------------------------------------------
 // gzip implementation
 
@@ -79,8 +79,6 @@ int DecompressionWindowBitsForFormat(GZipFormat::type format) {
 Status ZlibErrorPrefix(const char* prefix_msg, const char* msg) {
   return Status::IOError(prefix_msg, (msg) ? msg : "(unknown error)");
 }
-
-}  // namespace
 
 // ----------------------------------------------------------------------
 // gzip decompressor implementation
@@ -487,6 +485,8 @@ class GZipCodec : public Codec {
   bool decompressor_initialized_;
   int compression_level_;
 };
+
+}  // namespace
 
 std::unique_ptr<Codec> MakeGZipCodec(int compression_level, GZipFormat::type format) {
   return std::unique_ptr<Codec>(new GZipCodec(compression_level, format));

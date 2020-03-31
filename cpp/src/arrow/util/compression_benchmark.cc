@@ -17,16 +17,18 @@
 
 #include "benchmark/benchmark.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <random>
 #include <string>
 #include <vector>
 
 #include "arrow/result.h"
-#include "arrow/testing/gtest_util.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace util {

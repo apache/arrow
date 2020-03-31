@@ -17,13 +17,13 @@
 
 #include "arrow/util/compression.h"
 
-#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/compression_internal.h"
 
 namespace arrow {
 namespace util {

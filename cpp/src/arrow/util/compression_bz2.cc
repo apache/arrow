@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/compression.h"
+#include "arrow/util/compression_internal.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -23,7 +23,6 @@
 #include <limits>
 #include <memory>
 #include <sstream>
-#include <string>
 
 // Avoid defining max() macro
 #include "arrow/util/windows_compatibility.h"
@@ -44,8 +43,6 @@ namespace {
 // Max number of bytes the bz2 APIs accept at a time
 constexpr auto kSizeLimit =
     static_cast<int64_t>(std::numeric_limits<unsigned int>::max());
-
-}  // namespace
 
 Status BZ2Error(const char* prefix_msg, int bz_result) {
   ARROW_CHECK(bz_result != BZ_OK && bz_result != BZ_RUN_OK && bz_result != BZ_FLUSH_OK &&
@@ -270,6 +267,8 @@ class BZ2Codec : public Codec {
  private:
   int compression_level_;
 };
+
+}  // namespace
 
 std::unique_ptr<Codec> MakeBZ2Codec(int compression_level) {
   return std::unique_ptr<Codec>(new BZ2Codec(compression_level));

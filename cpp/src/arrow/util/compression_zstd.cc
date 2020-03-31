@@ -15,10 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/compression.h"
+#include "arrow/util/compression_internal.h"
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include <zstd.h>
 
@@ -38,8 +39,6 @@ namespace {
 Status ZSTDError(size_t ret, const char* prefix_msg) {
   return Status::IOError(prefix_msg, ZSTD_getErrorName(ret));
 }
-
-}  // namespace
 
 // ----------------------------------------------------------------------
 // ZSTD decompressor implementation
@@ -181,12 +180,41 @@ class ZSTDCodec : public Codec {
   }
 
   Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
-                             int64_t output_buffer_len, uint8_t* output_buffer) override;
+                             int64_t output_buffer_len, uint8_t* output_buffer) override {
+    if (output_buffer == nullptr) {
+      // We may pass a NULL 0-byte output buffer but some zstd versions demand
+      // a valid pointer: https://github.com/facebook/zstd/issues/1385
+      static uint8_t empty_buffer[1];
+      DCHECK_EQ(output_buffer_len, 0);
+      output_buffer = empty_buffer;
+    }
+
+    size_t ret = ZSTD_decompress(output_buffer, static_cast<size_t>(output_buffer_len),
+                                 input, static_cast<size_t>(input_len));
+    if (ZSTD_isError(ret)) {
+      return ZSTDError(ret, "ZSTD decompression failed: ");
+    }
+    if (static_cast<int64_t>(ret) != output_buffer_len) {
+      return Status::IOError("Corrupt ZSTD compressed data.");
+    }
+    return static_cast<int64_t>(ret);
+  }
+
+  int64_t MaxCompressedLen(int64_t input_len,
+                           const uint8_t* ARROW_ARG_UNUSED(input)) override {
+    DCHECK_GE(input_len, 0);
+    return ZSTD_compressBound(static_cast<size_t>(input_len));
+  }
 
   Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
-                           int64_t output_buffer_len, uint8_t* output_buffer) override;
-
-  int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) override;
+                           int64_t output_buffer_len, uint8_t* output_buffer) override {
+    size_t ret = ZSTD_compress(output_buffer, static_cast<size_t>(output_buffer_len),
+                               input, static_cast<size_t>(input_len), compression_level_);
+    if (ZSTD_isError(ret)) {
+      return ZSTDError(ret, "ZSTD compression failed: ");
+    }
+    return static_cast<int64_t>(ret);
+  }
 
   Result<std::shared_ptr<Compressor>> MakeCompressor() override {
     auto ptr = std::make_shared<ZSTDCompressor>(compression_level_);
@@ -206,42 +234,7 @@ class ZSTDCodec : public Codec {
   int compression_level_;
 };
 
-Result<int64_t> ZSTDCodec::Decompress(int64_t input_len, const uint8_t* input,
-                                      int64_t output_buffer_len, uint8_t* output_buffer) {
-  if (output_buffer == nullptr) {
-    // We may pass a NULL 0-byte output buffer but some zstd versions demand
-    // a valid pointer: https://github.com/facebook/zstd/issues/1385
-    static uint8_t empty_buffer[1];
-    DCHECK_EQ(output_buffer_len, 0);
-    output_buffer = empty_buffer;
-  }
-
-  size_t ret = ZSTD_decompress(output_buffer, static_cast<size_t>(output_buffer_len),
-                               input, static_cast<size_t>(input_len));
-  if (ZSTD_isError(ret)) {
-    return ZSTDError(ret, "ZSTD decompression failed: ");
-  }
-  if (static_cast<int64_t>(ret) != output_buffer_len) {
-    return Status::IOError("Corrupt ZSTD compressed data.");
-  }
-  return static_cast<int64_t>(ret);
-}
-
-int64_t ZSTDCodec::MaxCompressedLen(int64_t input_len,
-                                    const uint8_t* ARROW_ARG_UNUSED(input)) {
-  DCHECK_GE(input_len, 0);
-  return ZSTD_compressBound(static_cast<size_t>(input_len));
-}
-
-Result<int64_t> ZSTDCodec::Compress(int64_t input_len, const uint8_t* input,
-                                    int64_t output_buffer_len, uint8_t* output_buffer) {
-  size_t ret = ZSTD_compress(output_buffer, static_cast<size_t>(output_buffer_len), input,
-                             static_cast<size_t>(input_len), compression_level_);
-  if (ZSTD_isError(ret)) {
-    return ZSTDError(ret, "ZSTD compression failed: ");
-  }
-  return static_cast<int64_t>(ret);
-}
+}  // namespace
 
 std::unique_ptr<Codec> MakeZSTDCodec(int compression_level) {
   return std::unique_ptr<Codec>(new ZSTDCodec(compression_level));
