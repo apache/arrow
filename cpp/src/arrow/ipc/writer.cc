@@ -50,6 +50,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/parallel.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -182,20 +183,32 @@ class RecordBatchSerializer {
   Status CompressBodyBuffers() {
     std::unique_ptr<util::Codec> codec;
 
+    RETURN_NOT_OK(internal::CheckCompressionSupported(options_.compression));
+
     // TODO check allowed values for compression?
-    AppendCustomMetadata("ARROW:body_compression",
+    AppendCustomMetadata("ARROW:experimental_compression",
                          util::Codec::GetCodecAsString(options_.compression));
 
     ARROW_ASSIGN_OR_RAISE(
         codec, util::Codec::Create(options_.compression, options_.compression_level));
-    // TODO: Parallelize buffer compression
-    for (size_t i = 0; i < out_->body_buffers.size(); ++i) {
+
+    auto CompressOne = [&](size_t i) {
       if (out_->body_buffers[i]->size() > 0) {
         RETURN_NOT_OK(
             CompressBuffer(*out_->body_buffers[i], codec.get(), &out_->body_buffers[i]));
       }
+      return Status::OK();
+    };
+
+    if (options_.use_threads) {
+      return ::arrow::internal::ParallelFor(static_cast<int>(out_->body_buffers.size()),
+                                            CompressOne);
+    } else {
+      for (size_t i = 0; i < out_->body_buffers.size(); ++i) {
+        RETURN_NOT_OK(CompressOne(i));
+      }
+      return Status::OK();
     }
-    return Status::OK();
   }
 
   Status Assemble(const RecordBatch& batch) {

@@ -46,6 +46,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/parallel.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visitor_inline.h"
 
@@ -107,13 +108,10 @@ class ArrayLoader {
  public:
   explicit ArrayLoader(const flatbuf::RecordBatch* metadata,
                        const DictionaryMemo* dictionary_memo,
-                       const IpcReadOptions& options, Compression::type compression,
-                       io::RandomAccessFile* file)
+                       const IpcReadOptions& options, io::RandomAccessFile* file)
       : metadata_(metadata),
         file_(file),
         dictionary_memo_(dictionary_memo),
-        options_(options),
-        compression_(compression),
         max_recursion_depth_(options.max_recursion_depth) {}
 
   Status ReadBuffer(int64_t offset, int64_t length, std::shared_ptr<Buffer>* out) {
@@ -130,44 +128,6 @@ class ArrayLoader {
 
   Status LoadType(const DataType& type) { return VisitTypeInline(type, this); }
 
-  Status DecompressBuffers() {
-    if (skip_io_) {
-      return Status::OK();
-    }
-    std::unique_ptr<util::Codec> codec;
-    ARROW_ASSIGN_OR_RAISE(codec, util::Codec::Create(compression_));
-
-    // TODO: Consider strategies to enable columns to decompress in parallel
-    for (size_t i = 0; i < out_->buffers.size(); ++i) {
-      if (out_->buffers[i] == nullptr) {
-        continue;
-      }
-      if (out_->buffers[i]->size() == 0) {
-        continue;
-      }
-      const uint8_t* data = out_->buffers[i]->data();
-      int64_t compressed_size = out_->buffers[i]->size() - sizeof(int64_t);
-      int64_t uncompressed_size = util::SafeLoadAs<int64_t>(data);
-
-      std::shared_ptr<Buffer> uncompressed;
-      RETURN_NOT_OK(
-          AllocateBuffer(options_.memory_pool, uncompressed_size, &uncompressed));
-
-      int64_t actual_decompressed;
-      ARROW_ASSIGN_OR_RAISE(
-          actual_decompressed,
-          codec->Decompress(compressed_size, data + sizeof(int64_t), uncompressed_size,
-                            uncompressed->mutable_data()));
-      if (actual_decompressed != uncompressed_size) {
-        return Status::Invalid("Failed to fully decompress buffer, expected ",
-                               uncompressed_size, " bytes but decompressed ",
-                               actual_decompressed);
-      }
-      out_->buffers[i] = uncompressed;
-    }
-    return Status::OK();
-  }
-
   Status Load(const Field* field, ArrayData* out) {
     if (max_recursion_depth_ <= 0) {
       return Status::Invalid("Max recursion depth reached");
@@ -176,14 +136,7 @@ class ArrayLoader {
     field_ = field;
     out_ = out;
     out_->type = field_->type();
-    RETURN_NOT_OK(LoadType(*field_->type()));
-
-    // If the buffers are indicated to be compressed, instantiate the codec and
-    // decompress them
-    if (compression_ != Compression::UNCOMPRESSED) {
-      RETURN_NOT_OK(DecompressBuffers());
-    }
-    return Status::OK();
+    return LoadType(*field_->type());
   }
 
   Status SkipField(const Field* field) {
@@ -380,8 +333,6 @@ class ArrayLoader {
   const flatbuf::RecordBatch* metadata_;
   io::RandomAccessFile* file_;
   const DictionaryMemo* dictionary_memo_;
-  const IpcReadOptions& options_;
-  Compression::type compression_;
   int max_recursion_depth_;
   int buffer_index_ = 0;
   int field_index_ = 0;
@@ -391,12 +342,66 @@ class ArrayLoader {
   ArrayData* out_;
 };
 
+Status DecompressBuffers(Compression::type compression, const IpcReadOptions& options,
+                         std::vector<std::shared_ptr<ArrayData>>* fields) {
+  std::unique_ptr<util::Codec> codec;
+  ARROW_ASSIGN_OR_RAISE(codec, util::Codec::Create(compression));
+
+  auto DecompressOne = [&](int i) {
+    ArrayData* arr = (*fields)[i].get();
+    for (size_t i = 0; i < arr->buffers.size(); ++i) {
+      if (arr->buffers[i] == nullptr) {
+        continue;
+      }
+      if (arr->buffers[i]->size() == 0) {
+        continue;
+      }
+      if (arr->buffers[i]->size() < 8) {
+        return Status::Invalid(
+            "Likely corrupted message, compressed buffers "
+            "are larger than 8 bytes by construction");
+      }
+      const uint8_t* data = arr->buffers[i]->data();
+      int64_t compressed_size = arr->buffers[i]->size() - sizeof(int64_t);
+      int64_t uncompressed_size =
+          BitUtil::FromLittleEndian(util::SafeLoadAs<int64_t>(data));
+
+      std::shared_ptr<Buffer> uncompressed;
+      RETURN_NOT_OK(
+          AllocateBuffer(options.memory_pool, uncompressed_size, &uncompressed));
+
+      int64_t actual_decompressed;
+      ARROW_ASSIGN_OR_RAISE(
+          actual_decompressed,
+          codec->Decompress(compressed_size, data + sizeof(int64_t), uncompressed_size,
+                            uncompressed->mutable_data()));
+      if (actual_decompressed != uncompressed_size) {
+        return Status::Invalid("Failed to fully decompress buffer, expected ",
+                               uncompressed_size, " bytes but decompressed ",
+                               actual_decompressed);
+      }
+      arr->buffers[i] = uncompressed;
+    }
+    return Status::OK();
+  };
+
+  if (options.use_threads) {
+    return ::arrow::internal::ParallelFor(static_cast<int>(fields->size()),
+                                          DecompressOne);
+  } else {
+    for (int i = 0; i < static_cast<int>(fields->size()); ++i) {
+      RETURN_NOT_OK(DecompressOne(i));
+    }
+    return Status::OK();
+  }
+}
+
 Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
     const flatbuf::RecordBatch* metadata, const std::shared_ptr<Schema>& schema,
     const std::vector<bool>& inclusion_mask, const DictionaryMemo* dictionary_memo,
     const IpcReadOptions& options, Compression::type compression,
     io::RandomAccessFile* file) {
-  ArrayLoader loader(metadata, dictionary_memo, options, compression, file);
+  ArrayLoader loader(metadata, dictionary_memo, options, file);
 
   std::vector<std::shared_ptr<ArrayData>> field_data;
   std::vector<std::shared_ptr<Field>> schema_fields;
@@ -418,6 +423,10 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
     }
   }
 
+  if (compression != Compression::UNCOMPRESSED) {
+    RETURN_NOT_OK(DecompressBuffers(compression, options, &field_data));
+  }
+
   return RecordBatch::Make(::arrow::schema(std::move(schema_fields), schema->metadata()),
                            metadata->length(), std::move(field_data));
 }
@@ -432,7 +441,7 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatch(
                                  options, compression, file);
   }
 
-  ArrayLoader loader(metadata, dictionary_memo, options, compression, file);
+  ArrayLoader loader(metadata, dictionary_memo, options, file);
   std::vector<std::shared_ptr<ArrayData>> arrays(schema->num_fields());
   for (int i = 0; i < schema->num_fields(); ++i) {
     auto arr = std::make_shared<ArrayData>();
@@ -441,6 +450,9 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatch(
       return Status::IOError("Array length did not match record batch length");
     }
     arrays[i] = std::move(arr);
+  }
+  if (compression != Compression::UNCOMPRESSED) {
+    RETURN_NOT_OK(DecompressBuffers(compression, options, &arrays));
   }
   return RecordBatch::Make(schema, metadata->length(), std::move(arrays));
 }
@@ -454,11 +466,12 @@ Status GetCompression(const flatbuf::Message* message, Compression::type* out) {
     // TODO: Ensure this deserialization only ever happens once
     std::shared_ptr<const KeyValueMetadata> metadata;
     RETURN_NOT_OK(internal::GetKeyValueMetadata(message->custom_metadata(), &metadata));
-    int index = metadata->FindKey("ARROW:body_compression");
+    int index = metadata->FindKey("ARROW:experimental_compression");
     if (index != -1) {
       ARROW_ASSIGN_OR_RAISE(*out,
                             util::Codec::GetCompressionType(metadata->value(index)));
     }
+    RETURN_NOT_OK(internal::CheckCompressionSupported(*out));
   }
   return Status::OK();
 }

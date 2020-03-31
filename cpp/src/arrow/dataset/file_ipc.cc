@@ -39,7 +39,11 @@ Result<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReader(
   }
 
   std::shared_ptr<ipc::RecordBatchFileReader> reader;
-  auto status = ipc::RecordBatchFileReader::Open(std::move(input)).Value(&reader);
+  auto options = ipc::IpcReadOptions::Defaults();
+  options.use_threads = false;
+
+  auto status =
+      ipc::RecordBatchFileReader::Open(std::move(input), options).Value(&reader);
   if (!status.ok()) {
     return status.WithMessage("Could not open IPC input source '", source.path(),
                               "': ", status.message());

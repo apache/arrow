@@ -295,20 +295,19 @@ class IpcTestFixture : public io::MemoryMapFixture {
     ASSERT_EQ(out_memo->num_fields(), in_memo.num_fields());
   }
 
-  Status DoStandardRoundTrip(const RecordBatch& batch, const IpcWriteOptions& options,
-                             DictionaryMemo* dictionary_memo,
-                             std::shared_ptr<RecordBatch>* result) {
+  Result<std::shared_ptr<RecordBatch>> DoStandardRoundTrip(
+      const RecordBatch& batch, const IpcWriteOptions& options,
+      DictionaryMemo* dictionary_memo,
+      const IpcReadOptions& read_options = IpcReadOptions::Defaults()) {
     std::shared_ptr<Buffer> serialized_batch;
     RETURN_NOT_OK(SerializeRecordBatch(batch, options, &serialized_batch));
 
     io::BufferReader buf_reader(serialized_batch);
-    return ReadRecordBatch(batch.schema(), dictionary_memo, IpcReadOptions::Defaults(),
-                           &buf_reader)
-        .Value(result);
+    return ReadRecordBatch(batch.schema(), dictionary_memo, read_options, &buf_reader);
   }
 
-  Status DoLargeRoundTrip(const RecordBatch& batch, bool zero_data,
-                          std::shared_ptr<RecordBatch>* result) {
+  Result<std::shared_ptr<RecordBatch>> DoLargeRoundTrip(const RecordBatch& batch,
+                                                        bool zero_data) {
     if (zero_data) {
       RETURN_NOT_OK(ZeroMemoryMap(mmap_.get()));
     }
@@ -327,7 +326,9 @@ class IpcTestFixture : public io::MemoryMapFixture {
     std::shared_ptr<RecordBatchFileReader> file_reader;
     ARROW_ASSIGN_OR_RAISE(file_reader, RecordBatchFileReader::Open(mmap_.get(), offset));
 
-    return file_reader->ReadRecordBatch(0, result);
+    std::shared_ptr<RecordBatch> result;
+    RETURN_NOT_OK(file_reader->ReadRecordBatch(0, &result));
+    return result;
   }
 
   void CheckReadResult(const RecordBatch& result, const RecordBatch& expected) {
@@ -343,6 +344,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
 
   void CheckRoundtrip(const RecordBatch& batch,
                       IpcWriteOptions options = IpcWriteOptions::Defaults(),
+                      IpcReadOptions read_options = IpcReadOptions::Defaults(),
                       int64_t buffer_size = 1 << 20) {
     std::stringstream ss;
     ss << "test-write-row-batch-" << g_file_number++;
@@ -357,11 +359,11 @@ class IpcTestFixture : public io::MemoryMapFixture {
 
     ASSERT_OK(CollectDictionaries(batch, &dictionary_memo));
 
-    std::shared_ptr<RecordBatch> result;
-    ASSERT_OK(DoStandardRoundTrip(batch, options, &dictionary_memo, &result));
+    ASSERT_OK_AND_ASSIGN(
+        auto result, DoStandardRoundTrip(batch, options, &dictionary_memo, read_options));
     CheckReadResult(*result, batch);
 
-    ASSERT_OK(DoLargeRoundTrip(batch, /*zero_data=*/true, &result));
+    ASSERT_OK_AND_ASSIGN(result, DoLargeRoundTrip(batch, /*zero_data=*/true));
     CheckReadResult(*result, batch);
   }
   void CheckRoundtrip(const std::shared_ptr<Array>& array,
@@ -372,7 +374,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
     auto schema = std::make_shared<Schema>(fields);
 
     auto batch = RecordBatch::Make(schema, 0, {array});
-    CheckRoundtrip(*batch, options, buffer_size);
+    CheckRoundtrip(*batch, options, IpcReadOptions::Defaults(), buffer_size);
   }
 
  protected:
@@ -498,16 +500,33 @@ TEST_F(TestWriteRecordBatch, WriteWithCompression) {
   auto batch =
       RecordBatch::Make(schema, length, {rg.String(500, 0, 10, 0.1), dict_array});
 
-  std::vector<Compression::type> codecs = {Compression::GZIP, Compression::LZ4_FRAME,
-                                           Compression::ZSTD, Compression::SNAPPY,
-                                           Compression::BROTLI};
+  std::vector<Compression::type> codecs = {Compression::LZ4_FRAME, Compression::ZSTD};
   for (auto codec : codecs) {
     if (!util::Codec::IsAvailable(codec)) {
-      return;
+      continue;
+    }
+    IpcWriteOptions write_options = IpcWriteOptions::Defaults();
+    write_options.compression = codec;
+    CheckRoundtrip(*batch, write_options);
+
+    // Check non-parallel read and write
+    IpcReadOptions read_options = IpcReadOptions::Defaults();
+    write_options.use_threads = false;
+    read_options.use_threads = false;
+    CheckRoundtrip(*batch, write_options, read_options);
+  }
+
+  std::vector<Compression::type> disallowed_codecs = {
+      Compression::BROTLI, Compression::BZ2, Compression::LZ4, Compression::GZIP,
+      Compression::SNAPPY};
+  for (auto codec : disallowed_codecs) {
+    if (!util::Codec::IsAvailable(codec)) {
+      continue;
     }
     IpcWriteOptions options = IpcWriteOptions::Defaults();
     options.compression = codec;
-    CheckRoundtrip(*batch, options);
+    std::shared_ptr<Buffer> buf;
+    ASSERT_RAISES(Invalid, SerializeRecordBatch(*batch, options, &buf));
   }
 }
 
@@ -526,9 +545,9 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBinaryOffsets) {
   ASSERT_OK_AND_ASSIGN(
       mmap_, io::MemoryMapFixture::InitMemoryMap(/*buffer_size=*/1 << 20, ss.str()));
   DictionaryMemo dictionary_memo;
-  std::shared_ptr<RecordBatch> result;
-  ASSERT_OK(DoStandardRoundTrip(*sliced_batch, IpcWriteOptions::Defaults(),
-                                &dictionary_memo, &result));
+  ASSERT_OK_AND_ASSIGN(
+      auto result,
+      DoStandardRoundTrip(*sliced_batch, IpcWriteOptions::Defaults(), &dictionary_memo));
   ASSERT_EQ(6 * sizeof(int32_t), result->column(0)->data()->buffers[1]->size());
 }
 
@@ -614,9 +633,9 @@ TEST_F(TestWriteRecordBatch, RoundtripPreservesBufferSizes) {
   ASSERT_OK_AND_ASSIGN(
       mmap_, io::MemoryMapFixture::InitMemoryMap(/*buffer_size=*/1 << 20, ss.str()));
   DictionaryMemo dictionary_memo;
-  std::shared_ptr<RecordBatch> result;
-  ASSERT_OK(DoStandardRoundTrip(*batch, IpcWriteOptions::Defaults(), &dictionary_memo,
-                                &result));
+  ASSERT_OK_AND_ASSIGN(
+      auto result,
+      DoStandardRoundTrip(*batch, IpcWriteOptions::Defaults(), &dictionary_memo));
 
   // Make sure that the validity bitmap is size 2 as expected
   ASSERT_EQ(2, arr->data()->buffers[0]->size());
@@ -1096,8 +1115,7 @@ TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
   constexpr int64_t kBufferSize = 1 << 29;
   ASSERT_OK_AND_ASSIGN(mmap_, io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
 
-  std::shared_ptr<RecordBatch> result;
-  ASSERT_OK(DoLargeRoundTrip(*batch, false, &result));
+  ASSERT_OK_AND_ASSIGN(auto result, DoLargeRoundTrip(*batch, false));
   CheckReadResult(*result, *batch);
 
   ASSERT_EQ(length, result->num_rows());
