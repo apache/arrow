@@ -18,9 +18,11 @@
 use std::convert::TryFrom;
 use std::sync::Arc;
 
-use arrow::array::Int32Array;
 use arrow::datatypes::Schema;
 use arrow::flight::flight_data_to_batch;
+
+use datafusion::utils;
+
 use flight::flight_descriptor;
 use flight::flight_service_client::FlightServiceClient;
 use flight::{FlightDescriptor, Ticket};
@@ -58,22 +60,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Schema: {:?}", schema);
 
     // all the remaining stream messages should be dictionary and record batches
+    let mut results = vec![];
     while let Some(flight_data) = stream.message().await? {
         // the unwrap is infallible and thus safe
         let record_batch = flight_data_to_batch(&flight_data, schema.clone())?.unwrap();
-
-        println!(
-            "record_batch has {} columns and {} rows",
-            record_batch.num_columns(),
-            record_batch.num_rows()
-        );
-        let column = record_batch.column(0);
-        let column = column
-            .as_any()
-            .downcast_ref::<Int32Array>()
-            .expect("Unable to get column");
-        println!("Column 1: {:?}", column);
+        results.push(record_batch);
     }
+
+    // print the results
+    utils::print_batches(&results).unwrap();
 
     Ok(())
 }

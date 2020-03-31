@@ -15,13 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-extern crate arrow;
-extern crate datafusion;
-
-use arrow::array::{Float64Array, Int32Array, StringArray};
-
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
+use datafusion::utils;
 
 /// This example demonstrates executing a simple query against an Arrow data source (Parquet) and
 /// fetching results
@@ -49,41 +45,8 @@ fn main() -> Result<()> {
     // execute the query
     let results = ctx.collect(plan.as_ref())?;
 
-    // iterate over the results
-    results.iter().for_each(|batch| {
-        println!(
-            "RecordBatch has {} rows and {} columns",
-            batch.num_rows(),
-            batch.num_columns()
-        );
-
-        let int = batch
-            .column(0)
-            .as_any()
-            .downcast_ref::<Int32Array>()
-            .unwrap();
-
-        let double = batch
-            .column(1)
-            .as_any()
-            .downcast_ref::<Float64Array>()
-            .unwrap();
-
-        let date = batch
-            .column(2)
-            .as_any()
-            .downcast_ref::<StringArray>()
-            .unwrap();
-
-        for i in 0..batch.num_rows() {
-            println!(
-                "Date: {}, Int: {}, Double: {}",
-                date.value(i),
-                int.value(i),
-                double.value(i)
-            );
-        }
-    });
+    // print the results
+    utils::print_batches(&results)?;
 
     Ok(())
 }
