@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/compression_snappy.h"
+#include "arrow/util/compression.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -31,17 +31,33 @@ using std::size_t;
 
 namespace arrow {
 namespace util {
+namespace internal {
 
 // ----------------------------------------------------------------------
 // Snappy implementation
 
-Result<std::shared_ptr<Compressor>> SnappyCodec::MakeCompressor() {
-  return Status::NotImplemented("Streaming compression unsupported with Snappy");
-}
+class SnappyCodec : public Codec {
+ public:
+  SnappyCodec() {}
 
-Result<std::shared_ptr<Decompressor>> SnappyCodec::MakeDecompressor() {
-  return Status::NotImplemented("Streaming decompression unsupported with Snappy");
-}
+  Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
+                             int64_t output_buffer_len, uint8_t* output_buffer) override;
+
+  Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
+                           int64_t output_buffer_len, uint8_t* output_buffer) override;
+
+  int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) override;
+
+  Result<std::shared_ptr<Compressor>> MakeCompressor() override {
+    return Status::NotImplemented("Streaming compression unsupported with Snappy");
+  }
+
+  Result<std::shared_ptr<Decompressor>> MakeDecompressor() override {
+    return Status::NotImplemented("Streaming decompression unsupported with Snappy");
+  }
+
+  const char* name() const override { return "snappy"; }
+};
 
 Result<int64_t> SnappyCodec::Decompress(int64_t input_len, const uint8_t* input,
                                         int64_t output_buffer_len,
@@ -79,5 +95,11 @@ Result<int64_t> SnappyCodec::Compress(int64_t input_len, const uint8_t* input,
                       reinterpret_cast<char*>(output_buffer), &output_size);
   return static_cast<int64_t>(output_size);
 }
+
+std::unique_ptr<Codec> MakeSnappyCodec() {
+  return std::unique_ptr<Codec>(new SnappyCodec());
+}
+
+}  // namespace internal
 }  // namespace util
 }  // namespace arrow

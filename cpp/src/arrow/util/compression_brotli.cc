@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/compression_brotli.h"
+#include "arrow/util/compression.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -31,6 +31,7 @@
 
 namespace arrow {
 namespace util {
+namespace internal {
 
 class BrotliDecompressor : public Decompressor {
  public:
@@ -169,23 +170,39 @@ class BrotliCompressor : public Compressor {
 // ----------------------------------------------------------------------
 // Brotli codec implementation
 
-BrotliCodec::BrotliCodec(int compression_level) {
-  compression_level_ = compression_level == kUseDefaultCompressionLevel
-                           ? kBrotliDefaultCompressionLevel
-                           : compression_level;
-}
+class ARROW_EXPORT BrotliCodec : public Codec {
+ public:
+  explicit BrotliCodec(int compression_level) {
+    compression_level_ = compression_level == kUseDefaultCompressionLevel
+                             ? kBrotliDefaultCompressionLevel
+                             : compression_level;
+  }
 
-Result<std::shared_ptr<Compressor>> BrotliCodec::MakeCompressor() {
-  auto ptr = std::make_shared<BrotliCompressor>(compression_level_);
-  RETURN_NOT_OK(ptr->Init());
-  return ptr;
-}
+  Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
+                             int64_t output_buffer_len, uint8_t* output_buffer) override;
 
-Result<std::shared_ptr<Decompressor>> BrotliCodec::MakeDecompressor() {
-  auto ptr = std::make_shared<BrotliDecompressor>();
-  RETURN_NOT_OK(ptr->Init());
-  return ptr;
-}
+  Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
+                           int64_t output_buffer_len, uint8_t* output_buffer) override;
+
+  int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) override;
+
+  Result<std::shared_ptr<Compressor>> MakeCompressor() override {
+    auto ptr = std::make_shared<BrotliCompressor>(compression_level_);
+    RETURN_NOT_OK(ptr->Init());
+    return ptr;
+  }
+
+  Result<std::shared_ptr<Decompressor>> MakeDecompressor() override {
+    auto ptr = std::make_shared<BrotliDecompressor>();
+    RETURN_NOT_OK(ptr->Init());
+    return ptr;
+  }
+
+  const char* name() const override { return "brotli"; }
+
+ private:
+  int compression_level_;
+};
 
 Result<int64_t> BrotliCodec::Decompress(int64_t input_len, const uint8_t* input,
                                         int64_t output_buffer_len,
@@ -219,5 +236,10 @@ Result<int64_t> BrotliCodec::Compress(int64_t input_len, const uint8_t* input,
   return output_size;
 }
 
+std::unique_ptr<Codec> MakeBrotliCodec(int compression_level) {
+  return std::unique_ptr<Codec>(new BrotliCodec(compression_level));
+}
+
+}  // namespace internal
 }  // namespace util
 }  // namespace arrow

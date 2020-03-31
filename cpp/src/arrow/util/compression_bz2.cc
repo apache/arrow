@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/compression_bz2.h"
+#include "arrow/util/compression.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -37,6 +37,7 @@
 
 namespace arrow {
 namespace util {
+namespace internal {
 
 namespace {
 
@@ -228,39 +229,52 @@ class BZ2Compressor : public Compressor {
 // ----------------------------------------------------------------------
 // bz2 codec implementation
 
-BZ2Codec::BZ2Codec(int compression_level) : compression_level_(compression_level) {
-  compression_level_ = compression_level == kUseDefaultCompressionLevel
-                           ? kBZ2DefaultCompressionLevel
-                           : compression_level;
+class BZ2Codec : public Codec {
+ public:
+  explicit BZ2Codec(int compression_level) : compression_level_(compression_level) {
+    compression_level_ = compression_level == kUseDefaultCompressionLevel
+                             ? kBZ2DefaultCompressionLevel
+                             : compression_level;
+  }
+
+  Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
+                             int64_t output_buffer_len, uint8_t* output_buffer) override {
+    return Status::NotImplemented("One-shot bz2 decompression not supported");
+  }
+
+  Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
+                           int64_t output_buffer_len, uint8_t* output_buffer) override {
+    return Status::NotImplemented("One-shot bz2 compression not supported");
+  }
+
+  int64_t MaxCompressedLen(int64_t input_len,
+                           const uint8_t* ARROW_ARG_UNUSED(input)) override {
+    // Cannot determine upper bound for bz2-compressed data
+    return 0;
+  }
+
+  Result<std::shared_ptr<Compressor>> MakeCompressor() override {
+    auto ptr = std::make_shared<BZ2Compressor>(compression_level_);
+    RETURN_NOT_OK(ptr->Init());
+    return ptr;
+  }
+
+  Result<std::shared_ptr<Decompressor>> MakeDecompressor() override {
+    auto ptr = std::make_shared<BZ2Decompressor>();
+    RETURN_NOT_OK(ptr->Init());
+    return ptr;
+  }
+
+  const char* name() const override { return "bz2"; }
+
+ private:
+  int compression_level_;
+};
+
+std::unique_ptr<Codec> MakeBZ2Codec(int compression_level) {
+  return std::unique_ptr<Codec>(new BZ2Codec(compression_level));
 }
 
-Result<std::shared_ptr<Compressor>> BZ2Codec::MakeCompressor() {
-  auto ptr = std::make_shared<BZ2Compressor>(compression_level_);
-  RETURN_NOT_OK(ptr->Init());
-  return ptr;
-}
-
-Result<std::shared_ptr<Decompressor>> BZ2Codec::MakeDecompressor() {
-  auto ptr = std::make_shared<BZ2Decompressor>();
-  RETURN_NOT_OK(ptr->Init());
-  return ptr;
-}
-
-Result<int64_t> BZ2Codec::Decompress(int64_t input_len, const uint8_t* input,
-                                     int64_t output_buffer_len, uint8_t* output_buffer) {
-  return Status::NotImplemented("One-shot bz2 decompression not supported");
-}
-
-int64_t BZ2Codec::MaxCompressedLen(int64_t input_len,
-                                   const uint8_t* ARROW_ARG_UNUSED(input)) {
-  // Cannot determine upper bound for bz2-compressed data
-  return 0;
-}
-
-Result<int64_t> BZ2Codec::Compress(int64_t input_len, const uint8_t* input,
-                                   int64_t output_buffer_len, uint8_t* output_buffer) {
-  return Status::NotImplemented("One-shot bz2 compression not supported");
-}
-
+}  // namespace internal
 }  // namespace util
 }  // namespace arrow
