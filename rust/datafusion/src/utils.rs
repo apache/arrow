@@ -74,6 +74,29 @@ macro_rules! make_string {
     }};
 }
 
+macro_rules! make_string_from_list {
+    ($column: ident, $row: ident) => {{
+        let list = $column
+            .as_any()
+            .downcast_ref::<array::ListArray>()
+            .unwrap()
+            .value($row);
+        let string_values = match (0..list.len())
+            .map(|i| array_value_to_string(list.clone(), i))
+            .collect::<Result<Vec<String>>>()
+        {
+            Ok(values) => values,
+            _ => {
+                return Err(ExecutionError::ExecutionError(format!(
+                    "Unsupported {:?} type for repl.",
+                    $column.data_type()
+                )))
+            }
+        };
+        Ok(format!("[{}]", string_values.join(", ")))
+    }};
+}
+
 /// Get the value at the given row in an array as a string
 pub fn array_value_to_string(column: array::ArrayRef, row: usize) -> Result<String> {
     match column.data_type() {
@@ -120,6 +143,7 @@ pub fn array_value_to_string(column: array::ArrayRef, row: usize) -> Result<Stri
         DataType::Time64(unit) if *unit == TimeUnit::Nanosecond => {
             make_string!(array::Time64NanosecondArray, column, row)
         }
+        DataType::List(_) => make_string_from_list!(column, row),
         _ => Err(ExecutionError::ExecutionError(format!(
             "Unsupported {:?} type for repl.",
             column.data_type()
