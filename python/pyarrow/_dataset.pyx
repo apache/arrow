@@ -334,9 +334,22 @@ cdef class FileSystemDataset(Dataset):
         return FileFormat.wrap(self.filesystem_dataset.format())
 
 
-def _empty_dataset_scanner(Schema schema not None, columns=None, filter=None):
-    dataset = UnionDataset(schema, children=[])
-    return Scanner(dataset, columns=columns, filter=filter)
+cdef shared_ptr[CScanOptions] _make_scan_options(Schema schema,
+        Expression partition_expression,
+        object columns=None, Expression filter=None):
+    cdef:
+        shared_ptr[CScanOptions] options
+        CExpression* c_partition_expression
+
+    empty_dataset = UnionDataset(schema, children=[])
+    scanner = Scanner(empty_dataset, columns=columns, filter=filter)
+    options = scanner.unwrap().get().options()
+
+    c_partition_expression = partition_expression.unwrap().get()
+    check_status(CSetPartitionKeysInProjector(deref(c_partition_expression),
+        &options.get().projector))
+
+    return options
 
 
 cdef class FileFormat:
@@ -384,13 +397,12 @@ cdef class FileFormat:
         cdef:
             shared_ptr[CScanOptions] c_options
             shared_ptr[CFileFragment] c_fragment
-            Scanner scanner
 
         if schema is None:
             schema = self.inspect(path, filesystem)
 
-        scanner = _empty_dataset_scanner(schema, columns, filter)
-        c_options = scanner.unwrap().get().options()
+        c_options = _make_scan_options(schema, partition_expression,
+                                       columns, filter)
 
         c_fragment = GetResultValue(
             self.format.MakeFragment(CFileSource(tobytes(path),
@@ -667,7 +679,6 @@ cdef class ParquetFileFormat(FileFormat):
         cdef:
             shared_ptr[CScanOptions] c_options
             shared_ptr[CFileFragment] c_fragment
-            Scanner scanner
             vector[int] c_row_groups
 
         if row_groups is None:
@@ -679,8 +690,8 @@ cdef class ParquetFileFormat(FileFormat):
         if schema is None:
             schema = self.inspect(path, filesystem)
 
-        scanner = _empty_dataset_scanner(schema, columns, filter)
-        c_options = scanner.unwrap().get().options()
+        c_options = _make_scan_options(schema, partition_expression,
+                                       columns, filter)
 
         c_fragment = GetResultValue(
             self.parquet_format.MakeFragment(CFileSource(tobytes(path),

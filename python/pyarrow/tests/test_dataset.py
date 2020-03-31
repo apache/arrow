@@ -668,12 +668,9 @@ def test_parquet_fragments(tempdir):
     fragment = list(dataset.get_fragments())[0]
     parquet_format = fragment.format
     new_fragment = parquet_format.make_fragment(
-        fragment.path, fragment.filesystem,  # schema=dataset.schema,
+        fragment.path, fragment.filesystem, schema=dataset.schema,
         partition_expression=fragment.partition_expression)
-    # TODO this fails, because either the new fragment does not include the
-    # partition column, or if the schema above is passed, it is filled with
-    # nulls instead of the value from the partition expression
-    # assert new_fragment.to_table().equals(fragment.to_table())
+    assert new_fragment.to_table().equals(fragment.to_table())
     new_fragment.to_table()
 
     # manually re-construct a fragment with filter / column projection

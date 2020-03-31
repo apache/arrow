@@ -132,8 +132,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         "arrow::dataset::InsertImplicitCasts"(
             const CExpression &, const CSchema&)
 
-    cdef cppclass CScanOptions "arrow::dataset::ScanOptions":
+    cdef cppclass CRecordBatchProjector "arrow::dataset::RecordBatchProjector":
         pass
+
+    cdef cppclass CScanOptions "arrow::dataset::ScanOptions":
+        CRecordBatchProjector projector
 
     cdef cppclass CScanContext "arrow::dataset::ScanContext":
         c_bool use_threads
@@ -304,6 +307,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             shared_ptr[CPartitioningFactory])
         shared_ptr[CPartitioning] partitioning() const
         shared_ptr[CPartitioningFactory] factory() const
+
+    cdef CStatus CSetPartitionKeysInProjector \
+            "arrow::dataset::KeyValuePartitioning::SetDefaultValuesFromKeys"(
+                const CExpression& partition_expression,
+                CRecordBatchProjector* projector)
 
     cdef cppclass CFileSystemFactoryOptions \
             "arrow::dataset::FileSystemFactoryOptions":
