@@ -59,12 +59,11 @@ Installing from source
 
 See :ref:`python-development`.
 
-Installing Unoffical Nightlies
-------------------------------
+Installing Nightly Packages
+---------------------------
 
 .. warning::
-    These packages can't be considered as offical Apache Arrow releases, so
-    don't use and don't depend on them.
+    These packages are not official releases. Use them at your own risk.
 
 PyArrow has nightly wheels and conda packages for testing purposes.
 
