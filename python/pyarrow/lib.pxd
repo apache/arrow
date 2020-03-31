@@ -142,6 +142,21 @@ cdef class PyExtensionType(ExtensionType):
     pass
 
 
+cdef class Metadata:
+    pass
+
+
+cdef class KeyValueMetadata(Metadata):
+    cdef:
+        shared_ptr[CKeyValueMetadata] wrapped
+        CKeyValueMetadata* metadata
+
+    cdef void init(self, const shared_ptr[CKeyValueMetadata]& wrapped)
+    @staticmethod
+    cdef wrap(const shared_ptr[CKeyValueMetadata]& sp)
+    cdef inline shared_ptr[CKeyValueMetadata] unwrap(self)
+
+
 cdef class Field:
     cdef:
         shared_ptr[CField] sp_field

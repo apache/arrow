@@ -16,6 +16,7 @@
 # under the License.
 
 from collections import OrderedDict
+from collections.abc import MutableMapping
 
 import pickle
 import pytest
@@ -563,6 +564,48 @@ def test_type_equality_operators():
                 assert ty == other
             else:
                 assert ty != other
+
+
+def test_key_value_metadata():
+    assert isinstance(pa.KeyValueMetadata(), MutableMapping)
+
+    m = pa.KeyValueMetadata({'a': 'A', 'b': 'B'})
+    assert len(m) == 2
+    assert m['a'] == 'A'
+    assert m['b'] == 'B'
+    assert 'c' not in m
+    m['c'] = 'C'
+    assert 'c' in m
+    assert m['c'] == 'C'
+    m.update({'a': 'a', 'd': 'd'})
+    assert m['a'] == 'a'
+    assert m['d'] == 'd'
+
+    m1 = pa.KeyValueMetadata({'a': 'A', 'b': 'B'})
+    m2 = pa.KeyValueMetadata(a='A', b='B')
+    m3 = pa.KeyValueMetadata([('a', 'A'), ('b', 'B')])
+
+    assert m1 != 2
+    assert m1 == m2 == m3
+    assert m1 == {'a': 'A', 'b': 'B'}
+
+    with pytest.raises(TypeError):
+        m1[4] = 5
+    with pytest.raises(TypeError):
+        m1['a'] = 5
+    with pytest.raises(TypeError):
+        pa.KeyValueMetadata(a=1)
+
+    expected = [('a', 'A'), ('b', 'B')]
+    result = [(k, v) for k, v in m3.items()]
+    assert result == expected
+    assert list(m3.items()) == expected
+    assert list(m3.keys()) == ['a', 'b']
+    assert list(m3.values()) == ['A', 'B']
+
+    assert len(m3) == 2
+    m3.clear()
+    assert len(m3) == 0
 
 
 def test_field_basic():
