@@ -108,12 +108,17 @@ def _filters_to_expression(filters):
     """
     Check if filters are well-formed.
 
-    Predicates are expressed in disjunctive normal form (DNF). This means
-    that the innermost tuple describe a single column predicate. These
-    inner predicate make are all combined with a conjunction (AND) into a
-    larger predicate. The most outer list then combines all filters
-    with a disjunction (OR). By this, we should be able to express all
-    kinds of filters that are possible using boolean logic.
+    Predicates are expressed in disjunctive normal form (DNF), like 
+    ``[[('x', '=', 0), ...], ...]``. DNF allows
+    arbitrary boolean logical combinations of single column predicates. The
+    innermost tuples each describe a single column predicate. The list
+    of inner predicates is interpreted as a conjunction (AND), forming a
+    more selective and multiple column predicate. Finally, the most outer
+    list combines these filters as a disjunction (OR).
+
+    Predicates may also be passed as List[Tuple]. This form is interpreted
+    as a single conjunction. To express OR in predicates, one must
+    use the (preferred) List[List[Tuple]] notation.
     """
     import pyarrow.dataset as ds
 
