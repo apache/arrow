@@ -15,13 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' read [arrow::RecordBatch][RecordBatch] as encapsulated IPC message, given a known [arrow::Schema][schema]
+#' Read a [RecordBatch] from an encapsulated IPC message
 #'
-#' @param obj a [arrow::Message][Message], a [arrow::io::InputStream][InputStream], a [Buffer][buffer], or a raw vector
-#' @param schema a [arrow::Schema][schema]
+#' Deprecated in 0.17. Use [record_batch()] instead.
 #'
-#' @return a [arrow::RecordBatch][RecordBatch]
+#' @param obj a [Message], a [InputStream], a [Buffer], or a `raw` vector
+#' @param schema a [schema]
 #'
+#' @return a [RecordBatch]
+#'
+#' @keywords internal
 #' @export
 read_record_batch <- function(obj, schema) {
   .Deprecated("record_batch")

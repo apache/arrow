@@ -105,8 +105,8 @@ parsing options provided in other arguments (e.g. \code{delim}, \code{quote}, et
 
 \item{read_options}{see \link[=CsvReadOptions]{file reader options}}
 
-\item{as_data_frame}{Should the function return a \code{data.frame} or an
-\link[=Table]{arrow::Table}?}
+\item{as_data_frame}{Should the function return a \code{data.frame} (default) or
+an Arrow \link{Table}?}
 }
 \value{
 A \code{data.frame}, or a Table if \code{as_data_frame = FALSE}.

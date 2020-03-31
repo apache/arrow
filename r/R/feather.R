@@ -119,7 +119,7 @@ write_feather <- function(x,
 #' @param ... additional parameters
 #'
 #' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
-#' [arrow::Table][Table] otherwise
+#' Arrow [Table] otherwise
 #'
 #' @export
 #' @examples

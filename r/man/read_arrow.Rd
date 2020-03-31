@@ -4,40 +4,35 @@
 \alias{read_table}
 \alias{read_arrow}
 \alias{read_stream}
-\title{Read an \link[=Table]{arrow::Table} from a stream}
+\title{Read Arrow formatted data}
 \usage{
 read_table(x, ...)
 
 read_arrow(x, ...)
 
-read_stream(stream, as_data_frame = TRUE, ...)
+read_stream(x, as_data_frame = TRUE, ...)
 }
 \arguments{
-\item{stream}{stream.
-\itemize{
-\item a \link[=RecordBatchFileReader]{arrow::RecordBatchFileReader}:
-read an \link[=Table]{arrow::Table}
-from all the record batches in the reader
-\item a \link[=RecordBatchStreamReader]{arrow::RecordBatchStreamReader}:
-read an \link[=Table]{arrow::Table} from the remaining record batches
-in the reader
-\item a string file path: interpret the file as an arrow
-binary file format, and uses a \link[=RecordBatchFileReader]{arrow::RecordBatchFileReader}
-to process it.
-\item a raw vector: read using a \link[=RecordBatchStreamReader]{arrow::RecordBatchStreamReader}
-}}
+\item{x}{string file path, buffer, or Arrow C++ class to read from. If
+\code{read_arrow()} receives a \code{RecordBatchStreamReader} or a R \code{raw} vector,
+it will dispatch to \code{read_stream()}; otherwise, it calls \code{read_feather()}
+to write a file.}
+
+\item{...}{extra parameters passed to \code{read_feather()}.}
+
+\item{as_data_frame}{Should the function return a \code{data.frame} (default) or
+an Arrow \link{Table}?}
 }
 \value{
-\itemize{
-\item \code{read_table} returns an \link[=Table]{arrow::Table}
-\item \code{read_arrow} returns a \code{data.frame}
-}
+A \code{data.frame} if \code{as_data_frame} is \code{TRUE} (the default), or an
+Arrow \link{Table} otherwise
 }
 \description{
-Read an \link[=Table]{arrow::Table} from a stream
+Apache Arrow defines two formats for \href{https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc}{serializing data for interprocess communication (IPC)}:
+a "stream" format and a "file" format, known as Feather. \code{read_arrow()}
+is a convenience wrapper around \code{read_stream()} and \code{\link[=read_feather]{read_feather()}}, which
+write those formats, respectively.
 }
-\details{
-The methods using \link[=RecordBatchFileReader]{arrow::RecordBatchFileReader} and
-\link[=RecordBatchStreamReader]{arrow::RecordBatchStreamReader} offer the most
-flexibility. The other methods are for convenience.
+\seealso{
+\link{RecordBatchReader}
 }

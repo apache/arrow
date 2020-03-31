@@ -15,41 +15,27 @@
 # specific language governing permissions and limitations
 # under the License.
 
-to_arrow <- function(x) {
-  UseMethod("to_arrow")
-}
-
-to_arrow.RecordBatch <- function(x) x
-to_arrow.Table <- function(x) x
-
-# splice the data frame as arguments of Table$create()
-# see ?rlang::list2()
-to_arrow.data.frame <- function(x) Table$create(!!!x)
-
 #' Write Arrow formatted data
 #'
-#' @param x an [arrow::Table][Table], an [arrow::RecordBatch][RecordBatch] or a data.frame
+#' Apache Arrow defines two formats for [serializing data for interprocess
+#' communication (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
+#' a "stream" format and a "file" format, known as Feather. `write_arrow()`
+#' is a convenience wrapper around `write_stream()` and [write_feather()], which
+#' write those formats, respectively.
 #'
-#' @param sink where to serialize to
+#' @param x an Arrow [Table] or [RecordBatch], or a `data.frame`
+#' @param sink string file path, buffer, or Arrow C++ class to write to. If
+#' `write_arrow()` receives a `RecordBatchStreamWriter` or an empty R `raw` vector,
+#' it will dispatch to `write_stream()`; otherwise, it calls `write_feather()`
+#' to write a file.
+#' @param ... extra parameters passed to `write_feather()`.
 #'
-#' - A [arrow::RecordBatchWriter][RecordBatchWriter]: the `$write()`
-#'      of `x` is used. The stream is left open. This uses the streaming format
-#'      or the binary file format depending on the type of the writer.
-#'
-#' - A string file path: `x` is serialized with
-#'      a [arrow::RecordBatchFileWriter][RecordBatchFileWriter], i.e.
-#'      using the binary file format.
-#'
-#' - A raw vector: typically of length zero (its data is ignored, and only used for
-#'      dispatch). `x` is serialized using the streaming format, i.e. using the
-#'      [arrow::RecordBatchStreamWriter][RecordBatchStreamWriter]
-#'
-#' @param ... extra parameters, currently ignored
-#'
-#' `write_arrow` is a convenience function, the classes [arrow::RecordBatchFileWriter][RecordBatchFileWriter]
-#' and [arrow::RecordBatchStreamWriter][RecordBatchStreamWriter] can be used for more flexibility.
-#'
-#' @return the input `x` invisibly.
+#' @return `write_stream()` returns the stream: either the
+#' `RecordBatchStreamWriter` passed to `sink`, connection still open, or if
+#' `sink` is a `raw` vector, a new `raw` vector containing the bytes that were
+#' written using a `RecordBatchStreamWriter`. `write_feather()` returns `x`,
+#' invisibly.
+#' @seealso [RecordBatchWriter]
 #' @export
 write_arrow <- function(x, sink, ...) {
   if (inherits(sink, c("RecordBatchStreamWriter", "raw"))) {
@@ -59,25 +45,23 @@ write_arrow <- function(x, sink, ...) {
   }
 }
 
+#' @rdname write_arrow
+#' @export
 write_stream <- function(x, sink, ...) {
   if (inherits(sink, "raw")) {
-    x <- to_arrow(x)
-    schema <- x$schema
+    if (is.data.frame(x)) {
+      x <- Table$create(x)
+    }
 
-    # how many bytes do we need
-    mock_stream <- MockOutputStream$create()
-    writer <- RecordBatchStreamWriter$create(mock_stream, schema)
-    writer$write(x)
-    writer$close()
-    n <- mock_stream$GetExtentBytesWritten()
-
+    n <- count_bytes_to_serialize(x)
     # now that we know the size, stream in a buffer backed by an R raw vector
     bytes <- raw(n)
     buffer_writer <- FixedSizeBufferWriter$create(buffer(bytes))
-    sink <- RecordBatchStreamWriter$create(buffer_writer, schema)
+    sink <- RecordBatchStreamWriter$create(buffer_writer, x$schema)
     on.exit(sink$close())
     sink$write(x)
-    # Note that this returns the R raw vector, not the Arrow object
+    # Note that this returns a new R raw vector, not the one passed as `sink`
+    # Nor is it returning an Arrow C++ object
     bytes
   } else {
     assert_is(sink, "RecordBatchStreamWriter")
@@ -85,35 +69,33 @@ write_stream <- function(x, sink, ...) {
   }
 }
 
-#' Read an [arrow::Table][Table] from a stream
+count_bytes_to_serialize <- function(x) {
+  mock_stream <- MockOutputStream$create()
+  writer <- RecordBatchStreamWriter$create(mock_stream, x$schema)
+  writer$write(x)
+  writer$close()
+  mock_stream$GetExtentBytesWritten()
+}
+
+#' Read Arrow formatted data
 #'
-#' @param stream stream.
+#' Apache Arrow defines two formats for [serializing data for interprocess
+#' communication (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
+#' a "stream" format and a "file" format, known as Feather. `read_arrow()`
+#' is a convenience wrapper around `read_stream()` and [read_feather()], which
+#' write those formats, respectively.
 #'
-#' - a [arrow::RecordBatchFileReader][RecordBatchFileReader]:
-#'   read an [arrow::Table][Table]
-#'   from all the record batches in the reader
+#' @param x string file path, buffer, or Arrow C++ class to read from. If
+#' `read_arrow()` receives a `RecordBatchStreamReader` or a R `raw` vector,
+#' it will dispatch to `read_stream()`; otherwise, it calls `read_feather()`
+#' to write a file.
+#' @param as_data_frame Should the function return a `data.frame` (default) or
+#' an Arrow [Table]?
+#' @param ... extra parameters passed to `read_feather()`.
 #'
-#' - a [arrow::RecordBatchStreamReader][RecordBatchStreamReader]:
-#'   read an [arrow::Table][Table] from the remaining record batches
-#'   in the reader
-#'
-#'  - a string file path: interpret the file as an arrow
-#'    binary file format, and uses a [arrow::RecordBatchFileReader][RecordBatchFileReader]
-#'    to process it.
-#'
-#'  - a raw vector: read using a [arrow::RecordBatchStreamReader][RecordBatchStreamReader]
-#'
-#' @return
-#'
-#'  - `read_table` returns an [arrow::Table][Table]
-#'  - `read_arrow` returns a `data.frame`
-#'
-#' @details
-#'
-#' The methods using [arrow::RecordBatchFileReader][RecordBatchFileReader] and
-#' [arrow::RecordBatchStreamReader][RecordBatchStreamReader] offer the most
-#' flexibility. The other methods are for convenience.
-#'
+#' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
+#' Arrow [Table] otherwise
+#' @seealso [RecordBatchReader]
 #' @export
 read_arrow <- function(x, ...) {
   if (inherits(x, c("RecordBatchStreamReader", "raw"))) {
@@ -125,14 +107,14 @@ read_arrow <- function(x, ...) {
 
 #' @rdname read_arrow
 #' @export
-read_stream <- function(stream, as_data_frame = TRUE, ...) {
-  if (inherits(stream, "raw")) {
-    buf <- BufferReader$create(stream)
+read_stream <- function(x, as_data_frame = TRUE, ...) {
+  if (inherits(x, "raw")) {
+    buf <- BufferReader$create(x)
     on.exit(buf$close())
-    stream <- RecordBatchStreamReader$create(buf)
+    x <- RecordBatchStreamReader$create(buf)
   }
-  assert_is(stream, "RecordBatchStreamReader")
-  out <- shared_ptr(Table, Table__from_RecordBatchStreamReader(stream))
+  assert_is(x, "RecordBatchStreamReader")
+  out <- shared_ptr(Table, Table__from_RecordBatchStreamReader(x))
   if (as_data_frame) {
     out <- as.data.frame(out)
   }

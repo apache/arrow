@@ -2,34 +2,36 @@
 % Please edit documentation in R/ipc.R
 \name{write_arrow}
 \alias{write_arrow}
+\alias{write_stream}
 \title{Write Arrow formatted data}
 \usage{
 write_arrow(x, sink, ...)
+
+write_stream(x, sink, ...)
 }
 \arguments{
-\item{x}{an \link[=Table]{arrow::Table}, an \link[=RecordBatch]{arrow::RecordBatch} or a data.frame}
+\item{x}{an Arrow \link{Table} or \link{RecordBatch}, or a \code{data.frame}}
 
-\item{sink}{where to serialize to
-\itemize{
-\item A \link[=RecordBatchWriter]{arrow::RecordBatchWriter}: the \verb{$write()}
-of \code{x} is used. The stream is left open. This uses the streaming format
-or the binary file format depending on the type of the writer.
-\item A string file path: \code{x} is serialized with
-a \link[=RecordBatchFileWriter]{arrow::RecordBatchFileWriter}, i.e.
-using the binary file format.
-\item A raw vector: typically of length zero (its data is ignored, and only used for
-dispatch). \code{x} is serialized using the streaming format, i.e. using the
-\link[=RecordBatchStreamWriter]{arrow::RecordBatchStreamWriter}
-}}
+\item{sink}{string file path, buffer, or Arrow C++ class to write to. If
+\code{write_arrow()} receives a \code{RecordBatchStreamWriter} or an empty R \code{raw} vector,
+it will dispatch to \code{write_stream()}; otherwise, it calls \code{write_feather()}
+to write a file.}
 
-\item{...}{extra parameters, currently ignored
-
-\code{write_arrow} is a convenience function, the classes \link[=RecordBatchFileWriter]{arrow::RecordBatchFileWriter}
-and \link[=RecordBatchStreamWriter]{arrow::RecordBatchStreamWriter} can be used for more flexibility.}
+\item{...}{extra parameters passed to \code{write_feather()}.}
 }
 \value{
-the input \code{x} invisibly.
+\code{write_stream()} returns the stream: either the
+\code{RecordBatchStreamWriter} passed to \code{sink}, connection still open, or if
+\code{sink} is a \code{raw} vector, a new \code{raw} vector containing the bytes that were
+written using a \code{RecordBatchStreamWriter}. \code{write_feather()} returns \code{x},
+invisibly.
 }
 \description{
-Write Arrow formatted data
+Apache Arrow defines two formats for \href{https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc}{serializing data for interprocess communication (IPC)}:
+a "stream" format and a "file" format, known as Feather. \code{write_arrow()}
+is a convenience wrapper around \code{write_stream()} and \code{\link[=write_feather]{write_feather()}}, which
+write those formats, respectively.
+}
+\seealso{
+\link{RecordBatchWriter}
 }
