@@ -342,13 +342,13 @@ class ArrayLoader {
   ArrayData* out_;
 };
 
-Status DecompressBuffers(const std::vector<std::shared_ptr<ArrayData>>& fields,
-                         Compression::type compression, const IpcReadOptions& options) {
+Status DecompressBuffers(Compression::type compression, const IpcReadOptions& options,
+                         std::vector<std::shared_ptr<ArrayData>>* fields) {
   std::unique_ptr<util::Codec> codec;
   ARROW_ASSIGN_OR_RAISE(codec, util::Codec::Create(compression));
 
   auto DecompressOne = [&](int i) {
-    ArrayData* arr = fields[i].get();
+    ArrayData* arr = (*fields)[i].get();
     for (size_t i = 0; i < arr->buffers.size(); ++i) {
       if (arr->buffers[i] == nullptr) {
         continue;
@@ -386,9 +386,10 @@ Status DecompressBuffers(const std::vector<std::shared_ptr<ArrayData>>& fields,
   };
 
   if (options.use_threads) {
-    return ::arrow::internal::ParallelFor(static_cast<int>(fields.size()), DecompressOne);
+    return ::arrow::internal::ParallelFor(static_cast<int>(fields->size()),
+                                          DecompressOne);
   } else {
-    for (int i = 0; i < static_cast<int>(fields.size()); ++i) {
+    for (int i = 0; i < static_cast<int>(fields->size()); ++i) {
       RETURN_NOT_OK(DecompressOne(i));
     }
     return Status::OK();
@@ -423,7 +424,7 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
   }
 
   if (compression != Compression::UNCOMPRESSED) {
-    RETURN_NOT_OK(DecompressBuffers(field_data, compression, options));
+    RETURN_NOT_OK(DecompressBuffers(compression, options, &field_data));
   }
 
   return RecordBatch::Make(::arrow::schema(std::move(schema_fields), schema->metadata()),
@@ -451,7 +452,7 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatch(
     arrays[i] = std::move(arr);
   }
   if (compression != Compression::UNCOMPRESSED) {
-    RETURN_NOT_OK(DecompressBuffers(arrays, compression, options));
+    RETURN_NOT_OK(DecompressBuffers(compression, options, &arrays));
   }
   return RecordBatch::Make(schema, metadata->length(), std::move(arrays));
 }

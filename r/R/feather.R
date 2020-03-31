@@ -83,6 +83,12 @@ write_feather <- function(x,
   }
   # Finally, add 1 to version because 2 means V1 and 3 means V2 :shrug:
   version <- version + 1L
+
+  # "lz4" is the convenience
+  if (compression == "lz4") {
+     compression <- "lz4_frame"
+  }
+
   compression <- compression_from_name(compression)
 
   x_out <- x
