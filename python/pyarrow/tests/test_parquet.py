@@ -1988,7 +1988,7 @@ def test_invalid_pred_op(tempdir, use_legacy_dataset):
                                     use_legacy_dataset=use_legacy_dataset)
         assert dataset.read().num_rows == 0
 
-    with pytest.raises((ValueError, TypeError)):
+    with pytest.raises(ValueError if use_legacy_dataset else TypeError):
         # dataset API returns TypeError when trying create invalid comparison
         pq.ParquetDataset(base_path,
                           filesystem=fs,
