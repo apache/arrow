@@ -729,34 +729,49 @@ def _create_directory_of_files(base_dir):
     return (table1, table2), (path1, path2)
 
 
+def _check_dataset(dataset, table):
+    assert dataset.schema.equals(table.schema)
+    result = dataset.to_table(use_threads=False)  # deterministic row order
+    assert result.equals(table)
+
+
 def _check_dataset_from_path(path, table, **kwargs):
     import pathlib
 
     # pathlib object
     assert isinstance(path, pathlib.Path)
     dataset = ds.dataset(ds.factory(path, **kwargs))
-    assert dataset.schema.equals(table.schema)
-    result = dataset.to_table(use_threads=False)  # deterministic row order
-    assert result.equals(table)
+    assert isinstance(dataset, ds.FileSystemDataset)
+    _check_dataset(dataset, table)
 
     # string path
     dataset = ds.dataset(ds.factory(str(path), **kwargs))
-    assert dataset.schema.equals(table.schema)
-    result = dataset.to_table(use_threads=False)  # deterministic row order
-    assert result.equals(table)
+    assert isinstance(dataset, ds.FileSystemDataset)
+    _check_dataset(dataset, table)
 
     # relative string path
     with change_cwd(path.parent):
         dataset = ds.dataset(ds.factory(path.name, **kwargs))
-        assert dataset.schema.equals(table.schema)
-        result = dataset.to_table(use_threads=False)  # deterministic row order
-        assert result.equals(table)
+        assert isinstance(dataset, ds.FileSystemDataset)
+        _check_dataset(dataset, table)
 
     # passing directly to dataset
+    dataset = ds.dataset(path, **kwargs)
+    assert isinstance(dataset, ds.FileSystemDataset)
+    _check_dataset(dataset, table)
+
     dataset = ds.dataset(str(path), **kwargs)
-    assert dataset.schema.equals(table.schema)
-    result = dataset.to_table(use_threads=False)  # deterministic row order
-    assert result.equals(table)
+    assert isinstance(dataset, ds.FileSystemDataset)
+    _check_dataset(dataset, table)
+
+    # passing list of files (even of length-1) gives UnionDataset
+    dataset = ds.dataset([path], **kwargs)
+    assert isinstance(dataset, ds.UnionDataset)
+    _check_dataset(dataset, table)
+
+    dataset = ds.dataset([str(path)], **kwargs)
+    assert isinstance(dataset, ds.UnionDataset)
+    _check_dataset(dataset, table)
 
 
 @pytest.mark.parquet
