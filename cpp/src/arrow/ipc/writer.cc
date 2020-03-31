@@ -182,8 +182,13 @@ class RecordBatchSerializer {
   Status CompressBodyBuffers() {
     std::unique_ptr<util::Codec> codec;
 
+    if (!(options_.compression == Compression::LZ4_FRAME ||
+          options_.compression == Compression::ZSTD)) {
+      return Status::Invalid("Only LZ4_FRAME and ZSTD compression allowed");
+    }
+
     // TODO check allowed values for compression?
-    AppendCustomMetadata("ARROW:body_compression",
+    AppendCustomMetadata("ARROW:experimental_compression",
                          util::Codec::GetCodecAsString(options_.compression));
 
     ARROW_ASSIGN_OR_RAISE(
