@@ -58,3 +58,31 @@ Installing from source
 ----------------------
 
 See :ref:`python-development`.
+
+Installing Unoffical Nightlies
+------------------------------
+
+.. warning::
+    These packages can't be considered as offical Apache Arrow releases, so
+    don't use and don't depend on them.
+
+PyArrow has nightly wheels and conda packages for testing purposes.
+
+These may be suitable for downstream libraries in their continuous integration
+setup to maintain compatibility with the upcoming PyArrow features,
+deprecations or feature removals.
+
+Install development version of PyArrow from `arrow-nightlies
+<https://anaconda.org/arrow-nightlies/pyarrow>`_ conda channel:
+
+.. code-block:: bash
+
+    conda install -c arrow-nightlies pyarrow
+
+Install the development version from an `alternative PyPI
+<https://gemfury.com/arrow-nightlies>`_ index:
+
+.. code-block:: bash
+
+    pip install --extra-index-url https://repo.fury.io/arrow-nightlies/ \
+        --pre pyarrow
