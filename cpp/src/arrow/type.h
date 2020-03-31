@@ -1416,11 +1416,11 @@ class ARROW_EXPORT FieldPath {
   size_t hash() const;
 
   explicit operator bool() const { return !indices_.empty(); }
-  bool operator==(const FieldPath& other) const { return vector() == other.vector(); }
+  bool operator==(const FieldPath& other) const { return indices() == other.indices(); }
   bool operator!=(const FieldPath& other) const { return !(*this == other); }
 
-  std::vector<int>& vector() { return indices_; }
-  const std::vector<int>& vector() const { return indices_; }
+  std::vector<int>& indices() { return indices_; }
+  const std::vector<int>& indices() const { return indices_; }
 
   /// \brief Retrieve the referenced child Field from a Schema, Field, or DataType
   Result<std::shared_ptr<Field>> Get(const Schema& schema) const;
@@ -1530,7 +1530,7 @@ class ARROW_EXPORT FieldRef {
   bool IsName() const { return util::holds_alternative<std::string>(impl_); }
   bool IsNested() const {
     if (IsName()) return false;
-    if (IsFieldPath()) return util::get<FieldPath>(impl_).vector().size() > 1;
+    if (IsFieldPath()) return util::get<FieldPath>(impl_).indices().size() > 1;
     return true;
   }
 
