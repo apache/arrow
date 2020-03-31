@@ -185,6 +185,7 @@ class ARROW_DS_EXPORT Scanner {
 
  protected:
   std::shared_ptr<Dataset> dataset_;
+  // TODO(ARROW-8065) remove fragment_ after a Dataset is constuctible from fragments
   std::shared_ptr<Fragment> fragment_;
   std::shared_ptr<ScanOptions> scan_options_;
   std::shared_ptr<ScanContext> scan_context_;
