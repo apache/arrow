@@ -147,3 +147,16 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
     )
   )
 })
+
+test_that("Can read json file with list<struct<T...>> nested columns (ARROW-7740)", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  writeLines('
+    {"a":[{"b":1.0},{"b":2.0}]}
+    {"a":[{"b":1.0},{"b":2.0}]}
+  ', tf)
+
+  one <- tibble::tibble(b = c(1, 2))
+  expected <- tibble::tibble(a = c(list(one), list(one)))
+  expect_equivalent(arrow::read_json_arrow(tf), expected)
+})

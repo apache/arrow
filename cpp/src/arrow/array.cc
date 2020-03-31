@@ -796,7 +796,9 @@ Status StructArray::Flatten(MemoryPool* pool, ArrayVector* out) const {
   flattened.reserve(data_->child_data.size());
   std::shared_ptr<Buffer> null_bitmap = data_->buffers[0];
 
-  for (auto& child_data : data_->child_data) {
+  for (const auto& child_data_ptr : data_->child_data) {
+    auto child_data = child_data_ptr->Copy();
+
     std::shared_ptr<Buffer> flattened_null_bitmap;
     int64_t flattened_null_count = kUnknownNullCount;
 
