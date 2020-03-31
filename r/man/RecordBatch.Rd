@@ -11,10 +11,11 @@ record_batch(..., schema = NULL)
 \arguments{
 \item{...}{A \code{data.frame} or a named set of Arrays or vectors. If given a
 mixture of data.frames and vectors, the inputs will be autospliced together
-(see examples).}
+(see examples). Alternatively, you can provide a single Arrow IPC
+\code{InputStream}, \code{Message}, \code{Buffer}, or R \code{raw} object containing a \code{Buffer}.}
 
 \item{schema}{a \link{Schema}, or \code{NULL} (the default) to infer the schema from
-the data in \code{...}}
+the data in \code{...}. When providing an Arrow IPC buffer, \code{schema} is required.}
 }
 \description{
 A record batch is a collection of equal-length arrays matching

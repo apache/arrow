@@ -23,32 +23,7 @@
 #' @return a [arrow::RecordBatch][RecordBatch]
 #'
 #' @export
-read_record_batch <- function(obj, schema){
-  UseMethod("read_record_batch")
-}
-
-#' @export
-read_record_batch.Message <- function(obj, schema) {
-  assert_is(schema, "Schema")
-  shared_ptr(RecordBatch, ipc___ReadRecordBatch__Message__Schema(obj, schema))
-}
-
-#' @export
-read_record_batch.InputStream <- function(obj, schema) {
-  assert_is(schema, "Schema")
-  shared_ptr(RecordBatch, ipc___ReadRecordBatch__InputStream__Schema(obj, schema))
-}
-
-#' @export
-read_record_batch.raw <- function(obj, schema){
-  stream <- BufferReader$create(obj)
-  on.exit(stream$close())
-  read_record_batch(stream, schema)
-}
-
-#' @export
-read_record_batch.Buffer <- function(obj, schema){
-  stream <- BufferReader$create(obj)
-  on.exit(stream$close())
-  read_record_batch(stream, schema)
+read_record_batch <- function(obj, schema) {
+  .Deprecated("record_batch")
+  RecordBatch$create(obj, schema = schema)
 }
