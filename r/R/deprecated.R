@@ -27,3 +27,10 @@ read_record_batch <- function(obj, schema) {
   .Deprecated("record_batch")
   RecordBatch$create(obj, schema = schema)
 }
+
+#' @rdname read_arrow
+#' @export
+read_table <- function(x, ...) {
+  .Deprecated("read_arrow")
+  read_arrow(x, ..., as_data_frame = FALSE)
+}
