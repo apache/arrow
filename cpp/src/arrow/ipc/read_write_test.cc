@@ -505,14 +505,15 @@ TEST_F(TestWriteRecordBatch, WriteWithCompression) {
     if (!util::Codec::IsAvailable(codec)) {
       continue;
     }
-    IpcWriteOptions options = IpcWriteOptions::Defaults();
-    options.compression = codec;
-    CheckRoundtrip(*batch, options);
+    IpcWriteOptions write_options = IpcWriteOptions::Defaults();
+    write_options.compression = codec;
+    CheckRoundtrip(*batch, write_options);
 
-    // Check non-parallel read
+    // Check non-parallel read and write
     IpcReadOptions read_options = IpcReadOptions::Defaults();
+    write_options.use_threads = false;
     read_options.use_threads = false;
-    CheckRoundtrip(*batch, options, read_options);
+    CheckRoundtrip(*batch, write_options, read_options);
   }
 
   std::vector<Compression::type> disallowed_codecs = {

@@ -62,6 +62,10 @@ struct ARROW_EXPORT IpcWriteOptions {
   Compression::type compression = Compression::UNCOMPRESSED;
   int compression_level = Compression::kUseDefaultCompressionLevel;
 
+  /// \brief Use global CPU thread pool to parallelize any computational tasks
+  /// like compression
+  bool use_threads = true;
+
   static IpcWriteOptions Defaults();
 };
 
@@ -87,5 +91,10 @@ struct ARROW_EXPORT IpcReadOptions {
   static IpcReadOptions Defaults();
 };
 
+namespace internal {
+
+Status CheckCompressionSupported(Compression::type codec);
+
+}  // namespace internal
 }  // namespace ipc
 }  // namespace arrow

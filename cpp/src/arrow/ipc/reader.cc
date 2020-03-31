@@ -356,9 +356,15 @@ Status DecompressBuffers(const std::vector<std::shared_ptr<ArrayData>>& fields,
       if (arr->buffers[i]->size() == 0) {
         continue;
       }
+      if (arr->buffers[i]->size() < 8) {
+        return Status::Invalid(
+            "Likely corrupted message, compressed buffers "
+            "are larger than 8 bytes by construction");
+      }
       const uint8_t* data = arr->buffers[i]->data();
       int64_t compressed_size = arr->buffers[i]->size() - sizeof(int64_t);
-      int64_t uncompressed_size = util::SafeLoadAs<int64_t>(data);
+      int64_t uncompressed_size =
+          BitUtil::FromLittleEndian(util::SafeLoadAs<int64_t>(data));
 
       std::shared_ptr<Buffer> uncompressed;
       RETURN_NOT_OK(
@@ -385,8 +391,8 @@ Status DecompressBuffers(const std::vector<std::shared_ptr<ArrayData>>& fields,
     for (int i = 0; i < static_cast<int>(fields.size()); ++i) {
       RETURN_NOT_OK(DecompressOne(i));
     }
+    return Status::OK();
   }
-  return Status::OK();
 }
 
 Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
@@ -464,6 +470,7 @@ Status GetCompression(const flatbuf::Message* message, Compression::type* out) {
       ARROW_ASSIGN_OR_RAISE(*out,
                             util::Codec::GetCompressionType(metadata->value(index)));
     }
+    RETURN_NOT_OK(internal::CheckCompressionSupported(*out));
   }
   return Status::OK();
 }
