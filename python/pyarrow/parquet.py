@@ -104,21 +104,24 @@ def _check_filters(filters, check_null_strings=True):
     return filters
 
 
+_DNF_filter_doc = """Predicates are expressed in disjunctive normal form (DNF), like
+    ``[[('x', '=', 0), ...], ...]``. DNF allows arbitrary boolean logical
+    combinations of single column predicates. The innermost tuples each
+    describe a single column predicate. The list of inner predicates is
+    interpreted as a conjunction (AND), forming a more selective and
+    multiple column predicate. Finally, the most outer list combines these
+    filters as a disjunction (OR).
+
+    Predicates may also be passed as List[Tuple]. This form is interpreted
+    as a single conjunction. To express OR in predicates, one must
+    use the (preferred) List[List[Tuple]] notation."""
+
+
 def _filters_to_expression(filters):
     """
     Check if filters are well-formed.
 
-    Predicates are expressed in disjunctive normal form (DNF), like 
-    ``[[('x', '=', 0), ...], ...]``. DNF allows
-    arbitrary boolean logical combinations of single column predicates. The
-    innermost tuples each describe a single column predicate. The list
-    of inner predicates is interpreted as a conjunction (AND), forming a
-    more selective and multiple column predicate. Finally, the most outer
-    list combines these filters as a disjunction (OR).
-
-    Predicates may also be passed as List[Tuple]. This form is interpreted
-    as a single conjunction. To express OR in predicates, one must
-    use the (preferred) List[List[Tuple]] notation.
+    See _DNF_filter_doc above for more details.
     """
     import pyarrow.dataset as ds
 
@@ -1082,25 +1085,17 @@ validate_schema : bool, default True
     Check that individual file schemas are all the same / compatible.
 filters : List[Tuple] or List[List[Tuple]] or None (default)
     List of filters to apply, like ``[[('x', '=', 0), ...], ...]``. This
-    implements partition-level (hive) filtering only, i.e., to prevent the
-    loading of some files of the dataset.
+    implements partition-level (hive) filtering, i.e., to prevent the
+    loading of some files of the dataset, as well as file-level filtering
+    (if `use_legacy_dataset` is set to False).
 
-    Predicates are expressed in disjunctive normal form (DNF). This means
-    that the innermost tuple describe a single column predicate. These
-    inner predicate make are all combined with a conjunction (AND) into a
-    larger predicate. The most outer list then combines all filters
-    with a disjunction (OR). By this, we should be able to express all
-    kinds of filters that are possible using boolean logic.
-
-    This function also supports passing in as List[Tuple]. These predicates
-    are evaluated as a conjunction. To express OR in predicates, one must
-    use the (preferred) List[List[Tuple]] notation.
+    {1}
 metadata_nthreads: int, default 1
     How many threads to allow the thread pool which is used to read the
     dataset metadata. Increasing this is helpful to read partitioned
     datasets.
-{}
-""".format(_read_docstring_common)
+{0}
+""".format(_read_docstring_common, _DNF_filter_doc)
 
     def __new__(cls, path_or_paths=None, filesystem=None, schema=None,
                 metadata=None, split_row_groups=False, validate_schema=True,
@@ -1451,9 +1446,11 @@ metadata : FileMetaData
 {1}
 filters : List[Tuple] or List[List[Tuple]] or None (default)
     List of filters to apply, like ``[[('x', '=', 0), ...], ...]``. This
-    implements partition-level (hive) filtering only, i.e., to prevent the
-    loading of some files of the dataset if `source` is a directory.
-    See the docstring of ParquetDataset for more details.
+    implements partition-level (hive) filtering, i.e., to prevent the
+    loading of some files of the dataset if `source` is a directory, as well
+    as file-level filtering (if `use_legacy_dataset` is set to False).
+
+    {3}
 
 Returns
 -------
@@ -1514,7 +1511,8 @@ read_table.__doc__ = _read_table_docstring.format(
     If True and file has custom pandas schema metadata, ensure that
     index columns are also loaded""")),
     """pyarrow.Table
-    Content of the file as a table (of columns)""")
+    Content of the file as a table (of columns)""",
+    _DNF_filter_doc)
 
 
 def read_pandas(source, columns=None, use_threads=True, memory_map=False,
@@ -1539,7 +1537,8 @@ read_pandas.__doc__ = _read_table_docstring.format(
     _read_docstring_common,
     """pyarrow.Table
     Content of the file as a Table of Columns, including DataFrame
-    indexes as columns""")
+    indexes as columns""",
+    _DNF_filter_doc)
 
 
 def write_table(table, where, row_group_size=None, version='1.0',
