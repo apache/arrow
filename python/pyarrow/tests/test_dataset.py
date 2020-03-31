@@ -622,28 +622,116 @@ def test_make_fragment(multisourcefs):
 
 
 @pytest.mark.pandas
-def test_parquet_row_group_fragments(tempdir):
-    import pyarrow as pa
+@pytest.mark.parquet
+def test_parquet_fragments(tempdir):
     import pyarrow.parquet as pq
 
-    table = pa.table({'a': ['a', 'a', 'b', 'b'], 'b': [1, 2, 3, 4]})
-
+    table = pa.table(
+        {'a': ['a'] * 4 + ['b'] * 4, 'b': range(8), 'c': [1] * 8}
+    )
     # write_to_dataset currently requires pandas
     pq.write_to_dataset(table, str(tempdir / "test_parquet_dataset"),
-                        partition_cols=["a"])
+                        partition_cols=["a"], chunk_size=2)
 
-    import pyarrow.dataset as ds
+    # open dataset
     dataset = ds.dataset(str(tempdir / "test_parquet_dataset/"),
                          format="parquet", partitioning="hive")
 
+    # list fragments
     fragments = list(dataset.get_fragments())
+    assert len(fragments) == 2
     f = fragments[0]
-    parquet_format = f.format
-    parquet_format.make_fragment(f.path, f.filesystem,
-                                 partition_expression=f.partition_expression)
-    parquet_format.make_fragment(
-        f.path, f.filesystem, partition_expression=f.partition_expression,
+
+    # scanning fragment includes partition columns
+    result = f.to_table()
+    assert result.column_names == ['b', 'c', 'a']
+    assert len(result) == 4
+    assert result.column('a').chunk(0).to_pylist() == ['a', 'a']
+
+    # scanning fragments follow column projection
+    fragments = list(dataset.get_fragments(columns=['a', 'b']))
+    assert len(fragments) == 2
+    result = fragments[0].to_table()
+    assert result.column_names == ['a', 'b']
+    assert len(result) == 4
+
+    # scanning fragments follow filter predicate
+    fragments = list(dataset.get_fragments(filter=ds.field('b') < 2))
+    assert len(fragments) == 2
+    result = fragments[0].to_table()
+    assert result.column_names == ['b', 'c', 'a']
+    assert len(result) == 2
+    result = fragments[1].to_table()
+    assert len(result) == 0
+
+    # manually re-construct a fragment
+    fragment = list(dataset.get_fragments())[0]
+    parquet_format = fragment.format
+    new_fragment = parquet_format.make_fragment(
+        fragment.path, fragment.filesystem,  # schema=dataset.schema,
+        partition_expression=fragment.partition_expression)
+    # TODO this fails, because either the new fragment does not include the
+    # partition column, or if the schema above is passed, it is filled with
+    # nulls instead of the value from the partition expression
+    # assert new_fragment.to_table().equals(fragment.to_table())
+    new_fragment.to_table()
+
+    # manually re-construct a fragment with filter / column projection
+    new_fragment = parquet_format.make_fragment(
+        fragment.path, fragment.filesystem,  # schema=dataset.schema,
+        columns=['b'], filter=ds.field('b') < 2,
+        partition_expression=fragment.partition_expression)
+    result = new_fragment.to_table()
+    assert result.column_names == ['b']
+    assert len(result) == 2
+
+    # list and scan row group fragments
+    fragment = list(dataset.get_fragments())[0]
+    row_group_fragments = list(fragment.get_row_group_fragments())
+    assert len(row_group_fragments) == 2
+    result = row_group_fragments[0].to_table()
+    assert result.column_names == ['b', 'c', 'a']
+    assert len(result) == 2
+
+    # scanning row group fragment follows column projection / filter predicate
+    fragment = list(dataset.get_fragments(
+        columns=['a', 'b'], filter=ds.field('b') < 1))[0]
+    row_group_fragments = list(fragment.get_row_group_fragments())
+    assert len(row_group_fragments) == 1
+    result = row_group_fragments[0].to_table()
+    assert result.column_names == ['a', 'b']
+    assert len(result) == 1
+
+    # manually re-construct row group fragments
+    fragment = list(dataset.get_fragments())[0]
+    row_group_fragments = list(fragment.get_row_group_fragments())
+    new_fragment = parquet_format.make_fragment(
+        fragment.path, fragment.filesystem,  # schema=dataset.schema,
+        partition_expression=fragment.partition_expression,
+        row_groups=[0])
+    result = new_fragment.to_table()
+    # TODO needs to include partition column
+    # assert result.equals(row_group_fragments[0].to_table())
+    assert result.column_names == ['b', 'c']
+    assert len(result) == 2
+
+    # manually re-construct a row group fragment with filter/column projection
+    new_fragment = parquet_format.make_fragment(
+        fragment.path, fragment.filesystem,  # schema=dataset.schema,
+        columns=['b'], filter=ds.field('b') < 3,
+        partition_expression=fragment.partition_expression,
         row_groups={1})
+    result = new_fragment.to_table()
+    assert result.column_names == ['b']
+    assert len(result) == 1
+
+    # out of bounds row group index
+    new_fragment = parquet_format.make_fragment(
+        fragment.path, fragment.filesystem,
+        partition_expression=fragment.partition_expression,
+        row_groups={2})
+    with pytest.raises(IndexError, match="trying to scan row group 2"):
+        new_fragment.to_table()
 
 
 def test_partitioning_factory(mockfs):
