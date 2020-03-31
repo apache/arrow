@@ -632,6 +632,14 @@ class ColumnReaderImplBase {
     num_decoded_values_ = 0;
     const uint8_t* buffer = page.data();
 
+    const int64_t total_levels_length =
+        static_cast<int64_t>(page.repetition_levels_byte_length()) +
+        page.definition_levels_byte_length();
+
+    if (total_levels_length > page.size()) {
+      throw ParquetException("Data page too small for levels (corrupt header?)");
+    }
+
     if (max_rep_level_ > 0) {
       repetition_level_decoder_.SetDataV2(page.repetition_levels_byte_length(),
                                           max_rep_level_,
@@ -645,7 +653,7 @@ class ColumnReaderImplBase {
                                           static_cast<int>(num_buffered_values_), buffer);
     }
 
-    return page.repetition_levels_byte_length() + page.definition_levels_byte_length();
+    return total_levels_length;
   }
 
   // Get a decoder object for this page or create a new decoder if this is the

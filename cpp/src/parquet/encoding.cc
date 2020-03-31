@@ -1078,7 +1078,7 @@ static inline int64_t ReadByteArray(const uint8_t* data, int64_t data_size,
   if (len < 0) {
     throw ParquetException("Invalid BYTE_ARRAY value");
   }
-  const int64_t consumed_length = static_cast<int64_t>(4 + len);
+  const int64_t consumed_length = static_cast<int64_t>(len) + 4;
   if (ARROW_PREDICT_FALSE(data_size < consumed_length)) {
     ParquetException::EofException();
   }
@@ -1480,7 +1480,11 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
 
   void SetData(int num_values, const uint8_t* data, int len) override {
     num_values_ = num_values;
-    if (len == 0) return;
+    if (len == 0) {
+      // Initialize dummy decoder to avoid crashes later on
+      idx_decoder_ = arrow::util::RleDecoder(data, len, /*bit_width=*/1);
+      return;
+    }
     uint8_t bit_width = *data;
     if (ARROW_PREDICT_FALSE(bit_width >= 64)) {
       throw ParquetException("Invalid or corrupted bit_width");
@@ -2331,6 +2335,9 @@ template <typename DType>
 void ByteStreamSplitDecoder<DType>::SetData(int num_values, const uint8_t* data,
                                             int len) {
   DecoderImpl::SetData(num_values, data, len);
+  if (num_values * static_cast<int64_t>(sizeof(T)) > len) {
+    throw ParquetException("Data size too small for number of values (corrupted file?)");
+  }
   num_values_in_buffer_ = num_values;
 }
 
