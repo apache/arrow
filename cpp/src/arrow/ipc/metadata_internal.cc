@@ -29,12 +29,14 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
+#include "arrow/ipc/util.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/ubsan.h"
 #include "arrow/visitor_inline.h"
 
 #include "generated/File_generated.h"
@@ -954,25 +956,22 @@ Status MakeSparseTensorIndexCSF(FBB& fbb, const SparseCSFIndex& sparse_index,
   const int64_t indptr_elem_size = indptr_value_type.bit_width() / 8;
   const int64_t indices_elem_size = indices_value_type.bit_width() / 8;
 
-  int64_t indptr_offset = 0;
-  int64_t indices_offset = 0;
+  int64_t offset = 0;
   std::vector<flatbuf::Buffer> indptr, indices;
 
   for (const std::shared_ptr<arrow::Tensor> tensor : sparse_index.indptr()) {
     const int64_t size = tensor->data()->size() / indptr_elem_size;
-    const int64_t padding = BitUtil::RoundUpToMultipleOf8(size * indptr_elem_size) - size;
+    const int64_t padded_size = PaddedLength(tensor->data()->size(), kArrowIpcAlignment);
 
-    indptr.push_back({indptr_offset, size});
-    indptr_offset += size + padding;
+    indptr.push_back({offset, size});
+    offset += padded_size;
   }
-  indices_offset = indptr_offset;
   for (const std::shared_ptr<arrow::Tensor> tensor : sparse_index.indices()) {
     const int64_t size = tensor->data()->size() / indices_elem_size;
-    const int64_t padding =
-        BitUtil::RoundUpToMultipleOf8(size * indices_elem_size) - size;
+    const int64_t padded_size = PaddedLength(tensor->data()->size(), kArrowIpcAlignment);
 
-    indices.push_back({indices_offset, size});
-    indices_offset += size + padding;
+    indices.push_back({offset, size});
+    offset += padded_size;
   }
 
   auto fb_indices = fbb.CreateVectorOfStructs(indices);
@@ -980,10 +979,10 @@ Status MakeSparseTensorIndexCSF(FBB& fbb, const SparseCSFIndex& sparse_index,
 
   std::vector<int> axis_order;
   for (int i = 0; i < ndim; ++i) {
-    axis_order.emplace_back(static_cast<const int>(sparse_index.axis_order()[i]));
+    axis_order.emplace_back(static_cast<int>(sparse_index.axis_order()[i]));
   }
   auto fb_axis_order =
-      fbb.CreateVector(util::MakeNonNull(axis_order.data()), axis_order.size());
+      fbb.CreateVector(arrow::util::MakeNonNull(axis_order.data()), axis_order.size());
 
   *fb_sparse_index =
       flatbuf::CreateSparseTensorIndexCSF(fbb, indptr_type_offset, fb_indptr,
