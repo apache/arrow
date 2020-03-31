@@ -27,10 +27,13 @@ import pyarrow.flight
 
 
 class FlightServer(pyarrow.flight.FlightServerBase):
-    def __init__(self, host="localhost", location=None, **kwargs):
-        super(FlightServer, self).__init__(location, **kwargs)
+    def __init__(self, host="localhost", location=None, tls_certificates=None, auth_handler=None):
+        super(FlightServer, self).__init__(location, auth_handler, tls_certificates)
         self.flights = {}
         self.host = host
+        self.tls_certificates = tls_certificates
+        if self.tls_certificates:
+            print(tls_certificates)
 
     @classmethod
     def descriptor_to_key(self, descriptor):
@@ -45,11 +48,11 @@ class FlightServer(pyarrow.flight.FlightServerBase):
             else:
                 descriptor = pyarrow.flight.FlightDescriptor.for_path(*key[2])
 
-            endpoints = [
-                pyarrow.flight.FlightEndpoint(
-                    repr(key),
-                    [pyarrow.flight.Location.for_grpc_tcp(self.host, self.port)]),
-            ]
+            if self.tls_certificates:
+                location = pyarrow.flight.Location.for_grpc_tls(self.host, self.port)
+            else:
+                location = pyarrow.flight.Location.for_grpc_tcp(self.host, self.port)
+            endpoints = [pyarrow.flight.FlightEndpoint(repr(key), [location]),]
 
             mock_sink = pyarrow.MockOutputStream()
             stream_writer = pyarrow.RecordBatchStreamWriter(mock_sink, table.schema)
@@ -66,13 +69,20 @@ class FlightServer(pyarrow.flight.FlightServerBase):
         if key in self.flights:
             table = self.flights[key]
             print(table.schema)
-            endpoints = [
-                pyarrow.flight.FlightEndpoint(repr(key),
-                    [pyarrow.flight.Location.for_grpc_tcp(self.host, self.port)]),
-            ]
+            if self.tls_certificates:
+                location = pyarrow.flight.Location.for_grpc_tls(self.host, self.port)
+            else:
+                location = pyarrow.flight.Location.for_grpc_tcp(self.host, self.port)
+            endpoints = [pyarrow.flight.FlightEndpoint(repr(key), [location]),]
+            mock_sink = pyarrow.MockOutputStream()
+            stream_writer = pyarrow.RecordBatchStreamWriter(mock_sink, table.schema)
+            stream_writer.write_table(table)
+            stream_writer.close()
+            data_size = mock_sink.size()
+            print('Flight found.')
             return pyarrow.flight.FlightInfo(table.schema,
                                              descriptor, endpoints,
-                                             table.num_rows, 0)
+                                             table.num_rows, data_size)
         raise KeyError('Flight not found.')
 
     def do_put(self, context, descriptor, reader, writer):
@@ -131,8 +141,12 @@ def main():
             kwargs["tls_private_key"] = key_file.read()
             
     location = "{}://{}:{}".format(scheme, args.host, args.port)
-    server = FlightServer(args.host, location, **kwargs)
     print("Serving on", location)
+    tls_certificates = []
+    if kwargs :
+        p = [(kwargs["tls_cert_chain"], kwargs["tls_private_key"])]
+        tls_certificates = p
+    server = FlightServer(args.host, location, tls_certificates)
     server.serve()
 
 if __name__ == '__main__':
