@@ -68,9 +68,6 @@ Status Filter(FunctionContext* ctx, const Datum& values, const Datum& filter,
 /// \brief BinaryKernel implementing Filter operation
 class ARROW_EXPORT FilterKernel : public BinaryKernel {
  public:
-  explicit FilterKernel(std::shared_ptr<DataType> type, FilterOptions options)
-      : type_(std::move(type)), options_(options) {}
-
   const FilterOptions& options() const { return options_; }
 
   /// \brief BinaryKernel interface
@@ -96,6 +93,9 @@ class ARROW_EXPORT FilterKernel : public BinaryKernel {
                         std::shared_ptr<Array>* out) = 0;
 
  protected:
+  explicit FilterKernel(std::shared_ptr<DataType> type, FilterOptions options)
+      : type_(std::move(type)), options_(options) {}
+
   std::shared_ptr<DataType> type_;
   FilterOptions options_;
 };
