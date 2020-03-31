@@ -33,10 +33,9 @@ namespace arrow {
 namespace dataset {
 
 Result<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReader(
-    const FileSource& source, std::shared_ptr<io::RandomAccessFile> input = nullptr) {
-  if (input == nullptr) {
-    ARROW_ASSIGN_OR_RAISE(input, source.Open());
-  }
+    const FileSource& source,
+    const ipc::IpcReadOptions& options = ipc::IpcReadOptions::Defaults()) {
+  ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
 
   std::shared_ptr<ipc::RecordBatchFileReader> reader;
   auto options = ipc::IpcReadOptions::Defaults();
@@ -49,6 +48,20 @@ Result<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReader(
                               "': ", status.message());
   }
   return reader;
+}
+
+Result<std::vector<int>> GetIncludedFields(
+    const Schema& schema, const std::vector<std::string>& materialized_fields) {
+  std::vector<int> included_fields;
+
+  for (FieldRef ref : materialized_fields) {
+    ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOneOrNone(schema));
+    if (match.indices().empty()) continue;
+
+    included_fields.push_back(match.indices()[0]);
+  }
+
+  return included_fields;
 }
 
 /// \brief A ScanTask backed by an Ipc file.
@@ -64,10 +77,14 @@ class IpcScanTask : public ScanTask {
                                const std::vector<std::string>& materialized_fields,
                                MemoryPool* pool) {
         ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source));
-        auto materialized_schema =
-            SchemaFromColumnNames(reader->schema(), materialized_fields);
-        return Impl{std::move(reader),
-                    RecordBatchProjector(std::move(materialized_schema)), pool, 0};
+        auto schema = reader->schema();
+
+        ipc::IpcReadOptions options = ipc::IpcReadOptions::Defaults();
+        ARROW_ASSIGN_OR_RAISE(options.included_fields,
+                              GetIncludedFields(*schema, materialized_fields));
+
+        ARROW_ASSIGN_OR_RAISE(reader, OpenReader(source, options));
+        return Impl{std::move(reader), RecordBatchProjector(std::move(schema)), pool, 0};
       }
 
       Result<std::shared_ptr<RecordBatch>> Next() {
@@ -134,8 +151,8 @@ class IpcScanTaskIterator {
 };
 
 Result<bool> IpcFileFormat::IsSupported(const FileSource& source) const {
-  ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
-  return OpenReader(source, input).ok();
+  RETURN_NOT_OK(source.Open().status());
+  return OpenReader(source).ok();
 }
 
 Result<std::shared_ptr<Schema>> IpcFileFormat::Inspect(const FileSource& source) const {
