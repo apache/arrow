@@ -68,9 +68,8 @@ jobs:
                        -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push ubuntu-python
 
-  conda:
-    # this is the nopandas build
-    name: AMD64 Conda Python ${{ matrix.python }}
+  conda-nopandas:
+    name: AMD64 Conda Python ${{ matrix.python }} Without Pandas
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

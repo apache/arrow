@@ -167,7 +167,7 @@ jobs:
             title: Dask latest
           - name: turbodbc-latest
             library: turbodbc
-            turbodbc: lates
+            turbodbc: latest
             title: Turbodbc latest
           - name: kartothek-latest
             library: kartothek
