@@ -57,7 +57,7 @@ after_build:
   # upload to gemfury
   - conda install -y curl
   - for /f %%i in ('dir /b wheels\*.whl') do set WHEEL_PATH=wheels\%%i
-  - curl.exe -f -F "package=@%WHEEL_PATH%" "https://%CROSSBOW_GEMFURY_TOKEN%@push.fury.io/%CROSSBOW_GEMFURY_ORG%/"
+  - curl.exe -F "package=@%WHEEL_PATH%" "https://%CROSSBOW_GEMFURY_TOKEN%@push.fury.io/%CROSSBOW_GEMFURY_ORG%/"
 {% endif %}
 
 #on_finish:

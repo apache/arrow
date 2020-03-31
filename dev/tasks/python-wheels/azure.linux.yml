@@ -95,7 +95,7 @@ jobs:
     # upload to gemfury
     - script: |
         path=$(ls arrow/python/{{ wheel_dir }}/dist/*.whl)
-        curl -f -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/
+        curl -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/
       env:
         CROSSBOW_GEMFURY_TOKEN: $(CROSSBOW_GEMFURY_TOKEN)
         CROSSBOW_GEMFURY_ORG: $(CROSSBOW_GEMFURY_ORG)
