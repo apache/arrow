@@ -1416,12 +1416,8 @@ class ARROW_EXPORT FieldPath {
   size_t hash() const;
 
   explicit operator bool() const { return !indices_.empty(); }
-  bool operator==(const FieldPath& other) const {
-    return vector() == other.vector();
-  }
-  bool operator!=(const FieldPath& other) const {
-    return !(*this == other);
-  }
+  bool operator==(const FieldPath& other) const { return vector() == other.vector(); }
+  bool operator!=(const FieldPath& other) const { return !(*this == other); }
 
   std::vector<int>& vector() { return indices_; }
   const std::vector<int>& vector() const { return indices_; }
