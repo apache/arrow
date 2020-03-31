@@ -703,14 +703,11 @@ def test_parquet_fragments(tempdir):
     fragment = list(dataset.get_fragments())[0]
     row_group_fragments = list(fragment.get_row_group_fragments())
     new_fragment = parquet_format.make_fragment(
-        fragment.path, fragment.filesystem,  # schema=dataset.schema,
+        fragment.path, fragment.filesystem, schema=dataset.schema,
         partition_expression=fragment.partition_expression,
         row_groups=[0])
     result = new_fragment.to_table()
-    # TODO needs to include partition column
-    # assert result.equals(row_group_fragments[0].to_table())
-    assert result.column_names == ['b', 'c']
-    assert len(result) == 2
+    assert result.equals(row_group_fragments[0].to_table())
 
     # manually re-construct a row group fragment with filter/column projection
     new_fragment = parquet_format.make_fragment(
