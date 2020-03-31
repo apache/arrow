@@ -18,9 +18,6 @@
 use std::boxed::Box;
 use std::sync::Arc;
 
-extern crate arrow;
-extern crate datafusion;
-
 use arrow::array::{Int32Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
@@ -29,6 +26,7 @@ use datafusion::datasource::MemTable;
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
 use datafusion::logicalplan::{Expr, ScalarValue};
+use datafusion::utils;
 
 /// This example demonstrates basic uses of the Table API on an in-memory table
 fn main() -> Result<()> {
@@ -63,30 +61,8 @@ fn main() -> Result<()> {
     // execute
     let results = t.collect(&mut ctx, 10)?;
 
-    // print results
-    results.iter().for_each(|batch| {
-        println!(
-            "RecordBatch has {} rows and {} columns",
-            batch.num_rows(),
-            batch.num_columns()
-        );
-
-        let c1 = batch
-            .column(0)
-            .as_any()
-            .downcast_ref::<StringArray>()
-            .expect("String type");
-
-        let c2 = batch
-            .column(1)
-            .as_any()
-            .downcast_ref::<Int32Array>()
-            .expect("Int type");
-
-        for i in 0..batch.num_rows() {
-            println!("{}, {}", c1.value(i), c2.value(i),);
-        }
-    });
+    // print the results
+    utils::print_batches(&results)?;
 
     Ok(())
 }
