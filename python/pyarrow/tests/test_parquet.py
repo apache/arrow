@@ -119,23 +119,10 @@ def _check_roundtrip(table, expected=None, read_table_kwargs=None,
 
 def _roundtrip_pandas_dataframe(df, write_kwargs, use_legacy_dataset=True):
     table = pa.Table.from_pandas(df)
-
-    if use_legacy_dataset:
-        buf = io.BytesIO()
-        _write_table(table, buf, **write_kwargs)
-
-        buf.seek(0)
-        table1 = _read_table(buf)
-    else:
-        from pyarrow.fs import _MockFileSystem
-        mockfs = _MockFileSystem()
-        with mockfs.open_output_stream("test") as out:
-            _write_table(table, out, **write_kwargs)
-
-        table1 = _read_table(
-            "test", filesystem=mockfs, use_legacy_dataset=False)
-
-    return table1.to_pandas()
+    result = _roundtrip_table(
+        table, write_table_kwargs=write_kwargs,
+        use_legacy_dataset=use_legacy_dataset)
+    return result.to_pandas()
 
 
 @parametrize_legacy_dataset
@@ -2415,16 +2402,10 @@ def test_dataset_enable_buffered_stream(tempdir, use_legacy_dataset):
     table = pa.Table.from_pandas(df)
     _write_table(table, path, version='2.0')
 
-    # TODO(dataset) raises an OSError instead of ValueError
-    with pytest.raises((ValueError, OSError)):
-        if use_legacy_dataset:
-            pq.ParquetDataset(
-                dirpath, buffer_size=-64,
-                use_legacy_dataset=use_legacy_dataset)
-        else:
-            # Dataset API only raises when reading
-            pq.ParquetDataset(
-                dirpath, buffer_size=-64, use_legacy_dataset=False).read()
+    with pytest.raises(ValueError):
+        pq.ParquetDataset(
+            dirpath, buffer_size=-64,
+            use_legacy_dataset=use_legacy_dataset)
 
     for buffer_size in [128, 1024]:
         dataset = pq.ParquetDataset(
@@ -2490,6 +2471,14 @@ def _make_example_multifile_dataset(base_path, nfiles=10, file_nrows=5):
     return paths
 
 
+def _assert_dataset_paths(dataset, paths, use_legacy_dataset):
+    if use_legacy_dataset:
+        assert set(map(str, paths)) == {x.path for x in dataset.pieces}
+    else:
+        paths = [str(path.as_posix()) for path in paths]
+        assert set(paths) == set(dataset._dataset.files)
+
+
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 @pytest.mark.parametrize('dir_prefix', ['_', '.'])
@@ -2505,11 +2494,7 @@ def test_ignore_private_directories(tempdir, dir_prefix, use_legacy_dataset):
 
     dataset = pq.ParquetDataset(dirpath, use_legacy_dataset=use_legacy_dataset)
 
-    if use_legacy_dataset:
-        assert set(map(str, paths)) == {x.path for x in dataset.pieces}
-    else:
-        paths = [str(path.as_posix()) for path in paths]
-        assert set(paths) == set(dataset._dataset.files)
+    _assert_dataset_paths(dataset, paths, use_legacy_dataset)
 
 
 @pytest.mark.pandas
@@ -2529,11 +2514,7 @@ def test_ignore_hidden_files_dot(tempdir, use_legacy_dataset):
 
     dataset = pq.ParquetDataset(dirpath, use_legacy_dataset=use_legacy_dataset)
 
-    if use_legacy_dataset:
-        assert set(map(str, paths)) == {x.path for x in dataset.pieces}
-    else:
-        paths = [str(path.as_posix()) for path in paths]
-        assert set(paths) == set(dataset._dataset.files)
+    _assert_dataset_paths(dataset, paths, use_legacy_dataset)
 
 
 @pytest.mark.pandas
@@ -2553,11 +2534,7 @@ def test_ignore_hidden_files_underscore(tempdir, use_legacy_dataset):
 
     dataset = pq.ParquetDataset(dirpath, use_legacy_dataset=use_legacy_dataset)
 
-    if use_legacy_dataset:
-        assert set(map(str, paths)) == {x.path for x in dataset.pieces}
-    else:
-        paths = [str(path.as_posix()) for path in paths]
-        assert set(paths) == set(dataset._dataset.files)
+    _assert_dataset_paths(dataset, paths, use_legacy_dataset)
 
 
 @pytest.mark.pandas

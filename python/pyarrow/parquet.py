@@ -1057,8 +1057,8 @@ buffer_size : int, default 0
     column chunks. Otherwise IO calls are unbuffered.
 use_legacy_dataset : bool, default True
     Set to False to enable the new code path (experimental, using the
-    new Arrow Dataset API). This allows to pass `filters` for all columns
-    and not only the partition keys."""
+    new Arrow Dataset API). Among other things, this allows to pass
+    `filters` for all columns and not only the partition keys."""
 
 
 class ParquetDataset:
@@ -1374,13 +1374,11 @@ class _ParquetDatasetV2:
             read_options.update(use_buffered_stream=True,
                                 buffer_size=buffer_size)
         if read_dictionary is not None:
-            read_options.update(dict_columns=read_dictionary)
+            read_options.update(dictionary_columns=read_dictionary)
         parquet_format = ds.ParquetFileFormat(read_options=read_options)
 
-        dataset = ds.dataset(path_or_paths, filesystem=filesystem,
-                             format=parquet_format, partitioning="hive")
-
-        self._dataset = dataset
+        self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,
+                                   format=parquet_format, partitioning="hive")
         self._filters = filters
         if filters is not None:
             self._filter_expression = _filters_to_expression(filters)
