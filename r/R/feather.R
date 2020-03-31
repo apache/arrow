@@ -17,8 +17,8 @@
 
 #' Write data in the Feather format
 #'
-#' @param x `data.frame`, `RecordBatch`, or `Table`
-#' @param sink A file path or an `OutputStream`
+#' @param x `data.frame`, [RecordBatch], or [Table]
+#' @param sink A string file path, [OutputStream], or [RecordBatchWriter]
 #' @param version integer Feather file version. Version 2 is the current.
 #' Version 1 is the more limited legacy format.
 #' @param chunk_size For V2 files, the number of rows that each chunk of data
@@ -33,7 +33,8 @@
 #' specify an integer compression level. If omitted, the compression codec's
 #' default compression level is used.
 #'
-#' @return The input `x`, invisibly.
+#' @return The input `x`, invisibly. Note that if `sink` is a [OutputStream] or
+#' [RecordBatchWriter], the stream will be left open.
 #' @export
 #' @examples
 #' \donttest{
@@ -99,15 +100,16 @@ write_feather <- function(x,
 
   if (inherits(sink, "RecordBatchWriter")) {
     sink$write(x)
-    return(sink)
+    # If write_feather() is for writing IPC files, shouldn't it always close
+    # the writer?
+  } else {
+    if (is.character(sink)) {
+      sink <- FileOutputStream$create(sink)
+      on.exit(sink$close())
+    }
+    assert_is(sink, "OutputStream")
+    ipc___WriteFeather__Table(sink, x, version, chunk_size, compression, compression_level)
   }
-  if (is.character(sink)) {
-    sink <- FileOutputStream$create(sink)
-    on.exit(sink$close())
-  }
-  assert_is(sink, "OutputStream")
-  ipc___WriteFeather__Table(sink, x, version, chunk_size, compression, compression_level)
-
   invisible(x_out)
 }
 
