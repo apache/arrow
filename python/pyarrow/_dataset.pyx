@@ -436,6 +436,9 @@ cdef class Fragment:
         self.init(sp)
         return self
 
+    cdef inline shared_ptr[CFragment] unwrap(self):
+        return self.wrapped
+
     @property
     def partition_expression(self):
         """An Expression which evaluates to true for all data viewed by this
@@ -1331,7 +1334,7 @@ cdef class Scanner:
         context.get().pool = maybe_unbox_memory_pool(memory_pool)
         context.get().use_threads = use_threads
 
-        return Scanner.wrap(make_shared[CScanner](self.wrapped, context))
+        return Scanner.wrap(make_shared[CScanner](fragment.unwrap(), context))
 
     cdef inline shared_ptr[CScanner] unwrap(self):
         return self.wrapped
