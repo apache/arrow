@@ -30,7 +30,7 @@ test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
   expect_is(writer, "RecordBatchFileWriter")
   writer$write_table(tab)
   writer$close()
-  tab2 <- read_table(tf)
+  tab2 <- read_arrow(tf, as_data_frame = FALSE)
   expect_equal(tab, tab2)
 
   stream <- FileOutputStream$create(tf)
@@ -38,12 +38,12 @@ test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
   expect_is(writer, "RecordBatchFileWriter")
   writer$write_table(tab)
   writer$close()
-  tab3 <- read_table(tf)
+  tab3 <- read_arrow(tf, as_data_frame = FALSE)
   expect_equal(tab, tab3)
   unlink(tf)
 })
 
-test_that("read_record_batch() handles (raw|Buffer|InputStream, Schema) (ARROW-3450, ARROW-3505)", {
+test_that("record_batch() handles (raw|Buffer|InputStream, Schema) (ARROW-3450, ARROW-3505)", {
   tbl <- tibble::tibble(
     int = 1:10, dbl = as.numeric(1:10),
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
@@ -53,10 +53,14 @@ test_that("read_record_batch() handles (raw|Buffer|InputStream, Schema) (ARROW-3
   schema <- batch$schema
 
   raw <- batch$serialize()
-  batch2 <- read_record_batch(raw, schema)
-  batch3 <- read_record_batch(buffer(raw), schema)
+  batch2 <- record_batch(raw, schema = schema)
+  batch3 <- record_batch(buffer(raw), schema = schema)
   stream <- BufferReader$create(raw)
-  batch4 <- read_record_batch(stream, schema)
+  # check for deprecation message on the old function
+  expect_deprecated(
+    batch4 <- read_record_batch(stream, schema),
+    "record_batch"
+  )
   stream$close()
 
   expect_equal(batch, batch2)
@@ -64,7 +68,7 @@ test_that("read_record_batch() handles (raw|Buffer|InputStream, Schema) (ARROW-3
   expect_equal(batch, batch4)
 })
 
-test_that("read_record_batch() can handle (Message, Schema) parameters (ARROW-3499)", {
+test_that("record_batch() can handle (Message, Schema) parameters (ARROW-3499)", {
   batch <- record_batch(x = 1:10)
   schema <- batch$schema
 
@@ -72,7 +76,7 @@ test_that("read_record_batch() can handle (Message, Schema) parameters (ARROW-34
   stream <- BufferReader$create(raw)
 
   message <- read_message(stream)
-  batch2 <- read_record_batch(message, schema)
+  batch2 <- record_batch(message, schema = schema)
   expect_equal(batch, batch2)
   stream$close()
 })

@@ -44,3 +44,5 @@ expect_type_equal <- function(object, expected, ...) {
 expect_match_arg_error <- function(object, values=c()) {
   expect_error(object, paste0("'arg' .*", paste(dQuote(values), collapse = ", ")))
 }
+
+expect_deprecated <- expect_warning

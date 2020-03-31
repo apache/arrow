@@ -30,26 +30,30 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
 
   bytes <- write_arrow(tab, raw())
 
-  tab1 <- read_table(tf)
-  tab2 <- read_table(normalizePath(tf))
+  tab1 <- read_arrow(tf, as_data_frame = FALSE)
+  tab2 <- read_feather(normalizePath(tf), as_data_frame = FALSE)
 
   readable_file <- ReadableFile$create(tf)
   file_reader1 <- RecordBatchFileReader$create(readable_file)
-  tab3 <- read_table(file_reader1)
+  tab3 <- read_arrow(file_reader1, as_data_frame = FALSE)
   readable_file$close()
 
   mmap_file <- mmap_open(tf)
   file_reader2 <- RecordBatchFileReader$create(mmap_file)
-  tab4 <- read_table(file_reader2)
+  # check for deprecation message
+  expect_deprecated(
+    tab4 <- read_table(file_reader2),
+    "read_arrow"
+  )
   mmap_file$close()
 
-  tab5 <- read_table(bytes)
+  tab5 <- read_arrow(bytes, as_data_frame = FALSE)
 
   stream_reader <- RecordBatchStreamReader$create(bytes)
-  tab6 <- read_table(stream_reader)
+  tab6 <- read_arrow(stream_reader, as_data_frame = FALSE)
 
   file_reader <- RecordBatchFileReader$create(tf)
-  tab7 <- read_table(file_reader)
+  tab7 <- read_arrow(file_reader, as_data_frame = FALSE)
 
   expect_equal(tab, tab1)
   expect_equal(tab, tab2)
