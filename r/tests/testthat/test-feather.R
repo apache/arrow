@@ -163,4 +163,13 @@ test_that("FeatherReader", {
   expect_identical(reader2$version, 2L)
 })
 
+test_that("read_feather closes connection to file", {
+  tf <- tempfile()
+  write_feather(tib, sink = tf)
+  expect_true(file.exists(tf))
+  read_feather(tf)
+  expect_error(file.remove(tf), NA)
+  expect_false(file.exists(tf))
+})
+
 unlink(feather_file)
