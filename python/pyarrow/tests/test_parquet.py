@@ -561,7 +561,7 @@ def _test_dataframe(size=10000, seed=0):
     return df
 
 
-# TODO NativeFile support
+# TODO(ARROW-8074) NativeFile support
 @pytest.mark.pandas
 @parametrize_legacy_dataset_skip_buffer
 def test_pandas_parquet_native_file_roundtrip(tempdir, use_legacy_dataset):
