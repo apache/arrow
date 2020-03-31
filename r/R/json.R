@@ -38,8 +38,6 @@
 read_json_arrow <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   tab <- JsonTableReader$create(file, ...)$Read()$select(!!enquo(col_select))
 
-  tab$ValidateFull()
-
   if (isTRUE(as_data_frame)) {
     tab <- as.data.frame(tab)
   }
