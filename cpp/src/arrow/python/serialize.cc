@@ -181,6 +181,16 @@ class SequenceBuilder {
     return sparse_csc_matrix_indices_->Append(sparse_csc_matrix_index);
   }
 
+  // Appending a sparse csf tensor to the sequence
+  //
+  // \param sparse_csf_tensor_index Index of the sparse csf tensor in the object.
+  Status AppendSparseCSFTensor(const int32_t sparse_csf_tensor_index) {
+    RETURN_NOT_OK(CreateAndUpdate(&sparse_csf_tensor_indices_,
+                                  PythonType::SPARSECSFTENSOR,
+                                  [this]() { return new Int32Builder(pool_); }));
+    return sparse_csf_tensor_indices_->Append(sparse_csf_tensor_index);
+  }
+
   // Appending a numpy ndarray to the sequence
   //
   // \param tensor_index Index of the tensor in the object.
@@ -277,6 +287,7 @@ class SequenceBuilder {
   std::shared_ptr<Int32Builder> sparse_coo_tensor_indices_;
   std::shared_ptr<Int32Builder> sparse_csr_matrix_indices_;
   std::shared_ptr<Int32Builder> sparse_csc_matrix_indices_;
+  std::shared_ptr<Int32Builder> sparse_csf_tensor_indices_;
   std::shared_ptr<Int32Builder> ndarray_indices_;
   std::shared_ptr<Int32Builder> buffer_indices_;
 
@@ -515,6 +526,11 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
         static_cast<int32_t>(blobs_out->sparse_tensors.size())));
     ARROW_ASSIGN_OR_RAISE(auto matrix, unwrap_sparse_csc_matrix(elem));
     blobs_out->sparse_tensors.push_back(matrix);
+  } else if (is_sparse_csf_tensor(elem)) {
+    RETURN_NOT_OK(builder->AppendSparseCSFTensor(
+        static_cast<int32_t>(blobs_out->sparse_tensors.size())));
+    ARROW_ASSIGN_OR_RAISE(auto tensor, unwrap_sparse_csf_tensor(elem));
+    blobs_out->sparse_tensors.push_back(sparse_csf_tensor);
   } else {
     // Attempt to serialize the object using the custom callback.
     PyObject* serialized_object;

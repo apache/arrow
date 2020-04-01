@@ -20,6 +20,7 @@ struct SparseMatrixIndexCSX;
 struct SparseMatrixIndexCSXBuilder;
 
 struct SparseTensorIndexCSF;
+struct SparseTensorIndexCSFBuilder;
 
 struct SparseTensor;
 struct SparseTensorBuilder;
