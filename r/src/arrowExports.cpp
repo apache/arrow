@@ -5667,6 +5667,36 @@ RcppExport SEXP _arrow_Table__Equals(SEXP lhs_sexp, SEXP rhs_sexp, SEXP check_me
 
 // table.cpp
 #if defined(ARROW_R_WITH_ARROW)
+bool Table__Validate(const std::shared_ptr<arrow::Table>& table);
+RcppExport SEXP _arrow_Table__Validate(SEXP table_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	return Rcpp::wrap(Table__Validate(table));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Table__Validate(SEXP table_sexp){
+	Rf_error("Cannot call Table__Validate(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// table.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool Table__ValidateFull(const std::shared_ptr<arrow::Table>& table);
+RcppExport SEXP _arrow_Table__ValidateFull(SEXP table_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	return Rcpp::wrap(Table__ValidateFull(table));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Table__ValidateFull(SEXP table_sexp){
+	Rf_error("Cannot call Table__ValidateFull(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// table.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ChunkedArray> Table__GetColumnByName(const std::shared_ptr<arrow::Table>& table, const std::string& name);
 RcppExport SEXP _arrow_Table__GetColumnByName(SEXP table_sexp, SEXP name_sexp){
 BEGIN_RCPP
@@ -6118,6 +6148,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__Slice1", (DL_FUNC) &_arrow_Table__Slice1, 2}, 
 		{ "_arrow_Table__Slice2", (DL_FUNC) &_arrow_Table__Slice2, 3}, 
 		{ "_arrow_Table__Equals", (DL_FUNC) &_arrow_Table__Equals, 3}, 
+		{ "_arrow_Table__Validate", (DL_FUNC) &_arrow_Table__Validate, 1}, 
+		{ "_arrow_Table__ValidateFull", (DL_FUNC) &_arrow_Table__ValidateFull, 1}, 
 		{ "_arrow_Table__GetColumnByName", (DL_FUNC) &_arrow_Table__GetColumnByName, 2}, 
 		{ "_arrow_Table__select", (DL_FUNC) &_arrow_Table__select, 2}, 
 		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 2}, 

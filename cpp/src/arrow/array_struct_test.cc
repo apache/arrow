@@ -195,6 +195,25 @@ TEST(StructArray, Validate) {
   ASSERT_RAISES(Invalid, arr->ValidateFull());
 }
 
+/// ARROW-7740: Flattening a slice shouldn't affect the parent array.
+TEST(StructArray, FlattenOfSlice) {
+  auto a = ArrayFromJSON(int32(), "[4, 5]");
+  auto type = struct_({field("a", int32())});
+  auto children = std::vector<std::shared_ptr<Array>>{a};
+
+  auto arr = std::make_shared<StructArray>(type, 2, children);
+  ASSERT_OK(arr->ValidateFull());
+
+  auto slice = internal::checked_pointer_cast<StructArray>(arr->Slice(0, 1));
+  ASSERT_OK(slice->ValidateFull());
+
+  ArrayVector flattened;
+  ASSERT_OK(slice->Flatten(default_memory_pool(), &flattened));
+
+  ASSERT_OK(slice->ValidateFull());
+  ASSERT_OK(arr->ValidateFull());
+}
+
 // ----------------------------------------------------------------------------------
 // Struct test
 class TestStructBuilder : public TestBuilder {

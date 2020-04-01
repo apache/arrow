@@ -575,8 +575,7 @@ class Converter_List : public Converter {
     auto values_array = list_array->values();
 
     auto ingest_one = [&](R_xlen_t i) {
-      auto slice =
-          values_array->Slice(list_array->value_offset(i), list_array->value_length(i));
+      auto slice = list_array->value_slice(i);
       SET_VECTOR_ELT(data, i + start, Array__as_vector(slice));
     };
 
