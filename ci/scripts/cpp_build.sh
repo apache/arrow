@@ -98,31 +98,31 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY:-OFF} \
       -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB:-OFF} \
       -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD:-OFF} \
-      -Dbenchmark_SOURCE=${benchmark_SOURCE:-AUTO} \
-      -DBOOST_SOURCE=${BOOST_SOURCE:-AUTO} \
-      -DBrotli_SOURCE=${Brotli_SOURCE:-AUTO} \
+      -Dbenchmark_SOURCE=${benchmark_SOURCE:-} \
+      -DBOOST_SOURCE=${BOOST_SOURCE:-} \
+      -DBrotli_SOURCE=${Brotli_SOURCE:-} \
       -DBUILD_WARNING_LEVEL=${BUILD_WARNING_LEVEL:-CHECKIN} \
-      -Dc-ares_SOURCE=${cares_SOURCE:-AUTO} \
+      -Dc-ares_SOURCE=${cares_SOURCE:-} \
       -DCMAKE_BUILD_TYPE=${ARROW_BUILD_TYPE:-debug} \
       -DCMAKE_C_FLAGS=${CFLAGS:-} \
       -DCMAKE_CXX_FLAGS=${CXXFLAGS:-} \
       -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR:-lib} \
       -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}} \
       -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
-      -Dgflags_SOURCE=${gflags_SOURCE:-AUTO} \
-      -DgRPC_SOURCE=${gRPC_SOURCE:-AUTO} \
-      -DGTest_SOURCE=${GTest_SOURCE:-AUTO} \
-      -DLz4_SOURCE=${Lz4_SOURCE:-AUTO} \
-      -DORC_SOURCE=${ORC_SOURCE:-AUTO} \
+      -Dgflags_SOURCE=${gflags_SOURCE:-} \
+      -DgRPC_SOURCE=${gRPC_SOURCE:-} \
+      -DGTest_SOURCE=${GTest_SOURCE:-} \
+      -DLz4_SOURCE=${Lz4_SOURCE:-} \
+      -DORC_SOURCE=${ORC_SOURCE:-} \
       -DPARQUET_BUILD_EXECUTABLES=${PARQUET_BUILD_EXECUTABLES:-OFF} \
       -DPARQUET_BUILD_EXAMPLES=${PARQUET_BUILD_EXAMPLES:-OFF} \
       -DPARQUET_REQUIRE_ENCRYPTION=${ARROW_WITH_OPENSSL:-ON} \
-      -DProtobuf_SOURCE=${Protobuf_SOURCE:-AUTO} \
-      -DRapidJSON_SOURCE=${RapidJSON_SOURCE:-AUTO} \
-      -DRE2_SOURCE=${RE2_SOURCE:-AUTO} \
-      -DSnappy_SOURCE=${Snappy_SOURCE:-AUTO} \
-      -DThrift_SOURCE=${Thrift_SOURCE:-AUTO} \
-      -DZSTD_SOURCE=${ZSTD_SOURCE:-AUTO} \
+      -DProtobuf_SOURCE=${Protobuf_SOURCE:-} \
+      -DRapidJSON_SOURCE=${RapidJSON_SOURCE:-} \
+      -DRE2_SOURCE=${RE2_SOURCE:-} \
+      -DSnappy_SOURCE=${Snappy_SOURCE:-} \
+      -DThrift_SOURCE=${Thrift_SOURCE:-} \
+      -DZSTD_SOURCE=${ZSTD_SOURCE:-} \
       ${CMAKE_ARGS} \
       ${source_dir}
 
