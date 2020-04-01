@@ -877,17 +877,18 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
         return GetResultValue(self.metadata.Get(tobytes(key)))
 
     def __iter__(self):
-        for i in range(self.metadata.size()):
-            yield self.metadata.key(i)
+        return self.keys()
 
     def __reduce__(self):
         return KeyValueMetadata, (list(self.items()),)
 
     def keys(self):
-        return list(self)
+        for i in range(self.metadata.size()):
+            yield self.metadata.key(i)
 
     def values(self):
-        return [self.metadata.value(i) for i in range(self.metadata.size())]
+        for i in range(self.metadata.size()):
+            yield self.metadata.value(i)
 
     def items(self):
         for i in range(self.metadata.size()):

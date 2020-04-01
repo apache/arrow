@@ -16,6 +16,7 @@
 # under the License.
 
 from collections import OrderedDict
+from collections.abc import Iterator
 
 import pickle
 import pytest
@@ -613,8 +614,10 @@ def test_key_value_metadata():
         (b'a', b'ALPHA'),
         (b'b', b'BETA')
     ]
-
     assert len(md) == 5
+    assert isinstance(md.keys(), Iterator)
+    assert isinstance(md.values(), Iterator)
+    assert isinstance(md.items(), Iterator)
     assert list(md.items()) == expected
     assert list(md.keys()) == [k for k, _ in expected]
     assert list(md.values()) == [v for _, v in expected]
@@ -624,6 +627,7 @@ def test_key_value_metadata():
     assert md['b'] == b'beta'
     assert md.get_all('a') == [b'alpha', b'Alpha', b'ALPHA']
     assert md.get_all('b') == [b'beta', b'BETA']
+    assert md.get_all('unkown') == []
 
 
 def test_field_basic():
