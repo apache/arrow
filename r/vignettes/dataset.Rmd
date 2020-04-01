@@ -42,7 +42,7 @@ for (year in 2009:2019) {
   } else {
     months <- 1:12
   }
-  for (month in 1:12) {
+  for (month in months) {
     if (month < 10) {
       month <- paste0("0", month)
     }
