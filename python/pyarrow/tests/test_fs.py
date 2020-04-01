@@ -255,7 +255,7 @@ def test_non_path_like_input_raises(fs):
             fs.create_dir(path)
 
 
-def test_get_target_infos(fs, pathfn):
+def test_get_file_info(fs, pathfn):
     aaa = pathfn('a/aa/aaa/')
     bb = pathfn('a/bb')
     c = pathfn('c.txt')
@@ -299,7 +299,7 @@ def test_get_target_infos(fs, pathfn):
     assert isinstance(c_info.mtime, datetime)
 
 
-def test_get_target_infos_with_selector(fs, pathfn):
+def test_get_file_info_with_selector(fs, pathfn):
     base_dir = pathfn('selector-dir/')
     file_a = pathfn('selector-dir/test_file_a')
     file_b = pathfn('selector-dir/test_file_b')
@@ -612,12 +612,12 @@ def test_hdfs_options(hdfs_connection):
     host, port, user = hdfs_connection
 
     hdfs = HadoopFileSystem(host, port, user=user)
-    assert hdfs.get_target_infos(FileSelector('/'))
+    assert hdfs.get_file_info(FileSelector('/'))
 
     hdfs = HadoopFileSystem.from_uri(
         "hdfs://{}:{}/?user={}".format(host, port, user)
     )
-    assert fs.get_file_info(FileSelector('/'))
+    assert hdfs.get_file_info(FileSelector('/'))
 
 
 @pytest.mark.parametrize(('uri', 'expected_klass', 'expected_path'), [
