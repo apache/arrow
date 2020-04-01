@@ -250,12 +250,11 @@ Java_org_apache_arrow_plasma_PlasmaClientJNI_list(JNIEnv* env, jclass cls, jlong
   jobjectArray ret =
       env->NewObjectArray(objectTable.size(), env->FindClass("[B"), env->NewByteArray(1));
   int i = 0;
-  for(const auto& id_entry_pair : objectTable) {
+  for (const auto& id_entry_pair : objectTable) {
     const plasma::ObjectID& id = id_entry_pair.first;
     jbyteArray idByteArray = env->NewByteArray(OBJECT_ID_SIZE);
-    env->SetByteArrayRegion(
-        idByteArray, 0, OBJECT_ID_SIZE,
-        reinterpret_cast<jbyte*>(const_cast<uint8_t*>(id.data())));
+    env->SetByteArrayRegion(idByteArray, 0, OBJECT_ID_SIZE,
+                            reinterpret_cast<jbyte*>(const_cast<uint8_t*>(id.data())));
     env->SetObjectArrayElement(ret, i, idByteArray);
     i++;
   }
