@@ -479,12 +479,14 @@ Status Table::FromRecordBatches(const std::shared_ptr<Schema>& schema,
   const int nbatches = static_cast<int>(batches.size());
   const int ncolumns = static_cast<int>(schema->num_fields());
 
+  int64_t num_rows = 0;
   for (int i = 0; i < nbatches; ++i) {
     if (!batches[i]->schema()->Equals(*schema, false)) {
       return Status::Invalid("Schema at index ", static_cast<int>(i),
                              " was different: \n", schema->ToString(), "\nvs\n",
                              batches[i]->schema()->ToString());
     }
+    num_rows += batches[i]->num_rows();
   }
 
   std::vector<std::shared_ptr<ChunkedArray>> columns(ncolumns);
@@ -497,7 +499,7 @@ Status Table::FromRecordBatches(const std::shared_ptr<Schema>& schema,
     columns[i] = std::make_shared<ChunkedArray>(column_arrays, schema->field(i)->type());
   }
 
-  *table = Table::Make(schema, columns);
+  *table = Table::Make(schema, columns, num_rows);
   return Status::OK();
 }
 

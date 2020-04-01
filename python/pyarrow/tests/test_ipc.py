@@ -715,6 +715,23 @@ def test_schema_serialization_with_metadata():
     assert recons_schema[1].metadata == field_metadata
 
 
+def test_deprecated_pyarrow_ns_apis():
+    table = pa.table([pa.array([1, 2, 3, 4])], names=['a'])
+    sink = pa.BufferOutputStream()
+    with pa.RecordBatchStreamWriter(sink, table.schema) as writer:
+        writer.write(table)
+
+    with pytest.warns(FutureWarning,
+                      match="please use pyarrow.ipc.open_stream"):
+        pa.open_stream(sink.getvalue())
+
+    sink = pa.BufferOutputStream()
+    with pa.RecordBatchFileWriter(sink, table.schema) as writer:
+        writer.write(table)
+    with pytest.warns(FutureWarning, match="please use pyarrow.ipc.open_file"):
+        pa.open_file(sink.getvalue())
+
+
 def write_file(batch, sink):
     with pa.RecordBatchFileWriter(sink, batch.schema) as writer:
         writer.write_batch(batch)

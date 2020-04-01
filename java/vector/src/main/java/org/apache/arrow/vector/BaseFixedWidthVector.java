@@ -584,10 +584,8 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   public void splitAndTransferTo(int startIndex, int length,
                                  BaseFixedWidthVector target) {
-    Preconditions.checkArgument(startIndex >= 0 && startIndex < valueCount,
-        "Invalid startIndex: %s", startIndex);
-    Preconditions.checkArgument(startIndex + length <= valueCount,
-        "Invalid length: %s", length);
+    Preconditions.checkArgument(startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
+        "Invalid parameters startIndex: %s, length: %s for valueCount: %s", startIndex, length, valueCount);
     compareTypes(target, "splitAndTransferTo");
     target.clear();
     splitAndTransferValidityBuffer(startIndex, length, target);

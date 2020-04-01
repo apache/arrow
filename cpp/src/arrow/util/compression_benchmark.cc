@@ -17,16 +17,18 @@
 
 #include "benchmark/benchmark.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <random>
 #include <string>
 #include <vector>
 
 #include "arrow/result.h"
-#include "arrow/testing/gtest_util.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace util {
@@ -189,8 +191,8 @@ BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::ZSTD);
 #endif
 
 #ifdef ARROW_WITH_LZ4
-BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::LZ4);
-BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::LZ4);
+BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::LZ4_FRAME);
+BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::LZ4_FRAME);
 #endif
 
 #endif

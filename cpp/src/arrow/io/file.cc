@@ -285,23 +285,6 @@ Result<std::shared_ptr<ReadableFile>> ReadableFile::Open(int fd, MemoryPool* poo
   return file;
 }
 
-Status ReadableFile::Open(const std::string& path, std::shared_ptr<ReadableFile>* file) {
-  return Open(path).Value(file);
-}
-
-Status ReadableFile::Open(const std::string& path, MemoryPool* pool,
-                          std::shared_ptr<ReadableFile>* file) {
-  return Open(path, pool).Value(file);
-}
-
-Status ReadableFile::Open(int fd, std::shared_ptr<ReadableFile>* file) {
-  return Open(fd).Value(file);
-}
-
-Status ReadableFile::Open(int fd, MemoryPool* pool, std::shared_ptr<ReadableFile>* file) {
-  return Open(fd, pool).Value(file);
-}
-
 Status ReadableFile::DoClose() { return impl_->Close(); }
 
 bool ReadableFile::closed() const { return !impl_->is_open(); }
@@ -357,34 +340,6 @@ Result<std::shared_ptr<FileOutputStream>> FileOutputStream::Open(int fd) {
   auto stream = std::shared_ptr<FileOutputStream>(new FileOutputStream());
   RETURN_NOT_OK(stream->impl_->Open(fd));
   return stream;
-}
-
-Status FileOutputStream::Open(const std::string& path,
-                              std::shared_ptr<OutputStream>* out) {
-  return Open(path, false).Value(out);
-}
-
-Status FileOutputStream::Open(const std::string& path, bool append,
-                              std::shared_ptr<OutputStream>* out) {
-  return Open(path, append).Value(out);
-}
-
-Status FileOutputStream::Open(int fd, std::shared_ptr<OutputStream>* out) {
-  return Open(fd).Value(out);
-}
-
-Status FileOutputStream::Open(const std::string& path,
-                              std::shared_ptr<FileOutputStream>* out) {
-  return Open(path, false).Value(out);
-}
-
-Status FileOutputStream::Open(const std::string& path, bool append,
-                              std::shared_ptr<FileOutputStream>* out) {
-  return Open(path, append).Value(out);
-}
-
-Status FileOutputStream::Open(int fd, std::shared_ptr<FileOutputStream>* out) {
-  return Open(fd).Value(out);
 }
 
 Status FileOutputStream::Close() { return impl_->Close(); }
@@ -632,11 +587,6 @@ Result<std::shared_ptr<MemoryMappedFile>> MemoryMappedFile::Create(
   return MemoryMappedFile::Open(path, FileMode::READWRITE);
 }
 
-Status MemoryMappedFile::Create(const std::string& path, int64_t size,
-                                std::shared_ptr<MemoryMappedFile>* out) {
-  return Create(path, size).Value(out);
-}
-
 Result<std::shared_ptr<MemoryMappedFile>> MemoryMappedFile::Open(const std::string& path,
                                                                  FileMode::type mode) {
   std::shared_ptr<MemoryMappedFile> result(new MemoryMappedFile());
@@ -655,17 +605,6 @@ Result<std::shared_ptr<MemoryMappedFile>> MemoryMappedFile::Open(const std::stri
   result->memory_map_.reset(new MemoryMap());
   RETURN_NOT_OK(result->memory_map_->Open(path, mode, offset, length));
   return result;
-}
-
-Status MemoryMappedFile::Open(const std::string& path, FileMode::type mode,
-                              std::shared_ptr<MemoryMappedFile>* out) {
-  return Open(path, mode).Value(out);
-}
-
-Status MemoryMappedFile::Open(const std::string& path, FileMode::type mode,
-                              const int64_t offset, const int64_t length,
-                              std::shared_ptr<MemoryMappedFile>* out) {
-  return Open(path, mode, offset, length).Value(out);
 }
 
 Result<int64_t> MemoryMappedFile::GetSize() {

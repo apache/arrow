@@ -243,8 +243,7 @@ TEST_P(CompressedOutputStreamTest, RandomData) {
 // NOTES:
 // - Snappy doesn't support streaming decompression
 // - BZ2 doesn't support one-shot compression
-// - LZ4 streaming decompression uses the LZ4 framing format, which must be tested
-//   against a streaming compressor
+// - LZ4 raw format doesn't support streaming decompression
 
 #ifdef ARROW_WITH_SNAPPY
 TEST(TestSnappyInputStream, NotImplemented) {
@@ -274,6 +273,13 @@ INSTANTIATE_TEST_SUITE_P(TestBrotliInputStream, CompressedInputStreamTest,
                          ::testing::Values(Compression::BROTLI));
 INSTANTIATE_TEST_SUITE_P(TestBrotliOutputStream, CompressedOutputStreamTest,
                          ::testing::Values(Compression::BROTLI));
+#endif
+
+#ifdef ARROW_WITH_LZ4
+INSTANTIATE_TEST_SUITE_P(TestLZ4InputStream, CompressedInputStreamTest,
+                         ::testing::Values(Compression::LZ4_FRAME));
+INSTANTIATE_TEST_SUITE_P(TestLZ4OutputStream, CompressedOutputStreamTest,
+                         ::testing::Values(Compression::LZ4_FRAME));
 #endif
 
 #ifdef ARROW_WITH_ZSTD

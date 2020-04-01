@@ -69,7 +69,8 @@ class PARQUET_EXPORT RowGroupWriter {
   /// directly written to the sink, once a new column is started, the contents
   /// of the previous one cannot be modified anymore.
   ColumnWriter* NextColumn();
-  /// Index of currently written column
+  /// Index of currently written column. Equal to -1 if NextColumn()
+  /// has not been called yet.
   int current_column();
   void Close();
 

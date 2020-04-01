@@ -44,6 +44,7 @@ jobs:
         ubuntu:
           - 16.04
           - 18.04
+          - 20.04
     env:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
@@ -97,6 +98,7 @@ jobs:
       ARROW_WITH_LZ4: ON
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
+      ARROW_WITH_ZSTD: ON
       XML_CATALOG_FILES: /usr/local/etc/xml/catalog
     steps:
       - name: Checkout Arrow
@@ -109,6 +111,7 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
+          brew update
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
           bundle install --gemfile c_glib/Gemfile

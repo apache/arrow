@@ -45,6 +45,12 @@ std::string FlightStatusDetail::ToString() const { return CodeAsString(); }
 
 FlightStatusCode FlightStatusDetail::code() const { return code_; }
 
+std::string FlightStatusDetail::extra_info() const { return extra_info_; }
+
+void FlightStatusDetail::set_extra_info(std::string extra_info) {
+  extra_info_ = std::move(extra_info);
+}
+
 std::string FlightStatusDetail::CodeAsString() const {
   switch (code()) {
     case FlightStatusCode::Internal:
@@ -75,6 +81,13 @@ std::shared_ptr<FlightStatusDetail> FlightStatusDetail::UnwrapStatus(
 Status MakeFlightError(FlightStatusCode code, const std::string& message) {
   StatusCode arrow_code = arrow::StatusCode::IOError;
   return arrow::Status(arrow_code, message, std::make_shared<FlightStatusDetail>(code));
+}
+
+Status MakeFlightError(FlightStatusCode code, const std::string& message,
+                       const std::string& extra_info) {
+  StatusCode arrow_code = arrow::StatusCode::IOError;
+  return arrow::Status(arrow_code, message,
+                       std::make_shared<FlightStatusDetail>(code, extra_info));
 }
 
 bool FlightDescriptor::Equals(const FlightDescriptor& other) const {

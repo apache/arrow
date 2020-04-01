@@ -85,19 +85,6 @@ def mockfs(request):
 
     mockfs = fs._MockFileSystem()
 
-    data = [
-        list(range(5)),
-        list(map(float, range(5))),
-        list(map(str, range(5)))
-    ]
-    schema = pa.schema([
-        pa.field('i64', pa.int64()),
-        pa.field('f64', pa.float64()),
-        pa.field('str', pa.string())
-    ])
-    batch = pa.record_batch(data, schema=schema)
-    table = pa.Table.from_batches([batch])
-
     directories = [
         'subdir/1/xxx',
         'subdir/2/yyy',
@@ -107,6 +94,21 @@ def mockfs(request):
         path = '{}/file{}.parquet'.format(directory, i)
         mockfs.create_dir(directory)
         with mockfs.open_output_stream(path) as out:
+            data = [
+                list(range(5)),
+                list(map(float, range(5))),
+                list(map(str, range(5))),
+                [i] * 5
+            ]
+            schema = pa.schema([
+                pa.field('i64', pa.int64()),
+                pa.field('f64', pa.float64()),
+                pa.field('str', pa.string()),
+                pa.field('const', pa.int64()),
+            ])
+            batch = pa.record_batch(data, schema=schema)
+            table = pa.Table.from_batches([batch])
+
             pq.write_table(table, out)
 
     return mockfs
@@ -179,7 +181,9 @@ def dataset(mockfs):
 
 
 def test_filesystem_dataset(mockfs):
-    schema = pa.schema([])
+    schema = pa.schema([
+        pa.field('const', pa.int64())
+    ])
 
     file_format = ds.ParquetFileFormat()
 
@@ -225,12 +229,24 @@ def test_filesystem_dataset(mockfs):
     assert set(dataset.files) == set(paths)
 
     fragments = list(dataset.get_fragments())
-    assert fragments[0].partition_expression.equals(
-        ds.AndExpression(root_partition, partitions[0]))
-    assert fragments[1].partition_expression.equals(
-        ds.AndExpression(root_partition, partitions[1]))
-    assert fragments[0].path == paths[0]
-    assert fragments[1].path == paths[1]
+    for fragment, partition, path in zip(fragments, partitions, paths):
+        assert fragment.partition_expression.equals(
+            ds.AndExpression(root_partition, partition))
+        assert fragment.path == path
+        assert isinstance(fragment, ds.ParquetFileFragment)
+        assert fragment.row_groups is None
+
+        row_group_fragments = list(fragment.get_row_group_fragments())
+        assert len(row_group_fragments) == 1
+        assert isinstance(fragment, ds.ParquetFileFragment)
+        assert row_group_fragments[0].path == path
+        assert row_group_fragments[0].row_groups == {0}
+
+    # test predicate pushdown using row group metadata
+    fragments = list(dataset.get_fragments(filter=ds.field("const") == 0))
+    assert len(fragments) == 2
+    assert len(list(fragments[0].get_row_group_fragments())) == 1
+    assert len(list(fragments[1].get_row_group_fragments())) == 0
 
 
 def test_dataset(dataset):
@@ -470,6 +486,48 @@ def test_expression_ergonomics():
         field | [1]
 
 
+def test_parquet_read_options():
+    opts1 = ds.ParquetReadOptions()
+    opts2 = ds.ParquetReadOptions(buffer_size=4096,
+                                  dictionary_columns=['a', 'b'])
+    opts3 = ds.ParquetReadOptions(buffer_size=2**13, use_buffered_stream=True,
+                                  dictionary_columns={'a', 'b'})
+
+    assert opts1.use_buffered_stream is False
+    assert opts1.buffer_size == 2**13
+    assert opts1.dictionary_columns == set()
+
+    assert opts2.use_buffered_stream is False
+    assert opts2.buffer_size == 2**12
+    assert opts2.dictionary_columns == {'a', 'b'}
+
+    assert opts3.use_buffered_stream is True
+    assert opts3.buffer_size == 2**13
+    assert opts3.dictionary_columns == {'a', 'b'}
+
+    assert opts1 == opts1
+    assert opts1 != opts2
+    assert opts2 != opts3
+
+
+def test_file_format_pickling():
+    formats = [
+        ds.IpcFileFormat(),
+        ds.ParquetFileFormat(),
+        ds.ParquetFileFormat(
+            read_options=ds.ParquetReadOptions(use_buffered_stream=True)
+        ),
+        ds.ParquetFileFormat(
+            read_options={
+                'use_buffered_stream': True,
+                'buffer_size': 4096,
+            }
+        )
+    ]
+    for file_format in formats:
+        assert pickle.loads(pickle.dumps(file_format)) == file_format
+
+
 @pytest.mark.parametrize('paths_or_selector', [
     fs.FileSelector('subdir', recursive=True),
     [
@@ -483,7 +541,9 @@ def test_expression_ergonomics():
     ]
 ])
 def test_filesystem_factory(mockfs, paths_or_selector):
-    format = ds.ParquetFileFormat(reader_options=dict(dict_columns={"str"}))
+    format = ds.ParquetFileFormat(
+        read_options=ds.ParquetReadOptions(dictionary_columns={"str"})
+    )
 
     options = ds.FileSystemFactoryOptions('subdir')
     options.partitioning = ds.DirectoryPartitioning(
@@ -505,6 +565,7 @@ def test_filesystem_factory(mockfs, paths_or_selector):
         pa.field('i64', pa.int64()),
         pa.field('f64', pa.float64()),
         pa.field('str', pa.dictionary(pa.int32(), pa.string())),
+        pa.field('const', pa.int64()),
         pa.field('group', pa.int32()),
         pa.field('key', pa.string()),
     ]), check_metadata=False)
@@ -525,20 +586,64 @@ def test_filesystem_factory(mockfs, paths_or_selector):
         pa.array([0, 1, 2, 3, 4], type=pa.int32()),
         pa.array("0 1 2 3 4".split(), type=pa.string()))
     for task, group, key in zip(scanner.scan(), [1, 2], ['xxx', 'yyy']):
-        expected_group_column = pa.array([group] * 5, type=pa.int32())
-        expected_key_column = pa.array([key] * 5, type=pa.string())
+        expected_group = pa.array([group] * 5, type=pa.int32())
+        expected_key = pa.array([key] * 5, type=pa.string())
+        expected_const = pa.array([group - 1] * 5, type=pa.int64())
         for batch in task.execute():
-            assert batch.num_columns == 5
+            assert batch.num_columns == 6
             assert batch[0].equals(expected_i64)
             assert batch[1].equals(expected_f64)
             assert batch[2].equals(expected_str)
-            assert batch[3].equals(expected_group_column)
-            assert batch[4].equals(expected_key_column)
+            assert batch[3].equals(expected_const)
+            assert batch[4].equals(expected_group)
+            assert batch[5].equals(expected_key)
 
     table = dataset.to_table()
     assert isinstance(table, pa.Table)
     assert len(table) == 10
-    assert table.num_columns == 5
+    assert table.num_columns == 6
+
+
+def test_make_fragment(multisourcefs):
+    parquet_format = ds.ParquetFileFormat()
+    dataset = ds.dataset('/plain', filesystem=multisourcefs,
+                         format=parquet_format)
+
+    for path in dataset.files:
+        fragment = parquet_format.make_fragment(path, multisourcefs)
+        row_group_fragment = parquet_format.make_fragment(path, multisourcefs,
+                                                          row_groups=[0])
+        for f in [fragment, row_group_fragment]:
+            assert isinstance(f, ds.ParquetFileFragment)
+            assert f.path == path
+            assert isinstance(f.filesystem, type(multisourcefs))
+        assert fragment.row_groups is None
+        assert row_group_fragment.row_groups == {0}
+
+
+@pytest.mark.pandas
+def test_parquet_row_group_fragments(tempdir):
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    table = pa.table({'a': ['a', 'a', 'b', 'b'], 'b': [1, 2, 3, 4]})
+
+    # write_to_dataset currently requires pandas
+    pq.write_to_dataset(table, str(tempdir / "test_parquet_dataset"),
+                        partition_cols=["a"])
+
+    import pyarrow.dataset as ds
+    dataset = ds.dataset(str(tempdir / "test_parquet_dataset/"),
+                         format="parquet", partitioning="hive")
+
+    fragments = list(dataset.get_fragments())
+    f = fragments[0]
+    parquet_format = f.format
+    parquet_format.make_fragment(f.path, f.filesystem,
+                                 partition_expression=f.partition_expression)
+    parquet_format.make_fragment(
+        f.path, f.filesystem, partition_expression=f.partition_expression,
+        row_groups={1})
 
 
 def test_partitioning_factory(mockfs):
@@ -559,6 +664,7 @@ def test_partitioning_factory(mockfs):
         ("i64", pa.int64()),
         ("f64", pa.float64()),
         ("str", pa.string()),
+        ("const", pa.int64()),
         ("group", pa.int32()),
         ("key", pa.string()),
     ])
@@ -623,34 +729,49 @@ def _create_directory_of_files(base_dir):
     return (table1, table2), (path1, path2)
 
 
+def _check_dataset(dataset, table):
+    assert dataset.schema.equals(table.schema)
+    result = dataset.to_table(use_threads=False)  # deterministic row order
+    assert result.equals(table)
+
+
 def _check_dataset_from_path(path, table, **kwargs):
     import pathlib
 
     # pathlib object
     assert isinstance(path, pathlib.Path)
     dataset = ds.dataset(ds.factory(path, **kwargs))
-    assert dataset.schema.equals(table.schema)
-    result = dataset.to_table(use_threads=False)  # deterministic row order
-    assert result.equals(table)
+    assert isinstance(dataset, ds.FileSystemDataset)
+    _check_dataset(dataset, table)
 
     # string path
     dataset = ds.dataset(ds.factory(str(path), **kwargs))
-    assert dataset.schema.equals(table.schema)
-    result = dataset.to_table(use_threads=False)  # deterministic row order
-    assert result.equals(table)
+    assert isinstance(dataset, ds.FileSystemDataset)
+    _check_dataset(dataset, table)
 
     # relative string path
     with change_cwd(path.parent):
         dataset = ds.dataset(ds.factory(path.name, **kwargs))
-        assert dataset.schema.equals(table.schema)
-        result = dataset.to_table(use_threads=False)  # deterministic row order
-        assert result.equals(table)
+        assert isinstance(dataset, ds.FileSystemDataset)
+        _check_dataset(dataset, table)
 
     # passing directly to dataset
+    dataset = ds.dataset(path, **kwargs)
+    assert isinstance(dataset, ds.FileSystemDataset)
+    _check_dataset(dataset, table)
+
     dataset = ds.dataset(str(path), **kwargs)
-    assert dataset.schema.equals(table.schema)
-    result = dataset.to_table(use_threads=False)  # deterministic row order
-    assert result.equals(table)
+    assert isinstance(dataset, ds.FileSystemDataset)
+    _check_dataset(dataset, table)
+
+    # passing list of files (even of length-1) gives UnionDataset
+    dataset = ds.dataset([path], **kwargs)
+    assert isinstance(dataset, ds.UnionDataset)
+    _check_dataset(dataset, table)
+
+    dataset = ds.dataset([str(path)], **kwargs)
+    assert isinstance(dataset, ds.UnionDataset)
+    _check_dataset(dataset, table)
 
 
 @pytest.mark.parquet

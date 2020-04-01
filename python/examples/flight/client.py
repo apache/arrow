@@ -101,10 +101,12 @@ def get_flight(args, client):
 
 
 def _add_common_arguments(parser):
-    parser.add_argument('--tls', action='store_true')
-    parser.add_argument('--tls-roots', default=None)
+    parser.add_argument('--tls', action='store_true',
+                        help='Enable transport-level security')
+    parser.add_argument('--tls-roots', default=None,
+                        help='Path to trusted TLS certificate(s)')
     parser.add_argument('host', type=str,
-                        help="The host to connect to.")
+                        help="Address or hostname to connect to")
 
 
 def main():

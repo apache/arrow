@@ -22,6 +22,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 
 #include "parquet/platform.h"
@@ -111,20 +112,40 @@ class PARQUET_EXPORT MultipathLevelBuilder {
   /// first traversal-order.
   ///
   /// \param[in] array The array to process.
-  /// \param[in] array_nullable Whether the algorithm should consider
-  ///   the elements in the top level array nullable.
+  /// \param[in] array_field_nullable Whether the algorithm should consider
+  ///   the the array column as nullable (as determined by its type's parent
+  ///   field).
   /// \param[in, out] context for use when allocating memory, etc.
   /// \param[out] write_leaf_callback Callback to receive results.
-  /// There will be one call to the write_leaf_callback for
-  static ::arrow::Status Write(const ::arrow::Array& array, bool array_nullable,
+  /// There will be one call to the write_leaf_callback for each leaf node.
+  static ::arrow::Status Write(const ::arrow::Array& array, bool array_field_nullable,
                                ArrowWriteContext* context,
                                CallbackFunction write_leaf_callback);
 
- private:
-  MultipathLevelBuilder();
-  // Not copyable.
-  MultipathLevelBuilder(const MultipathLevelBuilder&) = delete;
-  MultipathLevelBuilder& operator=(const MultipathLevelBuilder&) = delete;
+  /// \brief Construct a new instance of the builder.
+  ///
+  /// \param[in] array The array to process.
+  /// \param[in] array_field_nullable Whether the algorithm should consider
+  ///   the the array column as nullable (as determined by its type's parent
+  ///   field).
+  static ::arrow::Result<std::unique_ptr<MultipathLevelBuilder>> Make(
+      const ::arrow::Array& array, bool array_field_nullable);
+
+  virtual ~MultipathLevelBuilder() = default;
+
+  /// \brief Returns the number of leaf columns that need to be written
+  /// to Parquet.
+  virtual int GetLeafCount() const = 0;
+
+  /// \brief Calls write_leaf_callback with the MultipathLevelBuilderResult corresponding
+  /// to |leaf_index|.
+  ///
+  /// \param[in] leaf_index The index of the leaf column to write.  Must be in the range
+  /// [0, GetLeafCount()].
+  /// \param[in, out] context for use when allocating memory, etc.
+  /// \param[out] write_leaf_callback Callback to receive the result.
+  virtual ::arrow::Status Write(int leaf_index, ArrowWriteContext* context,
+                                CallbackFunction write_leaf_callback) = 0;
 };
 
 }  // namespace arrow

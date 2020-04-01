@@ -858,18 +858,18 @@ int64_t ByteStreamSplitEncoder<DType>::EstimatedDataEncodedSize() {
 
 template <typename DType>
 std::shared_ptr<Buffer> ByteStreamSplitEncoder<DType>::FlushValues() {
-  constexpr size_t num_streams = sizeof(T);
   std::shared_ptr<ResizableBuffer> output_buffer =
       AllocateBuffer(this->memory_pool(), EstimatedDataEncodedSize());
   uint8_t* output_buffer_raw = output_buffer->mutable_data();
   const size_t num_values = values_.length();
   const uint8_t* raw_values = reinterpret_cast<const uint8_t*>(values_.data());
-  for (size_t i = 0; i < num_values; ++i) {
-    for (size_t j = 0U; j < num_streams; ++j) {
-      const uint8_t byte_in_value = raw_values[i * num_streams + j];
-      output_buffer_raw[j * num_values + i] = byte_in_value;
-    }
-  }
+#if defined(ARROW_HAVE_SSE2)
+  arrow::util::internal::ByteStreamSplitEncodeSSE2<T>(raw_values, num_values,
+                                                      output_buffer_raw);
+#else
+  arrow::util::internal::ByteStreamSplitEncodeScalar<T>(raw_values, num_values,
+                                                        output_buffer_raw);
+#endif
   values_.Reset();
   return std::move(output_buffer);
 }
@@ -1078,7 +1078,7 @@ static inline int64_t ReadByteArray(const uint8_t* data, int64_t data_size,
   if (len < 0) {
     throw ParquetException("Invalid BYTE_ARRAY value");
   }
-  const int64_t consumed_length = static_cast<int64_t>(4 + len);
+  const int64_t consumed_length = static_cast<int64_t>(len) + 4;
   if (ARROW_PREDICT_FALSE(data_size < consumed_length)) {
     ParquetException::EofException();
   }
@@ -1480,7 +1480,11 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
 
   void SetData(int num_values, const uint8_t* data, int len) override {
     num_values_ = num_values;
-    if (len == 0) return;
+    if (len == 0) {
+      // Initialize dummy decoder to avoid crashes later on
+      idx_decoder_ = arrow::util::RleDecoder(data, len, /*bit_width=*/1);
+      return;
+    }
     uint8_t bit_width = *data;
     if (ARROW_PREDICT_FALSE(bit_width >= 64)) {
       throw ParquetException("Invalid or corrupted bit_width");
@@ -1636,13 +1640,11 @@ void DictDecoderImpl<ByteArrayType>::SetDict(TypedDecoder<ByteArrayType>* dictio
   for (int i = 0; i < dictionary_length_; ++i) {
     total_size += dict_values[i].len;
   }
-  if (total_size > 0) {
-    PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
-                                                  /*shrink_to_fit=*/false));
-    PARQUET_THROW_NOT_OK(
-        byte_array_offsets_->Resize((dictionary_length_ + 1) * sizeof(int32_t),
-                                    /*shrink_to_fit=*/false));
-  }
+  PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
+                                                /*shrink_to_fit=*/false));
+  PARQUET_THROW_NOT_OK(
+      byte_array_offsets_->Resize((dictionary_length_ + 1) * sizeof(int32_t),
+                                  /*shrink_to_fit=*/false));
 
   int32_t offset = 0;
   uint8_t* bytes_data = byte_array_data_->mutable_data();
@@ -2333,6 +2335,9 @@ template <typename DType>
 void ByteStreamSplitDecoder<DType>::SetData(int num_values, const uint8_t* data,
                                             int len) {
   DecoderImpl::SetData(num_values, data, len);
+  if (num_values * static_cast<int64_t>(sizeof(T)) > len) {
+    throw ParquetException("Data size too small for number of values (corrupted file?)");
+  }
   num_values_in_buffer_ = num_values;
 }
 
@@ -2343,11 +2348,11 @@ int ByteStreamSplitDecoder<DType>::Decode(T* buffer, int max_values) {
   const uint8_t* data = data_ + num_decoded_previously;
 
 #if defined(ARROW_HAVE_SSE2)
-  arrow::util::internal::ByteStreamSlitDecodeSSE2<T>(data, values_to_decode,
-                                                     num_values_in_buffer_, buffer);
+  arrow::util::internal::ByteStreamSplitDecodeSSE2<T>(data, values_to_decode,
+                                                      num_values_in_buffer_, buffer);
 #else
-  arrow::util::internal::ByteStreamSlitDecodeScalar<T>(data, values_to_decode,
-                                                       num_values_in_buffer_, buffer);
+  arrow::util::internal::ByteStreamSplitDecodeScalar<T>(data, values_to_decode,
+                                                        num_values_in_buffer_, buffer);
 #endif
   num_values_ -= values_to_decode;
   len_ -= sizeof(T) * values_to_decode;
@@ -2374,8 +2379,8 @@ int ByteStreamSplitDecoder<DType>::DecodeArrow(
   // Use fast decoding into intermediate buffer.  This will also decode
   // some null values, but it's fast enough that we don't care.
   T* decode_out = EnsureDecodeBuffer(values_decoded);
-  arrow::util::internal::ByteStreamSlitDecodeSSE2<T>(data, values_decoded,
-                                                     num_values_in_buffer_, decode_out);
+  arrow::util::internal::ByteStreamSplitDecodeSSE2<T>(data, values_decoded,
+                                                      num_values_in_buffer_, decode_out);
 
   // XXX If null_count is 0, we could even append in bulk or decode directly into
   // builder

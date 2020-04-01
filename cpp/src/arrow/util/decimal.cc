@@ -361,18 +361,6 @@ Result<Decimal128> Decimal128::FromString(const char* s) {
   return FromString(util::string_view(s));
 }
 
-Status Decimal128::FromString(const util::string_view& s, Decimal128* out) {
-  return FromString(s, out, nullptr, nullptr);
-}
-
-Status Decimal128::FromString(const std::string& s, Decimal128* out) {
-  return FromString(s, out, nullptr, nullptr);
-}
-
-Status Decimal128::FromString(const char* s, Decimal128* out) {
-  return FromString(s, out, nullptr, nullptr);
-}
-
 // Helper function used by Decimal128::FromBigEndian
 static inline uint64_t UInt64FromBigEndian(const uint8_t* bytes, int32_t length) {
   // We don't bounds check the length here because this is called by

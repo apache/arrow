@@ -15,16 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::sync::Arc;
-
-extern crate arrow;
-extern crate datafusion;
-
-use arrow::array::{Float64Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema};
 
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
+use datafusion::utils;
 
 /// This example demonstrates executing a simple query against an Arrow data source (CSV) and
 /// fetching results
@@ -33,7 +28,7 @@ fn main() -> Result<()> {
     let mut ctx = ExecutionContext::new();
 
     // define schema for data source (csv file)
-    let schema = Arc::new(Schema::new(vec![
+    let schema = Schema::new(vec![
         Field::new("c1", DataType::Utf8, false),
         Field::new("c2", DataType::UInt32, false),
         Field::new("c3", DataType::Int8, false),
@@ -47,7 +42,7 @@ fn main() -> Result<()> {
         Field::new("c11", DataType::Float32, false),
         Field::new("c12", DataType::Float64, false),
         Field::new("c13", DataType::Utf8, false),
-    ]));
+    ]);
 
     let testdata = std::env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
 
@@ -69,41 +64,8 @@ fn main() -> Result<()> {
     // execute the query
     let results = ctx.collect(plan.as_ref())?;
 
-    // iterate over the results
-    results.iter().for_each(|batch| {
-        println!(
-            "RecordBatch has {} rows and {} columns",
-            batch.num_rows(),
-            batch.num_columns()
-        );
-
-        let c1 = batch
-            .column(0)
-            .as_any()
-            .downcast_ref::<StringArray>()
-            .unwrap();
-
-        let min = batch
-            .column(1)
-            .as_any()
-            .downcast_ref::<Float64Array>()
-            .unwrap();
-
-        let max = batch
-            .column(2)
-            .as_any()
-            .downcast_ref::<Float64Array>()
-            .unwrap();
-
-        for i in 0..batch.num_rows() {
-            println!(
-                "{}, Min: {}, Max: {}",
-                c1.value(i),
-                min.value(i),
-                max.value(i),
-            );
-        }
-    });
+    // print the results
+    utils::print_batches(&results)?;
 
     Ok(())
 }

@@ -20,8 +20,8 @@
 #include <string>
 #include <unordered_map>
 
+#include <boost/functional/hash.hpp>
 #include "arrow/status.h"
-#include "boost/functional/hash.hpp"
 
 #include "gandiva/arrow.h"
 #include "gandiva/expression.h"

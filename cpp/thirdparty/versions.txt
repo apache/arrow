@@ -58,7 +58,7 @@ ARROW_ZSTD_BUILD_VERSION=v1.4.3
 # given version.
 DEPENDENCIES=(
   "ARROW_AWSSDK_URL aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
-  "ARROW_BOOST_URL boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION//./_}.tar.gz"
+  "ARROW_BOOST_URL boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz https://dl.bintray.com/ursalabs/arrow-boost/boost_${ARROW_BOOST_BUILD_VERSION//./_}.tar.gz"
   "ARROW_BROTLI_URL brotli-${ARROW_BROTLI_BUILD_VERSION}.tar.gz https://github.com/google/brotli/archive/${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
   "ARROW_BZIP2_URL bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
   "ARROW_CARES_URL cares-${ARROW_CARES_BUILD_VERSION}.tar.gz https://c-ares.haxx.se/download/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"

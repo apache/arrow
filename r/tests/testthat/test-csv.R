@@ -42,10 +42,6 @@ test_that("read_csv_arrow(as_data_frame=TRUE)", {
 
   tab1 <- read_csv_arrow(tf, as_data_frame = TRUE)
   expect_equivalent(iris, tab1)
-  tab2 <- read_csv_arrow(mmap_open(tf), as_data_frame = TRUE)
-  expect_equivalent(iris, tab2)
-  tab3 <- read_csv_arrow(ReadableFile$create(tf), as_data_frame = TRUE)
-  expect_equivalent(iris, tab3)
 })
 
 test_that("read_delim_arrow parsing options: delim", {
@@ -135,8 +131,6 @@ test_that("read_csv_arrow parsing options: skip_empty_rows", {
 })
 
 test_that("read_csv_arrow parsing options: na strings", {
-  # There's some weird crash that happens on Appveyor in this test
-  skip_on_os("windows")
   tf <- tempfile()
   on.exit(unlink(tf))
 

@@ -293,21 +293,6 @@ PARQUET_EXPORT
                          ::arrow::MemoryPool* allocator,
                          std::unique_ptr<FileReader>* reader);
 
-ARROW_DEPRECATED("Deprecated since 0.15.0. Use FileReaderBuilder")
-PARQUET_EXPORT
-::arrow::Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file,
-                         ::arrow::MemoryPool* allocator,
-                         const ReaderProperties& properties,
-                         std::shared_ptr<FileMetaData> metadata,
-                         std::unique_ptr<FileReader>* reader);
-
-ARROW_DEPRECATED("Deprecated since 0.15.0. Use FileReaderBuilder")
-PARQUET_EXPORT
-::arrow::Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file,
-                         ::arrow::MemoryPool* allocator,
-                         const ArrowReaderProperties& properties,
-                         std::unique_ptr<FileReader>* reader);
-
 /// @}
 
 PARQUET_EXPORT

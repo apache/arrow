@@ -27,8 +27,6 @@ from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.compat import frombytes, tobytes
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
-from pyarrow.types import (is_null, is_boolean, is_integer, is_floating,
-                           is_string)
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
@@ -336,6 +334,11 @@ cdef class FileSystemDataset(Dataset):
         return FileFormat.wrap(self.filesystem_dataset.format())
 
 
+def _empty_dataset_scanner(Schema schema not None, columns=None, filter=None):
+    dataset = UnionDataset(schema, children=[])
+    return Scanner(dataset, columns=columns, filter=filter)
+
+
 cdef class FileFormat:
 
     cdef:
@@ -367,6 +370,41 @@ cdef class FileFormat:
     cdef inline shared_ptr[CFileFormat] unwrap(self):
         return self.wrapped
 
+    def inspect(self, str path not None, FileSystem filesystem not None):
+        cdef:
+            shared_ptr[CSchema] c_schema
+
+        c_schema = GetResultValue(self.format.Inspect(CFileSource(
+            tobytes(path), filesystem.unwrap().get())))
+        return pyarrow_wrap_schema(move(c_schema))
+
+    def make_fragment(self, str path not None, FileSystem filesystem not None,
+                      Schema schema=None, columns=None, filter=None,
+                      Expression partition_expression=ScalarExpression(True)):
+        cdef:
+            shared_ptr[CScanOptions] c_options
+            shared_ptr[CFileFragment] c_fragment
+            Scanner scanner
+
+        if schema is None:
+            schema = self.inspect(path, filesystem)
+
+        scanner = _empty_dataset_scanner(schema, columns, filter)
+        c_options = scanner.unwrap().get().options()
+
+        c_fragment = GetResultValue(
+            self.format.MakeFragment(CFileSource(tobytes(path),
+                                                 filesystem.unwrap().get()),
+                                     move(c_options),
+                                     partition_expression.unwrap()))
+        return Fragment.wrap(<shared_ptr[CFragment]> move(c_fragment))
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
+
 
 cdef class Fragment:
     """Fragment of data from a Dataset."""
@@ -386,8 +424,12 @@ cdef class Fragment:
         cdef Fragment self = Fragment()
 
         typ = frombytes(sp.get().type_name())
-        if typ == 'file':
+        if typ == 'ipc':
+            # IpcFileFormat does not have a corresponding subclass
+            # of FileFragment
             self = FileFragment.__new__(FileFragment)
+        elif typ == 'parquet':
+            self = ParquetFileFragment.__new__(ParquetFileFragment)
         else:
             self = Fragment()
 
@@ -396,11 +438,65 @@ cdef class Fragment:
 
     @property
     def partition_expression(self):
-        """
-        An Expression which evaluates to true for all data viewed by this
+        """An Expression which evaluates to true for all data viewed by this
         Fragment.
         """
         return Expression.wrap(self.fragment.partition_expression())
+
+    def to_table(self, use_threads=True, MemoryPool memory_pool=None):
+        """Convert this Fragment into a Table.
+
+        Use this convenience utility with care. This will serially materialize
+        the Scan result in memory before creating the Table.
+
+        Returns
+        -------
+        table : Table
+        """
+        cdef:
+            shared_ptr[CScanContext] context
+            shared_ptr[CScanOptions] options
+            CScanTaskIterator iterator
+            shared_ptr[CTable] table
+
+        options = self.fragment.scan_options()
+
+        context = make_shared[CScanContext]()
+        context.get().pool = maybe_unbox_memory_pool(memory_pool)
+
+        iterator = move(GetResultValue(self.fragment.Scan(context)))
+        table = GetResultValue(CScanTask.ToTable(options, context,
+                                                 move(iterator)))
+
+        return pyarrow_wrap_table(table)
+
+    def scan(self, MemoryPool memory_pool=None):
+        """Returns a stream of ScanTasks
+
+        The caller is responsible to dispatch/schedule said tasks. Tasks should
+        be safe to run in a concurrent fashion and outlive the iterator.
+
+        Returns
+        -------
+        scan_tasks : iterator of ScanTask
+        """
+        cdef:
+            shared_ptr[CScanContext] context
+            CScanTaskIterator iterator
+            shared_ptr[CScanTask] task
+
+        # create scan context
+        context = make_shared[CScanContext]()
+        context.get().pool = maybe_unbox_memory_pool(memory_pool)
+
+        iterator = move(GetResultValue(self.fragment.Scan(move(context))))
+
+        while True:
+            task = GetResultValue(iterator.Next())
+            if task.get() == nullptr:
+                raise StopIteration()
+            else:
+                yield ScanTask.wrap(task)
 
 
 cdef class FileFragment(Fragment):
@@ -416,9 +512,36 @@ cdef class FileFragment(Fragment):
     @property
     def path(self):
         """
-        The path of the data file viewed by this fragment.
+        The path of the data file viewed by this fragment, if it views a
+        file. If instead it views a buffer, this will be "<Buffer>".
         """
         return frombytes(self.file_fragment.source().path())
+
+    @property
+    def filesystem(self):
+        """
+        The FileSystem containing the data file viewed by this fragment, if
+        it views a file. If instead it views a buffer, this will be None.
+        """
+        cdef:
+            shared_ptr[CFileSystem] fs
+        fs = self.file_fragment.source().filesystem().shared_from_this()
+        return FileSystem.wrap(fs)
+
+    @property
+    def buffer(self):
+        """
+        The buffer viewed by this fragment, if it views a buffer. If
+        instead it views a file, this will be None.
+        """
+        cdef:
+            shared_ptr[CBuffer] c_buffer
+        c_buffer = self.file_fragment.source().buffer()
+
+        if c_buffer.get() == nullptr:
+            return None
+
+        return pyarrow_wrap_buffer(c_buffer)
 
     @property
     def format(self):
@@ -428,43 +551,92 @@ cdef class FileFragment(Fragment):
         return FileFormat.wrap(self.file_fragment.format())
 
 
-cdef class ParquetFileFormatReaderOptions:
+cdef class ParquetFileFragment(FileFragment):
+    """A Fragment representing a parquet file."""
+
     cdef:
-        CParquetFileFormatReaderOptions* options
+        CParquetFileFragment* parquet_file_fragment
 
-    def __init__(self, ParquetFileFormat fmt):
-        self.options = &fmt.parquet_format.reader_options
-
-    @property
-    def use_buffered_stream(self):
-        """Read files through buffered input streams rather than
-        loading entire row groups at once. This may be enabled to
-        reduce memory overhead. Disabled by default."""
-        return self.options.use_buffered_stream
-
-    @use_buffered_stream.setter
-    def use_buffered_stream(self, bint value):
-        self.options.use_buffered_stream = value
+    cdef void init(self, const shared_ptr[CFragment]& sp):
+        FileFragment.init(self, sp)
+        self.parquet_file_fragment = <CParquetFileFragment*> sp.get()
 
     @property
-    def buffer_size(self):
-        """Size of buffered stream, if enabled. Default is 8KB."""
-        return self.options.buffer_size
+    def row_groups(self):
+        row_groups = set(self.parquet_file_fragment.row_groups())
+        if len(row_groups) != 0:
+            return row_groups
+        return None
 
-    @buffer_size.setter
-    def buffer_size(self, int value):
-        self.options.buffer_size = value
+    def get_row_group_fragments(self, Expression extra_filter=None):
+        """
+        Yield a Fragment wrapping each row group in this ParquetFileFragment.
+        Row groups will be excluded whose metadata contradicts the either the
+        filter provided on construction of this Fragment or the extra_filter
+        argument.
+        """
+        cdef:
+            CParquetFileFormat* c_format
+            CFragmentIterator c_iterator
+            shared_ptr[CExpression] c_extra_filter
+            shared_ptr[CFragment] c_fragment
 
-    @property
-    def dict_columns(self):
-        """Names of columns which should be read as dictionaries."""
-        return self.options.dict_columns
+        if extra_filter is None:
+            extra_filter = ScalarExpression(True)
+        c_extra_filter = extra_filter.unwrap()
 
-    @dict_columns.setter
-    def dict_columns(self, values):
-        self.options.dict_columns.clear()
-        for value in set(values):
-            self.options.dict_columns.insert(tobytes(value))
+        c_format = <CParquetFileFormat*> self.file_fragment.format().get()
+        c_iterator = move(GetResultValue(c_format.GetRowGroupFragments(deref(
+            self.parquet_file_fragment), move(c_extra_filter))))
+
+        while True:
+            c_fragment = GetResultValue(c_iterator.Next())
+            if c_fragment.get() == nullptr:
+                raise StopIteration()
+            else:
+                yield Fragment.wrap(c_fragment)
+
+
+cdef class ParquetReadOptions:
+    """
+    Parquet format specific options for reading.
+
+    Parameters
+    ----------
+    use_buffered_stream : bool, default False
+        Read files through buffered input streams rather than loading entire
+        row groups at once. This may be enabled to reduce memory overhead.
+        Disabled by default.
+    buffer_size : int, default 8192
+        Size of buffered stream, if enabled. Default is 8KB.
+    dictionary_columns : list of string, default None
+        Names of columns which should be read as dictionaries.
+    """
+
+    cdef public:
+        bint use_buffered_stream
+        uint32_t buffer_size
+        set dictionary_columns
+
+    def __init__(self, bint use_buffered_stream=False,
+                 uint32_t buffer_size=8192,
+                 dictionary_columns=None):
+        self.use_buffered_stream = use_buffered_stream
+        self.buffer_size = buffer_size
+        self.dictionary_columns = set(dictionary_columns or set())
+
+    def equals(self, ParquetReadOptions other):
+        return (
+            self.use_buffered_stream == other.use_buffered_stream and
+            self.buffer_size == other.buffer_size and
+            self.dictionary_columns == other.dictionary_columns
+        )
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
 
 
 cdef class ParquetFileFormat(FileFormat):
@@ -472,21 +644,91 @@ cdef class ParquetFileFormat(FileFormat):
     cdef:
         CParquetFileFormat* parquet_format
 
-    def __init__(self, dict reader_options=dict()):
-        self.init(<shared_ptr[CFileFormat]> make_shared[CParquetFileFormat]())
-        self.parquet_format = <CParquetFileFormat*> self.wrapped.get()
-        for name, value in reader_options.items():
-            setattr(self.reader_options, name, value)
+    def __init__(self, read_options=None):
+        cdef:
+            shared_ptr[CParquetFileFormat] wrapped
+            CParquetFileFormatReaderOptions* options
+
+        if read_options is None:
+            read_options = ParquetReadOptions()
+        elif isinstance(read_options, dict):
+            read_options = ParquetReadOptions(**read_options)
+        elif not isinstance(read_options, ParquetReadOptions):
+            raise TypeError('`read_options` must be either a dictionary or an '
+                            'instance of ParquetReadOptions')
+
+        wrapped = make_shared[CParquetFileFormat]()
+        options = &(wrapped.get().reader_options)
+        options.use_buffered_stream = read_options.use_buffered_stream
+        options.buffer_size = read_options.buffer_size
+        if read_options.dictionary_columns is not None:
+            for column in read_options.dictionary_columns:
+                options.dict_columns.insert(tobytes(column))
+
+        self.init(<shared_ptr[CFileFormat]> wrapped)
+
+    cdef void init(self, const shared_ptr[CFileFormat]& sp):
+        FileFormat.init(self, sp)
+        self.parquet_format = <CParquetFileFormat*> sp.get()
 
     @property
-    def reader_options(self):
-        return ParquetFileFormatReaderOptions(self)
+    def read_options(self):
+        cdef CParquetFileFormatReaderOptions* options
+        options = &self.parquet_format.reader_options
+        return ParquetReadOptions(
+            use_buffered_stream=options.use_buffered_stream,
+            buffer_size=options.buffer_size,
+            dictionary_columns={frombytes(col) for col in options.dict_columns}
+        )
+
+    def equals(self, ParquetFileFormat other):
+        return self.read_options.equals(other.read_options)
+
+    def __reduce__(self):
+        return ParquetFileFormat, (self.read_options,)
+
+    def make_fragment(self, str path not None, FileSystem filesystem not None,
+                      Schema schema=None, columns=None, filter=None,
+                      Expression partition_expression=ScalarExpression(True),
+                      row_groups=None):
+        cdef:
+            shared_ptr[CScanOptions] c_options
+            shared_ptr[CFileFragment] c_fragment
+            Scanner scanner
+            vector[int] c_row_groups
+
+        if row_groups is None:
+            return super().make_fragment(path, filesystem, schema, columns,
+                                         filter, partition_expression)
+        for row_group in set(row_groups):
+            c_row_groups.push_back(<int> row_group)
+
+        if schema is None:
+            schema = self.inspect(path, filesystem)
+
+        scanner = _empty_dataset_scanner(schema, columns, filter)
+        c_options = scanner.unwrap().get().options()
+
+        c_fragment = GetResultValue(
+            self.parquet_format.MakeFragment(CFileSource(tobytes(path),
+                                                         filesystem.unwrap()
+                                                         .get()),
+                                             move(c_options),
+                                             partition_expression.unwrap(),
+                                             move(c_row_groups)))
+        return Fragment.wrap(<shared_ptr[CFragment]> move(c_fragment))
 
 
 cdef class IpcFileFormat(FileFormat):
 
     def __init__(self):
         self.init(shared_ptr[CFileFormat](new CIpcFileFormat()))
+
+    def equals(self, IpcFileFormat other):
+        return True
+
+    def __reduce__(self):
+        return IpcFileFormat, tuple()
 
 
 cdef class Partitioning:
@@ -1108,6 +1350,9 @@ cdef class Scanner:
         cdef Scanner self = Scanner.__new__(Scanner)
         self.init(sp)
         return self
+
+    cdef inline shared_ptr[CScanner] unwrap(self):
+        return self.wrapped
 
     def scan(self):
         """Returns a stream of ScanTasks

@@ -66,72 +66,36 @@ std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) 
   return result;
 }
 
-std::string FormatStatValue(Type::type parquet_type, const std::string& val) {
+std::string FormatStatValue(Type::type parquet_type, ::arrow::util::string_view val) {
   std::stringstream result;
-  switch (parquet_type) {
-    case Type::BOOLEAN:
-      result << reinterpret_cast<const bool*>(val.c_str())[0];
-      break;
-    case Type::INT32:
-      result << reinterpret_cast<const int32_t*>(val.c_str())[0];
-      break;
-    case Type::INT64:
-      result << reinterpret_cast<const int64_t*>(val.c_str())[0];
-      break;
-    case Type::DOUBLE:
-      result << reinterpret_cast<const double*>(val.c_str())[0];
-      break;
-    case Type::FLOAT:
-      result << reinterpret_cast<const float*>(val.c_str())[0];
-      break;
-    case Type::INT96: {
-      auto const i32_val = reinterpret_cast<const int32_t*>(val.c_str());
-      result << i32_val[0] << " " << i32_val[1] << " " << i32_val[2];
-      break;
-    }
-    case Type::BYTE_ARRAY: {
-      return val;
-    }
-    case Type::FIXED_LEN_BYTE_ARRAY: {
-      return val;
-    }
-    case Type::UNDEFINED:
-    default:
-      break;
-  }
-  return result.str();
-}
 
-std::string FormatStatValue(Type::type parquet_type, const char* val) {
-  std::stringstream result;
+  const char* bytes = val.data();
   switch (parquet_type) {
     case Type::BOOLEAN:
-      result << reinterpret_cast<const bool*>(val)[0];
+      result << reinterpret_cast<const bool*>(bytes)[0];
       break;
     case Type::INT32:
-      result << reinterpret_cast<const int32_t*>(val)[0];
+      result << reinterpret_cast<const int32_t*>(bytes)[0];
       break;
     case Type::INT64:
-      result << reinterpret_cast<const int64_t*>(val)[0];
+      result << reinterpret_cast<const int64_t*>(bytes)[0];
       break;
     case Type::DOUBLE:
-      result << reinterpret_cast<const double*>(val)[0];
+      result << reinterpret_cast<const double*>(bytes)[0];
       break;
     case Type::FLOAT:
-      result << reinterpret_cast<const float*>(val)[0];
+      result << reinterpret_cast<const float*>(bytes)[0];
       break;
     case Type::INT96: {
-      auto const i32_val = reinterpret_cast<const int32_t*>(val);
+      auto const i32_val = reinterpret_cast<const int32_t*>(bytes);
       result << i32_val[0] << " " << i32_val[1] << " " << i32_val[2];
       break;
     }
     case Type::BYTE_ARRAY: {
-      result << val;
-      break;
+      return std::string(val);
     }
     case Type::FIXED_LEN_BYTE_ARRAY: {
-      result << val;
-      break;
+      return std::string(val);
     }
     case Type::UNDEFINED:
     default:

@@ -351,6 +351,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CField] WithMetadata(
             const shared_ptr[CKeyValueMetadata]& metadata)
         shared_ptr[CField] RemoveMetadata()
+        shared_ptr[CField] WithType(const shared_ptr[CDataType]& type)
+        shared_ptr[CField] WithName(const c_string& name)
+        shared_ptr[CField] WithNullable(c_bool nullable)
         vector[shared_ptr[CField]] Flatten()
 
     cdef cppclass CStructType" arrow::StructType"(CDataType):
@@ -1320,32 +1323,25 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
             const CIpcWriteOptions& options,
             CIpcPayload* out)
 
-    cdef cppclass CFeatherWriter" arrow::ipc::feather::TableWriter":
+    int kFeatherV1Version" arrow::ipc::feather::kFeatherV1Version"
+    int kFeatherV2Version" arrow::ipc::feather::kFeatherV2Version"
+
+    cdef cppclass CFeatherProperties" arrow::ipc::feather::WriteProperties":
+        int version
+        int chunksize
+        CCompressionType compression
+        int compression_level
+
+    CStatus WriteFeather" arrow::ipc::feather::WriteTable"\
+        (const CTable& table, COutputStream* out,
+         CFeatherProperties properties)
+
+    cdef cppclass CFeatherReader" arrow::ipc::feather::Reader":
         @staticmethod
-        CStatus Open(const shared_ptr[COutputStream]& stream,
-                     unique_ptr[CFeatherWriter]* out)
-
-        void SetDescription(const c_string& desc)
-        void SetNumRows(int64_t num_rows)
-
-        CStatus Append(const c_string& name, const CArray& values)
-        CStatus Finalize()
-
-    cdef cppclass CFeatherReader" arrow::ipc::feather::TableReader":
-        @staticmethod
-        CStatus Open(const shared_ptr[CRandomAccessFile]& file,
-                     unique_ptr[CFeatherReader]* out)
-
-        c_string GetDescription()
-        c_bool HasDescription()
-
-        int64_t num_rows()
-        int64_t num_columns()
-
+        CResult[shared_ptr[CFeatherReader]] Open(
+            const shared_ptr[CRandomAccessFile]& file)
+        int version()
         shared_ptr[CSchema] schema()
-
-        CStatus GetColumn(int i, shared_ptr[CChunkedArray]* out)
-        c_string GetColumnName(int i)
 
         CStatus Read(shared_ptr[CTable]* out)
         CStatus Read(const vector[int] indices, shared_ptr[CTable]* out)
@@ -1501,6 +1497,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     CStatus Take(CFunctionContext* context, const CDatum& values,
                  const CDatum& indices, const CTakeOptions& options,
                  CDatum* out)
+    CStatus Take(CFunctionContext* context, const CRecordBatch& batch,
+                 const CArray& indices, const CTakeOptions& options,
+                 shared_ptr[CRecordBatch]* out)
 
     # Filter clashes with gandiva.pyx::Filter
     CStatus FilterKernel" arrow::compute::Filter"(
@@ -1780,6 +1779,7 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
         CCompressionType_BROTLI" arrow::Compression::BROTLI"
         CCompressionType_ZSTD" arrow::Compression::ZSTD"
         CCompressionType_LZ4" arrow::Compression::LZ4"
+        CCompressionType_LZ4_FRAME" arrow::Compression::LZ4_FRAME"
         CCompressionType_BZ2" arrow::Compression::BZ2"
 
     cdef cppclass CCodec" arrow::util::Codec":

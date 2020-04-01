@@ -1425,6 +1425,17 @@ TEST_F(TestCast, BooleanToString) { TestCastBooleanToString<StringType>(); }
 
 TEST_F(TestCast, BooleanToLargeString) { TestCastBooleanToString<LargeStringType>(); }
 
+TEST_F(TestCast, ListToPrimitive) {
+  auto from_int = ArrayFromJSON(list(int8()), "[[1, 2], [3, 4]]");
+  auto from_binary = ArrayFromJSON(list(binary()), "[[\"1\", \"2\"], [\"3\", \"4\"]]");
+
+  CastOptions options;
+  std::shared_ptr<Array> result;
+
+  ASSERT_RAISES(Invalid, Cast(&ctx_, *from_int, uint8(), options, &result));
+  ASSERT_RAISES(Invalid, Cast(&ctx_, *from_binary, utf8(), options, &result));
+}
+
 TEST_F(TestCast, ListToList) {
   CastOptions options;
   std::shared_ptr<Array> offsets;

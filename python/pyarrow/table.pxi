@@ -536,6 +536,15 @@ cdef class RecordBatch(_PandasConvertible):
     def __len__(self):
         return self.batch.num_rows()
 
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def __repr__(self):
+        return 'pyarrow.{}\n{}'.format(type(self).__name__, str(self.schema))
+
     def validate(self, *, full=False):
         """
         Perform validation checks.  An exception is raised if validation fails.
@@ -729,6 +738,34 @@ cdef class RecordBatch(_PandasConvertible):
             result = this_batch.Equals(deref(other_batch))
 
         return result
+
+    def take(self, Array indices):
+        """
+        Take rows from a RecordBatch.
+
+        The resulting batch contains rows taken from the input batch at the
+        given indices. If an index is null then all the cells in that row
+        will be null.
+
+        Parameters
+        ----------
+        indices : Array
+            The indices of the values to extract. Array needs to be of
+            integer type.
+        Returns
+        -------
+        RecordBatch
+        """
+        cdef:
+            CTakeOptions options
+            shared_ptr[CRecordBatch] out
+            CRecordBatch* this_batch = self.batch
+
+        with nogil:
+            check_status(Take(_context(), deref(this_batch),
+                              deref(indices.sp_array), options, &out))
+
+        return pyarrow_wrap_batch(out)
 
     def to_pydict(self):
         """

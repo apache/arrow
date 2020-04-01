@@ -18,6 +18,7 @@
 package org.apache.arrow.plasma;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -237,6 +238,30 @@ public class PlasmaClientTest {
 
   }
 
+  public void doByteBufferTest() {
+    System.out.println("Start ByteBuffer test.");
+    PlasmaClient client = (PlasmaClient)pLink;
+    byte[] id = new byte[20];
+    Arrays.fill(id, (byte)10);
+    ByteBuffer buf = client.create(id, 100, null);
+    assert buf.isDirect();
+    for (int i = 0; i < 10; i++) {
+      buf.putInt(i);
+    }
+    client.seal(id);
+    client.release(id);
+    // buf is not available now.
+    assert client.contains(id);
+    System.out.println("Plasma java client create test success.");
+
+    ByteBuffer buf1 = client.getObjAsByteBuffer(id, -1, false);
+    assert buf1.limit() == 100;
+    for (int i = 0; i < 10; i++) {
+      assert buf1.getInt() == i;
+    }
+    System.out.println("Plasma java client getObjAsByteBuffer test success");
+    client.release(id);
+  }
 
   private byte[] getArrayFilledWithValue(int arrayLength, byte val) {
     byte[] arr = new byte[arrayLength];
@@ -251,6 +276,7 @@ public class PlasmaClientTest {
   public static void main(String[] args) throws Exception {
 
     PlasmaClientTest plasmaClientTest = new PlasmaClientTest();
+    plasmaClientTest.doByteBufferTest();
     plasmaClientTest.doTest();
 
   }

@@ -24,5 +24,16 @@ IpcWriteOptions IpcWriteOptions::Defaults() { return IpcWriteOptions(); }
 
 IpcReadOptions IpcReadOptions::Defaults() { return IpcReadOptions(); }
 
+namespace internal {
+
+Status CheckCompressionSupported(Compression::type codec) {
+  if (!(codec == Compression::LZ4_FRAME || codec == Compression::ZSTD)) {
+    return Status::Invalid("Only LZ4_FRAME and ZSTD compression allowed");
+  }
+  return Status::OK();
+}
+
+}  // namespace internal
+
 }  // namespace ipc
 }  // namespace arrow

@@ -23,7 +23,8 @@ set -x
 # Make sure it is absolute and exported
 export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 
-pacman --sync --noconfirm ccache
+# ccache may be broken on MinGW.
+# pacman --sync --noconfirm ccache
 
 wget https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf
 cp -f pacman.conf /etc/pacman.conf
@@ -42,7 +43,6 @@ export PKG_CONFIG="/${MINGW_PREFIX}/bin/pkg-config --static"
 
 cp $ARROW_HOME/ci/scripts/PKGBUILD .
 export PKGEXT='.pkg.tar.xz' # pacman default changed to .zst in 2020, but keep the old ext for compat
-unset BOOST_ROOT
 printenv
 makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --cleanbuild
 

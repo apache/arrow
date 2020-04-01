@@ -1098,4 +1098,30 @@ mod tests {
         let page = page_iterator.next();
         assert!(page.is_none());
     }
+
+    #[test]
+    fn test_file_reader_key_value_metadata() {
+        let file = get_test_file("binary.parquet");
+        let file_reader = Rc::new(SerializedFileReader::new(file).unwrap());
+
+        let metadata = file_reader
+            .metadata
+            .file_metadata()
+            .key_value_metadata()
+            .as_ref()
+            .unwrap();
+
+        assert_eq!(metadata.len(), 3);
+
+        assert_eq!(metadata.get(0).unwrap().key, "parquet.proto.descriptor");
+
+        assert_eq!(metadata.get(1).unwrap().key, "writer.model.name");
+        assert_eq!(metadata.get(1).unwrap().value, Some("protobuf".to_owned()));
+
+        assert_eq!(metadata.get(2).unwrap().key, "parquet.proto.class");
+        assert_eq!(
+            metadata.get(2).unwrap().value,
+            Some("foo.baz.Foobaz$Event".to_owned())
+        );
+    }
 }

@@ -24,8 +24,6 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include <boost/optional.hpp>
-#include <boost/range/adaptor/transformed.hpp>
 
 #include "arrow/memory_pool.h"
 #include "arrow/stl.h"
@@ -34,16 +32,10 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/optional.h"
 
 using primitive_types_tuple = std::tuple<int8_t, int16_t, int32_t, int64_t, uint8_t,
                                          uint16_t, uint32_t, uint64_t, bool, std::string>;
-
-using boost_optional_types_tuple =
-    std::tuple<boost::optional<int8_t>, boost::optional<int16_t>,
-               boost::optional<int32_t>, boost::optional<int64_t>,
-               boost::optional<uint8_t>, boost::optional<uint16_t>,
-               boost::optional<uint32_t>, boost::optional<uint64_t>,
-               boost::optional<bool>, boost::optional<std::string>>;
 
 using raw_pointer_optional_types_tuple =
     std::tuple<int8_t*, int16_t*, int32_t*, int64_t*, uint8_t*, uint16_t*, uint32_t*,
@@ -107,6 +99,12 @@ struct TestInt32Type {
 };
 
 namespace arrow {
+
+using optional_types_tuple =
+    std::tuple<util::optional<int8_t>, util::optional<int16_t>, util::optional<int32_t>,
+               util::optional<int64_t>, util::optional<uint8_t>, util::optional<uint16_t>,
+               util::optional<uint32_t>, util::optional<uint64_t>, util::optional<bool>,
+               util::optional<std::string>>;
 
 template <>
 struct CTypeTraits<CustomOptionalTypeMock> {
@@ -248,15 +246,15 @@ TEST(TestTableFromTupleVector, ListType) {
 }
 
 TEST(TestTableFromTupleVector, ReferenceTuple) {
-  using boost::adaptors::transform;
-
   std::vector<std::string> names{"column1", "column2", "column3", "column4", "column5",
                                  "column6", "column7", "column8", "column9", "column10"};
   std::vector<CustomType> rows{
       {-1, -2, -3, -4, 1, 2, 3, 4, true, std::string("Tests")},
       {-10, -20, -30, -40, 10, 20, 30, 40, false, std::string("Other")}};
-  auto rng_rows =
-      transform(rows, [](const CustomType& c) -> decltype(c.tie()) { return c.tie(); });
+  std::vector<decltype(rows[0].tie())> rng_rows{
+      rows[0].tie(),
+      rows[1].tie(),
+  };
   std::shared_ptr<Table> table;
   ASSERT_OK(TableFromTupleRange(default_memory_pool(), rng_rows, names, &table));
 
@@ -289,12 +287,13 @@ TEST(TestTableFromTupleVector, ReferenceTuple) {
 TEST(TestTableFromTupleVector, NullableTypesWithBoostOptional) {
   std::vector<std::string> names{"column1", "column2", "column3", "column4", "column5",
                                  "column6", "column7", "column8", "column9", "column10"};
-  using types_tuple = boost_optional_types_tuple;
+  using types_tuple = optional_types_tuple;
   std::vector<types_tuple> rows{
       types_tuple(-1, -2, -3, -4, 1, 2, 3, 4, true, std::string("Tests")),
       types_tuple(-10, -20, -30, -40, 10, 20, 30, 40, false, std::string("Other")),
-      types_tuple(boost::none, boost::none, boost::none, boost::none, boost::none,
-                  boost::none, boost::none, boost::none, boost::none, boost::none),
+      types_tuple(util::nullopt, util::nullopt, util::nullopt, util::nullopt,
+                  util::nullopt, util::nullopt, util::nullopt, util::nullopt,
+                  util::nullopt, util::nullopt),
   };
   std::shared_ptr<Table> table;
   ASSERT_OK(TableFromTupleRange(default_memory_pool(), rows, names, &table));

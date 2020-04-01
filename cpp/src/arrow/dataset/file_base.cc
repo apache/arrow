@@ -63,8 +63,8 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
     FileSource source, std::shared_ptr<ScanOptions> options,
     std::shared_ptr<Expression> partition_expression) {
-  return std::make_shared<FileFragment>(std::move(source), shared_from_this(), options,
-                                        std::move(partition_expression));
+  return std::shared_ptr<FileFragment>(new FileFragment(
+      std::move(source), shared_from_this(), options, std::move(partition_expression)));
 }
 
 Result<std::shared_ptr<WriteTask>> FileFormat::WriteFragment(

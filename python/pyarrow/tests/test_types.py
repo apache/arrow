@@ -667,6 +667,30 @@ def test_field_add_remove_metadata():
     assert f5.equals(f6)
 
 
+def test_field_modified_copies():
+    f0 = pa.field('foo', pa.int32(), True)
+    f0_ = pa.field('foo', pa.int32(), True)
+    assert f0.equals(f0_)
+
+    f1 = pa.field('foo', pa.int64(), True)
+    f1_ = f0.with_type(pa.int64())
+    assert f1.equals(f1_)
+    # Original instance is unmodified
+    assert f0.equals(f0_)
+
+    f2 = pa.field('foo', pa.int32(), False)
+    f2_ = f0.with_nullable(False)
+    assert f2.equals(f2_)
+    # Original instance is unmodified
+    assert f0.equals(f0_)
+
+    f3 = pa.field('bar', pa.int32(), True)
+    f3_ = f0.with_name('bar')
+    assert f3.equals(f3_)
+    # Original instance is unmodified
+    assert f0.equals(f0_)
+
+
 def test_is_integer_value():
     assert pa.types.is_integer_value(1)
     assert pa.types.is_integer_value(np.int64(1))

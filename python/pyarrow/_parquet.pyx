@@ -1209,6 +1209,7 @@ cdef class ParquetWriter:
         object compression_level
         object version
         object write_statistics
+        object writer_engine_version
         int row_group_size
         int64_t data_page_size
 
@@ -1221,7 +1222,8 @@ cdef class ParquetWriter:
                   data_page_size=None,
                   allow_truncated_timestamps=False,
                   compression_level=None,
-                  use_byte_stream_split=False):
+                  use_byte_stream_split=False,
+                  writer_engine_version=None):
         cdef:
             shared_ptr[WriterProperties] properties
             c_string c_where
@@ -1247,6 +1249,7 @@ cdef class ParquetWriter:
         self.coerce_timestamps = coerce_timestamps
         self.allow_truncated_timestamps = allow_truncated_timestamps
         self.use_byte_stream_split = use_byte_stream_split
+        self.writer_engine_version = writer_engine_version
 
         cdef WriterProperties.Builder properties_builder
         self._set_version(&properties_builder)
@@ -1269,6 +1272,7 @@ cdef class ParquetWriter:
         self._set_int96_support(&arrow_properties_builder)
         self._set_coerce_timestamps(&arrow_properties_builder)
         self._set_allow_truncated_timestamps(&arrow_properties_builder)
+        self._set_writer_engine_version(&arrow_properties_builder)
 
         arrow_properties = arrow_properties_builder.build()
 
@@ -1301,6 +1305,14 @@ cdef class ParquetWriter:
             props.allow_truncated_timestamps()
         else:
             props.disallow_truncated_timestamps()
+
+    cdef int _set_writer_engine_version(
+            self, ArrowWriterProperties.Builder* props) except -1:
+        if self.writer_engine_version == "V1":
+            props.set_engine_version(ArrowWriterEngineVersion.V1)
+        elif self.writer_engine_version != "V2":
+            raise ValueError("Unsupported Writer Engine Version: {0}"
+                             .format(self.writer_engine_version))
 
     cdef int _set_version(self, WriterProperties.Builder* props) except -1:
         if self.version is not None:

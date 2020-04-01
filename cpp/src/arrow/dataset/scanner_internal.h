@@ -27,10 +27,9 @@
 namespace arrow {
 namespace dataset {
 
-static inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it,
-                                                    const ExpressionEvaluator& evaluator,
-                                                    const Expression& filter,
-                                                    MemoryPool* pool) {
+inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it,
+                                             const ExpressionEvaluator& evaluator,
+                                             const Expression& filter, MemoryPool* pool) {
   return MakeMaybeMapIterator(
       [&filter, &evaluator, pool](std::shared_ptr<RecordBatch> in) {
         return evaluator.Evaluate(filter, *in, pool).Map([&](compute::Datum selection) {
@@ -40,9 +39,9 @@ static inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it,
       std::move(it));
 }
 
-static inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
-                                                     RecordBatchProjector* projector,
-                                                     MemoryPool* pool) {
+inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
+                                              RecordBatchProjector* projector,
+                                              MemoryPool* pool) {
   return MakeMaybeMapIterator(
       [=](std::shared_ptr<RecordBatch> in) {
         // The RecordBatchProjector is shared accross ScanTasks of the same
@@ -70,6 +69,22 @@ class FilterAndProjectScanTask : public ScanTask {
  private:
   std::shared_ptr<ScanTask> task_;
 };
+
+/// \brief GetScanTaskIterator transforms an Iterator<Fragment> in a
+/// flattened Iterator<ScanTask>.
+inline ScanTaskIterator GetScanTaskIterator(FragmentIterator fragments,
+                                            std::shared_ptr<ScanContext> context) {
+  // Fragment -> ScanTaskIterator
+  auto fn = [context](std::shared_ptr<Fragment> fragment) {
+    return fragment->Scan(context);
+  };
+
+  // Iterator<Iterator<ScanTask>>
+  auto maybe_scantask_it = MakeMaybeMapIterator(fn, std::move(fragments));
+
+  // Iterator<ScanTask>
+  return MakeFlattenIterator(std::move(maybe_scantask_it));
+}
 
 }  // namespace dataset
 }  // namespace arrow

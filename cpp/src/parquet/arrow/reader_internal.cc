@@ -27,8 +27,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <boost/algorithm/string/predicate.hpp>
-
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/compute/kernel.h"
@@ -44,6 +42,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/ubsan.h"
 
 #include "parquet/arrow/reader.h"
@@ -377,7 +376,8 @@ Status PopulateLeaf(int column_index, const std::shared_ptr<Field>& field,
 //   If the name is array or ends in _tuple, this should be a list of struct
 //   even for single child elements.
 bool HasStructListName(const GroupNode& node) {
-  return node.name() == "array" || boost::algorithm::ends_with(node.name(), "_tuple");
+  ::arrow::util::string_view name{node.name()};
+  return name == "array" || name.ends_with("_tuple");
 }
 
 std::shared_ptr<::arrow::KeyValueMetadata> FieldIdMetadata(int field_id) {
@@ -1060,6 +1060,9 @@ Status ConvertToDecimal128<FLBAType>(const Array& array,
   const int32_t byte_width =
       static_cast<const ::arrow::FixedSizeBinaryType&>(*fixed_size_binary_array.type())
           .byte_width();
+  if (byte_width < kMinDecimalBytes || byte_width > kMaxDecimalBytes) {
+    return Status::Invalid("Invalid FIXED_LEN_BYTE_ARRAY length for Decimal128");
+  }
 
   // allocate memory for the decimal array
   std::shared_ptr<Buffer> data;
@@ -1111,8 +1114,8 @@ Status ConvertToDecimal128<ByteArrayType>(const Array& array,
     int32_t record_len = 0;
     const uint8_t* record_loc = binary_array.GetValue(i, &record_len);
 
-    if ((record_len < 0) || (record_len > type_length)) {
-      return Status::Invalid("Invalid BYTE_ARRAY size");
+    if (record_len < 0 || record_len > type_length) {
+      return Status::Invalid("Invalid BYTE_ARRAY length for Decimal128");
     }
 
     auto out_ptr_view = reinterpret_cast<uint64_t*>(out_ptr);
@@ -1121,7 +1124,10 @@ Status ConvertToDecimal128<ByteArrayType>(const Array& array,
 
     // only convert rows that are not null if there are nulls, or
     // all rows, if there are not
-    if (((null_count > 0) && !binary_array.IsNull(i)) || (null_count <= 0)) {
+    if ((null_count > 0 && !binary_array.IsNull(i)) || null_count <= 0) {
+      if (record_len <= 0) {
+        return Status::Invalid("Invalid BYTE_ARRAY length for Decimal128");
+      }
       RawBytesToDecimalBytes(record_loc, record_len, out_ptr);
     }
   }

@@ -43,6 +43,8 @@ from pyarrow._dataset import (  # noqa
     NotExpression,
     OrExpression,
     ParquetFileFormat,
+    ParquetFileFragment,
+    ParquetReadOptions,
     Partitioning,
     PartitioningFactory,
     ScalarExpression,
@@ -338,13 +340,14 @@ def dataset(paths_or_factories, filesystem=None, partitioning=None,
     kwargs = dict(filesystem=filesystem, partitioning=partitioning,
                   format=format)
 
-    if isinstance(paths_or_factories, str):
-        return factory(paths_or_factories, **kwargs).finish()
-
+    single_dataset = False
     if not isinstance(paths_or_factories, list):
         paths_or_factories = [paths_or_factories]
+        single_dataset = True
 
     factories = [_ensure_factory(f, **kwargs) for f in paths_or_factories]
+    if single_dataset:
+        return factories[0].finish()
     return UnionDatasetFactory(factories).finish()
 
 

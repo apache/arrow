@@ -64,7 +64,7 @@ fn nyc() -> Result<()> {
 
     let optimized_plan = ctx.optimize(&logical_plan)?;
 
-    match optimized_plan.as_ref() {
+    match &optimized_plan {
         LogicalPlan::Aggregate { input, .. } => match input.as_ref() {
             LogicalPlan::TableScan {
                 ref projected_schema,
@@ -253,9 +253,9 @@ fn csv_query_cast_literal() {
 fn csv_query_limit() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx);
-    let sql = "SELECT 0 FROM aggregate_test_100 LIMIT 2";
+    let sql = "SELECT c1 FROM aggregate_test_100 LIMIT 2";
     let actual = execute(&mut ctx, sql).join("\n");
-    let expected = "0\n0".to_string();
+    let expected = "\"c\"\n\"d\"".to_string();
     assert_eq!(expected, actual);
 }
 
@@ -283,7 +283,7 @@ fn csv_query_limit_with_same_nbr_of_rows() {
 fn csv_query_limit_zero() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx);
-    let sql = "SELECT 0 FROM aggregate_test_100 LIMIT 0";
+    let sql = "SELECT c1 FROM aggregate_test_100 LIMIT 0";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "".to_string();
     assert_eq!(expected, actual);
@@ -304,6 +304,26 @@ fn csv_query_external_table_count() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv_by_sql(&mut ctx);
     let sql = "SELECT COUNT(c12) FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql).join("\n");
+    let expected = "100".to_string();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn csv_query_count_star() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv_by_sql(&mut ctx);
+    let sql = "SELECT COUNT(*) FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql).join("\n");
+    let expected = "100".to_string();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn csv_query_count_one() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv_by_sql(&mut ctx);
+    let sql = "SELECT COUNT(1) FROM aggregate_test_100";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "100".to_string();
     assert_eq!(expected, actual);

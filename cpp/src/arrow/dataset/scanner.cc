@@ -60,24 +60,40 @@ std::vector<std::string> ScanOptions::MaterializedFields() const {
   return fields;
 }
 
-Result<RecordBatchIterator> InMemoryScanTask::Execute() {
-  return MakeVectorIterator(record_batches_);
+Result<std::shared_ptr<Table>> ScanTask::ToTable(
+    const std::shared_ptr<ScanOptions>& options,
+    const std::shared_ptr<ScanContext>& context, ScanTaskIterator scan_task_it) {
+  std::mutex mutex;
+  RecordBatchVector batches;
+
+  auto task_group = context->TaskGroup();
+
+  for (auto maybe_scan_task : scan_task_it) {
+    ARROW_ASSIGN_OR_RAISE(auto scan_task, std::move(maybe_scan_task));
+
+    task_group->Append([&batches, &mutex, scan_task] {
+      ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
+
+      for (auto maybe_batch : batch_it) {
+        ARROW_ASSIGN_OR_RAISE(auto batch, std::move(maybe_batch));
+        std::lock_guard<std::mutex> lock(mutex);
+        batches.emplace_back(std::move(batch));
+      }
+
+      return Status::OK();
+    });
+  }
+
+  // Wait for all tasks to complete, or the first error.
+  RETURN_NOT_OK(task_group->Finish());
+
+  std::shared_ptr<Table> out;
+  RETURN_NOT_OK(Table::FromRecordBatches(options->schema(), batches, &out));
+  return out;
 }
 
-/// \brief GetScanTaskIterator transforms an Iterator<Fragment> in a
-/// flattened Iterator<ScanTask>.
-static ScanTaskIterator GetScanTaskIterator(FragmentIterator fragments,
-                                            std::shared_ptr<ScanContext> context) {
-  // Fragment -> ScanTaskIterator
-  auto fn = [context](std::shared_ptr<Fragment> fragment) {
-    return fragment->Scan(context);
-  };
-
-  // Iterator<Iterator<ScanTask>>
-  auto maybe_scantask_it = MakeMaybeMapIterator(fn, std::move(fragments));
-
-  // Iterator<ScanTask>
-  return MakeFlattenIterator(std::move(maybe_scantask_it));
+Result<RecordBatchIterator> InMemoryScanTask::Execute() {
+  return MakeVectorIterator(record_batches_);
 }
 
 FragmentIterator Scanner::GetFragments() {
@@ -168,51 +184,9 @@ std::shared_ptr<internal::TaskGroup> ScanContext::TaskGroup() const {
   return internal::TaskGroup::MakeSerial();
 }
 
-struct TableAggregator {
-  void Append(std::shared_ptr<RecordBatch> batch) {
-    std::lock_guard<std::mutex> lock(m);
-    batches.emplace_back(std::move(batch));
-  }
-
-  Result<std::shared_ptr<Table>> Finish(const std::shared_ptr<Schema>& schema) {
-    std::shared_ptr<Table> out;
-    RETURN_NOT_OK(Table::FromRecordBatches(schema, batches, &out));
-    return out;
-  }
-
-  std::mutex m;
-  std::vector<std::shared_ptr<RecordBatch>> batches;
-};
-
-struct ScanTaskPromise {
-  Status operator()() {
-    ARROW_ASSIGN_OR_RAISE(auto it, task->Execute());
-    for (auto maybe_batch : it) {
-      ARROW_ASSIGN_OR_RAISE(auto batch, std::move(maybe_batch));
-      aggregator.Append(std::move(batch));
-    }
-
-    return Status::OK();
-  }
-
-  TableAggregator& aggregator;
-  std::shared_ptr<ScanTask> task;
-};
-
 Result<std::shared_ptr<Table>> Scanner::ToTable() {
-  auto task_group = scan_context_->TaskGroup();
-
-  TableAggregator aggregator;
-  ARROW_ASSIGN_OR_RAISE(auto it, Scan());
-  for (auto maybe_scan_task : it) {
-    ARROW_ASSIGN_OR_RAISE(auto scan_task, std::move(maybe_scan_task));
-    task_group->Append(ScanTaskPromise{aggregator, std::move(scan_task)});
-  }
-
-  // Wait for all tasks to complete, or the first error.
-  RETURN_NOT_OK(task_group->Finish());
-
-  return aggregator.Finish(scan_options_->schema());
+  ARROW_ASSIGN_OR_RAISE(auto scan_task_it, Scan());
+  return ScanTask::ToTable(scan_options_, scan_context_, std::move(scan_task_it));
 }
 
 }  // namespace dataset

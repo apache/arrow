@@ -1260,5 +1260,7 @@ Result<std::shared_ptr<RecordBatch>> TreeEvaluator::Filter(
   return batch->Slice(0, 0);
 }
 
+std::shared_ptr<ScalarExpression> scalar(bool value) { return scalar(MakeScalar(value)); }
+
 }  // namespace dataset
 }  // namespace arrow

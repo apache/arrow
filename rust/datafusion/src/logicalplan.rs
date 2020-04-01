@@ -183,6 +183,8 @@ pub enum Expr {
     Alias(Arc<Expr>, String),
     /// index into a value within the row or complex value
     Column(usize),
+    /// Reference to column by name
+    UnresolvedColumn(String),
     /// literal value
     Literal(ScalarValue),
     /// binary expression e.g. "age > 21"
@@ -232,37 +234,45 @@ pub enum Expr {
         /// The `DataType` the expression will yield
         return_type: DataType,
     },
+    /// Wildcard
+    Wildcard,
 }
 
 impl Expr {
     /// Find the `DataType` for the expression
-    pub fn get_type(&self, schema: &Schema) -> DataType {
+    pub fn get_type(&self, schema: &Schema) -> Result<DataType> {
         match self {
             Expr::Alias(expr, _) => expr.get_type(schema),
-            Expr::Column(n) => schema.field(*n).data_type().clone(),
-            Expr::Literal(l) => l.get_datatype(),
-            Expr::Cast { data_type, .. } => data_type.clone(),
-            Expr::ScalarFunction { return_type, .. } => return_type.clone(),
-            Expr::AggregateFunction { return_type, .. } => return_type.clone(),
-            Expr::Not(_) => DataType::Boolean,
-            Expr::IsNull(_) => DataType::Boolean,
-            Expr::IsNotNull(_) => DataType::Boolean,
+            Expr::Column(n) => Ok(schema.field(*n).data_type().clone()),
+            Expr::UnresolvedColumn(name) => {
+                Ok(schema.field_with_name(&name)?.data_type().clone())
+            }
+            Expr::Literal(l) => Ok(l.get_datatype()),
+            Expr::Cast { data_type, .. } => Ok(data_type.clone()),
+            Expr::ScalarFunction { return_type, .. } => Ok(return_type.clone()),
+            Expr::AggregateFunction { return_type, .. } => Ok(return_type.clone()),
+            Expr::Not(_) => Ok(DataType::Boolean),
+            Expr::IsNull(_) => Ok(DataType::Boolean),
+            Expr::IsNotNull(_) => Ok(DataType::Boolean),
             Expr::BinaryExpr {
                 ref left,
                 ref right,
                 ref op,
             } => match op {
-                Operator::Eq | Operator::NotEq => DataType::Boolean,
-                Operator::Lt | Operator::LtEq => DataType::Boolean,
-                Operator::Gt | Operator::GtEq => DataType::Boolean,
-                Operator::And | Operator::Or => DataType::Boolean,
+                Operator::Eq | Operator::NotEq => Ok(DataType::Boolean),
+                Operator::Lt | Operator::LtEq => Ok(DataType::Boolean),
+                Operator::Gt | Operator::GtEq => Ok(DataType::Boolean),
+                Operator::And | Operator::Or => Ok(DataType::Boolean),
                 _ => {
-                    let left_type = left.get_type(schema);
-                    let right_type = right.get_type(schema);
-                    utils::get_supertype(&left_type, &right_type).unwrap()
+                    let left_type = left.get_type(schema)?;
+                    let right_type = right.get_type(schema)?;
+                    utils::get_supertype(&left_type, &right_type)
                 }
             },
             Expr::Sort { ref expr, .. } => expr.get_type(schema),
+            Expr::Wildcard => Err(ExecutionError::General(
+                "Wildcard expressions are not valid in a logical query plan".to_owned(),
+            )),
         }
     }
 
@@ -270,7 +280,7 @@ impl Expr {
     ///
     /// Will `Err` if the type cast cannot be performed.
     pub fn cast_to(&self, cast_to_type: &DataType, schema: &Schema) -> Result<Expr> {
-        let this_type = self.get_type(schema);
+        let this_type = self.get_type(schema)?;
         if this_type == *cast_to_type {
             Ok(self.clone())
         } else if can_coerce_from(cast_to_type, &this_type) {
@@ -351,9 +361,14 @@ impl Expr {
     }
 }
 
-/// Create a column expression
-pub fn col(index: usize) -> Expr {
+/// Create a column expression based on a column index
+pub fn col_index(index: usize) -> Expr {
     Expr::Column(index)
+}
+
+/// Create a column expression based on a column name
+pub fn col(name: &str) -> Expr {
+    Expr::UnresolvedColumn(name.to_owned())
 }
 
 /// Create a literal string expression
@@ -375,6 +390,7 @@ impl fmt::Debug for Expr {
         match self {
             Expr::Alias(expr, alias) => write!(f, "{:?} AS {}", expr, alias),
             Expr::Column(i) => write!(f, "#{}", i),
+            Expr::UnresolvedColumn(name) => write!(f, "#{}", name),
             Expr::Literal(v) => write!(f, "{:?}", v),
             Expr::Cast { expr, data_type } => {
                 write!(f, "CAST({:?} AS {:?})", expr, data_type)
@@ -414,6 +430,7 @@ impl fmt::Debug for Expr {
 
                 write!(f, ")")
             }
+            Expr::Wildcard => write!(f, "*"),
         }
     }
 }
@@ -696,14 +713,29 @@ impl LogicalPlanBuilder {
     }
 
     /// Apply a projection
-    pub fn project(&self, expr: &Vec<Expr>) -> Result<Self> {
+    pub fn project(&self, expr: Vec<Expr>) -> Result<Self> {
         let input_schema = self.plan.schema();
+        let projected_expr = if expr.contains(&Expr::Wildcard) {
+            let mut expr_vec = vec![];
+            (0..expr.len()).for_each(|i| match &expr[i] {
+                Expr::Wildcard => {
+                    (0..input_schema.fields().len())
+                        .for_each(|i| expr_vec.push(col_index(i).clone()));
+                }
+                _ => expr_vec.push(expr[i].clone()),
+            });
+            expr_vec
+        } else {
+            expr.clone()
+        };
 
-        let schema =
-            Schema::new(utils::exprlist_to_fields(&expr, input_schema.as_ref())?);
+        let schema = Schema::new(utils::exprlist_to_fields(
+            &projected_expr,
+            input_schema.as_ref(),
+        )?);
 
         Ok(Self::from(&LogicalPlan::Projection {
-            expr: expr.clone(),
+            expr: projected_expr,
             input: Arc::new(self.plan.clone()),
             schema: Arc::new(schema),
         }))
@@ -770,8 +802,8 @@ mod tests {
             &employee_schema(),
             Some(vec![0, 3]),
         )?
-        .filter(col(1).eq(&lit_str("CO")))?
-        .project(&vec![col(0)])?
+        .filter(col("id").eq(&lit_str("CO")))?
+        .project(vec![col("id")])?
         .build()?;
 
         // prove that a plan can be passed to a thread
@@ -791,13 +823,13 @@ mod tests {
             &employee_schema(),
             Some(vec![0, 3]),
         )?
-        .filter(col(1).eq(&lit_str("CO")))?
-        .project(&vec![col(0)])?
+        .filter(col("state").eq(&lit_str("CO")))?
+        .project(vec![col("id")])?
         .build()?;
 
-        let expected = "Projection: #0\n  \
-                        Selection: #1 Eq Utf8(\"CO\")\n    \
-                        TableScan: employee.csv projection=Some([0, 3])";
+        let expected = "Projection: #id\
+        \n  Selection: #state Eq Utf8(\"CO\")\
+        \n    TableScan: employee.csv projection=Some([0, 3])";
 
         assert_eq!(expected, format!("{:?}", plan));
 
@@ -813,14 +845,15 @@ mod tests {
             Some(vec![3, 4]),
         )?
         .aggregate(
-            vec![col(0)],
-            vec![aggregate_expr("SUM", col(1), DataType::Int32)],
+            vec![col("state")],
+            vec![aggregate_expr("SUM", col("salary"), DataType::Int32)
+                .alias("total_salary")],
         )?
-        .project(&vec![col(0), col(1).alias("total_salary")])?
+        .project(vec![col("state"), col("total_salary")])?
         .build()?;
 
-        let expected = "Projection: #0, #1 AS total_salary\
-        \n  Aggregate: groupBy=[[#0]], aggr=[[SUM(#1)]]\
+        let expected = "Projection: #state, #total_salary\
+        \n  Aggregate: groupBy=[[#state]], aggr=[[SUM(#salary) AS total_salary]]\
         \n    TableScan: employee.csv projection=Some([3, 4])";
 
         assert_eq!(expected, format!("{:?}", plan));

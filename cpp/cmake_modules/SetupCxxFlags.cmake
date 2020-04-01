@@ -97,6 +97,12 @@ if(WIN32)
 
     # Support large object code
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /bigobj")
+  else()
+    # MinGW
+    check_cxx_compiler_flag(-Wa,-mbig-obj CXX_SUPPORTS_BIG_OBJ)
+    if(CXX_SUPPORTS_BIG_OBJ)
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wa,-mbig-obj")
+    endif()
   endif(MSVC)
 else()
   # Common flags set below with warning level

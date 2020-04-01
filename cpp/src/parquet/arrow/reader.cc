@@ -911,24 +911,6 @@ Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool*
   return builder.memory_pool(pool)->Build(reader);
 }
 
-Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool* pool,
-                const ReaderProperties& props, std::shared_ptr<FileMetaData> metadata,
-                std::unique_ptr<FileReader>* reader) {
-  // Deprecated since 0.15.0
-  FileReaderBuilder builder;
-  RETURN_NOT_OK(builder.Open(std::move(file), props, std::move(metadata)));
-  return builder.memory_pool(pool)->Build(reader);
-}
-
-Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool* pool,
-                const ArrowReaderProperties& properties,
-                std::unique_ptr<FileReader>* reader) {
-  // Deprecated since 0.15.0
-  FileReaderBuilder builder;
-  RETURN_NOT_OK(builder.Open(std::move(file)));
-  return builder.memory_pool(pool)->properties(properties)->Build(reader);
-}
-
 namespace internal {
 
 Status FuzzReader(std::unique_ptr<FileReader> reader) {

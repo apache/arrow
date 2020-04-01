@@ -1094,9 +1094,6 @@ TYPED_TEST(TestByteStreamSplitEncoding, BasicRoundTrip) {
   // can handle both inputs with size divisible by 4/8 and sizes which would
   // require a scalar loop for the suffix.
 
-  // Exercise only the scalar loop.
-  ASSERT_NO_FATAL_FAILURE(this->Execute(3, 1));
-
   // Exercise only the SIMD loop.
   ASSERT_NO_FATAL_FAILURE(this->Execute(256, 1));
 

@@ -526,21 +526,6 @@ std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
   return result;
 }
 
-// Deprecated methods
-
-std::shared_ptr<Field> Field::AddMetadata(
-    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
-  return WithMetadata(metadata);
-}
-
-std::shared_ptr<Field> StructType::GetChildByName(const std::string& name) const {
-  return GetFieldByName(name);
-}
-
-int StructType::GetChildIndex(const std::string& name) const {
-  return GetFieldIndex(name);
-}
-
 // ----------------------------------------------------------------------
 // Decimal128 type
 
@@ -615,12 +600,12 @@ std::string NullType::ToString() const { return name(); }
 // FieldRef
 
 size_t FieldPath::hash() const {
-  return internal::ComputeStringHash<0>(data(), size() * sizeof(int));
+  return internal::ComputeStringHash<0>(indices().data(), indices().size() * sizeof(int));
 }
 
 std::string FieldPath::ToString() const {
   std::string repr = "FieldPath(";
-  for (auto index : *this) {
+  for (auto index : this->indices()) {
     repr += std::to_string(index) + " ";
   }
   repr.resize(repr.size() - 1);
@@ -658,7 +643,7 @@ struct FieldPathGetImpl {
 
     ss << "indices=[ ";
     int depth = 0;
-    for (int i : *path) {
+    for (int i : path->indices()) {
       if (depth != out_of_range_depth) {
         ss << i << " ";
         continue;
@@ -681,13 +666,13 @@ struct FieldPathGetImpl {
   template <typename T, typename GetChildren>
   static Result<T> Get(const FieldPath* path, const std::vector<T>* children,
                        GetChildren&& get_children, int* out_of_range_depth) {
-    if (path->empty()) {
+    if (path->indices().empty()) {
       return Status::Invalid("empty indices cannot be traversed");
     }
 
     int depth = 0;
     const T* out;
-    for (int index : *path) {
+    for (int index : path->indices()) {
       if (index < 0 || static_cast<size_t>(index) >= children->size()) {
         *out_of_range_depth = depth;
         return nullptr;
@@ -781,7 +766,7 @@ Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(const Table& table) const {
 }
 
 FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {
-  DCHECK_GT(util::get<FieldPath>(impl_).size(), 0);
+  DCHECK_GT(util::get<FieldPath>(impl_).indices().size(), 0);
 }
 
 void FieldRef::Flatten(std::vector<FieldRef> children) {
@@ -988,8 +973,9 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
         auto maybe_field = match.Get(fields);
         DCHECK_OK(maybe_field.status());
 
-        prefix.resize(prefix.size() + match.size());
-        std::copy(match.begin(), match.end(), prefix.end() - match.size());
+        prefix.indices().resize(prefix.indices().size() + match.indices().size());
+        std::copy(match.indices().begin(), match.indices().end(),
+                  prefix.indices().end() - match.indices().size());
         prefixes.push_back(std::move(prefix));
         referents.push_back(std::move(maybe_field).ValueOrDie());
       }
@@ -1177,12 +1163,6 @@ bool Schema::HasDistinctFieldNames() const {
 std::shared_ptr<Schema> Schema::WithMetadata(
     const std::shared_ptr<const KeyValueMetadata>& metadata) const {
   return std::make_shared<Schema>(impl_->fields_, metadata);
-}
-
-// deprecated method
-std::shared_ptr<Schema> Schema::AddMetadata(
-    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
-  return WithMetadata(metadata);
 }
 
 std::shared_ptr<const KeyValueMetadata> Schema::metadata() const {

@@ -77,8 +77,10 @@ impl ArrowReader for ParquetFileArrowReader {
     type RecordReader = ParquetRecordBatchReader;
 
     fn get_schema(&mut self) -> Result<Schema> {
+        let file_metadata = self.file_reader.metadata().file_metadata();
         parquet_to_arrow_schema(
-            self.file_reader.metadata().file_metadata().schema_descr(),
+            file_metadata.schema_descr(),
+            file_metadata.key_value_metadata(),
         )
     }
 
@@ -86,9 +88,11 @@ impl ArrowReader for ParquetFileArrowReader {
     where
         T: IntoIterator<Item = usize>,
     {
+        let file_metadata = self.file_reader.metadata().file_metadata();
         parquet_to_arrow_schema_by_columns(
-            self.file_reader.metadata().file_metadata().schema_descr(),
+            file_metadata.schema_descr(),
             column_indices,
+            file_metadata.key_value_metadata(),
         )
     }
 

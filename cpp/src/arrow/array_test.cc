@@ -79,6 +79,16 @@ TEST_F(TestArray, TestNullCount) {
   ASSERT_EQ(kUnknownNullCount, arr_default_null_count->data()->null_count);
 }
 
+TEST_F(TestArray, TestSlicePreservesAllNullCount) {
+  // These are placeholders
+  auto data = std::make_shared<Buffer>(nullptr, 0);
+  auto null_bitmap = std::make_shared<Buffer>(nullptr, 0);
+
+  Int32Array arr(/*length=*/100, data, null_bitmap,
+                 /*null_count*/ 100);
+  EXPECT_EQ(arr.Slice(1, 99)->data()->null_count, arr.Slice(1, 99)->length());
+}
+
 TEST_F(TestArray, TestLength) {
   // Placeholder buffer
   auto data = std::make_shared<Buffer>(nullptr, 0);

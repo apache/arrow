@@ -1221,6 +1221,21 @@ impl Schema {
         &self.fields[i]
     }
 
+    /// Returns an immutable reference of a specific `Field` instance selected by name
+    pub fn field_with_name(&self, name: &str) -> Result<&Field> {
+        return Ok(&self.fields[self.index_of(name)?]);
+    }
+
+    /// Find the index of the column with the given name
+    pub fn index_of(&self, name: &str) -> Result<usize> {
+        for i in 0..self.fields.len() {
+            if self.fields[i].name == name {
+                return Ok(i);
+            }
+        }
+        Err(ArrowError::InvalidArgumentError(name.to_owned()))
+    }
+
     /// Returns an immutable reference to the Map of custom metadata key-value pairs.
     pub fn metadata(&self) -> &HashMap<String, String> {
         &self.metadata
@@ -1981,43 +1996,49 @@ mod tests {
 
     #[test]
     fn create_schema_string() {
-        let _person = Schema::new(vec![
-            Field::new("first_name", DataType::Utf8, false),
-            Field::new("last_name", DataType::Utf8, false),
-            Field::new(
-                "address",
-                DataType::Struct(vec![
-                    Field::new("street", DataType::Utf8, false),
-                    Field::new("zip", DataType::UInt16, false),
-                ]),
-                false,
-            ),
-        ]);
-        assert_eq!(_person.to_string(), "first_name: Utf8, last_name: Utf8, address: Struct([Field { name: \"street\", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false }, Field { name: \"zip\", data_type: UInt16, nullable: false, dict_id: 0, dict_is_ordered: false }])")
+        let schema = person_schema();
+        assert_eq!(schema.to_string(), "first_name: Utf8, \
+        last_name: Utf8, \
+        address: Struct([\
+        Field { name: \"street\", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false }, \
+        Field { name: \"zip\", data_type: UInt16, nullable: false, dict_id: 0, dict_is_ordered: false }])")
     }
 
     #[test]
     fn schema_field_accessors() {
-        let _person = Schema::new(vec![
-            Field::new("first_name", DataType::Utf8, false),
-            Field::new("last_name", DataType::Utf8, false),
-            Field::new(
-                "address",
-                DataType::Struct(vec![
-                    Field::new("street", DataType::Utf8, false),
-                    Field::new("zip", DataType::UInt16, false),
-                ]),
-                false,
-            ),
-        ]);
+        let schema = person_schema();
 
         // test schema accessors
-        assert_eq!(_person.fields().len(), 3);
+        assert_eq!(schema.fields().len(), 3);
 
         // test field accessors
-        assert_eq!(_person.fields()[0].name(), "first_name");
-        assert_eq!(_person.fields()[0].data_type(), &DataType::Utf8);
-        assert_eq!(_person.fields()[0].is_nullable(), false);
+        let first_name = &schema.fields()[0];
+        assert_eq!(first_name.name(), "first_name");
+        assert_eq!(first_name.data_type(), &DataType::Utf8);
+        assert_eq!(first_name.is_nullable(), false);
+    }
+
+    #[test]
+    fn schema_index_of() {
+        let schema = person_schema();
+        assert_eq!(schema.index_of("first_name"), Ok(0));
+        assert_eq!(schema.index_of("last_name"), Ok(1));
+        assert_eq!(
+            schema.index_of("nickname"),
+            Err(ArrowError::InvalidArgumentError("nickname".to_owned()))
+        );
+    }
+
+    #[test]
+    fn schema_field_with_name() -> Result<()> {
+        let schema = person_schema();
+        assert_eq!(schema.field_with_name("first_name")?.name(), "first_name");
+        assert_eq!(schema.field_with_name("last_name")?.name(), "last_name");
+        assert_eq!(
+            schema.field_with_name("nickname"),
+            Err(ArrowError::InvalidArgumentError("nickname".to_owned()))
+        );
+        Ok(())
     }
 
     #[test]
@@ -2069,5 +2090,20 @@ mod tests {
             0.01f64.into_json_value()
         );
         assert_eq!(None, NAN.into_json_value());
+    }
+
+    fn person_schema() -> Schema {
+        Schema::new(vec![
+            Field::new("first_name", DataType::Utf8, false),
+            Field::new("last_name", DataType::Utf8, false),
+            Field::new(
+                "address",
+                DataType::Struct(vec![
+                    Field::new("street", DataType::Utf8, false),
+                    Field::new("zip", DataType::UInt16, false),
+                ]),
+                false,
+            ),
+        ])
     }
 }
