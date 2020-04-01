@@ -336,10 +336,13 @@ cdef class FileSystemDataset(Dataset):
 
 cdef shared_ptr[CScanOptions] _make_scan_options(
         Schema schema, Expression partition_expression, object columns=None,
-        Expression filter=None):
+        Expression filter=None) except *:
     cdef:
         shared_ptr[CScanOptions] options
         CExpression* c_partition_expression
+
+    if filter is not None:
+        filter = filter.assume(partition_expression)
 
     empty_dataset = UnionDataset(schema, children=[])
     scanner = Scanner(empty_dataset, columns=columns, filter=filter)
@@ -450,6 +453,11 @@ cdef class Fragment:
 
     cdef inline shared_ptr[CFragment] unwrap(self):
         return self.wrapped
+
+    @property
+    def schema(self):
+        """Return the schema of batches scanned from this Fragment."""
+        return pyarrow_wrap_schema(self.fragment.schema())
 
     @property
     def partition_expression(self):

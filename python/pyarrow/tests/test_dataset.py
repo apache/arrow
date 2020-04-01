@@ -646,8 +646,14 @@ def test_fragments(tempdir):
     assert len(fragments) == 2
     f = fragments[0]
 
+    # file's schema does not include partition column
+    phys_schema = f.schema.remove(f.schema.get_field_index('part'))
+    assert f.format.inspect(f.path, f.filesystem) == phys_schema
+    assert f.partition_expression.equals(ds.field('part') == 'a')
+
     # scanning fragment includes partition columns
     result = f.to_table()
+    assert f.schema == result.schema
     assert result.column_names == ['f1', 'f2', 'part']
     assert len(result) == 4
     assert result.equals(table.slice(0, 4))
@@ -674,34 +680,43 @@ def test_fragments(tempdir):
 def test_fragments_reconstruct(tempdir):
     table, dataset = _create_dataset_for_fragments(tempdir)
 
-    fragment = list(dataset.get_fragments())[0]
+    def assert_yields_projected(fragment, row_slice, columns):
+        actual = fragment.to_table()
+        assert actual.column_names == columns
 
-    # manually re-construct a fragment
+        expected = table.slice(*row_slice).to_pandas()[[*columns]]
+        assert (actual.to_pandas() == expected).all().all()
+
+    fragment = list(dataset.get_fragments())[0]
     parquet_format = fragment.format
+
+    # manually re-construct a fragment, with explicit schema
     new_fragment = parquet_format.make_fragment(
         fragment.path, fragment.filesystem, schema=dataset.schema,
         partition_expression=fragment.partition_expression)
     assert new_fragment.to_table().equals(fragment.to_table())
-    assert new_fragment.to_table().equals(table.slice(0, 4))
+    assert_yields_projected(new_fragment, (0, 4), table.column_names)
 
-    # manually re-construct a fragment with filter / column projection
+    # filter / column projection, inspected schema
     new_fragment = parquet_format.make_fragment(
-        fragment.path, fragment.filesystem,  # schema=dataset.schema,
+        fragment.path, fragment.filesystem,
         columns=['f1'], filter=ds.field('f1') < 2,
         partition_expression=fragment.partition_expression)
-    result = new_fragment.to_table()
-    assert result.column_names == ['f1']
-    assert len(result) == 2
+    assert_yields_projected(new_fragment, (0, 2), ['f1'])
 
-    # with filter on the partition column
+    # filter on the partition column, explicit schema
     new_fragment = parquet_format.make_fragment(
         fragment.path, fragment.filesystem, schema=dataset.schema,
         filter=ds.field('part') == 'a',
         partition_expression=fragment.partition_expression)
-    result = new_fragment.to_table()
-    # TODO this fails, gives empty table
-    assert len(result) == 4
-    assert result.equals(table.slice(0, 4))
+    assert_yields_projected(new_fragment, (0, 4), table.column_names)
+
+    # filter on the partition column, inspected schema
+    new_fragment = parquet_format.make_fragment(
+        fragment.path, fragment.filesystem,
+        filter=ds.field('part') == 'a',
+        partition_expression=fragment.partition_expression)
+    assert_yields_projected(new_fragment, (0, 4), ['f1', 'f2'])
 
 
 @pytest.mark.pandas

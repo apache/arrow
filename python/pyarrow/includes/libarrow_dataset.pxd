@@ -150,9 +150,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CFragment "arrow::dataset::Fragment":
         CResult[CScanTaskIterator] Scan(shared_ptr[CScanContext] context)
-        c_bool splittable()
-        c_string type_name()
-        const shared_ptr[CExpression]& partition_expression()
+        const shared_ptr[CSchema]& schema() const
+        c_bool splittable() const
+        c_string type_name() const
+        const shared_ptr[CExpression]& partition_expression() const
 
     ctypedef vector[shared_ptr[CFragment]] CFragmentVector \
         "arrow::dataset::FragmentVector"
