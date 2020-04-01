@@ -265,22 +265,35 @@ sapien. Quisque pretium vestibulum urna eu vehicula."""
                                     "lorem": lorem})
 
     assert my_schema.to_string() == """\
-foo: int32 not null, metadata.keys: ['key1']
-bar: string, metadata.keys: ['key3']
--- metadata --
+foo: int32 not null
+  -- field metadata --
+  key1: 'value1'
+bar: string
+  -- field metadata --
+  key3: 'value3'
+-- schema metadata --
 key2: 'value2'
 lorem: '""" + lorem[:70] + "' + " + str(len(lorem) - 70)
 
+    # Metadata that exactly fits
+    result = pa.schema([('f0', 'int32')],
+                       metadata={'key': 'value' + 'x' * 65}).to_string()
+    assert result == """
+f0: int32
+-- schema metadata --
+key: 'valuexxxxxxxxxxxxxxxxxxxxxxxxxxxxx\
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'"""
+
     assert my_schema.to_string(verbose_metadata=True) == """\
 foo: int32 not null
-  -- metadata --
-  key1: value1
+  -- field metadata --
+  key1: 'value1'
 bar: string
-  -- metadata --
-  key3: value3
--- metadata --
-key2: value2
-lorem: """ + lorem
+  -- field metadata --
+  key3: 'value3'
+-- schema metadata --
+key2: 'value2'
+lorem: '{}'""".format(lorem)
 
 
 def test_schema_from_tuples():

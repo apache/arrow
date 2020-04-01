@@ -570,46 +570,36 @@ class SchemaPrinter : public PrettyPrinter {
   Status PrintField(const Field& field);
 
   void PrintVerboseMetadata(const KeyValueMetadata& metadata) {
-    if (metadata.size() > 0) {
+    for (int64_t i = 0; i < metadata.size(); ++i) {
       Newline();
-      Write("-- metadata --");
-      for (int64_t i = 0; i < metadata.size(); ++i) {
-        Newline();
-        Write(metadata.key(i) + ": " + metadata.value(i));
-      }
+      Write(metadata.key(i) + ": '" + metadata.value(i) + "'");
     }
   }
 
-  void PrintMetadataLines(const KeyValueMetadata& metadata) {
-    if (metadata.size() > 0) {
+  void PrintTruncatedMetadata(const KeyValueMetadata& metadata) {
+    for (int64_t i = 0; i < metadata.size(); ++i) {
       Newline();
-      Write("-- metadata --");
-      for (int64_t i = 0; i < metadata.size(); ++i) {
-        Newline();
-        size_t size = metadata.value(i).size(), truncated_size = 70 - indent_;
-        if (size < truncated_size) {
-          Write(metadata.key(i) + ": '" + metadata.value(i) + "'");
-          continue;
-        }
-
-        Write(metadata.key(i) + ": '" + metadata.value(i).substr(0, truncated_size) +
-              "' + " + std::to_string(size - truncated_size));
+      size_t size = metadata.value(i).size();
+      size_t truncated_size = 70 - indent_;
+      if (size <= truncated_size) {
+        Write(metadata.key(i) + ": '" + metadata.value(i) + "'");
+        continue;
       }
+
+      Write(metadata.key(i) + ": '" + metadata.value(i).substr(0, truncated_size) +
+            "' + " + std::to_string(size - truncated_size));
     }
   }
 
-  void PrintMetadataKeys(const KeyValueMetadata& metadata) {
+  void PrintMetadata(const std::string& metadata_type, const KeyValueMetadata& metadata) {
     if (metadata.size() > 0) {
-      Write("metadata.keys: [");
-      for (int64_t i = 0; i < metadata.size(); ++i) {
-        if (i > 0) {
-          Write(", ");
-        }
-        Write("'");
-        Write(metadata.key(i));
-        Write("'");
+      Newline();
+      Write(metadata_type);
+      if (verbose_metadata_) {
+        PrintVerboseMetadata(metadata);
+      } else {
+        PrintTruncatedMetadata(metadata);
       }
-      Write("]");
     }
   }
 
@@ -624,11 +614,7 @@ class SchemaPrinter : public PrettyPrinter {
     }
 
     if (schema_.metadata()) {
-      if (verbose_metadata_) {
-        PrintVerboseMetadata(*schema_.metadata());
-      } else {
-        PrintMetadataLines(*schema_.metadata());
-      }
+      PrintMetadata("-- schema metadata --", *schema_.metadata());
     }
     Flush();
     return Status::OK();
@@ -664,14 +650,9 @@ Status SchemaPrinter::PrintField(const Field& field) {
   RETURN_NOT_OK(PrintType(*field.type(), field.nullable()));
 
   if (field.metadata()) {
-    if (verbose_metadata_) {
-      indent_ += indent_size_;
-      PrintVerboseMetadata(*field.metadata());
-      indent_ -= indent_size_;
-    } else {
-      Write(", ");
-      PrintMetadataKeys(*field.metadata());
-    }
+    indent_ += indent_size_;
+    PrintMetadata("-- field metadata --", *field.metadata());
+    indent_ -= indent_size_;
   }
   return Status::OK();
 }

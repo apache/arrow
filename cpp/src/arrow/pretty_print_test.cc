@@ -672,22 +672,26 @@ TEST_F(TestPrettyPrint, SchemaWithMetadata) {
       metadata3);
 
   PrettyPrintOptions options;
-  static const char* expected = R"(one: int32, metadata.keys: ['foo1']
-two: string not null, metadata.keys: ['foo2']
--- metadata --
+  static const char* expected = R"(one: int32
+  -- field metadata --
+  foo1: 'bar1'
+two: string not null
+  -- field metadata --
+  foo2: 'bar2'
+-- schema metadata --
 foo3: 'bar3'
 lorem: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla accumsa' + 732)";
   Check(*my_schema, options, expected);
 
   static const char* expected_verbose = R"(one: int32
-  -- metadata --
-  foo1: bar1
+  -- field metadata --
+  foo1: 'bar1'
 two: string not null
-  -- metadata --
-  foo2: bar2
--- metadata --
-foo3: bar3
-lorem: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla accumsan vel
+  -- field metadata --
+  foo2: 'bar2'
+-- schema metadata --
+foo3: 'bar3'
+lorem: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla accumsan vel
           turpis et mollis. Aliquam tincidunt arcu id tortor blandit blandit. Donec
           eget leo quis lectus scelerisque varius. Class aptent taciti sociosqu ad
           litora torquent per conubia nostra, per inceptos himenaeos. Praesent
@@ -696,9 +700,20 @@ lorem: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla accumsan v
           dignissim mollis vitae eu mauris. Quisque posuere tellus vitae massa
           pellentesque sagittis. Aenean feugiat, diam ac dignissim fermentum, lorem
           sapien commodo massa, vel volutpat orci nisi eu justo. Nulla non blandit
-          sapien. Quisque pretium vestibulum urna eu vehicula.)";
+          sapien. Quisque pretium vestibulum urna eu vehicula.')";
   options.verbose_metadata = true;
   Check(*my_schema, options, expected_verbose);
+
+  auto metadata4 =
+      key_value_metadata({"key"}, {("valuexxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")});
+  // Metadata that exactly files
+  my_schema = schema({field("f0", int32())}, metadata4);
+  static const char* expected_fits = R"(f0: int32
+-- schema metadata --
+key: 'valuexxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')";
+  options.verbose_metadata = false;
+  Check(*my_schema, options, expected_fits);
 }
 
 TEST_F(TestPrettyPrint, SchemaIndentation) {
