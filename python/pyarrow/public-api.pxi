@@ -119,28 +119,22 @@ cdef api object pyarrow_wrap_data_type(
 
 cdef object pyarrow_wrap_metadata(
         const shared_ptr[const CKeyValueMetadata]& meta):
-    cdef const CKeyValueMetadata* cmeta = meta.get()
-
-    if cmeta == nullptr:
+    if meta.get() == nullptr:
         return None
-
-    result = ordered_dict()
-    for i in range(cmeta.size()):
-        result[cmeta.key(i)] = cmeta.value(i)
-
-    return result
+    else:
+        return KeyValueMetadata.wrap(meta)
 
 
 cdef shared_ptr[CKeyValueMetadata] pyarrow_unwrap_metadata(object meta) \
         except *:
     cdef vector[c_string] keys, values
 
-    if isinstance(meta, dict):
-        keys = map(tobytes, meta.keys())
-        values = map(tobytes, meta.values())
-        return make_shared[CKeyValueMetadata](keys, values)
-
-    return shared_ptr[CKeyValueMetadata]()
+    if isinstance(meta, KeyValueMetadata):
+        return (<KeyValueMetadata>meta).unwrap().get().Copy()
+    elif isinstance(meta, dict):
+        return KeyValueMetadata(meta).unwrap().get().Copy()
+    else:
+        return shared_ptr[CKeyValueMetadata]()
 
 
 cdef api bint pyarrow_is_field(object field):

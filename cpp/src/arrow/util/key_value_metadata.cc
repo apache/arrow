@@ -94,7 +94,7 @@ Result<std::string> KeyValueMetadata::Get(const std::string& key) const {
   }
 }
 
-Status KeyValueMetadata::Del(const std::string& key) {
+Status KeyValueMetadata::Delete(const std::string& key) {
   auto index = FindKey(key);
   if (index < 0) {
     return Status::KeyError(key);
@@ -114,6 +114,10 @@ Status KeyValueMetadata::Set(const std::string& key, const std::string& value) {
     values_[index] = value;
   }
   return Status::OK();
+}
+
+bool KeyValueMetadata::Contains(const std::string& key) const {
+  return FindKey(key) >= 0;
 }
 
 void KeyValueMetadata::reserve(int64_t n) {

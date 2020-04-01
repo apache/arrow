@@ -43,8 +43,9 @@ class ARROW_EXPORT KeyValueMetadata {
   void Append(const std::string& key, const std::string& value);
 
   Result<std::string> Get(const std::string& key) const;
-  Status Del(const std::string& key);
+  Status Delete(const std::string& key);
   Status Set(const std::string& key, const std::string& value);
+  bool Contains(const std::string& key) const;
 
   void reserve(int64_t n);
   int64_t size() const;
