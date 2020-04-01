@@ -23,7 +23,7 @@ on:
   pull_request:
 
 env:
-  DOCKER_BUILDKIT: 1
+  DOCKER_BUILDKIT: 0
   COMPOSE_DOCKER_CLI_BUILD: 1
 
 jobs:
