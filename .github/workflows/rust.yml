@@ -21,13 +21,19 @@ on:
   push:
     paths:
       - '.github/workflows/rust.yml'
-      - 'ci/**'
+      - 'ci/docker/*rust*'
+      - 'ci/scripts/rust_*.sh'
+      - 'ci/scripts/util_*.sh'
       - 'rust/**'
+      - 'format/Flight.proto'
   pull_request:
     paths:
       - '.github/workflows/rust.yml'
-      - 'ci/**'
+      - 'ci/docker/*rust*'
+      - 'ci/scripts/rust_*.sh'
+      - 'ci/scripts/util_*.sh'
       - 'rust/**'
+      - 'format/Flight.proto'
 
 jobs:
 
