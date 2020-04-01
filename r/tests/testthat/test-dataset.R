@@ -336,7 +336,7 @@ test_that("Dataset and query print methods", {
   expect_output(
     print(ds),
     paste(
-      "Dataset",
+      "FileSystemDataset with 2 Parquet files",
       "int: int32",
       "dbl: double",
       "lgl: bool",

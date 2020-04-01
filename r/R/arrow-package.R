@@ -39,6 +39,8 @@
       s3_register(m, cl)
     }
   }
+
+  s3_register("dplyr::tbl_vars", "arrow_dplyr_query")
   s3_register("reticulate::py_to_r", "pyarrow.lib.Array")
   s3_register("reticulate::py_to_r", "pyarrow.lib.RecordBatch")
   s3_register("reticulate::r_to_py", "Array")
@@ -81,8 +83,14 @@ ArrowObject <- R6Class("ArrowObject",
       }
       assign(".:xp:.", xp, envir = self)
     },
-    print = function(...){
-      cat(class(self)[[1]], "\n", sep = "")
+    print = function(...) {
+      if (!is.null(self$.class_title)) {
+        # Allow subclasses to override just printing the class name first
+        class_title <- self$.class_title()
+      } else {
+        class_title <- class(self)[[1]]
+      }
+      cat(class_title, "\n", sep = "")
       if (!is.null(self$ToString)){
         cat(self$ToString(), "\n", sep = "")
       }

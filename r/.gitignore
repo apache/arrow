@@ -13,5 +13,6 @@ src/Makevars
 src/Makevars.win
 windows/
 libarrow/
+vignettes/nyc-taxi/
 arrow_*.tar.gz
 arrow_*.tgz
