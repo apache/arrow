@@ -113,7 +113,7 @@ ds
 ```
 ```{r, echo = FALSE, eval = !file.exists("nyc-taxi")}
 cat("
-## FileSystemDataset
+## FileSystemDataset with 125 Parquet files
 ## vendor_id: string
 ## pickup_at: timestamp[us]
 ## dropoff_at: timestamp[us]
