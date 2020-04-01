@@ -1402,6 +1402,66 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
     ASSERT_TRUE(result->Equals(sparse_tensor));
   }
 
+  void CheckSparseCSFTensorRoundTrip(const SparseCSFTensor& sparse_tensor) {
+    const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
+    const int elem_size = type.bit_width() / 8;
+    const int index_elem_size = sizeof(typename IndexValueType::c_type);
+
+    int32_t metadata_length;
+    int64_t body_length;
+
+    ASSERT_OK(mmap_->Seek(0));
+
+    ASSERT_OK(
+        WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length));
+
+    const auto& sparse_index =
+        checked_cast<const SparseCSFIndex&>(*sparse_tensor.sparse_index());
+
+    const int64_t ndim = sparse_index.axis_order().size();
+    int64_t indptr_length = 0;
+    int64_t indices_length = 0;
+
+    for (int64_t i = 0; i < ndim - 1; ++i) {
+      indptr_length += BitUtil::RoundUpToMultipleOf8(index_elem_size *
+                                                     sparse_index.indptr()[i]->size());
+    }
+    for (int64_t i = 0; i < ndim; ++i) {
+      indices_length += BitUtil::RoundUpToMultipleOf8(index_elem_size *
+                                                      sparse_index.indices()[i]->size());
+    }
+    const int64_t data_length =
+        BitUtil::RoundUpToMultipleOf8(elem_size * sparse_tensor.non_zero_length());
+    const int64_t expected_body_length = indptr_length + indices_length + data_length;
+    ASSERT_EQ(expected_body_length, body_length);
+
+    ASSERT_OK(mmap_->Seek(0));
+
+    std::shared_ptr<SparseTensor> result;
+    ASSERT_OK_AND_ASSIGN(result, ReadSparseTensor(mmap_.get()));
+    ASSERT_EQ(SparseTensorFormat::CSF, result->format_id());
+
+    const auto& resulted_sparse_index =
+        checked_cast<const SparseCSFIndex&>(*result->sparse_index());
+
+    int64_t out_indptr_length = 0;
+    int64_t out_indices_length = 0;
+    for (int i = 0; i < ndim - 1; ++i) {
+      out_indptr_length += BitUtil::RoundUpToMultipleOf8(
+          index_elem_size * resulted_sparse_index.indptr()[i]->size());
+    }
+    for (int i = 0; i < ndim; ++i) {
+      out_indices_length += BitUtil::RoundUpToMultipleOf8(
+          index_elem_size * resulted_sparse_index.indices()[i]->size());
+    }
+
+    ASSERT_EQ(out_indptr_length, indptr_length);
+    ASSERT_EQ(out_indices_length, indices_length);
+    ASSERT_EQ(result->data()->size(), data_length);
+    ASSERT_TRUE(resulted_sparse_index.Equals(sparse_index));
+    ASSERT_TRUE(result->Equals(sparse_tensor));
+  }
+
  protected:
   std::shared_ptr<SparseCOOIndex> MakeSparseCOOIndex(
       const std::vector<int64_t>& coords_shape,
@@ -1564,9 +1624,30 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSCIndex) {
   this->CheckSparseCSXMatrixRoundTrip(*st);
 }
 
+TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSFIndex) {
+  using IndexValueType = TypeParam;
+
+  std::string path = "test-write-sparse-csf-tensor";
+  constexpr int64_t kBufferSize = 1 << 20;
+  ASSERT_OK_AND_ASSIGN(this->mmap_,
+                       io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
+
+  std::vector<int64_t> shape = {4, 6};
+  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
+  std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                 0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+
+  auto data = Buffer::Wrap(values);
+  NumericTensor<Int64Type> t(data, shape, {}, dim_names);
+  std::shared_ptr<SparseCSFTensor> st;
+  ASSERT_OK_AND_ASSIGN(
+      st, SparseCSFTensor::Make(t, TypeTraits<IndexValueType>::type_singleton()));
+
+  this->CheckSparseCSFTensorRoundTrip(*st);
+}
 REGISTER_TYPED_TEST_SUITE_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor,
                             WithSparseCOOIndexColumnMajor, WithSparseCSRIndex,
-                            WithSparseCSCIndex);
+                            WithSparseCSCIndex, WithSparseCSFIndex);
 
 INSTANTIATE_TYPED_TEST_SUITE_P(TestInt8, TestSparseTensorRoundTrip, Int8Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8, TestSparseTensorRoundTrip, UInt8Type);

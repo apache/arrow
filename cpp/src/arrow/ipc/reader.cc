@@ -1058,6 +1058,35 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
   }
 }
 
+Result<std::shared_ptr<SparseIndex>> ReadSparseCSFIndex(
+    const flatbuf::SparseTensor* sparse_tensor, const std::vector<int64_t>& shape,
+    io::RandomAccessFile* file) {
+  auto* sparse_index = sparse_tensor->sparseIndex_as_SparseTensorIndexCSF();
+  const auto ndim = static_cast<int64_t>(shape.size());
+  auto* indptr_buffers = sparse_index->indptrBuffers();
+  auto* indices_buffers = sparse_index->indicesBuffers();
+  std::vector<std::shared_ptr<Buffer>> indptr_data(ndim - 1);
+  std::vector<std::shared_ptr<Buffer>> indices_data(ndim);
+
+  std::shared_ptr<DataType> indptr_type, indices_type;
+  std::vector<int64_t> axis_order, indices_size;
+
+  RETURN_NOT_OK(internal::GetSparseCSFIndexMetadata(
+      sparse_index, &axis_order, &indices_size, &indptr_type, &indices_type));
+  for (int i = 0; i < static_cast<int>(indptr_buffers->Length()); ++i) {
+    ARROW_ASSIGN_OR_RAISE(indptr_data[i], file->ReadAt(indptr_buffers->Get(i)->offset(),
+                                                       indptr_buffers->Get(i)->length()));
+  }
+  for (int i = 0; i < static_cast<int>(indices_buffers->Length()); ++i) {
+    ARROW_ASSIGN_OR_RAISE(indices_data[i],
+                          file->ReadAt(indices_buffers->Get(i)->offset(),
+                                       indices_buffers->Get(i)->length()));
+  }
+
+  return SparseCSFIndex::Make(indptr_type, indices_type, indices_size, axis_order,
+                              indptr_data, indices_data);
+}
+
 Result<std::shared_ptr<SparseTensor>> MakeSparseTensorWithSparseCOOIndex(
     const std::shared_ptr<DataType>& type, const std::vector<int64_t>& shape,
     const std::vector<std::string>& dim_names,
@@ -1080,6 +1109,14 @@ Result<std::shared_ptr<SparseTensor>> MakeSparseTensorWithSparseCSCIndex(
     const std::shared_ptr<SparseCSCIndex>& sparse_index, int64_t non_zero_length,
     const std::shared_ptr<Buffer>& data) {
   return SparseCSCMatrix::Make(sparse_index, type, data, shape, dim_names);
+}
+
+Result<std::shared_ptr<SparseTensor>> MakeSparseTensorWithSparseCSFIndex(
+    const std::shared_ptr<DataType>& type, const std::vector<int64_t>& shape,
+    const std::vector<std::string>& dim_names,
+    const std::shared_ptr<SparseCSFIndex>& sparse_index,
+    const std::shared_ptr<Buffer>& data) {
+  return SparseCSFTensor::Make(sparse_index, type, data, shape, dim_names);
 }
 
 Status ReadSparseTensorMetadata(const Buffer& metadata,
@@ -1129,6 +1166,9 @@ Result<size_t> GetSparseTensorBodyBufferCount(SparseTensorFormat::type format_id
       return 3;
 
     case SparseTensorFormat::CSC:
+      return 3;
+
+    case SparseTensorFormat::CSF:
       return 3;
 
     default:
@@ -1215,6 +1255,33 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensorPayload(const IpcPayload& 
       return MakeSparseTensorWithSparseCSCIndex(type, shape, dim_names, sparse_index,
                                                 non_zero_length, payload.body_buffers[2]);
     }
+    case SparseTensorFormat::CSF: {
+      std::shared_ptr<SparseCSFIndex> sparse_index;
+      std::shared_ptr<DataType> indptr_type, indices_type;
+      std::vector<int64_t> axis_order, indices_size;
+
+      RETURN_NOT_OK(internal::GetSparseCSFIndexMetadata(
+          sparse_tensor->sparseIndex_as_SparseTensorIndexCSF(), &axis_order,
+          &indices_size, &indptr_type, &indices_type));
+      ARROW_CHECK_EQ(indptr_type, indices_type);
+
+      const int64_t ndim = shape.size();
+      std::vector<std::shared_ptr<Buffer>> indptr_data(ndim - 1);
+      std::vector<std::shared_ptr<Buffer>> indices_data(ndim);
+
+      for (int64_t i = 0; i < ndim - 1; ++i) {
+        indptr_data[i] = payload.body_buffers[i];
+      }
+      for (int64_t i = 0; i < ndim; ++i) {
+        indices_data[i] = payload.body_buffers[i + ndim - 1];
+      }
+
+      ARROW_ASSIGN_OR_RAISE(sparse_index,
+                            SparseCSFIndex::Make(indptr_type, indices_type, indices_size,
+                                                 axis_order, indptr_data, indices_data));
+      return MakeSparseTensorWithSparseCSFIndex(type, shape, dim_names, sparse_index,
+                                                payload.body_buffers[2 * ndim - 1]);
+    }
     default:
       return Status::Invalid("Unsupported sparse index format");
   }
@@ -1260,6 +1327,12 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(const Buffer& metadata,
       return MakeSparseTensorWithSparseCSCIndex(
           type, shape, dim_names, checked_pointer_cast<SparseCSCIndex>(sparse_index),
           non_zero_length, data);
+    }
+    case SparseTensorFormat::CSF: {
+      ARROW_ASSIGN_OR_RAISE(sparse_index, ReadSparseCSFIndex(sparse_tensor, shape, file));
+      return MakeSparseTensorWithSparseCSFIndex(
+          type, shape, dim_names, checked_pointer_cast<SparseCSFIndex>(sparse_index),
+          data);
     }
     default:
       return Status::Invalid("Unsupported sparse index format");
