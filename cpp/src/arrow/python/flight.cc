@@ -140,6 +140,18 @@ Status PyFlightServer::DoPut(
   });
 }
 
+Status PyFlightServer::DoExchange(
+    const arrow::flight::ServerCallContext& context,
+    std::unique_ptr<arrow::flight::FlightMessageReader> reader,
+    std::unique_ptr<arrow::flight::FlightMessageWriter> writer) {
+  return SafeCallIntoPython([&] {
+    const Status status =
+        vtable_.do_exchange(server_.obj(), context, std::move(reader), std::move(writer));
+    RETURN_NOT_OK(CheckPyError());
+    return status;
+  });
+}
+
 Status PyFlightServer::DoAction(const arrow::flight::ServerCallContext& context,
                                 const arrow::flight::Action& action,
                                 std::unique_ptr<arrow::flight::ResultStream>* result) {

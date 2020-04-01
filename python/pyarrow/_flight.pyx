@@ -326,6 +326,7 @@ class FlightMethod(enum.Enum):
     DO_PUT = 6
     DO_ACTION = 7
     LIST_ACTIONS = 8
+    DO_EXCHANGE = 9
 
 
 cdef wrap_flight_method(CFlightMethod method):
@@ -345,6 +346,8 @@ cdef wrap_flight_method(CFlightMethod method):
         return FlightMethod.DO_ACTION
     elif method == CFlightMethodListActions:
         return FlightMethod.LIST_ACTIONS
+    elif method == CFlightMethodDoExchange:
+        return FlightMethod.DO_EXCHANGE
     return FlightMethod.INVALID
 
 
@@ -637,7 +640,7 @@ cdef class SchemaResult:
         """
         cdef:
             shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
-        check_status(CreateSchemaResult(c_schema, &self.result))
+        check_flight_status(CreateSchemaResult(c_schema, &self.result))
 
     @property
     def schema(self):
@@ -646,7 +649,7 @@ cdef class SchemaResult:
             shared_ptr[CSchema] schema
             CDictionaryMemo dummy_memo
 
-        check_status(self.result.get().GetSchema(&dummy_memo, &schema))
+        check_flight_status(self.result.get().GetSchema(&dummy_memo, &schema))
         return pyarrow_wrap_schema(schema)
 
 
@@ -777,6 +780,10 @@ cdef class FlightStreamChunk:
     def __iter__(self):
         return iter((self.data, self.app_metadata))
 
+    def __repr__(self):
+        return "<FlightStreamChunk with data: {} with metadata: {}>".format(
+            self.chunk.data != NULL, self.chunk.app_metadata != NULL)
+
 
 cdef class _MetadataRecordBatchReader:
     """A reader for Flight streams."""
@@ -787,17 +794,17 @@ cdef class _MetadataRecordBatchReader:
     cdef dict __dict__
     cdef shared_ptr[CMetadataRecordBatchReader] reader
 
-    cdef readonly:
-        Schema schema
-
-
-cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader,
-                                     _ReadPandasOption):
-    """A reader for Flight streams."""
-
     def __iter__(self):
         while True:
             yield self.read_chunk()
+
+    @property
+    def schema(self):
+        """Get the schema for this reader."""
+        cdef shared_ptr[CSchema] c_schema
+        with nogil:
+            c_schema = GetResultValue(self.reader.get().GetSchema())
+        return pyarrow_wrap_schema(c_schema)
 
     def read_all(self):
         """Read the entire contents of the stream as a Table."""
@@ -829,10 +836,15 @@ cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader,
         with nogil:
             check_flight_status(self.reader.get().Next(&chunk.chunk))
 
-        if chunk.chunk.data == NULL:
+        if chunk.chunk.data == NULL and chunk.chunk.app_metadata == NULL:
             raise StopIteration
 
         return chunk
+
+
+cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader,
+                                     _ReadPandasOption):
+    """The virtual base class for readers for Flight streams."""
 
 
 cdef class FlightStreamReader(MetadataRecordBatchReader):
@@ -844,8 +856,27 @@ cdef class FlightStreamReader(MetadataRecordBatchReader):
             (<CFlightStreamReader*> self.reader.get()).Cancel()
 
 
-cdef class FlightStreamWriter(_CRecordBatchWriter):
-    """A RecordBatchWriter that also allows writing application metadata."""
+cdef class MetadataRecordBatchWriter(_CRecordBatchWriter):
+    """A RecordBatchWriter that also allows writing application metadata.
+
+    This class is a context manager; on exit, close() will be called.
+    """
+
+    cdef CMetadataRecordBatchWriter* _writer(self) nogil:
+        return <CMetadataRecordBatchWriter*> self.writer.get()
+
+    def begin(self, schema: Schema):
+        """Prepare to write data to this stream with the given schema."""
+        cdef shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
+        with nogil:
+            check_flight_status(self._writer().Begin(c_schema))
+
+    def write_metadata(self, buf):
+        """Write Flight metadata by itself."""
+        cdef shared_ptr[CBuffer] c_buf = pyarrow_unwrap_buffer(as_buffer(buf))
+        with nogil:
+            check_flight_status(
+                self._writer().WriteMetadata(c_buf))
 
     def write_with_metadata(self, RecordBatch batch, buf):
         """Write a RecordBatch along with Flight metadata.
@@ -861,15 +892,17 @@ cdef class FlightStreamWriter(_CRecordBatchWriter):
         cdef shared_ptr[CBuffer] c_buf = pyarrow_unwrap_buffer(as_buffer(buf))
         with nogil:
             check_flight_status(
-                (<CFlightStreamWriter*> self.writer.get())
-                .WriteWithMetadata(deref(batch.batch),
-                                   c_buf))
+                self._writer().WriteWithMetadata(deref(batch.batch), c_buf))
+
+
+cdef class FlightStreamWriter(MetadataRecordBatchWriter):
+    """A writer that also allows closing the write side of a stream."""
 
     def done_writing(self):
+        """Indicate that the client is done writing, but not done reading."""
         with nogil:
             check_flight_status(
-                (<CFlightStreamWriter*> self.writer.get())
-                .DoneWriting())
+                (<CFlightStreamWriter*> self.writer.get()).DoneWriting())
 
 
 cdef class FlightMetadataReader:
@@ -1167,8 +1200,6 @@ cdef class FlightClient:
                     deref(c_options), ticket.ticket, &reader))
         result = FlightStreamReader()
         result.reader.reset(reader.release())
-        schema = GetResultValue(result.reader.get().GetSchema())
-        result.schema = pyarrow_wrap_schema(schema)
         return result
 
     def do_put(self, descriptor: FlightDescriptor, schema: Schema,
@@ -1199,6 +1230,41 @@ cdef class FlightClient:
         result = FlightStreamWriter()
         result.writer.reset(writer.release())
         return result, reader
+
+    def do_exchange(self, descriptor: FlightDescriptor,
+                    options: FlightCallOptions = None):
+        """Start a bidirectional data exchange with a server.
+
+        Parameters
+        ----------
+        descriptor : FlightDescriptor
+            A descriptor for the flight.
+        options : FlightCallOptions
+            RPC options.
+
+        Returns
+        -------
+        writer : FlightStreamWriter
+        reader : FlightStreamReader
+        """
+        cdef:
+            unique_ptr[CFlightStreamWriter] c_writer
+            unique_ptr[CFlightStreamReader] c_reader
+            CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
+            CFlightDescriptor c_descriptor = \
+                FlightDescriptor.unwrap(descriptor)
+
+        with nogil:
+            check_flight_status(self.client.get().DoExchange(
+                deref(c_options),
+                c_descriptor,
+                &c_writer,
+                &c_reader))
+        py_writer = FlightStreamWriter()
+        py_writer.writer.reset(c_writer.release())
+        py_reader = FlightStreamReader()
+        py_reader.reader.reset(c_reader.release())
+        return py_writer, py_reader
 
 
 cdef class FlightDataStream:
@@ -1585,8 +1651,6 @@ cdef CStatus _do_put(void* self, const CServerCallContext& context,
 
     descriptor.descriptor = reader.get().descriptor()
     py_reader.reader.reset(reader.release())
-    schema = GetResultValue(py_reader.reader.get().GetSchema())
-    py_reader.schema = pyarrow_wrap_schema(schema)
     py_writer.writer.reset(writer.release())
     try:
         (<object> self).do_put(ServerCallContext.wrap(context), descriptor,
@@ -1617,6 +1681,27 @@ cdef CStatus _do_get(void* self, const CServerCallContext& context,
     stream[0] = unique_ptr[CFlightDataStream](
         new CPyFlightDataStream(result, move(data_stream)))
     return CStatus_OK()
+
+
+cdef CStatus _do_exchange(void* self, const CServerCallContext& context,
+                          unique_ptr[CFlightMessageReader] reader,
+                          unique_ptr[CFlightMessageWriter] writer) except *:
+    """Callback for implementing Flight servers in Python."""
+    cdef:
+        MetadataRecordBatchReader py_reader = MetadataRecordBatchReader()
+        MetadataRecordBatchWriter py_writer = MetadataRecordBatchWriter()
+        FlightDescriptor descriptor = \
+            FlightDescriptor.__new__(FlightDescriptor)
+
+    descriptor.descriptor = reader.get().descriptor()
+    py_reader.reader.reset(reader.release())
+    py_writer.writer.reset(writer.release())
+    try:
+        (<object> self).do_exchange(ServerCallContext.wrap(context),
+                                    descriptor, py_reader, py_writer)
+        return CStatus_OK()
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
 
 
 cdef CStatus _do_action_result_next(
@@ -2225,6 +2310,7 @@ cdef class FlightServerBase:
         vtable.get_schema = &_get_schema
         vtable.do_put = &_do_put
         vtable.do_get = &_do_get
+        vtable.do_exchange = &_do_exchange
         vtable.list_actions = &_list_actions
         vtable.do_action = &_do_action
 
@@ -2258,6 +2344,9 @@ cdef class FlightServerBase:
         raise NotImplementedError
 
     def do_get(self, context, ticket):
+        raise NotImplementedError
+
+    def do_exchange(self, context, descriptor, reader, writer):
         raise NotImplementedError
 
     def list_actions(self, context):
