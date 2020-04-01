@@ -65,7 +65,7 @@ class TestFeatherFileReader < Test::Unit::TestCase
     setup_file(table) do |reader|
       assert_equal(build_table("message" => build_string_array(["Login"]),
                                "host" => build_string_array(["www"])),
-                   reader.read_names(["host", "message"]))
+                   reader.read_names(["message", "host"]))
     end
   end
 end
