@@ -333,6 +333,20 @@ cdef class FileSystemDataset(Dataset):
         """The FileFormat of this source."""
         return FileFormat.wrap(self.filesystem_dataset.format())
 
+cdef shared_ptr[CExpression] _insert_implicit_casts(Expression filter,
+                                                    Schema schema) except *:
+    assert schema is not None
+
+    if filter is None:
+        return ScalarExpression(True).unwrap()
+
+    return GetResultValue(
+        CInsertImplicitCasts(
+            deref(filter.unwrap().get()),
+            deref(pyarrow_unwrap_schema(schema).get())
+        )
+    )
+
 
 cdef shared_ptr[CScanOptions] _make_scan_options(
         Schema schema, Expression partition_expression, object columns=None,
@@ -341,8 +355,11 @@ cdef shared_ptr[CScanOptions] _make_scan_options(
         shared_ptr[CScanOptions] options
         CExpression* c_partition_expression
 
-    if filter is not None:
-        filter = filter.assume(partition_expression)
+    assert schema is not None
+    assert partition_expression is not None
+
+    filter = Expression.wrap(_insert_implicit_casts(filter, schema))
+    filter = filter.assume(partition_expression)
 
     empty_dataset = UnionDataset(schema, children=[])
     scanner = Scanner(empty_dataset, columns=columns, filter=filter)
@@ -387,6 +404,7 @@ cdef class FileFormat:
         return self.wrapped
 
     def inspect(self, str path not None, FileSystem filesystem not None):
+        """Infer the schema of a file."""
         cdef:
             shared_ptr[CSchema] c_schema
 
@@ -397,6 +415,11 @@ cdef class FileFormat:
     def make_fragment(self, str path not None, FileSystem filesystem not None,
                       Schema schema=None, columns=None, filter=None,
                       Expression partition_expression=ScalarExpression(True)):
+        """
+        Make a FileFragment of this FileFormat. The filter may not reference
+        fields absent from the provided schema. If no schema is provided then
+        one will be inferred.
+        """
         cdef:
             shared_ptr[CScanOptions] c_options
             shared_ptr[CFileFragment] c_fragment
@@ -574,10 +597,7 @@ cdef class ParquetFileFragment(FileFragment):
             shared_ptr[CExpression] c_extra_filter
             shared_ptr[CFragment] c_fragment
 
-        if extra_filter is None:
-            extra_filter = ScalarExpression(True)
-        c_extra_filter = extra_filter.unwrap()
-
+        c_extra_filter = _insert_implicit_casts(extra_filter, self.schema)
         c_format = <CParquetFileFormat*> self.file_fragment.format().get()
         c_iterator = move(GetResultValue(c_format.GetRowGroupFragments(deref(
             self.parquet_file_fragment), move(c_extra_filter))))
@@ -1306,6 +1326,8 @@ cdef class Scanner:
         # create scan context
         context = make_shared[CScanContext]()
         context.get().pool = maybe_unbox_memory_pool(memory_pool)
+        if use_threads is not None:
+            context.get().use_threads = use_threads
 
         # create scanner builder
         builder = GetResultValue(
@@ -1314,18 +1336,11 @@ cdef class Scanner:
 
         # set the builder's properties
         if columns is not None:
-            columns_to_project = [tobytes(c) for c in columns]
-            check_status(builder.get().Project(columns_to_project))
-        if filter is not None:
-            filter_expression = GetResultValue(
-                CInsertImplicitCasts(
-                    deref(filter.unwrap().get()),
-                    deref(builder.get().schema().get())
-                )
-            )
-            check_status(builder.get().Filter(filter_expression))
-        if use_threads is not None:
-            check_status(builder.get().UseThreads(use_threads))
+            check_status(builder.get().Project([tobytes(c) for c in columns]))
+
+        check_status(builder.get().Filter(_insert_implicit_casts(
+            filter, pyarrow_wrap_schema(builder.get().schema())
+        )))
 
         check_status(builder.get().BatchSize(batch_size))
 

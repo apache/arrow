@@ -685,7 +685,11 @@ def test_fragments_reconstruct(tempdir):
         assert actual.column_names == columns
 
         expected = table.slice(*row_slice).to_pandas()[[*columns]]
-        assert (actual.to_pandas() == expected).all().all()
+        if not actual.equals(pa.Table.from_pandas(expected)):
+            print('-' * 90)
+            print(expected)
+            print(actual.to_pandas())
+        assert actual.equals(pa.Table.from_pandas(expected))
 
     fragment = list(dataset.get_fragments())[0]
     parquet_format = fragment.format
@@ -704,6 +708,13 @@ def test_fragments_reconstruct(tempdir):
         partition_expression=fragment.partition_expression)
     assert_yields_projected(new_fragment, (0, 2), ['f1'])
 
+    # filter requiring cast / column projection, inspected schema
+    new_fragment = parquet_format.make_fragment(
+        fragment.path, fragment.filesystem,
+        columns=['f1'], filter=ds.field('f1') < 2.0,
+        partition_expression=fragment.partition_expression)
+    assert_yields_projected(new_fragment, (0, 2), ['f1'])
+
     # filter on the partition column, explicit schema
     new_fragment = parquet_format.make_fragment(
         fragment.path, fragment.filesystem, schema=dataset.schema,
@@ -712,11 +723,11 @@ def test_fragments_reconstruct(tempdir):
     assert_yields_projected(new_fragment, (0, 4), table.column_names)
 
     # filter on the partition column, inspected schema
-    new_fragment = parquet_format.make_fragment(
-        fragment.path, fragment.filesystem,
-        filter=ds.field('part') == 'a',
-        partition_expression=fragment.partition_expression)
-    assert_yields_projected(new_fragment, (0, 4), ['f1', 'f2'])
+    with pytest.raises(ValueError, match="Field named 'part' not found"):
+        new_fragment = parquet_format.make_fragment(
+            fragment.path, fragment.filesystem,
+            filter=ds.field('part') == 'a',
+            partition_expression=fragment.partition_expression)
 
 
 @pytest.mark.pandas
