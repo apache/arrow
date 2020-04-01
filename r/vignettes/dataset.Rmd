@@ -23,6 +23,10 @@ is widely used in big data exercises and competitions.
 For demonstration purposes, we have hosted a Parquet-formatted version
 of about 10 years of the trip data in a public S3 bucket.
 
+The total file size is around 37 gigabytes, even in the efficient Parquet file format.
+That's bigger than memory on most people's computers,
+so we can't just read it all in and stack it into a single data frame.
+
 In a future release, you'll be able to point your R session at S3 and query
 the dataset from there. For now, datasets need to be on your local file system.
 To download the files,
@@ -32,27 +36,37 @@ bucket <- "https://ursa-labs-taxi-data.s3.us-east-2.amazonaws.com"
 dir.create("nyc-taxi")
 for (year in 2009:2019) {
   dir.create(file.path("nyc-taxi", year))
+  if (year == 2019) {
+    # We only have through June 2019 there
+    months <- 1:6
+  } else {
+    months <- 1:12
+  }
   for (month in 1:12) {
     if (month < 10) {
       month <- paste0("0", month)
     }
     dir.create(file.path("nyc-taxi", year, month))
-    try(download.file(
+    download.file(
       paste(bucket, year, month, "data.parquet", sep = "/"),
       file.path("nyc-taxi", year, month, "data.parquet")
-    ))
+    )
   }
 }
 ```
 
-It is expected that some files will not download because they do not exist--December 2019,
-for example--hence the `try()`.
-The total file size is around 37 gigabytes, even in the efficient Parquet file format.
-That's bigger than memory on most people's computers,
-so we can't just read it all in and stack it into a single data frame.
-
+Note that the vignette will not execute that code chunk: if you want to run
+with live data, you'll have to do it yourself separately.
 Given the size, if you're running this locally and don't have a fast connection,
 feel free to grab only a year or two of data.
+
+If you don't have the taxi data downloaded, the vignette will still run and will
+yield previously cached output for reference. To be explicit about which version
+is running, let's check whether we're running with live data:
+
+```{r}
+dir.exists("nyc-taxi")
+```
 
 ## Getting started
 
@@ -61,7 +75,7 @@ it is an optional (`Suggests`) dependency. So, to work with Datasets,
 we need to load both `arrow` and `dplyr`.
 
 ```{r}
-library(arrow, warn.conflits = FALSE)
+library(arrow, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
 ```
 
@@ -99,7 +113,7 @@ ds
 ```
 ```{r, echo = FALSE, eval = !file.exists("nyc-taxi")}
 cat("
-## Dataset
+## FileSystemDataset
 ## vendor_id: string
 ## pickup_at: timestamp[us]
 ## dropoff_at: timestamp[us]
@@ -195,12 +209,12 @@ cat("
 ## 10               9   16.7      42
 ##
 ##    user  system elapsed
-##  25.227   1.162   3.767
+##   4.436   1.012   1.402
 ")
 ```
 
 We just selected a window out of a dataset with around 2 billion rows
-and aggregated on it in under 4 seconds on my laptop. How does this work?
+and aggregated on it in under 2 seconds on my laptop. How does this work?
 
 First, `select()`/`rename()`, `filter()`, and `group_by()`
 record their actions but don't evaluate on the data until you run `collect()`.
@@ -214,7 +228,7 @@ ds %>%
 
 ```{r, echo = FALSE, eval = !file.exists("nyc-taxi")}
 cat("
-## Dataset (query)
+## FileSystemDataset (query)
 ## tip_amount: float
 ## total_amount: float
 ## passenger_count: int8
