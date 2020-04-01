@@ -1002,7 +1002,7 @@ cdef class Array(_PandasConvertible):
 
         return wrap_datum(out)
 
-    def filter(self, Array mask, drop_nulls=True):
+    def filter(self, Array mask, null_selection_behavior='drop'):
         """
         Filter the array with a boolean mask.
 
@@ -1010,9 +1010,12 @@ cdef class Array(_PandasConvertible):
         ----------
         mask : Array
             The boolean mask indicating which values to extract.
-        drop_nulls : bool, default True
-            A null slot in the mask will be treated as equivalent to False.
-            Otherwise the null will be emitted in the output.
+        null_selection_behavior : str, default 'drop'
+            Configure the behavior on encountering a null slot in the mask.
+            Allowed values are 'drop' and 'emit_null'.
+
+            'drop': nulls will be treated as equivalent to False.
+            'emit_null': nulls will result in a null in the output.
 
         Returns
         -------
@@ -1030,7 +1033,7 @@ cdef class Array(_PandasConvertible):
           "a",
           "e"
         ]
-        >>> arr.filter(mask, drop_nulls=False)
+        >>> arr.filter(mask, null_selection_behavior='emit_null')
         <pyarrow.lib.StringArray object at 0x7fa826df9200>
         [
           "a",
@@ -1042,9 +1045,15 @@ cdef class Array(_PandasConvertible):
             cdef CDatum out
             CFilterOptions options
 
-        if not drop_nulls:
+        if null_selection_behavior == 'drop':
+            options.null_selection_behavior = \
+                CFilterNullSelectionBehavior_DROP
+        elif null_selection_behavior == 'emit_null':
             options.null_selection_behavior = \
                 CFilterNullSelectionBehavior_EMIT_NULL
+        else:
+            raise ValueError('"' + null_selection_behavior + '" is not a ' +
+                             'valid null_selection_behavior')
 
         with nogil:
             check_status(FilterKernel(_context(), CDatum(self.sp_array),

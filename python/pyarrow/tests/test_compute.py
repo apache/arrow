@@ -149,10 +149,10 @@ def test_filter(ty, values):
     arr = pa.array(values, type=ty)
 
     mask = pa.array([True, False, False, True, None])
-    result = arr.filter(mask, drop_nulls=True)
+    result = arr.filter(mask, null_selection_behavior='drop')
     result.validate()
     assert result.equals(pa.array([values[0], values[3]], type=ty))
-    result = arr.filter(mask, drop_nulls=False)
+    result = arr.filter(mask, null_selection_behavior='emit_null')
     result.validate()
     assert result.equals(pa.array([values[0], values[3], None], type=ty))
 
