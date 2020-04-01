@@ -125,16 +125,15 @@ cdef object pyarrow_wrap_metadata(
         return KeyValueMetadata.wrap(meta)
 
 
-cdef shared_ptr[CKeyValueMetadata] pyarrow_unwrap_metadata(object meta) \
-        except *:
-    cdef vector[c_string] keys, values
+cdef api bint pyarrow_is_metadata(object metadata):
+    return isinstance(metadata, KeyValueMetadata)
 
-    if isinstance(meta, KeyValueMetadata):
-        return (<KeyValueMetadata>meta).unwrap().get().Copy()
-    elif isinstance(meta, dict):
-        return KeyValueMetadata(meta).unwrap().get().Copy()
-    else:
-        return shared_ptr[CKeyValueMetadata]()
+
+cdef shared_ptr[const CKeyValueMetadata] pyarrow_unwrap_metadata(object meta):
+    cdef shared_ptr[const CKeyValueMetadata] c_meta
+    if pyarrow_is_metadata(meta):
+        c_meta = (<KeyValueMetadata>meta).unwrap()
+    return c_meta
 
 
 cdef api bint pyarrow_is_field(object field):

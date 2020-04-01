@@ -142,7 +142,13 @@ cdef class PyExtensionType(ExtensionType):
     pass
 
 
-cdef class KeyValueMetadata:
+cdef class _Metadata:
+    # required because KeyValueMetadata also extends collections.abc.Mapping
+    # and the first parent class must be an extension type
+    pass
+
+
+cdef class KeyValueMetadata(_Metadata):
     cdef:
         shared_ptr[const CKeyValueMetadata] wrapped
         const CKeyValueMetadata* metadata

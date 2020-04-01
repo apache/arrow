@@ -22,7 +22,6 @@ import json
 import operator
 import re
 import warnings
-from copy import deepcopy
 
 import numpy as np
 
@@ -235,7 +234,7 @@ def construct_metadata(df, column_names, index_levels, index_descriptors,
         index_descriptors = index_column_metadata = column_indexes = []
 
     return {
-        b'pandas': json.dumps({
+        'pandas': json.dumps({
             'index_columns': index_descriptors,
             'column_indexes': column_indexes,
             'columns': column_metadata + index_column_metadata,
@@ -591,8 +590,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
     pandas_metadata = construct_metadata(df, column_names, index_columns,
                                          index_descriptors, preserve_index,
                                          types)
-    metadata = deepcopy(schema.metadata) if schema.metadata else dict()
-    metadata.update(pandas_metadata)
+    metadata = pa.KeyValueMetadata(schema.metadata or {}, **pandas_metadata)
     schema = schema.with_metadata(metadata)
 
     return arrays, schema

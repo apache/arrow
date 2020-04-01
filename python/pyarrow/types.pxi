@@ -809,7 +809,7 @@ def unregister_extension_type(type_name):
     check_status(UnregisterPyExtensionType(c_type_name))
 
 
-cdef class KeyValueMetadata:
+cdef class KeyValueMetadata(_Metadata, Mapping):
 
     def __init__(self, *args, **kwargs):
         cdef:
@@ -880,6 +880,9 @@ cdef class KeyValueMetadata:
         for i in range(self.metadata.size()):
             yield self.metadata.key(i)
 
+    def __reduce__(self):
+        return KeyValueMetadata, (list(self.items()),)
+
     def keys(self):
         return list(self)
 
@@ -893,6 +896,15 @@ cdef class KeyValueMetadata:
     def get_all(self, key):
         key = tobytes(key)
         return [v for k, v in self.items() if k == key]
+
+
+cdef KeyValueMetadata ensure_metadata(object meta, c_bool allow_none=False):
+    if allow_none and meta is None:
+        return None
+    elif isinstance(meta, KeyValueMetadata):
+        return meta
+    else:
+        return KeyValueMetadata(meta)
 
 
 cdef class Field:
@@ -981,7 +993,7 @@ cdef class Field:
         """
         cdef shared_ptr[CField] c_field
 
-        meta = KeyValueMetadata(metadata)
+        meta = ensure_metadata(metadata, allow_none=False)
         with nogil:
             c_field = self.field.WithMetadata(meta.unwrap())
 
@@ -1415,7 +1427,7 @@ cdef class Schema:
         """
         cdef shared_ptr[CSchema] c_schema
 
-        meta = KeyValueMetadata(metadata)
+        meta = ensure_metadata(metadata, allow_none=False)
         with nogil:
             c_schema = self.schema.WithMetadata(meta.unwrap())
 
@@ -1577,8 +1589,8 @@ def field(name, type, bint nullable=True, metadata=None):
         DataType _type = ensure_type(type, allow_none=False)
         shared_ptr[const CKeyValueMetadata] c_meta
 
-    if metadata is not None:
-        c_meta = KeyValueMetadata(metadata).unwrap()
+    metadata = ensure_metadata(metadata, allow_none=True)
+    c_meta = pyarrow_unwrap_metadata(metadata)
 
     result.sp_field.reset(
         new CField(tobytes(name), _type.sp_type, nullable, c_meta)
@@ -2446,8 +2458,8 @@ def schema(fields, metadata=None):
             raise TypeError("field or tuple expected, got None")
         c_fields.push_back(py_field.sp_field)
 
-    if metadata is not None:
-        c_meta = KeyValueMetadata(metadata).unwrap()
+    metadata = ensure_metadata(metadata, allow_none=True)
+    c_meta = pyarrow_unwrap_metadata(metadata)
 
     c_schema.reset(new CSchema(c_fields, c_meta))
     result = Schema.__new__(Schema)

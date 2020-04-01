@@ -601,9 +601,8 @@ cdef class RecordBatch(_PandasConvertible):
             shared_ptr[const CKeyValueMetadata] c_meta
             shared_ptr[CRecordBatch] c_batch
 
-        if metadata is not None:
-            c_meta = KeyValueMetadata(metadata).unwrap()
-
+        metadata = ensure_metadata(metadata, allow_none=True)
+        c_meta = pyarrow_unwrap_metadata(metadata)
         with nogil:
             c_batch = self.batch.ReplaceSchemaMetadata(c_meta)
 
@@ -1125,9 +1124,8 @@ cdef class Table(_PandasConvertible):
             shared_ptr[const CKeyValueMetadata] c_meta
             shared_ptr[CTable] c_table
 
-        if metadata is not None:
-            c_meta = KeyValueMetadata(metadata).unwrap()
-
+        metadata = ensure_metadata(metadata, allow_none=True)
+        c_meta = pyarrow_unwrap_metadata(metadata)
         with nogil:
             c_table = self.table.ReplaceSchemaMetadata(c_meta)
 
