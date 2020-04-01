@@ -207,6 +207,9 @@ struct ValidateArrayVisitor {
     if (array.data()->buffers.size() != 3) {
       return Status::Invalid("number of buffers is != 3");
     }
+    if (array.value_data() == nullptr) {
+      return Status::Invalid("value data buffer is null");
+    }
     return ValidateOffsets(array);
   }
 
@@ -457,7 +460,7 @@ struct ValidateArrayDataVisitor {
     if (!indices_status.ok()) {
       return Status::Invalid("Dictionary indices invalid: ", indices_status.ToString());
     }
-    return Status::OK();
+    return ValidateArrayData(*array.dictionary());
   }
 
   Status Visit(const ExtensionArray& array) {
@@ -467,6 +470,9 @@ struct ValidateArrayDataVisitor {
  protected:
   template <typename BinaryArrayType>
   Status ValidateBinaryArray(const BinaryArrayType& array) {
+    if (array.value_data() == nullptr) {
+      return Status::Invalid("value data buffer is null");
+    }
     return ValidateOffsets(array, array.value_data()->size());
   }
 
