@@ -316,7 +316,8 @@ def test_recordbatch_basics():
         batch[2]
 
     # Schema passed explicitly
-    schema = pa.schema([pa.field('c0', pa.int16()),
+    schema = pa.schema([pa.field('c0', pa.int16(),
+                                 metadata={'key': 'value'}),
                         pa.field('c1', pa.int32())],
                        metadata={b'foo': b'bar'})
     batch = pa.record_batch(data, schema=schema)
@@ -324,9 +325,18 @@ def test_recordbatch_basics():
     # schema as first positional argument
     batch = pa.record_batch(data, schema)
     assert batch.schema == schema
-    assert (str(batch) == """pyarrow.RecordBatch
+    assert str(batch) == """pyarrow.RecordBatch
 c0: int16
-c1: int32""")
+c1: int32"""
+
+    assert batch.to_string(show_metadata=True) == """\
+pyarrow.RecordBatch
+c0: int16
+  -- field metadata --
+  key: 'value'
+c1: int32
+-- schema metadata --
+foo: 'bar'"""
 
 
 def test_recordbatch_equals():
@@ -1309,6 +1319,29 @@ def test_factory_functions_invalid_input():
 
     with pytest.raises(TypeError, match="Expected pandas DataFrame"):
         pa.record_batch("invalid input")
+
+
+def test_table_repr_to_string():
+    # Schema passed explicitly
+    schema = pa.schema([pa.field('c0', pa.int16(),
+                                 metadata={'key': 'value'}),
+                        pa.field('c1', pa.int32())],
+                       metadata={b'foo': b'bar'})
+
+    tab = pa.table([pa.array([1, 2, 3, 4], type='int16'),
+                    pa.array([1, 2, 3, 4], type='int32')], schema=schema)
+    assert str(tab) == """pyarrow.Table
+c0: int16
+c1: int32"""
+
+    assert tab.to_string(show_metadata=True) == """\
+pyarrow.Table
+c0: int16
+  -- field metadata --
+  key: 'value'
+c1: int32
+-- schema metadata --
+foo: 'bar'"""
 
 
 def test_table_function_unicode_schema():

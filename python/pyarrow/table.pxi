@@ -551,12 +551,16 @@ cdef class RecordBatch(_PandasConvertible):
         except TypeError:
             return NotImplemented
 
-    def __repr__(self):
+    def to_string(self, show_metadata=False):
         # Use less verbose schema output.
-        schema_as_string = self.schema.to_string(show_field_metadata=False,
-                                                 show_schema_metadata=False)
-        return 'pyarrow.{}\n{}'.format(type(self).__name__,
-                                       schema_as_string)
+        schema_as_string = self.schema.to_string(
+            show_field_metadata=show_metadata,
+            show_schema_metadata=show_metadata
+        )
+        return 'pyarrow.{}\n{}'.format(type(self).__name__, schema_as_string)
+
+    def __repr__(self):
+        return self.to_string()
 
     def validate(self, *, full=False):
         """
@@ -1026,15 +1030,19 @@ cdef class Table(_PandasConvertible):
         raise TypeError("Do not call Table's constructor directly, use one of "
                         "the `Table.from_*` functions instead.")
 
+    def to_string(self, show_metadata=False):
+        # Use less verbose schema output.
+        schema_as_string = self.schema.to_string(
+            show_field_metadata=show_metadata,
+            show_schema_metadata=show_metadata
+        )
+        return 'pyarrow.{}\n{}'.format(type(self).__name__, schema_as_string)
+
     def __repr__(self):
         if self.table == NULL:
             raise ValueError("Table's internal pointer is NULL, do not use "
                              "any methods or attributes on this object")
-        # Use less verbose schema output.
-        schema_as_string = self.schema.to_string(show_field_metadata=False,
-                                                 show_schema_metadata=False)
-        return 'pyarrow.{}\n{}'.format(type(self).__name__,
-                                       schema_as_string)
+        return self.to_string()
 
     cdef void init(self, const shared_ptr[CTable]& table):
         self.sp_table = table
