@@ -38,6 +38,7 @@ test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
   expect_is(writer, "RecordBatchFileWriter")
   writer$write_table(tab)
   writer$close()
+  stream$close()
   tab3 <- read_arrow(tf2, as_data_frame = FALSE)
   expect_equal(tab, tab3)
   # Make sure connections are closed
