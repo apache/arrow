@@ -3,19 +3,19 @@
 \name{read_table}
 \alias{read_table}
 \alias{read_arrow}
-\alias{read_stream}
+\alias{read_ipc_stream}
 \title{Read Arrow formatted data}
 \usage{
 read_table(x, ...)
 
 read_arrow(x, ...)
 
-read_stream(x, as_data_frame = TRUE, ...)
+read_ipc_stream(x, as_data_frame = TRUE, ...)
 }
 \arguments{
 \item{x}{string file path, buffer, or Arrow C++ class to read from. If
 \code{read_arrow()} receives a \code{RecordBatchStreamReader} or a R \code{raw} vector,
-it will dispatch to \code{read_stream()}; otherwise, it calls \code{read_feather()}
+it will dispatch to \code{read_ipc_stream()}; otherwise, it calls \code{read_feather()}
 to write a file.}
 
 \item{...}{extra parameters passed to \code{read_feather()}.}
@@ -30,7 +30,7 @@ Arrow \link{Table} otherwise
 \description{
 Apache Arrow defines two formats for \href{https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc}{serializing data for interprocess communication (IPC)}:
 a "stream" format and a "file" format, known as Feather. \code{read_arrow()}
-is a convenience wrapper around \code{read_stream()} and \code{\link[=read_feather]{read_feather()}}, which
+is a convenience wrapper around \code{read_ipc_stream()} and \code{\link[=read_feather]{read_feather()}}, which
 write those formats, respectively.
 }
 \seealso{

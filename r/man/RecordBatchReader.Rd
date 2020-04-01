@@ -36,3 +36,40 @@ are in the file.
 }
 }
 
+\examples{
+\donttest{
+tf <- tempfile()
+on.exit(unlink(tf))
+
+batch <- record_batch(iris)
+
+# This opens a connection to the file in Arrow
+file_obj <- FileOutputStream$create(tf)
+# Pass that to a RecordBatchWriter to write data conforming to a schema
+writer <- RecordBatchFileWriter$create(file_obj, batch$schema)
+writer$write(batch)
+# You may write additional batches to the stream, provided that they have
+# the same schema.
+# Call "close" on the writer to indicate end-of-file/stream
+writer$close()
+# Then, close the connection--closing the IPC message does not close the file
+file_obj$close()
+
+# Now, we have a file we can read from. Same pattern: open file connection,
+# then pass it to a RecordBatchReader
+read_file_obj <- ReadableFile$create(tf)
+reader <- RecordBatchFileReader$create(read_file_obj)
+# RecordBatchFileReader knows how many batches it has (StreamReader does not)
+reader$num_record_batches
+# We could consume the Reader by calling $read_next_batch() until all are,
+# consumed, or we can call $read_table() to pull them all into a Table
+tab <- reader$read_table()
+# Call as.data.frame to turn that Table into an R data.frame
+df <- as.data.frame(tab)
+# This should be the same data we sent
+all.equal(df, iris, check.attributes = FALSE)
+# Unlike the Writers, we don't have to close RecordBatchReaders,
+# but we do still need to close the file connection
+read_file_obj$close()
+}
+}

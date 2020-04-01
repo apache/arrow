@@ -26,6 +26,7 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   tab <- Table$create(!!!tbl)
 
   tf <- tempfile()
+  on.exit(unlink(tf))
   write_arrow(tab, tf)
 
   bytes <- write_arrow(tab, raw())
@@ -34,37 +35,21 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   tab2 <- read_feather(normalizePath(tf), as_data_frame = FALSE)
 
   readable_file <- ReadableFile$create(tf)
-  file_reader1 <- RecordBatchFileReader$create(readable_file)
-  tab3 <- read_arrow(file_reader1, as_data_frame = FALSE)
+  tab3 <- read_arrow(readable_file, as_data_frame = FALSE)
   readable_file$close()
 
   mmap_file <- mmap_open(tf)
-  file_reader2 <- RecordBatchFileReader$create(mmap_file)
   # check for deprecation message
   expect_deprecated(
-    tab4 <- read_table(file_reader2),
+    tab4 <- read_table(mmap_file),
     "read_arrow"
   )
   mmap_file$close()
-
-  tab5 <- read_arrow(bytes, as_data_frame = FALSE)
-
-  stream_reader <- RecordBatchStreamReader$create(bytes)
-  tab6 <- read_arrow(stream_reader, as_data_frame = FALSE)
-
-  file_reader <- RecordBatchFileReader$create(tf)
-  tab7 <- read_arrow(file_reader, as_data_frame = FALSE)
 
   expect_equal(tab, tab1)
   expect_equal(tab, tab2)
   expect_equal(tab, tab3)
   expect_equal(tab, tab4)
-  expect_equal(tab, tab5)
-  expect_equal(tab, tab6)
-  expect_equal(tab, tab7)
-
-  unlink(tf)
-
 })
 
 test_that("Table cast (ARROW-3741)", {

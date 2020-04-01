@@ -121,3 +121,22 @@ test_that("write_arrow() returns its input", {
   df_out <- write_arrow(df, tf)
   expect_identical(df, df_out)
 })
+
+test_that("reading/writing a raw vector (sparklyr integration)", {
+  write_to_raw <- function(x) {
+    write_arrow(record_batch(x), raw())
+  }
+  read_from_raw <- function(x) {
+    as.data.frame(RecordBatchStreamReader$create(x)$read_next_batch())
+  }
+  tbl <- tibble::tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+    chr = letters[1:10],
+    fct = factor(letters[1:10])
+  )
+  bytes <- write_to_raw(tbl)
+  expect_is(bytes, "raw")
+  expect_identical(read_from_raw(bytes), tbl)
+})
