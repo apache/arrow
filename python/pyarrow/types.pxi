@@ -1390,14 +1390,20 @@ cdef class Schema:
             new_schema = self.schema.RemoveMetadata()
         return pyarrow_wrap_schema(new_schema)
 
-    def to_string(self, bint verbose_metadata=False):
+    def to_string(self, truncate_metadata=True, show_field_metadata=True,
+                  show_schema_metadata=True):
         """
         Return human-readable representation of Schema
 
         Parameters
         ----------
-        verbose_metadata : boolean, default False
-            Print metadata keys and values instead of just the keys (if any)
+        truncate_metadata : boolean, default True
+            Limit metadata key/value display to a single line of ~80 characters
+            or less
+        show_field_metadata : boolean, default True
+            Display Field-level KeyValueMetadata
+        show_schema_metadata : boolean, default True
+            Display Schema-level KeyValueMetadata
 
         Returns
         -------
@@ -1405,11 +1411,14 @@ cdef class Schema:
         """
         cdef:
             c_string result
-            PrettyPrintOptions options
+            PrettyPrintOptions options = PrettyPrintOptions.Defaults()
+
+        options.indent = 0
+        options.truncate_metadata = truncate_metadata
+        options.show_field_metadata = show_field_metadata
+        options.show_schema_metadata = show_schema_metadata
 
         with nogil:
-            options.indent = 0
-            options.verbose_metadata = verbose_metadata
             check_status(
                 PrettyPrint(
                     deref(self.schema),

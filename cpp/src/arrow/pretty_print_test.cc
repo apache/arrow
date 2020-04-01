@@ -680,7 +680,7 @@ two: string not null
   foo2: 'bar2'
 -- schema metadata --
 foo3: 'bar3'
-lorem: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla accumsa' + 732)";
+lorem: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla ac' + 737)";
   Check(*my_schema, options, expected);
 
   static const char* expected_verbose = R"(one: int32
@@ -701,19 +701,30 @@ lorem: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla accumsan 
           pellentesque sagittis. Aenean feugiat, diam ac dignissim fermentum, lorem
           sapien commodo massa, vel volutpat orci nisi eu justo. Nulla non blandit
           sapien. Quisque pretium vestibulum urna eu vehicula.')";
-  options.verbose_metadata = true;
+  options.truncate_metadata = false;
   Check(*my_schema, options, expected_verbose);
 
+  // Metadata that exactly fits
   auto metadata4 =
       key_value_metadata({"key"}, {("valuexxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                                     "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")});
-  // Metadata that exactly files
   my_schema = schema({field("f0", int32())}, metadata4);
   static const char* expected_fits = R"(f0: int32
 -- schema metadata --
 key: 'valuexxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')";
-  options.verbose_metadata = false;
+  options.truncate_metadata = false;
   Check(*my_schema, options, expected_fits);
+
+  // A large key
+  auto metadata5 = key_value_metadata({"0123456789012345678901234567890123456789"},
+                                      {("valuexxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")});
+  my_schema = schema({field("f0", int32())}, metadata5);
+  static const char* expected_big_key = R"(f0: int32
+-- schema metadata --
+0123456789012345678901234567890123456789: 'valuexxxxxxxxxxxxxxxxxxxxxxxxx' + 40)";
+  options.truncate_metadata = true;
+  Check(*my_schema, options, expected_big_key);
 }
 
 TEST_F(TestPrettyPrint, SchemaIndentation) {

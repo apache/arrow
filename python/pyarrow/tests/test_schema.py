@@ -273,18 +273,18 @@ bar: string
   key3: 'value3'
 -- schema metadata --
 key2: 'value2'
-lorem: '""" + lorem[:70] + "' + " + str(len(lorem) - 70)
+lorem: '""" + lorem[:65] + "' + " + str(len(lorem) - 65)
 
     # Metadata that exactly fits
     result = pa.schema([('f0', 'int32')],
-                       metadata={'key': 'value' + 'x' * 65}).to_string()
-    assert result == """
+                       metadata={'key': 'value' + 'x' * 62}).to_string()
+    assert result == """\
 f0: int32
 -- schema metadata --
 key: 'valuexxxxxxxxxxxxxxxxxxxxxxxxxxxxx\
-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'"""
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'"""
 
-    assert my_schema.to_string(verbose_metadata=True) == """\
+    assert my_schema.to_string(truncate_metadata=False) == """\
 foo: int32 not null
   -- field metadata --
   key1: 'value1'
@@ -294,6 +294,29 @@ bar: string
 -- schema metadata --
 key2: 'value2'
 lorem: '{}'""".format(lorem)
+
+    assert my_schema.to_string(truncate_metadata=False,
+                               show_field_metadata=False) == """\
+foo: int32 not null
+bar: string
+-- schema metadata --
+key2: 'value2'
+lorem: '{}'""".format(lorem)
+
+    assert my_schema.to_string(truncate_metadata=False,
+                               show_schema_metadata=False) == """\
+foo: int32 not null
+  -- field metadata --
+  key1: 'value1'
+bar: string
+  -- field metadata --
+  key3: 'value3'"""
+
+    assert my_schema.to_string(truncate_metadata=False,
+                               show_field_metadata=False,
+                               show_schema_metadata=False) == """\
+foo: int32 not null
+bar: string"""
 
 
 def test_schema_from_tuples():

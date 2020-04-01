@@ -876,7 +876,7 @@ cdef class Array(_PandasConvertible):
         type_format = object.__repr__(self)
         return '{0}\n{1}'.format(type_format, str(self))
 
-    def format(self, int indent=0, int window=10):
+    def to_string(self, int indent=0, int window=10):
         cdef:
             c_string result
 
@@ -891,8 +891,13 @@ cdef class Array(_PandasConvertible):
 
         return frombytes(result)
 
+    def format(self, **kwargs):
+        import warnings
+        warnings.warn('Array.format is deprecated, use Array.to_string')
+        return self.to_string(**kwargs)
+
     def __str__(self):
-        return self.format()
+        return self.to_string()
 
     def equals(Array self, Array other):
         return self.ap.Equals(deref(other.ap))
