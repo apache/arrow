@@ -125,7 +125,7 @@ Status KeyValuePartitioning::SetDefaultValuesFromKeys(const Expression& expr,
       expr, [projector](const std::string& name, const std::shared_ptr<Scalar>& value) {
         ARROW_ASSIGN_OR_RAISE(auto match,
                               FieldRef(name).FindOneOrNone(*projector->schema()));
-        if (match.empty()) {
+        if (match.indices().empty()) {
           return Status::OK();
         }
         return projector->SetDefaultValue(match, value);
