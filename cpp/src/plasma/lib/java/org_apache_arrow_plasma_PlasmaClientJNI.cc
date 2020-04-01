@@ -246,17 +246,19 @@ JNIEXPORT jobjectArray JNICALL
 Java_org_apache_arrow_plasma_PlasmaClientJNI_list(JNIEnv* env, jclass cls, jlong conn) {
   plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);
   plasma::ObjectTable objectTable;
-  client->List(&objectTable);
+  throw_exception_if_not_OK(env, client->List(&objectTable));
   jobjectArray ret =
       env->NewObjectArray(objectTable.size(), env->FindClass("[B"), env->NewByteArray(1));
   int i = 0;
-  for (auto iter = objectTable.begin(); iter != objectTable.end(); iter++) {
-    jbyteArray id = env->NewByteArray(OBJECT_ID_SIZE);
+  for(const auto& id_entry_pair : objectTable) {
+    const plasma::ObjectID& id = id_entry_pair.first;
+    jbyteArray idByteArray = env->NewByteArray(OBJECT_ID_SIZE);
     env->SetByteArrayRegion(
-        id, 0, OBJECT_ID_SIZE,
-        reinterpret_cast<jbyte*>(const_cast<uint8_t*>(iter->first.data())));
-    env->SetObjectArrayElement(ret, i, id);
+        idByteArray, 0, OBJECT_ID_SIZE,
+        reinterpret_cast<jbyte*>(const_cast<uint8_t*>(id.data())));
+    env->SetObjectArrayElement(ret, i, idByteArray);
     i++;
   }
+
   return ret;
 }
