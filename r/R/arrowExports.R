@@ -1448,6 +1448,14 @@ Table__Equals <- function(lhs, rhs, check_metadata){
     .Call(`_arrow_Table__Equals` , lhs, rhs, check_metadata)
 }
 
+Table__Validate <- function(table){
+    .Call(`_arrow_Table__Validate` , table)
+}
+
+Table__ValidateFull <- function(table){
+    .Call(`_arrow_Table__ValidateFull` , table)
+}
+
 Table__GetColumnByName <- function(table, name){
     .Call(`_arrow_Table__GetColumnByName` , table, name)
 }

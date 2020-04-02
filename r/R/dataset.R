@@ -153,6 +153,24 @@ dim.Dataset <- function(x) c(x$num_rows, x$num_cols)
 #' @rdname Dataset
 #' @export
 FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
+  public = list(
+    .class_title = function() {
+      nfiles <- length(self$files)
+      file_type <- self$format$type
+      pretty_file_type <- list(
+        parquet = "Parquet",
+        ipc = "Feather"
+      )[[file_type]]
+
+      paste(
+        class(self)[[1]],
+        "with",
+        nfiles,
+        pretty_file_type %||% file_type,
+        ifelse(nfiles == 1, "file", "files")
+      )
+    }
+  ),
   active = list(
     #' @description
     #' Return the files contained in this `FileSystemDataset`

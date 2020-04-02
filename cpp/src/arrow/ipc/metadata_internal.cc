@@ -29,12 +29,14 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
+#include "arrow/ipc/util.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/ubsan.h"
 #include "arrow/visitor_inline.h"
 
 #include "generated/File_generated.h"
@@ -932,6 +934,64 @@ Status MakeSparseMatrixIndexCSX(FBB& fbb, const SparseIndexType& sparse_index,
   return Status::OK();
 }
 
+Status MakeSparseTensorIndexCSF(FBB& fbb, const SparseCSFIndex& sparse_index,
+                                const std::vector<BufferMetadata>& buffers,
+                                flatbuf::SparseTensorIndex* fb_sparse_index_type,
+                                Offset* fb_sparse_index, size_t* num_buffers) {
+  *fb_sparse_index_type = flatbuf::SparseTensorIndex::SparseTensorIndexCSF;
+  const int ndim = static_cast<int>(sparse_index.axis_order().size());
+
+  // We assume that the value type of indptr tensor is an integer.
+  const auto& indptr_value_type =
+      checked_cast<const IntegerType&>(*sparse_index.indptr()[0]->type());
+  auto indptr_type_offset = flatbuf::CreateInt(fbb, indptr_value_type.bit_width(),
+                                               indptr_value_type.is_signed());
+
+  // We assume that the value type of indices tensor is an integer.
+  const auto& indices_value_type =
+      checked_cast<const IntegerType&>(*sparse_index.indices()[0]->type());
+  auto indices_type_offset = flatbuf::CreateInt(fbb, indices_value_type.bit_width(),
+                                                indices_value_type.is_signed());
+
+  const int64_t indptr_elem_size = indptr_value_type.bit_width() / 8;
+  const int64_t indices_elem_size = indices_value_type.bit_width() / 8;
+
+  int64_t offset = 0;
+  std::vector<flatbuf::Buffer> indptr, indices;
+
+  for (const std::shared_ptr<arrow::Tensor> tensor : sparse_index.indptr()) {
+    const int64_t size = tensor->data()->size() / indptr_elem_size;
+    const int64_t padded_size = PaddedLength(tensor->data()->size(), kArrowIpcAlignment);
+
+    indptr.push_back({offset, size});
+    offset += padded_size;
+  }
+  for (const std::shared_ptr<arrow::Tensor> tensor : sparse_index.indices()) {
+    const int64_t size = tensor->data()->size() / indices_elem_size;
+    const int64_t padded_size = PaddedLength(tensor->data()->size(), kArrowIpcAlignment);
+
+    indices.push_back({offset, size});
+    offset += padded_size;
+  }
+
+  auto fb_indices = fbb.CreateVectorOfStructs(indices);
+  auto fb_indptr = fbb.CreateVectorOfStructs(indptr);
+
+  std::vector<int> axis_order;
+  for (int i = 0; i < ndim; ++i) {
+    axis_order.emplace_back(static_cast<int>(sparse_index.axis_order()[i]));
+  }
+  auto fb_axis_order =
+      fbb.CreateVector(arrow::util::MakeNonNull(axis_order.data()), axis_order.size());
+
+  *fb_sparse_index =
+      flatbuf::CreateSparseTensorIndexCSF(fbb, indptr_type_offset, fb_indptr,
+                                          indices_type_offset, fb_indices, fb_axis_order)
+          .Union();
+  *num_buffers = 2 * ndim - 1;
+  return Status::OK();
+}
+
 Status MakeSparseTensorIndex(FBB& fbb, const SparseIndex& sparse_index,
                              const std::vector<BufferMetadata>& buffers,
                              flatbuf::SparseTensorIndex* fb_sparse_index_type,
@@ -955,7 +1015,14 @@ Status MakeSparseTensorIndex(FBB& fbb, const SparseIndex& sparse_index,
           fb_sparse_index_type, fb_sparse_index, num_buffers));
       break;
 
+    case SparseTensorFormat::CSF:
+      RETURN_NOT_OK(MakeSparseTensorIndexCSF(
+          fbb, checked_cast<const SparseCSFIndex&>(sparse_index), buffers,
+          fb_sparse_index_type, fb_sparse_index, num_buffers));
+      break;
+
     default:
+      *fb_sparse_index_type = flatbuf::SparseTensorIndex::NONE;  // Silence warnings
       std::stringstream ss;
       ss << "Unsupported sparse tensor format:: " << sparse_index.ToString() << std::endl;
       return Status::NotImplemented(ss.str());
@@ -1215,6 +1282,23 @@ Status GetSparseCSXIndexMetadata(const flatbuf::SparseMatrixIndexCSX* sparse_ind
   return Status::OK();
 }
 
+Status GetSparseCSFIndexMetadata(const flatbuf::SparseTensorIndexCSF* sparse_index,
+                                 std::vector<int64_t>* axis_order,
+                                 std::vector<int64_t>* indices_size,
+                                 std::shared_ptr<DataType>* indptr_type,
+                                 std::shared_ptr<DataType>* indices_type) {
+  RETURN_NOT_OK(IntFromFlatbuffer(sparse_index->indptrType(), indptr_type));
+  RETURN_NOT_OK(IntFromFlatbuffer(sparse_index->indicesType(), indices_type));
+
+  const int ndim = static_cast<int>(sparse_index->axisOrder()->size());
+  for (int i = 0; i < ndim; ++i) {
+    axis_order->push_back(sparse_index->axisOrder()->Get(i));
+    indices_size->push_back(sparse_index->indicesBuffers()->Get(i)->length());
+  }
+
+  return Status::OK();
+}
+
 Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,
                                std::vector<int64_t>* shape,
                                std::vector<std::string>* dim_names,
@@ -1268,6 +1352,10 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
             return Status::Invalid("Invalid value of SparseMatrixCompressedAxis");
         }
       } break;
+
+      case flatbuf::SparseTensorIndex::SparseTensorIndexCSF:
+        *sparse_tensor_format_id = SparseTensorFormat::CSF;
+        break;
 
       default:
         return Status::Invalid("Unrecognized sparse index type");

@@ -324,6 +324,39 @@ def test_recordbatch_basics():
     # schema as first positional argument
     batch = pa.record_batch(data, schema)
     assert batch.schema == schema
+    assert (str(batch) == """pyarrow.RecordBatch
+c0: int16
+c1: int32""")
+
+
+def test_recordbatch_equals():
+    data1 = [
+        pa.array(range(5), type='int16'),
+        pa.array([-10, -5, 0, None, 10], type='int32')
+    ]
+    data2 = [
+        pa.array(['a', 'b', 'c']),
+        pa.array([['d'], ['e'], ['f']]),
+    ]
+    column_names = ['c0', 'c1']
+
+    batch = pa.record_batch(data1, column_names)
+    assert batch == pa.record_batch(data1, column_names)
+    assert batch.equals(pa.record_batch(data1, column_names))
+
+    assert batch != pa.record_batch(data2, column_names)
+    assert not batch.equals(pa.record_batch(data2, column_names))
+
+
+def test_recordbatch_take():
+    batch = pa.record_batch(
+        [pa.array([1, 2, 3, None, 5]),
+         pa.array(['a', 'b', 'c', 'd', 'e'])],
+        ['f1', 'f2'])
+    assert batch.take(pa.array([2, 3])).equals(batch.slice(2, 2))
+    assert batch.take(pa.array([2, None])).equals(
+        pa.record_batch([pa.array([3, None]), pa.array(['c', None])],
+                        ['f1', 'f2']))
 
 
 def test_recordbatch_column_sets_private_name():

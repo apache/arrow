@@ -174,9 +174,6 @@ test_that("IPC/Arrow format data", {
     dim(ds),
     "Number of rows unknown; returning NA"
   )
-  # This causes a segfault on Windows R 32-bit following ARROW-7979
-  # TODO: fix me
-  skip_on_os("windows")
   expect_equivalent(
     ds %>%
       select(string = chr, integer = int, part) %>%
@@ -339,7 +336,7 @@ test_that("Dataset and query print methods", {
   expect_output(
     print(ds),
     paste(
-      "Dataset",
+      "FileSystemDataset with 2 Parquet files",
       "int: int32",
       "dbl: double",
       "lgl: bool",

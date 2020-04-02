@@ -57,9 +57,14 @@ struct ARROW_EXPORT IpcWriteOptions {
 
   /// \brief EXPERIMENTAL: Codec to use for compressing and decompressing
   /// record batch body buffers. This is not part of the Arrow IPC protocol and
-  /// only for internal use (e.g. Feather files)
+  /// only for internal use (e.g. Feather files). May only be LZ4_FRAME and
+  /// ZSTD
   Compression::type compression = Compression::UNCOMPRESSED;
   int compression_level = Compression::kUseDefaultCompressionLevel;
+
+  /// \brief Use global CPU thread pool to parallelize any computational tasks
+  /// like compression
+  bool use_threads = true;
 
   static IpcWriteOptions Defaults();
 };
@@ -79,8 +84,17 @@ struct ARROW_EXPORT IpcReadOptions {
   /// deserializing RecordBatch. If null, return all deserialized fields
   util::optional<std::vector<int>> included_fields;
 
+  /// \brief Use global CPU thread pool to parallelize any computational tasks
+  /// like decompression
+  bool use_threads = true;
+
   static IpcReadOptions Defaults();
 };
 
+namespace internal {
+
+Status CheckCompressionSupported(Compression::type codec);
+
+}  // namespace internal
 }  // namespace ipc
 }  // namespace arrow

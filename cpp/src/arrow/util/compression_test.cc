@@ -16,10 +16,10 @@
 // under the License.
 
 #include <algorithm>
-#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <ostream>
 #include <random>
 #include <string>
 #include <vector>

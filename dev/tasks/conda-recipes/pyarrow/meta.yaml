@@ -12,7 +12,7 @@ build:
 
 requirements:
   build:
-    - cmake
+    - cmake 3.16.*
     - ninja
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}

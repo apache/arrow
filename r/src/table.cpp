@@ -98,6 +98,18 @@ bool Table__Equals(const std::shared_ptr<arrow::Table>& lhs,
 }
 
 // [[arrow::export]]
+bool Table__Validate(const std::shared_ptr<arrow::Table>& table) {
+  STOP_IF_NOT_OK(table->Validate());
+  return true;
+}
+
+// [[arrow::export]]
+bool Table__ValidateFull(const std::shared_ptr<arrow::Table>& table) {
+  STOP_IF_NOT_OK(table->ValidateFull());
+  return true;
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> Table__GetColumnByName(
     const std::shared_ptr<arrow::Table>& table, const std::string& name) {
   return table->GetColumnByName(name);

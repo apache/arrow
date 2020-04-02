@@ -23,34 +23,50 @@ is widely used in big data exercises and competitions.
 For demonstration purposes, we have hosted a Parquet-formatted version
 of about 10 years of the trip data in a public S3 bucket.
 
-In a future release, you'll be able to point your R session at S3 and query
-the dataset from there. For now, datasets need to be on your local file system.
-To download the files,
-
-```r
-bucket <- "https://ursa-labs-taxi-data.s3.us-east-2.amazonaws.com"
-dir.create("nyc-taxi")
-for (year in 2009:2019) {
-  for (month in 1:12) {
-    if (month < 10) {
-      month <- paste0("0", month)
-    }
-    try(download.file(
-      paste(bucket, year, month, "data.parquet", sep = "/"),
-      file.path("nyc-taxi", year, month, "data.parquet")
-    ))
-  }
-}
-```
-
-It is expected that some files will not download because they do not exist--December 2019,
-for example--hence the `try()`.
 The total file size is around 37 gigabytes, even in the efficient Parquet file format.
 That's bigger than memory on most people's computers,
 so we can't just read it all in and stack it into a single data frame.
 
+In a future release, you'll be able to point your R session at S3 and query
+the dataset from there. For now, datasets need to be on your local file system.
+To download the files,
+
+```{r, eval = FALSE}
+bucket <- "https://ursa-labs-taxi-data.s3.us-east-2.amazonaws.com"
+dir.create("nyc-taxi")
+for (year in 2009:2019) {
+  dir.create(file.path("nyc-taxi", year))
+  if (year == 2019) {
+    # We only have through June 2019 there
+    months <- 1:6
+  } else {
+    months <- 1:12
+  }
+  for (month in months) {
+    if (month < 10) {
+      month <- paste0("0", month)
+    }
+    dir.create(file.path("nyc-taxi", year, month))
+    download.file(
+      paste(bucket, year, month, "data.parquet", sep = "/"),
+      file.path("nyc-taxi", year, month, "data.parquet")
+    )
+  }
+}
+```
+
+Note that the vignette will not execute that code chunk: if you want to run
+with live data, you'll have to do it yourself separately.
 Given the size, if you're running this locally and don't have a fast connection,
 feel free to grab only a year or two of data.
+
+If you don't have the taxi data downloaded, the vignette will still run and will
+yield previously cached output for reference. To be explicit about which version
+is running, let's check whether we're running with live data:
+
+```{r}
+dir.exists("nyc-taxi")
+```
 
 ## Getting started
 
@@ -58,14 +74,14 @@ Because `dplyr` is not necessary for many Arrow workflows,
 it is an optional (`Suggests`) dependency. So, to work with Datasets,
 we need to load both `arrow` and `dplyr`.
 
-```r
-library(arrow)
-library(dplyr)
+```{r}
+library(arrow, warn.conflicts = FALSE)
+library(dplyr, warn.conflicts = FALSE)
 ```
 
 The first step is to create our Dataset object, pointing at the directory of data.
 
-```r
+```{r, eval = file.exists("nyc-taxi")}
 ds <- open_dataset("nyc-taxi", partitioning = c("year", "month"))
 ```
 
@@ -92,10 +108,12 @@ and 1 for "month", even though those columns may not actually be present in the 
 Indeed, when we look at the dataset, we see that in addition to the columns present
 in every file, there are also columns "year" and "month".
 
-```
+```{r, eval = file.exists("nyc-taxi")}
 ds
-
-## Dataset
+```
+```{r, echo = FALSE, eval = !file.exists("nyc-taxi")}
+cat("
+## FileSystemDataset with 125 Parquet files
 ## vendor_id: string
 ## pickup_at: timestamp[us]
 ## dropoff_at: timestamp[us]
@@ -122,6 +140,7 @@ ds
 ## month: int32
 
 See $metadata for additional Schema metadata
+")
 ```
 
 The other form of partitioning currently supported is [Hive](https://hive.apache.org/)-style,
@@ -160,7 +179,7 @@ Here's an example. Suppose I was curious about tipping behavior among the
 longest taxi rides. Let's find the median tip percentage for rides with
 fares greater than $100 in 2015, broken down by the number of passengers:
 
-```r
+```{r, eval = file.exists("nyc-taxi")}
 system.time(ds %>%
   filter(total_amount > 100, year == 2015) %>%
   select(tip_amount, total_amount, passenger_count) %>%
@@ -173,7 +192,8 @@ system.time(ds %>%
   print())
 ```
 
-```
+```{r, echo = FALSE, eval = !file.exists("nyc-taxi")}
+cat("
 ## # A tibble: 10 x 3
 ##    passenger_count tip_pct      n
 ##              <int>   <dbl>  <int>
@@ -189,24 +209,26 @@ system.time(ds %>%
 ## 10               9   16.7      42
 ##
 ##    user  system elapsed
-##  25.227   1.162   3.767
+##   4.436   1.012   1.402
+")
 ```
 
 We just selected a window out of a dataset with around 2 billion rows
-and aggregated on it in under 4 seconds on my laptop. How does this work?
+and aggregated on it in under 2 seconds on my laptop. How does this work?
 
 First, `select()`/`rename()`, `filter()`, and `group_by()`
 record their actions but don't evaluate on the data until you run `collect()`.
 
-```r
+```{r, eval = file.exists("nyc-taxi")}
 ds %>%
   filter(total_amount > 100, year == 2015) %>%
   select(tip_amount, total_amount, passenger_count) %>%
   group_by(passenger_count)
 ```
 
-```
-## Dataset (query)
+```{r, echo = FALSE, eval = !file.exists("nyc-taxi")}
+cat("
+## FileSystemDataset (query)
 ## tip_amount: float
 ## total_amount: float
 ## passenger_count: int8
@@ -214,6 +236,7 @@ ds %>%
 ## * Filter: ((total_amount > 100:double) and (year == 2015:double))
 ## * Grouped by passenger_count
 ## See $.data for the source Arrow object
+")
 ```
 
 This returns instantly and shows the window selection you've made, without
@@ -257,4 +280,4 @@ In the future, when there is support for cloud storage and other file formats,
 this would mean you could point to an S3 bucked of Parquet data and a directory
 of CSVs on the local file system and query them together as a single dataset.
 To create a multi-source dataset, provide a list of sources to `open_dataset()`
-instead of a file path. See `?open_source` for creating data sources. 
+instead of a file path. See `?dataset_factory` for creating data sources.

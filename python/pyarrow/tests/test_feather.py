@@ -454,9 +454,9 @@ def test_read_columns(version):
     data = {'foo': [1, 2, 3, 4],
             'boo': [5, 6, 7, 8],
             'woo': [1, 3, 5, 7]}
-    columns = list(data.keys())[1:3]
+    columns = ['boo', 'woo']
     df = pd.DataFrame(data)
-    expected = pd.DataFrame({c: data[c] for c in columns})
+    expected = pd.DataFrame({c: data[c] for c in columns}, columns=columns)
     _check_pandas_roundtrip(df, expected, version=version, columns=columns)
 
 

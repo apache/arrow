@@ -1002,6 +1002,56 @@ def test_multiple_factories_with_selectors(multisourcefs):
     assert dataset.schema.equals(expected_schema)
 
 
+@pytest.mark.parquet
+def test_specified_schema(tempdir):
+    import pyarrow.parquet as pq
+
+    table = pa.table({'a': [1, 2, 3], 'b': [.1, .2, .3]})
+    pq.write_table(table, tempdir / "data.parquet")
+
+    def _check_dataset(schema, expected, expected_schema=None):
+        dataset = ds.dataset(str(tempdir / "data.parquet"), schema=schema)
+        if expected_schema is not None:
+            assert dataset.schema.equals(expected_schema)
+        else:
+            assert dataset.schema.equals(schema)
+        result = dataset.to_table()
+        assert result.equals(expected)
+
+    # no schema specified
+    schema = None
+    expected = table
+    _check_dataset(schema, expected, expected_schema=table.schema)
+
+    # identical schema specified
+    schema = table.schema
+    expected = table
+    _check_dataset(schema, expected)
+
+    # Specifying schema with change column order
+    schema = pa.schema([('b', 'float64'), ('a', 'int64')])
+    expected = pa.table([[.1, .2, .3], [1, 2, 3]], names=['b', 'a'])
+    _check_dataset(schema, expected)
+
+    # Specifying schema with missing column
+    schema = pa.schema([('a', 'int64')])
+    expected = pa.table({'a': [1, 2, 3]})
+    _check_dataset(schema, expected)
+
+    # Specifying schema with additional column
+    schema = pa.schema([('a', 'int64'), ('c', 'int32')])
+    expected = pa.table({'a': [1, 2, 3],
+                         'c': pa.array([None, None, None], type='int32')})
+    _check_dataset(schema, expected)
+
+    # Specifying with incompatible schema
+    schema = pa.schema([('a', 'int32'), ('b', 'float64')])
+    dataset = ds.dataset(str(tempdir / "data.parquet"), schema=schema)
+    assert dataset.schema.equals(schema)
+    with pytest.raises(TypeError):
+        dataset.to_table()
+
+
 def test_ipc_format(tempdir):
     table = pa.table({'a': pa.array([1, 2, 3], type="int8"),
                       'b': pa.array([.1, .2, .3], type="float64")})

@@ -295,20 +295,19 @@ class IpcTestFixture : public io::MemoryMapFixture {
     ASSERT_EQ(out_memo->num_fields(), in_memo.num_fields());
   }
 
-  Status DoStandardRoundTrip(const RecordBatch& batch, const IpcWriteOptions& options,
-                             DictionaryMemo* dictionary_memo,
-                             std::shared_ptr<RecordBatch>* result) {
+  Result<std::shared_ptr<RecordBatch>> DoStandardRoundTrip(
+      const RecordBatch& batch, const IpcWriteOptions& options,
+      DictionaryMemo* dictionary_memo,
+      const IpcReadOptions& read_options = IpcReadOptions::Defaults()) {
     std::shared_ptr<Buffer> serialized_batch;
     RETURN_NOT_OK(SerializeRecordBatch(batch, options, &serialized_batch));
 
     io::BufferReader buf_reader(serialized_batch);
-    return ReadRecordBatch(batch.schema(), dictionary_memo, IpcReadOptions::Defaults(),
-                           &buf_reader)
-        .Value(result);
+    return ReadRecordBatch(batch.schema(), dictionary_memo, read_options, &buf_reader);
   }
 
-  Status DoLargeRoundTrip(const RecordBatch& batch, bool zero_data,
-                          std::shared_ptr<RecordBatch>* result) {
+  Result<std::shared_ptr<RecordBatch>> DoLargeRoundTrip(const RecordBatch& batch,
+                                                        bool zero_data) {
     if (zero_data) {
       RETURN_NOT_OK(ZeroMemoryMap(mmap_.get()));
     }
@@ -327,7 +326,9 @@ class IpcTestFixture : public io::MemoryMapFixture {
     std::shared_ptr<RecordBatchFileReader> file_reader;
     ARROW_ASSIGN_OR_RAISE(file_reader, RecordBatchFileReader::Open(mmap_.get(), offset));
 
-    return file_reader->ReadRecordBatch(0, result);
+    std::shared_ptr<RecordBatch> result;
+    RETURN_NOT_OK(file_reader->ReadRecordBatch(0, &result));
+    return result;
   }
 
   void CheckReadResult(const RecordBatch& result, const RecordBatch& expected) {
@@ -343,6 +344,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
 
   void CheckRoundtrip(const RecordBatch& batch,
                       IpcWriteOptions options = IpcWriteOptions::Defaults(),
+                      IpcReadOptions read_options = IpcReadOptions::Defaults(),
                       int64_t buffer_size = 1 << 20) {
     std::stringstream ss;
     ss << "test-write-row-batch-" << g_file_number++;
@@ -357,11 +359,11 @@ class IpcTestFixture : public io::MemoryMapFixture {
 
     ASSERT_OK(CollectDictionaries(batch, &dictionary_memo));
 
-    std::shared_ptr<RecordBatch> result;
-    ASSERT_OK(DoStandardRoundTrip(batch, options, &dictionary_memo, &result));
+    ASSERT_OK_AND_ASSIGN(
+        auto result, DoStandardRoundTrip(batch, options, &dictionary_memo, read_options));
     CheckReadResult(*result, batch);
 
-    ASSERT_OK(DoLargeRoundTrip(batch, /*zero_data=*/true, &result));
+    ASSERT_OK_AND_ASSIGN(result, DoLargeRoundTrip(batch, /*zero_data=*/true));
     CheckReadResult(*result, batch);
   }
   void CheckRoundtrip(const std::shared_ptr<Array>& array,
@@ -372,7 +374,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
     auto schema = std::make_shared<Schema>(fields);
 
     auto batch = RecordBatch::Make(schema, 0, {array});
-    CheckRoundtrip(*batch, options, buffer_size);
+    CheckRoundtrip(*batch, options, IpcReadOptions::Defaults(), buffer_size);
   }
 
  protected:
@@ -498,16 +500,33 @@ TEST_F(TestWriteRecordBatch, WriteWithCompression) {
   auto batch =
       RecordBatch::Make(schema, length, {rg.String(500, 0, 10, 0.1), dict_array});
 
-  std::vector<Compression::type> codecs = {Compression::GZIP, Compression::LZ4_FRAME,
-                                           Compression::ZSTD, Compression::SNAPPY,
-                                           Compression::BROTLI};
+  std::vector<Compression::type> codecs = {Compression::LZ4_FRAME, Compression::ZSTD};
   for (auto codec : codecs) {
     if (!util::Codec::IsAvailable(codec)) {
-      return;
+      continue;
+    }
+    IpcWriteOptions write_options = IpcWriteOptions::Defaults();
+    write_options.compression = codec;
+    CheckRoundtrip(*batch, write_options);
+
+    // Check non-parallel read and write
+    IpcReadOptions read_options = IpcReadOptions::Defaults();
+    write_options.use_threads = false;
+    read_options.use_threads = false;
+    CheckRoundtrip(*batch, write_options, read_options);
+  }
+
+  std::vector<Compression::type> disallowed_codecs = {
+      Compression::BROTLI, Compression::BZ2, Compression::LZ4, Compression::GZIP,
+      Compression::SNAPPY};
+  for (auto codec : disallowed_codecs) {
+    if (!util::Codec::IsAvailable(codec)) {
+      continue;
     }
     IpcWriteOptions options = IpcWriteOptions::Defaults();
     options.compression = codec;
-    CheckRoundtrip(*batch, options);
+    std::shared_ptr<Buffer> buf;
+    ASSERT_RAISES(Invalid, SerializeRecordBatch(*batch, options, &buf));
   }
 }
 
@@ -526,9 +545,9 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBinaryOffsets) {
   ASSERT_OK_AND_ASSIGN(
       mmap_, io::MemoryMapFixture::InitMemoryMap(/*buffer_size=*/1 << 20, ss.str()));
   DictionaryMemo dictionary_memo;
-  std::shared_ptr<RecordBatch> result;
-  ASSERT_OK(DoStandardRoundTrip(*sliced_batch, IpcWriteOptions::Defaults(),
-                                &dictionary_memo, &result));
+  ASSERT_OK_AND_ASSIGN(
+      auto result,
+      DoStandardRoundTrip(*sliced_batch, IpcWriteOptions::Defaults(), &dictionary_memo));
   ASSERT_EQ(6 * sizeof(int32_t), result->column(0)->data()->buffers[1]->size());
 }
 
@@ -614,9 +633,9 @@ TEST_F(TestWriteRecordBatch, RoundtripPreservesBufferSizes) {
   ASSERT_OK_AND_ASSIGN(
       mmap_, io::MemoryMapFixture::InitMemoryMap(/*buffer_size=*/1 << 20, ss.str()));
   DictionaryMemo dictionary_memo;
-  std::shared_ptr<RecordBatch> result;
-  ASSERT_OK(DoStandardRoundTrip(*batch, IpcWriteOptions::Defaults(), &dictionary_memo,
-                                &result));
+  ASSERT_OK_AND_ASSIGN(
+      auto result,
+      DoStandardRoundTrip(*batch, IpcWriteOptions::Defaults(), &dictionary_memo));
 
   // Make sure that the validity bitmap is size 2 as expected
   ASSERT_EQ(2, arr->data()->buffers[0]->size());
@@ -1096,8 +1115,7 @@ TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
   constexpr int64_t kBufferSize = 1 << 29;
   ASSERT_OK_AND_ASSIGN(mmap_, io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
 
-  std::shared_ptr<RecordBatch> result;
-  ASSERT_OK(DoLargeRoundTrip(*batch, false, &result));
+  ASSERT_OK_AND_ASSIGN(auto result, DoLargeRoundTrip(*batch, false));
   CheckReadResult(*result, *batch);
 
   ASSERT_EQ(length, result->num_rows());
@@ -1384,6 +1402,66 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
     ASSERT_TRUE(result->Equals(sparse_tensor));
   }
 
+  void CheckSparseCSFTensorRoundTrip(const SparseCSFTensor& sparse_tensor) {
+    const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
+    const int elem_size = type.bit_width() / 8;
+    const int index_elem_size = sizeof(typename IndexValueType::c_type);
+
+    int32_t metadata_length;
+    int64_t body_length;
+
+    ASSERT_OK(mmap_->Seek(0));
+
+    ASSERT_OK(
+        WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length));
+
+    const auto& sparse_index =
+        checked_cast<const SparseCSFIndex&>(*sparse_tensor.sparse_index());
+
+    const int64_t ndim = sparse_index.axis_order().size();
+    int64_t indptr_length = 0;
+    int64_t indices_length = 0;
+
+    for (int64_t i = 0; i < ndim - 1; ++i) {
+      indptr_length += BitUtil::RoundUpToMultipleOf8(index_elem_size *
+                                                     sparse_index.indptr()[i]->size());
+    }
+    for (int64_t i = 0; i < ndim; ++i) {
+      indices_length += BitUtil::RoundUpToMultipleOf8(index_elem_size *
+                                                      sparse_index.indices()[i]->size());
+    }
+    const int64_t data_length =
+        BitUtil::RoundUpToMultipleOf8(elem_size * sparse_tensor.non_zero_length());
+    const int64_t expected_body_length = indptr_length + indices_length + data_length;
+    ASSERT_EQ(expected_body_length, body_length);
+
+    ASSERT_OK(mmap_->Seek(0));
+
+    std::shared_ptr<SparseTensor> result;
+    ASSERT_OK_AND_ASSIGN(result, ReadSparseTensor(mmap_.get()));
+    ASSERT_EQ(SparseTensorFormat::CSF, result->format_id());
+
+    const auto& resulted_sparse_index =
+        checked_cast<const SparseCSFIndex&>(*result->sparse_index());
+
+    int64_t out_indptr_length = 0;
+    int64_t out_indices_length = 0;
+    for (int i = 0; i < ndim - 1; ++i) {
+      out_indptr_length += BitUtil::RoundUpToMultipleOf8(
+          index_elem_size * resulted_sparse_index.indptr()[i]->size());
+    }
+    for (int i = 0; i < ndim; ++i) {
+      out_indices_length += BitUtil::RoundUpToMultipleOf8(
+          index_elem_size * resulted_sparse_index.indices()[i]->size());
+    }
+
+    ASSERT_EQ(out_indptr_length, indptr_length);
+    ASSERT_EQ(out_indices_length, indices_length);
+    ASSERT_EQ(result->data()->size(), data_length);
+    ASSERT_TRUE(resulted_sparse_index.Equals(sparse_index));
+    ASSERT_TRUE(result->Equals(sparse_tensor));
+  }
+
  protected:
   std::shared_ptr<SparseCOOIndex> MakeSparseCOOIndex(
       const std::vector<int64_t>& coords_shape,
@@ -1546,9 +1624,30 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSCIndex) {
   this->CheckSparseCSXMatrixRoundTrip(*st);
 }
 
+TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSFIndex) {
+  using IndexValueType = TypeParam;
+
+  std::string path = "test-write-sparse-csf-tensor";
+  constexpr int64_t kBufferSize = 1 << 20;
+  ASSERT_OK_AND_ASSIGN(this->mmap_,
+                       io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
+
+  std::vector<int64_t> shape = {4, 6};
+  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
+  std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                 0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+
+  auto data = Buffer::Wrap(values);
+  NumericTensor<Int64Type> t(data, shape, {}, dim_names);
+  std::shared_ptr<SparseCSFTensor> st;
+  ASSERT_OK_AND_ASSIGN(
+      st, SparseCSFTensor::Make(t, TypeTraits<IndexValueType>::type_singleton()));
+
+  this->CheckSparseCSFTensorRoundTrip(*st);
+}
 REGISTER_TYPED_TEST_SUITE_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor,
                             WithSparseCOOIndexColumnMajor, WithSparseCSRIndex,
-                            WithSparseCSCIndex);
+                            WithSparseCSCIndex, WithSparseCSFIndex);
 
 INSTANTIATE_TYPED_TEST_SUITE_P(TestInt8, TestSparseTensorRoundTrip, Int8Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8, TestSparseTensorRoundTrip, UInt8Type);
