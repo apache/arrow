@@ -83,12 +83,12 @@ return_multiple getPredicate(std::shared_ptr<parquet::ColumnReader> cr,std::shar
                              int& col_id,int64_t& page_index,int& PREDICATE_COL,int64_t& row_index,bool with_index);
 
 bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader* int64_reader,int ind,return_multiple vals,int64_t& row_counter,
-               bool checkpredicate);
+               bool checkpredicate,int equal_to);
 bool printRange(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader* int64_reader,int ind,return_multiple vals_min,return_multiple vals_max,int64_t& row_counter);
 
-void run_for_one_predicate(int num_columns,int num_row_groups, std::unique_ptr<parquet::ParquetFileReader>& parquet_reader, char** argv,int predicate_index);
+void run_for_one_predicate(int num_columns,int num_row_groups, std::unique_ptr<parquet::ParquetFileReader>& parquet_reader, char** argv,int predicate_index, int equal_to);
 
-void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> rg,int predicate_column_number,int num_columns, char* predicate,bool with_index);
+void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> rg,int predicate_column_number,int num_columns, char* predicate,bool with_index, int equal_to);
 
 int parquet_reader(int argc, char** argv);
 /**************Declaration END*********************************/
@@ -125,12 +125,15 @@ int parquet_reader(int argc,char** argv) {
      int num_columns = file_metadata->num_columns();
      //      assert(num_columns == NUM_COLS);
 
-     run_for_one_predicate(num_columns,num_row_groups,parquet_reader,argv,3);
+     if ( argc == 4 ) {
+        run_for_one_predicate(num_columns,num_row_groups,parquet_reader,argv,3,0);
+     }
 
      if ( argc == 5 ){
-       run_for_one_predicate(num_columns,num_row_groups,parquet_reader,argv,4);
+       run_for_one_predicate(num_columns,num_row_groups,parquet_reader,argv,3,1);
+       run_for_one_predicate(num_columns,num_row_groups,parquet_reader,argv,4,-1);
      }
-     
+
      return 0;
    } catch (const std::exception& e) {
       std::cerr << "Parquet read error: " << e.what() << std::endl;
@@ -139,7 +142,8 @@ int parquet_reader(int argc,char** argv) {
 
 }
 
-void run_for_one_predicate(int num_columns,int num_row_groups, std::unique_ptr<parquet::ParquetFileReader>& parquet_reader, char** argv,int predicate_index) {
+void run_for_one_predicate(int num_columns,int num_row_groups, std::unique_ptr<parquet::ParquetFileReader>& parquet_reader, char** argv,int predicate_index, 
+                           int equal_to = 0) {
   // Iterate over all the RowGroups in the file
     for (int r = 0; r < num_row_groups; ++r) {
     
@@ -161,7 +165,7 @@ void run_for_one_predicate(int num_columns,int num_row_groups, std::unique_ptr<p
         total_time = 0.0;
         for(int t  =0 ; t< num_runs; t++){
             gettimeofday(&start_time,NULL);
-          first_pass_for_predicate_only(row_group_reader,col_id,num_columns,predicate_val,false);
+          first_pass_for_predicate_only(row_group_reader,col_id,num_columns,predicate_val,false,equal_to);
           gettimeofday(&end_time,NULL);
           
             float time_elapsed = ((float)(end_time.tv_sec-start_time.tv_sec) + abs((float)(end_time.tv_usec - start_time.tv_usec))/1000000.0);
@@ -178,7 +182,7 @@ void run_for_one_predicate(int num_columns,int num_row_groups, std::unique_ptr<p
        total_time = 0.0;
         for(int t  =0 ; t< num_runs; t++){
             gettimeofday(&start_time,NULL);
-          first_pass_for_predicate_only(row_group_reader,col_id,num_columns,predicate_val,true);
+          first_pass_for_predicate_only(row_group_reader,col_id,num_columns,predicate_val,true,equal_to);
           gettimeofday(&end_time,NULL);
           
             float time_elapsed = ((float)(end_time.tv_sec-start_time.tv_sec) + abs((float)(end_time.tv_usec - start_time.tv_usec))/1000000.0);
@@ -202,7 +206,8 @@ void run_for_one_predicate(int num_columns,int num_row_groups, std::unique_ptr<p
 }
 
 
-void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> row_group_reader,int col_id, int num_columns, char* predicate_val,bool with_index) {
+void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> row_group_reader,int col_id, int num_columns, char* predicate_val,bool with_index,
+                                   int equal_to = 0) {
 
     int64_t row_index = 0;
 
@@ -257,7 +262,7 @@ void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> row_
         row_counter = -1;
         generic_reader->Skip(row_index);
         do{ ind++;
-         if((printVal(column_reader_with_index,generic_reader,ind,vals,row_counter,true)))
+         if((printVal(column_reader_with_index,generic_reader,ind,vals,row_counter,true,equal_to)))
              break;
         }while((generic_reader->HasNext()));
       }
@@ -265,7 +270,7 @@ void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> row_
         while (generic_reader->HasNext()) { 
             ind++;
 
-          if(printVal(column_reader_with_index,generic_reader,ind,vals,row_counter,true))
+          if(printVal(column_reader_with_index,generic_reader,ind,vals,row_counter,true,equal_to))
              break;
           //        int64_t expected_value = col_row_counts[col_id];  
           //        assert(value == expected_value);
@@ -568,7 +573,7 @@ void returnReaderwithType(std::shared_ptr<parquet::ColumnReader>column_reader, p
 }
 
 bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader* int64_reader,int ind,return_multiple vals,int64_t& row_counter,
-              bool checkpredicate = false) {
+              bool checkpredicate = false,int equal_to = 0) {
 
       int64_t values_read = 0;
       //int64_t 0;
@@ -580,12 +585,19 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
            int64_reader->callReadBatch(1,&test,&values_read);
            row_counter = ind;
            
-           if ( checkpredicate && test == predicate) {
+           if ( equal_to == 0 && checkpredicate && test == predicate) {
            row_counter = ind;
            std::cout << "with predicate row number: " << row_counter << " " << test << "\n" ;
            //std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
            return true;
-          }else{
+          }
+          else if ( equal_to == -1 && checkpredicate && test < predicate ){
+
+          }
+          else if ( equal_to == 1 && checkpredicate && test > predicate ) {
+
+          }
+          else{
             row_counter = ind;
            //std::cout << "row number: " << row_counter << " " << test << "\n";
            return false;
@@ -599,12 +611,19 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
             int64_reader->callReadBatch(1,&val,&values_read);
            row_counter = ind;
            
-           if ( checkpredicate && val == predicate) {
+           if ( equal_to == 0 && checkpredicate && val == predicate) {
            row_counter = ind;
            std::cout << "with predicate row number: " << row_counter << " " << val << "\n";
            //std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
            return true;
-          }else{
+          }
+          else if ( equal_to == -1 && checkpredicate && val < predicate ){
+
+          }
+          else if ( equal_to == 1 && checkpredicate && val > predicate ) {
+
+          }
+          else{
             row_counter = ind;
            //std::cout << "row number: " << row_counter << " " << val << "\n";
            return false;
@@ -624,12 +643,19 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
         // There are no NULL values in the rows written
        //        assert(values_read == 1);
         // Verify the value written
-          if ( checkpredicate && value == predicate) {
+          if ( equal_to == 0 && checkpredicate && value == predicate) {
            row_counter = ind;
            std::cout << "with predicate row number: " << row_counter << " " << value << "\n";
            //std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
            return true;
-          }else{
+          }
+          else if ( equal_to == -1 && checkpredicate && value < predicate ){
+
+          }
+          else if ( equal_to == 1 && checkpredicate && value > predicate ) {
+
+          }
+          else{
             row_counter = ind;
            //std::cout << "row number: " << row_counter << " " << value << "\n";
            return false;
@@ -643,12 +669,19 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
            int64_reader->callReadBatch(1,&val,&values_read);
            row_counter = ind;
            
-           if ( checkpredicate && val == predicate) {
+           if ( equal_to == 0 && checkpredicate && val == predicate) {
            row_counter = ind;
            std::cout << "with predicate row number: " << row_counter << " " << val << "\n";
            //std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
            return true;
-          }else{
+          }
+          else if ( equal_to == -1 && checkpredicate && val < predicate ){
+
+          }
+          else if ( equal_to == 1 && checkpredicate && val > predicate ) {
+
+          }
+          else{
             row_counter = ind;
            //std::cout << "row number: " << row_counter << " " << val << "\n";
            return false;
@@ -666,7 +699,15 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
            std::cout << "with predicate row number: " << row_counter << " " << val << "\n";
            //std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
            return true;
-          }else{
+          }
+          else if ( equal_to == -1 && checkpredicate && val < predicate ){
+
+          }
+          else if ( equal_to == 1 && checkpredicate && val > predicate ) {
+
+          }
+          
+          else{
             row_counter = ind;
            //std::cout << "row number: " << row_counter << " " << val << "\n";
            return false;
@@ -680,12 +721,20 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
            int64_reader->callReadBatch(1,&val,&values_read);
            double error_factor = 1000000000000.0;
 
-           if ( checkpredicate && fabs(val-predicate)<=std::numeric_limits<double>::epsilon()*error_factor) {
+           if ( equal_to == 0 && checkpredicate && fabs(val-predicate)<=std::numeric_limits<double>::epsilon()*error_factor) {
            row_counter = ind;
            std::cout << "with predicate row number: " << row_counter << " " << val << "\n";
            //std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
            return true;
-          }else{
+          }
+          else if ( equal_to == -1 && checkpredicate && val < predicate ){
+
+          }
+          else if ( equal_to == 1 && checkpredicate && val > predicate ) {
+
+          }
+          
+          else{
             row_counter = ind;
            //std::cout << "row number: " << row_counter << " " << val << "\n";
            return false;
@@ -701,12 +750,19 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
 
             row_counter = ind;
             // std::cout << "row number: " << row_counter << " " << result << "\n";
-            if ( checkpredicate && strcmp(result.c_str(),predicate) == 0) {
+            if ( equal_to == 0 && checkpredicate && strcmp(result.c_str(),predicate) == 0) {
            row_counter = ind;
            std::cout << "with predicate row number: " << row_counter << " " << result << "\n";
            //std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
            return true;
-          }else{
+          }
+          else if ( equal_to == -1 && checkpredicate && strcmp(result.c_str(),predicate) < 0 ){
+
+          }
+          else if ( equal_to == 1 && checkpredicate && strcmp(result.c_str(),predicate) > 0 ) {
+
+          }
+          else{
             row_counter = ind;
            //std::cout << "row number: " << row_counter << " " << result << "\n";
            return false;
@@ -722,12 +778,19 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
 
             row_counter = ind;
             // std::cout << "row number: " << row_counter << " " << result << "\n";
-            if ( checkpredicate && strcmp(result.c_str(),predicate)) {
+            if ( equal_to == 0 && checkpredicate && strcmp(result.c_str(),predicate) == 0) {
            row_counter = ind;
            std::cout << "with predicate row number: " << row_counter << " " << result << "\n";
            //std::cout << "predicate: " << *((int64_t*)predicate) << std::endl;
            return true;
-          }else{
+          }
+          else if ( equal_to == -1 && checkpredicate && strcmp(result.c_str(),predicate) < 0 ){
+
+          }
+          else if ( equal_to == 1 && checkpredicate && strcmp(result.c_str(),predicate) > 0 ) {
+
+          }
+          else{
             row_counter = ind;
            //std::cout << "row number: " << row_counter << " " << result << "\n";
            return false;
