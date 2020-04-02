@@ -89,11 +89,15 @@ class MinMaxAggregateFunction final
     StateType local;
 
     local.has_nulls = array.null_count() > 0;
+    if (local.has_nulls && options_.null_handling == MinMaxOptions::OUTPUT_NULL) {
+      *state = local;
+      return Status::OK();
+    }
 
     const auto values =
         checked_cast<const typename TypeTraits<ArrowType>::ArrayType&>(array)
             .raw_values();
-    if (array.null_count() != 0) {
+    if (array.null_count() > 0) {
       internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
                                     array.length());
       for (int64_t i = 0; i < array.length(); i++) {
