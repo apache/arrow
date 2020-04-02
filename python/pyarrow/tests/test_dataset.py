@@ -625,7 +625,8 @@ def _create_dataset_for_fragments(tempdir, chunk_size=None):
     import pyarrow.parquet as pq
 
     table = pa.table(
-        {'f1': range(8), 'f2': [1] * 8, 'part': ['a'] * 4 + ['b'] * 4}
+        [range(8), [1] * 8, ['a'] * 4 + ['b'] * 4],
+        names=['f1', 'f2', 'part']
     )
     # write_to_dataset currently requires pandas
     pq.write_to_dataset(table, str(tempdir / "test_parquet_dataset"),
@@ -1176,13 +1177,14 @@ def test_specified_schema(tempdir):
 
     # Specifying schema with missing column
     schema = pa.schema([('a', 'int64')])
-    expected = pa.table({'a': [1, 2, 3]})
+    expected = pa.table([[1, 2, 3]], names=['a'])
     _check_dataset(schema, expected)
 
     # Specifying schema with additional column
     schema = pa.schema([('a', 'int64'), ('c', 'int32')])
-    expected = pa.table({'a': [1, 2, 3],
-                         'c': pa.array([None, None, None], type='int32')})
+    expected = pa.table([[1, 2, 3],
+                         pa.array([None, None, None], type='int32')],
+                        names=['a', 'c'])
     _check_dataset(schema, expected)
 
     # Specifying with incompatible schema
