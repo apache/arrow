@@ -52,21 +52,16 @@ namespace internal {
 
 template <typename Error>
 inline bool IsConnectError(const Aws::Client::AWSError<Error>& error) {
-  if (error.GetErrorType() == Aws::Client::CoreErrors::NETWORK_CONNECTION) {
+  if (error.ShouldRetry()) {
     return true;
   }
   // Sometimes Minio may fail with a 503 error
   // (exception name: XMinioServerNotInitialized,
   //  message: "Server not initialized, please try again")
-  auto http_code = static_cast<int>(error.GetResponseCode());
-  switch (http_code) {
-    case 502:  // Bad gateway
-    case 503:  // Service unavailable
-    case 504:  // Gateway timeout
-      return true;
-    default:
-      return false;
+  if (error.GetExceptionName() == "XMinioServerNotInitialized") {
+    return true;
   }
+  return false;
 }
 
 inline bool IsNotFound(const Aws::Client::AWSError<Aws::S3::S3Errors>& error) {
@@ -155,7 +150,7 @@ inline TimePoint FromAwsDatetime(const Aws::Utils::DateTime& dt) {
 class ConnectRetryStrategy : public Aws::Client::RetryStrategy {
  public:
   static const int32_t kDefaultRetryInterval = 200;     /* milliseconds */
-  static const int32_t kDefaultMaxRetryDuration = 4000; /* milliseconds */
+  static const int32_t kDefaultMaxRetryDuration = 6000; /* milliseconds */
 
   explicit ConnectRetryStrategy(int32_t retry_interval = kDefaultRetryInterval,
                                 int32_t max_retry_duration = kDefaultMaxRetryDuration)
