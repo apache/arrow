@@ -104,7 +104,7 @@ except ImportError:
     pass
 
 try:
-    import pyarrow.orc # noqa
+    import pyarrow.orc  # noqa
     defaults['orc'] = True
 except ImportError:
     pass

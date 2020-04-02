@@ -127,6 +127,7 @@ class ParquetFile:
         If positive, perform read buffering when deserializing individual
         column chunks. Otherwise IO calls are unbuffered.
     """
+
     def __init__(self, source, metadata=None, common_metadata=None,
                  read_dictionary=None, memory_map=False, buffer_size=0):
         self.reader = ParquetReader()
@@ -540,6 +541,7 @@ class ParquetDatasetPiece:
     row_group : int, default None
         Row group to load. By default, reads all row groups.
     """
+
     def __init__(self, path, open_file_func=partial(open, mode='rb'),
                  file_options=None, row_group=None, partition_keys=None):
         self.path = _stringify_path(path)

@@ -24,3 +24,7 @@ requires = [
     "setuptools_scm",
     "wheel"
 ]
+
+[tool.autopep8]
+ignore = "E211,E901,E999,E225,E226,E227,W504"
+filename = "*.py,*.pyx,*.pxd,*.pxi"

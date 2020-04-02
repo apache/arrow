@@ -131,7 +131,7 @@ class BaseTestJSONRead:
             'a': [1, 4],
             'b': [2, 5],
             'c': [3, 6],
-            }
+        }
 
     def test_simple_ints(self):
         # Infer integer columns
@@ -145,7 +145,7 @@ class BaseTestJSONRead:
             'a': [1, 4],
             'b': [2, 5],
             'c': [3, 6],
-            }
+        }
 
     def test_simple_varied(self):
         # Infer various kinds of data
@@ -162,7 +162,7 @@ class BaseTestJSONRead:
             'b': [2, -5],
             'c': ["3", "foo"],
             'd': [False, True],
-            }
+        }
 
     def test_simple_nulls(self):
         # Infer various kinds of data, with nulls
@@ -182,7 +182,7 @@ class BaseTestJSONRead:
             'c': [None, "foo", "nan"],
             'd': [None, None, None],
             'e': [None, True, False],
-            }
+        }
 
     def test_small_random_json(self):
         data, expected = make_random_json(num_cols=2, num_rows=10)

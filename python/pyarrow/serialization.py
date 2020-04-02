@@ -320,7 +320,7 @@ def _register_scipy_handlers(serialization_context):
 
             else:
                 raise NotImplementedError(
-                        "Serialization of {} is not supported.".format(obj[0]))
+                    "Serialization of {} is not supported.".format(obj[0]))
 
         def _deserialize_scipy_sparse(data):
             if data[0] == 'coo':

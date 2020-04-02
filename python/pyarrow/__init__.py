@@ -29,6 +29,10 @@ streaming messaging and interprocess communication.
 For more information see the official page at https://arrow.apache.org
 """
 
+import pyarrow.types as types
+from pyarrow.serialization import (default_serialization_context,
+                                   register_default_serialization_handlers,
+                                   register_torch_serialization_handlers)
 import os as _os
 import sys as _sys
 
@@ -39,6 +43,7 @@ except ImportError:
     try:
         import setuptools_scm
         # Code duplicated from setup.py to avoid a dependency on each other
+
         def parse_git(root, **kwargs):
             """
             Parse function for setuptools_scm that ignores tags for non-C++
@@ -173,13 +178,9 @@ import pyarrow.ipc as ipc
 
 localfs = LocalFileSystem.get_instance()
 
-from pyarrow.serialization import (default_serialization_context,
-                                   register_default_serialization_handlers,
-                                   register_torch_serialization_handlers)
-
-import pyarrow.types as types
 
 # Entry point for starting the plasma store
+
 
 def _plasma_store_entry_point():
     """Entry point for starting the plasma store.
@@ -197,6 +198,7 @@ def _plasma_store_entry_point():
 # ----------------------------------------------------------------------
 # Deprecations
 
+
 from pyarrow.util import _deprecate_api  # noqa
 
 
@@ -209,6 +211,7 @@ open_file = _deprecate_api("open_file", "ipc.open_file", ipc.open_file,
 # ----------------------------------------------------------------------
 # Returning absolute path to the pyarrow include directory (if bundled, e.g. in
 # wheels)
+
 
 def get_include():
     """

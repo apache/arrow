@@ -1852,21 +1852,21 @@ def test_invalid_pred_op(tempdir):
         pq.ParquetDataset(base_path,
                           filesystem=fs,
                           filters=[
-                            ('integers', '=<', 3),
+                              ('integers', '=<', 3),
                           ])
 
     with pytest.raises(ValueError):
         pq.ParquetDataset(base_path,
                           filesystem=fs,
                           filters=[
-                            ('integers', 'in', set()),
+                              ('integers', 'in', set()),
                           ])
 
     with pytest.raises(ValueError):
         pq.ParquetDataset(base_path,
                           filesystem=fs,
                           filters=[
-                            ('integers', '!=', {3}),
+                              ('integers', '!=', {3}),
                           ])
 
 
@@ -3428,7 +3428,7 @@ def test_multi_dataset_metadata(tempdir):
         'one': [1, 2, 3],
         'two': [-1, -2, -3],
         'three': [[1, 2], [2, 3], [3, 4]],
-        })
+    })
     table = pa.Table.from_pandas(df)
 
     # write dataset twice and collect/merge metadata

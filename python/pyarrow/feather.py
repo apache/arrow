@@ -40,6 +40,7 @@ class FeatherDataset:
     validate_schema : bool, default True
         Check that individual file schemas are all the same / compatible
     """
+
     def __init__(self, path_or_paths, validate_schema=True):
         _check_pandas_version()
         self.paths = path_or_paths
