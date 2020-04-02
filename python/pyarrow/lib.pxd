@@ -142,6 +142,23 @@ cdef class PyExtensionType(ExtensionType):
     pass
 
 
+cdef class _Metadata:
+    # required because KeyValueMetadata also extends collections.abc.Mapping
+    # and the first parent class must be an extension type
+    pass
+
+
+cdef class KeyValueMetadata(_Metadata):
+    cdef:
+        shared_ptr[const CKeyValueMetadata] wrapped
+        const CKeyValueMetadata* metadata
+
+    cdef void init(self, const shared_ptr[const CKeyValueMetadata]& wrapped)
+    @staticmethod
+    cdef wrap(const shared_ptr[const CKeyValueMetadata]& sp)
+    cdef inline shared_ptr[const CKeyValueMetadata] unwrap(self) nogil
+
+
 cdef class Field:
     cdef:
         shared_ptr[CField] sp_field

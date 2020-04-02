@@ -16,6 +16,7 @@
 # under the License.
 
 import atexit
+from collections.abc import Mapping
 import re
 import sys
 import warnings
@@ -808,6 +809,106 @@ def unregister_extension_type(type_name):
     check_status(UnregisterPyExtensionType(c_type_name))
 
 
+cdef class KeyValueMetadata(_Metadata, Mapping):
+
+    def __init__(self, *args, **kwargs):
+        cdef:
+            vector[c_string] keys, values
+            shared_ptr[const CKeyValueMetadata] meta
+
+        items = []
+        if args:
+            if len(args) > 1:
+                raise TypeError('expected at most 1 positional argument, '
+                                'got {}'.format(len(args)))
+            other = args[0]
+            items += other.items() if isinstance(other, Mapping) else other
+
+        items += kwargs.items()
+
+        keys.reserve(len(items))
+        for key, value in items:
+            keys.push_back(tobytes(key))
+            values.push_back(tobytes(value))
+
+        meta.reset(new CKeyValueMetadata(keys, values))
+        self.init(meta)
+
+    cdef void init(self, const shared_ptr[const CKeyValueMetadata]& wrapped):
+        self.wrapped = wrapped
+        self.metadata = wrapped.get()
+
+    @staticmethod
+    cdef wrap(const shared_ptr[const CKeyValueMetadata]& sp):
+        cdef KeyValueMetadata self = KeyValueMetadata.__new__(KeyValueMetadata)
+        self.init(sp)
+        return self
+
+    cdef inline shared_ptr[const CKeyValueMetadata] unwrap(self) nogil:
+        return self.wrapped
+
+    def equals(self, KeyValueMetadata other):
+        return self.metadata.Equals(deref(other.wrapped))
+
+    def __str__(self):
+        return frombytes(self.metadata.ToString())
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            pass
+
+        if isinstance(other, Mapping):
+            try:
+                other = KeyValueMetadata(other)
+                return self.equals(other)
+            except TypeError:
+                pass
+
+        return NotImplemented
+
+    def __len__(self):
+        return self.metadata.size()
+
+    def __contains__(self, key):
+        return self.metadata.Contains(tobytes(key))
+
+    def __getitem__(self, key):
+        return GetResultValue(self.metadata.Get(tobytes(key)))
+
+    def __iter__(self):
+        return self.keys()
+
+    def __reduce__(self):
+        return KeyValueMetadata, (list(self.items()),)
+
+    def keys(self):
+        for i in range(self.metadata.size()):
+            yield self.metadata.key(i)
+
+    def values(self):
+        for i in range(self.metadata.size()):
+            yield self.metadata.value(i)
+
+    def items(self):
+        for i in range(self.metadata.size()):
+            yield (self.metadata.key(i), self.metadata.value(i))
+
+    def get_all(self, key):
+        key = tobytes(key)
+        return [v for k, v in self.items() if k == key]
+
+
+cdef KeyValueMetadata ensure_metadata(object meta, c_bool allow_none=False):
+    if allow_none and meta is None:
+        return None
+    elif isinstance(meta, KeyValueMetadata):
+        return meta
+    else:
+        return KeyValueMetadata(meta)
+
+
 cdef class Field:
     """
     A named field, with a data type, nullability, and optional metadata.
@@ -892,16 +993,11 @@ cdef class Field:
         -------
         field : pyarrow.Field
         """
-        cdef:
-            shared_ptr[CField] c_field
-            shared_ptr[CKeyValueMetadata] c_meta
+        cdef shared_ptr[CField] c_field
 
-        if not isinstance(metadata, dict):
-            raise TypeError('Metadata must be an instance of dict')
-
-        c_meta = pyarrow_unwrap_metadata(metadata)
+        meta = ensure_metadata(metadata, allow_none=False)
         with nogil:
-            c_field = self.field.WithMetadata(c_meta)
+            c_field = self.field.WithMetadata(meta.unwrap())
 
         return pyarrow_wrap_field(c_field)
 
@@ -1331,16 +1427,11 @@ cdef class Schema:
         -------
         schema : pyarrow.Schema
         """
-        cdef:
-            shared_ptr[CKeyValueMetadata] c_meta
-            shared_ptr[CSchema] c_schema
+        cdef shared_ptr[CSchema] c_schema
 
-        if not isinstance(metadata, dict):
-            raise TypeError('Metadata must be an instance of dict')
-
-        c_meta = pyarrow_unwrap_metadata(metadata)
+        meta = ensure_metadata(metadata, allow_none=False)
         with nogil:
-            c_schema = self.schema.WithMetadata(c_meta)
+            c_schema = self.schema.WithMetadata(meta.unwrap())
 
         return pyarrow_wrap_schema(c_schema)
 
@@ -1498,12 +1589,10 @@ def field(name, type, bint nullable=True, metadata=None):
     cdef:
         Field result = Field.__new__(Field)
         DataType _type = ensure_type(type, allow_none=False)
-        shared_ptr[CKeyValueMetadata] c_meta
+        shared_ptr[const CKeyValueMetadata] c_meta
 
-    if metadata is not None:
-        if not isinstance(metadata, dict):
-            raise TypeError('Metadata must be an instance of dict')
-        c_meta = pyarrow_unwrap_metadata(metadata)
+    metadata = ensure_metadata(metadata, allow_none=True)
+    c_meta = pyarrow_unwrap_metadata(metadata)
 
     result.sp_field.reset(
         new CField(tobytes(name), _type.sp_type, nullable, c_meta)
@@ -2353,7 +2442,7 @@ def schema(fields, metadata=None):
     schema : pyarrow.Schema
     """
     cdef:
-        shared_ptr[CKeyValueMetadata] c_meta
+        shared_ptr[const CKeyValueMetadata] c_meta
         shared_ptr[CSchema] c_schema
         Schema result
         Field py_field
@@ -2371,10 +2460,8 @@ def schema(fields, metadata=None):
             raise TypeError("field or tuple expected, got None")
         c_fields.push_back(py_field.sp_field)
 
-    if metadata is not None:
-        if not isinstance(metadata, dict):
-            raise TypeError('Metadata must be an instance of dict')
-        c_meta = pyarrow_unwrap_metadata(metadata)
+    metadata = ensure_metadata(metadata, allow_none=True)
+    c_meta = pyarrow_unwrap_metadata(metadata)
 
     c_schema.reset(new CSchema(c_fields, c_meta))
     result = Schema.__new__(Schema)

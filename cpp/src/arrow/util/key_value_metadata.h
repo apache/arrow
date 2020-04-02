@@ -24,6 +24,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -38,8 +40,12 @@ class ARROW_EXPORT KeyValueMetadata {
   virtual ~KeyValueMetadata() = default;
 
   void ToUnorderedMap(std::unordered_map<std::string, std::string>* out) const;
-
   void Append(const std::string& key, const std::string& value);
+
+  Result<std::string> Get(const std::string& key) const;
+  Status Delete(const std::string& key);
+  Status Set(const std::string& key, const std::string& value);
+  bool Contains(const std::string& key) const;
 
   void reserve(int64_t n);
   int64_t size() const;

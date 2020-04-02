@@ -30,10 +30,18 @@ cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
         int64_t size() const
         c_string key(int64_t i) const
         c_string value(int64_t i) const
+        int FindKey(const c_string& key) const
 
+        shared_ptr[CKeyValueMetadata] Copy() const
         c_bool Equals(const CKeyValueMetadata& other)
         void Append(const c_string& key, const c_string& value)
         void ToUnorderedMap(unordered_map[c_string, c_string]*) const
+        c_string ToString() const
+
+        CResult[c_string] Get(const c_string& key) const
+        CStatus Delete(const c_string& key)
+        CStatus Set(const c_string& key, const c_string& value)
+        c_bool Contains(const c_string& key) const
 
 
 cdef extern from "arrow/api.h" namespace "arrow" nogil:

@@ -453,13 +453,11 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
         Py_ssize_t K = len(arrays)
         c_string c_name
         shared_ptr[CDataType] c_type
-        shared_ptr[CKeyValueMetadata] c_meta
+        shared_ptr[const CKeyValueMetadata] c_meta
         vector[shared_ptr[CField]] c_fields
 
     if metadata is not None:
-        if not isinstance(metadata, dict):
-            raise TypeError('Metadata must be an instance of dict')
-        c_meta = pyarrow_unwrap_metadata(metadata)
+        c_meta = KeyValueMetadata(metadata).unwrap()
 
     if K == 0:
         schema.reset(new CSchema(c_fields, c_meta))
@@ -600,14 +598,11 @@ cdef class RecordBatch(_PandasConvertible):
         shallow_copy : RecordBatch
         """
         cdef:
-            shared_ptr[CKeyValueMetadata] c_meta
+            shared_ptr[const CKeyValueMetadata] c_meta
             shared_ptr[CRecordBatch] c_batch
 
-        if metadata is not None:
-            if not isinstance(metadata, dict):
-                raise TypeError('Metadata must be an instance of dict')
-            c_meta = pyarrow_unwrap_metadata(metadata)
-
+        metadata = ensure_metadata(metadata, allow_none=True)
+        c_meta = pyarrow_unwrap_metadata(metadata)
         with nogil:
             c_batch = self.batch.ReplaceSchemaMetadata(c_meta)
 
@@ -1126,14 +1121,11 @@ cdef class Table(_PandasConvertible):
         shallow_copy : Table
         """
         cdef:
-            shared_ptr[CKeyValueMetadata] c_meta
+            shared_ptr[const CKeyValueMetadata] c_meta
             shared_ptr[CTable] c_table
 
-        if metadata is not None:
-            if not isinstance(metadata, dict):
-                raise TypeError('Metadata must be an instance of dict')
-            c_meta = pyarrow_unwrap_metadata(metadata)
-
+        metadata = ensure_metadata(metadata, allow_none=True)
+        c_meta = pyarrow_unwrap_metadata(metadata)
         with nogil:
             c_table = self.table.ReplaceSchemaMetadata(c_meta)
 
