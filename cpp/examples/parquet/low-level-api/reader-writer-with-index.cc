@@ -86,6 +86,8 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
                bool checkpredicate);
 bool printRange(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader* int64_reader,int ind,return_multiple vals_min,return_multiple vals_max,int64_t& row_counter);
 
+void run_for_one_predicate(int num_columns,int num_row_groups, std::unique_ptr<parquet::ParquetFileReader>& parquet_reader, char** argv,int predicate_index);
+
 void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> rg,int predicate_column_number,int num_columns, char* predicate,bool with_index);
 
 int parquet_reader(int argc, char** argv);
@@ -123,11 +125,26 @@ int parquet_reader(int argc,char** argv) {
      int num_columns = file_metadata->num_columns();
      //      assert(num_columns == NUM_COLS);
 
-    // Iterate over all the RowGroups in the file
+     run_for_one_predicate(num_columns,num_row_groups,parquet_reader,argv,3);
+
+     if ( argc == 5 ){
+       run_for_one_predicate(num_columns,num_row_groups,parquet_reader,argv,4);
+     }
+     
+     return 0;
+   } catch (const std::exception& e) {
+      std::cerr << "Parquet read error: " << e.what() << std::endl;
+      return -1;
+  }
+
+}
+
+void run_for_one_predicate(int num_columns,int num_row_groups, std::unique_ptr<parquet::ParquetFileReader>& parquet_reader, char** argv,int predicate_index) {
+  // Iterate over all the RowGroups in the file
     for (int r = 0; r < num_row_groups; ++r) {
     
       char *col_num = argv[2];
-      char *predicate_val  = argv[3];
+      char *predicate_val  = argv[predicate_index];
 
       std::stringstream ss(col_num);
       int col_id = 0;
@@ -182,12 +199,6 @@ int parquet_reader(int argc,char** argv) {
       /***********************************/
       
      }
-     return 0;
-   } catch (const std::exception& e) {
-      std::cerr << "Parquet read error: " << e.what() << std::endl;
-      return -1;
-  }
-
 }
 
 
@@ -732,8 +743,3 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
         
 }
 
-bool printRange(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader* int64_reader,
-int ind,return_multiple vals_min,return_multiple vals_max,int64_t& row_counter){
-
-      return printVal(column_reader, int64_reader,ind,vals_min,row_counter) &&  printVal(column_reader, int64_reader,ind,vals_max,row_counter);
-}
