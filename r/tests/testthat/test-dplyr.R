@@ -98,7 +98,7 @@ test_that("basic select/filter/collect", {
   expect_identical(collect(batch), tbl)
 })
 
-test_that("More complex select/filter", {
+test_that("filter() on is.na()", {
   expect_dplyr_equal(
     input %>%
       filter(is.na(lgl)) %>%
@@ -108,19 +108,28 @@ test_that("More complex select/filter", {
   )
 })
 
-# ARROW-7360
-# test_that("filtering with expression", {
-#   char_sym <- "b"
-#   expect_dplyr_equal(
-#     input %>%
-#       filter(chr == char_sym) %>%
-#       select(string = chr, int) %>%
-#       collect(),
-#     tbl
-#   )
-# })
+test_that("filter() with NAs in selection", {
+  expect_dplyr_equal(
+    input %>%
+      filter(lgl) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+})
 
-test_that("filter() on is.na()", {
+test_that("filtering with expression", {
+  char_sym <- "b"
+  expect_dplyr_equal(
+    input %>%
+      filter(chr == char_sym) %>%
+      select(string = chr, int) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("More complex select/filter", {
   expect_dplyr_equal(
     input %>%
       filter(dbl > 2, chr == "d" | chr == "f") %>%

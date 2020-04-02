@@ -1242,10 +1242,10 @@ Result<std::shared_ptr<RecordBatch>> TreeEvaluator::Filter(
     MemoryPool* pool) const {
   if (selection.is_array()) {
     auto selection_array = selection.make_array();
-    std::shared_ptr<RecordBatch> filtered;
+    compute::Datum filtered;
     compute::FunctionContext ctx{pool};
-    RETURN_NOT_OK(compute::Filter(&ctx, *batch, *selection_array, &filtered));
-    return std::move(filtered);
+    RETURN_NOT_OK(compute::Filter(&ctx, batch, selection_array, {}, &filtered));
+    return filtered.record_batch();
   }
 
   if (!selection.is_scalar() || selection.type()->id() != Type::BOOL) {

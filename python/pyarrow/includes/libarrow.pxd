@@ -1465,6 +1465,16 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CTakeOptions" arrow::compute::TakeOptions":
         pass
 
+    enum CFilterNullSelectionBehavior \
+            "arrow::compute::FilterOptions::NullSelectionBehavior":
+        CFilterNullSelectionBehavior_DROP \
+            "arrow::compute::FilterOptions::DROP"
+        CFilterNullSelectionBehavior_EMIT_NULL \
+            "arrow::compute::FilterOptions::EMIT_NULL"
+
+    cdef cppclass CFilterOptions" arrow::compute::FilterOptions":
+        CFilterNullSelectionBehavior null_selection_behavior
+
     enum DatumType" arrow::compute::Datum::type":
         DatumType_NONE" arrow::compute::Datum::NONE"
         DatumType_SCALAR" arrow::compute::Datum::SCALAR"
@@ -1517,7 +1527,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     # Filter clashes with gandiva.pyx::Filter
     CStatus FilterKernel" arrow::compute::Filter"(
         CFunctionContext* context, const CDatum& values,
-        const CDatum& filter, CDatum* out)
+        const CDatum& filter, CFilterOptions, CDatum* out)
 
     enum CCompareOperator "arrow::compute::CompareOperator":
         CCompareOperator_EQUAL "arrow::compute::CompareOperator::EQUAL"

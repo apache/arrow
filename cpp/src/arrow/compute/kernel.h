@@ -219,6 +219,19 @@ struct ARROW_EXPORT Datum {
     return kUnknownLength;
   }
 
+  /// \brief The array chunks of the variant, if any
+  ///
+  /// \return empty if not arraylike
+  ArrayVector chunks() const {
+    if (!this->is_arraylike()) {
+      return {};
+    }
+    if (this->is_array()) {
+      return {this->make_array()};
+    }
+    return this->chunked_array()->chunks();
+  }
+
   bool Equals(const Datum& other) const {
     if (this->kind() != other.kind()) return false;
 

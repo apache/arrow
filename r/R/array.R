@@ -70,7 +70,7 @@
 #'    until the end of the array.
 #' - `$Take(i)`: return an `Array` with values at positions given by integers
 #'    (R vector or Array Array) `i`.
-#' - `$Filter(i)`: return an `Array` with values at positions where logical
+#' - `$Filter(i, keep_na = TRUE)`: return an `Array` with values at positions where logical
 #'    vector (or Arrow boolean Array) `i` is `TRUE`.
 #' - `$RangeEquals(other, start_idx, end_idx, other_start_idx)` :
 #' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`: Alter the
@@ -133,12 +133,12 @@ Array <- R6Class("Array",
       assert_is(i, "Array")
       Array$create(Array__Take(self, i))
     },
-    Filter = function(i) {
+    Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
       assert_is(i, "Array")
-      Array$create(Array__Filter(self, i))
+      Array$create(Array__Filter(self, i, keep_na))
     },
     RangeEquals = function(other, start_idx, end_idx, other_start_idx = 0L) {
       assert_is(other, "Array")
@@ -243,7 +243,7 @@ is.na.Array <- function(x) {
 #' @export
 as.vector.Array <- function(x, mode) x$as_vector()
 
-filter_rows <- function(x, i, ...) {
+filter_rows <- function(x, i, keep_na = TRUE, ...) {
   # General purpose function for [ row subsetting with R semantics
   # Based on the input for `i`, calls x$Filter, x$Slice, or x$Take
   nrows <- x$num_rows %||% x$length() # Depends on whether Array or Table-like
@@ -257,7 +257,7 @@ filter_rows <- function(x, i, ...) {
       x
     } else {
       i <- rep_len(i, nrows) # For R recycling behavior; consider vctrs::vec_recycle()
-      x$Filter(i)
+      x$Filter(i, keep_na)
     }
   } else if (is.numeric(i)) {
     if (all(i < 0)) {
@@ -275,7 +275,7 @@ filter_rows <- function(x, i, ...) {
     # NOTE: this doesn't do the - 1 offset
     x$Take(i)
   } else if (is.Array(i, "bool")) {
-    x$Filter(i)
+    x$Filter(i, keep_na)
   } else {
     # Unsupported cases
     if (is.Array(i)) {
