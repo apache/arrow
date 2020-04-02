@@ -117,6 +117,7 @@ read_ipc_stream <- function(x, as_data_frame = TRUE, ...) {
   assert_is(x, "InputStream")
 
   # TODO: this could take col_select, like the other readers
+  # https://issues.apache.org/jira/browse/ARROW-6830
   out <- RecordBatchStreamReader$create(x)$read_table()
   if (as_data_frame) {
     out <- as.data.frame(out)

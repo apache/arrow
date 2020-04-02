@@ -70,12 +70,12 @@ reference:
 - title: Reading and writing files
   contents:
   - read_feather
-  - read_arrow
+  - read_ipc_stream
   - read_parquet
   - read_delim_arrow
   - read_json_arrow
   - write_feather
-  - write_arrow
+  - write_ipc_stream
   - write_parquet
 - title: C++ reader/writer interface
   contents:
