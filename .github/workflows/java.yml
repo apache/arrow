@@ -21,12 +21,18 @@ on:
   push:
     paths:
       - '.github/workflows/java.yml'
-      - 'ci/**'
+      - 'ci/docker/*java*'
+      - 'ci/scripts/java*.sh'
+      - 'ci/scripts/util_*.sh'
+      - 'format/Flight.proto'
       - 'java/**'
   pull_request:
     paths:
       - '.github/workflows/java.yml'
-      - 'ci/**'
+      - 'ci/docker/*java*'
+      - 'ci/scripts/java*.sh'
+      - 'ci/scripts/util_*.sh'
+      - 'format/Flight.proto'
       - 'java/**'
 
 jobs:

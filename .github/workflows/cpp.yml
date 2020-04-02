@@ -23,11 +23,13 @@ on:
       - '.github/workflows/cpp.yml'
       - 'ci/**'
       - 'cpp/**'
+      - 'format/Flight.proto'
   pull_request:
     paths:
       - '.github/workflows/cpp.yml'
       - 'ci/**'
       - 'cpp/**'
+      - 'format/Flight.proto'
 
 env:
   ARROW_ENABLE_TIMING_TESTS: OFF
