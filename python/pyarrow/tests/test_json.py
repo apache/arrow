@@ -39,11 +39,15 @@ def generate_col_names():
 
 
 def make_random_json(num_cols=2, num_rows=10, linesep='\r\n'):
-    arr = np.random.RandomState(42).randint(0, 1000, size=(num_cols, num_rows))
+    arr = np.random.RandomState(42).randint(
+        0, 1000, size=(num_cols, num_rows)
+    )
     col_names = list(itertools.islice(generate_col_names(), num_cols))
     lines = []
     for row in arr.T:
-        json_obj = OrderedDict([(k, int(v)) for (k, v) in zip(col_names, row)])
+        json_obj = OrderedDict(
+            [(k, int(v)) for (k, v) in zip(col_names, row)]
+        )
         lines.append(json.dumps(json_obj))
     data = linesep.join(lines).encode()
     columns = [pa.array(col, type=pa.int64()) for col in arr]
@@ -83,7 +87,6 @@ def test_parse_options():
 
 
 class BaseTestJSONRead:
-
     def read_bytes(self, b, **kwargs):
         return self.read_json(pa.py_buffer(b), **kwargs)
 
@@ -111,17 +114,24 @@ class BaseTestJSONRead:
             for newlines_in_values in [False, True]:
                 parse_options.newlines_in_values = newlines_in_values
                 read_options.block_size = 4
-                with pytest.raises(ValueError,
-                                   match="try to increase block size"):
-                    self.read_bytes(data, read_options=read_options,
-                                    parse_options=parse_options)
+                with pytest.raises(
+                    ValueError, match="try to increase block size"
+                ):
+                    self.read_bytes(
+                        data,
+                        read_options=read_options,
+                        parse_options=parse_options,
+                    )
 
                 # Validate reader behavior with various block sizes.
                 # There used to be bugs in this area.
                 for block_size in range(9, 20):
                     read_options.block_size = block_size
-                    table = self.read_bytes(data, read_options=read_options,
-                                            parse_options=parse_options)
+                    table = self.read_bytes(
+                        data,
+                        read_options=read_options,
+                        parse_options=parse_options,
+                    )
                     assert table.to_pydict() == {'a': [1, 2, 3]}
 
     def test_no_newline_at_end(self):
@@ -131,50 +141,62 @@ class BaseTestJSONRead:
             'a': [1, 4],
             'b': [2, 5],
             'c': [3, 6],
-            }
+        }
 
     def test_simple_ints(self):
         # Infer integer columns
         rows = b'{"a": 1,"b": 2, "c": 3}\n{"a": 4,"b": 5, "c": 6}\n'
         table = self.read_bytes(rows)
-        schema = pa.schema([('a', pa.int64()),
-                            ('b', pa.int64()),
-                            ('c', pa.int64())])
+        schema = pa.schema(
+            [('a', pa.int64()), ('b', pa.int64()), ('c', pa.int64())]
+        )
         assert table.schema == schema
         assert table.to_pydict() == {
             'a': [1, 4],
             'b': [2, 5],
             'c': [3, 6],
-            }
+        }
 
     def test_simple_varied(self):
         # Infer various kinds of data
-        rows = (b'{"a": 1,"b": 2, "c": "3", "d": false}\n'
-                b'{"a": 4.0, "b": -5, "c": "foo", "d": true}\n')
+        rows = (
+            b'{"a": 1,"b": 2, "c": "3", "d": false}\n'
+            b'{"a": 4.0, "b": -5, "c": "foo", "d": true}\n'
+        )
         table = self.read_bytes(rows)
-        schema = pa.schema([('a', pa.float64()),
-                            ('b', pa.int64()),
-                            ('c', pa.string()),
-                            ('d', pa.bool_())])
+        schema = pa.schema(
+            [
+                ('a', pa.float64()),
+                ('b', pa.int64()),
+                ('c', pa.string()),
+                ('d', pa.bool_()),
+            ]
+        )
         assert table.schema == schema
         assert table.to_pydict() == {
             'a': [1.0, 4.0],
             'b': [2, -5],
             'c': ["3", "foo"],
             'd': [False, True],
-            }
+        }
 
     def test_simple_nulls(self):
         # Infer various kinds of data, with nulls
-        rows = (b'{"a": 1, "b": 2, "c": null, "d": null, "e": null}\n'
-                b'{"a": null, "b": -5, "c": "foo", "d": null, "e": true}\n'
-                b'{"a": 4.5, "b": null, "c": "nan", "d": null,"e": false}\n')
+        rows = (
+            b'{"a": 1, "b": 2, "c": null, "d": null, "e": null}\n'
+            b'{"a": null, "b": -5, "c": "foo", "d": null, "e": true}\n'
+            b'{"a": 4.5, "b": null, "c": "nan", "d": null,"e": false}\n'
+        )
         table = self.read_bytes(rows)
-        schema = pa.schema([('a', pa.float64()),
-                            ('b', pa.int64()),
-                            ('c', pa.string()),
-                            ('d', pa.null()),
-                            ('e', pa.bool_())])
+        schema = pa.schema(
+            [
+                ('a', pa.float64()),
+                ('b', pa.int64()),
+                ('c', pa.string()),
+                ('d', pa.null()),
+                ('e', pa.bool_()),
+            ]
+        )
         assert table.schema == schema
         assert table.to_pydict() == {
             'a': [1.0, None, 4.5],
@@ -182,7 +204,7 @@ class BaseTestJSONRead:
             'c': [None, "foo", "nan"],
             'd': [None, None, None],
             'e': [None, True, False],
-            }
+        }
 
     def test_small_random_json(self):
         data, expected = make_random_json(num_cols=2, num_rows=10)
@@ -202,8 +224,11 @@ class BaseTestJSONRead:
                 parse_options.newlines_in_values = newlines_in_values
                 for block_size in [22, 23, 37]:
                     read_options.block_size = block_size
-                    table = self.read_bytes(data, read_options=read_options,
-                                            parse_options=parse_options)
+                    table = self.read_bytes(
+                        data,
+                        read_options=read_options,
+                        parse_options=parse_options,
+                    )
                     assert table.schema == expected.schema
                     if not table.equals(expected):
                         # Better error output
@@ -211,7 +236,6 @@ class BaseTestJSONRead:
 
 
 class TestSerialJSONRead(BaseTestJSONRead, unittest.TestCase):
-
     def read_json(self, *args, **kwargs):
         read_options = kwargs.setdefault('read_options', ReadOptions())
         read_options.use_threads = False
@@ -221,7 +245,6 @@ class TestSerialJSONRead(BaseTestJSONRead, unittest.TestCase):
 
 
 class TestParallelJSONRead(BaseTestJSONRead, unittest.TestCase):
-
     def read_json(self, *args, **kwargs):
         read_options = kwargs.setdefault('read_options', ReadOptions())
         read_options.use_threads = True

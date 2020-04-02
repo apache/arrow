@@ -25,9 +25,14 @@ import pytest
 
 import pyarrow as pa
 from pyarrow.tests.test_io import assert_file_not_found
-from pyarrow.fs import (FileType, FileSelector, FileSystem, LocalFileSystem,
-                        SubTreeFileSystem,
-                        _MockFileSystem)
+from pyarrow.fs import (
+    FileType,
+    FileSelector,
+    FileSystem,
+    LocalFileSystem,
+    SubTreeFileSystem,
+    _MockFileSystem,
+)
 
 
 @pytest.fixture
@@ -88,7 +93,7 @@ def s3fs(request, s3_connection, s3_server):
         access_key=access_key,
         secret_key=secret_key,
         endpoint_override='{}:{}'.format(host, port),
-        scheme='http'
+        scheme='http',
     )
     fs.create_dir(bucket)
 
@@ -133,32 +138,22 @@ def hdfs(request, hdfs_connection):
     )
 
 
-@pytest.fixture(params=[
-    pytest.param(
-        pytest.lazy_fixture('localfs'),
-        id='LocalFileSystem()'
-    ),
-    pytest.param(
-        pytest.lazy_fixture('localfs_with_mmap'),
-        id='LocalFileSystem(use_mmap=True)'
-    ),
-    pytest.param(
-        pytest.lazy_fixture('subtree_localfs'),
-        id='SubTreeFileSystem(LocalFileSystem())'
-    ),
-    pytest.param(
-        pytest.lazy_fixture('s3fs'),
-        id='S3FileSystem'
-    ),
-    pytest.param(
-        pytest.lazy_fixture('hdfs'),
-        id='HadoopFileSystem'
-    ),
-    pytest.param(
-        pytest.lazy_fixture('mockfs'),
-        id='_MockFileSystem()'
-    ),
-])
+@pytest.fixture(
+    params=[
+        pytest.param(pytest.lazy_fixture('localfs'), id='LocalFileSystem()'),
+        pytest.param(
+            pytest.lazy_fixture('localfs_with_mmap'),
+            id='LocalFileSystem(use_mmap=True)',
+        ),
+        pytest.param(
+            pytest.lazy_fixture('subtree_localfs'),
+            id='SubTreeFileSystem(LocalFileSystem())',
+        ),
+        pytest.param(pytest.lazy_fixture('s3fs'), id='S3FileSystem'),
+        pytest.param(pytest.lazy_fixture('hdfs'), id='HadoopFileSystem'),
+        pytest.param(pytest.lazy_fixture('mockfs'), id='_MockFileSystem()'),
+    ]
+)
 def filesystem_config(request):
     return request.param
 
@@ -248,8 +243,16 @@ def test_non_path_like_input_raises(fs):
     class Path:
         pass
 
-    invalid_paths = [1, 1.1, Path(), tuple(), {}, [], lambda: 1,
-                     pathlib.Path()]
+    invalid_paths = [
+        1,
+        1.1,
+        Path(),
+        tuple(),
+        {},
+        [],
+        lambda: 1,
+        pathlib.Path(),
+    ]
     for path in invalid_paths:
         with pytest.raises(TypeError):
             fs.create_dir(path)
@@ -313,8 +316,9 @@ def test_get_file_info_with_selector(fs, pathfn):
             pass
         fs.create_dir(dir_a)
 
-        selector = FileSelector(base_dir, allow_not_found=False,
-                                recursive=True)
+        selector = FileSelector(
+            base_dir, allow_not_found=False, recursive=True
+        )
         assert selector.base_dir == base_dir
 
         infos = fs.get_file_info(selector)
@@ -436,7 +440,7 @@ def identity(v):
         (None, 64, identity),
         ('gzip', None, gzip.compress),
         ('gzip', 256, gzip.compress),
-    ]
+    ],
 )
 def test_open_input_stream(fs, pathfn, compression, buffer_size, compressor):
     p = pathfn('open-input-stream')
@@ -473,10 +477,11 @@ def test_open_input_file(fs, pathfn):
         (None, 64, identity),
         ('gzip', None, gzip.decompress),
         ('gzip', 256, gzip.decompress),
-    ]
+    ],
 )
-def test_open_output_stream(fs, pathfn, compression, buffer_size,
-                            decompressor):
+def test_open_output_stream(
+    fs, pathfn, compression, buffer_size, decompressor
+):
     p = pathfn('open-output-stream')
 
     data = b'some data for writing' * 1024
@@ -494,10 +499,17 @@ def test_open_output_stream(fs, pathfn, compression, buffer_size,
         (None, 64, identity, identity),
         ('gzip', None, gzip.compress, gzip.decompress),
         ('gzip', 256, gzip.compress, gzip.decompress),
-    ]
+    ],
 )
-def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
-                            decompressor, allow_append_to_file):
+def test_open_append_stream(
+    fs,
+    pathfn,
+    compression,
+    buffer_size,
+    compressor,
+    decompressor,
+    allow_append_to_file,
+):
     p = pathfn('open-append-stream')
 
     initial = compressor(b'already existing')
@@ -505,8 +517,9 @@ def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
         s.write(initial)
 
     if allow_append_to_file:
-        with fs.open_append_stream(p, compression=compression,
-                                   buffer_size=buffer_size) as f:
+        with fs.open_append_stream(
+            p, compression=compression, buffer_size=buffer_size
+        ) as f:
             f.write(b'\nnewly added')
 
         with fs.open_input_stream(p) as f:
@@ -516,8 +529,9 @@ def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
         assert result == b'already existing\nnewly added'
     else:
         with pytest.raises(pa.ArrowNotImplementedError):
-            fs.open_append_stream(p, compression=compression,
-                                  buffer_size=buffer_size)
+            fs.open_append_stream(
+                p, compression=compression, buffer_size=buffer_size
+            )
 
 
 def test_localfs_options():
@@ -552,9 +566,13 @@ def test_localfs_errors(localfs):
 def test_s3_options():
     from pyarrow.fs import S3FileSystem
 
-    fs = S3FileSystem(access_key='access', secret_key='secret',
-                      region='us-east-1', scheme='https',
-                      endpoint_override='localhost:8999')
+    fs = S3FileSystem(
+        access_key='access',
+        secret_key='secret',
+        region='us-east-1',
+        scheme='https',
+        endpoint_override='localhost:8999',
+    )
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
@@ -567,29 +585,48 @@ def test_s3_options():
 @pytest.mark.hdfs
 def test_hdfs_options(hdfs_connection):
     from pyarrow.fs import HadoopFileSystem
+
     if not pa.have_libhdfs():
         pytest.skip('Cannot locate libhdfs')
 
     host, port, user = hdfs_connection
 
     replication = 2
-    buffer_size = 64*1024
-    default_block_size = 128*1024**2
-    uri = ('hdfs://{}:{}/?user={}&replication={}&buffer_size={}'
-           '&default_block_size={}')
+    buffer_size = 64 * 1024
+    default_block_size = 128 * 1024 ** 2
+    uri = (
+        'hdfs://{}:{}/?user={}&replication={}&buffer_size={}'
+        '&default_block_size={}'
+    )
 
-    hdfs1 = HadoopFileSystem(host, port, user='libhdfs',
-                             replication=replication, buffer_size=buffer_size,
-                             default_block_size=default_block_size)
-    hdfs2 = HadoopFileSystem.from_uri(uri.format(
-        host, port, 'libhdfs', replication, buffer_size, default_block_size
-    ))
-    hdfs3 = HadoopFileSystem.from_uri(uri.format(
-        host, port, 'me', replication, buffer_size, default_block_size
-    ))
-    hdfs4 = HadoopFileSystem.from_uri(uri.format(
-        host, port, 'me', replication + 1, buffer_size, default_block_size
-    ))
+    hdfs1 = HadoopFileSystem(
+        host,
+        port,
+        user='libhdfs',
+        replication=replication,
+        buffer_size=buffer_size,
+        default_block_size=default_block_size,
+    )
+    hdfs2 = HadoopFileSystem.from_uri(
+        uri.format(
+            host,
+            port,
+            'libhdfs',
+            replication,
+            buffer_size,
+            default_block_size,
+        )
+    )
+    hdfs3 = HadoopFileSystem.from_uri(
+        uri.format(
+            host, port, 'me', replication, buffer_size, default_block_size
+        )
+    )
+    hdfs4 = HadoopFileSystem.from_uri(
+        uri.format(
+            host, port, 'me', replication + 1, buffer_size, default_block_size
+        )
+    )
     hdfs5 = HadoopFileSystem(host, port)
     hdfs6 = HadoopFileSystem.from_uri('hdfs://{}:{}'.format(host, port))
     hdfs7 = HadoopFileSystem(host, port, user='localuser')
@@ -620,20 +657,23 @@ def test_hdfs_options(hdfs_connection):
     assert hdfs.get_file_info(FileSelector('/'))
 
 
-@pytest.mark.parametrize(('uri', 'expected_klass', 'expected_path'), [
-    # leading slashes are removed intentionally, becuase MockFileSystem doesn't
-    # have a distinction between relative and absolute paths
-    ('mock:', _MockFileSystem, ''),
-    ('mock:foo/bar', _MockFileSystem, 'foo/bar'),
-    ('mock:/foo/bar', _MockFileSystem, 'foo/bar'),
-    ('mock:///foo/bar', _MockFileSystem, 'foo/bar'),
-    ('file:', LocalFileSystem, ''),
-    ('file:foo/bar', LocalFileSystem, 'foo/bar'),
-    ('file:/foo/bar', LocalFileSystem, '/foo/bar'),
-    ('file:///foo/bar', LocalFileSystem, '/foo/bar'),
-    ('/', LocalFileSystem, '/'),
-    ('/foo/bar', LocalFileSystem, '/foo/bar'),
-])
+@pytest.mark.parametrize(
+    ('uri', 'expected_klass', 'expected_path'),
+    [
+        # leading slashes are removed intentionally, becuase MockFileSystem doesn't
+        # have a distinction between relative and absolute paths
+        ('mock:', _MockFileSystem, ''),
+        ('mock:foo/bar', _MockFileSystem, 'foo/bar'),
+        ('mock:/foo/bar', _MockFileSystem, 'foo/bar'),
+        ('mock:///foo/bar', _MockFileSystem, 'foo/bar'),
+        ('file:', LocalFileSystem, ''),
+        ('file:foo/bar', LocalFileSystem, 'foo/bar'),
+        ('file:/foo/bar', LocalFileSystem, '/foo/bar'),
+        ('file:///foo/bar', LocalFileSystem, '/foo/bar'),
+        ('/', LocalFileSystem, '/'),
+        ('/foo/bar', LocalFileSystem, '/foo/bar'),
+    ],
+)
 def test_filesystem_from_uri(uri, expected_klass, expected_path):
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, expected_klass)
@@ -642,12 +682,9 @@ def test_filesystem_from_uri(uri, expected_klass, expected_path):
 
 @pytest.mark.skipif(
     sys.version_info < (3, 6),
-    reason="python 3.5 Path.resolve() checks that the path exists"
+    reason="python 3.5 Path.resolve() checks that the path exists",
 )
-@pytest.mark.parametrize(
-    'path',
-    ['', '/', 'foo/bar', '/foo/bar', __file__]
-)
+@pytest.mark.parametrize('path', ['', '/', 'foo/bar', '/foo/bar', __file__])
 def test_filesystem_from_path_object(path):
     p = pathlib.Path(path)
     fs, path = FileSystem.from_uri(p)
@@ -661,8 +698,9 @@ def test_filesystem_from_uri_s3(s3_connection, s3_server):
 
     host, port, access_key, secret_key = s3_connection
 
-    uri = "s3://{}:{}@mybucket/foo/bar?scheme=http&endpoint_override={}:{}" \
-        .format(access_key, secret_key, host, port)
+    uri = "s3://{}:{}@mybucket/foo/bar?scheme=http&endpoint_override={}:{}".format(
+        access_key, secret_key, host, port
+    )
 
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, S3FileSystem)

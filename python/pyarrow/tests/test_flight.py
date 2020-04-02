@@ -32,10 +32,14 @@ from pyarrow.util import pathlib, find_free_port
 try:
     from pyarrow import flight
     from pyarrow.flight import (
-        FlightClient, FlightServerBase,
-        ServerAuthHandler, ClientAuthHandler,
-        ServerMiddleware, ServerMiddlewareFactory,
-        ClientMiddleware, ClientMiddlewareFactory,
+        FlightClient,
+        FlightServerBase,
+        ServerAuthHandler,
+        ClientAuthHandler,
+        ServerMiddleware,
+        ServerMiddlewareFactory,
+        ClientMiddleware,
+        ClientMiddlewareFactory,
     )
 except ImportError:
     flight = None
@@ -58,8 +62,10 @@ def test_import():
 def resource_root():
     """Get the path to the test resources directory."""
     if not os.environ.get("ARROW_TEST_DATA"):
-        raise RuntimeError("Test resources not found; set "
-                           "ARROW_TEST_DATA to <repo root>/testing/data")
+        raise RuntimeError(
+            "Test resources not found; set "
+            "ARROW_TEST_DATA to <repo root>/testing/data"
+        )
     return pathlib.Path(os.environ["ARROW_TEST_DATA"]) / "flight"
 
 
@@ -74,8 +80,10 @@ def read_flight_resource(path):
     except FileNotFoundError:
         raise RuntimeError(
             "Test resource {} not found; did you initialize the "
-            "test resource submodule?\n{}".format(root / path,
-                                                  traceback.format_exc()))
+            "test resource submodule?\n{}".format(
+                root / path, traceback.format_exc()
+            )
+        )
 
 
 def example_tls_certs():
@@ -91,24 +99,24 @@ def example_tls_certs():
                 cert=read_flight_resource("cert1.pem"),
                 key=read_flight_resource("cert1.key"),
             ),
-        ]
+        ],
     }
 
 
 def simple_ints_table():
-    data = [
-        pa.array([-10, -5, 0, 5, 10])
-    ]
+    data = [pa.array([-10, -5, 0, 5, 10])]
     return pa.Table.from_arrays(data, names=['some_ints'])
 
 
 def simple_dicts_table():
     dict_values = pa.array(["foo", "baz", "quux"], type=pa.utf8())
     data = [
-        pa.chunked_array([
-            pa.DictionaryArray.from_arrays([1, 0, None], dict_values),
-            pa.DictionaryArray.from_arrays([2, 1], dict_values)
-        ])
+        pa.chunked_array(
+            [
+                pa.DictionaryArray.from_arrays([1, 0, None], dict_values),
+                pa.DictionaryArray.from_arrays([2, 1], dict_values),
+            ]
+        )
     ]
     return pa.Table.from_arrays(data, names=['some_dicts'])
 
@@ -136,7 +144,8 @@ class ConstantFlightServer(FlightServerBase):
                 pa.schema([]),
                 flight.FlightDescriptor.for_path('/foo'),
                 [],
-                -1, -1
+                -1,
+                -1,
             )
 
     def do_get(self, context, ticket):
@@ -150,13 +159,11 @@ class MetadataFlightServer(FlightServerBase):
     """A Flight server that numbers incoming/outgoing data."""
 
     def do_get(self, context, ticket):
-        data = [
-            pa.array([-10, -5, 0, 5, 10])
-        ]
+        data = [pa.array([-10, -5, 0, 5, 10])]
         table = pa.Table.from_arrays(data, names=['a'])
         return flight.GeneratorStream(
-            table.schema,
-            self.number_batches(table))
+            table.schema, self.number_batches(table)
+        )
 
     def do_put(self, context, descriptor, reader, writer):
         counter = 0
@@ -164,12 +171,13 @@ class MetadataFlightServer(FlightServerBase):
         while True:
             try:
                 batch, buf = reader.read_chunk()
-                assert batch.equals(pa.RecordBatch.from_arrays(
-                    [pa.array([expected_data[counter]])],
-                    ['a']
-                ))
+                assert batch.equals(
+                    pa.RecordBatch.from_arrays(
+                        [pa.array([expected_data[counter]])], ['a']
+                    )
+                )
                 assert buf is not None
-                client_counter, = struct.unpack('<i', buf.to_pybytes())
+                (client_counter,) = struct.unpack('<i', buf.to_pybytes())
                 assert counter == client_counter
                 writer.write(struct.pack('<i', counter))
                 counter += 1
@@ -206,7 +214,8 @@ class EchoStreamFlightServer(EchoFlightServer):
     def do_get(self, context, ticket):
         return flight.GeneratorStream(
             self.last_message.schema,
-            self.last_message.to_batches(max_chunksize=1024))
+            self.last_message.to_batches(max_chunksize=1024),
+        )
 
     def list_actions(self, context):
         return []
@@ -227,8 +236,7 @@ class GetInfoFlightServer(FlightServerBase):
             [
                 flight.FlightEndpoint(b'', ['grpc://test']),
                 flight.FlightEndpoint(
-                    b'',
-                    [flight.Location.for_grpc_tcp('localhost', 5005)],
+                    b'', [flight.Location.for_grpc_tcp('localhost', 5005)],
                 ),
             ],
             -1,
@@ -300,8 +308,9 @@ class SlowFlightServer(FlightServerBase):
     """A Flight server that delays its responses to test timeouts."""
 
     def do_get(self, context, ticket):
-        return flight.GeneratorStream(pa.schema([('a', pa.int32())]),
-                                      self.slow_stream())
+        return flight.GeneratorStream(
+            pa.schema([('a', pa.int32())]), self.slow_stream()
+        )
 
     def do_action(self, context, action):
         time.sleep(0.5)
@@ -341,7 +350,8 @@ class ErrorFlightServer(FlightServerBase):
             pa.schema([]),
             flight.FlightDescriptor.for_path('/foo'),
             [],
-            -1, -1
+            -1,
+            -1,
         )
         raise flight.FlightInternalError("foo")
 
@@ -401,7 +411,8 @@ class TokenServerAuthHandler(ServerAuthHandler):
             outgoing.write(base64.b64encode(b'secret:' + username))
         else:
             raise flight.FlightUnauthenticatedError(
-                "invalid username/password")
+                "invalid username/password"
+            )
 
     def is_valid(self, token):
         token = base64.b64decode(token)
@@ -574,15 +585,20 @@ def test_flight_get_info():
     """Make sure FlightEndpoint accepts string and object URIs."""
     with GetInfoFlightServer() as server:
         client = FlightClient(('localhost', server.port))
-        info = client.get_flight_info(flight.FlightDescriptor.for_command(b''))
+        info = client.get_flight_info(
+            flight.FlightDescriptor.for_command(b'')
+        )
         assert info.total_records == -1
         assert info.total_bytes == -1
         assert info.schema == pa.schema([('a', pa.int32())])
         assert len(info.endpoints) == 2
         assert len(info.endpoints[0].locations) == 1
-        assert info.endpoints[0].locations[0] == flight.Location('grpc://test')
-        assert info.endpoints[1].locations[0] == \
-            flight.Location.for_grpc_tcp('localhost', 5005)
+        assert info.endpoints[0].locations[0] == flight.Location(
+            'grpc://test'
+        )
+        assert info.endpoints[1].locations[0] == flight.Location.for_grpc_tcp(
+            'localhost', 5005
+        )
 
 
 def test_flight_get_schema():
@@ -599,22 +615,24 @@ def test_list_actions():
     with ListActionsErrorFlightServer() as server:
         client = FlightClient(('localhost', server.port))
         with pytest.raises(
-                flight.FlightServerError,
-                match=("Results of list_actions must be "
-                       "ActionType or tuple")
+            flight.FlightServerError,
+            match=("Results of list_actions must be " "ActionType or tuple"),
         ):
             list(client.list_actions())
 
     with ListActionsFlightServer() as server:
         client = FlightClient(('localhost', server.port))
-        assert list(client.list_actions()) == \
-            ListActionsFlightServer.expected_actions()
+        assert (
+            list(client.list_actions())
+            == ListActionsFlightServer.expected_actions()
+        )
 
 
 class ConvenienceServer(FlightServerBase):
     """
     Server for testing various implementation conveniences (auto-boxing, etc.)
     """
+
     @property
     def simple_action_results(self):
         return [b'foo', b'bar', b'baz']
@@ -647,15 +665,17 @@ def test_do_action_result_convenience():
 def test_nicer_server_exceptions():
     with ConvenienceServer() as server:
         client = FlightClient(('localhost', server.port))
-        with pytest.raises(flight.FlightServerError,
-                           match="a bytes-like object is required"):
+        with pytest.raises(
+            flight.FlightServerError, match="a bytes-like object is required"
+        ):
             list(client.do_action('bad-action'))
         # While Flight/C++ sends across the original status code, it
         # doesn't get mapped to the equivalent code here, since we
         # want to be able to distinguish between client- and server-
         # side errors.
-        with pytest.raises(flight.FlightServerError,
-                           match="ArrowMemoryError"):
+        with pytest.raises(
+            flight.FlightServerError, match="ArrowMemoryError"
+        ):
             list(client.do_action('arrow-exception'))
 
 
@@ -668,8 +688,9 @@ def test_get_port():
         server.shutdown()
 
 
-@pytest.mark.skipif(os.name == 'nt',
-                    reason="Unix sockets can't be tested on Windows")
+@pytest.mark.skipif(
+    os.name == 'nt', reason="Unix sockets can't be tested on Windows"
+)
 def test_flight_domain_socket():
     """Try a simple do_get call over a Unix domain socket."""
     with tempfile.NamedTemporaryFile() as sock:
@@ -698,14 +719,15 @@ def test_flight_large_message():
     See ARROW-4421: by default, gRPC won't allow us to send messages >
     4MiB in size.
     """
-    data = pa.Table.from_arrays([
-        pa.array(range(0, 10 * 1024 * 1024))
-    ], names=['a'])
+    data = pa.Table.from_arrays(
+        [pa.array(range(0, 10 * 1024 * 1024))], names=['a']
+    )
 
     with EchoFlightServer(expected_schema=data.schema) as server:
         client = FlightClient(('localhost', server.port))
-        writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
-                                  data.schema)
+        writer, _ = client.do_put(
+            flight.FlightDescriptor.for_path('test'), data.schema
+        )
         # Write a single giant chunk
         writer.write_table(data, 10 * 1024 * 1024)
         writer.close()
@@ -715,14 +737,13 @@ def test_flight_large_message():
 
 def test_flight_generator_stream():
     """Try downloading a flight of RecordBatches in a GeneratorStream."""
-    data = pa.Table.from_arrays([
-        pa.array(range(0, 10 * 1024))
-    ], names=['a'])
+    data = pa.Table.from_arrays([pa.array(range(0, 10 * 1024))], names=['a'])
 
     with EchoStreamFlightServer() as server:
         client = FlightClient(('localhost', server.port))
-        writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
-                                  data.schema)
+        writer, _ = client.do_put(
+            flight.FlightDescriptor.for_path('test'), data.schema
+        )
         writer.write_table(data)
         writer.close()
         result = client.do_get(flight.Ticket(b'')).read_all()
@@ -759,13 +780,9 @@ def test_timeout_passes():
         client.do_get(flight.Ticket(b'ints'), options=options).read_all()
 
 
-basic_auth_handler = HttpBasicServerAuthHandler(creds={
-    b"test": b"p4ssw0rd",
-})
+basic_auth_handler = HttpBasicServerAuthHandler(creds={b"test": b"p4ssw0rd",})
 
-token_auth_handler = TokenServerAuthHandler(creds={
-    b"test": b"p4ssw0rd",
-})
+token_auth_handler = TokenServerAuthHandler(creds={b"test": b"p4ssw0rd",})
 
 
 @pytest.mark.slow
@@ -774,8 +791,9 @@ def test_http_basic_unauth():
     with EchoStreamFlightServer(auth_handler=basic_auth_handler) as server:
         client = FlightClient(('localhost', server.port))
         action = flight.Action("who-am-i", b"")
-        with pytest.raises(flight.FlightUnauthenticatedError,
-                           match=".*unauthenticated.*"):
+        with pytest.raises(
+            flight.FlightUnauthenticatedError, match=".*unauthenticated.*"
+        ):
             list(client.do_action(action))
 
 
@@ -794,8 +812,9 @@ def test_http_basic_auth_invalid_password():
     with EchoStreamFlightServer(auth_handler=basic_auth_handler) as server:
         client = FlightClient(('localhost', server.port))
         action = flight.Action("who-am-i", b"")
-        with pytest.raises(flight.FlightUnauthenticatedError,
-                           match=".*wrong password.*"):
+        with pytest.raises(
+            flight.FlightUnauthenticatedError, match=".*wrong password.*"
+        ):
             client.authenticate(HttpBasicClientAuthHandler('test', 'wrong'))
             next(client.do_action(action))
 
@@ -830,8 +849,10 @@ def test_location_invalid():
 def test_location_unknown_scheme():
     """Test creating locations for unknown schemes."""
     assert flight.Location("s3://foo").uri == b"s3://foo"
-    assert flight.Location("https://example.com/bar.parquet").uri == \
-        b"https://example.com/bar.parquet"
+    assert (
+        flight.Location("https://example.com/bar.parquet").uri
+        == b"https://example.com/bar.parquet"
+    )
 
 
 @pytest.mark.slow
@@ -858,8 +879,9 @@ def test_tls_do_get():
     certs = example_tls_certs()
 
     with ConstantFlightServer(tls_certificates=certs["certificates"]) as s:
-        client = FlightClient(('localhost', s.port),
-                              tls_root_certs=certs["root_cert"])
+        client = FlightClient(
+            ('localhost', s.port), tls_root_certs=certs["root_cert"]
+        )
         data = client.do_get(flight.Ticket(b'ints')).read_all()
         assert data.equals(table)
 
@@ -870,18 +892,18 @@ def test_tls_override_hostname():
     certs = example_tls_certs()
 
     with ConstantFlightServer(tls_certificates=certs["certificates"]) as s:
-        client = flight.connect(('localhost', s.port),
-                                tls_root_certs=certs["root_cert"],
-                                override_hostname="fakehostname")
+        client = flight.connect(
+            ('localhost', s.port),
+            tls_root_certs=certs["root_cert"],
+            override_hostname="fakehostname",
+        )
         with pytest.raises(flight.FlightUnavailableError):
             client.do_get(flight.Ticket(b'ints'))
 
 
 def test_flight_do_get_metadata():
     """Try a simple do_get call with metadata."""
-    data = [
-        pa.array([-10, -5, 0, 5, 10])
-    ]
+    data = [pa.array([-10, -5, 0, 5, 10])]
     table = pa.Table.from_arrays(data, names=['a'])
 
     batches = []
@@ -893,7 +915,7 @@ def test_flight_do_get_metadata():
             try:
                 batch, metadata = reader.read_chunk()
                 batches.append(batch)
-                server_idx, = struct.unpack('<i', metadata.to_pybytes())
+                (server_idx,) = struct.unpack('<i', metadata.to_pybytes())
                 assert idx == server_idx
                 idx += 1
             except StopIteration:
@@ -904,23 +926,21 @@ def test_flight_do_get_metadata():
 
 def test_flight_do_put_metadata():
     """Try a simple do_put call with metadata."""
-    data = [
-        pa.array([-10, -5, 0, 5, 10])
-    ]
+    data = [pa.array([-10, -5, 0, 5, 10])]
     table = pa.Table.from_arrays(data, names=['a'])
 
     with MetadataFlightServer() as server:
         client = FlightClient(('localhost', server.port))
         writer, metadata_reader = client.do_put(
-            flight.FlightDescriptor.for_path(''),
-            table.schema)
+            flight.FlightDescriptor.for_path(''), table.schema
+        )
         with writer:
             for idx, batch in enumerate(table.to_batches(max_chunksize=1)):
                 metadata = struct.pack('<i', idx)
                 writer.write_with_metadata(batch, metadata)
                 buf = metadata_reader.read()
                 assert buf is not None
-                server_idx, = struct.unpack('<i', buf.to_pybytes())
+                (server_idx,) = struct.unpack('<i', buf.to_pybytes())
                 assert idx == server_idx
 
 
@@ -985,8 +1005,7 @@ def test_roundtrip_types():
         [
             flight.FlightEndpoint(b'', ['grpc://test']),
             flight.FlightEndpoint(
-                b'',
-                [flight.Location.for_grpc_tcp('localhost', 5005)],
+                b'', [flight.Location.for_grpc_tcp('localhost', 5005)],
             ),
         ],
         -1,
@@ -1010,7 +1029,9 @@ def test_roundtrip_errors():
             list(client.do_action(flight.Action("timedout", b"")))
         with pytest.raises(flight.FlightCancelledError, match=".*foo.*"):
             list(client.do_action(flight.Action("cancel", b"")))
-        with pytest.raises(flight.FlightUnauthenticatedError, match=".*foo.*"):
+        with pytest.raises(
+            flight.FlightUnauthenticatedError, match=".*foo.*"
+        ):
             list(client.do_action(flight.Action("unauthenticated", b"")))
         with pytest.raises(flight.FlightUnauthorizedError, match=".*foo.*"):
             list(client.do_action(flight.Action("unauthorized", b"")))
@@ -1023,16 +1044,14 @@ def test_do_put_independent_read_write():
     # ARROW-6063: previously this would cause gRPC to abort when the
     # writer was closed (due to simultaneous reads), or would hang
     # forever.
-    data = [
-        pa.array([-10, -5, 0, 5, 10])
-    ]
+    data = [pa.array([-10, -5, 0, 5, 10])]
     table = pa.Table.from_arrays(data, names=['a'])
 
     with MetadataFlightServer() as server:
         client = FlightClient(('localhost', server.port))
         writer, metadata_reader = client.do_put(
-            flight.FlightDescriptor.for_path(''),
-            table.schema)
+            flight.FlightDescriptor.for_path(''), table.schema
+        )
 
         count = [0]
 
@@ -1059,9 +1078,9 @@ def test_do_put_independent_read_write():
 
 def test_server_middleware_same_thread():
     """Ensure that server middleware run on the same thread as the RPC."""
-    with HeaderFlightServer(middleware={
-            "test": HeaderServerMiddlewareFactory(),
-    }) as server:
+    with HeaderFlightServer(
+        middleware={"test": HeaderServerMiddlewareFactory(),}
+    ) as server:
         client = FlightClient(('localhost', server.port))
         results = list(client.do_action(flight.Action(b"test", b"")))
         assert len(results) == 1
@@ -1071,9 +1090,9 @@ def test_server_middleware_same_thread():
 
 def test_middleware_reject():
     """Test rejecting an RPC with server middleware."""
-    with HeaderFlightServer(middleware={
-            "test": SelectiveAuthServerMiddlewareFactory(),
-    }) as server:
+    with HeaderFlightServer(
+        middleware={"test": SelectiveAuthServerMiddlewareFactory(),}
+    ) as server:
         client = FlightClient(('localhost', server.port))
         # The middleware allows this through without auth.
         with pytest.raises(pa.ArrowNotImplementedError):
@@ -1085,7 +1104,7 @@ def test_middleware_reject():
 
         client = FlightClient(
             ('localhost', server.port),
-            middleware=[SelectiveAuthClientMiddlewareFactory()]
+            middleware=[SelectiveAuthClientMiddlewareFactory()],
         )
         response = next(client.do_action(flight.Action(b"", b"")))
         assert b"password" == response.body.to_pybytes()

@@ -51,37 +51,50 @@ pytestmark = pytest.mark.pandas
 
 
 def _alltypes_example(size=100):
-    return pd.DataFrame({
-        'uint8': np.arange(size, dtype=np.uint8),
-        'uint16': np.arange(size, dtype=np.uint16),
-        'uint32': np.arange(size, dtype=np.uint32),
-        'uint64': np.arange(size, dtype=np.uint64),
-        'int8': np.arange(size, dtype=np.int16),
-        'int16': np.arange(size, dtype=np.int16),
-        'int32': np.arange(size, dtype=np.int32),
-        'int64': np.arange(size, dtype=np.int64),
-        'float32': np.arange(size, dtype=np.float32),
-        'float64': np.arange(size, dtype=np.float64),
-        'bool': np.random.randn(size) > 0,
-        # TODO(wesm): Pandas only support ns resolution, Arrow supports s, ms,
-        # us, ns
-        'datetime': np.arange("2016-01-01T00:00:00.001", size,
-                              dtype='datetime64[ms]'),
-        'str': [str(x) for x in range(size)],
-        'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
-        'empty_str': [''] * size
-    })
+    return pd.DataFrame(
+        {
+            'uint8': np.arange(size, dtype=np.uint8),
+            'uint16': np.arange(size, dtype=np.uint16),
+            'uint32': np.arange(size, dtype=np.uint32),
+            'uint64': np.arange(size, dtype=np.uint64),
+            'int8': np.arange(size, dtype=np.int16),
+            'int16': np.arange(size, dtype=np.int16),
+            'int32': np.arange(size, dtype=np.int32),
+            'int64': np.arange(size, dtype=np.int64),
+            'float32': np.arange(size, dtype=np.float32),
+            'float64': np.arange(size, dtype=np.float64),
+            'bool': np.random.randn(size) > 0,
+            # TODO(wesm): Pandas only support ns resolution, Arrow supports s, ms,
+            # us, ns
+            'datetime': np.arange(
+                "2016-01-01T00:00:00.001", size, dtype='datetime64[ms]'
+            ),
+            'str': [str(x) for x in range(size)],
+            'str_with_nulls': [None]
+            + [str(x) for x in range(size - 2)]
+            + [None],
+            'empty_str': [''] * size,
+        }
+    )
 
 
-def _check_pandas_roundtrip(df, expected=None, use_threads=False,
-                            expected_schema=None,
-                            check_dtype=True, schema=None,
-                            preserve_index=False,
-                            as_batch=False):
+def _check_pandas_roundtrip(
+    df,
+    expected=None,
+    use_threads=False,
+    expected_schema=None,
+    check_dtype=True,
+    schema=None,
+    preserve_index=False,
+    as_batch=False,
+):
     klass = pa.RecordBatch if as_batch else pa.Table
-    table = klass.from_pandas(df, schema=schema,
-                              preserve_index=preserve_index,
-                              nthreads=2 if use_threads else 1)
+    table = klass.from_pandas(
+        df,
+        schema=schema,
+        preserve_index=preserve_index,
+        nthreads=2 if use_threads else 1,
+    )
     result = table.to_pandas(use_threads=use_threads)
 
     if expected_schema:
@@ -92,9 +105,12 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=False,
     if expected is None:
         expected = df
 
-    tm.assert_frame_equal(result, expected, check_dtype=check_dtype,
-                          check_index_type=('equiv' if preserve_index
-                                            else False))
+    tm.assert_frame_equal(
+        result,
+        expected,
+        check_dtype=check_dtype,
+        check_index_type=('equiv' if preserve_index else False),
+    )
 
 
 def _check_series_roundtrip(s, type_=None, expected_pa_type=None):
@@ -110,8 +126,7 @@ def _check_series_roundtrip(s, type_=None, expected_pa_type=None):
     tm.assert_series_equal(s, result)
 
 
-def _check_array_roundtrip(values, expected=None, mask=None,
-                           type=None):
+def _check_array_roundtrip(values, expected=None, mask=None, type=None):
     arr = pa.array(values, from_pandas=True, mask=mask, type=type)
     result = arr.to_pandas()
 
@@ -147,8 +162,9 @@ class TestConvertMetadata:
         assert table.field(0).name == '0'
 
     def test_from_pandas_with_columns(self):
-        df = pd.DataFrame({0: [1, 2, 3], 1: [1, 3, 3], 2: [2, 4, 5]},
-                          columns=[1, 0])
+        df = pd.DataFrame(
+            {0: [1, 2, 3], 1: [1, 3, 3], 2: [2, 4, 5]}, columns=[1, 0]
+        )
 
         table = pa.Table.from_pandas(df, columns=[0, 1])
         expected = pa.Table.from_pandas(df[[0, 1]])
@@ -166,11 +182,12 @@ class TestConvertMetadata:
     def test_range_index_shortcut(self):
         # ARROW-1639
         index_name = 'foo'
-        df = pd.DataFrame({'a': [1, 2, 3, 4]},
-                          index=pd.RangeIndex(0, 8, step=2, name=index_name))
+        df = pd.DataFrame(
+            {'a': [1, 2, 3, 4]},
+            index=pd.RangeIndex(0, 8, step=2, name=index_name),
+        )
 
-        df2 = pd.DataFrame({'a': [4, 5, 6, 7]},
-                           index=pd.RangeIndex(0, 4))
+        df2 = pd.DataFrame({'a': [4, 5, 6, 7]}, index=pd.RangeIndex(0, 4))
 
         table = pa.Table.from_pandas(df)
         table_no_index_name = pa.Table.from_pandas(df2)
@@ -187,15 +204,18 @@ class TestConvertMetadata:
         result2 = table_no_index_name.to_pandas()
         tm.assert_frame_equal(result2, df2)
         assert isinstance(result2.index, pd.RangeIndex)
-        assert _pandas_api.get_rangeindex_attribute(result2.index, 'step') == 1
+        assert (
+            _pandas_api.get_rangeindex_attribute(result2.index, 'step') == 1
+        )
         assert result2.index.name is None
 
     def test_range_index_force_serialization(self):
         # ARROW-5427: preserve_index=True will force the RangeIndex to
         # be serialized as a column rather than tracked more
         # efficiently as metadata
-        df = pd.DataFrame({'a': [1, 2, 3, 4]},
-                          index=pd.RangeIndex(0, 8, step=2, name='foo'))
+        df = pd.DataFrame(
+            {'a': [1, 2, 3, 4]}, index=pd.RangeIndex(0, 8, step=2, name='foo')
+        )
 
         table = pa.Table.from_pandas(df, preserve_index=True)
         assert table.num_columns == 2
@@ -215,18 +235,13 @@ class TestConvertMetadata:
         assert len(record) == 0
 
     def test_multiindex_columns(self):
-        columns = pd.MultiIndex.from_arrays([
-            ['one', 'two'], ['X', 'Y']
-        ])
+        columns = pd.MultiIndex.from_arrays([['one', 'two'], ['X', 'Y']])
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
         _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_multiindex_columns_with_dtypes(self):
         columns = pd.MultiIndex.from_arrays(
-            [
-                ['one', 'two'],
-                pd.DatetimeIndex(['2017-08-01', '2017-08-02']),
-            ],
+            [['one', 'two'], pd.DatetimeIndex(['2017-08-01', '2017-08-02']),],
             names=['level_1', 'level_2'],
         )
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
@@ -235,8 +250,11 @@ class TestConvertMetadata:
     def test_multiindex_with_datetimes(self):
         # ARROW-3651. This bug occurred only when the dtype of the columns is
         # object. It does not occur for datetime64[ns]
-        df = pd.DataFrame(1, index=pd.Index(list(range(5)), name='index'),
-                          columns=pd.Index([datetime(2018, 1, 1)], dtype='O'))
+        df = pd.DataFrame(
+            1,
+            index=pd.Index(list(range(5)), name='index'),
+            columns=pd.Index([datetime(2018, 1, 1)], dtype='O'),
+        )
         assert df.columns.dtype == 'object'
         reconstructed = pa.table(df).to_pandas()
 
@@ -270,8 +288,7 @@ class TestConvertMetadata:
         df = pd.DataFrame(
             [(1, 'a', 3.1), (2, 'b', 2.2), (3, 'c', 1.3)],
             index=pd.MultiIndex.from_arrays(
-                [['c', 'b', 'a'], [3, 2, 1]],
-                names=[None, 'foo']
+                [['c', 'b', 'a'], [3, 2, 1]], names=[None, 'foo']
             ),
             columns=['a', None, '__index_level_0__'],
         )
@@ -302,12 +319,12 @@ class TestConvertMetadata:
     def test_categorical_column_index(self):
         df = pd.DataFrame(
             [(1, 'a', 2.0), (2, 'b', 3.0), (3, 'c', 4.0)],
-            columns=pd.Index(list('def'), dtype='category')
+            columns=pd.Index(list('def'), dtype='category'),
         )
         t = pa.Table.from_pandas(df, preserve_index=True)
         js = t.schema.pandas_metadata
 
-        column_indexes, = js['column_indexes']
+        (column_indexes,) = js['column_indexes']
         assert column_indexes['name'] is None
         assert column_indexes['pandas_type'] == 'categorical'
         assert column_indexes['numpy_type'] == 'int8'
@@ -319,12 +336,12 @@ class TestConvertMetadata:
     def test_string_column_index(self):
         df = pd.DataFrame(
             [(1, 'a', 2.0), (2, 'b', 3.0), (3, 'c', 4.0)],
-            columns=pd.Index(list('def'), name='stringz')
+            columns=pd.Index(list('def'), name='stringz'),
         )
         t = pa.Table.from_pandas(df, preserve_index=True)
         js = t.schema.pandas_metadata
 
-        column_indexes, = js['column_indexes']
+        (column_indexes,) = js['column_indexes']
         assert column_indexes['name'] == 'stringz'
         assert column_indexes['name'] == column_indexes['field_name']
         assert column_indexes['numpy_type'] == 'object'
@@ -340,12 +357,12 @@ class TestConvertMetadata:
             [(1, 'a', 2.0), (2, 'b', 3.0), (3, 'c', 4.0)],
             columns=pd.date_range(
                 start='2017-01-01', periods=3, tz='America/New_York'
-            )
+            ),
         )
         t = pa.Table.from_pandas(df, preserve_index=True)
         js = t.schema.pandas_metadata
 
-        column_indexes, = js['column_indexes']
+        (column_indexes,) = js['column_indexes']
         assert column_indexes['name'] is None
         assert column_indexes['pandas_type'] == 'datetimetz'
         assert column_indexes['numpy_type'] == 'datetime64[ns]'
@@ -354,11 +371,13 @@ class TestConvertMetadata:
         assert md['timezone'] == 'America/New_York'
 
     def test_datetimetz_row_index(self):
-        df = pd.DataFrame({
-            'a': pd.date_range(
-                start='2017-01-01', periods=3, tz='America/New_York'
-            )
-        })
+        df = pd.DataFrame(
+            {
+                'a': pd.date_range(
+                    start='2017-01-01', periods=3, tz='America/New_York'
+                )
+            }
+        )
         df = df.set_index('a')
 
         _check_pandas_roundtrip(df, preserve_index=True)
@@ -409,8 +428,9 @@ class TestConvertMetadata:
             expected = df.copy()
             expected.columns = df.columns.astype(str)
             with pytest.warns(UserWarning):
-                _check_pandas_roundtrip(df, expected=expected,
-                                        preserve_index=True)
+                _check_pandas_roundtrip(
+                    df, expected=expected, preserve_index=True
+                )
 
     def test_binary_column_name(self):
         column_data = ['い']
@@ -450,13 +470,14 @@ class TestConvertMetadata:
         assert data_column['numpy_type'] == 'object'
 
     def test_ignore_metadata(self):
-        df = pd.DataFrame({'a': [1, 2, 3], 'b': ['foo', 'bar', 'baz']},
-                          index=['one', 'two', 'three'])
+        df = pd.DataFrame(
+            {'a': [1, 2, 3], 'b': ['foo', 'bar', 'baz']},
+            index=['one', 'two', 'three'],
+        )
         table = pa.Table.from_pandas(df)
 
         result = table.to_pandas(ignore_metadata=True)
-        expected = (table.cast(table.schema.remove_metadata())
-                    .to_pandas())
+        expected = table.cast(table.schema.remove_metadata()).to_pandas()
 
         tm.assert_frame_equal(result, expected)
 
@@ -477,12 +498,14 @@ class TestConvertMetadata:
         assert pandas_metadata['columns'][0]['pandas_type'] == 'object'
 
     def test_decimal_metadata(self):
-        expected = pd.DataFrame({
-            'decimals': [
-                decimal.Decimal('394092382910493.12341234678'),
-                -decimal.Decimal('314292388910493.12343437128'),
-            ]
-        })
+        expected = pd.DataFrame(
+            {
+                'decimals': [
+                    decimal.Decimal('394092382910493.12341234678'),
+                    -decimal.Decimal('314292388910493.12343437128'),
+                ]
+            }
+        )
         table = pa.Table.from_pandas(expected)
         js = table.schema.pandas_metadata
         assert 'mixed' not in js
@@ -495,10 +518,12 @@ class TestConvertMetadata:
         # ARROW-1883
         # non-default index
         for index in [
-                pd.Index(['a', 'b', 'c'], name='index'),
-                pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')]:
-            df = pd.DataFrame({'a': [1, 2, 3],
-                               'b': [.1, .2, .3]}, index=index)
+            pd.Index(['a', 'b', 'c'], name='index'),
+            pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels'),
+        ]:
+            df = pd.DataFrame(
+                {'a': [1, 2, 3], 'b': [0.1, 0.2, 0.3]}, index=index
+            )
             table = pa.Table.from_pandas(df)
 
             table_subset = table.remove_column(1)
@@ -514,13 +539,14 @@ class TestConvertMetadata:
         # list(string) in pyarrow
         c1 = [["test"], ["a", "b"], None]
         c2 = [[], [], []]
-        arrays = OrderedDict([
-            ('c1', pa.array(c1, type=pa.list_(pa.string()))),
-            ('c2', pa.array(c2, type=pa.list_(pa.string()))),
-        ])
+        arrays = OrderedDict(
+            [
+                ('c1', pa.array(c1, type=pa.list_(pa.string()))),
+                ('c2', pa.array(c2, type=pa.list_(pa.string()))),
+            ]
+        )
         rb = pa.RecordBatch.from_arrays(
-            list(arrays.values()),
-            list(arrays.keys())
+            list(arrays.values()), list(arrays.keys())
         )
         tbl = pa.Table.from_batches([rb])
 
@@ -550,7 +576,7 @@ class TestConvertMetadata:
                 'metadata': None,
                 'numpy_type': 'object',
                 'pandas_type': 'list[empty]',
-            }
+            },
         ]
 
     def test_metadata_pandas_version(self):
@@ -567,9 +593,11 @@ class TestConvertPrimitiveTypes:
     def test_float_no_nulls(self):
         data = {}
         fields = []
-        dtypes = [('f2', pa.float16()),
-                  ('f4', pa.float32()),
-                  ('f8', pa.float64())]
+        dtypes = [
+            ('f2', pa.float16()),
+            ('f4', pa.float32()),
+            ('f8', pa.float64()),
+        ]
         num_values = 100
 
         for numpy_dtype, arrow_dtype in dtypes:
@@ -585,9 +613,11 @@ class TestConvertPrimitiveTypes:
         num_values = 100
 
         null_mask = np.random.randint(0, 10, size=num_values) < 3
-        dtypes = [('f2', pa.float16()),
-                  ('f4', pa.float32()),
-                  ('f8', pa.float64())]
+        dtypes = [
+            ('f2', pa.float16()),
+            ('f4', pa.float32()),
+            ('f8', pa.float64()),
+        ]
         names = ['f2', 'f4', 'f8']
         expected_cols = []
 
@@ -603,8 +633,9 @@ class TestConvertPrimitiveTypes:
 
             expected_cols.append(values)
 
-        ex_frame = pd.DataFrame(dict(zip(names, expected_cols)),
-                                columns=names)
+        ex_frame = pd.DataFrame(
+            dict(zip(names, expected_cols)), columns=names
+        )
 
         table = pa.Table.from_arrays(arrays, names)
         assert table.schema.equals(pa.schema(fields))
@@ -636,19 +667,26 @@ class TestConvertPrimitiveTypes:
         fields = []
 
         numpy_dtypes = [
-            ('i1', pa.int8()), ('i2', pa.int16()),
-            ('i4', pa.int32()), ('i8', pa.int64()),
-            ('u1', pa.uint8()), ('u2', pa.uint16()),
-            ('u4', pa.uint32()), ('u8', pa.uint64()),
-            ('longlong', pa.int64()), ('ulonglong', pa.uint64())
+            ('i1', pa.int8()),
+            ('i2', pa.int16()),
+            ('i4', pa.int32()),
+            ('i8', pa.int64()),
+            ('u1', pa.uint8()),
+            ('u2', pa.uint16()),
+            ('u4', pa.uint32()),
+            ('u8', pa.uint64()),
+            ('longlong', pa.int64()),
+            ('ulonglong', pa.uint64()),
         ]
         num_values = 100
 
         for dtype, arrow_dtype in numpy_dtypes:
             info = np.iinfo(dtype)
-            values = np.random.randint(max(info.min, np.iinfo(np.int_).min),
-                                       min(info.max, np.iinfo(np.int_).max),
-                                       size=num_values)
+            values = np.random.randint(
+                max(info.min, np.iinfo(np.int_).min),
+                min(info.max, np.iinfo(np.int_).max),
+                size=num_values,
+            )
             data[dtype] = values.astype(dtype)
             fields.append(pa.field(dtype, arrow_dtype))
 
@@ -659,9 +697,26 @@ class TestConvertPrimitiveTypes:
     def test_all_integer_types(self):
         # Test all Numpy integer aliases
         data = OrderedDict()
-        numpy_dtypes = ['i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8',
-                        'byte', 'ubyte', 'short', 'ushort', 'intc', 'uintc',
-                        'int_', 'uint', 'longlong', 'ulonglong']
+        numpy_dtypes = [
+            'i1',
+            'i2',
+            'i4',
+            'i8',
+            'u1',
+            'u2',
+            'u4',
+            'u8',
+            'byte',
+            'ubyte',
+            'short',
+            'ushort',
+            'intc',
+            'uintc',
+            'int_',
+            'uint',
+            'longlong',
+            'ulonglong',
+        ]
         for dtype in numpy_dtypes:
             data[dtype] = np.arange(12, dtype=dtype)
         df = pd.DataFrame(data)
@@ -708,8 +763,9 @@ class TestConvertPrimitiveTypes:
 
             expected_cols.append(expected)
 
-        ex_frame = pd.DataFrame(dict(zip(int_dtypes, expected_cols)),
-                                columns=int_dtypes)
+        ex_frame = pd.DataFrame(
+            dict(zip(int_dtypes, expected_cols)), columns=int_dtypes
+        )
 
         table = pa.Table.from_arrays(arrays, int_dtypes)
         result = table.to_pandas()
@@ -789,15 +845,22 @@ class TestConvertPrimitiveTypes:
         expected = pd.DataFrame({'floats': pd.to_numeric(arr)})
         field = pa.field('floats', pa.float64())
         schema = pa.schema([field])
-        _check_pandas_roundtrip(df, expected=expected,
-                                expected_schema=schema)
+        _check_pandas_roundtrip(df, expected=expected, expected_schema=schema)
 
     def test_float_with_null_as_integer(self):
         # ARROW-2298
-        s = pd.Series([np.nan, 1., 2., np.nan])
+        s = pd.Series([np.nan, 1.0, 2.0, np.nan])
 
-        types = [pa.int8(), pa.int16(), pa.int32(), pa.int64(),
-                 pa.uint8(), pa.uint16(), pa.uint32(), pa.uint64()]
+        types = [
+            pa.int8(),
+            pa.int16(),
+            pa.int32(),
+            pa.int64(),
+            pa.uint8(),
+            pa.uint16(),
+            pa.uint32(),
+            pa.uint64(),
+        ]
         for ty in types:
             result = pa.array(s, type=ty)
             expected = pa.array([None, 1, 2, None], type=ty)
@@ -805,8 +868,9 @@ class TestConvertPrimitiveTypes:
 
             df = pd.DataFrame({'has_nulls': s})
             schema = pa.schema([pa.field('has_nulls', ty)])
-            result = pa.Table.from_pandas(df, schema=schema,
-                                          preserve_index=False)
+            result = pa.Table.from_pandas(
+                df, schema=schema, preserve_index=False
+            )
             assert result[0].chunk(0).equals(expected)
 
     def test_int_object_nulls(self):
@@ -815,8 +879,7 @@ class TestConvertPrimitiveTypes:
         expected = pd.DataFrame({'ints': pd.to_numeric(arr)})
         field = pa.field('ints', pa.int64())
         schema = pa.schema([field])
-        _check_pandas_roundtrip(df, expected=expected,
-                                expected_schema=schema)
+        _check_pandas_roundtrip(df, expected=expected, expected_schema=schema)
 
     def test_boolean_object_nulls(self):
         arr = np.array([False, None, True] * 100, dtype=object)
@@ -852,8 +915,9 @@ class TestConvertPrimitiveTypes:
         assert y is None
 
 
-@pytest.mark.parametrize('dtype',
-                         ['i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8'])
+@pytest.mark.parametrize(
+    'dtype', ['i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8']
+)
 def test_array_integer_object_nulls_option(dtype):
     num_values = 100
 
@@ -873,8 +937,9 @@ def test_array_integer_object_nulls_option(dtype):
     np.testing.assert_equal(result, expected)
 
 
-@pytest.mark.parametrize('dtype',
-                         ['i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8'])
+@pytest.mark.parametrize(
+    'dtype', ['i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8']
+)
 def test_table_integer_object_nulls_option(dtype):
     num_values = 100
 
@@ -903,57 +968,75 @@ class TestConvertDateTimeLikeTypes:
     """
 
     def test_timestamps_notimezone_no_nulls(self):
-        df = pd.DataFrame({
-            'datetime64': np.array([
-                '2007-07-13T01:23:34.123456789',
-                '2006-01-13T12:34:56.432539784',
-                '2010-08-13T05:46:57.437699912'],
-                dtype='datetime64[ns]')
-        })
+        df = pd.DataFrame(
+            {
+                'datetime64': np.array(
+                    [
+                        '2007-07-13T01:23:34.123456789',
+                        '2006-01-13T12:34:56.432539784',
+                        '2010-08-13T05:46:57.437699912',
+                    ],
+                    dtype='datetime64[ns]',
+                )
+            }
+        )
         field = pa.field('datetime64', pa.timestamp('ns'))
         schema = pa.schema([field])
         _check_pandas_roundtrip(
-            df,
-            expected_schema=schema,
+            df, expected_schema=schema,
         )
 
     def test_timestamps_notimezone_nulls(self):
-        df = pd.DataFrame({
-            'datetime64': np.array([
-                '2007-07-13T01:23:34.123456789',
-                None,
-                '2010-08-13T05:46:57.437699912'],
-                dtype='datetime64[ns]')
-        })
+        df = pd.DataFrame(
+            {
+                'datetime64': np.array(
+                    [
+                        '2007-07-13T01:23:34.123456789',
+                        None,
+                        '2010-08-13T05:46:57.437699912',
+                    ],
+                    dtype='datetime64[ns]',
+                )
+            }
+        )
         field = pa.field('datetime64', pa.timestamp('ns'))
         schema = pa.schema([field])
         _check_pandas_roundtrip(
-            df,
-            expected_schema=schema,
+            df, expected_schema=schema,
         )
 
     def test_timestamps_with_timezone(self):
-        df = pd.DataFrame({
-            'datetime64': np.array([
-                '2007-07-13T01:23:34.123',
-                '2006-01-13T12:34:56.432',
-                '2010-08-13T05:46:57.437'],
-                dtype='datetime64[ms]')
-        })
+        df = pd.DataFrame(
+            {
+                'datetime64': np.array(
+                    [
+                        '2007-07-13T01:23:34.123',
+                        '2006-01-13T12:34:56.432',
+                        '2010-08-13T05:46:57.437',
+                    ],
+                    dtype='datetime64[ms]',
+                )
+            }
+        )
         df['datetime64'] = df['datetime64'].dt.tz_localize('US/Eastern')
         _check_pandas_roundtrip(df)
 
         _check_series_roundtrip(df['datetime64'])
 
         # drop-in a null and ns instead of ms
-        df = pd.DataFrame({
-            'datetime64': np.array([
-                '2007-07-13T01:23:34.123456789',
-                None,
-                '2006-01-13T12:34:56.432539784',
-                '2010-08-13T05:46:57.437699912'],
-                dtype='datetime64[ns]')
-        })
+        df = pd.DataFrame(
+            {
+                'datetime64': np.array(
+                    [
+                        '2007-07-13T01:23:34.123456789',
+                        None,
+                        '2006-01-13T12:34:56.432539784',
+                        '2010-08-13T05:46:57.437699912',
+                    ],
+                    dtype='datetime64[ns]',
+                )
+            }
+        )
         df['datetime64'] = df['datetime64'].dt.tz_localize('US/Eastern')
 
         _check_pandas_roundtrip(df)
@@ -961,21 +1044,21 @@ class TestConvertDateTimeLikeTypes:
     def test_python_datetime(self):
         # ARROW-2106
         date_array = [datetime.today() + timedelta(days=x) for x in range(10)]
-        df = pd.DataFrame({
-            'datetime': pd.Series(date_array, dtype=object)
-        })
+        df = pd.DataFrame({'datetime': pd.Series(date_array, dtype=object)})
 
         table = pa.Table.from_pandas(df)
         assert isinstance(table[0].chunk(0), pa.TimestampArray)
 
         result = table.to_pandas()
-        expected_df = pd.DataFrame({
-            'datetime': date_array
-        })
+        expected_df = pd.DataFrame({'datetime': date_array})
         tm.assert_frame_equal(expected_df, result)
 
     def test_python_datetime_with_pytz_tzinfo(self):
-        for tz in [pytz.utc, pytz.timezone('US/Eastern'), pytz.FixedOffset(1)]:
+        for tz in [
+            pytz.utc,
+            pytz.timezone('US/Eastern'),
+            pytz.FixedOffset(1),
+        ]:
             values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz)]
             df = pd.DataFrame({'datetime': values})
             _check_pandas_roundtrip(df)
@@ -1004,7 +1087,6 @@ class TestConvertDateTimeLikeTypes:
         _check_pandas_roundtrip(df, expected=df_exp)
 
     def test_python_datetime_subclass(self):
-
         class MyDatetime(datetime):
             # see https://github.com/pandas-dev/pandas/issues/21142
             nanosecond = 0.0
@@ -1024,7 +1106,6 @@ class TestConvertDateTimeLikeTypes:
         tm.assert_frame_equal(expected_df, result)
 
     def test_python_date_subclass(self):
-
         class MyDate(date):
             pass
 
@@ -1050,55 +1131,51 @@ class TestConvertDateTimeLikeTypes:
 
         assert arr2.equals(arr.cast('date32'))
 
-    @pytest.mark.parametrize('mask', [
-        None,
-        np.array([True, False, False]),
-    ])
+    @pytest.mark.parametrize('mask', [None, np.array([True, False, False]),])
     def test_pandas_datetime_to_date64(self, mask):
-        s = pd.to_datetime([
-            '2018-05-10T00:00:00',
-            '2018-05-11T00:00:00',
-            '2018-05-12T00:00:00',
-        ])
+        s = pd.to_datetime(
+            [
+                '2018-05-10T00:00:00',
+                '2018-05-11T00:00:00',
+                '2018-05-12T00:00:00',
+            ]
+        )
         arr = pa.Array.from_pandas(s, type=pa.date64(), mask=mask)
 
-        data = np.array([
-            date(2018, 5, 10),
-            date(2018, 5, 11),
-            date(2018, 5, 12)
-        ])
+        data = np.array(
+            [date(2018, 5, 10), date(2018, 5, 11), date(2018, 5, 12)]
+        )
         expected = pa.array(data, mask=mask, type=pa.date64())
 
         assert arr.equals(expected)
 
-    @pytest.mark.parametrize('mask', [
-        None,
-        np.array([True, False, False])
-    ])
+    @pytest.mark.parametrize('mask', [None, np.array([True, False, False])])
     def test_pandas_datetime_to_date64_failures(self, mask):
-        s = pd.to_datetime([
-            '2018-05-10T10:24:01',
-            '2018-05-11T10:24:01',
-            '2018-05-12T10:24:01',
-        ])
+        s = pd.to_datetime(
+            [
+                '2018-05-10T10:24:01',
+                '2018-05-11T10:24:01',
+                '2018-05-12T10:24:01',
+            ]
+        )
 
         expected_msg = 'Timestamp value had non-zero intraday milliseconds'
         with pytest.raises(pa.ArrowInvalid, match=expected_msg):
             pa.Array.from_pandas(s, type=pa.date64(), mask=mask)
 
     def test_array_types_date_as_object(self):
-        data = [date(2000, 1, 1),
-                None,
-                date(1970, 1, 1),
-                date(2040, 2, 26)]
-        expected_d = np.array(['2000-01-01', None, '1970-01-01',
-                               '2040-02-26'], dtype='datetime64[D]')
+        data = [date(2000, 1, 1), None, date(1970, 1, 1), date(2040, 2, 26)]
+        expected_d = np.array(
+            ['2000-01-01', None, '1970-01-01', '2040-02-26'],
+            dtype='datetime64[D]',
+        )
 
-        expected_ns = np.array(['2000-01-01', None, '1970-01-01',
-                                '2040-02-26'], dtype='datetime64[ns]')
+        expected_ns = np.array(
+            ['2000-01-01', None, '1970-01-01', '2040-02-26'],
+            dtype='datetime64[ns]',
+        )
 
-        objects = [pa.array(data),
-                   pa.chunked_array([data])]
+        objects = [pa.array(data), pa.chunked_array([data])]
 
         for obj in objects:
             result = obj.to_pandas()
@@ -1111,27 +1188,38 @@ class TestConvertDateTimeLikeTypes:
             npt.assert_array_equal(result, expected_ns)
 
     def test_table_convert_date_as_object(self):
-        df = pd.DataFrame({
-            'date': [date(2000, 1, 1),
-                     None,
-                     date(1970, 1, 1),
-                     date(2040, 2, 26)]})
+        df = pd.DataFrame(
+            {
+                'date': [
+                    date(2000, 1, 1),
+                    None,
+                    date(1970, 1, 1),
+                    date(2040, 2, 26),
+                ]
+            }
+        )
 
         table = pa.Table.from_pandas(df, preserve_index=False)
 
         df_datetime = table.to_pandas(date_as_object=False)
         df_object = table.to_pandas()
 
-        tm.assert_frame_equal(df.astype('datetime64[ns]'), df_datetime,
-                              check_dtype=True)
+        tm.assert_frame_equal(
+            df.astype('datetime64[ns]'), df_datetime, check_dtype=True
+        )
         tm.assert_frame_equal(df, df_object, check_dtype=True)
 
     def test_date_infer(self):
-        df = pd.DataFrame({
-            'date': [date(2000, 1, 1),
-                     None,
-                     date(1970, 1, 1),
-                     date(2040, 2, 26)]})
+        df = pd.DataFrame(
+            {
+                'date': [
+                    date(2000, 1, 1),
+                    None,
+                    date(1970, 1, 1),
+                    date(2040, 2, 26),
+                ]
+            }
+        )
         table = pa.Table.from_pandas(df, preserve_index=False)
         field = pa.field('date', pa.date32())
 
@@ -1143,8 +1231,9 @@ class TestConvertDateTimeLikeTypes:
         tm.assert_frame_equal(result, df)
 
     def test_date_mask(self):
-        arr = np.array([date(2017, 4, 3), date(2017, 4, 4)],
-                       dtype='datetime64[D]')
+        arr = np.array(
+            [date(2017, 4, 3), date(2017, 4, 4)], dtype='datetime64[D]'
+        )
         mask = [True, False]
         result = pa.array(arr, mask=np.array(mask))
         expected = np.array([None, date(2017, 4, 4)], dtype='datetime64[D]')
@@ -1152,11 +1241,10 @@ class TestConvertDateTimeLikeTypes:
         assert expected.equals(result)
 
     def test_date_objects_typed(self):
-        arr = np.array([
-            date(2017, 4, 3),
-            None,
-            date(2017, 4, 4),
-            date(2017, 4, 5)], dtype=object)
+        arr = np.array(
+            [date(2017, 4, 3), None, date(2017, 4, 4), date(2017, 4, 5)],
+            dtype=object,
+        )
 
         arr_i4 = np.array([17259, -1, 17260, 17261], dtype='int32')
         arr_i8 = arr_i4.astype('int64') * 86400000
@@ -1178,25 +1266,26 @@ class TestConvertDateTimeLikeTypes:
         colnames = ['date32', 'date64']
         table = pa.Table.from_arrays([a32, a64], colnames)
 
-        ex_values = (np.array(['2017-04-03', '2017-04-04', '2017-04-04',
-                               '2017-04-05'],
-                              dtype='datetime64[D]'))
+        ex_values = np.array(
+            ['2017-04-03', '2017-04-04', '2017-04-04', '2017-04-05'],
+            dtype='datetime64[D]',
+        )
         ex_values[1] = pd.NaT.value
 
         ex_datetime64ns = ex_values.astype('datetime64[ns]')
-        expected_pandas = pd.DataFrame({'date32': ex_datetime64ns,
-                                        'date64': ex_datetime64ns},
-                                       columns=colnames)
+        expected_pandas = pd.DataFrame(
+            {'date32': ex_datetime64ns, 'date64': ex_datetime64ns},
+            columns=colnames,
+        )
         table_pandas = table.to_pandas(date_as_object=False)
         tm.assert_frame_equal(table_pandas, expected_pandas)
 
         table_pandas_objects = table.to_pandas()
         ex_objects = ex_values.astype('object')
-        expected_pandas_objects = pd.DataFrame({'date32': ex_objects,
-                                                'date64': ex_objects},
-                                               columns=colnames)
-        tm.assert_frame_equal(table_pandas_objects,
-                              expected_pandas_objects)
+        expected_pandas_objects = pd.DataFrame(
+            {'date32': ex_objects, 'date64': ex_objects}, columns=colnames
+        )
+        tm.assert_frame_equal(table_pandas_objects, expected_pandas_objects)
 
     def test_dates_from_integers(self):
         t1 = pa.date32()
@@ -1213,8 +1302,7 @@ class TestConvertDateTimeLikeTypes:
         assert a2[0].as_py() == expected
 
     def test_pytime_from_pandas(self):
-        pytimes = [time(1, 2, 3, 1356),
-                   time(4, 5, 6, 1356)]
+        pytimes = [time(1, 2, 3, 1356), time(4, 5, 6, 1356)]
 
         # microseconds
         t1 = pa.time64('us')
@@ -1232,8 +1320,7 @@ class TestConvertDateTimeLikeTypes:
         assert batch[0].equals(parr)
 
         # Test ndarray of int64 values
-        arr = np.array([_pytime_to_micros(v) for v in pytimes],
-                       dtype='int64')
+        arr = np.array([_pytime_to_micros(v) for v in pytimes], dtype='int64')
 
         a1 = pa.array(arr, type=pa.time64('us'))
         assert a1[0].as_py() == pytimes[0]
@@ -1241,93 +1328,106 @@ class TestConvertDateTimeLikeTypes:
         a2 = pa.array(arr * 1000, type=pa.time64('ns'))
         assert a2[0].as_py() == pytimes[0]
 
-        a3 = pa.array((arr / 1000).astype('i4'),
-                      type=pa.time32('ms'))
+        a3 = pa.array((arr / 1000).astype('i4'), type=pa.time32('ms'))
         assert a3[0].as_py() == pytimes[0].replace(microsecond=1000)
 
-        a4 = pa.array((arr / 1000000).astype('i4'),
-                      type=pa.time32('s'))
+        a4 = pa.array((arr / 1000000).astype('i4'), type=pa.time32('s'))
         assert a4[0].as_py() == pytimes[0].replace(microsecond=0)
 
     def test_arrow_time_to_pandas(self):
-        pytimes = [time(1, 2, 3, 1356),
-                   time(4, 5, 6, 1356),
-                   time(0, 0, 0)]
+        pytimes = [time(1, 2, 3, 1356), time(4, 5, 6, 1356), time(0, 0, 0)]
 
         expected = np.array(pytimes[:2] + [None])
-        expected_ms = np.array([x.replace(microsecond=1000)
-                                for x in pytimes[:2]] +
-                               [None])
-        expected_s = np.array([x.replace(microsecond=0)
-                               for x in pytimes[:2]] +
-                              [None])
+        expected_ms = np.array(
+            [x.replace(microsecond=1000) for x in pytimes[:2]] + [None]
+        )
+        expected_s = np.array(
+            [x.replace(microsecond=0) for x in pytimes[:2]] + [None]
+        )
 
-        arr = np.array([_pytime_to_micros(v) for v in pytimes],
-                       dtype='int64')
-        arr = np.array([_pytime_to_micros(v) for v in pytimes],
-                       dtype='int64')
+        arr = np.array([_pytime_to_micros(v) for v in pytimes], dtype='int64')
+        arr = np.array([_pytime_to_micros(v) for v in pytimes], dtype='int64')
 
         null_mask = np.array([False, False, True], dtype=bool)
 
         a1 = pa.array(arr, mask=null_mask, type=pa.time64('us'))
-        a2 = pa.array(arr * 1000, mask=null_mask,
-                      type=pa.time64('ns'))
+        a2 = pa.array(arr * 1000, mask=null_mask, type=pa.time64('ns'))
 
-        a3 = pa.array((arr / 1000).astype('i4'), mask=null_mask,
-                      type=pa.time32('ms'))
-        a4 = pa.array((arr / 1000000).astype('i4'), mask=null_mask,
-                      type=pa.time32('s'))
+        a3 = pa.array(
+            (arr / 1000).astype('i4'), mask=null_mask, type=pa.time32('ms')
+        )
+        a4 = pa.array(
+            (arr / 1000000).astype('i4'), mask=null_mask, type=pa.time32('s')
+        )
 
         names = ['time64[us]', 'time64[ns]', 'time32[ms]', 'time32[s]']
         batch = pa.RecordBatch.from_arrays([a1, a2, a3, a4], names)
 
-        for arr, expected_values in [(a1, expected),
-                                     (a2, expected),
-                                     (a3, expected_ms),
-                                     (a4, expected_s)]:
+        for arr, expected_values in [
+            (a1, expected),
+            (a2, expected),
+            (a3, expected_ms),
+            (a4, expected_s),
+        ]:
             result_pandas = arr.to_pandas()
             assert (result_pandas.values == expected_values).all()
 
         df = batch.to_pandas()
-        expected_df = pd.DataFrame({'time64[us]': expected,
-                                    'time64[ns]': expected,
-                                    'time32[ms]': expected_ms,
-                                    'time32[s]': expected_s},
-                                   columns=names)
+        expected_df = pd.DataFrame(
+            {
+                'time64[us]': expected,
+                'time64[ns]': expected,
+                'time32[ms]': expected_ms,
+                'time32[s]': expected_s,
+            },
+            columns=names,
+        )
 
         tm.assert_frame_equal(df, expected_df)
 
     def test_numpy_datetime64_columns(self):
-        datetime64_ns = np.array([
+        datetime64_ns = np.array(
+            [
                 '2007-07-13T01:23:34.123456789',
                 None,
                 '2006-01-13T12:34:56.432539784',
-                '2010-08-13T05:46:57.437699912'],
-                dtype='datetime64[ns]')
+                '2010-08-13T05:46:57.437699912',
+            ],
+            dtype='datetime64[ns]',
+        )
         _check_array_from_pandas_roundtrip(datetime64_ns)
 
-        datetime64_us = np.array([
+        datetime64_us = np.array(
+            [
                 '2007-07-13T01:23:34.123456',
                 None,
                 '2006-01-13T12:34:56.432539',
-                '2010-08-13T05:46:57.437699'],
-                dtype='datetime64[us]')
+                '2010-08-13T05:46:57.437699',
+            ],
+            dtype='datetime64[us]',
+        )
         _check_array_from_pandas_roundtrip(datetime64_us)
 
-        datetime64_ms = np.array([
+        datetime64_ms = np.array(
+            [
                 '2007-07-13T01:23:34.123',
                 None,
                 '2006-01-13T12:34:56.432',
-                '2010-08-13T05:46:57.437'],
-                dtype='datetime64[ms]')
+                '2010-08-13T05:46:57.437',
+            ],
+            dtype='datetime64[ms]',
+        )
         _check_array_from_pandas_roundtrip(datetime64_ms)
 
-        datetime64_s = np.array([
+        datetime64_s = np.array(
+            [
                 '2007-07-13T01:23:34',
                 None,
                 '2006-01-13T12:34:56',
-                '2010-08-13T05:46:57'],
-                dtype='datetime64[s]')
+                '2010-08-13T05:46:57',
+            ],
+            dtype='datetime64[s]',
+        )
         _check_array_from_pandas_roundtrip(datetime64_s)
 
     def test_timestamp_to_pandas_ns(self):
@@ -1374,21 +1474,17 @@ class TestConvertDateTimeLikeTypes:
 
     @pytest.mark.parametrize('dtype', [pa.date32(), pa.date64()])
     def test_numpy_datetime64_day_unit(self, dtype):
-        datetime64_d = np.array([
-                '2007-07-13',
-                None,
-                '2006-01-15',
-                '2010-08-19'],
-                dtype='datetime64[D]')
+        datetime64_d = np.array(
+            ['2007-07-13', None, '2006-01-15', '2010-08-19'],
+            dtype='datetime64[D]',
+        )
         _check_array_from_pandas_roundtrip(datetime64_d, type=dtype)
 
     def test_array_from_pandas_date_with_mask(self):
         m = np.array([True, False, True])
-        data = pd.Series([
-            date(1990, 1, 1),
-            date(1991, 1, 1),
-            date(1992, 1, 1)
-        ])
+        data = pd.Series(
+            [date(1990, 1, 1), date(1991, 1, 1), date(1992, 1, 1)]
+        )
 
         result = pa.Array.from_pandas(data, mask=m)
 
@@ -1396,37 +1492,38 @@ class TestConvertDateTimeLikeTypes:
         assert pa.Array.from_pandas(expected).equals(result)
 
     def test_fixed_offset_timezone(self):
-        df = pd.DataFrame({
-            'a': [
-                pd.Timestamp('2012-11-11 00:00:00+01:00'),
-                pd.NaT
-                ]
-             })
+        df = pd.DataFrame(
+            {'a': [pd.Timestamp('2012-11-11 00:00:00+01:00'), pd.NaT]}
+        )
         _check_pandas_roundtrip(df)
         _check_serialize_components_roundtrip(df)
 
     def test_timedeltas_no_nulls(self):
-        df = pd.DataFrame({
-            'timedelta64': np.array([0, 3600000000000, 7200000000000],
-                                    dtype='timedelta64[ns]')
-        })
+        df = pd.DataFrame(
+            {
+                'timedelta64': np.array(
+                    [0, 3600000000000, 7200000000000], dtype='timedelta64[ns]'
+                )
+            }
+        )
         field = pa.field('timedelta64', pa.duration('ns'))
         schema = pa.schema([field])
         _check_pandas_roundtrip(
-            df,
-            expected_schema=schema,
+            df, expected_schema=schema,
         )
 
     def test_timedeltas_nulls(self):
-        df = pd.DataFrame({
-            'timedelta64': np.array([0, None, 7200000000000],
-                                    dtype='timedelta64[ns]')
-        })
+        df = pd.DataFrame(
+            {
+                'timedelta64': np.array(
+                    [0, None, 7200000000000], dtype='timedelta64[ns]'
+                )
+            }
+        )
         field = pa.field('timedelta64', pa.duration('ns'))
         schema = pa.schema([field])
         _check_pandas_roundtrip(
-            df,
-            expected_schema=schema,
+            df, expected_schema=schema,
         )
 
 
@@ -1435,7 +1532,6 @@ class TestConvertDateTimeLikeTypes:
 
 
 class TestConvertStringLikeTypes:
-
     def test_pandas_unicode(self):
         repeats = 1000
         values = ['foo', None, 'bar', 'mañana', np.nan]
@@ -1462,9 +1558,7 @@ class TestConvertStringLikeTypes:
         v2 = b'x' * 147483646
 
         # ARROW-2227, hit exactly 2GB on the nose
-        df = pd.DataFrame({
-            'strings': [v1] * 20 + [v2] + ['x'] * 20
-        })
+        df = pd.DataFrame({'strings': [v1] * 20 + [v2] + ['x'] * 20})
         arr = pa.array(df['strings'])
         assert isinstance(arr, pa.ChunkedArray)
         assert arr.num_chunks == 2
@@ -1495,8 +1589,9 @@ class TestConvertStringLikeTypes:
         _check_series_roundtrip(s, type_=pa.binary())
 
     def test_binary_from_bytearray(self):
-        s = pd.Series([bytearray(b'123'), bytearray(b''), bytearray(b'a'),
-                       None])
+        s = pd.Series(
+            [bytearray(b'123'), bytearray(b''), bytearray(b'a'), None]
+        )
         # Explicitly set type
         _check_series_roundtrip(s, type_=pa.binary())
         # Infer type from bytearrays
@@ -1507,14 +1602,16 @@ class TestConvertStringLikeTypes:
         _check_series_roundtrip(s, type_=pa.large_binary())
         df = pd.DataFrame({'a': s})
         _check_pandas_roundtrip(
-            df, schema=pa.schema([('a', pa.large_binary())]))
+            df, schema=pa.schema([('a', pa.large_binary())])
+        )
 
     def test_large_string(self):
         s = pd.Series(['123', '', 'a', None])
         _check_series_roundtrip(s, type_=pa.large_string())
         df = pd.DataFrame({'a': s})
         _check_pandas_roundtrip(
-            df, schema=pa.schema([('a', pa.large_string())]))
+            df, schema=pa.schema([('a', pa.large_string())])
+        )
 
     def test_table_empty_str(self):
         values = ['', '', '', '', '']
@@ -1575,8 +1672,7 @@ class TestConvertStringLikeTypes:
         tm.assert_frame_equal(result, expected, check_dtype=True)
 
         with pytest.raises(pa.ArrowInvalid):
-            table.to_pandas(strings_to_categorical=True,
-                            zero_copy_only=True)
+            table.to_pandas(strings_to_categorical=True, zero_copy_only=True)
 
     def test_table_str_to_categorical_with_na(self):
         values = [None, 'a', 'b', np.nan]
@@ -1590,8 +1686,7 @@ class TestConvertStringLikeTypes:
         tm.assert_frame_equal(result, expected, check_dtype=True)
 
         with pytest.raises(pa.ArrowInvalid):
-            table.to_pandas(strings_to_categorical=True,
-                            zero_copy_only=True)
+            table.to_pandas(strings_to_categorical=True, zero_copy_only=True)
 
     # Regression test for ARROW-2101
     def test_array_of_bytes_to_strings(self):
@@ -1603,8 +1698,8 @@ class TestConvertStringLikeTypes:
     # cannot be converted to utf-8
     def test_array_of_bytes_to_strings_bad_data(self):
         with pytest.raises(
-                pa.lib.ArrowInvalid,
-                match="was not a utf8 string"):
+            pa.lib.ArrowInvalid, match="was not a utf8 string"
+        ):
             pa.array(np.array([b'\x80\x81'], dtype=object), pa.string())
 
     def test_numpy_string_array_to_fixed_size_binary(self):
@@ -1619,14 +1714,17 @@ class TestConvertStringLikeTypes:
         expected = pa.array([b'foo', None, b'baz'], type=pa.binary(3))
         assert converted.equals(expected)
 
-        with pytest.raises(pa.lib.ArrowInvalid,
-                           match=r'Got bytestring of length 3 \(expected 4\)'):
+        with pytest.raises(
+            pa.lib.ArrowInvalid,
+            match=r'Got bytestring of length 3 \(expected 4\)',
+        ):
             arr = np.array([b'foo', b'bar', b'baz'], dtype='|S3')
             pa.array(arr, type=pa.binary(4))
 
         with pytest.raises(
-                pa.lib.ArrowInvalid,
-                match=r'Got bytestring of length 12 \(expected 3\)'):
+            pa.lib.ArrowInvalid,
+            match=r'Got bytestring of length 12 \(expected 3\)',
+        ):
             arr = np.array([b'foo', b'bar', b'baz'], dtype='|U3')
             pa.array(arr, type=pa.binary(3))
 
@@ -1635,24 +1733,25 @@ class TestConvertDecimalTypes:
     """
     Conversion test for decimal types.
     """
-    decimal32 = [
-        decimal.Decimal('-1234.123'),
-        decimal.Decimal('1234.439')
-    ]
+
+    decimal32 = [decimal.Decimal('-1234.123'), decimal.Decimal('1234.439')]
     decimal64 = [
         decimal.Decimal('-129934.123331'),
-        decimal.Decimal('129534.123731')
+        decimal.Decimal('129534.123731'),
     ]
     decimal128 = [
         decimal.Decimal('394092382910493.12341234678'),
-        decimal.Decimal('-314292388910493.12343437128')
+        decimal.Decimal('-314292388910493.12343437128'),
     ]
 
-    @pytest.mark.parametrize(('values', 'expected_type'), [
-        pytest.param(decimal32, pa.decimal128(7, 3), id='decimal32'),
-        pytest.param(decimal64, pa.decimal128(12, 6), id='decimal64'),
-        pytest.param(decimal128, pa.decimal128(26, 11), id='decimal128')
-    ])
+    @pytest.mark.parametrize(
+        ('values', 'expected_type'),
+        [
+            pytest.param(decimal32, pa.decimal128(7, 3), id='decimal32'),
+            pytest.param(decimal64, pa.decimal128(12, 6), id='decimal64'),
+            pytest.param(decimal128, pa.decimal128(26, 11), id='decimal128'),
+        ],
+    )
     def test_decimal_from_pandas(self, values, expected_type):
         expected = pd.DataFrame({'decimals': values})
         table = pa.Table.from_pandas(expected, preserve_index=False)
@@ -1662,11 +1761,14 @@ class TestConvertDecimalTypes:
         expected_schema = pa.schema([field], metadata=table.schema.metadata)
         assert table.schema.equals(expected_schema)
 
-    @pytest.mark.parametrize('values', [
-        pytest.param(decimal32, id='decimal32'),
-        pytest.param(decimal64, id='decimal64'),
-        pytest.param(decimal128, id='decimal128')
-    ])
+    @pytest.mark.parametrize(
+        'values',
+        [
+            pytest.param(decimal32, id='decimal32'),
+            pytest.param(decimal64, id='decimal64'),
+            pytest.param(decimal128, id='decimal128'),
+        ],
+    )
     def test_decimal_to_pandas(self, values):
         expected = pd.DataFrame({'decimals': values})
         converted = pa.Table.from_pandas(expected)
@@ -1712,10 +1814,7 @@ class TestConvertDecimalTypes:
 
     def test_strided_objects(self, tmpdir):
         # see ARROW-3053
-        data = {
-            'a': {0: 'a'},
-            'b': {0: decimal.Decimal('0.0')}
-        }
+        data = {'a': {0: 'a'}, 'b': {0: decimal.Decimal('0.0')}}
 
         # This yields strided objects
         df = pd.DataFrame.from_dict(data)
@@ -1743,12 +1842,14 @@ class TestConvertListTypes:
     def test_column_of_arrays_to_py(self):
         # Test regression in ARROW-1199 not caught in above test
         dtype = 'i1'
-        arr = np.array([
-            np.arange(10, dtype=dtype),
-            np.arange(5, dtype=dtype),
-            None,
-            np.arange(1, dtype=dtype)
-        ])
+        arr = np.array(
+            [
+                np.arange(10, dtype=dtype),
+                np.arange(5, dtype=dtype),
+                None,
+                np.arange(1, dtype=dtype),
+            ]
+        )
         type_ = pa.list_(pa.int8())
         parr = pa.array(arr, type=type_)
 
@@ -1770,24 +1871,35 @@ class TestConvertListTypes:
         tm.assert_series_equal(pd.Series(s), df['col1'], check_names=False)
 
     def test_column_of_decimal_list(self):
-        array = pa.array([[decimal.Decimal('1'), decimal.Decimal('2')],
-                         [decimal.Decimal('3.3')]],
-                         type=pa.list_(pa.decimal128(2, 1)))
+        array = pa.array(
+            [
+                [decimal.Decimal('1'), decimal.Decimal('2')],
+                [decimal.Decimal('3.3')],
+            ],
+            type=pa.list_(pa.decimal128(2, 1)),
+        )
         table = pa.Table.from_arrays([array], names=['col1'])
         df = table.to_pandas()
 
         expected_df = pd.DataFrame(
-                {'col1': [[decimal.Decimal('1'), decimal.Decimal('2')],
-                          [decimal.Decimal('3.3')]]})
+            {
+                'col1': [
+                    [decimal.Decimal('1'), decimal.Decimal('2')],
+                    [decimal.Decimal('3.3')],
+                ]
+            }
+        )
         tm.assert_frame_equal(df, expected_df)
 
     def test_nested_types_from_ndarray_null_entries(self):
         # Root cause of ARROW-6435
         s = pd.Series(np.array([np.nan, np.nan], dtype=object))
 
-        for ty in [pa.list_(pa.int64()),
-                   pa.large_list(pa.int64()),
-                   pa.struct([pa.field('f0', 'int32')])]:
+        for ty in [
+            pa.list_(pa.int64()),
+            pa.large_list(pa.int64()),
+            pa.struct([pa.field('f0', 'int32')]),
+        ]:
             result = pa.array(s, type=ty)
             expected = pa.array([None, None], type=ty)
             assert result.equals(expected)
@@ -1818,20 +1930,16 @@ class TestConvertListTypes:
 
     def test_column_of_lists_chunked(self):
         # ARROW-1357
-        df = pd.DataFrame({
-            'lists': np.array([
-                [1, 2],
-                None,
-                [2, 3],
-                [4, 5],
-                [6, 7],
-                [8, 9]
-            ], dtype=object)
-        })
+        df = pd.DataFrame(
+            {
+                'lists': np.array(
+                    [[1, 2], None, [2, 3], [4, 5], [6, 7], [8, 9]],
+                    dtype=object,
+                )
+            }
+        )
 
-        schema = pa.schema([
-            pa.field('lists', pa.list_(pa.int64()))
-        ])
+        schema = pa.schema([pa.field('lists', pa.list_(pa.int64()))])
 
         t1 = pa.Table.from_pandas(df[:2], schema=schema)
         t2 = pa.Table.from_pandas(df[2:], schema=schema)
@@ -1842,13 +1950,9 @@ class TestConvertListTypes:
         tm.assert_frame_equal(result, df)
 
     def test_empty_column_of_lists_chunked(self):
-        df = pd.DataFrame({
-            'lists': np.array([], dtype=object)
-        })
+        df = pd.DataFrame({'lists': np.array([], dtype=object)})
 
-        schema = pa.schema([
-            pa.field('lists', pa.list_(pa.int64()))
-        ])
+        schema = pa.schema([pa.field('lists', pa.list_(pa.int64()))])
 
         table = pa.Table.from_pandas(df, schema=schema)
         result = table.to_pandas()
@@ -1856,8 +1960,16 @@ class TestConvertListTypes:
         tm.assert_frame_equal(result, df)
 
     def test_column_of_lists_chunked2(self):
-        data1 = [[0, 1], [2, 3], [4, 5], [6, 7], [10, 11],
-                 [12, 13], [14, 15], [16, 17]]
+        data1 = [
+            [0, 1],
+            [2, 3],
+            [4, 5],
+            [6, 7],
+            [10, 11],
+            [12, 13],
+            [14, 15],
+            [16, 17],
+        ]
         data2 = [[8, 9], [18, 19]]
 
         a1 = pa.array(data1)
@@ -1890,9 +2002,10 @@ class TestConvertListTypes:
         assert arr.equals(expected)
         assert arr.type == pa.list_(pa.null())
 
-        data2 = np.array([None, None, [None, None],
-                          np.array([None, None], dtype=object)],
-                         dtype=object)
+        data2 = np.array(
+            [None, None, [None, None], np.array([None, None], dtype=object)],
+            dtype=object,
+        )
         arr = pa.array(data2)
         expected = pa.array([None, None, [None, None], [None, None]])
         assert arr.equals(expected)
@@ -1929,20 +2042,24 @@ class TestConvertListTypes:
         assert result3.equals(expected3)
 
     def test_infer_lists(self):
-        data = OrderedDict([
-            ('nan_ints', [[None, 1], [2, 3]]),
-            ('ints', [[0, 1], [2, 3]]),
-            ('strs', [[None, 'b'], ['c', 'd']]),
-            ('nested_strs', [[[None, 'b'], ['c', 'd']], None])
-        ])
+        data = OrderedDict(
+            [
+                ('nan_ints', [[None, 1], [2, 3]]),
+                ('ints', [[0, 1], [2, 3]]),
+                ('strs', [[None, 'b'], ['c', 'd']]),
+                ('nested_strs', [[[None, 'b'], ['c', 'd']], None]),
+            ]
+        )
         df = pd.DataFrame(data)
 
-        expected_schema = pa.schema([
-            pa.field('nan_ints', pa.list_(pa.int64())),
-            pa.field('ints', pa.list_(pa.int64())),
-            pa.field('strs', pa.list_(pa.string())),
-            pa.field('nested_strs', pa.list_(pa.list_(pa.string())))
-        ])
+        expected_schema = pa.schema(
+            [
+                pa.field('nan_ints', pa.list_(pa.int64())),
+                pa.field('ints', pa.list_(pa.int64())),
+                pa.field('strs', pa.list_(pa.string())),
+                pa.field('nested_strs', pa.list_(pa.list_(pa.string()))),
+            ]
+        )
 
         _check_pandas_roundtrip(df, expected_schema=expected_schema)
 
@@ -1964,67 +2081,65 @@ class TestConvertListTypes:
             npt.assert_array_equal(left, right)
 
     def test_infer_numpy_array(self):
-        data = OrderedDict([
-            ('ints', [
-                np.array([0, 1], dtype=np.int64),
-                np.array([2, 3], dtype=np.int64)
-            ])
-        ])
+        data = OrderedDict(
+            [
+                (
+                    'ints',
+                    [
+                        np.array([0, 1], dtype=np.int64),
+                        np.array([2, 3], dtype=np.int64),
+                    ],
+                )
+            ]
+        )
         df = pd.DataFrame(data)
-        expected_schema = pa.schema([
-            pa.field('ints', pa.list_(pa.int64()))
-        ])
+        expected_schema = pa.schema([pa.field('ints', pa.list_(pa.int64()))])
 
         _check_pandas_roundtrip(df, expected_schema=expected_schema)
 
     def test_to_list_of_structs_pandas(self):
         ints = pa.array([1, 2, 3], pa.int32())
-        strings = pa.array([['a', 'b'], ['c', 'd'], ['e', 'f']],
-                           pa.list_(pa.string()))
+        strings = pa.array(
+            [['a', 'b'], ['c', 'd'], ['e', 'f']], pa.list_(pa.string())
+        )
         structs = pa.StructArray.from_arrays([ints, strings], ['f1', 'f2'])
         data = pa.ListArray.from_arrays([0, 1, 3], structs)
 
-        expected = pd.Series([
-            [{'f1': 1, 'f2': ['a', 'b']}],
-            [{'f1': 2, 'f2': ['c', 'd']},
-             {'f1': 3, 'f2': ['e', 'f']}]
-        ])
+        expected = pd.Series(
+            [
+                [{'f1': 1, 'f2': ['a', 'b']}],
+                [{'f1': 2, 'f2': ['c', 'd']}, {'f1': 3, 'f2': ['e', 'f']}],
+            ]
+        )
 
         series = pd.Series(data.to_pandas())
         tm.assert_series_equal(series, expected)
 
-    @pytest.mark.parametrize('t,data,expected', [
-        (
-            pa.int64,
-            [[1, 2], [3], None],
-            [None, [3], None]
-        ),
-        (
-            pa.string,
-            [['aaa', 'bb'], ['c'], None],
-            [None, ['c'], None]
-        ),
-        (
-            pa.null,
-            [[None, None], [None], None],
-            [None, [None], None]
-        )
-    ])
+    @pytest.mark.parametrize(
+        't,data,expected',
+        [
+            (pa.int64, [[1, 2], [3], None], [None, [3], None]),
+            (pa.string, [['aaa', 'bb'], ['c'], None], [None, ['c'], None]),
+            (pa.null, [[None, None], [None], None], [None, [None], None]),
+        ],
+    )
     def test_array_from_pandas_typed_array_with_mask(self, t, data, expected):
         m = np.array([True, False, True])
 
         s = pd.Series(data)
         result = pa.Array.from_pandas(s, mask=m, type=pa.list_(t()))
 
-        assert pa.Array.from_pandas(expected,
-                                    type=pa.list_(t())).equals(result)
+        assert pa.Array.from_pandas(expected, type=pa.list_(t())).equals(
+            result
+        )
 
     def test_empty_list_roundtrip(self):
         empty_list_array = np.empty((3,), dtype=object)
         empty_list_array.fill([])
 
-        df = pd.DataFrame({'a': np.array(['1', '2', '3']),
-                           'b': empty_list_array})
+        df = pd.DataFrame(
+            {'a': np.array(['1', '2', '3']), 'b': empty_list_array}
+        )
         tbl = pa.Table.from_pandas(df)
 
         result = tbl.to_pandas()
@@ -2041,27 +2156,34 @@ class TestConvertListTypes:
             assert result.equals(expected)
 
     def test_nested_large_list(self):
-        s = (pa.array([[[1, 2, 3], [4]], None],
-                      type=pa.large_list(pa.large_list(pa.int64())))
-             .to_pandas())
+        s = pa.array(
+            [[[1, 2, 3], [4]], None],
+            type=pa.large_list(pa.large_list(pa.int64())),
+        ).to_pandas()
         tm.assert_series_equal(
-            s, pd.Series([[[1, 2, 3], [4]], None]),
-            check_names=False)
+            s, pd.Series([[[1, 2, 3], [4]], None]), check_names=False
+        )
 
     def test_large_binary_list(self):
         for list_type_factory in (pa.list_, pa.large_list):
-            s = (pa.array([["aa", "bb"], None, ["cc"], []],
-                          type=list_type_factory(pa.large_binary()))
-                 .to_pandas())
+            s = pa.array(
+                [["aa", "bb"], None, ["cc"], []],
+                type=list_type_factory(pa.large_binary()),
+            ).to_pandas()
             tm.assert_series_equal(
-                s, pd.Series([[b"aa", b"bb"], None, [b"cc"], []]),
-                check_names=False)
-            s = (pa.array([["aa", "bb"], None, ["cc"], []],
-                          type=list_type_factory(pa.large_string()))
-                 .to_pandas())
+                s,
+                pd.Series([[b"aa", b"bb"], None, [b"cc"], []]),
+                check_names=False,
+            )
+            s = pa.array(
+                [["aa", "bb"], None, ["cc"], []],
+                type=list_type_factory(pa.large_string()),
+            ).to_pandas()
             tm.assert_series_equal(
-                s, pd.Series([["aa", "bb"], None, ["cc"], []]),
-                check_names=False)
+                s,
+                pd.Series([["aa", "bb"], None, ["cc"], []]),
+                check_names=False,
+            )
 
 
 class TestConvertStructTypes:
@@ -2072,38 +2194,39 @@ class TestConvertStructTypes:
     def test_pandas_roundtrip(self):
         df = pd.DataFrame({'dicts': [{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]})
 
-        expected_schema = pa.schema([
-            ('dicts', pa.struct([('a', pa.int64()), ('b', pa.int64())])),
-        ])
+        expected_schema = pa.schema(
+            [('dicts', pa.struct([('a', pa.int64()), ('b', pa.int64())])),]
+        )
 
         _check_pandas_roundtrip(df, expected_schema=expected_schema)
 
         # specifying schema explicitly in from_pandas
         _check_pandas_roundtrip(
-            df, schema=expected_schema, expected_schema=expected_schema)
+            df, schema=expected_schema, expected_schema=expected_schema
+        )
 
     def test_to_pandas(self):
         ints = pa.array([None, 2, 3], type=pa.int64())
         strs = pa.array(['a', None, 'c'], type=pa.string())
         bools = pa.array([True, False, None], type=pa.bool_())
         arr = pa.StructArray.from_arrays(
-            [ints, strs, bools],
-            ['ints', 'strs', 'bools'])
+            [ints, strs, bools], ['ints', 'strs', 'bools']
+        )
 
-        expected = pd.Series([
-            {'ints': None, 'strs': 'a', 'bools': True},
-            {'ints': 2, 'strs': None, 'bools': False},
-            {'ints': 3, 'strs': 'c', 'bools': None},
-        ])
+        expected = pd.Series(
+            [
+                {'ints': None, 'strs': 'a', 'bools': True},
+                {'ints': 2, 'strs': None, 'bools': False},
+                {'ints': 3, 'strs': 'c', 'bools': None},
+            ]
+        )
 
         series = pd.Series(arr.to_pandas())
         tm.assert_series_equal(series, expected)
 
     def test_from_numpy(self):
-        dt = np.dtype([('x', np.int32),
-                       (('y_title', 'y'), np.bool_)])
-        ty = pa.struct([pa.field('x', pa.int32()),
-                        pa.field('y', pa.bool_())])
+        dt = np.dtype([('x', np.int32), (('y_title', 'y'), np.bool_)])
+        ty = pa.struct([pa.field('x', pa.int32()), pa.field('y', pa.bool_())])
 
         data = np.array([], dtype=dt)
         arr = pa.array(data, type=ty)
@@ -2111,8 +2234,10 @@ class TestConvertStructTypes:
 
         data = np.array([(42, True), (43, False)], dtype=dt)
         arr = pa.array(data, type=ty)
-        assert arr.to_pylist() == [{'x': 42, 'y': True},
-                                   {'x': 43, 'y': False}]
+        assert arr.to_pylist() == [
+            {'x': 42, 'y': True},
+            {'x': 43, 'y': False},
+        ]
 
         # With mask
         arr = pa.array(data, mask=np.bool_([False, True]), type=ty)
@@ -2132,33 +2257,48 @@ class TestConvertStructTypes:
 
     def test_from_numpy_nested(self):
         # Note: an object field inside a struct
-        dt = np.dtype([('x', np.dtype([('xx', np.int8),
-                                       ('yy', np.bool_)])),
-                       ('y', np.int16),
-                       ('z', np.object_)])
+        dt = np.dtype(
+            [
+                ('x', np.dtype([('xx', np.int8), ('yy', np.bool_)])),
+                ('y', np.int16),
+                ('z', np.object_),
+            ]
+        )
         # Note: itemsize is not a multiple of sizeof(object)
         assert dt.itemsize == 12
-        ty = pa.struct([pa.field('x', pa.struct([pa.field('xx', pa.int8()),
-                                                 pa.field('yy', pa.bool_())])),
-                        pa.field('y', pa.int16()),
-                        pa.field('z', pa.string())])
+        ty = pa.struct(
+            [
+                pa.field(
+                    'x',
+                    pa.struct(
+                        [
+                            pa.field('xx', pa.int8()),
+                            pa.field('yy', pa.bool_()),
+                        ]
+                    ),
+                ),
+                pa.field('y', pa.int16()),
+                pa.field('z', pa.string()),
+            ]
+        )
 
         data = np.array([], dtype=dt)
         arr = pa.array(data, type=ty)
         assert arr.to_pylist() == []
 
-        data = np.array([
-            ((1, True), 2, 'foo'),
-            ((3, False), 4, 'bar')], dtype=dt)
+        data = np.array(
+            [((1, True), 2, 'foo'), ((3, False), 4, 'bar')], dtype=dt
+        )
         arr = pa.array(data, type=ty)
         assert arr.to_pylist() == [
             {'x': {'xx': 1, 'yy': True}, 'y': 2, 'z': 'foo'},
-            {'x': {'xx': 3, 'yy': False}, 'y': 4, 'z': 'bar'}]
+            {'x': {'xx': 3, 'yy': False}, 'y': 4, 'z': 'bar'},
+        ]
 
     @pytest.mark.large_memory
     def test_from_numpy_large(self):
         # Exercise rechunking + nulls
-        target_size = 3 * 1024**3  # 4GB
+        target_size = 3 * 1024 ** 3  # 4GB
         dt = np.dtype([('x', np.float64), ('y', 'object')])
         bs = 65536 - dt.itemsize
         block = b'.' * bs
@@ -2169,8 +2309,9 @@ class TestConvertStructTypes:
         # Add implicit nulls
         data['x'][data['x'] < 0.2] = np.nan
 
-        ty = pa.struct([pa.field('x', pa.float64()),
-                        pa.field('y', pa.binary())])
+        ty = pa.struct(
+            [pa.field('x', pa.float64()), pa.field('y', pa.binary())]
+        )
         arr = pa.array(data, type=ty, from_pandas=True)
         assert arr.num_chunks == 2
 
@@ -2210,36 +2351,37 @@ class TestConvertStructTypes:
         del arr
 
     def test_from_numpy_bad_input(self):
-        ty = pa.struct([pa.field('x', pa.int32()),
-                        pa.field('y', pa.bool_())])
-        dt = np.dtype([('x', np.int32),
-                       ('z', np.bool_)])
+        ty = pa.struct([pa.field('x', pa.int32()), pa.field('y', pa.bool_())])
+        dt = np.dtype([('x', np.int32), ('z', np.bool_)])
 
         data = np.array([], dtype=dt)
-        with pytest.raises(TypeError,
-                           match="Missing field 'y'"):
+        with pytest.raises(TypeError, match="Missing field 'y'"):
             pa.array(data, type=ty)
         data = np.int32([])
-        with pytest.raises(TypeError,
-                           match="Expected struct array"):
+        with pytest.raises(TypeError, match="Expected struct array"):
             pa.array(data, type=ty)
 
     def test_from_tuples(self):
         df = pd.DataFrame({'tuples': [(1, 2), (3, 4)]})
         expected_df = pd.DataFrame(
-            {'tuples': [{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]})
+            {'tuples': [{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]}
+        )
 
         # conversion from tuples works when specifying expected struct type
         struct_type = pa.struct([('a', pa.int64()), ('b', pa.int64())])
 
         arr = np.asarray(df['tuples'])
         _check_array_roundtrip(
-            arr, expected=expected_df['tuples'], type=struct_type)
+            arr, expected=expected_df['tuples'], type=struct_type
+        )
 
         expected_schema = pa.schema([('tuples', struct_type)])
         _check_pandas_roundtrip(
-            df, expected=expected_df, schema=expected_schema,
-            expected_schema=expected_schema)
+            df,
+            expected=expected_df,
+            schema=expected_schema,
+            expected_schema=expected_schema,
+        )
 
 
 class TestZeroCopyConversion:
@@ -2252,15 +2394,14 @@ class TestZeroCopyConversion:
         npt.assert_array_equal(result, [0, 1, 2])
 
     def test_zero_copy_dictionaries(self):
-        arr = pa.DictionaryArray.from_arrays(
-            np.array([0, 0]),
-            np.array([5]))
+        arr = pa.DictionaryArray.from_arrays(np.array([0, 0]), np.array([5]))
 
         result = arr.to_pandas(zero_copy_only=True)
         values = pd.Categorical([5, 5])
 
-        tm.assert_series_equal(pd.Series(result), pd.Series(values),
-                               check_names=False)
+        tm.assert_series_equal(
+            pd.Series(result), pd.Series(values), check_names=False
+        )
 
     def test_zero_copy_timestamp(self):
         arr = np.array(['2007-07-13'], dtype='datetime64[ns]')
@@ -2372,18 +2513,20 @@ class TestConvertMisc:
 
         arrays = {
             'cat_strings': pd.Categorical(v1 * repeats),
-            'cat_strings_with_na': pd.Categorical(v1 * repeats,
-                                                  categories=['foo', 'bar']),
+            'cat_strings_with_na': pd.Categorical(
+                v1 * repeats, categories=['foo', 'bar']
+            ),
             'cat_ints': pd.Categorical(v2 * repeats),
             'cat_binary': pd.Categorical(v3 * repeats),
             'cat_strings_ordered': pd.Categorical(
-                v1 * repeats, categories=['bar', 'qux', 'foo'],
-                ordered=True),
+                v1 * repeats, categories=['bar', 'qux', 'foo'], ordered=True
+            ),
             'ints': v2 * repeats,
             'ints2': v2 * repeats,
             'strings': v1 * repeats,
             'strings2': v1 * repeats,
-            'strings3': v3 * repeats}
+            'strings3': v3 * repeats,
+        }
         df = pd.DataFrame(arrays)
         _check_pandas_roundtrip(df)
 
@@ -2399,8 +2542,9 @@ class TestConvertMisc:
 
         arrays = [
             pd.Categorical(['a', 'b', 'c'], categories=['a', 'b']),
-            pd.Categorical(['a', 'b', 'c'], categories=['a', 'b'],
-                           ordered=True)
+            pd.Categorical(
+                ['a', 'b', 'c'], categories=['a', 'b'], ordered=True
+            ),
         ]
         for arr in arrays:
             _check(arr)
@@ -2412,10 +2556,15 @@ class TestConvertMisc:
 
     def test_category_zero_chunks(self):
         # ARROW-5952
-        for pa_type, dtype in [(pa.string(), 'object'), (pa.int64(), 'int64')]:
+        for pa_type, dtype in [
+            (pa.string(), 'object'),
+            (pa.int64(), 'int64'),
+        ]:
             a = pa.chunked_array([], pa.dictionary(pa.int8(), pa_type))
             result = a.to_pandas()
-            expected = pd.Categorical([], categories=np.array([], dtype=dtype))
+            expected = pd.Categorical(
+                [], categories=np.array([], dtype=dtype)
+            )
             tm.assert_series_equal(pd.Series(result), pd.Series(expected))
 
             table = pa.table({'a': a})
@@ -2444,28 +2593,47 @@ class TestConvertMisc:
         N, K = 100, 3
         random_numbers = np.random.randn(N, K).copy() * 100
 
-        numeric_dtypes = ['i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8',
-                          'f4', 'f8']
+        numeric_dtypes = [
+            'i1',
+            'i2',
+            'i4',
+            'i8',
+            'u1',
+            'u2',
+            'u4',
+            'u8',
+            'f4',
+            'f8',
+        ]
 
         for type_name in numeric_dtypes:
             cases.append(random_numbers.astype(type_name))
 
         # strings
-        cases.append(np.array([random_ascii(10) for i in range(N * K)],
-                              dtype=object)
-                     .reshape(N, K).copy())
+        cases.append(
+            np.array([random_ascii(10) for i in range(N * K)], dtype=object)
+            .reshape(N, K)
+            .copy()
+        )
 
         # booleans
-        boolean_objects = (np.array([True, False, True] * N, dtype=object)
-                           .reshape(N, K).copy())
+        boolean_objects = (
+            np.array([True, False, True] * N, dtype=object)
+            .reshape(N, K)
+            .copy()
+        )
 
         # add some nulls, so dtype comes back as objects
         boolean_objects[5] = None
         cases.append(boolean_objects)
 
-        cases.append(np.arange("2016-01-01T00:00:00.001", N * K,
-                               dtype='datetime64[ms]')
-                     .reshape(N, K).copy())
+        cases.append(
+            np.arange(
+                "2016-01-01T00:00:00.001", N * K, dtype='datetime64[ms]'
+            )
+            .reshape(N, K)
+            .copy()
+        )
 
         strided_mask = (random_numbers > 0).astype(bool)[:, 0]
 
@@ -2491,21 +2659,25 @@ class TestConvertMisc:
         _check_series(pd.Series([None, np.nan, None], dtype=object))
 
     def test_partial_schema(self):
-        data = OrderedDict([
-            ('a', [0, 1, 2, 3, 4]),
-            ('b', np.array([-10, -5, 0, 5, 10], dtype=np.int32)),
-            ('c', [-10, -5, 0, 5, 10])
-        ])
+        data = OrderedDict(
+            [
+                ('a', [0, 1, 2, 3, 4]),
+                ('b', np.array([-10, -5, 0, 5, 10], dtype=np.int32)),
+                ('c', [-10, -5, 0, 5, 10]),
+            ]
+        )
         df = pd.DataFrame(data)
 
-        partial_schema = pa.schema([
-            pa.field('c', pa.int64()),
-            pa.field('a', pa.int64())
-        ])
+        partial_schema = pa.schema(
+            [pa.field('c', pa.int64()), pa.field('a', pa.int64())]
+        )
 
-        _check_pandas_roundtrip(df, schema=partial_schema,
-                                expected=df[['c', 'a']],
-                                expected_schema=partial_schema)
+        _check_pandas_roundtrip(
+            df,
+            schema=partial_schema,
+            expected=df[['c', 'a']],
+            expected_schema=partial_schema,
+        )
 
     def test_table_batch_empty_dataframe(self):
         df = pd.DataFrame({})
@@ -2519,8 +2691,9 @@ class TestConvertMisc:
     def test_convert_empty_table(self):
         arr = pa.array([], type=pa.int64())
         empty_objects = pd.Series(np.array([], dtype=object))
-        tm.assert_series_equal(arr.to_pandas(),
-                               pd.Series(np.array([], dtype=np.int64)))
+        tm.assert_series_equal(
+            arr.to_pandas(), pd.Series(np.array([], dtype=np.int64))
+        )
         arr = pa.array([], type=pa.string())
         tm.assert_series_equal(arr.to_pandas(), empty_objects)
         arr = pa.array([], type=pa.list_(pa.int64()))
@@ -2550,15 +2723,11 @@ class TestConvertMisc:
 
     def test_safe_unsafe_casts(self):
         # ARROW-2799
-        df = pd.DataFrame({
-            'A': list('abc'),
-            'B': np.linspace(0, 1, 3)
-        })
+        df = pd.DataFrame({'A': list('abc'), 'B': np.linspace(0, 1, 3)})
 
-        schema = pa.schema([
-            pa.field('A', pa.string()),
-            pa.field('B', pa.int32())
-        ])
+        schema = pa.schema(
+            [pa.field('A', pa.string()), pa.field('B', pa.int32())]
+        )
 
         with pytest.raises(ValueError):
             pa.Table.from_pandas(df, schema=schema)
@@ -2583,10 +2752,12 @@ def test_safe_cast_from_float_with_nans_to_int():
 
 
 def _fully_loaded_dataframe_example():
-    index = pd.MultiIndex.from_arrays([
-        pd.date_range('2000-01-01', periods=5).repeat(2),
-        np.tile(np.array(['foo', 'bar'], dtype=object), 5)
-    ])
+    index = pd.MultiIndex.from_arrays(
+        [
+            pd.date_range('2000-01-01', periods=5).repeat(2),
+            np.tile(np.array(['foo', 'bar'], dtype=object), 5),
+        ]
+    )
 
     c1 = pd.date_range('2000-01-01', periods=10)
     data = {
@@ -2599,7 +2770,7 @@ def _fully_loaded_dataframe_example():
         6: [True, False] * 5,
         7: np.random.randn(10),
         8: np.random.randint(0, 100, size=10),
-        9: pd.period_range('2013', periods=10, freq='M')
+        9: pd.period_range('2013', periods=10, freq='M'),
     }
 
     if LooseVersion(pd.__version__) >= '0.21':
@@ -2631,8 +2802,10 @@ def _check_serialize_components_roundtrip(pd_obj):
         tm.assert_series_equal(pd_obj, deserialized)
 
 
-@pytest.mark.skipif(LooseVersion(np.__version__) >= '0.16',
-                    reason='Until numpy/numpy#12745 is resolved')
+@pytest.mark.skipif(
+    LooseVersion(np.__version__) >= '0.16',
+    reason='Until numpy/numpy#12745 is resolved',
+)
 def test_serialize_deserialize_pandas():
     # ARROW-1784, serialize and deserialize DataFrame by decomposing
     # BlockManager
@@ -2660,10 +2833,12 @@ def _pytime_from_micros(val):
 
 
 def _pytime_to_micros(pytime):
-    return (pytime.hour * 3600000000 +
-            pytime.minute * 60000000 +
-            pytime.second * 1000000 +
-            pytime.microsecond)
+    return (
+        pytime.hour * 3600000000
+        + pytime.minute * 60000000
+        + pytime.second * 1000000
+        + pytime.microsecond
+    )
 
 
 def test_convert_unsupported_type_error_message():
@@ -2681,9 +2856,7 @@ def test_convert_unsupported_type_error_message():
 
     # period unsupported for pandas <= 0.25
     if LooseVersion(pd.__version__) <= '0.25':
-        df = pd.DataFrame({
-            'a': pd.period_range('2000-01-01', periods=20),
-        })
+        df = pd.DataFrame({'a': pd.period_range('2000-01-01', periods=20),})
 
         expected_msg = 'Conversion failed for column a with type period'
         with pytest.raises(TypeError, match=expected_msg):
@@ -2708,9 +2881,11 @@ def test_to_pandas_deduplicate_strings_array_types():
     repeats = 10
     values = _generate_dedup_example(nunique, repeats)
 
-    for arr in [pa.array(values, type=pa.binary()),
-                pa.array(values, type=pa.utf8()),
-                pa.chunked_array([values, values])]:
+    for arr in [
+        pa.array(values, type=pa.binary()),
+        pa.array(values, type=pa.utf8()),
+        pa.chunked_array([values, values]),
+    ]:
         _assert_nunique(arr.to_pandas(), nunique)
         _assert_nunique(arr.to_pandas(deduplicate_objects=False), len(arr))
 
@@ -2726,8 +2901,9 @@ def test_to_pandas_deduplicate_strings_table_types():
 
     for obj in [rb, tbl]:
         _assert_nunique(obj.to_pandas()['foo'], nunique)
-        _assert_nunique(obj.to_pandas(deduplicate_objects=False)['foo'],
-                        len(obj))
+        _assert_nunique(
+            obj.to_pandas(deduplicate_objects=False)['foo'], len(obj)
+        )
 
 
 def test_to_pandas_deduplicate_integers_as_objects():
@@ -2735,16 +2911,19 @@ def test_to_pandas_deduplicate_integers_as_objects():
     repeats = 10
 
     # Python automatically interns smaller integers
-    unique_values = list(np.random.randint(10000000, 1000000000, size=nunique))
+    unique_values = list(
+        np.random.randint(10000000, 1000000000, size=nunique)
+    )
     unique_values[nunique // 2] = None
 
     arr = pa.array(unique_values * repeats)
 
     _assert_nunique(arr.to_pandas(integer_object_nulls=True), nunique)
-    _assert_nunique(arr.to_pandas(integer_object_nulls=True,
-                                  deduplicate_objects=False),
-                    # Account for None
-                    (nunique - 1) * repeats + 1)
+    _assert_nunique(
+        arr.to_pandas(integer_object_nulls=True, deduplicate_objects=False),
+        # Account for None
+        (nunique - 1) * repeats + 1,
+    )
 
 
 def test_to_pandas_deduplicate_date_time():
@@ -2758,51 +2937,63 @@ def test_to_pandas_deduplicate_date_time():
         ('int32', 'date32', {'date_as_object': True}),
         ('int64', 'date64', {'date_as_object': True}),
         ('int32', 'time32[ms]', {}),
-        ('int64', 'time64[us]', {})
+        ('int64', 'time64[us]', {}),
     ]
 
     for raw_type, array_type, pandas_options in cases:
         raw_arr = pa.array(unique_values * repeats, type=raw_type)
         casted_arr = raw_arr.cast(array_type)
 
-        _assert_nunique(casted_arr.to_pandas(**pandas_options),
-                        nunique)
-        _assert_nunique(casted_arr.to_pandas(deduplicate_objects=False,
-                                             **pandas_options),
-                        len(casted_arr))
+        _assert_nunique(casted_arr.to_pandas(**pandas_options), nunique)
+        _assert_nunique(
+            casted_arr.to_pandas(deduplicate_objects=False, **pandas_options),
+            len(casted_arr),
+        )
 
 
 # ---------------------------------------------------------------------
 
+
 def test_table_from_pandas_checks_field_nullability():
     # ARROW-2136
-    df = pd.DataFrame({'a': [1.2, 2.1, 3.1],
-                       'b': [np.nan, 'string', 'foo']})
-    schema = pa.schema([pa.field('a', pa.float64(), nullable=False),
-                        pa.field('b', pa.utf8(), nullable=False)])
+    df = pd.DataFrame({'a': [1.2, 2.1, 3.1], 'b': [np.nan, 'string', 'foo']})
+    schema = pa.schema(
+        [
+            pa.field('a', pa.float64(), nullable=False),
+            pa.field('b', pa.utf8(), nullable=False),
+        ]
+    )
 
     with pytest.raises(ValueError):
         pa.Table.from_pandas(df, schema=schema)
 
 
 def test_table_from_pandas_keeps_column_order_of_dataframe():
-    df1 = pd.DataFrame(OrderedDict([
-        ('partition', [0, 0, 1, 1]),
-        ('arrays', [[0, 1, 2], [3, 4], None, None]),
-        ('floats', [None, None, 1.1, 3.3])
-    ]))
+    df1 = pd.DataFrame(
+        OrderedDict(
+            [
+                ('partition', [0, 0, 1, 1]),
+                ('arrays', [[0, 1, 2], [3, 4], None, None]),
+                ('floats', [None, None, 1.1, 3.3]),
+            ]
+        )
+    )
     df2 = df1[['floats', 'partition', 'arrays']]
 
-    schema1 = pa.schema([
-        ('partition', pa.int64()),
-        ('arrays', pa.list_(pa.int64())),
-        ('floats', pa.float64()),
-    ])
-    schema2 = pa.schema([
-        ('floats', pa.float64()),
-        ('partition', pa.int64()),
-        ('arrays', pa.list_(pa.int64()))
-    ])
+    schema1 = pa.schema(
+        [
+            ('partition', pa.int64()),
+            ('arrays', pa.list_(pa.int64())),
+            ('floats', pa.float64()),
+        ]
+    )
+    schema2 = pa.schema(
+        [
+            ('floats', pa.float64()),
+            ('partition', pa.int64()),
+            ('arrays', pa.list_(pa.int64())),
+        ]
+    )
 
     table1 = pa.Table.from_pandas(df1, preserve_index=False)
     table2 = pa.Table.from_pandas(df2, preserve_index=False)
@@ -2813,17 +3004,23 @@ def test_table_from_pandas_keeps_column_order_of_dataframe():
 
 def test_table_from_pandas_keeps_column_order_of_schema():
     # ARROW-3766
-    df = pd.DataFrame(OrderedDict([
-        ('partition', [0, 0, 1, 1]),
-        ('arrays', [[0, 1, 2], [3, 4], None, None]),
-        ('floats', [None, None, 1.1, 3.3])
-    ]))
+    df = pd.DataFrame(
+        OrderedDict(
+            [
+                ('partition', [0, 0, 1, 1]),
+                ('arrays', [[0, 1, 2], [3, 4], None, None]),
+                ('floats', [None, None, 1.1, 3.3]),
+            ]
+        )
+    )
 
-    schema = pa.schema([
-        ('floats', pa.float64()),
-        ('arrays', pa.list_(pa.int32())),
-        ('partition', pa.int32())
-    ])
+    schema = pa.schema(
+        [
+            ('floats', pa.float64()),
+            ('arrays', pa.list_(pa.int32())),
+            ('partition', pa.int32()),
+        ]
+    )
 
     df1 = df[df.partition == 0]
     df2 = df[df.partition == 1][['floats', 'partition', 'arrays']]
@@ -2836,24 +3033,27 @@ def test_table_from_pandas_keeps_column_order_of_schema():
 
 
 def test_table_from_pandas_columns_argument_only_does_filtering():
-    df = pd.DataFrame(OrderedDict([
-        ('partition', [0, 0, 1, 1]),
-        ('arrays', [[0, 1, 2], [3, 4], None, None]),
-        ('floats', [None, None, 1.1, 3.3])
-    ]))
+    df = pd.DataFrame(
+        OrderedDict(
+            [
+                ('partition', [0, 0, 1, 1]),
+                ('arrays', [[0, 1, 2], [3, 4], None, None]),
+                ('floats', [None, None, 1.1, 3.3]),
+            ]
+        )
+    )
 
     columns1 = ['arrays', 'floats', 'partition']
-    schema1 = pa.schema([
-        ('arrays', pa.list_(pa.int64())),
-        ('floats', pa.float64()),
-        ('partition', pa.int64())
-    ])
+    schema1 = pa.schema(
+        [
+            ('arrays', pa.list_(pa.int64())),
+            ('floats', pa.float64()),
+            ('partition', pa.int64()),
+        ]
+    )
 
     columns2 = ['floats', 'partition']
-    schema2 = pa.schema([
-        ('floats', pa.float64()),
-        ('partition', pa.int64())
-    ])
+    schema2 = pa.schema([('floats', pa.float64()), ('partition', pa.int64())])
 
     table1 = pa.Table.from_pandas(df, columns=columns1, preserve_index=False)
     table2 = pa.Table.from_pandas(df, columns=columns2, preserve_index=False)
@@ -2863,16 +3063,22 @@ def test_table_from_pandas_columns_argument_only_does_filtering():
 
 
 def test_table_from_pandas_columns_and_schema_are_mutually_exclusive():
-    df = pd.DataFrame(OrderedDict([
-        ('partition', [0, 0, 1, 1]),
-        ('arrays', [[0, 1, 2], [3, 4], None, None]),
-        ('floats', [None, None, 1.1, 3.3])
-    ]))
-    schema = pa.schema([
-        ('partition', pa.int32()),
-        ('arrays', pa.list_(pa.int32())),
-        ('floats', pa.float64()),
-    ])
+    df = pd.DataFrame(
+        OrderedDict(
+            [
+                ('partition', [0, 0, 1, 1]),
+                ('arrays', [[0, 1, 2], [3, 4], None, None]),
+                ('floats', [None, None, 1.1, 3.3]),
+            ]
+        )
+    )
+    schema = pa.schema(
+        [
+            ('partition', pa.int32()),
+            ('arrays', pa.list_(pa.int32())),
+            ('floats', pa.float64()),
+        ]
+    )
     columns = ['arrays', 'floats']
 
     with pytest.raises(ValueError):
@@ -2883,9 +3089,7 @@ def test_table_from_pandas_keeps_schema_nullability():
     # ARROW-5169
     df = pd.DataFrame({'a': [1, 2, 3, 4]})
 
-    schema = pa.schema([
-        pa.field('a', pa.int64(), nullable=False),
-    ])
+    schema = pa.schema([pa.field('a', pa.int64(), nullable=False),])
 
     table = pa.Table.from_pandas(df)
     assert table.schema.field('a').nullable is True
@@ -2897,11 +3101,9 @@ def test_table_from_pandas_schema_index_columns():
     # ARROW-5220
     df = pd.DataFrame({'a': [1, 2, 3], 'b': [0.1, 0.2, 0.3]})
 
-    schema = pa.schema([
-        ('a', pa.int64()),
-        ('b', pa.float64()),
-        ('index', pa.int32()),
-    ])
+    schema = pa.schema(
+        [('a', pa.int64()), ('b', pa.float64()), ('index', pa.int32()),]
+    )
 
     # schema includes index with name not in dataframe
     with pytest.raises(KeyError, match="name 'index' present in the"):
@@ -2910,8 +3112,9 @@ def test_table_from_pandas_schema_index_columns():
     df.index.name = 'index'
 
     # schema includes correct index name -> roundtrip works
-    _check_pandas_roundtrip(df, schema=schema, preserve_index=True,
-                            expected_schema=schema)
+    _check_pandas_roundtrip(
+        df, schema=schema, preserve_index=True, expected_schema=schema
+    )
 
     # schema includes correct index name but preserve_index=False
     with pytest.raises(ValueError, match="'preserve_index=False' was"):
@@ -2919,79 +3122,106 @@ def test_table_from_pandas_schema_index_columns():
 
     # in case of preserve_index=None -> RangeIndex serialized as metadata
     # clashes with the index in the schema
-    with pytest.raises(ValueError, match="name 'index' is present in the "
-                                         "schema, but it is a RangeIndex"):
+    with pytest.raises(
+        ValueError,
+        match="name 'index' is present in the "
+        "schema, but it is a RangeIndex",
+    ):
         pa.Table.from_pandas(df, schema=schema, preserve_index=None)
 
     df.index = pd.Index([0, 1, 2], name='index')
 
     # for non-RangeIndex, both preserve_index=None and True work
-    _check_pandas_roundtrip(df, schema=schema, preserve_index=None,
-                            expected_schema=schema)
-    _check_pandas_roundtrip(df, schema=schema, preserve_index=True,
-                            expected_schema=schema)
+    _check_pandas_roundtrip(
+        df, schema=schema, preserve_index=None, expected_schema=schema
+    )
+    _check_pandas_roundtrip(
+        df, schema=schema, preserve_index=True, expected_schema=schema
+    )
 
     # schema has different order (index column not at the end)
-    schema = pa.schema([
-        ('index', pa.int32()),
-        ('a', pa.int64()),
-        ('b', pa.float64()),
-    ])
-    _check_pandas_roundtrip(df, schema=schema, preserve_index=None,
-                            expected_schema=schema)
-    _check_pandas_roundtrip(df, schema=schema, preserve_index=True,
-                            expected_schema=schema)
+    schema = pa.schema(
+        [('index', pa.int32()), ('a', pa.int64()), ('b', pa.float64()),]
+    )
+    _check_pandas_roundtrip(
+        df, schema=schema, preserve_index=None, expected_schema=schema
+    )
+    _check_pandas_roundtrip(
+        df, schema=schema, preserve_index=True, expected_schema=schema
+    )
 
     # schema does not include the index -> index is not included as column
     # even though preserve_index=True/None
-    schema = pa.schema([
-        ('a', pa.int64()),
-        ('b', pa.float64()),
-    ])
+    schema = pa.schema([('a', pa.int64()), ('b', pa.float64()),])
     expected = df.copy()
     expected = expected.reset_index(drop=True)
-    _check_pandas_roundtrip(df, schema=schema, preserve_index=None,
-                            expected_schema=schema, expected=expected)
-    _check_pandas_roundtrip(df, schema=schema, preserve_index=True,
-                            expected_schema=schema, expected=expected)
+    _check_pandas_roundtrip(
+        df,
+        schema=schema,
+        preserve_index=None,
+        expected_schema=schema,
+        expected=expected,
+    )
+    _check_pandas_roundtrip(
+        df,
+        schema=schema,
+        preserve_index=True,
+        expected_schema=schema,
+        expected=expected,
+    )
 
     # dataframe with a MultiIndex
-    df.index = pd.MultiIndex.from_tuples([('a', 1), ('a', 2), ('b', 1)],
-                                         names=['level1', 'level2'])
-    schema = pa.schema([
-        ('level1', pa.string()),
-        ('level2', pa.int64()),
-        ('a', pa.int64()),
-        ('b', pa.float64()),
-    ])
-    _check_pandas_roundtrip(df, schema=schema, preserve_index=True,
-                            expected_schema=schema)
-    _check_pandas_roundtrip(df, schema=schema, preserve_index=None,
-                            expected_schema=schema)
+    df.index = pd.MultiIndex.from_tuples(
+        [('a', 1), ('a', 2), ('b', 1)], names=['level1', 'level2']
+    )
+    schema = pa.schema(
+        [
+            ('level1', pa.string()),
+            ('level2', pa.int64()),
+            ('a', pa.int64()),
+            ('b', pa.float64()),
+        ]
+    )
+    _check_pandas_roundtrip(
+        df, schema=schema, preserve_index=True, expected_schema=schema
+    )
+    _check_pandas_roundtrip(
+        df, schema=schema, preserve_index=None, expected_schema=schema
+    )
 
     # only one of the levels of the MultiIndex is included
-    schema = pa.schema([
-        ('level2', pa.int64()),
-        ('a', pa.int64()),
-        ('b', pa.float64()),
-    ])
+    schema = pa.schema(
+        [('level2', pa.int64()), ('a', pa.int64()), ('b', pa.float64()),]
+    )
     expected = df.copy()
     expected = expected.reset_index('level1', drop=True)
-    _check_pandas_roundtrip(df, schema=schema, preserve_index=True,
-                            expected_schema=schema, expected=expected)
-    _check_pandas_roundtrip(df, schema=schema, preserve_index=None,
-                            expected_schema=schema, expected=expected)
+    _check_pandas_roundtrip(
+        df,
+        schema=schema,
+        preserve_index=True,
+        expected_schema=schema,
+        expected=expected,
+    )
+    _check_pandas_roundtrip(
+        df,
+        schema=schema,
+        preserve_index=None,
+        expected_schema=schema,
+        expected=expected,
+    )
 
 
 def test_table_from_pandas_schema_index_columns__unnamed_index():
     # ARROW-6999 - unnamed indices in specified schema
     df = pd.DataFrame({'a': [1, 2, 3], 'b': [0.1, 0.2, 0.3]})
 
-    expected_schema = pa.schema([
-        ('a', pa.int64()),
-        ('b', pa.float64()),
-        ('__index_level_0__', pa.int64()),
-    ])
+    expected_schema = pa.schema(
+        [
+            ('a', pa.int64()),
+            ('b', pa.float64()),
+            ('__index_level_0__', pa.int64()),
+        ]
+    )
 
     schema = pa.Schema.from_pandas(df, preserve_index=True)
     table = pa.Table.from_pandas(df, preserve_index=True, schema=schema)
@@ -3017,13 +3247,15 @@ def test_table_from_pandas_schema_with_custom_metadata():
 
 
 def test_recordbatch_from_to_pandas():
-    data = pd.DataFrame({
-        'c1': np.array([1, 2, 3, 4, 5], dtype='int64'),
-        'c2': np.array([1, 2, 3, 4, 5], dtype='uint32'),
-        'c3': np.random.randn(5),
-        'c4': ['foo', 'bar', None, 'baz', 'qux'],
-        'c5': [False, True, False, True, False]
-    })
+    data = pd.DataFrame(
+        {
+            'c1': np.array([1, 2, 3, 4, 5], dtype='int64'),
+            'c2': np.array([1, 2, 3, 4, 5], dtype='uint32'),
+            'c3': np.random.randn(5),
+            'c4': ['foo', 'bar', None, 'baz', 'qux'],
+            'c5': [False, True, False, True, False],
+        }
+    )
 
     batch = pa.RecordBatch.from_pandas(data)
     result = batch.to_pandas()
@@ -3031,19 +3263,23 @@ def test_recordbatch_from_to_pandas():
 
 
 def test_recordbatchlist_to_pandas():
-    data1 = pd.DataFrame({
-        'c1': np.array([1, 1, 2], dtype='uint32'),
-        'c2': np.array([1.0, 2.0, 3.0], dtype='float64'),
-        'c3': [True, None, False],
-        'c4': ['foo', 'bar', None]
-    })
+    data1 = pd.DataFrame(
+        {
+            'c1': np.array([1, 1, 2], dtype='uint32'),
+            'c2': np.array([1.0, 2.0, 3.0], dtype='float64'),
+            'c3': [True, None, False],
+            'c4': ['foo', 'bar', None],
+        }
+    )
 
-    data2 = pd.DataFrame({
-        'c1': np.array([3, 5], dtype='uint32'),
-        'c2': np.array([4.0, 5.0], dtype='float64'),
-        'c3': [True, True],
-        'c4': ['baz', 'qux']
-    })
+    data2 = pd.DataFrame(
+        {
+            'c1': np.array([3, 5], dtype='uint32'),
+            'c2': np.array([4.0, 5.0], dtype='float64'),
+            'c3': [True, True],
+            'c4': ['baz', 'qux'],
+        }
+    )
 
     batch1 = pa.RecordBatch.from_pandas(data1)
     batch2 = pa.RecordBatch.from_pandas(data2)
@@ -3091,8 +3327,8 @@ def test_recordbatch_table_pass_name_to_pandas():
         (pa.timestamp('ms'), 'datetime'),
         (pa.timestamp('us', 'UTC'), 'datetimetz'),
         (pa.time32('s'), 'time'),
-        (pa.time64('us'), 'time')
-    ]
+        (pa.time64('us'), 'time'),
+    ],
 )
 def test_logical_type(type, expected):
     assert get_logical_type(type) == expected
@@ -3101,11 +3337,14 @@ def test_logical_type(type, expected):
 # ----------------------------------------------------------------------
 # to_pandas uses MemoryPool
 
+
 def test_array_uses_memory_pool():
     # ARROW-6570
     N = 10000
-    arr = pa.array(np.arange(N, dtype=np.int64),
-                   mask=np.random.randint(0, 2, size=N).astype(np.bool_))
+    arr = pa.array(
+        np.arange(N, dtype=np.int64),
+        mask=np.random.randint(0, 2, size=N).astype(np.bool_),
+    )
 
     # In the case the gc is caught loafing
     gc.collect()
@@ -3150,16 +3389,19 @@ def _check_to_pandas_memory_unchanged(obj, **kwargs):
 
 def test_to_pandas_split_blocks():
     # ARROW-3789
-    t = pa.table([
-        pa.array([1, 2, 3, 4, 5], type='i1'),
-        pa.array([1, 2, 3, 4, 5], type='i4'),
-        pa.array([1, 2, 3, 4, 5], type='i8'),
-        pa.array([1, 2, 3, 4, 5], type='f4'),
-        pa.array([1, 2, 3, 4, 5], type='f8'),
-        pa.array([1, 2, 3, 4, 5], type='f8'),
-        pa.array([1, 2, 3, 4, 5], type='f8'),
-        pa.array([1, 2, 3, 4, 5], type='f8'),
-    ], ['f{}'.format(i) for i in range(8)])
+    t = pa.table(
+        [
+            pa.array([1, 2, 3, 4, 5], type='i1'),
+            pa.array([1, 2, 3, 4, 5], type='i4'),
+            pa.array([1, 2, 3, 4, 5], type='i8'),
+            pa.array([1, 2, 3, 4, 5], type='f4'),
+            pa.array([1, 2, 3, 4, 5], type='f8'),
+            pa.array([1, 2, 3, 4, 5], type='f8'),
+            pa.array([1, 2, 3, 4, 5], type='f8'),
+            pa.array([1, 2, 3, 4, 5], type='f8'),
+        ],
+        ['f{}'.format(i) for i in range(8)],
+    )
 
     _check_blocks_created(t, 8)
     _check_to_pandas_memory_unchanged(t, split_blocks=True)
@@ -3174,14 +3416,19 @@ def test_to_pandas_self_destruct():
     K = 50
 
     def _make_table():
-        return pa.table([
-            # Slice to force a copy
-            pa.array(np.random.randn(10000)[::2])
-            for i in range(K)
-        ], ['f{}'.format(i) for i in range(K)])
+        return pa.table(
+            [
+                # Slice to force a copy
+                pa.array(np.random.randn(10000)[::2])
+                for i in range(K)
+            ],
+            ['f{}'.format(i) for i in range(K)],
+        )
 
     t = _make_table()
-    _check_to_pandas_memory_unchanged(t, split_blocks=True, self_destruct=True)
+    _check_to_pandas_memory_unchanged(
+        t, split_blocks=True, self_destruct=True
+    )
 
     # Check non-split-block behavior
     t = _make_table()
@@ -3242,8 +3489,12 @@ def test_array_from_py_float32():
     arr2 = pa.array(data, type=pa.list_(t))
 
     expected1 = np.array(data[0], dtype=np.float32)
-    expected2 = pd.Series([np.array(data[0], dtype=np.float32),
-                           np.array(data[1], dtype=np.float32)])
+    expected2 = pd.Series(
+        [
+            np.array(data[0], dtype=np.float32),
+            np.array(data[1], dtype=np.float32),
+        ]
+    )
 
     assert arr1.type == t
     assert arr1.equals(pa.array(expected1))
@@ -3284,7 +3535,9 @@ def test_cast_timestamp_unit():
     assert result.equals(expected)
 
     # ARROW-1949
-    series = pd.Series([pd.Timestamp(1), pd.Timestamp(10), pd.Timestamp(1000)])
+    series = pd.Series(
+        [pd.Timestamp(1), pd.Timestamp(10), pd.Timestamp(1000)]
+    )
     expected = pa.array([0, 0, 1], type=pa.timestamp('us'))
 
     with pytest.raises(ValueError):
@@ -3349,8 +3602,9 @@ def test_dictionary_with_pandas():
     tm.assert_series_equal(pd.Series(pandas1), pd.Series(ex_pandas1))
 
     pandas2 = d2.to_pandas()
-    ex_pandas2 = pd.Categorical.from_codes(np.where(mask, -1, indices),
-                                           categories=dictionary)
+    ex_pandas2 = pd.Categorical.from_codes(
+        np.where(mask, -1, indices), categories=dictionary
+    )
 
     tm.assert_series_equal(pd.Series(pandas2), pd.Series(ex_pandas2))
 
@@ -3359,8 +3613,9 @@ def random_strings(n, item_size, pct_null=0, dictionary=None):
     if dictionary is not None:
         result = dictionary[np.random.randint(0, len(dictionary), size=n)]
     else:
-        result = np.array([random_ascii(item_size) for i in range(n)],
-                          dtype=object)
+        result = np.array(
+            [random_ascii(item_size) for i in range(n)], dtype=object
+        )
 
     if pct_null > 0:
         result[np.random.rand(n) < pct_null] = None
@@ -3376,31 +3631,34 @@ def test_variable_dictionary_to_pandas():
     d3 = pa.array(random_strings(10000, 10), type='string')
 
     a1 = pa.DictionaryArray.from_arrays(
-        np.random.randint(0, len(d1), size=1000, dtype='i4'),
-        d1
+        np.random.randint(0, len(d1), size=1000, dtype='i4'), d1
     )
     a2 = pa.DictionaryArray.from_arrays(
-        np.random.randint(0, len(d2), size=1000, dtype='i4'),
-        d2
+        np.random.randint(0, len(d2), size=1000, dtype='i4'), d2
     )
 
     # With some nulls
     a3 = pa.DictionaryArray.from_arrays(
-        np.random.randint(0, len(d3), size=1000, dtype='i4'), d3)
+        np.random.randint(0, len(d3), size=1000, dtype='i4'), d3
+    )
 
     i4 = pa.array(
         np.random.randint(0, len(d3), size=1000, dtype='i4'),
-        mask=np.random.rand(1000) < 0.1
+        mask=np.random.rand(1000) < 0.1,
     )
     a4 = pa.DictionaryArray.from_arrays(i4, d3)
 
     expected_dict = pa.concat_arrays([d1, d2, d3])
 
     a = pa.chunked_array([a1, a2, a3, a4])
-    a_dense = pa.chunked_array([a1.cast('string'),
-                                a2.cast('string'),
-                                a3.cast('string'),
-                                a4.cast('string')])
+    a_dense = pa.chunked_array(
+        [
+            a1.cast('string'),
+            a2.cast('string'),
+            a3.cast('string'),
+            a4.cast('string'),
+        ]
+    )
 
     result = a.to_pandas()
     result_dense = a_dense.to_pandas()
@@ -3419,8 +3677,12 @@ def test_dictionary_encoded_nested_to_pandas():
     arr = pa.ListArray.from_arrays([0, 3, 5], child)
 
     result = arr.to_pandas()
-    expected = pd.Series([np.array(['a', 'a', 'a'], dtype=object),
-                          np.array(['b', 'b'], dtype=object)])
+    expected = pd.Series(
+        [
+            np.array(['a', 'a', 'a'], dtype=object),
+            np.array(['b', 'b'], dtype=object),
+        ]
+    )
 
     tm.assert_series_equal(result, expected)
 
@@ -3451,7 +3713,8 @@ def test_dictionary_from_pandas_specified_type():
 
     # the same as cat = pd.Categorical(['a', 'b']) but explicit about dtypes
     cat = pd.Categorical.from_codes(
-        np.array([0, 1], dtype='int8'), np.array(['a', 'b'], dtype=object))
+        np.array([0, 1], dtype='int8'), np.array(['a', 'b'], dtype=object)
+    )
 
     # different index type -> allow this
     # (the type of the 'codes' in pandas is not part of the data type)
@@ -3468,8 +3731,11 @@ def test_dictionary_from_pandas_specified_type():
 
     # mismatching order -> raise error (for now a deprecation warning)
     typ = pa.dictionary(
-        index_type=pa.int8(), value_type=pa.string(), ordered=True)
-    with pytest.warns(FutureWarning, match="The 'ordered' flag of the passed"):
+        index_type=pa.int8(), value_type=pa.string(), ordered=True
+    )
+    with pytest.warns(
+        FutureWarning, match="The 'ordered' flag of the passed"
+    ):
         result = pa.array(cat, type=typ)
     assert result.to_pylist() == ['a', 'b']
 
@@ -3541,7 +3807,6 @@ def test_array_protocol():
 
 
 class DummyExtensionType(pa.PyExtensionType):
-
     def __init__(self):
         pa.PyExtensionType.__init__(self, pa.int64())
 
@@ -3565,12 +3830,22 @@ def test_array_protocol_pandas_extension_types(monkeypatch):
     storage = pa.array([1, 2, 3], type=pa.int64())
     expected = pa.ExtensionArray.from_storage(DummyExtensionType(), storage)
 
-    monkeypatch.setattr(pd.arrays.PeriodArray, "__arrow_array__",
-                        PandasArray__arrow_array__, raising=False)
-    monkeypatch.setattr(pd.arrays.IntervalArray, "__arrow_array__",
-                        PandasArray__arrow_array__, raising=False)
-    for arr in [pd.period_range("2012-01-01", periods=3, freq="D").array,
-                pd.interval_range(1, 4).array]:
+    monkeypatch.setattr(
+        pd.arrays.PeriodArray,
+        "__arrow_array__",
+        PandasArray__arrow_array__,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        pd.arrays.IntervalArray,
+        "__arrow_array__",
+        PandasArray__arrow_array__,
+        raising=False,
+    )
+    for arr in [
+        pd.period_range("2012-01-01", periods=3, freq="D").array,
+        pd.interval_range(1, 4).array,
+    ]:
         result = pa.array(arr)
         assert result.equals(expected)
         result = pa.array(pd.Series(arr))
@@ -3591,11 +3866,13 @@ def _Int64Dtype__from_arrow__(self, array):
     arr = array.chunk(0)
     buflist = arr.buffers()
     data = np.frombuffer(buflist[-1], dtype='int64')[
-        arr.offset:arr.offset + len(arr)]
+        arr.offset : arr.offset + len(arr)
+    ]
     bitmask = buflist[0]
     if bitmask is not None:
         mask = pa.BooleanArray.from_buffers(
-            pa.bool_(), len(arr), [None, bitmask])
+            pa.bool_(), len(arr), [None, bitmask]
+        )
         mask = np.asarray(mask)
     else:
         mask = np.ones(len(arr), dtype=bool)
@@ -3612,8 +3889,12 @@ def test_convert_to_extension_array(monkeypatch):
     # table converted from dataframe with extension types (so pandas_metadata
     # has this information)
     df = pd.DataFrame(
-        {'a': [1, 2, 3], 'b': pd.array([2, 3, 4], dtype='Int64'),
-         'c': [4, 5, 6]})
+        {
+            'a': [1, 2, 3],
+            'b': pd.array([2, 3, 4], dtype='Int64'),
+            'c': [4, 5, 6],
+        }
+    )
     table = pa.table(df)
 
     # Int64Dtype is recognized -> convert to extension block by default
@@ -3631,7 +3912,9 @@ def test_convert_to_extension_array(monkeypatch):
     tm.assert_frame_equal(result, df2)
 
     # monkeypatch pandas Int64Dtype to *not* have the protocol method
-    monkeypatch.delattr(pd.core.arrays.integer._IntegerDtype, "__from_arrow__")
+    monkeypatch.delattr(
+        pd.core.arrays.integer._IntegerDtype, "__from_arrow__"
+    )
     # Int64Dtype has no __from_arrow__ -> use normal conversion
     result = table.to_pandas()
     assert len(result._data.blocks) == 1
@@ -3639,7 +3922,6 @@ def test_convert_to_extension_array(monkeypatch):
 
 
 class MyCustomIntegerType(pa.PyExtensionType):
-
     def __init__(self):
         pa.PyExtensionType.__init__(self, pa.int64())
 
@@ -3661,8 +3943,11 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     if LooseVersion(pd.__version__) < "0.26.0.dev":
         # ensure pandas Int64Dtype has the protocol method (for older pandas)
         monkeypatch.setattr(
-            pd.Int64Dtype, '__from_arrow__', _Int64Dtype__from_arrow__,
-            raising=False)
+            pd.Int64Dtype,
+            '__from_arrow__',
+            _Int64Dtype__from_arrow__,
+            raising=False,
+        )
 
     # extension type points to Int64Dtype, which knows how to create a
     # pandas ExtensionArray
@@ -3677,8 +3962,10 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
         monkeypatch.delattr(pd.Int64Dtype, "__from_arrow__")
     else:
         monkeypatch.delattr(
-            pd.core.arrays.integer._IntegerDtype, "__from_arrow__",
-            raising=False)
+            pd.core.arrays.integer._IntegerDtype,
+            "__from_arrow__",
+            raising=False,
+        )
 
     with pytest.raises(ValueError):
         table.to_pandas()
@@ -3708,7 +3995,8 @@ def test_to_pandas_extension_dtypes_mapping():
     result = table.to_pandas()
     assert isinstance(result['a'].dtype, pd.Int64Dtype)
     result = table.to_pandas(
-        types_mapper={pa.int64(): pd.PeriodDtype('D')}.get)
+        types_mapper={pa.int64(): pd.PeriodDtype('D')}.get
+    )
     assert isinstance(result['a'].dtype, pd.PeriodDtype)
 
 
@@ -3730,157 +4018,242 @@ def test_metadata_compat_range_index_pre_0_12():
     gen_name_1 = '__index_level_1__'
 
     # Case 1: named RangeIndex
-    e1 = pd.DataFrame({
-        'a': a_values
-    }, index=pd.RangeIndex(0, 8, step=2, name='qux'))
-    t1 = pa.Table.from_arrays([a_arrow, rng_index_arrow],
-                              names=['a', 'qux'])
-    t1 = t1.replace_schema_metadata({
-        b'pandas': json.dumps(
-            {'index_columns': ['qux'],
-             'column_indexes': [{'name': None,
-                                 'field_name': None,
-                                 'pandas_type': 'unicode',
-                                 'numpy_type': 'object',
-                                 'metadata': {'encoding': 'UTF-8'}}],
-             'columns': [{'name': 'a',
-                          'field_name': 'a',
-                          'pandas_type': 'unicode',
-                          'numpy_type': 'object',
-                          'metadata': None},
-                         {'name': 'qux',
-                          'field_name': 'qux',
-                          'pandas_type': 'int64',
-                          'numpy_type': 'int64',
-                          'metadata': None}],
-             'pandas_version': '0.23.4'}
-        )})
+    e1 = pd.DataFrame(
+        {'a': a_values}, index=pd.RangeIndex(0, 8, step=2, name='qux')
+    )
+    t1 = pa.Table.from_arrays([a_arrow, rng_index_arrow], names=['a', 'qux'])
+    t1 = t1.replace_schema_metadata(
+        {
+            b'pandas': json.dumps(
+                {
+                    'index_columns': ['qux'],
+                    'column_indexes': [
+                        {
+                            'name': None,
+                            'field_name': None,
+                            'pandas_type': 'unicode',
+                            'numpy_type': 'object',
+                            'metadata': {'encoding': 'UTF-8'},
+                        }
+                    ],
+                    'columns': [
+                        {
+                            'name': 'a',
+                            'field_name': 'a',
+                            'pandas_type': 'unicode',
+                            'numpy_type': 'object',
+                            'metadata': None,
+                        },
+                        {
+                            'name': 'qux',
+                            'field_name': 'qux',
+                            'pandas_type': 'int64',
+                            'numpy_type': 'int64',
+                            'metadata': None,
+                        },
+                    ],
+                    'pandas_version': '0.23.4',
+                }
+            )
+        }
+    )
     r1 = t1.to_pandas()
     tm.assert_frame_equal(r1, e1)
 
     # Case 2: named RangeIndex, but conflicts with an actual column
-    e2 = pd.DataFrame({
-        'qux': a_values
-    }, index=pd.RangeIndex(0, 8, step=2, name='qux'))
-    t2 = pa.Table.from_arrays([a_arrow, rng_index_arrow],
-                              names=['qux', gen_name_0])
-    t2 = t2.replace_schema_metadata({
-        b'pandas': json.dumps(
-            {'index_columns': [gen_name_0],
-             'column_indexes': [{'name': None,
-                                 'field_name': None,
-                                 'pandas_type': 'unicode',
-                                 'numpy_type': 'object',
-                                 'metadata': {'encoding': 'UTF-8'}}],
-             'columns': [{'name': 'a',
-                          'field_name': 'a',
-                          'pandas_type': 'unicode',
-                          'numpy_type': 'object',
-                          'metadata': None},
-                         {'name': 'qux',
-                          'field_name': gen_name_0,
-                          'pandas_type': 'int64',
-                          'numpy_type': 'int64',
-                          'metadata': None}],
-             'pandas_version': '0.23.4'}
-        )})
+    e2 = pd.DataFrame(
+        {'qux': a_values}, index=pd.RangeIndex(0, 8, step=2, name='qux')
+    )
+    t2 = pa.Table.from_arrays(
+        [a_arrow, rng_index_arrow], names=['qux', gen_name_0]
+    )
+    t2 = t2.replace_schema_metadata(
+        {
+            b'pandas': json.dumps(
+                {
+                    'index_columns': [gen_name_0],
+                    'column_indexes': [
+                        {
+                            'name': None,
+                            'field_name': None,
+                            'pandas_type': 'unicode',
+                            'numpy_type': 'object',
+                            'metadata': {'encoding': 'UTF-8'},
+                        }
+                    ],
+                    'columns': [
+                        {
+                            'name': 'a',
+                            'field_name': 'a',
+                            'pandas_type': 'unicode',
+                            'numpy_type': 'object',
+                            'metadata': None,
+                        },
+                        {
+                            'name': 'qux',
+                            'field_name': gen_name_0,
+                            'pandas_type': 'int64',
+                            'numpy_type': 'int64',
+                            'metadata': None,
+                        },
+                    ],
+                    'pandas_version': '0.23.4',
+                }
+            )
+        }
+    )
     r2 = t2.to_pandas()
     tm.assert_frame_equal(r2, e2)
 
     # Case 3: unnamed RangeIndex
-    e3 = pd.DataFrame({
-        'a': a_values
-    }, index=pd.RangeIndex(0, 8, step=2, name=None))
-    t3 = pa.Table.from_arrays([a_arrow, rng_index_arrow],
-                              names=['a', gen_name_0])
-    t3 = t3.replace_schema_metadata({
-        b'pandas': json.dumps(
-            {'index_columns': [gen_name_0],
-             'column_indexes': [{'name': None,
-                                 'field_name': None,
-                                 'pandas_type': 'unicode',
-                                 'numpy_type': 'object',
-                                 'metadata': {'encoding': 'UTF-8'}}],
-             'columns': [{'name': 'a',
-                          'field_name': 'a',
-                          'pandas_type': 'unicode',
-                          'numpy_type': 'object',
-                          'metadata': None},
-                         {'name': None,
-                          'field_name': gen_name_0,
-                          'pandas_type': 'int64',
-                          'numpy_type': 'int64',
-                          'metadata': None}],
-             'pandas_version': '0.23.4'}
-        )})
+    e3 = pd.DataFrame(
+        {'a': a_values}, index=pd.RangeIndex(0, 8, step=2, name=None)
+    )
+    t3 = pa.Table.from_arrays(
+        [a_arrow, rng_index_arrow], names=['a', gen_name_0]
+    )
+    t3 = t3.replace_schema_metadata(
+        {
+            b'pandas': json.dumps(
+                {
+                    'index_columns': [gen_name_0],
+                    'column_indexes': [
+                        {
+                            'name': None,
+                            'field_name': None,
+                            'pandas_type': 'unicode',
+                            'numpy_type': 'object',
+                            'metadata': {'encoding': 'UTF-8'},
+                        }
+                    ],
+                    'columns': [
+                        {
+                            'name': 'a',
+                            'field_name': 'a',
+                            'pandas_type': 'unicode',
+                            'numpy_type': 'object',
+                            'metadata': None,
+                        },
+                        {
+                            'name': None,
+                            'field_name': gen_name_0,
+                            'pandas_type': 'int64',
+                            'numpy_type': 'int64',
+                            'metadata': None,
+                        },
+                    ],
+                    'pandas_version': '0.23.4',
+                }
+            )
+        }
+    )
     r3 = t3.to_pandas()
     tm.assert_frame_equal(r3, e3)
 
     # Case 4: MultiIndex with named RangeIndex
-    e4 = pd.DataFrame({
-        'a': a_values
-    }, index=[pd.RangeIndex(0, 8, step=2, name='qux'), b_values])
-    t4 = pa.Table.from_arrays([a_arrow, rng_index_arrow, b_arrow],
-                              names=['a', 'qux', gen_name_1])
-    t4 = t4.replace_schema_metadata({
-        b'pandas': json.dumps(
-            {'index_columns': ['qux', gen_name_1],
-             'column_indexes': [{'name': None,
-                                 'field_name': None,
-                                 'pandas_type': 'unicode',
-                                 'numpy_type': 'object',
-                                 'metadata': {'encoding': 'UTF-8'}}],
-             'columns': [{'name': 'a',
-                          'field_name': 'a',
-                          'pandas_type': 'unicode',
-                          'numpy_type': 'object',
-                          'metadata': None},
-                         {'name': 'qux',
-                          'field_name': 'qux',
-                          'pandas_type': 'int64',
-                          'numpy_type': 'int64',
-                          'metadata': None},
-                         {'name': None,
-                          'field_name': gen_name_1,
-                          'pandas_type': 'unicode',
-                          'numpy_type': 'object',
-                          'metadata': None}],
-             'pandas_version': '0.23.4'}
-        )})
+    e4 = pd.DataFrame(
+        {'a': a_values},
+        index=[pd.RangeIndex(0, 8, step=2, name='qux'), b_values],
+    )
+    t4 = pa.Table.from_arrays(
+        [a_arrow, rng_index_arrow, b_arrow], names=['a', 'qux', gen_name_1]
+    )
+    t4 = t4.replace_schema_metadata(
+        {
+            b'pandas': json.dumps(
+                {
+                    'index_columns': ['qux', gen_name_1],
+                    'column_indexes': [
+                        {
+                            'name': None,
+                            'field_name': None,
+                            'pandas_type': 'unicode',
+                            'numpy_type': 'object',
+                            'metadata': {'encoding': 'UTF-8'},
+                        }
+                    ],
+                    'columns': [
+                        {
+                            'name': 'a',
+                            'field_name': 'a',
+                            'pandas_type': 'unicode',
+                            'numpy_type': 'object',
+                            'metadata': None,
+                        },
+                        {
+                            'name': 'qux',
+                            'field_name': 'qux',
+                            'pandas_type': 'int64',
+                            'numpy_type': 'int64',
+                            'metadata': None,
+                        },
+                        {
+                            'name': None,
+                            'field_name': gen_name_1,
+                            'pandas_type': 'unicode',
+                            'numpy_type': 'object',
+                            'metadata': None,
+                        },
+                    ],
+                    'pandas_version': '0.23.4',
+                }
+            )
+        }
+    )
     r4 = t4.to_pandas()
     tm.assert_frame_equal(r4, e4)
 
     # Case 4: MultiIndex with unnamed RangeIndex
-    e5 = pd.DataFrame({
-        'a': a_values
-    }, index=[pd.RangeIndex(0, 8, step=2, name=None), b_values])
-    t5 = pa.Table.from_arrays([a_arrow, rng_index_arrow, b_arrow],
-                              names=['a', gen_name_0, gen_name_1])
-    t5 = t5.replace_schema_metadata({
-        b'pandas': json.dumps(
-            {'index_columns': [gen_name_0, gen_name_1],
-             'column_indexes': [{'name': None,
-                                 'field_name': None,
-                                 'pandas_type': 'unicode',
-                                 'numpy_type': 'object',
-                                 'metadata': {'encoding': 'UTF-8'}}],
-             'columns': [{'name': 'a',
-                          'field_name': 'a',
-                          'pandas_type': 'unicode',
-                          'numpy_type': 'object',
-                          'metadata': None},
-                         {'name': None,
-                          'field_name': gen_name_0,
-                          'pandas_type': 'int64',
-                          'numpy_type': 'int64',
-                          'metadata': None},
-                         {'name': None,
-                          'field_name': gen_name_1,
-                          'pandas_type': 'unicode',
-                          'numpy_type': 'object',
-                          'metadata': None}],
-             'pandas_version': '0.23.4'}
-        )})
+    e5 = pd.DataFrame(
+        {'a': a_values},
+        index=[pd.RangeIndex(0, 8, step=2, name=None), b_values],
+    )
+    t5 = pa.Table.from_arrays(
+        [a_arrow, rng_index_arrow, b_arrow],
+        names=['a', gen_name_0, gen_name_1],
+    )
+    t5 = t5.replace_schema_metadata(
+        {
+            b'pandas': json.dumps(
+                {
+                    'index_columns': [gen_name_0, gen_name_1],
+                    'column_indexes': [
+                        {
+                            'name': None,
+                            'field_name': None,
+                            'pandas_type': 'unicode',
+                            'numpy_type': 'object',
+                            'metadata': {'encoding': 'UTF-8'},
+                        }
+                    ],
+                    'columns': [
+                        {
+                            'name': 'a',
+                            'field_name': 'a',
+                            'pandas_type': 'unicode',
+                            'numpy_type': 'object',
+                            'metadata': None,
+                        },
+                        {
+                            'name': None,
+                            'field_name': gen_name_0,
+                            'pandas_type': 'int64',
+                            'numpy_type': 'int64',
+                            'metadata': None,
+                        },
+                        {
+                            'name': None,
+                            'field_name': gen_name_1,
+                            'pandas_type': 'unicode',
+                            'numpy_type': 'object',
+                            'metadata': None,
+                        },
+                    ],
+                    'pandas_version': '0.23.4',
+                }
+            )
+        }
+    )
     r5 = t5.to_pandas()
     tm.assert_frame_equal(r5, e5)
 
@@ -3896,42 +4269,54 @@ def test_metadata_compat_missing_field_name():
     a_arrow = pa.array(a_values, type='int64')
     b_arrow = pa.array(b_values, type='utf8')
 
-    expected = pd.DataFrame({
-        'a': a_values,
-        'b': b_values,
-    }, index=pd.RangeIndex(0, 8, step=2, name='qux'))
+    expected = pd.DataFrame(
+        {'a': a_values, 'b': b_values,},
+        index=pd.RangeIndex(0, 8, step=2, name='qux'),
+    )
     table = pa.table({'a': a_arrow, 'b': b_arrow})
 
     # metadata generated by fastparquet 0.3.2 with missing field_names
-    table = table.replace_schema_metadata({
-        b'pandas': json.dumps(
-            {'column_indexes': [
-                {'field_name': None,
-                 'metadata': None,
-                 'name': None,
-                 'numpy_type': 'object',
-                 'pandas_type': 'mixed-integer'}
-                ],
-             'columns': [
-                 {'metadata': None,
-                  'name': 'a',
-                  'numpy_type': 'int64',
-                  'pandas_type': 'int64'},
-                 {'metadata': None,
-                  'name': 'b',
-                  'numpy_type': 'object',
-                  'pandas_type': 'unicode'}
-                 ],
-             'index_columns': [
-                 {'kind': 'range',
-                  'name': 'qux',
-                  'start': 0,
-                  'step': 2,
-                  'stop': 8}
-                 ],
-             'pandas_version': '0.25.0'}
-
-        )})
+    table = table.replace_schema_metadata(
+        {
+            b'pandas': json.dumps(
+                {
+                    'column_indexes': [
+                        {
+                            'field_name': None,
+                            'metadata': None,
+                            'name': None,
+                            'numpy_type': 'object',
+                            'pandas_type': 'mixed-integer',
+                        }
+                    ],
+                    'columns': [
+                        {
+                            'metadata': None,
+                            'name': 'a',
+                            'numpy_type': 'int64',
+                            'pandas_type': 'int64',
+                        },
+                        {
+                            'metadata': None,
+                            'name': 'b',
+                            'numpy_type': 'object',
+                            'pandas_type': 'unicode',
+                        },
+                    ],
+                    'index_columns': [
+                        {
+                            'kind': 'range',
+                            'name': 'qux',
+                            'start': 0,
+                            'step': 2,
+                            'stop': 8,
+                        }
+                    ],
+                    'pandas_version': '0.25.0',
+                }
+            )
+        }
+    )
     result = table.to_pandas()
     # on python 3.5 the column order can differ -> adding check_like=True
     tm.assert_frame_equal(result, expected, check_like=True)

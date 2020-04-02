@@ -32,16 +32,31 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
     See pyarrow.hdfs.connect for full connection details
     """
 
-    def __init__(self, host="default", port=0, user=None, kerb_ticket=None,
-                 driver='libhdfs', extra_conf=None):
+    def __init__(
+        self,
+        host="default",
+        port=0,
+        user=None,
+        kerb_ticket=None,
+        driver='libhdfs',
+        extra_conf=None,
+    ):
         if driver == 'libhdfs':
             _maybe_set_hadoop_classpath()
 
         self._connect(host, port, user, kerb_ticket, extra_conf)
 
     def __reduce__(self):
-        return (HadoopFileSystem, (self.host, self.port, self.user,
-                                   self.kerb_ticket, self.extra_conf))
+        return (
+            HadoopFileSystem,
+            (
+                self.host,
+                self.port,
+                self.user,
+                self.kerb_ticket,
+                self.extra_conf,
+            ),
+        )
 
     def _isfilestore(self):
         """
@@ -145,14 +160,17 @@ def _derive_hadoop_classpath():
 
     find_args = ('find', '-L', os.environ['HADOOP_HOME'], '-name', '*.jar')
     find = subprocess.Popen(find_args, stdout=subprocess.PIPE)
-    xargs_echo = subprocess.Popen(('xargs', 'echo'),
-                                  stdin=find.stdout,
-                                  stdout=subprocess.PIPE)
-    jars = subprocess.check_output(('tr', "' '", "':'"),
-                                   stdin=xargs_echo.stdout)
-    hadoop_conf = os.environ["HADOOP_CONF_DIR"] \
-        if "HADOOP_CONF_DIR" in os.environ \
+    xargs_echo = subprocess.Popen(
+        ('xargs', 'echo'), stdin=find.stdout, stdout=subprocess.PIPE
+    )
+    jars = subprocess.check_output(
+        ('tr', "' '", "':'"), stdin=xargs_echo.stdout
+    )
+    hadoop_conf = (
+        os.environ["HADOOP_CONF_DIR"]
+        if "HADOOP_CONF_DIR" in os.environ
         else os.environ["HADOOP_HOME"] + "/etc/hadoop"
+    )
     return (hadoop_conf + ":").encode("utf-8") + jars
 
 
@@ -176,8 +194,9 @@ def _libhdfs_walk_files_dirs(top_path, contents):
     return directories, files
 
 
-def connect(host="default", port=0, user=None, kerb_ticket=None,
-            extra_conf=None):
+def connect(
+    host="default", port=0, user=None, kerb_ticket=None, extra_conf=None
+):
     """
     Connect to an HDFS cluster. All parameters are optional and should
     only be set if the defaults need to be overridden.
@@ -205,7 +224,11 @@ def connect(host="default", port=0, user=None, kerb_ticket=None,
     -------
     filesystem : HadoopFileSystem
     """
-    fs = HadoopFileSystem(host=host, port=port, user=user,
-                          kerb_ticket=kerb_ticket,
-                          extra_conf=extra_conf)
+    fs = HadoopFileSystem(
+        host=host,
+        port=port,
+        user=user,
+        kerb_ticket=kerb_ticket,
+        extra_conf=extra_conf,
+    )
     return fs

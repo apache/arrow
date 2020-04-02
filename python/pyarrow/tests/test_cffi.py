@@ -19,6 +19,7 @@
 import gc
 
 import pyarrow as pa
+
 try:
     from pyarrow.cffi import ffi
 except ImportError:
@@ -26,15 +27,18 @@ except ImportError:
 
 import pytest
 
-needs_cffi = pytest.mark.skipif(ffi is None,
-                                reason="test needs cffi package installed")
+needs_cffi = pytest.mark.skipif(
+    ffi is None, reason="test needs cffi package installed"
+)
 
 
 assert_schema_released = pytest.raises(
-    ValueError, match="Cannot import released ArrowSchema")
+    ValueError, match="Cannot import released ArrowSchema"
+)
 
 assert_array_released = pytest.raises(
-    ValueError, match="Cannot import released ArrowArray")
+    ValueError, match="Cannot import released ArrowArray"
+)
 
 
 @needs_cffi
@@ -62,8 +66,9 @@ def test_export_import_type():
     pa.int32()._export_to_c(ptr_schema)
     bad_format = ffi.new("char[]", b"zzz")
     c_schema.format = bad_format
-    with pytest.raises(ValueError,
-                       match="Invalid or unsupported format string"):
+    with pytest.raises(
+        ValueError, match="Invalid or unsupported format string"
+    ):
         pa.DataType._import_from_c(ptr_schema)
     # Now released
     with assert_schema_released:
@@ -121,8 +126,9 @@ def test_export_import_schema():
     ptr_schema = int(ffi.cast("uintptr_t", c_schema))
 
     def make_schema():
-        return pa.schema([('ints', pa.list_(pa.int32()))],
-                         metadata={b'key1': b'value1'})
+        return pa.schema(
+            [('ints', pa.list_(pa.int32()))], metadata={b'key1': b'value1'}
+        )
 
     gc.collect()  # Make sure no Arrow data dangles in a ref cycle
     old_allocated = pa.total_allocated_bytes()
@@ -141,8 +147,9 @@ def test_export_import_schema():
 
     # Not a struct type
     pa.int32()._export_to_c(ptr_schema)
-    with pytest.raises(ValueError,
-                       match="ArrowSchema describes non-struct type"):
+    with pytest.raises(
+        ValueError, match="ArrowSchema describes non-struct type"
+    ):
         pa.Schema._import_from_c(ptr_schema)
     # Now released
     with assert_schema_released:
@@ -157,8 +164,9 @@ def test_export_import_batch():
     ptr_array = int(ffi.cast("uintptr_t", c_array))
 
     def make_schema():
-        return pa.schema([('ints', pa.list_(pa.int32()))],
-                         metadata={b'key1': b'value1'})
+        return pa.schema(
+            [('ints', pa.list_(pa.int32()))], metadata={b'key1': b'value1'}
+        )
 
     def make_batch():
         return pa.record_batch([[[1], [2, 42]]], make_schema())
@@ -205,8 +213,9 @@ def test_export_import_batch():
     # Not a struct type
     pa.int32()._export_to_c(ptr_schema)
     make_batch()._export_to_c(ptr_array)
-    with pytest.raises(ValueError,
-                       match="ArrowSchema describes non-struct type"):
+    with pytest.raises(
+        ValueError, match="ArrowSchema describes non-struct type"
+    ):
         pa.RecordBatch._import_from_c(ptr_array, ptr_schema)
     # Now released
     with assert_schema_released:

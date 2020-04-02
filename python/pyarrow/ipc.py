@@ -20,15 +20,21 @@
 
 import pyarrow as pa
 
-from pyarrow.lib import (Message, MessageReader,  # noqa
-                         read_message, read_record_batch, read_schema,
-                         read_tensor, write_tensor,
-                         get_record_batch_size, get_tensor_size)
+from pyarrow.lib import (
+    Message,
+    MessageReader,  # noqa
+    read_message,
+    read_record_batch,
+    read_schema,
+    read_tensor,
+    write_tensor,
+    get_record_batch_size,
+    get_tensor_size,
+)
 import pyarrow.lib as lib
 
 
 class _ReadPandasOption:
-
     def read_pandas(self, **options):
         """
         Read contents of stream to a pandas.DataFrame.
@@ -48,7 +54,9 @@ class _ReadPandasOption:
         return table.to_pandas(**options)
 
 
-class RecordBatchStreamReader(lib._RecordBatchStreamReader, _ReadPandasOption):
+class RecordBatchStreamReader(
+    lib._RecordBatchStreamReader, _ReadPandasOption
+):
     """
     Reader for the Arrow streaming binary format.
 
@@ -77,7 +85,9 @@ use_legacy_format : bool, default None
 class RecordBatchStreamWriter(lib._RecordBatchStreamWriter):
     __doc__ = """Writer for the Arrow streaming binary format
 
-{}""".format(_ipc_writer_class_doc)
+{}""".format(
+        _ipc_writer_class_doc
+    )
 
     def __init__(self, sink, schema, use_legacy_format=None):
         use_legacy_format = _get_legacy_format_default(use_legacy_format)
@@ -96,6 +106,7 @@ class RecordBatchFileReader(lib._RecordBatchFileReader, _ReadPandasOption):
         If the file is embedded in some larger file, this is the byte offset to
         the very end of the file data
     """
+
     def __init__(self, source, footer_offset=None):
         self._open(source, footer_offset=footer_offset)
 
@@ -104,7 +115,9 @@ class RecordBatchFileWriter(lib._RecordBatchFileWriter):
 
     __doc__ = """Writer to create the Arrow binary file format
 
-{}""".format(_ipc_writer_class_doc)
+{}""".format(
+        _ipc_writer_class_doc
+    )
 
     def __init__(self, sink, schema, use_legacy_format=None):
         use_legacy_format = _get_legacy_format_default(use_legacy_format)
@@ -114,6 +127,7 @@ class RecordBatchFileWriter(lib._RecordBatchFileWriter):
 def _get_legacy_format_default(use_legacy_format):
     if use_legacy_format is None:
         import os
+
         return bool(int(os.environ.get('ARROW_PRE_0_15_IPC_FORMAT', '0')))
     else:
         return use_legacy_format
@@ -177,8 +191,9 @@ def serialize_pandas(df, nthreads=None, preserve_index=None):
     buf : buffer
         An object compatible with the buffer protocol.
     """
-    batch = pa.RecordBatch.from_pandas(df, nthreads=nthreads,
-                                       preserve_index=preserve_index)
+    batch = pa.RecordBatch.from_pandas(
+        df, nthreads=nthreads, preserve_index=preserve_index
+    )
     sink = pa.BufferOutputStream()
     with pa.RecordBatchStreamWriter(sink, batch.schema) as writer:
         writer.write_batch(batch)

@@ -56,22 +56,41 @@ def get_many_types():
         pa.list_(pa.int32(), 2),
         pa.large_list(pa.uint16()),
         pa.map_(pa.string(), pa.int32()),
-        pa.struct([pa.field('a', pa.int32()),
-                   pa.field('b', pa.int8()),
-                   pa.field('c', pa.string())]),
-        pa.struct([pa.field('a', pa.int32(), nullable=False),
-                   pa.field('b', pa.int8(), nullable=False),
-                   pa.field('c', pa.string())]),
-        pa.union([pa.field('a', pa.binary(10)),
-                  pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE),
-        pa.union([pa.field('a', pa.binary(10)),
-                  pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE,
-                 type_codes=[4, 8]),
-        pa.union([pa.field('a', pa.binary(10)),
-                  pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
-        pa.union([pa.field('a', pa.binary(10), nullable=False),
-                  pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
-        pa.dictionary(pa.int32(), pa.string())
+        pa.struct(
+            [
+                pa.field('a', pa.int32()),
+                pa.field('b', pa.int8()),
+                pa.field('c', pa.string()),
+            ]
+        ),
+        pa.struct(
+            [
+                pa.field('a', pa.int32(), nullable=False),
+                pa.field('b', pa.int8(), nullable=False),
+                pa.field('c', pa.string()),
+            ]
+        ),
+        pa.union(
+            [pa.field('a', pa.binary(10)), pa.field('b', pa.string())],
+            mode=pa.lib.UnionMode_DENSE,
+        ),
+        pa.union(
+            [pa.field('a', pa.binary(10)), pa.field('b', pa.string())],
+            mode=pa.lib.UnionMode_DENSE,
+            type_codes=[4, 8],
+        ),
+        pa.union(
+            [pa.field('a', pa.binary(10)), pa.field('b', pa.string())],
+            mode=pa.lib.UnionMode_SPARSE,
+        ),
+        pa.union(
+            [
+                pa.field('a', pa.binary(10), nullable=False),
+                pa.field('b', pa.string()),
+            ],
+            mode=pa.lib.UnionMode_SPARSE,
+        ),
+        pa.dictionary(pa.int32(), pa.string()),
     )
 
 
@@ -140,8 +159,9 @@ def test_is_map():
     assert types.is_map(m)
     assert not types.is_map(pa.int32())
 
-    entries_type = pa.struct([pa.field('key', pa.int8()),
-                              pa.field('value', pa.int8())])
+    entries_type = pa.struct(
+        [pa.field('key', pa.int8()), pa.field('value', pa.int8())]
+    )
     list_type = pa.list_(entries_type)
     assert not types.is_map(list_type)
 
@@ -152,9 +172,13 @@ def test_is_dictionary():
 
 
 def test_is_nested_or_struct():
-    struct_ex = pa.struct([pa.field('a', pa.int32()),
-                           pa.field('b', pa.int8()),
-                           pa.field('c', pa.string())])
+    struct_ex = pa.struct(
+        [
+            pa.field('a', pa.int32()),
+            pa.field('b', pa.int8()),
+            pa.field('c', pa.string()),
+        ]
+    )
 
     assert types.is_struct(struct_ex)
     assert not types.is_struct(pa.list_(pa.int32()))
@@ -167,10 +191,16 @@ def test_is_nested_or_struct():
 
 def test_is_union():
     for mode in [pa.lib.UnionMode_SPARSE, pa.lib.UnionMode_DENSE]:
-        assert types.is_union(pa.union([pa.field('a', pa.int32()),
-                                        pa.field('b', pa.int8()),
-                                        pa.field('c', pa.string())],
-                                       mode=mode))
+        assert types.is_union(
+            pa.union(
+                [
+                    pa.field('a', pa.int32()),
+                    pa.field('b', pa.int8()),
+                    pa.field('c', pa.string()),
+                ],
+                mode=mode,
+            )
+        )
     assert not types.is_union(pa.list_(pa.int32()))
 
 
@@ -333,7 +363,7 @@ def test_struct_type():
         # Duplicate field name on purpose
         pa.field('a', pa.int64()),
         pa.field('a', pa.int32()),
-        pa.field('b', pa.int32())
+        pa.field('b', pa.int32()),
     ]
     ty = pa.struct(fields)
 
@@ -363,18 +393,14 @@ def test_struct_type():
         a == b
 
     # Construct from list of tuples
-    ty = pa.struct([('a', pa.int64()),
-                    ('a', pa.int32()),
-                    ('b', pa.int32())])
+    ty = pa.struct([('a', pa.int64()), ('a', pa.int32()), ('b', pa.int32())])
     assert list(ty) == fields
     for a, b in zip(ty, fields):
         a == b
 
     # Construct from mapping
-    fields = [pa.field('a', pa.int64()),
-              pa.field('b', pa.int32())]
-    ty = pa.struct(OrderedDict([('a', pa.int64()),
-                                ('b', pa.int32())]))
+    fields = [pa.field('a', pa.int64()), pa.field('b', pa.int32())]
+    ty = pa.struct(OrderedDict([('a', pa.int64()), ('b', pa.int32())]))
     assert list(ty) == fields
     for a, b in zip(ty, fields):
         a == b
@@ -389,8 +415,7 @@ def test_union_type():
         assert ty.num_children == len(fields)
         assert [ty[i] for i in range(ty.num_children)] == fields
 
-    fields = [pa.field('x', pa.list_(pa.int32())),
-              pa.field('y', pa.binary())]
+    fields = [pa.field('x', pa.list_(pa.int32())), pa.field('y', pa.binary())]
     type_codes = [5, 9]
 
     for mode in ('sparse', pa.lib.UnionMode_SPARSE):
@@ -479,11 +504,13 @@ def test_types_picklable():
 
 def test_fields_hashable():
     in_dict = {}
-    fields = [pa.field('a', pa.int32()),
-              pa.field('a', pa.int64()),
-              pa.field('a', pa.int64(), nullable=False),
-              pa.field('b', pa.int32()),
-              pa.field('b', pa.int32(), nullable=False)]
+    fields = [
+        pa.field('a', pa.int32()),
+        pa.field('a', pa.int64()),
+        pa.field('a', pa.int64(), nullable=False),
+        pa.field('b', pa.int32()),
+        pa.field('b', pa.int32(), nullable=False),
+    ]
     for i, field in enumerate(fields):
         in_dict[field] = i
     assert len(in_dict) == len(fields)
@@ -491,23 +518,26 @@ def test_fields_hashable():
         assert in_dict[field] == i
 
 
-@pytest.mark.parametrize('t,check_func', [
-    (pa.date32(), types.is_date32),
-    (pa.date64(), types.is_date64),
-    (pa.time32('s'), types.is_time32),
-    (pa.time64('ns'), types.is_time64),
-    (pa.int8(), types.is_int8),
-    (pa.int16(), types.is_int16),
-    (pa.int32(), types.is_int32),
-    (pa.int64(), types.is_int64),
-    (pa.uint8(), types.is_uint8),
-    (pa.uint16(), types.is_uint16),
-    (pa.uint32(), types.is_uint32),
-    (pa.uint64(), types.is_uint64),
-    (pa.float16(), types.is_float16),
-    (pa.float32(), types.is_float32),
-    (pa.float64(), types.is_float64)
-])
+@pytest.mark.parametrize(
+    't,check_func',
+    [
+        (pa.date32(), types.is_date32),
+        (pa.date64(), types.is_date64),
+        (pa.time32('s'), types.is_time32),
+        (pa.time64('ns'), types.is_time64),
+        (pa.int8(), types.is_int8),
+        (pa.int16(), types.is_int16),
+        (pa.int32(), types.is_int32),
+        (pa.int64(), types.is_int64),
+        (pa.uint8(), types.is_uint8),
+        (pa.uint16(), types.is_uint16),
+        (pa.uint32(), types.is_uint32),
+        (pa.uint64(), types.is_uint64),
+        (pa.float16(), types.is_float16),
+        (pa.float32(), types.is_float32),
+        (pa.float64(), types.is_float64),
+    ],
+)
 def test_exact_primitive_types(t, check_func):
     assert check_func(t)
 
@@ -519,12 +549,14 @@ def test_type_id():
 
 
 def test_bit_width():
-    for ty, expected in [(pa.bool_(), 1),
-                         (pa.int8(), 8),
-                         (pa.uint32(), 32),
-                         (pa.float16(), 16),
-                         (pa.decimal128(19, 4), 128),
-                         (pa.binary(42), 42 * 8)]:
+    for ty, expected in [
+        (pa.bool_(), 1),
+        (pa.int8(), 8),
+        (pa.uint32(), 32),
+        (pa.float16(), 16),
+        (pa.decimal128(19, 4), 128),
+        (pa.binary(42), 42 * 8),
+    ]:
         assert ty.bit_width == expected
     for ty in [pa.binary(), pa.string(), pa.list_(pa.int16())]:
         with pytest.raises(ValueError, match="fixed width"):
@@ -641,10 +673,7 @@ def test_field_add_remove_metadata():
     assert f0.metadata is None
 
     metadata = {b'foo': b'bar', b'pandas': b'badger'}
-    metadata2 = collections.OrderedDict([
-        (b'a', b'alpha'),
-        (b'b', b'beta')
-    ])
+    metadata2 = collections.OrderedDict([(b'a', b'alpha'), (b'b', b'beta')])
 
     f1 = f0.with_metadata(metadata)
     assert f1.metadata == metadata
@@ -699,7 +728,7 @@ def test_is_integer_value():
 
 def test_is_float_value():
     assert not pa.types.is_float_value(1)
-    assert pa.types.is_float_value(1.)
+    assert pa.types.is_float_value(1.0)
     assert pa.types.is_float_value(np.float64(1))
     assert not pa.types.is_float_value('1.0')
 
@@ -712,23 +741,17 @@ def test_is_boolean_value():
     assert pa.types.is_boolean_value(np.bool_(False))
 
 
-@h.given(
-    past.all_types |
-    past.all_fields |
-    past.all_schemas
-)
-@h.example(
-    pa.field(name='', type=pa.null(), metadata={'0': '', '': ''})
-)
+@h.given(past.all_types | past.all_fields | past.all_schemas)
+@h.example(pa.field(name='', type=pa.null(), metadata={'0': '', '': ''}))
 def test_pickling(field):
     data = pickle.dumps(field)
     assert pickle.loads(data) == field
 
 
 @h.given(
-    st.lists(past.all_types) |
-    st.lists(past.all_fields) |
-    st.lists(past.all_schemas)
+    st.lists(past.all_types)
+    | st.lists(past.all_fields)
+    | st.lists(past.all_schemas)
 )
 def test_hashing(items):
     h.assume(

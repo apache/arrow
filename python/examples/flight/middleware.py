@@ -89,8 +89,8 @@ class FlightServer(flight.FlightServerBase):
         super().__init__(**kwargs)
         if delegate:
             self.delegate = flight.connect(
-                delegate,
-                middleware=(TracingClientMiddlewareFactory(),))
+                delegate, middleware=(TracingClientMiddlewareFactory(),)
+            )
         else:
             self.delegate = None
 
@@ -134,9 +134,11 @@ def main():
         "--delegate",
         required=False,
         default=None,
-        help=("A location to delegate to. That is, this server will "
-              "simply call the given server for the response. Demonstrates "
-              "propagation of the trace ID between servers."),
+        help=(
+            "A location to delegate to. That is, this server will "
+            "simply call the given server for the response. Demonstrates "
+            "propagation of the trace ID between servers."
+        ),
     )
 
     args = parser.parse_args()
@@ -148,12 +150,13 @@ def main():
         server = FlightServer(
             args.delegate,
             location=args.listen,
-            middleware={"trace": TracingServerMiddlewareFactory()})
+            middleware={"trace": TracingServerMiddlewareFactory()},
+        )
         server.serve()
     elif args.command == "client":
         client = flight.connect(
-            args.server,
-            middleware=(TracingClientMiddlewareFactory(),))
+            args.server, middleware=(TracingClientMiddlewareFactory(),)
+        )
         if args.request_id:
             TraceContext.set_trace_id(args.request_id)
         else:

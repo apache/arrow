@@ -33,11 +33,18 @@ def dataframe_with_arrays(include_index=False):
     schema: pyarrow.Schema
         Arrow schema definition that is in line with the constructed df.
     """
-    dtypes = [('i1', pa.int8()), ('i2', pa.int16()),
-              ('i4', pa.int32()), ('i8', pa.int64()),
-              ('u1', pa.uint8()), ('u2', pa.uint16()),
-              ('u4', pa.uint32()), ('u8', pa.uint64()),
-              ('f4', pa.float32()), ('f8', pa.float64())]
+    dtypes = [
+        ('i1', pa.int8()),
+        ('i2', pa.int16()),
+        ('i4', pa.int32()),
+        ('i8', pa.int64()),
+        ('u1', pa.uint8()),
+        ('u2', pa.uint16()),
+        ('u4', pa.uint32()),
+        ('u8', pa.uint64()),
+        ('f4', pa.float32()),
+        ('f8', pa.float64()),
+    ]
 
     arrays = OrderedDict()
     fields = []
@@ -47,7 +54,7 @@ def dataframe_with_arrays(include_index=False):
             np.arange(10, dtype=dtype),
             np.arange(5, dtype=dtype),
             None,
-            np.arange(1, dtype=dtype)
+            np.arange(1, dtype=dtype),
         ]
 
     fields.append(pa.field('str', pa.list_(pa.string())))
@@ -55,21 +62,25 @@ def dataframe_with_arrays(include_index=False):
         np.array(["1", "ä"], dtype="object"),
         None,
         np.array(["1"], dtype="object"),
-        np.array(["1", "2", "3"], dtype="object")
+        np.array(["1", "2", "3"], dtype="object"),
     ]
 
     fields.append(pa.field('datetime64', pa.list_(pa.timestamp('ms'))))
     arrays['datetime64'] = [
-        np.array(['2007-07-13T01:23:34.123456789',
-                  None,
-                  '2010-08-13T05:46:57.437699912'],
-                 dtype='datetime64[ms]'),
+        np.array(
+            [
+                '2007-07-13T01:23:34.123456789',
+                None,
+                '2010-08-13T05:46:57.437699912',
+            ],
+            dtype='datetime64[ms]',
+        ),
         None,
         None,
-        np.array(['2007-07-13T02',
-                  None,
-                  '2010-08-13T05:46:57.437699912'],
-                 dtype='datetime64[ms]'),
+        np.array(
+            ['2007-07-13T02', None, '2010-08-13T05:46:57.437699912'],
+            dtype='datetime64[ms]',
+        ),
     ]
 
     if include_index:
@@ -101,16 +112,15 @@ def dataframe_with_lists(include_index=False, parquet_compatible=False):
         [0, 1, 2, 3, 4],
         None,
         [],
-        np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9] * 2,
-                 dtype=np.int64)[::2]
+        np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9] * 2, dtype=np.int64)[::2],
     ]
     fields.append(pa.field('double', pa.list_(pa.float64())))
     arrays['double'] = [
-        [0., 1., 2., 3., 4., 5., 6., 7., 8., 9.],
-        [0., 1., 2., 3., 4.],
+        [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
+        [0.0, 1.0, 2.0, 3.0, 4.0],
         None,
         [],
-        np.array([0., 1., 2., 3., 4., 5., 6., 7., 8., 9.] * 2)[::2],
+        np.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0] * 2)[::2],
     ]
     fields.append(pa.field('bytes_list', pa.list_(pa.binary())))
     arrays['bytes_list'] = [
@@ -134,14 +144,14 @@ def dataframe_with_lists(include_index=False, parquet_compatible=False):
         [date(2018, 1, 1), date(2032, 12, 30)],
         [date(2000, 6, 7)],
         None,
-        [date(1969, 6, 9), date(1972, 7, 3)]
+        [date(1969, 6, 9), date(1972, 7, 3)],
     ]
     time_data = [
         [time(23, 11, 11), time(1, 2, 3), time(23, 59, 59)],
         [],
         [time(22, 5, 59)],
         None,
-        [time(0, 0, 0), time(18, 0, 2), time(12, 7, 3)]
+        [time(0, 0, 0), time(18, 0, 2), time(12, 7, 3)],
     ]
 
     temporal_pairs = [
@@ -149,7 +159,7 @@ def dataframe_with_lists(include_index=False, parquet_compatible=False):
         (pa.date64(), date_data),
         (pa.time32('s'), time_data),
         (pa.time32('ms'), time_data),
-        (pa.time64('us'), time_data)
+        (pa.time64('us'), time_data),
     ]
     if not parquet_compatible:
         temporal_pairs += [

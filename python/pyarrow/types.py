@@ -18,25 +18,41 @@
 # Tools for dealing with Arrow type metadata in Python
 
 
-from pyarrow.lib import (is_boolean_value,  # noqa
-                         is_integer_value,
-                         is_float_value)
+from pyarrow.lib import (
+    is_boolean_value,  # noqa
+    is_integer_value,
+    is_float_value,
+)
 
 import pyarrow.lib as lib
 
 
-_SIGNED_INTEGER_TYPES = {lib.Type_INT8, lib.Type_INT16, lib.Type_INT32,
-                         lib.Type_INT64}
-_UNSIGNED_INTEGER_TYPES = {lib.Type_UINT8, lib.Type_UINT16, lib.Type_UINT32,
-                           lib.Type_UINT64}
+_SIGNED_INTEGER_TYPES = {
+    lib.Type_INT8,
+    lib.Type_INT16,
+    lib.Type_INT32,
+    lib.Type_INT64,
+}
+_UNSIGNED_INTEGER_TYPES = {
+    lib.Type_UINT8,
+    lib.Type_UINT16,
+    lib.Type_UINT32,
+    lib.Type_UINT64,
+}
 _INTEGER_TYPES = _SIGNED_INTEGER_TYPES | _UNSIGNED_INTEGER_TYPES
 _FLOATING_TYPES = {lib.Type_HALF_FLOAT, lib.Type_FLOAT, lib.Type_DOUBLE}
 _DATE_TYPES = {lib.Type_DATE32, lib.Type_DATE64}
 _TIME_TYPES = {lib.Type_TIME32, lib.Type_TIME64}
-_TEMPORAL_TYPES = {lib.Type_TIMESTAMP,
-                   lib.Type_DURATION} | _TIME_TYPES | _DATE_TYPES
-_NESTED_TYPES = {lib.Type_LIST, lib.Type_LARGE_LIST, lib.Type_STRUCT,
-                 lib.Type_UNION, lib.Type_MAP}
+_TEMPORAL_TYPES = (
+    {lib.Type_TIMESTAMP, lib.Type_DURATION} | _TIME_TYPES | _DATE_TYPES
+)
+_NESTED_TYPES = {
+    lib.Type_LIST,
+    lib.Type_LARGE_LIST,
+    lib.Type_STRUCT,
+    lib.Type_UNION,
+    lib.Type_MAP,
+}
 
 
 def is_null(t):

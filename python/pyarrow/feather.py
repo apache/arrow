@@ -40,6 +40,7 @@ class FeatherDataset:
     validate_schema : bool, default True
         Check that individual file schemas are all the same / compatible
     """
+
     def __init__(self, path_or_paths, validate_schema=True):
         _check_pandas_version()
         self.paths = path_or_paths
@@ -72,10 +73,10 @@ class FeatherDataset:
 
     def validate_schemas(self, piece, table):
         if not self.schema.equals(table.schema):
-            raise ValueError('Schema in {!s} was different. \n'
-                             '{!s}\n\nvs\n\n{!s}'
-                             .format(piece, self.schema,
-                                     table.schema))
+            raise ValueError(
+                'Schema in {!s} was different. \n'
+                '{!s}\n\nvs\n\n{!s}'.format(piece, self.schema, table.schema)
+            )
 
     def read_pandas(self, columns=None, use_threads=True):
         """
@@ -94,7 +95,8 @@ class FeatherDataset:
             Content of the file as a pandas DataFrame (of columns)
         """
         return self.read_table(columns=columns).to_pandas(
-            use_threads=use_threads)
+            use_threads=use_threads
+        )
 
 
 def check_chunked_overflow(name, col):
@@ -102,18 +104,28 @@ def check_chunked_overflow(name, col):
         return
 
     if col.type in (ext.binary(), ext.string()):
-        raise ValueError("Column '{}' exceeds 2GB maximum capacity of "
-                         "a Feather binary column. This restriction may be "
-                         "lifted in the future".format(name))
+        raise ValueError(
+            "Column '{}' exceeds 2GB maximum capacity of "
+            "a Feather binary column. This restriction may be "
+            "lifted in the future".format(name)
+        )
     else:
         # TODO(wesm): Not sure when else this might be reached
-        raise ValueError("Column '{}' of type {} was chunked on conversion "
-                         "to Arrow and cannot be currently written to "
-                         "Feather format".format(name, str(col.type)))
+        raise ValueError(
+            "Column '{}' of type {} was chunked on conversion "
+            "to Arrow and cannot be currently written to "
+            "Feather format".format(name, str(col.type))
+        )
 
 
-def write_feather(df, dest, compression=None, compression_level=None,
-                  chunksize=None, version=2):
+def write_feather(
+    df,
+    dest,
+    compression=None,
+    compression_level=None,
+    chunksize=None,
+    version=2,
+):
     """
     Write a pandas.DataFrame to Feather format.
 
@@ -138,8 +150,9 @@ def write_feather(df, dest, compression=None, compression_level=None,
         limited legacy format
     """
     _check_pandas_version()
-    if (_pandas_api.has_sparse
-            and isinstance(df, _pandas_api.pd.SparseDataFrame)):
+    if _pandas_api.has_sparse and isinstance(
+        df, _pandas_api.pd.SparseDataFrame
+    ):
         df = df.to_dense()
 
     if _pandas_api.is_data_frame(df):
@@ -158,22 +171,32 @@ def write_feather(df, dest, compression=None, compression_level=None,
             raise ValueError("cannot serialize duplicate column names")
 
         if compression is not None:
-            raise ValueError("Feather V1 files do not support compression "
-                             "option")
+            raise ValueError(
+                "Feather V1 files do not support compression " "option"
+            )
 
         if chunksize is not None:
-            raise ValueError("Feather V1 files do not support chunksize "
-                             "option")
+            raise ValueError(
+                "Feather V1 files do not support chunksize " "option"
+            )
 
     supported_compression_options = (None, 'lz4', 'zstd', 'uncompressed')
     if compression not in supported_compression_options:
-        raise ValueError('compression="{}" not supported, must be one of {}'
-                         .format(compression, supported_compression_options))
+        raise ValueError(
+            'compression="{}" not supported, must be one of {}'.format(
+                compression, supported_compression_options
+            )
+        )
 
     try:
-        ext.write_feather(table, dest, compression=compression,
-                          compression_level=compression_level,
-                          chunksize=chunksize, version=version)
+        ext.write_feather(
+            table,
+            dest,
+            compression=compression,
+            compression_level=compression_level,
+            chunksize=chunksize,
+            version=version,
+        )
     except Exception:
         if isinstance(dest, str):
             try:
@@ -233,6 +256,7 @@ def read_table(source, columns=None):
         return reader.read_names(columns)
 
     column_type_names = [t.__name__ for t in column_types]
-    raise TypeError("Columns must be indices or names. "
-                    "Got columns {} of types {}"
-                    .format(columns, column_type_names))
+    raise TypeError(
+        "Columns must be indices or names. "
+        "Got columns {} of types {}".format(columns, column_type_names)
+    )

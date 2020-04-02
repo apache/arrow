@@ -27,10 +27,7 @@ import pyarrow as pa
 
 # TODO(kszucs): alphanum_text, surrogate_text
 custom_text = st.text(
-    alphabet=st.characters(
-        min_codepoint=0x41,
-        max_codepoint=0x7E
-    )
+    alphabet=st.characters(min_codepoint=0x41, max_codepoint=0x7E)
 )
 
 null_type = st.just(pa.null())
@@ -41,51 +38,37 @@ string_type = st.just(pa.string())
 large_binary_type = st.just(pa.large_binary())
 large_string_type = st.just(pa.large_string())
 
-signed_integer_types = st.sampled_from([
-    pa.int8(),
-    pa.int16(),
-    pa.int32(),
-    pa.int64()
-])
-unsigned_integer_types = st.sampled_from([
-    pa.uint8(),
-    pa.uint16(),
-    pa.uint32(),
-    pa.uint64()
-])
+signed_integer_types = st.sampled_from(
+    [pa.int8(), pa.int16(), pa.int32(), pa.int64()]
+)
+unsigned_integer_types = st.sampled_from(
+    [pa.uint8(), pa.uint16(), pa.uint32(), pa.uint64()]
+)
 integer_types = st.one_of(signed_integer_types, unsigned_integer_types)
 
-floating_types = st.sampled_from([
-    pa.float16(),
-    pa.float32(),
-    pa.float64()
-])
+floating_types = st.sampled_from([pa.float16(), pa.float32(), pa.float64()])
 decimal_type = st.builds(
     pa.decimal128,
     precision=st.integers(min_value=1, max_value=38),
-    scale=st.integers(min_value=1, max_value=38)
+    scale=st.integers(min_value=1, max_value=38),
 )
 numeric_types = st.one_of(integer_types, floating_types, decimal_type)
 
-date_types = st.sampled_from([
-    pa.date32(),
-    pa.date64()
-])
-time_types = st.sampled_from([
-    pa.time32('s'),
-    pa.time32('ms'),
-    pa.time64('us'),
-    pa.time64('ns')
-])
+date_types = st.sampled_from([pa.date32(), pa.date64()])
+time_types = st.sampled_from(
+    [pa.time32('s'), pa.time32('ms'), pa.time64('us'), pa.time64('ns')]
+)
 timestamp_types = st.builds(
     pa.timestamp,
     unit=st.sampled_from(['s', 'ms', 'us', 'ns']),
-    tz=tzst.timezones()
+    tz=tzst.timezones(),
 )
-duration_types = st.sampled_from([
-    pa.duration(unit) for unit in ['s', 'ms', 'us', 'ns']])
+duration_types = st.sampled_from(
+    [pa.duration(unit) for unit in ['s', 'ms', 'us', 'ns']]
+)
 temporal_types = st.one_of(
-    date_types, time_types, timestamp_types, duration_types)
+    date_types, time_types, timestamp_types, duration_types
+)
 
 primitive_types = st.one_of(
     null_type,
@@ -95,22 +78,26 @@ primitive_types = st.one_of(
     large_binary_type,
     large_string_type,
     numeric_types,
-    temporal_types
+    temporal_types,
 )
 
 metadata = st.dictionaries(st.text(), st.text())
 
 
 def fields(type_strategy=primitive_types):
-    return st.builds(pa.field, name=custom_text, type=type_strategy,
-                     nullable=st.booleans(), metadata=metadata)
+    return st.builds(
+        pa.field,
+        name=custom_text,
+        type=type_strategy,
+        nullable=st.booleans(),
+        metadata=metadata,
+    )
 
 
 def list_types(item_strategy=primitive_types):
-    return (
-        st.builds(pa.list_, item_strategy) |
-        st.builds(pa.large_list, item_strategy)
-        )
+    return st.builds(pa.list_, item_strategy) | st.builds(
+        pa.large_list, item_strategy
+    )
 
 
 def struct_types(item_strategy=primitive_types):
@@ -141,7 +128,9 @@ def schemas(type_strategy=primitive_types, max_fields=None):
 complex_schemas = schemas(complex_types())
 
 
-all_types = st.one_of(primitive_types, complex_types(), nested_complex_types())
+all_types = st.one_of(
+    primitive_types, complex_types(), nested_complex_types()
+)
 all_fields = fields(all_types)
 all_schemas = schemas(all_types)
 
@@ -170,8 +159,10 @@ def arrays(draw, type, size=None):
         offsets = np.insert(offsets, 0, 0, axis=0)  # prepend with zero
         values = draw(arrays(type.value_type, size=int(offsets.sum())))
         array_type = (
-            pa.LargeListArray if pa.types.is_large_list(type)
-            else pa.ListArray)
+            pa.LargeListArray
+            if pa.types.is_large_list(type)
+            else pa.ListArray
+        )
         return array_type.from_arrays(offsets, values)
 
     if pa.types.is_struct(type):
@@ -182,8 +173,11 @@ def arrays(draw, type, size=None):
             child_arrays.append(draw(arrays(field.type, size=size)))
         return pa.StructArray.from_arrays(child_arrays, fields=fields)
 
-    if (pa.types.is_boolean(type) or pa.types.is_integer(type) or
-            pa.types.is_floating(type)):
+    if (
+        pa.types.is_boolean(type)
+        or pa.types.is_integer(type)
+        or pa.types.is_floating(type)
+    ):
         values = npst.arrays(type.to_pandas_dtype(), shape=(size,))
         np_arr = draw(values)
         if pa.types.is_floating(type):
@@ -219,7 +213,9 @@ def arrays(draw, type, size=None):
 
 
 @st.composite
-def chunked_arrays(draw, type, min_chunks=0, max_chunks=None, chunk_size=None):
+def chunked_arrays(
+    draw, type, min_chunks=0, max_chunks=None, chunk_size=None
+):
     if isinstance(type, st.SearchStrategy):
         type = draw(type)
 

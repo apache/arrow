@@ -51,7 +51,7 @@ from pyarrow._dataset import (  # noqa
     Scanner,
     ScanTask,
     UnionDataset,
-    UnionDatasetFactory
+    UnionDatasetFactory,
 )
 
 
@@ -124,7 +124,8 @@ def partitioning(schema=None, field_names=None, flavor=None):
         if schema is not None:
             if field_names is not None:
                 raise ValueError(
-                    "Cannot specify both 'schema' and 'field_names'")
+                    "Cannot specify both 'schema' and 'field_names'"
+                )
             return DirectoryPartitioning(schema)
         elif field_names is not None:
             if isinstance(field_names, list):
@@ -132,11 +133,14 @@ def partitioning(schema=None, field_names=None, flavor=None):
             else:
                 raise ValueError(
                     "Expected list of field names, got {}".format(
-                        type(field_names)))
+                        type(field_names)
+                    )
+                )
         else:
             raise ValueError(
                 "For the default directory flavor, need to specify "
-                "a Schema or a list of field names")
+                "a Schema or a list of field names"
+            )
     elif flavor == 'hive':
         if field_names is not None:
             raise ValueError("Cannot specify 'field_names' for flavor 'hive'")
@@ -146,7 +150,9 @@ def partitioning(schema=None, field_names=None, flavor=None):
             else:
                 raise ValueError(
                     "Expected Schema for 'schema', got {}".format(
-                        type(schema)))
+                        type(schema)
+                    )
+                )
         else:
             return HivePartitioning.discover()
     else:
@@ -156,7 +162,11 @@ def partitioning(schema=None, field_names=None, flavor=None):
 def _ensure_fs(filesystem, path):
     # Validate or infer the filesystem from the path
     from pyarrow.fs import (
-        FileSystem, LocalFileSystem, FileType, _normalize_path)
+        FileSystem,
+        LocalFileSystem,
+        FileType,
+        _normalize_path,
+    )
 
     if filesystem is None:
         # first check if the file exists as a local (relative) file path
@@ -207,7 +217,9 @@ def _ensure_partitioning(scheme):
     else:
         ValueError(
             "Expected Partitioning or PartitioningFactory, got {}".format(
-                type(scheme)))
+                type(scheme)
+            )
+        )
     return scheme
 
 
@@ -222,8 +234,7 @@ def _ensure_format(obj):
         raise ValueError("format '{}' is not supported".format(obj))
 
 
-def factory(path_or_paths, filesystem=None, partitioning=None,
-            format=None):
+def factory(path_or_paths, filesystem=None, partitioning=None, format=None):
     """
     Create a factory which can be used to build a Dataset.
 
@@ -261,8 +272,9 @@ def factory(path_or_paths, filesystem=None, partitioning=None,
     factories = []
     for path in path_or_paths:
         fs, paths_or_selector = _ensure_fs_and_paths(path, filesystem)
-        factories.append(FileSystemDatasetFactory(fs, paths_or_selector,
-                                                  format, options))
+        factories.append(
+            FileSystemDatasetFactory(fs, paths_or_selector, format, options)
+        )
 
     if len(factories) == 0:
         raise ValueError("Need at least one path")
@@ -297,8 +309,13 @@ def _ensure_factory(src, **kwargs):
         )
 
 
-def dataset(paths_or_factories, filesystem=None, partitioning=None,
-            format=None, schema=None):
+def dataset(
+    paths_or_factories,
+    filesystem=None,
+    partitioning=None,
+    format=None,
+    schema=None,
+):
     """
     Open a dataset.
 
@@ -340,8 +357,9 @@ def dataset(paths_or_factories, filesystem=None, partitioning=None,
 
     """
     # bundle the keyword arguments
-    kwargs = dict(filesystem=filesystem, partitioning=partitioning,
-                  format=format)
+    kwargs = dict(
+        filesystem=filesystem, partitioning=partitioning, format=format
+    )
 
     single_dataset = False
     if not isinstance(paths_or_factories, list):

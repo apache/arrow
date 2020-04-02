@@ -24,3 +24,8 @@ requires = [
     "setuptools_scm",
     "wheel"
 ]
+
+[tool.black]
+line-length = 78
+target-version = ['py35']
+skip-string-normalization = true

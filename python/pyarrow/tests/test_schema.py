@@ -29,15 +29,25 @@ import pyarrow.tests.util as test_util
 
 
 def test_schema_constructor_errors():
-    msg = ("Do not call Schema's constructor directly, use `pyarrow.schema` "
-           "instead")
+    msg = (
+        "Do not call Schema's constructor directly, use `pyarrow.schema` "
+        "instead"
+    )
     with pytest.raises(TypeError, match=msg):
         pa.Schema()
 
 
 def test_type_integers():
-    dtypes = ['int8', 'int16', 'int32', 'int64',
-              'uint8', 'uint16', 'uint32', 'uint64']
+    dtypes = [
+        'int8',
+        'int16',
+        'int32',
+        'int64',
+        'uint8',
+        'uint16',
+        'uint32',
+        'uint64',
+    ]
 
     for name in dtypes:
         factory = getattr(pa, name)
@@ -221,7 +231,7 @@ def test_schema():
     fields = [
         pa.field('foo', pa.int32()),
         pa.field('bar', pa.string()),
-        pa.field('baz', pa.list_(pa.int8()))
+        pa.field('baz', pa.list_(pa.int8())),
     ]
     sch = pa.schema(fields)
 
@@ -234,11 +244,14 @@ def test_schema():
     assert sch.field('foo').name == 'foo'
     assert sch.field('foo').type == fields[0].type
 
-    assert repr(sch) == """\
+    assert (
+        repr(sch)
+        == """\
 foo: int32
 bar: string
 baz: list<item: int8>
   child 0, item: int8"""
+    )
 
     with pytest.raises(TypeError):
         pa.schema([None])
@@ -246,16 +259,20 @@ baz: list<item: int8>
 
 def test_schema_to_string_with_metadata():
     # ARROW-7063
-    my_schema = pa.schema([pa.field("foo", "int32", False,
-                                    metadata={"key1": "value1"})],
-                          metadata={"key2": "value2"})
+    my_schema = pa.schema(
+        [pa.field("foo", "int32", False, metadata={"key1": "value1"})],
+        metadata={"key2": "value2"},
+    )
 
-    assert my_schema.to_string(show_metadata=True) == """\
+    assert (
+        my_schema.to_string(show_metadata=True)
+        == """\
 foo: int32 not null
   -- metadata --
   key1: value1
 -- metadata --
 key2: value2"""
+    )
 
 
 def test_schema_from_tuples():
@@ -268,31 +285,39 @@ def test_schema_from_tuples():
     assert sch.names == ['foo', 'bar', 'baz']
     assert sch.types == [pa.int32(), pa.string(), pa.list_(pa.int8())]
     assert len(sch) == 3
-    assert repr(sch) == """\
+    assert (
+        repr(sch)
+        == """\
 foo: int32
 bar: string
 baz: list<item: int8>
   child 0, item: int8"""
+    )
 
     with pytest.raises(TypeError):
         pa.schema([('foo', None)])
 
 
 def test_schema_from_mapping():
-    fields = OrderedDict([
-        ('foo', pa.int32()),
-        ('bar', pa.string()),
-        ('baz', pa.list_(pa.int8())),
-    ])
+    fields = OrderedDict(
+        [
+            ('foo', pa.int32()),
+            ('bar', pa.string()),
+            ('baz', pa.list_(pa.int8())),
+        ]
+    )
     sch = pa.schema(fields)
     assert sch.names == ['foo', 'bar', 'baz']
     assert sch.types == [pa.int32(), pa.string(), pa.list_(pa.int8())]
     assert len(sch) == 3
-    assert repr(sch) == """\
+    assert (
+        repr(sch)
+        == """\
 foo: int32
 bar: string
 baz: list<item: int8>
   child 0, item: int8"""
+    )
 
     fields = OrderedDict([('foo', None)])
     with pytest.raises(TypeError):
@@ -309,11 +334,14 @@ def test_schema_duplicate_fields():
     assert sch.names == ['foo', 'bar', 'foo']
     assert sch.types == [pa.int32(), pa.string(), pa.list_(pa.int8())]
     assert len(sch) == 3
-    assert repr(sch) == """\
+    assert (
+        repr(sch)
+        == """\
 foo: int32
 bar: string
 foo: list<item: int8>
   child 0, item: int8"""
+    )
 
     assert sch[0].name == 'foo'
     assert sch[0].type == fields[0].type
@@ -333,13 +361,15 @@ def test_field_flatten():
     ff = pa.field('ff', pa.struct([f0, f1]), nullable=False)
     assert ff.flatten() == [
         pa.field('ff.foo', pa.int32()).with_metadata({b'foo': b'bar'}),
-        pa.field('ff.bar', pa.float64(), nullable=False)]  # XXX
+        pa.field('ff.bar', pa.float64(), nullable=False),
+    ]  # XXX
 
     # Nullable parent makes flattened child nullable
     ff = pa.field('ff', pa.struct([f0, f1]))
     assert ff.flatten() == [
         pa.field('ff.foo', pa.int32()).with_metadata({b'foo': b'bar'}),
-        pa.field('ff.bar', pa.float64())]
+        pa.field('ff.bar', pa.float64()),
+    ]
 
     fff = pa.field('fff', pa.struct([ff]))
     assert fff.flatten() == [pa.field('fff.ff', pa.struct([f0, f1]))]
@@ -349,7 +379,7 @@ def test_schema_add_remove_metadata():
     fields = [
         pa.field('foo', pa.int32()),
         pa.field('bar', pa.string()),
-        pa.field('baz', pa.list_(pa.int8()))
+        pa.field('baz', pa.list_(pa.int8())),
     ]
 
     s1 = pa.schema(fields)
@@ -373,7 +403,7 @@ def test_schema_equals():
     fields = [
         pa.field('foo', pa.int32()),
         pa.field('bar', pa.string()),
-        pa.field('baz', pa.list_(pa.int8()))
+        pa.field('baz', pa.list_(pa.int8())),
     ]
     metadata = {b'foo': b'bar', b'pandas': b'badger'}
 
@@ -395,14 +425,15 @@ def test_schema_equals():
 
 def test_schema_equals_propagates_check_metadata():
     # ARROW-4088
-    schema1 = pa.schema([
-        pa.field('foo', pa.int32()),
-        pa.field('bar', pa.string())
-    ])
-    schema2 = pa.schema([
-        pa.field('foo', pa.int32()),
-        pa.field('bar', pa.string(), metadata={'a': 'alpha'}),
-    ])
+    schema1 = pa.schema(
+        [pa.field('foo', pa.int32()), pa.field('bar', pa.string())]
+    )
+    schema2 = pa.schema(
+        [
+            pa.field('foo', pa.int32()),
+            pa.field('bar', pa.string(), metadata={'a': 'alpha'}),
+        ]
+    )
     assert not schema1.equals(schema2, check_metadata=True)
     assert schema1.equals(schema2)
 
@@ -420,7 +451,7 @@ def test_schema_equality_operators():
     fields = [
         pa.field('foo', pa.int32()),
         pa.field('bar', pa.string()),
-        pa.field('baz', pa.list_(pa.int8()))
+        pa.field('baz', pa.list_(pa.int8())),
     ]
     metadata = {b'foo': b'bar', b'pandas': b'badger'}
 
@@ -447,7 +478,7 @@ def test_schema_get_fields():
     fields = [
         pa.field('foo', pa.int32()),
         pa.field('bar', pa.string()),
-        pa.field('baz', pa.list_(pa.int8()))
+        pa.field('baz', pa.list_(pa.int8())),
     ]
 
     schema = pa.schema(fields)
@@ -468,7 +499,7 @@ def test_schema_negative_indexing():
     fields = [
         pa.field('foo', pa.int32()),
         pa.field('bar', pa.string()),
-        pa.field('baz', pa.list_(pa.int8()))
+        pa.field('baz', pa.list_(pa.int8())),
     ]
 
     schema = pa.schema(fields)
@@ -487,14 +518,13 @@ def test_schema_negative_indexing():
 def test_schema_repr_with_dictionaries():
     fields = [
         pa.field('one', pa.dictionary(pa.int16(), pa.string())),
-        pa.field('two', pa.int32())
+        pa.field('two', pa.int32()),
     ]
     sch = pa.schema(fields)
 
-    expected = (
-        """\
+    expected = """\
 one: dictionary<values=string, indices=int16, ordered=0>
-two: int32""")
+two: int32"""
 
     assert repr(sch) == expected
 
@@ -507,18 +537,15 @@ def test_type_schema_pickling():
         pa.binary(10),
         pa.list_(pa.string()),
         pa.map_(pa.string(), pa.int8()),
-        pa.struct([
-            pa.field('a', 'int8'),
-            pa.field('b', 'string')
-        ]),
-        pa.union([
-            pa.field('a', pa.int8()),
-            pa.field('b', pa.int16())
-        ], pa.lib.UnionMode_SPARSE),
-        pa.union([
-            pa.field('a', pa.int8()),
-            pa.field('b', pa.int16())
-        ], pa.lib.UnionMode_DENSE),
+        pa.struct([pa.field('a', 'int8'), pa.field('b', 'string')]),
+        pa.union(
+            [pa.field('a', pa.int8()), pa.field('b', pa.int16())],
+            pa.lib.UnionMode_SPARSE,
+        ),
+        pa.union(
+            [pa.field('a', pa.int8()), pa.field('b', pa.int16())],
+            pa.lib.UnionMode_DENSE,
+        ),
         pa.time32('s'),
         pa.time64('us'),
         pa.date32(),
@@ -526,7 +553,7 @@ def test_type_schema_pickling():
         pa.timestamp('ms'),
         pa.timestamp('ns'),
         pa.decimal128(12, 2),
-        pa.field('a', 'string', metadata={b'foo': b'bar'})
+        pa.field('a', 'string', metadata={b'foo': b'bar'}),
     ]
 
     for val in cases:
@@ -546,11 +573,13 @@ def test_type_schema_pickling():
 
 
 def test_empty_table():
-    schema = pa.schema([
-        pa.field('f0', pa.int64()),
-        pa.field('f1', pa.dictionary(pa.int32(), pa.string())),
-        pa.field('f2', pa.list_(pa.list_(pa.int64()))),
-    ])
+    schema = pa.schema(
+        [
+            pa.field('f0', pa.int64()),
+            pa.field('f1', pa.dictionary(pa.int32(), pa.string())),
+            pa.field('f2', pa.list_(pa.list_(pa.int64()))),
+        ]
+    )
     table = schema.empty_table()
     assert isinstance(table, pa.Table)
     assert table.num_rows == 0
@@ -560,15 +589,19 @@ def test_empty_table():
 @pytest.mark.pandas
 def test_schema_from_pandas():
     import pandas as pd
+
     inputs = [
         list(range(10)),
         pd.Categorical(list(range(10))),
         ['foo', 'bar', None, 'baz', 'qux'],
-        np.array([
-            '2007-07-13T01:23:34.123456789',
-            '2006-01-13T12:34:56.432539784',
-            '2010-08-13T05:46:57.437699912'
-        ], dtype='datetime64[ns]'),
+        np.array(
+            [
+                '2007-07-13T01:23:34.123456789',
+                '2006-01-13T12:34:56.432539784',
+                '2010-08-13T05:46:57.437699912',
+            ],
+            dtype='datetime64[ns]',
+        ),
     ]
     if LooseVersion(pd.__version__) >= '1.0.0':
         inputs.append(pd.array([1, 2, None], dtype=pd.Int32Dtype()))
@@ -580,10 +613,9 @@ def test_schema_from_pandas():
 
 
 def test_schema_sizeof():
-    schema = pa.schema([
-        pa.field('foo', pa.int32()),
-        pa.field('bar', pa.string()),
-    ])
+    schema = pa.schema(
+        [pa.field('foo', pa.int32()), pa.field('bar', pa.string()),]
+    )
 
     assert sys.getsizeof(schema) > 30
 

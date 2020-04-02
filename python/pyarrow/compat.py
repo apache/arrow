@@ -30,15 +30,19 @@ except ImportError:
 
 from collections.abc import Iterable, Mapping, Sequence
 
+
 def guid():
     from uuid import uuid4
+
     return uuid4().hex
+
 
 def tobytes(o):
     if isinstance(o, str):
         return o.encode('utf8')
     else:
         return o
+
 
 def frombytes(o):
     return o.decode('utf8')
@@ -49,6 +53,7 @@ if sys.version_info >= (3, 7):
     ordered_dict = dict
 else:
     import collections
+
     ordered_dict = collections.OrderedDict
 
 
@@ -56,6 +61,7 @@ try:
     import cloudpickle as pickle
 except ImportError:
     pickle = builtin_pickle
+
 
 def encode_file_path(path):
     if isinstance(path, str):
@@ -70,7 +76,10 @@ def encode_file_path(path):
     return encoded_path
 
 
-integer_types = (int, np.integer,)
+integer_types = (
+    int,
+    np.integer,
+)
 
 
 def get_socket_from_fd(fileno, family, type):
@@ -82,6 +91,7 @@ try:
     # See also: https://github.com/numpy/numpy/blob/master/numpy/lib/format.py
     from numpy.lib.format import descr_to_dtype
 except ImportError:
+
     def descr_to_dtype(descr):
         '''
         descr may be stored as dtype.descr, which is a list of
@@ -109,7 +119,7 @@ except ImportError:
 
             # Ignore padding bytes, which will be void bytes with '' as name
             # Once support for blank names is removed, only "if name == ''" needed)
-            is_pad = (name == '' and dt.type is np.void and dt.names is None)
+            is_pad = name == '' and dt.type is np.void and dt.names is None
             if not is_pad:
                 fields.append((name, dt, offset))
 
@@ -117,9 +127,17 @@ except ImportError:
 
         names, formats, offsets = zip(*fields)
         # names may be (title, names) tuples
-        nametups = (n  if isinstance(n, tuple) else (None, n) for n in names)
+        nametups = (n if isinstance(n, tuple) else (None, n) for n in names)
         titles, names = zip(*nametups)
-        return np.dtype({'names': names, 'formats': formats, 'titles': titles,
-                            'offsets': offsets, 'itemsize': offset})
+        return np.dtype(
+            {
+                'names': names,
+                'formats': formats,
+                'titles': titles,
+                'offsets': offsets,
+                'itemsize': offset,
+            }
+        )
+
 
 __all__ = []

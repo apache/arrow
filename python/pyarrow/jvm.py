@@ -218,20 +218,24 @@ def field(jvm_field):
             typ = pa.decimal128(jvm_type.getPrecision(), jvm_type.getScale())
         else:
             raise NotImplementedError(
-                "Unsupported JVM type: {}".format(type_str))
+                "Unsupported JVM type: {}".format(type_str)
+            )
     else:
         # TODO: The following JVM types are not implemented:
         #       Struct, List, FixedSizeList, Union, Dictionary
         raise NotImplementedError(
-            "JVM field conversion only implemented for primitive types.")
+            "JVM field conversion only implemented for primitive types."
+        )
 
     nullable = jvm_field.isNullable()
     jvm_metadata = jvm_field.getMetadata()
     if jvm_metadata.isEmpty():
         metadata = None
     else:
-        metadata = {str(entry.getKey()): str(entry.getValue())
-                    for entry in jvm_metadata.entrySet()}
+        metadata = {
+            str(entry.getKey()): str(entry.getValue())
+            for entry in jvm_metadata.entrySet()
+        }
     return pa.field(name, typ, nullable, metadata)
 
 
@@ -254,8 +258,10 @@ def schema(jvm_schema):
     if jvm_metadata.isEmpty():
         metadata = None
     else:
-        metadata = {str(entry.getKey()): str(entry.getValue())
-                    for entry in jvm_metadata.entrySet()}
+        metadata = {
+            str(entry.getKey()): str(entry.getValue())
+            for entry in jvm_metadata.entrySet()
+        }
     return pa.schema(fields, metadata)
 
 
@@ -275,11 +281,11 @@ def array(jvm_array):
         minor_type_str = jvm_array.getMinorType().toString()
         raise NotImplementedError(
             "Cannot convert JVM Arrow array of type {},"
-            " complex types not yet implemented.".format(minor_type_str))
+            " complex types not yet implemented.".format(minor_type_str)
+        )
     dtype = field(jvm_array.getField()).type
     length = jvm_array.getValueCount()
-    buffers = [jvm_buffer(buf)
-               for buf in list(jvm_array.getBuffers(False))]
+    buffers = [jvm_buffer(buf) for buf in list(jvm_array.getBuffers(False))]
     null_count = jvm_array.getNullCount()
     return pa.Array.from_buffers(dtype, length, buffers, null_count)
 
@@ -303,7 +309,5 @@ def record_batch(jvm_vector_schema_root):
         arrays.append(array(jvm_vector_schema_root.getVector(name)))
 
     return pa.RecordBatch.from_arrays(
-        arrays,
-        pa_schema.names,
-        metadata=pa_schema.metadata
+        arrays, pa_schema.names, metadata=pa_schema.metadata
     )

@@ -81,7 +81,9 @@ def randdecimal(precision, scale):
     decimal_value : decimal.Decimal
         A random decimal.Decimal object with the specifed precision and scale.
     """
-    assert 1 <= precision <= 38, 'precision must be between 1 and 38 inclusive'
+    assert (
+        1 <= precision <= 38
+    ), 'precision must be between 1 and 38 inclusive'
     if scale < 0:
         raise ValueError(
             'randdecimal does not yet support generating decimals with '
@@ -110,7 +112,8 @@ def rands(nchars):
     Generate one random string.
     """
     RANDS_CHARS = np.array(
-        list(string.ascii_letters + string.digits), dtype=(np.str_, 1))
+        list(string.ascii_letters + string.digits), dtype=(np.str_, 1)
+    )
     return "".join(np.random.choice(RANDS_CHARS, nchars))
 
 
@@ -120,13 +123,14 @@ def make_dataframe():
     N = 30
     df = pd.DataFrame(
         {col: np.random.randn(N) for col in string.ascii_uppercase[:4]},
-        index=pd.Index([rands(10) for _ in range(N)])
+        index=pd.Index([rands(10) for _ in range(N)]),
     )
     return df
 
 
-def memory_leak_check(f, metric='rss', threshold=1 << 17, iterations=10,
-                      check_interval=1):
+def memory_leak_check(
+    f, metric='rss', threshold=1 << 17, iterations=10, check_interval=1
+):
     """
     Execute the function and try to detect a clear memory leak either internal
     to Arrow or caused by a reference counting problem in the Python binding
@@ -147,6 +151,7 @@ def memory_leak_check(f, metric='rss', threshold=1 << 17, iterations=10,
         Number of invocations of f in between each memory use check
     """
     import psutil
+
     proc = psutil.Process()
 
     def _get_use():
@@ -158,9 +163,12 @@ def memory_leak_check(f, metric='rss', threshold=1 << 17, iterations=10,
     def _leak_check():
         current_use = _get_use()
         if current_use - baseline_use > threshold:
-            raise Exception("Memory leak detected. "
-                            "Departure from baseline {} after {} iterations"
-                            .format(current_use - baseline_use, i))
+            raise Exception(
+                "Memory leak detected. "
+                "Departure from baseline {} after {} iterations".format(
+                    current_use - baseline_use, i
+                )
+            )
 
     for i in range(iterations):
         f()
@@ -174,7 +182,8 @@ def get_modified_env_with_pythonpath():
     existing_pythonpath = env.get('PYTHONPATH', '')
 
     module_path = os.path.abspath(
-        os.path.dirname(os.path.dirname(pa.__file__)))
+        os.path.dirname(os.path.dirname(pa.__file__))
+    )
 
     if existing_pythonpath:
         new_pythonpath = os.pathsep.join((module_path, existing_pythonpath))

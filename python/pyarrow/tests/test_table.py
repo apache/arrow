@@ -37,11 +37,7 @@ def test_chunked_array_basics():
     with pytest.raises(ValueError):
         pa.chunked_array([])
 
-    data = pa.chunked_array([
-        [1, 2, 3],
-        [4, 5, 6],
-        [7, 8, 9]
-    ])
+    data = pa.chunked_array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
     assert isinstance(data.chunks, list)
     assert all(isinstance(c, pa.lib.Int64Array) for c in data.chunks)
     assert all(isinstance(c, pa.lib.Int64Array) for c in data.iterchunks())
@@ -57,12 +53,11 @@ def test_chunked_array_mismatch_types():
 
 
 def test_chunked_array_str():
-    data = [
-        pa.array([1, 2, 3]),
-        pa.array([4, 5, 6])
-    ]
+    data = [pa.array([1, 2, 3]), pa.array([4, 5, 6])]
     data = pa.chunked_array(data)
-    assert str(data) == """[
+    assert (
+        str(data)
+        == """[
   [
     1,
     2,
@@ -74,13 +69,11 @@ def test_chunked_array_str():
     6
   ]
 ]"""
+    )
 
 
 def test_chunked_array_getitem():
-    data = [
-        pa.array([1, 2, 3]),
-        pa.array([4, 5, 6])
-    ]
+    data = [pa.array([1, 2, 3]), pa.array([4, 5, 6])]
     data = pa.chunked_array(data)
     assert data[1].as_py() == 2
     assert data[-1].as_py() == 6
@@ -106,7 +99,7 @@ def test_chunked_array_iter():
         pa.array([0]),
         pa.array([1, 2, 3]),
         pa.array([4, 5, 6]),
-        pa.array([7, 8, 9])
+        pa.array([7, 8, 9]),
     ]
     arr = pa.chunked_array(data)
 
@@ -144,10 +137,14 @@ def test_chunked_array_equals():
         assert not y.equals(x)
         assert x != y
 
-    eq(pa.chunked_array([], type=pa.int32()),
-       pa.chunked_array([], type=pa.int32()))
-    ne(pa.chunked_array([], type=pa.int32()),
-       pa.chunked_array([], type=pa.int64()))
+    eq(
+        pa.chunked_array([], type=pa.int32()),
+        pa.chunked_array([], type=pa.int32()),
+    )
+    ne(
+        pa.chunked_array([], type=pa.int32()),
+        pa.chunked_array([], type=pa.int64()),
+    )
 
     a = pa.array([0, 2], type=pa.int32())
     b = pa.array([0, 2], type=pa.int64())
@@ -173,9 +170,13 @@ def test_chunked_array_equals():
         ([], pa.list_(pa.uint8())),
         ([[1, 2], [3]], pa.list_(pa.int64())),
         ([['a'], None, ['b', 'c']], pa.list_(pa.string())),
-        ([(1, 'a'), (2, 'c'), None],
-            pa.struct([pa.field('a', pa.int64()), pa.field('b', pa.string())]))
-    ]
+        (
+            [(1, 'a'), (2, 'c'), None],
+            pa.struct(
+                [pa.field('a', pa.int64()), pa.field('b', pa.string())]
+            ),
+        ),
+    ],
 )
 def test_chunked_array_pickle(data, typ):
     arrays = []
@@ -193,9 +194,7 @@ def test_chunked_array_pickle(data, typ):
 def test_chunked_array_to_pandas():
     import pandas as pd
 
-    data = [
-        pa.array([-10, -5, 0, 5, 10])
-    ]
+    data = [pa.array([-10, -5, 0, 5, 10])]
     table = pa.table(data, names=['a'])
     col = table.column(0)
     assert isinstance(col, pa.ChunkedArray)
@@ -213,12 +212,13 @@ def test_chunked_array_to_pandas_preserve_name():
     import pandas.testing as tm
 
     for data in [
-            pa.array([1, 2, 3]),
-            pa.array(pd.Categorical(["a", "b", "a"])),
-            pa.array(pd.date_range("2012", periods=3)),
-            pa.array(pd.date_range("2012", periods=3, tz="Europe/Brussels")),
-            pa.array([1, 2, 3], pa.timestamp("ms")),
-            pa.array([1, 2, 3], pa.timestamp("ms", "Europe/Brussels"))]:
+        pa.array([1, 2, 3]),
+        pa.array(pd.Categorical(["a", "b", "a"])),
+        pa.array(pd.date_range("2012", periods=3)),
+        pa.array(pd.date_range("2012", periods=3, tz="Europe/Brussels")),
+        pa.array([1, 2, 3], pa.timestamp("ms")),
+        pa.array([1, 2, 3], pa.timestamp("ms", "Europe/Brussels")),
+    ]:
         table = pa.table({"name": data})
         result = table.column("name").to_pandas()
         assert result.name == "name"
@@ -231,10 +231,7 @@ def test_chunked_array_to_pandas_preserve_name():
 def test_chunked_array_asarray():
     # ensure this is tested both when pandas is present or not (ARROW-6564)
 
-    data = [
-        pa.array([0]),
-        pa.array([1, 2, 3])
-    ]
+    data = [pa.array([0]), pa.array([1, 2, 3])]
     chunked_arr = pa.chunked_array(data)
 
     np_arr = np.asarray(chunked_arr)
@@ -246,22 +243,20 @@ def test_chunked_array_asarray():
     assert np_arr.tolist() == ['0', '1', '2', '3']
 
     # Types are modified when there are nulls
-    data = [
-        pa.array([1, None]),
-        pa.array([1, 2, 3])
-    ]
+    data = [pa.array([1, None]), pa.array([1, 2, 3])]
     chunked_arr = pa.chunked_array(data)
 
     np_arr = np.asarray(chunked_arr)
     elements = np_arr.tolist()
-    assert elements[0] == 1.
+    assert elements[0] == 1.0
     assert np.isnan(elements[1])
-    assert elements[2:] == [1., 2., 3.]
+    assert elements[2:] == [1.0, 2.0, 3.0]
     assert np_arr.dtype == np.dtype('float64')
 
     # DictionaryType data will be converted to dense numpy array
     arr = pa.DictionaryArray.from_arrays(
-        pa.array([0, 1, 2, 0, 1]), pa.array(['a', 'b', 'c']))
+        pa.array([0, 1, 2, 0, 1]), pa.array(['a', 'b', 'c'])
+    )
     chunked_arr = pa.chunked_array([arr, arr])
     np_arr = np.asarray(chunked_arr)
     assert np_arr.dtype == np.dtype('object')
@@ -269,14 +264,14 @@ def test_chunked_array_asarray():
 
 
 def test_chunked_array_flatten():
-    ty = pa.struct([pa.field('x', pa.int16()),
-                    pa.field('y', pa.float32())])
+    ty = pa.struct([pa.field('x', pa.int16()), pa.field('y', pa.float32())])
     a = pa.array([(1, 2.5), (3, 4.5), (5, 6.5)], type=ty)
     carr = pa.chunked_array(a)
     x, y = carr.flatten()
     assert x.equals(pa.chunked_array(pa.array([1, 3, 5], type=pa.int16())))
-    assert y.equals(pa.chunked_array(pa.array([2.5, 4.5, 6.5],
-                                              type=pa.float32())))
+    assert y.equals(
+        pa.chunked_array(pa.array([2.5, 4.5, 6.5], type=pa.float32()))
+    )
 
     # Empty column
     a = pa.array([], type=ty)
@@ -289,7 +284,7 @@ def test_chunked_array_flatten():
 def test_recordbatch_basics():
     data = [
         pa.array(range(5), type='int16'),
-        pa.array([-10, -5, 0, None, 10], type='int32')
+        pa.array([-10, -5, 0, None, 10], type='int32'),
     ]
 
     batch = pa.record_batch(data, ['c0', 'c1'])
@@ -302,10 +297,9 @@ def test_recordbatch_basics():
     assert batch.nbytes == (5 * 2) + (5 * 4 + 1)
     assert sys.getsizeof(batch) >= object.__sizeof__(batch) + batch.nbytes
     pydict = batch.to_pydict()
-    assert pydict == OrderedDict([
-        ('c0', [0, 1, 2, 3, 4]),
-        ('c1', [-10, -5, 0, None, 10])
-    ])
+    assert pydict == OrderedDict(
+        [('c0', [0, 1, 2, 3, 4]), ('c1', [-10, -5, 0, None, 10])]
+    )
     if sys.version_info >= (3, 7):
         assert type(pydict) == dict
     else:
@@ -316,23 +310,27 @@ def test_recordbatch_basics():
         batch[2]
 
     # Schema passed explicitly
-    schema = pa.schema([pa.field('c0', pa.int16()),
-                        pa.field('c1', pa.int32())],
-                       metadata={b'foo': b'bar'})
+    schema = pa.schema(
+        [pa.field('c0', pa.int16()), pa.field('c1', pa.int32())],
+        metadata={b'foo': b'bar'},
+    )
     batch = pa.record_batch(data, schema=schema)
     assert batch.schema == schema
     # schema as first positional argument
     batch = pa.record_batch(data, schema)
     assert batch.schema == schema
-    assert (str(batch) == """pyarrow.RecordBatch
+    assert (
+        str(batch)
+        == """pyarrow.RecordBatch
 c0: int16
-c1: int32""")
+c1: int32"""
+    )
 
 
 def test_recordbatch_equals():
     data1 = [
         pa.array(range(5), type='int16'),
-        pa.array([-10, -5, 0, None, 10], type='int32')
+        pa.array([-10, -5, 0, None, 10], type='int32'),
     ]
     data2 = [
         pa.array(['a', 'b', 'c']),
@@ -350,13 +348,15 @@ def test_recordbatch_equals():
 
 def test_recordbatch_take():
     batch = pa.record_batch(
-        [pa.array([1, 2, 3, None, 5]),
-         pa.array(['a', 'b', 'c', 'd', 'e'])],
-        ['f1', 'f2'])
+        [pa.array([1, 2, 3, None, 5]), pa.array(['a', 'b', 'c', 'd', 'e'])],
+        ['f1', 'f2'],
+    )
     assert batch.take(pa.array([2, 3])).equals(batch.slice(2, 2))
     assert batch.take(pa.array([2, None])).equals(
-        pa.record_batch([pa.array([3, None]), pa.array(['c', None])],
-                        ['f1', 'f2']))
+        pa.record_batch(
+            [pa.array([3, None]), pa.array(['c', None])], ['f1', 'f2']
+        )
+    )
 
 
 def test_recordbatch_column_sets_private_name():
@@ -375,8 +375,11 @@ def test_recordbatch_from_arrays_validate_schema():
 
 def test_recordbatch_from_arrays_validate_lengths():
     # ARROW-2820
-    data = [pa.array([1]), pa.array(["tokyo", "like", "happy"]),
-            pa.array(["derek"])]
+    data = [
+        pa.array([1]),
+        pa.array(["tokyo", "like", "happy"]),
+        pa.array(["derek"]),
+    ]
 
     with pytest.raises(ValueError):
         pa.record_batch(data, ['id', 'tags', 'name'])
@@ -391,10 +394,7 @@ def test_recordbatch_no_fields():
 
 
 def test_recordbatch_from_arrays_invalid_names():
-    data = [
-        pa.array(range(5)),
-        pa.array([-10, -5, 0, 5, 10])
-    ]
+    data = [pa.array(range(5)), pa.array([-10, -5, 0, 5, 10])]
     with pytest.raises(ValueError):
         pa.record_batch(data, names=['a', 'b', 'c'])
 
@@ -403,10 +403,7 @@ def test_recordbatch_from_arrays_invalid_names():
 
 
 def test_recordbatch_empty_metadata():
-    data = [
-        pa.array(range(5)),
-        pa.array([-10, -5, 0, 5, 10])
-    ]
+    data = [pa.array(range(5)), pa.array([-10, -5, 0, 5, 10])]
 
     batch = pa.record_batch(data, ['c0', 'c1'])
     assert batch.schema.metadata is None
@@ -415,7 +412,7 @@ def test_recordbatch_empty_metadata():
 def test_recordbatch_pickle():
     data = [
         pa.array(range(5), type='int8'),
-        pa.array([-10, -5, 0, 5, 10], type='float32')
+        pa.array([-10, -5, 0, 5, 10], type='float32'),
     ]
     fields = [
         pa.field('ints', pa.int8()),
@@ -440,19 +437,19 @@ def test_recordbatch_from_struct_array():
         type=pa.struct([("ints", pa.int32()), ("floats", pa.float32())]),
     )
     result = pa.RecordBatch.from_struct_array(struct_array)
-    assert result.equals(pa.RecordBatch.from_arrays(
-        [
-            pa.array([1, None], type=pa.int32()),
-            pa.array([None, 1.0], type=pa.float32()),
-        ], ["ints", "floats"]
-    ))
+    assert result.equals(
+        pa.RecordBatch.from_arrays(
+            [
+                pa.array([1, None], type=pa.int32()),
+                pa.array([None, 1.0], type=pa.float32()),
+            ],
+            ["ints", "floats"],
+        )
+    )
 
 
 def _table_like_slice_tests(factory):
-    data = [
-        pa.array(range(5)),
-        pa.array([-10, -5, 0, 5, 10])
-    ]
+    data = [pa.array(range(5)), pa.array([-10, -5, 0, 5, 10])]
     names = ['c0', 'c1']
 
     obj = factory(data, names=names)
@@ -533,12 +530,12 @@ def test_table_equals():
 
 
 def test_table_from_batches_and_schema():
-    schema = pa.schema([
-        pa.field('a', pa.int64()),
-        pa.field('b', pa.float64()),
-    ])
-    batch = pa.record_batch([pa.array([1]), pa.array([3.14])],
-                            names=['a', 'b'])
+    schema = pa.schema(
+        [pa.field('a', pa.int64()), pa.field('b', pa.float64()),]
+    )
+    batch = pa.record_batch(
+        [pa.array([1]), pa.array([3.14])], names=['a', 'b']
+    )
     table = pa.Table.from_batches([batch], schema)
     assert table.schema.equals(schema)
     assert table.column(0) == pa.chunked_array([[1]])
@@ -571,15 +568,17 @@ def test_table_to_batches():
     batches = table.to_batches()
     assert len(batches) == 3
 
-    assert_frame_equal(pa.Table.from_batches(batches).to_pandas(),
-                       expected_df)
+    assert_frame_equal(
+        pa.Table.from_batches(batches).to_pandas(), expected_df
+    )
 
     batches = table.to_batches(max_chunksize=15)
     assert list(map(len, batches)) == [10, 15, 5, 10]
 
     assert_frame_equal(table.to_pandas(), expected_df)
-    assert_frame_equal(pa.Table.from_batches(batches).to_pandas(),
-                       expected_df)
+    assert_frame_equal(
+        pa.Table.from_batches(batches).to_pandas(), expected_df
+    )
 
     table_from_iter = pa.Table.from_batches(iter([batch1, batch2, batch1]))
     assert table.equals(table_from_iter)
@@ -588,7 +587,7 @@ def test_table_to_batches():
 def test_table_basics():
     data = [
         pa.array(range(5), type='int64'),
-        pa.array([-10, -5, 0, 5, 10], type='int64')
+        pa.array([-10, -5, 0, 5, 10], type='int64'),
     ]
     table = pa.table(data, names=('a', 'b'))
     table.validate()
@@ -599,10 +598,9 @@ def test_table_basics():
     assert table.nbytes == 2 * (5 * 8)
     assert sys.getsizeof(table) >= object.__sizeof__(table) + table.nbytes
     pydict = table.to_pydict()
-    assert pydict == OrderedDict([
-        ('a', [0, 1, 2, 3, 4]),
-        ('b', [-10, -5, 0, 5, 10])
-    ])
+    assert pydict == OrderedDict(
+        [('a', [0, 1, 2, 3, 4]), ('b', [-10, -5, 0, 5, 10])]
+    )
     if sys.version_info >= (3, 7):
         assert type(pydict) == dict
     else:
@@ -632,17 +630,15 @@ def test_table_from_arrays_preserves_column_metadata():
     arr1 = pa.array([3, 4])
     field0 = pa.field('field1', pa.int64(), metadata=dict(a="A", b="B"))
     field1 = pa.field('field2', pa.int64(), nullable=False)
-    table = pa.Table.from_arrays([arr0, arr1],
-                                 schema=pa.schema([field0, field1]))
+    table = pa.Table.from_arrays(
+        [arr0, arr1], schema=pa.schema([field0, field1])
+    )
     assert b"a" in table.field(0).metadata
     assert table.field(1).nullable is False
 
 
 def test_table_from_arrays_invalid_names():
-    data = [
-        pa.array(range(5)),
-        pa.array([-10, -5, 0, 5, 10])
-    ]
+    data = [pa.array(range(5)), pa.array([-10, -5, 0, 5, 10])]
     with pytest.raises(ValueError):
         pa.Table.from_arrays(data, names=['a', 'b', 'c'])
 
@@ -651,19 +647,15 @@ def test_table_from_arrays_invalid_names():
 
 
 def test_table_from_lists():
-    data = [
-        list(range(5)),
-        [-10, -5, 0, 5, 10]
-    ]
+    data = [list(range(5)), [-10, -5, 0, 5, 10]]
 
     result = pa.table(data, names=['a', 'b'])
     expected = pa.Table.from_arrays(data, names=['a', 'b'])
     assert result.equals(expected)
 
-    schema = pa.schema([
-        pa.field('a', pa.uint16()),
-        pa.field('b', pa.int64())
-    ])
+    schema = pa.schema(
+        [pa.field('a', pa.uint16()), pa.field('b', pa.int64())]
+    )
     result = pa.table(data, schema=schema)
     expected = pa.Table.from_arrays(data, schema=schema)
     assert result.equals(expected)
@@ -674,9 +666,10 @@ def test_table_pickle():
         pa.chunked_array([[1, 2], [3, 4]], type=pa.uint32()),
         pa.chunked_array([["some", "strings", None, ""]], type=pa.string()),
     ]
-    schema = pa.schema([pa.field('ints', pa.uint32()),
-                        pa.field('strs', pa.string())],
-                       metadata={b'foo': b'bar'})
+    schema = pa.schema(
+        [pa.field('ints', pa.uint32()), pa.field('strs', pa.string())],
+        metadata={b'foo': b'bar'},
+    )
     table = pa.Table.from_arrays(data, schema=schema)
 
     result = pickle.loads(pickle.dumps(table))
@@ -688,7 +681,7 @@ def test_table_get_field():
     data = [
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10]),
-        pa.array(range(5, 10))
+        pa.array(range(5, 10)),
     ]
     table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
 
@@ -709,7 +702,7 @@ def test_table_select_column():
     data = [
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10]),
-        pa.array(range(5, 10))
+        pa.array(range(5, 10)),
     ]
     table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
 
@@ -729,7 +722,7 @@ def test_table_add_column():
     data = [
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10]),
-        pa.array(range(5, 10))
+        pa.array(range(5, 10)),
     ]
     table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
 
@@ -737,14 +730,16 @@ def test_table_add_column():
     t2 = table.add_column(3, new_field, data[1])
     t3 = table.append_column(new_field, data[1])
 
-    expected = pa.Table.from_arrays(data + [data[1]],
-                                    names=('a', 'b', 'c', 'd'))
+    expected = pa.Table.from_arrays(
+        data + [data[1]], names=('a', 'b', 'c', 'd')
+    )
     assert t2.equals(expected)
     assert t3.equals(expected)
 
     t4 = table.add_column(0, new_field, data[1])
-    expected = pa.Table.from_arrays([data[1]] + data,
-                                    names=('d', 'a', 'b', 'c'))
+    expected = pa.Table.from_arrays(
+        [data[1]] + data, names=('d', 'a', 'b', 'c')
+    )
     assert t4.equals(expected)
 
 
@@ -752,7 +747,7 @@ def test_table_set_column():
     data = [
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10]),
-        pa.array(range(5, 10))
+        pa.array(range(5, 10)),
     ]
     table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
 
@@ -761,8 +756,7 @@ def test_table_set_column():
 
     expected_data = list(data)
     expected_data[0] = data[1]
-    expected = pa.Table.from_arrays(expected_data,
-                                    names=('d', 'b', 'c'))
+    expected = pa.Table.from_arrays(expected_data, names=('d', 'b', 'c'))
     assert t2.equals(expected)
 
 
@@ -787,7 +781,7 @@ def test_table_remove_column():
     data = [
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10]),
-        pa.array(range(5, 10))
+        pa.array(range(5, 10)),
     ]
     table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
 
@@ -817,7 +811,7 @@ def test_table_rename_columns():
     data = [
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10]),
-        pa.array(range(5, 10))
+        pa.array(range(5, 10)),
     ]
     table = pa.Table.from_arrays(data, names=['a', 'b', 'c'])
     assert table.column_names == ['a', 'b', 'c']
@@ -831,8 +825,7 @@ def test_table_rename_columns():
 
 
 def test_table_flatten():
-    ty1 = pa.struct([pa.field('x', pa.int16()),
-                     pa.field('y', pa.float32())])
+    ty1 = pa.struct([pa.field('x', pa.int16()), pa.field('y', pa.float32())])
     ty2 = pa.struct([pa.field('nest', ty1)])
     a = pa.array([(1, 2.5), (3, 4.5)], type=ty1)
     b = pa.array([((11, 12.5),), ((13, 14.5),)], type=ty2)
@@ -841,20 +834,25 @@ def test_table_flatten():
     table = pa.Table.from_arrays([a, b, c], names=['a', 'b', 'c'])
     t2 = table.flatten()
     t2.validate()
-    expected = pa.Table.from_arrays([
-        pa.array([1, 3], type=pa.int16()),
-        pa.array([2.5, 4.5], type=pa.float32()),
-        pa.array([(11, 12.5), (13, 14.5)], type=ty1),
-        c],
-        names=['a.x', 'a.y', 'b.nest', 'c'])
+    expected = pa.Table.from_arrays(
+        [
+            pa.array([1, 3], type=pa.int16()),
+            pa.array([2.5, 4.5], type=pa.float32()),
+            pa.array([(11, 12.5), (13, 14.5)], type=ty1),
+            c,
+        ],
+        names=['a.x', 'a.y', 'b.nest', 'c'],
+    )
     assert t2.equals(expected)
 
 
 def test_table_combine_chunks():
-    batch1 = pa.record_batch([pa.array([1]), pa.array(["a"])],
-                             names=['f1', 'f2'])
-    batch2 = pa.record_batch([pa.array([2]), pa.array(["b"])],
-                             names=['f1', 'f2'])
+    batch1 = pa.record_batch(
+        [pa.array([1]), pa.array(["a"])], names=['f1', 'f2']
+    )
+    batch2 = pa.record_batch(
+        [pa.array([2]), pa.array(["b"])], names=['f1', 'f2']
+    )
     table = pa.Table.from_batches([batch1, batch2])
     combined = table.combine_chunks()
     combined.validate()
@@ -864,27 +862,19 @@ def test_table_combine_chunks():
 
 
 def test_concat_tables():
-    data = [
-        list(range(5)),
-        [-10., -5., 0., 5., 10.]
-    ]
-    data2 = [
-        list(range(5, 10)),
-        [1., 2., 3., 4., 5.]
-    ]
+    data = [list(range(5)), [-10.0, -5.0, 0.0, 5.0, 10.0]]
+    data2 = [list(range(5, 10)), [1.0, 2.0, 3.0, 4.0, 5.0]]
 
-    t1 = pa.Table.from_arrays([pa.array(x) for x in data],
-                              names=('a', 'b'))
-    t2 = pa.Table.from_arrays([pa.array(x) for x in data2],
-                              names=('a', 'b'))
+    t1 = pa.Table.from_arrays([pa.array(x) for x in data], names=('a', 'b'))
+    t2 = pa.Table.from_arrays([pa.array(x) for x in data2], names=('a', 'b'))
 
     result = pa.concat_tables([t1, t2])
     result.validate()
     assert len(result) == 10
 
-    expected = pa.Table.from_arrays([pa.array(x + y)
-                                     for x, y in zip(data, data2)],
-                                    names=('a', 'b'))
+    expected = pa.Table.from_arrays(
+        [pa.array(x + y) for x, y in zip(data, data2)], names=('a', 'b')
+    )
 
     assert result.equals(expected)
 
@@ -893,10 +883,9 @@ def test_concat_tables():
 def test_concat_tables_with_different_schema_metadata():
     import pandas as pd
 
-    schema = pa.schema([
-        pa.field('a', pa.string()),
-        pa.field('b', pa.string()),
-    ])
+    schema = pa.schema(
+        [pa.field('a', pa.string()), pa.field('b', pa.string()),]
+    )
 
     values = list('abcdefgh')
     df1 = pd.DataFrame({'a': values, 'b': values})
@@ -914,23 +903,28 @@ def test_concat_tables_with_different_schema_metadata():
 
 def test_concat_tables_with_promotion():
     t1 = pa.Table.from_arrays(
-        [pa.array([1, 2], type=pa.int64())], ["int64_field"])
+        [pa.array([1, 2], type=pa.int64())], ["int64_field"]
+    )
     t2 = pa.Table.from_arrays(
-        [pa.array([1.0, 2.0], type=pa.float32())], ["float_field"])
+        [pa.array([1.0, 2.0], type=pa.float32())], ["float_field"]
+    )
 
     result = pa.concat_tables([t1, t2], promote=True)
 
-    assert result.equals(pa.Table.from_arrays([
-        pa.array([1, 2, None, None], type=pa.int64()),
-        pa.array([None, None, 1.0, 2.0], type=pa.float32()),
-    ], ["int64_field", "float_field"]))
+    assert result.equals(
+        pa.Table.from_arrays(
+            [
+                pa.array([1, 2, None, None], type=pa.int64()),
+                pa.array([None, None, 1.0, 2.0], type=pa.float32()),
+            ],
+            ["int64_field", "float_field"],
+        )
+    )
 
 
 def test_concat_tables_with_promotion_error():
-    t1 = pa.Table.from_arrays(
-        [pa.array([1, 2], type=pa.int64())], ["f"])
-    t2 = pa.Table.from_arrays(
-        [pa.array([1, 2], type=pa.float32())], ["f"])
+    t1 = pa.Table.from_arrays([pa.array([1, 2], type=pa.int64())], ["f"])
+    t2 = pa.Table.from_arrays([pa.array([1, 2], type=pa.float32())], ["f"])
 
     with pytest.raises(pa.ArrowInvalid):
         pa.concat_tables([t1, t2], promote=True)
@@ -964,15 +958,14 @@ def test_table_cast_to_incompatible_schema():
     ]
     table = pa.Table.from_arrays(data, names=tuple('ab'))
 
-    target_schema1 = pa.schema([
-        pa.field('A', pa.int32()),
-        pa.field('b', pa.int16()),
-    ])
-    target_schema2 = pa.schema([
-        pa.field('a', pa.int32()),
-    ])
-    message = ("Target schema's field names are not matching the table's "
-               "field names:.*")
+    target_schema1 = pa.schema(
+        [pa.field('A', pa.int32()), pa.field('b', pa.int16()),]
+    )
+    target_schema2 = pa.schema([pa.field('a', pa.int32()),])
+    message = (
+        "Target schema's field names are not matching the table's "
+        "field names:.*"
+    )
     with pytest.raises(ValueError, match=message):
         table.cast(target_schema1)
     with pytest.raises(ValueError, match=message):
@@ -984,7 +977,7 @@ def test_table_safe_casting():
         pa.array(range(5), type=pa.int64()),
         pa.array([-10, -5, 0, 5, 10], type=pa.int32()),
         pa.array([1.0, 2.0, 3.0, 4.0, 5.0], type=pa.float64()),
-        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
+        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string()),
     ]
     table = pa.Table.from_arrays(data, names=tuple('abcd'))
 
@@ -992,16 +985,18 @@ def test_table_safe_casting():
         pa.array(range(5), type=pa.int32()),
         pa.array([-10, -5, 0, 5, 10], type=pa.int16()),
         pa.array([1, 2, 3, 4, 5], type=pa.int64()),
-        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
+        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string()),
     ]
     expected_table = pa.Table.from_arrays(expected_data, names=tuple('abcd'))
 
-    target_schema = pa.schema([
-        pa.field('a', pa.int32()),
-        pa.field('b', pa.int16()),
-        pa.field('c', pa.int64()),
-        pa.field('d', pa.string())
-    ])
+    target_schema = pa.schema(
+        [
+            pa.field('a', pa.int32()),
+            pa.field('b', pa.int16()),
+            pa.field('c', pa.int64()),
+            pa.field('d', pa.string()),
+        ]
+    )
     casted_table = table.cast(target_schema)
 
     assert casted_table.equals(expected_table)
@@ -1012,7 +1007,7 @@ def test_table_unsafe_casting():
         pa.array(range(5), type=pa.int64()),
         pa.array([-10, -5, 0, 5, 10], type=pa.int32()),
         pa.array([1.1, 2.2, 3.3, 4.4, 5.5], type=pa.float64()),
-        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
+        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string()),
     ]
     table = pa.Table.from_arrays(data, names=tuple('abcd'))
 
@@ -1020,19 +1015,22 @@ def test_table_unsafe_casting():
         pa.array(range(5), type=pa.int32()),
         pa.array([-10, -5, 0, 5, 10], type=pa.int16()),
         pa.array([1, 2, 3, 4, 5], type=pa.int64()),
-        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
+        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string()),
     ]
     expected_table = pa.Table.from_arrays(expected_data, names=tuple('abcd'))
 
-    target_schema = pa.schema([
-        pa.field('a', pa.int32()),
-        pa.field('b', pa.int16()),
-        pa.field('c', pa.int64()),
-        pa.field('d', pa.string())
-    ])
+    target_schema = pa.schema(
+        [
+            pa.field('a', pa.int32()),
+            pa.field('b', pa.int16()),
+            pa.field('c', pa.int64()),
+            pa.field('d', pa.string()),
+        ]
+    )
 
-    with pytest.raises(pa.ArrowInvalid,
-                       match='Floating point value truncated'):
+    with pytest.raises(
+        pa.ArrowInvalid, match='Floating point value truncated'
+    ):
         table.cast(target_schema)
 
     casted_table = table.cast(target_schema, safe=False)
@@ -1048,11 +1046,14 @@ def test_invalid_table_construct():
         pa.Table.from_arrays(arrays, names=["a1", "a2"])
 
 
-@pytest.mark.parametrize('data, klass', [
-    ((['', 'foo', 'bar'], [4.5, 5, None]), list),
-    ((['', 'foo', 'bar'], [4.5, 5, None]), pa.array),
-    (([[''], ['foo', 'bar']], [[4.5], [5., None]]), pa.chunked_array),
-])
+@pytest.mark.parametrize(
+    'data, klass',
+    [
+        ((['', 'foo', 'bar'], [4.5, 5, None]), list),
+        ((['', 'foo', 'bar'], [4.5, 5, None]), pa.array),
+        (([[''], ['foo', 'bar']], [[4.5], [5.0, None]]), pa.chunked_array),
+    ],
+)
 def test_from_arrays_schema(data, klass):
     data = [klass(data[0]), klass(data[1])]
     schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float32())])
@@ -1098,8 +1099,9 @@ def test_table_from_pydict():
     schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64())])
 
     # With lists as values
-    data = OrderedDict([('strs', ['', 'foo', 'bar']),
-                        ('floats', [4.5, 5, None])])
+    data = OrderedDict(
+        [('strs', ['', 'foo', 'bar']), ('floats', [4.5, 5, None])]
+    )
     table = pa.Table.from_pydict(data)
     assert table.num_columns == 2
     assert table.num_rows == 3
@@ -1126,18 +1128,17 @@ def test_table_from_pydict():
 
     # Non-convertible values given schema
     with pytest.raises(TypeError):
-        pa.Table.from_pydict({'c0': [0, 1, 2]},
-                             schema=pa.schema([("c0", pa.string())]))
+        pa.Table.from_pydict(
+            {'c0': [0, 1, 2]}, schema=pa.schema([("c0", pa.string())])
+        )
 
     # Missing schema fields from the passed mapping
     with pytest.raises(KeyError, match="doesn\'t contain.* c, d"):
         pa.Table.from_pydict(
             {'a': [1, 2, 3], 'b': [3, 4, 5]},
-            schema=pa.schema([
-                ('a', pa.int64()),
-                ('c', pa.int32()),
-                ('d', pa.int16())
-            ])
+            schema=pa.schema(
+                [('a', pa.int64()), ('c', pa.int32()), ('d', pa.int16())]
+            ),
         )
 
     # Passed wrong schema type
@@ -1145,10 +1146,13 @@ def test_table_from_pydict():
         pa.Table.from_pydict({'a': [1, 2, 3]}, schema={})
 
 
-@pytest.mark.parametrize('data, klass', [
-    ((['', 'foo', 'bar'], [4.5, 5, None]), pa.array),
-    (([[''], ['foo', 'bar']], [[4.5], [5., None]]), pa.chunked_array),
-])
+@pytest.mark.parametrize(
+    'data, klass',
+    [
+        ((['', 'foo', 'bar'], [4.5, 5, None]), pa.array),
+        (([[''], ['foo', 'bar']], [[4.5], [5.0, None]]), pa.chunked_array),
+    ],
+)
 def test_table_from_pydict_arrow_arrays(data, klass):
     data = OrderedDict([('strs', klass(data[0])), ('floats', klass(data[1]))])
     schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64())])
@@ -1179,19 +1183,23 @@ def test_table_from_pydict_arrow_arrays(data, klass):
         pa.Table.from_pydict(data, schema=schema)
 
 
-@pytest.mark.parametrize('data, klass', [
-    ((['', 'foo', 'bar'], [4.5, 5, None]), list),
-    ((['', 'foo', 'bar'], [4.5, 5, None]), pa.array),
-    (([[''], ['foo', 'bar']], [[4.5], [5., None]]), pa.chunked_array),
-])
+@pytest.mark.parametrize(
+    'data, klass',
+    [
+        ((['', 'foo', 'bar'], [4.5, 5, None]), list),
+        ((['', 'foo', 'bar'], [4.5, 5, None]), pa.array),
+        (([[''], ['foo', 'bar']], [[4.5], [5.0, None]]), pa.chunked_array),
+    ],
+)
 def test_table_from_pydict_schema(data, klass):
     # passed schema is source of truth for the columns
 
     data = OrderedDict([('strs', klass(data[0])), ('floats', klass(data[1]))])
 
     # schema has columns not present in data -> error
-    schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64()),
-                        ('ints', pa.int64())])
+    schema = pa.schema(
+        [('strs', pa.utf8()), ('floats', pa.float64()), ('ints', pa.int64())]
+    )
     with pytest.raises(KeyError, match='ints'):
         pa.Table.from_pydict(data, schema=schema)
 
@@ -1208,8 +1216,11 @@ def test_table_from_pandas_schema():
     # passed schema is source of truth for the columns
     import pandas as pd
 
-    df = pd.DataFrame(OrderedDict([('strs', ['', 'foo', 'bar']),
-                                   ('floats', [4.5, 5, None])]))
+    df = pd.DataFrame(
+        OrderedDict(
+            [('strs', ['', 'foo', 'bar']), ('floats', [4.5, 5, None])]
+        )
+    )
 
     # with different but compatible schema
     schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float32())])
@@ -1223,8 +1234,9 @@ def test_table_from_pandas_schema():
         pa.Table.from_pandas(df, schema=schema)
 
     # schema has columns not present in data -> error
-    schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64()),
-                        ('ints', pa.int64())])
+    schema = pa.schema(
+        [('strs', pa.utf8()), ('floats', pa.float64()), ('ints', pa.int64())]
+    )
     with pytest.raises(KeyError, match='ints'):
         pa.Table.from_pandas(df, schema=schema)
 
@@ -1243,8 +1255,10 @@ def test_table_factory_function():
     # Put in wrong order to make sure that lines up with schema
     d = OrderedDict([('b', ['a', 'b', 'c']), ('a', [1, 2, 3])])
 
-    d_explicit = {'b': pa.array(['a', 'b', 'c'], type='string'),
-                  'a': pa.array([1, 2, 3], type='int32')}
+    d_explicit = {
+        'b': pa.array(['a', 'b', 'c'], type='string'),
+        'a': pa.array([1, 2, 3], type='int32'),
+    }
 
     schema = pa.schema([('a', pa.int32()), ('b', pa.string())])
 

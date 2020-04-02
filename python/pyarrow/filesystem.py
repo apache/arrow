@@ -189,8 +189,15 @@ class FileSystem:
         """
         raise NotImplementedError
 
-    def read_parquet(self, path, columns=None, metadata=None, schema=None,
-                     use_threads=True, use_pandas_metadata=False):
+    def read_parquet(
+        self,
+        path,
+        columns=None,
+        metadata=None,
+        schema=None,
+        use_threads=True,
+        use_pandas_metadata=False,
+    ):
         """
         Read Parquet data from path in file system. Can read from a single file
         or a directory of files.
@@ -217,10 +224,15 @@ class FileSystem:
         table : pyarrow.Table
         """
         from pyarrow.parquet import ParquetDataset
-        dataset = ParquetDataset(path, schema=schema, metadata=metadata,
-                                 filesystem=self)
-        return dataset.read(columns=columns, use_threads=use_threads,
-                            use_pandas_metadata=use_pandas_metadata)
+
+        dataset = ParquetDataset(
+            path, schema=schema, metadata=metadata, filesystem=self
+        )
+        return dataset.read(
+            columns=columns,
+            use_threads=use_threads,
+            use_pandas_metadata=use_pandas_metadata,
+        )
 
     def open(self, path, mode='rb'):
         """
@@ -358,7 +370,6 @@ class DaskFileSystem(FileSystem):
 
 
 class S3FSWrapper(DaskFileSystem):
-
     @implements(FileSystem.isdir)
     def isdir(self, path):
         path = _sanitize_s3(_stringify_path(path))
@@ -401,10 +412,10 @@ class S3FSWrapper(DaskFileSystem):
                 files.add(path)
 
         # s3fs creates duplicate 'DIRECTORY' entries
-        files = sorted([posixpath.split(f)[1] for f in files
-                        if f not in directories])
-        directories = sorted([posixpath.split(x)[1]
-                              for x in directories])
+        files = sorted(
+            [posixpath.split(f)[1] for f in files if f not in directories]
+        )
+        directories = sorted([posixpath.split(x)[1] for x in directories])
 
         yield path, directories, files
 
@@ -445,8 +456,10 @@ def resolve_filesystem_and_path(where, filesystem=None):
     """
     if not _is_path_like(where):
         if filesystem is not None:
-            raise ValueError("filesystem passed but where is file-like, so"
-                             " there is nothing to open with filesystem.")
+            raise ValueError(
+                "filesystem passed but where is file-like, so"
+                " there is nothing to open with filesystem."
+            )
         return filesystem, where
 
     path = _stringify_path(where)

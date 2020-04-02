@@ -25,7 +25,6 @@ import pyarrow as pa
 
 
 class TestScalars(unittest.TestCase):
-
     def test_null_singleton(self):
         with pytest.raises(Exception):
             pa.NAType()
@@ -200,8 +199,9 @@ class TestScalars(unittest.TestCase):
         assert len(v) == 0
 
     def test_large_list(self):
-        arr = pa.array([[123, None], None, [456], []],
-                       type=pa.large_list(pa.int16()))
+        arr = pa.array(
+            [[123, None], None, [456], []], type=pa.large_list(pa.int16())
+        )
 
         v = arr[0]
         assert len(v) == 2
@@ -223,8 +223,10 @@ class TestScalars(unittest.TestCase):
         assert len(v) == 0
 
     def test_map(self):
-        arr = pa.array([[('a', 1), ('b', 2)], None, [], [('c', None)]],
-                       pa.map_(pa.string(), pa.int8()))
+        arr = pa.array(
+            [[('a', 1), ('b', 2)], None, [], [('c', None)]],
+            pa.map_(pa.string(), pa.int8()),
+        )
         v = arr[0]
         assert len(v) == 2
         assert isinstance(v, pa.MapValue)
@@ -266,7 +268,10 @@ class TestScalars(unittest.TestCase):
 
     def test_date(self):
         # ARROW-5125
-        d1, d2 = datetime.date(3200, 1, 1), datetime.date(1960, 1, 1),
+        d1, d2 = (
+            datetime.date(3200, 1, 1),
+            datetime.date(1960, 1, 1),
+        )
         extremes = pa.array([d1, d2], type=pa.date32())
         assert extremes[0] == d1
         assert extremes[1] == d2
@@ -277,6 +282,7 @@ class TestScalars(unittest.TestCase):
     @pytest.mark.pandas
     def test_timestamp(self):
         import pandas as pd
+
         arr = pd.date_range('2000-01-01 12:34:56', periods=10).values
 
         units = ['ns', 'us', 'ms', 's']
@@ -287,30 +293,32 @@ class TestScalars(unittest.TestCase):
             expected = pd.Timestamp('2000-01-01 12:34:56')
 
             assert arrow_arr[0].as_py() == expected
-            assert arrow_arr[0].value * 1000**i == expected.value
+            assert arrow_arr[0].value * 1000 ** i == expected.value
 
             tz = 'America/New_York'
             arrow_type = pa.timestamp(unit, tz=tz)
 
             dtype = 'datetime64[{}]'.format(unit)
-            arrow_arr = pa.Array.from_pandas(arr.astype(dtype),
-                                             type=arrow_type)
-            expected = (pd.Timestamp('2000-01-01 12:34:56')
-                        .tz_localize('utc')
-                        .tz_convert(tz))
+            arrow_arr = pa.Array.from_pandas(
+                arr.astype(dtype), type=arrow_type
+            )
+            expected = (
+                pd.Timestamp('2000-01-01 12:34:56')
+                .tz_localize('utc')
+                .tz_convert(tz)
+            )
 
             assert arrow_arr[0].as_py() == expected
-            assert arrow_arr[0].value * 1000**i == expected.value
+            assert arrow_arr[0].value * 1000 ** i == expected.value
 
     @pytest.mark.nopandas
     def test_timestamp_nanos_nopandas(self):
         # ARROW-5450
         import pytz
+
         tz = 'America/New_York'
         ty = pa.timestamp('ns', tz=tz)
-        arr = pa.array([
-            946684800000000000,  # 2000-01-01 00:00:00
-        ], type=ty)
+        arr = pa.array([946684800000000000,], type=ty)  # 2000-01-01 00:00:00
 
         tzinfo = pytz.timezone(tz)
         expected = datetime.datetime(2000, 1, 1, tzinfo=tzinfo)
@@ -328,13 +336,14 @@ class TestScalars(unittest.TestCase):
     def test_timestamp_no_overflow(self):
         # ARROW-5450
         import pytz
+
         timestamp_rows = [
             datetime.datetime(1, 1, 1, 0, 0, 0, tzinfo=pytz.utc),
             None,
-            datetime.datetime(9999, 12, 31, 23, 59, 59, 999999,
-                              tzinfo=pytz.utc),
-            datetime.datetime(1970, 1, 1, 0, 0, 0,
-                              tzinfo=pytz.utc),
+            datetime.datetime(
+                9999, 12, 31, 23, 59, 59, 999999, tzinfo=pytz.utc
+            ),
+            datetime.datetime(1970, 1, 1, 0, 0, 0, tzinfo=pytz.utc),
         ]
         arr = pa.array(timestamp_rows, pa.timestamp("us", tz="UTC"))
         result = arr.to_pylist()
@@ -348,15 +357,18 @@ class TestScalars(unittest.TestCase):
         for i, unit in enumerate(units):
             dtype = 'timedelta64[{}]'.format(unit)
             arrow_arr = pa.array(arr.astype(dtype))
-            expected = datetime.timedelta(seconds=60*60)
+            expected = datetime.timedelta(seconds=60 * 60)
             assert isinstance(arrow_arr[1].as_py(), datetime.timedelta)
             assert arrow_arr[1].as_py() == expected
-            assert (arrow_arr[1].value * 1000**(i+1) ==
-                    expected.total_seconds() * 1e9)
+            assert (
+                arrow_arr[1].value * 1000 ** (i + 1)
+                == expected.total_seconds() * 1e9
+            )
 
     @pytest.mark.pandas
     def test_duration_nanos_pandas(self):
         import pandas as pd
+
         arr = pa.array([0, 3600000000000], type=pa.duration('ns'))
         expected = pd.Timedelta('1 hour')
         assert isinstance(arr[1].as_py(), pd.Timedelta)
@@ -370,7 +382,7 @@ class TestScalars(unittest.TestCase):
     @pytest.mark.nopandas
     def test_duration_nanos_nopandas(self):
         arr = pa.array([0, 3600000000000], pa.duration('ns'))
-        expected = datetime.timedelta(seconds=60*60)
+        expected = datetime.timedelta(seconds=60 * 60)
         assert isinstance(arr[1].as_py(), datetime.timedelta)
         assert arr[1].as_py() == expected
         assert arr[1].value == expected.total_seconds() * 1e9
@@ -383,14 +395,16 @@ class TestScalars(unittest.TestCase):
     @pytest.mark.pandas
     def test_dictionary(self):
         import pandas as pd
+
         colors = ['red', 'green', 'blue']
         colors_dict = {'red': 0, 'green': 1, 'blue': 2}
         values = pd.Series(colors * 4)
 
         categorical = pd.Categorical(values, categories=colors)
 
-        v = pa.DictionaryArray.from_arrays(categorical.codes,
-                                           categorical.categories)
+        v = pa.DictionaryArray.from_arrays(
+            categorical.codes, categorical.categories
+        )
         for i, c in enumerate(values):
             assert v[i].as_py() == c
             assert v[i].dictionary_value == c
@@ -424,8 +438,9 @@ class TestScalars(unittest.TestCase):
         assert set_from_array == {1, 2}
 
     def test_struct_value_subscripting(self):
-        ty = pa.struct([pa.field('x', pa.int16()),
-                        pa.field('y', pa.float32())])
+        ty = pa.struct(
+            [pa.field('x', pa.int16()), pa.field('y', pa.float32())]
+        )
         arr = pa.array([(1, 2.5), (3, 4.5), (5, 6.5)], type=ty)
 
         assert arr[0]['x'] == 1

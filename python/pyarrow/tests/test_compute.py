@@ -39,8 +39,10 @@ all_array_types = [
     (pa.binary(3), [b'abc', b'bcd', b'cde', b'def', b'efg']),
     (pa.list_(pa.int8()), [[1, 2], [3, 4], [5, 6], None, [9, 16]]),
     (pa.large_list(pa.int16()), [[1], [2, 3, 4], [5, 6], None, [9, 16]]),
-    (pa.struct([('a', pa.int8()), ('b', pa.int8())]), [
-     {'a': 1, 'b': 2}, None, {'a': 3, 'b': 4}, None, {'a': 5, 'b': 6}]),
+    (
+        pa.struct([('a', pa.int8()), ('b', pa.int8())]),
+        [{'a': 1, 'b': 2}, None, {'a': 3, 'b': 4}, None, {'a': 5, 'b': 6}],
+    ),
 ]
 
 
@@ -52,7 +54,7 @@ numerical_arrow_types = [
     pa.uint16(),
     pa.uint64(),
     pa.float32(),
-    pa.float64()
+    pa.float64(),
 ]
 
 
@@ -72,16 +74,18 @@ def test_sum_chunked_array(arrow_type):
     arr = pa.chunked_array([pa.array([1, 2, 3, 4], type=arrow_type)])
     assert pa.compute.sum(arr) == 10
 
-    arr = pa.chunked_array([
-        pa.array([1, 2], type=arrow_type), pa.array([3, 4], type=arrow_type)
-    ])
+    arr = pa.chunked_array(
+        [pa.array([1, 2], type=arrow_type), pa.array([3, 4], type=arrow_type)]
+    )
     assert pa.compute.sum(arr) == 10
 
-    arr = pa.chunked_array([
-        pa.array([1, 2], type=arrow_type),
-        pa.array([], type=arrow_type),
-        pa.array([3, 4], type=arrow_type)
-    ])
+    arr = pa.chunked_array(
+        [
+            pa.array([1, 2], type=arrow_type),
+            pa.array([], type=arrow_type),
+            pa.array([3, 4], type=arrow_type),
+        ]
+    )
     assert pa.compute.sum(arr) == 10
 
     arr = pa.chunked_array((), type=arrow_type)
@@ -119,8 +123,16 @@ def test_take(ty, values):
 def test_take_indices_types():
     arr = pa.array(range(5))
 
-    for indices_type in ['uint8', 'int8', 'uint16', 'int16',
-                         'uint32', 'int32', 'uint64', 'int64']:
+    for indices_type in [
+        'uint8',
+        'int8',
+        'uint16',
+        'int16',
+        'uint32',
+        'int32',
+        'uint64',
+        'int64',
+    ]:
         indices = pa.array([0, 4, 2, None], type=indices_type)
         result = arr.take(indices)
         result.validate()
@@ -135,8 +147,9 @@ def test_take_indices_types():
 
 @pytest.mark.parametrize('ordered', [False, True])
 def test_take_dictionary(ordered):
-    arr = pa.DictionaryArray.from_arrays([0, 1, 2, 0, 1, 2], ['a', 'b', 'c'],
-                                         ordered=ordered)
+    arr = pa.DictionaryArray.from_arrays(
+        [0, 1, 2, 0, 1, 2], ['a', 'b', 'c'], ordered=ordered
+    )
     result = arr.take(pa.array([0, 1, 3]))
     result.validate()
     assert result.to_pylist() == ['a', 'b', 'a']

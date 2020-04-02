@@ -38,6 +38,7 @@ except ImportError:
     # Package is not installed, parse git tag at runtime
     try:
         import setuptools_scm
+
         # Code duplicated from setup.py to avoid a dependency on each other
         def parse_git(root, **kwargs):
             """
@@ -45,11 +46,13 @@ except ImportError:
             subprojects, e.g. apache-arrow-js-XXX tags.
             """
             from setuptools_scm.git import parse
-            kwargs['describe_command'] = \
-                "git describe --dirty --tags --long --match 'apache-arrow-[0-9].*'"
+
+            kwargs[
+                'describe_command'
+            ] = "git describe --dirty --tags --long --match 'apache-arrow-[0-9].*'"
             return parse(root, **kwargs)
-        __version__ = setuptools_scm.get_version('../',
-                                                 parse=parse_git)
+
+        __version__ = setuptools_scm.get_version('../', parse=parse_git)
     except ImportError:
         __version__ = None
 
@@ -57,129 +60,265 @@ except ImportError:
 import pyarrow.compat as compat
 
 from pyarrow.lib import cpu_count, set_cpu_count
-from pyarrow.lib import (null, bool_,
-                         int8, int16, int32, int64,
-                         uint8, uint16, uint32, uint64,
-                         time32, time64, timestamp, date32, date64, duration,
-                         float16, float32, float64,
-                         binary, string, utf8,
-                         large_binary, large_string, large_utf8,
-                         decimal128,
-                         list_, large_list, map_, struct, union, dictionary,
-                         field,
-                         type_for_alias,
-                         DataType, DictionaryType, StructType,
-                         ListType, LargeListType, MapType, FixedSizeListType,
-                         UnionType,
-                         TimestampType, Time32Type, Time64Type, DurationType,
-                         FixedSizeBinaryType, Decimal128Type,
-                         BaseExtensionType, ExtensionType,
-                         PyExtensionType, UnknownExtensionType,
-                         register_extension_type, unregister_extension_type,
-                         DictionaryMemo,
-                         Field,
-                         Schema,
-                         schema,
-                         Array, Tensor,
-                         array, chunked_array, record_batch, table,
-                         SparseCOOTensor, SparseCSRMatrix, SparseCSCMatrix,
-                         SparseCSFTensor,
-                         infer_type, from_numpy_dtype,
-                         NullArray,
-                         NumericArray, IntegerArray, FloatingPointArray,
-                         BooleanArray,
-                         Int8Array, UInt8Array,
-                         Int16Array, UInt16Array,
-                         Int32Array, UInt32Array,
-                         Int64Array, UInt64Array,
-                         ListArray, LargeListArray, MapArray,
-                         FixedSizeListArray, UnionArray,
-                         BinaryArray, StringArray,
-                         LargeBinaryArray, LargeStringArray,
-                         FixedSizeBinaryArray,
-                         DictionaryArray,
-                         Date32Array, Date64Array, TimestampArray,
-                         Time32Array, Time64Array, DurationArray,
-                         Decimal128Array, StructArray, ExtensionArray,
-                         ArrayValue, Scalar, NA, _NULL as NULL,
-                         BooleanValue,
-                         Int8Value, Int16Value, Int32Value, Int64Value,
-                         UInt8Value, UInt16Value, UInt32Value, UInt64Value,
-                         HalfFloatValue, FloatValue, DoubleValue,
-                         ListValue, LargeListValue, MapValue, FixedSizeListValue,
-                         BinaryValue, StringValue,
-                         LargeBinaryValue, LargeStringValue,
-                         FixedSizeBinaryValue,
-                         DecimalValue, UnionValue, StructValue, DictionaryValue,
-                         Date32Value, Date64Value,
-                         Time32Value, Time64Value,
-                         TimestampValue, DurationValue)
+from pyarrow.lib import (
+    null,
+    bool_,
+    int8,
+    int16,
+    int32,
+    int64,
+    uint8,
+    uint16,
+    uint32,
+    uint64,
+    time32,
+    time64,
+    timestamp,
+    date32,
+    date64,
+    duration,
+    float16,
+    float32,
+    float64,
+    binary,
+    string,
+    utf8,
+    large_binary,
+    large_string,
+    large_utf8,
+    decimal128,
+    list_,
+    large_list,
+    map_,
+    struct,
+    union,
+    dictionary,
+    field,
+    type_for_alias,
+    DataType,
+    DictionaryType,
+    StructType,
+    ListType,
+    LargeListType,
+    MapType,
+    FixedSizeListType,
+    UnionType,
+    TimestampType,
+    Time32Type,
+    Time64Type,
+    DurationType,
+    FixedSizeBinaryType,
+    Decimal128Type,
+    BaseExtensionType,
+    ExtensionType,
+    PyExtensionType,
+    UnknownExtensionType,
+    register_extension_type,
+    unregister_extension_type,
+    DictionaryMemo,
+    Field,
+    Schema,
+    schema,
+    Array,
+    Tensor,
+    array,
+    chunked_array,
+    record_batch,
+    table,
+    SparseCOOTensor,
+    SparseCSRMatrix,
+    SparseCSCMatrix,
+    SparseCSFTensor,
+    infer_type,
+    from_numpy_dtype,
+    NullArray,
+    NumericArray,
+    IntegerArray,
+    FloatingPointArray,
+    BooleanArray,
+    Int8Array,
+    UInt8Array,
+    Int16Array,
+    UInt16Array,
+    Int32Array,
+    UInt32Array,
+    Int64Array,
+    UInt64Array,
+    ListArray,
+    LargeListArray,
+    MapArray,
+    FixedSizeListArray,
+    UnionArray,
+    BinaryArray,
+    StringArray,
+    LargeBinaryArray,
+    LargeStringArray,
+    FixedSizeBinaryArray,
+    DictionaryArray,
+    Date32Array,
+    Date64Array,
+    TimestampArray,
+    Time32Array,
+    Time64Array,
+    DurationArray,
+    Decimal128Array,
+    StructArray,
+    ExtensionArray,
+    ArrayValue,
+    Scalar,
+    NA,
+    _NULL as NULL,
+    BooleanValue,
+    Int8Value,
+    Int16Value,
+    Int32Value,
+    Int64Value,
+    UInt8Value,
+    UInt16Value,
+    UInt32Value,
+    UInt64Value,
+    HalfFloatValue,
+    FloatValue,
+    DoubleValue,
+    ListValue,
+    LargeListValue,
+    MapValue,
+    FixedSizeListValue,
+    BinaryValue,
+    StringValue,
+    LargeBinaryValue,
+    LargeStringValue,
+    FixedSizeBinaryValue,
+    DecimalValue,
+    UnionValue,
+    StructValue,
+    DictionaryValue,
+    Date32Value,
+    Date64Value,
+    Time32Value,
+    Time64Value,
+    TimestampValue,
+    DurationValue,
+)
 
 # Buffers, allocation
-from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,
-                         Codec, compress, decompress, allocate_buffer)
+from pyarrow.lib import (
+    Buffer,
+    ResizableBuffer,
+    foreign_buffer,
+    py_buffer,
+    Codec,
+    compress,
+    decompress,
+    allocate_buffer,
+)
 
-from pyarrow.lib import (MemoryPool, LoggingMemoryPool, ProxyMemoryPool,
-                         total_allocated_bytes, set_memory_pool,
-                         default_memory_pool, logging_memory_pool,
-                         proxy_memory_pool, log_memory_allocations,
-                         jemalloc_set_decay_ms)
+from pyarrow.lib import (
+    MemoryPool,
+    LoggingMemoryPool,
+    ProxyMemoryPool,
+    total_allocated_bytes,
+    set_memory_pool,
+    default_memory_pool,
+    logging_memory_pool,
+    proxy_memory_pool,
+    log_memory_allocations,
+    jemalloc_set_decay_ms,
+)
 
 # I/O
-from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
-                         BufferedInputStream, BufferedOutputStream,
-                         CompressedInputStream, CompressedOutputStream,
-                         FixedSizeBufferWriter,
-                         BufferReader, BufferOutputStream,
-                         OSFile, MemoryMappedFile, memory_map,
-                         create_memory_map, have_libhdfs,
-                         MockOutputStream, input_stream, output_stream)
+from pyarrow.lib import (
+    HdfsFile,
+    NativeFile,
+    PythonFile,
+    BufferedInputStream,
+    BufferedOutputStream,
+    CompressedInputStream,
+    CompressedOutputStream,
+    FixedSizeBufferWriter,
+    BufferReader,
+    BufferOutputStream,
+    OSFile,
+    MemoryMappedFile,
+    memory_map,
+    create_memory_map,
+    have_libhdfs,
+    MockOutputStream,
+    input_stream,
+    output_stream,
+)
 
-from pyarrow.lib import (ChunkedArray, RecordBatch, Table,
-                         concat_arrays, concat_tables)
+from pyarrow.lib import (
+    ChunkedArray,
+    RecordBatch,
+    Table,
+    concat_arrays,
+    concat_tables,
+)
 
 # Exceptions
-from pyarrow.lib import (ArrowException,
-                         ArrowKeyError,
-                         ArrowInvalid,
-                         ArrowIOError,
-                         ArrowMemoryError,
-                         ArrowNotImplementedError,
-                         ArrowTypeError,
-                         ArrowSerializationError)
+from pyarrow.lib import (
+    ArrowException,
+    ArrowKeyError,
+    ArrowInvalid,
+    ArrowIOError,
+    ArrowMemoryError,
+    ArrowNotImplementedError,
+    ArrowTypeError,
+    ArrowSerializationError,
+)
 
 # Serialization
-from pyarrow.lib import (deserialize_from, deserialize,
-                         deserialize_components,
-                         serialize, serialize_to, read_serialized,
-                         SerializedPyObject, SerializationContext,
-                         SerializationCallbackError,
-                         DeserializationCallbackError)
+from pyarrow.lib import (
+    deserialize_from,
+    deserialize,
+    deserialize_components,
+    serialize,
+    serialize_to,
+    read_serialized,
+    SerializedPyObject,
+    SerializationContext,
+    SerializationCallbackError,
+    DeserializationCallbackError,
+)
 
 from pyarrow.filesystem import FileSystem, LocalFileSystem
 
 from pyarrow.hdfs import HadoopFileSystem
 import pyarrow.hdfs as hdfs
 
-from pyarrow.ipc import (Message, MessageReader,
-                         RecordBatchFileReader, RecordBatchFileWriter,
-                         RecordBatchStreamReader, RecordBatchStreamWriter,
-                         read_message, read_record_batch, read_schema,
-                         read_tensor, write_tensor,
-                         get_record_batch_size, get_tensor_size,
-                         serialize_pandas, deserialize_pandas)
+from pyarrow.ipc import (
+    Message,
+    MessageReader,
+    RecordBatchFileReader,
+    RecordBatchFileWriter,
+    RecordBatchStreamReader,
+    RecordBatchStreamWriter,
+    read_message,
+    read_record_batch,
+    read_schema,
+    read_tensor,
+    write_tensor,
+    get_record_batch_size,
+    get_tensor_size,
+    serialize_pandas,
+    deserialize_pandas,
+)
 import pyarrow.ipc as ipc
 
 
 localfs = LocalFileSystem.get_instance()
 
-from pyarrow.serialization import (default_serialization_context,
-                                   register_default_serialization_handlers,
-                                   register_torch_serialization_handlers)
+from pyarrow.serialization import (
+    default_serialization_context,
+    register_default_serialization_handlers,
+    register_torch_serialization_handlers,
+)
 
 import pyarrow.types as types
 
 # Entry point for starting the plasma store
+
 
 def _plasma_store_entry_point():
     """Entry point for starting the plasma store.
@@ -190,9 +329,12 @@ def _plasma_store_entry_point():
     given arguments.
     """
     import pyarrow
-    plasma_store_executable = _os.path.join(pyarrow.__path__[0],
-                                            "plasma-store-server")
+
+    plasma_store_executable = _os.path.join(
+        pyarrow.__path__[0], "plasma-store-server"
+    )
     _os.execv(plasma_store_executable, _sys.argv)
+
 
 # ----------------------------------------------------------------------
 # Deprecations
@@ -200,15 +342,18 @@ def _plasma_store_entry_point():
 from pyarrow.util import _deprecate_api  # noqa
 
 
-open_stream = _deprecate_api("open_stream", "ipc.open_stream",
-                             ipc.open_stream, "0.17.0")
+open_stream = _deprecate_api(
+    "open_stream", "ipc.open_stream", ipc.open_stream, "0.17.0"
+)
 
-open_file = _deprecate_api("open_file", "ipc.open_file", ipc.open_file,
-                           "0.17.0")
+open_file = _deprecate_api(
+    "open_file", "ipc.open_file", ipc.open_file, "0.17.0"
+)
 
 # ----------------------------------------------------------------------
 # Returning absolute path to the pyarrow include directory (if bundled, e.g. in
 # wheels)
+
 
 def get_include():
     """
@@ -224,18 +369,25 @@ def _get_pkg_config_executable():
 
 def _has_pkg_config(pkgname):
     import subprocess
+
     try:
-        return subprocess.call([_get_pkg_config_executable(),
-                                '--exists', pkgname]) == 0
+        return (
+            subprocess.call(
+                [_get_pkg_config_executable(), '--exists', pkgname]
+            )
+            == 0
+        )
     except FileNotFoundError:
         return False
 
 
 def _read_pkg_config_variable(pkgname, cli_args):
     import subprocess
+
     cmd = [_get_pkg_config_executable(), pkgname] + cli_args
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
     out, err = proc.communicate()
     if proc.returncode != 0:
         raise RuntimeError("pkg-config failed: " + err.decode('utf8'))
@@ -268,15 +420,17 @@ def get_library_dirs():
     pkg_config_executable = _os.environ.get('PKG_CONFIG') or 'pkg-config'
     for pkgname in ["arrow", "arrow_python"]:
         if _has_pkg_config(pkgname):
-            library_dir = _read_pkg_config_variable(pkgname,
-                                                    ["--libs-only-L"])
+            library_dir = _read_pkg_config_variable(
+                pkgname, ["--libs-only-L"]
+            )
             # pkg-config output could be empty if Arrow is installed
             # as a system package.
             if library_dir:
                 if not library_dir.startswith("-L"):
                     raise ValueError(
                         "pkg-config --libs-only-L returned unexpected "
-                        "value {!r}".format(library_dir))
+                        "value {!r}".format(library_dir)
+                    )
                 append_library_dir(library_dir[2:])
 
     if _sys.platform == 'win32':

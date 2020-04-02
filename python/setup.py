@@ -40,7 +40,7 @@ from distutils.util import strtobool
 from distutils import sysconfig
 
 # Check if we're running 64-bit Python
-is_64_bit = sys.maxsize > 2**32
+is_64_bit = sys.maxsize > 2 ** 32
 
 if Cython.__version__ < '0.29':
     raise Exception('Please upgrade to Cython 0.29 or newer')
@@ -65,7 +65,6 @@ def changed_dir(dirname):
 
 
 class clean(_clean):
-
     def run(self):
         _clean.run(self)
         for x in []:
@@ -81,12 +80,15 @@ class build_ext(_build_ext):
     def build_extensions(self):
         numpy_incl = pkg_resources.resource_filename('numpy', 'core/include')
 
-        self.extensions = [ext for ext in self.extensions
-                           if ext.name != '__dummy__']
+        self.extensions = [
+            ext for ext in self.extensions if ext.name != '__dummy__'
+        ]
 
         for ext in self.extensions:
-            if (hasattr(ext, 'include_dirs') and
-                    numpy_incl not in ext.include_dirs):
+            if (
+                hasattr(ext, 'include_dirs')
+                and numpy_incl not in ext.include_dirs
+            ):
                 ext.include_dirs.append(numpy_incl)
         _build_ext.build_extensions(self)
 
@@ -98,30 +100,29 @@ class build_ext(_build_ext):
     # github.com/libdynd/dynd-python
 
     description = "Build the C-extensions for arrow"
-    user_options = ([('cmake-generator=', None, 'CMake generator'),
-                     ('extra-cmake-args=', None, 'extra arguments for CMake'),
-                     ('build-type=', None,
-                      'build type (debug or release), default release'),
-                     ('boost-namespace=', None,
-                      'namespace of boost (default: boost)'),
-                     ('with-cuda', None, 'build the Cuda extension'),
-                     ('with-flight', None, 'build the Flight extension'),
-                     ('with-dataset', None, 'build the Dataset extension'),
-                     ('with-parquet', None, 'build the Parquet extension'),
-                     ('with-static-parquet', None, 'link parquet statically'),
-                     ('with-static-boost', None, 'link boost statically'),
-                     ('with-plasma', None, 'build the Plasma extension'),
-                     ('with-tensorflow', None,
-                      'build pyarrow with TensorFlow support'),
-                     ('with-orc', None, 'build the ORC extension'),
-                     ('with-gandiva', None, 'build the Gandiva extension'),
-                     ('generate-coverage', None,
-                      'enable Cython code coverage'),
-                     ('bundle-boost', None,
-                      'bundle the (shared) Boost libraries'),
-                     ('bundle-arrow-cpp', None,
-                      'bundle the Arrow C++ libraries')] +
-                    _build_ext.user_options)
+    user_options = [
+        ('cmake-generator=', None, 'CMake generator'),
+        ('extra-cmake-args=', None, 'extra arguments for CMake'),
+        (
+            'build-type=',
+            None,
+            'build type (debug or release), default release',
+        ),
+        ('boost-namespace=', None, 'namespace of boost (default: boost)'),
+        ('with-cuda', None, 'build the Cuda extension'),
+        ('with-flight', None, 'build the Flight extension'),
+        ('with-dataset', None, 'build the Dataset extension'),
+        ('with-parquet', None, 'build the Parquet extension'),
+        ('with-static-parquet', None, 'link parquet statically'),
+        ('with-static-boost', None, 'link boost statically'),
+        ('with-plasma', None, 'build the Plasma extension'),
+        ('with-tensorflow', None, 'build pyarrow with TensorFlow support'),
+        ('with-orc', None, 'build the ORC extension'),
+        ('with-gandiva', None, 'build the Gandiva extension'),
+        ('generate-coverage', None, 'enable Cython code coverage'),
+        ('bundle-boost', None, 'bundle the (shared) Boost libraries'),
+        ('bundle-arrow-cpp', None, 'bundle the Arrow C++ libraries'),
+    ] + _build_ext.user_options
 
     def initialize_options(self):
         _build_ext.initialize_options(self)
@@ -129,10 +130,12 @@ class build_ext(_build_ext):
         if not self.cmake_generator and sys.platform == 'win32':
             self.cmake_generator = 'Visual Studio 14 2015 Win64'
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
-        self.build_type = os.environ.get('PYARROW_BUILD_TYPE',
-                                         'release').lower()
-        self.boost_namespace = os.environ.get('PYARROW_BOOST_NAMESPACE',
-                                              'boost')
+        self.build_type = os.environ.get(
+            'PYARROW_BUILD_TYPE', 'release'
+        ).lower()
+        self.boost_namespace = os.environ.get(
+            'PYARROW_BOOST_NAMESPACE', 'boost'
+        )
 
         self.cmake_cxxflags = os.environ.get('PYARROW_CXXFLAGS', '')
 
@@ -142,36 +145,43 @@ class build_ext(_build_ext):
             if not hasattr(sys, 'gettotalrefcount'):
                 self.build_type = 'release'
 
-        self.with_s3 = strtobool(
-            os.environ.get('PYARROW_WITH_S3', '0'))
-        self.with_hdfs = strtobool(
-            os.environ.get('PYARROW_WITH_HDFS', '0'))
-        self.with_cuda = strtobool(
-            os.environ.get('PYARROW_WITH_CUDA', '0'))
+        self.with_s3 = strtobool(os.environ.get('PYARROW_WITH_S3', '0'))
+        self.with_hdfs = strtobool(os.environ.get('PYARROW_WITH_HDFS', '0'))
+        self.with_cuda = strtobool(os.environ.get('PYARROW_WITH_CUDA', '0'))
         self.with_flight = strtobool(
-            os.environ.get('PYARROW_WITH_FLIGHT', '0'))
+            os.environ.get('PYARROW_WITH_FLIGHT', '0')
+        )
         self.with_dataset = strtobool(
-            os.environ.get('PYARROW_WITH_DATASET', '0'))
+            os.environ.get('PYARROW_WITH_DATASET', '0')
+        )
         self.with_parquet = strtobool(
-            os.environ.get('PYARROW_WITH_PARQUET', '0'))
+            os.environ.get('PYARROW_WITH_PARQUET', '0')
+        )
         self.with_static_parquet = strtobool(
-            os.environ.get('PYARROW_WITH_STATIC_PARQUET', '0'))
+            os.environ.get('PYARROW_WITH_STATIC_PARQUET', '0')
+        )
         self.with_static_boost = strtobool(
-            os.environ.get('PYARROW_WITH_STATIC_BOOST', '0'))
+            os.environ.get('PYARROW_WITH_STATIC_BOOST', '0')
+        )
         self.with_plasma = strtobool(
-            os.environ.get('PYARROW_WITH_PLASMA', '0'))
+            os.environ.get('PYARROW_WITH_PLASMA', '0')
+        )
         self.with_tensorflow = strtobool(
-            os.environ.get('PYARROW_WITH_TENSORFLOW', '0'))
-        self.with_orc = strtobool(
-            os.environ.get('PYARROW_WITH_ORC', '0'))
+            os.environ.get('PYARROW_WITH_TENSORFLOW', '0')
+        )
+        self.with_orc = strtobool(os.environ.get('PYARROW_WITH_ORC', '0'))
         self.with_gandiva = strtobool(
-            os.environ.get('PYARROW_WITH_GANDIVA', '0'))
+            os.environ.get('PYARROW_WITH_GANDIVA', '0')
+        )
         self.generate_coverage = strtobool(
-            os.environ.get('PYARROW_GENERATE_COVERAGE', '0'))
+            os.environ.get('PYARROW_GENERATE_COVERAGE', '0')
+        )
         self.bundle_arrow_cpp = strtobool(
-            os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
+            os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0')
+        )
         self.bundle_boost = strtobool(
-            os.environ.get('PYARROW_BUNDLE_BOOST', '0'))
+            os.environ.get('PYARROW_BUNDLE_BOOST', '0')
+        )
 
     CYTHON_MODULE_NAMES = [
         'lib',
@@ -187,13 +197,16 @@ class build_ext(_build_ext):
         '_plasma',
         '_s3fs',
         '_hdfs',
-        'gandiva']
+        'gandiva',
+    ]
 
     def _run_cmake(self):
         # check if build_type is correctly passed / set
         if self.build_type.lower() not in ('release', 'debug'):
-            raise ValueError("--build-type (or PYARROW_BUILD_TYPE) needs to "
-                             "be 'release' or 'debug'")
+            raise ValueError(
+                "--build-type (or PYARROW_BUILD_TYPE) needs to "
+                "be 'release' or 'debug'"
+            )
 
         # The directory containing this setup.py
         source = osp.dirname(osp.abspath(__file__))
@@ -212,10 +225,11 @@ class build_ext(_build_ext):
             # Detect if we built elsewhere
             if os.path.isfile('CMakeCache.txt'):
                 cachefile = open('CMakeCache.txt', 'r')
-                cachedir = re.search('CMAKE_CACHEFILE_DIR:INTERNAL=(.*)',
-                                     cachefile.read()).group(1)
+                cachedir = re.search(
+                    'CMAKE_CACHEFILE_DIR:INTERNAL=(.*)', cachefile.read()
+                ).group(1)
                 cachefile.close()
-                if (cachedir != build_temp):
+                if cachedir != build_temp:
                     return
 
             static_lib_option = ''
@@ -226,8 +240,9 @@ class build_ext(_build_ext):
             ]
 
             def append_cmake_bool(value, varname):
-                cmake_options.append('-D{0}={1}'.format(
-                    varname, 'on' if value else 'off'))
+                cmake_options.append(
+                    '-D{0}={1}'.format(varname, 'on' if value else 'off')
+                )
 
             if self.cmake_generator:
                 cmake_options += ['-G', self.cmake_generator]
@@ -242,23 +257,28 @@ class build_ext(_build_ext):
             append_cmake_bool(self.with_s3, 'PYARROW_BUILD_S3')
             append_cmake_bool(self.with_hdfs, 'PYARROW_BUILD_HDFS')
             append_cmake_bool(self.with_tensorflow, 'PYARROW_USE_TENSORFLOW')
-            append_cmake_bool(self.bundle_arrow_cpp,
-                              'PYARROW_BUNDLE_ARROW_CPP')
-            append_cmake_bool(self.bundle_boost,
-                              'PYARROW_BUNDLE_BOOST')
-            append_cmake_bool(self.generate_coverage,
-                              'PYARROW_GENERATE_COVERAGE')
-            append_cmake_bool(not self.with_static_boost,
-                              'PYARROW_BOOST_USE_SHARED')
-            append_cmake_bool(not self.with_static_parquet,
-                              'PYARROW_PARQUET_USE_SHARED')
+            append_cmake_bool(
+                self.bundle_arrow_cpp, 'PYARROW_BUNDLE_ARROW_CPP'
+            )
+            append_cmake_bool(self.bundle_boost, 'PYARROW_BUNDLE_BOOST')
+            append_cmake_bool(
+                self.generate_coverage, 'PYARROW_GENERATE_COVERAGE'
+            )
+            append_cmake_bool(
+                not self.with_static_boost, 'PYARROW_BOOST_USE_SHARED'
+            )
+            append_cmake_bool(
+                not self.with_static_parquet, 'PYARROW_PARQUET_USE_SHARED'
+            )
 
-            cmake_options.append('-DCMAKE_BUILD_TYPE={0}'
-                                 .format(self.build_type.lower()))
+            cmake_options.append(
+                '-DCMAKE_BUILD_TYPE={0}'.format(self.build_type.lower())
+            )
 
             if self.boost_namespace != 'boost':
-                cmake_options.append('-DBoost_NAMESPACE={}'
-                                     .format(self.boost_namespace))
+                cmake_options.append(
+                    '-DBoost_NAMESPACE={}'.format(self.boost_namespace)
+                )
 
             extra_cmake_args = shlex.split(self.extra_cmake_args)
 
@@ -272,17 +292,22 @@ class build_ext(_build_ext):
                     cmake_options.append('-DCMAKE_VERBOSE_MAKEFILE=ON')
                 if os.environ.get('PYARROW_PARALLEL'):
                     build_tool_args.append(
-                        '-j{0}'.format(os.environ['PYARROW_PARALLEL']))
+                        '-j{0}'.format(os.environ['PYARROW_PARALLEL'])
+                    )
 
             # Generate the build files
             print("-- Running cmake for pyarrow")
-            self.spawn(['cmake'] + extra_cmake_args + cmake_options + [source])
+            self.spawn(
+                ['cmake'] + extra_cmake_args + cmake_options + [source]
+            )
             print("-- Finished cmake for pyarrow")
 
             # Do the build
             print("-- Running cmake --build for pyarrow")
-            self.spawn(['cmake', '--build', '.', '--config', self.build_type]
-                       + build_tool_args)
+            self.spawn(
+                ['cmake', '--build', '.', '--config', self.build_type]
+                + build_tool_args
+            )
             print("-- Finished cmake --build for pyarrow")
 
             if self.inplace:
@@ -303,8 +328,9 @@ class build_ext(_build_ext):
             print('Bundling includes: ' + pjoin(build_prefix, 'include'))
             if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):
                 shutil.rmtree(pjoin(build_lib, 'pyarrow', 'include'))
-            shutil.move(pjoin(build_prefix, 'include'),
-                        pjoin(build_lib, 'pyarrow'))
+            shutil.move(
+                pjoin(build_prefix, 'include'), pjoin(build_lib, 'pyarrow')
+            )
 
             # Move the built C-extension to the place expected by the Python
             # build
@@ -314,21 +340,29 @@ class build_ext(_build_ext):
                 if not os.path.exists(built_path):
                     print('Did not find {0}'.format(built_path))
                     if self._failure_permitted(name):
-                        print('Cython module {0} failure permitted'
-                              .format(name))
+                        print(
+                            'Cython module {0} failure permitted'.format(name)
+                        )
                         continue
-                    raise RuntimeError('pyarrow C-extension failed to build:',
-                                       os.path.abspath(built_path))
+                    raise RuntimeError(
+                        'pyarrow C-extension failed to build:',
+                        os.path.abspath(built_path),
+                    )
 
                 cpp_generated_path = self.get_ext_generated_cpp_source(name)
                 if not os.path.exists(cpp_generated_path):
-                    raise RuntimeError('expected to find generated C++ file '
-                                       'in {0!r}'.format(cpp_generated_path))
+                    raise RuntimeError(
+                        'expected to find generated C++ file '
+                        'in {0!r}'.format(cpp_generated_path)
+                    )
 
                 # The destination path to move the generated C++ source to
                 # (for Cython source coverage)
-                cpp_path = pjoin(build_lib, self._get_build_dir(),
-                                 os.path.basename(cpp_generated_path))
+                cpp_path = pjoin(
+                    build_lib,
+                    self._get_build_dir(),
+                    os.path.basename(cpp_generated_path),
+                )
                 if os.path.exists(cpp_path):
                     os.remove(cpp_path)
 
@@ -338,18 +372,27 @@ class build_ext(_build_ext):
                     os.remove(ext_path)
                 self.mkpath(os.path.dirname(ext_path))
 
-                print('Moving generated C++ source', cpp_generated_path,
-                      'to build path', cpp_path)
+                print(
+                    'Moving generated C++ source',
+                    cpp_generated_path,
+                    'to build path',
+                    cpp_path,
+                )
                 shutil.move(cpp_generated_path, cpp_path)
-                print('Moving built C-extension', built_path,
-                      'to build path', ext_path)
+                print(
+                    'Moving built C-extension',
+                    built_path,
+                    'to build path',
+                    ext_path,
+                )
                 shutil.move(built_path, ext_path)
                 self._found_names.append(name)
 
                 if os.path.exists(self.get_ext_built_api_header(name)):
-                    shutil.move(self.get_ext_built_api_header(name),
-                                pjoin(os.path.dirname(ext_path),
-                                      name + '_api.h'))
+                    shutil.move(
+                        self.get_ext_built_api_header(name),
+                        pjoin(os.path.dirname(ext_path), name + '_api.h'),
+                    )
 
             if self.bundle_arrow_cpp:
                 print(pjoin(build_lib, 'pyarrow'))
@@ -359,8 +402,9 @@ class build_ext(_build_ext):
                     move_shared_libs(build_prefix, build_lib, "arrow_cuda")
                 if self.with_flight:
                     move_shared_libs(build_prefix, build_lib, "arrow_flight")
-                    move_shared_libs(build_prefix, build_lib,
-                                     "arrow_python_flight")
+                    move_shared_libs(
+                        build_prefix, build_lib, "arrow_python_flight"
+                    )
                 if self.with_dataset:
                     move_shared_libs(build_prefix, build_lib, "arrow_dataset")
                 if self.with_plasma:
@@ -371,28 +415,41 @@ class build_ext(_build_ext):
                     move_shared_libs(build_prefix, build_lib, "parquet")
                 if not self.with_static_boost and self.bundle_boost:
                     move_shared_libs(
-                        build_prefix, build_lib,
+                        build_prefix,
+                        build_lib,
                         "{}_regex".format(self.boost_namespace),
-                        implib_required=False)
+                        implib_required=False,
+                    )
                 if sys.platform == 'win32':
                     # zlib uses zlib.dll for Windows
                     zlib_lib_name = 'zlib'
-                    move_shared_libs(build_prefix, build_lib, zlib_lib_name,
-                                     implib_required=False)
+                    move_shared_libs(
+                        build_prefix,
+                        build_lib,
+                        zlib_lib_name,
+                        implib_required=False,
+                    )
                     if self.with_flight:
                         # DLL dependencies for gRPC / Flight
-                        for lib_name in ['cares', 'libprotobuf',
-                                         'libcrypto-1_1-x64',
-                                         'libssl-1_1-x64']:
-                            move_shared_libs(build_prefix, build_lib, lib_name,
-                                             implib_required=False)
+                        for lib_name in [
+                            'cares',
+                            'libprotobuf',
+                            'libcrypto-1_1-x64',
+                            'libssl-1_1-x64',
+                        ]:
+                            move_shared_libs(
+                                build_prefix,
+                                build_lib,
+                                lib_name,
+                                implib_required=False,
+                            )
 
             if self.with_plasma:
                 # Move the plasma store
                 source = os.path.join(self.build_type, "plasma-store-server")
-                target = os.path.join(build_lib,
-                                      self._get_build_dir(),
-                                      "plasma-store-server")
+                target = os.path.join(
+                    build_lib, self._get_build_dir(), "plasma-store-server"
+                )
                 shutil.move(source, target)
 
     def _failure_permitted(self, name):
@@ -458,20 +515,20 @@ class build_ext(_build_ext):
     def get_outputs(self):
         # Just the C extensions
         # regular_exts = _build_ext.get_outputs(self)
-        return [self._get_cmake_ext_path(name)
-                for name in self.get_names()]
+        return [self._get_cmake_ext_path(name) for name in self.get_names()]
 
 
-def move_shared_libs(build_prefix, build_lib, lib_name,
-                     implib_required=True):
+def move_shared_libs(build_prefix, build_lib, lib_name, implib_required=True):
     if sys.platform == 'win32':
         # Move all .dll and .lib files
         libs = [lib_name + '.dll']
         if implib_required:
             libs.append(lib_name + '.lib')
         for filename in libs:
-            shutil.move(pjoin(build_prefix, filename),
-                        pjoin(build_lib, 'pyarrow', filename))
+            shutil.move(
+                pjoin(build_prefix, filename),
+                pjoin(build_lib, 'pyarrow', filename),
+            )
     else:
         _move_shared_libs_unix(build_prefix, build_lib, lib_name)
 
@@ -483,26 +540,32 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
     else:
         shared_library_suffix = '.so'
 
-    lib_filename = (shared_library_prefix + lib_name +
-                    shared_library_suffix)
+    lib_filename = shared_library_prefix + lib_name + shared_library_suffix
     # Also copy libraries with ABI/SO version suffix
     if sys.platform == 'darwin':
-        lib_pattern = (shared_library_prefix + lib_name +
-                       ".*" + shared_library_suffix[1:])
+        lib_pattern = (
+            shared_library_prefix
+            + lib_name
+            + ".*"
+            + shared_library_suffix[1:]
+        )
         libs = glob.glob(pjoin(build_prefix, lib_pattern))
     else:
         libs = glob.glob(pjoin(build_prefix, lib_filename) + '*')
 
     if not libs:
-        raise Exception('Could not find library:' + lib_filename +
-                        ' in ' + build_prefix)
+        raise Exception(
+            'Could not find library:' + lib_filename + ' in ' + build_prefix
+        )
 
     # Longest suffix library should be copied, all others symlinked
     libs.sort(key=lambda s: -len(s))
     print(libs, libs[0])
     lib_filename = os.path.basename(libs[0])
-    shutil.move(pjoin(build_prefix, lib_filename),
-                pjoin(build_lib, 'pyarrow', lib_filename))
+    shutil.move(
+        pjoin(build_prefix, lib_filename),
+        pjoin(build_lib, 'pyarrow', lib_filename),
+    )
     for lib in libs[1:]:
         filename = os.path.basename(lib)
         link_name = pjoin(build_lib, 'pyarrow', filename)
@@ -513,19 +576,22 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
 default_version = '1.0.0-SNAPSHOT'
-if (not os.path.exists('../.git')
-        and not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
+if not os.path.exists('../.git') and not os.environ.get(
+    'SETUPTOOLS_SCM_PRETEND_VERSION'
+):
     if os.path.exists('PKG-INFO'):
         # We're probably in a Python sdist, setuptools_scm will handle fine
         pass
     else:
-        os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
-            default_version.replace('-SNAPSHOT', 'a0')
+        os.environ[
+            'SETUPTOOLS_SCM_PRETEND_VERSION'
+        ] = default_version.replace('-SNAPSHOT', 'a0')
 
 
 # See https://github.com/pypa/setuptools_scm#configuration-parameters
 scm_version_write_to_prefix = os.environ.get(
-    'SETUPTOOLS_SCM_VERSION_WRITE_TO_PREFIX', setup_dir)
+    'SETUPTOOLS_SCM_VERSION_WRITE_TO_PREFIX', setup_dir
+)
 
 
 def parse_git(root, **kwargs):
@@ -534,8 +600,10 @@ def parse_git(root, **kwargs):
     subprojects, e.g. apache-arrow-js-XXX tags.
     """
     from setuptools_scm.git import parse
-    kwargs['describe_command'] =\
-        'git describe --dirty --tags --long --match "apache-arrow-[0-9].*"'
+
+    kwargs[
+        'describe_command'
+    ] = 'git describe --dirty --tags --long --match "apache-arrow-[0-9].*"'
     return parse(root, **kwargs)
 
 
@@ -548,9 +616,7 @@ class BinaryDistribution(Distribution):
         return True
 
 
-install_requires = (
-    'numpy >= 1.14',
-)
+install_requires = ('numpy >= 1.14',)
 
 
 # Only include pytest-runner in setup_requires if we're invoking tests
@@ -569,10 +635,7 @@ setup(
     distclass=BinaryDistribution,
     # Dummy extension to trigger build_ext
     ext_modules=[Extension('__dummy__', sources=[])],
-    cmdclass={
-        'clean': clean,
-        'build_ext': build_ext
-    },
+    cmdclass={'clean': clean, 'build_ext': build_ext},
     entry_points={
         'console_scripts': [
             'plasma_store = pyarrow:_plasma_store_entry_point'
@@ -581,8 +644,9 @@ setup(
     use_scm_version={
         'root': os.path.dirname(setup_dir),
         'parse': parse_git,
-        'write_to': os.path.join(scm_version_write_to_prefix,
-                                 'pyarrow/_generated_version.py')
+        'write_to': os.path.join(
+            scm_version_write_to_prefix, 'pyarrow/_generated_version.py'
+        ),
     },
     setup_requires=['setuptools_scm', 'cython >= 0.29'] + setup_requires,
     install_requires=install_requires,
@@ -602,5 +666,5 @@ setup(
     maintainer='Apache Arrow Developers',
     maintainer_email='dev@arrow.apache.org',
     test_suite='pyarrow.tests',
-    url='https://arrow.apache.org/'
+    url='https://arrow.apache.org/',
 )

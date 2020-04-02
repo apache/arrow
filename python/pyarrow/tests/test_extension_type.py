@@ -25,7 +25,6 @@ import pytest
 
 
 class IntegerType(pa.PyExtensionType):
-
     def __init__(self):
         pa.PyExtensionType.__init__(self, pa.int64())
 
@@ -34,7 +33,6 @@ class IntegerType(pa.PyExtensionType):
 
 
 class UuidType(pa.PyExtensionType):
-
     def __init__(self):
         pa.PyExtensionType.__init__(self, pa.binary(16))
 
@@ -43,7 +41,6 @@ class UuidType(pa.PyExtensionType):
 
 
 class ParamExtType(pa.PyExtensionType):
-
     def __init__(self, width):
         self._width = width
         pa.PyExtensionType.__init__(self, pa.binary(width))
@@ -193,7 +190,7 @@ def test_cast_kernel_on_extension_arrays():
         (pa.int16(), pa.Int16Array),
         (pa.uint64(), pa.UInt64Array),
         (pa.uint32(), pa.UInt32Array),
-        (pa.uint16(), pa.UInt16Array)
+        (pa.uint16(), pa.UInt16Array),
     ]
     for typ, klass in cases:
         casted = arr.cast(typ)
@@ -270,7 +267,6 @@ def test_ipc_unknown_type():
 
 
 class PeriodType(pa.ExtensionType):
-
     def __init__(self, freq):
         # attributes need to be set first before calling
         # super init (as that calls serialize)
@@ -293,8 +289,7 @@ class PeriodType(pa.ExtensionType):
 
     def __eq__(self, other):
         if isinstance(other, pa.BaseExtensionType):
-            return (type(self) == type(other) and
-                    self.freq == other.freq)
+            return type(self) == type(other) and self.freq == other.freq
         else:
             return NotImplemented
 
@@ -375,7 +370,7 @@ def test_generic_ext_type_ipc_unknown(registered_period_type):
     ext_field = batch.schema.field('ext')
     assert ext_field.metadata == {
         b'ARROW:extension:metadata': b'freq=D',
-        b'ARROW:extension:name': b'pandas.period'
+        b'ARROW:extension:name': b'pandas.period',
     }
 
 
@@ -420,11 +415,13 @@ def test_parquet(tmpdir, registered_period_type):
     assert b"ARROW:schema" in meta.metadata
 
     import base64
+
     decoded_schema = base64.b64decode(meta.metadata[b"ARROW:schema"])
     schema = pa.read_schema(pa.BufferReader(decoded_schema))
     assert schema.field("ext").metadata == {
         b'ARROW:extension:metadata': b'freq=D',
-        b'ARROW:extension:name': b'pandas.period'}
+        b'ARROW:extension:name': b'pandas.period',
+    }
 
     # when reading in, properly create extension type if it is registered
     result = pq.read_table(filename)

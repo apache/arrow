@@ -36,22 +36,32 @@ def root_allocator():
         arrow_dir = os.path.join(os.path.dirname(__file__), '..', '..', '..')
     pom_path = os.path.join(arrow_dir, 'java', 'pom.xml')
     tree = ET.parse(pom_path)
-    version = tree.getroot().find(
-        'POM:version',
-        namespaces={
-            'POM': 'http://maven.apache.org/POM/4.0.0'
-        }).text
+    version = (
+        tree.getroot()
+        .find(
+            'POM:version',
+            namespaces={'POM': 'http://maven.apache.org/POM/4.0.0'},
+        )
+        .text
+    )
     jar_path = os.path.join(
-        arrow_dir, 'java', 'tools', 'target',
-        'arrow-tools-{}-jar-with-dependencies.jar'.format(version))
+        arrow_dir,
+        'java',
+        'tools',
+        'target',
+        'arrow-tools-{}-jar-with-dependencies.jar'.format(version),
+    )
     jar_path = os.getenv("ARROW_TOOLS_JAR", jar_path)
     kwargs = {}
     if jpype.__version_info__ >= (0, 7):
         # This will be the default behaviour in jpype 0.8+
         kwargs['convertStrings'] = False
-    jpype.startJVM(jpype.getDefaultJVMPath(), "-Djava.class.path=" + jar_path,
-                   **kwargs)
-    return jpype.JPackage("org").apache.arrow.memory.RootAllocator(sys.maxsize)
+    jpype.startJVM(
+        jpype.getDefaultJVMPath(), "-Djava.class.path=" + jar_path, **kwargs
+    )
+    return jpype.JPackage("org").apache.arrow.memory.RootAllocator(
+        sys.maxsize
+    )
 
 
 def test_jvm_buffer(root_allocator):
@@ -97,54 +107,79 @@ def _jvm_schema(jvm_spec, metadata=None):
 #   om = jpype.JClass('com.fasterxml.jackson.databind.ObjectMapper')()
 #   field = …  # Code to instantiate the field
 #   jvm_spec = om.writeValueAsString(field)
-@pytest.mark.parametrize('pa_type,jvm_spec', [
-    (pa.null(), '{"name":"null"}'),
-    (pa.bool_(), '{"name":"bool"}'),
-    (pa.int8(), '{"name":"int","bitWidth":8,"isSigned":true}'),
-    (pa.int16(), '{"name":"int","bitWidth":16,"isSigned":true}'),
-    (pa.int32(), '{"name":"int","bitWidth":32,"isSigned":true}'),
-    (pa.int64(), '{"name":"int","bitWidth":64,"isSigned":true}'),
-    (pa.uint8(), '{"name":"int","bitWidth":8,"isSigned":false}'),
-    (pa.uint16(), '{"name":"int","bitWidth":16,"isSigned":false}'),
-    (pa.uint32(), '{"name":"int","bitWidth":32,"isSigned":false}'),
-    (pa.uint64(), '{"name":"int","bitWidth":64,"isSigned":false}'),
-    (pa.float16(), '{"name":"floatingpoint","precision":"HALF"}'),
-    (pa.float32(), '{"name":"floatingpoint","precision":"SINGLE"}'),
-    (pa.float64(), '{"name":"floatingpoint","precision":"DOUBLE"}'),
-    (pa.time32('s'), '{"name":"time","unit":"SECOND","bitWidth":32}'),
-    (pa.time32('ms'), '{"name":"time","unit":"MILLISECOND","bitWidth":32}'),
-    (pa.time64('us'), '{"name":"time","unit":"MICROSECOND","bitWidth":64}'),
-    (pa.time64('ns'), '{"name":"time","unit":"NANOSECOND","bitWidth":64}'),
-    (pa.timestamp('s'), '{"name":"timestamp","unit":"SECOND",'
-        '"timezone":null}'),
-    (pa.timestamp('ms'), '{"name":"timestamp","unit":"MILLISECOND",'
-        '"timezone":null}'),
-    (pa.timestamp('us'), '{"name":"timestamp","unit":"MICROSECOND",'
-        '"timezone":null}'),
-    (pa.timestamp('ns'), '{"name":"timestamp","unit":"NANOSECOND",'
-        '"timezone":null}'),
-    (pa.timestamp('ns', tz='UTC'), '{"name":"timestamp","unit":"NANOSECOND"'
-        ',"timezone":"UTC"}'),
-    (pa.timestamp('ns', tz='Europe/Paris'), '{"name":"timestamp",'
-        '"unit":"NANOSECOND","timezone":"Europe/Paris"}'),
-    (pa.date32(), '{"name":"date","unit":"DAY"}'),
-    (pa.date64(), '{"name":"date","unit":"MILLISECOND"}'),
-    (pa.decimal128(19, 4), '{"name":"decimal","precision":19,"scale":4}'),
-    (pa.string(), '{"name":"utf8"}'),
-    (pa.binary(), '{"name":"binary"}'),
-    (pa.binary(10), '{"name":"fixedsizebinary","byteWidth":10}'),
-    # TODO(ARROW-2609): complex types that have children
-    # pa.list_(pa.int32()),
-    # pa.struct([pa.field('a', pa.int32()),
-    #            pa.field('b', pa.int8()),
-    #            pa.field('c', pa.string())]),
-    # pa.union([pa.field('a', pa.binary(10)),
-    #           pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE),
-    # pa.union([pa.field('a', pa.binary(10)),
-    #           pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
-    # TODO: DictionaryType requires a vector in the type
-    # pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c'])),
-])
+@pytest.mark.parametrize(
+    'pa_type,jvm_spec',
+    [
+        (pa.null(), '{"name":"null"}'),
+        (pa.bool_(), '{"name":"bool"}'),
+        (pa.int8(), '{"name":"int","bitWidth":8,"isSigned":true}'),
+        (pa.int16(), '{"name":"int","bitWidth":16,"isSigned":true}'),
+        (pa.int32(), '{"name":"int","bitWidth":32,"isSigned":true}'),
+        (pa.int64(), '{"name":"int","bitWidth":64,"isSigned":true}'),
+        (pa.uint8(), '{"name":"int","bitWidth":8,"isSigned":false}'),
+        (pa.uint16(), '{"name":"int","bitWidth":16,"isSigned":false}'),
+        (pa.uint32(), '{"name":"int","bitWidth":32,"isSigned":false}'),
+        (pa.uint64(), '{"name":"int","bitWidth":64,"isSigned":false}'),
+        (pa.float16(), '{"name":"floatingpoint","precision":"HALF"}'),
+        (pa.float32(), '{"name":"floatingpoint","precision":"SINGLE"}'),
+        (pa.float64(), '{"name":"floatingpoint","precision":"DOUBLE"}'),
+        (pa.time32('s'), '{"name":"time","unit":"SECOND","bitWidth":32}'),
+        (
+            pa.time32('ms'),
+            '{"name":"time","unit":"MILLISECOND","bitWidth":32}',
+        ),
+        (
+            pa.time64('us'),
+            '{"name":"time","unit":"MICROSECOND","bitWidth":64}',
+        ),
+        (
+            pa.time64('ns'),
+            '{"name":"time","unit":"NANOSECOND","bitWidth":64}',
+        ),
+        (
+            pa.timestamp('s'),
+            '{"name":"timestamp","unit":"SECOND",' '"timezone":null}',
+        ),
+        (
+            pa.timestamp('ms'),
+            '{"name":"timestamp","unit":"MILLISECOND",' '"timezone":null}',
+        ),
+        (
+            pa.timestamp('us'),
+            '{"name":"timestamp","unit":"MICROSECOND",' '"timezone":null}',
+        ),
+        (
+            pa.timestamp('ns'),
+            '{"name":"timestamp","unit":"NANOSECOND",' '"timezone":null}',
+        ),
+        (
+            pa.timestamp('ns', tz='UTC'),
+            '{"name":"timestamp","unit":"NANOSECOND"' ',"timezone":"UTC"}',
+        ),
+        (
+            pa.timestamp('ns', tz='Europe/Paris'),
+            '{"name":"timestamp",'
+            '"unit":"NANOSECOND","timezone":"Europe/Paris"}',
+        ),
+        (pa.date32(), '{"name":"date","unit":"DAY"}'),
+        (pa.date64(), '{"name":"date","unit":"MILLISECOND"}'),
+        (pa.decimal128(19, 4), '{"name":"decimal","precision":19,"scale":4}'),
+        (pa.string(), '{"name":"utf8"}'),
+        (pa.binary(), '{"name":"binary"}'),
+        (pa.binary(10), '{"name":"fixedsizebinary","byteWidth":10}'),
+        # TODO(ARROW-2609): complex types that have children
+        # pa.list_(pa.int32()),
+        # pa.struct([pa.field('a', pa.int32()),
+        #            pa.field('b', pa.int8()),
+        #            pa.field('c', pa.string())]),
+        # pa.union([pa.field('a', pa.binary(10)),
+        #           pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE),
+        # pa.union([pa.field('a', pa.binary(10)),
+        #           pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
+        # TODO: DictionaryType requires a vector in the type
+        # pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c'])),
+    ],
+)
 @pytest.mark.parametrize('nullable', [True, False])
 def test_jvm_types(root_allocator, pa_type, jvm_spec, nullable):
     spec = {
@@ -152,7 +187,7 @@ def test_jvm_types(root_allocator, pa_type, jvm_spec, nullable):
         'nullable': nullable,
         'type': json.loads(jvm_spec),
         # TODO: This needs to be set for complex types
-        'children': []
+        'children': [],
     }
     jvm_field = _jvm_field(json.dumps(spec))
     result = pa_jvm.field(jvm_field)
@@ -173,34 +208,38 @@ def test_jvm_types(root_allocator, pa_type, jvm_spec, nullable):
     jvm_schema = _jvm_schema(json.dumps(spec))
     result = pa_jvm.schema(jvm_schema)
     expected_field = expected_field.with_metadata(
-        {'field meta': 'field data'})
+        {'field meta': 'field data'}
+    )
     assert result == pa.schema([expected_field])
 
 
 # These test parameters mostly use an integer range as an input as this is
 # often the only type that is understood by both Python and Java
 # implementations of Arrow.
-@pytest.mark.parametrize('pa_type,py_data,jvm_type', [
-    (pa.bool_(), [True, False, True, True], 'BitVector'),
-    (pa.uint8(), list(range(128)), 'UInt1Vector'),
-    (pa.uint16(), list(range(128)), 'UInt2Vector'),
-    (pa.int32(), list(range(128)), 'IntVector'),
-    (pa.int64(), list(range(128)), 'BigIntVector'),
-    (pa.float32(), list(range(128)), 'Float4Vector'),
-    (pa.float64(), list(range(128)), 'Float8Vector'),
-    (pa.timestamp('s'), list(range(128)), 'TimeStampSecVector'),
-    (pa.timestamp('ms'), list(range(128)), 'TimeStampMilliVector'),
-    (pa.timestamp('us'), list(range(128)), 'TimeStampMicroVector'),
-    (pa.timestamp('ns'), list(range(128)), 'TimeStampNanoVector'),
-    # TODO(ARROW-2605): These types miss a conversion from pure Python objects
-    #  * pa.time32('s')
-    #  * pa.time32('ms')
-    #  * pa.time64('us')
-    #  * pa.time64('ns')
-    (pa.date32(), list(range(128)), 'DateDayVector'),
-    (pa.date64(), list(range(128)), 'DateMilliVector'),
-    # TODO(ARROW-2606): pa.decimal128(19, 4)
-])
+@pytest.mark.parametrize(
+    'pa_type,py_data,jvm_type',
+    [
+        (pa.bool_(), [True, False, True, True], 'BitVector'),
+        (pa.uint8(), list(range(128)), 'UInt1Vector'),
+        (pa.uint16(), list(range(128)), 'UInt2Vector'),
+        (pa.int32(), list(range(128)), 'IntVector'),
+        (pa.int64(), list(range(128)), 'BigIntVector'),
+        (pa.float32(), list(range(128)), 'Float4Vector'),
+        (pa.float64(), list(range(128)), 'Float8Vector'),
+        (pa.timestamp('s'), list(range(128)), 'TimeStampSecVector'),
+        (pa.timestamp('ms'), list(range(128)), 'TimeStampMilliVector'),
+        (pa.timestamp('us'), list(range(128)), 'TimeStampMicroVector'),
+        (pa.timestamp('ns'), list(range(128)), 'TimeStampNanoVector'),
+        # TODO(ARROW-2605): These types miss a conversion from pure Python objects
+        #  * pa.time32('s')
+        #  * pa.time32('ms')
+        #  * pa.time64('us')
+        #  * pa.time64('ns')
+        (pa.date32(), list(range(128)), 'DateDayVector'),
+        (pa.date64(), list(range(128)), 'DateMilliVector'),
+        # TODO(ARROW-2606): pa.decimal128(19, 4)
+    ],
+)
 def test_jvm_array(root_allocator, pa_type, py_data, jvm_type):
     # Create vector
     cls = "org.apache.arrow.vector.{}".format(jvm_type)
@@ -222,115 +261,124 @@ def test_jvm_array(root_allocator, pa_type, py_data, jvm_type):
 # These test parameters mostly use an integer range as an input as this is
 # often the only type that is understood by both Python and Java
 # implementations of Arrow.
-@pytest.mark.parametrize('pa_type,py_data,jvm_type,jvm_spec', [
-    # TODO: null
-    (pa.bool_(), [True, False, True, True], 'BitVector', '{"name":"bool"}'),
-    (
-        pa.uint8(),
-        list(range(128)),
-        'UInt1Vector',
-        '{"name":"int","bitWidth":8,"isSigned":false}'
-    ),
-    (
-        pa.uint16(),
-        list(range(128)),
-        'UInt2Vector',
-        '{"name":"int","bitWidth":16,"isSigned":false}'
-    ),
-    (
-        pa.uint32(),
-        list(range(128)),
-        'UInt4Vector',
-        '{"name":"int","bitWidth":32,"isSigned":false}'
-    ),
-    (
-        pa.uint64(),
-        list(range(128)),
-        'UInt8Vector',
-        '{"name":"int","bitWidth":64,"isSigned":false}'
-    ),
-    (
-        pa.int8(),
-        list(range(128)),
-        'TinyIntVector',
-        '{"name":"int","bitWidth":8,"isSigned":true}'
-    ),
-    (
-        pa.int16(),
-        list(range(128)),
-        'SmallIntVector',
-        '{"name":"int","bitWidth":16,"isSigned":true}'
-    ),
-    (
-        pa.int32(),
-        list(range(128)),
-        'IntVector',
-        '{"name":"int","bitWidth":32,"isSigned":true}'
-    ),
-    (
-        pa.int64(),
-        list(range(128)),
-        'BigIntVector',
-        '{"name":"int","bitWidth":64,"isSigned":true}'
-    ),
-    # TODO: float16
-    (
-        pa.float32(),
-        list(range(128)),
-        'Float4Vector',
-        '{"name":"floatingpoint","precision":"SINGLE"}'
-    ),
-    (
-        pa.float64(),
-        list(range(128)),
-        'Float8Vector',
-        '{"name":"floatingpoint","precision":"DOUBLE"}'
-    ),
-    (
-        pa.timestamp('s'),
-        list(range(128)),
-        'TimeStampSecVector',
-        '{"name":"timestamp","unit":"SECOND","timezone":null}'
-    ),
-    (
-        pa.timestamp('ms'),
-        list(range(128)),
-        'TimeStampMilliVector',
-        '{"name":"timestamp","unit":"MILLISECOND","timezone":null}'
-    ),
-    (
-        pa.timestamp('us'),
-        list(range(128)),
-        'TimeStampMicroVector',
-        '{"name":"timestamp","unit":"MICROSECOND","timezone":null}'
-    ),
-    (
-        pa.timestamp('ns'),
-        list(range(128)),
-        'TimeStampNanoVector',
-        '{"name":"timestamp","unit":"NANOSECOND","timezone":null}'
-    ),
-    # TODO(ARROW-2605): These types miss a conversion from pure Python objects
-    #  * pa.time32('s')
-    #  * pa.time32('ms')
-    #  * pa.time64('us')
-    #  * pa.time64('ns')
-    (
-        pa.date32(),
-        list(range(128)),
-        'DateDayVector',
-        '{"name":"date","unit":"DAY"}'
-    ),
-    (
-        pa.date64(),
-        list(range(128)),
-        'DateMilliVector',
-        '{"name":"date","unit":"MILLISECOND"}'
-    ),
-    # TODO(ARROW-2606): pa.decimal128(19, 4)
-])
-def test_jvm_record_batch(root_allocator, pa_type, py_data, jvm_type,
-                          jvm_spec):
+@pytest.mark.parametrize(
+    'pa_type,py_data,jvm_type,jvm_spec',
+    [
+        # TODO: null
+        (
+            pa.bool_(),
+            [True, False, True, True],
+            'BitVector',
+            '{"name":"bool"}',
+        ),
+        (
+            pa.uint8(),
+            list(range(128)),
+            'UInt1Vector',
+            '{"name":"int","bitWidth":8,"isSigned":false}',
+        ),
+        (
+            pa.uint16(),
+            list(range(128)),
+            'UInt2Vector',
+            '{"name":"int","bitWidth":16,"isSigned":false}',
+        ),
+        (
+            pa.uint32(),
+            list(range(128)),
+            'UInt4Vector',
+            '{"name":"int","bitWidth":32,"isSigned":false}',
+        ),
+        (
+            pa.uint64(),
+            list(range(128)),
+            'UInt8Vector',
+            '{"name":"int","bitWidth":64,"isSigned":false}',
+        ),
+        (
+            pa.int8(),
+            list(range(128)),
+            'TinyIntVector',
+            '{"name":"int","bitWidth":8,"isSigned":true}',
+        ),
+        (
+            pa.int16(),
+            list(range(128)),
+            'SmallIntVector',
+            '{"name":"int","bitWidth":16,"isSigned":true}',
+        ),
+        (
+            pa.int32(),
+            list(range(128)),
+            'IntVector',
+            '{"name":"int","bitWidth":32,"isSigned":true}',
+        ),
+        (
+            pa.int64(),
+            list(range(128)),
+            'BigIntVector',
+            '{"name":"int","bitWidth":64,"isSigned":true}',
+        ),
+        # TODO: float16
+        (
+            pa.float32(),
+            list(range(128)),
+            'Float4Vector',
+            '{"name":"floatingpoint","precision":"SINGLE"}',
+        ),
+        (
+            pa.float64(),
+            list(range(128)),
+            'Float8Vector',
+            '{"name":"floatingpoint","precision":"DOUBLE"}',
+        ),
+        (
+            pa.timestamp('s'),
+            list(range(128)),
+            'TimeStampSecVector',
+            '{"name":"timestamp","unit":"SECOND","timezone":null}',
+        ),
+        (
+            pa.timestamp('ms'),
+            list(range(128)),
+            'TimeStampMilliVector',
+            '{"name":"timestamp","unit":"MILLISECOND","timezone":null}',
+        ),
+        (
+            pa.timestamp('us'),
+            list(range(128)),
+            'TimeStampMicroVector',
+            '{"name":"timestamp","unit":"MICROSECOND","timezone":null}',
+        ),
+        (
+            pa.timestamp('ns'),
+            list(range(128)),
+            'TimeStampNanoVector',
+            '{"name":"timestamp","unit":"NANOSECOND","timezone":null}',
+        ),
+        # TODO(ARROW-2605): These types miss a conversion from pure Python objects
+        #  * pa.time32('s')
+        #  * pa.time32('ms')
+        #  * pa.time64('us')
+        #  * pa.time64('ns')
+        (
+            pa.date32(),
+            list(range(128)),
+            'DateDayVector',
+            '{"name":"date","unit":"DAY"}',
+        ),
+        (
+            pa.date64(),
+            list(range(128)),
+            'DateMilliVector',
+            '{"name":"date","unit":"MILLISECOND"}',
+        ),
+        # TODO(ARROW-2606): pa.decimal128(19, 4)
+    ],
+)
+def test_jvm_record_batch(
+    root_allocator, pa_type, py_data, jvm_type, jvm_spec
+):
     # Create vector
     cls = "org.apache.arrow.vector.{}".format(jvm_type)
     jvm_vector = jpype.JClass(cls)("vector", root_allocator)
@@ -347,7 +395,7 @@ def test_jvm_record_batch(root_allocator, pa_type, py_data, jvm_type,
         'nullable': False,
         'type': json.loads(jvm_spec),
         # TODO: This needs to be set for complex types
-        'children': []
+        'children': [],
     }
     jvm_field = _jvm_field(json.dumps(spec))
 
@@ -360,8 +408,7 @@ def test_jvm_record_batch(root_allocator, pa_type, py_data, jvm_type,
     jvm_vsr = jvm_vsr(jvm_fields, jvm_vectors, len(py_data))
 
     py_record_batch = pa.RecordBatch.from_arrays(
-        [pa.array(py_data, type=pa_type)],
-        ['col']
+        [pa.array(py_data, type=pa_type)], ['col']
     )
     jvm_record_batch = pa_jvm.record_batch(jvm_vsr)
 
@@ -386,8 +433,9 @@ def _string_to_varchar_holder(ra, string):
 
 
 # TODO(ARROW-2607)
-@pytest.mark.xfail(reason="from_buffers is only supported for "
-                          "primitive arrays yet")
+@pytest.mark.xfail(
+    reason="from_buffers is only supported for " "primitive arrays yet"
+)
 def test_jvm_string_array(root_allocator):
     data = ["string", None, "töst"]
     cls = "org.apache.arrow.vector.VarCharVector"

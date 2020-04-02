@@ -27,44 +27,59 @@ import pyarrow.flight
 
 
 class FlightServer(pyarrow.flight.FlightServerBase):
-    def __init__(self, host="localhost", location=None,
-                 tls_certificates=None, auth_handler=None):
+    def __init__(
+        self,
+        host="localhost",
+        location=None,
+        tls_certificates=None,
+        auth_handler=None,
+    ):
         super(FlightServer, self).__init__(
-            location, auth_handler, tls_certificates)
+            location, auth_handler, tls_certificates
+        )
         self.flights = {}
         self.host = host
         self.tls_certificates = tls_certificates
 
     @classmethod
     def descriptor_to_key(self, descriptor):
-        return (descriptor.descriptor_type.value, descriptor.command,
-                tuple(descriptor.path or tuple()))
+        return (
+            descriptor.descriptor_type.value,
+            descriptor.command,
+            tuple(descriptor.path or tuple()),
+        )
 
     def _make_flight_info(self, key, descriptor, table):
         if self.tls_certificates:
             location = pyarrow.flight.Location.for_grpc_tls(
-                self.host, self.port)
+                self.host, self.port
+            )
         else:
             location = pyarrow.flight.Location.for_grpc_tcp(
-                self.host, self.port)
-        endpoints = [pyarrow.flight.FlightEndpoint(repr(key), [location]), ]
+                self.host, self.port
+            )
+        endpoints = [
+            pyarrow.flight.FlightEndpoint(repr(key), [location]),
+        ]
 
         mock_sink = pyarrow.MockOutputStream()
         stream_writer = pyarrow.RecordBatchStreamWriter(
-            mock_sink, table.schema)
+            mock_sink, table.schema
+        )
         stream_writer.write_table(table)
         stream_writer.close()
         data_size = mock_sink.size()
 
-        return pyarrow.flight.FlightInfo(table.schema,
-                                         descriptor, endpoints,
-                                         table.num_rows, data_size)
+        return pyarrow.flight.FlightInfo(
+            table.schema, descriptor, endpoints, table.num_rows, data_size
+        )
 
     def list_flights(self, context, criteria):
         for key, table in self.flights.items():
             if key[1] is not None:
-                descriptor = \
-                    pyarrow.flight.FlightDescriptor.for_command(key[1])
+                descriptor = pyarrow.flight.FlightDescriptor.for_command(
+                    key[1]
+                )
             else:
                 descriptor = pyarrow.flight.FlightDescriptor.for_path(*key[2])
 
@@ -98,7 +113,8 @@ class FlightServer(pyarrow.flight.FlightServerBase):
     def do_action(self, context, action):
         if action.type == "clear":
             raise NotImplementedError(
-                "{} is not implemented.".format(action.type))
+                "{} is not implemented.".format(action.type)
+            )
         elif action.type == "healthcheck":
             pass
         elif action.type == "shutdown":
@@ -118,13 +134,22 @@ class FlightServer(pyarrow.flight.FlightServerBase):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host", type=str, default="localhost",
-                        help="Address or hostname to listen on")
-    parser.add_argument("--port", type=int, default=5005,
-                        help="Port number to listen on")
-    parser.add_argument("--tls", nargs=2, default=None,
-                        metavar=('CERTFILE', 'KEYFILE'),
-                        help="Enable transport-level security")
+    parser.add_argument(
+        "--host",
+        type=str,
+        default="localhost",
+        help="Address or hostname to listen on",
+    )
+    parser.add_argument(
+        "--port", type=int, default=5005, help="Port number to listen on"
+    )
+    parser.add_argument(
+        "--tls",
+        nargs=2,
+        default=None,
+        metavar=('CERTFILE', 'KEYFILE'),
+        help="Enable transport-level security",
+    )
 
     args = parser.parse_args()
     tls_certificates = []
@@ -139,8 +164,9 @@ def main():
 
     location = "{}://{}:{}".format(scheme, args.host, args.port)
 
-    server = FlightServer(args.host, location,
-                          tls_certificates=tls_certificates)
+    server = FlightServer(
+        args.host, location, tls_certificates=tls_certificates
+    )
     print("Serving on", location)
     server.serve()
 

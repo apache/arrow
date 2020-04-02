@@ -43,15 +43,15 @@ def hdfs_test_client():
     try:
         port = int(os.environ.get('ARROW_HDFS_TEST_PORT', 0))
     except ValueError:
-        raise ValueError('Env variable ARROW_HDFS_TEST_PORT was not '
-                         'an integer')
+        raise ValueError(
+            'Env variable ARROW_HDFS_TEST_PORT was not ' 'an integer'
+        )
 
     return pa.hdfs.connect(host, port, user)
 
 
 @pytest.mark.hdfs
 class HdfsTestCases:
-
     def _make_test_file(self, hdfs, test_name, test_path, test_data):
         base_path = pjoin(self.tmp_path, test_name)
         hdfs.mkdir(base_path)
@@ -271,6 +271,7 @@ class HdfsTestCases:
 
     def _write_multiple_hdfs_pq_files(self, tmpdir):
         import pyarrow.parquet as pq
+
         nfiles = 10
         size = 5
         test_data = []
@@ -304,10 +305,10 @@ class HdfsTestCases:
         expected = self._write_multiple_hdfs_pq_files(tmpdir)
         result = self.hdfs.read_parquet(tmpdir)
 
-        _pandas_api.assert_frame_equal(result.to_pandas()
-                                       .sort_values(by='index')
-                                       .reset_index(drop=True),
-                                       expected.to_pandas())
+        _pandas_api.assert_frame_equal(
+            result.to_pandas().sort_values(by='index').reset_index(drop=True),
+            expected.to_pandas(),
+        )
 
     @pytest.mark.pandas
     @pytest.mark.parquet
@@ -322,10 +323,10 @@ class HdfsTestCases:
         path = _get_hdfs_uri(tmpdir)
         result = pq.read_table(path)
 
-        _pandas_api.assert_frame_equal(result.to_pandas()
-                                       .sort_values(by='index')
-                                       .reset_index(drop=True),
-                                       expected.to_pandas())
+        _pandas_api.assert_frame_equal(
+            result.to_pandas().sort_values(by='index').reset_index(drop=True),
+            expected.to_pandas(),
+        )
 
     @pytest.mark.pandas
     @pytest.mark.parquet
@@ -361,7 +362,8 @@ class HdfsTestCases:
         tmpdir = pjoin(self.tmp_path, 'write-partitions-' + guid())
         self.hdfs.mkdir(tmpdir)
         test_parquet._test_write_to_dataset_with_partitions(
-            tmpdir, filesystem=self.hdfs)
+            tmpdir, filesystem=self.hdfs
+        )
 
     @pytest.mark.parquet
     @pytest.mark.pandas
@@ -369,11 +371,11 @@ class HdfsTestCases:
         tmpdir = pjoin(self.tmp_path, 'write-no_partitions-' + guid())
         self.hdfs.mkdir(tmpdir)
         test_parquet._test_write_to_dataset_no_partitions(
-            tmpdir, filesystem=self.hdfs)
+            tmpdir, filesystem=self.hdfs
+        )
 
 
 class TestLibHdfs(HdfsTestCases, unittest.TestCase):
-
     @classmethod
     def check_driver(cls):
         if not pa.have_libhdfs():
@@ -385,8 +387,9 @@ class TestLibHdfs(HdfsTestCases, unittest.TestCase):
 
     def test_orphaned_file(self):
         hdfs = hdfs_test_client()
-        file_path = self._make_test_file(hdfs, 'orphaned_file_test', 'fname',
-                                         b'foobarbaz')
+        file_path = self._make_test_file(
+            hdfs, 'orphaned_file_test', 'fname', b'foobarbaz'
+        )
 
         f = hdfs.open(file_path)
         hdfs = None
@@ -398,8 +401,9 @@ def _get_hdfs_uri(path):
     try:
         port = int(os.environ.get('ARROW_HDFS_TEST_PORT', 0))
     except ValueError:
-        raise ValueError('Env variable ARROW_HDFS_TEST_PORT was not '
-                         'an integer')
+        raise ValueError(
+            'Env variable ARROW_HDFS_TEST_PORT was not ' 'an integer'
+        )
     uri = "hdfs://{}:{}{}".format(host, port, path)
 
     return uri
@@ -418,6 +422,7 @@ def test_fastparquet_read_with_hdfs():
         pytest.skip('fastparquet test requires snappy')
 
     import pyarrow.parquet as pq
+
     fastparquet = pytest.importorskip('fastparquet')
 
     fs = hdfs_test_client()

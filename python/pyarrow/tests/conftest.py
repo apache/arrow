@@ -29,8 +29,9 @@ from pyarrow.util import find_free_port
 # setup hypothesis profiles
 h.settings.register_profile('ci', max_examples=1000)
 h.settings.register_profile('dev', max_examples=10)
-h.settings.register_profile('debug', max_examples=10,
-                            verbosity=h.Verbosity.verbose)
+h.settings.register_profile(
+    'debug', max_examples=10, verbosity=h.Verbosity.verbose
+)
 
 # load default hypothesis profile, either set HYPOTHESIS_PROFILE environment
 # variable or pass --hypothesis-profile option to pytest, to see the generated
@@ -81,72 +82,84 @@ defaults = {
 
 try:
     import cython  # noqa
+
     defaults['cython'] = True
 except ImportError:
     pass
 
 try:
     import fastparquet  # noqa
+
     defaults['fastparquet'] = True
 except ImportError:
     pass
 
 try:
     import pyarrow.gandiva  # noqa
+
     defaults['gandiva'] = True
 except ImportError:
     pass
 
 try:
     import pyarrow.dataset  # noqa
+
     defaults['dataset'] = True
 except ImportError:
     pass
 
 try:
-    import pyarrow.orc # noqa
+    import pyarrow.orc  # noqa
+
     defaults['orc'] = True
 except ImportError:
     pass
 
 try:
     import pandas  # noqa
+
     defaults['pandas'] = True
 except ImportError:
     defaults['nopandas'] = True
 
 try:
     import pyarrow.parquet  # noqa
+
     defaults['parquet'] = True
 except ImportError:
     pass
 
 try:
     import pyarrow.plasma  # noqa
+
     defaults['plasma'] = True
 except ImportError:
     pass
 
 try:
     import tensorflow  # noqa
+
     defaults['tensorflow'] = True
 except ImportError:
     pass
 
 try:
     import pyarrow.flight  # noqa
+
     defaults['flight'] = True
 except ImportError:
     pass
 
 try:
     from pyarrow.fs import S3FileSystem  # noqa
+
     defaults['s3'] = True
 except ImportError:
     pass
 
 try:
     from pyarrow.fs import HadoopFileSystem  # noqa
+
     defaults['hdfs'] = True
 except ImportError:
     pass
@@ -164,16 +177,22 @@ def pytest_addoption(parser):
         elif value in {'0', 'false', 'off', 'no', 'n'}:
             return False
         else:
-            raise ValueError('{}={} is not parsable as boolean'
-                             .format(name.upper(), value))
+            raise ValueError(
+                '{}={} is not parsable as boolean'.format(name.upper(), value)
+            )
 
     for group in groups:
-        for flag, envvar in [('--{}', 'PYARROW_TEST_{}'),
-                             ('--enable-{}', 'PYARROW_TEST_ENABLE_{}')]:
+        for flag, envvar in [
+            ('--{}', 'PYARROW_TEST_{}'),
+            ('--enable-{}', 'PYARROW_TEST_ENABLE_{}'),
+        ]:
             default = bool_env(envvar.format(group), defaults[group])
-            parser.addoption(flag.format(group),
-                             action='store_true', default=default,
-                             help=('Enable the {} test group'.format(group)))
+            parser.addoption(
+                flag.format(group),
+                action='store_true',
+                default=default,
+                help=('Enable the {} test group'.format(group)),
+            )
 
 
 class PyArrowConfig:
@@ -202,8 +221,7 @@ def pytest_configure(config):
         flag = '--{}'.format(mark)
         enable_flag = '--enable-{}'.format(mark)
 
-        is_enabled = (config.getoption(flag) or
-                      config.getoption(enable_flag))
+        is_enabled = config.getoption(flag) or config.getoption(enable_flag)
         config.pyarrow.is_enabled[mark] = is_enabled
 
 
@@ -226,6 +244,7 @@ def datadir():
 
 # TODO(kszucs): move the following fixtures to test_fs.py once the previous
 # parquet dataset implementation and hdfs implementation are removed.
+
 
 @pytest.mark.hdfs
 @pytest.fixture(scope='session')
@@ -250,14 +269,20 @@ def s3_server(s3_connection):
 
     address = '{}:{}'.format(host, port)
     env = os.environ.copy()
-    env.update({
-        'MINIO_ACCESS_KEY': access_key,
-        'MINIO_SECRET_KEY': secret_key
-    })
+    env.update(
+        {'MINIO_ACCESS_KEY': access_key, 'MINIO_SECRET_KEY': secret_key}
+    )
 
     with TemporaryDirectory() as tempdir:
-        args = ['minio', '--compat', 'server', '--quiet', '--address',
-                address, tempdir]
+        args = [
+            'minio',
+            '--compat',
+            'server',
+            '--quiet',
+            '--address',
+            address,
+            tempdir,
+        ]
         proc = None
         try:
             proc = subprocess.Popen(args, env=env)

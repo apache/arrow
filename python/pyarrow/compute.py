@@ -16,6 +16,4 @@
 # under the License.
 
 
-from pyarrow._compute import (  # noqa
-    sum
-)
+from pyarrow._compute import sum  # noqa

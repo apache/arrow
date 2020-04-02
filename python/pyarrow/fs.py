@@ -27,7 +27,7 @@ from pyarrow._fs import (  # noqa
     LocalFileSystem,
     SubTreeFileSystem,
     _MockFileSystem,
-    _normalize_path
+    _normalize_path,
 )
 
 # For backward compatibility.

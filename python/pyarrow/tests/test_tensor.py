@@ -34,7 +34,7 @@ tensor_type_pairs = [
     ('u8', pa.uint64()),
     ('f2', pa.float16()),
     ('f4', pa.float32()),
-    ('f8', pa.float64())
+    ('f8', pa.float64()),
 ]
 
 
@@ -186,12 +186,13 @@ def test_read_tensor(tmpdir):
 
 def test_tensor_memoryview():
     # Tensors support the PEP 3118 buffer protocol
-    for dtype, expected_format in [(np.int8, '=b'),
-                                   (np.int64, '=q'),
-                                   (np.uint64, '=Q'),
-                                   (np.float16, 'e'),
-                                   (np.float64, 'd'),
-                                   ]:
+    for dtype, expected_format in [
+        (np.int8, '=b'),
+        (np.int64, '=q'),
+        (np.uint64, '=Q'),
+        (np.float16, 'e'),
+        (np.float64, 'd'),
+    ]:
         data = np.arange(10, dtype=dtype)
         dtype = data.dtype
         lst = data.tolist()

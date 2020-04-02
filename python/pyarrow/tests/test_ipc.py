@@ -39,7 +39,6 @@ pytestmark = pytest.mark.pandas
 
 
 class IpcFixture:
-
     def __init__(self, sink_factory=lambda: io.BytesIO()):
         self._sink_factory = sink_factory
         self.sink = self.get_sink()
@@ -52,9 +51,12 @@ class IpcFixture:
 
     def write_batches(self, num_batches=5, as_table=False):
         nrows = 5
-        df = pd.DataFrame({
-            'one': np.random.randn(nrows),
-            'two': ['foo', np.nan, 'bar', 'bazbaz', 'qux']})
+        df = pd.DataFrame(
+            {
+                'one': np.random.randn(nrows),
+                'two': ['foo', np.nan, 'bar', 'bazbaz', 'qux'],
+            }
+        )
         batch = pa.RecordBatch.from_pandas(df)
 
         writer = self._get_writer(self.sink, batch.schema)
@@ -80,7 +82,6 @@ class IpcFixture:
 
 
 class FileFormatFixture(IpcFixture):
-
     def _get_writer(self, sink, schema):
         return pa.RecordBatchFileWriter(sink, schema)
 
@@ -106,14 +107,11 @@ class StreamFormatFixture(IpcFixture):
 
     def _get_writer(self, sink, schema):
         return pa.RecordBatchStreamWriter(
-            sink,
-            schema,
-            use_legacy_format=self.use_legacy_ipc_format
+            sink, schema, use_legacy_format=self.use_legacy_ipc_format
         )
 
 
 class MessageFixture(IpcFixture):
-
     def _get_writer(self, sink, schema):
         return pa.RecordBatchStreamWriter(sink, schema)
 
@@ -147,10 +145,9 @@ def test_file_write_table(file_fixture):
     file_fixture._check_roundtrip(as_table=True)
 
 
-@pytest.mark.parametrize("sink_factory", [
-    lambda: io.BytesIO(),
-    lambda: pa.BufferOutputStream()
-])
+@pytest.mark.parametrize(
+    "sink_factory", [lambda: io.BytesIO(), lambda: pa.BufferOutputStream()]
+)
 def test_file_read_all(sink_factory):
     fixture = FileFormatFixture(sink_factory)
 
@@ -192,8 +189,7 @@ def test_file_read_pandas(file_fixture):
     assert_frame_equal(result, expected)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 6),
-                    reason="need Python 3.6")
+@pytest.mark.skipif(sys.version_info < (3, 6), reason="need Python 3.6")
 def test_file_pathlib(file_fixture, tmpdir):
     import pathlib
 
@@ -217,18 +213,23 @@ def test_empty_stream():
 
 
 def test_stream_categorical_roundtrip(stream_fixture):
-    df = pd.DataFrame({
-        'one': np.random.randn(5),
-        'two': pd.Categorical(['foo', np.nan, 'bar', 'foo', 'foo'],
-                              categories=['foo', 'bar'],
-                              ordered=True)
-    })
+    df = pd.DataFrame(
+        {
+            'one': np.random.randn(5),
+            'two': pd.Categorical(
+                ['foo', np.nan, 'bar', 'foo', 'foo'],
+                categories=['foo', 'bar'],
+                ordered=True,
+            ),
+        }
+    )
     batch = pa.RecordBatch.from_pandas(df)
     with stream_fixture._get_writer(stream_fixture.sink, batch.schema) as wr:
         wr.write_batch(batch)
 
-    table = (pa.ipc.open_stream(pa.BufferReader(stream_fixture.get_source()))
-             .read_all())
+    table = pa.ipc.open_stream(
+        pa.BufferReader(stream_fixture.get_source())
+    ).read_all()
     assert_frame_equal(table.to_pandas(), df)
 
 
@@ -251,29 +252,33 @@ def test_open_stream_from_buffer(stream_fixture):
 
 def test_stream_write_dispatch(stream_fixture):
     # ARROW-1616
-    df = pd.DataFrame({
-        'one': np.random.randn(5),
-        'two': pd.Categorical(['foo', np.nan, 'bar', 'foo', 'foo'],
-                              categories=['foo', 'bar'],
-                              ordered=True)
-    })
+    df = pd.DataFrame(
+        {
+            'one': np.random.randn(5),
+            'two': pd.Categorical(
+                ['foo', np.nan, 'bar', 'foo', 'foo'],
+                categories=['foo', 'bar'],
+                ordered=True,
+            ),
+        }
+    )
     table = pa.Table.from_pandas(df, preserve_index=False)
     batch = pa.RecordBatch.from_pandas(df, preserve_index=False)
     with stream_fixture._get_writer(stream_fixture.sink, table.schema) as wr:
         wr.write(table)
         wr.write(batch)
 
-    table = (pa.ipc.open_stream(pa.BufferReader(stream_fixture.get_source()))
-             .read_all())
-    assert_frame_equal(table.to_pandas(),
-                       pd.concat([df, df], ignore_index=True))
+    table = pa.ipc.open_stream(
+        pa.BufferReader(stream_fixture.get_source())
+    ).read_all()
+    assert_frame_equal(
+        table.to_pandas(), pd.concat([df, df], ignore_index=True)
+    )
 
 
 def test_stream_write_table_batches(stream_fixture):
     # ARROW-504
-    df = pd.DataFrame({
-        'one': np.random.randn(20),
-    })
+    df = pd.DataFrame({'one': np.random.randn(20),})
 
     b1 = pa.RecordBatch.from_pandas(df[:10], preserve_index=False)
     b2 = pa.RecordBatch.from_pandas(df, preserve_index=False)
@@ -287,9 +292,10 @@ def test_stream_write_table_batches(stream_fixture):
 
     assert list(map(len, batches)) == [10, 15, 5, 10]
     result_table = pa.Table.from_batches(batches)
-    assert_frame_equal(result_table.to_pandas(),
-                       pd.concat([df[:10], df, df[:10]],
-                                 ignore_index=True))
+    assert_frame_equal(
+        result_table.to_pandas(),
+        pd.concat([df[:10], df, df[:10]], ignore_index=True),
+    )
 
 
 @pytest.mark.parametrize('use_legacy_ipc_format', [False, True])
@@ -321,6 +327,7 @@ def test_envvar_set_legacy_ipc_format():
     assert not writer._use_legacy_format
 
     import os
+
     os.environ['ARROW_PRE_0_15_IPC_FORMAT'] = '1'
     writer = pa.RecordBatchStreamWriter(pa.BufferOutputStream(), schema)
     assert writer._use_legacy_format
@@ -415,8 +422,9 @@ def test_message_read_from_compressed(example_messages):
 
         compressed_buf = raw_out.getvalue()
 
-        result = pa.read_message(pa.input_stream(compressed_buf,
-                                                 compression='gzip'))
+        result = pa.read_message(
+            pa.input_stream(compressed_buf, compression='gzip')
+        )
         assert result.equals(message)
 
 
@@ -430,14 +438,14 @@ def test_message_read_record_batch(example_messages):
 
 def test_read_record_batch_on_stream_error_message():
     # ARROW-5374
-    batch = pa.record_batch([pa.array([b"foo"], type=pa.utf8())],
-                            names=['strs'])
+    batch = pa.record_batch(
+        [pa.array([b"foo"], type=pa.utf8())], names=['strs']
+    )
     stream = pa.BufferOutputStream()
     with pa.RecordBatchStreamWriter(stream, batch.schema) as writer:
         writer.write_batch(batch)
     buf = stream.getvalue()
-    with pytest.raises(IOError,
-                       match="type record batch but got schema"):
+    with pytest.raises(IOError, match="type record batch but got schema"):
         pa.read_record_batch(buf, batch.schema)
 
 
@@ -446,7 +454,6 @@ def test_read_record_batch_on_stream_error_message():
 
 
 class StreamReaderServer(threading.Thread):
-
     def init(self, do_read_all):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.bind(('127.0.0.1', 0))
@@ -473,12 +480,13 @@ class StreamReaderServer(threading.Thread):
             connection.close()
 
     def get_result(self):
-        return(self._schema, self._table if self._do_read_all
-               else self._batches)
+        return (
+            self._schema,
+            self._table if self._do_read_all else self._batches,
+        )
 
 
 class SocketStreamFixture(IpcFixture):
-
     def __init__(self):
         # XXX(wesm): test will decide when to start socket server. This should
         # probably be refactored
@@ -494,6 +502,7 @@ class SocketStreamFixture(IpcFixture):
 
     def stop_and_get_result(self):
         import struct
+
         self.sink.write(struct.pack('Q', 0))
         self.sink.flush()
         self._sock.close()
@@ -535,6 +544,7 @@ def test_socket_read_all(socket_fixture):
 # ----------------------------------------------------------------------
 # Miscellaneous IPC tests
 
+
 def test_ipc_file_stream_has_eos():
     # ARROW-5395
 
@@ -571,9 +581,10 @@ def test_ipc_zero_copy_numpy():
 
 def test_ipc_stream_no_batches():
     # ARROW-2307
-    table = pa.Table.from_arrays([pa.array([1, 2, 3, 4]),
-                                  pa.array(['foo', 'bar', 'baz', 'qux'])],
-                                 names=['a', 'b'])
+    table = pa.Table.from_arrays(
+        [pa.array([1, 2, 3, 4]), pa.array(['foo', 'bar', 'baz', 'qux'])],
+        names=['a', 'b'],
+    )
 
     sink = pa.BufferOutputStream()
     with pa.RecordBatchStreamWriter(sink, table.schema):
@@ -607,7 +618,8 @@ def test_pandas_serialize_round_trip():
     columns = ['foo', 'bar']
     df = pd.DataFrame(
         {'foo': [1.5, 1.6, 1.7], 'bar': list('abc')},
-        index=index, columns=columns
+        index=index,
+        columns=columns,
     )
     _check_serialize_pandas_round_trip(df)
 
@@ -617,7 +629,8 @@ def test_pandas_serialize_round_trip_nthreads():
     columns = ['foo', 'bar']
     df = pd.DataFrame(
         {'foo': [1.5, 1.6, 1.7], 'bar': list('abc')},
-        index=index, columns=columns
+        index=index,
+        columns=columns,
     )
     _check_serialize_pandas_round_trip(df, use_threads=True)
 
@@ -665,11 +678,7 @@ def test_serialize_with_pandas_objects():
     df = pd.DataFrame({'a': [1, 2, 3]}, index=[1, 2, 3])
     s = pd.Series([1, 2, 3, 4])
 
-    data = {
-        'a_series': df['a'],
-        'a_frame': df,
-        's_series': s
-    }
+    data = {'a_series': df['a'], 'a_frame': df, 's_series': s}
 
     serialized = pa.serialize(data).to_buffer()
     deserialized = pa.deserialize(serialized)
@@ -684,9 +693,12 @@ def test_serialize_with_pandas_objects():
 
 def test_schema_batch_serialize_methods():
     nrows = 5
-    df = pd.DataFrame({
-        'one': np.random.randn(nrows),
-        'two': ['foo', np.nan, 'bar', 'bazbaz', 'qux']})
+    df = pd.DataFrame(
+        {
+            'one': np.random.randn(nrows),
+            'two': ['foo', np.nan, 'bar', 'bazbaz', 'qux'],
+        }
+    )
     batch = pa.RecordBatch.from_pandas(df)
 
     s_schema = batch.schema.serialize()
@@ -721,14 +733,17 @@ def test_deprecated_pyarrow_ns_apis():
     with pa.RecordBatchStreamWriter(sink, table.schema) as writer:
         writer.write(table)
 
-    with pytest.warns(FutureWarning,
-                      match="please use pyarrow.ipc.open_stream"):
+    with pytest.warns(
+        FutureWarning, match="please use pyarrow.ipc.open_stream"
+    ):
         pa.open_stream(sink.getvalue())
 
     sink = pa.BufferOutputStream()
     with pa.RecordBatchFileWriter(sink, table.schema) as writer:
         writer.write(table)
-    with pytest.warns(FutureWarning, match="please use pyarrow.ipc.open_file"):
+    with pytest.warns(
+        FutureWarning, match="please use pyarrow.ipc.open_file"
+    ):
         pa.open_file(sink.getvalue())
 
 

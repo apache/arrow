@@ -78,7 +78,8 @@ def push_data(args, client, connection_args={}):
     df = my_table.to_pandas()
     print(df.head())
     writer, _ = client.do_put(
-        pyarrow.flight.FlightDescriptor.for_path(args.file), my_table.schema)
+        pyarrow.flight.FlightDescriptor.for_path(args.file), my_table.schema
+    )
     writer.write_table(my_table)
     writer.close()
 
@@ -94,20 +95,24 @@ def get_flight(args, client, connection_args={}):
         print('Ticket:', endpoint.ticket)
         for location in endpoint.locations:
             print(location)
-            get_client = pyarrow.flight.FlightClient(location,
-                                                     **connection_args)
+            get_client = pyarrow.flight.FlightClient(
+                location, **connection_args
+            )
             reader = get_client.do_get(endpoint.ticket)
             df = reader.read_pandas()
             print(df)
 
 
 def _add_common_arguments(parser):
-    parser.add_argument('--tls', action='store_true',
-                        help='Enable transport-level security')
-    parser.add_argument('--tls-roots', default=None,
-                        help='Path to trusted TLS certificate(s)')
-    parser.add_argument('host', type=str,
-                        help="Address or hostname to connect to")
+    parser.add_argument(
+        '--tls', action='store_true', help='Enable transport-level security'
+    )
+    parser.add_argument(
+        '--tls-roots', default=None, help='Path to trusted TLS certificate(s)'
+    )
+    parser.add_argument(
+        'host', type=str, help="Address or hostname to connect to"
+    )
 
 
 def main():
@@ -117,29 +122,36 @@ def main():
     cmd_list = subcommands.add_parser('list')
     cmd_list.set_defaults(action='list')
     _add_common_arguments(cmd_list)
-    cmd_list.add_argument('-l', '--list', action='store_true',
-                          help="Print more details.")
+    cmd_list.add_argument(
+        '-l', '--list', action='store_true', help="Print more details."
+    )
 
     cmd_do = subcommands.add_parser('do')
     cmd_do.set_defaults(action='do')
     _add_common_arguments(cmd_do)
-    cmd_do.add_argument('action_type', type=str,
-                        help="The action type to run.")
+    cmd_do.add_argument(
+        'action_type', type=str, help="The action type to run."
+    )
 
     cmd_put = subcommands.add_parser('put')
     cmd_put.set_defaults(action='put')
     _add_common_arguments(cmd_put)
-    cmd_put.add_argument('file', type=str,
-                         help="CSV file to upload.")
+    cmd_put.add_argument('file', type=str, help="CSV file to upload.")
 
     cmd_get = subcommands.add_parser('get')
     cmd_get.set_defaults(action='get')
     _add_common_arguments(cmd_get)
     cmd_get_descriptor = cmd_get.add_mutually_exclusive_group(required=True)
-    cmd_get_descriptor.add_argument('-p', '--path', type=str, action='append',
-                                    help="The path for the descriptor.")
-    cmd_get_descriptor.add_argument('-c', '--command', type=str,
-                                    help="The command for the descriptor.")
+    cmd_get_descriptor.add_argument(
+        '-p',
+        '--path',
+        type=str,
+        action='append',
+        help="The path for the descriptor.",
+    )
+    cmd_get_descriptor.add_argument(
+        '-c', '--command', type=str, help="The command for the descriptor."
+    )
 
     args = parser.parse_args()
     if not hasattr(args, 'action'):
@@ -161,8 +173,9 @@ def main():
         if args.tls_roots:
             with open(args.tls_roots, "rb") as root_certs:
                 connection_args["tls_root_certs"] = root_certs.read()
-    client = pyarrow.flight.FlightClient(f"{scheme}://{host}:{port}",
-                                         **connection_args)
+    client = pyarrow.flight.FlightClient(
+        f"{scheme}://{host}:{port}", **connection_args
+    )
     while True:
         try:
             action = pyarrow.flight.Action("healthcheck", b"")

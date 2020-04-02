@@ -17,7 +17,7 @@
 
 import bz2
 from contextlib import contextmanager
-from io import (BytesIO, StringIO, TextIOWrapper, BufferedIOBase, IOBase)
+from io import BytesIO, StringIO, TextIOWrapper, BufferedIOBase, IOBase
 import gc
 import gzip
 import os
@@ -343,15 +343,16 @@ def test_buffer_bytearray():
 
 
 def test_buffer_invalid():
-    with pytest.raises(TypeError,
-                       match="(bytes-like object|buffer interface)"):
+    with pytest.raises(
+        TypeError, match="(bytes-like object|buffer interface)"
+    ):
         pa.py_buffer(None)
 
 
-@pytest.mark.parametrize('val, expected_hex_buffer',
-                         [(b'check', b'636865636B'),
-                          (b'\a0', b'0730'),
-                          (b'', b'')])
+@pytest.mark.parametrize(
+    'val, expected_hex_buffer',
+    [(b'check', b'636865636B'), (b'\a0', b'0730'), (b'', b'')],
+)
 def test_buffer_hex(val, expected_hex_buffer):
     buf = pa.py_buffer(val)
     assert buf.hex() == expected_hex_buffer
@@ -493,7 +494,9 @@ def test_buffer_slicing():
     n = len(buf)
     for start in range(-n * 2, n * 2):
         for stop in range(-n * 2, n * 2):
-            assert buf[start:stop].to_pybytes() == buf.to_pybytes()[start:stop]
+            assert (
+                buf[start:stop].to_pybytes() == buf.to_pybytes()[start:stop]
+            )
 
 
 def test_buffer_hashing():
@@ -547,36 +550,41 @@ def test_allocate_buffer_resizable():
     assert buf.size == 200
 
 
-@pytest.mark.parametrize("compression", [
-    pytest.param(
-        "bz2", marks=pytest.mark.xfail(raises=pa.lib.ArrowNotImplementedError)
-    ),
-    "brotli",
-    "gzip",
-    "lz4",
-    "zstd",
-    "snappy"
-])
+@pytest.mark.parametrize(
+    "compression",
+    [
+        pytest.param(
+            "bz2",
+            marks=pytest.mark.xfail(raises=pa.lib.ArrowNotImplementedError),
+        ),
+        "brotli",
+        "gzip",
+        "lz4",
+        "zstd",
+        "snappy",
+    ],
+)
 def test_compress_decompress(compression):
     if not Codec.is_available(compression):
         pytest.skip("{} support is not built".format(compression))
 
     INPUT_SIZE = 10000
-    test_data = (np.random.randint(0, 255, size=INPUT_SIZE)
-                 .astype(np.uint8)
-                 .tostring())
+    test_data = (
+        np.random.randint(0, 255, size=INPUT_SIZE).astype(np.uint8).tostring()
+    )
     test_buf = pa.py_buffer(test_data)
 
     compressed_buf = pa.compress(test_buf, codec=compression)
-    compressed_bytes = pa.compress(test_data, codec=compression,
-                                   asbytes=True)
+    compressed_bytes = pa.compress(test_data, codec=compression, asbytes=True)
 
     assert isinstance(compressed_bytes, bytes)
 
-    decompressed_buf = pa.decompress(compressed_buf, INPUT_SIZE,
-                                     codec=compression)
-    decompressed_bytes = pa.decompress(compressed_bytes, INPUT_SIZE,
-                                       codec=compression, asbytes=True)
+    decompressed_buf = pa.decompress(
+        compressed_buf, INPUT_SIZE, codec=compression
+    )
+    decompressed_bytes = pa.decompress(
+        compressed_bytes, INPUT_SIZE, codec=compression, asbytes=True
+    )
 
     assert isinstance(decompressed_bytes, bytes)
 
@@ -733,8 +741,9 @@ def sample_disk_data(request, tmpdir):
     return path, data
 
 
-def _check_native_file_reader(FACTORY, sample_data,
-                              allow_read_out_of_bounds=True):
+def _check_native_file_reader(
+    FACTORY, sample_data, allow_read_out_of_bounds=True
+):
     path, data = sample_data
 
     f = FACTORY(path, mode='r')
@@ -767,8 +776,9 @@ def _check_native_file_reader(FACTORY, sample_data,
 
 
 def test_memory_map_reader(sample_disk_data):
-    _check_native_file_reader(pa.memory_map, sample_disk_data,
-                              allow_read_out_of_bounds=False)
+    _check_native_file_reader(
+        pa.memory_map, sample_disk_data, allow_read_out_of_bounds=False
+    )
 
 
 def test_memory_map_retain_buffer_reference(sample_disk_data):
@@ -846,8 +856,8 @@ def test_memory_map_writer(tmpdir):
 def test_memory_map_resize(tmpdir):
     SIZE = 4096
     arr = np.random.randint(0, 256, size=SIZE).astype(np.uint8)
-    data1 = arr.tobytes()[:(SIZE // 2)]
-    data2 = arr.tobytes()[(SIZE // 2):]
+    data1 = arr.tobytes()[: (SIZE // 2)]
+    data2 = arr.tobytes()[(SIZE // 2) :]
 
     path = os.path.join(str(tmpdir), guid())
 
@@ -981,16 +991,17 @@ def test_native_file_raises_ValueError_after_close(tmpdir):
         assert not mmap_file.closed
     assert mmap_file.closed
 
-    files = [os_file,
-             mmap_file]
+    files = [os_file, mmap_file]
 
-    methods = [('tell', ()),
-               ('seek', (0,)),
-               ('size', ()),
-               ('flush', ()),
-               ('readable', ()),
-               ('writable', ()),
-               ('seekable', ())]
+    methods = [
+        ('tell', ()),
+        ('seek', (0,)),
+        ('size', ()),
+        ('flush', ()),
+        ('readable', ()),
+        ('writable', ()),
+        ('seekable', ()),
+    ]
 
     for f in files:
         for method, args in methods:
@@ -999,9 +1010,7 @@ def test_native_file_raises_ValueError_after_close(tmpdir):
 
 
 def test_native_file_TextIOWrapper(tmpdir):
-    data = ('foooo\n'
-            'barrr\n'
-            'bazzz\n')
+    data = 'foooo\n' 'barrr\n' 'bazzz\n'
 
     path = os.path.join(str(tmpdir), guid())
     with open(path, 'wb') as f:
@@ -1039,6 +1048,7 @@ def test_native_file_open_error():
 # ----------------------------------------------------------------------
 # Buffered streams
 
+
 def test_buffered_input_stream():
     raw = pa.BufferReader(b"123456789")
     f = pa.BufferedInputStream(raw, buffer_size=4)
@@ -1066,7 +1076,8 @@ def test_buffered_input_stream_detach_non_seekable():
     # detach() to a non-seekable file (io::InputStream in C++)
     f = pa.BufferedInputStream(
         pa.BufferedInputStream(pa.BufferReader(b"123456789"), buffer_size=4),
-        buffer_size=4)
+        buffer_size=4,
+    )
     assert f.read(2) == b"12"
     raw = f.detach()
     assert f.closed
@@ -1109,6 +1120,7 @@ def test_buffered_output_stream_detach():
 
 # ----------------------------------------------------------------------
 # Compressed input and output streams
+
 
 def check_compressed_input(data, fn, compression):
     raw = pa.OSFile(fn, mode="rb")
@@ -1214,12 +1226,15 @@ def test_compressed_output_bz2(tmpdir):
         assert got == data
 
 
-@pytest.mark.parametrize(("path", "expected_compression"), [
-    ("file.bz2", "bz2"),
-    ("file.lz4", "lz4"),
-    (pathlib.Path("file.gz"), "gzip"),
-    (pathlib.Path("path/to/file.zst"), "zstd"),
-])
+@pytest.mark.parametrize(
+    ("path", "expected_compression"),
+    [
+        ("file.bz2", "bz2"),
+        ("file.lz4", "lz4"),
+        (pathlib.Path("file.gz"), "gzip"),
+        (pathlib.Path("path/to/file.zst"), "zstd"),
+    ],
+)
 def test_compression_detection(path, expected_compression):
     if not Codec.is_available(expected_compression):
         with pytest.raises(pa.lib.ArrowNotImplementedError):
@@ -1239,17 +1254,20 @@ def test_unknown_compression_raises():
         Codec('unknown')
 
 
-@pytest.mark.parametrize("compression", [
-    "bz2",
-    "brotli",
-    "gzip",
-    "lz4",
-    "zstd",
-    pytest.param(
-        "snappy",
-        marks=pytest.mark.xfail(raises=pa.lib.ArrowNotImplementedError)
-    )
-])
+@pytest.mark.parametrize(
+    "compression",
+    [
+        "bz2",
+        "brotli",
+        "gzip",
+        "lz4",
+        "zstd",
+        pytest.param(
+            "snappy",
+            marks=pytest.mark.xfail(raises=pa.lib.ArrowNotImplementedError),
+        ),
+    ],
+)
 def test_compressed_roundtrip(compression):
     if not Codec.is_available(compression):
         pytest.skip("{} support is not built".format(compression))
@@ -1268,8 +1286,7 @@ def test_compressed_roundtrip(compression):
 
 
 @pytest.mark.parametrize(
-    "compression",
-    ["bz2", "brotli", "gzip", "lz4", "zstd"]
+    "compression", ["bz2", "brotli", "gzip", "lz4", "zstd"]
 )
 def test_compressed_recordbatch_stream(compression):
     if not Codec.is_available(compression):
@@ -1292,6 +1309,7 @@ def test_compressed_recordbatch_stream(compression):
 # ----------------------------------------------------------------------
 # High-level API
 
+
 def test_input_stream_buffer():
     data = b"some test data\n" * 10 + b"eof\n"
     for arg in [pa.py_buffer(data), memoryview(data)]:
@@ -1308,7 +1326,6 @@ def test_input_stream_buffer():
 def test_input_stream_duck_typing():
     # Accept objects having the right file-like methods...
     class DuckReader:
-
         def close(self):
             pass
 
@@ -1511,11 +1528,15 @@ def test_output_stream_file_path_compressed(tmpdir):
 
     assert gzip.decompress(check_data(file_path, data)) == data
     assert gzip.decompress(check_data(str(file_path), data)) == data
-    assert gzip.decompress(
-        check_data(pathlib.Path(str(file_path)), data)) == data
+    assert (
+        gzip.decompress(check_data(pathlib.Path(str(file_path)), data))
+        == data
+    )
 
-    assert gzip.decompress(
-        check_data(file_path, data, compression='gzip')) == data
+    assert (
+        gzip.decompress(check_data(file_path, data, compression='gzip'))
+        == data
+    )
     assert check_data(file_path, data, compression=None) == data
 
     with pytest.raises(ValueError, match='Invalid value for compression'):
