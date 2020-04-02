@@ -363,7 +363,7 @@ test_csharp() {
 test_python() {
   pushd python
 
-  pip install -r requirements.txt -r requirements-test.txt
+  pip install -r requirements-build.txt -r requirements-test.txt
 
   export PYARROW_WITH_DATASET=1
   export PYARROW_WITH_GANDIVA=1

@@ -25,7 +25,7 @@ python --version
 # Install built wheel
 pip install -q /arrow/python/$WHEEL_DIR/dist/*.whl
 # Install test dependencies (pip won't work after removing system zlib)
-pip install -q -r /arrow/python/requirements-test.txt
+pip install -q -r /arrow/python/requirements-wheel-test.txt
 # Run pyarrow tests
 pytest -rs --pyargs pyarrow
 

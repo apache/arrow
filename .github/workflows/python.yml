@@ -184,9 +184,8 @@ jobs:
         run: |
           brew bundle --file=cpp/Brewfile
           brew install coreutils python
-          pip3 install -r python/requirements.txt \
-                       -r python/requirements-test.txt \
-                       cython
+          pip3 install -r python/requirements-build.txt \
+                       -r python/requirements-test.txt
       - name: Build
         shell: bash
         run: |

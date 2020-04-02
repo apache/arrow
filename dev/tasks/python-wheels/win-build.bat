@@ -23,15 +23,13 @@ conda update --yes --quiet conda
 conda create -n wheel-build -q -y -c conda-forge ^
     --file=%ARROW_SRC%\ci\conda_env_cpp.yml ^
     --file=%ARROW_SRC%\ci\conda_env_gandiva.yml ^
-    python=%PYTHON_VERSION% ^
-    numpy=%NUMPY_VERSION% ^
-    || exit /B
+    python=%PYTHON_VERSION% || exit /B
 
 call conda.bat activate wheel-build
 
 @rem Cannot use conda_env_python.yml here because conda-forge has
 @rem ceased providing up-to-date packages for Python 3.5
-pip install -r %ARROW_SRC%\python\requirements-wheel.txt
+pip install -r %ARROW_SRC%\python\requirements-wheel-build.txt
 
 set ARROW_HOME=%CONDA_PREFIX%\Library
 set PARQUET_HOME=%CONDA_PREFIX%\Library
@@ -90,14 +88,12 @@ set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
 
 @rem test the wheel
 @rem TODO For maximum reliability, we should test in a plain virtualenv instead.
-conda create -n wheel-test -c conda-forge -q -y ^
-    --file %ARROW_SRC%\ci\conda_env_python.yml ^
-    python=%PYTHON_VERSION% ^
-    numpy=%NUMPY_VERSION% || exit /B
+conda create -n wheel-test -c conda-forge -q -y python=%PYTHON_VERSION% || exit /B
 call conda.bat activate wheel-test
 
 @rem install the built wheel
 pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B
+pip install -q -r %ARROW_SRC%\python\requirements-wheel-test.txt || exit /B
 
 @rem test the imports
 python -c "import pyarrow; import pyarrow.parquet; import pyarrow.flight; import pyarrow.dataset; import pyarrow.gandiva;" || exit /B
