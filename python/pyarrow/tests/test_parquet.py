@@ -3233,7 +3233,7 @@ def test_direct_read_dictionary_subfield():
 
 
 @pytest.mark.pandas
-def test_dataset_metadata(tempdir):
+def test_write_to_dataset_metadata(tempdir):
     path = tempdir / "ARROW-1983-dataset"
 
     # create and write a test dataset
@@ -3253,6 +3253,7 @@ def test_dataset_metadata(tempdir):
     dataset = pq.ParquetDataset(path)
     metadata_list2 = [p.get_metadata() for p in dataset.pieces]
 
+    collected_paths = []
     # compare metadata list content:
     assert len(metadata_list) == len(metadata_list2)
     for md, md2 in zip(metadata_list, metadata_list2):
@@ -3261,7 +3262,39 @@ def test_dataset_metadata(tempdir):
         # serialized_size is initialized in the reader:
         assert d.pop('serialized_size') == 0
         assert d2.pop('serialized_size') > 0
+        # file_path is different (not set for in-file metadata)
+        assert d["row_groups"][0]["columns"][0]["file_path"] != ""
+        assert d2["row_groups"][0]["columns"][0]["file_path"] == ""
+        # collect file paths to check afterwards, ignore here
+        collected_paths.append(d["row_groups"][0]["columns"][0]["file_path"])
+        d["row_groups"][0]["columns"][0]["file_path"] = ""
         assert d == d2
+
+    # ARROW-8244 - check the file paths in the collected metadata
+    n_root = len(path.parts)
+    file_paths = ["/".join(p.parts[n_root:]) for p in path.rglob("*.parquet")]
+    assert sorted(collected_paths) == sorted(file_paths)
+
+    # writing to single file (not partitioned)
+    metadata_list = []
+    pq.write_to_dataset(pa.table({'a': [1, 2, 3]}), root_path=str(path),
+                        metadata_collector=metadata_list)
+
+    # compare metadata content
+    file_paths = list(path.glob("*.parquet"))
+    assert len(file_paths) == 1
+    file_path = file_paths[0]
+    file_metadata = pq.read_metadata(file_path)
+    d1 = metadata_list[0].to_dict()
+    d2 = file_metadata.to_dict()
+    # serialized_size is initialized in the reader:
+    assert d1.pop('serialized_size') == 0
+    assert d2.pop('serialized_size') > 0
+    # file_path is different (not set for in-file metadata)
+    assert d1["row_groups"][0]["columns"][0]["file_path"] == file_path.name
+    assert d2["row_groups"][0]["columns"][0]["file_path"] == ""
+    d1["row_groups"][0]["columns"][0]["file_path"] = ""
+    assert d1 == d2
 
 
 def test_parquet_file_too_small(tempdir):

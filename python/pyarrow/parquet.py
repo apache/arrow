@@ -422,8 +422,8 @@ schema : arrow Schema
 **options : dict
     If options contains a key `metadata_collector` then the
     corresponding value is assumed to be a list (or any object with
-    `.append` method) that will be filled with file metadata instances
-    of dataset pieces.
+    `.append` method) that will be filled with the file metadata instance
+    of the written file.
 """.format(_parquet_writer_arg_docs)
 
     def __init__(self, where, schema, filesystem=None,
@@ -1429,14 +1429,17 @@ def write_to_dataset(table, root_path, partition_cols=None,
         and allow you to override the partition filename. If nothing is
         passed, the filename will consist of a uuid.
     **kwargs : dict,
-        kwargs for write_table function. Using `metadata_collector` in
-        kwargs allows one to collect the file metadata instances of
-        dataset pieces. See docstring for `write_table` or
-        `ParquetWriter` for more information.
+        Additional kwargs for write_table function. See docstring for
+        `write_table` or `ParquetWriter` for more information.
+        Using `metadata_collector` in kwargs allows one to collect the
+        file metadata instances of dataset pieces. The file paths in the
+        ColumnChunkMetaData will be set relative to `root_path`.
     """
     fs, root_path = _get_filesystem_and_path(filesystem, root_path)
 
     _mkdir_if_not_exists(fs, root_path)
+
+    metadata_collector = kwargs.pop('metadata_collector', None)
 
     if partition_cols is not None and len(partition_cols) > 0:
         df = table.to_pandas(ignore_metadata=True)
@@ -1462,15 +1465,18 @@ def write_to_dataset(table, root_path, partition_cols=None,
                  for name, val in zip(partition_cols, keys)])
             subtable = pa.Table.from_pandas(subgroup, preserve_index=False,
                                             schema=subschema, safe=False)
-            prefix = '/'.join([root_path, subdir])
-            _mkdir_if_not_exists(fs, prefix)
+            _mkdir_if_not_exists(fs, '/'.join([root_path, subdir]))
             if partition_filename_cb:
                 outfile = partition_filename_cb(keys)
             else:
                 outfile = guid() + '.parquet'
-            full_path = '/'.join([prefix, outfile])
+            relative_path = '/'.join([subdir, outfile])
+            full_path = '/'.join([root_path, relative_path])
             with fs.open(full_path, 'wb') as f:
-                write_table(subtable, f, **kwargs)
+                write_table(subtable, f, metadata_collector=metadata_collector,
+                            **kwargs)
+            if metadata_collector is not None:
+                metadata_collector[-1].set_file_path(relative_path)
     else:
         if partition_filename_cb:
             outfile = partition_filename_cb(None)
@@ -1478,7 +1484,10 @@ def write_to_dataset(table, root_path, partition_cols=None,
             outfile = guid() + '.parquet'
         full_path = '/'.join([root_path, outfile])
         with fs.open(full_path, 'wb') as f:
-            write_table(table, f, **kwargs)
+            write_table(table, f, metadata_collector=metadata_collector,
+                        **kwargs)
+        if metadata_collector is not None:
+            metadata_collector[-1].set_file_path(outfile)
 
 
 def write_metadata(schema, where, version='1.0',
