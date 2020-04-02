@@ -214,6 +214,8 @@ popd
 # Update versions.yml
 pinned_version=$(echo ${version} | sed -e 's/\.[^.]*$/.*/')
 
+apache_download_url=https://downloads.apache.org
+
 cat <<YAML > "${versions_yml}"
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -243,9 +245,9 @@ current:
   tarball_name: 'apache-arrow-${version}.tar.gz'
   mirrors-tar: 'https://www.apache.org/dyn/closer.lua/arrow/arrow-${version}/apache-arrow-${version}.tar.gz'
   java-artifacts: 'http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%22${version}%22'
-  asc: 'https://www.apache.org/dist/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.asc'
-  sha256: 'https://www.apache.org/dist/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha256'
-  sha512: 'https://www.apache.org/dist/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha512'
+  asc: '${apache_download_url}/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.asc'
+  sha256: '${apache_download_url}/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha256'
+  sha512: '${apache_download_url}/dist/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha512'
 YAML
 git add "${versions_yml}"
 
