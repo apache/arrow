@@ -79,12 +79,7 @@ FileInfo <- R6Class("FileInfo",
   )
 )
 
-#' @include arrow-package.R
-#' @title FileSystem entry info (Deprecated. Use FileInfo instead.)
-#' @usage NULL
-#' @format NULL
-#'
-#' @rdname FileStats
+#' @rdname FileInfo
 #' @export
 FileStats <- FileInfo
 

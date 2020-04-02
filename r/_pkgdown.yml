@@ -67,6 +67,7 @@ reference:
   - Partitioning
   - Expression
   - Scanner
+  - FileFormat
 - title: Reading and writing files
   contents:
   - read_feather
@@ -76,6 +77,7 @@ reference:
   - read_json_arrow
   - write_feather
   - write_ipc_stream
+  - write_to_raw
   - write_parquet
 - title: C++ reader/writer interface
   contents:
@@ -125,6 +127,7 @@ reference:
   - MemoryPool
   - default_memory_pool
   - FileSystem
+  - FileInfo
   - FileStats
   - FileSelector
 - title: Installation helpers

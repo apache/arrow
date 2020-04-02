@@ -2,6 +2,7 @@
 % Please edit documentation in R/filesystem.R
 \name{FileInfo}
 \alias{FileInfo}
+\alias{FileStats}
 \title{FileSystem entry info}
 \description{
 FileSystem entry info

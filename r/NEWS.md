@@ -19,12 +19,40 @@
 
 # arrow 0.16.0.9000
 
+## Feather v2
+
+* What it is
+* Related, streamline read/write
+
+## Python interoperability
+
+## Datasets
+
+* Dataset reading benefits from many speedups in the C++ library
+* Datasets have a `dim()` method, which sums across all files (#6635, @boshek)
+* Dataset filtering now treats `NA` as `FALSE`, consistent with `dplyr::filter()`
+* Dataset filtering is now correctly supported for all Arrow date/time/timestamp column types
+* `vignette("dataset", package = "arrow")` now has correct, executable code
+
+## Installation
+
+* Linux default now builds C++ library from source, with some options, such as compression libraries, disabled. For a faster, richer build, set the environment variable `NOT_CRAN=true`. See `vignette("install", package = "arrow")` for details and more options. 
+* Source installation is faster and builds on more Linux distributions with no additional system dependencies.
+
+## Other bug fixes
+
+* Timezones are faithfully preserved in roundtrip between R and Arrow
+* `read_feather()` and other reader functions close any file connections they open
+* Arrow R6 objects no longer have namespace collisions when the `R.oo` package is also loaded
+* `FileStats` is renamed to `FileInfo`, and the original spelling has been deprecated
+
+# arrow 0.16.0.2
+
 * `install_arrow()` now installs the latest release of `arrow`, including Linux dependencies, either for CRAN releases or for development builds (if `nightly = TRUE`)
-* Package installation on Linux no longer downloads C++ dependencies unless the `LIBARROW_DOWNLOAD` or `NOT_CRAN` enviroment variable is set
+* Package installation on Linux no longer downloads C++ dependencies unless the `LIBARROW_DOWNLOAD` or `NOT_CRAN` environment variable is set
 * `write_feather()`, `write_arrow()` and `write_parquet()` now return their input,
 similar to the `write_*` functions in the `readr` package (#6387, @boshek)
 * Can now infer the type of an R `list` and create a ListArray when all list elements are the same type (#6275, @michaelchirico)
-* Dataset filtering is now correctly supported for all Arrow date/time/timestamp column types.
 
 # arrow 0.16.0
 
