@@ -298,7 +298,7 @@ def _ensure_factory(src, **kwargs):
 
 
 def dataset(paths_or_factories, filesystem=None, partitioning=None,
-            format=None):
+            format=None, schema=None):
     """
     Open a dataset.
 
@@ -317,6 +317,9 @@ def dataset(paths_or_factories, filesystem=None, partitioning=None,
         field names a DirectionaryPartitioning will be inferred.
     format : str
         Currently only "parquet" is supported.
+    schema : Schema, optional
+        Optionally provide the Schema for the Dataset, in which case it will
+        not be inferred from the source.
 
     Returns
     -------
@@ -347,8 +350,8 @@ def dataset(paths_or_factories, filesystem=None, partitioning=None,
 
     factories = [_ensure_factory(f, **kwargs) for f in paths_or_factories]
     if single_dataset:
-        return factories[0].finish()
-    return UnionDatasetFactory(factories).finish()
+        return factories[0].finish(schema=schema)
+    return UnionDatasetFactory(factories).finish(schema=schema)
 
 
 def field(name):
