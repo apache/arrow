@@ -71,7 +71,7 @@ These may be suitable for downstream libraries in their continuous integration
 setup to maintain compatibility with the upcoming PyArrow features,
 deprecations and/or feature removals.
 
-Install development version of PyArrow from `arrow-nightlies
+Install the development version of PyArrow from `arrow-nightlies
 <https://anaconda.org/arrow-nightlies/pyarrow>`_ conda channel:
 
 .. code-block:: bash
