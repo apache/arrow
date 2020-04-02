@@ -22,7 +22,6 @@ import java.util.Set;
 
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
-import org.apache.arrow.vector.types.pojo.Field;
 
 import com.google.protobuf.ByteString;
 

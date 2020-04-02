@@ -17,21 +17,21 @@
 
 package org.apache.arrow.gandiva.evaluator;
 
-import java.util.List;
-import java.util.Arrays;
-import java.util.stream.IntStream;
 import java.nio.charset.Charset;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.IntStream;
 
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.expression.Condition;
 import org.apache.arrow.gandiva.expression.TreeBuilder;
+import org.apache.arrow.gandiva.expression.TreeNode;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.gandiva.expression.TreeNode;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -47,8 +47,10 @@ public class FilterTest extends BaseEvaluatorTest {
     }
     return actual;
   }
+
   private Charset utf8Charset = Charset.forName("UTF-8");
   private Charset utf16Charset = Charset.forName("UTF-16");
+
   List<ArrowBuf> varBufs(String[] strings, Charset charset) {
     ArrowBuf offsetsBuffer = allocator.buffer((strings.length + 1) * 4);
     ArrowBuf dataBuffer = allocator.buffer(strings.length * 8);
@@ -77,7 +79,7 @@ public class FilterTest extends BaseEvaluatorTest {
     TreeNode l1 = TreeBuilder.makeLiteral(1L);
     TreeNode l2 = TreeBuilder.makeLiteral(3L);
 
-    List<Field> args_schema = Lists.newArrayList(c1);
+    List<Field> argsSchema = Lists.newArrayList(c1);
     List<TreeNode> args = Lists.newArrayList(TreeBuilder.makeField(c1), l1, l2);
     TreeNode substr = TreeBuilder.makeFunction("substr", args, new ArrowType.Utf8());
     TreeNode inExpr =
@@ -85,7 +87,7 @@ public class FilterTest extends BaseEvaluatorTest {
 
     Condition condition = TreeBuilder.makeCondition(inExpr);
 
-    Schema schema = new Schema(args_schema);
+    Schema schema = new Schema(argsSchema);
     Filter filter = Filter.make(schema, condition);
 
     int numRows = 16;
@@ -122,13 +124,13 @@ public class FilterTest extends BaseEvaluatorTest {
   public void testSimpleInInt() throws GandivaException, Exception {
     Field c1 = Field.nullable("c1", int32);
 
-    List<Field> args_schema = Lists.newArrayList(c1);
+    List<Field> argsSchema = Lists.newArrayList(c1);
     TreeNode inExpr =
             TreeBuilder.makeInExpressionInt32(TreeBuilder.makeField(c1), Sets.newHashSet(1, 2, 3, 4));
 
     Condition condition = TreeBuilder.makeCondition(inExpr);
 
-    Schema schema = new Schema(args_schema);
+    Schema schema = new Schema(argsSchema);
     Filter filter = Filter.make(schema, condition);
 
     int numRows = 16;
