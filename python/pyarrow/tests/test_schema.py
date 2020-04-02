@@ -261,8 +261,7 @@ sapien. Quisque pretium vestibulum urna eu vehicula."""
                                     metadata={"key1": "value1"}),
                            pa.field("bar", "string", True,
                                     metadata={"key3": "value3"})],
-                          metadata={"key2": "value2",
-                                    "lorem": lorem})
+                          metadata={"lorem": lorem})
 
     assert my_schema.to_string() == """\
 foo: int32 not null
@@ -272,7 +271,6 @@ bar: string
   -- field metadata --
   key3: 'value3'
 -- schema metadata --
-key2: 'value2'
 lorem: '""" + lorem[:65] + "' + " + str(len(lorem) - 65)
 
     # Metadata that exactly fits
@@ -292,7 +290,6 @@ bar: string
   -- field metadata --
   key3: 'value3'
 -- schema metadata --
-key2: 'value2'
 lorem: '{}'""".format(lorem)
 
     assert my_schema.to_string(truncate_metadata=False,
@@ -300,7 +297,6 @@ lorem: '{}'""".format(lorem)
 foo: int32 not null
 bar: string
 -- schema metadata --
-key2: 'value2'
 lorem: '{}'""".format(lorem)
 
     assert my_schema.to_string(truncate_metadata=False,
