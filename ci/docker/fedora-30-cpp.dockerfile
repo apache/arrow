@@ -50,7 +50,6 @@ RUN dnf update -y && \
         rapidjson-devel \
         re2-devel \
         snappy-devel \
-        thrift-devel \
         zlib-devel
 
 # * c-ares cmake config is not installed on Fedora but gRPC needs it
@@ -80,4 +79,5 @@ ENV ARROW_BUILD_TESTS=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
     PARQUET_BUILD_EXAMPLES=ON \
     PATH=/usr/lib/ccache/:$PATH \
-    Protobuf_SOURCE=BUNDLED
+    Protobuf_SOURCE=BUNDLED \
+    Thrift_SOURCE=BUNDLED
