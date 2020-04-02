@@ -25,7 +25,7 @@ cmake
 gflags
 glog
 gmock>=1.8.1
-grpc-cpp>=1.21.4
+grpc-cpp[version='>=1.21.4,<1.28.0']
 gtest=1.8.1
 libprotobuf
 lz4-c
