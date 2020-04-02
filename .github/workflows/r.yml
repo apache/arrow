@@ -43,6 +43,7 @@ jobs:
   ubuntu:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -87,6 +88,7 @@ jobs:
   rstudio:
     name: "rstudio/r-base:${{ matrix.r_version }}-${{ matrix.r_image }}"
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -130,6 +132,7 @@ jobs:
   windows:
     name: AMD64 Windows RTools ${{ matrix.rtools }}
     runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:

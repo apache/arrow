@@ -36,6 +36,7 @@ jobs:
   ubuntu:
     name: AMD64 Ubuntu 16.04 Python 3.5
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     env:
       UBUNTU: 16.04
     steps:
@@ -71,6 +72,7 @@ jobs:
   conda-nopandas:
     name: AMD64 Conda Python ${{ matrix.python }} Without Pandas
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -110,6 +112,7 @@ jobs:
   conda-pandas:
     name: AMD64 Conda Python ${{ matrix.python }} Pandas ${{ matrix.pandas }}
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -154,6 +157,7 @@ jobs:
   macos:
     name: AMD64 MacOS 10.15 Python 3.7
     runs-on: macos-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     env:
       ARROW_HOME: /usr/local
       ARROW_DATASET: ON

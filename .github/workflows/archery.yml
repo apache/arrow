@@ -30,6 +30,7 @@ on:
 jobs:
 
   archery:
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     name: Archery Unittests
     runs-on: ubuntu-latest
     steps:

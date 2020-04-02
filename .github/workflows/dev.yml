@@ -27,6 +27,7 @@ jobs:
   lint:
     name: Lint C++, Python, R, Rust, Docker, RAT
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -57,6 +58,7 @@ jobs:
   release:
     name: Source Release and Merge Script
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     env:
       GIT_AUTHOR_NAME: Github Actions
       GIT_AUTHOR_EMAIL: github@actions

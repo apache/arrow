@@ -36,6 +36,7 @@ jobs:
   debian:
     name: AMD64 Debian 9 Java JNI and Plasma
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
