@@ -25,7 +25,7 @@ import pyarrow.flight
 import pyarrow.csv as csv
 
 
-def list_flights(args, client):
+def list_flights(args, client, conn_args=None):
     print('Flights\n=======')
     for flight in client.list_flights():
         descriptor = flight.descriptor
@@ -60,7 +60,7 @@ def list_flights(args, client):
         print('---')
 
 
-def do_action(args, client):
+def do_action(args, client, conn_args=None):
     try:
         buf = pyarrow.allocate_buffer(0)
         action = pyarrow.flight.Action(args.action_type, buf)
@@ -71,7 +71,7 @@ def do_action(args, client):
         print("Error calling action:", e)
 
 
-def push_data(args, client):
+def push_data(args, client, conn_args=None):
     print('File Name:', args.file)
     my_table = csv.read_csv(args.file)
     print ('Table rows=', str(len(my_table)))
@@ -83,7 +83,7 @@ def push_data(args, client):
     writer.close()
 
 
-def get_flight(args, client):
+def get_flight(args, client, conn_args=None):
     if args.path:
         descriptor = pyarrow.flight.FlightDescriptor.for_path(*args.path)
     else:
@@ -94,7 +94,10 @@ def get_flight(args, client):
         print('Ticket:', endpoint.ticket)
         for location in endpoint.locations:
             print(location)
-            get_client = pyarrow.flight.FlightClient(location)
+            if "tls_root_certs" in conn_args:
+                get_client = pyarrow.flight.FlightClient(location, conn_args["tls_root_certs"])
+            else:
+                get_client = pyarrow.flight.FlightClient(location)
             reader = get_client.do_get(endpoint.ticket)
             df = reader.read_pandas()
             print(df)
@@ -171,7 +174,7 @@ def main():
         except pyarrow.ArrowIOError as e:
             if "Deadline" in str(e):
                 print("Server is not ready, waiting...")
-    commands[args.action](args, client)
+    commands[args.action](args, client, connection_args)
 
 
 if __name__ == '__main__':
