@@ -935,7 +935,7 @@ def _parse_hive_partition(value):
 
 def _is_private_directory(x):
     _, tail = os.path.split(x)
-    return tail.startswith('_') and '=' not in tail
+    return (tail.startswith('_') or tail.startswith('.')) and '=' not in tail
 
 
 def _path_split(path, sep):

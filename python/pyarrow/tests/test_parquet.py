@@ -2337,7 +2337,22 @@ def _make_example_multifile_dataset(base_path, nfiles=10, file_nrows=5):
 
 
 @pytest.mark.pandas
-def test_ignore_private_directories(tempdir):
+def test_ignore_private_directories_dot(tempdir):
+    dirpath = tempdir / guid()
+    dirpath.mkdir()
+
+    paths = _make_example_multifile_dataset(dirpath, nfiles=10,
+                                            file_nrows=5)
+
+    # private directory
+    (dirpath / '.spark-staging').mkdir()
+
+    dataset = pq.ParquetDataset(dirpath)
+    assert set(map(str, paths)) == {x.path for x in dataset.pieces}
+
+
+@pytest.mark.pandas
+def test_ignore_private_directories_underscore(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
 
