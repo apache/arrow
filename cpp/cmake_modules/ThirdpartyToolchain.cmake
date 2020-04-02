@@ -499,6 +499,8 @@ if(NOT ARROW_VERBOSE_THIRDPARTY_BUILD)
       LOG_INSTALL
       1
       LOG_DOWNLOAD
+      1
+      LOG_OUTPUT_ON_FAILURE
       1)
   set(Boost_DEBUG FALSE)
 else()
