@@ -146,12 +146,7 @@ impl UnionArray {
                 type_id
             )));
         }
-        Ok(unsafe { self.child_unchecked(type_id) })
-    }
-
-    /// Unsafe version of `child` that does not validate the `type_id` provided.
-    pub unsafe fn child_unchecked(&self, type_id: i8) -> ArrayRef {
-        self.boxed_fields[type_id as usize].clone()
+        Ok(self.boxed_fields[type_id as usize].clone())
     }
 
     /// Returns the `type_id` for the array slot at index `i`.
@@ -206,7 +201,7 @@ impl UnionArray {
     pub fn value(&self, i: usize) -> Result<ArrayRef> {
         let type_id = self.type_id(i)?;
         let value_offset = unsafe { self.value_offset_unchecked(i) } as usize;
-        let child_data = unsafe { self.child_unchecked(type_id) };
+        let child_data = self.boxed_fields[type_id as usize].clone();
         Ok(child_data.slice(value_offset, 1))
     }
 
@@ -218,7 +213,7 @@ impl UnionArray {
     pub unsafe fn value_unchecked(&self, i: usize) -> ArrayRef {
         let type_id = self.type_id_unchecked(i);
         let value_offset = self.value_offset_unchecked(i) as usize;
-        let child_data = self.child_unchecked(type_id);
+        let child_data = self.boxed_fields[type_id as usize].clone();
         child_data.slice(value_offset, 1)
     }
 
