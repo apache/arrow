@@ -7,28 +7,24 @@
 \alias{RecordBatchFileWriter}
 \title{RecordBatchWriter classes}
 \description{
-\code{RecordBatchFileWriter} and \code{RecordBatchStreamWriter} are
-interfaces for writing record batches to either the binary file or streaming
-format.
-}
-\section{Usage}{
-\preformatted{writer <- RecordBatchStreamWriter$create(sink, schema)
+Apache Arrow defines two formats for \href{https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc}{serializing data for interprocess communication (IPC)}:
+a "stream" format and a "file" format, known as Feather.
+\code{RecordBatchStreamWriter} and \code{RecordBatchFileWriter} are
+interfaces for writing record batches to those formats, respectively.
 
-writer$write_batch(batch)
-writer$write_table(table)
-writer$close()
+For guidance on how to use these classes, see the examples section.
 }
-}
-
 \section{Factory}{
 
 
 The \code{RecordBatchFileWriter$create()} and \code{RecordBatchStreamWriter$create()}
-factory methods instantiate the object and
-take a single argument, named according to the class:
+factory methods instantiate the object and take the following arguments:
 \itemize{
-\item \code{sink} A character file name or an \code{OutputStream}.
-\item \code{schema} A \link{Schema} for the data to be written.
+\item \code{sink} An \code{OutputStream}
+\item \code{schema} A \link{Schema} for the data to be written
+\item \code{use_legacy_format} logical: write data formatted so that Arrow libraries
+versions 0.14 and lower can read it? Default is \code{FALSE}. You can also
+enable this by setting the environment variable \code{ARROW_PRE_0_15_IPC_FORMAT=1}.
 }
 }
 
@@ -39,7 +35,51 @@ take a single argument, named according to the class:
 to the methods below appropriately
 \item \verb{$write_batch(batch)}: Write a \code{RecordBatch} to stream
 \item \verb{$write_table(table)}: Write a \code{Table} to stream
-\item \verb{$close()}: close stream
+\item \verb{$close()}: close stream. Note that this indicates end-of-file or
+end-of-stream--it does not close the connection to the \code{sink}. That needs
+to be closed separately.
 }
 }
 
+\examples{
+\donttest{
+tf <- tempfile()
+on.exit(unlink(tf))
+
+batch <- record_batch(iris)
+
+# This opens a connection to the file in Arrow
+file_obj <- FileOutputStream$create(tf)
+# Pass that to a RecordBatchWriter to write data conforming to a schema
+writer <- RecordBatchFileWriter$create(file_obj, batch$schema)
+writer$write(batch)
+# You may write additional batches to the stream, provided that they have
+# the same schema.
+# Call "close" on the writer to indicate end-of-file/stream
+writer$close()
+# Then, close the connection--closing the IPC message does not close the file
+file_obj$close()
+
+# Now, we have a file we can read from. Same pattern: open file connection,
+# then pass it to a RecordBatchReader
+read_file_obj <- ReadableFile$create(tf)
+reader <- RecordBatchFileReader$create(read_file_obj)
+# RecordBatchFileReader knows how many batches it has (StreamReader does not)
+reader$num_record_batches
+# We could consume the Reader by calling $read_next_batch() until all are,
+# consumed, or we can call $read_table() to pull them all into a Table
+tab <- reader$read_table()
+# Call as.data.frame to turn that Table into an R data.frame
+df <- as.data.frame(tab)
+# This should be the same data we sent
+all.equal(df, iris, check.attributes = FALSE)
+# Unlike the Writers, we don't have to close RecordBatchReaders,
+# but we do still need to close the file connection
+read_file_obj$close()
+}
+}
+\seealso{
+\code{\link[=write_ipc_stream]{write_ipc_stream()}} and \code{\link[=write_feather]{write_feather()}} provide a much simpler
+interface for writing data to these formats and are sufficient for many use
+cases. \code{\link[=write_to_raw]{write_to_raw()}} is a version that serializes data to a buffer.
+}

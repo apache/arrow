@@ -147,21 +147,41 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
   )
 )
 
-RecordBatch$create <- function(..., schema = NULL){
+RecordBatch$create <- function(..., schema = NULL) {
   arrays <- list2(...)
+  if (length(arrays) == 1 && inherits(arrays[[1]], c("raw", "Buffer", "InputStream", "Message"))) {
+    return(RecordBatch$from_message(arrays[[1]], schema))
+  }
+  # Else, list of arrays
   # making sure there are always names
   if (is.null(names(arrays))) {
     names(arrays) <- rep_len("", length(arrays))
   }
   stopifnot(length(arrays) > 0)
+  # TODO: should this also assert that they're all Arrays?
   shared_ptr(RecordBatch, RecordBatch__from_arrays(schema, arrays))
+}
+
+RecordBatch$from_message <- function(obj, schema) {
+  # Message/Buffer readers, previously in read_record_batch()
+  assert_is(schema, "Schema")
+  if (inherits(obj, c("raw", "Buffer"))) {
+    obj <- BufferReader$create(obj)
+    on.exit(obj$close())
+  }
+  if (inherits(obj, "InputStream")) {
+    shared_ptr(RecordBatch, ipc___ReadRecordBatch__InputStream__Schema(obj, schema))
+  } else {
+    shared_ptr(RecordBatch, ipc___ReadRecordBatch__Message__Schema(obj, schema))
+  }
 }
 
 #' @param ... A `data.frame` or a named set of Arrays or vectors. If given a
 #' mixture of data.frames and vectors, the inputs will be autospliced together
-#' (see examples).
+#' (see examples). Alternatively, you can provide a single Arrow IPC
+#' `InputStream`, `Message`, `Buffer`, or R `raw` object containing a `Buffer`.
 #' @param schema a [Schema], or `NULL` (the default) to infer the schema from
-#' the data in `...`
+#' the data in `...`. When providing an Arrow IPC buffer, `schema` is required.
 #' @rdname RecordBatch
 #' @examples
 #' \donttest{

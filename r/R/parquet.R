@@ -149,7 +149,9 @@ write_parquet <- function(x,
                             allow_truncated_timestamps = allow_truncated_timestamps
                           )) {
   x_out <- x
-  x <- to_arrow(x)
+  if (is.data.frame(x)) {
+    x <- Table$create(x)
+  }
 
   if (is.character(sink)) {
     sink <- FileOutputStream$create(sink)

@@ -17,29 +17,30 @@
 
 
 #' @title RecordBatchWriter classes
-#' @description `RecordBatchFileWriter` and `RecordBatchStreamWriter` are
-#' interfaces for writing record batches to either the binary file or streaming
-#' format.
+#' @description Apache Arrow defines two formats for [serializing data for interprocess
+#' communication (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
+#' a "stream" format and a "file" format, known as Feather.
+#' `RecordBatchStreamWriter` and `RecordBatchFileWriter` are
+#' interfaces for writing record batches to those formats, respectively.
+#'
+#' For guidance on how to use these classes, see the examples section.
+#'
+#' @seealso [write_ipc_stream()] and [write_feather()] provide a much simpler
+#' interface for writing data to these formats and are sufficient for many use
+#' cases. [write_to_raw()] is a version that serializes data to a buffer.
 #' @usage NULL
 #' @format NULL
 #' @docType class
-#' @section Usage:
-#'
-#' ```
-#' writer <- RecordBatchStreamWriter$create(sink, schema)
-#'
-#' writer$write_batch(batch)
-#' writer$write_table(table)
-#' writer$close()
-#' ```
 #' @section Factory:
 #'
 #' The `RecordBatchFileWriter$create()` and `RecordBatchStreamWriter$create()`
-#' factory methods instantiate the object and
-#' take a single argument, named according to the class:
+#' factory methods instantiate the object and take the following arguments:
 #'
-#' - `sink` A character file name or an `OutputStream`.
-#' - `schema` A [Schema] for the data to be written.
+#' - `sink` An `OutputStream`
+#' - `schema` A [Schema] for the data to be written
+#' - `use_legacy_format` logical: write data formatted so that Arrow libraries
+#'   versions 0.14 and lower can read it? Default is `FALSE`. You can also
+#'   enable this by setting the environment variable `ARROW_PRE_0_15_IPC_FORMAT=1`.
 #'
 #' @section Methods:
 #'
@@ -47,24 +48,61 @@
 #'    to the methods below appropriately
 #' - `$write_batch(batch)`: Write a `RecordBatch` to stream
 #' - `$write_table(table)`: Write a `Table` to stream
-#' - `$close()`: close stream
+#' - `$close()`: close stream. Note that this indicates end-of-file or
+#'   end-of-stream--it does not close the connection to the `sink`. That needs
+#'   to be closed separately.
 #'
 #' @rdname RecordBatchWriter
 #' @name RecordBatchWriter
 #' @include arrow-package.R
+#' @examples
+#' \donttest{
+#' tf <- tempfile()
+#' on.exit(unlink(tf))
+#'
+#' batch <- record_batch(iris)
+#'
+#' # This opens a connection to the file in Arrow
+#' file_obj <- FileOutputStream$create(tf)
+#' # Pass that to a RecordBatchWriter to write data conforming to a schema
+#' writer <- RecordBatchFileWriter$create(file_obj, batch$schema)
+#' writer$write(batch)
+#' # You may write additional batches to the stream, provided that they have
+#' # the same schema.
+#' # Call "close" on the writer to indicate end-of-file/stream
+#' writer$close()
+#' # Then, close the connection--closing the IPC message does not close the file
+#' file_obj$close()
+#'
+#' # Now, we have a file we can read from. Same pattern: open file connection,
+#' # then pass it to a RecordBatchReader
+#' read_file_obj <- ReadableFile$create(tf)
+#' reader <- RecordBatchFileReader$create(read_file_obj)
+#' # RecordBatchFileReader knows how many batches it has (StreamReader does not)
+#' reader$num_record_batches
+#' # We could consume the Reader by calling $read_next_batch() until all are,
+#' # consumed, or we can call $read_table() to pull them all into a Table
+#' tab <- reader$read_table()
+#' # Call as.data.frame to turn that Table into an R data.frame
+#' df <- as.data.frame(tab)
+#' # This should be the same data we sent
+#' all.equal(df, iris, check.attributes = FALSE)
+#' # Unlike the Writers, we don't have to close RecordBatchReaders,
+#' # but we do still need to close the file connection
+#' read_file_obj$close()
+#' }
 RecordBatchWriter <- R6Class("RecordBatchWriter", inherit = ArrowObject,
   public = list(
     write_batch = function(batch) ipc___RecordBatchWriter__WriteRecordBatch(self, batch),
     write_table = function(table) ipc___RecordBatchWriter__WriteTable(self, table),
 
     write = function(x) {
-      x <- to_arrow(x)
       if (inherits(x, "RecordBatch")) {
         self$write_batch(x)
       } else if (inherits(x, "Table")) {
         self$write_table(x)
       } else {
-        abort("unexpected type for RecordBatchWriter$write(), must be an arrow::RecordBatch or an arrow::Table")
+        self$write_table(Table$create(x))
       }
     },
 
@@ -78,8 +116,12 @@ RecordBatchWriter <- R6Class("RecordBatchWriter", inherit = ArrowObject,
 #' @export
 RecordBatchStreamWriter <- R6Class("RecordBatchStreamWriter", inherit = RecordBatchWriter)
 RecordBatchStreamWriter$create <- function(sink, schema, use_legacy_format = NULL) {
-  if (is.character(sink)) {
-    sink <- FileOutputStream$create(sink)
+  if (is.character(sink) && length(sink) == 1) {
+    stop(
+      "RecordBatchStreamWriter$create() requires an Arrow InputStream. ",
+      "Try providing FileOutputStream$create(", substitute(sink), ")",
+      call. = FALSE
+    )
   }
   use_legacy_format <- use_legacy_format %||% identical(Sys.getenv("ARROW_PRE_0_15_IPC_FORMAT"), "1")
   assert_is(sink, "OutputStream")
@@ -94,8 +136,12 @@ RecordBatchStreamWriter$create <- function(sink, schema, use_legacy_format = NUL
 #' @export
 RecordBatchFileWriter <- R6Class("RecordBatchFileWriter", inherit = RecordBatchStreamWriter)
 RecordBatchFileWriter$create <- function(sink, schema, use_legacy_format = NULL) {
-  if (is.character(sink)) {
-    sink <- FileOutputStream$create(sink)
+  if (is.character(sink) && length(sink) == 1) {
+    stop(
+      "RecordBatchFileWriter$create() requires an Arrow InputStream. ",
+      "Try providing FileOutputStream$create(", substitute(sink), ")",
+      call. = FALSE
+    )
   }
   use_legacy_format <- use_legacy_format %||% identical(Sys.getenv("ARROW_PRE_0_15_IPC_FORMAT"), "1")
   assert_is(sink, "OutputStream")

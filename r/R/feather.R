@@ -17,8 +17,8 @@
 
 #' Write data in the Feather format
 #'
-#' @param x `data.frame`, `RecordBatch`, or `Table`
-#' @param sink A file path or an `OutputStream`
+#' @param x `data.frame`, [RecordBatch], or [Table]
+#' @param sink A string file path or [OutputStream]
 #' @param version integer Feather file version. Version 2 is the current.
 #' Version 1 is the more limited legacy format.
 #' @param chunk_size For V2 files, the number of rows that each chunk of data
@@ -33,7 +33,8 @@
 #' specify an integer compression level. If omitted, the compression codec's
 #' default compression level is used.
 #'
-#' @return The input `x`, invisibly.
+#' @return The input `x`, invisibly. Note that if `sink` is an [OutputStream],
+#' the stream will be left open.
 #' @export
 #' @examples
 #' \donttest{
@@ -103,7 +104,6 @@ write_feather <- function(x,
   }
   assert_is(sink, "OutputStream")
   ipc___WriteFeather__Table(sink, x, version, chunk_size, compression, compression_level)
-
   invisible(x_out)
 }
 
@@ -115,7 +115,7 @@ write_feather <- function(x,
 #' @param ... additional parameters
 #'
 #' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
-#' [arrow::Table][Table] otherwise
+#' Arrow [Table] otherwise
 #'
 #' @export
 #' @examples
@@ -142,6 +142,7 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   }
 
   out <- reader$Read(columns)
+
   if (isTRUE(as_data_frame)) {
     out <- as.data.frame(out)
   }

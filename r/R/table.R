@@ -183,7 +183,7 @@ Table <- R6Class("Table", inherit = ArrowObject,
   )
 )
 
-Table$create <- function(..., schema = NULL){
+Table$create <- function(..., schema = NULL) {
   dots <- list2(...)
   # making sure there are always names
   if (is.null(names(dots))) {

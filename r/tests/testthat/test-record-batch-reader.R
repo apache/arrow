@@ -35,7 +35,7 @@ test_that("RecordBatchStreamReader / Writer", {
   expect_true(sink$tell() > 0)
   writer$close()
 
-  buf <- sink$getvalue()
+  buf <- sink$finish()
   expect_is(buf, "Buffer")
 
   reader <- RecordBatchStreamReader$create(buf)
@@ -62,7 +62,7 @@ test_that("RecordBatchFileReader / Writer", {
   writer$write(tbl)
   writer$close()
 
-  buf <- sink$getvalue()
+  buf <- sink$finish()
   expect_is(buf, "Buffer")
 
   reader <- RecordBatchFileReader$create(buf)

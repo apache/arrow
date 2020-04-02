@@ -956,18 +956,6 @@ io___BufferOutputStream__Write <- function(stream, bytes){
     invisible(.Call(`_arrow_io___BufferOutputStream__Write` , stream, bytes))
 }
 
-io___MockOutputStream__initialize <- function(){
-    .Call(`_arrow_io___MockOutputStream__initialize` )
-}
-
-io___MockOutputStream__GetExtentBytesWritten <- function(stream){
-    .Call(`_arrow_io___MockOutputStream__GetExtentBytesWritten` , stream)
-}
-
-io___FixedSizeBufferWriter__initialize <- function(buffer){
-    .Call(`_arrow_io___FixedSizeBufferWriter__initialize` , buffer)
-}
-
 json___ReadOptions__initialize <- function(options){
     .Call(`_arrow_json___ReadOptions__initialize` , options)
 }

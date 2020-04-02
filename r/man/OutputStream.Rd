@@ -4,16 +4,12 @@
 \name{OutputStream}
 \alias{OutputStream}
 \alias{FileOutputStream}
-\alias{MockOutputStream}
 \alias{BufferOutputStream}
-\alias{FixedSizeBufferWriter}
 \title{OutputStream classes}
 \description{
 \code{FileOutputStream} is for writing to a file;
-\code{BufferOutputStream} and \code{FixedSizeBufferWriter} write to buffers;
-\code{MockOutputStream} just reports back how many bytes it received, for testing
-purposes. You can create one and pass it to any of the table writers, for
-example.
+\code{BufferOutputStream} writes to a buffer;
+You can create one and pass it to any of the table writers, for example.
 }
 \section{Factory}{
 
@@ -24,11 +20,7 @@ take the following arguments, depending on the subclass:
 \item \code{path} For \code{FileOutputStream}, a character file name
 \item \code{initial_capacity} For \code{BufferOutputStream}, the size in bytes of the
 buffer.
-\item \code{x} For \code{FixedSizeBufferWriter}, a \link{Buffer} or an object that can be
-made into a buffer via \code{buffer()}.
 }
-
-\code{MockOutputStream$create()} does not take any arguments.
 }
 
 \section{Methods}{
@@ -38,7 +30,7 @@ made into a buffer via \code{buffer()}.
 \item \verb{$close()}: close the stream
 \item \verb{$write(x)}: send \code{x} to the stream
 \item \verb{$capacity()}: for \code{BufferOutputStream}
-\item \verb{$getvalue()}: for \code{BufferOutputStream}
+\item \verb{$finish()}: for \code{BufferOutputStream}
 \item \verb{$GetExtentBytesWritten()}: for \code{MockOutputStream}, report how many bytes
 were sent.
 }
