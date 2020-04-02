@@ -36,6 +36,7 @@ jobs:
   ubuntu:
     name: AMD64 Ubuntu 16.04 Python 3.5
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     env:
       UBUNTU: 16.04
     steps:
@@ -111,6 +112,7 @@ jobs:
   conda-pandas:
     name: AMD64 Conda Python ${{ matrix.python }} Pandas ${{ matrix.pandas }}
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
