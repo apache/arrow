@@ -55,7 +55,7 @@ Writable <- R6Class("Writable", inherit = ArrowObject,
 #'  - `$close()`: close the stream
 #'  - `$write(x)`: send `x` to the stream
 #'  - `$capacity()`: for `BufferOutputStream`
-#'  - `$getvalue()`: for `BufferOutputStream`
+#'  - `$finish()`: for `BufferOutputStream`
 #'  - `$GetExtentBytesWritten()`: for `MockOutputStream`, report how many bytes
 #'    were sent.
 #'
@@ -97,7 +97,7 @@ MockOutputStream$create <- function() {
 BufferOutputStream <- R6Class("BufferOutputStream", inherit = OutputStream,
   public = list(
     capacity = function() io___BufferOutputStream__capacity(self),
-    getvalue = function() shared_ptr(Buffer, io___BufferOutputStream__Finish(self)),
+    finish = function() shared_ptr(Buffer, io___BufferOutputStream__Finish(self)),
     write = function(bytes) io___BufferOutputStream__Write(self, bytes),
     tell = function() io___BufferOutputStream__Tell(self)
   )

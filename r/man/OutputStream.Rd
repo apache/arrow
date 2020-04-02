@@ -38,7 +38,7 @@ made into a buffer via \code{buffer()}.
 \item \verb{$close()}: close the stream
 \item \verb{$write(x)}: send \code{x} to the stream
 \item \verb{$capacity()}: for \code{BufferOutputStream}
-\item \verb{$getvalue()}: for \code{BufferOutputStream}
+\item \verb{$finish()}: for \code{BufferOutputStream}
 \item \verb{$GetExtentBytesWritten()}: for \code{MockOutputStream}, report how many bytes
 were sent.
 }

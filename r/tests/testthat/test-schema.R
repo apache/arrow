@@ -62,7 +62,7 @@ test_that("reading schema from Buffer", {
   expect_is(writer, "RecordBatchStreamWriter")
   writer$close()
 
-  buffer <- stream$getvalue()
+  buffer <- stream$finish()
   expect_is(buffer, "Buffer")
 
   reader <- MessageReader$create(buffer)

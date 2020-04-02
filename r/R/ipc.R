@@ -39,7 +39,11 @@
 #' @export
 write_arrow <- function(x, sink, ...) {
   if (inherits(sink, "raw")) {
-    write_ipc_stream(x, sink, ...)
+    # HACK for sparklyr
+    # Note that this returns a new R raw vector, not the one passed as `sink`
+    sink <- BufferOutputStream$create()
+    write_ipc_stream(x, sink)
+    as.raw(buffer(sink))
   } else {
     write_feather(x, sink, ...)
   }
@@ -52,17 +56,7 @@ write_ipc_stream <- function(x, sink, ...) {
   if (is.data.frame(x)) {
     x <- Table$create(x)
   }
-  if (inherits(sink, "raw")) {
-    n <- count_bytes_to_serialize(x)
-    # now that we know the size, stream in a buffer backed by an R raw vector
-    # HACK: write to the object we're going to return
-    # Note that this returns a new R raw vector, not the one passed as `sink`
-    # Nor is it returning an Arrow C++ object
-    x_out <- raw(n)
-
-    sink <- FixedSizeBufferWriter$create(buffer(x_out))
-    on.exit(sink$close())
-  } else if (is.character(sink) && length(sink) == 1) {
+  if (is.character(sink) && length(sink) == 1) {
     sink <- FileOutputStream$create(sink)
     on.exit(sink$close())
   }
@@ -71,16 +65,7 @@ write_ipc_stream <- function(x, sink, ...) {
   writer <- RecordBatchStreamWriter$create(sink, x$schema)
   writer$write(x)
   writer$close()
-  x_out
-}
-
-count_bytes_to_serialize <- function(x) {
-  mock_stream <- MockOutputStream$create()
-  on.exit(mock_stream$close())
-  writer <- RecordBatchStreamWriter$create(mock_stream, x$schema)
-  writer$write(x)
-  writer$close()
-  mock_stream$GetExtentBytesWritten()
+  invisible(x_out)
 }
 
 #' Read Arrow formatted data
