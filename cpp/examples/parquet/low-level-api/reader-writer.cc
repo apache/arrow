@@ -42,8 +42,8 @@
  * https://github.com/apache/parquet-format/blob/master/LogicalTypes.md
  **/
 
-constexpr int NUM_ROWS_PER_ROW_GROUP = 10000000;//500;
-const char PARQUET_FILENAME[] = "parquet_cpp_example_10M.parquet";
+constexpr int NUM_ROWS_PER_ROW_GROUP = 1000000000;//500;
+const char PARQUET_FILENAME[] = "parquet_cpp_example_1B.parquet";
 
 int main(int argc, char** argv) {
   /**********************************************************************************
@@ -73,13 +73,13 @@ int main(int argc, char** argv) {
     // Append a RowGroup with a specific number of rows.
     parquet::RowGroupWriter* rg_writer = file_writer->AppendRowGroup();
 
-    // Write the Bool column
-    parquet::BoolWriter* bool_writer =
-        static_cast<parquet::BoolWriter*>(rg_writer->NextColumn());
-    for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
-      bool value = ((i % 2) == 0) ? true : false;
-      bool_writer->WriteBatch(1, nullptr, nullptr, &value);
-    }
+    // // Write the Bool column
+    // parquet::BoolWriter* bool_writer =
+    //     static_cast<parquet::BoolWriter*>(rg_writer->NextColumn());
+    // for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
+    //   bool value = ((i % 2) == 0) ? true : false;
+    //   bool_writer->WriteBatch(1, nullptr, nullptr, &value);
+    // }
 
     // Write the Int32 column
     parquet::Int32Writer* int32_writer =
@@ -93,18 +93,12 @@ int main(int argc, char** argv) {
     parquet::Int64Writer* int64_writer =
         static_cast<parquet::Int64Writer*>(rg_writer->NextColumn());
     for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
-      int64_t value = i ;//* 1000 * 1000;
-      //value *= 1000 * 1000;
-      int16_t definition_level = 1;
-      int16_t repetition_level = 0;
-      //if ((i % 2) == 0) {
-      //  repetition_level = 1;  // start of a new record
-     // }
-      int64_writer->WriteBatch(1, &definition_level, &repetition_level, &value);
+      int64_t value = i;
+      int64_writer->WriteBatch(1, nullptr,nullptr, &value);
     }
 
     // Write the INT96 column.
-    parquet::Int96Writer* int96_writer =
+/*    parquet::Int96Writer* int96_writer =
         static_cast<parquet::Int96Writer*>(rg_writer->NextColumn());
     for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
       parquet::Int96 value;
@@ -113,7 +107,7 @@ int main(int argc, char** argv) {
       value.value[2] = i + 2;
       int96_writer->WriteBatch(1, nullptr, nullptr, &value);
     }
-
+*/
     // Write the Float column
     parquet::FloatWriter* float_writer =
         static_cast<parquet::FloatWriter*>(rg_writer->NextColumn());

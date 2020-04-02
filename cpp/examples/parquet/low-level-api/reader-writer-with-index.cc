@@ -84,6 +84,7 @@ return_multiple getPredicate(std::shared_ptr<parquet::ColumnReader> cr,std::shar
 
 bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader* int64_reader,int ind,return_multiple vals,int64_t& row_counter,
                bool checkpredicate);
+bool printRange(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader* int64_reader,int ind,return_multiple vals_min,return_multiple vals_max,int64_t& row_counter);
 
 void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> rg,int predicate_column_number,int num_columns, char* predicate,bool with_index);
 
@@ -729,4 +730,10 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
       }
       return false;
         
+}
+
+bool printRange(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader* int64_reader,
+int ind,return_multiple vals_min,return_multiple vals_max,int64_t& row_counter){
+
+      return printVal(column_reader, int64_reader,ind,vals_min,row_counter) &&  printVal(column_reader, int64_reader,ind,vals_max,row_counter);
 }

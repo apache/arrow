@@ -241,29 +241,28 @@ class SerializedRowGroup : public RowGroupReader::Contents {
               if(sorted){
                   if(col_index.min_values.size() >= 2){
                     uint64_t last_index = col_index.min_values.size()-1;
-                    uint64_t itemindex = last_index/2;
-                    bool found = false;
-                    while(!found) {
-                     int32_t* page_min_curr = (int32_t*)col_index.min_values[itemindex].c_str(); 
-                     if ( v < *page_min_curr ){
-                       itemindex  = itemindex/2;
-                       continue;
-                     }
-                     if (itemindex < last_index){
+                    uint64_t begin_index = 0;
+                    uint64_t itemindex = (begin_index + last_index)/2;
+
+                    while(begin_index <= last_index) {
+                      itemindex = (begin_index + last_index)/2;
+                      int32_t* page_min_curr = (int32_t*)col_index.min_values[itemindex].c_str(); 
+                      
+                      if ( v < *page_min_curr ){
+                         last_index -= 1;
+                      } 
+                      if ( itemindex < last_index ){
                         int32_t* page_min_next = (int32_t*)col_index.min_values[itemindex+1].c_str();
                         if ( v > *page_min_next ){
-                          itemindex = (itemindex + last_index)/2;
-                          continue;
+                          begin_index += 1;
                         }
                         if ( v < *page_min_next && v > *page_min_curr ){
-                           found = true;
+                            begin_index = last_index + 1;
                         }
-                     }
-                     if (itemindex == last_index) {
-                        found = true;
-                     }
-                     found = found || itemindex == 0;
-                   }
+                      }else {
+                         begin_index = last_index + 1;
+                      }
+                    }
                     min_index = itemindex;
                   }
                   else
@@ -290,28 +289,27 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              if(sorted){
                   if(col_index.min_values.size() >= 2){
                     uint64_t last_index = col_index.min_values.size()-1;
-                    uint64_t itemindex = last_index/2;
-                    bool found = false;
-                    while(!found) {
-                     int64_t* page_min_curr = (int64_t*)col_index.min_values[itemindex].c_str(); 
-                     if ( v < *page_min_curr ){
-                       itemindex  = itemindex/2;
-                       continue;
-                     }
-                     if (itemindex < last_index){
+                    uint64_t begin_index = 0;
+                    uint64_t itemindex = (begin_index + last_index)/2;
+
+                    while(begin_index <= last_index) {
+                      itemindex = (begin_index + last_index)/2;
+                      int64_t* page_min_curr = (int64_t*)col_index.min_values[itemindex].c_str(); 
+                      
+                      if ( v < *page_min_curr ){
+                         last_index -= 1;
+                      } 
+                      if(itemindex < last_index){
                         int64_t* page_min_next = (int64_t*)col_index.min_values[itemindex+1].c_str();
                         if ( v > *page_min_next ){
-                          itemindex = (itemindex + last_index)/2;
-                          continue;
+                          begin_index += 1;
                         }
                         if ( v < *page_min_next && v > *page_min_curr ){
-                           found = true;
+                            begin_index = last_index + 1;
                         }
-                     }
-                     if (itemindex == last_index) {
-                        found = true;
-                     }
-                     found = found || itemindex == 0;
+                      }else{
+                        begin_index = last_index + 1;
+                      }
                    }
                     min_index = itemindex;
                   }
@@ -339,29 +337,28 @@ class SerializedRowGroup : public RowGroupReader::Contents {
               if(sorted){
                   if(col_index.min_values.size() >= 2){
                     uint64_t last_index = col_index.min_values.size()-1;
-                    uint64_t itemindex = last_index/2;
-                    bool found = false;
-                    while(!found) {
-                     uint32_t* page_min_curr = (uint32_t*)col_index.min_values[itemindex].c_str(); 
-                     if ( v < *page_min_curr ){
-                       itemindex  = itemindex/2;
-                       continue;
-                     }
-                     if (itemindex < last_index){
+                    uint64_t begin_index = 0;
+                    uint64_t itemindex = (begin_index + last_index)/2;
+
+                    while(begin_index <= last_index) {
+                      itemindex = (begin_index + last_index)/2;
+                      uint32_t* page_min_curr = (uint32_t*)col_index.min_values[itemindex].c_str(); 
+                      
+                      if ( v < *page_min_curr ){
+                         last_index -= 1;
+                      } 
+                      if ( itemindex < last_index ){
                         uint32_t* page_min_next = (uint32_t*)col_index.min_values[itemindex+1].c_str();
                         if ( v > *page_min_next ){
-                          itemindex = (itemindex + last_index)/2;
-                          continue;
+                          begin_index += 1;
                         }
                         if ( v < *page_min_next && v > *page_min_curr ){
-                           found = true;
+                            begin_index = last_index + 1;
                         }
-                     }
-                     if (itemindex == last_index) {
-                        found = true;
-                     }
-                     found = found || itemindex == 0;
-                   }
+                      }else{
+                        begin_index = last_index + 1;
+                      }
+                    }
                     min_index = itemindex;
                   }
                   else
@@ -388,29 +385,28 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              if(sorted){
                   if(col_index.min_values.size() >= 2){
                     uint64_t last_index = col_index.min_values.size()-1;
-                    uint64_t itemindex = last_index/2;
-                    bool found = false;
-                    while(!found) {
-                     float* page_min_curr = (float*)col_index.min_values[itemindex].c_str(); 
-                     if ( v < *page_min_curr ){
-                       itemindex  = itemindex/2;
-                       continue;
-                     }
-                     if (itemindex < last_index){
+                    uint64_t begin_index = 0;
+                    uint64_t itemindex = (begin_index + last_index)/2;
+
+                    while(begin_index <= last_index) {
+                      itemindex = (begin_index + last_index)/2;
+                      float* page_min_curr = (float*)col_index.min_values[itemindex].c_str(); 
+                      
+                      if ( v < *page_min_curr ){
+                         last_index -= 1;
+                      } 
+                      if ( itemindex < last_index ){
                         float* page_min_next = (float*)col_index.min_values[itemindex+1].c_str();
                         if ( v > *page_min_next ){
-                          itemindex = (itemindex + last_index)/2;
-                          continue;
+                          begin_index += 1;
                         }
                         if ( v < *page_min_next && v > *page_min_curr ){
-                           found = true;
+                            begin_index = last_index + 1;
                         }
-                     }
-                     if (itemindex == last_index) {
-                        found = true;
-                     }
-                     found = found || itemindex == 0;
-                   }
+                      }else{
+                        begin_index = last_index + 1;
+                      }
+                    }
                     min_index = itemindex;
                   }
                   else
@@ -442,29 +438,28 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              if(sorted){
                   if(col_index.min_values.size() >= 2){
                     uint64_t last_index = col_index.min_values.size()-1;
-                    uint64_t itemindex = last_index/2;
-                    bool found = false;
-                    while(!found) {
-                     double* page_min_curr = (double*)col_index.min_values[itemindex].c_str(); 
-                     if ( v < *page_min_curr ){
-                       itemindex  = itemindex/2;
-                       continue;
-                     }
-                     if (itemindex < last_index){
+                    uint64_t begin_index = 0;
+                    uint64_t itemindex = (begin_index + last_index)/2;
+
+                    while(begin_index <= last_index) {
+                      itemindex = (begin_index + last_index)/2;
+                      double* page_min_curr = (double*)col_index.min_values[itemindex].c_str(); 
+                      
+                      if ( v < *page_min_curr ){
+                         last_index -= 1;
+                      } 
+                      if ( itemindex < last_index ){
                         double* page_min_next = (double*)col_index.min_values[itemindex+1].c_str();
                         if ( v > *page_min_next ){
-                          itemindex = (itemindex + last_index)/2;
-                          continue;
+                          begin_index += 1;
                         }
                         if ( v < *page_min_next && v > *page_min_curr ){
-                           found = true;
+                            begin_index = last_index + 1;
                         }
-                     }
-                     if (itemindex == last_index) {
-                        found = true;
-                     }
-                     found = found || itemindex == 0;
-                   }
+                      }else{
+                        begin_index = last_index + 1;
+                      }
+                    }
                     min_index = itemindex;
                   }
                   else
@@ -496,31 +491,28 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              if(sorted){
                   if(col_index.min_values.size() >= 2){
                     uint64_t last_index = col_index.min_values.size()-1;
-                    uint64_t itemindex = last_index/2;
-                    bool found = false;
-                    while(!found) {
-                      std::string page_min_curr(col_index.min_values[itemindex]);
+                    uint64_t begin_index = 0;
+                    uint64_t itemindex = (begin_index + last_index)/2;
 
-                     if ( str.compare(page_min_curr) < 0 ){
-                       itemindex  = itemindex/2;
-                       continue;
-                     }
-                     if (itemindex < last_index){
-                       std::string page_min_next(col_index.min_values[itemindex+1]);
-
-                        if ( str.compare(page_min_next) > 0 ){
-                          itemindex = (itemindex + last_index)/2;
-                          continue;
+                    while(begin_index <= last_index) {
+                      itemindex = (begin_index + last_index)/2;
+                      std::string page_min_curr = (std::string)col_index.min_values[itemindex].c_str(); 
+                      
+                      if ( str.compare(page_min_curr) > 0 ){
+                         last_index -= 1;
+                      } 
+                      if ( itemindex < last_index ){
+                        std::string page_min_next = (std::string)col_index.min_values[itemindex+1].c_str();
+                        if ( str.compare(page_min_next) < 0 ){
+                          begin_index += 1;
                         }
-                        if ( str.compare(page_min_curr) > 0 && str.compare(page_min_next) < 0 ){
-                           found = true;
+                        if ( str.compare(page_min_next) < 0 && str.compare(page_min_curr) > 0 ){
+                            begin_index = last_index + 1;
                         }
-                     }
-                     if (itemindex == last_index) {
-                        found = true;
-                     }
-                     found = found || itemindex == 0;
-                   }
+                      }else{
+                         begin_index = last_index + 1;
+                      }
+                    }
                     min_index = itemindex;
                   }
                   else
@@ -547,29 +539,28 @@ class SerializedRowGroup : public RowGroupReader::Contents {
              if(sorted){
                   if(col_index.min_values.size() >= 2){
                     uint64_t last_index = col_index.min_values.size()-1;
-                    uint64_t itemindex = last_index/2;
-                    bool found = false;
-                    while(!found) {
-                     std::string page_min_curr = col_index.min_values[itemindex]; 
-                     if ( str.compare(page_min_curr) < 0 ){
-                       itemindex  = itemindex/2;
-                       continue;
-                     }
-                     if (itemindex < last_index){
-                        std::string page_min_next = col_index.min_values[itemindex+1];
-                        if ( str.compare(page_min_next) > 0 ){
-                          itemindex = (itemindex + last_index)/2;
-                          continue;
+                    uint64_t begin_index = 0;
+                    uint64_t itemindex = (begin_index + last_index)/2;
+
+                    while(begin_index <= last_index) {
+                      itemindex = (begin_index + last_index)/2;
+                      std::string page_min_curr = (std::string)col_index.min_values[itemindex].c_str(); 
+                      
+                      if ( str.compare(page_min_curr) > 0 ){
+                         last_index -= 1;
+                      } 
+                      if ( itemindex < last_index ){
+                        std::string page_min_next = (std::string)col_index.min_values[itemindex+1].c_str();
+                        if ( str.compare(page_min_next) < 0 ){
+                          begin_index += 1;
                         }
-                        if ( str.compare(page_min_curr) > 0 && str.compare(page_min_next) < 0 ){
-                           found = true;
+                        if ( str.compare(page_min_next) < 0 && str.compare(page_min_curr) > 0 ){
+                            begin_index = last_index + 1;
                         }
-                     }
-                     if (itemindex == last_index) {
-                        found = true;
-                     }
-                     found = found || itemindex == 0;
-                   }
+                      }else{
+                         begin_index = last_index + 1;
+                      }
+                    }
                     min_index = itemindex;
                   }
                   else

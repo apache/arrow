@@ -33,8 +33,8 @@ static std::shared_ptr<GroupNode> SetupSchema() {
   parquet::schema::NodeVector fields;
   // Create a primitive node named 'boolean_field' with type:BOOLEAN,
   // repetition:REQUIRED
-  fields.push_back(PrimitiveNode::Make("boolean_field", Repetition::REQUIRED,
-                                       Type::BOOLEAN, ConvertedType::NONE));
+//  fields.push_back(PrimitiveNode::Make("boolean_field", Repetition::OPTIONAL,
+//                                       Type::BOOLEAN, ConvertedType::NONE));
 
   // Create a primitive node named 'int32_field' with type:INT32, repetition:REQUIRED,
   // logical type:TIME_MILLIS
@@ -42,11 +42,11 @@ static std::shared_ptr<GroupNode> SetupSchema() {
                                        ConvertedType::NONE));
 
   // Create a primitive node named 'int64_field' with type:INT64, repetition:REPEATED
-  fields.push_back(PrimitiveNode::Make("int64_field", Repetition::REPEATED, Type::INT64,
+  fields.push_back(PrimitiveNode::Make("int64_field", Repetition::REQUIRED, Type::INT64,
                                        ConvertedType::NONE));
 
-  fields.push_back(PrimitiveNode::Make("int96_field", Repetition::REQUIRED, Type::INT96,
-                                       ConvertedType::NONE));
+//  fields.push_back(PrimitiveNode::Make("int96_field", Repetition::OPTIONAL, Type::INT96,
+  //                                     ConvertedType::NONE));
 
   fields.push_back(PrimitiveNode::Make("float_field", Repetition::REQUIRED, Type::FLOAT,
                                        ConvertedType::NONE));
