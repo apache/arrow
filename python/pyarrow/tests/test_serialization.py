@@ -161,7 +161,6 @@ index_types = ('i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8')
 tensor_types = ('i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8',
                 'f2', 'f4', 'f8')
 
-
 PRIMITIVE_OBJECTS += [0, np.array([["hi", "hi"], [1.3, 1]])]
 
 
@@ -773,23 +772,32 @@ def test_sparse_csf_tensor_components_serialization(large_buffer,
                                                     index_type, tensor_type):
     tensor_dtype = np.dtype(tensor_type)
     index_dtype = np.dtype(index_type)
-    data = np.array([[1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16]]) \
-        .T.astype(tensor_dtype)
+    data = np.array([[1, 2, 3, 4, 5, 6, 7, 8]]).T.astype(tensor_dtype)
     indptr = [
-        np.array([0, 3, 6, 9, 12]).astype(index_dtype)
+        np.array([0, 2, 3]),
+        np.array([0, 1, 3, 4]),
+        np.array([0, 2, 4, 5, 8]),
     ]
     indices = [
-        np.array([0, 1, 2, 3]).astype(index_dtype),
-        np.array([0, 2, 5, 1, 2, 4, 1, 3, 4, 0, 3, 5]).astype(index_dtype)
+        np.array([0, 1]),
+        np.array([0, 1, 1]),
+        np.array([0, 0, 1, 1]),
+        np.array([1, 2, 0, 2, 0, 0, 1, 2]),
     ]
-    shape = (4, 6)
-    axis_order = (0, 1)
-    dim_names = ('x', 'y')
+    indptr = [x.astype(index_dtype) for x in indptr]
+    indices = [x.astype(index_dtype) for x in indices]
+    shape = (2, 3, 4, 5)
+    axis_order = (0, 1, 2, 3)
+    dim_names = ("a", "b", "c", "d")
 
-    sparse_tensor = pa.SparseCSFTensor.from_numpy(data, indptr, indices,
-                                                  shape, axis_order,
-                                                  dim_names)
-    serialization_roundtrip(sparse_tensor, large_buffer)
+    for ndim in [2, 3, 4]:
+        sparse_tensor = pa.SparseCSFTensor.from_numpy(data, indptr[:ndim - 1],
+                                                      indices[:ndim],
+                                                      shape[:ndim],
+                                                      axis_order[:ndim],
+                                                      dim_names[:ndim])
+
+        serialization_roundtrip(sparse_tensor, large_buffer)
 
 
 @pytest.mark.filterwarnings(

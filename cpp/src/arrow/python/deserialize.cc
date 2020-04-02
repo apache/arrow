@@ -394,7 +394,7 @@ Status GetSerializedFromComponents(int num_tensors,
   const Py_ssize_t expected_data_length = 1 + num_tensors * 2 +
                                           num_sparse_tensors.num_total_buffers() +
                                           num_ndarrays * 2 + num_buffers;
-  if (data_length != expected_data_length) {
+  if (data_length < expected_data_length) {
     return Status::Invalid("Invalid number of buffers in data");
   }
 
@@ -433,6 +433,7 @@ Status GetSerializedFromComponents(int num_tensors,
   }
 
   // Zero-copy reconstruct sparse tensors
+  int csf_index_buffers = 0;
   for (int i = 0, n = num_sparse_tensors.num_total_tensors(); i < n; ++i) {
     ipc::internal::IpcPayload payload;
     RETURN_NOT_OK(GetBuffer(buffer_index++, &payload.metadata));
@@ -450,7 +451,13 @@ Status GetSerializedFromComponents(int num_tensors,
 
     std::shared_ptr<SparseTensor> sparse_tensor;
     ARROW_ASSIGN_OR_RAISE(sparse_tensor, ipc::internal::ReadSparseTensorPayload(payload));
+    csf_index_buffers += 2 * sparse_tensor->ndim() - 1;
     out->sparse_tensors.emplace_back(std::move(sparse_tensor));
+  }
+
+  if (data_length != expected_data_length &&
+      data_length != expected_data_length + csf_index_buffers) {
+    return Status::Invalid("Invalid number of buffers in data");
   }
 
   // Zero-copy reconstruct tensors for numpy ndarrays

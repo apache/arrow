@@ -530,7 +530,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
     RETURN_NOT_OK(builder->AppendSparseCSFTensor(
         static_cast<int32_t>(blobs_out->sparse_tensors.size())));
     ARROW_ASSIGN_OR_RAISE(auto tensor, unwrap_sparse_csf_tensor(elem));
-    blobs_out->sparse_tensors.push_back(sparse_csf_tensor);
+    blobs_out->sparse_tensors.push_back(tensor);
   } else {
     // Attempt to serialize the object using the custom callback.
     PyObject* serialized_object;
