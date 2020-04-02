@@ -1168,6 +1168,14 @@ def test_dictionary_encode_sliced():
         assert result.type == expected.type
 
 
+def test_dictionary_encode_zero_length():
+    # User-facing experience of ARROW-7008
+    arr = pa.array([], type=pa.string())
+    encoded = arr.dictionary_encode()
+    assert len(encoded.dictionary) == 0
+    encoded.validate(full=True)
+
+
 def test_cast_time32_to_int():
     arr = pa.array(np.array([0, 1, 2], dtype='int32'),
                    type=pa.time32('s'))

@@ -980,6 +980,19 @@ TEST(TestDictionary, Validate) {
   // Only checking index type for now
   ASSERT_OK(arr->ValidateFull());
 
+  // ARROW-7008: Invalid dict was not being validated
+  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, nullptr, nullptr};
+  auto invalid_data = std::make_shared<ArrayData>(utf8(), 0, buffers);
+
+  indices = ArrayFromJSON(int16(), "[]");
+  arr = std::make_shared<DictionaryArray>(dict_type, indices, MakeArray(invalid_data));
+  ASSERT_RAISES(Invalid, arr->ValidateFull());
+
+  // Make the data buffer non-null
+  ASSERT_OK(AllocateBuffer(0, &buffers[2]));
+  arr = std::make_shared<DictionaryArray>(dict_type, indices, MakeArray(invalid_data));
+  ASSERT_RAISES(Invalid, arr->ValidateFull());
+
   ASSERT_DEATH(
       {
         std::shared_ptr<Array> null_dict_arr =

@@ -133,17 +133,15 @@ struct DictionaryTraits<T, enable_if_base_binary<T>> {
 
     // Create the offsets buffer
     auto dict_length = static_cast<int64_t>(memo_table.size() - start_offset);
-    if (dict_length > 0) {
-      RETURN_NOT_OK(
-          AllocateBuffer(pool, sizeof(offset_type) * (dict_length + 1), &dict_offsets));
-      auto raw_offsets = reinterpret_cast<offset_type*>(dict_offsets->mutable_data());
-      memo_table.CopyOffsets(static_cast<int32_t>(start_offset), raw_offsets);
-    }
+    RETURN_NOT_OK(
+        AllocateBuffer(pool, sizeof(offset_type) * (dict_length + 1), &dict_offsets));
+    auto raw_offsets = reinterpret_cast<offset_type*>(dict_offsets->mutable_data());
+    memo_table.CopyOffsets(static_cast<int32_t>(start_offset), raw_offsets);
 
     // Create the data buffer
     auto values_size = memo_table.values_size();
+    RETURN_NOT_OK(AllocateBuffer(pool, values_size, &dict_data));
     if (values_size > 0) {
-      RETURN_NOT_OK(AllocateBuffer(pool, values_size, &dict_data));
       memo_table.CopyValues(static_cast<int32_t>(start_offset), dict_data->size(),
                             dict_data->mutable_data());
     }
