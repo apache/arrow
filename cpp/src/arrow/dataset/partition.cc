@@ -119,6 +119,19 @@ Status KeyValuePartitioning::VisitKeys(
                  checked_cast<const ScalarExpression*>(rhs)->value());
 }
 
+Status KeyValuePartitioning::SetDefaultValuesFromKeys(const Expression& expr,
+                                                      RecordBatchProjector* projector) {
+  return KeyValuePartitioning::VisitKeys(
+      expr, [projector](const std::string& name, const std::shared_ptr<Scalar>& value) {
+        ARROW_ASSIGN_OR_RAISE(auto match,
+                              FieldRef(name).FindOneOrNone(*projector->schema()));
+        if (match.indices().empty()) {
+          return Status::OK();
+        }
+        return projector->SetDefaultValue(match, value);
+      });
+}
+
 Result<std::shared_ptr<Expression>> KeyValuePartitioning::ConvertKey(
     const Key& key, const Schema& schema) {
   ARROW_ASSIGN_OR_RAISE(auto field, FieldRef(key.name).GetOneOrNone(schema));

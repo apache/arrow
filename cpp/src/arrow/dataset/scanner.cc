@@ -60,43 +60,15 @@ std::vector<std::string> ScanOptions::MaterializedFields() const {
   return fields;
 }
 
-Result<std::shared_ptr<Table>> ScanTask::ToTable(
-    const std::shared_ptr<ScanOptions>& options,
-    const std::shared_ptr<ScanContext>& context, ScanTaskIterator scan_task_it) {
-  std::mutex mutex;
-  RecordBatchVector batches;
-
-  auto task_group = context->TaskGroup();
-
-  for (auto maybe_scan_task : scan_task_it) {
-    ARROW_ASSIGN_OR_RAISE(auto scan_task, std::move(maybe_scan_task));
-
-    task_group->Append([&batches, &mutex, scan_task] {
-      ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
-
-      for (auto maybe_batch : batch_it) {
-        ARROW_ASSIGN_OR_RAISE(auto batch, std::move(maybe_batch));
-        std::lock_guard<std::mutex> lock(mutex);
-        batches.emplace_back(std::move(batch));
-      }
-
-      return Status::OK();
-    });
-  }
-
-  // Wait for all tasks to complete, or the first error.
-  RETURN_NOT_OK(task_group->Finish());
-
-  std::shared_ptr<Table> out;
-  RETURN_NOT_OK(Table::FromRecordBatches(options->schema(), batches, &out));
-  return out;
-}
-
 Result<RecordBatchIterator> InMemoryScanTask::Execute() {
   return MakeVectorIterator(record_batches_);
 }
 
 FragmentIterator Scanner::GetFragments() {
+  if (fragment_ != nullptr) {
+    return MakeVectorIterator(FragmentVector{fragment_});
+  }
+
   // Transform Datasets in a flat Iterator<Fragment>. This
   // iterator is lazily constructed, i.e. Dataset::GetFragments is
   // not invoked until a Fragment is requested.
@@ -186,7 +158,33 @@ std::shared_ptr<internal::TaskGroup> ScanContext::TaskGroup() const {
 
 Result<std::shared_ptr<Table>> Scanner::ToTable() {
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, Scan());
-  return ScanTask::ToTable(scan_options_, scan_context_, std::move(scan_task_it));
+  std::mutex mutex;
+  RecordBatchVector batches;
+
+  auto task_group = scan_context_->TaskGroup();
+
+  for (auto maybe_scan_task : scan_task_it) {
+    ARROW_ASSIGN_OR_RAISE(auto scan_task, std::move(maybe_scan_task));
+
+    task_group->Append([&batches, &mutex, scan_task] {
+      ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
+
+      for (auto maybe_batch : batch_it) {
+        ARROW_ASSIGN_OR_RAISE(auto batch, std::move(maybe_batch));
+        std::lock_guard<std::mutex> lock(mutex);
+        batches.emplace_back(std::move(batch));
+      }
+
+      return Status::OK();
+    });
+  }
+
+  // Wait for all tasks to complete, or the first error.
+  RETURN_NOT_OK(task_group->Finish());
+
+  std::shared_ptr<Table> out;
+  RETURN_NOT_OK(Table::FromRecordBatches(scan_options_->schema(), batches, &out));
+  return out;
 }
 
 }  // namespace dataset

@@ -132,10 +132,14 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         "arrow::dataset::InsertImplicitCasts"(
             const CExpression &, const CSchema&)
 
-    cdef cppclass CScanOptions "arrow::dataset::ScanOptions":
+    cdef cppclass CRecordBatchProjector "arrow::dataset::RecordBatchProjector":
         pass
 
+    cdef cppclass CScanOptions "arrow::dataset::ScanOptions":
+        CRecordBatchProjector projector
+
     cdef cppclass CScanContext "arrow::dataset::ScanContext":
+        c_bool use_threads
         CMemoryPool * pool
 
     ctypedef CIterator[shared_ptr[CScanTask]] CScanTaskIterator \
@@ -143,18 +147,13 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CScanTask" arrow::dataset::ScanTask":
         CResult[CRecordBatchIterator] Execute()
-        @staticmethod
-        CResult[shared_ptr[CTable]] ToTable(
-            const shared_ptr[CScanOptions]&,
-            const shared_ptr[CScanContext]&,
-            CScanTaskIterator)
 
     cdef cppclass CFragment "arrow::dataset::Fragment":
-        const shared_ptr[CScanOptions]& scan_options() const
         CResult[CScanTaskIterator] Scan(shared_ptr[CScanContext] context)
-        c_bool splittable()
-        c_string type_name()
-        const shared_ptr[CExpression]& partition_expression()
+        const shared_ptr[CSchema]& schema() const
+        c_bool splittable() const
+        c_string type_name() const
+        const shared_ptr[CExpression]& partition_expression() const
 
     ctypedef vector[shared_ptr[CFragment]] CFragmentVector \
         "arrow::dataset::FragmentVector"
@@ -163,6 +162,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         "arrow::dataset::FragmentIterator"
 
     cdef cppclass CScanner "arrow::dataset::Scanner":
+        CScanner(shared_ptr[CFragment], shared_ptr[CScanContext])
         CResult[CScanTaskIterator] Scan()
         CResult[shared_ptr[CTable]] ToTable()
         CFragmentIterator GetFragments()
@@ -308,6 +308,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             shared_ptr[CPartitioningFactory])
         shared_ptr[CPartitioning] partitioning() const
         shared_ptr[CPartitioningFactory] factory() const
+
+    cdef CStatus CSetPartitionKeysInProjector \
+        "arrow::dataset::KeyValuePartitioning::SetDefaultValuesFromKeys"(
+            const CExpression& partition_expression,
+            CRecordBatchProjector* projector)
 
     cdef cppclass CFileSystemFactoryOptions \
             "arrow::dataset::FileSystemFactoryOptions":

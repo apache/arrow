@@ -190,25 +190,8 @@ FragmentIterator FileSystemDataset::GetFragmentsImpl(
     }
 
     // if possible, extract a partition key and pass it to the projector
-    auto projector = &options[ref.i]->projector;
-    {
-      int index = -1;
-      std::shared_ptr<Scalar> value_to_materialize;
-
-      DCHECK_OK(KeyValuePartitioning::VisitKeys(
-          *partition, [&](const std::string& name, const std::shared_ptr<Scalar>& value) {
-            if (index != -1) return Status::OK();
-
-            index = projector->schema()->GetFieldIndex(name);
-            if (index != -1) value_to_materialize = value;
-
-            return Status::OK();
-          }));
-
-      if (index != -1) {
-        RETURN_NOT_OK(projector->SetDefaultValue(index, std::move(value_to_materialize)));
-      }
-    }
+    RETURN_NOT_OK(KeyValuePartitioning::SetDefaultValuesFromKeys(
+        *partition, &options[ref.i]->projector));
 
     if (ref.info().IsFile()) {
       // generate a fragment for this file

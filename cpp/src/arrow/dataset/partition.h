@@ -159,6 +159,9 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
       const std::function<Status(const std::string& name,
                                  const std::shared_ptr<Scalar>& value)>& visitor);
 
+  static Status SetDefaultValuesFromKeys(const Expression& expr,
+                                         RecordBatchProjector* projector);
+
   /// Convert a Key to a full expression.
   /// If the field referenced in key is absent from the schema will be ignored.
   static Result<std::shared_ptr<Expression>> ConvertKey(const Key& key,

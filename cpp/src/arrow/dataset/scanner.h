@@ -114,14 +114,6 @@ class ARROW_DS_EXPORT ScanTask {
   const std::shared_ptr<ScanOptions>& options() const { return options_; }
   const std::shared_ptr<ScanContext>& context() const { return context_; }
 
-  /// \brief Convert a sequence of ScanTasks into a Table.
-  ///
-  /// Use this convenience utility with care. This will serially materialize the
-  /// Scan result in memory before creating the Table.
-  static Result<std::shared_ptr<Table>> ToTable(
-      const std::shared_ptr<ScanOptions>& options,
-      const std::shared_ptr<ScanContext>& context, ScanTaskIterator scan_tasks);
-
  protected:
   ScanTask(std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context)
       : options_(std::move(options)), context_(std::move(context)) {}
@@ -166,6 +158,11 @@ class ARROW_DS_EXPORT Scanner {
         scan_options_(std::move(scan_options)),
         scan_context_(std::move(scan_context)) {}
 
+  Scanner(std::shared_ptr<Fragment> fragment, std::shared_ptr<ScanContext> scan_context)
+      : fragment_(std::move(fragment)),
+        scan_options_(fragment_->scan_options()),
+        scan_context_(std::move(scan_context)) {}
+
   /// \brief The Scan operator returns a stream of ScanTask. The caller is
   /// responsible to dispatch/schedule said tasks. Tasks should be safe to run
   /// in a concurrent fashion and outlive the iterator.
@@ -188,6 +185,8 @@ class ARROW_DS_EXPORT Scanner {
 
  protected:
   std::shared_ptr<Dataset> dataset_;
+  // TODO(ARROW-8065) remove fragment_ after a Dataset is constuctible from fragments
+  std::shared_ptr<Fragment> fragment_;
   std::shared_ptr<ScanOptions> scan_options_;
   std::shared_ptr<ScanContext> scan_context_;
 };
