@@ -3838,3 +3838,37 @@ def test_dataset_unsupported_keywords():
 
     with pytest.raises(ValueError, match="not yet supported with the new"):
         pq.read_table("", use_legacy_dataset=False, metadata=pa.schema([]))
+
+
+@pytest.mark.dataset
+def test_dataset_partitioning(tempdir):
+    import pyarrow.dataset as ds
+
+    # create small dataset with directory partitioning
+    root_path = tempdir / "test_partitioning"
+    (root_path / "2012" / "10" / "01").mkdir(parents=True)
+
+    table = pa.table({'a': [1, 2, 3]})
+    pq.write_table(
+        table, str(root_path / "2012" / "10" / "01" / "data.parquet"))
+
+    # This works with new dataset API
+
+    # read_table
+    part = ds.partitioning(field_names=["year", "month", "day"])
+    result = pq.read_table(
+        str(root_path), partitioning=part, use_legacy_dataset=False)
+    assert result.column_names == ["a", "year", "month", "day"]
+
+    result = pq.ParquetDataset(
+        str(root_path), partitioning=part, use_legacy_dataset=False).read()
+    assert result.column_names == ["a", "year", "month", "day"]
+
+    # This raises an error for legacy dataset
+    with pytest.raises(ValueError):
+        pq.read_table(
+            str(root_path), partitioning=part, use_legacy_dataset=True)
+
+    with pytest.raises(ValueError):
+        pq.ParquetDataset(
+            str(root_path), partitioning=part, use_legacy_dataset=True)

@@ -1055,10 +1055,17 @@ memory_map : bool, default False
 buffer_size : int, default 0
     If positive, perform read buffering when deserializing individual
     column chunks. Otherwise IO calls are unbuffered.
+partitioning : Partitioning or str or list of str, default "hive"
+    The partitioning scheme for a partitioned dataset. The default of "hive"
+    assumes directory names with key=value pairs like "/year=2009/month=11".
+    In addition, a scheme like "/2009/11" is also supported, in which case
+    you need to specify the field names or a full schema. See the
+    ``pyarrow.dataset.partitioning()`` function for more details.
 use_legacy_dataset : bool, default True
     Set to False to enable the new code path (experimental, using the
     new Arrow Dataset API). Among other things, this allows to pass
-    `filters` for all columns and not only the partition keys."""
+    `filters` for all columns and not only the partition keys, enables
+    different partitioning schemes, etc."""
 
 
 class ParquetDataset:
@@ -1100,10 +1107,12 @@ metadata_nthreads: int, default 1
     def __new__(cls, path_or_paths=None, filesystem=None, schema=None,
                 metadata=None, split_row_groups=False, validate_schema=True,
                 filters=None, metadata_nthreads=1, read_dictionary=None,
-                memory_map=False, buffer_size=0, use_legacy_dataset=True):
+                memory_map=False, buffer_size=0, partitioning="hive",
+                use_legacy_dataset=True):
         if not use_legacy_dataset:
             return _ParquetDatasetV2(path_or_paths, filesystem=filesystem,
                                      filters=filters,
+                                     partitioning=partitioning,
                                      read_dictionary=read_dictionary,
                                      memory_map=memory_map,
                                      buffer_size=buffer_size,
@@ -1118,7 +1127,12 @@ metadata_nthreads: int, default 1
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True,
                  filters=None, metadata_nthreads=1, read_dictionary=None,
-                 memory_map=False, buffer_size=0, use_legacy_dataset=True):
+                 memory_map=False, buffer_size=0, partitioning="hive",
+                 use_legacy_dataset=True):
+        if partitioning != "hive":
+            raise ValueError(
+                'Only "hive" for hive-like partitioning is supported when '
+                'using use_legacy_dataset=True')
         self._metadata = _ParquetDatasetMetadata()
         a_path = path_or_paths
         if isinstance(a_path, list):
@@ -1346,8 +1360,8 @@ class _ParquetDatasetV2:
     ParquetDataset shim using the Dataset API under the hood.
     """
     def __init__(self, path_or_paths, filesystem=None, filters=None,
-                 read_dictionary=None, buffer_size=None, memory_map=False,
-                 **kwargs):
+                 partitioning="hive", read_dictionary=None, buffer_size=None,
+                 memory_map=False, **kwargs):
         import pyarrow.dataset as ds
         import pyarrow.fs
 
@@ -1366,6 +1380,8 @@ class _ParquetDatasetV2:
         if isinstance(filesystem, LocalFileSystem):
             filesystem = pyarrow.fs.LocalFileSystem(use_mmap=memory_map)
         elif filesystem is None and memory_map:
+            # if memory_map is specified, assume local file system (string
+            # path can in principle be URI for any filesystem)
             filesystem = pyarrow.fs.LocalFileSystem(use_mmap=True)
 
         # map additional arguments
@@ -1378,7 +1394,8 @@ class _ParquetDatasetV2:
         parquet_format = ds.ParquetFileFormat(read_options=read_options)
 
         self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,
-                                   format=parquet_format, partitioning="hive")
+                                   format=parquet_format,
+                                   partitioning=partitioning)
         self._filters = filters
         if filters is not None:
             self._filter_expression = _filters_to_expression(filters)
@@ -1462,7 +1479,7 @@ Returns
 def read_table(source, columns=None, use_threads=True, metadata=None,
                use_pandas_metadata=False, memory_map=False,
                read_dictionary=None, filesystem=None, filters=None,
-               buffer_size=0, use_legacy_dataset=True):
+               buffer_size=0, partitioning="hive", use_legacy_dataset=True):
     if not use_legacy_dataset:
         if not _is_path_like(source):
             raise ValueError("File-like objects are not yet supported with "
@@ -1471,6 +1488,7 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
         dataset = _ParquetDatasetV2(
             source,
             filesystem=filesystem,
+            partitioning=partitioning,
             memory_map=memory_map,
             read_dictionary=read_dictionary,
             buffer_size=buffer_size,
@@ -1495,7 +1513,8 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
         pf = ParquetDataset(source, metadata=metadata, memory_map=memory_map,
                             read_dictionary=read_dictionary,
                             buffer_size=buffer_size,
-                            filesystem=filesystem, filters=filters)
+                            filesystem=filesystem, filters=filters,
+                            partitioning=partitioning)
     else:
         pf = ParquetFile(source, metadata=metadata,
                          read_dictionary=read_dictionary,
