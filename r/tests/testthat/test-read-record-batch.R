@@ -28,22 +28,21 @@ test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
   tf <- tempfile()
   expect_error(
     RecordBatchFileWriter$create(tf, tab$schema),
-    "RecordBatchFileWriter$create() requires an Arrow InputStream. Try providing ReadableFile$create(tf)",
+    "RecordBatchFileWriter$create() requires an Arrow InputStream. Try providing FileOutputStream$create(tf)",
     fixed = TRUE
   )
 
-  tf2 <- tempfile()
-  stream <- FileOutputStream$create(tf2)
+  stream <- FileOutputStream$create(tf)
   writer <- RecordBatchFileWriter$create(stream, tab$schema)
   expect_is(writer, "RecordBatchFileWriter")
   writer$write_table(tab)
   writer$close()
   stream$close()
-  tab3 <- read_arrow(tf2, as_data_frame = FALSE)
-  expect_equal(tab, tab3)
+
+  expect_equal(read_feather(tf, as_data_frame = FALSE), tab)
   # Make sure connections are closed
-  expect_error(file.remove(tf2), NA)
-  expect_false(file.exists(tf2))
+  expect_error(file.remove(tf), NA)
+  expect_false(file.exists(tf))
 })
 
 test_that("record_batch() handles (raw|Buffer|InputStream, Schema) (ARROW-3450, ARROW-3505)", {

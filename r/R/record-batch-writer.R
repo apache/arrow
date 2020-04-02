@@ -116,7 +116,7 @@ RecordBatchStreamWriter$create <- function(sink, schema, use_legacy_format = NUL
   if (is.character(sink) && length(sink) == 1) {
     stop(
       "RecordBatchStreamWriter$create() requires an Arrow InputStream. ",
-      "Try providing ReadableFile$create(", substitute(sink), ")",
+      "Try providing FileOutputStream$create(", substitute(sink), ")",
       call. = FALSE
     )
   }
@@ -136,7 +136,7 @@ RecordBatchFileWriter$create <- function(sink, schema, use_legacy_format = NULL)
   if (is.character(sink) && length(sink) == 1) {
     stop(
       "RecordBatchFileWriter$create() requires an Arrow InputStream. ",
-      "Try providing ReadableFile$create(", substitute(sink), ")",
+      "Try providing FileOutputStream$create(", substitute(sink), ")",
       call. = FALSE
     )
   }
