@@ -331,25 +331,29 @@ impl FieldData {
     }
 
     /// Appends a single value to this `FieldData`'s `values_buffer`.
-    fn append_to_values_buffer<T: ArrowPrimitiveType>(&mut self, v: T::Native) {
+    fn append_to_values_buffer<T: ArrowPrimitiveType>(
+        &mut self,
+        v: T::Native,
+    ) -> Result<()> {
         let values_buffer = self
             .values_buffer
             .take()
             .expect("Values buffer was never created");
         let mut builder: BufferBuilder<T> =
             mutable_buffer_to_builder(values_buffer, self.slots);
-        builder.append(v).unwrap();
+        builder.append(v)?;
         let mutable_buffer = builder_to_mutable_buffer(builder);
         self.values_buffer = Some(mutable_buffer);
 
         self.slots += 1;
         if let Some(b) = &mut self.bitmap_builder {
-            b.append(true).unwrap()
-        }
+            b.append(true)?
+        };
+        Ok(())
     }
 
     /// Appends a null to this `FieldData`.
-    fn append_null<T: ArrowPrimitiveType>(&mut self) {
+    fn append_null<T: ArrowPrimitiveType>(&mut self) -> Result<()> {
         if let Some(b) = &mut self.bitmap_builder {
             let values_buffer = self
                 .values_buffer
@@ -357,12 +361,13 @@ impl FieldData {
                 .expect("Values buffer was never created");
             let mut builder: BufferBuilder<T> =
                 mutable_buffer_to_builder(values_buffer, self.slots);
-            builder.advance(1).unwrap();
+            builder.advance(1)?;
             let mutable_buffer = builder_to_mutable_buffer(builder);
             self.values_buffer = Some(mutable_buffer);
             self.slots += 1;
-            b.append(false).unwrap();
-        }
+            b.append(false)?;
+        };
+        Ok(())
     }
 }
 
@@ -400,7 +405,11 @@ impl UnionBuilder {
     }
 
     /// Appends a value to this builder.
-    pub fn append<T: ArrowPrimitiveType>(&mut self, type_name: &str, v: T::Native) {
+    pub fn append<T: ArrowPrimitiveType>(
+        &mut self,
+        type_name: &str,
+        v: T::Native,
+    ) -> Result<()> {
         let type_name = type_name.to_string();
 
         let mut field_data = match self.fields.remove(&type_name) {
@@ -417,7 +426,7 @@ impl UnionBuilder {
                             Some(BooleanBufferBuilder::new(1)),
                         );
                         for _ in 0..self.len {
-                            fd.append_null::<T>();
+                            fd.append_null::<T>()?;
                         }
                         fd
                     }
@@ -425,52 +434,53 @@ impl UnionBuilder {
                 field_data
             }
         };
-        self.type_id_builder.append(field_data.type_id).unwrap();
+        self.type_id_builder.append(field_data.type_id)?;
 
         match &mut self.value_offset_builder {
             // Dense Union
             Some(offset_builder) => {
-                offset_builder.append(field_data.slots as i32).unwrap();
+                offset_builder.append(field_data.slots as i32)?;
             }
             // Sparse Union
             None => {
                 for (name, fd) in self.fields.iter_mut() {
                     if name != &type_name {
                         match fd.data_type {
-                            DataType::Boolean => fd.append_null::<BooleanType>(),
-                            DataType::Int8 => fd.append_null::<Int8Type>(),
-                            DataType::Int16 => fd.append_null::<Int16Type>(),
+                            DataType::Boolean => fd.append_null::<BooleanType>()?,
+                            DataType::Int8 => fd.append_null::<Int8Type>()?,
+                            DataType::Int16 => fd.append_null::<Int16Type>()?,
                             DataType::Int32
                             | DataType::Date32(_)
                             | DataType::Time32(_)
                             | DataType::Interval(IntervalUnit::YearMonth) => {
-                                fd.append_null::<Int32Type>()
+                                fd.append_null::<Int32Type>()?
                             }
                             DataType::Int64
                             | DataType::Timestamp(_, _)
                             | DataType::Date64(_)
                             | DataType::Time64(_)
                             | DataType::Interval(IntervalUnit::DayTime)
-                            | DataType::Duration(_) => fd.append_null::<Int64Type>(),
-                            DataType::UInt8 => fd.append_null::<UInt8Type>(),
-                            DataType::UInt16 => fd.append_null::<UInt16Type>(),
-                            DataType::UInt32 => fd.append_null::<UInt32Type>(),
-                            DataType::UInt64 => fd.append_null::<UInt64Type>(),
-                            DataType::Float32 => fd.append_null::<Float32Type>(),
-                            DataType::Float64 => fd.append_null::<Float64Type>(),
+                            | DataType::Duration(_) => fd.append_null::<Int64Type>()?,
+                            DataType::UInt8 => fd.append_null::<UInt8Type>()?,
+                            DataType::UInt16 => fd.append_null::<UInt16Type>()?,
+                            DataType::UInt32 => fd.append_null::<UInt32Type>()?,
+                            DataType::UInt64 => fd.append_null::<UInt64Type>()?,
+                            DataType::Float32 => fd.append_null::<Float32Type>()?,
+                            DataType::Float64 => fd.append_null::<Float64Type>()?,
                             _ => unreachable!("All cases of types that satisfy the trait bounds over T are covered above."),
                         };
                     }
                 }
             }
         }
-        field_data.append_to_values_buffer::<T>(v);
+        field_data.append_to_values_buffer::<T>(v)?;
         self.fields.insert(type_name, field_data);
         self.len += 1;
+        Ok(())
     }
 
     /// Builds this builder creating a new `UnionArray`.
-    pub fn build(mut self) -> UnionArray {
+    pub fn build(mut self) -> Result<UnionArray> {
         let type_id_buffer = self.type_id_builder.finish();
         let value_offsets_buffer = self.value_offset_builder.map(|mut b| b.finish());
         let mut children = Vec::new();
@@ -503,10 +513,13 @@ impl UnionBuilder {
             children.push((type_id, (Field::new(&name, data_type, false), array_ref)))
         }
 
-        children.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        children.sort_by(|a, b| {
+            a.0.partial_cmp(&b.0)
+                .expect("This will never be Nono as type ids are always i8 values.")
+        });
         let children: Vec<_> = children.into_iter().map(|(_, b)| b).collect();
 
-        UnionArray::try_new(type_id_buffer, value_offsets_buffer, children).unwrap()
+        UnionArray::try_new(type_id_buffer, value_offsets_buffer, children)
     }
 }
 
@@ -523,14 +536,14 @@ mod tests {
     #[test]
     fn test_union_i32_dense() {
         let mut builder = UnionBuilder::new_dense(7);
-        builder.append::<Int32Type>("a", 1);
-        builder.append::<Int32Type>("b", 2);
-        builder.append::<Int32Type>("c", 3);
-        builder.append::<Int32Type>("a", 4);
-        builder.append::<Int32Type>("c", 5);
-        builder.append::<Int32Type>("a", 6);
-        builder.append::<Int32Type>("b", 7);
-        let array = builder.build();
+        builder.append::<Int32Type>("a", 1).unwrap();
+        builder.append::<Int32Type>("b", 2).unwrap();
+        builder.append::<Int32Type>("c", 3).unwrap();
+        builder.append::<Int32Type>("a", 4).unwrap();
+        builder.append::<Int32Type>("c", 5).unwrap();
+        builder.append::<Int32Type>("a", 6).unwrap();
+        builder.append::<Int32Type>("b", 7).unwrap();
+        let array = builder.build().unwrap();
 
         let expected_type_ids = vec![0_i8, 1, 2, 0, 2, 0, 1];
         let expected_value_offsets = vec![0_i32, 0, 0, 1, 1, 2, 1];
@@ -581,14 +594,14 @@ mod tests {
     #[test]
     fn test_dense_union_mixed() {
         let mut builder = UnionBuilder::new_dense(7);
-        builder.append::<Int32Type>("a", 1);
-        builder.append::<BooleanType>("b", false);
-        builder.append::<Int64Type>("c", 3);
-        builder.append::<Int32Type>("a", 4);
-        builder.append::<Int64Type>("c", 5);
-        builder.append::<Int32Type>("a", 6);
-        builder.append::<BooleanType>("b", true);
-        let union = builder.build();
+        builder.append::<Int32Type>("a", 1).unwrap();
+        builder.append::<BooleanType>("b", false).unwrap();
+        builder.append::<Int64Type>("c", 3).unwrap();
+        builder.append::<Int32Type>("a", 4).unwrap();
+        builder.append::<Int64Type>("c", 5).unwrap();
+        builder.append::<Int32Type>("a", 6).unwrap();
+        builder.append::<BooleanType>("b", true).unwrap();
+        let union = builder.build().unwrap();
 
         assert_eq!(7, union.len());
         for i in 0..union.len() {
@@ -644,14 +657,14 @@ mod tests {
     #[test]
     fn test_union_i32_sparse() {
         let mut builder = UnionBuilder::new_sparse(7);
-        builder.append::<Int32Type>("a", 1);
-        builder.append::<Int32Type>("b", 2);
-        builder.append::<Int32Type>("c", 3);
-        builder.append::<Int32Type>("a", 4);
-        builder.append::<Int32Type>("c", 5);
-        builder.append::<Int32Type>("a", 6);
-        builder.append::<Int32Type>("b", 7);
-        let array = builder.build();
+        builder.append::<Int32Type>("a", 1).unwrap();
+        builder.append::<Int32Type>("b", 2).unwrap();
+        builder.append::<Int32Type>("c", 3).unwrap();
+        builder.append::<Int32Type>("a", 4).unwrap();
+        builder.append::<Int32Type>("c", 5).unwrap();
+        builder.append::<Int32Type>("a", 6).unwrap();
+        builder.append::<Int32Type>("b", 7).unwrap();
+        let array = builder.build().unwrap();
 
         let expected_type_ids = vec![0_i8, 1, 2, 0, 2, 0, 1];
         let expected_array_values = [1_i32, 2, 3, 4, 5, 6, 7];
@@ -695,14 +708,14 @@ mod tests {
     #[test]
     fn test_union_i32_sparse_mixed() {
         let mut builder = UnionBuilder::new_sparse(7);
-        builder.append::<Int32Type>("a", 1);
-        builder.append::<BooleanType>("b", true);
-        builder.append::<Float64Type>("c", 3.0);
-        builder.append::<Int32Type>("a", 4);
-        builder.append::<Float64Type>("c", 5.0);
-        builder.append::<Int32Type>("a", 6);
-        builder.append::<BooleanType>("b", false);
-        let union = builder.build();
+        builder.append::<Int32Type>("a", 1).unwrap();
+        builder.append::<BooleanType>("b", true).unwrap();
+        builder.append::<Float64Type>("c", 3.0).unwrap();
+        builder.append::<Int32Type>("a", 4).unwrap();
+        builder.append::<Float64Type>("c", 5.0).unwrap();
+        builder.append::<Int32Type>("a", 6).unwrap();
+        builder.append::<BooleanType>("b", false).unwrap();
+        let union = builder.build().unwrap();
 
         let expected_type_ids = vec![0_i8, 1, 2, 0, 2, 0, 1];
 
