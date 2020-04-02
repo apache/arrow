@@ -34,15 +34,10 @@ on:
 jobs:
 
   ubuntu:
-    name: AMD64 Ubuntu ${{ matrix.ubuntu }} Python 3
+    name: AMD64 Ubuntu 16.04 Python 3.5
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-    strategy:
-      fail-fast: false
-      matrix:
-        ubuntu: [16.04, 18.04]
     env:
-      UBUNTU: ${{ matrix.ubuntu }}
+      UBUNTU: 16.04
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -73,53 +68,9 @@ jobs:
                        -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push ubuntu-python
 
-  conda:
-    name: AMD64 Conda Python ${{ matrix.python }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python: [3.6, 3.8]
-    env:
-      PYTHON: ${{ matrix.python }}
-      PANDAS: latest
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
-      - name: Docker Pull
-        shell: bash
-        run: |
-          docker-compose pull --ignore-pull-failures conda-cpp
-          docker-compose pull --ignore-pull-failures conda-python
-          docker-compose pull --ignore-pull-failures conda-python-pandas
-      - name: Docker Build
-        shell: bash
-        run: |
-          docker-compose build conda-cpp
-          docker-compose build conda-python
-          docker-compose build conda-python-pandas
-      - name: Docker Run
-        shell: bash
-        run: |
-          docker-compose run conda-python-pandas
-      - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
-        continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push conda-python-pandas
-
   conda-nopandas:
-    name: AMD64 Conda Python ${{ matrix.python }} Nopandas
+    name: AMD64 Conda Python ${{ matrix.python }} Without Pandas
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -156,8 +107,52 @@ jobs:
                        -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push conda-python
 
+  conda-pandas:
+    name: AMD64 Conda Python ${{ matrix.python }} Pandas ${{ matrix.pandas }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [3.8]
+        pandas: ["latest"]
+    env:
+      PYTHON: ${{ matrix.python }}
+      PANDAS: ${{ matrix.pandas }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Docker Pull
+        shell: bash
+        run: |
+          docker-compose pull --ignore-pull-failures conda-cpp
+          docker-compose pull --ignore-pull-failures conda-python
+          docker-compose pull --ignore-pull-failures conda-python-pandas
+      - name: Docker Build
+        shell: bash
+        run: |
+          docker-compose build conda-cpp
+          docker-compose build conda-python
+          docker-compose build conda-python-pandas
+      - name: Docker Run
+        shell: bash
+        run: |
+          docker-compose run conda-python-pandas
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        shell: bash
+        run: |
+          docker login -u ${{ secrets.DOCKERHUB_USER }} \
+                       -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push conda-python-pandas
+
   macos:
-    name: AMD64 MacOS 10.15 Python 3
+    name: AMD64 MacOS 10.15 Python 3.7
     runs-on: macos-latest
     env:
       ARROW_HOME: /usr/local

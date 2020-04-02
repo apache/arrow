@@ -69,6 +69,45 @@ jobs:
                        -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push debian-python
 
+  ubuntu:
+    name: AMD64 Ubuntu ${{ matrix.ubuntu }} Python 3
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu: [18.04]
+    env:
+      UBUNTU: ${{ matrix.ubuntu }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Docker Pull
+        shell: bash
+        run: |
+          docker-compose pull --ignore-pull-failures ubuntu-cpp
+          docker-compose pull --ignore-pull-failures ubuntu-python
+      - name: Docker Build
+        shell: bash
+        run: |
+          docker-compose build ubuntu-cpp
+          docker-compose build ubuntu-python
+      - name: Docker Run
+        shell: bash
+        run: docker-compose run ubuntu-python
+      - name: Docker Push
+        if: success() && github.repository == 'apache/arrow'
+        continue-on-error: true
+        shell: bash
+        run: |
+          docker login -u ${{ secrets.DOCKERHUB_USER }} \
+                       -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push ubuntu-python
+
   fedora:
     name: AMD64 Fedora ${{ matrix.fedora }} Python 3
     runs-on: ubuntu-latest
@@ -115,19 +154,21 @@ jobs:
       fail-fast: false
       matrix:
         name:
-          - dask
-          - hdfs
-          - turbodbc
+          - dask-latest
+          - hdfs-2.9.2
+          - turbodbc-latest
           - kartothek-latest
           - pandas-master
           - pandas-0.24
         include:
-          - name: dask
+          - name: dask-latest
             library: dask
-            title: Dask
-          - name: turbodbc
+            dask: latest
+            title: Dask latest
+          - name: turbodbc-latest
             library: turbodbc
-            title: Turbodbc
+            turbodbc: latest
+            title: Turbodbc latest
           - name: kartothek-latest
             library: kartothek
             kartothek: latest
@@ -140,13 +181,16 @@ jobs:
             library: pandas
             title: Pandas master
             pandas: master
-          - name: hdfs
+          - name: hdfs-2.9.2
             library: hdfs
-            title: HDFS
+            hdfs: 2.9.2
+            title: HDFS 2.9.2
     env:
+      # the defaults here should correspond to the values in .env
       PYTHON: 3.7
-      DASK: latest
-      TURBODBC: latest
+      HDFS: ${{ matrix.hdfs || '2.9.2' }}
+      DASK: ${{ matrix.dask || 'latest' }}
+      TURBODBC: ${{ matrix.turbodbc || 'latest' }}
       PANDAS: ${{ matrix.pandas || 'latest' }}
       KARTOTHEK: ${{ matrix.kartothek || 'latest' }}
     steps:

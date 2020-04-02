@@ -451,13 +451,15 @@ def test_unicode_filename(version):
 
 
 def test_read_columns(version):
-    data = {'foo': [1, 2, 3, 4],
-            'boo': [5, 6, 7, 8],
-            'woo': [1, 3, 5, 7]}
-    columns = ['boo', 'woo']
-    df = pd.DataFrame(data)
-    expected = pd.DataFrame({c: data[c] for c in columns}, columns=columns)
-    _check_pandas_roundtrip(df, expected, version=version, columns=columns)
+    df = pd.DataFrame({
+        'foo': [1, 2, 3, 4],
+        'boo': [5, 6, 7, 8],
+        'woo': [1, 3, 5, 7]
+    })
+    expected = df[['boo', 'woo']]
+
+    _check_pandas_roundtrip(df, expected, version=version,
+                            columns=['boo', 'woo'])
 
 
 def test_overwritten_file(version):
