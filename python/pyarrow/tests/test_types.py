@@ -581,8 +581,10 @@ def test_key_value_metadata():
     m3 = pa.KeyValueMetadata([('a', 'A'), ('b', 'B')])
 
     assert m1 != 2
-    assert m1 == m2 == m3
+    assert m1 == m2
+    assert m2 == m3
     assert m1 == {'a': 'A', 'b': 'B'}
+    assert m1 != {'a': 'A', 'b': 'C'}
 
     with pytest.raises(TypeError):
         pa.KeyValueMetadata({'a': 1})
@@ -600,7 +602,7 @@ def test_key_value_metadata():
     assert len(m3) == 2
 
     # test duplicate key support
-    md = m1 = pa.KeyValueMetadata([
+    md = pa.KeyValueMetadata([
         ('a', 'alpha'),
         ('b', 'beta'),
         ('a', 'Alpha'),

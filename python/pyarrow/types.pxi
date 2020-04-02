@@ -819,13 +819,14 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
         items = []
         if args:
             if len(args) > 1:
-                raise TypeError('expected at most 1 arguments, got {}'
-                                .format(len(args)))
+                raise TypeError('expected at most 1 positional argument, '
+                                'got {}'.format(len(args)))
             other = args[0]
             items += other.items() if isinstance(other, Mapping) else other
 
         items += kwargs.items()
 
+        keys.reserve(len(items))
         for key, value in items:
             keys.push_back(tobytes(key))
             values.push_back(tobytes(value))
