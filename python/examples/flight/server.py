@@ -27,8 +27,10 @@ import pyarrow.flight
 
 
 class FlightServer(pyarrow.flight.FlightServerBase):
-    def __init__(self, host="localhost", location=None, tls_certificates=None, auth_handler=None):
-        super(FlightServer, self).__init__(location, auth_handler, tls_certificates)
+    def __init__(self, host="localhost", location=None,
+                 tls_certificates=None, auth_handler=None):
+        super(FlightServer, self).__init__(
+            location, auth_handler, tls_certificates)
         self.flights = {}
         self.host = host
         self.tls_certificates = tls_certificates
@@ -40,13 +42,16 @@ class FlightServer(pyarrow.flight.FlightServerBase):
 
     def _make_flight_info(self, key, descriptor, table):
         if self.tls_certificates:
-            location = pyarrow.flight.Location.for_grpc_tls(self.host, self.port)
+            location = pyarrow.flight.Location.for_grpc_tls(
+                self.host, self.port)
         else:
-            location = pyarrow.flight.Location.for_grpc_tcp(self.host, self.port)
-        endpoints = [pyarrow.flight.FlightEndpoint(repr(key), [location]),]
+            location = pyarrow.flight.Location.for_grpc_tcp(
+                self.host, self.port)
+        endpoints = [pyarrow.flight.FlightEndpoint(repr(key), [location]), ]
 
         mock_sink = pyarrow.MockOutputStream()
-        stream_writer = pyarrow.RecordBatchStreamWriter(mock_sink, table.schema)
+        stream_writer = pyarrow.RecordBatchStreamWriter(
+            mock_sink, table.schema)
         stream_writer.write_table(table)
         stream_writer.close()
         data_size = mock_sink.size()
@@ -139,6 +144,6 @@ def main():
     print("Serving on", location)
     server.serve()
 
+
 if __name__ == '__main__':
     main()
-
