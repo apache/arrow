@@ -685,10 +685,6 @@ def test_fragments_reconstruct(tempdir):
         assert actual.column_names == columns
 
         expected = table.slice(*row_slice).to_pandas()[[*columns]]
-        if not actual.equals(pa.Table.from_pandas(expected)):
-            print('-' * 90)
-            print(expected)
-            print(actual.to_pandas())
         assert actual.equals(pa.Table.from_pandas(expected))
 
     fragment = list(dataset.get_fragments())[0]
