@@ -33,6 +33,7 @@ read_record_batch <- function(obj, schema) {
 
 #' @rdname read_ipc_stream
 #' @export
+#' @include ipc_stream.R
 read_table <- function(x, ...) {
   .Deprecated("read_arrow")
   read_arrow(x, ..., as_data_frame = FALSE)

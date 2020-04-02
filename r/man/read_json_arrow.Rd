@@ -7,7 +7,7 @@
 read_json_arrow(file, col_select = NULL, as_data_frame = TRUE, ...)
 }
 \arguments{
-\item{file}{A character file name, raw vector, or an Arrow input stream}
+\item{file}{A character file name, \code{raw} vector, or an Arrow input stream}
 
 \item{col_select}{A character vector of column names to keep, as in the
 "select" argument to \code{data.table::fread()}, or a

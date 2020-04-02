@@ -150,7 +150,7 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
 RecordBatch$create <- function(..., schema = NULL) {
   arrays <- list2(...)
   if (length(arrays) == 1 && inherits(arrays[[1]], c("raw", "Buffer", "InputStream", "Message"))) {
-    return(RecordBatch$from_stream(arrays[[1]], schema))
+    return(RecordBatch$from_message(arrays[[1]], schema))
   }
   # Else, list of arrays
   # making sure there are always names
@@ -162,7 +162,7 @@ RecordBatch$create <- function(..., schema = NULL) {
   shared_ptr(RecordBatch, RecordBatch__from_arrays(schema, arrays))
 }
 
-RecordBatch$from_stream <- function(obj, schema) {
+RecordBatch$from_message <- function(obj, schema) {
   # Message/Buffer readers, previously in read_record_batch()
   assert_is(schema, "Schema")
   if (inherits(obj, c("raw", "Buffer"))) {

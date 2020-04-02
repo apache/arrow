@@ -31,8 +31,9 @@
 #' @param ... extra parameters passed to `write_feather()`.
 #'
 #' @return `x`, invisibly.
-#' @seealso [write_feather()] for writing IPC files. [RecordBatchWriter] for a
-#' lower-level interface.
+#' @seealso [write_feather()] for writing IPC files. [write_to_raw()] to
+#' serialize data to a buffer.
+#' [RecordBatchWriter] for a lower-level interface.
 #' @export
 write_ipc_stream <- function(x, sink, ...) {
   x_out <- x # So we can return the data we got
@@ -57,12 +58,30 @@ write_arrow <- function(x, sink, ...) {
   if (inherits(sink, "raw")) {
     # HACK for sparklyr
     # Note that this returns a new R raw vector, not the one passed as `sink`
-    sink <- BufferOutputStream$create()
-    write_ipc_stream(x, sink)
-    as.raw(buffer(sink))
+    write_to_raw(x)
   } else {
     write_feather(x, sink, ...)
   }
+}
+
+#' Write Arrow data to a raw vector
+#'
+#' [write_ipc_stream()] and [write_feather()] write data to a sink and return
+#' the data (`data.frame`, `RecordBatch`, or `Table`) they were given.
+#' This function wraps those so that you can serialize data to a buffer and
+#' access that buffer as a `raw` vector in R.
+#' @inheritParams write_feather
+#' @param format one of `c("stream", "file")`, indicating the IPC format to use
+#' @return A `raw` vector containing the bytes of the IPC serialized data.
+#' @export
+write_to_raw <- function(x, format = c("stream", "file")) {
+  sink <- BufferOutputStream$create()
+  if (match.arg(format) == "stream") {
+    write_ipc_stream(x, sink)
+  } else {
+    write_feather(x, sink)
+  }
+  as.raw(buffer(sink))
 }
 
 #' Read Arrow IPC stream format
@@ -78,6 +97,7 @@ write_arrow <- function(x, sink, ...) {
 #' a file or `InputStream` may contain either. `read_table()`, a wrapper around
 #' `read_arrow()`, is also deprecated
 #'
+#' @param x A character file name, `raw` vector, or an Arrow input stream
 #' @inheritParams read_delim_arrow
 #' @param ... extra parameters passed to `read_feather()`.
 #'

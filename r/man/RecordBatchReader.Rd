@@ -7,8 +7,13 @@
 \alias{RecordBatchFileReader}
 \title{RecordBatchReader classes}
 \description{
-\code{RecordBatchFileReader} and \code{RecordBatchStreamReader} are
-interfaces for generating record batches from different input sources.
+Apache Arrow defines two formats for \href{https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc}{serializing data for interprocess communication (IPC)}:
+a "stream" format and a "file" format, known as Feather.
+\code{RecordBatchStreamReader} and \code{RecordBatchFileReader} are
+interfaces for accessing record batches from input sources those formats,
+respectively.
+
+For guidance on how to use these classes, see the examples section.
 }
 \section{Factory}{
 
@@ -18,17 +23,19 @@ factory methods instantiate the object and
 take a single argument, named according to the class:
 \itemize{
 \item \code{file} A character file name, raw vector, or Arrow file connection object
-(e.g. \code{RandomAccessFile}).
-\item \code{stream} A raw vector, \link{Buffer}, or \code{InputStream}.
+(e.g. \link{RandomAccessFile}).
+\item \code{stream} A raw vector, \link{Buffer}, or \link{InputStream}.
 }
 }
 
 \section{Methods}{
 
 \itemize{
-\item \verb{$read_next_batch()}: Returns a \code{RecordBatch}
-\item \verb{$schema()}: Returns a \link{Schema}
+\item \verb{$read_next_batch()}: Returns a \code{RecordBatch}, iterating through the
+Reader. If there are no further batches in the Reader, it returns \code{NULL}.
+\item \verb{$schema}: Returns a \link{Schema} (active binding)
 \item \verb{$batches()}: Returns a list of \code{RecordBatch}es
+\item \verb{$read_table()}: Collects the reader's \code{RecordBatch}es into a \link{Table}
 \item \verb{$get_batch(i)}: For \code{RecordBatchFileReader}, return a particular batch
 by an integer index.
 \item \verb{$num_record_batches()}: For \code{RecordBatchFileReader}, see how many batches
@@ -72,4 +79,8 @@ all.equal(df, iris, check.attributes = FALSE)
 # but we do still need to close the file connection
 read_file_obj$close()
 }
+}
+\seealso{
+\code{\link[=read_ipc_stream]{read_ipc_stream()}} and \code{\link[=read_feather]{read_feather()}} provide a much simpler interface
+for reading data from these formats and are sufficient for many use cases.
 }

@@ -59,7 +59,7 @@ read_tsv_arrow(
 )
 }
 \arguments{
-\item{file}{A character file name, raw vector, or an Arrow input stream}
+\item{file}{A character file name, \code{raw} vector, or an Arrow input stream}
 
 \item{delim}{Single character used to separate fields within a record.}
 

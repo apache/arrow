@@ -31,6 +31,7 @@ the function that will write the desired IPC format (stream or file) since
 either can be written to a file or \code{OutputStream}.
 }
 \seealso{
-\code{\link[=write_feather]{write_feather()}} for writing IPC files. \link{RecordBatchWriter} for a
-lower-level interface.
+\code{\link[=write_feather]{write_feather()}} for writing IPC files. \code{\link[=write_to_raw]{write_to_raw()}} to
+serialize data to a buffer.
+\link{RecordBatchWriter} for a lower-level interface.
 }

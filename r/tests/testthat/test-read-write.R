@@ -124,10 +124,10 @@ test_that("write_arrow() returns its input", {
 
 test_that("reading/writing a raw vector (sparklyr integration)", {
   # These are effectively what sparklyr calls to get data to/from Spark
-  write_to_raw <- function(x) {
+  write_to_raw_test <- function(x) {
     write_arrow(record_batch(x), raw())
   }
-  read_from_raw <- function(x) {
+  read_from_raw_test <- function(x) {
     as.data.frame(RecordBatchStreamReader$create(x)$read_next_batch())
   }
   tbl <- tibble::tibble(
@@ -137,9 +137,9 @@ test_that("reading/writing a raw vector (sparklyr integration)", {
     chr = letters[1:10],
     fct = factor(letters[1:10])
   )
-  bytes <- write_to_raw(tbl)
+  bytes <- write_to_raw_test(tbl)
   expect_is(bytes, "raw")
-  expect_identical(read_from_raw(bytes), tbl)
+  expect_identical(read_from_raw_test(bytes), tbl)
   # this could just be `read_ipc_stream(x)`; propose that
   expect_identical(read_ipc_stream(bytes), tbl)
 })

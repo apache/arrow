@@ -17,29 +17,30 @@
 
 
 #' @title RecordBatchWriter classes
-#' @description `RecordBatchFileWriter` and `RecordBatchStreamWriter` are
-#' interfaces for writing record batches to either the binary file or streaming
-#' format.
+#' @description Apache Arrow defines two formats for [serializing data for interprocess
+#' communication (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
+#' a "stream" format and a "file" format, known as Feather.
+#' `RecordBatchStreamWriter` and `RecordBatchFileWriter` are
+#' interfaces for writing record batches to those formats, respectively.
+#'
+#' For guidance on how to use these classes, see the examples section.
+#'
+#' @seealso [write_ipc_stream()] and [write_feather()] provide a much simpler
+#' interface for writing data to these formats and are sufficient for many use
+#' cases. [write_to_raw()] is a version that serializes data to a buffer.
 #' @usage NULL
 #' @format NULL
 #' @docType class
-#' @section Usage:
-#'
-#' ```
-#' writer <- RecordBatchStreamWriter$create(sink, schema)
-#'
-#' writer$write_batch(batch)
-#' writer$write_table(table)
-#' writer$close()
-#' ```
 #' @section Factory:
 #'
 #' The `RecordBatchFileWriter$create()` and `RecordBatchStreamWriter$create()`
-#' factory methods instantiate the object and
-#' take a single argument, named according to the class:
+#' factory methods instantiate the object and take the following arguments:
 #'
-#' - `sink` A character file name or an `OutputStream`.
-#' - `schema` A [Schema] for the data to be written.
+#' - `sink` An `OutputStream`
+#' - `schema` A [Schema] for the data to be written
+#' - `use_legacy_format` logical: write data formatted so that Arrow libraries
+#'   versions 0.14 and lower can read it? Default is `FALSE`. You can also
+#'   enable this by setting the environment variable `ARROW_PRE_0_15_IPC_FORMAT=1`.
 #'
 #' @section Methods:
 #'
@@ -47,7 +48,9 @@
 #'    to the methods below appropriately
 #' - `$write_batch(batch)`: Write a `RecordBatch` to stream
 #' - `$write_table(table)`: Write a `Table` to stream
-#' - `$close()`: close stream
+#' - `$close()`: close stream. Note that this indicates end-of-file or
+#'   end-of-stream--it does not close the connection to the `sink`. That needs
+#'   to be closed separately.
 #'
 #' @rdname RecordBatchWriter
 #' @name RecordBatchWriter

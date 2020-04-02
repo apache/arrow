@@ -17,8 +17,17 @@
 
 
 #' @title RecordBatchReader classes
-#' @description `RecordBatchFileReader` and `RecordBatchStreamReader` are
-#' interfaces for generating record batches from different input sources.
+#' @description Apache Arrow defines two formats for [serializing data for interprocess
+#' communication (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
+#' a "stream" format and a "file" format, known as Feather.
+#' `RecordBatchStreamReader` and `RecordBatchFileReader` are
+#' interfaces for accessing record batches from input sources those formats,
+#' respectively.
+#'
+#' For guidance on how to use these classes, see the examples section.
+#'
+#' @seealso [read_ipc_stream()] and [read_feather()] provide a much simpler interface
+#' for reading data from these formats and are sufficient for many use cases.
 #' @usage NULL
 #' @format NULL
 #' @docType class
@@ -29,14 +38,16 @@
 #' take a single argument, named according to the class:
 #'
 #' - `file` A character file name, raw vector, or Arrow file connection object
-#'    (e.g. `RandomAccessFile`).
-#' - `stream` A raw vector, [Buffer], or `InputStream`.
+#'    (e.g. [RandomAccessFile]).
+#' - `stream` A raw vector, [Buffer], or [InputStream].
 #'
 #' @section Methods:
 #'
-#' - `$read_next_batch()`: Returns a `RecordBatch`
-#' - `$schema()`: Returns a [Schema]
+#' - `$read_next_batch()`: Returns a `RecordBatch`, iterating through the
+#'   Reader. If there are no further batches in the Reader, it returns `NULL`.
+#' - `$schema`: Returns a [Schema] (active binding)
 #' - `$batches()`: Returns a list of `RecordBatch`es
+#' - `$read_table()`: Collects the reader's `RecordBatch`es into a [Table]
 #' - `$get_batch(i)`: For `RecordBatchFileReader`, return a particular batch
 #'    by an integer index.
 #' - `$num_record_batches()`: For `RecordBatchFileReader`, see how many batches

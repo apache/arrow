@@ -218,7 +218,7 @@ mmap_open <- function(path, mode = c("read", "write", "readwrite")) {
 }
 
 #' Handle a range of possible input sources
-#' @param file A character file name, raw vector, or an Arrow input stream
+#' @param file A character file name, `raw` vector, or an Arrow input stream
 #' @param mmap Logical: whether to memory-map the file (default `TRUE`)
 #' @return An `InputStream` or a subclass of one.
 #' @keywords internal
