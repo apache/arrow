@@ -1496,18 +1496,8 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
             # unsupported keywords
             metadata=metadata
         )
-        table = dataset.read(columns=columns, use_threads=use_threads,
-                             use_pandas_metadata=use_pandas_metadata)
-
-        # remove ARROW:schema metadata, current parquet version doesn't
-        # preserve this
-        metadata = table.schema.metadata
-        if metadata:
-            metadata.pop(b"ARROW:schema", None)
-            if len(metadata) == 0:
-                metadata = None
-            table = table.replace_schema_metadata(metadata)
-        return table
+        return dataset.read(columns=columns, use_threads=use_threads,
+                            use_pandas_metadata=use_pandas_metadata)
 
     if _is_path_like(source):
         pf = ParquetDataset(source, metadata=metadata, memory_map=memory_map,

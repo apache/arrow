@@ -192,7 +192,11 @@ def test_pandas_parquet_2_0_roundtrip(tempdir, chunk_size, use_legacy_dataset):
         use_threads=use_threads)
     assert table_read.schema.pandas_metadata is not None
 
-    assert arrow_table.schema.metadata == table_read.schema.metadata
+    read_metadata = table_read.schema.metadata
+    if not use_legacy_dataset:
+        read_metadata.pop(b"ARROW:schema")
+
+    assert arrow_table.schema.metadata == read_metadata
 
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
@@ -426,7 +430,11 @@ def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(
     js = table_read.schema.pandas_metadata
     assert not js['index_columns']
 
-    assert arrow_table.schema.metadata == table_read.schema.metadata
+    read_metadata = table_read.schema.metadata
+    if not use_legacy_dataset:
+        read_metadata.pop(b"ARROW:schema")
+
+    assert arrow_table.schema.metadata == read_metadata
 
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
