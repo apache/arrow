@@ -63,7 +63,10 @@ cdef class ChunkedArray(_PandasConvertible):
         type_format = object.__repr__(self)
         return '{0}\n{1}'.format(type_format, str(self))
 
-    def format(self, int indent=0, int window=10):
+    def to_string(self, int indent=0, int window=10):
+        """
+        Render a "pretty-printed" string representation of the ChunkedArray
+        """
         cdef:
             c_string result
 
@@ -78,8 +81,14 @@ cdef class ChunkedArray(_PandasConvertible):
 
         return frombytes(result)
 
+    def format(self, **kwargs):
+        import warnings
+        warnings.warn('ChunkedArray.format is deprecated, '
+                      'use ChunkedArray.to_string')
+        return self.to_string(**kwargs)
+
     def __str__(self):
-        return self.format()
+        return self.to_string()
 
     def validate(self, *, full=False):
         """
@@ -542,8 +551,16 @@ cdef class RecordBatch(_PandasConvertible):
         except TypeError:
             return NotImplemented
 
+    def to_string(self, show_metadata=False):
+        # Use less verbose schema output.
+        schema_as_string = self.schema.to_string(
+            show_field_metadata=show_metadata,
+            show_schema_metadata=show_metadata
+        )
+        return 'pyarrow.{}\n{}'.format(type(self).__name__, schema_as_string)
+
     def __repr__(self):
-        return 'pyarrow.{}\n{}'.format(type(self).__name__, str(self.schema))
+        return self.to_string()
 
     def validate(self, *, full=False):
         """
@@ -1013,11 +1030,19 @@ cdef class Table(_PandasConvertible):
         raise TypeError("Do not call Table's constructor directly, use one of "
                         "the `Table.from_*` functions instead.")
 
+    def to_string(self, show_metadata=False):
+        # Use less verbose schema output.
+        schema_as_string = self.schema.to_string(
+            show_field_metadata=show_metadata,
+            show_schema_metadata=show_metadata
+        )
+        return 'pyarrow.{}\n{}'.format(type(self).__name__, schema_as_string)
+
     def __repr__(self):
         if self.table == NULL:
             raise ValueError("Table's internal pointer is NULL, do not use "
                              "any methods or attributes on this object")
-        return 'pyarrow.{}\n{}'.format(type(self).__name__, str(self.schema))
+        return self.to_string()
 
     cdef void init(self, const shared_ptr[CTable]& table):
         self.sp_table = table
