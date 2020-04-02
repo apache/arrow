@@ -34,6 +34,7 @@ jobs:
   ubuntu:
     name: AMD64 Ubuntu 18.04 C# ${{ matrix.dotnet }}
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -60,6 +61,7 @@ jobs:
   windows:
     name: AMD64 Windows 2019 18.04 C# ${{ matrix.dotnet }}
     runs-on: windows-latest
+    if: !contains(github.event.pull_request.title, 'WIP')
     strategy:
       fail-fast: false
       matrix:
@@ -86,7 +88,7 @@ jobs:
   macos:
     name: AMD64 MacOS 10.15 C# ${{ matrix.dotnet }}
     runs-on: macos-latest
-    if: github.event_name == 'push'
+    if: !contains(github.event.pull_request.title, 'WIP')
     strategy:
       fail-fast: false
       matrix:

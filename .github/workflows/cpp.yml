@@ -39,6 +39,7 @@ jobs:
   conda:
     name: AMD64 Conda C++
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -71,6 +72,7 @@ jobs:
   ubuntu-sanitizer:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} C++ ASAN UBSAN
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -106,6 +108,7 @@ jobs:
   macos:
     name: AMD64 MacOS 10.15 C++
     runs-on: macos-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
     env:
@@ -160,6 +163,7 @@ jobs:
   windows:
     name: AMD64 ${{ matrix.name }} C++
     runs-on: ${{ matrix.os }}
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -224,6 +228,7 @@ jobs:
   windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} C++
     runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:

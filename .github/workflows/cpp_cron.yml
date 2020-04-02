@@ -37,6 +37,7 @@ jobs:
   debian:
     name: AMD64 Debian ${{ matrix.debian }} C++
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -75,6 +76,7 @@ jobs:
   fedora:
     name: AMD64 Fedora ${{ matrix.fedora }} C++
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -113,6 +115,7 @@ jobs:
   ubuntu:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} C++
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -144,7 +147,7 @@ jobs:
   ubuntu-cmake32:
     name: AMD64 Ubuntu 18.04 C++ CMake 3.2
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -187,6 +190,7 @@ jobs:
   oss-fuzz:
     name: OSS-Fuzz build check
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:

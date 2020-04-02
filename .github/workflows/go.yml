@@ -34,6 +34,7 @@ jobs:
   debian:
     name: AMD64 Debian 10 Go ${{ matrix.go }}
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -66,6 +67,7 @@ jobs:
   windows:
     name: AMD64 Windows 2019 Go ${{ matrix.go }}
     runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -92,7 +94,7 @@ jobs:
   macos:
     name: AMD64 MacOS 10.15 Go ${{ matrix.go }}
     runs-on: macos-latest
-    if: github.event_name == 'push'
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:

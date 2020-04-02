@@ -40,6 +40,7 @@ jobs:
   debian:
     name: AMD64 Debian 10 Rust ${{ matrix.rust }}
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -72,6 +73,7 @@ jobs:
   windows:
     name: AMD64 Windows 2019 Rust ${{ matrix.rust }}
     runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -102,6 +104,7 @@ jobs:
   macos:
     name: AMD64 MacOS 10.15 Rust ${{ matrix.rust }}
     runs-on: macos-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
