@@ -3275,6 +3275,27 @@ def test_write_to_dataset_metadata(tempdir):
     file_paths = ["/".join(p.parts[n_root:]) for p in path.rglob("*.parquet")]
     assert sorted(collected_paths) == sorted(file_paths)
 
+    # writing to single file (not partitioned)
+    metadata_list = []
+    pq.write_to_dataset(pa.table({'a': [1, 2, 3]}), root_path=str(path),
+                        metadata_collector=metadata_list)
+
+    # compare metadata content
+    file_paths = list(path.glob("*.parquet"))
+    assert len(file_paths) == 1
+    file_path = file_paths[0]
+    file_metadata = pq.read_metadata(file_path)
+    d1 = metadata_list[0].to_dict()
+    d2 = file_metadata.to_dict()
+    # serialized_size is initialized in the reader:
+    assert d1.pop('serialized_size') == 0
+    assert d2.pop('serialized_size') > 0
+    # file_path is different (not set for in-file metadata)
+    assert d1["row_groups"][0]["columns"][0]["file_path"] == file_path.name
+    assert d2["row_groups"][0]["columns"][0]["file_path"] == ""
+    d1["row_groups"][0]["columns"][0]["file_path"] = ""
+    assert d1 == d2
+
 
 def test_parquet_file_too_small(tempdir):
     path = str(tempdir / "test.parquet")
