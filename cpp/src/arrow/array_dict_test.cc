@@ -986,13 +986,11 @@ TEST(TestDictionary, Validate) {
 
   indices = ArrayFromJSON(int16(), "[]");
   arr = std::make_shared<DictionaryArray>(dict_type, indices, MakeArray(invalid_data));
-  ASSERT_RAISES(Invalid, arr->Validate());
   ASSERT_RAISES(Invalid, arr->ValidateFull());
 
   // Make the data buffer non-null
   ASSERT_OK(AllocateBuffer(0, &buffers[2]));
   arr = std::make_shared<DictionaryArray>(dict_type, indices, MakeArray(invalid_data));
-  ASSERT_RAISES(Invalid, arr->Validate());
   ASSERT_RAISES(Invalid, arr->ValidateFull());
 
   ASSERT_DEATH(

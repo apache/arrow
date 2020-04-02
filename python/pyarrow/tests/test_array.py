@@ -1173,7 +1173,6 @@ def test_dictionary_encode_zero_length():
     arr = pa.array([], type=pa.string())
     encoded = arr.dictionary_encode()
     assert len(encoded.dictionary) == 0
-    encoded.validate()
     encoded.validate(full=True)
 
 
