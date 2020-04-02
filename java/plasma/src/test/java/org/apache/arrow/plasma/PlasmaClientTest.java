@@ -172,6 +172,20 @@ public class PlasmaClientTest {
     Arrays.fill(value4, (byte)14);
     pLink.put(id4, value4, meta4);
 
+    List<byte[]> existIds = Arrays.asList(id1, id2, id3, id4);
+    List<byte[]> listIds = pLink.list();
+    assert listIds.size() == 4;
+    for (byte[] existId : existIds) {
+      boolean found = false;
+      for (byte[] listId : listIds) {
+        if (Arrays.equals(listId, existId)) {
+          found = true;
+        }
+      }
+      assert found;
+    }
+    System.out.println("Plasma java client list test success.");
+
     byte[] id5 = new byte[20];
     Arrays.fill(id5, (byte)5);
     byte[] value5 = new byte[20];
