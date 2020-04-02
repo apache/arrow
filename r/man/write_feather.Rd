@@ -16,7 +16,7 @@ write_feather(
 \arguments{
 \item{x}{\code{data.frame}, \link{RecordBatch}, or \link{Table}}
 
-\item{sink}{A string file path, \link{OutputStream}, or \link{RecordBatchWriter}}
+\item{sink}{A string file path or \link{OutputStream}}
 
 \item{version}{integer Feather file version. Version 2 is the current.
 Version 1 is the more limited legacy format.}
@@ -36,8 +36,8 @@ specify an integer compression level. If omitted, the compression codec's
 default compression level is used.}
 }
 \value{
-The input \code{x}, invisibly. Note that if \code{sink} is a \link{OutputStream} or
-\link{RecordBatchWriter}, the stream will be left open.
+The input \code{x}, invisibly. Note that if \code{sink} is an \link{OutputStream},
+the stream will be left open.
 }
 \description{
 Write data in the Feather format

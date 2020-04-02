@@ -29,10 +29,8 @@ Writable <- R6Class("Writable", inherit = ArrowObject,
 
 #' @title OutputStream classes
 #' @description `FileOutputStream` is for writing to a file;
-#' `BufferOutputStream` and `FixedSizeBufferWriter` write to buffers;
-#' `MockOutputStream` just reports back how many bytes it received, for testing
-#' purposes. You can create one and pass it to any of the table writers, for
-#' example.
+#' `BufferOutputStream` writes to a buffer;
+#' You can create one and pass it to any of the table writers, for example.
 #' @usage NULL
 #' @format NULL
 #' @docType class
@@ -44,10 +42,6 @@ Writable <- R6Class("Writable", inherit = ArrowObject,
 #' - `path` For `FileOutputStream`, a character file name
 #' - `initial_capacity` For `BufferOutputStream`, the size in bytes of the
 #'    buffer.
-#' - `x` For `FixedSizeBufferWriter`, a [Buffer] or an object that can be
-#'    made into a buffer via `buffer()`.
-#'
-#' `MockOutputStream$create()` does not take any arguments.
 #'
 #' @section Methods:
 #'
@@ -81,19 +75,6 @@ FileOutputStream$create <- function(path) {
 #' @format NULL
 #' @rdname OutputStream
 #' @export
-MockOutputStream <- R6Class("MockOutputStream", inherit = OutputStream,
-  public = list(
-    GetExtentBytesWritten = function() io___MockOutputStream__GetExtentBytesWritten(self)
-  )
-)
-MockOutputStream$create <- function() {
-  shared_ptr(MockOutputStream, io___MockOutputStream__initialize())
-}
-
-#' @usage NULL
-#' @format NULL
-#' @rdname OutputStream
-#' @export
 BufferOutputStream <- R6Class("BufferOutputStream", inherit = OutputStream,
   public = list(
     capacity = function() io___BufferOutputStream__capacity(self),
@@ -104,17 +85,6 @@ BufferOutputStream <- R6Class("BufferOutputStream", inherit = OutputStream,
 )
 BufferOutputStream$create <- function(initial_capacity = 0L) {
   shared_ptr(BufferOutputStream, io___BufferOutputStream__Create(initial_capacity))
-}
-
-#' @usage NULL
-#' @format NULL
-#' @rdname OutputStream
-#' @export
-FixedSizeBufferWriter <- R6Class("FixedSizeBufferWriter", inherit = OutputStream)
-FixedSizeBufferWriter$create <- function(x) {
-  x <- buffer(x)
-  assert_that(x$is_mutable)
-  shared_ptr(FixedSizeBufferWriter, io___FixedSizeBufferWriter__initialize(x))
 }
 
 # InputStream -------------------------------------------------------------

@@ -3725,50 +3725,6 @@ RcppExport SEXP _arrow_io___BufferOutputStream__Write(SEXP stream_sexp, SEXP byt
 }
 #endif
 
-// io.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::io::MockOutputStream> io___MockOutputStream__initialize();
-RcppExport SEXP _arrow_io___MockOutputStream__initialize(){
-BEGIN_RCPP
-	return Rcpp::wrap(io___MockOutputStream__initialize());
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_io___MockOutputStream__initialize(){
-	Rf_error("Cannot call io___MockOutputStream__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// io.cpp
-#if defined(ARROW_R_WITH_ARROW)
-int64_t io___MockOutputStream__GetExtentBytesWritten(const std::shared_ptr<arrow::io::MockOutputStream>& stream);
-RcppExport SEXP _arrow_io___MockOutputStream__GetExtentBytesWritten(SEXP stream_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::MockOutputStream>&>::type stream(stream_sexp);
-	return Rcpp::wrap(io___MockOutputStream__GetExtentBytesWritten(stream));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_io___MockOutputStream__GetExtentBytesWritten(SEXP stream_sexp){
-	Rf_error("Cannot call io___MockOutputStream__GetExtentBytesWritten(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// io.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::io::FixedSizeBufferWriter> io___FixedSizeBufferWriter__initialize(const std::shared_ptr<arrow::Buffer>& buffer);
-RcppExport SEXP _arrow_io___FixedSizeBufferWriter__initialize(SEXP buffer_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
-	return Rcpp::wrap(io___FixedSizeBufferWriter__initialize(buffer));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_io___FixedSizeBufferWriter__initialize(SEXP buffer_sexp){
-	Rf_error("Cannot call io___FixedSizeBufferWriter__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
 // json.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::json::ReadOptions> json___ReadOptions__initialize(List_ options);
@@ -6025,9 +5981,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_io___BufferOutputStream__Finish", (DL_FUNC) &_arrow_io___BufferOutputStream__Finish, 1}, 
 		{ "_arrow_io___BufferOutputStream__Tell", (DL_FUNC) &_arrow_io___BufferOutputStream__Tell, 1}, 
 		{ "_arrow_io___BufferOutputStream__Write", (DL_FUNC) &_arrow_io___BufferOutputStream__Write, 2}, 
-		{ "_arrow_io___MockOutputStream__initialize", (DL_FUNC) &_arrow_io___MockOutputStream__initialize, 0}, 
-		{ "_arrow_io___MockOutputStream__GetExtentBytesWritten", (DL_FUNC) &_arrow_io___MockOutputStream__GetExtentBytesWritten, 1}, 
-		{ "_arrow_io___FixedSizeBufferWriter__initialize", (DL_FUNC) &_arrow_io___FixedSizeBufferWriter__initialize, 1}, 
 		{ "_arrow_json___ReadOptions__initialize", (DL_FUNC) &_arrow_json___ReadOptions__initialize, 1}, 
 		{ "_arrow_json___ParseOptions__initialize", (DL_FUNC) &_arrow_json___ParseOptions__initialize, 1}, 
 		{ "_arrow_json___TableReader__Make", (DL_FUNC) &_arrow_json___TableReader__Make, 3}, 

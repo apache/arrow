@@ -31,7 +31,7 @@ read_record_batch <- function(obj, schema) {
   RecordBatch$create(obj, schema = schema)
 }
 
-#' @rdname read_arrow
+#' @rdname read_ipc_stream
 #' @export
 read_table <- function(x, ...) {
   .Deprecated("read_arrow")

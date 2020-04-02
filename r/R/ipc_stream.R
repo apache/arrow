@@ -15,41 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' Write Arrow formatted data
+#' Write Arrow IPC stream format
 #'
 #' Apache Arrow defines two formats for [serializing data for interprocess
 #' communication (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
-#' a "stream" format and a "file" format, known as Feather. `write_arrow()`
-#' is a convenience wrapper around `write_ipc_stream()` and [write_feather()], which
-#' write those formats, respectively.
+#' a "stream" format and a "file" format, known as Feather. `write_ipc_stream()`
+#' and [write_feather()] write those formats, respectively.
 #'
-#' @param x an Arrow [Table] or [RecordBatch], or a `data.frame`
-#' @param sink string file path, buffer, or Arrow C++ class to write to. If
-#' `write_arrow()` receives a `RecordBatchStreamWriter` or an empty R `raw` vector,
-#' it will dispatch to `write_ipc_stream()`; otherwise, it calls `write_feather()`
-#' to write a file.
+#' `write_arrow()`, a wrapper around `write_ipc_stream()` and `write_feather()`
+#' with some nonstandard behavior, is deprecated. You should explicitly choose
+#' the function that will write the desired IPC format (stream or file) since
+#' either can be written to a file or `OutputStream`.
+#'
+#' @inheritParams write_feather
 #' @param ... extra parameters passed to `write_feather()`.
 #'
-#' @return `write_ipc_stream()` returns the stream: either the
-#' `RecordBatchStreamWriter` passed to `sink`, connection still open, or if
-#' `sink` is a `raw` vector, a new `raw` vector containing the bytes that were
-#' written using a `RecordBatchStreamWriter`. `write_feather()` returns `x`,
-#' invisibly.
-#' @seealso [RecordBatchWriter]
-#' @export
-write_arrow <- function(x, sink, ...) {
-  if (inherits(sink, "raw")) {
-    # HACK for sparklyr
-    # Note that this returns a new R raw vector, not the one passed as `sink`
-    sink <- BufferOutputStream$create()
-    write_ipc_stream(x, sink)
-    as.raw(buffer(sink))
-  } else {
-    write_feather(x, sink, ...)
-  }
-}
-
-#' @rdname write_arrow
+#' @return `x`, invisibly.
+#' @seealso [write_feather()] for writing IPC files. [RecordBatchWriter] for a
+#' lower-level interface.
 #' @export
 write_ipc_stream <- function(x, sink, ...) {
   x_out <- x # So we can return the data we got
@@ -68,35 +51,40 @@ write_ipc_stream <- function(x, sink, ...) {
   invisible(x_out)
 }
 
-#' Read Arrow formatted data
+#' @rdname write_ipc_stream
+#' @export
+write_arrow <- function(x, sink, ...) {
+  if (inherits(sink, "raw")) {
+    # HACK for sparklyr
+    # Note that this returns a new R raw vector, not the one passed as `sink`
+    sink <- BufferOutputStream$create()
+    write_ipc_stream(x, sink)
+    as.raw(buffer(sink))
+  } else {
+    write_feather(x, sink, ...)
+  }
+}
+
+#' Read Arrow IPC stream format
 #'
 #' Apache Arrow defines two formats for [serializing data for interprocess
 #' communication (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
-#' a "stream" format and a "file" format, known as Feather. `read_arrow()`
-#' is a convenience wrapper around `read_ipc_stream()` and [read_feather()], which
-#' write those formats, respectively.
+#' a "stream" format and a "file" format, known as Feather. `read_ipc_stream()`
+#' and [read_feather()] read those formats, respectively.
 #'
-#' @param x string file path, buffer, or Arrow C++ class to read from. If
-#' `read_arrow()` receives a `RecordBatchStreamReader` or a R `raw` vector,
-#' it will dispatch to `read_ipc_stream()`; otherwise, it calls `read_feather()`
-#' to write a file.
-#' @param as_data_frame Should the function return a `data.frame` (default) or
-#' an Arrow [Table]?
+#' `read_arrow()`, a wrapper around `read_ipc_stream()` and `read_feather()`,
+#' is deprecated. You should explicitly choose
+#' the function that will read the desired IPC format (stream or file) since
+#' a file or `InputStream` may contain either. `read_table()`, a wrapper around
+#' `read_arrow()`, is also deprecated
+#'
+#' @inheritParams read_delim_arrow
 #' @param ... extra parameters passed to `read_feather()`.
 #'
 #' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
 #' Arrow [Table] otherwise
-#' @seealso [RecordBatchReader]
-#' @export
-read_arrow <- function(x, ...) {
-  if (inherits(x, "raw")) {
-    read_ipc_stream(x, ...)
-  } else {
-    read_feather(x, ...)
-  }
-}
-
-#' @rdname read_arrow
+#' @seealso [read_feather()] for writing IPC files. [RecordBatchReader] for a
+#' lower-level interface.
 #' @export
 read_ipc_stream <- function(x, as_data_frame = TRUE, ...) {
   if (inherits(x, "raw")) {
@@ -108,9 +96,20 @@ read_ipc_stream <- function(x, as_data_frame = TRUE, ...) {
   }
   assert_is(x, "InputStream")
 
+  # TODO: this could take col_select, like the other readers
   out <- RecordBatchStreamReader$create(x)$read_table()
   if (as_data_frame) {
     out <- as.data.frame(out)
   }
   out
+}
+
+#' @rdname read_ipc_stream
+#' @export
+read_arrow <- function(x, ...) {
+  if (inherits(x, "raw")) {
+    read_ipc_stream(x, ...)
+  } else {
+    read_feather(x, ...)
+  }
 }

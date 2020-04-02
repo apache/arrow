@@ -178,25 +178,4 @@ void io___BufferOutputStream__Write(
   STOP_IF_NOT_OK(stream->Write(bytes.begin(), bytes.size()));
 }
 
-// ------ arrow::io::MockOutputStream
-
-// [[arrow::export]]
-std::shared_ptr<arrow::io::MockOutputStream> io___MockOutputStream__initialize() {
-  return std::make_shared<arrow::io::MockOutputStream>();
-}
-
-// [[arrow::export]]
-int64_t io___MockOutputStream__GetExtentBytesWritten(
-    const std::shared_ptr<arrow::io::MockOutputStream>& stream) {
-  return stream->GetExtentBytesWritten();
-}
-
-// ------ arrow::io::FixedSizeBufferWriter
-
-// [[arrow::export]]
-std::shared_ptr<arrow::io::FixedSizeBufferWriter> io___FixedSizeBufferWriter__initialize(
-    const std::shared_ptr<arrow::Buffer>& buffer) {
-  return std::make_shared<arrow::io::FixedSizeBufferWriter>(buffer);
-}
-
 #endif

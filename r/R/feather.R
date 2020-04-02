@@ -18,7 +18,7 @@
 #' Write data in the Feather format
 #'
 #' @param x `data.frame`, [RecordBatch], or [Table]
-#' @param sink A string file path, [OutputStream], or [RecordBatchWriter]
+#' @param sink A string file path or [OutputStream]
 #' @param version integer Feather file version. Version 2 is the current.
 #' Version 1 is the more limited legacy format.
 #' @param chunk_size For V2 files, the number of rows that each chunk of data
@@ -33,8 +33,8 @@
 #' specify an integer compression level. If omitted, the compression codec's
 #' default compression level is used.
 #'
-#' @return The input `x`, invisibly. Note that if `sink` is a [OutputStream] or
-#' [RecordBatchWriter], the stream will be left open.
+#' @return The input `x`, invisibly. Note that if `sink` is an [OutputStream],
+#' the stream will be left open.
 #' @export
 #' @examples
 #' \donttest{
@@ -142,7 +142,7 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   }
 
   out <- reader$Read(columns)
-  
+
   if (isTRUE(as_data_frame)) {
     out <- as.data.frame(out)
   }

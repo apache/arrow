@@ -73,7 +73,7 @@ Collate:
     'field.R'
     'filesystem.R'
     'install-arrow.R'
-    'ipc.R'
+    'ipc_stream.R'
     'json.R'
     'list.R'
     'memory-pool.R'
