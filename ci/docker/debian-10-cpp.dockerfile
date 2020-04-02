@@ -57,6 +57,7 @@ RUN apt-get update -y -q && \
         pkg-config \
         protobuf-compiler \
         rapidjson-dev \
+        thrift-compiler \
         tzdata \
         zlib1g-dev \
         wget && \
