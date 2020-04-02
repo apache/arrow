@@ -22,7 +22,9 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 import javax.net.ssl.SSLException;
 
@@ -38,14 +40,11 @@ import org.apache.arrow.flight.impl.Flight.Empty;
 import org.apache.arrow.flight.impl.FlightServiceGrpc;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceBlockingStub;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceStub;
-import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
-import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
 import io.grpc.Channel;
 import io.grpc.ClientCall;
@@ -79,6 +78,7 @@ public class FlightClient implements AutoCloseable {
   private final ClientAuthInterceptor authInterceptor = new ClientAuthInterceptor();
   private final MethodDescriptor<Flight.Ticket, ArrowMessage> doGetDescriptor;
   private final MethodDescriptor<ArrowMessage, Flight.PutResult> doPutDescriptor;
+  private final MethodDescriptor<ArrowMessage, ArrowMessage> doExchangeDescriptor;
 
   /**
    * Create a Flight client from an allocator and a gRPC channel.
@@ -98,6 +98,7 @@ public class FlightClient implements AutoCloseable {
     asyncStub = FlightServiceGrpc.newStub(interceptedChannel);
     doGetDescriptor = FlightBindingService.getDoGetDescriptor(allocator);
     doPutDescriptor = FlightBindingService.getDoPutDescriptor(allocator);
+    doExchangeDescriptor = FlightBindingService.getDoExchangeDescriptor(allocator);
   }
 
   /**
@@ -195,31 +196,29 @@ public class FlightClient implements AutoCloseable {
    * @param root VectorSchemaRoot the root containing data
    * @param metadataListener A handler for metadata messages from the server.
    * @param options RPC-layer hints for this call.
-   * @return ClientStreamListener an interface to control uploading data
+   * @return ClientStreamListener an interface to control uploading data.
+   *     {@link ClientStreamListener#start(VectorSchemaRoot, DictionaryProvider)} will already have been called.
    */
   public ClientStreamListener startPut(FlightDescriptor descriptor, VectorSchemaRoot root, DictionaryProvider provider,
       PutListener metadataListener, CallOption... options) {
-    Preconditions.checkNotNull(descriptor);
-    Preconditions.checkNotNull(root);
+    Preconditions.checkNotNull(descriptor, "descriptor must not be null");
+    Preconditions.checkNotNull(root, "root must not be null");
+    Preconditions.checkNotNull(provider, "provider must not be null");
+    Preconditions.checkNotNull(metadataListener, "metadataListener must not be null");
+    final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
 
     try {
-      SetStreamObserver resultObserver = new SetStreamObserver(allocator, metadataListener);
-      final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
+      final SetStreamObserver resultObserver = new SetStreamObserver(allocator, metadataListener);
       ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
           ClientCalls.asyncBidiStreamingCall(
               interceptedChannel.newCall(doPutDescriptor, callOptions), resultObserver);
-      // send the schema to start.
-      DictionaryUtils.generateSchemaMessages(root.getSchema(), descriptor, provider, observer::onNext);
-      return new PutObserver(new VectorUnloader(
-          root, true /* include # of nulls in vectors */, true /* must align buffers to be C++-compatible */),
-          observer, metadataListener);
+      final ClientStreamListener writer = new PutObserver(
+          descriptor, observer, metadataListener::isCancelled, metadataListener::getResult);
+      // Send the schema to start.
+      writer.start(root, provider);
+      return writer;
     } catch (StatusRuntimeException sre) {
       throw StatusUtils.fromGrpcRuntimeException(sre);
-    } catch (Exception e) {
-      // Only happens if DictionaryUtils#generateSchemaMessages fails. This should only happen if closing buffers fails,
-      // which means the application is in an unknown state, so propagate the exception.
-      throw CallStatus.INTERNAL.withDescription("Could not send all schema messages: " + e.toString()).withCause(e)
-          .toRuntimeException();
     }
   }
 
@@ -293,6 +292,82 @@ public class FlightClient implements AutoCloseable {
     return stream;
   }
 
+  /**
+   * Initiate a bidirectional data exchange with the server.
+   *
+   * @param descriptor A descriptor for the data stream.
+   * @param options RPC call options.
+   * @return A pair of a readable stream and a writable stream.
+   */
+  public ExchangeReaderWriter doExchange(FlightDescriptor descriptor, CallOption... options) {
+    Preconditions.checkNotNull(descriptor, "descriptor must not be null");
+    final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
+
+    try {
+      final ClientCall<ArrowMessage, ArrowMessage> call = interceptedChannel.newCall(doExchangeDescriptor, callOptions);
+      final FlightStream stream = new FlightStream(allocator, PENDING_REQUESTS, call::cancel, call::request);
+      final ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
+              ClientCalls.asyncBidiStreamingCall(call, stream.asObserver());
+      final ClientStreamListener writer = new PutObserver(
+          descriptor, observer, stream.completed::isDone,
+          () -> {
+            try {
+              stream.completed.get();
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+              throw CallStatus.INTERNAL
+                  .withDescription("Client error: interrupted while completing call")
+                  .withCause(e)
+                  .toRuntimeException();
+            } catch (ExecutionException e) {
+              throw CallStatus.INTERNAL
+                  .withDescription("Client error: internal while completing call")
+                  .withCause(e)
+                  .toRuntimeException();
+            }
+          });
+      // Send the descriptor to start.
+      try (final ArrowMessage message = new ArrowMessage(descriptor.toProtocol())) {
+        observer.onNext(message);
+      } catch (Exception e) {
+        throw CallStatus.INTERNAL
+            .withCause(e)
+            .withDescription("Could not write descriptor " + descriptor)
+            .toRuntimeException();
+      }
+      return new ExchangeReaderWriter(stream, writer);
+    } catch (StatusRuntimeException sre) {
+      throw StatusUtils.fromGrpcRuntimeException(sre);
+    }
+  }
+
+  /** A pair of a reader and a writer for a DoExchange call. */
+  public static class ExchangeReaderWriter implements AutoCloseable {
+    private final FlightStream reader;
+    private final ClientStreamListener writer;
+
+    ExchangeReaderWriter(FlightStream reader, ClientStreamListener writer) {
+      this.reader = reader;
+      this.writer = writer;
+    }
+
+    /** Get the reader for the call. */
+    public FlightStream getReader() {
+      return reader;
+    }
+
+    /** Get the writer for the call. */
+    public ClientStreamListener getWriter() {
+      return writer;
+    }
+
+    /** Shut down the streams in this call. */
+    @Override
+    public void close() throws Exception {
+      reader.close();
+    }
+  }
+
   private static class SetStreamObserver implements StreamObserver<Flight.PutResult> {
     private final BufferAllocator allocator;
     private final StreamListener<PutResult> listener;
@@ -321,81 +396,51 @@ public class FlightClient implements AutoCloseable {
     }
   }
 
-  private static class PutObserver implements ClientStreamListener {
+  /**
+   * The implementation of a {@link ClientStreamListener} for writing data to a Flight server.
+   */
+  static class PutObserver extends OutboundStreamListenerImpl implements ClientStreamListener {
+    private final BooleanSupplier isCancelled;
+    private final Runnable getResult;
 
-    private final ClientCallStreamObserver<ArrowMessage> observer;
-    private final VectorUnloader unloader;
-    private final PutListener listener;
-
-    public PutObserver(VectorUnloader unloader, ClientCallStreamObserver<ArrowMessage> observer,
-        PutListener listener) {
-      this.observer = observer;
-      this.unloader = unloader;
-      this.listener = listener;
+    /**
+     * Create a new client stream listener.
+     *
+     * @param descriptor The descriptor for the stream.
+     * @param observer The write-side gRPC StreamObserver.
+     * @param isCancelled A flag to check if the call has been cancelled.
+     * @param getResult A flag that blocks until the overall call completes.
+     */
+    PutObserver(FlightDescriptor descriptor, ClientCallStreamObserver<ArrowMessage> observer,
+                BooleanSupplier isCancelled, Runnable getResult) {
+      super(descriptor, observer);
+      Preconditions.checkNotNull(descriptor, "descriptor must be provided");
+      Preconditions.checkNotNull(isCancelled, "isCancelled must be provided");
+      Preconditions.checkNotNull(getResult, "getResult must be provided");
+      this.isCancelled = isCancelled;
+      this.getResult = getResult;
+      this.unloader = null;
     }
 
     @Override
-    public void putNext() {
-      putNext(null);
-    }
-
-    @Override
-    public void putNext(ArrowBuf appMetadata) {
-      ArrowRecordBatch batch = unloader.getRecordBatch();
+    protected void waitUntilStreamReady() {
       // Check isCancelled as well to avoid inadvertently blocking forever
       // (so long as PutListener properly implements it)
-      while (!observer.isReady() && !listener.isCancelled()) {
+      while (!responseObserver.isReady() && !isCancelled.getAsBoolean()) {
         /* busy wait */
       }
-      // ArrowMessage takes ownership of appMetadata and batch
-      // gRPC should take ownership of ArrowMessage, but in some cases it doesn't, so guard against it
-      // ArrowMessage#close is a no-op if gRPC did its job
-      try (final ArrowMessage message = new ArrowMessage(batch, appMetadata)) {
-        observer.onNext(message);
-      } catch (Exception e) {
-        throw StatusUtils.fromThrowable(e);
-      }
-    }
-
-    @Override
-    public void error(Throwable ex) {
-      observer.onError(StatusUtils.toGrpcException(ex));
-    }
-
-    @Override
-    public void completed() {
-      observer.onCompleted();
     }
 
     @Override
     public void getResult() {
-      listener.getResult();
+      getResult.run();
     }
   }
 
   /**
-   * Interface for subscribers to a stream returned by the server.
+   * Interface for writers to an Arrow data stream.
    */
-  public interface ClientStreamListener {
-
-    /**
-     * Send the current data in the corresponding {@link VectorSchemaRoot} to the server.
-     */
-    void putNext();
-
-    /**
-     * Send the current data in the corresponding {@link VectorSchemaRoot} to the server, along with
-     * application-specific metadata. This takes ownership of the buffer.
-     */
-    void putNext(ArrowBuf appMetadata);
-
-    /**
-     * Indicate an error to the server. Terminates the stream; do not call {@link #completed()}.
-     */
-    void error(Throwable ex);
-
-    /** Indicate the stream is finished on the client side. */
-    void completed();
+  public interface ClientStreamListener extends OutboundStreamListener {
 
     /**
      * Wait for the stream to finish on the server side. You must call this to be notified of any errors that may have
