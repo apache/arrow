@@ -21,7 +21,6 @@
 /// possible types are named like the fields of a `StructArray`.  A `UnionArray` can have two
 /// possible memory layouts, "dense" or "sparse".  For more information on please
 /// see the [specification](https://arrow.apache.org/docs/format/Columnar.html#union-layout).
-// TODO: Examples
 use crate::array::{
     builder::{builder_to_mutable_buffer, mutable_buffer_to_builder, BufferBuilderTrait},
     make_array, Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef,
@@ -223,6 +222,17 @@ impl UnionArray {
         child_data.slice(value_offset, 1)
     }
 
+    /// Returns the names of the types in the union
+    pub fn type_names(&self) -> Vec<&str> {
+        match self.data.data_type() {
+            DataType::Union(fields) => fields
+                .iter()
+                .map(|f| f.name().as_str())
+                .collect::<Vec<&str>>(),
+            _ => unreachable!("Union array's data type is not a union!"),
+        }
+    }
+
     /// Returns whether the `UnionArray` is dense (or sparse if `false`).
     fn is_dense(&self) -> bool {
         self.data().buffers().len() == 2
@@ -254,8 +264,35 @@ impl Array for UnionArray {
 }
 
 impl fmt::Debug for UnionArray {
-    fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
-        unimplemented!()
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let header = if self.is_dense() {
+            "UnionArray(Dense)\n[\n"
+        } else {
+            "UnionArray(Sparse)\n[\n"
+        };
+        write!(f, "{}", header)?;
+
+        write!(f, "-- type id buffer:\n")?;
+        write!(f, "{:?}\n", self.data().buffers()[0])?;
+
+        if self.is_dense() {
+            write!(f, "-- offsets buffer:\n")?;
+            write!(f, "{:?}\n", self.data().buffers()[1])?;
+        }
+
+        for (child_index, name) in self.type_names().iter().enumerate() {
+            let column = &self.boxed_fields[child_index];
+            write!(
+                f,
+                "-- child {}: \"{}\" ({:?})\n",
+                child_index,
+                *name,
+                column.data_type()
+            )?;
+            fmt::Debug::fmt(column, f)?;
+            write!(f, "\n")?;
+        }
+        write!(f, "]")
     }
 }
 
