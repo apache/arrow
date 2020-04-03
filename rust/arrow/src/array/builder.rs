@@ -15,8 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines a `BufferBuilder` capable of creating a `Buffer` which can be used as an
-//! internal buffer in an `ArrayData` object.
+//! Defines a [`BufferBuilder`](crate::array::BufferBuilder) capable
+//! of creating a [`Buffer`](crate::buffer::Buffer) which can be used
+//! as an internal buffer in an [`ArrayData`](crate::array::ArrayData)
+//! object.
 
 use std::any::Any;
 use std::collections::HashMap;
@@ -35,6 +37,9 @@ use crate::util::bit_util;
 /// 
 /// This builder is implemented for primitive types and creates a
 /// buffer with a zero-copy `build()` method.
+/// 
+/// See trait [`BufferBuilderTrait`](crate::array::BufferBuilderTrait)
+/// for further documentation and examples.
 /// 
 /// A [`Buffer`](crate::buffer::Buffer) is the underlying data
 /// structure of Arrow's [`Arrays`](crate::array::Array).
@@ -69,15 +74,17 @@ pub struct BufferBuilder<T: ArrowPrimitiveType> {
 /// numeric types and boolean types, while still be able to call methods on buffer builder
 /// with generic primitive type.
 pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
+
     /// Creates a new builder with initial capacity for _at least_ `capacity`
     /// elements of type `T`.
     /// 
     /// The capactity can later be manually adjusted with the
     /// [`reserve()`](crate::array::builder::BufferBuilderTrait::reserve) method.
-    /// Also the [`append()`](crate::array::builder::BufferBuilderTrait::append),
-    /// [`append_slice()`](crate::array::builder::BufferBuilderTrait::append_slice)
-    /// and [`advance()`](crate::array::builder::BufferBuilderTrait::advance) methods
-    /// automatically increase the capacity if needed.
+    /// Also the
+    /// [`append()`](crate::array::builder::BufferBuilderTrait::append),
+    /// [`append_slice()`](crate::array::builder::BufferBuilderTrait::append_slice) and
+    /// [`advance()`](crate::array::builder::BufferBuilderTrait::advance)
+    /// methods automatically increase the capacity if needed.
     /// 
     /// # Example:
     /// 
