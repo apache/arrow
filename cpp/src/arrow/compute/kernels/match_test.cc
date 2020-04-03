@@ -73,7 +73,7 @@ using PrimitiveDictionaries =
                      Int64Type, UInt64Type, FloatType, DoubleType, Date32Type,
                      Date64Type>;
 
-TYPED_TEST_CASE(TestMatchKernelPrimitive, PrimitiveDictionaries);
+TYPED_TEST_SUITE(TestMatchKernelPrimitive, PrimitiveDictionaries);
 
 TYPED_TEST(TestMatchKernelPrimitive, Match) {
   auto type = TypeTraits<TypeParam>::type_singleton();
@@ -223,7 +223,7 @@ template <typename Type>
 class TestMatchKernelBinary : public TestMatchKernel {};
 
 using BinaryTypes = ::testing::Types<BinaryType, StringType>;
-TYPED_TEST_CASE(TestMatchKernelBinary, BinaryTypes);
+TYPED_TEST_SUITE(TestMatchKernelBinary, BinaryTypes);
 
 TYPED_TEST(TestMatchKernelBinary, MatchBinary) {
   auto type = TypeTraits<TypeParam>::type_singleton();
