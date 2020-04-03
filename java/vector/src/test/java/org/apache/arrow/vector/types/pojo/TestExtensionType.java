@@ -17,7 +17,7 @@
 
 package org.apache.arrow.vector.types.pojo;
 
-import static junit.framework.TestCase.assertTrue;
+import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.File;
