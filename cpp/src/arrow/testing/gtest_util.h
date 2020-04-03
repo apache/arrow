@@ -184,36 +184,36 @@ ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const std::string& exp
 ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const Buffer& expected);
 
 ARROW_EXPORT void AssertTypeEqual(const DataType& lhs, const DataType& rhs,
-                                  bool check_metadata = true);
+                                  bool check_metadata = false);
 ARROW_EXPORT void AssertTypeEqual(const std::shared_ptr<DataType>& lhs,
                                   const std::shared_ptr<DataType>& rhs,
-                                  bool check_metadata = true);
+                                  bool check_metadata = false);
 ARROW_EXPORT void AssertFieldEqual(const Field& lhs, const Field& rhs,
-                                   bool check_metadata = true);
+                                   bool check_metadata = false);
 ARROW_EXPORT void AssertFieldEqual(const std::shared_ptr<Field>& lhs,
                                    const std::shared_ptr<Field>& rhs,
-                                   bool check_metadata = true);
+                                   bool check_metadata = false);
 ARROW_EXPORT void AssertSchemaEqual(const Schema& lhs, const Schema& rhs,
-                                    bool check_metadata = true);
+                                    bool check_metadata = false);
 ARROW_EXPORT void AssertSchemaEqual(const std::shared_ptr<Schema>& lhs,
                                     const std::shared_ptr<Schema>& rhs,
-                                    bool check_metadata = true);
+                                    bool check_metadata = false);
 
 ARROW_EXPORT void AssertTypeNotEqual(const DataType& lhs, const DataType& rhs,
-                                     bool check_metadata = true);
+                                     bool check_metadata = false);
 ARROW_EXPORT void AssertTypeNotEqual(const std::shared_ptr<DataType>& lhs,
                                      const std::shared_ptr<DataType>& rhs,
-                                     bool check_metadata = true);
+                                     bool check_metadata = false);
 ARROW_EXPORT void AssertFieldNotEqual(const Field& lhs, const Field& rhs,
-                                      bool check_metadata = true);
+                                      bool check_metadata = false);
 ARROW_EXPORT void AssertFieldNotEqual(const std::shared_ptr<Field>& lhs,
                                       const std::shared_ptr<Field>& rhs,
-                                      bool check_metadata = true);
+                                      bool check_metadata = false);
 ARROW_EXPORT void AssertSchemaNotEqual(const Schema& lhs, const Schema& rhs,
-                                       bool check_metadata = true);
+                                       bool check_metadata = false);
 ARROW_EXPORT void AssertSchemaNotEqual(const std::shared_ptr<Schema>& lhs,
                                        const std::shared_ptr<Schema>& rhs,
-                                       bool check_metadata = true);
+                                       bool check_metadata = false);
 
 ARROW_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
                                     bool same_chunk_layout = true, bool flatten = false);

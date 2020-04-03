@@ -89,7 +89,10 @@ test_that("Input validation when creating a table with a schema", {
 test_that("Schema$Equals", {
   a <- schema(b = double(), c = bool())
   b <- a$WithMetadata(list(some="metadata"))
-  expect_failure(expect_equal(a, b))
+  expect_equal(a, b)
+
+  expect_false(a$Equals(b, check_metadata = TRUE))
+
   expect_equivalent(a, b)
   expect_false(a$Equals(42))
 })

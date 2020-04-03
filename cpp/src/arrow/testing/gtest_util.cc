@@ -80,7 +80,7 @@ void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose)
 
 void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual,
                         bool check_metadata) {
-  AssertTsEqual(expected, actual);
+  AssertTsEqual(expected, actual, check_metadata);
 }
 
 void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {

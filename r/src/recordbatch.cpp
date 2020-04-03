@@ -103,8 +103,9 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame 
 
 // [[arrow::export]]
 bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self,
-                         const std::shared_ptr<arrow::RecordBatch>& other) {
-  return self->Equals(*other);
+                         const std::shared_ptr<arrow::RecordBatch>& other,
+                         bool check_metadata) {
+  return self->Equals(*other, check_metadata);
 }
 
 // [[arrow::export]]

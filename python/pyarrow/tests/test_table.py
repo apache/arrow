@@ -357,6 +357,11 @@ def test_recordbatch_equals():
     assert batch != pa.record_batch(data2, column_names)
     assert not batch.equals(pa.record_batch(data2, column_names))
 
+    batch_meta = pa.record_batch(data1, names=column_names,
+                                 metadata={'key': 'value'})
+    assert batch_meta.equals(batch)
+    assert not batch_meta.equals(batch, check_metadata=True)
+
 
 def test_recordbatch_take():
     batch = pa.record_batch(

@@ -78,7 +78,7 @@ Schema <- R6Class("Schema",
       metadata <- map_chr(metadata, as.character)
       shared_ptr(Schema, Schema__WithMetadata(self, metadata))
     },
-    Equals = function(other, check_metadata = TRUE, ...) {
+    Equals = function(other, check_metadata = FALSE, ...) {
       inherits(other, "Schema") && Schema__Equals(self, other, isTRUE(check_metadata))
     }
   ),

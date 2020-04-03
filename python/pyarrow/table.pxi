@@ -522,7 +522,8 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
     c_fields.resize(K)
 
     if names is None:
-        raise ValueError('Must pass names or schema to Table.from_arrays')
+        raise ValueError('Must pass names or schema when constructing '
+                         'Table or RecordBatch.')
 
     if len(names) != K:
         raise ValueError('Length of names ({}) does not match '
@@ -829,14 +830,28 @@ cdef class RecordBatch(_PandasConvertible):
 
         return wrap_datum(out)
 
-    def equals(self, RecordBatch other):
+    def equals(self, RecordBatch other, bint check_metadata=False):
+        """
+        Check if contents of two record batches are equal.
+
+        Parameters
+        ----------
+        other : pyarrow.RecordBatch
+            RecordBatch to compare against.
+        check_metadata : bool, default False
+            Whether schema metadata equality should be checked as well.
+
+        Returns
+        -------
+        are_equal : bool
+        """
         cdef:
             CRecordBatch* this_batch = self.batch
             CRecordBatch* other_batch = other.batch
             c_bool result
 
         with nogil:
-            result = this_batch.Equals(deref(other_batch))
+            result = this_batch.Equals(deref(other_batch), check_metadata)
 
         return result
 
