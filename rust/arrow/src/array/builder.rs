@@ -79,11 +79,11 @@ pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
     /// elements of type `T`.
     /// 
     /// The capactity can later be manually adjusted with the
-    /// [`reserve()`](crate::array::builder::BufferBuilderTrait::reserve) method.
+    /// [`reserve()`](BufferBuilderTrait::reserve) method.
     /// Also the
-    /// [`append()`](crate::array::builder::BufferBuilderTrait::append),
-    /// [`append_slice()`](crate::array::builder::BufferBuilderTrait::append_slice) and
-    /// [`advance()`](crate::array::builder::BufferBuilderTrait::advance)
+    /// [`append()`](BufferBuilderTrait::append),
+    /// [`append_slice()`](BufferBuilderTrait::append_slice) and
+    /// [`advance()`](BufferBuilderTrait::advance)
     /// methods automatically increase the capacity if needed.
     /// 
     /// # Example:
