@@ -25,8 +25,7 @@ cmake
 gflags
 glog
 gmock>=1.8.1
-# remove grpc<1.28 after https://github.com/grpc/grpc/pull/22557 is released
-grpc-cpp[version='>=1.21.4,<1.28.0']
+grpc-cpp>=1.21.4
 gtest=1.8.1
 libprotobuf
 lz4-c
