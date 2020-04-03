@@ -123,11 +123,14 @@ public class StatusUtils {
 
   /** Convert from a gRPC Status & trailers to a Flight status. */
   public static CallStatus fromGrpcStatusAndTrailers(Status status, Metadata trailers) {
+    // gRPC may not always have trailers - this happens when the server internally generates an error, which is rare,
+    // but can happen.
+    final ErrorFlightMetadata errorMetadata = trailers == null ? null : parseTrailers(trailers);
     return new CallStatus(
               fromGrpcStatusCode(status.getCode()),
               status.getCause(),
               status.getDescription(),
-              parseTrailers(trailers));
+              errorMetadata);
   }
 
   /** Convert from a gRPC status to a Flight status. */
@@ -149,7 +152,7 @@ public class StatusUtils {
     return fromGrpcStatusAndTrailers(sre.getStatus(), sre.getTrailers()).toRuntimeException();
   }
 
-
+  /** Convert gRPC trailers into Flight error metadata.  */
   private static ErrorFlightMetadata parseTrailers(Metadata trailers) {
     ErrorFlightMetadata metadata = new ErrorFlightMetadata();
     for (String key : trailers.keys()) {

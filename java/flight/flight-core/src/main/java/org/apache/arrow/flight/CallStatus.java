@@ -96,6 +96,8 @@ public class CallStatus {
 
   /**
    * Metadata associated with the exception.
+   *
+   * May be null.
    */
   public ErrorFlightMetadata metadata() {
     return metadata;
