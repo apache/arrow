@@ -223,6 +223,11 @@ endif()
 
 if(ARROW_HIVESERVER2 OR ARROW_PARQUET)
   set(ARROW_WITH_THRIFT ON)
+  if(ARROW_HIVESERVER2)
+    set(ARROW_THRIFT_REQUIRED_COMPONENTS COMPILER)
+  else()
+    set(ARROW_THRIFT_REQUIRED_COMPONENTS)
+  endif()
 else()
   set(ARROW_WITH_THRIFT OFF)
 endif()
@@ -659,7 +664,7 @@ set(Boost_ADDITIONAL_VERSIONS
 # Thrift needs Boost if we're building the bundled version,
 # so we first need to determine whether we're building it
 if(ARROW_WITH_THRIFT AND Thrift_SOURCE STREQUAL "AUTO")
-  find_package(Thrift 0.11.0 MODULE)
+  find_package(Thrift 0.11.0 MODULE COMPONENTS ${ARROW_THRIFT_REQUIRED_COMPONENTS})
   if(NOT Thrift_FOUND AND NOT THRIFT_FOUND)
     set(Thrift_SOURCE "BUNDLED")
   endif()
