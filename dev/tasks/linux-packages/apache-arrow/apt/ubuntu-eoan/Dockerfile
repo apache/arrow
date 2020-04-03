@@ -55,6 +55,7 @@ RUN \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
+    libthrift-dev \
     libzstd-dev \
     llvm-${LLVM}-dev \
     lsb-release \
