@@ -39,10 +39,11 @@ static void FilterInt64(benchmark::State& state) {
   auto filter = std::static_pointer_cast<BooleanArray>(
       rand.Boolean(array_size, 0.75, args.null_proportion));
 
+  FilterOptions options;
   FunctionContext ctx;
   for (auto _ : state) {
     Datum out;
-    ABORT_NOT_OK(Filter(&ctx, Datum(array), Datum(filter), &out));
+    ABORT_NOT_OK(Filter(&ctx, Datum(array), Datum(filter), options, &out));
     benchmark::DoNotOptimize(out);
   }
 }
@@ -60,10 +61,11 @@ static void FilterFixedSizeList1Int64(benchmark::State& state) {
   auto filter = std::static_pointer_cast<BooleanArray>(
       rand.Boolean(array_size, 0.75, args.null_proportion));
 
+  FilterOptions options;
   FunctionContext ctx;
   for (auto _ : state) {
     Datum out;
-    ABORT_NOT_OK(Filter(&ctx, Datum(array), Datum(filter), &out));
+    ABORT_NOT_OK(Filter(&ctx, Datum(array), Datum(filter), options, &out));
     benchmark::DoNotOptimize(out);
   }
 }
@@ -84,10 +86,11 @@ static void FilterString(benchmark::State& state) {
   auto filter = std::static_pointer_cast<BooleanArray>(
       rand.Boolean(array_size, 0.75, args.null_proportion));
 
+  FilterOptions options;
   FunctionContext ctx;
   for (auto _ : state) {
     Datum out;
-    ABORT_NOT_OK(Filter(&ctx, Datum(array), Datum(filter), &out));
+    ABORT_NOT_OK(Filter(&ctx, Datum(array), Datum(filter), options, &out));
     benchmark::DoNotOptimize(out);
   }
 }
