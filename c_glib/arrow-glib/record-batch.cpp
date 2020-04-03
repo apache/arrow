@@ -200,7 +200,7 @@ garrow_record_batch_equal(GArrowRecordBatch *record_batch,
  * Returns: %TRUE if both of them have the same data, %FALSE
  *   otherwise.
  *
- * Since: 0.16.0
+ * Since: 0.17.0
  */
 gboolean
 garrow_record_batch_equal_metadata(GArrowRecordBatch *record_batch,
@@ -236,7 +236,7 @@ garrow_record_batch_get_schema(GArrowRecordBatch *record_batch)
  * Returns: (transfer full) (nullable): The i-th column in the record batch
  *   on success, %NULL on out of index.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 GArrowArray *
 garrow_record_batch_get_column_data(GArrowRecordBatch *record_batch,
