@@ -16,12 +16,28 @@
 # under the License.
 
 #
-# arrow_jni
+# arrow_dataset_java
 #
-if(ARROW_ORC)
-  add_subdirectory(orc)
-endif()
 
-if(ARROW_DATASET)
-  add_subdirectory(dataset)
-endif()
+# Headers: top level
+
+project(arrow_dataset_java)
+
+# Find java/jni
+include(FindJava)
+include(UseJava)
+include(FindJNI)
+
+message("generating headers to ${JNI_HEADERS_DIR}")
+
+add_jar(
+        arrow_dataset_java
+        src/main/java/org/apache/arrow/dataset/jni/JniLoader.java
+        src/main/java/org/apache/arrow/dataset/jni/JniWrapper.java
+        src/main/java/org/apache/arrow/dataset/jni/NativeRecordBatchHandle.java
+        src/main/java/org/apache/arrow/dataset/file/JniWrapper.java
+        src/main/java/org/apache/arrow/dataset/jni/NativeMemoryPool.java
+        src/main/java/org/apache/arrow/dataset/jni/ReservationListener.java
+        GENERATE_NATIVE_HEADERS arrow_dataset_java-native
+        DESTINATION ${JNI_HEADERS_DIR}
+)
