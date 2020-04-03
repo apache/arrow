@@ -51,6 +51,7 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// downcasted to a specific implementation.
     /// 
     /// # Example:
+    /// 
     /// ```
     /// use std::sync::Arc;
     /// use arrow::array::Int32Array;
@@ -83,6 +84,7 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// Returns a reference to the [`DataType`](crate::datatype::DataType) of this array.
     /// 
     /// # Example:
+    /// 
     /// ```
     /// use arrow::datatypes::DataType;
     /// use arrow::array::{Array, Int32Array};
@@ -98,6 +100,7 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// Returns a zero-copy slice of this array with the indicated offset and length.
     /// 
     /// # Example:
+    /// 
     /// ```
     /// use arrow::array::{Array, Int32Array};
     /// 
@@ -114,6 +117,7 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// Returns the length (i.e., number of elements) of this array.
     /// 
     /// # Example:
+    /// 
     /// ```
     /// use arrow::array::{Array, Int32Array};
     /// 
@@ -129,6 +133,7 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// This defaults to `0`.
     /// 
     /// # Example:
+    /// 
     /// ```
     /// use arrow::array::{Array, Int32Array};
     /// 
@@ -147,6 +152,7 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// When using this function on a slice, the index is relative to the slice.
     /// 
     /// # Example:
+    /// 
     /// ```
     /// use arrow::array::{Array, Int32Array};
     /// 
@@ -163,6 +169,7 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// When using this function on a slice, the index is relative to the slice.
     /// 
     /// # Example:
+    /// 
     /// ```
     /// use arrow::array::{Array, Int32Array};
     /// 
@@ -178,6 +185,7 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// Returns the total number of null values in this array.
     /// 
     /// # Example:
+    /// 
     /// ```
     /// use arrow::array::{Array, Int32Array};
     /// 
@@ -298,6 +306,8 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
 }
 
 /// Creates a zero-copy slice of the array's data.
+/// 
+/// # Panics
 /// 
 /// Panics if `offset + length < data.len()`.
 fn slice_data(data: ArrayDataRef, mut offset: usize, length: usize) -> ArrayDataRef {
