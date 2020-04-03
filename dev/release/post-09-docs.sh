@@ -42,7 +42,10 @@ pushd "${ARROW_DIR}"
 docker-compose build ubuntu-cpp
 docker-compose build ubuntu-python
 docker-compose build ubuntu-docs
-docker-compose run --rm -v "${ARROW_SITE_DIR}/docs:/build/docs" ubuntu-docs
+docker-compose run --rm \
+  -v "${ARROW_SITE_DIR}/docs:/build/docs" \
+  -e ARROW_DOCS_VERSION="${version}" \
+  ubuntu-docs
 popd
 
 pushd "${ARROW_SITE_DIR}"
