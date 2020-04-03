@@ -38,3 +38,30 @@ read_table <- function(x, ...) {
   .Deprecated("read_arrow")
   read_arrow(x, ..., as_data_frame = FALSE)
 }
+
+#' @rdname read_ipc_stream
+#' @export
+read_arrow <- function(x, ...) {
+  if (inherits(x, "raw")) {
+    read_ipc_stream(x, ...)
+  } else {
+    read_feather(x, ...)
+  }
+}
+
+#' @rdname write_ipc_stream
+#' @export
+write_arrow <- function(x, sink, ...) {
+  if (inherits(sink, "raw")) {
+    # HACK for sparklyr
+    # Note that this returns a new R raw vector, not the one passed as `sink`
+    write_to_raw(x)
+  } else {
+    write_feather(x, sink, ...)
+  }
+}
+
+#' @rdname FileInfo
+#' @export
+#' @include filesystem.R
+FileStats <- FileInfo

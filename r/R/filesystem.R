@@ -79,10 +79,6 @@ FileInfo <- R6Class("FileInfo",
   )
 )
 
-#' @rdname FileInfo
-#' @export
-FileStats <- FileInfo
-
 #' @title file selector
 #' @format NULL
 #'
