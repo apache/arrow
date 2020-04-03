@@ -98,7 +98,6 @@ class TestRecordBatch < Test::Unit::TestCase
           not @record_batch.equal_metadata(other_record_batch, true)
         end
       end
-
     end
 
     def test_schema
