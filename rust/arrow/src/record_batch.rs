@@ -15,11 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! According to the [Arrow Metadata Specification](https://arrow.apache.org/docs/metadata.html):
-//!
-//! > A record batch is a collection of top-level named, equal length Arrow arrays
-//! > (or vectors). If one of the arrays contains nested data, its child arrays are not
-//! > required to be the same length as the top-level arrays.
+//! A two-dimensional batch of column-oriented data with a defined
+//! [schema](crate::datatypes::Schema).
 
 use std::sync::Arc;
 
@@ -27,7 +24,18 @@ use crate::array::*;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 
-/// A batch of column-oriented data
+/// A two-dimensional batch of column-oriented data with a defined
+/// [schema](crate::datatypes::Schema).
+/// 
+/// A `RecordBatch` is a two-dimensional dataset of a number of
+/// contiguous arrays, each the same length.
+/// A record batch has a schema which must match its arrays’
+/// datatypes.
+///
+/// Record batches are a convenient unit of work for various
+/// serialization and computation functions, possibly incremental.  
+/// See also [CSV reader](crate::csv::Reader) and
+/// [JSON reader](crate::json::Reader).
 #[derive(Clone)]
 pub struct RecordBatch {
     schema: Arc<Schema>,
@@ -35,12 +43,26 @@ pub struct RecordBatch {
 }
 
 impl RecordBatch {
-    /// Creates a `RecordBatch` from a schema and columns
+    /// Creates a `RecordBatch` from a schema and columns.
     ///
     /// Expects the following:
     ///  * the vec of columns to not be empty
-    ///  * the schema and column data types to have equal lengths and match
+    ///  * the schema and column data types to have equal lengths
+    ///    and match
     ///  * each array in columns to have the same length
+    /// 
+    /// # Example
+    /// ```
+    /// let id_column = Int32Array::from(vec![1, 2, 3, 4, 5]);
+    /// let schema = Schema::new(vec![
+    ///     Field::new("id", DataType::Int32, false)
+    /// ]);
+    /// 
+    /// let batch = RecordBatch::try_new(
+    ///     Arc::new(schema),
+    ///     vec![Arc::new(id)]
+    /// )?;
+    /// ```
     pub fn try_new(schema: Arc<Schema>, columns: Vec<ArrayRef>) -> Result<Self> {
         // check that there are some columns
         if columns.is_empty() {
@@ -74,27 +96,51 @@ impl RecordBatch {
         Ok(RecordBatch { schema, columns })
     }
 
-    /// Returns the schema of the record batch
+    /// Returns the [`Schema`](crate::datatypes::Schema) of the record batch.
     pub fn schema(&self) -> &Arc<Schema> {
         &self.schema
     }
 
-    /// Number of columns in the record batch
+    /// Returns the number of columns in the record batch.
+    /// 
+    /// # Example
+    /// ```
+    /// let id_column = Int32Array::from(vec![1, 2, 3, 4, 5]);
+    /// let schema = Schema::new(vec![
+    ///     Field::new("id", DataType::Int32, false)
+    /// ]);
+    /// 
+    /// let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(id)])?;
+    /// 
+    /// assert_eq!(batch.num_columns(), 1);
+    /// ```
     pub fn num_columns(&self) -> usize {
         self.columns.len()
     }
 
-    /// Number of rows in each column
+    /// Returns the number of rows in each column.
+    /// 
+    /// # Example
+    /// ```
+    /// let id_column = Int32Array::from(vec![1, 2, 3, 4, 5]);
+    /// let schema = Schema::new(vec![
+    ///     Field::new("id", DataType::Int32, false)
+    /// ]);
+    /// 
+    /// let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(id)])?;
+    /// 
+    /// assert_eq!(batch.num_rows(), 5);
+    /// ```
     pub fn num_rows(&self) -> usize {
         self.columns[0].data().len()
     }
 
-    /// Get a reference to a column's array by index
+    /// Get a reference to a column's array by index.
     pub fn column(&self, i: usize) -> &ArrayRef {
         &self.columns[i]
     }
 
-    /// Get a reference to all columns
+    /// Get a reference to all columns in the record batch.
     pub fn columns(&self) -> &[ArrayRef] {
         &self.columns[..]
     }
