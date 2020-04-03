@@ -1322,7 +1322,17 @@ cdef class Schema:
             return pyarrow_wrap_field(results[0])
 
     def get_field_index(self, name):
+        """
+        Return index of field with given unique name. Returns -1 if not found
+        or if duplicated
+        """
         return self.schema.GetFieldIndex(tobytes(name))
+
+    def get_all_field_indices(self, name):
+        """
+        Return list of indices for fields with the given name
+        """
+        return self.schema.GetAllFieldIndices(tobytes(name))
 
     def append(self, Field field):
         """

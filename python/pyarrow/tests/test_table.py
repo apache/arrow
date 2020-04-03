@@ -725,7 +725,8 @@ def test_table_select_column():
 
     assert table.column('a').equals(table.column(0))
 
-    with pytest.raises(KeyError):
+    with pytest.raises(KeyError,
+                       match='Field "d" does not exist in table schema'):
         table.column('d')
 
     with pytest.raises(TypeError):
@@ -733,6 +734,22 @@ def test_table_select_column():
 
     with pytest.raises(IndexError):
         table.column(4)
+
+
+def test_table_column_with_duplicates():
+    # ARROW-8209
+    table = pa.table([pa.array([1, 2, 3]),
+                      pa.array([4, 5, 6]),
+                      pa.array([7, 8, 9])], names=['a', 'b', 'a'])
+
+    with pytest.raises(KeyError,
+                       match='Field "a" exists 2 times in table schema'):
+        table.column('a')
+
+    assert table.schema.get_field_index('a') == -1
+
+    # Not guaranteed to be sorted
+    assert set(table.schema.get_all_field_indices('a')) == {0, 2}
 
 
 def test_table_add_column():
