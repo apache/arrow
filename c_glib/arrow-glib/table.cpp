@@ -360,7 +360,7 @@ garrow_table_equal(GArrowTable *table, GArrowTable *other_table)
  * Returns: %TRUE if both of them have the same data, %FALSE
  *   otherwise.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 gboolean
 garrow_table_equal_metadata(GArrowTable *table,
