@@ -337,7 +337,6 @@ impl ArrowNativeType for f64 {
 
 macro_rules! make_type {
     ($name:ident, $native_ty:ty, $data_ty:expr, $bit_width:expr, $default_val:expr) => {
-        #[allow(missing_docs)]
         pub struct $name {}
 
         impl ArrowPrimitiveType for $name {
