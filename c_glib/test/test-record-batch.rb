@@ -94,7 +94,9 @@ class TestRecordBatch < Test::Unit::TestCase
         other_record_batch = Arrow::RecordBatch.new(schema_with_meta, 5, @columns)
 
         assert @record_batch.equal_metadata(other_record_batch, false)
-        assert !@record_batch.equal_metadata(other_record_batch, true)
+        assert do
+          not @record_batch.equal_metadata(other_record_batch, true)
+        end
       end
 
     end
