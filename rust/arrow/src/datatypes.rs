@@ -41,7 +41,7 @@ use serde_json::{
 use crate::error::{ArrowError, Result};
 
 /// The set of datatypes that are supported by this implementation of Apache Arrow.
-/// 
+///
 /// The Arrow specification on data types includes some more types.
 /// See also [`Schema.fbs`](https://github.com/apache/arrow/blob/master/format/Schema.fbs)
 /// for Arrow's specification.
@@ -82,11 +82,11 @@ pub enum DataType {
     /// A 64-bit floating point number.
     Float64,
     /// A timestamp with an optional timezone.
-    /// 
+    ///
     /// Time is measured as a Unix epoch, counting the seconds from
     /// 00:00:00.000 on 1 January 1970, excluding leap seconds,
     /// as a 64-bit integer.
-    /// 
+    ///
     /// The time zone is a string indicating the name of a time zone, one of:
     ///
     /// * As used in the Olson time zone database (the "tz database" or

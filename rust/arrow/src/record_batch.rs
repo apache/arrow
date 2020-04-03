@@ -26,7 +26,7 @@ use crate::error::{ArrowError, Result};
 
 /// A two-dimensional batch of column-oriented data with a defined
 /// [schema](crate::datatypes::Schema).
-/// 
+///
 /// A `RecordBatch` is a two-dimensional dataset of a number of
 /// contiguous arrays, each the same length.
 /// A record batch has a schema which must match its arrays’
@@ -50,23 +50,23 @@ impl RecordBatch {
     ///  * the schema and column data types to have equal lengths
     ///    and match
     ///  * each array in columns to have the same length
-    /// 
+    ///
     /// If the conditions are not met, an error is returned.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use std::sync::Arc;
     /// use arrow::array::Int32Array;
     /// use arrow::datatypes::{Schema, Field, DataType};
     /// use arrow::record_batch::RecordBatch;
-    /// 
+    ///
     /// # fn main() -> arrow::error::Result<()> {
     /// let id_array = Int32Array::from(vec![1, 2, 3, 4, 5]);
     /// let schema = Schema::new(vec![
     ///     Field::new("id", DataType::Int32, false)
     /// ]);
-    /// 
+    ///
     /// let batch = RecordBatch::try_new(
     ///     Arc::new(schema),
     ///     vec![Arc::new(id_array)]
@@ -113,23 +113,23 @@ impl RecordBatch {
     }
 
     /// Returns the number of columns in the record batch.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use std::sync::Arc;
     /// use arrow::array::Int32Array;
     /// use arrow::datatypes::{Schema, Field, DataType};
     /// use arrow::record_batch::RecordBatch;
-    /// 
+    ///
     /// # fn main() -> arrow::error::Result<()> {
     /// let id_array = Int32Array::from(vec![1, 2, 3, 4, 5]);
     /// let schema = Schema::new(vec![
     ///     Field::new("id", DataType::Int32, false)
     /// ]);
-    /// 
+    ///
     /// let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(id_array)])?;
-    /// 
+    ///
     /// assert_eq!(batch.num_columns(), 1);
     /// # Ok(())
     /// # }
@@ -139,27 +139,27 @@ impl RecordBatch {
     }
 
     /// Returns the number of rows in each column.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if the `RecordBatch` contains no columns.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use std::sync::Arc;
     /// use arrow::array::Int32Array;
     /// use arrow::datatypes::{Schema, Field, DataType};
     /// use arrow::record_batch::RecordBatch;
-    /// 
+    ///
     /// # fn main() -> arrow::error::Result<()> {
     /// let id_array = Int32Array::from(vec![1, 2, 3, 4, 5]);
     /// let schema = Schema::new(vec![
     ///     Field::new("id", DataType::Int32, false)
     /// ]);
-    /// 
+    ///
     /// let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(id_array)])?;
-    /// 
+    ///
     /// assert_eq!(batch.num_rows(), 5);
     /// # Ok(())
     /// # }
@@ -169,9 +169,9 @@ impl RecordBatch {
     }
 
     /// Get a reference to a column's array by index.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if `index` is outside of `0..num_columns`.
     pub fn column(&self, index: usize) -> &ArrayRef {
         &self.columns[index]

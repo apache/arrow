@@ -15,37 +15,36 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 //! The central type in Apache Arrow are arrays, represented
 //! by the [`Array` trait](crate::array::Array).
 //! An array represents a known-length sequence of values all
 //! having the same type.
-//! 
+//!
 //! Internally, those values are represented by one or several
-//! [buffers](crate::buffer::Buffer), the number and meaning 
-//! of which depend on the array’s data type, as documented in 
+//! [buffers](crate::buffer::Buffer), the number and meaning
+//! of which depend on the array’s data type, as documented in
 //! [the Arrow data layout specification](https://arrow.apache.org/docs/format/Columnar.html).
-//! For example, the type `Int16Array` represents an Apache 
+//! For example, the type `Int16Array` represents an Apache
 //! Arrow array of 16-bit integers.
 //!
 //! Those buffers consist of the value data itself and an
 //! optional [bitmap buffer](crate::bitmap::Bitmap) that
 //! indicates which array entries are null values.
-//! The bitmap buffer can be entirely omitted if the array is 
+//! The bitmap buffer can be entirely omitted if the array is
 //! known to have zero null values.
 //!
 //! There are concrete implementations of this trait for each
-//! data type, that help you access individual values of the 
+//! data type, that help you access individual values of the
 //! array.
-//! 
+//!
 //! # Building an Array
-//! 
+//!
 //! Arrow's `Arrays` are immutable, but there is the trait
 //! [`ArrayBuilder`](crate::array::ArrayBuilder)
 //! that helps you with constructing new `Arrays`. As with the
 //! `Array` trait, there are builder implementations for all
 //! concrete array types.
-//! 
+//!
 //! # Example
 //! ```
 //! extern crate arrow;
