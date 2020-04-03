@@ -45,18 +45,49 @@ macro(get_apache_mirror)
   if(APACHE_MIRROR STREQUAL "")
     set(APACHE_MIRROR_INFO_URL "https://www.apache.org/dyn/closer.cgi?as_json=1")
     set(APACHE_MIRROR_INFO_PATH "${CMAKE_CURRENT_BINARY_DIR}/apache-mirror.json")
+
     if(EXISTS "${APACHE_MIRROR_INFO_PATH}")
       set(APACHE_MIRROR_DOWNLOAD_STATUS 0)
     else()
       file(DOWNLOAD "${APACHE_MIRROR_INFO_URL}" "${APACHE_MIRROR_INFO_PATH}"
            STATUS APACHE_MIRROR_DOWNLOAD_STATUS)
     endif()
+
     if(APACHE_MIRROR_DOWNLOAD_STATUS EQUAL 0)
       file(READ "${APACHE_MIRROR_INFO_PATH}" APACHE_MIRROR_INFO)
+
       string(REGEX MATCH "\"preferred\": \"[^\"]+" APACHE_MIRROR_PREFERRED
                    "${APACHE_MIRROR_INFO}")
       string(REGEX
-             REPLACE "\"preferred\": \"" "" APACHE_MIRROR "${APACHE_MIRROR_PREFERRED}")
+             REPLACE "\"preferred\": \"" "" APACHE_MIRROR_PREFERRED
+                     "${APACHE_MIRROR_PREFERRED}")
+
+      if(CMAKE_VERSION VERSION_LESS 3.7)
+        set(APACHE_MIRROR "${APACHE_MIRROR_PREFERRED}")
+      else()
+        # Append backup URLs to the preferred URL.
+        # Feature only available starting in 3.7
+        set(APACHE_MIRROR_LIMIT 5)
+
+        string(REGEX MATCH "\"http\": \\[.+\\]" APACHE_MIRROR_ALL "${APACHE_MIRROR_INFO}")
+        string(REGEX MATCHALL "https?://[^\"]+" APACHE_MIRROR_ALL "${APACHE_MIRROR_ALL}")
+
+        # Ensure that the preferred URL is first
+        list(INSERT APACHE_MIRROR_ALL 0 "${APACHE_MIRROR_PREFERRED}")
+        list(REMOVE_DUPLICATES APACHE_MIRROR_ALL)
+
+        set(APACHE_MIRROR_LIST)
+        foreach(APACHE_MIRROR ${APACHE_MIRROR_ALL})
+          list(LENGTH APACHE_MIRROR_LIST APACHE_MIRROR_LIST_LENGTH)
+          if(APACHE_MIRROR_LIST_LENGTH EQUAL "${APACHE_MIRROR_LIMIT}")
+            break()
+          endif()
+          list(APPEND APACHE_MIRROR_LIST "${APACHE_MIRROR}")
+        endforeach()
+
+        set(APACHE_MIRROR ${APACHE_MIRROR_LIST})
+      endif()
+
     else()
       file(REMOVE "${APACHE_MIRROR_INFO_PATH}")
       message(
