@@ -36,7 +36,7 @@ use crate::util::bit_util;
 /// This builder is implemented for primitive types and creates a
 /// buffer with a zero-copy `build()` method.
 /// 
-/// A [`Buffer`](crate::buffer::Buffer) is the unterlying data
+/// A [`Buffer`](crate::buffer::Buffer) is the underlying data
 /// structure of Arrow's [`Arrays`](crate::array::Array).
 /// 
 /// For all supported types, there are type definitions for the
