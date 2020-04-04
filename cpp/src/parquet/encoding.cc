@@ -863,7 +863,7 @@ std::shared_ptr<Buffer> ByteStreamSplitEncoder<DType>::FlushValues() {
   uint8_t* output_buffer_raw = output_buffer->mutable_data();
   const size_t num_values = values_.length();
   const uint8_t* raw_values = reinterpret_cast<const uint8_t*>(values_.data());
-#if defined(ARROW_HAVE_SSE2)
+#if defined(ARROW_HAVE_SSE4_2)
   arrow::util::internal::ByteStreamSplitEncodeSSE2<T>(raw_values, num_values,
                                                       output_buffer_raw);
 #else
@@ -2347,7 +2347,7 @@ int ByteStreamSplitDecoder<DType>::Decode(T* buffer, int max_values) {
   const int num_decoded_previously = num_values_in_buffer_ - num_values_;
   const uint8_t* data = data_ + num_decoded_previously;
 
-#if defined(ARROW_HAVE_SSE2)
+#if defined(ARROW_HAVE_SSE4_2)
   arrow::util::internal::ByteStreamSplitDecodeSSE2<T>(data, values_to_decode,
                                                       num_values_in_buffer_, buffer);
 #else
@@ -2375,7 +2375,7 @@ int ByteStreamSplitDecoder<DType>::DecodeArrow(
   const uint8_t* data = data_ + num_decoded_previously;
   int offset = 0;
 
-#if defined(ARROW_HAVE_SSE2)
+#if defined(ARROW_HAVE_SSE4_2)
   // Use fast decoding into intermediate buffer.  This will also decode
   // some null values, but it's fast enough that we don't care.
   T* decode_out = EnsureDecodeBuffer(values_decoded);

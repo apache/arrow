@@ -251,7 +251,7 @@ BENCHMARK(BM_ByteStreamSplitDecode_Double_Scalar)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_ByteStreamSplitEncode_Float_Scalar)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_ByteStreamSplitEncode_Double_Scalar)->Range(MIN_RANGE, MAX_RANGE);
 
-#if defined(ARROW_HAVE_SSE2)
+#if defined(ARROW_HAVE_SSE4_2)
 static void BM_ByteStreamSplitDecode_Float_SSE2(benchmark::State& state) {
   BM_ByteStreamSplitDecode<float>(
       state, arrow::util::internal::ByteStreamSplitDecodeSSE2<float>);
