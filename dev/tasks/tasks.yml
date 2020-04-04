@@ -1970,7 +1970,7 @@ tasks:
   verify-rc-binaries:
     ci: github
     platform: linux
-    template: verify-rc/github.yml
+    template: verify-rc/github.nix.yml
     params:
       os: "ubuntu"
       artifact: "binaries"
@@ -1979,7 +1979,7 @@ tasks:
   verify-rc-wheels-linux:
     ci: github
     platform: linux
-    template: verify-rc/github.yml
+    template: verify-rc/github.nix.yml
     params:
       os: "ubuntu"
       artifact: "wheels"
