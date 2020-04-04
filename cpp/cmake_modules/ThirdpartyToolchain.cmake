@@ -97,8 +97,17 @@ macro(get_apache_mirror)
     endif()
   endif()
   if(APACHE_MIRROR STREQUAL "")
-    # Well-known mirror, in case the URL above fails loading
-    set(APACHE_MIRROR "https://apache.osuosl.org/")
+    # Well-known mirrors, in case the info URL fails loading
+    if(CMAKE_VERSION VERSION_LESS 3.7)
+      set(APACHE_MIRROR "https://downloads.apache.org/")
+    else()
+      set(APACHE_MIRROR
+          "https://downloads.apache.org/"
+          "https://apache.osuosl.org/"
+          "http://apache.mirrors.hoobly.com/"
+          "http://apache.mirrors.pair.com/"
+          "http://apache.spinellicreations.com/")
+    endif()
   endif()
   message(STATUS "Apache mirror: ${APACHE_MIRROR}")
 endmacro()
