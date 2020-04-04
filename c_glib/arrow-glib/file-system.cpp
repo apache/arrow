@@ -184,7 +184,7 @@ garrow_file_info_class_init(GArrowFileInfoClass *klass)
    *
    * The type of the entry.
    *
-   * Since: 1.0.0
+   * Since: 0.17.0
    */
   spec = g_param_spec_enum("type",
                            "Type",
@@ -199,7 +199,7 @@ garrow_file_info_class_init(GArrowFileInfoClass *klass)
    *
    * The full file path in the file system.
    *
-   * Since: 1.0.0
+   * Since: 0.17.0
    */
   spec = g_param_spec_string("path",
                              "Path",
@@ -213,7 +213,7 @@ garrow_file_info_class_init(GArrowFileInfoClass *klass)
    *
    * The file base name (component after the last directory separator).
    *
-   * Since: 1.0.0
+   * Since: 0.17.0
    */
   spec = g_param_spec_string("base-name",
                              "Base name",
@@ -229,7 +229,7 @@ garrow_file_info_class_init(GArrowFileInfoClass *klass)
    *
    * The directory base name (component before the file base name).
    *
-   * Since: 1.0.0
+   * Since: 0.17.0
    */
   spec = g_param_spec_string("dir-name",
                              "Directory name",
@@ -245,7 +245,7 @@ garrow_file_info_class_init(GArrowFileInfoClass *klass)
    *
    * The file extension (excluding the dot).
    *
-   * Since: 1.0.0
+   * Since: 0.17.0
    */
   spec = g_param_spec_string("extension",
                              "Extension",
@@ -262,7 +262,7 @@ garrow_file_info_class_init(GArrowFileInfoClass *klass)
    * The size in bytes, if available
    * Only regular files are guaranteed to have a size.
    *
-   * Since: 1.0.0
+   * Since: 0.17.0
    */
   spec = g_param_spec_int64("size",
                             "Size",
@@ -278,7 +278,7 @@ garrow_file_info_class_init(GArrowFileInfoClass *klass)
    *
    * The time of last modification, if available.
    *
-   * Since: 1.0.0
+   * Since: 0.17.0
    */
   spec = g_param_spec_int64("mtime",
                             "Last modified time",
@@ -295,7 +295,7 @@ garrow_file_info_class_init(GArrowFileInfoClass *klass)
  *
  * Returns: A newly created #GArrowFileInfo.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowFileInfo *
 garrow_file_info_new(void)
@@ -311,7 +311,7 @@ garrow_file_info_new(void)
  * Returns: %TRUE if both of them have the same data, %FALSE
  *   otherwise.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gboolean
 garrow_file_info_equal(GArrowFileInfo *file_info,
@@ -328,7 +328,7 @@ garrow_file_info_equal(GArrowFileInfo *file_info,
  *
  * Returns: %TRUE if the entry is a file, %FALSE otherwise.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gboolean
 garrow_file_info_is_file(GArrowFileInfo *file_info)
@@ -343,7 +343,7 @@ garrow_file_info_is_file(GArrowFileInfo *file_info)
  *
  * Returns: %TRUE if the entry is a directory, %FALSE otherwise.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gboolean
 garrow_file_info_is_dir(GArrowFileInfo *file_info)
@@ -360,7 +360,7 @@ garrow_file_info_is_dir(GArrowFileInfo *file_info)
  *
  *   It should be freed with g_free() when no longer needed.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gchar *
 garrow_file_info_to_string(GArrowFileInfo *file_info)
@@ -481,7 +481,7 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
    * If the path exists but doesn't point to a directory, this should
    * be an error.
    *
-   * Since: 1.0.0
+   * Since: 0.17.0
    */
   spec = g_param_spec_string("base-dir",
                              "Base dir",
@@ -498,7 +498,7 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
    * The behavior if `base_dir` isn't found in the file system.
    * If false, an error is returned.  If true, an empty selection is returned.
    *
-   * Since: 1.0.0
+   * Since: 0.17.0
    */
   spec = g_param_spec_boolean("allow-not-found",
                               "Allow not found",
@@ -514,7 +514,7 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
    *
    * Whether to recurse into subdirectories.
    *
-   * Since: 1.0.0
+   * Since: 0.17.0
    */
   spec = g_param_spec_boolean("recursive",
                               "Recursive",
@@ -530,7 +530,7 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
    *
    * The maximum number of subdirectories to recurse into.
    *
-   * Since: 1.0.0
+   * Since: 0.17.0
    */
   spec = g_param_spec_int("max-recursion",
                           "Max recursion",
@@ -625,7 +625,7 @@ garrow_file_system_class_init(GArrowFileSystemClass *klass)
  *
  *   It should be freed with g_free() when no longer needed.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gchar *
 garrow_file_system_get_type_name(GArrowFileSystem *file_system)
@@ -651,7 +651,7 @@ garrow_file_system_get_type_name(GArrowFileSystem *file_system)
  *
  * Returns: (nullable) (transfer full): A #GArrowFileInfo.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowFileInfo *
 garrow_file_system_get_file_info(GArrowFileSystem *file_system,
@@ -699,7 +699,7 @@ garrow_file_infos_new(arrow::Result<std::vector<arrow::fs::FileInfo>>&& arrow_re
  * Returns: (element-type GArrowFileInfo) (transfer full):
  *   A list of #GArrowFileInfo.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GList *
 garrow_file_system_get_file_infos_paths(GArrowFileSystem *file_system,
@@ -732,7 +732,7 @@ garrow_file_system_get_file_infos_paths(GArrowFileSystem *file_system,
  * Returns: (element-type GArrowFileInfo) (transfer full):
  *   A list of #GArrowFileInfo.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GList *
 garrow_file_system_get_file_infos_selector(GArrowFileSystem *file_system,
@@ -759,7 +759,7 @@ garrow_file_system_get_file_infos_selector(GArrowFileSystem *file_system,
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gboolean
 garrow_file_system_create_dir(GArrowFileSystem *file_system,
@@ -782,7 +782,7 @@ garrow_file_system_create_dir(GArrowFileSystem *file_system,
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gboolean
 garrow_file_system_delete_dir(GArrowFileSystem *file_system,
@@ -807,7 +807,7 @@ garrow_file_system_delete_dir(GArrowFileSystem *file_system,
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gboolean
 garrow_file_system_delete_dir_contents(GArrowFileSystem *file_system,
@@ -829,7 +829,7 @@ garrow_file_system_delete_dir_contents(GArrowFileSystem *file_system,
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gboolean
 garrow_file_system_delete_file(GArrowFileSystem *file_system,
@@ -853,7 +853,7 @@ garrow_file_system_delete_file(GArrowFileSystem *file_system,
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gboolean
 garrow_file_system_delete_files(GArrowFileSystem *file_system,
@@ -886,7 +886,7 @@ garrow_file_system_delete_files(GArrowFileSystem *file_system,
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gboolean
 garrow_file_system_move(GArrowFileSystem *file_system,
@@ -912,7 +912,7 @@ garrow_file_system_move(GArrowFileSystem *file_system,
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gboolean
 garrow_file_system_copy_file(GArrowFileSystem *file_system,
@@ -936,7 +936,7 @@ garrow_file_system_copy_file(GArrowFileSystem *file_system,
  * Returns: (nullable) (transfer full): A newly created
  *   #GArrowInputStream.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowInputStream *
 garrow_file_system_open_input_stream(GArrowFileSystem *file_system,
@@ -965,7 +965,7 @@ garrow_file_system_open_input_stream(GArrowFileSystem *file_system,
  * Returns: (nullable) (transfer full): A newly created
  *   #GArrowSeekableInputStream.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowSeekableInputStream *
 garrow_file_system_open_input_file(GArrowFileSystem *file_system,
@@ -995,7 +995,7 @@ garrow_file_system_open_input_file(GArrowFileSystem *file_system,
  * Returns: (nullable) (transfer full): A newly created
  *   #GArrowOutputStream.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowOutputStream *
 garrow_file_system_open_output_stream(GArrowFileSystem *file_system,
@@ -1025,7 +1025,7 @@ garrow_file_system_open_output_stream(GArrowFileSystem *file_system,
  * Returns: (nullable) (transfer full): A newly created #GArrowOutputStream
  *   for appending.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowOutputStream *
 garrow_file_system_open_append_stream(GArrowFileSystem *file_system,
@@ -1141,7 +1141,7 @@ garrow_sub_tree_file_system_class_init(GArrowSubTreeFileSystemClass *klass)
  *
  * Returns: (transfer full): A newly created #GArrowSubTreeFileSystem.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowSubTreeFileSystem *
 garrow_sub_tree_file_system_new(const gchar *base_path,
@@ -1255,7 +1255,7 @@ garrow_slow_file_system_class_init(GArrowSlowFileSystemClass *klass)
  *
  * Returns: (transfer full): A newly created #GArrowSlowFileSystem.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowSlowFileSystem *
 garrow_slow_file_system_new_average_latency(GArrowFileSystem *base_file_system,
@@ -1281,7 +1281,7 @@ garrow_slow_file_system_new_average_latency(GArrowFileSystem *base_file_system,
  *
  * Returns: (transfer full): A newly created #GArrowSlowFileSystem.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowSlowFileSystem *
 garrow_slow_file_system_new_average_latency_and_seed(GArrowFileSystem *base_file_system,

@@ -1444,7 +1444,7 @@ ggandiva_boolean_node_class_init(GGandivaBooleanNodeClass *klass)
  * Returns: (transfer none) (element-type GGandivaNode):
  *   The children of the boolean node.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GList *
 ggandiva_boolean_node_get_children(GGandivaBooleanNode *node)
@@ -1474,7 +1474,7 @@ ggandiva_and_node_class_init(GGandivaAndNodeClass *klass)
  *
  * Returns: A newly created #GGandivaAndNode for the AND expression.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GGandivaAndNode *
 ggandiva_and_node_new(GList *children)
@@ -1510,7 +1510,7 @@ ggandiva_or_node_class_init(GGandivaOrNodeClass *klass)
  *
  * Returns: A newly created #GGandivaOrNode for the OR expression.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GGandivaOrNode *
 ggandiva_or_node_new(GList *children)

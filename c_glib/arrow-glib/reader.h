@@ -282,15 +282,15 @@ GARROW_AVAILABLE_IN_0_14
 void
 garrow_csv_read_options_add_false_value(GArrowCSVReadOptions *options,
                                         const gchar *false_value);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_15
 void
 garrow_csv_read_options_set_column_names(GArrowCSVReadOptions *options,
                                          const gchar **column_names,
                                          gsize n_column_names);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_15
 gchar **
 garrow_csv_read_options_get_column_names(GArrowCSVReadOptions *options);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_15
 void
 garrow_csv_read_options_add_column_name(GArrowCSVReadOptions *options,
                                         const gchar *column_name);

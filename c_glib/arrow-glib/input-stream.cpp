@@ -387,7 +387,7 @@ garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *input_stream,
  * Returns: (transfer full) (nullable): #GBytes that has read data on
  *   success, %NULL if there was an error.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 GBytes *
 garrow_seekable_input_stream_read_at_bytes(GArrowSeekableInputStream *input_stream,

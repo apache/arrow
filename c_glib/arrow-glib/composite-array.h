@@ -60,7 +60,7 @@ struct _GArrowLargeListArrayClass
   GArrowArrayClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowLargeListArray *garrow_large_list_array_new(GArrowDataType *data_type,
                                                   gint64 length,
                                                   GArrowBuffer *value_offsets,
@@ -68,9 +68,9 @@ GArrowLargeListArray *garrow_large_list_array_new(GArrowDataType *data_type,
                                                   GArrowBuffer *null_bitmap,
                                                   gint64 n_nulls);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowDataType *garrow_large_list_array_get_value_type(GArrowLargeListArray *array);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowArray *garrow_large_list_array_get_value(GArrowLargeListArray *array,
                                                gint64 i);
 
@@ -115,16 +115,16 @@ struct _GArrowMapArrayClass
   GArrowListArrayClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowMapArray *
 garrow_map_array_new(GArrowArray *offsets,
                      GArrowArray *keys,
                      GArrowArray *items,
                      GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowArray *
 garrow_map_array_get_keys(GArrowMapArray *array);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowArray *
 garrow_map_array_get_items(GArrowMapArray *array);
 

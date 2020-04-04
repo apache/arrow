@@ -86,7 +86,7 @@ gparquet_writer_properties_class_init(GParquetWriterPropertiesClass *klass)
  *
  * Return: A newly created #GParquetWriterProperties.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GParquetWriterProperties *
 gparquet_writer_properties_new(void)
@@ -102,7 +102,7 @@ gparquet_writer_properties_new(void)
  * @compression_type: A #GArrowCompressionType.
  * @path: (nullable): The column path as dot string.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 void
 gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
@@ -126,7 +126,7 @@ gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
  *
  * Returns: The compression type of #GParquetWriterProperties.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowCompressionType
 gparquet_writer_properties_get_compression_path(GParquetWriterProperties *properties,
@@ -143,7 +143,7 @@ gparquet_writer_properties_get_compression_path(GParquetWriterProperties *proper
  * @properties: A #GParquetWriterProperties.
  * @path: (nullable): The column path as dot string.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 void
 gparquet_writer_properties_enable_dictionary(GParquetWriterProperties *properties,
@@ -163,7 +163,7 @@ gparquet_writer_properties_enable_dictionary(GParquetWriterProperties *propertie
  * @properties: A #GParquetWriterProperties.
  * @path: (nullable): The column path as dot string.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 void
 gparquet_writer_properties_disable_dictionary(GParquetWriterProperties *properties,
@@ -185,7 +185,7 @@ gparquet_writer_properties_disable_dictionary(GParquetWriterProperties *properti
  *
  * Returns: %TRUE on dictionary enabled, %FALSE on dictionary disabled.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gboolean
 gparquet_writer_properties_is_dictionary_enabled(GParquetWriterProperties *properties,
@@ -201,7 +201,7 @@ gparquet_writer_properties_is_dictionary_enabled(GParquetWriterProperties *prope
  * @properties: A #GParquetWriterProperties.
  * @limit: The dictionary page size limit.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 void
 gparquet_writer_properties_set_dictionary_page_size_limit(GParquetWriterProperties *properties,
@@ -218,7 +218,7 @@ gparquet_writer_properties_set_dictionary_page_size_limit(GParquetWriterProperti
  *
  * Returns: The dictionary page size limit.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gint64
 gparquet_writer_properties_get_dictionary_page_size_limit(GParquetWriterProperties *properties)
@@ -232,7 +232,7 @@ gparquet_writer_properties_get_dictionary_page_size_limit(GParquetWriterProperti
  * @properties: A #GParquetWriterProperties.
  * @batch_size: The batch size.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 void
 gparquet_writer_properties_set_batch_size(GParquetWriterProperties *properties,
@@ -249,7 +249,7 @@ gparquet_writer_properties_set_batch_size(GParquetWriterProperties *properties,
  *
  * Returns: The batch size.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gint64
 gparquet_writer_properties_get_batch_size(GParquetWriterProperties *properties)
@@ -263,7 +263,7 @@ gparquet_writer_properties_get_batch_size(GParquetWriterProperties *properties)
  * @properties: A #GParquetWriterProperties.
  * @length: The max row group length.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 void
 gparquet_writer_properties_set_max_row_group_length(GParquetWriterProperties *properties,
@@ -280,7 +280,7 @@ gparquet_writer_properties_set_max_row_group_length(GParquetWriterProperties *pr
  *
  * Returns: The max row group length.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gint64
 gparquet_writer_properties_get_max_row_group_length(GParquetWriterProperties *properties)
@@ -294,7 +294,7 @@ gparquet_writer_properties_get_max_row_group_length(GParquetWriterProperties *pr
  * @properties: A #GParquetWriterProperties.
  * @data_page_size: The data page size.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 void
 gparquet_writer_properties_set_data_page_size(GParquetWriterProperties *properties,
@@ -311,7 +311,7 @@ gparquet_writer_properties_set_data_page_size(GParquetWriterProperties *properti
  *
  * Returns: The data page size.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gint64
 gparquet_writer_properties_get_data_page_size(GParquetWriterProperties *properties)

@@ -64,18 +64,18 @@ struct _GArrowFileInfoClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowFileInfo *garrow_file_info_new(void);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 gboolean garrow_file_info_equal(GArrowFileInfo *file_info,
                                 GArrowFileInfo *other_file_info);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 gboolean garrow_file_info_is_file(GArrowFileInfo *file_info);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 gboolean garrow_file_info_is_dir(GArrowFileInfo *file_info);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 gchar *garrow_file_info_to_string(GArrowFileInfo *file_info);
 
 /* arrow::fs::FileSelector */
@@ -104,85 +104,85 @@ struct _GArrowFileSystemClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 gchar *garrow_file_system_get_type_name(GArrowFileSystem *file_system);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowFileInfo *
 garrow_file_system_get_file_info(GArrowFileSystem *file_system,
                                  const gchar *path,
                                  GError **error);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GList *garrow_file_system_get_file_infos_paths(GArrowFileSystem *file_system,
                                                const gchar **paths,
                                                gsize n_paths,
                                                GError **error);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GList *
 garrow_file_system_get_file_infos_selector(GArrowFileSystem *file_system,
                                            GArrowFileSelector *file_selector,
                                            GError **error);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 gboolean garrow_file_system_create_dir(GArrowFileSystem *file_system,
                                        const gchar *path,
                                        gboolean recursive,
                                        GError **error);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 gboolean garrow_file_system_delete_dir(GArrowFileSystem *file_system,
                                        const gchar *path,
                                        GError **error);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 gboolean garrow_file_system_delete_dir_contents(GArrowFileSystem *file_system,
                                                 const gchar *path,
                                                 GError **error);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 gboolean garrow_file_system_delete_file(GArrowFileSystem *file_system,
                                         const gchar *path,
                                         GError **error);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 gboolean garrow_file_system_delete_files(GArrowFileSystem *file_system,
                                         const gchar **paths,
                                         gsize n_paths,
                                         GError **error);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 gboolean garrow_file_system_move(GArrowFileSystem *file_system,
                                  const gchar *src,
                                  const gchar *dest,
                                  GError **error);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 gboolean garrow_file_system_copy_file(GArrowFileSystem *file_system,
                                       const gchar *src,
                                       const gchar *dest,
                                       GError **error);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowInputStream *
 garrow_file_system_open_input_stream(GArrowFileSystem *file_system,
                                      const gchar *path,
                                      GError **error);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowSeekableInputStream *
 garrow_file_system_open_input_file(GArrowFileSystem *file_system,
                                    const gchar *path,
                                    GError **error);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowOutputStream *
 garrow_file_system_open_output_stream(GArrowFileSystem *file_system,
                                       const gchar *path,
                                       GError **error);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowOutputStream *
 garrow_file_system_open_append_stream(GArrowFileSystem *file_system,
                                       const gchar *path,
@@ -201,7 +201,7 @@ struct _GArrowSubTreeFileSystemClass
   GArrowFileSystemClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowSubTreeFileSystem *
 garrow_sub_tree_file_system_new(const gchar *base_path,
                                 GArrowFileSystem *base_file_system);
@@ -220,18 +220,18 @@ struct _GArrowSlowFileSystemClass
 };
 
 /* TODO: GArrowLatencyGenerator
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowSlowFileSystem *
 garrow_slow_file_system_new(GArrowFileSystem *base_file_system,
                             GArrowLatencyGenerator *latencies);
 */
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowSlowFileSystem *
 garrow_slow_file_system_new_average_latency(GArrowFileSystem *base_file_system,
                                             gdouble average_latency);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowSlowFileSystem *
 garrow_slow_file_system_new_average_latency_and_seed(GArrowFileSystem *base_file_system,
                                                      gdouble average_latency,

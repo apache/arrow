@@ -57,9 +57,9 @@ struct _GArrowLargeListDataTypeClass
   GArrowDataTypeClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowLargeListDataType *garrow_large_list_data_type_new(GArrowField *field);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowField *garrow_large_list_data_type_get_field(GArrowLargeListDataType *large_list_data_type);
 
 
@@ -101,14 +101,14 @@ struct _GArrowMapDataTypeClass
   GArrowListDataTypeClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowMapDataType *
 garrow_map_data_type_new(GArrowDataType *key_type,
                          GArrowDataType *item_type);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowDataType *
 garrow_map_data_type_get_key_type(GArrowMapDataType *map_data_type);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowDataType *
 garrow_map_data_type_get_item_type(GArrowMapDataType *map_data_type);
 

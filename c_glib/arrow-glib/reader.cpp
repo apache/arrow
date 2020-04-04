@@ -935,7 +935,7 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
    * The number of header rows to skip (not including
    * the row of column names, if any)
    *
-   * Since: 1.0.0
+   * Since: 0.15.0
    */
   spec = g_param_spec_uint("n-skip-rows",
                            "N skip rows",
@@ -1418,7 +1418,7 @@ garrow_csv_read_options_add_false_value(GArrowCSVReadOptions *options,
  *   row after `skip_rows`)
  * @n_column_names: The number of the specified column names.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 void
 garrow_csv_read_options_set_column_names(GArrowCSVReadOptions *options,
@@ -1441,7 +1441,7 @@ garrow_csv_read_options_set_column_names(GArrowCSVReadOptions *options,
  *   If the number of values is zero, this returns %NULL.
  *   It must be freed with g_strfreev() when no longer needed.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 gchar **
 garrow_csv_read_options_get_column_names(GArrowCSVReadOptions *options)
@@ -1466,7 +1466,7 @@ garrow_csv_read_options_get_column_names(GArrowCSVReadOptions *options)
  * @options: A #GArrowCSVReadOptions.
  * @column_name: The column name to be added.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 void
 garrow_csv_read_options_add_column_name(GArrowCSVReadOptions *options,

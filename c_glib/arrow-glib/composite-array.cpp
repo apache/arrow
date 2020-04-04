@@ -187,7 +187,7 @@ garrow_large_list_array_class_init(GArrowLargeListArrayClass *klass)
  *
  * Returns: A newly created #GArrowLargeListArray.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 GArrowLargeListArray *
 garrow_large_list_array_new(GArrowDataType *data_type,
@@ -219,7 +219,7 @@ garrow_large_list_array_new(GArrowDataType *data_type,
  *
  * Returns: (transfer full): The data type of value in each list.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 GArrowDataType *
 garrow_large_list_array_get_value_type(GArrowLargeListArray *array)
@@ -238,7 +238,7 @@ garrow_large_list_array_get_value_type(GArrowLargeListArray *array)
  *
  * Returns: (transfer full): The @i-th list.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 GArrowArray *
 garrow_large_list_array_get_value(GArrowLargeListArray *array,
@@ -400,7 +400,7 @@ garrow_map_array_class_init(GArrowMapArrayClass *klass)
  * Returns: (nullable): A newly created #GArrowMapArray
  *   or %NULL on error.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowMapArray *
 garrow_map_array_new(GArrowArray *offsets,
@@ -431,7 +431,7 @@ garrow_map_array_new(GArrowArray *offsets,
  *
  * Returns: (transfer full): The Array containing key values.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowArray *
 garrow_map_array_get_keys(GArrowMapArray *array)
@@ -449,7 +449,7 @@ garrow_map_array_get_keys(GArrowMapArray *array)
  *
  * Returns: (transfer full): The items Array containing item values.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowArray *
 garrow_map_array_get_items(GArrowMapArray *array)

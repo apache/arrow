@@ -67,7 +67,7 @@ garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *input_stream,
                                      gint64 position,
                                      gint64 n_bytes,
                                      GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_15
 GBytes *
 garrow_seekable_input_stream_read_at_bytes(GArrowSeekableInputStream *input_stream,
                                            gint64 position,

@@ -143,7 +143,7 @@ garrow_large_list_data_type_class_init(GArrowLargeListDataTypeClass *klass)
  *
  * Returns: The newly created large list data type.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 GArrowLargeListDataType *
 garrow_large_list_data_type_new(GArrowField *field)
@@ -165,7 +165,7 @@ garrow_large_list_data_type_new(GArrowField *field)
  *
  * Returns: (transfer full): The field of value.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 GArrowField *
 garrow_large_list_data_type_get_field(GArrowLargeListDataType *large_list_data_type)
@@ -360,7 +360,7 @@ garrow_map_data_type_class_init(GArrowMapDataTypeClass *klass)
  *
  * Returns: The newly created map data type.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowMapDataType *
 garrow_map_data_type_new(GArrowDataType *key_type,
@@ -382,7 +382,7 @@ garrow_map_data_type_new(GArrowDataType *key_type,
  *
  * Return: (transfer full): The key type of the map.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowDataType *
 garrow_map_data_type_get_key_type(GArrowMapDataType *map_data_type)
@@ -401,7 +401,7 @@ garrow_map_data_type_get_key_type(GArrowMapDataType *map_data_type)
  *
  * Return: (transfer full): The item type of the map.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowDataType *
 garrow_map_data_type_get_item_type(GArrowMapDataType *map_data_type)

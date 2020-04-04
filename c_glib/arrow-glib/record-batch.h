@@ -49,7 +49,7 @@ garrow_record_batch_equal_metadata(GArrowRecordBatch *record_batch,
                                    gboolean check_metadata);
 
 GArrowSchema *garrow_record_batch_get_schema     (GArrowRecordBatch *record_batch);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_15
 GArrowArray  *garrow_record_batch_get_column_data(GArrowRecordBatch *record_batch,
                                                   gint i);
 const gchar  *garrow_record_batch_get_column_name(GArrowRecordBatch *record_batch,

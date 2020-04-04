@@ -205,7 +205,7 @@ garrow_chunked_array_get_value_type(GArrowChunkedArray *chunked_array)
  *
  * Returns: The total number of rows in the chunked array.
  *
- * Deprecated: 1.0.0: Use garrow_chunked_array_get_n_rows() instead.
+ * Deprecated: 0.15.0: Use garrow_chunked_array_get_n_rows() instead.
  */
 guint64
 garrow_chunked_array_get_length(GArrowChunkedArray *chunked_array)
@@ -219,7 +219,7 @@ garrow_chunked_array_get_length(GArrowChunkedArray *chunked_array)
  *
  * Returns: The total number of rows in the chunked array.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 guint64
 garrow_chunked_array_get_n_rows(GArrowChunkedArray *chunked_array)

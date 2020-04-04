@@ -468,7 +468,7 @@ garrow_filter_options_class_init(GArrowFilterOptionsClass *klass)
    *
    * How to handle filtered values.
    *
-   * Since: 1.0.0
+   * Since: 0.17.0
    */
   spec = g_param_spec_enum("null_selection_behavior",
                            "Null selection behavior",
@@ -485,7 +485,7 @@ garrow_filter_options_class_init(GArrowFilterOptionsClass *klass)
  *
  * Returns: A newly created #GArrowFilterOptions.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowFilterOptions *
 garrow_filter_options_new(void)
@@ -1288,7 +1288,7 @@ garrow_array_take(GArrowArray *array,
  * Returns: (nullable) (transfer full): The #GArrowChunkedArray taken from
  *   an array of values at indices in chunked array or %NULL on error.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 GArrowChunkedArray *
 garrow_array_take_chunked_array(GArrowArray *array,
@@ -1337,7 +1337,7 @@ garrow_array_take_chunked_array(GArrowArray *array,
  * Returns: (nullable) (transfer full): The #GArrowTable taken from
  *   an array of values at indices in input array or %NULL on error.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 GArrowTable *
 garrow_table_take(GArrowTable *table,
@@ -1386,7 +1386,7 @@ garrow_table_take(GArrowTable *table,
  * Returns: (nullable) (transfer full): The #GArrowTable taken from
  *   an array of values at indices in chunked array or %NULL on error.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 GArrowTable *
 garrow_table_take_chunked_array(GArrowTable *table,
@@ -1435,7 +1435,7 @@ garrow_table_take_chunked_array(GArrowTable *table,
  * Returns: (nullable) (transfer full): The #GArrowChunkedArray taken from
  *   an array of values at indices in input array or %NULL on error.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 GArrowChunkedArray *
 garrow_chunked_array_take(GArrowChunkedArray *chunked_array,
@@ -1484,7 +1484,7 @@ garrow_chunked_array_take(GArrowChunkedArray *chunked_array,
  * Returns: (nullable) (transfer full): The #GArrowChunkedArray taken from
  *   an array of values at indices in chunked array or %NULL on error.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 GArrowChunkedArray *
 garrow_chunked_array_take_chunked_array(GArrowChunkedArray *chunked_array,
@@ -1533,7 +1533,7 @@ garrow_chunked_array_take_chunked_array(GArrowChunkedArray *chunked_array,
  * Returns: (nullable) (transfer full): The #GArrowChunkedArray taken from
  *   an array of values at indices in input array or %NULL on error.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 GArrowRecordBatch *
 garrow_record_batch_take(GArrowRecordBatch *record_batch,
@@ -1994,7 +1994,7 @@ garrow_array_sort_to_indices(GArrowArray *array,
  *   with a boolean selection filter. Nulls in the filter will
  *   result in nulls in the output.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 GArrowTable *
 garrow_table_filter(GArrowTable *table,
@@ -2042,7 +2042,7 @@ garrow_table_filter(GArrowTable *table,
  *   with a chunked array filter. Nulls in the filter will
  *   result in nulls in the output.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 GArrowTable *
 garrow_table_filter_chunked_array(GArrowTable *table,
@@ -2090,7 +2090,7 @@ garrow_table_filter_chunked_array(GArrowTable *table,
  *   with a boolean selection filter. Nulls in the filter will
  *   result in nulls in the output.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 GArrowChunkedArray *
 garrow_chunked_array_filter(GArrowChunkedArray *chunked_array,
@@ -2139,7 +2139,7 @@ garrow_chunked_array_filter(GArrowChunkedArray *chunked_array,
  *   with a chunked array filter. Nulls in the filter will
  *   result in nulls in the output.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 GArrowChunkedArray *
 garrow_chunked_array_filter_chunked_array(GArrowChunkedArray *chunked_array,
@@ -2188,7 +2188,7 @@ garrow_chunked_array_filter_chunked_array(GArrowChunkedArray *chunked_array,
  *   with a boolean selection filter. Nulls in the filter will
  *   result in nulls in the output.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 GArrowRecordBatch *
 garrow_record_batch_filter(GArrowRecordBatch *record_batch,

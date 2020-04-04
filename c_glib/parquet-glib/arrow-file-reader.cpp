@@ -250,7 +250,7 @@ gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *reader,
  *
  * Returns: (transfer full) (nullable): A read #GArrowChunkedArray.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 GArrowChunkedArray *
 gparquet_arrow_file_reader_read_column_data(GParquetArrowFileReader *reader,
