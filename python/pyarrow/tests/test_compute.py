@@ -169,58 +169,55 @@ def test_filter(ty, values):
 
 def test_filter_chunked_array():
     arr = pa.chunked_array([["a", None], ["c", "d", "e"]])
-    expected = pa.chunked_array([["a"], [None, "e"]])
+    expected_drop = pa.chunked_array([["a"], ["e"]])
+    expected_null = pa.chunked_array([["a"], [None, "e"]])
 
-    # mask is array
-    mask = pa.array([True, False, None, False, True])
-    result = arr.filter(mask)
-    assert result.equals(expected)
-
-    # mask is chunked array
-    mask = pa.chunked_array([[True, False], [None, False, True]])
-    result = arr.filter(mask)
-    assert result.equals(expected)
-
-    # mask is non-aligned chunked array
-    mask = pa.chunked_array([[True, False, None], [False, True]])
-    result = arr.filter(mask)
-    assert result.equals(expected)
-
-    # mask is python object
-    mask = [True, False, None, False, True]
-    result = arr.filter(mask)
-    assert result.equals(expected)
+    for mask in [
+        # mask is array
+        pa.array([True, False, None, False, True]),
+        # mask is chunked array
+        pa.chunked_array([[True, False, None], [False, True]]),
+        # mask is python object
+        [True, False, None, False, True]
+    ]:
+        result = arr.filter(mask)
+        assert result.equals(expected_drop)
+        result = arr.filter(mask, null_selection_behavior="emit_null")
+        assert result.equals(expected_null)
 
 
 def test_filter_record_batch():
     batch = pa.record_batch(
         [pa.array(["a", None, "c", "d", "e"])], names=["a'"])
-    expected = pa.record_batch([pa.array(["a", None, "e"])], names=["a'"])
 
     # mask is array
     mask = pa.array([True, False, None, False, True])
     result = batch.filter(mask)
+    expected = pa.record_batch([pa.array(["a", "e"])], names=["a'"])
+    assert result.equals(expected)
+
+    result = batch.filter(mask, null_selection_behavior="emit_null")
+    expected = pa.record_batch([pa.array(["a", None, "e"])], names=["a'"])
     assert result.equals(expected)
 
 
 def test_filter_table():
     table = pa.table([pa.array(["a", None, "c", "d", "e"])], names=["a"])
-    expected = pa.table([pa.array(["a", None, "e"])], names=["a"])
+    expected_drop = pa.table([pa.array(["a", "e"])], names=["a"])
+    expected_null = pa.table([pa.array(["a", None, "e"])], names=["a"])
 
-    # mask is array
-    mask = pa.array([True, False, None, False, True])
-    result = table.filter(mask)
-    assert result.equals(expected)
-
-    # mask is chunked array
-    mask = pa.chunked_array([[True, False], [None, False, True]])
-    result = table.filter(mask)
-    assert result.equals(expected)
-
-    # mask is python object
-    mask = [True, False, None, False, True]
-    result = table.filter(mask)
-    assert result.equals(expected)
+    for mask in [
+        # mask is array
+        pa.array([True, False, None, False, True]),
+        # mask is chunked array
+        pa.chunked_array([[True, False], [None, False, True]]),
+        # mask is python object
+        [True, False, None, False, True]
+    ]:
+        result = table.filter(mask)
+        assert result.equals(expected_drop)
+        result = table.filter(mask, null_selection_behavior="emit_null")
+        assert result.equals(expected_null)
 
 
 def test_filter_errors():

@@ -352,7 +352,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
         return pyarrow_wrap_chunked_array(result)
 
-    def filter(self, mask):
+    def filter(self, mask, object null_selection_behavior="drop"):
         """
         Filter the chunked array with a boolean mask.
 
@@ -360,6 +360,12 @@ cdef class ChunkedArray(_PandasConvertible):
         ----------
         mask : Array or ChunkedArray
             The boolean mask indicating which values to extract.
+        null_selection_behavior : str, default 'drop'
+            Configure the behavior on encountering a null slot in the mask.
+            Allowed values are 'drop' and 'emit_null'.
+
+            - 'drop': nulls will be treated as equivalent to False.
+            - 'emit_null': nulls will result in a null in the output.
 
         Returns
         -------
@@ -378,46 +384,29 @@ cdef class ChunkedArray(_PandasConvertible):
             "a"
           ],
           [
-            null,
             "e"
           ]
         ]
         """
-        # cdef:
-        #     cdef CDatum out
-
-        # with nogil:
-        #     check_status(
-        #         FilterKernel(_context(), CDatum(self.sp_chunked_array),
-        #                      CDatum(mask.sp_array), &out))
-
-        # return wrap_datum(out)
-
         cdef:
-            CChunkedArray* c_arr = self.chunked_array
-            CArray* c_mask_arr
-            CChunkedArray* c_mask_chunked
-            shared_ptr[CChunkedArray] out
+            CDatum filter
+            CDatum out
+            CFilterOptions options
+
+        options = _convert_filter_option(null_selection_behavior)
 
         mask = asarray(mask)
-
         if isinstance(mask, Array):
-            c_mask_arr = (<Array> mask).ap
+            filter = CDatum((<Array> mask).sp_array)
+        else:
+            filter = CDatum((<ChunkedArray> mask).sp_chunked_array)
 
-            with nogil:
-                check_status(
-                    FilterKernel(_context(), deref(c_arr), deref(c_mask_arr),
-                                 &out))
+        with nogil:
+            check_status(
+                FilterKernel(_context(), CDatum(self.sp_chunked_array),
+                             filter, options, &out))
 
-        elif isinstance(mask, ChunkedArray):
-            c_mask_chunked = (<ChunkedArray> mask).chunked_array
-
-            with nogil:
-                check_status(
-                    FilterKernel(_context(), deref(c_arr),
-                                 deref(c_mask_chunked), &out))
-
-        return pyarrow_wrap_chunked_array(out)
+        return wrap_datum(out)
 
     @property
     def num_chunks(self):
@@ -807,7 +796,7 @@ cdef class RecordBatch(_PandasConvertible):
 
         return pyarrow_wrap_batch(result)
 
-    def filter(self, Array mask):
+    def filter(self, Array mask, object null_selection_behavior="drop"):
         """
         Filter the record batch with a boolean mask.
 
@@ -815,23 +804,30 @@ cdef class RecordBatch(_PandasConvertible):
         ----------
         mask : Array
             The boolean mask indicating which rows to extract.
+        null_selection_behavior : str, default 'drop'
+            Configure the behavior on encountering a null slot in the mask.
+            Allowed values are 'drop' and 'emit_null'.
+
+            - 'drop': nulls will be treated as equivalent to False.
+            - 'emit_null': nulls will result in a null in the output.
 
         Returns
         -------
         RecordBatch
         """
         cdef:
-            CRecordBatch* c_arr = self.batch
-            CArray* c_mask = mask.ap
-            shared_ptr[CRecordBatch] out
+            CDatum out
+            CFilterOptions options
 
-        mask = asarray(mask)
+        options = _convert_filter_option(null_selection_behavior)
 
         with nogil:
             check_status(
-                FilterKernel(_context(), deref(c_arr), deref(c_mask), &out))
+                FilterKernel(_context(), CDatum(self.sp_batch),
+                             CDatum(mask.sp_array), options, &out)
+            )
 
-        return pyarrow_wrap_batch(out)
+        return wrap_datum(out)
 
     def equals(self, RecordBatch other):
         cdef:
@@ -1199,7 +1195,7 @@ cdef class Table(_PandasConvertible):
 
         return pyarrow_wrap_table(result)
 
-    def filter(self, mask):
+    def filter(self, mask, object null_selection_behavior="drop"):
         """
         Filter the rows of the table with a boolean mask.
 
@@ -1207,36 +1203,37 @@ cdef class Table(_PandasConvertible):
         ----------
         mask : Array or ChunkedArray
             The boolean mask indicating which rows to extract.
+        null_selection_behavior : str, default 'drop'
+            Configure the behavior on encountering a null slot in the mask.
+            Allowed values are 'drop' and 'emit_null'.
+
+            - 'drop': nulls will be treated as equivalent to False.
+            - 'emit_null': nulls will result in a null in the output.
 
         Returns
         -------
         Table
         """
         cdef:
-            CTable* c_table = self.table
-            CArray* c_mask_arr
-            CChunkedArray* c_mask_chunked
-            shared_ptr[CTable] out
+            CDatum filter
+            CDatum out
+            CFilterOptions options
+
+        options = _convert_filter_option(null_selection_behavior)
 
         mask = asarray(mask)
-
         if isinstance(mask, Array):
-            c_mask_arr = (<Array> mask).ap
+            filter = CDatum((<Array> mask).sp_array)
+        else:
+            filter = CDatum((<ChunkedArray> mask).sp_chunked_array)
 
-            with nogil:
-                check_status(
-                    FilterKernel(_context(), deref(c_table), deref(c_mask_arr),
-                                 &out))
+        with nogil:
+            check_status(
+                FilterKernel(_context(), CDatum(self.sp_table),
+                             filter, options, &out)
+            )
 
-        elif isinstance(mask, ChunkedArray):
-            c_mask_chunked = (<ChunkedArray> mask).chunked_array
-
-            with nogil:
-                check_status(
-                    FilterKernel(_context(), deref(c_table),
-                                 deref(c_mask_chunked), &out))
-
-        return pyarrow_wrap_table(out)
+        return wrap_datum(out)
 
     def replace_schema_metadata(self, metadata=None):
         """

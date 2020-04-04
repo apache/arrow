@@ -381,6 +381,10 @@ cdef wrap_datum(const CDatum& datum):
         return pyarrow_wrap_array(MakeArray(datum.array()))
     elif datum.kind() == DatumType_CHUNKED_ARRAY:
         return pyarrow_wrap_chunked_array(datum.chunked_array())
+    elif datum.kind() == DatumType_RECORD_BATCH:
+        return pyarrow_wrap_batch(datum.record_batch())
+    elif datum.kind() == DatumType_TABLE:
+        return pyarrow_wrap_table(datum.table())
     elif datum.kind() == DatumType_SCALAR:
         return pyarrow_wrap_scalar(datum.scalar())
     else:
@@ -475,6 +479,23 @@ def _restore_array(data):
     """
     cdef shared_ptr[CArrayData] ad = _reconstruct_array_data(data)
     return pyarrow_wrap_array(MakeArray(ad))
+
+
+cdef CFilterOptions _convert_filter_option(object null_selection_behavior):
+    cdef CFilterOptions options
+
+    if null_selection_behavior == 'drop':
+        options.null_selection_behavior = \
+            CFilterNullSelectionBehavior_DROP
+    elif null_selection_behavior == 'emit_null':
+        options.null_selection_behavior = \
+            CFilterNullSelectionBehavior_EMIT_NULL
+    else:
+        raise ValueError(
+            '"{}" is not a valid null_selection_behavior'.format(
+                null_selection_behavior)
+        )
+    return options
 
 
 cdef class _PandasConvertible:
@@ -1014,8 +1035,8 @@ cdef class Array(_PandasConvertible):
             Configure the behavior on encountering a null slot in the mask.
             Allowed values are 'drop' and 'emit_null'.
 
-            'drop': nulls will be treated as equivalent to False.
-            'emit_null': nulls will result in a null in the output.
+            - 'drop': nulls will be treated as equivalent to False.
+            - 'emit_null': nulls will result in a null in the output.
 
         Returns
         -------
@@ -1042,18 +1063,10 @@ cdef class Array(_PandasConvertible):
         ]
         """
         cdef:
-            cdef CDatum out
+            CDatum out
             CFilterOptions options
 
-        if null_selection_behavior == 'drop':
-            options.null_selection_behavior = \
-                CFilterNullSelectionBehavior_DROP
-        elif null_selection_behavior == 'emit_null':
-            options.null_selection_behavior = \
-                CFilterNullSelectionBehavior_EMIT_NULL
-        else:
-            raise ValueError('"' + null_selection_behavior + '" is not a ' +
-                             'valid null_selection_behavior')
+        options = _convert_filter_option(null_selection_behavior)
 
         with nogil:
             check_status(FilterKernel(_context(), CDatum(self.sp_array),
