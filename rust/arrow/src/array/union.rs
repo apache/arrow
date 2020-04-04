@@ -101,7 +101,7 @@ impl UnionArray {
     /// caller and assumes that each of the components are correct and consistent with each other.
     /// See `try_new` for an alternative that validates the data provided.
     ///
-    /// # Safety
+    /// # Data Consistency
     ///
     /// The `type_ids` `Buffer` should contain `i8` values.  These values should be greater than
     /// zero and must be less than the number of children provided in `child_arrays`.  These values
@@ -116,7 +116,7 @@ impl UnionArray {
     /// In both of the cases above we are accepting `Buffer`'s which are assumed to be representing
     /// `i8` and `i32` values respectively.  `Buffer` objects are untyped and no attempt is made
     /// to ensure that the data provided is valid.
-    pub unsafe fn new(
+    pub fn new(
         type_ids: Buffer,
         value_offsets: Option<Buffer>,
         child_arrays: Vec<(Field, ArrayRef)>,
@@ -180,96 +180,58 @@ impl UnionArray {
             }
         }
 
-        Ok(unsafe { Self::new(type_ids, value_offsets, child_arrays) })
+        Ok(Self::new(type_ids, value_offsets, child_arrays))
     }
 
     /// Accesses the child array for `type_id`.
-    pub fn child(&self, type_id: i8) -> Result<ArrayRef> {
-        if type_id < 0 {
-            return Err(ArrowError::InvalidArgumentError(format!(
-                "'type_id' cannot be negative, {} provided.",
-                type_id
-            )));
-        }
-        if type_id as usize > self.boxed_fields.len() {
-            return Err(ArrowError::InvalidArgumentError(format!(
-                "'type_id' cannot be larger than the number of types ({}), {} provided.",
-                self.boxed_fields.len(),
-                type_id
-            )));
-        }
-        Ok(self.boxed_fields[type_id as usize].clone())
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `type_id` provided is less than zero or greater than the number of types
+    /// in the `Union`.
+    pub fn child(&self, type_id: i8) -> ArrayRef {
+        assert!(0 <= type_id);
+        assert!((type_id as usize) < self.boxed_fields.len());
+        self.boxed_fields[type_id as usize].clone()
     }
 
-    /// Returns the `type_id` for the array slot at index `i`.
-    pub fn type_id(&self, i: usize) -> Result<i8> {
-        if i > self.len() {
-            Err(ArrowError::InvalidArgumentError(format!(
-                "The index provided ({}) exceeds the length of the Array ({}).",
-                i,
-                self.len()
-            )))
-        } else {
-            Ok(unsafe { self.type_id_unchecked(i) })
-        }
+    /// Returns the `type_id` for the array slot at `index`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is greater than the length of the array.
+    pub fn type_id(&self, index: usize) -> i8 {
+        assert!(index < self.len());
+        self.data().buffers()[0].data()[index] as i8
     }
 
-    /// Unsafe version of `type_id` that does not validate `i`.
+    /// Returns the offset into the underlying values array for the array slot at `index`.
     ///
-    /// # Safety
+    /// # Panics
     ///
-    /// `i` is not validated to be within the bounds of the type id buffer.
-    pub unsafe fn type_id_unchecked(&self, i: usize) -> i8 {
-        self.data().buffers()[0].data()[i] as i8
-    }
-
-    /// Returns the offset into the underlying values array for the array slot at index `i`.
-    pub fn value_offset(&self, i: usize) -> Result<i32> {
-        if i > self.len() {
-            Err(ArrowError::InvalidArgumentError(format!(
-                "The index provided ({}) exceeds the length of the Array ({}).",
-                i,
-                self.len()
-            )))
-        } else {
-            Ok(unsafe { self.value_offset_unchecked(i) })
-        }
-    }
-
-    /// Unsafe version of `value_offset` that does not validate `i`
-    ///
-    /// # Safety
-    ///
-    /// `i` is not validated to be within the bounds of the offsets buffer.
-    pub unsafe fn value_offset_unchecked(&self, i: usize) -> i32 {
+    /// Panics if `index` is greater than the length of the array.
+    pub fn value_offset(&self, index: usize) -> i32 {
+        assert!(index < self.len());
         if self.is_dense() {
-            self.data().buffers()[1].data()[i * size_of::<i32>()] as i32
+            self.data().buffers()[1].data()[index * size_of::<i32>()] as i32
         } else {
-            i as i32
+            index as i32
         }
     }
 
-    /// Returns array slot at index `i`.
-    pub fn value(&self, i: usize) -> Result<ArrayRef> {
-        let type_id = self.type_id(i)?;
-        let value_offset = unsafe { self.value_offset_unchecked(i) } as usize;
-        let child_data = self.boxed_fields[type_id as usize].clone();
-        Ok(child_data.slice(value_offset, 1))
-    }
-
-    /// Unsafe version of `value` that does not validate `i`.
+    /// Returns the array's value at `index`.
     ///
-    /// # Safety
+    /// # Panics
     ///
-    /// `i` is not validated to be within the bounds of the type id or offsets buffers.
-    pub unsafe fn value_unchecked(&self, i: usize) -> ArrayRef {
-        let type_id = self.type_id_unchecked(i);
-        let value_offset = self.value_offset_unchecked(i) as usize;
+    /// Panics if `index` is greater than the length of the array.
+    pub fn value(&self, index: usize) -> ArrayRef {
+        let type_id = self.type_id(index);
+        let value_offset = self.value_offset(index) as usize;
         let child_data = self.boxed_fields[type_id as usize].clone();
         child_data.slice(value_offset, 1)
     }
 
-    /// Returns the names of the types in the union
+    /// Returns the names of the types in the union.
     pub fn type_names(&self) -> Vec<&str> {
         match self.data.data_type() {
             DataType::Union(fields) => fields
@@ -602,7 +564,7 @@ mod tests {
             Buffer::from(&expected_type_ids.clone().to_byte_slice())
         );
         for (i, id) in expected_type_ids.iter().enumerate() {
-            assert_eq!(id, &array.type_id(i).unwrap());
+            assert_eq!(id, &array.type_id(i));
         }
 
         // Check offsets
@@ -611,7 +573,7 @@ mod tests {
             Buffer::from(expected_value_offsets.clone().to_byte_slice())
         );
         for (i, id) in expected_value_offsets.iter().enumerate() {
-            assert_eq!(&array.value_offset(i).unwrap(), id);
+            assert_eq!(&array.value_offset(i), id);
         }
 
         // Check data
@@ -630,7 +592,7 @@ mod tests {
 
         assert_eq!(expected_array_values.len(), array.len());
         for (i, expected_value) in expected_array_values.iter().enumerate() {
-            let slot = array.value(i).unwrap();
+            let slot = array.value(i);
             let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
             assert_eq!(slot.len(), 1);
             let value = slot.value(0);
@@ -652,7 +614,7 @@ mod tests {
 
         assert_eq!(7, union.len());
         for i in 0..union.len() {
-            let slot = union.value(i).unwrap();
+            let slot = union.value(i);
             match i {
                 0 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
@@ -722,7 +684,7 @@ mod tests {
             array.data().buffers()[0]
         );
         for (i, id) in expected_type_ids.iter().enumerate() {
-            assert_eq!(id, &array.type_id(i).unwrap());
+            assert_eq!(id, &array.type_id(i));
         }
 
         // Check offsets, sparse union should only have a single buffer
@@ -744,7 +706,7 @@ mod tests {
 
         assert_eq!(expected_array_values.len(), array.len());
         for (i, expected_value) in expected_array_values.iter().enumerate() {
-            let slot = array.value(i).unwrap();
+            let slot = array.value(i);
             let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
             assert_eq!(slot.len(), 1);
             let value = slot.value(0);
@@ -772,14 +734,14 @@ mod tests {
             union.data().buffers()[0]
         );
         for (i, id) in expected_type_ids.iter().enumerate() {
-            assert_eq!(id, &union.type_id(i).unwrap());
+            assert_eq!(id, &union.type_id(i));
         }
 
         // Check offsets, sparse union should only have a single buffer, i.e. no offsets
         assert_eq!(union.data().buffers().len(), 1);
 
         for i in 0..union.len() {
-            let slot = union.value(i).unwrap();
+            let slot = union.value(i);
             match i {
                 0 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
@@ -860,7 +822,7 @@ mod tests {
             array.data().buffers()[0]
         );
         for (i, id) in type_ids.iter().enumerate() {
-            assert_eq!(id, &array.type_id(i).unwrap());
+            assert_eq!(id, &array.type_id(i));
         }
 
         // Check offsets
@@ -869,17 +831,17 @@ mod tests {
             array.data().buffers()[1]
         );
         for (i, id) in value_offsets.iter().enumerate() {
-            assert_eq!(id, &array.value_offset(i).unwrap());
+            assert_eq!(id, &array.value_offset(i));
         }
 
         // Check values
         assert_eq!(6, array.len());
 
-        let slot = array.value(0).unwrap();
+        let slot = array.value(0);
         let value = slot.as_any().downcast_ref::<Int32Array>().unwrap().value(0);
         assert_eq!(5, value);
 
-        let slot = array.value(1).unwrap();
+        let slot = array.value(1);
         let value = slot
             .as_any()
             .downcast_ref::<StringArray>()
@@ -887,7 +849,7 @@ mod tests {
             .value(0);
         assert_eq!("foo", value);
 
-        let slot = array.value(2).unwrap();
+        let slot = array.value(2);
         let value = slot
             .as_any()
             .downcast_ref::<StringArray>()
@@ -895,7 +857,7 @@ mod tests {
             .value(0);
         assert_eq!("bar", value);
 
-        let slot = array.value(3).unwrap();
+        let slot = array.value(3);
         let value = slot
             .as_any()
             .downcast_ref::<Float64Array>()
@@ -903,7 +865,7 @@ mod tests {
             .value(0);
         assert_eq!(10.0, value);
 
-        let slot = array.value(4).unwrap();
+        let slot = array.value(4);
         let value = slot
             .as_any()
             .downcast_ref::<StringArray>()
@@ -911,7 +873,7 @@ mod tests {
             .value(0);
         assert_eq!("baz", value);
 
-        let slot = array.value(5).unwrap();
+        let slot = array.value(5);
         let value = slot.as_any().downcast_ref::<Int32Array>().unwrap().value(0);
         assert_eq!(6, value);
     }
