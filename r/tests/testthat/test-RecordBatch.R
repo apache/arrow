@@ -353,8 +353,8 @@ test_that("RecordBatch$Equals(check_metadata)", {
   expect_true(rb1$Equals(rb2))
   expect_false(rb1$Equals(rb2, check_metadata = TRUE))
 
-  expect_equal(rb1, rb2)       # expect_equal does not check_metadata
-  expect_equivalent(rb1, rb2)  # expect_equivalent does not either
+  expect_failure(expect_equal(rb1, rb2))  # expect_equal has check_metadata=TRUE
+  expect_equivalent(rb1, rb2)  # expect_equivalent has check_metadata=FALSE
 
   expect_false(rb1$Equals(24)) # Not a RecordBatch
 })

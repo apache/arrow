@@ -300,8 +300,8 @@ test_that("Table$Equals(check_metadata)", {
   expect_true(tab1$Equals(tab2))
   expect_false(tab1$Equals(tab2, check_metadata = TRUE))
 
-  expect_equal(tab1, tab2)       # expect_equal does not check_metadata
-  expect_equivalent(tab1, tab2)  # expect_equivalent does not either
+  expect_failure(expect_equal(tab1, tab2))  # expect_equal has check_metadata=TRUE
+  expect_equivalent(tab1, tab2)  # expect_equivalent has check_metadata=FALSE
 
   expect_false(tab1$Equals(24)) # Not a Table
 })

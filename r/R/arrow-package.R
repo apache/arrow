@@ -108,7 +108,7 @@ ArrowObject <- R6Class("ArrowObject",
 }
 
 #' @export
-all.equal.ArrowObject <- function(target, current, ..., check.attributes = FALSE) {
+all.equal.ArrowObject <- function(target, current, ..., check.attributes = TRUE) {
   target$Equals(current, check_metadata = check.attributes)
 }
 
