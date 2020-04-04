@@ -381,6 +381,12 @@ foo: list<item: int8>
     with pytest.warns((UserWarning, FutureWarning)):
         assert sch.field_by_name('foo') is None
 
+    # Schema::GetFieldIndex
+    assert sch.get_field_index('foo') == -1
+
+    # Schema::GetAllFieldIndices
+    assert sch.get_all_field_indices('foo') == [0, 2]
+
 
 def test_field_flatten():
     f0 = pa.field('foo', pa.int32()).with_metadata({b'foo': b'bar'})

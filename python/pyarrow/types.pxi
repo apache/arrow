@@ -387,6 +387,19 @@ cdef class StructType(DataType):
         else:
             return pyarrow_wrap_field(fields[0])
 
+    def get_field_index(self, name):
+        """
+        Return index of field with given unique name. Returns -1 if not found
+        or if duplicated
+        """
+        return self.struct_type.GetFieldIndex(tobytes(name))
+
+    def get_all_field_indices(self, name):
+        """
+        Return sorted list of indices for fields with the given name
+        """
+        return self.struct_type.GetAllFieldIndices(tobytes(name))
+
     def __len__(self):
         """
         Like num_children().
@@ -1322,7 +1335,17 @@ cdef class Schema:
             return pyarrow_wrap_field(results[0])
 
     def get_field_index(self, name):
+        """
+        Return index of field with given unique name. Returns -1 if not found
+        or if duplicated
+        """
         return self.schema.GetFieldIndex(tobytes(name))
+
+    def get_all_field_indices(self, name):
+        """
+        Return sorted list of indices for fields with the given name
+        """
+        return self.schema.GetAllFieldIndices(tobytes(name))
 
     def append(self, Field field):
         """

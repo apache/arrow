@@ -1559,11 +1559,16 @@ cdef class Table(_PandasConvertible):
         pyarrow.ChunkedArray
         """
         if isinstance(i, (bytes, str)):
-            field_index = self.schema.get_field_index(i)
-            if field_index < 0:
-                raise KeyError("Column {} does not exist in table".format(i))
+            field_indices = self.schema.get_all_field_indices(i)
+
+            if len(field_indices) == 0:
+                raise KeyError("Field \"{}\" does not exist in table schema"
+                               .format(i))
+            elif len(field_indices) > 1:
+                raise KeyError("Field \"{}\" exists {} times in table schema"
+                               .format(i, len(field_indices)))
             else:
-                return self._column(field_index)
+                return self._column(field_indices[0])
         elif isinstance(i, int):
             return self._column(i)
         else:

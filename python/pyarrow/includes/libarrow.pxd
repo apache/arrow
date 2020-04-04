@@ -370,6 +370,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CField] GetFieldByName(const c_string& name)
         vector[shared_ptr[CField]] GetAllFieldsByName(const c_string& name)
         int GetFieldIndex(const c_string& name)
+        vector[int] GetAllFieldIndices(const c_string& name)
 
     cdef cppclass CUnionType" arrow::UnionType"(CDataType):
         CUnionType(const vector[shared_ptr[CField]]& fields,
@@ -393,8 +394,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[const CKeyValueMetadata] metadata()
         shared_ptr[CField] GetFieldByName(const c_string& name)
         vector[shared_ptr[CField]] GetAllFieldsByName(const c_string& name)
-        int64_t GetFieldIndex(const c_string& name)
-        vector[int64_t] GetAllFieldIndice(const c_string& name)
+        int GetFieldIndex(const c_string& name)
+        vector[int] GetAllFieldIndices(const c_string& name)
         int num_fields()
         c_string ToString()
 

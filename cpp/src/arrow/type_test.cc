@@ -513,7 +513,7 @@ TEST_F(TestSchema, GetFieldDuplicates) {
   ASSERT_EQ(2, schema->GetFieldIndex(f2->name()));
   ASSERT_EQ(-1, schema->GetFieldIndex("not-found"));
   ASSERT_EQ(std::vector<int>{0}, schema->GetAllFieldIndices(f0->name()));
-  AssertSortedEquals(std::vector<int>{1, 3}, schema->GetAllFieldIndices(f1->name()));
+  ASSERT_EQ(std::vector<int>({1, 3}), schema->GetAllFieldIndices(f1->name()));
 
   ASSERT_TRUE(::arrow::schema({f0, f1, f2})->HasDistinctFieldNames());
   ASSERT_FALSE(schema->HasDistinctFieldNames());
@@ -1439,7 +1439,7 @@ TEST(TestStructType, GetFieldDuplicates) {
   ASSERT_EQ(0, struct_type.GetFieldIndex("f0"));
   ASSERT_EQ(-1, struct_type.GetFieldIndex("f1"));
   ASSERT_EQ(std::vector<int>{0}, struct_type.GetAllFieldIndices(f0->name()));
-  AssertSortedEquals(std::vector<int>{1, 2}, struct_type.GetAllFieldIndices(f1->name()));
+  ASSERT_EQ(std::vector<int>({1, 2}), struct_type.GetAllFieldIndices(f1->name()));
 
   std::vector<std::shared_ptr<Field>> results;
 

@@ -513,6 +513,9 @@ std::vector<int> StructType::GetAllFieldIndices(const std::string& name) const {
   for (auto it = p.first; it != p.second; ++it) {
     result.push_back(it->second);
   }
+  if (result.size() > 1) {
+    std::sort(result.begin(), result.end());
+  }
   return result;
 }
 
@@ -1103,6 +1106,9 @@ std::vector<int> Schema::GetAllFieldIndices(const std::string& name) const {
   auto p = impl_->name_to_index_.equal_range(name);
   for (auto it = p.first; it != p.second; ++it) {
     result.push_back(it->second);
+  }
+  if (result.size() > 1) {
+    std::sort(result.begin(), result.end());
   }
   return result;
 }

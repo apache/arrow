@@ -347,11 +347,6 @@ def test_struct_type():
 
     assert ty['b'] == ty[2]
 
-    # Duplicate
-    with pytest.warns(UserWarning):
-        with pytest.raises(KeyError):
-            ty['a']
-
     # Not found
     with pytest.raises(KeyError):
         ty['c']
@@ -383,6 +378,26 @@ def test_struct_type():
     # Invalid args
     with pytest.raises(TypeError):
         pa.struct([('a', None)])
+
+
+def test_struct_duplicate_field_names():
+    fields = [
+        pa.field('a', pa.int64()),
+        pa.field('b', pa.int32()),
+        pa.field('a', pa.int32())
+    ]
+    ty = pa.struct(fields)
+
+    # Duplicate
+    with pytest.warns(UserWarning):
+        with pytest.raises(KeyError):
+            ty['a']
+
+    # StructType::GetFieldIndex
+    assert ty.get_field_index('a') == -1
+
+    # StructType::GetAllFieldIndices
+    assert ty.get_all_field_indices('a') == [0, 2]
 
 
 def test_union_type():
