@@ -63,6 +63,7 @@ libarrow_glib_la_headers =			\
 	field.h					\
 	gobject-type.h				\
 	record-batch.h				\
+	record-batch-iterator.h			\
 	schema.h				\
 	table.h					\
 	table-builder.h				\
@@ -116,6 +117,7 @@ libarrow_glib_la_sources =			\
 	error.cpp				\
 	field.cpp				\
 	record-batch.cpp			\
+	record-batch-iterator.cpp		\
 	schema.cpp				\
 	table.cpp				\
 	table-builder.cpp			\
@@ -164,6 +166,7 @@ libarrow_glib_la_cpp_headers =			\
 	error.hpp				\
 	field.hpp				\
 	record-batch.hpp			\
+	record-batch-iterator.hpp		\
 	schema.hpp				\
 	table.hpp				\
 	table-builder.hpp			\
