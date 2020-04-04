@@ -1102,8 +1102,9 @@ class PayloadStreamWriter : public IpcPayloadWriter, protected StreamBookKeeper 
 class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBookKeeper {
  public:
   PayloadFileWriter(const IpcWriteOptions& options, const std::shared_ptr<Schema>& schema,
+                    const std::shared_ptr<const KeyValueMetadata>& metadata,
                     io::OutputStream* sink)
-      : StreamBookKeeper(options, sink), schema_(schema) {}
+      : StreamBookKeeper(options, sink), schema_(schema), metadata_(metadata) {}
 
   ~PayloadFileWriter() override = default;
 
@@ -1153,7 +1154,8 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
     // Write file footer
     RETURN_NOT_OK(UpdatePosition());
     int64_t initial_position = position_;
-    RETURN_NOT_OK(WriteFileFooter(*schema_, dictionaries_, record_batches_, sink_));
+    RETURN_NOT_OK(
+        WriteFileFooter(*schema_, dictionaries_, record_batches_, metadata_, sink_));
 
     // Write footer length
     RETURN_NOT_OK(UpdatePosition());
@@ -1170,6 +1172,7 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
 
  protected:
   std::shared_ptr<Schema> schema_;
+  std::shared_ptr<const KeyValueMetadata> metadata_;
   std::vector<FileBlock> dictionaries_;
   std::vector<FileBlock> record_batches_;
 };
@@ -1186,9 +1189,11 @@ Result<std::shared_ptr<RecordBatchWriter>> NewStreamWriter(
 
 Result<std::shared_ptr<RecordBatchWriter>> NewFileWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-    const IpcWriteOptions& options) {
+    const IpcWriteOptions& options,
+    const std::shared_ptr<const KeyValueMetadata>& metadata) {
   return std::make_shared<internal::IpcFormatWriter>(
-      ::arrow::internal::make_unique<internal::PayloadFileWriter>(options, schema, sink),
+      ::arrow::internal::make_unique<internal::PayloadFileWriter>(options, schema,
+                                                                  metadata, sink),
       schema, options);
 }
 

@@ -799,6 +799,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
+  std::shared_ptr<const KeyValueMetadata> metadata() const override { return metadata_; }
+
  private:
   FileBlock GetRecordBatchBlock(int i) const {
     return FileBlockFromFlatbuffer(footer_->recordBatches()->Get(i));
@@ -874,6 +876,11 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     }
     footer_ = flatbuf::GetFooter(data);
 
+    auto fb_metadata = footer_->custom_metadata();
+    if (fb_metadata != nullptr) {
+      RETURN_NOT_OK(internal::GetKeyValueMetadata(fb_metadata, &metadata_));
+    }
+
     return Status::OK();
   }
 
@@ -894,6 +901,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
   // Footer metadata
   std::shared_ptr<Buffer> footer_buffer_;
   const flatbuf::Footer* footer_;
+  std::shared_ptr<const KeyValueMetadata> metadata_;
 
   bool read_dictionaries_ = false;
   DictionaryMemo dictionary_memo_;

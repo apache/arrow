@@ -190,6 +190,7 @@ Result<std::shared_ptr<Buffer>> WriteSparseTensorMessage(
 
 Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
                        const std::vector<FileBlock>& record_batches,
+                       const std::shared_ptr<const KeyValueMetadata>& metadata,
                        io::OutputStream* out);
 
 Status WriteDictionaryMessage(

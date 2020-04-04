@@ -1184,6 +1184,7 @@ FileBlocksToFlatbuffer(FBB& fbb, const std::vector<FileBlock>& blocks) {
 
 Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
                        const std::vector<FileBlock>& record_batches,
+                       const std::shared_ptr<const KeyValueMetadata>& metadata,
                        io::OutputStream* out) {
   FBB fbb;
 
@@ -1208,8 +1209,11 @@ Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dicti
   auto fb_dictionaries = FileBlocksToFlatbuffer(fbb, dictionaries);
   auto fb_record_batches = FileBlocksToFlatbuffer(fbb, record_batches);
 
-  auto footer = flatbuf::CreateFooter(fbb, kCurrentMetadataVersion, fb_schema,
-                                      fb_dictionaries, fb_record_batches);
+  auto fb_custom_metadata = SerializeCustomMetadata(fbb, metadata);
+
+  auto footer =
+      flatbuf::CreateFooter(fbb, kCurrentMetadataVersion, fb_schema, fb_dictionaries,
+                            fb_record_batches, fb_custom_metadata);
   fbb.Finish(footer);
 
   int32_t size = fbb.GetSize();
