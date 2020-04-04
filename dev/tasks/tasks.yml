@@ -2011,3 +2011,8 @@ tasks:
       os: "ubuntu"
       artifact: "source"
       flag: "TEST_PYTHON=1"
+
+  verify-rc-source-windows:
+    ci: github
+    platform: linux
+    template: verify-rc/github.window.source.yml
