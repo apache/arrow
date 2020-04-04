@@ -15,12 +15,64 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/// Contains the `UnionArray` and `UnionBuilder` types.
-///
-/// Each slot in a `UnionArray` can have a value chosen from a number of types.  Each of the
-/// possible types are named like the fields of a `StructArray`.  A `UnionArray` can have two
-/// possible memory layouts, "dense" or "sparse".  For more information on please
-/// see the [specification](https://arrow.apache.org/docs/format/Columnar.html#union-layout).
+//! Contains the `UnionArray` and `UnionBuilder` types.
+//!
+//! Each slot in a `UnionArray` can have a value chosen from a number of types.  Each of the
+//! possible types are named like the fields of a [`StructArray`](crate::array::StructArray).
+//! A `UnionArray` can have two possible memory layouts, "dense" or "sparse".  For more information
+//! on please see the [specification](https://arrow.apache.org/docs/format/Columnar.html#union-layout).
+//!
+//! Builders are provided for `UnionArray`'s involving primitive types.  `UnionArray`'s of nested
+//! types are also supported but not via `UnionBuilder`, see the tests for examples.
+//!
+//! # Example: Dense Memory Layout
+//!
+//! ```
+//! use arrow::array::UnionBuilder;
+//! use arrow::datatypes::{Float64Type, Int32Type};
+//!
+//! # fn main() -> arrow::error::Result<()> {
+//! let mut builder = UnionBuilder::new_dense(3);
+//! builder.append::<Int32Type>("a", 1).unwrap();
+//! builder.append::<Float64Type>("b", 3.0).unwrap();
+//! builder.append::<Int32Type>("a", 4).unwrap();
+//! let union = builder.build().unwrap();
+//!
+//! assert_eq!(union.type_id(0), 0_i8);
+//! assert_eq!(union.type_id(1), 1_i8);
+//! assert_eq!(union.type_id(2), 0_i8);
+//!
+//! assert_eq!(union.value_offset(0), 0_i32);
+//! assert_eq!(union.value_offset(1), 0_i32);
+//! assert_eq!(union.value_offset(2), 1_i32);
+//!
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Example: Sparse Memory Layout
+//! ```
+//! use arrow::array::UnionBuilder;
+//! use arrow::datatypes::{Float64Type, Int32Type};
+//!
+//! # fn main() -> arrow::error::Result<()> {
+//! let mut builder = UnionBuilder::new_sparse(3);
+//! builder.append::<Int32Type>("a", 1).unwrap();
+//! builder.append::<Float64Type>("b", 3.0).unwrap();
+//! builder.append::<Int32Type>("a", 4).unwrap();
+//! let union = builder.build().unwrap();
+//!
+//! assert_eq!(union.type_id(0), 0_i8);
+//! assert_eq!(union.type_id(1), 1_i8);
+//! assert_eq!(union.type_id(2), 0_i8);
+//!
+//! assert_eq!(union.value_offset(0), 0_i32);
+//! assert_eq!(union.value_offset(1), 1_i32);
+//! assert_eq!(union.value_offset(2), 2_i32);
+//!
+//! # Ok(())
+//! # }
+//! ```
 use crate::array::{
     builder::{builder_to_mutable_buffer, mutable_buffer_to_builder, BufferBuilderTrait},
     make_array, Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef,
@@ -82,7 +134,7 @@ impl UnionArray {
         };
         Self::from(data)
     }
-    /// Attempts to create a new `UnionArray` which validating inputs.
+    /// Attempts to create a new `UnionArray` and validates the inputs provided.
     pub fn try_new(
         type_ids: Buffer,
         value_offsets: Option<Buffer>,
