@@ -204,7 +204,7 @@ def read_feather(source, columns=None, use_threads=True):
     return read_table(source, columns=columns).to_pandas(use_threads=True)
 
 
-def read_table(source, columns=None):
+def read_table(source, columns=None, memory_map=True):
     """
     Read a pyarrow.Table from Feather format
 
@@ -214,6 +214,8 @@ def read_table(source, columns=None):
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
         read.
+    memory_map : boolean, default True
+        Use memory mapping when opening file on disk
 
     Returns
     -------
@@ -221,7 +223,7 @@ def read_table(source, columns=None):
     """
     _check_pandas_version()
     reader = ext.FeatherReader()
-    reader.open(source)
+    reader.open(source, use_memory_map=memory_map)
 
     if columns is None:
         return reader.read()

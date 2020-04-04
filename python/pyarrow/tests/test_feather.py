@@ -156,7 +156,10 @@ def test_read_table(version):
     table = pa.Table.from_pandas(data)
 
     result = read_table(path)
+    assert_frame_equal(table.to_pandas(), result.to_pandas())
 
+    # Test without memory mapping
+    result = read_table(path, memory_map=False)
     assert_frame_equal(table.to_pandas(), result.to_pandas())
 
 
