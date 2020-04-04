@@ -99,12 +99,14 @@ Result<std::shared_ptr<RecordBatchWriter>> NewStreamWriter(
 ///
 /// \param[in] sink output stream to write to
 /// \param[in] schema the schema of the record batches to be written
-/// \param[in] options options for serialization
+/// \param[in] options options for serialization, optional
+/// \param[in] metadata custom metadata for File Footer, optional
 /// \return Status
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatchWriter>> NewFileWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-    const IpcWriteOptions& options = IpcWriteOptions::Defaults());
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults(),
+    const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
 
 /// \brief Low-level API for writing a record batch (without schema)
 /// to an OutputStream as encapsulated IPC message. See Arrow format
