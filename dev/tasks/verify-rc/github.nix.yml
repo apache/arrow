@@ -65,4 +65,4 @@ jobs:
             fi
           fi
           # TODO: put 0.16.0 2 in some separate file?
-          TEST_DEFAULT=0 {{ flag }} dev/release/verify-release-candidate.sh {{ artifact }} 0.16.0 2
+          TEST_DEFAULT=0 {{ flag }} arrow/dev/release/verify-release-candidate.sh {{ artifact }} 0.16.0 2
