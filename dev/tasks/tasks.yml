@@ -77,8 +77,68 @@ groups:
     - verify-rc-binaries
     - verify-rc-wheels-linux
     - verify-rc-wheels-macos
-    - verify-rc-source-linux-python
+    - verify-rc-wheels-windows
     - verify-rc-source-macos-java
+    - verify-rc-source-macos-csharp
+    - verify-rc-source-macos-ruby
+    - verify-rc-source-macos-python
+    - verify-rc-source-macos-js
+    - verify-rc-source-macos-go
+    - verify-rc-source-macos-rust
+    - verify-rc-source-macos-integration
+    - verify-rc-source-linux-java
+    - verify-rc-source-linux-csharp
+    - verify-rc-source-linux-ruby
+    - verify-rc-source-linux-python
+    - verify-rc-source-linux-js
+    - verify-rc-source-linux-go
+    - verify-rc-source-linux-rust
+    - verify-rc-source-linux-integration
+    - verify-rc-source-windows
+
+  verify-rc-wheels:
+    - verify-rc-wheels-linux
+    - verify-rc-wheels-macos
+    - verify-rc-wheels-windows
+
+  verify-rc-source:
+    - verify-rc-source-macos-java
+    - verify-rc-source-macos-csharp
+    - verify-rc-source-macos-ruby
+    - verify-rc-source-macos-python
+    - verify-rc-source-macos-js
+    - verify-rc-source-macos-go
+    - verify-rc-source-macos-rust
+    - verify-rc-source-macos-integration
+    - verify-rc-source-linux-java
+    - verify-rc-source-linux-csharp
+    - verify-rc-source-linux-ruby
+    - verify-rc-source-linux-python
+    - verify-rc-source-linux-js
+    - verify-rc-source-linux-go
+    - verify-rc-source-linux-rust
+    - verify-rc-source-linux-integration
+    - verify-rc-source-windows
+
+  verify-rc-source-macos:
+    - verify-rc-source-macos-java
+    - verify-rc-source-macos-csharp
+    - verify-rc-source-macos-ruby
+    - verify-rc-source-macos-python
+    - verify-rc-source-macos-js
+    - verify-rc-source-macos-go
+    - verify-rc-source-macos-rust
+    - verify-rc-source-macos-integration
+
+  verify-rc-source-linux:
+    - verify-rc-source-linux-java
+    - verify-rc-source-linux-csharp
+    - verify-rc-source-linux-ruby
+    - verify-rc-source-linux-python
+    - verify-rc-source-linux-js
+    - verify-rc-source-linux-go
+    - verify-rc-source-linux-rust
+    - verify-rc-source-linux-integration
 
   ######################## Tasks to run regularly #############################
 
@@ -2003,6 +2063,96 @@ tasks:
       artifact: "source"
       flag: "TEST_JAVA=1"
 
+  verify-rc-source-macos-csharp:
+    ci: github
+    platform: linux
+    template: verify-rc/github.nix.yml
+    params:
+      os: "macOS"
+      artifact: "source"
+      flag: "TEST_CSHARP=1"
+
+  verify-rc-source-macos-ruby:
+    ci: github
+    platform: linux
+    template: verify-rc/github.nix.yml
+    params:
+      os: "macOS"
+      artifact: "source"
+      flag: "TEST_RUBY=1"
+
+  verify-rc-source-macos-python:
+    ci: github
+    platform: linux
+    template: verify-rc/github.nix.yml
+    params:
+      os: "macOS"
+      artifact: "source"
+      flag: "TEST_PYTHON=1"
+
+  verify-rc-source-macos-js:
+    ci: github
+    platform: linux
+    template: verify-rc/github.nix.yml
+    params:
+      os: "macOS"
+      artifact: "source"
+      flag: "TEST_JS=1"
+
+  verify-rc-source-macos-go:
+    ci: github
+    platform: linux
+    template: verify-rc/github.nix.yml
+    params:
+      os: "macOS"
+      artifact: "source"
+      flag: "TEST_GO=1"
+
+  verify-rc-source-macos-rust:
+    ci: github
+    platform: linux
+    template: verify-rc/github.nix.yml
+    params:
+      os: "macOS"
+      artifact: "source"
+      flag: "TEST_RUST=1"
+
+  verify-rc-source-macos-integration:
+    ci: github
+    platform: linux
+    template: verify-rc/github.nix.yml
+    params:
+      os: "macOS"
+      artifact: "source"
+      flag: "TEST_INTEGRATION=1"
+
+  verify-rc-source-linux-java:
+    ci: github
+    platform: linux
+    template: verify-rc/github.nix.yml
+    params:
+      os: "ubuntu"
+      artifact: "source"
+      flag: "TEST_JAVA=1"
+
+  verify-rc-source-linux-csharp:
+    ci: github
+    platform: linux
+    template: verify-rc/github.nix.yml
+    params:
+      os: "ubuntu"
+      artifact: "source"
+      flag: "TEST_CSHARP=1"
+
+  verify-rc-source-linux-ruby:
+    ci: github
+    platform: linux
+    template: verify-rc/github.nix.yml
+    params:
+      os: "ubuntu"
+      artifact: "source"
+      flag: "TEST_RUBY=1"
+
   verify-rc-source-linux-python:
     ci: github
     platform: linux
@@ -2012,7 +2162,48 @@ tasks:
       artifact: "source"
       flag: "TEST_PYTHON=1"
 
+  verify-rc-source-linux-js:
+    ci: github
+    platform: linux
+    template: verify-rc/github.nix.yml
+    params:
+      os: "ubuntu"
+      artifact: "source"
+      flag: "TEST_JS=1"
+
+  verify-rc-source-linux-go:
+    ci: github
+    platform: linux
+    template: verify-rc/github.nix.yml
+    params:
+      os: "ubuntu"
+      artifact: "source"
+      flag: "TEST_GO=1"
+
+  verify-rc-source-linux-rust:
+    ci: github
+    platform: linux
+    template: verify-rc/github.nix.yml
+    params:
+      os: "ubuntu"
+      artifact: "source"
+      flag: "TEST_RUST=1"
+
+  verify-rc-source-linux-integration:
+    ci: github
+    platform: linux
+    template: verify-rc/github.nix.yml
+    params:
+      os: "ubuntu"
+      artifact: "source"
+      flag: "TEST_INTEGRATION=1"
+
   verify-rc-source-windows:
     ci: github
     platform: linux
     template: verify-rc/github.windows.source.yml
+
+  verify-rc-wheels-windows:
+    ci: github
+    platform: linux
+    template: verify-rc/github.windows.wheels.yml
