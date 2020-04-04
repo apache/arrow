@@ -1154,8 +1154,8 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
     // Write file footer
     RETURN_NOT_OK(UpdatePosition());
     int64_t initial_position = position_;
-    RETURN_NOT_OK(WriteFileFooter(*schema_, dictionaries_, record_batches_,
-                                  metadata_, sink_));
+    RETURN_NOT_OK(
+        WriteFileFooter(*schema_, dictionaries_, record_batches_, metadata_, sink_));
 
     // Write footer length
     RETURN_NOT_OK(UpdatePosition());
@@ -1190,7 +1190,7 @@ Result<std::shared_ptr<RecordBatchWriter>> NewStreamWriter(
 Result<std::shared_ptr<RecordBatchWriter>> NewFileWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options,
-    const std::shared_ptr<const KeyValueMetadata> metadata) {
+    const std::shared_ptr<const KeyValueMetadata>& metadata) {
   return std::make_shared<internal::IpcFormatWriter>(
       ::arrow::internal::make_unique<internal::PayloadFileWriter>(options, schema,
                                                                   metadata, sink),

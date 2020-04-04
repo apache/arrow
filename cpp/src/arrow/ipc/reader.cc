@@ -799,9 +799,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
-  std::shared_ptr<const KeyValueMetadata> metadata() const override {
-    return metadata_;
-  }
+  std::shared_ptr<const KeyValueMetadata> metadata() const override { return metadata_; }
 
  private:
   FileBlock GetRecordBatchBlock(int i) const {

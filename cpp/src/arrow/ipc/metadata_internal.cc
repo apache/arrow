@@ -1211,9 +1211,9 @@ Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dicti
 
   auto fb_custom_metadata = SerializeCustomMetadata(fbb, metadata);
 
-  auto footer = flatbuf::CreateFooter(fbb, kCurrentMetadataVersion, fb_schema,
-                                      fb_dictionaries, fb_record_batches,
-                                      fb_custom_metadata);
+  auto footer =
+      flatbuf::CreateFooter(fbb, kCurrentMetadataVersion, fb_schema, fb_dictionaries,
+                            fb_record_batches, fb_custom_metadata);
   fbb.Finish(footer);
 
   int32_t size = fbb.GetSize();

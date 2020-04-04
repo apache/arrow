@@ -789,12 +789,13 @@ TEST_F(RecursionLimits, StressLimit) {
 #endif  // !defined(_WIN32) || defined(NDEBUG)
 
 struct FileWriterHelper {
-  Status Init(const std::shared_ptr<Schema>& schema, const IpcWriteOptions& options) {
+  Status Init(const std::shared_ptr<Schema>& schema, const IpcWriteOptions& options,
+              const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr) {
     num_batches_written_ = 0;
 
     RETURN_NOT_OK(AllocateResizableBuffer(0, &buffer_));
     sink_.reset(new io::BufferOutputStream(buffer_));
-    ARROW_ASSIGN_OR_RAISE(writer_, NewFileWriter(sink_.get(), schema, options));
+    ARROW_ASSIGN_OR_RAISE(writer_, NewFileWriter(sink_.get(), schema, options, metadata));
     return Status::OK();
   }
 
@@ -834,6 +835,13 @@ struct FileWriterHelper {
 
     *out = reader->schema();
     return Status::OK();
+  }
+
+  Result<std::shared_ptr<const KeyValueMetadata>> ReadFooterMetadata() {
+    auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
+    ARROW_ASSIGN_OR_RAISE(auto reader,
+                          RecordBatchFileReader::Open(buf_reader.get(), footer_offset_));
+    return reader->metadata();
   }
 
   std::shared_ptr<ResizableBuffer> buffer_;
@@ -1089,6 +1097,23 @@ TEST_P(TestStreamFormat, RoundTrip) {
 INSTANTIATE_TEST_SUITE_P(GenericIpcRoundTripTests, TestIpcRoundTrip, BATCH_CASES());
 INSTANTIATE_TEST_SUITE_P(FileRoundTripTests, TestFileFormat, BATCH_CASES());
 INSTANTIATE_TEST_SUITE_P(StreamRoundTripTests, TestStreamFormat, BATCH_CASES());
+
+TEST(TestIpcFileFormat, FooterMetaData) {
+  // ARROW-6837
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+
+  auto metadata = key_value_metadata({"ARROW:example", "ARROW:example2"},
+                                     {"something something", "something something2"});
+
+  FileWriterHelper helper;
+  ASSERT_OK(helper.Init(batch->schema(), IpcWriteOptions::Defaults(), metadata));
+  ASSERT_OK(helper.WriteBatch(batch));
+  ASSERT_OK(helper.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto out_metadata, helper.ReadFooterMetadata());
+  ASSERT_TRUE(out_metadata->Equals(*metadata));
+}
 
 // This test uses uninitialized memory
 
