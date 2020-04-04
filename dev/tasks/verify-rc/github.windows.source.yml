@@ -41,8 +41,8 @@ jobs:
       - uses: s-weigand/setup-conda@v1
       - name: Run verification
         run: |
+          $ErrorActionPreference = 'Stop'
           choco install boost-msvc-14.1
           choco install wget
           cd arrow
-          # What is the set -e equivalent here? Job needs to fail if script fails
           dev/release/verify-release-candidate.bat 0.16.0 2
