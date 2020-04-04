@@ -746,11 +746,6 @@ def test_table_column_with_duplicates():
                        match='Field "a" exists 2 times in table schema'):
         table.column('a')
 
-    assert table.schema.get_field_index('a') == -1
-
-    # Not guaranteed to be sorted
-    assert set(table.schema.get_all_field_indices('a')) == {0, 2}
-
 
 def test_table_add_column():
     data = [

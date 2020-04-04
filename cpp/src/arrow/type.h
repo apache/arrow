@@ -935,7 +935,7 @@ class ARROW_EXPORT StructType : public NestedType {
   /// same name
   int GetFieldIndex(const std::string& name) const;
 
-  /// Return the indices of all fields having this name
+  /// \brief Return the indices of all fields having this name in sorted order
   std::vector<int> GetAllFieldIndices(const std::string& name) const;
 
  private:
@@ -1656,7 +1656,7 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// Returns null if name not found
   std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
 
-  /// Return all fields having this name
+  /// \brief Return the indices of all fields having this name in sorted order
   std::vector<std::shared_ptr<Field>> GetAllFieldsByName(const std::string& name) const;
 
   /// Returns -1 if name not found
