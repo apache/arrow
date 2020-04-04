@@ -2015,4 +2015,4 @@ tasks:
   verify-rc-source-windows:
     ci: github
     platform: linux
-    template: verify-rc/github.window.source.yml
+    template: verify-rc/github.windows.source.yml
