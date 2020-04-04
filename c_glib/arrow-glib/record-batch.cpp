@@ -202,7 +202,6 @@ garrow_record_batch_equal(GArrowRecordBatch *record_batch,
  *
  * Since: 0.17.0
  */
-GARROW_AVAILABLE_IN_0_17
 gboolean
 garrow_record_batch_equal_metadata(GArrowRecordBatch *record_batch,
                                    GArrowRecordBatch *other_record_batch,
