@@ -73,9 +73,9 @@ garrow_record_batch_finalize(GObject *object)
 
 static void
 garrow_record_batch_set_property(GObject *object,
-                          guint prop_id,
-                          const GValue *value,
-                          GParamSpec *pspec)
+                                 guint prop_id,
+                                 const GValue *value,
+                                 GParamSpec *pspec)
 {
   auto priv = GARROW_RECORD_BATCH_GET_PRIVATE(object);
 
@@ -92,9 +92,9 @@ garrow_record_batch_set_property(GObject *object,
 
 static void
 garrow_record_batch_get_property(GObject *object,
-                          guint prop_id,
-                          GValue *value,
-                          GParamSpec *pspec)
+                                 guint prop_id,
+                                 GValue *value,
+                                 GParamSpec *pspec)
 {
   switch (prop_id) {
   default:
