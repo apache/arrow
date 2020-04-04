@@ -42,7 +42,7 @@ esac
 
 pushd ${build_dir}
 
-ctest --output-on-failure -j${n_jobs}
+ctest -L unittest --output-on-failure -j${n_jobs}
 
 if [ "${ARROW_FUZZING}" == "ON" ]; then
     # Fuzzing regression tests
