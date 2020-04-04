@@ -441,8 +441,8 @@ It has the following fields:
    :ref:`Columnar format specification <format_columnar>`.
 
    It is recommended, but not required, that the memory addresses of the
-   buffers be aligned according to the type of primitive data that they
-   contain. Consumers MAY decide not to support unaligned memory.
+   buffers be aligned at least according to the type of primitive data that
+   they contain. Consumers MAY decide not to support unaligned memory.
 
    The pointer to the null bitmap buffer, if the data type specifies one,
    MAY be NULL only if :c:member:`ArrowArray.null_count` is 0.
