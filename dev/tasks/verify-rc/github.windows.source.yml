@@ -43,4 +43,6 @@ jobs:
         run: |
           choco install boost-msvc-14.1
           choco install wget
-          arrow/dev/release/verify-release-candidate.bat 0.16.0 2
+          cd arrow
+          # What is the set -e equivalent here? Job needs to fail if script fails
+          dev/release/verify-release-candidate.bat 0.16.0 2
