@@ -33,6 +33,7 @@ using gdv_uint64 = uint64_t;
 using gdv_float32 = float;
 using gdv_float64 = double;
 using gdv_date64 = int64_t;
+using gdv_date32 = int32_t;
 using gdv_time32 = int32_t;
 using gdv_timestamp = int64_t;
 using gdv_utf8 = char*;
@@ -165,6 +166,10 @@ bool is_substr_utf8_utf8(const char* data, gdv_int32 data_len, const char* subst
 gdv_int32 utf8_length(gdv_int64 context, const char* data, gdv_int32 data_len);
 
 gdv_date64 castDATE_utf8(int64_t execution_context, const char* input, gdv_int32 length);
+
+gdv_date64 castDATE_int64(gdv_int64 date);
+
+gdv_date32 castDATE_int32(gdv_int32 date);
 
 gdv_timestamp castTIMESTAMP_utf8(int64_t execution_context, const char* input,
                                  gdv_int32 length);

@@ -169,6 +169,7 @@ FORCE_INLINE gdv_int32 hash32(double val, gdv_int32 seed) {
   INNER(NAME, float64)                       \
   INNER(NAME, boolean)                       \
   INNER(NAME, date64)                        \
+  INNER(NAME, date32)                        \
   INNER(NAME, time32)                        \
   INNER(NAME, timestamp)
 

@@ -37,6 +37,7 @@ extern "C" {
 
 // Expand inner macro for all date types.
 #define DATE_TYPES(INNER) \
+  INNER(date32)           \
   INNER(date64)           \
   INNER(timestamp)
 
@@ -453,6 +454,8 @@ DATE_TRUNC_FUNCTIONS(timestamp)
 
 FORCE_INLINE
 gdv_date64 castDATE_int64(gdv_int64 in) { return in; }
+FORCE_INLINE
+gdv_date32 castDATE_int32(gdv_int32 in) { return in; }
 
 static int days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
