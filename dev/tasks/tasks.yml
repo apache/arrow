@@ -73,6 +73,13 @@ groups:
     - test-*spark*
     - test-*turbodbc*
 
+  verify-rc:
+    - verify-rc-binaries
+    - verify-rc-wheels-linux
+    - verify-rc-wheels-macos
+    - verify-rc-source-linux-python
+    - verify-rc-source-macos-java
+
   ######################## Tasks to run regularly #############################
 
   nightly:
@@ -1959,3 +1966,48 @@ tasks:
         - conda-cpp-hiveserver2
       run:
         - conda-cpp-hiveserver2
+
+  verify-rc-binaries:
+    ci: github
+    platform: linux
+    template: verify-rc/github.yml
+    params:
+      os: "ubuntu"
+      artifact: "binaries"
+      flag: ""
+
+  verify-rc-wheels-linux:
+    ci: github
+    platform: linux
+    template: verify-rc/github.yml
+    params:
+      os: "ubuntu"
+      artifact: "wheels"
+      flag: ""
+
+  verify-rc-wheels-macos:
+    ci: github
+    platform: linux
+    template: verify-rc/github.nix.yml
+    params:
+      os: "macOS"
+      artifact: "wheels"
+      flag: ""
+
+  verify-rc-source-macos-java:
+    ci: github
+    platform: linux
+    template: verify-rc/github.nix.yml
+    params:
+      os: "macOS"
+      artifact: "source"
+      flag: "TEST_JAVA=1"
+
+  verify-rc-source-linux-python:
+    ci: github
+    platform: linux
+    template: verify-rc/github.nix.yml
+    params:
+      os: "ubuntu"
+      artifact: "source"
+      flag: "TEST_PYTHON=1"
