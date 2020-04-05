@@ -33,7 +33,6 @@ Factory functions
 .. autosummary::
    :toctree: ../generated/
 
-   source
    dataset
    partitioning
    field
@@ -51,11 +50,9 @@ Classes
    PartitioningFactory
    DirectoryPartitioning
    HivePartitioning
-   Source
-   FileSystemSource
+   FileSystemDataset
    FileSystemFactoryOptions
-   FileSystemSourceFactory
+   FileSystemDatasetFactory
    Dataset
-   ScannerBuilder
    Scanner
    Expression

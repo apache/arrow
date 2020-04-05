@@ -421,7 +421,7 @@ def test_parquet(tmpdir, registered_period_type):
 
     import base64
     decoded_schema = base64.b64decode(meta.metadata[b"ARROW:schema"])
-    schema = pa.read_schema(pa.BufferReader(decoded_schema))
+    schema = pa.ipc.read_schema(pa.BufferReader(decoded_schema))
     assert schema.field("ext").metadata == {
         b'ARROW:extension:metadata': b'freq=D',
         b'ARROW:extension:name': b'pandas.period'}
