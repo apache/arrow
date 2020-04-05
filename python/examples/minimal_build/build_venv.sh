@@ -26,53 +26,20 @@ set -e
 #----------------------------------------------------------------------
 # Change this to whatever makes sense for your system
 
-HOME=
 MINICONDA=$HOME/miniconda-for-arrow
 LIBRARY_INSTALL_DIR=$HOME/local-libs
 CPP_BUILD_DIR=$HOME/arrow-cpp-build
 ARROW_ROOT=/arrow
-PYTHON=3.7
+export ARROW_HOME=/dist
+export LD_LIBRARY_PATH=/dist/lib:$LD_LIBRARY_PATH
 
 git clone https://github.com/apache/arrow.git /arrow
 
-#----------------------------------------------------------------------
-# Run these only once
+virtualenv /venv
+source /venv/bin/activate
 
-function setup_miniconda() {
-  MINICONDA_URL="https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh"
-  wget -O miniconda.sh $MINICONDA_URL
-  bash miniconda.sh -b -p $MINICONDA
-  rm -f miniconda.sh
-  LOCAL_PATH=$PATH
-  export PATH="$MINICONDA/bin:$PATH"
-
-  conda update -y -q conda
-  conda config --set auto_update_conda false
-  conda info -a
-
-  conda config --set show_channel_urls True
-  conda config --add channels https://repo.continuum.io/pkgs/free
-  conda config --add channels conda-forge
-
-  conda create -y -n pyarrow-$PYTHON -c conda-forge \
-        --file arrow/ci/conda_env_unix.yml \
-        --file arrow/ci/conda_env_cpp.yml \
-        --file arrow/ci/conda_env_python.yml \
-        compilers \
-        python=3.7 \
-        pandas
-
-  export PATH=$LOCAL_PATH
-}
-
-setup_miniconda
-
-#----------------------------------------------------------------------
-# Activate conda in bash and activate conda environment
-
-. $MINICONDA/etc/profile.d/conda.sh
-conda activate pyarrow-$PYTHON
-export ARROW_HOME=$CONDA_PREFIX
+pip install -r /arrow/python/requirements-build.txt \
+     -r /arrow/python/requirements-test.txt
 
 #----------------------------------------------------------------------
 # Build C++ library
@@ -84,7 +51,6 @@ cmake -GNinja \
       -DCMAKE_BUILD_TYPE=DEBUG \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       -DCMAKE_INSTALL_LIBDIR=lib \
-      -DARROW_FLIGHT=ON \
       -DARROW_WITH_BZ2=ON \
       -DARROW_WITH_ZLIB=ON \
       -DARROW_WITH_ZSTD=ON \
@@ -92,7 +58,6 @@ cmake -GNinja \
       -DARROW_WITH_SNAPPY=ON \
       -DARROW_WITH_BROTLI=ON \
       -DARROW_PARQUET=ON \
-      -DARROW_PLASMA=ON \
       -DARROW_PYTHON=ON \
       $ARROW_ROOT/cpp
 
@@ -108,7 +73,6 @@ rm -rf build/  # remove any pesky pre-existing build directory
 
 export PYARROW_BUILD_TYPE=Debug
 export PYARROW_CMAKE_GENERATOR=Ninja
-export PYARROW_WITH_FLIGHT=1
 export PYARROW_WITH_PARQUET=1
 
 # You can run either "develop" or "build_ext --inplace". Your pick

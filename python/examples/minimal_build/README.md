@@ -20,4 +20,42 @@
 # Minimal Python source build on Linux
 
 This directory shows how to bootstrap a local build from source on Linux with
-an eye toward maximum portability across different Linux distributions.
+an eye toward maximum portability across different Linux distributions. This
+may help for contributors debugging build issues caused by their local
+environments.
+
+## Fedora 31
+
+Build image:
+
+```
+docker build -t arrow_fedora_minimal -f Dockerfile.fedora
+```
+
+Build with conda or pip/virtualenv:
+
+```
+# With pip/virtualenv
+docker run --rm -t -i -v $PWD:/io arrow_fedora_minimal /io/build_venv.sh
+
+# With conda
+docker run --rm -t -i -v $PWD:/io arrow_fedora_minimal /io/build_conda.sh
+```
+
+## Ubuntu 18.04
+
+Build image:
+
+```
+docker build -t arrow_ubuntu_minimal -f Dockerfile.ubuntu
+```
+
+Build with conda or pip/virtualenv:
+
+```
+# With pip/virtualenv
+docker run --rm -t -i -v $PWD:/io arrow_ubuntu_minimal /io/build_venv.sh
+
+# With conda
+docker run --rm -t -i -v $PWD:/io arrow_ubuntu_minimal /io/build_conda.sh
+```

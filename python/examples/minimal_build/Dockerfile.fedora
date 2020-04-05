@@ -25,4 +25,7 @@ RUN dnf update -y && \
         git \
         wget \
         make \
-        ninja-build
+        cmake \
+        ninja-build \
+        python3-devel \
+        python3-virtualenv
