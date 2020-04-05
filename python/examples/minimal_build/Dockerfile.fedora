@@ -15,12 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM ubuntu:bionic
+FROM fedora:31
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
-      build-essential \
-      cmake && \
-      apt-get clean && rm -rf /var/lib/apt/lists*
+RUN dnf update -y && \
+    dnf install -y \
+        autoconf \
+        gcc \
+        gcc-g++ \
+        git \
+        wget \
+        make \
+        ninja-build

@@ -19,9 +19,9 @@
 # Set $ARROW_ROOT to the path of your Arrow clone and run
 
 # docker build -t arrow_python_minimal .
-# docker run --rm -t -i -v $PWD:/io -v $ARROW_ROOT:/arrow  arrow_python_minimal /io/build.sh
+# docker run --rm -t arrow_python_minimal -i -v $PWD:/io /io/build.sh
 
-set -ex
+set -e
 
 #----------------------------------------------------------------------
 # Change this to whatever makes sense for your system
@@ -32,6 +32,8 @@ LIBRARY_INSTALL_DIR=$HOME/local-libs
 CPP_BUILD_DIR=$HOME/arrow-cpp-build
 ARROW_ROOT=/arrow
 PYTHON=3.7
+
+git clone https://github.com/apache/arrow.git /arrow
 
 #----------------------------------------------------------------------
 # Run these only once
@@ -52,22 +54,18 @@ function setup_miniconda() {
   conda config --add channels https://repo.continuum.io/pkgs/free
   conda config --add channels conda-forge
 
-  export PATH=$LOCAL_PATH
-}
-
-function create_conda_environment() {
   conda create -y -n pyarrow-$PYTHON -c conda-forge \
         --file arrow/ci/conda_env_unix.yml \
         --file arrow/ci/conda_env_cpp.yml \
         --file arrow/ci/conda_env_python.yml \
-        --file arrow/ci/conda_env_gandiva.yml \
         compilers \
         python=3.7 \
         pandas
+
+  export PATH=$LOCAL_PATH
 }
 
 setup_miniconda
-create_conda_environment
 
 #----------------------------------------------------------------------
 # Activate conda in bash and activate conda environment
@@ -78,17 +76,15 @@ export ARROW_HOME=$CONDA_PREFIX
 
 #----------------------------------------------------------------------
 # Build C++ library
-NPROC=$(nproc)
 
 mkdir -p $CPP_BUILD_DIR
 pushd $CPP_BUILD_DIR
 
 cmake -GNinja \
+      -DCMAKE_BUILD_TYPE=DEBUG \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       -DCMAKE_INSTALL_LIBDIR=lib \
       -DARROW_FLIGHT=ON \
-      -DARROW_GANDIVA=ON \
-      -DARROW_ORC=ON \
       -DARROW_WITH_BZ2=ON \
       -DARROW_WITH_ZLIB=ON \
       -DARROW_WITH_ZSTD=ON \
@@ -99,7 +95,7 @@ cmake -GNinja \
       -DARROW_PYTHON=ON \
       -DARROW_PLASMA=ON \
       -DARROW_BUILD_TESTS=ON \
-      ..
+      $ARROW_ROOT/cpp
 
 ninja install
 
@@ -111,12 +107,19 @@ pushd $ARROW_ROOT/python
 
 rm -rf build/  # remove any pesky pre-existing build directory
 
+export PYARROW_BUILD_TYPE=Debug
+export PYARROW_CMAKE_GENERATOR=Ninja
 export PYARROW_WITH_FLIGHT=1
-export PYARROW_WITH_GANDIVA=1
-export PYARROW_WITH_ORC=1
 export PYARROW_WITH_PARQUET=1
 
-python setup.py build_ext --inplace
+# You can run either "develop" or "build_ext --inplace". Your pick
+
+# python setup.py build_ext --inplace
 python setup.py develop
+
+# git submodules are required for unit tests
+git submodule update --init
+export PARQUET_TEST_DATA="$ARROW_ROOT/cpp/submodules/parquet-testing/data"
+export ARROW_TEST_DATA="$ARROW_ROOT/testing/data"
 
 py.test pyarrow
