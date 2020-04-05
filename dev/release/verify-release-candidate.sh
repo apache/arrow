@@ -414,12 +414,12 @@ test_glib() {
 test_js() {
   pushd js
 
-  export NVM_DIR="`pwd`/.nvm"
-  mkdir -p $NVM_DIR
-  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
-  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-  nvm install node
+  # export NVM_DIR="`pwd`/.nvm"
+  # mkdir -p $NVM_DIR
+  # curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
+  # [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+  #
+  # nvm install node
 
   npm install
   # clean, lint, and build JS source

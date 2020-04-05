@@ -45,10 +45,10 @@ jobs:
 
           {{ flag }}
           if [ $(uname) = "Darwin" ]; then
-            brew install llvm@8
+            brew install llvm@7
           else
             sudo apt-get install -y \
-              llvm-8 \
+              llvm-7 \
               wget curl libboost-all-dev jq \
               autoconf-archive gtk-doc-tools libgirepository1.0-dev
             if [ "$TEST_JAVA" = "1" ]; then
