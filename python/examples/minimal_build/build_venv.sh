@@ -16,11 +16,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Set $ARROW_ROOT to the path of your Arrow clone and run
-
-# docker build -t arrow_python_minimal .
-# docker run --rm -t -i -v $PWD:/io arrow_cpp_minimal /io/build.sh
-
 set -e
 
 #----------------------------------------------------------------------
