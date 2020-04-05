@@ -166,8 +166,9 @@ int parquet_reader(int argc,char** argv) {
         getnumrows(argv[2],num_rows);
         
         trun times_by_type[num_columns];
-        
-        std::cout << "#################### RUNNING POINT QUERIES ####################" << std::endl;
+        std::ofstream runfile;
+        runfile.open(PARQUET_FILENAME+"-run-results.txt");
+        runfile << "#################### RUNNING POINT QUERIES ####################" << std::endl;
         for ( int col_id = 0; col_id < num_columns; col_id++){
                   
           times_by_type[col_id].w_index = 0.0;
@@ -190,7 +191,7 @@ int parquet_reader(int argc,char** argv) {
               convertToCharptr(rand()%num_rows,predicate_val,intlog(num_rows));
               predicates[predicateindex] = predicate_val;
             
-              std::cout << "#############" << " col_num " << col_id << " run number "<< i << " Query number " << predicateindex << " predicate: " << predicates[predicateindex]  << " #############" << std::endl;
+              runfile << "#############" << " col_num " << col_id << " run number "<< i << " Query number " << predicateindex << " predicate: " << predicates[predicateindex]  << " #############" << std::endl;
               trun avgtime = run_for_one_predicate(num_columns,num_row_groups,parquet_reader,col_id,predicates,predicateindex,0);
               times_by_type[col_id].wo_totaltime += avgtime.wo_totaltime;
               times_by_type[col_id].w_totaltime += avgtime.w_totaltime;
@@ -199,12 +200,12 @@ int parquet_reader(int argc,char** argv) {
           }
         }
         for (int col_id = 0; col_id < num_columns; col_id++ ) {
-          std::cout<< "col_num " << col_id << std::endl;
-          std::cout << std::setprecision(3)  <<"POINT QUERY: minimum average time w/o index" << (times_by_type[col_id].wo_totaltime/(num_runs*num_queries)) << std::endl;
-          std::cout << std::setprecision(3)  <<"POINT QUERY: minimum average time w index" << (times_by_type[col_id].w_totaltime/(num_runs*num_queries)) << std::endl;
+          runfile<< "col_num " << col_id << std::endl;
+          runfile << std::setprecision(3)  <<"POINT QUERY: minimum average time w/o index" << (times_by_type[col_id].wo_totaltime/(num_runs*num_queries)) << std::endl;
+          runfile << std::setprecision(3)  <<"POINT QUERY: minimum average time w index" << (times_by_type[col_id].w_totaltime/(num_runs*num_queries)) << std::endl;
         }
-        std::cout << "###############################################################" << std::endl;
-        std::cout << "#################### RUNNING RANGE QUERIES ####################" << std::endl; 
+        runfile << "###############################################################" << std::endl;
+        runfile << "#################### RUNNING RANGE QUERIES ####################" << std::endl; 
          
         
         for ( int col_id =0; col_id < num_columns; col_id++){
@@ -219,13 +220,13 @@ int parquet_reader(int argc,char** argv) {
               int predicate = rand()%num_rows;
               convertToCharptr(predicate,predicate_val,intlog(num_rows));
               predicates[predicateindex] = predicate_val;
-              std::cout << "#############" << " col_num " << col_id << " run number "<< i << " Query number " << predicateindex << " predicate: " << predicates[predicateindex] << " #############"  << std::endl;
+              runfile << "#############" << " col_num " << col_id << " run number "<< i << " Query number " << predicateindex << " predicate: " << predicates[predicateindex] << " #############"  << std::endl;
               trun avgtime = run_for_one_predicate(num_columns,num_row_groups,parquet_reader,col_id,predicates,predicateindex,-1);
               times_by_type[col_id].wo_index += avgtime.wo_totaltime;
               times_by_type[col_id].w_index += avgtime.w_totaltime;
               convertToCharptr(predicate+20,predicate_val,intlog(num_rows));
               predicates[predicateindex] = predicate_val;
-              std::cout << "#############" << " col_num " << col_id << " run number "<< i << " Query number " << predicateindex << " predicate: " << predicates[predicateindex] << " #############"  << std::endl;
+              runfile << "#############" << " col_num " << col_id << " run number "<< i << " Query number " << predicateindex << " predicate: " << predicates[predicateindex] << " #############"  << std::endl;
               avgtime = run_for_one_predicate(num_columns,num_row_groups,parquet_reader,col_id,predicates,predicateindex,1);
               times_by_type[col_id].wo_index += avgtime.wo_totaltime;
               times_by_type[col_id].w_index += avgtime.w_totaltime;
@@ -235,12 +236,12 @@ int parquet_reader(int argc,char** argv) {
           }
         }
         for (int col_id = 0; col_id < num_columns; col_id++ ) {
-          std::cout<< "col_num " << col_id << std::endl;
-          std::cout << std::setprecision(3)  << "RANGE QUERY: minimum average time w/o index" << (times_by_type[col_id].wo_index/(num_runs*num_queries)) << std::endl;
-          std::cout << std::setprecision(3)  << "RANGE QUERY: minimum average time w index" << (times_by_type[col_id].w_index/(num_runs*num_queries)) << std::endl;
+          runfile<< "col_num " << col_id << std::endl;
+          runfile << std::setprecision(3)  << "RANGE QUERY: minimum average time w/o index" << (times_by_type[col_id].wo_index/(num_runs*num_queries)) << std::endl;
+          runfile << std::setprecision(3)  << "RANGE QUERY: minimum average time w index" << (times_by_type[col_id].w_index/(num_runs*num_queries)) << std::endl;
         }
-       std::cout << "###############################################################" << std::endl;
-       std::cout << "#################### RUNNING Full Scan QUERIES ####################" << std::endl; 
+       runfile << "###############################################################" << std::endl;
+       runfile << "#################### RUNNING Full Scan QUERIES ####################" << std::endl; 
        for ( int col_id =0; col_id < num_columns; col_id++){
           for(int i=0; i < num_runs; i++){
             int predicateindex = 0;
@@ -253,7 +254,7 @@ int parquet_reader(int argc,char** argv) {
               int64_t predicate = 5000000000;
               convertToCharptr(predicate,predicate_val,intlog(num_rows));
               predicates[predicateindex] = predicate_val;
-              std::cout << "#############" << " col_num " << col_id << " run number "<< i << " Query number " << predicateindex << " predicate: " << predicates[predicateindex] << " #############"  << std::endl;
+              runfile << "#############" << " col_num " << col_id << " run number "<< i << " Query number " << predicateindex << " predicate: " << predicates[predicateindex] << " #############"  << std::endl;
               trun avgtime = run_for_one_predicate(num_columns,num_row_groups,parquet_reader,col_id,predicates,predicateindex,-1);
               times_by_type[col_id].wo_index += avgtime.wo_totaltime;
               times_by_type[col_id].w_index += avgtime.w_totaltime;
@@ -264,11 +265,12 @@ int parquet_reader(int argc,char** argv) {
           }
         }
         for (int col_id = 0; col_id < num_columns; col_id++ ) {
-          std::cout<< "col_num " << col_id << std::endl;
-          std::cout << std::setprecision(3)  << "FULL SCAN QUERY: minimum average time w/o index" << (times_by_type[col_id].wo_index/(num_runs*num_queries)) << std::endl;
-          std::cout << std::setprecision(3)  << "FULL SCAN QUERY: minimum average time w index" << (times_by_type[col_id].w_index/(num_runs*num_queries)) << std::endl;
+          runfile<< "col_num " << col_id << std::endl;
+          runfile << std::setprecision(3)  << "FULL SCAN QUERY: minimum average time w/o index" << (times_by_type[col_id].wo_index/(num_runs*num_queries)) << std::endl;
+          runfile << std::setprecision(3)  << "FULL SCAN QUERY: minimum average time w index" << (times_by_type[col_id].w_index/(num_runs*num_queries)) << std::endl;
         }
-        std::cout << "###############################################################" << std::endl;
+        runfile << "###############################################################" << std::endl;
+        runfile.close();
       }
 
      if ( argc == 4 ) {
