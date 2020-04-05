@@ -42,8 +42,8 @@
  * https://github.com/apache/parquet-format/blob/master/LogicalTypes.md
  **/
 
-constexpr int NUM_ROWS_PER_ROW_GROUP = 1000000000;//500;
-const char PARQUET_FILENAME[] = "parquet_cpp_example_1B.parquet";
+constexpr int NUM_ROWS_PER_ROW_GROUP = 15000000;
+const char PARQUET_FILENAME[] = "parquet_cpp_example_15M.parquet";
 
 int main(int argc, char** argv) {
   /**********************************************************************************
@@ -129,10 +129,13 @@ int main(int argc, char** argv) {
         static_cast<parquet::ByteArrayWriter*>(rg_writer->NextColumn());
     for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
       parquet::ByteArray value;
-      char hello[FIXED_LENGTH] = "parquet";
-      hello[7] = static_cast<char>(static_cast<int>('0') + i / 100);
-      hello[8] = static_cast<char>(static_cast<int>('0') + (i / 10) % 10);
-      hello[9] = static_cast<char>(static_cast<int>('0') + i % 10);
+      char hello[FIXED_LENGTH];// = "parquet";
+      int64_t startnumber = i;
+      for ( int ci = 0; ci < FIXED_LENGTH; ci++ ) {
+          hello[FIXED_LENGTH-ci-1] = (startnumber%10) + 48;
+          startnumber /= 10;
+      }
+      
       if (i % 2 == 0) {
         int16_t definition_level = 1;
         value.ptr = reinterpret_cast<const uint8_t*>(&hello[0]);

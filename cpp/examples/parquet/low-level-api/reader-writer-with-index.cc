@@ -75,6 +75,13 @@ struct return_multiple{
 
 typedef return_multiple return_multiple;
 
+typedef struct time_to_run{
+       float wo_index = 0.0;
+       float wo_totaltime = 0.0;
+       float w_totaltime = 0.0;
+       float w_index = 0.0;
+  } trun;
+
 int parquet_writer(int argc, char** argv);
 
 void returnReaderwithType(std::shared_ptr<parquet::ColumnReader> cr, parquet::ColumnReader*& cr1);
@@ -86,7 +93,7 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
                bool checkpredicate,int equal_to);
 bool printRange(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::ColumnReader* int64_reader,int ind,return_multiple vals_min,return_multiple vals_max,int64_t& row_counter);
 
-void run_for_one_predicate(int num_columns,int num_row_groups, std::unique_ptr<parquet::ParquetFileReader>& parquet_reader, char** argv,int predicate_index, int equal_to);
+trun run_for_one_predicate(int num_columns,int num_row_groups, std::unique_ptr<parquet::ParquetFileReader>& parquet_reader, int col_id,char** argv,int predicate_index, int equal_to);
 
 void first_pass_for_predicate_only(std::shared_ptr<parquet::RowGroupReader> rg,int predicate_column_number,int num_columns, char* predicate,bool with_index, int equal_to);
 
@@ -108,6 +115,30 @@ int main(int argc, char** argv) {
 /*********************************************************************************
                    PARQUET READER WITH PAGE SKIPPING EXAMPLE
 **********************************************************************************/
+void getnumrows(char* num,int64_t& num_rows){
+  int charlen = strlen(num);
+  int charin = 0;
+  while ( num[charin] != '\0' ) {
+    num_rows += (num[charin] - 48)*((int64_t)pow(10,charlen-charin));
+    charin++;
+  }
+}
+
+int intlog(int num_rows){
+  return (int)log10(num_rows);
+}
+
+char* convertToCharptr(int64_t number,char*& predicate,int charlen){
+  int i = 0;
+  for ( ; i < charlen ; i++ ) {
+     predicate[charlen-i-1] = number%10+48;
+     number = number/10;
+  }
+  predicate[i] = '\0';
+  return predicate;
+}
+
+
 int parquet_reader(int argc,char** argv) {
 
    std::string PARQUET_FILENAME = argv[1];
@@ -125,13 +156,136 @@ int parquet_reader(int argc,char** argv) {
      int num_columns = file_metadata->num_columns();
      //      assert(num_columns == NUM_COLS);
 
+     if ( argc == 3 ){
+        // Point Queries & range queries
+        
+        int64_t num_rows = 0;
+        int num_queries = 5;
+        int num_runs = 5;
+
+        getnumrows(argv[2],num_rows);
+        
+        trun times_by_type[num_columns];
+        
+        std::cout << "#################### RUNNING POINT QUERIES ####################" << std::endl;
+        for ( int col_id = 0; col_id < num_columns; col_id++){
+                  
+          times_by_type[col_id].w_index = 0.0;
+          times_by_type[col_id].wo_index = 0.0;
+          times_by_type[col_id].wo_totaltime = 0.0;
+          times_by_type[col_id].w_totaltime = 0.0;
+        }
+        
+        // for each column so many queries run so many times.
+        for ( int col_id =0; col_id < num_columns; col_id++){
+         // for that column so many runs
+          for(int i=0; i < num_runs; i++){    
+            int predicateindex = 0;
+            char** predicates = (char**)malloc(sizeof(char*)*num_queries);
+            while ( predicateindex < num_queries ){
+              // one query of the queries of the run
+              // sleep(1);
+              srand(time(NULL));
+              char* predicate_val = (char*)malloc(intlog(num_rows)+1);
+              convertToCharptr(rand()%num_rows,predicate_val,intlog(num_rows));
+              predicates[predicateindex] = predicate_val;
+            
+              std::cout << "#############" << " col_num " << col_id << " run number "<< i << " Query number " << predicateindex << " predicate: " << predicates[predicateindex]  << " #############" << std::endl;
+              trun avgtime = run_for_one_predicate(num_columns,num_row_groups,parquet_reader,col_id,predicates,predicateindex,0);
+              times_by_type[col_id].wo_totaltime += avgtime.wo_totaltime;
+              times_by_type[col_id].w_totaltime += avgtime.w_totaltime;
+              predicateindex++;
+            }
+          }
+        }
+        for (int col_id = 0; col_id < num_columns; col_id++ ) {
+          std::cout<< "col_num " << col_id << std::endl;
+          std::cout << std::setprecision(3)  <<"POINT QUERY: minimum average time w/o index" << (times_by_type[col_id].wo_totaltime/(num_runs*num_queries)) << std::endl;
+          std::cout << std::setprecision(3)  <<"POINT QUERY: minimum average time w index" << (times_by_type[col_id].w_totaltime/(num_runs*num_queries)) << std::endl;
+        }
+        std::cout << "###############################################################" << std::endl;
+        std::cout << "#################### RUNNING RANGE QUERIES ####################" << std::endl; 
+         
+        
+        for ( int col_id =0; col_id < num_columns; col_id++){
+          for(int i=0; i < num_runs; i++){
+            int predicateindex = 0;
+            char** predicates = (char**)malloc(sizeof(char*)*num_queries);
+          // rangequeries
+            while ( predicateindex <  num_queries) {
+              // sleep(1);
+              srand(time(NULL));
+              char* predicate_val = (char*)malloc(intlog(num_rows)+1);
+              int predicate = rand()%num_rows;
+              convertToCharptr(predicate,predicate_val,intlog(num_rows));
+              predicates[predicateindex] = predicate_val;
+              std::cout << "#############" << " col_num " << col_id << " run number "<< i << " Query number " << predicateindex << " predicate: " << predicates[predicateindex] << " #############"  << std::endl;
+              trun avgtime = run_for_one_predicate(num_columns,num_row_groups,parquet_reader,col_id,predicates,predicateindex,-1);
+              times_by_type[col_id].wo_index += avgtime.wo_totaltime;
+              times_by_type[col_id].w_index += avgtime.w_totaltime;
+              convertToCharptr(predicate+20,predicate_val,intlog(num_rows));
+              predicates[predicateindex] = predicate_val;
+              std::cout << "#############" << " col_num " << col_id << " run number "<< i << " Query number " << predicateindex << " predicate: " << predicates[predicateindex] << " #############"  << std::endl;
+              avgtime = run_for_one_predicate(num_columns,num_row_groups,parquet_reader,col_id,predicates,predicateindex,1);
+              times_by_type[col_id].wo_index += avgtime.wo_totaltime;
+              times_by_type[col_id].w_index += avgtime.w_totaltime;
+
+              predicateindex++;
+            }
+          }
+        }
+        for (int col_id = 0; col_id < num_columns; col_id++ ) {
+          std::cout<< "col_num " << col_id << std::endl;
+          std::cout << std::setprecision(3)  << "RANGE QUERY: minimum average time w/o index" << (times_by_type[col_id].wo_index/(num_runs*num_queries)) << std::endl;
+          std::cout << std::setprecision(3)  << "RANGE QUERY: minimum average time w index" << (times_by_type[col_id].w_index/(num_runs*num_queries)) << std::endl;
+        }
+       std::cout << "###############################################################" << std::endl;
+       std::cout << "#################### RUNNING Full Scan QUERIES ####################" << std::endl; 
+       for ( int col_id =0; col_id < num_columns; col_id++){
+          for(int i=0; i < num_runs; i++){
+            int predicateindex = 0;
+            char** predicates = (char**)malloc(sizeof(char*)*num_queries);
+          // rangequeries
+            while ( predicateindex <  num_queries) {
+              // sleep(1);
+              srand(time(NULL));
+              char* predicate_val = (char*)malloc(intlog(num_rows)+1);
+              int64_t predicate = 5000000000;
+              convertToCharptr(predicate,predicate_val,intlog(num_rows));
+              predicates[predicateindex] = predicate_val;
+              std::cout << "#############" << " col_num " << col_id << " run number "<< i << " Query number " << predicateindex << " predicate: " << predicates[predicateindex] << " #############"  << std::endl;
+              trun avgtime = run_for_one_predicate(num_columns,num_row_groups,parquet_reader,col_id,predicates,predicateindex,-1);
+              times_by_type[col_id].wo_index += avgtime.wo_totaltime;
+              times_by_type[col_id].w_index += avgtime.w_totaltime;
+              convertToCharptr(predicate+20,predicate_val,intlog(num_rows));
+
+              predicateindex++;
+            }
+          }
+        }
+        for (int col_id = 0; col_id < num_columns; col_id++ ) {
+          std::cout<< "col_num " << col_id << std::endl;
+          std::cout << std::setprecision(3)  << "FULL SCAN QUERY: minimum average time w/o index" << (times_by_type[col_id].wo_index/(num_runs*num_queries)) << std::endl;
+          std::cout << std::setprecision(3)  << "FULL SCAN QUERY: minimum average time w index" << (times_by_type[col_id].w_index/(num_runs*num_queries)) << std::endl;
+        }
+        std::cout << "###############################################################" << std::endl;
+      }
+
      if ( argc == 4 ) {
-        run_for_one_predicate(num_columns,num_row_groups,parquet_reader,argv,3,0);
+       char *col_num = argv[2];
+       std::stringstream ss(col_num);
+       int colid;
+       ss >> colid;
+        run_for_one_predicate(num_columns,num_row_groups,parquet_reader,colid,argv,3,0);
      }
 
      if ( argc == 5 ){
-       run_for_one_predicate(num_columns,num_row_groups,parquet_reader,argv,3,1);
-       run_for_one_predicate(num_columns,num_row_groups,parquet_reader,argv,4,-1);
+       char *col_num = argv[2];
+       std::stringstream ss(col_num);
+       int colid;
+       ss >> colid;
+       run_for_one_predicate(num_columns,num_row_groups,parquet_reader,colid,argv,3,1);
+       run_for_one_predicate(num_columns,num_row_groups,parquet_reader,colid,argv,4,-1);
      }
 
      return 0;
@@ -142,17 +296,18 @@ int parquet_reader(int argc,char** argv) {
 
 }
 
-void run_for_one_predicate(int num_columns,int num_row_groups, std::unique_ptr<parquet::ParquetFileReader>& parquet_reader, char** argv,int predicate_index, 
+trun run_for_one_predicate(int num_columns,int num_row_groups, std::unique_ptr<parquet::ParquetFileReader>& parquet_reader, int colid,char** argv,int predicate_index, 
                            int equal_to = 0) {
+
+    
+    trun avgtime;
   // Iterate over all the RowGroups in the file
     for (int r = 0; r < num_row_groups; ++r) {
     
-      char *col_num = argv[2];
+      
       char *predicate_val  = argv[predicate_index];
 
-      std::stringstream ss(col_num);
-      int col_id = 0;
-        ss >> col_id;
+      int col_id = colid;
         // Get the RowGroup Reader
        std::shared_ptr<parquet::RowGroupReader> row_group_reader = parquet_reader->RowGroup(r);
 
@@ -172,12 +327,14 @@ void run_for_one_predicate(int num_columns,int num_row_groups, std::unique_ptr<p
 
             std::cout << std::setprecision(3) << "\n time for predicate one pass without index: " << time_elapsed << std::endl;
 
-            total_time += time_elapsed;
+            total_time = (t!=0 && time_elapsed > total_time)? total_time:time_elapsed;
         }
-        std::cout << std::setprecision(3)  << "total time " << total_time << std::endl;
-        float avg_time = (float)total_time/(float)num_runs;
-        std::cout << std::setprecision(3) <<  "\n avg time for predicate one pass without index: " <<  avg_time << " sec for " << num_runs << " runs" << std::endl;
-
+        //std::cout << std::setprecision(3)  << "total time " << total_time << std::endl;
+        //float avg_time = (float)total_time/(float)num_runs;
+        //std::cout << std::setprecision(3) <<  "\n avg time for predicate one pass without index: " <<  avg_time << " sec for " << num_runs << " runs" << std::endl;
+        avgtime.wo_totaltime = total_time;
+        //std::cout << std::setprecision(3)  << " in struct total time " << avgtime.wo_totaltime << std::endl;
+        //avgtime.wo_index = total_time; 
        /**************FIRST PASS WITH INDEX*****************/
        total_time = 0.0;
         for(int t  =0 ; t< num_runs; t++){
@@ -189,12 +346,14 @@ void run_for_one_predicate(int num_columns,int num_row_groups, std::unique_ptr<p
 
             std::cout << std::setprecision(3) << "\n time for predicate one pass: " << time_elapsed << std::endl;
 
-            total_time += time_elapsed;
+            total_time = (t!=0 && time_elapsed > total_time)? total_time:time_elapsed;
         }
-        std::cout << std::setprecision(3)  << "total time " << total_time << std::endl;
-        avg_time = (float)total_time/(float)num_runs;
-        std::cout << std::setprecision(3) <<  "\n avg time for predicate one pass: " <<  avg_time << " sec for " << num_runs << " runs" << std::endl;
-
+        //std::cout << std::setprecision(3)  << "total time " << total_time << std::endl;
+        //avg_time = (float)total_time/(float)num_runs;
+        //std::cout << std::setprecision(3) <<  "\n avg time for predicate one pass: " <<  avg_time << " sec for " << num_runs << " runs" << std::endl;
+        avgtime.w_totaltime = total_time;
+        //std::cout << std::setprecision(3)  << " in struct total time " << avgtime.w_totaltime << std::endl;
+        //avgtime.w_index = total_time;
       /***********FIRST PASS END **********/
 
       /***********Second PASS *************/
@@ -203,6 +362,7 @@ void run_for_one_predicate(int num_columns,int num_row_groups, std::unique_ptr<p
       /***********************************/
       
      }
+     return avgtime;
 }
 
 
@@ -692,7 +852,7 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
            {
               float val;
               float predicate = vals.d;
-              float error_factor = 100000000000.0;
+              float error_factor = 9*pow(10,15);
            int64_reader->callReadBatch(1,&val,&values_read);
            if ( checkpredicate && fabs(val-predicate)<=std::numeric_limits<double>::epsilon()*error_factor) {
            row_counter = ind;
@@ -719,7 +879,7 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
               double val;
               double predicate = vals.i;
            int64_reader->callReadBatch(1,&val,&values_read);
-           double error_factor = 1000000000000.0;
+           double error_factor = 9*pow(10,15);
 
            if ( equal_to == 0 && checkpredicate && fabs(val-predicate)<=std::numeric_limits<double>::epsilon()*error_factor) {
            row_counter = ind;
@@ -746,8 +906,8 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
             parquet::ByteArray str;
             char* predicate = vals.c;
             int64_reader->callReadBatch(1,&str,&values_read);
-            std::string result = parquet::ByteArrayToString(str);
-
+            std::string result_value = parquet::ByteArrayToString(str);
+            std::string result(result_value.substr(result_value.length()-strlen(predicate),strlen(predicate)));
             row_counter = ind;
             // std::cout << "row number: " << row_counter << " " << result << "\n";
             if ( equal_to == 0 && checkpredicate && strcmp(result.c_str(),predicate) == 0) {
@@ -774,8 +934,8 @@ bool printVal(std::shared_ptr<parquet::ColumnReader>column_reader, parquet::Colu
             parquet::FLBA str;
             char* predicate = vals.a;
             int64_reader->callReadBatch(1,&str,&values_read);
-            std::string result = parquet::FixedLenByteArrayToString(str,sizeof(str));
-
+            std::string result_value = parquet::FixedLenByteArrayToString(str,sizeof(str));
+            std::string result(result_value.substr(result_value.length()-strlen(predicate),strlen(predicate)));
             row_counter = ind;
             // std::cout << "row number: " << row_counter << " " << result << "\n";
             if ( equal_to == 0 && checkpredicate && strcmp(result.c_str(),predicate) == 0) {
