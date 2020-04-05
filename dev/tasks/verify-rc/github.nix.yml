@@ -45,12 +45,12 @@ jobs:
 
           {{ flag }}
           if [ $(uname) = "Darwin" ]; then
-            brew install llvm@7
+            brew install llvm@7 thrift
           else
             sudo apt-get install -y \
               llvm-7 \
               wget curl libboost-all-dev jq \
-              autoconf-archive gtk-doc-tools libgirepository1.0-dev
+              autoconf-archive gtk-doc-tools libgirepository1.0-dev thrift-compiler
             if [ "$TEST_JAVA" = "1" ]; then
               # Maven
               MAVEN_VERSION=3.6.3
