@@ -1011,6 +1011,140 @@ def test_floating_point_truncate_unsafe():
         _check_cast_case(case, safe=False)
 
 
+def test_decimal_to_int_safe():
+    safe_cases = [
+        (
+            [decimal.Decimal("123456"), None, decimal.Decimal("-912345")],
+            pa.decimal128(32, 5),
+            [123456, None, -912345],
+            pa.int32()
+        ),
+        (
+            [decimal.Decimal("1234"), None, decimal.Decimal("-9123")],
+            pa.decimal128(19, 10),
+            [1234, None, -9123],
+            pa.int16()
+        ),
+        (
+            [decimal.Decimal("123"), None, decimal.Decimal("-91")],
+            pa.decimal128(19, 10),
+            [123, None, -91],
+            pa.int8()
+        ),
+    ]
+    for case in safe_cases:
+        _check_cast_case(case)
+        _check_cast_case(case, safe=True)
+
+
+def test_decimal_to_int_value_out_of_bounds():
+    out_of_bounds_cases = [
+        (
+            [
+                decimal.Decimal("1234567890123"),
+                None,
+                decimal.Decimal("-912345678901234")
+            ],
+            pa.decimal128(32, 5),
+            [1912276171, None, -135950322],
+            pa.int32()
+        ),
+        (
+            [decimal.Decimal("123456"), None, decimal.Decimal("-912345678")],
+            pa.decimal128(32, 5),
+            [-7616, None, -19022],
+            pa.int16()
+        ),
+        (
+            [decimal.Decimal("1234"), None, decimal.Decimal("-9123")],
+            pa.decimal128(32, 5),
+            [-46, None, 93],
+            pa.int8()
+        ),
+    ]
+
+    for case in out_of_bounds_cases:
+        # test safe casting raises
+        with pytest.raises(pa.ArrowInvalid,
+                           match='Integer value out of bounds'):
+            _check_cast_case(case)
+
+        # test unsafe casting truncates
+        # TODO FIXME array construction tests bounds
+        msg_regexp = 'Value [0-9]+ too large to fit in C integer type'
+        with pytest.raises(pa.ArrowInvalid, match=msg_regexp):
+            try:
+                _check_cast_case(case, safe=False)
+            except OverflowError:
+                # workaround as sometime OverflowError is raised
+                raise pa.ArrowInvalid(
+                    'Value 1 too large to fit in C integer type'
+                )
+
+
+def test_decimal_to_int_non_integer():
+    non_integer_cases = [
+        (
+            [
+                decimal.Decimal("123456.21"),
+                None,
+                decimal.Decimal("-912345.13")
+            ],
+            pa.decimal128(32, 5),
+            [123456, None, -912345],
+            pa.int32()
+        ),
+        (
+            [decimal.Decimal("1234.134"), None, decimal.Decimal("-9123.1")],
+            pa.decimal128(19, 10),
+            [1234, None, -9123],
+            pa.int16()
+        ),
+        (
+            [decimal.Decimal("123.1451"), None, decimal.Decimal("-91.21")],
+            pa.decimal128(19, 10),
+            [123, None, -91],
+            pa.int8()
+        ),
+    ]
+
+    for case in non_integer_cases:
+        # test safe casting raises
+        msg_regexp = 'Rescaling decimal value would cause data loss'
+        with pytest.raises(pa.ArrowInvalid, match=msg_regexp):
+            _check_cast_case(case)
+
+        _check_cast_case(case, safe=False)
+
+
+def test_decimal_to_decimal():
+    arr = pa.array(
+        [decimal.Decimal("1234.12"), None],
+        type=pa.decimal128(19, 10)
+    )
+    result = arr.cast(pa.decimal128(15, 6))
+    expected = pa.array(
+        [decimal.Decimal("1234.12"), None],
+        type=pa.decimal128(15, 6)
+    )
+    assert result.equals(expected)
+
+    with pytest.raises(pa.ArrowInvalid,
+                       match='Rescaling decimal value would cause data loss'):
+        result = arr.cast(pa.decimal128(9, 1))
+
+    result = arr.cast(pa.decimal128(9, 1), safe=False)
+    expected = pa.array(
+        [decimal.Decimal("1234.1"), None],
+        type=pa.decimal128(9, 1)
+    )
+    assert result.equals(expected)
+
+    # TODO FIXME
+    # this should fail but decimal overflow is not implemented
+    result = arr.cast(pa.decimal128(1, 2))
+
+
 def test_safe_cast_nan_to_int_raises():
     arr = pa.array([np.nan, 1.])
 
