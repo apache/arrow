@@ -4879,16 +4879,17 @@ RcppExport SEXP _arrow_RecordBatch__from_dataframe(SEXP tbl_sexp){
 
 // recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
-bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self, const std::shared_ptr<arrow::RecordBatch>& other);
-RcppExport SEXP _arrow_RecordBatch__Equals(SEXP self_sexp, SEXP other_sexp){
+bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self, const std::shared_ptr<arrow::RecordBatch>& other, bool check_metadata);
+RcppExport SEXP _arrow_RecordBatch__Equals(SEXP self_sexp, SEXP other_sexp, SEXP check_metadata_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type self(self_sexp);
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type other(other_sexp);
-	return Rcpp::wrap(RecordBatch__Equals(self, other));
+	Rcpp::traits::input_parameter<bool>::type check_metadata(check_metadata_sexp);
+	return Rcpp::wrap(RecordBatch__Equals(self, other, check_metadata));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_RecordBatch__Equals(SEXP self_sexp, SEXP other_sexp){
+RcppExport SEXP _arrow_RecordBatch__Equals(SEXP self_sexp, SEXP other_sexp, SEXP check_metadata_sexp){
 	Rf_error("Cannot call RecordBatch__Equals(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
@@ -6059,7 +6060,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatch__GetColumnByName", (DL_FUNC) &_arrow_RecordBatch__GetColumnByName, 2}, 
 		{ "_arrow_RecordBatch__select", (DL_FUNC) &_arrow_RecordBatch__select, 2}, 
 		{ "_arrow_RecordBatch__from_dataframe", (DL_FUNC) &_arrow_RecordBatch__from_dataframe, 1}, 
-		{ "_arrow_RecordBatch__Equals", (DL_FUNC) &_arrow_RecordBatch__Equals, 2}, 
+		{ "_arrow_RecordBatch__Equals", (DL_FUNC) &_arrow_RecordBatch__Equals, 3}, 
 		{ "_arrow_RecordBatch__RemoveColumn", (DL_FUNC) &_arrow_RecordBatch__RemoveColumn, 2}, 
 		{ "_arrow_RecordBatch__column_name", (DL_FUNC) &_arrow_RecordBatch__column_name, 2}, 
 		{ "_arrow_RecordBatch__names", (DL_FUNC) &_arrow_RecordBatch__names, 1}, 

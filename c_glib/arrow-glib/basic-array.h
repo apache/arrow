@@ -384,19 +384,19 @@ struct _GArrowLargeBinaryArrayClass
   GArrowArrayClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowLargeBinaryArray *garrow_large_binary_array_new(gint64 length,
                                                       GArrowBuffer *value_offsets,
                                                       GArrowBuffer *data,
                                                       GArrowBuffer *null_bitmap,
                                                       gint64 n_nulls);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GBytes *garrow_large_binary_array_get_value(GArrowLargeBinaryArray *array,
                                             gint64 i);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowBuffer *garrow_large_binary_array_get_buffer(GArrowLargeBinaryArray *array);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowBuffer *garrow_large_binary_array_get_offsets_buffer(GArrowLargeBinaryArray *array);
 
 
@@ -432,14 +432,14 @@ struct _GArrowLargeStringArrayClass
   GArrowLargeBinaryArrayClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowLargeStringArray *garrow_large_string_array_new(gint64 length,
                                                       GArrowBuffer *value_offsets,
                                                       GArrowBuffer *data,
                                                       GArrowBuffer *null_bitmap,
                                                       gint64 n_nulls);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 gchar *garrow_large_string_array_get_string(GArrowLargeStringArray *array,
                                             gint64 i);
 

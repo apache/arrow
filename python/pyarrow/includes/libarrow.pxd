@@ -661,7 +661,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CStatus FromStructArray(const shared_ptr[CArray]& array,
                                 shared_ptr[CRecordBatch]* out)
 
-        c_bool Equals(const CRecordBatch& other)
+        c_bool Equals(const CRecordBatch& other, c_bool check_metadata)
 
         shared_ptr[CSchema] schema()
         shared_ptr[CArray] column(int i)

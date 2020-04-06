@@ -203,7 +203,7 @@ garrow_schema_get_field_by_name(GArrowSchema *schema,
  *
  * Returns: The index of the found field, -1 on not found.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 gint
 garrow_schema_get_field_index(GArrowSchema *schema,

@@ -241,7 +241,7 @@ garrow_table_new_values(GArrowSchema *schema,
  *
  * Returns: (nullable): A newly created #GArrowTable or %NULL on error.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 GArrowTable *
 garrow_table_new_chunked_arrays(GArrowSchema *schema,
@@ -360,7 +360,7 @@ garrow_table_equal(GArrowTable *table, GArrowTable *other_table)
  * Returns: %TRUE if both of them have the same data, %FALSE
  *   otherwise.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gboolean
 garrow_table_equal_metadata(GArrowTable *table,
@@ -395,7 +395,7 @@ garrow_table_get_schema(GArrowTable *table)
  *
  * Returns: (nullable) (transfer full): The i-th column's data in the table.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 GArrowChunkedArray *
 garrow_table_get_column_data(GArrowTable *table,
@@ -446,7 +446,7 @@ garrow_table_get_n_rows(GArrowTable *table)
  * Returns: (nullable) (transfer full): The newly allocated
  *   #GArrowTable that has a new column or %NULL on error.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 GArrowTable *
 garrow_table_add_column(GArrowTable *table,
@@ -508,7 +508,7 @@ garrow_table_remove_column(GArrowTable *table,
  * #GArrowTable that has @column as the @i-th column or %NULL on
  * error.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 GArrowTable *
 garrow_table_replace_column(GArrowTable *table,
@@ -622,7 +622,7 @@ garrow_table_slice(GArrowTable *table,
  * Returns: (nullable) (transfer full): The #GArrowTable with
  *   chunks combined, or %NULL on error.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 GArrowTable *
 garrow_table_combine_chunks(GArrowTable *table,

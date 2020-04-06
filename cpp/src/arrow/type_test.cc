@@ -82,13 +82,13 @@ TEST(TestField, Equals) {
 
   AssertFieldEqual(f0, f0_other);
   AssertFieldNotEqual(f0, f0_nn);
-  AssertFieldNotEqual(f0, f0_with_meta1);
-  AssertFieldNotEqual(f0_with_meta1, f0_with_meta2);
-  AssertFieldEqual(f0_with_meta1, f0_with_meta3);
+  AssertFieldNotEqual(f0, f0_with_meta1, /*check_metadata=*/true);
+  AssertFieldNotEqual(f0_with_meta1, f0_with_meta2, /*check_metadata=*/true);
+  AssertFieldEqual(f0_with_meta1, f0_with_meta3, /*check_metadata=*/true);
 
-  AssertFieldEqual(f0, f0_with_meta1, false);
-  AssertFieldEqual(f0, f0_with_meta2, false);
-  AssertFieldEqual(f0_with_meta1, f0_with_meta2, false);
+  AssertFieldEqual(f0, f0_with_meta1);
+  AssertFieldEqual(f0, f0_with_meta2);
+  AssertFieldEqual(f0_with_meta1, f0_with_meta2);
 }
 
 #define ASSERT_COMPATIBLE_IMPL(NAME, TYPE, PLURAL)                        \
@@ -162,10 +162,11 @@ TEST(TestField, TestWithMetadata) {
   auto f1 = field("f0", int32(), true, metadata);
   std::shared_ptr<Field> f2 = f0->WithMetadata(metadata);
 
+  AssertFieldEqual(f0, f2);
+  AssertFieldNotEqual(f0, f2, /*check_metadata=*/true);
+
   AssertFieldEqual(f1, f2);
-  AssertFieldNotEqual(f0, f2);
-  AssertFieldEqual(f0, f2, false);
-  AssertFieldEqual(f1, f2, false);
+  AssertFieldEqual(f1, f2, /*check_metadata=*/true);
 
   // Ensure pointer equality for zero-copy
   ASSERT_EQ(metadata.get(), f1->metadata().get());
@@ -205,9 +206,9 @@ TEST(TestField, TestEmptyMetadata) {
   auto f2 = field("f0", int32(), true, metadata2);
 
   AssertFieldEqual(f0, f1);
-  AssertFieldNotEqual(f0, f2);
-  AssertFieldEqual(f0, f1, /*check_metadata =*/false);
-  AssertFieldEqual(f0, f2, /*check_metadata =*/false);
+  AssertFieldEqual(f0, f2);
+  AssertFieldEqual(f0, f1, /*check_metadata =*/true);
+  AssertFieldNotEqual(f0, f2, /*check_metadata =*/true);
 }
 
 TEST(TestField, TestFlatten) {
@@ -577,10 +578,16 @@ TEST_F(TestSchema, TestMetadataConstruction) {
   ASSERT_TRUE(metadata1->Equals(*schema1->metadata()));
   ASSERT_TRUE(metadata0->Equals(*schema2->metadata()));
   AssertSchemaEqual(schema0, schema2);
-  AssertSchemaNotEqual(schema0, schema1);
-  AssertSchemaNotEqual(schema2, schema1);
+
+  AssertSchemaEqual(schema0, schema1);
+  AssertSchemaNotEqual(schema0, schema1, /*check_metadata=*/true);
+
+  AssertSchemaEqual(schema2, schema1);
+  AssertSchemaNotEqual(schema2, schema1, /*check_metadata=*/true);
+
   // Field has different metatadata
-  AssertSchemaNotEqual(schema2, schema3);
+  AssertSchemaEqual(schema2, schema3);
+  AssertSchemaNotEqual(schema2, schema3, /*check_metadata=*/true);
 
   ASSERT_EQ(schema0->fingerprint(), schema1->fingerprint());
   ASSERT_EQ(schema0->fingerprint(), schema2->fingerprint());
@@ -588,11 +595,6 @@ TEST_F(TestSchema, TestMetadataConstruction) {
   ASSERT_NE(schema0->metadata_fingerprint(), schema1->metadata_fingerprint());
   ASSERT_EQ(schema0->metadata_fingerprint(), schema2->metadata_fingerprint());
   ASSERT_NE(schema0->metadata_fingerprint(), schema3->metadata_fingerprint());
-
-  // don't check metadata
-  AssertSchemaEqual(schema0, schema1, false);
-  AssertSchemaEqual(schema2, schema1, false);
-  AssertSchemaEqual(schema2, schema3, false);
 }
 
 TEST_F(TestSchema, TestNestedMetadataComparison) {
@@ -605,8 +607,8 @@ TEST_F(TestSchema, TestNestedMetadataComparison) {
   ASSERT_EQ(schema0.fingerprint(), schema1.fingerprint());
   ASSERT_NE(schema0.metadata_fingerprint(), schema1.metadata_fingerprint());
 
-  AssertSchemaEqual(schema0, schema1, /* check_metadata = */ false);
-  AssertSchemaNotEqual(schema0, schema1);
+  AssertSchemaEqual(schema0, schema1);
+  AssertSchemaNotEqual(schema0, schema1, /* check_metadata = */ true);
 }
 
 TEST_F(TestSchema, TestDeeplyNestedMetadataComparison) {
@@ -619,8 +621,8 @@ TEST_F(TestSchema, TestDeeplyNestedMetadataComparison) {
   ASSERT_EQ(schema0.fingerprint(), schema1.fingerprint());
   ASSERT_NE(schema0.metadata_fingerprint(), schema1.metadata_fingerprint());
 
-  AssertSchemaEqual(schema0, schema1, /* check_metadata = */ false);
-  AssertSchemaNotEqual(schema0, schema1);
+  AssertSchemaEqual(schema0, schema1);
+  AssertSchemaNotEqual(schema0, schema1, /* check_metadata = */ true);
 }
 
 TEST_F(TestSchema, TestFieldsDifferOnlyInMetadata) {
@@ -630,8 +632,8 @@ TEST_F(TestSchema, TestFieldsDifferOnlyInMetadata) {
   Schema schema0({f0, f1});
   Schema schema1({f1, f0});
 
-  AssertSchemaEqual(schema0, schema1, /* check_metadata = */ false);
-  AssertSchemaNotEqual(schema0, schema1);
+  AssertSchemaEqual(schema0, schema1);
+  AssertSchemaNotEqual(schema0, schema1, /* check_metadata = */ true);
 
   ASSERT_EQ(schema0.fingerprint(), schema1.fingerprint());
   ASSERT_NE(schema0.metadata_fingerprint(), schema1.metadata_fingerprint());
@@ -648,7 +650,7 @@ TEST_F(TestSchema, TestEmptyMetadata) {
   auto schema3 = ::arrow::schema({f1}, metadata2);
 
   AssertSchemaEqual(schema1, schema2);
-  AssertSchemaNotEqual(schema1, schema3);
+  AssertSchemaNotEqual(schema1, schema3, /*check_metadata=*/true);
 
   ASSERT_EQ(schema1->fingerprint(), schema2->fingerprint());
   ASSERT_EQ(schema1->fingerprint(), schema3->fingerprint());
@@ -1326,14 +1328,16 @@ TEST(TestListType, Metadata) {
   auto t5 = list(f5);
 
   AssertTypeEqual(*t1, *t2);
-  AssertTypeNotEqual(*t1, *t3);
-  AssertTypeNotEqual(*t1, *t4);
-  AssertTypeNotEqual(*t1, *t5);
-
   AssertTypeEqual(*t1, *t2, /*check_metadata =*/false);
-  AssertTypeEqual(*t1, *t3, /*check_metadata =*/false);
-  AssertTypeEqual(*t1, *t4, /*check_metadata =*/false);
-  AssertTypeNotEqual(*t1, *t5, /*check_metadata =*/false);
+
+  AssertTypeEqual(*t1, *t3);
+  AssertTypeNotEqual(*t1, *t3, /*check_metadata =*/true);
+
+  AssertTypeEqual(*t1, *t4);
+  AssertTypeNotEqual(*t1, *t4, /*check_metadata =*/true);
+
+  AssertTypeNotEqual(*t1, *t5);
+  AssertTypeNotEqual(*t1, *t5, /*check_metadata =*/true);
 }
 
 TEST(TestNestedType, Equals) {
@@ -1468,8 +1472,8 @@ TEST(TestStructType, TestFieldsDifferOnlyInMetadata) {
   StructType s0({f0, f1});
   StructType s1({f1, f0});
 
-  AssertTypeEqual(s0, s1, /* check_metadata = */ false);
-  AssertTypeNotEqual(s0, s1);
+  AssertTypeEqual(s0, s1);
+  AssertTypeNotEqual(s0, s1, /* check_metadata = */ true);
 
   ASSERT_EQ(s0.fingerprint(), s1.fingerprint());
   ASSERT_NE(s0.metadata_fingerprint(), s1.metadata_fingerprint());

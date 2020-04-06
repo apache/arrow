@@ -59,7 +59,9 @@ if arrow_cuda.found()
     arrow_cuda_glib,
   ]
 endif
-ignore_headers = []
+ignore_headers = [
+  join_paths(meson.source_root(), 'arrow-glib', 'gobject-type.h'),
+]
 if not have_arrow_orc
   ignore_headers += [
     join_paths(meson.source_root(), 'arrow-glib', 'orc-file-reader.h'),

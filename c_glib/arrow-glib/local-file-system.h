@@ -36,7 +36,7 @@ struct _GArrowLocalFileSystemOptionsClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowLocalFileSystemOptions *
 garrow_local_file_system_options_new(void);
 
@@ -53,7 +53,7 @@ struct _GArrowLocalFileSystemClass
   GArrowFileSystemClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 GArrowLocalFileSystem *
 garrow_local_file_system_new(GArrowLocalFileSystemOptions *options);
 

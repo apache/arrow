@@ -1244,8 +1244,8 @@ RecordBatch__from_dataframe <- function(tbl){
     .Call(`_arrow_RecordBatch__from_dataframe` , tbl)
 }
 
-RecordBatch__Equals <- function(self, other){
-    .Call(`_arrow_RecordBatch__Equals` , self, other)
+RecordBatch__Equals <- function(self, other, check_metadata){
+    .Call(`_arrow_RecordBatch__Equals` , self, other, check_metadata)
 }
 
 RecordBatch__RemoveColumn <- function(batch, i){

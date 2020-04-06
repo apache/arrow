@@ -240,7 +240,7 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   ///
   /// Types that are logically convertible from one to another (e.g. List<UInt8>
   /// and Binary) are NOT equal.
-  bool Equals(const DataType& other, bool check_metadata = true) const;
+  bool Equals(const DataType& other, bool check_metadata = false) const;
 
   /// \brief Return whether the types are equal
   bool Equals(const std::shared_ptr<DataType>& other) const;
@@ -414,8 +414,8 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   ///            equality.
   ///
   /// \return true if fields are equal, false otherwise.
-  bool Equals(const Field& other, bool check_metadata = true) const;
-  bool Equals(const std::shared_ptr<Field>& other, bool check_metadata = true) const;
+  bool Equals(const Field& other, bool check_metadata = false) const;
+  bool Equals(const std::shared_ptr<Field>& other, bool check_metadata = false) const;
 
   /// \brief Indicate if fields are compatibles.
   ///
@@ -1640,8 +1640,8 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   ~Schema() override;
 
   /// Returns true if all of the schema fields are equal
-  bool Equals(const Schema& other, bool check_metadata = true) const;
-  bool Equals(const std::shared_ptr<Schema>& other, bool check_metadata = true) const;
+  bool Equals(const Schema& other, bool check_metadata = false) const;
+  bool Equals(const std::shared_ptr<Schema>& other, bool check_metadata = false) const;
 
   /// \brief Return the number of fields (columns) in the schema
   int num_fields() const;

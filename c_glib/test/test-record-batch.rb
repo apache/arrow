@@ -17,6 +17,7 @@
 
 class TestRecordBatch < Test::Unit::TestCase
   include Helper::Buildable
+  include Helper::Omittable
 
   sub_test_case(".new") do
     def test_valid
@@ -67,19 +68,36 @@ class TestRecordBatch < Test::Unit::TestCase
                                              columns)
     end
 
-    def test_equal
-      fields = [
-        Arrow::Field.new("visible", Arrow::BooleanDataType.new),
-        Arrow::Field.new("valid", Arrow::BooleanDataType.new),
-      ]
-      schema = Arrow::Schema.new(fields)
-      columns = [
-        build_boolean_array([true, false, true, false, true]),
-        build_boolean_array([false, true, false, true, false]),
-      ]
-      other_record_batch = Arrow::RecordBatch.new(schema, 5, columns)
-      assert_equal(@record_batch,
-                   other_record_batch)
+    sub_test_case("#equal") do
+      def setup
+        require_gi_bindings(3, 4, 2)
+
+        @fields = [
+          Arrow::Field.new("visible", Arrow::BooleanDataType.new),
+          Arrow::Field.new("valid", Arrow::BooleanDataType.new),
+        ]
+        @schema = Arrow::Schema.new(fields)
+        @columns = [
+          build_boolean_array([true, false, true, false, true]),
+          build_boolean_array([false, true, false, true, false]),
+        ]
+        @record_batch = Arrow::RecordBatch.new(@schema, 5, @columns)
+      end
+
+      def test_equal
+        other_record_batch = Arrow::RecordBatch.new(@schema, 5, @columns)
+        assert_equal(@record_batch, other_record_batch)
+      end
+
+      def test_equal_metadata
+        schema_with_meta = @schema.with_metadata("key" => "value")
+        other_record_batch = Arrow::RecordBatch.new(schema_with_meta, 5, @columns)
+
+        assert @record_batch.equal_metadata(other_record_batch, false)
+        assert do
+          not @record_batch.equal_metadata(other_record_batch, true)
+        end
+      end
     end
 
     def test_schema

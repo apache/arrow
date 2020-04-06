@@ -192,6 +192,27 @@ garrow_record_batch_equal(GArrowRecordBatch *record_batch,
 }
 
 /**
+ * garrow_record_batch_equal_metadata:
+ * @record_batch: A #GArrowRecordBatch.
+ * @other_record_batch: A #GArrowRecordBatch to be compared.
+ * @check_metadata: Whether to compare metadata.
+ *
+ * Returns: %TRUE if both of them have the same data, %FALSE
+ *   otherwise.
+ *
+ * Since: 0.17.0
+ */
+gboolean
+garrow_record_batch_equal_metadata(GArrowRecordBatch *record_batch,
+                                   GArrowRecordBatch *other_record_batch,
+                                   gboolean check_metadata)
+{
+  const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
+  const auto arrow_other_record_batch = garrow_record_batch_get_raw(other_record_batch);
+  return arrow_record_batch->Equals(*arrow_other_record_batch, check_metadata);
+}
+
+/**
  * garrow_record_batch_get_schema:
  * @record_batch: A #GArrowRecordBatch.
  *
@@ -215,7 +236,7 @@ garrow_record_batch_get_schema(GArrowRecordBatch *record_batch)
  * Returns: (transfer full) (nullable): The i-th column in the record batch
  *   on success, %NULL on out of index.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 GArrowArray *
 garrow_record_batch_get_column_data(GArrowRecordBatch *record_batch,

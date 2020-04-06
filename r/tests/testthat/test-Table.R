@@ -288,7 +288,7 @@ test_that("==.Table", {
 test_that("Table$Equals(check_metadata)", {
   tab1 <- Table$create(x = 1:2, y = c("a", "b"))
   tab2 <- Table$create(x = 1:2, y = c("a", "b"),
-    schema = tab1$schema$WithMetadata(list(some="metadata")))
+                       schema = tab1$schema$WithMetadata(list(some="metadata")))
 
   expect_is(tab1, "Table")
   expect_is(tab2, "Table")
@@ -296,12 +296,12 @@ test_that("Table$Equals(check_metadata)", {
   expect_true(tab2$schema$HasMetadata)
   expect_match(tab2$schema$metadata, "some: metadata", fixed = TRUE)
 
-  expect_false(tab1 == tab2)
-  expect_false(tab1$Equals(tab2))
-  expect_true(tab1$Equals(tab2, check_metadata = FALSE))
+  expect_true(tab1 == tab2)
+  expect_true(tab1$Equals(tab2))
+  expect_false(tab1$Equals(tab2, check_metadata = TRUE))
 
-  expect_failure(expect_equal(tab1, tab2)) # expect_equal does check_metadata
-  expect_equivalent(tab1, tab2)            # expect_equivalent does not
+  expect_failure(expect_equal(tab1, tab2))  # expect_equal has check_metadata=TRUE
+  expect_equivalent(tab1, tab2)  # expect_equivalent has check_metadata=FALSE
 
   expect_false(tab1$Equals(24)) # Not a Table
 })

@@ -337,3 +337,24 @@ test_that("RecordBatch$Equals", {
   expect_true(a$Equals(b))
   expect_false(a$Equals(df))
 })
+
+test_that("RecordBatch$Equals(check_metadata)", {
+  df <- tibble::tibble(x = 1:2, y = c("a", "b"))
+  rb1 <- record_batch(df)
+  rb2 <- record_batch(df, schema = rb1$schema$WithMetadata(list(some="metadata")))
+
+  expect_is(rb1, "RecordBatch")
+  expect_is(rb2, "RecordBatch")
+  expect_false(rb1$schema$HasMetadata)
+  expect_true(rb2$schema$HasMetadata)
+  expect_match(rb2$schema$metadata, "some: metadata", fixed = TRUE)
+
+  expect_true(rb1 == rb2)
+  expect_true(rb1$Equals(rb2))
+  expect_false(rb1$Equals(rb2, check_metadata = TRUE))
+
+  expect_failure(expect_equal(rb1, rb2))  # expect_equal has check_metadata=TRUE
+  expect_equivalent(rb1, rb2)  # expect_equivalent has check_metadata=FALSE
+
+  expect_false(rb1$Equals(24)) # Not a RecordBatch
+})

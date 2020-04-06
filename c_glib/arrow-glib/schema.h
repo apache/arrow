@@ -42,7 +42,7 @@ GArrowField     *garrow_schema_get_field        (GArrowSchema *schema,
                                                  guint i);
 GArrowField     *garrow_schema_get_field_by_name(GArrowSchema *schema,
                                                  const gchar *name);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_15
 gint             garrow_schema_get_field_index  (GArrowSchema *schema,
                                                  const gchar *name);
 
