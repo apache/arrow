@@ -40,7 +40,11 @@ The input \code{x}, invisibly. Note that if \code{sink} is an \link{OutputStream
 the stream will be left open.
 }
 \description{
-Write data in the Feather format
+Feather provides binary columnar serialization for data frames.
+It is designed to make reading and writing data frames efficient,
+and to make sharing data across data analysis languages easy.
+This function writes both the original, limited specification of the format
+and the version 2 specification, which is the Apache Arrow IPC file format.
 }
 \examples{
 \donttest{
@@ -48,4 +52,7 @@ tf <- tempfile()
 on.exit(unlink(tf))
 write_feather(mtcars, tf)
 }
+}
+\seealso{
+\link{RecordBatchWriter} for lower-level access to writing Arrow IPC data.
 }

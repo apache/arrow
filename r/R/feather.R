@@ -17,6 +17,12 @@
 
 #' Write data in the Feather format
 #'
+#' Feather provides binary columnar serialization for data frames.
+#' It is designed to make reading and writing data frames efficient,
+#' and to make sharing data across data analysis languages easy.
+#' This function writes both the original, limited specification of the format
+#' and the version 2 specification, which is the Apache Arrow IPC file format.
+#'
 #' @param x `data.frame`, [RecordBatch], or [Table]
 #' @param sink A string file path or [OutputStream]
 #' @param version integer Feather file version. Version 2 is the current.
@@ -36,6 +42,7 @@
 #' @return The input `x`, invisibly. Note that if `sink` is an [OutputStream],
 #' the stream will be left open.
 #' @export
+#' @seealso [RecordBatchWriter] for lower-level access to writing Arrow IPC data.
 #' @examples
 #' \donttest{
 #' tf <- tempfile()
@@ -109,15 +116,22 @@ write_feather <- function(x,
 
 #' Read a Feather file
 #'
+#' Feather provides binary columnar serialization for data frames.
+#' It is designed to make reading and writing data frames efficient,
+#' and to make sharing data across data analysis languages easy.
+#' This function reads both the original, limited specification of the format
+#' and the version 2 specification, which is the Apache Arrow IPC file format.
+#'
 #' @param file A character file path, a raw vector, or `InputStream`, passed to
 #' `FeatherReader$create()`.
 #' @inheritParams read_delim_arrow
-#' @param ... additional parameters
+#' @param ... additional parameters, passed to [FeatherReader$create()][FeatherReader]
 #'
 #' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
 #' Arrow [Table] otherwise
 #'
 #' @export
+#' @seealso [FeatherReader] and [RecordBatchReader] for lower-level access to reading Arrow IPC data.
 #' @examples
 #' \donttest{
 #' tf <- tempfile()
