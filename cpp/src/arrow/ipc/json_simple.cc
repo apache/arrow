@@ -867,8 +867,8 @@ Status DictArrayFromJSON(const std::shared_ptr<DataType>& type,
   RETURN_NOT_OK(
       ArrayFromJSON(dictionary_type.value_type(), dictionary_json, &dictionary));
 
-  return DictionaryArray::FromArrays(type, std::move(indices), std::move(dictionary),
-                                     out);
+  return DictionaryArray::FromArrays(type, std::move(indices), std::move(dictionary))
+      .Value(out);
 }
 
 }  // namespace json

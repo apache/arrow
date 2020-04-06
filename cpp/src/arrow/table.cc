@@ -132,39 +132,48 @@ std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset) const {
 
 Status ChunkedArray::Flatten(MemoryPool* pool,
                              std::vector<std::shared_ptr<ChunkedArray>>* out) const {
-  out->clear();
+  return Flatten(pool).Value(out);
+}
+
+Result<std::vector<std::shared_ptr<ChunkedArray>>> ChunkedArray::Flatten(
+    MemoryPool* pool) const {
   if (type()->id() != Type::STRUCT) {
     // Emulate nonexistent copy constructor
-    *out = {std::make_shared<ChunkedArray>(chunks_, type_)};
-    return Status::OK();
+    return std::vector<std::shared_ptr<ChunkedArray>>{
+        std::make_shared<ChunkedArray>(chunks_, type_)};
   }
 
   std::vector<ArrayVector> flattened_chunks(type()->num_children());
   for (const auto& chunk : chunks_) {
-    ArrayVector res;
-    RETURN_NOT_OK(checked_cast<const StructArray&>(*chunk).Flatten(pool, &res));
-    DCHECK_EQ(res.size(), flattened_chunks.size());
-    for (size_t i = 0; i < res.size(); ++i) {
-      flattened_chunks[i].push_back(res[i]);
+    ARROW_ASSIGN_OR_RAISE(auto arrays,
+                          checked_cast<const StructArray&>(*chunk).Flatten(pool));
+    DCHECK_EQ(arrays.size(), flattened_chunks.size());
+    for (size_t i = 0; i < arrays.size(); ++i) {
+      flattened_chunks[i].push_back(arrays[i]);
     }
   }
 
-  out->resize(type()->num_children());
-  for (size_t i = 0; i < out->size(); ++i) {
+  std::vector<std::shared_ptr<ChunkedArray>> flattened(type()->num_children());
+  for (size_t i = 0; i < flattened.size(); ++i) {
     auto child_type = type()->child(static_cast<int>(i))->type();
-    out->at(i) = std::make_shared<ChunkedArray>(flattened_chunks[i], child_type);
+    flattened[i] =
+        std::make_shared<ChunkedArray>(std::move(flattened_chunks[i]), child_type);
   }
-  return Status::OK();
+  return flattened;
+}
+
+Result<std::shared_ptr<ChunkedArray>> ChunkedArray::View(
+    const std::shared_ptr<DataType>& type) const {
+  ArrayVector out_chunks(this->num_chunks());
+  for (int i = 0; i < this->num_chunks(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(out_chunks[i], chunks_[i]->View(type));
+  }
+  return std::make_shared<ChunkedArray>(out_chunks, type);
 }
 
 Status ChunkedArray::View(const std::shared_ptr<DataType>& type,
                           std::shared_ptr<ChunkedArray>* out) const {
-  ArrayVector out_chunks(this->num_chunks());
-  for (int i = 0; i < this->num_chunks(); ++i) {
-    RETURN_NOT_OK(chunks_[i]->View(type, &out_chunks[i]));
-  }
-  *out = std::make_shared<ChunkedArray>(out_chunks, type);
-  return Status::OK();
+  return View(type).Value(out);
 }
 
 Status ChunkedArray::Validate() const {
@@ -360,9 +369,8 @@ class SimpleTable : public Table {
     std::vector<std::shared_ptr<Field>> flattened_fields;
     std::vector<std::shared_ptr<ChunkedArray>> flattened_columns;
     for (int i = 0; i < num_columns(); ++i) {
-      std::vector<std::shared_ptr<ChunkedArray>> new_columns;
       std::vector<std::shared_ptr<Field>> new_fields = field(i)->Flatten();
-      RETURN_NOT_OK(column(i)->Flatten(pool, &new_columns));
+      ARROW_ASSIGN_OR_RAISE(auto new_columns, column(i)->Flatten(pool));
       DCHECK_EQ(new_columns.size(), new_fields.size());
       for (size_t j = 0; j < new_columns.size(); ++j) {
         flattened_fields.push_back(new_fields[j]);
@@ -631,10 +639,9 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
   const int64_t num_rows = table->num_rows();
   auto AppendColumnOfNulls = [pool, &columns,
                               num_rows](const std::shared_ptr<DataType>& type) {
-    std::shared_ptr<Array> array_of_nulls;
     // TODO(bkietz): share the zero-filled buffers as much as possible across
     // the null-filled arrays created here.
-    RETURN_NOT_OK(MakeArrayOfNull(pool, type, num_rows, &array_of_nulls));
+    ARROW_ASSIGN_OR_RAISE(auto array_of_nulls, MakeArrayOfNull(type, num_rows, pool));
     columns.push_back(std::make_shared<ChunkedArray>(array_of_nulls));
     return Status::OK();
   };

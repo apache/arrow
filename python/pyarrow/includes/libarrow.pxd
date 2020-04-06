@@ -179,8 +179,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         CStatus Validate() const
         CStatus ValidateFull() const
-        CStatus View(const shared_ptr[CDataType]& type,
-                     shared_ptr[CArray]* out)
+        CResult[shared_ptr[CArray]] View(const shared_ptr[CDataType]& type)
 
     shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
 
@@ -198,10 +197,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                          const shared_ptr[CArray]& dictionary)
 
         @staticmethod
-        CStatus FromArrays(const shared_ptr[CDataType]& type,
-                           const shared_ptr[CArray]& indices,
-                           const shared_ptr[CArray]& dictionary,
-                           shared_ptr[CArray]* out)
+        CResult[shared_ptr[CArray]] FromArrays(
+            const shared_ptr[CDataType]& type,
+            const shared_ptr[CArray]& indices,
+            const shared_ptr[CArray]& dictionary)
 
         shared_ptr[CArray] indices()
         shared_ptr[CArray] dictionary()
@@ -502,8 +501,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CListArray" arrow::ListArray"(CArray):
         @staticmethod
-        CStatus FromArrays(const CArray& offsets, const CArray& values,
-                           CMemoryPool* pool, shared_ptr[CArray]* out)
+        CResult[shared_ptr[CArray]] FromArrays(
+            const CArray& offsets, const CArray& values, CMemoryPool* pool)
 
         const int32_t* raw_value_offsets()
         int32_t value_offset(int i)
@@ -514,8 +513,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CLargeListArray" arrow::LargeListArray"(CArray):
         @staticmethod
-        CStatus FromArrays(const CArray& offsets, const CArray& values,
-                           CMemoryPool* pool, shared_ptr[CArray]* out)
+        CResult[shared_ptr[CArray]] FromArrays(
+            const CArray& offsets, const CArray& values, CMemoryPool* pool)
 
         int64_t value_offset(int i)
         int64_t value_length(int i)
@@ -535,10 +534,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CMapArray" arrow::MapArray"(CArray):
         @staticmethod
-        CStatus FromArrays(const shared_ptr[CArray]& offsets,
-                           const shared_ptr[CArray]& keys,
-                           const shared_ptr[CArray]& items,
-                           CMemoryPool* pool, shared_ptr[CArray]* out)
+        CResult[shared_ptr[CArray]] FromArrays(
+            const shared_ptr[CArray]& offsets,
+            const shared_ptr[CArray]& keys,
+            const shared_ptr[CArray]& items,
+            CMemoryPool* pool)
 
         shared_ptr[CArray] keys()
         shared_ptr[CArray] items()
@@ -550,19 +550,20 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CUnionArray" arrow::UnionArray"(CArray):
         @staticmethod
-        CStatus MakeSparse(const CArray& type_codes,
-                           const vector[shared_ptr[CArray]]& children,
-                           const vector[c_string]& field_names,
-                           const vector[int8_t]& type_codes,
-                           shared_ptr[CArray]* out)
+        CResult[shared_ptr[CArray]] MakeSparse(
+            const CArray& type_codes,
+            const vector[shared_ptr[CArray]]& children,
+            const vector[c_string]& field_names,
+            const vector[int8_t]& type_codes)
 
         @staticmethod
-        CStatus MakeDense(const CArray& type_codes,
-                          const CArray& value_offsets,
-                          const vector[shared_ptr[CArray]]& children,
-                          const vector[c_string]& field_names,
-                          const vector[int8_t]& type_codes,
-                          shared_ptr[CArray]* out)
+        CResult[shared_ptr[CArray]] MakeDense(
+            const CArray& type_codes,
+            const CArray& value_offsets,
+            const vector[shared_ptr[CArray]]& children,
+            const vector[c_string]& field_names,
+            const vector[int8_t]& type_codes)
+
         int8_t* raw_type_codes()
         int32_t value_offset(int i)
         int child_id(int64_t index)
@@ -629,7 +630,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] field(int pos)
         shared_ptr[CArray] GetFieldByName(const c_string& name) const
 
-        CStatus Flatten(CMemoryPool* pool, vector[shared_ptr[CArray]]* out)
+        CResult[vector[shared_ptr[CArray]]] Flatten(CMemoryPool* pool)
 
     cdef cppclass CChunkedArray" arrow::ChunkedArray":
         CChunkedArray(const vector[shared_ptr[CArray]]& arrays)
@@ -645,8 +646,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CChunkedArray] Slice(int64_t offset, int64_t length) const
         shared_ptr[CChunkedArray] Slice(int64_t offset) const
 
-        CStatus Flatten(CMemoryPool* pool,
-                        vector[shared_ptr[CChunkedArray]]* out)
+        CResult[vector[shared_ptr[CChunkedArray]]] Flatten(CMemoryPool* pool)
 
         CStatus Validate() const
         CStatus ValidateFull() const

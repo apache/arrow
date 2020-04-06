@@ -239,9 +239,7 @@ TEST_F(TestExtensionType, IpcRoundtrip) {
 
   // Wrap type in a ListArray and ensure it also makes it
   auto offsets_arr = ArrayFromJSON(int32(), "[0, 0, 2, 4]");
-  std::shared_ptr<Array> list_arr;
-  ASSERT_OK(
-      ListArray::FromArrays(*offsets_arr, *ext_arr, default_memory_pool(), &list_arr));
+  ASSERT_OK_AND_ASSIGN(auto list_arr, ListArray::FromArrays(*offsets_arr, *ext_arr));
   batch = RecordBatch::Make(schema({field("f0", list(uuid()))}), 3, {list_arr});
   RoundtripBatch(batch, &read_batch);
   CompareBatch(*batch, *read_batch, false /* compare_metadata */);

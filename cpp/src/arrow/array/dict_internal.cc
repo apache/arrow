@@ -146,7 +146,9 @@ Status DictionaryUnifier::Make(MemoryPool* pool, std::shared_ptr<DataType> value
 // ----------------------------------------------------------------------
 // DictionaryArray transposition
 
-static bool IsTrivialTransposition(const int32_t* transpose_map,
+namespace {
+
+inline bool IsTrivialTransposition(const int32_t* transpose_map,
                                    int64_t input_dict_size) {
   for (int64_t i = 0; i < input_dict_size; ++i) {
     if (transpose_map[i] != i) {
@@ -157,23 +159,22 @@ static bool IsTrivialTransposition(const int32_t* transpose_map,
 }
 
 template <typename InType, typename OutType>
-static Status TransposeDictIndices(MemoryPool* pool, const ArrayData& in_data,
-                                   const int32_t* transpose_map,
-                                   const std::shared_ptr<ArrayData>& out_data,
-                                   std::shared_ptr<Array>* out) {
+Result<std::shared_ptr<Array>> TransposeDictIndices(
+    MemoryPool* pool, const ArrayData& in_data, const int32_t* transpose_map,
+    const std::shared_ptr<ArrayData>& out_data) {
   using in_c_type = typename InType::c_type;
   using out_c_type = typename OutType::c_type;
   internal::TransposeInts(in_data.GetValues<in_c_type>(1),
                           out_data->GetMutableValues<out_c_type>(1), in_data.length,
                           transpose_map);
-  *out = MakeArray(out_data);
-  return Status::OK();
+  return MakeArray(out_data);
 }
 
-Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                                  const std::shared_ptr<Array>& dictionary,
-                                  const int32_t* transpose_map,
-                                  std::shared_ptr<Array>* out) const {
+}  // namespace
+
+Result<std::shared_ptr<Array>> DictionaryArray::Transpose(
+    const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& dictionary,
+    const int32_t* transpose_map, MemoryPool* pool) const {
   if (type->id() != Type::DICTIONARY) {
     return Status::TypeError("Expected dictionary type");
   }
@@ -193,8 +194,7 @@ Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataTy
         ArrayData::Make(type, data_->length, {data_->buffers[0], data_->buffers[1]},
                         data_->null_count, data_->offset);
     out_data->dictionary = dictionary;
-    *out = MakeArray(out_data);
-    return Status::OK();
+    return MakeArray(out_data);
   }
 
   // Default path: compute a buffer of transposed indices.
@@ -215,10 +215,10 @@ Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataTy
       ArrayData::Make(type, data_->length, {null_bitmap, out_buffer}, data_->null_count);
   out_data->dictionary = dictionary;
 
-#define TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, OUT_INDEX_TYPE)    \
-  case OUT_INDEX_TYPE::type_id:                                 \
-    return TransposeDictIndices<IN_INDEX_TYPE, OUT_INDEX_TYPE>( \
-        pool, *data_, transpose_map, out_data, out);
+#define TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, OUT_INDEX_TYPE)                 \
+  case OUT_INDEX_TYPE::type_id:                                              \
+    return TransposeDictIndices<IN_INDEX_TYPE, OUT_INDEX_TYPE>(pool, *data_, \
+                                                               transpose_map, out_data);
 
 #define TRANSPOSE_IN_CASE(IN_INDEX_TYPE)                        \
   case IN_INDEX_TYPE::type_id:                                  \
@@ -241,6 +241,13 @@ Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataTy
   }
 #undef TRANSPOSE_IN_CASE
 #undef TRANSPOSE_IN_OUT_CASE
+}
+
+Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                                  const std::shared_ptr<Array>& dictionary,
+                                  const int32_t* transpose_map,
+                                  std::shared_ptr<Array>* out) const {
+  return Transpose(type, dictionary, transpose_map, pool).Value(out);
 }
 
 }  // namespace arrow

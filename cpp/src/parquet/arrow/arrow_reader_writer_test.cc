@@ -1155,8 +1155,8 @@ TEST_F(TestNullParquetIO, NullListColumn) {
     std::shared_ptr<Array> offsets_array, values_array, list_array;
     ::arrow::ArrayFromVector<::arrow::Int32Type, int32_t>(offsets, &offsets_array);
     values_array = std::make_shared<::arrow::NullArray>(offsets.back());
-    ASSERT_OK(::arrow::ListArray::FromArrays(*offsets_array, *values_array,
-                                             default_memory_pool(), &list_array));
+    ASSERT_OK_AND_ASSIGN(list_array,
+                         ::arrow::ListArray::FromArrays(*offsets_array, *values_array));
 
     std::shared_ptr<Table> table = MakeSimpleTable(list_array, false /* nullable */);
     this->ResetSink();
@@ -1183,8 +1183,7 @@ TEST_F(TestNullParquetIO, NullDictionaryColumn) {
   ASSERT_OK(::arrow::AllocateEmptyBitmap(::arrow::default_memory_pool(), SMALL_SIZE,
                                          &null_bitmap));
 
-  std::shared_ptr<Array> indices;
-  ASSERT_OK(MakeArrayOfNull(::arrow::int8(), SMALL_SIZE, &indices));
+  ASSERT_OK_AND_ASSIGN(auto indices, MakeArrayOfNull(::arrow::int8(), SMALL_SIZE));
   std::shared_ptr<::arrow::DictionaryType> dict_type =
       std::make_shared<::arrow::DictionaryType>(::arrow::int8(), ::arrow::null());
 
@@ -3113,11 +3112,11 @@ TEST(TestArrowWriteDictionaries, NestedSubfield) {
   auto indices = ::arrow::ArrayFromJSON(::arrow::int32(), "[0, 0, 0]");
   auto dict = ::arrow::ArrayFromJSON(::arrow::utf8(), "[\"foo\"]");
 
-  std::shared_ptr<Array> dict_values, values;
   auto dict_ty = ::arrow::dictionary(::arrow::int32(), ::arrow::utf8());
-  ASSERT_OK(::arrow::DictionaryArray::FromArrays(dict_ty, indices, dict, &dict_values));
-  ASSERT_OK(::arrow::ListArray::FromArrays(*offsets, *dict_values,
-                                           ::arrow::default_memory_pool(), &values));
+  ASSERT_OK_AND_ASSIGN(auto dict_values,
+                       ::arrow::DictionaryArray::FromArrays(dict_ty, indices, dict));
+  ASSERT_OK_AND_ASSIGN(auto values,
+                       ::arrow::ListArray::FromArrays(*offsets, *dict_values));
 
   auto dense_ty = ::arrow::list(::arrow::utf8());
   auto dense_values =

@@ -890,7 +890,7 @@ Status TransferDictionary(RecordReader* reader,
   DCHECK(dict_reader);
   *out = dict_reader->GetResult();
   if (!logical_value_type->Equals(*(*out)->type())) {
-    RETURN_NOT_OK((*out)->View(logical_value_type, out));
+    ARROW_ASSIGN_OR_RAISE(*out, (*out)->View(logical_value_type));
   }
   return Status::OK();
 }
@@ -907,7 +907,8 @@ Status TransferBinary(RecordReader* reader,
   auto chunks = binary_reader->GetBuilderChunks();
   for (const auto& chunk : chunks) {
     if (!chunk->type()->Equals(*logical_value_type)) {
-      return ChunkedArray(chunks).View(logical_value_type, out);
+      ARROW_ASSIGN_OR_RAISE(*out, ChunkedArray(chunks).View(logical_value_type));
+      return Status::OK();
     }
   }
   *out = std::make_shared<ChunkedArray>(chunks, logical_value_type);

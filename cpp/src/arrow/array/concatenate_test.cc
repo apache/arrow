@@ -171,7 +171,7 @@ TEST_F(ConcatenateTest, ListType) {
     offsets_vector.back() = static_cast<int32_t>(values_size);
     std::shared_ptr<Array> offsets;
     ArrayFromVector<Int32Type>(offsets_vector, &offsets);
-    ASSERT_OK(ListArray::FromArrays(*offsets, *values, default_memory_pool(), out));
+    ASSERT_OK_AND_ASSIGN(*out, ListArray::FromArrays(*offsets, *values));
     ASSERT_OK((**out).ValidateFull());
   });
 }
@@ -186,7 +186,7 @@ TEST_F(ConcatenateTest, LargeListType) {
     offsets_vector.back() = static_cast<int64_t>(values_size);
     std::shared_ptr<Array> offsets;
     ArrayFromVector<Int64Type>(offsets_vector, &offsets);
-    ASSERT_OK(LargeListArray::FromArrays(*offsets, *values, default_memory_pool(), out));
+    ASSERT_OK_AND_ASSIGN(*out, LargeListArray::FromArrays(*offsets, *values));
     ASSERT_OK((**out).ValidateFull());
   });
 }
@@ -218,7 +218,7 @@ TEST_F(ConcatenateTest, DISABLED_UnionType) {
     auto bar = this->GeneratePrimitive<DoubleType>(size, null_probability);
     auto baz = this->GeneratePrimitive<BooleanType>(size, null_probability);
     auto type_ids = rng_.Numeric<Int8Type>(size, 0, 2, null_probability);
-    ASSERT_OK(UnionArray::MakeSparse(*type_ids, {foo, bar, baz}, out));
+    ASSERT_OK_AND_ASSIGN(*out, UnionArray::MakeSparse(*type_ids, {foo, bar, baz}));
   });
   // dense mode
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
@@ -227,7 +227,8 @@ TEST_F(ConcatenateTest, DISABLED_UnionType) {
     auto baz = this->GeneratePrimitive<BooleanType>(size, null_probability);
     auto type_ids = rng_.Numeric<Int8Type>(size, 0, 2, null_probability);
     auto value_offsets = rng_.Numeric<Int32Type>(size, 0, size, 0);
-    ASSERT_OK(UnionArray::MakeDense(*type_ids, *value_offsets, {foo, bar, baz}, out));
+    ASSERT_OK_AND_ASSIGN(
+        *out, UnionArray::MakeDense(*type_ids, *value_offsets, {foo, bar, baz}));
   });
 }
 

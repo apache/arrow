@@ -209,10 +209,9 @@ class TestListArray : public TestBuilder {
 
     auto list_type = std::make_shared<T>(int8());
 
-    std::shared_ptr<Array> list1, list3, list4;
-    ASSERT_OK(ArrayType::FromArrays(*offsets1, *values, pool_, &list1));
-    ASSERT_OK(ArrayType::FromArrays(*offsets3, *values, pool_, &list3));
-    ASSERT_OK(ArrayType::FromArrays(*offsets4, *values, pool_, &list4));
+    ASSERT_OK_AND_ASSIGN(auto list1, ArrayType::FromArrays(*offsets1, *values, pool_));
+    ASSERT_OK_AND_ASSIGN(auto list3, ArrayType::FromArrays(*offsets3, *values, pool_));
+    ASSERT_OK_AND_ASSIGN(auto list4, ArrayType::FromArrays(*offsets4, *values, pool_));
     ASSERT_OK(list1->ValidateFull());
     ASSERT_OK(list3->ValidateFull());
     ASSERT_OK(list4->ValidateFull());
@@ -238,11 +237,10 @@ class TestListArray : public TestBuilder {
     std::shared_ptr<Array> tmp;
 
     // Zero-length offsets
-    ASSERT_RAISES(Invalid,
-                  ArrayType::FromArrays(*offsets1->Slice(0, 0), *values, pool_, &tmp));
+    ASSERT_RAISES(Invalid, ArrayType::FromArrays(*offsets1->Slice(0, 0), *values, pool_));
 
     // Offsets not the right type
-    ASSERT_RAISES(TypeError, ArrayType::FromArrays(*values, *offsets1, pool_, &tmp));
+    ASSERT_RAISES(TypeError, ArrayType::FromArrays(*values, *offsets1, pool_));
   }
 
   void TestAppendNull() {
@@ -669,10 +667,9 @@ TEST_F(TestMapArray, FromArrays) {
 
   auto map_type = map(int8(), int16());
 
-  std::shared_ptr<Array> map1, map3, map4;
-  ASSERT_OK(MapArray::FromArrays(offsets1, keys, items, pool_, &map1));
-  ASSERT_OK(MapArray::FromArrays(offsets3, keys, items, pool_, &map3));
-  ASSERT_OK(MapArray::FromArrays(offsets4, keys, items, pool_, &map4));
+  ASSERT_OK_AND_ASSIGN(auto map1, MapArray::FromArrays(offsets1, keys, items, pool_));
+  ASSERT_OK_AND_ASSIGN(auto map3, MapArray::FromArrays(offsets3, keys, items, pool_));
+  ASSERT_OK_AND_ASSIGN(auto map4, MapArray::FromArrays(offsets4, keys, items, pool_));
   ASSERT_OK(map1->Validate());
   ASSERT_OK(map3->Validate());
   ASSERT_OK(map4->Validate());
@@ -698,22 +695,20 @@ TEST_F(TestMapArray, FromArrays) {
   std::shared_ptr<Array> tmp;
 
   // Zero-length offsets
-  ASSERT_RAISES(Invalid,
-                MapArray::FromArrays(offsets1->Slice(0, 0), keys, items, pool_, &tmp));
+  ASSERT_RAISES(Invalid, MapArray::FromArrays(offsets1->Slice(0, 0), keys, items, pool_));
 
   // Offsets not the right type
-  ASSERT_RAISES(TypeError, MapArray::FromArrays(keys, offsets1, items, pool_, &tmp));
+  ASSERT_RAISES(TypeError, MapArray::FromArrays(keys, offsets1, items, pool_));
 
   // Keys and Items different lengths
-  ASSERT_RAISES(Invalid,
-                MapArray::FromArrays(offsets1, keys->Slice(0, 1), items, pool_, &tmp));
+  ASSERT_RAISES(Invalid, MapArray::FromArrays(offsets1, keys->Slice(0, 1), items, pool_));
 
   // Keys contains null values
   std::shared_ptr<Array> keys_with_null = offsets3;
   std::shared_ptr<Array> tmp_items = items->Slice(0, offsets3->length());
   ASSERT_EQ(keys_with_null->length(), tmp_items->length());
   ASSERT_RAISES(Invalid,
-                MapArray::FromArrays(offsets1, keys_with_null, tmp_items, pool_, &tmp));
+                MapArray::FromArrays(offsets1, keys_with_null, tmp_items, pool_));
 }
 
 namespace {

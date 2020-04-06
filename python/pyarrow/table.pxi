@@ -289,7 +289,7 @@ cdef class ChunkedArray(_PandasConvertible):
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
 
         with nogil:
-            check_status(self.chunked_array.Flatten(pool, &flattened))
+            flattened = GetResultValue(self.chunked_array.Flatten(pool))
 
         return [pyarrow_wrap_chunked_array(col) for col in flattened]
 

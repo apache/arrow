@@ -547,10 +547,9 @@ garrow_array_view(GArrowArray *array,
 {
   auto arrow_array_raw = garrow_array_get_raw(array);
   auto arrow_return_type = garrow_data_type_get_raw(return_type);
-  std::shared_ptr<arrow::Array> arrow_array;
-  auto status = arrow_array_raw->View(arrow_return_type, &arrow_array);
-  if (garrow_error_check(error, status, "[array][view]")) {
-    return garrow_array_new_raw(&arrow_array);
+  auto arrow_array = arrow_array_raw->View(arrow_return_type);
+  if (garrow::check(error, arrow_array, "[array][view]")) {
+    return garrow_array_new_raw(&(*arrow_array));
   } else {
     return NULL;
   }

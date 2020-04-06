@@ -699,7 +699,7 @@ TEST_F(TestArrayExport, ListSliced) {
     auto factory = [](std::shared_ptr<Array>* out) -> Status {
       auto values = ArrayFromJSON(int16(), "[1, 2, 3, 4, null, 5, 6, 7, 8]")->Slice(1, 6);
       auto offsets = ArrayFromJSON(int32(), "[0, 2, 3, 5, 6]")->Slice(2, 4);
-      return ListArray::FromArrays(*offsets, *values, default_memory_pool(), out);
+      return ListArray::FromArrays(*offsets, *values).Value(out);
     };
     TestNested(factory);
   }
@@ -737,7 +737,7 @@ TEST_F(TestArrayExport, Dictionary) {
       auto values = ArrayFromJSON(utf8(), R"(["foo", "bar", "quux"])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       return DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
-                                         indices, values, out);
+                                         indices, values).Value(out);
     };
     TestNested(factory);
   }
@@ -746,8 +746,8 @@ TEST_F(TestArrayExport, Dictionary) {
       auto values = ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       return DictionaryArray::FromArrays(
-          dictionary(indices->type(), values->type(), /*ordered=*/true), indices, values,
-          out);
+          dictionary(indices->type(), values->type(), /*ordered=*/true),
+          indices, values).Value(out);
     };
     TestNested(factory);
   }
@@ -755,12 +755,13 @@ TEST_F(TestArrayExport, Dictionary) {
     auto factory = [](std::shared_ptr<Array>* out) -> Status {
       auto values = ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
-      std::shared_ptr<Array> dict_array;
-      RETURN_NOT_OK(DictionaryArray::FromArrays(
-          dictionary(indices->type(), values->type()), indices, values, &dict_array));
+      ARROW_ASSIGN_OR_RAISE(
+          auto dict_array,
+          DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
+                                      indices, values));
       auto offsets = ArrayFromJSON(int64(), "[0, 2, 5]");
       RETURN_NOT_OK(
-          LargeListArray::FromArrays(*offsets, *dict_array, default_memory_pool(), out));
+          LargeListArray::FromArrays(*offsets, *dict_array).Value(out));
       return (*out)->ValidateFull();
     };
     TestNested(factory);
@@ -786,7 +787,7 @@ TEST_F(TestArrayExport, MoveDictionary) {
       auto values = ArrayFromJSON(utf8(), R"(["foo", "bar", "quux"])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       return DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
-                                         indices, values, out);
+                                         indices, values).Value(out);
     };
     TestMoveNested(factory);
   }
@@ -794,12 +795,13 @@ TEST_F(TestArrayExport, MoveDictionary) {
     auto factory = [](std::shared_ptr<Array>* out) -> Status {
       auto values = ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
-      std::shared_ptr<Array> dict_array;
-      RETURN_NOT_OK(DictionaryArray::FromArrays(
-          dictionary(indices->type(), values->type()), indices, values, &dict_array));
+      ARROW_ASSIGN_OR_RAISE(
+          auto dict_array,
+          DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
+                                      indices, values));
       auto offsets = ArrayFromJSON(int64(), "[0, 2, 5]");
       RETURN_NOT_OK(
-          LargeListArray::FromArrays(*offsets, *dict_array, default_memory_pool(), out));
+          LargeListArray::FromArrays(*offsets, *dict_array).Value(out));
       return (*out)->ValidateFull();
     };
     TestMoveNested(factory);
@@ -820,12 +822,13 @@ TEST_F(TestArrayExport, MoveChild) {
     auto factory = [](std::shared_ptr<Array>* out) -> Status {
       auto values = ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
-      std::shared_ptr<Array> dict_array;
-      RETURN_NOT_OK(DictionaryArray::FromArrays(
-          dictionary(indices->type(), values->type()), indices, values, &dict_array));
+      ARROW_ASSIGN_OR_RAISE(
+          auto dict_array,
+          DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
+                                      indices, values));
       auto offsets = ArrayFromJSON(int64(), "[0, 2, 5]");
       RETURN_NOT_OK(
-          LargeListArray::FromArrays(*offsets, *dict_array, default_memory_pool(), out));
+          LargeListArray::FromArrays(*offsets, *dict_array).Value(out));
       return (*out)->ValidateFull();
     };
     TestMoveChild(factory, /*child_id=*/0);
@@ -1965,17 +1968,19 @@ TEST_F(TestArrayImport, Dictionary) {
 
   auto dict_values = ArrayFromJSON(utf8(), R"(["foo", "", "bar", "quux"])");
   auto indices = ArrayFromJSON(int8(), "[1, 2, 0, 1, 3, 0]");
-  std::shared_ptr<Array> expected;
-  ASSERT_OK(DictionaryArray::FromArrays(dictionary(int8(), utf8()), indices, dict_values,
-                                        &expected));
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       DictionaryArray::FromArrays(dictionary(int8(), utf8()),
+                                                   indices, dict_values));
   CheckImport(expected);
 
   FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
   FillPrimitive(6, 0, 0, primitive_buffers_no_nulls4);
   FillDictionary();
 
-  ASSERT_OK(DictionaryArray::FromArrays(dictionary(int8(), utf8(), /*ordered=*/true),
-                                        indices, dict_values, &expected));
+  ASSERT_OK_AND_ASSIGN(
+      expected,
+      DictionaryArray::FromArrays(dictionary(int8(), utf8(), /*ordered=*/true),
+                                  indices, dict_values));
   CheckImport(expected);
 }
 
@@ -1987,9 +1992,9 @@ TEST_F(TestArrayImport, NestedDictionary) {
 
   auto dict_values = ArrayFromJSON(list(int8()), "[[1, 2], [], [3, 4, 5], [6]]");
   auto indices = ArrayFromJSON(int8(), "[1, 2, 0, 1, 3, 0]");
-  std::shared_ptr<Array> expected;
-  ASSERT_OK(DictionaryArray::FromArrays(dictionary(int8(), list(int8())),
-                                        indices, dict_values, &expected));
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       DictionaryArray::FromArrays(dictionary(int8(), list(int8())),
+                                                   indices, dict_values));
   CheckImport(expected);
 
   FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
@@ -1999,12 +2004,12 @@ TEST_F(TestArrayImport, NestedDictionary) {
 
   dict_values = ArrayFromJSON(utf8(), R"(["foo", "", "bar", "quux"])");
   indices = ArrayFromJSON(int8(), "[1, 2, 0, 1, 3, 0]");
-  std::shared_ptr<Array> dict_array;
-  ASSERT_OK(DictionaryArray::FromArrays(dictionary(int8(), utf8()), indices, dict_values,
-                                        &dict_array));
+  ASSERT_OK_AND_ASSIGN(auto dict_array,
+                       DictionaryArray::FromArrays(dictionary(int8(), utf8()),
+                                                   indices, dict_values));
   auto offsets = ArrayFromJSON(int32(), "[0, 2, 2, 5]");
-  ASSERT_OK(ListArray::FromArrays(*offsets, *dict_array, default_memory_pool(),
-                                  &expected));
+  ASSERT_OK_AND_ASSIGN(expected,
+                       ListArray::FromArrays(*offsets, *dict_array));
   CheckImport(expected);
 }
 
@@ -2015,9 +2020,9 @@ TEST_F(TestArrayImport, DictionaryWithOffset) {
 
   auto dict_values = ArrayFromJSON(utf8(), R"(["", "bar", "quux"])");
   auto indices = ArrayFromJSON(int8(), "[1, 2, 0]");
-  std::shared_ptr<Array> expected;
-  ASSERT_OK(DictionaryArray::FromArrays(dictionary(int8(), utf8()), indices, dict_values,
-                                        &expected));
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       DictionaryArray::FromArrays(dictionary(int8(), utf8()),
+                                                   indices, dict_values));
   CheckImport(expected);
 
   FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
@@ -2026,8 +2031,9 @@ TEST_F(TestArrayImport, DictionaryWithOffset) {
 
   dict_values = ArrayFromJSON(utf8(), R"(["foo", "", "bar", "quux"])");
   indices = ArrayFromJSON(int8(), "[0, 1, 3, 0]");
-  ASSERT_OK(DictionaryArray::FromArrays(dictionary(int8(), utf8()), indices, dict_values,
-                                        &expected));
+  ASSERT_OK_AND_ASSIGN(expected,
+                       DictionaryArray::FromArrays(dictionary(int8(), utf8()),
+                                                   indices, dict_values));
   CheckImport(expected);
 }
 
@@ -2502,7 +2508,7 @@ TEST_F(TestArrayRoundtrip, Dictionary) {
       auto values = ArrayFromJSON(utf8(), R"(["foo", "bar", "quux"])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       return DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
-                                         indices, values, out);
+                                         indices, values).Value(out);
     };
     TestWithArrayFactory(factory);
     TestWithArrayFactory(SlicedArrayFactory(factory));
@@ -2512,8 +2518,8 @@ TEST_F(TestArrayRoundtrip, Dictionary) {
       auto values = ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       return DictionaryArray::FromArrays(
-          dictionary(indices->type(), values->type(), /*ordered=*/true), indices, values,
-          out);
+          dictionary(indices->type(), values->type(), /*ordered=*/true),
+          indices, values).Value(out);
     };
     TestWithArrayFactory(factory);
     TestWithArrayFactory(SlicedArrayFactory(factory));

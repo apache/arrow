@@ -715,7 +715,7 @@ cdef class Array(_PandasConvertible):
         cdef DataType type = ensure_type(target_type)
         cdef shared_ptr[CArray] result
         with nogil:
-            check_status(self.ap.View(type.sp_type, &result))
+            result = GetResultValue(self.ap.View(type.sp_type))
         return pyarrow_wrap_array(result)
 
     def sum(self):
@@ -1462,8 +1462,8 @@ cdef class ListArray(Array):
         _values = asarray(values)
 
         with nogil:
-            check_status(CListArray.FromArrays(_offsets.ap[0], _values.ap[0],
-                                               cpool, &out))
+            out = GetResultValue(
+                CListArray.FromArrays(_offsets.ap[0], _values.ap[0], cpool))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -1544,9 +1544,9 @@ cdef class LargeListArray(Array):
         _values = asarray(values)
 
         with nogil:
-            check_status(CLargeListArray.FromArrays(_offsets.ap[0],
-                                                    _values.ap[0],
-                                                    cpool, &out))
+            out = GetResultValue(
+                CLargeListArray.FromArrays(_offsets.ap[0], _values.ap[0],
+                                           cpool))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -1627,9 +1627,10 @@ cdef class MapArray(Array):
         _items = asarray(items)
 
         with nogil:
-            check_status(CMapArray.FromArrays(_offsets.sp_array,
-                                              _keys.sp_array, _items.sp_array,
-                                              cpool, &out))
+            out = GetResultValue(
+                CMapArray.FromArrays(_offsets.sp_array,
+                                     _keys.sp_array,
+                                     _items.sp_array, cpool))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -1730,9 +1731,9 @@ cdef class UnionArray(Array):
             for x in type_codes:
                 c_type_codes.push_back(x)
         with nogil:
-            check_status(CUnionArray.MakeDense(
+            out = GetResultValue(CUnionArray.MakeDense(
                 deref(types.ap), deref(value_offsets.ap), c, c_field_names,
-                c_type_codes, &out))
+                c_type_codes))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -1769,10 +1770,8 @@ cdef class UnionArray(Array):
             for x in type_codes:
                 c_type_codes.push_back(x)
         with nogil:
-            check_status(CUnionArray.MakeSparse(deref(types.ap), c,
-                                                c_field_names,
-                                                c_type_codes,
-                                                &out))
+            out = GetResultValue(CUnionArray.MakeSparse(
+                deref(types.ap), c, c_field_names, c_type_codes))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -1942,10 +1941,9 @@ cdef class DictionaryArray(Array):
 
         if safe:
             with nogil:
-                check_status(
+                c_result = GetResultValue(
                     CDictionaryArray.FromArrays(c_type, _indices.sp_array,
-                                                _dictionary.sp_array,
-                                                &c_result))
+                                                _dictionary.sp_array))
         else:
             c_result.reset(new CDictionaryArray(c_type, _indices.sp_array,
                                                 _dictionary.sp_array))
@@ -2008,7 +2006,7 @@ cdef class StructArray(Array):
             CStructArray* sarr = <CStructArray*> self.ap
 
         with nogil:
-            check_status(sarr.Flatten(pool, &arrays))
+            arrays = GetResultValue(sarr.Flatten(pool))
 
         return [pyarrow_wrap_array(arr) for arr in arrays]
 
