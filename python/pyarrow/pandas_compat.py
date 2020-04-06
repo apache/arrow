@@ -17,6 +17,7 @@
 
 
 import ast
+from copy import deepcopy
 from itertools import zip_longest
 import json
 import operator
@@ -590,7 +591,8 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
     pandas_metadata = construct_metadata(df, column_names, index_columns,
                                          index_descriptors, preserve_index,
                                          types)
-    metadata = pa.KeyValueMetadata(schema.metadata or {}, **pandas_metadata)
+    metadata = deepcopy(schema.metadata) if schema.metadata else dict()
+    metadata.update(pandas_metadata)
     schema = schema.with_metadata(metadata)
 
     return arrays, schema
