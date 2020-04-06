@@ -27,6 +27,7 @@ use arrow::record_batch::RecordBatch;
 
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
+use datafusion::execution::physical_plan::udf::ScalarFunction;
 use datafusion::logicalplan::LogicalPlan;
 
 const DEFAULT_BATCH_SIZE: usize = 1024 * 1024;
@@ -142,6 +143,49 @@ fn csv_query_group_by_int_min_max() {
     actual.sort();
     let expected = "1\t0.05636955101974106\t0.9965400387585364\n2\t0.16301110515739792\t0.991517828651004\n3\t0.047343434291126085\t0.9293883502480845\n4\t0.02182578039211991\t0.9237877978193884\n5\t0.01479305307777301\t0.9723580396501548".to_string();
     assert_eq!(expected, actual.join("\n"));
+}
+
+#[test]
+fn csv_query_avg_sqrt() -> Result<()> {
+    let mut ctx = create_ctx()?;
+    register_aggregate_csv(&mut ctx);
+    let sql = "SELECT avg(custom_sqrt(c12)) FROM aggregate_test_100";
+    let mut actual = execute(&mut ctx, sql);
+    actual.sort();
+    let expected = "0.6706002946036462".to_string();
+    assert_eq!(actual.join("\n"), expected);
+    Ok(())
+}
+
+fn create_ctx() -> Result<ExecutionContext> {
+    let mut ctx = ExecutionContext::new();
+
+    // register a custom UDF
+    ctx.register_udf(ScalarFunction::new(
+        "custom_sqrt",
+        vec![Field::new("n", DataType::Float64, true)],
+        DataType::Float64,
+        custom_sqrt,
+    ));
+
+    Ok(ctx)
+}
+
+fn custom_sqrt(args: &Vec<ArrayRef>) -> Result<ArrayRef> {
+    let input = &args[0]
+        .as_any()
+        .downcast_ref::<Float64Array>()
+        .expect("cast failed");
+
+    let mut builder = Float64Builder::new(input.len());
+    for i in 0..input.len() {
+        if input.is_null(i) {
+            builder.append_null()?;
+        } else {
+            builder.append_value(input.value(i).sqrt())?;
+        }
+    }
+    Ok(Arc::new(builder.finish()))
 }
 
 #[test]
