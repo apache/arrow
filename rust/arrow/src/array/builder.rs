@@ -73,11 +73,13 @@ pub struct BufferBuilder<T: ArrowPrimitiveType> {
 /// This trait is used mainly to offer separate implementations for
 /// numeric types and boolean types, while still be able to call methods on buffer builder
 /// with generic primitive type.
+/// Seperate implementations of this trait allow to add implementation-details,
+/// e.g. the implementation for boolean types uses bit-packing.
 pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
     /// Creates a new builder with initial capacity for _at least_ `capacity`
     /// elements of type `T`.
     ///
-    /// The capactity can later be manually adjusted with the
+    /// The capacity can later be manually adjusted with the
     /// [`reserve()`](BufferBuilderTrait::reserve) method.
     /// Also the
     /// [`append()`](BufferBuilderTrait::append),

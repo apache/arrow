@@ -69,7 +69,7 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     ///     .column(0)
     ///     .as_any()
     ///     .downcast_ref::<Int32Array>()
-    ///     .unwrap();
+    ///     .expect("Failed to downcast");
     /// # Ok(())
     /// # }
     /// ```
@@ -129,7 +129,8 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
         self.data().len()
     }
 
-    /// Returns the offset of this array(-slice) within another array's data.
+    /// Returns the offset into the underlying data used by this array(-slice).
+    /// Note that the underlying data can be shared by many arrays.
     /// This defaults to `0`.
     ///
     /// # Example:
