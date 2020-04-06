@@ -91,6 +91,8 @@ NodePtr TreeExprBuilder::MakeNull(DataTypePtr data_type) {
     case arrow::Type::STRING:
     case arrow::Type::BINARY:
       return std::make_shared<LiteralNode>(data_type, LiteralHolder(empty), true);
+    case arrow::Type::DATE32:
+      return std::make_shared<LiteralNode>(data_type, LiteralHolder((int32_t)0), true);
     case arrow::Type::DATE64:
       return std::make_shared<LiteralNode>(data_type, LiteralHolder((int64_t)0), true);
     case arrow::Type::TIME32:

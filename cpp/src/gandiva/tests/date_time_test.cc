@@ -26,10 +26,12 @@
 namespace gandiva {
 
 using arrow::boolean;
+using arrow::date32;
 using arrow::date64;
 using arrow::float32;
 using arrow::int32;
 using arrow::int64;
+using arrow::timestamp;
 
 class TestProjector : public ::testing::Test {
  public:
@@ -128,6 +130,42 @@ TEST_F(TestProjector, TestIsNull) {
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_isnull, outputs.at(0));
   EXPECT_ARROW_ARRAY_EQUALS(exp_isnotnull, outputs.at(1));
+}
+
+TEST_F(TestProjector, TestDate32IsNull) {
+  auto d0 = field("d0", date32());
+  auto schema = arrow::schema({d0});
+
+  // output fields
+  auto b0 = field("isnull", boolean());
+
+  // isnull and isnotnull
+  auto isnull_expr = TreeExprBuilder::MakeExpression("isnull", {d0}, b0);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {isnull_expr}, TestConfiguration(), &projector);
+  ASSERT_TRUE(status.ok());
+
+  int num_records = 4;
+  std::vector<int32_t> d0_data = {0, 100, 0, 1000};
+  auto validity = {false, true, false, true};
+  auto d0_array =
+      MakeArrowTypeArray<arrow::Date32Type, int32_t>(date32(), d0_data, validity);
+
+  // expected output
+  auto exp_isnull =
+      MakeArrowArrayBool({true, false, true, false}, {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {d0_array});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_isnull, outputs.at(0));
 }
 
 TEST_F(TestProjector, TestDateTime) {

@@ -692,6 +692,10 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
       break;
     }
 
+    case arrow::Type::DATE32:
+      value = types->i32_constant(arrow::util::get<int32_t>(dex.holder()));
+      break;
+
     case arrow::Type::DATE64:
       value = types->i64_constant(arrow::util::get<int64_t>(dex.holder()));
       break;
