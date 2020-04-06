@@ -55,7 +55,7 @@ call conda install -y ^
      --file=ci\conda_env_python.yml ^
      -c conda-forge || exit /B 1
 
-set GENERATOR=Visual Studio 14 2015 Win64
+set GENERATOR=Visual Studio 15 2017 Win64
 set CONFIGURATION=release
 
 pushd %ARROW_SOURCE%
