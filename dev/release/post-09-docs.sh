@@ -30,6 +30,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 version=$1
+release_tag="apache-arrow-${version}"
 branch_name=release-docs-${version}
 
 pushd "${ARROW_SITE_DIR}"
@@ -39,6 +40,8 @@ rm -rf docs/*
 popd
 
 pushd "${ARROW_DIR}"
+git checkout "${version_tag}"
+
 docker-compose build ubuntu-cpp
 docker-compose build ubuntu-python
 docker-compose build ubuntu-docs
