@@ -1045,15 +1045,15 @@ int PlainDecoder<DType>::DecodeArrow(
 template <typename T>
 inline int DecodePlain(const uint8_t* data, int64_t data_size, int num_values,
                        int type_length, T* out) {
-  int bytes_to_decode = num_values * static_cast<int>(sizeof(T));
-  if (data_size < bytes_to_decode) {
+  int64_t bytes_to_decode = num_values * static_cast<int64_t>(sizeof(T));
+  if (bytes_to_decode > data_size || bytes_to_decode > INT_MAX) {
     ParquetException::EofException();
   }
   // If bytes_to_decode == 0, data could be null
   if (bytes_to_decode > 0) {
     memcpy(out, data, bytes_to_decode);
   }
-  return bytes_to_decode;
+  return static_cast<int>(bytes_to_decode);
 }
 
 template <typename DType>
@@ -1108,8 +1108,8 @@ template <>
 inline int DecodePlain<FixedLenByteArray>(const uint8_t* data, int64_t data_size,
                                           int num_values, int type_length,
                                           FixedLenByteArray* out) {
-  int bytes_to_decode = type_length * num_values;
-  if (data_size < bytes_to_decode) {
+  int64_t bytes_to_decode = static_cast<int64_t>(type_length) * num_values;
+  if (bytes_to_decode > data_size || bytes_to_decode > INT_MAX) {
     ParquetException::EofException();
   }
   for (int i = 0; i < num_values; ++i) {
@@ -1117,7 +1117,7 @@ inline int DecodePlain<FixedLenByteArray>(const uint8_t* data, int64_t data_size
     data += type_length;
     data_size -= type_length;
   }
-  return bytes_to_decode;
+  return static_cast<int>(bytes_to_decode);
 }
 
 template <typename DType>
