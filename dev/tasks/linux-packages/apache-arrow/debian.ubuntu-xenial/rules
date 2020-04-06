@@ -76,6 +76,13 @@ override_dh_auto_install:
 	dh_auto_install				\
 	  --sourcedirectory=c_glib		\
 	  --builddirectory=c_glib_build
+	# Remove built files to reduce disk usage
+	dh_auto_clean				\
+	  --sourcedirectory=cpp			\
+	  --builddirectory=cpp_build
+	dh_auto_clean				\
+	  --sourcedirectory=c_glib		\
+	  --builddirectory=c_glib_build
 
 # disable 'make check'.
 override_dh_auto_test:
