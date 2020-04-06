@@ -24,12 +24,12 @@
 #include <unordered_map>
 #include <vector>
 
-#include "arrow/timestamp_converter.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class DataType;
+class TimestampConverter;
 
 namespace csv {
 

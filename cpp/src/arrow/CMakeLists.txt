@@ -143,7 +143,6 @@ set(ARROW_SRCS
     record_batch.cc
     result.cc
     scalar.cc
-    timestamp_converter.cc
     sparse_tensor.cc
     status.cc
     table.cc
@@ -186,6 +185,7 @@ set(ARROW_SRCS
     util/task_group.cc
     util/thread_pool.cc
     util/time.cc
+    util/timestamp_converter.cc
     util/trie.cc
     util/uri.cc
     util/utf8.cc
