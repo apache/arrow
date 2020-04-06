@@ -19,6 +19,7 @@
 #include <memory>
 
 #include "arrow/type.h"
+#include "arrow/util/parsing.h"
 
 namespace arrow {
 class TimestampConverter {
@@ -28,14 +29,38 @@ class TimestampConverter {
                           size_t length, value_type* out) const = 0;
 };
 
-class FormattedTimestampConverter : public TimestampConverter {
+class StrptimeTimestampParser : public TimestampConverter {
  private:
   std::string format_;
 
  public:
-  explicit FormattedTimestampConverter(const std::string& format);
+  explicit StrptimeTimestampParser(const std::string& format);
   bool operator()(const std::shared_ptr<DataType>& type, const char* s, size_t length,
                   value_type* out) const override;
   static std::unique_ptr<TimestampConverter> Make(const std::string& format);
 };
+
+class ISO8601Parser : public TimestampConverter {
+  public:
+  explicit ISO8601Parser(const std::shared_ptr<DataType>& type)
+      : unit_(internal::checked_cast<TimestampType*>(type.get())->unit()) {}
+
+  bool operator()(const std::shared_ptr<DataType>& type, const char* s, size_t length,
+                  value_type* out) const override;
+
+ protected:
+  template <class TimePoint>
+  bool ConvertTimePoint(TimePoint tp, value_type* out) const;
+
+  bool ParseYYYY_MM_DD(const char* s, arrow_vendored::date::year_month_day* out) const;
+
+  bool ParseHH(const char* s, std::chrono::duration<value_type>* out) const;
+
+  bool ParseHH_MM(const char* s, std::chrono::duration<value_type>* out) const;
+
+  bool ParseHH_MM_SS(const char* s, std::chrono::duration<value_type>* out) const;
+
+  const TimeUnit::type unit_;
+};
+
 }  // namespace arrow
