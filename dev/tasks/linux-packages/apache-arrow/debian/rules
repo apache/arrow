@@ -72,6 +72,14 @@ override_dh_auto_install:
 	  --sourcedirectory=c_glib		\
 	  --builddirectory=c_glib_build		\
 	  --buildsystem=meson+ninja
+	# Remove built files to reduce disk usage
+	dh_auto_clean				\
+	  --sourcedirectory=cpp			\
+	  --builddirectory=cpp_build
+	dh_auto_clean				\
+	  --sourcedirectory=c_glib		\
+	  --builddirectory=c_glib_build		\
+	  --buildsystem=meson+ninja
 
 override_dh_auto_test:
 	# TODO: We need Boost 1.64 or later to build tests for
