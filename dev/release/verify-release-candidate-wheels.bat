@@ -49,7 +49,9 @@ EXIT /B %ERRORLEVEL%
 
 :error
 call deactivate
-goto done
+cd %_CURRENT_DIR%
+
+EXIT /B 1
 
 @rem a batch function to verify a single wheel
 :verify_wheel

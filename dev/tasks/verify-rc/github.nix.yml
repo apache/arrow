@@ -45,12 +45,12 @@ jobs:
 
           {{ flag }}
           if [ $(uname) = "Darwin" ]; then
-            brew install llvm@7 thrift
+            brew install llvm@7 thrift glib
           else
             sudo apt-get install -y \
               llvm-7 \
               wget curl libboost-all-dev jq \
-              autoconf-archive gtk-doc-tools libgirepository1.0-dev thrift-compiler
+              autoconf-archive gtk-doc-tools libgirepository1.0-dev flex bison
             if [ "$TEST_JAVA" = "1" ]; then
               # Maven
               MAVEN_VERSION=3.6.3
@@ -64,5 +64,9 @@ jobs:
               ruby --version
             fi
           fi
+          if [ "$TEST_CSHARP" = "1" ]; then
+            dotnet add package Microsoft.Build.Tasks.Git
+          fi
           # TODO: put 0.16.0 2 in some separate file?
+          # If you edit the versions, be sure to edit the other workflow files in this directory too
           TEST_DEFAULT=0 {{ flag }} arrow/dev/release/verify-release-candidate.sh {{ artifact }} 0.16.0 2
