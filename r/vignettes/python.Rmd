@@ -21,15 +21,12 @@ virtualenv_create("arrow")
 virtualenv_install("arrow", "pyarrow")
 ```
 
-If you want to install a development version of `pyarrow`, you can shell out
-and call `pip` directly.
+If you want to install a development version of `pyarrow`,
+you can pass `pip_options` to point at Arrow's nightly builds:
 
 ```r
-system(
-  paste(
-    file.path(virtualenv_root(), "arrow/bin/python"), "-m pip install --extra-index-url https://repo.fury.io/arrow-nightlies/ --pre pyarrow --force-reinstall"
-  )
-)
+virtualenv_install("arrow", "pyarrow",
+  pip_options = "--extra-index-url https://repo.fury.io/arrow-nightlies/ --pre --force-reinstall")
 ```
 
 For more on installing and configuring Python, including using `conda`,
