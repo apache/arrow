@@ -26,14 +26,12 @@ environments.
 
 ## Fedora 31
 
-Build image:
-
+First, build the Docker image using:
 ```
-docker build -t arrow_fedora_minimal -f Dockerfile.fedora
+docker build -t arrow_fedora_minimal -f Dockerfile.fedora .
 ```
 
-Build with conda or pip/virtualenv:
-
+Then build PyArrow with conda or pip/virtualenv, respectively:
 ```
 # With pip/virtualenv
 docker run --rm -t -i -v $PWD:/io arrow_fedora_minimal /io/build_venv.sh
@@ -44,18 +42,32 @@ docker run --rm -t -i -v $PWD:/io arrow_fedora_minimal /io/build_conda.sh
 
 ## Ubuntu 18.04
 
-Build image:
-
+First, build the Docker image using:
 ```
-docker build -t arrow_ubuntu_minimal -f Dockerfile.ubuntu
+docker build -t arrow_ubuntu_minimal -f Dockerfile.ubuntu .
 ```
 
-Build with conda or pip/virtualenv:
-
+Then build PyArrow with conda or pip/virtualenv, respectively:
 ```
 # With pip/virtualenv
 docker run --rm -t -i -v $PWD:/io arrow_ubuntu_minimal /io/build_venv.sh
 
 # With conda
 docker run --rm -t -i -v $PWD:/io arrow_ubuntu_minimal /io/build_conda.sh
+```
+
+## Building on Fedora - Podman and SELinux
+
+In addition to using Podman instead of Docker, you need to specify `:Z`
+for SELinux relabelling when binding a volume.
+
+First, build the image using:
+```
+podman build -t arrow_fedora_minimal -f Dockerfile.fedora
+```
+
+Then build PyArrow with pip/virtualenv:
+```
+# With pip/virtualenv
+podman run --rm -i -v $PWD:/io:Z -t arrow_fedora_minimal /io/build_venv.sh
 ```
