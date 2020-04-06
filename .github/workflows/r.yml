@@ -159,6 +159,10 @@ jobs:
           rtools-version: ${{ matrix.rtools }}
       - name: Build Arrow C++
         run: msys2do ci/scripts/r_windows_build.sh
+      - uses: actions/upload-artifact@v1
+        with:
+          name: Rtools Arrow C++
+          path: libarrow.zip
       - name: Install R package dependencies
         shell: Rscript {0}
         run: |
