@@ -1042,6 +1042,13 @@ def test_open_dataset_from_source_additional_kwargs(multisourcefs):
         ds.dataset(child, format="parquet")
 
 
+def test_open_dataset_non_existing_file():
+    # ARROW-8213: Opening a dataset with a local incorrect path gives confusing
+    #             error message
+    with pytest.raises(FileNotFoundError):
+        ds.dataset('i-am-not-existing.parquet', format='parquet')
+
+
 @pytest.mark.parquet
 @pytest.mark.s3
 def test_open_dataset_from_uri_s3(s3_connection, s3_server):

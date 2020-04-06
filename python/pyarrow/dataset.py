@@ -179,7 +179,14 @@ def _ensure_fs_and_paths(path, filesystem=None):
     # Return filesystem and list of string paths or FileSelector
     from pyarrow.fs import FileType, FileSelector
 
-    filesystem, path = _ensure_fs(filesystem, _stringify_path(path))
+    path = _stringify_path(path)
+    try:
+        scheme, _ = path.split('://', 1)  # noqa
+    except ValueError:
+        # ARROW-8213: missing scheme, assume local path
+        path = 'file://{}'.format(path)
+
+    filesystem, path = _ensure_fs(filesystem, path)
     infos = filesystem.get_file_info([path])[0]
     if infos.type == FileType.Directory:
         # for directory, pass a selector
