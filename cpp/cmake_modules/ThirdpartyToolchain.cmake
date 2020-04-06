@@ -41,7 +41,15 @@ endif()
 
 set(APACHE_MIRROR "")
 
-macro(get_apache_mirror)
+macro(maybe_drop_backup_urls URLS)
+  if(CMAKE_VERSION VERSION_LESS 3.7)
+    # ExternalProject doesn't support backup URLs;
+    # Feature only available starting in 3.7
+    list(GET ${URLS} 0 ${URLS})
+  endif()
+endmacro()
+
+macro(get_apache_mirrors)
   if(APACHE_MIRROR STREQUAL "")
     set(APACHE_MIRROR_INFO_URL "https://www.apache.org/dyn/closer.cgi?as_json=1")
     set(APACHE_MIRROR_INFO_PATH "${CMAKE_CURRENT_BINARY_DIR}/apache-mirror.json")
@@ -62,32 +70,12 @@ macro(get_apache_mirror)
              REPLACE "\"preferred\": \"" "" APACHE_MIRROR_PREFERRED
                      "${APACHE_MIRROR_PREFERRED}")
 
-      if(CMAKE_VERSION VERSION_LESS 3.7)
-        set(APACHE_MIRROR "${APACHE_MIRROR_PREFERRED}")
-      else()
-        # Append backup URLs to the preferred URL.
-        # Feature only available starting in 3.7
-        set(APACHE_MIRROR_LIMIT 5)
+      string(REGEX MATCH "\"http\": \\[.+\\]" APACHE_MIRROR "${APACHE_MIRROR_INFO}")
+      string(REGEX MATCHALL "https?://[^\"]+" APACHE_MIRROR "${APACHE_MIRROR}")
 
-        string(REGEX MATCH "\"http\": \\[.+\\]" APACHE_MIRROR_ALL "${APACHE_MIRROR_INFO}")
-        string(REGEX MATCHALL "https?://[^\"]+" APACHE_MIRROR_ALL "${APACHE_MIRROR_ALL}")
-
-        # Ensure that the preferred URL is first
-        list(INSERT APACHE_MIRROR_ALL 0 "${APACHE_MIRROR_PREFERRED}")
-        list(REMOVE_DUPLICATES APACHE_MIRROR_ALL)
-
-        set(APACHE_MIRROR_LIST)
-        foreach(APACHE_MIRROR ${APACHE_MIRROR_ALL})
-          list(LENGTH APACHE_MIRROR_LIST APACHE_MIRROR_LIST_LENGTH)
-          if(APACHE_MIRROR_LIST_LENGTH EQUAL "${APACHE_MIRROR_LIMIT}")
-            break()
-          endif()
-          list(APPEND APACHE_MIRROR_LIST "${APACHE_MIRROR}")
-        endforeach()
-
-        set(APACHE_MIRROR ${APACHE_MIRROR_LIST})
-      endif()
-
+      # Ensure that the preferred URL is first
+      list(INSERT APACHE_MIRROR 0 "${APACHE_MIRROR_PREFERRED}")
+      list(REMOVE_DUPLICATES APACHE_MIRROR)
     else()
       file(REMOVE "${APACHE_MIRROR_INFO_PATH}")
       message(
@@ -98,18 +86,15 @@ macro(get_apache_mirror)
   endif()
   if(APACHE_MIRROR STREQUAL "")
     # Well-known mirrors, in case the info URL fails loading
-    if(CMAKE_VERSION VERSION_LESS 3.7)
-      set(APACHE_MIRROR "https://downloads.apache.org/")
-    else()
-      set(APACHE_MIRROR
-          "https://downloads.apache.org/"
-          "https://apache.osuosl.org/"
-          "http://apache.mirrors.hoobly.com/"
-          "http://apache.mirrors.pair.com/"
-          "http://apache.spinellicreations.com/")
-    endif()
+    set(APACHE_MIRROR
+        "https://downloads.apache.org/"
+        "https://apache.osuosl.org/"
+        "http://apache.mirrors.hoobly.com/"
+        "http://apache.mirrors.pair.com/"
+        "http://apache.spinellicreations.com/")
   endif()
-  message(STATUS "Apache mirror: ${APACHE_MIRROR}")
+  maybe_drop_backup_urls(APACHE_MIRROR)
+  message(STATUS "Apache mirror(s): ${APACHE_MIRROR}")
 endmacro()
 
 # ----------------------------------------------------------------------
@@ -329,17 +314,9 @@ else()
   set(
     BOOST_SOURCE_URL
     "https://dl.bintray.com/ursalabs/arrow-boost/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
+    "https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
     )
-  if(NOT CMAKE_VERSION VERSION_LESS 3.7)
-    # Append as a backup URL the full source from boostorg
-    # Feature only available starting in 3.7
-    # (and VERSION_GREATER_EQUAL also only available starting in 3.7)
-    list(
-      APPEND
-        BOOST_SOURCE_URL
-        "https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
-      )
-  endif()
+  maybe_drop_backup_urls(BOOST_SOURCE_URL)
 endif()
 
 if(DEFINED ENV{ARROW_BROTLI_URL})
@@ -1143,11 +1120,15 @@ macro(build_thrift)
   endif()
 
   if("${THRIFT_SOURCE_URL}" STREQUAL "FROM-APACHE-MIRROR")
-    get_apache_mirror()
-    set(
-      THRIFT_SOURCE_URL
-      "${APACHE_MIRROR}/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-      )
+    get_apache_mirrors()
+    set(THRIFT_SOURCE_URL)
+    foreach(URL ${APACHE_MIRROR})
+      list(
+        APPEND
+          THRIFT_SOURCE_URL
+          "${URL}/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+        )
+    endforeach()
   endif()
 
   message("Downloading Apache Thrift from ${THRIFT_SOURCE_URL}")
