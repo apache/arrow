@@ -440,6 +440,10 @@ It has the following fields:
    represent `length + offset` values encoded according to the
    :ref:`Columnar format specification <format_columnar>`.
 
+   It is recommended, but not required, that the memory addresses of the
+   buffers be aligned at least according to the type of primitive data that
+   they contain. Consumers MAY decide not to support unaligned memory.
+
    The pointer to the null bitmap buffer, if the data type specifies one,
    MAY be NULL only if :c:member:`ArrowArray.null_count` is 0.
 
