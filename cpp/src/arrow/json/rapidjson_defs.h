@@ -37,6 +37,7 @@
 
 // enable SIMD whitespace skipping, if available
 #if defined(ARROW_HAVE_SSE4_2)
+#define RAPIDJSON_SSE2 1
 #define RAPIDJSON_SSE42 1
 #endif
 
