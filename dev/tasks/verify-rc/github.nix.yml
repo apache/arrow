@@ -47,6 +47,7 @@ jobs:
           if [ $(uname) = "Darwin" ]; then
             brew install llvm@7 thrift glib
           else
+            sudo apt-get --purge remove -y llvm
             sudo apt-get install -y \
               llvm-7 \
               wget curl libboost-all-dev jq \
