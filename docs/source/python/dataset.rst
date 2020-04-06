@@ -40,7 +40,7 @@ tabular, potentially larger than memory and multi-file, datasets:
 
 
 For those familiar with the existing :class:`pyarrow.parquet.ParquetDataset` for
-reading Parquet datasets: the goal of `pyarrow.dataset` is to provide similar
+reading Parquet datasets: the goal of ``pyarrow.dataset`` is to provide similar
 functionality, but not specific to the Parquet format, not tied to Python (for
 example the R bindings of Arrow also have an interface for the Dateset API) and
 with improved functionality (e.g. filtering on the file level and not only
@@ -54,33 +54,170 @@ Reading Datasets
 
 Full blown example with NYC taxi data to show off, afterwards explain all parts:
 
+.. ipython:: python
+
+    import pyarrow as pa
+    import pyarrow.dataset as ds
+
 ...
 
 
+For the next examples, we are first going to create a small dataset consisting
+of a directory with two parquet files:
+
+.. ipython:: python
+
+    import tempfile
+    import pathlib
+
+    base = pathlib.Path(tempfile.gettempdir())
+    (base / "parquet_dataset").mkdir(exist_ok=True)
+
+    # creating an Arrow Table
+    table = pa.table({'a': range(10), 'b': np.random.randn(10), 'c': [1, 2] * 5})
+
+    # writing it into two parquet files
+    import pyarrow.parquet as pq
+    pq.write_table(table.slice(0, 5), base / "parquet_dataset/data1.parquet")
+    pq.write_table(table.slice(5, 10), base / "parquet_dataset/data2.parquet")
 
 Dataset discovery
 ~~~~~~~~~~~~~~~~~
 
-- creating dataset
-- get schema / files
+A :class:`Dataset` object can be created with the :func:`dataset` function. We
+can pass it the path to the directory containing the data files:
 
+.. ipython:: python
+
+    dataset = ds.dataset(base / "parquet_dataset/", format="parquet")
+    dataset
+
+Alternatively, it also accepts a path to a single file, or a list of file
+paths.
+
+Creating this :class:`Dataset` object did yet materialize the full dataset, but
+it crawled the directory to find all the files:
+
+.. ipython:: python
+
+    dataset.files
+
+and it did infer the schema (by default from the first file):
+
+.. ipython:: python
+
+    print(dataset.schema.to_string(show_field_metadata=False))
+
+With the :meth:`Dataset.to_table` method, we can read the dataset into a
+pyarrow Table (note this will read everything at once, which can require a lot
+of memory, see below on filtering / iterative loading):
+
+
+.. ipython:: python
+
+    dataset.to_table()
+    # converting to pandas to see the contents of the scanned table
+    dataset.to_table().to_pandas()
 
 Filtering data
 ~~~~~~~~~~~~~~
 
-- columns / filter expressions
+To avoid reading all data when only needing a subset, the ``columns`` and
+``filter`` keywords can be used. The ``columns`` keyword accepts a list of
+column names:
 
+.. ipython:: python
+
+    dataset.to_table(columns=['a', 'b']).to_pandas()
+
+The ``filter`` keyword expects a boolean expression involving one of the
+columns, and those expressions can be created using the :func:`field` helper
+function:
+
+.. ipython:: python
+
+    dataset.to_table(filter=ds.field('a') >= 7).to_pandas()
+    dataset.to_table(filter=ds.field('c') == 2).to_pandas()
+
+Any column can be referenced using the :func:`field` function (which creates a
+:class:`FieldExpression`), and many different expressions can be created,
+including the standard boolean comparison operators (equal, larger/less than,
+etc), but also set membership testing:
+
+.. ipython:: python
+
+    ds.field('a') != 3
+    ds.field('a').isin([1, 2, 3])
 
 
 Reading different file formats
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- show feather
+The above examples use Parquet files as dataset source, but the Dataset API
+aims to provide a consistent interface for multiple file formats and sources.
+Currently, Parquet and Feather / Arrow IPC file format are supported; more
+formats are planned in the future.
 
+If we save the table as a Feather file instead of Parquet files:
+
+.. ipython:: python
+
+    import pyarrow.feather as feather
+
+    feather.write_feather(table, base / "data.feather")
+
+then we can read the Feather file using the same functions, but with specifying
+``format="ipc"``:
+
+.. ipython:: python
+
+    dataset = ds.dataset(base / "data.feather", format="ipc")
+    dataset.to_table().to_pandas().head()
+
+The format name as a string, like:
+
+.. code-block::
+
+    ds.dataset(..., format="parquet")
+
+is a short-hand for
+
+.. code-block::
+
+    ds.dataset(..., format=ds.ParquetFileFormat())
+
+Those file format objects can take keywords to customize reading (see for
+example :class:`ParquetFileFormat`).
 
 
 Reading partitioned data
 ------------------------
+
+A dataset consisting of a flat directory with files was already shown above.
+But the dataset can also contain nested directories defining a partitioned
+dataset, where the sub-directory names hold information about which subset
+of the data is stored in that directory.
+
+For example, a dataset partitioned by year and month may look like on disk:
+
+.. code-block:: text
+
+   dataset_name/
+     year=2007/
+       month=01/
+          data0.parquet
+          data1.parquet
+          ...
+       month=02/
+          data0.parquet
+          data1.parquet
+          ...
+       month=03/
+       ...
+     year=2008/
+       month=01/
+       ...
+     ...
 
 - hive vs directory partitioning supported right now
 - how to specify the schema with ds.partitioning()
