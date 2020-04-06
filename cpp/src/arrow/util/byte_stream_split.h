@@ -28,7 +28,7 @@ namespace arrow {
 namespace util {
 namespace internal {
 
-#if defined(ARROW_HAVE_SSE2)
+#if defined(ARROW_HAVE_SSE4_2)
 
 template <typename T>
 void ByteStreamSplitDecodeSSE2(const uint8_t* data, int64_t num_values, int64_t stride,

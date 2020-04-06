@@ -19,7 +19,7 @@
 
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
-#if defined(__AVX512F__)
+#if defined(ARROW_HAVE_AVX512)
 #include "arrow/util/bpacking_avx512_generated.h"
 #else
 #include "arrow/util/bpacking_default.h"

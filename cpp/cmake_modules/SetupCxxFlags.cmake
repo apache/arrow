@@ -18,17 +18,39 @@
 # Check if the target architecture and compiler supports some special
 # instruction sets that would boost performance.
 include(CheckCXXCompilerFlag)
-# x86/amd64 compiler flags
-check_cxx_compiler_flag("-msse4.2" CXX_SUPPORTS_SSE4_2)
-check_cxx_compiler_flag("-mavx2" CXX_SUPPORTS_AVX2)
-check_cxx_compiler_flag("-mavx512f" CXX_SUPPORTS_AVX512)
-# power compiler flags
-check_cxx_compiler_flag("-maltivec" CXX_SUPPORTS_ALTIVEC)
-# Arm64 compiler flags
-set(ARROW_ARMV8_CRC_FLAG "-march=armv8-a+crc")
-check_cxx_compiler_flag(${ARROW_ARMV8_CRC_FLAG} CXX_SUPPORTS_ARMCRC)
-set(ARROW_ARMV8_CRC_CRYPTO_FLAG "-march=armv8-a+crc+crypto")
-check_cxx_compiler_flag(${ARROW_ARMV8_CRC_CRYPTO_FLAG} CXX_SUPPORTS_ARMV8_CRC_CRYPTO)
+# Get cpu architecture
+set(ARROW_CPU_FLAG "x86")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64")
+  set(ARROW_CPU_FLAG "arm")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc")
+  set(ARROW_CPU_FLAG "ppc")
+endif()
+# Check architecture specific compiler flags
+if(ARROW_CPU_FLAG STREQUAL "x86")
+  # x86/amd64 compiler flags, msvc/gcc/clang
+  if(MSVC)
+    set(ARROW_SSE4_2_FLAG "")
+    set(ARROW_AVX2_FLAG "/arch:AVX2")
+    set(ARROW_AVX512_FLAG "/arch:AVX512")
+    set(CXX_SUPPORTS_SSE4_2 TRUE)
+  else()
+    set(ARROW_SSE4_2_FLAG "-msse4.2")
+    set(ARROW_AVX2_FLAG "-mavx2")
+    # skylake-avx512 consists of AVX512F,AVX512BW,AVX512VL,AVX512CD,AVX512DQ
+    set(ARROW_AVX512_FLAG "-march=skylake-avx512")
+    check_cxx_compiler_flag(${ARROW_SSE4_2_FLAG} CXX_SUPPORTS_SSE4_2)
+  endif()
+  check_cxx_compiler_flag(${ARROW_AVX2_FLAG} CXX_SUPPORTS_AVX2)
+  check_cxx_compiler_flag(${ARROW_AVX512_FLAG} CXX_SUPPORTS_AVX512)
+elseif(ARROW_CPU_FLAG STREQUAL "ppc")
+  # power compiler flags, gcc/clang only
+  set(ARROW_ALTIVEC_FLAG "-maltivec")
+  check_cxx_compiler_flag(${ARROW_ALTIVEC_FLAG} CXX_SUPPORTS_ALTIVEC)
+elseif(ARROW_CPU_FLAG STREQUAL "arm")
+  # Arm64 compiler flags, gcc/clang only
+  set(ARROW_ARMV8_ARCH_FLAG "-march=${ARROW_ARMV8_ARCH}")
+  check_cxx_compiler_flag(${ARROW_ARMV8_ARCH_FLAG} CXX_SUPPORTS_ARMV8_ARCH)
+endif()
 
 # Support C11
 set(CMAKE_C_STANDARD 11)
@@ -274,29 +296,59 @@ if(BUILD_WARNING_FLAGS)
 endif(BUILD_WARNING_FLAGS)
 
 # Only enable additional instruction sets if they are supported
-if(CXX_SUPPORTS_AVX512 AND ARROW_SIMD_LEVEL STREQUAL "AVX512")
-  # skylake-avx512 consist of AVX512F,AVX512BW,AVX512VL,AVX512CD,AVX512DQ
-  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=skylake-avx512")
-elseif(CXX_SUPPORTS_AVX2 AND ARROW_SIMD_LEVEL STREQUAL "AVX2")
-  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -mavx2")
-elseif(CXX_SUPPORTS_SSE4_2 AND ARROW_SIMD_LEVEL STREQUAL "SSE4_2")
-  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -msse4.2")
-endif()
-
-if(CXX_SUPPORTS_ALTIVEC AND ARROW_ALTIVEC)
-  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -maltivec")
-endif()
-
-if(CXX_SUPPORTS_ARMCRC)
-  if(CXX_SUPPORTS_ARMV8_CRC_CRYPTO)
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_ARMV8_CRC_CRYPTO_FLAG}")
-  else()
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_ARMV8_CRC_FLAG}")
+if(ARROW_CPU_FLAG STREQUAL "x86" AND ARROW_USE_SIMD)
+  if(ARROW_SIMD_LEVEL STREQUAL "AVX512")
+    if(NOT CXX_SUPPORTS_AVX512)
+      message(FATAL_ERROR "AVX512 required but compiler doesn't support it.")
+    endif()
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_AVX512_FLAG}")
+    add_definitions(-DARROW_HAVE_AVX512 -DARROW_HAVE_AVX2 -DARROW_HAVE_SSE4_2)
+  elseif(ARROW_SIMD_LEVEL STREQUAL "AVX2")
+    if(NOT CXX_SUPPORTS_AVX2)
+      message(FATAL_ERROR "AVX2 required but compiler doesn't support it.")
+    endif()
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_AVX2_FLAG}")
+    add_definitions(-DARROW_HAVE_AVX2 -DARROW_HAVE_SSE4_2)
+  elseif(ARROW_SIMD_LEVEL STREQUAL "SSE4_2")
+    if(NOT CXX_SUPPORTS_SSE4_2)
+      message(FATAL_ERROR "SSE4.2 required but compiler doesn't support it.")
+    endif()
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_SSE4_2_FLAG}")
+    add_definitions(-DARROW_HAVE_SSE4_2)
   endif()
 endif()
 
-if(ARROW_USE_SIMD)
-  add_definitions(-DARROW_USE_SIMD)
+if(ARROW_CPU_FLAG STREQUAL "ppc" AND ARROW_USE_SIMD)
+  if(CXX_SUPPORTS_ALTIVEC AND ARROW_ALTIVEC)
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_ALTIVEC_FLAG}")
+  endif()
+endif()
+
+if(ARROW_CPU_FLAG STREQUAL "arm")
+  if(NOT CXX_SUPPORTS_ARMV8_ARCH)
+    message(FATAL_ERROR "Unsupported arch flag: ${ARROW_ARMV8_ARCH_FLAG}.")
+  endif()
+  if(ARROW_ARMV8_ARCH_FLAG MATCHES "native")
+    message(FATAL_ERROR "native arch not allowed, please specify arch explicitly.")
+  endif()
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_ARMV8_ARCH_FLAG}")
+
+  if(ARROW_USE_SIMD)
+    add_definitions(-DARROW_HAVE_NEON)
+  endif()
+
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+     AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "5.4")
+    message(WARNING "Disable Armv8 CRC and Crypto as compiler doesn't support them well.")
+  else()
+    if(ARROW_ARMV8_ARCH_FLAG MATCHES "\\+crypto")
+      add_definitions(-DARROW_HAVE_ARMV8_CRYPTO)
+    endif()
+    # armv8.1+ implies crc support
+    if(ARROW_ARMV8_ARCH_FLAG MATCHES "armv8\\.[1-9]|\\+crc")
+      add_definitions(-DARROW_HAVE_ARMV8_CRC)
+    endif()
+  endif()
 endif()
 
 # ----------------------------------------------------------------------
