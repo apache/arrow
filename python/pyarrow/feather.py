@@ -137,10 +137,11 @@ def write_feather(df, dest, compression=None, compression_level=None,
         Feather file version. Version 2 is the current. Version 1 is the more
         limited legacy format
     """
-    _check_pandas_version()
-    if (_pandas_api.has_sparse
-            and isinstance(df, _pandas_api.pd.SparseDataFrame)):
-        df = df.to_dense()
+    if _pandas_api.have_pandas:
+        _check_pandas_version()
+        if (_pandas_api.has_sparse
+                and isinstance(df, _pandas_api.pd.SparseDataFrame)):
+            df = df.to_dense()
 
     if _pandas_api.is_data_frame(df):
         table = Table.from_pandas(df, preserve_index=False)
@@ -201,7 +202,10 @@ def read_feather(source, columns=None, use_threads=True):
     -------
     df : pandas.DataFrame
     """
-    return read_table(source, columns=columns).to_pandas(use_threads=True)
+    _check_pandas_version()
+    return read_table(source, columns=columns).to_pandas(
+        use_threads=use_threads
+    )
 
 
 def read_table(source, columns=None, memory_map=True):
@@ -221,7 +225,6 @@ def read_table(source, columns=None, memory_map=True):
     -------
     table : pyarrow.Table
     """
-    _check_pandas_version()
     reader = ext.FeatherReader()
     reader.open(source, use_memory_map=memory_map)
 
