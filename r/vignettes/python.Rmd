@@ -1,14 +1,14 @@
 ---
-title: "Arrow in Python and R with reticulate"
+title: "Apache Arrow in Python and R with reticulate"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Using Arrow in Python and R with reticulate}
+  %\VignetteIndexEntry{Apache Arrow in Python and R with reticulate}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
 
 The `arrow` package provides `reticulate` methods for passing data between
-R and Python. This document provides a brief overview.
+R and Python in the same process. This document provides a brief overview.
 
 ## Installing
 
@@ -103,8 +103,9 @@ a_and_b
 
 Now we have a single `Array` in R.
 
-"Send", however, isn't the correct word. Internally, we're passing pointers to the
-data, without copying anything. Nothing is being sent: we're transferring
+"Send", however, isn't the correct word. Internally, we're passing pointers
+to the data between the R and Python interpreters running together in the same process,
+without copying anything. Nothing is being sent: we're transferring
 ownership of the memory.
 
 ## Troubleshooting

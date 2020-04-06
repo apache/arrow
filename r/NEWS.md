@@ -22,8 +22,9 @@
 ## Feather v2
 
 This release includes support for version 2 of the Feather file format.
-Feather v2 features full support for all Arrow data types, and it allows
-files to be compressed using either `lz4` or `zstd`.
+Feather v2 features full support for all Arrow data types,
+fixes the 2GB per-column limitation for large amounts of string data,
+and it allows files to be compressed using either `lz4` or `zstd`.
 `write_feather()` can write either version 2 or
 [version 1](https://github.com/wesm/feather) Feather files, and `read_feather()`
 automatically detects which file version it is reading.
@@ -45,8 +46,9 @@ To achieve this standardization, `read_table()`, `read_record_batch()`,
 
 ## Python interoperability
 
-The 0.17 Apache Arrow release includes a C data interface that allows you to
-share or pass data from one runtime to another without copying it. This enables
+The 0.17 Apache Arrow release includes a C data interface that allows
+exchanging Arrow data in-process at the C level without copying
+and without libraries having a build or runtime dependency on each other. This enables
 us to use `reticulate` to share data between R and Python (`pyarrow`) efficiently.
 
 See `vignette("python", package = "arrow")` for details.
