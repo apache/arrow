@@ -36,10 +36,10 @@ Build with conda or pip/virtualenv:
 
 ```
 # With pip/virtualenv
-docker run --rm -t -i -v $PWD:/io arrow_fedora_minimal /io/build_venv.sh
+docker run --rm -t -i -v $PWD:/io arrow_fedora_minimal /io/build_venv.sh .
 
 # With conda
-docker run --rm -t -i -v $PWD:/io arrow_fedora_minimal /io/build_conda.sh
+docker run --rm -t -i -v $PWD:/io arrow_fedora_minimal /io/build_conda.sh .
 ```
 
 ## Ubuntu 18.04
@@ -54,8 +54,23 @@ Build with conda or pip/virtualenv:
 
 ```
 # With pip/virtualenv
-docker run --rm -t -i -v $PWD:/io arrow_ubuntu_minimal /io/build_venv.sh
+docker run --rm -t -i -v $PWD:/io arrow_ubuntu_minimal /io/build_venv.sh .
 
 # With conda
-docker run --rm -t -i -v $PWD:/io arrow_ubuntu_minimal /io/build_conda.sh
+docker run --rm -t -i -v $PWD:/io arrow_ubuntu_minimal /io/build_conda.sh .
+```
+
+## Building on Fedora - podman and SELinux
+
+In addition to using podman you need to specify :Z for selinux relabelling:
+
+```
+podman build -t arrow_fedora_minimal -f Dockerfile.fedora
+```
+
+Arrow build with pip/virtualenv:
+
+```
+# With pip/virtualenv
+podman run --rm -i -v $PWD:/io:Z -t arrow_fedora_minimal /io/build_venv.sh
 ```
