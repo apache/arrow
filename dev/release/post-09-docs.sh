@@ -40,7 +40,7 @@ rm -rf docs/*
 popd
 
 pushd "${ARROW_DIR}"
-git checkout "${version_tag}"
+git checkout "${release_tag}"
 
 docker-compose build ubuntu-cpp
 docker-compose build ubuntu-python
