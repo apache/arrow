@@ -63,19 +63,19 @@ public class DefaultAllocationManagerOption {
   private static AllocationManagerType getDefaultAllocationManagerType() {
     AllocationManagerType ret = AllocationManagerType.Unknown;
 
-    String envValue = System.getenv(ALLOCATION_MANAGER_TYPE_ENV_NAME);
-    if ("netty".equals(envValue)) {
-      ret = AllocationManagerType.Netty;
-    } else if ("unsafe".equals(envValue)) {
-      ret = AllocationManagerType.Unsafe;
+    try {
+      String envValue = System.getenv(ALLOCATION_MANAGER_TYPE_ENV_NAME);
+      ret = AllocationManagerType.valueOf(envValue);
+    } catch (IllegalArgumentException | NullPointerException e) {
+      // ignore the exception, and make the allocation manager type remain unchanged
     }
 
     // system property takes precedence
-    String propValue = System.getProperty(ALLOCATION_MANAGER_TYPE_PROPERTY_NAME);
-    if ("netty".equals(propValue)) {
-      ret = AllocationManagerType.Netty;
-    } else if ("unsafe".equals(propValue)) {
-      ret = AllocationManagerType.Unsafe;
+    try {
+      String propValue = System.getProperty(ALLOCATION_MANAGER_TYPE_PROPERTY_NAME);
+      ret = AllocationManagerType.valueOf(propValue);
+    } catch (IllegalArgumentException | NullPointerException e) {
+      // ignore the exception, and make the allocation manager type remain unchanged
     }
     return ret;
   }
@@ -89,8 +89,8 @@ public class DefaultAllocationManagerOption {
       case Unsafe:
         return UnsafeAllocationManager.FACTORY;
       case Unknown:
-        logger.warn("allocation manager type not specified, using netty as the default type");
-        return UnsafeAllocationManager.FACTORY;
+        logger.info("allocation manager type not specified, using netty as the default type");
+        return NettyAllocationManager.FACTORY;
       default:
         throw new IllegalStateException("Unknown allocation manager type: " + type);
     }
