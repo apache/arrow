@@ -61,6 +61,7 @@ def teardown_module(module):
             pass
 
 
+@pytest.mark.pandas
 def test_file_not_exist():
     with pytest.raises(pa.ArrowIOError):
         read_feather('test_invalid_file')
