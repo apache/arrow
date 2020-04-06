@@ -45,57 +45,166 @@ const MICROSECONDS: i64 = 1_000_000;
 const NANOSECONDS: i64 = 1_000_000_000;
 
 /// Trait for dealing with different types of array at runtime when the type of the
-/// array is not known in advance
+/// array is not known in advance.
 pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
-    /// Returns the array as `Any` so that it can be downcast to a specific implementation
+    /// Returns the array as [`Any`](std::any::Any) so that it can be
+    /// downcasted to a specific implementation.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use std::sync::Arc;
+    /// use arrow::array::Int32Array;
+    /// use arrow::datatypes::{Schema, Field, DataType};
+    /// use arrow::record_batch::RecordBatch;
+    ///
+    /// # fn main() -> arrow::error::Result<()> {
+    /// let id = Int32Array::from(vec![1, 2, 3, 4, 5]);
+    /// let batch = RecordBatch::try_new(
+    ///     Arc::new(Schema::new(vec![Field::new("id", DataType::Int32, false)])),
+    ///     vec![Arc::new(id)]
+    /// )?;
+    ///
+    /// let int32array = batch
+    ///     .column(0)
+    ///     .as_any()
+    ///     .downcast_ref::<Int32Array>()
+    ///     .expect("Failed to downcast");
+    /// # Ok(())
+    /// # }
+    /// ```
     fn as_any(&self) -> &Any;
 
-    /// Returns a reference-counted pointer to the data of this array
+    /// Returns a reference-counted pointer to the underlying data of this array.
     fn data(&self) -> ArrayDataRef;
 
-    /// Returns a borrowed & reference-counted pointer to the data of this array
+    /// Returns a borrowed & reference-counted pointer to the underlying data of this array.
     fn data_ref(&self) -> &ArrayDataRef;
 
-    /// Returns a reference to the data type of this array
+    /// Returns a reference to the [`DataType`](crate::datatype::DataType) of this array.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::datatypes::DataType;
+    /// use arrow::array::{Array, Int32Array};
+    ///
+    /// let array = Int32Array::from(vec![1, 2, 3, 4, 5]);
+    ///
+    /// assert_eq!(*array.data_type(), DataType::Int32);
+    /// ```
     fn data_type(&self) -> &DataType {
         self.data_ref().data_type()
     }
 
     /// Returns a zero-copy slice of this array with the indicated offset and length.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{Array, Int32Array};
+    ///
+    /// let array = Int32Array::from(vec![1, 2, 3, 4, 5]);
+    /// // Make slice over the values [2, 3, 4]
+    /// let array_slice = array.slice(1, 3);
+    ///
+    /// assert!(array_slice.equals(&Int32Array::from(vec![2, 3, 4])));
+    /// ```
     fn slice(&self, offset: usize, length: usize) -> ArrayRef {
         make_array(slice_data(self.data(), offset, length))
     }
 
-    /// Returns the length (i.e., number of elements) of this array
+    /// Returns the length (i.e., number of elements) of this array.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{Array, Int32Array};
+    ///
+    /// let array = Int32Array::from(vec![1, 2, 3, 4, 5]);
+    ///
+    /// assert_eq!(array.len(), 5);
+    /// ```
     fn len(&self) -> usize {
         self.data().len()
     }
 
-    /// Returns the offset of this array
+    /// Returns the offset into the underlying data used by this array(-slice).
+    /// Note that the underlying data can be shared by many arrays.
+    /// This defaults to `0`.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{Array, Int32Array};
+    ///
+    /// let array = Int32Array::from(vec![1, 2, 3, 4, 5]);
+    /// // Make slice over the values [2, 3, 4]
+    /// let array_slice = array.slice(1, 3);
+    ///
+    /// assert_eq!(array.offset(), 0);
+    /// assert_eq!(array_slice.offset(), 1);
+    /// ```
     fn offset(&self) -> usize {
         self.data().offset()
     }
 
-    /// Returns whether the element at index `i` is null
-    fn is_null(&self, i: usize) -> bool {
-        self.data().is_null(self.data().offset() + i)
+    /// Returns whether the element at `index` is null.
+    /// When using this function on a slice, the index is relative to the slice.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{Array, Int32Array};
+    ///
+    /// let array = Int32Array::from(vec![Some(1), None]);
+    ///
+    /// assert_eq!(array.is_null(0), false);
+    /// assert_eq!(array.is_null(1), true);
+    /// ```
+    fn is_null(&self, index: usize) -> bool {
+        self.data().is_null(self.data().offset() + index)
     }
 
-    /// Returns whether the element at index `i` is not null
-    fn is_valid(&self, i: usize) -> bool {
-        self.data().is_valid(self.data().offset() + i)
+    /// Returns whether the element at `index` is not null.
+    /// When using this function on a slice, the index is relative to the slice.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{Array, Int32Array};
+    ///
+    /// let array = Int32Array::from(vec![Some(1), None]);
+    ///
+    /// assert_eq!(array.is_valid(0), true);
+    /// assert_eq!(array.is_valid(1), false);
+    /// ```
+    fn is_valid(&self, index: usize) -> bool {
+        self.data().is_valid(self.data().offset() + index)
     }
 
-    /// Returns the total number of nulls in this array
+    /// Returns the total number of null values in this array.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{Array, Int32Array};
+    ///
+    /// // Construct an array with values [1, NULL, NULL]
+    /// let array = Int32Array::from(vec![Some(1), None, None]);
+    ///
+    /// assert_eq!(array.null_count(), 2);
+    /// ```
     fn null_count(&self) -> usize {
         self.data().null_count()
     }
 }
 
+/// A reference-counted reference to a generic `Array`.
 pub type ArrayRef = Arc<Array>;
 
-/// Constructs an array using the input `data`. Returns a reference-counted `Array`
-/// instance.
+/// Constructs an array using the input `data`.
+/// Returns a reference-counted `Array` instance.
 pub fn make_array(data: ArrayDataRef) -> ArrayRef {
     match data.data_type() {
         DataType::Boolean => Arc::new(BooleanArray::from(data)) as ArrayRef,
@@ -197,6 +306,11 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
     }
 }
 
+/// Creates a zero-copy slice of the array's data.
+///
+/// # Panics
+///
+/// Panics if `offset + length < data.len()`.
 fn slice_data(data: ArrayDataRef, mut offset: usize, length: usize) -> ArrayDataRef {
     assert!((offset + length) <= data.len());
 
@@ -316,14 +430,14 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
         PrimitiveArray::from(array_data)
     }
 
-    /// Returns a `Buffer` holds all the values of this array.
+    /// Returns a `Buffer` holding all the values of this array.
     ///
-    /// Note this doesn't take account into the offset of this array.
+    /// Note this doesn't take the offset of this array into account.
     pub fn values(&self) -> Buffer {
         self.data.buffers()[0].clone()
     }
 
-    /// Returns the length of this array
+    /// Returns the length of this array.
     pub fn len(&self) -> usize {
         self.data.len()
     }

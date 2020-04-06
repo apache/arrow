@@ -15,8 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines a `BufferBuilder` capable of creating a `Buffer` which can be used as an
-//! internal buffer in an `ArrayData` object.
+//! Defines a [`BufferBuilder`](crate::array::BufferBuilder) capable
+//! of creating a [`Buffer`](crate::buffer::Buffer) which can be used
+//! as an internal buffer in an [`ArrayData`](crate::array::ArrayData)
+//! object.
 
 use std::any::Any;
 use std::collections::HashMap;
@@ -31,29 +33,172 @@ use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
 
-/// Buffer builder with zero-copy build method
+/// Builder for creating a [`Buffer`](crate::buffer::Buffer) object.
+///
+/// This builder is implemented for primitive types and creates a
+/// buffer with a zero-copy `build()` method.
+///
+/// See trait [`BufferBuilderTrait`](crate::array::BufferBuilderTrait)
+/// for further documentation and examples.
+///
+/// A [`Buffer`](crate::buffer::Buffer) is the underlying data
+/// structure of Arrow's [`Arrays`](crate::array::Array).
+///
+/// For all supported types, there are type definitions for the
+/// generic version of `BufferBuilder<T>`, e.g. `UInt8BufferBuilder`.
+///
+/// # Example:
+///
+/// ```
+/// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+///
+/// # fn main() -> arrow::error::Result<()> {
+/// let mut builder = UInt8BufferBuilder::new(100);
+/// builder.append_slice(&[42, 43, 44]);
+/// builder.append(45);
+/// let buffer = builder.finish();
+///
+/// assert_eq!(unsafe { buffer.typed_data::<u8>() }, &[42, 43, 44, 45]);
+/// # Ok(())
+/// # }
+/// ```
 pub struct BufferBuilder<T: ArrowPrimitiveType> {
     buffer: MutableBuffer,
     len: usize,
     _marker: PhantomData<T>,
 }
 
-// Trait for buffer builder. This is used mainly to offer separate implementations for
-// numeric types and boolean types, while still be able to call methods on buffer builder
-// with generic primitive type.
+/// Trait for simplifying the construction of [`Buffers`](crate::buffer::Buffer).
+///
+/// This trait is used mainly to offer separate implementations for
+/// numeric types and boolean types, while still be able to call methods on buffer builder
+/// with generic primitive type.
+/// Seperate implementations of this trait allow to add implementation-details,
+/// e.g. the implementation for boolean types uses bit-packing.
 pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
+    /// Creates a new builder with initial capacity for _at least_ `capacity`
+    /// elements of type `T`.
+    ///
+    /// The capacity can later be manually adjusted with the
+    /// [`reserve()`](BufferBuilderTrait::reserve) method.
+    /// Also the
+    /// [`append()`](BufferBuilderTrait::append),
+    /// [`append_slice()`](BufferBuilderTrait::append_slice) and
+    /// [`advance()`](BufferBuilderTrait::advance)
+    /// methods automatically increase the capacity if needed.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+    ///
+    /// let mut builder = UInt8BufferBuilder::new(10);
+    ///
+    /// assert!(builder.capacity() >= 10);
+    /// ```
     fn new(capacity: usize) -> Self;
+
+    /// Returns the current number of array elements in the internal buffer.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+    ///
+    /// let mut builder = UInt8BufferBuilder::new(10);
+    /// builder.append(42);
+    ///
+    /// assert_eq!(builder.len(), 1);
+    /// ```
     fn len(&self) -> usize;
+
+    /// Returns the actual capacity (number of elements) of the internal buffer.
+    ///
+    /// Note: the internal capacity returned by this method might be larger than
+    /// what you'd expect after setting the capacity in the `new()` or `reserve()`
+    /// functions.
     fn capacity(&self) -> usize;
-    fn advance(&mut self, i: usize) -> Result<()>;
+
+    /// Increases the number of elements in the internal buffer by `n`
+    /// and resizes the buffer as needed.
+    ///
+    /// The values of the newly added elements are undefined.
+    /// This method is usually used when appending `NULL` values to the buffer
+    /// as they still require physical memory space.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+    ///
+    /// let mut builder = UInt8BufferBuilder::new(10);
+    /// builder.advance(2);
+    ///
+    /// assert_eq!(builder.len(), 2);
+    /// ```
+    fn advance(&mut self, n: usize) -> Result<()>;
+
+    /// Reserves memory for _at least_ `n` more elements of type `T`.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+    ///
+    /// let mut builder = UInt8BufferBuilder::new(10);
+    /// builder.reserve(10);
+    ///
+    /// assert!(builder.capacity() >= 20);
+    /// ```
     fn reserve(&mut self, n: usize) -> Result<()>;
-    fn append(&mut self, v: T::Native) -> Result<()>;
+
+    /// Appends a value of type `T` into the builder,
+    /// growing the internal buffer as needed.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+    ///
+    /// let mut builder = UInt8BufferBuilder::new(10);
+    /// builder.append(42);
+    ///
+    /// assert_eq!(builder.len(), 1);
+    /// ```
+    fn append(&mut self, value: T::Native) -> Result<()>;
+
+    /// Appends a slice of type `T`, growing the internal buffer as needed.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+    ///
+    /// let mut builder = UInt8BufferBuilder::new(10);
+    /// builder.append_slice(&[42, 44, 46]);
+    ///
+    /// assert_eq!(builder.len(), 3);
+    /// ```
     fn append_slice(&mut self, slice: &[T::Native]) -> Result<()>;
+
+    /// Resets this builder and returns an immutable [`Buffer`](crate::buffer::Buffer).
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+    ///
+    /// let mut builder = UInt8BufferBuilder::new(10);
+    /// builder.append_slice(&[42, 44, 46]);
+    ///
+    /// let buffer = builder.finish();
+    ///
+    /// assert_eq!(unsafe { buffer.typed_data::<u8>() }, &[42, 44, 46]);
+    /// ```
     fn finish(&mut self) -> Buffer;
 }
 
 impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
-    /// Creates a builder with a fixed initial capacity
     default fn new(capacity: usize) -> Self {
         let buffer = MutableBuffer::new(capacity * mem::size_of::<T::Native>());
         Self {
@@ -63,18 +208,15 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
         }
     }
 
-    /// Returns the number of array elements (slots) in the builder
     fn len(&self) -> usize {
         self.len
     }
 
-    /// Returns the current capacity of the builder (number of elements)
     fn capacity(&self) -> usize {
         let bit_capacity = self.buffer.capacity() * 8;
         (bit_capacity / T::get_bit_width())
     }
 
-    // Advances the `len` of the underlying `Buffer` by `i` slots of type T
     default fn advance(&mut self, i: usize) -> Result<()> {
         let new_buffer_len = (self.len + i) * mem::size_of::<T::Native>();
         self.buffer.resize(new_buffer_len)?;
@@ -82,7 +224,6 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
         Ok(())
     }
 
-    /// Reserves memory for `n` elements of type `T`.
     default fn reserve(&mut self, n: usize) -> Result<()> {
         let new_capacity = self.len + n;
         let byte_capacity = mem::size_of::<T::Native>() * new_capacity;
@@ -90,20 +231,17 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
         Ok(())
     }
 
-    /// Appends a value into the builder, growing the internal buffer as needed.
     default fn append(&mut self, v: T::Native) -> Result<()> {
         self.reserve(1)?;
         self.write_bytes(v.to_byte_slice(), 1)
     }
 
-    /// Appends a slice of type `T`, growing the internal buffer as needed.
     default fn append_slice(&mut self, slice: &[T::Native]) -> Result<()> {
         let array_slots = slice.len();
         self.reserve(array_slots)?;
         self.write_bytes(slice.to_byte_slice(), array_slots)
     }
 
-    /// Reset this builder and returns an immutable `Buffer`.
     default fn finish(&mut self) -> Buffer {
         let buf = std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
         self.len = 0;
@@ -131,7 +269,6 @@ impl<T: ArrowPrimitiveType> BufferBuilder<T> {
 }
 
 impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
-    /// Creates a builder with a fixed initial capacity.
     fn new(capacity: usize) -> Self {
         let byte_capacity = bit_util::ceil(capacity, 8);
         let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
@@ -144,7 +281,6 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
         }
     }
 
-    // Advances the `len` of the underlying `Buffer` by `i` slots of type T
     fn advance(&mut self, i: usize) -> Result<()> {
         let new_buffer_len = bit_util::ceil(self.len + i, 8);
         self.buffer.resize(new_buffer_len)?;
@@ -152,7 +288,6 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
         Ok(())
     }
 
-    /// Appends a value into the builder, growing the internal buffer as needed.
     fn append(&mut self, v: bool) -> Result<()> {
         self.reserve(1)?;
         if v {
@@ -166,7 +301,6 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
         Ok(())
     }
 
-    /// Appends a slice of type `T`, growing the internal buffer as needed.
     fn append_slice(&mut self, slice: &[bool]) -> Result<()> {
         self.reserve(slice.len())?;
         for v in slice {
@@ -183,7 +317,6 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
         Ok(())
     }
 
-    /// Reserves memory for `n` elements of type `T`.
     fn reserve(&mut self, n: usize) -> Result<()> {
         let new_capacity = self.len + n;
         if new_capacity > self.capacity() {
@@ -196,7 +329,6 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
         Ok(())
     }
 
-    /// Reset this builder and returns an immutable `Buffer`.
     fn finish(&mut self) -> Buffer {
         // `append` does not update the buffer's `len` so do it before `freeze` is called.
         let new_buffer_len = bit_util::ceil(self.len, 8);
