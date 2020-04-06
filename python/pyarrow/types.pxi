@@ -824,17 +824,14 @@ def unregister_extension_type(type_name):
 
 cdef class KeyValueMetadata(_Metadata, Mapping):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, __KeyValueMetadata_arg0__=None, **kwargs):
         cdef:
             vector[c_string] keys, values
             shared_ptr[const CKeyValueMetadata] meta
 
         items = []
-        if args:
-            if len(args) > 1:
-                raise TypeError('expected at most 1 positional argument, '
-                                'got {}'.format(len(args)))
-            other = args[0]
+        if __KeyValueMetadata_arg0__ is not None:
+            other = __KeyValueMetadata_arg0__
             items += other.items() if isinstance(other, Mapping) else other
 
         items += kwargs.items()
@@ -911,6 +908,9 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
     def get_all(self, key):
         key = tobytes(key)
         return [v for k, v in self.items() if k == key]
+
+    def to_dict(self):
+        pass
 
 
 cdef KeyValueMetadata ensure_metadata(object meta, c_bool allow_none=False):
