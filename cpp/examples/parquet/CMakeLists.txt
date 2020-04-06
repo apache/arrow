@@ -22,11 +22,30 @@ add_executable(parquet-stream-api-example parquet-stream-api/stream-reader-write
 target_include_directories(parquet-low-level-example PRIVATE low-level-api/)
 target_include_directories(parquet-low-level-example2 PRIVATE low-level-api/)
 
+# The variables in these files are for illustration purposes
+set(PARQUET_EXAMPLES_WARNING_SUPPRESSIONS
+  low-level-api/reader-writer.cc
+  low-level-api/reader-writer2.cc)
+
 if (PARQUET_REQUIRE_ENCRYPTION)
   add_executable(parquet-encryption-example low-level-api/encryption-reader-writer.cc)
   add_executable(parquet-encryption-example-all-crypto-options low-level-api/encryption-reader-writer-all-crypto-options.cc)
   target_include_directories(parquet-encryption-example PRIVATE low-level-api/)
   target_include_directories(parquet-encryption-example-all-crypto-options PRIVATE low-level-api/)
+
+  set(PARQUET_EXAMPLES_WARNING_SUPPRESSIONS
+    ${PARQUET_EXAMPLES_WARNING_SUPPRESSIONS}
+    low-level-api/encryption-reader-writer.cc
+    low-level-api/encryption-reader-writer-all-crypto-options.cc)
+
+endif()
+
+if(UNIX)
+  foreach(FILE ${PARQUET_EXAMPLES_WARNING_SUPPRESSIONS})
+    set_property(SOURCE ${FILE}
+      APPEND_STRING
+      PROPERTY COMPILE_FLAGS "-Wno-unused-variable")
+  endforeach()
 endif()
 
 # Prefer shared linkage but use static if shared build is deactivated
