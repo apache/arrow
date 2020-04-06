@@ -82,7 +82,7 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
     case Encoding::BIT_PACKED: {
       num_bytes =
           static_cast<int32_t>(BitUtil::BytesForBits(num_buffered_values * bit_width_));
-      if (num_bytes > data_size) {
+      if (num_bytes < 0 || num_bytes > data_size - 4) {
         throw ParquetException("Received invalid number of bytes (corrupt data page?)");
       }
       if (!bit_packed_decoder_) {
@@ -374,6 +374,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
       if (header.num_values < 0) {
         throw ParquetException("Invalid page header (negative number of values)");
+      }
+      if (header.definition_levels_byte_length < 0 ||
+          header.repetition_levels_byte_length < 0) {
+        throw ParquetException("Invalid page header (negative levels byte length)");
       }
       bool is_compressed = header.__isset.is_compressed ? header.is_compressed : false;
       EncodedStatistics page_statistics = ExtractStatsFromHeader(header);
