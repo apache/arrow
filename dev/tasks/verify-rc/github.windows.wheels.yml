@@ -40,8 +40,8 @@ jobs:
         run: cd arrow && ci/scripts/util_checkout.sh
       - uses: s-weigand/setup-conda@v1
       - name: Run verification
+        shell: cmd
         run: |
-          $ErrorActionPreference = 'Stop'
           choco install wget
           cd arrow
           # If you edit the versions, be sure to edit the other workflow files in this directory too

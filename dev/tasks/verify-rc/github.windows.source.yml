@@ -40,8 +40,8 @@ jobs:
         run: cd arrow && ci/scripts/util_checkout.sh
       - uses: s-weigand/setup-conda@v1
       - name: Run verification
+        shell: cmd
         run: |
-          $ErrorActionPreference = 'Stop'
           choco install boost-msvc-14.1
           choco install wget
           cd arrow

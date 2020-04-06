@@ -340,6 +340,7 @@ test_csharp() {
     PATH=${csharp_bin}:${PATH}
   fi
 
+  dotnet add package Microsoft.Build.Tasks.Git
   dotnet test
   mv dummy.git ../.git
   dotnet pack -c Release
