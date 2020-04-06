@@ -21,20 +21,21 @@ set -e
 #----------------------------------------------------------------------
 # Change this to whatever makes sense for your system
 
-MINICONDA=$HOME/miniconda-for-arrow
-LIBRARY_INSTALL_DIR=$HOME/local-libs
-CPP_BUILD_DIR=$HOME/arrow-cpp-build
-ARROW_ROOT=/arrow
-export ARROW_HOME=/dist
-export LD_LIBRARY_PATH=/dist/lib:$LD_LIBRARY_PATH
+WORKDIR=${WORKDIR:-$HOME}
+MINICONDA=$WORKDIR/miniconda-for-arrow
+LIBRARY_INSTALL_DIR=$WORKDIR/local-libs
+CPP_BUILD_DIR=$WORKDIR/arrow-cpp-build
+ARROW_ROOT=$WORKDIR/arrow
+export ARROW_HOME=$WORKDIR/dist
+export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
 
-git clone https://github.com/apache/arrow.git /arrow
+virtualenv $WORKDIR/venv
+source $WORKDIR/venv/bin/activate
 
-virtualenv /venv
-source /venv/bin/activate
+git clone https://github.com/apache/arrow.git $ARROW_ROOT
 
-pip install -r /arrow/python/requirements-build.txt \
-     -r /arrow/python/requirements-test.txt
+pip install -r $ARROW_ROOT/python/requirements-build.txt \
+     -r $ARROW_ROOT/python/requirements-test.txt
 
 #----------------------------------------------------------------------
 # Build C++ library
