@@ -76,19 +76,6 @@ garrow_record_batch_iterator_set_property(GObject *object,
 }
 
 static void
-garrow_record_batch_iterator_get_property(GObject *object,
-                                          guint prop_id,
-                                          GValue *value,
-                                          GParamSpec *pspec)
-{
-  switch (prop_id) {
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
 garrow_record_batch_iterator_init(GArrowRecordBatchIterator *object)
 {
   auto priv = GARROW_RECORD_BATCH_ITERATOR_GET_PRIVATE(object);
@@ -98,11 +85,10 @@ garrow_record_batch_iterator_init(GArrowRecordBatchIterator *object)
 static void
 garrow_record_batch_iterator_class_init(GArrowRecordBatchIteratorClass *klass)
 {
-  GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
+  auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->finalize     = garrow_record_batch_iterator_finalize;
   gobject_class->set_property = garrow_record_batch_iterator_set_property;
-  gobject_class->get_property = garrow_record_batch_iterator_get_property;
 
   GParamSpec *spec;
 
@@ -127,7 +113,7 @@ GArrowRecordBatchIterator *
 garrow_record_batch_iterator_new(GList *record_batches)
 {
   std::vector<std::shared_ptr<arrow::RecordBatch>> arrow_record_batches;
-  for (GList *node = record_batches; node; node = node->next) {
+  for (auto node = record_batches; node; node = node->next) {
     auto record_batch = GARROW_RECORD_BATCH(node->data);
     arrow_record_batches.push_back(garrow_record_batch_get_raw(record_batch));
   }
@@ -154,7 +140,7 @@ garrow_record_batch_iterator_next(GArrowRecordBatchIterator *iterator,
 
   auto result = priv->iterator.Next();
   if (garrow::check(error, result, "[record-batch-iterator][next]")) {
-    auto arrow_record_batch = result.ValueOrDie();
+    auto arrow_record_batch = *result;
     if (arrow_record_batch) {
       return garrow_record_batch_new_raw(&arrow_record_batch);
     }
@@ -197,7 +183,7 @@ garrow_record_batch_iterator_to_list(GArrowRecordBatchIterator *iterator,
   auto priv = GARROW_RECORD_BATCH_ITERATOR_GET_PRIVATE(iterator);
   auto result = priv->iterator.ToVector();
   if (garrow::check(error, result, "[record-batch-iterator][to-list]")) {
-    auto arrow_record_batches = result.ValueOrDie();
+    auto arrow_record_batches = *result;
     GList *record_batches = NULL;
     for (auto arrow_record_batch : arrow_record_batches) {
       auto record_batch = garrow_record_batch_new_raw(&arrow_record_batch);
@@ -214,10 +200,10 @@ G_END_DECLS
 GArrowRecordBatchIterator *
 garrow_record_batch_iterator_new_raw(arrow::RecordBatchIterator *arrow_iterator)
 {
-  auto iterator = GARROW_RECORD_BATCH_ITERATOR(g_object_new(GARROW_TYPE_RECORD_BATCH_ITERATOR,
-                                                            "iterator", arrow_iterator,
-                                                            NULL));
-  return iterator;
+  auto iterator = g_object_new(GARROW_TYPE_RECORD_BATCH_ITERATOR,
+                               "iterator", arrow_iterator,
+                               NULL);
+  return GARROW_RECORD_BATCH_ITERATOR(iterator);
 }
 
 arrow::RecordBatchIterator *
