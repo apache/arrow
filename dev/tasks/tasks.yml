@@ -22,283 +22,67 @@ groups:
   ############################# Packaging tasks ###############################
 
   conda:
-    - conda-linux-gcc-py36
-    - conda-linux-gcc-py37
-    - conda-linux-gcc-py38
-    - conda-osx-clang-py36
-    - conda-osx-clang-py37
-    - conda-osx-clang-py38
-    - conda-win-vs2015-py36
-    - conda-win-vs2015-py37
-    - conda-win-vs2015-py38
+    - conda-*
 
   wheel:
-    - wheel-manylinux1-cp35m
-    - wheel-manylinux1-cp36m
-    - wheel-manylinux1-cp37m
-    - wheel-manylinux1-cp38
-    - wheel-manylinux2010-cp35m
-    - wheel-manylinux2010-cp36m
-    - wheel-manylinux2010-cp37m
-    - wheel-manylinux2010-cp38
-    - wheel-manylinux2014-cp35m
-    - wheel-manylinux2014-cp36m
-    - wheel-manylinux2014-cp37m
-    - wheel-manylinux2014-cp38
-    - wheel-osx-cp35m
-    - wheel-osx-cp36m
-    - wheel-osx-cp37m
-    - wheel-osx-cp38
-    - wheel-win-cp36m
-    - wheel-win-cp37m
-    - wheel-win-cp38
+    - wheel-*
 
   linux:
-    - debian-stretch
-    - debian-buster
-    - ubuntu-xenial
-    - ubuntu-bionic
-    - ubuntu-eoan
-    - ubuntu-focal
-    - centos-6
-    - centos-7
-    - centos-8
+    - debian-*-amd64
+    - ubuntu-*-amd64
+    - centos-*-amd64
 
   linux-arm:
-    - debian-stretch-arm64
-    - debian-buster-arm64
-    - ubuntu-xenial-arm64
-    - ubuntu-bionic-arm64
-    - ubuntu-eoan-arm64
-    - ubuntu-focal-arm64
-    - centos-7-aarch64
-    - centos-8-aarch64
+    - debian-*-arm64
+    - ubuntu-*-arm64
+    - centos-*-aarch64
 
   gandiva:
-    - gandiva-jar-trusty
-    - gandiva-jar-osx
+    - gandiva-*
 
   homebrew:
-    - homebrew-cpp
-    - homebrew-cpp-autobrew
+    - homebrew-*
 
   ############################# Testing tasks #################################
 
-  docker:
-    - test-conda-cpp
-    - test-debian-10-cpp
-    - test-ubuntu-16.04-cpp
-    - test-ubuntu-18.04-cpp
-    - test-fedora-30-cpp
-    - test-ubuntu-18.04-cpp-release
-    - test-ubuntu-18.04-cpp-static
-    - test-ubuntu-18.04-cpp-cmake32
-    - test-debian-c-glib
-    - test-ubuntu-c-glib
-    - test-debian-ruby
-    - test-ubuntu-ruby
-    - test-conda-python-3.6
-    - test-conda-python-3.7
-    - test-conda-python-3.8
-    - test-debian-10-python-3
-    - test-ubuntu-18.04-python-3
-    - test-fedora-30-python-3
-    - test-r-rhub-ubuntu-gcc-release
-    - test-r-linux-as-cran
-    - test-r-rocker-r-base-latest
-    - test-r-rstudio-r-base-3.6-bionic
-    - test-r-rstudio-r-base-3.6-centos6
-    - test-r-rstudio-r-base-3.6-opensuse15
-    - test-r-rstudio-r-base-3.6-opensuse42
-    - test-ubuntu-18.04-r-3.6
-    - test-conda-r-3.6
-    - test-ubuntu-18.04-r-sanitizer
-    - test-debian-10-go-1.12
-    - test-ubuntu-18.04-docs
-    - test-conda-python-3.7-pandas-latest
-    - test-conda-python-3.7-pandas-master
-    - test-conda-python-3.8-pandas-latest
-    - test-conda-python-3.7-dask-latest
-    - test-conda-python-3.8-dask-master
-    - test-conda-python-3.7-turbodbc-latest
-    - test-conda-python-3.7-turbodbc-master
-    - test-conda-python-3.7-kartothek-latest
-    - test-conda-python-3.7-kartothek-master
-    - test-conda-python-3.7-hdfs-2.9.2
-    - test-conda-python-3.7-spark-master
-    - test-conda-python-3.8-jpype
-    # - test-conda-cpp-hiveserver2
-
   test:
-    - test-conda-cpp
-    - test-debian-10-cpp
-    - test-ubuntu-16.04-cpp
-    - test-ubuntu-18.04-cpp
-    - test-fedora-30-cpp
-    - test-ubuntu-18.04-cpp-release
-    - test-ubuntu-18.04-cpp-static
-    - test-ubuntu-18.04-cpp-cmake32
-    - test-debian-c-glib
-    - test-ubuntu-c-glib
-    - test-debian-ruby
-    - test-ubuntu-ruby
-    - test-conda-python-3.6
-    - test-conda-python-3.7
-    - test-conda-python-3.8
-    - test-debian-10-python-3
-    - test-ubuntu-18.04-python-3
-    - test-fedora-30-python-3
-    - test-r-rhub-ubuntu-gcc-release
-    - test-r-linux-as-cran
-    - test-r-rocker-r-base-latest
-    - test-r-rstudio-r-base-3.6-bionic
-    - test-r-rstudio-r-base-3.6-centos6
-    - test-r-rstudio-r-base-3.6-opensuse15
-    - test-r-rstudio-r-base-3.6-opensuse42
-    - test-ubuntu-18.04-r-3.6
-    - test-conda-r-3.6
-    - test-ubuntu-18.04-r-sanitizer
-    - test-debian-10-go-1.12
-    - test-ubuntu-18.04-docs
+    - test-*
 
   cpp:
-    - test-conda-cpp
-    - test-debian-10-cpp
-    - test-ubuntu-16.04-cpp
-    - test-ubuntu-18.04-cpp
-    - test-fedora-30-cpp
-    - test-ubuntu-18.04-cpp-release
-    - test-ubuntu-18.04-cpp-static
-    - test-ubuntu-18.04-cpp-cmake32
+    - test-*cpp*
 
   c-glib:
-    - test-debian-c-glib
-    - test-ubuntu-c-glib
+    - test-*c-glib*
 
   python:
-    - test-conda-python-3.6
-    - test-conda-python-3.7
-    - test-conda-python-3.8
-    - test-debian-10-python-3
-    - test-ubuntu-18.04-python-3
-    - test-fedora-30-python-3
+    - test-*python*
 
   r:
-    - test-conda-r-3.6
-    - test-ubuntu-18.04-r-sanitizer
-    - test-r-rhub-ubuntu-gcc-release
-    - test-r-linux-as-cran
-    - test-r-rocker-r-base-latest
-    - test-r-rstudio-r-base-3.6-bionic
-    - test-r-rstudio-r-base-3.6-centos6
-    - test-r-rstudio-r-base-3.6-opensuse15
-    - test-r-rstudio-r-base-3.6-opensuse42
-    - macos-r-autobrew
+    - test-*r*
 
   ruby:
-    - test-debian-ruby
-    - test-ubuntu-ruby
+    - test-*ruby*
 
   integration:
-    - test-conda-python-3.7-pandas-latest
-    - test-conda-python-3.7-pandas-master
-    - test-conda-python-3.8-pandas-latest
-    - test-conda-python-3.7-dask-latest
-    - test-conda-python-3.8-dask-master
-    - test-conda-python-3.7-turbodbc-latest
-    - test-conda-python-3.7-turbodbc-master
-    - test-conda-python-3.7-kartothek-latest
-    - test-conda-python-3.7-kartothek-master
-    - test-conda-python-3.7-hdfs-2.9.2
-    - test-conda-python-3.7-spark-master
-    - test-conda-python-3.8-jpype
-    # - test-conda-cpp-hiveserver2
+    - test-*dask*
+    - test-*hdfs*
+    - test-*jpype*
+    - test-*kartothek*
+    - test-*pandas*
+    - test-*spark*
+    - test-*turbodbc*
 
   ######################## Tasks to run regularly #############################
 
   nightly:
-    - conda-linux-gcc-py36
-    - conda-linux-gcc-py37
-    - conda-linux-gcc-py38
-    - conda-osx-clang-py36
-    - conda-osx-clang-py37
-    - conda-osx-clang-py38
-    - conda-win-vs2015-py36
-    - conda-win-vs2015-py37
-    - conda-win-vs2015-py38
-    - wheel-manylinux1-cp35m
-    - wheel-manylinux1-cp36m
-    - wheel-manylinux1-cp37m
-    - wheel-manylinux1-cp38
-    - wheel-manylinux2010-cp35m
-    - wheel-manylinux2010-cp36m
-    - wheel-manylinux2010-cp37m
-    - wheel-manylinux2010-cp38
-    - wheel-manylinux2014-cp35m
-    - wheel-manylinux2014-cp36m
-    - wheel-manylinux2014-cp37m
-    - wheel-manylinux2014-cp38
-    - wheel-osx-cp35m
-    - wheel-osx-cp36m
-    - wheel-osx-cp37m
-    - wheel-osx-cp38
-    - wheel-win-cp36m
-    - wheel-win-cp37m
-    - wheel-win-cp38
-    - debian-stretch
-    - debian-buster
-    - ubuntu-xenial
-    - ubuntu-bionic
-    - ubuntu-eoan
-    - ubuntu-focal
-    - centos-6
-    - centos-7
-    - centos-8
-    - homebrew-cpp
-    - gandiva-jar-trusty
-    - gandiva-jar-osx
-    - macos-r-autobrew
-    - test-conda-cpp
-    - test-conda-cpp-valgrind
-    - test-debian-10-cpp
-    - test-ubuntu-16.04-cpp
-    - test-ubuntu-18.04-cpp
-    - test-fedora-30-cpp
-    - test-ubuntu-18.04-cpp-release
-    - test-ubuntu-18.04-cpp-static
-    - test-ubuntu-18.04-cpp-cmake32
-    - test-debian-c-glib
-    - test-ubuntu-c-glib
-    - test-debian-ruby
-    - test-ubuntu-ruby
-    - test-conda-python-3.6
-    - test-conda-python-3.7
-    - test-debian-10-python-3
-    - test-ubuntu-18.04-python-3
-    - test-fedora-30-python-3
-    - test-r-rhub-ubuntu-gcc-release
-    - test-r-linux-as-cran
-    - test-r-rocker-r-base-latest
-    - test-r-rstudio-r-base-3.6-bionic
-    - test-r-rstudio-r-base-3.6-centos6
-    - test-r-rstudio-r-base-3.6-opensuse15
-    - test-r-rstudio-r-base-3.6-opensuse42
-    - test-conda-r-3.6
-    - test-ubuntu-18.04-r-sanitizer
-    - test-debian-10-go-1.12
-    - test-ubuntu-18.04-docs
-    - test-conda-python-3.7-pandas-latest
-    - test-conda-python-3.7-pandas-master
-    - test-conda-python-3.8-pandas-latest
-    - test-conda-python-3.7-dask-latest
-    - test-conda-python-3.8-dask-master
-    - test-conda-python-3.7-turbodbc-latest
-    - test-conda-python-3.7-turbodbc-master
-    - test-conda-python-3.7-kartothek-latest
-    - test-conda-python-3.7-kartothek-master
-    - test-conda-python-3.7-hdfs-2.9.2
-    - test-conda-python-3.7-spark-master
-    - test-conda-python-3.8-jpype
+    - centos-*-amd64
+    - debian-*-amd64
+    - ubuntu-*-amd64
+    - conda-*
+    - gandiva-*
+    - homebrew-*
+    - test-*
+    - wheel-*
 
 tasks:
   # arbitrary_task_name:
@@ -679,7 +463,7 @@ tasks:
 
   ############################## Linux PKGS ####################################
 
-  debian-stretch:
+  debian-stretch-amd64:
     ci: github
     platform: linux
     template: linux-packages/github.linux.yml
@@ -802,7 +586,7 @@ tasks:
       - libparquet100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet100_{no_rc_version}-1_[a-z0-9]+.deb
 
-  debian-buster:
+  debian-buster-amd64:
     ci: github
     platform: linux
     template: linux-packages/github.linux.yml
@@ -925,7 +709,7 @@ tasks:
       - libparquet100-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet100_{no_rc_version}-1_[a-z0-9]+.deb
 
-  ubuntu-xenial:
+  ubuntu-xenial-amd64:
     ci: github
     platform: linux
     template: linux-packages/github.linux.yml
@@ -1031,7 +815,7 @@ tasks:
       - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
-  ubuntu-bionic:
+  ubuntu-bionic-amd64:
     ci: github
     platform: linux
     template: linux-packages/github.linux.yml
@@ -1149,7 +933,7 @@ tasks:
       - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
-  ubuntu-eoan:
+  ubuntu-eoan-amd64:
     ci: github
     platform: linux
     template: linux-packages/github.linux.yml
@@ -1267,7 +1051,7 @@ tasks:
       - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
-  ubuntu-focal:
+  ubuntu-focal-amd64:
     ci: github
     platform: linux
     template: linux-packages/github.linux.yml
@@ -1385,7 +1169,7 @@ tasks:
       - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
-  centos-6:
+  centos-6-amd64:
     ci: github
     platform: linux
     template: linux-packages/github.linux.yml
@@ -1407,7 +1191,7 @@ tasks:
       - plasma-devel-{no_rc_version}-1.el6.[a-z0-9_]+.rpm
       - plasma-libs-{no_rc_version}-1.el6.[a-z0-9_]+.rpm
 
-  centos-7:
+  centos-7-amd64:
     ci: github
     platform: linux
     template: linux-packages/github.linux.yml
@@ -1473,7 +1257,7 @@ tasks:
       - plasma-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - plasma-store-server-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
 
-  centos-8:
+  centos-8-amd64:
     ci: github
     platform: linux
     template: linux-packages/github.linux.yml
@@ -1601,7 +1385,7 @@ tasks:
     params:
       formula: autobrew/apache-arrow.rb
 
-  macos-r-autobrew:
+  homebrew-r-autobrew:
     # This tests that the autobrew formula + script work in practice
     ci: travis
     platform: osx

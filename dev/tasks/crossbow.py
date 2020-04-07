@@ -19,6 +19,7 @@
 
 import os
 import re
+import fnmatch
 import glob
 import time
 import logging
@@ -936,15 +937,39 @@ class Job(Serializable):
         return self.queue.date_of(self)
 
     @classmethod
-    def from_config(cls, config, target, task_whitelist=None,
-                    group_whitelist=None):
+    def from_config(cls, config, target, tasks=None, groups=None):
+        """
+        Intantiate a job from based on a config.
+
+        Parameters
+        ----------
+        config : dict
+            Deserialized content of tasks.yml
+        target : Target
+            Describes target repository and revision the builds run against.
+        tasks : Optional[List[str]], default None
+            List of glob patterns for matching task names.
+        groups : tasks : Optional[List[str]], default None
+            List of exact group names matching predefined task sets in the
+            config.
+
+        Returns
+        -------
+        Job
+
+        Raises
+        ------
+        click.ClickException
+            If invalid groups or tasks has been passed.
+        """
         config_groups = dict(config['groups'])
         config_tasks = dict(config['tasks'])
         valid_groups = set(config_groups.keys())
         valid_tasks = set(config_tasks.keys())
-        group_whitelist = list(group_whitelist or [])
-        task_whitelist = list(task_whitelist or [])
+        group_whitelist = list(groups or [])
+        task_whitelist = list(tasks or [])
 
+        # validate that the passed groups are defined in the config
         requested_groups = set(group_whitelist)
         invalid_groups = requested_groups - valid_groups
         if invalid_groups:
@@ -953,9 +978,18 @@ class Job(Serializable):
             )
             raise click.ClickException(msg)
 
-        requested_tasks = [list(config_groups[name])
-                           for name in group_whitelist]
-        requested_tasks = set(sum(requested_tasks, task_whitelist))
+        # merge the tasks defined in the selected groups
+        task_patterns = [list(config_groups[name]) for name in group_whitelist]
+        task_patterns = set(sum(task_patterns, task_whitelist))
+
+        # treat the task names as glob patterns to select tasks more easily
+        requested_tasks = set(
+            toolz.concat(
+                fnmatch.filter(valid_tasks, p) for p in task_patterns
+            )
+        )
+
+        # validate that the passed and matched tasks are defined in the config
         invalid_tasks = requested_tasks - valid_tasks
         if invalid_tasks:
             msg = 'Invalid task(s) {!r}. Must be one of {!r}'.format(
@@ -963,6 +997,7 @@ class Job(Serializable):
             )
             raise click.ClickException(msg)
 
+        # instantiate the tasks
         tasks = {}
         versions = {'version': target.version,
                     'no_rc_version': target.no_rc_version}
@@ -1426,8 +1461,7 @@ def submit(obj, tasks, groups, job_prefix, config_path, arrow_version,
                               head=arrow_sha, version=arrow_version)
 
     # instantiate the job object
-    job = Job.from_config(config, target=target, task_whitelist=tasks,
-                          group_whitelist=groups)
+    job = Job.from_config(config, target=target, tasks=tasks, groups=groups)
 
     if dry_run:
         yaml.dump(job, output)
