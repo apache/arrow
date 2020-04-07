@@ -37,8 +37,27 @@ jobs:
 
   - script: |
       pushd arrow
-      {%- for command in commands %}
-        {{ command }}
+      {% if env is defined %}
+      {%- for key, value in env.items() %}
+        export {{ key }}={{ value }}
+      {%- endfor %}
+      {% endif %}
+
+      {% if build is defined %}
+      {%- for image in build %}
+        docker-compose pull --ignore-pull-failures {{ image }}
+        docker-compose build {{ image }}
+      {%- endfor %}
+      {% endif %}
+
+      {% if nocache is defined %}
+      {%- for image in nocache %}
+        docker-compose build --no-cache {{ image }}
+      {%- endfor %}
+      {% endif %}
+
+      {%- for image in run %}
+        docker-compose run --rm -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ image }}
       {%- endfor %}
       popd
     workingDirectory: arrow
