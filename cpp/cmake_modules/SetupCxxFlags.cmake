@@ -280,6 +280,9 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
   # Add colors when paired with ninja
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcolor-diagnostics")
 
+  # Don't complain about optimization passes that were not possible
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-pass-failed")
+
   if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
     # Depending on the default OSX_DEPLOYMENT_TARGET (< 10.9), libstdc++ may be
     # the default standard library which does not support C++11. libc++ is the

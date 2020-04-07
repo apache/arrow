@@ -47,14 +47,7 @@
 #define XXH_PRIVATE_API
 #define XXH_NAMESPACE arrow_hashing_
 
-// Suppress clang warnings from unsuccessful or unsupported optimization passes
-// requested in xxh3
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpass-failed"
-
 #include "arrow/vendored/xxhash.h"
-
-#pragma GCC diagnostic pop
 
 namespace arrow {
 namespace internal {
