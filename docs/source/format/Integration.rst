@@ -38,6 +38,7 @@ distribution and environment for running the tests by using
 `miniconda <https://conda.io/miniconda.html>`_. On Linux this is:
 
 .. code-block:: shell
+
    MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
    wget -O miniconda.sh $MINICONDA_URL
    bash miniconda.sh -b -p miniconda
@@ -50,16 +51,19 @@ distribution and environment for running the tests by using
 If you are on macOS, instead use the URL:
 
 .. code-block:: shell
+
    MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
 
 Once you have Python, you can install archery
 
 .. code-block:: shell
+
    pip install -e dev/archery
 
 The integration tests are run using the ``archery integration`` command.
 
 .. code-block:: shell
+
    archery integration --help
 
 In order to run integration tests, you'll first need to build each component
@@ -74,12 +78,14 @@ Depending on which components you have built, you can enable and add them to
 the archery test run. For example, if you only have the C++ project built, run:
 
 .. code-block:: shell
+
    archery integration --with-cpp=1
 
 
 For Java, it may look like:
 
 .. code-block:: shell
+
    VERSION=0.11.0-SNAPSHOT
    export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
    archery integration --with-cpp=1 --with-java=1
@@ -87,6 +93,7 @@ For Java, it may look like:
 To run all tests, including Flight integration tests, do:
 
 .. code-block:: shell
+
    archery integration --with-all --run-flight
 
 Note that we run these tests in continuous integration, and the CI job uses

@@ -75,6 +75,12 @@ These two steps are mandatory and must be executed in order.
       make html
       popd
 
+.. note::
+
+   Note that building the documentation may fail if your build of pyarrow is
+   not sufficiently comprehensive. Portions of the Python API documentation
+   will also not build without CUDA support having been built.
+
 After these steps are completed, the documentation is rendered in HTML
 format in ``docs/_build/html``.  In particular, you can point your browser
 at ``docs/_build/html/index.html`` to read the docs and review any changes

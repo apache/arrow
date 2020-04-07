@@ -55,7 +55,7 @@ class IpcFixture:
         df = pd.DataFrame({
             'one': np.random.randn(nrows),
             'two': ['foo', np.nan, 'bar', 'bazbaz', 'qux']})
-        batch = pa.RecordBatch.from_pandas(df)
+        batch = pa.record_batch(df)
 
         writer = self._get_writer(self.sink, batch.schema)
 
@@ -64,7 +64,7 @@ class IpcFixture:
         for i in range(num_batches):
             unique_df = df.copy()
             unique_df['one'] = np.random.randn(len(df))
-            batch = pa.RecordBatch.from_pandas(unique_df)
+            batch = pa.record_batch(unique_df)
             frames.append(unique_df)
             batches.append(batch)
 
@@ -82,7 +82,7 @@ class IpcFixture:
 class FileFormatFixture(IpcFixture):
 
     def _get_writer(self, sink, schema):
-        return pa.RecordBatchFileWriter(sink, schema)
+        return pa.ipc.new_file(sink, schema)
 
     def _check_roundtrip(self, as_table=False):
         _, batches = self.write_batches(as_table=as_table)
@@ -105,7 +105,7 @@ class StreamFormatFixture(IpcFixture):
     use_legacy_ipc_format = False
 
     def _get_writer(self, sink, schema):
-        return pa.RecordBatchStreamWriter(
+        return pa.ipc.new_stream(
             sink,
             schema,
             use_legacy_format=self.use_legacy_ipc_format
@@ -315,16 +315,16 @@ def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
 def test_envvar_set_legacy_ipc_format():
     schema = pa.schema([pa.field('foo', pa.int32())])
 
-    writer = pa.RecordBatchStreamWriter(pa.BufferOutputStream(), schema)
+    writer = pa.ipc.new_stream(pa.BufferOutputStream(), schema)
     assert not writer._use_legacy_format
-    writer = pa.RecordBatchFileWriter(pa.BufferOutputStream(), schema)
+    writer = pa.ipc.new_file(pa.BufferOutputStream(), schema)
     assert not writer._use_legacy_format
 
     import os
     os.environ['ARROW_PRE_0_15_IPC_FORMAT'] = '1'
-    writer = pa.RecordBatchStreamWriter(pa.BufferOutputStream(), schema)
+    writer = pa.ipc.new_stream(pa.BufferOutputStream(), schema)
     assert writer._use_legacy_format
-    writer = pa.RecordBatchFileWriter(pa.BufferOutputStream(), schema)
+    writer = pa.ipc.new_file(pa.BufferOutputStream(), schema)
     assert writer._use_legacy_format
 
     del os.environ['ARROW_PRE_0_15_IPC_FORMAT']
@@ -388,10 +388,10 @@ def test_message_serialize_read_message(example_messages):
     buf = msg.serialize()
     reader = pa.BufferReader(buf.to_pybytes() * 2)
 
-    restored = pa.read_message(buf)
-    restored2 = pa.read_message(reader)
-    restored3 = pa.read_message(buf.to_pybytes())
-    restored4 = pa.read_message(reader)
+    restored = pa.ipc.read_message(buf)
+    restored2 = pa.ipc.read_message(reader)
+    restored3 = pa.ipc.read_message(buf.to_pybytes())
+    restored4 = pa.ipc.read_message(reader)
 
     assert msg.equals(restored)
     assert msg.equals(restored2)
@@ -399,10 +399,10 @@ def test_message_serialize_read_message(example_messages):
     assert msg.equals(restored4)
 
     with pytest.raises(pa.ArrowInvalid, match="Corrupted message"):
-        pa.read_message(pa.BufferReader(b'ab'))
+        pa.ipc.read_message(pa.BufferReader(b'ab'))
 
     with pytest.raises(EOFError):
-        pa.read_message(reader)
+        pa.ipc.read_message(reader)
 
 
 def test_message_read_from_compressed(example_messages):
@@ -415,8 +415,8 @@ def test_message_read_from_compressed(example_messages):
 
         compressed_buf = raw_out.getvalue()
 
-        result = pa.read_message(pa.input_stream(compressed_buf,
-                                                 compression='gzip'))
+        result = pa.ipc.read_message(pa.input_stream(compressed_buf,
+                                                     compression='gzip'))
         assert result.equals(message)
 
 
@@ -424,7 +424,7 @@ def test_message_read_record_batch(example_messages):
     batches, messages = example_messages
 
     for batch, message in zip(batches, messages[1:]):
-        read_batch = pa.read_record_batch(message, batch.schema)
+        read_batch = pa.ipc.read_record_batch(message, batch.schema)
         assert read_batch.equals(batch)
 
 
@@ -433,12 +433,12 @@ def test_read_record_batch_on_stream_error_message():
     batch = pa.record_batch([pa.array([b"foo"], type=pa.utf8())],
                             names=['strs'])
     stream = pa.BufferOutputStream()
-    with pa.RecordBatchStreamWriter(stream, batch.schema) as writer:
+    with pa.ipc.new_stream(stream, batch.schema) as writer:
         writer.write_batch(batch)
     buf = stream.getvalue()
     with pytest.raises(IOError,
                        match="type record batch but got schema"):
-        pa.read_record_batch(buf, batch.schema)
+        pa.ipc.read_record_batch(buf, batch.schema)
 
 
 # ----------------------------------------------------------------------
@@ -576,7 +576,7 @@ def test_ipc_stream_no_batches():
                                  names=['a', 'b'])
 
     sink = pa.BufferOutputStream()
-    with pa.RecordBatchStreamWriter(sink, table.schema):
+    with pa.ipc.new_stream(sink, table.schema):
         pass
 
     source = sink.getvalue()
@@ -593,7 +593,7 @@ def test_get_record_batch_size():
     df = pd.DataFrame({'foo': np.random.randn(N)})
 
     batch = pa.RecordBatch.from_pandas(df)
-    assert pa.get_record_batch_size(batch) > (N * itemsize)
+    assert pa.ipc.get_record_batch_size(batch) > (N * itemsize)
 
 
 def _check_serialize_pandas_round_trip(df, use_threads=False):
@@ -692,8 +692,8 @@ def test_schema_batch_serialize_methods():
     s_schema = batch.schema.serialize()
     s_batch = batch.serialize()
 
-    recons_schema = pa.read_schema(s_schema)
-    recons_batch = pa.read_record_batch(s_batch, recons_schema)
+    recons_schema = pa.ipc.read_schema(s_schema)
+    recons_batch = pa.ipc.read_record_batch(s_batch, recons_schema)
     assert recons_batch.equals(batch)
 
 
@@ -707,7 +707,7 @@ def test_schema_serialization_with_metadata():
     schema = pa.schema([f0, f1], metadata=schema_metadata)
 
     s_schema = schema.serialize()
-    recons_schema = pa.read_schema(s_schema)
+    recons_schema = pa.ipc.read_schema(s_schema)
 
     assert recons_schema.equals(schema)
     assert recons_schema.metadata == schema_metadata
@@ -718,7 +718,7 @@ def test_schema_serialization_with_metadata():
 def test_deprecated_pyarrow_ns_apis():
     table = pa.table([pa.array([1, 2, 3, 4])], names=['a'])
     sink = pa.BufferOutputStream()
-    with pa.RecordBatchStreamWriter(sink, table.schema) as writer:
+    with pa.ipc.new_stream(sink, table.schema) as writer:
         writer.write(table)
 
     with pytest.warns(FutureWarning,
@@ -726,14 +726,14 @@ def test_deprecated_pyarrow_ns_apis():
         pa.open_stream(sink.getvalue())
 
     sink = pa.BufferOutputStream()
-    with pa.RecordBatchFileWriter(sink, table.schema) as writer:
+    with pa.ipc.new_file(sink, table.schema) as writer:
         writer.write(table)
     with pytest.warns(FutureWarning, match="please use pyarrow.ipc.open_file"):
         pa.open_file(sink.getvalue())
 
 
 def write_file(batch, sink):
-    with pa.RecordBatchFileWriter(sink, batch.schema) as writer:
+    with pa.ipc.new_file(sink, batch.schema) as writer:
         writer.write_batch(batch)
 
 
@@ -748,7 +748,7 @@ def test_write_empty_ipc_file():
     schema = pa.schema([('field', pa.int64())])
 
     sink = pa.BufferOutputStream()
-    with pa.RecordBatchFileWriter(sink, schema):
+    with pa.ipc.new_file(sink, schema):
         pass
 
     buf = sink.getvalue()

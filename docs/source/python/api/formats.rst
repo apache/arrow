@@ -44,6 +44,7 @@ Feather Files
    :toctree: ../generated/
 
    read_feather
+   read_table
    write_feather
 
 .. _api.json:

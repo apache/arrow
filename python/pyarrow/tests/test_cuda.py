@@ -674,7 +674,7 @@ def test_batch_serialize():
     cuda.read_record_batch(cbuf, batch.schema)
     buf = cbuf.copy_to_host()
     assert hbuf.equals(buf)
-    batch2 = pa.read_record_batch(buf, batch.schema)
+    batch2 = pa.ipc.read_record_batch(buf, batch.schema)
     assert hbuf.equals(batch2.serialize())
     assert batch.num_columns == batch2.num_columns
     assert batch.num_rows == batch2.num_rows
