@@ -17,6 +17,7 @@
 
 FROM rustlang/rust:nightly
 
+COPY format /arrow/format/
 COPY rust /arrow/rust/
 WORKDIR /arrow/rust/datafusion
 RUN cargo install --bin datafusion-cli --path .
