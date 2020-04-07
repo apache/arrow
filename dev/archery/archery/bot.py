@@ -264,6 +264,9 @@ def submit(obj, task, group, dry_run):
 
     # construct crossbow arguments
     args = []
+    if dry_run:
+        args.append('--dry-run')
+
     for g in group:
         args.extend(['-g', g])
     for t in task:
