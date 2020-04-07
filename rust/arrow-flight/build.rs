@@ -15,17 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::env;
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // The current working directory can vary depending on how the project is being
-    // built or released so we build an absolute path to the proto file
-    let mut path = env::current_dir()?;
-    while !path.ends_with("arrow") {
-        path.pop();
-    }
-    path.push("format");
-    path.push("Flight.proto");
-    tonic_build::compile_protos(path)?;
+    tonic_build::compile_protos("../../format/Flight.proto")?;
     Ok(())
 }
