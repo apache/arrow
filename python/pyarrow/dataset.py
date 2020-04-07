@@ -155,19 +155,16 @@ def partitioning(schema=None, field_names=None, flavor=None):
 
 def _ensure_fs(filesystem, path):
     # Validate or infer the filesystem from the path
-    from pyarrow.fs import (
-        FileSystem, LocalFileSystem, FileType, _normalize_path)
+    from pyarrow.fs import FileSystem, LocalFileSystem, _normalize_path
 
     if filesystem is None:
-        # first check if the file exists as a local (relative) file path
-        filesystem = LocalFileSystem()
         try:
-            infos = filesystem.get_file_info([path])[0]
-        except OSError:
-            return FileSystem.from_uri(path)
-
-        if infos.type == FileType.NotFound:
-            return FileSystem.from_uri(path)
+            scheme, _ = path.split('://', 1)  # noqa
+        except ValueError:
+            # ARROW-8213: missing scheme, assume local path
+            filesystem = LocalFileSystem()
+        else:
+            filesystem, path = FileSystem.from_uri(path)
 
     # ensure we have a proper path (eg no backslashes on Windows)
     path = _normalize_path(filesystem, path)
@@ -180,12 +177,6 @@ def _ensure_fs_and_paths(path, filesystem=None):
     from pyarrow.fs import FileType, FileSelector
 
     path = _stringify_path(path)
-    try:
-        scheme, _ = path.split('://', 1)  # noqa
-    except ValueError:
-        # ARROW-8213: missing scheme, assume local path
-        path = 'file://{}'.format(path)
-
     filesystem, path = _ensure_fs(filesystem, path)
     infos = filesystem.get_file_info([path])[0]
     if infos.type == FileType.Directory:
