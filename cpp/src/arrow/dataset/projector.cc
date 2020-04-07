@@ -96,8 +96,8 @@ Status RecordBatchProjector::SetInputSchema(std::shared_ptr<Schema> from,
     if (matches.empty()) {
       // Mark column i as missing by setting missing_columns_[i]
       // to a non-null placeholder.
-      RETURN_NOT_OK(
-          MakeArrayOfNull(pool, to_->field(i)->type(), 0, &missing_columns_[i]));
+      ARROW_ASSIGN_OR_RAISE(missing_columns_[i],
+                            MakeArrayOfNull(to_->field(i)->type(), 0, pool));
       column_indices_[i] = kNoMatch;
     } else {
       RETURN_NOT_OK(ref.CheckNonMultiple(matches, *from_));
@@ -125,12 +125,13 @@ Status RecordBatchProjector::ResizeMissingColumns(int64_t new_length, MemoryPool
       continue;
     }
     if (scalars_[i] == nullptr) {
-      RETURN_NOT_OK(MakeArrayOfNull(pool, missing_columns_[i]->type(), new_length,
-                                    &missing_columns_[i]));
+      ARROW_ASSIGN_OR_RAISE(
+          missing_columns_[i],
+          MakeArrayOfNull(missing_columns_[i]->type(), new_length, pool));
       continue;
     }
-    RETURN_NOT_OK(
-        MakeArrayFromScalar(pool, *scalars_[i], new_length, &missing_columns_[i]));
+    ARROW_ASSIGN_OR_RAISE(missing_columns_[i],
+                          MakeArrayFromScalar(*scalars_[i], new_length, pool));
   }
   missing_columns_length_ = new_length;
   return Status::OK();

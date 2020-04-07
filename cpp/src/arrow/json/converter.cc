@@ -92,7 +92,7 @@ class BooleanConverter : public PrimitiveConverter {
 
   Status Convert(const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) override {
     if (in->type_id() == Type::NA) {
-      return MakeArrayOfNull(pool_, boolean(), in->length(), out);
+      return MakeArrayOfNull(boolean(), in->length(), pool_).Value(out);
     }
     if (in->type_id() != Type::BOOL) {
       return GenericConversionError(*out_type_, " from ", *in->type());
@@ -112,7 +112,7 @@ class NumericConverter : public PrimitiveConverter {
 
   Status Convert(const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) override {
     if (in->type_id() == Type::NA) {
-      return MakeArrayOfNull(pool_, out_type_, in->length(), out);
+      return MakeArrayOfNull(out_type_, in->length(), pool_).Value(out);
     }
     const auto& dict_array = GetDictionaryArray(in);
 
@@ -150,7 +150,7 @@ class DateTimeConverter : public PrimitiveConverter {
 
   Status Convert(const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) override {
     if (in->type_id() == Type::NA) {
-      return MakeArrayOfNull(pool_, out_type_, in->length(), out);
+      return MakeArrayOfNull(out_type_, in->length(), pool_).Value(out);
     }
 
     std::shared_ptr<Array> repr;
@@ -178,7 +178,7 @@ class BinaryConverter : public PrimitiveConverter {
 
   Status Convert(const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) override {
     if (in->type_id() == Type::NA) {
-      return MakeArrayOfNull(pool_, out_type_, in->length(), out);
+      return MakeArrayOfNull(out_type_, in->length(), pool_).Value(out);
     }
     const auto& dict_array = GetDictionaryArray(in);
 

@@ -1122,16 +1122,16 @@ struct TreeEvaluator::Impl {
     ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand()));
 
     if (lhs.is_scalar()) {
-      std::shared_ptr<Array> lhs_array;
-      RETURN_NOT_OK(MakeArrayFromScalar(ctx_.memory_pool(), *lhs.scalar(),
-                                        batch_.num_rows(), &lhs_array));
+      ARROW_ASSIGN_OR_RAISE(
+          auto lhs_array,
+          MakeArrayFromScalar(*lhs.scalar(), batch_.num_rows(), ctx_.memory_pool()));
       lhs = Datum(std::move(lhs_array));
     }
 
     if (rhs.is_scalar()) {
-      std::shared_ptr<Array> rhs_array;
-      RETURN_NOT_OK(MakeArrayFromScalar(ctx_.memory_pool(), *rhs.scalar(),
-                                        batch_.num_rows(), &rhs_array));
+      ARROW_ASSIGN_OR_RAISE(
+          auto rhs_array,
+          MakeArrayFromScalar(*rhs.scalar(), batch_.num_rows(), ctx_.memory_pool()));
       rhs = Datum(std::move(rhs_array));
     }
 

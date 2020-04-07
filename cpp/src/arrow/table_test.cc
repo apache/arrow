@@ -185,15 +185,14 @@ TEST_F(TestChunkedArray, View) {
   auto carr = std::make_shared<ChunkedArray>(chunks);
   auto expected = std::make_shared<ChunkedArray>(ex_chunks);
 
-  std::shared_ptr<ChunkedArray> result;
-  ASSERT_OK(carr->View(out_ty, &result));
+  ASSERT_OK_AND_ASSIGN(auto result, carr->View(out_ty));
   AssertChunkedEqual(*expected, *result);
 
   // Zero length
   ArrayVector empty = {};
   carr = std::make_shared<ChunkedArray>(empty, in_ty);
   expected = std::make_shared<ChunkedArray>(empty, out_ty);
-  ASSERT_OK(carr->View(out_ty, &result));
+  ASSERT_OK_AND_ASSIGN(result, carr->View(out_ty));
   AssertChunkedEqual(*expected, *result);
 }
 
@@ -454,8 +453,7 @@ TEST_F(TestTable, ConcatenateTables) {
 std::shared_ptr<Table> MakeTableWithOneNullFilledColumn(
     const std::string& column_name, const std::shared_ptr<DataType>& data_type,
     const int length) {
-  std::shared_ptr<Array> array_of_nulls;
-  DCHECK_OK(MakeArrayOfNull(data_type, length, &array_of_nulls));
+  auto array_of_nulls = *MakeArrayOfNull(data_type, length);
   return Table::Make(schema({field(column_name, data_type)}), {array_of_nulls});
 }
 
@@ -605,10 +603,8 @@ TEST_F(ConcatenateTablesWithPromotionTest, Simple) {
   MakeExample1(length);
   auto batch1 = RecordBatch::Make(schema_, length, arrays_);
 
-  std::shared_ptr<Array> f1_nulls;
-  ASSERT_OK(MakeArrayOfNull(schema_->field(1)->type(), length, &f1_nulls));
-  std::shared_ptr<Array> f2_nulls;
-  ASSERT_OK(MakeArrayOfNull(schema_->field(2)->type(), length, &f2_nulls));
+  ASSERT_OK_AND_ASSIGN(auto f1_nulls, MakeArrayOfNull(schema_->field(1)->type(), length));
+  ASSERT_OK_AND_ASSIGN(auto f2_nulls, MakeArrayOfNull(schema_->field(2)->type(), length));
 
   MakeExample2(length);
   auto batch2 = RecordBatch::Make(schema_, length, arrays_);

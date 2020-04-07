@@ -162,54 +162,56 @@ TEST_F(TestUnionArrayFactories, TestMakeDense) {
   const UnionArray* union_array;
 
   // without field names and type codes
-  ASSERT_OK(UnionArray::MakeDense(*type_ids_, *value_offsets, children, &result));
+  ASSERT_OK_AND_ASSIGN(result,
+                       UnionArray::MakeDense(*type_ids_, *value_offsets, children));
   ASSERT_OK(result->ValidateFull());
   union_array = checked_cast<const UnionArray*>(result.get());
   CheckUnionArray(*union_array, UnionMode::DENSE, {"0", "1", "2", "3"}, {0, 1, 2, 3});
 
   // with field name
-  ASSERT_RAISES(Invalid, UnionArray::MakeDense(*type_ids_, *value_offsets, children,
-                                               {"one"}, &result));
-  ASSERT_OK(
-      UnionArray::MakeDense(*type_ids_, *value_offsets, children, field_names, &result));
+  ASSERT_RAISES(Invalid,
+                UnionArray::MakeDense(*type_ids_, *value_offsets, children, {"one"}));
+  ASSERT_OK_AND_ASSIGN(
+      result, UnionArray::MakeDense(*type_ids_, *value_offsets, children, field_names));
   ASSERT_OK(result->ValidateFull());
   union_array = checked_cast<const UnionArray*>(result.get());
   CheckUnionArray(*union_array, UnionMode::DENSE, field_names, {0, 1, 2, 3});
 
   // with type codes
-  ASSERT_RAISES(Invalid,
-                UnionArray::MakeDense(*logical_type_ids_, *value_offsets, children,
-                                      std::vector<int8_t>{0}, &result));
-  ASSERT_OK(UnionArray::MakeDense(*logical_type_ids_, *value_offsets, children,
-                                  type_codes_, &result));
+  ASSERT_RAISES(Invalid, UnionArray::MakeDense(*logical_type_ids_, *value_offsets,
+                                               children, std::vector<int8_t>{0}));
+  ASSERT_OK_AND_ASSIGN(result, UnionArray::MakeDense(*logical_type_ids_, *value_offsets,
+                                                     children, type_codes_));
   ASSERT_OK(result->ValidateFull());
   union_array = checked_cast<const UnionArray*>(result.get());
   CheckUnionArray(*union_array, UnionMode::DENSE, {"0", "1", "2", "3"}, type_codes_);
 
   // with field names and type codes
   ASSERT_RAISES(Invalid, UnionArray::MakeDense(*logical_type_ids_, *value_offsets,
-                                               children, {"one"}, type_codes_, &result));
-  ASSERT_OK(UnionArray::MakeDense(*logical_type_ids_, *value_offsets, children,
-                                  field_names, type_codes_, &result));
+                                               children, {"one"}, type_codes_));
+  ASSERT_OK_AND_ASSIGN(result, UnionArray::MakeDense(*logical_type_ids_, *value_offsets,
+                                                     children, field_names, type_codes_));
   ASSERT_OK(result->ValidateFull());
   union_array = checked_cast<const UnionArray*>(result.get());
   CheckUnionArray(*union_array, UnionMode::DENSE, field_names, type_codes_);
 
   // Invalid type codes
-  ASSERT_OK(UnionArray::MakeDense(*invalid_type_ids1_, *value_offsets, children,
-                                  type_codes_, &result));
+  ASSERT_OK_AND_ASSIGN(result, UnionArray::MakeDense(*invalid_type_ids1_, *value_offsets,
+                                                     children, type_codes_));
   ASSERT_RAISES(Invalid, result->ValidateFull());
-  ASSERT_OK(UnionArray::MakeDense(*invalid_type_ids2_, *value_offsets, children,
-                                  type_codes_, &result));
+  ASSERT_OK_AND_ASSIGN(result, UnionArray::MakeDense(*invalid_type_ids2_, *value_offsets,
+                                                     children, type_codes_));
   ASSERT_RAISES(Invalid, result->ValidateFull());
 
   // Invalid offsets
   std::shared_ptr<Array> invalid_offsets;
   ArrayFromVector<Int32Type, int32_t>({1, 0, 0, 0, 1, 1, 1, 2, 1, 2}, &invalid_offsets);
-  ASSERT_OK(UnionArray::MakeDense(*type_ids_, *invalid_offsets, children, &result));
+  ASSERT_OK_AND_ASSIGN(result,
+                       UnionArray::MakeDense(*type_ids_, *invalid_offsets, children));
   ASSERT_RAISES(Invalid, result->ValidateFull());
   ArrayFromVector<Int32Type, int32_t>({1, 0, 0, 0, 1, -1, 1, 2, 1, 2}, &invalid_offsets);
-  ASSERT_OK(UnionArray::MakeDense(*type_ids_, *invalid_offsets, children, &result));
+  ASSERT_OK_AND_ASSIGN(result,
+                       UnionArray::MakeDense(*type_ids_, *invalid_offsets, children));
   ASSERT_RAISES(Invalid, result->ValidateFull());
 }
 
@@ -227,44 +229,47 @@ TEST_F(TestUnionArrayFactories, TestMakeSparse) {
   std::shared_ptr<Array> result;
 
   // without field names and type codes
-  ASSERT_OK(UnionArray::MakeSparse(*type_ids_, children, &result));
+  ASSERT_OK_AND_ASSIGN(result, UnionArray::MakeSparse(*type_ids_, children));
   ASSERT_OK(result->ValidateFull());
   CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE,
                   {"0", "1", "2", "3"}, {0, 1, 2, 3});
 
   // with field names
-  ASSERT_RAISES(Invalid, UnionArray::MakeSparse(*type_ids_, children, {"one"}, &result));
-  ASSERT_OK(UnionArray::MakeSparse(*type_ids_, children, field_names, &result));
+  ASSERT_RAISES(Invalid, UnionArray::MakeSparse(*type_ids_, children, {"one"}));
+  ASSERT_OK_AND_ASSIGN(result, UnionArray::MakeSparse(*type_ids_, children, field_names));
   ASSERT_OK(result->ValidateFull());
   CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE, field_names,
                   {0, 1, 2, 3});
 
   // with type codes
   ASSERT_RAISES(Invalid, UnionArray::MakeSparse(*logical_type_ids_, children,
-                                                std::vector<int8_t>{0}, &result));
-  ASSERT_OK(UnionArray::MakeSparse(*logical_type_ids_, children, type_codes_, &result));
+                                                std::vector<int8_t>{0}));
+  ASSERT_OK_AND_ASSIGN(result,
+                       UnionArray::MakeSparse(*logical_type_ids_, children, type_codes_));
   ASSERT_OK(result->ValidateFull());
   CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE,
                   {"0", "1", "2", "3"}, type_codes_);
 
   // with field names and type codes
   ASSERT_RAISES(Invalid, UnionArray::MakeSparse(*logical_type_ids_, children, {"one"},
-                                                type_codes_, &result));
-  ASSERT_OK(UnionArray::MakeSparse(*logical_type_ids_, children, field_names, type_codes_,
-                                   &result));
+                                                type_codes_));
+  ASSERT_OK_AND_ASSIGN(result, UnionArray::MakeSparse(*logical_type_ids_, children,
+                                                      field_names, type_codes_));
   ASSERT_OK(result->ValidateFull());
   CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE, field_names,
                   type_codes_);
 
   // Invalid type codes
-  ASSERT_OK(UnionArray::MakeSparse(*invalid_type_ids1_, children, type_codes_, &result));
+  ASSERT_OK_AND_ASSIGN(
+      result, UnionArray::MakeSparse(*invalid_type_ids1_, children, type_codes_));
   ASSERT_RAISES(Invalid, result->ValidateFull());
-  ASSERT_OK(UnionArray::MakeSparse(*invalid_type_ids2_, children, type_codes_, &result));
+  ASSERT_OK_AND_ASSIGN(
+      result, UnionArray::MakeSparse(*invalid_type_ids2_, children, type_codes_));
   ASSERT_RAISES(Invalid, result->ValidateFull());
 
   // Invalid child length
   ArrayFromVector<Int8Type>({0, 0, 0, 0, 0, -12, 0, 0, 0}, &children[3]);
-  ASSERT_RAISES(Invalid, UnionArray::MakeSparse(*type_ids_, children, &result));
+  ASSERT_RAISES(Invalid, UnionArray::MakeSparse(*type_ids_, children));
 }
 
 template <typename B>
@@ -399,10 +404,10 @@ TEST_F(DenseUnionBuilderTest, Basics) {
 
   auto expected_offsets = ArrayFromJSON(int32(), "[0, 0, 0, 1, 1, 1, 2, 2, 2]");
 
-  std::shared_ptr<Array> expected;
-  ASSERT_OK(UnionArray::MakeDense(*expected_types, *expected_offsets,
-                                  {expected_i8, expected_str, expected_dbl},
-                                  {"i8", "str", "dbl"}, {I8, STR, DBL}, &expected));
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       UnionArray::MakeDense(*expected_types, *expected_offsets,
+                                             {expected_i8, expected_str, expected_dbl},
+                                             {"i8", "str", "dbl"}, {I8, STR, DBL}));
 
   ASSERT_EQ(expected->type()->ToString(), actual->type()->ToString());
   ASSERT_ARRAYS_EQUAL(*expected, *actual);
@@ -417,10 +422,10 @@ TEST_F(DenseUnionBuilderTest, InferredType) {
 
   auto expected_offsets = ArrayFromJSON(int32(), "[0, 1, 0, 1, 2, 2, 0, 1, 2]");
 
-  std::shared_ptr<Array> expected;
-  ASSERT_OK(UnionArray::MakeDense(*expected_types, *expected_offsets,
-                                  {expected_i8, expected_str, expected_dbl},
-                                  {"i8", "str", "dbl"}, {I8, STR, DBL}, &expected));
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       UnionArray::MakeDense(*expected_types, *expected_offsets,
+                                             {expected_i8, expected_str, expected_dbl},
+                                             {"i8", "str", "dbl"}, {I8, STR, DBL}));
 
   ASSERT_EQ(expected->type()->ToString(), actual->type()->ToString());
   ASSERT_ARRAYS_EQUAL(*expected, *actual);
@@ -451,10 +456,10 @@ TEST_F(SparseUnionBuilderTest, Basics) {
   auto expected_dbl =
       ArrayFromJSON(float64(), "[null, null, 1.0, -1.0, null, null, null, null, 0.5]");
 
-  std::shared_ptr<Array> expected;
-  ASSERT_OK(UnionArray::MakeSparse(*expected_types,
-                                   {expected_i8, expected_str, expected_dbl},
-                                   {"i8", "str", "dbl"}, {I8, STR, DBL}, &expected));
+  ASSERT_OK_AND_ASSIGN(
+      auto expected,
+      UnionArray::MakeSparse(*expected_types, {expected_i8, expected_str, expected_dbl},
+                             {"i8", "str", "dbl"}, {I8, STR, DBL}));
 
   ASSERT_EQ(expected->type()->ToString(), actual->type()->ToString());
   ASSERT_ARRAYS_EQUAL(*expected, *actual);
@@ -470,10 +475,10 @@ TEST_F(SparseUnionBuilderTest, InferredType) {
   auto expected_dbl =
       ArrayFromJSON(float64(), "[null, null, null, null, null, null, 1.0, -1.0, 0.5]");
 
-  std::shared_ptr<Array> expected;
-  ASSERT_OK(UnionArray::MakeSparse(*expected_types,
-                                   {expected_i8, expected_str, expected_dbl},
-                                   {"i8", "str", "dbl"}, {I8, STR, DBL}, &expected));
+  ASSERT_OK_AND_ASSIGN(
+      auto expected,
+      UnionArray::MakeSparse(*expected_types, {expected_i8, expected_str, expected_dbl},
+                             {"i8", "str", "dbl"}, {I8, STR, DBL}));
 
   ASSERT_EQ(expected->type()->ToString(), actual->type()->ToString());
   ASSERT_ARRAYS_EQUAL(*expected, *actual);

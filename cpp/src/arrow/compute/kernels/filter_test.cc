@@ -369,11 +369,12 @@ class TestFilterKernelWithString : public TestFilterKernel<TypeClass> {
                               const std::string& expected_filter) {
     auto dict = ArrayFromJSON(value_type(), dictionary_values);
     auto type = dictionary(int8(), value_type());
-    std::shared_ptr<Array> values, actual, expected;
-    ASSERT_OK(DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), dictionary_filter),
-                                          dict, &values));
-    ASSERT_OK(DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), expected_filter),
-                                          dict, &expected));
+    ASSERT_OK_AND_ASSIGN(auto values,
+                         DictionaryArray::FromArrays(
+                             type, ArrayFromJSON(int8(), dictionary_filter), dict));
+    ASSERT_OK_AND_ASSIGN(
+        auto expected,
+        DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), expected_filter), dict));
     auto take_filter = ArrayFromJSON(boolean(), filter);
     TestFilterKernel<TypeClass>::AssertFilter(values, take_filter, expected);
   }

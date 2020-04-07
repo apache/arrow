@@ -493,8 +493,8 @@ TEST_F(TestWriteRecordBatch, WriteWithCompression) {
 
   auto dict_type = dictionary(int32(), utf8());
   auto dict_field = field("f1", dict_type);
-  std::shared_ptr<Array> dict_array;
-  ASSERT_OK(DictionaryArray::FromArrays(dict_type, indices, dict, &dict_array));
+  ASSERT_OK_AND_ASSIGN(auto dict_array,
+                       DictionaryArray::FromArrays(dict_type, indices, dict));
 
   auto schema = ::arrow::schema({field("f0", utf8()), dict_field});
   auto batch =

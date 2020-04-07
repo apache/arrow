@@ -31,8 +31,7 @@ namespace arrow {
 void CheckView(const std::shared_ptr<Array>& input,
                const std::shared_ptr<DataType>& view_type,
                const std::shared_ptr<Array>& expected) {
-  std::shared_ptr<Array> result;
-  ASSERT_OK(input->View(view_type, &result));
+  ASSERT_OK_AND_ASSIGN(auto result, input->View(view_type));
   ASSERT_OK(result->ValidateFull());
   AssertArraysEqual(*expected, *result);
 }
@@ -44,8 +43,7 @@ void CheckView(const std::shared_ptr<Array>& input,
 
 void CheckViewFails(const std::shared_ptr<Array>& input,
                     const std::shared_ptr<DataType>& view_type) {
-  std::shared_ptr<Array> result;
-  ASSERT_RAISES(Invalid, input->View(view_type, &result));
+  ASSERT_RAISES(Invalid, input->View(view_type));
 }
 
 class IPv4Type : public ExtensionType {
@@ -321,8 +319,7 @@ TEST(TestArrayView, SparseUnionAsStruct) {
   auto child1 = ArrayFromJSON(int16(), "[0, -1, 42]");
   auto child2 = ArrayFromJSON(int32(), "[0, 1069547520, -1071644672]");
   auto indices = ArrayFromJSON(int8(), "[0, 0, 1]");
-  std::shared_ptr<Array> arr;
-  ASSERT_OK(UnionArray::MakeSparse(*indices, {child1, child2}, &arr));
+  ASSERT_OK_AND_ASSIGN(auto arr, UnionArray::MakeSparse(*indices, {child1, child2}));
   ASSERT_OK(arr->ValidateFull());
 
   auto ty1 = struct_({field("a", int8()), field("b", uint16()), field("c", float32())});
@@ -332,7 +329,7 @@ TEST(TestArrayView, SparseUnionAsStruct) {
 
   // With nulls
   indices = ArrayFromJSON(int8(), "[null, 0, 1]");
-  ASSERT_OK(UnionArray::MakeSparse(*indices, {child1, child2}, &arr));
+  ASSERT_OK_AND_ASSIGN(arr, UnionArray::MakeSparse(*indices, {child1, child2}));
   ASSERT_OK(arr->ValidateFull());
   expected = ArrayFromJSON(ty1, "[null, [0, 65535, 1.5], [1, 42, -2.5]]");
   CheckView(arr, expected);
@@ -341,7 +338,7 @@ TEST(TestArrayView, SparseUnionAsStruct) {
   // With nested nulls
   child1 = ArrayFromJSON(int16(), "[0, -1, null]");
   child2 = ArrayFromJSON(int32(), "[0, null, -1071644672]");
-  ASSERT_OK(UnionArray::MakeSparse(*indices, {child1, child2}, &arr));
+  ASSERT_OK_AND_ASSIGN(arr, UnionArray::MakeSparse(*indices, {child1, child2}));
   ASSERT_OK(arr->ValidateFull());
   expected = ArrayFromJSON(ty1, "[null, [0, 65535, null], [1, null, -2.5]]");
   CheckView(arr, expected);
@@ -353,10 +350,9 @@ TEST(TestArrayView, DecimalRoundTrip) {
   auto arr = ArrayFromJSON(ty1, R"(["123.4567", "-78.9000", null])");
 
   auto ty2 = fixed_size_binary(16);
-  std::shared_ptr<Array> v, w;
-  ASSERT_OK(arr->View(ty2, &v));
+  ASSERT_OK_AND_ASSIGN(auto v, arr->View(ty2));
   ASSERT_OK(v->ValidateFull());
-  ASSERT_OK(v->View(ty1, &w));
+  ASSERT_OK_AND_ASSIGN(auto w, v->View(ty1));
   ASSERT_OK(w->ValidateFull());
   AssertArraysEqual(*arr, *w);
 }
@@ -369,10 +365,10 @@ TEST(TestArrayView, Dictionaries) {
   auto indices = ArrayFromJSON(int8(), "[0, 2, null, 1]");
   auto values = ArrayFromJSON(float32(), "[0.0, 1.5, -2.5]");
 
-  std::shared_ptr<Array> arr, expected, expected_dict;
-  ASSERT_OK(values->View(int32(), &expected_dict));
-  ASSERT_OK(DictionaryArray::FromArrays(ty1, indices, values, &arr));
-  ASSERT_OK(DictionaryArray::FromArrays(ty2, indices, expected_dict, &expected));
+  ASSERT_OK_AND_ASSIGN(auto expected_dict, values->View(int32()));
+  ASSERT_OK_AND_ASSIGN(auto arr, DictionaryArray::FromArrays(ty1, indices, values));
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       DictionaryArray::FromArrays(ty2, indices, expected_dict));
 
   CheckView(arr, expected);
   CheckView(expected, arr);
@@ -387,10 +383,9 @@ TEST(TestArrayView, Dictionaries) {
 
   // Check dictionary-encoded child
   auto offsets = ArrayFromJSON(int32(), "[0, 2, 2, 4]");
-  std::shared_ptr<Array> list_arr, expected_list_arr;
-  ASSERT_OK(ListArray::FromArrays(*offsets, *arr, default_memory_pool(), &list_arr));
-  ASSERT_OK(ListArray::FromArrays(*offsets, *expected, default_memory_pool(),
-                                  &expected_list_arr));
+  ASSERT_OK_AND_ASSIGN(auto list_arr, ListArray::FromArrays(*offsets, *arr));
+  ASSERT_OK_AND_ASSIGN(auto expected_list_arr,
+                       ListArray::FromArrays(*offsets, *expected));
   CheckView(list_arr, expected_list_arr);
   CheckView(expected_list_arr, list_arr);
 }
@@ -408,8 +403,7 @@ TEST(TestArrayView, ExtensionType) {
 TEST(TestArrayView, NonZeroOffset) {
   auto arr = ArrayFromJSON(int16(), "[10, 11, 12, 13]");
 
-  std::shared_ptr<Array> expected;
-  ASSERT_OK(arr->View(fixed_size_binary(2), &expected));
+  ASSERT_OK_AND_ASSIGN(auto expected, arr->View(fixed_size_binary(2)));
   CheckView(arr->Slice(1), expected->Slice(1));
 }
 
@@ -419,17 +413,15 @@ TEST(TestArrayView, NonZeroNestedOffset) {
 
   auto list_offsets = ArrayFromJSON(int32(), "[0, 2, 3]");
 
-  std::shared_ptr<Array> arr, expected;
-  ASSERT_OK(ListArray::FromArrays(*list_offsets, *list_values->Slice(2),
-                                  default_memory_pool(), &arr));
-  ASSERT_OK(ListArray::FromArrays(*list_offsets, *view_values->Slice(2),
-                                  default_memory_pool(), &expected));
+  ASSERT_OK_AND_ASSIGN(auto arr,
+                       ListArray::FromArrays(*list_offsets, *list_values->Slice(2)));
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       ListArray::FromArrays(*list_offsets, *view_values->Slice(2)));
   ASSERT_OK(arr->ValidateFull());
   CheckView(arr->Slice(1), expected->Slice(1));
 
   // Be extra paranoid about checking offsets
-  std::shared_ptr<Array> result;
-  ASSERT_OK(arr->Slice(1)->View(expected->type(), &result));
+  ASSERT_OK_AND_ASSIGN(auto result, arr->Slice(1)->View(expected->type()));
   ASSERT_EQ(1, result->offset());
   ASSERT_EQ(2, static_cast<const ListArray&>(*result).values()->offset());
 }

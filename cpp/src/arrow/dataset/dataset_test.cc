@@ -151,8 +151,7 @@ TEST(TestProjector, AugmentWithNull) {
 
   RecordBatchProjector projector(to_schema);
 
-  std::shared_ptr<Array> null_i32;
-  ASSERT_OK(MakeArrayOfNull(int32(), batch->num_rows(), &null_i32));
+  ASSERT_OK_AND_ASSIGN(auto null_i32, MakeArrayOfNull(int32(), batch->num_rows()));
   auto expected_batch =
       RecordBatch::Make(to_schema, batch->num_rows(), {null_i32, batch->column(0)});
 

@@ -566,15 +566,16 @@ TEST_F(DiffTest, DictionaryDiffFormatter) {
   // differing indices
   auto base_dict = ArrayFromJSON(utf8(), R"(["a", "b", "c"])");
   auto base_indices = ArrayFromJSON(int8(), "[0, 1, 2, 2, 0, 1]");
-  ASSERT_OK(
-      DictionaryArray::FromArrays(dictionary(base_indices->type(), base_dict->type()),
-                                  base_indices, base_dict, &base_));
+  ASSERT_OK_AND_ASSIGN(base_, DictionaryArray::FromArrays(
+                                  dictionary(base_indices->type(), base_dict->type()),
+                                  base_indices, base_dict));
 
   auto target_dict = base_dict;
   auto target_indices = ArrayFromJSON(int8(), "[0, 1, 2, 2, 1, 1]");
-  ASSERT_OK(
+  ASSERT_OK_AND_ASSIGN(
+      target_,
       DictionaryArray::FromArrays(dictionary(target_indices->type(), target_dict->type()),
-                                  target_indices, target_dict, &target_));
+                                  target_indices, target_dict));
 
   base_->Equals(*target_, EqualOptions().diff_sink(&formatted));
   auto formatted_expected_indices = R"(# Dictionary arrays differed
@@ -590,9 +591,10 @@ TEST_F(DiffTest, DictionaryDiffFormatter) {
   // differing dictionaries
   target_dict = ArrayFromJSON(utf8(), R"(["b", "c", "a"])");
   target_indices = base_indices;
-  ASSERT_OK(
+  ASSERT_OK_AND_ASSIGN(
+      target_,
       DictionaryArray::FromArrays(dictionary(target_indices->type(), target_dict->type()),
-                                  target_indices, target_dict, &target_));
+                                  target_indices, target_dict));
 
   formatted.str("");
   base_->Equals(*target_, EqualOptions().diff_sink(&formatted));

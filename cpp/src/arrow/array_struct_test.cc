@@ -207,8 +207,7 @@ TEST(StructArray, FlattenOfSlice) {
   auto slice = internal::checked_pointer_cast<StructArray>(arr->Slice(0, 1));
   ASSERT_OK(slice->ValidateFull());
 
-  ArrayVector flattened;
-  ASSERT_OK(slice->Flatten(default_memory_pool(), &flattened));
+  ASSERT_OK_AND_ASSIGN(auto flattened, slice->Flatten(default_memory_pool()));
 
   ASSERT_OK(slice->ValidateFull());
   ASSERT_OK(arr->ValidateFull());

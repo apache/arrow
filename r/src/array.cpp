@@ -143,9 +143,7 @@ bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self,
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__View(const std::shared_ptr<arrow::Array>& array,
                                           const std::shared_ptr<arrow::DataType>& type) {
-  std::shared_ptr<arrow::Array> out;
-  STOP_IF_NOT_OK(array->View(type, &out));
-  return out;
+  return VALUE_OR_STOP(array->View(type));
 }
 
 // [[arrow::export]]
@@ -196,10 +194,7 @@ std::shared_ptr<arrow::Array> StructArray__GetFieldByName(
 // [[arrow::export]]
 arrow::ArrayVector StructArray__Flatten(
     const std::shared_ptr<arrow::StructArray>& array) {
-  int nf = array->num_fields();
-  arrow::ArrayVector out(nf);
-  STOP_IF_NOT_OK(array->Flatten(arrow::default_memory_pool(), &out));
-  return out;
+  return VALUE_OR_STOP(array->Flatten());
 }
 
 // [[arrow::export]]

@@ -82,12 +82,18 @@ class ARROW_EXPORT ChunkedArray {
   /// for each struct field
   ///
   /// \param[in] pool The pool for buffer allocations, if any
-  /// \param[out] out The resulting vector of arrays
+  Result<std::vector<std::shared_ptr<ChunkedArray>>> Flatten(
+      MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT) const;
+
+  ARROW_DEPRECATED("Use Result-returning version")
   Status Flatten(MemoryPool* pool, std::vector<std::shared_ptr<ChunkedArray>>* out) const;
 
   /// Construct a zero-copy view of this chunked array with the given
   /// type. Calls Array::View on each constituent chunk. Always succeeds if
   /// there are zero chunks
+  Result<std::shared_ptr<ChunkedArray>> View(const std::shared_ptr<DataType>& type) const;
+
+  ARROW_DEPRECATED("Use Result-returning version")
   Status View(const std::shared_ptr<DataType>& type,
               std::shared_ptr<ChunkedArray>* out) const;
 

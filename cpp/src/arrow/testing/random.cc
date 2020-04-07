@@ -208,8 +208,7 @@ std::shared_ptr<Array> RandomArrayGenerator::BinaryWithRepeats(int64_t size,
   auto strings =
       StringWithRepeats(size, unique, min_length, max_length, null_probability);
   std::shared_ptr<Array> out;
-  ABORT_NOT_OK(strings->View(binary(), &out));
-  return out;
+  return *strings->View(binary());
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::StringWithRepeats(int64_t size,

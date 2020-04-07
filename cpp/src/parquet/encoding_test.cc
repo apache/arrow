@@ -739,7 +739,8 @@ std::shared_ptr<arrow::Array> EncodingAdHocTyped<FLBAType>::GetValues(int seed) 
   std::shared_ptr<arrow::Array> values;
   ARROW_EXPECT_OK(
       rag.UInt64(size_, 0, std::numeric_limits<uint64_t>::max(), null_probability_)
-          ->View(arrow_type(), &values));
+          ->View(arrow_type())
+          .Value(&values));
   return values;
 }
 

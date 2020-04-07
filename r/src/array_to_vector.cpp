@@ -397,8 +397,7 @@ class Converter_Struct : public Converter {
     auto struct_array = internal::checked_cast<arrow::StructArray*>(array.get());
     int nf = converters.size();
     // Flatten() deals with merging of nulls
-    ArrayVector arrays(nf);
-    STOP_IF_NOT_OK(struct_array->Flatten(default_memory_pool(), &arrays));
+    auto arrays = VALUE_OR_STOP(struct_array->Flatten(default_memory_pool()));
     for (int i = 0; i < nf; i++) {
       STOP_IF_NOT_OK(
           converters[i]->Ingest_some_nulls(VECTOR_ELT(data, i), arrays[i], start, n));
