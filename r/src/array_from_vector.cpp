@@ -227,7 +227,7 @@ std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor,
   using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
   auto n = factor.size();
 
-auto indices_buffer = VALUE_OR_STOP(AllocateBuffer(n * sizeof(value_type)));
+  auto indices_buffer = VALUE_OR_STOP(AllocateBuffer(n * sizeof(value_type)));
 
   std::vector<std::shared_ptr<Buffer>> buffers{nullptr, indices_buffer};
 
