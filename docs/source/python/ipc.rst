@@ -60,7 +60,7 @@ First, let's create a small record batch:
 Now, we can begin writing a stream containing some number of these batches. For
 this we use :class:`~pyarrow.RecordBatchStreamWriter`, which can write to a
 writeable ``NativeFile`` object or a writeable Python object. For convenience,
-this one can be careted with :func:`~pyarrow.ipc.new_stream`:
+this one can be created with :func:`~pyarrow.ipc.new_stream`:
 
 .. ipython:: python
 

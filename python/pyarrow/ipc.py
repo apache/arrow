@@ -151,7 +151,7 @@ def new_file(sink, schema, use_legacy_format=None):
                                  use_legacy_format=use_legacy_format)
 
 
-new_stream.__doc__ = """\
+new_file.__doc__ = """\
 Create an Arrow columnar IPC file writer instance
 
 {}""".format(_ipc_writer_class_doc)
