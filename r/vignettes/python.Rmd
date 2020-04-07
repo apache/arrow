@@ -43,8 +43,9 @@ use_virtualenv("arrow")
 pa <- import("pyarrow")
 ```
 
-The package includes support for transferring Arrow `Array` and `RecordBatch`
-between R and Python. For example, let's create an `Array` in `pyarrow`.
+The package includes support for sharing Arrow `Array` and `RecordBatch`
+objects in-process between R and Python. For example, let's create an `Array`
+in `pyarrow`.
 
 ```r
 a <- pa$array(c(1, 2, 3))
@@ -100,10 +101,10 @@ a_and_b
 
 Now we have a single `Array` in R.
 
-"Send", however, isn't the correct word. Internally, we're passing pointers
-to the data between the R and Python interpreters running together in the same process,
-without copying anything. Nothing is being sent: we're transferring
-ownership of the memory.
+"Send", however, isn't the correct word. Internally, we're passing pointers to
+the data between the R and Python interpreters running together in the same
+process, without copying anything. Nothing is being sent: we're sharing and
+accessing the same internal Arrow memory buffers.
 
 ## Troubleshooting
 
