@@ -34,8 +34,7 @@ typedef struct GArrowRecordBatchIteratorPrivate_ {
 } GArrowRecordBatchIteratorPrivate;
 
 enum {
-  PROP_0,
-  PROP_ITERATOR
+  PROP_ITERATOR = 1,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatchIterator,
