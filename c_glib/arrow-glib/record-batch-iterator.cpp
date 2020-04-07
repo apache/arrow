@@ -122,7 +122,7 @@ garrow_record_batch_iterator_class_init(GArrowRecordBatchIteratorClass *klass)
  *
  * Returns: A newly created #GArrowRecordBatchIterator.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowRecordBatchIterator *
 garrow_record_batch_iterator_new(GList *record_batches)
@@ -145,7 +145,7 @@ garrow_record_batch_iterator_new(GList *record_batches)
  * Returns: (nullable) (transfer full):
  *   The next #GArrowRecordBatch, or %NULL when the iterator is completed.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowRecordBatch *
 garrow_record_batch_iterator_next(GArrowRecordBatchIterator *iterator,
@@ -170,7 +170,7 @@ garrow_record_batch_iterator_next(GArrowRecordBatchIterator *iterator,
  *
  * Returns: %TRUE if both iterators are the same, %FALSE otherwise.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gboolean
 garrow_record_batch_iterator_equal(GArrowRecordBatchIterator *iterator,
@@ -189,7 +189,7 @@ garrow_record_batch_iterator_equal(GArrowRecordBatchIterator *iterator,
  * Returns: (element-type GArrowRecordBatch) (transfer full):
  *   A #GList contains every moved elements from the iterator.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GList*
 garrow_record_batch_iterator_to_list(GArrowRecordBatchIterator *iterator,
