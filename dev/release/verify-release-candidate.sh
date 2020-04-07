@@ -340,7 +340,6 @@ test_csharp() {
     PATH=${csharp_bin}:${PATH}
   fi
 
-  dotnet build
   dotnet test
   mv dummy.git ../.git
   dotnet pack -c Release
@@ -651,9 +650,8 @@ test_linux_wheels() {
       check_python_imports py_arch
 
       # install test requirements and execute the tests
-      # TODO: UNCOMMENT THESE. only disabled to test verification on crossbow
-      # pip install -r ${ARROW_DIR}/python/requirements-test.txt
-      # pytest --pyargs pyarrow
+      pip install -r ${ARROW_DIR}/python/requirements-test.txt
+      pytest --pyargs pyarrow
     done
 
     conda deactivate
@@ -683,9 +681,8 @@ test_macos_wheels() {
     check_python_imports py_arch
 
     # install test requirements and execute the tests
-    # TODO: UNCOMMENT THESE. only disabled to test verification on crossbow
-    # pip install -r ${ARROW_DIR}/python/requirements-test.txt
-    # pytest --pyargs pyarrow
+    pip install -r ${ARROW_DIR}/python/requirements-test.txt
+    pytest --pyargs pyarrow
 
     conda deactivate
   done
