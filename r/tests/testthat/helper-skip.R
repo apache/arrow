@@ -28,3 +28,10 @@ skip_if_no_pyarrow <- function() {
     skip("pyarrow not available for testing")
   }
 }
+
+skip_if_not_dev_mode <- function() {
+  skip_if_not(
+    identical(tolower(Sys.getenv("ARROW_R_DEV")), "true"),
+    "environment variable ARROW_R_DEV"
+  )
+}

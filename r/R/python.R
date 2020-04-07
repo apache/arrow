@@ -73,7 +73,7 @@ r_to_py.RecordBatch <- function(x, convert = FALSE) {
 #' @param envname The name or full path of the Python environment to install
 #' into. This can be a virtualenv or conda environment created by `reticulate`.
 #' See `reticulate::py_install()`.
-#' @param nightly: logical: Should we install a development version of the
+#' @param nightly logical: Should we install a development version of the
 #' package? Default is to use the official release version.
 #' @param ... additional arguments passed to `reticulate::py_install()`.
 #' @export
@@ -81,7 +81,7 @@ install_pyarrow <- function(envname = NULL, nightly = FALSE, ...) {
   if (nightly) {
     reticulate::py_install("pyarrow", envname = envname, ...,
       # Nightly for pip
-      pip_options = "--extra-index-url https://repo.fury.io/arrow-nightlies/ --pre --force-reinstall",
+      pip_options = "--extra-index-url https://repo.fury.io/arrow-nightlies/ --pre --upgrade",
       # Nightly for conda
       channel = "arrow-nightlies"
     )

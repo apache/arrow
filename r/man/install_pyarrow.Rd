@@ -11,10 +11,10 @@ install_pyarrow(envname = NULL, nightly = FALSE, ...)
 into. This can be a virtualenv or conda environment created by \code{reticulate}.
 See \code{reticulate::py_install()}.}
 
-\item{...}{additional arguments passed to \code{reticulate::py_install()}.}
-
-\item{nightly:}{logical: Should we install a development version of the
+\item{nightly}{logical: Should we install a development version of the
 package? Default is to use the official release version.}
+
+\item{...}{additional arguments passed to \code{reticulate::py_install()}.}
 }
 \description{
 \code{pyarrow} is the Python package for Apache Arrow. This function helps with
