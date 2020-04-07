@@ -20,6 +20,7 @@
 #include <memory>
 
 #include "arrow/buffer.h"
+#include "arrow/result.h"
 #include "arrow/util/cpu_info.h"
 
 namespace arrow {
@@ -31,7 +32,7 @@ FunctionContext::FunctionContext(MemoryPool* pool)
 MemoryPool* FunctionContext::memory_pool() const { return pool_; }
 
 Status FunctionContext::Allocate(const int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  return AllocateBuffer(pool_, nbytes, out);
+  return AllocateBuffer(nbytes, pool_).Value(out);
 }
 
 void FunctionContext::SetStatus(const Status& status) {

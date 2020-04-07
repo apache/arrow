@@ -433,7 +433,7 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
           return Status::UnknownError("Failed to serialized Flight descriptor");
         }
       }
-      RETURN_NOT_OK(Buffer::FromString(str_descr, &payload.descriptor));
+      payload.descriptor = Buffer::FromString(std::move(str_descr));
       first_payload_ = false;
     } else if (ipc_payload.type == ipc::Message::RECORD_BATCH &&
                stream_writer_->app_metadata_) {

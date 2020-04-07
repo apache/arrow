@@ -29,24 +29,26 @@
 
 namespace arrow {
 
-Status Buffer::Copy(const int64_t start, const int64_t nbytes, MemoryPool* pool,
-                    std::shared_ptr<Buffer>* out) const {
+Result<std::shared_ptr<Buffer>> Buffer::CopySlice(const int64_t start,
+                                                  const int64_t nbytes,
+                                                  MemoryPool* pool) const {
   // Sanity checks
   ARROW_CHECK_LT(start, size_);
   ARROW_CHECK_LE(nbytes, size_ - start);
 
-  std::shared_ptr<ResizableBuffer> new_buffer;
-  RETURN_NOT_OK(AllocateResizableBuffer(pool, nbytes, &new_buffer));
-
+  ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateResizableBuffer(nbytes, pool));
   std::memcpy(new_buffer->mutable_data(), data() + start, static_cast<size_t>(nbytes));
+  return std::move(new_buffer);
+}
 
-  *out = new_buffer;
-  return Status::OK();
+Status Buffer::Copy(const int64_t start, const int64_t nbytes, MemoryPool* pool,
+                    std::shared_ptr<Buffer>* out) const {
+  return CopySlice(start, nbytes, pool).Value(out);
 }
 
 Status Buffer::Copy(const int64_t start, const int64_t nbytes,
                     std::shared_ptr<Buffer>* out) const {
-  return Copy(start, nbytes, default_memory_pool(), out);
+  return CopySlice(start, nbytes).Value(out);
 }
 
 std::string Buffer::ToHexString() {
@@ -65,16 +67,21 @@ bool Buffer::Equals(const Buffer& other) const {
                              !memcmp(data_, other.data_, static_cast<size_t>(size_))));
 }
 
+Result<std::shared_ptr<Buffer>> Buffer::FromString(const std::string& data,
+                                                   MemoryPool* pool) {
+  auto size = static_cast<int64_t>(data.size());
+  ARROW_ASSIGN_OR_RAISE(auto buf, AllocateBuffer(size, pool));
+  std::copy(data.c_str(), data.c_str() + size, buf->mutable_data());
+  return std::move(buf);
+}
+
 Status Buffer::FromString(const std::string& data, MemoryPool* pool,
                           std::shared_ptr<Buffer>* out) {
-  auto size = static_cast<int64_t>(data.size());
-  RETURN_NOT_OK(AllocateBuffer(pool, size, out));
-  std::copy(data.c_str(), data.c_str() + size, (*out)->mutable_data());
-  return Status::OK();
+  return FromString(data, pool).Value(out);
 }
 
 Status Buffer::FromString(const std::string& data, std::shared_ptr<Buffer>* out) {
-  return FromString(data, default_memory_pool(), out);
+  return FromString(data).Value(out);
 }
 
 std::string Buffer::ToString() const {
@@ -232,84 +239,106 @@ class PoolBuffer : public ResizableBuffer {
 
 namespace {
 // A utility that does most of the work of the `AllocateBuffer` and
-// `AllocateResizableBuffer` methods. The argument `buffer` should be a smart pointer to a
-// PoolBuffer.
-template <typename PoolBufferPtr, typename BufferPtr>
-inline Status ResizePoolBuffer(PoolBufferPtr&& buffer, const int64_t size,
-                               BufferPtr* out) {
+// `AllocateResizableBuffer` methods. The argument `buffer` should be a smart pointer to
+// a PoolBuffer.
+template <typename BufferPtr, typename PoolBufferPtr>
+inline Result<BufferPtr> ResizePoolBuffer(PoolBufferPtr&& buffer, const int64_t size) {
   RETURN_NOT_OK(buffer->Resize(size));
   buffer->ZeroPadding();
-  *out = std::move(buffer);
-  return Status::OK();
+  return std::move(buffer);
 }
+
 }  // namespace
+
+Result<std::unique_ptr<Buffer>> AllocateBuffer(const int64_t size, MemoryPool* pool) {
+  return ResizePoolBuffer<std::unique_ptr<Buffer>>(PoolBuffer::MakeUnique(pool), size);
+}
 
 Status AllocateBuffer(MemoryPool* pool, const int64_t size,
                       std::shared_ptr<Buffer>* out) {
-  return ResizePoolBuffer(PoolBuffer::MakeShared(pool), size, out);
+  return AllocateBuffer(size, pool).Value(out);
+}
+
+Status AllocateBuffer(const int64_t size, std::shared_ptr<Buffer>* out) {
+  return AllocateBuffer(size).Value(out);
 }
 
 Status AllocateBuffer(MemoryPool* pool, const int64_t size,
                       std::unique_ptr<Buffer>* out) {
-  return ResizePoolBuffer(PoolBuffer::MakeUnique(pool), size, out);
-}
-
-Status AllocateBuffer(const int64_t size, std::shared_ptr<Buffer>* out) {
-  return AllocateBuffer(nullptr, size, out);
+  return AllocateBuffer(size, pool).Value(out);
 }
 
 Status AllocateBuffer(const int64_t size, std::unique_ptr<Buffer>* out) {
-  return AllocateBuffer(nullptr, size, out);
+  return AllocateBuffer(size).Value(out);
+}
+
+Result<std::unique_ptr<ResizableBuffer>> AllocateResizableBuffer(const int64_t size,
+                                                                 MemoryPool* pool) {
+  return ResizePoolBuffer<std::unique_ptr<ResizableBuffer>>(PoolBuffer::MakeUnique(pool),
+                                                            size);
 }
 
 Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
                                std::shared_ptr<ResizableBuffer>* out) {
-  return ResizePoolBuffer(PoolBuffer::MakeShared(pool), size, out);
-}
-
-Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
-                               std::unique_ptr<ResizableBuffer>* out) {
-  return ResizePoolBuffer(PoolBuffer::MakeUnique(pool), size, out);
+  return AllocateResizableBuffer(size, pool).Value(out);
 }
 
 Status AllocateResizableBuffer(const int64_t size,
                                std::shared_ptr<ResizableBuffer>* out) {
-  return AllocateResizableBuffer(nullptr, size, out);
+  return AllocateResizableBuffer(size).Value(out);
+}
+
+Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
+                               std::unique_ptr<ResizableBuffer>* out) {
+  return AllocateResizableBuffer(size, pool).Value(out);
 }
 
 Status AllocateResizableBuffer(const int64_t size,
                                std::unique_ptr<ResizableBuffer>* out) {
-  return AllocateResizableBuffer(nullptr, size, out);
+  return AllocateResizableBuffer(size).Value(out);
+}
+
+Result<std::shared_ptr<Buffer>> AllocateBitmap(int64_t length, MemoryPool* pool) {
+  return AllocateBuffer(BitUtil::BytesForBits(length), pool);
 }
 
 Status AllocateBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* out) {
-  return AllocateBuffer(pool, BitUtil::BytesForBits(length), out);
+  return AllocateBitmap(length, pool).Value(out);
+}
+
+Result<std::shared_ptr<Buffer>> AllocateEmptyBitmap(int64_t length, MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(auto buf, AllocateBitmap(length, pool));
+  memset(buf->mutable_data(), 0, static_cast<size_t>(buf->size()));
+  return buf;
 }
 
 Status AllocateEmptyBitmap(MemoryPool* pool, int64_t length,
                            std::shared_ptr<Buffer>* out) {
-  RETURN_NOT_OK(AllocateBitmap(pool, length, out));
-  memset((*out)->mutable_data(), 0, static_cast<size_t>((*out)->size()));
-  return Status::OK();
+  return AllocateEmptyBitmap(length, pool).Value(out);
 }
 
 Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out) {
-  return AllocateEmptyBitmap(default_memory_pool(), length, out);
+  return AllocateEmptyBitmap(length).Value(out);
 }
 
-Status ConcatenateBuffers(const std::vector<std::shared_ptr<Buffer>>& buffers,
-                          MemoryPool* pool, std::shared_ptr<Buffer>* out) {
+Result<std::shared_ptr<Buffer>> ConcatenateBuffers(
+    const std::vector<std::shared_ptr<Buffer>>& buffers, MemoryPool* pool) {
   int64_t out_length = 0;
   for (const auto& buffer : buffers) {
     out_length += buffer->size();
   }
-  RETURN_NOT_OK(AllocateBuffer(pool, out_length, out));
-  auto out_data = (*out)->mutable_data();
+  ARROW_ASSIGN_OR_RAISE(auto out, AllocateBuffer(out_length, pool));
+  auto out_data = out->mutable_data();
   for (const auto& buffer : buffers) {
     std::memcpy(out_data, buffer->data(), buffer->size());
     out_data += buffer->size();
   }
-  return Status::OK();
+  return std::move(out);
+}
+
+Status ConcatenateBuffers(const std::vector<std::shared_ptr<Buffer>>& buffers,
+                          MemoryPool* pool, std::shared_ptr<Buffer>* out) {
+  return ConcatenateBuffers(buffers, pool).Value(out);
 }
 
 }  // namespace arrow

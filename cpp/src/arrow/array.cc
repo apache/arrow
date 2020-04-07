@@ -253,14 +253,14 @@ Status CleanListOffsets(const Array& offsets, MemoryPool* pool,
       return Status::Invalid("Last list offset should be non-null");
     }
 
-    std::shared_ptr<Buffer> clean_offsets, clean_valid_bits;
-    RETURN_NOT_OK(
-        AllocateBuffer(pool, num_offsets * sizeof(offset_type), &clean_offsets));
+    ARROW_ASSIGN_OR_RAISE(auto clean_offsets,
+                          AllocateBuffer(num_offsets * sizeof(offset_type), pool));
 
     // Copy valid bits, zero out the bit for the final offset
     // XXX why?
-    RETURN_NOT_OK(offsets.null_bitmap()->Copy(0, BitUtil::BytesForBits(num_offsets - 1),
-                                              &clean_valid_bits));
+    ARROW_ASSIGN_OR_RAISE(
+        auto clean_valid_bits,
+        offsets.null_bitmap()->CopySlice(0, BitUtil::BytesForBits(num_offsets - 1)));
     BitUtil::ClearBit(clean_valid_bits->mutable_data(), num_offsets);
     *validity_buf_out = clean_valid_bits;
 
@@ -277,7 +277,7 @@ Status CleanListOffsets(const Array& offsets, MemoryPool* pool,
       clean_raw_offsets[i] = current_offset;
     }
 
-    *offset_buf_out = clean_offsets;
+    *offset_buf_out = std::move(clean_offsets);
   } else {
     *validity_buf_out = offsets.null_bitmap();
     *offset_buf_out = typed_offsets.values();
@@ -1470,7 +1470,7 @@ class NullArrayFactory {
   Status CreateBuffer() {
     ARROW_ASSIGN_OR_RAISE(int64_t buffer_length,
                           GetBufferLength(type_, length_).Finish());
-    RETURN_NOT_OK(AllocateBuffer(pool_, buffer_length, &buffer_));
+    ARROW_ASSIGN_OR_RAISE(buffer_, AllocateBuffer(buffer_length, pool_));
     std::memset(buffer_->mutable_data(), 0, buffer_->size());
     return Status::OK();
   }
@@ -1567,8 +1567,7 @@ class RepeatedArrayFactory {
   Status Visit(const NullType&) { return Status::OK(); }
 
   Status Visit(const BooleanType&) {
-    std::shared_ptr<Buffer> buffer;
-    RETURN_NOT_OK(AllocateBitmap(pool_, length_, &buffer));
+    ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBitmap(length_, pool_));
     BitUtil::SetBitsTo(buffer->mutable_data(), 0, length_,
                        checked_cast<const BooleanScalar&>(scalar_).value);
     out_ = std::make_shared<BooleanArray>(length_, buffer);

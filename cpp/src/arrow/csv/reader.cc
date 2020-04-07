@@ -273,7 +273,8 @@ class BaseTableReader : public csv::TableReader {
       } else if (completion->size() == 0) {
         straddling = partial;
       } else {
-        RETURN_NOT_OK(ConcatenateBuffers({partial, completion}, pool_, &straddling));
+        ARROW_ASSIGN_OR_RAISE(straddling,
+                              ConcatenateBuffers({partial, completion}, pool_));
       }
       views = {util::string_view(*straddling), util::string_view(*block)};
     } else {

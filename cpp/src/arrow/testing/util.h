@@ -44,14 +44,13 @@ Status CopyBufferFromVector(const std::vector<T>& values, MemoryPool* pool,
                             std::shared_ptr<Buffer>* result) {
   int64_t nbytes = static_cast<int>(values.size()) * sizeof(T);
 
-  std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(AllocateBuffer(pool, nbytes, &buffer));
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(nbytes, pool));
   auto immutable_data = reinterpret_cast<const uint8_t*>(values.data());
   std::copy(immutable_data, immutable_data + nbytes, buffer->mutable_data());
   memset(buffer->mutable_data() + nbytes, 0,
          static_cast<size_t>(buffer->capacity() - nbytes));
 
-  *result = buffer;
+  *result = std::move(buffer);
   return Status::OK();
 }
 

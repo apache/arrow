@@ -371,8 +371,7 @@ class MockFileSystem::Impl {
     if (!entry->is_file()) {
       return NotAFile(path);
     }
-    std::shared_ptr<Buffer> buffer;
-    RETURN_NOT_OK(Buffer::FromString(entry->as_file().data, &buffer));
+    ARROW_ASSIGN_OR_RAISE(auto buffer, Buffer::FromString(entry->as_file().data));
     return std::make_shared<io::BufferReader>(buffer);
   }
 };

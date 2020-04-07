@@ -168,15 +168,14 @@ class RecordBatchSerializer {
                         std::shared_ptr<Buffer>* out) {
     // Convert buffer to uncompressed-length-prefixed compressed buffer
     int64_t maximum_length = codec->MaxCompressedLen(buffer.size(), buffer.data());
-    std::shared_ptr<Buffer> result;
-    RETURN_NOT_OK(AllocateBuffer(maximum_length + sizeof(int64_t), &result));
+    ARROW_ASSIGN_OR_RAISE(auto result, AllocateBuffer(maximum_length + sizeof(int64_t)));
 
     int64_t actual_length;
     ARROW_ASSIGN_OR_RAISE(actual_length,
                           codec->Compress(buffer.size(), buffer.data(), maximum_length,
                                           result->mutable_data() + sizeof(int64_t)));
     *reinterpret_cast<int64_t*>(result->mutable_data()) = buffer.size();
-    *out = SliceBuffer(result, /*offset=*/0, actual_length + sizeof(int64_t));
+    *out = SliceBuffer(std::move(result), /*offset=*/0, actual_length + sizeof(int64_t));
     return Status::OK();
   }
 
@@ -274,9 +273,8 @@ class RecordBatchSerializer {
       // zero. We must a) create a new offsets array with shifted offsets and
       // b) slice the values array accordingly
 
-      std::shared_ptr<Buffer> shifted_offsets;
-      RETURN_NOT_OK(
-          AllocateBuffer(options_.memory_pool, required_bytes, &shifted_offsets));
+      ARROW_ASSIGN_OR_RAISE(auto shifted_offsets,
+                            AllocateBuffer(required_bytes, options_.memory_pool));
 
       offset_type* dest_offsets =
           reinterpret_cast<offset_type*>(shifted_offsets->mutable_data());
@@ -287,7 +285,7 @@ class RecordBatchSerializer {
       }
       // Final offset
       dest_offsets[array.length()] = array.value_offset(array.length()) - start_offset;
-      offsets = shifted_offsets;
+      offsets = std::move(shifted_offsets);
     } else {
       // ARROW-6046: Slice offsets to used extent, in case we have a truncated
       // slice
@@ -295,7 +293,7 @@ class RecordBatchSerializer {
         offsets = SliceBuffer(offsets, 0, required_bytes);
       }
     }
-    *value_offsets = offsets;
+    *value_offsets = std::move(offsets);
     return Status::OK();
   }
 
@@ -446,9 +444,9 @@ class RecordBatchSerializer {
         const int8_t* type_codes = array.raw_type_codes();
 
         // Allocate the shifted offsets
-        std::shared_ptr<Buffer> shifted_offsets_buffer;
-        RETURN_NOT_OK(AllocateBuffer(options_.memory_pool, length * sizeof(int32_t),
-                                     &shifted_offsets_buffer));
+        ARROW_ASSIGN_OR_RAISE(
+            auto shifted_offsets_buffer,
+            AllocateBuffer(length * sizeof(int32_t), options_.memory_pool));
         int32_t* shifted_offsets =
             reinterpret_cast<int32_t*>(shifted_offsets_buffer->mutable_data());
 
@@ -471,7 +469,7 @@ class RecordBatchSerializer {
           child_lengths[code] = std::max(child_lengths[code], shifted_offsets[i] + 1);
         }
 
-        value_offsets = shifted_offsets_buffer;
+        value_offsets = std::move(shifted_offsets_buffer);
       }
       out_->body_buffers.emplace_back(value_offsets);
 
@@ -676,13 +674,12 @@ Status GetContiguousTensor(const Tensor& tensor, MemoryPool* pool,
   const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
   const int elem_size = type.bit_width() / 8;
 
-  std::shared_ptr<Buffer> scratch_space;
-  RETURN_NOT_OK(AllocateBuffer(pool, tensor.shape()[tensor.ndim() - 1] * elem_size,
-                               &scratch_space));
+  ARROW_ASSIGN_OR_RAISE(
+      auto scratch_space,
+      AllocateBuffer(tensor.shape()[tensor.ndim() - 1] * elem_size, pool));
 
-  std::shared_ptr<ResizableBuffer> contiguous_data;
-  RETURN_NOT_OK(
-      AllocateResizableBuffer(pool, tensor.size() * elem_size, &contiguous_data));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> contiguous_data,
+                        AllocateResizableBuffer(tensor.size() * elem_size, pool));
 
   io::BufferOutputStream stream(contiguous_data);
   RETURN_NOT_OK(WriteStridedTensorData(0, 0, elem_size, tensor,
@@ -718,9 +715,8 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
 
     // TODO: Do we care enough about this temporary allocation to pass in a
     // MemoryPool to this function?
-    std::shared_ptr<Buffer> scratch_space;
-    RETURN_NOT_OK(
-        AllocateBuffer(tensor.shape()[tensor.ndim() - 1] * elem_size, &scratch_space));
+    ARROW_ASSIGN_OR_RAISE(auto scratch_space,
+                          AllocateBuffer(tensor.shape()[tensor.ndim() - 1] * elem_size));
 
     RETURN_NOT_OK(WriteStridedTensorData(0, 0, elem_size, tensor,
                                          scratch_space->mutable_data(), dst));
@@ -1242,12 +1238,12 @@ Status SerializeRecordBatch(const RecordBatch& batch, const IpcWriteOptions& opt
                             std::shared_ptr<Buffer>* out) {
   int64_t size = 0;
   RETURN_NOT_OK(GetRecordBatchSize(batch, &size));
-  std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(AllocateBuffer(options.memory_pool, size, &buffer));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer,
+                        AllocateBuffer(size, options.memory_pool));
 
   io::FixedSizeBufferWriter stream(buffer);
   RETURN_NOT_OK(SerializeRecordBatch(batch, options, &stream));
-  *out = buffer;
+  *out = std::move(buffer);
   return Status::OK();
 }
 

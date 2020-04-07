@@ -61,12 +61,11 @@ Result<std::shared_ptr<Buffer>> BytesToBits(const std::vector<uint8_t>& bytes,
                                             MemoryPool* pool) {
   int64_t bit_length = BytesForBits(bytes.size());
 
-  std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(AllocateBuffer(pool, bit_length, &buffer));
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(bit_length, pool));
   uint8_t* out_buf = buffer->mutable_data();
   memset(out_buf, 0, static_cast<size_t>(buffer->capacity()));
   FillBitsFromBytes(bytes, out_buf);
-  return buffer;
+  return std::move(buffer);
 }
 
 }  // namespace BitUtil
@@ -186,8 +185,7 @@ void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
 template <bool invert_bits>
 Result<std::shared_ptr<Buffer>> TransferBitmap(MemoryPool* pool, const uint8_t* data,
                                                int64_t offset, int64_t length) {
-  std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(AllocateEmptyBitmap(pool, length, &buffer));
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateEmptyBitmap(length, pool));
   uint8_t* dest = buffer->mutable_data();
 
   TransferBitmap<invert_bits, false>(data, offset, length, 0, dest);
@@ -315,9 +313,8 @@ Result<std::shared_ptr<Buffer>> BitmapOp(MemoryPool* pool, const uint8_t* left,
                                          int64_t left_offset, const uint8_t* right,
                                          int64_t right_offset, int64_t length,
                                          int64_t out_offset) {
-  std::shared_ptr<Buffer> out_buffer;
   const int64_t phys_bits = length + out_offset;
-  RETURN_NOT_OK(AllocateEmptyBitmap(pool, phys_bits, &out_buffer));
+  ARROW_ASSIGN_OR_RAISE(auto out_buffer, AllocateEmptyBitmap(phys_bits, pool));
   BitmapOp<BitOp, LogicalOp>(left, left_offset, right, right_offset, length, out_offset,
                              out_buffer->mutable_data());
   return out_buffer;
@@ -404,13 +401,12 @@ Result<std::shared_ptr<Buffer>> BitmapAllButOne(MemoryPool* pool, int64_t length
     return Status::Invalid("invalid straggler_pos ", straggler_pos);
   }
 
-  std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(AllocateBuffer(pool, BitUtil::BytesForBits(length), &buffer));
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(BitUtil::BytesForBits(length), pool));
 
   auto bitmap_data = buffer->mutable_data();
   BitUtil::SetBitsTo(bitmap_data, 0, length, value);
   BitUtil::SetBitTo(bitmap_data, straggler_pos, !value);
-  return buffer;
+  return std::move(buffer);
 }
 
 }  // namespace internal

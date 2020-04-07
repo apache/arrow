@@ -23,6 +23,7 @@
 #include <utility>
 
 #include "arrow/memory_pool.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
@@ -80,7 +81,7 @@ class BlockParser::PresizedParsedWriter {
  public:
   PresizedParsedWriter(MemoryPool* pool, uint32_t size)
       : parsed_size_(0), parsed_capacity_(size) {
-    ARROW_CHECK_OK(AllocateResizableBuffer(pool, parsed_capacity_, &parsed_buffer_));
+    parsed_buffer_ = *AllocateResizableBuffer(parsed_capacity_, pool);
     parsed_ = parsed_buffer_->mutable_data();
   }
 
@@ -117,8 +118,7 @@ class BlockParser::ResizableValuesWriter {
  public:
   explicit ResizableValuesWriter(MemoryPool* pool)
       : values_size_(0), values_capacity_(256) {
-    ARROW_CHECK_OK(AllocateResizableBuffer(pool, values_capacity_ * sizeof(*values_),
-                                           &values_buffer_));
+    values_buffer_ = *AllocateResizableBuffer(values_capacity_ * sizeof(*values_), pool);
     values_ = reinterpret_cast<ValueDesc*>(values_buffer_->mutable_data());
   }
 
@@ -171,8 +171,7 @@ class BlockParser::PresizedValuesWriter {
  public:
   PresizedValuesWriter(MemoryPool* pool, int32_t num_rows, int32_t num_cols)
       : values_size_(0), values_capacity_(1 + num_rows * num_cols) {
-    ARROW_CHECK_OK(AllocateResizableBuffer(pool, values_capacity_ * sizeof(*values_),
-                                           &values_buffer_));
+    values_buffer_ = *AllocateResizableBuffer(values_capacity_ * sizeof(*values_), pool);
     values_ = reinterpret_cast<ValueDesc*>(values_buffer_->mutable_data());
   }
 

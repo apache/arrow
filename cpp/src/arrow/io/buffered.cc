@@ -55,7 +55,7 @@ class BufferedBase {
     if (!buffer_) {
       // On first invocation, or if the buffer has been released, we allocate a
       // new buffer
-      RETURN_NOT_OK(AllocateResizableBuffer(pool_, buffer_size_, &buffer_));
+      ARROW_ASSIGN_OR_RAISE(buffer_, AllocateResizableBuffer(buffer_size_, pool_));
     } else if (buffer_->size() != buffer_size_) {
       RETURN_NOT_OK(buffer_->Resize(buffer_size_));
     }
@@ -400,8 +400,7 @@ class BufferedInputStream::Impl : public BufferedBase {
   }
 
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) {
-    std::shared_ptr<ResizableBuffer> buffer;
-    RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &buffer));
+    ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(nbytes, pool_));
 
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buffer->mutable_data()));
 
@@ -410,7 +409,7 @@ class BufferedInputStream::Impl : public BufferedBase {
       RETURN_NOT_OK(buffer->Resize(bytes_read, false /* shrink_to_fit */));
       buffer->ZeroPadding();
     }
-    return buffer;
+    return std::move(buffer);
   }
 
   // For providing access to the raw file handles

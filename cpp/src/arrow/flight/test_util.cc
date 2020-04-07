@@ -208,7 +208,7 @@ class FlightTestServer : public FlightServerBase {
     for (int i = 0; i < 3; ++i) {
       Result result;
       std::string value = action.body->ToString() + "-part" + std::to_string(i);
-      RETURN_NOT_OK(Buffer::FromString(value, &result.body));
+      result.body = Buffer::FromString(std::move(value));
       results.push_back(result);
     }
     *out = std::unique_ptr<ResultStream>(new SimpleResultStream(std::move(results)));

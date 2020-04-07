@@ -250,8 +250,8 @@ static void MemoryBandwidth(benchmark::State& state) {  // NOLINT non-const refe
   const size_t buffer_size = state.range(0);
   BufferPtr src, dst;
 
-  ABORT_NOT_OK(AllocateBuffer(buffer_size, &dst));
-  ABORT_NOT_OK(AllocateBuffer(buffer_size, &src));
+  dst = *AllocateBuffer(buffer_size);
+  src = *AllocateBuffer(buffer_size);
   random_bytes(buffer_size, 0, src->mutable_data());
 
   while (state.KeepRunning()) {
@@ -294,14 +294,13 @@ static void ParallelMemoryCopy(benchmark::State& state) {  // NOLINT non-const r
   const int64_t n_threads = state.range(0);
   const int64_t buffer_size = kMemoryPerCore;
 
-  std::shared_ptr<Buffer> src, dst;
-  ABORT_NOT_OK(AllocateBuffer(buffer_size, &src));
-  ABORT_NOT_OK(AllocateBuffer(buffer_size, &dst));
+  auto src = *AllocateBuffer(buffer_size);
+  auto dst = *AllocateBuffer(buffer_size);
 
   random_bytes(buffer_size, 0, src->mutable_data());
 
   while (state.KeepRunning()) {
-    io::FixedSizeBufferWriter writer(dst);
+    io::FixedSizeBufferWriter writer(std::move(dst));
     writer.set_memcopy_threads(static_cast<int>(n_threads));
     ABORT_NOT_OK(writer.Write(src->data(), src->size()));
   }

@@ -160,12 +160,11 @@ Result<int64_t> StdinStream::Read(int64_t nbytes, void* out) {
 }
 
 Result<std::shared_ptr<Buffer>> StdinStream::Read(int64_t nbytes) {
-  std::shared_ptr<ResizableBuffer> buffer;
-  ARROW_RETURN_NOT_OK(AllocateResizableBuffer(nbytes, &buffer));
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(nbytes));
   ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buffer->mutable_data()));
   ARROW_RETURN_NOT_OK(buffer->Resize(bytes_read, false));
   buffer->ZeroPadding();
-  return buffer;
+  return std::move(buffer);
 }
 
 }  // namespace io

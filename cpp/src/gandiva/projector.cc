@@ -175,24 +175,21 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
   std::vector<std::shared_ptr<arrow::Buffer>> buffers;
 
   // The output vector always has a null bitmap.
-  std::shared_ptr<arrow::Buffer> bitmap_buffer;
   int64_t size = arrow::BitUtil::BytesForBits(num_records);
-  ARROW_RETURN_NOT_OK(arrow::AllocateBuffer(pool, size, &bitmap_buffer));
-  buffers.push_back(bitmap_buffer);
+  ARROW_ASSIGN_OR_RAISE(auto bitmap_buffer, arrow::AllocateBuffer(size, pool));
+  buffers.push_back(std::move(bitmap_buffer));
 
   // String/Binary vectors have an offsets array.
   auto type_id = type->id();
   if (arrow::is_binary_like(type_id)) {
-    std::shared_ptr<arrow::Buffer> offsets_buffer;
     auto offsets_len = arrow::BitUtil::BytesForBits((num_records + 1) * 32);
 
-    ARROW_RETURN_NOT_OK(arrow::AllocateBuffer(pool, offsets_len, &offsets_buffer));
-    buffers.push_back(offsets_buffer);
+    ARROW_ASSIGN_OR_RAISE(auto offsets_buffer, arrow::AllocateBuffer(offsets_len, pool));
+    buffers.push_back(std::move(offsets_buffer));
   }
 
   // The output vector always has a data array.
   int64_t data_len;
-  std::shared_ptr<arrow::ResizableBuffer> data_buffer;
   if (arrow::is_primitive(type_id) || type_id == arrow::Type::DECIMAL) {
     const auto& fw_type = dynamic_cast<const arrow::FixedWidthType&>(*type);
     data_len = arrow::BitUtil::BytesForBits(num_records * fw_type.bit_width());
@@ -202,16 +199,16 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
   } else {
     return Status::Invalid("Unsupported output data type " + type->ToString());
   }
-  ARROW_RETURN_NOT_OK(arrow::AllocateResizableBuffer(pool, data_len, &data_buffer));
+  ARROW_ASSIGN_OR_RAISE(auto data_buffer, arrow::AllocateResizableBuffer(data_len, pool));
 
   // This is not strictly required but valgrind gets confused and detects this
   // as uninitialized memory access. See arrow::util::SetBitTo().
   if (type->id() == arrow::Type::BOOL) {
     memset(data_buffer->mutable_data(), 0, data_len);
   }
-  buffers.push_back(data_buffer);
+  buffers.push_back(std::move(data_buffer));
 
-  *array_data = arrow::ArrayData::Make(type, num_records, buffers);
+  *array_data = arrow::ArrayData::Make(type, num_records, std::move(buffers));
   return Status::OK();
 }
 

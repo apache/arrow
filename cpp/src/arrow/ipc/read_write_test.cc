@@ -462,12 +462,12 @@ TEST_P(TestIpcRoundTrip, ZeroLengthArrays) {
   CheckRoundtrip(*zero_length_batch);
 
   // ARROW-544: check binary array
-  std::shared_ptr<Buffer> value_offsets;
-  ASSERT_OK(AllocateBuffer(options_.memory_pool, sizeof(int32_t), &value_offsets));
+  ASSERT_OK_AND_ASSIGN(auto value_offsets,
+                       AllocateBuffer(sizeof(int32_t), options_.memory_pool));
   *reinterpret_cast<int32_t*>(value_offsets->mutable_data()) = 0;
 
   std::shared_ptr<Array> bin_array = std::make_shared<BinaryArray>(
-      0, value_offsets, std::make_shared<Buffer>(nullptr, 0),
+      0, std::move(value_offsets), std::make_shared<Buffer>(nullptr, 0),
       std::make_shared<Buffer>(nullptr, 0));
 
   // null value_offsets
@@ -793,7 +793,7 @@ struct FileWriterHelper {
               const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr) {
     num_batches_written_ = 0;
 
-    RETURN_NOT_OK(AllocateResizableBuffer(0, &buffer_));
+    ARROW_ASSIGN_OR_RAISE(buffer_, AllocateResizableBuffer(0));
     sink_.reset(new io::BufferOutputStream(buffer_));
     ARROW_ASSIGN_OR_RAISE(writer_, NewFileWriter(sink_.get(), schema, options, metadata));
     return Status::OK();
@@ -853,7 +853,7 @@ struct FileWriterHelper {
 
 struct StreamWriterHelper {
   Status Init(const std::shared_ptr<Schema>& schema, const IpcWriteOptions& options) {
-    RETURN_NOT_OK(AllocateResizableBuffer(0, &buffer_));
+    ARROW_ASSIGN_OR_RAISE(buffer_, AllocateResizableBuffer(0));
     sink_.reset(new io::BufferOutputStream(buffer_));
     ARROW_ASSIGN_OR_RAISE(writer_, NewStreamWriter(sink_.get(), schema, options));
     return Status::OK();

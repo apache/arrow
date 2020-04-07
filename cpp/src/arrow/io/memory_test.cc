@@ -52,7 +52,7 @@ std::ostream& operator<<(std::ostream& os, const ReadRange& range) {
 class TestBufferOutputStream : public ::testing::Test {
  public:
   void SetUp() {
-    ASSERT_OK(AllocateResizableBuffer(0, &buffer_));
+    ASSERT_OK_AND_ASSIGN(buffer_, AllocateResizableBuffer(0));
     stream_.reset(new BufferOutputStream(buffer_));
   }
 
@@ -115,8 +115,7 @@ TEST_F(TestBufferOutputStream, Reset) {
 }
 
 TEST(TestFixedSizeBufferWriter, Basics) {
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(1024, &buffer));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer, AllocateBuffer(1024));
 
   FixedSizeBufferWriter writer(buffer);
 
@@ -145,8 +144,7 @@ TEST(TestFixedSizeBufferWriter, Basics) {
 }
 
 TEST(TestFixedSizeBufferWriter, InvalidWrites) {
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(1024, &buffer));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer, AllocateBuffer(1024));
 
   FixedSizeBufferWriter writer(buffer);
   const uint8_t data[10]{};
@@ -242,8 +240,8 @@ TEST(TestBufferReader, RetainParentReference) {
   std::shared_ptr<Buffer> slice1;
   std::shared_ptr<Buffer> slice2;
   {
-    std::shared_ptr<Buffer> buffer;
-    ASSERT_OK(AllocateBuffer(nullptr, static_cast<int64_t>(data.size()), &buffer));
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer,
+                         AllocateBuffer(static_cast<int64_t>(data.size())));
     std::memcpy(buffer->mutable_data(), data.c_str(), data.size());
     BufferReader reader(buffer);
     ASSERT_OK_AND_ASSIGN(slice1, reader.Read(4));
@@ -323,10 +321,8 @@ TEST(TestMemcopy, ParallelMemcopy) {
     // randomize size so the memcopy alignment is tested
     int64_t total_size = 3 * THRESHOLD + std::rand() % 100;
 
-    std::shared_ptr<Buffer> buffer1, buffer2;
-
-    ASSERT_OK(AllocateBuffer(total_size, &buffer1));
-    ASSERT_OK(AllocateBuffer(total_size, &buffer2));
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer1, AllocateBuffer(total_size));
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer2, AllocateBuffer(total_size));
 
     random_bytes(total_size, 0, buffer2->mutable_data());
 

@@ -245,12 +245,14 @@ class ChunkedListArrayBuilder : public ChunkedArrayBuilder {
   Status InsertNull(int64_t block_index, int64_t length) {
     value_builder_->Insert(block_index, value_field_, std::make_shared<NullArray>(0));
 
-    RETURN_NOT_OK(AllocateBitmap(pool_, length, &null_bitmap_chunks_[block_index]));
+    ARROW_ASSIGN_OR_RAISE(null_bitmap_chunks_[block_index],
+                          AllocateBitmap(length, pool_));
     std::memset(null_bitmap_chunks_[block_index]->mutable_data(), 0,
                 null_bitmap_chunks_[block_index]->size());
 
     int64_t offsets_length = (length + 1) * sizeof(int32_t);
-    RETURN_NOT_OK(AllocateBuffer(pool_, offsets_length, &offset_chunks_[block_index]));
+    ARROW_ASSIGN_OR_RAISE(offset_chunks_[block_index],
+                          AllocateBuffer(offsets_length, pool_));
     std::memset(offset_chunks_[block_index]->mutable_data(), 0, offsets_length);
 
     return Status::OK();
@@ -291,12 +293,13 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
     chunk_lengths_[block_index] = unconverted->length();
 
     if (unconverted->type_id() == Type::NA) {
-      auto st =
-          AllocateBitmap(pool_, unconverted->length(), &null_bitmap_chunks_[block_index]);
-      std::memset(null_bitmap_chunks_[block_index]->mutable_data(), 0,
-                  null_bitmap_chunks_[block_index]->size());
-
-      if (!st.ok()) {
+      auto maybe_buffer = AllocateBitmap(unconverted->length(), pool_);
+      if (maybe_buffer.ok()) {
+        null_bitmap_chunks_[block_index] = *std::move(maybe_buffer);
+        std::memset(null_bitmap_chunks_[block_index]->mutable_data(), 0,
+                    null_bitmap_chunks_[block_index]->size());
+      } else {
+        Status st = maybe_buffer.status();
         task_group_->Append([st] { return st; });
       }
 

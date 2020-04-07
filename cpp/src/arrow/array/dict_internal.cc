@@ -64,14 +64,13 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
     }
     const ArrayType& values = checked_cast<const ArrayType&>(dictionary);
     if (out != nullptr) {
-      std::shared_ptr<Buffer> result;
-      RETURN_NOT_OK(
-          AllocateBuffer(pool_, dictionary.length() * sizeof(int32_t), &result));
+      ARROW_ASSIGN_OR_RAISE(auto result,
+                            AllocateBuffer(dictionary.length() * sizeof(int32_t), pool_));
       auto result_raw = reinterpret_cast<int32_t*>(result->mutable_data());
       for (int64_t i = 0; i < values.length(); ++i) {
         RETURN_NOT_OK(memo_table_.GetOrInsert(values.GetView(i), &result_raw[i]));
       }
-      *out = result;
+      *out = std::move(result);
     } else {
       for (int64_t i = 0; i < values.length(); ++i) {
         int32_t unused_memo_index;
@@ -198,9 +197,9 @@ Result<std::shared_ptr<Array>> DictionaryArray::Transpose(
   }
 
   // Default path: compute a buffer of transposed indices.
-  std::shared_ptr<Buffer> out_buffer;
-  RETURN_NOT_OK(AllocateBuffer(
-      pool, data_->length * out_index_type.bit_width() * CHAR_BIT, &out_buffer));
+  ARROW_ASSIGN_OR_RAISE(
+      auto out_buffer,
+      AllocateBuffer(data_->length * out_index_type.bit_width() * CHAR_BIT, pool));
 
   // Shift null buffer if the original offset is non-zero
   std::shared_ptr<Buffer> null_bitmap;
@@ -211,8 +210,8 @@ Result<std::shared_ptr<Array>> DictionaryArray::Transpose(
     null_bitmap = data_->buffers[0];
   }
 
-  auto out_data =
-      ArrayData::Make(type, data_->length, {null_bitmap, out_buffer}, data_->null_count);
+  auto out_data = ArrayData::Make(
+      type, data_->length, {null_bitmap, std::move(out_buffer)}, data_->null_count);
   out_data->dictionary = dictionary;
 
 #define TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, OUT_INDEX_TYPE)                 \

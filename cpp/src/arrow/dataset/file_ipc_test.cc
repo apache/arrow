@@ -87,9 +87,9 @@ class TestIpcFileFormat : public ArrowIpcWriterMixin {
   }
 
   Result<FileSource> GetFileSink() {
-    std::shared_ptr<ResizableBuffer> buffer;
-    RETURN_NOT_OK(AllocateResizableBuffer(0, &buffer));
-    return FileSource(buffer);
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> buffer,
+                          AllocateResizableBuffer(0));
+    return FileSource(std::move(buffer));
   }
 
   RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {

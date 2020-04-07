@@ -80,9 +80,8 @@ class SparseCSFTensorConverter {
     int64_t nonzero_count = -1;
     RETURN_NOT_OK(tensor_.CountNonZero(&nonzero_count));
 
-    std::shared_ptr<Buffer> values_buffer;
-    RETURN_NOT_OK(
-        AllocateBuffer(pool_, sizeof(value_type) * nonzero_count, &values_buffer));
+    ARROW_ASSIGN_OR_RAISE(auto values_buffer,
+                          AllocateBuffer(sizeof(value_type) * nonzero_count, pool_));
     value_type* values = reinterpret_cast<value_type*>(values_buffer->mutable_data());
 
     std::vector<int64_t> counts(ndim, 0);
@@ -128,7 +127,7 @@ class SparseCSFTensorConverter {
     }
 
     // make results
-    data = values_buffer;
+    data = std::move(values_buffer);
 
     std::vector<std::shared_ptr<Buffer>> indptr_buffers(ndim - 1);
     std::vector<std::shared_ptr<Buffer>> indices_buffers(ndim);

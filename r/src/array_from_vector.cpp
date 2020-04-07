@@ -227,8 +227,8 @@ std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor,
   using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
   auto n = factor.size();
 
-  std::shared_ptr<Buffer> indices_buffer;
-  STOP_IF_NOT_OK(AllocateBuffer(n * sizeof(value_type), &indices_buffer));
+  std::shared_ptr<Buffer> indices_buffer =
+      VALUE_OR_STOP(AllocateBuffer(n * sizeof(value_type)));
 
   std::vector<std::shared_ptr<Buffer>> buffers{nullptr, indices_buffer};
 
@@ -243,8 +243,7 @@ std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor,
 
   if (i < n) {
     // there are NA's so we need a null buffer
-    std::shared_ptr<Buffer> null_buffer;
-    STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_buffer));
+    auto null_buffer = VALUE_OR_STOP(AllocateBuffer(BitUtil::BytesForBits(n)));
     internal::FirstTimeBitmapWriter null_bitmap_writer(null_buffer->mutable_data(), 0, n);
 
     // catch up
@@ -1066,11 +1065,10 @@ std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
                                                std::make_shared<RBuffer<RTYPE>>(vec)};
 
   int null_count = 0;
-  std::shared_ptr<Buffer> null_bitmap;
 
   auto first_na = std::find_if(p_vec_start, p_vec_end, is_na<value_type>);
   if (first_na < p_vec_end) {
-    STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_bitmap));
+    auto null_bitmap = VALUE_OR_STOP(AllocateBuffer(BitUtil::BytesForBits(n)));
     internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap->mutable_data(), 0, n);
 
     // first loop to clear all the bits before the first NA

@@ -1088,11 +1088,9 @@ cdef class ResizableBuffer(Buffer):
                          .Resize(new_size, c_shrink_to_fit))
 
 
-cdef shared_ptr[CResizableBuffer] _allocate_buffer(CMemoryPool* pool):
-    cdef shared_ptr[CResizableBuffer] result
+cdef shared_ptr[CResizableBuffer] _allocate_buffer(CMemoryPool* pool) except *:
     with nogil:
-        check_status(AllocateResizableBuffer(pool, 0, &result))
-    return result
+        return to_shared(GetResultValue(AllocateResizableBuffer(0, pool)))
 
 
 def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
@@ -1115,18 +1113,19 @@ def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
     buffer : Buffer or ResizableBuffer
     """
     cdef:
-        shared_ptr[CBuffer] buffer
-        shared_ptr[CResizableBuffer] rz_buffer
         CMemoryPool* cpool = maybe_unbox_memory_pool(memory_pool)
+        shared_ptr[CResizableBuffer] c_rz_buffer
+        shared_ptr[CBuffer] c_buffer
 
     if resizable:
         with nogil:
-            check_status(AllocateResizableBuffer(cpool, size, &rz_buffer))
-        return pyarrow_wrap_resizable_buffer(rz_buffer)
+            c_rz_buffer = to_shared(GetResultValue(
+                AllocateResizableBuffer(size, cpool)))
+        return pyarrow_wrap_resizable_buffer(c_rz_buffer)
     else:
         with nogil:
-            check_status(AllocateBuffer(cpool, size, &buffer))
-        return pyarrow_wrap_buffer(buffer)
+            c_buffer = to_shared(GetResultValue(AllocateBuffer(size, cpool)))
+        return pyarrow_wrap_buffer(c_buffer)
 
 
 cdef class BufferOutputStream(NativeFile):

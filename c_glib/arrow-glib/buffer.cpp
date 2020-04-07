@@ -386,10 +386,9 @@ garrow_buffer_copy(GArrowBuffer *buffer,
                    GError **error)
 {
   auto arrow_buffer = garrow_buffer_get_raw(buffer);
-  std::shared_ptr<arrow::Buffer> arrow_copied_buffer;
-  auto status = arrow_buffer->Copy(start, size, &arrow_copied_buffer);
-  if (garrow_error_check(error, status, "[buffer][copy]")) {
-    return garrow_buffer_new_raw(&arrow_copied_buffer);
+  auto maybe_copied_buffer = arrow_buffer->CopySlice(start, size);
+  if (garrow::check(error, maybe_copied_buffer, "[buffer][copy]")) {
+    return garrow_buffer_new_raw(&(*maybe_copied_buffer));
   } else {
     return NULL;
   }
@@ -567,9 +566,10 @@ GArrowResizableBuffer *
 garrow_resizable_buffer_new(gint64 initial_size,
                             GError **error)
 {
-  std::shared_ptr<arrow::ResizableBuffer> arrow_buffer;
-  auto status = arrow::AllocateResizableBuffer(initial_size, &arrow_buffer);
-  if (garrow_error_check(error, status, "[resizable-buffer][new]")) {
+  auto maybe_buffer = arrow::AllocateResizableBuffer(initial_size);
+  if (garrow::check(error, maybe_buffer, "[resizable-buffer][new]")) {
+    auto arrow_buffer = std::shared_ptr<arrow::ResizableBuffer>(
+      *std::move(maybe_buffer));
     return garrow_resizable_buffer_new_raw(&arrow_buffer);
   } else {
     return NULL;

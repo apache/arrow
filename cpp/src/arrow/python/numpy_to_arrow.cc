@@ -74,12 +74,11 @@ namespace {
 Status AllocateNullBitmap(MemoryPool* pool, int64_t length,
                           std::shared_ptr<ResizableBuffer>* out) {
   int64_t null_bytes = BitUtil::BytesForBits(length);
-  std::shared_ptr<ResizableBuffer> null_bitmap;
-  RETURN_NOT_OK(AllocateResizableBuffer(pool, null_bytes, &null_bitmap));
+  ARROW_ASSIGN_OR_RAISE(auto null_bitmap, AllocateResizableBuffer(null_bytes, pool));
 
   // Padding zeroed by AllocateResizableBuffer
   memset(null_bitmap->mutable_data(), 0, static_cast<size_t>(null_bytes));
-  *out = null_bitmap;
+  *out = std::move(null_bitmap);
   return Status::OK();
 }
 
@@ -356,15 +355,14 @@ Status CastBuffer(const std::shared_ptr<DataType>& in_type,
 template <typename FromType, typename ToType>
 Status StaticCastBuffer(const Buffer& input, const int64_t length, MemoryPool* pool,
                         std::shared_ptr<Buffer>* out) {
-  std::shared_ptr<Buffer> result;
-  RETURN_NOT_OK(AllocateBuffer(pool, sizeof(ToType) * length, &result));
+  ARROW_ASSIGN_OR_RAISE(auto result, AllocateBuffer(sizeof(ToType) * length, pool));
 
   auto in_values = reinterpret_cast<const FromType*>(input.data());
   auto out_values = reinterpret_cast<ToType*>(result->mutable_data());
   for (int64_t i = 0; i < length; ++i) {
     *out_values++ = static_cast<ToType>(*in_values++);
   }
-  *out = result;
+  *out = std::move(result);
   return Status::OK();
 }
 
@@ -402,7 +400,7 @@ class NumPyStridedConverter {
     using traits = internal::npy_traits<TYPE>;
     using T = typename traits::value_type;
 
-    RETURN_NOT_OK(AllocateBuffer(pool_, sizeof(T) * length_, &buffer_));
+    ARROW_ASSIGN_OR_RAISE(buffer_, AllocateBuffer(sizeof(T) * length_, pool_));
 
     const int64_t stride = PyArray_STRIDES(arr)[0];
     if (stride % sizeof(T) == 0) {
@@ -436,15 +434,14 @@ inline Status NumPyConverter::PrepareInputData(std::shared_ptr<Buffer>* data) {
 
   if (dtype_->type_num == NPY_BOOL) {
     int64_t nbytes = BitUtil::BytesForBits(length_);
-    std::shared_ptr<Buffer> buffer;
-    RETURN_NOT_OK(AllocateBuffer(pool_, nbytes, &buffer));
+    ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(nbytes, pool_));
 
     Ndarray1DIndexer<uint8_t> values(arr_);
     int64_t i = 0;
     const auto generate = [&values, &i]() -> bool { return values[i++] > 0; };
     GenerateBitsUnrolled(buffer->mutable_data(), 0, length_, generate);
 
-    *data = buffer;
+    *data = std::move(buffer);
   } else if (is_strided()) {
     RETURN_NOT_OK(NumPyStridedConverter::Convert(arr_, length_, pool_, data));
   } else {
@@ -518,15 +515,15 @@ inline Status NumPyConverter::ConvertData<Date64Type>(std::shared_ptr<Buffer>* d
     // separately here from int64_t to int32_t, because this data is not
     // supported in compute::Cast
     if (date_dtype->meta.base == NPY_FR_D) {
-      std::shared_ptr<Buffer> result;
-      RETURN_NOT_OK(AllocateBuffer(pool_, sizeof(int64_t) * length_, &result));
+      ARROW_ASSIGN_OR_RAISE(auto result,
+                            AllocateBuffer(sizeof(int64_t) * length_, pool_));
 
       auto in_values = reinterpret_cast<const int64_t*>((*data)->data());
       auto out_values = reinterpret_cast<int64_t*>(result->mutable_data());
       for (int64_t i = 0; i < length_; ++i) {
         *out_values++ = kMillisecondsInDay * (*in_values++);
       }
-      *data = result;
+      *data = std::move(result);
     } else {
       RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
       if (!input_type->Equals(*type_)) {

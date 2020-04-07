@@ -157,7 +157,7 @@ class ArrayLoader {
     if (buffer->length() == 0) {
       // Should never return a null buffer here.
       // (zero-sized buffer allocations are cheap)
-      return AllocateBuffer(0, out);
+      return AllocateBuffer(0).Value(out);
     } else {
       return ReadBuffer(buffer->offset(), buffer->length(), out);
     }
@@ -366,9 +366,8 @@ Status DecompressBuffers(Compression::type compression, const IpcReadOptions& op
       int64_t uncompressed_size =
           BitUtil::FromLittleEndian(util::SafeLoadAs<int64_t>(data));
 
-      std::shared_ptr<Buffer> uncompressed;
-      RETURN_NOT_OK(
-          AllocateBuffer(options.memory_pool, uncompressed_size, &uncompressed));
+      ARROW_ASSIGN_OR_RAISE(auto uncompressed,
+                            AllocateBuffer(uncompressed_size, options.memory_pool));
 
       int64_t actual_decompressed;
       ARROW_ASSIGN_OR_RAISE(
@@ -380,7 +379,7 @@ Status DecompressBuffers(Compression::type compression, const IpcReadOptions& op
                                uncompressed_size, " bytes but decompressed ",
                                actual_decompressed);
       }
-      arr->buffers[i] = uncompressed;
+      arr->buffers[i] = std::move(uncompressed);
     }
     return Status::OK();
   };
