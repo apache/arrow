@@ -427,7 +427,7 @@ class ArrowColumnWriterV2 {
     int64_t values_written = 0;
     std::vector<std::unique_ptr<MultipathLevelBuilder>> builders;
     const int leaf_count = CalculateLeafCount(*data.type());
-    bool is_nullable;
+    bool is_nullable = false;
     // The row_group_writer hasn't been advanced yet so add 1 to the current
     // which is the one this instance will start writing for.
     int column_index = row_group_writer->current_column() + 1;
