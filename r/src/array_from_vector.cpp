@@ -274,9 +274,7 @@ std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor,
   SEXP levels = Rf_getAttrib(factor, R_LevelsSymbol);
   auto dict = MakeStringArray(levels, utf8());
 
-  std::shared_ptr<Array> out;
-  STOP_IF_NOT_OK(DictionaryArray::FromArrays(type, array_indices, dict, &out));
-  return out;
+  return VALUE_OR_STOP(DictionaryArray::FromArrays(type, array_indices, dict));
 }
 
 std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor,
@@ -1287,9 +1285,7 @@ std::shared_ptr<arrow::Array> DictionaryArray__FromArrays(
     const std::shared_ptr<arrow::DataType>& type,
     const std::shared_ptr<arrow::Array>& indices,
     const std::shared_ptr<arrow::Array>& dict) {
-  std::shared_ptr<arrow::Array> out;
-  STOP_IF_NOT_OK(arrow::DictionaryArray::FromArrays(type, indices, dict, &out));
-  return out;
+  return VALUE_OR_STOP(arrow::DictionaryArray::FromArrays(type, indices, dict));
 }
 
 #endif
