@@ -561,18 +561,19 @@ garrow_record_batch_iterator_to_list(GArrowRecordBatchIterator *iterator,
                                      GError **error)
 {
   auto priv = GARROW_RECORD_BATCH_ITERATOR_GET_PRIVATE(iterator);
-  auto result = priv->iterator.ToVector();
-  if (garrow::check(error, result, "[record-batch-iterator][to-list]")) {
-    auto arrow_record_batches = *result;
-    GList *record_batches = NULL;
-    for (auto arrow_record_batch : arrow_record_batches) {
-      auto record_batch = garrow_record_batch_new_raw(&arrow_record_batch);
-      record_batches = g_list_prepend(record_batches, record_batch);
+  GList *record_batches = NULL;
+  for (auto arrow_record_batch_result : priv->iterator) {
+    if (!garrow::check(error,
+                       arrow_record_batch_result,
+                       "[record-batch-iterator][to-list]")) {
+      g_list_free_full(record_batches, g_object_unref);
+      return NULL;
     }
-    return g_list_reverse(record_batches);
-  } else {
-    return NULL;
+    auto arrow_record_batch = *std::move(arrow_record_batch_result);
+    auto record_batch = garrow_record_batch_new_raw(&arrow_record_batch);
+    record_batches = g_list_prepend(record_batches, record_batch);
   }
+  return g_list_reverse(record_batches);
 }
 
 G_END_DECLS
