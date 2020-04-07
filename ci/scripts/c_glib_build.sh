@@ -26,6 +26,12 @@ build_dir=${2}/c_glib
 
 export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig
 
+if which brew > /dev/null 2>&1; then
+  export $(echo env | brew sh | grep "^HOMEBREW_SDKROOT=")
+  export $(echo env | brew sh | grep "^PKG_CONFIG=")
+  PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:$(echo 'echo $PKG_CONFIG_LIBDIR' | brew sh)
+fi
+
 export CFLAGS="-DARROW_NO_DEPRECATED_API"
 export CXXFLAGS="-DARROW_NO_DEPRECATED_API"
 
