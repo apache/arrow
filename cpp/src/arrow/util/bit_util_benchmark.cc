@@ -90,8 +90,7 @@ class NaiveBitmapWriter {
 #endif
 
 static std::shared_ptr<Buffer> CreateRandomBuffer(int64_t nbytes) {
-  std::shared_ptr<Buffer> buffer;
-  ABORT_NOT_OK(AllocateBuffer(nbytes, &buffer));
+  auto buffer = *AllocateBuffer(nbytes);
   memset(buffer->mutable_data(), 0, nbytes);
   random_bytes(nbytes, 0, buffer->mutable_data());
   return buffer;
@@ -335,9 +334,7 @@ static void CopyBitmap(benchmark::State& state) {  // NOLINT non-const reference
   const int64_t offset = Offset;
   const int64_t length = bits_size - offset;
 
-  std::shared_ptr<Buffer> copy;
-  auto pool = default_memory_pool();
-  ABORT_NOT_OK(AllocateEmptyBitmap(pool, length, &copy));
+  auto copy = *AllocateEmptyBitmap(length);
 
   for (auto _ : state) {
     internal::CopyBitmap(src, offset, length, copy->mutable_data(), 0, false);

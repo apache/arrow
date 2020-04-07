@@ -73,7 +73,7 @@ class ARROW_EXPORT BufferBuilder {
       return Status::OK();
     }
     if (buffer_ == NULLPTR) {
-      ARROW_RETURN_NOT_OK(AllocateResizableBuffer(pool_, new_capacity, &buffer_));
+      ARROW_ASSIGN_OR_RAISE(buffer_, AllocateResizableBuffer(new_capacity, pool_));
     } else {
       ARROW_RETURN_NOT_OK(buffer_->Resize(new_capacity, shrink_to_fit));
     }
@@ -155,7 +155,7 @@ class ARROW_EXPORT BufferBuilder {
     if (size_ != 0) buffer_->ZeroPadding();
     *out = buffer_;
     if (*out == NULLPTR) {
-      ARROW_RETURN_NOT_OK(AllocateBuffer(pool_, 0, out));
+      ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer(0, pool_));
     }
     Reset();
     return Status::OK();

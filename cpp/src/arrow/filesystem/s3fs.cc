@@ -460,8 +460,7 @@ class ObjectInputFile : public io::RandomAccessFile {
     // No need to allocate more than the remaining number of bytes
     nbytes = std::min(nbytes, content_length_ - position);
 
-    std::shared_ptr<ResizableBuffer> buf;
-    RETURN_NOT_OK(AllocateResizableBuffer(nbytes, &buf));
+    ARROW_ASSIGN_OR_RAISE(auto buf, AllocateResizableBuffer(nbytes));
     if (nbytes > 0) {
       ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
                             ReadAt(position, nbytes, buf->mutable_data()));
@@ -723,7 +722,7 @@ class ObjectOutputStream : public io::OutputStream {
 
       // If the data isn't owned, make an immutable copy for the lifetime of the closure
       if (owned_buffer == nullptr) {
-        RETURN_NOT_OK(AllocateBuffer(nbytes, &owned_buffer));
+        ARROW_ASSIGN_OR_RAISE(owned_buffer, AllocateBuffer(nbytes));
         memcpy(owned_buffer->mutable_data(), data, nbytes);
       } else {
         DCHECK_EQ(data, owned_buffer->data());

@@ -71,15 +71,13 @@ class SparseCOOTensorConverter {
     int64_t nonzero_count = -1;
     RETURN_NOT_OK(tensor_.CountNonZero(&nonzero_count));
 
-    std::shared_ptr<Buffer> indices_buffer;
-    RETURN_NOT_OK(
-        AllocateBuffer(pool_, indices_elsize * ndim * nonzero_count, &indices_buffer));
+    ARROW_ASSIGN_OR_RAISE(auto indices_buffer,
+                          AllocateBuffer(indices_elsize * ndim * nonzero_count, pool_));
     c_index_value_type* indices =
         reinterpret_cast<c_index_value_type*>(indices_buffer->mutable_data());
 
-    std::shared_ptr<Buffer> values_buffer;
-    RETURN_NOT_OK(
-        AllocateBuffer(pool_, sizeof(value_type) * nonzero_count, &values_buffer));
+    ARROW_ASSIGN_OR_RAISE(auto values_buffer,
+                          AllocateBuffer(sizeof(value_type) * nonzero_count, pool_));
     value_type* values = reinterpret_cast<value_type*>(values_buffer->mutable_data());
 
     if (ndim <= 1) {

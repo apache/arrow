@@ -786,9 +786,9 @@ void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
   // Write the page to OutputStream eagerly if there is no dictionary or
   // if dictionary encoding has fallen back to PLAIN
   if (has_dictionary_ && !fallback_) {  // Save pages until end of dictionary encoding
-    std::shared_ptr<Buffer> compressed_data_copy;
-    PARQUET_THROW_NOT_OK(compressed_data->Copy(0, compressed_data->size(), allocator_,
-                                               &compressed_data_copy));
+    PARQUET_ASSIGN_OR_THROW(
+        auto compressed_data_copy,
+        compressed_data->CopySlice(0, compressed_data->size(), allocator_));
     std::unique_ptr<DataPage> page_ptr(new DataPageV1(
         compressed_data_copy, static_cast<int32_t>(num_buffered_values_), encoding_,
         Encoding::RLE, Encoding::RLE, uncompressed_size, page_stats));
@@ -838,8 +838,8 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
   // Write the page to OutputStream eagerly if there is no dictionary or
   // if dictionary encoding has fallen back to PLAIN
   if (has_dictionary_ && !fallback_) {  // Save pages until end of dictionary encoding
-    std::shared_ptr<Buffer> data_copy;
-    PARQUET_THROW_NOT_OK(combined->Copy(0, combined->size(), allocator_, &data_copy));
+    PARQUET_ASSIGN_OR_THROW(auto data_copy,
+                            combined->CopySlice(0, combined->size(), allocator_));
     std::unique_ptr<DataPage> page_ptr(new DataPageV2(
         combined, num_values, null_count, num_values, encoding_, def_levels_byte_length,
         rep_levels_byte_length, uncompressed_size, pager_->has_compressor()));

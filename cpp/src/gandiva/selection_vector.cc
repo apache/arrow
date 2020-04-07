@@ -157,7 +157,7 @@ template <typename C_TYPE, typename A_TYPE, SelectionVector::Mode mode>
 Status SelectionVectorImpl<C_TYPE, A_TYPE, mode>::AllocateBuffer(
     int64_t max_slots, arrow::MemoryPool* pool, std::shared_ptr<arrow::Buffer>* buffer) {
   auto buffer_len = max_slots * sizeof(C_TYPE);
-  ARROW_RETURN_NOT_OK(arrow::AllocateBuffer(pool, buffer_len, buffer));
+  ARROW_ASSIGN_OR_RAISE(*buffer, arrow::AllocateBuffer(buffer_len, pool));
 
   return Status::OK();
 }

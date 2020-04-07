@@ -445,8 +445,7 @@ class TestPermutationsWithTake : public ComputeFixture, public TestBase {
   template <typename Rng>
   void Shuffle(const Int16Array& array, Rng& gen, std::shared_ptr<Int16Array>* shuffled) {
     auto byte_length = array.length() * sizeof(int16_t);
-    std::shared_ptr<Buffer> data;
-    ASSERT_OK(array.values()->Copy(0, byte_length, &data));
+    ASSERT_OK_AND_ASSIGN(auto data, array.values()->CopySlice(0, byte_length));
     auto mutable_data = reinterpret_cast<int16_t*>(data->mutable_data());
     std::shuffle(mutable_data, mutable_data + array.length(), gen);
     shuffled->reset(new Int16Array(array.length(), data));

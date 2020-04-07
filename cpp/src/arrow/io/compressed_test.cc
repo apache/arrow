@@ -72,8 +72,7 @@ std::shared_ptr<Buffer> CompressDataOneShot(Codec* codec,
                                             const std::vector<uint8_t>& data) {
   int64_t max_compressed_len, compressed_len;
   max_compressed_len = codec->MaxCompressedLen(data.size(), data.data());
-  std::shared_ptr<ResizableBuffer> compressed;
-  ABORT_NOT_OK(AllocateResizableBuffer(max_compressed_len, &compressed));
+  auto compressed = *AllocateResizableBuffer(max_compressed_len);
   compressed_len = *codec->Compress(data.size(), data.data(), max_compressed_len,
                                     compressed->mutable_data());
   ABORT_NOT_OK(compressed->Resize(compressed_len));
@@ -212,9 +211,7 @@ TEST_P(CompressedInputStreamTest, ConcatenatedStreams) {
   auto compressed1 = CompressDataOneShot(codec.get(), data1);
   auto compressed2 = CompressDataOneShot(codec.get(), data2);
 
-  std::shared_ptr<Buffer> concatenated;
-  ASSERT_OK(ConcatenateBuffers({compressed1, compressed2}, default_memory_pool(),
-                               &concatenated));
+  ASSERT_OK_AND_ASSIGN(auto concatenated, ConcatenateBuffers({compressed1, compressed2}));
   std::vector<uint8_t> decompressed, expected;
   ASSERT_OK(RunCompressedInputStream(codec.get(), concatenated, &decompressed));
   std::copy(data1.begin(), data1.end(), std::back_inserter(expected));

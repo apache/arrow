@@ -989,7 +989,7 @@ TEST(TestDictionary, Validate) {
   ASSERT_RAISES(Invalid, arr->ValidateFull());
 
   // Make the data buffer non-null
-  ASSERT_OK(AllocateBuffer(0, &buffers[2]));
+  ASSERT_OK_AND_ASSIGN(buffers[2], AllocateBuffer(0));
   arr = std::make_shared<DictionaryArray>(dict_type, indices, MakeArray(invalid_data));
   ASSERT_RAISES(Invalid, arr->ValidateFull());
 

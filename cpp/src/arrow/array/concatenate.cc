@@ -60,7 +60,7 @@ static Status ConcatenateBitmaps(const std::vector<Bitmap>& bitmaps, MemoryPool*
   for (size_t i = 0; i < bitmaps.size(); ++i) {
     out_length += bitmaps[i].range.length;
   }
-  RETURN_NOT_OK(AllocateBitmap(pool, out_length, out));
+  ARROW_ASSIGN_OR_RAISE(*out, AllocateBitmap(out_length, pool));
   uint8_t* dst = (*out)->mutable_data();
 
   int64_t bitmap_offset = 0;
@@ -101,7 +101,7 @@ static Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
   for (size_t i = 0; i < buffers.size(); ++i) {
     out_length += buffers[i]->size() / sizeof(Offset);
   }
-  RETURN_NOT_OK(AllocateBuffer(pool, (out_length + 1) * sizeof(Offset), out));
+  ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer((out_length + 1) * sizeof(Offset), pool));
   auto dst = reinterpret_cast<Offset*>((*out)->mutable_data());
 
   int64_t elements_length = 0;
@@ -179,21 +179,21 @@ class ConcatenateImpl {
 
   Status Visit(const FixedWidthType& fixed) {
     // handles numbers, decimal128, fixed_size_binary
-    return ConcatenateBuffers(Buffers(1, fixed), pool_, &out_.buffers[1]);
+    return ConcatenateBuffers(Buffers(1, fixed), pool_).Value(&out_.buffers[1]);
   }
 
   Status Visit(const BinaryType&) {
     std::vector<Range> value_ranges;
     RETURN_NOT_OK(ConcatenateOffsets<int32_t>(Buffers(1, sizeof(int32_t)), pool_,
                                               &out_.buffers[1], &value_ranges));
-    return ConcatenateBuffers(Buffers(2, value_ranges), pool_, &out_.buffers[2]);
+    return ConcatenateBuffers(Buffers(2, value_ranges), pool_).Value(&out_.buffers[2]);
   }
 
   Status Visit(const LargeBinaryType&) {
     std::vector<Range> value_ranges;
     RETURN_NOT_OK(ConcatenateOffsets<int64_t>(Buffers(1, sizeof(int64_t)), pool_,
                                               &out_.buffers[1], &value_ranges));
-    return ConcatenateBuffers(Buffers(2, value_ranges), pool_, &out_.buffers[2]);
+    return ConcatenateBuffers(Buffers(2, value_ranges), pool_).Value(&out_.buffers[2]);
   }
 
   Status Visit(const ListType&) {
@@ -240,7 +240,7 @@ class ConcatenateImpl {
 
     if (dictionaries_same) {
       out_.dictionary = in_[0].dictionary;
-      return ConcatenateBuffers(Buffers(1, *fixed), pool_, &out_.buffers[1]);
+      return ConcatenateBuffers(Buffers(1, *fixed), pool_).Value(&out_.buffers[1]);
     } else {
       return Status::NotImplemented("Concat with dictionary unification NYI");
     }

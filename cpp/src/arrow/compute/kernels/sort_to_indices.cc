@@ -227,9 +227,8 @@ class SortToIndicesKernelImpl : public SortToIndicesKernel {
 
   Status SortToIndicesImpl(FunctionContext* ctx, const std::shared_ptr<ArrayType>& values,
                            std::shared_ptr<Array>* offsets) {
-    std::shared_ptr<Buffer> indices_buf;
     int64_t buf_size = values->length() * sizeof(uint64_t);
-    RETURN_NOT_OK(AllocateBuffer(ctx->memory_pool(), buf_size, &indices_buf));
+    ARROW_ASSIGN_OR_RAISE(auto indices_buf, AllocateBuffer(buf_size, ctx->memory_pool()));
 
     int64_t* indices_begin = reinterpret_cast<int64_t*>(indices_buf->mutable_data());
     int64_t* indices_end = indices_begin + values->length();

@@ -170,7 +170,7 @@ Status MaybeAlignMetadata(std::shared_ptr<Buffer>* metadata) {
   if (reinterpret_cast<uintptr_t>((*metadata)->data()) % 8 != 0) {
     // If the metadata memory is not aligned, we copy it here to avoid
     // potential UBSAN issues from Flatbuffers
-    RETURN_NOT_OK((*metadata)->Copy(0, (*metadata)->size(), metadata));
+    ARROW_ASSIGN_OR_RAISE(*metadata, (*metadata)->CopySlice(0, (*metadata)->size()));
   }
   return Status::OK();
 }

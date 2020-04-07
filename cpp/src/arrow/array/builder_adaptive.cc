@@ -52,7 +52,7 @@ Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
 
   int64_t nbytes = capacity * int_size_;
   if (capacity_ == 0) {
-    RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &data_));
+    ARROW_ASSIGN_OR_RAISE(data_, AllocateResizableBuffer(nbytes, pool_));
   } else {
     RETURN_NOT_OK(data_->Resize(nbytes));
   }

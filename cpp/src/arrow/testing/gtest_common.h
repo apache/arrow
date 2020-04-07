@@ -44,8 +44,7 @@ class TestBase : public ::testing::Test {
   std::shared_ptr<Buffer> MakeRandomNullBitmap(int64_t length, int64_t null_count) {
     const int64_t null_nbytes = BitUtil::BytesForBits(length);
 
-    std::shared_ptr<Buffer> null_bitmap;
-    ARROW_EXPECT_OK(AllocateBuffer(pool_, null_nbytes, &null_bitmap));
+    auto null_bitmap = *AllocateBuffer(null_nbytes, pool_);
     memset(null_bitmap->mutable_data(), 255, null_nbytes);
     for (int64_t i = 0; i < null_count; i++) {
       BitUtil::ClearBit(null_bitmap->mutable_data(), i * (length / null_count));
@@ -64,8 +63,7 @@ class TestBase : public ::testing::Test {
 template <typename ArrayType>
 std::shared_ptr<Array> TestBase::MakeRandomArray(int64_t length, int64_t null_count) {
   const int64_t data_nbytes = length * sizeof(typename ArrayType::value_type);
-  std::shared_ptr<Buffer> data;
-  ARROW_EXPECT_OK(AllocateBuffer(pool_, data_nbytes, &data));
+  auto data = *AllocateBuffer(data_nbytes, pool_);
 
   // Fill with random data
   random_bytes(data_nbytes, random_seed_++, data->mutable_data());
@@ -85,8 +83,7 @@ inline std::shared_ptr<Array> TestBase::MakeRandomArray<FixedSizeBinaryArray>(
     int64_t length, int64_t null_count) {
   const int byte_width = 10;
   std::shared_ptr<Buffer> null_bitmap = MakeRandomNullBitmap(length, null_count);
-  std::shared_ptr<Buffer> data;
-  ARROW_EXPECT_OK(AllocateBuffer(pool_, byte_width * length, &data));
+  auto data = *AllocateBuffer(byte_width * length, pool_);
 
   ::arrow::random_bytes(data->size(), 0, data->mutable_data());
   return std::make_shared<FixedSizeBinaryArray>(fixed_size_binary(byte_width), length,

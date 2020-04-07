@@ -747,8 +747,7 @@ TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
   std::vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
 
   // Write the values into uninitialized memory
-  std::shared_ptr<Buffer> values_buffer;
-  ASSERT_OK(::arrow::AllocateBuffer(64, &values_buffer));
+  ASSERT_OK_AND_ASSIGN(auto values_buffer, ::arrow::AllocateBuffer(64));
   memcpy(values_buffer->mutable_data(), values.data(), 13 * sizeof(int32_t));
   auto values_data = reinterpret_cast<const int32_t*>(values_buffer->data());
 

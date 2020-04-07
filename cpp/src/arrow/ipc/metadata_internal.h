@@ -203,8 +203,7 @@ static inline Result<std::shared_ptr<Buffer>> WriteFlatbufferBuilder(
     flatbuffers::FlatBufferBuilder& fbb) {
   int32_t size = fbb.GetSize();
 
-  std::shared_ptr<Buffer> result;
-  RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), size, &result));
+  ARROW_ASSIGN_OR_RAISE(auto result, AllocateBuffer(size));
 
   uint8_t* dst = result->mutable_data();
   memcpy(dst, fbb.GetBufferPointer(), size);

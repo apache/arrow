@@ -384,8 +384,7 @@ static inline Status GetBitmapFromVector(const std::vector<T>& is_valid,
                                          std::shared_ptr<Buffer>* result) {
   size_t length = is_valid.size();
 
-  std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(AllocateEmptyBitmap(length, &buffer));
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateEmptyBitmap(length));
 
   uint8_t* bitmap = buffer->mutable_data();
   for (size_t i = 0; i < static_cast<size_t>(length); ++i) {

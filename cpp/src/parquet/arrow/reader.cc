@@ -551,12 +551,12 @@ class PARQUET_NO_EXPORT StructReader : public ColumnReaderImpl {
 
 Status StructReader::DefLevelsToNullArray(std::shared_ptr<Buffer>* null_bitmap_out,
                                           int64_t* null_count_out) {
-  std::shared_ptr<Buffer> null_bitmap;
   auto null_count = 0;
   const int16_t* def_levels_data;
   int64_t def_levels_length;
   RETURN_NOT_OK(GetDefLevels(&def_levels_data, &def_levels_length));
-  RETURN_NOT_OK(AllocateEmptyBitmap(ctx_->pool, def_levels_length, &null_bitmap));
+  ARROW_ASSIGN_OR_RAISE(auto null_bitmap,
+                        AllocateEmptyBitmap(def_levels_length, ctx_->pool));
   uint8_t* null_bitmap_ptr = null_bitmap->mutable_data();
   for (int64_t i = 0; i < def_levels_length; i++) {
     if (def_levels_data[i] < struct_def_level_) {
@@ -597,7 +597,7 @@ Status StructReader::GetDefLevels(const int16_t** data, int64_t* length) {
     }
     RETURN_NOT_OK(children_[child_index]->GetDefLevels(&child_def_levels, &child_length));
     auto size = child_length * sizeof(int16_t);
-    RETURN_NOT_OK(AllocateResizableBuffer(ctx_->pool, size, &def_levels_buffer_));
+    ARROW_ASSIGN_OR_RAISE(def_levels_buffer_, AllocateResizableBuffer(size, ctx_->pool));
     // Initialize with the minimal def level
     std::memset(def_levels_buffer_->mutable_data(), -1, size);
     result_levels = reinterpret_cast<int16_t*>(def_levels_buffer_->mutable_data());

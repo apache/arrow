@@ -140,7 +140,8 @@ class TableReaderImpl : public TableReader,
       } else if (completion->size() == 0) {
         straddling = partial;
       } else {
-        RETURN_NOT_OK(ConcatenateBuffers({partial, completion}, pool_, &straddling));
+        ARROW_ASSIGN_OR_RAISE(straddling,
+                              ConcatenateBuffers({partial, completion}, pool_));
       }
       RETURN_NOT_OK(parser->Parse(straddling));
     }

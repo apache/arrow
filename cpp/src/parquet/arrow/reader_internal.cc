@@ -798,8 +798,8 @@ Status TransferInt(RecordReader* reader, MemoryPool* pool,
   using ArrowCType = typename ArrowType::c_type;
   using ParquetCType = typename ParquetType::c_type;
   int64_t length = reader->values_written();
-  std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * sizeof(ArrowCType), &data));
+  ARROW_ASSIGN_OR_RAISE(auto data,
+                        ::arrow::AllocateBuffer(length * sizeof(ArrowCType), pool));
 
   auto values = reinterpret_cast<const ParquetCType*>(reader->values());
   auto out_ptr = reinterpret_cast<ArrowCType*>(data->mutable_data());
@@ -820,10 +820,9 @@ std::shared_ptr<Array> TransferZeroCopy(RecordReader* reader,
 
 Status TransferBool(RecordReader* reader, MemoryPool* pool, Datum* out) {
   int64_t length = reader->values_written();
-  std::shared_ptr<Buffer> data;
 
   const int64_t buffer_size = BitUtil::BytesForBits(length);
-  RETURN_NOT_OK(::arrow::AllocateBuffer(pool, buffer_size, &data));
+  ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(buffer_size, pool));
 
   // Transfer boolean values to packed bitmap
   auto values = reinterpret_cast<const bool*>(reader->values());
@@ -845,8 +844,8 @@ Status TransferInt96(RecordReader* reader, MemoryPool* pool,
                      const std::shared_ptr<DataType>& type, Datum* out) {
   int64_t length = reader->values_written();
   auto values = reinterpret_cast<const Int96*>(reader->values());
-  std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * sizeof(int64_t), &data));
+  ARROW_ASSIGN_OR_RAISE(auto data,
+                        ::arrow::AllocateBuffer(length * sizeof(int64_t), pool));
   auto data_ptr = reinterpret_cast<int64_t*>(data->mutable_data());
   for (int64_t i = 0; i < length; i++) {
     if (values[i].value[2] == 0) {
@@ -867,8 +866,8 @@ Status TransferDate64(RecordReader* reader, MemoryPool* pool,
   int64_t length = reader->values_written();
   auto values = reinterpret_cast<const int32_t*>(reader->values());
 
-  std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * sizeof(int64_t), &data));
+  ARROW_ASSIGN_OR_RAISE(auto data,
+                        ::arrow::AllocateBuffer(length * sizeof(int64_t), pool));
   auto out_ptr = reinterpret_cast<int64_t*>(data->mutable_data());
 
   for (int64_t i = 0; i < length; i++) {
@@ -1066,8 +1065,7 @@ Status ConvertToDecimal128<FLBAType>(const Array& array,
   }
 
   // allocate memory for the decimal array
-  std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * type_length, &data));
+  ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(length * type_length, pool));
 
   // raw bytes that we can write to
   uint8_t* out_ptr = data->mutable_data();
@@ -1102,8 +1100,7 @@ Status ConvertToDecimal128<ByteArrayType>(const Array& array,
   const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(*type);
   const int64_t type_length = decimal_type.byte_width();
 
-  std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * type_length, &data));
+  ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(length * type_length, pool));
 
   // raw bytes that we can write to
   uint8_t* out_ptr = data->mutable_data();
@@ -1162,8 +1159,7 @@ static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
   const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(*type);
   const int64_t type_length = decimal_type.byte_width();
 
-  std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * type_length, &data));
+  ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(length * type_length, pool));
   uint8_t* out_ptr = data->mutable_data();
 
   using ::arrow::BitUtil::FromLittleEndian;

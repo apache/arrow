@@ -101,9 +101,8 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                  int64_t valid_bits_offset) override {
-    std::shared_ptr<ResizableBuffer> buffer;
-    PARQUET_THROW_NOT_OK(arrow::AllocateResizableBuffer(this->memory_pool(),
-                                                        num_values * sizeof(T), &buffer));
+    PARQUET_ASSIGN_OR_THROW(
+        auto buffer, arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
     int32_t num_valid_values = 0;
     arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
                                                     num_values);
@@ -302,9 +301,8 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
 
   void PutSpaced(const bool* src, int num_values, const uint8_t* valid_bits,
                  int64_t valid_bits_offset) override {
-    std::shared_ptr<ResizableBuffer> buffer;
-    PARQUET_THROW_NOT_OK(arrow::AllocateResizableBuffer(this->memory_pool(),
-                                                        num_values * sizeof(T), &buffer));
+    PARQUET_ASSIGN_OR_THROW(
+        auto buffer, arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
     int32_t num_valid_values = 0;
     arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
                                                     num_values);
@@ -900,9 +898,8 @@ template <typename DType>
 void ByteStreamSplitEncoder<DType>::PutSpaced(const T* src, int num_values,
                                               const uint8_t* valid_bits,
                                               int64_t valid_bits_offset) {
-  std::shared_ptr<ResizableBuffer> buffer;
-  PARQUET_THROW_NOT_OK(arrow::AllocateResizableBuffer(this->memory_pool(),
-                                                      num_values * sizeof(T), &buffer));
+  PARQUET_ASSIGN_OR_THROW(
+      auto buffer, arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
   int32_t num_valid_values = 0;
   arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
                                                   num_values);
@@ -2315,7 +2312,7 @@ class ByteStreamSplitDecoder : public DecoderImpl, virtual public TypedDecoder<D
   T* EnsureDecodeBuffer(int64_t min_values) {
     const int64_t size = sizeof(T) * min_values;
     if (!decode_buffer_ || decode_buffer_->size() < size) {
-      PARQUET_THROW_NOT_OK(AllocateBuffer(size, &decode_buffer_));
+      PARQUET_ASSIGN_OR_THROW(decode_buffer_, ::arrow::AllocateBuffer(size));
     }
     return reinterpret_cast<T*>(decode_buffer_->mutable_data());
   }

@@ -62,9 +62,8 @@ class NthToIndicesKernelImpl final : public NthToIndicesKernel {
       return Status::IndexError("NthToIndices index out of bound");
     }
 
-    std::shared_ptr<Buffer> indices_buf;
     int64_t buf_size = values->length() * sizeof(uint64_t);
-    RETURN_NOT_OK(AllocateBuffer(ctx->memory_pool(), buf_size, &indices_buf));
+    ARROW_ASSIGN_OR_RAISE(auto indices_buf, AllocateBuffer(buf_size, ctx->memory_pool()));
 
     int64_t* indices_begin = reinterpret_cast<int64_t*>(indices_buf->mutable_data());
     int64_t* indices_end = indices_begin + values->length();

@@ -239,8 +239,7 @@ Status PyArray_NewFromPool(int nd, npy_intp* dims, PyArray_Descr* descr, MemoryP
     total_size *= dims[i];
   }
 
-  std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(AllocateBuffer(pool, total_size, &buffer));
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(total_size, pool));
   *out = PyArray_NewFromDescr(&PyArray_Type, descr, nd, dims,
                               /*strides=*/nullptr,
                               /*data=*/buffer->mutable_data(),

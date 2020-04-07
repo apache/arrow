@@ -109,9 +109,8 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
   using NumericTensorType = NumericTensor<TYPE>;
   using value_type = typename NumericTensorType::value_type;
 
-  std::shared_ptr<Buffer> values_buffer;
-  RETURN_NOT_OK(
-      AllocateBuffer(pool, sizeof(value_type) * sparse_tensor->size(), &values_buffer));
+  ARROW_ASSIGN_OR_RAISE(auto values_buffer,
+                        AllocateBuffer(sizeof(value_type) * sparse_tensor->size(), pool));
   auto values = reinterpret_cast<value_type*>(values_buffer->mutable_data());
 
   std::fill_n(values, sparse_tensor->size(), static_cast<value_type>(0));

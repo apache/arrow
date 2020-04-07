@@ -52,8 +52,7 @@ static std::shared_ptr<Buffer> join(Lines&& lines, std::string delimiter,
   if (!delimiter_at_end) {
     line_buffers.pop_back();
   }
-  ABORT_NOT_OK(ConcatenateBuffers(line_buffers, default_memory_pool(), &joined));
-  return joined;
+  return *ConcatenateBuffers(line_buffers);
 }
 
 static bool WhitespaceOnly(string_view s) {
@@ -137,7 +136,7 @@ void AssertChunkingBlockSize(Chunker& chunker, std::shared_ptr<Buffer> buf,
       ASSERT_OK(chunker.Process(starts_with_whole, &whole, &next_partial));
     }
     // partial + completion should be a valid JSON block
-    ASSERT_OK(ConcatenateBuffers({partial, completion}, default_memory_pool(), &partial));
+    ASSERT_OK_AND_ASSIGN(partial, ConcatenateBuffers({partial, completion}));
     AssertOnlyWholeObjects(chunker, partial, &count);
     total_count += count;
     // whole should be a valid JSON block
@@ -160,8 +159,7 @@ void AssertStraddledChunking(Chunker& chunker, const std::shared_ptr<Buffer>& bu
   ASSERT_OK(chunker.ProcessWithPartial(partial, second_half, &completion, &rest));
   ASSERT_TRUE(string_view(*second_half).starts_with(string_view(*completion)));
   std::shared_ptr<Buffer> straddling;
-  ASSERT_OK(
-      ConcatenateBuffers({partial, completion}, default_memory_pool(), &straddling));
+  ASSERT_OK_AND_ASSIGN(straddling, ConcatenateBuffers({partial, completion}));
   auto length = ConsumeWholeObject(&straddling);
   ASSERT_NE(length, string_view::npos);
   ASSERT_NE(length, 0);
