@@ -947,9 +947,9 @@ class Job(Serializable):
             Deserialized content of tasks.yml
         target : Target
             Describes target repository and revision the builds run against.
-        tasks : Optiona[List[str]], default None
+        tasks : Optional[List[str]], default None
             List of glob patterns for matching task names.
-        groups : tasks : Optiona[List[str]], default None
+        groups : tasks : Optional[List[str]], default None
             List of exact group names matching predefined task sets in the
             config.
 
@@ -982,7 +982,7 @@ class Job(Serializable):
         task_patterns = [list(config_groups[name]) for name in group_whitelist]
         task_patterns = set(sum(task_patterns, task_whitelist))
 
-        # treat the task names as glob patters to select tasks more easily
+        # treat the task names as glob patterns to select tasks more easily
         requested_tasks = set(
             toolz.concat(
                 fnmatch.filter(valid_tasks, p) for p in task_patterns
