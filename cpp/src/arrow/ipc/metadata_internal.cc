@@ -959,14 +959,14 @@ Status MakeSparseTensorIndexCSF(FBB& fbb, const SparseCSFIndex& sparse_index,
   int64_t offset = 0;
   std::vector<flatbuf::Buffer> indptr, indices;
 
-  for (const std::shared_ptr<arrow::Tensor> tensor : sparse_index.indptr()) {
+  for (const std::shared_ptr<arrow::Tensor>& tensor : sparse_index.indptr()) {
     const int64_t size = tensor->data()->size() / indptr_elem_size;
     const int64_t padded_size = PaddedLength(tensor->data()->size(), kArrowIpcAlignment);
 
     indptr.push_back({offset, size});
     offset += padded_size;
   }
-  for (const std::shared_ptr<arrow::Tensor> tensor : sparse_index.indices()) {
+  for (const std::shared_ptr<arrow::Tensor>& tensor : sparse_index.indices()) {
     const int64_t size = tensor->data()->size() / indices_elem_size;
     const int64_t padded_size = PaddedLength(tensor->data()->size(), kArrowIpcAlignment);
 
