@@ -17,19 +17,21 @@ To install it in a virtualenv,
 
 ```r
 library(reticulate)
-virtualenv_create("arrow")
-virtualenv_install("arrow", "pyarrow")
+virtualenv_create("arrow-env")
+install_pyarrow("arrow-env")
 ```
 
 If you want to install a development version of `pyarrow`,
-you can pass `pip_options` to point at Arrow's nightly builds:
+add `nightly = TRUE`:
 
 ```r
-virtualenv_install("arrow", "pyarrow",
-  pip_options = "--extra-index-url https://repo.fury.io/arrow-nightlies/ --pre --force-reinstall")
+install_pyarrow("arrow-env", nightly = TRUE)
 ```
 
-For more on installing and configuring Python, including using `conda`,
+`install_pyarrow()` also works with `conda` environments
+(`conda_create()` instead of `virtualenv_create()`).
+
+For more on installing and configuring Python,
 see the [reticulate docs](https://rstudio.github.io/reticulate/articles/python_packages.html).
 
 ## Using
@@ -39,7 +41,7 @@ To start, load `arrow` and `reticulate`, and then import `pyarrow`.
 ```r
 library(arrow)
 library(reticulate)
-use_virtualenv("arrow")
+use_virtualenv("arrow-env")
 pa <- import("pyarrow")
 ```
 

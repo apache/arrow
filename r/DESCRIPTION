@@ -79,7 +79,7 @@ Collate:
     'memory-pool.R'
     'message.R'
     'parquet.R'
-    'py-to-r.R'
+    'python.R'
     'record-batch-reader.R'
     'record-batch-writer.R'
     'reexports-bit64.R'
