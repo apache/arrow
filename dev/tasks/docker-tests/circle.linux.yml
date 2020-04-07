@@ -36,8 +36,21 @@ jobs:
       - run:
           command: |
             pushd arrow
-            {%- for command in commands %}
-              {{ command }}
+            {%- for key, value in env.items() %}
+              export {{ key }}={{ value }}
+            {%- endfor %}
+
+            {%- for image in build %}
+              docker-compose pull --ignore-pull-failures {{ image }}
+              docker-compose build {{ image }}
+            {%- endfor %}
+
+            {%- for image in nocache %}
+              docker-compose build --no-cache {{ image }}
+            {%- endfor %}
+
+            {%- for image in run %}
+              docker-compose run --rm -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ image }}
             {%- endfor %}
             popd
           no_output_timeout: "1h"
