@@ -635,21 +635,6 @@ class ObjectOutputStream : public io::OutputStream {
       return Status::Invalid("Operation on closed stream");
     }
 
-    // With up to 10000 parts in an upload (S3 limit), a stream writing chunks
-    // of exactly 5MB would be limited to 50GB total.  To avoid that, we bump
-    // the upload threshold every 100 parts.  So the pattern is:
-    // - part 1 to 99: 5MB threshold
-    // - part 100 to 199: 10MB threshold
-    // - part 200 to 299: 15MB threshold
-    // ...
-    // - part 9900 to 9999: 500MB threshold
-    // So the total size limit is 2475000MB or ~2.4TB, while keeping manageable
-    // chunk sizes and avoiding too much buffering in the common case of a small-ish
-    // stream.  If the limit's not enough, we can revisit.
-    if (part_number_ % 100 == 0) {
-      part_upload_threshold_ += kMinimumPartUpload;
-    }
-
     if (!current_part_ && nbytes >= part_upload_threshold_) {
       // No current part and data large enough, upload it directly
       // (without copying if the buffer is owned)
@@ -751,7 +736,23 @@ class ObjectOutputStream : public io::OutputStream {
       ++upload_state_->parts_in_progress;
       client_->UploadPartAsync(req, handler);
     }
+
     ++part_number_;
+    // With up to 10000 parts in an upload (S3 limit), a stream writing chunks
+    // of exactly 5MB would be limited to 50GB total.  To avoid that, we bump
+    // the upload threshold every 100 parts.  So the pattern is:
+    // - part 1 to 99: 5MB threshold
+    // - part 100 to 199: 10MB threshold
+    // - part 200 to 299: 15MB threshold
+    // ...
+    // - part 9900 to 9999: 500MB threshold
+    // So the total size limit is 2475000MB or ~2.4TB, while keeping manageable
+    // chunk sizes and avoiding too much buffering in the common case of a small-ish
+    // stream.  If the limit's not enough, we can revisit.
+    if (part_number_ % 100 == 0) {
+      part_upload_threshold_ += kMinimumPartUpload;
+    }
+
     return Status::OK();
   }
 
