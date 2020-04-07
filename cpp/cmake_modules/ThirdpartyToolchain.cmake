@@ -93,7 +93,6 @@ macro(get_apache_mirrors)
         "http://apache.mirrors.pair.com/"
         "http://apache.spinellicreations.com/")
   endif()
-  maybe_drop_backup_urls(APACHE_MIRROR)
   message(STATUS "Apache mirror(s): ${APACHE_MIRROR}")
 endmacro()
 
@@ -300,8 +299,12 @@ endforeach()
 if(DEFINED ENV{ARROW_AWSSDK_URL})
   set(AWSSDK_SOURCE_URL "$ENV{ARROW_AWSSDK_URL}")
 else()
-  set(AWSSDK_SOURCE_URL
-      "https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz")
+  set(
+    AWSSDK_SOURCE_URL
+    "https://dl.bintray.com/ursalabs/arrow-awssdk/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
+    "https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
+    )
+  maybe_drop_backup_urls(AWSSDK_SOURCE_URL)
 endif()
 
 if(DEFINED ENV{ARROW_BOOST_URL})
@@ -315,6 +318,7 @@ else()
     BOOST_SOURCE_URL
     "https://dl.bintray.com/ursalabs/arrow-boost/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
     "https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
+    "https://github.com/boostorg/boost/archive/boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz"
     )
   maybe_drop_backup_urls(BOOST_SOURCE_URL)
 endif()
@@ -338,7 +342,6 @@ if(DEFINED ENV{ARROW_GBENCHMARK_URL})
 else()
   set(
     GBENCHMARK_SOURCE_URL
-
     "https://github.com/google/benchmark/archive/${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
     )
 endif()
@@ -370,6 +373,7 @@ else()
   set(
     GTEST_SOURCE_URL
     "https://github.com/google/googletest/archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
+    "https://chromium.googlesource.com/external/github.com/google/googletest/+archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
     )
 endif()
 
@@ -431,7 +435,6 @@ if(DEFINED ENV{ARROW_RAPIDJSON_URL})
 else()
   set(
     RAPIDJSON_SOURCE_URL
-
     "https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
     )
 endif()
@@ -446,7 +449,21 @@ endif()
 if(DEFINED ENV{ARROW_THRIFT_URL})
   set(THRIFT_SOURCE_URL "$ENV{ARROW_THRIFT_URL}")
 else()
-  set(THRIFT_SOURCE_URL "FROM-APACHE-MIRROR")
+  get_apache_mirrors()
+  set(THRIFT_SOURCE_URL)
+  foreach(URL ${APACHE_MIRROR})
+    list(
+      APPEND
+        THRIFT_SOURCE_URL
+        "${URL}/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+      )
+  endforeach()
+  list(
+    APPEND
+      THRIFT_SOURCE_URL
+      "https://github.com/apache/thrift/archive/v${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+    )
+  maybe_drop_backup_urls(THRIFT_SOURCE_URL)
 endif()
 
 if(DEFINED ENV{ARROW_ZLIB_URL})
