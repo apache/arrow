@@ -36,12 +36,6 @@ except ImportError:
     pass
 
 
-# TODO(wesm): The Feather tests currently are tangled with pandas
-# dependency. We should isolate the pandas-depending parts and mark those with
-# pytest.mark.pandas
-pytestmark = pytest.mark.pandas
-
-
 def random_path(prefix='feather_'):
     return tempfile.mktemp(prefix=prefix)
 
@@ -67,6 +61,7 @@ def teardown_module(module):
             pass
 
 
+@pytest.mark.pandas
 def test_file_not_exist():
     with pytest.raises(pa.ArrowIOError):
         read_feather('test_invalid_file')
@@ -107,6 +102,7 @@ def _assert_error_on_write(df, exc, path=None):
     pytest.raises(exc, f)
 
 
+@pytest.mark.pandas
 def test_dataset(version):
     num_values = (100, 100)
     num_files = 5
@@ -126,6 +122,7 @@ def test_dataset(version):
     assert_frame_equal(data, df)
 
 
+@pytest.mark.pandas
 def test_float_no_nulls(version):
     data = {}
     numpy_dtypes = ['f4', 'f8']
@@ -139,6 +136,7 @@ def test_float_no_nulls(version):
     _check_pandas_roundtrip(df, version=version)
 
 
+@pytest.mark.pandas
 def test_read_table(version):
     num_values = (100, 100)
     path = random_path()
@@ -163,6 +161,7 @@ def test_read_table(version):
     assert_frame_equal(table.to_pandas(), result.to_pandas())
 
 
+@pytest.mark.pandas
 def test_float_nulls(version):
     num_values = 100
 
@@ -192,6 +191,7 @@ def test_float_nulls(version):
     assert_frame_equal(result, ex_frame)
 
 
+@pytest.mark.pandas
 def test_integer_no_nulls(version):
     data = {}
 
@@ -207,6 +207,7 @@ def test_integer_no_nulls(version):
     _check_pandas_roundtrip(df, version=version)
 
 
+@pytest.mark.pandas
 def test_platform_numpy_integers(version):
     data = {}
 
@@ -221,6 +222,7 @@ def test_platform_numpy_integers(version):
     _check_pandas_roundtrip(df, version=version)
 
 
+@pytest.mark.pandas
 def test_integer_with_nulls(version):
     # pandas requires upcast to float dtype
     path = random_path()
@@ -251,6 +253,7 @@ def test_integer_with_nulls(version):
     assert_frame_equal(result, ex_frame)
 
 
+@pytest.mark.pandas
 def test_boolean_no_nulls(version):
     num_values = 100
 
@@ -260,6 +263,7 @@ def test_boolean_no_nulls(version):
     _check_pandas_roundtrip(df, version=version)
 
 
+@pytest.mark.pandas
 def test_boolean_nulls(version):
     # pandas requires upcast to object dtype
     path = random_path()
@@ -283,6 +287,7 @@ def test_boolean_nulls(version):
     assert_frame_equal(result, ex_frame)
 
 
+@pytest.mark.pandas
 def test_buffer_bounds_error(version):
     # ARROW-1676
     path = random_path()
@@ -300,6 +305,7 @@ def test_buffer_bounds_error(version):
         _check_pandas_roundtrip(expected, version=version)
 
 
+@pytest.mark.pandas
 def test_boolean_object_nulls(version):
     repeats = 100
     arr = np.array([False, None, True] * repeats, dtype=object)
@@ -307,6 +313,7 @@ def test_boolean_object_nulls(version):
     _check_pandas_roundtrip(df, version=version)
 
 
+@pytest.mark.pandas
 def test_delete_partial_file_on_error(version):
     if sys.platform == 'win32':
         pytest.skip('Windows hangs on to file handle for some reason')
@@ -330,6 +337,7 @@ def test_delete_partial_file_on_error(version):
     assert not os.path.exists(path)
 
 
+@pytest.mark.pandas
 def test_strings(version):
     repeats = 1000
 
@@ -353,16 +361,19 @@ def test_strings(version):
     _check_pandas_roundtrip(df, expected, version=version)
 
 
+@pytest.mark.pandas
 def test_empty_strings(version):
     df = pd.DataFrame({'strings': [''] * 10})
     _check_pandas_roundtrip(df, version=version)
 
 
+@pytest.mark.pandas
 def test_all_none(version):
     df = pd.DataFrame({'all_none': [None] * 10})
     _check_pandas_roundtrip(df, version=version)
 
 
+@pytest.mark.pandas
 def test_all_null_category(version):
     # ARROW-1188
     df = pd.DataFrame({"A": (1, 2, 3), "B": (None, None, None)})
@@ -370,6 +381,7 @@ def test_all_null_category(version):
     _check_pandas_roundtrip(df, version=version)
 
 
+@pytest.mark.pandas
 def test_multithreaded_read(version):
     data = {'c{}'.format(i): [''] * 10
             for i in range(100)}
@@ -377,6 +389,7 @@ def test_multithreaded_read(version):
     _check_pandas_roundtrip(df, use_threads=True, version=version)
 
 
+@pytest.mark.pandas
 def test_nan_as_null(version):
     # Create a nan that is not numpy.nan
     values = np.array(['foo', np.nan, np.nan * 2, 'bar'] * 10)
@@ -384,6 +397,7 @@ def test_nan_as_null(version):
     _check_pandas_roundtrip(df, version=version)
 
 
+@pytest.mark.pandas
 def test_category(version):
     repeats = 1000
     values = ['foo', None, 'bar', 'qux', np.nan]
@@ -395,6 +409,7 @@ def test_category(version):
     _check_pandas_roundtrip(df, expected, version=version)
 
 
+@pytest.mark.pandas
 def test_timestamp(version):
     df = pd.DataFrame({'naive': pd.date_range('2016-03-28', periods=10)})
     df['with_tz'] = (df.naive.dt.tz_localize('utc')
@@ -403,6 +418,7 @@ def test_timestamp(version):
     _check_pandas_roundtrip(df, version=version)
 
 
+@pytest.mark.pandas
 def test_timestamp_with_nulls(version):
     df = pd.DataFrame({'test': [pd.Timestamp(2016, 1, 1),
                                 None,
@@ -412,6 +428,7 @@ def test_timestamp_with_nulls(version):
     _check_pandas_roundtrip(df, version=version)
 
 
+@pytest.mark.pandas
 @pytest.mark.xfail(reason="not supported", raises=TypeError)
 def test_timedelta_with_nulls_v1():
     df = pd.DataFrame({'test': [pd.Timedelta('1 day'),
@@ -420,6 +437,7 @@ def test_timedelta_with_nulls_v1():
     _check_pandas_roundtrip(df, version=1)
 
 
+@pytest.mark.pandas
 def test_timedelta_with_nulls():
     df = pd.DataFrame({'test': [pd.Timedelta('1 day'),
                                 None,
@@ -427,6 +445,7 @@ def test_timedelta_with_nulls():
     _check_pandas_roundtrip(df, version=2)
 
 
+@pytest.mark.pandas
 def test_out_of_float64_timestamp_with_nulls(version):
     df = pd.DataFrame(
         {'test': pd.DatetimeIndex([1451606400000000001,
@@ -435,6 +454,7 @@ def test_out_of_float64_timestamp_with_nulls(version):
     _check_pandas_roundtrip(df, version=version)
 
 
+@pytest.mark.pandas
 def test_non_string_columns(version):
     df = pd.DataFrame({0: [1, 2, 3, 4],
                        1: [True, False, True, False]})
@@ -443,6 +463,7 @@ def test_non_string_columns(version):
     _check_pandas_roundtrip(df, expected, version=version)
 
 
+@pytest.mark.pandas
 @pytest.mark.skipif(not os.path.supports_unicode_filenames,
                     reason='unicode filenames not supported')
 def test_unicode_filename(version):
@@ -453,6 +474,7 @@ def test_unicode_filename(version):
                             version=version)
 
 
+@pytest.mark.pandas
 def test_read_columns(version):
     df = pd.DataFrame({
         'foo': [1, 2, 3, 4],
@@ -465,6 +487,7 @@ def test_read_columns(version):
                             columns=['boo', 'woo'])
 
 
+@pytest.mark.pandas
 def test_overwritten_file(version):
     path = random_path()
     TEST_FILES.append(path)
@@ -479,6 +502,7 @@ def test_overwritten_file(version):
     _check_pandas_roundtrip(df, path=path, version=version)
 
 
+@pytest.mark.pandas
 def test_filelike_objects(version):
     buf = io.BytesIO()
 
@@ -493,6 +517,7 @@ def test_filelike_objects(version):
     assert_frame_equal(result, df)
 
 
+@pytest.mark.pandas
 @pytest.mark.filterwarnings("ignore:Sparse:FutureWarning")
 @pytest.mark.filterwarnings("ignore:DataFrame.to_sparse:FutureWarning")
 def test_sparse_dataframe(version):
@@ -506,6 +531,7 @@ def test_sparse_dataframe(version):
     _check_pandas_roundtrip(df, expected, version=version)
 
 
+@pytest.mark.pandas
 def test_duplicate_columns():
 
     # https://github.com/wesm/feather/issues/53
@@ -515,6 +541,7 @@ def test_duplicate_columns():
     _assert_error_on_write(df, ValueError)
 
 
+@pytest.mark.pandas
 def test_unsupported():
     # https://github.com/wesm/feather/issues/240
     # serializing actual python objects
@@ -531,6 +558,7 @@ def test_unsupported():
     _assert_error_on_write(df, TypeError)
 
 
+@pytest.mark.pandas
 def test_v2_set_chunksize():
     df = pd.DataFrame({'A': np.arange(1000)})
     table = pa.table(df)
@@ -545,6 +573,7 @@ def test_v2_set_chunksize():
     assert len(ipc_file.get_batch(0)) == 250
 
 
+@pytest.mark.pandas
 def test_v2_compression_options():
     df = pd.DataFrame({'A': np.arange(1000)})
 
@@ -597,12 +626,14 @@ def test_v1_unsupported_types():
 
 
 @pytest.mark.slow
+@pytest.mark.pandas
 def test_large_dataframe(version):
     df = pd.DataFrame({'A': np.arange(400000000)})
     _check_pandas_roundtrip(df, version=version)
 
 
 @pytest.mark.large_memory
+@pytest.mark.pandas
 def test_chunked_binary_error_message():
     # ARROW-3058: As Feather does not yet support chunked columns, we at least
     # make sure it's clear to the user what is going on
@@ -623,3 +654,11 @@ def test_chunked_binary_error_message():
                        "capacity of a Feather binary column. This restriction "
                        "may be lifted in the future"):
         write_feather(df, io.BytesIO(), version=1)
+
+
+def test_feather_without_pandas(tempdir, version):
+    # ARROW-8345
+    table = pa.table([pa.array([1, 2, 3])], names=['f0'])
+    write_feather(table, str(tempdir / "data.feather"), version=version)
+    result = read_table(str(tempdir / "data.feather"))
+    assert result.equals(table)
