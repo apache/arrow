@@ -103,7 +103,7 @@ struct DictionaryTraits<T, enable_if_has_c_type<T>> {
     // (also, copying the dictionary values is cheap compared to the cost
     //  of building the memo table)
     ARROW_ASSIGN_OR_RAISE(
-        auto dict_buffer,
+        std::shared_ptr<Buffer> dict_buffer,
         AllocateBuffer(TypeTraits<T>::bytes_required(dict_length), pool));
     memo_table.CopyValues(static_cast<int32_t>(start_offset),
                           reinterpret_cast<c_type*>(dict_buffer->mutable_data()));
@@ -149,7 +149,8 @@ struct DictionaryTraits<T, enable_if_base_binary<T>> {
     RETURN_NOT_OK(
         ComputeNullBitmap(pool, memo_table, start_offset, &null_count, &null_bitmap));
 
-    *out = ArrayData::Make(type, dict_length, {null_bitmap, dict_offsets, dict_data},
+    *out = ArrayData::Make(type, dict_length,
+                           {null_bitmap, std::move(dict_offsets), std::move(dict_data)},
                            null_count);
 
     return Status::OK();
@@ -182,7 +183,8 @@ struct DictionaryTraits<T, enable_if_fixed_size_binary<T>> {
     RETURN_NOT_OK(
         ComputeNullBitmap(pool, memo_table, start_offset, &null_count, &null_bitmap));
 
-    *out = ArrayData::Make(type, dict_length, {null_bitmap, dict_data}, null_count);
+    *out = ArrayData::Make(type, dict_length, {null_bitmap, std::move(dict_data)},
+                           null_count);
     return Status::OK();
   }
 };

@@ -110,8 +110,8 @@ class SparseCOOTensorConverter {
     const std::vector<int64_t> indices_shape = {nonzero_count, ndim};
     const std::vector<int64_t> indices_strides = {indices_elsize * ndim, indices_elsize};
     sparse_index = std::make_shared<SparseCOOIndex>(std::make_shared<Tensor>(
-        index_value_type_, indices_buffer, indices_shape, indices_strides));
-    data = values_buffer;
+        index_value_type_, std::move(indices_buffer), indices_shape, indices_strides));
+    data = std::move(values_buffer);
 
     return Status::OK();
   }

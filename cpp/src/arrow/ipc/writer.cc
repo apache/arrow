@@ -175,7 +175,7 @@ class RecordBatchSerializer {
                           codec->Compress(buffer.size(), buffer.data(), maximum_length,
                                           result->mutable_data() + sizeof(int64_t)));
     *reinterpret_cast<int64_t*>(result->mutable_data()) = buffer.size();
-    *out = SliceBuffer(result, /*offset=*/0, actual_length + sizeof(int64_t));
+    *out = SliceBuffer(std::move(result), /*offset=*/0, actual_length + sizeof(int64_t));
     return Status::OK();
   }
 
@@ -285,7 +285,7 @@ class RecordBatchSerializer {
       }
       // Final offset
       dest_offsets[array.length()] = array.value_offset(array.length()) - start_offset;
-      offsets = shifted_offsets;
+      offsets = std::move(shifted_offsets);
     } else {
       // ARROW-6046: Slice offsets to used extent, in case we have a truncated
       // slice
@@ -293,7 +293,7 @@ class RecordBatchSerializer {
         offsets = SliceBuffer(offsets, 0, required_bytes);
       }
     }
-    *value_offsets = offsets;
+    *value_offsets = std::move(offsets);
     return Status::OK();
   }
 
@@ -469,7 +469,7 @@ class RecordBatchSerializer {
           child_lengths[code] = std::max(child_lengths[code], shifted_offsets[i] + 1);
         }
 
-        value_offsets = shifted_offsets_buffer;
+        value_offsets = std::move(shifted_offsets_buffer);
       }
       out_->body_buffers.emplace_back(value_offsets);
 
@@ -678,7 +678,7 @@ Status GetContiguousTensor(const Tensor& tensor, MemoryPool* pool,
       auto scratch_space,
       AllocateBuffer(tensor.shape()[tensor.ndim() - 1] * elem_size, pool));
 
-  ARROW_ASSIGN_OR_RAISE(auto contiguous_data,
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> contiguous_data,
                         AllocateResizableBuffer(tensor.size() * elem_size, pool));
 
   io::BufferOutputStream stream(contiguous_data);
@@ -1238,11 +1238,12 @@ Status SerializeRecordBatch(const RecordBatch& batch, const IpcWriteOptions& opt
                             std::shared_ptr<Buffer>* out) {
   int64_t size = 0;
   RETURN_NOT_OK(GetRecordBatchSize(batch, &size));
-  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(size, options.memory_pool));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer,
+                        AllocateBuffer(size, options.memory_pool));
 
   io::FixedSizeBufferWriter stream(buffer);
   RETURN_NOT_OK(SerializeRecordBatch(batch, options, &stream));
-  *out = buffer;
+  *out = std::move(buffer);
   return Status::OK();
 }
 

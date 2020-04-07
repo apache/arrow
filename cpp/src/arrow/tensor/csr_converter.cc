@@ -110,7 +110,7 @@ class SparseCSRMatrixConverter {
         std::make_shared<Tensor>(index_value_type_, indices_buffer, indices_shape);
 
     sparse_index = std::make_shared<SparseCSRIndex>(indptr_tensor, indices_tensor);
-    data = values_buffer;
+    data = std::move(values_buffer);
 
     return Status::OK();
   }

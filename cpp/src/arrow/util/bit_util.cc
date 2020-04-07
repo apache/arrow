@@ -65,7 +65,7 @@ Result<std::shared_ptr<Buffer>> BytesToBits(const std::vector<uint8_t>& bytes,
   uint8_t* out_buf = buffer->mutable_data();
   memset(out_buf, 0, static_cast<size_t>(buffer->capacity()));
   FillBitsFromBytes(bytes, out_buf);
-  return buffer;
+  return std::move(buffer);
 }
 
 }  // namespace BitUtil
@@ -406,7 +406,7 @@ Result<std::shared_ptr<Buffer>> BitmapAllButOne(MemoryPool* pool, int64_t length
   auto bitmap_data = buffer->mutable_data();
   BitUtil::SetBitsTo(bitmap_data, 0, length, value);
   BitUtil::SetBitTo(bitmap_data, straggler_pos, !value);
-  return buffer;
+  return std::move(buffer);
 }
 
 }  // namespace internal

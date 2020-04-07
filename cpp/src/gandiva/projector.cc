@@ -177,7 +177,7 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
   // The output vector always has a null bitmap.
   int64_t size = arrow::BitUtil::BytesForBits(num_records);
   ARROW_ASSIGN_OR_RAISE(auto bitmap_buffer, arrow::AllocateBuffer(size, pool));
-  buffers.push_back(bitmap_buffer);
+  buffers.push_back(std::move(bitmap_buffer));
 
   // String/Binary vectors have an offsets array.
   auto type_id = type->id();
@@ -185,7 +185,7 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
     auto offsets_len = arrow::BitUtil::BytesForBits((num_records + 1) * 32);
 
     ARROW_ASSIGN_OR_RAISE(auto offsets_buffer, arrow::AllocateBuffer(offsets_len, pool));
-    buffers.push_back(offsets_buffer);
+    buffers.push_back(std::move(offsets_buffer));
   }
 
   // The output vector always has a data array.
@@ -206,9 +206,9 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
   if (type->id() == arrow::Type::BOOL) {
     memset(data_buffer->mutable_data(), 0, data_len);
   }
-  buffers.push_back(data_buffer);
+  buffers.push_back(std::move(data_buffer));
 
-  *array_data = arrow::ArrayData::Make(type, num_records, buffers);
+  *array_data = arrow::ArrayData::Make(type, num_records, std::move(buffers));
   return Status::OK();
 }
 

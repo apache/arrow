@@ -69,7 +69,7 @@ std::shared_ptr<Array> TestBase::MakeRandomArray(int64_t length, int64_t null_co
   random_bytes(data_nbytes, random_seed_++, data->mutable_data());
   std::shared_ptr<Buffer> null_bitmap = MakeRandomNullBitmap(length, null_count);
 
-  return std::make_shared<ArrayType>(length, data, null_bitmap, null_count);
+  return std::make_shared<ArrayType>(length, std::move(data), null_bitmap, null_count);
 }
 
 template <>
@@ -87,7 +87,7 @@ inline std::shared_ptr<Array> TestBase::MakeRandomArray<FixedSizeBinaryArray>(
 
   ::arrow::random_bytes(data->size(), 0, data->mutable_data());
   return std::make_shared<FixedSizeBinaryArray>(fixed_size_binary(byte_width), length,
-                                                data, null_bitmap, null_count);
+                                                std::move(data), null_bitmap, null_count);
 }
 
 template <>

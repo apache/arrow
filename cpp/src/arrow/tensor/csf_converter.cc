@@ -127,7 +127,7 @@ class SparseCSFTensorConverter {
     }
 
     // make results
-    data = values_buffer;
+    data = std::move(values_buffer);
 
     std::vector<std::shared_ptr<Buffer>> indptr_buffers(ndim - 1);
     std::vector<std::shared_ptr<Buffer>> indices_buffers(ndim);

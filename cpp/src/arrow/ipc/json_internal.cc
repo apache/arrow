@@ -1309,7 +1309,7 @@ class ArrayReader {
       }
     }
 
-    *out = buffer;
+    *out = std::move(buffer);
     return Status::OK();
   }
 

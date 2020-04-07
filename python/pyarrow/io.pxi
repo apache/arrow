@@ -1090,7 +1090,7 @@ cdef class ResizableBuffer(Buffer):
 
 cdef shared_ptr[CResizableBuffer] _allocate_buffer(CMemoryPool* pool) except *:
     with nogil:
-        return GetResultValue(AllocateResizableBuffer(0, pool))
+        return to_shared(GetResultValue(AllocateResizableBuffer(0, pool)))
 
 
 def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
@@ -1119,11 +1119,12 @@ def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
 
     if resizable:
         with nogil:
-            c_rz_buffer = GetResultValue(AllocateResizableBuffer(size, cpool))
+            c_rz_buffer = to_shared(GetResultValue(
+                AllocateResizableBuffer(size, cpool)))
         return pyarrow_wrap_resizable_buffer(c_rz_buffer)
     else:
         with nogil:
-            c_buffer = GetResultValue(AllocateBuffer(size, cpool))
+            c_buffer = to_shared(GetResultValue(AllocateBuffer(size, cpool)))
         return pyarrow_wrap_buffer(c_buffer)
 
 

@@ -570,7 +570,7 @@ TEST_F(TestCudaArrowIpc, BasicWriteRead) {
   ASSERT_OK(device_serialized->CopyToHost(0, size, host_buffer->mutable_data()));
 
   std::shared_ptr<RecordBatch> cpu_batch;
-  io::BufferReader cpu_reader(host_buffer);
+  io::BufferReader cpu_reader(std::move(host_buffer));
   ipc::DictionaryMemo unused_memo;
   ASSERT_OK_AND_ASSIGN(
       cpu_batch, ipc::ReadRecordBatch(batch->schema(), &unused_memo,

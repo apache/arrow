@@ -277,7 +277,7 @@ Status CleanListOffsets(const Array& offsets, MemoryPool* pool,
       clean_raw_offsets[i] = current_offset;
     }
 
-    *offset_buf_out = clean_offsets;
+    *offset_buf_out = std::move(clean_offsets);
   } else {
     *validity_buf_out = offsets.null_bitmap();
     *offset_buf_out = typed_offsets.values();

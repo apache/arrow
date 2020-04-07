@@ -69,7 +69,7 @@ class NthToIndicesKernelImpl final : public NthToIndicesKernel {
     int64_t* indices_end = indices_begin + values->length();
 
     std::iota(indices_begin, indices_end, 0);
-    *offsets = std::make_shared<UInt64Array>(values->length(), indices_buf);
+    *offsets = std::make_shared<UInt64Array>(values->length(), std::move(indices_buf));
 
     if (n == values->length()) {
       return Status::OK();

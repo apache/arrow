@@ -175,7 +175,7 @@ TEST_F(TestArray, SliceRecomputeNullCount) {
   ASSERT_OK_AND_ASSIGN(auto data, AllocateBuffer(kBufferSize, pool_));
   memset(data->mutable_data(), 0, kBufferSize);
 
-  auto arr = std::make_shared<Int32Array>(16, data, nullptr, -1);
+  auto arr = std::make_shared<Int32Array>(16, std::move(data), nullptr, -1);
   ASSERT_EQ(0, arr->null_count());
 }
 

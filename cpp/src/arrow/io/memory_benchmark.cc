@@ -300,7 +300,7 @@ static void ParallelMemoryCopy(benchmark::State& state) {  // NOLINT non-const r
   random_bytes(buffer_size, 0, src->mutable_data());
 
   while (state.KeepRunning()) {
-    io::FixedSizeBufferWriter writer(dst);
+    io::FixedSizeBufferWriter writer(std::move(dst));
     writer.set_memcopy_threads(static_cast<int>(n_threads));
     ABORT_NOT_OK(writer.Write(src->data(), src->size()));
   }

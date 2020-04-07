@@ -568,7 +568,9 @@ garrow_resizable_buffer_new(gint64 initial_size,
 {
   auto maybe_buffer = arrow::AllocateResizableBuffer(initial_size);
   if (garrow::check(error, maybe_buffer, "[resizable-buffer][new]")) {
-    return garrow_resizable_buffer_new_raw(&(*maybe_buffer));
+    auto arrow_buffer = std::shared_ptr<arrow::ResizableBuffer>(
+      *std::move(maybe_buffer));
+    return garrow_resizable_buffer_new_raw(&arrow_buffer);
   } else {
     return NULL;
   }

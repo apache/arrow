@@ -379,7 +379,7 @@ Status DecompressBuffers(Compression::type compression, const IpcReadOptions& op
                                uncompressed_size, " bytes but decompressed ",
                                actual_decompressed);
       }
-      arr->buffers[i] = uncompressed;
+      arr->buffers[i] = std::move(uncompressed);
     }
     return Status::OK();
   };

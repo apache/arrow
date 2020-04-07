@@ -719,12 +719,14 @@ Status MakeDecimal(std::shared_ptr<RecordBatch>* out) {
 
   std::vector<uint8_t> is_valid_bytes(length);
 
-  ARROW_ASSIGN_OR_RAISE(auto data, AllocateBuffer(kDecimalSize * length));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> data,
+                        AllocateBuffer(kDecimalSize * length));
 
   random_decimals(length, 1, kDecimalPrecision, data->mutable_data());
   random_null_bytes(length, 0.1, is_valid_bytes.data());
 
-  ARROW_ASSIGN_OR_RAISE(auto is_valid, BitUtil::BytesToBits(is_valid_bytes));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> is_valid,
+                        BitUtil::BytesToBits(is_valid_bytes));
 
   auto a1 = std::make_shared<Decimal128Array>(f0->type(), length, data, is_valid,
                                               kUnknownNullCount);

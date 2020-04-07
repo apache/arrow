@@ -409,7 +409,7 @@ class BufferedInputStream::Impl : public BufferedBase {
       RETURN_NOT_OK(buffer->Resize(bytes_read, false /* shrink_to_fit */));
       buffer->ZeroPadding();
     }
-    return buffer;
+    return std::move(buffer);
   }
 
   // For providing access to the raw file handles

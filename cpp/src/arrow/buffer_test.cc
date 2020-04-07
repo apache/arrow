@@ -494,7 +494,7 @@ TEST(TestBuffer, SliceMutableBuffer) {
   std::string data_str = "some data to slice";
   auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
 
-  ASSERT_OK_AND_ASSIGN(auto buffer, AllocateBuffer(50));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer, AllocateBuffer(50));
 
   memcpy(buffer->mutable_data(), data, data_str.size());
 
@@ -722,31 +722,10 @@ TEST(TestBufferBuilder, BoolBufferBuilderAppendCopies) {
 template <typename T>
 class TypedTestBuffer : public ::testing::Test {};
 
-struct SharedBufferPtrTraits {
-  using BufferPtrType = std::shared_ptr<ResizableBuffer>;
+using BufferPtrs =
+    ::testing::Types<std::shared_ptr<ResizableBuffer>, std::unique_ptr<ResizableBuffer>>;
 
-  static Result<BufferPtrType> AllocateBuffer(int64_t size) {
-    return AllocateResizableBuffer(size);
-  }
-};
-
-struct UniqueBufferPtrTraits {
-  using BufferPtrType = std::unique_ptr<ResizableBuffer>;
-
-  static Result<BufferPtrType> AllocateBuffer(int64_t size) {
-    BufferPtrType ptr;
-    RETURN_NOT_OK(AllocateResizableBuffer(size, &ptr));
-    return ptr;
-  }
-};
-
-// using BufferPtrs =
-//     ::testing::Types<std::shared_ptr<ResizableBuffer>,
-//     std::unique_ptr<ResizableBuffer>>;
-
-using BufferPtrTraits = ::testing::Types<SharedBufferPtrTraits, UniqueBufferPtrTraits>;
-
-TYPED_TEST_SUITE(TypedTestBuffer, BufferPtrTraits);
+TYPED_TEST_SUITE(TypedTestBuffer, BufferPtrs);
 
 TYPED_TEST(TypedTestBuffer, IsMutableFlag) {
   Buffer buf(nullptr, 0);
@@ -757,15 +736,15 @@ TYPED_TEST(TypedTestBuffer, IsMutableFlag) {
   ASSERT_TRUE(mbuf.is_mutable());
   AssertIsCPUBuffer(mbuf);
 
-  typename TypeParam::BufferPtrType pool_buf;
-  ASSERT_OK_AND_ASSIGN(pool_buf, TypeParam::AllocateBuffer(0));
+  TypeParam pool_buf;
+  ASSERT_OK_AND_ASSIGN(pool_buf, AllocateResizableBuffer(0));
   ASSERT_TRUE(pool_buf->is_mutable());
   AssertIsCPUBuffer(*pool_buf);
 }
 
 TYPED_TEST(TypedTestBuffer, Resize) {
-  typename TypeParam::BufferPtrType buf;
-  ASSERT_OK_AND_ASSIGN(buf, TypeParam::AllocateBuffer(0));
+  TypeParam buf;
+  ASSERT_OK_AND_ASSIGN(buf, AllocateResizableBuffer(0));
   AssertIsCPUBuffer(*buf);
 
   ASSERT_EQ(0, buf->size());
@@ -789,8 +768,8 @@ TYPED_TEST(TypedTestBuffer, Resize) {
 }
 
 TYPED_TEST(TypedTestBuffer, TypedResize) {
-  typename TypeParam::BufferPtrType buf;
-  ASSERT_OK_AND_ASSIGN(buf, TypeParam::AllocateBuffer(0));
+  TypeParam buf;
+  ASSERT_OK_AND_ASSIGN(buf, AllocateResizableBuffer(0));
 
   ASSERT_EQ(0, buf->size());
   ASSERT_OK(buf->template TypedResize<double>(100));
@@ -812,8 +791,8 @@ TYPED_TEST(TypedTestBuffer, ResizeOOM) {
 // This test doesn't play nice with AddressSanitizer
 #ifndef ADDRESS_SANITIZER
   // realloc fails, even though there may be no explicit limit
-  typename TypeParam::BufferPtrType buf;
-  ASSERT_OK_AND_ASSIGN(buf, TypeParam::AllocateBuffer(0));
+  TypeParam buf;
+  ASSERT_OK_AND_ASSIGN(buf, AllocateResizableBuffer(0));
   ASSERT_OK(buf->Resize(100));
   int64_t to_alloc = std::min<uint64_t>(std::numeric_limits<int64_t>::max(),
                                         std::numeric_limits<size_t>::max());

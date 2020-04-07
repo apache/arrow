@@ -247,7 +247,7 @@ class ReadableFile::ReadableFileImpl : public OSFile {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
       buffer->ZeroPadding();
     }
-    return buffer;
+    return std::move(buffer);
   }
 
   Result<std::shared_ptr<Buffer>> ReadBufferAt(int64_t position, int64_t nbytes) {
@@ -259,7 +259,7 @@ class ReadableFile::ReadableFileImpl : public OSFile {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
       buffer->ZeroPadding();
     }
-    return buffer;
+    return std::move(buffer);
   }
 
  private:

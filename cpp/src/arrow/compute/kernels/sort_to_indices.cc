@@ -234,7 +234,7 @@ class SortToIndicesKernelImpl : public SortToIndicesKernel {
     int64_t* indices_end = indices_begin + values->length();
 
     sorter_.Sort(indices_begin, indices_end, *values.get());
-    *offsets = std::make_shared<UInt64Array>(values->length(), indices_buf);
+    *offsets = std::make_shared<UInt64Array>(values->length(), std::move(indices_buf));
     return Status::OK();
   }
 };

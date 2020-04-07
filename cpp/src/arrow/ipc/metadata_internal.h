@@ -207,7 +207,7 @@ static inline Result<std::shared_ptr<Buffer>> WriteFlatbufferBuilder(
 
   uint8_t* dst = result->mutable_data();
   memcpy(dst, fbb.GetBufferPointer(), size);
-  return result;
+  return std::move(result);
 }
 
 }  // namespace internal

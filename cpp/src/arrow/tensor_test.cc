@@ -140,7 +140,8 @@ TEST(TestTensor, ZeroDim) {
 
   using T = int64_t;
 
-  ASSERT_OK_AND_ASSIGN(auto buffer, AllocateBuffer(values * sizeof(T)));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer,
+                       AllocateBuffer(values * sizeof(T)));
 
   Tensor t0(int64(), buffer, shape);
 
@@ -155,7 +156,8 @@ TEST(TestTensor, BasicCtors) {
 
   using T = int64_t;
 
-  ASSERT_OK_AND_ASSIGN(auto buffer, AllocateBuffer(values * sizeof(T)));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer,
+                       AllocateBuffer(values * sizeof(T)));
 
   Tensor t1(int64(), buffer, shape);
   Tensor t2(int64(), buffer, shape, strides);
@@ -183,7 +185,8 @@ TEST(TestTensor, IsContiguous) {
 
   using T = int64_t;
 
-  ASSERT_OK_AND_ASSIGN(auto buffer, AllocateBuffer(values * sizeof(T)));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer,
+                       AllocateBuffer(values * sizeof(T)));
 
   std::vector<int64_t> c_strides = {48, 8};
   std::vector<int64_t> f_strides = {8, 32};
@@ -200,7 +203,7 @@ TEST(TestTensor, IsContiguous) {
 TEST(TestTensor, ZeroSizedTensor) {
   std::vector<int64_t> shape = {0};
 
-  ASSERT_OK_AND_ASSIGN(auto buffer, AllocateBuffer(0));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer, AllocateBuffer(0));
 
   Tensor t(int64(), buffer, shape);
   ASSERT_EQ(t.strides().size(), 1);
@@ -209,7 +212,7 @@ TEST(TestTensor, ZeroSizedTensor) {
 TEST(TestTensor, CountNonZeroForZeroSizedTensor) {
   std::vector<int64_t> shape = {0};
 
-  ASSERT_OK_AND_ASSIGN(auto buffer, AllocateBuffer(0));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer, AllocateBuffer(0));
 
   Tensor t(int64(), buffer, shape);
   AssertCountNonZero(t, 0);
@@ -346,8 +349,8 @@ TEST(TestTensor, EqualsInt64) {
   // zero-size tensor
   ASSERT_OK_AND_ASSIGN(auto empty_buffer1, AllocateBuffer(0));
   ASSERT_OK_AND_ASSIGN(auto empty_buffer2, AllocateBuffer(0));
-  Tensor empty1(int64(), empty_buffer1, {0});
-  Tensor empty2(int64(), empty_buffer2, {0});
+  Tensor empty1(int64(), std::move(empty_buffer1), {0});
+  Tensor empty2(int64(), std::move(empty_buffer2), {0});
   EXPECT_FALSE(empty1.Equals(tc1));
   EXPECT_TRUE(empty1.Equals(empty2));
 }

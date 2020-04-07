@@ -715,7 +715,7 @@ namespace garrow {
         if (n_read_bytes < n_bytes) {
           RETURN_NOT_OK(buffer->Resize(n_read_bytes));
         }
-        return buffer;
+        return std::move(buffer);
       }
     }
 

@@ -177,7 +177,7 @@ Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
                             std::shared_ptr<ResizableBuffer>* out, uint32_t seed) {
   ARROW_ASSIGN_OR_RAISE(auto result, AllocateResizableBuffer(length, pool));
   random_bytes(length, seed, result->mutable_data());
-  *out = result;
+  *out = std::move(result);
   return Status::OK();
 }
 

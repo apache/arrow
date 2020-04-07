@@ -50,7 +50,7 @@ Status CopyBufferFromVector(const std::vector<T>& values, MemoryPool* pool,
   memset(buffer->mutable_data() + nbytes, 0,
          static_cast<size_t>(buffer->capacity() - nbytes));
 
-  *result = buffer;
+  *result = std::move(buffer);
   return Status::OK();
 }
 

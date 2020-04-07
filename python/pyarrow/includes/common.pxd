@@ -52,6 +52,26 @@ cdef extern from * namespace "cymove" nogil:
     """
     cdef T move" cymove::cymove"[T](T)
 
+cdef extern from * namespace "arrow::py" nogil:
+    """
+    #include <memory>
+    #include <utility>
+
+    namespace arrow {
+    namespace py {
+    template <typename T>
+    std::shared_ptr<T> to_shared(std::unique_ptr<T>& t) {
+        return std::move(t);
+    }
+    template <typename T>
+    std::shared_ptr<T> to_shared(std::unique_ptr<T>&& t) {
+        return std::move(t);
+    }
+    }  // namespace py
+    }  // namespace arrow
+    """
+    cdef shared_ptr[T] to_shared" arrow::py::to_shared"[T](unique_ptr[T])
+
 cdef extern from "arrow/python/platform.h":
     pass
 

@@ -467,7 +467,7 @@ TEST_P(TestIpcRoundTrip, ZeroLengthArrays) {
   *reinterpret_cast<int32_t*>(value_offsets->mutable_data()) = 0;
 
   std::shared_ptr<Array> bin_array = std::make_shared<BinaryArray>(
-      0, value_offsets, std::make_shared<Buffer>(nullptr, 0),
+      0, std::move(value_offsets), std::make_shared<Buffer>(nullptr, 0),
       std::make_shared<Buffer>(nullptr, 0));
 
   // null value_offsets

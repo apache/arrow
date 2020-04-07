@@ -249,7 +249,7 @@ Status PyArray_NewFromPool(int nd, npy_intp* dims, PyArray_Descr* descr, MemoryP
     RETURN_IF_PYERROR();
     // Trust that error set if NULL returned
   }
-  return SetBufferBase(reinterpret_cast<PyArrayObject*>(*out), buffer);
+  return SetBufferBase(reinterpret_cast<PyArrayObject*>(*out), std::move(buffer));
 }
 
 template <typename T = void>

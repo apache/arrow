@@ -37,7 +37,8 @@ ArrayPtr TestAnnotator::MakeInt32Array(int length) {
 
   auto values = *arrow::AllocateBuffer(length * sizeof(int32_t));
 
-  auto array_data = arrow::ArrayData::Make(arrow::int32(), length, {validity, values});
+  auto array_data = arrow::ArrayData::Make(arrow::int32(), length,
+                                           {std::move(validity), std::move(values)});
   return arrow::MakeArray(array_data);
 }
 

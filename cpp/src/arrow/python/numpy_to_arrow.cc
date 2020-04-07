@@ -78,7 +78,7 @@ Status AllocateNullBitmap(MemoryPool* pool, int64_t length,
 
   // Padding zeroed by AllocateResizableBuffer
   memset(null_bitmap->mutable_data(), 0, static_cast<size_t>(null_bytes));
-  *out = null_bitmap;
+  *out = std::move(null_bitmap);
   return Status::OK();
 }
 
@@ -362,7 +362,7 @@ Status StaticCastBuffer(const Buffer& input, const int64_t length, MemoryPool* p
   for (int64_t i = 0; i < length; ++i) {
     *out_values++ = static_cast<ToType>(*in_values++);
   }
-  *out = result;
+  *out = std::move(result);
   return Status::OK();
 }
 
@@ -441,7 +441,7 @@ inline Status NumPyConverter::PrepareInputData(std::shared_ptr<Buffer>* data) {
     const auto generate = [&values, &i]() -> bool { return values[i++] > 0; };
     GenerateBitsUnrolled(buffer->mutable_data(), 0, length_, generate);
 
-    *data = buffer;
+    *data = std::move(buffer);
   } else if (is_strided()) {
     RETURN_NOT_OK(NumPyStridedConverter::Convert(arr_, length_, pool_, data));
   } else {
@@ -523,7 +523,7 @@ inline Status NumPyConverter::ConvertData<Date64Type>(std::shared_ptr<Buffer>* d
       for (int64_t i = 0; i < length_; ++i) {
         *out_values++ = kMillisecondsInDay * (*in_values++);
       }
-      *data = result;
+      *data = std::move(result);
     } else {
       RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
       if (!input_type->Equals(*type_)) {

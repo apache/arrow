@@ -138,7 +138,7 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
         }
         values[offset] = raw_data[i];
       }
-      *out = std::make_shared<Tensor>(sparse_tensor->type(), values_buffer,
+      *out = std::make_shared<Tensor>(sparse_tensor->type(), std::move(values_buffer),
                                       sparse_tensor->shape(), empty_strides,
                                       sparse_tensor->dim_names());
       return Status::OK();
@@ -159,7 +159,7 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
           values[offset] = raw_data[j];
         }
       }
-      *out = std::make_shared<Tensor>(sparse_tensor->type(), values_buffer,
+      *out = std::make_shared<Tensor>(sparse_tensor->type(), std::move(values_buffer),
                                       sparse_tensor->shape(), empty_strides,
                                       sparse_tensor->dim_names());
       return Status::OK();
@@ -180,7 +180,7 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
           values[offset] = raw_data[i];
         }
       }
-      *out = std::make_shared<Tensor>(sparse_tensor->type(), values_buffer,
+      *out = std::make_shared<Tensor>(sparse_tensor->type(), std::move(values_buffer),
                                       sparse_tensor->shape(), empty_strides,
                                       sparse_tensor->dim_names());
       return Status::OK();
@@ -193,7 +193,7 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
       ExpandSparseCSFTensorValues<value_type, IndexValueType>(
           0, 0, 0, sparse_index.indptr()[0]->size() - 1, sparse_index, raw_data, strides,
           sparse_index.axis_order(), values);
-      *out = std::make_shared<Tensor>(sparse_tensor->type(), values_buffer,
+      *out = std::make_shared<Tensor>(sparse_tensor->type(), std::move(values_buffer),
                                       sparse_tensor->shape(), empty_strides,
                                       sparse_tensor->dim_names());
       return Status::OK();

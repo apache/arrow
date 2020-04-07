@@ -148,7 +148,7 @@ Result<std::shared_ptr<Buffer>> CPUMemoryManager::CopyBufferFrom(
   if (buf->size() > 0) {
     memcpy(dest->mutable_data(), buf->data(), static_cast<size_t>(buf->size()));
   }
-  return dest;
+  return std::move(dest);
 }
 
 Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferFrom(
@@ -168,7 +168,7 @@ Result<std::shared_ptr<Buffer>> CPUMemoryManager::CopyBufferTo(
   if (buf->size() > 0) {
     memcpy(dest->mutable_data(), buf->data(), static_cast<size_t>(buf->size()));
   }
-  return dest;
+  return std::move(dest);
 }
 
 Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferTo(

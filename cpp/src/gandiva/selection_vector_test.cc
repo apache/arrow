@@ -50,7 +50,7 @@ TEST_F(TestSelectionVector, TestInt16Make) {
   auto buffer_len = max_slots * sizeof(int16_t);
   ASSERT_OK_AND_ASSIGN(auto buffer, arrow::AllocateBuffer(buffer_len, pool_));
 
-  status = SelectionVector::MakeInt16(max_slots, buffer, &selection2);
+  status = SelectionVector::MakeInt16(max_slots, std::move(buffer), &selection2);
   EXPECT_EQ(status.ok(), true) << status.message();
   EXPECT_EQ(selection2->GetMaxSlots(), max_slots);
   EXPECT_EQ(selection2->GetNumSlots(), 0);
@@ -65,7 +65,7 @@ TEST_F(TestSelectionVector, TestInt16MakeNegative) {
   // alloc a buffer that's insufficient.
   ASSERT_OK_AND_ASSIGN(auto buffer, arrow::AllocateBuffer(buffer_len - 16, pool_));
 
-  auto status = SelectionVector::MakeInt16(max_slots, buffer, &selection);
+  auto status = SelectionVector::MakeInt16(max_slots, std::move(buffer), &selection);
   EXPECT_EQ(status.IsInvalid(), true);
 }
 
@@ -197,7 +197,7 @@ TEST_F(TestSelectionVector, TestInt32MakeNegative) {
   // alloc a buffer that's insufficient.
   ASSERT_OK_AND_ASSIGN(auto buffer, arrow::AllocateBuffer(buffer_len - 1, pool_));
 
-  auto status = SelectionVector::MakeInt32(max_slots, buffer, &selection);
+  auto status = SelectionVector::MakeInt32(max_slots, std::move(buffer), &selection);
   EXPECT_EQ(status.IsInvalid(), true);
 }
 
@@ -262,7 +262,7 @@ TEST_F(TestSelectionVector, TestInt64MakeNegative) {
   // alloc a buffer that's insufficient.
   ASSERT_OK_AND_ASSIGN(auto buffer, arrow::AllocateBuffer(buffer_len - 1, pool_));
 
-  auto status = SelectionVector::MakeInt64(max_slots, buffer, &selection);
+  auto status = SelectionVector::MakeInt64(max_slots, std::move(buffer), &selection);
   EXPECT_EQ(status.IsInvalid(), true);
 }
 

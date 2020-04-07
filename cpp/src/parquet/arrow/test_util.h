@@ -391,7 +391,8 @@ Status MakeEmptyListsArray(int64_t size, std::shared_ptr<Array>* out_array) {
   auto child_data =
       ::arrow::ArrayData::Make(value_field->type(), 0, std::move(child_buffers));
 
-  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr /* bitmap */, offsets_buffer};
+  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr /* bitmap */,
+                                                  std::move(offsets_buffer)};
   auto array_data = ::arrow::ArrayData::Make(list_type, size, std::move(buffers));
   array_data->child_data.push_back(child_data);
 

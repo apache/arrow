@@ -70,7 +70,7 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
       for (int64_t i = 0; i < values.length(); ++i) {
         RETURN_NOT_OK(memo_table_.GetOrInsert(values.GetView(i), &result_raw[i]));
       }
-      *out = result;
+      *out = std::move(result);
     } else {
       for (int64_t i = 0; i < values.length(); ++i) {
         int32_t unused_memo_index;
@@ -210,8 +210,8 @@ Result<std::shared_ptr<Array>> DictionaryArray::Transpose(
     null_bitmap = data_->buffers[0];
   }
 
-  auto out_data =
-      ArrayData::Make(type, data_->length, {null_bitmap, out_buffer}, data_->null_count);
+  auto out_data = ArrayData::Make(
+      type, data_->length, {null_bitmap, std::move(out_buffer)}, data_->null_count);
   out_data->dictionary = dictionary;
 
 #define TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, OUT_INDEX_TYPE)                 \

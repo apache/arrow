@@ -1228,7 +1228,7 @@ TEST(Bitmap, VisitPartialWords) {
 
   auto buffer = Buffer::Wrap(words, 2);
   Bitmap bitmap(buffer, 0, nbits);
-  ASSERT_OK_AND_ASSIGN(auto storage, AllocateBuffer(nbytes));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> storage, AllocateBuffer(nbytes));
 
   // words partially outside the buffer are not accessible, but they are loaded bitwise
   auto first_byte_was_missing = Bitmap(SliceBuffer(buffer, 1), 0, nbits - 8);

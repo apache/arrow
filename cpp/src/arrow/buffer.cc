@@ -38,7 +38,7 @@ Result<std::shared_ptr<Buffer>> Buffer::CopySlice(const int64_t start,
 
   ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateResizableBuffer(nbytes, pool));
   std::memcpy(new_buffer->mutable_data(), data() + start, static_cast<size_t>(nbytes));
-  return new_buffer;
+  return std::move(new_buffer);
 }
 
 Status Buffer::Copy(const int64_t start, const int64_t nbytes, MemoryPool* pool,
@@ -72,7 +72,7 @@ Result<std::shared_ptr<Buffer>> Buffer::FromString(const std::string& data,
   auto size = static_cast<int64_t>(data.size());
   ARROW_ASSIGN_OR_RAISE(auto buf, AllocateBuffer(size, pool));
   std::copy(data.c_str(), data.c_str() + size, buf->mutable_data());
-  return buf;
+  return std::move(buf);
 }
 
 Status Buffer::FromString(const std::string& data, MemoryPool* pool,
@@ -250,8 +250,8 @@ inline Result<BufferPtr> ResizePoolBuffer(PoolBufferPtr&& buffer, const int64_t 
 
 }  // namespace
 
-Result<std::shared_ptr<Buffer>> AllocateBuffer(const int64_t size, MemoryPool* pool) {
-  return ResizePoolBuffer<std::shared_ptr<Buffer>>(PoolBuffer::MakeShared(pool), size);
+Result<std::unique_ptr<Buffer>> AllocateBuffer(const int64_t size, MemoryPool* pool) {
+  return ResizePoolBuffer<std::unique_ptr<Buffer>>(PoolBuffer::MakeUnique(pool), size);
 }
 
 Status AllocateBuffer(MemoryPool* pool, const int64_t size,
@@ -265,18 +265,16 @@ Status AllocateBuffer(const int64_t size, std::shared_ptr<Buffer>* out) {
 
 Status AllocateBuffer(MemoryPool* pool, const int64_t size,
                       std::unique_ptr<Buffer>* out) {
-  return ResizePoolBuffer<std::unique_ptr<Buffer>>(PoolBuffer::MakeUnique(pool), size)
-      .Value(out);
+  return AllocateBuffer(size, pool).Value(out);
 }
 
 Status AllocateBuffer(const int64_t size, std::unique_ptr<Buffer>* out) {
-  return ResizePoolBuffer<std::unique_ptr<Buffer>>(PoolBuffer::MakeUnique(nullptr), size)
-      .Value(out);
+  return AllocateBuffer(size).Value(out);
 }
 
-Result<std::shared_ptr<ResizableBuffer>> AllocateResizableBuffer(const int64_t size,
+Result<std::unique_ptr<ResizableBuffer>> AllocateResizableBuffer(const int64_t size,
                                                                  MemoryPool* pool) {
-  return ResizePoolBuffer<std::shared_ptr<ResizableBuffer>>(PoolBuffer::MakeShared(pool),
+  return ResizePoolBuffer<std::unique_ptr<ResizableBuffer>>(PoolBuffer::MakeUnique(pool),
                                                             size);
 }
 
@@ -292,16 +290,12 @@ Status AllocateResizableBuffer(const int64_t size,
 
 Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
                                std::unique_ptr<ResizableBuffer>* out) {
-  return ResizePoolBuffer<std::unique_ptr<ResizableBuffer>>(PoolBuffer::MakeUnique(pool),
-                                                            size)
-      .Value(out);
+  return AllocateResizableBuffer(size, pool).Value(out);
 }
 
 Status AllocateResizableBuffer(const int64_t size,
                                std::unique_ptr<ResizableBuffer>* out) {
-  return ResizePoolBuffer<std::unique_ptr<ResizableBuffer>>(
-             PoolBuffer::MakeUnique(nullptr), size)
-      .Value(out);
+  return AllocateResizableBuffer(size).Value(out);
 }
 
 Result<std::shared_ptr<Buffer>> AllocateBitmap(int64_t length, MemoryPool* pool) {
@@ -339,7 +333,7 @@ Result<std::shared_ptr<Buffer>> ConcatenateBuffers(
     std::memcpy(out_data, buffer->data(), buffer->size());
     out_data += buffer->size();
   }
-  return out;
+  return std::move(out);
 }
 
 Status ConcatenateBuffers(const std::vector<std::shared_ptr<Buffer>>& buffers,

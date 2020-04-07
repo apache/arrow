@@ -336,9 +336,10 @@ class QuadraticSpaceMyersDiff {
     BitUtil::SetBitTo(insert_buf->mutable_data(), 0, false);
     run_length[0] = endpoint.base - base_begin_;
 
-    return StructArray::Make({std::make_shared<BooleanArray>(length, insert_buf),
-                              std::make_shared<Int64Array>(length, run_length_buf)},
-                             {field("insert", boolean()), field("run_length", int64())});
+    return StructArray::Make(
+        {std::make_shared<BooleanArray>(length, std::move(insert_buf)),
+         std::make_shared<Int64Array>(length, std::move(run_length_buf))},
+        {field("insert", boolean()), field("run_length", int64())});
   }
 
  private:

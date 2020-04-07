@@ -278,10 +278,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CStatus Resize(const int64_t new_size, c_bool shrink_to_fit)
         CStatus Reserve(const int64_t new_size)
 
-    CResult[shared_ptr[CBuffer]] AllocateBuffer(const int64_t size,
+    CResult[unique_ptr[CBuffer]] AllocateBuffer(const int64_t size,
                                                 CMemoryPool* pool)
 
-    CResult[shared_ptr[CResizableBuffer]] AllocateResizableBuffer(
+    CResult[unique_ptr[CResizableBuffer]] AllocateResizableBuffer(
         const int64_t size, CMemoryPool* pool)
 
     cdef CMemoryPool* c_default_memory_pool" arrow::default_memory_pool"()
