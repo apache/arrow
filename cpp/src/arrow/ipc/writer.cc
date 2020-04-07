@@ -835,10 +835,10 @@ class SparseTensorSerializer {
   }
 
   Status VisitSparseCSFIndex(const SparseCSFIndex& sparse_index) {
-    for (const std::shared_ptr<arrow::Tensor> indptr : sparse_index.indptr()) {
+    for (const std::shared_ptr<arrow::Tensor>& indptr : sparse_index.indptr()) {
       out_->body_buffers.emplace_back(indptr->data());
     }
-    for (const std::shared_ptr<arrow::Tensor> indices : sparse_index.indices()) {
+    for (const std::shared_ptr<arrow::Tensor>& indices : sparse_index.indices()) {
       out_->body_buffers.emplace_back(indices->data());
     }
     return Status::OK();
