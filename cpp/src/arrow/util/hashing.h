@@ -49,12 +49,12 @@
 
 // Suppress clang warnings from unsuccessful or unsupported optimization passes
 // requested in xxh3
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wpass-failed"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpass-failed"
 
 #include "arrow/vendored/xxhash.h"
 
-#pragma clang diagnostic pop
+#pragma GCC diagnostic pop
 
 namespace arrow {
 namespace internal {
