@@ -765,8 +765,8 @@ cdef class RecordBatch(_PandasConvertible):
         options.memory_pool = maybe_unbox_memory_pool(memory_pool)
 
         with nogil:
-            check_status(SerializeRecordBatch(deref(self.batch),
-                                              options, &buffer))
+            buffer = GetResultValue(
+                SerializeRecordBatch(deref(self.batch), options))
         return pyarrow_wrap_buffer(buffer)
 
     def slice(self, offset=0, length=None):

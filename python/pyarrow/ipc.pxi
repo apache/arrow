@@ -164,7 +164,8 @@ cdef class MessageReader:
         cdef Message result = Message.__new__(Message)
 
         with nogil:
-            check_status(self.reader.get().ReadNextMessage(&result.message))
+            result.message = move(GetResultValue(self.reader.get()
+                                                 .ReadNextMessage()))
 
         if result.message.get() == NULL:
             raise StopIteration
@@ -420,7 +421,7 @@ cdef class _RecordBatchFileReader:
             raise ValueError('Batch number {0} out of range'.format(i))
 
         with nogil:
-            check_status(self.reader.get().ReadRecordBatch(i, &batch))
+            batch = GetResultValue(self.reader.get().ReadRecordBatch(i))
 
         return pyarrow_wrap_batch(batch)
 
@@ -442,7 +443,8 @@ cdef class _RecordBatchFileReader:
         batches.resize(nbatches)
         with nogil:
             for i in range(nbatches):
-                check_status(self.reader.get().ReadRecordBatch(i, &batches[i]))
+                batches[i] = GetResultValue(self.reader.get()
+                                            .ReadRecordBatch(i))
             table = GetResultValue(
                 CTable.FromRecordBatches(self.schema.sp_schema, move(batches)))
 

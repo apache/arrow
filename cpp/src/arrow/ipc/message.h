@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -71,7 +72,7 @@ class ARROW_EXPORT Message {
   /// \brief Construct message, but do not validate
   ///
   /// Use at your own risk; Message::Open has more metadata validation
-  Message(const std::shared_ptr<Buffer>& metadata, const std::shared_ptr<Buffer>& body);
+  Message(std::shared_ptr<Buffer> metadata, std::shared_ptr<Buffer> body);
 
   ~Message();
 
@@ -79,32 +80,48 @@ class ARROW_EXPORT Message {
   ///
   /// \param[in] metadata a buffer containing the Flatbuffer metadata
   /// \param[in] body a buffer containing the message body, which may be null
-  /// \param[out] out the created message
-  /// \return Status
+  /// \return the created message
+  static Result<std::unique_ptr<Message>> Open(std::shared_ptr<Buffer> metadata,
+                                               std::shared_ptr<Buffer> body);
+
+  ARROW_DEPRECATED("Deprecated in 0.17.0. Use Result-returning version")
   static Status Open(const std::shared_ptr<Buffer>& metadata,
-                     const std::shared_ptr<Buffer>& body, std::unique_ptr<Message>* out);
+                     const std::shared_ptr<Buffer>& body, std::unique_ptr<Message>* out) {
+    return Open(metadata, body).Value(out);
+  }
 
   /// \brief Read message body and create Message given Flatbuffer metadata
   /// \param[in] metadata containing a serialized Message flatbuffer
   /// \param[in] stream an InputStream
-  /// \param[out] out the created Message
-  /// \return Status
+  /// \return the created Message
   ///
   /// \note If stream supports zero-copy, this is zero-copy
+  static Result<std::unique_ptr<Message>> ReadFrom(std::shared_ptr<Buffer> metadata,
+                                                   io::InputStream* stream);
+
+  ARROW_DEPRECATED("Deprecated in 0.17.0. Use Result-returning version")
   static Status ReadFrom(std::shared_ptr<Buffer> metadata, io::InputStream* stream,
-                         std::unique_ptr<Message>* out);
+                         std::unique_ptr<Message>* out) {
+    return ReadFrom(std::move(metadata), stream).Value(out);
+  }
 
   /// \brief Read message body from position in file, and create Message given
   /// the Flatbuffer metadata
   /// \param[in] offset the position in the file where the message body starts.
   /// \param[in] metadata containing a serialized Message flatbuffer
   /// \param[in] file the seekable file interface to read from
-  /// \param[out] out the created Message
-  /// \return Status
+  /// \return the created Message
   ///
   /// \note If file supports zero-copy, this is zero-copy
+  static Result<std::unique_ptr<Message>> ReadFrom(const int64_t offset,
+                                                   std::shared_ptr<Buffer> metadata,
+                                                   io::RandomAccessFile* file);
+
+  ARROW_DEPRECATED("Deprecated in 0.17.0. Use Result-returning version")
   static Status ReadFrom(const int64_t offset, std::shared_ptr<Buffer> metadata,
-                         io::RandomAccessFile* file, std::unique_ptr<Message>* out);
+                         io::RandomAccessFile* file, std::unique_ptr<Message>* out) {
+    return ReadFrom(offset, std::move(metadata), file).Value(out);
+  }
 
   /// \brief Return true if message type and contents are equal
   ///
@@ -178,9 +195,13 @@ class ARROW_EXPORT MessageReader {
 
   /// \brief Read next Message from the interface
   ///
-  /// \param[out] message an arrow::ipc::Message instance
-  /// \return Status
-  virtual Status ReadNextMessage(std::unique_ptr<Message>* message) = 0;
+  /// \return an arrow::ipc::Message instance
+  virtual Result<std::unique_ptr<Message>> ReadNextMessage() = 0;
+
+  ARROW_DEPRECATED("Deprecated in 0.17.0. Use Result-returning version")
+  Status ReadNextMessage(std::unique_ptr<Message>* message) {
+    return ReadNextMessage().Value(message);
+  }
 };
 
 /// \brief Read encapsulated RPC message from position in file
@@ -195,11 +216,11 @@ class ARROW_EXPORT MessageReader {
 /// first 4 bytes after the offset are the message length
 /// \param[in] metadata_length the total number of bytes to read from file
 /// \param[in] file the seekable file interface to read from
-/// \param[out] message the message read
-/// \return Status success or failure
+/// \return the message read
 ARROW_EXPORT
-Status ReadMessage(const int64_t offset, const int32_t metadata_length,
-                   io::RandomAccessFile* file, std::unique_ptr<Message>* message);
+Result<std::unique_ptr<Message>> ReadMessage(const int64_t offset,
+                                             const int32_t metadata_length,
+                                             io::RandomAccessFile* file);
 
 /// \brief Advance stream to an 8-byte offset if its position is not a multiple
 /// of 8 already
@@ -228,13 +249,6 @@ Status CheckAligned(io::FileInterface* stream, int32_t alignment = 8);
 ///
 /// Returns null if there are not enough bytes available or the
 /// message length is 0 (e.g. EOS in a stream)
-ARROW_EXPORT
-Status ReadMessage(io::InputStream* stream, std::unique_ptr<Message>* message);
-
-/// \brief Read encapsulated IPC message (metadata and body) from InputStream
-///
-/// Returns null if there are not enough bytes available or the
-/// message length is 0 (e.g. EOS in a stream)
 ///
 /// \param[in] stream an input stream
 /// \param[in] pool an optional MemoryPool to copy metadata on the CPU, if required
@@ -252,6 +266,7 @@ Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* stream,
 /// message: const void*
 /// padding
 ///
+///
 /// \param[in] message a buffer containing the metadata to write
 /// \param[in] options IPC writing options, including alignment and
 /// legacy message support
@@ -261,6 +276,18 @@ Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* stream,
 /// \return Status
 Status WriteMessage(const Buffer& message, const IpcWriteOptions& options,
                     io::OutputStream* file, int32_t* message_length);
+
+// ----------------------------------------------------------------------
+// Deprecated APIs
+
+ARROW_DEPRECATED("Deprecated in 0.17.0. Use Result-returning version")
+ARROW_EXPORT
+Status ReadMessage(const int64_t offset, const int32_t metadata_length,
+                   io::RandomAccessFile* file, std::unique_ptr<Message>* message);
+
+ARROW_DEPRECATED("Deprecated in 0.17.0. Use Result-returning version")
+ARROW_EXPORT
+Status ReadMessage(io::InputStream* stream, std::unique_ptr<Message>* message);
 
 }  // namespace ipc
 }  // namespace arrow

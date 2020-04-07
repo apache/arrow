@@ -89,17 +89,13 @@ std::unique_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(
 // [[arrow::export]]
 std::unique_ptr<arrow::ipc::Message> ipc___MessageReader__ReadNextMessage(
     const std::unique_ptr<arrow::ipc::MessageReader>& reader) {
-  std::unique_ptr<arrow::ipc::Message> message;
-  STOP_IF_NOT_OK(reader->ReadNextMessage(&message));
-  return message;
+  return VALUE_OR_STOP(reader->ReadNextMessage());
 }
 
 // [[arrow::export]]
 std::unique_ptr<arrow::ipc::Message> ipc___ReadMessage(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
-  std::unique_ptr<arrow::ipc::Message> message;
-  STOP_IF_NOT_OK(arrow::ipc::ReadMessage(stream.get(), &message));
-  return message;
+  return VALUE_OR_STOP(arrow::ipc::ReadMessage(stream.get()));
 }
 
 #endif

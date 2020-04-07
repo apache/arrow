@@ -470,7 +470,7 @@ Status GetCompression(const flatbuf::Message* message, Compression::type* out) {
 
 static Status ReadContiguousPayload(io::InputStream* file,
                                     std::unique_ptr<Message>* message) {
-  RETURN_NOT_OK(ReadMessage(file, message));
+  ARROW_ASSIGN_OR_RAISE(*message, ReadMessage(file));
   if (*message == nullptr) {
     return Status::Invalid("Unable to read metadata at offset");
   }
@@ -591,8 +591,8 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
     options_ = options;
 
     // Read schema
-    std::unique_ptr<Message> message;
-    RETURN_NOT_OK(message_reader_->ReadNextMessage(&message));
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Message> message,
+                          message_reader_->ReadNextMessage());
     if (!message) {
       return Status::Invalid("Tried reading schema message, was null or length 0");
     }
@@ -622,8 +622,8 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
       return Status::OK();
     }
 
-    std::unique_ptr<Message> message;
-    RETURN_NOT_OK(message_reader_->ReadNextMessage(&message));
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Message> message,
+                          message_reader_->ReadNextMessage());
     if (message == nullptr) {
       // End of stream
       *batch = nullptr;
@@ -661,7 +661,7 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
     // TODO(wesm): In future, we may want to reconcile the ids in the stream with
     // those found in the schema
     for (int i = 0; i < dictionary_memo_.num_fields(); ++i) {
-      RETURN_NOT_OK(message_reader_->ReadNextMessage(&message));
+      ARROW_ASSIGN_OR_RAISE(message, message_reader_->ReadNextMessage());
       if (!message) {
         if (i == 0) {
           /// ARROW-6006: If we fail to find any dictionaries in the stream, then
@@ -745,7 +745,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     return internal::GetMetadataVersion(footer_->version());
   }
 
-  Status ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) override {
+  Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(int i) override {
     DCHECK_GE(i, 0);
     DCHECK_LT(i, num_record_batches());
 
@@ -760,8 +760,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     CHECK_HAS_BODY(*message);
     ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
     return ::arrow::ipc::ReadRecordBatch(*message->metadata(), schema_, &dictionary_memo_,
-                                         options_, reader.get())
-        .Value(batch);
+                                         options_, reader.get());
   }
 
   Status Open(const std::shared_ptr<io::RandomAccessFile>& file, int64_t footer_offset,
@@ -809,11 +808,10 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
       return Status::Invalid("Unaligned block in IPC file");
     }
 
-    RETURN_NOT_OK(ReadMessage(block.offset, block.metadata_length, file_, out));
-
     // TODO(wesm): this breaks integration tests, see ARROW-3256
     // DCHECK_EQ((*out)->body_length(), block.body_length);
-    return Status::OK();
+
+    return ReadMessage(block.offset, block.metadata_length, file_).Value(out);
   }
 
   Status ReadDictionaries() {
@@ -932,8 +930,7 @@ Result<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::Open(
 Result<std::shared_ptr<Schema>> ReadSchema(io::InputStream* stream,
                                            DictionaryMemo* dictionary_memo) {
   std::unique_ptr<MessageReader> reader = MessageReader::Open(stream);
-  std::unique_ptr<Message> message;
-  RETURN_NOT_OK(reader->ReadNextMessage(&message));
+  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Message> message, reader->ReadNextMessage());
   if (!message) {
     return Status::Invalid("Tried reading schema message, was null or length 0");
   }
@@ -1387,8 +1384,7 @@ Status FuzzIpcFile(const uint8_t* data, int64_t size) {
 
   const int n_batches = batch_reader->num_record_batches();
   for (int i = 0; i < n_batches; ++i) {
-    std::shared_ptr<arrow::RecordBatch> batch;
-    RETURN_NOT_OK(batch_reader->ReadRecordBatch(i, &batch));
+    ARROW_ASSIGN_OR_RAISE(auto batch, batch_reader->ReadRecordBatch(i));
     RETURN_NOT_OK(batch->ValidateFull());
   }
 

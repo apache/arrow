@@ -718,7 +718,7 @@ class ReaderV2 : public Reader {
     ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchFileReader::Open(source_, options));
     std::vector<std::shared_ptr<RecordBatch>> batches(reader->num_record_batches());
     for (int i = 0; i < reader->num_record_batches(); ++i) {
-      RETURN_NOT_OK(reader->ReadRecordBatch(i, &batches[i]));
+      ARROW_ASSIGN_OR_RAISE(batches[i], reader->ReadRecordBatch(i));
     }
 
     // XXX: Handle included_fields in RecordBatchFileReader::schema

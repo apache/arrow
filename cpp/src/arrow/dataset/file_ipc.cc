@@ -75,8 +75,8 @@ class IpcScanTask : public ScanTask {
           return nullptr;
         }
 
-        std::shared_ptr<RecordBatch> batch;
-        RETURN_NOT_OK(reader_->ReadRecordBatch(i_++, &batch));
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> batch,
+                              reader_->ReadRecordBatch(i_++));
         return projector_.Project(*batch, pool_);
       }
 
