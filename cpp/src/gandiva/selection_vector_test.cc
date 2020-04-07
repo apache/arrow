@@ -18,6 +18,7 @@
 #include "gandiva/selection_vector.h"
 
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>

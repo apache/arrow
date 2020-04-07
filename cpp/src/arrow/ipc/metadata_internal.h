@@ -23,6 +23,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <flatbuffers/flatbuffers.h>

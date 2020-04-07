@@ -18,6 +18,7 @@
 #include "gandiva/annotator.h"
 
 #include <memory>
+#include <utility>
 
 #include <arrow/memory_pool.h>
 #include <gtest/gtest.h>

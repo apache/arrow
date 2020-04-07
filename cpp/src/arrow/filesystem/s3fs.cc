@@ -467,7 +467,7 @@ class ObjectInputFile : public io::RandomAccessFile {
       DCHECK_LE(bytes_read, nbytes);
       RETURN_NOT_OK(buf->Resize(bytes_read));
     }
-    return buf;
+    return std::move(buf);
   }
 
   Result<int64_t> Read(int64_t nbytes, void* out) override {
@@ -479,7 +479,7 @@ class ObjectInputFile : public io::RandomAccessFile {
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
     ARROW_ASSIGN_OR_RAISE(auto buffer, ReadAt(pos_, nbytes));
     pos_ += buffer->size();
-    return buffer;
+    return std::move(buffer);
   }
 
  protected:

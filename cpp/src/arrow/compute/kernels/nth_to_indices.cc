@@ -18,6 +18,7 @@
 #include "arrow/compute/kernels/nth_to_indices.h"
 
 #include <algorithm>
+#include <utility>
 
 #include "arrow/builder.h"
 #include "arrow/compute/context.h"

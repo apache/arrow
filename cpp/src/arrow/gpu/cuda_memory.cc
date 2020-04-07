@@ -93,7 +93,7 @@ Result<std::shared_ptr<Buffer>> CudaIpcMemHandle::Serialize(MemoryPool* pool) co
     memcpy(buffer->mutable_data() + sizeof(impl_->memory_size), &impl_->ipc_handle,
            sizeof(impl_->ipc_handle));
   }
-  return buffer;
+  return std::move(buffer);
 }
 
 Status CudaIpcMemHandle::Serialize(MemoryPool* pool, std::shared_ptr<Buffer>* out) const {
