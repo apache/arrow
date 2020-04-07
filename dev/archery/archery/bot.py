@@ -272,8 +272,6 @@ def submit(obj, task, group, dry_run):
     for t in task:
         args.append(t)
 
-    click.echo('Passed arguments: {}'.format(' '.join(args)))
-
     # pygithub pull request object
     pr = obj['pull']
     crossbow_url = 'https://github.com/{}'.format(obj['crossbow_repo'])
