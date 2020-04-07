@@ -7,9 +7,6 @@
 \alias{DatasetFactory}
 \alias{FileSystemDatasetFactory}
 \title{Multi-file datasets}
-\value{
-A \link{ScannerBuilder}
-}
 \description{
 Arrow Datasets allow you to query against data that has been split across
 multiple files. This sharding of data may indicate partitioning, which
@@ -26,18 +23,6 @@ It takes the following arguments:
 }
 
 \code{DatasetFactory} is used to provide finer control over the creation of \code{Dataset}s.
-
-Start a new scan of the data
-
-Return the Dataset's \code{Schema}
-
-Return the Dataset's type.
-
-Return the files contained in this \code{FileSystemDataset}
-
-Return the format of files in this \code{Dataset}
-
-Return the UnionDataset's child \code{Dataset}s
 }
 \section{Factory}{
 

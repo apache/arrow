@@ -1,6 +1,5 @@
 ---
 title: "Working with Arrow Datasets and dplyr"
-description: ""
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Working with Arrow Datasets and dplyr}

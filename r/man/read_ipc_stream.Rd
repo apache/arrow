@@ -2,15 +2,15 @@
 % Please edit documentation in R/ipc_stream.R, R/deprecated.R
 \name{read_ipc_stream}
 \alias{read_ipc_stream}
-\alias{read_arrow}
 \alias{read_table}
+\alias{read_arrow}
 \title{Read Arrow IPC stream format}
 \usage{
 read_ipc_stream(x, as_data_frame = TRUE, ...)
 
-read_arrow(x, ...)
-
 read_table(x, ...)
+
+read_arrow(x, ...)
 }
 \arguments{
 \item{x}{A character file name, \code{raw} vector, or an Arrow input stream}

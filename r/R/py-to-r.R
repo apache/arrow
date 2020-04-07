@@ -59,7 +59,7 @@ r_to_py.RecordBatch <- function(x, convert = FALSE) {
     delete_arrow_schema(schema_ptr)
     delete_arrow_array(array_ptr)
   })
-  
+
   pa <- reticulate::import("pyarrow", convert = convert)
   ExportRecordBatch(x, array_ptr, schema_ptr)
   pa$RecordBatch$`_import_from_c`(array_ptr, schema_ptr)

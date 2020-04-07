@@ -115,15 +115,13 @@ Dataset <- R6Class("Dataset", inherit = ArrowObject,
         self
       }
     },
-    #' @description
-    #' Start a new scan of the data
-    #' @return A [ScannerBuilder]
+    # @description
+    # Start a new scan of the data
+    # @return A [ScannerBuilder]
     NewScan = function() unique_ptr(ScannerBuilder, dataset___Dataset__NewScan(self)),
     ToString = function() self$schema$ToString()
   ),
   active = list(
-    #' @description
-    #' Return the Dataset's `Schema`
     schema = function() shared_ptr(Schema, dataset___Dataset__schema(self)),
     metadata = function() self$schema$metadata,
     num_rows = function() {
@@ -131,8 +129,8 @@ Dataset <- R6Class("Dataset", inherit = ArrowObject,
       NA_integer_
     },
     num_cols = function() length(self$schema),
-    #' @description
-    #' Return the Dataset's type.
+    # @description
+    # Return the Dataset's type.
     type = function() dataset___Dataset__type_name(self)
   )
 )
@@ -172,11 +170,11 @@ FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
     }
   ),
   active = list(
-    #' @description
-    #' Return the files contained in this `FileSystemDataset`
+    # @description
+    # Return the files contained in this `FileSystemDataset`
     files = function() dataset___FileSystemDataset__files(self),
-    #' @description
-    #' Return the format of files in this `Dataset`
+    # @description
+    # Return the format of files in this `Dataset`
     format = function() {
       shared_ptr(FileFormat, dataset___FileSystemDataset__format(self))$..dispatch()
     },
@@ -197,8 +195,8 @@ FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
 #' @export
 UnionDataset <- R6Class("UnionDataset", inherit = Dataset,
   active = list(
-    #' @description
-    #' Return the UnionDataset's child `Dataset`s
+    # @description
+    # Return the UnionDataset's child `Dataset`s
     children = function() {
       map(dataset___UnionDataset__children(self), ~shared_ptr(Dataset, .)$..dispatch())
     }
@@ -380,8 +378,8 @@ FileFormat <- R6Class("FileFormat", inherit = ArrowObject,
     }
   ),
   active = list(
-    #' @description
-    #' Return the `FileFormat`'s type
+    # @description
+    # Return the `FileFormat`'s type
     type = function() dataset___FileFormat__type_name(self)
   )
 )

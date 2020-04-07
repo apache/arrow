@@ -19,12 +19,67 @@
 
 # arrow 0.16.0.9000
 
+## Feather v2
+
+This release includes support for version 2 of the Feather file format.
+Feather v2 features full support for all Arrow data types,
+fixes the 2GB per-column limitation for large amounts of string data,
+and it allows files to be compressed using either `lz4` or `zstd`.
+`write_feather()` can write either version 2 or
+[version 1](https://github.com/wesm/feather) Feather files, and `read_feather()`
+automatically detects which file version it is reading.
+
+Related to this change, several functions around reading and writing data
+have been reworked. `read_ipc_stream()` and `write_ipc_stream()` have been
+added to facilitate writing data to the Arrow IPC stream format, which is
+slightly different from the IPC file format (Feather v2 *is* the IPC file format).
+
+Behavior has been standardized: all `read_<format>()` return an R `data.frame`
+(default) or a `Table` if the argument `as_data_frame = FALSE`;
+all `write_<format>()` functions return the data object, invisibly.
+To facilitate some workflows, a special `write_to_raw()` function is added
+to wrap `write_ipc_stream()` and return the `raw` vector containing the buffer
+that was written.
+
+To achieve this standardization, `read_table()`, `read_record_batch()`,
+`read_arrow()`, and `write_arrow()` have been deprecated.
+
+## Python interoperability
+
+The 0.17 Apache Arrow release includes a C data interface that allows
+exchanging Arrow data in-process at the C level without copying
+and without libraries having a build or runtime dependency on each other. This enables
+us to use `reticulate` to share data between R and Python (`pyarrow`) efficiently.
+
+See `vignette("python", package = "arrow")` for details.
+
+## Datasets
+
+* Dataset reading benefits from many speedups and fixes in the C++ library
+* Datasets have a `dim()` method, which sums rows across all files (#6635, @boshek)
+* Dataset filtering now treats `NA` as `FALSE`, consistent with `dplyr::filter()`
+* Dataset filtering is now correctly supported for all Arrow date/time/timestamp column types
+* `vignette("dataset", package = "arrow")` now has correct, executable code
+
+## Installation
+
+* Installation on Linux now builds C++ the library from source by default, with some compression libraries disabled. For a faster, richer build, set the environment variable `NOT_CRAN=true`. See `vignette("install", package = "arrow")` for details and more options.
+* Source installation is faster and more reliable on more Linux distributions.
+
+## Other bug fixes
+
+* Timezones are faithfully preserved in roundtrip between R and Arrow
+* `read_feather()` and other reader functions close any file connections they open
+* Arrow R6 objects no longer have namespace collisions when the `R.oo` package is also loaded
+* `FileStats` is renamed to `FileInfo`, and the original spelling has been deprecated
+
+# arrow 0.16.0.2
+
 * `install_arrow()` now installs the latest release of `arrow`, including Linux dependencies, either for CRAN releases or for development builds (if `nightly = TRUE`)
-* Package installation on Linux no longer downloads C++ dependencies unless the `LIBARROW_DOWNLOAD` or `NOT_CRAN` enviroment variable is set
+* Package installation on Linux no longer downloads C++ dependencies unless the `LIBARROW_DOWNLOAD` or `NOT_CRAN` environment variable is set
 * `write_feather()`, `write_arrow()` and `write_parquet()` now return their input,
 similar to the `write_*` functions in the `readr` package (#6387, @boshek)
 * Can now infer the type of an R `list` and create a ListArray when all list elements are the same type (#6275, @michaelchirico)
-* Dataset filtering is now correctly supported for all Arrow date/time/timestamp column types.
 
 # arrow 0.16.0
 
