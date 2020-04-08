@@ -39,6 +39,10 @@ on:
       - 'cpp/**'
       - 'r/**'
 
+env:
+  DOCKER_BUILDKIT: 0
+  COMPOSE_DOCKER_CLI_BUILD: 1
+
 jobs:
   ubuntu:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}

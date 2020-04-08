@@ -30,6 +30,8 @@ on:
         0 */12 * * *
 
 env:
+  DOCKER_BUILDKIT: 0
+  COMPOSE_DOCKER_CLI_BUILD: 1
   ARROW_ENABLE_TIMING_TESTS: OFF
 
 jobs:

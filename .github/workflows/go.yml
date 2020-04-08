@@ -29,6 +29,10 @@ on:
       - 'ci/**'
       - 'go/**'
 
+env:
+  DOCKER_BUILDKIT: 0
+  COMPOSE_DOCKER_CLI_BUILD: 1
+
 jobs:
 
   debian:
