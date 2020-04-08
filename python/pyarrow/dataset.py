@@ -159,15 +159,24 @@ def _ensure_fs(filesystem, path):
         FileSystem, LocalFileSystem, FileType, _normalize_path)
 
     if filesystem is None:
-        # first check if the file exists as a local (relative) file path
+        # First check if the file exists as a local (relative) file path
         filesystem = LocalFileSystem()
         try:
             infos = filesystem.get_file_info([path])[0]
         except OSError:
-            return FileSystem.from_uri(path)
+            local_path_exists = False
+        else:
+            local_path_exists = (infos.type != FileType.NotFound)
 
-        if infos.type == FileType.NotFound:
-            return FileSystem.from_uri(path)
+        if not local_path_exists:
+            # Perhaps it's a URI?
+            try:
+                return FileSystem.from_uri(path)
+            except ValueError as e:
+                if "empty scheme" not in str(e):
+                    raise
+                # ARROW-8213: not a URI, assume local path
+                # to get a nice error message.
 
     # ensure we have a proper path (eg no backslashes on Windows)
     path = _normalize_path(filesystem, path)
@@ -179,7 +188,8 @@ def _ensure_fs_and_paths(path, filesystem=None):
     # Return filesystem and list of string paths or FileSelector
     from pyarrow.fs import FileType, FileSelector
 
-    filesystem, path = _ensure_fs(filesystem, _stringify_path(path))
+    path = _stringify_path(path)
+    filesystem, path = _ensure_fs(filesystem, path)
     infos = filesystem.get_file_info([path])[0]
     if infos.type == FileType.Directory:
         # for directory, pass a selector
