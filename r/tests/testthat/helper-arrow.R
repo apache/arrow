@@ -23,6 +23,8 @@ if (tolower(Sys.info()[["sysname"]]) == "windows") {
   options(arrow.use_threads = FALSE)
 }
 
+set.seed(1)
+
 test_that <- function(what, code) {
   testthat::test_that(what, {
     skip_if(getOption("..skip.tests", TRUE), "arrow C++ library not available")
