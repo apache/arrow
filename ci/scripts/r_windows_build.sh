@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -x
+set -ex
 
 : ${ARROW_HOME:=$(pwd)}
 # Make sure it is absolute and exported
@@ -43,6 +43,7 @@ export PKG_CONFIG="/${MINGW_PREFIX}/bin/pkg-config --static"
 
 cp $ARROW_HOME/ci/scripts/PKGBUILD .
 export PKGEXT='.pkg.tar.xz' # pacman default changed to .zst in 2020, but keep the old ext for compat
+unset BOOST_ROOT
 printenv
 makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --cleanbuild
 
