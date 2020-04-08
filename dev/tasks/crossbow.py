@@ -1429,7 +1429,7 @@ DEFAULT_QUEUE_PATH = CWD.parents[2] / 'crossbow'
               help='Arrow\'s repository path. Defaults to the repository of '
                    'this script')
 @click.option('--queue-path', '-q',
-              type=click.Path(exists=True), default=str(DEFAULT_QUEUE_PATH),
+              type=click.Path(), default=str(DEFAULT_QUEUE_PATH),
               help='The repository path used for scheduling the tasks. '
                    'Defaults to crossbow directory placed next to arrow')
 @click.option('--queue-remote', '-qr', default=None,
