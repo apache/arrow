@@ -15,23 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Archery
+name: Archery & Crossbow
 
 on:
   push:
     paths:
       - '.github/workflows/archery.yml'
       - 'dev/archery/**'
+      - 'dev/tasks/**'
   pull_request:
     paths:
       - '.github/workflows/archery.yml'
       - 'dev/archery/**'
+      - 'dev/tasks/**'
 
 jobs:
 
-  archery:
+  test:
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    name: Archery Unittests
+    name: Archery Unittests and Crossbow Check Config
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Arrow
@@ -47,7 +49,10 @@ jobs:
           python-version: '3.7'
       - name: Install
         working-directory: dev/archery
-        run: pip install pytest responses ruamel.yaml -e .
-      - name: Test
+        run: pip install pytest responses ruamel.yaml toolz jinja2 -e .
+      - name: Archery Unittests
         working-directory: dev/archery
         run: pytest -v archery
+      - name: Crossbow Check Config
+        working-directory: dev/tasks
+        run: python crossbow.py check-config

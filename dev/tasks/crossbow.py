@@ -36,8 +36,7 @@ from collections import namedtuple
 
 import click
 import toolz
-from setuptools_scm.git import parse as parse_git_version
-from setuptools_scm.version import guess_next_version
+
 from ruamel.yaml import YAML
 
 try:
@@ -340,6 +339,12 @@ class Repo:
 
     def push(self, refs=None, github_token=None):
         github_token = github_token or self.github_token
+        if github_token is None:
+            raise click.ClickException(
+                'Could not determine GitHub token. Please set the '
+                'CROSSBOW_GITHUB_TOKEN environment variable to a '
+                'valid GitHub access token or pass one to --github-token.'
+            )
         callbacks = GitRemoteCallbacks(github_token)
         refs = refs or []
         try:
@@ -745,7 +750,8 @@ class Queue(Repo):
             # adding CI's name to the end of the branch in order to use skip
             # patterns on travis and circleci
             task.branch = '{}-{}-{}'.format(job.branch, task.ci, task_name)
-            files = task.render_files(job=job, arrow=job.target, queue=self)
+            files = task.render_files(arrow=job.target,
+                                      queue_remote_url=self.remote_url)
             branch = self.create_branch(task.branch, files=files)
             self.create_tag(task.tag, branch.target)
             task.commit = str(branch.target)
@@ -759,8 +765,12 @@ def get_version(root, **kwargs):
     Parse function for setuptools_scm that ignores tags for non-C++
     subprojects, e.g. apache-arrow-js-XXX tags.
     """
-    kwargs['describe_command'] =\
+    from setuptools_scm.git import parse as parse_git_version
+    from setuptools_scm.version import guess_next_version
+
+    kwargs['describe_command'] = (
         'git describe --dirty --tags --long --match "apache-arrow-[0-9].*"'
+    )
     version = parse_git_version(root, **kwargs)
     return version.format_next_version(guess_next_version)
 
@@ -840,10 +850,20 @@ class Task(Serializable):
 
     def render_files(self, **extra_params):
         from jinja2 import Template, StrictUndefined
+        from jinja2.exceptions import TemplateError
+
         path = CWD / self.template
         params = toolz.merge(self.params, extra_params)
         template = Template(path.read_text(), undefined=StrictUndefined)
-        rendered = template.render(task=self, **params)
+        try:
+            rendered = template.render(task=self, **params)
+        except TemplateError as e:
+            raise RuntimeError(
+                'Failed to render template `{}` with {}: {}'.format(
+                    path, e.__class__.__name__, str(e)
+                )
+            )
+
         tree = toolz.merge(_default_tree, {self.filename: rendered})
         return unflatten_tree(tree)
 
@@ -962,47 +982,13 @@ class Job(Serializable):
         click.ClickException
             If invalid groups or tasks has been passed.
         """
-        config_groups = dict(config['groups'])
-        config_tasks = dict(config['tasks'])
-        valid_groups = set(config_groups.keys())
-        valid_tasks = set(config_tasks.keys())
-        group_whitelist = list(groups or [])
-        task_whitelist = list(tasks or [])
-
-        # validate that the passed groups are defined in the config
-        requested_groups = set(group_whitelist)
-        invalid_groups = requested_groups - valid_groups
-        if invalid_groups:
-            msg = 'Invalid group(s) {!r}. Must be one of {!r}'.format(
-                invalid_groups, valid_groups
-            )
-            raise click.ClickException(msg)
-
-        # merge the tasks defined in the selected groups
-        task_patterns = [list(config_groups[name]) for name in group_whitelist]
-        task_patterns = set(sum(task_patterns, task_whitelist))
-
-        # treat the task names as glob patterns to select tasks more easily
-        requested_tasks = set(
-            toolz.concat(
-                fnmatch.filter(valid_tasks, p) for p in task_patterns
-            )
-        )
-
-        # validate that the passed and matched tasks are defined in the config
-        invalid_tasks = requested_tasks - valid_tasks
-        if invalid_tasks:
-            msg = 'Invalid task(s) {!r}. Must be one of {!r}'.format(
-                invalid_tasks, valid_tasks
-            )
-            raise click.ClickException(msg)
+        task_definitions = config.select(tasks, groups=groups)
 
         # instantiate the tasks
         tasks = {}
         versions = {'version': target.version,
                     'no_rc_version': target.no_rc_version}
-        for task_name in requested_tasks:
-            task = config_tasks[task_name]
+        for task_name, task in task_definitions.items():
             artifacts = task.pop('artifacts', None) or []  # because of yaml
             artifacts = [fn.format(**versions) for fn in artifacts]
             tasks[task_name] = Task(artifacts=artifacts, **task)
@@ -1057,6 +1043,96 @@ class Job(Serializable):
 
         for task_name, task, status, assets in self._assets:
             yield (task_name, task, status.result(), assets.result())
+
+
+class Config(dict):
+
+    @classmethod
+    def load_yaml(cls, path):
+        with Path(path).open() as fp:
+            return cls(yaml.load(fp))
+
+    def select(self, tasks=None, groups=None):
+        config_groups = dict(self['groups'])
+        config_tasks = dict(self['tasks'])
+        valid_groups = set(config_groups.keys())
+        valid_tasks = set(config_tasks.keys())
+        group_whitelist = list(groups or [])
+        task_whitelist = list(tasks or [])
+
+        # validate that the passed groups are defined in the config
+        requested_groups = set(group_whitelist)
+        invalid_groups = requested_groups - valid_groups
+        if invalid_groups:
+            msg = 'Invalid group(s) {!r}. Must be one of {!r}'.format(
+                invalid_groups, valid_groups
+            )
+            raise ValueError(msg)
+
+        # merge the tasks defined in the selected groups
+        task_patterns = [list(config_groups[name]) for name in group_whitelist]
+        task_patterns = set(sum(task_patterns, task_whitelist))
+
+        # treat the task names as glob patterns to select tasks more easily
+        requested_tasks = set(
+            toolz.concat(
+                fnmatch.filter(valid_tasks, p) for p in task_patterns
+            )
+        )
+
+        # validate that the passed and matched tasks are defined in the config
+        invalid_tasks = requested_tasks - valid_tasks
+        if invalid_tasks:
+            msg = 'Invalid task(s) {!r}. Must be one of {!r}'.format(
+                invalid_tasks, valid_tasks
+            )
+            raise ValueError(msg)
+
+        return {
+            task_name: config_tasks[task_name] for task_name in requested_tasks
+        }
+
+    def validate(self):
+        # validate that the task groups are properly referening the tasks
+        for group in self['groups']:
+            tasks = self.select(groups=[group])
+            if not tasks:
+                raise ValueError(
+                    "The patterns defined for task group `{}` are not "
+                    "matching any of the tasks defined in the configuration "
+                    "file.".format(group)
+                )
+
+        # validate that the tasks are constructible
+        for task_name, task in self['tasks'].items():
+            try:
+                Task(**task)
+            except Exception as e:
+                raise ValueError(
+                    'Unable to construct a task object from the '
+                    'definition  of task `{}`. The original error message '
+                    'is: `{}`'.format(task_name, str(e))
+                )
+
+        # validate that the defined tasks are renderable, in order to to that
+        # define the required object with dummy data
+        target = Target(
+            head='e279a7e06e61c14868ca7d71dea795420aea6539',
+            branch='master',
+            remote='https://github.com/apache/arrow',
+            version='1.0.0dev123',
+            email='dummy@example.ltd'
+        )
+
+        for task_name, task in self['tasks'].items():
+            task = Task(**task)
+            files = task.render_files(
+                arrow=target,
+                queue_remote_url='https://github.com/org/crossbow'
+            )
+            if not files:
+                raise ValueError('No files have been rendered for task `{}`'
+                                 .format(task_name))
 
 
 class Report:
@@ -1355,11 +1431,11 @@ DEFAULT_QUEUE_PATH = CWD.parents[2] / 'crossbow'
 @click.option('--github-token', '-t', default=None,
               help='OAuth token for GitHub authentication')
 @click.option('--arrow-path', '-a',
-              type=click.Path(exists=True), default=str(DEFAULT_ARROW_PATH),
+              type=click.Path(), default=str(DEFAULT_ARROW_PATH),
               help='Arrow\'s repository path. Defaults to the repository of '
                    'this script')
 @click.option('--queue-path', '-q',
-              type=click.Path(exists=True), default=str(DEFAULT_QUEUE_PATH),
+              type=click.Path(), default=str(DEFAULT_QUEUE_PATH),
               help='The repository path used for scheduling the tasks. '
                    'Defaults to crossbow directory placed next to arrow')
 @click.option('--queue-remote', '-qr', default=None,
@@ -1370,13 +1446,6 @@ DEFAULT_QUEUE_PATH = CWD.parents[2] / 'crossbow'
 @click.pass_context
 def crossbow(ctx, github_token, arrow_path, queue_path, queue_remote,
              output_file):
-    if github_token is None:
-        raise click.ClickException(
-            'Could not determine GitHub token. Please set the '
-            'CROSSBOW_GITHUB_TOKEN environment variable to a '
-            'valid GitHub access token or pass one to --github-token.'
-        )
-
     ctx.ensure_object(dict)
     ctx.obj['output'] = output_file
     ctx.obj['arrow'] = Repo(arrow_path)
@@ -1417,6 +1486,16 @@ def changelog(obj, changelog_path, arrow_version, is_website, jira_username,
 
 
 @crossbow.command()
+@click.option('--config-path', '-c',
+              type=click.Path(exists=True), default=DEFAULT_CONFIG_PATH,
+              help='Task configuration yml. Defaults to tasks.yml')
+def check_config(config_path):
+    # load available tasks configuration and groups from yaml
+    config = Config.load_yaml(config_path)
+    config.validate()
+
+
+@crossbow.command()
 @click.argument('tasks', nargs=-1, required=False)
 @click.option('--group', '-g', 'groups', multiple=True,
               help='Submit task groups as defined in task.yml')
@@ -1447,8 +1526,8 @@ def submit(obj, tasks, groups, job_prefix, config_path, arrow_version,
     queue, arrow = obj['queue'], obj['arrow']
 
     # load available tasks configuration and groups from yaml
-    with Path(config_path).open() as fp:
-        config = yaml.load(fp)
+    config = Config.load_yaml(config_path)
+    config.validate()
 
     # Override the detected repo url / remote, branch and sha - this aims to
     # make release procedure a bit simpler.
@@ -1461,7 +1540,8 @@ def submit(obj, tasks, groups, job_prefix, config_path, arrow_version,
                               head=arrow_sha, version=arrow_version)
 
     # instantiate the job object
-    job = Job.from_config(config, target=target, tasks=tasks, groups=groups)
+    job = Job.from_config(config=config, target=target, tasks=tasks,
+                          groups=groups)
 
     if dry_run:
         yaml.dump(job, output)

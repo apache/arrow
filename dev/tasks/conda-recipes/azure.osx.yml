@@ -78,7 +78,7 @@ jobs:
       conda install -y click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz
       python arrow/dev/tasks/crossbow.py \
         --queue-path . \
-        --queue-remote {{ queue.remote_url }} \
+        --queue-remote {{ queue_remote_url }} \
         upload-artifacts \
         --sha {{ task.branch }} \
         --tag {{ task.tag }} \

@@ -93,7 +93,7 @@ jobs:
     - script: |
         python arrow/dev/tasks/crossbow.py ^
           --queue-path . ^
-          --queue-remote {{ queue.remote_url }} ^
+          --queue-remote {{ queue_remote_url }} ^
           upload-artifacts ^
           --sha {{ task.branch }} ^
           --tag {{ task.tag }} ^
