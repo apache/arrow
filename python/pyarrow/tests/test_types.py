@@ -622,16 +622,15 @@ def test_key_value_metadata():
         ('b', 'beta'),
         ('a', 'Alpha'),
         ('a', 'ALPHA'),
-    ], b='BETA')
+    ])
 
     expected = [
         (b'a', b'alpha'),
         (b'b', b'beta'),
         (b'a', b'Alpha'),
-        (b'a', b'ALPHA'),
-        (b'b', b'BETA')
+        (b'a', b'ALPHA')
     ]
-    assert len(md) == 5
+    assert len(md) == 4
     assert isinstance(md.keys(), Iterator)
     assert isinstance(md.values(), Iterator)
     assert isinstance(md.items(), Iterator)
@@ -643,8 +642,23 @@ def test_key_value_metadata():
     assert md['a'] == b'alpha'
     assert md['b'] == b'beta'
     assert md.get_all('a') == [b'alpha', b'Alpha', b'ALPHA']
-    assert md.get_all('b') == [b'beta', b'BETA']
+    assert md.get_all('b') == [b'beta']
     assert md.get_all('unkown') == []
+
+    with pytest.raises(KeyError):
+        md = pa.KeyValueMetadata([
+            ('a', 'alpha'),
+            ('b', 'beta'),
+            ('a', 'Alpha'),
+            ('a', 'ALPHA'),
+        ], b='BETA')
+
+
+def test_key_value_metadata_duplicates():
+    meta = pa.KeyValueMetadata({'a': '1', 'b': '2'})
+
+    with pytest.raises(KeyError):
+        pa.KeyValueMetadata(meta, a='3')
 
 
 def test_field_basic():

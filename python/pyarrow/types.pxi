@@ -824,28 +824,32 @@ def unregister_extension_type(type_name):
 
 cdef class KeyValueMetadata(_Metadata, Mapping):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, __arg0__=None, **kwargs):
         cdef:
             vector[c_string] keys, values
-            shared_ptr[const CKeyValueMetadata] meta
+            shared_ptr[const CKeyValueMetadata] result
 
         items = []
-        if args:
-            if len(args) > 1:
-                raise TypeError('expected at most 1 positional argument, '
-                                'got {}'.format(len(args)))
-            other = args[0]
-            items += other.items() if isinstance(other, Mapping) else other
+        if __arg0__ is not None:
+            other = (__arg0__.items() if isinstance(__arg0__, Mapping)
+                     else __arg0__)
+            items.extend((tobytes(k), v) for k, v in other)
 
-        items += kwargs.items()
+        prior_keys = {k for k, v in items}
+        for k, v in kwargs.items():
+            k = tobytes(k)
+            if k in prior_keys:
+                raise KeyError("Duplicate key {}, "
+                               "use pass all items as list of tuples if you "
+                               "intend to have duplicate keys")
+            items.append((k, v))
 
         keys.reserve(len(items))
         for key, value in items:
             keys.push_back(tobytes(key))
             values.push_back(tobytes(value))
-
-        meta.reset(new CKeyValueMetadata(keys, values))
-        self.init(meta)
+        result.reset(new CKeyValueMetadata(move(keys), move(values)))
+        self.init(result)
 
     cdef void init(self, const shared_ptr[const CKeyValueMetadata]& wrapped):
         self.wrapped = wrapped
@@ -862,6 +866,9 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
 
     def equals(self, KeyValueMetadata other):
         return self.metadata.Equals(deref(other.wrapped))
+
+    def __repr__(self):
+        return str(self)
 
     def __str__(self):
         return frombytes(self.metadata.ToString())
@@ -896,6 +903,12 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
     def __reduce__(self):
         return KeyValueMetadata, (list(self.items()),)
 
+    def key(self, i):
+        return self.metadata.key(i)
+
+    def value(self, i):
+        return self.metadata.value(i)
+
     def keys(self):
         for i in range(self.metadata.size()):
             yield self.metadata.key(i)
@@ -911,6 +924,19 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
     def get_all(self, key):
         key = tobytes(key)
         return [v for k, v in self.items() if k == key]
+
+    def to_dict(self):
+        """
+        Convert KeyValueMetadata to dict. If a key occurs twice, the value for
+        the first one is returned
+        """
+        cdef object key  # to force coercion to Python
+        result = ordered_dict()
+        for i in range(self.metadata.size()):
+            key = self.metadata.key(i)
+            if key not in result:
+                result[key] = self.metadata.value(i)
+        return result
 
 
 cdef KeyValueMetadata ensure_metadata(object meta, c_bool allow_none=False):
@@ -986,7 +1012,11 @@ cdef class Field:
 
     @property
     def metadata(self):
-        return pyarrow_wrap_metadata(self.field.metadata())
+        wrapped = pyarrow_wrap_metadata(self.field.metadata())
+        if wrapped is not None:
+            return wrapped.to_dict()
+        else:
+            return wrapped
 
     def add_metadata(self, metadata):
         warnings.warn("The 'add_metadata' method is deprecated, use "
@@ -1190,7 +1220,11 @@ cdef class Schema:
 
     @property
     def metadata(self):
-        return pyarrow_wrap_metadata(self.schema.metadata())
+        wrapped = pyarrow_wrap_metadata(self.schema.metadata())
+        if wrapped is not None:
+            return wrapped.to_dict()
+        else:
+            return wrapped
 
     def __eq__(self, other):
         try:
