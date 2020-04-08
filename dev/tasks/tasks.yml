@@ -58,7 +58,7 @@ groups:
     - test-*python*
 
   r:
-    - test-*r*
+    - *-r-*
 
   ruby:
     - test-*ruby*
