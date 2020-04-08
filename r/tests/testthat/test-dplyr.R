@@ -120,11 +120,12 @@ test_that("filter() with NAs in selection", {
 })
 
 test_that("Filter returning an empty Table should not segfault (ARROW-8354)", {
-  expect_dplyr_error(
+  expect_dplyr_equal(
     input %>%
       filter(false) %>%
       select(chr, int, lgl) %>%
-      collect()
+      collect(),
+    tbl
   )
 })
 
