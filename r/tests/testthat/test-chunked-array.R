@@ -46,8 +46,6 @@ expect_chunked_roundtrip <- function(x, type) {
   invisible(a)
 }
 
-stop("exit here")
-
 test_that("ChunkedArray", {
   x <- expect_chunked_roundtrip(list(1:10, 1:10, 1:5), int32())
 
