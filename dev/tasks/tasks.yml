@@ -58,7 +58,8 @@ groups:
     - test-*python*
 
   r:
-    - test-*r*
+    - test*-r-*
+    - homebrew-r-autobrew
 
   ruby:
     - test-*ruby*
