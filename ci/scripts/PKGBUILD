@@ -76,7 +76,7 @@ build() {
     ${MINGW_PREFIX}/bin/cmake.exe \
     ${ARROW_CPP_DIR} \
     -G "MSYS Makefiles" \
-    -DBOOST_USE_SHARED=OFF \
+    -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_BUILD_SHARED=OFF \
     -DARROW_BUILD_TESTS=ON \
     -DARROW_BUILD_STATIC=ON \
