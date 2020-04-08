@@ -666,11 +666,12 @@ class TestArrayExport : public ::testing::Test {
   void TestMoveChildren(ArrayFactory&& factory, const std::vector<int64_t> children_ids) {
     ArrayExportChecker checker;
 
-    TestMoveChildrenWithArrayFactory(std::forward<ArrayFactory>(factory), children_ids, checker);
+    TestMoveChildrenWithArrayFactory(std::forward<ArrayFactory>(factory),
+                                     children_ids, checker);
   }
 
   void TestMoveChildren(const std::shared_ptr<DataType>& type, const char* json,
-                     const std::vector<int64_t> children_ids) {
+                        const std::vector<int64_t> children_ids) {
     TestMoveChildren(JSONArrayFactory(type, json), children_ids);
   }
 
