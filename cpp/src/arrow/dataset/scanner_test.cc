@@ -131,8 +131,7 @@ TEST_F(TestScanner, ToTable) {
   std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches * kNumberChildDatasets,
                                                     batch};
 
-  std::shared_ptr<Table> expected;
-  ASSERT_OK(Table::FromRecordBatches(batches, &expected));
+  ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches(batches));
 
   auto scanner = MakeScanner(batch);
   std::shared_ptr<Table> actual;

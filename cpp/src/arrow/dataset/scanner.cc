@@ -182,9 +182,7 @@ Result<std::shared_ptr<Table>> Scanner::ToTable() {
   // Wait for all tasks to complete, or the first error.
   RETURN_NOT_OK(task_group->Finish());
 
-  std::shared_ptr<Table> out;
-  RETURN_NOT_OK(Table::FromRecordBatches(scan_options_->schema(), batches, &out));
-  return out;
+  return Table::FromRecordBatches(scan_options_->schema(), std::move(batches));
 }
 
 }  // namespace dataset

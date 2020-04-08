@@ -658,8 +658,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const vector[shared_ptr[CArray]]& columns)
 
         @staticmethod
-        CStatus FromStructArray(const shared_ptr[CArray]& array,
-                                shared_ptr[CRecordBatch]* out)
+        CResult[shared_ptr[CRecordBatch]] FromStructArray(
+            const shared_ptr[CArray]& array)
 
         c_bool Equals(const CRecordBatch& other, c_bool check_metadata)
 
@@ -696,10 +696,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const vector[shared_ptr[CArray]]& arrays)
 
         @staticmethod
-        CStatus FromRecordBatches(
+        CResult[shared_ptr[CTable]] FromRecordBatches(
             const shared_ptr[CSchema]& schema,
-            const vector[shared_ptr[CRecordBatch]]& batches,
-            shared_ptr[CTable]* table)
+            const vector[shared_ptr[CRecordBatch]]& batches)
 
         int num_columns()
         int64_t num_rows()
@@ -710,20 +709,18 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CChunkedArray] column(int i)
         shared_ptr[CField] field(int i)
 
-        CStatus AddColumn(int i, shared_ptr[CField] field,
-                          shared_ptr[CChunkedArray] column,
-                          shared_ptr[CTable]* out)
-        CStatus RemoveColumn(int i, shared_ptr[CTable]* out)
-        CStatus SetColumn(int i, shared_ptr[CField] field,
-                          shared_ptr[CChunkedArray] column,
-                          shared_ptr[CTable]* out)
+        CResult[shared_ptr[CTable]] AddColumn(
+            int i, shared_ptr[CField] field, shared_ptr[CChunkedArray] column)
+        CResult[shared_ptr[CTable]] RemoveColumn(int i)
+        CResult[shared_ptr[CTable]] SetColumn(
+            int i, shared_ptr[CField] field, shared_ptr[CChunkedArray] column)
 
         vector[c_string] ColumnNames()
-        CStatus RenameColumns(const vector[c_string]&, shared_ptr[CTable]* out)
+        CResult[shared_ptr[CTable]] RenameColumns(const vector[c_string]&)
 
-        CStatus Flatten(CMemoryPool* pool, shared_ptr[CTable]* out)
+        CResult[shared_ptr[CTable]] Flatten(CMemoryPool* pool)
 
-        CStatus CombineChunks(CMemoryPool* pool, shared_ptr[CTable]* out)
+        CResult[shared_ptr[CTable]] CombineChunks(CMemoryPool* pool)
 
         CStatus Validate() const
         CStatus ValidateFull() const

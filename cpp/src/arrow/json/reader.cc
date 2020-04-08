@@ -108,7 +108,7 @@ class TableReaderImpl : public TableReader,
 
     std::shared_ptr<ChunkedArray> array;
     RETURN_NOT_OK(builder_->Finish(&array));
-    return Table::FromChunkedStructArray(array, out);
+    return Table::FromChunkedStructArray(array).Value(out);
   }
 
  private:

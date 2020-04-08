@@ -222,11 +222,9 @@ class ARROW_EXPORT ConstantArrayGenerator {
   /// \return a generated RecordBatchReader
   static std::shared_ptr<arrow::RecordBatchReader> Repeat(
       int64_t n_batch, const std::shared_ptr<RecordBatch> batch) {
-    std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(n_batch),
-                                                      batch};
-    std::shared_ptr<RecordBatchReader> reader;
-    ARROW_EXPECT_OK(MakeRecordBatchReader(batches, nullptr, &reader));
-    return reader;
+    std::vector<std::shared_ptr<RecordBatch>> batches(static_cast<size_t>(n_batch),
+                                                      batch);
+    return *MakeRecordBatchReader(batches);
   }
 
   /// \brief Generates a RecordBatchReader of zeroes batches

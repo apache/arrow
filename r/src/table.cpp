@@ -28,9 +28,7 @@ using Rcpp::DataFrame;
 std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl) {
   auto rb = RecordBatch__from_dataframe(tbl);
 
-  std::shared_ptr<arrow::Table> out;
-  STOP_IF_NOT_OK(arrow::Table::FromRecordBatches({std::move(rb)}, &out));
-  return out;
+  return VALUE_OR_STOP(arrow::Table::FromRecordBatches({std::move(rb)}));
 }
 
 // [[arrow::export]]
@@ -152,9 +150,9 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
 
     if (Rf_inherits(schema_sxp, "Schema")) {
       auto schema = arrow::r::extract<arrow::Schema>(schema_sxp);
-      STOP_IF_NOT_OK(arrow::Table::FromRecordBatches(schema, batches, &tab));
+      tab = VALUE_OR_STOP(arrow::Table::FromRecordBatches(schema, std::move(batches)));
     } else {
-      STOP_IF_NOT_OK(arrow::Table::FromRecordBatches(batches, &tab));
+      tab = VALUE_OR_STOP(arrow::Table::FromRecordBatches(std::move(batches)));
     }
     return tab;
   }

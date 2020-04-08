@@ -373,10 +373,9 @@ garrow_record_batch_add_column(GArrowRecordBatch *record_batch,
   const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
   const auto arrow_field = garrow_field_get_raw(field);
   const auto arrow_column = garrow_array_get_raw(column);
-  std::shared_ptr<arrow::RecordBatch> arrow_new_record_batch;
-  auto status = arrow_record_batch->AddColumn(i, arrow_field, arrow_column, &arrow_new_record_batch);
-  if (garrow_error_check(error, status, "[record-batch][add-column]")) {
-    return garrow_record_batch_new_raw(&arrow_new_record_batch);
+  auto maybe_new_batch = arrow_record_batch->AddColumn(i, arrow_field, arrow_column);
+  if (garrow::check(error, maybe_new_batch, "[record-batch][add-column]")) {
+    return garrow_record_batch_new_raw(&(*maybe_new_batch));
   } else {
     return NULL;
   }
@@ -399,10 +398,9 @@ garrow_record_batch_remove_column(GArrowRecordBatch *record_batch,
                                   GError **error)
 {
   const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
-  std::shared_ptr<arrow::RecordBatch> arrow_new_record_batch;
-  auto status = arrow_record_batch->RemoveColumn(i, &arrow_new_record_batch);
-  if (garrow_error_check(error, status, "[record-batch][remove-column]")) {
-    return garrow_record_batch_new_raw(&arrow_new_record_batch);
+  auto maybe_new_batch = arrow_record_batch->RemoveColumn(i);
+  if (garrow::check(error, maybe_new_batch, "[record-batch][remove-column]")) {
+    return garrow_record_batch_new_raw(&(*maybe_new_batch));
   } else {
     return NULL;
   }

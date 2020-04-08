@@ -239,15 +239,12 @@ std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataTyp
 
 std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& schema,
                                                  util::string_view json) {
-  // Parses as a StructArray
+  // Parse as a StructArray
   auto struct_type = struct_(schema->fields());
   std::shared_ptr<Array> struct_array = ArrayFromJSON(struct_type, json);
 
-  // Converts StructArray to RecordBatch
-  std::shared_ptr<RecordBatch> record_batch;
-  ABORT_NOT_OK(RecordBatch::FromStructArray(struct_array, &record_batch));
-
-  return record_batch;
+  // Convert StructArray to RecordBatch
+  return *RecordBatch::FromStructArray(struct_array);
 }
 
 std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
@@ -256,10 +253,7 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
   for (const std::string& batch_json : json) {
     batches.push_back(RecordBatchFromJSON(schema, batch_json));
   }
-  std::shared_ptr<Table> table;
-  ABORT_NOT_OK(Table::FromRecordBatches(schema, batches, &table));
-
-  return table;
+  return *Table::FromRecordBatches(schema, std::move(batches));
 }
 
 void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chunk_layout,
@@ -268,9 +262,8 @@ void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chu
 
   if (combine_chunks) {
     auto pool = default_memory_pool();
-    std::shared_ptr<Table> new_expected, new_actual;
-    ASSERT_OK(expected.CombineChunks(pool, &new_expected));
-    ASSERT_OK(actual.CombineChunks(pool, &new_actual));
+    ASSERT_OK_AND_ASSIGN(auto new_expected, expected.CombineChunks(pool));
+    ASSERT_OK_AND_ASSIGN(auto new_actual, actual.CombineChunks(pool));
 
     AssertTablesEqual(*new_expected, *new_actual, false, false);
     return;

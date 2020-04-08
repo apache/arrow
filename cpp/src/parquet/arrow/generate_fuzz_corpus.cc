@@ -98,8 +98,7 @@ Status DoMain(const std::string& out_dir) {
 
   for (const auto& batch : batches) {
     RETURN_NOT_OK(batch->ValidateFull());
-    std::shared_ptr<Table> table;
-    RETURN_NOT_OK(Table::FromRecordBatches({batch}, &table));
+    ARROW_ASSIGN_OR_RAISE(auto table, Table::FromRecordBatches({batch}));
 
     ARROW_ASSIGN_OR_RAISE(auto sample_fn, dir_fn.Join(sample_name()));
     std::cerr << sample_fn.ToString() << std::endl;

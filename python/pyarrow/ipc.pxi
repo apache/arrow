@@ -443,8 +443,8 @@ cdef class _RecordBatchFileReader:
         with nogil:
             for i in range(nbatches):
                 check_status(self.reader.get().ReadRecordBatch(i, &batches[i]))
-            check_status(CTable.FromRecordBatches(self.schema.sp_schema,
-                                                  batches, &table))
+            table = GetResultValue(
+                CTable.FromRecordBatches(self.schema.sp_schema, move(batches)))
 
         return pyarrow_wrap_table(table)
 
