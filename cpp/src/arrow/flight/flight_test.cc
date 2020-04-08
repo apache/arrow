@@ -390,7 +390,7 @@ class TestFlightClient : public ::testing::Test {
 class AuthTestServer : public FlightServerBase {
   Status DoAction(const ServerCallContext& context, const Action& action,
                   std::unique_ptr<ResultStream>* result) override {
-    ARROW_ASSIGN_OR_RAISE(auto buf, Buffer::FromString(context.peer_identity()));
+    auto buf = Buffer::FromString(context.peer_identity());
     *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
     return Status::OK();
   }
@@ -717,8 +717,7 @@ class ReportContextTestServer : public FlightServerBase {
     if (middleware == nullptr || middleware->name() != "TracingServerMiddleware") {
       buf = Buffer::FromString("");
     } else {
-      ARROW_ASSIGN_OR_RAISE(
-          buf, Buffer::FromString(((const TracingServerMiddleware*)middleware)->span_id));
+      buf = Buffer::FromString(((const TracingServerMiddleware*)middleware)->span_id);
     }
     *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
     return Status::OK();
@@ -1003,7 +1002,7 @@ TEST_F(TestFlightClient, DoAction) {
   action.type = "action1";
 
   const std::string action1_value = "action1-content";
-  action.body = *Buffer::FromString(action1_value);
+  action.body = Buffer::FromString(action1_value);
   ASSERT_OK(client_->DoAction(action, &stream));
 
   for (int i = 0; i < 3; ++i) {

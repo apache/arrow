@@ -145,27 +145,19 @@ class ARROW_EXPORT Buffer {
     }
   }
 
-  /// \brief Construct a new buffer that owns its memory from a std::string
+  /// \brief Construct an immutable buffer that takes ownership of the contents
+  /// of an std::string (without copying it).
   ///
-  /// The string data is copied into the newly-allocated buffer memory.
-  ///
-  /// \param[in] data a std::string object
-  /// \param[in] pool a memory pool
-  static Result<std::shared_ptr<Buffer>> FromString(
-      const std::string& data, MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  /// \param[in] data a string to own
+  /// \return a new Buffer instance
+  static std::shared_ptr<Buffer> FromString(std::string data);
 
-  ARROW_DEPRECATED("Use Result-returning version")
+  ARROW_DEPRECATED("Use Buffer-returning version")
   static Status FromString(const std::string& data, MemoryPool* pool,
                            std::shared_ptr<Buffer>* out);
 
-  ARROW_DEPRECATED("Use Result-returning version")
+  ARROW_DEPRECATED("Use Buffer-returning version")
   static Status FromString(const std::string& data, std::shared_ptr<Buffer>* out);
-
-  /// \brief Construct an immutable buffer that takes ownership of the contents
-  /// of an std::string
-  /// \param[in] data an rvalue-reference of a string
-  /// \return a new Buffer instance
-  static std::shared_ptr<Buffer> FromString(std::string&& data);
 
   /// \brief Create buffer referencing typed memory with some length without
   /// copying

@@ -67,21 +67,22 @@ bool Buffer::Equals(const Buffer& other) const {
                              !memcmp(data_, other.data_, static_cast<size_t>(size_))));
 }
 
-Result<std::shared_ptr<Buffer>> Buffer::FromString(const std::string& data,
-                                                   MemoryPool* pool) {
+static Status BufferFromString(const std::string& data, MemoryPool* pool,
+                               std::shared_ptr<Buffer>* out) {
   auto size = static_cast<int64_t>(data.size());
   ARROW_ASSIGN_OR_RAISE(auto buf, AllocateBuffer(size, pool));
   std::copy(data.c_str(), data.c_str() + size, buf->mutable_data());
-  return std::move(buf);
+  *out = std::move(buf);
+  return Status::OK();
 }
 
 Status Buffer::FromString(const std::string& data, MemoryPool* pool,
                           std::shared_ptr<Buffer>* out) {
-  return FromString(data, pool).Value(out);
+  return BufferFromString(data, pool, out);
 }
 
 Status Buffer::FromString(const std::string& data, std::shared_ptr<Buffer>* out) {
-  return FromString(data).Value(out);
+  return BufferFromString(data, default_memory_pool(), out);
 }
 
 std::string Buffer::ToString() const {
@@ -127,7 +128,7 @@ Result<std::shared_ptr<Buffer>> Buffer::ViewOrCopy(
 
 class StlStringBuffer : public Buffer {
  public:
-  explicit StlStringBuffer(std::string&& data)
+  explicit StlStringBuffer(std::string data)
       : Buffer(nullptr, 0), input_(std::move(data)) {
     data_ = reinterpret_cast<const uint8_t*>(input_.c_str());
     size_ = static_cast<int64_t>(input_.size());
@@ -138,7 +139,7 @@ class StlStringBuffer : public Buffer {
   std::string input_;
 };
 
-std::shared_ptr<Buffer> Buffer::FromString(std::string&& data) {
+std::shared_ptr<Buffer> Buffer::FromString(std::string data) {
   return std::make_shared<StlStringBuffer>(std::move(data));
 }
 
