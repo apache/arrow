@@ -366,7 +366,7 @@ TEST(TestBuffer, FromStdStringWithMemory) {
 
   {
     std::string temp = "hello, world";
-    ASSERT_OK_AND_ASSIGN(buf, Buffer::FromString(temp));
+    buf = Buffer::FromString(temp);
     AssertIsCPUBuffer(*buf);
     ASSERT_EQ(0, memcmp(buf->data(), temp.c_str(), temp.size()));
     ASSERT_EQ(static_cast<int64_t>(temp.size()), buf->size());

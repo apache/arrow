@@ -305,7 +305,8 @@ Status ToProto(const ActionType& type, pb::ActionType* pb_type) {
 
 Status FromProto(const pb::Action& pb_action, Action* action) {
   action->type = pb_action.type();
-  return Buffer::FromString(pb_action.body()).Value(&action->body);
+  action->body = Buffer::FromString(pb_action.body());
+  return Status::OK();
 }
 
 Status ToProto(const Action& action, pb::Action* pb_action) {
@@ -321,7 +322,8 @@ Status ToProto(const Action& action, pb::Action* pb_action) {
 Status FromProto(const pb::Result& pb_result, Result* result) {
   // ARROW-3250; can avoid copy. Can also write custom deserializer if it
   // becomes an issue
-  return Buffer::FromString(pb_result.body()).Value(&result->body);
+  result->body = Buffer::FromString(pb_result.body());
+  return Status::OK();
 }
 
 Status ToProto(const Result& result, pb::Result* pb_result) {
