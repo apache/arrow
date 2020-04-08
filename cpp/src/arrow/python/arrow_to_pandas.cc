@@ -63,7 +63,7 @@ namespace arrow {
 class MemoryPool;
 
 using internal::checked_cast;
-using internal::ParallelFor;
+using internal::OptionalParallelFor;
 
 // ----------------------------------------------------------------------
 // PyCapsule code for setting ndarray base to reference C++ object
@@ -1925,14 +1925,7 @@ class ConsolidatedBlockCreator : public PandasBlockCreator {
       return block->Write(std::move(arrays_[i]), i, this->column_block_placement_[i]);
     };
 
-    if (options_.use_threads) {
-      return ParallelFor(num_columns_, WriteColumn);
-    } else {
-      for (int i = 0; i < num_columns_; ++i) {
-        RETURN_NOT_OK(WriteColumn(i));
-      }
-      return Status::OK();
-    }
+    return OptionalParallelFor(options_.use_threads, num_columns_, WriteColumn);
   }
 
  private:
@@ -2032,14 +2025,8 @@ Status ConvertCategoricals(const PandasOptions& options,
       }
     }
   }
-  if (options.use_threads) {
-    return ParallelFor(static_cast<int>(columns_to_encode.size()), EncodeColumn);
-  } else {
-    for (auto i : columns_to_encode) {
-      RETURN_NOT_OK(EncodeColumn(i));
-    }
-    return Status::OK();
-  }
+  return OptionalParallelFor(options.use_threads,
+                             static_cast<int>(columns_to_encode.size()), EncodeColumn);
 }
 
 Status ConvertArrayToPandas(const PandasOptions& options, std::shared_ptr<Array> arr,
