@@ -24,9 +24,7 @@ pkgdesc="Apache Arrow is a cross-language development platform for in-memory dat
 arch=("any")
 url="https://arrow.apache.org/"
 license=("Apache-2.0")
-# NOTE boost dependency added to support unittests; not required by arrow core. ARROW-8222
-depends=("${MINGW_PACKAGE_PREFIX}-boost"
-         "${MINGW_PACKAGE_PREFIX}-thrift"
+depends=("${MINGW_PACKAGE_PREFIX}-thrift"
          "${MINGW_PACKAGE_PREFIX}-snappy"
          "${MINGW_PACKAGE_PREFIX}-zlib"
          "${MINGW_PACKAGE_PREFIX}-lz4"
@@ -76,9 +74,7 @@ build() {
     ${MINGW_PREFIX}/bin/cmake.exe \
     ${ARROW_CPP_DIR} \
     -G "MSYS Makefiles" \
-    -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_BUILD_SHARED=OFF \
-    -DARROW_BUILD_TESTS=ON \
     -DARROW_BUILD_STATIC=ON \
     -DARROW_BUILD_UTILITIES=OFF \
     -DARROW_COMPUTE=ON \
@@ -95,16 +91,11 @@ build() {
     -DARROW_WITH_SNAPPY=ON \
     -DARROW_WITH_ZLIB=ON \
     -DARROW_WITH_ZSTD=ON \
-    -DCMAKE_BUILD_TYPE="debug" \
+    -DCMAKE_BUILD_TYPE="release" \
     -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX}
 
   make -j2
   popd
-}
-
-check() {
-  export PATH="/C/Rtools${MINGW_PREFIX/mingw/mingw_}/bin:$PATH"
-  make -C ${cpp_build_dir} test
 }
 
 package() {
