@@ -235,7 +235,7 @@ def construct_metadata(df, column_names, index_levels, index_descriptors,
         index_descriptors = index_column_metadata = column_indexes = []
 
     return {
-        'pandas': json.dumps({
+        b'pandas': json.dumps({
             'index_columns': index_descriptors,
             'column_indexes': column_indexes,
             'columns': column_metadata + index_column_metadata,
