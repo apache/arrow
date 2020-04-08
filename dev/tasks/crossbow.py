@@ -1094,14 +1094,15 @@ class Config(dict):
 
     def validate(self):
         # validate that the task groups are properly referening the tasks
-        for group in self['groups']:
-            tasks = self.select(groups=[group])
-            if not tasks:
-                raise ValueError(
-                    "The patterns defined for task group `{}` are not "
-                    "matching any of the tasks defined in the configuration "
-                    "file.".format(group)
-                )
+        for group_name, group in self['groups'].items():
+            for pattern in group:
+                tasks = self.select(tasks=[pattern])
+                if not tasks:
+                    raise ValueError(
+                        "The pattern `{}` defined for task group `{}` is not "
+                        "matching any of the tasks defined in the "
+                        "configuration file.".format(pattern, group_name)
+                    )
 
         # validate that the tasks are constructible
         for task_name, task in self['tasks'].items():

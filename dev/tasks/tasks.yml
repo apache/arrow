@@ -59,7 +59,7 @@ groups:
 
   r:
     - test*-r-*
-    - macos-r-autobrew
+    - homebrew-r-autobrew
 
   ruby:
     - test-*ruby*
@@ -81,8 +81,7 @@ groups:
     - ubuntu-*-amd64
     - conda-*
     - gandiva-*
-    - homebrew-cpp
-    - macos-r-autobrew
+    - homebrew-*
     - test-*
     - wheel-*
 
