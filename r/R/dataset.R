@@ -119,11 +119,7 @@ Dataset <- R6Class("Dataset", inherit = ArrowObject,
     # Start a new scan of the data
     # @return A [ScannerBuilder]
     NewScan = function() unique_ptr(ScannerBuilder, dataset___Dataset__NewScan(self)),
-    ToString = function() self$schema$ToString(),
-    ReplaceSchema = function(schema) {
-      assert_is(schema, "Schema")
-      shared_ptr(Dataset, dataset___Dataset__ReplaceSchema(self, schema))
-    }
+    ToString = function() self$schema$ToString()
   ),
   active = list(
     schema = function() shared_ptr(Schema, dataset___Dataset__schema(self)),
