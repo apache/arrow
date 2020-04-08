@@ -384,15 +384,8 @@ Status DecompressBuffers(Compression::type compression, const IpcReadOptions& op
     return Status::OK();
   };
 
-  if (options.use_threads) {
-    return ::arrow::internal::ParallelFor(static_cast<int>(fields->size()),
-                                          DecompressOne);
-  } else {
-    for (int i = 0; i < static_cast<int>(fields->size()); ++i) {
-      RETURN_NOT_OK(DecompressOne(i));
-    }
-    return Status::OK();
-  }
+  return ::arrow::internal::OptionalParallelFor(
+      options.use_threads, static_cast<int>(fields->size()), DecompressOne);
 }
 
 Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(

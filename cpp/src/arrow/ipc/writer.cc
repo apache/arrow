@@ -199,15 +199,8 @@ class RecordBatchSerializer {
       return Status::OK();
     };
 
-    if (options_.use_threads) {
-      return ::arrow::internal::ParallelFor(static_cast<int>(out_->body_buffers.size()),
-                                            CompressOne);
-    } else {
-      for (size_t i = 0; i < out_->body_buffers.size(); ++i) {
-        RETURN_NOT_OK(CompressOne(i));
-      }
-      return Status::OK();
-    }
+    return ::arrow::internal::OptionalParallelFor(
+        options_.use_threads, static_cast<int>(out_->body_buffers.size()), CompressOne);
   }
 
   Status Assemble(const RecordBatch& batch) {
