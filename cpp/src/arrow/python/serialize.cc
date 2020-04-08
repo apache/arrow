@@ -66,7 +66,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
 // scalar Python types, lists, tuples, dictionaries, tensors and sparse tensors.
 class SequenceBuilder {
  public:
-  explicit SequenceBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+  explicit SequenceBuilder(MemoryPool* pool = default_memory_pool())
       : pool_(pool),
         types_(::arrow::int8(), pool),
         offsets_(::arrow::int32(), pool),

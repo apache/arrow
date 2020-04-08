@@ -44,7 +44,7 @@ class ARROW_EXPORT Converter {
 
   static Result<std::shared_ptr<Converter>> Make(
       const std::shared_ptr<DataType>& type, const ConvertOptions& options,
-      MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+      MemoryPool* pool = default_memory_pool());
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Converter);
@@ -68,7 +68,7 @@ class ARROW_EXPORT DictionaryConverter : public Converter {
 
   static Result<std::shared_ptr<DictionaryConverter>> Make(
       const std::shared_ptr<DataType>& value_type, const ConvertOptions& options,
-      MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+      MemoryPool* pool = default_memory_pool());
 };
 
 }  // namespace csv

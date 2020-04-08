@@ -31,7 +31,7 @@ class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
   using TypeClass = Decimal128Type;
 
   explicit Decimal128Builder(const std::shared_ptr<DataType>& type,
-                             MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+                             MemoryPool* pool = default_memory_pool());
 
   using FixedSizeBinaryBuilder::Append;
   using FixedSizeBinaryBuilder::AppendValues;

@@ -427,8 +427,4 @@ std::shared_ptr<Schema> schema(
 /// Return the process-wide default memory pool.
 ARROW_EXPORT MemoryPool* default_memory_pool();
 
-#ifndef ARROW_MEMORY_POOL_DEFAULT
-#define ARROW_MEMORY_POOL_DEFAULT = default_memory_pool()
-#endif
-
 }  // namespace arrow

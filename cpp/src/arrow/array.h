@@ -242,9 +242,9 @@ std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data);
 /// \param[in] length the array length
 /// \param[in] pool the memory pool to allocate memory from
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> MakeArrayOfNull(
-    const std::shared_ptr<DataType>& type, int64_t length,
-    MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+Result<std::shared_ptr<Array>> MakeArrayOfNull(const std::shared_ptr<DataType>& type,
+                                               int64_t length,
+                                               MemoryPool* pool = default_memory_pool());
 
 /// \brief Create an Array instance whose slots are the given scalar
 /// \param[in] scalar the value with which to fill the array
@@ -252,7 +252,7 @@ Result<std::shared_ptr<Array>> MakeArrayOfNull(
 /// \param[in] pool the memory pool to allocate memory from
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> MakeArrayFromScalar(
-    const Scalar& scalar, int64_t length, MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+    const Scalar& scalar, int64_t length, MemoryPool* pool = default_memory_pool());
 
 /// \brief Create a strongly-typed Array instance with all elements null
 /// \param[in] type the array type
@@ -637,7 +637,7 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
   /// allocated because of null values
   static Result<std::shared_ptr<Array>> FromArrays(
       const Array& offsets, const Array& values,
-      MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+      MemoryPool* pool = default_memory_pool());
 
   ARROW_DEPRECATED("Use Result-returning version")
   static Status FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
@@ -683,7 +683,7 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
   /// allocated because of null values
   static Result<std::shared_ptr<Array>> FromArrays(
       const Array& offsets, const Array& values,
-      MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+      MemoryPool* pool = default_memory_pool());
 
   ARROW_DEPRECATED("Use Result-returning version")
   static Status FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
@@ -740,7 +740,7 @@ class ARROW_EXPORT MapArray : public ListArray {
   /// allocated because of null values
   static Result<std::shared_ptr<Array>> FromArrays(
       const std::shared_ptr<Array>& offsets, const std::shared_ptr<Array>& keys,
-      const std::shared_ptr<Array>& items, MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+      const std::shared_ptr<Array>& items, MemoryPool* pool = default_memory_pool());
 
   ARROW_DEPRECATED("Use Result-returning version")
   static Status FromArrays(const std::shared_ptr<Array>& offsets,
@@ -1087,7 +1087,7 @@ class ARROW_EXPORT StructArray : public Array {
   /// \brief Flatten this array as a vector of arrays, one for each field
   ///
   /// \param[in] pool The pool to allocate null bitmaps from, if necessary
-  Result<ArrayVector> Flatten(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT) const;
+  Result<ArrayVector> Flatten(MemoryPool* pool = default_memory_pool()) const;
 
   ARROW_DEPRECATED("Use Result-returning version")
   Status Flatten(MemoryPool* pool, ArrayVector* out) const;
@@ -1354,7 +1354,7 @@ class ARROW_EXPORT DictionaryArray : public Array {
   /// \param[in] pool a pool to allocate the array data from
   Result<std::shared_ptr<Array>> Transpose(
       const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& dictionary,
-      const int32_t* transpose_map, MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT) const;
+      const int32_t* transpose_map, MemoryPool* pool = default_memory_pool()) const;
 
   ARROW_DEPRECATED("Use Result-returning version")
   Status Transpose(MemoryPool* pool, const std::shared_ptr<DataType>& type,
