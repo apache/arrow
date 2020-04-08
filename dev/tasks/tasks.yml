@@ -81,7 +81,8 @@ groups:
     - ubuntu-*-amd64
     - conda-*
     - gandiva-*
-    - homebrew-*
+    - homebrew-cpp
+    - macos-r-autobrew
     - test-*
     - wheel-*
 
