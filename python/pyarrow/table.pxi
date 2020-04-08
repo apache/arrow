@@ -1013,8 +1013,8 @@ cdef class RecordBatch(_PandasConvertible):
         cdef:
             shared_ptr[CRecordBatch] c_record_batch
         with nogil:
-            check_status(CRecordBatch.FromStructArray(struct_array.sp_array,
-                                                      &c_record_batch))
+            c_record_batch = GetResultValue(
+                CRecordBatch.FromStructArray(struct_array.sp_array))
         return pyarrow_wrap_batch(c_record_batch)
 
     def _export_to_c(self, uintptr_t out_ptr, uintptr_t out_schema_ptr=0):
@@ -1294,7 +1294,7 @@ cdef class Table(_PandasConvertible):
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
 
         with nogil:
-            check_status(self.table.Flatten(pool, &flattened))
+            flattened = GetResultValue(self.table.Flatten(pool))
 
         return pyarrow_wrap_table(flattened)
 
@@ -1319,7 +1319,7 @@ cdef class Table(_PandasConvertible):
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
 
         with nogil:
-            check_status(self.table.CombineChunks(pool, &combined))
+            combined = GetResultValue(self.table.CombineChunks(pool))
 
         return pyarrow_wrap_table(combined)
 
@@ -1585,8 +1585,8 @@ cdef class Table(_PandasConvertible):
             c_schema = schema.sp_schema
 
         with nogil:
-            check_status(CTable.FromRecordBatches(c_schema, c_batches,
-                                                  &c_table))
+            c_table = GetResultValue(
+                CTable.FromRecordBatches(c_schema, move(c_batches)))
 
         return pyarrow_wrap_table(c_table)
 
@@ -1849,9 +1849,8 @@ cdef class Table(_PandasConvertible):
             c_field = field(field_, c_arr.type)
 
         with nogil:
-            check_status(self.table.AddColumn(i, c_field.sp_field,
-                                              c_arr.sp_chunked_array,
-                                              &c_table))
+            c_table = GetResultValue(self.table.AddColumn(
+                i, c_field.sp_field, c_arr.sp_chunked_array))
 
         return pyarrow_wrap_table(c_table)
 
@@ -1891,7 +1890,7 @@ cdef class Table(_PandasConvertible):
         cdef shared_ptr[CTable] c_table
 
         with nogil:
-            check_status(self.table.RemoveColumn(i, &c_table))
+            c_table = GetResultValue(self.table.RemoveColumn(i))
 
         return pyarrow_wrap_table(c_table)
 
@@ -1930,9 +1929,8 @@ cdef class Table(_PandasConvertible):
             c_field = field(field_, c_arr.type)
 
         with nogil:
-            check_status(self.table.SetColumn(i, c_field.sp_field,
-                                              c_arr.sp_chunked_array,
-                                              &c_table))
+            c_table = GetResultValue(self.table.SetColumn(
+                i, c_field.sp_field, c_arr.sp_chunked_array))
 
         return pyarrow_wrap_table(c_table)
 
@@ -1956,7 +1954,7 @@ cdef class Table(_PandasConvertible):
             c_names.push_back(tobytes(name))
 
         with nogil:
-            check_status(self.table.RenameColumns(c_names, &c_table))
+            c_table = GetResultValue(self.table.RenameColumns(move(c_names)))
 
         return pyarrow_wrap_table(c_table)
 

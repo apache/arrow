@@ -350,8 +350,8 @@ struct EnsureColumnTypes {
       ARROW_RETURN_NOT_OK(compute::Cast(ctx, compute::Datum(table.column(N - 1)),
                                         expected_type, cast_options, &casted));
       auto new_field = table.schema()->field(N - 1)->WithType(expected_type);
-      ARROW_RETURN_NOT_OK(
-          table.SetColumn(N - 1, new_field, casted.chunked_array(), table_owner));
+      ARROW_ASSIGN_OR_RAISE(*table_owner,
+                            table.SetColumn(N - 1, new_field, casted.chunked_array()));
       *result = **table_owner;
     }
 
@@ -362,7 +362,7 @@ struct EnsureColumnTypes {
 
 template <typename Tuple>
 struct EnsureColumnTypes<Tuple, 0> {
-  static Status Cast(const Table& table, std::shared_ptr<Table>* table_ownder,
+  static Status Cast(const Table& table, std::shared_ptr<Table>* table_owner,
                      const compute::CastOptions& cast_options,
                      compute::FunctionContext* ctx,
                      std::reference_wrapper<const ::arrow::Table>* result) {

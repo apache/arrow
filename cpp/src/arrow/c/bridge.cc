@@ -590,9 +590,8 @@ Status ExportArray(const Array& array, struct ArrowArray* out,
 
 Status ExportRecordBatch(const RecordBatch& batch, struct ArrowArray* out,
                          struct ArrowSchema* out_schema) {
-  std::shared_ptr<Array> array;
   // XXX perhaps bypass ToStructArray() for speed?
-  RETURN_NOT_OK(batch.ToStructArray(&array));
+  ARROW_ASSIGN_OR_RAISE(auto array, batch.ToStructArray());
 
   SchemaExportGuard guard(out_schema);
   if (out_schema != nullptr) {

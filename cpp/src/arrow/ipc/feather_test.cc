@@ -83,8 +83,7 @@ class TestFeather : public ::testing::TestWithParam<TestParam> {
 
   void CheckSlice(std::shared_ptr<RecordBatch> batch, int start, int size) {
     batch = batch->Slice(start, size);
-    std::shared_ptr<Table> table;
-    ASSERT_OK(Table::FromRecordBatches({batch}, &table));
+    ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches({batch}));
 
     DoWrite(*table);
     std::shared_ptr<Table> result;
@@ -108,9 +107,8 @@ class TestFeather : public ::testing::TestWithParam<TestParam> {
   }
 
   void CheckRoundtrip(std::shared_ptr<RecordBatch> batch) {
-    std::shared_ptr<Table> table;
     std::vector<std::shared_ptr<RecordBatch>> batches = {batch};
-    ASSERT_OK(Table::FromRecordBatches(batches, &table));
+    ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(batches));
 
     DoWrite(*table);
 
@@ -139,8 +137,7 @@ TEST_P(TestFeather, ReadIndicesOrNames) {
   std::shared_ptr<RecordBatch> batch1;
   ASSERT_OK(ipc::test::MakeIntRecordBatch(&batch1));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK(Table::FromRecordBatches({batch1}, &table));
+  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches({batch1}));
 
   DoWrite(*table);
 
@@ -181,8 +178,7 @@ TEST_P(TestFeather, PrimitiveRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(ipc::test::MakeIntRecordBatch(&batch));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK(Table::FromRecordBatches({batch}, &table));
+  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches({batch}));
 
   DoWrite(*table);
 
@@ -253,8 +249,7 @@ TEST_P(TestFeather, PrimitiveNullRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(ipc::test::MakeNullRecordBatch(&batch));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK(Table::FromRecordBatches({batch}, &table));
+  ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches({batch}));
 
   DoWrite(*table);
 

@@ -98,10 +98,7 @@ std::shared_ptr<arrow::Table> Table__from_RecordBatchFileReader(
     STOP_IF_NOT_OK(reader->ReadRecordBatch(i, &batches[i]));
   }
 
-  std::shared_ptr<arrow::Table> table;
-  STOP_IF_NOT_OK(arrow::Table::FromRecordBatches(std::move(batches), &table));
-
-  return table;
+  return VALUE_OR_STOP(arrow::Table::FromRecordBatches(std::move(batches)));
 }
 
 // [[arrow::export]]
@@ -115,10 +112,7 @@ std::shared_ptr<arrow::Table> Table__from_RecordBatchStreamReader(
     batches.push_back(batch);
   }
 
-  std::shared_ptr<arrow::Table> table;
-  STOP_IF_NOT_OK(arrow::Table::FromRecordBatches(std::move(batches), &table));
-
-  return table;
+  return VALUE_OR_STOP(arrow::Table::FromRecordBatches(std::move(batches)));
 }
 
 // [[arrow::export]]

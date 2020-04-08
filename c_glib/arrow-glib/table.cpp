@@ -203,7 +203,8 @@ garrow_table_new_values(GArrowSchema *schema,
   }
 
   if (!arrow_chunked_arrays.empty()) {
-    auto arrow_table = arrow::Table::Make(arrow_schema, arrow_chunked_arrays);
+    auto arrow_table = arrow::Table::Make(arrow_schema,
+                                          std::move(arrow_chunked_arrays));
     auto status = arrow_table->Validate();
     if (garrow_error_check(error, status, context)) {
       return garrow_table_new_raw(&arrow_table);
@@ -211,7 +212,7 @@ garrow_table_new_values(GArrowSchema *schema,
       return NULL;
     }
   } else if (!arrow_arrays.empty()) {
-    auto arrow_table = arrow::Table::Make(arrow_schema, arrow_arrays);
+    auto arrow_table = arrow::Table::Make(arrow_schema, std::move(arrow_arrays));
     auto status = arrow_table->Validate();
     if (garrow_error_check(error, status, context)) {
       return garrow_table_new_raw(&arrow_table);
@@ -219,12 +220,10 @@ garrow_table_new_values(GArrowSchema *schema,
       return NULL;
     }
   } else {
-    std::shared_ptr<arrow::Table> arrow_table;
-    auto status = arrow::Table::FromRecordBatches(arrow_schema,
-                                                  arrow_record_batches,
-                                                  &arrow_table);
-    if (garrow_error_check(error, status, context)) {
-      return garrow_table_new_raw(&arrow_table);
+    auto maybe_table = arrow::Table::FromRecordBatches(
+      arrow_schema, std::move(arrow_record_batches));
+    if (garrow::check(error, maybe_table, context)) {
+      return garrow_table_new_raw(&(*maybe_table));
     } else {
       return NULL;
     }
@@ -322,12 +321,10 @@ garrow_table_new_record_batches(GArrowSchema *schema,
     arrow_record_batches.push_back(arrow_record_batch);
   }
 
-  std::shared_ptr<arrow::Table> arrow_table;
-  auto status = arrow::Table::FromRecordBatches(arrow_schema,
-                                                arrow_record_batches,
-                                                &arrow_table);
-  if (garrow_error_check(error, status, "[table][new][record-batches]")) {
-    return garrow_table_new_raw(&arrow_table);
+  auto maybe_table = arrow::Table::FromRecordBatches(arrow_schema,
+                                                     arrow_record_batches);
+  if (garrow::check(error, maybe_table, "[table][new][record-batches]")) {
+    return garrow_table_new_raw(&(*maybe_table));
   } else {
     return NULL;
   }
@@ -458,13 +455,11 @@ garrow_table_add_column(GArrowTable *table,
   const auto arrow_table = garrow_table_get_raw(table);
   const auto arrow_field = garrow_field_get_raw(field);
   const auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
-  std::shared_ptr<arrow::Table> arrow_new_table;
-  auto status = arrow_table->AddColumn(i,
-                                       arrow_field,
-                                       arrow_chunked_array,
-                                       &arrow_new_table);
-  if (garrow_error_check(error, status, "[table][add-column]")) {
-    return garrow_table_new_raw(&arrow_new_table);
+  auto maybe_new_table = arrow_table->AddColumn(i,
+                                                arrow_field,
+                                                arrow_chunked_array);
+  if (garrow::check(error, maybe_new_table, "[table][add-column]")) {
+    return garrow_table_new_raw(&(*maybe_new_table));
   } else {
     return NULL;
   }
@@ -487,10 +482,9 @@ garrow_table_remove_column(GArrowTable *table,
                            GError **error)
 {
   const auto arrow_table = garrow_table_get_raw(table);
-  std::shared_ptr<arrow::Table> arrow_new_table;
-  auto status = arrow_table->RemoveColumn(i, &arrow_new_table);
-  if (garrow_error_check(error, status, "[table][remove-column]")) {
-    return garrow_table_new_raw(&arrow_new_table);
+  auto maybe_new_table = arrow_table->RemoveColumn(i);
+  if (garrow::check(error, maybe_new_table, "[table][remove-column]")) {
+    return garrow_table_new_raw(&(*maybe_new_table));
   } else {
     return NULL;
   }
@@ -520,13 +514,11 @@ garrow_table_replace_column(GArrowTable *table,
   const auto arrow_table = garrow_table_get_raw(table);
   const auto arrow_field = garrow_field_get_raw(field);
   const auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
-  std::shared_ptr<arrow::Table> arrow_new_table;
-  auto status = arrow_table->SetColumn(i,
-                                       arrow_field,
-                                       arrow_chunked_array,
-                                       &arrow_new_table);
-  if (garrow_error_check(error, status, "[table][replace-column]")) {
-    return garrow_table_new_raw(&arrow_new_table);
+  auto maybe_new_table = arrow_table->SetColumn(i,
+                                                arrow_field,
+                                                arrow_chunked_array);
+  if (garrow::check(error, maybe_new_table, "[table][replace-column]")) {
+    return garrow_table_new_raw(&(*maybe_new_table));
   } else {
     return NULL;
   }
@@ -630,11 +622,9 @@ garrow_table_combine_chunks(GArrowTable *table,
 {
   const auto arrow_table = garrow_table_get_raw(table);
 
-  std::shared_ptr<arrow::Table> arrow_combined_table;
-  auto status = arrow_table->CombineChunks(arrow::default_memory_pool(),
-                                           &arrow_combined_table);
-  if (garrow_error_check(error, status, "[table][combine-chunks]")) {
-    return garrow_table_new_raw(&arrow_combined_table);
+  auto maybe_new_table = arrow_table->CombineChunks();
+  if (garrow::check(error, maybe_new_table, "[table][combine-chunks]")) {
+    return garrow_table_new_raw(&(*maybe_new_table));
   } else {
     return NULL;
   }

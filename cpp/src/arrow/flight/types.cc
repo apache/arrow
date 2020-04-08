@@ -268,7 +268,7 @@ Status MetadataRecordBatchReader::ReadAll(
 Status MetadataRecordBatchReader::ReadAll(std::shared_ptr<Table>* table) {
   std::vector<std::shared_ptr<RecordBatch>> batches;
   RETURN_NOT_OK(ReadAll(&batches));
-  return Table::FromRecordBatches(schema(), batches, table);
+  return Table::FromRecordBatches(schema(), std::move(batches)).Value(table);
 }
 
 SimpleFlightListing::SimpleFlightListing(const std::vector<FlightInfo>& flights)

@@ -716,11 +716,9 @@ class ReaderV2 : public Reader {
 
   Status Read(const IpcReadOptions& options, std::shared_ptr<Table>* out) {
     ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchFileReader::Open(source_, options));
-    std::vector<std::shared_ptr<RecordBatch>> batches;
+    std::vector<std::shared_ptr<RecordBatch>> batches(reader->num_record_batches());
     for (int i = 0; i < reader->num_record_batches(); ++i) {
-      std::shared_ptr<RecordBatch> batch;
-      RETURN_NOT_OK(reader->ReadRecordBatch(i, &batch));
-      batches.emplace_back(batch);
+      RETURN_NOT_OK(reader->ReadRecordBatch(i, &batches[i]));
     }
 
     // XXX: Handle included_fields in RecordBatchFileReader::schema
@@ -735,7 +733,7 @@ class ReaderV2 : public Reader {
       }
       out_schema = ::arrow::schema(fields, out_schema->metadata());
     }
-    return Table::FromRecordBatches(out_schema, batches, out);
+    return Table::FromRecordBatches(std::move(out_schema), std::move(batches)).Value(out);
   }
 
   Status Read(std::shared_ptr<Table>* out) override {
