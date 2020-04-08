@@ -83,7 +83,7 @@ class ARROW_EXPORT ChunkedArray {
   ///
   /// \param[in] pool The pool for buffer allocations, if any
   Result<std::vector<std::shared_ptr<ChunkedArray>>> Flatten(
-      MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT) const;
+      MemoryPool* pool = default_memory_pool()) const;
 
   ARROW_DEPRECATED("Use Result-returning version")
   Status Flatten(MemoryPool* pool, std::vector<std::shared_ptr<ChunkedArray>>* out) const;

@@ -92,7 +92,7 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
 
 class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase {
  public:
-  explicit AdaptiveUIntBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  explicit AdaptiveUIntBuilder(MemoryPool* pool = default_memory_pool());
 
   using ArrayBuilder::Advance;
   using internal::AdaptiveIntBuilderBase::Reset;
@@ -126,7 +126,7 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
 
 class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase {
  public:
-  explicit AdaptiveIntBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  explicit AdaptiveIntBuilder(MemoryPool* pool = default_memory_pool());
 
   using ArrayBuilder::Advance;
   using internal::AdaptiveIntBuilderBase::Reset;

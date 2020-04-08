@@ -46,7 +46,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
   using TypeClass = TYPE;
   using offset_type = typename TypeClass::offset_type;
 
-  explicit BaseBinaryBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+  explicit BaseBinaryBuilder(MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool), offsets_builder_(pool), value_data_builder_(pool) {}
 
   BaseBinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
@@ -400,7 +400,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   using TypeClass = FixedSizeBinaryType;
 
   explicit FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
-                                  MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+                                  MemoryPool* pool = default_memory_pool());
 
   Status Append(const uint8_t* value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
@@ -515,10 +515,10 @@ namespace internal {
 class ARROW_EXPORT ChunkedBinaryBuilder {
  public:
   explicit ChunkedBinaryBuilder(int32_t max_chunk_value_length,
-                                MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+                                MemoryPool* pool = default_memory_pool());
 
   ChunkedBinaryBuilder(int32_t max_chunk_value_length, int32_t max_chunk_length,
-                       MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+                       MemoryPool* pool = default_memory_pool());
 
   virtual ~ChunkedBinaryBuilder() = default;
 
