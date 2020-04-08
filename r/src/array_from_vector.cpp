@@ -295,7 +295,9 @@ std::shared_ptr<Array> MakeStructArray(SEXP df, const std::shared_ptr<DataType>&
   for (int i = 0; i < n; i++) {
     children[i] = Array__from_vector(VECTOR_ELT(df, i), type->child(i)->type(), true);
   }
-  return std::make_shared<StructArray>(type, children[0]->length(), children);
+
+  int64_t rows = n ? children[0]->length() : 0;
+  return std::make_shared<StructArray>(type, rows, children);
 }
 
 std::shared_ptr<Array> MakeListArray(SEXP x, const std::shared_ptr<DataType>& type) {

@@ -80,6 +80,7 @@ tbl <- tibble::tibble(
   int = 1:10,
   dbl = as.numeric(1:10),
   lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+  false = logical(10),
   chr = letters[1:10],
   fct = factor(letters[1:10])
 )
@@ -112,6 +113,16 @@ test_that("filter() with NAs in selection", {
   expect_dplyr_equal(
     input %>%
       filter(lgl) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("Filter returning an empty Table should not segfault (ARROW-8354)", {
+  expect_dplyr_equal(
+    input %>%
+      filter(false) %>%
       select(chr, int, lgl) %>%
       collect(),
     tbl

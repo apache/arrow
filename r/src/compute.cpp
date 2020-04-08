@@ -234,7 +234,14 @@ std::shared_ptr<arrow::Table> Table__Filter(const std::shared_ptr<arrow::Table>&
     options.null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
   }
   STOP_IF_NOT_OK(arrow::compute::Filter(&context, table, filter, options, &out));
-  return out.table();
+  std::shared_ptr<arrow::Table> tab = out.table();
+  if (tab->num_rows() == 0) {
+    // Slight hack: if there are no rows in the result, instead do a 0-length
+    // slice so that we get chunked arrays with 1 chunk (itself length 0).
+    // We need that because the Arrow-to-R converter fails when there are 0 chunks.
+    return table->Slice(0, 0);
+  }
+  return tab;
 }
 
 // [[arrow::export]]
@@ -249,6 +256,13 @@ std::shared_ptr<arrow::Table> Table__FilterChunked(
     options.null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
   }
   STOP_IF_NOT_OK(arrow::compute::Filter(&context, table, filter, options, &out));
-  return out.table();
+  std::shared_ptr<arrow::Table> tab = out.table();
+  if (tab->num_rows() == 0) {
+    // Slight hack: if there are no rows in the result, instead do a 0-length
+    // slice so that we get chunked arrays with 1 chunk (itself length 0).
+    // We need that because the Arrow-to-R converter fails when there are 0 chunks.
+    return table->Slice(0, 0);
+  }
+  return tab;
 }
 #endif
