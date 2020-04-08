@@ -242,9 +242,9 @@ std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data);
 /// \param[in] length the array length
 /// \param[in] pool the memory pool to allocate memory from
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> MakeArrayOfNull(
-    const std::shared_ptr<DataType>& type, int64_t length,
-    MemoryPool* pool = default_memory_pool());
+Result<std::shared_ptr<Array>> MakeArrayOfNull(const std::shared_ptr<DataType>& type,
+                                               int64_t length,
+                                               MemoryPool* pool = default_memory_pool());
 
 /// \brief Create an Array instance whose slots are the given scalar
 /// \param[in] scalar the value with which to fill the array
