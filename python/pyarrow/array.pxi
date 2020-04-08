@@ -2173,6 +2173,19 @@ cdef dict _array_classes = {
 }
 
 
+cdef object get_array_class_from_type(
+        const shared_ptr[CDataType]& sp_data_type):
+    cdef CDataType* data_type = sp_data_type.get()
+    if data_type == NULL:
+        raise ValueError('Array data type was NULL')
+
+    if data_type.id() == _Type_EXTENSION:
+        py_ext_data_type = pyarrow_wrap_data_type(sp_data_type)
+        return py_ext_data_type.__arrow_ext_class__()
+    else:
+        return _array_classes[data_type.id()]
+
+
 cdef object get_values(object obj, bint* is_series):
     if pandas_api.is_series(obj) or pandas_api.is_index(obj):
         result = pandas_api.get_values(obj)

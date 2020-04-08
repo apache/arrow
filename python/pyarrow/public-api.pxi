@@ -193,12 +193,7 @@ cdef api object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array):
     if sp_array.get() == NULL:
         raise ValueError('Array was NULL')
 
-    cdef CDataType* data_type = sp_array.get().type().get()
-
-    if data_type == NULL:
-        raise ValueError('Array data type was NULL')
-
-    klass = _array_classes[data_type.id()]
+    klass = get_array_class_from_type(sp_array.get().type())
 
     cdef Array arr = klass.__new__(klass)
     arr.init(sp_array)
