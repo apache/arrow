@@ -18,6 +18,7 @@
 #include "arrow/python/pyarrow.h"
 
 #include <memory>
+#include <utility>
 
 #include "arrow/array.h"
 #include "arrow/table.h"
