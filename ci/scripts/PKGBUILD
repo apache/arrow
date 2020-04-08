@@ -75,6 +75,7 @@ build() {
     ${ARROW_CPP_DIR} \
     -G "MSYS Makefiles" \
     -DARROW_BUILD_SHARED=OFF \
+    -DARROW_BUILD_TESTS=ON \
     -DARROW_BUILD_STATIC=ON \
     -DARROW_BUILD_UTILITIES=OFF \
     -DARROW_COMPUTE=ON \
@@ -91,11 +92,16 @@ build() {
     -DARROW_WITH_SNAPPY=ON \
     -DARROW_WITH_ZLIB=ON \
     -DARROW_WITH_ZSTD=ON \
-    -DCMAKE_BUILD_TYPE="release" \
+    -DCMAKE_BUILD_TYPE="debug" \
     -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX}
 
   make -j2
   popd
+}
+
+check() {
+  export PATH="/C/Rtools${MINGW_PREFIX/mingw/mingw_}/bin:$PATH"
+  make -C ${cpp_build_dir} test
 }
 
 package() {

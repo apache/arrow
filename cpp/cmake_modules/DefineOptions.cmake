@@ -138,9 +138,15 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_BUILD_BENCHMARKS_REFERENCE
                 "Build the Arrow micro reference benchmarks" OFF)
 
+  if(ARROW_BUILD_SHARED)
+    set(ARROW_TEST_LINKAGE_DEFAULT "shared")
+  else()
+    set(ARROW_TEST_LINKAGE_DEFAULT "static")
+  endif()
+
   define_option_string(ARROW_TEST_LINKAGE
                        "Linkage of Arrow libraries with unit tests executables."
-                       "shared"
+                       "${ARROW_TEST_LINKAGE_DEFAULT}"
                        "shared"
                        "static")
 
