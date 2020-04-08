@@ -63,8 +63,11 @@ bool FileIsClosed(int fd) {
   // https://msdn.microsoft.com/en-us/library/ksazx244.aspx
   _set_invalid_parameter_handler(InvalidParamHandler);
 
+#if defined(_MSC_VER)
   // Disables possible assertion alert box on invalid input arguments
+  // This option is only relevant for MSVC
   _CrtSetReportMode(_CRT_ASSERT, 0);
+#endif
 
   int new_fd = _dup(fd);
   if (new_fd == -1) {
