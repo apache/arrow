@@ -62,9 +62,9 @@ class IPv4Type : public ExtensionType {
     return std::make_shared<ExtensionArray>(data);
   }
 
-  Status Deserialize(std::shared_ptr<DataType> storage_type,
-                     const std::string& serialized,
-                     std::shared_ptr<DataType>* out) const override {
+  Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
+      const std::string& serialized) const override {
     return Status::NotImplemented("IPv4Type::Deserialize");
   }
 

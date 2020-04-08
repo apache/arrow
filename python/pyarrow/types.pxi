@@ -1419,7 +1419,7 @@ cdef class Schema:
         c_field = field.sp_field
 
         with nogil:
-            check_status(self.schema.AddField(i, c_field, &new_schema))
+            new_schema = GetResultValue(self.schema.AddField(i, c_field))
 
         return pyarrow_wrap_schema(new_schema)
 
@@ -1438,7 +1438,7 @@ cdef class Schema:
         cdef shared_ptr[CSchema] new_schema
 
         with nogil:
-            check_status(self.schema.RemoveField(i, &new_schema))
+            new_schema = GetResultValue(self.schema.RemoveField(i))
 
         return pyarrow_wrap_schema(new_schema)
 
@@ -1462,7 +1462,7 @@ cdef class Schema:
         c_field = field.sp_field
 
         with nogil:
-            check_status(self.schema.SetField(i, c_field, &new_schema))
+            new_schema = GetResultValue(self.schema.SetField(i, c_field))
 
         return pyarrow_wrap_schema(new_schema)
 

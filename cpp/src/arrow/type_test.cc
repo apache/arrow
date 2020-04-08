@@ -1582,8 +1582,7 @@ TEST(TestDictionaryType, UnifyNumeric) {
   auto expected = dictionary(int8(), dict_ty);
   auto expected_dict = ArrayFromJSON(dict_ty, "[3, 4, 7, 1, 8, -200]");
 
-  std::unique_ptr<DictionaryUnifier> unifier;
-  ASSERT_OK(DictionaryUnifier::Make(default_memory_pool(), dict_ty, &unifier));
+  ASSERT_OK_AND_ASSIGN(auto unifier, DictionaryUnifier::Make(dict_ty));
 
   std::shared_ptr<DataType> out_type;
   std::shared_ptr<Array> out_dict;
@@ -1624,8 +1623,7 @@ TEST(TestDictionaryType, UnifyString) {
   auto expected = dictionary(int8(), dict_ty);
   auto expected_dict = ArrayFromJSON(dict_ty, "[\"foo\", \"bar\", \"quux\"]");
 
-  std::unique_ptr<DictionaryUnifier> unifier;
-  ASSERT_OK(DictionaryUnifier::Make(default_memory_pool(), dict_ty, &unifier));
+  ASSERT_OK_AND_ASSIGN(auto unifier, DictionaryUnifier::Make(dict_ty));
 
   std::shared_ptr<DataType> out_type;
   std::shared_ptr<Array> out_dict;
@@ -1663,8 +1661,7 @@ TEST(TestDictionaryType, UnifyFixedSizeBinary) {
   auto expected_dict = std::make_shared<FixedSizeBinaryArray>(type, 4, buf);
   auto expected = dictionary(int8(), type);
 
-  std::unique_ptr<DictionaryUnifier> unifier;
-  ASSERT_OK(DictionaryUnifier::Make(default_memory_pool(), type, &unifier));
+  ASSERT_OK_AND_ASSIGN(auto unifier, DictionaryUnifier::Make(type));
   std::shared_ptr<DataType> out_type;
   std::shared_ptr<Array> out_dict;
   ASSERT_OK(unifier->Unify(*dict1));
@@ -1715,8 +1712,7 @@ TEST(TestDictionaryType, UnifyLarge) {
   // int8 would be too narrow to hold all possible index values
   auto expected = dictionary(int16(), int32());
 
-  std::unique_ptr<DictionaryUnifier> unifier;
-  ASSERT_OK(DictionaryUnifier::Make(default_memory_pool(), int32(), &unifier));
+  ASSERT_OK_AND_ASSIGN(auto unifier, DictionaryUnifier::Make(int32()));
   std::shared_ptr<DataType> out_type;
   std::shared_ptr<Array> out_dict;
   ASSERT_OK(unifier->Unify(*dict1));

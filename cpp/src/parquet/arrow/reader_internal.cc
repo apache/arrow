@@ -94,7 +94,7 @@ using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
 static Status MakeArrowDecimal(const LogicalType& logical_type,
                                std::shared_ptr<DataType>* out) {
   const auto& decimal = checked_cast<const DecimalLogicalType&>(logical_type);
-  return ::arrow::Decimal128Type::Make(decimal.precision(), decimal.scale(), out);
+  return ::arrow::Decimal128Type::Make(decimal.precision(), decimal.scale()).Value(out);
 }
 
 static Status MakeArrowInt(const LogicalType& logical_type,
@@ -653,8 +653,8 @@ Status ApplyOriginalMetadata(std::shared_ptr<Field> field, const Field& origin_f
       std::shared_ptr<::arrow::ExtensionType> ext_type =
           ::arrow::GetExtensionType(type_name);
       if (ext_type != nullptr) {
-        std::shared_ptr<DataType> deserialized;
-        RETURN_NOT_OK(ext_type->Deserialize(field->type(), type_data, &deserialized));
+        ARROW_ASSIGN_OR_RAISE(auto deserialized,
+                              ext_type->Deserialize(field->type(), type_data));
         field = field->WithType(deserialized);
       }
     }

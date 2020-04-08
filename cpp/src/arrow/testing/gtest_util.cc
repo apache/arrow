@@ -401,17 +401,15 @@ std::shared_ptr<Array> UUIDType::MakeArray(std::shared_ptr<ArrayData> data) cons
   return std::make_shared<UUIDArray>(data);
 }
 
-Status UUIDType::Deserialize(std::shared_ptr<DataType> storage_type,
-                             const std::string& serialized,
-                             std::shared_ptr<DataType>* out) const {
+Result<std::shared_ptr<DataType>> UUIDType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
   if (serialized != "uuid-type-unique-code") {
     return Status::Invalid("Type identifier did not match");
   }
   if (!storage_type->Equals(*fixed_size_binary(16))) {
     return Status::Invalid("Invalid storage type for UUIDType");
   }
-  *out = std::make_shared<UUIDType>();
-  return Status::OK();
+  return std::make_shared<UUIDType>();
 }
 
 std::shared_ptr<DataType> uuid() { return std::make_shared<UUIDType>(); }
@@ -439,17 +437,15 @@ std::shared_ptr<Array> SmallintType::MakeArray(std::shared_ptr<ArrayData> data) 
   return std::make_shared<SmallintArray>(data);
 }
 
-Status SmallintType::Deserialize(std::shared_ptr<DataType> storage_type,
-                                 const std::string& serialized,
-                                 std::shared_ptr<DataType>* out) const {
+Result<std::shared_ptr<DataType>> SmallintType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
   if (serialized != "smallint") {
     return Status::Invalid("Type identifier did not match");
   }
   if (!storage_type->Equals(*int16())) {
     return Status::Invalid("Invalid storage type for SmallintType");
   }
-  *out = std::make_shared<SmallintType>();
-  return Status::OK();
+  return std::make_shared<SmallintType>();
 }
 
 std::shared_ptr<DataType> smallint() { return std::make_shared<SmallintType>(); }

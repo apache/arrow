@@ -393,7 +393,7 @@ Status GetSerializedFromComponents(int num_tensors,
   auto GetBuffer = [&data](Py_ssize_t index, std::shared_ptr<Buffer>* out) {
     ARROW_CHECK_LE(index, PyList_Size(data));
     PyObject* py_buf = PyList_GET_ITEM(data, index);
-    return unwrap_buffer(py_buf, out);
+    return unwrap_buffer(py_buf).Value(out);
   };
 
   Py_ssize_t buffer_index = 0;

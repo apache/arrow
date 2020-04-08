@@ -424,7 +424,7 @@ struct DirectoryPartitioningFactory::MakeWritePlanImpl {
     for (const auto& field : partitioning->schema()->fields()) {
       int field_i = schema->GetFieldIndex(field->name());
       if (field_i != -1) {
-        RETURN_NOT_OK(schema->RemoveField(field_i, &schema));
+        ARROW_ASSIGN_OR_RAISE(schema, schema->RemoveField(field_i));
       }
     }
 

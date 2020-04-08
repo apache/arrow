@@ -134,12 +134,16 @@ struct MakeUnifier {
   }
 };
 
-Status DictionaryUnifier::Make(MemoryPool* pool, std::shared_ptr<DataType> value_type,
-                               std::unique_ptr<DictionaryUnifier>* out) {
+Result<std::unique_ptr<DictionaryUnifier>> DictionaryUnifier::Make(
+    std::shared_ptr<DataType> value_type, MemoryPool* pool) {
   MakeUnifier maker(pool, value_type);
   RETURN_NOT_OK(VisitTypeInline(*value_type, &maker));
-  *out = std::move(maker.result);
-  return Status::OK();
+  return std::move(maker.result);
+}
+
+Status DictionaryUnifier::Make(MemoryPool* pool, std::shared_ptr<DataType> value_type,
+                               std::unique_ptr<DictionaryUnifier>* out) {
+  return Make(value_type, pool).Value(out);
 }
 
 // ----------------------------------------------------------------------
