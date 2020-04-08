@@ -155,9 +155,7 @@ jobs:
         shell: cmd
         run: |
           cd r/tests
-          sed -i.bak -E -e \
-            's/"arrow"/"arrow", reporter = "location"/' \
-            testthat.R
+          sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
           rm -f testthat.R.bak
       - name: Fetch Submodules and Tags
         shell: bash
