@@ -458,7 +458,7 @@ endif()
 set(EP_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}}")
 set(EP_C_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}}")
 
-if(NOT MSVC)
+if(NOT WIN32)
   # Set -fPIC on all external projects
   set(EP_CXX_FLAGS "${EP_CXX_FLAGS} -fPIC")
   set(EP_C_FLAGS "${EP_C_FLAGS} -fPIC")
