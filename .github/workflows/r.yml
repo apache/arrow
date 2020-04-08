@@ -155,6 +155,12 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
+      - name: Make R tests verbose
+        shell: cmd
+        run: |
+          cd r/tests
+          sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
+          rm -f testthat.R.bak
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
