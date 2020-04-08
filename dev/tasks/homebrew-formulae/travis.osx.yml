@@ -39,7 +39,3 @@ before_script:
 script:
 - brew install -v --build-from-source --HEAD $ARROW_FORMULA
 - brew test $ARROW_FORMULA
-
-notifications:
-  email:
-    - {{ job.email }}

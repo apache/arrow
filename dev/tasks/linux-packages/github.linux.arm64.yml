@@ -83,7 +83,7 @@ jobs:
         run: |
           python arrow/dev/tasks/crossbow.py \
             --queue-path . \
-            --queue-remote {{ queue.remote_url }} \
+            --queue-remote {{ queue_remote_url }} \
             upload-artifacts \
           {%- for extension in upload_extensions %}
             --pattern "**/*{{ extension }}" \

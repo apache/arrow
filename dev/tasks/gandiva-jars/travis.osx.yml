@@ -62,12 +62,8 @@ script:
   - >
     python3 dev/tasks/crossbow.py
     --queue-path $TRAVIS_BUILD_DIR
-    --queue-remote {{ queue.remote_url }}
+    --queue-remote {{ queue_remote_url }}
     upload-artifacts
     --sha {{ task.branch }}
     --tag {{ task.tag }}
     --pattern "dist/*.jar"
-
-notifications:
-  email:
-    - {{ job.email }}

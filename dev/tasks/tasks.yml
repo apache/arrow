@@ -401,15 +401,6 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_9_intel.whl
 
-  wheel-osx-cp37m-azure:
-    ci: azure
-    platform: osx
-    template: python-wheels/azure.osx.yml
-    params:
-      python_version: 3.7
-    artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_9_intel.whl
-
   wheel-osx-cp38:
     ci: travis
     platform: osx
