@@ -609,7 +609,6 @@ cdef public object pyarrow_wrap_scalar(const shared_ptr[CScalar]& sp_scalar)
 cdef public object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array)
 cdef public object pyarrow_wrap_chunked_array(
     const shared_ptr[CChunkedArray]& sp_array)
-# XXX pyarrow.h calls it `wrap_record_batch`
 cdef public object pyarrow_wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
 cdef public object pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buf)
 cdef public object pyarrow_wrap_data_type(const shared_ptr[CDataType]& type)
@@ -630,6 +629,8 @@ cdef public object pyarrow_wrap_sparse_csf_tensor(
 
 cdef public shared_ptr[CScalar] pyarrow_unwrap_scalar(object scalar)
 cdef public shared_ptr[CArray] pyarrow_unwrap_array(object array)
+cdef public shared_ptr[CChunkedArray] pyarrow_unwrap_chunked_array(
+    object array)
 cdef public shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch)
 cdef public shared_ptr[CBuffer] pyarrow_unwrap_buffer(object buffer)
 cdef public shared_ptr[CDataType] pyarrow_unwrap_data_type(object data_type)

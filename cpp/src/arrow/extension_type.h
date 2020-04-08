@@ -65,11 +65,14 @@ class ARROW_EXPORT ExtensionType : public DataType {
   /// \param[in] storage_type the physical storage type of the extension
   /// \param[in] serialized_data the serialized representation produced by
   /// Serialize
-  /// \param[out] out the reconstructed extension type
-  /// \return Status
-  virtual Status Deserialize(std::shared_ptr<DataType> storage_type,
-                             const std::string& serialized_data,
-                             std::shared_ptr<DataType>* out) const = 0;
+  virtual Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
+      const std::string& serialized_data) const = 0;
+
+  ARROW_DEPRECATED("Use Result-returning version")
+  Status Deserialize(std::shared_ptr<DataType> storage_type,
+                     const std::string& serialized_data,
+                     std::shared_ptr<DataType>* out) const;
 
   /// \brief Create a serialized representation of the extension type's
   /// metadata. The storage type will be handled automatically in IPC code

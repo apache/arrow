@@ -1472,9 +1472,8 @@ class CategoricalWriter
 
     const auto& dict_type = checked_cast<const DictionaryType&>(*data.type());
 
-    std::unique_ptr<DictionaryUnifier> unifier;
-    RETURN_NOT_OK(
-        DictionaryUnifier::Make(this->options_.pool, dict_type.value_type(), &unifier));
+    ARROW_ASSIGN_OR_RAISE(auto unifier, DictionaryUnifier::Make(dict_type.value_type(),
+                                                                this->options_.pool));
     for (int c = 0; c < data.num_chunks(); c++) {
       const auto& arr = checked_cast<const DictionaryArray&>(*data.chunk(c));
       const auto& indices = checked_cast<const ArrayType&>(*arr.indices());

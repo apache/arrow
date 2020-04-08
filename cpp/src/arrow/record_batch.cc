@@ -98,8 +98,7 @@ class SimpleRecordBatch : public RecordBatch {
           num_rows_, " but got length ", column->length());
     }
 
-    std::shared_ptr<Schema> new_schema;
-    RETURN_NOT_OK(schema_->AddField(i, field, &new_schema));
+    ARROW_ASSIGN_OR_RAISE(auto new_schema, schema_->AddField(i, field));
 
     *out = RecordBatch::Make(new_schema, num_rows_,
                              internal::AddVectorElement(columns_, i, column->data()));
@@ -107,8 +106,7 @@ class SimpleRecordBatch : public RecordBatch {
   }
 
   Status RemoveColumn(int i, std::shared_ptr<RecordBatch>* out) const override {
-    std::shared_ptr<Schema> new_schema;
-    RETURN_NOT_OK(schema_->RemoveField(i, &new_schema));
+    ARROW_ASSIGN_OR_RAISE(auto new_schema, schema_->RemoveField(i));
 
     *out = RecordBatch::Make(new_schema, num_rows_,
                              internal::DeleteVectorElement(columns_, i));

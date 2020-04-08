@@ -306,8 +306,7 @@ class SimpleTable : public Table {
   }
 
   Status RemoveColumn(int i, std::shared_ptr<Table>* out) const override {
-    std::shared_ptr<Schema> new_schema;
-    RETURN_NOT_OK(schema_->RemoveField(i, &new_schema));
+    ARROW_ASSIGN_OR_RAISE(auto new_schema, schema_->RemoveField(i));
 
     *out = Table::Make(new_schema, internal::DeleteVectorElement(columns_, i),
                        this->num_rows());
@@ -329,8 +328,7 @@ class SimpleTable : public Table {
       return Status::Invalid("Field type did not match data type");
     }
 
-    std::shared_ptr<Schema> new_schema;
-    RETURN_NOT_OK(schema_->AddField(i, field_arg, &new_schema));
+    ARROW_ASSIGN_OR_RAISE(auto new_schema, schema_->AddField(i, field_arg));
 
     *out =
         Table::Make(new_schema, internal::AddVectorElement(columns_, i, std::move(col)));
@@ -352,8 +350,7 @@ class SimpleTable : public Table {
       return Status::Invalid("Field type did not match data type");
     }
 
-    std::shared_ptr<Schema> new_schema;
-    RETURN_NOT_OK(schema_->SetField(i, field_arg, &new_schema));
+    ARROW_ASSIGN_OR_RAISE(auto new_schema, schema_->SetField(i, field_arg));
     *out = Table::Make(new_schema,
                        internal::ReplaceVectorElement(columns_, i, std::move(col)));
     return Status::OK();

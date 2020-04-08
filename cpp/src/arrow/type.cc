@@ -538,13 +538,16 @@ Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
   ARROW_CHECK_LE(precision, kMaxPrecision);
 }
 
-Status Decimal128Type::Make(int32_t precision, int32_t scale,
-                            std::shared_ptr<DataType>* out) {
+Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_t scale) {
   if (precision < kMinPrecision || precision > kMaxPrecision) {
     return Status::Invalid("Decimal precision out of range: ", precision);
   }
-  *out = std::make_shared<Decimal128Type>(precision, scale);
-  return Status::OK();
+  return std::make_shared<Decimal128Type>(precision, scale);
+}
+
+Status Decimal128Type::Make(int32_t precision, int32_t scale,
+                            std::shared_ptr<DataType>* out) {
+  return Make(precision, scale).Value(out);
 }
 
 // ----------------------------------------------------------------------
@@ -1134,26 +1137,47 @@ std::vector<std::shared_ptr<Field>> Schema::GetAllFieldsByName(
   return result;
 }
 
-Status Schema::AddField(int i, const std::shared_ptr<Field>& field,
-                        std::shared_ptr<Schema>* out) const {
+Result<std::shared_ptr<Schema>> Schema::AddField(
+    int i, const std::shared_ptr<Field>& field) const {
   if (i < 0 || i > this->num_fields()) {
     return Status::Invalid("Invalid column index to add field.");
   }
 
-  *out = std::make_shared<Schema>(internal::AddVectorElement(impl_->fields_, i, field),
+  return std::make_shared<Schema>(internal::AddVectorElement(impl_->fields_, i, field),
                                   impl_->metadata_);
-  return Status::OK();
+}
+
+Result<std::shared_ptr<Schema>> Schema::SetField(
+    int i, const std::shared_ptr<Field>& field) const {
+  if (i < 0 || i > this->num_fields()) {
+    return Status::Invalid("Invalid column index to add field.");
+  }
+
+  return std::make_shared<Schema>(
+      internal::ReplaceVectorElement(impl_->fields_, i, field), impl_->metadata_);
+}
+
+Result<std::shared_ptr<Schema>> Schema::RemoveField(int i) const {
+  if (i < 0 || i >= this->num_fields()) {
+    return Status::Invalid("Invalid column index to remove field.");
+  }
+
+  return std::make_shared<Schema>(internal::DeleteVectorElement(impl_->fields_, i),
+                                  impl_->metadata_);
+}
+
+Status Schema::AddField(int i, const std::shared_ptr<Field>& field,
+                        std::shared_ptr<Schema>* out) const {
+  return AddField(i, field).Value(out);
 }
 
 Status Schema::SetField(int i, const std::shared_ptr<Field>& field,
                         std::shared_ptr<Schema>* out) const {
-  if (i < 0 || i > this->num_fields()) {
-    return Status::Invalid("Invalid column index to add field.");
-  }
+  return SetField(i, field).Value(out);
+}
 
-  *out = std::make_shared<Schema>(
-      internal::ReplaceVectorElement(impl_->fields_, i, field), impl_->metadata_);
-  return Status::OK();
+Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
+  return RemoveField(i).Value(out);
 }
 
 bool Schema::HasMetadata() const {
@@ -1177,16 +1201,6 @@ std::shared_ptr<const KeyValueMetadata> Schema::metadata() const {
 
 std::shared_ptr<Schema> Schema::RemoveMetadata() const {
   return std::make_shared<Schema>(impl_->fields_);
-}
-
-Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
-  if (i < 0 || i >= this->num_fields()) {
-    return Status::Invalid("Invalid column index to remove field.");
-  }
-
-  *out = std::make_shared<Schema>(internal::DeleteVectorElement(impl_->fields_, i),
-                                  impl_->metadata_);
-  return Status::OK();
 }
 
 std::string Schema::ToString(bool show_metadata) const {

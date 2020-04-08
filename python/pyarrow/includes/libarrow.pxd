@@ -398,11 +398,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int num_fields()
         c_string ToString()
 
-        CStatus AddField(int i, const shared_ptr[CField]& field,
-                         shared_ptr[CSchema]* out)
-        CStatus RemoveField(int i, shared_ptr[CSchema]* out)
-        CStatus SetField(int i, const shared_ptr[CField]& field,
-                         shared_ptr[CSchema]* out)
+        CResult[shared_ptr[CSchema]] AddField(int i,
+                                              const shared_ptr[CField]& field)
+        CResult[shared_ptr[CSchema]] RemoveField(int i)
+        CResult[shared_ptr[CSchema]] SetField(int i,
+                                              const shared_ptr[CField]& field)
 
         # Removed const in Cython so don't have to cast to get code to generate
         shared_ptr[CSchema] AddMetadata(

@@ -205,6 +205,19 @@ cdef api object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array):
     return arr
 
 
+cdef api bint pyarrow_is_chunked_array(object array):
+    return isinstance(array, ChunkedArray)
+
+
+cdef api shared_ptr[CChunkedArray] pyarrow_unwrap_chunked_array(object array):
+    cdef ChunkedArray arr
+    if pyarrow_is_chunked_array(array):
+        arr = <ChunkedArray>(array)
+        return arr.sp_chunked_array
+
+    return shared_ptr[CChunkedArray]()
+
+
 cdef api object pyarrow_wrap_chunked_array(
         const shared_ptr[CChunkedArray]& sp_array):
     if sp_array.get() == NULL:

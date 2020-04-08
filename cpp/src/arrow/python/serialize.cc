@@ -494,32 +494,27 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
     RETURN_NOT_OK(builder->AppendDate64(internal::PyDateTime_to_us(datetime)));
   } else if (is_buffer(elem)) {
     RETURN_NOT_OK(builder->AppendBuffer(static_cast<int32_t>(blobs_out->buffers.size())));
-    std::shared_ptr<Buffer> buffer;
-    RETURN_NOT_OK(unwrap_buffer(elem, &buffer));
+    ARROW_ASSIGN_OR_RAISE(auto buffer, unwrap_buffer(elem));
     blobs_out->buffers.push_back(buffer);
   } else if (is_tensor(elem)) {
     RETURN_NOT_OK(builder->AppendTensor(static_cast<int32_t>(blobs_out->tensors.size())));
-    std::shared_ptr<Tensor> tensor;
-    RETURN_NOT_OK(unwrap_tensor(elem, &tensor));
+    ARROW_ASSIGN_OR_RAISE(auto tensor, unwrap_tensor(elem));
     blobs_out->tensors.push_back(tensor);
   } else if (is_sparse_coo_tensor(elem)) {
     RETURN_NOT_OK(builder->AppendSparseCOOTensor(
         static_cast<int32_t>(blobs_out->sparse_tensors.size())));
-    std::shared_ptr<SparseCOOTensor> sparse_coo_tensor;
-    RETURN_NOT_OK(unwrap_sparse_coo_tensor(elem, &sparse_coo_tensor));
-    blobs_out->sparse_tensors.push_back(sparse_coo_tensor);
+    ARROW_ASSIGN_OR_RAISE(auto tensor, unwrap_sparse_coo_tensor(elem));
+    blobs_out->sparse_tensors.push_back(tensor);
   } else if (is_sparse_csr_matrix(elem)) {
     RETURN_NOT_OK(builder->AppendSparseCSRMatrix(
         static_cast<int32_t>(blobs_out->sparse_tensors.size())));
-    std::shared_ptr<SparseCSRMatrix> sparse_csr_matrix;
-    RETURN_NOT_OK(unwrap_sparse_csr_matrix(elem, &sparse_csr_matrix));
-    blobs_out->sparse_tensors.push_back(sparse_csr_matrix);
+    ARROW_ASSIGN_OR_RAISE(auto matrix, unwrap_sparse_csr_matrix(elem));
+    blobs_out->sparse_tensors.push_back(matrix);
   } else if (is_sparse_csc_matrix(elem)) {
     RETURN_NOT_OK(builder->AppendSparseCSCMatrix(
         static_cast<int32_t>(blobs_out->sparse_tensors.size())));
-    std::shared_ptr<SparseCSCMatrix> sparse_csc_matrix;
-    RETURN_NOT_OK(unwrap_sparse_csc_matrix(elem, &sparse_csc_matrix));
-    blobs_out->sparse_tensors.push_back(sparse_csc_matrix);
+    ARROW_ASSIGN_OR_RAISE(auto matrix, unwrap_sparse_csc_matrix(elem));
+    blobs_out->sparse_tensors.push_back(matrix);
   } else {
     // Attempt to serialize the object using the custom callback.
     PyObject* serialized_object;
