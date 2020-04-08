@@ -236,7 +236,7 @@ collect.arrow_dplyr_query <- function(x, ...) {
     df <- Scanner$create(x)$ToTable()
   } else {
     # This is a Table/RecordBatch. See record-batch.R for the [ method
-    df <- x$.data[x$filtered_rows, colnames, keep_na = FALSE]
+    df <- x$.data[x$filtered_rows, x$selected_columns, keep_na = FALSE]
   }
   df <- as.data.frame(df)
   restore_dplyr_features(df, x)
@@ -259,7 +259,9 @@ restore_dplyr_features <- function(df, query) {
   # After pulling data into a data.frame, make sure these features are carried over
 
   # In case variables were renamed, apply those names
-  names(df) <- names(query)
+  if (ncol(df)) {
+    names(df) <- names(query)
+  }
   # Preserve groupings, if present
   if (length(query$group_by_vars)) {
     df <- dplyr::grouped_df(df, dplyr::groups(query))

@@ -479,7 +479,7 @@ Scanner$create <- function(dataset, projection = NULL, filter = TRUE, use_thread
   scanner_builder$Finish()
 }
 
-ScanTask <- R6Class("ScanTask", inherit = Object,
+ScanTask <- R6Class("ScanTask", inherit = ArrowObject,
   public = list(
     Execute = function() map(dataset___ScanTask__get_batches(self), shared_ptr, class = RecordBatch)
   )
