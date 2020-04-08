@@ -339,6 +339,12 @@ class Repo:
 
     def push(self, refs=None, github_token=None):
         github_token = github_token or self.github_token
+        if github_token is None:
+            raise click.ClickException(
+                'Could not determine GitHub token. Please set the '
+                'CROSSBOW_GITHUB_TOKEN environment variable to a '
+                'valid GitHub access token or pass one to --github-token.'
+            )
         callbacks = GitRemoteCallbacks(github_token)
         refs = refs or []
         try:
@@ -1425,7 +1431,7 @@ DEFAULT_QUEUE_PATH = CWD.parents[2] / 'crossbow'
 @click.option('--github-token', '-t', default=None,
               help='OAuth token for GitHub authentication')
 @click.option('--arrow-path', '-a',
-              type=click.Path(exists=True), default=str(DEFAULT_ARROW_PATH),
+              type=click.Path(), default=str(DEFAULT_ARROW_PATH),
               help='Arrow\'s repository path. Defaults to the repository of '
                    'this script')
 @click.option('--queue-path', '-q',
@@ -1440,13 +1446,6 @@ DEFAULT_QUEUE_PATH = CWD.parents[2] / 'crossbow'
 @click.pass_context
 def crossbow(ctx, github_token, arrow_path, queue_path, queue_remote,
              output_file):
-    if github_token is None:
-        raise click.ClickException(
-            'Could not determine GitHub token. Please set the '
-            'CROSSBOW_GITHUB_TOKEN environment variable to a '
-            'valid GitHub access token or pass one to --github-token.'
-        )
-
     ctx.ensure_object(dict)
     ctx.obj['output'] = output_file
     ctx.obj['arrow'] = Repo(arrow_path)
