@@ -197,7 +197,6 @@ inline std::shared_ptr<T> extract(SEXP x) {
 
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/api.h>
-#include <arrow/type_fwd.h>
 #include <arrow/c/bridge.h>
 #include <arrow/compute/api.h>
 #include <arrow/csv/reader.h>
@@ -213,6 +212,7 @@ inline std::shared_ptr<T> extract(SEXP x) {
 #include <arrow/json/reader.h>
 #include <arrow/result.h>
 #include <arrow/type.h>
+#include <arrow/type_fwd.h>
 #include <arrow/util/checked_cast.h>
 #include <arrow/util/compression.h>
 #include <arrow/util/iterator.h>

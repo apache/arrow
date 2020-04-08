@@ -244,7 +244,7 @@ std::vector<std::shared_ptr<ds::ScanTask>> dataset___Scanner__Scan(
     scan_task = VALUE_OR_STOP(st);
     out.push_back(scan_task);
   }
-  return(out);
+  return out;
 }
 
 // [[arrow::export]]
@@ -258,7 +258,7 @@ std::vector<std::shared_ptr<arrow::RecordBatch>> dataset___ScanTask__get_batches
     batch = VALUE_OR_STOP(b);
     out.push_back(batch);
   }
-  return(out);
+  return out;
 }
 
 #endif
