@@ -64,6 +64,7 @@ RUN apt-get update -y -q && \
         libre2-dev \
         libsnappy-dev \
         libssl-dev \
+        libthrift-dev \
         libzstd-dev \
         ninja-build \
         pkg-config \
@@ -80,7 +81,6 @@ RUN apt-get update -y -q && \
 # - flatbuffer is not packaged
 # - libgtest-dev only provide sources
 # - libprotobuf-dev only provide sources
-# - thrift is too old
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
@@ -106,5 +106,4 @@ ENV ARROW_BUILD_TESTS=ON \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXECUTABLES=ON \
     PARQUET_BUILD_EXAMPLES=ON \
-    PATH=/usr/lib/ccache/:$PATH \
-    Thrift_SOURCE=BUNDLED
+    PATH=/usr/lib/ccache/:$PATH

@@ -28,19 +28,26 @@
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
 
+#include <arrow/util/iterator.h>
+
 #include <sstream>
 
 G_BEGIN_DECLS
 
 /**
  * SECTION: record-batch
- * @short_description: Record batch class
+ * @section_id: record-batch
+ * @title: Record batch related classes
+ * @include: arrow-glib/arrow-glib.h
  *
  * #GArrowRecordBatch is a class for record batch. Record batch is
  * similar to #GArrowTable. Record batch also has also zero or more
  * columns and zero or more records.
  *
  * Record batch is used for shared memory IPC.
+ *
+ * #GArrowRecordBatchIterator is a class for iterating record
+ * batches.
  */
 
 typedef struct GArrowRecordBatchPrivate_ {
@@ -48,8 +55,7 @@ typedef struct GArrowRecordBatchPrivate_ {
 } GArrowRecordBatchPrivate;
 
 enum {
-  PROP_0,
-  PROP_RECORD_BATCH
+  PROP_RECORD_BATCH = 1,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatch,
@@ -73,9 +79,9 @@ garrow_record_batch_finalize(GObject *object)
 
 static void
 garrow_record_batch_set_property(GObject *object,
-                          guint prop_id,
-                          const GValue *value,
-                          GParamSpec *pspec)
+                                 guint prop_id,
+                                 const GValue *value,
+                                 GParamSpec *pspec)
 {
   auto priv = GARROW_RECORD_BATCH_GET_PRIVATE(object);
 
@@ -92,9 +98,9 @@ garrow_record_batch_set_property(GObject *object,
 
 static void
 garrow_record_batch_get_property(GObject *object,
-                          guint prop_id,
-                          GValue *value,
-                          GParamSpec *pspec)
+                                 guint prop_id,
+                                 GValue *value,
+                                 GParamSpec *pspec)
 {
   switch (prop_id) {
   default:
@@ -402,6 +408,174 @@ garrow_record_batch_remove_column(GArrowRecordBatch *record_batch,
   }
 }
 
+
+typedef struct GArrowRecordBatchIteratorPrivate_ {
+  arrow::RecordBatchIterator iterator;
+} GArrowRecordBatchIteratorPrivate;
+
+enum {
+  PROP_ITERATOR = 1,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatchIterator,
+                           garrow_record_batch_iterator,
+                           G_TYPE_OBJECT)
+
+#define GARROW_RECORD_BATCH_ITERATOR_GET_PRIVATE(obj)        \
+  static_cast<GArrowRecordBatchIteratorPrivate *>(           \
+     garrow_record_batch_iterator_get_instance_private(      \
+       GARROW_RECORD_BATCH_ITERATOR(obj)))
+
+static void
+garrow_record_batch_iterator_finalize(GObject *object)
+{
+  auto priv = GARROW_RECORD_BATCH_ITERATOR_GET_PRIVATE(object);
+
+  priv->iterator.~Iterator();
+
+  G_OBJECT_CLASS(garrow_record_batch_iterator_parent_class)->finalize(object);
+}
+
+static void
+garrow_record_batch_iterator_set_property(GObject *object,
+                                          guint prop_id,
+                                          const GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto priv = GARROW_RECORD_BATCH_ITERATOR_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_ITERATOR:
+    priv->iterator =
+      std::move(*static_cast<arrow::RecordBatchIterator *>(g_value_get_pointer(value)));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_record_batch_iterator_init(GArrowRecordBatchIterator *object)
+{
+  auto priv = GARROW_RECORD_BATCH_ITERATOR_GET_PRIVATE(object);
+  new(&priv->iterator) arrow::RecordBatchIterator;
+}
+
+static void
+garrow_record_batch_iterator_class_init(GArrowRecordBatchIteratorClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->finalize     = garrow_record_batch_iterator_finalize;
+  gobject_class->set_property = garrow_record_batch_iterator_set_property;
+
+  GParamSpec *spec;
+
+  spec = g_param_spec_pointer("iterator",
+                              "Iterator",
+                              "The raw arrow::RecordBatchIterator",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_ITERATOR, spec);
+}
+
+/**
+ * garrow_record_batch_iterator_new:
+ * @record_batches: (element-type GArrowRecordBatch):
+ *   The record batches.
+ *
+ * Returns: A newly created #GArrowRecordBatchIterator.
+ *
+ * Since: 0.17.0
+ */
+GArrowRecordBatchIterator *
+garrow_record_batch_iterator_new(GList *record_batches)
+{
+  std::vector<std::shared_ptr<arrow::RecordBatch>> arrow_record_batches;
+  for (auto node = record_batches; node; node = node->next) {
+    auto record_batch = GARROW_RECORD_BATCH(node->data);
+    arrow_record_batches.push_back(garrow_record_batch_get_raw(record_batch));
+  }
+
+  auto arrow_iterator = arrow::MakeVectorIterator(arrow_record_batches);
+  return garrow_record_batch_iterator_new_raw(&arrow_iterator);
+}
+
+/**
+ * garrow_record_batch_iterator_next:
+ * @iterator: A #GArrowRecordBatchIterator.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full):
+ *   The next #GArrowRecordBatch, or %NULL when the iterator is completed.
+ *
+ * Since: 0.17.0
+ */
+GArrowRecordBatch *
+garrow_record_batch_iterator_next(GArrowRecordBatchIterator *iterator,
+                                  GError **error)
+{
+  auto priv = GARROW_RECORD_BATCH_ITERATOR_GET_PRIVATE(iterator);
+
+  auto result = priv->iterator.Next();
+  if (garrow::check(error, result, "[record-batch-iterator][next]")) {
+    auto arrow_record_batch = *result;
+    if (arrow_record_batch) {
+      return garrow_record_batch_new_raw(&arrow_record_batch);
+    }
+  }
+  return NULL;
+}
+
+/**
+ * garrow_record_batch_iterator_equal:
+ * @iterator: A #GArrowRecordBatchIterator.
+ * @other_iterator: A #GArrowRecordBatchIterator to be compared.
+ *
+ * Returns: %TRUE if both iterators are the same, %FALSE otherwise.
+ *
+ * Since: 0.17.0
+ */
+gboolean
+garrow_record_batch_iterator_equal(GArrowRecordBatchIterator *iterator,
+                                   GArrowRecordBatchIterator *other_iterator)
+{
+  auto priv = GARROW_RECORD_BATCH_ITERATOR_GET_PRIVATE(iterator);
+  auto priv_other = GARROW_RECORD_BATCH_ITERATOR_GET_PRIVATE(other_iterator);
+  return priv->iterator.Equals(priv_other->iterator);
+}
+
+/**
+ * garrow_record_batch_iterator_to_list:
+ * @iterator: A #GArrowRecordBatchIterator.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (element-type GArrowRecordBatch) (transfer full):
+ *   A #GList contains every moved elements from the iterator.
+ *
+ * Since: 0.17.0
+ */
+GList*
+garrow_record_batch_iterator_to_list(GArrowRecordBatchIterator *iterator,
+                                     GError **error)
+{
+  auto priv = GARROW_RECORD_BATCH_ITERATOR_GET_PRIVATE(iterator);
+  GList *record_batches = NULL;
+  for (auto arrow_record_batch_result : priv->iterator) {
+    if (!garrow::check(error,
+                       arrow_record_batch_result,
+                       "[record-batch-iterator][to-list]")) {
+      g_list_free_full(record_batches, g_object_unref);
+      return NULL;
+    }
+    auto arrow_record_batch = *std::move(arrow_record_batch_result);
+    auto record_batch = garrow_record_batch_new_raw(&arrow_record_batch);
+    record_batches = g_list_prepend(record_batches, record_batch);
+  }
+  return g_list_reverse(record_batches);
+}
+
 G_END_DECLS
 
 GArrowRecordBatch *
@@ -419,4 +593,20 @@ garrow_record_batch_get_raw(GArrowRecordBatch *record_batch)
 {
   auto priv = GARROW_RECORD_BATCH_GET_PRIVATE(record_batch);
   return priv->record_batch;
+}
+
+GArrowRecordBatchIterator *
+garrow_record_batch_iterator_new_raw(arrow::RecordBatchIterator *arrow_iterator)
+{
+  auto iterator = g_object_new(GARROW_TYPE_RECORD_BATCH_ITERATOR,
+                               "iterator", arrow_iterator,
+                               NULL);
+  return GARROW_RECORD_BATCH_ITERATOR(iterator);
+}
+
+arrow::RecordBatchIterator *
+garrow_record_batch_iterator_get_raw(GArrowRecordBatchIterator *iterator)
+{
+  auto priv = GARROW_RECORD_BATCH_ITERATOR_GET_PRIVATE(iterator);
+  return &priv->iterator;
 }

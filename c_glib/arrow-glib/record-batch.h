@@ -71,4 +71,36 @@ GArrowRecordBatch *garrow_record_batch_remove_column(GArrowRecordBatch *record_b
                                                      guint i,
                                                      GError **error);
 
+
+#define GARROW_TYPE_RECORD_BATCH_ITERATOR       \
+  (garrow_record_batch_iterator_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowRecordBatchIterator,
+                         garrow_record_batch_iterator,
+                         GARROW,
+                         RECORD_BATCH_ITERATOR,
+                         GObject)
+struct _GArrowRecordBatchIteratorClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_17
+GArrowRecordBatchIterator *
+garrow_record_batch_iterator_new(GList *record_batches);
+
+GARROW_AVAILABLE_IN_0_17
+GArrowRecordBatch *
+garrow_record_batch_iterator_next(GArrowRecordBatchIterator *iterator,
+                                  GError **error);
+
+GARROW_AVAILABLE_IN_0_17
+gboolean
+garrow_record_batch_iterator_equal(GArrowRecordBatchIterator *iterator,
+                                   GArrowRecordBatchIterator *other_iterator);
+
+GARROW_AVAILABLE_IN_0_17
+GList*
+garrow_record_batch_iterator_to_list(GArrowRecordBatchIterator *iterator,
+                                     GError **error);
+
 G_END_DECLS
