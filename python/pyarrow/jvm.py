@@ -278,6 +278,11 @@ def array(jvm_array):
             " complex types not yet implemented.".format(minor_type_str))
     dtype = field(jvm_array.getField()).type
     length = jvm_array.getValueCount()
+
+    # If JVM has an empty Vector, buffer list will be empty so create manually
+    if length == 0:
+        return pa.array([], type=dtype)
+
     buffers = [jvm_buffer(buf)
                for buf in list(jvm_array.getBuffers(False))]
     null_count = jvm_array.getNullCount()
