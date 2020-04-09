@@ -187,6 +187,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const shared_ptr[CExpression] & partition_expression()
         c_string type_name()
 
+        CResult[shared_ptr[CDataset]] ReplaceSchema(shared_ptr[CSchema])
+
         CResult[shared_ptr[CScannerBuilder]] NewScanWithContext "NewScan"(
             shared_ptr[CScanContext] context)
         CResult[shared_ptr[CScannerBuilder]] NewScan()

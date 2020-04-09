@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -x
+set -ex
 
 : ${ARROW_HOME:=$(pwd)}
 # Make sure it is absolute and exported

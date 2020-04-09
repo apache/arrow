@@ -92,6 +92,30 @@ TEST_F(TestFileSystemDataset, Basic) {
   AssertFilesAre(dataset_, {"A/a", "A/B/b"});
 }
 
+TEST_F(TestFileSystemDataset, ReplaceSchema) {
+  auto schm = schema({field("i32", int32()), field("f64", float64())});
+  auto format = std::make_shared<DummyFileFormat>(schm);
+  ASSERT_OK_AND_ASSIGN(auto dataset,
+                       FileSystemDataset::Make(schm, scalar(true), format, fs_, {}));
+
+  // drop field
+  ASSERT_OK(dataset->ReplaceSchema(schema({field("i32", int32())})).status());
+  // add nullable field (will be materialized as null during projection)
+  ASSERT_OK(dataset->ReplaceSchema(schema({field("str", utf8())})).status());
+  // incompatible type
+  ASSERT_RAISES(TypeError,
+                dataset->ReplaceSchema(schema({field("i32", utf8())})).status());
+  // incompatible nullability
+  ASSERT_RAISES(
+      TypeError,
+      dataset->ReplaceSchema(schema({field("f64", float64(), /*nullable=*/false)}))
+          .status());
+  // add non-nullable field
+  ASSERT_RAISES(TypeError,
+                dataset->ReplaceSchema(schema({field("str", utf8(), /*nullable=*/false)}))
+                    .status());
+}
+
 TEST_F(TestFileSystemDataset, RootPartitionPruning) {
   auto root_partition = ("a"_ == 5).Copy();
   MakeDataset({fs::File("a"), fs::File("b")}, root_partition);

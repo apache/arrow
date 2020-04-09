@@ -97,11 +97,12 @@ class Result;
 
 #define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))
 
-#define ARROW_EXPECT_OK(expr)                                       \
-  do {                                                              \
-    auto _res = (expr);                                             \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res); \
-    EXPECT_TRUE(_st.ok());                                          \
+#define ARROW_EXPECT_OK(expr)                                           \
+  do {                                                                  \
+    auto _res = (expr);                                                 \
+    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);     \
+    EXPECT_TRUE(_st.ok()) << "'" ARROW_STRINGIFY(expr) "' failed with " \
+                          << _st.ToString();                            \
   } while (false)
 
 #define ABORT_NOT_OK(expr)                                          \

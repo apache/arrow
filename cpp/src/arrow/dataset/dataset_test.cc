@@ -52,6 +52,35 @@ TEST_F(TestInMemoryFragment, Scan) {
 
 class TestInMemoryDataset : public DatasetFixtureMixin {};
 
+TEST_F(TestInMemoryDataset, ReplaceSchema) {
+  constexpr int64_t kBatchSize = 1;
+  constexpr int64_t kNumberBatches = 1;
+
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
+
+  auto dataset = std::make_shared<InMemoryDataset>(
+      schema_, RecordBatchVector{static_cast<size_t>(kNumberBatches), batch});
+
+  // drop field
+  ASSERT_OK(dataset->ReplaceSchema(schema({field("i32", int32())})).status());
+  // add field (will be materialized as null during projection)
+  ASSERT_OK(dataset->ReplaceSchema(schema({field("str", utf8())})).status());
+  // incompatible type
+  ASSERT_RAISES(TypeError,
+                dataset->ReplaceSchema(schema({field("i32", utf8())})).status());
+  // incompatible nullability
+  ASSERT_RAISES(
+      TypeError,
+      dataset->ReplaceSchema(schema({field("f64", float64(), /*nullable=*/false)}))
+          .status());
+  // add non-nullable field
+  ASSERT_RAISES(TypeError,
+                dataset->ReplaceSchema(schema({field("str", utf8(), /*nullable=*/false)}))
+                    .status());
+}
+
 TEST_F(TestInMemoryDataset, GetFragments) {
   constexpr int64_t kBatchSize = 1024;
   constexpr int64_t kNumberBatches = 16;
@@ -60,8 +89,6 @@ TEST_F(TestInMemoryDataset, GetFragments) {
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
-  // It is safe to copy fragment multiple time since Scan() does not consume
-  // the internal array.
   auto dataset = std::make_shared<InMemoryDataset>(
       schema_, RecordBatchVector{static_cast<size_t>(kNumberBatches), batch});
 
@@ -69,6 +96,45 @@ TEST_F(TestInMemoryDataset, GetFragments) {
 }
 
 class TestUnionDataset : public DatasetFixtureMixin {};
+
+TEST_F(TestUnionDataset, ReplaceSchema) {
+  constexpr int64_t kBatchSize = 1;
+  constexpr int64_t kNumberBatches = 1;
+
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+
+  std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(kNumberBatches),
+                                                    batch};
+
+  DatasetVector children = {
+      std::make_shared<InMemoryDataset>(schema_, batches),
+      std::make_shared<InMemoryDataset>(schema_, batches),
+  };
+
+  const int64_t total_batches = children.size() * kNumberBatches;
+  auto reader = ConstantArrayGenerator::Repeat(total_batches, batch);
+
+  ASSERT_OK_AND_ASSIGN(auto dataset, UnionDataset::Make(schema_, children));
+  AssertDatasetEquals(reader.get(), dataset.get());
+
+  // drop field
+  ASSERT_OK(dataset->ReplaceSchema(schema({field("i32", int32())})).status());
+  // add nullable field (will be materialized as null during projection)
+  ASSERT_OK(dataset->ReplaceSchema(schema({field("str", utf8())})).status());
+  // incompatible type
+  ASSERT_RAISES(TypeError,
+                dataset->ReplaceSchema(schema({field("i32", utf8())})).status());
+  // incompatible nullability
+  ASSERT_RAISES(
+      TypeError,
+      dataset->ReplaceSchema(schema({field("f64", float64(), /*nullable=*/false)}))
+          .status());
+  // add non-nullable field
+  ASSERT_RAISES(TypeError,
+                dataset->ReplaceSchema(schema({field("str", utf8(), /*nullable=*/false)}))
+                    .status());
+}
 
 TEST_F(TestUnionDataset, GetFragments) {
   constexpr int64_t kBatchSize = 1024;
@@ -105,9 +171,7 @@ TEST_F(TestUnionDataset, GetFragments) {
   AssertDatasetEquals(reader.get(), root_dataset.get());
 }
 
-class TestDataset : public DatasetFixtureMixin {};
-
-TEST_F(TestDataset, TrivialScan) {
+TEST_F(TestUnionDataset, TrivialScan) {
   constexpr int64_t kNumberBatches = 16;
   constexpr int64_t kBatchSize = 1024;
 
@@ -127,6 +191,57 @@ TEST_F(TestDataset, TrivialScan) {
 
   ASSERT_OK_AND_ASSIGN(auto dataset, UnionDataset::Make(schema_, children));
   AssertDatasetEquals(reader.get(), dataset.get());
+}
+
+TEST(TestProjector, CheckProjectable) {
+  struct Assert {
+    explicit Assert(FieldVector from) : from_(from) {}
+    Schema from_;
+
+    void ProjectableTo(FieldVector to) {
+      ARROW_EXPECT_OK(CheckProjectable(from_, Schema(to)));
+    }
+
+    void NotProjectableTo(FieldVector to, std::string substr = "") {
+      EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, testing::HasSubstr(substr),
+                                      CheckProjectable(from_, Schema(to)));
+    }
+  };
+
+  auto i8 = field("i8", int8());
+  auto u16 = field("u16", uint16());
+  auto str = field("str", utf8());
+  auto i8_req = field("i8", int8(), false);
+  auto u16_req = field("u16", uint16(), false);
+  auto str_req = field("str", utf8(), false);
+
+  // trivial
+  Assert({}).ProjectableTo({});
+  Assert({i8}).ProjectableTo({i8});
+  Assert({i8, u16_req}).ProjectableTo({i8, u16_req});
+
+  // reorder
+  Assert({i8, u16}).ProjectableTo({u16, i8});
+  Assert({i8, str, u16}).ProjectableTo({u16, i8, str});
+
+  // drop field(s)
+  Assert({i8}).ProjectableTo({});
+
+  // add field(s)
+  Assert({}).ProjectableTo({i8});
+  Assert({}).ProjectableTo({i8, u16});
+  Assert({}).NotProjectableTo({u16_req},
+                              "is not nullable and does not exist in origin schema");
+  Assert({i8}).NotProjectableTo({u16_req, i8});
+
+  // change nullability
+  Assert({i8}).NotProjectableTo({i8_req},
+                                "not nullable but is not required in origin schema");
+  Assert({i8_req}).ProjectableTo({i8});
+
+  // change field type
+  Assert({i8}).NotProjectableTo({field("i8", utf8())},
+                                "fields had matching names but differing types");
 }
 
 TEST(TestProjector, MismatchedType) {
@@ -229,8 +344,8 @@ TEST(TestProjector, NonTrivial) {
   AssertBatchesEqual(*expected_batch, *reconciled_batch);
 }
 
-class TestEndToEnd : public TestDataset {
-  void SetUp() {
+class TestEndToEnd : public TestUnionDataset {
+  void SetUp() override {
     bool nullable = false;
     SetSchema({
         field("region", utf8(), nullable),
@@ -377,9 +492,9 @@ TEST_F(TestEndToEnd, EndToEndSingleDataset) {
   ASSERT_OK(scanner_builder->Project(columns));
 
   // An optional filter expression may also be specified. The filter expression
-  // is evaluated against input rows. Only rows for which the filter evaluates to true are
-  // yielded. Predicate pushdown optimizations are applied using partition information if
-  // available.
+  // is evaluated against input rows. Only rows for which the filter evaluates to true
+  // are yielded. Predicate pushdown optimizations are applied using partition
+  // information if available.
   //
   // This API decouples predicate pushdown from the Dataset implementation
   // and partition discovery.
@@ -413,7 +528,7 @@ inline std::shared_ptr<Schema> SchemaFromNames(const std::vector<std::string> na
   return schema(fields);
 }
 
-class TestSchemaUnification : public TestDataset {
+class TestSchemaUnification : public TestUnionDataset {
  public:
   using i32 = util::optional<int32_t>;
   using PathAndContent = std::vector<std::pair<std::string, std::string>>;
@@ -487,7 +602,8 @@ class TestSchemaUnification : public TestDataset {
     ASSERT_OK_AND_ASSIGN(auto ds1, get_source("/dataset/alpha", {ds1_df1, ds1_df2}));
     ASSERT_OK_AND_ASSIGN(auto ds2, get_source("/dataset/beta", {ds2_df1, ds2_df2}));
 
-    // FIXME(bkietz) this is a hack: allow differing schemas for the purposes of this test
+    // FIXME(bkietz) this is a hack: allow differing schemas for the purposes of this
+    // test
     class DisparateSchemasUnionDataset : public UnionDataset {
      public:
       DisparateSchemasUnionDataset(std::shared_ptr<Schema> schema, DatasetVector children)

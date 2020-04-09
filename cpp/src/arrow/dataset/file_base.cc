@@ -118,6 +118,14 @@ Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
       std::move(filesystem), std::move(forest), std::move(partitions)));
 }
 
+Result<std::shared_ptr<Dataset>> FileSystemDataset::ReplaceSchema(
+    std::shared_ptr<Schema> schema) const {
+  RETURN_NOT_OK(CheckProjectable(*schema_, *schema));
+  return std::shared_ptr<Dataset>(
+      new FileSystemDataset(std::move(schema), partition_expression_, format_,
+                            filesystem_, forest_, partitions_));
+}
+
 std::vector<std::string> FileSystemDataset::files() const {
   std::vector<std::string> files;
 
