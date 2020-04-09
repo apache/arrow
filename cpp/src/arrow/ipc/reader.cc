@@ -949,7 +949,7 @@ Status Receiver::RecordBatchReceived(std::shared_ptr<RecordBatch> record_batch) 
   return Status::NotImplemented("RecordBatch receiver isn't implemented");
 }
 
-class StreamDecoder::StreamDecoderImpl : public MessageReceiver {
+class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
  private:
   enum State {
     SCHEMA,
@@ -961,7 +961,7 @@ class StreamDecoder::StreamDecoderImpl : public MessageReceiver {
  public:
   explicit StreamDecoderImpl(std::shared_ptr<Receiver> receiver,
                                         const IpcReadOptions& options)
-      : MessageReceiver(),
+      : MessageDecoderListener(),
         receiver_(std::move(receiver)),
         options_(options),
         state_(State::SCHEMA),
@@ -973,7 +973,7 @@ class StreamDecoder::StreamDecoderImpl : public MessageReceiver {
         dictionary_memo_(),
         schema_() {}
 
-  Status Received(std::unique_ptr<Message> message) override {
+  Status OnMessageDecoded(std::unique_ptr<Message> message) override {
     switch (state_) {
       case State::SCHEMA:
         ARROW_RETURN_NOT_OK(SchemaMessageReceived(std::move(message)));
@@ -987,11 +987,12 @@ class StreamDecoder::StreamDecoderImpl : public MessageReceiver {
       case State::EOS:
         break;
     }
-    if (message_decoder_.state() == MessageDecoder::State::EOS) {
-      state_ = State::EOS;
-      ARROW_RETURN_NOT_OK(receiver_->EosReceived());
-    }
     return Status::OK();
+  }
+
+  Status OnEOS() override {
+    state_ = State::EOS;
+    return receiver_->EosReceived();
   }
 
   Status Consume(const uint8_t* data, int64_t size) {

@@ -180,45 +180,74 @@ class ARROW_EXPORT Message {
 
 ARROW_EXPORT std::string FormatMessageType(Message::Type type);
 
-/// \class MessageReceiver
-/// \brief An abstract class to receive read messages from
-/// MessageEmitter.
+/// \class MessageDecoderListener
+/// \brief An abstract class to listen events from MessageDecoder.
 ///
 /// This API is EXPERIMENTAL.
 ///
 /// \since 0.17.0
-class ARROW_EXPORT MessageReceiver {
+class ARROW_EXPORT MessageDecoderListener {
  public:
-  virtual ~MessageReceiver() = default;
+  virtual ~MessageDecoderListener() = default;
 
-  /// \brief Receive a message.
+  /// \brief Called when a message is decoded.
   ///
-  /// MessageEmitter calls this method when it read a message. This
-  /// method is called multiple times when the target stream stream
-  /// has multiple messages.
+  /// MessageDecoder calls this method when it decodes a message. This
+  /// method is called multiple times when the target stream has
+  /// multiple messages.
   ///
-  /// \param[in] message a read message
+  /// \param[in] message a decoded message
   /// \return Status
-  virtual Status Received(std::unique_ptr<Message> message) = 0;
+  virtual Status OnMessageDecoded(std::unique_ptr<Message> message) = 0;
+
+  /// \brief Called when the decoder state is changed to
+  /// MessageDecoder::State::INITIAL.
+  ///
+  /// \return Status
+  virtual Status OnInitial();
+
+  /// \brief Called when the decoder state is changed to
+  /// MessageDecoder::State::METADATA_LENGTH.
+  ///
+  /// \return Status
+  virtual Status OnMetadataLength();
+
+  /// \brief Called when the decoder state is changed to
+  /// MessageDecoder::State::METADATA.
+  ///
+  /// \return Status
+  virtual Status OnMetadata();
+
+  /// \brief Called when the decoder state is changed to
+  /// MessageDecoder::State::BODY.
+  ///
+  /// \return Status
+  virtual Status OnBody();
+
+  /// \brief Called when the decoder state is changed to
+  /// MessageDecoder::State::EOS.
+  ///
+  /// \return Status
+  virtual Status OnEOS();
 };
 
-/// \class MessageReceiverAssign
-/// \brief Assign a message read by MessageEmitter.
+/// \class MessageDecoderListenerAssign
+/// \brief Assign a message decoded by MessageDecoder.
 ///
 /// This API is EXPERIMENTAL.
 ///
 /// \since 0.17.0
-class ARROW_EXPORT MessageReceiverAssign : public MessageReceiver {
+class ARROW_EXPORT MessageDecoderListenerAssign : public MessageDecoderListener {
  public:
-  /// \brief Construct a message receiver that assign a read message
-  /// to the specified location.
+  /// \brief Construct a listener that assign a decoded message to the
+  /// specified location.
   ///
   /// \param[in] message a location to store the received message
-  explicit MessageReceiverAssign(std::unique_ptr<Message>* message) : message_(message) {}
+  explicit MessageDecoderListenerAssign(std::unique_ptr<Message>* message) : message_(message) {}
 
-  virtual ~MessageReceiverAssign() = default;
+  virtual ~MessageDecoderListenerAssign() = default;
 
-  Status Received(std::unique_ptr<Message> message) override {
+  Status OnMessageDecoded(std::unique_ptr<Message> message) override {
     *message_ = std::move(message);
     return Status::OK();
   }
@@ -226,7 +255,7 @@ class ARROW_EXPORT MessageReceiverAssign : public MessageReceiver {
  private:
   std::unique_ptr<Message>* message_;
 
-  ARROW_DISALLOW_COPY_AND_ASSIGN(MessageReceiverAssign);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(MessageDecoderListenerAssign);
 };
 
 /// \class MessageDecoder
@@ -262,10 +291,11 @@ class ARROW_EXPORT MessageDecoder {
 
   /// \brief Construct a message decoder.
   ///
-  /// \param[in] receiver a MessageReceiver that receives decoded messages
+  /// \param[in] listener a MessageDecoderListener that responds events from
+  /// the decoder
   /// \param[in] pool an optional MemoryPool to copy metadata on the
   /// CPU, if required
-  explicit MessageDecoder(std::shared_ptr<MessageReceiver> receiver,
+  explicit MessageDecoder(std::shared_ptr<MessageDecoderListener> listener,
                           MemoryPool* pool = default_memory_pool());
 
   /// \brief Construct a message decoder with the specified state.
@@ -273,13 +303,14 @@ class ARROW_EXPORT MessageDecoder {
   /// This is a construct for advanced users that know how to decode
   /// Message.
   ///
-  /// \param[in] receiver a MessageReceiver that receives decoded messages
+  /// \param[in] listener a MessageDecoderListener that responds events from
+  /// the decoder
   /// \param[in] initial_state an initial state of the decode
   /// \param[in] initial_next_required_size the number of bytes needed
   /// to run the next action
   /// \param[in] pool an optional MemoryPool to copy metadata on the
   /// CPU, if required
-  MessageDecoder(std::shared_ptr<MessageReceiver> receiver, State initial_state,
+  MessageDecoder(std::shared_ptr<MessageDecoderListener> listener, State initial_state,
                  int64_t initial_next_required_size,
                  MemoryPool* pool = default_memory_pool());
 
@@ -288,8 +319,17 @@ class ARROW_EXPORT MessageDecoder {
   /// \brief Feed data to the decoder as a raw data.
   ///
   /// If the decoder can decode one or more messages by the data, the
-  /// decoder calls receiver->Receive() with a decoded message
-  /// multiple times.
+  /// decoder calls listener->OnMessageDecoded() with a decoded
+  /// message multiple times.
+  ///
+  /// If the state of the decoder is changed, corresponding callbacks
+  /// on listener is called:
+  ///
+  /// * MessageDecoder::State::INITIAL: listener->OnInitial()
+  /// * MessageDecoder::State::METADATA_LENGTH: listener->OnMetadataLength()
+  /// * MessageDecoder::State::METADATA: listener->OnMetadata()
+  /// * MessageDecoder::State::BODY: listener->OnBody()
+  /// * MessageDecoder::State::EOS: listener->OnEOS()
   ///
   /// \param[in] data a raw data to be processed. This data isn't
   /// copied. The passed memory must be kept alive through message
@@ -301,8 +341,8 @@ class ARROW_EXPORT MessageDecoder {
   /// \brief Feed data to the decoder as a Buffer.
   ///
   /// If the decoder can decode one or more messages by the Buffer,
-  /// the decoder calls receiver->Receive() with a decoded message
-  /// multiple times.
+  /// the decoder calls listener->OnMessageDecoded() with a decoded
+  /// message multiple times.
   ///
   /// \param[in] buffer a Buffer to be processed.
   /// \return Status

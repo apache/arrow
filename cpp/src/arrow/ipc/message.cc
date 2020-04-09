@@ -185,8 +185,8 @@ Status CheckMetadataAndGetBodyLength(const Buffer& metadata, int64_t* body_lengt
 Result<std::unique_ptr<Message>> Message::ReadFrom(std::shared_ptr<Buffer> metadata,
                                                    io::InputStream* stream) {
   std::unique_ptr<Message> result;
-  auto receiver = std::make_shared<MessageReceiverAssign>(&result);
-  MessageDecoder decoder(receiver, MessageDecoder::State::METADATA, metadata->size());
+  auto listener = std::make_shared<MessageDecoderListenerAssign>(&result);
+  MessageDecoder decoder(listener, MessageDecoder::State::METADATA, metadata->size());
   ARROW_RETURN_NOT_OK(decoder.Consume(metadata));
 
   ARROW_ASSIGN_OR_RAISE(auto body, stream->Read(decoder.next_required_size()));
@@ -202,8 +202,8 @@ Result<std::unique_ptr<Message>> Message::ReadFrom(const int64_t offset,
                                                    std::shared_ptr<Buffer> metadata,
                                                    io::RandomAccessFile* file) {
   std::unique_ptr<Message> result;
-  auto receiver = std::make_shared<MessageReceiverAssign>(&result);
-  MessageDecoder decoder(receiver, MessageDecoder::State::METADATA, metadata->size());
+  auto listener = std::make_shared<MessageDecoderListenerAssign>(&result);
+  MessageDecoder decoder(listener, MessageDecoder::State::METADATA, metadata->size());
   ARROW_RETURN_NOT_OK(decoder.Consume(metadata));
 
   ARROW_ASSIGN_OR_RAISE(auto body, file->ReadAt(offset, decoder.next_required_size()));
@@ -267,8 +267,8 @@ std::string FormatMessageType(Message::Type type) {
 Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_length,
                                              io::RandomAccessFile* file) {
   std::unique_ptr<Message> result;
-  auto receiver = std::make_shared<MessageReceiverAssign>(&result);
-  MessageDecoder decoder(receiver);
+  auto listener = std::make_shared<MessageDecoderListenerAssign>(&result);
+  MessageDecoder decoder(listener);
 
   if (metadata_length < decoder.next_required_size()) {
     return Status::Invalid("metadata_length should be at least ",
@@ -336,8 +336,8 @@ Status CheckAligned(io::FileInterface* stream, int32_t alignment) {
 
 Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* file, MemoryPool* pool) {
   std::unique_ptr<Message> message;
-  auto receiver = std::make_shared<MessageReceiverAssign>(&message);
-  MessageDecoder decoder(receiver, pool);
+  auto listener = std::make_shared<MessageDecoderListenerAssign>(&message);
+  MessageDecoder decoder(listener, pool);
 
   {
     uint8_t continuation[sizeof(int32_t)];
@@ -425,21 +425,45 @@ Status WriteMessage(const Buffer& message, const IpcWriteOptions& options,
 // ----------------------------------------------------------------------
 // Implement MessageDecoder
 
+Status MessageDecoderListener::OnInitial() {return Status::OK();}
+Status MessageDecoderListener::OnMetadataLength() {return Status::OK();}
+Status MessageDecoderListener::OnMetadata() {return Status::OK();}
+Status MessageDecoderListener::OnBody() {return Status::OK();}
+Status MessageDecoderListener::OnEOS() {return Status::OK();}
+
 static constexpr auto kMessageDecoderNextRequiredSizeInitial = sizeof(int32_t);
 static constexpr auto kMessageDecoderNextRequiredSizeMetadataLength = sizeof(int32_t);
 
 class MessageDecoder::MessageDecoderImpl {
  public:
-  explicit MessageDecoderImpl(std::shared_ptr<MessageReceiver> receiver,
+  explicit MessageDecoderImpl(std::shared_ptr<MessageDecoderListener> listener,
                               State initial_state, int64_t initial_next_required_size,
                               MemoryPool* pool)
-      : receiver_(std::move(receiver)),
+      : listener_(std::move(listener)),
         pool_(pool),
         state_(initial_state),
         next_required_size_(initial_next_required_size),
         chunks_(),
         buffered_size_(0),
-        metadata_(nullptr) {}
+        metadata_(nullptr) {
+    switch (state_) {
+    case State::INITIAL:
+      listener_->OnInitial();
+      break;
+    case State::METADATA_LENGTH:
+      listener_->OnMetadataLength();
+      break;
+    case State::METADATA:
+      listener_->OnMetadata();
+      break;
+    case State::BODY:
+      listener_->OnBody();
+      break;
+    case State::EOS:
+      listener_->OnEOS();
+      break;
+    }
+  }
 
   Status ConsumeData(const uint8_t* data, int64_t size) {
     if (buffered_size_ == 0) {
@@ -574,17 +598,20 @@ class MessageDecoder::MessageDecoderImpl {
     if (continuation == internal::kIpcContinuationToken) {
       state_ = State::METADATA_LENGTH;
       next_required_size_ = kMessageDecoderNextRequiredSizeMetadataLength;
+      RETURN_NOT_OK(listener_->OnMetadataLength());
       // Valid IPC message, read the message length now
       return Status::OK();
     } else if (continuation == 0) {
       state_ = State::EOS;
       next_required_size_ = 0;
+      RETURN_NOT_OK(listener_->OnEOS());
       return Status::OK();
     } else {
       state_ = State::METADATA;
       // ARROW-6314: Backwards compatibility for reading old IPC
       // messages produced prior to version 0.15.0
       next_required_size_ = continuation;
+      RETURN_NOT_OK(listener_->OnMetadata());
       return Status::OK();
     }
   }
@@ -608,10 +635,12 @@ class MessageDecoder::MessageDecoderImpl {
     if (metadata_length == 0) {
       state_ = State::EOS;
       next_required_size_ = 0;
+      RETURN_NOT_OK(listener_->OnEOS());
       return Status::OK();
     } else {
       state_ = State::METADATA;
       next_required_size_ = metadata_length;
+      RETURN_NOT_OK(listener_->OnMetadata());
       return Status::OK();
     }
   }
@@ -661,6 +690,7 @@ class MessageDecoder::MessageDecoderImpl {
 
     state_ = State::BODY;
     next_required_size_ = body_length;
+    RETURN_NOT_OK(listener_->OnBody());
     if (next_required_size_ == 0) {
       ARROW_ASSIGN_OR_RAISE(auto body, AllocateBuffer(0, pool_));
       std::shared_ptr<Buffer> shared_body(body.release());
@@ -699,9 +729,10 @@ class MessageDecoder::MessageDecoderImpl {
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Message> message,
                           Message::Open(metadata_, *buffer));
 
+    RETURN_NOT_OK(listener_->OnMessageDecoded(std::move(message)));
     state_ = State::INITIAL;
     next_required_size_ = kMessageDecoderNextRequiredSizeInitial;
-    RETURN_NOT_OK(receiver_->Received(std::move(message)));
+    RETURN_NOT_OK(listener_->OnInitial());
     return Status::OK();
   }
 
@@ -747,7 +778,7 @@ class MessageDecoder::MessageDecoderImpl {
     return Status::OK();
   }
 
-  std::shared_ptr<MessageReceiver> receiver_;
+  std::shared_ptr<MessageDecoderListener> listener_;
   MemoryPool* pool_;
   State state_;
   int64_t next_required_size_;
@@ -756,16 +787,16 @@ class MessageDecoder::MessageDecoderImpl {
   std::shared_ptr<Buffer> metadata_;  // Must be CPU buffer
 };
 
-MessageDecoder::MessageDecoder(std::shared_ptr<MessageReceiver> receiver,
+MessageDecoder::MessageDecoder(std::shared_ptr<MessageDecoderListener> listener,
                                MemoryPool* pool) {
-  impl_.reset(new MessageDecoderImpl(std::move(receiver), State::INITIAL,
+  impl_.reset(new MessageDecoderImpl(std::move(listener), State::INITIAL,
                                      kMessageDecoderNextRequiredSizeInitial, pool));
 }
 
-MessageDecoder::MessageDecoder(std::shared_ptr<MessageReceiver> receiver,
+MessageDecoder::MessageDecoder(std::shared_ptr<MessageDecoderListener> listener,
                                State initial_state, int64_t initial_next_required_size,
                                MemoryPool* pool) {
-  impl_.reset(new MessageDecoderImpl(std::move(receiver), initial_state,
+  impl_.reset(new MessageDecoderImpl(std::move(listener), initial_state,
                                      initial_next_required_size, pool));
 }
 
