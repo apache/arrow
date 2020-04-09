@@ -99,7 +99,17 @@ class FlightIpcMessageReader : public ipc::MessageReader {
       std::shared_ptr<Buffer>* last_metadata)
       : reader_(reader), app_metadata_(last_metadata) {}
 
-  Status ReadNextMessage(std::unique_ptr<ipc::Message>* out) override {
+  const FlightDescriptor& descriptor() const { return descriptor_; }
+
+  ::arrow::Result<std::unique_ptr<ipc::Message>> ReadNextMessage() override {
+    std::unique_ptr<ipc::Message> out;
+    RETURN_NOT_OK(GetNextMessage(&out));
+    return out;
+  }
+
+ protected:
+  Status GetNextMessage(std::unique_ptr<ipc::Message>* out) {
+    // TODO: Migrate to Result APIs
     if (stream_finished_) {
       *out = nullptr;
       *app_metadata_ = nullptr;
@@ -131,9 +141,6 @@ class FlightIpcMessageReader : public ipc::MessageReader {
     return Status::OK();
   }
 
-  const FlightDescriptor& descriptor() const { return descriptor_; }
-
- protected:
   grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader_;
   bool stream_finished_ = false;
   bool first_message_ = true;

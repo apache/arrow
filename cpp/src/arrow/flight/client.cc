@@ -38,6 +38,7 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
@@ -279,7 +280,15 @@ class GrpcIpcMessageReader : public ipc::MessageReader {
         stream_(std::move(stream)),
         stream_finished_(false) {}
 
-  Status ReadNextMessage(std::unique_ptr<ipc::Message>* out) override {
+  ::arrow::Result<std::unique_ptr<ipc::Message>> ReadNextMessage() override {
+    std::unique_ptr<ipc::Message> out;
+    RETURN_NOT_OK(GetNextMessage(&out));
+    return out;
+  }
+
+ protected:
+  Status GetNextMessage(std::unique_ptr<ipc::Message>* out) {
+    // TODO: Use Result APIs
     if (stream_finished_) {
       *out = nullptr;
       flight_reader_->last_app_metadata_ = nullptr;
@@ -303,7 +312,6 @@ class GrpcIpcMessageReader : public ipc::MessageReader {
     return Status::OK();
   }
 
- protected:
   Status OverrideWithServerError(Status&& st) {
     // Get the gRPC status if not OK, to propagate any server error message
     RETURN_NOT_OK(internal::FromGrpcStatus(stream_->Finish(), &rpc_->context));
@@ -484,8 +492,8 @@ Status GrpcStreamWriter::Open(
   std::unique_ptr<GrpcStreamWriter> result(new GrpcStreamWriter(writer));
   std::unique_ptr<ipc::internal::IpcPayloadWriter> payload_writer(new DoPutPayloadWriter(
       descriptor, std::move(rpc), std::move(response), read_mutex, writer, result.get()));
-  RETURN_NOT_OK(ipc::internal::OpenRecordBatchWriter(std::move(payload_writer), schema,
-                                                     &result->batch_writer_));
+  ARROW_ASSIGN_OR_RAISE(result->batch_writer_, ipc::internal::OpenRecordBatchWriter(
+                                                   std::move(payload_writer), schema));
   *out = std::move(result);
   return Status::OK();
 }

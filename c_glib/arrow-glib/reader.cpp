@@ -507,13 +507,11 @@ garrow_record_batch_file_reader_read_record_batch(GArrowRecordBatchFileReader *r
                                                   GError **error)
 {
   auto arrow_reader = garrow_record_batch_file_reader_get_raw(reader);
-  std::shared_ptr<arrow::RecordBatch> arrow_record_batch;
-  auto status = arrow_reader->ReadRecordBatch(i, &arrow_record_batch);
+  auto arrow_record_batch = arrow_reader->ReadRecordBatch(i);
 
-  if (garrow_error_check(error,
-                         status,
-                         "[record-batch-file-reader][read-record-batch]")) {
-    return garrow_record_batch_new_raw(&arrow_record_batch);
+  if (garrow::check(error, arrow_record_batch,
+                    "[record-batch-file-reader][read-record-batch]")) {
+    return garrow_record_batch_new_raw(&(*arrow_record_batch));
   } else {
     return NULL;
   }

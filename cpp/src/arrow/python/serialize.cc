@@ -739,8 +739,8 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
 
   // For each tensor, get a metadata buffer and a buffer for the body
   for (const auto& tensor : this->tensors) {
-    std::unique_ptr<ipc::Message> message;
-    RETURN_NOT_OK(ipc::GetTensorMessage(*tensor, memory_pool, &message));
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<ipc::Message> message,
+                          ipc::GetTensorMessage(*tensor, memory_pool));
     RETURN_NOT_OK(PushBuffer(message->metadata()));
     RETURN_NOT_OK(PushBuffer(message->body()));
   }
@@ -758,8 +758,8 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
 
   // For each ndarray, get a metadata buffer and a buffer for the body
   for (const auto& ndarray : this->ndarrays) {
-    std::unique_ptr<ipc::Message> message;
-    RETURN_NOT_OK(ipc::GetTensorMessage(*ndarray, memory_pool, &message));
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<ipc::Message> message,
+                          ipc::GetTensorMessage(*ndarray, memory_pool));
     RETURN_NOT_OK(PushBuffer(message->metadata()));
     RETURN_NOT_OK(PushBuffer(message->body()));
   }

@@ -185,9 +185,13 @@ class ARROW_EXPORT RecordBatchFileReader {
   /// if the input source supports zero-copy.
   ///
   /// \param[in] i the index of the record batch to return
-  /// \param[out] batch the read batch
-  /// \return Status
-  virtual Status ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) = 0;
+  /// \return the read batch
+  virtual Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(int i) = 0;
+
+  ARROW_DEPRECATED("Use version with Result return value")
+  Status ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
+    return ReadRecordBatch(i).Value(batch);
+  }
 };
 
 // Generic read functions; does not copy data if the input supports zero copy reads

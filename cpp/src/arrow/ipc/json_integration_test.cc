@@ -97,8 +97,7 @@ static Status ConvertArrowToJson(const std::string& arrow_path,
   RETURN_NOT_OK(internal::json::JsonWriter::Open(reader->schema(), &writer));
 
   for (int i = 0; i < reader->num_record_batches(); ++i) {
-    std::shared_ptr<RecordBatch> batch;
-    RETURN_NOT_OK(reader->ReadRecordBatch(i, &batch));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> batch, reader->ReadRecordBatch(i));
     RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   }
 
@@ -152,7 +151,7 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
   std::shared_ptr<RecordBatch> json_batch;
   for (int i = 0; i < json_nbatches; ++i) {
     RETURN_NOT_OK(json_reader->ReadRecordBatch(i, &json_batch));
-    RETURN_NOT_OK(arrow_reader->ReadRecordBatch(i, &arrow_batch));
+    ARROW_ASSIGN_OR_RAISE(arrow_batch, arrow_reader->ReadRecordBatch(i));
     Status valid_st = json_batch->ValidateFull();
     if (!valid_st.ok()) {
       return Status::Invalid("JSON record batch ", i, " did not validate:\n",

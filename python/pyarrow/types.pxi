@@ -1531,8 +1531,8 @@ cdef class Schema:
             arg_dict_memo = &temp_memo
 
         with nogil:
-            check_status(SerializeSchema(deref(self.schema), arg_dict_memo,
-                                         pool, &buffer))
+            buffer = GetResultValue(SerializeSchema(deref(self.schema),
+                                                    arg_dict_memo, pool))
         return pyarrow_wrap_buffer(buffer)
 
     def remove_metadata(self):

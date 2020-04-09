@@ -1225,9 +1225,8 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         int64_t body_length
 
     cdef cppclass CMessage" arrow::ipc::Message":
-        CStatus Open(const shared_ptr[CBuffer]& metadata,
-                     const shared_ptr[CBuffer]& body,
-                     unique_ptr[CMessage]* out)
+        CResult[unique_ptr[CMessage]] Open(shared_ptr[CBuffer] metadata,
+                                           shared_ptr[CBuffer] body)
 
         shared_ptr[CBuffer] body()
 
@@ -1247,7 +1246,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         @staticmethod
         unique_ptr[CMessageReader] Open(const shared_ptr[CInputStream]& stream)
 
-        CStatus ReadNextMessage(unique_ptr[CMessage]* out)
+        CResult[unique_ptr[CMessage]] ReadNextMessage()
 
     cdef cppclass CRecordBatchWriter" arrow::ipc::RecordBatchWriter":
         CStatus Close()
@@ -1289,7 +1288,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
         int num_record_batches()
 
-        CStatus ReadRecordBatch(int i, shared_ptr[CRecordBatch]* batch)
+        CResult[shared_ptr[CRecordBatch]] ReadRecordBatch(int i)
 
     CResult[unique_ptr[CMessage]] ReadMessage(CInputStream* stream,
                                               CMemoryPool* pool)
@@ -1308,13 +1307,12 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         CDictionaryMemo* dictionary_memo,
         const CIpcReadOptions& options)
 
-    CStatus SerializeSchema(const CSchema& schema,
-                            CDictionaryMemo* dictionary_memo,
-                            CMemoryPool* pool, shared_ptr[CBuffer]* out)
+    CResult[shared_ptr[CBuffer]] SerializeSchema(
+        const CSchema& schema, CDictionaryMemo* dictionary_memo,
+        CMemoryPool* pool)
 
-    CStatus SerializeRecordBatch(const CRecordBatch& schema,
-                                 const CIpcWriteOptions& options,
-                                 shared_ptr[CBuffer]* out)
+    CResult[shared_ptr[CBuffer]] SerializeRecordBatch(
+        const CRecordBatch& schema, const CIpcWriteOptions& options)
 
     CResult[shared_ptr[CSchema]] ReadSchema(CInputStream* stream,
                                             CDictionaryMemo* dictionary_memo)

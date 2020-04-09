@@ -45,9 +45,8 @@ namespace ipc {
 
 class Message::MessageImpl {
  public:
-  explicit MessageImpl(const std::shared_ptr<Buffer>& metadata,
-                       const std::shared_ptr<Buffer>& body)
-      : metadata_(metadata), message_(nullptr), body_(body) {}
+  explicit MessageImpl(std::shared_ptr<Buffer> metadata, std::shared_ptr<Buffer> body)
+      : metadata_(std::move(metadata)), message_(nullptr), body_(std::move(body)) {}
 
   Status Open() {
     RETURN_NOT_OK(
@@ -112,15 +111,15 @@ class Message::MessageImpl {
   std::shared_ptr<Buffer> body_;
 };
 
-Message::Message(const std::shared_ptr<Buffer>& metadata,
-                 const std::shared_ptr<Buffer>& body) {
-  impl_.reset(new MessageImpl(metadata, body));
+Message::Message(std::shared_ptr<Buffer> metadata, std::shared_ptr<Buffer> body) {
+  impl_.reset(new MessageImpl(std::move(metadata), std::move(body)));
 }
 
-Status Message::Open(const std::shared_ptr<Buffer>& metadata,
-                     const std::shared_ptr<Buffer>& body, std::unique_ptr<Message>* out) {
-  out->reset(new Message(metadata, body));
-  return (*out)->impl_->Open();
+Result<std::unique_ptr<Message>> Message::Open(std::shared_ptr<Buffer> metadata,
+                                               std::shared_ptr<Buffer> body) {
+  std::unique_ptr<Message> result(new Message(std::move(metadata), std::move(body)));
+  RETURN_NOT_OK(result->impl_->Open());
+  return std::move(result);
 }
 
 Message::~Message() {}
@@ -182,8 +181,8 @@ Status CheckMetadataAndGetBodyLength(const Buffer& metadata, int64_t* body_lengt
   return Status::OK();
 }
 
-Status Message::ReadFrom(std::shared_ptr<Buffer> metadata, io::InputStream* stream,
-                         std::unique_ptr<Message>* out) {
+Result<std::unique_ptr<Message>> Message::ReadFrom(std::shared_ptr<Buffer> metadata,
+                                                   io::InputStream* stream) {
   RETURN_NOT_OK(MaybeAlignMetadata(&metadata));
   int64_t body_length = -1;
   RETURN_NOT_OK(CheckMetadataAndGetBodyLength(*metadata, &body_length));
@@ -194,11 +193,12 @@ Status Message::ReadFrom(std::shared_ptr<Buffer> metadata, io::InputStream* stre
                            " bytes for message body, got ", body->size());
   }
 
-  return Message::Open(metadata, body, out);
+  return Message::Open(metadata, body);
 }
 
-Status Message::ReadFrom(const int64_t offset, std::shared_ptr<Buffer> metadata,
-                         io::RandomAccessFile* file, std::unique_ptr<Message>* out) {
+Result<std::unique_ptr<Message>> Message::ReadFrom(const int64_t offset,
+                                                   std::shared_ptr<Buffer> metadata,
+                                                   io::RandomAccessFile* file) {
   RETURN_NOT_OK(MaybeAlignMetadata(&metadata));
   int64_t body_length = -1;
   RETURN_NOT_OK(CheckMetadataAndGetBodyLength(*metadata, &body_length));
@@ -209,7 +209,7 @@ Status Message::ReadFrom(const int64_t offset, std::shared_ptr<Buffer> metadata,
                            " bytes for message body, got ", body->size());
   }
 
-  return Message::Open(metadata, body, out);
+  return Message::Open(metadata, body);
 }
 
 Status WritePadding(io::OutputStream* stream, int64_t nbytes) {
@@ -261,8 +261,8 @@ std::string FormatMessageType(Message::Type type) {
   return "unknown";
 }
 
-Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile* file,
-                   std::unique_ptr<Message>* message) {
+Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_length,
+                                             io::RandomAccessFile* file) {
   if (static_cast<size_t>(metadata_length) < sizeof(int32_t)) {
     return Status::Invalid("metadata_length should be at least 4");
   }
@@ -309,7 +309,7 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
 
   std::shared_ptr<Buffer> metadata =
       SliceBuffer(buffer, prefix_size, buffer->size() - prefix_size);
-  return Message::ReadFrom(offset + metadata_length, metadata, file, message);
+  return Message::ReadFrom(offset + metadata_length, metadata, file);
 }
 
 Status AlignStream(io::InputStream* stream, int32_t alignment) {
@@ -336,9 +336,7 @@ Status CheckAligned(io::FileInterface* stream, int32_t alignment) {
   }
 }
 
-namespace {
-
-Result<std::unique_ptr<Message>> DoReadMessage(io::InputStream* file, MemoryPool* pool) {
+Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* file, MemoryPool* pool) {
   int32_t continuation = 0;
   ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, file->Read(sizeof(int32_t), &continuation));
 
@@ -374,19 +372,7 @@ Result<std::unique_ptr<Message>> DoReadMessage(io::InputStream* file, MemoryPool
   ARROW_ASSIGN_OR_RAISE(metadata,
                         Buffer::ViewOrCopy(metadata, CPUDevice::memory_manager(pool)));
 
-  std::unique_ptr<Message> message;
-  RETURN_NOT_OK(Message::ReadFrom(metadata, file, &message));
-  return std::move(message);
-}
-
-}  // namespace
-
-Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* out) {
-  return DoReadMessage(file, default_memory_pool()).Value(out);
-}
-
-Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* file, MemoryPool* pool) {
-  return DoReadMessage(file, pool);
+  return Message::ReadFrom(metadata, file);
 }
 
 Status WriteMessage(const Buffer& message, const IpcWriteOptions& options,
@@ -436,9 +422,7 @@ class InputStreamMessageReader : public MessageReader {
 
   ~InputStreamMessageReader() {}
 
-  Status ReadNextMessage(std::unique_ptr<Message>* message) {
-    return ReadMessage(stream_, message);
-  }
+  Result<std::unique_ptr<Message>> ReadNextMessage() { return ReadMessage(stream_); }
 
  private:
   io::InputStream* stream_;
@@ -452,6 +436,18 @@ std::unique_ptr<MessageReader> MessageReader::Open(io::InputStream* stream) {
 std::unique_ptr<MessageReader> MessageReader::Open(
     const std::shared_ptr<io::InputStream>& owned_stream) {
   return std::unique_ptr<MessageReader>(new InputStreamMessageReader(owned_stream));
+}
+
+// ----------------------------------------------------------------------
+// Deprecated functions
+
+Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile* file,
+                   std::unique_ptr<Message>* message) {
+  return ReadMessage(offset, metadata_length, file).Value(message);
+}
+
+Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* out) {
+  return ReadMessage(file, default_memory_pool()).Value(out);
 }
 
 }  // namespace ipc
