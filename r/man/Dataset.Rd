@@ -30,8 +30,14 @@ file system.
 For the \code{DatasetFactory$create()} factory method, see \code{\link[=dataset_factory]{dataset_factory()}}, an
 alias for it. A \code{DatasetFactory} has:
 \itemize{
-\item \verb{$Inspect()}: Returns a common \link{Schema} for all data discovered by the factory.
-\item \verb{$Finish(schema)}: Returns a \code{Dataset}
+\item \verb{$Inspect(unify_schemas)}: If \code{unify_schemas} is \code{TRUE}, all fragments
+will be scanned and a unified \link{Schema} will be created from them; if \code{FALSE}
+(default), only the first fragment will be inspected for its schema. Use this
+fast path when you know and trust that all fragments have an identical schema.
+\item \verb{$Finish(schema, unify_schemas)}: Returns a \code{Dataset}. If \code{schema} is provided,
+it will be used for the \code{Dataset}; if omitted, a \code{Schema} will be created from
+inspecting the fragments (files) in the dataset, following \code{unify_schemas}
+as described above.
 }
 
 \code{FileSystemDatasetFactory$create()} is a lower-level factory method and

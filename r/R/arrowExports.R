@@ -376,16 +376,16 @@ dataset___FileSystemDataset__files <- function(dataset){
     .Call(`_arrow_dataset___FileSystemDataset__files` , dataset)
 }
 
-dataset___DatasetFactory__Finish1 <- function(factory){
-    .Call(`_arrow_dataset___DatasetFactory__Finish1` , factory)
+dataset___DatasetFactory__Finish1 <- function(factory, unify_schemas){
+    .Call(`_arrow_dataset___DatasetFactory__Finish1` , factory, unify_schemas)
 }
 
 dataset___DatasetFactory__Finish2 <- function(factory, schema){
     .Call(`_arrow_dataset___DatasetFactory__Finish2` , factory, schema)
 }
 
-dataset___DatasetFactory__Inspect <- function(factory){
-    .Call(`_arrow_dataset___DatasetFactory__Inspect` , factory)
+dataset___DatasetFactory__Inspect <- function(factory, unify_schemas){
+    .Call(`_arrow_dataset___DatasetFactory__Inspect` , factory, unify_schemas)
 }
 
 dataset___UnionDatasetFactory__Make <- function(children){
@@ -1402,6 +1402,10 @@ Schema__serialize <- function(schema){
 
 Schema__Equals <- function(schema, other, check_metadata){
     .Call(`_arrow_Schema__Equals` , schema, other, check_metadata)
+}
+
+arrow__UnifySchemas <- function(schemas){
+    .Call(`_arrow_arrow__UnifySchemas` , schemas)
 }
 
 Table__from_dataframe <- function(tbl){
