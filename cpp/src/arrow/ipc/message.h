@@ -183,6 +183,10 @@ ARROW_EXPORT std::string FormatMessageType(Message::Type type);
 /// \class MessageReceiver
 /// \brief An abstract class to receive read messages from
 /// MessageEmitter.
+///
+/// This API is EXPERIMENTAL.
+///
+/// \since 0.17.0
 class ARROW_EXPORT MessageReceiver {
  public:
   virtual ~MessageReceiver() = default;
@@ -200,6 +204,10 @@ class ARROW_EXPORT MessageReceiver {
 
 /// \class MessageReceiverAssign
 /// \brief Assign a message read by MessageEmitter.
+///
+/// This API is EXPERIMENTAL.
+///
+/// \since 0.17.0
 class ARROW_EXPORT MessageReceiverAssign : public MessageReceiver {
  public:
   /// \brief Construct a message receiver that assign a read message
@@ -223,6 +231,10 @@ class ARROW_EXPORT MessageReceiverAssign : public MessageReceiver {
 
 /// \class MessageDecoder
 /// \brief Push style message decoder that receives data from user.
+///
+/// This API is EXPERIMENTAL.
+///
+/// \since 0.17.0
 class ARROW_EXPORT MessageDecoder {
  public:
   /// \brief State for reading a message

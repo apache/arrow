@@ -200,6 +200,10 @@ class ARROW_EXPORT RecordBatchFileReader {
 /// \brief A general receiver class to receive objects.
 ///
 /// You must implement receiver methods for objects you want to receive.
+///
+/// This API is EXPERIMENTAL.
+///
+/// \since 0.17.0
 class ARROW_EXPORT Receiver {
  public:
   virtual ~Receiver() = default;
@@ -237,6 +241,10 @@ class ARROW_EXPORT Receiver {
 
 /// \class RecordBatchReceiverCollect
 /// \brief Collect record batches read by RecordBatchStreamEmitter.
+///
+/// This API is EXPERIMENTAL.
+///
+/// \since 0.17.0
 class ARROW_EXPORT RecordBatchReceiverCollect : public Receiver {
  public:
   RecordBatchReceiverCollect() : schema_(), record_batches_() {}
@@ -270,7 +278,11 @@ class ARROW_EXPORT RecordBatchReceiverCollect : public Receiver {
 ///
 /// This class decodes the Apache Arrow IPC streaming format data.
 ///
+/// This API is EXPERIMENTAL.
+///
 /// \see https://arrow.apache.org/docs/format/Columnar.html#ipc-streaming-format
+///
+/// \since 0.17.0
 class ARROW_EXPORT StreamDecoder {
  public:
   /// \brief Construct a stream decoder.
