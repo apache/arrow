@@ -1091,10 +1091,13 @@ split_row_groups : bool, default False
 validate_schema : bool, default True
     Check that individual file schemas are all the same / compatible.
 filters : List[Tuple] or List[List[Tuple]] or None (default)
-    List of filters to apply, like ``[[('x', '=', 0), ...], ...]``. This
-    implements partition-level (hive) filtering, i.e., to prevent the
-    loading of some files of the dataset, as well as file-level filtering
-    (if `use_legacy_dataset` is set to False).
+    Rows which do not match the filter predicate will be removed from scanned
+    data. Partition keys embedded in a nested directory structure will be
+    exploited to avoid loading files at all if they contain no matching rows.
+    If `use_legacy_dataset` is True, filters can only reference partition
+    keys and only a hive-style directory structure is supported. When
+    setting `use_legacy_dataset` to False, also within-file level filtering
+    and different partitioning schemes are supported.
 
     {1}
 metadata_nthreads: int, default 1
@@ -1407,7 +1410,24 @@ class _ParquetDatasetV2:
         return self._dataset.schema
 
     def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
+        """
+        Read (multiple) Parquet files as a single pyarrow.Table.
 
+        Parameters
+        ----------
+        columns : List[str]
+            Names of columns to read from the dataset.
+        use_threads : bool, default True
+            Perform multi-threaded column reads.
+        use_pandas_metadata : bool, default False
+            If True and file has custom pandas schema metadata, ensure that
+            index columns are also loaded.
+
+        Returns
+        -------
+        pyarrow.Table
+            Content of the file as a table (of columns).
+        """
         # if use_pandas_metadata, we need to include index columns in the
         # column selection, to be able to restore those in the pandas DataFrame
         metadata = self._dataset.schema.metadata
@@ -1463,10 +1483,13 @@ metadata : FileMetaData
     If separately computed
 {1}
 filters : List[Tuple] or List[List[Tuple]] or None (default)
-    List of filters to apply, like ``[[('x', '=', 0), ...], ...]``. This
-    implements partition-level (hive) filtering, i.e., to prevent the
-    loading of some files of the dataset if `source` is a directory, as well
-    as file-level filtering (if `use_legacy_dataset` is set to False).
+    Rows which do not match the filter predicate will be removed from scanned
+    data. Partition keys embedded in a nested directory structure will be
+    exploited to avoid loading files at all if they contain no matching rows.
+    If `use_legacy_dataset` is True, filters can only reference partition
+    keys and only a hive-style directory structure is supported. When
+    setting `use_legacy_dataset` to False, also within-file level filtering
+    and different partitioning schemes are supported.
 
     {3}
 
