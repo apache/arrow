@@ -141,7 +141,7 @@ static void EmitStream(benchmark::State& state) {  // NOLINT non-const reference
 
   ipc::DictionaryMemo empty_memo;
   while (state.KeepRunning()) {
-    class RecordBatchReceiverNull : public Receiver {
+    class RecordBatchReceiverNull : public ipc::Receiver {
       Status RecordBatchReceived(std::shared_ptr<RecordBatch> batch) override {
         return Status::OK();
       }

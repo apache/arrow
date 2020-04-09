@@ -941,6 +941,14 @@ Result<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::Open(
   return result;
 }
 
+Status Receiver::EosReceived() { return Status::OK(); }
+
+Status Receiver::SchemaReceived(std::shared_ptr<Schema> schema) { return Status::OK(); }
+
+Status Receiver::RecordBatchReceived(std::shared_ptr<RecordBatch> record_batch) {
+  return Status::NotImplemented("RecordBatch receiver isn't implemented");
+}
+
 class StreamDecoder::StreamDecoderImpl : public MessageReceiver {
  private:
   enum State {

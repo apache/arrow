@@ -30,7 +30,6 @@
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/receiver.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -195,6 +194,45 @@ class ARROW_EXPORT RecordBatchFileReader {
   Status ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
     return ReadRecordBatch(i).Value(batch);
   }
+};
+
+/// \class Receiver
+/// \brief A general receiver class to receive objects.
+///
+/// You must implement receiver methods for objects you want to receive.
+class ARROW_EXPORT Receiver {
+ public:
+  virtual ~Receiver() = default;
+
+  /// \brief Called when end-of-stream is received.
+  ///
+  /// The default implementation just returns arrow::Status::OK().
+  ///
+  /// \return Status
+  ///
+  /// \see RecordBatchStreamEmitter
+  virtual Status EosReceived();
+
+  /// \brief Called when a record batch is received.
+  ///
+  /// The default implementation just returns
+  /// arrow::Status::NotImplemented().
+  ///
+  /// \param[in] record_batch a record batch received
+  /// \return Status
+  ///
+  /// \see RecordBatchStreamEmitter
+  virtual Status RecordBatchReceived(std::shared_ptr<RecordBatch> record_batch);
+
+  /// \brief Called when a schema is received.
+  ///
+  /// The default implementation just returns arrow::Status::OK().
+  ///
+  /// \param[in] schema a schema received
+  /// \return Status
+  ///
+  /// \see RecordBatchStreamEmitter
+  virtual Status SchemaReceived(std::shared_ptr<Schema> schema);
 };
 
 /// \class RecordBatchReceiverCollect
