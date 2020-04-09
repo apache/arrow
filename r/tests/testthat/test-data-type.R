@@ -314,12 +314,11 @@ test_that("timestamp type input validation", {
   )
   expect_error(
     timestamp(timezone = 1231231),
-    "timezone is not a character vector"
+    "timezone is not a string"
   )
   expect_error(
     timestamp(timezone = c("not", "a", "timezone")),
-    "length(timezone) not equal to 1",
-    fixed = TRUE
+    "timezone is not a string"
   )
 })
 

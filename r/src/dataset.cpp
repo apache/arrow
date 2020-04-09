@@ -42,6 +42,13 @@ std::string dataset___Dataset__type_name(const std::shared_ptr<ds::Dataset>& dat
 }
 
 // [[arrow::export]]
+std::shared_ptr<ds::Dataset> dataset___Dataset__ReplaceSchema(
+    const std::shared_ptr<ds::Dataset>& dataset,
+    const std::shared_ptr<arrow::Schema>& schm) {
+  return VALUE_OR_STOP(dataset->ReplaceSchema(schm));
+}
+
+// [[arrow::export]]
 std::shared_ptr<ds::UnionDataset> dataset___UnionDataset__create(
     const ds::DatasetVector& datasets, const std::shared_ptr<arrow::Schema>& schm) {
   return VALUE_OR_STOP(ds::UnionDataset::Make(schm, datasets));

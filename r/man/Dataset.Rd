@@ -15,12 +15,7 @@ can accelerate queries that only touch some partitions (files).
 A \code{Dataset} contains one or more \code{Fragments}, such as files, of potentially
 differing type and partitioning.
 
-The \code{Dataset$create()} method instantiates a \code{Dataset} which wraps child Datasets.
-It takes the following arguments:
-\itemize{
-\item \code{children}: a list of \link{Dataset} objects
-\item \code{schema}: a \link{Schema}
-}
+For \code{Dataset$create()}, see \code{\link[=open_dataset]{open_dataset()}}, which is an alias for it.
 
 \code{DatasetFactory} is used to provide finer control over the creation of \code{Dataset}s.
 }
@@ -56,7 +51,10 @@ the Arrow file format)
 A \code{Dataset} has the following methods:
 \itemize{
 \item \verb{$NewScan()}: Returns a \link{ScannerBuilder} for building a query
-\item \verb{$schema}: Active binding, returns the \link{Schema} of the Dataset
+\item \verb{$schema}: Active binding that returns the \link{Schema} of the Dataset; you
+may also replace the dataset's schema by using \code{ds$schema <- new_schema}.
+This method currently supports only adding, removing, or reordering
+fields in the schema: you cannot alter or cast the field types.
 }
 
 \code{FileSystemDataset} has the following methods:
