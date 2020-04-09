@@ -243,7 +243,8 @@ class ARROW_EXPORT MessageDecoderListenerAssign : public MessageDecoderListener 
   /// specified location.
   ///
   /// \param[in] message a location to store the received message
-  explicit MessageDecoderListenerAssign(std::unique_ptr<Message>* message) : message_(message) {}
+  explicit MessageDecoderListenerAssign(std::unique_ptr<Message>* message)
+      : message_(message) {}
 
   virtual ~MessageDecoderListenerAssign() = default;
 

@@ -146,9 +146,8 @@ static void DecodeStream(benchmark::State& state) {  // NOLINT non-const referen
         return Status::OK();
       }
     } receiver;
-    ipc::StreamDecoder decoder(
-        std::shared_ptr<RecordBatchReceiverNull>(&receiver),
-        ipc::IpcReadOptions::Defaults());
+    ipc::StreamDecoder decoder(std::shared_ptr<RecordBatchReceiverNull>(&receiver),
+                               ipc::IpcReadOptions::Defaults());
     ABORT_NOT_OK(decoder.Consume(buffer));
   }
   state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize);

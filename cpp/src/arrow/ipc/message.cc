@@ -334,7 +334,7 @@ Status CheckAligned(io::FileInterface* stream, int32_t alignment) {
   }
 }
 
-Status DecodeMessage(MessageDecoder*decoder, io::InputStream* file) {
+Status DecodeMessage(MessageDecoder* decoder, io::InputStream* file) {
   if (decoder->state() == MessageDecoder::State::INITIAL) {
     uint8_t continuation[sizeof(int32_t)];
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, file->Read(sizeof(int32_t), &continuation));
@@ -374,7 +374,8 @@ Status DecodeMessage(MessageDecoder*decoder, io::InputStream* file) {
   if (decoder->state() == MessageDecoder::State::BODY) {
     ARROW_ASSIGN_OR_RAISE(auto body, file->Read(decoder->next_required_size()));
     if (body->size() < decoder->next_required_size()) {
-      return Status::IOError("Expected to be able to read ", decoder->next_required_size(),
+      return Status::IOError("Expected to be able to read ",
+                             decoder->next_required_size(),
                              " bytes for message body, got ", body->size());
     }
     ARROW_RETURN_NOT_OK(decoder->Consume(body));
@@ -435,11 +436,11 @@ Status WriteMessage(const Buffer& message, const IpcWriteOptions& options,
 // ----------------------------------------------------------------------
 // Implement MessageDecoder
 
-Status MessageDecoderListener::OnInitial() {return Status::OK();}
-Status MessageDecoderListener::OnMetadataLength() {return Status::OK();}
-Status MessageDecoderListener::OnMetadata() {return Status::OK();}
-Status MessageDecoderListener::OnBody() {return Status::OK();}
-Status MessageDecoderListener::OnEOS() {return Status::OK();}
+Status MessageDecoderListener::OnInitial() { return Status::OK(); }
+Status MessageDecoderListener::OnMetadataLength() { return Status::OK(); }
+Status MessageDecoderListener::OnMetadata() { return Status::OK(); }
+Status MessageDecoderListener::OnBody() { return Status::OK(); }
+Status MessageDecoderListener::OnEOS() { return Status::OK(); }
 
 static constexpr auto kMessageDecoderNextRequiredSizeInitial = sizeof(int32_t);
 static constexpr auto kMessageDecoderNextRequiredSizeMetadataLength = sizeof(int32_t);
@@ -457,21 +458,21 @@ class MessageDecoder::MessageDecoderImpl {
         buffered_size_(0),
         metadata_(nullptr) {
     switch (state_) {
-    case State::INITIAL:
-      listener_->OnInitial();
-      break;
-    case State::METADATA_LENGTH:
-      listener_->OnMetadataLength();
-      break;
-    case State::METADATA:
-      listener_->OnMetadata();
-      break;
-    case State::BODY:
-      listener_->OnBody();
-      break;
-    case State::EOS:
-      listener_->OnEOS();
-      break;
+      case State::INITIAL:
+        listener_->OnInitial();
+        break;
+      case State::METADATA_LENGTH:
+        listener_->OnMetadataLength();
+        break;
+      case State::METADATA:
+        listener_->OnMetadata();
+        break;
+      case State::BODY:
+        listener_->OnBody();
+        break;
+      case State::EOS:
+        listener_->OnEOS();
+        break;
     }
   }
 
@@ -830,11 +831,11 @@ MessageDecoder::State MessageDecoder::state() const { return impl_->state(); }
 /// \brief Implementation of MessageReader that reads from InputStream
 class InputStreamMessageReader : public MessageReader, public MessageDecoderListener {
  public:
-  explicit InputStreamMessageReader(io::InputStream* stream) :
-    stream_(stream),
-    owned_stream_(),
-    message_(),
-    decoder_(std::shared_ptr<InputStreamMessageReader>(this, [](void*) {})) {}
+  explicit InputStreamMessageReader(io::InputStream* stream)
+      : stream_(stream),
+        owned_stream_(),
+        message_(),
+        decoder_(std::shared_ptr<InputStreamMessageReader>(this, [](void*) {})) {}
 
   explicit InputStreamMessageReader(const std::shared_ptr<io::InputStream>& owned_stream)
       : InputStreamMessageReader(owned_stream.get()) {

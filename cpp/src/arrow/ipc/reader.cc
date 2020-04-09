@@ -960,14 +960,13 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
 
  public:
   explicit StreamDecoderImpl(std::shared_ptr<Receiver> receiver,
-                                        const IpcReadOptions& options)
+                             const IpcReadOptions& options)
       : MessageDecoderListener(),
         receiver_(std::move(receiver)),
         options_(options),
         state_(State::SCHEMA),
-        message_decoder_(
-            std::shared_ptr<StreamDecoderImpl>(this, [](void*) {}),
-            options_.memory_pool),
+        message_decoder_(std::shared_ptr<StreamDecoderImpl>(this, [](void*) {}),
+                         options_.memory_pool),
         field_inclusion_mask_(),
         n_required_dictionaries_(0),
         dictionary_memo_(),
@@ -1061,7 +1060,7 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
 };
 
 StreamDecoder::StreamDecoder(std::shared_ptr<Receiver> receiver,
-                                                   const IpcReadOptions& options) {
+                             const IpcReadOptions& options) {
   impl_.reset(new StreamDecoderImpl(std::move(receiver), options));
 }
 
@@ -1074,13 +1073,9 @@ Status StreamDecoder::Consume(std::shared_ptr<Buffer> buffer) {
   return impl_->Consume(std::move(buffer));
 }
 
-std::shared_ptr<Schema> StreamDecoder::schema() const {
-  return impl_->schema();
-}
+std::shared_ptr<Schema> StreamDecoder::schema() const { return impl_->schema(); }
 
-int64_t StreamDecoder::next_required_size() const {
-  return impl_->next_required_size();
-}
+int64_t StreamDecoder::next_required_size() const { return impl_->next_required_size(); }
 
 Result<std::shared_ptr<Schema>> ReadSchema(io::InputStream* stream,
                                            DictionaryMemo* dictionary_memo) {
