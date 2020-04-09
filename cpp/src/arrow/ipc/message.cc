@@ -334,60 +334,70 @@ Status CheckAligned(io::FileInterface* stream, int32_t alignment) {
   }
 }
 
-Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* file, MemoryPool* pool) {
-  std::unique_ptr<Message> message;
-  auto listener = std::make_shared<MessageDecoderListenerAssign>(&message);
-  MessageDecoder decoder(listener, pool);
-
-  {
+Status DecodeMessage(MessageDecoder*decoder, io::InputStream* file) {
+  if (decoder->state() == MessageDecoder::State::INITIAL) {
     uint8_t continuation[sizeof(int32_t)];
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, file->Read(sizeof(int32_t), &continuation));
     if (bytes_read == 0) {
       // EOS without indication
-      return nullptr;
-    } else if (bytes_read != decoder.next_required_size()) {
+      return Status::OK();
+    } else if (bytes_read != decoder->next_required_size()) {
       return Status::Invalid("Corrupted message, only ", bytes_read, " bytes available");
     }
-    ARROW_RETURN_NOT_OK(decoder.Consume(continuation, bytes_read));
+    ARROW_RETURN_NOT_OK(decoder->Consume(continuation, bytes_read));
   }
 
-  if (decoder.state() == MessageDecoder::State::METADATA_LENGTH) {
+  if (decoder->state() == MessageDecoder::State::METADATA_LENGTH) {
     // Valid IPC message, read the message length now
     uint8_t metadata_length[sizeof(int32_t)];
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
                           file->Read(sizeof(int32_t), &metadata_length));
-    if (bytes_read != decoder.next_required_size()) {
+    if (bytes_read != decoder->next_required_size()) {
       return Status::Invalid("Corrupted metadata length, only ", bytes_read,
                              " bytes available");
     }
-    ARROW_RETURN_NOT_OK(decoder.Consume(metadata_length, bytes_read));
+    ARROW_RETURN_NOT_OK(decoder->Consume(metadata_length, bytes_read));
   }
 
-  if (decoder.state() == MessageDecoder::State::EOS) {
-    return nullptr;
+  if (decoder->state() == MessageDecoder::State::EOS) {
+    return Status::OK();
   }
 
-  auto metadata_length = decoder.next_required_size();
+  auto metadata_length = decoder->next_required_size();
   ARROW_ASSIGN_OR_RAISE(auto metadata, file->Read(metadata_length));
   if (metadata->size() != metadata_length) {
     return Status::Invalid("Expected to read ", metadata_length, " metadata bytes, but ",
                            "only read ", metadata->size());
   }
-  RETURN_NOT_OK(decoder.Consume(metadata));
+  ARROW_RETURN_NOT_OK(decoder->Consume(metadata));
 
-  if (decoder.state() == MessageDecoder::State::BODY) {
-    ARROW_ASSIGN_OR_RAISE(auto body, file->Read(decoder.next_required_size()));
-    if (body->size() < decoder.next_required_size()) {
-      return Status::IOError("Expected to be able to read ", decoder.next_required_size(),
+  if (decoder->state() == MessageDecoder::State::BODY) {
+    ARROW_ASSIGN_OR_RAISE(auto body, file->Read(decoder->next_required_size()));
+    if (body->size() < decoder->next_required_size()) {
+      return Status::IOError("Expected to be able to read ", decoder->next_required_size(),
                              " bytes for message body, got ", body->size());
     }
-    ARROW_RETURN_NOT_OK(decoder.Consume(body));
+    ARROW_RETURN_NOT_OK(decoder->Consume(body));
   }
 
-  if (!message) {
-    return Status::Invalid("Failed to read message");
+  if (decoder->state() == MessageDecoder::State::INITIAL ||
+      decoder->state() == MessageDecoder::State::EOS) {
+    return Status::OK();
+  } else {
+    return Status::Invalid("Failed to decode message");
   }
-  return std::move(message);
+}
+
+Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* file, MemoryPool* pool) {
+  std::unique_ptr<Message> message;
+  auto listener = std::make_shared<MessageDecoderListenerAssign>(&message);
+  MessageDecoder decoder(listener, pool);
+  ARROW_RETURN_NOT_OK(DecodeMessage(&decoder, file));
+  if (!message) {
+    return nullptr;
+  } else {
+    return std::move(message);
+  }
 }
 
 Status WriteMessage(const Buffer& message, const IpcWriteOptions& options,
@@ -818,9 +828,13 @@ MessageDecoder::State MessageDecoder::state() const { return impl_->state(); }
 // Implement InputStream message reader
 
 /// \brief Implementation of MessageReader that reads from InputStream
-class InputStreamMessageReader : public MessageReader {
+class InputStreamMessageReader : public MessageReader, public MessageDecoderListener {
  public:
-  explicit InputStreamMessageReader(io::InputStream* stream) : stream_(stream) {}
+  explicit InputStreamMessageReader(io::InputStream* stream) :
+    stream_(stream),
+    owned_stream_(),
+    message_(),
+    decoder_(std::shared_ptr<InputStreamMessageReader>(this, [](void*) {})) {}
 
   explicit InputStreamMessageReader(const std::shared_ptr<io::InputStream>& owned_stream)
       : InputStreamMessageReader(owned_stream.get()) {
@@ -829,11 +843,21 @@ class InputStreamMessageReader : public MessageReader {
 
   ~InputStreamMessageReader() {}
 
-  Result<std::unique_ptr<Message>> ReadNextMessage() { return ReadMessage(stream_); }
+  Status OnMessageDecoded(std::unique_ptr<Message> message) override {
+    message_ = std::move(message);
+    return Status::OK();
+  }
+
+  Result<std::unique_ptr<Message>> ReadNextMessage() {
+    ARROW_RETURN_NOT_OK(DecodeMessage(&decoder_, stream_));
+    return std::move(message_);
+  }
 
  private:
   io::InputStream* stream_;
   std::shared_ptr<io::InputStream> owned_stream_;
+  std::unique_ptr<Message> message_;
+  MessageDecoder decoder_;
 };
 
 std::unique_ptr<MessageReader> MessageReader::Open(io::InputStream* stream) {

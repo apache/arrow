@@ -528,6 +528,19 @@ ARROW_EXPORT
 Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* stream,
                                              MemoryPool* pool = default_memory_pool());
 
+/// \brief Feed data from InputStream to MessageDecoder to decode an
+/// encapsulated IPC message (metadata and body)
+///
+/// This API is EXPERIMENTAL.
+///
+/// \param[in] decoder a decoder
+/// \param[in] stream an input stream
+/// \return Status
+///
+/// \since 0.17.0
+ARROW_EXPORT
+Status DecodeMessage(MessageDecoder* decoder, io::InputStream* stream);
+
 /// Write encapsulated IPC message Does not make assumptions about
 /// whether the stream is aligned already. Can write legacy (pre
 /// version 0.15.0) IPC message if option set
