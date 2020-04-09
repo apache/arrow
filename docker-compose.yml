@@ -80,7 +80,6 @@ x-ccache: &ccache
   CCACHE_DIR: /build/ccache
 
 services:
-
   ################################# C++ #######################################
   # Release build:
   #   docker-compose run -e ARROW_BUILD_TYPE=release conda-cpp|debian-cpp|...
