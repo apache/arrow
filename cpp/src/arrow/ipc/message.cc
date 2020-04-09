@@ -195,7 +195,7 @@ Result<std::unique_ptr<Message>> Message::ReadFrom(std::shared_ptr<Buffer> metad
                            " bytes for message body, got ", body->size());
   }
   RETURN_NOT_OK(emitter.Consume(body));
-  return result;
+  return std::move(result);
 }
 
 Result<std::unique_ptr<Message>> Message::ReadFrom(const int64_t offset,
@@ -212,7 +212,7 @@ Result<std::unique_ptr<Message>> Message::ReadFrom(const int64_t offset,
                            " bytes for message body, got ", body->size());
   }
   RETURN_NOT_OK(emitter.Consume(body));
-  return result;
+  return std::move(result);
 }
 
 Status WritePadding(io::OutputStream* stream, int64_t nbytes) {
@@ -387,7 +387,7 @@ Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* file, MemoryPool* 
   if (!message) {
     return Status::Invalid("Failed to read message");
   }
-  return message;
+  return std::move(message);
 }
 
 Status WriteMessage(const Buffer& message, const IpcWriteOptions& options,
