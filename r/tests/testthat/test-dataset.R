@@ -206,6 +206,21 @@ test_that("Dataset with multiple file formats", {
   )
 })
 
+test_that("map_batches", {
+  ds <- open_dataset(dataset_dir, partitioning = "part")
+  expect_equivalent(
+    ds %>%
+      filter(int > 5) %>%
+      select(int, lgl) %>%
+      map_batches(
+        ~summarize(.,
+          min_int = min(int)
+        )
+      ),
+    tibble(min_int = c(6L, 101L))
+  )
+})
+
 test_that("partitioning = NULL to ignore partition information (but why?)", {
   ds <- open_dataset(hive_dir, partitioning = NULL)
   expect_identical(names(ds), names(df1)) # i.e. not c(names(df1), "group", "other")
@@ -301,10 +316,21 @@ test_that("filter scalar validation doesn't crash (ARROW-7772)", {
 test_that("collect() on Dataset works (if fits in memory)", {
   expect_equal(
     collect(open_dataset(dataset_dir)),
-    rbind(
-      cbind(df1),
-      cbind(df2)
-    )
+    rbind(df1, df2)
+  )
+})
+
+test_that("count()", {
+  skip("count() is not a generic so we have to get here through summarize()")
+  ds <- open_dataset(dataset_dir)
+  df <- rbind(df1, df2)
+  expect_equal(
+    ds %>%
+      filter(int > 6, int < 108) %>%
+      count(chr),
+    df %>%
+      filter(int > 6, int < 108) %>%
+      count(chr)
   )
 })
 

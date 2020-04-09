@@ -415,9 +415,20 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #'
 #' @description
 #' A `Scanner` iterates over a [Dataset]'s fragments and returns data
-#' according to given row filtering and column projection. Use a
-#' `ScannerBuilder`, from a `Dataset`'s `$NewScan()` method, to construct one.
+#' according to given row filtering and column projection. A `ScannerBuilder`
+#' can help create one.
 #'
+#' @section Factory:
+#' `Scanner$create()` wraps the `ScannerBuilder` interface to make a `Scanner`.
+#' It takes the following arguments:
+#'
+#' * `dataset`: A `Dataset` or `arrow_dplyr_query` object, as returned by the
+#'    `dplyr` methods on `Dataset`.
+#' * `projection`: A character vector of column names to select
+#' * `filter`: A `Expression` to filter the scanned rows by, or `TRUE` (default)
+#'    to keep all rows.
+#' * `use_threads`: logical: should scanning use multithreading? Default `TRUE`
+#' * `...`: Additional arguments, currently ignored
 #' @section Methods:
 #' `ScannerBuilder` has the following methods:
 #'
@@ -440,9 +451,77 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @export
 Scanner <- R6Class("Scanner", inherit = ArrowObject,
   public = list(
-    ToTable = function() shared_ptr(Table, dataset___Scanner__ToTable(self))
+    ToTable = function() shared_ptr(Table, dataset___Scanner__ToTable(self)),
+    Scan = function() map(dataset___Scanner__Scan(self), shared_ptr, class = ScanTask)
   )
 )
+Scanner$create <- function(dataset, projection = NULL, filter = TRUE, use_threads = TRUE, ...) {
+  if (inherits(dataset, "arrow_dplyr_query") && inherits(dataset$.data, "Dataset")) {
+    return(Scanner$create(
+      dataset$.data,
+      dataset$selected_columns,
+      dataset$filtered_rows,
+      use_threads,
+      ...
+    ))
+  }
+  assert_is(dataset, "Dataset")
+  scanner_builder <- dataset$NewScan()
+  if (use_threads) {
+    scanner_builder$UseThreads()
+  }
+  if (!is.null(projection)) {
+    scanner_builder$Project(projection)
+  }
+  if (!isTRUE(filter)) {
+    scanner_builder$Filter(filter)
+  }
+  scanner_builder$Finish()
+}
+
+ScanTask <- R6Class("ScanTask", inherit = ArrowObject,
+  public = list(
+    Execute = function() map(dataset___ScanTask__get_batches(self), shared_ptr, class = RecordBatch)
+  )
+)
+
+#' Apply a function to a stream of RecordBatches
+#'
+#' As an alternative to calling `collect()` on a `Dataset` query, you can
+#' use this function to access the stream of `RecordBatch`es in the `Dataset`.
+#' This lets you aggregate on each chunk and pull the intermediate results into
+#' a `data.frame` for further aggregation, even if you couldn't fit the whole
+#' `Dataset` result in memory.
+#'
+#' This is experimental and not recommended for production use.
+#'
+#' @param X A `Dataset` or `arrow_dplyr_query` object, as returned by the
+#' `dplyr` methods on `Dataset`.
+#' @param FUN A function or `purrr`-style lambda expression to apply to each
+#' batch
+#' @param ... Additional arguments passed to `FUN`
+#' @param .data.frame logical: collect the resulting chunks into a single
+#' `data.frame`? Default `TRUE`
+#' @export
+map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
+  if (.data.frame) {
+    lapply <- map_dfr
+  }
+  scanner <- Scanner$create(ensure_group_vars(X))
+  FUN <- as_mapper(FUN)
+  # message("Making ScanTasks")
+  lapply(scanner$Scan(), function(scan_task) {
+    # This outer lapply could be parallelized
+    # message("Making Batches")
+    lapply(scan_task$Execute(), function(batch) {
+      # message("Processing Batch")
+      # This inner lapply cannot be parallelized
+      # TODO: wrap batch in arrow_dplyr_query with X$selected_columns and X$group_by_vars
+      # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
+      FUN(batch, ...)
+    })
+  })
+}
 
 #' @usage NULL
 #' @format NULL

@@ -233,4 +233,32 @@ std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(
   return VALUE_OR_STOP(scanner->ToTable());
 }
 
+// [[arrow::export]]
+std::vector<std::shared_ptr<ds::ScanTask>> dataset___Scanner__Scan(
+    const std::shared_ptr<ds::Scanner>& scanner) {
+  auto it = VALUE_OR_STOP(scanner->Scan());
+  std::vector<std::shared_ptr<ds::ScanTask>> out;
+  std::shared_ptr<ds::ScanTask> scan_task;
+  // TODO(npr): can this iteration be parallelized?
+  for (auto st : it) {
+    scan_task = VALUE_OR_STOP(st);
+    out.push_back(scan_task);
+  }
+  return out;
+}
+
+// [[arrow::export]]
+std::vector<std::shared_ptr<arrow::RecordBatch>> dataset___ScanTask__get_batches(
+    const std::shared_ptr<ds::ScanTask>& scan_task) {
+  arrow::RecordBatchIterator rbi;
+  rbi = VALUE_OR_STOP(scan_task->Execute());
+  std::vector<std::shared_ptr<arrow::RecordBatch>> out;
+  std::shared_ptr<arrow::RecordBatch> batch;
+  for (auto b : rbi) {
+    batch = VALUE_OR_STOP(b);
+    out.push_back(batch);
+  }
+  return out;
+}
+
 #endif

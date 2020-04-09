@@ -229,39 +229,45 @@ set_filters <- function(.data, expressions) {
 }
 
 collect.arrow_dplyr_query <- function(x, ...) {
-  colnames <- x$selected_columns
-  # Be sure to retain any group_by vars
-  gv <- setdiff(dplyr::group_vars(x), names(colnames))
-  if (length(gv)) {
-    colnames <- c(colnames, set_names(gv))
-  }
-
+  x <- ensure_group_vars(x)
   # Pull only the selected rows and cols into R
   if (query_on_dataset(x)) {
     # See dataset.R for Dataset and Scanner(Builder) classes
-    scanner_builder <- x$.data$NewScan()
-    scanner_builder$UseThreads()
-    scanner_builder$Project(colnames)
-    if (!isTRUE(x$filtered_rows)) {
-      scanner_builder$Filter(x$filtered_rows)
-    }
-    df <- as.data.frame(scanner_builder$Finish()$ToTable())
+    df <- Scanner$create(x)$ToTable()
   } else {
     # This is a Table/RecordBatch. See record-batch.R for the [ method
-    df <- as.data.frame(x$.data[x$filtered_rows, colnames, keep_na = FALSE])
+    df <- x$.data[x$filtered_rows, x$selected_columns, keep_na = FALSE]
   }
-  # In case variables were renamed, apply those names
-  names(df) <- names(colnames)
-
-  # Preserve groupings, if present
-  if (length(x$group_by_vars)) {
-    df <- dplyr::grouped_df(df, dplyr::groups(x))
-  }
-  df
+  df <- as.data.frame(df)
+  restore_dplyr_features(df, x)
 }
 collect.Table <- as.data.frame.Table
 collect.RecordBatch <- as.data.frame.RecordBatch
 collect.Dataset <- function(x, ...) dplyr::collect(arrow_dplyr_query(x), ...)
+
+ensure_group_vars <- function(x) {
+  if (inherits(x, "arrow_dplyr_query")) {
+    # Before pulling data from Arrow, make sure all group vars are in the projection
+    gv <- set_names(setdiff(dplyr::group_vars(x), names(x)))
+    x$selected_columns <- c(x$selected_columns, gv)
+  }
+  x
+}
+
+restore_dplyr_features <- function(df, query) {
+  # An arrow_dplyr_query holds some attributes that Arrow doesn't know about
+  # After pulling data into a data.frame, make sure these features are carried over
+
+  # In case variables were renamed, apply those names
+  if (ncol(df)) {
+    names(df) <- names(query)
+  }
+  # Preserve groupings, if present
+  if (length(query$group_by_vars)) {
+    df <- dplyr::grouped_df(df, dplyr::groups(query))
+  }
+  df
+}
 
 #' @importFrom tidyselect vars_pull
 pull.arrow_dplyr_query <- function(.data, var = -1) {
