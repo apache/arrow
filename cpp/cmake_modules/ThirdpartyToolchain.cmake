@@ -39,7 +39,19 @@ endif()
 # ----------------------------------------------------------------------
 # We should not use the Apache dist server for build dependencies
 
-set(APACHE_MIRROR "")
+set(APACHE_MIRRORS
+    "https://downloads.apache.org/"
+    "https://apache.claz.org/"
+    "https://apache.cs.utah.edu/"
+    "https://apache.mirrors.lucidnetworks.net/"
+    "https://apache.osuosl.org/"
+    "https://ftp.wayne.edu/apache/"
+    "https://mirror.olnevhost.net/pub/apache/"
+    "https://mirrors.gigenet.com/apache/"
+    "https://mirrors.koehn.com/apache/"
+    "https://mirrors.ocf.berkeley.edu/apache/"
+    "https://mirrors.sonic.net/apache/"
+    "https://us.mirrors.quenda.co/apache/")
 
 macro(maybe_drop_backup_urls URLS)
   if(CMAKE_VERSION VERSION_LESS 3.7)
@@ -47,53 +59,6 @@ macro(maybe_drop_backup_urls URLS)
     # Feature only available starting in 3.7
     list(GET ${URLS} 0 ${URLS})
   endif()
-endmacro()
-
-macro(get_apache_mirrors)
-  if(APACHE_MIRROR STREQUAL "")
-    set(APACHE_MIRROR_INFO_URL "https://www.apache.org/dyn/closer.cgi?as_json=1")
-    set(APACHE_MIRROR_INFO_PATH "${CMAKE_CURRENT_BINARY_DIR}/apache-mirror.json")
-
-    if(EXISTS "${APACHE_MIRROR_INFO_PATH}")
-      set(APACHE_MIRROR_DOWNLOAD_STATUS 0)
-    else()
-      file(DOWNLOAD "${APACHE_MIRROR_INFO_URL}" "${APACHE_MIRROR_INFO_PATH}"
-           STATUS APACHE_MIRROR_DOWNLOAD_STATUS)
-    endif()
-
-    if(APACHE_MIRROR_DOWNLOAD_STATUS EQUAL 0)
-      file(READ "${APACHE_MIRROR_INFO_PATH}" APACHE_MIRROR_INFO)
-
-      string(REGEX MATCH "\"preferred\": \"[^\"]+" APACHE_MIRROR_PREFERRED
-                   "${APACHE_MIRROR_INFO}")
-      string(REGEX
-             REPLACE "\"preferred\": \"" "" APACHE_MIRROR_PREFERRED
-                     "${APACHE_MIRROR_PREFERRED}")
-
-      string(REGEX MATCH "\"http\": \\[.+\\]" APACHE_MIRROR "${APACHE_MIRROR_INFO}")
-      string(REGEX MATCHALL "https?://[^\"]+" APACHE_MIRROR "${APACHE_MIRROR}")
-
-      # Ensure that the preferred URL is first
-      list(INSERT APACHE_MIRROR 0 "${APACHE_MIRROR_PREFERRED}")
-      list(REMOVE_DUPLICATES APACHE_MIRROR)
-    else()
-      file(REMOVE "${APACHE_MIRROR_INFO_PATH}")
-      message(
-        WARNING
-          "Failed to download Apache mirror information: ${APACHE_MIRROR_INFO_URL}: ${APACHE_MIRROR_DOWNLOAD_STATUS}"
-        )
-    endif()
-  endif()
-  if(APACHE_MIRROR STREQUAL "")
-    # Well-known mirrors, in case the info URL fails loading
-    set(APACHE_MIRROR
-        "https://downloads.apache.org/"
-        "https://apache.osuosl.org/"
-        "http://apache.mirrors.hoobly.com/"
-        "http://apache.mirrors.pair.com/"
-        "http://apache.spinellicreations.com/")
-  endif()
-  message(STATUS "Apache mirror(s): ${APACHE_MIRROR}")
 endmacro()
 
 # ----------------------------------------------------------------------
@@ -301,8 +266,8 @@ if(DEFINED ENV{ARROW_AWSSDK_URL})
 else()
   set(
     AWSSDK_SOURCE_URL
-    "https://dl.bintray.com/ursalabs/arrow-awssdk/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
     "https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
+    "https://dl.bintray.com/ursalabs/arrow-awssdk/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
     )
   maybe_drop_backup_urls(AWSSDK_SOURCE_URL)
 endif()
@@ -316,9 +281,9 @@ else()
   # See cpp/build_support/trim-boost.sh
   set(
     BOOST_SOURCE_URL
+    "https://github.com/boostorg/boost/archive/boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz"
     "https://dl.bintray.com/ursalabs/arrow-boost/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
     "https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
-    "https://github.com/boostorg/boost/archive/boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz"
     )
   maybe_drop_backup_urls(BOOST_SOURCE_URL)
 endif()
@@ -342,6 +307,7 @@ if(DEFINED ENV{ARROW_GBENCHMARK_URL})
 else()
   set(
     GBENCHMARK_SOURCE_URL
+
     "https://github.com/google/benchmark/archive/${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
     )
 endif()
@@ -435,6 +401,7 @@ if(DEFINED ENV{ARROW_RAPIDJSON_URL})
 else()
   set(
     RAPIDJSON_SOURCE_URL
+
     "https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
     )
 endif()
@@ -449,20 +416,15 @@ endif()
 if(DEFINED ENV{ARROW_THRIFT_URL})
   set(THRIFT_SOURCE_URL "$ENV{ARROW_THRIFT_URL}")
 else()
-  get_apache_mirrors()
-  set(THRIFT_SOURCE_URL)
-  foreach(URL ${APACHE_MIRROR})
+  set(THRIFT_SOURCE_URL
+      "https://github.com/apache/thrift/archive/v${ARROW_THRIFT_BUILD_VERSION}.tar.gz")
+  foreach(URL ${APACHE_MIRRORS})
     list(
       APPEND
         THRIFT_SOURCE_URL
         "${URL}/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
       )
   endforeach()
-  list(
-    APPEND
-      THRIFT_SOURCE_URL
-      "https://github.com/apache/thrift/archive/v${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-    )
   maybe_drop_backup_urls(THRIFT_SOURCE_URL)
 endif()
 
