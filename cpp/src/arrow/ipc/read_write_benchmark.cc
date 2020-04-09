@@ -123,7 +123,7 @@ static void ReadStream(benchmark::State& state) {  // NOLINT non-const reference
   state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize);
 }
 
-static void EmitStream(benchmark::State& state) {  // NOLINT non-const reference
+static void DecodeStream(benchmark::State& state) {  // NOLINT non-const reference
   // 1MB
   constexpr int64_t kTotalSize = 1 << 20;
   auto options = ipc::IpcWriteOptions::Defaults();
@@ -157,6 +157,6 @@ static void EmitStream(benchmark::State& state) {  // NOLINT non-const reference
 BENCHMARK(WriteRecordBatch)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
 BENCHMARK(ReadRecordBatch)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
 BENCHMARK(ReadStream)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
-BENCHMARK(EmitStream)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
+BENCHMARK(DecodeStream)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
 
 }  // namespace arrow
