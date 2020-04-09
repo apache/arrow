@@ -2673,7 +2673,7 @@ def _test_write_to_dataset_with_partitions(base_path,
     if use_legacy_dataset:
         dataset_cols = set(dataset.schema.to_arrow_schema().names)
     else:
-        # TODO(dataset) schema property is an arrow and not parquet schema
+        # NB schema property is an arrow and not parquet schema
         dataset_cols = set(dataset.schema.names)
 
     assert dataset_cols == set(output_table.schema.names)
@@ -2813,7 +2813,7 @@ def test_large_table_int32_overflow():
     _write_table(table, f)
 
 
-# TODO buffer support
+# TODO(ARROW-8074) buffer support
 def _simple_table_roundtrip(table, **write_kwargs):
     stream = pa.BufferOutputStream()
     _write_table(table, stream, **write_kwargs)
