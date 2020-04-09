@@ -623,7 +623,8 @@ cdef class ParquetReadOptions:
     buffer_size : int, default 8192
         Size of buffered stream, if enabled. Default is 8KB.
     dictionary_columns : list of string, default None
-        Names of columns which should be read as dictionaries.
+        Names of columns which should be dictionary encoded as
+        they are read.
     """
 
     cdef public:
@@ -632,9 +633,11 @@ cdef class ParquetReadOptions:
         set dictionary_columns
 
     def __init__(self, bint use_buffered_stream=False,
-                 uint32_t buffer_size=8192,
+                 buffer_size=8192,
                  dictionary_columns=None):
         self.use_buffered_stream = use_buffered_stream
+        if buffer_size <= 0:
+            raise ValueError("Buffer size must be larger than zero")
         self.buffer_size = buffer_size
         self.dictionary_columns = set(dictionary_columns or set())
 
@@ -1191,7 +1194,8 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
                     c_options
                 )
         else:
-            raise TypeError('Must pass either paths or a FileSelector')
+            raise TypeError('Must pass either paths or a FileSelector, but '
+                            'passed {}'.format(type(paths_or_selector)))
 
         self.init(GetResultValue(result))
 

@@ -77,7 +77,7 @@ def _check_contains_null(val):
     return False
 
 
-def _check_filters(filters):
+def _check_filters(filters, check_null_strings=True):
     """
     Check if filters are well-formed.
     """
@@ -89,18 +89,93 @@ def _check_filters(filters):
             # too few:
             #   We have [(,,), ..] instead of [[(,,), ..]]
             filters = [filters]
-        for conjunction in filters:
-            for col, op, val in conjunction:
-                if (
-                    isinstance(val, list)
-                    and all(_check_contains_null(v) for v in val)
-                    or _check_contains_null(val)
-                ):
-                    raise NotImplementedError(
-                        "Null-terminated binary strings are not supported as"
-                        " filter values."
-                    )
+        if check_null_strings:
+            for conjunction in filters:
+                for col, op, val in conjunction:
+                    if (
+                        isinstance(val, list)
+                        and all(_check_contains_null(v) for v in val)
+                        or _check_contains_null(val)
+                    ):
+                        raise NotImplementedError(
+                            "Null-terminated binary strings are not supported "
+                            "as filter values."
+                        )
     return filters
+
+
+_DNF_filter_doc = """Predicates are expressed in disjunctive normal form (DNF), like
+    ``[[('x', '=', 0), ...], ...]``. DNF allows arbitrary boolean logical
+    combinations of single column predicates. The innermost tuples each
+    describe a single column predicate. The list of inner predicates is
+    interpreted as a conjunction (AND), forming a more selective and
+    multiple column predicate. Finally, the most outer list combines these
+    filters as a disjunction (OR).
+
+    Predicates may also be passed as List[Tuple]. This form is interpreted
+    as a single conjunction. To express OR in predicates, one must
+    use the (preferred) List[List[Tuple]] notation."""
+
+
+def _filters_to_expression(filters):
+    """
+    Check if filters are well-formed.
+
+    See _DNF_filter_doc above for more details.
+    """
+    import pyarrow.dataset as ds
+
+    if isinstance(filters, ds.Expression):
+        return filters
+
+    filters = _check_filters(filters, check_null_strings=False)
+
+    def convert_single_predicate(col, op, val):
+        field = ds.field(col)
+
+        if op == "=" or op == "==":
+            return field == val
+        elif op == "!=":
+            return field != val
+        elif op == '<':
+            return field < val
+        elif op == '>':
+            return field > val
+        elif op == '<=':
+            return field <= val
+        elif op == '>=':
+            return field >= val
+        elif op == 'in':
+            return field.isin(val)
+        elif op == 'not in':
+            return ~field.isin(val)
+        else:
+            raise ValueError(
+                '"{0}" is not a valid operator in predicates.'.format(
+                    (col, op, val)))
+
+    or_exprs = []
+
+    for conjunction in filters:
+        and_exprs = []
+        for col, op, val in conjunction:
+            and_exprs.append(convert_single_predicate(col, op, val))
+
+        expr = and_exprs[0]
+        if len(and_exprs) > 1:
+            for and_expr in and_exprs[1:]:
+                expr = ds.AndExpression(expr, and_expr)
+
+        or_exprs.append(expr)
+
+    expr = or_exprs[0]
+    if len(or_exprs) > 1:
+        expr = ds.OrExpression(*or_exprs)
+        for or_expr in or_exprs[1:]:
+            expr = ds.OrExpression(expr, or_expr)
+
+    return expr
+
 
 # ----------------------------------------------------------------------
 # Reading a single Parquet file
@@ -979,7 +1054,18 @@ memory_map : bool, default False
     improve performance in some environments.
 buffer_size : int, default 0
     If positive, perform read buffering when deserializing individual
-    column chunks. Otherwise IO calls are unbuffered."""
+    column chunks. Otherwise IO calls are unbuffered.
+partitioning : Partitioning or str or list of str, default "hive"
+    The partitioning scheme for a partitioned dataset. The default of "hive"
+    assumes directory names with key=value pairs like "/year=2009/month=11".
+    In addition, a scheme like "/2009/11" is also supported, in which case
+    you need to specify the field names or a full schema. See the
+    ``pyarrow.dataset.partitioning()`` function for more details.
+use_legacy_dataset : bool, default True
+    Set to False to enable the new code path (experimental, using the
+    new Arrow Dataset API). Among other things, this allows to pass
+    `filters` for all columns and not only the partition keys, enables
+    different partitioning schemes, etc."""
 
 
 class ParquetDataset:
@@ -1005,31 +1091,51 @@ split_row_groups : bool, default False
 validate_schema : bool, default True
     Check that individual file schemas are all the same / compatible.
 filters : List[Tuple] or List[List[Tuple]] or None (default)
-    List of filters to apply, like ``[[('x', '=', 0), ...], ...]``. This
-    implements partition-level (hive) filtering only, i.e., to prevent the
-    loading of some files of the dataset.
+    Rows which do not match the filter predicate will be removed from scanned
+    data. Partition keys embedded in a nested directory structure will be
+    exploited to avoid loading files at all if they contain no matching rows.
+    If `use_legacy_dataset` is True, filters can only reference partition
+    keys and only a hive-style directory structure is supported. When
+    setting `use_legacy_dataset` to False, also within-file level filtering
+    and different partitioning schemes are supported.
 
-    Predicates are expressed in disjunctive normal form (DNF). This means
-    that the innermost tuple describe a single column predicate. These
-    inner predicate make are all combined with a conjunction (AND) into a
-    larger predicate. The most outer list then combines all filters
-    with a disjunction (OR). By this, we should be able to express all
-    kinds of filters that are possible using boolean logic.
-
-    This function also supports passing in as List[Tuple]. These predicates
-    are evaluated as a conjunction. To express OR in predicates, one must
-    use the (preferred) List[List[Tuple]] notation.
+    {1}
 metadata_nthreads: int, default 1
     How many threads to allow the thread pool which is used to read the
     dataset metadata. Increasing this is helpful to read partitioned
     datasets.
-{}
-""".format(_read_docstring_common)
+{0}
+""".format(_read_docstring_common, _DNF_filter_doc)
+
+    def __new__(cls, path_or_paths=None, filesystem=None, schema=None,
+                metadata=None, split_row_groups=False, validate_schema=True,
+                filters=None, metadata_nthreads=1, read_dictionary=None,
+                memory_map=False, buffer_size=0, partitioning="hive",
+                use_legacy_dataset=True):
+        if not use_legacy_dataset:
+            return _ParquetDatasetV2(path_or_paths, filesystem=filesystem,
+                                     filters=filters,
+                                     partitioning=partitioning,
+                                     read_dictionary=read_dictionary,
+                                     memory_map=memory_map,
+                                     buffer_size=buffer_size,
+                                     # unsupported keywords
+                                     schema=schema, metadata=metadata,
+                                     split_row_groups=split_row_groups,
+                                     validate_schema=validate_schema,
+                                     metadata_nthreads=metadata_nthreads)
+        self = object.__new__(cls)
+        return self
 
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True,
                  filters=None, metadata_nthreads=1, read_dictionary=None,
-                 memory_map=False, buffer_size=0):
+                 memory_map=False, buffer_size=0, partitioning="hive",
+                 use_legacy_dataset=True):
+        if partitioning != "hive":
+            raise ValueError(
+                'Only "hive" for hive-like partitioning is supported when '
+                'using use_legacy_dataset=True')
         self._metadata = _ParquetDatasetMetadata()
         a_path = path_or_paths
         if isinstance(a_path, list):
@@ -1252,6 +1358,112 @@ def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
     return pieces, partitions, common_metadata_path, metadata_path
 
 
+class _ParquetDatasetV2:
+    """
+    ParquetDataset shim using the Dataset API under the hood.
+    """
+    def __init__(self, path_or_paths, filesystem=None, filters=None,
+                 partitioning="hive", read_dictionary=None, buffer_size=None,
+                 memory_map=False, **kwargs):
+        import pyarrow.dataset as ds
+        import pyarrow.fs
+
+        # Raise error for not supported keywords
+        for keyword, default in [
+                ("schema", None), ("metadata", None),
+                ("split_row_groups", False), ("validate_schema", True),
+                ("metadata_nthreads", 1)]:
+            if keyword in kwargs and kwargs[keyword] is not default:
+                raise ValueError(
+                    "Keyword '{0}' is not yet supported with the new "
+                    "Dataset API".format(keyword))
+
+        # map old filesystems to new one
+        # TODO(dataset) deal with other file systems
+        if isinstance(filesystem, LocalFileSystem):
+            filesystem = pyarrow.fs.LocalFileSystem(use_mmap=memory_map)
+        elif filesystem is None and memory_map:
+            # if memory_map is specified, assume local file system (string
+            # path can in principle be URI for any filesystem)
+            filesystem = pyarrow.fs.LocalFileSystem(use_mmap=True)
+
+        # map additional arguments
+        read_options = {}
+        if buffer_size:
+            read_options.update(use_buffered_stream=True,
+                                buffer_size=buffer_size)
+        if read_dictionary is not None:
+            read_options.update(dictionary_columns=read_dictionary)
+        parquet_format = ds.ParquetFileFormat(read_options=read_options)
+
+        self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,
+                                   format=parquet_format,
+                                   partitioning=partitioning)
+        self._filters = filters
+        if filters is not None:
+            self._filter_expression = _filters_to_expression(filters)
+        else:
+            self._filter_expression = None
+
+    @property
+    def schema(self):
+        return self._dataset.schema
+
+    def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
+        """
+        Read (multiple) Parquet files as a single pyarrow.Table.
+
+        Parameters
+        ----------
+        columns : List[str]
+            Names of columns to read from the dataset.
+        use_threads : bool, default True
+            Perform multi-threaded column reads.
+        use_pandas_metadata : bool, default False
+            If True and file has custom pandas schema metadata, ensure that
+            index columns are also loaded.
+
+        Returns
+        -------
+        pyarrow.Table
+            Content of the file as a table (of columns).
+        """
+        # if use_pandas_metadata, we need to include index columns in the
+        # column selection, to be able to restore those in the pandas DataFrame
+        metadata = self._dataset.schema.metadata
+        if columns is not None and use_pandas_metadata:
+            if metadata and b'pandas' in metadata:
+                index_columns = set(_get_pandas_index_columns(metadata))
+                columns = columns + list(index_columns - set(columns))
+
+        table = self._dataset.to_table(
+            columns=columns, filter=self._filter_expression,
+            use_threads=use_threads
+        )
+
+        # if use_pandas_metadata, restore the pandas metadata (which gets
+        # lost if doing a specific `columns` selection in to_table)
+        if use_pandas_metadata:
+            if metadata and b"pandas" in metadata:
+                new_metadata = table.schema.metadata or {}
+                new_metadata.update({b"pandas": metadata[b"pandas"]})
+                table = table.replace_schema_metadata(new_metadata)
+
+        return table
+
+    def read_pandas(self, **kwargs):
+        """
+        Read dataset including pandas metadata, if any. Other arguments passed
+        through to ParquetDataset.read, see docstring for further details.
+        """
+        return self.read(use_pandas_metadata=True, **kwargs)
+
+    @property
+    def pieces(self):
+        # TODO raise deprecation warning
+        return list(self._dataset.get_fragments())
+
+
 _read_table_docstring = """
 {0}
 
@@ -1271,10 +1483,15 @@ metadata : FileMetaData
     If separately computed
 {1}
 filters : List[Tuple] or List[List[Tuple]] or None (default)
-    List of filters to apply, like ``[[('x', '=', 0), ...], ...]``. This
-    implements partition-level (hive) filtering only, i.e., to prevent the
-    loading of some files of the dataset if `source` is a directory.
-    See the docstring of ParquetDataset for more details.
+    Rows which do not match the filter predicate will be removed from scanned
+    data. Partition keys embedded in a nested directory structure will be
+    exploited to avoid loading files at all if they contain no matching rows.
+    If `use_legacy_dataset` is True, filters can only reference partition
+    keys and only a hive-style directory structure is supported. When
+    setting `use_legacy_dataset` to False, also within-file level filtering
+    and different partitioning schemes are supported.
+
+    {3}
 
 Returns
 -------
@@ -1285,12 +1502,32 @@ Returns
 def read_table(source, columns=None, use_threads=True, metadata=None,
                use_pandas_metadata=False, memory_map=False,
                read_dictionary=None, filesystem=None, filters=None,
-               buffer_size=0):
+               buffer_size=0, partitioning="hive", use_legacy_dataset=True):
+    if not use_legacy_dataset:
+        if not _is_path_like(source):
+            raise ValueError("File-like objects are not yet supported with "
+                             "the new Dataset API")
+
+        dataset = _ParquetDatasetV2(
+            source,
+            filesystem=filesystem,
+            partitioning=partitioning,
+            memory_map=memory_map,
+            read_dictionary=read_dictionary,
+            buffer_size=buffer_size,
+            filters=filters,
+            # unsupported keywords
+            metadata=metadata
+        )
+        return dataset.read(columns=columns, use_threads=use_threads,
+                            use_pandas_metadata=use_pandas_metadata)
+
     if _is_path_like(source):
         pf = ParquetDataset(source, metadata=metadata, memory_map=memory_map,
                             read_dictionary=read_dictionary,
                             buffer_size=buffer_size,
-                            filesystem=filesystem, filters=filters)
+                            filesystem=filesystem, filters=filters,
+                            partitioning=partitioning)
     else:
         pf = ParquetFile(source, metadata=metadata,
                          read_dictionary=read_dictionary,
@@ -1307,11 +1544,13 @@ read_table.__doc__ = _read_table_docstring.format(
     If True and file has custom pandas schema metadata, ensure that
     index columns are also loaded""")),
     """pyarrow.Table
-    Content of the file as a table (of columns)""")
+    Content of the file as a table (of columns)""",
+    _DNF_filter_doc)
 
 
 def read_pandas(source, columns=None, use_threads=True, memory_map=False,
-                metadata=None, filters=None, buffer_size=0):
+                metadata=None, filters=None, buffer_size=0,
+                use_legacy_dataset=True):
     return read_table(
         source,
         columns=columns,
@@ -1321,6 +1560,7 @@ def read_pandas(source, columns=None, use_threads=True, memory_map=False,
         memory_map=memory_map,
         buffer_size=buffer_size,
         use_pandas_metadata=True,
+        use_legacy_dataset=use_legacy_dataset,
     )
 
 
@@ -1330,7 +1570,8 @@ read_pandas.__doc__ = _read_table_docstring.format(
     _read_docstring_common,
     """pyarrow.Table
     Content of the file as a Table of Columns, including DataFrame
-    indexes as columns""")
+    indexes as columns""",
+    _DNF_filter_doc)
 
 
 def write_table(table, where, row_group_size=None, version='1.0',
