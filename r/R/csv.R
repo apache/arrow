@@ -114,7 +114,7 @@ read_delim_arrow <- function(file,
     convert_options <- readr_to_csv_convert_options(na, quoted_na)
   }
 
-  if (is.character(file)) {
+  if (is.string(file)) {
     file <- make_readable_file(file)
     on.exit(file$close())
   }

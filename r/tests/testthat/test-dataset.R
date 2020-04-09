@@ -190,8 +190,8 @@ test_that("IPC/Arrow format data", {
 test_that("Dataset with multiple file formats", {
   skip("https://issues.apache.org/jira/browse/ARROW-7653")
   ds <- open_dataset(list(
-    dataset_factory(dataset_dir, format = "parquet", partitioning = "part"),
-    dataset_factory(ipc_dir, format = "arrow", partitioning = "part")
+    open_dataset(dataset_dir, format = "parquet", partitioning = "part"),
+    open_dataset(ipc_dir, format = "arrow", partitioning = "part")
   ))
   expect_identical(names(ds), c(names(df1), "part"))
   expect_equivalent(
@@ -206,17 +206,49 @@ test_that("Dataset with multiple file formats", {
   )
 })
 
+test_that("Creating UnionDataset", {
+  ds1 <- open_dataset(file.path(dataset_dir, 1))
+  ds2 <- open_dataset(file.path(dataset_dir, 2))
+  union1 <- open_dataset(list(ds1, ds2))
+  expect_is(union1, "UnionDataset")
+  expect_equivalent(
+    union1 %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>% # Testing the auto-casting of scalars
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+
+  # Now with the c() method
+  union2 <- c(ds1, ds2)
+  expect_is(union2, "UnionDataset")
+  expect_equivalent(
+    union2 %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>% # Testing the auto-casting of scalars
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+
+  # Confirm c() method error handling
+  expect_error(c(ds1, 42), "'x' must be a string or a list of DatasetFactory")
+})
+
 test_that("map_batches", {
   ds <- open_dataset(dataset_dir, partitioning = "part")
   expect_equivalent(
     ds %>%
       filter(int > 5) %>%
       select(int, lgl) %>%
-      map_batches(
-        ~summarize(.,
-          min_int = min(int)
-        )
-      ),
+      map_batches(~summarize(., min_int = min(int))),
     tibble(min_int = c(6L, 101L))
   )
 })

@@ -40,7 +40,7 @@ read_parquet <- function(file,
                          as_data_frame = TRUE,
                          props = ParquetReaderProperties$create(),
                          ...) {
-  if (is.character(file)) {
+  if (is.string(file)) {
     file <- make_readable_file(file)
     on.exit(file$close())
   }
@@ -153,7 +153,7 @@ write_parquet <- function(x,
     x <- Table$create(x)
   }
 
-  if (is.character(sink)) {
+  if (is.string(sink)) {
     sink <- FileOutputStream$create(sink)
     on.exit(sink$close())
   } else if (!inherits(sink, "OutputStream")) {

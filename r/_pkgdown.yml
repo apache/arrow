@@ -68,6 +68,7 @@ reference:
   - Expression
   - Scanner
   - FileFormat
+  - map_batches
 - title: Reading and writing files
   contents:
   - read_feather
@@ -134,3 +135,4 @@ reference:
   contents:
   - arrow_available
   - install_arrow
+  - install_pyarrow

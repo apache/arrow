@@ -23,22 +23,26 @@
 #' `open_dataset()` to point to a directory of data files and return a
 #' `Dataset`, then use `dplyr` methods to query it.
 #'
-#' @param sources Either a string path to a directory containing data files,
-#' or a list of `DatasetFactory` objects as created by [dataset_factory()].
+#' @param sources Either:
+#'   * a string path to a directory containing data files
+#'   * a list of `Dataset` objects as created by this function
+#'   * a list of `DatasetFactory` objects as created by [dataset_factory()].
 #' @param schema [Schema] for the dataset. If `NULL` (the default), the schema
 #' will be inferred from the data sources.
 #' @param partitioning When `sources` is a file path, one of
-#'   * A `Schema`, in which case the file paths relative to `sources` will be
+#'   * a `Schema`, in which case the file paths relative to `sources` will be
 #'    parsed, and path segments will be matched with the schema fields. For
 #'    example, `schema(year = int16(), month = int8())` would create partitions
 #'    for file paths like "2019/01/file.parquet", "2019/02/file.parquet", etc.
-#'   * A character vector that defines the field names corresponding to those
+#'   * a character vector that defines the field names corresponding to those
 #'    path segments (that is, you're providing the names that would correspond
 #'    to a `Schema` but the types will be autodetected)
-#'   * A `HivePartitioning` or `HivePartitioningFactory`, as returned
+#'   * a `HivePartitioning` or `HivePartitioningFactory`, as returned
 #'    by [hive_partition()] which parses explicit or autodetected fields from
 #'    Hive-style path segments
 #'   * `NULL` for no partitioning
+#'
+#' The default is to autodetect Hive-style partitions.
 #' @param ... additional arguments passed to `dataset_factory()` when
 #' `sources` is a file path, otherwise ignored.
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
@@ -47,6 +51,19 @@
 #' @seealso `vignette("dataset", package = "arrow")`
 #' @include arrow-package.R
 open_dataset <- function(sources, schema = NULL, partitioning = hive_partition(), ...) {
+  if (is_list_of(sources, "Dataset")) {
+    if (is.null(schema)) {
+      # Take the first one.
+      # Someday, we should expose a way to unify schemas
+      schema <- sources[[1]]$schema
+    }
+    # Enforce that all datasets have the same schema
+    sources <- lapply(sources, function(x) {
+      x$schema <- schema
+      x
+    })
+    return(shared_ptr(UnionDataset, dataset___UnionDataset__create(sources, schema)))
+  }
   factory <- DatasetFactory$create(sources, partitioning = partitioning, ...)
   factory$Finish(schema)
 }
@@ -61,10 +78,7 @@ open_dataset <- function(sources, schema = NULL, partitioning = hive_partition()
 #' A `Dataset` contains one or more `Fragments`, such as files, of potentially
 #' differing type and partitioning.
 #'
-#' The `Dataset$create()` method instantiates a `Dataset` which wraps child Datasets.
-#' It takes the following arguments:
-#' * `children`: a list of [Dataset] objects
-#' * `schema`: a [Schema]
+#' For `Dataset$create()`, see [open_dataset()], which is an alias for it.
 #'
 #' `DatasetFactory` is used to provide finer control over the creation of `Dataset`s.
 #'
@@ -92,7 +106,10 @@ open_dataset <- function(sources, schema = NULL, partitioning = hive_partition()
 #'
 #' A `Dataset` has the following methods:
 #' - `$NewScan()`: Returns a [ScannerBuilder] for building a query
-#' - `$schema`: Active binding, returns the [Schema] of the Dataset
+#' - `$schema`: Active binding that returns the [Schema] of the Dataset; you
+#'   may also replace the dataset's schema by using `ds$schema <- new_schema`.
+#'   This method currently supports only adding, removing, or reordering
+#'   fields in the schema: you cannot alter or cast the field types.
 #'
 #' `FileSystemDataset` has the following methods:
 #' - `$files`: Active binding, returns the files of the `FileSystemDataset`
@@ -122,7 +139,14 @@ Dataset <- R6Class("Dataset", inherit = ArrowObject,
     ToString = function() self$schema$ToString()
   ),
   active = list(
-    schema = function() shared_ptr(Schema, dataset___Dataset__schema(self)),
+    schema = function(schema) {
+      if (missing(schema)) {
+        shared_ptr(Schema, dataset___Dataset__schema(self))
+      } else {
+        assert_is(schema, "Schema")
+        invisible(shared_ptr(Dataset, dataset___Dataset__ReplaceSchema(self, schema)))
+      }
+    },
     metadata = function() self$schema$metadata,
     num_rows = function() {
       warning("Number of rows unknown; returning NA", call. = FALSE)
@@ -134,18 +158,16 @@ Dataset <- R6Class("Dataset", inherit = ArrowObject,
     type = function() dataset___Dataset__type_name(self)
   )
 )
-Dataset$create <- function(children, schema) {
-  # TODO: consider deleting Dataset$create since we have DatasetFactory$create
-  assert_is_list_of(children, "Dataset")
-  assert_is(schema, "Schema")
-  shared_ptr(Dataset, dataset___UnionDataset__create(children, schema))
-}
+Dataset$create <- open_dataset
 
 #' @export
 names.Dataset <- function(x) names(x$schema)
 
 #' @export
 dim.Dataset <- function(x) c(x$num_rows, x$num_cols)
+
+#' @export
+c.Dataset <- function(...) Dataset$create(list(...))
 
 #' @name FileSystemDataset
 #' @rdname Dataset
@@ -227,8 +249,11 @@ DatasetFactory$create <- function(x,
                                   allow_not_found = FALSE,
                                   recursive = TRUE,
                                   ...) {
-  if (is.list(x) && all(map_lgl(x, ~inherits(., "DatasetFactory")))) {
+  if (is_list_of(x, "DatasetFactory")) {
     return(shared_ptr(DatasetFactory, dataset___UnionDatasetFactory__Make(x)))
+  }
+  if (!is.string(x)) {
+    stop("'x' must be a string or a list of DatasetFactory", call. = FALSE)
   }
 
   if (!inherits(filesystem, "FileSystem")) {
@@ -455,7 +480,11 @@ Scanner <- R6Class("Scanner", inherit = ArrowObject,
     Scan = function() map(dataset___Scanner__Scan(self), shared_ptr, class = ScanTask)
   )
 )
-Scanner$create <- function(dataset, projection = NULL, filter = TRUE, use_threads = TRUE, ...) {
+Scanner$create <- function(dataset,
+                           projection = NULL,
+                           filter = TRUE,
+                           use_threads = option_use_threads(),
+                           ...) {
   if (inherits(dataset, "arrow_dplyr_query") && inherits(dataset$.data, "Dataset")) {
     return(Scanner$create(
       dataset$.data,

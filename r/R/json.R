@@ -73,7 +73,7 @@ JsonTableReader$create <- function(file,
 #' @docType class
 #' @export
 JsonReadOptions <- R6Class("JsonReadOptions", inherit = ArrowObject)
-JsonReadOptions$create <- function(use_threads = TRUE, block_size = 1048576L) {
+JsonReadOptions$create <- function(use_threads = option_use_threads(), block_size = 1048576L) {
   shared_ptr(JsonReadOptions, json___ReadOptions__initialize(
     list(
       use_threads = use_threads,
