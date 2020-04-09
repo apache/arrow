@@ -884,48 +884,48 @@ struct StreamWriterHelper {
   std::shared_ptr<RecordBatchWriter> writer_;
 };
 
-struct StreamEmitterDataWriterHelper : public StreamWriterHelper {
+struct StreamDecoderDataWriterHelper : public StreamWriterHelper {
   Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
     auto receiver = std::make_shared<RecordBatchReceiverCollect>();
-    RecordBatchStreamEmitter emitter(receiver, options);
-    ARROW_RETURN_NOT_OK(emitter.Consume(buffer_->data(), buffer_->size()));
+    StreamDecoder decoder(receiver, options);
+    ARROW_RETURN_NOT_OK(decoder.Consume(buffer_->data(), buffer_->size()));
     *out_batches = receiver->record_batches();
     return Status::OK();
   }
 
   Status ReadSchema(std::shared_ptr<Schema>* out) {
     auto receiver = std::make_shared<RecordBatchReceiverCollect>();
-    RecordBatchStreamEmitter emitter(receiver);
-    ARROW_RETURN_NOT_OK(emitter.Consume(buffer_->data(), buffer_->size()));
+    StreamDecoder decoder(receiver);
+    ARROW_RETURN_NOT_OK(decoder.Consume(buffer_->data(), buffer_->size()));
     *out = receiver->schema();
     return Status::OK();
   }
 };
 
-struct StreamEmitterBufferWriterHelper : public StreamWriterHelper {
+struct StreamDecoderBufferWriterHelper : public StreamWriterHelper {
   Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
     auto receiver = std::make_shared<RecordBatchReceiverCollect>();
-    RecordBatchStreamEmitter emitter(receiver, options);
-    ARROW_RETURN_NOT_OK(emitter.Consume(buffer_));
+    StreamDecoder decoder(receiver, options);
+    ARROW_RETURN_NOT_OK(decoder.Consume(buffer_));
     *out_batches = receiver->record_batches();
     return Status::OK();
   }
 
   Status ReadSchema(std::shared_ptr<Schema>* out) {
     auto receiver = std::make_shared<RecordBatchReceiverCollect>();
-    RecordBatchStreamEmitter emitter(receiver);
-    ARROW_RETURN_NOT_OK(emitter.Consume(buffer_));
+    StreamDecoder decoder(receiver);
+    ARROW_RETURN_NOT_OK(decoder.Consume(buffer_));
     *out = receiver->schema();
     return Status::OK();
   }
 };
 
-struct StreamEmitterSmallChunksWriterHelper : public StreamWriterHelper {
+struct StreamDecoderSmallChunksWriterHelper : public StreamWriterHelper {
   Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
     auto receiver = std::make_shared<RecordBatchReceiverCollect>();
-    RecordBatchStreamEmitter emitter(receiver, options);
+    StreamDecoder decoder(receiver, options);
     for (int64_t offset = 0; offset < buffer_->size() - 1; ++offset) {
-      ARROW_RETURN_NOT_OK(emitter.Consume(buffer_->data() + offset, 1));
+      ARROW_RETURN_NOT_OK(decoder.Consume(buffer_->data() + offset, 1));
     }
     *out_batches = receiver->record_batches();
     return Status::OK();
@@ -933,30 +933,30 @@ struct StreamEmitterSmallChunksWriterHelper : public StreamWriterHelper {
 
   Status ReadSchema(std::shared_ptr<Schema>* out) {
     auto receiver = std::make_shared<RecordBatchReceiverCollect>();
-    RecordBatchStreamEmitter emitter(receiver);
+    StreamDecoder decoder(receiver);
     for (int64_t offset = 0; offset < buffer_->size() - 1; ++offset) {
-      ARROW_RETURN_NOT_OK(emitter.Consume(buffer_->data() + offset, 1));
+      ARROW_RETURN_NOT_OK(decoder.Consume(buffer_->data() + offset, 1));
     }
     *out = receiver->schema();
     return Status::OK();
   }
 };
 
-struct StreamEmitterLargeChunksWriterHelper : public StreamWriterHelper {
+struct StreamDecoderLargeChunksWriterHelper : public StreamWriterHelper {
   Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
     auto receiver = std::make_shared<RecordBatchReceiverCollect>();
-    RecordBatchStreamEmitter emitter(receiver, options);
-    ARROW_RETURN_NOT_OK(emitter.Consume(SliceBuffer(buffer_, 0, 1)));
-    ARROW_RETURN_NOT_OK(emitter.Consume(SliceBuffer(buffer_, 1)));
+    StreamDecoder decoder(receiver, options);
+    ARROW_RETURN_NOT_OK(decoder.Consume(SliceBuffer(buffer_, 0, 1)));
+    ARROW_RETURN_NOT_OK(decoder.Consume(SliceBuffer(buffer_, 1)));
     *out_batches = receiver->record_batches();
     return Status::OK();
   }
 
   Status ReadSchema(std::shared_ptr<Schema>* out) {
     auto receiver = std::make_shared<RecordBatchReceiverCollect>();
-    RecordBatchStreamEmitter emitter(receiver);
-    ARROW_RETURN_NOT_OK(emitter.Consume(SliceBuffer(buffer_, 0, 1)));
-    ARROW_RETURN_NOT_OK(emitter.Consume(SliceBuffer(buffer_, 1)));
+    StreamDecoder decoder(receiver);
+    ARROW_RETURN_NOT_OK(decoder.Consume(SliceBuffer(buffer_, 0, 1)));
+    ARROW_RETURN_NOT_OK(decoder.Consume(SliceBuffer(buffer_, 1)));
     *out = receiver->schema();
     return Status::OK();
   }
@@ -1162,15 +1162,15 @@ class TestFileFormat : public ReaderWriterMixin<FileWriterHelper>,
 class TestStreamFormat : public ReaderWriterMixin<StreamWriterHelper>,
                          public ::testing::TestWithParam<MakeRecordBatch*> {};
 
-class TestStreamEmitterData : public ReaderWriterMixin<StreamEmitterDataWriterHelper>,
+class TestStreamDecoderData : public ReaderWriterMixin<StreamDecoderDataWriterHelper>,
                               public ::testing::TestWithParam<MakeRecordBatch*> {};
-class TestStreamEmitterBuffer : public ReaderWriterMixin<StreamEmitterBufferWriterHelper>,
+class TestStreamDecoderBuffer : public ReaderWriterMixin<StreamDecoderBufferWriterHelper>,
                                 public ::testing::TestWithParam<MakeRecordBatch*> {};
-class TestStreamEmitterSmallChunks
-    : public ReaderWriterMixin<StreamEmitterSmallChunksWriterHelper>,
+class TestStreamDecoderSmallChunks
+    : public ReaderWriterMixin<StreamDecoderSmallChunksWriterHelper>,
       public ::testing::TestWithParam<MakeRecordBatch*> {};
-class TestStreamEmitterLargeChunks
-    : public ReaderWriterMixin<StreamEmitterLargeChunksWriterHelper>,
+class TestStreamDecoderLargeChunks
+    : public ReaderWriterMixin<StreamDecoderLargeChunksWriterHelper>,
       public ::testing::TestWithParam<MakeRecordBatch*> {};
 
 TEST_P(TestFileFormat, RoundTrip) {
@@ -1193,7 +1193,7 @@ TEST_P(TestStreamFormat, RoundTrip) {
   TestZeroLengthRoundTrip(*GetParam(), options);
 }
 
-TEST_P(TestStreamEmitterData, RoundTrip) {
+TEST_P(TestStreamDecoderData, RoundTrip) {
   TestRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
   TestZeroLengthRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
 
@@ -1203,7 +1203,7 @@ TEST_P(TestStreamEmitterData, RoundTrip) {
   TestZeroLengthRoundTrip(*GetParam(), options);
 }
 
-TEST_P(TestStreamEmitterBuffer, RoundTrip) {
+TEST_P(TestStreamDecoderBuffer, RoundTrip) {
   TestRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
   TestZeroLengthRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
 
@@ -1213,7 +1213,7 @@ TEST_P(TestStreamEmitterBuffer, RoundTrip) {
   TestZeroLengthRoundTrip(*GetParam(), options);
 }
 
-TEST_P(TestStreamEmitterSmallChunks, RoundTrip) {
+TEST_P(TestStreamDecoderSmallChunks, RoundTrip) {
   TestRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
   TestZeroLengthRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
 
@@ -1223,7 +1223,7 @@ TEST_P(TestStreamEmitterSmallChunks, RoundTrip) {
   TestZeroLengthRoundTrip(*GetParam(), options);
 }
 
-TEST_P(TestStreamEmitterLargeChunks, RoundTrip) {
+TEST_P(TestStreamDecoderLargeChunks, RoundTrip) {
   TestRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
   TestZeroLengthRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
 
@@ -1236,14 +1236,14 @@ TEST_P(TestStreamEmitterLargeChunks, RoundTrip) {
 INSTANTIATE_TEST_SUITE_P(GenericIpcRoundTripTests, TestIpcRoundTrip, BATCH_CASES());
 INSTANTIATE_TEST_SUITE_P(FileRoundTripTests, TestFileFormat, BATCH_CASES());
 INSTANTIATE_TEST_SUITE_P(StreamRoundTripTests, TestStreamFormat, BATCH_CASES());
-INSTANTIATE_TEST_SUITE_P(StreamEmitterDataRoundTripTests, TestStreamEmitterData,
+INSTANTIATE_TEST_SUITE_P(StreamDecoderDataRoundTripTests, TestStreamDecoderData,
                          BATCH_CASES());
-INSTANTIATE_TEST_SUITE_P(StreamEmitterBufferRoundTripTests, TestStreamEmitterBuffer,
+INSTANTIATE_TEST_SUITE_P(StreamDecoderBufferRoundTripTests, TestStreamDecoderBuffer,
                          BATCH_CASES());
-INSTANTIATE_TEST_SUITE_P(StreamEmitterSmallChunksRoundTripTests,
-                         TestStreamEmitterSmallChunks, BATCH_CASES());
-INSTANTIATE_TEST_SUITE_P(StreamEmitterLargeChunksRoundTripTests,
-                         TestStreamEmitterLargeChunks, BATCH_CASES());
+INSTANTIATE_TEST_SUITE_P(StreamDecoderSmallChunksRoundTripTests,
+                         TestStreamDecoderSmallChunks, BATCH_CASES());
+INSTANTIATE_TEST_SUITE_P(StreamDecoderLargeChunksRoundTripTests,
+                         TestStreamDecoderLargeChunks, BATCH_CASES());
 
 TEST(TestIpcFileFormat, FooterMetaData) {
   // ARROW-6837
@@ -1844,13 +1844,13 @@ TEST(TestRecordBatchStreamReader, MalformedInput) {
   ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&garbage_reader));
 }
 
-TEST(TestRecordBatchStreamEmitter, NextRequiredSize) {
+TEST(TestStreamDecoder, NextRequiredSize) {
   auto receiver = std::make_shared<RecordBatchReceiverCollect>();
-  RecordBatchStreamEmitter emitter(receiver);
-  auto next_required_size = emitter.next_required_size();
+  StreamDecoder decoder(receiver);
+  auto next_required_size = decoder.next_required_size();
   const uint8_t data[1] = {0};
-  ASSERT_OK(emitter.Consume(data, 1));
-  ASSERT_EQ(next_required_size - 1, emitter.next_required_size());
+  ASSERT_OK(decoder.Consume(data, 1));
+  ASSERT_EQ(next_required_size - 1, decoder.next_required_size());
 }
 
 // ----------------------------------------------------------------------

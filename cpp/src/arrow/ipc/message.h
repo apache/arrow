@@ -221,9 +221,9 @@ class ARROW_EXPORT MessageReceiverAssign : public MessageReceiver {
   ARROW_DISALLOW_COPY_AND_ASSIGN(MessageReceiverAssign);
 };
 
-/// \class MessageEmitter
-/// \brief Push style message reader that receives data from user.
-class ARROW_EXPORT MessageEmitter {
+/// \class MessageDecoder
+/// \brief Push style message decoder that receives data from user.
+class ARROW_EXPORT MessageDecoder {
  public:
   /// \brief State for reading a message
   enum State {
@@ -248,35 +248,35 @@ class ARROW_EXPORT MessageEmitter {
     EOS,
   };
 
-  /// \brief Construct a message emitter.
+  /// \brief Construct a message decoder.
   ///
-  /// \param[in] receiver a MessageReceiver that receives read messages
+  /// \param[in] receiver a MessageReceiver that receives decoded messages
   /// \param[in] pool an optional MemoryPool to copy metadata on the
   /// CPU, if required
-  explicit MessageEmitter(std::shared_ptr<MessageReceiver> receiver,
+  explicit MessageDecoder(std::shared_ptr<MessageReceiver> receiver,
                           MemoryPool* pool = default_memory_pool());
 
-  /// \brief Construct a message emitter with the specified state.
+  /// \brief Construct a message decoder with the specified state.
   ///
-  /// This is a construct for advanced users that know how to read
+  /// This is a construct for advanced users that know how to decode
   /// Message.
   ///
-  /// \param[in] receiver a MessageReceiver that receives read messages
-  /// \param[in] initial_state an initial state of the emitter
+  /// \param[in] receiver a MessageReceiver that receives decoded messages
+  /// \param[in] initial_state an initial state of the decode
   /// \param[in] initial_next_required_size the number of bytes needed
   /// to run the next action
   /// \param[in] pool an optional MemoryPool to copy metadata on the
   /// CPU, if required
-  MessageEmitter(std::shared_ptr<MessageReceiver> receiver, State initial_state,
+  MessageDecoder(std::shared_ptr<MessageReceiver> receiver, State initial_state,
                  int64_t initial_next_required_size,
                  MemoryPool* pool = default_memory_pool());
 
-  virtual ~MessageEmitter();
+  virtual ~MessageDecoder();
 
-  /// \brief Feed data to the emitter as a raw data.
+  /// \brief Feed data to the decoder as a raw data.
   ///
-  /// If the emitter can read one or more messages by the data, the
-  /// emitter emits read batches by calling receiver->Receive()
+  /// If the decoder can decode one or more messages by the data, the
+  /// decoder calls receiver->Receive() with a decoded message
   /// multiple times.
   ///
   /// \param[in] data a raw data to be processed. This data isn't
@@ -286,10 +286,10 @@ class ARROW_EXPORT MessageEmitter {
   /// \return Status
   Status Consume(const uint8_t* data, int64_t size);
 
-  /// \brief Feed data to the emitter as a Buffer.
+  /// \brief Feed data to the decoder as a Buffer.
   ///
-  /// If the emitter can read one or more messages by the Buffer, the
-  /// emitter emits read messages by calling receiver->Receive()
+  /// If the decoder can decode one or more messages by the Buffer,
+  /// the decoder calls receiver->Receive() with a decoded message
   /// multiple times.
   ///
   /// \param[in] buffer a Buffer to be processed.
@@ -297,7 +297,7 @@ class ARROW_EXPORT MessageEmitter {
   Status Consume(std::shared_ptr<Buffer> buffer);
 
   /// \brief Return the number of bytes needed to advance the state of
-  /// the emitter.
+  /// the decoder.
   ///
   /// This method is provided for users who want to optimize performance.
   /// Normal users don't need to use this method.
@@ -305,31 +305,31 @@ class ARROW_EXPORT MessageEmitter {
   /// Here is an example usage for normal users:
   ///
   /// ~~~{.cpp}
-  /// emitter.Consume(buffer1);
-  /// emitter.Consume(buffer2);
-  /// emitter.Consume(buffer3);
+  /// decoder.Consume(buffer1);
+  /// decoder.Consume(buffer2);
+  /// decoder.Consume(buffer3);
   /// ~~~
   ///
-  /// Emitter has internal buffer. If consumed data isn't enough to
-  /// advance the state of the emitter, consumed data is buffered to
+  /// Decoder has internal buffer. If consumed data isn't enough to
+  /// advance the state of the decoder, consumed data is buffered to
   /// the internal buffer. It causes performance overhead.
   ///
   /// If you pass next_required_size() size data to each Consume()
-  /// call, the emitter doesn't use its internal buffer. It improves
+  /// call, the decoder doesn't use its internal buffer. It improves
   /// performance.
   ///
   /// Here is an example usage to avoid using internal buffer:
   ///
   /// ~~~{.cpp}
-  /// buffer1 = get_data(emitter.next_required_size());
-  /// emitter.Consume(buffer1);
-  /// buffer2 = get_data(emitter.next_required_size());
-  /// emitter.Consume(buffer2);
+  /// buffer1 = get_data(decoder.next_required_size());
+  /// decoder.Consume(buffer1);
+  /// buffer2 = get_data(decoder.next_required_size());
+  /// decoder.Consume(buffer2);
   /// ~~~
   ///
   /// Users can use this method to avoid creating small
   /// chunks. Message body must be contiguous data. If users pass
-  /// small chunks to the emitter, the emitter needs concatenate small
+  /// small chunks to the decoder, the decoder needs concatenate small
   /// chunks internally. It causes performance overhead.
   ///
   /// Here is an example usage to reduce small chunks:
@@ -342,31 +342,61 @@ class ARROW_EXPORT MessageEmitter {
   ///   memcpy(buffer->mutable_data() + current_buffer_size,
   ///          small_chunk,
   ///          small_chunk_size);
-  ///   if (buffer->size() < emitter.next_requied_size()) {
+  ///   if (buffer->size() < decoder.next_requied_size()) {
   ///     continue;
   ///   }
   ///   std::shared_ptr<arrow::Buffer> chunk(buffer.release());
-  ///   emitter.Consume(chunk);
+  ///   decoder.Consume(chunk);
   ///   buffer = AllocateResizableBuffer();
   /// }
   /// if (buffer->size() > 0) {
   ///   std::shared_ptr<arrow::Buffer> chunk(buffer.release());
-  ///   emitter.Consume(chunk);
+  ///   decoder.Consume(chunk);
   /// }
   /// ~~~
   ///
   /// \return the number of bytes needed to advance the state of the
-  /// emitter
+  /// decoder
   int64_t next_required_size() const;
 
+  /// \brief Return the current state of the decoder.
+  ///
+  /// This method is provided for users who want to optimize performance.
+  /// Normal users don't need to use this method.
+  ///
+  /// Decoder doesn't need Buffer to process data on the
+  /// MessageDecoder::State::INITIAL state and the
+  /// MessageDecoder::State::METADATA_LENGTH. Creating Buffer has
+  /// performance overhead. Advanced users can avoid creating Buffer
+  /// by checking the current state of the decoder:
+  ///
+  /// ~~~{.cpp}
+  /// switch (decoder.state()) {
+  ///   MessageDecoder::State::INITIAL:
+  ///   MessageDecoder::State::METADATA_LENGTH:
+  ///     {
+  ///       uint8_t data[sizeof(int32_t)];
+  ///       auto data_size = input->Read(decoder.next_required_size(), data);
+  ///       decoder.Consume(data, data_size);
+  ///     }
+  ///     break;
+  ///   default:
+  ///     {
+  ///       auto buffer = input->Read(decoder.next_required_size());
+  ///       decoder.Consume(buffer);
+  ///     }
+  ///     break;
+  /// }
+  /// ~~~
+  ///
   /// \return the current state
   State state() const;
 
  private:
-  class MessageEmitterImpl;
-  std::unique_ptr<MessageEmitterImpl> impl_;
+  class MessageDecoderImpl;
+  std::unique_ptr<MessageDecoderImpl> impl_;
 
-  ARROW_DISALLOW_COPY_AND_ASSIGN(MessageEmitter);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(MessageDecoder);
 };
 
 /// \brief Abstract interface for a sequence of messages

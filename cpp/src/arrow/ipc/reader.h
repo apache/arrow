@@ -227,29 +227,29 @@ class ARROW_EXPORT RecordBatchReceiverCollect : public Receiver {
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
 };
 
-/// \class RecordBatchStreamEmitter
-/// \brief Push style record batch stream reader that receives data
-/// from user.
+/// \class StreamDecoder
+/// \brief Push style stream decoder that receives data from user.
 ///
-/// This class reads the schema (plus any dictionaries) as the first
-/// messages in the fed data, followed by record batches.
-class ARROW_EXPORT RecordBatchStreamEmitter {
+/// This class decodes the Apache Arrow IPC streaming format data.
+///
+/// \see https://arrow.apache.org/docs/format/Columnar.html#ipc-streaming-format
+class ARROW_EXPORT StreamDecoder {
  public:
-  /// \brief Construct a record batch emitter.
+  /// \brief Construct a stream decoder.
   ///
   /// \param[in] receiver a Receiver that must implement
-  /// Receiver::MessageReceived to receive read record batches
+  /// Receiver::RecordBatchReceived() to receive decoded record batches
   /// \param[in] options any IPC reading options (optional)
-  RecordBatchStreamEmitter(std::shared_ptr<Receiver> receiver,
-                           const IpcReadOptions& options = IpcReadOptions::Defaults());
+  StreamDecoder(std::shared_ptr<Receiver> receiver,
+                const IpcReadOptions& options = IpcReadOptions::Defaults());
 
-  virtual ~RecordBatchStreamEmitter();
+  virtual ~StreamDecoder();
 
-  /// \brief Feed data to the emitter as a raw data.
+  /// \brief Feed data to the decoder as a raw data.
   ///
-  /// If the emitter can read one or more record batches by the data,
-  /// the emitter emits read record batches by calling
-  /// receiver->Receive() multiple times.
+  /// If the decoder can read one or more record batches by the data,
+  /// the decoder calls receiver->RecordBatchReceived() with a decoded
+  /// record batch multiple times.
   ///
   /// \param[in] data a raw data to be processed. This data isn't
   /// copied. The passed memory must be kept alive through record
@@ -258,11 +258,11 @@ class ARROW_EXPORT RecordBatchStreamEmitter {
   /// \return Status
   Status Consume(const uint8_t* data, int64_t size);
 
-  /// \brief Feed data to the emitter as a Buffer.
+  /// \brief Feed data to the decoder as a Buffer.
   ///
-  /// If the emitter can read one or more record batches by the
-  /// Buffer, the emitter emits read record batches by calling
-  /// receiver->Receive() multiple times.
+  /// If the decoder can read one or more record batches by the
+  /// Buffer, the decoder calls receiver->RecordBatchReceived() with a
+  /// decoded record batch multiple times.
   ///
   /// \param[in] buffer a Buffer to be processed.
   /// \return Status
@@ -272,7 +272,7 @@ class ARROW_EXPORT RecordBatchStreamEmitter {
   std::shared_ptr<Schema> schema() const;
 
   /// \brief Return the number of bytes needed to advance the state of
-  /// the emitter.
+  /// the decoder.
   ///
   /// This method is provided for users who want to optimize performance.
   /// Normal users don't need to use this method.
@@ -280,31 +280,31 @@ class ARROW_EXPORT RecordBatchStreamEmitter {
   /// Here is an example usage for normal users:
   ///
   /// ~~~{.cpp}
-  /// emitter.Consume(buffer1);
-  /// emitter.Consume(buffer2);
-  /// emitter.Consume(buffer3);
+  /// decoder.Consume(buffer1);
+  /// decoder.Consume(buffer2);
+  /// decoder.Consume(buffer3);
   /// ~~~
   ///
-  /// Emitter has internal buffer. If consumed data isn't enough to
-  /// advance the state of the emitter, consumed data is buffered to
+  /// Decoder has internal buffer. If consumed data isn't enough to
+  /// advance the state of the decoder, consumed data is buffered to
   /// the internal buffer. It causes performance overhead.
   ///
   /// If you pass next_required_size() size data to each Consume()
-  /// call, the emitter doesn't use its internal buffer. It improves
+  /// call, the decoder doesn't use its internal buffer. It improves
   /// performance.
   ///
   /// Here is an example usage to avoid using internal buffer:
   ///
   /// ~~~{.cpp}
-  /// buffer1 = get_data(emitter.next_required_size());
-  /// emitter.Consume(buffer1);
-  /// buffer2 = get_data(emitter.next_required_size());
-  /// emitter.Consume(buffer2);
+  /// buffer1 = get_data(decoder.next_required_size());
+  /// decoder.Consume(buffer1);
+  /// buffer2 = get_data(decoder.next_required_size());
+  /// decoder.Consume(buffer2);
   /// ~~~
   ///
   /// Users can use this method to avoid creating small chunks. Record
   /// batch data must be contiguous data. If users pass small chunks
-  /// to the emitter, the emitter needs concatenate small chunks
+  /// to the decoder, the decoder needs concatenate small chunks
   /// internally. It causes performance overhead.
   ///
   /// Here is an example usage to reduce small chunks:
@@ -317,28 +317,28 @@ class ARROW_EXPORT RecordBatchStreamEmitter {
   ///   memcpy(buffer->mutable_data() + current_buffer_size,
   ///          small_chunk,
   ///          small_chunk_size);
-  ///   if (buffer->size() < emitter.next_requied_size()) {
+  ///   if (buffer->size() < decoder.next_requied_size()) {
   ///     continue;
   ///   }
   ///   std::shared_ptr<arrow::Buffer> chunk(buffer.release());
-  ///   emitter.Consume(chunk);
+  ///   decoder.Consume(chunk);
   ///   buffer = AllocateResizableBuffer();
   /// }
   /// if (buffer->size() > 0) {
   ///   std::shared_ptr<arrow::Buffer> chunk(buffer.release());
-  ///   emitter.Consume(chunk);
+  ///   decoder.Consume(chunk);
   /// }
   /// ~~~
   ///
   /// \return the number of bytes needed to advance the state of the
-  /// emitter
+  /// decoder
   int64_t next_required_size() const;
 
  private:
-  class RecordBatchStreamEmitterImpl;
-  std::unique_ptr<RecordBatchStreamEmitterImpl> impl_;
+  class StreamDecoderImpl;
+  std::unique_ptr<StreamDecoderImpl> impl_;
 
-  ARROW_DISALLOW_COPY_AND_ASSIGN(RecordBatchStreamEmitter);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(StreamDecoder);
 };
 
 // Generic read functions; does not copy data if the input supports zero copy reads

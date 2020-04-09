@@ -146,10 +146,10 @@ static void EmitStream(benchmark::State& state) {  // NOLINT non-const reference
         return Status::OK();
       }
     } receiver;
-    ipc::RecordBatchStreamEmitter emitter(
+    ipc::StreamDecoder decoder(
         std::shared_ptr<RecordBatchReceiverNull>(&receiver),
         ipc::IpcReadOptions::Defaults());
-    ABORT_NOT_OK(emitter.Consume(buffer));
+    ABORT_NOT_OK(decoder.Consume(buffer));
   }
   state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize);
 }

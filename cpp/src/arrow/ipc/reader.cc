@@ -941,7 +941,7 @@ Result<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::Open(
   return result;
 }
 
-class RecordBatchStreamEmitter::RecordBatchStreamEmitterImpl : public MessageReceiver {
+class StreamDecoder::StreamDecoderImpl : public MessageReceiver {
  private:
   enum State {
     SCHEMA,
@@ -951,14 +951,14 @@ class RecordBatchStreamEmitter::RecordBatchStreamEmitterImpl : public MessageRec
   };
 
  public:
-  explicit RecordBatchStreamEmitterImpl(std::shared_ptr<Receiver> receiver,
+  explicit StreamDecoderImpl(std::shared_ptr<Receiver> receiver,
                                         const IpcReadOptions& options)
       : MessageReceiver(),
         receiver_(std::move(receiver)),
         options_(options),
         state_(State::SCHEMA),
-        message_emitter_(
-            std::shared_ptr<RecordBatchStreamEmitterImpl>(this, [](void*) {}),
+        message_decoder_(
+            std::shared_ptr<StreamDecoderImpl>(this, [](void*) {}),
             options_.memory_pool),
         field_inclusion_mask_(),
         n_required_dictionaries_(0),
@@ -979,7 +979,7 @@ class RecordBatchStreamEmitter::RecordBatchStreamEmitterImpl : public MessageRec
       case State::EOS:
         break;
     }
-    if (message_emitter_.state() == MessageEmitter::State::EOS) {
+    if (message_decoder_.state() == MessageDecoder::State::EOS) {
       state_ = State::EOS;
       ARROW_RETURN_NOT_OK(receiver_->EosReceived());
     }
@@ -987,16 +987,16 @@ class RecordBatchStreamEmitter::RecordBatchStreamEmitterImpl : public MessageRec
   }
 
   Status Consume(const uint8_t* data, int64_t size) {
-    return message_emitter_.Consume(data, size);
+    return message_decoder_.Consume(data, size);
   }
 
   Status Consume(std::shared_ptr<Buffer> buffer) {
-    return message_emitter_.Consume(std::move(buffer));
+    return message_decoder_.Consume(std::move(buffer));
   }
 
   std::shared_ptr<Schema> schema() const { return schema_; }
 
-  int64_t next_required_size() const { return message_emitter_.next_required_size(); }
+  int64_t next_required_size() const { return message_decoder_.next_required_size(); }
 
  private:
   Status SchemaMessageReceived(std::unique_ptr<Message> message) {
@@ -1044,32 +1044,32 @@ class RecordBatchStreamEmitter::RecordBatchStreamEmitterImpl : public MessageRec
   std::shared_ptr<Receiver> receiver_;
   IpcReadOptions options_;
   State state_;
-  MessageEmitter message_emitter_;
+  MessageDecoder message_decoder_;
   std::vector<bool> field_inclusion_mask_;
   int n_required_dictionaries_;
   DictionaryMemo dictionary_memo_;
   std::shared_ptr<Schema> schema_;
 };
 
-RecordBatchStreamEmitter::RecordBatchStreamEmitter(std::shared_ptr<Receiver> receiver,
+StreamDecoder::StreamDecoder(std::shared_ptr<Receiver> receiver,
                                                    const IpcReadOptions& options) {
-  impl_.reset(new RecordBatchStreamEmitterImpl(std::move(receiver), options));
+  impl_.reset(new StreamDecoderImpl(std::move(receiver), options));
 }
 
-RecordBatchStreamEmitter::~RecordBatchStreamEmitter() {}
+StreamDecoder::~StreamDecoder() {}
 
-Status RecordBatchStreamEmitter::Consume(const uint8_t* data, int64_t size) {
+Status StreamDecoder::Consume(const uint8_t* data, int64_t size) {
   return impl_->Consume(data, size);
 }
-Status RecordBatchStreamEmitter::Consume(std::shared_ptr<Buffer> buffer) {
+Status StreamDecoder::Consume(std::shared_ptr<Buffer> buffer) {
   return impl_->Consume(std::move(buffer));
 }
 
-std::shared_ptr<Schema> RecordBatchStreamEmitter::schema() const {
+std::shared_ptr<Schema> StreamDecoder::schema() const {
   return impl_->schema();
 }
 
-int64_t RecordBatchStreamEmitter::next_required_size() const {
+int64_t StreamDecoder::next_required_size() const {
   return impl_->next_required_size();
 }
 

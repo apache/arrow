@@ -186,15 +186,15 @@ Result<std::unique_ptr<Message>> Message::ReadFrom(std::shared_ptr<Buffer> metad
                                                    io::InputStream* stream) {
   std::unique_ptr<Message> result;
   auto receiver = std::make_shared<MessageReceiverAssign>(&result);
-  MessageEmitter emitter(receiver, MessageEmitter::State::METADATA, metadata->size());
-  ARROW_RETURN_NOT_OK(emitter.Consume(metadata));
+  MessageDecoder decoder(receiver, MessageDecoder::State::METADATA, metadata->size());
+  ARROW_RETURN_NOT_OK(decoder.Consume(metadata));
 
-  ARROW_ASSIGN_OR_RAISE(auto body, stream->Read(emitter.next_required_size()));
-  if (body->size() < emitter.next_required_size()) {
-    return Status::IOError("Expected to be able to read ", emitter.next_required_size(),
+  ARROW_ASSIGN_OR_RAISE(auto body, stream->Read(decoder.next_required_size()));
+  if (body->size() < decoder.next_required_size()) {
+    return Status::IOError("Expected to be able to read ", decoder.next_required_size(),
                            " bytes for message body, got ", body->size());
   }
-  RETURN_NOT_OK(emitter.Consume(body));
+  RETURN_NOT_OK(decoder.Consume(body));
   return std::move(result);
 }
 
@@ -203,15 +203,15 @@ Result<std::unique_ptr<Message>> Message::ReadFrom(const int64_t offset,
                                                    io::RandomAccessFile* file) {
   std::unique_ptr<Message> result;
   auto receiver = std::make_shared<MessageReceiverAssign>(&result);
-  MessageEmitter emitter(receiver, MessageEmitter::State::METADATA, metadata->size());
-  ARROW_RETURN_NOT_OK(emitter.Consume(metadata));
+  MessageDecoder decoder(receiver, MessageDecoder::State::METADATA, metadata->size());
+  ARROW_RETURN_NOT_OK(decoder.Consume(metadata));
 
-  ARROW_ASSIGN_OR_RAISE(auto body, file->ReadAt(offset, emitter.next_required_size()));
-  if (body->size() < emitter.next_required_size()) {
-    return Status::IOError("Expected to be able to read ", emitter.next_required_size(),
+  ARROW_ASSIGN_OR_RAISE(auto body, file->ReadAt(offset, decoder.next_required_size()));
+  if (body->size() < decoder.next_required_size()) {
+    return Status::IOError("Expected to be able to read ", decoder.next_required_size(),
                            " bytes for message body, got ", body->size());
   }
-  RETURN_NOT_OK(emitter.Consume(body));
+  RETURN_NOT_OK(decoder.Consume(body));
   return std::move(result);
 }
 
@@ -268,11 +268,11 @@ Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_le
                                              io::RandomAccessFile* file) {
   std::unique_ptr<Message> result;
   auto receiver = std::make_shared<MessageReceiverAssign>(&result);
-  MessageEmitter emitter(receiver);
+  MessageDecoder decoder(receiver);
 
-  if (metadata_length < emitter.next_required_size()) {
+  if (metadata_length < decoder.next_required_size()) {
     return Status::Invalid("metadata_length should be at least ",
-                           emitter.next_required_size());
+                           decoder.next_required_size());
   }
 
   ARROW_ASSIGN_OR_RAISE(auto metadata, file->ReadAt(offset, metadata_length));
@@ -280,33 +280,33 @@ Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_le
     return Status::Invalid("Expected to read ", metadata_length,
                            " metadata bytes but got ", metadata->size());
   }
-  ARROW_RETURN_NOT_OK(emitter.Consume(metadata));
+  ARROW_RETURN_NOT_OK(decoder.Consume(metadata));
 
-  switch (emitter.state()) {
-    case MessageEmitter::State::INITIAL:
+  switch (decoder.state()) {
+    case MessageDecoder::State::INITIAL:
       return result;
-    case MessageEmitter::State::METADATA_LENGTH:
+    case MessageDecoder::State::METADATA_LENGTH:
       return Status::Invalid("metadata length is missing. File offset: ", offset,
                              ", metadata length: ", metadata_length);
-    case MessageEmitter::State::METADATA:
-      return Status::Invalid("flatbuffer size ", emitter.next_required_size(),
+    case MessageDecoder::State::METADATA:
+      return Status::Invalid("flatbuffer size ", decoder.next_required_size(),
                              " invalid. File offset: ", offset,
                              ", metadata length: ", metadata_length);
-    case MessageEmitter::State::BODY: {
+    case MessageDecoder::State::BODY: {
       ARROW_ASSIGN_OR_RAISE(auto body, file->ReadAt(offset + metadata_length,
-                                                    emitter.next_required_size()));
-      if (body->size() < emitter.next_required_size()) {
+                                                    decoder.next_required_size()));
+      if (body->size() < decoder.next_required_size()) {
         return Status::IOError("Expected to be able to read ",
-                               emitter.next_required_size(),
+                               decoder.next_required_size(),
                                " bytes for message body, got ", body->size());
       }
-      RETURN_NOT_OK(emitter.Consume(body));
+      RETURN_NOT_OK(decoder.Consume(body));
       return result;
     }
-    case MessageEmitter::State::EOS:
+    case MessageDecoder::State::EOS:
       return Status::Invalid("Unexpected empty message in IPC file format");
     default:
-      return Status::Invalid("Unexpected state: ", emitter.state());
+      return Status::Invalid("Unexpected state: ", decoder.state());
   }
 }
 
@@ -337,7 +337,7 @@ Status CheckAligned(io::FileInterface* stream, int32_t alignment) {
 Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* file, MemoryPool* pool) {
   std::unique_ptr<Message> message;
   auto receiver = std::make_shared<MessageReceiverAssign>(&message);
-  MessageEmitter emitter(receiver, pool);
+  MessageDecoder decoder(receiver, pool);
 
   {
     uint8_t continuation[sizeof(int32_t)];
@@ -345,43 +345,43 @@ Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* file, MemoryPool* 
     if (bytes_read == 0) {
       // EOS without indication
       return nullptr;
-    } else if (bytes_read != emitter.next_required_size()) {
+    } else if (bytes_read != decoder.next_required_size()) {
       return Status::Invalid("Corrupted message, only ", bytes_read, " bytes available");
     }
-    ARROW_RETURN_NOT_OK(emitter.Consume(continuation, bytes_read));
+    ARROW_RETURN_NOT_OK(decoder.Consume(continuation, bytes_read));
   }
 
-  if (emitter.state() == MessageEmitter::State::METADATA_LENGTH) {
+  if (decoder.state() == MessageDecoder::State::METADATA_LENGTH) {
     // Valid IPC message, read the message length now
     uint8_t metadata_length[sizeof(int32_t)];
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
                           file->Read(sizeof(int32_t), &metadata_length));
-    if (bytes_read != emitter.next_required_size()) {
+    if (bytes_read != decoder.next_required_size()) {
       return Status::Invalid("Corrupted metadata length, only ", bytes_read,
                              " bytes available");
     }
-    ARROW_RETURN_NOT_OK(emitter.Consume(metadata_length, bytes_read));
+    ARROW_RETURN_NOT_OK(decoder.Consume(metadata_length, bytes_read));
   }
 
-  if (emitter.state() == MessageEmitter::State::EOS) {
+  if (decoder.state() == MessageDecoder::State::EOS) {
     return nullptr;
   }
 
-  auto metadata_length = emitter.next_required_size();
+  auto metadata_length = decoder.next_required_size();
   ARROW_ASSIGN_OR_RAISE(auto metadata, file->Read(metadata_length));
   if (metadata->size() != metadata_length) {
     return Status::Invalid("Expected to read ", metadata_length, " metadata bytes, but ",
                            "only read ", metadata->size());
   }
-  RETURN_NOT_OK(emitter.Consume(metadata));
+  RETURN_NOT_OK(decoder.Consume(metadata));
 
-  if (emitter.state() == MessageEmitter::State::BODY) {
-    ARROW_ASSIGN_OR_RAISE(auto body, file->Read(emitter.next_required_size()));
-    if (body->size() < emitter.next_required_size()) {
-      return Status::IOError("Expected to be able to read ", emitter.next_required_size(),
+  if (decoder.state() == MessageDecoder::State::BODY) {
+    ARROW_ASSIGN_OR_RAISE(auto body, file->Read(decoder.next_required_size()));
+    if (body->size() < decoder.next_required_size()) {
+      return Status::IOError("Expected to be able to read ", decoder.next_required_size(),
                              " bytes for message body, got ", body->size());
     }
-    ARROW_RETURN_NOT_OK(emitter.Consume(body));
+    ARROW_RETURN_NOT_OK(decoder.Consume(body));
   }
 
   if (!message) {
@@ -423,14 +423,14 @@ Status WriteMessage(const Buffer& message, const IpcWriteOptions& options,
 }
 
 // ----------------------------------------------------------------------
-// Implement MessageEmitter
+// Implement MessageDecoder
 
-static constexpr auto kMessageEmitterNextRequiredSizeInitial = sizeof(int32_t);
-static constexpr auto kMessageEmitterNextRequiredSizeMetadataLength = sizeof(int32_t);
+static constexpr auto kMessageDecoderNextRequiredSizeInitial = sizeof(int32_t);
+static constexpr auto kMessageDecoderNextRequiredSizeMetadataLength = sizeof(int32_t);
 
-class MessageEmitter::MessageEmitterImpl {
+class MessageDecoder::MessageDecoderImpl {
  public:
-  explicit MessageEmitterImpl(std::shared_ptr<MessageReceiver> receiver,
+  explicit MessageDecoderImpl(std::shared_ptr<MessageReceiver> receiver,
                               State initial_state, int64_t initial_next_required_size,
                               MemoryPool* pool)
       : receiver_(std::move(receiver)),
@@ -525,7 +525,7 @@ class MessageEmitter::MessageEmitterImpl {
 
   int64_t next_required_size() const { return next_required_size_ - buffered_size_; }
 
-  MessageEmitter::State state() const { return state_; }
+  MessageDecoder::State state() const { return state_; }
 
  private:
   Status ConsumeChunks() {
@@ -573,7 +573,7 @@ class MessageEmitter::MessageEmitterImpl {
   Status ConsumeInitial(int32_t continuation) {
     if (continuation == internal::kIpcContinuationToken) {
       state_ = State::METADATA_LENGTH;
-      next_required_size_ = kMessageEmitterNextRequiredSizeMetadataLength;
+      next_required_size_ = kMessageDecoderNextRequiredSizeMetadataLength;
       // Valid IPC message, read the message length now
       return Status::OK();
     } else if (continuation == 0) {
@@ -700,7 +700,7 @@ class MessageEmitter::MessageEmitterImpl {
                           Message::Open(metadata_, *buffer));
 
     state_ = State::INITIAL;
-    next_required_size_ = kMessageEmitterNextRequiredSizeInitial;
+    next_required_size_ = kMessageDecoderNextRequiredSizeInitial;
     RETURN_NOT_OK(receiver_->Received(std::move(message)));
     return Status::OK();
   }
@@ -756,32 +756,32 @@ class MessageEmitter::MessageEmitterImpl {
   std::shared_ptr<Buffer> metadata_;  // Must be CPU buffer
 };
 
-MessageEmitter::MessageEmitter(std::shared_ptr<MessageReceiver> receiver,
+MessageDecoder::MessageDecoder(std::shared_ptr<MessageReceiver> receiver,
                                MemoryPool* pool) {
-  impl_.reset(new MessageEmitterImpl(std::move(receiver), State::INITIAL,
-                                     kMessageEmitterNextRequiredSizeInitial, pool));
+  impl_.reset(new MessageDecoderImpl(std::move(receiver), State::INITIAL,
+                                     kMessageDecoderNextRequiredSizeInitial, pool));
 }
 
-MessageEmitter::MessageEmitter(std::shared_ptr<MessageReceiver> receiver,
+MessageDecoder::MessageDecoder(std::shared_ptr<MessageReceiver> receiver,
                                State initial_state, int64_t initial_next_required_size,
                                MemoryPool* pool) {
-  impl_.reset(new MessageEmitterImpl(std::move(receiver), initial_state,
+  impl_.reset(new MessageDecoderImpl(std::move(receiver), initial_state,
                                      initial_next_required_size, pool));
 }
 
-MessageEmitter::~MessageEmitter() {}
+MessageDecoder::~MessageDecoder() {}
 
-Status MessageEmitter::Consume(const uint8_t* data, int64_t size) {
+Status MessageDecoder::Consume(const uint8_t* data, int64_t size) {
   return impl_->ConsumeData(data, size);
 }
 
-Status MessageEmitter::Consume(std::shared_ptr<Buffer> buffer) {
+Status MessageDecoder::Consume(std::shared_ptr<Buffer> buffer) {
   return impl_->ConsumeBuffer(&buffer);
 }
 
-int64_t MessageEmitter::next_required_size() const { return impl_->next_required_size(); }
+int64_t MessageDecoder::next_required_size() const { return impl_->next_required_size(); }
 
-MessageEmitter::State MessageEmitter::state() const { return impl_->state(); }
+MessageDecoder::State MessageDecoder::state() const { return impl_->state(); }
 
 // ----------------------------------------------------------------------
 // Implement InputStream message reader
