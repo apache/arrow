@@ -623,7 +623,8 @@ cdef class ParquetReadOptions:
     buffer_size : int, default 8192
         Size of buffered stream, if enabled. Default is 8KB.
     dictionary_columns : list of string, default None
-        Names of columns which should be read as dictionary type.
+        Names of columns which should be dictionary encoded as
+        they are read.
     """
 
     cdef public:
