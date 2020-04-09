@@ -65,6 +65,12 @@ parametrize_legacy_dataset_skip_buffer = pytest.mark.parametrize(
     "use_legacy_dataset", [True, pytest.param(False, marks=pytest.mark.skip)])
 
 
+def deterministic_row_order(use_legacy_dataset, chunk_size=None):
+    # TODO(datasets) ensure to use use_threads=False with the new dataset API
+    # in the tests because otherwise the row order is not deterministic
+    return False if not use_legacy_dataset and chunk_size is not None else True
+
+
 def _write_table(table, path, **kwargs):
     # So we see the ImportError somewhere
     import pyarrow.parquet as pq
@@ -184,9 +190,7 @@ def test_pandas_parquet_2_0_roundtrip(tempdir, chunk_size, use_legacy_dataset):
 
     _write_table(arrow_table, filename, version="2.0",
                  coerce_timestamps='ms', chunk_size=chunk_size)
-    # TODO(datasets)
-    use_threads = (
-        False if not use_legacy_dataset and chunk_size is not None else True)
+    use_threads = deterministic_row_order(use_legacy_dataset, chunk_size)
     table_read = pq.read_pandas(
         filename, use_legacy_dataset=use_legacy_dataset,
         use_threads=use_threads)
@@ -2678,10 +2682,8 @@ def _test_write_to_dataset_with_partitions(base_path,
 
     assert dataset_cols == set(output_table.schema.names)
 
-    # TODO(datasets) changed to use_threads=False because otherwise the
-    # row order is not deterministic
-    kwargs = dict(use_threads=False) if not use_legacy_dataset else {}
-    input_table = dataset.read(**kwargs)
+    use_threads = deterministic_row_order(use_legacy_dataset)
+    input_table = dataset.read(use_threads=use_threads)
     input_df = input_table.to_pandas()
 
     # Read data back in and compare with original DataFrame
