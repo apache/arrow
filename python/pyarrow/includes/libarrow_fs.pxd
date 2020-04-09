@@ -31,9 +31,6 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CFileType_File "arrow::fs::FileType::File"
         CFileType_Directory "arrow::fs::FileType::Directory"
 
-    cdef cppclass CTimePoint "arrow::fs::TimePoint":
-        pass
-
     cdef cppclass CFileInfo "arrow::fs::FileInfo":
         CFileInfo()
         CFileInfo(CFileInfo&&)

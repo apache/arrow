@@ -1724,10 +1724,8 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
     cdef cppclass CTimePoint "arrow::py::internal::TimePoint":
         pass
 
-    CStatus PyDateTime_from_int(int64_t val, const TimeUnit unit,
-                                PyObject** out)
-    CStatus PyDateTime_from_TimePoint(CTimePoint val, PyObject** out)
     CTimePoint PyDateTime_to_TimePoint(PyDateTime_DateTime* pydatetime)
+    int64_t TimePoint_to_ns(CTimePoint val)
 
 
 cdef extern from 'arrow/python/init.h':
