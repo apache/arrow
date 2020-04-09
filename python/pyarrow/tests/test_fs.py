@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import gzip
 import pathlib
 import pickle
@@ -255,6 +255,18 @@ def test_non_path_like_input_raises(fs):
             fs.create_dir(path)
 
 
+def check_mtime(file_info):
+    assert isinstance(file_info.mtime, datetime)
+    assert isinstance(file_info.mtime_ns, int)
+    if file_info.mtime_ns >= 0:
+        assert file_info.mtime_ns == pytest.approx(
+            file_info.mtime.timestamp() * 1e9)
+        # It's an aware UTC datetime
+        tzinfo = file_info.mtime.tzinfo
+        assert tzinfo is not None
+        assert tzinfo.utcoffset(None) == timedelta(0)
+
+
 def test_get_file_info(fs, pathfn):
     aaa = pathfn('a/aa/aaa/')
     bb = pathfn('a/bb')
@@ -273,7 +285,7 @@ def test_get_file_info(fs, pathfn):
     assert 'aaa' in repr(aaa_info)
     assert aaa_info.extension == ''
     assert 'FileType.Directory' in repr(aaa_info)
-    assert isinstance(aaa_info.mtime, datetime)
+    check_mtime(aaa_info)
 
     assert bb_info.path == str(bb)
     assert bb_info.base_name == 'bb'
@@ -281,7 +293,7 @@ def test_get_file_info(fs, pathfn):
     assert bb_info.type == FileType.File
     assert 'FileType.File' in repr(bb_info)
     assert bb_info.size == 0
-    assert isinstance(bb_info.mtime, datetime)
+    check_mtime(bb_info)
 
     assert c_info.path == str(c)
     assert c_info.base_name == 'c.txt'
@@ -289,14 +301,14 @@ def test_get_file_info(fs, pathfn):
     assert c_info.type == FileType.File
     assert 'FileType.File' in repr(c_info)
     assert c_info.size == 4
-    assert isinstance(c_info.mtime, datetime)
+    check_mtime(c_info)
 
     assert zzz_info.path == str(zzz)
     assert zzz_info.base_name == 'zzz'
     assert zzz_info.extension == ''
     assert zzz_info.type == FileType.NotFound
     assert 'FileType.NotFound' in repr(zzz_info)
-    assert isinstance(c_info.mtime, datetime)
+    check_mtime(zzz_info)
 
 
 def test_get_file_info_with_selector(fs, pathfn):
@@ -329,6 +341,7 @@ def test_get_file_info_with_selector(fs, pathfn):
                 assert info.type == FileType.Directory
             else:
                 raise ValueError('unexpected path {}'.format(info.path))
+            check_mtime(info)
     finally:
         fs.delete_file(file_a)
         fs.delete_file(file_b)
@@ -546,6 +559,30 @@ def test_localfs_errors(localfs):
         fs.move('/non/existent', '/xxx')
     with assert_file_not_found():
         fs.copy_file('/non/existent', '/xxx')
+
+
+def test_localfs_file_info(localfs):
+    fs = localfs['fs']
+
+    file_path = pathlib.Path(__file__)
+    dir_path = file_path.parent
+    [file_info, dir_info] = fs.get_file_info([file_path.as_posix(),
+                                              dir_path.as_posix()])
+    assert file_info.size == file_path.stat().st_size
+    assert file_info.mtime_ns == file_path.stat().st_mtime_ns
+    check_mtime(file_info)
+    assert dir_info.mtime_ns == dir_path.stat().st_mtime_ns
+    check_mtime(dir_info)
+
+
+def test_mockfs_mtime_roundtrip(mockfs):
+    dt = datetime.fromtimestamp(1568799826, timezone.utc)
+    fs = _MockFileSystem(dt)
+
+    with fs.open_output_stream('foo'):
+        pass
+    [info] = fs.get_file_info(['foo'])
+    assert info.mtime == dt
 
 
 @pytest.mark.s3

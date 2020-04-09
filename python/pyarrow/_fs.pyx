@@ -21,13 +21,12 @@ from cpython.datetime cimport datetime, PyDateTime_DateTime
 
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport (
-    PyDateTime_from_TimePoint, PyDateTime_to_TimePoint
-)
+from pyarrow.includes.libarrow cimport PyDateTime_to_TimePoint
 from pyarrow.lib import _detect_compression
 from pyarrow.lib cimport *
 from pyarrow.util import _stringify_path
 
+from datetime import timezone
 import pathlib
 
 
@@ -150,9 +149,21 @@ cdef class FileInfo:
         -------
         mtime : datetime.datetime
         """
-        cdef PyObject *out
-        check_status(PyDateTime_from_TimePoint(self.info.mtime(), &out))
-        return PyObject_to_object(out)
+        cdef int64_t nanoseconds
+        nanoseconds = TimePoint_to_ns(self.info.mtime())
+        return datetime.fromtimestamp(nanoseconds / 1.0e9, timezone.utc)
+
+    @property
+    def mtime_ns(self):
+        """
+        The time of last modification, if available, expressed in nanoseconds
+        since the Unix epoch.
+
+        Returns
+        -------
+        mtime_ns : int
+        """
+        return TimePoint_to_ns(self.info.mtime())
 
 
 cdef class FileSelector:

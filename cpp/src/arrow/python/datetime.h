@@ -65,14 +65,13 @@ Status PyTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** out);
 ARROW_PYTHON_EXPORT
 Status PyDate_from_int(int64_t val, const DateUnit unit, PyObject** out);
 
+// WARNING: This function returns a naive datetime.
 ARROW_PYTHON_EXPORT
 Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** out);
 
+// This declaration must be the same as in filesystem/filesystem.h
 using TimePoint =
     std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
-
-ARROW_PYTHON_EXPORT
-Status PyDateTime_from_TimePoint(TimePoint val, PyObject** out);
 
 ARROW_PYTHON_EXPORT
 int64_t PyDate_to_days(PyDateTime_Date* pydate);
@@ -116,6 +115,9 @@ ARROW_PYTHON_EXPORT
 inline TimePoint PyDateTime_to_TimePoint(PyDateTime_DateTime* pydatetime) {
   return TimePoint(TimePoint::duration(PyDateTime_to_ns(pydatetime)));
 }
+
+ARROW_PYTHON_EXPORT
+inline int64_t TimePoint_to_ns(TimePoint val) { return val.time_since_epoch().count(); }
 
 ARROW_PYTHON_EXPORT
 inline int64_t PyDelta_to_s(PyDateTime_Delta* pytimedelta) {
