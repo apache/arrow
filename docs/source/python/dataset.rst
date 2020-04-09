@@ -89,7 +89,7 @@ can pass it the path to the directory containing the data files:
 
 .. ipython:: python
 
-    dataset = ds.dataset(base / "parquet_dataset/", format="parquet")
+    dataset = ds.dataset(base / "parquet_dataset", format="parquet")
     dataset
 
 Alternatively, it also accepts a path to a single file, or a list of file
@@ -118,37 +118,6 @@ of memory, see below on filtering / iterative loading):
     dataset.to_table()
     # converting to pandas to see the contents of the scanned table
     dataset.to_table().to_pandas()
-
-Filtering data
-~~~~~~~~~~~~~~
-
-To avoid reading all data when only needing a subset, the ``columns`` and
-``filter`` keywords can be used. The ``columns`` keyword accepts a list of
-column names:
-
-.. ipython:: python
-
-    dataset.to_table(columns=['a', 'b']).to_pandas()
-
-The ``filter`` keyword expects a boolean expression involving one of the
-columns, and those expressions can be created using the :func:`field` helper
-function:
-
-.. ipython:: python
-
-    dataset.to_table(filter=ds.field('a') >= 7).to_pandas()
-    dataset.to_table(filter=ds.field('c') == 2).to_pandas()
-
-Any column can be referenced using the :func:`field` function (which creates a
-:class:`FieldExpression`), and many different expressions can be created,
-including the standard boolean comparison operators (equal, larger/less than,
-etc), but also set membership testing:
-
-.. ipython:: python
-
-    ds.field('a') != 3
-    ds.field('a').isin([1, 2, 3])
-
 
 Reading different file formats
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -190,6 +159,41 @@ Those file format objects can take keywords to customize reading (see for
 example :class:`ParquetFileFormat`).
 
 
+Filtering data
+--------------
+
+To avoid reading all data when only needing a subset, the ``columns`` and
+``filter`` keywords can be used.
+
+The ``columns`` keyword can be used to only read a selection of the columns,
+and accepts a list of column names:
+
+.. ipython:: python
+
+    dataset = ds.dataset(base / "parquet_dataset", format="parquet")
+    dataset.to_table(columns=['a', 'b']).to_pandas()
+
+With the ``filter`` keyword, rows which do not match the filter predicate will
+not be included in the returned table. The keyword expects a boolean expression
+involving one of the columns, and those expressions can be created using the
+:func:`field` helper function:
+
+.. ipython:: python
+
+    dataset.to_table(filter=ds.field('a') >= 7).to_pandas()
+    dataset.to_table(filter=ds.field('c') == 2).to_pandas()
+
+Any column can be referenced using the :func:`field` function (which creates a
+:class:`FieldExpression`), and many different expressions can be created,
+including the standard boolean comparison operators (equal, larger/less than,
+etc), but also set membership testing:
+
+.. ipython:: python
+
+    ds.field('a') != 3
+    ds.field('a').isin([1, 2, 3])
+
+
 Reading partitioned data
 ------------------------
 
@@ -219,8 +223,78 @@ For example, a dataset partitioned by year and month may look like on disk:
        ...
      ...
 
-- hive vs directory partitioning supported right now
-- how to specify the schema with ds.partitioning()
+The above partitioning scheme is using "/key=value/" directory names, as found
+in Apache Hive.
+
+Let's create a small partitioned dataset. The:func:`~pyarrow.parquet.write_to_dataset`
+function can write such hive-like partitioned datasets.
+
+.. ipython:: python
+
+    table = pa.table({'a': range(10), 'b': np.random.randn(10), 'c': [1, 2] * 5,
+                      'part': ['a'] * 5 + ['b'] * 5})
+    pq.write_to_dataset(table, str(base / "parquet_dataset_partitioned"),
+                        partition_cols=['part'])
+
+The above created a directory with two subdirectories ("part=a" and "part=b"),
+and the Parquet files written in those directories no longer include the "part"
+column.
+
+Reading this dataset with :func:`dataset`, we now specify that the dataset
+uses a hive-like partitioning scheme with the `partitioning` keyword:
+
+.. ipython:: python
+
+    dataset = ds.dataset(str(base / "parquet_dataset_partitioned2"), format="parquet",
+                         partitioning="hive")
+    dataset.files
+
+Although the partition fields are not included in the actual Parquet files,
+they will be added back to the resulting table when scanning this dataset:
+
+.. ipython:: python
+
+    dataset.to_table().to_pandas().head(3)
+
+We can now filter on the partition keys, which avoids loading certain files
+at all if they do not match the predicate:
+
+.. ipython:: python
+
+    dataset.to_table(filter=ds.field("part") == "b").to_pandas()
+
+
+Different partitioning schemes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The above example uses a hive-like directory scheme, such as "/year=2009/month=11/day=15".
+We specified this passing the ``partitioning="hive"`` keyword. In this case,
+the types of the partition keys are inferred from the file paths.
+
+It is also possible to explicitly define the schema of the partition keys
+using the :func:`partitioning` function. For example:
+
+.. code-block::
+
+    part = ds.partitioning(
+        pa.schema([("year", pa.int16()), ("month", pa.int8()), ("day", pa.int32())]),
+        flavor="hive"
+    )
+    dataset = ds.dataset(..., partitioning=part)
+
+In addition to the hive-like directory scheme, also a "directory partitioning"
+scheme is supported, where the segments in the file path are the values of
+the partition keys without including the name. The equivalent (year, month, day)
+example would be "/2019/11/15/".
+
+Since the names are not included in the file paths, those need to be specified:
+
+.. code-block::
+
+    part = ds.partitioning(field_names=["year", "month", "day"])
+
+Also here, a full schema can be provided to not let the types be inferred
+from the file paths.
 
 
 Reading from cloud storage
