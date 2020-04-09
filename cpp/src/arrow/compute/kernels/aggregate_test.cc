@@ -40,6 +40,7 @@
 
 namespace arrow {
 
+using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 namespace compute {
@@ -364,84 +365,54 @@ class TestNumericMinMaxKernel : public ComputeFixture, public TestBase {
   using ScalarType = typename Traits::ScalarType;
 
  public:
-  template <typename Min, typename Max>
-  void AssertMinMaxIs(std::string array_json, Min expected_min, Max expected_max,
+  void AssertMinMaxIs(const Datum& array, c_type expected_min, c_type expected_max,
                       const MinMaxOptions& options) {
-    auto array = ArrayFromJSON(Traits::type_singleton(), array_json);
-    Datum out, out_min, out_max;
-    ASSERT_OK(MinMax(&this->ctx_, options, *array, &out));
+    Datum out;
+    ASSERT_OK(MinMax(&this->ctx_, options, array, &out));
 
     ASSERT_TRUE(out.is_collection());
-    auto col = out.collection();
 
-    out_min = col[0];
+    Datum out_min = out.collection()[0];
     ASSERT_TRUE(out_min.is_scalar());
-    auto min = checked_pointer_cast<ScalarType>(out_min.scalar());
-    ASSERT_EQ(min->value, static_cast<c_type>(expected_min));
+    ASSERT_EQ(checked_cast<const ScalarType&>(*out_min.scalar()).value, expected_min);
 
-    out_max = col[1];
+    Datum out_max = out.collection()[1];
     ASSERT_TRUE(out_max.is_scalar());
-    auto max = checked_pointer_cast<ScalarType>(out_max.scalar());
-    ASSERT_EQ(max->value, static_cast<c_type>(expected_max));
+    ASSERT_EQ(checked_cast<const ScalarType&>(*out_max.scalar()).value, expected_max);
   }
 
-  void AssertMinMaxIsNull(std::string array_json, const MinMaxOptions& options) {
-    auto array = ArrayFromJSON(Traits::type_singleton(), array_json);
-    Datum out, out_min, out_max;
-    ASSERT_OK(MinMax(&this->ctx_, options, *array, &out));
-
-    ASSERT_TRUE(out.is_collection());
-    auto col = out.collection();
-
-    out_min = col[0];
-    ASSERT_TRUE(out_min.is_scalar());
-    auto min = checked_pointer_cast<ScalarType>(out_min.scalar());
-    ASSERT_EQ(min->value, static_cast<c_type>(NULL));
-
-    out_max = col[1];
-    ASSERT_TRUE(out_max.is_scalar());
-    auto max = checked_pointer_cast<ScalarType>(out_max.scalar());
-    ASSERT_EQ(max->value, static_cast<c_type>(NULL));
-  }
-
-  template <typename Min, typename Max>
-  void AssertMinMaxIs(std::vector<std::string>& json, Min expected_min, Max expected_max,
+  void AssertMinMaxIs(const std::string& json, c_type expected_min, c_type expected_max,
                       const MinMaxOptions& options) {
-    auto array = ChunkedArrayFromJSON(Traits::type_singleton(), json);
-    Datum out, out_min, out_max;
-    ASSERT_OK(MinMax(&this->ctx_, options, Datum(array), &out));
-
-    ASSERT_TRUE(out.is_collection());
-    auto col = out.collection();
-
-    out_min = col[0];
-    ASSERT_TRUE(out_min.is_scalar());
-    auto min = checked_pointer_cast<ScalarType>(out_min.scalar());
-    ASSERT_EQ(min->value, static_cast<c_type>(expected_min));
-
-    out_max = col[1];
-    ASSERT_TRUE(out_max.is_scalar());
-    auto max = checked_pointer_cast<ScalarType>(out_max.scalar());
-    ASSERT_EQ(max->value, static_cast<c_type>(expected_max));
+    auto array = ArrayFromJSON(Traits::type_singleton(), json);
+    AssertMinMaxIs(array, expected_min, expected_max, options);
   }
 
-  void AssertMinMaxIsNull(std::vector<std::string>& json, const MinMaxOptions& options) {
+  void AssertMinMaxIs(const std::vector<std::string>& json, c_type expected_min,
+                      c_type expected_max, const MinMaxOptions& options) {
     auto array = ChunkedArrayFromJSON(Traits::type_singleton(), json);
-    Datum out, out_min, out_max;
-    ASSERT_OK(MinMax(&this->ctx_, options, Datum(array), &out));
+    AssertMinMaxIs(array, expected_min, expected_max, options);
+  }
+
+  void AssertMinMaxIsNull(const Datum& array, const MinMaxOptions& options) {
+    Datum out;
+    ASSERT_OK(MinMax(&this->ctx_, options, array, &out));
 
     ASSERT_TRUE(out.is_collection());
-    auto col = out.collection();
+    for (const auto& out : out.collection()) {
+      ASSERT_TRUE(out.is_scalar());
+      ASSERT_FALSE(out.scalar()->is_valid);
+    }
+  }
 
-    out_min = col[0];
-    ASSERT_TRUE(out_min.is_scalar());
-    auto min = checked_pointer_cast<ScalarType>(out_min.scalar());
-    ASSERT_EQ(min->value, static_cast<c_type>(NULL));
+  void AssertMinMaxIsNull(const std::string& json, const MinMaxOptions& options) {
+    auto array = ArrayFromJSON(Traits::type_singleton(), json);
+    AssertMinMaxIsNull(array, options);
+  }
 
-    out_max = col[1];
-    ASSERT_TRUE(out_max.is_scalar());
-    auto max = checked_pointer_cast<ScalarType>(out_max.scalar());
-    ASSERT_EQ(max->value, static_cast<c_type>(NULL));
+  void AssertMinMaxIsNull(const std::vector<std::string>& json,
+                          const MinMaxOptions& options) {
+    auto array = ChunkedArrayFromJSON(Traits::type_singleton(), json);
+    AssertMinMaxIsNull(array, options);
   }
 };
 
