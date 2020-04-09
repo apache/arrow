@@ -480,7 +480,11 @@ Scanner <- R6Class("Scanner", inherit = ArrowObject,
     Scan = function() map(dataset___Scanner__Scan(self), shared_ptr, class = ScanTask)
   )
 )
-Scanner$create <- function(dataset, projection = NULL, filter = TRUE, use_threads = TRUE, ...) {
+Scanner$create <- function(dataset,
+                           projection = NULL,
+                           filter = TRUE,
+                           use_threads = option_use_threads(),
+                           ...) {
   if (inherits(dataset, "arrow_dplyr_query") && inherits(dataset$.data, "Dataset")) {
     return(Scanner$create(
       dataset$.data,

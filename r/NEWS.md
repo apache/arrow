@@ -57,6 +57,7 @@ See `vignette("python", package = "arrow")` for details.
 
 * Dataset reading benefits from many speedups and fixes in the C++ library
 * Datasets have a `dim()` method, which sums rows across all files (#6635, @boshek)
+* Combine multiple datasets into a single queryable `UnionDataset` with the `c()` method
 * Dataset filtering now treats `NA` as `FALSE`, consistent with `dplyr::filter()`
 * Dataset filtering is now correctly supported for all Arrow date/time/timestamp column types
 * `vignette("dataset", package = "arrow")` now has correct, executable code
