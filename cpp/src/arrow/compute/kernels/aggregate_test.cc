@@ -40,6 +40,7 @@
 
 namespace arrow {
 
+using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 namespace compute {
@@ -364,25 +365,54 @@ class TestNumericMinMaxKernel : public ComputeFixture, public TestBase {
   using ScalarType = typename Traits::ScalarType;
 
  public:
-  template <typename Min, typename Max>
-  void AssertMinMaxIs(std::string array_json, Min expected_min, Max expected_max,
+  void AssertMinMaxIs(const Datum& array, c_type expected_min, c_type expected_max,
                       const MinMaxOptions& options) {
-    auto array = ArrayFromJSON(Traits::type_singleton(), array_json);
-    Datum out, out_min, out_max;
-    ASSERT_OK(MinMax(&this->ctx_, options, *array, &out));
+    Datum out;
+    ASSERT_OK(MinMax(&this->ctx_, options, array, &out));
 
     ASSERT_TRUE(out.is_collection());
-    auto col = out.collection();
 
-    out_min = col[0];
+    Datum out_min = out.collection()[0];
     ASSERT_TRUE(out_min.is_scalar());
-    auto min = checked_pointer_cast<ScalarType>(out_min.scalar());
-    ASSERT_EQ(min->value, static_cast<c_type>(expected_min));
+    ASSERT_EQ(checked_cast<const ScalarType&>(*out_min.scalar()).value, expected_min);
 
-    out_max = col[1];
+    Datum out_max = out.collection()[1];
     ASSERT_TRUE(out_max.is_scalar());
-    auto max = checked_pointer_cast<ScalarType>(out_max.scalar());
-    ASSERT_EQ(max->value, static_cast<c_type>(expected_max));
+    ASSERT_EQ(checked_cast<const ScalarType&>(*out_max.scalar()).value, expected_max);
+  }
+
+  void AssertMinMaxIs(const std::string& json, c_type expected_min, c_type expected_max,
+                      const MinMaxOptions& options) {
+    auto array = ArrayFromJSON(Traits::type_singleton(), json);
+    AssertMinMaxIs(array, expected_min, expected_max, options);
+  }
+
+  void AssertMinMaxIs(const std::vector<std::string>& json, c_type expected_min,
+                      c_type expected_max, const MinMaxOptions& options) {
+    auto array = ChunkedArrayFromJSON(Traits::type_singleton(), json);
+    AssertMinMaxIs(array, expected_min, expected_max, options);
+  }
+
+  void AssertMinMaxIsNull(const Datum& array, const MinMaxOptions& options) {
+    Datum out;
+    ASSERT_OK(MinMax(&this->ctx_, options, array, &out));
+
+    ASSERT_TRUE(out.is_collection());
+    for (const auto& out : out.collection()) {
+      ASSERT_TRUE(out.is_scalar());
+      ASSERT_FALSE(out.scalar()->is_valid);
+    }
+  }
+
+  void AssertMinMaxIsNull(const std::string& json, const MinMaxOptions& options) {
+    auto array = ArrayFromJSON(Traits::type_singleton(), json);
+    AssertMinMaxIsNull(array, options);
+  }
+
+  void AssertMinMaxIsNull(const std::vector<std::string>& json,
+                          const MinMaxOptions& options) {
+    auto array = ChunkedArrayFromJSON(Traits::type_singleton(), json);
+    AssertMinMaxIsNull(array, options);
   }
 };
 
@@ -392,18 +422,54 @@ class TestFloatingMinMaxKernel : public TestNumericMinMaxKernel<ArrowType> {};
 TYPED_TEST_SUITE(TestNumericMinMaxKernel, IntegralArrowTypes);
 TYPED_TEST(TestNumericMinMaxKernel, Basics) {
   MinMaxOptions options;
+  std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 1, null, 3, 4]"};
+  std::vector<std::string> chunked_input2 = {"[5, null, 2, 3, 4]", "[9, 1, 2, 3, 4]"};
+  std::vector<std::string> chunked_input3 = {"[5, 1, 2, 3, null]", "[9, 1, null, 3, 4]"};
+
   this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
   this->AssertMinMaxIs("[5, null, 2, 3, 4]", 2, 5, options);
+  this->AssertMinMaxIs(chunked_input1, 1, 9, options);
+  this->AssertMinMaxIs(chunked_input2, 1, 9, options);
+  this->AssertMinMaxIs(chunked_input3, 1, 9, options);
+
+  options = MinMaxOptions(MinMaxOptions::OUTPUT_NULL);
+  this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
+  // output null
+  this->AssertMinMaxIsNull("[5, null, 2, 3, 4]", options);
+  // output null
+  this->AssertMinMaxIsNull(chunked_input1, options);
+  this->AssertMinMaxIsNull(chunked_input2, options);
+  this->AssertMinMaxIsNull(chunked_input3, options);
 }
 
 TYPED_TEST_SUITE(TestFloatingMinMaxKernel, RealArrowTypes);
 TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   MinMaxOptions options;
+  std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 1, null, 3, 4]"};
+  std::vector<std::string> chunked_input2 = {"[5, null, 2, 3, 4]", "[9, 1, 2, 3, 4]"};
+  std::vector<std::string> chunked_input3 = {"[5, 1, 2, 3, null]", "[9, 1, null, 3, 4]"};
+
+  this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
   this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
   this->AssertMinMaxIs("[5, null, 2, 3, 4]", 2, 5, options);
   this->AssertMinMaxIs("[5, Inf, 2, 3, 4]", 2.0, INFINITY, options);
   this->AssertMinMaxIs("[5, NaN, 2, 3, 4]", 2, 5, options);
   this->AssertMinMaxIs("[5, -Inf, 2, 3, 4]", -INFINITY, 5, options);
+  this->AssertMinMaxIs(chunked_input1, 1, 9, options);
+  this->AssertMinMaxIs(chunked_input2, 1, 9, options);
+  this->AssertMinMaxIs(chunked_input3, 1, 9, options);
+
+  options = MinMaxOptions(MinMaxOptions::OUTPUT_NULL);
+  this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
+  this->AssertMinMaxIs("[5, -Inf, 2, 3, 4]", -INFINITY, 5, options);
+  // output null
+  this->AssertMinMaxIsNull("[5, null, 2, 3, 4]", options);
+  // output null
+  this->AssertMinMaxIsNull("[5, -Inf, null, 3, 4]", options);
+  // output null
+  this->AssertMinMaxIsNull(chunked_input1, options);
+  this->AssertMinMaxIsNull(chunked_input2, options);
+  this->AssertMinMaxIsNull(chunked_input3, options);
 }
 
 }  // namespace compute
