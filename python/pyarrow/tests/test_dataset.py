@@ -18,6 +18,7 @@
 import contextlib
 import operator
 import os
+import pathlib
 import pickle
 
 import numpy as np
@@ -896,42 +897,20 @@ def _check_dataset(dataset, table):
 
 
 def _check_dataset_from_path(path, table, **kwargs):
-    import pathlib
-
     # pathlib object
     assert isinstance(path, pathlib.Path)
-    dataset = ds.dataset(ds.factory(path, **kwargs))
-    assert isinstance(dataset, ds.FileSystemDataset)
-    _check_dataset(dataset, table)
 
-    # string path
-    dataset = ds.dataset(ds.factory(str(path), **kwargs))
-    assert isinstance(dataset, ds.FileSystemDataset)
-    _check_dataset(dataset, table)
-
-    # relative string path
-    with change_cwd(path.parent):
-        dataset = ds.dataset(ds.factory(path.name, **kwargs))
+    # accept Path, str, List[Path], List[str]
+    for p in [path, str(path), [path], [str(path)]]:
+        dataset = ds.dataset(path, **kwargs)
         assert isinstance(dataset, ds.FileSystemDataset)
         _check_dataset(dataset, table)
 
-    # passing directly to dataset
-    dataset = ds.dataset(path, **kwargs)
-    assert isinstance(dataset, ds.FileSystemDataset)
-    _check_dataset(dataset, table)
-
-    dataset = ds.dataset(str(path), **kwargs)
-    assert isinstance(dataset, ds.FileSystemDataset)
-    _check_dataset(dataset, table)
-
-    # passing list of files (even of length-1) gives UnionDataset
-    dataset = ds.dataset([path], **kwargs)
-    assert isinstance(dataset, ds.UnionDataset)
-    _check_dataset(dataset, table)
-
-    dataset = ds.dataset([str(path)], **kwargs)
-    assert isinstance(dataset, ds.UnionDataset)
-    _check_dataset(dataset, table)
+    # relative string path
+    with change_cwd(path.parent):
+        dataset = ds.dataset(path.name, **kwargs)
+        assert isinstance(dataset, ds.FileSystemDataset)
+        _check_dataset(dataset, table)
 
 
 @pytest.mark.parquet
