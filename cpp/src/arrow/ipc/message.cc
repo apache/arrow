@@ -119,7 +119,7 @@ Result<std::unique_ptr<Message>> Message::Open(std::shared_ptr<Buffer> metadata,
                                                std::shared_ptr<Buffer> body) {
   std::unique_ptr<Message> result(new Message(std::move(metadata), std::move(body)));
   RETURN_NOT_OK(result->impl_->Open());
-  return result;
+  return std::move(result);
 }
 
 Message::~Message() {}
