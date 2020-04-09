@@ -243,18 +243,14 @@ test_that("Creating UnionDataset", {
 })
 
 test_that("map_batches", {
-    ds <- open_dataset(dataset_dir, partitioning = "part")
-    expect_equivalent(
+  ds <- open_dataset(dataset_dir, partitioning = "part")
+  expect_equivalent(
     ds %>%
-    filter(int > 5) %>%
-    select(int, lgl) %>%
-    map_batches(
-    ~summarize(.,
-    min_int = min(int)
-    )
-    ),
+      filter(int > 5) %>%
+      select(int, lgl) %>%
+      map_batches(~summarize(., min_int = min(int))),
     tibble(min_int = c(6L, 101L))
-    )
+  )
 })
 
 test_that("partitioning = NULL to ignore partition information (but why?)", {
