@@ -378,6 +378,9 @@ def _ensure_single_source(path, filesystem=None):
             'file system URI'
         )
 
+    # ensure that the path is normalized before passing to dataset discovery
+    path = _normalize_path(filesystem, path)
+
     # retrieve the file descriptor if it is available already
     if file_info is None:
         file_info = filesystem.get_file_info([path])[0]
