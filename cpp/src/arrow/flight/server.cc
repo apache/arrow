@@ -104,7 +104,7 @@ class FlightIpcMessageReader : public ipc::MessageReader {
   ::arrow::Result<std::unique_ptr<ipc::Message>> ReadNextMessage() override {
     std::unique_ptr<ipc::Message> out;
     RETURN_NOT_OK(GetNextMessage(&out));
-    return out;
+    return std::move(out);
   }
 
  protected:

@@ -203,3 +203,36 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
+
+  manlinux1:
+    name: manlinux1 Python 2.4
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    env:
+      ARROW_BUILD_SHARED: ON
+      ARROW_BUILD_STATIC: OFF
+      ARROW_BUILD_TYPE: debug
+      ARROW_BUILD_TESTS: OFF
+      ARROW_DATASET: ON
+      ARROW_FLIGHT: ON
+      ARROW_PARQUET: ON
+      ARROW_PYTHON: ON
+      ARROW_GANDIVA: ON
+      ARROW_FILESYSTEM: ON
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Docker Pull
+        shell: bash
+        run: docker-compose pull centos-python-manylinux1
+      - name: Docker Run
+        shell: bash
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          docker-compose run centos-python-manylinux1 bash /io/build_arrow.sh
