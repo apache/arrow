@@ -4,7 +4,13 @@
 \alias{open_dataset}
 \title{Open a multi-file dataset}
 \usage{
-open_dataset(sources, schema = NULL, partitioning = hive_partition(), ...)
+open_dataset(
+  sources,
+  schema = NULL,
+  partitioning = hive_partition(),
+  unify_schemas = NULL,
+  ...
+)
 }
 \arguments{
 \item{sources}{Either:
@@ -33,6 +39,15 @@ Hive-style path segments
 }
 
 The default is to autodetect Hive-style partitions.}
+
+\item{unify_schemas}{logical: should all data fragments (files, \code{Dataset}s)
+be scanned in order to create a unified schema from them? If \code{FALSE}, only
+the first fragment will be inspected for its schema. Use this
+fast path when you know and trust that all fragments have an identical schema.
+The default is \code{FALSE} when creating a dataset from a file path (because
+there may be many files and scanning may be slow) but \code{TRUE} when \code{sources}
+is a list of \code{Dataset}s (because there should be few \code{Dataset}s in the list
+and their \code{Schema}s are already in memory).}
 
 \item{...}{additional arguments passed to \code{dataset_factory()} when
 \code{sources} is a file path, otherwise ignored.}

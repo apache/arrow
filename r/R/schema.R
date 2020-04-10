@@ -131,3 +131,19 @@ read_schema <- function(stream, ...) {
     return(shared_ptr(Schema, ipc___ReadSchema_InputStream(stream)))
   }
 }
+
+#' Combine and harmonize schemas
+#'
+#' @param ... [Schema]s to unify
+#' @param schemas Alternatively, a list of schemas
+#' @return A `Schema` with the union of fields contained in the inputs
+#' @export
+#' @examples
+#' \dontrun{
+#' a <- schema(b = double(), c = bool())
+#' z <- schema(b = double(), k = utf8())
+#' unify_schemas(a, z),
+#' }
+unify_schemas <- function(..., schemas = list(...)) {
+  shared_ptr(Schema, arrow__UnifySchemas(schemas))
+}

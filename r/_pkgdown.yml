@@ -105,6 +105,7 @@ reference:
 - title: Arrow data types and schema
   contents:
   - Schema
+  - unify_schemas
   - type
   - dictionary
   - Field

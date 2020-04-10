@@ -67,8 +67,9 @@ See `vignette("python", package = "arrow")` for details.
 * Installation on Linux now builds C++ the library from source by default, with some compression libraries disabled. For a faster, richer build, set the environment variable `NOT_CRAN=true`. See `vignette("install", package = "arrow")` for details and more options.
 * Source installation is faster and more reliable on more Linux distributions.
 
-## Other bug fixes
+## Other bug fixes and enhancements
 
+* `unify_schemas()` to create a `Schema` containing the union of fields in multiple schemas
 * Timezones are faithfully preserved in roundtrip between R and Arrow
 * `read_feather()` and other reader functions close any file connections they open
 * Arrow R6 objects no longer have namespace collisions when the `R.oo` package is also loaded

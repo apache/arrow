@@ -76,8 +76,12 @@ std::vector<std::string> dataset___FileSystemDataset__files(
 
 // [[arrow::export]]
 std::shared_ptr<ds::Dataset> dataset___DatasetFactory__Finish1(
-    const std::shared_ptr<ds::DatasetFactory>& factory) {
-  return VALUE_OR_STOP(factory->Finish());
+    const std::shared_ptr<ds::DatasetFactory>& factory, bool unify_schemas) {
+  ds::FinishOptions opts;
+  if (unify_schemas) {
+    opts.inspect_options.fragments = ds::InspectOptions::kInspectAllFragments;
+  }
+  return VALUE_OR_STOP(factory->Finish(opts));
 }
 
 // [[arrow::export]]
@@ -89,8 +93,12 @@ std::shared_ptr<ds::Dataset> dataset___DatasetFactory__Finish2(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Schema> dataset___DatasetFactory__Inspect(
-    const std::shared_ptr<ds::DatasetFactory>& factory) {
-  return VALUE_OR_STOP(factory->Inspect());
+    const std::shared_ptr<ds::DatasetFactory>& factory, bool unify_schemas) {
+  ds::InspectOptions opts;
+  if (unify_schemas) {
+    opts.fragments = ds::InspectOptions::kInspectAllFragments;
+  }
+  return VALUE_OR_STOP(factory->Inspect(opts));
 }
 
 // [[arrow::export]]

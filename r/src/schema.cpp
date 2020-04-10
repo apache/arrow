@@ -100,4 +100,10 @@ bool Schema__Equals(const std::shared_ptr<arrow::Schema>& schema,
   return schema->Equals(*other, check_metadata);
 }
 
+// [[arrow::export]]
+std::shared_ptr<arrow::Schema> arrow__UnifySchemas(
+    const std::vector<std::shared_ptr<arrow::Schema>>& schemas) {
+  return VALUE_OR_STOP(arrow::UnifySchemas(schemas));
+}
+
 #endif

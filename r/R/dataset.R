@@ -43,6 +43,14 @@
 #'   * `NULL` for no partitioning
 #'
 #' The default is to autodetect Hive-style partitions.
+#' @param unify_schemas logical: should all data fragments (files, `Dataset`s)
+#' be scanned in order to create a unified schema from them? If `FALSE`, only
+#' the first fragment will be inspected for its schema. Use this
+#' fast path when you know and trust that all fragments have an identical schema.
+#' The default is `FALSE` when creating a dataset from a file path (because
+#' there may be many files and scanning may be slow) but `TRUE` when `sources`
+#' is a list of `Dataset`s (because there should be few `Dataset`s in the list
+#' and their `Schema`s are already in memory).
 #' @param ... additional arguments passed to `dataset_factory()` when
 #' `sources` is a file path, otherwise ignored.
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
@@ -50,12 +58,20 @@
 #' @export
 #' @seealso `vignette("dataset", package = "arrow")`
 #' @include arrow-package.R
-open_dataset <- function(sources, schema = NULL, partitioning = hive_partition(), ...) {
+open_dataset <- function(sources,
+                         schema = NULL,
+                         partitioning = hive_partition(),
+                         unify_schemas = NULL,
+                         ...) {
   if (is_list_of(sources, "Dataset")) {
     if (is.null(schema)) {
-      # Take the first one.
-      # Someday, we should expose a way to unify schemas
-      schema <- sources[[1]]$schema
+      if (is.null(unify_schemas) || isTRUE(unify_schemas)) {
+        # Default is to unify schemas here
+        schema <- unify_schemas(schemas = map(sources, ~.$schema))
+      } else {
+        # Take the first one.
+        schema <- sources[[1]]$schema
+      }
     }
     # Enforce that all datasets have the same schema
     sources <- lapply(sources, function(x) {
@@ -65,7 +81,8 @@ open_dataset <- function(sources, schema = NULL, partitioning = hive_partition()
     return(shared_ptr(UnionDataset, dataset___UnionDataset__create(sources, schema)))
   }
   factory <- DatasetFactory$create(sources, partitioning = partitioning, ...)
-  factory$Finish(schema)
+  # Default is _not_ to inspect/unify schemas
+  factory$Finish(schema, isTRUE(unify_schemas))
 }
 
 #' Multi-file datasets
@@ -92,8 +109,14 @@ open_dataset <- function(sources, schema = NULL, partitioning = hive_partition()
 #' For the `DatasetFactory$create()` factory method, see [dataset_factory()], an
 #' alias for it. A `DatasetFactory` has:
 #'
-#' - `$Inspect()`: Returns a common [Schema] for all data discovered by the factory.
-#' - `$Finish(schema)`: Returns a `Dataset`
+#' - `$Inspect(unify_schemas)`: If `unify_schemas` is `TRUE`, all fragments
+#' will be scanned and a unified [Schema] will be created from them; if `FALSE`
+#' (default), only the first fragment will be inspected for its schema. Use this
+#' fast path when you know and trust that all fragments have an identical schema.
+#' - `$Finish(schema, unify_schemas)`: Returns a `Dataset`. If `schema` is provided,
+#' it will be used for the `Dataset`; if omitted, a `Schema` will be created from
+#' inspecting the fragments (files) in the dataset, following `unify_schemas`
+#' as described above.
 #'
 #' `FileSystemDatasetFactory$create()` is a lower-level factory method and
 #' takes the following arguments:
@@ -231,15 +254,17 @@ UnionDataset <- R6Class("UnionDataset", inherit = Dataset,
 #' @export
 DatasetFactory <- R6Class("DatasetFactory", inherit = ArrowObject,
   public = list(
-    Finish = function(schema = NULL) {
+    Finish = function(schema = NULL, unify_schemas = FALSE) {
       if (is.null(schema)) {
-        ptr <- dataset___DatasetFactory__Finish1(self)
+        ptr <- dataset___DatasetFactory__Finish1(self, unify_schemas)
       } else {
         ptr <- dataset___DatasetFactory__Finish2(self, schema)
       }
       shared_ptr(Dataset, ptr)$..dispatch()
     },
-    Inspect = function() shared_ptr(Schema, dataset___DatasetFactory__Inspect(self))
+    Inspect = function(unify_schemas = FALSE) {
+      shared_ptr(Schema, dataset___DatasetFactory__Inspect(self, unify_schemas))
+    }
   )
 )
 DatasetFactory$create <- function(x,
