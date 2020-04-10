@@ -17,20 +17,46 @@
 
 """Dataset is currently unstable. APIs subject to change without notice."""
 
+__all__ = [
+    'AndExpression',
+    'CastExpression',
+    'CompareOperator',
+    'ComparisonExpression',
+    'dataset',
+    'Dataset',
+    'DatasetFactory',
+    'DirectoryPartitioning',
+    'Expression',
+    'field',
+    'FieldExpression',
+    'FileFormat',
+    'FileFragment',
+    'FileSystemDataset',
+    'FileSystemDatasetFactory',
+    'FileSystemFactoryOptions',
+    'Fragment',
+    'HivePartitioning',
+    'InExpression',
+    'IpcFileFormat',
+    'IsValidExpression',
+    'NotExpression',
+    'OrExpression',
+    'ParquetFileFormat',
+    'ParquetFileFragment',
+    'ParquetReadOptions',
+    'partitioning',
+    'Partitioning',
+    'PartitioningFactory',
+    'scalar',
+    'ScalarExpression',
+    'Scanner',
+    'ScanTask',
+    'UnionDataset',
+    'UnionDatasetFactory'
+]
+
 import pyarrow as pa
-from pyarrow.util import _stringify_path, _is_path_like
-
-from pyarrow.fs import (
-    _normalize_path,
-    FileSelector,
-    FileSystem,
-    FileType,
-    LocalFileSystem,
-    SubTreeFileSystem,
-    _MockFileSystem
-)
-
-from pyarrow._dataset import (  # noqa
+from pyarrow._dataset import (
     AndExpression,
     CastExpression,
     CompareOperator,
@@ -63,6 +89,16 @@ from pyarrow._dataset import (  # noqa
     UnionDataset,
     UnionDatasetFactory
 )
+from pyarrow.fs import (
+    _normalize_path,
+    FileSelector,
+    FileSystem,
+    FileType,
+    LocalFileSystem,
+    SubTreeFileSystem,
+    _MockFileSystem
+)
+from pyarrow.util import _stringify_path, _is_path_like
 
 
 def field(name):
