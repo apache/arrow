@@ -92,11 +92,11 @@ can pass it the path to the directory containing the data files:
     dataset = ds.dataset(base / "parquet_dataset", format="parquet")
     dataset
 
-In addition to a base directory path, :func:`dataset` accepts
-a path to a single file or a list of file paths.
+In addition to a base directory path, :func:`dataset` accepts a path to a single
+file or a list of file paths.
 
-Creating a :class:`Dataset` object loads nothing into memory, it only
-crawls the directory to find all the files:
+Creating a :class:`Dataset` object loads nothing into memory, it only crawls the
+directory to find all the files:
 
 .. ipython:: python
 
@@ -108,9 +108,9 @@ crawls the directory to find all the files:
 
     print(dataset.schema.to_string(show_field_metadata=False))
 
-Using the :meth:`Dataset.to_table` method we can read the dataset (or a portion of it) into a
-pyarrow Table (note that depending on the size of your dataset this can require a lot
-of memory, see below on filtering / iterative loading):
+Using the :meth:`Dataset.to_table` method we can read the dataset (or a portion
+of it) into a pyarrow Table (note that depending on the size of your dataset
+this can require a lot of memory, see below on filtering / iterative loading):
 
 
 .. ipython:: python
@@ -146,18 +146,20 @@ then we can read the Feather file using the same functions, but with specifying
 Customizing file formats
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-class:`FileFormat`s can be customized using keywords. For example::
-
-    format = ds.ParquetFileFormat(read_options={'dictionary_columns': ['a']})
-    ds.dataset(..., format=format)
-
-Will configure column ``a`` to be dictionary encoded on scan.
 The format name as a string, like::
 
     ds.dataset(..., format="parquet")
 
 is short hand for a default constructed class:`ParquetFileFormat`.
 
+    ds.dataset(..., format=ds.ParquetFileForma())
+
+The class:`FileFormat` objects can be customized using keywords. For example::
+
+    format = ds.ParquetFileFormat(read_options={'dictionary_columns': ['a']})
+    ds.dataset(..., format=format)
+
+Will configure column ``a`` to be dictionary encoded on scan.
 
 Filtering data
 --------------
@@ -165,7 +167,7 @@ Filtering data
 To avoid reading all data when only needing a subset, the ``columns`` and
 ``filter`` keywords can be used.
 
-The ``columns`` keyword can be used to only read the named columns:
+The ``columns`` keyword can be used to only read the specified columns:
 
 .. ipython:: python
 
@@ -173,9 +175,9 @@ The ``columns`` keyword can be used to only read the named columns:
     dataset.to_table(columns=['a', 'b']).to_pandas()
 
 With the ``filter`` keyword, rows which do not match the filter predicate will
-not be included in the returned table. The keyword expects a boolean expression
-involving one of the columns, and those expressions can be created using the
-:func:`field` helper function:
+not be included in the returned table. The keyword expects a boolean
+:class:`Expression` involving one of the columns, and those expressions can be
+created using the :func:`field` helper function:
 
 .. ipython:: python
 
@@ -192,16 +194,16 @@ combinations (and, or, not):
 
     ds.field('a') != 3
     ds.field('a').isin([1, 2, 3])
-    ds.field('a') > ds.field('b') & ds.field('b') > 1
+    (ds.field('a') > ds.field('b')) & (ds.field('b') > 1)
 
 
 Reading partitioned data
 ------------------------
 
-Above, a dataset consisting of a flat directory with files was shown.
-However a dataset can exploit a nested directory structure defining a partitioned
-dataset, where the sub-directory names hold information about which subset
-of the data is stored in that directory.
+Above, a dataset consisting of a flat directory with files was shown. However, a
+dataset can exploit a nested directory structure defining a partitioned dataset,
+where the sub-directory names hold information about which subset of the data is
+stored in that directory.
 
 For example, a dataset partitioned by year and month may look like on disk:
 
@@ -295,7 +297,7 @@ when constructing a directory partitioning:
 
     part = ds.partitioning(field_names=["year", "month", "day"])
 
-Directory directory partitioning also supports providing a full schema rather than inferring
+Directory partitioning also supports providing a full schema rather than inferring
 types from file paths.
 
 
