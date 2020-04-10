@@ -985,12 +985,12 @@ cdef class DatasetFactory:
     def __init__(self, list children):
         _forbid_instantiation(self.__class__)
 
-    cdef init(self, shared_ptr[CDatasetFactory]& sp):
+    cdef init(self, const shared_ptr[CDatasetFactory]& sp):
         self.wrapped = sp
         self.factory = sp.get()
 
     @staticmethod
-    cdef wrap(shared_ptr[CDatasetFactory]& sp):
+    cdef wrap(const shared_ptr[CDatasetFactory]& sp):
         cdef DatasetFactory self = \
             DatasetFactory.__new__(DatasetFactory)
         self.init(sp)
@@ -1030,8 +1030,9 @@ cdef class DatasetFactory:
         -------
         Schema
         """
-        cdef CResult[shared_ptr[CSchema]] result
-        cdef CInspectOptions options
+        cdef:
+            CInspectOptions options
+            CResult[shared_ptr[CSchema]] result
         with nogil:
             result = self.factory.Inspect(options)
         return pyarrow_wrap_schema(GetResultValue(result))
