@@ -17,46 +17,11 @@
 
 """Dataset is currently unstable. APIs subject to change without notice."""
 
-__all__ = [
-    'AndExpression',
-    'CastExpression',
-    'CompareOperator',
-    'ComparisonExpression',
-    'dataset',
-    'Dataset',
-    'DatasetFactory',
-    'DirectoryPartitioning',
-    'Expression',
-    'field',
-    'FieldExpression',
-    'FileFormat',
-    'FileFragment',
-    'FileSystemDataset',
-    'FileSystemDatasetFactory',
-    'FileSystemFactoryOptions',
-    'Fragment',
-    'HivePartitioning',
-    'InExpression',
-    'IpcFileFormat',
-    'IsValidExpression',
-    'NotExpression',
-    'OrExpression',
-    'ParquetFileFormat',
-    'ParquetFileFragment',
-    'ParquetReadOptions',
-    'partitioning',
-    'Partitioning',
-    'PartitioningFactory',
-    'scalar',
-    'ScalarExpression',
-    'Scanner',
-    'ScanTask',
-    'UnionDataset',
-    'UnionDatasetFactory'
-]
-
 import pyarrow as pa
-from pyarrow._dataset import (
+from pyarrow.fs import _normalize_path, _MockFileSystem
+from pyarrow.util import _stringify_path, _is_path_like
+
+from pyarrow._dataset import (  # noqa
     AndExpression,
     CastExpression,
     CompareOperator,
@@ -89,16 +54,6 @@ from pyarrow._dataset import (
     UnionDataset,
     UnionDatasetFactory
 )
-from pyarrow.fs import (
-    _normalize_path,
-    FileSelector,
-    FileSystem,
-    FileType,
-    LocalFileSystem,
-    SubTreeFileSystem,
-    _MockFileSystem
-)
-from pyarrow.util import _stringify_path, _is_path_like
 
 
 def field(name):
@@ -295,6 +250,10 @@ def _ensure_multiple_sources(paths, filesystem=None):
         If the file system is local and a path references a directory or its
         type cannot be determined.
     """
+    from pyarrow.fs import (
+        FileSystem, LocalFileSystem, SubTreeFileSystem, FileType
+    )
+
     if filesystem is None:
         # fall back to local file system as the default
         filesystem = LocalFileSystem()
@@ -370,6 +329,10 @@ def _ensure_single_source(path, filesystem=None):
     FileNotFoundError
         If the referenced file or directory doesn't exist.
     """
+    from pyarrow.fs import (
+        FileSystem, LocalFileSystem, SubTreeFileSystem, FileType, FileSelector
+    )
+
     path = _stringify_path(path)
 
     # if filesystem is not given try to automatically determine one
