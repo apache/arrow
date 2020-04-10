@@ -273,7 +273,6 @@ def test_dataset(dataset):
     assert isinstance(dataset.schema, pa.Schema)
 
     # TODO(kszucs): test non-boolean Exprs for filter do raise
-
     expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
     expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
     for task in dataset.scan():
@@ -550,12 +549,7 @@ def test_file_format_pickling():
 @pytest.mark.parametrize('paths_or_selector', [
     fs.FileSelector('subdir', recursive=True),
     [
-        'subdir',
-        'subdir/1',
-        'subdir/1/xxx',
         'subdir/1/xxx/file0.parquet',
-        'subdir/2',
-        'subdir/2/yyy',
         'subdir/2/yyy/file1.parquet',
     ]
 ])
@@ -603,7 +597,8 @@ def test_filesystem_factory(mockfs, paths_or_selector):
     expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
     expected_str = pa.DictionaryArray.from_arrays(
         pa.array([0, 1, 2, 3, 4], type=pa.int32()),
-        pa.array("0 1 2 3 4".split(), type=pa.string()))
+        pa.array("0 1 2 3 4".split(), type=pa.string())
+    )
     for task, group, key in zip(scanner.scan(), [1, 2], ['xxx', 'yyy']):
         expected_group = pa.array([group] * 5, type=pa.int32())
         expected_key = pa.array([key] * 5, type=pa.string())
@@ -840,7 +835,6 @@ def test_partitioning_function():
     names = ["year", "month"]
 
     # default DirectoryPartitioning
-
     part = ds.partitioning(schema)
     assert isinstance(part, ds.DirectoryPartitioning)
     part = ds.partitioning(field_names=names)
@@ -854,7 +848,6 @@ def test_partitioning_function():
         ds.partitioning(schema, field_names=schema)
 
     # Hive partitioning
-
     part = ds.partitioning(schema, flavor="hive")
     assert isinstance(part, ds.HivePartitioning)
     part = ds.partitioning(flavor="hive")
@@ -943,6 +936,88 @@ def test_open_dataset_list_of_files(tempdir):
         assert result.equals(table)
 
 
+def test_costruct_from_single_file(tempdir):
+    directory = tempdir / 'single-file'
+    directory.mkdir()
+    table, path = _create_single_file(directory)
+    relative_path = path.relative_to(directory)
+
+    # instantiate from a single file
+    d1 = ds.dataset(path)
+    # instantiate from a single file with a filesystem object
+    d2 = ds.dataset(path, filesystem=fs.LocalFileSystem())
+    # instantiate from a single file with prefixed filesystem URI
+    d3 = ds.dataset(relative_path, filesystem='file://{}'.format(directory))
+    assert d1.to_table() == d2.to_table() == d3.to_table()
+
+
+def test_costruct_from_single_directory(tempdir):
+    directory = tempdir / 'single-directory'
+    directory.mkdir()
+    tables, paths = _create_directory_of_files(directory)
+
+    # instantiate from a single directory
+    d1 = ds.dataset(directory)
+    d2 = ds.dataset(directory, filesystem=fs.LocalFileSystem())
+    d3 = ds.dataset(directory.name,
+                    filesystem='file://{}'.format(directory.parent))
+    assert d1.to_table() == d2.to_table() == d3.to_table()
+
+
+def test_costruct_from_list_of_files(tempdir):
+    # instantiate from a list of files
+    directory = tempdir / 'list-of-files'
+    directory.mkdir()
+    tables, paths = _create_directory_of_files(directory)
+
+    relative_paths = [p.relative_to(tempdir) for p in paths]
+    with change_cwd(tempdir):
+        d1 = ds.dataset(relative_paths)
+        t1 = d1.to_table()
+        assert len(t1) == sum(map(len, tables))
+
+    d2 = ds.dataset(relative_paths, filesystem='file://{}'.format(tempdir))
+    t2 = d2.to_table()
+    d3 = ds.dataset(paths)
+    t3 = d3.to_table()
+    d4 = ds.dataset(paths, filesystem='file://')
+    t4 = d4.to_table()
+    d5 = ds.dataset(paths, filesystem=fs.LocalFileSystem())
+    t5 = d5.to_table()
+
+    assert t1 == t2 == t3 == t4 == t5
+
+
+def test_construct_from_list_of_mixed_paths_fails(mockfs):
+    # isntantiate from a list of mixed paths
+    files = [
+        'subdir/1/xxx/file0.parquet',
+        'subdir/1/xxx/doesnt-exist.parquet',
+    ]
+    with pytest.raises(FileNotFoundError, match='doesnt-exist'):
+        ds.dataset(files, filesystem=mockfs)
+
+
+def test_construct_from_mixed_child_datasets(mockfs):
+    # isntantiate from a list of mixed paths
+    dataset = ds.dataset([
+        ds.dataset(['subdir/1/xxx/file0.parquet',
+                    'subdir/2/yyy/file1.parquet'], filesystem=mockfs),
+        ds.dataset('subdir', filesystem=mockfs)
+    ])
+    assert isinstance(dataset, ds.UnionDataset)
+    assert len(list(dataset.get_fragments())) == 4
+
+    table = dataset.to_table()
+    assert len(table) == 20
+    assert table.num_columns == 4
+
+
+def test_construct_from_datasets_with_different_schemas():
+    # TODO(kszucs)
+    pass
+
+
 @pytest.mark.parquet
 def test_open_dataset_partitioned_directory(tempdir):
     import pyarrow.parquet as pq
@@ -1022,37 +1097,18 @@ def test_open_dataset_unsupported_format(tempdir):
 
 
 @pytest.mark.parquet
-def test_open_dataset_validate_sources(tempdir):
+def test_open_union_dataset(tempdir):
     _, path = _create_single_file(tempdir)
     dataset = ds.dataset(path)
-    # reuse the dataset factory for construction a union dataset later
-    assert dataset.factory is not None
 
-    union_dataset = ds.dataset([dataset, dataset])
-    assert isinstance(union_dataset, ds.UnionDataset)
-
-    # if the dataset is constructed directly then the factory object is not
-    # vailable for later reuse, so raise
-    dataset = ds.FileSystemDataset(
-        schema=pa.schema([]),
-        root_partition=None,
-        file_format=ds.ParquetFileFormat(),
-        filesystem=fs._MockFileSystem(),
-        paths_or_selector=[],
-        partitions=[]
-    )
-    expected_msg = "Dataset objects are only supported if they are constructed"
-    with pytest.raises(TypeError, match=expected_msg):
-        ds.dataset([dataset])
+    union = ds.dataset([dataset, dataset])
+    assert isinstance(union, ds.UnionDataset)
 
 
-def test_open_dataset_from_source_additional_kwargs(multisourcefs):
-    child = ds.FileSystemDatasetFactory(
-        multisourcefs, fs.FileSelector('/plain'),
-        format=ds.ParquetFileFormat()
-    )
+def test_open_union_dataset_with_additional_kwargs(multisourcefs):
+    child = ds.dataset('/plain', filesystem=multisourcefs, format='parquet')
     with pytest.raises(ValueError, match="cannot pass any additional"):
-        ds.dataset(child, format="parquet")
+        ds.dataset([child], format="parquet")
 
 
 def test_open_dataset_non_existing_file():
@@ -1129,6 +1185,10 @@ def test_multiple_factories(multisourcefs):
     assembled = ds.dataset([child1, child2, child3])
     assert isinstance(assembled, ds.UnionDataset)
 
+    msg = 'cannot pass any additional arguments'
+    with pytest.raises(ValueError, match=msg):
+        ds.dataset([child1, child2], filesystem=multisourcefs)
+
     expected_schema = pa.schema([
         ('date', pa.date32()),
         ('index', pa.int64()),
@@ -1141,10 +1201,19 @@ def test_multiple_factories(multisourcefs):
     assert assembled.schema.equals(expected_schema)
 
 
-def test_multiple_factories_with_selectors(multisourcefs):
+def test_dataset_from_a_list_of_local_directories_raises(multisourcefs):
+    msg = 'points to a directory, but only file paths are supported'
+    with pytest.raises(ValueError, match=msg):
+        ds.dataset(['/plain', '/schema', '/hive'], filesystem=multisourcefs)
+
+
+def test_union_dataset_filesystem_datasets(multisourcefs):
     # without partitioning
-    dataset = ds.dataset(['/plain', '/schema', '/hive'],
-                         filesystem=multisourcefs, format='parquet')
+    dataset = ds.dataset([
+        ds.dataset('/plain', filesystem=multisourcefs),
+        ds.dataset('/schema', filesystem=multisourcefs),
+        ds.dataset('/hive', filesystem=multisourcefs),
+    ])
     expected_schema = pa.schema([
         ('date', pa.date32()),
         ('index', pa.int64()),
@@ -1154,8 +1223,11 @@ def test_multiple_factories_with_selectors(multisourcefs):
     assert dataset.schema.equals(expected_schema)
 
     # with hive partitioning for two hive sources
-    dataset = ds.dataset(['/hive', '/hive_color'], filesystem=multisourcefs,
-                         format='parquet', partitioning='hive')
+    dataset = ds.dataset([
+        ds.dataset('/plain', filesystem=multisourcefs),
+        ds.dataset('/schema', filesystem=multisourcefs),
+        ds.dataset('/hive', filesystem=multisourcefs, partitioning='hive')
+    ])
     expected_schema = pa.schema([
         ('date', pa.date32()),
         ('index', pa.int64()),

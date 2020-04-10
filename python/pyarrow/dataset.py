@@ -20,6 +20,16 @@
 import pyarrow as pa
 from pyarrow.util import _stringify_path, _is_path_like
 
+from pyarrow.fs import (
+    _normalize_path,
+    FileSelector,
+    FileSystem,
+    FileType,
+    LocalFileSystem,
+    SubTreeFileSystem,
+    _MockFileSystem
+)
+
 from pyarrow._dataset import (  # noqa
     AndExpression,
     CastExpression,
@@ -53,6 +63,40 @@ from pyarrow._dataset import (  # noqa
     UnionDataset,
     UnionDatasetFactory
 )
+
+
+def field(name):
+    """References a named column of the dataset.
+
+    Stores only the field's name. Type and other information is known only when
+    the expression is applied on a dataset having an explicit scheme.
+
+    Parameters
+    ----------
+    name : string
+        The name of the field the expression references to.
+
+    Returns
+    -------
+    field_expr : FieldExpression
+    """
+    return FieldExpression(name)
+
+
+def scalar(value):
+    """Expression representing a scalar value.
+
+    Parameters
+    ----------
+    value : bool, int, float or string
+        Python value of the scalar. Note that only a subset of types are
+        currently supported.
+
+    Returns
+    -------
+    scalar_expr : ScalarExpression
+    """
+    return ScalarExpression(value)
 
 
 def partitioning(schema=None, field_names=None, flavor=None):
@@ -153,59 +197,12 @@ def partitioning(schema=None, field_names=None, flavor=None):
         raise ValueError("Unsupported flavor")
 
 
-def _ensure_fs(filesystem, path):
-    # Validate or infer the filesystem from the path
-    from pyarrow.fs import (
-        FileSystem, LocalFileSystem, FileType, _normalize_path)
-
-    if filesystem is None:
-        # First check if the file exists as a local (relative) file path
-        filesystem = LocalFileSystem()
-        try:
-            infos = filesystem.get_file_info([path])[0]
-        except OSError:
-            local_path_exists = False
-        else:
-            local_path_exists = (infos.type != FileType.NotFound)
-
-        if not local_path_exists:
-            # Perhaps it's a URI?
-            try:
-                return FileSystem.from_uri(path)
-            except ValueError as e:
-                if "empty scheme" not in str(e):
-                    raise
-                # ARROW-8213: not a URI, assume local path
-                # to get a nice error message.
-
-    # ensure we have a proper path (eg no backslashes on Windows)
-    path = _normalize_path(filesystem, path)
-
-    return filesystem, path
-
-
-def _ensure_fs_and_paths(path, filesystem=None):
-    # Return filesystem and list of string paths or FileSelector
-    from pyarrow.fs import FileType, FileSelector
-
-    path = _stringify_path(path)
-    filesystem, path = _ensure_fs(filesystem, path)
-    infos = filesystem.get_file_info([path])[0]
-    if infos.type == FileType.Directory:
-        # for directory, pass a selector
-        paths_or_selector = FileSelector(path, recursive=True)
-    elif infos.type == FileType.File:
-        # for a single file path, pass it as a list
-        paths_or_selector = [path]
-    else:
-        raise FileNotFoundError(path)
-
-    return filesystem, paths_or_selector
-
-
 def _ensure_partitioning(scheme):
-    # Validate input and return a Partitioning(Factory) or passthrough None
-    # for no partitioning
+    """
+    Validate input and return a Partitioning(Factory).
+
+    It passes None through if no partitioning scheme is defiend.
+    """
     if scheme is None:
         pass
     elif isinstance(scheme, str):
@@ -215,9 +212,8 @@ def _ensure_partitioning(scheme):
     elif isinstance(scheme, (Partitioning, PartitioningFactory)):
         pass
     else:
-        ValueError(
-            "Expected Partitioning or PartitioningFactory, got {}".format(
-                type(scheme)))
+        ValueError("Expected Partitioning or PartitioningFactory, got {}"
+                   .format(type(scheme)))
     return scheme
 
 
@@ -232,116 +228,261 @@ def _ensure_format(obj):
         raise ValueError("format '{}' is not supported".format(obj))
 
 
-def _filesystem_factory(path_or_paths, filesystem=None, partitioning=None,
-                        format=None):
+def _ensure_multiple_sources(paths, filesystem=None):
     """
-    Create a FileSystemDatasetFactory which can be used to build a Dataset.
+    Treat a list of paths as files belonging to a single file system
+
+    If the file system is local then also validates that all paths
+    are referencing existing *files* otherwise any non-file paths will be
+    silently skipped (for example on a remote filesystem).
 
     Parameters
     ----------
-    path_or_paths : str, pathlib.Path, or list of those
-        Path to a file or to a directory containing the data files, or
-        a list of paths.
-    filesystem : FileSystem, default None
-        By default will be inferred from the path.
-    partitioning : Partitioning or PartitioningFactory or str or list of str
-        The partitioning scheme specified with the ``partitioning()``
-        function. A flavor string can be used as shortcut, and with a list of
-        field names a DirectionaryPartitioning will be inferred.
-    format : str, default None
-        Currently only "parquet" is supported.
+    paths : list of path-like
+        Note that URIs are not allowed.
+    filesystem : FileSystem or str, optional
+        If an URI is passed, then its path component will act as a prefix for
+        the file paths.
 
     Returns
     -------
-    FileSystemDatasetFactory
+    (FileSystem, list of str)
+        File system object and a list of normalized paths.
+
+    Raises
+    ------
+    TypeError
+        If the passed filesystem has wrong type.
+    FileNotFoundError
+        If the file system is local and a referenced path is not available.
+    ValueError
+        If the file system is local and a path references a directory or its
+        type cannot be determined.
     """
-    if not isinstance(path_or_paths, (list, tuple)):
-        path_or_paths = [path_or_paths]
-
-    partitioning = _ensure_partitioning(partitioning)
-    format = _ensure_format(format or "parquet")
-
-    # TODO pass through options
-    options = FileSystemFactoryOptions()
-    if isinstance(partitioning, PartitioningFactory):
-        options.partitioning_factory = partitioning
-    elif isinstance(partitioning, Partitioning):
-        options.partitioning = partitioning
-
-    factories = []
-    for path in path_or_paths:
-        fs, paths_or_selector = _ensure_fs_and_paths(path, filesystem)
-        factories.append(FileSystemDatasetFactory(fs, paths_or_selector,
-                                                  format, options))
-
-    if len(factories) == 0:
-        raise ValueError("Need at least one path")
-    elif len(factories) == 1:
-        return factories[0]
-    else:
-        return UnionDatasetFactory(factories)
-
-
-def _ensure_factory(src, **kwargs):
-    # Need to return DatasetFactory since `dataset` might need to finish the
-    # factory with a unified schema.
-    if _is_path_like(src):
-        return _filesystem_factory(src, **kwargs)
-    elif isinstance(src, DatasetFactory):
-        if any(v is not None for v in kwargs.values()):
-            # when passing a SourceFactory, the arguments cannot be specified
-            raise ValueError(
-                "When passing a Source(Factory), you cannot pass any "
-                "additional arguments"
-            )
-        return src
-    elif isinstance(src, Dataset):
-        if any(v is not None for v in kwargs.values()):
-            # when passing a SourceFactory, the arguments cannot be specified
-            raise ValueError(
-                "When passing a DatasetFactory, you cannot pass any "
-                "additional arguments"
-            )
-        if src.factory is not None:
-            # the dataset object holds a reference for the constructing factory
-            # so reuse it
-            return src.factory
-        else:
-            raise TypeError(
-                "Dataset objects are only supported if they are constructed "
-                "using the dataset() function or by directly instantiating a "
-                "DatasetFactory subclass."
-            )
-    else:
+    if filesystem is None:
+        # fall back to local file system as the default
+        filesystem = LocalFileSystem()
+        paths_are_local = True
+    elif isinstance(filesystem, str):
+        # instantiate the file system from an uri, if the uri has a path
+        # component then it will be treated as a path prefix
+        filesystem, prefix = FileSystem.from_uri(filesystem)
+        paths_are_local = isinstance(filesystem, LocalFileSystem)
+        prefix = _normalize_path(filesystem, prefix)
+        if prefix:
+            filesystem = SubTreeFileSystem(prefix, filesystem)
+    elif isinstance(filesystem, (LocalFileSystem, _MockFileSystem)):
+        paths_are_local = True
+    elif not isinstance(filesystem, FileSystem):
         raise TypeError(
-            "Expected a path-like or DatasetFactory, got {}".format(type(src))
+            '`filesystem` argument must be a FileSystem instance or a valid '
+            'file system URI'
+        )
+    else:
+        paths_are_local = False
+
+    # allow normalizing irregular paths such as Windows local paths
+    paths = [_normalize_path(filesystem, _stringify_path(p)) for p in paths]
+
+    # validate that all of the paths are pointing to existing *files*
+    # possible improvement is to group the file_infos by type and raise for
+    # multiple paths per error category
+    if paths_are_local:
+        for info in filesystem.get_file_info(paths):
+            file_type = info.type
+            if file_type == FileType.File:
+                continue
+            elif file_type == FileType.NotFound:
+                raise FileNotFoundError(info.path)
+            elif file_type == FileType.Directory:
+                raise ValueError(
+                    'Path {} points to a directory, but only file paths are '
+                    'supported. To construct a nested or union dataset pass '
+                    'a list of dataset objects instead.'.format(info.path)
+                )
+            else:
+                raise ValueError(
+                    'Path {} exists but its type is unknown (could be a '
+                    'special file such as a Unix socket or character device, '
+                    'or Windows NUL / CON / ...'.format(info.path)
+                )
+
+    return (filesystem, paths)
+
+
+def _ensure_single_source(path, filesystem=None):
+    """
+    Treat path as either a recursively traversable directory or a single file.
+
+    Parameters
+    ----------
+    path : path-like
+    filesystem : FileSystem or str, optional
+        If an URI is passed, then its path component will act as a prefix for
+        the file paths.
+
+   Returns
+    -------
+    (FileSystem, list of str or fs.Selector)
+        File system object and either a single item list pointing to a file or
+        an fs.Selector object pointing to a directory.
+
+    Raises
+    ------
+    TypeError
+        If the passed filesystem has wrong type.
+    FileNotFoundError
+        If the referenced file or directory doesn't exist.
+    """
+    path = _stringify_path(path)
+
+    # if filesystem is not given try to automatically determine one
+    # first check if the file exists as a local (relative) file path
+    # if not then try to parse the path as an URI
+    file_info = None
+    if filesystem is None:
+        filesystem = LocalFileSystem()
+        try:
+            file_info = filesystem.get_file_info([path])[0]
+        except OSError:
+            file_info = None
+            exists_locally = False
+        else:
+            exists_locally = (file_info.type != FileType.NotFound)
+
+        # if the file or directory doesn't exists locally, then assume that
+        # the path is an URI describing the file system as well
+        if not exists_locally:
+            try:
+                filesystem, path = FileSystem.from_uri(path)
+            except ValueError as e:
+                # ARROW-8213: neither an URI nor a locally existing path,
+                # so assume that local path was given and propagate a nicer
+                # file not found error instead of a more confusing scheme
+                # parsing error
+                if "empty scheme" not in str(e):
+                    raise
+            else:
+                # unset file_info to query it again from the new filesystem
+                file_info = None
+    elif isinstance(filesystem, str):
+        # instantiate the file system from an uri, if the uri has a path
+        # component then it will be treated as a path prefix
+        filesystem, prefix = FileSystem.from_uri(filesystem)
+        prefix = _normalize_path(filesystem, prefix)
+        if prefix:
+            filesystem = SubTreeFileSystem(prefix, filesystem)
+    elif not isinstance(filesystem, FileSystem):
+        raise TypeError(
+            '`filesystem` argument must be a FileSystem instance or a valid '
+            'file system URI'
         )
 
+    # retrieve the file descriptor if it is available already
+    if file_info is None:
+        file_info = filesystem.get_file_info([path])[0]
 
-def dataset(paths_or_factories, filesystem=None, partitioning=None,
-            format=None, schema=None):
+    # depending on the path type either return with a recursive
+    # directory selector or as a list containing a single file
+    if file_info.type == FileType.Directory:
+        paths_or_selector = FileSelector(path, recursive=True)
+    elif file_info.type == FileType.File:
+        paths_or_selector = [path]
+    else:
+        raise FileNotFoundError(path)
+
+    return (filesystem, paths_or_selector)
+
+
+def _filesystem_dataset(source, schema=None, filesystem=None,
+                        partitioning=None, format=None,
+                        partition_base_dir=None, exclude_invalid_files=None,
+                        ignore_prefixes=None):
+    """
+    Create a FileSystemDataset which can be used to build a Dataset.
+
+    Parameters are documented in the dataset function.
+
+    Returns
+    -------
+    FileSystemDataset
+    """
+    format = _ensure_format(format or 'parquet')
+    partitioning = _ensure_partitioning(partitioning)
+
+    if isinstance(source, (list, tuple)):
+        fs, paths_or_selector = _ensure_multiple_sources(source, filesystem)
+    else:
+        fs, paths_or_selector = _ensure_single_source(source, filesystem)
+
+    options = FileSystemFactoryOptions(
+        partitioning=partitioning,
+        partition_base_dir=partition_base_dir,
+        exclude_invalid_files=exclude_invalid_files,
+        ignore_prefixes=ignore_prefixes
+    )
+    factory = FileSystemDatasetFactory(fs, paths_or_selector, format, options)
+
+    return factory.finish(schema)
+
+
+def _union_dataset(source, schema=None, **kwargs):
+    if any(v is not None for v in kwargs.values()):
+        raise ValueError(
+            "When other datasets you cannot pass any additional arguments"
+        )
+
+    if schema is None:
+        # unify the children datasets' schemas
+        schema = pa.Schema.merge([ds.schema for ds in source])
+
+    # create datasets with the requested schema
+    children = [ds.replace_schema(schema) for ds in source]
+
+    return UnionDataset(schema, children)
+
+
+def dataset(source, schema=None, filesystem=None, partitioning=None,
+            format=None, partition_base_dir=None, exclude_invalid_files=None,
+            ignore_prefixes=None):
     """
     Open a dataset.
 
     Parameters
     ----------
-    sources : path, list of paths, dataset or list of datasets
+    source : path, list of paths, dataset or list of datasets
         Path to a file or to a directory containing the data files, or a list
         of paths for a multi-directory dataset. To have more control, a list of
         factories can be passed, created with the ``factory()`` function (in
         this case, the additional keywords will be ignored).
+    schema : Schema, optional
+        Optionally provide the Schema for the Dataset, in which case it will
+        not be inferred from the source.
     filesystem : FileSystem, default None
         By default will be inferred from the path.
     partitioning : Partitioning, PartitioningFactory, str, list of str
         The partitioning scheme specified with the ``partitioning()``
         function. A flavor string can be used as shortcut, and with a list of
         field names a DirectionaryPartitioning will be inferred.
-    format : str
+    format : FileFormat or str
         Currently "parquet" and "ipc"/"arrow"/"feather" are supported. For
         Feather, only version 2 files are supported.
-    schema : Schema, optional
-        Optionally provide the Schema for the Dataset, in which case it will
-        not be inferred from the source.
+    partition_base_dir : str, optional
+        For the purposes of applying the partitioning, paths will be
+        stripped of the partition_base_dir. Files not matching the
+        partition_base_dir prefix will be skipped for partitioning discovery.
+        The ignored files will still be part of the Dataset, but will not
+        have partition information.
+    exclude_invalid_files : bool, optional (default True)
+        If True, invalid files will be excluded (file format specific check).
+        This will incur IO for each files in a serial and single threaded
+        fashion. Disabling this feature will skip the IO, but unsupported
+        files may be present in the Dataset (resulting in an error at scan
+        time).
+    ignore_prefixes : list, optional
+        Files matching one of those prefixes will be ignored by the
+        discovery process. This is matched to the basename of a path.
+        By default this is ['.', '_'].
 
     Returns
     -------
@@ -357,54 +498,29 @@ def dataset(paths_or_factories, filesystem=None, partitioning=None,
 
     >>> dataset([
     ...     dataset("s3://old-taxi-data", format="parquet"),
-    ...     dataset("local/path/to/new/data", format="csv")
+    ...     dataset("local/path/to/new/data", format="ipc")
     ... ])
 
     """
-    # reuse the keyword arguments for later use
-    kwargs = dict(filesystem=filesystem, partitioning=partitioning,
-                  format=format)
+    # collect the keyword arguments for later reuse
+    kwargs = dict(
+        filesystem=filesystem,
+        partitioning=partitioning,
+        format=format,
+        partition_base_dir=partition_base_dir,
+        exclude_invalid_files=exclude_invalid_files,
+        ignore_prefixes=ignore_prefixes
+    )
 
-    single_dataset = False
-    if not isinstance(paths_or_factories, list):
-        paths_or_factories = [paths_or_factories]
-        single_dataset = True
-
-    factories = [_ensure_factory(f, **kwargs) for f in paths_or_factories]
-    if single_dataset:
-        return factories[0].finish(schema=schema)
-    return UnionDatasetFactory(factories).finish(schema=schema)
-
-
-def field(name):
-    """References a named column of the dataset.
-
-    Stores only the field's name. Type and other information is known only when
-    the expression is applied on a dataset having an explicit scheme.
-
-    Parameters
-    ----------
-    name : string
-        The name of the field the expression references to.
-
-    Returns
-    -------
-    field_expr : FieldExpression
-    """
-    return FieldExpression(name)
-
-
-def scalar(value):
-    """Expression representing a scalar value.
-
-    Parameters
-    ----------
-    value : bool, int, float or string
-        Python value of the scalar. Note that only a subset of types are
-        currently supported.
-
-    Returns
-    -------
-    scalar_expr : ScalarExpression
-    """
-    return ScalarExpression(value)
+    # TODO(kszucs): support InMemoryDataset for a table input
+    if _is_path_like(source):
+        return _filesystem_dataset(source, schema=schema, **kwargs)
+    elif isinstance(source, (tuple, list)):
+        if all(_is_path_like(elem) for elem in source):
+            return _filesystem_dataset(source, schema=schema, **kwargs)
+        elif all(isinstance(elem, Dataset) for elem in source):
+            return _union_dataset(source, schema=schema, **kwargs)
+        else:
+            raise TypeError('vvvvvvvvvvvvvvv')
+    else:
+        raise TypeError('yyyyyyyyyyyy')

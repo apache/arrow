@@ -1106,8 +1106,14 @@ cdef class FileSystemFactoryOptions:
 
     __slots__ = ()  # avoid mistakingly creating attributes
 
-    def __init__(self, partition_base_dir=None, exclude_invalid_files=None,
+    def __init__(self, partition_base_dir=None, partitioning=None,
+                 exclude_invalid_files=None,
                  list selector_ignore_prefixes=None):
+        if isinstance(partitioning, PartitioningFactory):
+            self.partitioning_factory = partitioning
+        elif isinstance(partitioning, Partitioning):
+            self.partitioning = partitioning
+
         if partition_base_dir is not None:
             self.partition_base_dir = partition_base_dir
         if exclude_invalid_files is not None:
