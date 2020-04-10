@@ -208,17 +208,6 @@ jobs:
     name: AMD64 CentOS 5.11 Python 3.6 manylinux1
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    env:
-      ARROW_BUILD_SHARED: ON
-      ARROW_BUILD_STATIC: OFF
-      ARROW_BUILD_TYPE: debug
-      ARROW_BUILD_TESTS: OFF
-      ARROW_DATASET: ON
-      ARROW_FLIGHT: ON
-      ARROW_PARQUET: ON
-      ARROW_PYTHON: ON
-      ARROW_GANDIVA: ON
-      ARROW_FILESYSTEM: ON
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
