@@ -37,19 +37,6 @@ else()
 endif()
 
 # ----------------------------------------------------------------------
-# We should not use the Apache dist server for build dependencies
-
-macro(set_urls URLS)
-  if(CMAKE_VERSION VERSION_LESS 3.7)
-    # ExternalProject doesn't support backup URLs;
-    # Feature only available starting in 3.7
-    list(GET ARGN 0 ${URLS})
-  else()
-    set(${URLS} ${ARGN})
-  endif()
-endmacro()
-
-# ----------------------------------------------------------------------
 # Resolve the dependencies
 
 set(ARROW_THIRDPARTY_DEPENDENCIES
@@ -224,6 +211,16 @@ endif()
 # ----------------------------------------------------------------------
 # Versions and URLs for toolchain builds, which also can be used to configure
 # offline builds
+# Note: We should not use the Apache dist server for build dependencies
+
+macro(set_urls URLS)
+  set(${URLS} ${ARGN})
+  if(CMAKE_VERSION VERSION_LESS 3.7)
+    # ExternalProject doesn't support backup URLs;
+    # Feature only available starting in 3.7
+    list(GET ${URLS} 0 ${URLS})
+  endif()
+endmacro()
 
 # Read toolchain versions from cpp/thirdparty/versions.txt
 file(STRINGS "${THIRDPARTY_DIR}/versions.txt" TOOLCHAIN_VERSIONS_TXT)
