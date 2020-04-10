@@ -79,9 +79,7 @@ std::shared_ptr<ds::Dataset> dataset___DatasetFactory__Finish1(
     const std::shared_ptr<ds::DatasetFactory>& factory, bool unify_schemas) {
   ds::FinishOptions opts;
   if (unify_schemas) {
-    ds::InspectOptions in_opts;
-    opts.inspect_options.fragments = in_opts.kInspectAllFragments;
-    opts.validate_fragments = true;
+    opts.inspect_options.fragments = ds::InspectOptions::kInspectAllFragments;
   }
   return VALUE_OR_STOP(factory->Finish(opts));
 }
@@ -98,7 +96,7 @@ std::shared_ptr<arrow::Schema> dataset___DatasetFactory__Inspect(
     const std::shared_ptr<ds::DatasetFactory>& factory, bool unify_schemas) {
   ds::InspectOptions opts;
   if (unify_schemas) {
-    opts.fragments = opts.kInspectAllFragments;
+    opts.fragments = ds::InspectOptions::kInspectAllFragments;
   }
   return VALUE_OR_STOP(factory->Inspect(opts));
 }
