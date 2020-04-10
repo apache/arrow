@@ -495,17 +495,47 @@ def dataset(source, schema=None, format=None, filesystem=None,
 
     Examples
     --------
+    Opening a single file:
+
+    >>> dataset("path/to/file.parquet", format="parquet")
+
+    Opening a single file with an explicit schema:
+
+    >>> dataset("path/to/file.parquet", schema=myschema, format="parquet")
+
     Opening a dataset for a single directory:
 
     >>> dataset("path/to/nyc-taxi/", format="parquet")
+    >>> dataset("s3://mybucket/nyc-taxi/", format="parquet")
 
-    Construction from multiple factories:
+    Opening a dataset from an explicit list of files:
+
+    >>> dataset([
+    ...     "part0/data.parquet",
+    ...     "part1/data.parquet",
+    ...     "part3/data.parquet",
+    ... ], format='parquet')
+
+    With filesystem provided:
+
+    >>> paths = [
+    ...     'part0/data.parquet',
+    ...     'part1/data.parquet',
+    ...     'part3/data.parquet',
+    ... ]
+    >>> dataset(paths, filesystem='file:///directory/prefix, format='parquet')
+
+    Which is equivalent with:
+
+    >>> fs = SubTreeFileSystem("/directory/prefix", LocalFileSystem())
+    >>> dataset(paths, filesystem=fs, format='parquet')
+
+    Construction of a nested dataset:
 
     >>> dataset([
     ...     dataset("s3://old-taxi-data", format="parquet"),
-    ...     dataset("local/path/to/new/data", format="ipc")
+    ...     dataset("local/path/to/data", format="ipc")
     ... ])
-
     """
     # collect the keyword arguments for later reuse
     kwargs = dict(
