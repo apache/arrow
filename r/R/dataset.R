@@ -70,7 +70,6 @@ open_dataset <- function(sources,
         schema <- unify_schemas(schemas = map(sources, ~.$schema))
       } else {
         # Take the first one.
-        # Someday, we should expose a way to unify schemas
         schema <- sources[[1]]$schema
       }
     }
