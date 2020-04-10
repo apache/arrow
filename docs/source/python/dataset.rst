@@ -176,19 +176,19 @@ The ``columns`` keyword can be used to only read the specified columns:
 
 With the ``filter`` keyword, rows which do not match the filter predicate will
 not be included in the returned table. The keyword expects a boolean
-:class:`Expression` involving one of the columns, and those expressions can be
-created using the :func:`field` helper function:
+:class:`Expression` referencing at least one of the columns:
 
 .. ipython:: python
 
     dataset.to_table(filter=ds.field('a') >= 7).to_pandas()
     dataset.to_table(filter=ds.field('c') == 2).to_pandas()
 
-Any column - not just partition columns - can be referenced using the
-:func:`field` function (which creates a :class:`FieldExpression`). Operator
-overloads are provided to compose filters including the comparisons
-(equal, larger/less than, etc), set membership testing, and boolean
-combinations (and, or, not):
+The easiest way to construct those :class:`Expression` objects is by using the
+:func:`field` helper function. Any column - not just partition columns - can be
+referenced using the :func:`field` function (which creates a
+:class:`FieldExpression`). Operator overloads are provided to compose filters
+including the comparisons (equal, larger/less than, etc), set membership
+testing, and boolean combinations (and, or, not):
 
 .. ipython:: python
 
@@ -325,8 +325,8 @@ additional partitioning information:
 
     # creating a dummy dataset: directory with two files
     table = pa.table({'col1': range(3), 'col2': np.random.randn(3)})
-    pq.write_table(table, "parquet_dataset_manual/data_file1.parquet")
-    pq.write_table(table, "parquet_dataset_manual/data_file2.parquet")
+    pq.write_table(table, "parquet_dataset_manual/data_2018.parquet")
+    pq.write_table(table, "parquet_dataset_manual/data_2019.parquet")
 
 To create a Dataset from a list of files, we need to specify the schema, format,
 filesystem, and paths manually:
@@ -335,12 +335,12 @@ filesystem, and paths manually:
 
     import pyarrow.fs
 
-    schema = pa.schema([("file", pa.int64()), ("col1", pa.int64()), ("col2", pa.float64())])
+    schema = pa.schema([("year", pa.int32()), ("col1", pa.int64()), ("col2", pa.float64())])
 
     dataset = ds.FileSystemDataset(
         schema, None, ds.ParquetFileFormat(), pa.fs.LocalFileSystem(),
-        ["parquet_dataset_manual/data_file1.parquet", "parquet_dataset_manual/data_file2.parquet"],
-        [ds.field('file') == 1, ds.field('file') == 2])
+        ["parquet_dataset_manual/data_2018.parquet", "parquet_dataset_manual/data_2019.parquet"],
+        [ds.field('year') == 2018, ds.field('year') == 2019])
 
 Since we specified the "partition expressions" for our files, this information
 is materialized as columns when reading the data and can be used for filtering:
@@ -348,7 +348,7 @@ is materialized as columns when reading the data and can be used for filtering:
 .. ipython:: python
 
     dataset.to_table().to_pandas()
-    dataset.to_table(filter=ds.field('file') == 1).to_pandas()
+    dataset.to_table(filter=ds.field('year') == 2019).to_pandas()
 
 
 Manual scheduling
