@@ -398,9 +398,9 @@ class TestNumericMinMaxKernel : public ComputeFixture, public TestBase {
     ASSERT_OK(MinMax(&this->ctx_, options, array, &out));
 
     ASSERT_TRUE(out.is_collection());
-    for (const auto& out : out.collection()) {
-      ASSERT_TRUE(out.is_scalar());
-      ASSERT_FALSE(out.scalar()->is_valid);
+    for (const auto& item : out.collection()) {
+      ASSERT_TRUE(item.is_scalar());
+      ASSERT_FALSE(item.scalar()->is_valid);
     }
   }
 
