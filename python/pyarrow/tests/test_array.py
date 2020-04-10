@@ -54,7 +54,7 @@ def test_constructor_raises():
 
 def test_list_format():
     arr = pa.array([[1], None, [2, 3, None]])
-    result = arr.format()
+    result = arr.to_string()
     expected = """\
 [
   [
@@ -72,7 +72,7 @@ def test_list_format():
 
 def test_string_format():
     arr = pa.array(['', None, 'foo'])
-    result = arr.format()
+    result = arr.to_string()
     expected = """\
 [
   "",
@@ -84,7 +84,7 @@ def test_string_format():
 
 def test_long_array_format():
     arr = pa.array(range(100))
-    result = arr.format(window=2)
+    result = arr.to_string(window=2)
     expected = """\
 [
   0,
@@ -98,7 +98,7 @@ def test_long_array_format():
 
 def test_binary_format():
     arr = pa.array([b'\x00', b'', None, b'\x01foo', b'\x80\xff'])
-    result = arr.format()
+    result = arr.to_string()
     expected = """\
 [
   00,
