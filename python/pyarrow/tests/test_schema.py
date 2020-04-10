@@ -674,7 +674,7 @@ def test_schema_merge():
         pa.field('qux', pa.bool_())
     ])
 
-    result = pa.Schema.merge([a, b, c])
+    result = pa.unify_schemas([a, b, c])
     expected = pa.schema([
         pa.field('foo', pa.int32()),
         pa.field('bar', pa.string()),
@@ -685,4 +685,4 @@ def test_schema_merge():
     assert result.equals(expected)
 
     with pytest.raises(pa.ArrowInvalid):
-        pa.Schema.merge([b, d])
+        pa.unify_schemas([b, d])

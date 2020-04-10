@@ -307,7 +307,7 @@ def _ensure_multiple_sources(paths, filesystem=None):
                     'or Windows NUL / CON / ...'.format(info.path)
                 )
 
-    return (filesystem, paths)
+    return filesystem, paths
 
 
 def _ensure_single_source(path, filesystem=None):
@@ -391,7 +391,7 @@ def _ensure_single_source(path, filesystem=None):
     else:
         raise FileNotFoundError(path)
 
-    return (filesystem, paths_or_selector)
+    return filesystem, paths_or_selector
 
 
 def _filesystem_dataset(source, schema=None, filesystem=None,
@@ -429,12 +429,13 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
 def _union_dataset(source, schema=None, **kwargs):
     if any(v is not None for v in kwargs.values()):
         raise ValueError(
-            "When other datasets you cannot pass any additional arguments"
+            "When passing a list of Datasets, you cannot pass any additional "
+            "arguments"
         )
 
     if schema is None:
         # unify the children datasets' schemas
-        schema = pa.Schema.merge([ds.schema for ds in source])
+        schema = pa.unify_schemas([ds.schema for ds in source])
 
     # create datasets with the requested schema
     children = [ds.replace_schema(schema) for ds in source]
@@ -442,9 +443,9 @@ def _union_dataset(source, schema=None, **kwargs):
     return UnionDataset(schema, children)
 
 
-def dataset(source, schema=None, filesystem=None, partitioning=None,
-            format=None, partition_base_dir=None, exclude_invalid_files=None,
-            ignore_prefixes=None):
+def dataset(source, schema=None, format=None, filesystem=None,
+            partitioning=None, partition_base_dir=None,
+            exclude_invalid_files=None, ignore_prefixes=None):
     """
     Open a dataset.
 
@@ -458,15 +459,16 @@ def dataset(source, schema=None, filesystem=None, partitioning=None,
     schema : Schema, optional
         Optionally provide the Schema for the Dataset, in which case it will
         not be inferred from the source.
+    format : FileFormat or str
+        Currently "parquet" and "ipc"/"arrow"/"feather" are supported. For
+        Feather, only version 2 files are supported.
     filesystem : FileSystem, default None
         By default will be inferred from the path.
     partitioning : Partitioning, PartitioningFactory, str, list of str
         The partitioning scheme specified with the ``partitioning()``
         function. A flavor string can be used as shortcut, and with a list of
         field names a DirectionaryPartitioning will be inferred.
-    format : FileFormat or str
-        Currently "parquet" and "ipc"/"arrow"/"feather" are supported. For
-        Feather, only version 2 files are supported.
+
     partition_base_dir : str, optional
         For the purposes of applying the partitioning, paths will be
         stripped of the partition_base_dir. Files not matching the
@@ -504,6 +506,7 @@ def dataset(source, schema=None, filesystem=None, partitioning=None,
     """
     # collect the keyword arguments for later reuse
     kwargs = dict(
+        schema=schema,
         filesystem=filesystem,
         partitioning=partitioning,
         format=format,
@@ -514,12 +517,12 @@ def dataset(source, schema=None, filesystem=None, partitioning=None,
 
     # TODO(kszucs): support InMemoryDataset for a table input
     if _is_path_like(source):
-        return _filesystem_dataset(source, schema=schema, **kwargs)
+        return _filesystem_dataset(source, **kwargs)
     elif isinstance(source, (tuple, list)):
         if all(_is_path_like(elem) for elem in source):
-            return _filesystem_dataset(source, schema=schema, **kwargs)
+            return _filesystem_dataset(source, **kwargs)
         elif all(isinstance(elem, Dataset) for elem in source):
-            return _union_dataset(source, schema=schema, **kwargs)
+            return _union_dataset(source, **kwargs)
         else:
             raise TypeError('vvvvvvvvvvvvvvv')
     else:
