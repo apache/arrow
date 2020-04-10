@@ -46,20 +46,15 @@ class ARROW_DS_EXPORT Fragment {
   /// columns may be absent if they were not present in this fragment.
   ///
   /// To receive a record batch stream which is fully filtered and projected, use Scanner.
-  virtual Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) = 0;
+  virtual Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
+                                        std::shared_ptr<ScanContext> context) = 0;
 
   /// \brief Return true if the fragment can benefit from parallel scanning.
   virtual bool splittable() const = 0;
 
   virtual std::string type_name() const = 0;
 
-  /// \brief Filtering, schema reconciliation, and partition options to use when
-  /// scanning this fragment.
-  const std::shared_ptr<ScanOptions>& scan_options() const { return scan_options_; }
-
-  const std::shared_ptr<Schema>& schema() const;
-
-  virtual ~Fragment() = default;
+  const std::shared_ptr<Schema>& physical_schema() const { return physical_schema_; }
 
   /// \brief An expression which evaluates to true for all data viewed by this
   /// Fragment.
@@ -67,15 +62,13 @@ class ARROW_DS_EXPORT Fragment {
     return partition_expression_;
   }
 
+  virtual ~Fragment() = default;
+
  protected:
-  explicit Fragment(std::shared_ptr<ScanOptions> scan_options);
+  Fragment(std::shared_ptr<Schema> physical_schema = NULLPTR,
+           std::shared_ptr<Expression> partition_expression = NULLPTR);
 
-  Fragment(std::shared_ptr<ScanOptions> scan_options,
-           std::shared_ptr<Expression> partition_expression)
-      : scan_options_(std::move(scan_options)),
-        partition_expression_(std::move(partition_expression)) {}
-
-  std::shared_ptr<ScanOptions> scan_options_;
+  std::shared_ptr<Schema> physical_schema_;
   std::shared_ptr<Expression> partition_expression_;
 };
 
@@ -84,13 +77,10 @@ class ARROW_DS_EXPORT Fragment {
 class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
  public:
   InMemoryFragment(RecordBatchVector record_batches,
-                   std::shared_ptr<ScanOptions> scan_options);
+                   std::shared_ptr<Expression> = NULLPTR);
 
-  InMemoryFragment(RecordBatchVector record_batches,
-                   std::shared_ptr<ScanOptions> scan_options,
-                   std::shared_ptr<Expression> partition_expression);
-
-  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) override;
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
+                                std::shared_ptr<ScanContext> context) override;
 
   bool splittable() const override { return false; }
 

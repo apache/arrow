@@ -158,9 +158,10 @@ class ARROW_DS_EXPORT Scanner {
         scan_options_(std::move(scan_options)),
         scan_context_(std::move(scan_context)) {}
 
-  Scanner(std::shared_ptr<Fragment> fragment, std::shared_ptr<ScanContext> scan_context)
+  Scanner(std::shared_ptr<Fragment> fragment, std::shared_ptr<ScanOptions> scan_options,
+          std::shared_ptr<ScanContext> scan_context)
       : fragment_(std::move(fragment)),
-        scan_options_(fragment_->scan_options()),
+        scan_options_(std::move(scan_options)),
         scan_context_(std::move(scan_context)) {}
 
   /// \brief The Scan operator returns a stream of ScanTask. The caller is

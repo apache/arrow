@@ -120,10 +120,14 @@ cdef class Dataset:
         """
         return Scanner(self, columns=columns, filter=filter).get_fragments()
 
-    def scan(self, columns=None, filter=None, MemoryPool memory_pool=None):
+    def _scanner(self, **kwargs):
+        return Scanner(self, **kwargs)
+
+    def scan(self, columns=None, filter=None,
+             MemoryPool memory_pool=None, **kwargs):
         """Builds a scan operation against the dataset.
 
-        It poduces a stream of ScanTasks which is meant to be a unit of work to
+        It produces a stream of ScanTasks which is meant to be a unit of work to
         be dispatched. The tasks are not executed automatically, the user is
         responsible to execute and dispatch the individual tasks, so custom
         local task scheduling can be implemented.
@@ -152,12 +156,10 @@ cdef class Dataset:
         -------
         scan_tasks : iterator of ScanTask
         """
-        scanner = Scanner(self, columns=columns, filter=filter,
-                          memory_pool=memory_pool)
-        return scanner.scan()
+        return self._scanner(columns=columns, filter=filter,
+            memory_pool=memory_pool, **kwargs).scan()
 
-    def to_batches(self, columns=None, filter=None,
-                   MemoryPool memory_pool=None):
+    def to_batches(self, **kwargs):
         """Read the dataset as materialized record batches.
 
         Builds a scan operation against the dataset and sequentially executes
@@ -187,14 +189,9 @@ cdef class Dataset:
         -------
         record_batches : iterator of RecordBatch
         """
-        scanner = Scanner(self, columns=columns, filter=filter,
-                          memory_pool=memory_pool)
-        for task in scanner.scan():
-            for batch in task.execute():
-                yield batch
+        return self._scanner(**kwargs).to_batches()
 
-    def to_table(self, columns=None, filter=None, use_threads=True,
-                 MemoryPool memory_pool=None):
+    def to_table(self, **kwargs):
         """Read the dataset to an arrow table.
 
         Note that this method reads all the selected data from the dataset
@@ -227,9 +224,7 @@ cdef class Dataset:
         -------
         table : Table instance
         """
-        scanner = Scanner(self, columns=columns, filter=filter,
-                          use_threads=use_threads, memory_pool=memory_pool)
-        return scanner.to_table()
+        return self._scanner(**kwargs).to_table()
 
     @property
     def schema(self):
@@ -378,30 +373,6 @@ cdef shared_ptr[CExpression] _insert_implicit_casts(Expression filter,
     )
 
 
-cdef shared_ptr[CScanOptions] _make_scan_options(
-        Schema schema, Expression partition_expression, object columns=None,
-        Expression filter=None) except *:
-    cdef:
-        shared_ptr[CScanOptions] options
-        CExpression* c_partition_expression
-
-    assert schema is not None
-    assert partition_expression is not None
-
-    filter = Expression.wrap(_insert_implicit_casts(filter, schema))
-    filter = filter.assume(partition_expression)
-
-    empty_dataset = UnionDataset(schema, children=[])
-    scanner = Scanner(empty_dataset, columns=columns, filter=filter)
-    options = scanner.unwrap().get().options()
-
-    c_partition_expression = partition_expression.unwrap().get()
-    check_status(CSetPartitionKeysInProjector(deref(c_partition_expression),
-                                              &options.get().projector))
-
-    return options
-
-
 cdef class FileFormat:
 
     cdef:
@@ -443,7 +414,6 @@ cdef class FileFormat:
         return pyarrow_wrap_schema(move(c_schema))
 
     def make_fragment(self, str path not None, FileSystem filesystem not None,
-                      Schema schema=None, columns=None, filter=None,
                       Expression partition_expression=ScalarExpression(True)):
         """
         Make a FileFragment of this FileFormat. The filter may not reference
@@ -451,19 +421,11 @@ cdef class FileFormat:
         one will be inferred.
         """
         cdef:
-            shared_ptr[CScanOptions] c_options
             shared_ptr[CFileFragment] c_fragment
-
-        if schema is None:
-            schema = self.inspect(path, filesystem)
-
-        c_options = _make_scan_options(schema, partition_expression,
-                                       columns, filter)
 
         c_fragment = GetResultValue(
             self.format.MakeFragment(CFileSource(tobytes(path),
                                                  filesystem.unwrap().get()),
-                                     move(c_options),
                                      partition_expression.unwrap()))
         return Fragment.wrap(<shared_ptr[CFragment]> move(c_fragment))
 
@@ -510,7 +472,7 @@ cdef class Fragment:
     @property
     def schema(self):
         """Return the schema of batches scanned from this Fragment."""
-        return pyarrow_wrap_schema(self.fragment.schema())
+        return pyarrow_wrap_schema(self.fragment.physical_schema())
 
     @property
     def partition_expression(self):
@@ -519,30 +481,69 @@ cdef class Fragment:
         """
         return Expression.wrap(self.fragment.partition_expression())
 
-    def to_table(self, use_threads=True, MemoryPool memory_pool=None):
-        """Convert this Fragment into a Table.
+    def _scanner(self, **kwargs):
+        return Scanner._from_fragment(self, **kwargs)
 
-        Use this convenience utility with care. This will serially materialize
-        the Scan result in memory before creating the Table.
+    def scan(self, columns=None, filter=None, use_threads=True,
+             MemoryPool memory_pool=None, **kwargs):
+        """Builds a scan operation against the dataset.
 
-        Returns
-        -------
-        table : Table
-        """
-        scanner = Scanner._from_fragment(self, use_threads, memory_pool)
-        return scanner.to_table()
+        It produces a stream of ScanTasks which is meant to be a unit of work to
+        be dispatched. The tasks are not executed automatically, the user is
+        responsible to execute and dispatch the individual tasks, so custom
+        local task scheduling can be implemented.
 
-    def scan(self, MemoryPool memory_pool=None):
-        """Returns a stream of ScanTasks
-
-        The caller is responsible to dispatch/schedule said tasks. Tasks should
-        be safe to run in a concurrent fashion and outlive the iterator.
+        Parameters
+        ----------
+        columns : list of str, default None
+            List of columns to project. Order and duplicates will be preserved.
+            The columns will be passed down to Datasets and corresponding data
+            fragments to avoid loading, copying, and deserializing columns
+            that will not be required further down the compute chain.
+            By default all of the available columns are projected. Raises
+            an exception if any of the referenced column names does not exist
+            in the dataset's Schema.
+        filter : Expression, default None
+            Scan will return only the rows matching the filter.
+            If possible the predicate will be pushed down to exploit the
+            partition information or internal metadata found in fragments,
+            e.g. Parquet statistics. Otherwise filters the loaded
+            RecordBatches before yielding them.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required. If not specified, uses the
+            default pool.
 
         Returns
         -------
         scan_tasks : iterator of ScanTask
         """
-        return Scanner._from_fragment(self, memory_pool).scan()
+        return self._scanner(columns=columns, filter=filter,
+                use_threads=use_threads,memory_pool=memory_pool, **kwargs).scan()
+
+    def to_batches(self, **kwargs):
+        """Read the fragment as materialized record batches.
+
+        See scan() method arguments.
+
+        Returns
+        -------
+        record_batches : iterator of RecordBatch
+        """
+        return self._scanner(**kwargs).to_batches()
+
+    def to_table(self, **kwargs):
+        """Convert this Fragment into a Table.
+
+        Use this convenience utility with care. This will serially materialize
+        the Scan result in memory before creating the Table.
+
+        See scan() method arguments.
+
+        Returns
+        -------
+        table : Table
+        """
+        return self._scanner(**kwargs).to_table()
 
 
 cdef class FileFragment(Fragment):
@@ -734,31 +735,23 @@ cdef class ParquetFileFormat(FileFormat):
         return ParquetFileFormat, (self.read_options,)
 
     def make_fragment(self, str path not None, FileSystem filesystem not None,
-                      Schema schema=None, columns=None, filter=None,
                       Expression partition_expression=ScalarExpression(True),
                       row_groups=None):
         cdef:
-            shared_ptr[CScanOptions] c_options
             shared_ptr[CFileFragment] c_fragment
             vector[int] c_row_groups
 
         if row_groups is None:
-            return super().make_fragment(path, filesystem, schema, columns,
-                                         filter, partition_expression)
+            return super().make_fragment(path, filesystem, partition_expression)
+
+
         for row_group in set(row_groups):
             c_row_groups.push_back(<int> row_group)
-
-        if schema is None:
-            schema = self.inspect(path, filesystem)
-
-        c_options = _make_scan_options(schema, partition_expression,
-                                       columns, filter)
 
         c_fragment = GetResultValue(
             self.parquet_format.MakeFragment(CFileSource(tobytes(path),
                                                          filesystem.unwrap()
                                                          .get()),
-                                             move(c_options),
                                              partition_expression.unwrap(),
                                              move(c_row_groups)))
         return Fragment.wrap(<shared_ptr[CFragment]> move(c_fragment))
@@ -1409,13 +1402,17 @@ cdef class Scanner:
     def _from_fragment(Fragment fragment not None, bint use_threads=True,
                        MemoryPool memory_pool=None):
         cdef:
+            shared_ptr[CScanOptions] options
             shared_ptr[CScanContext] context
+
+        # TODO(ARROW-8065)
+        options = CScanOptions.Make(pyarrow_unwrap_schema(fragment.schema))
 
         context = make_shared[CScanContext]()
         context.get().pool = maybe_unbox_memory_pool(memory_pool)
         context.get().use_threads = use_threads
 
-        return Scanner.wrap(make_shared[CScanner](fragment.unwrap(), context))
+        return Scanner.wrap(make_shared[CScanner](fragment.unwrap(), options, context))
 
     cdef inline shared_ptr[CScanner] unwrap(self):
         return self.wrapped
@@ -1442,6 +1439,20 @@ cdef class Scanner:
                 raise StopIteration()
             else:
                 yield ScanTask.wrap(task)
+
+    def to_batches(self):
+        """Consume a Scanner in record batches.
+
+        Sequentially executes the ScanTasks as the returned generator gets
+        consumed.
+
+        Returns
+        -------
+        record_batches : iterator of RecordBatch
+        """
+        for task in self.scan():
+            for batch in task.execute():
+                yield batch
 
     def to_table(self):
         """Convert a Scanner into a Table.

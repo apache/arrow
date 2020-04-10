@@ -119,7 +119,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   /// record batches yielded by the data fragment.
   void AssertFragmentEquals(RecordBatchReader* expected, Fragment* fragment,
                             bool ensure_drained = true) {
-    ASSERT_OK_AND_ASSIGN(auto it, fragment->Scan(ctx_));
+    ASSERT_OK_AND_ASSIGN(auto it, fragment->Scan(options_, ctx_));
 
     ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<ScanTask> task) -> Status {
       AssertScanTaskEquals(expected, task.get(), false);

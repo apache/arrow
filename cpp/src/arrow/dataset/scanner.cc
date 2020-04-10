@@ -80,14 +80,7 @@ Result<ScanTaskIterator> Scanner::Scan() {
   // Transforms Iterator<Fragment> into a unified
   // Iterator<ScanTask>. The first Iterator::Next invocation is going to do
   // all the work of unwinding the chained iterators.
-  auto scan_task_it = GetScanTaskIterator(GetFragments(), scan_context_);
-
-  // Apply the filter and/or projection to incoming RecordBatches by
-  // wrapping the ScanTask with a FilterAndProjectScanTask
-  auto wrap_scan_task = [](std::shared_ptr<ScanTask> task) -> std::shared_ptr<ScanTask> {
-    return std::make_shared<FilterAndProjectScanTask>(std::move(task));
-  };
-  return MakeMapIterator(wrap_scan_task, std::move(scan_task_it));
+  return GetScanTaskIterator(GetFragments(), scan_options_, scan_context_);
 }
 
 Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(

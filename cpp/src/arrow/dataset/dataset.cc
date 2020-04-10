@@ -30,34 +30,33 @@
 namespace arrow {
 namespace dataset {
 
-Fragment::Fragment(std::shared_ptr<ScanOptions> scan_options)
-    : scan_options_(std::move(scan_options)), partition_expression_(scalar(true)) {}
-
-const std::shared_ptr<Schema>& Fragment::schema() const {
-  return scan_options_->schema();
+Fragment::Fragment(std::shared_ptr<Schema> physical_schema,
+                   std::shared_ptr<Expression> partition_expression)
+    : physical_schema_(std::move(physical_schema)),
+      partition_expression_(partition_expression ? partition_expression : scalar(true)) {
+  /// TODO(ARROW-8065)
+  if (physical_schema_ == nullptr) {
+    physical_schema_ = schema({});
+  }
 }
 
 InMemoryFragment::InMemoryFragment(RecordBatchVector record_batches,
-                                   std::shared_ptr<ScanOptions> scan_options)
-    : Fragment(std::move(scan_options)), record_batches_(std::move(record_batches)) {}
-
-InMemoryFragment::InMemoryFragment(RecordBatchVector record_batches,
-                                   std::shared_ptr<ScanOptions> scan_options,
                                    std::shared_ptr<Expression> partition_expression)
-    : Fragment(std::move(scan_options), std::move(partition_expression)),
+    : Fragment(record_batches.empty() ? schema({}) : record_batches[0]->schema(),
+               std::move(partition_expression)),
       record_batches_(std::move(record_batches)) {}
 
-Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanContext> context) {
+Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanOptions> options,
+                                                std::shared_ptr<ScanContext> context) {
   // Make an explicit copy of record_batches_ to ensure Scan can be called
   // multiple times.
   auto batches_it = MakeVectorIterator(record_batches_);
 
   // RecordBatch -> ScanTask
-  auto scan_options = scan_options_;
   auto fn = [=](std::shared_ptr<RecordBatch> batch) -> std::shared_ptr<ScanTask> {
     RecordBatchVector batches{batch};
     return ::arrow::internal::make_unique<InMemoryScanTask>(
-        std::move(batches), std::move(scan_options), std::move(context));
+        std::move(batches), std::move(options), std::move(context));
   };
 
   return MakeMapIterator(fn, std::move(batches_it));
@@ -162,7 +161,7 @@ FragmentIterator InMemoryDataset::GetFragmentsImpl(
       batches.push_back(batch->Slice(batch_size * i, batch_size));
     }
 
-    return std::make_shared<InMemoryFragment>(std::move(batches), scan_options);
+    return std::make_shared<InMemoryFragment>(std::move(batches));
   };
 
   return MakeMaybeMapIterator(std::move(create_fragment), get_batches_->Get());

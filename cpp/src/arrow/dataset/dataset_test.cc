@@ -44,8 +44,7 @@ TEST_F(TestInMemoryFragment, Scan) {
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
   // Creates a InMemoryFragment of the same repeated batch.
-  auto fragment =
-      InMemoryFragment({static_cast<size_t>(kNumberBatches), batch}, options_);
+  auto fragment = InMemoryFragment({static_cast<size_t>(kNumberBatches), batch});
 
   AssertFragmentEquals(reader.get(), &fragment);
 }
