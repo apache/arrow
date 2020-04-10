@@ -452,13 +452,37 @@ def dataset(source, schema=None, format=None, filesystem=None,
     """
     Open a dataset.
 
+    Dataset provides functionality to efficiently work with tabular,
+    potentially larger than memory and multi-file dataset.
+
+    - A unified interface for different sources, like Parquet and Feather
+    - Discovery of sources (crawling directories, handle directory-based
+      partitioned datasets, basic schema normalization)
+    - Optimized reading with pedicate pushdown (filtering rows), projection
+      (selecting columns), parallel reading or fine-grained managing of tasks.
+
+    Note that this is the high-level API, to have more control over the dataset
+    construction use the low-level API classes (FileSystemDataset,
+    FilesystemDatasetFactory, etc.)
+
     Parameters
     ----------
     source : path, list of paths, dataset or list of datasets
-        Path to a file or to a directory containing the data files, or a list
-        of paths for a multi-directory dataset. To have more control, a list of
-        factories can be passed, created with the ``factory()`` function (in
-        this case, the additional keywords will be ignored).
+        Path pointing to a single file:
+            Open a FileSystemDataset from a single file.
+        Path pointing to a directory:
+            The directory gets discovered recursively according to a
+            partitioning scheme if given.
+        List of file paths:
+            Create a FileSystemDataset from explicitly given files. The files
+            must be located on the same filesystem given by the filesystem
+            parameter.
+            Note that in contrary of construction from a single file, passing
+            URIs as paths is not allowed.
+        List of datasets:
+            A nested UnionDataset gets constructed, it allows arbitrary
+            composition of other datasets.
+            Note that additional keyword arguments are not allowed.
     schema : Schema, optional
         Optionally provide the Schema for the Dataset, in which case it will
         not be inferred from the source.
@@ -466,7 +490,9 @@ def dataset(source, schema=None, format=None, filesystem=None,
         Currently "parquet" and "ipc"/"arrow"/"feather" are supported. For
         Feather, only version 2 files are supported.
     filesystem : FileSystem, default None
-        By default will be inferred from the path.
+        If a single path is given as source, it will be inferred from the path.
+        If an URI is passed, then its path component will act as a prefix for
+        the paths.
     partitioning : Partitioning, PartitioningFactory, str, list of str
         The partitioning scheme specified with the ``partitioning()``
         function. A flavor string can be used as shortcut, and with a list of
@@ -491,7 +517,9 @@ def dataset(source, schema=None, format=None, filesystem=None,
 
     Returns
     -------
-    Dataset
+    dataset : Dataset
+        Either a FileSystemDataset or a UnionDataset depending on the source
+        parameter.
 
     Examples
     --------
