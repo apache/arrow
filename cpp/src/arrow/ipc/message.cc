@@ -284,7 +284,7 @@ Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_le
 
   switch (decoder.state()) {
     case MessageDecoder::State::INITIAL:
-      return result;
+      return std::move(result);
     case MessageDecoder::State::METADATA_LENGTH:
       return Status::Invalid("metadata length is missing. File offset: ", offset,
                              ", metadata length: ", metadata_length);
@@ -301,7 +301,7 @@ Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_le
                                " bytes for message body, got ", body->size());
       }
       RETURN_NOT_OK(decoder.Consume(body));
-      return result;
+      return std::move(result);
     }
     case MessageDecoder::State::EOS:
       return Status::Invalid("Unexpected empty message in IPC file format");
