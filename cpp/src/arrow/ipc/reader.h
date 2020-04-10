@@ -22,6 +22,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <utility>
+#include <vector>
 
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/options.h"
@@ -192,6 +194,201 @@ class ARROW_EXPORT RecordBatchFileReader {
   Status ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
     return ReadRecordBatch(i).Value(batch);
   }
+};
+
+/// \class Listener
+/// \brief A general listener class to receive events.
+///
+/// You must implement callback methods for interested events.
+///
+/// This API is EXPERIMENTAL.
+///
+/// \since 0.17.0
+class ARROW_EXPORT Listener {
+ public:
+  virtual ~Listener() = default;
+
+  /// \brief Called when end-of-stream is received.
+  ///
+  /// The default implementation just returns arrow::Status::OK().
+  ///
+  /// \return Status
+  ///
+  /// \see StreamDecoder
+  virtual Status OnEOS();
+
+  /// \brief Called when a record batch is decoded.
+  ///
+  /// The default implementation just returns
+  /// arrow::Status::NotImplemented().
+  ///
+  /// \param[in] record_batch a record batch decoded
+  /// \return Status
+  ///
+  /// \see StreamDecoder
+  virtual Status OnRecordBatchDecoded(std::shared_ptr<RecordBatch> record_batch);
+
+  /// \brief Called when a schema is decoded.
+  ///
+  /// The default implementation just returns arrow::Status::OK().
+  ///
+  /// \param[in] schema a schema decoded
+  /// \return Status
+  ///
+  /// \see StreamDecoder
+  virtual Status OnSchemaDecoded(std::shared_ptr<Schema> schema);
+};
+
+/// \class CollectListener
+/// \brief Collect schema and record batches decoded by StreamDecoder.
+///
+/// This API is EXPERIMENTAL.
+///
+/// \since 0.17.0
+class ARROW_EXPORT CollectListener : public Listener {
+ public:
+  CollectListener() : schema_(), record_batches_() {}
+  virtual ~CollectListener() = default;
+
+  Status OnSchemaDecoded(std::shared_ptr<Schema> schema) override {
+    schema_ = std::move(schema);
+    return Status::OK();
+  }
+
+  Status OnRecordBatchDecoded(std::shared_ptr<RecordBatch> record_batch) override {
+    record_batches_.push_back(std::move(record_batch));
+    return Status::OK();
+  }
+
+  /// \return the decoded schema
+  std::shared_ptr<Schema> schema() const { return schema_; }
+
+  /// \return the all decoded record batches
+  std::vector<std::shared_ptr<RecordBatch>> record_batches() const {
+    return record_batches_;
+  }
+
+ private:
+  std::shared_ptr<Schema> schema_;
+  std::vector<std::shared_ptr<RecordBatch>> record_batches_;
+};
+
+/// \class StreamDecoder
+/// \brief Push style stream decoder that receives data from user.
+///
+/// This class decodes the Apache Arrow IPC streaming format data.
+///
+/// This API is EXPERIMENTAL.
+///
+/// \see https://arrow.apache.org/docs/format/Columnar.html#ipc-streaming-format
+///
+/// \since 0.17.0
+class ARROW_EXPORT StreamDecoder {
+ public:
+  /// \brief Construct a stream decoder.
+  ///
+  /// \param[in] listener a Listener that must implement
+  /// Listener::OnRecordBatchDecoded() to receive decoded record batches
+  /// \param[in] options any IPC reading options (optional)
+  StreamDecoder(std::shared_ptr<Listener> listener,
+                const IpcReadOptions& options = IpcReadOptions::Defaults());
+
+  virtual ~StreamDecoder();
+
+  /// \brief Feed data to the decoder as a raw data.
+  ///
+  /// If the decoder can read one or more record batches by the data,
+  /// the decoder calls listener->OnRecordBatchDecoded() with a
+  /// decoded record batch multiple times.
+  ///
+  /// \param[in] data a raw data to be processed. This data isn't
+  /// copied. The passed memory must be kept alive through record
+  /// batch processing.
+  /// \param[in] size raw data size.
+  /// \return Status
+  Status Consume(const uint8_t* data, int64_t size);
+
+  /// \brief Feed data to the decoder as a Buffer.
+  ///
+  /// If the decoder can read one or more record batches by the
+  /// Buffer, the decoder calls listener->RecordBatchReceived() with a
+  /// decoded record batch multiple times.
+  ///
+  /// \param[in] buffer a Buffer to be processed.
+  /// \return Status
+  Status Consume(std::shared_ptr<Buffer> buffer);
+
+  /// \return the shared schema of the record batches in the stream
+  std::shared_ptr<Schema> schema() const;
+
+  /// \brief Return the number of bytes needed to advance the state of
+  /// the decoder.
+  ///
+  /// This method is provided for users who want to optimize performance.
+  /// Normal users don't need to use this method.
+  ///
+  /// Here is an example usage for normal users:
+  ///
+  /// ~~~{.cpp}
+  /// decoder.Consume(buffer1);
+  /// decoder.Consume(buffer2);
+  /// decoder.Consume(buffer3);
+  /// ~~~
+  ///
+  /// Decoder has internal buffer. If consumed data isn't enough to
+  /// advance the state of the decoder, consumed data is buffered to
+  /// the internal buffer. It causes performance overhead.
+  ///
+  /// If you pass next_required_size() size data to each Consume()
+  /// call, the decoder doesn't use its internal buffer. It improves
+  /// performance.
+  ///
+  /// Here is an example usage to avoid using internal buffer:
+  ///
+  /// ~~~{.cpp}
+  /// buffer1 = get_data(decoder.next_required_size());
+  /// decoder.Consume(buffer1);
+  /// buffer2 = get_data(decoder.next_required_size());
+  /// decoder.Consume(buffer2);
+  /// ~~~
+  ///
+  /// Users can use this method to avoid creating small chunks. Record
+  /// batch data must be contiguous data. If users pass small chunks
+  /// to the decoder, the decoder needs concatenate small chunks
+  /// internally. It causes performance overhead.
+  ///
+  /// Here is an example usage to reduce small chunks:
+  ///
+  /// ~~~{.cpp}
+  /// buffer = AllocateResizableBuffer();
+  /// while ((small_chunk = get_data(&small_chunk_size))) {
+  ///   auto current_buffer_size = buffer->size();
+  ///   buffer->Resize(current_buffer_size + small_chunk_size);
+  ///   memcpy(buffer->mutable_data() + current_buffer_size,
+  ///          small_chunk,
+  ///          small_chunk_size);
+  ///   if (buffer->size() < decoder.next_requied_size()) {
+  ///     continue;
+  ///   }
+  ///   std::shared_ptr<arrow::Buffer> chunk(buffer.release());
+  ///   decoder.Consume(chunk);
+  ///   buffer = AllocateResizableBuffer();
+  /// }
+  /// if (buffer->size() > 0) {
+  ///   std::shared_ptr<arrow::Buffer> chunk(buffer.release());
+  ///   decoder.Consume(chunk);
+  /// }
+  /// ~~~
+  ///
+  /// \return the number of bytes needed to advance the state of the
+  /// decoder
+  int64_t next_required_size() const;
+
+ private:
+  class StreamDecoderImpl;
+  std::unique_ptr<StreamDecoderImpl> impl_;
+
+  ARROW_DISALLOW_COPY_AND_ASSIGN(StreamDecoder);
 };
 
 // Generic read functions; does not copy data if the input supports zero copy reads
