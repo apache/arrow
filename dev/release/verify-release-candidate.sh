@@ -277,6 +277,7 @@ ${ARROW_CMAKE_OPTIONS:-}
 -DARROW_PARQUET=ON
 -DARROW_DATASET=ON
 -DPARQUET_REQUIRE_ENCRYPTION=ON
+-DARROW_VERBOSE_THIRDPARTY_BUILD=ON
 -DARROW_WITH_BZ2=ON
 -DARROW_WITH_ZLIB=ON
 -DARROW_WITH_ZSTD=ON
@@ -414,12 +415,12 @@ test_glib() {
 test_js() {
   pushd js
 
-  export NVM_DIR="`pwd`/.nvm"
-  mkdir -p $NVM_DIR
-  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
-  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-  nvm install node
+  # export NVM_DIR="`pwd`/.nvm"
+  # mkdir -p $NVM_DIR
+  # curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
+  # [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+  #
+  # nvm install node
 
   npm install
   # clean, lint, and build JS source
@@ -648,10 +649,8 @@ test_linux_wheels() {
       pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux${ml_spec}_x86_64.whl
       check_python_imports py_arch
 
-      # install test requirements
+      # install test requirements and execute the tests
       pip install -r ${ARROW_DIR}/python/requirements-test.txt
-
-      # execute the python unit tests
       pytest --pyargs pyarrow
     done
 
@@ -681,10 +680,8 @@ test_macos_wheels() {
     pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[m.]/}-cp${py_arch//./}-${macos_suffix}.whl
     check_python_imports py_arch
 
-    # install test requirements
+    # install test requirements and execute the tests
     pip install -r ${ARROW_DIR}/python/requirements-test.txt
-
-    # execute the python unit tests
     pytest --pyargs pyarrow
 
     conda deactivate
