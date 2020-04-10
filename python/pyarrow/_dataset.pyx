@@ -54,18 +54,12 @@ cdef class Dataset:
         shared_ptr[CDataset] wrapped
         CDataset* dataset
 
-    cdef readonly:
-        # if a factory object has instantiated the dataset construction then
-        # hold a reference for the factory to reuse it later
-        DatasetFactory factory
-
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
     cdef void init(self, const shared_ptr[CDataset]& sp):
         self.wrapped = sp
         self.dataset = sp.get()
-        self.factory = None
 
     @staticmethod
     cdef wrap(const shared_ptr[CDataset]& sp):
@@ -1069,12 +1063,7 @@ cdef class DatasetFactory:
             with nogil:
                 result = self.factory.Finish()
 
-        # instantiate the dataset object and store a reference for the
-        # factory in order to reuse the same factory object later on
-        dataset = Dataset.wrap(GetResultValue(result))
-        dataset.factory = self
-
-        return dataset
+        return Dataset.wrap(GetResultValue(result))
 
 
 cdef class FileSystemFactoryOptions:
