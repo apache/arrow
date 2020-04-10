@@ -74,7 +74,6 @@ pub const ALIGNMENT: usize = (1 << 6);
 
 const FALLBACK_ALIGNMENT: usize = (1 << 6);
 
-
 pub fn allocate_aligned(size: usize) -> *mut u8 {
     unsafe {
         let layout = Layout::from_size_align_unchecked(size, ALIGNMENT);
