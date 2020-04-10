@@ -1011,9 +1011,49 @@ def test_construct_from_mixed_child_datasets(mockfs):
     assert table.num_columns == 4
 
 
-def test_construct_from_datasets_with_different_schemas():
-    # TODO(kszucs)
-    pass
+def test_construct_empty_dataset():
+    empty = ds.dataset([])
+    table = empty.to_table()
+    assert table.num_rows == 0
+    assert table.num_columns == 0
+
+    empty = ds.dataset([], schema=pa.schema([
+        ('a', pa.int64()),
+        ('a', pa.string())
+    ]))
+    table = empty.to_table()
+    assert table.num_rows == 0
+    assert table.num_columns == 2
+
+
+def test_construct_from_invalid_sources_raise(multisourcefs):
+    child1 = ds.FileSystemDatasetFactory(
+        multisourcefs,
+        fs.FileSelector('/plain'),
+        format=ds.ParquetFileFormat()
+    )
+    child2 = ds.FileSystemDatasetFactory(
+        multisourcefs,
+        fs.FileSelector('/schema'),
+        format=ds.ParquetFileFormat()
+    )
+
+    with pytest.raises(TypeError, match='Expected.*FileSystemDatasetFactory'):
+        ds.dataset([child1, child2])
+
+    expected = (
+        "Expected a list of path-like or dataset objects. The given list "
+        "contains the following types: int"
+    )
+    with pytest.raises(TypeError, match=expected):
+        ds.dataset([1, 2, 3])
+
+    expected = (
+        "Expected a path-like, list of path-likes or a list of Datasets "
+        "instead of the given type: NoneType"
+    )
+    with pytest.raises(TypeError, match=expected):
+        ds.dataset(None)
 
 
 @pytest.mark.parquet
@@ -1173,12 +1213,14 @@ def test_dataset_union(multisourcefs):
     assert isinstance(factory.finish(), ds.Dataset)
 
 
-def test_multiple_factories(multisourcefs):
+def test_union_dataset_from_other_datasets(tempdir, multisourcefs):
     child1 = ds.dataset('/plain', filesystem=multisourcefs, format='parquet')
     child2 = ds.dataset('/schema', filesystem=multisourcefs, format='parquet',
                         partitioning=['week', 'color'])
     child3 = ds.dataset('/hive', filesystem=multisourcefs, format='parquet',
                         partitioning='hive')
+
+    assert child1.schema != child2.schema != child3.schema
 
     assembled = ds.dataset([child1, child2, child3])
     assert isinstance(assembled, ds.UnionDataset)
@@ -1197,6 +1239,44 @@ def test_multiple_factories(multisourcefs):
         ('month', pa.int32()),
     ])
     assert assembled.schema.equals(expected_schema)
+    assert assembled.to_table().schema.equals(expected_schema)
+
+    assembled = ds.dataset([child1, child3])
+    expected_schema = pa.schema([
+        ('date', pa.date32()),
+        ('index', pa.int64()),
+        ('value', pa.float64()),
+        ('color', pa.string()),
+        ('year', pa.int32()),
+        ('month', pa.int32()),
+    ])
+    assert assembled.schema.equals(expected_schema)
+    assert assembled.to_table().schema.equals(expected_schema)
+
+    expected_schema = pa.schema([
+        ('month', pa.int32()),
+        ('color', pa.string()),
+        ('date', pa.date32()),
+    ])
+    assembled = ds.dataset([child1, child3], schema=expected_schema)
+    assert assembled.to_table().schema.equals(expected_schema)
+
+    expected_schema = pa.schema([
+        ('month', pa.int32()),
+        ('color', pa.string()),
+        ('unkown', pa.string())  # fill with nulls
+    ])
+    assembled = ds.dataset([child1, child3], schema=expected_schema)
+    assert assembled.to_table().schema.equals(expected_schema)
+
+    # incompatible schemas, date and index columns have conflicting types
+    table = pa.table([range(9), [0.] * 4 + [1.] * 5, 'abcdefghj'],
+                     names=['date', 'value', 'index'])
+    _, path = _create_single_file(tempdir, table=table)
+    child4 = ds.dataset(path)
+
+    with pytest.raises(pa.ArrowInvalid, match='Unable to merge'):
+        ds.dataset([child1, child4])
 
 
 def test_dataset_from_a_list_of_local_directories_raises(multisourcefs):

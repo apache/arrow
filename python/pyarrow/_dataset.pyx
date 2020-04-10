@@ -1052,9 +1052,9 @@ cdef class DatasetFactory:
         Dataset
         """
         cdef:
-            Dataset dataset
             shared_ptr[CSchema] sp_schema
             CResult[shared_ptr[CDataset]] result
+
         if schema is not None:
             sp_schema = pyarrow_unwrap_schema(schema)
             with nogil:
@@ -1263,7 +1263,7 @@ cdef class UnionDatasetFactory(DatasetFactory):
             c_factories.push_back(factory.unwrap())
         self.init(GetResultValue(CUnionDatasetFactory.Make(c_factories)))
 
-    cdef init(self, shared_ptr[CDatasetFactory]& sp):
+    cdef init(self, const shared_ptr[CDatasetFactory]& sp):
         DatasetFactory.init(self, sp)
         self.union_factory = <CUnionDatasetFactory*> sp.get()
 

@@ -69,7 +69,7 @@ def field(name):
     """References a named column of the dataset.
 
     Stores only the field's name. Type and other information is known only when
-    the expression is applied on a dataset having an explicit scheme.
+    the expression is bound to a dataset having an explicit scheme.
 
     Parameters
     ----------
@@ -527,6 +527,14 @@ def dataset(source, schema=None, format=None, filesystem=None,
         elif all(isinstance(elem, Dataset) for elem in source):
             return _union_dataset(source, **kwargs)
         else:
-            raise TypeError('vvvvvvvvvvvvvvv')
+            unique_types = set(type(elem).__name__ for elem in source)
+            type_names = ', '.join('{}'.format(t) for t in unique_types)
+            raise TypeError(
+                'Expected a list of path-like or dataset objects. The given '
+                'list contains the following types: {}'.format(type_names)
+            )
     else:
-        raise TypeError('yyyyyyyyyyyy')
+        raise TypeError(
+            'Expected a path-like, list of path-likes or a list of Datasets '
+            'instead of the given type: {}'.format(type(source).__name__)
+        )
