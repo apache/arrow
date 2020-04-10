@@ -429,7 +429,7 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
     return factory.finish(schema)
 
 
-def _union_dataset(source, schema=None, **kwargs):
+def _union_dataset(children, schema=None, **kwargs):
     if any(v is not None for v in kwargs.values()):
         raise ValueError(
             "When passing a list of Datasets, you cannot pass any additional "
@@ -438,10 +438,10 @@ def _union_dataset(source, schema=None, **kwargs):
 
     if schema is None:
         # unify the children datasets' schemas
-        schema = pa.unify_schemas([ds.schema for ds in source])
+        schema = pa.unify_schemas([child.schema for child in children])
 
     # create datasets with the requested schema
-    children = [ds.replace_schema(schema) for ds in source]
+    children = [child.replace_schema(schema) for child in children]
 
     return UnionDataset(schema, children)
 

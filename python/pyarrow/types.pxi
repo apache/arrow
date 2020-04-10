@@ -1621,6 +1621,7 @@ def unify_schemas(list schemas):
 
     The resulting schema will contain the union of fields from all schemas.
     Fields with the same name will be merged.
+
     - The unified field will inherit the metadata from the schema where
         that field is first defined.
     - The first N fields in the schema will be ordered the same as the
