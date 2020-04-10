@@ -235,4 +235,4 @@ jobs:
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
-          docker-compose run centos-python-manylinux1 bash /io/build_arrow.sh
+          docker-compose run centos-python-manylinux1
