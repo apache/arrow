@@ -203,3 +203,25 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
+
+  manylinux1:
+    name: AMD64 CentOS 5.11 Python 3.6 manylinux1
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Docker Pull
+        shell: bash
+        run: docker-compose pull centos-python-manylinux1
+      - name: Docker Run
+        shell: bash
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          docker-compose run centos-python-manylinux1
