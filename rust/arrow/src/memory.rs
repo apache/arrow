@@ -21,7 +21,59 @@
 use std::alloc::Layout;
 use std::mem::align_of;
 
-pub const ALIGNMENT: usize = 64;
+#[cfg(target_arch = "x86")]
+pub const ALIGNMENT: usize = (1 << 6);
+
+#[cfg(target_arch = "x86_64")]
+pub const ALIGNMENT: usize = (1 << 7);
+
+#[cfg(target_arch = "mips")]
+pub const ALIGNMENT: usize = (1 << 5);
+
+#[cfg(target_arch = "mips64")]
+pub const ALIGNMENT: usize = (1 << 5);
+
+#[cfg(target_arch = "powerpc")]
+pub const ALIGNMENT: usize = (1 << 5);
+
+#[cfg(target_arch = "powerpc64")]
+pub const ALIGNMENT: usize = (1 << 6);
+
+#[cfg(target_arch = "riscv")]
+pub const ALIGNMENT: usize = (1 << 6);
+
+#[cfg(target_arch = "s390x")]
+pub const ALIGNMENT: usize = (1 << 8);
+
+#[cfg(target_arch = "sparc")]
+pub const ALIGNMENT: usize = (1 << 5);
+
+#[cfg(target_arch = "sparc64")]
+pub const ALIGNMENT: usize = (1 << 6);
+
+#[cfg(target_arch = "thumbv6")]
+pub const ALIGNMENT: usize = (1 << 5);
+
+#[cfg(target_arch = "thumbv7")]
+pub const ALIGNMENT: usize = (1 << 5);
+
+#[cfg(target_arch = "wasm32")]
+pub const ALIGNMENT: usize = FALLBACK_ALIGNMENT;
+
+#[cfg(target_arch = "arm")]
+pub const ALIGNMENT: usize = (1 << 5);
+
+#[cfg(target_arch = "nvptx")]
+pub const ALIGNMENT: usize = (1 << 7);
+
+#[cfg(target_arch = "nvptx64")]
+pub const ALIGNMENT: usize = (1 << 7);
+
+#[cfg(target_arch = "aarch64")]
+pub const ALIGNMENT: usize = (1 << 6);
+
+const FALLBACK_ALIGNMENT: usize = (1 << 6);
+
 
 pub fn allocate_aligned(size: usize) -> *mut u8 {
     unsafe {
