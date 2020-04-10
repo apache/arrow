@@ -40,10 +40,10 @@ tabular, potentially larger than memory and multi-file, datasets:
 
 
 For those familiar with the existing :class:`pyarrow.parquet.ParquetDataset` for
-reading Parquet datasets: the goal of ``pyarrow.dataset`` is to provide similar
-functionality, but not specific to the Parquet format, not tied to Python (for
-example the R bindings of Arrow also have an interface for the Dateset API) and
-with improved functionality (e.g. filtering on the file level and not only
+reading Parquet datasets: ``pyarrow.dataset``'s goal is similar but not specific
+to the Parquet format and not tied to Python: the same datasets API is exposed
+in the R bindings or Arrow. In addition ``pyarrow.dataset`` boasts improved
+perfomance and new features (e.g. filtering within files rather than only on
 partition keys).
 
 
@@ -52,7 +52,7 @@ Reading Datasets
 ----------------
 
 
-Full blown example with NYC taxi data to show off, afterwards explain all parts:
+.. TODO Full blown example with NYC taxi data to show off, afterwards explain all parts:
 
 .. ipython:: python
 
@@ -92,24 +92,24 @@ can pass it the path to the directory containing the data files:
     dataset = ds.dataset(base / "parquet_dataset", format="parquet")
     dataset
 
-Alternatively, it also accepts a path to a single file, or a list of file
-paths.
+In addition to a base directory path, :func:`dataset` accepts
+a path to a single file or a list of file paths.
 
-Creating this :class:`Dataset` object did yet materialize the full dataset, but
-it crawled the directory to find all the files:
+Creating a :class:`Dataset` object loads nothing into memory, it only
+crawls the directory to find all the files:
 
 .. ipython:: python
 
     dataset.files
 
-and it did infer the schema (by default from the first file):
+... and infers the dataset's schema (by default from the first file):
 
 .. ipython:: python
 
     print(dataset.schema.to_string(show_field_metadata=False))
 
-With the :meth:`Dataset.to_table` method, we can read the dataset into a
-pyarrow Table (note this will read everything at once, which can require a lot
+Using the :meth:`Dataset.to_table` method we can read the dataset (or a portion of it) into a
+pyarrow Table (note that depending on the size of your dataset this can require a lot
 of memory, see below on filtering / iterative loading):
 
 
@@ -122,8 +122,8 @@ of memory, see below on filtering / iterative loading):
 Reading different file formats
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The above examples use Parquet files as dataset source, but the Dataset API
-aims to provide a consistent interface for multiple file formats and sources.
+The above examples use Parquet files as dataset source but the Dataset API
+provides a consistent interface across multiple file formats and sources.
 Currently, Parquet and Feather / Arrow IPC file format are supported; more
 formats are planned in the future.
 
@@ -143,20 +143,20 @@ then we can read the Feather file using the same functions, but with specifying
     dataset = ds.dataset(base / "data.feather", format="ipc")
     dataset.to_table().to_pandas().head()
 
-The format name as a string, like:
+Customizing file formats
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. code-block::
+class:`FileFormat`s can be customized using keywords. For example::
+
+    format = ds.ParquetFileFormat(read_options={'dictionary_columns': ['a']})
+    ds.dataset(..., format=format)
+
+Will configure column ``a`` to be dictionary encoded on scan.
+The format name as a string, like::
 
     ds.dataset(..., format="parquet")
 
-is a short-hand for
-
-.. code-block::
-
-    ds.dataset(..., format=ds.ParquetFileFormat())
-
-Those file format objects can take keywords to customize reading (see for
-example :class:`ParquetFileFormat`).
+is short hand for a default constructed class:`ParquetFileFormat`.
 
 
 Filtering data
@@ -165,8 +165,7 @@ Filtering data
 To avoid reading all data when only needing a subset, the ``columns`` and
 ``filter`` keywords can be used.
 
-The ``columns`` keyword can be used to only read a selection of the columns,
-and accepts a list of column names:
+The ``columns`` keyword can be used to only read the named columns:
 
 .. ipython:: python
 
@@ -183,22 +182,24 @@ involving one of the columns, and those expressions can be created using the
     dataset.to_table(filter=ds.field('a') >= 7).to_pandas()
     dataset.to_table(filter=ds.field('c') == 2).to_pandas()
 
-Any column can be referenced using the :func:`field` function (which creates a
-:class:`FieldExpression`), and many different expressions can be created,
-including the standard boolean comparison operators (equal, larger/less than,
-etc), but also set membership testing:
+Any column - not just partition columns - can be referenced using the
+:func:`field` function (which creates a :class:`FieldExpression`). Operator
+overloads are provided to compose filters including the comparisons
+(equal, larger/less than, etc), set membership testing, and boolean
+combinations (and, or, not):
 
 .. ipython:: python
 
     ds.field('a') != 3
     ds.field('a').isin([1, 2, 3])
+    ds.field('a') > ds.field('b') & ds.field('b') > 1
 
 
 Reading partitioned data
 ------------------------
 
-A dataset consisting of a flat directory with files was already shown above.
-But the dataset can also contain nested directories defining a partitioned
+Above, a dataset consisting of a flat directory with files was shown.
+However a dataset can exploit a nested directory structure defining a partitioned
 dataset, where the sub-directory names hold information about which subset
 of the data is stored in that directory.
 
@@ -256,8 +257,8 @@ they will be added back to the resulting table when scanning this dataset:
 
     dataset.to_table().to_pandas().head(3)
 
-We can now filter on the partition keys, which avoids loading certain files
-at all if they do not match the predicate:
+We can now filter on the partition keys, which avoids loading files
+altogether if they do not match the predicate:
 
 .. ipython:: python
 
@@ -287,14 +288,15 @@ scheme is supported, where the segments in the file path are the values of
 the partition keys without including the name. The equivalent (year, month, day)
 example would be "/2019/11/15/".
 
-Since the names are not included in the file paths, those need to be specified:
+Since the names are not included in the file paths, these must be specified
+when constructing a directory partitioning:
 
 .. code-block::
 
     part = ds.partitioning(field_names=["year", "month", "day"])
 
-Also here, a full schema can be provided to not let the types be inferred
-from the file paths.
+Directory directory partitioning also supports providing a full schema rather than inferring
+types from file paths.
 
 
 Reading from cloud storage
@@ -307,12 +309,12 @@ Reading from cloud storage
 Manual specification of the Dataset
 -----------------------------------
 
-The :func:`dataset` function allows to easily create a Dataset from a directory,
-crawling all subdirectories for files and partitioning information. However,
-when the dataset files and partitions are already known (for example, when this
-information is stored in metadata), it is also possible to create a Dataset
-explicitly using the lower level API without any automatic discovery or
-inference.
+The :func:`dataset` function allows easy creation of a Dataset viewing a directory,
+crawling all subdirectories for files and partitioning information. However
+sometimes discovery is not required and the dataset's files and partitions
+are already known (for example, when this information is stored in metadata).
+In this case it is possible to create a Dataset explicitly without any
+automatic discovery or inference.
 
 For the example here, we are going to use a dataset where the file names contain
 additional partitioning information:
@@ -338,8 +340,8 @@ filesystem, and paths manually:
         ["parquet_dataset_manual/data_file1.parquet", "parquet_dataset_manual/data_file2.parquet"],
         [ds.field('file') == 1, ds.field('file') == 2])
 
-We also specified the "partition expressions" for our files, so this information
-is included when reading the data and can be used for filtering:
+Since we specified the "partition expressions" for our files, this information
+is materialized as columns when reading the data and can be used for filtering:
 
 .. ipython:: python
 
