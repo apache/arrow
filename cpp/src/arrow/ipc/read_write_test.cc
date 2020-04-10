@@ -886,78 +886,78 @@ struct StreamWriterHelper {
 
 struct StreamDecoderDataWriterHelper : public StreamWriterHelper {
   Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
-    auto receiver = std::make_shared<RecordBatchReceiverCollect>();
-    StreamDecoder decoder(receiver, options);
+    auto listener = std::make_shared<CollectListener>();
+    StreamDecoder decoder(listener, options);
     ARROW_RETURN_NOT_OK(decoder.Consume(buffer_->data(), buffer_->size()));
-    *out_batches = receiver->record_batches();
+    *out_batches = listener->record_batches();
     return Status::OK();
   }
 
   Status ReadSchema(std::shared_ptr<Schema>* out) {
-    auto receiver = std::make_shared<RecordBatchReceiverCollect>();
-    StreamDecoder decoder(receiver);
+    auto listener = std::make_shared<CollectListener>();
+    StreamDecoder decoder(listener);
     ARROW_RETURN_NOT_OK(decoder.Consume(buffer_->data(), buffer_->size()));
-    *out = receiver->schema();
+    *out = listener->schema();
     return Status::OK();
   }
 };
 
 struct StreamDecoderBufferWriterHelper : public StreamWriterHelper {
   Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
-    auto receiver = std::make_shared<RecordBatchReceiverCollect>();
-    StreamDecoder decoder(receiver, options);
+    auto listener = std::make_shared<CollectListener>();
+    StreamDecoder decoder(listener, options);
     ARROW_RETURN_NOT_OK(decoder.Consume(buffer_));
-    *out_batches = receiver->record_batches();
+    *out_batches = listener->record_batches();
     return Status::OK();
   }
 
   Status ReadSchema(std::shared_ptr<Schema>* out) {
-    auto receiver = std::make_shared<RecordBatchReceiverCollect>();
-    StreamDecoder decoder(receiver);
+    auto listener = std::make_shared<CollectListener>();
+    StreamDecoder decoder(listener);
     ARROW_RETURN_NOT_OK(decoder.Consume(buffer_));
-    *out = receiver->schema();
+    *out = listener->schema();
     return Status::OK();
   }
 };
 
 struct StreamDecoderSmallChunksWriterHelper : public StreamWriterHelper {
   Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
-    auto receiver = std::make_shared<RecordBatchReceiverCollect>();
-    StreamDecoder decoder(receiver, options);
+    auto listener = std::make_shared<CollectListener>();
+    StreamDecoder decoder(listener, options);
     for (int64_t offset = 0; offset < buffer_->size() - 1; ++offset) {
       ARROW_RETURN_NOT_OK(decoder.Consume(buffer_->data() + offset, 1));
     }
-    *out_batches = receiver->record_batches();
+    *out_batches = listener->record_batches();
     return Status::OK();
   }
 
   Status ReadSchema(std::shared_ptr<Schema>* out) {
-    auto receiver = std::make_shared<RecordBatchReceiverCollect>();
-    StreamDecoder decoder(receiver);
+    auto listener = std::make_shared<CollectListener>();
+    StreamDecoder decoder(listener);
     for (int64_t offset = 0; offset < buffer_->size() - 1; ++offset) {
       ARROW_RETURN_NOT_OK(decoder.Consume(buffer_->data() + offset, 1));
     }
-    *out = receiver->schema();
+    *out = listener->schema();
     return Status::OK();
   }
 };
 
 struct StreamDecoderLargeChunksWriterHelper : public StreamWriterHelper {
   Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
-    auto receiver = std::make_shared<RecordBatchReceiverCollect>();
-    StreamDecoder decoder(receiver, options);
+    auto listener = std::make_shared<CollectListener>();
+    StreamDecoder decoder(listener, options);
     ARROW_RETURN_NOT_OK(decoder.Consume(SliceBuffer(buffer_, 0, 1)));
     ARROW_RETURN_NOT_OK(decoder.Consume(SliceBuffer(buffer_, 1)));
-    *out_batches = receiver->record_batches();
+    *out_batches = listener->record_batches();
     return Status::OK();
   }
 
   Status ReadSchema(std::shared_ptr<Schema>* out) {
-    auto receiver = std::make_shared<RecordBatchReceiverCollect>();
-    StreamDecoder decoder(receiver);
+    auto listener = std::make_shared<CollectListener>();
+    StreamDecoder decoder(listener);
     ARROW_RETURN_NOT_OK(decoder.Consume(SliceBuffer(buffer_, 0, 1)));
     ARROW_RETURN_NOT_OK(decoder.Consume(SliceBuffer(buffer_, 1)));
-    *out = receiver->schema();
+    *out = listener->schema();
     return Status::OK();
   }
 };
@@ -1845,8 +1845,8 @@ TEST(TestRecordBatchStreamReader, MalformedInput) {
 }
 
 TEST(TestStreamDecoder, NextRequiredSize) {
-  auto receiver = std::make_shared<RecordBatchReceiverCollect>();
-  StreamDecoder decoder(receiver);
+  auto listener = std::make_shared<CollectListener>();
+  StreamDecoder decoder(listener);
   auto next_required_size = decoder.next_required_size();
   const uint8_t data[1] = {0};
   ASSERT_OK(decoder.Consume(data, 1));

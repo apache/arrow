@@ -203,11 +203,15 @@ class ARROW_EXPORT MessageDecoderListener {
   /// \brief Called when the decoder state is changed to
   /// MessageDecoder::State::INITIAL.
   ///
+  /// The default implementation just returns arrow::Status::OK().
+  ///
   /// \return Status
   virtual Status OnInitial();
 
   /// \brief Called when the decoder state is changed to
   /// MessageDecoder::State::METADATA_LENGTH.
+  ///
+  /// The default implementation just returns arrow::Status::OK().
   ///
   /// \return Status
   virtual Status OnMetadataLength();
@@ -215,11 +219,15 @@ class ARROW_EXPORT MessageDecoderListener {
   /// \brief Called when the decoder state is changed to
   /// MessageDecoder::State::METADATA.
   ///
+  /// The default implementation just returns arrow::Status::OK().
+  ///
   /// \return Status
   virtual Status OnMetadata();
 
   /// \brief Called when the decoder state is changed to
   /// MessageDecoder::State::BODY.
+  ///
+  /// The default implementation just returns arrow::Status::OK().
   ///
   /// \return Status
   virtual Status OnBody();
@@ -227,26 +235,28 @@ class ARROW_EXPORT MessageDecoderListener {
   /// \brief Called when the decoder state is changed to
   /// MessageDecoder::State::EOS.
   ///
+  /// The default implementation just returns arrow::Status::OK().
+  ///
   /// \return Status
   virtual Status OnEOS();
 };
 
-/// \class MessageDecoderListenerAssign
+/// \class AssignMessageDecoderListener
 /// \brief Assign a message decoded by MessageDecoder.
 ///
 /// This API is EXPERIMENTAL.
 ///
 /// \since 0.17.0
-class ARROW_EXPORT MessageDecoderListenerAssign : public MessageDecoderListener {
+class ARROW_EXPORT AssignMessageDecoderListener : public MessageDecoderListener {
  public:
-  /// \brief Construct a listener that assign a decoded message to the
+  /// \brief Construct a listener that assigns a decoded message to the
   /// specified location.
   ///
   /// \param[in] message a location to store the received message
-  explicit MessageDecoderListenerAssign(std::unique_ptr<Message>* message)
+  explicit AssignMessageDecoderListener(std::unique_ptr<Message>* message)
       : message_(message) {}
 
-  virtual ~MessageDecoderListenerAssign() = default;
+  virtual ~AssignMessageDecoderListener() = default;
 
   Status OnMessageDecoded(std::unique_ptr<Message> message) override {
     *message_ = std::move(message);
@@ -256,7 +266,7 @@ class ARROW_EXPORT MessageDecoderListenerAssign : public MessageDecoderListener 
  private:
   std::unique_ptr<Message>* message_;
 
-  ARROW_DISALLOW_COPY_AND_ASSIGN(MessageDecoderListenerAssign);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(AssignMessageDecoderListener);
 };
 
 /// \class MessageDecoder

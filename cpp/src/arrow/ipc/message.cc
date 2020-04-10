@@ -185,7 +185,7 @@ Status CheckMetadataAndGetBodyLength(const Buffer& metadata, int64_t* body_lengt
 Result<std::unique_ptr<Message>> Message::ReadFrom(std::shared_ptr<Buffer> metadata,
                                                    io::InputStream* stream) {
   std::unique_ptr<Message> result;
-  auto listener = std::make_shared<MessageDecoderListenerAssign>(&result);
+  auto listener = std::make_shared<AssignMessageDecoderListener>(&result);
   MessageDecoder decoder(listener, MessageDecoder::State::METADATA, metadata->size());
   ARROW_RETURN_NOT_OK(decoder.Consume(metadata));
 
@@ -202,7 +202,7 @@ Result<std::unique_ptr<Message>> Message::ReadFrom(const int64_t offset,
                                                    std::shared_ptr<Buffer> metadata,
                                                    io::RandomAccessFile* file) {
   std::unique_ptr<Message> result;
-  auto listener = std::make_shared<MessageDecoderListenerAssign>(&result);
+  auto listener = std::make_shared<AssignMessageDecoderListener>(&result);
   MessageDecoder decoder(listener, MessageDecoder::State::METADATA, metadata->size());
   ARROW_RETURN_NOT_OK(decoder.Consume(metadata));
 
@@ -267,7 +267,7 @@ std::string FormatMessageType(Message::Type type) {
 Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_length,
                                              io::RandomAccessFile* file) {
   std::unique_ptr<Message> result;
-  auto listener = std::make_shared<MessageDecoderListenerAssign>(&result);
+  auto listener = std::make_shared<AssignMessageDecoderListener>(&result);
   MessageDecoder decoder(listener);
 
   if (metadata_length < decoder.next_required_size()) {
@@ -391,7 +391,7 @@ Status DecodeMessage(MessageDecoder* decoder, io::InputStream* file) {
 
 Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* file, MemoryPool* pool) {
   std::unique_ptr<Message> message;
-  auto listener = std::make_shared<MessageDecoderListenerAssign>(&message);
+  auto listener = std::make_shared<AssignMessageDecoderListener>(&message);
   MessageDecoder decoder(listener, pool);
   ARROW_RETURN_NOT_OK(DecodeMessage(&decoder, file));
   if (!message) {

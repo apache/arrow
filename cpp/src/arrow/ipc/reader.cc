@@ -941,12 +941,12 @@ Result<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::Open(
   return result;
 }
 
-Status Receiver::EosReceived() { return Status::OK(); }
+Status Listener::OnEOS() { return Status::OK(); }
 
-Status Receiver::SchemaReceived(std::shared_ptr<Schema> schema) { return Status::OK(); }
+Status Listener::OnSchemaDecoded(std::shared_ptr<Schema> schema) { return Status::OK(); }
 
-Status Receiver::RecordBatchReceived(std::shared_ptr<RecordBatch> record_batch) {
-  return Status::NotImplemented("RecordBatch receiver isn't implemented");
+Status Listener::OnRecordBatchDecoded(std::shared_ptr<RecordBatch> record_batch) {
+  return Status::NotImplemented("OnRecordBatchDecoded() callback isn't implemented");
 }
 
 class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
@@ -959,10 +959,10 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
   };
 
  public:
-  explicit StreamDecoderImpl(std::shared_ptr<Receiver> receiver,
+  explicit StreamDecoderImpl(std::shared_ptr<Listener> listener,
                              const IpcReadOptions& options)
       : MessageDecoderListener(),
-        receiver_(std::move(receiver)),
+        listener_(std::move(listener)),
         options_(options),
         state_(State::SCHEMA),
         message_decoder_(std::shared_ptr<StreamDecoderImpl>(this, [](void*) {}),
@@ -975,13 +975,13 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
   Status OnMessageDecoded(std::unique_ptr<Message> message) override {
     switch (state_) {
       case State::SCHEMA:
-        ARROW_RETURN_NOT_OK(SchemaMessageReceived(std::move(message)));
+        ARROW_RETURN_NOT_OK(OnSchemaMessageDecoded(std::move(message)));
         break;
       case State::INITIAL_DICTIONARIES:
-        ARROW_RETURN_NOT_OK(InitialDictionaryMessageReceived(std::move(message)));
+        ARROW_RETURN_NOT_OK(OnInitialDictionaryMessageDecoded(std::move(message)));
         break;
       case State::RECORD_BATCHES:
-        ARROW_RETURN_NOT_OK(RecordBatchMessageReceived(std::move(message)));
+        ARROW_RETURN_NOT_OK(OnRecordBatchMessageDecoded(std::move(message)));
         break;
       case State::EOS:
         break;
@@ -991,7 +991,7 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
 
   Status OnEOS() override {
     state_ = State::EOS;
-    return receiver_->EosReceived();
+    return listener_->OnEOS();
   }
 
   Status Consume(const uint8_t* data, int64_t size) {
@@ -1007,20 +1007,20 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
   int64_t next_required_size() const { return message_decoder_.next_required_size(); }
 
  private:
-  Status SchemaMessageReceived(std::unique_ptr<Message> message) {
+  Status OnSchemaMessageDecoded(std::unique_ptr<Message> message) {
     RETURN_NOT_OK(PrepareSchemaMessage(*message, &dictionary_memo_, &schema_, options_,
                                        &field_inclusion_mask_));
     n_required_dictionaries_ = dictionary_memo_.num_fields();
     if (n_required_dictionaries_ == 0) {
       state_ = State::RECORD_BATCHES;
-      ARROW_RETURN_NOT_OK(receiver_->SchemaReceived(schema_));
+      ARROW_RETURN_NOT_OK(listener_->OnSchemaDecoded(schema_));
     } else {
       state_ = State::INITIAL_DICTIONARIES;
     }
     return Status::OK();
   }
 
-  Status InitialDictionaryMessageReceived(std::unique_ptr<Message> message) {
+  Status OnInitialDictionaryMessageDecoded(std::unique_ptr<Message> message) {
     if (message->type() != Message::DICTIONARY_BATCH) {
       return Status::Invalid("IPC stream did not have the expected number (",
                              dictionary_memo_.num_fields(),
@@ -1030,12 +1030,12 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
     n_required_dictionaries_--;
     if (n_required_dictionaries_ == 0) {
       state_ = State::RECORD_BATCHES;
-      ARROW_RETURN_NOT_OK(receiver_->SchemaReceived(schema_));
+      ARROW_RETURN_NOT_OK(listener_->OnSchemaDecoded(schema_));
     }
     return Status::OK();
   }
 
-  Status RecordBatchMessageReceived(std::unique_ptr<Message> message) {
+  Status OnRecordBatchMessageDecoded(std::unique_ptr<Message> message) {
     if (message->type() == Message::DICTIONARY_BATCH) {
       return UpdateDictionaries(*message, &dictionary_memo_, options_);
     } else {
@@ -1045,11 +1045,11 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
           auto batch,
           ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
                                   &dictionary_memo_, options_, reader.get()));
-      return receiver_->RecordBatchReceived(std::move(batch));
+      return listener_->OnRecordBatchDecoded(std::move(batch));
     }
   }
 
-  std::shared_ptr<Receiver> receiver_;
+  std::shared_ptr<Listener> listener_;
   IpcReadOptions options_;
   State state_;
   MessageDecoder message_decoder_;
@@ -1059,9 +1059,9 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
   std::shared_ptr<Schema> schema_;
 };
 
-StreamDecoder::StreamDecoder(std::shared_ptr<Receiver> receiver,
+StreamDecoder::StreamDecoder(std::shared_ptr<Listener> listener,
                              const IpcReadOptions& options) {
-  impl_.reset(new StreamDecoderImpl(std::move(receiver), options));
+  impl_.reset(new StreamDecoderImpl(std::move(listener), options));
 }
 
 StreamDecoder::~StreamDecoder() {}

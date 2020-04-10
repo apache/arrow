@@ -196,17 +196,17 @@ class ARROW_EXPORT RecordBatchFileReader {
   }
 };
 
-/// \class Receiver
-/// \brief A general receiver class to receive objects.
+/// \class Listener
+/// \brief A general listener class to receive events.
 ///
-/// You must implement receiver methods for objects you want to receive.
+/// You must implement callback methods for interested events.
 ///
 /// This API is EXPERIMENTAL.
 ///
 /// \since 0.17.0
-class ARROW_EXPORT Receiver {
+class ARROW_EXPORT Listener {
  public:
-  virtual ~Receiver() = default;
+  virtual ~Listener() = default;
 
   /// \brief Called when end-of-stream is received.
   ///
@@ -214,56 +214,56 @@ class ARROW_EXPORT Receiver {
   ///
   /// \return Status
   ///
-  /// \see RecordBatchStreamEmitter
-  virtual Status EosReceived();
+  /// \see StreamDecoder
+  virtual Status OnEOS();
 
-  /// \brief Called when a record batch is received.
+  /// \brief Called when a record batch is decoded.
   ///
   /// The default implementation just returns
   /// arrow::Status::NotImplemented().
   ///
-  /// \param[in] record_batch a record batch received
+  /// \param[in] record_batch a record batch decoded
   /// \return Status
   ///
-  /// \see RecordBatchStreamEmitter
-  virtual Status RecordBatchReceived(std::shared_ptr<RecordBatch> record_batch);
+  /// \see StreamDecoder
+  virtual Status OnRecordBatchDecoded(std::shared_ptr<RecordBatch> record_batch);
 
-  /// \brief Called when a schema is received.
+  /// \brief Called when a schema is decoded.
   ///
   /// The default implementation just returns arrow::Status::OK().
   ///
-  /// \param[in] schema a schema received
+  /// \param[in] schema a schema decoded
   /// \return Status
   ///
-  /// \see RecordBatchStreamEmitter
-  virtual Status SchemaReceived(std::shared_ptr<Schema> schema);
+  /// \see StreamDecoder
+  virtual Status OnSchemaDecoded(std::shared_ptr<Schema> schema);
 };
 
-/// \class RecordBatchReceiverCollect
-/// \brief Collect record batches read by RecordBatchStreamEmitter.
+/// \class CollectListener
+/// \brief Collect schema and record batches decoded by StreamDecoder.
 ///
 /// This API is EXPERIMENTAL.
 ///
 /// \since 0.17.0
-class ARROW_EXPORT RecordBatchReceiverCollect : public Receiver {
+class ARROW_EXPORT CollectListener : public Listener {
  public:
-  RecordBatchReceiverCollect() : schema_(), record_batches_() {}
-  virtual ~RecordBatchReceiverCollect() = default;
+  CollectListener() : schema_(), record_batches_() {}
+  virtual ~CollectListener() = default;
 
-  Status SchemaReceived(std::shared_ptr<Schema> schema) override {
+  Status OnSchemaDecoded(std::shared_ptr<Schema> schema) override {
     schema_ = std::move(schema);
     return Status::OK();
   }
 
-  Status RecordBatchReceived(std::shared_ptr<RecordBatch> record_batch) override {
+  Status OnRecordBatchDecoded(std::shared_ptr<RecordBatch> record_batch) override {
     record_batches_.push_back(std::move(record_batch));
     return Status::OK();
   }
 
-  /// \return the read schema
+  /// \return the decoded schema
   std::shared_ptr<Schema> schema() const { return schema_; }
 
-  /// \return the all read record batches
+  /// \return the all decoded record batches
   std::vector<std::shared_ptr<RecordBatch>> record_batches() const {
     return record_batches_;
   }
@@ -287,10 +287,10 @@ class ARROW_EXPORT StreamDecoder {
  public:
   /// \brief Construct a stream decoder.
   ///
-  /// \param[in] receiver a Receiver that must implement
-  /// Receiver::RecordBatchReceived() to receive decoded record batches
+  /// \param[in] listener a Listener that must implement
+  /// Listener::OnRecordBatchDecoded() to receive decoded record batches
   /// \param[in] options any IPC reading options (optional)
-  StreamDecoder(std::shared_ptr<Receiver> receiver,
+  StreamDecoder(std::shared_ptr<Listener> listener,
                 const IpcReadOptions& options = IpcReadOptions::Defaults());
 
   virtual ~StreamDecoder();
@@ -298,8 +298,8 @@ class ARROW_EXPORT StreamDecoder {
   /// \brief Feed data to the decoder as a raw data.
   ///
   /// If the decoder can read one or more record batches by the data,
-  /// the decoder calls receiver->RecordBatchReceived() with a decoded
-  /// record batch multiple times.
+  /// the decoder calls listener->OnRecordBatchDecoded() with a
+  /// decoded record batch multiple times.
   ///
   /// \param[in] data a raw data to be processed. This data isn't
   /// copied. The passed memory must be kept alive through record
@@ -311,7 +311,7 @@ class ARROW_EXPORT StreamDecoder {
   /// \brief Feed data to the decoder as a Buffer.
   ///
   /// If the decoder can read one or more record batches by the
-  /// Buffer, the decoder calls receiver->RecordBatchReceived() with a
+  /// Buffer, the decoder calls listener->RecordBatchReceived() with a
   /// decoded record batch multiple times.
   ///
   /// \param[in] buffer a Buffer to be processed.

@@ -141,12 +141,12 @@ static void DecodeStream(benchmark::State& state) {  // NOLINT non-const referen
 
   ipc::DictionaryMemo empty_memo;
   while (state.KeepRunning()) {
-    class RecordBatchReceiverNull : public ipc::Receiver {
-      Status RecordBatchReceived(std::shared_ptr<RecordBatch> batch) override {
+    class NullListener : public ipc::Listener {
+      Status OnRecordBatchDecoded(std::shared_ptr<RecordBatch> batch) override {
         return Status::OK();
       }
-    } receiver;
-    ipc::StreamDecoder decoder(std::shared_ptr<RecordBatchReceiverNull>(&receiver),
+    } listener;
+    ipc::StreamDecoder decoder(std::shared_ptr<NullListener>(&listener, [](void*) {}),
                                ipc::IpcReadOptions::Defaults());
     ABORT_NOT_OK(decoder.Consume(buffer));
   }
