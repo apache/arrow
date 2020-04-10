@@ -456,25 +456,7 @@ class MessageDecoder::MessageDecoderImpl {
         next_required_size_(initial_next_required_size),
         chunks_(),
         buffered_size_(0),
-        metadata_(nullptr) {
-    switch (state_) {
-      case State::INITIAL:
-        listener_->OnInitial();
-        break;
-      case State::METADATA_LENGTH:
-        listener_->OnMetadataLength();
-        break;
-      case State::METADATA:
-        listener_->OnMetadata();
-        break;
-      case State::BODY:
-        listener_->OnBody();
-        break;
-      case State::EOS:
-        listener_->OnEOS();
-        break;
-    }
-  }
+        metadata_(nullptr) {}
 
   Status ConsumeData(const uint8_t* data, int64_t size) {
     if (buffered_size_ == 0) {
@@ -849,7 +831,7 @@ class InputStreamMessageReader : public MessageReader, public MessageDecoderList
     return Status::OK();
   }
 
-  Result<std::unique_ptr<Message>> ReadNextMessage() {
+  Result<std::unique_ptr<Message>> ReadNextMessage() override {
     ARROW_RETURN_NOT_OK(DecodeMessage(&decoder_, stream_));
     return std::move(message_);
   }
