@@ -204,8 +204,8 @@ jobs:
         shell: bash
         run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
 
-  manlinux1:
-    name: manlinux1 Python 2.4
+  manylinux1:
+    name: AMD64 CentOS 5.11 Python 3.6 manylinux1
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     env:
