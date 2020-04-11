@@ -210,3 +210,18 @@ std::shared_ptr<fs::SubTreeFileSystem> fs___SubTreeFileSystem__create(
 }
 
 #endif
+
+#if defined(ARROW_R_WITH_S3)
+
+// [[s3::export]]
+void fs___EnsureS3Initialized() {
+  STOP_IF_NOT_OK(fs::EnsureS3Initialized());
+}
+
+// [[s3::export]]
+std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create() {
+  fs::S3Options opts;
+  return VALUE_OR_STOP(fs::S3FileSystem::Make(opts));
+}
+
+#endif

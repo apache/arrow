@@ -236,6 +236,19 @@ LocalFileSystem$create <- function() {
   shared_ptr(LocalFileSystem, fs___LocalFileSystem__create())
 }
 
+#' @usage NULL
+#' @format NULL
+#' @rdname FileSystem
+#' @export
+S3FileSystem <- R6Class("S3FileSystem", inherit = FileSystem)
+S3FileSystem$create <- function() {
+  fs___EnsureS3Initialized()
+  shared_ptr(S3FileSystem, fs___S3FileSystem__create())
+}
+
+arrow_with_s3 <- function() {
+  .Call(`_s3_available`)
+}
 
 #' @usage NULL
 #' @format NULL

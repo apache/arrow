@@ -880,6 +880,14 @@ fs___SubTreeFileSystem__create <- function(base_path, base_fs){
     .Call(`_arrow_fs___SubTreeFileSystem__create` , base_path, base_fs)
 }
 
+fs___EnsureS3Initialized <- function(){
+    invisible(.Call(`_arrow_fs___EnsureS3Initialized` ))
+}
+
+fs___S3FileSystem__create <- function(){
+    .Call(`_arrow_fs___S3FileSystem__create` )
+}
+
 io___Readable__Read <- function(x, nbytes){
     .Call(`_arrow_io___Readable__Read` , x, nbytes)
 }

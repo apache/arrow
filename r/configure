@@ -159,6 +159,12 @@ echo "#include $PKG_TEST_HEADER" | ${TEST_CMD} >/dev/null 2>&1
 if [ $? -eq 0 ] || [ "$UNAME" = "Darwin" ]; then
   # Always build with arrow on macOS
   PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ARROW"
+  # Check for features
+  LIB_DIR=`echo $PKG_LIBS | sed -e 's/ -l.*//' | sed -e 's/^-L//'`
+  grep 'set(ARROW_S3 "ON")' $LIB_DIR/cmake/arrow/ArrowOptions.cmake >/dev/null 2>&1
+  if [ $? -eq 0 ]; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_S3"
+  fi
   echo "PKG_CFLAGS=$PKG_CFLAGS"
   echo "PKG_LIBS=$PKG_LIBS"
 else

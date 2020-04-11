@@ -122,3 +122,9 @@ test_that("LocalFileSystem + Selector", {
   expect_equal(sum(types == FileType$File), 2L)
   expect_equal(sum(types == FileType$Directory), 1L)
 })
+
+test_that("S3FileSystem", {
+  skip_if_not_available("s3")
+  s3fs <- S3FileSystem$create()
+  expect_is(s3fs, "S3FileSystem")
+})
