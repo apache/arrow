@@ -23,6 +23,10 @@
 #
 # Also, you must have a bintray account on the "ursalabs" organization and
 # set the BINTRAY_USER and BINTRAY_APIKEY env vars.
+#
+# Ensure that the boost tarball is also updated at
+# https://github.com/ursa-labs/thirdparty/releases/latest
+# TODO(ARROW-6407) automate uploading to github as well.
 
 set -eu
 
