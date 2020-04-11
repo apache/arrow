@@ -278,6 +278,60 @@ BENCHMARK(BM_ByteStreamSplitEncode_Float_SSE2)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_ByteStreamSplitEncode_Double_SSE2)->Range(MIN_RANGE, MAX_RANGE);
 #endif
 
+#if defined(ARROW_HAVE_AVX2)
+static void BM_ByteStreamSplitDecode_Float_AVX2(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<float>(
+      state, arrow::util::internal::ByteStreamSplitDecodeAVX2<float>);
+}
+
+static void BM_ByteStreamSplitDecode_Double_AVX2(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<double>(
+      state, arrow::util::internal::ByteStreamSplitDecodeAVX2<double>);
+}
+
+static void BM_ByteStreamSplitEncode_Float_AVX2(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<float>(
+      state, arrow::util::internal::ByteStreamSplitEncodeAVX2<float>);
+}
+
+static void BM_ByteStreamSplitEncode_Double_AVX2(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<double>(
+      state, arrow::util::internal::ByteStreamSplitEncodeAVX2<double>);
+}
+
+BENCHMARK(BM_ByteStreamSplitDecode_Float_AVX2)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitDecode_Double_AVX2)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Float_AVX2)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Double_AVX2)->Range(MIN_RANGE, MAX_RANGE);
+#endif
+
+#if defined(ARROW_HAVE_AVX512)
+static void BM_ByteStreamSplitDecode_Float_AVX512(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<float>(
+      state, arrow::util::internal::ByteStreamSplitDecodeAVX512<float>);
+}
+
+static void BM_ByteStreamSplitDecode_Double_AVX512(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<double>(
+      state, arrow::util::internal::ByteStreamSplitDecodeAVX512<double>);
+}
+
+static void BM_ByteStreamSplitEncode_Float_AVX512(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<float>(
+      state, arrow::util::internal::ByteStreamSplitEncodeAVX512<float>);
+}
+
+static void BM_ByteStreamSplitEncode_Double_AVX512(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<double>(
+      state, arrow::util::internal::ByteStreamSplitEncodeAVX512<double>);
+}
+
+BENCHMARK(BM_ByteStreamSplitDecode_Float_AVX512)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitDecode_Double_AVX512)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Float_AVX512)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Double_AVX512)->Range(MIN_RANGE, MAX_RANGE);
+#endif
+
 template <typename Type>
 static void DecodeDict(std::vector<typename Type::c_type>& values,
                        benchmark::State& state) {

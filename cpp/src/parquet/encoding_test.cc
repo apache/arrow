@@ -1091,19 +1091,27 @@ typedef ::testing::Types<FloatType, DoubleType> ByteStreamSplitTypes;
 TYPED_TEST_SUITE(TestByteStreamSplitEncoding, ByteStreamSplitTypes);
 
 TYPED_TEST(TestByteStreamSplitEncoding, BasicRoundTrip) {
-  // We need to test with different sizes to guarantee that the SIMD implementation
-  // can handle both inputs with size divisible by 4/8 and sizes which would
-  // require a scalar loop for the suffix.
-
-  // Exercise only the SIMD loop.
-  ASSERT_NO_FATAL_FAILURE(this->Execute(256, 1));
-
-  // Exercise both.
-  ASSERT_NO_FATAL_FAILURE(this->Execute(1337, 1));
-
   for (int values = 0; values < 32; ++values) {
     ASSERT_NO_FATAL_FAILURE(this->Execute(values, 1));
   }
+
+  // We need to test with different sizes to guarantee that the SIMD implementation
+  // can handle both inputs with size divisible by 4/8 and sizes which would
+  // require a scalar loop for the suffix.
+  constexpr size_t kSuffixSize = 7;
+  constexpr size_t kAVX2Size = 32;    // sizeof(__m256i) for AVX2
+  constexpr size_t kAVX512Size = 64;  // sizeof(__m512i) for AVX512
+  constexpr size_t kMultiSimdSize = kAVX512Size * 7;
+
+  // Exercise only one SIMD loop. SSE and AVX2 covered in above loop.
+  ASSERT_NO_FATAL_FAILURE(this->Execute(kAVX512Size, 1));
+  // Exercise one SIMD loop with suffix. SSE covered in above loop.
+  ASSERT_NO_FATAL_FAILURE(this->Execute(kAVX2Size + kSuffixSize, 1));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(kAVX512Size + kSuffixSize, 1));
+  // Exercise multi SIMD loop.
+  ASSERT_NO_FATAL_FAILURE(this->Execute(kMultiSimdSize, 1));
+  // Exercise multi SIMD loop with suffix.
+  ASSERT_NO_FATAL_FAILURE(this->Execute(kMultiSimdSize + kSuffixSize, 1));
 }
 
 TYPED_TEST(TestByteStreamSplitEncoding, RoundTripSingleElement) {
