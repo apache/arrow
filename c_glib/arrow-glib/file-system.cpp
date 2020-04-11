@@ -366,8 +366,7 @@ gchar *
 garrow_file_info_to_string(GArrowFileInfo *file_info)
 {
   const auto arrow_file_info = garrow_file_info_get_raw(file_info);
-  auto string = arrow_file_info->ToString();
-  return g_strndup(string.data(), string.size());
+  return g_strdup(arrow_file_info->ToString().c_str());
 }
 
 /* arrow::fs::FileSelector */

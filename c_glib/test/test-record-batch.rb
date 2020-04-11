@@ -76,7 +76,7 @@ class TestRecordBatch < Test::Unit::TestCase
           Arrow::Field.new("visible", Arrow::BooleanDataType.new),
           Arrow::Field.new("valid", Arrow::BooleanDataType.new),
         ]
-        @schema = Arrow::Schema.new(fields)
+        @schema = Arrow::Schema.new(@fields)
         @columns = [
           build_boolean_array([true, false, true, false, true]),
           build_boolean_array([false, true, false, true, false]),
