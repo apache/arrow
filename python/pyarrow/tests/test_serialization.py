@@ -1002,7 +1002,9 @@ def test_serialize_to_components_invalid_cases():
 
     components = {
         'num_tensors': 0,
-        'num_sparse_tensors': {'coo': 0, 'csr': 0, 'csc': 0, 'csf': 0},
+        'num_sparse_tensors': {
+            'coo': 0, 'csr': 0, 'csc': 0, 'csf': 0, 'ndim_csf': 0
+        },
         'num_ndarrays': 0,
         'num_buffers': 1,
         'data': [buf]
@@ -1013,7 +1015,9 @@ def test_serialize_to_components_invalid_cases():
 
     components = {
         'num_tensors': 0,
-        'num_sparse_tensors': {'coo': 0, 'csr': 0, 'csc': 0, 'csf': 0},
+        'num_sparse_tensors': {
+            'coo': 0, 'csr': 0, 'csc': 0, 'csf': 0, 'ndim_csf': 0
+        },
         'num_ndarrays': 1,
         'num_buffers': 0,
         'data': [buf, buf]

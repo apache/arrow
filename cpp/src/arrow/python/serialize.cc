@@ -675,6 +675,7 @@ Status CountSparseTensors(
   size_t num_csr = 0;
   size_t num_csc = 0;
   size_t num_csf = 0;
+  size_t ndim_csf = 0;
 
   for (const auto& sparse_tensor : sparse_tensors) {
     switch (sparse_tensor->format_id()) {
@@ -689,6 +690,7 @@ Status CountSparseTensors(
         break;
       case SparseTensorFormat::CSF:
         ++num_csf;
+        ndim_csf += sparse_tensor->ndim();
         break;
     }
   }
@@ -697,6 +699,7 @@ Status CountSparseTensors(
   PyDict_SetItemString(num_sparse_tensors.obj(), "csr", PyLong_FromSize_t(num_csr));
   PyDict_SetItemString(num_sparse_tensors.obj(), "csc", PyLong_FromSize_t(num_csc));
   PyDict_SetItemString(num_sparse_tensors.obj(), "csf", PyLong_FromSize_t(num_csf));
+  PyDict_SetItemString(num_sparse_tensors.obj(), "ndim_csf", PyLong_FromSize_t(ndim_csf));
   RETURN_IF_PYERROR();
 
   *out = num_sparse_tensors.detach();
@@ -720,6 +723,7 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
                        PyLong_FromSize_t(this->tensors.size()));
   RETURN_NOT_OK(CountSparseTensors(this->sparse_tensors, &num_sparse_tensors));
   PyDict_SetItemString(result.obj(), "num_sparse_tensors", num_sparse_tensors);
+  PyDict_SetItemString(result.obj(), "ndim_csf", num_sparse_tensors);
   PyDict_SetItemString(result.obj(), "num_ndarrays",
                        PyLong_FromSize_t(this->ndarrays.size()));
   PyDict_SetItemString(result.obj(), "num_buffers",

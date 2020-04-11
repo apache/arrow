@@ -1721,6 +1721,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         int csr
         int csc
         int csf
+        int ndim_csf
         int num_total_tensors() const
         int num_total_buffers() const
 
