@@ -2698,7 +2698,7 @@ def _test_write_to_dataset_with_partitions(base_path,
             output_df[col] = output_df[col].astype('category')
     else:
         # ensure deterministic row order
-        output_df = output_df.sort_values(by=["num"])
+        input_df = input_df.sort_values(by=["num"])
     tm.assert_frame_equal(output_df, input_df)
 
 
