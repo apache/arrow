@@ -381,7 +381,8 @@ def _ensure_single_source(path, filesystem=None):
     path = _normalize_path(filesystem, path)
 
     # retrieve the file descriptor
-    file_info = filesystem.get_file_info([path])[0]
+    if file_info is None:
+        file_info = filesystem.get_file_info([path])[0]
 
     # depending on the path type either return with a recursive
     # directory selector or as a list containing a single file
