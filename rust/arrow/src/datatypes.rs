@@ -122,6 +122,8 @@ pub enum DataType {
     FixedSizeList(Box<DataType>, i32),
     /// A nested datatype that contains a number of sub-fields.
     Struct(Vec<Field>),
+    /// A dictionary array where each element is a single value indexed by an integer key.
+    /// This is mostly used to represent strings or a limited set of primitive types as integers.
     Dictionary(Box<DataType>, Box<DataType>),
 }
 
