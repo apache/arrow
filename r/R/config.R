@@ -22,7 +22,7 @@ cpu_count <- function() {
   GetCpuThreadPoolCapacity()
 }
 
-#' Return number of threads used by the global CPU thread pool in libarrow
+#' Set number of threads used by the global CPU thread pool in libarrow
 #'
 #' @param num_threads integer: New number of threads for thread pool
 #' @export
