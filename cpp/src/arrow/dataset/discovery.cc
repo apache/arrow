@@ -115,10 +115,10 @@ bool StartsWithAnyOf(const std::vector<std::string>& prefixes, const std::string
     return false;
   }
 
-  util::string_view basename = fs::internal::GetAbstractPathParent(path).second;
+  auto basename = fs::internal::GetAbstractPathParent(path).second;
 
   return std::any_of(prefixes.cbegin(), prefixes.cend(), [&](util::string_view prefix) {
-    return basename.starts_with(prefix);
+    return util::string_view(basename).starts_with(prefix);
   });
 }
 
