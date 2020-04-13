@@ -22,7 +22,6 @@
 
 #include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -81,8 +80,8 @@ struct ARROW_EXPORT IpcReadOptions {
   MemoryPool* memory_pool = default_memory_pool();
 
   /// \brief EXPERIMENTAL: Top-level schema fields to include when
-  /// deserializing RecordBatch. If null, return all deserialized fields
-  util::optional<std::vector<int>> included_fields;
+  /// deserializing RecordBatch. If empty, return all deserialized fields
+  std::vector<int> included_fields;
 
   /// \brief Use global CPU thread pool to parallelize any computational tasks
   /// like decompression

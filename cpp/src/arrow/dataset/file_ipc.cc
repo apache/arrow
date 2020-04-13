@@ -32,15 +32,18 @@
 namespace arrow {
 namespace dataset {
 
-Result<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReader(
-    const FileSource& source, std::shared_ptr<io::RandomAccessFile> input = nullptr) {
-  if (input == nullptr) {
-    ARROW_ASSIGN_OR_RAISE(input, source.Open());
-  }
-
-  std::shared_ptr<ipc::RecordBatchFileReader> reader;
+static ipc::IpcReadOptions default_read_options() {
   auto options = ipc::IpcReadOptions::Defaults();
   options.use_threads = false;
+  return options;
+}
+
+Result<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReader(
+    const FileSource& source,
+    const ipc::IpcReadOptions& options = default_read_options()) {
+  ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
+
+  std::shared_ptr<ipc::RecordBatchFileReader> reader;
 
   auto status =
       ipc::RecordBatchFileReader::Open(std::move(input), options).Value(&reader);
@@ -49,6 +52,20 @@ Result<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReader(
                               "': ", status.message());
   }
   return reader;
+}
+
+Result<std::vector<int>> GetIncludedFields(
+    const Schema& schema, const std::vector<std::string>& materialized_fields) {
+  std::vector<int> included_fields;
+
+  for (FieldRef ref : materialized_fields) {
+    ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOneOrNone(schema));
+    if (match.indices().empty()) continue;
+
+    included_fields.push_back(match.indices()[0]);
+  }
+
+  return included_fields;
 }
 
 /// \brief A ScanTask backed by an Ipc file.
@@ -60,14 +77,17 @@ class IpcScanTask : public ScanTask {
 
   Result<RecordBatchIterator> Execute() override {
     struct Impl {
-      static Result<Impl> Make(const FileSource& source,
-                               const std::vector<std::string>& materialized_fields,
-                               MemoryPool* pool) {
+      static Result<RecordBatchIterator> Make(
+          const FileSource& source, std::vector<std::string> materialized_fields,
+          MemoryPool* pool) {
         ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source));
-        auto materialized_schema =
-            SchemaFromColumnNames(reader->schema(), materialized_fields);
-        return Impl{std::move(reader),
-                    RecordBatchProjector(std::move(materialized_schema)), pool, 0};
+
+        auto options = default_read_options();
+        ARROW_ASSIGN_OR_RAISE(options.included_fields,
+                              GetIncludedFields(*reader->schema(), materialized_fields));
+
+        ARROW_ASSIGN_OR_RAISE(reader, OpenReader(source, options));
+        return RecordBatchIterator(Impl{std::move(reader), pool, 0});
       }
 
       Result<std::shared_ptr<RecordBatch>> Next() {
@@ -75,26 +95,15 @@ class IpcScanTask : public ScanTask {
           return nullptr;
         }
 
-        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> batch,
-                              reader_->ReadRecordBatch(i_++));
-        return projector_.Project(*batch, pool_);
+        return reader_->ReadRecordBatch(i_++);
       }
 
       std::shared_ptr<ipc::RecordBatchFileReader> reader_;
-      RecordBatchProjector projector_;
       MemoryPool* pool_;
       int i_;
     };
 
-    // get names of fields explicitly projected or referenced by filter
-    auto fields = options_->MaterializedFields();
-    std::sort(fields.begin(), fields.end());
-    auto unique_end = std::unique(fields.begin(), fields.end());
-    fields.erase(unique_end, fields.end());
-
-    ARROW_ASSIGN_OR_RAISE(auto batch_it, Impl::Make(source_, fields, context_->pool));
-
-    return RecordBatchIterator(std::move(batch_it));
+    return Impl::Make(source_, options_->MaterializedFields(), context_->pool);
   }
 
  private:
@@ -134,8 +143,8 @@ class IpcScanTaskIterator {
 };
 
 Result<bool> IpcFileFormat::IsSupported(const FileSource& source) const {
-  ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
-  return OpenReader(source, input).ok();
+  RETURN_NOT_OK(source.Open().status());
+  return OpenReader(source).ok();
 }
 
 Result<std::shared_ptr<Schema>> IpcFileFormat::Inspect(const FileSource& source) const {
