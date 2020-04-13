@@ -869,7 +869,7 @@ std::shared_ptr<Buffer> ByteStreamSplitEncoder<DType>::FlushValues() {
 
 template <typename DType>
 void ByteStreamSplitEncoder<DType>::Put(const T* buffer, int num_values) {
-  PARQUET_THROW_NOT_OK(values_.Append(buffer, num_values));
+  if (num_values > 0) PARQUET_THROW_NOT_OK(values_.Append(buffer, num_values));
 }
 
 template <typename DType>
