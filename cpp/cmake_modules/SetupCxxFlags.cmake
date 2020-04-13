@@ -20,6 +20,9 @@
 include(CheckCXXCompilerFlag)
 # Get cpu architecture
 set(ARROW_CPU_FLAG "x86")
+
+message(STATUS "System architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64")
   set(ARROW_CPU_FLAG "arm")
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc")
