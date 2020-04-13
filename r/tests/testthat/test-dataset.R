@@ -65,8 +65,8 @@ test_that("Setup (putting data in the dir)", {
   # Now, an IPC format dataset
   dir.create(file.path(ipc_dir, 3))
   dir.create(file.path(ipc_dir, 4))
-  write_arrow(df1, file.path(ipc_dir, 3, "file1.arrow"))
-  write_arrow(df2, file.path(ipc_dir, 4, "file2.arrow"))
+  write_feather(df1, file.path(ipc_dir, 3, "file1.arrow"))
+  write_feather(df2, file.path(ipc_dir, 4, "file2.arrow"))
   expect_length(dir(ipc_dir, recursive = TRUE), 2)
 })
 
@@ -167,8 +167,8 @@ test_that("Partitioning inference", {
   )
 })
 
-test_that("IPC/Arrow format data", {
-  ds <- open_dataset(ipc_dir, partitioning = "part", format = "arrow")
+test_that("IPC/Feather format data", {
+  ds <- open_dataset(ipc_dir, partitioning = "part", format = "feather")
   expect_identical(names(ds), c(names(df1), "part"))
   expect_warning(
     dim(ds),
