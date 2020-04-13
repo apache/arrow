@@ -65,11 +65,9 @@ def localfs_with_mmap(request, tempdir):
 
 @pytest.fixture
 def subtree_localfs(request, tempdir, localfs):
-    prefix = 'subtree/prefix/'
-    (tempdir / prefix).mkdir(parents=True)
     return dict(
-        fs=SubTreeFileSystem(prefix, localfs['fs']),
-        pathfn=prefix.__add__,
+        fs=SubTreeFileSystem(str(tempdir), localfs['fs']),
+        pathfn=lambda p: p,
         allow_copy_file=True,
         allow_move_dir=True,
         allow_append_to_file=True,
