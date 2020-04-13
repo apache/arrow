@@ -332,6 +332,11 @@ cdef class FileSystemDataset(Dataset):
 
         if root_partition is None:
             root_partition = ScalarExpression(True)
+        elif not isinstance(root_partition, Expression):
+            raise TypeError(
+                "Argument 'root_partition' has incorrect type (expected "
+                "Expression, got {0})".format(type(root_partition))
+            )
 
         result = CFileSystemDataset.Make(
             pyarrow_unwrap_schema(schema),

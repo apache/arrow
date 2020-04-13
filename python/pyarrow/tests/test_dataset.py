@@ -213,6 +213,10 @@ def test_filesystem_dataset(mockfs):
         ds.FileSystemDataset(paths, schema=schema, filesystem=mockfs)
     with pytest.raises(TypeError, match="incorrect type"):
         ds.FileSystemDataset(paths, schema=schema, format=file_format)
+    # validation of root_partition
+    with pytest.raises(TypeError, match="incorrect type"):
+        ds.FileSystemDataset(paths, schema=schema, format=file_format,
+                             filesystem=mockfs, root_partition=1)
 
     root_partition = ds.ComparisonExpression(
         ds.CompareOperator.Equal,
