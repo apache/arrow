@@ -15,17 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' Return number of threads used by the global CPU thread pool in libarrow
+#' Manage the global CPU thread pool in libarrow
 #'
 #' @export
 cpu_count <- function() {
   GetCpuThreadPoolCapacity()
 }
 
-#' Set number of threads used by the global CPU thread pool in libarrow
+#' @rdname cpu_count
 #'
 #' @param num_threads integer: New number of threads for thread pool
 #' @export
 set_cpu_count <- function(num_threads) {
-  SetCpuThreadPoolCapacity(num_threads)
+  SetCpuThreadPoolCapacity(as.integer(num_threads))
 }
