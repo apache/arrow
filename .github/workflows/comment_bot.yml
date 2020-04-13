@@ -86,7 +86,9 @@ jobs:
           roxygen2::roxygenize("r")
       - name: Commit results
         run: |
-          git commit -a -m 'Autoformat/render all the things [automated commit]' --author 'GitHub Actions <actions@github.com>' || echo "No changes to commit"
+          git config user.name "$(git log -1 --pretty=format:%an)"
+          git config user.email "$(git log -1 --pretty=format:%ae)"
+          git commit -a -m 'Autoformat/render all the things [automated commit]' || echo "No changes to commit"
       - uses: r-lib/actions/pr-push@master
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
