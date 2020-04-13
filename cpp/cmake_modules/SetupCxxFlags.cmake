@@ -46,7 +46,7 @@ elseif(ARROW_CPU_FLAG STREQUAL "ppc")
   # power compiler flags, gcc/clang only
   set(ARROW_ALTIVEC_FLAG "-maltivec")
   check_cxx_compiler_flag(${ARROW_ALTIVEC_FLAG} CXX_SUPPORTS_ALTIVEC)
-elseif(ARROW_CPU_FLAG STREQUAL "arm" AND NOT ("${ARROW_ARMV8_ARCH}" STREQUAL ""))
+elseif(ARROW_CPU_FLAG STREQUAL "arm")
   # Arm64 compiler flags, gcc/clang only
   set(ARROW_ARMV8_ARCH_FLAG "-march=${ARROW_ARMV8_ARCH}")
   check_cxx_compiler_flag(${ARROW_ARMV8_ARCH_FLAG} CXX_SUPPORTS_ARMV8_ARCH)
@@ -328,7 +328,7 @@ if(ARROW_CPU_FLAG STREQUAL "ppc" AND ARROW_USE_SIMD)
   endif()
 endif()
 
-if(ARROW_CPU_FLAG STREQUAL "arm" AND NOT ("${ARROW_ARMV8_ARCH}" STREQUAL ""))
+if(ARROW_CPU_FLAG STREQUAL "arm")
   if(NOT CXX_SUPPORTS_ARMV8_ARCH)
     message(FATAL_ERROR "Unsupported arch flag: ${ARROW_ARMV8_ARCH_FLAG}.")
   endif()
