@@ -1216,9 +1216,10 @@ def test_ipc_format(tempdir):
     result = dataset.to_table()
     assert result.equals(table)
 
-    dataset = ds.dataset(path, format="ipc")
-    result = dataset.to_table()
-    assert result.equals(table)
+    for format_str in ["ipc", "arrow"]:
+        dataset = ds.dataset(path, format=format_str)
+        result = dataset.to_table()
+        assert result.equals(table)
 
 
 def test_feather_format(tempdir):
