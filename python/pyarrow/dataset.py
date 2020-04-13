@@ -226,7 +226,7 @@ def _ensure_format(obj):
         return obj
     elif obj == "parquet":
         return ParquetFileFormat()
-    elif obj in {"ipc", "feather"}:
+    elif obj in {"ipc", "arrow", "feather"}:
         return IpcFileFormat()
     else:
         raise ValueError("format '{}' is not supported".format(obj))
