@@ -17,13 +17,15 @@
 
 #include <gandiva/function_signature.h>
 
+#include <boost/algorithm/string.hpp>
 #include <boost/functional/hash.hpp>
 
 namespace gandiva {
 
 bool FunctionSignature::operator==(const FunctionSignature& other) const {
   if (param_types_.size() != other.param_types_.size() ||
-      !DataTypeEquals(ret_type_, other.ret_type_) || base_name_ != other.base_name_) {
+      !DataTypeEquals(ret_type_, other.ret_type_) ||
+      !boost::iequals(base_name_, other.base_name_)) {
     return false;
   }
 
@@ -40,7 +42,7 @@ bool FunctionSignature::operator==(const FunctionSignature& other) const {
 std::size_t FunctionSignature::Hash() const {
   static const size_t kSeedValue = 17;
   size_t result = kSeedValue;
-  boost::hash_combine(result, base_name_);
+  boost::hash_combine(result, boost::algorithm::to_lower_copy(base_name_));
   boost::hash_combine(result, ret_type_->id());
   // not using hash_range since we only want to include the id from the data type
   for (auto& param_type : param_types_) {
