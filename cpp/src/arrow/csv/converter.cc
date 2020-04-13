@@ -32,6 +32,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/parsing.h"  // IWYU pragma: keep
+#include "arrow/util/timestamp_converter.h"
 #include "arrow/util/trie.h"
 #include "arrow/util/utf8.h"
 
@@ -400,7 +401,7 @@ class TimestampConverter : public ConcreteConverter {
             builder.UnsafeAppendNull();
             return Status::OK();
           }
-          if (!converter(type_, reinterpret_cast<const char*>(data), size, &value)) {
+          if (!(*converter)(type_, reinterpret_cast<const char*>(data), size, &value)) {
             continue;
           }
           builder.UnsafeAppend(value);
