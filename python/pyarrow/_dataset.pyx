@@ -276,28 +276,26 @@ cdef class FileSystemDataset(Dataset):
 
     Parameters
     ----------
+    paths_or_selector : Union[FileSelector, List[FileInfo]]
+        List of files/directories to consume.
     schema : Schema
         The top-level schema of the DataDataset.
-    root_partition : Expression
-        The top-level partition of the DataDataset.
-    file_format : FileFormat
+    format : FileFormat
         File format to create fragments from, currently only
         ParquetFileFormat and IpcFileFormat are supported.
     filesystem : FileSystem
         The filesystem which files are from.
-    paths_or_selector : Union[FileSelector, List[FileInfo]]
-        List of files/directories to consume.
-    partitions : List[Expression]
+    partitions : List[Expression], optional
         Attach aditional partition information for the file paths.
+    root_partition : Expression, optional
+        The top-level partition of the DataDataset.
     """
 
     cdef:
         CFileSystemDataset* filesystem_dataset
 
-    def __init__(self, Schema schema not None, Expression root_partition,
-                 FileFormat file_format not None,
-                 FileSystem filesystem not None,
-                 paths_or_selector, partitions):
+    def __init__(self, paths_or_selector, schema=None, format=None,
+                 filesystem=None, partitions=None, root_partition=None):
         cdef:
             FileInfo info
             Expression expr
@@ -305,26 +303,46 @@ cdef class FileSystemDataset(Dataset):
             vector[shared_ptr[CExpression]] c_partitions
             CResult[shared_ptr[CDataset]] result
 
+        # validate required arguments
+        for arg, class_, name in [
+            (schema, Schema, 'schema'),
+            (format, FileFormat, 'format'),
+            (filesystem, FileSystem, 'filesystem')
+        ]:
+            if not isinstance(arg, class_):
+                raise TypeError(
+                    "Argument '{0}' has incorrect type (expected {1}, "
+                    "got {2})".format(name, class_.__name__, type(arg))
+                )
+
         for info in filesystem.get_file_info(paths_or_selector):
             c_file_infos.push_back(info.unwrap())
 
+        if partitions is None:
+            partitions = [
+                ScalarExpression(True) for _ in range(c_file_infos.size())]
         for expr in partitions:
             c_partitions.push_back(expr.unwrap())
 
         if c_file_infos.size() != c_partitions.size():
             raise ValueError(
-                'The number of files resulting from paths_or_selector must be '
-                'equal to the number of partitions.'
+                'The number of files resulting from paths_or_selector '
+                'must be equal to the number of partitions.'
             )
 
         if root_partition is None:
             root_partition = ScalarExpression(True)
+        elif not isinstance(root_partition, Expression):
+            raise TypeError(
+                "Argument 'root_partition' has incorrect type (expected "
+                "Expression, got {0})".format(type(root_partition))
+            )
 
         result = CFileSystemDataset.Make(
             pyarrow_unwrap_schema(schema),
-            root_partition.unwrap(),
-            file_format.unwrap(),
-            filesystem.unwrap(),
+            (<Expression> root_partition).unwrap(),
+            (<FileFormat> format).unwrap(),
+            (<FileSystem> filesystem).unwrap(),
             c_file_infos,
             c_partitions
         )
