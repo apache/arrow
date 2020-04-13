@@ -18,6 +18,7 @@
 #include "arrow/dataset/discovery.h"
 
 #include <algorithm>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -180,7 +181,11 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
 
   ARROW_ASSIGN_OR_RAISE(forest, fs::PathForest::Make(std::move(files)));
 
+  std::cout << forest.ToString() << "\n";
+
   ARROW_ASSIGN_OR_RAISE(forest, Filter(filesystem, format, options, std::move(forest)));
+
+  std::cout << forest.ToString() << "\n";
 
   return std::shared_ptr<DatasetFactory>(new FileSystemDatasetFactory(
       std::move(filesystem), std::move(forest), std::move(format), std::move(options)));
