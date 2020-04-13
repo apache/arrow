@@ -51,7 +51,7 @@ jobs:
             echo "::set-env name=R_DOCS::true"
           fi
       - uses: r-lib/actions/setup-r@v1
-        if: env.R_DOCS == "true"
+        if: env.R_DOCS == 'true'
       - name: Testing the env var passing
-        if: env.DEV_CHANGED == "true"
+        if: env.DEV_CHANGED == 'true'
         run: echo "Here!"
