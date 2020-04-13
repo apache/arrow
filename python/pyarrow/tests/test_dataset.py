@@ -1238,3 +1238,8 @@ def test_feather_format(tempdir):
     dataset = ds.dataset(basedir, format="feather")
     result = dataset.to_table()
     assert result.equals(table)
+
+    # error with Feather v1 files
+    write_feather(table, str(basedir / "data1.feather"), version=1)
+    with pytest.raises(ValueError):
+        ds.dataset(basedir, format="feather").to_table()

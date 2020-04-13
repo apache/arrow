@@ -326,7 +326,8 @@ def dataset(paths_or_factories, filesystem=None, partitioning=None,
         function. A flavor string can be used as shortcut, and with a list of
         field names a DirectionaryPartitioning will be inferred.
     format : str
-        Currently only "parquet" is supported.
+        Currently "parquet" and "ipc"/"feather" are supported. For Feather,
+        only version 2 files are supported.
     schema : Schema, optional
         Optionally provide the Schema for the Dataset, in which case it will
         not be inferred from the source.
