@@ -115,14 +115,11 @@ bool StartsWithAnyOf(const std::vector<std::string>& prefixes, const std::string
     return false;
   }
 
-  auto dir_base = fs::internal::GetAbstractPathParent(path);
-  util::string_view basename{dir_base.second};
+  util::string_view basename = fs::internal::GetAbstractPathParent(path).second;
 
-  auto matches_prefix = [&basename](const std::string& prefix) -> bool {
-    return !prefix.empty() && basename.starts_with(prefix);
-  };
-
-  return std::any_of(prefixes.cbegin(), prefixes.cend(), matches_prefix);
+  return std::any_of(prefixes.cbegin(), prefixes.cend(), [&](util::string_view prefix) {
+    return basename.starts_with(prefix);
+  });
 }
 
 Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
@@ -174,7 +171,7 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
   RETURN_NOT_OK(forest.Visit([&](fs::PathForest::Ref ref) -> fs::PathForest::MaybePrune {
     const auto& path = ref.info().path();
 
-    if (StartsWithAnyOf(options.ignore_prefixes, path)) {
+    if (StartsWithAnyOf(options.selector_ignore_prefixes, path)) {
       return fs::PathForest::Prune;
     }
 

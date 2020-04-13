@@ -321,7 +321,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CPartitioningOrFactory partitioning
         c_string partition_base_dir
         c_bool exclude_invalid_files
-        vector[c_string] ignore_prefixes
+        vector[c_string] selector_ignore_prefixes
 
     cdef cppclass CFileSystemDatasetFactory \
             "arrow::dataset::FileSystemDatasetFactory"(

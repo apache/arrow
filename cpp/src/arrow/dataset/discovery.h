@@ -165,18 +165,18 @@ struct FileSystemFactoryOptions {
   // (resulting in an error at scan time).
   bool exclude_invalid_files = false;
 
-  // Files and directories matching one of the following prefixes will be ignored
-  // by the discovery process. These will only be applied to files yielded by a
-  // selector (and not to an explicit list of files).
+  // When discovering from a Selector (and not from an explicit file list), ignore
+  // files and directories matching any of these prefixes.
   //
-  // Example:
-  // ignore_prefixes = {"_", ".DS_STORE" };
+  // Example (with selector = "/dataset/**"):
+  // selector_ignore_prefixes = {"_", ".DS_STORE" };
   //
   // - "/dataset/data.csv" -> not ignored
   // - "/dataset/_metadata" -> ignored
   // - "/dataset/.DS_STORE" -> ignored
-  // - "/dataset/_hidden/**/*" -> ignored
-  std::vector<std::string> ignore_prefixes = {
+  // - "/dataset/_hidden/dat" -> ignored
+  // - "/dataset/nested/.DS_STORE" -> ignored
+  std::vector<std::string> selector_ignore_prefixes = {
       ".",
       "_",
   };

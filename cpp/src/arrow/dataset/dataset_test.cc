@@ -432,7 +432,7 @@ TEST_F(TestEndToEnd, EndToEndSingleDataset) {
   // FileSystemFactoryOptions configuration class. See the docstring for more
   // information.
   FileSystemFactoryOptions options;
-  options.ignore_prefixes = {"."};
+  options.selector_ignore_prefixes = {"."};
 
   // Partitions expressions can be discovered for Dataset and Fragments.
   // This metadata is then used in conjuction with the query filter to apply
