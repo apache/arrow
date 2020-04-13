@@ -243,7 +243,8 @@ if(MSVC)
   # (required for protobuf, see https://github.com/protocolbuffers/protobuf/issues/6885)
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4065")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "6.0")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "7.0"
+     OR CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "7.0")
     # Without this, gcc >= 7 warns related to changes in C++17
     set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
   endif()

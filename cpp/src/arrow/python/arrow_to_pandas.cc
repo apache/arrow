@@ -412,7 +412,7 @@ class PandasWriter {
 
     DCHECK_EQ(1, num_columns_);
 
-    npy_intp new_dims[1] = {num_rows_};
+    npy_intp new_dims[1] = {static_cast<npy_intp>(num_rows_)};
     PyArray_Dims dims;
     dims.ptr = new_dims;
     dims.len = 1;
@@ -815,7 +815,8 @@ class TypedPandasWriter : public PandasWriter {
   Status TransferSingle(std::shared_ptr<ChunkedArray> data, PyObject* py_ref) override {
     if (CanZeroCopy(*data)) {
       PyObject* wrapped;
-      npy_intp dims[2] = {num_columns_, num_rows_};
+      npy_intp dims[2] = {static_cast<npy_intp>(num_columns_),
+                          static_cast<npy_intp>(num_rows_)};
       RETURN_NOT_OK(
           MakeNumPyView(data->chunk(0), py_ref, NPY_TYPE, /*ndim=*/2, dims, &wrapped));
       SetBlockData(wrapped);
@@ -1515,7 +1516,7 @@ class CategoricalWriter
                                                       arr_first.dictionary()->length()));
 
       PyObject* wrapped;
-      npy_intp dims[1] = {this->num_rows_};
+      npy_intp dims[1] = {static_cast<npy_intp>(this->num_rows_)};
       RETURN_NOT_OK(MakeNumPyView(indices_first, /*py_ref=*/nullptr, TRAITS::npy_type,
                                   /*ndim=*/1, dims, &wrapped));
       this->SetBlockData(wrapped);

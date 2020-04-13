@@ -2214,41 +2214,6 @@ macro(build_orc)
   set(ORC_STATIC_LIB
       "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-  set(ORC_CMAKE_CXX_FLAGS)
-  if((CMAKE_CXX_COMPILER_ID
-      STREQUAL
-      "AppleClang"
-      AND CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "9")
-     OR (CMAKE_CXX_COMPILER_ID
-         STREQUAL
-         "Clang"
-         AND CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "4.0"))
-    # conda OSX builds uses clang 4.0.1 and orc_ep fails to build unless
-    # disabling the following errors
-    set(ORC_CMAKE_CXX_FLAGS "${ORC_CMAKE_CXX_FLAGS} -Wno-error=weak-vtables")
-    set(ORC_CMAKE_CXX_FLAGS "${ORC_CMAKE_CXX_FLAGS} -Wno-error=undef")
-  elseif((CMAKE_CXX_COMPILER_ID
-          STREQUAL
-          "AppleClang"
-          AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "9")
-         OR (CMAKE_CXX_COMPILER_ID
-             STREQUAL
-             "Clang"
-             AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "4.0"))
-    set(ORC_CMAKE_CXX_FLAGS "${ORC_CMAKE_CXX_FLAGS} -Wno-zero-as-null-pointer-constant")
-    set(ORC_CMAKE_CXX_FLAGS
-        "${ORC_CMAKE_CXX_FLAGS} -Wno-inconsistent-missing-destructor-override")
-    set(ORC_CMAKE_CXX_FLAGS "${ORC_CMAKE_CXX_FLAGS} -Wno-error=undef")
-  endif()
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
-     OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    if(Protobuf_VERSION VERSION_GREATER_EQUAL "3.9.0")
-      set(ORC_CMAKE_CXX_FLAGS "${ORC_CMAKE_CXX_FLAGS} -Wno-comma")
-    endif()
-  endif()
-
-  set(ORC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${ORC_CMAKE_CXX_FLAGS}")
-
   get_target_property(ORC_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                       INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_PB_ROOT "${ORC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
@@ -2266,7 +2231,8 @@ macro(build_orc)
   set(ORC_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
-      -DCMAKE_CXX_FLAGS=${ORC_CMAKE_CXX_FLAGS}
+      -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}
+      -DSTOP_BUILD_ON_WARNING=OFF
       -DBUILD_LIBHDFSPP=OFF
       -DBUILD_JAVA=OFF
       -DBUILD_TOOLS=OFF
@@ -2278,7 +2244,8 @@ macro(build_orc)
       "-DPROTOBUF_INCLUDE_DIR=${ORC_PROTOBUF_INCLUDE_DIR}"
       "-DPROTOBUF_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
       "-DPROTOC_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
-      "-DLZ4_HOME=${LZ4_HOME}")
+      "-DLZ4_HOME=${LZ4_HOME}"
+      "-DZSTD_HOME=${ZSTD_HOME}")
   if(ZLIB_ROOT)
     set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS} "-DZLIB_HOME=${ZLIB_ROOT}")
   endif()
