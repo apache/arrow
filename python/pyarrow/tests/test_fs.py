@@ -211,6 +211,18 @@ def test_filesystem_equals():
     assert SubTreeFileSystem('/base', fs0) != SubTreeFileSystem('/other', fs0)
 
 
+def test_subtree_filesystem():
+    localfs = LocalFileSystem()
+
+    subfs = SubTreeFileSystem('/base', localfs)
+    assert subfs.base_path == '/base/'
+    assert subfs.base_fs == localfs
+
+    subfs = SubTreeFileSystem('/another/base/', LocalFileSystem())
+    assert subfs.base_path == '/another/base/'
+    assert subfs.base_fs == localfs
+
+
 def test_filesystem_pickling(fs):
     if isinstance(fs, _MockFileSystem):
         pytest.xfail(reason='MockFileSystem is not serializable')

@@ -219,6 +219,41 @@ def _ensure_format(obj):
         raise ValueError("format '{}' is not supported".format(obj))
 
 
+def _ensure_filesystem(fs_or_uri):
+    from pyarrow.fs import (
+        FileSystem, LocalFileSystem, SubTreeFileSystem, FileType
+    )
+
+    if isinstance(fs_or_uri, str):
+        # instantiate the file system from an uri, if the uri has a path
+        # component then it will be treated as a path prefix
+        filesystem, prefix = FileSystem.from_uri(fs_or_uri)
+        is_local = isinstance(filesystem, LocalFileSystem)
+        prefix = _normalize_path(filesystem, prefix)
+        if prefix:
+            # validate that the prefix is pointing to a directory
+            prefix_info = filesystem.get_file_info([prefix])[0]
+            if prefix_info.type != FileType.Directory:
+                raise ValueError(
+                    "The path component of the filesystem URI must point to a "
+                    "directory but it has a type: `{}`. The path component "
+                    "is `{}` and the given filesystem URI is `{}`".format(
+                        prefix_info.type.name, prefix_info.path, fs_or_uri
+                    )
+                )
+            filesystem = SubTreeFileSystem(prefix, filesystem)
+        return filesystem, is_local
+    elif isinstance(fs_or_uri, (LocalFileSystem, _MockFileSystem)):
+        return fs_or_uri, True
+    elif isinstance(fs_or_uri, FileSystem):
+        return fs_or_uri, False
+    else:
+        raise TypeError(
+            '`filesystem` argument must be a FileSystem instance or a valid '
+            'file system URI'
+        )
+
+
 def _ensure_multiple_sources(paths, filesystem=None):
     """
     Treat a list of paths as files belonging to a single file system
@@ -250,31 +285,14 @@ def _ensure_multiple_sources(paths, filesystem=None):
         If the file system is local and a path references a directory or its
         type cannot be determined.
     """
-    from pyarrow.fs import (
-        FileSystem, LocalFileSystem, SubTreeFileSystem, FileType
-    )
+    from pyarrow.fs import LocalFileSystem, FileType
 
     if filesystem is None:
         # fall back to local file system as the default
         filesystem = LocalFileSystem()
-        paths_are_local = True
-    elif isinstance(filesystem, str):
-        # instantiate the file system from an uri, if the uri has a path
-        # component then it will be treated as a path prefix
-        filesystem, prefix = FileSystem.from_uri(filesystem)
-        paths_are_local = isinstance(filesystem, LocalFileSystem)
-        prefix = _normalize_path(filesystem, prefix)
-        if prefix:
-            filesystem = SubTreeFileSystem(prefix, filesystem)
-    elif isinstance(filesystem, (LocalFileSystem, _MockFileSystem)):
-        paths_are_local = True
-    elif not isinstance(filesystem, FileSystem):
-        raise TypeError(
-            '`filesystem` argument must be a FileSystem instance or a valid '
-            'file system URI'
-        )
-    else:
-        paths_are_local = False
+
+    # construct a filesystem if it is a valid URI
+    filesystem, is_local = _ensure_filesystem(filesystem)
 
     # allow normalizing irregular paths such as Windows local paths
     paths = [_normalize_path(filesystem, _stringify_path(p)) for p in paths]
@@ -282,7 +300,7 @@ def _ensure_multiple_sources(paths, filesystem=None):
     # validate that all of the paths are pointing to existing *files*
     # possible improvement is to group the file_infos by type and raise for
     # multiple paths per error category
-    if paths_are_local:
+    if is_local:
         for info in filesystem.get_file_info(paths):
             file_type = info.type
             if file_type == FileType.File:
@@ -329,9 +347,7 @@ def _ensure_single_source(path, filesystem=None):
     FileNotFoundError
         If the referenced file or directory doesn't exist.
     """
-    from pyarrow.fs import (
-        FileSystem, LocalFileSystem, SubTreeFileSystem, FileType, FileSelector
-    )
+    from pyarrow.fs import FileSystem, LocalFileSystem, FileType, FileSelector
 
     path = _stringify_path(path)
 
@@ -364,18 +380,9 @@ def _ensure_single_source(path, filesystem=None):
             else:
                 # unset file_info to query it again from the new filesystem
                 file_info = None
-    elif isinstance(filesystem, str):
-        # instantiate the file system from an uri, if the uri has a path
-        # component then it will be treated as a path prefix
-        filesystem, prefix = FileSystem.from_uri(filesystem)
-        prefix = _normalize_path(filesystem, prefix)
-        if prefix:
-            filesystem = SubTreeFileSystem(prefix, filesystem)
-    elif not isinstance(filesystem, FileSystem):
-        raise TypeError(
-            '`filesystem` argument must be a FileSystem instance or a valid '
-            'file system URI'
-        )
+
+    # construct a filesystem if it is a valid URI
+    filesystem, _ = _ensure_filesystem(filesystem)
 
     # ensure that the path is normalized before passing to dataset discovery
     path = _normalize_path(filesystem, path)

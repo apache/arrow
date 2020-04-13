@@ -978,7 +978,7 @@ def test_construct_from_list_of_files(tempdir):
     t2 = d2.to_table()
     d3 = ds.dataset(paths)
     t3 = d3.to_table()
-    d4 = ds.dataset(paths, filesystem='file://')
+    d4 = ds.dataset(paths, filesystem='file:/')
     t4 = d4.to_table()
     d5 = ds.dataset(paths, filesystem=fs.LocalFileSystem())
     t5 = d5.to_table()
@@ -1155,6 +1155,9 @@ def test_open_dataset_non_existing_file():
     with pytest.raises(FileNotFoundError):
         ds.dataset('i-am-not-existing.parquet', format='parquet')
 
+    with pytest.raises(pa.ArrowInvalid, match='cannot be relative'):
+        ds.dataset('file:i-am-not-existing.parquet', format='parquet')
+
 
 @pytest.mark.parquet
 @pytest.mark.s3
@@ -1183,6 +1186,79 @@ def test_open_dataset_from_uri_s3(s3_connection, s3_server):
     # passing filesystem object
     dataset = ds.dataset(path, format="parquet", filesystem=fs)
     assert dataset.to_table().equals(table)
+
+
+@pytest.mark.parquet
+@pytest.mark.s3
+def test_open_dataset_pina(s3_connection, s3_server):
+    from pyarrow.fs import FileSystem
+    import pyarrow.parquet as pq
+
+    host, port, access_key, secret_key = s3_connection
+    bucket = 'theirbucket'
+    path = 'nested/folder/data.parquet'
+    uri = "s3://{}:{}@{}/{}?scheme=http&endpoint_override={}:{}".format(
+        access_key, secret_key, bucket, path, host, port
+    )
+
+    fs, path = FileSystem.from_uri(uri)
+    assert path == 'theirbucket/nested/folder/data.parquet'
+
+    fs.create_dir(bucket)
+    table = pa.table({'a': [1, 2, 3]})
+    with fs.open_output_stream(path) as out:
+        pq.write_table(table, out)
+
+    # full string URI
+    dataset = ds.dataset(uri, format="parquet")
+    assert dataset.to_table().equals(table)
+
+    # passing filesystem as an uri
+    template = (
+        "s3://{}:{}@{{}}?scheme=http&endpoint_override={}:{}".format(
+            access_key, secret_key, host, port
+        )
+    )
+    cases = [
+        ('theirbucket/nested/folder/', '/data.parquet'),
+        ('theirbucket/nested/folder/', 'data.parquet'),
+        ('theirbucket/nested/folder', '/data.parquet'),
+        ('theirbucket/nested/folder', 'data.parquet'),
+        ('theirbucket/nested/', '/folder/data.parquet'),
+        ('theirbucket/nested/', 'folder/data.parquet'),
+        ('theirbucket/nested', '/folder/data.parquet'),
+        ('theirbucket/nested', 'folder/data.parquet'),
+        ('theirbucket/', '/nested/folder/data.parquet'),
+        ('theirbucket/', 'nested/folder/data.parquet'),
+        ('theirbucket', '/nested/folder/data.parquet'),
+        ('theirbucket', 'nested/folder/data.parquet'),
+    ]
+    for prefix, path in cases:
+        uri = template.format(prefix)
+        dataset = ds.dataset(path, filesystem=uri, format="parquet")
+        assert dataset.to_table().equals(table)
+
+    with pytest.raises(pa.ArrowInvalid, match='Missing bucket name'):
+        uri = template.format('/')
+        ds.dataset('/theirbucket/nested/folder/data.parquet', filesystem=uri)
+
+    error = (
+        "The path component of the filesystem URI must point to a directory "
+        "but it has a type: `{}`. The path component is `{}` and the given "
+        "filesystem URI is `{}`"
+    )
+
+    path = 'theirbucket/doesnt/exist'
+    uri = template.format(path)
+    with pytest.raises(ValueError) as exc:
+        ds.dataset('data.parquet', filesystem=uri)
+    assert str(exc.value) == error.format('NotFound', path, uri)
+
+    path = 'theirbucket/nested/folder/data.parquet'
+    uri = template.format(path)
+    with pytest.raises(ValueError) as exc:
+        ds.dataset('data.parquet', filesystem=uri)
+    assert str(exc.value) == error.format('File', path, uri)
 
 
 @pytest.mark.parquet

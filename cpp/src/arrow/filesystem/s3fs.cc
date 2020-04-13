@@ -291,7 +291,16 @@ struct S3Path {
     out->bucket = std::string(src.substr(0, first_sep));
     out->key = std::string(src.substr(first_sep + 1));
     out->key_parts = internal::SplitAbstractPath(out->key);
-    return internal::ValidateAbstractPathParts(out->key_parts);
+    return Validate(out);
+  }
+
+  static Status Validate(S3Path* path) {
+    auto result = internal::ValidateAbstractPathParts(path->key_parts);
+    if (!result.ok()) {
+      return Status::Invalid(result.message(), " in path ", path->full_path);
+    } else {
+      return result;
+    }
   }
 
   Aws::String ToURLEncodedAwsString() const {
