@@ -33,8 +33,9 @@ Result<std::shared_ptr<Buffer>> Buffer::CopySlice(const int64_t start,
                                                   const int64_t nbytes,
                                                   MemoryPool* pool) const {
   // Sanity checks
-  ARROW_CHECK_LT(start, size_);
+  ARROW_CHECK_LE(start, size_);
   ARROW_CHECK_LE(nbytes, size_ - start);
+  DCHECK_GE(nbytes, 0);
 
   ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateResizableBuffer(nbytes, pool));
   std::memcpy(new_buffer->mutable_data(), data() + start, static_cast<size_t>(nbytes));
