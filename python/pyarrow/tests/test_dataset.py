@@ -1219,3 +1219,22 @@ def test_ipc_format(tempdir):
     dataset = ds.dataset(path, format="ipc")
     result = dataset.to_table()
     assert result.equals(table)
+
+
+def test_feather_format(tempdir):
+    from pyarrow.feather import write_feather
+
+    table = pa.table({'a': pa.array([1, 2, 3], type="int8"),
+                      'b': pa.array([.1, .2, .3], type="float64")})
+
+    basedir = tempdir / "feather_dataset"
+    basedir.mkdir()
+    write_feather(table, str(basedir / "data.feather"))
+
+    dataset = ds.dataset(basedir, format=ds.IpcFileFormat())
+    result = dataset.to_table()
+    assert result.equals(table)
+
+    dataset = ds.dataset(basedir, format="feather")
+    result = dataset.to_table()
+    assert result.equals(table)
