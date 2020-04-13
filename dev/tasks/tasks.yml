@@ -1402,7 +1402,7 @@ tasks:
 
   ############################## Gandiva Tasks ################################
 
-  gandiva-jar-trusty:
+  gandiva-jar-xenial:
     ci: travis
     platform: linux
     template: gandiva-jars/travis.linux.yml
