@@ -2488,7 +2488,13 @@ def _assert_dataset_paths(dataset, paths, use_legacy_dataset):
         assert set(map(str, paths)) == {x.path for x in dataset.pieces}
     else:
         paths = [str(path.as_posix()) for path in paths]
-        assert set(paths) == set(dataset._dataset.files)
+        if hasattr(dataset._dataset, 'files'):
+            assert set(paths) == set(dataset._dataset.files)
+        else:
+            # UnionDataset
+            # TODO(temp hack) remove this branch once ARROW-7965 is in (which
+            # will change this to a FileSystemDataset)
+            assert dataset.read().num_rows == 50
 
 
 @pytest.mark.pandas
@@ -2545,6 +2551,25 @@ def test_ignore_hidden_files_underscore(tempdir, use_legacy_dataset):
         f.write(b'abcd')
 
     dataset = pq.ParquetDataset(dirpath, use_legacy_dataset=use_legacy_dataset)
+
+    _assert_dataset_paths(dataset, paths, use_legacy_dataset)
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+@pytest.mark.parametrize('dir_prefix', ['_', '.'])
+def test_ignore_no_private_directories_path_list(
+    tempdir, dir_prefix, use_legacy_dataset
+):
+    # ARROW-8427 - don't ignore explicitly listed files if parent directory
+    # is a private directory
+    dirpath = tempdir / "{0}data".format(dir_prefix) / guid()
+    dirpath.mkdir(parents=True)
+
+    paths = _make_example_multifile_dataset(dirpath, nfiles=10,
+                                            file_nrows=5)
+
+    dataset = pq.ParquetDataset(paths, use_legacy_dataset=use_legacy_dataset)
 
     _assert_dataset_paths(dataset, paths, use_legacy_dataset)
 
