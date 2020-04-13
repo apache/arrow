@@ -135,7 +135,6 @@ reference:
 - title: Configuration
   contents:
   - cpu_count
-  - set_cpu_count
 - title: Installation helpers
   contents:
   - arrow_available

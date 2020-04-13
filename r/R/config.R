@@ -23,7 +23,6 @@ cpu_count <- function() {
 }
 
 #' @rdname cpu_count
-#'
 #' @param num_threads integer: New number of threads for thread pool
 #' @export
 set_cpu_count <- function(num_threads) {
