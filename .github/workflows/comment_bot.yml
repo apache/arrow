@@ -82,7 +82,7 @@ jobs:
         run: |
           source("ci/etc/rprofile")
           install.packages(c("remotes", "roxygen2"))
-          remotes::install_deps(r")
+          remotes::install_deps("r")
           roxygen2::roxygenize("r")
       - name: Commit results
         run: |
