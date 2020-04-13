@@ -33,8 +33,9 @@ ARG hdfs=2.9.2
 ENV HADOOP_HOME=/opt/hadoop-${hdfs} \
     HADOOP_OPTS=-Djava.library.path=/opt/hadoop-${hdfs}/lib/native \
     PATH=$PATH:/opt/hadoop-${hdfs}/bin:/opt/hadoop-${hdfs}/sbin
-ADD dev/tasks/dependencies/download-apache.sh /
-RUN /download-apache.sh "hadoop/common/hadoop-${hdfs}/hadoop-${hdfs}.tar.gz"
+COPY ci/scripts/util_download_apache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/util_download_apache.sh \
+    "hadoop/common/hadoop-${hdfs}/hadoop-${hdfs}.tar.gz"
 
 COPY ci/etc/hdfs-site.xml $HADOOP_HOME/etc/hadoop/
 

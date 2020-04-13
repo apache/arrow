@@ -33,6 +33,7 @@ RUN apt-get update -y && \
     apt-get install -y \
         autoconf-archive \
         automake \
+        curl \
         doxygen \
         gobject-introspection \
         gtk-doc-tools \
@@ -54,8 +55,9 @@ RUN apt-get update -y && \
 ENV JAVA_HOME=/usr/lib/jvm/java-${jdk}-openjdk-amd64
 
 ARG maven=3.5.4
-ADD dev/tasks/dependencies/download-apache.sh /
-RUN /download-apache.sh "maven/maven-3/${maven}/binaries/apache-maven-${maven}-bin.tar.gz"
+COPY ci/scripts/util_download_apache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/util_download_apache.sh \
+    "maven/maven-3/${maven}/binaries/apache-maven-${maven}-bin.tar.gz"
 ENV PATH=/opt/apache-maven-${maven}/bin:$PATH
 
 ARG node=11

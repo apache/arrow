@@ -17,11 +17,9 @@
 # under the License.
 
 export THRIFT_VERSION=0.12.0
-THRIFT_DOWNLOAD_PATH=thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz
-curl -sL \
-  "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=${THRIFT_DOWNLOAD_PATH}" \
-  -o thrift-${THRIFT_VERSION}.tar.gz
-tar xf thrift-${THRIFT_VERSION}.tar.gz
+
+util_download_apache.sh "thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz"
+
 pushd thrift-${THRIFT_VERSION}
 mkdir build-tmp
 pushd build-tmp

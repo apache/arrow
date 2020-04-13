@@ -17,8 +17,9 @@
 # under the License.
 
 export THRIFT_VERSION=0.12.0
-wget https://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz
-tar xf thrift-${THRIFT_VERSION}.tar.gz
+
+util_download_apache.sh "thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz"
+
 pushd thrift-${THRIFT_VERSION}
 mkdir build-tmp
 pushd build-tmp
