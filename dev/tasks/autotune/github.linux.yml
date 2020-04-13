@@ -38,4 +38,20 @@ jobs:
       - name: See what is different
         run: |
           set -ex
-          cd arrow && git diff --name-only HEAD^..
+          cd arrow
+          changed() {
+            git diff --name-only HEAD^.. | grep -e "$1" >/dev/null 2>&1
+          }
+          if changed '^dev/'; then
+            echo "dev changed"
+            echo "::set-env name=DEV_CHANGED::true"
+          fi
+          if changed '^r/.*\.R$'; then
+            echo ".R changed"
+            echo "::set-env name=R_DOCS::true"
+          fi
+        - uses: r-lib/actions/setup-r@v1
+          if: env.R_DOCS == "true"
+        - name: Testing the env var passing
+          if: env.DEV_CHANGED == "true"
+          run: echo "Here!"
