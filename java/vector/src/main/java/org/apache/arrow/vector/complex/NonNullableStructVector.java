@@ -43,8 +43,11 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.validate.Status;
+import org.apache.arrow.vector.validate.ValidateVectorVisitor;
 
 import io.netty.buffer.ArrowBuf;
+
 
 /**
  * A struct vector that has no null values (and no validity buffer).
@@ -318,6 +321,21 @@ public class NonNullableStructVector extends AbstractStructVector {
   @Override
   public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
     return visitor.visit(this, value);
+  }
+
+  @Override
+  public Status validate() {
+
+    if (getValueCount() < 0) {
+      return Status.invalid("vector valueCount is negative");
+    }
+
+    if (getNullCount() > getValueCount()) {
+      return Status.invalid("Null count exceeds array length");
+    }
+
+    ValidateVectorVisitor visitor = new ValidateVectorVisitor();
+    return this.accept(visitor, null);
   }
 
   @Override

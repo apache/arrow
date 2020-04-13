@@ -35,6 +35,8 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.util.ValueVectorUtility;
+import org.apache.arrow.vector.validate.Status;
 
 import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
@@ -901,6 +903,11 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   @Override
   public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
     return visitor.visit(this, value);
+  }
+
+  @Override
+  public Status validate() {
+    return ValueVectorUtility.validate(this);
   }
 
 }

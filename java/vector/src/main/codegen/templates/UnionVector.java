@@ -30,6 +30,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.ValueVectorUtility;
+import org.apache.arrow.vector.validate.Status;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/UnionVector.java" />
@@ -55,6 +56,8 @@ import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.util.ValueVectorUtility;
+import org.apache.arrow.vector.validate.Status;
 
 import static org.apache.arrow.vector.types.UnionMode.Sparse;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
@@ -745,6 +748,11 @@ public class UnionVector implements FieldVector {
     @Override
     public String getName() {
       return name;
+    }
+
+    @Override
+    public Status validate() {
+      return ValueVectorUtility.validate(this);
     }
 
     @Override

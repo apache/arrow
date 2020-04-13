@@ -56,6 +56,8 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.util.ValueVectorUtility;
+import org.apache.arrow.vector.validate.Status;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -447,6 +449,11 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   @Override
   public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
     return visitor.visit(this, value);
+  }
+
+  @Override
+  public Status validate() {
+    return ValueVectorUtility.validate(this);
   }
 
   private class TransferImpl implements TransferPair {

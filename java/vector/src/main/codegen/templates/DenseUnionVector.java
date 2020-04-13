@@ -34,6 +34,8 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.util.ValueVectorUtility;
+import org.apache.arrow.vector.validate.Status;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
@@ -62,6 +64,8 @@ import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.util.ValueVectorUtility;
+import org.apache.arrow.vector.validate.Status;
 
 import static org.apache.arrow.vector.types.UnionMode.Dense;
 
@@ -915,6 +919,11 @@ public class DenseUnionVector implements FieldVector {
   @Override
   public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
     return visitor.visit(this, value);
+  }
+
+  @Override
+  public Status validate() {
+    return ValueVectorUtility.validate(this);
   }
 
   @Override
