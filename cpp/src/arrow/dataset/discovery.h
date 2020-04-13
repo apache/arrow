@@ -165,8 +165,9 @@ struct FileSystemFactoryOptions {
   // (resulting in an error at scan time).
   bool exclude_invalid_files = false;
 
-  // Files matching one of the following prefix will be ignored by the
-  // discovery process. This is matched to the basename of a path.
+  // Files and directories matching one of the following prefixes will be ignored
+  // by the discovery process. These will only be applied to files yielded by a
+  // selector (and not to an explicit list of files).
   //
   // Example:
   // ignore_prefixes = {"_", ".DS_STORE" };
@@ -174,6 +175,7 @@ struct FileSystemFactoryOptions {
   // - "/dataset/data.csv" -> not ignored
   // - "/dataset/_metadata" -> ignored
   // - "/dataset/.DS_STORE" -> ignored
+  // - "/dataset/_hidden/**/*" -> ignored
   std::vector<std::string> ignore_prefixes = {
       ".",
       "_",
@@ -221,11 +223,6 @@ class ARROW_DS_EXPORT FileSystemDatasetFactory : public DatasetFactory {
   FileSystemDatasetFactory(std::shared_ptr<fs::FileSystem> filesystem,
                            fs::PathForest forest, std::shared_ptr<FileFormat> format,
                            FileSystemFactoryOptions options);
-
-  static Result<fs::PathForest> Filter(const std::shared_ptr<fs::FileSystem>& filesystem,
-                                       const std::shared_ptr<FileFormat>& format,
-                                       const FileSystemFactoryOptions& options,
-                                       fs::PathForest forest);
 
   Result<std::shared_ptr<Schema>> PartitionSchema();
 
