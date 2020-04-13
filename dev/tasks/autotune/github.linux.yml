@@ -42,16 +42,24 @@ jobs:
           changed() {
             git diff --name-only HEAD^.. | grep -e "$1" >/dev/null 2>&1
           }
-          if changed '^dev/'; then
-            echo "dev changed"
-            echo "::set-env name=DEV_CHANGED::true"
-          fi
           if changed '^r/.*\.R$'; then
             echo ".R changed"
             echo "::set-env name=R_DOCS::true"
           fi
       - uses: r-lib/actions/setup-r@v1
         if: env.R_DOCS == 'true'
-      - name: Testing the env var passing
-        if: env.DEV_CHANGED == 'true'
-        run: echo "Here!"
+      - name: Update R docs
+        if: env.R_DOCS == 'true'
+        shell: Rscript
+        run: |
+          source("arrow/ci/etc/rprofile")
+          install.packages(c("remotes", "roxygen2"))
+          remotes::install_deps("arrow/r")
+          roxygen2::roxygenize("arrow/r")
+      - name: Commit results
+        run: |
+          cd arrow
+          git config user.name "$(git log -1 --pretty=format:%an)"
+          git config user.email "$(git log -1 --pretty=format:%ae)"
+          git commit -a -m 'Fix all the things [automated commit]' || echo "No changes to commit"
+          git push origin {{ arrow.branch }} || echo "No changes to commit"
