@@ -30,6 +30,7 @@
 #endif
 
 #include "arrow/filesystem/localfs.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/io/file.h"
 #include "arrow/util/io_util.h"
@@ -249,7 +250,7 @@ Result<LocalFileSystemOptions> LocalFileSystemOptions::FromUri(
   if (!host.empty()) {
 #ifdef _WIN32
     std::stringstream ss;
-    ss << "//" << host << "/" << RemoveLeadingSlash(uri.path());
+    ss << "//" << host << "/" << internal::RemoveLeadingSlash(uri.path());
     *out_path = ss.str();
 #else
     return Status::Invalid("Unsupported hostname in non-Windows local URI: '",

@@ -1396,9 +1396,6 @@ class _ParquetDatasetV2:
             read_options.update(dictionary_columns=read_dictionary)
         parquet_format = ds.ParquetFileFormat(read_options=read_options)
 
-        print("path_or_paths =", path_or_paths)
-        print("filesystem =", filesystem)
-        print("partitioning =", partitioning)
         self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,
                                    format=parquet_format,
                                    partitioning=partitioning)
