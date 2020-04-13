@@ -1234,6 +1234,31 @@ def test_ipc_format(tempdir):
     result = dataset.to_table()
     assert result.equals(table)
 
-    dataset = ds.dataset(path, format="ipc")
+    for format_str in ["ipc", "arrow"]:
+        dataset = ds.dataset(path, format=format_str)
+        result = dataset.to_table()
+        assert result.equals(table)
+
+
+def test_feather_format(tempdir):
+    from pyarrow.feather import write_feather
+
+    table = pa.table({'a': pa.array([1, 2, 3], type="int8"),
+                      'b': pa.array([.1, .2, .3], type="float64")})
+
+    basedir = tempdir / "feather_dataset"
+    basedir.mkdir()
+    write_feather(table, str(basedir / "data.feather"))
+
+    dataset = ds.dataset(basedir, format=ds.IpcFileFormat())
     result = dataset.to_table()
     assert result.equals(table)
+
+    dataset = ds.dataset(basedir, format="feather")
+    result = dataset.to_table()
+    assert result.equals(table)
+
+    # error with Feather v1 files
+    write_feather(table, str(basedir / "data1.feather"), version=1)
+    with pytest.raises(ValueError):
+        ds.dataset(basedir, format="feather").to_table()
