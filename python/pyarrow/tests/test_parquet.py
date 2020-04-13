@@ -2691,12 +2691,15 @@ def _test_write_to_dataset_with_partitions(base_path,
     input_df_cols = input_df.columns.tolist()
     assert partition_by == input_df_cols[-1 * len(partition_by):]
 
-    # Partitioned columns become 'categorical' dtypes
     input_df = input_df[cols]
     if use_legacy_dataset:
+        # Partitioned columns become 'categorical' dtypes
         for col in partition_by:
             output_df[col] = output_df[col].astype('category')
-    assert output_df.equals(input_df)
+    else:
+        # ensure deterministic row order
+        input_df = input_df.sort_values(by=["num"]).reset_index(drop=True)
+    tm.assert_frame_equal(output_df, input_df)
 
 
 def _test_write_to_dataset_no_partitions(base_path,
