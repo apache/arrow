@@ -107,6 +107,9 @@ class ARROW_EXPORT ChunkedArray {
   /// \brief Determine if two chunked arrays are equal.
   bool Equals(const std::shared_ptr<ChunkedArray>& other) const;
 
+  /// \return PrettyPrint representation suitable for debugging
+  std::string ToString() const;
+
   /// \brief Perform cheap validation checks to determine obvious inconsistencies
   /// within the chunk array's internal data.
   ///
@@ -365,6 +368,9 @@ class ARROW_EXPORT Table {
 
   ARROW_DEPRECATED("Use Result-returning version")
   Status Flatten(MemoryPool* pool, std::shared_ptr<Table>* out) const;
+
+  /// \return PrettyPrint representation suitable for debugging
+  std::string ToString() const;
 
   /// \brief Perform cheap validation checks to determine obvious inconsistencies
   /// within the table's schema and internal data.
