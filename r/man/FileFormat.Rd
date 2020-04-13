@@ -15,8 +15,8 @@ file formats (\code{ParquetFileFormat} and \code{IpcFileFormat}).
 \code{FileFormat$create()} takes the following arguments:
 \itemize{
 \item \code{format}: A string identifier of the format of the files in \code{path}.
-Currently supported options are "parquet", "arrow", and "ipc" (an alias for
-the Arrow file format)
+Currently "parquet" and "ipc"/"arrow"/"feather" (aliases for each other)
+are supported. For Feather, only version 2 files are supported.
 \item \code{...}: Additional format-specific options
 format="parquet":
 \itemize{

@@ -123,8 +123,8 @@ open_dataset <- function(sources,
 #' * `filesystem`: A [FileSystem]
 #' * `selector`: A [FileSelector]
 #' * `format`: A string identifier of the format of the files in `path`.
-#'   Currently supported options are "parquet", "arrow", and "ipc" (an alias for
-#'   the Arrow file format)
+#'   Currently "parquet" and "ipc"/"arrow"/"feather" (aliases for each other)
+#'   are supported. For Feather, only version 2 files are supported.
 #' @section Methods:
 #'
 #' A `Dataset` has the following methods:
@@ -269,7 +269,7 @@ DatasetFactory <- R6Class("DatasetFactory", inherit = ArrowObject,
 )
 DatasetFactory$create <- function(x,
                                   filesystem = c("auto", "local"),
-                                  format = c("parquet", "arrow", "ipc"),
+                                  format = c("parquet", "arrow", "ipc", "feather"),
                                   partitioning = NULL,
                                   allow_not_found = FALSE,
                                   recursive = TRUE,
@@ -334,8 +334,8 @@ DatasetFactory$create <- function(x,
 #' @param filesystem A string identifier for the filesystem corresponding to
 #' `x`. Currently only "local" is supported.
 #' @param format A string identifier of the format of the files in `x`.
-#' Currently supported options are "parquet", "arrow", and "ipc" (an alias for
-#' the Arrow file format)
+#' Currently "parquet" and "ipc"/"arrow"/"feather" (aliases for each other)
+#' are supported. For Feather, only version 2 files are supported.
 #' @param partitioning One of
 #'   * A `Schema`, in which case the file paths relative to `sources` will be
 #'    parsed, and path segments will be matched with the schema fields. For
@@ -400,8 +400,8 @@ FileSystemDatasetFactory$create <- function(filesystem,
 #' @section Factory:
 #' `FileFormat$create()` takes the following arguments:
 #' * `format`: A string identifier of the format of the files in `path`.
-#'   Currently supported options are "parquet", "arrow", and "ipc" (an alias for
-#'   the Arrow file format)
+#'   Currently "parquet" and "ipc"/"arrow"/"feather" (aliases for each other)
+#'   are supported. For Feather, only version 2 files are supported.
 #' * `...`: Additional format-specific options
 #'   format="parquet":
 #'   * `use_buffered_stream`: Read files through buffered input streams rather than
@@ -436,7 +436,7 @@ FileFormat <- R6Class("FileFormat", inherit = ArrowObject,
 FileFormat$create <- function(format, ...) {
   if (format == "parquet") {
     ParquetFileFormat$create(...)
-  } else if (format %in% c("ipc", "arrow")) { # These are aliases for the same thing
+  } else if (format %in% c("ipc", "arrow", "feather")) { # These are aliases for the same thing
     shared_ptr(IpcFileFormat, dataset___IpcFileFormat__Make())
   } else {
     stop("Unsupported file format: ", format, call. = FALSE)

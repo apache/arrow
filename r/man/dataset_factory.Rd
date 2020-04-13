@@ -7,7 +7,7 @@
 dataset_factory(
   x,
   filesystem = c("auto", "local"),
-  format = c("parquet", "arrow", "ipc"),
+  format = c("parquet", "arrow", "ipc", "feather"),
   partitioning = NULL,
   allow_not_found = FALSE,
   recursive = TRUE,
@@ -24,8 +24,8 @@ grouped. If this argument is specified it will be used to construct a
 \code{x}. Currently only "local" is supported.}
 
 \item{format}{A string identifier of the format of the files in \code{x}.
-Currently supported options are "parquet", "arrow", and "ipc" (an alias for
-the Arrow file format)}
+Currently "parquet" and "ipc"/"arrow"/"feather" (aliases for each other)
+are supported. For Feather, only version 2 files are supported.}
 
 \item{partitioning}{One of
 \itemize{
