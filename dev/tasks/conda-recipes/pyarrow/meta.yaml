@@ -42,14 +42,14 @@ test:
   imports:
     - pyarrow
     - pyarrow.dataset  # [not py==27]
-    #- pyarrow.flight   # [not py==27]
-    #- pyarrow.gandiva  # [not py==27]
-    #- pyarrow.orc      # [unix]
+    - pyarrow.flight   # [not py==27]
+    - pyarrow.gandiva  # [not py==27]
+    - pyarrow.orc      # [unix]
     - pyarrow.parquet
-    #- pyarrow.plasma   # [unix]
+    - pyarrow.plasma   # [unix]
     - pyarrow.fs
-    #- pyarrow._s3fs
-    #- pyarrow._hdfs
+    - pyarrow._s3fs
+    - pyarrow._hdfs
 
   requires:
     - pytest

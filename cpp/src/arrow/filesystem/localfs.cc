@@ -34,6 +34,7 @@
 #include "arrow/io/file.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/uri.h"
 #include "arrow/util/windows_fixup.h"
 
 namespace arrow {
@@ -235,6 +236,31 @@ LocalFileSystemOptions LocalFileSystemOptions::Defaults() {
 
 bool LocalFileSystemOptions::Equals(const LocalFileSystemOptions& other) const {
   return use_mmap == other.use_mmap;
+}
+
+Result<LocalFileSystemOptions> LocalFileSystemOptions::FromUri(
+    const ::arrow::internal::Uri& uri, std::string* out_path) {
+  if (!uri.username().empty() || !uri.password().empty()) {
+    return Status::Invalid("Unsupported username or password in local URI: '",
+                           uri.ToString(), "'");
+  }
+  std::string path;
+  const auto host = uri.host();
+  if (!host.empty()) {
+#ifdef _WIN32
+    std::stringstream ss;
+    ss << "//" << host << "/" << RemoveLeadingSlash(uri.path());
+    *out_path = ss.str();
+#else
+    return Status::Invalid("Unsupported hostname in non-Windows local URI: '",
+                           uri.ToString(), "'");
+#endif
+  } else {
+    *out_path = uri.path();
+  }
+
+  // TODO handle use_mmap option
+  return LocalFileSystemOptions();
 }
 
 LocalFileSystem::LocalFileSystem() : options_(LocalFileSystemOptions::Defaults()) {}
