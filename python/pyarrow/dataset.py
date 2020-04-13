@@ -495,15 +495,16 @@ def dataset(source, schema=None, format=None, filesystem=None,
     format : FileFormat or str
         Currently "parquet" and "ipc"/"arrow"/"feather" are supported. For
         Feather, only version 2 files are supported.
-    filesystem : FileSystem, default None
-        If a single path is given as source, it will be inferred from the path.
-        If an URI is passed, then its path component will act as a prefix for
-        the paths.
+    filesystem : FileSystem or URI string, default None
+        If a single path is given as source and filesystem is None, then the
+        filesystem will be inferred from the path.
+        If an URI string is passed, then a filesystem object is constructed
+        using the URI's optional path component as a directory prefix. See the
+        examples below.
     partitioning : Partitioning, PartitioningFactory, str, list of str
         The partitioning scheme specified with the ``partitioning()``
         function. A flavor string can be used as shortcut, and with a list of
         field names a DirectionaryPartitioning will be inferred.
-
     partition_base_dir : str, optional
         For the purposes of applying the partitioning, paths will be
         stripped of the partition_base_dir. Files not matching the
@@ -542,7 +543,7 @@ def dataset(source, schema=None, format=None, filesystem=None,
     >>> dataset("path/to/nyc-taxi/", format="parquet")
     >>> dataset("s3://mybucket/nyc-taxi/", format="parquet")
 
-    Opening a dataset from an explicit list of files:
+    Opening a dataset from a list of relatives local paths:
 
     >>> dataset([
     ...     "part0/data.parquet",
@@ -563,6 +564,21 @@ def dataset(source, schema=None, format=None, filesystem=None,
 
     >>> fs = SubTreeFileSystem("/directory/prefix", LocalFileSystem())
     >>> dataset(paths, filesystem=fs, format='parquet')
+
+    With a remote filesystem URI:
+
+    >>> paths = [
+    ...     'nested/directory/part0/data.parquet',
+    ...     'nested/directory/part1/data.parquet',
+    ...     'nested/directory/part3/data.parquet',
+    ... ]
+    >>> dataset(paths, filesystem='s3://bucket/', format='parquet')
+
+    Similarly to the local example, the directory prefix may be included in the
+    filesystem URI:
+
+    >>> dataset(paths, filesystem='s3://bucket/nested/directory',
+    ...         format='parquet')
 
     Construction of a nested dataset:
 
