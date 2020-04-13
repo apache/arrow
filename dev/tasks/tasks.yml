@@ -2157,3 +2157,10 @@ tasks:
         - conda-cpp-hiveserver2
       run:
         - conda-cpp-hiveserver2
+
+  ############################## Miscellaneous ############################
+
+  autotune:
+    ci: github
+    platform: linux
+    template: autotune/github.linux.yml
