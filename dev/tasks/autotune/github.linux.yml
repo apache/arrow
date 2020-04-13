@@ -30,9 +30,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Arrow
+        env:
+          CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
         run: |
-          git clone --no-checkout {{ arrow.remote }} arrow
-          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+          REMOTE=`echo "{{ arrow.remote }}" | sed -e 's/github.com/x-access-token:'"$CROSSBOW_GITHUB_TOKEN"'@github.com'`
+          git clone --no-checkout "$REMOTE" arrow
+          git -C arrow fetch -t "$REMOTE" {{ arrow.branch }}
           git -C arrow checkout {{ arrow.branch }}
           git -C arrow submodule update --init --recursive
       - name: See what is different
