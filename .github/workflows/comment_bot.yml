@@ -65,8 +65,10 @@ jobs:
       - name: See what is different
         run: |
           set -ex
+          git remote add upstream https://github.com/apache/arrow
+          git fetch upstream
           changed() {
-            git diff --name-only HEAD^.. | grep -e "$1" >/dev/null 2>&1
+            git diff --name-only HEAD^..upstream/master | grep -e "$1" >/dev/null 2>&1
           }
           if changed '^r/.*\.R$'; then
             echo ".R changed"
@@ -76,7 +78,7 @@ jobs:
         if: env.R_DOCS == 'true'
       - name: Update R docs
         if: env.R_DOCS == 'true'
-        shell: Rscript
+        shell: Rscript {0}
         run: |
           source("ci/etc/rprofile")
           install.packages(c("remotes", "roxygen2"))
