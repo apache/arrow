@@ -132,6 +132,9 @@ reference:
   - FileInfo
   - FileStats
   - FileSelector
+- title: Configuration
+  contents:
+  - cpu_count
 - title: Installation helpers
   contents:
   - arrow_available

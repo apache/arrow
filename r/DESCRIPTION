@@ -61,6 +61,7 @@ Collate:
     'io.R'
     'compression.R'
     'compute.R'
+    'config.R'
     'csv.R'
     'dataset.R'
     'filesystem.R'
