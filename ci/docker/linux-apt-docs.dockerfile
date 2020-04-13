@@ -54,7 +54,8 @@ RUN apt-get update -y && \
 ENV JAVA_HOME=/usr/lib/jvm/java-${jdk}-openjdk-amd64
 
 ARG maven=3.5.4
-RUN wget -q -O - "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=maven/maven-3/${maven}/binaries/apache-maven-${maven}-bin.tar.gz" | tar -xzf - -C /opt
+ADD dev/tasks/dependencies/download-apache.sh /
+RUN /download-apache.sh "maven/maven-3/${maven}/binaries/apache-maven-${maven}-bin.tar.gz"
 ENV PATH=/opt/apache-maven-${maven}/bin:$PATH
 
 ARG node=11

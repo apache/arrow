@@ -33,7 +33,9 @@ ARG hdfs=2.9.2
 ENV HADOOP_HOME=/opt/hadoop-${hdfs} \
     HADOOP_OPTS=-Djava.library.path=/opt/hadoop-${hdfs}/lib/native \
     PATH=$PATH:/opt/hadoop-${hdfs}/bin:/opt/hadoop-${hdfs}/sbin
-RUN wget -q -O - "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=hadoop/common/hadoop-${hdfs}/hadoop-${hdfs}.tar.gz" | tar -xzf - -C /opt
+ADD dev/tasks/dependencies/download-apache.sh /
+RUN /download-apache.sh "hadoop/common/hadoop-${hdfs}/hadoop-${hdfs}.tar.gz"
+
 COPY ci/etc/hdfs-site.xml $HADOOP_HOME/etc/hadoop/
 
 # build cpp with tests
