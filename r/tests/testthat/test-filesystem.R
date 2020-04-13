@@ -125,12 +125,14 @@ test_that("LocalFileSystem + Selector", {
 })
 
 test_that("FileSystem$from_uri", {
+  skip_on_cran()
   skip_if_not_available("s3")
   fs_and_path <- FileSystem$from_uri("s3://ursa-labs-taxi-data")
   expect_is(fs_and_path$fs, "S3FileSystem")
 })
 
 test_that("S3FileSystem", {
+  skip_on_cran()
   skip_if_not_available("s3")
   # s3fs <- S3FileSystem$create()
   # expect_is(s3fs, "S3FileSystem")
