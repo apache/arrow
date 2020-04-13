@@ -102,7 +102,7 @@ struct ARROW_EXPORT ConvertOptions {
   /// This option is ignored if `include_columns` is empty.
   bool include_missing_columns = false;
 
-  std::vector<std::unique_ptr<TimestampConverter>> timestamp_converters;
+  std::vector<std::shared_ptr<arrow::TimestampConverter>> timestamp_converters;
 
   /// Create conversion options with default values, including conventional
   /// values for `null_values`, `true_values` and `false_values`
