@@ -25,9 +25,9 @@ on:
       - edited
 
 jobs:
-
-  listen:
+  crossbow:
     name: Listen!
+    if: startsWith(github.event.comment.body, '@github-actions')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Arrow
@@ -53,5 +53,38 @@ jobs:
           archery trigger-bot \
             --event-name ${{ github.event_name }} \
             --event-payload ${{ github.event_path }}
-
-
+  autotune:
+    name: "Fix all the things"
+    if: startsWith(github.event.comment.body, 'autotune')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: r-lib/actions/pr-fetch@master
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: See what is different
+        run: |
+          set -ex
+          changed() {
+            git diff --name-only HEAD^.. | grep -e "$1" >/dev/null 2>&1
+          }
+          if changed '^r/.*\.R$'; then
+            echo ".R changed"
+            echo "::set-env name=R_DOCS::true"
+          fi
+      - uses: r-lib/actions/setup-r@v1
+        if: env.R_DOCS == 'true'
+      - name: Update R docs
+        if: env.R_DOCS == 'true'
+        shell: Rscript
+        run: |
+          source("ci/etc/rprofile")
+          install.packages(c("remotes", "roxygen2"))
+          remotes::install_deps(r")
+          roxygen2::roxygenize("r")
+      - name: Commit results
+        run: |
+          git commit -a -m 'Autoformat/render all the things [automated commit]' --author 'GitHub Actions <actions@github.com>' || echo "No changes to commit"
+      - uses: r-lib/actions/pr-push@master
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
