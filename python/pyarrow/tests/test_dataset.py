@@ -191,14 +191,28 @@ def test_filesystem_dataset(mockfs):
     partitions = [ds.ScalarExpression(True), ds.ScalarExpression(True)]
 
     dataset = ds.FileSystemDataset(
-        schema,
+        schema=schema,
         root_partition=None,
-        file_format=file_format,
+        format=file_format,
         filesystem=mockfs,
         paths_or_selector=paths,
         partitions=partitions
     )
     assert isinstance(dataset.format, ds.ParquetFileFormat)
+
+    # the root_partition and partitions keywords have defaults
+    dataset = ds.FileSystemDataset(
+        paths, schema, format=file_format, filesystem=mockfs,
+    )
+    assert isinstance(dataset.format, ds.ParquetFileFormat)
+
+    # validation of required arguments
+    with pytest.raises(TypeError, match="incorrect type"):
+        ds.FileSystemDataset(paths, format=file_format, filesystem=mockfs)
+    with pytest.raises(TypeError, match="incorrect type"):
+        ds.FileSystemDataset(paths, schema=schema, filesystem=mockfs)
+    with pytest.raises(TypeError, match="incorrect type"):
+        ds.FileSystemDataset(paths, schema=schema, format=file_format)
 
     root_partition = ds.ComparisonExpression(
         ds.CompareOperator.Equal,
@@ -223,7 +237,7 @@ def test_filesystem_dataset(mockfs):
         root_partition=root_partition,
         filesystem=mockfs,
         partitions=partitions,
-        file_format=file_format
+        format=file_format
     )
     assert dataset.partition_expression.equals(root_partition)
     assert set(dataset.files) == set(paths)
