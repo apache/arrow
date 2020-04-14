@@ -1195,7 +1195,7 @@ def test_open_dataset_from_uri_s3(s3_connection, s3_server):
 
 @pytest.mark.parquet
 @pytest.mark.s3
-def test_open_dataset_pina(s3_connection, s3_server):
+def test_open_dataset_from_s3_with_filesystem_uri(s3_connection, s3_server):
     from pyarrow.fs import FileSystem
     import pyarrow.parquet as pq
 
