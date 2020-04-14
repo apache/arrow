@@ -82,19 +82,20 @@ class ConcreteColumnDecoder : public ColumnDecoder {
     }
     PrepareChunkUnlocked(next_chunk_);
     auto chunk_index = next_chunk_++;
-    return WaitForChunkUnlocked(chunk_index);
+    WaitForChunkUnlocked(chunk_index);
+    // Move Future to avoid keeping chunk alive
+    return std::move(chunks_[chunk_index]).result();
   }
 
  protected:
   // XXX useful?
   virtual std::shared_ptr<DataType> type() const = 0;
 
-  Result<std::shared_ptr<Array>> WaitForChunkUnlocked(int64_t chunk_index) {
+  void WaitForChunkUnlocked(int64_t chunk_index) {
     auto future = chunks_[chunk_index];  // Make copy because of resizes
     mutex_.unlock();
-    auto maybe_array = future.result();
+    future.Wait();
     mutex_.lock();
-    return maybe_array;
   }
 
   void PrepareChunk(int64_t block_index) {
@@ -316,7 +317,8 @@ void InferringColumnDecoder::Insert(int64_t block_index,
   {
     std::unique_lock<std::mutex> lock(mutex_);
     PrepareChunkUnlocked(0);
-    if (!WaitForChunkUnlocked(0).status().ok()) {
+    WaitForChunkUnlocked(0);
+    if (!chunks_[0].status().ok()) {
       // Failed converting first chunk: bail out by marking EOF,
       // because we can't decide a type for the other chunks.
       SetChunkUnlocked(block_index, std::shared_ptr<Array>());

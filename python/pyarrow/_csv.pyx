@@ -624,6 +624,8 @@ def open_csv(input_file, read_options=None, parse_options=None,
     """
     Open a streaming reader of CSV data.
 
+    Reading using this function is always single-threaded.
+
     Parameters
     ----------
     input_file: string, path or file-like object

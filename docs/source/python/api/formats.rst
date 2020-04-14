@@ -32,6 +32,8 @@ CSV Files
    ParseOptions
    ConvertOptions
    read_csv
+   open_csv
+   CSVStreamingReader
 
 .. _api.feather:
 

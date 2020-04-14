@@ -864,12 +864,8 @@ Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
     const ReadOptions& read_options, const ParseOptions& parse_options,
     const ConvertOptions& convert_options) {
   std::shared_ptr<BaseStreamingReader> reader;
-  if (read_options.use_threads) {
-    return Status::NotImplemented("CSV threaded streaming reader");
-  } else {
-    reader = std::make_shared<SerialStreamingReader>(pool, input, read_options,
-                                                     parse_options, convert_options);
-  }
+  reader = std::make_shared<SerialStreamingReader>(pool, input, read_options,
+                                                   parse_options, convert_options);
   RETURN_NOT_OK(reader->Init());
   return reader;
 }
