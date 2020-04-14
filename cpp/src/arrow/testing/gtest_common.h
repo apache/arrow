@@ -50,7 +50,7 @@ class TestBase : public ::testing::Test {
     for (int64_t i = 0; i < null_count; i++) {
       BitUtil::ClearBit(null_bitmap->mutable_data(), i * (length / null_count));
     }
-    return std::move(null_bitmap);
+    return null_bitmap;
   }
 
   template <typename ArrayType>
