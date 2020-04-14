@@ -28,7 +28,7 @@ from pyarrow.compat import builtin_pickle
 # These are imprecise because the type (in pandas 0.x) depends on the presence
 # of nulls
 cdef dict _pandas_type_map = {
-    _Type_NA: np.float64,  # NaNs
+    _Type_NA: np.object_,  # NaNs
     _Type_BOOL: np.bool_,
     _Type_INT8: np.int8,
     _Type_INT16: np.int16,
