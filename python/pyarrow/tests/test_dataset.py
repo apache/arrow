@@ -958,7 +958,7 @@ def test_construct_from_single_directory(tempdir):
     d1 = ds.dataset(directory)
     d2 = ds.dataset(directory, filesystem=fs.LocalFileSystem())
     d3 = ds.dataset(directory.name,
-                    filesystem='file://{}'.format(directory.parent))
+                    filesystem='file:{}'.format(directory.parent))
     assert d1.to_table() == d2.to_table() == d3.to_table()
 
 
@@ -974,7 +974,7 @@ def test_construct_from_list_of_files(tempdir):
         t1 = d1.to_table()
         assert len(t1) == sum(map(len, tables))
 
-    d2 = ds.dataset(relative_paths, filesystem='file://{}'.format(tempdir))
+    d2 = ds.dataset(relative_paths, filesystem='file:{}'.format(tempdir))
     t2 = d2.to_table()
     d3 = ds.dataset(paths)
     t3 = d3.to_table()
