@@ -82,7 +82,7 @@ def _table_from_pandas(df):
 def _filesystem_uri(path):
     # URIs on Windows must follow 'file:///C:...' or 'file:/C:...' patterns.
     if isinstance(path, pathlib.WindowsPath):
-        uri = 'file:/{}'.format(path)
+        uri = 'file:///{}'.format(path)
     else:
         uri = 'file://{}'.format(path)
     return uri
@@ -985,12 +985,10 @@ def test_construct_from_list_of_files(tempdir):
     t2 = d2.to_table()
     d3 = ds.dataset(paths)
     t3 = d3.to_table()
-    d4 = ds.dataset(paths, filesystem='file:/')
+    d4 = ds.dataset(paths, filesystem=fs.LocalFileSystem())
     t4 = d4.to_table()
-    d5 = ds.dataset(paths, filesystem=fs.LocalFileSystem())
-    t5 = d5.to_table()
 
-    assert t1 == t2 == t3 == t4 == t5
+    assert t1 == t2 == t3 == t4
 
 
 def test_construct_from_list_of_mixed_paths_fails(mockfs):
