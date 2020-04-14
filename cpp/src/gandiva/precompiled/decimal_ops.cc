@@ -658,24 +658,35 @@ static BasicDecimal128 RoundWithNegativeScale(const BasicDecimalScalar128& x,
   return scaled + delta;
 }
 
-BasicDecimal128 Round(const BasicDecimalScalar128& x, int32_t out_scale, bool* overflow) {
-  if (out_scale < 0) {
-    return RoundWithNegativeScale(x, x.precision(), out_scale,
+BasicDecimal128 Round(const BasicDecimalScalar128& x, int32_t out_precision,
+                      int32_t out_scale, int32_t rounding_scale, bool* overflow) {
+  // no-op if target scale is same as arg scale
+  if (x.scale() == out_scale && rounding_scale >= 0) {
+    return x.value();
+  }
+
+  if (rounding_scale < 0) {
+    return RoundWithNegativeScale(x, out_precision, rounding_scale,
                                   RoundType::kRoundTypeHalfRoundUp, overflow);
   } else {
-    return RoundWithPositiveScale(x, x.precision(), out_scale,
+    return RoundWithPositiveScale(x, out_precision, rounding_scale,
                                   RoundType::kRoundTypeHalfRoundUp, overflow);
   }
 }
 
-BasicDecimal128 Truncate(const BasicDecimalScalar128& x, int32_t out_scale,
-                         bool* overflow) {
-  if (out_scale < 0) {
-    return RoundWithNegativeScale(x, x.precision(), out_scale, RoundType::kRoundTypeTrunc,
-                                  overflow);
+BasicDecimal128 Truncate(const BasicDecimalScalar128& x, int32_t out_precision,
+                         int32_t out_scale, int32_t rounding_scale, bool* overflow) {
+  // no-op if target scale is same as arg scale
+  if (x.scale() == out_scale && rounding_scale >= 0) {
+    return x.value();
+  }
+
+  if (rounding_scale < 0) {
+    return RoundWithNegativeScale(x, out_precision, rounding_scale,
+                                  RoundType::kRoundTypeTrunc, overflow);
   } else {
-    return RoundWithPositiveScale(x, x.precision(), out_scale, RoundType::kRoundTypeTrunc,
-                                  overflow);
+    return RoundWithPositiveScale(x, out_precision, rounding_scale,
+                                  RoundType::kRoundTypeTrunc, overflow);
   }
 }
 
