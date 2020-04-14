@@ -52,6 +52,7 @@ Reading Datasets
 ----------------
 
 
+
 .. TODO Full blown example with NYC taxi data to show off, afterwards explain all parts:
 
 .. ipython:: python
@@ -277,7 +278,7 @@ the types of the partition keys are inferred from the file paths.
 It is also possible to explicitly define the schema of the partition keys
 using the :func:`partitioning` function. For example:
 
-.. code-block::
+.. code-block:: python
 
     part = ds.partitioning(
         pa.schema([("year", pa.int16()), ("month", pa.int8()), ("day", pa.int32())]),
@@ -293,7 +294,7 @@ example would be "/2019/11/15/".
 Since the names are not included in the file paths, these must be specified
 when constructing a directory partitioning:
 
-.. code-block::
+.. code-block:: python
 
     part = ds.partitioning(field_names=["year", "month", "day"])
 
@@ -304,8 +305,31 @@ types from file paths.
 Reading from cloud storage
 --------------------------
 
-- example with s3 filesystem / hdfs filesystem
+In addition to local files, pyarrow also supports reading from cloud storage.
+Currently, :class:`HDFS <HadoopFileSystem>` and
+:class:`Amazon S3-compatible storage <S3FileSystem>` are supported.
 
+When passing a file URI, the file system will be inferred. For example,
+specifying a S3 path:
+
+.. code-block:: python
+
+    dataset = ds.dataset("s3://ursa-labs-taxi-data/", partitioning=["year", "month"])
+
+Typically, you will want to customize the connection parameters, and then
+a file system object can be created and passed to the ``filesystem`` keyword:
+
+.. code-block:: python
+
+    from pyarrow import fs
+
+    s3  = fs.S3FileSystem(region="us-east-2")
+    dataset = ds.dataset("ursa-labs-taxi-data/", filesystem=s3,
+                         partitioning=["year", "month"])
+
+The currently available classes are :class:`~pyarrow.fs.S3FileSystem` and
+:class:`~pyarrow.fs.HadoopFileSystem`. See the :ref:`filesystem` docs for more
+details.
 
 
 Manual specification of the Dataset
@@ -355,4 +379,5 @@ Manual scheduling
 -----------------
 
 - fragments (get_fragments)
-- scan / scan tasks / iterators of record batches
+- scan / scan tasks / iterators of record batches -> show dummy code to iterate
+  through all record batches and do something with them
