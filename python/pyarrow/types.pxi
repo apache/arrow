@@ -1617,10 +1617,11 @@ cdef class Schema:
 
 def unify_schemas(list schemas):
     """
-    Unifies schemas by merging fields by name.
+    Unify schemas by merging fields by name.
 
     The resulting schema will contain the union of fields from all schemas.
-    Fields with the same name will be merged.
+    Fields with the same name will be merged. Note that two fields with
+    different types will fail merging.
 
     - The unified field will inherit the metadata from the schema where
         that field is first defined.

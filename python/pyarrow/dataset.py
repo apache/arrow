@@ -279,12 +279,9 @@ def _ensure_multiple_sources(paths, filesystem=None):
     ------
     TypeError
         If the passed filesystem has wrong type.
-    FileNotFoundError
-        If the file system is local and a referenced path is not available.
-    IsADirectoryError
-        If the file system is local and a path references a directory.
-    IOError:
-        If the file system is local and a path's type cannot be determined.
+    IOError
+        If the file system is local and a referenced path is not available or
+        not a file.
     """
     from pyarrow.fs import LocalFileSystem, FileType
 

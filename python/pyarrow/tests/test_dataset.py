@@ -81,7 +81,7 @@ def _table_from_pandas(df):
 
 def _filesystem_uri(path):
     # URIs on Windows must follow 'file:///C:...' or 'file:/C:...' patterns.
-    if isinstance(path, pathlib.WindowsPath):
+    if os.name == 'nt':
         uri = 'file:///{}'.format(path)
     else:
         uri = 'file://{}'.format(path)
@@ -1210,6 +1210,7 @@ def test_open_dataset_from_s3_with_filesystem_uri(s3_connection, s3_server):
     assert path == 'theirbucket/nested/folder/data.parquet'
 
     fs.create_dir(bucket)
+
     table = pa.table({'a': [1, 2, 3]})
     with fs.open_output_stream(path) as out:
         pq.write_table(table, out)
@@ -1226,15 +1227,9 @@ def test_open_dataset_from_s3_with_filesystem_uri(s3_connection, s3_server):
     )
     cases = [
         ('theirbucket/nested/folder/', '/data.parquet'),
-        ('theirbucket/nested/folder/', 'data.parquet'),
-        ('theirbucket/nested/folder', '/data.parquet'),
         ('theirbucket/nested/folder', 'data.parquet'),
-        ('theirbucket/nested/', '/folder/data.parquet'),
         ('theirbucket/nested/', 'folder/data.parquet'),
-        ('theirbucket/nested', '/folder/data.parquet'),
         ('theirbucket/nested', 'folder/data.parquet'),
-        ('theirbucket/', '/nested/folder/data.parquet'),
-        ('theirbucket/', 'nested/folder/data.parquet'),
         ('theirbucket', '/nested/folder/data.parquet'),
         ('theirbucket', 'nested/folder/data.parquet'),
     ]
