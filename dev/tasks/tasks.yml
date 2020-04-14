@@ -1602,9 +1602,9 @@ tasks:
   ############################## Docker tests #################################
 
   test-conda-cpp:
-    ci: circle
+    ci: github
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       build:
         - conda-cpp
@@ -1612,9 +1612,9 @@ tasks:
         - conda-cpp
 
   test-conda-cpp-valgrind:
-    ci: circle
+    ci: github
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       build:
         - conda-cpp
@@ -1622,9 +1622,9 @@ tasks:
         - conda-cpp-valgrind
 
   test-debian-10-cpp:
-    ci: circle
+    ci: github
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         DEBIAN: 10
@@ -1634,9 +1634,9 @@ tasks:
         - debian-cpp
 
   test-ubuntu-16.04-cpp:
-    ci: circle
+    ci: github
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         UBUNTU: 16.04
@@ -1646,9 +1646,9 @@ tasks:
         - ubuntu-cpp
 
   test-ubuntu-18.04-cpp:
-    ci: circle
+    ci: github
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         UBUNTU: 18.04
@@ -1658,9 +1658,9 @@ tasks:
         - ubuntu-cpp
 
   test-fedora-30-cpp:
-    ci: circle
+    ci: github
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         FEDORA: 30
@@ -1670,9 +1670,9 @@ tasks:
         - fedora-cpp
 
   test-ubuntu-18.04-cpp-release:
-    ci: circle
+    ci: github
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       build:
         - ubuntu-cpp
@@ -1680,9 +1680,9 @@ tasks:
         - -e ARROW_BUILD_TYPE=release ubuntu-cpp
 
   test-ubuntu-18.04-cpp-static:
-    ci: circle
+    ci: github
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       build:
         - ubuntu-cpp
@@ -1690,9 +1690,9 @@ tasks:
         - -e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static ubuntu-cpp
 
   test-ubuntu-18.04-cpp-cmake32:
-    ci: circle
+    ci: github
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       build:
         - ubuntu-cpp-cmake32
@@ -1700,9 +1700,9 @@ tasks:
         - ubuntu-cpp-cmake32
 
   test-debian-c-glib:
-    ci: circle
+    ci: github
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       build:
         - debian-cpp
@@ -1711,9 +1711,9 @@ tasks:
         - debian-c-glib
 
   test-ubuntu-c-glib:
-    ci: circle
+    ci: github
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       build:
         - ubuntu-cpp
@@ -1722,9 +1722,9 @@ tasks:
         - ubuntu-c-glib
 
   test-debian-ruby:
-    ci: circle
+    ci: azure
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/azure.linux.yml
     params:
       build:
         - debian-cpp
@@ -1734,9 +1734,9 @@ tasks:
         - debian-ruby
 
   test-ubuntu-ruby:
-    ci: circle
+    ci: azure
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/azure.linux.yml
     params:
       build:
         - ubuntu-cpp
@@ -1746,9 +1746,9 @@ tasks:
         - ubuntu-ruby
 
   test-conda-python-3.6:
-    ci: circle
+    ci: azure
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/azure.linux.yml
     params:
       env:
         PYTHON: 3.6
@@ -1759,9 +1759,9 @@ tasks:
         - conda-python
 
   test-conda-python-3.7:
-    ci: circle
+    ci: azure
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/azure.linux.yml
     params:
       env:
         PYTHON: 3.7
@@ -1772,9 +1772,9 @@ tasks:
         - conda-python
 
   test-conda-python-3.8:
-    ci: circle
+    ci: azure
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/azure.linux.yml
     params:
       env:
         PYTHON: 3.8
@@ -1785,9 +1785,9 @@ tasks:
         - conda-python
 
   test-debian-10-python-3:
-    ci: circle
+    ci: azure
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/azure.linux.yml
     params:
       env:
         DEBIAN: 10
@@ -1798,9 +1798,9 @@ tasks:
         - debian-python
 
   test-ubuntu-18.04-python-3:
-    ci: circle
+    ci: azure
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/azure.linux.yml
     params:
       env:
         UBUNTU: 18.04
@@ -1811,9 +1811,9 @@ tasks:
         - ubuntu-python
 
   test-fedora-30-python-3:
-    ci: circle
+    ci: azure
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/azure.linux.yml
     params:
       env:
         FEDORA: 30
