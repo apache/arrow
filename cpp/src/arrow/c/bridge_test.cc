@@ -118,17 +118,28 @@ static const std::vector<std::string> kMetadataKeys1{"key1", "key2"};
 static const std::vector<std::string> kMetadataValues1{"", "bar"};
 // clang-format off
 static const std::string kEncodedMetadata1{  // NOLINT: runtime/string
+#if ARROW_LITTLE_ENDIAN
     2, 0, 0, 0,
     4, 0, 0, 0, 'k', 'e', 'y', '1', 0, 0, 0, 0,
     4, 0, 0, 0, 'k', 'e', 'y', '2', 3, 0, 0, 0, 'b', 'a', 'r'};
+#else
+    0, 0, 0, 2,
+    0, 0, 0, 4, 'k', 'e', 'y', '1', 0, 0, 0, 0,
+    0, 0, 0, 4, 'k', 'e', 'y', '2', 0, 0, 0, 3, 'b', 'a', 'r'};
+#endif
 // clang-format off
 
 static const std::vector<std::string> kMetadataKeys2{"key"};
 static const std::vector<std::string> kMetadataValues2{"abcde"};
 // clang-format off
 static const std::string kEncodedMetadata2{  // NOLINT: runtime/string
+#if ARROW_LITTLE_ENDIAN
     1, 0, 0, 0,
     3, 0, 0, 0, 'k', 'e', 'y', 5, 0, 0, 0, 'a', 'b', 'c', 'd', 'e'};
+#else
+    0, 0, 0, 1,
+    0, 0, 0, 3, 'k', 'e', 'y', 0, 0, 0, 5, 'a', 'b', 'c', 'd', 'e'};
+#endif
 // clang-format off
 
 static constexpr int64_t kDefaultFlags = ARROW_FLAG_NULLABLE;
