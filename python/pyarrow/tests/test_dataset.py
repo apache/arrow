@@ -966,7 +966,10 @@ def test_construct_from_single_directory(tempdir):
     d1 = ds.dataset(directory)
     d2 = ds.dataset(directory, filesystem=fs.LocalFileSystem())
     d3 = ds.dataset(directory.name, filesystem=_filesystem_uri(tempdir))
-    assert d1.to_table() == d2.to_table() == d3.to_table()
+    t1 = d1.to_table(use_threads=False)
+    t2 = d2.to_table(use_threads=False)
+    t3 = d3.to_table(use_threads=False)
+    assert t1 == t2 == t3
 
 
 def test_construct_from_list_of_files(tempdir):
@@ -982,11 +985,11 @@ def test_construct_from_list_of_files(tempdir):
         assert len(t1) == sum(map(len, tables))
 
     d2 = ds.dataset(relative_paths, filesystem=_filesystem_uri(tempdir))
-    t2 = d2.to_table()
+    t2 = d2.to_table(use_threads=False)
     d3 = ds.dataset(paths)
-    t3 = d3.to_table()
+    t3 = d3.to_table(use_threads=False)
     d4 = ds.dataset(paths, filesystem=fs.LocalFileSystem())
-    t4 = d4.to_table()
+    t4 = d4.to_table(use_threads=False)
 
     assert t1 == t2 == t3 == t4
 
