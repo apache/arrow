@@ -44,7 +44,7 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(8) Block FLATBUFFERS_FINAL_CLASS {
     return flatbuffers::EndianScalar(metaDataLength_);
   }
   /// Length of the data (this is aligned so there can be a gap between this and
-  /// the metatdata).
+  /// the metadata).
   int64_t bodyLength() const {
     return flatbuffers::EndianScalar(bodyLength_);
   }

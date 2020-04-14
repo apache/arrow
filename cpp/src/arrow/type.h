@@ -1652,7 +1652,7 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// \brief Return the number of fields (columns) in the schema
   int num_fields() const;
 
-  /// Return the ith schema element. Does not boundscheck
+  /// Return the with schema element. Does not boundscheck
   const std::shared_ptr<Field>& field(int i) const;
 
   const std::vector<std::shared_ptr<Field>>& fields() const;

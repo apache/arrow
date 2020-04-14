@@ -168,7 +168,7 @@ class CountOrCompareSorter {
       };
       VisitArrayDataInline<ArrowType>(*values.data(), std::move(update_minmax));
       // For signed int32/64, (max - min) may overflow and trigger UBSAN.
-      // Cast to largest unsigned type(uint64_t) before substraction.
+      // Cast to largest unsigned type(uint64_t) before subtraction.
       if (static_cast<uint64_t>(max) - static_cast<uint64_t>(min) <=
           countsort_max_range_) {
         count_sorter_.SetMinMax(min, max);

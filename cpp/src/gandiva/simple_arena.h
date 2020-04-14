@@ -86,7 +86,7 @@ class SimpleArena {
   // buffer from current chunk.
   uint8_t* avail_buf_;
 
-  // List of alloced chunks.
+  // List of allocated chunks.
   std::vector<Chunk> chunks_;
 };
 

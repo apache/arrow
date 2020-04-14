@@ -400,7 +400,7 @@ TEST(TestColumnReader, DefinitionLevelsToBitmap) {
   ASSERT_EQ(9, values_read);
   ASSERT_EQ(1, null_count);
 
-  // Call again with 0 definition levels, make sure that valid_bits is unmodifed
+  // Call again with 0 definition levels, make sure that valid_bits is unmodified
   const uint8_t current_byte = valid_bits[1];
   null_count = 0;
   internal::DefinitionLevelsToBitmap(def_levels.data(), 0, max_def_level, max_rep_level,

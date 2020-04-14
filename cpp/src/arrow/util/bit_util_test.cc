@@ -1133,7 +1133,7 @@ TEST(Bitmap, ShiftingWordsOptimization) {
         ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((word >> i) & 1));
       }
 
-      // bit offset can therefore be accomodated by shifting the word
+      // bit offset can therefore be accommodated by shifting the word
       for (size_t offset = 0; offset < (kBitWidth * 3) / 4; ++offset) {
         uint64_t shifted_word = word >> offset;
         auto shifted_bytes = reinterpret_cast<uint8_t*>(&shifted_word);
@@ -1160,7 +1160,7 @@ TEST(Bitmap, ShiftingWordsOptimization) {
         ASSERT_EQ(BitUtil::GetBit(bytes, i + kBitWidth), bool((words[1] >> i) & 1));
       }
 
-      // bit offset can therefore be accomodated by shifting the word
+      // bit offset can therefore be accommodated by shifting the word
       for (size_t offset = 1; offset < (kBitWidth * 3) / 4; offset += 3) {
         uint64_t shifted_words[2];
         shifted_words[0] = words[0] >> offset | (words[1] << (kBitWidth - offset));

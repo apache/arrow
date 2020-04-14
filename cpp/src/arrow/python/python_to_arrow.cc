@@ -954,7 +954,7 @@ class StructConverter
 
   Status AppendItem(PyObject* obj) {
     RETURN_NOT_OK(this->typed_builder_->Append());
-    // Note heterogenous sequences are not allowed
+    // Note heterogeneous sequences are not allowed
     if (ARROW_PREDICT_FALSE(source_kind_ == SourceKind::UNKNOWN)) {
       if (PyDict_Check(obj)) {
         source_kind_ = SourceKind::DICTS;

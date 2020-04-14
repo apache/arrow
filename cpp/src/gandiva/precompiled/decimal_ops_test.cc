@@ -857,7 +857,7 @@ TEST_F(TestDecimalSql, Convert) {
   }
 }
 
-// double can store upto this integer value without losing precision
+// double can store up to this integer value without losing precision
 static const int64_t kMaxDoubleInt = 1ull << 53;
 
 TEST_F(TestDecimalSql, FromDouble) {
