@@ -2378,7 +2378,9 @@ def test_dataset_read_pandas(tempdir, use_legacy_dataset):
 
     dataset = pq.ParquetDataset(dirpath, use_legacy_dataset=use_legacy_dataset)
     columns = ['uint8', 'strings']
-    result = dataset.read_pandas(columns=columns).to_pandas()
+    use_threads = deterministic_row_order(use_legacy_dataset)
+    result = dataset.read_pandas(
+        columns=columns, use_threads=use_threads).to_pandas()
     expected = pd.concat([x[columns] for x in frames])
 
     tm.assert_frame_equal(result, expected)
@@ -2753,10 +2755,11 @@ def _test_write_to_dataset_no_partitions(base_path,
 
     # Deduplicated incoming DataFrame should match
     # original outgoing Dataframe
+    use_threads = deterministic_row_order(use_legacy_dataset)
     input_table = pq.ParquetDataset(
         base_path, filesystem=filesystem,
         use_legacy_dataset=use_legacy_dataset
-    ).read()
+    ).read(use_threads=use_threads)
     input_df = input_table.to_pandas()
     input_df = input_df.drop_duplicates()
     input_df = input_df[cols]
@@ -3789,7 +3792,7 @@ def test_filter_before_validate_schema(tempdir, use_legacy_dataset):
 
 @pytest.mark.pandas
 @pytest.mark.fastparquet
-@pytest.mark.filterwarnings("ignore:RangeIndex:DeprecationWarning")
+@pytest.mark.filterwarnings("ignore:RangeIndex:FutureWarning")
 def test_fastparquet_cross_compatibility(tempdir):
     fp = pytest.importorskip('fastparquet')
 
