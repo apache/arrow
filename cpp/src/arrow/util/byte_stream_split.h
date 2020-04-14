@@ -38,7 +38,7 @@ namespace internal {
 
 #if defined(ARROW_HAVE_SSE4_2)
 template <typename T>
-void ByteStreamSplitDecodeSSE2(const uint8_t* data, int64_t num_values, int64_t stride,
+void ByteStreamSplitDecodeSse2(const uint8_t* data, int64_t num_values, int64_t stride,
                                T* out) {
   constexpr size_t kNumStreams = sizeof(T);
   static_assert(kNumStreams == 4U || kNumStreams == 8U, "Invalid number of streams.");
@@ -92,7 +92,7 @@ void ByteStreamSplitDecodeSSE2(const uint8_t* data, int64_t num_values, int64_t 
 }
 
 template <typename T>
-void ByteStreamSplitEncodeSSE2(const uint8_t* raw_values, const size_t num_values,
+void ByteStreamSplitEncodeSse2(const uint8_t* raw_values, const size_t num_values,
                                uint8_t* output_buffer_raw) {
   constexpr size_t kNumStreams = sizeof(T);
   static_assert(kNumStreams == 4U || kNumStreams == 8U, "Invalid number of streams.");
@@ -180,7 +180,7 @@ void ByteStreamSplitEncodeSSE2(const uint8_t* raw_values, const size_t num_value
 
 #if defined(ARROW_HAVE_AVX2)
 template <typename T>
-void ByteStreamSplitDecodeAVX2(const uint8_t* data, int64_t num_values, int64_t stride,
+void ByteStreamSplitDecodeAvx2(const uint8_t* data, int64_t num_values, int64_t stride,
                                T* out) {
   constexpr size_t kNumStreams = sizeof(T);
   static_assert(kNumStreams == 4U || kNumStreams == 8U, "Invalid number of streams.");
@@ -189,7 +189,7 @@ void ByteStreamSplitDecodeAVX2(const uint8_t* data, int64_t num_values, int64_t 
   const int64_t size = num_values * sizeof(T);
   constexpr int64_t kBlockSize = sizeof(__m256i) * kNumStreams;
   if (size < kBlockSize)  // Back to SSE for small size
-    return ByteStreamSplitDecodeSSE2(data, num_values, stride, out);
+    return ByteStreamSplitDecodeSse2(data, num_values, stride, out);
   const int64_t num_blocks = size / kBlockSize;
   uint8_t* output_data = reinterpret_cast<uint8_t*>(out);
 
@@ -266,17 +266,17 @@ void ByteStreamSplitDecodeAVX2(const uint8_t* data, int64_t num_values, int64_t 
 }
 
 template <typename T>
-void ByteStreamSplitEncodeAVX2(const uint8_t* raw_values, const size_t num_values,
+void ByteStreamSplitEncodeAvx2(const uint8_t* raw_values, const size_t num_values,
                                uint8_t* output_buffer_raw) {
   constexpr size_t kNumStreams = sizeof(T);
   static_assert(kNumStreams == 4U || kNumStreams == 8U, "Invalid number of streams.");
   if (kNumStreams == 8U)  // Back to SSE, currently no path for double.
-    return ByteStreamSplitEncodeSSE2<T>(raw_values, num_values, output_buffer_raw);
+    return ByteStreamSplitEncodeSse2<T>(raw_values, num_values, output_buffer_raw);
 
   const size_t size = num_values * sizeof(T);
   constexpr size_t kBlockSize = sizeof(__m256i) * kNumStreams;
   if (size < kBlockSize)  // Back to SSE for small size
-    return ByteStreamSplitEncodeSSE2<T>(raw_values, num_values, output_buffer_raw);
+    return ByteStreamSplitEncodeSse2<T>(raw_values, num_values, output_buffer_raw);
   const size_t num_blocks = size / kBlockSize;
   const __m256i* raw_values_simd = reinterpret_cast<const __m256i*>(raw_values);
   __m256i* output_buffer_streams[kNumStreams];
@@ -338,7 +338,7 @@ void ByteStreamSplitEncodeAVX2(const uint8_t* raw_values, const size_t num_value
 
 #if defined(ARROW_HAVE_AVX512)
 template <typename T>
-void ByteStreamSplitDecodeAVX512(const uint8_t* data, int64_t num_values, int64_t stride,
+void ByteStreamSplitDecodeAvx512(const uint8_t* data, int64_t num_values, int64_t stride,
                                  T* out) {
   constexpr size_t kNumStreams = sizeof(T);
   static_assert(kNumStreams == 4U || kNumStreams == 8U, "Invalid number of streams.");
@@ -347,7 +347,7 @@ void ByteStreamSplitDecodeAVX512(const uint8_t* data, int64_t num_values, int64_
   const int64_t size = num_values * sizeof(T);
   constexpr int64_t kBlockSize = sizeof(__m512i) * kNumStreams;
   if (size < kBlockSize)  // Back to AVX2 for small size
-    return ByteStreamSplitDecodeAVX2(data, num_values, stride, out);
+    return ByteStreamSplitDecodeAvx2(data, num_values, stride, out);
   const int64_t num_blocks = size / kBlockSize;
   uint8_t* output_data = reinterpret_cast<uint8_t*>(out);
 
@@ -442,14 +442,14 @@ void ByteStreamSplitDecodeAVX512(const uint8_t* data, int64_t num_values, int64_
 }
 
 template <typename T>
-void ByteStreamSplitEncodeAVX512(const uint8_t* raw_values, const size_t num_values,
+void ByteStreamSplitEncodeAvx512(const uint8_t* raw_values, const size_t num_values,
                                  uint8_t* output_buffer_raw) {
   constexpr size_t kNumStreams = sizeof(T);
   static_assert(kNumStreams == 4U || kNumStreams == 8U, "Invalid number of streams.");
   const size_t size = num_values * sizeof(T);
   constexpr size_t kBlockSize = sizeof(__m512i) * kNumStreams;
   if (size < kBlockSize)  // Back to AVX2 for small size
-    return ByteStreamSplitEncodeAVX2<T>(raw_values, num_values, output_buffer_raw);
+    return ByteStreamSplitEncodeAvx2<T>(raw_values, num_values, output_buffer_raw);
 
   const size_t num_blocks = size / kBlockSize;
   const __m512i* raw_values_simd = reinterpret_cast<const __m512i*>(raw_values);
@@ -551,30 +551,30 @@ void ByteStreamSplitEncodeAVX512(const uint8_t* raw_values, const size_t num_val
 
 #if defined(ARROW_HAVE_SIMD_SPLIT)
 template <typename T>
-void inline ByteStreamSplitDecodeSIMD(const uint8_t* data, int64_t num_values,
+void inline ByteStreamSplitDecodeSimd(const uint8_t* data, int64_t num_values,
                                       int64_t stride, T* out) {
 #if defined(ARROW_HAVE_AVX512)
-  return ByteStreamSplitDecodeAVX512(data, num_values, stride, out);
+  return ByteStreamSplitDecodeAvx512(data, num_values, stride, out);
 #elif defined(ARROW_HAVE_AVX2)
-  return ByteStreamSplitDecodeAVX2(data, num_values, stride, out);
+  return ByteStreamSplitDecodeAvx2(data, num_values, stride, out);
 #elif defined(ARROW_HAVE_SSE4_2)
-  return ByteStreamSplitDecodeSSE2(data, num_values, stride, out);
+  return ByteStreamSplitDecodeSse2(data, num_values, stride, out);
 #else
-#error "ByteStreamSplitDecodeSIMD not implemented"
+#error "ByteStreamSplitDecodeSimd not implemented"
 #endif
 }
 
 template <typename T>
-void inline ByteStreamSplitEncodeSIMD(const uint8_t* raw_values, const size_t num_values,
+void inline ByteStreamSplitEncodeSimd(const uint8_t* raw_values, const size_t num_values,
                                       uint8_t* output_buffer_raw) {
 #if defined(ARROW_HAVE_AVX512)
-  return ByteStreamSplitEncodeAVX512<T>(raw_values, num_values, output_buffer_raw);
+  return ByteStreamSplitEncodeAvx512<T>(raw_values, num_values, output_buffer_raw);
 #elif defined(ARROW_HAVE_AVX2)
-  return ByteStreamSplitEncodeAVX2<T>(raw_values, num_values, output_buffer_raw);
+  return ByteStreamSplitEncodeAvx2<T>(raw_values, num_values, output_buffer_raw);
 #elif defined(ARROW_HAVE_SSE4_2)
-  return ByteStreamSplitEncodeSSE2<T>(raw_values, num_values, output_buffer_raw);
+  return ByteStreamSplitEncodeSse2<T>(raw_values, num_values, output_buffer_raw);
 #else
-#error "ByteStreamSplitEncodeSIMD not implemented"
+#error "ByteStreamSplitEncodeSimd not implemented"
 #endif
 }
 #endif
@@ -610,7 +610,7 @@ template <typename T>
 void inline ByteStreamSplitEncode(const uint8_t* raw_values, const size_t num_values,
                                   uint8_t* output_buffer_raw) {
 #if defined(ARROW_HAVE_SIMD_SPLIT)
-  return ByteStreamSplitEncodeSIMD<T>(raw_values, num_values, output_buffer_raw);
+  return ByteStreamSplitEncodeSimd<T>(raw_values, num_values, output_buffer_raw);
 #else
   return ByteStreamSplitEncodeScalar<T>(raw_values, num_values, output_buffer_raw);
 #endif
@@ -620,7 +620,7 @@ template <typename T>
 void inline ByteStreamSplitDecode(const uint8_t* data, int64_t num_values, int64_t stride,
                                   T* out) {
 #if defined(ARROW_HAVE_SIMD_SPLIT)
-  return ByteStreamSplitDecodeSIMD(data, num_values, stride, out);
+  return ByteStreamSplitDecodeSimd(data, num_values, stride, out);
 #else
   return ByteStreamSplitDecodeScalar(data, num_values, stride, out);
 #endif
