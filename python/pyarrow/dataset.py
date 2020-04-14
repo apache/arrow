@@ -501,6 +501,8 @@ def dataset(source, schema=None, format=None, filesystem=None,
         If an URI string is passed, then a filesystem object is constructed
         using the URI's optional path component as a directory prefix. See the
         examples below.
+        Note that the URIs on Windows should follow 'file:///C:...' or
+        'file:/C:...' patterns.
     partitioning : Partitioning, PartitioningFactory, str, list of str
         The partitioning scheme specified with the ``partitioning()``
         function. A flavor string can be used as shortcut, and with a list of

@@ -79,6 +79,15 @@ def _table_from_pandas(df):
     return table.replace_schema_metadata()
 
 
+def _filesystem_uri(path):
+    # URIs on Windows must follow 'file:///C:...' or 'file:/C:...' patterns.
+    if isinstance(path, pathlib.WindowsPath):
+        uri = 'file:/{}'.format(path)
+    else:
+        uri = 'file://{}'.format(path)
+    return uri
+
+
 @pytest.fixture
 @pytest.mark.parquet
 def mockfs():
@@ -945,7 +954,7 @@ def test_construct_from_single_file(tempdir):
     # instantiate from a single file with a filesystem object
     d2 = ds.dataset(path, filesystem=fs.LocalFileSystem())
     # instantiate from a single file with prefixed filesystem URI
-    d3 = ds.dataset(relative_path, filesystem='file:{}'.format(directory))
+    d3 = ds.dataset(relative_path, filesystem=_filesystem_uri(directory))
     assert d1.to_table() == d2.to_table() == d3.to_table()
 
 
@@ -954,11 +963,9 @@ def test_construct_from_single_directory(tempdir):
     directory.mkdir()
     tables, paths = _create_directory_of_files(directory)
 
-    # instantiate from a single directory
     d1 = ds.dataset(directory)
     d2 = ds.dataset(directory, filesystem=fs.LocalFileSystem())
-    d3 = ds.dataset(directory.name,
-                    filesystem='file:{}'.format(directory.parent))
+    d3 = ds.dataset(directory.name, filesystem=_filesystem_uri(tempdir))
     assert d1.to_table() == d2.to_table() == d3.to_table()
 
 
@@ -974,7 +981,7 @@ def test_construct_from_list_of_files(tempdir):
         t1 = d1.to_table()
         assert len(t1) == sum(map(len, tables))
 
-    d2 = ds.dataset(relative_paths, filesystem='file:{}'.format(tempdir))
+    d2 = ds.dataset(relative_paths, filesystem=_filesystem_uri(tempdir))
     t2 = d2.to_table()
     d3 = ds.dataset(paths)
     t3 = d3.to_table()
