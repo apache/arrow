@@ -16,7 +16,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <apache tarball path> <target directory>"
+  exit 1
+fi
+
 tarball_path=$1
+target_dir=$2
 
 APACHE_MIRRORS=(
   "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename="
@@ -34,11 +40,12 @@ APACHE_MIRRORS=(
   "https://us.mirrors.quenda.co/apache"
 )
 
+mkdir -p "${target_dir}"
+
 for mirror in ${APACHE_MIRRORS[*]}
 do
-  tarball=$(basename "${tarball_path}")
-  curl -SL "${mirror}/${tarball_path}" -o "${tarball}"
-  if $(tar -xf ${tarball}); then
+  curl -SL "${mirror}/${tarball_path}" | tar -xzf - -C "${target_dir}"
+  if [ $? == 0 ]; then
     exit 0
   fi
 done

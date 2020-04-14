@@ -35,7 +35,7 @@ ENV HADOOP_HOME=/opt/hadoop-${hdfs} \
     PATH=$PATH:/opt/hadoop-${hdfs}/bin:/opt/hadoop-${hdfs}/sbin
 COPY ci/scripts/util_download_apache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/util_download_apache.sh \
-    "hadoop/common/hadoop-${hdfs}/hadoop-${hdfs}.tar.gz"
+    "hadoop/common/hadoop-${hdfs}/hadoop-${hdfs}.tar.gz" /opt
 
 COPY ci/etc/hdfs-site.xml $HADOOP_HOME/etc/hadoop/
 

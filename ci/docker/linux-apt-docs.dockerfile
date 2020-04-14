@@ -57,8 +57,9 @@ ENV JAVA_HOME=/usr/lib/jvm/java-${jdk}-openjdk-amd64
 ARG maven=3.5.4
 COPY ci/scripts/util_download_apache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/util_download_apache.sh \
-    "maven/maven-3/${maven}/binaries/apache-maven-${maven}-bin.tar.gz"
+    "maven/maven-3/${maven}/binaries/apache-maven-${maven}-bin.tar.gz" /opt
 ENV PATH=/opt/apache-maven-${maven}/bin:$PATH
+RUN mvn -version
 
 ARG node=11
 RUN wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
