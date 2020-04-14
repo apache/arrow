@@ -356,7 +356,7 @@ BasicDecimal128 Divide(int64_t context, const BasicDecimalScalar128& x,
     return 0;
   }
 
-  // scale upto the output scale, and do an integer division.
+  // scale up to the output scale, and do an integer division.
   int32_t delta_scale = out_scale + y.scale() - x.scale();
   DCHECK_GE(delta_scale, 0);
 
@@ -627,7 +627,7 @@ static BasicDecimal128 RoundWithPositiveScale(const BasicDecimalScalar128& x,
   }
 
   // If there is a rounding delta, the output scale must be less than the input scale.
-  // That means atleast one digit is dropped after the decimal. The delta add can add
+  // That means at least one digit is dropped after the decimal. The delta add can add
   // utmost one digit before the decimal. So, overflow will occur only if the output
   // precision has changed.
   DCHECK_GT(x.scale(), out_scale);

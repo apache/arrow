@@ -1014,7 +1014,7 @@ static void ConfirmConvertedTypeCompatibility(
       << " logical type unexpectedly returns incorrect converted type";
   ASSERT_FALSE(converted_decimal_metadata.isset)
       << original->ToString()
-      << " logical type unexpectedly returns converted decimal metatdata that is set";
+      << " logical type unexpectedly returns converted decimal metadata that is set";
   ASSERT_TRUE(original->is_compatible(converted_type, converted_decimal_metadata))
       << original->ToString()
       << " logical type unexpectedly is incompatible with converted type and decimal "

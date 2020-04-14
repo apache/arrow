@@ -473,7 +473,7 @@ compression_level: int or dict, default None
 use_byte_stream_split: bool or list, default False
     Specify if the byte_stream_split encoding should be used in general or
     only for some columns. If both dictionary and byte_stream_stream are
-    enabled, then dictionary is prefered.
+    enabled, then dictionary is preferred.
     The byte_stream_split encoding is valid only for floating-point data types
     and should be combined with a compression codec.
 writer_engine_version: str, default "V2"

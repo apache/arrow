@@ -116,7 +116,7 @@ cdef class ChunkedArray(_PandasConvertible):
     @property
     def null_count(self):
         """
-        Number of null entires
+        Number of null entries
 
         Returns
         -------

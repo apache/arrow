@@ -461,7 +461,7 @@ static int days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
 bool IsLastDayOfMonth(const EpochTimePoint& tp) {
   if (tp.TmMon() != 1) {
-    // not February. Dont worry about leap year
+    // not February. Don't worry about leap year
     return (tp.TmMday() == days_in_month[tp.TmMon()]);
   }
 
@@ -621,7 +621,7 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
           ts_field_index++;
           break;
         case '+':
-          // +08:00, means time zone is 8 hours ahead. Need to substract.
+          // +08:00, means time zone is 8 hours ahead. Need to subtract.
           add_displacement = false;
           ts_field_index = TimeFields::kDisplacementHours;
           break;

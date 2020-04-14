@@ -638,7 +638,7 @@ def test_key_value_metadata():
     assert list(md.keys()) == [k for k, _ in expected]
     assert list(md.values()) == [v for _, v in expected]
 
-    # first occurence
+    # first occurrence
     assert md['a'] == b'alpha'
     assert md['b'] == b'beta'
     assert md.get_all('a') == [b'alpha', b'Alpha', b'ALPHA']

@@ -101,7 +101,7 @@ class ARROW_EXPORT StatusDetail {
  public:
   virtual ~StatusDetail() = default;
   /// \brief Return a unique id for the type of the StatusDetail
-  /// (effectively a poor man's substitude for RTTI).
+  /// (effectively a poor man's substitute for RTTI).
   virtual const char* type_id() const = 0;
   /// \brief Produce a human-readable description of this status.
   virtual std::string ToString() const = 0;

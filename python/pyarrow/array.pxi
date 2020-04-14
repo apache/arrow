@@ -127,14 +127,14 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     mask : array[bool], optional
         Indicate which values are null (True) or not null (False).
     size : int64, optional
-        Size of the elements. If the imput is larger than size bail at this
+        Size of the elements. If the input is larger than size bail at this
         length. For iterators, if size is larger than the input iterator this
         will be treated as a "max size", but will involve an initial allocation
         of size followed by a resize to the actual size (so if you know the
         exact size specifying it correctly will give you better performance).
     from_pandas : bool, default None
         Use pandas's semantics for inferring nulls from values in
-        ndarray-like data. If passed, the mask tasks precendence, but
+        ndarray-like data. If passed, the mask tasks precedence, but
         if a value is unmasked (not-null), but still null according to
         pandas semantics, then it is null. Defaults to False if not
         passed explicitly by user, or True if a pandas object is

@@ -656,7 +656,7 @@ def test_hdfs_options(hdfs_connection):
 
 
 @pytest.mark.parametrize(('uri', 'expected_klass', 'expected_path'), [
-    # leading slashes are removed intentionally, becuase MockFileSystem doesn't
+    # leading slashes are removed intentionally, because MockFileSystem doesn't
     # have a distinction between relative and absolute paths
     ('mock:', _MockFileSystem, ''),
     ('mock:foo/bar', _MockFileSystem, 'foo/bar'),

@@ -435,7 +435,7 @@ TEST_F(TestEndToEnd, EndToEndSingleDataset) {
   options.selector_ignore_prefixes = {"."};
 
   // Partitions expressions can be discovered for Dataset and Fragments.
-  // This metadata is then used in conjuction with the query filter to apply
+  // This metadata is then used in conjunction with the query filter to apply
   // the pushdown predicate optimization.
   //
   // The DirectoryPartitioning is a partitioning where the path is split with

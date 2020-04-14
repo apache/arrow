@@ -105,7 +105,7 @@ class Message::MessageImpl {
   std::shared_ptr<Buffer> metadata_;
   const flatbuf::Message* message_;
 
-  // The recontructed custom_metadata field from the Message Flatbuffer
+  // The reconstructed custom_metadata field from the Message Flatbuffer
   std::shared_ptr<const KeyValueMetadata> custom_metadata_;
 
   // The message body, if any

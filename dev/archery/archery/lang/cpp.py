@@ -40,7 +40,7 @@ class CppConfiguration:
                  cpp_package_prefix=None, install_prefix=None, use_conda=None,
                  # tests & examples
                  with_tests=True, with_benchmarks=False, with_examples=False,
-                 # Langauges support
+                 # Languages support
                  with_python=True,
                  # Format support
                  with_parquet=False,

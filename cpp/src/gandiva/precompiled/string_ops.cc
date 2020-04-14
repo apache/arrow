@@ -312,7 +312,7 @@ const char* castVARCHAR_utf8_int64(gdv_int64 context, const char* data,
     // and it won't be 0 for bytes of a multibyte char
     char* data_ptr = const_cast<char*>(data);
 
-    // we advance byte by byte till the 8 byte boudary then advance 8 bytes at a time
+    // we advance byte by byte till the 8 byte boundary then advance 8 bytes at a time
     auto num_bytes = reinterpret_cast<uintptr_t>(data_ptr) & 0x07;
     num_bytes = (8 - num_bytes) & 0x07;
     while (num_bytes > 0) {

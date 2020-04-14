@@ -192,7 +192,7 @@ class SequenceBuilder {
 
   // Appending a buffer to the sequence
   //
-  // \param buffer_index Indes of the buffer in the object.
+  // \param buffer_index Index of the buffer in the object.
   Status AppendBuffer(const int32_t buffer_index) {
     RETURN_NOT_OK(CreateAndUpdate(&buffer_indices_, PythonType::BUFFER,
                                   [this]() { return new Int32Builder(pool_); }));

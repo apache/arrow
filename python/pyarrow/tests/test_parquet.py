@@ -2643,7 +2643,7 @@ def test_noncoerced_nanoseconds_written_without_exception(tempdir):
     recovered_table = pq.read_table(filename)
     assert tb.equals(recovered_table)
 
-    # Loss of data thru coercion (without explicit override) still an error
+    # Loss of data through coercion (without explicit override) still an error
     filename = tempdir / 'not_written.parquet'
     with pytest.raises(ValueError):
         pq.write_table(tb, filename, coerce_timestamps='ms', version='2.0')
