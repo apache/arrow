@@ -945,7 +945,7 @@ def test_construct_from_single_file(tempdir):
     # instantiate from a single file with a filesystem object
     d2 = ds.dataset(path, filesystem=fs.LocalFileSystem())
     # instantiate from a single file with prefixed filesystem URI
-    d3 = ds.dataset(relative_path, filesystem='file://{}'.format(directory))
+    d3 = ds.dataset(relative_path, filesystem='file:{}'.format(directory))
     assert d1.to_table() == d2.to_table() == d3.to_table()
 
 
