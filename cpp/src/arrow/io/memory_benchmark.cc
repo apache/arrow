@@ -295,12 +295,12 @@ static void ParallelMemoryCopy(benchmark::State& state) {  // NOLINT non-const r
   const int64_t buffer_size = kMemoryPerCore;
 
   auto src = *AllocateBuffer(buffer_size);
-  auto dst = *AllocateBuffer(buffer_size);
+  std::shared_ptr<Buffer> dst = *AllocateBuffer(buffer_size);
 
   random_bytes(buffer_size, 0, src->mutable_data());
 
   while (state.KeepRunning()) {
-    io::FixedSizeBufferWriter writer(std::move(dst));
+    io::FixedSizeBufferWriter writer(dst);
     writer.set_memcopy_threads(static_cast<int>(n_threads));
     ABORT_NOT_OK(writer.Write(src->data(), src->size()));
   }
