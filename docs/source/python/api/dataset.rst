@@ -50,9 +50,10 @@ Classes
    PartitioningFactory
    DirectoryPartitioning
    HivePartitioning
+   Dataset
    FileSystemDataset
    FileSystemFactoryOptions
    FileSystemDatasetFactory
-   Dataset
+   UnionDataset
    Scanner
    Expression

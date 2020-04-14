@@ -113,7 +113,6 @@ Using the :meth:`Dataset.to_table` method we can read the dataset (or a portion
 of it) into a pyarrow Table (note that depending on the size of your dataset
 this can require a lot of memory, see below on filtering / iterative loading):
 
-
 .. ipython:: python
 
     dataset.to_table()
@@ -379,6 +378,16 @@ is materialized as columns when reading the data and can be used for filtering:
 Manual scheduling
 -----------------
 
-- fragments (get_fragments)
-- scan / scan tasks / iterators of record batches -> show dummy code to iterate
-  through all record batches and do something with them
+..
+    Possible content:
+    - fragments (get_fragments)
+    - scan / scan tasks / iterators of record batches
+
+The :func:`~Dataset.to_table` method loads all selected data into memory
+at once resulting in a pyarrow Table. Alternatively, a datasetscan also be
+scanned one RecordBatch at a time in an iterative manner using the
+:func:`~Dataset.scan` method::
+
+    for scan_task in dataset.scan(columns=[...], filter=...):
+        for record_batch in scan_task.execute():
+            # process the record batch
