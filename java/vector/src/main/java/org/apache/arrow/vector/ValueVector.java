@@ -28,7 +28,6 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
-import org.apache.arrow.vector.validate.Status;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -286,8 +285,8 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   String getName();
 
   /**
-   * Validate the vector.
+   * Validate the vector, will throw exception if validate fail.
    */
-  Status validate();
+  void validate();
 
 }

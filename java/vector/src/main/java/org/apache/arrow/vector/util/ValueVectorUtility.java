@@ -23,7 +23,6 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.validate.Status;
 import org.apache.arrow.vector.validate.ValidateVectorVisitor;
 
 import io.netty.buffer.ArrowBuf;
@@ -92,9 +91,9 @@ public class ValueVectorUtility {
   }
 
   /**
-   * Validate value vector.
+   * Validate field vector.
    */
-  public static Status validate(FieldVector vector) {
+  public static void validate(FieldVector vector) {
     Preconditions.checkNotNull(vector);
 
     ArrowType arrowType = vector.getField().getType();
@@ -102,11 +101,11 @@ public class ValueVectorUtility {
     TypeLayout typeLayout = TypeLayout.getTypeLayout(arrowType);
 
     if (vector.getValueCount() < 0) {
-      return Status.invalid("vector valueCount is negative");
+      throw new RuntimeException("vector valueCount is negative");
     }
 
     if (vector.getFieldBuffers().size() != typeBufferCount) {
-      return Status.invalid(String.format("Expected %s buffers in vector of type %s, got %s",
+      throw new RuntimeException(String.format("Expected %s buffers in vector of type %s, got %s",
           typeBufferCount, vector.getField().getType().toString(), vector.getBufferSize()));
     }
 
@@ -119,19 +118,18 @@ public class ValueVectorUtility {
       int minBufferSize = vector.getValueCount() * bufferLayout.getTypeBitWidth();
 
       if (buffer.capacity() < minBufferSize / 8) {
-        return Status.invalid(String.format("Buffer #%s too small in vector of type %s and valueCount %s :" +
+        throw new RuntimeException(String.format("Buffer #%s too small in vector of type %s and valueCount %s :" +
                 " expected at least %s byte(s), got %s", i, vector.getField().getType().toString(),
             vector.getValueCount(), minBufferSize, buffer.capacity()));
       }
     }
 
     if (vector.getNullCount() > vector.getValueCount()) {
-      return Status.invalid("Null count exceeds array length");
+      throw new RuntimeException("Null count exceeds array length");
     }
 
     ValidateVectorVisitor visitor = new ValidateVectorVisitor();
-    return vector.accept(visitor, null);
+    vector.accept(visitor, null);
   }
-
 
 }

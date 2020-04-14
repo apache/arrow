@@ -46,7 +46,6 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 import org.apache.arrow.vector.util.ValueVectorUtility;
-import org.apache.arrow.vector.validate.Status;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -573,8 +572,8 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   }
 
   @Override
-  public Status validate() {
-    return ValueVectorUtility.validate(this);
+  public void validate() {
+    ValueVectorUtility.validate(this);
   }
 
 }

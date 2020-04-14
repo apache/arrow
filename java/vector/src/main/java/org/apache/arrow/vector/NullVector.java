@@ -38,7 +38,6 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
 import org.apache.arrow.vector.util.ValueVectorUtility;
-import org.apache.arrow.vector.validate.Status;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -248,8 +247,8 @@ public class NullVector implements FieldVector {
   }
 
   @Override
-  public Status validate() {
-    return ValueVectorUtility.validate(this);
+  public void validate() {
+    ValueVectorUtility.validate(this);
   }
 
   @Override
