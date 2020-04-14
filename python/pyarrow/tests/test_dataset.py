@@ -571,7 +571,7 @@ def test_filesystem_factory(mockfs, paths_or_selector):
         ])
     )
     assert options.partition_base_dir == 'subdir'
-    assert options.ignore_prefixes == ['.', '_']
+    assert options.selector_ignore_prefixes == ['.', '_']
     assert options.exclude_invalid_files is False
 
     factory = ds.FileSystemDatasetFactory(

@@ -115,43 +115,11 @@ bool StartsWithAnyOf(const std::vector<std::string>& prefixes, const std::string
     return false;
   }
 
-  auto dir_base = fs::internal::GetAbstractPathParent(path);
-  util::string_view basename{dir_base.second};
+  auto basename = fs::internal::GetAbstractPathParent(path).second;
 
-  auto matches_prefix = [&basename](const std::string& prefix) -> bool {
-    return !prefix.empty() && basename.starts_with(prefix);
-  };
-
-  return std::any_of(prefixes.cbegin(), prefixes.cend(), matches_prefix);
-}
-
-Result<fs::PathForest> FileSystemDatasetFactory::Filter(
-    const std::shared_ptr<fs::FileSystem>& filesystem,
-    const std::shared_ptr<FileFormat>& format, const FileSystemFactoryOptions& options,
-    fs::PathForest forest) {
-  std::vector<fs::FileInfo> out;
-
-  auto& infos = forest.infos();
-  RETURN_NOT_OK(forest.Visit([&](fs::PathForest::Ref ref) -> fs::PathForest::MaybePrune {
-    const auto& path = ref.info().path();
-
-    if (StartsWithAnyOf(options.ignore_prefixes, path)) {
-      return fs::PathForest::Prune;
-    }
-
-    if (ref.info().IsFile() && options.exclude_invalid_files) {
-      ARROW_ASSIGN_OR_RAISE(auto supported,
-                            format->IsSupported(FileSource(path, filesystem.get())));
-      if (!supported) {
-        return fs::PathForest::Continue;
-      }
-    }
-
-    out.push_back(std::move(infos[ref.i]));
-    return fs::PathForest::Continue;
-  }));
-
-  return fs::PathForest::MakeFromPreSorted(std::move(out));
+  return std::any_of(prefixes.cbegin(), prefixes.cend(), [&](util::string_view prefix) {
+    return util::string_view(basename).starts_with(prefix);
+  });
 }
 
 Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
@@ -176,11 +144,10 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
   }));
 
   files = std::move(forest).infos();
-  std::move(missing.begin(), missing.end(), std::back_inserter(files));
+  files.resize(files.size() + missing.size());
+  std::move(missing.begin(), missing.end(), files.end() - missing.size());
 
   ARROW_ASSIGN_OR_RAISE(forest, fs::PathForest::Make(std::move(files)));
-
-  ARROW_ASSIGN_OR_RAISE(forest, Filter(filesystem, format, options, std::move(forest)));
 
   return std::shared_ptr<DatasetFactory>(new FileSystemDatasetFactory(
       std::move(filesystem), std::move(forest), std::move(format), std::move(options)));
@@ -189,18 +156,39 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
 Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
     std::shared_ptr<fs::FileSystem> filesystem, fs::FileSelector selector,
     std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options) {
-  ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetFileInfo(selector));
-
-  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(files)));
-
-  ARROW_ASSIGN_OR_RAISE(forest, Filter(filesystem, format, options, std::move(forest)));
-
   // By automatically setting the options base_dir to the selector's base_dir,
   // we provide a better experience for user providing Partitioning that are
   // relative to the base_dir instead of the full path.
   if (options.partition_base_dir.empty() && !selector.base_dir.empty()) {
     options.partition_base_dir = selector.base_dir;
   }
+
+  ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetFileInfo(selector));
+  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(files)));
+
+  std::vector<fs::FileInfo> filtered_files;
+
+  RETURN_NOT_OK(forest.Visit([&](fs::PathForest::Ref ref) -> fs::PathForest::MaybePrune {
+    const auto& path = ref.info().path();
+
+    if (StartsWithAnyOf(options.selector_ignore_prefixes, path)) {
+      return fs::PathForest::Prune;
+    }
+
+    if (ref.info().IsFile() && options.exclude_invalid_files) {
+      ARROW_ASSIGN_OR_RAISE(auto supported,
+                            format->IsSupported(FileSource(path, filesystem.get())));
+      if (!supported) {
+        return fs::PathForest::Continue;
+      }
+    }
+
+    filtered_files.push_back(std::move(forest.infos()[ref.i]));
+    return fs::PathForest::Continue;
+  }));
+
+  ARROW_ASSIGN_OR_RAISE(forest,
+                        fs::PathForest::MakeFromPreSorted(std::move(filtered_files)));
 
   return std::shared_ptr<DatasetFactory>(new FileSystemDatasetFactory(
       filesystem, std::move(forest), std::move(format), std::move(options)));

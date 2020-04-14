@@ -1082,9 +1082,9 @@ cdef class FileSystemFactoryOptions:
         fashion. Disabling this feature will skip the IO, but unsupported
         files may be present in the Dataset (resulting in an error at scan
         time).
-    ignore_prefixes : list, optional
-        Files matching one of those prefixes will be ignored by the
-        discovery process. This is matched to the basename of a path.
+    selector_ignore_prefixes : list, optional
+        When discovering from a Selector (and not from an explicit file list),
+        ignore files and directories matching any of these prefixes.
         By default this is ['.', '_'].
     """
 
@@ -1094,13 +1094,13 @@ cdef class FileSystemFactoryOptions:
     __slots__ = ()  # avoid mistakingly creating attributes
 
     def __init__(self, partition_base_dir=None, exclude_invalid_files=None,
-                 list ignore_prefixes=None):
+                 list selector_ignore_prefixes=None):
         if partition_base_dir is not None:
             self.partition_base_dir = partition_base_dir
         if exclude_invalid_files is not None:
             self.exclude_invalid_files = exclude_invalid_files
-        if ignore_prefixes is not None:
-            self.ignore_prefixes = ignore_prefixes
+        if selector_ignore_prefixes is not None:
+            self.selector_ignore_prefixes = selector_ignore_prefixes
 
     cdef inline CFileSystemFactoryOptions unwrap(self):
         return self.options
@@ -1157,16 +1157,16 @@ cdef class FileSystemFactoryOptions:
         self.options.exclude_invalid_files = value
 
     @property
-    def ignore_prefixes(self):
+    def selector_ignore_prefixes(self):
         """
         List of prefixes. Files matching one of those prefixes will be
         ignored by the discovery process.
         """
-        return [frombytes(p) for p in self.options.ignore_prefixes]
+        return [frombytes(p) for p in self.options.selector_ignore_prefixes]
 
-    @ignore_prefixes.setter
-    def ignore_prefixes(self, values):
-        self.options.ignore_prefixes = [tobytes(v) for v in values]
+    @selector_ignore_prefixes.setter
+    def selector_ignore_prefixes(self, values):
+        self.options.selector_ignore_prefixes = [tobytes(v) for v in values]
 
 
 cdef class FileSystemDatasetFactory(DatasetFactory):
