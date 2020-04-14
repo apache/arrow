@@ -29,9 +29,8 @@ jobs:
     name: Docker Test
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Ruby
-        uses: actions/setup-ruby@master
       - name: Checkout Arrow
+        shell: bash
         run: |
           git clone --no-checkout {{ arrow.remote }} arrow
           git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
@@ -39,7 +38,7 @@ jobs:
           git -C arrow submodule update --init --recursive
       - name: Run Docker Build
         shell: bash
-      - run: |
+        run: |
           pushd arrow
           {% if env is defined %}
           {%- for key, value in env.items() %}
