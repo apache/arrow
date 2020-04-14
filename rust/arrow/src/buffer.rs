@@ -201,7 +201,7 @@ impl Buffer {
     /// Returns a slice of this buffer, starting from `offset`.
     pub fn slice(&self, offset: usize) -> Self {
         assert!(
-            self.offset + offset <= self.len(),
+            offset <= self.len(),
             "the offset of the new Buffer cannot exceed the existing length"
         );
         Self {
@@ -524,9 +524,7 @@ impl MutableBuffer {
         if self.data.is_null() {
             &mut []
         } else {
-            unsafe {
-                std::slice::from_raw_parts_mut(self.raw_data() as *mut u8, self.len())
-            }
+            unsafe { std::slice::from_raw_parts_mut(self.raw_data_mut(), self.len()) }
         }
     }
 
@@ -535,6 +533,10 @@ impl MutableBuffer {
     /// Note that this should be used cautiously, and the returned pointer should not be
     /// stored anywhere, to avoid dangling pointers.
     pub fn raw_data(&self) -> *const u8 {
+        self.data
+    }
+
+    pub fn raw_data_mut(&mut self) -> *mut u8 {
         self.data
     }
 
@@ -688,6 +690,7 @@ mod tests {
         assert_eq!(empty_slice, buf4.data());
         assert_eq!(0, buf4.len());
         assert!(buf4.is_empty());
+        assert_eq!(buf2.slice(2).data(), &[10]);
     }
 
     #[test]

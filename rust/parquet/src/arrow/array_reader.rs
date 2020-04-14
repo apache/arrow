@@ -182,30 +182,30 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
             (ArrowType::Float64, PhysicalType::DOUBLE) => {
                 Float64Converter::convert(self.record_reader.cast::<DoubleType>())
             }
-            (ArrowType::Timestamp(_, _), PhysicalType::INT64) => unsafe {
+            (ArrowType::Timestamp(_, _), PhysicalType::INT64) => {
                 UInt64Converter::convert(self.record_reader.cast::<Int64Type>())
-            },
-            (ArrowType::Date32(_), PhysicalType::INT32) => unsafe {
+            }
+            (ArrowType::Date32(_), PhysicalType::INT32) => {
                 UInt32Converter::convert(self.record_reader.cast::<Int32Type>())
-            },
-            (ArrowType::Date64(_), PhysicalType::INT64) => unsafe {
+            }
+            (ArrowType::Date64(_), PhysicalType::INT64) => {
                 UInt64Converter::convert(self.record_reader.cast::<Int64Type>())
-            },
-            (ArrowType::Time32(_), PhysicalType::INT32) => unsafe {
+            }
+            (ArrowType::Time32(_), PhysicalType::INT32) => {
                 UInt32Converter::convert(self.record_reader.cast::<Int32Type>())
-            },
-            (ArrowType::Time64(_), PhysicalType::INT64) => unsafe {
+            }
+            (ArrowType::Time64(_), PhysicalType::INT64) => {
                 UInt64Converter::convert(self.record_reader.cast::<Int64Type>())
-            },
-            (ArrowType::Interval(IntervalUnit::YearMonth), PhysicalType::INT32) => unsafe {
+            }
+            (ArrowType::Interval(IntervalUnit::YearMonth), PhysicalType::INT32) => {
                 UInt32Converter::convert(self.record_reader.cast::<Int32Type>())
-            },
-            (ArrowType::Interval(IntervalUnit::DayTime), PhysicalType::INT64) => unsafe {
+            }
+            (ArrowType::Interval(IntervalUnit::DayTime), PhysicalType::INT64) => {
                 UInt64Converter::convert(self.record_reader.cast::<Int64Type>())
-            },
-            (ArrowType::Duration(_), PhysicalType::INT64) => unsafe {
+            }
+            (ArrowType::Duration(_), PhysicalType::INT64) => {
                 UInt64Converter::convert(self.record_reader.cast::<Int64Type>())
-            },
+            }
             (arrow_type, physical_type) => Err(general_err!(
                 "Reading {:?} type from parquet {:?} is not supported yet.",
                 arrow_type,
