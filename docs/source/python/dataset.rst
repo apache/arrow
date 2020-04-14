@@ -137,11 +137,11 @@ If we save the table as a Feather file instead of Parquet files:
     feather.write_feather(table, base / "data.feather")
 
 then we can read the Feather file using the same functions, but with specifying
-``format="ipc"``:
+``format="feather"``:
 
 .. ipython:: python
 
-    dataset = ds.dataset(base / "data.feather", format="ipc")
+    dataset = ds.dataset(base / "data.feather", format="feather")
     dataset.to_table().to_pandas().head()
 
 Customizing file formats
@@ -151,16 +151,16 @@ The format name as a string, like::
 
     ds.dataset(..., format="parquet")
 
-is short hand for a default constructed class:`ParquetFileFormat`.
+is short hand for a default constructed class:`ParquetFileFormat`::
 
     ds.dataset(..., format=ds.ParquetFileForma())
 
-The class:`FileFormat` objects can be customized using keywords. For example::
+The :class:`FileFormat` objects can be customized using keywords. For example::
 
-    format = ds.ParquetFileFormat(read_options={'dictionary_columns': ['a']})
-    ds.dataset(..., format=format)
+    parquet_format = ds.ParquetFileFormat(read_options={'dictionary_columns': ['a']})
+    ds.dataset(..., format=parquet_format)
 
-Will configure column ``a`` to be dictionary encoded on scan.
+Will configure column ``"a"`` to be dictionary encoded on scan.
 
 Filtering data
 --------------
@@ -230,7 +230,7 @@ For example, a dataset partitioned by year and month may look like on disk:
 The above partitioning scheme is using "/key=value/" directory names, as found
 in Apache Hive.
 
-Let's create a small partitioned dataset. The:func:`~pyarrow.parquet.write_to_dataset`
+Let's create a small partitioned dataset. The :func:`~pyarrow.parquet.write_to_dataset`
 function can write such hive-like partitioned datasets.
 
 .. ipython:: python
@@ -249,7 +249,7 @@ uses a hive-like partitioning scheme with the `partitioning` keyword:
 
 .. ipython:: python
 
-    dataset = ds.dataset(str(base / "parquet_dataset_partitioned2"), format="parquet",
+    dataset = ds.dataset(str(base / "parquet_dataset_partitioned"), format="parquet",
                          partitioning="hive")
     dataset.files
 
@@ -306,8 +306,8 @@ Reading from cloud storage
 --------------------------
 
 In addition to local files, pyarrow also supports reading from cloud storage.
-Currently, :class:`HDFS <HadoopFileSystem>` and
-:class:`Amazon S3-compatible storage <S3FileSystem>` are supported.
+Currently, :class:`HDFS <pyarrow.fs.HadoopFileSystem>` and
+:class:`Amazon S3-compatible storage <pyarrow.fs.S3FileSystem>` are supported.
 
 When passing a file URI, the file system will be inferred. For example,
 specifying a S3 path:
@@ -349,22 +349,23 @@ additional partitioning information:
 
     # creating a dummy dataset: directory with two files
     table = pa.table({'col1': range(3), 'col2': np.random.randn(3)})
-    pq.write_table(table, "parquet_dataset_manual/data_2018.parquet")
-    pq.write_table(table, "parquet_dataset_manual/data_2019.parquet")
+    (base / "parquet_dataset_manual").mkdir(exist_ok=True)
+    pq.write_table(table, base / "parquet_dataset_manual" / "data_2018.parquet")
+    pq.write_table(table, base / "parquet_dataset_manual" / "data_2019.parquet")
 
-To create a Dataset from a list of files, we need to specify the schema, format,
-filesystem, and paths manually:
+To create a Dataset from a list of files, we need to specify the paths, schema,
+format, filesystem, and partition expressions manually:
 
 .. ipython:: python
 
-    import pyarrow.fs
+    from pyarrow import fs
 
-    schema = pa.schema([("year", pa.int32()), ("col1", pa.int64()), ("col2", pa.float64())])
+    schema = pa.schema([("year", pa.int64()), ("col1", pa.int64()), ("col2", pa.float64())])
 
     dataset = ds.FileSystemDataset(
-        schema, None, ds.ParquetFileFormat(), pa.fs.LocalFileSystem(),
-        ["parquet_dataset_manual/data_2018.parquet", "parquet_dataset_manual/data_2019.parquet"],
-        [ds.field('year') == 2018, ds.field('year') == 2019])
+        ["data_2018.parquet", "data_2019.parquet"], schema=schema, format=ds.ParquetFileFormat(),
+        filesystem=fs.SubTreeFileSystem(str(base / "parquet_dataset_manual"), fs.LocalFileSystem()),
+        partitions=[ds.field('year') == 2018, ds.field('year') == 2019])
 
 Since we specified the "partition expressions" for our files, this information
 is materialized as columns when reading the data and can be used for filtering:
