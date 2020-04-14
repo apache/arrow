@@ -28,16 +28,19 @@ Tabular Datasets
     and a stable API is not yet guaranteed.
 
 The ``pyarrow.dataset`` module provides functionality to efficiently work with
-tabular, potentially larger than memory and multi-file, datasets:
+tabular, potentially larger than memory and multi-file datasets:
 
-* A unified interface for different sources: supporting different sources
-  (files, database connection, ..), different file systems (local, cloud) and
-  different file formats (Parquet, CSV, JSON, Feather, ..)
+* A unified interface for different sources: supporting different sources and
+  file formats (Parquet, Feather files) and different file systems (local,
+  cloud).
 * Discovery of sources (crawling directories, handle directory-based partitioned
   datasets, basic schema normalization, ..)
-* Optimized reading with pedicate pushdown (filtering rows), projection
+* Optimized reading with predicate pushdown (filtering rows), projection
   (selecting columns), parallel reading or fine-grained managing of tasks.
 
+Currently, only Parquet and Feather / Arrow IPC files are supported. The goal
+is to expand this in the future to other file formats and data sources (e.g.
+database connections).
 
 For those familiar with the existing :class:`pyarrow.parquet.ParquetDataset` for
 reading Parquet datasets: ``pyarrow.dataset``'s goal is similar but not specific
@@ -47,29 +50,20 @@ perfomance and new features (e.g. filtering within files rather than only on
 partition keys).
 
 
-
 Reading Datasets
 ----------------
 
-
-
 .. TODO Full blown example with NYC taxi data to show off, afterwards explain all parts:
 
-.. ipython:: python
-
-    import pyarrow as pa
-    import pyarrow.dataset as ds
-
-...
-
-
-For the next examples, we are first going to create a small dataset consisting
+For the examples below, let's create a small dataset consisting
 of a directory with two parquet files:
 
 .. ipython:: python
 
     import tempfile
     import pathlib
+    import pyarrow as pa
+    import pyarrow.parquet as pq
 
     base = pathlib.Path(tempfile.gettempdir())
     (base / "parquet_dataset").mkdir(exist_ok=True)
@@ -78,7 +72,6 @@ of a directory with two parquet files:
     table = pa.table({'a': range(10), 'b': np.random.randn(10), 'c': [1, 2] * 5})
 
     # writing it into two parquet files
-    import pyarrow.parquet as pq
     pq.write_table(table.slice(0, 5), base / "parquet_dataset/data1.parquet")
     pq.write_table(table.slice(5, 10), base / "parquet_dataset/data2.parquet")
 
@@ -90,6 +83,7 @@ can pass it the path to the directory containing the data files:
 
 .. ipython:: python
 
+    import pyarrow.dataset as ds
     dataset = ds.dataset(base / "parquet_dataset", format="parquet")
     dataset
 
@@ -285,10 +279,10 @@ using the :func:`partitioning` function. For example:
     )
     dataset = ds.dataset(..., partitioning=part)
 
-In addition to the hive-like directory scheme, also a "directory partitioning"
-scheme is supported, where the segments in the file path are the values of
-the partition keys without including the name. The equivalent (year, month, day)
-example would be "/2019/11/15/".
+"Directory partitioning" is also supported, where the segments in the file path
+represent the values of the partition keys without including the name (the
+field name are implicit in the segment's index). For example, given field names
+"year", "month", and "day", one path might be "/2019/11/15".
 
 Since the names are not included in the file paths, these must be specified
 when constructing a directory partitioning:
@@ -384,7 +378,7 @@ Manual scheduling
     - scan / scan tasks / iterators of record batches
 
 The :func:`~Dataset.to_table` method loads all selected data into memory
-at once resulting in a pyarrow Table. Alternatively, a datasetscan also be
+at once resulting in a pyarrow Table. Alternatively, a dataset can also be
 scanned one RecordBatch at a time in an iterative manner using the
 :func:`~Dataset.scan` method::
 
