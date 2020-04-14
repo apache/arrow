@@ -335,10 +335,8 @@ class SchemaWriter {
   Status Visit(const TimeType& type) { return WritePrimitive("time", type); }
   Status Visit(const StringType& type) { return WriteVarBytes("utf8", type); }
   Status Visit(const BinaryType& type) { return WriteVarBytes("binary", type); }
-  Status Visit(const LargeStringType& type) { return WriteVarBytes("large_utf8", type); }
-  Status Visit(const LargeBinaryType& type) {
-    return WriteVarBytes("large_binary", type);
-  }
+  Status Visit(const LargeStringType& type) { return WriteVarBytes("largeutf8", type); }
+  Status Visit(const LargeBinaryType& type) { return WriteVarBytes("largebinary", type); }
   Status Visit(const FixedSizeBinaryType& type) {
     return WritePrimitive("fixedsizebinary", type);
   }
@@ -358,7 +356,7 @@ class SchemaWriter {
   }
 
   Status Visit(const LargeListType& type) {
-    WriteName("large_list", type);
+    WriteName("largelist", type);
     return Status::OK();
   }
 
@@ -932,9 +930,9 @@ static Status GetType(const RjObject& json_type,
     *type = utf8();
   } else if (type_name == "binary") {
     *type = binary();
-  } else if (type_name == "large_utf8") {
+  } else if (type_name == "largeutf8") {
     *type = large_utf8();
-  } else if (type_name == "large_binary") {
+  } else if (type_name == "largebinary") {
     *type = large_binary();
   } else if (type_name == "fixedsizebinary") {
     return GetFixedSizeBinary(json_type, type);
@@ -957,7 +955,7 @@ static Status GetType(const RjObject& json_type,
       return Status::Invalid("List must have exactly one child");
     }
     *type = list(children[0]);
-  } else if (type_name == "large_list") {
+  } else if (type_name == "largelist") {
     if (children.size() != 1) {
       return Status::Invalid("Large list must have exactly one child");
     }
