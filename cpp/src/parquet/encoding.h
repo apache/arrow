@@ -296,9 +296,6 @@ class TypedDecoder : virtual public Decoder {
 
     // Depending on the number of nulls, some of the value slots in buffer may
     // be uninitialized, and this will cause valgrind warnings / potentially UB
-    // TODO: With SIMD shuffle in the loop below we might be able to get better
-    // performance on doing the memset only on values that aren't copied, and fill
-    // in all the values below.
     memset(static_cast<void*>(buffer + values_read), 0,
            (num_values - values_read) * sizeof(T));
 
