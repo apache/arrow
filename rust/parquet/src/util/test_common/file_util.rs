@@ -36,11 +36,14 @@ pub fn get_test_path(file_name: &str) -> PathBuf {
 
 /// Returns file handle for a test parquet file from 'data' directory
 pub fn get_test_file(file_name: &str) -> fs::File {
-    let file = fs::File::open(get_test_path(file_name).as_path());
-    if file.is_err() {
-        panic!("Test file {} not found", file_name)
-    }
-    file.unwrap()
+    let path = get_test_path(file_name);
+    fs::File::open(path.as_path()).unwrap_or_else(|err| {
+        panic!(
+            "Test file {} could not be opened, did you do `git submodule update`?: {}",
+            path.display(),
+            err
+        )
+    })
 }
 
 /// Returns file handle for a temp file in 'target' directory with a provided content

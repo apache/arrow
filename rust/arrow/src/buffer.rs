@@ -27,9 +27,7 @@ use std::fmt::{Debug, Formatter};
 use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::mem;
 use std::ops::{BitAnd, BitOr, Not};
-use std::slice::from_raw_parts;
-#[cfg(feature = "simd")]
-use std::slice::from_raw_parts_mut;
+use std::slice::{from_raw_parts, from_raw_parts_mut};
 use std::sync::Arc;
 
 use crate::array::{BufferBuilderTrait, UInt8BufferBuilder};
@@ -68,14 +66,11 @@ struct BufferData {
 
 impl PartialEq for BufferData {
     fn eq(&self, other: &BufferData) -> bool {
-        if self.len != other.len {
-            return false;
-        }
         if self.capacity != other.capacity {
             return false;
         }
 
-        unsafe { memory::memcmp(self.ptr, other.ptr, self.len) == 0 }
+        self.data() == other.data()
     }
 }
 
@@ -96,13 +91,19 @@ impl Debug for BufferData {
             self.ptr, self.len, self.capacity
         )?;
 
-        unsafe {
-            f.debug_list()
-                .entries(std::slice::from_raw_parts(self.ptr, self.len).iter())
-                .finish()?;
-        }
+        f.debug_list().entries(self.data().iter()).finish()?;
 
         write!(f, " }}")
+    }
+}
+
+impl BufferData {
+    fn data(&self) -> &[u8] {
+        if self.ptr.is_null() {
+            &[]
+        } else {
+            unsafe { std::slice::from_raw_parts(self.ptr, self.len) }
+        }
     }
 }
 
@@ -194,13 +195,13 @@ impl Buffer {
 
     /// Returns the byte slice stored in this buffer
     pub fn data(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.raw_data(), self.len()) }
+        &self.data.data()[self.offset..]
     }
 
     /// Returns a slice of this buffer, starting from `offset`.
     pub fn slice(&self, offset: usize) -> Self {
         assert!(
-            self.offset + offset <= self.len(),
+            offset <= self.len(),
             "the offset of the new Buffer cannot exceed the existing length"
         );
         Self {
@@ -511,12 +512,20 @@ impl MutableBuffer {
 
     /// Returns the data stored in this buffer as a slice.
     pub fn data(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.raw_data(), self.len()) }
+        if self.data.is_null() {
+            &[]
+        } else {
+            unsafe { std::slice::from_raw_parts(self.raw_data(), self.len()) }
+        }
     }
 
     /// Returns the data stored in this buffer as a mutable slice.
     pub fn data_mut(&mut self) -> &mut [u8] {
-        unsafe { std::slice::from_raw_parts_mut(self.raw_data() as *mut u8, self.len()) }
+        if self.data.is_null() {
+            &mut []
+        } else {
+            unsafe { std::slice::from_raw_parts_mut(self.raw_data_mut(), self.len()) }
+        }
     }
 
     /// Returns a raw pointer for this buffer.
@@ -524,6 +533,10 @@ impl MutableBuffer {
     /// Note that this should be used cautiously, and the returned pointer should not be
     /// stored anywhere, to avoid dangling pointers.
     pub fn raw_data(&self) -> *const u8 {
+        self.data
+    }
+
+    pub fn raw_data_mut(&mut self) -> *mut u8 {
         self.data
     }
 
@@ -539,6 +552,18 @@ impl MutableBuffer {
         Buffer {
             data: Arc::new(buffer_data),
             offset: 0,
+        }
+    }
+
+    /// View buffer as typed slice.
+    pub fn typed_data_mut<T: ArrowNativeType + num::Num>(&mut self) -> &mut [T] {
+        assert_eq!(self.len() % mem::size_of::<T>(), 0);
+        assert!(memory::is_ptr_aligned::<T>(self.raw_data() as *const T));
+        unsafe {
+            from_raw_parts_mut(
+                self.raw_data() as *mut T,
+                self.len() / mem::size_of::<T>(),
+            )
         }
     }
 }
@@ -665,6 +690,7 @@ mod tests {
         assert_eq!(empty_slice, buf4.data());
         assert_eq!(0, buf4.len());
         assert!(buf4.is_empty());
+        assert_eq!(buf2.slice(2).data(), &[10]);
     }
 
     #[test]
