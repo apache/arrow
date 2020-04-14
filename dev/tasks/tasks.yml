@@ -2121,7 +2121,7 @@ tasks:
     params:
       env:
         PYTHON: 3.7
-        HDFS: master
+        HDFS: 2.9.2
       build:
         - conda-cpp
         - conda-python
