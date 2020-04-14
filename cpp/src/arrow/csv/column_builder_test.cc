@@ -44,61 +44,67 @@ using internal::TaskGroup;
 
 using ChunkData = std::vector<std::vector<std::string>>;
 
-void AssertBuilding(const std::shared_ptr<ColumnBuilder>& builder,
-                    const ChunkData& chunks, std::shared_ptr<ChunkedArray>* out) {
-  for (const auto& chunk : chunks) {
-    std::shared_ptr<BlockParser> parser;
-    MakeColumnParser(chunk, &parser);
-    builder->Append(parser);
+class ColumnBuilderTest : public ::testing::Test {
+ public:
+  void AssertBuilding(const std::shared_ptr<ColumnBuilder>& builder,
+                      const ChunkData& chunks, std::shared_ptr<ChunkedArray>* out) {
+    for (const auto& chunk : chunks) {
+      std::shared_ptr<BlockParser> parser;
+      MakeColumnParser(chunk, &parser);
+      builder->Append(parser);
+    }
+    ASSERT_OK(builder->task_group()->Finish());
+    ASSERT_OK_AND_ASSIGN(*out, builder->Finish());
+    ASSERT_OK((*out)->ValidateFull());
   }
-  ASSERT_OK(builder->task_group()->Finish());
-  ASSERT_OK_AND_ASSIGN(*out, builder->Finish());
-  ASSERT_OK((*out)->ValidateFull());
-}
 
-void CheckInferred(const std::shared_ptr<TaskGroup>& tg, const ChunkData& csv_data,
-                   const ConvertOptions& options,
-                   std::shared_ptr<ChunkedArray> expected) {
-  std::shared_ptr<ColumnBuilder> builder;
-  std::shared_ptr<ChunkedArray> actual;
-  ASSERT_OK_AND_ASSIGN(builder,
-                       ColumnBuilder::Make(default_memory_pool(), 0, options, tg));
-  AssertBuilding(builder, csv_data, &actual);
-  AssertChunkedEqual(*actual, *expected);
-}
+  void CheckInferred(const std::shared_ptr<TaskGroup>& tg, const ChunkData& csv_data,
+                     const ConvertOptions& options,
+                     std::shared_ptr<ChunkedArray> expected) {
+    std::shared_ptr<ColumnBuilder> builder;
+    std::shared_ptr<ChunkedArray> actual;
+    ASSERT_OK_AND_ASSIGN(builder,
+                         ColumnBuilder::Make(default_memory_pool(), 0, options, tg));
+    AssertBuilding(builder, csv_data, &actual);
+    AssertChunkedEqual(*actual, *expected);
+  }
 
-void CheckInferred(const std::shared_ptr<TaskGroup>& tg, const ChunkData& csv_data,
-                   const ConvertOptions& options,
-                   std::vector<std::shared_ptr<Array>> expected_chunks) {
-  CheckInferred(tg, csv_data, options, std::make_shared<ChunkedArray>(expected_chunks));
-}
+  void CheckInferred(const std::shared_ptr<TaskGroup>& tg, const ChunkData& csv_data,
+                     const ConvertOptions& options,
+                     std::vector<std::shared_ptr<Array>> expected_chunks) {
+    CheckInferred(tg, csv_data, options, std::make_shared<ChunkedArray>(expected_chunks));
+  }
 
-void CheckFixedType(const std::shared_ptr<TaskGroup>& tg,
-                    const std::shared_ptr<DataType>& type, const ChunkData& csv_data,
-                    const ConvertOptions& options,
-                    std::shared_ptr<ChunkedArray> expected) {
-  std::shared_ptr<ColumnBuilder> builder;
-  std::shared_ptr<ChunkedArray> actual;
-  ASSERT_OK_AND_ASSIGN(builder,
-                       ColumnBuilder::Make(default_memory_pool(), type, 0, options, tg));
-  AssertBuilding(builder, csv_data, &actual);
-  AssertChunkedEqual(*actual, *expected);
-}
+  void CheckFixedType(const std::shared_ptr<TaskGroup>& tg,
+                      const std::shared_ptr<DataType>& type, const ChunkData& csv_data,
+                      const ConvertOptions& options,
+                      std::shared_ptr<ChunkedArray> expected) {
+    std::shared_ptr<ColumnBuilder> builder;
+    std::shared_ptr<ChunkedArray> actual;
+    ASSERT_OK_AND_ASSIGN(
+        builder, ColumnBuilder::Make(default_memory_pool(), type, 0, options, tg));
+    AssertBuilding(builder, csv_data, &actual);
+    AssertChunkedEqual(*actual, *expected);
+  }
 
-void CheckFixedType(const std::shared_ptr<TaskGroup>& tg,
-                    const std::shared_ptr<DataType>& type, const ChunkData& csv_data,
-                    const ConvertOptions& options,
-                    std::vector<std::shared_ptr<Array>> expected_chunks) {
-  CheckFixedType(tg, type, csv_data, options,
-                 std::make_shared<ChunkedArray>(expected_chunks));
-}
+  void CheckFixedType(const std::shared_ptr<TaskGroup>& tg,
+                      const std::shared_ptr<DataType>& type, const ChunkData& csv_data,
+                      const ConvertOptions& options,
+                      std::vector<std::shared_ptr<Array>> expected_chunks) {
+    CheckFixedType(tg, type, csv_data, options,
+                   std::make_shared<ChunkedArray>(expected_chunks));
+  }
 
-static ConvertOptions default_options = ConvertOptions::Defaults();
+ protected:
+  ConvertOptions default_options = ConvertOptions::Defaults();
+};
 
 //////////////////////////////////////////////////////////////////////////
 // Tests for null column builder
 
-TEST(NullColumnBuilder, Empty) {
+class NullColumnBuilderTest : public ColumnBuilderTest {};
+
+TEST_F(NullColumnBuilderTest, Empty) {
   std::shared_ptr<DataType> type = null();
   auto tg = TaskGroup::MakeSerial();
 
@@ -112,7 +118,7 @@ TEST(NullColumnBuilder, Empty) {
   AssertChunkedEqual(*actual, expected);
 }
 
-TEST(NullColumnBuilder, InsertNull) {
+TEST_F(NullColumnBuilderTest, InsertNull) {
   // Building a column of nulls with type null()
   std::shared_ptr<DataType> type = null();
   auto tg = TaskGroup::MakeSerial();
@@ -137,7 +143,7 @@ TEST(NullColumnBuilder, InsertNull) {
   AssertChunkedEqual(*actual, *expected);
 }
 
-TEST(NullColumnBuilder, InsertTyped) {
+TEST_F(NullColumnBuilderTest, InsertTyped) {
   // Building a column of nulls with another type
   std::shared_ptr<DataType> type = int16();
   auto tg = TaskGroup::MakeSerial();
@@ -162,7 +168,7 @@ TEST(NullColumnBuilder, InsertTyped) {
   AssertChunkedEqual(*actual, *expected);
 }
 
-TEST(NullColumnBuilder, EmptyChunks) {
+TEST_F(NullColumnBuilderTest, EmptyChunks) {
   std::shared_ptr<DataType> type = int16();
   auto tg = TaskGroup::MakeSerial();
 
@@ -192,7 +198,9 @@ TEST(NullColumnBuilder, EmptyChunks) {
 //////////////////////////////////////////////////////////////////////////
 // Tests for fixed-type column builder
 
-TEST(ColumnBuilder, Empty) {
+class TypedColumnBuilderTest : public ColumnBuilderTest {};
+
+TEST_F(TypedColumnBuilderTest, Empty) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
@@ -206,7 +214,7 @@ TEST(ColumnBuilder, Empty) {
   AssertChunkedEqual(*actual, expected);
 }
 
-TEST(ColumnBuilder, Basics) {
+TEST_F(TypedColumnBuilderTest, Basics) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
 
@@ -214,7 +222,7 @@ TEST(ColumnBuilder, Basics) {
                  {ArrayFromJSON(int32(), "[123, -456]")});
 }
 
-TEST(ColumnBuilder, Insert) {
+TEST_F(TypedColumnBuilderTest, Insert) {
   // Test ColumnBuilder::Insert()
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
@@ -236,7 +244,7 @@ TEST(ColumnBuilder, Insert) {
   AssertChunkedEqual(*actual, *expected);
 }
 
-TEST(ColumnBuilder, MultipleChunks) {
+TEST_F(TypedColumnBuilderTest, MultipleChunks) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
 
@@ -244,7 +252,7 @@ TEST(ColumnBuilder, MultipleChunks) {
                  {ArrayFromJSON(int16(), "[1, 2, 3]"), ArrayFromJSON(int16(), "[4, 5]")});
 }
 
-TEST(ColumnBuilder, MultipleChunksParallel) {
+TEST_F(TypedColumnBuilderTest, MultipleChunksParallel) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeThreaded(GetCpuThreadPool());
 
@@ -254,7 +262,7 @@ TEST(ColumnBuilder, MultipleChunksParallel) {
                  expected);
 }
 
-TEST(ColumnBuilder, EmptyChunks) {
+TEST_F(TypedColumnBuilderTest, EmptyChunks) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
 
@@ -266,21 +274,42 @@ TEST(ColumnBuilder, EmptyChunks) {
 //////////////////////////////////////////////////////////////////////////
 // Tests for type-inferring column builder
 
-TEST(InferringColumnBuilder, Empty) {
+class InferringColumnBuilderTest : public ColumnBuilderTest {
+ public:
+  void CheckAutoDictEncoded(const std::shared_ptr<TaskGroup>& tg,
+                            const ChunkData& csv_data, const ConvertOptions& options,
+                            std::vector<std::shared_ptr<Array>> expected_indices,
+                            std::vector<std::shared_ptr<Array>> expected_dictionaries) {
+    std::shared_ptr<ColumnBuilder> builder;
+    std::shared_ptr<ChunkedArray> actual;
+    ASSERT_OK_AND_ASSIGN(builder,
+                         ColumnBuilder::Make(default_memory_pool(), 0, options, tg));
+    AssertBuilding(builder, csv_data, &actual);
+    ASSERT_EQ(actual->num_chunks(), static_cast<int>(csv_data.size()));
+    for (int i = 0; i < actual->num_chunks(); ++i) {
+      ASSERT_EQ(actual->chunk(i)->type_id(), Type::DICTIONARY);
+      const auto& dict_array = checked_cast<const DictionaryArray&>(*actual->chunk(i));
+      AssertArraysEqual(*dict_array.dictionary(), *expected_dictionaries[i]);
+      AssertArraysEqual(*dict_array.indices(), *expected_indices[i]);
+    }
+  }
+};
+
+TEST_F(InferringColumnBuilderTest, Empty) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
 
   CheckInferred(tg, {}, options, std::make_shared<ChunkedArray>(ArrayVector(), null()));
 }
 
-TEST(InferringColumnBuilder, SingleChunkNull) {
+TEST_F(InferringColumnBuilderTest, SingleChunkNull) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
 
   CheckInferred(tg, {{"", "NA"}}, options, {std::make_shared<NullArray>(2)});
 }
 
-TEST(InferringColumnBuilder, MultipleChunkNull) {
+TEST_F(InferringColumnBuilderTest, MultipleChunkNull) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
 
@@ -289,7 +318,7 @@ TEST(InferringColumnBuilder, MultipleChunkNull) {
                  std::make_shared<NullArray>(1)});
 }
 
-TEST(InferringColumnBuilder, SingleChunkInteger) {
+TEST_F(InferringColumnBuilderTest, SingleChunkInteger) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
 
@@ -297,7 +326,7 @@ TEST(InferringColumnBuilder, SingleChunkInteger) {
                 {ArrayFromJSON(int64(), "[null, 123, 456]")});
 }
 
-TEST(InferringColumnBuilder, MultipleChunkInteger) {
+TEST_F(InferringColumnBuilderTest, MultipleChunkInteger) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
 
@@ -306,7 +335,7 @@ TEST(InferringColumnBuilder, MultipleChunkInteger) {
       {ArrayFromJSON(int64(), "[null]"), ArrayFromJSON(int64(), "[null, 123, 456]")});
 }
 
-TEST(InferringColumnBuilder, SingleChunkBoolean) {
+TEST_F(InferringColumnBuilderTest, SingleChunkBoolean) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
 
@@ -314,7 +343,7 @@ TEST(InferringColumnBuilder, SingleChunkBoolean) {
                 {ArrayFromJSON(boolean(), "[null, false, false, true]")});
 }
 
-TEST(InferringColumnBuilder, MultipleChunkBoolean) {
+TEST_F(InferringColumnBuilderTest, MultipleChunkBoolean) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
 
@@ -323,7 +352,7 @@ TEST(InferringColumnBuilder, MultipleChunkBoolean) {
                  ArrayFromJSON(boolean(), "[true, true, false]")});
 }
 
-TEST(InferringColumnBuilder, SingleChunkReal) {
+TEST_F(InferringColumnBuilderTest, SingleChunkReal) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
 
@@ -331,7 +360,7 @@ TEST(InferringColumnBuilder, SingleChunkReal) {
                 {ArrayFromJSON(float64(), "[null, 0.0, 12.5]")});
 }
 
-TEST(InferringColumnBuilder, MultipleChunkReal) {
+TEST_F(InferringColumnBuilderTest, MultipleChunkReal) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
 
@@ -340,7 +369,7 @@ TEST(InferringColumnBuilder, MultipleChunkReal) {
                  ArrayFromJSON(float64(), "[null, 12.5]")});
 }
 
-TEST(InferringColumnBuilder, SingleChunkTimestamp) {
+TEST_F(InferringColumnBuilderTest, SingleChunkTimestamp) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
 
@@ -351,7 +380,7 @@ TEST(InferringColumnBuilder, SingleChunkTimestamp) {
   CheckInferred(tg, {{"", "1970-01-01", "2018-11-13 17:11:10"}}, options, expected);
 }
 
-TEST(InferringColumnBuilder, MultipleChunkTimestamp) {
+TEST_F(InferringColumnBuilderTest, MultipleChunkTimestamp) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
 
@@ -362,7 +391,7 @@ TEST(InferringColumnBuilder, MultipleChunkTimestamp) {
   CheckInferred(tg, {{""}, {"1970-01-01"}, {"2018-11-13 17:11:10"}}, options, expected);
 }
 
-TEST(InferringColumnBuilder, SingleChunkString) {
+TEST_F(InferringColumnBuilderTest, SingleChunkString) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ChunkedArray> expected;
@@ -379,7 +408,7 @@ TEST(InferringColumnBuilder, SingleChunkString) {
   CheckInferred(tg, {{"", "foo\xff", "baré"}}, options, expected);
 }
 
-TEST(InferringColumnBuilder, SingleChunkBinary) {
+TEST_F(InferringColumnBuilderTest, SingleChunkBinary) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ChunkedArray> expected;
@@ -391,7 +420,7 @@ TEST(InferringColumnBuilder, SingleChunkBinary) {
   CheckInferred(tg, {{"", "foo\xff", "baré"}}, options, expected);
 }
 
-TEST(InferringColumnBuilder, MultipleChunkString) {
+TEST_F(InferringColumnBuilderTest, MultipleChunkString) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
 
@@ -402,7 +431,7 @@ TEST(InferringColumnBuilder, MultipleChunkString) {
   CheckInferred(tg, {{""}, {"008"}, {"NaN", "baré"}}, options, expected);
 }
 
-TEST(InferringColumnBuilder, MultipleChunkBinary) {
+TEST_F(InferringColumnBuilderTest, MultipleChunkBinary) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
 
@@ -416,7 +445,7 @@ TEST(InferringColumnBuilder, MultipleChunkBinary) {
 // Parallel parsing is tested more comprehensively on the Python side
 // (see python/pyarrow/tests/test_csv.py)
 
-TEST(InferringColumnBuilder, MultipleChunkIntegerParallel) {
+TEST_F(InferringColumnBuilderTest, MultipleChunkIntegerParallel) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeThreaded(GetCpuThreadPool());
 
@@ -425,25 +454,7 @@ TEST(InferringColumnBuilder, MultipleChunkIntegerParallel) {
   CheckInferred(tg, {{"1", "2"}, {"3"}, {"4", "5"}, {"6", "7"}}, options, expected);
 }
 
-void CheckAutoDictEncoded(const std::shared_ptr<TaskGroup>& tg, const ChunkData& csv_data,
-                          const ConvertOptions& options,
-                          std::vector<std::shared_ptr<Array>> expected_indices,
-                          std::vector<std::shared_ptr<Array>> expected_dictionaries) {
-  std::shared_ptr<ColumnBuilder> builder;
-  std::shared_ptr<ChunkedArray> actual;
-  ASSERT_OK_AND_ASSIGN(builder,
-                       ColumnBuilder::Make(default_memory_pool(), 0, options, tg));
-  AssertBuilding(builder, csv_data, &actual);
-  ASSERT_EQ(actual->num_chunks(), static_cast<int>(csv_data.size()));
-  for (int i = 0; i < actual->num_chunks(); ++i) {
-    ASSERT_EQ(actual->chunk(i)->type_id(), Type::DICTIONARY);
-    const auto& dict_array = checked_cast<const DictionaryArray&>(*actual->chunk(i));
-    AssertArraysEqual(*dict_array.dictionary(), *expected_dictionaries[i]);
-    AssertArraysEqual(*dict_array.indices(), *expected_indices[i]);
-  }
-}
-
-TEST(InferringColumnBuilder, SingleChunkBinaryAutoDict) {
+TEST_F(InferringColumnBuilderTest, SingleChunkBinaryAutoDict) {
   auto options = ConvertOptions::Defaults();
   options.auto_dict_encode = true;
   options.auto_dict_max_cardinality = 3;

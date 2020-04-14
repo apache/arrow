@@ -75,6 +75,13 @@ Customized conversion
 To alter how CSV data is converted to Arrow types and data, you should create
 a :class:`ConvertOptions` instance and pass it to :func:`read_csv`.
 
+Incremental reading
+-------------------
+
+For memory-constrained environments, it is also possible to read a CSV file
+one batch at a time, using :func:`open_csv`.  It currently doesn't support
+parallel reading.
+
 Performance
 -----------
 

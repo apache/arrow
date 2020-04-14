@@ -16,4 +16,6 @@
 # under the License.
 
 
-from pyarrow._csv import ReadOptions, ParseOptions, ConvertOptions, read_csv  # noqa
+from pyarrow._csv import (  # noqa
+    ReadOptions, ParseOptions, ConvertOptions, open_csv, read_csv,
+    CSVStreamingReader)

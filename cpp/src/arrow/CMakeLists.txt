@@ -308,6 +308,7 @@ if(ARROW_CSV)
               csv/converter.cc
               csv/chunker.cc
               csv/column_builder.cc
+              csv/column_decoder.cc
               csv/options.cc
               csv/parser.cc
               csv/reader.cc)
