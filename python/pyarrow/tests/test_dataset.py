@@ -1364,7 +1364,7 @@ def test_union_dataset_from_other_datasets(tempdir, multisourcefs):
 
 def test_dataset_from_a_list_of_local_directories_raises(multisourcefs):
     msg = 'points to a directory, but only file paths are supported'
-    with pytest.raises(ValueError, match=msg):
+    with pytest.raises(IsADirectoryError, match=msg):
         ds.dataset(['/plain', '/schema', '/hive'], filesystem=multisourcefs)
 
 

@@ -57,7 +57,7 @@ from pyarrow._dataset import (  # noqa
 
 
 def field(name):
-    """References a named column of the dataset.
+    """Reference a named column of the dataset.
 
     Stores only the field's name. Type and other information is known only when
     the expression is bound to a dataset having an explicit scheme.
@@ -308,16 +308,16 @@ def _ensure_multiple_sources(paths, filesystem=None):
             elif file_type == FileType.NotFound:
                 raise FileNotFoundError(info.path)
             elif file_type == FileType.Directory:
-                raise ValueError(
+                raise IsADirectoryError(
                     'Path {} points to a directory, but only file paths are '
                     'supported. To construct a nested or union dataset pass '
                     'a list of dataset objects instead.'.format(info.path)
                 )
             else:
-                raise ValueError(
+                raise IOError(
                     'Path {} exists but its type is unknown (could be a '
                     'special file such as a Unix socket or character device, '
-                    'or Windows NUL / CON / ...'.format(info.path)
+                    'or Windows NUL / CON / ...)'.format(info.path)
                 )
 
     return filesystem, paths
@@ -454,17 +454,17 @@ def _union_dataset(children, schema=None, **kwargs):
 
 def dataset(source, schema=None, format=None, filesystem=None,
             partitioning=None, partition_base_dir=None,
-            exclude_invalid_files=None, selector_ignore_prefixes=None):
+            exclude_invalid_files=None, ignore_prefixes=None):
     """
     Open a dataset.
 
-    Dataset provides functionality to efficiently work with tabular,
+    Datasets provides functionality to efficiently work with tabular,
     potentially larger than memory and multi-file dataset.
 
     - A unified interface for different sources, like Parquet and Feather
     - Discovery of sources (crawling directories, handle directory-based
       partitioned datasets, basic schema normalization)
-    - Optimized reading with pedicate pushdown (filtering rows), projection
+    - Optimized reading with predicate pushdown (filtering rows), projection
       (selecting columns), parallel reading or fine-grained managing of tasks.
 
     Note that this is the high-level API, to have more control over the dataset
@@ -473,7 +473,7 @@ def dataset(source, schema=None, format=None, filesystem=None,
 
     Parameters
     ----------
-    source : path, list of paths, dataset or list of datasets
+    source : path, list of paths, dataset, list of datasets or URI
         Path pointing to a single file:
             Open a FileSystemDataset from a single file.
         Path pointing to a directory:
@@ -501,7 +501,7 @@ def dataset(source, schema=None, format=None, filesystem=None,
         If an URI string is passed, then a filesystem object is constructed
         using the URI's optional path component as a directory prefix. See the
         examples below.
-        Note that the URIs on Windows should follow 'file:///C:...' or
+        Note that the URIs on Windows must follow 'file:///C:...' or
         'file:/C:...' patterns.
     partitioning : Partitioning, PartitioningFactory, str, list of str
         The partitioning scheme specified with the ``partitioning()``
@@ -519,7 +519,7 @@ def dataset(source, schema=None, format=None, filesystem=None,
         fashion. Disabling this feature will skip the IO, but unsupported
         files may be present in the Dataset (resulting in an error at scan
         time).
-    selector_ignore_prefixes : list, optional
+    ignore_prefixes : list, optional
         Files matching one of those prefixes will be ignored by the
         discovery process. This is matched to the basename of a path.
         By default this is ['.', '_'].
@@ -598,7 +598,7 @@ def dataset(source, schema=None, format=None, filesystem=None,
         format=format,
         partition_base_dir=partition_base_dir,
         exclude_invalid_files=exclude_invalid_files,
-        selector_ignore_prefixes=selector_ignore_prefixes
+        selector_ignore_prefixes=ignore_prefixes
     )
 
     # TODO(kszucs): support InMemoryDataset for a table input
