@@ -635,11 +635,13 @@ class MessageDecoder::MessageDecoderImpl {
       next_required_size_ = 0;
       RETURN_NOT_OK(listener_->OnEOS());
       return Status::OK();
-    } else {
+    } else if (metadata_length > 0) {
       state_ = State::METADATA;
       next_required_size_ = metadata_length;
       RETURN_NOT_OK(listener_->OnMetadata());
       return Status::OK();
+    } else {
+      return Status::IOError("Invalid IPC message: negative metadata length");
     }
   }
 
