@@ -27,39 +27,27 @@
 
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/neon_util.h"
-#include "arrow/util/sse_util.h"
-
-static inline uint32_t HW_crc32_u8(uint32_t crc, uint8_t v) {
-  DCHECK(false) << "Hardware CRC support is not enabled";
-  return 0;
-}
-
-static inline uint32_t HW_crc32_u16(uint32_t crc, uint16_t v) {
-  DCHECK(false) << "Hardware CRC support is not enabled";
-  return 0;
-}
-
-static inline uint32_t HW_crc32_u32(uint32_t crc, uint32_t v) {
-  DCHECK(false) << "Hardware CRC support is not enabled";
-  return 0;
-}
-
-static inline uint32_t HW_crc32_u64(uint32_t crc, uint64_t v) {
-  DCHECK(false) << "Hardware CRC support is not enabled";
-  return 0;
-}
+#include "arrow/util/simd.h"
 
 #ifdef ARROW_HAVE_SSE4_2
-#define HW_crc32_u8 SSE4_crc32_u8
-#define HW_crc32_u16 SSE4_crc32_u16
-#define HW_crc32_u32 SSE4_crc32_u32
-#define HW_crc32_u64 SSE4_crc32_u64
+constexpr auto HW_crc32_u8 = _mm_crc32_u8;
+constexpr auto HW_crc32_u16 = _mm_crc32_u16;
+constexpr auto HW_crc32_u32 = _mm_crc32_u32;
+constexpr auto HW_crc32_u64 = _mm_crc32_u64;
 #elif defined(ARROW_HAVE_ARMV8_CRC)
-#define HW_crc32_u8 ARMCE_crc32_u8
-#define HW_crc32_u16 ARMCE_crc32_u16
-#define HW_crc32_u32 ARMCE_crc32_u32
-#define HW_crc32_u64 ARMCE_crc32_u64
+constexpr auto HW_crc32_u8 = __crc32cb;
+constexpr auto HW_crc32_u16 = __crc32ch;
+constexpr auto HW_crc32_u32 = __crc32cw;
+constexpr auto HW_crc32_u64 = __crc32cd;
+#else
+static inline uint32_t _hw_crc32_nope(uint32_t crc, uint64_t v) {
+  DCHECK(false) << "Hardware CRC support is not enabled";
+  return 0;
+}
+constexpr auto HW_crc32_u8 = _hw_crc32_nope;
+constexpr auto HW_crc32_u16 = _hw_crc32_nope;
+constexpr auto HW_crc32_u32 = _hw_crc32_nope;
+constexpr auto HW_crc32_u64 = _hw_crc32_nope;
 #endif
 
 namespace arrow {
@@ -99,29 +87,29 @@ class HashUtil {
       uint32_t k0 = 0xe417f38a, k1 = 0x8f158014;
 
       /* First 8 byte for better pipelining */
-      crc0 = ARMCE_crc32_u64(crc, *buf64++);
+      crc0 = HW_crc32_u64(crc, *buf64++);
 
       /* 3 blocks crc32c parallel computation
        *
        * 42 * 8 * 3 = 1008 (bytes)
        */
       for (int i = 0; i < BLK_LENGTH; i++, buf64++) {
-        crc0 = ARMCE_crc32_u64(crc0, *buf64);
-        crc1 = ARMCE_crc32_u64(crc1, *(buf64 + BLK_LENGTH));
-        crc2 = ARMCE_crc32_u64(crc2, *(buf64 + (BLK_LENGTH * 2)));
+        crc0 = HW_crc32_u64(crc0, *buf64);
+        crc1 = HW_crc32_u64(crc1, *(buf64 + BLK_LENGTH));
+        crc2 = HW_crc32_u64(crc2, *(buf64 + (BLK_LENGTH * 2)));
       }
       buf64 += (BLK_LENGTH * 2);
 
       /* Last 8 bytes */
-      crc = ARMCE_crc32_u64(crc2, *buf64++);
+      crc = HW_crc32_u64(crc2, *buf64++);
 
       t0 = (uint64_t)vmull_p64(crc0, k0);
       t1 = (uint64_t)vmull_p64(crc1, k1);
 
       /* Merge (crc0, crc1, crc2) -> crc */
-      crc1 = ARMCE_crc32_u64(0, t1);
+      crc1 = HW_crc32_u64(0, t1);
       crc ^= crc1;
-      crc0 = ARMCE_crc32_u64(0, t0);
+      crc0 = HW_crc32_u64(0, t0);
       crc ^= crc0;
 
       length -= 1024;
@@ -129,25 +117,25 @@ class HashUtil {
 
     buf8 = reinterpret_cast<const uint8_t*>(buf64);
     while (length >= 8) {
-      crc = ARMCE_crc32_u64(crc, *reinterpret_cast<const uint64_t*>(buf8));
+      crc = HW_crc32_u64(crc, *reinterpret_cast<const uint64_t*>(buf8));
       buf8 += 8;
       length -= 8;
     }
 
     /* The following is more efficient than the straight loop */
     if (length >= 4) {
-      crc = ARMCE_crc32_u32(crc, *reinterpret_cast<const uint32_t*>(buf8));
+      crc = HW_crc32_u32(crc, *reinterpret_cast<const uint32_t*>(buf8));
       buf8 += 4;
       length -= 4;
     }
 
     if (length >= 2) {
-      crc = ARMCE_crc32_u16(crc, *reinterpret_cast<const uint16_t*>(buf8));
+      crc = HW_crc32_u16(crc, *reinterpret_cast<const uint16_t*>(buf8));
       buf8 += 2;
       length -= 2;
     }
 
-    if (length >= 1) crc = ARMCE_crc32_u8(crc, *(buf8));
+    if (length >= 1) crc = HW_crc32_u8(crc, *(buf8));
 
     return crc;
   }
