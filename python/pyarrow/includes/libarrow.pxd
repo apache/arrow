@@ -411,6 +411,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const shared_ptr[CKeyValueMetadata]& metadata)
         shared_ptr[CSchema] RemoveMetadata()
 
+    CResult[shared_ptr[CSchema]] UnifySchemas(
+        const vector[shared_ptr[CSchema]]& schemas)
+
     cdef cppclass PrettyPrintOptions:
         PrettyPrintOptions()
         PrettyPrintOptions(int indent_arg)

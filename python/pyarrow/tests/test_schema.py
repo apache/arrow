@@ -654,3 +654,35 @@ def test_schema_sizeof():
     assert sys.getsizeof(schema2) > sys.getsizeof(schema)
     schema3 = schema.with_metadata({"key": "some more metadata"})
     assert sys.getsizeof(schema3) > sys.getsizeof(schema2)
+
+
+def test_schema_merge():
+    a = pa.schema([
+        pa.field('foo', pa.int32()),
+        pa.field('bar', pa.string()),
+        pa.field('baz', pa.list_(pa.int8()))
+    ])
+    b = pa.schema([
+        pa.field('foo', pa.int32()),
+        pa.field('qux', pa.bool_())
+    ])
+    c = pa.schema([
+        pa.field('quux', pa.dictionary(pa.int32(), pa.string()))
+    ])
+    d = pa.schema([
+        pa.field('foo', pa.int64()),
+        pa.field('qux', pa.bool_())
+    ])
+
+    result = pa.unify_schemas([a, b, c])
+    expected = pa.schema([
+        pa.field('foo', pa.int32()),
+        pa.field('bar', pa.string()),
+        pa.field('baz', pa.list_(pa.int8())),
+        pa.field('qux', pa.bool_()),
+        pa.field('quux', pa.dictionary(pa.int32(), pa.string()))
+    ])
+    assert result.equals(expected)
+
+    with pytest.raises(pa.ArrowInvalid):
+        pa.unify_schemas([b, d])

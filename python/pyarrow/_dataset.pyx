@@ -54,7 +54,7 @@ cdef class Dataset:
         shared_ptr[CDataset] wrapped
         CDataset* dataset
 
-    def __init__(self, children, Schema schema not None):
+    def __init__(self):
         _forbid_instantiation(self.__class__)
 
     cdef void init(self, const shared_ptr[CDataset]& sp):
@@ -985,12 +985,12 @@ cdef class DatasetFactory:
     def __init__(self, list children):
         _forbid_instantiation(self.__class__)
 
-    cdef init(self, shared_ptr[CDatasetFactory]& sp):
+    cdef init(self, const shared_ptr[CDatasetFactory]& sp):
         self.wrapped = sp
         self.factory = sp.get()
 
     @staticmethod
-    cdef wrap(shared_ptr[CDatasetFactory]& sp):
+    cdef wrap(const shared_ptr[CDatasetFactory]& sp):
         cdef DatasetFactory self = \
             DatasetFactory.__new__(DatasetFactory)
         self.init(sp)
@@ -1030,8 +1030,9 @@ cdef class DatasetFactory:
         -------
         Schema
         """
-        cdef CResult[shared_ptr[CSchema]] result
-        cdef CInspectOptions options
+        cdef:
+            CInspectOptions options
+            CResult[shared_ptr[CSchema]] result
         with nogil:
             result = self.factory.Inspect(options)
         return pyarrow_wrap_schema(GetResultValue(result))
@@ -1054,6 +1055,7 @@ cdef class DatasetFactory:
         cdef:
             shared_ptr[CSchema] sp_schema
             CResult[shared_ptr[CDataset]] result
+
         if schema is not None:
             sp_schema = pyarrow_unwrap_schema(schema)
             with nogil:
@@ -1061,6 +1063,7 @@ cdef class DatasetFactory:
         else:
             with nogil:
                 result = self.factory.Finish()
+
         return Dataset.wrap(GetResultValue(result))
 
 
@@ -1093,8 +1096,14 @@ cdef class FileSystemFactoryOptions:
 
     __slots__ = ()  # avoid mistakingly creating attributes
 
-    def __init__(self, partition_base_dir=None, exclude_invalid_files=None,
+    def __init__(self, partition_base_dir=None, partitioning=None,
+                 exclude_invalid_files=None,
                  list selector_ignore_prefixes=None):
+        if isinstance(partitioning, PartitioningFactory):
+            self.partitioning_factory = partitioning
+        elif isinstance(partitioning, Partitioning):
+            self.partitioning = partitioning
+
         if partition_base_dir is not None:
             self.partition_base_dir = partition_base_dir
         if exclude_invalid_files is not None:
@@ -1245,7 +1254,7 @@ cdef class UnionDatasetFactory(DatasetFactory):
     """
 
     cdef:
-        CDatasetFactory* union_factory
+        CUnionDatasetFactory* union_factory
 
     def __init__(self, list factories):
         cdef:
@@ -1254,6 +1263,10 @@ cdef class UnionDatasetFactory(DatasetFactory):
         for factory in factories:
             c_factories.push_back(factory.unwrap())
         self.init(GetResultValue(CUnionDatasetFactory.Make(c_factories)))
+
+    cdef init(self, const shared_ptr[CDatasetFactory]& sp):
+        DatasetFactory.init(self, sp)
+        self.union_factory = <CUnionDatasetFactory*> sp.get()
 
 
 cdef class ScanTask:

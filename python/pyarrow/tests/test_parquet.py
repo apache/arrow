@@ -2490,13 +2490,7 @@ def _assert_dataset_paths(dataset, paths, use_legacy_dataset):
         assert set(map(str, paths)) == {x.path for x in dataset.pieces}
     else:
         paths = [str(path.as_posix()) for path in paths]
-        if hasattr(dataset._dataset, 'files'):
-            assert set(paths) == set(dataset._dataset.files)
-        else:
-            # UnionDataset
-            # TODO(temp hack) remove this branch once ARROW-7965 is in (which
-            # will change this to a FileSystemDataset)
-            assert dataset.read().num_rows == 50
+        assert set(paths) == set(dataset._dataset.files)
 
 
 @pytest.mark.pandas

@@ -657,6 +657,15 @@ cdef class SubTreeFileSystem(FileSystem):
             FileSystem.wrap(self.subtreefs.base_fs())
         )
 
+    @property
+    def base_path(self):
+        return frombytes(self.subtreefs.base_path())
+
+    @property
+    def base_fs(self):
+        return FileSystem.wrap(self.subtreefs.base_fs())
+
+
 cdef class _MockFileSystem(FileSystem):
 
     def __init__(self, datetime current_time=None):

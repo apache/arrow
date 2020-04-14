@@ -1615,6 +1615,45 @@ cdef class Schema:
         return self.__str__()
 
 
+def unify_schemas(list schemas):
+    """
+    Unify schemas by merging fields by name.
+
+    The resulting schema will contain the union of fields from all schemas.
+    Fields with the same name will be merged. Note that two fields with
+    different types will fail merging.
+
+    - The unified field will inherit the metadata from the schema where
+        that field is first defined.
+    - The first N fields in the schema will be ordered the same as the
+        N fields in the first schema.
+
+    The resulting schema will inherit its metadata from the first input
+    schema.
+
+    Parameters
+    ----------
+    schemas : list of Schema
+        Schemas to merge into a single one.
+
+    Returns
+    -------
+    Schema
+
+    Raises
+    ------
+    ArrowInvalid :
+        If any input schema contains fields with duplicate names.
+        If Fields of the same name are not mergeable.
+    """
+    cdef:
+        Schema schema
+        vector[shared_ptr[CSchema]] c_schemas
+    for schema in schemas:
+        c_schemas.push_back(pyarrow_unwrap_schema(schema))
+    return pyarrow_wrap_schema(GetResultValue(UnifySchemas(c_schemas)))
+
+
 cdef dict _type_cache = {}
 
 
