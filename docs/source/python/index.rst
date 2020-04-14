@@ -47,6 +47,7 @@ files into Arrow structures.
    feather
    json
    parquet
+   dataset
    cuda
    extending_types
    extending
