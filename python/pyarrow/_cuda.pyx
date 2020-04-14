@@ -528,7 +528,7 @@ cdef class CudaBuffer(Buffer):
           Specify data in host. It can be array-like that is valid
           argument to py_buffer
         position : int
-          Specify the starting position of the copy in devive buffer.
+          Specify the starting position of the copy in device buffer.
           Default: 0.
         nbytes : int
           Specify the number of bytes to copy. Default: -1 (all from

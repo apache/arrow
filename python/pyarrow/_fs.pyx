@@ -250,8 +250,8 @@ cdef class FileSystem:
 
         Returns
         -------
-        With (filesystem, path) tuple where path is the abtract path inside the
-        FileSystem instance.
+        With (filesystem, path) tuple where path is the abstract path inside
+        the FileSystem instance.
         """
         cdef:
             c_string path

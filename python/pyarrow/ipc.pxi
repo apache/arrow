@@ -107,7 +107,7 @@ cdef class Message:
 
     def __repr__(self):
         if self.message == nullptr:
-            return """pyarrow.Message(unitialized)"""
+            return """pyarrow.Message(uninitialized)"""
 
         metadata_len = self.metadata.size
         body = self.body

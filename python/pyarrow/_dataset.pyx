@@ -217,7 +217,7 @@ cdef class Dataset:
             e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
         use_threads : boolean, default True
-            If enabled, then maximum paralellism will be used determined by
+            If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
@@ -286,7 +286,7 @@ cdef class FileSystemDataset(Dataset):
     filesystem : FileSystem
         The filesystem which files are from.
     partitions : List[Expression], optional
-        Attach aditional partition information for the file paths.
+        Attach additional partition information for the file paths.
     root_partition : Expression, optional
         The top-level partition of the DataDataset.
     """
@@ -1333,7 +1333,7 @@ cdef class Scanner:
         source, e.g. Parquet statistics. Otherwise filters the loaded
         RecordBatches before yielding them.
     use_threads : bool, default True
-        If enabled, then maximum paralellism will be used determined by
+        If enabled, then maximum parallelism will be used determined by
         the number of available CPU cores.
     batch_size : int, default 32K
         The maximum row count for scanned record batches. If scanned
