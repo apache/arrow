@@ -406,7 +406,7 @@ def _ensure_single_source(path, filesystem=None):
 def _filesystem_dataset(source, schema=None, filesystem=None,
                         partitioning=None, format=None,
                         partition_base_dir=None, exclude_invalid_files=None,
-                        ignore_prefixes=None):
+                        selector_ignore_prefixes=None):
     """
     Create a FileSystemDataset which can be used to build a Dataset.
 
@@ -428,7 +428,7 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
         partitioning=partitioning,
         partition_base_dir=partition_base_dir,
         exclude_invalid_files=exclude_invalid_files,
-        ignore_prefixes=ignore_prefixes
+        selector_ignore_prefixes=selector_ignore_prefixes
     )
     factory = FileSystemDatasetFactory(fs, paths_or_selector, format, options)
 
@@ -454,7 +454,7 @@ def _union_dataset(children, schema=None, **kwargs):
 
 def dataset(source, schema=None, format=None, filesystem=None,
             partitioning=None, partition_base_dir=None,
-            exclude_invalid_files=None, ignore_prefixes=None):
+            exclude_invalid_files=None, selector_ignore_prefixes=None):
     """
     Open a dataset.
 
@@ -517,10 +517,11 @@ def dataset(source, schema=None, format=None, filesystem=None,
         fashion. Disabling this feature will skip the IO, but unsupported
         files may be present in the Dataset (resulting in an error at scan
         time).
-    ignore_prefixes : list, optional
+    selector_ignore_prefixes : list, optional
         Files matching one of those prefixes will be ignored by the
         discovery process. This is matched to the basename of a path.
         By default this is ['.', '_'].
+        Note that discovery happens only if a directory is passed as source.
 
     Returns
     -------
@@ -595,7 +596,7 @@ def dataset(source, schema=None, format=None, filesystem=None,
         format=format,
         partition_base_dir=partition_base_dir,
         exclude_invalid_files=exclude_invalid_files,
-        ignore_prefixes=ignore_prefixes
+        selector_ignore_prefixes=selector_ignore_prefixes
     )
 
     # TODO(kszucs): support InMemoryDataset for a table input
