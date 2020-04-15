@@ -899,7 +899,7 @@ class _BaseUnionField(Field):
 
     def _make_type_ids(self, is_valid):
         type_ids = np.random.choice(self.type_ids, len(is_valid))
-        # Mark 0 for null entries (mimicks C++ UnionBuilder behaviour)
+        # Mark 0 for null entries (mimics C++ UnionBuilder behaviour)
         return np.choose(is_valid, [0, type_ids])
 
 
