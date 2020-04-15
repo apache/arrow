@@ -48,11 +48,12 @@ class Field(object):
 
         return OrderedDict(entries)
 
-    def _make_is_valid(self, size):
+    def _make_is_valid(self, size, null_probability=0.4):
         if self.nullable:
-            return np.random.randint(0, 2, size=size)
+            return (np.random.random_sample(size) > null_probability
+                    ).astype(np.int8)
         else:
-            return np.ones(size)
+            return np.ones(size, dtype=np.int8)
 
 
 class Column(object):
@@ -95,7 +96,7 @@ class PrimitiveField(Field):
 class PrimitiveColumn(Column):
 
     def __init__(self, name, count, is_valid, values):
-        super(PrimitiveColumn, self).__init__(name, count)
+        super().__init__(name, count)
         self.is_valid = is_valid
         self.values = values
 
@@ -117,8 +118,8 @@ class NullColumn(Column):
 class NullField(PrimitiveField):
 
     def __init__(self, name, metadata=[]):
-        super(NullField, self).__init__(name, nullable=True,
-                                        metadata=metadata)
+        super().__init__(name, nullable=True,
+                         metadata=metadata)
 
     def _get_type(self):
         return OrderedDict([('name', 'null')])
@@ -137,8 +138,8 @@ class IntegerField(PrimitiveField):
                  metadata=[],
                  min_value=TEST_INT_MIN,
                  max_value=TEST_INT_MAX):
-        super(IntegerField, self).__init__(name, nullable=nullable,
-                                           metadata=metadata)
+        super().__init__(name, nullable=nullable,
+                         metadata=metadata)
         self.is_signed = is_signed
         self.bit_width = bit_width
         self.min_value = min_value
@@ -193,7 +194,7 @@ class DateField(IntegerField):
         bit_width = 32 if unit == self.DAY else 64
 
         min_value, max_value = self._ranges[unit]
-        super(DateField, self).__init__(
+        super().__init__(
             name, True, bit_width,
             nullable=nullable, metadata=metadata,
             min_value=min_value, max_value=max_value
@@ -234,9 +235,9 @@ class TimeField(IntegerField):
     def __init__(self, name, unit='s', *, nullable=True,
                  metadata=[]):
         min_val, max_val = self._ranges[unit]
-        super(TimeField, self).__init__(name, True, self.BIT_WIDTHS[unit],
-                                        nullable=nullable, metadata=metadata,
-                                        min_value=min_val, max_value=max_val)
+        super().__init__(name, True, self.BIT_WIDTHS[unit],
+                         nullable=nullable, metadata=metadata,
+                         min_value=min_val, max_value=max_val)
         self.unit = unit
 
     def _get_type(self):
@@ -262,11 +263,11 @@ class TimestampField(IntegerField):
     def __init__(self, name, unit='s', tz=None, *, nullable=True,
                  metadata=[]):
         min_val, max_val = self._ranges[unit]
-        super(TimestampField, self).__init__(name, True, 64,
-                                             nullable=nullable,
-                                             metadata=metadata,
-                                             min_value=min_val,
-                                             max_value=max_val)
+        super().__init__(name, True, 64,
+                         nullable=nullable,
+                         metadata=metadata,
+                         min_value=min_val,
+                         max_value=max_val)
         self.unit = unit
         self.tz = tz
 
@@ -287,7 +288,7 @@ class DurationIntervalField(IntegerField):
     def __init__(self, name, unit='s', *, nullable=True,
                  metadata=[]):
         min_val, max_val = np.iinfo('int64').min, np.iinfo('int64').max,
-        super(DurationIntervalField, self).__init__(
+        super().__init__(
             name, True, 64,
             nullable=nullable, metadata=metadata,
             min_value=min_val, max_value=max_val)
@@ -305,7 +306,7 @@ class DurationIntervalField(IntegerField):
 class YearMonthIntervalField(IntegerField):
     def __init__(self, name, *, nullable=True, metadata=[]):
         min_val, max_val = [-10000*12, 10000*12]  # +/- 10000 years.
-        super(YearMonthIntervalField, self).__init__(
+        super().__init__(
             name, True, 32,
             nullable=nullable, metadata=metadata,
             min_value=min_val, max_value=max_val)
@@ -321,9 +322,9 @@ class YearMonthIntervalField(IntegerField):
 
 class DayTimeIntervalField(PrimitiveField):
     def __init__(self, name, *, nullable=True, metadata=[]):
-        super(DayTimeIntervalField, self).__init__(name,
-                                                   nullable=True,
-                                                   metadata=metadata)
+        super().__init__(name,
+                         nullable=True,
+                         metadata=metadata)
 
     @property
     def numpy_type(self):
@@ -352,9 +353,9 @@ class FloatingPointField(PrimitiveField):
 
     def __init__(self, name, bit_width, *, nullable=True,
                  metadata=[]):
-        super(FloatingPointField, self).__init__(name,
-                                                 nullable=nullable,
-                                                 metadata=metadata)
+        super().__init__(name,
+                         nullable=nullable,
+                         metadata=metadata)
 
         self.bit_width = bit_width
         self.precision = {
@@ -404,8 +405,8 @@ def decimal_range_from_precision(precision):
 class DecimalField(PrimitiveField):
     def __init__(self, name, precision, scale, bit_width=128, *,
                  nullable=True, metadata=[]):
-        super(DecimalField, self).__init__(name, nullable=True,
-                                           metadata=metadata)
+        super().__init__(name, nullable=True,
+                         metadata=metadata)
         self.precision = precision
         self.scale = scale
         self.bit_width = bit_width
@@ -434,7 +435,7 @@ class DecimalField(PrimitiveField):
 class DecimalColumn(PrimitiveColumn):
 
     def __init__(self, name, count, is_valid, values, bit_width=128):
-        super(DecimalColumn, self).__init__(name, count, is_valid, values)
+        super().__init__(name, count, is_valid, values)
         self.bit_width = bit_width
 
     def _encode_value(self, x):
@@ -463,8 +464,8 @@ class FixedSizeBinaryField(PrimitiveField):
 
     def __init__(self, name, byte_width, *, nullable=True,
                  metadata=[]):
-        super(FixedSizeBinaryField, self).__init__(name, nullable=nullable,
-                                                   metadata=metadata)
+        super().__init__(name, nullable=nullable,
+                         metadata=metadata)
         self.byte_width = byte_width
 
     @property
@@ -668,8 +669,8 @@ class ListField(Field):
 
     def __init__(self, name, value_field, *, nullable=True,
                  metadata=[]):
-        super(ListField, self).__init__(name, nullable=nullable,
-                                        metadata=metadata)
+        super().__init__(name, nullable=nullable,
+                         metadata=metadata)
         self.value_field = value_field
 
     @property
@@ -747,8 +748,8 @@ class MapField(Field):
 
     def __init__(self, name, key_field, item_field, *, nullable=True,
                  metadata=[], keys_sorted=False):
-        super(MapField, self).__init__(name, nullable=nullable,
-                                       metadata=metadata)
+        super().__init__(name, nullable=nullable,
+                         metadata=metadata)
 
         assert not key_field.nullable
         self.key_field = key_field
@@ -790,7 +791,7 @@ class MapField(Field):
 class MapColumn(Column):
 
     def __init__(self, name, count, is_valid, offsets, pairs):
-        super(MapColumn, self).__init__(name, count)
+        super().__init__(name, count)
         self.is_valid = is_valid
         self.offsets = offsets
         self.pairs = pairs
@@ -809,8 +810,8 @@ class FixedSizeListField(Field):
 
     def __init__(self, name, value_field, list_size, *, nullable=True,
                  metadata=[]):
-        super(FixedSizeListField, self).__init__(name, nullable=nullable,
-                                                 metadata=metadata)
+        super().__init__(name, nullable=nullable,
+                         metadata=metadata)
         self.value_field = value_field
         self.list_size = list_size
 
@@ -835,7 +836,7 @@ class FixedSizeListField(Field):
 class FixedSizeListColumn(Column):
 
     def __init__(self, name, count, is_valid, values):
-        super(FixedSizeListColumn, self).__init__(name, count)
+        super().__init__(name, count)
         self.is_valid = is_valid
         self.values = values
 
@@ -852,8 +853,8 @@ class StructField(Field):
 
     def __init__(self, name, fields, *, nullable=True,
                  metadata=[]):
-        super(StructField, self).__init__(name, nullable=nullable,
-                                          metadata=metadata)
+        super().__init__(name, nullable=nullable,
+                         metadata=metadata)
         self.fields = fields
 
     def _get_type(self):
@@ -871,6 +872,84 @@ class StructField(Field):
         if name is None:
             name = self.name
         return StructColumn(name, size, is_valid, field_values)
+
+
+class _BaseUnionField(Field):
+
+    def __init__(self, name, fields, type_ids=None, *, nullable=True,
+                 metadata=[]):
+        super().__init__(name, nullable=nullable, metadata=metadata)
+        if type_ids is None:
+            type_ids = list(range(fields))
+        else:
+            assert len(fields) == len(type_ids)
+        self.fields = fields
+        self.type_ids = type_ids
+        assert all(x >= 0 for x in self.type_ids)
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'union'),
+            ('mode', self.mode),
+            ('typeIds', self.type_ids),
+        ])
+
+    def _get_children(self):
+        return [field.get_json() for field in self.fields]
+
+    def _make_type_ids(self, is_valid):
+        type_ids = np.random.choice(self.type_ids, len(is_valid))
+        # Mark 0 for null entries (mimics C++ UnionBuilder behaviour)
+        return np.choose(is_valid, [0, type_ids])
+
+
+class SparseUnionField(_BaseUnionField):
+    mode = 'SPARSE'
+
+    def generate_column(self, size, name=None):
+        is_valid = self._make_is_valid(size)
+
+        array_type_ids = self._make_type_ids(is_valid)
+        field_values = [field.generate_column(size) for field in self.fields]
+
+        if name is None:
+            name = self.name
+        return SparseUnionColumn(name, size, is_valid, array_type_ids,
+                                 field_values)
+
+
+class DenseUnionField(_BaseUnionField):
+    mode = 'DENSE'
+
+    def generate_column(self, size, name=None):
+        is_valid = self._make_is_valid(size)
+
+        # Reverse mapping {logical type id => physical child id}
+        child_ids = [None] * (max(self.type_ids) + 1)
+        for i, type_id in enumerate(self.type_ids):
+            child_ids[type_id] = i
+
+        array_type_ids = self._make_type_ids(is_valid)
+        offsets = []
+        child_sizes = [0] * len(self.fields)
+
+        for i in range(size):
+            if is_valid[i]:
+                child_id = child_ids[array_type_ids[i]]
+                offset = child_sizes[child_id]
+                offsets.append(offset)
+                child_sizes[child_id] = offset + 1
+            else:
+                offsets.append(0)
+
+        field_values = [
+            field.generate_column(child_size)
+            for field, child_size in zip(self.fields, child_sizes)]
+
+        if name is None:
+            name = self.name
+        return DenseUnionColumn(name, size, is_valid, array_type_ids,
+                                offsets, field_values)
 
 
 class Dictionary(object):
@@ -896,8 +975,8 @@ class DictionaryField(Field):
 
     def __init__(self, name, index_field, dictionary, *, nullable=True,
                  metadata=[]):
-        super(DictionaryField, self).__init__(name, nullable=nullable,
-                                              metadata=metadata)
+        super().__init__(name, nullable=nullable,
+                         metadata=metadata)
         assert index_field.name == ''
         assert isinstance(index_field, IntegerField)
         assert isinstance(dictionary, Dictionary)
@@ -928,13 +1007,51 @@ class DictionaryField(Field):
 class StructColumn(Column):
 
     def __init__(self, name, count, is_valid, field_values):
-        super(StructColumn, self).__init__(name, count)
+        super().__init__(name, count)
         self.is_valid = is_valid
         self.field_values = field_values
 
     def _get_buffers(self):
         return [
             ('VALIDITY', [int(v) for v in self.is_valid])
+        ]
+
+    def _get_children(self):
+        return [field.get_json() for field in self.field_values]
+
+
+class SparseUnionColumn(Column):
+
+    def __init__(self, name, count, is_valid, type_ids, field_values):
+        super().__init__(name, count)
+        self.is_valid = is_valid
+        self.type_ids = type_ids
+        self.field_values = field_values
+
+    def _get_buffers(self):
+        return [
+            ('VALIDITY', [int(v) for v in self.is_valid]),
+            ('TYPE_ID', [int(v) for v in self.type_ids]),
+        ]
+
+    def _get_children(self):
+        return [field.get_json() for field in self.field_values]
+
+
+class DenseUnionColumn(Column):
+
+    def __init__(self, name, count, is_valid, type_ids, offsets, field_values):
+        super().__init__(name, count)
+        self.is_valid = is_valid
+        self.type_ids = type_ids
+        self.offsets = offsets
+        self.field_values = field_values
+
+    def _get_buffers(self):
+        return [
+            ('VALIDITY', [int(v) for v in self.is_valid]),
+            ('TYPE_ID', [int(v) for v in self.type_ids]),
+            ('OFFSET', [int(v) for v in self.offsets]),
         ]
 
     def _get_children(self):
@@ -1223,6 +1340,27 @@ def generate_nested_large_offsets_case():
     return _generate_file("nested_large_offsets", fields, batch_sizes)
 
 
+def generate_unions_case():
+    fields = [
+        SparseUnionField('sparse', [get_field('f1', 'int32'),
+                                    get_field('f2', 'utf8')],
+                         type_ids=[5, 7]),
+        DenseUnionField('dense', [get_field('f1', 'int16'),
+                                  get_field('f2', 'binary')],
+                        type_ids=[10, 20]),
+        SparseUnionField('sparse', [get_field('f1', 'float32', nullable=False),
+                                    get_field('f2', 'bool')],
+                         type_ids=[5, 7], nullable=False),
+        DenseUnionField('dense', [get_field('f1', 'uint8', nullable=False),
+                                  get_field('f2', 'uint16'),
+                                  NullField('f3')],
+                        type_ids=[42, 43, 44], nullable=False),
+    ]
+
+    batch_sizes = [0, 11]
+    return _generate_file("union", fields, batch_sizes)
+
+
 def generate_dictionary_case():
     dict0 = Dictionary(0, StringField('dictionary1'), size=10, name='DICT0')
     dict1 = Dictionary(1, StringField('dictionary1'), size=5, name='DICT1')
@@ -1306,6 +1444,11 @@ def get_generated_json_files(tempdir=None, flight=False):
         generate_nested_large_offsets_case()
         .skip_category('Go')
         .skip_category('Java')  # TODO(ARROW-6111)
+        .skip_category('JS'),
+
+        generate_unions_case()
+        .skip_category('Go')
+        .skip_category('Java')  # TODO(ARROW-1692)
         .skip_category('JS'),
 
         generate_custom_metadata_case().skip_category('Go')
