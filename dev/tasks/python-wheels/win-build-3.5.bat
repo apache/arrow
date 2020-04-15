@@ -80,7 +80,7 @@ call conda create -n wheel-test -c conda-forge -q -y python=3.5 || exit /B
 call conda.bat activate wheel-test
 
 @rem install the built wheel
-pip install -vv %ARROW_SRC%\python\dist\pyarrow-%PYARROW_VERSION%-cp35-cp35m-win_amd64.whl || exit /B
+pip install %ARROW_SRC%\python\dist\pyarrow-%PYARROW_VERSION%-cp35-cp35m-win_amd64.whl || exit /B
 pip install -q -r %ARROW_SRC%\python\requirements-wheel-test.txt || exit /B
 
 @rem test the imports
