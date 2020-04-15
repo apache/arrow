@@ -84,12 +84,12 @@ jobs:
           fi
       - name: Run cmake_format
         if: false
-        # if: env.CMAKE_FORMAT == 'true'
+        # if: env.CMAKE_FORMAT == 'true' || endsWith(github.event.comment.body, 'everything')
         run: |
           python3 -m pip install -r dev/archery/requirements-lint.txt
           python3 run-cmake-format.py
       - name: Run clang-format on cpp
-        if: env.CLANG_FORMAT_CPP == 'true'
+        if: env.CLANG_FORMAT_CPP == 'true' || endsWith(github.event.comment.body, 'everything')
         run: |
           . .env # To get the clang version we use
           cpp/build-support/run_clang_format.py \
@@ -97,7 +97,7 @@ jobs:
               --exclude_glob=cpp/build-support/lint_exclusions.txt \
               --source_dir=cpp/src --quiet --fix
       - name: Run clang-format on r
-        if: env.CLANG_FORMAT_R == 'true'
+        if: env.CLANG_FORMAT_R == 'true' || endsWith(github.event.comment.body, 'everything')
         run: |
           . .env # To get the clang version we use
           cpp/build-support/run_clang_format.py \
@@ -105,9 +105,9 @@ jobs:
               --exclude_glob=cpp/build-support/lint_exclusions.txt \
               --source_dir=r/src --quiet --fix
       - uses: r-lib/actions/setup-r@v1
-        if: env.R_DOCS == 'true'
+        if: env.R_DOCS == 'true' || endsWith(github.event.comment.body, 'everything')
       - name: Update R docs
-        if: env.R_DOCS == 'true'
+        if: env.R_DOCS == 'true' || endsWith(github.event.comment.body, 'everything')
         shell: Rscript {0}
         run: |
           source("ci/etc/rprofile")
