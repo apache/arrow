@@ -96,7 +96,9 @@ groups:
     - ubuntu-*-amd64
     - conda-*
     - gandiva-*
-    - homebrew-*
+    # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
+    - homebrew-cpp
+    - homebrew-r-autobrew
     - test-*
     - wheel-*
 
@@ -2146,7 +2148,8 @@ tasks:
       run:
         - conda-python-spark
 
-  test-conda-cpp-hiveserver2:
+  # Remove the "skipped-" prefix in ARROW-8475
+  skipped-test-conda-cpp-hiveserver2:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
