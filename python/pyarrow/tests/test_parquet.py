@@ -65,7 +65,7 @@ parametrize_legacy_dataset_skip_buffer = pytest.mark.parametrize(
     "use_legacy_dataset", [True, pytest.param(False, marks=pytest.mark.skip)])
 
 
-def deterministic_row_order(use_legacy_dataset, chunk_size=None):
+def deterministic_row_order(use_legacy_dataset, chunk_size=-1):
     # TODO(datasets) ensure to use use_threads=False with the new dataset API
     # in the tests because otherwise the row order is not deterministic
     return False if not use_legacy_dataset and chunk_size is not None else True
