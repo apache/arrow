@@ -219,7 +219,8 @@ std::shared_ptr<fs::SubTreeFileSystem> fs___SubTreeFileSystem__create(
 Rcpp::List fs___FileSystemFromUri(const std::string& path) {
   std::string out_path;
   auto file_system = VALUE_OR_STOP(fs::FileSystemFromUri(path, &out_path));
-  return Rcpp::List::create(Rcpp::Named("fs") = file_system, Rcpp::Named("path") = out_path);
+  return Rcpp::List::create(Rcpp::Named("fs") = file_system,
+                            Rcpp::Named("path") = out_path);
 }
 
 #endif
@@ -227,9 +228,7 @@ Rcpp::List fs___FileSystemFromUri(const std::string& path) {
 #if defined(ARROW_R_WITH_S3)
 
 // [[s3::export]]
-void fs___EnsureS3Initialized() {
-  STOP_IF_NOT_OK(fs::EnsureS3Initialized());
-}
+void fs___EnsureS3Initialized() { STOP_IF_NOT_OK(fs::EnsureS3Initialized()); }
 
 // [[s3::export]]
 std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create() {
