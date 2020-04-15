@@ -85,6 +85,7 @@ jobs:
       - name: Run cmake_format
         if: env.CMAKE_FORMAT == 'true'
         run: |
+          pip install virtualenv
           virtualenv venv
           . venv/bin/activate
           pip install -r dev/archery/requirements-lint.txt
