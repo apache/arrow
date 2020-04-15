@@ -250,24 +250,12 @@ static const char* JSON_EXAMPLE = R"example(
       {
         "name": "foo",
         "type": {"name": "int", "isSigned": true, "bitWidth": 32},
-        "nullable": true, "children": [],
-        "typeLayout": {
-          "vectors": [
-            {"type": "VALIDITY", "typeBitWidth": 1},
-            {"type": "DATA", "typeBitWidth": 32}
-          ]
-        }
+        "nullable": true, "children": []
       },
       {
         "name": "bar",
         "type": {"name": "floatingpoint", "precision": "DOUBLE"},
-        "nullable": true, "children": [],
-        "typeLayout": {
-          "vectors": [
-            {"type": "VALIDITY", "typeBitWidth": 1},
-            {"type": "DATA", "typeBitWidth": 64}
-          ]
-        }
+        "nullable": true, "children": []
       }
     ]
   },
@@ -318,12 +306,6 @@ static const char* JSON_EXAMPLE2 = R"example(
         "name": "foo",
         "type": {"name": "int", "isSigned": true, "bitWidth": 32},
         "nullable": true, "children": [],
-        "typeLayout": {
-          "vectors": [
-            {"type": "VALIDITY", "typeBitWidth": 1},
-            {"type": "DATA", "typeBitWidth": 32}
-          ]
-        },
         "metadata": [
           {"key": "converted_from_time32", "value": "true"}
         ]

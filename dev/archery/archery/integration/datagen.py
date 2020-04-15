@@ -24,12 +24,13 @@ import tempfile
 
 import numpy as np
 
-from .util import (frombytes, rands, tobytes, SKIP_ARROW, SKIP_FLIGHT)
+from .util import (frombytes, tobytes, random_bytes, random_utf8,
+                   SKIP_ARROW, SKIP_FLIGHT)
 
 
 class Field(object):
 
-    def __init__(self, name, nullable=True, metadata=[]):
+    def __init__(self, name, *, nullable=True, metadata=[]):
         self.name = name
         self.nullable = nullable
         self.metadata = metadata
@@ -132,7 +133,7 @@ TEST_INT_MIN = ~TEST_INT_MAX
 
 class IntegerField(PrimitiveField):
 
-    def __init__(self, name, is_signed, bit_width, nullable=True,
+    def __init__(self, name, is_signed, bit_width, *, nullable=True,
                  metadata=[],
                  min_value=TEST_INT_MIN,
                  max_value=TEST_INT_MAX):
@@ -188,7 +189,7 @@ class DateField(IntegerField):
         MILLISECOND: [-62135596800000, 253402214400000]
     }
 
-    def __init__(self, name, unit, nullable=True, metadata=[]):
+    def __init__(self, name, unit, *, nullable=True, metadata=[]):
         bit_width = 32 if unit == self.DAY else 64
 
         min_value, max_value = self._ranges[unit]
@@ -230,7 +231,7 @@ class TimeField(IntegerField):
         'ns': [0, 86400000000000]
     }
 
-    def __init__(self, name, unit='s', nullable=True,
+    def __init__(self, name, unit='s', *, nullable=True,
                  metadata=[]):
         min_val, max_val = self._ranges[unit]
         super(TimeField, self).__init__(name, True, self.BIT_WIDTHS[unit],
@@ -258,7 +259,7 @@ class TimestampField(IntegerField):
         'ns': [np.iinfo('int64').min, np.iinfo('int64').max]
     }
 
-    def __init__(self, name, unit='s', tz=None, nullable=True,
+    def __init__(self, name, unit='s', tz=None, *, nullable=True,
                  metadata=[]):
         min_val, max_val = self._ranges[unit]
         super(TimestampField, self).__init__(name, True, 64,
@@ -283,13 +284,13 @@ class TimestampField(IntegerField):
 
 class DurationIntervalField(IntegerField):
 
-    def __init__(self, name, unit='s', nullable=True,
+    def __init__(self, name, unit='s', *, nullable=True,
                  metadata=[]):
         min_val, max_val = np.iinfo('int64').min, np.iinfo('int64').max,
         super(DurationIntervalField, self).__init__(
-                name, True, 64,
-                nullable=nullable, metadata=metadata,
-                min_value=min_val, max_value=max_val)
+            name, True, 64,
+            nullable=nullable, metadata=metadata,
+            min_value=min_val, max_value=max_val)
         self.unit = unit
 
     def _get_type(self):
@@ -302,12 +303,12 @@ class DurationIntervalField(IntegerField):
 
 
 class YearMonthIntervalField(IntegerField):
-    def __init__(self, name, nullable=True, metadata=[]):
+    def __init__(self, name, *, nullable=True, metadata=[]):
         min_val, max_val = [-10000*12, 10000*12]  # +/- 10000 years.
         super(YearMonthIntervalField, self).__init__(
-                name, True, 32,
-                nullable=nullable, metadata=metadata,
-                min_value=min_val, max_value=max_val)
+            name, True, 32,
+            nullable=nullable, metadata=metadata,
+            min_value=min_val, max_value=max_val)
 
     def _get_type(self):
         fields = [
@@ -319,7 +320,7 @@ class YearMonthIntervalField(IntegerField):
 
 
 class DayTimeIntervalField(PrimitiveField):
-    def __init__(self, name, nullable=True, metadata=[]):
+    def __init__(self, name, *, nullable=True, metadata=[]):
         super(DayTimeIntervalField, self).__init__(name,
                                                    nullable=True,
                                                    metadata=metadata)
@@ -349,7 +350,7 @@ class DayTimeIntervalField(PrimitiveField):
 
 class FloatingPointField(PrimitiveField):
 
-    def __init__(self, name, bit_width, nullable=True,
+    def __init__(self, name, bit_width, *, nullable=True,
                  metadata=[]):
         super(FloatingPointField, self).__init__(name,
                                                  nullable=nullable,
@@ -401,8 +402,8 @@ def decimal_range_from_precision(precision):
 
 
 class DecimalField(PrimitiveField):
-    def __init__(self, name, precision, scale, bit_width=128, nullable=True,
-                 metadata=[]):
+    def __init__(self, name, precision, scale, bit_width=128, *,
+                 nullable=True, metadata=[]):
         super(DecimalField, self).__init__(name, nullable=True,
                                            metadata=metadata)
         self.precision = precision
@@ -458,41 +459,9 @@ class BooleanField(PrimitiveField):
         return PrimitiveColumn(name, size, is_valid, values)
 
 
-class BinaryField(PrimitiveField):
-
-    @property
-    def numpy_type(self):
-        return object
-
-    @property
-    def column_class(self):
-        return BinaryColumn
-
-    def _get_type(self):
-        return OrderedDict([('name', 'binary')])
-
-    def generate_column(self, size, name=None):
-        K = 7
-        is_valid = self._make_is_valid(size)
-        values = []
-
-        for i in range(size):
-            if is_valid[i]:
-                draw = (np.random.randint(0, 255, size=K)
-                        .astype(np.uint8)
-                        .tostring())
-                values.append(draw)
-            else:
-                values.append(b"")
-
-        if name is None:
-            name = self.name
-        return self.column_class(name, size, is_valid, values)
-
-
 class FixedSizeBinaryField(PrimitiveField):
 
-    def __init__(self, name, byte_width, nullable=True,
+    def __init__(self, name, byte_width, *, nullable=True,
                  metadata=[]):
         super(FixedSizeBinaryField, self).__init__(name, nullable=nullable,
                                                    metadata=metadata)
@@ -510,23 +479,45 @@ class FixedSizeBinaryField(PrimitiveField):
         return OrderedDict([('name', 'fixedsizebinary'),
                             ('byteWidth', self.byte_width)])
 
-    def _get_type_layout(self):
-        return OrderedDict([
-            ('vectors',
-             [OrderedDict([('type', 'VALIDITY'),
-                           ('typeBitWidth', 1)]),
-              OrderedDict([('type', 'DATA'),
-                           ('typeBitWidth', self.byte_width)])])])
-
     def generate_column(self, size, name=None):
         is_valid = self._make_is_valid(size)
         values = []
 
         for i in range(size):
-            draw = (np.random.randint(0, 255, size=self.byte_width)
-                    .astype(np.uint8)
-                    .tostring())
-            values.append(draw)
+            values.append(random_bytes(self.byte_width))
+
+        if name is None:
+            name = self.name
+        return self.column_class(name, size, is_valid, values)
+
+
+class BinaryField(PrimitiveField):
+
+    @property
+    def numpy_type(self):
+        return object
+
+    @property
+    def column_class(self):
+        return BinaryColumn
+
+    def _get_type(self):
+        return OrderedDict([('name', 'binary')])
+
+    def _random_sizes(self, size):
+        return np.random.exponential(scale=4, size=size).astype(np.int32)
+
+    def generate_column(self, size, name=None):
+        is_valid = self._make_is_valid(size)
+        values = []
+
+        sizes = self._random_sizes(size)
+
+        for i, nbytes in enumerate(sizes):
+            if is_valid[i]:
+                values.append(random_bytes(nbytes))
+            else:
+                values.append(b"")
 
         if name is None:
             name = self.name
@@ -549,13 +540,33 @@ class StringField(BinaryField):
 
         for i in range(size):
             if is_valid[i]:
-                values.append(tobytes(rands(K)))
+                values.append(tobytes(random_utf8(K)))
             else:
                 values.append(b"")
 
         if name is None:
             name = self.name
         return self.column_class(name, size, is_valid, values)
+
+
+class LargeBinaryField(BinaryField):
+
+    @property
+    def column_class(self):
+        return LargeBinaryColumn
+
+    def _get_type(self):
+        return OrderedDict([('name', 'largebinary')])
+
+
+class LargeStringField(StringField):
+
+    @property
+    def column_class(self):
+        return LargeStringColumn
+
+    def _get_type(self):
+        return OrderedDict([('name', 'largeutf8')])
 
 
 class Schema(object):
@@ -575,7 +586,21 @@ class Schema(object):
         return OrderedDict(entries)
 
 
-class BinaryColumn(PrimitiveColumn):
+class _NarrowOffsetsMixin:
+
+    def _encode_offsets(self, offsets):
+        return list(map(int, offsets))
+
+
+class _LargeOffsetsMixin:
+
+    def _encode_offsets(self, offsets):
+        # 64-bit offsets have to be represented as strings to roundtrip
+        # through JSON.
+        return list(map(str, offsets))
+
+
+class _BaseBinaryColumn(PrimitiveColumn):
 
     def _encode_value(self, x):
         return frombytes(binascii.hexlify(x).upper())
@@ -596,15 +621,37 @@ class BinaryColumn(PrimitiveColumn):
 
         return [
             ('VALIDITY', [int(x) for x in self.is_valid]),
-            ('OFFSET', offsets),
+            ('OFFSET', self._encode_offsets(offsets)),
             ('DATA', data)
         ]
+
+
+class _BaseStringColumn(_BaseBinaryColumn):
+
+    def _encode_value(self, x):
+        return frombytes(x)
+
+
+class BinaryColumn(_BaseBinaryColumn, _NarrowOffsetsMixin):
+    pass
+
+
+class StringColumn(_BaseStringColumn, _NarrowOffsetsMixin):
+    pass
+
+
+class LargeBinaryColumn(_BaseBinaryColumn, _LargeOffsetsMixin):
+    pass
+
+
+class LargeStringColumn(_BaseStringColumn, _LargeOffsetsMixin):
+    pass
 
 
 class FixedSizeBinaryColumn(PrimitiveColumn):
 
     def _encode_value(self, x):
-        return ''.join('{:02x}'.format(c).upper() for c in x)
+        return frombytes(binascii.hexlify(x).upper())
 
     def _get_buffers(self):
         data = []
@@ -617,19 +664,17 @@ class FixedSizeBinaryColumn(PrimitiveColumn):
         ]
 
 
-class StringColumn(BinaryColumn):
-
-    def _encode_value(self, x):
-        return frombytes(x)
-
-
 class ListField(Field):
 
-    def __init__(self, name, value_field, nullable=True,
+    def __init__(self, name, value_field, *, nullable=True,
                  metadata=[]):
         super(ListField, self).__init__(name, nullable=nullable,
                                         metadata=metadata)
         self.value_field = value_field
+
+    @property
+    def column_class(self):
+        return ListColumn
 
     def _get_type(self):
         return OrderedDict([
@@ -657,13 +702,25 @@ class ListField(Field):
 
         if name is None:
             name = self.name
-        return ListColumn(name, size, is_valid, offsets, values)
+        return self.column_class(name, size, is_valid, offsets, values)
 
 
-class ListColumn(Column):
+class LargeListField(ListField):
+
+    @property
+    def column_class(self):
+        return LargeListColumn
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'largelist')
+        ])
+
+
+class _BaseListColumn(Column):
 
     def __init__(self, name, count, is_valid, offsets, values):
-        super(ListColumn, self).__init__(name, count)
+        super().__init__(name, count)
         self.is_valid = is_valid
         self.offsets = offsets
         self.values = values
@@ -671,31 +728,39 @@ class ListColumn(Column):
     def _get_buffers(self):
         return [
             ('VALIDITY', [int(v) for v in self.is_valid]),
-            ('OFFSET', list(self.offsets))
+            ('OFFSET', self._encode_offsets(self.offsets))
         ]
 
     def _get_children(self):
         return [self.values.get_json()]
 
 
+class ListColumn(_BaseListColumn, _NarrowOffsetsMixin):
+    pass
+
+
+class LargeListColumn(_BaseListColumn, _LargeOffsetsMixin):
+    pass
+
+
 class MapField(Field):
 
-    def __init__(self, name, key_field, item_field, nullable=True,
-                 metadata=[], keysSorted=False):
+    def __init__(self, name, key_field, item_field, *, nullable=True,
+                 metadata=[], keys_sorted=False):
         super(MapField, self).__init__(name, nullable=nullable,
                                        metadata=metadata)
 
         assert not key_field.nullable
         self.key_field = key_field
         self.item_field = item_field
-        self.pair_field = StructField(
-            'entries', [key_field, item_field], False)
-        self.keysSorted = keysSorted
+        self.pair_field = StructField('entries', [key_field, item_field],
+                                      nullable=False)
+        self.keys_sorted = keys_sorted
 
     def _get_type(self):
         return OrderedDict([
             ('name', 'map'),
-            ('keysSorted', self.keysSorted)
+            ('keysSorted', self.keys_sorted)
         ])
 
     def _get_children(self):
@@ -742,7 +807,7 @@ class MapColumn(Column):
 
 class FixedSizeListField(Field):
 
-    def __init__(self, name, value_field, list_size, nullable=True,
+    def __init__(self, name, value_field, list_size, *, nullable=True,
                  metadata=[]):
         super(FixedSizeListField, self).__init__(name, nullable=nullable,
                                                  metadata=metadata)
@@ -785,7 +850,7 @@ class FixedSizeListColumn(Column):
 
 class StructField(Field):
 
-    def __init__(self, name, fields, nullable=True,
+    def __init__(self, name, fields, *, nullable=True,
                  metadata=[]):
         super(StructField, self).__init__(name, nullable=nullable,
                                           metadata=metadata)
@@ -829,7 +894,7 @@ class Dictionary(object):
 
 class DictionaryField(Field):
 
-    def __init__(self, name, index_field, dictionary, nullable=True,
+    def __init__(self, name, index_field, dictionary, *, nullable=True,
                  metadata=[]):
         super(DictionaryField, self).__init__(name, nullable=nullable,
                                               metadata=metadata)
@@ -935,6 +1000,10 @@ def get_field(name, type_, **kwargs):
         return BinaryField(name, **kwargs)
     elif type_ == 'utf8':
         return StringField(name, **kwargs)
+    elif type_ == 'largebinary':
+        return LargeBinaryField(name, **kwargs)
+    elif type_ == 'largeutf8':
+        return LargeStringField(name, **kwargs)
     elif type_.startswith('fixedsizebinary_'):
         byte_width = int(type_.split('_')[1])
         return FixedSizeBinaryField(name, byte_width=byte_width, **kwargs)
@@ -1018,6 +1087,18 @@ def generate_primitive_case(batch_sizes, name='primitive'):
         fields.append(get_field(type_ + "_nonnullable", type_, nullable=False))
 
     return _generate_file(name, fields, batch_sizes)
+
+
+def generate_primitive_large_offsets_case(batch_sizes):
+    types = ['largebinary', 'largeutf8']
+
+    fields = []
+
+    for type_ in types:
+        fields.append(get_field(type_ + "_nullable", type_, nullable=True))
+        fields.append(get_field(type_ + "_nonnullable", type_, nullable=False))
+
+    return _generate_file('primitive_large_offsets', fields, batch_sizes)
 
 
 def generate_null_case(batch_sizes):
@@ -1106,13 +1187,40 @@ def generate_nested_case():
                            get_field('item', 'int32'), 4),
         StructField('struct_nullable', [get_field('f1', 'int32'),
                                         get_field('f2', 'utf8')]),
-
-        # TODO(wesm): this causes segfault
-        # ListField('list_nonnullable', get_field('item', 'int32'), False),
+        # Fails on Go (ARROW-8452)
+        # ListField('list_nonnullable', get_field('item', 'int32'),
+        #           nullable=False),
     ]
 
     batch_sizes = [7, 10]
     return _generate_file("nested", fields, batch_sizes)
+
+
+def generate_recursive_nested_case():
+    fields = [
+        ListField('lists_list',
+                  ListField('inner_list', get_field('item', 'int16'))),
+        ListField('structs_list',
+                  StructField('inner_struct',
+                              [get_field('f1', 'int32'),
+                               get_field('f2', 'utf8')])),
+    ]
+
+    batch_sizes = [7, 10]
+    return _generate_file("recursive_nested", fields, batch_sizes)
+
+
+def generate_nested_large_offsets_case():
+    fields = [
+        LargeListField('large_list_nullable', get_field('item', 'int32')),
+        LargeListField('large_list_nonnullable',
+                       get_field('item', 'int32'), nullable=False),
+        LargeListField('large_list_nested',
+                       ListField('inner_list', get_field('item', 'int16'))),
+    ]
+
+    batch_sizes = [0, 13]
+    return _generate_file("nested_large_offsets", fields, batch_sizes)
 
 
 def generate_dictionary_case():
@@ -1140,9 +1248,9 @@ def generate_nested_dictionary_case():
     dict1 = Dictionary(1, list_of_dict, size=30, name='DICT1')
 
     struct_of_dict = StructField('struct', [
-            DictionaryField('str_dict_a', get_field('', 'int8'), dict0),
-            DictionaryField('str_dict_b', get_field('', 'int8'), dict0)
-        ])
+        DictionaryField('str_dict_a', get_field('', 'int8'), dict0),
+        DictionaryField('str_dict_b', get_field('', 'int8'), dict0)
+    ])
     dict2 = Dictionary(2, struct_of_dict, size=30, name='DICT2')
 
     fields = [
@@ -1166,6 +1274,11 @@ def get_generated_json_files(tempdir=None, flight=False):
         generate_primitive_case([17, 20], name='primitive'),
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
 
+        generate_primitive_large_offsets_case([17, 20])
+        .skip_category('Go')
+        .skip_category('Java')  # TODO(ARROW-6110)
+        .skip_category('JS'),
+
         generate_null_case([10, 0])
         .skip_category('JS')   # TODO(ARROW-7900)
         .skip_category('Go'),  # TODO(ARROW-7901)
@@ -1186,6 +1299,14 @@ def get_generated_json_files(tempdir=None, flight=False):
         generate_map_case().skip_category('Go'),
 
         generate_nested_case(),
+
+        # TODO(ARROW-8453)
+        generate_recursive_nested_case().skip_category('Go'),
+
+        generate_nested_large_offsets_case()
+        .skip_category('Go')
+        .skip_category('Java')  # TODO(ARROW-6111)
+        .skip_category('JS'),
 
         generate_custom_metadata_case().skip_category('Go')
                                        .skip_category('Java')
