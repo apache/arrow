@@ -81,7 +81,7 @@ call conda.bat activate wheel-test
 
 @rem install the built wheel
 pip install %ARROW_SRC%\python\dist\pyarrow-%PYARROW_VERSION%-cp35-cp35m-win_amd64.whl || exit /B
-pip install -q -r %ARROW_SRC%\python\requirements-wheel-test.txt || exit /B
+pip install -r %ARROW_SRC%\python\requirements-wheel-test.txt || exit /B
 
 @rem test the imports
 python -c "import pyarrow; import pyarrow.parquet" || exit /B
