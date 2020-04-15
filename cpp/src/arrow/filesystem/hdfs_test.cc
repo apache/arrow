@@ -70,8 +70,8 @@ class TestHadoopFileSystem : public ::testing::Test {
     std::string hdfs_user = user == nullptr ? "root" : std::string(user);
 
     options_.ConfigureEndPoint(hdfs_host, hdfs_port);
-    options_.ConfigureHdfsUser(hdfs_user);
-    options_.ConfigureHdfsReplication(0);
+    options_.ConfigureUser(hdfs_user);
+    options_.ConfigureReplication(0);
 
     auto result = HadoopFileSystem::Make(options_);
     if (!result.ok()) {
