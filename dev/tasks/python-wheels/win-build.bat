@@ -92,7 +92,7 @@ call conda create -n wheel-test -c conda-forge -q -y python=%PYTHON_VERSION% || 
 call conda.bat activate wheel-test
 
 @rem install the built wheel
-pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B
+pip install -vv --extra-index-url=%ARROW_SRC%\python\dist\ pyarrow || exit /B
 pip install -q -r %ARROW_SRC%\python\requirements-wheel-test.txt || exit /B
 
 @rem test the imports
