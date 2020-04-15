@@ -38,6 +38,7 @@ add_arrow_test(utility-test
                hashing_test.cc
                int_util_test.cc
                io_util_test.cc
+               io_util_test.manifest
                iterator_test.cc
                logging_test.cc
                parsing_util_test.cc
