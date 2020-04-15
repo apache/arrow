@@ -459,6 +459,38 @@ class BooleanField(PrimitiveField):
         return PrimitiveColumn(name, size, is_valid, values)
 
 
+class FixedSizeBinaryField(PrimitiveField):
+
+    def __init__(self, name, byte_width, *, nullable=True,
+                 metadata=[]):
+        super(FixedSizeBinaryField, self).__init__(name, nullable=nullable,
+                                                   metadata=metadata)
+        self.byte_width = byte_width
+
+    @property
+    def numpy_type(self):
+        return object
+
+    @property
+    def column_class(self):
+        return FixedSizeBinaryColumn
+
+    def _get_type(self):
+        return OrderedDict([('name', 'fixedsizebinary'),
+                            ('byteWidth', self.byte_width)])
+
+    def generate_column(self, size, name=None):
+        is_valid = self._make_is_valid(size)
+        values = []
+
+        for i in range(size):
+            values.append(random_bytes(self.byte_width))
+
+        if name is None:
+            name = self.name
+        return self.column_class(name, size, is_valid, values)
+
+
 class BinaryField(PrimitiveField):
 
     @property
@@ -492,44 +524,6 @@ class BinaryField(PrimitiveField):
         return self.column_class(name, size, is_valid, values)
 
 
-class LargeBinaryField(BinaryField):
-
-    def _get_type(self):
-        return OrderedDict([('name', 'largebinary')])
-
-
-class FixedSizeBinaryField(PrimitiveField):
-
-    def __init__(self, name, byte_width, *, nullable=True,
-                 metadata=[]):
-        super(FixedSizeBinaryField, self).__init__(name, nullable=nullable,
-                                                   metadata=metadata)
-        self.byte_width = byte_width
-
-    @property
-    def numpy_type(self):
-        return object
-
-    @property
-    def column_class(self):
-        return FixedSizeBinaryColumn
-
-    def _get_type(self):
-        return OrderedDict([('name', 'fixedsizebinary'),
-                            ('byteWidth', self.byte_width)])
-
-    def generate_column(self, size, name=None):
-        is_valid = self._make_is_valid(size)
-        values = []
-
-        for i in range(size):
-            values.append(random_bytes(self.byte_width))
-
-        if name is None:
-            name = self.name
-        return self.column_class(name, size, is_valid, values)
-
-
 class StringField(BinaryField):
 
     @property
@@ -555,7 +549,21 @@ class StringField(BinaryField):
         return self.column_class(name, size, is_valid, values)
 
 
+class LargeBinaryField(BinaryField):
+
+    @property
+    def column_class(self):
+        return LargeBinaryColumn
+
+    def _get_type(self):
+        return OrderedDict([('name', 'largebinary')])
+
+
 class LargeStringField(StringField):
+
+    @property
+    def column_class(self):
+        return LargeStringColumn
 
     def _get_type(self):
         return OrderedDict([('name', 'largeutf8')])
@@ -578,7 +586,21 @@ class Schema(object):
         return OrderedDict(entries)
 
 
-class BinaryColumn(PrimitiveColumn):
+class _NarrowOffsetsMixin:
+
+    def _encode_offsets(self, offsets):
+        return list(map(int, offsets))
+
+
+class _LargeOffsetsMixin:
+
+    def _encode_offsets(self, offsets):
+        # 64-bit offsets have to be represented as strings to roundtrip
+        # through JSON.
+        return list(map(str, offsets))
+
+
+class _BaseBinaryColumn(PrimitiveColumn):
 
     def _encode_value(self, x):
         return frombytes(binascii.hexlify(x).upper())
@@ -599,9 +621,31 @@ class BinaryColumn(PrimitiveColumn):
 
         return [
             ('VALIDITY', [int(x) for x in self.is_valid]),
-            ('OFFSET', offsets),
+            ('OFFSET', self._encode_offsets(offsets)),
             ('DATA', data)
         ]
+
+
+class _BaseStringColumn(_BaseBinaryColumn):
+
+    def _encode_value(self, x):
+        return frombytes(x)
+
+
+class BinaryColumn(_BaseBinaryColumn, _NarrowOffsetsMixin):
+    pass
+
+
+class StringColumn(_BaseStringColumn, _NarrowOffsetsMixin):
+    pass
+
+
+class LargeBinaryColumn(_BaseBinaryColumn, _LargeOffsetsMixin):
+    pass
+
+
+class LargeStringColumn(_BaseStringColumn, _LargeOffsetsMixin):
+    pass
 
 
 class FixedSizeBinaryColumn(PrimitiveColumn):
@@ -620,12 +664,6 @@ class FixedSizeBinaryColumn(PrimitiveColumn):
         ]
 
 
-class StringColumn(BinaryColumn):
-
-    def _encode_value(self, x):
-        return frombytes(x)
-
-
 class ListField(Field):
 
     def __init__(self, name, value_field, *, nullable=True,
@@ -633,6 +671,10 @@ class ListField(Field):
         super(ListField, self).__init__(name, nullable=nullable,
                                         metadata=metadata)
         self.value_field = value_field
+
+    @property
+    def column_class(self):
+        return ListColumn
 
     def _get_type(self):
         return OrderedDict([
@@ -660,10 +702,14 @@ class ListField(Field):
 
         if name is None:
             name = self.name
-        return ListColumn(name, size, is_valid, offsets, values)
+        return self.column_class(name, size, is_valid, offsets, values)
 
 
 class LargeListField(ListField):
+
+    @property
+    def column_class(self):
+        return LargeListColumn
 
     def _get_type(self):
         return OrderedDict([
@@ -671,10 +717,10 @@ class LargeListField(ListField):
         ])
 
 
-class ListColumn(Column):
+class _BaseListColumn(Column):
 
     def __init__(self, name, count, is_valid, offsets, values):
-        super(ListColumn, self).__init__(name, count)
+        super().__init__(name, count)
         self.is_valid = is_valid
         self.offsets = offsets
         self.values = values
@@ -682,11 +728,19 @@ class ListColumn(Column):
     def _get_buffers(self):
         return [
             ('VALIDITY', [int(v) for v in self.is_valid]),
-            ('OFFSET', list(self.offsets))
+            ('OFFSET', self._encode_offsets(self.offsets))
         ]
 
     def _get_children(self):
         return [self.values.get_json()]
+
+
+class ListColumn(_BaseListColumn, _NarrowOffsetsMixin):
+    pass
+
+
+class LargeListColumn(_BaseListColumn, _LargeOffsetsMixin):
+    pass
 
 
 class MapField(Field):
@@ -1165,7 +1219,7 @@ def generate_nested_large_offsets_case():
                        ListField('inner_list', get_field('item', 'int16'))),
     ]
 
-    batch_sizes = [7, 10]
+    batch_sizes = [0, 13]
     return _generate_file("nested_large_offsets", fields, batch_sizes)
 
 
