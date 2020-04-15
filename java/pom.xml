@@ -679,13 +679,13 @@
     <module>memory</module>
     <module>vector</module>
     <module>tools</module>
-    <module>adapter/jdbc</module>
-    <module>plasma</module>
+    <module>contrib/adapter/jdbc</module>
+    <module>contrib/plasma</module>
     <module>flight/flight-core</module>
     <module>flight/flight-grpc</module>
     <module>performance</module>
-    <module>algorithm</module>
-    <module>adapter/avro</module>
+    <module>contrib/algorithm</module>
+    <module>contrib/adapter/avro</module>
   </modules>
 
   <profiles>
@@ -705,7 +705,7 @@
       <id>arrow-jni</id>
       <modules>
         <!-- these have dependency on cpp -->
-        <module>adapter/orc</module>
+        <module>contrib/adapter/orc</module>
         <module>gandiva</module>
       </modules>
     </profile>
