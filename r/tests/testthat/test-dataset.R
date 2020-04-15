@@ -119,7 +119,7 @@ test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_
 })
 
 test_that("dataset from URI", {
-  uri <- paste0("file:/", dataset_dir)
+  uri <- paste0("file://", dataset_dir)
   ds <- open_dataset(uri, partitioning = schema(part = uint8()))
   expect_is(ds, "Dataset")
   expect_equivalent(
