@@ -25,7 +25,7 @@ tarball_path=$1
 target_dir=$2
 
 APACHE_MIRRORS=(
-  "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename="
+  "http://www.apache.org/dyn/closer.cgi?action=download&filename="
   "https://downloads.apache.org"
   "https://apache.claz.org"
   "https://apache.cs.utah.edu"
