@@ -175,8 +175,13 @@ TEST_F(TestChunkedArray, Validate) {
 TEST_F(TestChunkedArray, View) {
   auto in_ty = int32();
   auto out_ty = fixed_size_binary(4);
+#if ARROW_LITTLE_ENDIAN
   auto arr = ArrayFromJSON(in_ty, "[2020568934, 2054316386, null]");
   auto arr2 = ArrayFromJSON(in_ty, "[2020568934, 2054316386]");
+#else
+  auto arr = ArrayFromJSON(in_ty, "[1718579064, 1650553466, null]");
+  auto arr2 = ArrayFromJSON(in_ty, "[1718579064, 1650553466]");
+#endif
   auto ex = ArrayFromJSON(out_ty, R"(["foox", "barz", null])");
   auto ex2 = ArrayFromJSON(out_ty, R"(["foox", "barz"])");
 
