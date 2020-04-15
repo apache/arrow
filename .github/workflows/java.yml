@@ -22,7 +22,7 @@ on:
     paths:
       - '.github/workflows/java.yml'
       - 'ci/docker/*java*'
-      - 'ci/scripts/java*.sh'
+      - 'ci/scripts/java_*.sh'
       - 'ci/scripts/util_*.sh'
       - 'format/Flight.proto'
       - 'java/**'
@@ -30,7 +30,7 @@ on:
     paths:
       - '.github/workflows/java.yml'
       - 'ci/docker/*java*'
-      - 'ci/scripts/java*.sh'
+      - 'ci/scripts/java_*.sh'
       - 'ci/scripts/util_*.sh'
       - 'format/Flight.proto'
       - 'java/**'

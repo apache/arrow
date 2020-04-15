@@ -24,12 +24,14 @@ on:
       - 'ci/**'
       - 'cpp/**'
       - 'java/**'
+      - 'ci/scripts/java_*.sh'
   pull_request:
     paths:
       - '.github/workflows/java_jni.yml'
       - 'ci/**'
       - 'cpp/**'
       - 'java/**'
+      - 'ci/scripts/java_*.sh'
 
 env:
   DOCKER_BUILDKIT: 0
