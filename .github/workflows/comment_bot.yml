@@ -71,9 +71,31 @@ jobs:
             git diff --name-only HEAD^..upstream/master | grep -e "$1" >/dev/null 2>&1
           }
           if changed '^r/.*\.R$'; then
-            echo ".R changed"
             echo "::set-env name=R_DOCS::true"
           fi
+          if changed 'cmake' || changed 'CMake'; then
+            echo "::set-env name=CMAKE_FORMAT::true"
+          fi
+          if changed '^cpp/src' || changed '^r/src'; then
+            echo "::set-env name=CLANG_FORMAT::true"
+          fi
+      - name: Run cmake_format
+        if: env.CMAKE_FORMAT == 'true'
+        run: |
+          python3 -m pip install -r dev/archery/requirements-lint.txt
+          python3 run-cmake-format.py
+      - name: Run clang-format
+        if: env.CLANG_FORMAT == 'true'
+        run: |
+          . .env # To get the clang version we use
+          cpp/build-support/run_clang_format.py \
+              --clang_format_binary=clang-format-${CLANG_TOOLS} \
+              --exclude_glob=cpp/build-support/lint_exclusions.txt \
+              --source_dir=cpp/src --quiet --fix
+          cpp/build-support/run_clang_format.py \
+              --clang_format_binary=clang-format-${CLANG_TOOLS} \
+              --exclude_glob=cpp/build-support/lint_exclusions.txt \
+              --source_dir=r/src --quiet --fix
       - uses: r-lib/actions/setup-r@v1
         if: env.R_DOCS == 'true'
       - name: Update R docs
