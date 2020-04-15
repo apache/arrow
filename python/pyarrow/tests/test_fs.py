@@ -640,6 +640,12 @@ def test_hdfs_options(hdfs_connection):
     hdfs5 = HadoopFileSystem(host, port)
     hdfs6 = HadoopFileSystem.from_uri('hdfs://{}:{}'.format(host, port))
     hdfs7 = HadoopFileSystem(host, port, user='localuser')
+    hdfs8 = HadoopFileSystem(host, port, user='localuser',
+                             kerb_ticket="cache_path")
+    hdfs9 = HadoopFileSystem(host, port, user='localuser',
+                             kerb_ticket=pathlib.Path("cache_path"))
+    hdfs10 = HadoopFileSystem(host, port, user='localuser',
+                              kerb_ticket="cache_path2")
 
     assert hdfs1 == hdfs2
     assert hdfs5 == hdfs6
@@ -649,12 +655,18 @@ def test_hdfs_options(hdfs_connection):
     assert hdfs7 != hdfs5
     assert hdfs2 != hdfs3
     assert hdfs3 != hdfs4
+    assert hdfs7 != hdfs8
+    assert hdfs8 == hdfs9
+    assert hdfs10 != hdfs9
+
     with pytest.raises(TypeError):
         HadoopFileSystem()
     with pytest.raises(TypeError):
         HadoopFileSystem.from_uri(3)
 
-    assert pickle.loads(pickle.dumps(hdfs1)) == hdfs1
+    for fs in [hdfs1, hdfs2, hdfs3, hdfs4, hdfs5, hdfs6, hdfs7, hdfs8,
+               hdfs9, hdfs10]:
+        assert pickle.loads(pickle.dumps(fs)) == fs
 
     host, port, user = hdfs_connection
 
