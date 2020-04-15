@@ -619,6 +619,73 @@ class TestArrayExport : public ::testing::Test {
     TestMoveChild(JSONArrayFactory(type, json), child_id);
   }
 
+  template <typename ArrayFactory, typename ExportCheckFunc>
+  void TestMoveChildrenWithArrayFactory(ArrayFactory&& factory,
+                                        const std::vector<int64_t> children_ids,
+                                        ExportCheckFunc&& check_func) {
+    auto orig_bytes = pool_->bytes_allocated();
+
+    std::shared_ptr<Array> arr;
+    ASSERT_OK(factory(&arr));
+    struct ArrowArray c_export_parent;
+    ASSERT_OK(ExportArray(*arr, &c_export_parent));
+
+    auto bytes_with_parent = pool_->bytes_allocated();
+    ASSERT_GT(bytes_with_parent, orig_bytes);
+
+    // Move the children ArrowArrays to their final locations
+    std::vector<struct ArrowArray> c_export_children(children_ids.size());
+    std::vector<ArrayExportGuard> child_guards;
+    std::vector<const ArrayData*> child_data;
+    {
+      ArrayExportGuard parent_guard(&c_export_parent);
+      for (size_t i = 0; i < children_ids.size(); ++i) {
+        const auto child_id = children_ids[i];
+        ASSERT_LT(child_id, c_export_parent.n_children);
+        ArrowArrayMove(c_export_parent.children[child_id], &c_export_children[i]);
+        child_guards.emplace_back(&c_export_children[i]);
+        // Keep non-owning pointer to the child ArrayData
+        child_data.push_back(arr->data()->child_data[child_id].get());
+      }
+    }
+
+    // Now parent is released
+    ASSERT_TRUE(ArrowArrayIsReleased(&c_export_parent));
+    auto bytes_with_child = pool_->bytes_allocated();
+    ASSERT_LT(bytes_with_child, bytes_with_parent);
+    ASSERT_GT(bytes_with_child, orig_bytes);
+    for (size_t i = 0; i < children_ids.size(); ++i) {
+      check_func(&c_export_children[i], *child_data[i]);
+    }
+
+    // Release the shared_ptr<Array>, the children data should be held alive
+    arr.reset();
+    ASSERT_LT(pool_->bytes_allocated(), bytes_with_child);
+    ASSERT_GT(pool_->bytes_allocated(), orig_bytes);
+    for (size_t i = 0; i < children_ids.size(); ++i) {
+      check_func(&c_export_children[i], *child_data[i]);
+    }
+
+    // Release the ArrowArrays, underlying data should be destroyed
+    for (auto& child_guard : child_guards) {
+      child_guard.Release();
+    }
+    ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+  }
+
+  template <typename ArrayFactory>
+  void TestMoveChildren(ArrayFactory&& factory, const std::vector<int64_t> children_ids) {
+    ArrayExportChecker checker;
+
+    TestMoveChildrenWithArrayFactory(std::forward<ArrayFactory>(factory),
+                                     children_ids, checker);
+  }
+
+  void TestMoveChildren(const std::shared_ptr<DataType>& type, const char* json,
+                        const std::vector<int64_t> children_ids) {
+    TestMoveChildren(JSONArrayFactory(type, json), children_ids);
+  }
+
  protected:
   MemoryPool* pool_;
 };
@@ -844,6 +911,12 @@ TEST_F(TestArrayExport, MoveChild) {
     };
     TestMoveChild(factory, /*child_id=*/0);
   }
+}
+
+TEST_F(TestArrayExport, MoveSeveralChildren) {
+  TestMoveChildren(
+      struct_({field("ints", int8()), field("floats", float64()), field("strs", utf8())}),
+      R"([[1, 1.5, "foo"], [2, 0.0, null]])", /*children_ids=*/{0, 2});
 }
 
 TEST_F(TestArrayExport, ExportArrayAndType) {
