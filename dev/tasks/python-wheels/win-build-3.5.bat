@@ -21,7 +21,8 @@
 conda update --yes --quiet conda
 
 conda create -n wheel-build -q -y -c conda-forge ^
-    python=3.5 ^
+    "boost-cpp>=1.68.0" ^
+    "python=3.5" ^
     zlib || exit /B
 
 call conda.bat activate wheel-build
@@ -44,6 +45,7 @@ cmake -G "%GENERATOR%" ^
       -DCMAKE_BUILD_TYPE=Release ^
       -DARROW_DEPENDENCY_SOURCE=BUNDLED ^
       -DZLIB_SOURCE=SYSTEM ^
+      -DBOOST_SOURCE=SYSTEM ^
       -DZLIB_ROOT=%CONDA_PREFIX%\Library ^
       -DARROW_CXXFLAGS="/MP" ^
       -DARROW_WITH_ZLIB=ON ^
