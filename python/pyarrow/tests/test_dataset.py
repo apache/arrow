@@ -270,12 +270,8 @@ def test_filesystem_dataset(mockfs):
         assert row_group_fragments[0].path == path
         assert row_group_fragments[0].row_groups == {0}
 
-    # test predicate pushdown using row group metadata
-    # ARROW-8065
-    # fragments = list(dataset.get_fragments(filter=ds.field("const") == 0))
-    # assert len(fragments) == 2
-    # assert len(list(fragments[0].get_row_group_fragments())) == 1
-    # assert len(list(fragments[1].get_row_group_fragments())) == 0
+    fragments = list(dataset.get_fragments(filter=ds.field("const") == 0))
+    assert len(fragments) == 2
 
 
 def test_dataset(dataset):
@@ -652,13 +648,14 @@ def _create_dataset_for_fragments(tempdir, chunk_size=None):
         [range(8), [1] * 8, ['a'] * 4 + ['b'] * 4],
         names=['f1', 'f2', 'part']
     )
+
+    path = str(tempdir / "test_parquet_dataset")
+
     # write_to_dataset currently requires pandas
-    pq.write_to_dataset(table, str(tempdir / "test_parquet_dataset"),
+    pq.write_to_dataset(table, path,
                         partition_cols=["part"], chunk_size=chunk_size)
 
-    dataset = ds.dataset(str(tempdir / "test_parquet_dataset/"),
-                         format="parquet", partitioning="hive")
-    return table, dataset
+    return table, ds.dataset(path, format="parquet", partitioning="hive")
 
 
 @pytest.mark.pandas

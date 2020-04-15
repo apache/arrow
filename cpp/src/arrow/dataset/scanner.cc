@@ -73,7 +73,7 @@ FragmentIterator Scanner::GetFragments() {
   // Transform Datasets in a flat Iterator<Fragment>. This
   // iterator is lazily constructed, i.e. Dataset::GetFragments is
   // not invoked until a Fragment is requested.
-  return GetFragmentsFromDatasets({dataset_}, scan_options_);
+  return GetFragmentsFromDatasets({dataset_}, scan_options_->filter);
 }
 
 Result<ScanTaskIterator> Scanner::Scan() {

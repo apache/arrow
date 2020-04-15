@@ -104,21 +104,35 @@ cdef class Dataset:
             self.dataset.ReplaceSchema(pyarrow_unwrap_schema(schema)))
         return Dataset.wrap(move(copy))
 
-    def get_fragments(self, columns=None, filter=None):
+    def get_fragments(self, Expression filter=None):
         """Returns an iterator over the fragments in this dataset.
 
         Parameters
         ----------
-        columns : list of str, default None
-            List of columns to project.
         filter : Expression, default None
-            Scan will return only the rows matching the filter.
+            Return fragments matching the optional filter, either using the
+            partition_expression or internal information like Parquet's
+            statistics.
 
         Returns
         -------
         fragments : iterator of Fragment
         """
-        return Scanner(self, columns=columns, filter=filter).get_fragments()
+        cdef:
+            CFragmentIterator iterator
+            shared_ptr[CFragment] fragment
+
+        if filter is None or filter.expr == nullptr:
+            iterator = self.dataset.GetFragments()
+        else:
+            iterator = self.dataset.GetFragments(filter.unwrap())
+
+        while True:
+            fragment = GetResultValue(iterator.Next())
+            if fragment.get() == nullptr:
+                raise StopIteration()
+            else:
+                yield Fragment.wrap(fragment)
 
     def _scanner(self, **kwargs):
         return Scanner(self, **kwargs)

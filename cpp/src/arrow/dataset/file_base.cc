@@ -167,7 +167,7 @@ std::shared_ptr<Expression> FoldingAnd(const std::shared_ptr<Expression>& l,
 }
 
 FragmentIterator FileSystemDataset::GetFragmentsImpl(
-    std::shared_ptr<ScanOptions> scan_options) {
+    std::shared_ptr<Expression> predicate) {
   FragmentVector fragments;
 
   ExpressionVector fragment_partitions(forest_.size());
@@ -183,9 +183,8 @@ FragmentIterator FileSystemDataset::GetFragmentsImpl(
       fragment_partitions[ref.i] = FoldingAnd(partition_expression_, partition);
     }
 
-    // simplify filter by partition information
-    auto filter = scan_options->filter->Assume(partition);
-    if (filter->IsNull() || filter->Equals(false)) {
+    auto simplified_predicate = predicate->Assume(partition);
+    if (!simplified_predicate->IsSatisfiable()) {
       // directories (and descendants) which can't satisfy the filter are pruned
       return fs::PathForest::Prune;
     }

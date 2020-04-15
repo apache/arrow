@@ -187,8 +187,8 @@ TEST_F(TestIpcFileSystemDataset, Write) {
   opts_ = ScanOptions::Make(schema);
 
   auto partitioning_factory = DirectoryPartitioning::MakeFactory({"str", "i32"});
-  ASSERT_OK_AND_ASSIGN(auto plan, partitioning_factory->MakeWritePlan(
-                                      schema, dataset_->GetFragments(options_)));
+  ASSERT_OK_AND_ASSIGN(
+      auto plan, partitioning_factory->MakeWritePlan(schema, dataset_->GetFragments()));
 
   plan.format = format_;
   plan.filesystem = fs_;

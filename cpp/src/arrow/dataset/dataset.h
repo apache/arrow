@@ -98,8 +98,9 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   Result<std::shared_ptr<ScannerBuilder>> NewScan(std::shared_ptr<ScanContext> context);
   Result<std::shared_ptr<ScannerBuilder>> NewScan();
 
-  /// \brief GetFragments returns an iterator of Fragments given ScanOptions.
-  FragmentIterator GetFragments(std::shared_ptr<ScanOptions> options);
+  /// \brief GetFragments returns an iterator of Fragments given a predicate.
+  FragmentIterator GetFragments(std::shared_ptr<Expression> predicate);
+  FragmentIterator GetFragments();
 
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
@@ -128,13 +129,7 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
       : schema_(std::move(schema)), partition_expression_(std::move(e)) {}
   Dataset() = default;
 
-  virtual FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) = 0;
-
-  /// Mutates a ScanOptions by assuming partition_expression_ holds for all yielded
-  /// fragments. Returns false if the selector is not satisfiable in this Dataset.
-  virtual bool AssumePartitionExpression(
-      const std::shared_ptr<ScanOptions>& scan_options,
-      std::shared_ptr<ScanOptions>* simplified_scan_options) const;
+  virtual FragmentIterator GetFragmentsImpl(std::shared_ptr<Expression> predicate) = 0;
 
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<Expression> partition_expression_;
@@ -160,13 +155,14 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
 
   explicit InMemoryDataset(std::shared_ptr<Table> table);
 
+
   std::string type_name() const override { return "in-memory"; }
 
   Result<std::shared_ptr<Dataset>> ReplaceSchema(
       std::shared_ptr<Schema> schema) const override;
 
  protected:
-  FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
+  FragmentIterator GetFragmentsImpl(std::shared_ptr<Expression> predicate) override;
 
   std::shared_ptr<RecordBatchGenerator> get_batches_;
 };
@@ -182,6 +178,7 @@ class ARROW_DS_EXPORT UnionDataset : public Dataset {
   static Result<std::shared_ptr<UnionDataset>> Make(std::shared_ptr<Schema> schema,
                                                     DatasetVector children);
 
+
   const DatasetVector& children() const { return children_; }
 
   std::string type_name() const override { return "union"; }
@@ -190,7 +187,7 @@ class ARROW_DS_EXPORT UnionDataset : public Dataset {
       std::shared_ptr<Schema> schema) const override;
 
  protected:
-  FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
+  FragmentIterator GetFragmentsImpl(std::shared_ptr<Expression> predicate) override;
 
   explicit UnionDataset(std::shared_ptr<Schema> schema, DatasetVector children)
       : Dataset(std::move(schema)), children_(std::move(children)) {}

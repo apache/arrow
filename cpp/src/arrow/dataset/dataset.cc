@@ -52,9 +52,16 @@ Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanOptions> opt
   // multiple times.
   auto batches_it = MakeVectorIterator(record_batches_);
 
+  auto batch_size = options->batch_size;
   // RecordBatch -> ScanTask
   auto fn = [=](std::shared_ptr<RecordBatch> batch) -> std::shared_ptr<ScanTask> {
-    RecordBatchVector batches{batch};
+    RecordBatchVector batches;
+
+    auto n_batches = BitUtil::CeilDiv(batch->num_rows(), batch_size);
+    for (int i = 0; i < n_batches; i++) {
+      batches.push_back(batch->Slice(batch_size * i, batch_size));
+    }
+
     return ::arrow::internal::make_unique<InMemoryScanTask>(
         std::move(batches), std::move(options), std::move(context));
   };
@@ -71,36 +78,15 @@ Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan() {
   return NewScan(std::make_shared<ScanContext>());
 }
 
-bool Dataset::AssumePartitionExpression(
-    const std::shared_ptr<ScanOptions>& scan_options,
-    std::shared_ptr<ScanOptions>* simplified_scan_options) const {
-  if (partition_expression_ == nullptr) {
-    if (simplified_scan_options != nullptr) {
-      *simplified_scan_options = scan_options;
-    }
-    return true;
+FragmentIterator Dataset::GetFragments() { return GetFragments(scalar(true)); }
+
+FragmentIterator Dataset::GetFragments(std::shared_ptr<Expression> predicate) {
+  if (partition_expression_) {
+    predicate = predicate->Assume(*partition_expression_);
   }
 
-  auto expr = scan_options->filter->Assume(*partition_expression_);
-  if (expr->IsNull() || expr->Equals(false)) {
-    // selector is not satisfiable; yield no fragments
-    return false;
-  }
-
-  if (simplified_scan_options != nullptr) {
-    auto copy = std::make_shared<ScanOptions>(*scan_options);
-    copy->filter = std::move(expr);
-    *simplified_scan_options = std::move(copy);
-  }
-  return true;
-}
-
-FragmentIterator Dataset::GetFragments(std::shared_ptr<ScanOptions> scan_options) {
-  std::shared_ptr<ScanOptions> simplified_scan_options;
-  if (!AssumePartitionExpression(scan_options, &simplified_scan_options)) {
-    return MakeEmptyIterator<std::shared_ptr<Fragment>>();
-  }
-  return GetFragmentsImpl(std::move(simplified_scan_options));
+  return predicate->IsSatisfiable() ? GetFragmentsImpl(std::move(predicate))
+                                    : MakeEmptyIterator<std::shared_ptr<Fragment>>();
 }
 
 struct VectorRecordBatchGenerator : InMemoryDataset::RecordBatchGenerator {
@@ -140,27 +126,17 @@ Result<std::shared_ptr<Dataset>> InMemoryDataset::ReplaceSchema(
   return std::make_shared<InMemoryDataset>(std::move(schema), get_batches_);
 }
 
-FragmentIterator InMemoryDataset::GetFragmentsImpl(
-    std::shared_ptr<ScanOptions> scan_options) {
+FragmentIterator InMemoryDataset::GetFragmentsImpl(std::shared_ptr<Expression>) {
   auto schema = this->schema();
 
   auto create_fragment =
-      [scan_options,
-       schema](std::shared_ptr<RecordBatch> batch) -> Result<std::shared_ptr<Fragment>> {
+      [schema](std::shared_ptr<RecordBatch> batch) -> Result<std::shared_ptr<Fragment>> {
     if (!batch->schema()->Equals(schema)) {
       return Status::TypeError("yielded batch had schema ", *batch->schema(),
                                " which did not match InMemorySource's: ", *schema);
     }
 
-    RecordBatchVector batches;
-
-    auto batch_size = scan_options->batch_size;
-    auto n_batches = BitUtil::CeilDiv(batch->num_rows(), batch_size);
-
-    for (int i = 0; i < n_batches; i++) {
-      batches.push_back(batch->Slice(batch_size * i, batch_size));
-    }
-
+    RecordBatchVector batches{batch};
     return std::make_shared<InMemoryFragment>(std::move(batches));
   };
 
@@ -191,8 +167,8 @@ Result<std::shared_ptr<Dataset>> UnionDataset::ReplaceSchema(
       new UnionDataset(std::move(schema), std::move(children)));
 }
 
-FragmentIterator UnionDataset::GetFragmentsImpl(std::shared_ptr<ScanOptions> options) {
-  return GetFragmentsFromDatasets(children_, options);
+FragmentIterator UnionDataset::GetFragmentsImpl(std::shared_ptr<Expression> predicate) {
+  return GetFragmentsFromDatasets(children_, predicate);
 }
 
 }  // namespace dataset

@@ -188,6 +188,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CDataset "arrow::dataset::Dataset":
         const shared_ptr[CSchema] & schema()
+        CFragmentIterator GetFragments()
+        CFragmentIterator GetFragments(shared_ptr[CExpression] predicate)
         const shared_ptr[CExpression] & partition_expression()
         c_string type_name()
 

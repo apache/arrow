@@ -220,8 +220,7 @@ class RowGroupSkipper {
     }
 
     auto stats_expr = maybe_stats_expr.ValueOrDie();
-    auto expr = filter_->Assume(stats_expr);
-    return (expr->IsNull() || expr->Equals(false));
+    return !filter_->Assume(stats_expr)->IsSatisfiable();
   }
 
   std::shared_ptr<parquet::FileMetaData> metadata_;
