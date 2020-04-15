@@ -18,9 +18,9 @@
 @echo on
 
 @rem create conda environment for compiling
-conda update --yes --quiet conda
+call conda update --yes --quiet conda
 
-conda create -n wheel-build -q -y -c conda-forge ^
+call conda create -n wheel-build -q -y -c conda-forge ^
     --file=%ARROW_SRC%\ci\conda_env_cpp.yml ^
     --file=%ARROW_SRC%\ci\conda_env_gandiva.yml ^
     python=%PYTHON_VERSION% || exit /B
@@ -88,12 +88,12 @@ set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
 
 @rem test the wheel
 @rem TODO For maximum reliability, we should test in a plain virtualenv instead.
-conda create -n wheel-test -c conda-forge -q -y python=%PYTHON_VERSION% || exit /B
+call conda create -n wheel-test -c conda-forge -q -y python=%PYTHON_VERSION% || exit /B
 call conda.bat activate wheel-test
 
 @rem install the built wheel
-pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B
-pip install -q -r %ARROW_SRC%\python\requirements-wheel-test.txt || exit /B
+pip install -r %ARROW_SRC%\python\requirements-wheel-test.txt || exit /B
+pip install --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B
 
 @rem test the imports
 python -c "import pyarrow; import pyarrow.parquet; import pyarrow.flight; import pyarrow.dataset; import pyarrow.gandiva;" || exit /B
