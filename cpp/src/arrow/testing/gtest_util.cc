@@ -386,25 +386,25 @@ void SleepFor(double seconds) {
 ///////////////////////////////////////////////////////////////////////////
 // Extension types
 
-bool UUIDType::ExtensionEquals(const ExtensionType& other) const {
+bool UuidType::ExtensionEquals(const ExtensionType& other) const {
   return (other.extension_name() == this->extension_name());
 }
 
-std::shared_ptr<Array> UUIDType::MakeArray(std::shared_ptr<ArrayData> data) const {
+std::shared_ptr<Array> UuidType::MakeArray(std::shared_ptr<ArrayData> data) const {
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
   DCHECK_EQ("uuid", static_cast<const ExtensionType&>(*data->type).extension_name());
-  return std::make_shared<UUIDArray>(data);
+  return std::make_shared<UuidArray>(data);
 }
 
-Result<std::shared_ptr<DataType>> UUIDType::Deserialize(
+Result<std::shared_ptr<DataType>> UuidType::Deserialize(
     std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
   if (serialized != "uuid-serialization") {
     return Status::Invalid("Type identifier did not match: '", serialized, "'");
   }
   if (!storage_type->Equals(*fixed_size_binary(16))) {
-    return Status::Invalid("Invalid storage type for UUIDType");
+    return Status::Invalid("Invalid storage type for UuidType");
   }
-  return std::make_shared<UUIDType>();
+  return std::make_shared<UuidType>();
 }
 
 bool SmallintType::ExtensionEquals(const ExtensionType& other) const {
@@ -448,7 +448,7 @@ Result<std::shared_ptr<DataType>> DictExtensionType::Deserialize(
   return std::make_shared<DictExtensionType>();
 }
 
-std::shared_ptr<DataType> uuid() { return std::make_shared<UUIDType>(); }
+std::shared_ptr<DataType> uuid() { return std::make_shared<UuidType>(); }
 
 std::shared_ptr<DataType> smallint() { return std::make_shared<SmallintType>(); }
 
@@ -456,7 +456,7 @@ std::shared_ptr<DataType> dict_extension_type() {
   return std::make_shared<DictExtensionType>();
 }
 
-std::shared_ptr<Array> ExampleUUID() {
+std::shared_ptr<Array> ExampleUuid() {
   auto storage_type = fixed_size_binary(16);
   auto ext_type = uuid();
 

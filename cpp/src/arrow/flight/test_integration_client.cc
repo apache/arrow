@@ -127,7 +127,7 @@ Status ConsumeFlightLocation(
 }
 
 int RunIntegrationClient() {
-  // Make sure the UUID extension type is registered, it will be referenced
+  // Make sure the Uuid extension type is registered, it will be referenced
   // in some test data.
   ExtensionTypeGuard ext_guard(uuid());
 

@@ -770,9 +770,9 @@ Status MakeUuid(std::shared_ptr<RecordBatch>* out) {
   auto f1 = field("f1", uuid_type, /*nullable=*/false);
   auto schema = ::arrow::schema({f0, f1});
 
-  auto a0 = std::make_shared<UUIDArray>(
+  auto a0 = std::make_shared<UuidArray>(
       uuid_type, ArrayFromJSON(storage_type, R"(["0123456789abcdef", null])"));
-  auto a1 = std::make_shared<UUIDArray>(
+  auto a1 = std::make_shared<UuidArray>(
       uuid_type,
       ArrayFromJSON(storage_type, R"(["ZYXWVUTSRQPONMLK", "JIHGFEDBA9876543"])"));
 

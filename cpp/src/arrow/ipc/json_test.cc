@@ -547,12 +547,12 @@ TEST(TestJsonFileReadWrite, JsonExample2) {
 
     auto storage_array =
         ArrayFromJSON(fixed_size_binary(16), R"(["0123456789abcdef", null])");
-    AssertArraysEqual(*batch->column(0), UUIDArray(uuid_type, storage_array));
+    AssertArraysEqual(*batch->column(0), UuidArray(uuid_type, storage_array));
 
     AssertArraysEqual(*batch->column(1), NullArray(2));
   }
 
-  // Should fail now that the UUID extension is unregistered
+  // Should fail now that the Uuid extension is unregistered
   ASSERT_RAISES(KeyError, JsonReader::Open(buffer, &reader));
 }
 

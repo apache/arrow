@@ -182,7 +182,7 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
 
 Status RunCommand(const std::string& json_path, const std::string& arrow_path,
                   const std::string& command) {
-  // Make sure the UUID extension type is registered, it will be referenced
+  // Make sure the Uuid extension type is registered, it will be referenced
   // in some test data.
   ExtensionTypeGuard ext_guard(uuid());
 

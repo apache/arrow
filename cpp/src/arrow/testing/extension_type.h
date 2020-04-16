@@ -26,14 +26,14 @@
 
 namespace arrow {
 
-class ARROW_EXPORT UUIDArray : public ExtensionArray {
+class ARROW_EXPORT UuidArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
 };
 
-class ARROW_EXPORT UUIDType : public ExtensionType {
+class ARROW_EXPORT UuidType : public ExtensionType {
  public:
-  UUIDType() : ExtensionType(fixed_size_binary(16)) {}
+  UuidType() : ExtensionType(fixed_size_binary(16)) {}
 
   std::string extension_name() const override { return "uuid"; }
 
@@ -97,7 +97,7 @@ ARROW_EXPORT
 std::shared_ptr<DataType> dict_extension_type();
 
 ARROW_EXPORT
-std::shared_ptr<Array> ExampleUUID();
+std::shared_ptr<Array> ExampleUuid();
 
 ARROW_EXPORT
 std::shared_ptr<Array> ExampleSmallint();
