@@ -190,4 +190,5 @@ int RunIntegrationClient() {
 int main(int argc, char** argv) {
   gflags::SetUsageMessage("Integration testing client for Flight.");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
+  return arrow::flight::RunIntegrationClient();
 }
