@@ -1515,8 +1515,6 @@ static const void* primitive_buffers_no_nulls1_32[2] = {nullptr, data_buffer1};
 static const void* primitive_buffers_no_nulls1_64[2] = {nullptr, data_buffer1};
 static const void* primitive_buffers_nulls1_8[2] = {bits_buffer1, data_buffer1};
 static const void* primitive_buffers_nulls1_16[2] = {bits_buffer1, data_buffer1};
-static const void* primitive_buffers_nulls1_32[2] = {bits_buffer1, data_buffer1};
-static const void* primitive_buffers_nulls1_64[2] = {bits_buffer1, data_buffer1};
 #else
 static const uint8_t data_buffer1_16[] = {2,  1,  4,  3,  6,  5,  8,  7,
                                           10, 9, 12, 11, 14, 13, 16, 15};
@@ -1524,16 +1522,12 @@ static const uint8_t data_buffer1_32[] = {4,  3,  2,  1,  8,  7,  6,  5,
                                           12, 11, 10, 9, 16, 15, 14, 13};
 static const uint8_t data_buffer1_64[] = {8,  7,  6,  5,  4,  3,  2,  1,
                                           16, 15, 14, 13, 12, 11, 10, 9};
-static const void* primitive_buffers_no_nulls1_1[2] = {nullptr, data_buffer1};
 static const void* primitive_buffers_no_nulls1_8[2] = {nullptr, data_buffer1};
 static const void* primitive_buffers_no_nulls1_16[2] = {nullptr, data_buffer1_16};
 static const void* primitive_buffers_no_nulls1_32[2] = {nullptr, data_buffer1_32};
 static const void* primitive_buffers_no_nulls1_64[2] = {nullptr, data_buffer1_64};
-static const void* primitive_buffers_nulls1_1[2] = {bits_buffer1, data_buffer1};
 static const void* primitive_buffers_nulls1_8[2] = {bits_buffer1, data_buffer1};
 static const void* primitive_buffers_nulls1_16[2] = {bits_buffer1, data_buffer1_16};
-static const void* primitive_buffers_nulls1_32[2] = {bits_buffer1, data_buffer1_32};
-static const void* primitive_buffers_nulls1_64[2] = {bits_buffer1, data_buffer1_64};
 #endif
 static const void* primitive_buffers_no_nulls2[2] = {nullptr, data_buffer2};
 static const void* primitive_buffers_no_nulls3[2] = {nullptr, data_buffer3};
