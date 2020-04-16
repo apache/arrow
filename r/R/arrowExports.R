@@ -872,12 +872,28 @@ fs___FileSystem__OpenAppendStream <- function(file_system, path){
     .Call(`_arrow_fs___FileSystem__OpenAppendStream` , file_system, path)
 }
 
+fs___FileSystem__type_name <- function(file_system){
+    .Call(`_arrow_fs___FileSystem__type_name` , file_system)
+}
+
 fs___LocalFileSystem__create <- function(){
     .Call(`_arrow_fs___LocalFileSystem__create` )
 }
 
 fs___SubTreeFileSystem__create <- function(base_path, base_fs){
     .Call(`_arrow_fs___SubTreeFileSystem__create` , base_path, base_fs)
+}
+
+fs___FileSystemFromUri <- function(path){
+    .Call(`_arrow_fs___FileSystemFromUri` , path)
+}
+
+fs___EnsureS3Initialized <- function(){
+    invisible(.Call(`_arrow_fs___EnsureS3Initialized` ))
+}
+
+fs___S3FileSystem__create <- function(){
+    .Call(`_arrow_fs___S3FileSystem__create` )
 }
 
 io___Readable__Read <- function(x, nbytes){

@@ -3406,6 +3406,21 @@ RcppExport SEXP _arrow_fs___FileSystem__OpenAppendStream(SEXP file_system_sexp, 
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::string fs___FileSystem__type_name(const std::shared_ptr<fs::FileSystem>& file_system);
+RcppExport SEXP _arrow_fs___FileSystem__type_name(SEXP file_system_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
+	return Rcpp::wrap(fs___FileSystem__type_name(file_system));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___FileSystem__type_name(SEXP file_system_sexp){
+	Rf_error("Cannot call fs___FileSystem__type_name(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<fs::LocalFileSystem> fs___LocalFileSystem__create();
 RcppExport SEXP _arrow_fs___LocalFileSystem__create(){
 BEGIN_RCPP
@@ -3431,6 +3446,50 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_fs___SubTreeFileSystem__create(SEXP base_path_sexp, SEXP base_fs_sexp){
 	Rf_error("Cannot call fs___SubTreeFileSystem__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+Rcpp::List fs___FileSystemFromUri(const std::string& path);
+RcppExport SEXP _arrow_fs___FileSystemFromUri(SEXP path_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
+	return Rcpp::wrap(fs___FileSystemFromUri(path));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___FileSystemFromUri(SEXP path_sexp){
+	Rf_error("Cannot call fs___FileSystemFromUri(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_S3)
+void fs___EnsureS3Initialized();
+RcppExport SEXP _arrow_fs___EnsureS3Initialized(){
+BEGIN_RCPP
+	fs___EnsureS3Initialized();
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___EnsureS3Initialized(){
+	Rf_error("Cannot call fs___EnsureS3Initialized(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_S3)
+std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create();
+RcppExport SEXP _arrow_fs___S3FileSystem__create(){
+BEGIN_RCPP
+	return Rcpp::wrap(fs___S3FileSystem__create());
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___S3FileSystem__create(){
+	Rf_error("Cannot call fs___S3FileSystem__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -5810,8 +5869,19 @@ return Rf_ScalarLogical(
 );
 }
 
+extern "C" SEXP _s3_available() {
+return Rf_ScalarLogical(
+#if defined(ARROW_R_WITH_S3)
+  TRUE
+#else
+  FALSE
+#endif
+);
+}
+
 static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
+		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
 		{ "_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3}, 
 		{ "_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2}, 
@@ -6030,8 +6100,12 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___FileSystem__OpenInputFile", (DL_FUNC) &_arrow_fs___FileSystem__OpenInputFile, 2}, 
 		{ "_arrow_fs___FileSystem__OpenOutputStream", (DL_FUNC) &_arrow_fs___FileSystem__OpenOutputStream, 2}, 
 		{ "_arrow_fs___FileSystem__OpenAppendStream", (DL_FUNC) &_arrow_fs___FileSystem__OpenAppendStream, 2}, 
+		{ "_arrow_fs___FileSystem__type_name", (DL_FUNC) &_arrow_fs___FileSystem__type_name, 1}, 
 		{ "_arrow_fs___LocalFileSystem__create", (DL_FUNC) &_arrow_fs___LocalFileSystem__create, 0}, 
 		{ "_arrow_fs___SubTreeFileSystem__create", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__create, 2}, 
+		{ "_arrow_fs___FileSystemFromUri", (DL_FUNC) &_arrow_fs___FileSystemFromUri, 1}, 
+		{ "_arrow_fs___EnsureS3Initialized", (DL_FUNC) &_arrow_fs___EnsureS3Initialized, 0}, 
+		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 0}, 
 		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 
 		{ "_arrow_io___InputStream__Close", (DL_FUNC) &_arrow_io___InputStream__Close, 1}, 
 		{ "_arrow_io___OutputStream__Close", (DL_FUNC) &_arrow_io___OutputStream__Close, 1}, 

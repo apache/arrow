@@ -2,10 +2,16 @@
 % Please edit documentation in R/config.R
 \name{cpu_count}
 \alias{cpu_count}
-\title{Return number of threads used by the global CPU thread pool in libarrow}
+\alias{set_cpu_count}
+\title{Manage the global CPU thread pool in libarrow}
 \usage{
 cpu_count()
+
+set_cpu_count(num_threads)
+}
+\arguments{
+\item{num_threads}{integer: New number of threads for thread pool}
 }
 \description{
-Return number of threads used by the global CPU thread pool in libarrow
+Manage the global CPU thread pool in libarrow
 }

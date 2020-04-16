@@ -268,11 +268,9 @@ DatasetFactory <- R6Class("DatasetFactory", inherit = ArrowObject,
   )
 )
 DatasetFactory$create <- function(x,
-                                  filesystem = c("auto", "local"),
+                                  filesystem = NULL,
                                   format = c("parquet", "arrow", "ipc", "feather"),
                                   partitioning = NULL,
-                                  allow_not_found = FALSE,
-                                  recursive = TRUE,
                                   ...) {
   if (is_list_of(x, "DatasetFactory")) {
     return(shared_ptr(DatasetFactory, dataset___UnionDatasetFactory__Make(x)))
@@ -282,21 +280,15 @@ DatasetFactory$create <- function(x,
   }
 
   if (!inherits(filesystem, "FileSystem")) {
-    filesystem <- match.arg(filesystem)
-    if (filesystem == "auto") {
-      # When there are other FileSystems supported, detect e.g. S3 from x
-      filesystem <- "local"
+    if (grepl("://", x)) {
+      fs_from_uri <- FileSystem$from_uri(x)
+      filesystem <- fs_from_uri$fs
+      x <- fs_from_uri$path
+    } else {
+      filesystem <- LocalFileSystem$create()
     }
-    filesystem <- list(
-      local = LocalFileSystem
-      # We'll register other file systems here
-    )[[filesystem]]$create(...)
   }
-  selector <- FileSelector$create(
-    x,
-    allow_not_found = allow_not_found,
-    recursive = recursive
-  )
+  selector <- FileSelector$create(x, allow_not_found = FALSE, recursive = TRUE)
 
   if (is.character(format)) {
     format <- FileFormat$create(match.arg(format))
@@ -331,8 +323,8 @@ DatasetFactory$create <- function(x,
 #' a list of `DatasetFactory` objects whose datasets should be
 #' grouped. If this argument is specified it will be used to construct a
 #' `UnionDatasetFactory` and other arguments will be ignored.
-#' @param filesystem A string identifier for the filesystem corresponding to
-#' `x`. Currently only "local" is supported.
+#' @param filesystem A [FileSystem] object; if omitted, the `FileSystem` will
+#' be detected from `x`
 #' @param format A string identifier of the format of the files in `x`.
 #' Currently "parquet" and "ipc"/"arrow"/"feather" (aliases for each other)
 #' are supported. For Feather, only version 2 files are supported.
@@ -348,11 +340,7 @@ DatasetFactory$create <- function(x,
 #'    by [hive_partition()] which parses explicit or autodetected fields from
 #'    Hive-style path segments
 #'   * `NULL` for no partitioning
-#' @param allow_not_found logical: is `x` allowed to not exist? Default
-#' `FALSE`. See [FileSelector].
-#' @param recursive logical: should files be discovered in subdirectories of
-#' `x`? Default `TRUE`.
-#' @param ... Additional arguments passed to the [FileSystem] `$create()` method
+#' @param ... Additional arguments, currently ignored
 #' @return A `DatasetFactory` object. Pass this to [open_dataset()],
 #' in a list potentially with other `DatasetFactory` objects, to create
 #' a `Dataset`.
