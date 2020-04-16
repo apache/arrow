@@ -48,7 +48,7 @@ class Field(object):
         ]
 
         if self.metadata is not None and len(self.metadata) > 0:
-            entries.append(('metadata', self.metadata))
+            entries.append(('metadata', metadata_key_values(self.metadata)))
 
         return OrderedDict(entries)
 
@@ -586,7 +586,7 @@ class Schema(object):
         ]
 
         if self.metadata is not None and len(self.metadata) > 0:
-            entries.append(('metadata', self.metadata))
+            entries.append(('metadata', metadata_key_values(self.metadata)))
 
         return OrderedDict(entries)
 
@@ -1015,10 +1015,10 @@ ExtensionType = namedtuple(
 class ExtensionField(Field):
 
     def __init__(self, name, extension_type, *, nullable=True, metadata=[]):
-        metadata += metadata_key_values([
+        metadata += [
             ('ARROW:extension:name', extension_type.extension_name),
             ('ARROW:extension:metadata', extension_type.serialized),
-        ])
+        ]
         super().__init__(name, nullable=nullable, metadata=metadata)
         self.extension_type = extension_type
 
@@ -1191,8 +1191,7 @@ def generate_custom_metadata_case():
     def meta(items):
         # Generate a simple block of metadata where each value is '{}'.
         # Keys are delimited by whitespace in `items`.
-        # TODO: move encoding logic in get_json()
-        return metadata_key_values((k, '{}') for k in items.split())
+        return [(k, '{}') for k in items.split()]
 
     fields = [
         get_field('sort_of_pandas', 'int8', metadata=meta('pandas')),
