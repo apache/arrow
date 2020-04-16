@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,32 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+ARG repo
+ARG arch
+FROM ${repo}:${arch}-conda-cpp
 
-arrow_dir=${1}
-source_dir=${1}/java
-cpp_build_dir=${2}/cpp/${ARROW_BUILD_TYPE:-debug}
+# install python specific packages
+RUN apt-get update -y && apt-get install -y openjdk-8-jdk maven
 
-# for jni and plasma tests
-export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
-export PLASMA_STORE=${ARROW_HOME}/bin/plasma-store-server
-
-mvn="mvn -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
-
-pushd ${source_dir}
-
-# ${mvn} test
-
-if [ "${ARROW_GANDIVA_JAVA}" = "ON" ]; then
-  ${mvn} test -X -Parrow-jni -pl contrib/adapter/orc,gandiva -Darrow.cpp.build.dir=${cpp_build_dir}
-fi
-
-if [ "${ARROW_PLASMA}" = "ON" ]; then
-  pushd ${source_dir}/contrib/plasma
-  java -cp target/test-classes:target/classes \
-       -Djava.library.path=${cpp_build_dir} \
-       org.apache.arrow.plasma.PlasmaClientTest
-  popd
-fi
-
-popd
+ENV ARROW_GANDIVA_JAVA=ON \
+    ARROW_GANDIVA=ON \
+    ARROW_JNI=ON \
+    ARROW_ORC=ON \
+    ARROW_PLASMA_JAVA_CLIENT=ON \
+    ARROW_PLASMA=ON \
+    ARROW_USE_CCACHE=ON

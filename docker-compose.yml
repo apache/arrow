@@ -1009,6 +1009,29 @@ services:
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/java_test.sh /arrow /build"
 
+  conda-java-jni:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-java-jni
+    #   docker-compose run --rm conda-java-jni
+    image: ${REPO}:${ARCH}-conda-java-jni
+    build:
+      context: .
+      dockerfile: ci/docker/conda-java-jni.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-java-jni
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+    volumes: *conda-volumes
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_test.sh /arrow /build"]
+
   ############################## Integration ##################################
 
   conda-integration:
