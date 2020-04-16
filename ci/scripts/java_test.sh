@@ -37,7 +37,7 @@ if [ "${ARROW_GANDIVA_JAVA}" = "ON" ]; then
 fi
 
 if [ "${ARROW_PLASMA}" = "ON" ]; then
-  pushd ${source_dir}/contrib/plasma
+  pushd ${source_dir}/plasma
   java -cp target/test-classes:target/classes \
        -Djava.library.path=${cpp_build_dir} \
        org.apache.arrow.plasma.PlasmaClientTest
