@@ -109,18 +109,12 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
     </#if>
     byte[] value = new byte [length];
     holder.buffer.getBytes(holder.start, value, 0, length);
-    <#if minor.class == "VarBinary">
+    <#if minor.class == "VarBinary" || minor.class == "LargeVarBinary">
     return value;
-    <#elseif minor.class == "VarChar">
+    <#elseif minor.class == "VarChar" || minor.class == "LargeVarChar">
     Text text = new Text();
     text.set(value);
     return text;
-    <#elseif minor.class == "LargeVarChar">
-    Text text = new Text();
-    text.set(value);
-    return text;
-    <#elseif minor.class == "LargeVarBinary">
-    return value;
     </#if>
   <#elseif minor.class == "IntervalDay">
     return Duration.ofDays(holder.days).plusMillis(holder.milliseconds);

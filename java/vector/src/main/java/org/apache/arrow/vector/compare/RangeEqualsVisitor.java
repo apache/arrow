@@ -149,6 +149,7 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
 
   @Override
   public Boolean visit(BaseLargeVariableWidthVector left, Range value) {
+    // TODO: support range comparison for BaseLargeVariableWidthVector.
     throw new UnsupportedOperationException();
   }
 

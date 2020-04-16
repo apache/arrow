@@ -134,6 +134,7 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
   @Override
   public ValueVector visit(BaseLargeVariableWidthVector left, Void value) {
+    // TODO: support vector appending for BaseLargeVariableWidthVector
     throw new UnsupportedOperationException();
   }
 
