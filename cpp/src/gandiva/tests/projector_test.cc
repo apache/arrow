@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cmath>
+#include "gandiva/projector.h"
 
 #include <gtest/gtest.h>
 
-#include "arrow/memory_pool.h"
+#include <cmath>
 
-#include "gandiva/projector.h"
+#include "arrow/memory_pool.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
 
@@ -767,8 +767,7 @@ TEST_F(TestProjector, TestCapture) {
   auto array_pattern_string = MakeArrowArrayUtf8(
       {pattern_string, pattern_string, pattern_string}, {true, true, false});
   // expected output
-  auto exp_ret =
-      MakeArrowArrayUtf8({"http://www.test.com/", "", ""}, {true, true, true});
+  auto exp_ret = MakeArrowArrayUtf8({"http://www.test.com/", "", ""}, {true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records,

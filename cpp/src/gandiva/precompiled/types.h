@@ -19,6 +19,7 @@
 #define PRECOMPILED_TYPES_H
 
 #include <cstdint>
+
 #include "gandiva/gdv_function_stubs.h"
 
 // Use the same names as in arrow data types. Makes it easy to write pre-processor macros.
@@ -212,9 +213,9 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
                                    gdv_int32 to_str_len, gdv_int32* out_len);
 
 const char* capture_utf8_utf8(gdv_int64 context, const char* source_string,
-                          gdv_int32 source_len, bool source_validity,
-                          const char* pattern_string, gdv_int32 pattern_len,
-                          bool pattern_validity, gdv_int32* out_len);
+                              gdv_int32 source_len, bool source_validity,
+                              const char* pattern_string, gdv_int32 pattern_len,
+                              bool pattern_validity, gdv_int32* out_len);
 }  // extern "C"
 
 #endif  // PRECOMPILED_TYPES_H
