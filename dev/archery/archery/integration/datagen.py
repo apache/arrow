@@ -1200,11 +1200,11 @@ def generate_custom_metadata_case():
 
         get_field(
             'unregistered_extension', 'int8',
-            metadata=metadata_key_values([
+            metadata=[
                 ('ARROW:extension:name', '!nonexistent'),
                 ('ARROW:extension:metadata', ''),
                 ('ARROW:integration:allow_unregistered_extension', 'true'),
-            ])),
+            ]),
 
         ListField('list_with_odd_values',
                   get_field('item', 'int32', metadata=meta('odd_values'))),
