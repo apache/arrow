@@ -118,6 +118,24 @@ test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_
 
 })
 
+test_that("dataset from URI", {
+  skip_on_os("windows")
+  uri <- paste0("file://", dataset_dir)
+  ds <- open_dataset(uri, partitioning = schema(part = uint8()))
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+})
+
 test_that("Simple interface for datasets (custom ParquetFileFormat)", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()),
                      format = FileFormat$create("parquet", dict_columns = c("chr")))

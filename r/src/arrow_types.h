@@ -203,6 +203,7 @@ inline std::shared_ptr<T> extract(SEXP x) {
 #include <arrow/dataset/api.h>
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/filesystem/localfs.h>
+#include <arrow/filesystem/s3fs.h>
 #include <arrow/io/compressed.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>

@@ -199,6 +199,12 @@ std::shared_ptr<arrow::io::OutputStream> fs___FileSystem__OpenAppendStream(
 }
 
 // [[arrow::export]]
+std::string fs___FileSystem__type_name(
+    const std::shared_ptr<fs::FileSystem>& file_system) {
+  return file_system->type_name();
+}
+
+// [[arrow::export]]
 std::shared_ptr<fs::LocalFileSystem> fs___LocalFileSystem__create() {
   return std::make_shared<fs::LocalFileSystem>();
 }
@@ -207,6 +213,27 @@ std::shared_ptr<fs::LocalFileSystem> fs___LocalFileSystem__create() {
 std::shared_ptr<fs::SubTreeFileSystem> fs___SubTreeFileSystem__create(
     const std::string& base_path, const std::shared_ptr<fs::FileSystem>& base_fs) {
   return std::make_shared<fs::SubTreeFileSystem>(base_path, base_fs);
+}
+
+// [[arrow::export]]
+Rcpp::List fs___FileSystemFromUri(const std::string& path) {
+  std::string out_path;
+  auto file_system = VALUE_OR_STOP(fs::FileSystemFromUri(path, &out_path));
+  return Rcpp::List::create(Rcpp::Named("fs") = file_system,
+                            Rcpp::Named("path") = out_path);
+}
+
+#endif
+
+#if defined(ARROW_R_WITH_S3)
+
+// [[s3::export]]
+void fs___EnsureS3Initialized() { STOP_IF_NOT_OK(fs::EnsureS3Initialized()); }
+
+// [[s3::export]]
+std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create() {
+  auto opts = fs::S3Options::Defaults();
+  return VALUE_OR_STOP(fs::S3FileSystem::Make(opts));
 }
 
 #endif

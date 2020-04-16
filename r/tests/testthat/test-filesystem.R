@@ -19,6 +19,7 @@ context("File system")
 
 test_that("LocalFilesystem", {
   fs <- LocalFileSystem$create()
+  expect_identical(fs$type_name, "local")
   DESCRIPTION <- system.file("DESCRIPTION", package = "arrow")
   info <- fs$GetFileInfo(DESCRIPTION)[[1]]
   expect_equal(info$base_name(), "DESCRIPTION")
@@ -121,4 +122,18 @@ test_that("LocalFileSystem + Selector", {
   types <- sapply(infos, function(.x) .x$type)
   expect_equal(sum(types == FileType$File), 2L)
   expect_equal(sum(types == FileType$Directory), 1L)
+})
+
+test_that("FileSystem$from_uri", {
+  skip_on_cran()
+  skip_if_not_available("s3")
+  fs_and_path <- FileSystem$from_uri("s3://ursa-labs-taxi-data")
+  expect_is(fs_and_path$fs, "S3FileSystem")
+})
+
+test_that("S3FileSystem", {
+  skip_on_cran()
+  skip_if_not_available("s3")
+  s3fs <- S3FileSystem$create()
+  expect_is(s3fs, "S3FileSystem")
 })
