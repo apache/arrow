@@ -84,6 +84,7 @@ jobs:
           fi
       - name: Run cmake_format
         if: false
+        # TODO: make this work https://issues.apache.org/jira/browse/ARROW-8489
         # if: env.CMAKE_FORMAT == 'true' || endsWith(github.event.comment.body, 'everything')
         run: |
           python3 -m pip install -r dev/archery/requirements-lint.txt
