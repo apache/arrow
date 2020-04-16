@@ -42,7 +42,7 @@ jobs:
   debian:
     name: AMD64 Debian 9 Java JNI and Plasma
     runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    # if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -78,3 +78,29 @@ jobs:
           docker login -u ${{ secrets.DOCKERHUB_USER }} \
                        -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push debian-java-jni
+
+
+  conda:
+    name: AMD64 Conda Java JNI and Plasma
+    runs-on: ubuntu-latest
+    # if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Docker Pull
+        run: |
+          docker-compose pull --ignore-pull-failures conda-cpp
+          docker-compose pull --ignore-pull-failures conda-java-jni
+      - name: Docker Build
+        run: |
+          docker-compose build conda-cpp
+          docker-compose build conda-java-jni
+      - name: Docker Run
+        run: |
+          docker-compose run conda-java-jni
+
