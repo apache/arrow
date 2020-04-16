@@ -38,7 +38,7 @@ if [ "${ARROW_GANDIVA_JAVA}" = "ON" ]; then
 fi
 
 if [ "${ARROW_PLASMA}" = "ON" ]; then
-  pushd ${source_dir}/contrib/plasma
+  pushd ${source_dir}/plasma
   ${mvn} clean install
   popd
 fi
