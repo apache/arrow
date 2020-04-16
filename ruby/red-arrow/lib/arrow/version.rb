@@ -16,7 +16,7 @@
 # under the License.
 
 module Arrow
-  VERSION = "1.0.0-SNAPSHOT"
+  VERSION = "0.17.0"
 
   module Version
     numbers, TAG = VERSION.split("-")
