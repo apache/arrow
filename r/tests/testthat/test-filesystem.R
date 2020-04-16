@@ -134,6 +134,6 @@ test_that("FileSystem$from_uri", {
 test_that("S3FileSystem", {
   skip_on_cran()
   skip_if_not_available("s3")
-  # s3fs <- S3FileSystem$create()
-  # expect_is(s3fs, "S3FileSystem")
+  s3fs <- S3FileSystem$create()
+  expect_is(s3fs, "S3FileSystem")
 })

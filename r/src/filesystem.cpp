@@ -232,7 +232,7 @@ void fs___EnsureS3Initialized() { STOP_IF_NOT_OK(fs::EnsureS3Initialized()); }
 
 // [[s3::export]]
 std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create() {
-  fs::S3Options opts;
+  auto opts = fs::S3Options::Defaults();
   return VALUE_OR_STOP(fs::S3FileSystem::Make(opts));
 }
 
