@@ -20,7 +20,7 @@ ARG arch
 FROM ${repo}:${arch}-conda-cpp
 
 # install python specific packages
-RUN apt-get update -y && apt-get install -y openjdk-8-jdk maven
+RUN apt-get update -y && apt-get install -y openjdk-8-jdk openjdk-8-dbg maven
 
 ENV ARROW_GANDIVA_JAVA=ON \
     ARROW_GANDIVA=ON \
