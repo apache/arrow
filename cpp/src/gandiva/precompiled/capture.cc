@@ -23,6 +23,7 @@ extern "C" {
 
 #include "./types.h"
 
+FORCE_INLINE
 const char* capture_utf8_utf8(gdv_int64 context, const char* source_string,
                               gdv_int32 source_len, bool source_validity,
                               const char* pattern_string, gdv_int32 pattern_len,
