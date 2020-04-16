@@ -17,10 +17,9 @@
 
 package org.apache.arrow.memory;
 
-import org.apache.arrow.memory.util.LargeMemoryUtil;
-
 import io.netty.buffer.PooledByteBufAllocatorL;
 import io.netty.buffer.UnsafeDirectLittleEndian;
+import io.netty.util.internal.PlatformDependent;
 
 /**
  * The default implementation of {@link AllocationManager}. The implementation is responsible for managing when memory
@@ -34,31 +33,24 @@ public class NettyAllocationManager extends AllocationManager {
   static final UnsafeDirectLittleEndian EMPTY = INNER_ALLOCATOR.empty;
   static final long CHUNK_SIZE = INNER_ALLOCATOR.getChunkSize();
 
-  private final int allocatedSize;
-  private final UnsafeDirectLittleEndian memoryChunk;
+  private final long allocatedSize;
 
-  NettyAllocationManager(BaseAllocator accountingAllocator, int requestedSize) {
+  private final long allocatedAddress;
+
+  NettyAllocationManager(BaseAllocator accountingAllocator, long requestedSize) {
     super(accountingAllocator);
-    this.memoryChunk = INNER_ALLOCATOR.allocate(requestedSize);
-    this.allocatedSize = memoryChunk.capacity();
-  }
-
-  /**
-   * Get the underlying memory chunk managed by this AllocationManager.
-   * @return buffer
-   */
-  UnsafeDirectLittleEndian getMemoryChunk() {
-    return memoryChunk;
+    allocatedAddress = PlatformDependent.allocateMemory(requestedSize);
+    allocatedSize = requestedSize;
   }
 
   @Override
   protected long memoryAddress() {
-    return memoryChunk.memoryAddress();
+    return allocatedAddress;
   }
 
   @Override
   protected void release0() {
-    memoryChunk.release();
+    PlatformDependent.freeMemory(allocatedAddress);
   }
 
   /**
@@ -79,7 +71,7 @@ public class NettyAllocationManager extends AllocationManager {
 
     @Override
     public AllocationManager create(BaseAllocator accountingAllocator, long size) {
-      return new NettyAllocationManager(accountingAllocator, LargeMemoryUtil.checkedCastToInt(size));
+      return new NettyAllocationManager(accountingAllocator, size);
     }
   }
 }

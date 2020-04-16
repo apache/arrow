@@ -21,7 +21,6 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.DefaultAllocationManagerOption;
 import org.apache.arrow.memory.RootAllocator;
 
 import io.netty.buffer.ArrowBuf;
