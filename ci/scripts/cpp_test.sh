@@ -28,6 +28,8 @@ export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${source_dir}/submodules/parquet-testing/data
 export LD_LIBRARY_PATH=${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}:${LD_LIBRARY_PATH}
 
+export AWS_EC2_METADATA_DISABLED=TRUE
+
 case "$(uname)" in
   Linux)
     n_jobs=$(nproc)

@@ -42,6 +42,7 @@ export _R_CHECK_TESTS_NLINES_=0
 export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE
 export _R_CHECK_LIMIT_CORES_=FALSE
 export VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
+export AWS_EC2_METADATA_DISABLED=TRUE
 
 # Make sure we aren't writing to the home dir (CRAN _hates_ this but there is no official check)
 BEFORE=$(ls -alh ~/)
