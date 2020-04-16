@@ -45,7 +45,7 @@ class ARROW_EXPORT UUIDType : public ExtensionType {
       std::shared_ptr<DataType> storage_type,
       const std::string& serialized) const override;
 
-  std::string Serialize() const override { return "uuid-type-unique-code"; }
+  std::string Serialize() const override { return "uuid-serialization"; }
 };
 
 class ARROW_EXPORT SmallintArray : public ExtensionArray {
@@ -70,6 +70,23 @@ class ARROW_EXPORT SmallintType : public ExtensionType {
   std::string Serialize() const override { return "smallint"; }
 };
 
+class ARROW_EXPORT DictExtensionType : public ExtensionType {
+ public:
+  DictExtensionType() : ExtensionType(dictionary(int8(), utf8())) {}
+
+  std::string extension_name() const override { return "dict-extension"; }
+
+  bool ExtensionEquals(const ExtensionType& other) const override;
+
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
+
+  Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
+      const std::string& serialized) const override;
+
+  std::string Serialize() const override { return ""; }
+};
+
 ARROW_EXPORT
 std::shared_ptr<DataType> uuid();
 
@@ -77,9 +94,23 @@ ARROW_EXPORT
 std::shared_ptr<DataType> smallint();
 
 ARROW_EXPORT
+std::shared_ptr<DataType> dict_extension_type();
+
+ARROW_EXPORT
 std::shared_ptr<Array> ExampleUUID();
 
 ARROW_EXPORT
 std::shared_ptr<Array> ExampleSmallint();
+
+// A RAII class that registers an extension type on construction
+// and unregisters it on destruction.
+class ARROW_EXPORT ExtensionTypeGuard {
+ public:
+  explicit ExtensionTypeGuard(const std::shared_ptr<DataType>& type);
+  ~ExtensionTypeGuard();
+
+ protected:
+  std::string extension_name_;
+};
 
 }  // namespace arrow

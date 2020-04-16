@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections import OrderedDict
+from collections import namedtuple, OrderedDict
 import binascii
 import json
 import os
@@ -26,6 +26,10 @@ import numpy as np
 
 from .util import (frombytes, tobytes, random_bytes, random_utf8,
                    SKIP_ARROW, SKIP_FLIGHT)
+
+
+def metadata_key_values(pairs):
+    return [{'key': k, 'value': v} for k, v in pairs]
 
 
 class Field(object):
@@ -1004,6 +1008,34 @@ class DictionaryField(Field):
                                                name=name)
 
 
+ExtensionType = namedtuple(
+    'ExtensionType', ['extension_name', 'serialized', 'storage_field'])
+
+
+class ExtensionField(Field):
+
+    def __init__(self, name, extension_type, *, nullable=True, metadata=[]):
+        metadata += metadata_key_values([
+            ('ARROW:extension:name', extension_type.extension_name),
+            ('ARROW:extension:metadata', extension_type.serialized),
+        ])
+        super().__init__(name, nullable=nullable, metadata=metadata)
+        self.extension_type = extension_type
+
+    def _get_type(self):
+        d = self.extension_type.storage_field._get_type()
+        assert 'dictionary' not in d
+        return d
+
+    def _get_children(self):
+        return self.extension_type.storage_field._get_children()
+
+    def generate_column(self, size, name=None):
+        if name is None:
+            name = self.name
+        return self.extension_type.storage_field.generate_column(size, name)
+
+
 class StructColumn(Column):
 
     def __init__(self, name, count, is_valid, field_values):
@@ -1159,16 +1191,21 @@ def generate_custom_metadata_case():
     def meta(items):
         # Generate a simple block of metadata where each value is '{}'.
         # Keys are delimited by whitespace in `items`.
-        return [{'key': item, 'value': '{}'} for item in items.split()]
+        # TODO: move encoding logic in get_json()
+        return metadata_key_values((k, '{}') for k in items.split())
 
     fields = [
         get_field('sort_of_pandas', 'int8', metadata=meta('pandas')),
 
         get_field('lots_of_meta', 'int8', metadata=meta('a b c d .. w x y z')),
 
-        get_field('unregistered_extension', 'int8',
-                  metadata=meta('ARROW:extension:name '
-                                'ARROW:extension:metadata')),
+        get_field(
+            'unregistered_extension', 'int8',
+            metadata=metadata_key_values([
+                ('ARROW:extension:name', '!nonexistent'),
+                ('ARROW:extension:metadata', ''),
+                ('ARROW:integration:allow_unregistered_extension', 'true'),
+            ])),
 
         ListField('list_with_odd_values',
                   get_field('item', 'int32', metadata=meta('odd_values'))),
@@ -1401,6 +1438,18 @@ def generate_nested_dictionary_case():
                           dictionaries=[dict0, dict1, dict2])
 
 
+def generate_extension_case():
+    uuid_type = ExtensionType('uuid', 'uuid-serialization',
+                              FixedSizeBinaryField('', 16))
+
+    fields = [
+        ExtensionField('uuids', uuid_type),
+    ]
+
+    batch_sizes = [0, 7]
+    return _generate_file("extension", fields, batch_sizes)
+
+
 def get_generated_json_files(tempdir=None, flight=False):
     tempdir = tempdir or tempfile.mkdtemp()
 
@@ -1465,6 +1514,10 @@ def get_generated_json_files(tempdir=None, flight=False):
         # TODO(ARROW-7902)
         generate_nested_dictionary_case().skip_category(SKIP_ARROW)
                                          .skip_category(SKIP_FLIGHT),
+
+        generate_extension_case().skip_category('Go')
+                                 .skip_category('Java')  # TODO(ARROW-8485)
+                                 .skip_category('JS'),
     ]
 
     if flight:
