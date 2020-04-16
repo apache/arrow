@@ -129,6 +129,18 @@ TIMESTAMP_DIFF(timestamp)
     return tp.AddMonths(static_cast<int>(count * N_MONTHS)).MillisSinceEpoch(); \
   }
 
+#define ADD_TIMESTAMP_TO_INT32_FIXED_UNITS(TYPE, NAME, TO_MILLIS)        \
+  FORCE_INLINE                                                           \
+  gdv_##TYPE NAME##_##TYPE##_int32(gdv_##TYPE millis, gdv_int32 count) { \
+    return millis + TO_MILLIS * static_cast<gdv_##TYPE>(count);          \
+  }
+
+#define ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(TYPE, NAME, TO_MILLIS)        \
+  FORCE_INLINE                                                           \
+  gdv_##TYPE NAME##_##TYPE##_int64(gdv_##TYPE millis, gdv_int64 count) { \
+    return millis + TO_MILLIS * static_cast<gdv_##TYPE>(count);          \
+  }
+
 #define TIMESTAMP_ADD_INT32(TYPE)                                             \
   ADD_INT32_TO_TIMESTAMP_FIXED_UNITS(TYPE, timestampaddSecond, MILLIS_IN_SEC) \
   ADD_INT32_TO_TIMESTAMP_FIXED_UNITS(TYPE, timestampaddMinute, MILLIS_IN_MIN) \
@@ -169,32 +181,20 @@ ADD_INT64_TO_TIMESTAMP_FIXED_UNITS(timestamp, date_add, MILLIS_IN_DAY)
 ADD_INT64_TO_TIMESTAMP_FIXED_UNITS(timestamp, add, MILLIS_IN_DAY)
 
 // date_sub, subtract, date_diff on gdv_int32
-ADD_INT32_TO_TIMESTAMP_FIXED_UNITS(date64, date_sub, -1 * MILLIS_IN_DAY)
-ADD_INT32_TO_TIMESTAMP_FIXED_UNITS(date64, subtract, -1 * MILLIS_IN_DAY)
-ADD_INT32_TO_TIMESTAMP_FIXED_UNITS(date64, date_diff, -1 * MILLIS_IN_DAY)
-ADD_INT32_TO_TIMESTAMP_FIXED_UNITS(timestamp, date_sub, -1 * MILLIS_IN_DAY)
-ADD_INT32_TO_TIMESTAMP_FIXED_UNITS(timestamp, subtract, -1 * MILLIS_IN_DAY)
-ADD_INT32_TO_TIMESTAMP_FIXED_UNITS(timestamp, date_diff, -1 * MILLIS_IN_DAY)
+ADD_TIMESTAMP_TO_INT32_FIXED_UNITS(date64, date_sub, -1 * MILLIS_IN_DAY)
+ADD_TIMESTAMP_TO_INT32_FIXED_UNITS(date64, subtract, -1 * MILLIS_IN_DAY)
+ADD_TIMESTAMP_TO_INT32_FIXED_UNITS(date64, date_diff, -1 * MILLIS_IN_DAY)
+ADD_TIMESTAMP_TO_INT32_FIXED_UNITS(timestamp, date_sub, -1 * MILLIS_IN_DAY)
+ADD_TIMESTAMP_TO_INT32_FIXED_UNITS(timestamp, subtract, -1 * MILLIS_IN_DAY)
+ADD_TIMESTAMP_TO_INT32_FIXED_UNITS(timestamp, date_diff, -1 * MILLIS_IN_DAY)
 
 // date_sub, subtract, date_diff on gdv_int64
-ADD_INT64_TO_TIMESTAMP_FIXED_UNITS(date64, date_sub, -1 * MILLIS_IN_DAY)
-ADD_INT64_TO_TIMESTAMP_FIXED_UNITS(date64, subtract, -1 * MILLIS_IN_DAY)
-ADD_INT64_TO_TIMESTAMP_FIXED_UNITS(date64, date_diff, -1 * MILLIS_IN_DAY)
-ADD_INT64_TO_TIMESTAMP_FIXED_UNITS(timestamp, date_sub, -1 * MILLIS_IN_DAY)
-ADD_INT64_TO_TIMESTAMP_FIXED_UNITS(timestamp, subtract, -1 * MILLIS_IN_DAY)
-ADD_INT64_TO_TIMESTAMP_FIXED_UNITS(timestamp, date_diff, -1 * MILLIS_IN_DAY)
-
-#define ADD_TIMESTAMP_TO_INT32_FIXED_UNITS(TYPE, NAME, TO_MILLIS)        \
-  FORCE_INLINE                                                           \
-  gdv_##TYPE NAME##_##TYPE##_int32(gdv_##TYPE millis, gdv_int32 count) { \
-    return millis + TO_MILLIS * static_cast<gdv_##TYPE>(count);          \
-  }
-
-#define ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(TYPE, NAME, TO_MILLIS)        \
-  FORCE_INLINE                                                           \
-  gdv_##TYPE NAME##_##TYPE##_int64(gdv_##TYPE millis, gdv_int64 count) { \
-    return millis + TO_MILLIS * static_cast<gdv_##TYPE>(count);          \
-  }
+ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(date64, date_sub, -1 * MILLIS_IN_DAY)
+ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(date64, subtract, -1 * MILLIS_IN_DAY)
+ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(date64, date_diff, -1 * MILLIS_IN_DAY)
+ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(timestamp, date_sub, -1 * MILLIS_IN_DAY)
+ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(timestamp, subtract, -1 * MILLIS_IN_DAY)
+ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(timestamp, date_diff, -1 * MILLIS_IN_DAY)
 
 // add timestamp to gdv_int32
 ADD_TIMESTAMP_TO_INT32_FIXED_UNITS(date64, date_add, MILLIS_IN_DAY)
