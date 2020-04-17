@@ -129,7 +129,7 @@ Status SomeNull_Ingest(SEXP data, R_xlen_t start, R_xlen_t n,
 SEXP ArrayVector__as_vector(R_xlen_t n, const ArrayVector& arrays) {
   auto converter = Converter::Make(arrays);
   Shield<SEXP> data(converter->Allocate(n));
-  STOP_IF_NOT_OK(converter->IngestSerial(data));
+  StopIfNotOk(converter->IngestSerial(data));
   return data;
 }
 
@@ -387,7 +387,7 @@ class Converter_Struct : public Converter {
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
     int nf = converters.size();
     for (int i = 0; i < nf; i++) {
-      STOP_IF_NOT_OK(converters[i]->Ingest_all_nulls(VECTOR_ELT(data, i), start, n));
+      StopIfNotOk(converters[i]->Ingest_all_nulls(VECTOR_ELT(data, i), start, n));
     }
     return Status::OK();
   }
@@ -397,9 +397,9 @@ class Converter_Struct : public Converter {
     auto struct_array = internal::checked_cast<arrow::StructArray*>(array.get());
     int nf = converters.size();
     // Flatten() deals with merging of nulls
-    auto arrays = VALUE_OR_STOP(struct_array->Flatten(default_memory_pool()));
+    auto arrays = ValueOrStop(struct_array->Flatten(default_memory_pool()));
     for (int i = 0; i < nf; i++) {
-      STOP_IF_NOT_OK(
+      StopIfNotOk(
           converters[i]->Ingest_some_nulls(VECTOR_ELT(data, i), arrays[i], start, n));
     }
 
@@ -760,7 +760,7 @@ Rcpp::List to_dataframe_serial(
 
   for (int i = 0; i < nc; i++) {
     SEXP column = tbl[i] = converters[i]->Allocate(nr);
-    STOP_IF_NOT_OK(converters[i]->IngestSerial(column));
+    StopIfNotOk(converters[i]->IngestSerial(column));
   }
   tbl.attr("names") = names;
   tbl.attr("class") = Rcpp::CharacterVector::create("tbl_df", "tbl", "data.frame");
@@ -801,7 +801,7 @@ Rcpp::List to_dataframe_parallel(
   // wait for the ingestion to be finished
   status &= tg->Finish();
 
-  STOP_IF_NOT_OK(status);
+  StopIfNotOk(status);
 
   tbl.attr("names") = names;
   tbl.attr("class") = Rcpp::CharacterVector::create("tbl_df", "tbl", "data.frame");

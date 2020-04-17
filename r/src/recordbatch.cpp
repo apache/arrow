@@ -112,7 +112,7 @@ bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self,
 std::shared_ptr<arrow::RecordBatch> RecordBatch__RemoveColumn(
     const std::shared_ptr<arrow::RecordBatch>& batch, int i) {
   arrow::r::validate_index(i, batch->num_columns());
-  return VALUE_OR_STOP(batch->RemoveColumn(i));
+  return ValueOrStop(batch->RemoveColumn(i));
 }
 
 // [[arrow::export]]
@@ -153,7 +153,7 @@ Rcpp::RawVector ipc___SerializeRecordBatch__Raw(
     const std::shared_ptr<arrow::RecordBatch>& batch) {
   // how many bytes do we need ?
   int64_t size;
-  STOP_IF_NOT_OK(arrow::ipc::GetRecordBatchSize(*batch, &size));
+  StopIfNotOk(arrow::ipc::GetRecordBatchSize(*batch, &size));
 
   // allocate the result raw vector
   Rcpp::RawVector out(Rcpp::no_init(size));
@@ -161,9 +161,9 @@ Rcpp::RawVector ipc___SerializeRecordBatch__Raw(
   // serialize into the bytes of the raw vector
   auto buffer = std::make_shared<arrow::r::RBuffer<RAWSXP, Rcpp::RawVector>>(out);
   arrow::io::FixedSizeBufferWriter stream(buffer);
-  STOP_IF_NOT_OK(arrow::ipc::SerializeRecordBatch(
+  StopIfNotOk(arrow::ipc::SerializeRecordBatch(
       *batch, arrow::ipc::IpcWriteOptions::Defaults(), &stream));
-  STOP_IF_NOT_OK(stream.Close());
+  StopIfNotOk(stream.Close());
 
   return out;
 }
@@ -174,7 +174,7 @@ std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__InputStream__Schema(
     const std::shared_ptr<arrow::Schema>& schema) {
   // TODO: promote to function arg
   arrow::ipc::DictionaryMemo memo;
-  return VALUE_OR_STOP(arrow::ipc::ReadRecordBatch(
+  return ValueOrStop(arrow::ipc::ReadRecordBatch(
       schema, &memo, arrow::ipc::IpcReadOptions::Defaults(), stream.get()));
 }
 
@@ -223,7 +223,7 @@ Status count_fields(SEXP lst, int* out) {
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__known_schema(
     const std::shared_ptr<arrow::Schema>& schema, SEXP lst) {
   int num_fields;
-  STOP_IF_NOT_OK(arrow::r::count_fields(lst, &num_fields));
+  StopIfNotOk(arrow::r::count_fields(lst, &num_fields));
 
   if (schema->num_fields() != num_fields) {
     Rcpp::stop("incompatible. schema has %d fields, and %d arrays are supplied",
@@ -258,7 +258,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__known_schema(
   }
 
   int64_t num_rows = 0;
-  STOP_IF_NOT_OK(arrow::r::check_consistent_array_size(arrays, &num_rows));
+  StopIfNotOk(arrow::r::check_consistent_array_size(arrays, &num_rows));
   return arrow::RecordBatch::Make(schema, num_rows, arrays);
 }
 
@@ -270,7 +270,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SE
   }
 
   int num_fields;
-  STOP_IF_NOT_OK(arrow::r::count_fields(lst, &num_fields));
+  StopIfNotOk(arrow::r::count_fields(lst, &num_fields));
 
   // convert lst to a vector of arrow::Array
   std::vector<std::shared_ptr<arrow::Array>> arrays(num_fields);
@@ -307,7 +307,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SE
 
   // check all sizes are the same
   int64_t num_rows = 0;
-  STOP_IF_NOT_OK(arrow::r::check_consistent_array_size(arrays, &num_rows));
+  StopIfNotOk(arrow::r::check_consistent_array_size(arrays, &num_rows));
 
   return arrow::RecordBatch::Make(schema, num_rows, arrays);
 }

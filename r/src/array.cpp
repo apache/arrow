@@ -143,7 +143,7 @@ bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self,
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__View(const std::shared_ptr<arrow::Array>& array,
                                           const std::shared_ptr<arrow::DataType>& type) {
-  return VALUE_OR_STOP(array->View(type));
+  return ValueOrStop(array->View(type));
 }
 
 // [[arrow::export]]
@@ -164,7 +164,7 @@ LogicalVector Array__Mask(const std::shared_ptr<arrow::Array>& array) {
 
 // [[arrow::export]]
 void Array__Validate(const std::shared_ptr<arrow::Array>& array) {
-  STOP_IF_NOT_OK(array->Validate());
+  StopIfNotOk(array->Validate());
 }
 
 // [[arrow::export]]
@@ -194,7 +194,7 @@ std::shared_ptr<arrow::Array> StructArray__GetFieldByName(
 // [[arrow::export]]
 arrow::ArrayVector StructArray__Flatten(
     const std::shared_ptr<arrow::StructArray>& array) {
-  return VALUE_OR_STOP(array->Flatten());
+  return ValueOrStop(array->Flatten());
 }
 
 // [[arrow::export]]
