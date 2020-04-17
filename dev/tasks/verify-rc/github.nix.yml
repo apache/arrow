@@ -63,6 +63,7 @@ jobs:
             fi
             if [ "$TEST_RUBY" = "1" ]; then
               ruby --version
+              gem install bundler
             fi
           fi
           # TODO: put version and rc number in some separate file?
