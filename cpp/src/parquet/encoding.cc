@@ -1554,7 +1554,6 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
 
   int DecodeIndices(int num_values, arrow::ArrayBuilder* builder) override {
     num_values = std::min(num_values, num_values_);
-    num_values = std::min(num_values, num_values_);
     if (num_values > 0) {
       // TODO(wesm): Refactor to batch reads for improved memory use. This is
       // relatively simple here because we don't have to do any bookkeeping of
