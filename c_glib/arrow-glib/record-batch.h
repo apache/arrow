@@ -62,6 +62,10 @@ GArrowRecordBatch *garrow_record_batch_slice     (GArrowRecordBatch *record_batc
 
 gchar        *garrow_record_batch_to_string      (GArrowRecordBatch *record_batch,
                                                   GError **error);
+
+GArrowBuffer GSerializeRecordBatch(GArrowRecordBatch record_batch);
+GArrowRecordBatch GDeSerializeRecordBatch(GArrowBuffer buffer, GArrowSchema *schema);
+
 GArrowRecordBatch *garrow_record_batch_add_column(GArrowRecordBatch *record_batch,
                                                   guint i,
                                                   GArrowField *field,
