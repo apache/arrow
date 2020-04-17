@@ -43,6 +43,7 @@ std::shared_ptr<ScanOptions> ScanOptions::ReplaceSchema(
   auto copy = ScanOptions::Make(std::move(schema));
   copy->filter = filter;
   copy->evaluator = evaluator;
+  copy->batch_size = batch_size;
   return copy;
 }
 
