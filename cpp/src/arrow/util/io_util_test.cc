@@ -429,7 +429,7 @@ TEST(TemporaryDir, Basics) {
 TEST(CreateDirTree, Basics) {
   std::unique_ptr<TemporaryDir> temp_dir;
   PlatformFilename fn;
-  bool created, deleted;
+  bool created;
 
   ASSERT_OK_AND_ASSIGN(temp_dir, TemporaryDir::Make("io-util-test-"));
 
@@ -447,6 +447,8 @@ TEST(CreateDirTree, Basics) {
   ASSERT_OK_AND_ASSIGN(created, CreateDirTree(fn));
   ASSERT_TRUE(created);
 
+#ifndef __APPLE__
+  bool deleted;
 #ifdef _WIN32
   const std::string KEY_NAME = R"(SYSTEM\CurrentControlSet\Control\FileSystem)";
   const std::string VALUE_NAME = "LongPathsEnabled";
@@ -493,6 +495,7 @@ TEST(CreateDirTree, Basics) {
     ASSERT_OK_AND_ASSIGN(deleted, DeleteDirTree(long_path));
     ASSERT_TRUE(deleted);
   }
+#endif
 }
 
 TEST(ListDir, Basics) {

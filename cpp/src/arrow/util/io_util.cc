@@ -903,9 +903,7 @@ Result<int> FileOpenWritable(const PlatformFilename& file_name, bool write_only,
                   creation_disposition, FILE_ATTRIBUTE_NORMAL, NULL);
 
   DWORD last_error = GetLastError();
-  if (last_error == ERROR_SUCCESS ||
-      ((creation_disposition == OPEN_ALWAYS || creation_disposition == CREATE_ALWAYS) &&
-       last_error == ERROR_ALREADY_EXISTS)) {
+  if (last_error == ERROR_SUCCESS || last_error == ERROR_ALREADY_EXISTS) {
     errno_actual = 0;
     fd = _open_osfhandle((intptr_t)file_handle, oflag);
   } else {
