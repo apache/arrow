@@ -65,7 +65,7 @@ jobs:
               ruby --version
               gem install bundler
             fi
-            if [ "$TEST_PYTHON" = "1" ] || [ "$TEST_INTEGRATION" = "1" ]; then
+            if [ "$TEST_PYTHON" = "1" ] || [ "$TEST_INTEGRATION" = "1" ] || [ "{{ artifact }}" = "wheels" ]; then
               # Upgrade pip
               pip install -U pip
             fi
