@@ -42,7 +42,7 @@ pub fn sort_to_indices(
     values: &ArrayRef,
     options: Option<SortOptions>,
 ) -> Result<UInt32Array> {
-    let options = options.unwrap_or(Default::default());
+    let options = options.unwrap_or_default();
     let range = values.offset()..values.len();
     let (v, n): (Vec<usize>, Vec<usize>) =
         range.partition(|index| values.is_valid(*index));
@@ -57,8 +57,6 @@ pub fn sort_to_indices(
         DataType::UInt16 => sort_primitive::<UInt16Type>(values, v, n, &options),
         DataType::UInt32 => sort_primitive::<UInt32Type>(values, v, n, &options),
         DataType::UInt64 => sort_primitive::<UInt64Type>(values, v, n, &options),
-        // DataType::Float32 => sort_primitive::<Float32Type>(values, v, n, descending),
-        // DataType::Float64 => sort_primitive::<Float64Type>(values, v, n, descending),
         DataType::Date32(_) => sort_primitive::<Date32Type>(values, v, n, &options),
         DataType::Date64(_) => sort_primitive::<Date64Type>(values, v, n, &options),
         DataType::Time32(Second) => {
@@ -104,7 +102,7 @@ pub fn sort_to_indices(
             sort_primitive::<DurationNanosecondType>(values, v, n, &options)
         }
         DataType::Utf8 => sort_string(values, v, n, &options),
-        t @ _ => Err(ArrowError::ComputeError(format!(
+        t => Err(ArrowError::ComputeError(format!(
             "Sort not supported for data type {:?}",
             t
         ))),
@@ -140,7 +138,10 @@ where
     T: ArrowPrimitiveType,
     T::Native: std::cmp::Ord,
 {
-    let values = values.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
+    let values = values
+        .as_any()
+        .downcast_ref::<PrimitiveArray<T>>()
+        .expect("Unable to downcast to primitive array");
     // create tuples that are used for sorting
     let mut valids = value_indices
         .into_iter()
@@ -173,21 +174,31 @@ fn sort_string(
     null_indices: Vec<u32>,
     options: &SortOptions,
 ) -> Result<UInt32Array> {
-    let values = values.as_any().downcast_ref::<StringArray>().unwrap();
+    let values = values
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .expect("Unable to downcast to string array");
     let mut valids = value_indices
         .into_iter()
         .map(|index| (index as u32, values.value(index)))
         .collect::<Vec<(u32, &str)>>();
+    let mut nulls = null_indices;
     if !options.descending {
         valids.sort_by_key(|a| a.1);
     } else {
         valids.sort_by_key(|a| Reverse(a.1));
+        nulls.reverse();
     }
     // collect the order of valid tuplies
     let mut valid_indices: Vec<u32> = valids.iter().map(|tuple| tuple.0).collect();
 
+    if options.nulls_first {
+        nulls.append(&mut valid_indices);
+        return Ok(UInt32Array::from(nulls));
+    }
+
     // no need to sort nulls as they are in the correct order already
-    valid_indices.append(&mut null_indices.into_iter().map(|i| i as u32).collect());
+    valid_indices.append(&mut nulls);
 
     Ok(UInt32Array::from(valid_indices))
 }
@@ -195,7 +206,7 @@ fn sort_string(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
+    use std::{convert::TryFrom, sync::Arc};
 
     fn test_sort_to_indices_primitive_arrays<T>(
         data: Vec<Option<T::Native>>,
@@ -226,16 +237,54 @@ mod tests {
         assert!(output.equals(&expected))
     }
 
+    fn test_sort_to_indices_string_arrays(
+        data: Vec<Option<&str>>,
+        options: Option<SortOptions>,
+        expected_data: Vec<u32>,
+    ) {
+        let output = StringArray::try_from(data).expect("Unable to create string array");
+        let expected = UInt32Array::from(expected_data);
+        let output = sort_to_indices(&(Arc::new(output) as ArrayRef), options).unwrap();
+        assert!(output.equals(&expected))
+    }
+
+    fn test_sort_string_arrays(
+        data: Vec<Option<&str>>,
+        options: Option<SortOptions>,
+        expected_data: Vec<Option<&str>>,
+    ) {
+        let output = StringArray::try_from(data).expect("Unable to create string array");
+        let expected =
+            StringArray::try_from(expected_data).expect("Unable to create string array");
+        let output = sort(&(Arc::new(output) as ArrayRef), options).unwrap();
+        let output = output.as_any().downcast_ref::<StringArray>().unwrap();
+        assert!(output.equals(&expected))
+    }
+
     #[test]
     fn test_sort_to_indices_primitives() {
-        // int8
         test_sort_to_indices_primitive_arrays::<Int8Type>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             None,
             vec![3, 1, 4, 2, 0, 5],
         );
+        test_sort_to_indices_primitive_arrays::<Int16Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            None,
+            vec![3, 1, 4, 2, 0, 5],
+        );
+        test_sort_to_indices_primitive_arrays::<Int32Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            None,
+            vec![3, 1, 4, 2, 0, 5],
+        );
+        test_sort_to_indices_primitive_arrays::<Int64Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            None,
+            vec![3, 1, 4, 2, 0, 5],
+        );
 
-        // int8 descending
+        // descending
         test_sort_to_indices_primitive_arrays::<Int8Type>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
@@ -245,7 +294,34 @@ mod tests {
             vec![2, 1, 4, 3, 5, 0], // [2, 4, 1, 3, 5, 0]
         );
 
-        // int8 descending, nulls first
+        test_sort_to_indices_primitive_arrays::<Int16Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: false,
+            }),
+            vec![2, 1, 4, 3, 5, 0],
+        );
+
+        test_sort_to_indices_primitive_arrays::<Int32Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: false,
+            }),
+            vec![2, 1, 4, 3, 5, 0],
+        );
+
+        test_sort_to_indices_primitive_arrays::<Int64Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: false,
+            }),
+            vec![2, 1, 4, 3, 5, 0],
+        );
+
+        // descending, nulls first
         test_sort_to_indices_primitive_arrays::<Int8Type>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
             Some(SortOptions {
@@ -253,6 +329,33 @@ mod tests {
                 nulls_first: true,
             }),
             vec![5, 0, 2, 1, 4, 3], // [5, 0, 2, 4, 1, 3]
+        );
+
+        test_sort_to_indices_primitive_arrays::<Int16Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: true,
+            }),
+            vec![5, 0, 2, 1, 4, 3], // [5, 0, 2, 4, 1, 3]
+        );
+
+        test_sort_to_indices_primitive_arrays::<Int32Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: true,
+            }),
+            vec![5, 0, 2, 1, 4, 3],
+        );
+
+        test_sort_to_indices_primitive_arrays::<Int64Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: true,
+            }),
+            vec![5, 0, 2, 1, 4, 3],
         );
 
         // boolean
@@ -285,11 +388,284 @@ mod tests {
 
     #[test]
     fn test_sort_primitives() {
-        // int8
+        // default case
+        test_sort_primitive_arrays::<UInt8Type>(
+            vec![None, Some(3), Some(5), Some(2), Some(3), None],
+            None,
+            vec![Some(2), Some(3), Some(3), Some(5), None, None],
+        );
+        test_sort_primitive_arrays::<UInt16Type>(
+            vec![None, Some(3), Some(5), Some(2), Some(3), None],
+            None,
+            vec![Some(2), Some(3), Some(3), Some(5), None, None],
+        );
+        test_sort_primitive_arrays::<UInt32Type>(
+            vec![None, Some(3), Some(5), Some(2), Some(3), None],
+            None,
+            vec![Some(2), Some(3), Some(3), Some(5), None, None],
+        );
+        test_sort_primitive_arrays::<UInt64Type>(
+            vec![None, Some(3), Some(5), Some(2), Some(3), None],
+            None,
+            vec![Some(2), Some(3), Some(3), Some(5), None, None],
+        );
+
+        // descending
         test_sort_primitive_arrays::<Int8Type>(
             vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: false,
+            }),
+            vec![Some(2), Some(0), Some(0), Some(-1), None, None],
+        );
+        test_sort_primitive_arrays::<Int16Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: false,
+            }),
+            vec![Some(2), Some(0), Some(0), Some(-1), None, None],
+        );
+        test_sort_primitive_arrays::<Int32Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: false,
+            }),
+            vec![Some(2), Some(0), Some(0), Some(-1), None, None],
+        );
+        test_sort_primitive_arrays::<Int16Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: false,
+            }),
+            vec![Some(2), Some(0), Some(0), Some(-1), None, None],
+        );
+
+        // descending, nulls first
+        test_sort_primitive_arrays::<Int8Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: true,
+            }),
+            vec![None, None, Some(2), Some(0), Some(0), Some(-1)],
+        );
+        test_sort_primitive_arrays::<Int16Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: true,
+            }),
+            vec![None, None, Some(2), Some(0), Some(0), Some(-1)],
+        );
+        test_sort_primitive_arrays::<Int32Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: true,
+            }),
+            vec![None, None, Some(2), Some(0), Some(0), Some(-1)],
+        );
+        test_sort_primitive_arrays::<Int64Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: true,
+            }),
+            vec![None, None, Some(2), Some(0), Some(0), Some(-1)],
+        );
+
+        // int8 nulls first
+        test_sort_primitive_arrays::<Int8Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            Some(SortOptions {
+                descending: false,
+                nulls_first: true,
+            }),
+            vec![None, None, Some(-1), Some(0), Some(0), Some(2)],
+        );
+        test_sort_primitive_arrays::<Int16Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            Some(SortOptions {
+                descending: false,
+                nulls_first: true,
+            }),
+            vec![None, None, Some(-1), Some(0), Some(0), Some(2)],
+        );
+        test_sort_primitive_arrays::<Int32Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            Some(SortOptions {
+                descending: false,
+                nulls_first: true,
+            }),
+            vec![None, None, Some(-1), Some(0), Some(0), Some(2)],
+        );
+        test_sort_primitive_arrays::<Int64Type>(
+            vec![None, Some(0), Some(2), Some(-1), Some(0), None],
+            Some(SortOptions {
+                descending: false,
+                nulls_first: true,
+            }),
+            vec![None, None, Some(-1), Some(0), Some(0), Some(2)],
+        );
+    }
+
+    #[test]
+    fn test_sort_to_indices_strings() {
+        test_sort_to_indices_string_arrays(
+            vec![
+                None,
+                Some("bad"),
+                Some("sad"),
+                None,
+                Some("glad"),
+                Some("-ad"),
+            ],
             None,
-            vec![Some(-1), Some(0), Some(0), Some(2), None, None],
-        )
+            vec![5, 1, 4, 2, 0, 3],
+        );
+
+        test_sort_to_indices_string_arrays(
+            vec![
+                None,
+                Some("bad"),
+                Some("sad"),
+                None,
+                Some("glad"),
+                Some("-ad"),
+            ],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: false,
+            }),
+            vec![2, 4, 1, 5, 3, 0],
+        );
+
+        test_sort_to_indices_string_arrays(
+            vec![
+                None,
+                Some("bad"),
+                Some("sad"),
+                None,
+                Some("glad"),
+                Some("-ad"),
+            ],
+            Some(SortOptions {
+                descending: false,
+                nulls_first: true,
+            }),
+            vec![0, 3, 5, 1, 4, 2],
+        );
+
+        test_sort_to_indices_string_arrays(
+            vec![
+                None,
+                Some("bad"),
+                Some("sad"),
+                None,
+                Some("glad"),
+                Some("-ad"),
+            ],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: true,
+            }),
+            vec![3, 0, 2, 4, 1, 5],
+        );
+    }
+
+    #[test]
+    fn test_sort_strings() {
+        test_sort_string_arrays(
+            vec![
+                None,
+                Some("bad"),
+                Some("sad"),
+                None,
+                Some("glad"),
+                Some("-ad"),
+            ],
+            None,
+            vec![
+                Some("-ad"),
+                Some("bad"),
+                Some("glad"),
+                Some("sad"),
+                None,
+                None,
+            ],
+        );
+
+        test_sort_string_arrays(
+            vec![
+                None,
+                Some("bad"),
+                Some("sad"),
+                None,
+                Some("glad"),
+                Some("-ad"),
+            ],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: false,
+            }),
+            vec![
+                Some("sad"),
+                Some("glad"),
+                Some("bad"),
+                Some("-ad"),
+                None,
+                None,
+            ],
+        );
+
+        test_sort_string_arrays(
+            vec![
+                None,
+                Some("bad"),
+                Some("sad"),
+                None,
+                Some("glad"),
+                Some("-ad"),
+            ],
+            Some(SortOptions {
+                descending: false,
+                nulls_first: true,
+            }),
+            vec![
+                None,
+                None,
+                Some("-ad"),
+                Some("bad"),
+                Some("glad"),
+                Some("sad"),
+            ],
+        );
+
+        test_sort_string_arrays(
+            vec![
+                None,
+                Some("bad"),
+                Some("sad"),
+                None,
+                Some("glad"),
+                Some("-ad"),
+            ],
+            Some(SortOptions {
+                descending: true,
+                nulls_first: true,
+            }),
+            vec![
+                None,
+                None,
+                Some("sad"),
+                Some("glad"),
+                Some("bad"),
+                Some("-ad"),
+            ],
+        );
     }
 }
