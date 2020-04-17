@@ -345,6 +345,53 @@ garrow_record_batch_to_string(GArrowRecordBatch *record_batch, GError **error)
 }
 
 /**
+ * GSerializeRecordBatch:
+ * @record_batch: A #GArrowRecordBatch.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: GArrowBuffer
+ *   
+ *
+ */
+GArrowBuffer * 
+GSerializeRecordBatch(GArrowRecordBatch *record_batch)
+{
+  const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
+
+  std::shared_ptr<arrow::ResizableBuffer> resizable_buffer;
+  arrow::AllocateResizableBuffer(arrow::default_memory_pool(), 0, &resizable_buffer);
+
+  std::shared_ptr<arrow::Buffer> buffer = std::dynamic_pointer_cast<arrow::Buffer>(resizable_buffer);
+  arrow::ipc::SerializeRecordBatch(*arrow_record_batch, arrow::default_memory_pool(), &buffer);
+
+  return garrow_buffer_new_raw(&buffer);
+
+}
+/**
+ * GDeSerializeRecordBatch:
+ * @record_batch: A #GArrowBuffer and GArrowSchema
+ *
+ * Returns: GArrowRecordBatch
+ *   
+ *
+ */
+GArrowRecordBatch * 
+GDeSerializeRecordBatch(GArrowBuffer *buffer, GArrowSchema *schema)
+{
+
+  std::shared_ptr<arrow::RecordBatch> arrow_new_record_batch;
+  const auto arrow_schema = garrow_schema_get_raw(schema);
+
+  auto arrow_buffer = garrow_buffer_get_raw(buffer);
+  arrow::io::BufferReader buf_reader(arrow_buffer);
+
+  arrow::ipc::ReadRecordBatch(arrow_schema, &buf_reader, &arrow_new_record_batch);
+ 
+return garrow_record_batch_new_raw(&arrow_new_record_batch);
+
+}
+
+/**
  * garrow_record_batch_add_column:
  * @record_batch: A #GArrowRecordBatch.
  * @i: The index of the new column.
