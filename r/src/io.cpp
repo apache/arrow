@@ -150,8 +150,8 @@ std::shared_ptr<arrow::io::FileOutputStream> io___FileOutputStream__Open(
 // [[arrow::export]]
 std::shared_ptr<arrow::io::BufferOutputStream> io___BufferOutputStream__Create(
     int64_t initial_capacity) {
-  return ValueOrStop(arrow::io::BufferOutputStream::Create(
-      initial_capacity, arrow::default_memory_pool()));
+  return ValueOrStop(arrow::io::BufferOutputStream::Create(initial_capacity,
+                                                           arrow::default_memory_pool()));
 }
 
 // [[arrow::export]]

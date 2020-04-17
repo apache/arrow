@@ -22,7 +22,7 @@
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> ImportArray(uintptr_t array, uintptr_t schema) {
   return ValueOrStop(arrow::ImportArray(reinterpret_cast<struct ArrowArray*>(array),
-                                          reinterpret_cast<struct ArrowSchema*>(schema)));
+                                        reinterpret_cast<struct ArrowSchema*>(schema)));
 }
 
 // [[arrow::export]]
@@ -55,15 +55,14 @@ void ExportType(const std::shared_ptr<arrow::DataType>& type, uintptr_t ptr) {
 
 // [[arrow::export]]
 void ExportSchema(const std::shared_ptr<arrow::Schema>& schema, uintptr_t ptr) {
-  StopIfNotOk(
-      arrow::ExportSchema(*schema, reinterpret_cast<struct ArrowSchema*>(ptr)));
+  StopIfNotOk(arrow::ExportSchema(*schema, reinterpret_cast<struct ArrowSchema*>(ptr)));
 }
 
 // [[arrow::export]]
 void ExportArray(const std::shared_ptr<arrow::Array>& array, uintptr_t ptr,
                  uintptr_t schema_ptr) {
   StopIfNotOk(arrow::ExportArray(*array, reinterpret_cast<struct ArrowArray*>(ptr),
-                                    reinterpret_cast<struct ArrowSchema*>(schema_ptr)));
+                                 reinterpret_cast<struct ArrowSchema*>(schema_ptr)));
 }
 
 // [[arrow::export]]

@@ -119,8 +119,7 @@ std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make2(
     options.partitioning = partitioning;
   }
 
-  return ValueOrStop(
-      ds::FileSystemDatasetFactory::Make(fs, *selector, format, options));
+  return ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, *selector, format, options));
 }
 
 // [[arrow::export]]
@@ -143,8 +142,7 @@ std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make3(
     options.partitioning = factory;
   }
 
-  return ValueOrStop(
-      ds::FileSystemDatasetFactory::Make(fs, *selector, format, options));
+  return ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, *selector, format, options));
 }
 
 // FileFormat, ParquetFileFormat, IpcFileFormat
