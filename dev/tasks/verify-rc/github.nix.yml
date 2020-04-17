@@ -45,7 +45,12 @@ jobs:
 
           {{ flag }}
           if [ $(uname) = "Darwin" ]; then
-            brew install llvm@8 thrift glib
+            brew install llvm@8 thrift
+            brew reinstall glib
+            if [ "$TEST_PYTHON" = "1" ]; then
+              # https://stackoverflow.com/questions/56083725/macos-build-issues-lstdc-not-found-while-building-python-package
+              export MACOSX_DEPLOYMENT_TARGET=10.9
+            fi
           else
             # TODO: don't require removing newer llvms
             sudo apt-get --purge remove -y llvm-9 clang-9
@@ -63,7 +68,7 @@ jobs:
             fi
             if [ "$TEST_RUBY" = "1" ]; then
               ruby --version
-              gem install bundler
+              sudo gem install bundler
             fi
           fi
           # TODO: put version and rc number in some separate file?
