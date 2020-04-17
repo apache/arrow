@@ -646,6 +646,7 @@ test_linux_wheels() {
     local env=_verify_wheel-${py_arch}
     conda create -yq -n ${env} python=${py_arch//[mu]/}
     conda activate ${env}
+    pip install -U pip
 
     for ml_spec in ${manylinuxes}; do
       # check the mandatory and optional imports
@@ -668,6 +669,7 @@ test_macos_wheels() {
     local env=_verify_wheel-${py_arch}
     conda create -yq -n ${env} python=${py_arch//m/}
     conda activate ${env}
+    pip install -U pip
 
     macos_suffix=macosx
     case "${py_arch}" in
