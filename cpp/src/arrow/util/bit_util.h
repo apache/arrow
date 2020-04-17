@@ -43,13 +43,18 @@
 
 #if defined(_MSC_VER)
 #include <intrin.h>  // IWYU pragma: keep
+#include <nmmintrin.h>
 #pragma intrinsic(_BitScanReverse)
 #pragma intrinsic(_BitScanForward)
 #define ARROW_BYTE_SWAP64 _byteswap_uint64
 #define ARROW_BYTE_SWAP32 _byteswap_ulong
+#define ARROW_POPCOUNT64 __popcnt_u64
+#define ARROW_POPCOUNT32 __popcnt
 #else
 #define ARROW_BYTE_SWAP64 __builtin_bswap64
 #define ARROW_BYTE_SWAP32 __builtin_bswap32
+#define ARROW_POPCOUNT64 __builtin_popcountll
+#define ARROW_POPCOUNT32 __builtin_popcount
 #endif
 
 #include <algorithm>
@@ -106,6 +111,9 @@ static constexpr uint8_t kBytePopcount[] = {
     5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4,
     5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 3, 4, 4, 5, 4, 5, 5, 6,
     4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8};
+
+static inline int PopCount(uint64_t bitmap) { return ARROW_POPCOUNT64(bitmap); }
+static inline int PopCount(uint32_t bitmap) { return ARROW_POPCOUNT32(bitmap); }
 
 //
 // Bit-related computations on integer values
