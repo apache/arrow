@@ -408,6 +408,37 @@ cdef class ChunkedArray(_PandasConvertible):
 
         return wrap_datum(out)
 
+    def take(self, object indices):
+        """
+        Take elements from a chunked array.
+
+        The resulting array will be of the same type as the input array, with
+        elements taken from the input array at the given indices. If an index
+        is null then the taken element will be null.
+
+        Parameters
+        ----------
+        indices : Array
+            The indices of the values to extract. Array needs to be of
+            integer type.
+
+        Returns
+        -------
+        ChunkedArray
+        """
+        cdef:
+            cdef CTakeOptions options
+            cdef shared_ptr[CChunkedArray] out
+            cdef Array c_indices
+
+        c_indices = asarray(indices)
+
+        with nogil:
+            check_status(Take(_context(), deref(self.sp_chunked_array),
+                              deref(c_indices.sp_array), options, &out))
+
+        return pyarrow_wrap_chunked_array(out)
+
     @property
     def num_chunks(self):
         """
@@ -855,7 +886,7 @@ cdef class RecordBatch(_PandasConvertible):
 
         return result
 
-    def take(self, Array indices):
+    def take(self, object indices):
         """
         Take rows from a RecordBatch.
 
@@ -876,10 +907,13 @@ cdef class RecordBatch(_PandasConvertible):
             CTakeOptions options
             shared_ptr[CRecordBatch] out
             CRecordBatch* this_batch = self.batch
+            Array c_indices
+
+        c_indices = asarray(indices)
 
         with nogil:
             check_status(Take(_context(), deref(this_batch),
-                              deref(indices.sp_array), options, &out))
+                              deref(c_indices.sp_array), options, &out))
 
         return pyarrow_wrap_batch(out)
 

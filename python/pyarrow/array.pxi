@@ -347,7 +347,19 @@ def _normalize_slice(object arrow_obj, slice key):
 
     step = key.step or 1
     if step != 1:
-        raise IndexError('only slices with step 1 supported')
+        if step > 0:
+            indices = np.arange(start, stop, step)
+            return arrow_obj.take(indices)
+        else:
+            # Negative steps require some special handling
+            if key.start is None:
+                start = n - 1
+
+            if key.stop is None:
+                stop = -1
+
+            indices = np.arange(start, stop, step)
+            return arrow_obj.take(indices)
     else:
         return arrow_obj.slice(start, stop - start)
 
@@ -980,7 +992,7 @@ cdef class Array(_PandasConvertible):
 
         return pyarrow_wrap_array(result)
 
-    def take(self, Array indices):
+    def take(self, object indices):
         """
         Take elements from an array.
 
@@ -1016,10 +1028,13 @@ cdef class Array(_PandasConvertible):
         cdef:
             cdef CTakeOptions options
             cdef CDatum out
+            cdef Array c_indices
+
+        c_indices = asarray(indices)
 
         with nogil:
             check_status(Take(_context(), CDatum(self.sp_array),
-                              CDatum(indices.sp_array), options, &out))
+                              CDatum(c_indices.sp_array), options, &out))
 
         return wrap_datum(out)
 

@@ -302,15 +302,42 @@ def test_array_slice():
     assert arr[2:].equals(arr.slice(2))
     assert arr[2:5].equals(arr.slice(2, 3))
     assert arr[-5:].equals(arr.slice(len(arr) - 5))
-    with pytest.raises(IndexError):
-        arr[::-1]
-    with pytest.raises(IndexError):
-        arr[::2]
 
     n = len(arr)
     for start in range(-n * 2, n * 2):
         for stop in range(-n * 2, n * 2):
             assert arr[start:stop].to_pylist() == arr.to_pylist()[start:stop]
+
+
+def test_array_slice_negative_step():
+    # ARROW-2714
+    np_arr = np.arange(20)
+    arr = pa.array(np_arr)
+    chunked_arr = pa.chunked_array([arr])
+
+    cases = [
+        slice(None, None, -1),
+        slice(None, 6, -2),
+        slice(10, 6, -2),
+        slice(8, None, -2),
+        slice(2, 10, -2),
+        slice(10, 2, -2),
+        slice(None, None, 2),
+        slice(0, 10, 2),
+    ]
+
+    for case in cases:
+        result = arr[case]
+        expected = pa.array(np_arr[case])
+        assert result.equals(expected)
+
+        result = pa.record_batch([arr], names=['f0'])[case]
+        expected = pa.record_batch([expected], names=['f0'])
+        assert result.equals(expected)
+
+        result = chunked_arr[case]
+        expected = pa.chunked_array([np_arr[case]])
+        assert result.equals(expected)
 
 
 def test_array_diff():
