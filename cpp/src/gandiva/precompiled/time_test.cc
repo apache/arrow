@@ -52,6 +52,8 @@ TEST(TestTime, TestCastDate) {
   EXPECT_EQ(castDATE_utf8(context_ptr, "71-1-1", 6), 31536000000);
   EXPECT_EQ(castDATE_utf8(context_ptr, "71-45-1", 7), 0);
   EXPECT_EQ(castDATE_utf8(context_ptr, "71-12-XX", 8), 0);
+
+  EXPECT_EQ(castDATE_date32(1), 86400000);
 }
 
 TEST(TestTime, TestCastTimestamp) {
