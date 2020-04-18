@@ -20,11 +20,12 @@ extern crate arrow;
 use std::fs::File;
 use std::sync::Arc;
 
-use arrow::array::{Float64Array, StringArray};
 use arrow::csv;
 use arrow::datatypes::{DataType, Field, Schema};
+use arrow::error::Result;
+use arrow::util::pretty::print_batches;
 
-fn main() {
+fn main() -> Result<()> {
     let schema = Schema::new(vec![
         Field::new("city", DataType::Utf8, false),
         Field::new("lat", DataType::Float64, false),
@@ -35,35 +36,5 @@ fn main() {
 
     let mut csv = csv::Reader::new(file, Arc::new(schema), false, 1024, None);
     let batch = csv.next().unwrap().unwrap();
-
-    println!(
-        "Loaded {} rows containing {} columns",
-        batch.num_rows(),
-        batch.num_columns()
-    );
-
-    let city = batch
-        .column(0)
-        .as_any()
-        .downcast_ref::<StringArray>()
-        .unwrap();
-    let lat = batch
-        .column(1)
-        .as_any()
-        .downcast_ref::<Float64Array>()
-        .unwrap();
-    let lng = batch
-        .column(2)
-        .as_any()
-        .downcast_ref::<Float64Array>()
-        .unwrap();
-
-    for i in 0..batch.num_rows() {
-        println!(
-            "City: {}, Latitude: {}, Longitude: {}",
-            city.value(i),
-            lat.value(i),
-            lng.value(i)
-        );
-    }
+    print_batches(&vec![batch])
 }
