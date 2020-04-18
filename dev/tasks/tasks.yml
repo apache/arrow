@@ -76,6 +76,9 @@ groups:
   verify-rc:
     - verify-rc-*
 
+  verify-rc-binaries:
+    - verify-rc-binaries-*
+
   verify-rc-wheels:
     - verify-rc-wheels-*
 
@@ -1420,14 +1423,32 @@ tasks:
 
   ########################### Release verification ############################
 
-  verify-rc-binaries:
+  verify-rc-binaries-binary:
     ci: github
     platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "ubuntu"
       artifact: "binaries"
-      flag: ""
+      flag: "TEST_BINARY=1"
+
+  verify-rc-binaries-apt:
+    ci: github
+    platform: linux
+    template: verify-rc/github.nix.yml
+    params:
+      os: "ubuntu"
+      artifact: "binaries"
+      flag: "TEST_APT=1"
+
+  verify-rc-binaries-yum:
+    ci: github
+    platform: linux
+    template: verify-rc/github.nix.yml
+    params:
+      os: "ubuntu"
+      artifact: "binaries"
+      flag: "TEST_YUM=1"
 
   verify-rc-wheels-linux:
     ci: github
