@@ -47,7 +47,8 @@ asf_jira = jira.client.JIRA(options={'server': JIRA_API_BASE},
 locale.setlocale(locale.LC_ALL, 'en_US.utf-8')
 
 
-ARROW_ROOT_DEFAULT = os.path.realpath(os.path.dirname(__file__)) + '/../..'
+release_dir = os.path.realpath(os.path.dirname(__file__))
+ARROW_ROOT_DEFAULT = os.path.join(release_dir, '..', '..')
 ARROW_ROOT = os.environ.get("ARROW_ROOT", ARROW_ROOT_DEFAULT)
 
 
