@@ -45,9 +45,9 @@ jobs:
 
           {{ flag }}
           if [ $(uname) = "Darwin" ]; then
+            brew update
             brew bundle --file=arrow/cpp/Brewfile
             brew bundle --file=arrow/c_glib/Brewfile
-            brew install pkg-config
             if [ "$TEST_PYTHON" = "1" ]; then
               # https://stackoverflow.com/questions/56083725/macos-build-issues-lstdc-not-found-while-building-python-package
               export MACOSX_DEPLOYMENT_TARGET=10.9
