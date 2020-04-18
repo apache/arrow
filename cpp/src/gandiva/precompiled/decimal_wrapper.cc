@@ -137,7 +137,7 @@ void round_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
   gandiva::BasicDecimalScalar128 x({x_high, x_low}, x_precision, x_scale);
 
   bool overflow = false;
-  auto out = gandiva::decimalops::Round(x, 0, &overflow);
+  auto out = gandiva::decimalops::Round(x, out_precision, 0, 0, &overflow);
   *out_high = out.high_bits();
   *out_low = out.low_bits();
 }
@@ -150,7 +150,8 @@ void round_decimal128_int32(int64_t x_high, uint64_t x_low, int32_t x_precision,
   gandiva::BasicDecimalScalar128 x({x_high, x_low}, x_precision, x_scale);
 
   bool overflow = false;
-  auto out = gandiva::decimalops::Round(x, rounding_scale, &overflow);
+  auto out =
+      gandiva::decimalops::Round(x, out_precision, out_scale, rounding_scale, &overflow);
   *out_high = out.high_bits();
   *out_low = out.low_bits();
 }
@@ -162,7 +163,7 @@ void truncate_decimal128(int64_t x_high, uint64_t x_low, int32_t x_precision,
   gandiva::BasicDecimalScalar128 x({x_high, x_low}, x_precision, x_scale);
 
   bool overflow = false;
-  auto out = gandiva::decimalops::Truncate(x, 0, &overflow);
+  auto out = gandiva::decimalops::Truncate(x, out_precision, 0, 0, &overflow);
   *out_high = out.high_bits();
   *out_low = out.low_bits();
 }
@@ -175,7 +176,8 @@ void truncate_decimal128_int32(int64_t x_high, uint64_t x_low, int32_t x_precisi
   gandiva::BasicDecimalScalar128 x({x_high, x_low}, x_precision, x_scale);
 
   bool overflow = false;
-  auto out = gandiva::decimalops::Truncate(x, rounding_scale, &overflow);
+  auto out = gandiva::decimalops::Truncate(x, out_precision, out_scale, rounding_scale,
+                                           &overflow);
   *out_high = out.high_bits();
   *out_low = out.low_bits();
 }
