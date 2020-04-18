@@ -39,15 +39,18 @@ class PackageTask
       type = $2
       if type == "rc" and options[:rc_build_type] == :release
         @deb_upstream_version = base_version
+        @deb_archive_base_name_version = base_version
         @rpm_version = base_version
         @rpm_release = "1"
       else
         @deb_upstream_version = "#{base_version}~#{sub_version}"
+        @deb_archive_base_name_version = @version
         @rpm_version = base_version
         @rpm_release = "0.#{sub_version}"
       end
     else
       @deb_upstream_version = @version
+      @deb_archive_base_name_version = @version
       @rpm_version = @version
       @rpm_release = "1"
     end
@@ -196,6 +199,10 @@ class PackageTask
     ]
   end
 
+  def deb_archive_base_name
+    "#{@package}-#{@deb_archive_base_name_version}"
+  end
+
   def deb_archive_name
     "#{@package}-#{@deb_upstream_version}.tar.gz"
   end
@@ -291,12 +298,12 @@ VERSION=#{@deb_upstream_version}
     ]
   end
 
-  def rpm_archive_name
-    "#{rpm_archive_base_name}.tar.gz"
-  end
-
   def rpm_archive_base_name
     "#{@package}-#{@rpm_version}"
+  end
+
+  def rpm_archive_name
+    "#{rpm_archive_base_name}.tar.gz"
   end
 
   def yum_dir
