@@ -127,7 +127,9 @@ test_binary() {
   local download_dir=binaries
   mkdir -p ${download_dir}
 
-  python $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER --dest=${download_dir}
+  python $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+         --dest=${download_dir}
+
   verify_dir_artifact_signatures ${download_dir}
 }
 
@@ -646,6 +648,7 @@ test_linux_wheels() {
     local env=_verify_wheel-${py_arch}
     conda create -yq -n ${env} python=${py_arch//[mu]/}
     conda activate ${env}
+    pip install -U pip
 
     for ml_spec in ${manylinuxes}; do
       # check the mandatory and optional imports
@@ -668,6 +671,7 @@ test_macos_wheels() {
     local env=_verify_wheel-${py_arch}
     conda create -yq -n ${env} python=${py_arch//m/}
     conda activate ${env}
+    pip install -U pip
 
     macos_suffix=macosx
     case "${py_arch}" in
@@ -703,9 +707,6 @@ test_wheels() {
     local filter_regex=.*manylinux.*
   fi
 
-  conda create -yq -n py3-base python=3.7
-  conda activate py3-base
-
   python $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
          --regex=${filter_regex} \
          --dest=${download_dir}
@@ -726,9 +727,17 @@ test_wheels() {
 # By default test all functionalities.
 # To deactivate one test, deactivate the test and all of its dependents
 # To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
+
 if [ "${ARTIFACT}" == "source" ]; then
-  TEST_SOURCE=1
+  : ${TEST_SOURCE:=1}
+elif [ "${ARTIFACT}" == "wheels" ]; then
+  TEST_WHEELS=1
+else
+  TEST_BINARY_DISTRIBUTIONS=1
 fi
+: ${TEST_SOURCE:=0}
+: ${TEST_WHEELS:=0}
+: ${TEST_BINARY_DISTRIBUTIONS:=0}
 
 : ${TEST_DEFAULT:=1}
 : ${TEST_JAVA:=${TEST_DEFAULT}}
@@ -741,9 +750,14 @@ fi
 : ${TEST_GO:=${TEST_DEFAULT}}
 : ${TEST_RUST:=${TEST_DEFAULT}}
 : ${TEST_INTEGRATION:=${TEST_DEFAULT}}
-: ${TEST_BINARY:=${TEST_DEFAULT}}
-: ${TEST_APT:=${TEST_DEFAULT}}
-: ${TEST_YUM:=${TEST_DEFAULT}}
+if [ ${TEST_BINARY_DISTRIBUTIONS} -gt 0 ]; then
+  TEST_BINARY_DISTRIBUTIONS_DEFAULT=${TEST_DEFAULT}
+else
+  TEST_BINARY_DISTRIBUTIONS_DEFAULT=0
+fi
+: ${TEST_BINARY:=${TEST_BINARY_DISTRIBUTIONS_DEFAULT}}
+: ${TEST_APT:=${TEST_BINARY_DISTRIBUTIONS_DEFAULT}}
+: ${TEST_YUM:=${TEST_BINARY_DISTRIBUTIONS_DEFAULT}}
 
 # For selective Integration testing, set TEST_DEFAULT=0 TEST_INTEGRATION_X=1 TEST_INTEGRATION_Y=1
 : ${TEST_INTEGRATION_CPP:=${TEST_INTEGRATION}}
@@ -759,13 +773,7 @@ TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
 TEST_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
 TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
 
-if [ "${ARTIFACT}" == "wheels" ]; then
-  TEST_WHEELS=1
-else
-  TEST_WHEELS=0
-fi
-
-NEED_MINICONDA=$((${TEST_CPP} + ${TEST_WHEELS} + ${TEST_INTEGRATION}))
+NEED_MINICONDA=$((${TEST_CPP} + ${TEST_WHEELS} + ${TEST_BINARY} + ${TEST_INTEGRATION}))
 
 : ${TEST_ARCHIVE:=apache-arrow-${VERSION}.tar.gz}
 case "${TEST_ARCHIVE}" in

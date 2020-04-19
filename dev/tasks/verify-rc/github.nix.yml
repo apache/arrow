@@ -45,12 +45,17 @@ jobs:
 
           {{ flag }}
           if [ $(uname) = "Darwin" ]; then
-            brew install llvm@7 thrift glib
+            brew update
+            brew bundle --file=arrow/cpp/Brewfile
+            brew bundle --file=arrow/c_glib/Brewfile
+            if [ "$TEST_PYTHON" = "1" ]; then
+              # https://stackoverflow.com/questions/56083725/macos-build-issues-lstdc-not-found-while-building-python-package
+              export MACOSX_DEPLOYMENT_TARGET=10.9
+            fi
           else
             # TODO: don't require removing newer llvms
-            sudo apt-get --purge remove -y llvm-8 llvm-9 clang-8 clang-9
+            sudo apt-get --purge remove -y llvm-9 clang-9
             sudo apt-get install -y \
-              llvm-7 clang-7 \
               wget curl libboost-all-dev jq \
               autoconf-archive gtk-doc-tools libgirepository1.0-dev flex bison
             if [ "$TEST_JAVA" = "1" ]; then
@@ -64,8 +69,9 @@ jobs:
             fi
             if [ "$TEST_RUBY" = "1" ]; then
               ruby --version
+              sudo gem install bundler
             fi
           fi
-          # TODO: put 0.16.0 2 in some separate file?
+          # TODO: put version and rc number in some separate file?
           # If you edit the versions, be sure to edit the other workflow files in this directory too
-          TEST_DEFAULT=0 {{ flag }} arrow/dev/release/verify-release-candidate.sh {{ artifact }} 0.16.0 2
+          TEST_DEFAULT=0 {{ flag }} arrow/dev/release/verify-release-candidate.sh {{ artifact }} 0.17.0 0
