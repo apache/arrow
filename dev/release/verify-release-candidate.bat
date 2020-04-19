@@ -73,8 +73,9 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tool
 
 @rem NOTE(wesm): not using Ninja for now to be able to more easily control the
 @rem generator used
-@rem NOTE(npr): trying without specifying a generator explicitly
-cmake -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
+
+cmake -G "%GENERATOR%" ^
+      -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BOOST_USE_SHARED=ON ^
       -DARROW_BUILD_TESTS=ON ^
