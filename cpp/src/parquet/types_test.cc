@@ -137,8 +137,7 @@ TEST(TestInt96Timestamp, Decoding) {
               static_cast<uint32_t>(julian_day)};
 #else
     Int96 i96{static_cast<uint32_t>(nanoseconds >> 32),
-              static_cast<uint32_t>(nanoseconds),
-              static_cast<uint32_t>(julian_day)};
+              static_cast<uint32_t>(nanoseconds), static_cast<uint32_t>(julian_day)};
 #endif
     // Official formula according to https://github.com/apache/parquet-format/pull/49
     int64_t expected =
