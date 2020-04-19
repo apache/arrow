@@ -164,13 +164,6 @@ cd -
 
 %install
 cpp_build_type=release
-cd cpp/build
-%if %{use_ninja}
-DESTDIR=$RPM_BUILD_ROOT ninja install
-%else
-make install DESTDIR=$RPM_BUILD_ROOT
-%endif
-cd -
 
 %if %{use_glib}
 cd c_glib
@@ -187,12 +180,24 @@ LD_LIBRARY_PATH=$PWD/../cpp/build/$cpp_build_type \
   ninja -C build all
 DESTDIR=$RPM_BUILD_ROOT \
   ninja -C build install
+ninja -C build clean
   %else
 make install DESTDIR=$RPM_BUILD_ROOT
+make clean
 rm $RPM_BUILD_ROOT%{_libdir}/*.la
   %endif
 cd -
 %endif
+
+cd cpp/build
+%if %{use_ninja}
+DESTDIR=$RPM_BUILD_ROOT ninja install
+ninja clean
+%else
+make install DESTDIR=$RPM_BUILD_ROOT
+make clean
+%endif
+cd -
 
 %package libs
 Summary:	Runtime libraries for Apache Arrow C++
