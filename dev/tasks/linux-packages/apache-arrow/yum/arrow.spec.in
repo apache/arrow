@@ -134,6 +134,8 @@ cd cpp/build
   -DARROW_WITH_ZLIB=ON \
   -DARROW_WITH_ZSTD=ON \
   -DCMAKE_BUILD_TYPE=$cpp_build_type \
+  -DPythonInterp_FIND_VERSION=ON \
+  -DPythonInterp_FIND_VERSION_MAJOR=3 \
 %if %{use_ninja}
   -GNinja
 %endif
