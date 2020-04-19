@@ -81,6 +81,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_BUILD_TESTS=ON ^
       -DGTest_SOURCE=BUNDLED ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
+      -DCMAKE_UNITY_BUILD=ON ^
       -DARROW_CXXFLAGS="/MP" ^
       -DARROW_WITH_BZ2=ON ^
       -DARROW_WITH_ZLIB=ON ^
@@ -94,7 +95,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_PARQUET=ON ^
       ..  || exit /B
 
-cmake --build . --target INSTALL --config Release
+cmake --build . --target INSTALL --config Release || exit /B 1
 
 @rem NOTE(wesm): Building googletest is flaky for me with ninja. Building it
 @rem first fixes the problem
