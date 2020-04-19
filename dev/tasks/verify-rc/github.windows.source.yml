@@ -46,4 +46,4 @@ jobs:
           choco install wget
           cd arrow
           # If you edit the versions, be sure to edit the other workflow files in this directory too
-          dev/release/verify-release-candidate.bat 0.16.0 2
+          dev/release/verify-release-candidate.bat 0.17.0 0
