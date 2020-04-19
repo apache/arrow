@@ -771,7 +771,15 @@ macro(build_snappy)
                       INSTALL_DIR ${SNAPPY_PREFIX}
                       URL ${SNAPPY_SOURCE_URL}
                       CMAKE_ARGS ${SNAPPY_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS "${SNAPPY_STATIC_LIB}")
+                      BUILD_BYPRODUCTS "${SNAPPY_STATIC_LIB}"
+                                       # Clean built files to reduce disk usage by
+                                       # reusing test phase.
+                      TEST_COMMAND ${CMAKE_COMMAND}
+                                   --build
+                                   .
+                                   --target
+                                   clean
+                      TEST_AFTER_INSTALL ON)
 
   file(MAKE_DIRECTORY "${SNAPPY_PREFIX}/include")
 
@@ -1199,7 +1207,11 @@ macro(build_protobuf)
                       BUILD_IN_SOURCE 1
                       URL ${PROTOBUF_SOURCE_URL}
                       BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}" "${PROTOBUF_COMPILER}"
-                                       ${EP_LOG_OPTIONS})
+                                       ${EP_LOG_OPTIONS}
+                                       # Clean built files to reduce disk usage by
+                                       # reusing test phase.
+                      TEST_COMMAND ${MAKE} clean
+                      TEST_AFTER_INSTALL ON)
 
   file(MAKE_DIRECTORY "${PROTOBUF_INCLUDE_DIR}")
 
@@ -1335,7 +1347,10 @@ if(ARROW_JEMALLOC)
     BUILD_IN_SOURCE 1
     BUILD_COMMAND ${JEMALLOC_BUILD_COMMAND}
     BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}"
-    INSTALL_COMMAND ${MAKE} install)
+    INSTALL_COMMAND ${MAKE} install
+                    # Clean built files to reduce disk usage by reusing test phase.
+    TEST_COMMAND ${MAKE} clean
+    TEST_AFTER_INSTALL ON)
 
   # Don't use the include directory directly so that we can point to a path
   # that is unique to our codebase.
@@ -1385,7 +1400,15 @@ if(ARROW_MIMALLOC)
   externalproject_add(mimalloc_ep
                       URL ${MIMALLOC_SOURCE_URL}
                       CMAKE_ARGS ${MIMALLOC_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS "${MIMALLOC_STATIC_LIB}")
+                      BUILD_BYPRODUCTS "${MIMALLOC_STATIC_LIB}"
+                                       # Clean built files to reduce disk usage by
+                                       # reusing test phase.
+                      TEST_COMMAND ${CMAKE_COMMAND}
+                                   --build
+                                   .
+                                   --target
+                                   clean
+                      TEST_AFTER_INSTALL ON)
 
   include_directories(SYSTEM ${MIMALLOC_INCLUDE_DIR})
   file(MAKE_DIRECTORY ${MIMALLOC_INCLUDE_DIR})
@@ -1964,7 +1987,15 @@ macro(build_cares)
                       ${EP_LOG_OPTIONS}
                       URL ${CARES_SOURCE_URL}
                       CMAKE_ARGS ${CARES_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS "${CARES_STATIC_LIB}")
+                      BUILD_BYPRODUCTS "${CARES_STATIC_LIB}"
+                                       # Clean built files to reduce disk usage by
+                                       # reusing test phase.
+                      TEST_COMMAND ${CMAKE_COMMAND}
+                                   --build
+                                   .
+                                   --target
+                                   clean
+                      TEST_AFTER_INSTALL ON)
 
   file(MAKE_DIRECTORY ${CARES_INCLUDE_DIR})
 
@@ -2102,7 +2133,15 @@ macro(build_grpc)
                                        ${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}
                                        ${GRPC_CPP_PLUGIN}
                       CMAKE_ARGS ${GRPC_CMAKE_ARGS} ${EP_LOG_OPTIONS}
-                      DEPENDS ${grpc_dependencies})
+                      DEPENDS ${grpc_dependencies}
+                              # Clean built files to reduce disk usage by
+                              # reusing test phase.
+                      TEST_COMMAND ${CMAKE_COMMAND}
+                                   --build
+                                   .
+                                   --target
+                                   clean
+                      TEST_AFTER_INSTALL ON)
 
   # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
   file(MAKE_DIRECTORY ${GRPC_INCLUDE_DIR})
@@ -2266,7 +2305,15 @@ macro(build_orc)
   externalproject_add(orc_ep
                       URL ${ORC_SOURCE_URL}
                       BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
-                      CMAKE_ARGS ${ORC_CMAKE_ARGS} ${EP_LOG_OPTIONS})
+                      CMAKE_ARGS ${ORC_CMAKE_ARGS} ${EP_LOG_OPTIONS}
+                                 # Clean built files to reduce disk usage by
+                                 # reusing test phase.
+                      TEST_COMMAND ${CMAKE_COMMAND}
+                                   --build
+                                   .
+                                   --target
+                                   clean
+                      TEST_AFTER_INSTALL ON)
 
   add_dependencies(toolchain orc_ep)
 
