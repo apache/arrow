@@ -221,7 +221,7 @@ impl UnionArray {
     ///
     /// Panics if `index` is greater than the length of the array.
     pub fn type_id(&self, index: usize) -> i8 {
-        assert!(index < self.len());
+        assert!(index - self.offset() < self.len());
         self.data().buffers()[0].data()[index] as i8
     }
 
@@ -231,7 +231,7 @@ impl UnionArray {
     ///
     /// Panics if `index` is greater than the length of the array.
     pub fn value_offset(&self, index: usize) -> i32 {
-        assert!(index < self.len());
+        assert!(index - self.offset() < self.len());
         if self.is_dense() {
             let valid_slots = match self.data.null_buffer() {
                 Some(b) => bit_util::count_set_bits_offset(b.data(), 0, index),
@@ -249,8 +249,8 @@ impl UnionArray {
     ///
     /// Panics if `index` is greater than the length of the array.
     pub fn value(&self, index: usize) -> ArrayRef {
-        let type_id = self.type_id(index);
-        let value_offset = self.value_offset(index) as usize;
+        let type_id = self.type_id(self.offset() + index);
+        let value_offset = self.value_offset(self.offset() + index) as usize;
         let child_data = self.boxed_fields[type_id as usize].clone();
         child_data.slice(value_offset, 1)
     }
@@ -626,7 +626,7 @@ mod tests {
         builder.append::<Int32Type>("c", 5).unwrap();
         builder.append::<Int32Type>("a", 6).unwrap();
         builder.append::<Int32Type>("b", 7).unwrap();
-        let array = builder.build().unwrap();
+        let union = builder.build().unwrap();
 
         let expected_type_ids = vec![0_i8, 1, 2, 0, 2, 0, 1];
         let expected_value_offsets = vec![0_i32, 0, 0, 1, 1, 2, 1];
@@ -634,39 +634,40 @@ mod tests {
 
         // Check type ids
         assert_eq!(
-            array.data().buffers()[0],
+            union.data().buffers()[0],
             Buffer::from(&expected_type_ids.clone().to_byte_slice())
         );
         for (i, id) in expected_type_ids.iter().enumerate() {
-            assert_eq!(id, &array.type_id(i));
+            assert_eq!(id, &union.type_id(i));
         }
 
         // Check offsets
         assert_eq!(
-            array.data().buffers()[1],
+            union.data().buffers()[1],
             Buffer::from(expected_value_offsets.clone().to_byte_slice())
         );
         for (i, id) in expected_value_offsets.iter().enumerate() {
-            assert_eq!(&array.value_offset(i), id);
+            assert_eq!(&union.value_offset(i), id);
         }
 
         // Check data
         assert_eq!(
-            array.data().child_data()[0].buffers()[0],
+            union.data().child_data()[0].buffers()[0],
             Buffer::from([1_i32, 4, 6].to_byte_slice())
         );
         assert_eq!(
-            array.data().child_data()[1].buffers()[0],
+            union.data().child_data()[1].buffers()[0],
             Buffer::from([2_i32, 7].to_byte_slice())
         );
         assert_eq!(
-            array.data().child_data()[2].buffers()[0],
+            union.data().child_data()[2].buffers()[0],
             Buffer::from([3_i32, 5].to_byte_slice()),
         );
 
-        assert_eq!(expected_array_values.len(), array.len());
+        assert_eq!(expected_array_values.len(), union.len());
         for (i, expected_value) in expected_array_values.iter().enumerate() {
-            let slot = array.value(i);
+            assert_eq!(false, union.is_null(i));
+            let slot = union.value(i);
             let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
             assert_eq!(slot.len(), 1);
             let value = slot.value(0);
@@ -689,6 +690,7 @@ mod tests {
         assert_eq!(7, union.len());
         for i in 0..union.len() {
             let slot = union.value(i);
+            assert_eq!(false, union.is_null(i));
             match i {
                 0 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
@@ -755,39 +757,43 @@ mod tests {
             match i {
                 0 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
+                    assert_eq!(false, union.is_null(i));
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert_eq!(1_i32, value);
                 }
                 1 => {
                     let slot = slot.as_any().downcast_ref::<BooleanArray>().unwrap();
+                    assert_eq!(false, union.is_null(i));
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert_eq!(false, value);
                 }
                 2 => {
                     let slot = slot.as_any().downcast_ref::<Int64Array>().unwrap();
+                    assert_eq!(false, union.is_null(i));
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert_eq!(3_i64, value);
                 }
                 3 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
+                    assert_eq!(false, union.is_null(i));
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert_eq!(10_i32, value);
                 }
-                4 => {
-                    assert_eq!(true, union.is_null(i));
-                }
+                4 => assert!(union.is_null(i)),
                 5 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
+                    assert_eq!(false, union.is_null(i));
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert_eq!(6_i32, value);
                 }
                 6 => {
                     let slot = slot.as_any().downcast_ref::<BooleanArray>().unwrap();
+                    assert_eq!(false, union.is_null(i));
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert_eq!(true, value);
@@ -798,126 +804,38 @@ mod tests {
     }
 
     #[test]
-    fn test_sparse_union_i32() {
-        let mut builder = UnionBuilder::new_sparse(7);
+    fn test_dense_union_mixed_with_nulls_and_offset() {
+        let mut builder = UnionBuilder::new_dense(7);
         builder.append::<Int32Type>("a", 1).unwrap();
-        builder.append::<Int32Type>("b", 2).unwrap();
-        builder.append::<Int32Type>("c", 3).unwrap();
-        builder.append::<Int32Type>("a", 4).unwrap();
-        builder.append::<Int32Type>("c", 5).unwrap();
-        builder.append::<Int32Type>("a", 6).unwrap();
-        builder.append::<Int32Type>("b", 7).unwrap();
-        let array = builder.build().unwrap();
-
-        let expected_type_ids = vec![0_i8, 1, 2, 0, 2, 0, 1];
-        let expected_array_values = [1_i32, 2, 3, 4, 5, 6, 7];
-
-        // Check type ids
-        assert_eq!(
-            Buffer::from(&expected_type_ids.clone().to_byte_slice()),
-            array.data().buffers()[0]
-        );
-        for (i, id) in expected_type_ids.iter().enumerate() {
-            assert_eq!(id, &array.type_id(i));
-        }
-
-        // Check offsets, sparse union should only have a single buffer
-        assert_eq!(array.data().buffers().len(), 1);
-
-        // Check data
-        assert_eq!(
-            array.data().child_data()[0].buffers()[0],
-            Buffer::from([1_i32, 0, 0, 4, 0, 6, 0].to_byte_slice()),
-        );
-        assert_eq!(
-            Buffer::from([0_i32, 2_i32, 0, 0, 0, 0, 7].to_byte_slice()),
-            array.data().child_data()[1].buffers()[0]
-        );
-        assert_eq!(
-            Buffer::from([0_i32, 0, 3_i32, 0, 5, 0, 0].to_byte_slice()),
-            array.data().child_data()[2].buffers()[0]
-        );
-
-        assert_eq!(expected_array_values.len(), array.len());
-        for (i, expected_value) in expected_array_values.iter().enumerate() {
-            let slot = array.value(i);
-            let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
-            assert_eq!(slot.len(), 1);
-            let value = slot.value(0);
-            assert_eq!(expected_value, &value);
-        }
-    }
-
-    #[test]
-    fn test_sparse_union_mixed() {
-        let mut builder = UnionBuilder::new_sparse(7);
-        builder.append::<Int32Type>("a", 1).unwrap();
-        builder.append::<BooleanType>("b", true).unwrap();
-        builder.append::<Float64Type>("c", 3.0).unwrap();
-        builder.append::<Int32Type>("a", 4).unwrap();
-        builder.append::<Float64Type>("c", 5.0).unwrap();
-        builder.append::<Int32Type>("a", 6).unwrap();
         builder.append::<BooleanType>("b", false).unwrap();
+        builder.append::<Int64Type>("c", 3).unwrap();
+        builder.append::<Int32Type>("a", 10).unwrap();
+        builder.append_null().unwrap();
+        builder.append::<Int32Type>("a", 6).unwrap();
+        builder.append::<BooleanType>("b", true).unwrap();
         let union = builder.build().unwrap();
 
-        let expected_type_ids = vec![0_i8, 1, 2, 0, 2, 0, 1];
+        let slice = union.slice(3, 3);
+        let new_union = slice.as_any().downcast_ref::<UnionArray>().unwrap();
 
-        // Check type ids
-        assert_eq!(
-            Buffer::from(&expected_type_ids.clone().to_byte_slice()),
-            union.data().buffers()[0]
-        );
-        for (i, id) in expected_type_ids.iter().enumerate() {
-            assert_eq!(id, &union.type_id(i));
-        }
-
-        // Check offsets, sparse union should only have a single buffer, i.e. no offsets
-        assert_eq!(union.data().buffers().len(), 1);
-
-        for i in 0..union.len() {
-            let slot = union.value(i);
+        assert_eq!(3, new_union.len());
+        for i in 0..new_union.len() {
+            let slot = new_union.value(i);
             match i {
                 0 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
+                    assert_eq!(false, union.is_null(i));
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
-                    assert_eq!(1_i32, value);
+                    assert_eq!(10_i32, value);
                 }
-                1 => {
-                    let slot = slot.as_any().downcast_ref::<BooleanArray>().unwrap();
-                    assert_eq!(slot.len(), 1);
-                    let value = slot.value(0);
-                    assert_eq!(true, value);
-                }
+                1 => assert!(new_union.is_null(i)),
                 2 => {
-                    let slot = slot.as_any().downcast_ref::<Float64Array>().unwrap();
-                    assert_eq!(slot.len(), 1);
-                    let value = slot.value(0);
-                    assert_eq!(value, 3_f64);
-                }
-                3 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
-                    assert_eq!(slot.len(), 1);
-                    let value = slot.value(0);
-                    assert_eq!(4_i32, value);
-                }
-                4 => {
-                    let slot = slot.as_any().downcast_ref::<Float64Array>().unwrap();
-                    assert_eq!(slot.len(), 1);
-                    let value = slot.value(0);
-                    assert_eq!(5_f64, value);
-                }
-                5 => {
-                    let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
+                    assert_eq!(false, union.is_null(i));
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert_eq!(6_i32, value);
-                }
-                6 => {
-                    let slot = slot.as_any().downcast_ref::<BooleanArray>().unwrap();
-                    assert_eq!(slot.len(), 1);
-                    let value = slot.value(0);
-                    assert_eq!(false, value);
                 }
                 _ => unreachable!(),
             }
@@ -925,7 +843,7 @@ mod tests {
     }
 
     #[test]
-    fn test_union_mixed_with_str() {
+    fn test_dense_union_mixed_with_str() {
         let string_array = StringArray::from(vec!["foo", "bar", "baz"]);
         let int_array = Int32Array::from(vec![5, 6]);
         let float_array = Float64Array::from(vec![10.0]);
@@ -1017,6 +935,135 @@ mod tests {
     }
 
     #[test]
+    fn test_sparse_union_i32() {
+        let mut builder = UnionBuilder::new_sparse(7);
+        builder.append::<Int32Type>("a", 1).unwrap();
+        builder.append::<Int32Type>("b", 2).unwrap();
+        builder.append::<Int32Type>("c", 3).unwrap();
+        builder.append::<Int32Type>("a", 4).unwrap();
+        builder.append::<Int32Type>("c", 5).unwrap();
+        builder.append::<Int32Type>("a", 6).unwrap();
+        builder.append::<Int32Type>("b", 7).unwrap();
+        let union = builder.build().unwrap();
+
+        let expected_type_ids = vec![0_i8, 1, 2, 0, 2, 0, 1];
+        let expected_array_values = [1_i32, 2, 3, 4, 5, 6, 7];
+
+        // Check type ids
+        assert_eq!(
+            Buffer::from(&expected_type_ids.clone().to_byte_slice()),
+            union.data().buffers()[0]
+        );
+        for (i, id) in expected_type_ids.iter().enumerate() {
+            assert_eq!(id, &union.type_id(i));
+        }
+
+        // Check offsets, sparse union should only have a single buffer
+        assert_eq!(union.data().buffers().len(), 1);
+
+        // Check data
+        assert_eq!(
+            union.data().child_data()[0].buffers()[0],
+            Buffer::from([1_i32, 0, 0, 4, 0, 6, 0].to_byte_slice()),
+        );
+        assert_eq!(
+            Buffer::from([0_i32, 2_i32, 0, 0, 0, 0, 7].to_byte_slice()),
+            union.data().child_data()[1].buffers()[0]
+        );
+        assert_eq!(
+            Buffer::from([0_i32, 0, 3_i32, 0, 5, 0, 0].to_byte_slice()),
+            union.data().child_data()[2].buffers()[0]
+        );
+
+        assert_eq!(expected_array_values.len(), union.len());
+        for (i, expected_value) in expected_array_values.iter().enumerate() {
+            assert_eq!(false, union.is_null(i));
+            let slot = union.value(i);
+            let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
+            assert_eq!(slot.len(), 1);
+            let value = slot.value(0);
+            assert_eq!(expected_value, &value);
+        }
+    }
+
+    #[test]
+    fn test_sparse_union_mixed() {
+        let mut builder = UnionBuilder::new_sparse(7);
+        builder.append::<Int32Type>("a", 1).unwrap();
+        builder.append::<BooleanType>("b", true).unwrap();
+        builder.append::<Float64Type>("c", 3.0).unwrap();
+        builder.append::<Int32Type>("a", 4).unwrap();
+        builder.append::<Float64Type>("c", 5.0).unwrap();
+        builder.append::<Int32Type>("a", 6).unwrap();
+        builder.append::<BooleanType>("b", false).unwrap();
+        let union = builder.build().unwrap();
+
+        let expected_type_ids = vec![0_i8, 1, 2, 0, 2, 0, 1];
+
+        // Check type ids
+        assert_eq!(
+            Buffer::from(&expected_type_ids.clone().to_byte_slice()),
+            union.data().buffers()[0]
+        );
+        for (i, id) in expected_type_ids.iter().enumerate() {
+            assert_eq!(id, &union.type_id(i));
+        }
+
+        // Check offsets, sparse union should only have a single buffer, i.e. no offsets
+        assert_eq!(union.data().buffers().len(), 1);
+
+        for i in 0..union.len() {
+            let slot = union.value(i);
+            assert_eq!(false, union.is_null(i));
+            match i {
+                0 => {
+                    let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
+                    assert_eq!(slot.len(), 1);
+                    let value = slot.value(0);
+                    assert_eq!(1_i32, value);
+                }
+                1 => {
+                    let slot = slot.as_any().downcast_ref::<BooleanArray>().unwrap();
+                    assert_eq!(slot.len(), 1);
+                    let value = slot.value(0);
+                    assert_eq!(true, value);
+                }
+                2 => {
+                    let slot = slot.as_any().downcast_ref::<Float64Array>().unwrap();
+                    assert_eq!(slot.len(), 1);
+                    let value = slot.value(0);
+                    assert_eq!(value, 3_f64);
+                }
+                3 => {
+                    let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
+                    assert_eq!(slot.len(), 1);
+                    let value = slot.value(0);
+                    assert_eq!(4_i32, value);
+                }
+                4 => {
+                    let slot = slot.as_any().downcast_ref::<Float64Array>().unwrap();
+                    assert_eq!(slot.len(), 1);
+                    let value = slot.value(0);
+                    assert_eq!(5_f64, value);
+                }
+                5 => {
+                    let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
+                    assert_eq!(slot.len(), 1);
+                    let value = slot.value(0);
+                    assert_eq!(6_i32, value);
+                }
+                6 => {
+                    let slot = slot.as_any().downcast_ref::<BooleanArray>().unwrap();
+                    assert_eq!(slot.len(), 1);
+                    let value = slot.value(0);
+                    assert_eq!(false, value);
+                }
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    #[test]
     fn test_sparse_union_mixed_with_nulls() {
         let mut builder = UnionBuilder::new_sparse(7);
         builder.append::<Int32Type>("a", 1).unwrap();
@@ -1057,9 +1104,7 @@ mod tests {
                     let value = slot.value(0);
                     assert_eq!(true, value);
                 }
-                2 => {
-                    assert_eq!(true, union.is_null(i));
-                }
+                2 => assert!(union.is_null(i)),
                 3 => {
                     let slot = slot.as_any().downcast_ref::<Float64Array>().unwrap();
                     assert_eq!(false, union.is_null(i));
@@ -1070,6 +1115,52 @@ mod tests {
                 4 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
                     assert_eq!(false, union.is_null(i));
+                    assert_eq!(slot.len(), 1);
+                    let value = slot.value(0);
+                    assert_eq!(4_i32, value);
+                }
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    #[test]
+    fn test_sparse_union_mixed_with_nulls_and_offset() {
+        let mut builder = UnionBuilder::new_sparse(7);
+        builder.append::<Int32Type>("a", 1).unwrap();
+        builder.append::<BooleanType>("b", true).unwrap();
+        builder.append_null().unwrap();
+        builder.append::<Float64Type>("c", 3.0).unwrap();
+        builder.append_null().unwrap();
+        builder.append::<Int32Type>("a", 4).unwrap();
+        let union = builder.build().unwrap();
+
+        let slice = union.slice(1, 5);
+        let new_union = slice.as_any().downcast_ref::<UnionArray>().unwrap();
+
+        assert_eq!(5, new_union.len());
+        for i in 0..new_union.len() {
+            let slot = new_union.value(i);
+            match i {
+                0 => {
+                    let slot = slot.as_any().downcast_ref::<BooleanArray>().unwrap();
+                    assert_eq!(false, new_union.is_null(i));
+                    assert_eq!(slot.len(), 1);
+                    let value = slot.value(0);
+                    assert_eq!(true, value);
+                }
+                1 => assert!(new_union.is_null(i)),
+                2 => {
+                    let slot = slot.as_any().downcast_ref::<Float64Array>().unwrap();
+                    assert_eq!(false, new_union.is_null(i));
+                    assert_eq!(slot.len(), 1);
+                    let value = slot.value(0);
+                    assert_eq!(value, 3_f64);
+                }
+                3 => assert!(new_union.is_null(i)),
+                4 => {
+                    let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
+                    assert_eq!(false, new_union.is_null(i));
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert_eq!(4_i32, value);
