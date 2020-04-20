@@ -67,7 +67,7 @@ static inline int64_t GreaterThanBitmap(const int16_t* levels, int64_t num_level
 /// \returns The new bit offset inside of valid_bits.
 static inline int64_t AppendBitmap(uint8_t* valid_bits, int64_t valid_bits_offset,
                                    int64_t valid_bits_length, uint64_t new_bits,
-                                   int number_of_bits) {
+                                   int64_t number_of_bits) {
   // Selection masks to retrieve all low order bits for each bytes.
   constexpr uint64_t kLsbSelectionMasks[] = {
       0,  // unused.
