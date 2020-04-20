@@ -45,7 +45,7 @@ script:
 
 after_script:
   - |
-    pip3 install \
+    sudo pip3 install \
       click \
       github3.py \
       jinja2 \
