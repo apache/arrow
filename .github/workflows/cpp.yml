@@ -43,15 +43,16 @@ jobs:
     runs-on: ubuntu-latest
     # if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Free up disk space
         run: ci/scripts/util_cleanup.sh
-      # - name: Checkout Arrow
-      #   uses: actions/checkout@v2
-      #   with:
-      #     fetch-depth: 0
-      # - name: Fetch Submodules and Tags
-      #   shell: bash
-      #   run: ci/scripts/util_checkout.sh
+
       # - name: Docker Pull
       #   shell: bash
       #   run: docker-compose pull --ignore-pull-failures conda-cpp
