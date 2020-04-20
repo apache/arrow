@@ -42,14 +42,24 @@ script:
   - {{ build_command }}
   - popd
 
-deploy:
-  provider: releases
-  api_key: $CROSSBOW_GITHUB_TOKEN
-  file_glob: true
-  file:
-  {% for extension in upload_extensions -%}
-    - "**/*{{ extension }}"
-  {% endfor -%}
-  skip_cleanup: true
-  on:
-    tags: true
+after_script:
+  - |
+    pip3 install \
+      click \
+      github3.py \
+      jinja2 \
+      jira \
+      pygit2 \
+      ruamel.yaml \
+      setuptools_scm \
+      toolz
+  - |
+    python3 arrow/dev/tasks/crossbow.py \
+      --queue-path . \
+      --queue-remote {{ queue_remote_url }} \
+      upload-artifacts \
+    {%- for extension in upload_extensions %}
+      --pattern "**/*{{ extension }}" \
+    {%- endfor %}
+      --sha {{ task.branch }} \
+      --tag {{ task.tag }}
