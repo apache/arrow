@@ -507,21 +507,21 @@ class BitmapReader {
       : bitmap_(bitmap), position_(0), length_(length) {
     current_byte_ = 0;
     byte_offset_ = start_offset / 8;
-    bit_offset_ = start_offset % 8;
+    bit_offset_mask_ = 1 << (start_offset % 8);
     if (length > 0) {
       current_byte_ = bitmap[byte_offset_];
     }
   }
 
-  bool IsSet() const { return (current_byte_ & (1 << bit_offset_)) != 0; }
+  bool IsSet() const { return (current_byte_ & bit_offset_mask_) != 0; }
 
-  bool IsNotSet() const { return (current_byte_ & (1 << bit_offset_)) == 0; }
+  bool IsNotSet() const { return (current_byte_ & bit_offset_mask_) == 0; }
 
   void Next() {
-    ++bit_offset_;
+    bit_offset_mask_ <<= 1;
     ++position_;
-    if (ARROW_PREDICT_FALSE(bit_offset_ == 8)) {
-      bit_offset_ = 0;
+    if (ARROW_PREDICT_FALSE(bit_offset_mask_ == 0)) {
+      bit_offset_mask_ = 1;
       ++byte_offset_;
       if (ARROW_PREDICT_TRUE(position_ < length_)) {
         current_byte_ = bitmap_[byte_offset_];
@@ -537,8 +537,8 @@ class BitmapReader {
   int64_t length_;
 
   uint8_t current_byte_;
+  uint8_t bit_offset_mask_;
   int64_t byte_offset_;
-  int64_t bit_offset_;
 };
 
 class BitmapWriter {
