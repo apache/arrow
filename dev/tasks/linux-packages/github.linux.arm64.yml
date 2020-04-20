@@ -37,6 +37,10 @@ jobs:
           git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
           git -C arrow checkout FETCH_HEAD
           git -C arrow submodule update --init --recursive
+      - name: Free Up Disk Space
+        shell: bash
+        run: arrow/ci/scripts/util_cleanup.sh
+
       # We can remove this with binfmt-support 2.1.7 or later and
       # qemu-user-static 2.12 or later. It requires Debian buster or later,
       # or Ubuntu 18.10 or later.
