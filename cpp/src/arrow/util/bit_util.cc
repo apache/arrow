@@ -506,7 +506,7 @@ Result<std::shared_ptr<Buffer>> BitmapOp(MemoryPool* pool, const uint8_t* left,
 std::string Bitmap::ToString() const {
   std::string out(length_ + ((length_ - 1) / 8), ' ');
   for (int64_t i = 0; i < length_; ++i) {
-    out[i + (i / 8)] = GetBit(i) ? '1' : '0';
+    out[i] = GetBit(i) ? '1' : '0';
   }
   return out;
 }
