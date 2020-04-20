@@ -383,10 +383,6 @@ TEST(DeleteDirContents, Basics) {
   ASSERT_TRUE(deleted);
   AssertExists(parent);
 
-  // Now actually delete the test directory
-  ASSERT_OK_AND_ASSIGN(deleted, DeleteDirTree(parent));
-  ASSERT_TRUE(deleted);
-
   // It's not an error to call DeleteDirContents on a nonexistent path.
   ASSERT_OK_AND_ASSIGN(deleted, DeleteDirContents(child1));
   ASSERT_FALSE(deleted);
@@ -398,6 +394,10 @@ TEST(DeleteDirContents, Basics) {
 #else
   ASSERT_EQ(ErrnoFromStatus(status), ENOENT);
 #endif
+
+  // Now actually delete the test directory
+  ASSERT_OK_AND_ASSIGN(deleted, DeleteDirTree(parent));
+  ASSERT_TRUE(deleted);
 }
 
 TEST(TemporaryDir, Basics) {
