@@ -43,12 +43,8 @@ jobs:
     runs-on: ubuntu-latest
     # if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
-      - name: free disk space
-        run: |
-          df -h
-          env
-          df -h
-          du -d2 -h /
+      - name: Free up disk space
+        run: ci/scripts/util_cleanup.sh
       # - name: Checkout Arrow
       #   uses: actions/checkout@v2
       #   with:
