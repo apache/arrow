@@ -40,17 +40,23 @@ binary_ok <- !identical(tolower(Sys.getenv("LIBARROW_BINARY", "false")), "false"
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
 
+try_download <- function(from_url, to_file) {
+  try(
+    suppressWarnings(
+      download.file(from_url, to_file, quiet = quietly)
+    ),
+    silent = quietly
+  )
+  file.exists(to_file)
+}
+
 download_binary <- function(os = identify_os()) {
   libfile <- tempfile()
   if (!is.null(os)) {
     # See if we can map this os-version to one we have binaries for
     os <- find_available_binary(os)
     binary_url <- paste0(arrow_repo, "bin/", os, "/arrow-", VERSION, ".zip")
-    try(
-      download.file(binary_url, libfile, quiet = quietly),
-      silent = quietly
-    )
-    if (file.exists(libfile)) {
+    if (try_download(binary_url, libfile)) {
       cat(sprintf("*** Successfully retrieved C++ binaries for %s\n", os))
     } else {
       cat(sprintf("*** No C++ binaries found for %s\n", os))
@@ -135,27 +141,25 @@ download_source <- function() {
   tf1 <- tempfile()
   src_dir <- NULL
   source_url <- paste0(arrow_repo, "src/arrow-", VERSION, ".zip")
-  try(
-    download.file(source_url, tf1, quiet = quietly),
-    silent = quietly
-  )
-  if (!file.exists(tf1)) {
+  from_bintray <- try_download(source_url, tf1)
+  if (!from_bintray) {
     # Try for an official release
-    try(
-      download.file(apache_src_url, tf1, quiet = quietly),
-      silent = quietly
-    )
+    try_download(apache_src_url, tf1)
   }
   if (file.exists(tf1)) {
     cat("*** Successfully retrieved C++ source\n")
     src_dir <- tempfile()
     unzip(tf1, exdir = src_dir)
     unlink(tf1)
-    # These scripts need to be executable
-    system(sprintf("chmod 755 %s/cpp/build-support/*.sh", src_dir))
     options(.arrow.cleanup = c(getOption(".arrow.cleanup"), src_dir))
-    # The actual src is in cpp
-    src_dir <- paste0(src_dir, "/cpp")
+    # We'll return the path to the cpp source, which is in a subdir in the Apache release
+    cpp_dir <- ifelse(from_bintray,
+      "/cpp",
+      paste0("/apache-arrow-", VERSION, "/cpp")
+    )
+    src_dir <- paste0(src_dir, cpp_dir)
+    # These scripts need to be executable
+    system(sprintf("chmod 755 %s/build-support/*.sh", src_dir))
   }
   src_dir
 }
@@ -212,10 +216,7 @@ ensure_cmake <- function() {
     )
     cmake_tar <- tempfile()
     cmake_dir <- tempfile()
-    try(
-      download.file(cmake_binary_url, cmake_tar, quiet = quietly),
-      silent = quietly
-    )
+    try_download(cmake_binary_url, cmake_tar)
     untar(cmake_tar, exdir = cmake_dir)
     unlink(cmake_tar)
     options(.arrow.cleanup = c(getOption(".arrow.cleanup"), cmake_dir))
