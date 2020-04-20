@@ -228,7 +228,9 @@ jobs:
         run: ci/scripts/util_checkout.sh
       - name: Build
         shell: bash
-        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+        run: |
+          export BOOST_ROOT=$BOOST_ROOT_1_72_0
+          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
         run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
