@@ -101,6 +101,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option_string(ARROW_SIMD_LEVEL
                        "SIMD compiler optimization level"
                        "SSE4_2" # default to SSE4.2
+                       "NONE"
                        "SSE4_2"
                        "AVX2"
                        "AVX512")
