@@ -90,7 +90,7 @@ static inline int64_t AppendBitmap(uint8_t* valid_bits, int64_t valid_bits_offse
   };
 
   if (bit_offset != 0) {
-    int bits_to_carry = 8 - bit_offset;
+    int64_t bits_to_carry = 8 - bit_offset;
     // Get the mask the will select the lower order bits  (the ones to carry
     // over to the existing byte and shift up.
     const ByteAddressableBitmap carry_bits(kLsbSelectionMasks[bits_to_carry]);
@@ -124,9 +124,8 @@ static inline int64_t AppendBitmap(uint8_t* valid_bits, int64_t valid_bits_offse
     number_of_bits -= bits_to_carry;
   }
 
-  int bytes_for_new_bits = ::arrow::BitUtil::BytesForBits(number_of_bits);
-  if (valid_bits_length -
-          (bytes_for_new_bits + ::arrow::BitUtil::BytesForBits(valid_bits_offset)) >
+  int64_t bytes_for_new_bits = ::arrow::BitUtil::BytesForBits(number_of_bits);
+  if (valid_bits_length - ::arrow::BitUtil::BytesForBits(valid_bits_offset) >
       static_cast<int64_t>(sizeof(new_bits))) {
     // This should be the common case and  inlined as a single instruction which
     // should be cheaper then the general case of calling mempcy, so it is likely
