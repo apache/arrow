@@ -165,7 +165,8 @@ int64_t AppendValidityBitmap(uint64_t bitmap, uint64_t repeated_parent_bitmap,
     // If the parent list was empty at for the given slot it should not be added to the
     // bitmap.
     bitmap = _pext_u64(bitmap, repeated_parent_bitmap);
-    values_read = ::arrow::BitUtil::PopCount(repeated_parent_bitmap);
+    values_read =
+        static_cast<int64_t>(::arrow::BitUtil::PopCount(repeated_parent_bitmap));
 #else
     // We shouldn't get here.
     std::abort();
