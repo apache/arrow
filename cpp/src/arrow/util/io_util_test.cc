@@ -446,56 +446,6 @@ TEST(CreateDirTree, Basics) {
   ASSERT_OK_AND_ASSIGN(fn, temp_dir->path().Join("EF"));
   ASSERT_OK_AND_ASSIGN(created, CreateDirTree(fn));
   ASSERT_TRUE(created);
-
-#ifndef __APPLE__
-  bool deleted;
-#ifdef _WIN32
-  const std::string KEY_NAME = R"(SYSTEM\CurrentControlSet\Control\FileSystem)";
-  const std::string VALUE_NAME = "LongPathsEnabled";
-  DWORD value = 0;
-  DWORD size = sizeof(value);
-  LSTATUS status = RegGetValueA(HKEY_LOCAL_MACHINE, KEY_NAME.c_str(), VALUE_NAME.c_str(),
-                                RRF_RT_REG_DWORD, NULL, &value, &size);
-  bool test_long_paths = (status == ERROR_SUCCESS && value == 1);
-  if (!test_long_paths) {
-    ARROW_LOG(WARNING)
-        << "Tests for accessing files with long path names have been disabled. "
-        << "To enable these tests, set the value of " << VALUE_NAME
-        << " in registry key \\HKEY_LOCAL_MACHINE\\" << KEY_NAME
-        << " to 1 on the test host.";
-  }
-#else
-  bool test_long_paths = true;
-#endif
-
-  if (test_long_paths) {
-    const std::string LONG_BASE = "xxx-io-util-test-dir-long";
-    PlatformFilename long_path, long_filename;
-    int fd = -1;
-    std::stringstream fs;
-    fs << LONG_BASE;
-    for (int i = 0; i < 64; ++i) {
-      fs << "/123456789ABCDEF";
-    }
-    ASSERT_OK_AND_ASSIGN(
-        long_path, PlatformFilename::FromString(fs.str()));  // long_path length > 1024
-    ASSERT_OK_AND_ASSIGN(created, CreateDirTree(long_path));
-    ASSERT_TRUE(created);
-    AssertExists(long_path);
-    ASSERT_OK_AND_ASSIGN(long_filename,
-                         PlatformFilename::FromString(fs.str() + "/file.txt"));
-    ASSERT_OK_AND_ASSIGN(fd, FileOpenWritable(long_filename));
-    ASSERT_OK(FileClose(fd));
-    AssertExists(long_filename);
-    fd = -1;
-    ASSERT_OK_AND_ASSIGN(fd, FileOpenReadable(long_filename));
-    ASSERT_OK(FileClose(fd));
-    ASSERT_OK_AND_ASSIGN(deleted, DeleteDirContents(long_path));
-    ASSERT_TRUE(deleted);
-    ASSERT_OK_AND_ASSIGN(deleted, DeleteDirTree(long_path));
-    ASSERT_TRUE(deleted);
-  }
-#endif
 }
 
 TEST(ListDir, Basics) {
@@ -572,6 +522,56 @@ TEST(DeleteFile, Basics) {
   AssertExists(fn);
   ASSERT_RAISES(IOError, DeleteFile(fn));
 }
+
+#ifndef __APPLE__
+TEST(FileUtils, LongPaths) {
+  // ARROW-8477: check using long file paths under Windows (> 260 characters).
+  bool created, deleted;
+#ifdef _WIN32
+  const char* kRegKeyName = R"(SYSTEM\CurrentControlSet\Control\FileSystem)";
+  const char* kRegValueName = "LongPathsEnabled";
+  DWORD value = 0;
+  DWORD size = sizeof(value);
+  LSTATUS status = RegGetValueA(HKEY_LOCAL_MACHINE, kRegKeyName, kRegValueName,
+                                RRF_RT_REG_DWORD, NULL, &value, &size);
+  bool test_long_paths = (status == ERROR_SUCCESS && value == 1);
+  if (!test_long_paths) {
+    ARROW_LOG(WARNING)
+        << "Tests for accessing files with long path names have been disabled. "
+        << "To enable these tests, set the value of " << kRegValueName
+        << " in registry key \\HKEY_LOCAL_MACHINE\\" << kRegKeyName
+        << " to 1 on the test host.";
+    return;
+  }
+#endif
+
+  const std::string LONG_BASE = "xxx-io-util-test-dir-long";
+  PlatformFilename long_path, long_filename;
+  int fd = -1;
+  std::stringstream fs;
+  fs << LONG_BASE;
+  for (int i = 0; i < 64; ++i) {
+    fs << "/123456789ABCDEF";
+  }
+  ASSERT_OK_AND_ASSIGN(
+      long_path, PlatformFilename::FromString(fs.str()));  // long_path length > 1024
+  ASSERT_OK_AND_ASSIGN(created, CreateDirTree(long_path));
+  ASSERT_TRUE(created);
+  AssertExists(long_path);
+  ASSERT_OK_AND_ASSIGN(long_filename,
+                       PlatformFilename::FromString(fs.str() + "/file.txt"));
+  ASSERT_OK_AND_ASSIGN(fd, FileOpenWritable(long_filename));
+  ASSERT_OK(FileClose(fd));
+  AssertExists(long_filename);
+  fd = -1;
+  ASSERT_OK_AND_ASSIGN(fd, FileOpenReadable(long_filename));
+  ASSERT_OK(FileClose(fd));
+  ASSERT_OK_AND_ASSIGN(deleted, DeleteDirContents(long_path));
+  ASSERT_TRUE(deleted);
+  ASSERT_OK_AND_ASSIGN(deleted, DeleteDirTree(long_path));
+  ASSERT_TRUE(deleted);
+}
+#endif
 
 }  // namespace internal
 }  // namespace arrow

@@ -844,10 +844,11 @@ Result<int> FileOpenReadable(const PlatformFilename& file_name) {
   DWORD last_error = GetLastError();
   if (last_error == ERROR_SUCCESS) {
     errno_actual = 0;
-    fd = _open_osfhandle((intptr_t)file_handle, _O_RDONLY | _O_BINARY | _O_NOINHERIT);
+    fd = _open_osfhandle(reinterpret_cast<intptr_t>(file_handle),
+                         _O_RDONLY | _O_BINARY | _O_NOINHERIT);
   } else {
-    return IOErrorFromWinError(last_error, "Failed to open file '", file_name.ToString(),
-                               "'");
+    return IOErrorFromWinError(last_error, "Failed to open local file '",
+                               file_name.ToString(), "'");
   }
 #else
   fd = open(file_name.ToNative().c_str(), O_RDONLY);
@@ -905,10 +906,10 @@ Result<int> FileOpenWritable(const PlatformFilename& file_name, bool write_only,
   DWORD last_error = GetLastError();
   if (last_error == ERROR_SUCCESS || last_error == ERROR_ALREADY_EXISTS) {
     errno_actual = 0;
-    fd = _open_osfhandle((intptr_t)file_handle, oflag);
+    fd = _open_osfhandle(reinterpret_cast<intptr_t>(file_handle), oflag);
   } else {
-    return IOErrorFromWinError(last_error, "Failed to open file '", file_name.ToString(),
-                               "'");
+    return IOErrorFromWinError(last_error, "Failed to open local file '",
+                               file_name.ToString(), "'");
   }
 #else
   int oflag = O_CREAT;

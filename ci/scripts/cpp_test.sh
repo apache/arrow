@@ -46,6 +46,8 @@ esac
 
 pushd ${build_dir}
 
+ctest -V -R arrow-utility-test
+
 ctest -L unittest --output-on-failure -j${n_jobs}
 
 if [ "${ARROW_FUZZING}" == "ON" ]; then
