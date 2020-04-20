@@ -596,9 +596,9 @@ tasks:
       - libparquet100_{no_rc_version}-1_[a-z0-9]+.deb
 
   debian-buster-amd64:
-    ci: github
+    ci: travis
     platform: linux
-    template: linux-packages/github.linux.yml
+    template: linux-packages/travis.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=debian-buster
       upload_extensions:
