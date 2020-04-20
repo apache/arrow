@@ -158,7 +158,6 @@ Result<ScanTaskIterator> IpcFileFormat::ScanFile(
   return IpcScanTaskIterator::Make(options, context, source);
 }
 
-namespace internal {
 class IpcWriteTask : public WriteTask {
  public:
   IpcWriteTask(FileSource destination, std::shared_ptr<FileFormat> format,
@@ -199,15 +198,14 @@ class IpcWriteTask : public WriteTask {
   std::shared_ptr<ScanOptions> scan_options_;
   std::shared_ptr<ScanContext> scan_context_;
 };
-}  // namespace internal
 
 Result<std::shared_ptr<WriteTask>> IpcFileFormat::WriteFragment(
     FileSource destination, std::shared_ptr<Fragment> fragment,
     std::shared_ptr<ScanOptions> scan_options,
     std::shared_ptr<ScanContext> scan_context) {
-  return std::make_shared<internal::IpcWriteTask>(
-      std::move(destination), shared_from_this(), std::move(fragment),
-      std::move(scan_options), std::move(scan_context));
+  return std::make_shared<IpcWriteTask>(std::move(destination), shared_from_this(),
+                                        std::move(fragment), std::move(scan_options),
+                                        std::move(scan_context));
 }
 
 }  // namespace dataset

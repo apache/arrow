@@ -295,8 +295,7 @@ def test_dataset(dataset):
     assert len(table) == 10
 
     condition = ds.field('i64') == 1
-    scanner = ds.Scanner(dataset, use_threads=True, filter=condition)
-    result = scanner.to_table().to_pydict()
+    result = dataset.to_table(use_threads=True, filter=condition).to_pydict()
 
     # don't rely on the scanning order
     assert result['i64'] == [1, 1]
@@ -306,15 +305,16 @@ def test_dataset(dataset):
 
 
 def test_scanner(dataset):
-    scanner = ds.Scanner(dataset, memory_pool=pa.default_memory_pool())
+    scanner = ds.Scanner.from_dataset(dataset,
+                                      memory_pool=pa.default_memory_pool())
     assert isinstance(scanner, ds.Scanner)
     assert len(list(scanner.scan())) == 2
 
     with pytest.raises(pa.ArrowInvalid):
-        dataset.scan(columns=['unknown'])
+        ds.Scanner.from_dataset(dataset, columns=['unknown'])
 
-    scanner = ds.Scanner(dataset, columns=['i64'],
-                         memory_pool=pa.default_memory_pool())
+    scanner = ds.Scanner.from_dataset(dataset, columns=['i64'],
+                                      memory_pool=pa.default_memory_pool())
 
     assert isinstance(scanner, ds.Scanner)
     assert len(list(scanner.scan())) == 2
@@ -598,7 +598,7 @@ def test_filesystem_factory(mockfs, paths_or_selector):
     assert isinstance(dataset, ds.FileSystemDataset)
     assert len(list(dataset.scan())) == 2
 
-    scanner = ds.Scanner(dataset)
+    scanner = ds.Scanner.from_dataset(dataset)
     expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
     expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
     expected_str = pa.DictionaryArray.from_arrays(
@@ -669,45 +669,33 @@ def test_fragments(tempdir):
     f = fragments[0]
 
     # file's schema does not include partition column
-    # TODO(ARROW-8065)
-    # phys_schema = f.schema.remove(f.schema.get_field_index('part'))
-    # assert f.format.inspect(f.path, f.filesystem) == phys_schema
-    # assert f.partition_expression.equals(ds.field('part') == 'a')
+    assert f.physical_schema.names == ['f1', 'f2']
+    assert f.format.inspect(f.path, f.filesystem) == f.physical_schema
+    assert f.partition_expression.equals(ds.field('part') == 'a')
 
     # scanning fragment includes partition columns
-    result = f.to_table()
-    assert f.schema == result.schema
+    result = f.to_table(schema=dataset.schema)
     assert result.column_names == ['f1', 'f2', 'part']
-    assert len(result) == 4
     assert result.equals(table.slice(0, 4))
-
-    # scanning fragments follow column projection
-    fragments = list(dataset.get_fragments(columns=['f1', 'part']))
-    assert len(fragments) == 2
-    result = fragments[0].to_table()
-    assert result.column_names == ['f1', 'part']
-    assert len(result) == 4
+    assert f.physical_schema == result.schema.remove(2)
 
     # scanning fragments follow filter predicate
-    fragments = list(dataset.get_fragments(filter=ds.field('f1') < 2))
-    assert len(fragments) == 2
-    result = fragments[0].to_table()
+    result = f.to_table(schema=dataset.schema, filter=ds.field('f1') < 2)
     assert result.column_names == ['f1', 'f2', 'part']
-    assert len(result) == 2
-    result = fragments[1].to_table()
-    assert len(result) == 0
 
 
+@pytest.mark.skip(reason="ARROW-8318")
 @pytest.mark.pandas
 @pytest.mark.parquet
 def test_fragments_reconstruct(tempdir):
     table, dataset = _create_dataset_for_fragments(tempdir)
 
-    def assert_yields_projected(fragment, row_slice, columns):
-        actual = fragment.to_table()
-        assert actual.column_names == columns
+    def assert_yields_projected(fragment, row_slice, schema):
+        actual = fragment.to_table(schema=schema)
+        assert actual.schema == schema.schema
 
-        expected = table.slice(*row_slice).to_pandas()[[*columns]]
+        names = schema.names
+        expected = table.slice(*row_slice).to_pandas()[[*names]]
         assert actual.equals(pa.Table.from_pandas(expected))
 
     fragment = list(dataset.get_fragments())[0]
@@ -749,6 +737,7 @@ def test_fragments_reconstruct(tempdir):
             partition_expression=fragment.partition_expression)
 
 
+@pytest.mark.skip(reason="ARROW-8318")
 @pytest.mark.pandas
 @pytest.mark.parquet
 def test_fragments_parquet_row_groups(tempdir):
@@ -759,21 +748,19 @@ def test_fragments_parquet_row_groups(tempdir):
     # list and scan row group fragments
     row_group_fragments = list(fragment.get_row_group_fragments())
     assert len(row_group_fragments) == 2
-    result = row_group_fragments[0].to_table()
+    result = row_group_fragments[0].to_table(schema=dataset.schema)
     assert result.column_names == ['f1', 'f2', 'part']
     assert len(result) == 2
     assert result.equals(table.slice(0, 2))
 
-    # scanning row group fragment follows column projection / filter predicate
-    fragment = list(dataset.get_fragments(
-        columns=['part', 'f1'], filter=ds.field('f1') < 1))[0]
+    fragment = list(dataset.get_fragments(filter=ds.field('f1') < 1))[0]
     row_group_fragments = list(fragment.get_row_group_fragments())
     assert len(row_group_fragments) == 1
-    result = row_group_fragments[0].to_table()
-    assert result.column_names == ['part', 'f1']
+    result = row_group_fragments[0].to_table(filter=ds.field('f1') < 1)
     assert len(result) == 1
 
 
+@pytest.mark.skip(reason="ARROW-8318")
 @pytest.mark.pandas
 @pytest.mark.parquet
 def test_fragments_parquet_row_groups_reconstruct(tempdir):
@@ -785,7 +772,7 @@ def test_fragments_parquet_row_groups_reconstruct(tempdir):
 
     # manually re-construct row group fragments
     new_fragment = parquet_format.make_fragment(
-        fragment.path, fragment.filesystem, schema=dataset.schema,
+        fragment.path, fragment.filesystem,
         partition_expression=fragment.partition_expression,
         row_groups=[0])
     result = new_fragment.to_table()
@@ -793,11 +780,11 @@ def test_fragments_parquet_row_groups_reconstruct(tempdir):
 
     # manually re-construct a row group fragment with filter/column projection
     new_fragment = parquet_format.make_fragment(
-        fragment.path, fragment.filesystem, schema=dataset.schema,
-        columns=['f1', 'part'], filter=ds.field('f1') < 3,
+        fragment.path, fragment.filesystem,
         partition_expression=fragment.partition_expression,
         row_groups={1})
-    result = new_fragment.to_table()
+    result = new_fragment.to_table(columns=['f1', 'part'],
+                                   filter=ds.field('f1') < 3, )
     assert result.column_names == ['f1', 'part']
     assert len(result) == 1
 
@@ -1271,9 +1258,7 @@ def test_filter_implicit_cast(tempdir):
     dataset = ds.dataset(str(path))
 
     filter_ = ds.field('a') > 2
-    scanner = ds.Scanner(dataset, filter=filter_)
-    result = scanner.to_table()
-    assert len(result) == 3
+    assert len(dataset.to_table(filter=filter_)) == 3
 
 
 def test_dataset_union(multisourcefs):

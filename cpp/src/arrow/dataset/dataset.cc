@@ -30,20 +30,20 @@
 namespace arrow {
 namespace dataset {
 
-Fragment::Fragment(std::shared_ptr<Schema> physical_schema,
-                   std::shared_ptr<Expression> partition_expression)
-    : physical_schema_(std::move(physical_schema)),
-      partition_expression_(partition_expression ? partition_expression : scalar(true)) {
-  /// TODO(ARROW-8065)
-  if (physical_schema_ == nullptr) {
-    physical_schema_ = schema({});
+Fragment::Fragment(std::shared_ptr<Expression> partition_expression)
+    : partition_expression_(partition_expression ? partition_expression : scalar(true)) {}
+
+Result<std::shared_ptr<Schema>> InMemoryFragment::ReadPhysicalSchema() {
+  if (record_batches_.empty()) {
+    return schema({});
   }
+
+  return record_batches_[0]->schema();
 }
 
 InMemoryFragment::InMemoryFragment(RecordBatchVector record_batches,
                                    std::shared_ptr<Expression> partition_expression)
-    : Fragment(record_batches.empty() ? schema({}) : record_batches[0]->schema(),
-               std::move(partition_expression)),
+    : Fragment(std::move(partition_expression)),
       record_batches_(std::move(record_batches)) {}
 
 Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanOptions> options,

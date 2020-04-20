@@ -42,7 +42,7 @@ namespace dataset {
 
 using util::string_view;
 
-using internal::checked_cast;
+using arrow::internal::checked_cast;
 
 Result<std::shared_ptr<Expression>> Partitioning::Parse(const std::string& path) const {
   ExpressionVector expressions;
@@ -440,9 +440,9 @@ struct DirectoryPartitioningFactory::MakeWritePlanImpl {
     // a depth first visitation order WRT their partition expressions. This makes
     // generation of the full directory tree far simpler since a directory's files are
     // grouped.
-    auto permutation = internal::ArgSort(right_hand_sides_);
-    internal::Permute(permutation, &source_fragments_);
-    internal::Permute(permutation, &right_hand_sides_);
+    auto permutation = arrow::internal::ArgSort(right_hand_sides_);
+    arrow::internal::Permute(permutation, &source_fragments_);
+    arrow::internal::Permute(permutation, &right_hand_sides_);
 
     // the basename of out.paths[i] is stored in segments[i] (full paths will be assembled
     // after segments is complete)

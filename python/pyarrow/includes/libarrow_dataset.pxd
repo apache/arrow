@@ -140,7 +140,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         @staticmethod
         shared_ptr[CScanOptions] Make(shared_ptr[CSchema] schema)
 
-
     cdef cppclass CScanContext "arrow::dataset::ScanContext":
         c_bool use_threads
         CMemoryPool * pool
@@ -152,9 +151,9 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[CRecordBatchIterator] Execute()
 
     cdef cppclass CFragment "arrow::dataset::Fragment":
+        CResult[shared_ptr[CSchema]] ReadPhysicalSchema()
         CResult[CScanTaskIterator] Scan(
             shared_ptr[CScanOptions] options, shared_ptr[CScanContext] context)
-        const shared_ptr[CSchema]& physical_schema() const
         c_bool splittable() const
         c_string type_name() const
         const shared_ptr[CExpression]& partition_expression() const
@@ -166,7 +165,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         "arrow::dataset::FragmentIterator"
 
     cdef cppclass CScanner "arrow::dataset::Scanner":
-        CScanner(shared_ptr[CFragment], shared_ptr[CScanOptions], shared_ptr[CScanContext])
+        CScanner(shared_ptr[CDataset], shared_ptr[CScanOptions],
+                 shared_ptr[CScanContext])
+        CScanner(shared_ptr[CFragment], shared_ptr[CScanOptions],
+                 shared_ptr[CScanContext])
         CResult[CScanTaskIterator] Scan()
         CResult[shared_ptr[CTable]] ToTable()
         CFragmentIterator GetFragments()
@@ -174,6 +176,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CScannerBuilder "arrow::dataset::ScannerBuilder":
         CScannerBuilder(shared_ptr[CDataset],
+                        shared_ptr[CScanContext] scan_context)
+        CScannerBuilder(shared_ptr[CSchema], shared_ptr[CFragment],
                         shared_ptr[CScanContext] scan_context)
         CStatus Project(const vector[c_string]& columns)
         CStatus Filter(const CExpression& filter)

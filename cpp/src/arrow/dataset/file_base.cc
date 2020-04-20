@@ -72,6 +72,10 @@ Result<std::shared_ptr<WriteTask>> FileFormat::WriteFragment(
   return Status::NotImplemented("writing fragment of format ", type_name());
 }
 
+Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchema() {
+  return format_->Inspect(source_);
+}
+
 Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanOptions> options,
                                             std::shared_ptr<ScanContext> context) {
   return format_->ScanFile(source_, std::move(options), std::move(context));

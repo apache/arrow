@@ -94,7 +94,16 @@ Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
 ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
                                std::shared_ptr<ScanContext> scan_context)
     : dataset_(std::move(dataset)),
+      fragment_(nullptr),
       scan_options_(ScanOptions::Make(dataset_->schema())),
+      scan_context_(std::move(scan_context)) {}
+
+ScannerBuilder::ScannerBuilder(std::shared_ptr<Schema> schema,
+                               std::shared_ptr<Fragment> fragment,
+                               std::shared_ptr<ScanContext> scan_context)
+    : dataset_(nullptr),
+      fragment_(std::move(fragment)),
+      scan_options_(ScanOptions::Make(schema)),
       scan_context_(std::move(scan_context)) {}
 
 Status ScannerBuilder::Project(std::vector<std::string> columns) {
@@ -139,15 +148,21 @@ Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() const {
     scan_options->evaluator = std::make_shared<TreeEvaluator>();
   }
 
+  if (dataset_ == nullptr) {
+    return std::make_shared<Scanner>(fragment_, std::move(scan_options), scan_context_);
+  }
+
   return std::make_shared<Scanner>(dataset_, std::move(scan_options), scan_context_);
 }
 
-std::shared_ptr<internal::TaskGroup> ScanContext::TaskGroup() const {
+using arrow::internal::TaskGroup;
+
+std::shared_ptr<TaskGroup> ScanContext::TaskGroup() const {
   if (use_threads) {
-    internal::ThreadPool* thread_pool = arrow::internal::GetCpuThreadPool();
-    return internal::TaskGroup::MakeThreaded(thread_pool);
+    auto* thread_pool = arrow::internal::GetCpuThreadPool();
+    return TaskGroup::MakeThreaded(thread_pool);
   }
-  return internal::TaskGroup::MakeSerial();
+  return TaskGroup::MakeSerial();
 }
 
 Result<std::shared_ptr<Table>> Scanner::ToTable() {

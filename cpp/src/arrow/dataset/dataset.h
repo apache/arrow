@@ -30,12 +30,21 @@
 namespace arrow {
 namespace dataset {
 
-/// \brief A granular piece of a Dataset, such as an individual file, which can be
-/// read/scanned separately from other fragments.
+/// \brief A granular piece of a Dataset, such as an individual file.
 ///
-/// A Fragment yields a collection of RecordBatch, encapsulated in one or more ScanTasks.
+/// A Fragment can be read/scanned separately from other fragments. It yields a
+/// collection of RecordBatch, encapsulated in one or more ScanTasks.
+///
+/// A notable difference from Dataset is that Fragments have physical schemas
+/// which may differ from Fragments.
 class ARROW_DS_EXPORT Fragment {
  public:
+  /// \brief Return the physical schema of the Fragment.
+  ///
+  /// The physical schema is also called the writer schema.
+  /// This method is blocking and may suffer from high latency filesystem.
+  virtual Result<std::shared_ptr<Schema>> ReadPhysicalSchema() = 0;
+
   /// \brief Scan returns an iterator of ScanTasks, each of which yields
   /// RecordBatches from this Fragment.
   ///
@@ -54,8 +63,6 @@ class ARROW_DS_EXPORT Fragment {
 
   virtual std::string type_name() const = 0;
 
-  const std::shared_ptr<Schema>& physical_schema() const { return physical_schema_; }
-
   /// \brief An expression which evaluates to true for all data viewed by this
   /// Fragment.
   const std::shared_ptr<Expression>& partition_expression() const {
@@ -65,10 +72,8 @@ class ARROW_DS_EXPORT Fragment {
   virtual ~Fragment() = default;
 
  protected:
-  Fragment(std::shared_ptr<Schema> physical_schema = NULLPTR,
-           std::shared_ptr<Expression> partition_expression = NULLPTR);
+  explicit Fragment(std::shared_ptr<Expression> partition_expression = NULLPTR);
 
-  std::shared_ptr<Schema> physical_schema_;
   std::shared_ptr<Expression> partition_expression_;
 };
 
@@ -78,6 +83,8 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
  public:
   InMemoryFragment(RecordBatchVector record_batches,
                    std::shared_ptr<Expression> = NULLPTR);
+
+  Result<std::shared_ptr<Schema>> ReadPhysicalSchema() override;
 
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
                                 std::shared_ptr<ScanContext> context) override;
@@ -90,8 +97,11 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
   RecordBatchVector record_batches_;
 };
 
-/// \brief A container of zero or more Fragments. A Dataset acts as a discovery mechanism
-/// of Fragments and partitions, e.g. files deeply nested in a directory.
+/// \brief A container of zero or more Fragments.
+///
+/// A Dataset acts as a union of Fragments, e.g. files deeply nested in a
+/// directory. A Dataset has a schema, also known as the "reader" schema.
+///
 class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
  public:
   /// \brief Begin to build a new Scan operation against this Dataset
@@ -155,7 +165,6 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
 
   explicit InMemoryDataset(std::shared_ptr<Table> table);
 
-
   std::string type_name() const override { return "in-memory"; }
 
   Result<std::shared_ptr<Dataset>> ReplaceSchema(
@@ -177,7 +186,6 @@ class ARROW_DS_EXPORT UnionDataset : public Dataset {
   /// schema.
   static Result<std::shared_ptr<UnionDataset>> Make(std::shared_ptr<Schema> schema,
                                                     DatasetVector children);
-
 
   const DatasetVector& children() const { return children_; }
 

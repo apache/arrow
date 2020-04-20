@@ -159,6 +159,8 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 /// \brief A Fragment that is stored in a file with a known format
 class ARROW_DS_EXPORT FileFragment : public Fragment {
  public:
+  Result<std::shared_ptr<Schema>> ReadPhysicalSchema() override;
+
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
                                 std::shared_ptr<ScanContext> context) override;
 
@@ -171,7 +173,7 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
  protected:
   FileFragment(FileSource source, std::shared_ptr<FileFormat> format,
                std::shared_ptr<Expression> partition_expression)
-      : Fragment(NULLPTR, std::move(partition_expression)),
+      : Fragment(std::move(partition_expression)),
         source_(std::move(source)),
         format_(std::move(format)) {}
 
