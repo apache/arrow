@@ -54,6 +54,9 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
       - name: Docker Pull
         shell: bash
         run: docker-compose pull --ignore-pull-failures debian-cpp
@@ -93,6 +96,9 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
       - name: Docker Pull
         shell: bash
         run: docker-compose pull --ignore-pull-failures fedora-cpp
@@ -132,6 +138,9 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
       - name: Docker Pull
         shell: bash
         run: docker-compose pull --ignore-pull-failures ubuntu-cpp
@@ -164,6 +173,9 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
       - name: Docker Pull
         shell: bash
         run: |
@@ -205,6 +217,9 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
       - name: Checkout OSS-Fuzz
         uses: actions/checkout@v1
         with:
