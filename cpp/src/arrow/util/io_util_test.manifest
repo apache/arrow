@@ -17,6 +17,11 @@
  specific language governing permissions and limitations
  under the License.
 -->
+
+<!--
+  -- Enable long file paths on the target application
+  -- See https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#enable-long-paths-in-windows-10-version-1607-and-later
+  -->
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <assemblyIdentity type="win32" name="ArrowUtilityTest" version="1.1.1.1"/>
   <application xmlns="urn:schemas-microsoft-com:asm.v3">

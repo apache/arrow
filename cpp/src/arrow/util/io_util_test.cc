@@ -383,6 +383,10 @@ TEST(DeleteDirContents, Basics) {
   ASSERT_TRUE(deleted);
   AssertExists(parent);
 
+  // Now actually delete the test directory
+  ASSERT_OK_AND_ASSIGN(deleted, DeleteDirTree(parent));
+  ASSERT_TRUE(deleted);
+
   // It's not an error to call DeleteDirContents on a nonexistent path.
   ASSERT_OK_AND_ASSIGN(deleted, DeleteDirContents(child1));
   ASSERT_FALSE(deleted);
@@ -545,14 +549,16 @@ TEST(FileUtils, LongPaths) {
   }
 #endif
 
-  const std::string LONG_BASE = "xxx-io-util-test-dir-long";
-  PlatformFilename long_path, long_filename;
+  const std::string BASE = "xxx-io-util-test-dir-long";
+  PlatformFilename base_path, long_path, long_filename;
   int fd = -1;
   std::stringstream fs;
-  fs << LONG_BASE;
+  fs << BASE;
   for (int i = 0; i < 64; ++i) {
     fs << "/123456789ABCDEF";
   }
+  ASSERT_OK_AND_ASSIGN(base_path,
+                       PlatformFilename::FromString(BASE));  // long_path length > 1024
   ASSERT_OK_AND_ASSIGN(
       long_path, PlatformFilename::FromString(fs.str()));  // long_path length > 1024
   ASSERT_OK_AND_ASSIGN(created, CreateDirTree(long_path));
@@ -569,6 +575,10 @@ TEST(FileUtils, LongPaths) {
   ASSERT_OK_AND_ASSIGN(deleted, DeleteDirContents(long_path));
   ASSERT_TRUE(deleted);
   ASSERT_OK_AND_ASSIGN(deleted, DeleteDirTree(long_path));
+  ASSERT_TRUE(deleted);
+
+  // Now delete the whole test directory tree
+  ASSERT_OK_AND_ASSIGN(deleted, DeleteDirTree(base_path));
   ASSERT_TRUE(deleted);
 }
 #endif
