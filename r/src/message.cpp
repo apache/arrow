@@ -59,8 +59,8 @@ std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__Message__Schema(
     const std::shared_ptr<arrow::Schema>& schema) {
   // TODO: perhaps this should come from the R side
   arrow::ipc::DictionaryMemo memo;
-  return VALUE_OR_STOP(arrow::ipc::ReadRecordBatch(
-      *message, schema, &memo, arrow::ipc::IpcReadOptions::Defaults()));
+  return ValueOrStop(arrow::ipc::ReadRecordBatch(*message, schema, &memo,
+                                                 arrow::ipc::IpcReadOptions::Defaults()));
 }
 
 // [[arrow::export]]
@@ -68,14 +68,14 @@ std::shared_ptr<arrow::Schema> ipc___ReadSchema_InputStream(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
   // TODO: promote to function argument
   arrow::ipc::DictionaryMemo memo;
-  return VALUE_OR_STOP(arrow::ipc::ReadSchema(stream.get(), &memo));
+  return ValueOrStop(arrow::ipc::ReadSchema(stream.get(), &memo));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Schema> ipc___ReadSchema_Message(
     const std::unique_ptr<arrow::ipc::Message>& message) {
   arrow::ipc::DictionaryMemo empty_memo;
-  return VALUE_OR_STOP(arrow::ipc::ReadSchema(*message, &empty_memo));
+  return ValueOrStop(arrow::ipc::ReadSchema(*message, &empty_memo));
 }
 
 //--------- MessageReader
@@ -89,13 +89,13 @@ std::unique_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(
 // [[arrow::export]]
 std::unique_ptr<arrow::ipc::Message> ipc___MessageReader__ReadNextMessage(
     const std::unique_ptr<arrow::ipc::MessageReader>& reader) {
-  return VALUE_OR_STOP(reader->ReadNextMessage());
+  return ValueOrStop(reader->ReadNextMessage());
 }
 
 // [[arrow::export]]
 std::unique_ptr<arrow::ipc::Message> ipc___ReadMessage(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
-  return VALUE_OR_STOP(arrow::ipc::ReadMessage(stream.get()));
+  return ValueOrStop(arrow::ipc::ReadMessage(stream.get()));
 }
 
 #endif

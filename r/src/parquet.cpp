@@ -296,7 +296,7 @@ void parquet___arrow___WriteTable(
 std::shared_ptr<arrow::Schema> parquet___arrow___FileReader__GetSchema(
     const std::unique_ptr<parquet::arrow::FileReader>& reader) {
   std::shared_ptr<arrow::Schema> schema;
-  STOP_IF_NOT_OK(reader->GetSchema(&schema));
+  StopIfNotOk(reader->GetSchema(&schema));
   return schema;
 }
 
