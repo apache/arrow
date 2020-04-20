@@ -61,6 +61,7 @@ jobs:
           popd
         env:
           ARROW_VERSION: {{ arrow.version }}
+          DEBUG: "no"
       # Using GitHub release tries to find a common ancestor between the
       # currently pushed tag and the latest tag of the GitHub repository
       # (don't know why).
