@@ -837,8 +837,19 @@ Result<int> FileOpenReadable(const PlatformFilename& file_name) {
   int fd, errno_actual;
 #if defined(_WIN32)
   SetLastError(0);
-  errno_actual = _wsopen_s(&fd, file_name.ToNative().c_str(),
-                           _O_RDONLY | _O_BINARY | _O_NOINHERIT, _SH_DENYNO, _S_IREAD);
+  HANDLE file_handle = CreateFileW(file_name.ToNative().c_str(), GENERIC_READ,
+                                   FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                                   OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+
+  DWORD last_error = GetLastError();
+  if (last_error == ERROR_SUCCESS) {
+    errno_actual = 0;
+    fd = _open_osfhandle(reinterpret_cast<intptr_t>(file_handle),
+                         _O_RDONLY | _O_BINARY | _O_NOINHERIT);
+  } else {
+    return IOErrorFromWinError(last_error, "Failed to open local file '",
+                               file_name.ToString(), "'");
+  }
 #else
   fd = open(file_name.ToNative().c_str(), O_RDONLY);
   errno_actual = errno;
@@ -868,23 +879,38 @@ Result<int> FileOpenWritable(const PlatformFilename& file_name, bool write_only,
 #if defined(_WIN32)
   SetLastError(0);
   int oflag = _O_CREAT | _O_BINARY | _O_NOINHERIT;
-  int pmode = _S_IREAD | _S_IWRITE;
+  DWORD desired_access = GENERIC_WRITE;
+  DWORD share_mode = FILE_SHARE_READ | FILE_SHARE_WRITE;
+  DWORD creation_disposition = OPEN_ALWAYS;
+
+  if (append) {
+    oflag |= _O_APPEND;
+  }
 
   if (truncate) {
     oflag |= _O_TRUNC;
-  }
-  if (append) {
-    oflag |= _O_APPEND;
+    creation_disposition = CREATE_ALWAYS;
   }
 
   if (write_only) {
     oflag |= _O_WRONLY;
   } else {
     oflag |= _O_RDWR;
+    desired_access |= GENERIC_READ;
   }
 
-  errno_actual = _wsopen_s(&fd, file_name.ToNative().c_str(), oflag, _SH_DENYNO, pmode);
+  HANDLE file_handle =
+      CreateFileW(file_name.ToNative().c_str(), desired_access, share_mode, NULL,
+                  creation_disposition, FILE_ATTRIBUTE_NORMAL, NULL);
 
+  DWORD last_error = GetLastError();
+  if (last_error == ERROR_SUCCESS || last_error == ERROR_ALREADY_EXISTS) {
+    errno_actual = 0;
+    fd = _open_osfhandle(reinterpret_cast<intptr_t>(file_handle), oflag);
+  } else {
+    return IOErrorFromWinError(last_error, "Failed to open local file '",
+                               file_name.ToString(), "'");
+  }
 #else
   int oflag = O_CREAT;
 
