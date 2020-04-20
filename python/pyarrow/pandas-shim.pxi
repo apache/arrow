@@ -55,6 +55,16 @@ cdef class _PandasAPIShim(object):
         from distutils.version import LooseVersion
         self._loose_version = LooseVersion(pd.__version__)
 
+        if self._loose_version < LooseVersion('0.23.0'):
+            self._have_pandas = False
+            if raise_:
+                raise ImportError(
+                    "pyarrow requires pandas 0.23.0 or above, pandas {} is "
+                    "installed".format(self._version)
+                )
+            else:
+                return
+
         self._compat_module = pdcompat
         self._data_frame = pd.DataFrame
         self._index = pd.Index
