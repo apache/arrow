@@ -83,7 +83,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: [3.6]
+        python: [3.8]
     env:
       PYTHON: ${{ matrix.python }}
     steps:
@@ -126,8 +126,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: [3.8]
-        pandas: ["latest"]
+        python: [3.6]
+        pandas: ["latest", "0.23"]
     env:
       PYTHON: ${{ matrix.python }}
       PANDAS: ${{ matrix.pandas }}
