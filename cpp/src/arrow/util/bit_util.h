@@ -48,7 +48,7 @@
 #pragma intrinsic(_BitScanForward)
 #define ARROW_BYTE_SWAP64 _byteswap_uint64
 #define ARROW_BYTE_SWAP32 _byteswap_ulong
-#define ARROW_POPCOUNT64 __popcnt_u64
+#define ARROW_POPCOUNT64 __popcnt64
 #define ARROW_POPCOUNT32 __popcnt
 #else
 #define ARROW_BYTE_SWAP64 __builtin_bswap64
