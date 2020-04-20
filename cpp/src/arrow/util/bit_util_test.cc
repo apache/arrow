@@ -1240,6 +1240,17 @@ TEST(Bitmap, VisitPartialWords) {
 
 #endif  // ARROW_VALGRIND
 
+TEST(Bitmap, ToString) {
+  uint64_t bitmap_value = 0xCAAC;
+  uint8_t* bitmap = reinterpret_cast<uint8_t*>(&bitmap_value);
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/34).ToString(),
+            "00110101 01010011 00000000 00000000 00");
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/16).ToString(),
+            "00110101 01010011");
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/11).ToString(), "00110101 010");
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 3, /*length=*/8).ToString(), "10101010");
+}
+
 // compute bitwise AND of bitmaps using word-wise visit
 TEST(Bitmap, VisitWordsAnd) {
   constexpr int64_t nbytes = 1 << 10;
