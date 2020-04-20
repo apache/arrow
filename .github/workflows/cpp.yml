@@ -51,7 +51,7 @@ jobs:
           sudo apt clean
           docker rmi $(docker image ls -aq)
           df -h
-          du -d2 -h
+          du -d2 -h /
       # - name: Checkout Arrow
       #   uses: actions/checkout@v2
       #   with:
