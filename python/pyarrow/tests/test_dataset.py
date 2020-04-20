@@ -981,7 +981,7 @@ def test_construct_from_list_of_files(tempdir):
     relative_paths = [p.relative_to(tempdir) for p in paths]
     with change_cwd(tempdir):
         d1 = ds.dataset(relative_paths)
-        t1 = d1.to_table()
+        t1 = d1.to_table(use_threads=False)
         assert len(t1) == sum(map(len, tables))
 
     d2 = ds.dataset(relative_paths, filesystem=_filesystem_uri(tempdir))
