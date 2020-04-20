@@ -523,12 +523,12 @@ class Repo:
         """
         repo = self.as_github_repo()
         commit = repo.commit(commit)
-        states = []
+        status = commit.status()
+        check_runs = commit.check_runs()
 
-        for status in commit.status().statuses:
-            states.append(status.state)
+        states = [s.state for s in status.statuses]
 
-        for check in commit.check_runs():
+        for check in check_runs:
             if check.status == 'completed':
                 if check.conclusion in {'success', 'failure'}:
                     states.append(check.conclusion)
@@ -549,7 +549,7 @@ class Repo:
         else:
             combined_state = 'error'
 
-        return CombinedStatus(state=combined_state, total_count=len(states))
+        return CombinedStatus(state=combined_state, total_count=len(states)), status, check_runs
 
     def github_release_assets(self, tag):
         repo = self.as_github_repo()
@@ -846,7 +846,9 @@ class Task(Serializable):
         self.branch = None  # filled after adding to a queue
         self.commit = None  # filled after adding to a queue
         self._queue = None  # set by the queue object after put or get
-        self._status = None  # status cache
+        self._combined_state = None  # status cache
+        self._status = None
+        self._check_runs = None
 
     def render_files(self, **extra_params):
         from jinja2 import Template, StrictUndefined
@@ -883,11 +885,14 @@ class Task(Serializable):
         return config_files[self.ci]
 
     def status(self, force_query=False):
+        return self.status_and_check_runs(force_query)[0]
+
+    def status_and_check_runs(self, force_query=False):
         # _status might be uninitialized because of yaml serialization
-        _status = getattr(self, '_status', None)
-        if force_query or _status is None:
-            self._status = self._queue.github_commit_status(self.commit)
-        return self._status
+        if force_query or getattr(self, '_status', None) is None:
+            s = self._queue.github_commit_status(self.commit)
+            self._combined_state, self._status, self._check_runs = s
+        return self._combined_state, self._status, self._check_runs
 
     def assets(self):
         assets = self._queue.github_release_assets(self.tag)
@@ -1037,12 +1042,15 @@ class Job(Serializable):
                     self._assets.append((
                         task_name,
                         task,
-                        pool.submit(task.status),
+                        pool.submit(task.status_and_check_runs),
                         pool.submit(task.assets)
                     ))
 
+        Asset = namedtuple('Asset', ['task_name', 'task', 'combined_state',
+                                     'status', 'check_runs', 'assets'])
+
         for task_name, task, status, assets in self._assets:
-            yield (task_name, task, status.result(), assets.result())
+            yield Asset(task_name, task, *status.result(), assets.result())
 
 
 class Config(dict):
@@ -1206,18 +1214,19 @@ class ConsoleReport(Report):
         echo(self.header())
 
         # write table's body
-        for task_name, task, status, assets in self.job.query_assets():
+        for a in self.job.query_assets():
             # write summary of the uploaded vs total assets
-            n_expected = len(assets)
-            n_uploaded = len(list(filter(None, assets.values())))
-            echo(self.lead(status.state, task.branch, n_uploaded, n_expected))
+            n_expected = len(a.assets)
+            n_uploaded = len(list(filter(None, a.assets.values())))
+            echo(self.lead(a.combined_state.state, a.task.branch,
+                           n_uploaded, n_expected))
 
             # write per asset status
-            for artifact, asset in task.assets().items():
+            for artifact, asset in a.task.assets().items():
                 if asset_callback is not None:
-                    asset_callback(task_name, task, asset)
+                    asset_callback(a.task_name, a.task, asset)
                 # artifact is a pattern for the expected asset
-                echo(self.artifact(status.state, artifact, asset))
+                echo(self.artifact(a.combined_state.state, artifact, asset))
 
 
 class EmailReport(Report):
@@ -1281,7 +1290,7 @@ class EmailReport(Report):
         buffer.write(self.header())
 
         tasks_by_state = toolz.groupby(
-            lambda tpl: tpl[1].status().state,
+            lambda name_task: name_task[1].status().state,
             self.job.tasks.items()
         )
 
@@ -1349,7 +1358,6 @@ class GithubPage:
         if status.state == 'success':
             msg = click.style('[  OK] {}'.format(task_name), fg='green')
             failed = False
-            click.echo(msg)
         else:
             msg = click.style('[FAIL] {}'.format(task_name), fg='yellow')
             failed = True
@@ -1364,18 +1372,20 @@ class GithubPage:
             click.echo('\nJOB: {}'.format(job.branch))
             tasks = {}
 
-            it = job.query_assets(ignore_prefix='test')
-            for task_name, task, status, assets in it:
+            for a in job.query_assets(ignore_prefix='test'):
+                # TODO check runs?
+                tasks[a.task_name] = {'status.json': a.status.as_json()}
+
                 links = {}
-                if self._is_failed(status, task_name):
-                    continue
-                for asset in assets.values():
-                    if asset is not None:
-                        links[asset.name] = asset.browser_download_url
+                if not self._is_failed(a.combined_state, a.task_name):
+                    # accumulate links to uploaded assets
+                    for asset in a.assets.values():
+                        if asset is not None:
+                            links[asset.name] = asset.browser_download_url
 
                 if links:
                     page_content = self._generate_page(links)
-                    tasks[task_name] = {'index.html': page_content}
+                    tasks[a.task_name]['index.html'] = page_content
 
             files[str(job.date)] = tasks
 
@@ -1392,13 +1402,12 @@ class GithubPage:
         for job in self.jobs:
             click.echo('\nJOB: {}'.format(job.branch))
 
-            it = job.query_assets(ignore_prefix='test')
-            for task_name, task, status, assets in it:
-                if not task_name.startswith('wheel'):
+            for a in job.query_assets(ignore_prefix='test'):
+                if not a.task_name.startswith('wheel'):
                     continue
-                if self._is_failed(status, task_name):
+                if self._is_failed(a.combined_state, a.task_name):
                     continue
-                for asset in assets.values():
+                for asset in a.assets.values():
                     if asset is not None:
                         wheels[asset.name] = asset.browser_download_url
 
