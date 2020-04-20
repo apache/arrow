@@ -46,10 +46,7 @@ jobs:
       - name: free disk space
         run: |
           df -h
-          sudo swapoff -a
-          sudo rm -f /swapfile
-          sudo apt clean
-          docker rmi $(docker image ls -aq)
+          env
           df -h
           du -d2 -h /
       # - name: Checkout Arrow
