@@ -36,7 +36,7 @@ std::shared_ptr<arrow::Array> Array__cast(
     const std::shared_ptr<arrow::compute::CastOptions>& options) {
   std::shared_ptr<arrow::Array> out;
   arrow::compute::FunctionContext context;
-  STOP_IF_NOT_OK(arrow::compute::Cast(&context, *array, target_type, *options, &out));
+  StopIfNotOk(arrow::compute::Cast(&context, *array, target_type, *options, &out));
   return out;
 }
 
@@ -48,7 +48,7 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__cast(
   arrow::compute::Datum value(chunked_array);
   arrow::compute::Datum out;
   arrow::compute::FunctionContext context;
-  STOP_IF_NOT_OK(arrow::compute::Cast(&context, value, target_type, *options, &out));
+  StopIfNotOk(arrow::compute::Cast(&context, value, target_type, *options, &out));
   return out.chunked_array();
 }
 
@@ -88,7 +88,7 @@ std::shared_ptr<arrow::Array> Array__Take(const std::shared_ptr<arrow::Array>& v
   std::shared_ptr<arrow::Array> out;
   arrow::compute::FunctionContext context;
   arrow::compute::TakeOptions options;
-  STOP_IF_NOT_OK(arrow::compute::Take(&context, *values, *indices, options, &out));
+  StopIfNotOk(arrow::compute::Take(&context, *values, *indices, options, &out));
   return out;
 }
 
@@ -100,7 +100,7 @@ std::shared_ptr<arrow::ChunkedArray> Array__TakeChunked(
   arrow::compute::FunctionContext context;
   arrow::compute::TakeOptions options;
 
-  STOP_IF_NOT_OK(arrow::compute::Take(&context, *values, *indices, options, &out));
+  StopIfNotOk(arrow::compute::Take(&context, *values, *indices, options, &out));
   return out;
 }
 
@@ -111,7 +111,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__Take(
   std::shared_ptr<arrow::RecordBatch> out;
   arrow::compute::FunctionContext context;
   arrow::compute::TakeOptions options;
-  STOP_IF_NOT_OK(arrow::compute::Take(&context, *batch, *indices, options, &out));
+  StopIfNotOk(arrow::compute::Take(&context, *batch, *indices, options, &out));
   return out;
 }
 
@@ -123,7 +123,7 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Take(
   arrow::compute::FunctionContext context;
   arrow::compute::TakeOptions options;
 
-  STOP_IF_NOT_OK(arrow::compute::Take(&context, *values, *indices, options, &out));
+  StopIfNotOk(arrow::compute::Take(&context, *values, *indices, options, &out));
   return out;
 }
 
@@ -135,7 +135,7 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__TakeChunked(
   arrow::compute::FunctionContext context;
   arrow::compute::TakeOptions options;
 
-  STOP_IF_NOT_OK(arrow::compute::Take(&context, *values, *indices, options, &out));
+  StopIfNotOk(arrow::compute::Take(&context, *values, *indices, options, &out));
   return out;
 }
 
@@ -146,7 +146,7 @@ std::shared_ptr<arrow::Table> Table__Take(const std::shared_ptr<arrow::Table>& t
   arrow::compute::FunctionContext context;
   arrow::compute::TakeOptions options;
 
-  STOP_IF_NOT_OK(arrow::compute::Take(&context, *table, *indices, options, &out));
+  StopIfNotOk(arrow::compute::Take(&context, *table, *indices, options, &out));
   return out;
 }
 
@@ -158,7 +158,7 @@ std::shared_ptr<arrow::Table> Table__TakeChunked(
   arrow::compute::FunctionContext context;
   arrow::compute::TakeOptions options;
 
-  STOP_IF_NOT_OK(arrow::compute::Take(&context, *table, *indices, options, &out));
+  StopIfNotOk(arrow::compute::Take(&context, *table, *indices, options, &out));
   return out;
 }
 
@@ -173,7 +173,7 @@ std::shared_ptr<arrow::Array> Array__Filter(const std::shared_ptr<arrow::Array>&
   if (keep_na) {
     options.null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
   }
-  STOP_IF_NOT_OK(arrow::compute::Filter(&context, values, filter, {}, &out));
+  StopIfNotOk(arrow::compute::Filter(&context, values, filter, {}, &out));
   return out.make_array();
 }
 
@@ -188,7 +188,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__Filter(
   if (keep_na) {
     options.null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
   }
-  STOP_IF_NOT_OK(arrow::compute::Filter(&context, batch, filter, options, &out));
+  StopIfNotOk(arrow::compute::Filter(&context, batch, filter, options, &out));
   return out.record_batch();
 }
 
@@ -203,7 +203,7 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Filter(
   if (keep_na) {
     options.null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
   }
-  STOP_IF_NOT_OK(arrow::compute::Filter(&context, values, filter, options, &out));
+  StopIfNotOk(arrow::compute::Filter(&context, values, filter, options, &out));
   return out.chunked_array();
 }
 
@@ -218,7 +218,7 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__FilterChunked(
   if (keep_na) {
     options.null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
   }
-  STOP_IF_NOT_OK(arrow::compute::Filter(&context, values, filter, options, &out));
+  StopIfNotOk(arrow::compute::Filter(&context, values, filter, options, &out));
   return out.chunked_array();
 }
 
@@ -233,7 +233,7 @@ std::shared_ptr<arrow::Table> Table__Filter(const std::shared_ptr<arrow::Table>&
   if (keep_na) {
     options.null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
   }
-  STOP_IF_NOT_OK(arrow::compute::Filter(&context, table, filter, options, &out));
+  StopIfNotOk(arrow::compute::Filter(&context, table, filter, options, &out));
   std::shared_ptr<arrow::Table> tab = out.table();
   if (tab->num_rows() == 0) {
     // Slight hack: if there are no rows in the result, instead do a 0-length
@@ -255,7 +255,7 @@ std::shared_ptr<arrow::Table> Table__FilterChunked(
   if (keep_na) {
     options.null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
   }
-  STOP_IF_NOT_OK(arrow::compute::Filter(&context, table, filter, options, &out));
+  StopIfNotOk(arrow::compute::Filter(&context, table, filter, options, &out));
   std::shared_ptr<arrow::Table> tab = out.table();
   if (tab->num_rows() == 0) {
     // Slight hack: if there are no rows in the result, instead do a 0-length

@@ -21,13 +21,13 @@
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> ImportArray(uintptr_t array, uintptr_t schema) {
-  return VALUE_OR_STOP(arrow::ImportArray(reinterpret_cast<struct ArrowArray*>(array),
-                                          reinterpret_cast<struct ArrowSchema*>(schema)));
+  return ValueOrStop(arrow::ImportArray(reinterpret_cast<struct ArrowArray*>(array),
+                                        reinterpret_cast<struct ArrowSchema*>(schema)));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(uintptr_t array, uintptr_t schema) {
-  return VALUE_OR_STOP(
+  return ValueOrStop(
       arrow::ImportRecordBatch(reinterpret_cast<struct ArrowArray*>(array),
                                reinterpret_cast<struct ArrowSchema*>(schema)));
 }
@@ -50,26 +50,25 @@ void delete_arrow_array(uintptr_t ptr) {
 
 // [[arrow::export]]
 void ExportType(const std::shared_ptr<arrow::DataType>& type, uintptr_t ptr) {
-  STOP_IF_NOT_OK(arrow::ExportType(*type, reinterpret_cast<struct ArrowSchema*>(ptr)));
+  StopIfNotOk(arrow::ExportType(*type, reinterpret_cast<struct ArrowSchema*>(ptr)));
 }
 
 // [[arrow::export]]
 void ExportSchema(const std::shared_ptr<arrow::Schema>& schema, uintptr_t ptr) {
-  STOP_IF_NOT_OK(
-      arrow::ExportSchema(*schema, reinterpret_cast<struct ArrowSchema*>(ptr)));
+  StopIfNotOk(arrow::ExportSchema(*schema, reinterpret_cast<struct ArrowSchema*>(ptr)));
 }
 
 // [[arrow::export]]
 void ExportArray(const std::shared_ptr<arrow::Array>& array, uintptr_t ptr,
                  uintptr_t schema_ptr) {
-  STOP_IF_NOT_OK(arrow::ExportArray(*array, reinterpret_cast<struct ArrowArray*>(ptr),
-                                    reinterpret_cast<struct ArrowSchema*>(schema_ptr)));
+  StopIfNotOk(arrow::ExportArray(*array, reinterpret_cast<struct ArrowArray*>(ptr),
+                                 reinterpret_cast<struct ArrowSchema*>(schema_ptr)));
 }
 
 // [[arrow::export]]
 void ExportRecordBatch(const std::shared_ptr<arrow::RecordBatch>& batch, uintptr_t ptr,
                        uintptr_t schema_ptr) {
-  STOP_IF_NOT_OK(
+  StopIfNotOk(
       arrow::ExportRecordBatch(*batch, reinterpret_cast<struct ArrowArray*>(ptr),
                                reinterpret_cast<struct ArrowSchema*>(schema_ptr)));
 }

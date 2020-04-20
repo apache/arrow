@@ -43,14 +43,6 @@ struct data {
 }  // namespace r
 }  // namespace arrow
 
-#define STOP_IF_NOT(TEST, MSG)    \
-  do {                            \
-    if (!(TEST)) Rcpp::stop(MSG); \
-  } while (0)
-
-#define STOP_IF_NOT_OK(status) StopIfNotOk(status)
-#define VALUE_OR_STOP(result) ValueOrStop(result)
-
 template <typename T>
 struct NoDelete {
   inline void operator()(T* ptr) {}
@@ -244,16 +236,16 @@ namespace fs = ::arrow::fs;
 
 namespace arrow {
 
-template <typename R>
-auto ValueOrStop(R&& result) -> decltype(std::forward<R>(result).ValueOrDie()) {
-  STOP_IF_NOT_OK(result.status());
-  return std::forward<R>(result).ValueOrDie();
-}
-
 static inline void StopIfNotOk(const Status& status) {
   if (!(status.ok())) {
     Rcpp::stop(status.ToString());
   }
+}
+
+template <typename R>
+auto ValueOrStop(R&& result) -> decltype(std::forward<R>(result).ValueOrDie()) {
+  StopIfNotOk(result.status());
+  return std::forward<R>(result).ValueOrDie();
 }
 
 namespace r {
