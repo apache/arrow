@@ -27,7 +27,7 @@ pushd ${source_dir}
 # Install R package dependencies
 ${R_BIN} -e "install.packages('remotes'); remotes::install_cran(c('glue', 'rcmdcheck'))"
 ${R_BIN} -e "remotes::install_deps(dependencies = TRUE)"
-${R_BIN} -e "remotes::install_github('nealrichardson/decor')"
+# ${R_BIN} -e "remotes::install_github('nealrichardson/decor')"
 
 popd
 

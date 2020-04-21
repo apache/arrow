@@ -52,7 +52,7 @@ BEFORE=$(ls -alh ~/)
 # Conditionally run --as-cran because crossbow jobs aren't using _R_CHECK_COMPILATION_FLAGS_KNOWN_
 # (maybe an R version thing, needs 3.6.2?)
 # Also only --run-donttest if NOT_CRAN because Parquet example requires snappy (optional dependency)
-${R_BIN} -e "cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true'); rcmdcheck::rcmdcheck(build_args = '--no-build-vignettes', args = c('--no-manual', '--ignore-vignettes', ifelse(cran, '--as-cran', '--run-donttest')), error_on = 'warning', check_dir = 'check')"
+${R_BIN} -e "rcmdcheck::rcmdcheck(args = c('--as-cran', '--run-donttest'), error_on = 'warning', check_dir = 'check')"
 
 AFTER=$(ls -alh ~/)
 if [ "$BEFORE" != "$AFTER" ]; then
