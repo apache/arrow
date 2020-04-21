@@ -65,36 +65,5 @@ jobs:
       - name: Docker Run
         shell: bash
         run: cd arrow && docker-compose run r
-      - name: Dump install logs on failure
-        if: failure()
-        run: cat arrow/r/check/arrow.Rcheck/00install.out
-  other:
-    name: "cran/debian"
-    runs-on: ubuntu-latest
-    env:
-      R_ORG: "cran"
-      R_IMAGE: "debian"
-      R_TAG: "latest"
-      ARROW_R_DEV: "FALSE"
-    steps:
-      - name: Checkout Arrow
-        run: |
-          git clone --no-checkout {{ arrow.remote }} arrow
-          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-          git -C arrow checkout FETCH_HEAD
-          git -C arrow submodule update --init --recursive
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: cd arrow && ci/scripts/util_checkout.sh
-      - name: Docker Pull
-        shell: bash
-        run: cd arrow && docker-compose pull --ignore-pull-failures r
-      - name: Docker Build
-        shell: bash
-        run: cd arrow && docker-compose build r
-      - name: Docker Run
-        shell: bash
-        run: cd arrow && docker-compose run r
-      - name: Dump install logs on failure
-        if: failure()
+      - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
