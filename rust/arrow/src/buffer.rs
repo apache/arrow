@@ -476,7 +476,6 @@ impl MutableBuffer {
     ///
     /// If `new_len` is less than `len`, the buffer will be truncated.
     pub fn resize(&mut self, new_len: usize) -> Result<()> {
-        // TOOD: Incorrect docs
         if new_len > self.len {
             self.reserve(new_len)?;
         } else {
