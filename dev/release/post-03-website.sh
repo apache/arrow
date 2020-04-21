@@ -247,7 +247,7 @@ current:
   java-artifacts: 'http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%22${version}%22'
   asc: '${apache_download_url}/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.asc'
   sha256: '${apache_download_url}/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha256'
-  sha512: '${apache_download_url}/dist/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha512'
+  sha512: '${apache_download_url}/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha512'
 YAML
 git add "${versions_yml}"
 
