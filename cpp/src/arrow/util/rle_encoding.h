@@ -414,6 +414,8 @@ static inline bool IndexInRange(int32_t idx, int32_t dictionary_length) {
 template <typename T>
 inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_length,
                                         T* values, int batch_size) {
+  // Per https://github.com/apache/parquet-format/blob/master/Encodings.md,
+  // the maximum dictionary index width in Parquet is 32 bits.
   using IndexType = int32_t;
 
   DCHECK_GE(bit_width_, 0);
