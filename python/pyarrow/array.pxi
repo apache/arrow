@@ -347,10 +347,7 @@ def _normalize_slice(object arrow_obj, slice key):
 
     step = key.step or 1
     if step != 1:
-        if step > 0:
-            indices = np.arange(start, stop, step)
-            return arrow_obj.take(indices)
-        else:
+        if step < 0:
             # Negative steps require some special handling
             if key.start is None:
                 start = n - 1
@@ -358,8 +355,8 @@ def _normalize_slice(object arrow_obj, slice key):
             if key.stop is None:
                 stop = -1
 
-            indices = np.arange(start, stop, step)
-            return arrow_obj.take(indices)
+        indices = np.arange(start, stop, step)
+        return arrow_obj.take(indices)
     else:
         return arrow_obj.slice(start, stop - start)
 
