@@ -417,6 +417,14 @@ TEST(CoalesceReadRanges, Basics) {
   };
 
   check({}, {});
+  // Zero sized range that ends up in empty list
+  check({{110, 0}}, {});
+  // Combination on 1 zero sized range and 1 non-zero sized range
+  check({{110, 10}, {120, 0}}, {{110, 10}});
+  // 1 non-zero sized range
+  check({{110, 10}}, {{110, 10}});
+  // No holes + unordered ranges
+  check({{130, 10}, {110, 10}, {120, 10}}, {{110, 30}});
   // No holes
   check({{110, 10}, {120, 10}, {130, 10}}, {{110, 30}});
   // Small holes only
