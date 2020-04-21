@@ -49,8 +49,6 @@ mkdir -p ${tmp_dir}/release/${release_version}
 cp -r ${tmp_dir}/dev/* ${tmp_dir}/release/${release_version}/
 svn add ${tmp_dir}/release/${release_version}
 
-echo $tmp_dir
-
 echo "Commit release"
 svn ci -m "Apache Arrow ${version}" ${tmp_dir}/release
 
