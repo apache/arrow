@@ -798,7 +798,7 @@ endif()
 
 if(WIN32)
   # Winsock
-  list(APPEND ARROW_SYSTEM_LINK_LIBS "Ws2_32.dll")
+  list(APPEND ARROW_SYSTEM_LINK_LIBS "ws2_32.dll")
 endif()
 
 if(NOT WIN32 AND NOT APPLE)

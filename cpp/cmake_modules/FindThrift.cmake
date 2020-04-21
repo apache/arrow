@@ -100,7 +100,7 @@ if(Thrift_FOUND OR THRIFT_FOUND)
                                    INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
   if(WIN32 AND NOT MSVC)
     # We don't need this for Visual C++ because Thrift uses
-    # "#pragma comment(lib, "Ws2_32.lib")" in
+    # "#pragma comment(lib, "ws2_32.lib")" in
     # thrift/windows/config.h for Visual C++.
     set_target_properties(thrift::thrift PROPERTIES INTERFACE_LINK_LIBRARIES "ws2_32")
   endif()
