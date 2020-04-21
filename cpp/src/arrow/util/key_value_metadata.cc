@@ -130,9 +130,6 @@ Status KeyValueMetadata::Delete(const std::string& key) {
     return Status::KeyError(key);
   } else {
     return Delete(index);
-    keys_.erase(keys_.begin() + index);
-    values_.erase(values_.begin() + index);
-    return Status::OK();
   }
 }
 

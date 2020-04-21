@@ -127,9 +127,9 @@ Status ConsumeFlightLocation(
 }
 
 int RunIntegrationClient() {
-  // Make sure the Uuid extension type is registered, it will be referenced
-  // in some test data.
-  ExtensionTypeGuard ext_guard(uuid());
+  // Make sure the required extension types are registered.
+  ExtensionTypeGuard uuid_ext_guard(uuid());
+  ExtensionTypeGuard dict_ext_guard(dict_extension_type());
 
   std::unique_ptr<FlightClient> client;
   Location location;
