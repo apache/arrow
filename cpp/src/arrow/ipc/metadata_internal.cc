@@ -415,13 +415,13 @@ static Status GetDictionaryEncoding(FBB& fbb, const std::shared_ptr<Field>& fiel
   return Status::OK();
 }
 
-KeyValueOffset AppendKeyValue(FBB& fbb, const std::string& key,
-                              const std::string& value) {
+static KeyValueOffset AppendKeyValue(FBB& fbb, const std::string& key,
+                                     const std::string& value) {
   return flatbuf::CreateKeyValue(fbb, fbb.CreateString(key), fbb.CreateString(value));
 }
 
-void AppendKeyValueMetadata(FBB& fbb, const KeyValueMetadata& metadata,
-                            std::vector<KeyValueOffset>* key_values) {
+static void AppendKeyValueMetadata(FBB& fbb, const KeyValueMetadata& metadata,
+                                   std::vector<KeyValueOffset>* key_values) {
   key_values->reserve(metadata.size());
   for (int i = 0; i < metadata.size(); ++i) {
     key_values->push_back(AppendKeyValue(fbb, metadata.key(i), metadata.value(i)));
@@ -673,8 +673,8 @@ class FieldToFlatbufferVisitor {
       AppendKeyValueMetadata(fbb_, *metadata, &key_values);
     }
 
-    for (auto it : extra_type_metadata_) {
-      key_values.push_back(AppendKeyValue(fbb_, it.first, it.second));
+    for (const auto& pair : extra_type_metadata_) {
+      key_values.push_back(AppendKeyValue(fbb_, pair.first, pair.second));
     }
 
     if (key_values.size() > 0) {
@@ -745,19 +745,23 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictiona
     // Look for extension metadata in custom_metadata field
     int name_index = metadata->FindKey(kExtensionTypeKeyName);
     if (name_index != -1) {
-      std::string type_name = metadata->value(name_index);
-      int data_index = metadata->FindKey(kExtensionMetadataKeyName);
-      std::string type_data = data_index == -1 ? "" : metadata->value(data_index);
-
-      std::shared_ptr<ExtensionType> ext_type = GetExtensionType(type_name);
+      std::shared_ptr<ExtensionType> ext_type =
+          GetExtensionType(metadata->value(name_index));
       if (ext_type != nullptr) {
+        int data_index = metadata->FindKey(kExtensionMetadataKeyName);
+        std::string type_data = data_index == -1 ? "" : metadata->value(data_index);
+
         ARROW_ASSIGN_OR_RAISE(type, ext_type->Deserialize(type, type_data));
         // Remove the metadata, for faithful roundtripping
-        RETURN_NOT_OK(metadata->DeleteMany({name_index, data_index}));
+        if (data_index != -1) {
+          RETURN_NOT_OK(metadata->DeleteMany({name_index, data_index}));
+        } else {
+          RETURN_NOT_OK(metadata->Delete(name_index));
+        }
       }
+      // NOTE: if extension type is unknown, we do not raise here and
+      // simply return the storage type.
     }
-    // NOTE: if extension type is unknown, we do not raise here and
-    // simply return the storage type.
   }
 
   // Reconstruct field
