@@ -468,6 +468,7 @@ def test_parquet(tmpdir, registered_period_type):
         b'PARQUET:field_id': b'1',
     }
 
+
 def test_to_numpy():
     period_type = PeriodType('D')
     storage = pa.array([1, 2, 3, 4], pa.int64())
