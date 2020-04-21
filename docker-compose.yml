@@ -832,8 +832,6 @@ services:
         base: ${R_ORG}/${R_IMAGE}:${R_TAG}
     shm_size: *shm-size
     environment:
-      LIBARROW_DOWNLOAD: "false"
-      ARROW_HOME: "/arrow"
       ARROW_USE_PKG_CONFIG: "false"
     volumes:
       - .:/arrow:delegated
