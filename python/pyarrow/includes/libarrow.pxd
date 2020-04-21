@@ -1528,6 +1528,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     CStatus Take(CFunctionContext* context, const CDatum& values,
                  const CDatum& indices, const CTakeOptions& options,
                  CDatum* out)
+    CStatus Take(CFunctionContext* context, const CChunkedArray& values,
+                 const CArray& indices, const CTakeOptions& options,
+                 shared_ptr[CChunkedArray]* out)
     CStatus Take(CFunctionContext* context, const CRecordBatch& batch,
                  const CArray& indices, const CTakeOptions& options,
                  shared_ptr[CRecordBatch]* out)

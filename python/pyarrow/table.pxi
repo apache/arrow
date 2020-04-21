@@ -143,6 +143,19 @@ cdef class ChunkedArray(_PandasConvertible):
                 yield item
 
     def __getitem__(self, key):
+        """
+        Slice or return value at given index
+
+        Parameters
+        ----------
+        key : integer or slice
+            Slices with step not equal to 1 (or None) will produce a copy
+            rather than a zero-copy view
+
+        Returns
+        -------
+        value : Scalar (index) or ChunkedArray (slice)
+        """
         if isinstance(key, slice):
             return _normalize_slice(self, key)
         elif isinstance(key, int):
@@ -407,6 +420,37 @@ cdef class ChunkedArray(_PandasConvertible):
                              filter, options, &out))
 
         return wrap_datum(out)
+
+    def take(self, object indices):
+        """
+        Take elements from a chunked array.
+
+        The resulting array will be of the same type as the input array, with
+        elements taken from the input array at the given indices. If an index
+        is null then the taken element will be null.
+
+        Parameters
+        ----------
+        indices : Array
+            The indices of the values to extract. Array needs to be of
+            integer type.
+
+        Returns
+        -------
+        ChunkedArray
+        """
+        cdef:
+            cdef CTakeOptions options
+            cdef shared_ptr[CChunkedArray] out
+            cdef Array c_indices
+
+        c_indices = asarray(indices)
+
+        with nogil:
+            check_status(Take(_context(), deref(self.sp_chunked_array),
+                              deref(c_indices.sp_array), options, &out))
+
+        return pyarrow_wrap_chunked_array(out)
 
     @property
     def num_chunks(self):
@@ -742,6 +786,19 @@ cdef class RecordBatch(_PandasConvertible):
         return super(RecordBatch, self).__sizeof__() + self.nbytes
 
     def __getitem__(self, key):
+        """
+        Slice or return column at given index
+
+        Parameters
+        ----------
+        key : integer or slice
+            Slices with step not equal to 1 (or None) will produce a copy
+            rather than a zero-copy view
+
+        Returns
+        -------
+        value : ChunkedArray (index) or RecordBatch (slice)
+        """
         if isinstance(key, slice):
             return _normalize_slice(self, key)
         else:
@@ -855,7 +912,7 @@ cdef class RecordBatch(_PandasConvertible):
 
         return result
 
-    def take(self, Array indices):
+    def take(self, object indices):
         """
         Take rows from a RecordBatch.
 
@@ -876,10 +933,13 @@ cdef class RecordBatch(_PandasConvertible):
             CTakeOptions options
             shared_ptr[CRecordBatch] out
             CRecordBatch* this_batch = self.batch
+            Array c_indices
+
+        c_indices = asarray(indices)
 
         with nogil:
             check_status(Take(_context(), deref(this_batch),
-                              deref(indices.sp_array), options, &out))
+                              deref(c_indices.sp_array), options, &out))
 
         return pyarrow_wrap_batch(out)
 
