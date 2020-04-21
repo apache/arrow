@@ -67,7 +67,8 @@ inline void CheckLevelRange(const int16_t* levels, int64_t num_levels,
   }
 }
 
-#if not defined(ARROW_HAVE_BMI2)
+#if !defined(ARROW_HAVE_BMI2)
+
 inline void DefinitionLevelsToBitmapScalar(
     const int16_t* def_levels, int64_t num_def_levels, const int16_t max_definition_level,
     const int16_t max_repetition_level, int64_t* values_read, int64_t* null_count,
