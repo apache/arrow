@@ -549,7 +549,8 @@ class Repo:
         else:
             combined_state = 'error'
 
-        return CombinedStatus(state=combined_state, total_count=len(states)), status, check_runs
+        return CombinedStatus(state=combined_state,
+                              total_count=len(states)), status, check_runs
 
     def github_release_assets(self, tag):
         repo = self.as_github_repo()
