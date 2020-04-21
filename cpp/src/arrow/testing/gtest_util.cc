@@ -398,11 +398,12 @@ std::shared_ptr<Array> UuidType::MakeArray(std::shared_ptr<ArrayData> data) cons
 
 Result<std::shared_ptr<DataType>> UuidType::Deserialize(
     std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
-  if (serialized != "uuid-serialization") {
+  if (serialized != "uuid-serialized") {
     return Status::Invalid("Type identifier did not match: '", serialized, "'");
   }
   if (!storage_type->Equals(*fixed_size_binary(16))) {
-    return Status::Invalid("Invalid storage type for UuidType");
+    return Status::Invalid("Invalid storage type for UuidType: ",
+                           storage_type->ToString());
   }
   return std::make_shared<UuidType>();
 }
@@ -423,7 +424,8 @@ Result<std::shared_ptr<DataType>> SmallintType::Deserialize(
     return Status::Invalid("Type identifier did not match: '", serialized, "'");
   }
   if (!storage_type->Equals(*int16())) {
-    return Status::Invalid("Invalid storage type for SmallintType");
+    return Status::Invalid("Invalid storage type for SmallintType: ",
+                           storage_type->ToString());
   }
   return std::make_shared<SmallintType>();
 }
@@ -442,8 +444,12 @@ std::shared_ptr<Array> DictExtensionType::MakeArray(
 
 Result<std::shared_ptr<DataType>> DictExtensionType::Deserialize(
     std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
+  if (serialized != "dict-extension-serialized") {
+    return Status::Invalid("Type identifier did not match: '", serialized, "'");
+  }
   if (!storage_type->Equals(*storage_type_)) {
-    return Status::Invalid("Invalid storage type for DictExtensionType");
+    return Status::Invalid("Invalid storage type for DictExtensionType: ",
+                           storage_type->ToString());
   }
   return std::make_shared<DictExtensionType>();
 }

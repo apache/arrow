@@ -103,7 +103,7 @@ static const char* json_example2 = R"example(
         "children" : [],
         "metadata" : [
            {"key": "ARROW:extension:name", "value": "uuid"},
-           {"key": "ARROW:extension:metadata", "value": "uuid-serialization"}
+           {"key": "ARROW:extension:metadata", "value": "uuid-serialized"}
         ]
       },
       {
@@ -164,7 +164,7 @@ static const char* json_example3 = R"example(
         },
         "metadata" : [
            {"key": "ARROW:extension:name", "value": "dict-extension"},
-           {"key": "ARROW:extension:metadata", "value": ""}
+           {"key": "ARROW:extension:metadata", "value": "dict-extension-serialized"}
         ]
       }
     ]

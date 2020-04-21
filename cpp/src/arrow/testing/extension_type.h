@@ -45,7 +45,7 @@ class ARROW_EXPORT UuidType : public ExtensionType {
       std::shared_ptr<DataType> storage_type,
       const std::string& serialized) const override;
 
-  std::string Serialize() const override { return "uuid-serialization"; }
+  std::string Serialize() const override { return "uuid-serialized"; }
 };
 
 class ARROW_EXPORT SmallintArray : public ExtensionArray {
@@ -84,7 +84,7 @@ class ARROW_EXPORT DictExtensionType : public ExtensionType {
       std::shared_ptr<DataType> storage_type,
       const std::string& serialized) const override;
 
-  std::string Serialize() const override { return ""; }
+  std::string Serialize() const override { return "dict-extension-serialized"; }
 };
 
 ARROW_EXPORT
