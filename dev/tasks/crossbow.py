@@ -1366,7 +1366,7 @@ class GithubPage:
 
     def render_nightlies(self):
         click.echo('\n\nRENDERING NIGHTLIES')
-        page_files = {}
+        nightly_files = {}
 
         for job in self.jobs:
             click.echo('\nJOB: {}'.format(job.branch))
@@ -1390,13 +1390,13 @@ class GithubPage:
 
                 job_files[task_name] = task_files
 
-            page_files[str(job.date)] = job_files
+            nightly_files[str(job.date)] = job_files
 
         # write the most recent wheels under the latest directory
-        if 'latest' not in page_files:
-            page_files['latest'] = job_files
+        if 'latest' not in nightly_files:
+            nightly_files['latest'] = job_files
 
-        return page_files
+        return nightly_files
 
     def render_pypi_simple(self):
         click.echo('\n\nRENDERING PYPI')
