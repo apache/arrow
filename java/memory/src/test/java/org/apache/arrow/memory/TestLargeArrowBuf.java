@@ -23,18 +23,11 @@ import io.netty.buffer.ArrowBuf;
 
 /**
  * Integration test for large (more than 2GB) {@link io.netty.buffer.ArrowBuf}.
- * To run this test, please
- *<li>Make sure there are 4GB memory available in the system.</li>
- * <li>
- *   Make sure the default allocation manager type is unsafe.
- *   This can be achieved by the environmental variable or system property.
- *   The details can be found in {@link DefaultAllocationManagerOption}.
- * </li>
+ * To run this test, please make sure there is at least 4GB memory in the system.
  */
 public class TestLargeArrowBuf {
 
-  private static void testLargeArrowBuf() {
-    final long bufSize = 4 * 1024 * 1024 * 1024L;
+  private static void testLargeArrowBuf(long bufSize) {
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
          ArrowBuf largeBuf = allocator.buffer(bufSize)) {
       assertEquals(bufSize, largeBuf.capacity());
@@ -63,6 +56,7 @@ public class TestLargeArrowBuf {
   }
 
   public static void main(String[] args) {
-    testLargeArrowBuf();
+    testLargeArrowBuf(4 * 1024 * 1024 * 1024L);
+    testLargeArrowBuf(Integer.MAX_VALUE);
   }
 }

@@ -34,12 +34,18 @@ public class NettyAllocationManager extends AllocationManager {
   static final long CHUNK_SIZE = INNER_ALLOCATOR.getChunkSize();
 
   private final long allocatedSize;
-
+  private final UnsafeDirectLittleEndian memoryChunk;
   private final long allocatedAddress;
 
   NettyAllocationManager(BaseAllocator accountingAllocator, long requestedSize) {
     super(accountingAllocator);
-    allocatedAddress = PlatformDependent.allocateMemory(requestedSize);
+    if (requestedSize > Integer.MAX_VALUE) {
+      memoryChunk = null;
+      allocatedAddress = PlatformDependent.allocateMemory(requestedSize);
+    } else {
+      this.memoryChunk = INNER_ALLOCATOR.allocate(requestedSize);
+      allocatedAddress = memoryChunk.memoryAddress();
+    }
     allocatedSize = requestedSize;
   }
 
@@ -50,7 +56,11 @@ public class NettyAllocationManager extends AllocationManager {
 
   @Override
   protected void release0() {
-    PlatformDependent.freeMemory(allocatedAddress);
+    if (allocatedSize > Integer.MAX_VALUE) {
+      PlatformDependent.freeMemory(allocatedAddress);
+    } else {
+      memoryChunk.release();
+    }
   }
 
   /**

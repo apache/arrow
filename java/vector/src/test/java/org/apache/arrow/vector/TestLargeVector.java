@@ -28,13 +28,7 @@ import io.netty.buffer.ArrowBuf;
 /**
  * Integration test for a vector with a large (more than 2GB) {@link io.netty.buffer.ArrowBuf} as
  * the data buffer.
- * To run this test, please
- *<li>Make sure there are 4GB memory available in the system.</li>
- * <li>
- *   Make sure the default allocation manager type is unsafe.
- *   This can be achieved by the environmental variable or system property.
- *   The details can be found in {@link DefaultAllocationManagerOption}.
- * </li>
+ * To run this test, please make sure there is at least 4GB free memory in the system.
  */
 public class TestLargeVector {
   private static void testLargeLongVector() {
