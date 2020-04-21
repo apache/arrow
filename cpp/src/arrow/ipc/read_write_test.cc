@@ -42,6 +42,7 @@
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -275,11 +276,23 @@ TEST_F(TestSchemaMetadata, KeyValueMetadata) {
                     &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion,      \
                     &MakeDictionary, &MakeDates, &MakeTimestamps, &MakeTimes,           \
                     &MakeFWBinary, &MakeNull, &MakeDecimal, &MakeBooleanBatch,          \
-                    &MakeIntervals)
+                    &MakeIntervals, &MakeUuid, &MakeDictExtension)
 
 static int g_file_number = 0;
 
-class IpcTestFixture : public io::MemoryMapFixture {
+class ExtensionTypesMixin {
+ public:
+  ExtensionTypesMixin() {
+    // Register the extension types required to ensure roundtripping
+    ext_guards_.emplace_back(uuid());
+    ext_guards_.emplace_back(dict_extension_type());
+  }
+
+ protected:
+  std::vector<ExtensionTypeGuard> ext_guards_;
+};
+
+class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
  public:
   void SetUp() { options_ = IpcWriteOptions::Defaults(); }
 
@@ -945,7 +958,7 @@ struct StreamDecoderLargeChunksWriterHelper : public StreamDecoderWriterHelper {
 // Parameterized mixin with tests for stream / file writer
 
 template <class WriterHelperType>
-class ReaderWriterMixin {
+class ReaderWriterMixin : public ExtensionTypesMixin {
  public:
   using WriterHelper = WriterHelperType;
 

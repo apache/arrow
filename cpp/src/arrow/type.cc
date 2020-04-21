@@ -1211,7 +1211,7 @@ std::string Schema::ToString(bool show_metadata) const {
     if (i > 0) {
       buffer << std::endl;
     }
-    buffer << field->ToString();
+    buffer << field->ToString(show_metadata);
     ++i;
   }
 

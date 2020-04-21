@@ -152,7 +152,7 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
                                SparseTensorFormat::type* sparse_tensor_format_id);
 
 Status GetKeyValueMetadata(const KVVector* fb_metadata,
-                           std::shared_ptr<const KeyValueMetadata>* out);
+                           std::shared_ptr<KeyValueMetadata>* out);
 
 static inline Status VerifyMessage(const uint8_t* data, int64_t size,
                                    const flatbuf::Message** out) {

@@ -705,7 +705,7 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictiona
                            std::shared_ptr<Field>* out) {
   std::shared_ptr<DataType> type;
 
-  std::shared_ptr<const KeyValueMetadata> metadata;
+  std::shared_ptr<KeyValueMetadata> metadata;
   RETURN_NOT_OK(internal::GetKeyValueMetadata(field->custom_metadata(), &metadata));
 
   // Reconstruct the data type
@@ -752,6 +752,8 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictiona
       std::shared_ptr<ExtensionType> ext_type = GetExtensionType(type_name);
       if (ext_type != nullptr) {
         ARROW_ASSIGN_OR_RAISE(type, ext_type->Deserialize(type, type_data));
+        // Remove the metadata, for faithful roundtripping
+        RETURN_NOT_OK(metadata->DeleteMany({name_index, data_index}));
       }
     }
     // NOTE: if extension type is unknown, we do not raise here and
@@ -1074,7 +1076,7 @@ Status MakeSparseTensor(FBB& fbb, const SparseTensor& sparse_tensor, int64_t bod
 }  // namespace
 
 Status GetKeyValueMetadata(const KVVector* fb_metadata,
-                           std::shared_ptr<const KeyValueMetadata>* out) {
+                           std::shared_ptr<KeyValueMetadata>* out) {
   if (fb_metadata == nullptr) {
     *out = nullptr;
     return Status::OK();
@@ -1242,7 +1244,7 @@ Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
     RETURN_NOT_OK(FieldFromFlatbuffer(field, dictionary_memo, &fields[i]));
   }
 
-  std::shared_ptr<const KeyValueMetadata> metadata;
+  std::shared_ptr<KeyValueMetadata> metadata;
   RETURN_NOT_OK(internal::GetKeyValueMetadata(schema->custom_metadata(), &metadata));
   *out = ::arrow::schema(std::move(fields), metadata);
   return Status::OK();

@@ -108,8 +108,11 @@ class ARROW_EXPORT ExtensionTypeGuard {
  public:
   explicit ExtensionTypeGuard(const std::shared_ptr<DataType>& type);
   ~ExtensionTypeGuard();
+  ARROW_DEFAULT_MOVE_AND_ASSIGN(ExtensionTypeGuard);
 
  protected:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(ExtensionTypeGuard);
+
   std::string extension_name_;
 };
 
