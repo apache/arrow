@@ -325,6 +325,10 @@ def infer_type(values, mask=None, from_pandas=False):
 
 
 def _normalize_slice(object arrow_obj, slice key):
+    """
+    Slices with step not equal to 1 (or None) will produce a copy
+    rather than a zero-copy view
+    """
     cdef:
         Py_ssize_t start, stop, step
         Py_ssize_t n = len(arrow_obj)
@@ -944,18 +948,24 @@ cdef class Array(_PandasConvertible):
     def isnull(self):
         raise NotImplemented
 
-    def __getitem__(self, index):
+    def __getitem__(self, key):
         """
-        Return the value at the given index.
+        Slice or return value at given index
+
+        Parameters
+        ----------
+        key : integer or slice
+            Slices with step not equal to 1 (or None) will produce a copy
+            rather than a zero-copy view
 
         Returns
         -------
-        value : Scalar
+        value : Scalar (index) or Array (slice)
         """
-        if PySlice_Check(index):
-            return _normalize_slice(self, index)
+        if PySlice_Check(key):
+            return _normalize_slice(self, key)
 
-        return self.getitem(_normalize_index(index, self.length()))
+        return self.getitem(_normalize_index(key, self.length()))
 
     cdef getitem(self, int64_t i):
         return box_scalar(self.type, self.sp_array, i)

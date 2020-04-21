@@ -143,6 +143,19 @@ cdef class ChunkedArray(_PandasConvertible):
                 yield item
 
     def __getitem__(self, key):
+        """
+        Slice or return value at given index
+
+        Parameters
+        ----------
+        key : integer or slice
+            Slices with step not equal to 1 (or None) will produce a copy
+            rather than a zero-copy view
+
+        Returns
+        -------
+        value : Scalar (index) or ChunkedArray (slice)
+        """
         if isinstance(key, slice):
             return _normalize_slice(self, key)
         elif isinstance(key, int):
@@ -773,6 +786,19 @@ cdef class RecordBatch(_PandasConvertible):
         return super(RecordBatch, self).__sizeof__() + self.nbytes
 
     def __getitem__(self, key):
+        """
+        Slice or return column at given index
+
+        Parameters
+        ----------
+        key : integer or slice
+            Slices with step not equal to 1 (or None) will produce a copy
+            rather than a zero-copy view
+
+        Returns
+        -------
+        value : ChunkedArray (index) or RecordBatch (slice)
+        """
         if isinstance(key, slice):
             return _normalize_slice(self, key)
         else:
