@@ -33,10 +33,12 @@ namespace dataset {
 /// \brief A granular piece of a Dataset, such as an individual file.
 ///
 /// A Fragment can be read/scanned separately from other fragments. It yields a
-/// collection of RecordBatch, encapsulated in one or more ScanTasks.
+/// collection of RecordBatches when scanned, encapsulated in one or more
+/// ScanTasks.
 ///
-/// A notable difference from Dataset is that Fragments have physical schemas
-/// which may differ from Fragments.
+/// Note that Fragments have well defined physical schemas which are reconciled by
+/// the Datasets which contain them; these physical schemas may differ from a parent
+/// Dataset's schema and the physical schemas of sibling Fragments.
 class ARROW_DS_EXPORT Fragment {
  public:
   /// \brief Return the physical schema of the Fragment.
@@ -81,8 +83,10 @@ class ARROW_DS_EXPORT Fragment {
 /// RecordBatch.
 class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
  public:
-  InMemoryFragment(RecordBatchVector record_batches,
+  InMemoryFragment(std::shared_ptr<Schema> schema, RecordBatchVector record_batches,
                    std::shared_ptr<Expression> = NULLPTR);
+  explicit InMemoryFragment(RecordBatchVector record_batches,
+                            std::shared_ptr<Expression> = NULLPTR);
 
   Result<std::shared_ptr<Schema>> ReadPhysicalSchema() override;
 
@@ -94,14 +98,15 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
   std::string type_name() const override { return "in-memory"; }
 
  protected:
+  std::shared_ptr<Schema> schema_;
   RecordBatchVector record_batches_;
 };
 
 /// \brief A container of zero or more Fragments.
 ///
 /// A Dataset acts as a union of Fragments, e.g. files deeply nested in a
-/// directory. A Dataset has a schema, also known as the "reader" schema.
-///
+/// directory. A Dataset has a schema to which Fragments must align during a
+/// scan operation. This is analogous to Avro's reader and writer schema.
 class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
  public:
   /// \brief Begin to build a new Scan operation against this Dataset

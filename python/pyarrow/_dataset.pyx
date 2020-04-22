@@ -137,8 +137,7 @@ cdef class Dataset:
     def _scanner(self, **kwargs):
         return Scanner.from_dataset(self, **kwargs)
 
-    def scan(self, columns=None, filter=None,
-             MemoryPool memory_pool=None, **kwargs):
+    def scan(self, **kwargs):
         """Builds a scan operation against the dataset.
 
         It produces a stream of ScanTasks which is meant to be a unit of work
@@ -159,9 +158,16 @@ cdef class Dataset:
         filter : Expression, default None
             Scan will return only the rows matching the filter.
             If possible the predicate will be pushed down to exploit the
-            partition information or internal metadata found in fragments,
-            e.g. Parquet statistics. Otherwise filters the loaded
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
+        batch_size : int, default 32K
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -170,8 +176,7 @@ cdef class Dataset:
         -------
         scan_tasks : iterator of ScanTask
         """
-        return self._scanner(columns=columns, filter=filter,
-                             memory_pool=memory_pool, **kwargs).scan()
+        return self._scanner(**kwargs).scan()
 
     def to_batches(self, **kwargs):
         """Read the dataset as materialized record batches.
@@ -179,25 +184,7 @@ cdef class Dataset:
         Builds a scan operation against the dataset and sequentially executes
         the ScanTasks as the returned generator gets consumed.
 
-        Parameters
-        ----------
-        columns : list of str, default None
-            List of columns to project. Order and duplicates will be preserved.
-            The columns will be passed down to Datasets and corresponding data
-            fragments to avoid loading, copying, and deserializing columns
-            that will not be required further down the compute chain.
-            By default all of the available columns are projected. Raises
-            an exception if any of the referenced column names does not exist
-            in the dataset's Schema.
-        filter : Expression, default None
-            Scan will return only the rows matching the filter.
-            If possible the predicate will be pushed down to exploit the
-            partition information or internal metadata found in the fragments,
-            e.g. Parquet statistics. Otherwise filters the loaded
-            RecordBatches before yielding them.
-        memory_pool : MemoryPool, default None
-            For memory allocations, if required. If not specified, uses the
-            default pool.
+        See scan method parameters documentation.
 
         Returns
         -------
@@ -211,28 +198,7 @@ cdef class Dataset:
         Note that this method reads all the selected data from the dataset
         into memory.
 
-        Parameters
-        ----------
-        columns : list of str, default None
-            List of columns to project. Order and duplicates will be preserved.
-            The columns will be passed down to Datasets and corresponding data
-            fragments to avoid loading, copying, and deserializing columns
-            that will not be required further down the compute chain.
-            By default all of the available columns are projected. Raises
-            an exception if any of the referenced column names does not exist
-            in the dataset's Schema.
-        filter : Expression, default None
-            Scan will return only the rows matching the filter.
-            If possible the predicate will be pushed down to exploit the
-            partition information or internal metadata found in the fragments,
-            e.g. Parquet statistics. Otherwise filters the loaded
-            RecordBatches before yielding them.
-        use_threads : boolean, default True
-            If enabled, then maximum parallelism will be used determined by
-            the number of available CPU cores.
-        memory_pool : MemoryPool, default None
-            For memory allocations, if required. If not specified, uses the
-            default pool.
+        See scan method parameters documentation.
 
         Returns
         -------
@@ -503,8 +469,7 @@ cdef class Fragment:
     def _scanner(self, **kwargs):
         return Scanner.from_fragment(self, **kwargs)
 
-    def scan(self, columns=None, filter=None, use_threads=True,
-             MemoryPool memory_pool=None, **kwargs):
+    def scan(self, Schema schema=None, **kwargs):
         """Builds a scan operation against the dataset.
 
         It produces a stream of ScanTasks which is meant to be a unit of work
@@ -514,6 +479,10 @@ cdef class Fragment:
 
         Parameters
         ----------
+        schema : Schema
+            Schema to use for scanning. This is used to unify a Fragment to
+            it's Dataset's schema. If not specified this will use the
+            Fragment's physical schema which might differ for each Fragment.
         columns : list of str, default None
             List of columns to project. Order and duplicates will be preserved.
             The columns will be passed down to Datasets and corresponding data
@@ -525,9 +494,16 @@ cdef class Fragment:
         filter : Expression, default None
             Scan will return only the rows matching the filter.
             If possible the predicate will be pushed down to exploit the
-            partition information or internal metadata found in fragments,
-            e.g. Parquet statistics. Otherwise filters the loaded
+            partition information or internal metadata found in the data
+            source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
+        batch_size : int, default 32K
+            The maximum row count for scanned record batches. If scanned
+            record batches are overflowing memory then this method can be
+            called to reduce their size.
+        use_threads : bool, default True
+            If enabled, then maximum parallelism will be used determined by
+            the number of available CPU cores.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -536,34 +512,32 @@ cdef class Fragment:
         -------
         scan_tasks : iterator of ScanTask
         """
-        return self._scanner(columns=columns, filter=filter,
-                             use_threads=use_threads, memory_pool=memory_pool,
-                             **kwargs).scan()
+        return self._scanner(schema=schema, **kwargs).scan()
 
-    def to_batches(self, **kwargs):
+    def to_batches(self, Schema schema=None, **kwargs):
         """Read the fragment as materialized record batches.
 
-        See scan() method arguments.
+        See scan method parameters documentation.
 
         Returns
         -------
         record_batches : iterator of RecordBatch
         """
-        return self._scanner(**kwargs).to_batches()
+        return self._scanner(schema=schema, **kwargs).to_batches()
 
-    def to_table(self, **kwargs):
+    def to_table(self, Schema schema=None, **kwargs):
         """Convert this Fragment into a Table.
 
         Use this convenience utility with care. This will serially materialize
         the Scan result in memory before creating the Table.
 
-        See scan() method arguments.
+        See scan method parameters documentation.
 
         Returns
         -------
         table : Table
         """
-        return self._scanner(**kwargs).to_table()
+        return self._scanner(schema=schema, **kwargs).to_table()
 
 
 cdef class FileFragment(Fragment):
@@ -1388,13 +1362,13 @@ cdef class Scanner:
         partition information or internal metadata found in the data
         source, e.g. Parquet statistics. Otherwise filters the loaded
         RecordBatches before yielding them.
-    use_threads : bool, default True
-        If enabled, then maximum parallelism will be used determined by
-        the number of available CPU cores.
     batch_size : int, default 32K
         The maximum row count for scanned record batches. If scanned
         record batches are overflowing memory then this method can be
         called to reduce their size.
+    use_threads : bool, default True
+        If enabled, then maximum parallelism will be used determined by
+        the number of available CPU cores.
     memory_pool : MemoryPool, default None
         For memory allocations, if required. If not specified, uses the
         default pool.

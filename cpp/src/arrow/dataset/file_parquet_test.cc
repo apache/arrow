@@ -467,7 +467,7 @@ TEST_F(TestParquetFileFormat, PredicatePushdownRowGroupFragments) {
                            "i64"_ >= int64_t(6));
 
   CountRowGroupsInFragment(fragment, {5, 6, 7},
-                           "i64"_ >= int64_t(6) && "i64"_ < int64_t(8));
+                           "i64"_ >= int64_t(6) and "i64"_ < int64_t(8));
 }
 
 TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {

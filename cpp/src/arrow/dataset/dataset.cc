@@ -33,18 +33,19 @@ namespace dataset {
 Fragment::Fragment(std::shared_ptr<Expression> partition_expression)
     : partition_expression_(partition_expression ? partition_expression : scalar(true)) {}
 
-Result<std::shared_ptr<Schema>> InMemoryFragment::ReadPhysicalSchema() {
-  if (record_batches_.empty()) {
-    return schema({});
-  }
+Result<std::shared_ptr<Schema>> InMemoryFragment::ReadPhysicalSchema() { return schema_; }
 
-  return record_batches_[0]->schema();
-}
+InMemoryFragment::InMemoryFragment(std::shared_ptr<Schema> schema,
+                                   RecordBatchVector record_batches,
+                                   std::shared_ptr<Expression> partition_expression)
+    : Fragment(std::move(partition_expression)),
+      schema_(std::move(schema)),
+      record_batches_(std::move(record_batches)) {}
 
 InMemoryFragment::InMemoryFragment(RecordBatchVector record_batches,
                                    std::shared_ptr<Expression> partition_expression)
-    : Fragment(std::move(partition_expression)),
-      record_batches_(std::move(record_batches)) {}
+    : InMemoryFragment(record_batches.empty() ? schema({}) : record_batches[0]->schema(),
+                       std::move(record_batches), std::move(partition_expression)) {}
 
 Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanOptions> options,
                                                 std::shared_ptr<ScanContext> context) {

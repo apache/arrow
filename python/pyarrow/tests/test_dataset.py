@@ -668,12 +668,19 @@ def test_fragments(tempdir):
     assert len(fragments) == 2
     f = fragments[0]
 
+    physical_names = ['f1', 'f2']
     # file's schema does not include partition column
-    assert f.physical_schema.names == ['f1', 'f2']
+    assert f.physical_schema.names == physical_names
     assert f.format.inspect(f.path, f.filesystem) == f.physical_schema
     assert f.partition_expression.equals(ds.field('part') == 'a')
 
-    # scanning fragment includes partition columns
+    # By default, the partition column is not part of the schema.
+    result = f.to_table()
+    assert result.column_names == physical_names
+    assert result.equals(table.remove_column(2).slice(0, 4))
+
+    # scanning fragment includes partition columns when given the proper
+    # schema.
     result = f.to_table(schema=dataset.schema)
     assert result.column_names == ['f1', 'f2', 'part']
     assert result.equals(table.slice(0, 4))
