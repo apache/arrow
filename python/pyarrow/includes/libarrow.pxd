@@ -411,6 +411,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const shared_ptr[CKeyValueMetadata]& metadata)
         shared_ptr[CSchema] RemoveMetadata()
 
+    CResult[shared_ptr[CSchema]] UnifySchemas(
+        const vector[shared_ptr[CSchema]]& schemas)
+
     cdef cppclass PrettyPrintOptions:
         PrettyPrintOptions()
         PrettyPrintOptions(int indent_arg)
@@ -1225,9 +1228,8 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         int64_t body_length
 
     cdef cppclass CMessage" arrow::ipc::Message":
-        CStatus Open(const shared_ptr[CBuffer]& metadata,
-                     const shared_ptr[CBuffer]& body,
-                     unique_ptr[CMessage]* out)
+        CResult[unique_ptr[CMessage]] Open(shared_ptr[CBuffer] metadata,
+                                           shared_ptr[CBuffer] body)
 
         shared_ptr[CBuffer] body()
 
@@ -1247,7 +1249,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         @staticmethod
         unique_ptr[CMessageReader] Open(const shared_ptr[CInputStream]& stream)
 
-        CStatus ReadNextMessage(unique_ptr[CMessage]* out)
+        CResult[unique_ptr[CMessage]] ReadNextMessage()
 
     cdef cppclass CRecordBatchWriter" arrow::ipc::RecordBatchWriter":
         CStatus Close()
@@ -1289,7 +1291,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
         int num_record_batches()
 
-        CStatus ReadRecordBatch(int i, shared_ptr[CRecordBatch]* batch)
+        CResult[shared_ptr[CRecordBatch]] ReadRecordBatch(int i)
 
     CResult[unique_ptr[CMessage]] ReadMessage(CInputStream* stream,
                                               CMemoryPool* pool)
@@ -1308,13 +1310,12 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         CDictionaryMemo* dictionary_memo,
         const CIpcReadOptions& options)
 
-    CStatus SerializeSchema(const CSchema& schema,
-                            CDictionaryMemo* dictionary_memo,
-                            CMemoryPool* pool, shared_ptr[CBuffer]* out)
+    CResult[shared_ptr[CBuffer]] SerializeSchema(
+        const CSchema& schema, CDictionaryMemo* dictionary_memo,
+        CMemoryPool* pool)
 
-    CStatus SerializeRecordBatch(const CRecordBatch& schema,
-                                 const CIpcWriteOptions& options,
-                                 shared_ptr[CBuffer]* out)
+    CResult[shared_ptr[CBuffer]] SerializeRecordBatch(
+        const CRecordBatch& schema, const CIpcWriteOptions& options)
 
     CResult[shared_ptr[CSchema]] ReadSchema(CInputStream* stream,
                                             CDictionaryMemo* dictionary_memo)
@@ -1408,6 +1409,13 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
             CCSVReadOptions, CCSVParseOptions, CCSVConvertOptions)
 
         CResult[shared_ptr[CTable]] Read()
+
+    cdef cppclass CCSVStreamingReader" arrow::csv::StreamingReader"(
+            CRecordBatchReader):
+        @staticmethod
+        CResult[shared_ptr[CCSVStreamingReader]] Make(
+            CMemoryPool*, shared_ptr[CInputStream],
+            CCSVReadOptions, CCSVParseOptions, CCSVConvertOptions)
 
 
 cdef extern from "arrow/json/options.h" nogil:
@@ -1520,6 +1528,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     CStatus Take(CFunctionContext* context, const CDatum& values,
                  const CDatum& indices, const CTakeOptions& options,
                  CDatum* out)
+    CStatus Take(CFunctionContext* context, const CChunkedArray& values,
+                 const CArray& indices, const CTakeOptions& options,
+                 shared_ptr[CChunkedArray]* out)
     CStatus Take(CFunctionContext* context, const CRecordBatch& batch,
                  const CArray& indices, const CTakeOptions& options,
                  shared_ptr[CRecordBatch]* out)
@@ -1726,10 +1737,8 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
     cdef cppclass CTimePoint "arrow::py::internal::TimePoint":
         pass
 
-    CStatus PyDateTime_from_int(int64_t val, const TimeUnit unit,
-                                PyObject** out)
-    CStatus PyDateTime_from_TimePoint(CTimePoint val, PyObject** out)
     CTimePoint PyDateTime_to_TimePoint(PyDateTime_DateTime* pydatetime)
+    int64_t TimePoint_to_ns(CTimePoint val)
 
 
 cdef extern from 'arrow/python/init.h':

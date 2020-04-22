@@ -122,6 +122,13 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   /// \brief The name identifying the kind of Dataset
   virtual std::string type_name() const = 0;
 
+  /// \brief Return a copy of this Dataset with a different schema.
+  ///
+  /// The copy will view the same Fragments. If the new schema is not compatible with the
+  /// original dataset's schema then an error will be raised.
+  virtual Result<std::shared_ptr<Dataset>> ReplaceSchema(
+      std::shared_ptr<Schema> schema) const = 0;
+
   virtual ~Dataset() = default;
 
  protected:
@@ -155,7 +162,7 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
   };
 
   InMemoryDataset(std::shared_ptr<Schema> schema,
-                  std::unique_ptr<RecordBatchGenerator> get_batches)
+                  std::shared_ptr<RecordBatchGenerator> get_batches)
       : Dataset(std::move(schema)), get_batches_(std::move(get_batches)) {}
 
   // Convenience constructor taking a fixed list of batches
@@ -163,12 +170,15 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
 
   explicit InMemoryDataset(std::shared_ptr<Table> table);
 
-  FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
-
   std::string type_name() const override { return "in-memory"; }
 
- private:
-  std::unique_ptr<RecordBatchGenerator> get_batches_;
+  Result<std::shared_ptr<Dataset>> ReplaceSchema(
+      std::shared_ptr<Schema> schema) const override;
+
+ protected:
+  FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
+
+  std::shared_ptr<RecordBatchGenerator> get_batches_;
 };
 
 /// \brief A Dataset wrapping child Datasets.
@@ -182,13 +192,16 @@ class ARROW_DS_EXPORT UnionDataset : public Dataset {
   static Result<std::shared_ptr<UnionDataset>> Make(std::shared_ptr<Schema> schema,
                                                     DatasetVector children);
 
-  FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
-
   const DatasetVector& children() const { return children_; }
 
   std::string type_name() const override { return "union"; }
 
+  Result<std::shared_ptr<Dataset>> ReplaceSchema(
+      std::shared_ptr<Schema> schema) const override;
+
  protected:
+  FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
+
   explicit UnionDataset(std::shared_ptr<Schema> schema, DatasetVector children)
       : Dataset(std::move(schema)), children_(std::move(children)) {}
 

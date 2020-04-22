@@ -103,7 +103,11 @@ TEST(TestArrayView, PrimitiveAsPrimitive) {
 }
 
 TEST(TestArrayView, PrimitiveAsFixedSizeBinary) {
+#if ARROW_LITTLE_ENDIAN
   auto arr = ArrayFromJSON(int32(), "[2020568934, 2054316386, null]");
+#else
+  auto arr = ArrayFromJSON(int32(), "[1718579064, 1650553466, null]");
+#endif
   auto expected = ArrayFromJSON(fixed_size_binary(4), R"(["foox", "barz", null])");
   CheckView(arr, expected);
   CheckView(expected, arr);
@@ -145,7 +149,11 @@ TEST(TestArrayView, StructAsStructSimple) {
   CheckView(expected, arr);
 
   ty2 = struct_({field("c", uint8()), field("d", fixed_size_binary(4))});
+#if ARROW_LITTLE_ENDIAN
   arr = ArrayFromJSON(ty1, "[[0, null], null, [-1, 2020568934]]");
+#else
+  arr = ArrayFromJSON(ty1, "[[0, null], null, [-1, 1718579064]]");
+#endif
   expected = ArrayFromJSON(ty2, R"([[0, null], null, [255, "foox"]])");
   CheckView(arr, expected);
   CheckView(expected, arr);
@@ -395,7 +403,11 @@ TEST(TestArrayView, ExtensionType) {
   auto data = ArrayFromJSON(ty1->storage_type(), R"(["ABCD", null])")->data();
   data->type = ty1;
   auto arr = ty1->MakeArray(data);
+#if ARROW_LITTLE_ENDIAN
   auto expected = ArrayFromJSON(uint32(), "[1145258561, null]");
+#else
+  auto expected = ArrayFromJSON(uint32(), "[1094861636, null]");
+#endif
   CheckView(arr, expected);
   CheckView(expected, arr);
 }

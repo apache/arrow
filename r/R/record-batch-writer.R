@@ -116,7 +116,7 @@ RecordBatchWriter <- R6Class("RecordBatchWriter", inherit = ArrowObject,
 #' @export
 RecordBatchStreamWriter <- R6Class("RecordBatchStreamWriter", inherit = RecordBatchWriter)
 RecordBatchStreamWriter$create <- function(sink, schema, use_legacy_format = NULL) {
-  if (is.character(sink) && length(sink) == 1) {
+  if (is.string(sink)) {
     stop(
       "RecordBatchStreamWriter$create() requires an Arrow InputStream. ",
       "Try providing FileOutputStream$create(", substitute(sink), ")",
@@ -136,7 +136,7 @@ RecordBatchStreamWriter$create <- function(sink, schema, use_legacy_format = NUL
 #' @export
 RecordBatchFileWriter <- R6Class("RecordBatchFileWriter", inherit = RecordBatchStreamWriter)
 RecordBatchFileWriter$create <- function(sink, schema, use_legacy_format = NULL) {
-  if (is.character(sink) && length(sink) == 1) {
+  if (is.string(sink)) {
     stop(
       "RecordBatchFileWriter$create() requires an Arrow InputStream. ",
       "Try providing FileOutputStream$create(", substitute(sink), ")",

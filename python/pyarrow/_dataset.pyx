@@ -54,7 +54,7 @@ cdef class Dataset:
         shared_ptr[CDataset] wrapped
         CDataset* dataset
 
-    def __init__(self, children, Schema schema not None):
+    def __init__(self):
         _forbid_instantiation(self.__class__)
 
     cdef void init(self, const shared_ptr[CDataset]& sp):
@@ -62,7 +62,7 @@ cdef class Dataset:
         self.dataset = sp.get()
 
     @staticmethod
-    cdef wrap(shared_ptr[CDataset]& sp):
+    cdef wrap(const shared_ptr[CDataset]& sp):
         cdef Dataset self
 
         typ = frombytes(sp.get().type_name())
@@ -91,6 +91,18 @@ cdef class Dataset:
             return None
         else:
             return Expression.wrap(expr)
+
+    def replace_schema(self, Schema schema not None):
+        """
+        Return a copy of this Dataset with a different schema.
+
+        The copy will view the same Fragments. If the new schema is not
+        compatible with the original dataset's schema then an error will
+        be raised.
+        """
+        cdef shared_ptr[CDataset] copy = GetResultValue(
+            self.dataset.ReplaceSchema(pyarrow_unwrap_schema(schema)))
+        return Dataset.wrap(move(copy))
 
     def get_fragments(self, columns=None, filter=None):
         """Returns an iterator over the fragments in this dataset.
@@ -205,7 +217,7 @@ cdef class Dataset:
             e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
         use_threads : boolean, default True
-            If enabled, then maximum paralellism will be used determined by
+            If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
@@ -264,28 +276,26 @@ cdef class FileSystemDataset(Dataset):
 
     Parameters
     ----------
+    paths_or_selector : Union[FileSelector, List[FileInfo]]
+        List of files/directories to consume.
     schema : Schema
         The top-level schema of the DataDataset.
-    root_partition : Expression
-        The top-level partition of the DataDataset.
-    file_format : FileFormat
+    format : FileFormat
         File format to create fragments from, currently only
         ParquetFileFormat and IpcFileFormat are supported.
     filesystem : FileSystem
         The filesystem which files are from.
-    paths_or_selector : Union[FileSelector, List[FileInfo]]
-        List of files/directories to consume.
-    partitions : List[Expression]
-        Attach aditional partition information for the file paths.
+    partitions : List[Expression], optional
+        Attach additional partition information for the file paths.
+    root_partition : Expression, optional
+        The top-level partition of the DataDataset.
     """
 
     cdef:
         CFileSystemDataset* filesystem_dataset
 
-    def __init__(self, Schema schema not None, Expression root_partition,
-                 FileFormat file_format not None,
-                 FileSystem filesystem not None,
-                 paths_or_selector, partitions):
+    def __init__(self, paths_or_selector, schema=None, format=None,
+                 filesystem=None, partitions=None, root_partition=None):
         cdef:
             FileInfo info
             Expression expr
@@ -293,26 +303,46 @@ cdef class FileSystemDataset(Dataset):
             vector[shared_ptr[CExpression]] c_partitions
             CResult[shared_ptr[CDataset]] result
 
+        # validate required arguments
+        for arg, class_, name in [
+            (schema, Schema, 'schema'),
+            (format, FileFormat, 'format'),
+            (filesystem, FileSystem, 'filesystem')
+        ]:
+            if not isinstance(arg, class_):
+                raise TypeError(
+                    "Argument '{0}' has incorrect type (expected {1}, "
+                    "got {2})".format(name, class_.__name__, type(arg))
+                )
+
         for info in filesystem.get_file_info(paths_or_selector):
             c_file_infos.push_back(info.unwrap())
 
+        if partitions is None:
+            partitions = [
+                ScalarExpression(True) for _ in range(c_file_infos.size())]
         for expr in partitions:
             c_partitions.push_back(expr.unwrap())
 
         if c_file_infos.size() != c_partitions.size():
             raise ValueError(
-                'The number of files resulting from paths_or_selector must be '
-                'equal to the number of partitions.'
+                'The number of files resulting from paths_or_selector '
+                'must be equal to the number of partitions.'
             )
 
         if root_partition is None:
             root_partition = ScalarExpression(True)
+        elif not isinstance(root_partition, Expression):
+            raise TypeError(
+                "Argument 'root_partition' has incorrect type (expected "
+                "Expression, got {0})".format(type(root_partition))
+            )
 
         result = CFileSystemDataset.Make(
             pyarrow_unwrap_schema(schema),
-            root_partition.unwrap(),
-            file_format.unwrap(),
-            filesystem.unwrap(),
+            (<Expression> root_partition).unwrap(),
+            (<FileFormat> format).unwrap(),
+            (<FileSystem> filesystem).unwrap(),
             c_file_infos,
             c_partitions
         )
@@ -623,7 +653,8 @@ cdef class ParquetReadOptions:
     buffer_size : int, default 8192
         Size of buffered stream, if enabled. Default is 8KB.
     dictionary_columns : list of string, default None
-        Names of columns which should be read as dictionaries.
+        Names of columns which should be dictionary encoded as
+        they are read.
     """
 
     cdef public:
@@ -632,9 +663,11 @@ cdef class ParquetReadOptions:
         set dictionary_columns
 
     def __init__(self, bint use_buffered_stream=False,
-                 uint32_t buffer_size=8192,
+                 buffer_size=8192,
                  dictionary_columns=None):
         self.use_buffered_stream = use_buffered_stream
+        if buffer_size <= 0:
+            raise ValueError("Buffer size must be larger than zero")
         self.buffer_size = buffer_size
         self.dictionary_columns = set(dictionary_columns or set())
 
@@ -952,12 +985,12 @@ cdef class DatasetFactory:
     def __init__(self, list children):
         _forbid_instantiation(self.__class__)
 
-    cdef init(self, shared_ptr[CDatasetFactory]& sp):
+    cdef init(self, const shared_ptr[CDatasetFactory]& sp):
         self.wrapped = sp
         self.factory = sp.get()
 
     @staticmethod
-    cdef wrap(shared_ptr[CDatasetFactory]& sp):
+    cdef wrap(const shared_ptr[CDatasetFactory]& sp):
         cdef DatasetFactory self = \
             DatasetFactory.__new__(DatasetFactory)
         self.init(sp)
@@ -997,8 +1030,9 @@ cdef class DatasetFactory:
         -------
         Schema
         """
-        cdef CResult[shared_ptr[CSchema]] result
-        cdef CInspectOptions options
+        cdef:
+            CInspectOptions options
+            CResult[shared_ptr[CSchema]] result
         with nogil:
             result = self.factory.Inspect(options)
         return pyarrow_wrap_schema(GetResultValue(result))
@@ -1021,6 +1055,7 @@ cdef class DatasetFactory:
         cdef:
             shared_ptr[CSchema] sp_schema
             CResult[shared_ptr[CDataset]] result
+
         if schema is not None:
             sp_schema = pyarrow_unwrap_schema(schema)
             with nogil:
@@ -1028,6 +1063,7 @@ cdef class DatasetFactory:
         else:
             with nogil:
                 result = self.factory.Finish()
+
         return Dataset.wrap(GetResultValue(result))
 
 
@@ -1049,9 +1085,9 @@ cdef class FileSystemFactoryOptions:
         fashion. Disabling this feature will skip the IO, but unsupported
         files may be present in the Dataset (resulting in an error at scan
         time).
-    ignore_prefixes : list, optional
-        Files matching one of those prefixes will be ignored by the
-        discovery process. This is matched to the basename of a path.
+    selector_ignore_prefixes : list, optional
+        When discovering from a Selector (and not from an explicit file list),
+        ignore files and directories matching any of these prefixes.
         By default this is ['.', '_'].
     """
 
@@ -1060,14 +1096,20 @@ cdef class FileSystemFactoryOptions:
 
     __slots__ = ()  # avoid mistakingly creating attributes
 
-    def __init__(self, partition_base_dir=None, exclude_invalid_files=None,
-                 list ignore_prefixes=None):
+    def __init__(self, partition_base_dir=None, partitioning=None,
+                 exclude_invalid_files=None,
+                 list selector_ignore_prefixes=None):
+        if isinstance(partitioning, PartitioningFactory):
+            self.partitioning_factory = partitioning
+        elif isinstance(partitioning, Partitioning):
+            self.partitioning = partitioning
+
         if partition_base_dir is not None:
             self.partition_base_dir = partition_base_dir
         if exclude_invalid_files is not None:
             self.exclude_invalid_files = exclude_invalid_files
-        if ignore_prefixes is not None:
-            self.ignore_prefixes = ignore_prefixes
+        if selector_ignore_prefixes is not None:
+            self.selector_ignore_prefixes = selector_ignore_prefixes
 
     cdef inline CFileSystemFactoryOptions unwrap(self):
         return self.options
@@ -1124,16 +1166,16 @@ cdef class FileSystemFactoryOptions:
         self.options.exclude_invalid_files = value
 
     @property
-    def ignore_prefixes(self):
+    def selector_ignore_prefixes(self):
         """
         List of prefixes. Files matching one of those prefixes will be
         ignored by the discovery process.
         """
-        return [frombytes(p) for p in self.options.ignore_prefixes]
+        return [frombytes(p) for p in self.options.selector_ignore_prefixes]
 
-    @ignore_prefixes.setter
-    def ignore_prefixes(self, values):
-        self.options.ignore_prefixes = [tobytes(v) for v in values]
+    @selector_ignore_prefixes.setter
+    def selector_ignore_prefixes(self, values):
+        self.options.selector_ignore_prefixes = [tobytes(v) for v in values]
 
 
 cdef class FileSystemDatasetFactory(DatasetFactory):
@@ -1191,7 +1233,8 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
                     c_options
                 )
         else:
-            raise TypeError('Must pass either paths or a FileSelector')
+            raise TypeError('Must pass either paths or a FileSelector, but '
+                            'passed {}'.format(type(paths_or_selector)))
 
         self.init(GetResultValue(result))
 
@@ -1211,7 +1254,7 @@ cdef class UnionDatasetFactory(DatasetFactory):
     """
 
     cdef:
-        CDatasetFactory* union_factory
+        CUnionDatasetFactory* union_factory
 
     def __init__(self, list factories):
         cdef:
@@ -1220,6 +1263,10 @@ cdef class UnionDatasetFactory(DatasetFactory):
         for factory in factories:
             c_factories.push_back(factory.unwrap())
         self.init(GetResultValue(CUnionDatasetFactory.Make(c_factories)))
+
+    cdef init(self, const shared_ptr[CDatasetFactory]& sp):
+        DatasetFactory.init(self, sp)
+        self.union_factory = <CUnionDatasetFactory*> sp.get()
 
 
 cdef class ScanTask:
@@ -1299,7 +1346,7 @@ cdef class Scanner:
         source, e.g. Parquet statistics. Otherwise filters the loaded
         RecordBatches before yielding them.
     use_threads : bool, default True
-        If enabled, then maximum paralellism will be used determined by
+        If enabled, then maximum parallelism will be used determined by
         the number of available CPU cores.
     batch_size : int, default 32K
         The maximum row count for scanned record batches. If scanned

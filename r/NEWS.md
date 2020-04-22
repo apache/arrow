@@ -17,7 +17,9 @@
   under the License.
 -->
 
-# arrow 0.16.0.9000
+# arrow 0.17.0.9000
+
+# arrow 0.17.0
 
 ## Feather v2
 
@@ -57,6 +59,7 @@ See `vignette("python", package = "arrow")` for details.
 
 * Dataset reading benefits from many speedups and fixes in the C++ library
 * Datasets have a `dim()` method, which sums rows across all files (#6635, @boshek)
+* Combine multiple datasets into a single queryable `UnionDataset` with the `c()` method
 * Dataset filtering now treats `NA` as `FALSE`, consistent with `dplyr::filter()`
 * Dataset filtering is now correctly supported for all Arrow date/time/timestamp column types
 * `vignette("dataset", package = "arrow")` now has correct, executable code
@@ -66,8 +69,9 @@ See `vignette("python", package = "arrow")` for details.
 * Installation on Linux now builds C++ the library from source by default, with some compression libraries disabled. For a faster, richer build, set the environment variable `NOT_CRAN=true`. See `vignette("install", package = "arrow")` for details and more options.
 * Source installation is faster and more reliable on more Linux distributions.
 
-## Other bug fixes
+## Other bug fixes and enhancements
 
+* `unify_schemas()` to create a `Schema` containing the union of fields in multiple schemas
 * Timezones are faithfully preserved in roundtrip between R and Arrow
 * `read_feather()` and other reader functions close any file connections they open
 * Arrow R6 objects no longer have namespace collisions when the `R.oo` package is also loaded

@@ -105,7 +105,7 @@ write_feather <- function(x,
   }
   assert_is(x, "Table")
 
-  if (is.character(sink)) {
+  if (is.string(sink)) {
     sink <- FileOutputStream$create(sink)
     on.exit(sink$close())
   }
@@ -143,7 +143,7 @@ write_feather <- function(x,
 #' df <- read_feather(tf, col_select = starts_with("Sepal"))
 #' }
 read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
-  if (is.character(file)) {
+  if (is.string(file)) {
     file <- make_readable_file(file)
     on.exit(file$close())
   }

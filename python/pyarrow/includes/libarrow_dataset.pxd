@@ -187,6 +187,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const shared_ptr[CExpression] & partition_expression()
         c_string type_name()
 
+        CResult[shared_ptr[CDataset]] ReplaceSchema(shared_ptr[CSchema])
+
         CResult[shared_ptr[CScannerBuilder]] NewScanWithContext "NewScan"(
             shared_ptr[CScanContext] context)
         CResult[shared_ptr[CScannerBuilder]] NewScan()
@@ -319,7 +321,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CPartitioningOrFactory partitioning
         c_string partition_base_dir
         c_bool exclude_invalid_files
-        vector[c_string] ignore_prefixes
+        vector[c_string] selector_ignore_prefixes
 
     cdef cppclass CFileSystemDatasetFactory \
             "arrow::dataset::FileSystemDatasetFactory"(

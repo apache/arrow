@@ -40,8 +40,7 @@ Status ConvertToStream(const char* path) {
   ARROW_ASSIGN_OR_RAISE(auto reader, ipc::RecordBatchFileReader::Open(in_file.get()));
   ARROW_ASSIGN_OR_RAISE(auto writer, ipc::NewStreamWriter(&sink, reader->schema()));
   for (int i = 0; i < reader->num_record_batches(); ++i) {
-    std::shared_ptr<RecordBatch> chunk;
-    RETURN_NOT_OK(reader->ReadRecordBatch(i, &chunk));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> chunk, reader->ReadRecordBatch(i));
     RETURN_NOT_OK(writer->WriteRecordBatch(*chunk));
   }
   return writer->Close();

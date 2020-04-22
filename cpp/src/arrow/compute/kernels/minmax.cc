@@ -39,6 +39,7 @@ struct MinMaxState<ArrowType, enable_if_integer<ArrowType>> {
   using c_type = typename ArrowType::c_type;
 
   ThisType& operator+=(const ThisType& rhs) {
+    this->has_nulls |= rhs.has_nulls;
     this->min = std::min(this->min, rhs.min);
     this->max = std::max(this->max, rhs.max);
     return *this;
@@ -51,6 +52,7 @@ struct MinMaxState<ArrowType, enable_if_integer<ArrowType>> {
 
   c_type min = std::numeric_limits<c_type>::max();
   c_type max = std::numeric_limits<c_type>::min();
+  bool has_nulls = false;
 };
 
 template <typename ArrowType>
@@ -59,6 +61,7 @@ struct MinMaxState<ArrowType, enable_if_floating_point<ArrowType>> {
   using c_type = typename ArrowType::c_type;
 
   ThisType& operator+=(const ThisType& rhs) {
+    this->has_nulls |= rhs.has_nulls;
     this->min = std::fmin(this->min, rhs.min);
     this->max = std::fmax(this->max, rhs.max);
     return *this;
@@ -71,6 +74,7 @@ struct MinMaxState<ArrowType, enable_if_floating_point<ArrowType>> {
 
   c_type min = std::numeric_limits<c_type>::infinity();
   c_type max = -std::numeric_limits<c_type>::infinity();
+  bool has_nulls = false;
 };
 
 template <typename ArrowType>
@@ -84,10 +88,16 @@ class MinMaxAggregateFunction final
   Status Consume(const Array& array, StateType* state) const override {
     StateType local;
 
+    local.has_nulls = array.null_count() > 0;
+    if (local.has_nulls && options_.null_handling == MinMaxOptions::OUTPUT_NULL) {
+      *state = local;
+      return Status::OK();
+    }
+
     const auto values =
         checked_cast<const typename TypeTraits<ArrowType>::ArrayType&>(array)
             .raw_values();
-    if (array.null_count() != 0) {
+    if (array.null_count() > 0) {
       internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
                                     array.length());
       for (int64_t i = 0; i < array.length(); i++) {
@@ -101,6 +111,7 @@ class MinMaxAggregateFunction final
         local.MergeOne(values[i]);
       }
     }
+
     *state = local;
     return Status::OK();
   }
@@ -111,7 +122,14 @@ class MinMaxAggregateFunction final
   }
 
   Status Finalize(const StateType& src, Datum* output) const override {
-    *output = Datum({Datum(src.min), Datum(src.max)});
+    using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
+    if (src.has_nulls && options_.null_handling == MinMaxOptions::OUTPUT_NULL) {
+      *output = Datum(
+          {Datum(std::make_shared<ScalarType>()), Datum(std::make_shared<ScalarType>())});
+    } else {
+      *output = Datum({Datum(src.min), Datum(src.max)});
+    }
+
     return Status::OK();
   }
 

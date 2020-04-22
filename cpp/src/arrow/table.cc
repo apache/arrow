@@ -27,6 +27,7 @@
 #include "arrow/array.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/array/validate.h"
+#include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -174,6 +175,12 @@ Result<std::shared_ptr<ChunkedArray>> ChunkedArray::View(
 Status ChunkedArray::View(const std::shared_ptr<DataType>& type,
                           std::shared_ptr<ChunkedArray>* out) const {
   return View(type).Value(out);
+}
+
+std::string ChunkedArray::ToString() const {
+  std::stringstream ss;
+  ARROW_CHECK_OK(PrettyPrint(*this, 0, &ss));
+  return ss.str();
 }
 
 Status ChunkedArray::Validate() const {
@@ -597,6 +604,12 @@ Status Table::RenameColumns(const std::vector<std::string>& names,
 
 Status Table::Flatten(MemoryPool* pool, std::shared_ptr<Table>* out) const {
   return Flatten(pool).Value(out);
+}
+
+std::string Table::ToString() const {
+  std::stringstream ss;
+  ARROW_CHECK_OK(PrettyPrint(*this, 0, &ss));
+  return ss.str();
 }
 
 Result<std::shared_ptr<Table>> ConcatenateTables(

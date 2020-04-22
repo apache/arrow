@@ -75,10 +75,11 @@ cdef int check_status(const CStatus& status) nogil except -1:
 
         # We don't use Status::ToString() as it would redundantly include
         # the C++ class name.
-        message = frombytes(status.message())
+        message = frombytes(status.message(), safe=True)
         detail = status.detail()
         if detail != nullptr:
-            message += ". Detail: " + frombytes(detail.get().ToString())
+            message += ". Detail: " + frombytes(detail.get().ToString(),
+                                                safe=True)
 
         if status.IsInvalid():
             raise ArrowInvalid(message)
@@ -112,7 +113,7 @@ cdef int check_status(const CStatus& status) nogil except -1:
         elif status.IsSerializationError():
             raise ArrowSerializationError(message)
         else:
-            message = frombytes(status.ToString())
+            message = frombytes(status.ToString(), safe=True)
             raise ArrowException(message)
 
 

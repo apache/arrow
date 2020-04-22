@@ -306,6 +306,44 @@ TEST(Rle, SpecificSequences) {
     ValidateRle(values, width, nullptr,
                 1 + static_cast<int>(BitUtil::CeilDiv(width * num_values, 8)));
   }
+
+  // Test 16-bit values to confirm encoded values are stored in little endian
+  values.resize(28);
+  for (int i = 0; i < 16; ++i) {
+    values[i] = 0x55aa;
+  }
+  for (int i = 16; i < 28; ++i) {
+    values[i] = 0xaa55;
+  }
+  expected_buffer[0] = (16 << 1);
+  expected_buffer[1] = 0xaa;
+  expected_buffer[2] = 0x55;
+  expected_buffer[3] = (12 << 1);
+  expected_buffer[4] = 0x55;
+  expected_buffer[5] = 0xaa;
+
+  ValidateRle(values, 16, expected_buffer, 6);
+
+  // Test 32-bit values to confirm encoded values are stored in little endian
+  values.resize(28);
+  for (int i = 0; i < 16; ++i) {
+    values[i] = 0x555aaaa5;
+  }
+  for (int i = 16; i < 28; ++i) {
+    values[i] = 0x5aaaa555;
+  }
+  expected_buffer[0] = (16 << 1);
+  expected_buffer[1] = 0xa5;
+  expected_buffer[2] = 0xaa;
+  expected_buffer[3] = 0x5a;
+  expected_buffer[4] = 0x55;
+  expected_buffer[5] = (12 << 1);
+  expected_buffer[6] = 0x55;
+  expected_buffer[7] = 0xa5;
+  expected_buffer[8] = 0xaa;
+  expected_buffer[9] = 0x5a;
+
+  ValidateRle(values, 32, expected_buffer, 10);
 }
 
 // ValidateRle on 'num_vals' values with width 'bit_width'. If 'value' != -1, that value

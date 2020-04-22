@@ -20,7 +20,9 @@
 #include <memory>
 
 #include "arrow/csv/options.h"  // IWYU pragma: keep
+#include "arrow/record_batch.h"
 #include "arrow/result.h"
+#include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
@@ -45,6 +47,20 @@ class ARROW_EXPORT TableReader {
                                                    const ReadOptions&,
                                                    const ParseOptions&,
                                                    const ConvertOptions&);
+};
+
+/// Experimental
+class ARROW_EXPORT StreamingReader : public RecordBatchReader {
+ public:
+  virtual ~StreamingReader() = default;
+
+  /// Create a StreamingReader instance
+  ///
+  /// Currently, the StreamingReader is always single-threaded (parallel
+  /// readahead is not supported).
+  static Result<std::shared_ptr<StreamingReader>> Make(
+      MemoryPool* pool, std::shared_ptr<io::InputStream> input, const ReadOptions&,
+      const ParseOptions&, const ConvertOptions&);
 };
 
 }  // namespace csv

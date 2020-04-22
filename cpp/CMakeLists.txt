@@ -18,7 +18,7 @@
 cmake_minimum_required(VERSION 3.2)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
-set(ARROW_VERSION "1.0.0-SNAPSHOT")
+set(ARROW_VERSION "0.18.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -337,6 +337,7 @@ if(ARROW_ORC)
   set(ARROW_WITH_LZ4 ON)
   set(ARROW_WITH_SNAPPY ON)
   set(ARROW_WITH_ZLIB ON)
+  set(ARROW_WITH_ZSTD ON)
 endif()
 
 if(NOT ARROW_BUILD_TESTS)

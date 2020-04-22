@@ -346,7 +346,7 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
         logger.debug(f"Running benchmark {rev_or_path}")
 
         conf = CppBenchmarkRunner.default_configuration(
-                cmake_extras=cmake_extras, **kwargs)
+            cmake_extras=cmake_extras, **kwargs)
 
         runner_base = BenchmarkRunner.from_rev_or_path(
             src, root, rev_or_path, conf)
@@ -399,7 +399,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
         logger.debug(f"Running benchmark {rev_or_path}")
 
         conf = CppBenchmarkRunner.default_configuration(
-                cmake_extras=cmake_extras, **kwargs)
+            cmake_extras=cmake_extras, **kwargs)
 
         runner_base = BenchmarkRunner.from_rev_or_path(
             src, root, rev_or_path, conf,
@@ -497,7 +497,7 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
                      f"{baseline} (baseline)")
 
         conf = CppBenchmarkRunner.default_configuration(
-                cmake_extras=cmake_extras, **kwargs)
+            cmake_extras=cmake_extras, **kwargs)
 
         runner_cont = BenchmarkRunner.from_rev_or_path(
             src, root, contender, conf,
@@ -551,7 +551,7 @@ def _set_default(opt, default):
 @click.option('stop_on_error', '-x', '--stop-on-error',
               is_flag=True, default=False,
               help='Stop on first error')
-@click.option('--gold_dirs', multiple=True,
+@click.option('--gold-dirs', multiple=True,
               help="gold integration test file paths")
 @click.option('-k', '--match',
               help=("Substring for test names to include in run, "

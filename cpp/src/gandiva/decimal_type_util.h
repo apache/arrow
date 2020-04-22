@@ -52,7 +52,7 @@ class GANDIVA_EXPORT DecimalTypeUtil {
   static constexpr int32_t kMaxScale = kMaxPrecision;
 
   // When operating on decimal inputs, the integer part of the output can exceed the
-  // max precision. In such cases, the scale can be reduced, upto a minimum of
+  // max precision. In such cases, the scale can be reduced, up to a minimum of
   // kMinAdjustedScale.
   // * There is no strong reason for 6, but both SQLServer and Impala use 6 too.
   static constexpr int32_t kMinAdjustedScale = 6;

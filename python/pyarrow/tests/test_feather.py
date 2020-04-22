@@ -160,6 +160,9 @@ def test_read_table(version):
     result = read_table(path, memory_map=False)
     assert_frame_equal(table.to_pandas(), result.to_pandas())
 
+    result = read_feather(path, memory_map=False)
+    assert_frame_equal(table.to_pandas(), result)
+
 
 @pytest.mark.pandas
 def test_float_nulls(version):

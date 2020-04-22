@@ -48,7 +48,7 @@ class LocalBitMapsHolder {
   /// number of records in the current batch.
   int64_t num_records_;
 
-  /// A container of 'local_bitmaps_', each sized to accomodate 'num_records'.
+  /// A container of 'local_bitmaps_', each sized to accommodate 'num_records'.
   std::vector<std::unique_ptr<uint8_t[]>> local_bitmaps_vec_;
 
   /// An array of the local bitmaps.

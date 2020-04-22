@@ -822,7 +822,7 @@ void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex& dex) {
   auto params = BuildParams(dex.function_holder().get(), dex.args(), true,
                             native_function->NeedsContext());
 
-  // add an extra arg for validity (alloced on stack).
+  // add an extra arg for validity (allocated on stack).
   llvm::AllocaInst* result_valid_ptr =
       new llvm::AllocaInst(types->i8_type(), 0, "result_valid", entry_block_);
   params.push_back(result_valid_ptr);
@@ -934,7 +934,7 @@ void LLVMGenerator::Visitor::Visit(const BooleanAndDex& dex) {
   }
   builder->CreateBr(non_short_circuit_bb);
 
-  // Short-circuit case (atleast one of the expressions is valid and false).
+  // Short-circuit case (at least one of the expressions is valid and false).
   // No need to set validity bit (valid by default).
   builder->SetInsertPoint(short_circuit_bb);
   ADD_VISITOR_TRACE("BooleanAndExpression result value false");
@@ -1000,7 +1000,7 @@ void LLVMGenerator::Visitor::Visit(const BooleanOrDex& dex) {
   }
   builder->CreateBr(non_short_circuit_bb);
 
-  // Short-circuit case (atleast one of the expressions is valid and true).
+  // Short-circuit case (at least one of the expressions is valid and true).
   // No need to set validity bit (valid by default).
   builder->SetInsertPoint(short_circuit_bb);
   ADD_VISITOR_TRACE("BooleanOrExpression result value true");
@@ -1175,7 +1175,7 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
         isDecimalFunction = true;
       }
     }
-    // add extra arg for return length for variable len return types (alloced on stack).
+    // add extra arg for return length for variable len return types (allocated on stack).
     llvm::AllocaInst* result_len_ptr = nullptr;
     if (arrow::is_binary_like(arrow_return_type_id)) {
       result_len_ptr = new llvm::AllocaInst(generator_->types()->i32_type(), 0,

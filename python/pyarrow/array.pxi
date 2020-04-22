@@ -127,14 +127,14 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     mask : array[bool], optional
         Indicate which values are null (True) or not null (False).
     size : int64, optional
-        Size of the elements. If the imput is larger than size bail at this
+        Size of the elements. If the input is larger than size bail at this
         length. For iterators, if size is larger than the input iterator this
         will be treated as a "max size", but will involve an initial allocation
         of size followed by a resize to the actual size (so if you know the
         exact size specifying it correctly will give you better performance).
     from_pandas : bool, default None
         Use pandas's semantics for inferring nulls from values in
-        ndarray-like data. If passed, the mask tasks precendence, but
+        ndarray-like data. If passed, the mask tasks precedence, but
         if a value is unmasked (not-null), but still null according to
         pandas semantics, then it is null. Defaults to False if not
         passed explicitly by user, or True if a pandas object is
@@ -325,6 +325,10 @@ def infer_type(values, mask=None, from_pandas=False):
 
 
 def _normalize_slice(object arrow_obj, slice key):
+    """
+    Slices with step not equal to 1 (or None) will produce a copy
+    rather than a zero-copy view
+    """
     cdef:
         Py_ssize_t start, stop, step
         Py_ssize_t n = len(arrow_obj)
@@ -347,7 +351,16 @@ def _normalize_slice(object arrow_obj, slice key):
 
     step = key.step or 1
     if step != 1:
-        raise IndexError('only slices with step 1 supported')
+        if step < 0:
+            # Negative steps require some special handling
+            if key.start is None:
+                start = n - 1
+
+            if key.stop is None:
+                stop = -1
+
+        indices = np.arange(start, stop, step)
+        return arrow_obj.take(indices)
     else:
         return arrow_obj.slice(start, stop - start)
 
@@ -935,18 +948,24 @@ cdef class Array(_PandasConvertible):
     def isnull(self):
         raise NotImplemented
 
-    def __getitem__(self, index):
+    def __getitem__(self, key):
         """
-        Return the value at the given index.
+        Slice or return value at given index
+
+        Parameters
+        ----------
+        key : integer or slice
+            Slices with step not equal to 1 (or None) will produce a copy
+            rather than a zero-copy view
 
         Returns
         -------
-        value : Scalar
+        value : Scalar (index) or Array (slice)
         """
-        if PySlice_Check(index):
-            return _normalize_slice(self, index)
+        if PySlice_Check(key):
+            return _normalize_slice(self, key)
 
-        return self.getitem(_normalize_index(index, self.length()))
+        return self.getitem(_normalize_index(key, self.length()))
 
     cdef getitem(self, int64_t i):
         return box_scalar(self.type, self.sp_array, i)
@@ -980,7 +999,7 @@ cdef class Array(_PandasConvertible):
 
         return pyarrow_wrap_array(result)
 
-    def take(self, Array indices):
+    def take(self, object indices):
         """
         Take elements from an array.
 
@@ -1016,10 +1035,13 @@ cdef class Array(_PandasConvertible):
         cdef:
             cdef CTakeOptions options
             cdef CDatum out
+            cdef Array c_indices
+
+        c_indices = asarray(indices)
 
         with nogil:
             check_status(Take(_context(), CDatum(self.sp_array),
-                              CDatum(indices.sp_array), options, &out))
+                              CDatum(c_indices.sp_array), options, &out))
 
         return wrap_datum(out)
 

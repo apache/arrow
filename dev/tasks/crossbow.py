@@ -26,13 +26,11 @@ import logging
 import mimetypes
 import subprocess
 import textwrap
-import concurrent.futures
 from io import StringIO
 from pathlib import Path
 from textwrap import dedent
 from datetime import datetime, date
 from functools import partial
-from collections import namedtuple
 
 import click
 import toolz
@@ -488,77 +486,16 @@ class Repo:
             self._github_repo = github.repository(username, reponame)
         return self._github_repo
 
-    def github_commit_status(self, commit):
-        """Combine the results from status and checks API to a single state.
-
-        Azure pipelines uses checks API which doesn't provide a combined
-        interface like status API does, so we need to manually combine
-        both the commit statuses and the commit checks coming from
-        different API endpoint
-
-        Status.state: error, failure, pending or success, default pending
-        CheckRun.status: queued, in_progress or completed, default: queued
-        CheckRun.conclusion: success, failure, neutral, cancelled, timed_out
-                             or action_required, only set if
-                             CheckRun.status == 'completed'
-
-        1. Convert CheckRun's status and conclusion to one of Status.state
-        2. Merge the states based on the following rules:
-           - failure if any of the contexts report as error or failure
-           - pending if there are no statuses or a context is pending
-           - success if the latest status for all contexts is success
-           error otherwise.
-
-        Parameters
-        ----------
-        commit : str
-            Commit to query the combined status for.
-
-        Returns
-        -------
-        combined_state: CombinedStatus(
-            state='error|failure|pending|success',
-            total_count='number of statuses and checks'
-        )
-        """
+    def github_commit(self, sha):
         repo = self.as_github_repo()
-        commit = repo.commit(commit)
-        states = []
+        return repo.commit(sha)
 
-        for status in commit.status().statuses:
-            states.append(status.state)
-
-        for check in commit.check_runs():
-            if check.status == 'completed':
-                if check.conclusion in {'success', 'failure'}:
-                    states.append(check.conclusion)
-                elif check.conclusion in {'cancelled', 'timed_out',
-                                          'action_required'}:
-                    states.append('error')
-                # omit `neutral` conclusion
-            else:
-                states.append('pending')
-
-        # it could be more effective, but the following is more descriptive
-        if any(state in {'error', 'failure'} for state in states):
-            combined_state = 'failure'
-        elif any(state == 'pending' for state in states):
-            combined_state = 'pending'
-        elif all(state == 'success' for state in states):
-            combined_state = 'success'
-        else:
-            combined_state = 'error'
-
-        return CombinedStatus(state=combined_state, total_count=len(states))
-
-    def github_release_assets(self, tag):
+    def github_release(self, tag):
         repo = self.as_github_repo()
         try:
-            release = repo.release_from_tag(tag)
+            return repo.release_from_tag(tag)
         except github3.exceptions.NotFoundError:
-            return {}
-        else:
-            return {a.name: a for a in release.assets()}
+            return None
 
     def github_upload_asset_requests(self, release, path, name, mime,
                                      max_retries=None, retry_backoff=None):
@@ -658,9 +595,6 @@ class Repo:
                     raise ValueError(
                         'Unsupported upload method {}'.format(method)
                     )
-
-
-CombinedStatus = namedtuple('CombinedStatus', ('state', 'total_count'))
 
 
 class Queue(Repo):
@@ -847,6 +781,7 @@ class Task(Serializable):
         self.commit = None  # filled after adding to a queue
         self._queue = None  # set by the queue object after put or get
         self._status = None  # status cache
+        self._assets = None  # assets cache
 
     def render_files(self, **extra_params):
         from jinja2 import Template, StrictUndefined
@@ -883,35 +818,127 @@ class Task(Serializable):
         return config_files[self.ci]
 
     def status(self, force_query=False):
-        # _status might be uninitialized because of yaml serialization
         _status = getattr(self, '_status', None)
         if force_query or _status is None:
-            self._status = self._queue.github_commit_status(self.commit)
+            github_commit = self._queue.github_commit(self.commit)
+            self._status = TaskStatus(github_commit)
         return self._status
 
-    def assets(self):
-        assets = self._queue.github_release_assets(self.tag)
+    def assets(self, force_query=False):
+        _assets = getattr(self, '_assets', None)
+        if force_query or _assets is None:
+            github_release = self._queue.github_release(self.tag)
+            self._assets = TaskAssets(github_release,
+                                      artifact_patterns=self.artifacts)
+        return self._assets
 
-        # validate the artifacts
-        artifacts = {}
-        for artifact in self.artifacts:
+
+class TaskStatus:
+    """Combine the results from status and checks API to a single state.
+
+    Azure pipelines uses checks API which doesn't provide a combined
+    interface like status API does, so we need to manually combine
+    both the commit statuses and the commit checks coming from
+    different API endpoint
+
+    Status.state: error, failure, pending or success, default pending
+    CheckRun.status: queued, in_progress or completed, default: queued
+    CheckRun.conclusion: success, failure, neutral, cancelled, timed_out
+                            or action_required, only set if
+                            CheckRun.status == 'completed'
+
+    1. Convert CheckRun's status and conclusion to one of Status.state
+    2. Merge the states based on the following rules:
+        - failure if any of the contexts report as error or failure
+        - pending if there are no statuses or a context is pending
+        - success if the latest status for all contexts is success
+        error otherwise.
+
+    Parameters
+    ----------
+    commit : github3.Commit
+        Commit to query the combined status for.
+
+    Returns
+    -------
+    TaskStatus(
+        combined_state='error|failure|pending|success',
+        github_status='original github status object',
+        github_check_runs='github checks associated with the commit',
+        total_count='number of statuses and checks'
+    )
+    """
+
+    def __init__(self, commit):
+        status = commit.status()
+        check_runs = commit.check_runs()
+
+        states = [s.state for s in status.statuses]
+
+        for check in check_runs:
+            if check.status == 'completed':
+                if check.conclusion in {'success', 'failure'}:
+                    states.append(check.conclusion)
+                elif check.conclusion in {'cancelled', 'timed_out',
+                                          'action_required'}:
+                    states.append('error')
+                # omit `neutral` conclusion
+            else:
+                states.append('pending')
+
+        # it could be more effective, but the following is more descriptive
+        if any(state in {'error', 'failure'} for state in states):
+            combined_state = 'failure'
+        elif any(state == 'pending' for state in states):
+            combined_state = 'pending'
+        elif all(state == 'success' for state in states):
+            combined_state = 'success'
+        else:
+            combined_state = 'error'
+
+        self.combined_state = combined_state
+        self.github_status = status
+        self.github_check_runs = check_runs
+        self.total_count = len(states)
+
+
+class TaskAssets(dict):
+
+    def __init__(self, github_release, artifact_patterns):
+        # HACK(kszucs): don't expect uploaded assets of no atifacts were
+        # defiened for the tasks in order to spare a bit of github rate limit
+        if not artifact_patterns:
+            return
+
+        if github_release is None:
+            github_assets = {}  # no assets have been uploaded for the task
+        else:
+            github_assets = {a.name: a for a in github_release.assets()}
+
+        for pattern in artifact_patterns:
             # artifact can be a regex pattern
-            pattern = re.compile(artifact)
-            matches = list(filter(None, map(pattern.match, assets.keys())))
+            compiled = re.compile(pattern)
+            matches = list(
+                filter(None, map(compiled.match, github_assets.keys()))
+            )
             num_matches = len(matches)
 
             # validate artifact pattern matches single asset
             if num_matches == 0:
-                artifacts[artifact] = None
+                self[pattern] = None
             elif num_matches == 1:
-                artifacts[artifact] = assets[matches[0].group(0)]
+                self[pattern] = github_assets[matches[0].group(0)]
             else:
                 raise ValueError(
                     'Only a single asset should match pattern `{}`, there are '
-                    'multiple ones: {}'.format(', '.join(matches))
+                    'multiple ones: {}'.format(pattern, ', '.join(matches))
                 )
 
-        return artifacts
+    def missing_patterns(self):
+        return [pattern for pattern, asset in self.items() if asset is None]
+
+    def uploaded_assets(self):
+        return [asset for asset in self.values() if asset is not None]
 
 
 class Job(Serializable):
@@ -998,7 +1025,7 @@ class Job(Serializable):
     def is_finished(self):
         for task in self.tasks.values():
             status = task.status(force_query=True)
-            if status.state == 'pending':
+            if status.combined_state == 'pending':
                 return False
         return True
 
@@ -1019,30 +1046,6 @@ class Job(Serializable):
             click.echo('Waiting {} minutes and then checking again'
                        .format(poll_interval_minutes))
             time.sleep(poll_interval_minutes * 60)
-
-    def query_assets(self, max_workers=None, ignore_prefix=None):
-        # cache the futures for later use
-        if not hasattr(self, '_assets'):
-            self._assets = []
-            max_workers = (
-                max_workers or os.environ.get('CROSSBOW_QUERY_PARALLELISM', 1)
-            )
-            with concurrent.futures.ThreadPoolExecutor(max_workers) as pool:
-                for task_name, task in sorted(self.tasks.items()):
-                    # HACK: spare some queries because of the rate limit, and
-                    # don't query tasks with specified prefix, e.g. "test-"
-                    if (ignore_prefix is not None and
-                            task_name.startswith(ignore_prefix)):
-                        continue
-                    self._assets.append((
-                        task_name,
-                        task,
-                        pool.submit(task.status),
-                        pool.submit(task.assets)
-                    ))
-
-        for task_name, task, status, assets in self._assets:
-            yield (task_name, task, status.result(), assets.result())
 
 
 class Config(dict):
@@ -1206,18 +1209,23 @@ class ConsoleReport(Report):
         echo(self.header())
 
         # write table's body
-        for task_name, task, status, assets in self.job.query_assets():
+        for task_name, task in sorted(self.job.tasks.items()):
             # write summary of the uploaded vs total assets
-            n_expected = len(assets)
-            n_uploaded = len(list(filter(None, assets.values())))
-            echo(self.lead(status.state, task.branch, n_uploaded, n_expected))
+            status = task.status()
+            assets = task.assets()
+
+            # mapping of artifact pattern to asset or None of not uploaded
+            n_expected = len(task.artifacts)
+            n_uploaded = len(assets.uploaded_assets())
+            echo(self.lead(status.combined_state, task.branch, n_uploaded,
+                           n_expected))
 
             # write per asset status
-            for artifact, asset in task.assets().items():
+            for artifact_pattern, asset in assets.items():
                 if asset_callback is not None:
                     asset_callback(task_name, task, asset)
-                # artifact is a pattern for the expected asset
-                echo(self.artifact(status.state, artifact, asset))
+                echo(self.artifact(status.combined_state, artifact_pattern,
+                                   asset))
 
 
 class EmailReport(Report):
@@ -1281,7 +1289,7 @@ class EmailReport(Report):
         buffer.write(self.header())
 
         tasks_by_state = toolz.groupby(
-            lambda tpl: tpl[1].status().state,
+            lambda name_task_pair: name_task_pair[1].status().combined_state,
             self.job.tasks.items()
         )
 
@@ -1346,10 +1354,9 @@ class GithubPage:
 
     def _is_failed(self, status, task_name):
         # for showing task statuses during the rendering procedure
-        if status.state == 'success':
+        if status.combined_state == 'success':
             msg = click.style('[  OK] {}'.format(task_name), fg='green')
             failed = False
-            click.echo(msg)
         else:
             msg = click.style('[FAIL] {}'.format(task_name), fg='yellow')
             failed = True
@@ -1359,31 +1366,37 @@ class GithubPage:
 
     def render_nightlies(self):
         click.echo('\n\nRENDERING NIGHTLIES')
-        files = {}
+        nightly_files = {}
+
         for job in self.jobs:
             click.echo('\nJOB: {}'.format(job.branch))
-            tasks = {}
+            job_files = {}
 
-            it = job.query_assets(ignore_prefix='test')
-            for task_name, task, status, assets in it:
-                links = {}
-                if self._is_failed(status, task_name):
-                    continue
-                for asset in assets.values():
-                    if asset is not None:
+            for task_name, task in sorted(job.tasks.items()):
+                # TODO: also render check runs?
+                status = task.status()
+
+                task_files = {'status.json': status.github_status.as_json()}
+                links = {'status.json': 'status.json'}
+
+                if not self._is_failed(status, task_name):
+                    # accumulate links to uploaded assets
+                    for asset in task.assets().uploaded_assets():
                         links[asset.name] = asset.browser_download_url
 
                 if links:
                     page_content = self._generate_page(links)
-                    tasks[task_name] = {'index.html': page_content}
+                    task_files['index.html'] = page_content
 
-            files[str(job.date)] = tasks
+                job_files[task_name] = task_files
+
+            nightly_files[str(job.date)] = job_files
 
         # write the most recent wheels under the latest directory
-        if 'latest' not in files:
-            files['latest'] = tasks
+        if 'latest' not in nightly_files:
+            nightly_files['latest'] = job_files
 
-        return files
+        return nightly_files
 
     def render_pypi_simple(self):
         click.echo('\n\nRENDERING PYPI')
@@ -1392,15 +1405,14 @@ class GithubPage:
         for job in self.jobs:
             click.echo('\nJOB: {}'.format(job.branch))
 
-            it = job.query_assets(ignore_prefix='test')
-            for task_name, task, status, assets in it:
+            for task_name, task in sorted(job.tasks.items()):
                 if not task_name.startswith('wheel'):
                     continue
+                status = task.status()
                 if self._is_failed(status, task_name):
                     continue
-                for asset in assets.values():
-                    if asset is not None:
-                        wheels[asset.name] = asset.browser_download_url
+                for asset in task.assets().uploaded_assets():
+                    wheels[asset.name] = asset.browser_download_url
 
         return {'pyarrow': {'index.html': self._generate_page(wheels)}}
 

@@ -47,7 +47,9 @@ override_dh_auto_configure:
 	  -DARROW_WITH_LZ4=ON					\
 	  -DARROW_WITH_SNAPPY=ON				\
 	  -DARROW_WITH_ZLIB=ON					\
+	  -DARROW_WITH_ZSTD=ON					\
 	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)			\
+	  -DCMAKE_UNITY_BUILD=ON				\
 	  -DPythonInterp_FIND_VERSION=ON			\
 	  -DPythonInterp_FIND_VERSION_MAJOR=3
 	dh_auto_configure						\

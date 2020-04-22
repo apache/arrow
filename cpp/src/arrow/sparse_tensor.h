@@ -351,7 +351,7 @@ class ARROW_EXPORT SparseCSCIndex
 /// CSF is implemented with three vectors.
 ///
 /// Vectors inptr and indices contain N-1 and N buffers respectively, where N is the
-/// number of dimensions. Axis_order is a vector of integers of legth N. Indptr and
+/// number of dimensions. Axis_order is a vector of integers of length N. Indptr and
 /// indices describe the set of prefix trees. Trees traverse dimensions in order given by
 /// axis_order.
 class ARROW_EXPORT SparseCSFIndex : public internal::SparseIndexBase<SparseCSFIndex> {

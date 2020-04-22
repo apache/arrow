@@ -29,7 +29,7 @@ use std::sync::Arc;
 use DataType::*;
 
 /// Serialize a schema in IPC format
-pub(crate) fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
+pub fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
     let mut fbb = FlatBufferBuilder::new();
 
     let mut fields = vec![];
@@ -76,15 +76,15 @@ pub(crate) fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
 }
 
 pub fn schema_to_fb_offset<'a: 'b, 'b>(
-    mut fbb: &'a mut FlatBufferBuilder,
+    fbb: &'a mut FlatBufferBuilder,
     schema: &Schema,
 ) -> WIPOffset<ipc::Schema<'b>> {
     let mut fields = vec![];
     for field in schema.fields() {
         let fb_field_name = fbb.create_string(field.name().as_str());
         let (ipc_type_type, ipc_type, ipc_children) =
-            get_fb_field_type(field.data_type(), &mut fbb);
-        let mut field_builder = ipc::FieldBuilder::new(&mut fbb);
+            get_fb_field_type(field.data_type(), fbb);
+        let mut field_builder = ipc::FieldBuilder::new(fbb);
         field_builder.add_name(fb_field_name);
         field_builder.add_type_type(ipc_type_type);
         field_builder.add_nullable(field.is_nullable());
@@ -101,7 +101,7 @@ pub fn schema_to_fb_offset<'a: 'b, 'b>(
         let fb_key_name = fbb.create_string(k.as_str());
         let fb_val_name = fbb.create_string(v.as_str());
 
-        let mut kv_builder = ipc::KeyValueBuilder::new(&mut fbb);
+        let mut kv_builder = ipc::KeyValueBuilder::new(fbb);
         kv_builder.add_key(fb_key_name);
         kv_builder.add_value(fb_val_name);
         custom_metadata.push(kv_builder.finish());
@@ -110,7 +110,7 @@ pub fn schema_to_fb_offset<'a: 'b, 'b>(
     let fb_field_list = fbb.create_vector(&fields);
     let fb_metadata_list = fbb.create_vector(&custom_metadata);
 
-    let mut builder = ipc::SchemaBuilder::new(&mut fbb);
+    let mut builder = ipc::SchemaBuilder::new(fbb);
     builder.add_fields(fb_field_list);
     builder.add_custom_metadata(fb_metadata_list);
     builder.finish()
@@ -138,7 +138,7 @@ impl<'a> From<ipc::Field<'a>> for Field {
 }
 
 /// Deserialize a Schema table from IPC format to Schema data type
-pub(crate) fn fb_to_schema(fb: ipc::Schema) -> Schema {
+pub fn fb_to_schema(fb: ipc::Schema) -> Schema {
     let mut fields: Vec<Field> = vec![];
     let c_fields = fb.fields().unwrap();
     let len = c_fields.len();
@@ -163,7 +163,7 @@ pub(crate) fn fb_to_schema(fb: ipc::Schema) -> Schema {
 }
 
 /// Deserialize an IPC message into a schema
-pub(crate) fn schema_from_bytes(bytes: &[u8]) -> Option<Schema> {
+pub fn schema_from_bytes(bytes: &[u8]) -> Option<Schema> {
     let ipc = ipc::get_root_as_message(bytes);
     ipc.header_as_schema().map(|schema| fb_to_schema(schema))
 }
@@ -318,7 +318,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
 /// Get the IPC type of a data type
 pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
     data_type: &DataType,
-    mut fbb: &mut FlatBufferBuilder<'a>,
+    fbb: &mut FlatBufferBuilder<'a>,
 ) -> (
     ipc::Type,
     WIPOffset<UnionWIPOffset>,
@@ -332,13 +332,13 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
             let children = fbb.create_vector(&empty_fields[..]);
             (
                 ipc::Type::Bool,
-                ipc::BoolBuilder::new(&mut fbb).finish().as_union_value(),
+                ipc::BoolBuilder::new(fbb).finish().as_union_value(),
                 Some(children),
             )
         }
         UInt8 | UInt16 | UInt32 | UInt64 => {
             let children = fbb.create_vector(&empty_fields[..]);
-            let mut builder = ipc::IntBuilder::new(&mut fbb);
+            let mut builder = ipc::IntBuilder::new(fbb);
             builder.add_is_signed(false);
             match data_type {
                 UInt8 => builder.add_bitWidth(8),
@@ -355,7 +355,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
         }
         Int8 | Int16 | Int32 | Int64 => {
             let children = fbb.create_vector(&empty_fields[..]);
-            let mut builder = ipc::IntBuilder::new(&mut fbb);
+            let mut builder = ipc::IntBuilder::new(fbb);
             builder.add_is_signed(true);
             match data_type {
                 Int8 => builder.add_bitWidth(8),
@@ -372,7 +372,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
         }
         Float16 | Float32 | Float64 => {
             let children = fbb.create_vector(&empty_fields[..]);
-            let mut builder = ipc::FloatingPointBuilder::new(&mut fbb);
+            let mut builder = ipc::FloatingPointBuilder::new(fbb);
             match data_type {
                 Float16 => builder.add_precision(ipc::Precision::HALF),
                 Float32 => builder.add_precision(ipc::Precision::SINGLE),
@@ -389,7 +389,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
             let children = fbb.create_vector(&empty_fields[..]);
             (
                 ipc::Type::Binary,
-                ipc::BinaryBuilder::new(&mut fbb).finish().as_union_value(),
+                ipc::BinaryBuilder::new(fbb).finish().as_union_value(),
                 Some(children),
             )
         }
@@ -397,13 +397,13 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
             let children = fbb.create_vector(&empty_fields[..]);
             (
                 ipc::Type::Utf8,
-                ipc::Utf8Builder::new(&mut fbb).finish().as_union_value(),
+                ipc::Utf8Builder::new(fbb).finish().as_union_value(),
                 Some(children),
             )
         }
         FixedSizeBinary(len) => {
             let children = fbb.create_vector(&empty_fields[..]);
-            let mut builder = ipc::FixedSizeBinaryBuilder::new(&mut fbb);
+            let mut builder = ipc::FixedSizeBinaryBuilder::new(fbb);
             builder.add_byteWidth(*len as i32);
             (
                 ipc::Type::FixedSizeBinary,
@@ -413,7 +413,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
         }
         Date32(_) => {
             let children = fbb.create_vector(&empty_fields[..]);
-            let mut builder = ipc::DateBuilder::new(&mut fbb);
+            let mut builder = ipc::DateBuilder::new(fbb);
             builder.add_unit(ipc::DateUnit::DAY);
             (
                 ipc::Type::Date,
@@ -423,7 +423,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
         }
         Date64(_) => {
             let children = fbb.create_vector(&empty_fields[..]);
-            let mut builder = ipc::DateBuilder::new(&mut fbb);
+            let mut builder = ipc::DateBuilder::new(fbb);
             builder.add_unit(ipc::DateUnit::MILLISECOND);
             (
                 ipc::Type::Date,
@@ -433,7 +433,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
         }
         Time32(unit) | Time64(unit) => {
             let children = fbb.create_vector(&empty_fields[..]);
-            let mut builder = ipc::TimeBuilder::new(&mut fbb);
+            let mut builder = ipc::TimeBuilder::new(fbb);
             match unit {
                 TimeUnit::Second => {
                     builder.add_bitWidth(32);
@@ -462,7 +462,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
             let children = fbb.create_vector(&empty_fields[..]);
             let tz = tz.clone().unwrap_or(Arc::new(String::new()));
             let tz_str = fbb.create_string(tz.as_str());
-            let mut builder = ipc::TimestampBuilder::new(&mut fbb);
+            let mut builder = ipc::TimestampBuilder::new(fbb);
             let time_unit = match unit {
                 TimeUnit::Second => ipc::TimeUnit::SECOND,
                 TimeUnit::Millisecond => ipc::TimeUnit::MILLISECOND,
@@ -481,7 +481,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
         }
         Interval(unit) => {
             let children = fbb.create_vector(&empty_fields[..]);
-            let mut builder = ipc::IntervalBuilder::new(&mut fbb);
+            let mut builder = ipc::IntervalBuilder::new(fbb);
             let interval_unit = match unit {
                 IntervalUnit::YearMonth => ipc::IntervalUnit::YEAR_MONTH,
                 IntervalUnit::DayTime => ipc::IntervalUnit::DAY_TIME,
@@ -495,7 +495,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
         }
         Duration(unit) => {
             let children = fbb.create_vector(&empty_fields[..]);
-            let mut builder = ipc::DurationBuilder::new(&mut fbb);
+            let mut builder = ipc::DurationBuilder::new(fbb);
             let time_unit = match unit {
                 TimeUnit::Second => ipc::TimeUnit::SECOND,
                 TimeUnit::Millisecond => ipc::TimeUnit::MILLISECOND,
@@ -510,9 +510,9 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
             )
         }
         List(ref list_type) => {
-            let inner_types = get_fb_field_type(list_type, &mut fbb);
+            let inner_types = get_fb_field_type(list_type, fbb);
             let child = ipc::Field::create(
-                &mut fbb,
+                fbb,
                 &ipc::FieldArgs {
                     name: None,
                     nullable: false,
@@ -526,14 +526,14 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
             let children = fbb.create_vector(&[child]);
             (
                 ipc::Type::List,
-                ipc::ListBuilder::new(&mut fbb).finish().as_union_value(),
+                ipc::ListBuilder::new(fbb).finish().as_union_value(),
                 Some(children),
             )
         }
         FixedSizeList(ref list_type, len) => {
-            let inner_types = get_fb_field_type(list_type, &mut fbb);
+            let inner_types = get_fb_field_type(list_type, fbb);
             let child = ipc::Field::create(
-                &mut fbb,
+                fbb,
                 &ipc::FieldArgs {
                     name: None,
                     nullable: false,
@@ -545,7 +545,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
                 },
             );
             let children = fbb.create_vector(&[child]);
-            let mut builder = ipc::FixedSizeListBuilder::new(&mut fbb);
+            let mut builder = ipc::FixedSizeListBuilder::new(fbb);
             builder.add_listSize(*len as i32);
             (
                 ipc::Type::FixedSizeList,
@@ -557,10 +557,10 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
             // struct's fields are children
             let mut children = vec![];
             for field in fields {
-                let inner_types = get_fb_field_type(field.data_type(), &mut fbb);
+                let inner_types = get_fb_field_type(field.data_type(), fbb);
                 let field_name = fbb.create_string(field.name());
                 children.push(ipc::Field::create(
-                    &mut fbb,
+                    fbb,
                     &ipc::FieldArgs {
                         name: Some(field_name),
                         nullable: field.is_nullable(),
@@ -575,7 +575,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
             let children = fbb.create_vector(&children[..]);
             (
                 ipc::Type::Struct_,
-                ipc::Struct_Builder::new(&mut fbb).finish().as_union_value(),
+                ipc::Struct_Builder::new(fbb).finish().as_union_value(),
                 Some(children),
             )
         }

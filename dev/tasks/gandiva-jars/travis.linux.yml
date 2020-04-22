@@ -15,7 +15,7 @@
 # limitations under the License.
 
 os: linux
-dist: trusty
+dist: xenial
 sudo: required
 language: cpp
 compiler: gcc
@@ -32,6 +32,11 @@ env:
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
 
 before_install:
+  - sudo apt-get install -y libgit2-dev
+  - python3 -VV
+  - echo "Setting python version 3.6.7 in pyenv"
+  - pyenv shell 3.6.7
+  - pip3 install click github3.py jinja2 jira pygit2==1.0.3 ruamel.yaml setuptools_scm toolz
   # gcc 4.9 is required for the static linking of libstdc++
   - export CC="gcc-4.9" CXX="g++-4.9"
   - ulimit -c unlimited -S
@@ -46,19 +51,22 @@ before_script:
   - if [ $CROSSBOW_USE_COMMIT_ID = true ]; then git -C arrow checkout {{ arrow.head }}; else git -C arrow checkout FETCH_HEAD; fi
 
   - export TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR/arrow
-
+  - export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+  - export PATH="$JAVA_HOME/bin:$PATH"
+  - echo $JAVA_HOME
+  - which java
 script:
   - cd $TRAVIS_BUILD_DIR
   - mkdir -p dist
   # please refer to README for steps to update this image
-  - docker run -v $PWD:/io -v $PWD:/arrow quay.io/praveenbingo/arrow:buildGandivaDocker /io/dev/tasks/gandiva-jars/build-cpp-linux.sh || travis_terminate 1
+  - docker run -v $PWD:/io -v $PWD:/arrow quay.io/prudhvi/arrow:buildGandivaDocker /io/dev/tasks/gandiva-jars/build-cpp-linux.sh || travis_terminate 1
   - dev/tasks/gandiva-jars/build-java.sh || travis_terminate 1
-
-deploy:
-  provider: releases
-  api_key: $CROSSBOW_GITHUB_TOKEN
-  file_glob: true
-  file: dist/*.jar
-  skip_cleanup: true
-  on:
-    tags: true
+  # deploy using crossbow
+  - >
+    python3 dev/tasks/crossbow.py
+    --queue-path $TRAVIS_BUILD_DIR
+    --queue-remote {{ queue_remote_url }}
+    upload-artifacts
+    --sha {{ task.branch }}
+    --tag {{ task.tag }}
+    --pattern "dist/*.jar"

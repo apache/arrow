@@ -184,7 +184,7 @@ def write_feather(df, dest, compression=None, compression_level=None,
         raise
 
 
-def read_feather(source, columns=None, use_threads=True):
+def read_feather(source, columns=None, use_threads=True, memory_map=True):
     """
     Read a pandas.DataFrame from Feather format. To read as pyarrow.Table use
     feather.read_table.
@@ -197,15 +197,16 @@ def read_feather(source, columns=None, use_threads=True):
         read.
     use_threads: bool, default True
         Whether to parallelize reading using multiple threads.
+    memory_map : boolean, default True
+        Use memory mapping when opening file on disk
 
     Returns
     -------
     df : pandas.DataFrame
     """
     _check_pandas_version()
-    return read_table(source, columns=columns).to_pandas(
-        use_threads=use_threads
-    )
+    return (read_table(source, columns=columns, memory_map=memory_map)
+            .to_pandas(use_threads=use_threads))
 
 
 def read_table(source, columns=None, memory_map=True):

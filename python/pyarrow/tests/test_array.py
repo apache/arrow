@@ -54,7 +54,7 @@ def test_constructor_raises():
 
 def test_list_format():
     arr = pa.array([[1], None, [2, 3, None]])
-    result = arr.format()
+    result = arr.to_string()
     expected = """\
 [
   [
@@ -72,7 +72,7 @@ def test_list_format():
 
 def test_string_format():
     arr = pa.array(['', None, 'foo'])
-    result = arr.format()
+    result = arr.to_string()
     expected = """\
 [
   "",
@@ -84,7 +84,7 @@ def test_string_format():
 
 def test_long_array_format():
     arr = pa.array(range(100))
-    result = arr.format(window=2)
+    result = arr.to_string(window=2)
     expected = """\
 [
   0,
@@ -98,7 +98,7 @@ def test_long_array_format():
 
 def test_binary_format():
     arr = pa.array([b'\x00', b'', None, b'\x01foo', b'\x80\xff'])
-    result = arr.format()
+    result = arr.to_string()
     expected = """\
 [
   00,
@@ -302,15 +302,42 @@ def test_array_slice():
     assert arr[2:].equals(arr.slice(2))
     assert arr[2:5].equals(arr.slice(2, 3))
     assert arr[-5:].equals(arr.slice(len(arr) - 5))
-    with pytest.raises(IndexError):
-        arr[::-1]
-    with pytest.raises(IndexError):
-        arr[::2]
 
     n = len(arr)
     for start in range(-n * 2, n * 2):
         for stop in range(-n * 2, n * 2):
             assert arr[start:stop].to_pylist() == arr.to_pylist()[start:stop]
+
+
+def test_array_slice_negative_step():
+    # ARROW-2714
+    np_arr = np.arange(20)
+    arr = pa.array(np_arr)
+    chunked_arr = pa.chunked_array([arr])
+
+    cases = [
+        slice(None, None, -1),
+        slice(None, 6, -2),
+        slice(10, 6, -2),
+        slice(8, None, -2),
+        slice(2, 10, -2),
+        slice(10, 2, -2),
+        slice(None, None, 2),
+        slice(0, 10, 2),
+    ]
+
+    for case in cases:
+        result = arr[case]
+        expected = pa.array(np_arr[case])
+        assert result.equals(expected)
+
+        result = pa.record_batch([arr], names=['f0'])[case]
+        expected = pa.record_batch([expected], names=['f0'])
+        assert result.equals(expected)
+
+        result = chunked_arr[case]
+        expected = pa.chunked_array([np_arr[case]])
+        assert result.equals(expected)
 
 
 def test_array_diff():

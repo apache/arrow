@@ -381,7 +381,7 @@ Status FromProto(const pb::FlightData& pb_data, FlightDescriptor* descriptor,
   if (header_buf == nullptr || body_buf == nullptr) {
     return Status::UnknownError("Could not create buffers from protobuf");
   }
-  return ipc::Message::Open(header_buf, body_buf, message);
+  return ipc::Message::Open(header_buf, body_buf).Value(message);
 }
 
 // FlightEndpoint
@@ -466,10 +466,10 @@ Status FromProto(const pb::SchemaResult& pb_result, std::string* result) {
 
 Status SchemaToString(const Schema& schema, std::string* out) {
   // TODO(wesm): Do we care about better memory efficiency here?
-  std::shared_ptr<Buffer> serialized_schema;
   ipc::DictionaryMemo unused_dict_memo;
-  RETURN_NOT_OK(ipc::SerializeSchema(schema, &unused_dict_memo, default_memory_pool(),
-                                     &serialized_schema));
+  ARROW_ASSIGN_OR_RAISE(
+      std::shared_ptr<Buffer> serialized_schema,
+      ipc::SerializeSchema(schema, &unused_dict_memo, default_memory_pool()));
   *out = std::string(reinterpret_cast<const char*>(serialized_schema->data()),
                      static_cast<size_t>(serialized_schema->size()));
   return Status::OK();

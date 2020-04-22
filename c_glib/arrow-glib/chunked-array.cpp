@@ -328,13 +328,7 @@ gchar *
 garrow_chunked_array_to_string(GArrowChunkedArray *chunked_array, GError **error)
 {
   const auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
-  std::stringstream sink;
-  auto status = arrow::PrettyPrint(*arrow_chunked_array, 0, &sink);
-  if (garrow_error_check(error, status, "[chunked-array][to-string]")) {
-    return g_strdup(sink.str().c_str());
-  } else {
-    return NULL;
-  }
+  return g_strdup(arrow_chunked_array->ToString().c_str());
 }
 
 G_END_DECLS

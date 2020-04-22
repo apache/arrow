@@ -394,6 +394,10 @@ TEST(DeleteDirContents, Basics) {
 #else
   ASSERT_EQ(ErrnoFromStatus(status), ENOENT);
 #endif
+
+  // Now actually delete the test directory
+  ASSERT_OK_AND_ASSIGN(deleted, DeleteDirTree(parent));
+  ASSERT_TRUE(deleted);
 }
 
 TEST(TemporaryDir, Basics) {
@@ -522,6 +526,62 @@ TEST(DeleteFile, Basics) {
   AssertExists(fn);
   ASSERT_RAISES(IOError, DeleteFile(fn));
 }
+
+#ifndef __APPLE__
+TEST(FileUtils, LongPaths) {
+  // ARROW-8477: check using long file paths under Windows (> 260 characters).
+  bool created, deleted;
+#ifdef _WIN32
+  const char* kRegKeyName = R"(SYSTEM\CurrentControlSet\Control\FileSystem)";
+  const char* kRegValueName = "LongPathsEnabled";
+  DWORD value = 0;
+  DWORD size = sizeof(value);
+  LSTATUS status = RegGetValueA(HKEY_LOCAL_MACHINE, kRegKeyName, kRegValueName,
+                                RRF_RT_REG_DWORD, NULL, &value, &size);
+  bool test_long_paths = (status == ERROR_SUCCESS && value == 1);
+  if (!test_long_paths) {
+    ARROW_LOG(WARNING)
+        << "Tests for accessing files with long path names have been disabled. "
+        << "To enable these tests, set the value of " << kRegValueName
+        << " in registry key \\HKEY_LOCAL_MACHINE\\" << kRegKeyName
+        << " to 1 on the test host.";
+    return;
+  }
+#endif
+
+  const std::string BASE = "xxx-io-util-test-dir-long";
+  PlatformFilename base_path, long_path, long_filename;
+  int fd = -1;
+  std::stringstream fs;
+  fs << BASE;
+  for (int i = 0; i < 64; ++i) {
+    fs << "/123456789ABCDEF";
+  }
+  ASSERT_OK_AND_ASSIGN(base_path,
+                       PlatformFilename::FromString(BASE));  // long_path length > 1024
+  ASSERT_OK_AND_ASSIGN(
+      long_path, PlatformFilename::FromString(fs.str()));  // long_path length > 1024
+  ASSERT_OK_AND_ASSIGN(created, CreateDirTree(long_path));
+  ASSERT_TRUE(created);
+  AssertExists(long_path);
+  ASSERT_OK_AND_ASSIGN(long_filename,
+                       PlatformFilename::FromString(fs.str() + "/file.txt"));
+  ASSERT_OK_AND_ASSIGN(fd, FileOpenWritable(long_filename));
+  ASSERT_OK(FileClose(fd));
+  AssertExists(long_filename);
+  fd = -1;
+  ASSERT_OK_AND_ASSIGN(fd, FileOpenReadable(long_filename));
+  ASSERT_OK(FileClose(fd));
+  ASSERT_OK_AND_ASSIGN(deleted, DeleteDirContents(long_path));
+  ASSERT_TRUE(deleted);
+  ASSERT_OK_AND_ASSIGN(deleted, DeleteDirTree(long_path));
+  ASSERT_TRUE(deleted);
+
+  // Now delete the whole test directory tree
+  ASSERT_OK_AND_ASSIGN(deleted, DeleteDirTree(base_path));
+  ASSERT_TRUE(deleted);
+}
+#endif
 
 }  // namespace internal
 }  // namespace arrow

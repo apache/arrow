@@ -40,7 +40,7 @@ Status ConvertToFile() {
   ARROW_ASSIGN_OR_RAISE(auto writer, NewFileWriter(&sink, reader->schema()));
   std::shared_ptr<RecordBatch> batch;
   while (true) {
-    RETURN_NOT_OK(reader->ReadNext(&batch));
+    ARROW_ASSIGN_OR_RAISE(batch, reader->Next());
     if (batch == nullptr) break;
     RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   }

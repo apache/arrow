@@ -161,7 +161,7 @@ class TypedColumnWriter : public ColumnWriter {
   /// Write a batch of repetition levels, definition levels, and values to the
   /// column.
   ///
-  /// In comparision to WriteBatch the length of repetition and definition levels
+  /// In comparison to WriteBatch the length of repetition and definition levels
   /// is the same as of the number of values read for max_definition_level == 1.
   /// In the case of max_definition_level > 1, the repetition and definition
   /// levels are larger than the values but the values include the null entries

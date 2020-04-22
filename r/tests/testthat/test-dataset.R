@@ -65,8 +65,8 @@ test_that("Setup (putting data in the dir)", {
   # Now, an IPC format dataset
   dir.create(file.path(ipc_dir, 3))
   dir.create(file.path(ipc_dir, 4))
-  write_arrow(df1, file.path(ipc_dir, 3, "file1.arrow"))
-  write_arrow(df2, file.path(ipc_dir, 4, "file2.arrow"))
+  write_feather(df1, file.path(ipc_dir, 3, "file1.arrow"))
+  write_feather(df2, file.path(ipc_dir, 4, "file2.arrow"))
   expect_length(dir(ipc_dir, recursive = TRUE), 2)
 })
 
@@ -118,6 +118,24 @@ test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_
 
 })
 
+test_that("dataset from URI", {
+  skip_on_os("windows")
+  uri <- paste0("file://", dataset_dir)
+  ds <- open_dataset(uri, partitioning = schema(part = uint8()))
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+})
+
 test_that("Simple interface for datasets (custom ParquetFileFormat)", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()),
                      format = FileFormat$create("parquet", dict_columns = c("chr")))
@@ -167,8 +185,8 @@ test_that("Partitioning inference", {
   )
 })
 
-test_that("IPC/Arrow format data", {
-  ds <- open_dataset(ipc_dir, partitioning = "part", format = "arrow")
+test_that("IPC/Feather format data", {
+  ds <- open_dataset(ipc_dir, partitioning = "part", format = "feather")
   expect_identical(names(ds), c(names(df1), "part"))
   expect_warning(
     dim(ds),
@@ -190,8 +208,8 @@ test_that("IPC/Arrow format data", {
 test_that("Dataset with multiple file formats", {
   skip("https://issues.apache.org/jira/browse/ARROW-7653")
   ds <- open_dataset(list(
-    dataset_factory(dataset_dir, format = "parquet", partitioning = "part"),
-    dataset_factory(ipc_dir, format = "arrow", partitioning = "part")
+    open_dataset(dataset_dir, format = "parquet", partitioning = "part"),
+    open_dataset(ipc_dir, format = "arrow", partitioning = "part")
   ))
   expect_identical(names(ds), c(names(df1), "part"))
   expect_equivalent(
@@ -203,6 +221,53 @@ test_that("Dataset with multiple file formats", {
       select(string = chr, integer = int) %>%
       filter(integer > 6) %>%
       rbind(., .) # Stack it twice
+  )
+})
+
+test_that("Creating UnionDataset", {
+  ds1 <- open_dataset(file.path(dataset_dir, 1))
+  ds2 <- open_dataset(file.path(dataset_dir, 2))
+  union1 <- open_dataset(list(ds1, ds2))
+  expect_is(union1, "UnionDataset")
+  expect_equivalent(
+    union1 %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>% # Testing the auto-casting of scalars
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+
+  # Now with the c() method
+  union2 <- c(ds1, ds2)
+  expect_is(union2, "UnionDataset")
+  expect_equivalent(
+    union2 %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>% # Testing the auto-casting of scalars
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+
+  # Confirm c() method error handling
+  expect_error(c(ds1, 42), "'x' must be a string or a list of DatasetFactory")
+})
+
+test_that("map_batches", {
+  ds <- open_dataset(dataset_dir, partitioning = "part")
+  expect_equivalent(
+    ds %>%
+      filter(int > 5) %>%
+      select(int, lgl) %>%
+      map_batches(~summarize(., min_int = min(int))),
+    tibble(min_int = c(6L, 101L))
   )
 })
 
@@ -301,10 +366,21 @@ test_that("filter scalar validation doesn't crash (ARROW-7772)", {
 test_that("collect() on Dataset works (if fits in memory)", {
   expect_equal(
     collect(open_dataset(dataset_dir)),
-    rbind(
-      cbind(df1),
-      cbind(df2)
-    )
+    rbind(df1, df2)
+  )
+})
+
+test_that("count()", {
+  skip("count() is not a generic so we have to get here through summarize()")
+  ds <- open_dataset(dataset_dir)
+  df <- rbind(df1, df2)
+  expect_equal(
+    ds %>%
+      filter(int > 6, int < 108) %>%
+      count(chr),
+    df %>%
+      filter(int > 6, int < 108) %>%
+      count(chr)
   )
 })
 

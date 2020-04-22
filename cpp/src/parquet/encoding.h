@@ -301,10 +301,17 @@ class TypedDecoder : virtual public Decoder {
 
     // Add spacing for null entries. As we have filled the buffer from the front,
     // we need to add the spacing from the back.
-    int values_to_move = values_read;
-    for (int i = num_values - 1; i >= 0; i--) {
+    int values_to_move = values_read - 1;
+    // We stop early on one of two conditions:
+    // 1. There are no more null values that need spacing.  Note we infer this
+    //     backwards, when 'i' is equal to 'values_to_move' it indicates
+    //    all nulls have been consumed.
+    // 2. There are no more non-null values that need to move which indicates
+    //    all remaining slots are null, so their exact value doesn't matter.
+    for (int i = num_values - 1; (i > values_to_move) && (values_to_move >= 0); i--) {
       if (BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
-        buffer[i] = buffer[--values_to_move];
+        buffer[i] = buffer[values_to_move];
+        values_to_move--;
       }
     }
     return num_values;

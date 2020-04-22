@@ -327,7 +327,7 @@ namespace {
 
 struct ReadRangeCombiner {
   std::vector<ReadRange> Coalesce(std::vector<ReadRange> ranges) {
-    if (ranges.size() == 0) {
+    if (ranges.empty()) {
       return ranges;
     }
 
@@ -338,6 +338,11 @@ struct ReadRangeCombiner {
     // Sort in position order
     std::sort(ranges.begin(), ranges.end(),
               [](const ReadRange& a, const ReadRange& b) { return a.offset < b.offset; });
+
+    // Skip further processing if ranges is empty after removing zero-sized ranges.
+    if (ranges.empty()) {
+      return ranges;
+    }
 
 #ifndef NDEBUG
     for (size_t i = 0; i < ranges.size() - 1; ++i) {
@@ -350,65 +355,47 @@ struct ReadRangeCombiner {
 
     std::vector<ReadRange> coalesced;
 
-    // Find some subsets of ranges that we may want to coalesce
-    auto start = ranges.begin(), prev = start, next = prev;
+    auto itr = ranges.begin();
+    // Ensure ranges is not empty.
+    DCHECK_LE(itr, ranges.end());
+    // Start of the current coalesced range and end (exclusive) of previous range.
+    // Both are initialized with the start of first range which is a placeholder value.
+    int64_t coalesced_start = itr->offset;
+    int64_t prev_range_end = coalesced_start;
 
-    while (++next != ranges.end()) {
-      if (next->offset - prev->offset - prev->length > hole_size_limit_) {
-        // Distance between consecutive ranges is too large, coalesce this subset
-        // and start a new one
-        if (next - start > 1) {
-          CoalesceUntilLargeEnough(start, next, &coalesced);
-        } else {
-          coalesced.push_back(*start);
+    for (; itr < ranges.end(); ++itr) {
+      const int64_t current_range_start = itr->offset;
+      const int64_t current_range_end = current_range_start + itr->length;
+      // We don't expect to have 0 sized ranges.
+      DCHECK_LT(current_range_start, current_range_end);
+
+      // At this point, the coalesced range is [coalesced_start, prev_range_end).
+      // Stop coalescing if:
+      //   - coalesced range is too large, or
+      //   - distance (hole/gap) between consecutive ranges is too large.
+      if (current_range_end - coalesced_start > range_size_limit_ ||
+          current_range_start - prev_range_end > hole_size_limit_) {
+        DCHECK_LE(coalesced_start, prev_range_end);
+        // Append the coalesced range only if coalesced range size > 0.
+        if (prev_range_end > coalesced_start) {
+          coalesced.push_back({coalesced_start, prev_range_end - coalesced_start});
         }
-        start = next;
+        // Start a new coalesced range.
+        coalesced_start = current_range_start;
       }
-      prev = next;
+
+      // Update the prev_range_end with the current range.
+      prev_range_end = current_range_end;
     }
-    // Coalesce last subset
-    if (next - start > 1) {
-      CoalesceUntilLargeEnough(start, next, &coalesced);
-    } else {
-      coalesced.push_back(*start);
+    // Append the coalesced range only if coalesced range size > 0.
+    if (prev_range_end > coalesced_start) {
+      coalesced.push_back({coalesced_start, prev_range_end - coalesced_start});
     }
 
     DCHECK_EQ(coalesced.front().offset, ranges.front().offset);
     DCHECK_EQ(coalesced.back().offset + coalesced.back().length,
               ranges.back().offset + ranges.back().length);
     return coalesced;
-  }
-
-  // Coalesce consecutive pairs of ranges, but only if the resulting range size
-  // would not exceed range_size_limit.
-  template <typename ReadRangeIterator>
-  void CoalesceUntilLargeEnough(ReadRangeIterator begin, ReadRangeIterator end,
-                                std::vector<ReadRange>* out) {
-    std::list<ReadRange> todo;
-    std::copy(begin, end, std::back_inserter(todo));
-
-    // Iterate over consecutive pairs
-    auto prev = todo.begin(), next = prev;
-    while (++next != todo.end()) {
-      DCHECK_GE(next->offset, prev->offset);
-      if (CanCoalesce(*prev, *next)) {
-        next->length = (next->offset - prev->offset) + next->length;
-        next->offset = prev->offset;
-        todo.erase(prev);  // Keep `next` valid
-      }
-      prev = next;
-    }
-
-    const auto out_size = out->size();
-    out->resize(out_size + todo.size());
-    std::copy(todo.begin(), todo.end(), &(*out)[out_size]);
-  }
-
-  bool CanCoalesce(const ReadRange& left, const ReadRange& right) {
-    DCHECK_LE(left.offset, right.offset);
-    // Ensured by the subset-finding in Coalesce()
-    DCHECK_LE(right.offset - left.offset - left.length, hole_size_limit_);
-    return left.length + right.length <= range_size_limit_;
   }
 
   const int64_t hole_size_limit_;

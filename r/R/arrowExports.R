@@ -356,6 +356,10 @@ dataset___Dataset__type_name <- function(dataset){
     .Call(`_arrow_dataset___Dataset__type_name` , dataset)
 }
 
+dataset___Dataset__ReplaceSchema <- function(dataset, schm){
+    .Call(`_arrow_dataset___Dataset__ReplaceSchema` , dataset, schm)
+}
+
 dataset___UnionDataset__create <- function(datasets, schm){
     .Call(`_arrow_dataset___UnionDataset__create` , datasets, schm)
 }
@@ -372,16 +376,16 @@ dataset___FileSystemDataset__files <- function(dataset){
     .Call(`_arrow_dataset___FileSystemDataset__files` , dataset)
 }
 
-dataset___DatasetFactory__Finish1 <- function(factory){
-    .Call(`_arrow_dataset___DatasetFactory__Finish1` , factory)
+dataset___DatasetFactory__Finish1 <- function(factory, unify_schemas){
+    .Call(`_arrow_dataset___DatasetFactory__Finish1` , factory, unify_schemas)
 }
 
 dataset___DatasetFactory__Finish2 <- function(factory, schema){
     .Call(`_arrow_dataset___DatasetFactory__Finish2` , factory, schema)
 }
 
-dataset___DatasetFactory__Inspect <- function(factory){
-    .Call(`_arrow_dataset___DatasetFactory__Inspect` , factory)
+dataset___DatasetFactory__Inspect <- function(factory, unify_schemas){
+    .Call(`_arrow_dataset___DatasetFactory__Inspect` , factory, unify_schemas)
 }
 
 dataset___UnionDatasetFactory__Make <- function(children){
@@ -454,6 +458,14 @@ dataset___ScannerBuilder__Finish <- function(sb){
 
 dataset___Scanner__ToTable <- function(scanner){
     .Call(`_arrow_dataset___Scanner__ToTable` , scanner)
+}
+
+dataset___Scanner__Scan <- function(scanner){
+    .Call(`_arrow_dataset___Scanner__Scan` , scanner)
+}
+
+dataset___ScanTask__get_batches <- function(scan_task){
+    .Call(`_arrow_dataset___ScanTask__get_batches` , scan_task)
 }
 
 shared_ptr_is_null <- function(xp){
@@ -860,12 +872,28 @@ fs___FileSystem__OpenAppendStream <- function(file_system, path){
     .Call(`_arrow_fs___FileSystem__OpenAppendStream` , file_system, path)
 }
 
+fs___FileSystem__type_name <- function(file_system){
+    .Call(`_arrow_fs___FileSystem__type_name` , file_system)
+}
+
 fs___LocalFileSystem__create <- function(){
     .Call(`_arrow_fs___LocalFileSystem__create` )
 }
 
 fs___SubTreeFileSystem__create <- function(base_path, base_fs){
     .Call(`_arrow_fs___SubTreeFileSystem__create` , base_path, base_fs)
+}
+
+fs___FileSystemFromUri <- function(path){
+    .Call(`_arrow_fs___FileSystemFromUri` , path)
+}
+
+fs___EnsureS3Initialized <- function(){
+    invisible(.Call(`_arrow_fs___EnsureS3Initialized` ))
+}
+
+fs___S3FileSystem__create <- function(){
+    .Call(`_arrow_fs___S3FileSystem__create` )
 }
 
 io___Readable__Read <- function(x, nbytes){
@@ -1390,6 +1418,10 @@ Schema__serialize <- function(schema){
 
 Schema__Equals <- function(schema, other, check_metadata){
     .Call(`_arrow_Schema__Equals` , schema, other, check_metadata)
+}
+
+arrow__UnifySchemas <- function(schemas){
+    .Call(`_arrow_arrow__UnifySchemas` , schemas)
 }
 
 Table__from_dataframe <- function(tbl){

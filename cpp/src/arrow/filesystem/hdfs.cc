@@ -252,24 +252,28 @@ class HadoopFileSystem::Impl {
   }
 };
 
-void HdfsOptions::ConfigureEndPoint(const std::string& host, int port) {
-  connection_config.host = host;
+void HdfsOptions::ConfigureEndPoint(std::string host, int port) {
+  connection_config.host = std::move(host);
   connection_config.port = port;
 }
 
-void HdfsOptions::ConfigureHdfsUser(const std::string& user_name) {
-  connection_config.user = user_name;
+void HdfsOptions::ConfigureUser(std::string user_name) {
+  connection_config.user = std::move(user_name);
 }
 
-void HdfsOptions::ConfigureHdfsReplication(int16_t replication) {
+void HdfsOptions::ConfigureKerberosTicketCachePath(std::string path) {
+  connection_config.kerb_ticket = std::move(path);
+}
+
+void HdfsOptions::ConfigureReplication(int16_t replication) {
   this->replication = replication;
 }
 
-void HdfsOptions::ConfigureHdfsBufferSize(int32_t buffer_size) {
+void HdfsOptions::ConfigureBufferSize(int32_t buffer_size) {
   this->buffer_size = buffer_size;
 }
 
-void HdfsOptions::ConfigureHdfsBlockSize(int64_t default_block_size) {
+void HdfsOptions::ConfigureBlockSize(int64_t default_block_size) {
   this->default_block_size = default_block_size;
 }
 
@@ -313,7 +317,7 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
     if (!converter(v.data(), v.size(), &replication)) {
       return Status::Invalid("Invalid value for option 'replication': '", v, "'");
     }
-    options.ConfigureHdfsReplication(replication);
+    options.ConfigureReplication(replication);
   }
 
   // configure buffer_size
@@ -325,7 +329,7 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
     if (!converter(v.data(), v.size(), &buffer_size)) {
       return Status::Invalid("Invalid value for option 'buffer_size': '", v, "'");
     }
-    options.ConfigureHdfsBufferSize(buffer_size);
+    options.ConfigureBufferSize(buffer_size);
   }
 
   // configure default_block_size
@@ -337,14 +341,14 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
     if (!converter(v.data(), v.size(), &default_block_size)) {
       return Status::Invalid("Invalid value for option 'default_block_size': '", v, "'");
     }
-    options.ConfigureHdfsBlockSize(default_block_size);
+    options.ConfigureBlockSize(default_block_size);
   }
 
   // configure user
   it = options_map.find("user");
   if (it != options_map.end()) {
     const auto& user = it->second;
-    options.ConfigureHdfsUser(user);
+    options.ConfigureUser(user);
   }
 
   return options;

@@ -60,7 +60,8 @@ class ARROW_EXPORT Converter {
 
 class ARROW_EXPORT DictionaryConverter : public Converter {
  public:
-  using Converter::Converter;
+  DictionaryConverter(const std::shared_ptr<DataType>& value_type,
+                      const ConvertOptions& options, MemoryPool* pool);
 
   // If the dictionary length goes above this value, conversion will fail
   // with Status::IndexError.
@@ -69,6 +70,9 @@ class ARROW_EXPORT DictionaryConverter : public Converter {
   static Result<std::shared_ptr<DictionaryConverter>> Make(
       const std::shared_ptr<DataType>& value_type, const ConvertOptions& options,
       MemoryPool* pool = default_memory_pool());
+
+ protected:
+  std::shared_ptr<DataType> value_type_;
 };
 
 }  // namespace csv

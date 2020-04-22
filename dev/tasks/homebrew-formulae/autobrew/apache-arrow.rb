@@ -19,7 +19,7 @@
 class ApacheArrow < Formula
   desc "Columnar in-memory analytics layer designed to accelerate big data"
   homepage "https://arrow.apache.org/"
-  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-0.16.0.9000/apache-arrow-0.16.0.9000.tar.gz"
+  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-0.17.0.9000/apache-arrow-0.17.0.9000.tar.gz"
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
   head "https://github.com/apache/arrow.git"
 
@@ -54,6 +54,7 @@ class ApacheArrow < Formula
       -DARROW_WITH_ZLIB=ON
       -DARROW_WITH_SNAPPY=ON
       -DARROW_BUILD_UTILITIES=ON
+      -DCMAKE_UNITY_BUILD=ON
       -DPARQUET_BUILD_EXECUTABLES=ON
       -DLZ4_HOME=#{Formula["lz4"].prefix}
       -DTHRIFT_HOME=#{Formula["thrift"].prefix}

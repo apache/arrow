@@ -19,6 +19,7 @@ add_arrow_test(csv-test
                SOURCES
                chunker_test.cc
                column_builder_test.cc
+               column_decoder_test.cc
                converter_test.cc
                parser_test.cc)
 

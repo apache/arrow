@@ -64,6 +64,9 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
       - name: Docker Pull
         shell: bash
         run: |
@@ -112,6 +115,9 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
       - name: Docker Pull
         shell: bash
         run: docker-compose pull --ignore-pull-failures r
@@ -156,6 +162,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: Make R tests verbose
+        # If you get a segfault/mysterious test Execution halted,
+        # make this `true` to see where it dies.
+        if: false
         shell: cmd
         run: |
           cd r/tests

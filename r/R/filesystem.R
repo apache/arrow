@@ -166,6 +166,18 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' @export
 FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
   public = list(
+    ..dispatch = function() {
+      type_name <- self$type_name
+      if (type_name == "local") {
+        shared_ptr(LocalFileSystem, self$pointer())
+      } else if (type_name == "s3") {
+        shared_ptr(S3FileSystem, self$pointer())
+      } else if (type_name == "subtree") {
+        shared_ptr(SubTreeFileSystem, self$pointer())
+      } else {
+        self
+      }
+    },
     GetFileInfo = function(x) {
       if (inherits(x, "FileSelector")) {
         map(
@@ -224,8 +236,16 @@ FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
     OpenAppendStream = function(path) {
       shared_ptr(OutputStream, fs___FileSystem__OpenAppendStream(self, clean_path_rel(path)))
     }
+  ),
+  active = list(
+    type_name = function() fs___FileSystem__type_name(self)
   )
 )
+FileSystem$from_uri <- function(uri) {
+  out <- fs___FileSystemFromUri(uri)
+  out$fs <- shared_ptr(FileSystem, out$fs)$..dispatch()
+  out
+}
 
 #' @usage NULL
 #' @format NULL
@@ -236,6 +256,19 @@ LocalFileSystem$create <- function() {
   shared_ptr(LocalFileSystem, fs___LocalFileSystem__create())
 }
 
+#' @usage NULL
+#' @format NULL
+#' @rdname FileSystem
+#' @export
+S3FileSystem <- R6Class("S3FileSystem", inherit = FileSystem)
+S3FileSystem$create <- function() {
+  fs___EnsureS3Initialized()
+  shared_ptr(S3FileSystem, fs___S3FileSystem__create())
+}
+
+arrow_with_s3 <- function() {
+  .Call(`_s3_available`)
+}
 
 #' @usage NULL
 #' @format NULL

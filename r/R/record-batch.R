@@ -244,7 +244,7 @@ dim.RecordBatch <- function(x) {
 }
 
 #' @export
-as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
+as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...) {
   RecordBatch__to_dataframe(x, use_threads = option_use_threads())
 }
 
