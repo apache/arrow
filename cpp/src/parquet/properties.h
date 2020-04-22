@@ -41,16 +41,13 @@ struct ParquetVersion {
 
 static int64_t DEFAULT_BUFFER_SIZE = 1024;
 static bool DEFAULT_USE_BUFFERED_STREAM = false;
-static bool DEFAULT_USE_COALESCED_STREAM = false;
 
 class PARQUET_EXPORT ReaderProperties {
  public:
   explicit ReaderProperties(MemoryPool* pool = ::arrow::default_memory_pool())
       : pool_(pool) {
     buffered_stream_enabled_ = DEFAULT_USE_BUFFERED_STREAM;
-    coalesced_stream_enabled_ = DEFAULT_USE_COALESCED_STREAM;
     buffer_size_ = DEFAULT_BUFFER_SIZE;
-    coalescing_options_ = ::arrow::io::CacheOptions::Defaults();
   }
 
   MemoryPool* memory_pool() const { return pool_; }
@@ -60,31 +57,9 @@ class PARQUET_EXPORT ReaderProperties {
 
   bool is_buffered_stream_enabled() const { return buffered_stream_enabled_; }
 
-  bool is_coalesced_stream_enabled() const { return coalesced_stream_enabled_; }
-
   void enable_buffered_stream() { buffered_stream_enabled_ = true; }
 
   void disable_buffered_stream() { buffered_stream_enabled_ = false; }
-
-  /// Enable read coalescing.
-  ///
-  /// When enabled, readers can optionally call
-  /// ParquetFileReader.PreBuffer to cache the necessary slices of the
-  /// file in-memory before deserialization. Arrow readers
-  /// automatically do this. This is intended to increase performance
-  /// when reading from high-latency filesystems (e.g. Amazon S3).
-  ///
-  /// When this is enabled, it is NOT SAFE to concurrently create
-  /// RecordBatchReaders from the same file.
-  void enable_coalesced_stream() { coalesced_stream_enabled_ = true; }
-
-  void disable_coalesced_stream() { coalesced_stream_enabled_ = false; }
-
-  void coalescing_options(::arrow::io::CacheOptions options) {
-    coalescing_options_ = options;
-  }
-
-  ::arrow::io::CacheOptions coalescing_options() const { return coalescing_options_; }
 
   void set_buffer_size(int64_t buf_size) { buffer_size_ = buf_size; }
 
@@ -102,9 +77,7 @@ class PARQUET_EXPORT ReaderProperties {
   MemoryPool* pool_;
   int64_t buffer_size_;
   bool buffered_stream_enabled_;
-  bool coalesced_stream_enabled_;
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
-  ::arrow::io::CacheOptions coalescing_options_;
 };
 
 ReaderProperties PARQUET_EXPORT default_reader_properties();
@@ -568,7 +541,9 @@ class PARQUET_EXPORT ArrowReaderProperties {
   explicit ArrowReaderProperties(bool use_threads = kArrowDefaultUseThreads)
       : use_threads_(use_threads),
         read_dict_indices_(),
-        batch_size_(kArrowDefaultBatchSize) {}
+        batch_size_(kArrowDefaultBatchSize),
+        pre_buffer_(false),
+        cache_options_(::arrow::io::CacheOptions::Defaults()) {}
 
   void set_use_threads(bool use_threads) { use_threads_ = use_threads; }
 
@@ -593,10 +568,27 @@ class PARQUET_EXPORT ArrowReaderProperties {
 
   int64_t batch_size() const { return batch_size_; }
 
+  /// Enable read coalescing.
+  ///
+  /// When enabled, the Arrow reader will pre-buffer necessary regions
+  /// of the file in-memory. This is intended to improve performance on
+  /// high-latency filesystems (e.g. Amazon S3).
+  void set_pre_buffer(bool pre_buffer) { pre_buffer_ = pre_buffer; }
+
+  bool pre_buffer() const { return pre_buffer_; }
+
+  /// Set options for read coalescing. This can be used to tune the
+  /// implementation for characteristics of different filesystems.
+  void set_cache_options(::arrow::io::CacheOptions options) { cache_options_ = options; }
+
+  ::arrow::io::CacheOptions cache_options() const { return cache_options_; }
+
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
   int64_t batch_size_;
+  bool pre_buffer_;
+  ::arrow::io::CacheOptions cache_options_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties

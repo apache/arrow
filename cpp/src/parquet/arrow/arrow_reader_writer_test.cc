@@ -1961,7 +1961,7 @@ TEST(TestArrowReadWrite, ReadTableManually) {
 }
 
 void TestGetRecordBatchReader(
-    ReaderProperties parquet_properties = default_reader_properties()) {
+    ArrowReaderProperties properties = default_arrow_reader_properties()) {
   const int num_columns = 20;
   const int num_rows = 1000;
   const int batch_size = 100;
@@ -1973,7 +1973,6 @@ void TestGetRecordBatchReader(
   ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, num_rows / 2,
                                              default_arrow_writer_properties(), &buffer));
 
-  ArrowReaderProperties properties = default_arrow_reader_properties();
   properties.set_batch_size(batch_size);
 
   std::unique_ptr<FileReader> reader;
@@ -2017,9 +2016,9 @@ TEST(TestArrowReadWrite, GetRecordBatchReader) { TestGetRecordBatchReader(); }
 
 // Same as the test above, but using coalesced reads.
 TEST(TestArrowReadWrite, CoalescedReads) {
-  ReaderProperties parquet_properties = default_reader_properties();
-  parquet_properties.enable_coalesced_stream();
-  TestGetRecordBatchReader(parquet_properties);
+  ArrowReaderProperties arrow_properties = default_arrow_reader_properties();
+  arrow_properties.set_pre_buffer(true);
+  TestGetRecordBatchReader(arrow_properties);
 }
 
 TEST(TestArrowReadWrite, ScanContents) {
@@ -2083,9 +2082,10 @@ TEST(TestArrowReadWrite, ReadCoalescedColumnSubset) {
   std::unique_ptr<FileReader> reader;
   FileReaderBuilder builder;
   ReaderProperties properties = default_reader_properties();
-  properties.enable_coalesced_stream();
+  ArrowReaderProperties arrow_properties = default_arrow_reader_properties();
+  arrow_properties.set_pre_buffer(true);
   ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer), properties));
-  ASSERT_OK(builder.Build(&reader));
+  ASSERT_OK(builder.properties(arrow_properties)->Build(&reader));
   reader->set_use_threads(true);
 
   // Test multiple subsets to ensure we can read from the file multiple times

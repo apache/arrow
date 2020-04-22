@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/io/caching.h"
 #include "parquet/metadata.h"  // IWYU pragma: keep
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -119,12 +120,20 @@ class PARQUET_EXPORT ParquetFileReader {
 
   /// Pre-buffer the specified column indices in all row groups.
   ///
-  /// Only has an effect if ReaderProperties.is_coalesced_stream_enabled is set;
-  /// otherwise this is a no-op. The reader internally maintains a cache which is
-  /// overwritten each time this is called. Intended to increase performance on
-  /// high-latency filesystems (e.g. Amazon S3).
+  /// Readers can optionally call this to cache the necessary slices
+  /// of the file in-memory before deserialization. Arrow readers can
+  /// automatically do this via an option. This is intended to
+  /// increase performance when reading from high-latency filesystems
+  /// (e.g. Amazon S3).
+  ///
+  /// After calling this, creating readers for row groups/column
+  /// indices that were not buffered may fail. Creating multiple
+  /// readers for the a subset of the buffered regions is
+  /// acceptable. This may be called again to buffer a different set
+  /// of row groups/columns.
   void PreBuffer(const std::vector<int>& row_groups,
-                 const std::vector<int>& column_indices);
+                 const std::vector<int>& column_indices,
+                 const ::arrow::io::CacheOptions& options);
 
  private:
   // Holds a pointer to an instance of Contents implementation

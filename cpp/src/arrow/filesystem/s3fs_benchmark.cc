@@ -295,10 +295,8 @@ static void ParquetRead(benchmark::State& st, S3FileSystem* fs, const std::strin
 
   parquet::ArrowReaderProperties properties;
   properties.set_use_threads(true);
+  properties.set_pre_buffer(pre_buffer);
   parquet::ReaderProperties parquet_properties = parquet::default_reader_properties();
-  if (pre_buffer) {
-    parquet_properties.enable_coalesced_stream();
-  }
 
   for (auto _ : st) {
     std::shared_ptr<io::RandomAccessFile> file;
