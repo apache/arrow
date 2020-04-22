@@ -115,13 +115,13 @@ void DefinitionLevelsToBitmapSimd(const int16_t* def_levels, int64_t num_def_lev
                                   int64_t* values_read, int64_t* null_count,
                                   uint8_t* valid_bits, int64_t valid_bits_offset) {
   constexpr int64_t kBitMaskSize = 64;
-  int64_t valid_count = 0;
+  int64_t set_count = 0;
   *values_read = 0;
   while (num_def_levels > 0) {
     int64_t batch_size = std::min(num_def_levels, kBitMaskSize);
     CheckLevelRange(def_levels, batch_size, required_definition_level);
-    uint64_t valid_bitmap = internal::GreaterThanBitmap(def_levels, batch_size,
-                                                        required_definition_level - 1);
+    uint64_t defined_bitmap = internal::GreaterThanBitmap(def_levels, batch_size,
+                                                          required_definition_level - 1);
     if (has_repeated_parent) {
       // This is currently a specialized code path assuming only (nested) lists
       // present through the leaf (i.e. no structs).
@@ -132,22 +132,22 @@ void DefinitionLevelsToBitmapSimd(const int16_t* def_levels, int64_t num_def_lev
       // definition - 1). If there where structs mixed in, we need to know the def_level
       // of the repeated parent so we can check for def_level > "def level of repeated
       // parent".
-      uint64_t present_bits = internal::GreaterThanBitmap(def_levels, batch_size,
-                                                          required_definition_level - 2);
-      *values_read += internal::AppendValidityBitmap<true>(
-          /*reversed_bitmap=*/valid_bitmap,
-          /*reversed_parent_bitmap=*/present_bits,
-          /*num_entries=*/batch_size, valid_bits, &valid_bits_offset, &valid_count);
+      uint64_t present_bitmap = internal::GreaterThanBitmap(
+          def_levels, batch_size, required_definition_level - 2);
+      *values_read += internal::AppendSelectedBitsToValidityBitmap(
+          /*new_bits=*/defined_bitmap,
+          /*selection_bitmap*/ present_bitmap, valid_bits, &valid_bits_offset,
+          &set_count);
     } else {
-      *values_read += internal::AppendValidityBitmap<false>(
-          /*reversed_bitmap=*/valid_bitmap,
-          /*reversed_parent_bitmap=*/-1,  // this is unused
-          /*num_entries=*/batch_size, valid_bits, &valid_bits_offset, &valid_count);
+      internal::AppendToValidityBitmap(
+          /*new_bits=*/defined_bitmap,
+          /*new_bit_count=*/batch_size, valid_bits, &valid_bits_offset, &set_count);
+      *values_read += batch_size;
     }
     def_levels += batch_size;
     num_def_levels -= batch_size;
   }
-  *null_count += *values_read - valid_count;
+  *null_count += *values_read - set_count;
 }
 
 inline void DefinitionLevelsToBitmapDispatch(
