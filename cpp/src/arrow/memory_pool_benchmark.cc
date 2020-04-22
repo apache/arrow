@@ -57,6 +57,22 @@ static void TouchCacheLines(uint8_t* data, int64_t nbytes) {
   benchmark::DoNotOptimize(total);
 }
 
+// Benchmark the cost of accessing always the same memory area.
+// This gives us a lower bound of the potential difference between
+// AllocateTouchDeallocate and AllocateDeallocate.
+static void TouchArea(benchmark::State& state) {  // NOLINT non-const reference
+  const int64_t nbytes = state.range(0);
+  MemoryPool* pool = default_memory_pool();
+  uint8_t* data;
+  ARROW_CHECK_OK(pool->Allocate(nbytes, &data));
+
+  for (auto _ : state) {
+    TouchCacheLines(data, nbytes);
+  }
+
+  pool->Free(data, nbytes);
+}
+
 // Benchmark the raw cost of allocating memory.
 // Note this is a best case situation: we always allocate and deallocate exactly
 // the same size, without any other allocator traffic.  However, it can be
@@ -87,20 +103,6 @@ static void AllocateTouchDeallocate(
     TouchCacheLines(data, nbytes);
     pool->Free(data, nbytes);
   }
-}
-
-// Benchmark the cost of accessing always the same memory area.
-static void TouchArea(benchmark::State& state) {  // NOLINT non-const reference
-  const int64_t nbytes = state.range(0);
-  MemoryPool* pool = default_memory_pool();
-  uint8_t* data;
-  ARROW_CHECK_OK(pool->Allocate(nbytes, &data));
-
-  for (auto _ : state) {
-    TouchCacheLines(data, nbytes);
-  }
-
-  pool->Free(data, nbytes);
 }
 
 #define BENCHMARK_ALLOCATE_ARGS \
