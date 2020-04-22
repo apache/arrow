@@ -108,8 +108,10 @@ impl UnionArray {
     /// zero and must be less than the number of children provided in `child_arrays`.  These values
     /// are used to index into the `child_arrays`.
     ///
-    /// The `value_offsets` `Buffer` should contain `i32` values.  These values should be greater
-    /// than zero and must be less than the length of the overall array.
+    /// The `value_offsets` `Buffer` is only provided in the case of a dense union, sparse unions
+    /// should use `None`.  If provided the `value_offsets` `Buffer` should contain `i32` values.
+    /// These values should be greater than zero and must be less than the length of the overall
+    /// array.
     ///
     /// In both cases above we use signed integer types to maintain compatibility with other
     /// Arrow implementations.
