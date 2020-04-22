@@ -6,7 +6,6 @@ class ApacheArrow < Formula
   head "https://github.com/apache/arrow.git"
 
   depends_on "cmake" => :build
-  depends_on "boost"
   depends_on "brotli"
   depends_on "glog"
   depends_on "grpc"
