@@ -1225,6 +1225,10 @@ if(ARROW_WITH_PROTOBUF)
   if(ARROW_WITH_GRPC)
     # gRPC 1.21.0 or later require Protobuf 3.7.0 or later.
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.7.0")
+  elseif(ARROW_GANDIVA_JAVA)
+    # google::protobuf::MessageLite::ByteSize() is deprecated since
+    # Protobuf 3.4.0.
+    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.4.0")
   else()
     set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
   endif()
