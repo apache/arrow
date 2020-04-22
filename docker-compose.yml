@@ -784,6 +784,7 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
+      NOT_CRAN: 'true'
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -808,6 +809,7 @@ services:
       <<: *ccache
       ARROW_R_CXXFLAGS: '-Werror'
       LIBARROW_BUILD: 'false'
+      NOT_CRAN: 'true'
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
