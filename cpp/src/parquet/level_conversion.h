@@ -95,12 +95,14 @@ static inline int64_t AppendBitmap(uint64_t new_bits, int64_t number_of_bits,
     // over to the existing byte and shift up.
     const ByteAddressableBitmap carry_bits(kLsbSelectionMasks[bits_to_carry]);
     // Mask to select non-carried bits.
-    const uint64_t inverse_selection_mask = ~carry_bits.mask;
+    const ByteAddressableBitmap inverse_selection(~carry_bits.mask);
     // Fill out the last incomplete byte in the output, by extracting the least
     // siginficant bits from the first byte.
     const ByteAddressableBitmap new_bitmap(new_bits);
+    // valid bits should be a valid bitmask so all trailing bytes hsould be unset
+    // so no mask is need to start.
     valid_bits[valid_byte_offset] =
-        valid_bits[valid_byte_offset] |
+        valid_bits[valid_byte_offset] |  // See above the
         (((new_bitmap.bytes[0] & carry_bits.bytes[0])) << bit_offset);
 
     // We illustrate logic with a 3-byte example in little endian/LSB order.
@@ -110,7 +112,7 @@ static inline int64_t AppendBitmap(uint64_t new_bits, int64_t number_of_bits,
     // Shifted mask should look like this assuming bit offset = 6:
     // 2  3  4  5  6  7  N  N   10 11 12 13 14 15  N  N   18 19 20 21 22 23  N  N
     // clang-format on
-    uint64_t shifted_new_bits = (new_bits & inverse_selection_mask) >> bits_to_carry;
+    uint64_t shifted_new_bits = (new_bits & inverse_selection.mask) >> bits_to_carry;
     // captured_carry:
     // 0  1  N  N  N  N  N  N   8  9  N  N  N   N  N  N   16 17  N  N  N  N  N  N
     uint64_t captured_carry = carry_bits.mask & new_bits;
@@ -125,7 +127,7 @@ static inline int64_t AppendBitmap(uint64_t new_bits, int64_t number_of_bits,
   }
 
   int64_t bytes_for_new_bits = ::arrow::BitUtil::BytesForBits(number_of_bits);
-  if (valid_bits_length - ::arrow::BitUtil::BytesForBits(valid_bits_offset) >
+  if (valid_bits_length - ::arrow::BitUtil::BytesForBits(valid_bits_offset) >=
       static_cast<int64_t>(sizeof(new_bits))) {
     // This should be the common case and  inlined as a single instruction which
     // should be cheaper then the general case of calling mempcy, so it is likely
