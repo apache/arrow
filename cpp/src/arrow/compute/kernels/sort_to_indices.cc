@@ -25,8 +25,6 @@
 
 #include "arrow/builder.h"
 #include "arrow/compute/context.h"
-#include "arrow/compute/expression.h"
-#include "arrow/compute/logical_type.h"
 #include "arrow/type_traits.h"
 #include "arrow/visitor_inline.h"
 
