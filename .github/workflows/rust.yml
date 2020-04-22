@@ -91,6 +91,7 @@ jobs:
         with:
             toolchain: ${{ matrix.rust }}
             override: true
+            components: rustfmt
       - name: Install Flatbuffers
         shell: bash
         run: choco install flatc
@@ -122,6 +123,7 @@ jobs:
         with:
             toolchain: ${{ matrix.rust }}
             override: true
+            components: rustfmt
       - name: Install Flatbuffers
         shell: bash
         run: brew install flatbuffers
