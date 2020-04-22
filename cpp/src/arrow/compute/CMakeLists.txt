@@ -59,8 +59,6 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
 endfunction()
 
 add_arrow_compute_test(compute_test)
-add_arrow_compute_test(expression_test)
-add_arrow_compute_test(operations/operations_test)
 add_arrow_benchmark(compute_benchmark)
 
 add_subdirectory(kernels)
