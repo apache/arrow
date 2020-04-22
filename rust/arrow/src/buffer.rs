@@ -472,7 +472,7 @@ impl MutableBuffer {
     ///
     /// If `new_len` is greater than `len`, the buffer's length is simply adjusted to be
     /// the former, optionally extending the capacity. The data between `len` and
-    /// `new_len` will remain unchanged.
+    /// `new_len` will be zeroed out.
     ///
     /// If `new_len` is less than `len`, the buffer will be truncated.
     pub fn resize(&mut self, new_len: usize) -> Result<()> {
