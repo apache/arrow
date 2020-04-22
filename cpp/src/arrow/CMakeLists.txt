@@ -416,12 +416,16 @@ endif()
 
 set(ARROW_ALL_SRCS ${ARROW_SRCS} ${ARROW_C_SRCS})
 
+# We bundle some private static dependencies into the Arrow static library,
+# for convenience.
+set(ARROW_BUNDLE_STATIC_LIBS)
+
 if(ARROW_JEMALLOC)
-  set(ARROW_BUNDLE_STATIC_LIBS jemalloc::jemalloc)
+  list(APPEND ARROW_BUNDLE_STATIC_LIBS jemalloc::jemalloc)
 endif()
 
 if(ARROW_MIMALLOC)
-  set(ARROW_BUNDLE_STATIC_LIBS mimalloc::mimalloc)
+  list(APPEND ARROW_BUNDLE_STATIC_LIBS mimalloc::mimalloc)
 endif()
 
 add_arrow_lib(arrow

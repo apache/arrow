@@ -626,10 +626,6 @@ endif()
 #
 
 # TODO: Also rework how these libs work
-set(ARROW_LINK_LIBS)
-set(ARROW_SHARED_INSTALL_INTERFACE_LIBS)
-set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
-
 # Libraries to link statically with libarrow.so
 set(ARROW_LINK_LIBS)
 set(ARROW_STATIC_LINK_LIBS)
