@@ -55,5 +55,4 @@ jobs:
     - script: |
         set -ex
         cat arrow/r/check/arrow.Rcheck/00install.out
-      displayName: Dump install logs on failure
-      condition: failed()
+      displayName: Dump install logs
