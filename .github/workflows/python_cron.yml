@@ -37,7 +37,7 @@ jobs:
   debian:
     name: AMD64 Debian ${{ matrix.debian }} Python 3
     runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
     strategy:
       fail-fast: false
       matrix:
@@ -80,7 +80,7 @@ jobs:
   ubuntu:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} Python 3
     runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
     strategy:
       fail-fast: false
       matrix:
@@ -123,7 +123,7 @@ jobs:
   fedora:
     name: AMD64 Fedora ${{ matrix.fedora }} Python 3
     runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
     strategy:
       fail-fast: false
       matrix:
@@ -166,7 +166,7 @@ jobs:
   downstream:
     name: AMD64 Conda Python 3.7 ${{ matrix.title }}
     runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
     strategy:
       fail-fast: false
       matrix:
