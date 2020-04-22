@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// This API is EXPERIMENTAL.
+
 #pragma once
 
 #include <functional>
@@ -198,6 +200,10 @@ class ARROW_DS_EXPORT Expression {
 
   /// returns a debug string representing this expression
   virtual std::string ToString() const = 0;
+
+  /// serialize/deserialize an Expression.
+  Result<std::shared_ptr<Buffer>> Serialize() const;
+  static Result<std::shared_ptr<Expression>> Deserialize(const Buffer&);
 
   /// \brief Return the expression's type identifier
   ExpressionType::type type() const { return type_; }

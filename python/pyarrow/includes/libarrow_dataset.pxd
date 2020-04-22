@@ -33,100 +33,59 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
 cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
-    cdef enum CExpressionType "arrow::dataset::ExpressionType::type":
-        CExpressionType_FIELD "arrow::dataset::ExpressionType::type::FIELD"
-        CExpressionType_SCALAR "arrow::dataset::ExpressionType::type::SCALAR"
-        CExpressionType_NOT "arrow::dataset::ExpressionType::type::NOT"
-        CExpressionType_CAST "arrow::dataset::ExpressionType::type::CAST"
-        CExpressionType_AND "arrow::dataset::ExpressionType::type::AND"
-        CExpressionType_OR "arrow::dataset::ExpressionType::type::OR"
-        CExpressionType_COMPARISON \
-            "arrow::dataset::ExpressionType::type::COMPARISON"
-        CExpressionType_IS_VALID \
-            "arrow::dataset::ExpressionType::type::IS_VALID"
-        CExpressionType_IN "arrow::dataset::ExpressionType::type::IN"
-        CExpressionType_CUSTOM "arrow::dataset::ExpressionType::type::CUSTOM"
-
     cdef cppclass CExpression "arrow::dataset::Expression":
-        CExpression(CExpressionType type)
         c_bool Equals(const CExpression& other) const
         c_bool Equals(const shared_ptr[CExpression]& other) const
-        c_bool IsNull() const
         CResult[shared_ptr[CDataType]] Validate(const CSchema& schema) const
         shared_ptr[CExpression] Assume(const CExpression& given) const
         shared_ptr[CExpression] Assume(
             const shared_ptr[CExpression]& given) const
         c_string ToString() const
-        CExpressionType type() const
         shared_ptr[CExpression] Copy() const
+
+        const CExpression& In(shared_ptr[CArray]) const
+        const CExpression& IsValid() const
+        const CExpression& CastTo(shared_ptr[CDataType], CCastOptions) const
+        const CExpression& CastLike(shared_ptr[CExpression],
+                                    CCastOptions) const
+
+        @staticmethod
+        CResult[shared_ptr[CExpression]] Deserialize(const CBuffer& buffer)
+        CResult[shared_ptr[CBuffer]] Serialize() const
 
     ctypedef vector[shared_ptr[CExpression]] CExpressionVector \
         "arrow::dataset::ExpressionVector"
 
-    cdef cppclass CUnaryExpression "arrow::dataset::UnaryExpression"(
-            CExpression):
-        const shared_ptr[CExpression]& operand() const
-
-    cdef cppclass CBinaryExpression "arrow::dataset::BinaryExpression"(
-            CExpression):
-        const shared_ptr[CExpression]& left_operand() const
-        const shared_ptr[CExpression]& right_operand() const
-
-    cdef cppclass CScalarExpression "arrow::dataset::ScalarExpression"(
-            CExpression):
-        CScalarExpression(const shared_ptr[CScalar]& value)
-        const shared_ptr[CScalar]& value() const
-
-    cdef cppclass CFieldExpression "arrow::dataset::FieldExpression"(
-            CExpression):
-        CFieldExpression(c_string name)
-        c_string name() const
-
-    cdef cppclass CComparisonExpression "arrow::dataset::ComparisonExpression"(
-            CBinaryExpression):
-        CComparisonExpression(CCompareOperator op,
-                              shared_ptr[CExpression] left_operand,
-                              shared_ptr[CExpression] right_operand)
-        CCompareOperator op() const
-
-    cdef cppclass CAndExpression "arrow::dataset::AndExpression"(
-            CBinaryExpression):
-        CAndExpression(shared_ptr[CExpression] left_operand,
-                       shared_ptr[CExpression] right_operand)
-
-    cdef cppclass COrExpression "arrow::dataset::OrExpression"(
-            CBinaryExpression):
-        COrExpression(shared_ptr[CExpression] left_operand,
-                      shared_ptr[CExpression] right_operand)
-
-    cdef cppclass CNotExpression "arrow::dataset::NotExpression"(
-            CUnaryExpression):
-        pass
-
-    cdef cppclass CIsValidExpression "arrow::dataset::IsValidExpression"(
-            CUnaryExpression):
-        pass
-
-    cdef cppclass CCastExpression "arrow::dataset::CastExpression"(
-            CUnaryExpression):
-        CCastExpression(shared_ptr[CExpression] operand,
-                        shared_ptr[CDataType] to,
-                        CCastOptions options)
-        const CCastOptions& options() const
-        const shared_ptr[CDataType]& to_type() const
-        const shared_ptr[CExpression]& like_expr() const
-
-    cdef cppclass CInExpression "arrow::dataset::InExpression"(
-            CUnaryExpression):
-        CInExpression(shared_ptr[CExpression] operand, shared_ptr[CArray] set)
-        const shared_ptr[CArray]& set() const
-
-    cdef shared_ptr[CNotExpression] CMakeNotExpression "arrow::dataset::not_"(
-        shared_ptr[CExpression] operand)
-    cdef shared_ptr[CExpression] CMakeAndExpression "arrow::dataset::and_"(
-        const CExpressionVector& subexpressions)
-    cdef shared_ptr[CExpression] CMakeOrExpression "arrow::dataset::or_"(
-        const CExpressionVector& subexpressions)
+    cdef shared_ptr[CExpression] CMakeFieldExpression \
+        "arrow::dataset::field_ref"(c_string name)
+    cdef shared_ptr[CExpression] CMakeScalarExpression \
+        "arrow::dataset::scalar"(shared_ptr[CScalar] value)
+    cdef shared_ptr[CExpression] CMakeNotExpression \
+        "arrow::dataset::not_"(shared_ptr[CExpression] operand)
+    cdef shared_ptr[CExpression] CMakeAndExpression \
+        "arrow::dataset::and_"(shared_ptr[CExpression],
+                               shared_ptr[CExpression])
+    cdef shared_ptr[CExpression] CMakeOrExpression \
+        "arrow::dataset::or_"(shared_ptr[CExpression],
+                              shared_ptr[CExpression])
+    cdef shared_ptr[CExpression] CMakeEqualExpression \
+        "arrow::dataset::equal"(shared_ptr[CExpression],
+                                shared_ptr[CExpression])
+    cdef shared_ptr[CExpression] CMakeNotEqualExpression \
+        "arrow::dataset::not_equal"(shared_ptr[CExpression],
+                                    shared_ptr[CExpression])
+    cdef shared_ptr[CExpression] CMakeGreaterExpression \
+        "arrow::dataset::greater"(shared_ptr[CExpression],
+                                  shared_ptr[CExpression])
+    cdef shared_ptr[CExpression] CMakeGreaterEqualExpression \
+        "arrow::dataset::greater_equal"(shared_ptr[CExpression],
+                                        shared_ptr[CExpression])
+    cdef shared_ptr[CExpression] CMakeLessExpression \
+        "arrow::dataset::less"(shared_ptr[CExpression],
+                               shared_ptr[CExpression])
+    cdef shared_ptr[CExpression] CMakeLessEqualExpression \
+        "arrow::dataset::less_equal"(shared_ptr[CExpression],
+                                     shared_ptr[CExpression])
 
     cdef CResult[shared_ptr[CExpression]] CInsertImplicitCasts \
         "arrow::dataset::InsertImplicitCasts"(

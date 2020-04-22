@@ -21,86 +21,86 @@
 
 // [[arrow::export]]
 std::shared_ptr<ds::Expression> dataset___expr__field_ref(std::string name) {
-  return std::make_shared<ds::FieldExpression>(std::move(name));
+  return ds::field_ref(std::move(name));
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__equal(
+std::shared_ptr<ds::Expression> dataset___expr__equal(
     const std::shared_ptr<ds::Expression>& lhs,
     const std::shared_ptr<ds::Expression>& rhs) {
   return ds::equal(lhs, rhs);
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__not_equal(
+std::shared_ptr<ds::Expression> dataset___expr__not_equal(
     const std::shared_ptr<ds::Expression>& lhs,
     const std::shared_ptr<ds::Expression>& rhs) {
   return ds::not_equal(lhs, rhs);
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__greater(
+std::shared_ptr<ds::Expression> dataset___expr__greater(
     const std::shared_ptr<ds::Expression>& lhs,
     const std::shared_ptr<ds::Expression>& rhs) {
   return ds::greater(lhs, rhs);
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__greater_equal(
+std::shared_ptr<ds::Expression> dataset___expr__greater_equal(
     const std::shared_ptr<ds::Expression>& lhs,
     const std::shared_ptr<ds::Expression>& rhs) {
   return ds::greater_equal(lhs, rhs);
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__less(
+std::shared_ptr<ds::Expression> dataset___expr__less(
     const std::shared_ptr<ds::Expression>& lhs,
     const std::shared_ptr<ds::Expression>& rhs) {
   return ds::less(lhs, rhs);
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__less_equal(
+std::shared_ptr<ds::Expression> dataset___expr__less_equal(
     const std::shared_ptr<ds::Expression>& lhs,
     const std::shared_ptr<ds::Expression>& rhs) {
   return ds::less_equal(lhs, rhs);
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::InExpression> dataset___expr__in(
+std::shared_ptr<ds::Expression> dataset___expr__in(
     const std::shared_ptr<ds::Expression>& lhs,
     const std::shared_ptr<arrow::Array>& rhs) {
-  return std::make_shared<ds::InExpression>(lhs->In(rhs));
+  return lhs->In(rhs).Copy();
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::AndExpression> dataset___expr__and(
+std::shared_ptr<ds::Expression> dataset___expr__and(
     const std::shared_ptr<ds::Expression>& lhs,
     const std::shared_ptr<ds::Expression>& rhs) {
   return ds::and_(lhs, rhs);
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::OrExpression> dataset___expr__or(
+std::shared_ptr<ds::Expression> dataset___expr__or(
     const std::shared_ptr<ds::Expression>& lhs,
     const std::shared_ptr<ds::Expression>& rhs) {
   return ds::or_(lhs, rhs);
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::NotExpression> dataset___expr__not(
+std::shared_ptr<ds::Expression> dataset___expr__not(
     const std::shared_ptr<ds::Expression>& lhs) {
   return ds::not_(lhs);
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::IsValidExpression> dataset___expr__is_valid(
+std::shared_ptr<ds::Expression> dataset___expr__is_valid(
     const std::shared_ptr<ds::Expression>& lhs) {
-  return std::make_shared<ds::IsValidExpression>(lhs->IsValid());
+  return lhs->IsValid().Copy();
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::ScalarExpression> dataset___expr__scalar(SEXP x) {
+std::shared_ptr<ds::Expression> dataset___expr__scalar(SEXP x) {
   switch (TYPEOF(x)) {
     case NILSXP:
       return ds::scalar(std::make_shared<arrow::NullScalar>());
@@ -108,12 +108,10 @@ std::shared_ptr<ds::ScalarExpression> dataset___expr__scalar(SEXP x) {
       return ds::scalar(Rf_asLogical(x));
     case REALSXP:
       if (Rf_inherits(x, "Date")) {
-        return std::make_shared<ds::ScalarExpression>(
-            std::make_shared<arrow::Date32Scalar>(REAL(x)[0]));
+        return ds::scalar(std::make_shared<arrow::Date32Scalar>(REAL(x)[0]));
       } else if (Rf_inherits(x, "POSIXct")) {
-        return std::make_shared<ds::ScalarExpression>(
-            std::make_shared<arrow::TimestampScalar>(
-                REAL(x)[0], arrow::timestamp(arrow::TimeUnit::SECOND)));
+        return ds::scalar(std::make_shared<arrow::TimestampScalar>(
+            REAL(x)[0], arrow::timestamp(arrow::TimeUnit::SECOND)));
       } else if (Rf_inherits(x, "integer64")) {
         int64_t value = *reinterpret_cast<int64_t*>(REAL(x));
         return ds::scalar(value);

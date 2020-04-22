@@ -42,6 +42,195 @@ def _forbid_instantiation(klass, subclasses_instead=True):
     raise TypeError(msg)
 
 
+cdef class Expression:
+
+    cdef:
+        shared_ptr[CExpression] wrapped
+        CExpression* expr
+
+    def __init__(self, Buffer buffer=None):
+        if buffer is not None:
+            c_buffer = pyarrow_unwrap_buffer(buffer)
+            expr = GetResultValue(CExpression.Deserialize(deref(c_buffer)))
+            self.init(expr)
+
+    cdef void init(self, const shared_ptr[CExpression]& sp):
+        self.wrapped = sp
+        self.expr = sp.get()
+
+    @staticmethod
+    cdef wrap(const shared_ptr[CExpression]& sp):
+        self = Expression()
+        self.init(sp)
+        return self
+
+    cdef inline shared_ptr[CExpression] unwrap(self):
+        return self.wrapped
+
+    def equals(self, Expression other):
+        return self.expr.Equals(other.unwrap())
+
+    def __str__(self):
+        return frombytes(self.expr.ToString())
+
+    def __repr__(self):
+        return "<pyarrow.dataset.{0} {1}>".format(
+            self.__class__.__name__, str(self)
+        )
+
+    def __reduce__(self):
+        buffer = pyarrow_wrap_buffer(GetResultValue(self.expr.Serialize()))
+        return Expression, (buffer,)
+
+    def validate(self, Schema schema not None):
+        """Validate this expression for execution against a schema.
+
+        This will check that all reference fields are present (fields not in
+        the schema will be replaced with null) and all subexpressions are
+        executable. Returns the type to which this expression will evaluate.
+
+        Parameters
+        ----------
+        schema : Schema
+            Schema to execute the expression on.
+
+        Returns
+        -------
+        type : DataType
+        """
+        cdef:
+            shared_ptr[CSchema] sp_schema
+            CResult[shared_ptr[CDataType]] result
+        sp_schema = pyarrow_unwrap_schema(schema)
+        result = self.expr.Validate(deref(sp_schema))
+        return pyarrow_wrap_data_type(GetResultValue(result))
+
+    def assume(self, Expression given):
+        """Simplify to an equivalent Expression given assumed constraints."""
+        return Expression.wrap(self.expr.Assume(given.unwrap()))
+
+    def __invert__(self):
+        return Expression.not_(self)
+
+    @staticmethod
+    def _expr_or_scalar(expr):
+        if isinstance(expr, Expression):
+            return expr
+        return Expression.scalar(expr)
+
+    def __richcmp__(self, other, int op):
+        operator_mapping = {
+            Py_EQ: Expression.equal,
+            Py_NE: Expression.not_equal,
+            Py_GT: Expression.greater,
+            Py_GE: Expression.greater_equal,
+            Py_LT: Expression.less,
+            Py_LE: Expression.less_equal
+        }
+
+        return operator_mapping[op](self, Expression._expr_or_scalar(other))
+
+    def __and__(self, other):
+        return Expression.and_(self, Expression._expr_or_scalar(other))
+
+    def __or__(self, other):
+        return Expression.or_(self, Expression._expr_or_scalar(other))
+
+    def is_valid(self):
+        """Checks whether the expression is not-null (valid)"""
+        return Expression.wrap(self.expr.IsValid().Copy())
+
+    def cast(self, type, bint safe=True):
+        """Explicitly change the expression's data type"""
+        cdef:
+            CastOptions options
+            CCastOptions c_options
+            shared_ptr[CExpression] expr
+        options = CastOptions.safe() if safe else CastOptions.unsafe()
+        c_options = options.unwrap()
+        c_type = pyarrow_unwrap_data_type(ensure_type(type))
+        return Expression.wrap(self.expr.CastTo(c_type, c_options).Copy())
+
+    def isin(self, values):
+        """Checks whether the expression is contained in values"""
+        if not isinstance(values, pa.Array):
+            values = pa.array(values)
+        c_values = pyarrow_unwrap_array(values)
+        return Expression.wrap(self.expr.In(c_values).Copy())
+
+    @staticmethod
+    def field(str name not None):
+        return Expression.wrap(CMakeFieldExpression(tobytes(name)))
+
+    @staticmethod
+    def scalar(value):
+        cdef:
+            shared_ptr[CScalar] scalar
+            shared_ptr[CExpression] expr
+
+        if value is None:
+            scalar.reset(new CNullScalar())
+        elif isinstance(value, bool):
+            scalar = MakeScalar(<c_bool>value)
+        elif isinstance(value, float):
+            scalar = MakeScalar(<double>value)
+        elif isinstance(value, int):
+            scalar = MakeScalar(<int64_t>value)
+        elif isinstance(value, (bytes, str)):
+            scalar = MakeStringScalar(tobytes(value))
+        else:
+            raise TypeError('Not yet supported scalar value: {}'.format(value))
+
+        return Expression.wrap(CMakeScalarExpression(move(scalar)))
+
+    @staticmethod
+    def and_(Expression left not None, Expression right not None):
+        return Expression.wrap(CMakeAndExpression(left.unwrap(),
+                                                  right.unwrap()))
+
+    @staticmethod
+    def or_(Expression left not None, Expression right not None):
+        return Expression.wrap(CMakeOrExpression(left.unwrap(),
+                                                 right.unwrap()))
+
+    @staticmethod
+    def not_(Expression operand not None):
+        return Expression.wrap(CMakeNotExpression(operand.unwrap()))
+
+    @staticmethod
+    def equal(Expression left not None, Expression right not None):
+        return Expression.wrap(CMakeEqualExpression(left.unwrap(),
+                                                    right.unwrap()))
+
+    @staticmethod
+    def not_equal(Expression left not None, Expression right not None):
+        return Expression.wrap(CMakeNotEqualExpression(left.unwrap(),
+                                                       right.unwrap()))
+
+    @staticmethod
+    def greater_equal(Expression left not None, Expression right not None):
+        return Expression.wrap(CMakeGreaterEqualExpression(left.unwrap(),
+                                                           right.unwrap()))
+
+    @staticmethod
+    def greater(Expression left not None, Expression right not None):
+        return Expression.wrap(CMakeGreaterExpression(left.unwrap(),
+                                                      right.unwrap()))
+
+    @staticmethod
+    def less_equal(Expression left not None, Expression right not None):
+        return Expression.wrap(CMakeLessEqualExpression(left.unwrap(),
+                                                        right.unwrap()))
+
+    @staticmethod
+    def less(Expression left not None, Expression right not None):
+        return Expression.wrap(CMakeLessExpression(left.unwrap(),
+                                                   right.unwrap()))
+
+
+_true = Expression.scalar(True)
+
+
 cdef class Dataset:
     """
     Collection of data fragments and potentially child datasets.
@@ -270,8 +459,8 @@ cdef class FileSystemDataset(Dataset):
     cdef:
         CFileSystemDataset* filesystem_dataset
 
-    def __init__(self, paths_or_selector, schema=None, format=None,
-                 filesystem=None, partitions=None, root_partition=None):
+    def __init__(self, paths_or_selector, schema, format, filesystem,
+                 partitions=None, Expression root_partition=_true):
         cdef:
             FileInfo info
             Expression expr
@@ -282,11 +471,11 @@ cdef class FileSystemDataset(Dataset):
             vector[shared_ptr[CFileFragment]] c_fragments
             CResult[shared_ptr[CDataset]] result
 
-        # validate required arguments
         for arg, class_, name in [
             (schema, Schema, 'schema'),
             (format, FileFormat, 'format'),
-            (filesystem, FileSystem, 'filesystem')
+            (filesystem, FileSystem, 'filesystem'),
+            (root_partition, Expression, 'root_partition')
         ]:
             if not isinstance(arg, class_):
                 raise TypeError(
@@ -297,13 +486,16 @@ cdef class FileSystemDataset(Dataset):
         infos = filesystem.get_file_info(paths_or_selector)
 
         if partitions is None:
-            partitions = [ScalarExpression(True)] * len(infos)
+            partitions = [_true] * len(infos)
 
         if len(infos) != len(partitions):
             raise ValueError(
                 'The number of files resulting from paths_or_selector '
                 'must be equal to the number of partitions.'
             )
+
+        for expr in partitions:
+            c_partitions.push_back(expr.unwrap())
 
         for i, info in enumerate(infos):
             if info.is_file:
@@ -312,14 +504,6 @@ cdef class FileSystemDataset(Dataset):
                 c_fragments.push_back(
                     static_pointer_cast[CFileFragment, CFragment](
                         fragment.unwrap()))
-
-        if root_partition is None:
-            root_partition = ScalarExpression(True)
-        elif not isinstance(root_partition, Expression):
-            raise TypeError(
-                "Argument 'root_partition' has incorrect type (expected "
-                "Expression, got {0})".format(type(root_partition))
-            )
 
         result = CFileSystemDataset.Make(
             pyarrow_unwrap_schema(schema),
@@ -350,7 +534,8 @@ cdef shared_ptr[CExpression] _insert_implicit_casts(Expression filter,
     assert schema is not None
 
     if filter is None:
-        return ScalarExpression(True).unwrap()
+        expr = <Expression> Expression.scalar(True)
+        return expr.unwrap()
 
     return GetResultValue(
         CInsertImplicitCasts(
@@ -403,7 +588,7 @@ cdef class FileFormat:
         return pyarrow_wrap_schema(move(c_schema))
 
     def make_fragment(self, str path not None, FileSystem filesystem not None,
-                      Expression partition_expression=ScalarExpression(True)):
+                      Expression partition_expression=_true):
         """
         Make a FileFragment of this FileFormat. The filter may not reference
         fields absent from the provided schema. If no schema is provided then
@@ -739,8 +924,7 @@ cdef class ParquetFileFormat(FileFormat):
         return ParquetFileFormat, (self.read_options,)
 
     def make_fragment(self, str path not None, FileSystem filesystem not None,
-                      Expression partition_expression=ScalarExpression(True),
-                      row_groups=None):
+                      Expression partition_expression=_true, row_groups=None):
         cdef:
             shared_ptr[CFileFragment] c_fragment
             vector[int] c_row_groups
@@ -1542,393 +1726,3 @@ cdef class Scanner:
                 raise StopIteration()
             else:
                 yield Fragment.wrap(fragment)
-
-
-def _binop(fn, left, right):
-    # cython doesn't support reverse operands like __radd__ just passes the
-    # arguments in the same order as the binary operator called
-    if isinstance(left, Expression) and isinstance(right, Expression):
-        pass
-    elif isinstance(left, Expression):
-        right = ScalarExpression(right)
-    elif isinstance(right, Expression):
-        left = ScalarExpression(left)
-    else:
-        raise TypeError('Neither left nor right arguments are Expressions')
-
-    return fn(left, right)
-
-
-cdef class Expression:
-
-    cdef:
-        shared_ptr[CExpression] wrapped
-        CExpression* expr
-
-    def __init__(self):
-        _forbid_instantiation(self.__class__)
-
-    cdef void init(self, const shared_ptr[CExpression]& sp):
-        self.wrapped = sp
-        self.expr = sp.get()
-
-    @staticmethod
-    cdef wrap(const shared_ptr[CExpression]& sp):
-        cdef Expression self
-
-        typ = sp.get().type()
-        if typ == CExpressionType_FIELD:
-            self = FieldExpression.__new__(FieldExpression)
-        elif typ == CExpressionType_SCALAR:
-            self = ScalarExpression.__new__(ScalarExpression)
-        elif typ == CExpressionType_NOT:
-            self = NotExpression.__new__(NotExpression)
-        elif typ == CExpressionType_CAST:
-            self = CastExpression.__new__(CastExpression)
-        elif typ == CExpressionType_AND:
-            self = AndExpression.__new__(AndExpression)
-        elif typ == CExpressionType_OR:
-            self = OrExpression.__new__(OrExpression)
-        elif typ == CExpressionType_COMPARISON:
-            self = ComparisonExpression.__new__(ComparisonExpression)
-        elif typ == CExpressionType_IS_VALID:
-            self = IsValidExpression.__new__(IsValidExpression)
-        elif typ == CExpressionType_IN:
-            self = InExpression.__new__(InExpression)
-        else:
-            raise TypeError(typ)
-
-        self.init(sp)
-        return self
-
-    cdef inline shared_ptr[CExpression] unwrap(self):
-        return self.wrapped
-
-    def equals(self, Expression other):
-        return self.expr.Equals(other.unwrap())
-
-    def __str__(self):
-        return frombytes(self.expr.ToString())
-
-    def __repr__(self):
-        return "<pyarrow.dataset.{0} {1}>".format(
-            self.__class__.__name__, str(self)
-        )
-
-    def validate(self, Schema schema not None):
-        """Validate this expression for execution against a schema.
-
-        This will check that all reference fields are present (fields not in
-        the schema will be replaced with null) and all subexpressions are
-        executable. Returns the type to which this expression will evaluate.
-
-        Parameters
-        ----------
-        schema : Schema
-            Schema to execute the expression on.
-
-        Returns
-        -------
-        type : DataType
-        """
-        cdef:
-            shared_ptr[CSchema] sp_schema
-            CResult[shared_ptr[CDataType]] result
-        sp_schema = pyarrow_unwrap_schema(schema)
-        result = self.expr.Validate(deref(sp_schema))
-        return pyarrow_wrap_data_type(GetResultValue(result))
-
-    def assume(self, Expression given):
-        """Simplify to an equivalent Expression given assumed constraints."""
-        return Expression.wrap(self.expr.Assume(given.unwrap()))
-
-    def __invert__(self):
-        return NotExpression(self)
-
-    def __richcmp__(self, other, int op):
-        operator_mapping = {
-            Py_EQ: CompareOperator.Equal,
-            Py_NE: CompareOperator.NotEqual,
-            Py_GT: CompareOperator.Greater,
-            Py_GE: CompareOperator.GreaterEqual,
-            Py_LT: CompareOperator.Less,
-            Py_LE: CompareOperator.LessEqual
-        }
-
-        if not isinstance(other, Expression):
-            other = ScalarExpression(other)
-
-        return ComparisonExpression(operator_mapping[op], self, other)
-
-    def __and__(self, other):
-        return _binop(AndExpression, self, other)
-
-    def __or__(self, other):
-        return _binop(OrExpression, self, other)
-
-    def is_valid(self):
-        """Checks whether the expression is not-null (valid)"""
-        return IsValidExpression(self)
-
-    def cast(self, type, bint safe=True):
-        """Explicitly change the expression's data type"""
-        return CastExpression(self, to=ensure_type(type), safe=safe)
-
-    def isin(self, values):
-        """Checks whether the expression is contained in values"""
-        return InExpression(self, pa.array(values))
-
-
-cdef class UnaryExpression(Expression):
-
-    cdef CUnaryExpression* unary
-
-    cdef void init(self, const shared_ptr[CExpression]& sp):
-        Expression.init(self, sp)
-        self.unary = <CUnaryExpression*> sp.get()
-
-    @property
-    def operand(self):
-        return Expression.wrap(self.unary.operand())
-
-
-cdef class BinaryExpression(Expression):
-
-    cdef CBinaryExpression* binary
-
-    cdef void init(self, const shared_ptr[CExpression]& sp):
-        Expression.init(self, sp)
-        self.binary = <CBinaryExpression*> sp.get()
-
-    @property
-    def left_operand(self):
-        return Expression.wrap(self.binary.left_operand())
-
-    @property
-    def right_operand(self):
-        return Expression.wrap(self.binary.right_operand())
-
-
-cdef class ScalarExpression(Expression):
-
-    cdef CScalarExpression* scalar
-
-    def __init__(self, value):
-        cdef:
-            shared_ptr[CScalar] scalar
-            shared_ptr[CScalarExpression] expr
-
-        if value is None:
-            scalar.reset(new CNullScalar())
-        elif isinstance(value, bool):
-            scalar = MakeScalar(<c_bool>value)
-        elif isinstance(value, float):
-            scalar = MakeScalar(<double>value)
-        elif isinstance(value, int):
-            scalar = MakeScalar(<int64_t>value)
-        elif isinstance(value, (bytes, str)):
-            scalar = MakeStringScalar(tobytes(value))
-        else:
-            raise TypeError('Not yet supported scalar value: {}'.format(value))
-
-        expr.reset(new CScalarExpression(scalar))
-        self.init(<shared_ptr[CExpression]> expr)
-
-    cdef void init(self, const shared_ptr[CExpression]& sp):
-        Expression.init(self, sp)
-        self.scalar = <CScalarExpression*> sp.get()
-
-    @property
-    def value(self):
-        cdef ScalarValue scalar = pyarrow_wrap_scalar(self.scalar.value())
-        return scalar.as_py()
-
-    def __reduce__(self):
-        return ScalarExpression, (self.value,)
-
-
-cdef class FieldExpression(Expression):
-
-    cdef CFieldExpression* scalar
-
-    def __init__(self, name):
-        cdef:
-            c_string field_name = tobytes(name)
-            shared_ptr[CExpression] expr
-        expr.reset(new CFieldExpression(field_name))
-        self.init(expr)
-
-    cdef void init(self, const shared_ptr[CExpression]& sp):
-        Expression.init(self, sp)
-        self.scalar = <CFieldExpression*> sp.get()
-
-    @property
-    def name(self):
-        return frombytes(self.scalar.name())
-
-    def __reduce__(self):
-        return FieldExpression, (self.name,)
-
-
-cpdef enum CompareOperator:
-    Equal = <int8_t> CCompareOperator_EQUAL
-    NotEqual = <int8_t> CCompareOperator_NOT_EQUAL
-    Greater = <int8_t> CCompareOperator_GREATER
-    GreaterEqual = <int8_t> CCompareOperator_GREATER_EQUAL
-    Less = <int8_t> CCompareOperator_LESS
-    LessEqual = <int8_t> CCompareOperator_LESS_EQUAL
-
-
-cdef class ComparisonExpression(BinaryExpression):
-
-    cdef CComparisonExpression* comparison
-
-    def __init__(self, CompareOperator op, Expression left not None,
-                 Expression right not None):
-        cdef shared_ptr[CComparisonExpression] expr
-        expr.reset(
-            new CComparisonExpression(
-                <CCompareOperator>op,
-                left.unwrap(),
-                right.unwrap()
-            )
-        )
-        self.init(<shared_ptr[CExpression]> expr)
-
-    cdef void init(self, const shared_ptr[CExpression]& sp):
-        BinaryExpression.init(self, sp)
-        self.comparison = <CComparisonExpression*> sp.get()
-
-    @property
-    def op(self):
-        return <CompareOperator> self.comparison.op()
-
-    def __reduce__(self):
-        return ComparisonExpression, (
-            self.op, self.left_operand, self.right_operand
-        )
-
-
-cdef class IsValidExpression(UnaryExpression):
-
-    def __init__(self, Expression operand not None):
-        cdef shared_ptr[CIsValidExpression] expr
-        expr = make_shared[CIsValidExpression](operand.unwrap())
-        self.init(<shared_ptr[CExpression]> expr)
-
-    def __reduce__(self):
-        return IsValidExpression, (self.operand,)
-
-
-cdef class CastExpression(UnaryExpression):
-
-    cdef CCastExpression *cast
-
-    def __init__(self, Expression operand not None, DataType to not None,
-                 bint safe=True):
-        cdef:
-            CastOptions options
-            shared_ptr[CExpression] expr
-        options = CastOptions.safe() if safe else CastOptions.unsafe()
-        expr.reset(
-            new CCastExpression(
-                operand.unwrap(),
-                pyarrow_unwrap_data_type(to),
-                options.unwrap()
-            )
-        )
-        self.init(expr)
-
-    cdef void init(self, const shared_ptr[CExpression]& sp):
-        UnaryExpression.init(self, sp)
-        self.cast = <CCastExpression*> sp.get()
-
-    @property
-    def to(self):
-        """
-        Target DataType or Expression of the cast operation.
-
-        Returns
-        -------
-        DataType or Expression
-        """
-        cdef shared_ptr[CDataType] typ = self.cast.to_type()
-
-        if typ.get() != nullptr:
-            return pyarrow_wrap_data_type(typ)
-        else:
-            raise TypeError(
-                'Cannot determine the target type of the cast expression'
-            )
-
-    @property
-    def safe(self):
-        """
-        Whether to check for overflows or other unsafe conversions.
-
-        Returns
-        -------
-        bool
-        """
-        cdef CastOptions options = CastOptions.wrap(self.cast.options())
-        return options.is_safe()
-
-    def __reduce__(self):
-        return CastExpression, (self.operand, self.to, self.safe)
-
-
-cdef class InExpression(UnaryExpression):
-
-    cdef:
-        CInExpression* inexpr
-
-    def __init__(self, Expression operand not None, Array set_ not None):
-        cdef shared_ptr[CExpression] expr
-        expr.reset(
-            new CInExpression(operand.unwrap(), pyarrow_unwrap_array(set_))
-        )
-        self.init(expr)
-
-    cdef void init(self, const shared_ptr[CExpression]& sp):
-        UnaryExpression.init(self, sp)
-        self.inexpr = <CInExpression*> sp.get()
-
-    @property
-    def set_(self):
-        return pyarrow_wrap_array(self.inexpr.set())
-
-    def __reduce__(self):
-        return InExpression, (self.operand, self.set_)
-
-
-cdef class NotExpression(UnaryExpression):
-
-    def __init__(self, Expression operand not None):
-        cdef shared_ptr[CNotExpression] expr
-        expr = CMakeNotExpression(operand.unwrap())
-        self.init(<shared_ptr[CExpression]> expr)
-
-    def __reduce__(self):
-        return NotExpression, (self.operand,)
-
-
-cdef class AndExpression(BinaryExpression):
-
-    def __init__(self, Expression left not None, Expression right not None):
-        cdef shared_ptr[CAndExpression] expr
-        expr.reset(new CAndExpression(left.unwrap(), right.unwrap()))
-        self.init(<shared_ptr[CExpression]> expr)
-
-    def __reduce__(self):
-        return AndExpression, (self.left_operand, self.right_operand)
-
-
-cdef class OrExpression(BinaryExpression):
-
-    def __init__(self, Expression left not None, Expression right not None):
-        cdef shared_ptr[COrExpression] expr
-        expr.reset(new COrExpression(left.unwrap(), right.unwrap()))
-        self.init(<shared_ptr[CExpression]> expr)
-
-    def __reduce__(self):
-        return OrExpression, (self.left_operand, self.right_operand)

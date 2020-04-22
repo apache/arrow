@@ -78,6 +78,8 @@ struct ARROW_EXPORT Scalar : public util::EqualityComparable<Scalar> {
   // TODO(bkietz) add compute::CastOptions
   Result<std::shared_ptr<Scalar>> CastTo(std::shared_ptr<DataType> to) const;
 
+  static Result<std::shared_ptr<Scalar>> FromArraySlot(const Array& array, int64_t index);
+
  protected:
   Scalar(std::shared_ptr<DataType> type, bool is_valid)
       : type(std::move(type)), is_valid(is_valid) {}
@@ -324,24 +326,28 @@ struct ARROW_EXPORT BaseListScalar : public Scalar {
 
   BaseListScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type);
 
-  explicit BaseListScalar(std::shared_ptr<Array> value);
-
   std::shared_ptr<Array> value;
 };
 
 struct ARROW_EXPORT ListScalar : public BaseListScalar {
   using TypeClass = ListType;
   using BaseListScalar::BaseListScalar;
+
+  explicit ListScalar(std::shared_ptr<Array> value);
 };
 
 struct ARROW_EXPORT LargeListScalar : public BaseListScalar {
   using TypeClass = LargeListType;
   using BaseListScalar::BaseListScalar;
+
+  explicit LargeListScalar(std::shared_ptr<Array> value);
 };
 
 struct ARROW_EXPORT MapScalar : public BaseListScalar {
   using TypeClass = MapType;
   using BaseListScalar::BaseListScalar;
+
+  explicit MapScalar(std::shared_ptr<Array> value);
 };
 
 struct ARROW_EXPORT FixedSizeListScalar : public BaseListScalar {
@@ -349,6 +355,8 @@ struct ARROW_EXPORT FixedSizeListScalar : public BaseListScalar {
   using BaseListScalar::BaseListScalar;
 
   FixedSizeListScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type);
+
+  explicit FixedSizeListScalar(std::shared_ptr<Array> value);
 };
 
 struct ARROW_EXPORT StructScalar : public Scalar {
@@ -412,7 +420,8 @@ struct MakeScalarImpl {
   }
 
   Status Visit(const DataType& t) {
-    return Status::NotImplemented("constructing scalars of type ", t, " from ", value_);
+    return Status::NotImplemented("constructing scalars of type ", t,
+                                  " from unboxed values");
   }
 
   Result<std::shared_ptr<Scalar>> Finish() && {

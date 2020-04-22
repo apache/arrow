@@ -136,17 +136,35 @@ FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::shared_ptr<Buffer> value,
 
 BaseListScalar::BaseListScalar(std::shared_ptr<Array> value,
                                std::shared_ptr<DataType> type)
-    : Scalar{std::move(type), true}, value(std::move(value)) {}
+    : Scalar{std::move(type), true}, value(std::move(value)) {
+  ARROW_CHECK(this->type->child(0)->type()->Equals(this->value->type()));
+}
 
-BaseListScalar::BaseListScalar(std::shared_ptr<Array> value)
-    : Scalar(value->type(), true), value(std::move(value)) {}
+ListScalar::ListScalar(std::shared_ptr<Array> value)
+    : BaseListScalar(value, list(value->type())) {}
+
+LargeListScalar::LargeListScalar(std::shared_ptr<Array> value)
+    : BaseListScalar(value, large_list(value->type())) {}
+
+inline std::shared_ptr<DataType> MakeMapType(const std::shared_ptr<DataType>& pair_type) {
+  ARROW_CHECK_EQ(pair_type->id(), Type::STRUCT);
+  ARROW_CHECK_EQ(pair_type->num_children(), 2);
+  return map(pair_type->child(0)->type(), pair_type->child(1));
+}
+
+MapScalar::MapScalar(std::shared_ptr<Array> value)
+    : BaseListScalar(value, MakeMapType(value->type())) {}
 
 FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value,
                                          std::shared_ptr<DataType> type)
-    : BaseListScalar(std::move(value), std::move(type)) {
+    : BaseListScalar(value, std::move(type)) {
   ARROW_CHECK_EQ(this->value->length(),
                  checked_cast<const FixedSizeListType&>(*this->type).list_size());
 }
+
+FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value)
+    : BaseListScalar(
+          value, fixed_size_list(value->type(), static_cast<int32_t>(value->length()))) {}
 
 DictionaryScalar::DictionaryScalar(std::shared_ptr<DataType> type)
     : Scalar(std::move(type)),
@@ -250,6 +268,100 @@ struct ScalarParseImpl {
 Result<std::shared_ptr<Scalar>> Scalar::Parse(const std::shared_ptr<DataType>& type,
                                               util::string_view s) {
   return ScalarParseImpl{type, s}.Finish();
+}
+
+struct ScalarFromArraySlotImpl {
+  template <typename T>
+  using ScalarType = typename TypeTraits<T>::ScalarType;
+
+  Status Visit(const NullArray& a) {
+    out_ = std::make_shared<NullScalar>();
+    return Status::OK();
+  }
+
+  Status Visit(const BooleanArray& a) { return Finish(a.Value(index_)); }
+
+  template <typename T>
+  Status Visit(const NumericArray<T>& a) {
+    return Finish(a.Value(index_));
+  }
+
+  template <typename T>
+  Status Visit(const BaseBinaryArray<T>& a) {
+    return Finish(a.GetString(index_));
+  }
+
+  Status Visit(const FixedSizeBinaryArray& a) { return Finish(a.GetString(index_)); }
+
+  Status Visit(const DayTimeIntervalArray& a) { return Finish(a.Value(index_)); }
+
+  template <typename T>
+  Status Visit(const BaseListArray<T>& a) {
+    return Finish(a.value_slice(index_));
+  }
+
+  Status Visit(const FixedSizeListArray& a) { return Finish(a.value_slice(index_)); }
+
+  Status Visit(const StructArray& a) {
+    ScalarVector children;
+    for (const auto& child : a.fields()) {
+      children.emplace_back();
+      ARROW_ASSIGN_OR_RAISE(children.back(), Scalar::FromArraySlot(*child, index_));
+    }
+    return Finish(std::move(children));
+  }
+
+  Status Visit(const UnionArray& a) {
+    return Status::NotImplemented("Non-null UnionScalar");
+  }
+
+  Status Visit(const DictionaryArray& a) {
+    ARROW_ASSIGN_OR_RAISE(auto index, Scalar::FromArraySlot(*a.indices(), index_));
+    ARROW_ASSIGN_OR_RAISE(auto index64, index->CastTo(int64()));
+    ARROW_ASSIGN_OR_RAISE(
+        auto value,
+        Scalar::FromArraySlot(*a.dictionary(),
+                              checked_cast<const Int64Scalar&>(*index64).value));
+    return Finish(std::move(value));
+  }
+
+  Status Visit(const ExtensionArray& a) {
+    return Status::NotImplemented("Non-null ExtensionScalar");
+  }
+
+  template <typename Arg>
+  Status Finish(Arg&& arg) {
+    return MakeScalar(array_.type(), std::forward<Arg>(arg)).Value(&out_);
+  }
+
+  Status Finish(std::string arg) {
+    return MakeScalar(array_.type(), Buffer::FromString(std::move(arg))).Value(&out_);
+  }
+
+  Result<std::shared_ptr<Scalar>> Finish() && {
+    if (index_ >= array_.length()) {
+      return Status::IndexError("tried to refer to element ", index_,
+                                " but array is only ", array_.length(), " long");
+    }
+
+    if (array_.IsNull(index_)) {
+      return MakeNullScalar(array_.type());
+    }
+
+    RETURN_NOT_OK(VisitArrayInline(array_, this));
+    return std::move(out_);
+  }
+
+  ScalarFromArraySlotImpl(const Array& array, int64_t index)
+      : array_(array), index_(index) {}
+
+  const Array& array_;
+  int64_t index_;
+  std::shared_ptr<Scalar> out_;
+};
+
+Result<std::shared_ptr<Scalar>> Scalar::FromArraySlot(const Array& array, int64_t index) {
+  return ScalarFromArraySlotImpl{array, index}.Finish();
 }
 
 namespace internal {

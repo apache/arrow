@@ -363,20 +363,20 @@ Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
 
 }  // namespace
 
-ListArray::ListArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
+ListArray::ListArray(std::shared_ptr<ArrayData> data) { SetData(std::move(data)); }
 
 LargeListArray::LargeListArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
 
-ListArray::ListArray(const std::shared_ptr<DataType>& type, int64_t length,
-                     const std::shared_ptr<Buffer>& value_offsets,
-                     const std::shared_ptr<Array>& values,
-                     const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
+ListArray::ListArray(std::shared_ptr<DataType> type, int64_t length,
+                     std::shared_ptr<Buffer> value_offsets, std::shared_ptr<Array> values,
+                     std::shared_ptr<Buffer> null_bitmap, int64_t null_count,
                      int64_t offset) {
   ARROW_CHECK_EQ(type->id(), Type::LIST);
-  auto internal_data =
-      ArrayData::Make(type, length, {null_bitmap, value_offsets}, null_count, offset);
+  auto internal_data = ArrayData::Make(
+      std::move(type), length,
+      BufferVector{std::move(null_bitmap), std::move(value_offsets)}, null_count, offset);
   internal_data->child_data.emplace_back(values->data());
-  SetData(internal_data);
+  SetData(std::move(internal_data));
 }
 
 LargeListArray::LargeListArray(const std::shared_ptr<DataType>& type, int64_t length,
@@ -786,6 +786,13 @@ Result<std::shared_ptr<StructArray>> StructArray::Make(
 
 const StructType* StructArray::struct_type() const {
   return checked_cast<const StructType*>(data_->type.get());
+}
+
+const ArrayVector& StructArray::fields() const {
+  for (int i = 0; i < num_fields(); ++i) {
+    (void)field(i);
+  }
+  return boxed_fields_;
 }
 
 std::shared_ptr<Array> StructArray::field(int i) const {
