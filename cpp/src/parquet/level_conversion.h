@@ -147,7 +147,8 @@ static inline int64_t AppendBitmap(uint64_t new_bits, int64_t number_of_bits,
 /// \param[in,out] validity_bitmap The validity bitmap to update.
 /// \param[in,out] validity_bitmap_offset The offset to start appending bits to in
 /// valid_bits (updated to latest bitmap).
-/// \param[in,out] set_bit_count The number of set bits added to set_bit_count.
+/// \param[in,out] set_bit_count The number of set bits appended is added to
+/// set_bit_count.
 void AppendToValidityBitmap(uint64_t new_bits, int64_t new_bit_count,
                             uint8_t* validity_bitmap, int64_t* validity_bitmap_offset,
                             int64_t* set_bit_count) {

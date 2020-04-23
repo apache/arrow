@@ -132,5 +132,28 @@ TEST(TestAppendBitmap, OnlyApproriateBytesWrittenWhenLessThen8BytesAvailable) {
   EXPECT_THAT(valid_bits, ElementsAreArray(std::vector<uint8_t>{0xFE, 0x03}));
 }
 
+TEST(TestAppendToValidityBitmap, BasicOperation) {
+  std::vector<uint8_t> validity_bitmap(/*count*/ 8, 0);
+  int64_t valid_bitmap_offset = 1;
+  int64_t set_bit_count = 5;
+  AppendToValidityBitmap(/*new_bits*/ 0x99, /*new_bit_count=*/31, validity_bitmap.data(),
+                         &valid_bitmap_offset, &set_bit_count);
+  EXPECT_EQ(ToString(validity_bitmap, valid_bitmap_offset),
+            "01001100 10000000 00000000 00000000");
+  EXPECT_EQ(set_bit_count, /*5 + 4 set bits=*/9);
+}
+
+TEST(TestAppendSelectedBitsToValidityBitmapi, BasicOperation) {
+  std::vector<uint8_t> validity_bitmap(/*count*/ 8, 0);
+  int64_t valid_bitmap_offset = 1;
+  int64_t set_bit_count = 5;
+  EXPECT_EQ(AppendSelectedBitsToValidityBitmap(
+                /*new_bits*/ 0x99, /*selection_bitmap=*/0xB8, validity_bitmap.data(),
+                &valid_bitmap_offset, &set_bit_count),
+            /*bits_processed=*/4);
+  EXPECT_EQ(ToString(validity_bitmap, valid_bitmap_offset), "01101");
+  EXPECT_EQ(set_bit_count, /*5 + 3 set bits=*/8);
+}
+
 }  // namespace internal
 }  // namespace parquet
