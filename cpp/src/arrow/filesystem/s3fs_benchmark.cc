@@ -327,6 +327,28 @@ static void ParquetRead(benchmark::State& st, S3FileSystem* fs, const std::strin
   st.SetItemsProcessed(total_items);
 }
 
+/// Helper function used in the macros below to template benchmarks.
+static void ParquetReadAll(benchmark::State& st, S3FileSystem* fs,
+                           const std::string& bucket, int64_t file_rows,
+                           int64_t file_cols, bool pre_buffer,
+                           std::string read_strategy) {
+  std::vector<int> column_indices(file_cols);
+  std::iota(column_indices.begin(), column_indices.end(), 0);
+  std::stringstream ss;
+  ss << bucket << "/pq_c" << file_cols << "_r" << file_rows << "k";
+  ParquetRead(st, fs, ss.str(), column_indices, false, read_strategy);
+}
+
+/// Helper function used in the macros below to template benchmarks.
+static void ParquetReadSome(benchmark::State& st, S3FileSystem* fs,
+                            const std::string& bucket, int64_t file_rows,
+                            int64_t file_cols, std::vector<int> cols_to_read,
+                            bool pre_buffer, std::string read_strategy) {
+  std::stringstream ss;
+  ss << bucket << "/pq_c" << file_cols << "_r" << file_rows << "k";
+  ParquetRead(st, fs, ss.str(), cols_to_read, false, read_strategy);
+}
+
 BENCHMARK_DEFINE_F(MinioFixture, ReadAll1Mib)(benchmark::State& st) {
   NaiveRead(st, fs_.get(), bucket_ + "/bytes_1mib");
 }
@@ -366,37 +388,25 @@ BENCHMARK_REGISTER_F(MinioFixture, ReadCoalesced500Mib)->UseRealTime();
 // STRATEGY: how to read the file (ReadTable or GetRecordBatchReader)
 #define PQ_BENCHMARK_IMPL(NAME, ROWS, COLS, STRATEGY)                                 \
   BENCHMARK_DEFINE_F(MinioFixture, NAME##STRATEGY##AllNaive)(benchmark::State & st) { \
-    std::vector<int> column_indices(COLS);                                            \
-    std::iota(column_indices.begin(), column_indices.end(), 0);                       \
-    std::stringstream ss;                                                             \
-    ss << bucket_ << "/pq_c" << COLS << "_r" << ROWS << "k";                          \
-    ParquetRead(st, fs_.get(), ss.str(), column_indices, false, #STRATEGY);           \
+    ParquetReadAll(st, fs_.get(), bucket_, ROWS, COLS, false, #STRATEGY);             \
   }                                                                                   \
   BENCHMARK_REGISTER_F(MinioFixture, NAME##STRATEGY##AllNaive)->UseRealTime();        \
   BENCHMARK_DEFINE_F(MinioFixture, NAME##STRATEGY##AllCoalesced)                      \
   (benchmark::State & st) {                                                           \
-    std::vector<int> column_indices(COLS);                                            \
-    std::iota(column_indices.begin(), column_indices.end(), 0);                       \
-    std::stringstream ss;                                                             \
-    ss << bucket_ << "/pq_c" << COLS << "_r" << ROWS << "k";                          \
-    ParquetRead(st, fs_.get(), ss.str(), column_indices, true, #STRATEGY);            \
+    ParquetReadAll(st, fs_.get(), bucket_, ROWS, COLS, true, #STRATEGY);              \
   }                                                                                   \
   BENCHMARK_REGISTER_F(MinioFixture, NAME##STRATEGY##AllCoalesced)->UseRealTime();
 
 // COL_INDICES: a vector specifying a subset of column indices to read.
-#define PQ_BENCHMARK_PICK_IMPL(NAME, ROWS, COLS, COL_INDICES, STRATEGY)                \
-  BENCHMARK_DEFINE_F(MinioFixture, NAME##STRATEGY##PickNaive)(benchmark::State & st) { \
-    std::stringstream ss;                                                              \
-    ss << bucket_ << "/pq_c" << COLS << "_r" << ROWS << "k";                           \
-    ParquetRead(st, fs_.get(), ss.str(), COL_INDICES, false, #STRATEGY);               \
-  }                                                                                    \
-  BENCHMARK_REGISTER_F(MinioFixture, NAME##STRATEGY##PickNaive)->UseRealTime();        \
-  BENCHMARK_DEFINE_F(MinioFixture, NAME##STRATEGY##PickCoalesced)                      \
-  (benchmark::State & st) {                                                            \
-    std::stringstream ss;                                                              \
-    ss << bucket_ << "/pq_c" << COLS << "_r" << ROWS << "k";                           \
-    ParquetRead(st, fs_.get(), ss.str(), COL_INDICES, true, #STRATEGY);                \
-  }                                                                                    \
+#define PQ_BENCHMARK_PICK_IMPL(NAME, ROWS, COLS, COL_INDICES, STRATEGY)                 \
+  BENCHMARK_DEFINE_F(MinioFixture, NAME##STRATEGY##PickNaive)(benchmark::State & st) {  \
+    ParquetReadSome(st, fs_.get(), bucket_, ROWS, COLS, COL_INDICES, false, #STRATEGY); \
+  }                                                                                     \
+  BENCHMARK_REGISTER_F(MinioFixture, NAME##STRATEGY##PickNaive)->UseRealTime();         \
+  BENCHMARK_DEFINE_F(MinioFixture, NAME##STRATEGY##PickCoalesced)                       \
+  (benchmark::State & st) {                                                             \
+    ParquetReadSome(st, fs_.get(), bucket_, ROWS, COLS, COL_INDICES, true, #STRATEGY);  \
+  }                                                                                     \
   BENCHMARK_REGISTER_F(MinioFixture, NAME##STRATEGY##PickCoalesced)->UseRealTime();
 
 #define PQ_BENCHMARK(ROWS, COLS)                                   \

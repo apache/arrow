@@ -27,6 +27,7 @@
 
 #include "arrow/io/caching.h"
 #include "arrow/io/file.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 #include "parquet/column_reader.h"
@@ -118,7 +119,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                      int row_group_number, const ReaderProperties& props,
                      std::shared_ptr<InternalFileDecryptor> file_decryptor = nullptr)
       : source_(std::move(source)),
-        cached_source_(cached_source ? std::move(cached_source) : nullptr),
+        cached_source_(std::move(cached_source)),
         source_size_(source_size),
         file_metadata_(file_metadata),
         properties_(props),
@@ -581,7 +582,8 @@ void ParquetFileReader::PreBuffer(const std::vector<int>& row_groups,
                                   const std::vector<int>& column_indices,
                                   const ::arrow::io::CacheOptions& options) {
   // Access private methods here
-  SerializedFile* file = static_cast<SerializedFile*>(contents_.get());
+  SerializedFile* file =
+      ::arrow::internal::checked_cast<SerializedFile*>(contents_.get());
   file->PreBuffer(row_groups, column_indices, options);
 }
 
