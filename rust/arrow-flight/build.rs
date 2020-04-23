@@ -15,28 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::env;
+use std::{env, path::Path};
 
-fn main() -> Result<(), String> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // avoid rerunning build if the file has not changed
+    println!("cargo:rerun-if-changed=../../format/Flight.proto");
+
+    // override the build location, in order to check in the changes to proto files
+    env::set_var("OUT_DIR", "src");
+
     // The current working directory can vary depending on how the project is being
     // built or released so we build an absolute path to the proto file
-    let mut path = env::current_dir().map_err(|e| format!("{:?}", e))?;
-    loop {
-        // build path to format/Flight.proto
-        let mut flight_proto = path.clone();
-        flight_proto.push("format");
-        flight_proto.push("Flight.proto");
-
-        if flight_proto.exists() {
-            tonic_build::compile_protos(flight_proto).map_err(|e| format!("{:?}", e))?;
-            return Ok(());
-        }
-
-        if !path.pop() {
-            // reached root of file system
-            break;
-        }
+    let path = Path::new("../../format/Flight.proto");
+    if path.exists() {
+        tonic_build::compile_protos("../../format/Flight.proto")?;
     }
 
-    Err("Failed to locate format/Flight.proto in any parent directory".to_string())
+    // As the proto file is checked in, the build should not fail if the file is not found
+    Ok(())
 }
