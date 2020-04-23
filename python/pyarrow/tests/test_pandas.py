@@ -2675,8 +2675,8 @@ def test_convert_unsupported_type_error_message():
 
     df = pd.DataFrame({'a': [A(), A()]})
 
-    expected_msg = 'Conversion failed for column a with type object'
-    with pytest.raises(ValueError, match=expected_msg):
+    msg = 'Conversion failed for column a with type object'
+    with pytest.raises(ValueError, match=msg):
         pa.Table.from_pandas(df)
 
     # period unsupported for pandas <= 0.25
@@ -2685,8 +2685,8 @@ def test_convert_unsupported_type_error_message():
             'a': pd.period_range('2000-01-01', periods=20),
         })
 
-        expected_msg = 'Conversion failed for column a with type period'
-        with pytest.raises(TypeError, match=expected_msg):
+        msg = 'Conversion failed for column a with type (period|object)'
+        with pytest.raises((TypeError, ValueError), match=msg):
             pa.Table.from_pandas(df)
 
 
@@ -3560,7 +3560,7 @@ def test_array_protocol_pandas_extension_types(monkeypatch):
     # ARROW-7022 - ensure protocol works for Period / Interval extension dtypes
 
     if LooseVersion(pd.__version__) < '0.24.0':
-        pytest.skip(reason='Period/IntervalArray only introduced in 0.24')
+        pytest.skip('Period/IntervalArray only introduced in 0.24')
 
     storage = pa.array([1, 2, 3], type=pa.int64())
     expected = pa.ExtensionArray.from_storage(DummyExtensionType(), storage)
@@ -3653,6 +3653,9 @@ class MyCustomIntegerType(pa.PyExtensionType):
 def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     # converting extension type to linked pandas ExtensionDtype/Array
     import pandas.core.internals as _int
+
+    if LooseVersion(pd.__version__) < "0.24.0":
+        pytest.skip("ExtensionDtype introduced in pandas 0.24")
 
     storage = pa.array([1, 2, 3, 4], pa.int64())
     arr = pa.ExtensionArray.from_storage(MyCustomIntegerType(), storage)

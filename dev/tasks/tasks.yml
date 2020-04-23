@@ -2026,6 +2026,22 @@ tasks:
       run:
         - conda-python-pandas
 
+  test-conda-python-3.6-pandas-0.23:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      env:
+        PYTHON: 3.6
+        PANDAS: 0.23
+      build:
+        - conda-cpp
+        - conda-python
+      nocache:
+        - conda-python-pandas
+      run:
+        - conda-python-pandas
+
   test-conda-python-3.7-dask-latest:
     ci: circle
     platform: linux
