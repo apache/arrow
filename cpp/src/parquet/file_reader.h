@@ -131,6 +131,11 @@ class PARQUET_EXPORT ParquetFileReader {
   /// readers for the a subset of the buffered regions is
   /// acceptable. This may be called again to buffer a different set
   /// of row groups/columns.
+  ///
+  /// If memory usage is a concern, note that data will remain
+  /// buffered in memory until either \a PreBuffer() is called again,
+  /// or the reader itself is destructed. Reading - and buffering -
+  /// only one row group at a time may be useful.
   void PreBuffer(const std::vector<int>& row_groups,
                  const std::vector<int>& column_indices,
                  const ::arrow::io::CacheOptions& options);
