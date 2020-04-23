@@ -29,6 +29,9 @@ namespace arrow {
 namespace io {
 
 struct ARROW_EXPORT CacheOptions {
+  static constexpr double kDefaultIdealBandwidthUtilizationFrac = 0.9;
+  static constexpr int64_t kDefaultMaxIdealRequestSizeMib = 64;
+
   /// /brief The maximum distance in bytes between two consecutive
   ///   ranges; beyond this value, ranges are not combined
   int64_t hole_size_limit;
@@ -36,6 +39,30 @@ struct ARROW_EXPORT CacheOptions {
   ///   combining two consecutive ranges would produce a range of a
   ///   size greater than this, they are not combined
   int64_t range_size_limit;
+
+  bool operator==(const CacheOptions& other) const {
+    return hole_size_limit == other.hole_size_limit &&
+           range_size_limit == other.range_size_limit;
+  }
+
+  /// \brief Construct CacheOptions from network storage metrics (e.g. S3).
+  ///
+  /// \param[in] time_to_first_byte_millis Seek-time or Time-To-First-Byte (TTFB) in
+  ///   milliseconds, also called call setup latency of a new S3 request.
+  ///   The value is a positive integer.
+  /// \param[in] transfer_bandwidth_mib_per_sec Data transfer Bandwidth (BW) in MiB/sec.
+  ///   The value is a positive integer.
+  /// \param[in] ideal_bandwidth_utilization_frac Transfer bandwidth utilization fraction
+  ///   (per connection) to maximize the net data load.
+  ///   The value is a positive double precision number less than 1.
+  /// \param[in] max_ideal_request_size_mib The maximum single data request size (in MiB)
+  ///   to maximize the net data load.
+  ///   The value is a positive integer.
+  /// \return A new instance of CacheOptions.
+  static CacheOptions MakeFromNetworkMetrics(
+      int64_t time_to_first_byte_millis, int64_t transfer_bandwidth_mib_per_sec,
+      double ideal_bandwidth_utilization_frac = kDefaultIdealBandwidthUtilizationFrac,
+      int64_t max_ideal_request_size_mib = kDefaultMaxIdealRequestSizeMib);
 
   static CacheOptions Defaults();
 };

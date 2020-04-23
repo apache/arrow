@@ -16,6 +16,7 @@
 // under the License.
 
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -485,6 +486,29 @@ TEST(RangeReadCache, Basics) {
   ASSERT_RAISES(Invalid, cache.Read({19, 3}));
   ASSERT_RAISES(Invalid, cache.Read({0, 3}));
   ASSERT_RAISES(Invalid, cache.Read({25, 2}));
+}
+
+TEST(CacheOptions, Basics) {
+  auto check = [](const CacheOptions actual, const double expected_hole_size_limit_MiB,
+                  const double expected_range_size_limit_MiB) -> void {
+    const CacheOptions expected = {
+        static_cast<int64_t>(std::round(expected_hole_size_limit_MiB * 1024 * 1024)),
+        static_cast<int64_t>(std::round(expected_range_size_limit_MiB * 1024 * 1024))};
+    ASSERT_EQ(actual, expected);
+  };
+
+  // Test: normal usage.
+  // TTFB = 5 ms, BW = 500 MiB/s,
+  // we expect hole_size_limit = 2.5 MiB, and range_size_limit = 22.5 MiB
+  check(CacheOptions::MakeFromNetworkMetrics(5, 500), 2.5, 22.5);
+  // Test: custom bandwidth utilization.
+  // TTFB = 5 ms, BW = 500 MiB/s, BW_utilization = 75%,
+  // we expect a change in range_size_limit = 7.5 MiB.
+  check(CacheOptions::MakeFromNetworkMetrics(5, 500, .75), 2.5, 7.5);
+  // Test: custom max_ideal_request_size, range_size_limit gets capped.
+  // TTFB = 5 ms, BW = 500 MiB/s, BW_utilization = 75%, max_ideal_request_size = 5 MiB,
+  // we expect the range_size_limit to be capped at 5 MiB.
+  check(CacheOptions::MakeFromNetworkMetrics(5, 500, .75, 5), 2.5, 5);
 }
 
 }  // namespace io
