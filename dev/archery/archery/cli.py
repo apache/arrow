@@ -22,6 +22,7 @@ import errno
 import json
 import logging
 import os
+from pathlib import Path
 import sys
 
 from .benchmark.compare import RunnerComparator, DEFAULT_THRESHOLD
@@ -36,6 +37,9 @@ from .bot import CommentBot, actions
 
 # Set default logging to INFO in command line.
 logging.basicConfig(level=logging.INFO)
+
+
+DEFAULT_ARROW_PATH = Path(__file__).parents[3].absolute()
 
 
 class ArrowBool(click.types.BoolParamType):
@@ -654,6 +658,42 @@ def trigger_bot(event_name, event_payload, arrow_token, crossbow_token):
 
     bot = CommentBot(name='github-actions', handler=actions, token=arrow_token)
     bot.handle(event_name, event_payload)
+
+
+@archery.group('docker')
+@click.option('--config', '-c', type=click.Path(),
+              default=DEFAULT_ARROW_PATH / 'docker-compose.yml')
+@click.pass_obj
+def docker_compose(obj, config):
+    from .docker import DockerCompose
+    obj['compose'] = DockerCompose(config)
+    obj['compose'].validate()
+
+
+@docker_compose.command('run')
+@click.argument('image')
+@click.option('--pull/--no-pull', default=True,
+              help='Try to pull the image and its parents')
+@click.option('--build/--no-build', default=True,
+              help='Force build the image and its parents')
+@click.pass_obj
+def docker_compose_run(obj, image, pull, build):
+    compose = obj['compose']
+    if pull:
+        compose.pull(image)
+    if build:
+        compose.build(image)
+    compose.run(image)
+
+
+@docker_compose.command('push')
+@click.argument('image')
+@click.option('--user', '-u', required=True, help='Docker login user')
+@click.option('--password', '-p', required=True, help='Docker login user')
+@click.pass_obj
+def docker_compose_push(obj, image, user, password):
+    compose = obj['compose']
+    compose.push(image, user=user, password=password)
 
 
 if __name__ == "__main__":

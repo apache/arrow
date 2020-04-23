@@ -19,6 +19,8 @@
 import sys
 from setuptools import setup
 
+# TODO add extras for bot ad docker
+
 
 if sys.version_info < (3, 5):
     sys.exit('Python < 3.5 is not supported')

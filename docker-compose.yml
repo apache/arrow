@@ -79,6 +79,52 @@ x-ccache: &ccache
   CCACHE_MAXSIZE: 500M
   CCACHE_DIR: /build/ccache
 
+x-hierarchy:
+  - centos-python-manylinux1
+  - centos-python-manylinux2010
+  - centos-python-manylinux2014
+  - conda-cpp:
+    - conda-cpp-hiveserver2
+    - conda-cpp-valgrind
+    - conda-integration
+    - conda-python:
+      - conda-python-pandas
+      - conda-python-dask
+      - conda-python-hdfs
+      - conda-python-jpype
+      - conda-python-turbodbc
+      - conda-python-kartothek
+      - conda-python-spark
+    - conda-r
+  - cuda-cpp:
+    - cuda-python
+  - debian-cpp:
+    - debian-c-glib:
+      - debian-ruby
+    - debian-python
+  - debian-go
+  - debian-java:
+    - debian-java-jni
+  - debian-js
+  - debian-rust
+  - fedora-cpp:
+    - fedora-python
+  - ubuntu-cpp:
+    - ubuntu-cpp-cmake32
+    - ubuntu-c-glib:
+      - ubuntu-ruby
+    - ubuntu-lint
+    - ubuntu-python:
+      - ubuntu-docs
+    - ubuntu-r
+  - ubuntu-csharp
+  - ubuntu-cpp-sanitizer
+  - ubuntu-r-sanitizer
+  - r
+  # helper services
+  - impala
+  - postgres
+
 services:
 
   ################################# C++ #######################################
@@ -1148,14 +1194,13 @@ services:
     links:
       - impala:impala
     environment:
-      - ARROW_FLIGHT=OFF
-      - ARROW_GANDIVA=OFF
-      - ARROW_PLASMA=OFF
-      - ARROW_HIVESERVER2=ON
-      - ARROW_HIVESERVER2_TEST_HOST=impala
-    shm_size: *shm-size
-    environment:
       <<: *ccache
+      ARROW_FLIGHT: "OFF"
+      ARROW_GANDIVA: "OFF"
+      ARROW_PLASMA: "OFF"
+      ARROW_HIVESERVER2: "ON"
+      ARROW_HIVESERVER2_TEST_HOST: impala
+    shm_size: *shm-size
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
