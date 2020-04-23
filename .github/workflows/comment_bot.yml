@@ -138,7 +138,7 @@ jobs:
         run: |
           set -ex
           git remote add upstream https://github.com/${{ github.repository }}
-          git fetch upstream
+          git fetch upstream master
           git rebase upstream/master
           if [ "$(git status --porcelain)" = "" ]; then
             # There are no rebase conflicts
