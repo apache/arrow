@@ -40,31 +40,31 @@ env:
 jobs:
 
  docker:
-    name: ${{ matrix.title }}
-    runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    strategy:
-      fail-fast: false
-      matrix:
-        name:
-          - ubuntu-16.04-python-3
-          - conda-python-3.6-nopandas
-          - conda-python-3.8-pandas-latest
-        include:
-          - name: ubuntu-16.04-python-3
-            image: ubuntu-python
-            # this image always builds with python 3.5
-            title: AMD64 Ubuntu 16.04 Python 3.5
-            ubuntu: 16.04
-          - name: conda-python-3.6-nopandas
-            image: conda-python
-            title: AMD64 Conda Python 3.6 Without Pandas
-            python: 3.6
-          - name: conda-python-3.8-pandas-latest
-            image: conda-python-pandas
-            title: AMD64 Conda Python 3.8 Pandas latest
-            python: 3.8
-            pandas: latest
+  name: ${{ matrix.title }}
+  runs-on: ubuntu-latest
+  if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+  strategy:
+    fail-fast: false
+    matrix:
+      name:
+        - ubuntu-16.04-python-3
+        - conda-python-3.6-nopandas
+        - conda-python-3.8-pandas-latest
+      include:
+        - name: ubuntu-16.04-python-3
+          image: ubuntu-python
+          # this image always builds with python 3.5
+          title: AMD64 Ubuntu 16.04 Python 3.5
+          ubuntu: 16.04
+        - name: conda-python-3.6-nopandas
+          image: conda-python
+          title: AMD64 Conda Python 3.6 Without Pandas
+          python: 3.6
+        - name: conda-python-3.8-pandas-latest
+          image: conda-python-pandas
+          title: AMD64 Conda Python 3.8 Pandas latest
+          python: 3.8
+          pandas: latest
     env:
       PYTHON: ${{ matrix.python || 3.7 }}
       UBUNTU: ${{ matrix.ubuntu || 18.04 }}

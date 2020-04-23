@@ -83,7 +83,7 @@ jobs:
             title: AMD64 Conda Python 3.7 Pandas 0.24
             pandas: 0.24
           - name: conda-python-3.7-pandas-master
-            image: conda-python-pandas
+            image: --no-cache-leaf conda-python-pandas
             title: AMD64 Conda Python 3.7 Pandas master
             pandas: master
           - name: conda-python-3.7-hdfs-2.9.2

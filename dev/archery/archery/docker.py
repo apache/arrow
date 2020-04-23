@@ -76,41 +76,36 @@ class DockerCompose(Command):
                 'Found errors with docker-compose:\n{}'.format(msg)
             )
 
-    def _env(self, params):
+    def _command_env(self):
         env = os.environ.copy()
         env.update(self.dotenv)
-        env.update({k.upper(): v for k, v in params.items()})
         return env
 
-    def pull(self, image, **params):
-        env = self._env(params)
-
-        # pull all parents first
-        for parent in self.nodes[image]:
-            super().run('pull', '--ignore-pull-failures', parent, env=env)
-
-        # pull the image at last
-        super().run('pull', '--ignore-pull-failures', image, env=env)
-
-    def build(self, image, no_cache=False, **params):
-        env = self._env(params)
+    def build(self, image, cache=True, cache_leaf=True):
+        env = self._command_env()
+        run = super().run
 
         # build all parents
         for parent in self.nodes[image]:
-            super().run('build', parent, env=env)
+            if cache:
+                run('pull', '--ignore-pull-failures', parent, env=env)
+            run('build', parent, env=env)
 
         # build the image at last
-        if no_cache:
-            super().run('build', '--no-cache', image, env=env)
+        if cache and cache_leaf:
+            run('pull', '--ignore-pull-failures', image, env=env)
+            run('build', image, env=env)
         else:
-            super().run('build', image, env=env)
+            run('build', '--no-cache', image, env=env)
 
-    def run(self, image, **params):
-        env = self._env(params)
-        super().run('run', '--rm', image, env=env)
+    def run(self, image, env=None):
+        args = []
+        if env is not None:
+            for k, v in env.items():
+                args.extend(['-e', '{}={}'.format(k, v)])
+        super().run('run', '--rm', *args, image, env=self._command_env())
 
-    def push(self, image, user, password, **params):
-        env = self._env(params)
+    def push(self, image, user, password):
         try:
             Docker().run('login', '-u', user, '-p', password)
         except subprocess.CalledProcessError:
@@ -119,4 +114,4 @@ class DockerCompose(Command):
                    .format(image))
             raise RuntimeError(msg) from None
         else:
-            super().run('push', image, env=env)
+            super().run('push', image, env=self._command_env())

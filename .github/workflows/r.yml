@@ -46,6 +46,7 @@ env:
   ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_USER }}
 
 jobs:
+
   ubuntu:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}
     runs-on: ubuntu-latest
@@ -64,35 +65,24 @@ jobs:
         with:
           fetch-depth: 0
       - name: Fetch Submodules and Tags
-        shell: bash
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space
-        shell: bash
         run: ci/scripts/util_cleanup.sh
-      - name: Docker Pull
-        shell: bash
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
         run: |
-          docker-compose pull --ignore-pull-failures ubuntu-cpp
-          docker-compose pull --ignore-pull-failures ubuntu-r
-      - name: Docker Build
-        shell: bash
-        run: |
-          docker-compose build ubuntu-cpp
-          docker-compose build ubuntu-r
-      - name: Docker Run
-        shell: bash
-        run: docker-compose run ubuntu-r
-      - name: Dump install logs on failure
-        if: failure()
-        run: cat r/check/arrow.Rcheck/00install.out
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run ubuntu-r
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push ubuntu-r
+        run: archery docker push ubuntu-r
 
   rstudio:
     name: "rstudio/r-base:${{ matrix.r_version }}-${{ matrix.r_image }}"

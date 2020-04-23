@@ -672,17 +672,19 @@ def docker_compose(obj, config):
 
 @docker_compose.command('run')
 @click.argument('image')
-@click.option('--pull/--no-pull', default=True,
-              help='Try to pull the image and its parents')
+@click.option('--env', '-e', multiple=True,
+              help='Set environment variable within the container')
 @click.option('--build/--no-build', default=True,
               help='Force build the image and its parents')
+@click.option('--cache/--no-cache', default=True,
+              help='Try to pull the image and its parents')
+@click.option('--cache-leaf/--no-cache-leaf', default=True,
+              help='Force build the image and its parents')
 @click.pass_obj
-def docker_compose_run(obj, image, pull, build):
+def docker_compose_run(obj, image, env, build, cache, cache_leaf):
     compose = obj['compose']
-    if pull:
-        compose.pull(image)
     if build:
-        compose.build(image)
+        compose.build(image, cache=cache, cache_leaf=cache_leaf)
     compose.run(image)
 
 
