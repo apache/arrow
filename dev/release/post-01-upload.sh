@@ -49,6 +49,18 @@ mkdir -p ${tmp_dir}/release/${release_version}
 cp -r ${tmp_dir}/dev/* ${tmp_dir}/release/${release_version}/
 svn add ${tmp_dir}/release/${release_version}
 
+echo "Keep only the three most recent versions"
+old_releases=$(
+  svn ls ${tmp_dir}/release/ | \
+  grep '^arrow-\d' | \
+  sort --version-sort --reverse | \
+  tail -n +4
+)
+for old_release_version in $old_releases; do
+  echo "Remove old release ${old_release_version}"
+  svn delete ${tmp_dir}/release/${old_release_version}
+done
+
 echo "Commit release"
 svn ci -m "Apache Arrow ${version}" ${tmp_dir}/release
 
