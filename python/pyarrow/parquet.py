@@ -18,7 +18,7 @@
 
 from collections import defaultdict
 from concurrent import futures
-from functools import partial
+from functools import partial, reduce
 
 import json
 import numpy as np
@@ -154,27 +154,19 @@ def _filters_to_expression(filters):
                 '"{0}" is not a valid operator in predicates.'.format(
                     (col, op, val)))
 
-    or_exprs = []
+    disjunction_members = []
 
     for conjunction in filters:
-        and_exprs = []
-        for col, op, val in conjunction:
-            and_exprs.append(convert_single_predicate(col, op, val))
+        conjunction_members = [
+            convert_single_predicate(col, op, val)
+            for col, op, val in conjunction
+        ]
 
-        expr = and_exprs[0]
-        if len(and_exprs) > 1:
-            for and_expr in and_exprs[1:]:
-                expr = ds.AndExpression(expr, and_expr)
+        conjunction = reduce(ds.Expression.and_, conjunction_members)
+        disjunction_members.append(conjunction)
 
-        or_exprs.append(expr)
-
-    expr = or_exprs[0]
-    if len(or_exprs) > 1:
-        expr = ds.OrExpression(*or_exprs)
-        for or_expr in or_exprs[1:]:
-            expr = ds.OrExpression(expr, or_expr)
-
-    return expr
+    disjunction = reduce(ds.Expression.or_, disjunction_members)
+    return disjunction
 
 
 # ----------------------------------------------------------------------
