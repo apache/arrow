@@ -143,7 +143,10 @@ TEST(TestAppendToValidityBitmap, BasicOperation) {
   EXPECT_EQ(set_bit_count, /*5 + 4 set bits=*/9);
 }
 
-TEST(TestAppendSelectedBitsToValidityBitmapi, BasicOperation) {
+TEST(TestAppendSelectedBitsToValidityBitmap, BasicOperation) {
+#if !defined(ARROW_HAVE_BMI2)
+  return;
+#endif
   std::vector<uint8_t> validity_bitmap(/*count*/ 8, 0);
   int64_t valid_bitmap_offset = 1;
   int64_t set_bit_count = 5;
