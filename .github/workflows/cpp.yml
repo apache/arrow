@@ -60,12 +60,12 @@ jobs:
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space
         run: ci/scripts/util_cleanup.sh
-      - name: Setup python
+      - name: Setup Python
         uses: actions/setup-python@v1
         with:
           python-version: 3.8
       - name: Setup Archery
-        run: pip install dev/archery[docker]
+        run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
