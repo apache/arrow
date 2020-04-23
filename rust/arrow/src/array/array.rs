@@ -1099,7 +1099,7 @@ impl FixedSizeListArray {
     /// Returns ith value of this list array.
     pub fn value(&self, i: usize) -> ArrayRef {
         self.values
-            .slice(i * self.length as usize, self.value_length() as usize)
+            .slice(self.value_offset(i) as usize, self.value_length() as usize)
     }
 
     /// Returns the offset for value at index `i`.
@@ -2465,6 +2465,15 @@ mod tests {
         assert_eq!(0, list_array.null_count());
         assert_eq!(6, list_array.value_offset(2));
         assert_eq!(2, list_array.value_length(2));
+        assert_eq!(
+            0,
+            list_array
+                .value(0)
+                .as_any()
+                .downcast_ref::<Int32Array>()
+                .unwrap()
+                .value(0)
+        );
         for i in 0..3 {
             assert!(list_array.is_valid(i));
             assert!(!list_array.is_null(i));
@@ -2486,6 +2495,15 @@ mod tests {
         assert_eq!(0, list_array.null_count());
         assert_eq!(6, list_array.value_offset(1));
         assert_eq!(2, list_array.value_length(1));
+        assert_eq!(
+            3,
+            list_array
+                .value(0)
+                .as_any()
+                .downcast_ref::<Int32Array>()
+                .unwrap()
+                .value(0)
+        );
     }
 
     #[test]
@@ -2574,6 +2592,15 @@ mod tests {
         assert_eq!(0, list_array.null_count());
         assert_eq!(6, list_array.value_offset(2));
         assert_eq!(3, list_array.value_length());
+        assert_eq!(
+            0,
+            list_array
+                .value(0)
+                .as_any()
+                .downcast_ref::<Int32Array>()
+                .unwrap()
+                .value(0)
+        );
         for i in 0..3 {
             assert!(list_array.is_valid(i));
             assert!(!list_array.is_null(i));
@@ -2592,6 +2619,15 @@ mod tests {
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
+        assert_eq!(
+            3,
+            list_array
+                .value(0)
+                .as_any()
+                .downcast_ref::<Int32Array>()
+                .unwrap()
+                .value(0)
+        );
         assert_eq!(6, list_array.value_offset(1));
         assert_eq!(3, list_array.value_length());
     }
