@@ -29,12 +29,15 @@ namespace internal {
 
 using ::testing::ElementsAreArray;
 
-std::string ToString(const std::vector<uint8_t>& bitmap, int64_t bit_count) {
-  return arrow::internal::Bitmap(bitmap.data(), /*offset*/ 0, /*length=*/bit_count)
-      .ToString();
+std::string ToString(const uint8_t* bitmap, int64_t bit_count) {
+  return arrow::internal::Bitmap(bitmap, /*offset*/ 0, /*length=*/bit_count).ToString();
 }
 
-TEST(TestGreaterThanBitmap, GeneratesExpetedBitmasks) {
+std::string ToString(const std::vector<uint8_t>& bitmap, int64_t bit_count) {
+  return ToString(bitmap.data(), bit_count);
+}
+
+TEST(TestGreaterThanBitmap, GeneratesExpectedBitmasks) {
   std::vector<int16_t> levels = {0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7,
                                  0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7,
                                  0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7,
@@ -68,6 +71,35 @@ TEST(TestAppendBitmap, TestOffsetOverwritesCorrectBitsOnExistingByte) {
   check_append("00000111", 5);
   check_append("00000011", 6);
   check_append("00000001", 7);
+}
+
+TEST(TestAppendBitmap, TestOffsetShiftBitsCorrectly) {
+  constexpr uint64_t kPattern = 0x9A9A9A9A9A9A9A9A;
+  auto check_append = [&](const std::string& leading_bits, const std::string& middle_bits,
+                          const std::string& trailing_bits, int64_t offset) {
+    ASSERT_GE(offset, 8);
+    std::vector<uint8_t> valid_bits(/*count=*/10, 0);
+    valid_bits[0] = 0x99;
+
+    AppendBitmap(/*new_bits=*/kPattern, /*number_of_bits*/ 64,
+                 /*valid_bits_length=*/valid_bits.size(), offset, valid_bits.data());
+    EXPECT_EQ(valid_bits[0], 0x99);  // shouldn't get chanked.
+    EXPECT_EQ(ToString(valid_bits.data() + 1, /*num_bits=*/8), leading_bits);
+    for (int x = 2; x < 9; x++) {
+      EXPECT_EQ(ToString(valid_bits.data() + x, /*num_bits=*/8), middle_bits);
+    }
+    EXPECT_EQ(ToString(valid_bits.data() + 9, /*num_bits=*/8), trailing_bits);
+  };
+  // Original Pattern = "01011001"
+  check_append(/*leading_bits= */ "01011001", /*middle_bits=*/"01011001",
+               /*trailing_bits=*/"00000000", /*offset=*/8);
+  check_append("00101100", "10101100", "10000000", 9);
+  check_append("00010110", "01010110", "01000000", 10);
+  check_append("00001011", "00101011", "00100000", 11);
+  check_append("00000101", "10010101", "10010000", 12);
+  check_append("00000010", "11001010", "11001000", 13);
+  check_append("00000001", "01100101", "01100100", 14);
+  check_append("00000000", "10110010", "10110010", 15);
 }
 
 TEST(TestAppendBitmap, AllBytesAreWrittenWithEnoughSpace) {
