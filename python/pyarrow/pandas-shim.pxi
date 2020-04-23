@@ -77,34 +77,19 @@ cdef class _PandasAPIShim(object):
         self._index = pd.Index
         self._categorical_type = pd.Categorical
         self._series = pd.Series
-        if self._loose_version >= LooseVersion('0.23.0'):
-            self._extension_array = pd.api.extensions.ExtensionArray
-            self._array_like_types = (
-                self._series, self._index, self._categorical_type,
-                self._extension_array)
-            self._extension_dtype = pd.api.extensions.ExtensionDtype
-        else:
-            self._extension_array = None
-            self._array_like_types = (
-                self._series, self._index, self._categorical_type)
-            self._extension_dtype = None
+        self._extension_array = pd.api.extensions.ExtensionArray
+        self._array_like_types = (
+            self._series, self._index, self._categorical_type,
+            self._extension_array)
+        self._extension_dtype = pd.api.extensions.ExtensionDtype
         if self._loose_version >= LooseVersion('0.24.0'):
             self._is_extension_array_dtype = \
                 pd.api.types.is_extension_array_dtype
         else:
             self._is_extension_array_dtype = None
 
-        if self._loose_version >= LooseVersion('0.20.0'):
-            from pandas.api.types import DatetimeTZDtype
-            self._types_api = pd.api.types
-        elif self._loose_version >= LooseVersion('0.19.0'):
-            from pandas.types.dtypes import DatetimeTZDtype
-            self._types_api = pd.api.types
-        else:
-            from pandas.types.dtypes import DatetimeTZDtype
-            self._types_api = pd.core.common
-
-        self._datetimetz_type = DatetimeTZDtype
+        self._types_api = pd.api.types
+        self._datetimetz_type = pd.api.types.DatetimeTZDtype
         self._have_pandas = True
 
         if self._loose_version > LooseVersion('0.25'):
