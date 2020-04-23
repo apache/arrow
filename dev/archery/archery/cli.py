@@ -134,36 +134,72 @@ def _apply_options(cmd, options):
               help="CMake's CMAKE_BUILD_TYPE")
 @click.option("--warn-level", default="production", type=warn_level_type,
               help="Controls compiler warnings -W(no-)error.")
-# components
-@click.option("--with-tests", default=True, type=BOOL,
-              help="Build with tests.")
-@click.option("--with-benchmarks", default=False, type=BOOL,
-              help="Build with benchmarks.")
-@click.option("--with-examples", default=False, type=BOOL,
-              help="Build with examples.")
-@click.option("--with-python", default=False, type=BOOL,
-              help="Build with python extension.")
-@click.option("--with-parquet", default=False, type=BOOL,
-              help="Build with parquet file support.")
-@click.option("--with-gandiva", default=False, type=BOOL,
-              help="Build with Gandiva expression compiler support.")
-@click.option("--with-plasma", default=False, type=BOOL,
-              help="Build with Plasma object store support.")
-@click.option("--with-flight", default=False, type=BOOL,
-              help="Build with Flight rpc support.")
-@click.option("--with-compute", default=True, type=BOOL,
-              help="Build with compute kernels support.")
-@click.option("--with-dataset", default=False, type=BOOL,
-              help="Build with dataset support.")
-@click.option("--use-sanitizers", default=False, type=BOOL,
-              help="Toggles ARROW_USE_*SAN sanitizers.")
-@click.option("--with-fuzzing", default=False, type=BOOL,
-              help="Toggles ARROW_FUZZING.")
 @click.option("--use-gold-linker", default=True, type=BOOL,
               help="Toggles ARROW_USE_LD_GOLD option.")
+# Tests and benchmarks
+@click.option("--with-tests", default=True, type=BOOL,
+              help="Build with tests.")
+@click.option("--with-benchmarks", default=None, type=BOOL,
+              help="Build with benchmarks.")
+@click.option("--with-examples", default=None, type=BOOL,
+              help="Build with examples.")
+@click.option("--with-integration", default=None, type=BOOL,
+              help="Build with integration test executables.")
+# Static checks
+@click.option("--use-asan", default=None, type=BOOL,
+              help="Toggle ARROW_USE_ASAN sanitizer.")
+@click.option("--use-tsan", default=None, type=BOOL,
+              help="Toggle ARROW_USE_TSAN sanitizer.")
+@click.option("--use-ubsan", default=None, type=BOOL,
+              help="Toggle ARROW_USE_UBSAN sanitizer.")
+@click.option("--with-fuzzing", default=None, type=BOOL,
+              help="Toggle ARROW_FUZZING.")
+# Components
+@click.option("--with-compute", default=None, type=BOOL,
+              help="Build the Arrow compute module.")
+@click.option("--with-csv", default=None, type=BOOL,
+              help="Build the Arrow CSV parser module.")
+@click.option("--with-cuda", default=None, type=BOOL,
+              help="Build the Arrow CUDA extensions.")
+@click.option("--with-dataset", default=None, type=BOOL,
+              help="Build the Arrow dataset module.")
+@click.option("--with-filesystem", default=None, type=BOOL,
+              help="Build the Arrow filesystem layer.")
+@click.option("--with-flight", default=None, type=BOOL,
+              help="Build with Flight rpc support.")
+@click.option("--with-gandiva", default=None, type=BOOL,
+              help="Build with Gandiva expression compiler support.")
+@click.option("--with-hdfs", default=None, type=BOOL,
+              help="Build the Arrow HDFS bridge.")
+@click.option("--with-hiveserver2", default=None, type=BOOL,
+              help="Build the HiveServer2 client and arrow adapater.")
+@click.option("--with-ipc", default=None, type=BOOL,
+              help="Build the Arrow IPC extensions.")
+@click.option("--with-json", default=None, type=BOOL,
+              help="Build the Arrow JSON parser module.")
+@click.option("--with-jni", default=None, type=BOOL,
+              help="Build the Arrow JNI lib.")
+@click.option("--with-mimalloc", default=None, type=BOOL,
+              help="Build the Arrow mimalloc based allocator.")
+@click.option("--with-parquet", default=None, type=BOOL,
+              help="Build with Parquet file support.")
+@click.option("--with-plasma", default=None, type=BOOL,
+              help="Build with Plasma object store support.")
+@click.option("--with-python", default=None, type=BOOL,
+              help="Build the Arrow CPython extesions.")
+@click.option("--with-r", default=None, type=BOOL,
+              help="Build the Arrow R extensions. This is not a CMake option, "
+              "it will toggle required options")
+@click.option("--with-s3", default=None, type=BOOL,
+              help="Build Arrow with S3 support.")
+# CMake extra feature
 @click.option("--cmake-extras", type=str, multiple=True,
               help="Extra flags/options to pass to cmake invocation. "
               "Can be stacked")
+@click.option("--install-prefix", type=str,
+              help="Destination directory where files are installed. Expand to"
+              "CMAKE_INSTALL_PREFIX. Defaults to to $CONDA_PREFIX if the"
+              "variable exists.")
 # misc
 @click.option("-f", "--force", type=BOOL, is_flag=True, default=False,
               help="Delete existing build directory if found.")
