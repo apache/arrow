@@ -336,7 +336,7 @@ set_source_files_properties(public_api_test.cc
 add_parquet_test(reader_test
                  SOURCES
                  column_reader_test.cc
-		 level_conversion_test.cc
+                 level_conversion_test.cc
                  column_scanner_test.cc
                  reader_test.cc
                  stream_reader_test.cc

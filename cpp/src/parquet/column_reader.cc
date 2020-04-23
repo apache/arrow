@@ -156,10 +156,10 @@ inline void DefinitionLevelsToBitmapDispatch(
     uint8_t* valid_bits, int64_t valid_bits_offset) {
   if (max_repetition_level > 0) {
 #if ARROW_LITTLE_ENDIAN
-// we use AVx2 as a proxy for BMI2 instruction set, since there doesn't seem to be a clean
-// way o detect that latter for MSVC.
+
+
 #if defined(ARROW_HAVE_BMI2)
-    // We need BIM2 instruction which is AVX2 should imply.
+    // BMI2 is required for efficient bit extraction.
     DefinitionLevelsToBitmapSimd</*has_repeated_parent=*/true>(
         def_levels, num_def_levels, max_definition_level, values_read, null_count,
         valid_bits, valid_bits_offset);
