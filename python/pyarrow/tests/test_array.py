@@ -864,7 +864,7 @@ def test_union_array_slice():
             assert arr[i:j].to_pylist() == lst[i:j]
 
 
-def _check_cast_case(case, safe=True):
+def _check_cast_case(case, *, safe=True, check_array_construction=True):
     in_data, in_type, out_data, out_type = case
     if isinstance(out_data, pa.Array):
         assert out_data.type == out_type
@@ -884,8 +884,9 @@ def _check_cast_case(case, safe=True):
 
     # constructing an array with out type which optionally involves casting
     # for more see ARROW-1949
-    in_arr = pa.array(in_data, type=out_type, safe=safe)
-    assert in_arr.equals(expected)
+    if check_array_construction:
+        in_arr = pa.array(in_data, type=out_type, safe=safe)
+        assert in_arr.equals(expected)
 
 
 def test_cast_integers_safe():
@@ -1040,11 +1041,11 @@ def test_decimal_to_int_safe():
 def test_decimal_to_int_value_out_of_bounds():
     out_of_bounds_cases = [
         (
-            [
+            np.array([
                 decimal.Decimal("1234567890123"),
                 None,
                 decimal.Decimal("-912345678901234")
-            ],
+            ]),
             pa.decimal128(32, 5),
             [1912276171, None, -135950322],
             pa.int32()
@@ -1069,17 +1070,9 @@ def test_decimal_to_int_value_out_of_bounds():
                            match='Integer value out of bounds'):
             _check_cast_case(case)
 
-        # test unsafe casting truncates
-        # TODO FIXME array construction tests bounds
-        msg_regexp = 'Value [0-9]+ too large to fit in C integer type'
-        with pytest.raises(pa.ArrowInvalid, match=msg_regexp):
-            try:
-                _check_cast_case(case, safe=False)
-            except OverflowError:
-                # workaround as sometime OverflowError is raised
-                raise pa.ArrowInvalid(
-                    'Value 1 too large to fit in C integer type'
-                )
+        # XXX `safe=False` can be ignored when constructing an array
+        # from a sequence of Python objects (ARROW-8567)
+        _check_cast_case(case, safe=False, check_array_construction=False)
 
 
 def test_decimal_to_int_non_integer():
