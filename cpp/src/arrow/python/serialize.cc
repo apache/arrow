@@ -181,6 +181,16 @@ class SequenceBuilder {
     return sparse_csc_matrix_indices_->Append(sparse_csc_matrix_index);
   }
 
+  // Appending a sparse csf tensor to the sequence
+  //
+  // \param sparse_csf_tensor_index Index of the sparse csf tensor in the object.
+  Status AppendSparseCSFTensor(const int32_t sparse_csf_tensor_index) {
+    RETURN_NOT_OK(CreateAndUpdate(&sparse_csf_tensor_indices_,
+                                  PythonType::SPARSECSFTENSOR,
+                                  [this]() { return new Int32Builder(pool_); }));
+    return sparse_csf_tensor_indices_->Append(sparse_csf_tensor_index);
+  }
+
   // Appending a numpy ndarray to the sequence
   //
   // \param tensor_index Index of the tensor in the object.
@@ -277,6 +287,7 @@ class SequenceBuilder {
   std::shared_ptr<Int32Builder> sparse_coo_tensor_indices_;
   std::shared_ptr<Int32Builder> sparse_csr_matrix_indices_;
   std::shared_ptr<Int32Builder> sparse_csc_matrix_indices_;
+  std::shared_ptr<Int32Builder> sparse_csf_tensor_indices_;
   std::shared_ptr<Int32Builder> ndarray_indices_;
   std::shared_ptr<Int32Builder> buffer_indices_;
 
@@ -515,6 +526,11 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
         static_cast<int32_t>(blobs_out->sparse_tensors.size())));
     ARROW_ASSIGN_OR_RAISE(auto matrix, unwrap_sparse_csc_matrix(elem));
     blobs_out->sparse_tensors.push_back(matrix);
+  } else if (is_sparse_csf_tensor(elem)) {
+    RETURN_NOT_OK(builder->AppendSparseCSFTensor(
+        static_cast<int32_t>(blobs_out->sparse_tensors.size())));
+    ARROW_ASSIGN_OR_RAISE(auto tensor, unwrap_sparse_csf_tensor(elem));
+    blobs_out->sparse_tensors.push_back(tensor);
   } else {
     // Attempt to serialize the object using the custom callback.
     PyObject* serialized_object;
@@ -659,6 +675,7 @@ Status CountSparseTensors(
   size_t num_csr = 0;
   size_t num_csc = 0;
   size_t num_csf = 0;
+  size_t ndim_csf = 0;
 
   for (const auto& sparse_tensor : sparse_tensors) {
     switch (sparse_tensor->format_id()) {
@@ -673,6 +690,7 @@ Status CountSparseTensors(
         break;
       case SparseTensorFormat::CSF:
         ++num_csf;
+        ndim_csf += sparse_tensor->ndim();
         break;
     }
   }
@@ -681,6 +699,7 @@ Status CountSparseTensors(
   PyDict_SetItemString(num_sparse_tensors.obj(), "csr", PyLong_FromSize_t(num_csr));
   PyDict_SetItemString(num_sparse_tensors.obj(), "csc", PyLong_FromSize_t(num_csc));
   PyDict_SetItemString(num_sparse_tensors.obj(), "csf", PyLong_FromSize_t(num_csf));
+  PyDict_SetItemString(num_sparse_tensors.obj(), "ndim_csf", PyLong_FromSize_t(ndim_csf));
   RETURN_IF_PYERROR();
 
   *out = num_sparse_tensors.detach();
@@ -704,6 +723,7 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
                        PyLong_FromSize_t(this->tensors.size()));
   RETURN_NOT_OK(CountSparseTensors(this->sparse_tensors, &num_sparse_tensors));
   PyDict_SetItemString(result.obj(), "num_sparse_tensors", num_sparse_tensors);
+  PyDict_SetItemString(result.obj(), "ndim_csf", num_sparse_tensors);
   PyDict_SetItemString(result.obj(), "num_ndarrays",
                        PyLong_FromSize_t(this->ndarrays.size()));
   PyDict_SetItemString(result.obj(), "num_buffers",
