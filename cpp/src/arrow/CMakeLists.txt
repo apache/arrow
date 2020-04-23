@@ -551,6 +551,7 @@ if(ARROW_COMPUTE)
 endif()
 
 add_arrow_benchmark(builder_benchmark)
+add_arrow_benchmark(memory_pool_benchmark)
 add_arrow_benchmark(type_benchmark)
 
 #
