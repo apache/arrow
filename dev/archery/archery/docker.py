@@ -23,11 +23,6 @@ def flatten(node, parents=None):
         raise TypeError(node)
 
 
-class Flake8(Command):
-    def __init__(self, flake8_bin=None):
-        self.bin = default_bin(flake8_bin, "flake8")
-
-
 class Docker(Command):
 
     def __init__(self, docker_bin=None):
