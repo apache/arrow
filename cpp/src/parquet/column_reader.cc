@@ -157,7 +157,6 @@ inline void DefinitionLevelsToBitmapDispatch(
   if (max_repetition_level > 0) {
 #if ARROW_LITTLE_ENDIAN
 
-
 #if defined(ARROW_HAVE_BMI2)
     // BMI2 is required for efficient bit extraction.
     DefinitionLevelsToBitmapSimd</*has_repeated_parent=*/true>(

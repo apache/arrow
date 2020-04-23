@@ -34,6 +34,22 @@ std::string ToString(const std::vector<uint8_t>& bitmap, int64_t bit_count) {
       .ToString();
 }
 
+TEST(TestGreaterThanBitmap, GeneratesExpetedBitmasks) {
+  std::vector<int16_t> levels = {0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7,
+                                 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7,
+                                 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7,
+                                 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7};
+  EXPECT_EQ(GreaterThanBitmap(levels.data(), /*num_levels=*/0, /*rhs*/ 0), 0);
+  EXPECT_EQ(GreaterThanBitmap(levels.data(), /*num_levels=*/64, /*rhs*/ 8), 0);
+  EXPECT_EQ(GreaterThanBitmap(levels.data(), /*num_levels=*/64, /*rhs*/ -1),
+            0xFFFFFFFFFFFFFFFF);
+  // Should be zero padded.
+  EXPECT_EQ(GreaterThanBitmap(levels.data(), /*num_levels=*/47, /*rhs*/ -1),
+            0x7FFFFFFFFFFF);
+  EXPECT_EQ(GreaterThanBitmap(levels.data(), /*num_levels=*/64, /*rhs*/ 6),
+            0x8080808080808080);
+}
+
 TEST(TestAppendBitmap, TestOffsetOverwritesCorrectBitsOnExistingByte) {
   auto check_append = [](const std::string& expected_bits, int64_t offset) {
     std::vector<uint8_t> valid_bits = {0x00};
