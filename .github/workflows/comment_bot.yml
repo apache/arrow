@@ -124,3 +124,27 @@ jobs:
       - uses: r-lib/actions/pr-push@master
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+  rebase:
+    name: "Rebase"
+    if: startsWith(github.event.comment.body, 'rebase')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: r-lib/actions/pr-fetch@master
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Rebase on ${{ github.repository }} master
+        run: |
+          set -ex
+          git remote add upstream https://github.com/${{ github.repository }}
+          git fetch upstream
+          git rebase upstream/master
+          if [ "$(git status --porcelain)" = "" ]; then
+            # There are no rebase conflicts
+            echo "::set-env name=OK_TO_PUSH::true"
+          fi
+      - uses: r-lib/actions/pr-push@master
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+        if: env.OK_TO_PUSH == 'true'
