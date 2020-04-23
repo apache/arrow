@@ -87,7 +87,6 @@ class DockerCompose(Command):
         env.update({k.upper(): v for k, v in params.items()})
         return env
 
-
     def pull(self, image, **params):
         env = self._env(params)
 
