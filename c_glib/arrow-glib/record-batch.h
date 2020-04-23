@@ -99,7 +99,7 @@ GArrowRecordBatch *garrow_record_batch_remove_column(GArrowRecordBatch *record_b
                                                      GError **error);
 
 GArrowBuffer *GSerializeRecordBatch(GArrowRecordBatch *record_batch);
-GArrowRecordBatch *GDeSerializeRecordBatch(GArrowBuffer *buffer, GArrowSchema *schema);
+//GArrowRecordBatch *GDeSerializeRecordBatch(GArrowBuffer *buffer, GArrowSchema *schema);
 
 /////////////////////////
 void arrow_builders_start(void);
