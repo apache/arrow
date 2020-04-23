@@ -56,7 +56,7 @@ GArrowBuffer  *garrow_buffer_copy         (GArrowBuffer *buffer,
 GArrowBuffer  *garrow_buffer_slice        (GArrowBuffer *buffer,
                                            gint64 offset,
                                            gint64 size);
-
+const guint8 *garrow_buffer_get_databytes     (GArrowBuffer *buffer);
 
 #define GARROW_TYPE_MUTABLE_BUFFER (garrow_mutable_buffer_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowMutableBuffer,
