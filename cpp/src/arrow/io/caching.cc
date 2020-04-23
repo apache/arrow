@@ -98,8 +98,8 @@ CacheOptions CacheOptions::MakeFromS3Metrics(
   const int64_t max_ideal_request_size_bytes = max_ideal_request_size_mib * 1024 * 1024;
 
   // hole_size_limit = TTFB * BW
-  const int64_t hole_size_limit =
-      std::round(time_to_first_byte_sec * transfer_bandwidth_bytes_per_sec);
+  const int64_t hole_size_limit = static_cast<int64_t>(
+      std::round(time_to_first_byte_sec * transfer_bandwidth_bytes_per_sec));
   DCHECK_GT(hole_size_limit, 0) << "Computed hole_size_limit must be > 0";
 
   // range_size_limit = min(MAX_IDEAL_REQUEST_SIZE,
