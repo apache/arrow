@@ -567,8 +567,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const vector[c_string]& field_names,
             const vector[int8_t]& type_codes)
 
+        shared_ptr[CBuffer] type_codes()
         int8_t* raw_type_codes()
         int32_t value_offset(int i)
+        shared_ptr[CBuffer] value_offsets()
         int child_id(int64_t index)
         shared_ptr[CArray] child(int pos)
         const CArray* UnsafeChild(int pos)
