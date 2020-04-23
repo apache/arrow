@@ -142,11 +142,6 @@ jobs:
           git remote add upstream https://github.com/${{ github.repository }}
           git fetch --unshallow upstream master
           git rebase upstream/master
-          if [ "$(git status --porcelain)" = "" ]; then
-            # There are no rebase conflicts
-            echo "::set-env name=OK_TO_PUSH::true"
-          fi
       - uses: r-lib/actions/pr-push@master
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-        if: env.OK_TO_PUSH == 'true'
