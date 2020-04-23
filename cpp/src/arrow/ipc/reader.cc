@@ -1324,7 +1324,8 @@ namespace internal {
 
 namespace {
 
-Result<size_t> GetSparseTensorBodyBufferCount(SparseTensorFormat::type format_id) {
+Result<size_t> GetSparseTensorBodyBufferCount(SparseTensorFormat::type format_id,
+                                              const size_t ndim) {
   switch (format_id) {
     case SparseTensorFormat::COO:
       return 2;
@@ -1336,18 +1337,19 @@ Result<size_t> GetSparseTensorBodyBufferCount(SparseTensorFormat::type format_id
       return 3;
 
     case SparseTensorFormat::CSF:
-      return 3;
+      return 2 * ndim;
 
     default:
       return Status::Invalid("Unrecognized sparse tensor format");
   }
 }
 
-Status CheckSparseTensorBodyBufferCount(
-    const IpcPayload& payload, SparseTensorFormat::type sparse_tensor_format_id) {
+Status CheckSparseTensorBodyBufferCount(const IpcPayload& payload,
+                                        SparseTensorFormat::type sparse_tensor_format_id,
+                                        const size_t ndim) {
   size_t expected_body_buffer_count = 0;
   ARROW_ASSIGN_OR_RAISE(expected_body_buffer_count,
-                        GetSparseTensorBodyBufferCount(sparse_tensor_format_id));
+                        GetSparseTensorBodyBufferCount(sparse_tensor_format_id, ndim));
   if (payload.body_buffers.size() != expected_body_buffer_count) {
     return Status::Invalid("Invalid body buffer count for a sparse tensor");
   }
@@ -1359,10 +1361,12 @@ Status CheckSparseTensorBodyBufferCount(
 
 Result<size_t> ReadSparseTensorBodyBufferCount(const Buffer& metadata) {
   SparseTensorFormat::type format_id;
+  std::vector<int64_t> shape;
 
-  RETURN_NOT_OK(internal::GetSparseTensorMetadata(metadata, nullptr, nullptr, nullptr,
+  RETURN_NOT_OK(internal::GetSparseTensorMetadata(metadata, nullptr, &shape, nullptr,
                                                   nullptr, &format_id));
-  return GetSparseTensorBodyBufferCount(format_id);
+
+  return GetSparseTensorBodyBufferCount(format_id, static_cast<size_t>(shape.size()));
 }
 
 Result<std::shared_ptr<SparseTensor>> ReadSparseTensorPayload(const IpcPayload& payload) {
@@ -1378,7 +1382,8 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensorPayload(const IpcPayload& 
                                          &non_zero_length, &sparse_tensor_format_id,
                                          &sparse_tensor, &buffer));
 
-  RETURN_NOT_OK(CheckSparseTensorBodyBufferCount(payload, sparse_tensor_format_id));
+  RETURN_NOT_OK(CheckSparseTensorBodyBufferCount(payload, sparse_tensor_format_id,
+                                                 static_cast<size_t>(shape.size())));
 
   switch (sparse_tensor_format_id) {
     case SparseTensorFormat::COO: {
