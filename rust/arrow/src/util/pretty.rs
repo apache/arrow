@@ -26,14 +26,19 @@ use prettytable::{Cell, Row, Table};
 
 use crate::error::{ArrowError, Result};
 
-///! Print a series of record batches to stdout
+///! Create a visual representation of record batches
+pub fn pretty_format_batches(results: &Vec<RecordBatch>) -> Result<String> {
+    Ok(create_table(results)?.to_string())
+}
+
+///! Prints a visual representation of record batches to stdout
 pub fn print_batches(results: &Vec<RecordBatch>) -> Result<()> {
     create_table(results)?.printstd();
     Ok(())
 }
 
 ///! Convert a series of record batches into a table
-pub fn create_table(results: &Vec<RecordBatch>) -> Result<Table> {
+fn create_table(results: &Vec<RecordBatch>) -> Result<Table> {
     let mut table = Table::new();
     table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
 
@@ -134,7 +139,7 @@ mod tests {
     use std::sync::Arc;
 
     #[test]
-    fn table() -> Result<()> {
+    fn test_pretty_format_batches() -> Result<()> {
         // define a schema.
         let schema = Arc::new(Schema::new(vec![
             Field::new("a", DataType::Utf8, false),
@@ -150,7 +155,7 @@ mod tests {
             ],
         )?;
 
-        let table = create_table(&vec![batch])?.to_string();
+        let table = pretty_format_batches(&vec![batch])?;
 
         let expected = vec![
             "+---+-----+",
