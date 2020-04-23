@@ -308,21 +308,15 @@ cdef class Dataset:
         -------
         fragments : iterator of Fragment
         """
-        cdef:
-            CFragmentIterator iterator
-            shared_ptr[CFragment] fragment
+        cdef CFragmentIterator c_fragments
 
         if filter is None or filter.expr == nullptr:
-            iterator = self.dataset.GetFragments()
+            c_fragments = self.dataset.GetFragments()
         else:
-            iterator = self.dataset.GetFragments(filter.unwrap())
+            c_fragments = self.dataset.GetFragments(filter.unwrap())
 
-        while True:
-            fragment = GetResultValue(iterator.Next())
-            if fragment.get() == nullptr:
-                raise StopIteration()
-            else:
-                yield Fragment.wrap(fragment)
+        for maybe_fragment in c_fragments:
+            yield Fragment.wrap(GetResultValue(move(maybe_fragment)))
 
     def _scanner(self, **kwargs):
         return Scanner.from_dataset(self, **kwargs)
@@ -812,22 +806,17 @@ cdef class ParquetFileFragment(FileFragment):
         """
         cdef:
             CParquetFileFormat* c_format
-            CFragmentIterator c_iterator
+            CFragmentIterator c_fragments
             shared_ptr[CExpression] c_extra_filter
-            shared_ptr[CFragment] c_fragment
 
         schema = self.physical_schema
         c_extra_filter = _insert_implicit_casts(extra_filter, schema)
         c_format = <CParquetFileFormat*> self.file_fragment.format().get()
-        c_iterator = move(GetResultValue(c_format.GetRowGroupFragments(deref(
+        c_fragments = move(GetResultValue(c_format.GetRowGroupFragments(deref(
             self.parquet_file_fragment), move(c_extra_filter))))
 
-        while True:
-            c_fragment = GetResultValue(c_iterator.Next())
-            if c_fragment.get() == nullptr:
-                raise StopIteration()
-            else:
-                yield Fragment.wrap(c_fragment)
+        for maybe_fragment in c_fragments:
+            yield Fragment.wrap(GetResultValue(move(maybe_fragment)))
 
 
 cdef class ParquetReadOptions:
@@ -1513,20 +1502,8 @@ cdef class ScanTask:
         -------
         record_batches : iterator of RecordBatch
         """
-        cdef:
-            CRecordBatchIterator iterator
-            shared_ptr[CRecordBatch] record_batch
-
-        with nogil:
-            iterator = move(GetResultValue(move(self.task.Execute())))
-
-            while True:
-                record_batch = GetResultValue(iterator.Next())
-                if record_batch.get() == nullptr:
-                    raise StopIteration()
-                else:
-                    with gil:
-                        yield pyarrow_wrap_batch(record_batch)
+        for maybe_batch in GetResultValue(self.task.Execute()):
+            yield pyarrow_wrap_batch(GetResultValue(move(maybe_batch)))
 
 
 cdef shared_ptr[CScanContext] _build_scan_context(bint use_threads=True,
@@ -1667,18 +1644,8 @@ cdef class Scanner:
         -------
         scan_tasks : iterator of ScanTask
         """
-        cdef:
-            CScanTaskIterator iterator
-            shared_ptr[CScanTask] task
-
-        iterator = move(GetResultValue(move(self.scanner.Scan())))
-
-        while True:
-            task = GetResultValue(iterator.Next())
-            if task.get() == nullptr:
-                raise StopIteration()
-            else:
-                yield ScanTask.wrap(task)
+        for maybe_task in GetResultValue(self.scanner.Scan()):
+            yield ScanTask.wrap(GetResultValue(move(maybe_task)))
 
     def to_batches(self):
         """Consume a Scanner in record batches.
@@ -1714,15 +1681,6 @@ cdef class Scanner:
     def get_fragments(self):
         """Returns an iterator over the fragments in this scan.
         """
-        cdef:
-            CFragmentIterator iterator
-            shared_ptr[CFragment] fragment
-
-        iterator = self.scanner.GetFragments()
-
-        while True:
-            fragment = GetResultValue(iterator.Next())
-            if fragment.get() == nullptr:
-                raise StopIteration()
-            else:
-                yield Fragment.wrap(fragment)
+        cdef CFragmentIterator c_fragments = self.scanner.GetFragments()
+        for maybe_fragment in c_fragments:
+            yield Fragment.wrap(GetResultValue(move(maybe_fragment)))

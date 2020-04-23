@@ -110,10 +110,11 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
 
   class RangeIterator {
    public:
-    RangeIterator() : value_(IterationTraits<T>::End()), iterator_() {}
+    RangeIterator() : value_(IterationTraits<T>::End()) {}
 
     explicit RangeIterator(Iterator i)
-        : value_(IterationTraits<T>::End()), iterator_(std::move(i)) {
+        : value_(IterationTraits<T>::End()),
+          iterator_(std::make_shared<Iterator>(std::move(i))) {
       Next();
     }
 
@@ -138,11 +139,11 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
         value_ = IterationTraits<T>::End();
         return;
       }
-      value_ = iterator_.Next();
+      value_ = iterator_->Next();
     }
 
     Result<T> value_;
-    Iterator iterator_;
+    std::shared_ptr<Iterator> iterator_;
   };
 
   RangeIterator begin() { return RangeIterator(std::move(*this)); }
