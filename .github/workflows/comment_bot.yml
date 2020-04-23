@@ -142,6 +142,7 @@ jobs:
           git remote add upstream https://github.com/${{ github.repository }}
           git fetch --unshallow upstream master
           git rebase upstream/master
-      - uses: r-lib/actions/pr-push@master
+      - uses: nealrichardson/actions/pr-push@pr-push-args
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+          args: "--force"
