@@ -61,7 +61,7 @@ environment:
     - JOB: "Build"
       GENERATOR: Ninja
       CONFIGURATION: "Release"
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
     - JOB: "Toolchain"
       GENERATOR: Ninja
       CONFIGURATION: "Release"
