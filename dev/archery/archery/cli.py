@@ -688,8 +688,11 @@ def docker_compose_run(obj, image, pull, build):
 
 @docker_compose.command('push')
 @click.argument('image')
-@click.option('--user', '-u', required=True, help='Docker login user')
-@click.option('--password', '-p', required=True, help='Docker login user')
+@click.option('--user', '-u', required=True, envvar='ARCHERY_DOCKER_USER',
+              help='Docker login user')
+@click.option('--password', '-p', required=True,
+              envvar='ARCHERY_DOCKER_PASSWORD',
+              help='Docker login user')
 @click.pass_obj
 def docker_compose_push(obj, image, user, password):
     compose = obj['compose']
