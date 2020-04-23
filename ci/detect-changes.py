@@ -153,6 +153,7 @@ AFFECTED_DEPENDENCIES = {
     'format': LANGUAGE_TOPICS,
     'go': ['integration'],
     '.travis.yml': ALL_TOPICS,
+    'appveyor.yml': ALL_TOPICS,
     # In theory, it should ignore CONTRIBUTING.md and ISSUE_TEMPLATE.md, but in
     # practice it's going to be CI
     '.github': ALL_TOPICS,
