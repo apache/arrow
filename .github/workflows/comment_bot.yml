@@ -137,10 +137,10 @@ jobs:
       - name: Rebase on ${{ github.repository }} master
         run: |
           set -ex
-          git log --oneline
+          git config user.name "$(git log -1 --pretty=format:%an)"
+          git config user.email "$(git log -1 --pretty=format:%ae)"
           git remote add upstream https://github.com/${{ github.repository }}
           git fetch --unshallow upstream master
-          git log --oneline upstream/master
           git rebase upstream/master
           if [ "$(git status --porcelain)" = "" ]; then
             # There are no rebase conflicts
