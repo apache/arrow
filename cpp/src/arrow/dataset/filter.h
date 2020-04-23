@@ -183,6 +183,11 @@ class ARROW_DS_EXPORT Expression {
     return Assume(*given);
   }
 
+  /// Indicates if the expression is satisfiable.
+  ///
+  /// This is a shortcut to check if the expression is neither null nor false.
+  bool IsSatisfiable() const { return !IsNull() && !Equals(false); }
+
   /// returns a debug string representing this expression
   virtual std::string ToString() const = 0;
 

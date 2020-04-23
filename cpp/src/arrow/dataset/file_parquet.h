@@ -100,25 +100,29 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   using FileFormat::MakeFragment;
 
   Result<std::shared_ptr<FileFragment>> MakeFragment(
-      FileSource source, std::shared_ptr<ScanOptions> options,
-      std::shared_ptr<Expression> partition_expression) override;
+      FileSource source, std::shared_ptr<Expression> partition_expression) override;
 
   /// \brief Create a Fragment, restricted to the specified row groups.
   Result<std::shared_ptr<FileFragment>> MakeFragment(
-      FileSource source, std::shared_ptr<ScanOptions> options,
-      std::shared_ptr<Expression> partition_expression, std::vector<int> row_groups);
+      FileSource source, std::shared_ptr<Expression> partition_expression,
+      std::vector<int> row_groups);
 
   /// \brief Split a ParquetFileFragment into a Fragment for each row group.
-  /// Row groups whose metadata contradicts the fragment's filter or the extra_filter
-  /// will be excluded.
+  ///
+  /// \param[in] fragment to split
+  /// \param[in] filter expression that will ignore RowGroup that can't satisfy
+  ///            the filter.
+  ///
+  /// \return An iterator of fragment.
   Result<FragmentIterator> GetRowGroupFragments(
       const ParquetFileFragment& fragment,
-      std::shared_ptr<Expression> extra_filter = scalar(true));
+      std::shared_ptr<Expression> filter = scalar(true));
 };
 
 class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
  public:
-  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) override;
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
+                                std::shared_ptr<ScanContext> context) override;
 
   /// \brief The row groups viewed by this Fragment. This may be empty which signifies all
   /// row groups are selected.
@@ -126,10 +130,9 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
 
  private:
   ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
-                      std::shared_ptr<ScanOptions> scan_options,
                       std::shared_ptr<Expression> partition_expression,
                       std::vector<int> row_groups)
-      : FileFragment(std::move(source), std::move(format), std::move(scan_options),
+      : FileFragment(std::move(source), std::move(format),
                      std::move(partition_expression)),
         row_groups_(std::move(row_groups)) {}
 

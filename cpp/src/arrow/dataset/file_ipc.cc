@@ -158,44 +158,54 @@ Result<ScanTaskIterator> IpcFileFormat::ScanFile(
   return IpcScanTaskIterator::Make(options, context, source);
 }
 
-Result<std::shared_ptr<WriteTask>> IpcFileFormat::WriteFragment(
-    FileSource destination, std::shared_ptr<Fragment> fragment,
-    std::shared_ptr<ScanContext> scan_context) {
-  struct Task : WriteTask {
-    Task(FileSource destination, std::shared_ptr<FileFormat> format,
-         std::shared_ptr<Fragment> fragment, std::shared_ptr<ScanContext> scan_context)
-        : WriteTask(std::move(destination), std::move(format)),
-          fragment_(std::move(fragment)),
-          scan_context_(std::move(scan_context)) {}
+class IpcWriteTask : public WriteTask {
+ public:
+  IpcWriteTask(FileSource destination, std::shared_ptr<FileFormat> format,
+               std::shared_ptr<Fragment> fragment,
+               std::shared_ptr<ScanOptions> scan_options,
+               std::shared_ptr<ScanContext> scan_context)
+      : WriteTask(std::move(destination), std::move(format)),
+        fragment_(std::move(fragment)),
+        scan_options_(std::move(scan_options)),
+        scan_context_(std::move(scan_context)) {}
 
-    Status Execute() override {
-      RETURN_NOT_OK(CreateDestinationParentDir());
+  Status Execute() override {
+    RETURN_NOT_OK(CreateDestinationParentDir());
 
-      ARROW_ASSIGN_OR_RAISE(auto out_stream, destination_.OpenWritable());
-      ARROW_ASSIGN_OR_RAISE(auto writer,
-                            ipc::NewFileWriter(out_stream.get(), fragment_->schema()));
-      ARROW_ASSIGN_OR_RAISE(auto scan_task_it, fragment_->Scan(scan_context_));
+    auto schema = scan_options_->schema();
 
-      for (auto maybe_scan_task : scan_task_it) {
-        ARROW_ASSIGN_OR_RAISE(auto scan_task, maybe_scan_task);
+    ARROW_ASSIGN_OR_RAISE(auto out_stream, destination_.OpenWritable());
+    ARROW_ASSIGN_OR_RAISE(auto writer, ipc::NewFileWriter(out_stream.get(), schema));
+    ARROW_ASSIGN_OR_RAISE(auto scan_task_it,
+                          fragment_->Scan(scan_options_, scan_context_));
 
-        ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
+    for (auto maybe_scan_task : scan_task_it) {
+      ARROW_ASSIGN_OR_RAISE(auto scan_task, maybe_scan_task);
 
-        for (auto maybe_batch : batch_it) {
-          ARROW_ASSIGN_OR_RAISE(auto batch, std::move(maybe_batch));
-          RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
-        }
+      ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
+
+      for (auto maybe_batch : batch_it) {
+        ARROW_ASSIGN_OR_RAISE(auto batch, std::move(maybe_batch));
+        RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
       }
-
-      return writer->Close();
     }
 
-    std::shared_ptr<Fragment> fragment_;
-    std::shared_ptr<ScanContext> scan_context_;
-  };
+    return writer->Close();
+  }
 
-  return std::make_shared<Task>(std::move(destination), shared_from_this(),
-                                std::move(fragment), std::move(scan_context));
+ private:
+  std::shared_ptr<Fragment> fragment_;
+  std::shared_ptr<ScanOptions> scan_options_;
+  std::shared_ptr<ScanContext> scan_context_;
+};
+
+Result<std::shared_ptr<WriteTask>> IpcFileFormat::WriteFragment(
+    FileSource destination, std::shared_ptr<Fragment> fragment,
+    std::shared_ptr<ScanOptions> scan_options,
+    std::shared_ptr<ScanContext> scan_context) {
+  return std::make_shared<IpcWriteTask>(std::move(destination), shared_from_this(),
+                                        std::move(fragment), std::move(scan_options),
+                                        std::move(scan_context));
 }
 
 }  // namespace dataset

@@ -49,8 +49,8 @@ namespace arrow {
 namespace dataset {
 
 using arrow::compute::Datum;
-using internal::checked_cast;
-using internal::checked_pointer_cast;
+using arrow::internal::checked_cast;
+using arrow::internal::checked_pointer_cast;
 
 inline std::shared_ptr<ScalarExpression> NullExpression() {
   return std::make_shared<ScalarExpression>(std::make_shared<BooleanScalar>());
@@ -655,31 +655,32 @@ std::string ScalarExpression::ToString() const {
   return value_->ToString() + ":" + type_repr;
 }
 
+using arrow::internal::JoinStrings;
+
 std::string AndExpression::ToString() const {
-  return internal::JoinStrings(
+  return JoinStrings(
       {"(", left_operand_->ToString(), " and ", right_operand_->ToString(), ")"}, "");
 }
 
 std::string OrExpression::ToString() const {
-  return internal::JoinStrings(
+  return JoinStrings(
       {"(", left_operand_->ToString(), " or ", right_operand_->ToString(), ")"}, "");
 }
 
 std::string NotExpression::ToString() const {
   if (operand_->type() == ExpressionType::IS_VALID) {
     const auto& is_valid = checked_cast<const IsValidExpression&>(*operand_);
-    return internal::JoinStrings({"(", is_valid.operand()->ToString(), " is null)"}, "");
+    return JoinStrings({"(", is_valid.operand()->ToString(), " is null)"}, "");
   }
-  return internal::JoinStrings({"(not ", operand_->ToString(), ")"}, "");
+  return JoinStrings({"(not ", operand_->ToString(), ")"}, "");
 }
 
 std::string IsValidExpression::ToString() const {
-  return internal::JoinStrings({"(", operand_->ToString(), " is not null)"}, "");
+  return JoinStrings({"(", operand_->ToString(), " is not null)"}, "");
 }
 
 std::string InExpression::ToString() const {
-  return internal::JoinStrings(
-      {"(", operand_->ToString(), " is in ", set_->ToString(), ")"}, "");
+  return JoinStrings({"(", operand_->ToString(), " is in ", set_->ToString(), ")"}, "");
 }
 
 std::string CastExpression::ToString() const {
@@ -691,13 +692,13 @@ std::string CastExpression::ToString() const {
     auto like = arrow::util::get<std::shared_ptr<Expression>>(to_);
     to = " like " + like->ToString();
   }
-  return internal::JoinStrings({"(cast ", operand_->ToString(), std::move(to), ")"}, "");
+  return JoinStrings({"(cast ", operand_->ToString(), std::move(to), ")"}, "");
 }
 
 std::string ComparisonExpression::ToString() const {
-  return internal::JoinStrings({"(", left_operand_->ToString(), " ", OperatorName(op()),
-                                " ", right_operand_->ToString(), ")"},
-                               "");
+  return JoinStrings({"(", left_operand_->ToString(), " ", OperatorName(op()), " ",
+                      right_operand_->ToString(), ")"},
+                     "");
 }
 
 bool UnaryExpression::Equals(const Expression& other) const {

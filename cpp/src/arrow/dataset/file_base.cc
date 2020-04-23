@@ -55,26 +55,30 @@ Result<std::shared_ptr<arrow::io::OutputStream>> FileSource::OpenWritable() cons
   return std::make_shared<::arrow::io::BufferOutputStream>(b);
 }
 
-Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
-    FileSource source, std::shared_ptr<ScanOptions> options) {
-  return MakeFragment(std::move(source), std::move(options), scalar(true));
+Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(FileSource source) {
+  return MakeFragment(std::move(source), scalar(true));
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
-    FileSource source, std::shared_ptr<ScanOptions> options,
-    std::shared_ptr<Expression> partition_expression) {
+    FileSource source, std::shared_ptr<Expression> partition_expression) {
   return std::shared_ptr<FileFragment>(new FileFragment(
-      std::move(source), shared_from_this(), options, std::move(partition_expression)));
+      std::move(source), shared_from_this(), std::move(partition_expression)));
 }
 
 Result<std::shared_ptr<WriteTask>> FileFormat::WriteFragment(
     FileSource destination, std::shared_ptr<Fragment> fragment,
+    std::shared_ptr<ScanOptions> scan_options,
     std::shared_ptr<ScanContext> scan_context) {
   return Status::NotImplemented("writing fragment of format ", type_name());
 }
 
-Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanContext> context) {
-  return format_->ScanFile(source_, scan_options_, std::move(context));
+Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchema() {
+  return format_->Inspect(source_);
+}
+
+Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanOptions> options,
+                                            std::shared_ptr<ScanContext> context) {
+  return format_->ScanFile(source_, std::move(options), std::move(context));
 }
 
 FileSystemDataset::FileSystemDataset(std::shared_ptr<Schema> schema,
@@ -167,10 +171,8 @@ std::shared_ptr<Expression> FoldingAnd(const std::shared_ptr<Expression>& l,
 }
 
 FragmentIterator FileSystemDataset::GetFragmentsImpl(
-    std::shared_ptr<ScanOptions> root_options) {
+    std::shared_ptr<Expression> predicate) {
   FragmentVector fragments;
-
-  std::vector<std::shared_ptr<ScanOptions>> options(forest_.size());
 
   ExpressionVector fragment_partitions(forest_.size());
 
@@ -180,33 +182,23 @@ FragmentIterator FileSystemDataset::GetFragmentsImpl(
     // if available, copy parent's filter and projector
     // (which are appropriately simplified and loaded with default values)
     if (auto parent = ref.parent()) {
-      options[ref.i].reset(new ScanOptions(*options[parent.i]));
-      fragment_partitions[ref.i] =
-          FoldingAnd(fragment_partitions[parent.i], partitions_[ref.i]);
+      fragment_partitions[ref.i] = FoldingAnd(fragment_partitions[parent.i], partition);
     } else {
-      options[ref.i].reset(new ScanOptions(*root_options));
-      fragment_partitions[ref.i] = FoldingAnd(partition_expression_, partitions_[ref.i]);
+      fragment_partitions[ref.i] = FoldingAnd(partition_expression_, partition);
     }
 
-    // simplify filter by partition information
-    auto filter = options[ref.i]->filter->Assume(partition);
-    options[ref.i]->filter = filter;
-
-    if (filter->IsNull() || filter->Equals(false)) {
+    auto simplified_predicate = predicate->Assume(partition);
+    if (!simplified_predicate->IsSatisfiable()) {
       // directories (and descendants) which can't satisfy the filter are pruned
       return fs::PathForest::Prune;
     }
 
-    // if possible, extract a partition key and pass it to the projector
-    RETURN_NOT_OK(KeyValuePartitioning::SetDefaultValuesFromKeys(
-        *partition, &options[ref.i]->projector));
-
     if (ref.info().IsFile()) {
       // generate a fragment for this file
       FileSource src(ref.info().path(), filesystem_.get());
-      ARROW_ASSIGN_OR_RAISE(auto fragment,
-                            format_->MakeFragment(std::move(src), options[ref.i],
-                                                  std::move(fragment_partitions[ref.i])));
+      ARROW_ASSIGN_OR_RAISE(
+          auto fragment,
+          format_->MakeFragment(std::move(src), std::move(fragment_partitions[ref.i])));
       fragments.push_back(std::move(fragment));
     }
 
@@ -222,9 +214,8 @@ FragmentIterator FileSystemDataset::GetFragmentsImpl(
 }
 
 Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Write(
-    const WritePlan& plan, std::shared_ptr<ScanContext> scan_context) {
-  std::vector<std::shared_ptr<ScanOptions>> options(plan.paths.size());
-
+    const WritePlan& plan, std::shared_ptr<ScanOptions> scan_options,
+    std::shared_ptr<ScanContext> scan_context) {
   auto filesystem = plan.filesystem;
   if (filesystem == nullptr) {
     filesystem = std::make_shared<fs::LocalFileSystem>();
@@ -251,9 +242,9 @@ Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Write(
       const auto& fragment = util::get<std::shared_ptr<Fragment>>(op);
 
       FileSource dest(files[i].path(), filesystem.get());
-      ARROW_ASSIGN_OR_RAISE(
-          auto write_task,
-          plan.format->WriteFragment(std::move(dest), fragment, scan_context));
+      ARROW_ASSIGN_OR_RAISE(auto write_task,
+                            plan.format->WriteFragment(std::move(dest), fragment,
+                                                       scan_options, scan_context));
 
       task_group->Append([write_task] { return write_task->Execute(); });
     }

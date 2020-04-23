@@ -80,15 +80,15 @@ TEST(FileSource, BufferBased) {
 
 TEST_F(TestFileSystemDataset, Basic) {
   MakeDataset({});
-  AssertFragmentsAreFromPath(dataset_->GetFragments(options_), {});
+  AssertFragmentsAreFromPath(dataset_->GetFragments(), {});
 
   MakeDataset({fs::File("a"), fs::File("b"), fs::File("c")});
-  AssertFragmentsAreFromPath(dataset_->GetFragments(options_), {"a", "b", "c"});
+  AssertFragmentsAreFromPath(dataset_->GetFragments(), {"a", "b", "c"});
   AssertFilesAre(dataset_, {"a", "b", "c"});
 
   // Should not create fragment from directories.
   MakeDataset({fs::Dir("A"), fs::Dir("A/B"), fs::File("A/a"), fs::File("A/B/b")});
-  AssertFragmentsAreFromPath(dataset_->GetFragments(options_), {"A/a", "A/B/b"});
+  AssertFragmentsAreFromPath(dataset_->GetFragments(), {"A/a", "A/B/b"});
   AssertFilesAre(dataset_, {"A/a", "A/B/b"});
 }
 
@@ -121,27 +121,22 @@ TEST_F(TestFileSystemDataset, RootPartitionPruning) {
   MakeDataset({fs::File("a"), fs::File("b")}, root_partition);
 
   // Default filter should always return all data.
-  AssertFragmentsAreFromPath(dataset_->GetFragments(options_), {"a", "b"});
+  AssertFragmentsAreFromPath(dataset_->GetFragments(), {"a", "b"});
 
   // filter == partition
-  options_->filter = root_partition;
-  AssertFragmentsAreFromPath(dataset_->GetFragments(options_), {"a", "b"});
+  AssertFragmentsAreFromPath(dataset_->GetFragments(root_partition), {"a", "b"});
 
   // Same partition key, but non matching filter
-  options_->filter = ("a"_ == 6).Copy();
-  AssertFragmentsAreFromPath(dataset_->GetFragments(options_), {});
+  AssertFragmentsAreFromPath(dataset_->GetFragments(("a"_ == 6).Copy()), {});
 
-  options_->filter = ("a"_ > 1).Copy();
-  AssertFragmentsAreFromPath(dataset_->GetFragments(options_), {"a", "b"});
+  AssertFragmentsAreFromPath(dataset_->GetFragments(("a"_ > 1).Copy()), {"a", "b"});
 
   // different key shouldn't prune
-  options_->filter = ("b"_ == 6).Copy();
-  AssertFragmentsAreFromPath(dataset_->GetFragments(options_), {"a", "b"});
+  AssertFragmentsAreFromPath(dataset_->GetFragments(("b"_ == 6).Copy()), {"a", "b"});
 
   // No partition should match
   MakeDataset({fs::File("a"), fs::File("b")});
-  options_->filter = ("b"_ == 6).Copy();
-  AssertFragmentsAreFromPath(dataset_->GetFragments(options_), {"a", "b"});
+  AssertFragmentsAreFromPath(dataset_->GetFragments(("b"_ == 6).Copy()), {"a", "b"});
 }
 
 TEST_F(TestFileSystemDataset, TreePartitionPruning) {
@@ -165,21 +160,20 @@ TEST_F(TestFileSystemDataset, TreePartitionPruning) {
   std::vector<std::string> franklins = {"CA/Franklin", "NY/Franklin"};
 
   // Default filter should always return all data.
-  AssertFragmentsAreFromPath(dataset_->GetFragments(options_), all_cities);
+  AssertFragmentsAreFromPath(dataset_->GetFragments(), all_cities);
 
   // Dataset's partitions are respected
-  options_->filter = ("country"_ == "US").Copy();
-  AssertFragmentsAreFromPath(dataset_->GetFragments(options_), all_cities);
-  options_->filter = ("country"_ == "FR").Copy();
-  AssertFragmentsAreFromPath(dataset_->GetFragments(options_), {});
+  AssertFragmentsAreFromPath(dataset_->GetFragments(("country"_ == "US").Copy()),
+                             all_cities);
+  AssertFragmentsAreFromPath(dataset_->GetFragments(("country"_ == "FR").Copy()), {});
 
-  options_->filter = ("state"_ == "CA").Copy();
-  AssertFragmentsAreFromPath(dataset_->GetFragments(options_), ca_cities);
+  AssertFragmentsAreFromPath(dataset_->GetFragments(("state"_ == "CA").Copy()),
+                             ca_cities);
 
   // Filter where no decisions can be made on inner nodes when filter don't
   // apply to inner partitions.
-  options_->filter = ("city"_ == "Franklin").Copy();
-  AssertFragmentsAreFromPath(dataset_->GetFragments(options_), franklins);
+  AssertFragmentsAreFromPath(dataset_->GetFragments(("city"_ == "Franklin").Copy()),
+                             franklins);
 }
 
 TEST_F(TestFileSystemDataset, FragmentPartitions) {
@@ -202,7 +196,7 @@ TEST_F(TestFileSystemDataset, FragmentPartitions) {
   };
 
   AssertFragmentsHavePartitionExpressions(
-      dataset_->GetFragments(options_),
+      dataset_->GetFragments(),
       {
           with_root("state"_ == "CA", "city"_ == "San Francisco"),
           with_root("state"_ == "CA", "city"_ == "Franklin"),

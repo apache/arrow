@@ -99,7 +99,7 @@ class TestIpcFileFormat : public ArrowIpcWriterMixin {
   }
 
   RecordBatchIterator Batches(Fragment* fragment) {
-    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(ctx_));
+    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_, ctx_));
     return Batches(std::move(scan_task_it));
   }
 
@@ -115,7 +115,7 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReader) {
   auto source = GetFileSource(reader.get());
 
   opts_ = ScanOptions::Make(reader->schema());
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
   int64_t row_count = 0;
 
@@ -132,11 +132,12 @@ TEST_F(TestIpcFileFormat, WriteRecordBatchReader) {
   auto source = GetFileSource(reader.get());
 
   opts_ = ScanOptions::Make(reader->schema());
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
   EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
 
-  EXPECT_OK_AND_ASSIGN(auto write_task, format_->WriteFragment(sink, fragment, ctx_));
+  EXPECT_OK_AND_ASSIGN(auto write_task,
+                       format_->WriteFragment(sink, fragment, opts_, ctx_));
 
   ASSERT_OK(write_task->Execute());
 
@@ -187,13 +188,13 @@ TEST_F(TestIpcFileSystemDataset, Write) {
 
   auto partitioning_factory = DirectoryPartitioning::MakeFactory({"str", "i32"});
   ASSERT_OK_AND_ASSIGN(
-      auto plan, partitioning_factory->MakeWritePlan(dataset_->GetFragments(options_)));
+      auto plan, partitioning_factory->MakeWritePlan(schema, dataset_->GetFragments()));
 
   plan.format = format_;
   plan.filesystem = fs_;
   plan.partition_base_dir = "new_root/";
 
-  ASSERT_OK_AND_ASSIGN(auto written, FileSystemDataset::Write(plan, ctx_));
+  ASSERT_OK_AND_ASSIGN(auto written, FileSystemDataset::Write(plan, opts_, ctx_));
 
   using E = TestExpression;
   std::vector<E> actual_partitions;
@@ -249,7 +250,7 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjected) {
 
   auto reader = GetRecordBatchReader();
   auto source = GetFileSource(reader.get());
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
   int64_t row_count = 0;
 
@@ -282,7 +283,7 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
   auto readers = {reader.get(), reader_without_i32.get(), reader_without_f64.get()};
   for (auto reader : readers) {
     auto source = GetFileSource(reader);
-    ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
+    ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
     // NB: projector is applied by the scanner; Fragment does not evaluate it.
     // We will not drop "i32" even though it is not in the projector's schema.

@@ -220,8 +220,7 @@ class RowGroupSkipper {
     }
 
     auto stats_expr = maybe_stats_expr.ValueOrDie();
-    auto expr = filter_->Assume(stats_expr);
-    return (expr->IsNull() || expr->Equals(false));
+    return !filter_->Assume(stats_expr)->IsSatisfiable();
   }
 
   std::shared_ptr<parquet::FileMetaData> metadata_;
@@ -402,23 +401,21 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
 }
 
 Result<std::shared_ptr<FileFragment>> ParquetFileFormat::MakeFragment(
-    FileSource source, std::shared_ptr<ScanOptions> options,
-    std::shared_ptr<Expression> partition_expression, std::vector<int> row_groups) {
+    FileSource source, std::shared_ptr<Expression> partition_expression,
+    std::vector<int> row_groups) {
   return std::shared_ptr<FileFragment>(
-      new ParquetFileFragment(std::move(source), shared_from_this(), std::move(options),
+      new ParquetFileFragment(std::move(source), shared_from_this(),
                               std::move(partition_expression), std::move(row_groups)));
 }
 
 Result<std::shared_ptr<FileFragment>> ParquetFileFormat::MakeFragment(
-    FileSource source, std::shared_ptr<ScanOptions> options,
-    std::shared_ptr<Expression> partition_expression) {
-  return std::shared_ptr<FileFragment>(
-      new ParquetFileFragment(std::move(source), shared_from_this(), std::move(options),
-                              std::move(partition_expression), {}));
+    FileSource source, std::shared_ptr<Expression> partition_expression) {
+  return std::shared_ptr<FileFragment>(new ParquetFileFragment(
+      std::move(source), shared_from_this(), std::move(partition_expression), {}));
 }
 
 Result<FragmentIterator> ParquetFileFormat::GetRowGroupFragments(
-    const ParquetFileFragment& fragment, std::shared_ptr<Expression> extra_filter) {
+    const ParquetFileFragment& fragment, std::shared_ptr<Expression> filter) {
   auto properties = MakeReaderProperties(*this);
   ARROW_ASSIGN_OR_RAISE(auto reader,
                         OpenReader(fragment.source(), std::move(properties)));
@@ -433,26 +430,22 @@ Result<FragmentIterator> ParquetFileFormat::GetRowGroupFragments(
   }
   FragmentVector fragments(row_groups.size());
 
-  auto new_options = std::make_shared<ScanOptions>(*fragment.scan_options());
-  if (!extra_filter->Equals(true)) {
-    new_options->filter = and_(std::move(extra_filter), std::move(new_options->filter));
-  }
-
   RowGroupSkipper skipper(std::move(metadata), std::move(arrow_properties),
-                          new_options->filter, std::move(row_groups));
+                          std::move(filter), std::move(row_groups));
 
   for (int i = 0, row_group = skipper.Next();
        row_group != RowGroupSkipper::kIterationDone; row_group = skipper.Next()) {
-    ARROW_ASSIGN_OR_RAISE(fragments[i++],
-                          MakeFragment(fragment.source(), new_options,
-                                       fragment.partition_expression(), {row_group}));
+    ARROW_ASSIGN_OR_RAISE(
+        fragments[i++],
+        MakeFragment(fragment.source(), fragment.partition_expression(), {row_group}));
   }
 
   return MakeVectorIterator(std::move(fragments));
 }
 
-Result<ScanTaskIterator> ParquetFileFragment::Scan(std::shared_ptr<ScanContext> context) {
-  return parquet_format().ScanFile(source_, scan_options_, std::move(context),
+Result<ScanTaskIterator> ParquetFileFragment::Scan(std::shared_ptr<ScanOptions> options,
+                                                   std::shared_ptr<ScanContext> context) {
+  return parquet_format().ScanFile(source_, std::move(options), std::move(context),
                                    row_groups_);
 }
 

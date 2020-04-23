@@ -42,7 +42,7 @@ namespace dataset {
 
 using util::string_view;
 
-using internal::checked_cast;
+using arrow::internal::checked_cast;
 
 Result<std::shared_ptr<Expression>> Partitioning::Parse(const std::string& path) const {
   ExpressionVector expressions;
@@ -64,13 +64,15 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
   return std::make_shared<DefaultPartitioning>();
 }
 
-Result<WritePlan> PartitioningFactory::MakeWritePlan(FragmentIterator fragment_it) {
+Result<WritePlan> PartitioningFactory::MakeWritePlan(std::shared_ptr<Schema> schema,
+                                                     FragmentIterator fragment_it) {
   return Status::NotImplemented("MakeWritePlan from PartitioningFactory of type ",
                                 type_name());
 }
 
 Result<WritePlan> PartitioningFactory::MakeWritePlan(
-    FragmentIterator fragment_it, const std::shared_ptr<Schema>& schema) {
+    std::shared_ptr<Schema> schema, FragmentIterator fragment_it,
+    std::shared_ptr<Schema> partition_schema) {
   return Status::NotImplemented("MakeWritePlan from PartitioningFactory of type ",
                                 type_name());
 }
@@ -297,10 +299,12 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
 
   struct MakeWritePlanImpl;
 
-  Result<WritePlan> MakeWritePlan(FragmentIterator fragments) override;
+  Result<WritePlan> MakeWritePlan(std::shared_ptr<Schema> schema,
+                                  FragmentIterator fragments) override;
 
-  Result<WritePlan> MakeWritePlan(FragmentIterator fragments,
-                                  const std::shared_ptr<Schema>& schema) override;
+  Result<WritePlan> MakeWritePlan(std::shared_ptr<Schema> schema,
+                                  FragmentIterator fragments,
+                                  std::shared_ptr<Schema> partition_schema) override;
 
  private:
   std::vector<std::string> field_names_;
@@ -309,9 +313,10 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
 struct DirectoryPartitioningFactory::MakeWritePlanImpl {
   using Indices = std::basic_string<int>;
 
-  MakeWritePlanImpl(DirectoryPartitioningFactory* factory,
+  MakeWritePlanImpl(DirectoryPartitioningFactory* factory, std::shared_ptr<Schema> schema,
                     FragmentVector source_fragments)
       : this_(factory),
+        schema_(std::move(schema)),
         source_fragments_(std::move(source_fragments)),
         right_hand_sides_(source_fragments_.size(), Indices(num_fields(), -1)) {}
 
@@ -416,23 +421,6 @@ struct DirectoryPartitioningFactory::MakeWritePlanImpl {
     return std::to_string(milliseconds_since_epoch);
   }
 
-  // remove fields which will be implicit in the partitioning; writing them to files would
-  // be redundant
-  Status DropPartitionFields(const std::shared_ptr<Partitioning>& partitioning,
-                             Fragment* fragment) {
-    auto schema = fragment->schema();
-    for (const auto& field : partitioning->schema()->fields()) {
-      int field_i = schema->GetFieldIndex(field->name());
-      if (field_i != -1) {
-        ARROW_ASSIGN_OR_RAISE(schema, schema->RemoveField(field_i));
-      }
-    }
-
-    // the fragment being scanned to disk will now deselect redundant columns
-    fragment->scan_options()->projector = RecordBatchProjector(std::move(schema));
-    return Status::OK();
-  }
-
   Result<WritePlan> Finish(std::shared_ptr<Schema> partitioning_schema = nullptr) && {
     WritePlan out;
 
@@ -444,18 +432,17 @@ struct DirectoryPartitioningFactory::MakeWritePlanImpl {
     ARROW_ASSIGN_OR_RAISE(out.partitioning,
                           this_->Finish(std::move(partitioning_schema)));
 
-    auto fragment_schema =
-        source_fragments_.empty() ? schema({}) : source_fragments_.front()->schema();
+    // There's no guarantee that all Fragments have the same schema.
     ARROW_ASSIGN_OR_RAISE(out.schema,
-                          UnifySchemas({out.partitioning->schema(), fragment_schema}));
+                          UnifySchemas({out.partitioning->schema(), schema_}));
 
     // Lexicographic ordering WRT right_hand_sides_ ensures that source_fragments_ are in
     // a depth first visitation order WRT their partition expressions. This makes
     // generation of the full directory tree far simpler since a directory's files are
     // grouped.
-    auto permutation = internal::ArgSort(right_hand_sides_);
-    internal::Permute(permutation, &source_fragments_);
-    internal::Permute(permutation, &right_hand_sides_);
+    auto permutation = arrow::internal::ArgSort(right_hand_sides_);
+    arrow::internal::Permute(permutation, &source_fragments_);
+    arrow::internal::Permute(permutation, &right_hand_sides_);
 
     // the basename of out.paths[i] is stored in segments[i] (full paths will be assembled
     // after segments is complete)
@@ -473,9 +460,6 @@ struct DirectoryPartitioningFactory::MakeWritePlanImpl {
     Indices current_parents(num_fields() + 1, -1);
 
     for (size_t fragment_i = 0; fragment_i < source_fragments_.size(); ++fragment_i) {
-      RETURN_NOT_OK(
-          DropPartitionFields(out.partitioning, source_fragments_[fragment_i].get()));
-
       int field_i = 0;
       for (; field_i < num_fields(); ++field_i) {
         // these directories have already been created and we're still writing their
@@ -528,6 +512,7 @@ struct DirectoryPartitioningFactory::MakeWritePlanImpl {
   }
 
   DirectoryPartitioningFactory* this_;
+  std::shared_ptr<Schema> schema_;
   FragmentVector source_fragments_;
 
   struct {
@@ -552,15 +537,16 @@ struct DirectoryPartitioningFactory::MakeWritePlanImpl {
 };
 
 Result<WritePlan> DirectoryPartitioningFactory::MakeWritePlan(
-    FragmentIterator fragment_it, const std::shared_ptr<Schema>& schema) {
+    std::shared_ptr<Schema> schema, FragmentIterator fragment_it,
+    std::shared_ptr<Schema> partition_schema) {
   ARROW_ASSIGN_OR_RAISE(auto fragments, fragment_it.ToVector());
-  return MakeWritePlanImpl(this, std::move(fragments)).Finish(schema);
+  return MakeWritePlanImpl(this, schema, std::move(fragments)).Finish(partition_schema);
 }
 
 Result<WritePlan> DirectoryPartitioningFactory::MakeWritePlan(
-    FragmentIterator fragment_it) {
+    std::shared_ptr<Schema> schema, FragmentIterator fragment_it) {
   ARROW_ASSIGN_OR_RAISE(auto fragments, fragment_it.ToVector());
-  return MakeWritePlanImpl(this, std::move(fragments)).Finish();
+  return MakeWritePlanImpl(this, schema, std::move(fragments)).Finish();
 }
 
 std::shared_ptr<PartitioningFactory> DirectoryPartitioning::MakeFactory(

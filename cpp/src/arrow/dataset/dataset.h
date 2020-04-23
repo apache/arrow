@@ -30,12 +30,23 @@
 namespace arrow {
 namespace dataset {
 
-/// \brief A granular piece of a Dataset, such as an individual file, which can be
-/// read/scanned separately from other fragments.
+/// \brief A granular piece of a Dataset, such as an individual file.
 ///
-/// A Fragment yields a collection of RecordBatch, encapsulated in one or more ScanTasks.
+/// A Fragment can be read/scanned separately from other fragments. It yields a
+/// collection of RecordBatches when scanned, encapsulated in one or more
+/// ScanTasks.
+///
+/// Note that Fragments have well defined physical schemas which are reconciled by
+/// the Datasets which contain them; these physical schemas may differ from a parent
+/// Dataset's schema and the physical schemas of sibling Fragments.
 class ARROW_DS_EXPORT Fragment {
  public:
+  /// \brief Return the physical schema of the Fragment.
+  ///
+  /// The physical schema is also called the writer schema.
+  /// This method is blocking and may suffer from high latency filesystem.
+  virtual Result<std::shared_ptr<Schema>> ReadPhysicalSchema() = 0;
+
   /// \brief Scan returns an iterator of ScanTasks, each of which yields
   /// RecordBatches from this Fragment.
   ///
@@ -46,20 +57,13 @@ class ARROW_DS_EXPORT Fragment {
   /// columns may be absent if they were not present in this fragment.
   ///
   /// To receive a record batch stream which is fully filtered and projected, use Scanner.
-  virtual Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) = 0;
+  virtual Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
+                                        std::shared_ptr<ScanContext> context) = 0;
 
   /// \brief Return true if the fragment can benefit from parallel scanning.
   virtual bool splittable() const = 0;
 
   virtual std::string type_name() const = 0;
-
-  /// \brief Filtering, schema reconciliation, and partition options to use when
-  /// scanning this fragment.
-  const std::shared_ptr<ScanOptions>& scan_options() const { return scan_options_; }
-
-  const std::shared_ptr<Schema>& schema() const;
-
-  virtual ~Fragment() = default;
 
   /// \brief An expression which evaluates to true for all data viewed by this
   /// Fragment.
@@ -67,15 +71,11 @@ class ARROW_DS_EXPORT Fragment {
     return partition_expression_;
   }
 
+  virtual ~Fragment() = default;
+
  protected:
-  explicit Fragment(std::shared_ptr<ScanOptions> scan_options);
+  explicit Fragment(std::shared_ptr<Expression> partition_expression = NULLPTR);
 
-  Fragment(std::shared_ptr<ScanOptions> scan_options,
-           std::shared_ptr<Expression> partition_expression)
-      : scan_options_(std::move(scan_options)),
-        partition_expression_(std::move(partition_expression)) {}
-
-  std::shared_ptr<ScanOptions> scan_options_;
   std::shared_ptr<Expression> partition_expression_;
 };
 
@@ -83,33 +83,39 @@ class ARROW_DS_EXPORT Fragment {
 /// RecordBatch.
 class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
  public:
-  InMemoryFragment(RecordBatchVector record_batches,
-                   std::shared_ptr<ScanOptions> scan_options);
+  InMemoryFragment(std::shared_ptr<Schema> schema, RecordBatchVector record_batches,
+                   std::shared_ptr<Expression> = NULLPTR);
+  explicit InMemoryFragment(RecordBatchVector record_batches,
+                            std::shared_ptr<Expression> = NULLPTR);
 
-  InMemoryFragment(RecordBatchVector record_batches,
-                   std::shared_ptr<ScanOptions> scan_options,
-                   std::shared_ptr<Expression> partition_expression);
+  Result<std::shared_ptr<Schema>> ReadPhysicalSchema() override;
 
-  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) override;
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
+                                std::shared_ptr<ScanContext> context) override;
 
   bool splittable() const override { return false; }
 
   std::string type_name() const override { return "in-memory"; }
 
  protected:
+  std::shared_ptr<Schema> schema_;
   RecordBatchVector record_batches_;
 };
 
-/// \brief A container of zero or more Fragments. A Dataset acts as a discovery mechanism
-/// of Fragments and partitions, e.g. files deeply nested in a directory.
+/// \brief A container of zero or more Fragments.
+///
+/// A Dataset acts as a union of Fragments, e.g. files deeply nested in a
+/// directory. A Dataset has a schema to which Fragments must align during a
+/// scan operation. This is analogous to Avro's reader and writer schema.
 class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
  public:
   /// \brief Begin to build a new Scan operation against this Dataset
   Result<std::shared_ptr<ScannerBuilder>> NewScan(std::shared_ptr<ScanContext> context);
   Result<std::shared_ptr<ScannerBuilder>> NewScan();
 
-  /// \brief GetFragments returns an iterator of Fragments given ScanOptions.
-  FragmentIterator GetFragments(std::shared_ptr<ScanOptions> options);
+  /// \brief GetFragments returns an iterator of Fragments given a predicate.
+  FragmentIterator GetFragments(std::shared_ptr<Expression> predicate);
+  FragmentIterator GetFragments();
 
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
@@ -138,13 +144,7 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
       : schema_(std::move(schema)), partition_expression_(std::move(e)) {}
   Dataset() = default;
 
-  virtual FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) = 0;
-
-  /// Mutates a ScanOptions by assuming partition_expression_ holds for all yielded
-  /// fragments. Returns false if the selector is not satisfiable in this Dataset.
-  virtual bool AssumePartitionExpression(
-      const std::shared_ptr<ScanOptions>& scan_options,
-      std::shared_ptr<ScanOptions>* simplified_scan_options) const;
+  virtual FragmentIterator GetFragmentsImpl(std::shared_ptr<Expression> predicate) = 0;
 
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<Expression> partition_expression_;
@@ -176,7 +176,7 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
       std::shared_ptr<Schema> schema) const override;
 
  protected:
-  FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
+  FragmentIterator GetFragmentsImpl(std::shared_ptr<Expression> predicate) override;
 
   std::shared_ptr<RecordBatchGenerator> get_batches_;
 };
@@ -200,7 +200,7 @@ class ARROW_DS_EXPORT UnionDataset : public Dataset {
       std::shared_ptr<Schema> schema) const override;
 
  protected:
-  FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
+  FragmentIterator GetFragmentsImpl(std::shared_ptr<Expression> predicate) override;
 
   explicit UnionDataset(std::shared_ptr<Schema> schema, DatasetVector children)
       : Dataset(std::move(schema)), children_(std::move(children)) {}

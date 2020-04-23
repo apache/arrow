@@ -150,7 +150,7 @@ class FileSystemDatasetFactoryTest : public DatasetFactoryTest {
     }
     options_ = ScanOptions::Make(schema);
     ASSERT_OK_AND_ASSIGN(dataset_, factory_->Finish(schema));
-    AssertFragmentsAreFromPath(dataset_->GetFragments(options_), paths);
+    AssertFragmentsAreFromPath(dataset_->GetFragments(), paths);
   }
 
  protected:

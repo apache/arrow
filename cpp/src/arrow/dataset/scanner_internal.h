@@ -22,6 +22,7 @@
 
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/filter.h"
+#include "arrow/dataset/partition.h"
 #include "arrow/dataset/scanner.h"
 
 namespace arrow {
@@ -55,28 +56,55 @@ inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
 
 class FilterAndProjectScanTask : public ScanTask {
  public:
-  explicit FilterAndProjectScanTask(std::shared_ptr<ScanTask> task)
-      : ScanTask(task->options(), task->context()), task_(std::move(task)) {}
+  explicit FilterAndProjectScanTask(std::shared_ptr<ScanTask> task,
+                                    std::shared_ptr<Expression> partition)
+      : ScanTask(task->options(), task->context()),
+        task_(std::move(task)),
+        partition_(std::move(partition)),
+        filter_(NULLPTR),
+        projector_(options()->projector) {}
 
   Result<RecordBatchIterator> Execute() override {
     ARROW_ASSIGN_OR_RAISE(auto it, task_->Execute());
-    auto filter_it = FilterRecordBatch(std::move(it), *options_->evaluator,
-                                       *options_->filter, context_->pool);
-    return ProjectRecordBatch(std::move(filter_it), &task_->options()->projector,
-                              context_->pool);
+
+    filter_ = options()->filter->Assume(partition_);
+    auto filter_it =
+        FilterRecordBatch(std::move(it), *options_->evaluator, *filter_, context_->pool);
+
+    if (partition_) {
+      RETURN_NOT_OK(
+          KeyValuePartitioning::SetDefaultValuesFromKeys(*partition_, &projector_));
+    }
+    return ProjectRecordBatch(std::move(filter_it), &projector_, context_->pool);
   }
 
  private:
   std::shared_ptr<ScanTask> task_;
+  std::shared_ptr<Expression> partition_;
+  std::shared_ptr<Expression> filter_;
+  RecordBatchProjector projector_;
 };
 
 /// \brief GetScanTaskIterator transforms an Iterator<Fragment> in a
 /// flattened Iterator<ScanTask>.
 inline ScanTaskIterator GetScanTaskIterator(FragmentIterator fragments,
+                                            std::shared_ptr<ScanOptions> options,
                                             std::shared_ptr<ScanContext> context) {
   // Fragment -> ScanTaskIterator
-  auto fn = [context](std::shared_ptr<Fragment> fragment) {
-    return fragment->Scan(context);
+  auto fn = [options,
+             context](std::shared_ptr<Fragment> fragment) -> Result<ScanTaskIterator> {
+    ARROW_ASSIGN_OR_RAISE(auto scan_task_it, fragment->Scan(options, context));
+
+    auto partition = fragment->partition_expression();
+    // Apply the filter and/or projection to incoming RecordBatches by
+    // wrapping the ScanTask with a FilterAndProjectScanTask
+    auto wrap_scan_task =
+        [partition](std::shared_ptr<ScanTask> task) -> std::shared_ptr<ScanTask> {
+      return std::make_shared<FilterAndProjectScanTask>(std::move(task),
+                                                        std::move(partition));
+    };
+
+    return MakeMapIterator(wrap_scan_task, std::move(scan_task_it));
   };
 
   // Iterator<Iterator<ScanTask>>

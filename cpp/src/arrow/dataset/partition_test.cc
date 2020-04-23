@@ -304,8 +304,7 @@ class TestPartitioningWritePlan : public ::testing::Test {
   FragmentIterator MakeFragments(const ExpressionVector& partition_expressions) {
     fragments_.clear();
     for (const auto& expr : partition_expressions) {
-      fragments_.emplace_back(
-          new InMemoryFragment(RecordBatchVector{}, scan_options_, expr));
+      fragments_.emplace_back(new InMemoryFragment(RecordBatchVector{}, expr));
     }
     return MakeVectorIterator(fragments_);
   }
@@ -321,27 +320,30 @@ class TestPartitioningWritePlan : public ::testing::Test {
   template <typename... E>
   void MakeWritePlan(const E&... partition_expressions) {
     auto fragments = MakeFragments(partition_expressions...);
-    EXPECT_OK_AND_ASSIGN(plan_, factory_->MakeWritePlan(std::move(fragments)));
+    EXPECT_OK_AND_ASSIGN(plan_,
+                         factory_->MakeWritePlan(schema({}), std::move(fragments)));
   }
 
   template <typename... E>
   Status MakeWritePlanError(const E&... partition_expressions) {
     auto fragments = MakeFragments(partition_expressions...);
-    return factory_->MakeWritePlan(std::move(fragments)).status();
+    return factory_->MakeWritePlan(schema({}), std::move(fragments)).status();
   }
 
   template <typename... E>
-  void MakeWritePlanWithSchema(const std::shared_ptr<Schema>& schema,
+  void MakeWritePlanWithSchema(const std::shared_ptr<Schema>& partition_schema,
                                const E&... partition_expressions) {
     auto fragments = MakeFragments(partition_expressions...);
-    EXPECT_OK_AND_ASSIGN(plan_, factory_->MakeWritePlan(std::move(fragments), schema));
+    EXPECT_OK_AND_ASSIGN(plan_, factory_->MakeWritePlan(schema({}), std::move(fragments),
+                                                        partition_schema));
   }
 
   template <typename... E>
-  Status MakeWritePlanWithSchemaError(const std::shared_ptr<Schema>& schema,
+  Status MakeWritePlanWithSchemaError(const std::shared_ptr<Schema>& partition_schema,
                                       const E&... partition_expressions) {
     auto fragments = MakeFragments(partition_expressions...);
-    return factory_->MakeWritePlan(std::move(fragments), schema).status();
+    return factory_->MakeWritePlan(schema({}), std::move(fragments), partition_schema)
+        .status();
   }
 
   struct ExpectedWritePlan {

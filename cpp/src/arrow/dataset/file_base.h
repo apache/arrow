@@ -144,23 +144,25 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 
   /// \brief Open a fragment
   virtual Result<std::shared_ptr<FileFragment>> MakeFragment(
-      FileSource source, std::shared_ptr<ScanOptions> options,
-      std::shared_ptr<Expression> partition_expression);
+      FileSource source, std::shared_ptr<Expression> partition_expression);
 
-  Result<std::shared_ptr<FileFragment>> MakeFragment(
-      FileSource source, std::shared_ptr<ScanOptions> options);
+  Result<std::shared_ptr<FileFragment>> MakeFragment(FileSource source);
 
   /// \brief Write a fragment. If the parent directory of destination does not exist, it
   /// will be created.
   virtual Result<std::shared_ptr<WriteTask>> WriteFragment(
       FileSource destination, std::shared_ptr<Fragment> fragment,
+      std::shared_ptr<ScanOptions> options,
       std::shared_ptr<ScanContext> scan_context);  // FIXME(bkietz) make this pure virtual
 };
 
 /// \brief A Fragment that is stored in a file with a known format
 class ARROW_DS_EXPORT FileFragment : public Fragment {
  public:
-  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanContext> context) override;
+  Result<std::shared_ptr<Schema>> ReadPhysicalSchema() override;
+
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
+                                std::shared_ptr<ScanContext> context) override;
 
   std::string type_name() const override { return format_->type_name(); }
   bool splittable() const override { return format_->splittable(); }
@@ -170,9 +172,8 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
 
  protected:
   FileFragment(FileSource source, std::shared_ptr<FileFormat> format,
-               std::shared_ptr<ScanOptions> scan_options,
                std::shared_ptr<Expression> partition_expression)
-      : Fragment(std::move(scan_options), std::move(partition_expression)),
+      : Fragment(std::move(partition_expression)),
         source_(std::move(source)),
         format_(std::move(format)) {}
 
@@ -240,7 +241,8 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   /// \param[in] plan the WritePlan to execute.
   /// \param[in] scan_context context in which to scan fragments before writing.
   static Result<std::shared_ptr<FileSystemDataset>> Write(
-      const WritePlan& plan, std::shared_ptr<ScanContext> scan_context);
+      const WritePlan& plan, std::shared_ptr<ScanOptions> scan_options,
+      std::shared_ptr<ScanContext> scan_context);
 
   std::string type_name() const override { return "filesystem"; }
 
@@ -256,7 +258,7 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   std::string ToString() const;
 
  protected:
-  FragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
+  FragmentIterator GetFragmentsImpl(std::shared_ptr<Expression> predicate) override;
 
   FileSystemDataset(std::shared_ptr<Schema> schema,
                     std::shared_ptr<Expression> root_partition,
