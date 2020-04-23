@@ -19,8 +19,6 @@
 import sys
 from setuptools import setup
 
-# TODO add extras for bot ad docker
-
 
 if sys.version_info < (3, 5):
     sys.exit('Python < 3.5 is not supported')
@@ -36,8 +34,13 @@ setup(
     packages=['archery'],
     install_requires=['click', 'pygithub'],
     tests_require=['pytest', 'ruamel.yaml'],
+    extras_require={
+        'all': ['ruamel.yaml', 'python-dotenv'],
+        'bot': ['ruamel.yaml'],
+        'docker': ['ruamel.yaml', 'python-dotenv']
+    },
     entry_points='''
         [console_scripts]
         archery=archery.cli:archery
-    ''',
+    '''
 )

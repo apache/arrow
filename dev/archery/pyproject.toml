@@ -1,0 +1,39 @@
+[tool.poetry]
+name = "archery"
+version = "0.1.0"
+description = "Apache Arrow Developers Tools"
+authors = ["Arrow Developers <dev@arrow.apache.org>"]
+license = "Apache-2.0"
+
+[tool.poetry.scripts]
+archery = "archery.cli:archery"
+
+[tool.poetry.dependencies]
+python = "^3.5"
+click = "^7.1.1"
+pygithub = "^1.47"
+
+"ruamel.yaml" = { version = "^0.16.10", optional = true }
+python-dotenv = { version = "^0.13.0", optional = true }
+
+[tool.poetry.extras]
+bot = ["ruamel.yaml", ""]
+docker = ["ruamel.yaml", "python-dotenv"]
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
+
+[tool.dephell.main]
+# read from poetry format
+from = { format = "poetry", path = "pyproject.toml" }
+# and convert into setup.py
+to = { format = "setuppy", path = "setup.py" }
+
+[tool.dephell.conda]
+# read dependencies from setup.py
+from = {format = "poetry", path = "pyproject.toml"}
+# and convert into conda environment.yml
+to = { format = "conda", path = "environment.yml" }

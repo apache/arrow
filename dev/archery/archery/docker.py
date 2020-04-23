@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 import subprocess
 
@@ -35,15 +36,20 @@ class Docker(Command):
 
 class DockerCompose(Command):
 
-    def __init__(self, config_path, compose_bin=None):
-        self.bin = default_bin(compose_bin, "docker-compose")
+    def __init__(self, config_path, dotenv_path=None, compose_bin=None):
+        config_path = Path(config_path)
+        if dotenv_path:
+            dotenv_path = Path(dotenv_path)
+        else:
+            dotenv_path = config_path.parent / '.env'
 
         yaml = YAML()
-        with Path(config_path).open() as fp:
+        with config_path.open() as fp:
             self.config = yaml.load(fp)
 
-        hierarchy = self.config['x-hierarchy']
-        self.nodes = dict(flatten(hierarchy))
+        self.nodes = dict(flatten(self.config['x-hierarchy']))
+        self.dotenv = dotenv_values(dotenv_path)
+        self.bin = default_bin(compose_bin, "docker-compose")
 
     def validate(self):
         services = self.config['services'].keys()
@@ -75,27 +81,42 @@ class DockerCompose(Command):
                 'Found errors with docker-compose:\n{}'.format(msg)
             )
 
-    def _env(self, **params):
+    def _env(self, params):
+        env = os.environ.copy()
+        env.update(self.dotenv)
+        env.update({k.upper(): v for k, v in params.items()})
+        return env
 
 
     def pull(self, image, **params):
+        env = self._env(params)
+
         # pull all parents first
         for parent in self.nodes[image]:
-            super().run('pull', '--ignore-pull-failures', parent)
-        # pull the image at last
-        super().run('pull', '--ignore-pull-failures', image)
+            super().run('pull', '--ignore-pull-failures', parent, env=env)
 
-    def build(self, image, **params):
+        # pull the image at last
+        super().run('pull', '--ignore-pull-failures', image, env=env)
+
+    def build(self, image, no_cache=False, **params):
+        env = self._env(params)
+
         # build all parents
         for parent in self.nodes[image]:
-            super().run('build', parent)
+            super().run('build', parent, env=env)
+
         # build the image at last
-        super().run('build', image)
+        if no_cache:
+            super().run('build', '--no-cache', image, env=env)
+        else:
+            super().run('build', image, env=env)
 
     def run(self, image, **params):
-        super().run('run', '--rm', image)
+        env = self._env(params)
+        super().run('run', '--rm', image, env=env)
 
-    def push(self, image, user, password):
+    def push(self, image, user, password, **params):
+        env = self._env(params)
         try:
             Docker().run('login', '-u', user, '-p', password)
         except subprocess.CalledProcessError:
@@ -104,4 +125,4 @@ class DockerCompose(Command):
                    .format(image))
             raise RuntimeError(msg) from None
         else:
-            super().run('push', image)
+            super().run('push', image, env=env)
