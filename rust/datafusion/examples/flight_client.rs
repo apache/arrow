@@ -20,8 +20,8 @@ use std::sync::Arc;
 
 use arrow::datatypes::Schema;
 use arrow::flight::flight_data_to_batch;
+use arrow::util::pretty;
 
-use datafusion::utils;
 
 use flight::flight_descriptor;
 use flight::flight_service_client::FlightServiceClient;
@@ -68,7 +68,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // print the results
-    utils::print_batches(&results).unwrap();
+    pretty::print_batches(&results).unwrap();
 
     Ok(())
 }
