@@ -46,14 +46,9 @@ jobs:
         name:
           - debian-10-cpp
           - fedora-30-cpp
-
-          - ubuntu-18.04-python-3
-          - conda-python-3.7-dask-latest
-          - conda-python-3.7-turbodbc-latest
-          - conda-python-3.7-kartothek-latest
-          - conda-python-3.7-pandas-0.24
-          - conda-python-3.7-pandas-master
-          - conda-python-3.7-hdfs-2.9.2
+          - ubuntu-16.04-cpp
+          - ubuntu-18.04-cpp
+          - ubuntu-18.04-cpp-cmake32
         include:
           - name: debian-10-cpp
             image: debian-cpp
