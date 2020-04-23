@@ -80,7 +80,7 @@ macro_rules! make_string {
 }
 
 /// Get the value at the given row in an array as a string
-pub fn array_value_to_string(column: array::ArrayRef, row: usize) -> Result<String> {
+fn array_value_to_string(column: array::ArrayRef, row: usize) -> Result<String> {
     match column.data_type() {
         DataType::Utf8 => Ok(column
             .as_any()
