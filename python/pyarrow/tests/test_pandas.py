@@ -2675,8 +2675,8 @@ def test_convert_unsupported_type_error_message():
 
     df = pd.DataFrame({'a': [A(), A()]})
 
-    expected_msg = 'Conversion failed for column a with type object'
-    with pytest.raises(ValueError, match=expected_msg):
+    msg = 'Conversion failed for column a with type object'
+    with pytest.raises(ValueError, match=msg):
         pa.Table.from_pandas(df)
 
     # period unsupported for pandas <= 0.25
@@ -2685,8 +2685,8 @@ def test_convert_unsupported_type_error_message():
             'a': pd.period_range('2000-01-01', periods=20),
         })
 
-        expected_msg = 'Conversion failed for column a with type period|object'
-        with pytest.raises((TypeError, ValueError), match=expected_msg):
+        msg = 'Conversion failed for column a with type (period|object)'
+        with pytest.raises((TypeError, ValueError), match=msg):
             pa.Table.from_pandas(df)
 
 

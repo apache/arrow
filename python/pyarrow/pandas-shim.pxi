@@ -17,6 +17,9 @@
 
 # pandas lazy-loading API shim that reduces API call and import overhead
 
+import warnings
+
+
 cdef class _PandasAPIShim(object):
     """
     Lazy pandas importer that isolates usages of pandas APIs and avoids
@@ -63,6 +66,10 @@ cdef class _PandasAPIShim(object):
                     "installed".format(self._version)
                 )
             else:
+                warnings.warn(
+                    "pyarrow requires pandas 0.23.0 or above, pandas {} is "
+                    "installed. Therefore, pandas-specific integration is not "
+                    "used.".format(self._version), stacklevel=2)
                 return
 
         self._compat_module = pdcompat
