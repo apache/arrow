@@ -404,6 +404,7 @@
               <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
               <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
               <arrow.vector.max_allocation_bytes>1048576</arrow.vector.max_allocation_bytes>
+              <default.allocation.cutoff.name>1024</default.allocation.cutoff.name>
               <user.timezone>UTC</user.timezone>
             </systemPropertyVariables>
             <!-- Note: changing the below configuration might increase the max allocation size for a vector

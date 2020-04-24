@@ -29,6 +29,26 @@ public class NettyAllocationManager extends AllocationManager {
 
   public static final Factory FACTORY = new Factory();
 
+  /**
+   * The default cut-off value for switching allocation strategies.
+   * If the request size is not greater than the cut-off value, we will allocate memory by
+   * {@link PooledByteBufAllocatorL} APIs,
+   * otherwise, we will use {@link PlatformDependent} APIs.
+   */
+  public static final long DEFAULT_ALLOCATION_CUTOFF_VALUE;
+
+  public static final String DEFAULT_ALLOCATION_CUTOFF_NAME = "default.allocation.cutoff.name";
+
+  static {
+    long cutOffValue;
+    try {
+      cutOffValue = Long.parseLong(System.getProperty(DEFAULT_ALLOCATION_CUTOFF_NAME));
+    } catch (Exception e) {
+      cutOffValue = Integer.MAX_VALUE;
+    }
+    DEFAULT_ALLOCATION_CUTOFF_VALUE = cutOffValue;
+  }
+
   private static final PooledByteBufAllocatorL INNER_ALLOCATOR = new PooledByteBufAllocatorL();
   static final UnsafeDirectLittleEndian EMPTY = INNER_ALLOCATOR.empty;
   static final long CHUNK_SIZE = INNER_ALLOCATOR.getChunkSize();
@@ -37,16 +57,43 @@ public class NettyAllocationManager extends AllocationManager {
   private final UnsafeDirectLittleEndian memoryChunk;
   private final long allocatedAddress;
 
-  NettyAllocationManager(BaseAllocator accountingAllocator, long requestedSize) {
+  /**
+   * The cut-off value for switching allocation strategies.
+   */
+  private final long allocationCutOffValue;
+
+  NettyAllocationManager(BaseAllocator accountingAllocator, long requestedSize, long allocationCutOffValue) {
     super(accountingAllocator);
-    if (requestedSize > Integer.MAX_VALUE) {
-      memoryChunk = null;
-      allocatedAddress = PlatformDependent.allocateMemory(requestedSize);
+    if (allocationCutOffValue > Integer.MAX_VALUE) {
+      throw new IllegalArgumentException("The cut-off value cannot be larger than Integer.MAX_VALUE");
+    }
+    this.allocationCutOffValue = allocationCutOffValue;
+
+    if (requestedSize > allocationCutOffValue) {
+      this.memoryChunk = null;
+      this.allocatedAddress = PlatformDependent.allocateMemory(requestedSize);
+      this.allocatedSize = requestedSize;
     } else {
       this.memoryChunk = INNER_ALLOCATOR.allocate(requestedSize);
-      allocatedAddress = memoryChunk.memoryAddress();
+      this.allocatedAddress = memoryChunk.memoryAddress();
+      this.allocatedSize = memoryChunk.capacity();
     }
-    allocatedSize = requestedSize;
+  }
+
+  NettyAllocationManager(BaseAllocator accountingAllocator, long requestedSize) {
+    this(accountingAllocator, requestedSize, DEFAULT_ALLOCATION_CUTOFF_VALUE);
+  }
+
+  /**
+   * Get the underlying memory chunk managed by this AllocationManager.
+   * @return the underlying memory chunk if the request size is not greater than the
+   *   {@link NettyAllocationManager#allocationCutOffValue}, or null otherwise.
+   *
+   * @deprecated this method will be removed in a future release.
+   */
+  @Deprecated
+  UnsafeDirectLittleEndian getMemoryChunk() {
+    return allocatedSize > allocationCutOffValue ? null : memoryChunk;
   }
 
   @Override
@@ -56,7 +103,7 @@ public class NettyAllocationManager extends AllocationManager {
 
   @Override
   protected void release0() {
-    if (allocatedSize > Integer.MAX_VALUE) {
+    if (allocatedSize > allocationCutOffValue) {
       PlatformDependent.freeMemory(allocatedAddress);
     } else {
       memoryChunk.release();
