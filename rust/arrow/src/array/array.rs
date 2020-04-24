@@ -3394,9 +3394,5 @@ mod tests {
 
         assert_eq!(array.lookup_key("t1"), Some(2));
         assert_eq!(array.lookup_key("non-existent"), None);
-
-        // Direction of building a dictionary is the iterator direction
-        let test = vec!["t3", "t3", "t2", "t2", "t1", "t3", "t4", "t1", "t0"];
-        let _array: DictionaryArray<Int8Type> = test.into_iter().collect();
     }
 }
