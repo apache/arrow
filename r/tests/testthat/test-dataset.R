@@ -543,7 +543,7 @@ expect_scan_result <- function(ds, schm) {
   expect_equal(sb$schema, schm)
 
   sb$Project(c("chr", "lgl"))
-  sb$Filter(FieldExpression$create("dbl") == 8)
+  sb$Filter(Expression$field_ref("dbl") == 8)
   scn <- sb$Finish()
   expect_is(scn, "Scanner")
 
