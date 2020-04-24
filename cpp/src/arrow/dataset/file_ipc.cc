@@ -32,13 +32,13 @@
 namespace arrow {
 namespace dataset {
 
-static ipc::IpcReadOptions default_read_options() {
+static inline ipc::IpcReadOptions default_read_options() {
   auto options = ipc::IpcReadOptions::Defaults();
   options.use_threads = false;
   return options;
 }
 
-Result<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReader(
+static inline Result<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReader(
     const FileSource& source,
     const ipc::IpcReadOptions& options = default_read_options()) {
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
@@ -54,7 +54,7 @@ Result<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReader(
   return reader;
 }
 
-Result<std::vector<int>> GetIncludedFields(
+static inline Result<std::vector<int>> GetIncludedFields(
     const Schema& schema, const std::vector<std::string>& materialized_fields) {
   std::vector<int> included_fields;
 
@@ -83,11 +83,12 @@ class IpcScanTask : public ScanTask {
         ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source));
 
         auto options = default_read_options();
+        options.memory_pool = pool;
         ARROW_ASSIGN_OR_RAISE(options.included_fields,
                               GetIncludedFields(*reader->schema(), materialized_fields));
 
         ARROW_ASSIGN_OR_RAISE(reader, OpenReader(source, options));
-        return RecordBatchIterator(Impl{std::move(reader), pool, 0});
+        return RecordBatchIterator(Impl{std::move(reader), 0});
       }
 
       Result<std::shared_ptr<RecordBatch>> Next() {
@@ -99,7 +100,6 @@ class IpcScanTask : public ScanTask {
       }
 
       std::shared_ptr<ipc::RecordBatchFileReader> reader_;
-      MemoryPool* pool_;
       int i_;
     };
 
