@@ -1543,20 +1543,14 @@ tasks:
     platform: linux
     template: docker-tests/github.linux.yml
     params:
-      build:
-        - conda-cpp
-      run:
-        - conda-cpp
+      image: conda-cpp
 
   test-conda-cpp-valgrind:
     ci: github
     platform: linux
     template: docker-tests/github.linux.yml
     params:
-      build:
-        - conda-cpp
-      run:
-        - conda-cpp-valgrind
+      image: conda-cpp-valgrind
 
   test-debian-10-cpp:
     ci: github
@@ -1565,10 +1559,7 @@ tasks:
     params:
       env:
         DEBIAN: 10
-      build:
-        - debian-cpp
-      run:
-        - debian-cpp
+      image: debian-cpp
 
   test-ubuntu-16.04-cpp:
     ci: github
@@ -1577,10 +1568,7 @@ tasks:
     params:
       env:
         UBUNTU: 16.04
-      build:
-        - ubuntu-cpp
-      run:
-        - ubuntu-cpp
+      image: ubuntu-cpp
 
   test-ubuntu-18.04-cpp:
     ci: github
@@ -1589,10 +1577,7 @@ tasks:
     params:
       env:
         UBUNTU: 18.04
-      build:
-        - ubuntu-cpp
-      run:
-        - ubuntu-cpp
+      image: ubuntu-cpp
 
   test-fedora-30-cpp:
     ci: github
@@ -1601,62 +1586,42 @@ tasks:
     params:
       env:
         FEDORA: 30
-      build:
-        - fedora-cpp
-      run:
-        - fedora-cpp
+      image: fedora-cpp
 
   test-ubuntu-18.04-cpp-release:
     ci: github
     platform: linux
     template: docker-tests/github.linux.yml
     params:
-      build:
-        - ubuntu-cpp
-      run:
-        - -e ARROW_BUILD_TYPE=release ubuntu-cpp
+      image: "-e ARROW_BUILD_TYPE=release ubuntu-cpp"
 
   test-ubuntu-18.04-cpp-static:
     ci: github
     platform: linux
     template: docker-tests/github.linux.yml
     params:
-      build:
-        - ubuntu-cpp
-      run:
-        - -e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static ubuntu-cpp
+      image: "-e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static ubuntu-cpp"
 
   test-ubuntu-18.04-cpp-cmake32:
     ci: github
     platform: linux
     template: docker-tests/github.linux.yml
     params:
-      build:
-        - ubuntu-cpp-cmake32
-      run:
-        - ubuntu-cpp-cmake32
+      image: ubuntu-cpp-cmake32
 
   test-debian-c-glib:
     ci: github
     platform: linux
     template: docker-tests/github.linux.yml
     params:
-      build:
-        - debian-cpp
-        - debian-c-glib
-      run:
-        - debian-c-glib
+      image: debian-c-glib
 
   test-ubuntu-c-glib:
     ci: github
     platform: linux
     template: docker-tests/github.linux.yml
     params:
-      build:
-        - ubuntu-cpp
-        - ubuntu-c-glib
-      run:
-        - ubuntu-c-glib
+      image: ubuntu-c-glib
 
   test-debian-ruby:
     ci: azure
