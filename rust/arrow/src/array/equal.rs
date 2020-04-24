@@ -1064,7 +1064,7 @@ impl PartialEq<FixedSizeBinaryArray> for Value {
 
 impl JsonEqual for UnionArray {
     fn equals_json(&self, _json: &[&Value]) -> bool {
-        unimplemented!()
+        unimplemented!("Added to allow UnionArray to implement the Array trait: see ARROW-8547")
     }
 }
 
