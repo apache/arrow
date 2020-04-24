@@ -223,7 +223,7 @@ namespace Apache.Arrow
             {
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
-            if (!BitUtility.GetBit(NullBitmapBuffer.Span, index))
+            if (!BitUtility.GetBit(NullBitmapBuffer.Span, Offset + index))
             {
                 return 0;
             }
@@ -239,7 +239,7 @@ namespace Apache.Arrow
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            if (NullBitmapBuffer.Length < index && !BitUtility.GetBit(NullBitmapBuffer.Span, index))
+            if (NullBitmapBuffer.Length < index && !BitUtility.GetBit(NullBitmapBuffer.Span, Offset + index))
             {
                 return ReadOnlySpan<byte>.Empty;
             }

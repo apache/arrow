@@ -110,6 +110,16 @@ namespace Apache.Arrow.Tests
             TestSlice<StringArray, StringArray.Builder>(x => x.Append("10").Append("20").Append("30"));
         }
 
+        [Fact]
+        public void SliceStringArrayWithNullsAndEmptyStrings()
+        {
+            TestSlice<StringArray, StringArray.Builder>(x => x.Append("10").AppendNull().Append("30"));
+            TestSlice<StringArray, StringArray.Builder>(x => x.Append("10").Append(string.Empty).Append("30"));
+            TestSlice<StringArray, StringArray.Builder>(x => x.Append("10").Append(string.Empty).AppendNull().Append("30"));
+            TestSlice<StringArray, StringArray.Builder>(x => x.Append("10").AppendNull().Append(string.Empty).Append("30"));
+            TestSlice<StringArray, StringArray.Builder>(x => x.Append("10").AppendNull().Append(string.Empty).AppendNull().Append("30"));
+        }
+
         private static void TestSlice<TArray, TArrayBuilder>(Action<TArrayBuilder> action)
             where TArray : IArrowArray
             where TArrayBuilder : IArrowArrayBuilder<TArray>, new()
