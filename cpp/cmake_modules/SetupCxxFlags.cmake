@@ -42,7 +42,7 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     set(CXX_SUPPORTS_SSE4_2 TRUE)
   else()
     set(ARROW_SSE4_2_FLAG "-msse4.2")
-    set(ARROW_AVX2_FLAG "-march=core-avx2")
+    set(ARROW_AVX2_FLAG "-mavx2 -mbmi2")
     # skylake-avx512 consists of AVX512F,AVX512BW,AVX512VL,AVX512CD,AVX512DQ
     set(ARROW_AVX512_FLAG "-march=skylake-avx512")
     check_cxx_compiler_flag(${ARROW_SSE4_2_FLAG} CXX_SUPPORTS_SSE4_2)
