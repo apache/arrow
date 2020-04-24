@@ -26,23 +26,36 @@ namespace Apache.Arrow
         {
             internal ArrowBuffer.Builder<byte> ValueBuffer { get; }
 
+            internal ArrowBuffer.Builder<byte> ValidityBuffer { get; }
+
             public int Length { get; protected set; }
             public int Capacity => BitUtility.ByteCount(ValueBuffer.Capacity);
 
             public Builder()
             {
                 ValueBuffer = new ArrowBuffer.Builder<byte>();
+                ValidityBuffer = new ArrowBuffer.Builder<byte>();
                 Length = 0;
             }
 
             public Builder Append(bool value)
             {
+                return NullableAppend(value);
+            }
+
+            private Builder NullableAppend(bool? value)
+            {
                 if (Length % 8 == 0)
                 {
                     // append a new byte to the buffer when needed
                     ValueBuffer.Append(0);
+                    ValidityBuffer.Append(0);
                 }
-                BitUtility.SetBit(ValueBuffer.Span, Length, value);
+                if (value.HasValue)
+                {
+                    BitUtility.SetBit(ValueBuffer.Span, Length, value.Value);
+                }
+                BitUtility.SetBit(ValidityBuffer.Span, Length, value.HasValue);
                 Length++;
                 return this;
             }
@@ -63,6 +76,11 @@ namespace Apache.Arrow
                     Append(value);
                 }
                 return this;
+            }
+
+            public Builder AppendNull()
+            {
+                return NullableAppend(null);
             }
 
             public BooleanArray Build(MemoryAllocator allocator = default)

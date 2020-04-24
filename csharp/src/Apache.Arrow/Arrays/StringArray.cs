@@ -25,7 +25,7 @@ namespace Apache.Arrow
     {
         public static readonly Encoding DefaultEncoding = Encoding.UTF8;
 
-        public new class Builder : BuilderBase<StringArray, Builder>
+        public new class Builder : BuilderBase<byte, StringArray, Builder>
         {
             public Builder() : base(StringType.Default) { }
 
@@ -42,7 +42,7 @@ namespace Apache.Arrow
                 }
                 encoding = encoding ?? DefaultEncoding;
                 var span = encoding.GetBytes(value);
-                return Append(span);
+                return Append(span.AsSpan());
             }
 
             public Builder AppendRange(IEnumerable<string> values, Encoding encoding = null)

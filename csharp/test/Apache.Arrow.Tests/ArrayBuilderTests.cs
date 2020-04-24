@@ -40,7 +40,23 @@ namespace Apache.Arrow.Tests
         }
 
         [Fact]
-        public void StringArrayBuilderHandlesNulls()
+        public void PrimitiveArrayBuildersProduceExpectedArrayWithNulls()
+        {
+            TestArrayBuilder<Int8Array, Int8Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(127), 4, 2);
+            TestArrayBuilder<Int16Array, Int16Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2);
+            TestArrayBuilder<Int32Array, Int32Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2);
+            TestArrayBuilder<Int64Array, Int64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2);
+            TestArrayBuilder<UInt8Array, UInt8Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(127), 4, 2);
+            TestArrayBuilder<UInt16Array, UInt16Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2);
+            TestArrayBuilder<UInt32Array, UInt32Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2);
+            TestArrayBuilder<UInt64Array, UInt64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2);
+            TestArrayBuilder<UInt64Array, UInt64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2);
+            TestArrayBuilder<FloatArray, FloatArray.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2);
+            TestArrayBuilder<DoubleArray, DoubleArray.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2);
+        }
+
+        [Fact]
+        public void StringArrayBuilderHandlesNullsAndEmptyStrings()
         {
             TestArrayBuilder<StringArray, StringArray.Builder>(x => x.Append("123").Append(null).Append(null).Append(string.Empty), 4, 2);
         }
@@ -87,7 +103,9 @@ namespace Apache.Arrow.Tests
         public void NestedListArrayBuilder()
         {
             var childListType = new ListType(Int64Type.Default);
-            var parentListBuilder = new ListArray.Builder(childListType);
+            // Because internals are now visible here, the wrong
+            // ctor will be used without casting to IArrowType
+            var parentListBuilder = new ListArray.Builder((IArrowType)childListType);
             var childListBuilder = parentListBuilder.ValueBuilder as ListArray.Builder;
             Assert.NotNull(childListBuilder);
             var valueBuilder = childListBuilder.ValueBuilder as Int64Array.Builder;

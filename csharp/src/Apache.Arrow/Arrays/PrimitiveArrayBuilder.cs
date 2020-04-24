@@ -59,6 +59,12 @@ namespace Apache.Arrow
             return Instance;
         }
 
+        public TBuilder AppendNull()
+        {
+            ArrayBuilder.AppendNull();
+            return Instance;
+        }
+
         public TBuilder Reserve(int capacity)
         {
             ArrayBuilder.Reserve(capacity);
@@ -99,43 +105,63 @@ namespace Apache.Arrow
     {
         protected TBuilder Instance => this as TBuilder;
         protected ArrowBuffer.Builder<T> ValueBuffer { get; }
+        protected BooleanArray.Builder ValidityBuffer { get; }
 
         public int Length => ValueBuffer.Length;
+
+        protected int NullCount { get; set; }
 
         // TODO: Implement support for null values (null bitmaps)
 
         internal PrimitiveArrayBuilder()
         {
             ValueBuffer = new ArrowBuffer.Builder<T>();
+            ValidityBuffer = new BooleanArray.Builder();
         }
 
         public TBuilder Resize(int length)
         {
             ValueBuffer.Resize(length);
+            ValidityBuffer.Resize(length + 1);
             return Instance;
         }
 
         public TBuilder Reserve(int capacity)
         {
             ValueBuffer.Reserve(capacity);
+            ValidityBuffer.Reserve(capacity + 1);
             return Instance;
         }
 
         public TBuilder Append(T value)
         {
             ValueBuffer.Append(value);
+            ValidityBuffer.Append(true);
             return Instance;
         }
 
         public TBuilder Append(ReadOnlySpan<T> span)
         {
             ValueBuffer.Append(span);
+            ValidityBuffer.Append(span != Span<T>.Empty);
             return Instance;
         }
 
         public TBuilder AppendRange(IEnumerable<T> values)
         {
+            var len = ValueBuffer.Length;
             ValueBuffer.AppendRange(values);
+            ValidityBuffer.AppendRange(Enumerable.Repeat(true, ValueBuffer.Length - len));
+            return Instance;
+        }
+
+        public TBuilder AppendNull()
+        {
+            ValidityBuffer.Append(false);
+            NullCount++;
+            // Need this until this is refactored to use
+            // `Offset` (much like BuilderBase does already)
+            ValueBuffer.Append(default(T));
             return Instance;
         }
 
@@ -162,8 +188,8 @@ namespace Apache.Arrow
         public TArray Build(MemoryAllocator allocator = default)
         {
             return Build(
-                ValueBuffer.Build(allocator), ArrowBuffer.Empty,
-                ValueBuffer.Length, 0, 0);
+                ValueBuffer.Build(allocator), ValidityBuffer.Build(allocator).ValueBuffer,
+                ValueBuffer.Length, NullCount, 0);
         }
 
         protected abstract TArray Build(

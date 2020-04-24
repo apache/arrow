@@ -23,7 +23,7 @@ namespace Apache.Arrow
 {
     public class BinaryArray : Array
     {
-        public class Builder : BuilderBase<BinaryArray, Builder>
+        public class Builder : BuilderBase<byte, BinaryArray, Builder>
         {
             public Builder() : base(BinaryType.Default) { }
             public Builder(IArrowType dataType) : base(dataType) { }
@@ -48,15 +48,16 @@ namespace Apache.Arrow
             data.EnsureBufferCount(3);
         }
 
-        public abstract class BuilderBase<TArray, TBuilder> : IArrowArrayBuilder<byte, TArray, TBuilder>
+        public abstract class BuilderBase<T, TArray, TBuilder> : IArrowArrayBuilder<T, TArray, TBuilder>
+            where T: struct
             where TArray : IArrowArray
-            where TBuilder : class, IArrowArrayBuilder<byte, TArray, TBuilder>
+            where TBuilder : class, IArrowArrayBuilder<T, TArray, TBuilder>
         {
 
             protected IArrowType DataType { get; }
             protected TBuilder Instance => this as TBuilder;
             protected ArrowBuffer.Builder<int> ValueOffsets { get; }
-            protected ArrowBuffer.Builder<byte> ValueBuffer { get; }
+            protected ArrowBuffer.Builder<T> ValueBuffer { get; }
             protected BooleanArray.Builder ValidityBuffer { get; }
 
             protected int Offset { get; set; }
@@ -67,7 +68,7 @@ namespace Apache.Arrow
             {
                 DataType = dataType;
                 ValueOffsets = new ArrowBuffer.Builder<int>();
-                ValueBuffer = new ArrowBuffer.Builder<byte>();
+                ValueBuffer = new ArrowBuffer.Builder<T>();
                 ValidityBuffer = new BooleanArray.Builder();
             }
 
@@ -85,16 +86,15 @@ namespace Apache.Arrow
                 return Build(data);
             }
 
-            protected TBuilder AppendNull()
+            public TBuilder AppendNull()
             {
                 ValueOffsets.Append(Offset);
                 Offset++;
-                ValidityBuffer.Append(false);
                 NullCount++;
                 return Instance;
             }
 
-            public TBuilder Append(byte value)
+            public TBuilder Append(T value)
             {
                 ValueOffsets.Append(Offset);
                 ValueBuffer.Append(value);
@@ -103,18 +103,18 @@ namespace Apache.Arrow
                 return Instance;
             }
 
-            public TBuilder Append(ReadOnlySpan<byte> span)
+            public TBuilder Append(ReadOnlySpan<T> span)
             {
                 ValueOffsets.Append(Offset);
                 ValueBuffer.Append(span);
                 ValidityBuffer.Append(true);
-                Offset += span == Span<byte>.Empty
+                Offset += span == Span<T>.Empty
                                             ? 1
                                             : span.Length;
                 return Instance;
             }
 
-            public TBuilder AppendRange(IEnumerable<byte[]> values)
+            public TBuilder AppendRange(IEnumerable<T[]> values)
             {
                 foreach (var arr in values)
                 {
@@ -133,7 +133,7 @@ namespace Apache.Arrow
                 return Instance;
             }
 
-            public TBuilder AppendRange(IEnumerable<byte> values)
+            public TBuilder AppendRange(IEnumerable<T> values)
             {
                 var len = ValueBuffer.Length;
                 ValueBuffer.AppendRange(values);
@@ -171,7 +171,7 @@ namespace Apache.Arrow
                 throw new NotImplementedException();
             }
 
-            public TBuilder Set(int index, byte value)
+            public TBuilder Set(int index, T value)
             {
                 // TODO: Implement
                 throw new NotImplementedException();
