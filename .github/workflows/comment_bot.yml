@@ -27,7 +27,7 @@ on:
 jobs:
   crossbow:
     name: Listen!
-    if: startsWith(github.event.comment.body, '@github-actions')
+    if: startsWith(github.event.comment.body, '@github-actions crossbow')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Arrow
@@ -56,7 +56,7 @@ jobs:
 
   autotune:
     name: "Fix all the things"
-    if: startsWith(github.event.comment.body, 'autotune')
+    if: startsWith(github.event.comment.body, '@github-actions autotune')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -127,7 +127,7 @@ jobs:
 
   rebase:
     name: "Rebase"
-    if: startsWith(github.event.comment.body, 'rebase')
+    if: startsWith(github.event.comment.body, '@github-actions rebase')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -142,7 +142,7 @@ jobs:
           git remote add upstream https://github.com/${{ github.repository }}
           git fetch --unshallow upstream master
           git rebase upstream/master
-      - uses: nealrichardson/actions/pr-push@pr-push-args
+      - uses: r-lib/actions/pr-push@master
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           args: "--force"
