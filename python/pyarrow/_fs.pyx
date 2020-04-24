@@ -81,7 +81,7 @@ cdef class FileInfo:
                 return ''
 
         s = '<FileInfo for {!r}: type={}'.format(self.path, str(self.type))
-        if self.type == FileType.File:
+        if self.is_file:
             s += ', size={}'.format(self.size)
         s += '>'
         return s
@@ -107,6 +107,12 @@ cdef class FileInfo:
         return FileType(<int8_t> self.info.type())
 
     @property
+    def is_file(self):
+        """
+        """
+        return self.type == FileType.File
+
+    @property
     def path(self):
         """
         The full file path in the filesystem.
@@ -129,9 +135,7 @@ cdef class FileInfo:
 
         Only regular files are guaranteed to have a size.
         """
-        if self.info.type() != CFileType_File:
-            return None
-        return self.info.size()
+        return self.info.size() if self.is_file else None
 
     @property
     def extension(self):

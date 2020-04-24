@@ -260,7 +260,7 @@ TEST_F(TestParquetFileFormat, OpenFailureWithRelevantError) {
   constexpr auto file_name = "herp/derp";
   ASSERT_OK_AND_ASSIGN(
       auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {fs::File(file_name)}));
-  result = format_->Inspect({file_name, fs.get()});
+  result = format_->Inspect({file_name, fs});
   EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, testing::HasSubstr(file_name),
                                   result.status());
 }

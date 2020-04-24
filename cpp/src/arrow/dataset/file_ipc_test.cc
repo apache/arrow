@@ -148,40 +148,22 @@ class TestIpcFileSystemDataset : public TestIpcFileFormat,
                                  public MakeFileSystemDatasetMixin {};
 
 TEST_F(TestIpcFileSystemDataset, Write) {
-  MakeDatasetFromPathlist(R"(
-    old_root/i32=0/
-    old_root/i32=0/str=aaa/
+  std::string paths = R"(
     old_root/i32=0/str=aaa/dat
-    old_root/i32=0/str=bbb/
     old_root/i32=0/str=bbb/dat
-    old_root/i32=0/str=ccc/
     old_root/i32=0/str=ccc/dat
-
-    old_root/i32=1/
-    old_root/i32=1/str=aaa/
     old_root/i32=1/str=aaa/dat
-    old_root/i32=1/str=bbb/
     old_root/i32=1/str=bbb/dat
-    old_root/i32=1/str=ccc/
     old_root/i32=1/str=ccc/dat
-    )",
-                          scalar(true),
-                          {
-                              ("i32"_ == 0).Copy(),
-                              ("str"_ == "aaa").Copy(),
-                              scalar(true),
-                              ("str"_ == "bbb").Copy(),
-                              scalar(true),
-                              ("str"_ == "ccc").Copy(),
-                              scalar(true),
-                              ("i32"_ == 1).Copy(),
-                              ("str"_ == "aaa").Copy(),
-                              scalar(true),
-                              ("str"_ == "bbb").Copy(),
-                              scalar(true),
-                              ("str"_ == "ccc").Copy(),
-                              scalar(true),
-                          });
+  )";
+
+  ExpressionVector partitions{
+      ("i32"_ == 0 and "str"_ == "aaa").Copy(), ("i32"_ == 0 and "str"_ == "bbb").Copy(),
+      ("i32"_ == 0 and "str"_ == "ccc").Copy(), ("i32"_ == 1 and "str"_ == "aaa").Copy(),
+      ("i32"_ == 1 and "str"_ == "bbb").Copy(), ("i32"_ == 1 and "str"_ == "ccc").Copy(),
+  };
+
+  MakeDatasetFromPathlist(paths, scalar(true), partitions);
 
   auto schema = arrow::schema({field("i32", int32()), field("str", utf8())});
   opts_ = ScanOptions::Make(schema);
@@ -195,21 +177,6 @@ TEST_F(TestIpcFileSystemDataset, Write) {
   plan.partition_base_dir = "new_root/";
 
   ASSERT_OK_AND_ASSIGN(auto written, FileSystemDataset::Write(plan, opts_, ctx_));
-
-  using E = TestExpression;
-  std::vector<E> actual_partitions;
-  for (const auto& partition : written->partitions()) {
-    actual_partitions.emplace_back(partition);
-  }
-  EXPECT_THAT(actual_partitions,
-              testing::ElementsAre(E{"str"_ == "aaa"}, E{"i32"_ == 0}, E{scalar(true)},
-                                   E{"i32"_ == 1}, E{scalar(true)},
-
-                                   E{"str"_ == "bbb"}, E{"i32"_ == 0}, E{scalar(true)},
-                                   E{"i32"_ == 1}, E{scalar(true)},
-
-                                   E{"str"_ == "ccc"}, E{"i32"_ == 0}, E{scalar(true)},
-                                   E{"i32"_ == 1}, E{scalar(true)}));
 
   auto parent_directories = written->files();
   for (auto& path : parent_directories) {
@@ -231,7 +198,7 @@ TEST_F(TestIpcFileFormat, OpenFailureWithRelevantError) {
   constexpr auto file_name = "herp/derp";
   ASSERT_OK_AND_ASSIGN(
       auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {fs::File(file_name)}));
-  result = format_->Inspect({file_name, fs.get()});
+  result = format_->Inspect({file_name, fs});
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr(file_name),
                                   result.status());
 }

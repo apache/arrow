@@ -28,12 +28,16 @@ def or_else(value, default):
     return value if value else default
 
 
+def coalesce(value, fallback):
+    return fallback if value is None else value
+
+
 LLVM_VERSION = 7
 
 
 class CppConfiguration:
-
     def __init__(self,
+
                  # toolchain
                  cc=None, cxx=None, cxx_flags=None,
                  build_type=None, warn_level=None,
@@ -52,6 +56,9 @@ class CppConfiguration:
                  with_mimalloc=None,
                  with_parquet=None, with_plasma=None, with_python=True,
                  with_r=None, with_s3=None,
+                 # Compressions
+                 with_brotli=None, with_bz2=None, with_lz4=None,
+                 with_snappy=None, with_zlib=None, with_zstd=None,
                  # extras
                  with_lint_only=False,
                  use_gold_linker=True,
@@ -95,23 +102,38 @@ class CppConfiguration:
         self.with_r = with_r
         self.with_s3 = with_s3
 
+        self.with_brotli = with_brotli
+        self.with_bz2 = with_bz2
+        self.with_lz4 = with_lz4
+        self.with_snappy = with_snappy
+        self.with_zlib = with_zlib
+        self.with_zstd = with_zstd
+
         self.with_lint_only = with_lint_only
         self.use_gold_linker = use_gold_linker
 
         self.cmake_extras = cmake_extras
 
-        # Fixup required dependencies
+        # Fixup required dependencies by providing sane defaults if the caller
+        # didn't specify the option.
         if self.with_r:
-            self.with_csv = True
-            self.with_dataset = True
-            self.with_filesystem = True
-            self.with_ipc = True
-            self.with_json = True
-            self.with_parquet = True
+            self.with_csv = coalesce(with_csv, True)
+            self.with_dataset = coalesce(with_dataset, True)
+            self.with_filesystem = coalesce(with_filesystem, True)
+            self.with_ipc = coalesce(with_ipc, True)
+            self.with_json = coalesce(with_json, True)
+            self.with_parquet = coalesce(with_parquet, True)
+
+        if self.with_python:
+            self.with_zlib = coalesce(with_zlib, True)
+            self.with_lz4 = coalesce(with_lz4, True)
 
         if self.with_dataset:
-            self.with_filesystem = True
-            self.with_parquet = True
+            self.with_filesystem = coalesce(with_filesystem, True)
+            self.with_parquet = coalesce(with_parquet, True)
+
+        if self.with_parquet:
+            self.with_snappy = coalesce(with_snappy, True)
 
     @property
     def build_type(self):
@@ -185,10 +207,7 @@ class CppConfiguration:
         yield ("ARROW_FILESYSTEM", truthifier(self.with_filesystem))
         yield ("ARROW_FLIGHT", truthifier(self.with_flight))
         yield ("ARROW_GANDIVA", truthifier(self.with_gandiva))
-        if self.with_parquet:
-            yield ("ARROW_PARQUET", truthifier(self.with_parquet))
-            yield ("ARROW_WITH_BROTLI", "ON")
-            yield ("ARROW_WITH_SNAPPY", "ON")
+        yield ("ARROW_PARQUET", truthifier(self.with_parquet))
         yield ("ARROW_HDFS", truthifier(self.with_hdfs))
         yield ("ARROW_HIVESERVER2", truthifier(self.with_hiveserver2))
         yield ("ARROW_IPC", truthifier(self.with_ipc))
@@ -198,6 +217,14 @@ class CppConfiguration:
         yield ("ARROW_PLASMA", truthifier(self.with_plasma))
         yield ("ARROW_PYTHON", truthifier(self.with_python))
         yield ("ARROW_S3", truthifier(self.with_s3))
+
+        # Compressions
+        yield ("ARROW_WITH_BROTLI", truthifier(self.with_brotli))
+        yield ("ARROW_WITH_BZ2", truthifier(self.with_bz2))
+        yield ("ARROW_WITH_LZ4", truthifier(self.with_lz4))
+        yield ("ARROW_WITH_SNAPPY", truthifier(self.with_snappy))
+        yield ("ARROW_WITH_ZLIB", truthifier(self.with_zlib))
+        yield ("ARROW_WITH_ZSTD", truthifier(self.with_zstd))
 
         yield ("ARROW_LINT_ONLY", truthifier(self.with_lint_only))
 
