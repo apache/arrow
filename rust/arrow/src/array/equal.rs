@@ -1068,24 +1068,6 @@ impl JsonEqual for UnionArray {
     }
 }
 
-impl PartialEq<Value> for UnionArray {
-    fn eq(&self, json: &Value) -> bool {
-        match json {
-            Value::Array(json_array) => self.equals_json_values(&json_array),
-            _ => false,
-        }
-    }
-}
-
-impl PartialEq<UnionArray> for Value {
-    fn eq(&self, arrow: &UnionArray) -> bool {
-        match self {
-            Value::Array(json_array) => arrow.equals_json_values(&json_array),
-            _ => false,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
