@@ -45,7 +45,6 @@ csv = "1.1"
 num = "0.2"
 regex = "1.3"
 lazy_static = "1.4"
-packed_simd = { version = "0.3", optional = true }
 chrono = "0.4"
 flatbuffers = "0.6"
 hex = "0.4"
@@ -53,9 +52,8 @@ arrow-flight = { path = "../arrow-flight", optional = true }
 prettytable-rs = "0.8.0"
 
 [features]
-simd = ["packed_simd"]
 flight = ["arrow-flight"]
-default = ["simd", "flight"]
+default = ["flight"]
 
 [dev-dependencies]
 criterion = "0.3"

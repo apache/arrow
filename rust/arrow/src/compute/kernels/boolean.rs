@@ -16,11 +16,6 @@
 // under the License.
 
 //! Defines boolean kernels on Arrow `BooleanArray`'s, e.g. `AND`, `OR` and `NOT`.
-//!
-//! These kernels can leverage SIMD if available on your system.  Currently no runtime
-//! detection is provided, you should enable the specific SIMD intrinsics using
-//! `RUSTFLAGS="-C target-feature=+avx2"` for example.  See the documentation
-//! [here](https://doc.rust-lang.org/stable/core/arch/) for more information.
 
 use std::sync::Arc;
 

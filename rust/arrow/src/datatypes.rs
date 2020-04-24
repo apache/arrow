@@ -25,14 +25,10 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::mem::size_of;
-#[cfg(feature = "simd")]
-use std::ops::{Add, Div, Mul, Sub};
 use std::slice::from_raw_parts;
 use std::str::FromStr;
 use std::sync::Arc;
 
-#[cfg(feature = "simd")]
-use packed_simd::*;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{
     json, Number, Value, Value::Number as VNumber, Value::String as VString,
@@ -488,167 +484,10 @@ impl ArrowDictionaryKeyType for Int32Type {}
 
 impl ArrowDictionaryKeyType for Int64Type {}
 
-/// A subtype of primitive type that represents numeric values.
-///
-/// SIMD operations are defined in this trait if available on the target system.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-pub trait ArrowNumericType: ArrowPrimitiveType
-where
-    Self::Simd: Add<Output = Self::Simd>
-        + Sub<Output = Self::Simd>
-        + Mul<Output = Self::Simd>
-        + Div<Output = Self::Simd>,
-{
-    /// Defines the SIMD type that should be used for this numeric type
-    type Simd;
-
-    /// Defines the SIMD Mask type that should be used for this numeric type
-    type SimdMask;
-
-    /// The number of SIMD lanes available
-    fn lanes() -> usize;
-
-    /// Initializes a SIMD register to a constant value
-    fn init(value: Self::Native) -> Self::Simd;
-
-    /// Loads a slice into a SIMD register
-    fn load(slice: &[Self::Native]) -> Self::Simd;
-
-    /// Creates a new SIMD mask for this SIMD type filling it with `value`
-    fn mask_init(value: bool) -> Self::SimdMask;
-
-    /// Gets the value of a single lane in a SIMD mask
-    fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool;
-
-    /// Sets the value of a single lane of a SIMD mask
-    fn mask_set(mask: Self::SimdMask, idx: usize, value: bool) -> Self::SimdMask;
-
-    /// Selects elements of `a` and `b` using `mask`
-    fn mask_select(mask: Self::SimdMask, a: Self::Simd, b: Self::Simd) -> Self::Simd;
-
-    /// Returns `true` if any of the lanes in the mask are `true`
-    fn mask_any(mask: Self::SimdMask) -> bool;
-
-    /// Performs a SIMD binary operation
-    fn bin_op<F: Fn(Self::Simd, Self::Simd) -> Self::Simd>(
-        left: Self::Simd,
-        right: Self::Simd,
-        op: F,
-    ) -> Self::Simd;
-
-    /// SIMD version of equal
-    fn eq(left: Self::Simd, right: Self::Simd) -> Self::SimdMask;
-
-    /// SIMD version of not equal
-    fn ne(left: Self::Simd, right: Self::Simd) -> Self::SimdMask;
-
-    /// SIMD version of less than
-    fn lt(left: Self::Simd, right: Self::Simd) -> Self::SimdMask;
-
-    /// SIMD version of less than or equal to
-    fn le(left: Self::Simd, right: Self::Simd) -> Self::SimdMask;
-
-    /// SIMD version of greater than
-    fn gt(left: Self::Simd, right: Self::Simd) -> Self::SimdMask;
-
-    /// SIMD version of greater than or equal to
-    fn ge(left: Self::Simd, right: Self::Simd) -> Self::SimdMask;
-
-    /// Writes a SIMD result back to a slice
-    fn write(simd_result: Self::Simd, slice: &mut [Self::Native]);
-}
-
-#[cfg(any(
-    not(any(target_arch = "x86", target_arch = "x86_64")),
-    not(feature = "simd")
-))]
 pub trait ArrowNumericType: ArrowPrimitiveType {}
 
 macro_rules! make_numeric_type {
     ($impl_ty:ty, $native_ty:ty, $simd_ty:ident, $simd_mask_ty:ident) => {
-        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-        impl ArrowNumericType for $impl_ty {
-            type Simd = $simd_ty;
-
-            type SimdMask = $simd_mask_ty;
-
-            fn lanes() -> usize {
-                Self::Simd::lanes()
-            }
-
-            fn init(value: Self::Native) -> Self::Simd {
-                Self::Simd::splat(value)
-            }
-
-            fn load(slice: &[Self::Native]) -> Self::Simd {
-                unsafe { Self::Simd::from_slice_unaligned_unchecked(slice) }
-            }
-
-            fn mask_init(value: bool) -> Self::SimdMask {
-                Self::SimdMask::splat(value)
-            }
-
-            fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool {
-                unsafe { mask.extract_unchecked(idx) }
-            }
-
-            fn mask_set(mask: Self::SimdMask, idx: usize, value: bool) -> Self::SimdMask {
-                unsafe { mask.replace_unchecked(idx, value) }
-            }
-
-            /// Selects elements of `a` and `b` using `mask`
-            fn mask_select(
-                mask: Self::SimdMask,
-                a: Self::Simd,
-                b: Self::Simd,
-            ) -> Self::Simd {
-                mask.select(a, b)
-            }
-
-            fn mask_any(mask: Self::SimdMask) -> bool {
-                mask.any()
-            }
-
-            fn bin_op<F: Fn(Self::Simd, Self::Simd) -> Self::Simd>(
-                left: Self::Simd,
-                right: Self::Simd,
-                op: F,
-            ) -> Self::Simd {
-                op(left, right)
-            }
-
-            fn eq(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
-                left.eq(right)
-            }
-
-            fn ne(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
-                left.ne(right)
-            }
-
-            fn lt(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
-                left.lt(right)
-            }
-
-            fn le(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
-                left.le(right)
-            }
-
-            fn gt(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
-                left.gt(right)
-            }
-
-            fn ge(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
-                left.ge(right)
-            }
-
-            fn write(simd_result: Self::Simd, slice: &mut [Self::Native]) {
-                unsafe { simd_result.write_to_slice_unaligned_unchecked(slice) };
-            }
-        }
-        #[cfg(any(
-            not(any(target_arch = "x86", target_arch = "x86_64")),
-            not(feature = "simd")
-        ))]
         impl ArrowNumericType for $impl_ty {}
     };
 }

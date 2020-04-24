@@ -20,13 +20,7 @@
 use crate::array::*;
 use crate::bitmap::Bitmap;
 use crate::buffer::Buffer;
-#[cfg(feature = "simd")]
-use crate::datatypes::*;
 use crate::error::Result;
-#[cfg(feature = "simd")]
-use num::One;
-#[cfg(feature = "simd")]
-use std::cmp::min;
 
 /// Applies a given binary operation, `op`, to two references to `Option<Bitmap>`'s.
 ///
@@ -91,70 +85,6 @@ pub(super) fn take_value_indices_from_list(
         }
     }
     (UInt32Array::from(values), new_offsets)
-}
-
-/// Creates a new SIMD mask, i.e. `packed_simd::m32x16` or similar. that indicates if the
-/// corresponding array slots represented by the mask are 'valid'.  
-///
-/// Lanes of the SIMD mask can be set to 'valid' (`true`) if the corresponding array slot is not
-/// `NULL`, as indicated by it's `Bitmap`, and is within the length of the array.  Lanes outside the
-/// length represent padding and are set to 'invalid' (`false`).
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-unsafe fn is_valid<T>(
-    bitmap: &Option<Bitmap>,
-    i: usize,
-    simd_width: usize,
-    array_len: usize,
-) -> T::SimdMask
-where
-    T: ArrowNumericType,
-{
-    let simd_upper_bound = i + simd_width;
-    let mut validity = T::mask_init(true);
-
-    // Validity based on `Bitmap`
-    if let Some(b) = bitmap {
-        for j in i..min(array_len, simd_upper_bound) {
-            if !b.is_set(j) {
-                validity = T::mask_set(validity, j - i, false);
-            }
-        }
-    }
-
-    // Validity based on the length of the Array
-    for j in array_len..simd_upper_bound {
-        validity = T::mask_set(validity, j - i, false);
-    }
-
-    validity
-}
-
-/// Performs a SIMD load but sets all 'invalid' lanes to a constant value.
-///
-/// 'invalid' lanes are lanes where the corresponding array slots are either `NULL` or between the
-/// length and capacity of the array, i.e. in the padded region.
-///
-/// Note that `array` below has it's own `Bitmap` separate from the `bitmap` argument.  This
-/// function is used to prepare `array`'s for binary operations.  The `bitmap` argument is the
-/// `Bitmap` after the binary operation.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-pub(super) unsafe fn simd_load_set_invalid<T>(
-    array: &PrimitiveArray<T>,
-    bitmap: &Option<Bitmap>,
-    i: usize,
-    simd_width: usize,
-    fill_value: T::Native,
-) -> T::Simd
-where
-    T: ArrowNumericType,
-    T::Native: One,
-{
-    let simd_with_zeros = T::load(array.value_slice(i, simd_width));
-    T::mask_select(
-        is_valid::<T>(bitmap, i, simd_width, array.len()),
-        simd_with_zeros,
-        T::init(fill_value),
-    )
 }
 
 #[cfg(test)]
@@ -223,53 +153,5 @@ mod tests {
         ])
         .data();
         assert_eq!(data, indexed.data());
-    }
-
-    #[test]
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-    fn test_is_valid() {
-        let a = Int32Array::from(vec![
-            Some(15),
-            None,
-            None,
-            Some(1),
-            None,
-            None,
-            Some(5),
-            None,
-            None,
-            Some(4),
-        ]);
-        let simd_lanes = 16;
-        let data = a.data();
-        let bitmap = data.null_bitmap();
-        let result = unsafe { is_valid::<Int32Type>(&bitmap, 0, simd_lanes, a.len()) };
-        for i in 0..simd_lanes {
-            if i % 3 != 0 || i > 9 {
-                assert_eq!(false, result.extract(i));
-            } else {
-                assert_eq!(true, result.extract(i));
-            }
-        }
-    }
-
-    #[test]
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-    fn test_simd_load_set_invalid() {
-        let a = Int64Array::from(vec![None, Some(15), Some(5), Some(0)]);
-        let new_bitmap = &Some(Bitmap::from(Buffer::from([0b00001010])));
-        let simd_lanes = 8;
-        let result = unsafe {
-            simd_load_set_invalid::<Int64Type>(&a, &new_bitmap, 0, simd_lanes, 1)
-        };
-        for i in 0..simd_lanes {
-            if i == 1 {
-                assert_eq!(15_i64, result.extract(i));
-            } else if i == 3 {
-                assert_eq!(0_i64, result.extract(i));
-            } else {
-                assert_eq!(1_i64, result.extract(i));
-            }
-        }
     }
 }

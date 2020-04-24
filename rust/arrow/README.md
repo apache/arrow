@@ -64,16 +64,6 @@ The above script will run the `flatc` compiler and perform some adjustments to t
 - Remove `org::apache::arrow::flatbuffers` namespace
 - Add includes to each generated file
 
-## SIMD (Single Instruction Multiple Data)
-
-Arrow uses the [packed_simd](https://crates.io/crates/packed_simd) crate to optimize many of the implementations in the
-[compute](https://github.com/apache/arrow/tree/master/rust/arrow/src/compute) module using SIMD intrinsics.  These
-optimizations are enabled by the `simd` feature flag and are turned on by default, but can be disabled, for example:
-
-```bash
-cargo build --no-default-features
-```
-
 # Publishing to crates.io
 
 An Arrow committer can publish this crate after an official project release has
