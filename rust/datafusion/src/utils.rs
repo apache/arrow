@@ -79,20 +79,13 @@ macro_rules! make_string_from_list {
         let list = $column
             .as_any()
             .downcast_ref::<array::ListArray>()
-            .unwrap()
+            .ok_or(ExecutionError::ExecutionError(format!(
+                "Repl error: could not convert list column to list array."
+            )))?
             .value($row);
-        let string_values = match (0..list.len())
+        let string_values = (0..list.len())
             .map(|i| array_value_to_string(list.clone(), i))
-            .collect::<Result<Vec<String>>>()
-        {
-            Ok(values) => values,
-            _ => {
-                return Err(ExecutionError::ExecutionError(format!(
-                    "Unsupported {:?} type for repl.",
-                    $column.data_type()
-                )))
-            }
-        };
+            .collect::<Result<Vec<String>>>()?;
         Ok(format!("[{}]", string_values.join(", ")))
     }};
 }
