@@ -66,11 +66,11 @@ jobs:
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
-        run: archery docker run ubuntu-go
+        run: archery docker run debian-go
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        run: archery docker push ubuntu-go
+        run: archery docker push debian-go
 
   windows:
     name: AMD64 Windows 2019 Go ${{ matrix.go }}
