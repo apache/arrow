@@ -39,6 +39,12 @@ namespace Apache.Arrow.Tests
             TestArrayBuilder<DoubleArray, DoubleArray.Builder>(x => x.Append(10).Append(20).Append(30));
         }
 
+        [Fact]
+        public void StringArrayBuilderHandlesNulls()
+        {
+            TestArrayBuilder<StringArray, StringArray.Builder>(x => x.Append("123").Append(null).Append(null).Append(string.Empty), 4, 2);
+        }
+
 
         [Fact]
         public void ListArrayBuilder()
@@ -139,7 +145,7 @@ namespace Apache.Arrow.Tests
             }
         }
 
-        private static void TestArrayBuilder<TArray, TArrayBuilder>(Action<TArrayBuilder> action)
+        private static void TestArrayBuilder<TArray, TArrayBuilder>(Action<TArrayBuilder> action, int expectedLength = 3, int expectedNullCount = 0)
             where TArray : IArrowArray
             where TArrayBuilder : IArrowArrayBuilder<TArray>, new()
         {
@@ -149,8 +155,8 @@ namespace Apache.Arrow.Tests
 
             Assert.IsAssignableFrom<TArray>(array);
             Assert.NotNull(array);
-            Assert.Equal(3, array.Length);
-            Assert.Equal(0, array.NullCount);
+            Assert.Equal(expectedLength, array.Length);
+            Assert.Equal(expectedNullCount, array.NullCount);
         }
 
     }

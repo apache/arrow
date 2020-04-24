@@ -52,17 +52,23 @@ namespace Apache.Arrow
             where TArray : IArrowArray
             where TBuilder : class, IArrowArrayBuilder<byte, TArray, TBuilder>
         {
+
             protected IArrowType DataType { get; }
             protected TBuilder Instance => this as TBuilder;
             protected ArrowBuffer.Builder<int> ValueOffsets { get; }
             protected ArrowBuffer.Builder<byte> ValueBuffer { get; }
+            protected BooleanArray.Builder ValidityBuffer { get; }
+
             protected int Offset { get; set; }
+            protected int ValidityOffset { get; set; }
+            protected int NullCount { get; private set; }
 
             protected BuilderBase(IArrowType dataType)
             {
                 DataType = dataType;
                 ValueOffsets = new ArrowBuffer.Builder<int>();
                 ValueBuffer = new ArrowBuffer.Builder<byte>();
+                ValidityBuffer = new BooleanArray.Builder();
             }
 
             protected abstract TArray Build(ArrayData data);
@@ -73,10 +79,19 @@ namespace Apache.Arrow
             {
                 ValueOffsets.Append(Offset);
 
-                var data = new ArrayData(DataType, ValueOffsets.Length - 1, 0, 0,
-                    new[] { ArrowBuffer.Empty, ValueOffsets.Build(allocator), ValueBuffer.Build(allocator) });
+                var data = new ArrayData(DataType, ValueOffsets.Length - 1, NullCount, 0,
+                    new[] { ValidityBuffer.Build(allocator).ValueBuffer, ValueOffsets.Build(allocator), ValueBuffer.Build(allocator) });
 
                 return Build(data);
+            }
+
+            protected TBuilder AppendNull()
+            {
+                ValueOffsets.Append(Offset);
+                Offset++;
+                ValidityBuffer.Append(false);
+                NullCount++;
+                return Instance;
             }
 
             public TBuilder Append(byte value)
@@ -84,6 +99,7 @@ namespace Apache.Arrow
                 ValueOffsets.Append(Offset);
                 ValueBuffer.Append(value);
                 Offset++;
+                ValidityBuffer.Append(true);
                 return Instance;
             }
 
@@ -91,7 +107,10 @@ namespace Apache.Arrow
             {
                 ValueOffsets.Append(Offset);
                 ValueBuffer.Append(span);
-                Offset += span.Length;
+                ValidityBuffer.Append(true);
+                Offset += span == Span<byte>.Empty
+                                            ? 1
+                                            : span.Length;
                 return Instance;
             }
 
@@ -99,9 +118,15 @@ namespace Apache.Arrow
             {
                 foreach (var arr in values)
                 {
+                    if (arr != null && arr.Length > 0)
+                    {
+                        AppendNull();
+                        continue;
+                    }
                     var len = ValueBuffer.Length;
                     ValueOffsets.Append(Offset);
                     ValueBuffer.Append(arr);
+                    ValidityBuffer.Append(true);
                     Offset += ValueBuffer.Length - len;
                 }
 
@@ -111,9 +136,16 @@ namespace Apache.Arrow
             public TBuilder AppendRange(IEnumerable<byte> values)
             {
                 var len = ValueBuffer.Length;
-                ValueOffsets.Append(Offset);
                 ValueBuffer.AppendRange(values);
-                Offset += ValueBuffer.Length - len;
+                var valOffset = ValueBuffer.Length - len;
+                if (valOffset == 0)
+                {
+                    AppendNull();
+                    return Instance;
+                }
+                ValueOffsets.Append(Offset);
+                Offset += valOffset;
+                ValidityBuffer.Append(true);
                 return Instance;
             }
 
@@ -121,6 +153,7 @@ namespace Apache.Arrow
             {
                 ValueOffsets.Reserve(capacity + 1);
                 ValueBuffer.Reserve(capacity);
+                ValidityBuffer.Reserve(capacity + 1);
                 return Instance;
             }
 
@@ -128,6 +161,7 @@ namespace Apache.Arrow
             {
                 ValueOffsets.Resize(length + 1);
                 ValueBuffer.Resize(length);
+                ValidityBuffer.Resize(length + 1);
                 return Instance;
             }
 
@@ -147,6 +181,7 @@ namespace Apache.Arrow
             {
                 ValueOffsets.Clear();
                 ValueBuffer.Clear();
+                ValidityBuffer.Clear();
                 return Instance;
             }
         }
@@ -188,6 +223,11 @@ namespace Apache.Arrow
             {
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
+            if (!BitUtility.GetBit(NullBitmapBuffer.Span, index))
+            {
+                return 0;
+            }
+
             var offsets = ValueOffsets;
             return offsets[index + 1] - offsets[index];
         }
@@ -197,6 +237,11 @@ namespace Apache.Arrow
             if (index < 0 || index >= Length)
             {
                 throw new ArgumentOutOfRangeException(nameof(index));
+            }
+
+            if (NullBitmapBuffer.Length < index && !BitUtility.GetBit(NullBitmapBuffer.Span, index))
+            {
+                return ReadOnlySpan<byte>.Empty;
             }
 
             return ValueBuffer.Span.Slice(ValueOffsets[index], GetValueLength(index));

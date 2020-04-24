@@ -24,7 +24,7 @@ namespace Apache.Arrow
     {
         public class Builder : IArrowArrayBuilder<bool, BooleanArray, Builder>
         {
-            private ArrowBuffer.Builder<byte> ValueBuffer { get; }
+            internal ArrowBuffer.Builder<byte> ValueBuffer { get; }
 
             public int Length { get; protected set; }
             public int Capacity => BitUtility.ByteCount(ValueBuffer.Capacity);
@@ -153,7 +153,7 @@ namespace Apache.Arrow
                 new[] { nullBitmapBuffer, valueBuffer }))
         { }
 
-        public BooleanArray(ArrayData data) 
+        public BooleanArray(ArrayData data)
             : base(data)
         {
             data.EnsureDataType(ArrowTypeId.Boolean);
