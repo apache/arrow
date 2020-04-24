@@ -95,7 +95,9 @@ impl<R: ParquetReader> Read for FileSource<R> {
             // read directly into param buffer
             let mut reader = self.reader.borrow_mut();
             reader.seek(SeekFrom::Start(self.start))?; // always seek to start before reading
-            return reader.read(&mut self.buf);
+            let nread = reader.read(buf)?;
+            self.start += nread as u64;
+            return Ok(nread);
         }
         let nread = {
             let mut rem = self.fill_buf()?;
