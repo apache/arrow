@@ -44,9 +44,9 @@ pub struct FileSource<R: ParquetReader> {
     reader: RefCell<R>,
     start: u64,     // start position in a file
     end: u64,       // end position in a file
-    buf: Vec<u8>,   // the internal buffer `buf` in BufReader
-    buf_pos: usize, // equivalent to the `pos` param in BufReader
-    buf_cap: usize, // equivalent to the `cap` param in BufReader
+    buf: Vec<u8>,   // buffer where bytes read in advance are stored
+    buf_pos: usize, // current position of the reader in the buffer
+    buf_cap: usize, // current number of bytes read into the buffer
 }
 
 impl<R: ParquetReader> FileSource<R> {
@@ -63,8 +63,7 @@ impl<R: ParquetReader> FileSource<R> {
         }
     }
 
-    // inspired from BufReader
-    fn fill_buf(&mut self) -> Result<&[u8]> {
+    fn fill_inner_buf(&mut self) -> Result<&[u8]> {
         if self.buf_pos >= self.buf_cap {
             // If we've reached the end of our internal buffer then we need to fetch
             // some more data from the underlying reader.
@@ -78,6 +77,18 @@ impl<R: ParquetReader> FileSource<R> {
         }
         Ok(&self.buf[self.buf_pos..self.buf_cap])
     }
+
+    fn skip_inner_buf(&mut self, buf: &mut [u8]) -> Result<usize> {
+        // discard buffer
+        self.buf_pos = 0;
+        self.buf_cap = 0;
+        // read directly into param buffer
+        let mut reader = self.reader.borrow_mut();
+        reader.seek(SeekFrom::Start(self.start))?; // always seek to start before reading
+        let nread = reader.read(buf)?;
+        self.start += nread as u64;
+        Ok(nread)
+    }
 }
 
 impl<R: ParquetReader> Read for FileSource<R> {
@@ -89,18 +100,10 @@ impl<R: ParquetReader> Read for FileSource<R> {
         // (larger than our internal buffer), bypass our internal buffer
         // entirely.
         if self.buf_pos == self.buf_cap && buf.len() >= self.buf.len() {
-            // discard buffer
-            self.buf_pos = 0;
-            self.buf_cap = 0;
-            // read directly into param buffer
-            let mut reader = self.reader.borrow_mut();
-            reader.seek(SeekFrom::Start(self.start))?; // always seek to start before reading
-            let nread = reader.read(buf)?;
-            self.start += nread as u64;
-            return Ok(nread);
+            return self.skip_inner_buf(buf);
         }
         let nread = {
-            let mut rem = self.fill_buf()?;
+            let mut rem = self.fill_inner_buf()?;
             // copy the data from the inner buffer to the param buffer
             rem.read(buf)?
         };
@@ -108,7 +111,7 @@ impl<R: ParquetReader> Read for FileSource<R> {
         self.buf_pos = cmp::min(self.buf_pos + nread, self.buf_cap);
 
         self.start += nread as u64;
-
+        println!("{}", nread);
         Ok(nread)
     }
 }
@@ -262,12 +265,12 @@ mod tests {
     #[test]
     fn test_io_large_read() {
         // Generate repeated 'abcdef' pattern and write it into a file
-        let patterned_data: Vec<u8> =
-            iter::repeat(vec![b'a', b'b', b'c', b'd', b'e', b'f'])
-                .flatten()
-                .take(3 * DEFAULT_BUF_SIZE)
-                .collect();
-        let mut file = get_temp_file("file_sink_test", &patterned_data);
+        let patterned_data: Vec<u8> = iter::repeat(vec![0, 1, 2, 3, 4, 5])
+            .flatten()
+            .take(3 * DEFAULT_BUF_SIZE)
+            .collect();
+        // always use different temp files as test might be run in parallel
+        let mut file = get_temp_file("large_file_sink_test", &patterned_data);
 
         // seek the underlying file to the first 'd'
         file.seek(SeekFrom::Start(3)).unwrap();
@@ -278,7 +281,7 @@ mod tests {
         // read the 'b' at pos 1
         let mut res = vec![0u8; 1];
         chunk.read_exact(&mut res).unwrap();
-        assert_eq!(res, &[b'b']);
+        assert_eq!(res, &[1]);
 
         // the underlying file is seeked to 'e'
         file.seek(SeekFrom::Start(4)).unwrap();
@@ -289,7 +292,7 @@ mod tests {
         assert_eq!(
             res,
             &patterned_data[2..2 + 2 * DEFAULT_BUF_SIZE],
-            "read buf should start with 'c' [99u8]"
+            "read buf and original data are not equal"
         );
     }
 }
