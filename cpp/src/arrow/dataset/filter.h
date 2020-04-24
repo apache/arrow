@@ -81,6 +81,10 @@ struct ExpressionType {
   };
 };
 
+class InExpression;
+class CastExpression;
+class IsValidExpression;
+
 /// Represents an expression tree
 class ARROW_DS_EXPORT Expression {
  public:
@@ -455,25 +459,25 @@ class ARROW_DS_EXPORT CustomExpression : public Expression {
   CustomExpression() : Expression(ExpressionType::CUSTOM) {}
 };
 
-ARROW_DS_EXPORT std::shared_ptr<AndExpression> and_(std::shared_ptr<Expression> lhs,
-                                                    std::shared_ptr<Expression> rhs);
+ARROW_DS_EXPORT std::shared_ptr<Expression> and_(std::shared_ptr<Expression> lhs,
+                                                 std::shared_ptr<Expression> rhs);
 
 ARROW_DS_EXPORT std::shared_ptr<Expression> and_(const ExpressionVector& subexpressions);
 
 ARROW_DS_EXPORT AndExpression operator&&(const Expression& lhs, const Expression& rhs);
 
-ARROW_DS_EXPORT std::shared_ptr<OrExpression> or_(std::shared_ptr<Expression> lhs,
-                                                  std::shared_ptr<Expression> rhs);
+ARROW_DS_EXPORT std::shared_ptr<Expression> or_(std::shared_ptr<Expression> lhs,
+                                                std::shared_ptr<Expression> rhs);
 
 ARROW_DS_EXPORT std::shared_ptr<Expression> or_(const ExpressionVector& subexpressions);
 
 ARROW_DS_EXPORT OrExpression operator||(const Expression& lhs, const Expression& rhs);
 
-ARROW_DS_EXPORT std::shared_ptr<NotExpression> not_(std::shared_ptr<Expression> operand);
+ARROW_DS_EXPORT std::shared_ptr<Expression> not_(std::shared_ptr<Expression> operand);
 
 ARROW_DS_EXPORT NotExpression operator!(const Expression& rhs);
 
-inline std::shared_ptr<ScalarExpression> scalar(std::shared_ptr<Scalar> value) {
+inline std::shared_ptr<Expression> scalar(std::shared_ptr<Scalar> value) {
   return std::make_shared<ScalarExpression>(std::move(value));
 }
 
@@ -508,7 +512,7 @@ COMPARISON_FACTORY(LESS, less, <)
 COMPARISON_FACTORY(LESS_EQUAL, less_equal, <=)
 #undef COMPARISON_FACTORY
 
-inline std::shared_ptr<FieldExpression> field_ref(std::string name) {
+inline std::shared_ptr<Expression> field_ref(std::string name) {
   return std::make_shared<FieldExpression>(std::move(name));
 }
 

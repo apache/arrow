@@ -766,8 +766,8 @@ std::shared_ptr<Expression> ScalarExpression::Copy() const {
   return std::make_shared<ScalarExpression>(*this);
 }
 
-std::shared_ptr<AndExpression> and_(std::shared_ptr<Expression> lhs,
-                                    std::shared_ptr<Expression> rhs) {
+std::shared_ptr<Expression> and_(std::shared_ptr<Expression> lhs,
+                                 std::shared_ptr<Expression> rhs) {
   return std::make_shared<AndExpression>(std::move(lhs), std::move(rhs));
 }
 
@@ -782,8 +782,8 @@ std::shared_ptr<Expression> and_(const ExpressionVector& subexpressions) {
       });
 }
 
-std::shared_ptr<OrExpression> or_(std::shared_ptr<Expression> lhs,
-                                  std::shared_ptr<Expression> rhs) {
+std::shared_ptr<Expression> or_(std::shared_ptr<Expression> lhs,
+                                std::shared_ptr<Expression> rhs) {
   return std::make_shared<OrExpression>(std::move(lhs), std::move(rhs));
 }
 
@@ -798,7 +798,7 @@ std::shared_ptr<Expression> or_(const ExpressionVector& subexpressions) {
       });
 }
 
-std::shared_ptr<NotExpression> not_(std::shared_ptr<Expression> operand) {
+std::shared_ptr<Expression> not_(std::shared_ptr<Expression> operand) {
   return std::make_shared<NotExpression>(std::move(operand));
 }
 
@@ -1264,7 +1264,7 @@ Result<std::shared_ptr<RecordBatch>> TreeEvaluator::Filter(
   return batch->Slice(0, 0);
 }
 
-std::shared_ptr<ScalarExpression> scalar(bool value) { return scalar(MakeScalar(value)); }
+std::shared_ptr<Expression> scalar(bool value) { return scalar(MakeScalar(value)); }
 
 struct SerializeImpl {
   Result<std::shared_ptr<StructArray>> ToArray(const Expression& expr) const {

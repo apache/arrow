@@ -74,8 +74,8 @@ class ExpressionsTest : public ::testing::Test {
   std::shared_ptr<Schema> schema_ =
       schema({field("a", int32()), field("b", int32()), field("f", float64()),
               field("s", utf8()), field("ts", ns)});
-  std::shared_ptr<ScalarExpression> always = scalar(true);
-  std::shared_ptr<ScalarExpression> never = scalar(false);
+  std::shared_ptr<Expression> always = scalar(true);
+  std::shared_ptr<Expression> never = scalar(false);
 };
 
 TEST_F(ExpressionsTest, StringRepresentation) {

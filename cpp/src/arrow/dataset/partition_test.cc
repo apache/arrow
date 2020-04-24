@@ -391,11 +391,7 @@ class TestPartitioningWritePlan : public ::testing::Test {
       }
 
       friend void PrintTo(const DirectoryWriteOp& op, std::ostream* os) {
-        if (op.partition_expression == nullptr) {
-          *os << "(((partition_expression was nullptr)))";
-        } else {
-          *os << op.partition_expression->ToString();
-        }
+        *os << op.partition_expression->ToString();
 
         *os << " { ";
         for (const auto& fragment : op.fragments) {
