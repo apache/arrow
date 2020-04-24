@@ -29,12 +29,63 @@ namespace internal {
 
 using ::testing::ElementsAreArray;
 
-std::string ToString(const uint8_t* bitmap, int64_t bit_count) {
+std::string BitmapToString(const uint8_t* bitmap, int64_t bit_count) {
   return arrow::internal::Bitmap(bitmap, /*offset*/ 0, /*length=*/bit_count).ToString();
 }
 
-std::string ToString(const std::vector<uint8_t>& bitmap, int64_t bit_count) {
-  return ToString(bitmap.data(), bit_count);
+std::string BitmapToString(const std::vector<uint8_t>& bitmap, int64_t bit_count) {
+  return BitmapToString(bitmap.data(), bit_count);
+}
+
+TEST(TestColumnReader, DefinitionLevelsToBitmap) {
+  // Bugs in this function were exposed in ARROW-3930
+  std::vector<int16_t> def_levels = {3, 3, 3, 2, 3, 3, 3, 3, 3};
+  std::vector<int16_t> rep_levels = {0, 1, 1, 1, 1, 1, 1, 1, 1};
+
+  std::vector<uint8_t> valid_bits(2, 0);
+
+  const int max_def_level = 3;
+  const int max_rep_level = 1;
+
+  int64_t values_read = -1;
+  int64_t null_count = 0;
+  internal::DefinitionLevelsToBitmap(def_levels.data(), 9, max_def_level, max_rep_level,
+                                     &values_read, &null_count, valid_bits.data(),
+                                     0 /* valid_bits_offset */);
+  ASSERT_EQ(9, values_read);
+  ASSERT_EQ(1, null_count);
+
+  // Call again with 0 definition levels, make sure that valid_bits is unmodified
+  const uint8_t current_byte = valid_bits[1];
+  null_count = 0;
+  internal::DefinitionLevelsToBitmap(def_levels.data(), 0, max_def_level, max_rep_level,
+                                     &values_read, &null_count, valid_bits.data(),
+                                     9 /* valid_bits_offset */);
+  ASSERT_EQ(0, values_read);
+  ASSERT_EQ(0, null_count);
+  ASSERT_EQ(current_byte, valid_bits[1]);
+}
+
+TEST(TestColumnReader, DefinitionLevelsToBitmapPowerOfTwo) {
+  // PARQUET-1623: Invalid memory access when decoding a valid bits vector that has a
+  // length equal to a power of two and also using a non-zero valid_bits_offset.  This
+  // should not fail when run with ASAN or valgrind.
+  std::vector<int16_t> def_levels = {3, 3, 3, 2, 3, 3, 3, 3};
+  std::vector<int16_t> rep_levels = {0, 1, 1, 1, 1, 1, 1, 1};
+  std::vector<uint8_t> valid_bits(1, 0);
+
+  const int max_def_level = 3;
+  const int max_rep_level = 1;
+
+  int64_t values_read = -1;
+  int64_t null_count = 0;
+
+  // Read the latter half of the validity bitmap
+  internal::DefinitionLevelsToBitmap(def_levels.data() + 4, 4, max_def_level,
+                                     max_rep_level, &values_read, &null_count,
+                                     valid_bits.data(), 4 /* valid_bits_offset */);
+  ASSERT_EQ(4, values_read);
+  ASSERT_EQ(0, null_count);
 }
 
 TEST(TestGreaterThanBitmap, GeneratesExpectedBitmasks) {
@@ -61,7 +112,7 @@ TEST(TestAppendBitmap, TestOffsetOverwritesCorrectBitsOnExistingByte) {
         AppendBitmap(/*new_bits=*/0xFF, /*number_of_bits*/ 8 - offset,
                      /*valid_bits_length=*/valid_bits.size(), offset, valid_bits.data()),
         kBitsAfterAppend);
-    EXPECT_EQ(ToString(valid_bits, kBitsAfterAppend), expected_bits);
+    EXPECT_EQ(BitmapToString(valid_bits, kBitsAfterAppend), expected_bits);
   };
   check_append("11111111", 0);
   check_append("01111111", 1);
@@ -84,11 +135,11 @@ TEST(TestAppendBitmap, TestOffsetShiftBitsCorrectly) {
     AppendBitmap(/*new_bits=*/kPattern, /*number_of_bits*/ 64,
                  /*valid_bits_length=*/valid_bits.size(), offset, valid_bits.data());
     EXPECT_EQ(valid_bits[0], 0x99);  // shouldn't get chanked.
-    EXPECT_EQ(ToString(valid_bits.data() + 1, /*num_bits=*/8), leading_bits);
+    EXPECT_EQ(BitmapToString(valid_bits.data() + 1, /*num_bits=*/8), leading_bits);
     for (int x = 2; x < 9; x++) {
-      EXPECT_EQ(ToString(valid_bits.data() + x, /*num_bits=*/8), middle_bits);
+      EXPECT_EQ(BitmapToString(valid_bits.data() + x, /*num_bits=*/8), middle_bits);
     }
-    EXPECT_EQ(ToString(valid_bits.data() + 9, /*num_bits=*/8), trailing_bits);
+    EXPECT_EQ(BitmapToString(valid_bits.data() + 9, /*num_bits=*/8), trailing_bits);
   };
   // Original Pattern = "01011001"
   check_append(/*leading_bits= */ "01011001", /*middle_bits=*/"01011001",
@@ -138,15 +189,13 @@ TEST(TestAppendToValidityBitmap, BasicOperation) {
   int64_t set_bit_count = 5;
   AppendToValidityBitmap(/*new_bits*/ 0x99, /*new_bit_count=*/31, validity_bitmap.data(),
                          &valid_bitmap_offset, &set_bit_count);
-  EXPECT_EQ(ToString(validity_bitmap, valid_bitmap_offset),
+  EXPECT_EQ(BitmapToString(validity_bitmap, valid_bitmap_offset),
             "01001100 10000000 00000000 00000000");
   EXPECT_EQ(set_bit_count, /*5 + 4 set bits=*/9);
 }
 
+#if defined(ARROW_HAVE_BMI2)
 TEST(TestAppendSelectedBitsToValidityBitmap, BasicOperation) {
-#if !defined(ARROW_HAVE_BMI2)
-  return;
-#endif
   std::vector<uint8_t> validity_bitmap(/*count*/ 8, 0);
   int64_t valid_bitmap_offset = 1;
   int64_t set_bit_count = 5;
@@ -154,9 +203,10 @@ TEST(TestAppendSelectedBitsToValidityBitmap, BasicOperation) {
                 /*new_bits*/ 0x99, /*selection_bitmap=*/0xB8, validity_bitmap.data(),
                 &valid_bitmap_offset, &set_bit_count),
             /*bits_processed=*/4);
-  EXPECT_EQ(ToString(validity_bitmap, valid_bitmap_offset), "01101");
+  EXPECT_EQ(BitmapToString(validity_bitmap, valid_bitmap_offset), "01101");
   EXPECT_EQ(set_bit_count, /*5 + 3 set bits=*/8);
 }
+#endif
 
 }  // namespace internal
 }  // namespace parquet

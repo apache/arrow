@@ -18,7 +18,9 @@
 #pragma once
 
 #include <cstdint>
+
 #include "arrow/util/bit_util.h"
+#include "parquet/platform.h"
 
 #if defined(ARROW_HAVE_BMI2)
 #include "x86intrin.h"
@@ -26,6 +28,12 @@
 
 namespace parquet {
 namespace internal {
+
+void PARQUET_EXPORT DefinitionLevelsToBitmap(
+    const int16_t* def_levels, int64_t num_def_levels, const int16_t max_definition_level,
+    const int16_t max_repetition_level, int64_t* values_read, int64_t* null_count,
+    uint8_t* valid_bits, int64_t valid_bits_offset);
+
 // These APIs are likely to be revised as part of ARROW-8494 to reduce duplicate code.
 // They currently represent minimal functionality for vectorized computation of definition
 // levels.
@@ -40,9 +48,11 @@ namespace internal {
 ///
 /// N.B. Correct byte ordering is dependent on little-endian architectures.
 ///
+
+#if defined(ARROW_LITTLE_ENDIAN)
 template <typename Predicate>
 uint64_t LevelsToBitmap(const int16_t* levels, int64_t num_levels, Predicate predicate) {
-  // Both clang and GCC can vectorize this automatically with AVX2.
+  // Both clang and GCC can vectorize this automatically with SSE4/AVX2.
   uint64_t mask = 0;
   for (int x = 0; x < num_levels; x++) {
     mask |= static_cast<int64_t>(predicate(levels[x]) ? 1 : 0) << x;
@@ -50,12 +60,14 @@ uint64_t LevelsToBitmap(const int16_t* levels, int64_t num_levels, Predicate pre
   return mask;
 }
 
-/// Builds a  bitmap where each set bit indicates the correspond level is greater
+/// Builds a  bitmap where each set bit indicates the corresponding level is greater
 /// than rhs.
-static inline int64_t GreaterThanBitmap(const int16_t* levels, int64_t num_levels,
-                                        int16_t rhs) {
+static inline uint64_t GreaterThanBitmap(const int16_t* levels, int64_t num_levels,
+                                         int16_t rhs) {
   return LevelsToBitmap(levels, num_levels, [&](int16_t value) { return value > rhs; });
 }
+
+#endif
 
 /// Append bits number_of_bits from new_bits to valid_bits and valid_bits_offset.
 ///
@@ -83,39 +95,34 @@ static inline int64_t AppendBitmap(uint64_t new_bits, int64_t number_of_bits,
   int64_t bit_offset = valid_bits_offset % 8;
 
   int64_t new_offset = valid_bits_offset + number_of_bits;
-  union ByteAddressableBitmap {
-    explicit ByteAddressableBitmap(uint64_t mask) : mask(mask) {}
-    uint64_t mask;
-    uint8_t bytes[8];
-  };
 
   if (bit_offset != 0) {
     int64_t bits_to_carry = 8 - bit_offset;
     // Get the mask the will select the lower order bits  (the ones to carry
     // over to the existing byte and shift up.
-    const ByteAddressableBitmap carry_bits(kLsbSelectionMasks[bits_to_carry]);
+    const uint64_t carry_mask = kLsbSelectionMasks[bits_to_carry];
     // Mask to select non-carried bits.
-    const ByteAddressableBitmap inverse_selection(~carry_bits.mask);
-    // Fill out the last incomplete byte in the output, by extracting the least
-    // siginficant bits from the first byte.
-    const ByteAddressableBitmap new_bitmap(new_bits);
+    const uint64_t non_carry_mask = ~carry_mask;
+
     // valid bits should be a valid bitmask so all trailing bytes hsould be unset
     // so no mask is need to start.
-    valid_bits[valid_byte_offset] =
-        valid_bits[valid_byte_offset] |  // See above the
-        (((new_bitmap.bytes[0] & carry_bits.bytes[0])) << bit_offset);
+    valid_bits[valid_byte_offset] = valid_bits[valid_byte_offset] |  // See above the
+                                    (((new_bits & carry_mask) & 0xFF) << bit_offset);
 
-    // We illustrate logic with a 3-byte example in little endian/LSB order.
+    // We illustrate logic with a 3-byte example in little endian/LSB order
+    // (N indicates note set).
     // Note this ordering is the reversed from HEX masks above with are expressed
     // big-endian/MSB and shifts right move the bits to the left (division).
     // 0  1  2  3  4  5  6  7   8  9  10 11 12 13 14 15   16 17 18 19 20 21 22 23
-    // Shifted mask should look like this assuming bit offset = 6:
+    // Assuming a bit-off of 6:
+    //
+    // So shifted_new_bits should look like;
     // 2  3  4  5  6  7  N  N   10 11 12 13 14 15  N  N   18 19 20 21 22 23  N  N
     // clang-format on
-    uint64_t shifted_new_bits = (new_bits & inverse_selection.mask) >> bits_to_carry;
+    uint64_t shifted_new_bits = (new_bits & non_carry_mask) >> bits_to_carry;
     // captured_carry:
     // 0  1  N  N  N  N  N  N   8  9  N  N  N   N  N  N   16 17  N  N  N  N  N  N
-    uint64_t captured_carry = carry_bits.mask & new_bits;
+    uint64_t captured_carry = carry_mask & new_bits;
     // mask_cary_bits:
     // N  N  N  N  N  N  8  9   N  N  N  N  N   N 16 17    N  N   N  N  N  N  N  N
     uint64_t mask_carry_bits = (captured_carry >> 8) << bit_offset;
@@ -149,9 +156,10 @@ static inline int64_t AppendBitmap(uint64_t new_bits, int64_t number_of_bits,
 /// valid_bits (updated to latest bitmap).
 /// \param[in,out] set_bit_count The number of set bits appended is added to
 /// set_bit_count.
-void AppendToValidityBitmap(uint64_t new_bits, int64_t new_bit_count,
-                            uint8_t* validity_bitmap, int64_t* validity_bitmap_offset,
-                            int64_t* set_bit_count) {
+static inline void AppendToValidityBitmap(uint64_t new_bits, int64_t new_bit_count,
+                                          uint8_t* validity_bitmap,
+                                          int64_t* validity_bitmap_offset,
+                                          int64_t* set_bit_count) {
   int64_t min_valid_bits_size =
       ::arrow::BitUtil::BytesForBits(new_bit_count + *validity_bitmap_offset);
 
@@ -160,18 +168,16 @@ void AppendToValidityBitmap(uint64_t new_bits, int64_t new_bit_count,
                                          *validity_bitmap_offset, validity_bitmap);
 }
 
+#if defined(ARROW_HAVE_BMI2)
 /// The same as AppendToValidityBitmap but only appends bits from bitmap that have
 /// a corresponding bit set in selection_bitmap.
 ///
 /// \returns The number of bits appended.
-///
-/// N.B. This is only implemented for archiectures that suppor the BMI2 instruction
-/// set.
-int64_t AppendSelectedBitsToValidityBitmap(uint64_t new_bits, uint64_t selection_bitmap,
-                                           uint8_t* validity_bitmap,
-                                           int64_t* validity_bitmap_offset,
-                                           int64_t* set_bit_count) {
-#if defined(ARROW_HAVE_BMI2)
+static inline int64_t AppendSelectedBitsToValidityBitmap(uint64_t new_bits,
+                                                         uint64_t selection_bitmap,
+                                                         uint8_t* validity_bitmap,
+                                                         int64_t* validity_bitmap_offset,
+                                                         int64_t* set_bit_count) {
   // If the parent list was empty at for the given slot it should not be added to the
   // bitmap.
   uint64_t selected_bits = _pext_u64(new_bits, selection_bitmap);
@@ -181,11 +187,8 @@ int64_t AppendSelectedBitsToValidityBitmap(uint64_t new_bits, uint64_t selection
   AppendToValidityBitmap(selected_bits, selected_count, validity_bitmap,
                          validity_bitmap_offset, set_bit_count);
   return selected_count;
-#else
-  // We shouldn't get here.
-  std::abort();
-#endif
 }
+#endif
 
 }  // namespace internal
 }  // namespace parquet

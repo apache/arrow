@@ -314,11 +314,6 @@ class DictionaryRecordReader : virtual public RecordReader {
   virtual std::shared_ptr<::arrow::ChunkedArray> GetResult() = 0;
 };
 
-void PARQUET_EXPORT DefinitionLevelsToBitmap(
-    const int16_t* def_levels, int64_t num_def_levels, const int16_t max_definition_level,
-    const int16_t max_repetition_level, int64_t* values_read, int64_t* null_count,
-    uint8_t* valid_bits, int64_t valid_bits_offset);
-
 // TODO(itaiin): another code path split to merge when the general case is done
 static inline bool HasSpacedValues(const ColumnDescriptor* descr) {
   if (descr->max_repetition_level() > 0) {

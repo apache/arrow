@@ -187,6 +187,7 @@ set(PARQUET_SRCS
     file_writer.cc
     internal_file_decryptor.cc
     internal_file_encryptor.cc
+    level_conversion.cc
     metadata.cc
     murmur3.cc
     "${ARROW_SOURCE_DIR}/src/generated/parquet_constants.cpp"

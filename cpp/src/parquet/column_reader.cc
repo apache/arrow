@@ -52,140 +52,6 @@ using arrow::internal::checked_cast;
 
 namespace parquet {
 
-namespace {
-
-inline void CheckLevelRange(const int16_t* levels, int64_t num_levels,
-                            const int16_t max_expected_level) {
-  int16_t min_level = std::numeric_limits<int16_t>::max();
-  int16_t max_level = std::numeric_limits<int16_t>::min();
-  for (int x = 0; x < num_levels; x++) {
-    min_level = std::min(levels[x], min_level);
-    max_level = std::max(levels[x], max_level);
-  }
-  if (ARROW_PREDICT_FALSE(num_levels > 0 && (min_level < 0 || max_level > max_level))) {
-    throw ParquetException("definition level exceeds maximum");
-  }
-}
-
-#if !defined(ARROW_HAVE_BMI2)
-
-inline void DefinitionLevelsToBitmapScalar(
-    const int16_t* def_levels, int64_t num_def_levels, const int16_t max_definition_level,
-    const int16_t max_repetition_level, int64_t* values_read, int64_t* null_count,
-    uint8_t* valid_bits, int64_t valid_bits_offset) {
-  // We assume here that valid_bits is large enough to accommodate the
-  // additional definition levels and the ones that have already been written
-  ::arrow::internal::BitmapWriter valid_bits_writer(valid_bits, valid_bits_offset,
-                                                    num_def_levels);
-
-  // TODO(itaiin): As an interim solution we are splitting the code path here
-  // between repeated+flat column reads, and non-repeated+nested reads.
-  // Those paths need to be merged in the future
-  for (int i = 0; i < num_def_levels; ++i) {
-    if (def_levels[i] == max_definition_level) {
-      valid_bits_writer.Set();
-    } else if (max_repetition_level > 0) {
-      // repetition+flat case
-      if (def_levels[i] == (max_definition_level - 1)) {
-        valid_bits_writer.Clear();
-        *null_count += 1;
-      } else {
-        continue;
-      }
-    } else {
-      // non-repeated+nested case
-      if (def_levels[i] < max_definition_level) {
-        valid_bits_writer.Clear();
-        *null_count += 1;
-      } else {
-        throw ParquetException("definition level exceeds maximum");
-      }
-    }
-
-    valid_bits_writer.Next();
-  }
-  valid_bits_writer.Finish();
-  *values_read = valid_bits_writer.position();
-}
-#endif
-
-template <bool has_repeated_parent>
-void DefinitionLevelsToBitmapSimd(const int16_t* def_levels, int64_t num_def_levels,
-                                  const int16_t required_definition_level,
-                                  int64_t* values_read, int64_t* null_count,
-                                  uint8_t* valid_bits, int64_t valid_bits_offset) {
-  constexpr int64_t kBitMaskSize = 64;
-  int64_t set_count = 0;
-  *values_read = 0;
-  while (num_def_levels > 0) {
-    int64_t batch_size = std::min(num_def_levels, kBitMaskSize);
-    CheckLevelRange(def_levels, batch_size, required_definition_level);
-    uint64_t defined_bitmap = internal::GreaterThanBitmap(def_levels, batch_size,
-                                                          required_definition_level - 1);
-    if (has_repeated_parent) {
-      // This is currently a specialized code path assuming only (nested) lists
-      // present through the leaf (i.e. no structs).
-      // Upper level code only calls this method
-      // when the leaf-values are nullable (otherwise no spacing is needed),
-      // Because only nested lists exists it is sufficient to know that the field
-      // was either null or included it (i.e. >= previous definition level -> > previous
-      // definition - 1). If there where structs mixed in, we need to know the def_level
-      // of the repeated parent so we can check for def_level > "def level of repeated
-      // parent".
-      uint64_t present_bitmap = internal::GreaterThanBitmap(
-          def_levels, batch_size, required_definition_level - 2);
-      *values_read += internal::AppendSelectedBitsToValidityBitmap(
-          /*new_bits=*/defined_bitmap,
-          /*selection_bitmap*/ present_bitmap, valid_bits, &valid_bits_offset,
-          &set_count);
-    } else {
-      internal::AppendToValidityBitmap(
-          /*new_bits=*/defined_bitmap,
-          /*new_bit_count=*/batch_size, valid_bits, &valid_bits_offset, &set_count);
-      *values_read += batch_size;
-    }
-    def_levels += batch_size;
-    num_def_levels -= batch_size;
-  }
-  *null_count += *values_read - set_count;
-}
-
-inline void DefinitionLevelsToBitmapDispatch(
-    const int16_t* def_levels, int64_t num_def_levels, const int16_t max_definition_level,
-    const int16_t max_repetition_level, int64_t* values_read, int64_t* null_count,
-    uint8_t* valid_bits, int64_t valid_bits_offset) {
-  if (max_repetition_level > 0) {
-#if ARROW_LITTLE_ENDIAN
-
-#if defined(ARROW_HAVE_BMI2)
-    // BMI2 is required for efficient bit extraction.
-    DefinitionLevelsToBitmapSimd</*has_repeated_parent=*/true>(
-        def_levels, num_def_levels, max_definition_level, values_read, null_count,
-        valid_bits, valid_bits_offset);
-#else
-    DefinitionLevelsToBitmapScalar(def_levels, num_def_levels, max_definition_level,
-                                   max_repetition_level, values_read, null_count,
-                                   valid_bits, valid_bits_offset);
-#endif  // ARROW_HAVE_BMI2
-
-  } else {
-    // No Special intsturction are used for non-repeated case.
-    DefinitionLevelsToBitmapSimd</*has_repeated_parent=*/false>(
-        def_levels, num_def_levels, max_definition_level, values_read, null_count,
-        valid_bits, valid_bits_offset);
-  }
-}
-
-#else  // big-endian
-    // Optimized SIMD uses bit shifts that are unlikely to work on big endian platforms.
-    DefinitionLevelsToBitmapScalar(def_levels, num_def_levels, max_definition_level,
-                                   max_repitition_level, values_read, null_count,
-                                   valid_bits, valid_bits_offset);
-
-#endif
-
-}  // namespace
-
 LevelDecoder::LevelDecoder() : num_values_remaining_(0) {}
 
 LevelDecoder::~LevelDecoder() {}
@@ -1022,9 +888,9 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
                                   /*bits_are_set=*/true);
       *values_read = total_values;
     } else {
-      DefinitionLevelsToBitmapDispatch(def_levels, num_def_levels, this->max_def_level_,
-                                       this->max_rep_level_, values_read, &null_count,
-                                       valid_bits, valid_bits_offset);
+      internal::DefinitionLevelsToBitmap(def_levels, num_def_levels, this->max_def_level_,
+                                         this->max_rep_level_, values_read, &null_count,
+                                         valid_bits, valid_bits_offset);
       total_values =
           this->ReadValuesSpaced(*values_read, values, static_cast<int>(null_count),
                                  valid_bits, valid_bits_offset);
@@ -1126,16 +992,6 @@ namespace internal {
 // The minimum number of repetition/definition levels to decode at a time, for
 // better vectorized performance when doing many smaller record reads
 constexpr int64_t kMinLevelBatchSize = 1024;
-
-void DefinitionLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
-                              const int16_t max_definition_level,
-                              const int16_t max_repetition_level, int64_t* values_read,
-                              int64_t* null_count, uint8_t* valid_bits,
-                              int64_t valid_bits_offset) {
-  DefinitionLevelsToBitmapDispatch(def_levels, num_def_levels, max_definition_level,
-                                   max_repetition_level, values_read, null_count,
-                                   valid_bits, valid_bits_offset);
-}
 
 template <typename DType>
 class TypedRecordReader : public ColumnReaderImplBase<DType>,
@@ -1468,7 +1324,7 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
     int64_t null_count = 0;
     if (nullable_values_) {
       int64_t values_with_nulls = 0;
-      DefinitionLevelsToBitmapDispatch(
+      DefinitionLevelsToBitmap(
           def_levels() + start_levels_position, levels_position_ - start_levels_position,
           this->max_def_level_, this->max_rep_level_, &values_with_nulls, &null_count,
           valid_bits_->mutable_data(), values_written_);
