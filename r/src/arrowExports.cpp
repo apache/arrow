@@ -1647,6 +1647,20 @@ RcppExport SEXP _arrow_dataset___IpcFileFormat__Make(){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<ds::CsvFileFormat> dataset___CsvFileFormat__Make();
+RcppExport SEXP _arrow_dataset___CsvFileFormat__Make(){
+BEGIN_RCPP
+	return Rcpp::wrap(dataset___CsvFileFormat__Make());
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___CsvFileFormat__Make(){
+	Rf_error("Cannot call dataset___CsvFileFormat__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<ds::Partitioning> dataset___DirectoryPartitioning(const std::shared_ptr<arrow::Schema>& schm);
 RcppExport SEXP _arrow_dataset___DirectoryPartitioning(SEXP schm_sexp){
 BEGIN_RCPP
@@ -5986,6 +6000,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___FileFormat__type_name", (DL_FUNC) &_arrow_dataset___FileFormat__type_name, 1}, 
 		{ "_arrow_dataset___ParquetFileFormat__Make", (DL_FUNC) &_arrow_dataset___ParquetFileFormat__Make, 3}, 
 		{ "_arrow_dataset___IpcFileFormat__Make", (DL_FUNC) &_arrow_dataset___IpcFileFormat__Make, 0}, 
+		{ "_arrow_dataset___CsvFileFormat__Make", (DL_FUNC) &_arrow_dataset___CsvFileFormat__Make, 0}, 
 		{ "_arrow_dataset___DirectoryPartitioning", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning, 1}, 
 		{ "_arrow_dataset___DirectoryPartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning__MakeFactory, 1}, 
 		{ "_arrow_dataset___HivePartitioning", (DL_FUNC) &_arrow_dataset___HivePartitioning, 1}, 

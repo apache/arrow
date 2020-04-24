@@ -269,7 +269,7 @@ DatasetFactory <- R6Class("DatasetFactory", inherit = ArrowObject,
 )
 DatasetFactory$create <- function(x,
                                   filesystem = NULL,
-                                  format = c("parquet", "arrow", "ipc", "feather"),
+                                  format = c("parquet", "arrow", "ipc", "feather", "csv"),
                                   partitioning = NULL,
                                   ...) {
   if (is_list_of(x, "DatasetFactory")) {
@@ -426,6 +426,8 @@ FileFormat$create <- function(format, ...) {
     ParquetFileFormat$create(...)
   } else if (format %in% c("ipc", "arrow", "feather")) { # These are aliases for the same thing
     shared_ptr(IpcFileFormat, dataset___IpcFileFormat__Make())
+  } else if (format == "csv") {
+    CsvFileFormat$create(...)
   } else {
     stop("Unsupported file format: ", format, call. = FALSE)
   }
@@ -448,6 +450,15 @@ ParquetFileFormat$create <- function(use_buffered_stream = FALSE,
 #' @rdname FileFormat
 #' @export
 IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
+
+#' @usage NULL
+#' @format NULL
+#' @rdname FileFormat
+#' @export
+CsvFileFormat <- R6Class("CsvFileFormat", inherit = FileFormat)
+CsvFileFormat$create <- function(...) {
+  shared_ptr(CsvFileFormat, dataset___CsvFileFormat__Make())
+}
 
 #' Scan the contents of a dataset
 #'

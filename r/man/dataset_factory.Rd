@@ -7,7 +7,7 @@
 dataset_factory(
   x,
   filesystem = NULL,
-  format = c("parquet", "arrow", "ipc", "feather"),
+  format = c("parquet", "arrow", "ipc", "feather", "csv"),
   partitioning = NULL,
   ...
 )

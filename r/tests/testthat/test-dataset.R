@@ -28,6 +28,7 @@ make_temp_dir <- function() {
 dataset_dir <- make_temp_dir()
 hive_dir <- make_temp_dir()
 ipc_dir <- make_temp_dir()
+csv_dir <- make_temp_dir()
 
 first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
 df1 <- tibble(
@@ -68,6 +69,13 @@ test_that("Setup (putting data in the dir)", {
   write_feather(df1, file.path(ipc_dir, 3, "file1.arrow"))
   write_feather(df2, file.path(ipc_dir, 4, "file2.arrow"))
   expect_length(dir(ipc_dir, recursive = TRUE), 2)
+
+  # Now, CSV
+  dir.create(file.path(csv_dir, 5))
+  dir.create(file.path(csv_dir, 6))
+  write.csv(df1, file.path(csv_dir, 5, "file1.csv"), row.names = FALSE)
+  write.csv(df2, file.path(csv_dir, 6, "file2.csv"), row.names = FALSE)
+  expect_length(dir(csv_dir, recursive = TRUE), 2)
 })
 
 test_that("Simple interface for datasets", {
@@ -202,6 +210,28 @@ test_that("IPC/Feather format data", {
       select(string = chr, integer = int) %>%
       filter(integer > 6) %>%
       summarize(mean = mean(integer))
+  )
+})
+
+test_that("CSV dataset", {
+  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+  expect_identical(names(ds), c(names(df1), "part"))
+  expect_warning(
+    dim(ds),
+    "Number of rows unknown; returning NA"
+  )
+  expect_equivalent(
+    ds %>%
+      select(string = chr, integer = int, part) %>%
+      filter(integer > 6 & part == 5) %>%
+      collect() %>%
+      summarize(mean = mean(as.numeric(integer))) %>% # as.numeric bc they're being parsed as int64
+      print(),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer)) %>%
+      print()
   )
 })
 

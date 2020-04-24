@@ -174,6 +174,11 @@ std::shared_ptr<ds::IpcFileFormat> dataset___IpcFileFormat__Make() {
   return std::make_shared<ds::IpcFileFormat>();
 }
 
+// [[arrow::export]]
+std::shared_ptr<ds::CsvFileFormat> dataset___CsvFileFormat__Make() {
+  return std::make_shared<ds::CsvFileFormat>();
+}
+
 // DirectoryPartitioning, HivePartitioning
 
 // [[arrow::export]]
