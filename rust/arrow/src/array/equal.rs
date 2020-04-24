@@ -694,7 +694,9 @@ impl ArrayEqual for StructArray {
 
 impl ArrayEqual for UnionArray {
     fn equals(&self, _other: &dyn Array) -> bool {
-        unimplemented!("Added to allow UnionArray to implement the Array trait: see ARROW-8576")
+        unimplemented!(
+            "Added to allow UnionArray to implement the Array trait: see ARROW-8576"
+        )
     }
 
     fn range_equals(
@@ -704,7 +706,9 @@ impl ArrayEqual for UnionArray {
         _end_idx: usize,
         _other_start_idx: usize,
     ) -> bool {
-        unimplemented!("Added to allow UnionArray to implement the Array trait: see ARROW-8576")
+        unimplemented!(
+            "Added to allow UnionArray to implement the Array trait: see ARROW-8576"
+        )
     }
 }
 
@@ -1064,7 +1068,9 @@ impl PartialEq<FixedSizeBinaryArray> for Value {
 
 impl JsonEqual for UnionArray {
     fn equals_json(&self, _json: &[&Value]) -> bool {
-        unimplemented!("Added to allow UnionArray to implement the Array trait: see ARROW-8547")
+        unimplemented!(
+            "Added to allow UnionArray to implement the Array trait: see ARROW-8547"
+        )
     }
 }
 
