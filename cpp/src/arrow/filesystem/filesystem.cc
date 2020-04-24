@@ -371,71 +371,52 @@ Result<std::shared_ptr<io::OutputStream>> SlowFileSystem::OpenAppendStream(
 
 namespace {
 
-struct FileSystemUri {
+Result<Uri> ParseFileSystemUri(const std::string& uri_string) {
   Uri uri;
-  std::string scheme;
-  std::string path;
-  bool is_local = false;
-};
-
-Result<FileSystemUri> ParseFileSystemUri(const std::string& uri_string) {
-  FileSystemUri fsuri;
-  auto status = fsuri.uri.Parse(uri_string);
+  auto status = uri.Parse(uri_string);
   if (!status.ok()) {
 #ifdef _WIN32
     // Could be a "file:..." URI with backslashes instead of regular slashes.
-    RETURN_NOT_OK(fsuri.uri.Parse(ToSlashes(uri_string)));
-    if (fsuri.uri.scheme() != "file") {
+    RETURN_NOT_OK(uri.Parse(ToSlashes(uri_string)));
+    if (uri.scheme() != "file") {
       return status;
     }
 #else
     return status;
 #endif
   }
-  fsuri.scheme = fsuri.uri.scheme();
-  fsuri.path = fsuri.uri.path();
-  if (fsuri.scheme == "file") {
-    fsuri.is_local = true;
-  }
-  return std::move(fsuri);
+  return std::move(uri);
 }
 
-Result<FileSystemUri> ParseFileSystemUriOrPath(const std::string& uri_string) {
-  if (internal::DetectAbsolutePath(uri_string)) {
-    FileSystemUri fsuri;
-    fsuri.path = uri_string;
-    fsuri.is_local = true;
-    return std::move(fsuri);
-  }
-  return ParseFileSystemUri(uri_string);
-}
-
-Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const FileSystemUri& fsuri,
+Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
                                                           const std::string& uri_string,
                                                           std::string* out_path) {
-  if (out_path != nullptr) {
-    *out_path = fsuri.path;
-  }
-  if (fsuri.is_local) {
-    // Normalize path separators
+  const auto scheme = uri.scheme();
+
+  if (scheme == "file") {
+    std::string path;
+    ARROW_ASSIGN_OR_RAISE(auto options, LocalFileSystemOptions::FromUri(uri, &path));
     if (out_path != nullptr) {
-      *out_path = ToSlashes(*out_path);
+      *out_path = path;
     }
-    return std::make_shared<LocalFileSystem>();
+    return std::make_shared<LocalFileSystem>(options);
   }
-  if (fsuri.scheme == "hdfs" || fsuri.scheme == "viewfs") {
+  if (scheme == "hdfs" || scheme == "viewfs") {
 #ifdef ARROW_HDFS
-    ARROW_ASSIGN_OR_RAISE(auto options, HdfsOptions::FromUri(fsuri.uri));
+    ARROW_ASSIGN_OR_RAISE(auto options, HdfsOptions::FromUri(uri));
+    if (out_path != nullptr) {
+      *out_path = uri.path();
+    }
     ARROW_ASSIGN_OR_RAISE(auto hdfs, HadoopFileSystem::Make(options));
     return hdfs;
 #else
     return Status::NotImplemented("Got HDFS URI but Arrow compiled without HDFS support");
 #endif
   }
-  if (fsuri.scheme == "s3") {
+  if (scheme == "s3") {
 #ifdef ARROW_S3
     RETURN_NOT_OK(EnsureS3Initialized());
-    ARROW_ASSIGN_OR_RAISE(auto options, S3Options::FromUri(fsuri.uri, out_path));
+    ARROW_ASSIGN_OR_RAISE(auto options, S3Options::FromUri(uri, out_path));
     ARROW_ASSIGN_OR_RAISE(auto s3fs, S3FileSystem::Make(options));
     return s3fs;
 #else
@@ -443,13 +424,12 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const FileSystemUri& f
 #endif
   }
 
-  // Other filesystems below do not have an absolute / relative path distinction,
-  // normalize path by removing leading slash.
-  // XXX perhaps each filesystem should have a path normalization method?
-  if (out_path != nullptr) {
-    *out_path = std::string(RemoveLeadingSlash(*out_path));
-  }
-  if (fsuri.scheme == "mock") {
+  if (scheme == "mock") {
+    // MockFileSystem does not have an absolute / relative path distinction,
+    // normalize path by removing leading slash.
+    if (out_path != nullptr) {
+      *out_path = std::string(RemoveLeadingSlash(uri.path()));
+    }
     return std::make_shared<internal::MockFileSystem>(internal::CurrentTimePoint());
   }
 
@@ -466,12 +446,14 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_str
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(const std::string& uri_string,
                                                             std::string* out_path) {
-  ARROW_ASSIGN_OR_RAISE(auto fsuri, ParseFileSystemUriOrPath(uri_string));
-  auto maybe_fs = FileSystemFromUriReal(fsuri, uri_string, out_path);
-  if (maybe_fs.ok()) {
-    return maybe_fs;
+  if (internal::DetectAbsolutePath(uri_string)) {
+    // Normalize path separators
+    if (out_path != nullptr) {
+      *out_path = ToSlashes(uri_string);
+    }
+    return std::make_shared<LocalFileSystem>();
   }
-  return Status::Invalid("Expected URI or absolute local path, got '", uri_string, "'");
+  return FileSystemFromUri(uri_string, out_path);
 }
 
 Status FileSystemFromUri(const std::string& uri, std::shared_ptr<FileSystem>* out_fs,

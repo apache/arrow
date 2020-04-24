@@ -341,13 +341,7 @@ gchar *
 garrow_record_batch_to_string(GArrowRecordBatch *record_batch, GError **error)
 {
   const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
-  std::stringstream sink;
-  auto status = arrow::PrettyPrint(*arrow_record_batch, 0, &sink);
-  if (garrow_error_check(error, status, "[record-batch][to-string]")) {
-    return g_strdup(sink.str().c_str());
-  } else {
-    return NULL;
-  }
+  return g_strdup(arrow_record_batch->ToString().c_str());
 }
 
 /**

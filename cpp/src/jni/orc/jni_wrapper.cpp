@@ -226,16 +226,15 @@ Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_getSchema(JNIEnv* en
 
   auto schema = stripe_reader->schema();
 
-  std::shared_ptr<arrow::Buffer> out;
-  auto status =
-      arrow::ipc::SerializeSchema(*schema, nullptr, arrow::default_memory_pool(), &out);
-  if (!status.ok()) {
+  auto maybe_buffer = arrow::ipc::SerializeSchema(*schema, nullptr);
+  if (!maybe_buffer.ok()) {
     return nullptr;
   }
+  auto buffer = *std::move(maybe_buffer);
 
-  jbyteArray ret = env->NewByteArray(out->size());
-  auto src = reinterpret_cast<const jbyte*>(out->data());
-  env->SetByteArrayRegion(ret, 0, out->size(), src);
+  jbyteArray ret = env->NewByteArray(buffer->size());
+  auto src = reinterpret_cast<const jbyte*>(buffer->data());
+  env->SetByteArrayRegion(ret, 0, buffer->size(), src);
   return ret;
 }
 

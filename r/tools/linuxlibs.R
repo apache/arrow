@@ -20,10 +20,6 @@ VERSION <- args[1]
 dst_dir <- paste0("libarrow/arrow-", VERSION)
 
 arrow_repo <- "https://dl.bintray.com/ursalabs/arrow-r/libarrow/"
-apache_src_url <- paste0(
-  "https://archive.apache.org/dist/arrow/arrow-", VERSION,
-  "/apache-arrow-", VERSION, ".tar.gz"
-)
 
 options(.arrow.cleanup = character()) # To collect dirs to rm on exit
 on.exit(unlink(getOption(".arrow.cleanup")))
@@ -40,17 +36,23 @@ binary_ok <- !identical(tolower(Sys.getenv("LIBARROW_BINARY", "false")), "false"
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
 
+try_download <- function(from_url, to_file) {
+  try(
+    suppressWarnings(
+      download.file(from_url, to_file, quiet = quietly)
+    ),
+    silent = quietly
+  )
+  file.exists(to_file)
+}
+
 download_binary <- function(os = identify_os()) {
   libfile <- tempfile()
   if (!is.null(os)) {
     # See if we can map this os-version to one we have binaries for
     os <- find_available_binary(os)
     binary_url <- paste0(arrow_repo, "bin/", os, "/arrow-", VERSION, ".zip")
-    try(
-      download.file(binary_url, libfile, quiet = quietly),
-      silent = quietly
-    )
-    if (file.exists(libfile)) {
+    if (try_download(binary_url, libfile)) {
       cat(sprintf("*** Successfully retrieved C++ binaries for %s\n", os))
     } else {
       cat(sprintf("*** No C++ binaries found for %s\n", os))
@@ -133,31 +135,54 @@ find_available_binary <- function(os) {
 
 download_source <- function() {
   tf1 <- tempfile()
-  src_dir <- NULL
-  source_url <- paste0(arrow_repo, "src/arrow-", VERSION, ".zip")
-  try(
-    download.file(source_url, tf1, quiet = quietly),
-    silent = quietly
-  )
-  if (!file.exists(tf1)) {
-    # Try for an official release
-    try(
-      download.file(apache_src_url, tf1, quiet = quietly),
-      silent = quietly
-    )
-  }
-  if (file.exists(tf1)) {
+  src_dir <- tempfile()
+  if (bintray_download(tf1)) {
+    # First try from bintray
     cat("*** Successfully retrieved C++ source\n")
-    src_dir <- tempfile()
     unzip(tf1, exdir = src_dir)
     unlink(tf1)
-    # These scripts need to be executable
-    system(sprintf("chmod 755 %s/cpp/build-support/*.sh", src_dir))
-    options(.arrow.cleanup = c(getOption(".arrow.cleanup"), src_dir))
-    # The actual src is in cpp
     src_dir <- paste0(src_dir, "/cpp")
+  } else if (apache_download(tf1)) {
+    # If that fails, try for an official release
+    cat("*** Successfully retrieved C++ source\n")
+    untar(tf1, exdir = src_dir)
+    unlink(tf1)
+    src_dir <- paste0(src_dir, "/apache-arrow-", VERSION, "/cpp")
   }
-  src_dir
+
+  if (dir.exists(src_dir)) {
+    options(.arrow.cleanup = c(getOption(".arrow.cleanup"), src_dir))
+    # These scripts need to be executable
+    system(
+      sprintf("chmod 755 %s/build-support/*.sh", src_dir),
+      ignore.stdout = quietly, ignore.stderr = quietly
+    )
+    return(src_dir)
+  } else {
+    return(NULL)
+  }
+}
+
+bintray_download <- function(destfile) {
+  source_url <- paste0(arrow_repo, "src/arrow-", VERSION, ".zip")
+  try_download(source_url, destfile)
+}
+
+apache_download <- function(destfile, n_mirrors = 3) {
+  apache_path <- paste0("arrow/arrow-", VERSION, "/apache-arrow-", VERSION, ".tar.gz")
+  apache_urls <- c(
+    # This returns a different mirror each time
+    rep("https://www.apache.org/dyn/closer.lua?action=download&filename=", n_mirrors),
+    "https://downloads.apache.org/" # The backup
+  )
+  downloaded <- FALSE
+  for (u in apache_urls) {
+    downloaded <- try_download(paste0(u, apache_path), destfile)
+    if (downloaded) {
+      break
+    }
+  }
+  downloaded
 }
 
 find_local_source <- function(arrow_home = Sys.getenv("ARROW_HOME", "..")) {
@@ -176,7 +201,10 @@ build_libarrow <- function(src_dir, dst_dir) {
   # Set up make for parallel building
   makeflags <- Sys.getenv("MAKEFLAGS")
   if (makeflags == "") {
-    makeflags <- sprintf("-j%s", parallel::detectCores())
+    # CRAN policy says not to use more than 2 cores during checks
+    # If you have more and want to use more, set MAKEFLAGS
+    ncores <- min(parallel::detectCores(), 2)
+    makeflags <- sprintf("-j%s", ncores)
     Sys.setenv(MAKEFLAGS = makeflags)
   }
   if (!quietly) {
@@ -212,10 +240,7 @@ ensure_cmake <- function() {
     )
     cmake_tar <- tempfile()
     cmake_dir <- tempfile()
-    try(
-      download.file(cmake_binary_url, cmake_tar, quiet = quietly),
-      silent = quietly
-    )
+    try_download(cmake_binary_url, cmake_tar)
     untar(cmake_tar, exdir = cmake_dir)
     unlink(cmake_tar)
     options(.arrow.cleanup = c(getOption(".arrow.cleanup"), cmake_dir))

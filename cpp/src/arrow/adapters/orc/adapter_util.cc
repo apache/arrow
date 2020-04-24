@@ -40,7 +40,7 @@ namespace orc {
 
 using internal::checked_cast;
 
-// The numer of nanoseconds in a second
+// The number of nanoseconds in a second
 constexpr int64_t kOneSecondNanos = 1000000000LL;
 
 Status AppendStructBatch(const liborc::Type* type, liborc::ColumnVectorBatch* cbatch,

@@ -223,8 +223,7 @@ mmap_open <- function(path, mode = c("read", "write", "readwrite")) {
 #' @return An `InputStream` or a subclass of one.
 #' @keywords internal
 make_readable_file <- function(file, mmap = TRUE) {
-  if (is.character(file)) {
-    assert_that(length(file) == 1L)
+  if (is.string(file)) {
     if (isTRUE(mmap)) {
       file <- mmap_open(file)
     } else {

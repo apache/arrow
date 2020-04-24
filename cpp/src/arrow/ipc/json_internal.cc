@@ -38,8 +38,10 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/formatting.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/parsing.h"
 #include "arrow/util/string.h"
 #include "arrow/visitor_inline.h"
 
@@ -335,10 +337,8 @@ class SchemaWriter {
   Status Visit(const TimeType& type) { return WritePrimitive("time", type); }
   Status Visit(const StringType& type) { return WriteVarBytes("utf8", type); }
   Status Visit(const BinaryType& type) { return WriteVarBytes("binary", type); }
-  Status Visit(const LargeStringType& type) { return WriteVarBytes("large_utf8", type); }
-  Status Visit(const LargeBinaryType& type) {
-    return WriteVarBytes("large_binary", type);
-  }
+  Status Visit(const LargeStringType& type) { return WriteVarBytes("largeutf8", type); }
+  Status Visit(const LargeBinaryType& type) { return WriteVarBytes("largebinary", type); }
   Status Visit(const FixedSizeBinaryType& type) {
     return WritePrimitive("fixedsizebinary", type);
   }
@@ -358,7 +358,7 @@ class SchemaWriter {
   }
 
   Status Visit(const LargeListType& type) {
-    WriteName("large_list", type);
+    WriteName("largelist", type);
     return Status::OK();
   }
 
@@ -525,8 +525,21 @@ class ArrayWriter {
   void WriteIntegerField(const char* name, const T* values, int64_t length) {
     writer_->Key(name);
     writer_->StartArray();
-    for (int i = 0; i < length; ++i) {
-      writer_->Int64(values[i]);
+    if (sizeof(T) < sizeof(int64_t)) {
+      for (int i = 0; i < length; ++i) {
+        writer_->Int64(values[i]);
+      }
+    } else {
+      // Represent 64-bit integers as strings, as JSON numbers cannot represent
+      // them exactly.
+      ::arrow::internal::StringFormatter<typename CTypeTraits<T>::ArrowType> formatter;
+      auto append = [this](util::string_view v) {
+        writer_->String(v.data(), static_cast<rj::SizeType>(v.size()));
+        return Status::OK();
+      };
+      for (int i = 0; i < length; ++i) {
+        DCHECK_OK(formatter(values[i], append));
+      }
     }
     writer_->EndArray();
   }
@@ -932,9 +945,9 @@ static Status GetType(const RjObject& json_type,
     *type = utf8();
   } else if (type_name == "binary") {
     *type = binary();
-  } else if (type_name == "large_utf8") {
+  } else if (type_name == "largeutf8") {
     *type = large_utf8();
-  } else if (type_name == "large_binary") {
+  } else if (type_name == "largebinary") {
     *type = large_binary();
   } else if (type_name == "fixedsizebinary") {
     return GetFixedSizeBinary(json_type, type);
@@ -957,7 +970,7 @@ static Status GetType(const RjObject& json_type,
       return Status::Invalid("List must have exactly one child");
     }
     *type = list(children[0]);
-  } else if (type_name == "large_list") {
+  } else if (type_name == "largelist") {
     if (children.size() != 1) {
       return Status::Invalid("Large list must have exactly one child");
     }
@@ -1299,13 +1312,28 @@ class ArrayReader {
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(length * sizeof(T), pool_));
 
     T* values = reinterpret_cast<T*>(buffer->mutable_data());
-    for (int i = 0; i < length; ++i) {
-      const rj::Value& val = json_array[i];
-      DCHECK(val.IsInt() || val.IsInt64());
-      if (val.IsInt()) {
-        values[i] = static_cast<T>(val.GetInt());
-      } else {
-        values[i] = static_cast<T>(val.GetInt64());
+    if (sizeof(T) < sizeof(int64_t)) {
+      for (int i = 0; i < length; ++i) {
+        const rj::Value& val = json_array[i];
+        DCHECK(val.IsInt() || val.IsInt64());
+        if (val.IsInt()) {
+          values[i] = static_cast<T>(val.GetInt());
+        } else {
+          values[i] = static_cast<T>(val.GetInt64());
+        }
+      }
+    } else {
+      // Read 64-bit integers as strings, as JSON numbers cannot represent
+      // them exactly.
+      ::arrow::internal::StringConverter<typename CTypeTraits<T>::ArrowType> converter;
+      for (int i = 0; i < length; ++i) {
+        const rj::Value& val = json_array[i];
+        DCHECK(val.IsString());
+        if (!converter(val.GetString(), val.GetStringLength(), &values[i])) {
+          return Status::Invalid("Failed to parse integer: '",
+                                 std::string(val.GetString(), val.GetStringLength()),
+                                 "'");
+        }
       }
     }
 

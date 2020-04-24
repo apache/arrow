@@ -81,14 +81,6 @@ module Arrow
     #     `Array`.
     #
     #   @example Create a table from column name and values
-    #     count_chunks = [
-    #       Arrow::UInt32Array.new([0, 2]),
-    #       Arrow::UInt32Array.new([nil, 4]),
-    #     ]
-    #     visible_chunks = [
-    #       Arrow::BooleanArray.new([true]),
-    #       Arrow::BooleanArray.new([nil, nil, false]),
-    #     ]
     #     Arrow::Table.new("count" => [0, 2, nil, 4],
     #                      "visible" => [true, nil, nil, false])
     #

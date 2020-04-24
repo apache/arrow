@@ -50,6 +50,49 @@ impl Row {
     pub fn len(&self) -> usize {
         self.fields.len()
     }
+
+    /// Get an iterator to go through all columns in the row.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::fs::File;
+    /// use parquet::record::Row;
+    /// use parquet::file::reader::{FileReader, SerializedFileReader};
+    ///
+    /// let file = File::open("/path/to/file").unwrap();
+    /// let reader = SerializedFileReader::new(file).unwrap();
+    /// let row: Row = reader.get_row_iter(None).unwrap().next().unwrap();
+    /// for (idx, (name, field)) in row.get_column_iter().enumerate() {
+    ///     println!("column index: {}, column name: {}, column value: {}", idx, name, field);
+    /// }
+    /// ```
+    pub fn get_column_iter(&self) -> RowColumnIter {
+        RowColumnIter {
+            fields: &self.fields,
+            curr: 0,
+            count: self.fields.len(),
+        }
+    }
+}
+
+pub struct RowColumnIter<'a> {
+    fields: &'a Vec<(String, Field)>,
+    curr: usize,
+    count: usize,
+}
+
+impl<'a> Iterator for RowColumnIter<'a> {
+    type Item = (&'a String, &'a Field);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let idx = self.curr;
+        if idx >= self.count {
+            return None;
+        }
+        self.curr += 1;
+        Some((&self.fields[idx].0, &self.fields[idx].1))
+    }
 }
 
 /// Trait for type-safe convenient access to fields within a Row.
@@ -551,8 +594,7 @@ impl Field {
         match descr.physical_type() {
             PhysicalType::BYTE_ARRAY => match descr.logical_type() {
                 LogicalType::UTF8 | LogicalType::ENUM | LogicalType::JSON => {
-                    let value =
-                        unsafe { String::from_utf8_unchecked(value.data().to_vec()) };
+                    let value = String::from_utf8(value.data().to_vec()).unwrap();
                     Field::Str(value)
                 }
                 LogicalType::BSON | LogicalType::NONE => Field::Bytes(value),

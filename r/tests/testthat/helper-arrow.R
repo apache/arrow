@@ -19,9 +19,12 @@
 options(..skip.tests = !arrow:::arrow_available())
 
 if (tolower(Sys.info()[["sysname"]]) == "windows") {
-  # See if this stabilizes tests; TODO fix the underlying issue
+  # For now, disable multithreading by default on Windows
+  # See https://issues.apache.org/jira/browse/ARROW-8379
   options(arrow.use_threads = FALSE)
 }
+
+set.seed(1)
 
 test_that <- function(what, code) {
   testthat::test_that(what, {

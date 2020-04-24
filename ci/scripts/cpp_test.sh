@@ -28,6 +28,10 @@ export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${source_dir}/submodules/parquet-testing/data
 export LD_LIBRARY_PATH=${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}:${LD_LIBRARY_PATH}
 
+# By default, aws-sdk tries to contact a non-existing local ip host
+# to retrieve metadata. Disable this so that S3FileSystem tests run faster.
+export AWS_EC2_METADATA_DISABLED=TRUE
+
 case "$(uname)" in
   Linux)
     n_jobs=$(nproc)

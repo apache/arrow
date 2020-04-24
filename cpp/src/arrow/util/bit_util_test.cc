@@ -1133,7 +1133,7 @@ TEST(Bitmap, ShiftingWordsOptimization) {
         ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((word >> i) & 1));
       }
 
-      // bit offset can therefore be accomodated by shifting the word
+      // bit offset can therefore be accommodated by shifting the word
       for (size_t offset = 0; offset < (kBitWidth * 3) / 4; ++offset) {
         uint64_t shifted_word = word >> offset;
         auto shifted_bytes = reinterpret_cast<uint8_t*>(&shifted_word);
@@ -1160,7 +1160,7 @@ TEST(Bitmap, ShiftingWordsOptimization) {
         ASSERT_EQ(BitUtil::GetBit(bytes, i + kBitWidth), bool((words[1] >> i) & 1));
       }
 
-      // bit offset can therefore be accomodated by shifting the word
+      // bit offset can therefore be accommodated by shifting the word
       for (size_t offset = 1; offset < (kBitWidth * 3) / 4; offset += 3) {
         uint64_t shifted_words[2];
         shifted_words[0] = words[0] >> offset | (words[1] << (kBitWidth - offset));
@@ -1239,6 +1239,17 @@ TEST(Bitmap, VisitPartialWords) {
 }
 
 #endif  // ARROW_VALGRIND
+
+TEST(Bitmap, ToString) {
+  uint64_t bitmap_value = 0xCAAC;
+  uint8_t* bitmap = reinterpret_cast<uint8_t*>(&bitmap_value);
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/34).ToString(),
+            "00110101 01010011 00000000 00000000 00");
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/16).ToString(),
+            "00110101 01010011");
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/11).ToString(), "00110101 010");
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 3, /*length=*/8).ToString(), "10101010");
+}
 
 // compute bitwise AND of bitmaps using word-wise visit
 TEST(Bitmap, VisitWordsAnd) {

@@ -1408,6 +1408,22 @@ RcppExport SEXP _arrow_dataset___Dataset__type_name(SEXP dataset_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<ds::Dataset> dataset___Dataset__ReplaceSchema(const std::shared_ptr<ds::Dataset>& dataset, const std::shared_ptr<arrow::Schema>& schm);
+RcppExport SEXP _arrow_dataset___Dataset__ReplaceSchema(SEXP dataset_sexp, SEXP schm_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Dataset>&>::type dataset(dataset_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
+	return Rcpp::wrap(dataset___Dataset__ReplaceSchema(dataset, schm));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___Dataset__ReplaceSchema(SEXP dataset_sexp, SEXP schm_sexp){
+	Rf_error("Cannot call dataset___Dataset__ReplaceSchema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<ds::UnionDataset> dataset___UnionDataset__create(const ds::DatasetVector& datasets, const std::shared_ptr<arrow::Schema>& schm);
 RcppExport SEXP _arrow_dataset___UnionDataset__create(SEXP datasets_sexp, SEXP schm_sexp){
 BEGIN_RCPP
@@ -1469,15 +1485,16 @@ RcppExport SEXP _arrow_dataset___FileSystemDataset__files(SEXP dataset_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::Dataset> dataset___DatasetFactory__Finish1(const std::shared_ptr<ds::DatasetFactory>& factory);
-RcppExport SEXP _arrow_dataset___DatasetFactory__Finish1(SEXP factory_sexp){
+std::shared_ptr<ds::Dataset> dataset___DatasetFactory__Finish1(const std::shared_ptr<ds::DatasetFactory>& factory, bool unify_schemas);
+RcppExport SEXP _arrow_dataset___DatasetFactory__Finish1(SEXP factory_sexp, SEXP unify_schemas_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<ds::DatasetFactory>&>::type factory(factory_sexp);
-	return Rcpp::wrap(dataset___DatasetFactory__Finish1(factory));
+	Rcpp::traits::input_parameter<bool>::type unify_schemas(unify_schemas_sexp);
+	return Rcpp::wrap(dataset___DatasetFactory__Finish1(factory, unify_schemas));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_dataset___DatasetFactory__Finish1(SEXP factory_sexp){
+RcppExport SEXP _arrow_dataset___DatasetFactory__Finish1(SEXP factory_sexp, SEXP unify_schemas_sexp){
 	Rf_error("Cannot call dataset___DatasetFactory__Finish1(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
@@ -1500,15 +1517,16 @@ RcppExport SEXP _arrow_dataset___DatasetFactory__Finish2(SEXP factory_sexp, SEXP
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Schema> dataset___DatasetFactory__Inspect(const std::shared_ptr<ds::DatasetFactory>& factory);
-RcppExport SEXP _arrow_dataset___DatasetFactory__Inspect(SEXP factory_sexp){
+std::shared_ptr<arrow::Schema> dataset___DatasetFactory__Inspect(const std::shared_ptr<ds::DatasetFactory>& factory, bool unify_schemas);
+RcppExport SEXP _arrow_dataset___DatasetFactory__Inspect(SEXP factory_sexp, SEXP unify_schemas_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<ds::DatasetFactory>&>::type factory(factory_sexp);
-	return Rcpp::wrap(dataset___DatasetFactory__Inspect(factory));
+	Rcpp::traits::input_parameter<bool>::type unify_schemas(unify_schemas_sexp);
+	return Rcpp::wrap(dataset___DatasetFactory__Inspect(factory, unify_schemas));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_dataset___DatasetFactory__Inspect(SEXP factory_sexp){
+RcppExport SEXP _arrow_dataset___DatasetFactory__Inspect(SEXP factory_sexp, SEXP unify_schemas_sexp){
 	Rf_error("Cannot call dataset___DatasetFactory__Inspect(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
@@ -1796,6 +1814,36 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_dataset___Scanner__ToTable(SEXP scanner_sexp){
 	Rf_error("Cannot call dataset___Scanner__ToTable(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::vector<std::shared_ptr<ds::ScanTask>> dataset___Scanner__Scan(const std::shared_ptr<ds::Scanner>& scanner);
+RcppExport SEXP _arrow_dataset___Scanner__Scan(SEXP scanner_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
+	return Rcpp::wrap(dataset___Scanner__Scan(scanner));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___Scanner__Scan(SEXP scanner_sexp){
+	Rf_error("Cannot call dataset___Scanner__Scan(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::vector<std::shared_ptr<arrow::RecordBatch>> dataset___ScanTask__get_batches(const std::shared_ptr<ds::ScanTask>& scan_task);
+RcppExport SEXP _arrow_dataset___ScanTask__get_batches(SEXP scan_task_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<ds::ScanTask>&>::type scan_task(scan_task_sexp);
+	return Rcpp::wrap(dataset___ScanTask__get_batches(scan_task));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___ScanTask__get_batches(SEXP scan_task_sexp){
+	Rf_error("Cannot call dataset___ScanTask__get_batches(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3358,6 +3406,21 @@ RcppExport SEXP _arrow_fs___FileSystem__OpenAppendStream(SEXP file_system_sexp, 
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::string fs___FileSystem__type_name(const std::shared_ptr<fs::FileSystem>& file_system);
+RcppExport SEXP _arrow_fs___FileSystem__type_name(SEXP file_system_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
+	return Rcpp::wrap(fs___FileSystem__type_name(file_system));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___FileSystem__type_name(SEXP file_system_sexp){
+	Rf_error("Cannot call fs___FileSystem__type_name(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<fs::LocalFileSystem> fs___LocalFileSystem__create();
 RcppExport SEXP _arrow_fs___LocalFileSystem__create(){
 BEGIN_RCPP
@@ -3383,6 +3446,50 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_fs___SubTreeFileSystem__create(SEXP base_path_sexp, SEXP base_fs_sexp){
 	Rf_error("Cannot call fs___SubTreeFileSystem__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+Rcpp::List fs___FileSystemFromUri(const std::string& path);
+RcppExport SEXP _arrow_fs___FileSystemFromUri(SEXP path_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
+	return Rcpp::wrap(fs___FileSystemFromUri(path));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___FileSystemFromUri(SEXP path_sexp){
+	Rf_error("Cannot call fs___FileSystemFromUri(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_S3)
+void fs___EnsureS3Initialized();
+RcppExport SEXP _arrow_fs___EnsureS3Initialized(){
+BEGIN_RCPP
+	fs___EnsureS3Initialized();
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___EnsureS3Initialized(){
+	Rf_error("Cannot call fs___EnsureS3Initialized(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_S3)
+std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create();
+RcppExport SEXP _arrow_fs___S3FileSystem__create(){
+BEGIN_RCPP
+	return Rcpp::wrap(fs___S3FileSystem__create());
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_fs___S3FileSystem__create(){
+	Rf_error("Cannot call fs___S3FileSystem__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -5456,6 +5563,21 @@ RcppExport SEXP _arrow_Schema__Equals(SEXP schema_sexp, SEXP other_sexp, SEXP ch
 }
 #endif
 
+// schema.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Schema> arrow__UnifySchemas(const std::vector<std::shared_ptr<arrow::Schema>>& schemas);
+RcppExport SEXP _arrow_arrow__UnifySchemas(SEXP schemas_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::vector<std::shared_ptr<arrow::Schema>>&>::type schemas(schemas_sexp);
+	return Rcpp::wrap(arrow__UnifySchemas(schemas));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_arrow__UnifySchemas(SEXP schemas_sexp){
+	Rf_error("Cannot call arrow__UnifySchemas(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // table.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl);
@@ -5747,8 +5869,19 @@ return Rf_ScalarLogical(
 );
 }
 
+extern "C" SEXP _s3_available() {
+return Rf_ScalarLogical(
+#if defined(ARROW_R_WITH_S3)
+  TRUE
+#else
+  FALSE
+#endif
+);
+}
+
 static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
+		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
 		{ "_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3}, 
 		{ "_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2}, 
@@ -5838,13 +5971,14 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___Dataset__NewScan", (DL_FUNC) &_arrow_dataset___Dataset__NewScan, 1}, 
 		{ "_arrow_dataset___Dataset__schema", (DL_FUNC) &_arrow_dataset___Dataset__schema, 1}, 
 		{ "_arrow_dataset___Dataset__type_name", (DL_FUNC) &_arrow_dataset___Dataset__type_name, 1}, 
+		{ "_arrow_dataset___Dataset__ReplaceSchema", (DL_FUNC) &_arrow_dataset___Dataset__ReplaceSchema, 2}, 
 		{ "_arrow_dataset___UnionDataset__create", (DL_FUNC) &_arrow_dataset___UnionDataset__create, 2}, 
 		{ "_arrow_dataset___UnionDataset__children", (DL_FUNC) &_arrow_dataset___UnionDataset__children, 1}, 
 		{ "_arrow_dataset___FileSystemDataset__format", (DL_FUNC) &_arrow_dataset___FileSystemDataset__format, 1}, 
 		{ "_arrow_dataset___FileSystemDataset__files", (DL_FUNC) &_arrow_dataset___FileSystemDataset__files, 1}, 
-		{ "_arrow_dataset___DatasetFactory__Finish1", (DL_FUNC) &_arrow_dataset___DatasetFactory__Finish1, 1}, 
+		{ "_arrow_dataset___DatasetFactory__Finish1", (DL_FUNC) &_arrow_dataset___DatasetFactory__Finish1, 2}, 
 		{ "_arrow_dataset___DatasetFactory__Finish2", (DL_FUNC) &_arrow_dataset___DatasetFactory__Finish2, 2}, 
-		{ "_arrow_dataset___DatasetFactory__Inspect", (DL_FUNC) &_arrow_dataset___DatasetFactory__Inspect, 1}, 
+		{ "_arrow_dataset___DatasetFactory__Inspect", (DL_FUNC) &_arrow_dataset___DatasetFactory__Inspect, 2}, 
 		{ "_arrow_dataset___UnionDatasetFactory__Make", (DL_FUNC) &_arrow_dataset___UnionDatasetFactory__Make, 1}, 
 		{ "_arrow_dataset___FileSystemDatasetFactory__Make2", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__Make2, 4}, 
 		{ "_arrow_dataset___FileSystemDatasetFactory__Make1", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__Make1, 3}, 
@@ -5863,6 +5997,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___ScannerBuilder__schema", (DL_FUNC) &_arrow_dataset___ScannerBuilder__schema, 1}, 
 		{ "_arrow_dataset___ScannerBuilder__Finish", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Finish, 1}, 
 		{ "_arrow_dataset___Scanner__ToTable", (DL_FUNC) &_arrow_dataset___Scanner__ToTable, 1}, 
+		{ "_arrow_dataset___Scanner__Scan", (DL_FUNC) &_arrow_dataset___Scanner__Scan, 1}, 
+		{ "_arrow_dataset___ScanTask__get_batches", (DL_FUNC) &_arrow_dataset___ScanTask__get_batches, 1}, 
 		{ "_arrow_shared_ptr_is_null", (DL_FUNC) &_arrow_shared_ptr_is_null, 1}, 
 		{ "_arrow_unique_ptr_is_null", (DL_FUNC) &_arrow_unique_ptr_is_null, 1}, 
 		{ "_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0}, 
@@ -5964,8 +6100,12 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___FileSystem__OpenInputFile", (DL_FUNC) &_arrow_fs___FileSystem__OpenInputFile, 2}, 
 		{ "_arrow_fs___FileSystem__OpenOutputStream", (DL_FUNC) &_arrow_fs___FileSystem__OpenOutputStream, 2}, 
 		{ "_arrow_fs___FileSystem__OpenAppendStream", (DL_FUNC) &_arrow_fs___FileSystem__OpenAppendStream, 2}, 
+		{ "_arrow_fs___FileSystem__type_name", (DL_FUNC) &_arrow_fs___FileSystem__type_name, 1}, 
 		{ "_arrow_fs___LocalFileSystem__create", (DL_FUNC) &_arrow_fs___LocalFileSystem__create, 0}, 
 		{ "_arrow_fs___SubTreeFileSystem__create", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__create, 2}, 
+		{ "_arrow_fs___FileSystemFromUri", (DL_FUNC) &_arrow_fs___FileSystemFromUri, 1}, 
+		{ "_arrow_fs___EnsureS3Initialized", (DL_FUNC) &_arrow_fs___EnsureS3Initialized, 0}, 
+		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 0}, 
 		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 
 		{ "_arrow_io___InputStream__Close", (DL_FUNC) &_arrow_io___InputStream__Close, 1}, 
 		{ "_arrow_io___OutputStream__Close", (DL_FUNC) &_arrow_io___OutputStream__Close, 1}, 
@@ -6097,6 +6237,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Schema__WithMetadata", (DL_FUNC) &_arrow_Schema__WithMetadata, 2}, 
 		{ "_arrow_Schema__serialize", (DL_FUNC) &_arrow_Schema__serialize, 1}, 
 		{ "_arrow_Schema__Equals", (DL_FUNC) &_arrow_Schema__Equals, 3}, 
+		{ "_arrow_arrow__UnifySchemas", (DL_FUNC) &_arrow_arrow__UnifySchemas, 1}, 
 		{ "_arrow_Table__from_dataframe", (DL_FUNC) &_arrow_Table__from_dataframe, 1}, 
 		{ "_arrow_Table__num_columns", (DL_FUNC) &_arrow_Table__num_columns, 1}, 
 		{ "_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1}, 

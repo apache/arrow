@@ -4,6 +4,7 @@
 \name{FileSystem}
 \alias{FileSystem}
 \alias{LocalFileSystem}
+\alias{S3FileSystem}
 \alias{SubTreeFileSystem}
 \title{FileSystem classes}
 \description{

@@ -17,6 +17,9 @@
 
 # pandas lazy-loading API shim that reduces API call and import overhead
 
+import warnings
+
+
 cdef class _PandasAPIShim(object):
     """
     Lazy pandas importer that isolates usages of pandas APIs and avoids
@@ -55,39 +58,38 @@ cdef class _PandasAPIShim(object):
         from distutils.version import LooseVersion
         self._loose_version = LooseVersion(pd.__version__)
 
+        if self._loose_version < LooseVersion('0.23.0'):
+            self._have_pandas = False
+            if raise_:
+                raise ImportError(
+                    "pyarrow requires pandas 0.23.0 or above, pandas {} is "
+                    "installed".format(self._version)
+                )
+            else:
+                warnings.warn(
+                    "pyarrow requires pandas 0.23.0 or above, pandas {} is "
+                    "installed. Therefore, pandas-specific integration is not "
+                    "used.".format(self._version), stacklevel=2)
+                return
+
         self._compat_module = pdcompat
         self._data_frame = pd.DataFrame
         self._index = pd.Index
         self._categorical_type = pd.Categorical
         self._series = pd.Series
-        if self._loose_version >= LooseVersion('0.23.0'):
-            self._extension_array = pd.api.extensions.ExtensionArray
-            self._array_like_types = (
-                self._series, self._index, self._categorical_type,
-                self._extension_array)
-            self._extension_dtype = pd.api.extensions.ExtensionDtype
-        else:
-            self._extension_array = None
-            self._array_like_types = (
-                self._series, self._index, self._categorical_type)
-            self._extension_dtype = None
+        self._extension_array = pd.api.extensions.ExtensionArray
+        self._array_like_types = (
+            self._series, self._index, self._categorical_type,
+            self._extension_array)
+        self._extension_dtype = pd.api.extensions.ExtensionDtype
         if self._loose_version >= LooseVersion('0.24.0'):
             self._is_extension_array_dtype = \
                 pd.api.types.is_extension_array_dtype
         else:
             self._is_extension_array_dtype = None
 
-        if self._loose_version >= LooseVersion('0.20.0'):
-            from pandas.api.types import DatetimeTZDtype
-            self._types_api = pd.api.types
-        elif self._loose_version >= LooseVersion('0.19.0'):
-            from pandas.types.dtypes import DatetimeTZDtype
-            self._types_api = pd.api.types
-        else:
-            from pandas.types.dtypes import DatetimeTZDtype
-            self._types_api = pd.core.common
-
-        self._datetimetz_type = DatetimeTZDtype
+        self._types_api = pd.api.types
+        self._datetimetz_type = pd.api.types.DatetimeTZDtype
         self._have_pandas = True
 
         if self._loose_version > LooseVersion('0.25'):

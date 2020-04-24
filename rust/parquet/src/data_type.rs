@@ -26,7 +26,10 @@ use crate::basic::Type;
 use crate::column::reader::{ColumnReader, ColumnReaderImpl};
 use crate::column::writer::{ColumnWriter, ColumnWriterImpl};
 use crate::errors::{ParquetError, Result};
-use crate::util::memory::{ByteBuffer, ByteBufferPtr};
+use crate::util::{
+    bit_util::{from_ne_slice, FromBytes},
+    memory::{ByteBuffer, ByteBufferPtr},
+};
 use std::str::from_utf8;
 
 /// Rust representation for logical type INT96, value is backed by an array of `u32`.
@@ -303,6 +306,19 @@ pub trait AsBytes {
     fn as_bytes(&self) -> &[u8];
 }
 
+/// Converts an slice of a data type to a slice of bytes.
+pub trait SliceAsBytes: Sized {
+    /// Returns slice of bytes for a slice of this data type.
+    fn slice_as_bytes(self_: &[Self]) -> &[u8];
+    fn slice_as_bytes_mut(self_: &mut [Self]) -> &mut [u8];
+}
+
+impl AsBytes for [u8] {
+    fn as_bytes(&self) -> &[u8] {
+        self
+    }
+}
+
 macro_rules! gen_as_bytes {
     ($source_ty:ident) => {
         impl AsBytes for $source_ty {
@@ -315,16 +331,43 @@ macro_rules! gen_as_bytes {
                 }
             }
         }
+        impl SliceAsBytes for $source_ty {
+            fn slice_as_bytes(self_: &[Self]) -> &[u8] {
+                unsafe {
+                    std::slice::from_raw_parts(
+                        self_.as_ptr() as *const u8,
+                        std::mem::size_of::<$source_ty>() * self_.len(),
+                    )
+                }
+            }
+            fn slice_as_bytes_mut(self_: &mut [Self]) -> &mut [u8] {
+                unsafe {
+                    std::slice::from_raw_parts_mut(
+                        self_.as_mut_ptr() as *mut u8,
+                        std::mem::size_of::<$source_ty>() * self_.len(),
+                    )
+                }
+            }
+        }
     };
 }
 
-gen_as_bytes!(bool);
-gen_as_bytes!(u8);
+gen_as_bytes!(i8);
+gen_as_bytes!(i16);
 gen_as_bytes!(i32);
-gen_as_bytes!(u32);
 gen_as_bytes!(i64);
+gen_as_bytes!(u8);
+gen_as_bytes!(u16);
+gen_as_bytes!(u32);
+gen_as_bytes!(u64);
 gen_as_bytes!(f32);
 gen_as_bytes!(f64);
+
+impl AsBytes for bool {
+    fn as_bytes(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self as *const bool as *const u8, 1) }
+    }
+}
 
 impl AsBytes for Int96 {
     fn as_bytes(&self) -> &[u8] {
@@ -371,7 +414,8 @@ pub trait DataType: 'static {
         + std::fmt::Debug
         + std::default::Default
         + std::clone::Clone
-        + AsBytes;
+        + AsBytes
+        + FromBytes;
 
     /// Returns Parquet physical type.
     fn get_physical_type() -> Type;
@@ -398,6 +442,20 @@ pub trait DataType: 'static {
     ) -> Option<&mut ColumnWriterImpl<Self>>
     where
         Self: Sized;
+}
+
+// Workaround bug in specialization
+pub trait SliceAsBytesDataType: DataType
+where
+    Self::T: SliceAsBytes,
+{
+}
+
+impl<T> SliceAsBytesDataType for T
+where
+    T: DataType,
+    <T as DataType>::T: SliceAsBytes,
+{
 }
 
 macro_rules! make_type {
@@ -520,6 +578,40 @@ make_type!(
     ByteArray,
     mem::size_of::<ByteArray>()
 );
+
+impl FromBytes for Int96 {
+    type Buffer = [u8; 12];
+    fn from_le_bytes(_bs: Self::Buffer) -> Self {
+        unimplemented!()
+    }
+    fn from_be_bytes(_bs: Self::Buffer) -> Self {
+        unimplemented!()
+    }
+    fn from_ne_bytes(bs: Self::Buffer) -> Self {
+        let mut i = Int96::new();
+        i.set_data(
+            from_ne_slice(&bs[0..4]),
+            from_ne_slice(&bs[4..8]),
+            from_ne_slice(&bs[8..12]),
+        );
+        i
+    }
+}
+
+// FIXME Needed to satisfy the constraint of many decoding functions but ByteArray does not
+// appear to actual be converted directly from bytes
+impl FromBytes for ByteArray {
+    type Buffer = [u8; 8];
+    fn from_le_bytes(_bs: Self::Buffer) -> Self {
+        unreachable!()
+    }
+    fn from_be_bytes(_bs: Self::Buffer) -> Self {
+        unreachable!()
+    }
+    fn from_ne_bytes(_bs: Self::Buffer) -> Self {
+        unreachable!()
+    }
+}
 
 #[cfg(test)]
 mod tests {

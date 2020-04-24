@@ -48,16 +48,19 @@ if (packageVersion("decor") < '0.0.0.9001') {
   stop("more recent version of `decor` needed, please install with `remotes::install_github('romainfrancois/decor')`")
 }
 
-decorations <- cpp_decorations() %>%
-  filter(decoration == "arrow::export") %>%
-  # the three lines below can be expressed with rap()
-  # more concisely
-  # rap(            ~ decor:::parse_cpp_function(context))
-  mutate(functions = map(context, decor:::parse_cpp_function)) %>%
-  { vec_cbind(., vec_rbind(!!!pull(., functions))) } %>%
-  select(-functions)
-
-message(glue("*** > {n} functions decorated with [[arrow::export]]", n = nrow(decorations)))
+get_exported_functions <- function(decorations, export_tag) {
+  out <- decorations %>%
+    filter(decoration %in% paste0(export_tag, "::export")) %>%
+    # the three lines below can be expressed with rap()
+    # more concisely
+    # rap(            ~ decor:::parse_cpp_function(context))
+    mutate(functions = map(context, decor:::parse_cpp_function)) %>%
+    { vec_cbind(., vec_rbind(!!!pull(., functions))) } %>%
+    select(-functions) %>%
+    mutate(decoration = sub("::export", "", decoration))
+  message(glue("*** > {n} functions decorated with [[{tags}::export]]", n = nrow(out), tags = paste0(export_tag, collapse = "|")))
+  out
+}
 
 glue_collapse_data <- function(data, ..., sep = ", ", last = "") {
   res <- glue_collapse(glue_data(data, ...), sep = sep, last = last)
@@ -73,12 +76,16 @@ wrap_call <- function(name, return_type, args) {
     glue::glue("\treturn Rcpp::wrap({call});")
   }
 }
-cpp_functions_definitions <- decorations %>%
-  select(name, return_type, args, file, line) %>%
-  pmap_chr(function(name, return_type, args, file, line){
+
+all_decorations <- cpp_decorations()
+arrow_exports <- get_exported_functions(all_decorations, c("arrow", "s3"))
+
+cpp_functions_definitions <- arrow_exports %>%
+  select(name, return_type, args, file, line, decoration) %>%
+  pmap_chr(function(name, return_type, args, file, line, decoration){
     glue::glue('
     // {basename(file)}
-    #if defined(ARROW_R_WITH_ARROW)
+    #if defined(ARROW_R_WITH_{toupper(decoration)})
     {return_type} {name}({real_params});
     RcppExport SEXP _arrow_{name}({sexp_params}){{
     BEGIN_RCPP
@@ -101,7 +108,7 @@ cpp_functions_definitions <- decorations %>%
   }) %>%
   glue_collapse(sep = "\n")
 
-cpp_functions_registration <- decorations %>%
+cpp_functions_registration <- arrow_exports %>%
   select(name, return_type, args) %>%
   pmap_chr(function(name, return_type, args){
     glue('\t\t{{ "_arrow_{name}", (DL_FUNC) &_arrow_{name}, {nrow(args)}}}, ')
@@ -127,8 +134,19 @@ return Rf_ScalarLogical(
 );
 }}
 
+extern "C" SEXP _s3_available() {{
+return Rf_ScalarLogical(
+#if defined(ARROW_R_WITH_S3)
+  TRUE
+#else
+  FALSE
+#endif
+);
+}}
+
 static const R_CallMethodDef CallEntries[] = {{
 \t\t{{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 }},
+\t\t{{ "_s3_available", (DL_FUNC)& _s3_available, 0 }},
 {cpp_functions_registration}
 \t\t{{NULL, NULL, 0}}
 }};
@@ -142,7 +160,7 @@ RcppExport void R_init_arrow(DllInfo* dll){{
 
 message("*** > generated file `src/arrowExports.cpp`")
 
-r_functions <- decorations %>%
+r_functions <- arrow_exports %>%
   select(name, return_type, args) %>%
   pmap_chr(function(name, return_type, args) {
     params <- if (nrow(args)) {

@@ -99,11 +99,8 @@ std::string ConcatAbstractPath(const std::string& base, const std::string& stem)
   DCHECK(!stem.empty());
   if (base.empty()) {
     return stem;
-  } else if (base.back() == kSep) {
-    return base + stem;
-  } else {
-    return base + kSep + stem;
   }
+  return EnsureTrailingSlash(base) + RemoveLeadingSlash(stem).to_string();
 }
 
 std::string EnsureTrailingSlash(util::string_view v) {

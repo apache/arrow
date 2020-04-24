@@ -89,7 +89,7 @@ std::shared_ptr<arrow::DataType> Null__initialize() { return arrow::null(); }
 std::shared_ptr<arrow::DataType> Decimal128Type__initialize(int32_t precision,
                                                             int32_t scale) {
   // Use the builder that validates inputs
-  return VALUE_OR_STOP(arrow::Decimal128Type::Make(precision, scale));
+  return ValueOrStop(arrow::Decimal128Type::Make(precision, scale));
 }
 
 // [[arrow::export]]
@@ -216,7 +216,7 @@ arrow::TimeUnit::type TimestampType__unit(
 std::shared_ptr<arrow::DataType> DictionaryType__initialize(
     const std::shared_ptr<arrow::DataType>& index_type,
     const std::shared_ptr<arrow::DataType>& value_type, bool ordered) {
-  return VALUE_OR_STOP(arrow::DictionaryType::Make(index_type, value_type, ordered));
+  return ValueOrStop(arrow::DictionaryType::Make(index_type, value_type, ordered));
 }
 
 // [[arrow::export]]

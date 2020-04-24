@@ -21,11 +21,13 @@
 #include <atomic>
 #include <cstdlib>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <utility>
 
 #include "arrow/array.h"
 #include "arrow/array/validate.h"
+#include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
@@ -244,6 +246,12 @@ bool RecordBatch::ApproxEquals(const RecordBatch& other) const {
 
 std::shared_ptr<RecordBatch> RecordBatch::Slice(int64_t offset) const {
   return Slice(offset, this->num_rows() - offset);
+}
+
+std::string RecordBatch::ToString() const {
+  std::stringstream ss;
+  ARROW_CHECK_OK(PrettyPrint(*this, 0, &ss));
+  return ss.str();
 }
 
 Status RecordBatch::Validate() const {

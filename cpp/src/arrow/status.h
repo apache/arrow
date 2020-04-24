@@ -95,18 +95,13 @@ enum class StatusCode : char {
   AlreadyExists = 45
 };
 
-#if defined(__clang__)
-// Only clang supports warn_unused_result as a type annotation.
-class ARROW_MUST_USE_RESULT ARROW_EXPORT Status;
-#endif
-
 /// \brief An opaque class that allows subsystems to retain
 /// additional information inside the Status.
 class ARROW_EXPORT StatusDetail {
  public:
   virtual ~StatusDetail() = default;
   /// \brief Return a unique id for the type of the StatusDetail
-  /// (effectively a poor man's substitude for RTTI).
+  /// (effectively a poor man's substitute for RTTI).
   virtual const char* type_id() const = 0;
   /// \brief Produce a human-readable description of this status.
   virtual std::string ToString() const = 0;
@@ -124,8 +119,8 @@ class ARROW_EXPORT StatusDetail {
 ///
 /// Additionally, if an error occurred, a specific error message is generally
 /// attached.
-class ARROW_EXPORT Status : public util::EqualityComparable<Status>,
-                            public util::ToStringOstreamable<Status> {
+class ARROW_MUST_USE_TYPE ARROW_EXPORT Status : public util::EqualityComparable<Status>,
+                                                public util::ToStringOstreamable<Status> {
  public:
   // Create a success status.
   Status() noexcept : state_(NULLPTR) {}

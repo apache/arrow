@@ -552,54 +552,70 @@ TEST_F(TestDecimalSql, Compare) {
 
 TEST_F(TestDecimalSql, Round) {
   // expected, input, rounding_scale, overflow
-  using TupleType = std::tuple<BasicDecimal128, DecimalScalar128, int32_t, bool>;
+  using TupleType = std::tuple<DecimalScalar128, DecimalScalar128, int32_t, bool>;
   std::vector<TupleType> test_values = {
       // examples from
       // https://dev.mysql.com/doc/refman/5.7/en/mathematical-functions.html#function_round
-      std::make_tuple(BasicDecimal128{-1}, DecimalScalar128{-123, 38, 2}, 0, false),
-      std::make_tuple(BasicDecimal128{-2}, DecimalScalar128{-158, 38, 2}, 0, false),
-      std::make_tuple(BasicDecimal128{2}, DecimalScalar128{158, 38, 2}, 0, false),
-      std::make_tuple(BasicDecimal128{-13}, DecimalScalar128{-1298, 38, 3}, 1, false),
-      std::make_tuple(BasicDecimal128{-1}, DecimalScalar128{-1298, 38, 3}, 0, false),
-      std::make_tuple(BasicDecimal128{20}, DecimalScalar128{23298, 38, 3}, -1, false),
-      std::make_tuple(BasicDecimal128{3}, DecimalScalar128{25, 38, 1}, 0, false),
+      std::make_tuple(DecimalScalar128{-1, 36, 0}, DecimalScalar128{-123, 38, 2}, 0,
+                      false),
+      std::make_tuple(DecimalScalar128{-2, 36, 0}, DecimalScalar128{-158, 38, 2}, 0,
+                      false),
+      std::make_tuple(DecimalScalar128{2, 36, 0}, DecimalScalar128{158, 38, 2}, 0, false),
+      std::make_tuple(DecimalScalar128{-13, 36, 1}, DecimalScalar128{-1298, 38, 3}, 1,
+                      false),
+      std::make_tuple(DecimalScalar128{-1, 35, 0}, DecimalScalar128{-1298, 38, 3}, 0,
+                      false),
+      std::make_tuple(DecimalScalar128{20, 35, 0}, DecimalScalar128{23298, 38, 3}, -1,
+                      false),
+      std::make_tuple(DecimalScalar128{100, 38, 0}, DecimalScalar128{122, 38, 0}, -2,
+                      false),
+      std::make_tuple(DecimalScalar128{3, 37, 0}, DecimalScalar128{25, 38, 1}, 0, false),
 
       // border cases
-      std::make_tuple(BasicDecimal128{INT64_MIN / 100},
+      std::make_tuple(DecimalScalar128{INT64_MIN / 100, 36, 0},
                       DecimalScalar128{INT64_MIN, 38, 2}, 0, false),
 
-      std::make_tuple(INT64_MIN, DecimalScalar128{INT64_MIN, 38, 0}, 0, false),
-      std::make_tuple(BasicDecimal128{0, 0}, DecimalScalar128{0, 0, 38, 2}, 0, false),
-      std::make_tuple(INT64_MAX, DecimalScalar128{INT64_MAX, 38, 0}, 0, false),
+      std::make_tuple(DecimalScalar128{INT64_MIN, 38, 0},
+                      DecimalScalar128{INT64_MIN, 38, 0}, 0, false),
+      std::make_tuple(DecimalScalar128{0, 0, 36, 0}, DecimalScalar128{0, 0, 38, 2}, 0,
+                      false),
+      std::make_tuple(DecimalScalar128{INT64_MAX, 38, 0},
+                      DecimalScalar128{INT64_MAX, 38, 0}, 0, false),
 
-      std::make_tuple(BasicDecimal128(INT64_MAX / 100),
+      std::make_tuple(DecimalScalar128{INT64_MAX / 100, 36, 0},
                       DecimalScalar128{INT64_MAX, 38, 2}, 0, false),
 
       // large scales
-      std::make_tuple(BasicDecimal128{0, 0}, DecimalScalar128{12345, 38, 16}, 0, false),
+      std::make_tuple(DecimalScalar128{0, 0, 22, 0}, DecimalScalar128{12345, 38, 16}, 0,
+                      false),
+
       std::make_tuple(
-          BasicDecimal128{124},
+          DecimalScalar128{BasicDecimal128{124}, 22, 0},
           DecimalScalar128{BasicDecimal128{12389}.IncreaseScaleBy(14), 38, 16}, 0, false),
       std::make_tuple(
-          BasicDecimal128{-124},
+          DecimalScalar128{BasicDecimal128{-124}, 22, 0},
           DecimalScalar128{BasicDecimal128{-12389}.IncreaseScaleBy(14), 38, 16}, 0,
           false),
       std::make_tuple(
-          BasicDecimal128{124},
+          DecimalScalar128{BasicDecimal128{124}, 6, 0},
           DecimalScalar128{BasicDecimal128{12389}.IncreaseScaleBy(30), 38, 32}, 0, false),
       std::make_tuple(
-          BasicDecimal128{-124},
+          DecimalScalar128{BasicDecimal128{-124}, 6, 0},
           DecimalScalar128{BasicDecimal128{-12389}.IncreaseScaleBy(30), 38, 32}, 0,
           false),
 
-      // overflow
+      // scale bigger than arg
       std::make_tuple(
-          BasicDecimal128{0, 0},
-          DecimalScalar128{BasicDecimal128{12389}.IncreaseScaleBy(32), 38, 32}, 35, true),
+          DecimalScalar128{BasicDecimal128{12389}.IncreaseScaleBy(32), 38, 32},
+          DecimalScalar128{BasicDecimal128{12389}.IncreaseScaleBy(32), 38, 32}, 35,
+          false),
       std::make_tuple(
-          BasicDecimal128{0, 0},
+          DecimalScalar128{BasicDecimal128{-12389}.IncreaseScaleBy(32), 38, 32},
           DecimalScalar128{BasicDecimal128{-12389}.IncreaseScaleBy(32), 38, 32}, 35,
-          true),
+          false),
+
+      // overflow
+      std::make_tuple(DecimalScalar128{0, 0, 1, 0}, DecimalScalar128{99, 2, 1}, 0, true),
   };
 
   for (auto iter : test_values) {
@@ -609,7 +625,9 @@ TEST_F(TestDecimalSql, Round) {
     auto expected_overflow = std::get<3>(iter);
     bool overflow = false;
 
-    EXPECT_EQ(expected, decimalops::Round(input, rounding_scale, &overflow))
+    EXPECT_EQ(expected.value(),
+              decimalops::Round(input, expected.precision(), expected.scale(),
+                                rounding_scale, &overflow))
         << "  failed on input " << input << "  rounding scale " << rounding_scale;
     if (expected_overflow) {
       ASSERT_TRUE(overflow) << "overflow expected for input " << input;
@@ -621,53 +639,64 @@ TEST_F(TestDecimalSql, Round) {
 
 TEST_F(TestDecimalSql, Truncate) {
   // expected, input, rounding_scale, overflow
-  using TupleType = std::tuple<BasicDecimal128, DecimalScalar128, int32_t, bool>;
+  using TupleType = std::tuple<DecimalScalar128, DecimalScalar128, int32_t, bool>;
   std::vector<TupleType> test_values = {
       // examples from
       // https://dev.mysql.com/doc/refman/5.7/en/mathematical-functions.html#function_truncate
-      std::make_tuple(BasicDecimal128{12}, DecimalScalar128{1223, 38, 3}, 1, false),
-      std::make_tuple(BasicDecimal128{19}, DecimalScalar128{1999, 38, 3}, 1, false),
-      std::make_tuple(BasicDecimal128{1}, DecimalScalar128{1999, 38, 3}, 0, false),
-      std::make_tuple(BasicDecimal128{-19}, DecimalScalar128{-1999, 38, 3}, 1, false),
-      std::make_tuple(BasicDecimal128{100}, DecimalScalar128{122, 38, 0}, -2, false),
-      std::make_tuple(BasicDecimal128{1028}, DecimalScalar128{1028, 38, 0}, 0, false),
+      std::make_tuple(DecimalScalar128{12, 36, 1}, DecimalScalar128{1223, 38, 3}, 1,
+                      false),
+      std::make_tuple(DecimalScalar128{19, 36, 1}, DecimalScalar128{1999, 38, 3}, 1,
+                      false),
+      std::make_tuple(DecimalScalar128{1, 35, 0}, DecimalScalar128{1999, 38, 3}, 0,
+                      false),
+      std::make_tuple(DecimalScalar128{-19, 36, 1}, DecimalScalar128{-1999, 38, 3}, 1,
+                      false),
+      std::make_tuple(DecimalScalar128{100, 38, 0}, DecimalScalar128{122, 38, 0}, -2,
+                      false),
+      std::make_tuple(DecimalScalar128{1028, 38, 0}, DecimalScalar128{1028, 38, 0}, 0,
+                      false),
 
       // border cases
-      std::make_tuple(BasicDecimal128{INT64_MIN / 100},
+      std::make_tuple(DecimalScalar128{BasicDecimal128{INT64_MIN / 100}, 36, 0},
                       DecimalScalar128{INT64_MIN, 38, 2}, 0, false),
 
-      std::make_tuple(INT64_MIN, DecimalScalar128{INT64_MIN, 38, 0}, 0, false),
-      std::make_tuple(BasicDecimal128{0, 0}, DecimalScalar128{0, 0, 38, 2}, 0, false),
-      std::make_tuple(INT64_MAX, DecimalScalar128{INT64_MAX, 38, 0}, 0, false),
+      std::make_tuple(DecimalScalar128{INT64_MIN, 38, 0},
+                      DecimalScalar128{INT64_MIN, 38, 0}, 0, false),
+      std::make_tuple(DecimalScalar128{0, 0, 38, 0}, DecimalScalar128{0, 0, 38, 2}, 0,
+                      false),
+      std::make_tuple(DecimalScalar128{INT64_MAX, 38, 0},
+                      DecimalScalar128{INT64_MAX, 38, 0}, 0, false),
 
-      std::make_tuple(BasicDecimal128(INT64_MAX / 100),
+      std::make_tuple(DecimalScalar128{BasicDecimal128(INT64_MAX / 100), 36, 0},
                       DecimalScalar128{INT64_MAX, 38, 2}, 0, false),
 
       // large scales
-      std::make_tuple(BasicDecimal128{0, 0}, DecimalScalar128{12345, 38, 16}, 0, false),
+      std::make_tuple(DecimalScalar128{BasicDecimal128{0, 0}, 22, 0},
+                      DecimalScalar128{12345, 38, 16}, 0, false),
       std::make_tuple(
-          BasicDecimal128{123},
+          DecimalScalar128{BasicDecimal128{123}, 22, 0},
           DecimalScalar128{BasicDecimal128{12389}.IncreaseScaleBy(14), 38, 16}, 0, false),
       std::make_tuple(
-          BasicDecimal128{-123},
+          DecimalScalar128{BasicDecimal128{-123}, 22, 0},
           DecimalScalar128{BasicDecimal128{-12389}.IncreaseScaleBy(14), 38, 16}, 0,
           false),
       std::make_tuple(
-          BasicDecimal128{123},
+          DecimalScalar128{BasicDecimal128{123}, 6, 0},
           DecimalScalar128{BasicDecimal128{12389}.IncreaseScaleBy(30), 38, 32}, 0, false),
       std::make_tuple(
-          BasicDecimal128{-123},
+          DecimalScalar128{BasicDecimal128{-123}, 6, 0},
           DecimalScalar128{BasicDecimal128{-12389}.IncreaseScaleBy(30), 38, 32}, 0,
           false),
 
       // overflow
       std::make_tuple(
-          BasicDecimal128{0, 0},
-          DecimalScalar128{BasicDecimal128{12389}.IncreaseScaleBy(32), 38, 32}, 35, true),
+          DecimalScalar128{BasicDecimal128{12389}.IncreaseScaleBy(32), 38, 32},
+          DecimalScalar128{BasicDecimal128{12389}.IncreaseScaleBy(32), 38, 32}, 35,
+          false),
       std::make_tuple(
-          BasicDecimal128{0, 0},
+          DecimalScalar128{BasicDecimal128{-12389}.IncreaseScaleBy(32), 38, 32},
           DecimalScalar128{BasicDecimal128{-12389}.IncreaseScaleBy(32), 38, 32}, 35,
-          true),
+          false),
   };
 
   for (auto iter : test_values) {
@@ -677,7 +706,9 @@ TEST_F(TestDecimalSql, Truncate) {
     auto expected_overflow = std::get<3>(iter);
     bool overflow = false;
 
-    EXPECT_EQ(expected, decimalops::Truncate(input, rounding_scale, &overflow))
+    EXPECT_EQ(expected.value(),
+              decimalops::Truncate(input, expected.precision(), expected.scale(),
+                                   rounding_scale, &overflow))
         << "  failed on input " << input << "  rounding scale " << rounding_scale;
     if (expected_overflow) {
       ASSERT_TRUE(overflow) << "overflow expected for input " << input;
@@ -857,7 +888,7 @@ TEST_F(TestDecimalSql, Convert) {
   }
 }
 
-// double can store upto this integer value without losing precision
+// double can store up to this integer value without losing precision
 static const int64_t kMaxDoubleInt = 1ull << 53;
 
 TEST_F(TestDecimalSql, FromDouble) {

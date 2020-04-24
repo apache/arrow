@@ -68,6 +68,7 @@ reference:
   - Expression
   - Scanner
   - FileFormat
+  - map_batches
 - title: Reading and writing files
   contents:
   - read_feather
@@ -104,6 +105,7 @@ reference:
 - title: Arrow data types and schema
   contents:
   - Schema
+  - unify_schemas
   - type
   - dictionary
   - Field
@@ -130,7 +132,11 @@ reference:
   - FileInfo
   - FileStats
   - FileSelector
+- title: Configuration
+  contents:
+  - cpu_count
 - title: Installation helpers
   contents:
   - arrow_available
   - install_arrow
+  - install_pyarrow

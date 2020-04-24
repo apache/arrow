@@ -438,6 +438,18 @@ TEST(TestBuffer, CopySlice) {
   ASSERT_EQ(0, memcmp(out->data() + out->size(), zeros.data(), zeros.size()));
 }
 
+TEST(TestBuffer, CopySliceEmpty) {
+  auto buf = std::make_shared<Buffer>("");
+  ASSERT_OK_AND_ASSIGN(auto out, buf->CopySlice(0, 0));
+  AssertBufferEqual(*out, "");
+
+  buf = std::make_shared<Buffer>("1234");
+  ASSERT_OK_AND_ASSIGN(out, buf->CopySlice(0, 0));
+  AssertBufferEqual(*out, "");
+  ASSERT_OK_AND_ASSIGN(out, buf->CopySlice(4, 0));
+  AssertBufferEqual(*out, "");
+}
+
 TEST(TestBuffer, ToHexString) {
   const uint8_t data_array[] = "\a0hex string\xa9";
   std::basic_string<uint8_t> data_str = data_array;

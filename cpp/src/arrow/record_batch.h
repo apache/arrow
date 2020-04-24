@@ -177,6 +177,9 @@ class ARROW_EXPORT RecordBatch {
   /// \return new record batch
   virtual std::shared_ptr<RecordBatch> Slice(int64_t offset, int64_t length) const = 0;
 
+  /// \return PrettyPrint representation suitable for debugging
+  std::string ToString() const;
+
   /// \brief Perform cheap validation checks to determine obvious inconsistencies
   /// within the record batch's schema and internal data.
   ///

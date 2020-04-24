@@ -519,13 +519,7 @@ gchar *
 garrow_array_to_string(GArrowArray *array, GError **error)
 {
   const auto arrow_array = garrow_array_get_raw(array);
-  std::stringstream sink;
-  auto status = arrow::PrettyPrint(*arrow_array, 0, &sink);
-  if (garrow_error_check(error, status, "[array][to-string]")) {
-    return g_strdup(sink.str().c_str());
-  } else {
-    return NULL;
-  }
+  return g_strdup(arrow_array->ToString().c_str());
 }
 
 /**

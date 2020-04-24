@@ -20,8 +20,13 @@
 include(CheckCXXCompilerFlag)
 # Get cpu architecture
 set(ARROW_CPU_FLAG "x86")
+
+message(STATUS "System processor: ${CMAKE_SYSTEM_PROCESSOR}")
+
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64")
-  set(ARROW_CPU_FLAG "arm")
+  set(ARROW_CPU_FLAG "armv8")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "armv7")
+  set(ARROW_CPU_FLAG "armv7")
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc")
   set(ARROW_CPU_FLAG "ppc")
 endif()
@@ -46,7 +51,7 @@ elseif(ARROW_CPU_FLAG STREQUAL "ppc")
   # power compiler flags, gcc/clang only
   set(ARROW_ALTIVEC_FLAG "-maltivec")
   check_cxx_compiler_flag(${ARROW_ALTIVEC_FLAG} CXX_SUPPORTS_ALTIVEC)
-elseif(ARROW_CPU_FLAG STREQUAL "arm")
+elseif(ARROW_CPU_FLAG STREQUAL "armv8")
   # Arm64 compiler flags, gcc/clang only
   set(ARROW_ARMV8_ARCH_FLAG "-march=${ARROW_ARMV8_ARCH}")
   check_cxx_compiler_flag(${ARROW_ARMV8_ARCH_FLAG} CXX_SUPPORTS_ARMV8_ARCH)
@@ -243,7 +248,8 @@ if(MSVC)
   # (required for protobuf, see https://github.com/protocolbuffers/protobuf/issues/6885)
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4065")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "6.0")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "7.0"
+     OR CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "7.0")
     # Without this, gcc >= 7 warns related to changes in C++17
     set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
   endif()
@@ -327,7 +333,7 @@ if(ARROW_CPU_FLAG STREQUAL "ppc" AND ARROW_USE_SIMD)
   endif()
 endif()
 
-if(ARROW_CPU_FLAG STREQUAL "arm")
+if(ARROW_CPU_FLAG STREQUAL "armv8")
   if(NOT CXX_SUPPORTS_ARMV8_ARCH)
     message(FATAL_ERROR "Unsupported arch flag: ${ARROW_ARMV8_ARCH_FLAG}.")
   endif()

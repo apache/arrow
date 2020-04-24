@@ -541,13 +541,7 @@ gchar *
 garrow_table_to_string(GArrowTable *table, GError **error)
 {
   const auto arrow_table = garrow_table_get_raw(table);
-  std::stringstream sink;
-  auto status = arrow::PrettyPrint(*arrow_table, 0, &sink);
-  if (garrow_error_check(error, status, "[table][to-string]")) {
-    return g_strdup(sink.str().c_str());
-  } else {
-    return NULL;
-  }
+  return g_strdup(arrow_table->ToString().c_str());
 }
 
 /**

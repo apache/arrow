@@ -26,6 +26,18 @@ arrow_install_all_headers("arrow/util")
 # arrow_test_main
 #
 
+if(WIN32)
+  # This manifest enables long file paths on Windows 10+
+  # See https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#enable-long-paths-in-windows-10-version-1607-and-later
+  if(MSVC)
+    set(IO_UTIL_TEST_SOURCES io_util_test.cc io_util_test.manifest)
+  else()
+    set(IO_UTIL_TEST_SOURCES io_util_test.cc io_util_test.rc)
+  endif()
+else()
+  set(IO_UTIL_TEST_SOURCES io_util_test.cc)
+endif()
+
 add_arrow_test(utility-test
                SOURCES
                align_util_test.cc
@@ -37,7 +49,7 @@ add_arrow_test(utility-test
                key_value_metadata_test.cc
                hashing_test.cc
                int_util_test.cc
-               io_util_test.cc
+               ${IO_UTIL_TEST_SOURCES}
                iterator_test.cc
                logging_test.cc
                parsing_util_test.cc

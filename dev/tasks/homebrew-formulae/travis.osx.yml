@@ -15,6 +15,7 @@
 # limitations under the License.
 
 os: osx
+osx_image: xcode11.3
 language: ruby
 cache: bundler
 

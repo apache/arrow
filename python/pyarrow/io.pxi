@@ -945,6 +945,8 @@ cdef class Buffer:
 
     def __getitem__(self, key):
         if PySlice_Check(key):
+            if (key.step or 1) != 1:
+                raise IndexError('only slices with step 1 supported')
             return _normalize_slice(self, key)
 
         return self.getitem(_normalize_index(key, self.size))

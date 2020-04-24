@@ -16,8 +16,9 @@
 # under the License.
 
 skip_if_not_available <- function(feature) {
-  # This is currently for compression only but we can extend to other features
-  if (!codec_is_available(feature)) {
+  if (feature == "s3") {
+    skip_if_not(arrow_with_s3())
+  } else if (!codec_is_available(feature)) {
     skip(paste("Arrow C++ not built with support for", feature))
   }
 }

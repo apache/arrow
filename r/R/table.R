@@ -194,7 +194,7 @@ Table$create <- function(..., schema = NULL) {
 }
 
 #' @export
-as.data.frame.Table <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
+as.data.frame.Table <- function(x, row.names = NULL, optional = FALSE, ...) {
   Table__to_dataframe(x, use_threads = option_use_threads())
 }
 

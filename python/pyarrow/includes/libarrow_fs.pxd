@@ -31,9 +31,6 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CFileType_File "arrow::fs::FileType::File"
         CFileType_Directory "arrow::fs::FileType::Directory"
 
-    cdef cppclass CTimePoint "arrow::fs::TimePoint":
-        pass
-
     cdef cppclass CFileInfo "arrow::fs::FileInfo":
         CFileInfo()
         CFileInfo(CFileInfo&&)
@@ -156,12 +153,13 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         @staticmethod
         CResult[CHdfsOptions] FromUriString "FromUri"(
             const c_string& uri_string)
-        void ConfigureEndPoint(const c_string& host, int port)
-        void ConfigureHdfsDriver(c_bool use_hdfs3)
-        void ConfigureHdfsReplication(int16_t replication)
-        void ConfigureHdfsUser(const c_string& user_name)
-        void ConfigureHdfsBufferSize(int32_t buffer_size)
-        void ConfigureHdfsBlockSize(int64_t default_block_size)
+        void ConfigureEndPoint(c_string host, int port)
+        void ConfigureDriver(c_bool use_hdfs3)
+        void ConfigureReplication(int16_t replication)
+        void ConfigureUser(c_string user_name)
+        void ConfigureBufferSize(int32_t buffer_size)
+        void ConfigureBlockSize(int64_t default_block_size)
+        void ConfigureKerberosTicketCachePath(c_string path)
 
     cdef cppclass CHadoopFileSystem "arrow::fs::HadoopFileSystem"(CFileSystem):
         @staticmethod

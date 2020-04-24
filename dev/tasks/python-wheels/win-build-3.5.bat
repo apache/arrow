@@ -18,10 +18,11 @@
 @echo on
 
 @rem create conda environment for compiling
-conda update --yes --quiet conda
+call conda update --yes --quiet conda
 
-conda create -n wheel-build -q -y -c conda-forge ^
-    python=3.5 ^
+call conda create -n wheel-build -q -y -c conda-forge ^
+    "boost-cpp>=1.68.0" ^
+    "python=3.5" ^
     zlib || exit /B
 
 call conda.bat activate wheel-build
@@ -44,6 +45,7 @@ cmake -G "%GENERATOR%" ^
       -DCMAKE_BUILD_TYPE=Release ^
       -DARROW_DEPENDENCY_SOURCE=BUNDLED ^
       -DZLIB_SOURCE=SYSTEM ^
+      -DBOOST_SOURCE=SYSTEM ^
       -DZLIB_ROOT=%CONDA_PREFIX%\Library ^
       -DARROW_CXXFLAGS="/MP" ^
       -DARROW_WITH_ZLIB=ON ^
@@ -74,12 +76,12 @@ set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
 
 @rem test the wheel
 @rem TODO For maximum reliability, we should test in a plain virtualenv instead.
-conda create -n wheel-test -c conda-forge -q -y python=3.5 || exit /B
+call conda create -n wheel-test -c conda-forge -q -y python=3.5 || exit /B
 call conda.bat activate wheel-test
 
 @rem install the built wheel
-pip install -vv %ARROW_SRC%\python\dist\pyarrow-%PYARROW_VERSION%-cp35-cp35m-win_amd64.whl || exit /B
-pip install -q -r %ARROW_SRC%\python\requirements-wheel-test.txt || exit /B
+pip install %ARROW_SRC%\python\dist\pyarrow-%PYARROW_VERSION%-cp35-cp35m-win_amd64.whl || exit /B
+pip install -r %ARROW_SRC%\python\requirements-wheel-test.txt || exit /B
 
 @rem test the imports
 python -c "import pyarrow; import pyarrow.parquet" || exit /B

@@ -129,7 +129,7 @@ Status SomeNull_Ingest(SEXP data, R_xlen_t start, R_xlen_t n,
 SEXP ArrayVector__as_vector(R_xlen_t n, const ArrayVector& arrays) {
   auto converter = Converter::Make(arrays);
   Shield<SEXP> data(converter->Allocate(n));
-  STOP_IF_NOT_OK(converter->IngestSerial(data));
+  StopIfNotOk(converter->IngestSerial(data));
   return data;
 }
 
@@ -387,7 +387,7 @@ class Converter_Struct : public Converter {
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
     int nf = converters.size();
     for (int i = 0; i < nf; i++) {
-      STOP_IF_NOT_OK(converters[i]->Ingest_all_nulls(VECTOR_ELT(data, i), start, n));
+      StopIfNotOk(converters[i]->Ingest_all_nulls(VECTOR_ELT(data, i), start, n));
     }
     return Status::OK();
   }
@@ -397,9 +397,9 @@ class Converter_Struct : public Converter {
     auto struct_array = internal::checked_cast<arrow::StructArray*>(array.get());
     int nf = converters.size();
     // Flatten() deals with merging of nulls
-    auto arrays = VALUE_OR_STOP(struct_array->Flatten(default_memory_pool()));
+    auto arrays = ValueOrStop(struct_array->Flatten(default_memory_pool()));
     for (int i = 0; i < nf; i++) {
-      STOP_IF_NOT_OK(
+      StopIfNotOk(
           converters[i]->Ingest_some_nulls(VECTOR_ELT(data, i), arrays[i], start, n));
     }
 
@@ -656,8 +656,15 @@ class Converter_Null : public Converter {
     return Status::OK();
   }
 };
+
 std::shared_ptr<Converter> Converter::Make(const ArrayVector& arrays) {
-  switch (arrays[0]->type_id()) {
+  if (arrays.empty()) {
+    Rcpp::stop(tfm::format("Must have at least one array to create a converter"));
+  }
+
+  auto type = arrays[0]->type();
+
+  switch (type->id()) {
     // direct support
     case Type::INT32:
       return std::make_shared<arrow::r::Converter_SimpleArray<INTSXP>>(arrays);
@@ -742,7 +749,7 @@ std::shared_ptr<Converter> Converter::Make(const ArrayVector& arrays) {
       break;
   }
 
-  Rcpp::stop(tfm::format("cannot handle Array of type %s", arrays[0]->type()->name()));
+  Rcpp::stop(tfm::format("cannot handle Array of type %s", type->name()));
   return nullptr;
 }
 
@@ -753,7 +760,7 @@ Rcpp::List to_dataframe_serial(
 
   for (int i = 0; i < nc; i++) {
     SEXP column = tbl[i] = converters[i]->Allocate(nr);
-    STOP_IF_NOT_OK(converters[i]->IngestSerial(column));
+    StopIfNotOk(converters[i]->IngestSerial(column));
   }
   tbl.attr("names") = names;
   tbl.attr("class") = Rcpp::CharacterVector::create("tbl_df", "tbl", "data.frame");
@@ -794,7 +801,7 @@ Rcpp::List to_dataframe_parallel(
   // wait for the ingestion to be finished
   status &= tg->Finish();
 
-  STOP_IF_NOT_OK(status);
+  StopIfNotOk(status);
 
   tbl.attr("names") = names;
   tbl.attr("class") = Rcpp::CharacterVector::create("tbl_df", "tbl", "data.frame");
@@ -813,7 +820,6 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
 
 // [[arrow::export]]
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  // NB: this segfaults if there are 0 chunks (presumably something tries chunks[0])
   return arrow::r::ArrayVector__as_vector(chunked_array->length(),
                                           chunked_array->chunks());
 }
@@ -849,7 +855,6 @@ Rcpp::List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table,
   std::vector<std::shared_ptr<arrow::r::Converter>> converters(nc);
 
   for (int64_t i = 0; i < nc; i++) {
-    // This crashes if num_chunks == 0
     converters[i] = arrow::r::Converter::Make(table->column(i)->chunks());
     names[i] = table->field(i)->name();
   }

@@ -6,11 +6,9 @@
 \usage{
 dataset_factory(
   x,
-  filesystem = c("auto", "local"),
-  format = c("parquet", "arrow", "ipc"),
+  filesystem = NULL,
+  format = c("parquet", "arrow", "ipc", "feather"),
   partitioning = NULL,
-  allow_not_found = FALSE,
-  recursive = TRUE,
   ...
 )
 }
@@ -20,12 +18,12 @@ a list of \code{DatasetFactory} objects whose datasets should be
 grouped. If this argument is specified it will be used to construct a
 \code{UnionDatasetFactory} and other arguments will be ignored.}
 
-\item{filesystem}{A string identifier for the filesystem corresponding to
-\code{x}. Currently only "local" is supported.}
+\item{filesystem}{A \link{FileSystem} object; if omitted, the \code{FileSystem} will
+be detected from \code{x}}
 
 \item{format}{A string identifier of the format of the files in \code{x}.
-Currently supported options are "parquet", "arrow", and "ipc" (an alias for
-the Arrow file format)}
+Currently "parquet" and "ipc"/"arrow"/"feather" (aliases for each other)
+are supported. For Feather, only version 2 files are supported.}
 
 \item{partitioning}{One of
 \itemize{
@@ -42,13 +40,7 @@ Hive-style path segments
 \item \code{NULL} for no partitioning
 }}
 
-\item{allow_not_found}{logical: is \code{x} allowed to not exist? Default
-\code{FALSE}. See \link{FileSelector}.}
-
-\item{recursive}{logical: should files be discovered in subdirectories of
-\code{x}? Default \code{TRUE}.}
-
-\item{...}{Additional arguments passed to the \link{FileSystem} \verb{$create()} method}
+\item{...}{Additional arguments, currently ignored}
 }
 \value{
 A \code{DatasetFactory} object. Pass this to \code{\link[=open_dataset]{open_dataset()}},

@@ -256,7 +256,7 @@ Union: ::
 
     {
       "name" : "union",
-      "mode" : "Sparse|Dense",
+      "mode" : "SPARSE|DENSE",
       "typeIds" : [ /* integer */ ]
     }
 
@@ -362,7 +362,7 @@ For ``FieldData`` inside of a ``DictionaryBatch``, the "name" field does not
 correspond to anything.
 
 Here ``$BUFFER_TYPE`` is one of ``VALIDITY``, ``OFFSET`` (for
-variable-length types, such as strings and lists), ``TYPE`` (for unions),
+variable-length types, such as strings and lists), ``TYPE_ID`` (for unions),
 or ``DATA``.
 
 ``BufferData`` is encoded based on the type of buffer:
@@ -371,27 +371,31 @@ or ``DATA``.
   ``Field`` still has a ``VALIDITY`` array, even though all values are 1.
 * ``OFFSET``: a JSON array of integers for 32-bit offsets or
   string-formatted integers for 64-bit offsets
-* ``TYPE``: a JSON array of integers
+* ``TYPE_ID``: a JSON array of integers
 * ``DATA``: a JSON array of encoded values
 
 The value encoding for ``DATA`` is different depending on the logical
 type:
 
-* For boolean type: an array of 1 (true) and 0 (false)
-* For integer-based types (including timestamps): an array of integers
-* For 64-bit integers: an array of integers formatted as JSON strings
-  to avoid loss of precision
-* For floating point types: as is. Values are limited to 3 decimal places to
-  avoid loss of precision
-* For Binary types, a hex-string is produced to encode a variable- or
-  fixed-size binary value
+* For boolean type: an array of 1 (true) and 0 (false).
+* For integer-based types (including timestamps): an array of JSON numbers.
+* For 64-bit integers: an array of integers formatted as JSON strings,
+  so as to avoid loss of precision.
+* For floating point types: an array of JSON numbers. Values are limited
+  to 3 decimal places to avoid loss of precision.
+* For binary types, an array of uppercase hex-encoded strings, so as
+  to represent arbitrary binary data.
+* For UTF-8 string types, an array of JSON strings.
 
-For "list" type, ``BufferData`` has ``VALIDITY`` and ``OFFSET``, and the
-rest of the data is inside "children". These child ``FieldData`` contain all
-of the same attributes as non-child data, so in the example of a list of
-``int32``, the child data has ``VALIDITY`` and ``DATA``.
+For "list" and "largelist" types, ``BufferData`` has ``VALIDITY`` and
+``OFFSET``, and the rest of the data is inside "children". These child
+``FieldData`` contain all of the same attributes as non-child data, so in
+the example of a list of ``int32``, the child data has ``VALIDITY`` and
+``DATA``.
+
 For "fixedsizelist", there is no ``OFFSET`` member because the offsets are
 implied by the field's "listSize".
+
 Note that the "count" for these child data may not match the parent "count".
 For example, if a ``RecordBatch`` has 7 rows and contains a ``FixedSizeList``
 of ``listSize`` 4, then the data inside the "children" of that ``FieldData``

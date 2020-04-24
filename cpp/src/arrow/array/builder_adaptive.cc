@@ -75,7 +75,7 @@ AdaptiveIntBuilderBase::ExpandIntSizeInternal() {
 
   const old_type* src = reinterpret_cast<old_type*>(raw_data_);
   new_type* dst = reinterpret_cast<new_type*>(raw_data_);
-  // By doing the backward copy, we ensure that no element is overriden during
+  // By doing the backward copy, we ensure that no element is overridden during
   // the copy process while the copy stays in-place.
   std::copy_backward(src, src + length_, dst + length_);
 

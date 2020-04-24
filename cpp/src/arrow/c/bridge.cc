@@ -714,7 +714,7 @@ Result<std::shared_ptr<KeyValueMetadata>> DecodeMetadata(const char* metadata) {
     int32_t v;
     memcpy(&v, metadata, 4);
     metadata += 4;
-    *out = BitUtil::FromLittleEndian(v);
+    *out = v;
     if (*out < 0) {
       return Status::Invalid("Invalid encoded metadata string");
     }

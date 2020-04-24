@@ -217,7 +217,7 @@ def rat_linter(src, root):
     logger.info("Running apache-rat linter")
 
     if src.git_dirty:
-        logger.warn("Due to the usage of git-archive, uncommited files will"
+        logger.warn("Due to the usage of git-archive, uncommitted files will"
                     " not be checked for rat violations. ")
 
     exclusion = exclusion_from_globs(

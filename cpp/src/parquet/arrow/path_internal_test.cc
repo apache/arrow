@@ -83,7 +83,7 @@ class CapturedResult {
   }
 
   friend std::ostream& operator<<(std::ostream& os, const CapturedResult& result) {
-    // This print method is to silence valgrind issues.  Whats printed
+    // This print method is to silence valgrind issues.  What's printed
     // is not important because all asserts happen directly on
     // members.
     os << "CapturedResult (null def, null_rep):" << result.null_def_levels << " "

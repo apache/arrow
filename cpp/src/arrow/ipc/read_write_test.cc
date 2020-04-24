@@ -100,8 +100,8 @@ TEST(TestMessage, SerializeTo) {
 
   std::string body = "abcdef";
 
-  std::unique_ptr<Message> message;
-  ASSERT_OK(Message::Open(metadata, std::make_shared<Buffer>(body), &message));
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<Message> message,
+                       Message::Open(metadata, std::make_shared<Buffer>(body)));
 
   auto CheckWithAlignment = [&](int32_t alignment) {
     IpcWriteOptions options;
@@ -125,11 +125,11 @@ TEST(TestMessage, SerializeCustomMetadata) {
       key_value_metadata({"foo", "bar"}, {"fizz", "buzz"})};
   for (auto metadata : cases) {
     std::shared_ptr<Buffer> serialized;
-    std::unique_ptr<Message> message;
     ASSERT_OK(internal::WriteRecordBatchMessage(/*length=*/0, /*body_length=*/0, metadata,
                                                 /*nodes=*/{},
                                                 /*buffers=*/{}, &serialized));
-    ASSERT_OK(Message::Open(serialized, /*body=*/nullptr, &message));
+    ASSERT_OK_AND_ASSIGN(std::unique_ptr<Message> message,
+                         Message::Open(serialized, /*body=*/nullptr));
 
     if (metadata) {
       ASSERT_TRUE(message->custom_metadata()->Equals(*metadata));
@@ -163,7 +163,7 @@ TEST(TestMessage, LegacyIpcBackwardsCompatibility) {
 
     ASSERT_OK_AND_ASSIGN(*out_serialized, stream->Finish());
     io::BufferReader io_reader(*out_serialized);
-    ASSERT_OK(ReadMessage(&io_reader, out));
+    ASSERT_OK(ReadMessage(&io_reader).Value(out));
   };
 
   std::shared_ptr<Buffer> serialized, legacy_serialized;
@@ -199,9 +199,9 @@ class TestSchemaMetadata : public ::testing::Test {
   void SetUp() {}
 
   void CheckRoundtrip(const Schema& schema) {
-    std::shared_ptr<Buffer> buffer;
     DictionaryMemo in_memo, out_memo;
-    ASSERT_OK(SerializeSchema(schema, &out_memo, default_memory_pool(), &buffer));
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer,
+                         SerializeSchema(schema, &out_memo, default_memory_pool()));
 
     io::BufferReader reader(buffer);
     ASSERT_OK_AND_ASSIGN(auto actual_schema, ReadSchema(&reader, &in_memo));
@@ -285,9 +285,8 @@ class IpcTestFixture : public io::MemoryMapFixture {
 
   void DoSchemaRoundTrip(const Schema& schema, DictionaryMemo* out_memo,
                          std::shared_ptr<Schema>* result) {
-    std::shared_ptr<Buffer> serialized_schema;
-    ASSERT_OK(
-        SerializeSchema(schema, out_memo, options_.memory_pool, &serialized_schema));
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> serialized_schema,
+                         SerializeSchema(schema, out_memo, options_.memory_pool));
 
     DictionaryMemo in_memo;
     io::BufferReader buf_reader(serialized_schema);
@@ -299,8 +298,8 @@ class IpcTestFixture : public io::MemoryMapFixture {
       const RecordBatch& batch, const IpcWriteOptions& options,
       DictionaryMemo* dictionary_memo,
       const IpcReadOptions& read_options = IpcReadOptions::Defaults()) {
-    std::shared_ptr<Buffer> serialized_batch;
-    RETURN_NOT_OK(SerializeRecordBatch(batch, options, &serialized_batch));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> serialized_batch,
+                          SerializeRecordBatch(batch, options));
 
     io::BufferReader buf_reader(serialized_batch);
     return ReadRecordBatch(batch.schema(), dictionary_memo, read_options, &buf_reader);
@@ -326,9 +325,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
     std::shared_ptr<RecordBatchFileReader> file_reader;
     ARROW_ASSIGN_OR_RAISE(file_reader, RecordBatchFileReader::Open(mmap_.get(), offset));
 
-    std::shared_ptr<RecordBatch> result;
-    RETURN_NOT_OK(file_reader->ReadRecordBatch(0, &result));
-    return result;
+    return file_reader->ReadRecordBatch(0);
   }
 
   void CheckReadResult(const RecordBatch& result, const RecordBatch& expected) {
@@ -417,8 +414,8 @@ TEST_F(TestIpcRoundTrip, MetadataVersion) {
   ASSERT_OK(WriteRecordBatch(*batch, buffer_offset, mmap_.get(), &metadata_length,
                              &body_length, options_));
 
-  std::unique_ptr<Message> message;
-  ASSERT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<Message> message,
+                       ReadMessage(0, metadata_length, mmap_.get()));
 
   ASSERT_EQ(MetadataVersion::V4, message->metadata_version());
 }
@@ -426,12 +423,11 @@ TEST_F(TestIpcRoundTrip, MetadataVersion) {
 TEST(TestReadMessage, CorruptedSmallInput) {
   std::string data = "abc";
   io::BufferReader reader(data);
-  std::unique_ptr<Message> message;
-  ASSERT_RAISES(Invalid, ReadMessage(&reader, &message));
+  ASSERT_RAISES(Invalid, ReadMessage(&reader));
 
   // But no error on unsignaled EOS
   io::BufferReader reader2("");
-  ASSERT_OK(ReadMessage(&reader2, &message));
+  ASSERT_OK_AND_ASSIGN(auto message, ReadMessage(&reader2));
   ASSERT_EQ(nullptr, message);
 }
 
@@ -525,8 +521,7 @@ TEST_F(TestWriteRecordBatch, WriteWithCompression) {
     }
     IpcWriteOptions options = IpcWriteOptions::Defaults();
     options.compression = codec;
-    std::shared_ptr<Buffer> buf;
-    ASSERT_RAISES(Invalid, SerializeRecordBatch(*batch, options, &buf));
+    ASSERT_RAISES(Invalid, SerializeRecordBatch(*batch, options));
   }
 }
 
@@ -741,8 +736,8 @@ TEST_F(RecursionLimits, ReadLimit) {
   ASSERT_OK(WriteToMmap(recursion_depth, true, &metadata_length, &body_length, &batch,
                         &schema));
 
-  std::unique_ptr<Message> message;
-  ASSERT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<Message> message,
+                       ReadMessage(0, metadata_length, mmap_.get()));
 
   io::BufferReader reader(message->body());
 
@@ -762,8 +757,8 @@ TEST_F(RecursionLimits, StressLimit) {
     ASSERT_OK(WriteToMmap(recursion_depth, true, &metadata_length, &body_length, &batch,
                           &schema));
 
-    std::unique_ptr<Message> message;
-    ASSERT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
+    ASSERT_OK_AND_ASSIGN(std::unique_ptr<Message> message,
+                         ReadMessage(0, metadata_length, mmap_.get()));
 
     DictionaryMemo empty_memo;
 
@@ -820,8 +815,8 @@ struct FileWriterHelper {
 
     EXPECT_EQ(num_batches_written_, reader->num_record_batches());
     for (int i = 0; i < num_batches_written_; ++i) {
-      std::shared_ptr<RecordBatch> chunk;
-      RETURN_NOT_OK(reader->ReadRecordBatch(i, &chunk));
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> chunk,
+                            reader->ReadRecordBatch(i));
       out_batches->push_back(chunk);
     }
 
@@ -829,9 +824,14 @@ struct FileWriterHelper {
   }
 
   Status ReadSchema(std::shared_ptr<Schema>* out) {
+    return ReadSchema(ipc::IpcReadOptions::Defaults(), out);
+  }
+
+  Status ReadSchema(const IpcReadOptions& read_options, std::shared_ptr<Schema>* out) {
     auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
-    ARROW_ASSIGN_OR_RAISE(auto reader,
-                          RecordBatchFileReader::Open(buf_reader.get(), footer_offset_));
+    ARROW_ASSIGN_OR_RAISE(
+        auto reader,
+        RecordBatchFileReader::Open(buf_reader.get(), footer_offset_, read_options));
 
     *out = reader->schema();
     return Status::OK();
@@ -869,7 +869,7 @@ struct StreamWriterHelper {
     return sink_->Close();
   }
 
-  Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
+  virtual Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
     auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
     std::shared_ptr<RecordBatchReader> reader;
     ARROW_ASSIGN_OR_RAISE(reader, RecordBatchStreamReader::Open(buf_reader, options))
@@ -877,9 +877,14 @@ struct StreamWriterHelper {
   }
 
   Status ReadSchema(std::shared_ptr<Schema>* out) {
-    auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
-    ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchStreamReader::Open(buf_reader.get()));
+    return ReadSchema(ipc::IpcReadOptions::Defaults(), out);
+  }
 
+  virtual Status ReadSchema(const IpcReadOptions& read_options,
+                            std::shared_ptr<Schema>* out) {
+    auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
+    ARROW_ASSIGN_OR_RAISE(auto reader,
+                          RecordBatchStreamReader::Open(buf_reader.get(), read_options));
     *out = reader->schema();
     return Status::OK();
   }
@@ -887,6 +892,54 @@ struct StreamWriterHelper {
   std::shared_ptr<ResizableBuffer> buffer_;
   std::unique_ptr<io::BufferOutputStream> sink_;
   std::shared_ptr<RecordBatchWriter> writer_;
+};
+
+struct StreamDecoderWriterHelper : public StreamWriterHelper {
+  Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) override {
+    auto listener = std::make_shared<CollectListener>();
+    StreamDecoder decoder(listener, options);
+    RETURN_NOT_OK(DoConsume(&decoder));
+    *out_batches = listener->record_batches();
+    return Status::OK();
+  }
+
+  Status ReadSchema(const IpcReadOptions& read_options,
+                    std::shared_ptr<Schema>* out) override {
+    auto listener = std::make_shared<CollectListener>();
+    StreamDecoder decoder(listener, read_options);
+    RETURN_NOT_OK(DoConsume(&decoder));
+    *out = listener->schema();
+    return Status::OK();
+  }
+
+  virtual Status DoConsume(StreamDecoder* decoder) = 0;
+};
+
+struct StreamDecoderDataWriterHelper : public StreamDecoderWriterHelper {
+  Status DoConsume(StreamDecoder* decoder) override {
+    return decoder->Consume(buffer_->data(), buffer_->size());
+  }
+};
+
+struct StreamDecoderBufferWriterHelper : public StreamDecoderWriterHelper {
+  Status DoConsume(StreamDecoder* decoder) override { return decoder->Consume(buffer_); }
+};
+
+struct StreamDecoderSmallChunksWriterHelper : public StreamDecoderWriterHelper {
+  Status DoConsume(StreamDecoder* decoder) override {
+    for (int64_t offset = 0; offset < buffer_->size() - 1; ++offset) {
+      RETURN_NOT_OK(decoder->Consume(buffer_->data() + offset, 1));
+    }
+    return Status::OK();
+  }
+};
+
+struct StreamDecoderLargeChunksWriterHelper : public StreamDecoderWriterHelper {
+  Status DoConsume(StreamDecoder* decoder) override {
+    RETURN_NOT_OK(decoder->Consume(SliceBuffer(buffer_, 0, 1)));
+    RETURN_NOT_OK(decoder->Consume(SliceBuffer(buffer_, 1)));
+    return Status::OK();
+  }
 };
 
 // Parameterized mixin with tests for stream / file writer
@@ -907,8 +960,9 @@ class ReaderWriterMixin {
     BatchVector in_batches = {batch1, batch2};
     BatchVector out_batches;
 
-    ASSERT_OK(
-        RoundTripHelper(in_batches, options, IpcReadOptions::Defaults(), &out_batches));
+    WriterHelper writer_helper;
+    ASSERT_OK(RoundTripHelper(writer_helper, in_batches, options,
+                              IpcReadOptions::Defaults(), &out_batches));
     ASSERT_EQ(out_batches.size(), in_batches.size());
 
     // Compare batches
@@ -929,8 +983,9 @@ class ReaderWriterMixin {
     BatchVector in_batches = {batch1, batch2};
     BatchVector out_batches;
 
-    ASSERT_OK(
-        RoundTripHelper(in_batches, options, IpcReadOptions::Defaults(), &out_batches));
+    WriterHelper writer_helper;
+    ASSERT_OK(RoundTripHelper(writer_helper, in_batches, options,
+                              IpcReadOptions::Defaults(), &out_batches));
     ASSERT_EQ(out_batches.size(), in_batches.size());
 
     // Compare batches
@@ -943,8 +998,9 @@ class ReaderWriterMixin {
     std::shared_ptr<RecordBatch> batch;
     ASSERT_OK(MakeDictionary(&batch));
 
+    WriterHelper writer_helper;
     BatchVector out_batches;
-    ASSERT_OK(RoundTripHelper({batch}, IpcWriteOptions::Defaults(),
+    ASSERT_OK(RoundTripHelper(writer_helper, {batch}, IpcWriteOptions::Defaults(),
                               IpcReadOptions::Defaults(), &out_batches));
     ASSERT_EQ(out_batches.size(), 1);
 
@@ -972,22 +1028,38 @@ class ReaderWriterMixin {
 
     options.included_fields = {1, 3};
 
-    BatchVector out_batches;
-    ASSERT_OK(
-        RoundTripHelper({batch}, IpcWriteOptions::Defaults(), options, &out_batches));
+    {
+      WriterHelper writer_helper;
+      BatchVector out_batches;
+      std::shared_ptr<Schema> out_schema;
+      ASSERT_OK(RoundTripHelper(writer_helper, {batch}, IpcWriteOptions::Defaults(),
+                                options, &out_batches, &out_schema));
 
-    auto ex_schema = schema({field("a1", utf8()), field("a3", utf8())},
-                            key_value_metadata({"key1"}, {"value1"}));
-    auto ex_batch = RecordBatch::Make(ex_schema, a0->length(), {a1, a3});
-    AssertBatchesEqual(*ex_batch, *out_batches[0], /*check_metadata=*/true);
+      auto ex_schema = schema({field("a1", utf8()), field("a3", utf8())},
+                              key_value_metadata({"key1"}, {"value1"}));
+      AssertSchemaEqual(*ex_schema, *out_schema);
+
+      auto ex_batch = RecordBatch::Make(ex_schema, a0->length(), {a1, a3});
+      AssertBatchesEqual(*ex_batch, *out_batches[0], /*check_metadata=*/true);
+    }
 
     // Out of bounds cases
     options.included_fields = {1, 3, 5};
-    ASSERT_RAISES(Invalid, RoundTripHelper({batch}, IpcWriteOptions::Defaults(), options,
-                                           &out_batches));
+    {
+      WriterHelper writer_helper;
+      BatchVector out_batches;
+      ASSERT_RAISES(Invalid,
+                    RoundTripHelper(writer_helper, {batch}, IpcWriteOptions::Defaults(),
+                                    options, &out_batches));
+    }
     options.included_fields = {1, 3, -1};
-    ASSERT_RAISES(Invalid, RoundTripHelper({batch}, IpcWriteOptions::Defaults(), options,
-                                           &out_batches));
+    {
+      WriterHelper writer_helper;
+      BatchVector out_batches;
+      ASSERT_RAISES(Invalid,
+                    RoundTripHelper(writer_helper, {batch}, IpcWriteOptions::Defaults(),
+                                    options, &out_batches));
+    }
   }
 
   void TestWriteDifferentSchema() {
@@ -1036,16 +1108,19 @@ class ReaderWriterMixin {
   }
 
  private:
-  Status RoundTripHelper(const BatchVector& in_batches,
+  Status RoundTripHelper(WriterHelper& writer_helper, const BatchVector& in_batches,
                          const IpcWriteOptions& write_options,
-                         const IpcReadOptions& read_options, BatchVector* out_batches) {
-    WriterHelper writer_helper;
+                         const IpcReadOptions& read_options, BatchVector* out_batches,
+                         std::shared_ptr<Schema>* out_schema = nullptr) {
     RETURN_NOT_OK(writer_helper.Init(in_batches[0]->schema(), write_options));
     for (const auto& batch : in_batches) {
       RETURN_NOT_OK(writer_helper.WriteBatch(batch));
     }
     RETURN_NOT_OK(writer_helper.Finish());
     RETURN_NOT_OK(writer_helper.ReadBatches(read_options, out_batches));
+    if (out_schema) {
+      RETURN_NOT_OK(writer_helper.ReadSchema(read_options, out_schema));
+    }
     for (const auto& batch : *out_batches) {
       RETURN_NOT_OK(batch->ValidateFull());
     }
@@ -1066,13 +1141,24 @@ class ReaderWriterMixin {
     const auto& b3_value = checked_cast<const DictionaryArray&>(*b3.values());
     ASSERT_EQ(b0.dictionary().get(), b3_value.dictionary().get());
   }
-};
+};  // namespace test
 
 class TestFileFormat : public ReaderWriterMixin<FileWriterHelper>,
                        public ::testing::TestWithParam<MakeRecordBatch*> {};
 
 class TestStreamFormat : public ReaderWriterMixin<StreamWriterHelper>,
                          public ::testing::TestWithParam<MakeRecordBatch*> {};
+
+class TestStreamDecoderData : public ReaderWriterMixin<StreamDecoderDataWriterHelper>,
+                              public ::testing::TestWithParam<MakeRecordBatch*> {};
+class TestStreamDecoderBuffer : public ReaderWriterMixin<StreamDecoderBufferWriterHelper>,
+                                public ::testing::TestWithParam<MakeRecordBatch*> {};
+class TestStreamDecoderSmallChunks
+    : public ReaderWriterMixin<StreamDecoderSmallChunksWriterHelper>,
+      public ::testing::TestWithParam<MakeRecordBatch*> {};
+class TestStreamDecoderLargeChunks
+    : public ReaderWriterMixin<StreamDecoderLargeChunksWriterHelper>,
+      public ::testing::TestWithParam<MakeRecordBatch*> {};
 
 TEST_P(TestFileFormat, RoundTrip) {
   TestRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
@@ -1094,9 +1180,57 @@ TEST_P(TestStreamFormat, RoundTrip) {
   TestZeroLengthRoundTrip(*GetParam(), options);
 }
 
+TEST_P(TestStreamDecoderData, RoundTrip) {
+  TestRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
+  TestZeroLengthRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
+
+  IpcWriteOptions options;
+  options.write_legacy_ipc_format = true;
+  TestRoundTrip(*GetParam(), options);
+  TestZeroLengthRoundTrip(*GetParam(), options);
+}
+
+TEST_P(TestStreamDecoderBuffer, RoundTrip) {
+  TestRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
+  TestZeroLengthRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
+
+  IpcWriteOptions options;
+  options.write_legacy_ipc_format = true;
+  TestRoundTrip(*GetParam(), options);
+  TestZeroLengthRoundTrip(*GetParam(), options);
+}
+
+TEST_P(TestStreamDecoderSmallChunks, RoundTrip) {
+  TestRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
+  TestZeroLengthRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
+
+  IpcWriteOptions options;
+  options.write_legacy_ipc_format = true;
+  TestRoundTrip(*GetParam(), options);
+  TestZeroLengthRoundTrip(*GetParam(), options);
+}
+
+TEST_P(TestStreamDecoderLargeChunks, RoundTrip) {
+  TestRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
+  TestZeroLengthRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
+
+  IpcWriteOptions options;
+  options.write_legacy_ipc_format = true;
+  TestRoundTrip(*GetParam(), options);
+  TestZeroLengthRoundTrip(*GetParam(), options);
+}
+
 INSTANTIATE_TEST_SUITE_P(GenericIpcRoundTripTests, TestIpcRoundTrip, BATCH_CASES());
 INSTANTIATE_TEST_SUITE_P(FileRoundTripTests, TestFileFormat, BATCH_CASES());
 INSTANTIATE_TEST_SUITE_P(StreamRoundTripTests, TestStreamFormat, BATCH_CASES());
+INSTANTIATE_TEST_SUITE_P(StreamDecoderDataRoundTripTests, TestStreamDecoderData,
+                         BATCH_CASES());
+INSTANTIATE_TEST_SUITE_P(StreamDecoderBufferRoundTripTests, TestStreamDecoderBuffer,
+                         BATCH_CASES());
+INSTANTIATE_TEST_SUITE_P(StreamDecoderSmallChunksRoundTripTests,
+                         TestStreamDecoderSmallChunks, BATCH_CASES());
+INSTANTIATE_TEST_SUITE_P(StreamDecoderLargeChunksRoundTripTests,
+                         TestStreamDecoderLargeChunks, BATCH_CASES());
 
 TEST(TestIpcFileFormat, FooterMetaData) {
   // ARROW-6837
@@ -1198,7 +1332,7 @@ void SpliceMessages(std::shared_ptr<Buffer> stream,
   // Parse and reassemble first two messages in stream
   int message_index = 0;
   while (true) {
-    ASSERT_OK(message_reader->ReadNextMessage(&msg));
+    ASSERT_OK_AND_ASSIGN(msg, message_reader->ReadNextMessage());
     if (!msg) {
       break;
     }
@@ -1695,6 +1829,15 @@ TEST(TestRecordBatchStreamReader, MalformedInput) {
 
   io::BufferReader garbage_reader(garbage);
   ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&garbage_reader));
+}
+
+TEST(TestStreamDecoder, NextRequiredSize) {
+  auto listener = std::make_shared<CollectListener>();
+  StreamDecoder decoder(listener);
+  auto next_required_size = decoder.next_required_size();
+  const uint8_t data[1] = {0};
+  ASSERT_OK(decoder.Consume(data, 1));
+  ASSERT_EQ(next_required_size - 1, decoder.next_required_size());
 }
 
 // ----------------------------------------------------------------------

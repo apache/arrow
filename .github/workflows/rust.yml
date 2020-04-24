@@ -59,6 +59,9 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
       - name: Docker Pull
         run: docker-compose pull --ignore-pull-failures debian-rust
       - name: Docker Build
@@ -88,6 +91,7 @@ jobs:
         with:
             toolchain: ${{ matrix.rust }}
             override: true
+            components: rustfmt
       - name: Install Flatbuffers
         shell: bash
         run: choco install flatc
@@ -119,6 +123,7 @@ jobs:
         with:
             toolchain: ${{ matrix.rust }}
             override: true
+            components: rustfmt
       - name: Install Flatbuffers
         shell: bash
         run: brew install flatbuffers

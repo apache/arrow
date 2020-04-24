@@ -40,7 +40,7 @@ write_ipc_stream <- function(x, sink, ...) {
   if (is.data.frame(x)) {
     x <- Table$create(x)
   }
-  if (is.character(sink) && length(sink) == 1) {
+  if (is.string(sink)) {
     sink <- FileOutputStream$create(sink)
     on.exit(sink$close())
   }
@@ -98,7 +98,7 @@ read_ipc_stream <- function(x, as_data_frame = TRUE, ...) {
   if (inherits(x, "raw")) {
     x <- BufferReader$create(x)
     on.exit(x$close())
-  } else if (is.character(x) && length(x) == 1) {
+  } else if (is.string(x)) {
     x <- ReadableFile$create(x)
     on.exit(x$close())
   }

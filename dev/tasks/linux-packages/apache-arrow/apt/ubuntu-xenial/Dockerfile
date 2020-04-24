@@ -57,6 +57,7 @@ RUN \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
+    libzstd1-dev \
     lsb-release \
     pkg-config \
     protobuf-compiler \

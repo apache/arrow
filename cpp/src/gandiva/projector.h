@@ -127,7 +127,7 @@ class GANDIVA_EXPORT Projector {
   Status AllocArrayData(const DataTypePtr& type, int64_t num_records,
                         arrow::MemoryPool* pool, ArrayDataPtr* array_data);
 
-  /// Validate that the ArrayData has sufficient capacity to accomodate 'num_records'.
+  /// Validate that the ArrayData has sufficient capacity to accommodate 'num_records'.
   Status ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
                                    const arrow::Field& field, int64_t num_records);
 

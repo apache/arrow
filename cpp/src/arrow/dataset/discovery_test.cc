@@ -150,7 +150,7 @@ class FileSystemDatasetFactoryTest : public DatasetFactoryTest {
     }
     options_ = ScanOptions::Make(schema);
     ASSERT_OK_AND_ASSIGN(dataset_, factory_->Finish(schema));
-    AssertFragmentsAreFromPath(dataset_->GetFragments(options_), paths);
+    AssertFragmentsAreFromPath(dataset_->GetFragments(), paths);
   }
 
  protected:
@@ -229,28 +229,66 @@ TEST_F(FileSystemDatasetFactoryTest, MissingDirectories) {
 }
 
 TEST_F(FileSystemDatasetFactoryTest, OptionsIgnoredDefaultPrefixes) {
+  selector_.recursive = true;
   MakeFactory({
       fs::File("."),
       fs::File("_"),
-      fs::File("_$folder$"),
+      fs::File("_$folder$/dat"),
       fs::File("_SUCCESS"),
       fs::File("not_ignored_by_default"),
+      fs::File("not_ignored_by_default_either/dat"),
   });
 
-  AssertFinishWithPaths({"not_ignored_by_default"});
+  AssertFinishWithPaths({"not_ignored_by_default", "not_ignored_by_default_either/dat"});
+}
+
+TEST_F(FileSystemDatasetFactoryTest, OptionsIgnoredDefaultExplicitFiles) {
+  selector_.recursive = true;
+  std::vector<fs::FileInfo> ignored_by_default = {
+      fs::File(".ignored_by_default.parquet"),
+      fs::File("_ignored_by_default.csv"),
+      fs::File("_$folder$/ignored_by_default.arrow"),
+  };
+  MakeFileSystem(ignored_by_default);
+
+  std::vector<std::string> paths;
+  for (const auto& info : ignored_by_default) paths.push_back(info.path());
+  ASSERT_OK_AND_ASSIGN(
+      factory_, FileSystemDatasetFactory::Make(fs_, paths, format_, factory_options_));
+
+  AssertFinishWithPaths(paths);
 }
 
 TEST_F(FileSystemDatasetFactoryTest, OptionsIgnoredCustomPrefixes) {
-  factory_options_.ignore_prefixes = {"not_ignored"};
+  selector_.recursive = true;
+  factory_options_.selector_ignore_prefixes = {"not_ignored"};
   MakeFactory({
       fs::File("."),
       fs::File("_"),
-      fs::File("_$folder$"),
+      fs::File("_$folder$/dat"),
       fs::File("_SUCCESS"),
       fs::File("not_ignored_by_default"),
+      fs::File("not_ignored_by_default_either/dat"),
   });
 
-  AssertFinishWithPaths({".", "_", "_$folder$", "_SUCCESS"});
+  AssertFinishWithPaths({".", "_", "_$folder$/dat", "_SUCCESS"});
+}
+
+TEST_F(FileSystemDatasetFactoryTest, OptionsIgnoredNoPrefixes) {
+  // ignore nothing
+  selector_.recursive = true;
+  factory_options_.selector_ignore_prefixes = {};
+  MakeFactory({
+      fs::File("."),
+      fs::File("_"),
+      fs::File("_$folder$/dat"),
+      fs::File("_SUCCESS"),
+      fs::File("not_ignored_by_default"),
+      fs::File("not_ignored_by_default_either/dat"),
+  });
+
+  AssertFinishWithPaths({".", "_", "_$folder$/dat", "_SUCCESS", "not_ignored_by_default",
+                         "not_ignored_by_default_either/dat"});
 }
 
 TEST_F(FileSystemDatasetFactoryTest, Inspect) {

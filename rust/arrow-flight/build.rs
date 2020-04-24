@@ -15,7 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tonic_build::compile_protos("../../format/Flight.proto")?;
-    Ok(())
+use std::env;
+
+fn main() -> Result<(), String> {
+    // The current working directory can vary depending on how the project is being
+    // built or released so we build an absolute path to the proto file
+    let mut path = env::current_dir().map_err(|e| format!("{:?}", e))?;
+    loop {
+        // build path to format/Flight.proto
+        let mut flight_proto = path.clone();
+        flight_proto.push("format");
+        flight_proto.push("Flight.proto");
+
+        if flight_proto.exists() {
+            tonic_build::compile_protos(flight_proto).map_err(|e| format!("{:?}", e))?;
+            return Ok(());
+        }
+
+        if !path.pop() {
+            // reached root of file system
+            break;
+        }
+    }
+
+    Err("Failed to locate format/Flight.proto in any parent directory".to_string())
 }

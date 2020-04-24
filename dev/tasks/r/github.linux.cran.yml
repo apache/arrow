@@ -50,6 +50,9 @@ jobs:
           git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
           git -C arrow checkout FETCH_HEAD
           git -C arrow submodule update --init --recursive
+      - name: Free Up Disk Space
+        shell: bash
+        run: arrow/ci/scripts/util_cleanup.sh
       - name: Fetch Submodules and Tags
         shell: bash
         run: cd arrow && ci/scripts/util_checkout.sh
@@ -62,6 +65,5 @@ jobs:
       - name: Docker Run
         shell: bash
         run: cd arrow && docker-compose run r
-      - name: Dump install logs on failure
-        if: failure()
+      - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out

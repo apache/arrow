@@ -67,7 +67,7 @@ Status SelectionVector::PopulateFromBitMap(const uint8_t* bitmap, int64_t bitmap
 
       int64_t pos_in_bitmap = bitmap_idx * 64 + pos_in_word;
       if (pos_in_bitmap > max_bitmap_index) {
-        // the bitmap may be slighly larger for alignment/padding.
+        // the bitmap may be slightly larger for alignment/padding.
         break;
       }
 

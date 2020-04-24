@@ -100,3 +100,12 @@ test_that("Schema$Equals", {
   # Non-schema object
   expect_false(a$Equals(42))
 })
+
+test_that("unify_schemas", {
+  a <- schema(b = double(), c = bool())
+  z <- schema(b = double(), k = utf8())
+  expect_equal(
+    unify_schemas(a, z),
+    schema(b = double(), c = bool(), k = utf8())
+  )
+})

@@ -70,7 +70,7 @@ def _convert_typehint(tokens):
 
 def inspect_signature(obj):
     """
-    Custom signature inspection primarly for cython generated callables.
+    Custom signature inspection primarily for cython generated callables.
 
     Cython puts the signatures to the first line of the docstrings, which we
     can reuse to parse the python signature from, but some gymnastics are

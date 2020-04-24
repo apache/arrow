@@ -37,6 +37,9 @@ assert_is <- function(object, class) {
 
 assert_is_list_of <- function(object, class) {
   msg <- paste(substitute(object), "must be a list of", oxford_paste(class, "or"))
-  assert_that(is.list(object), msg = msg)
-  assert_that(all(map_lgl(object, ~inherits(., class))), msg = msg)
+  assert_that(is_list_of(object, class), msg = msg)
+}
+
+is_list_of <- function(object, class) {
+  is.list(object) && all(map_lgl(object, ~inherits(., class)))
 }

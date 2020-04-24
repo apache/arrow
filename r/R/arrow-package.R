@@ -16,8 +16,8 @@
 # under the License.
 
 #' @importFrom R6 R6Class
-#' @importFrom purrr map map_int map_lgl map_chr map2
-#' @importFrom assertthat assert_that
+#' @importFrom purrr as_mapper map map2 map_chr map_dfr map_int map_lgl
+#' @importFrom assertthat assert_that is.string
 #' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos eval_tidy new_data_mask syms env env_bind as_label set_names
 #' @importFrom Rcpp sourceCpp
 #' @importFrom tidyselect vars_select
