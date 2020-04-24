@@ -170,6 +170,8 @@ impl<'a> Position for Cursor<&'a mut Vec<u8>> {
 mod tests {
     use super::*;
 
+    use std::iter;
+
     use crate::util::test_common::{get_temp_file, get_test_file};
 
     #[test]
@@ -255,5 +257,39 @@ mod tests {
         chunk.read(&mut res[..]).unwrap();
 
         assert_eq!(res, vec![b'a', b'b', b'c', b'd', b'e', b'f', b'g']);
+    }
+
+    #[test]
+    fn test_io_large_read() {
+        // Generate repeated 'abcdef' pattern and write it into a file
+        let patterned_data: Vec<u8> =
+            iter::repeat(vec![b'a', b'b', b'c', b'd', b'e', b'f'])
+                .flatten()
+                .take(3 * DEFAULT_BUF_SIZE)
+                .collect();
+        let mut file = get_temp_file("file_sink_test", &patterned_data);
+
+        // seek the underlying file to the first 'd'
+        file.seek(SeekFrom::Start(3)).unwrap();
+
+        // create the FileSource reader that starts at pos 1 ('b')
+        let mut chunk = FileSource::new(&file, 1, patterned_data.len() - 1);
+
+        // read the 'b' at pos 1
+        let mut res = vec![0u8; 1];
+        chunk.read_exact(&mut res).unwrap();
+        assert_eq!(res, &[b'b']);
+
+        // the underlying file is seeked to 'e'
+        file.seek(SeekFrom::Start(4)).unwrap();
+
+        // now read large chunk that starts with 'c' (after 'b')
+        let mut res = vec![0u8; 2 * DEFAULT_BUF_SIZE];
+        chunk.read_exact(&mut res).unwrap();
+        assert_eq!(
+            res,
+            &patterned_data[2..2 + 2 * DEFAULT_BUF_SIZE],
+            "read buf should start with 'c' [99u8]"
+        );
     }
 }
