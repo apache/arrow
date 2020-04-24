@@ -111,7 +111,6 @@ impl<R: ParquetReader> Read for FileSource<R> {
         self.buf_pos = cmp::min(self.buf_pos + nread, self.buf_cap);
 
         self.start += nread as u64;
-        println!("{}", nread);
         Ok(nread)
     }
 }
@@ -255,8 +254,7 @@ mod tests {
 
         // Read data using file chunk
         let mut res = vec![0u8; 7];
-        let mut chunk =
-            FileSource::new(&file, 0, file.metadata().unwrap().len() as usize);
+        let mut chunk = FileSource::new(&file, 0, file.metadata().unwrap().len() as usize);
         chunk.read(&mut res[..]).unwrap();
 
         assert_eq!(res, vec![b'a', b'b', b'c', b'd', b'e', b'f', b'g']);
