@@ -167,6 +167,21 @@ pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
     /// ```
     fn append(&mut self, value: T::Native) -> Result<()>;
 
+    /// Appends a value of type `T` into the builder N times,
+    /// growing the internal buffer as needed.
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+    ///
+    /// let mut builder = UInt8BufferBuilder::new(10);
+    /// builder.append_n(10, 42);
+    ///
+    /// assert_eq!(builder.len(), 10);
+    /// ```
+    fn append_n(&mut self, n: usize, value: T::Native) -> Result<()>;
+
     /// Appends a slice of type `T`, growing the internal buffer as needed.
     ///
     /// # Example:
@@ -236,6 +251,14 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
         self.write_bytes(v.to_byte_slice(), 1)
     }
 
+    default fn append_n(&mut self, n: usize, v: T::Native) -> Result<()> {
+        self.reserve(n)?;
+        for _ in 0..n {
+            self.write_bytes(v.to_byte_slice(), 1)?;
+        }
+        Ok(())
+    }
+
     default fn append_slice(&mut self, slice: &[T::Native]) -> Result<()> {
         let array_slots = slice.len();
         self.reserve(array_slots)?;
@@ -294,10 +317,21 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
             // For performance the `len` of the buffer is not updated on each append but
             // is updated in the `freeze` method instead.
             unsafe {
-                bit_util::set_bit_raw(self.buffer.raw_data() as *mut u8, self.len);
+                bit_util::set_bit_raw(self.buffer.raw_data_mut(), self.len);
             }
         }
         self.len += 1;
+        Ok(())
+    }
+
+    fn append_n(&mut self, n: usize, v: bool) -> Result<()> {
+        self.reserve(n)?;
+        if v {
+            unsafe {
+                bit_util::set_bits_raw(self.buffer.raw_data_mut(), self.len, self.len + n)
+            }
+        }
+        self.len += n;
         Ok(())
     }
 
@@ -309,7 +343,7 @@ impl BufferBuilderTrait<BooleanType> for BufferBuilder<BooleanType> {
                 // updated on each append but is updated in the
                 // `freeze` method instead.
                 unsafe {
-                    bit_util::set_bit_raw(self.buffer.raw_data() as *mut u8, self.len);
+                    bit_util::set_bit_raw(self.buffer.raw_data_mut(), self.len);
                 }
             }
             self.len += 1;
@@ -438,7 +472,7 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
 
     /// Appends a slice of type `T` into the builder
     pub fn append_slice(&mut self, v: &[T::Native]) -> Result<()> {
-        self.bitmap_builder.append_slice(&vec![true; v.len()][..])?;
+        self.bitmap_builder.append_n(v.len(), true)?;
         self.values_builder.append_slice(v)?;
         Ok(())
     }
