@@ -130,6 +130,7 @@ namespace Apache.Arrow.Tests
                         .Build();
 
                     Assert.False(array.GetBoolean(0));
+                    Assert.Null(array.GetValue(0));
                     Assert.True(array.GetBoolean(7));
                 }
 
@@ -192,6 +193,7 @@ namespace Apache.Arrow.Tests
                         if (i != index)
                         {
                             Assert.False(array.GetBoolean(i));
+                            Assert.Null(array.GetValue(i));
                         }
                     }
                 }

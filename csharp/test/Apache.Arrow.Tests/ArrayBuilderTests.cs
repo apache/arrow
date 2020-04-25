@@ -56,6 +56,13 @@ namespace Apache.Arrow.Tests
         }
 
         [Fact]
+        public void BooleanArrayBuilderProducersExpectedArray()
+        {
+            TestArrayBuilder<BooleanArray, BooleanArray.Builder>(x => x.Append(true).Append(false).Append(true));
+            TestArrayBuilder<BooleanArray, BooleanArray.Builder>(x => x.Append(true).AppendNull().Append(false).Append(true), 4, 1);
+        }
+
+        [Fact]
         public void StringArrayBuilderHandlesNullsAndEmptyStrings()
         {
             TestArrayBuilder<StringArray, StringArray.Builder>(x => x.Append("123").Append(null).Append(null).Append(string.Empty), 4, 2);

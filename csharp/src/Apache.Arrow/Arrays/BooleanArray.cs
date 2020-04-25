@@ -30,12 +30,14 @@ namespace Apache.Arrow
 
             public int Length { get; protected set; }
             public int Capacity => BitUtility.ByteCount(ValueBuffer.Capacity);
+            public int NullCount { get; protected set; }
 
             public Builder()
             {
                 ValueBuffer = new ArrowBuffer.Builder<byte>();
                 ValidityBuffer = new ArrowBuffer.Builder<byte>();
                 Length = 0;
+                NullCount = 0;
             }
 
             public Builder Append(bool value)
@@ -51,11 +53,9 @@ namespace Apache.Arrow
                     ValueBuffer.Append(0);
                     ValidityBuffer.Append(0);
                 }
-                if (value.HasValue)
-                {
-                    BitUtility.SetBit(ValueBuffer.Span, Length, value.Value);
-                }
+                BitUtility.SetBit(ValueBuffer.Span, Length, value.GetValueOrDefault());
                 BitUtility.SetBit(ValidityBuffer.Span, Length, value.HasValue);
+                NullCount += value.HasValue ? 0 : 1;
                 Length++;
                 return this;
             }
@@ -86,8 +86,8 @@ namespace Apache.Arrow
             public BooleanArray Build(MemoryAllocator allocator = default)
             {
                 return new BooleanArray(
-                    ValueBuffer.Build(allocator), ArrowBuffer.Empty,
-                    Length, 0, 0);
+                    ValueBuffer.Build(allocator), ValidityBuffer.Build(allocator),
+                    Length, NullCount, 0);
             }
 
             public Builder Clear()
@@ -105,6 +105,7 @@ namespace Apache.Arrow
                 }
 
                 ValueBuffer.Reserve(BitUtility.ByteCount(capacity));
+                ValidityBuffer.Reserve(BitUtility.ByteCount(capacity));
                 return this;
             }
 
@@ -116,6 +117,7 @@ namespace Apache.Arrow
                 }
 
                 ValueBuffer.Resize(BitUtility.ByteCount(length));
+                ValidityBuffer.Resize(BitUtility.ByteCount(length));
                 Length = length;
                 return this;
             }
@@ -124,6 +126,7 @@ namespace Apache.Arrow
             {
                 CheckIndex(index);
                 BitUtility.ToggleBit(ValueBuffer.Span, index);
+                BitUtility.SetBit(ValidityBuffer.Span, index, true);
                 return this;
             }
 
@@ -131,6 +134,7 @@ namespace Apache.Arrow
             {
                 CheckIndex(index);
                 BitUtility.SetBit(ValueBuffer.Span, index);
+                BitUtility.SetBit(ValidityBuffer.Span, index, true);
                 return this;
             }
 
@@ -138,6 +142,7 @@ namespace Apache.Arrow
             {
                 CheckIndex(index);
                 BitUtility.SetBit(ValueBuffer.Span, index, value);
+                BitUtility.SetBit(ValidityBuffer.Span, index, true);
                 return this;
             }
 
@@ -146,9 +151,13 @@ namespace Apache.Arrow
                 CheckIndex(i);
                 CheckIndex(j);
                 var bi = BitUtility.GetBit(ValueBuffer.Span, i);
+                var biValid = BitUtility.GetBit(ValidityBuffer.Span, i);
                 var bj = BitUtility.GetBit(ValueBuffer.Span, j);
+                var bjValid = BitUtility.GetBit(ValidityBuffer.Span, j);
                 BitUtility.SetBit(ValueBuffer.Span, i, bj);
+                BitUtility.SetBit(ValidityBuffer.Span, i, bjValid);
                 BitUtility.SetBit(ValueBuffer.Span, j, bi);
+                BitUtility.SetBit(ValidityBuffer.Span, j, biValid);
                 return this;
             }
 
@@ -162,7 +171,9 @@ namespace Apache.Arrow
         }
 
         public ArrowBuffer ValueBuffer => Data.Buffers[1];
-        public ReadOnlySpan<byte> Values => ValueBuffer.Span.Slice(0, (int) Math.Ceiling(Length / 8.0));
+        public ReadOnlySpan<byte> Values => ValueBuffer.Span.Slice((int) Math.Floor(Offset / 8.0), (int) Math.Ceiling(Length / 8.0));
+
+        public ReadOnlySpan<byte> Nulls => NullBitmapBuffer.Span.Slice((int) Math.Floor(Offset / 8.0), (int) Math.Ceiling(Length / 8.0));
 
         public BooleanArray(
             ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
@@ -179,9 +190,17 @@ namespace Apache.Arrow
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
+        [Obsolete("GetBoolean does not support null values. Use GetValue instead (which this method invokes internally).")]
         public bool GetBoolean(int index)
         {
-            return BitUtility.GetBit(Values, index);
+            return GetValue(index).GetValueOrDefault();
+        }
+
+        public bool? GetValue(int index)
+        {
+            return BitUtility.GetBit(Nulls, Offset + index)
+                ? BitUtility.GetBit(Values, Offset + index)
+                : (bool?)null;
         }
     }
 }

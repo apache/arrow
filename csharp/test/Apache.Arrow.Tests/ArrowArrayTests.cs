@@ -128,6 +128,13 @@ namespace Apache.Arrow.Tests
         }
 
         [Fact]
+        public void SliceBooleanArray()
+        {
+            TestSlice<BooleanArray, BooleanArray.Builder>(x => x.Append(true).Append(false).Append(true));
+            TestSlice<BooleanArray, BooleanArray.Builder>(x => x.Append(true).Append(false).AppendNull().Append(true));
+        }
+
+        [Fact]
         public void SliceStringArrayWithNullsAndEmptyStrings()
         {
             TestSlice<StringArray, StringArray.Builder>(x => x.Append("10").AppendNull().Append("30"));
@@ -172,6 +179,7 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<Date64Array>,
             IArrowArrayVisitor<FloatArray>,
             IArrowArrayVisitor<DoubleArray>,
+            IArrowArrayVisitor<BooleanArray>,
             IArrowArrayVisitor<StringArray>
         {
             private readonly IArrowArray _baseArray;
@@ -211,6 +219,7 @@ namespace Apache.Arrow.Tests
             public void Visit(FloatArray array) => ValidateArrays(array);
             public void Visit(DoubleArray array) => ValidateArrays(array);
             public void Visit(StringArray array) => ValidateArrays(array);
+            public void Visit(BooleanArray array) => ValidateArrays(array);
 
             public void Visit(IArrowArray array) => throw new NotImplementedException();
 
@@ -226,6 +235,21 @@ namespace Apache.Arrow.Tests
                         .SequenceEqual(slicedArray.Values));
 
                 Assert.Equal(baseArray.GetValue(slicedArray.Offset), slicedArray.GetValue(0));
+            }
+
+            private void ValidateArrays(BooleanArray slicedArray)
+            {
+                Assert.IsAssignableFrom<BooleanArray>(_baseArray);
+                var baseArray = (BooleanArray)_baseArray;
+
+                Assert.True(baseArray.NullBitmapBuffer.Span.SequenceEqual(slicedArray.NullBitmapBuffer.Span));
+                Assert.True(baseArray.Values.SequenceEqual(slicedArray.Values));
+
+                Assert.True(
+                    baseArray.ValueBuffer.Span.Slice(0, (int) Math.Ceiling(slicedArray.Length / 8.0))
+                        .SequenceEqual(slicedArray.Values));
+
+                Assert.Equal(baseArray.GetBoolean(slicedArray.Offset), slicedArray.GetBoolean(0));
             }
 
             private void ValidateArrays(BinaryArray slicedArray)
