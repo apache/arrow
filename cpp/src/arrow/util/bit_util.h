@@ -586,6 +586,101 @@ class FirstTimeBitmapWriter {
     }
   }
 
+  /// Appends number_of_bits from word to valid_bits and valid_bits_offset.
+  ///
+  /// \param[in] word The LSB bitmap to append. Any bits past number_of_bits are assumed
+  ///            to be zero.
+  /// \param[in] number_of_bits The number of bits to append from word.
+  void AppendWord(uint64_t word, int64_t number_of_bits) {
+#if defined(ARROW_LITTLE_ENDIAN)
+    // Selection masks to retrieve all low order bits for each bytes.
+    constexpr uint64_t kLsbSelectionMasks[] = {
+        0,  // unused.
+        0x0101010101010101,
+        0x0303030303030303,
+        0x0707070707070707,
+        0x0F0F0F0F0F0F0F0F,
+        0x1F1F1F1F1F1F1F1F,
+        0x3F3F3F3F3F3F3F3F,
+        0x7F7F7F7F7F7F7F7F,
+    };
+    if (ARROW_PREDICT_FALSE(number_of_bits == 0)) {
+      return;
+    }
+
+    // Location that the first byte needs to be written to.
+    uint8_t* append_position = bitmap_ + byte_offset_;
+
+    // Update state variables except for current_byte_ here.
+    position_ += number_of_bits;
+    int64_t bit_offset = BitUtil::CountTrailingZeros(static_cast<uint32_t>(bit_mask_));
+    bit_mask_ = BitUtil::kBitmask[(bit_offset + number_of_bits) % 8];
+    byte_offset_ += (bit_offset + number_of_bits) / 8;
+
+    if (bit_offset != 0) {
+      // We are in the middle of the byte. This code updates the byte and shifts the word
+      // so trailing bits can be appended below.
+      int64_t bits_to_carry = 8 - bit_offset;
+      // Get the mask the will select the lower order bits  (the ones to carry
+      // over to the existing byte and shift up.
+      const uint64_t carry_mask = kLsbSelectionMasks[bits_to_carry];
+      // Mask to select non-carried bits.
+      const uint64_t non_carry_mask = ~carry_mask;
+
+      // valid bits should be a valid bitmask so all trailing bytes hsould be unset
+      // so no mask is need to start.
+      current_byte_ |= (((word & carry_mask) & 0xFF) << bit_offset);
+      if (ARROW_PREDICT_FALSE(number_of_bits < bits_to_carry)) {
+        return;
+      }
+      *append_position = current_byte_;
+      append_position++;
+
+      // We illustrate logic with a 3-byte example in little endian/LSB order
+      // (N indicates not set bit Y indicates a set bit).
+      // Note this ordering is the reversed from HEX masks above with are expressed
+      // big-endian/MSB and shifts right move the bits to the left (division).
+      // 0  1  2  3  4  5  6  7   8  9  10 11 12 13 14 15   16 17 18 19 20 21 22 23
+      // Assuming a bit-offset of 6 the non_carry_mask looks like:
+      // N  N  Y  Y  Y  Y  Y  Y   N  N   Y  Y  Y  Y  Y  Y    N  N  Y  Y  Y  Y  Y  Y
+      // So shifted_word should look like;
+      // 2  3  4  5  6  7  N  N   10 11 12 13 14 15  N  N   18 19 20 21 22 23  N  N
+      // clang-format on
+      uint64_t shifted_word = (word & non_carry_mask) >> bits_to_carry;
+      // captured_carry:
+      // 0  1  N  N  N  N  N  N   8  9  N  N  N   N  N  N   16 17  N  N  N  N  N  N
+      uint64_t captured_carry = carry_mask & word;
+      // mask_cary_bits:
+      // N  N  N  N  N  N  8  9   N  N  N  N  N   N 16 17    N  N   N  N  N  N  N  N
+      uint64_t mask_carry_bits = (captured_carry >> 8) << bit_offset;
+
+      word = shifted_word | mask_carry_bits;
+      number_of_bits -= bits_to_carry;
+    }
+
+    int64_t bytes_for_word = ::arrow::BitUtil::BytesForBits(number_of_bits);
+    std::memcpy(append_position, &word, bytes_for_word);
+    // At this point, we are guaranteed to have flushed the previous current_byte_ state.
+    // So the new state is either the last relevant byte in 'word'
+    // or zero if we happen to be at a fresh byte.
+    current_byte_ =
+        bit_mask_ != 0x1 ? *(reinterpret_cast<uint8_t*>(&word) + bytes_for_word - 1) : 0;
+
+#else  // big-endian
+    BitmapReader reader(reinterpret_cast<uint8_t*>(&word), 0, /*length=*/number_of_bits);
+    for (int x = 0; x < number_of_bits; x++) {
+      if (reader.IsSet()) {
+        Set();
+      } else {
+        Clear();
+      }
+      Next();
+      reader.Next();
+    }
+    return;
+#endif
+  }
+
   void Set() { current_byte_ |= bit_mask_; }
 
   void Clear() {}
@@ -602,7 +697,7 @@ class FirstTimeBitmapWriter {
   }
 
   void Finish() {
-    // Store current byte if we didn't went past bitmap storage
+    // Store current byte if we didn't go past bitmap storage
     if (length_ > 0 && (bit_mask_ != 0x01 || position_ < length_)) {
       bitmap_[byte_offset_] = current_byte_;
     }
