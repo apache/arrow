@@ -17,10 +17,13 @@
 
 <Project>
 
-  <Import Project="..\Directory.Build.props" />
-
+  <!-- The following works around https://github.com/dotnet/sourcelink/issues/572  -->
   <PropertyGroup>
-    <IsPackable>false</IsPackable>
+    <TargetFrameworkMonikerAssemblyAttributesPath>$([System.IO.Path]::Combine('$(IntermediateOutputPath)','$(TargetFrameworkMoniker).AssemblyAttributes$(DefaultLanguageSourceExtension)'))</TargetFrameworkMonikerAssemblyAttributesPath>
   </PropertyGroup>
-
+  <ItemGroup>
+    <EmbeddedFiles Include="$(GeneratedAssemblyInfoFile)"/>
+    <EmbeddedFiles Include="$(TargetFrameworkMonikerAssemblyAttributesPath)"/>
+  </ItemGroup>
+  
 </Project>
