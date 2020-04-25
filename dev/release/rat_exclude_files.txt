@@ -202,7 +202,6 @@ csharp/.gitattributes
 csharp/dummy.git/*
 csharp/src/Apache.Arrow/Flatbuf/*
 csharp/Apache.Arrow.sln
-csharp/Directory.Build.props
 csharp/examples/FluentBuilderExample/FluentBuilderExample.csproj
 csharp/examples/Examples.sln
 csharp/src/Apache.Arrow/Apache.Arrow.csproj
@@ -211,7 +210,6 @@ csharp/src/Apache.Arrow/Properties/Resources.resx
 csharp/test/Apache.Arrow.Benchmarks/Apache.Arrow.Benchmarks.csproj
 csharp/test/Apache.Arrow.Tests/Apache.Arrow.Tests.csproj
 csharp/test/Apache.Arrow.Tests/app.config
-csharp/test/Directory.Build.props
 *.html
 *.sgml
 *.css
