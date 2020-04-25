@@ -346,12 +346,12 @@ TEST(TestBufferedRowGroupWriter, DisabledDictionary) {
 }
 
 TEST(TestBufferedRowGroupWriter, MultiPageDisabledDictionary) {
-  const int VALUE_COUNT = 10000;
-  const int PAGE_SIZE = 16384;
+  constexpr int kValueCount = 10000;
+  constexpr int kPageSize = 16384;
   auto sink = CreateOutputStream();
   auto writer_props = parquet::WriterProperties::Builder()
                           .disable_dictionary()
-                          ->data_pagesize(PAGE_SIZE)
+                          ->data_pagesize(kPageSize)
                           ->build();
   schema::NodeVector fields;
   fields.push_back(
@@ -362,10 +362,10 @@ TEST(TestBufferedRowGroupWriter, MultiPageDisabledDictionary) {
   auto rg_writer = file_writer->AppendBufferedRowGroup();
   auto col_writer = static_cast<Int32Writer*>(rg_writer->column(0));
   std::vector<int32_t> values_in;
-  for (int i = 0; i < VALUE_COUNT; ++i) {
+  for (int i = 0; i < kValueCount; ++i) {
     values_in.push_back((i % 100) + 1);
   }
-  col_writer->WriteBatch(VALUE_COUNT, nullptr, nullptr, values_in.data());
+  col_writer->WriteBatch(kValueCount, nullptr, nullptr, values_in.data());
   rg_writer->Close();
   file_writer->Close();
   PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
@@ -374,17 +374,17 @@ TEST(TestBufferedRowGroupWriter, MultiPageDisabledDictionary) {
   auto file_reader = ParquetFileReader::Open(source);
   auto file_metadata = file_reader->metadata();
   ASSERT_EQ(1, file_reader->metadata()->num_row_groups());
-  std::vector<int32_t> values_out(VALUE_COUNT);
+  std::vector<int32_t> values_out(kValueCount);
   for (int r = 0; r < file_metadata->num_row_groups(); ++r) {
     auto rg_reader = file_reader->RowGroup(r);
     ASSERT_EQ(1, rg_reader->metadata()->num_columns());
-    ASSERT_EQ(VALUE_COUNT, rg_reader->metadata()->num_rows());
+    ASSERT_EQ(kValueCount, rg_reader->metadata()->num_rows());
     int64_t total_values_read = 0;
     std::shared_ptr<parquet::ColumnReader> col_reader;
     ASSERT_NO_THROW(col_reader = rg_reader->Column(0));
     parquet::Int32Reader* int32_reader =
         static_cast<parquet::Int32Reader*>(col_reader.get());
-    int64_t vn = VALUE_COUNT;
+    int64_t vn = kValueCount;
     int32_t* vx = values_out.data();
     while (int32_reader->HasNext()) {
       int64_t values_read;
@@ -393,7 +393,7 @@ TEST(TestBufferedRowGroupWriter, MultiPageDisabledDictionary) {
       vx += values_read;
       total_values_read += values_read;
     }
-    ASSERT_EQ(VALUE_COUNT, total_values_read);
+    ASSERT_EQ(kValueCount, total_values_read);
     ASSERT_EQ(values_in, values_out);
   }
 }
