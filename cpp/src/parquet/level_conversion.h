@@ -38,6 +38,7 @@ void PARQUET_EXPORT DefinitionLevelsToBitmap(
 // They currently represent minimal functionality for vectorized computation of definition
 // levels.
 
+#if defined(ARROW_LITTLE_ENDIAN)
 /// Builds a bitmap by applying predicate to the level vector provided.
 ///
 /// \param[in] levels Rep or def level array.
@@ -48,8 +49,6 @@ void PARQUET_EXPORT DefinitionLevelsToBitmap(
 ///
 /// N.B. Correct byte ordering is dependent on little-endian architectures.
 ///
-
-#if defined(ARROW_LITTLE_ENDIAN)
 template <typename Predicate>
 uint64_t LevelsToBitmap(const int16_t* levels, int64_t num_levels, Predicate predicate) {
   // Both clang and GCC can vectorize this automatically with SSE4/AVX2.
