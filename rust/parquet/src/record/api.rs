@@ -126,29 +126,35 @@ pub trait RowFormatter {
 /// Macro to generate type-safe get_xxx methods for primitive types,
 /// e.g. `get_bool`, `get_short`.
 macro_rules! row_primitive_accessor {
-  ($METHOD:ident, $VARIANT:ident, $TY:ty) => {
-    fn $METHOD(&self, i: usize) -> Result<$TY> {
-      match self.fields[i].1 {
-        Field::$VARIANT(v) => Ok(v),
-        _ => Err(general_err!("Cannot access {} as {}",
-          self.fields[i].1.get_type_name(), stringify!($VARIANT)))
-      }
-    }
-  }
+    ($METHOD:ident, $VARIANT:ident, $TY:ty) => {
+        fn $METHOD(&self, i: usize) -> Result<$TY> {
+            match self.fields[i].1 {
+                Field::$VARIANT(v) => Ok(v),
+                _ => Err(general_err!(
+                    "Cannot access {} as {}",
+                    self.fields[i].1.get_type_name(),
+                    stringify!($VARIANT)
+                )),
+            }
+        }
+    };
 }
 
 /// Macro to generate type-safe get_xxx methods for reference types,
 /// e.g. `get_list`, `get_map`.
 macro_rules! row_complex_accessor {
-  ($METHOD:ident, $VARIANT:ident, $TY:ty) => {
-    fn $METHOD(&self, i: usize) -> Result<&$TY> {
-      match self.fields[i].1 {
-        Field::$VARIANT(ref v) => Ok(v),
-        _ => Err(general_err!("Cannot access {} as {}",
-          self.fields[i].1.get_type_name(), stringify!($VARIANT)))
-      }
-    }
-  }
+    ($METHOD:ident, $VARIANT:ident, $TY:ty) => {
+        fn $METHOD(&self, i: usize) -> Result<&$TY> {
+            match self.fields[i].1 {
+                Field::$VARIANT(ref v) => Ok(v),
+                _ => Err(general_err!(
+                    "Cannot access {} as {}",
+                    self.fields[i].1.get_type_name(),
+                    stringify!($VARIANT)
+                )),
+            }
+        }
+    };
 }
 
 impl RowFormatter for Row {
@@ -265,33 +271,35 @@ pub trait ListAccessor {
 /// Macro to generate type-safe get_xxx methods for primitive types,
 /// e.g. get_bool, get_short
 macro_rules! list_primitive_accessor {
-  ($METHOD:ident, $VARIANT:ident, $TY:ty) => {
-    fn $METHOD(&self, i: usize) -> Result<$TY> {
-      match self.elements[i] {
-        Field::$VARIANT(v) => Ok(v),
-        _ => Err(general_err!(
-          "Cannot access {} as {}",
-          self.elements[i].get_type_name(), stringify!($VARIANT))
-        )
-      }
-    }
-  }
+    ($METHOD:ident, $VARIANT:ident, $TY:ty) => {
+        fn $METHOD(&self, i: usize) -> Result<$TY> {
+            match self.elements[i] {
+                Field::$VARIANT(v) => Ok(v),
+                _ => Err(general_err!(
+                    "Cannot access {} as {}",
+                    self.elements[i].get_type_name(),
+                    stringify!($VARIANT)
+                )),
+            }
+        }
+    };
 }
 
 /// Macro to generate type-safe get_xxx methods for reference types
 /// e.g. get_list, get_map
 macro_rules! list_complex_accessor {
-  ($METHOD:ident, $VARIANT:ident, $TY:ty) => {
-    fn $METHOD(&self, i: usize) -> Result<&$TY> {
-      match self.elements[i] {
-        Field::$VARIANT(ref v) => Ok(v),
-        _ => Err(general_err!(
-          "Cannot access {} as {}",
-          self.elements[i].get_type_name(), stringify!($VARIANT))
-        )
-      }
-    }
-  }
+    ($METHOD:ident, $VARIANT:ident, $TY:ty) => {
+        fn $METHOD(&self, i: usize) -> Result<&$TY> {
+            match self.elements[i] {
+                Field::$VARIANT(ref v) => Ok(v),
+                _ => Err(general_err!(
+                    "Cannot access {} as {}",
+                    self.elements[i].get_type_name(),
+                    stringify!($VARIANT)
+                )),
+            }
+        }
+    };
 }
 
 impl ListAccessor for List {
@@ -366,17 +374,18 @@ struct MapList<'a> {
 /// Macro to generate type-safe get_xxx methods for primitive types,
 /// e.g. get_bool, get_short
 macro_rules! map_list_primitive_accessor {
-  ($METHOD:ident, $VARIANT:ident, $TY:ty) => {
-    fn $METHOD(&self, i: usize) -> Result<$TY> {
-      match self.elements[i] {
-        Field::$VARIANT(v) => Ok(*v),
-        _ => Err(general_err!(
-          "Cannot access {} as {}",
-          self.elements[i].get_type_name(), stringify!($VARIANT))
-        )
-      }
-    }
-  }
+    ($METHOD:ident, $VARIANT:ident, $TY:ty) => {
+        fn $METHOD(&self, i: usize) -> Result<$TY> {
+            match self.elements[i] {
+                Field::$VARIANT(v) => Ok(*v),
+                _ => Err(general_err!(
+                    "Cannot access {} as {}",
+                    self.elements[i].get_type_name(),
+                    stringify!($VARIANT)
+                )),
+            }
+        }
+    };
 }
 
 impl<'a> ListAccessor for MapList<'a> {
