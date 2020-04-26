@@ -24,6 +24,10 @@ import io.netty.buffer.ArrowBuf;
 /**
  * Integration test for large (more than 2GB) {@link io.netty.buffer.ArrowBuf}.
  * To run this test, please make sure there is at least 4GB memory in the system.
+ * <p>
+ *   Please note that this is not a standard test case, so please run it by manually invoking the
+ *   main method.
+ * </p>
  */
 public class TestLargeArrowBuf {
 

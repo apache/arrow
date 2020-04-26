@@ -35,19 +35,7 @@ public class NettyAllocationManager extends AllocationManager {
    * {@link PooledByteBufAllocatorL} APIs,
    * otherwise, we will use {@link PlatformDependent} APIs.
    */
-  public static final long DEFAULT_ALLOCATION_CUTOFF_VALUE;
-
-  public static final String DEFAULT_ALLOCATION_CUTOFF_NAME = "default.allocation.cutoff.name";
-
-  static {
-    long cutOffValue;
-    try {
-      cutOffValue = Long.parseLong(System.getProperty(DEFAULT_ALLOCATION_CUTOFF_NAME));
-    } catch (Exception e) {
-      cutOffValue = Integer.MAX_VALUE;
-    }
-    DEFAULT_ALLOCATION_CUTOFF_VALUE = cutOffValue;
-  }
+  public static final int DEFAULT_ALLOCATION_CUTOFF_VALUE = Integer.MAX_VALUE;
 
   private static final PooledByteBufAllocatorL INNER_ALLOCATOR = new PooledByteBufAllocatorL();
   static final UnsafeDirectLittleEndian EMPTY = INNER_ALLOCATOR.empty;
@@ -60,13 +48,10 @@ public class NettyAllocationManager extends AllocationManager {
   /**
    * The cut-off value for switching allocation strategies.
    */
-  private final long allocationCutOffValue;
+  private final int allocationCutOffValue;
 
-  NettyAllocationManager(BaseAllocator accountingAllocator, long requestedSize, long allocationCutOffValue) {
+  NettyAllocationManager(BaseAllocator accountingAllocator, long requestedSize, int allocationCutOffValue) {
     super(accountingAllocator);
-    if (allocationCutOffValue > Integer.MAX_VALUE) {
-      throw new IllegalArgumentException("The cut-off value cannot be larger than Integer.MAX_VALUE");
-    }
     this.allocationCutOffValue = allocationCutOffValue;
 
     if (requestedSize > allocationCutOffValue) {
@@ -93,7 +78,7 @@ public class NettyAllocationManager extends AllocationManager {
    */
   @Deprecated
   UnsafeDirectLittleEndian getMemoryChunk() {
-    return allocatedSize > allocationCutOffValue ? null : memoryChunk;
+    return memoryChunk;
   }
 
   @Override
@@ -103,7 +88,7 @@ public class NettyAllocationManager extends AllocationManager {
 
   @Override
   protected void release0() {
-    if (allocatedSize > allocationCutOffValue) {
+    if (memoryChunk == null) {
       PlatformDependent.freeMemory(allocatedAddress);
     } else {
       memoryChunk.release();

@@ -31,6 +31,15 @@ import io.netty.buffer.ArrowBuf;
  */
 public class TestNettyAllocationManager {
 
+  static int CUSTOMIZED_ALLOCATION_CUTOFF_VALUE = 1024;
+
+  private BaseAllocator createCustomizedAllocator() {
+    return new RootAllocator(BaseAllocator.configBuilder()
+        .allocationManagerFactory((accountingAllocator, requestedSize) ->
+            new NettyAllocationManager(
+                accountingAllocator, requestedSize, CUSTOMIZED_ALLOCATION_CUTOFF_VALUE)).build());
+  }
+
   private void readWriteArrowBuf(ArrowBuf buffer) {
     // write buffer
     for (long i = 0; i < buffer.capacity() / 8; i++) {
@@ -49,11 +58,9 @@ public class TestNettyAllocationManager {
    */
   @Test
   public void testSmallBufferAllocation() {
-    final long bufSize = 512L;
-    try (RootAllocator allocator = new RootAllocator(bufSize);
+    final long bufSize = CUSTOMIZED_ALLOCATION_CUTOFF_VALUE - 512L;
+    try (BaseAllocator allocator = createCustomizedAllocator();
          ArrowBuf buffer = allocator.buffer(bufSize)) {
-      // make sure the buffer is small enough, so we wil use the allocation strategy for small buffers
-      assertTrue(bufSize < NettyAllocationManager.DEFAULT_ALLOCATION_CUTOFF_VALUE);
 
       assertTrue(buffer.getReferenceManager() instanceof BufferLedger);
       BufferLedger bufferLedger = (BufferLedger) buffer.getReferenceManager();
@@ -75,12 +82,9 @@ public class TestNettyAllocationManager {
    */
   @Test
   public void testLargeBufferAllocation() {
-    final long bufSize = 2048L;
-    try (RootAllocator allocator = new RootAllocator(bufSize);
+    final long bufSize = CUSTOMIZED_ALLOCATION_CUTOFF_VALUE + 1024L;
+    try (BaseAllocator allocator = createCustomizedAllocator();
          ArrowBuf buffer = allocator.buffer(bufSize)) {
-      // make sure the buffer is large enough, so we wil use the allocation strategy for large buffers
-      assertTrue(bufSize > NettyAllocationManager.DEFAULT_ALLOCATION_CUTOFF_VALUE);
-
       assertTrue(buffer.getReferenceManager() instanceof BufferLedger);
       BufferLedger bufferLedger = (BufferLedger) buffer.getReferenceManager();
 
