@@ -30,7 +30,6 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
-import org.apache.arrow.vector.util.ValueVectorUtility;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -266,8 +265,4 @@ public abstract class ExtensionTypeVector<T extends BaseValueVector & FieldVecto
     return getUnderlyingVector().accept(visitor, value);
   }
 
-  @Override
-  public void validate() {
-    ValueVectorUtility.validate(getUnderlyingVector());
-  }
 }

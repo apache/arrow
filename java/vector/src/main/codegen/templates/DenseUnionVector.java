@@ -64,7 +64,6 @@ import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.util.ValueVectorUtility;
 
 import static org.apache.arrow.vector.types.UnionMode.Dense;
 
@@ -918,11 +917,6 @@ public class DenseUnionVector implements FieldVector {
   @Override
   public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
     return visitor.visit(this, value);
-  }
-
-  @Override
-  public void validate() {
-    ValueVectorUtility.validate(this);
   }
 
   @Override

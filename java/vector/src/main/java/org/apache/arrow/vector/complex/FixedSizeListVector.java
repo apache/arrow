@@ -57,7 +57,6 @@ import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 import org.apache.arrow.vector.util.TransferPair;
-import org.apache.arrow.vector.util.ValueVectorUtility;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -553,11 +552,6 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
   @Override
   public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
     return visitor.visit(this, value);
-  }
-
-  @Override
-  public void validate() {
-    ValueVectorUtility.validate(this);
   }
 
   @Override

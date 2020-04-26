@@ -124,10 +124,6 @@ public class ValueVectorUtility {
       }
     }
 
-    if (vector.getNullCount() > vector.getValueCount()) {
-      throw new RuntimeException("Null count exceeds array length");
-    }
-
     ValidateVectorVisitor visitor = new ValidateVectorVisitor();
     vector.accept(visitor, null);
   }

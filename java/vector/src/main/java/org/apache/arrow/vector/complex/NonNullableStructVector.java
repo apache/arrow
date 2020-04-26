@@ -43,7 +43,6 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.TransferPair;
-import org.apache.arrow.vector.validate.ValidateVectorVisitor;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -320,20 +319,6 @@ public class NonNullableStructVector extends AbstractStructVector {
   @Override
   public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
     return visitor.visit(this, value);
-  }
-
-  @Override
-  public void validate() {
-    if (getValueCount() < 0) {
-      throw new RuntimeException("vector valueCount is negative");
-    }
-
-    if (getNullCount() > getValueCount()) {
-      throw new RuntimeException("Null count exceeds vector valueCount");
-    }
-
-    ValidateVectorVisitor visitor = new ValidateVectorVisitor();
-    this.accept(visitor, null);
   }
 
   @Override

@@ -284,9 +284,4 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    */
   String getName();
 
-  /**
-   * Validate the vector, will throw exception if validate fail.
-   */
-  void validate();
-
 }

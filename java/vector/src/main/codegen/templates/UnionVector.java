@@ -56,7 +56,6 @@ import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.util.ValueVectorUtility;
 
 import static org.apache.arrow.vector.types.UnionMode.Sparse;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
@@ -747,11 +746,6 @@ public class UnionVector implements FieldVector {
     @Override
     public String getName() {
       return name;
-    }
-
-    @Override
-    public void validate() {
-      ValueVectorUtility.validate(this);
     }
 
     @Override

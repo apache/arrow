@@ -18,6 +18,7 @@
 package org.apache.arrow.vector.validate;
 
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
+import static org.apache.arrow.vector.util.ValueVectorUtility.validate;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -68,13 +69,13 @@ public class TestValidateVectorVisitor {
   @Test
   public void testBaseFixedWidthVector() {
     try (final IntVector vector = new IntVector("v", allocator)) {
-      vector.validate();
+      validate(vector);
       setVector(vector, 1, 2, 3);
-      vector.validate();
+      validate(vector);
 
       vector.getDataBuffer().capacity(0);
       RuntimeException e = assertThrows(RuntimeException.class,
-          () -> vector.validate());
+          () -> validate(vector));
       assertTrue(e.getMessage().contains("Buffer #1 too small in vector of type"));
     }
   }
@@ -82,13 +83,13 @@ public class TestValidateVectorVisitor {
   @Test
   public void testBaseVariableWidthVector() {
     try (final VarCharVector vector = new VarCharVector("v", allocator)) {
-      vector.validate();
+      validate(vector);
       setVector(vector, STR1, STR2, STR3);
-      vector.validate();
+      validate(vector);
 
       vector.getDataBuffer().capacity(0);
       RuntimeException e = assertThrows(RuntimeException.class,
-          () -> vector.validate());
+          () -> validate(vector));
       assertTrue(e.getMessage().contains("Buffer #2 too small in vector of type"));
     }
   }
@@ -96,13 +97,13 @@ public class TestValidateVectorVisitor {
   @Test
   public void testListVector() {
     try (final ListVector vector = ListVector.empty("v", allocator)) {
-      vector.validate();
+      validate(vector);
       setVector(vector, Arrays.asList(1,2,3), Arrays.asList(4, 5));
-      vector.validate();
+      validate(vector);
 
       vector.getDataVector().setValueCount(3);
       RuntimeException e = assertThrows(RuntimeException.class,
-          () -> vector.validate());
+          () -> validate(vector));
       assertEquals("Length spanned by list offsets (5) larger than data vector valueCount (length 3)",
           e.getMessage());
     }
@@ -111,13 +112,13 @@ public class TestValidateVectorVisitor {
   @Test
   public void testFixedSizeListVector() {
     try (final FixedSizeListVector vector = FixedSizeListVector.empty("v", 3, allocator)) {
-      vector.validate();
+      validate(vector);
       setVector(vector, Arrays.asList(1,2,3), Arrays.asList(4, 5, 6));
-      vector.validate();
+      validate(vector);
 
       vector.getDataVector().setValueCount(3);
       RuntimeException e = assertThrows(RuntimeException.class,
-          () -> vector.validate());
+          () -> validate(vector));
       assertEquals("data vector valueCount invalid, expect 6, actual is: 3",
           e.getMessage());
     }
@@ -129,7 +130,7 @@ public class TestValidateVectorVisitor {
       vector.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
       vector.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
 
-      vector.validate();
+      validate(vector);
 
       NullableStructWriter writer = vector.getWriter();
       writer.allocate();
@@ -143,15 +144,15 @@ public class TestValidateVectorVisitor {
 
       vector.getChild("f0").setValueCount(2);
       RuntimeException e = assertThrows(RuntimeException.class,
-          () -> vector.validate());
+          () -> validate(vector));
       assertTrue(e.getMessage().contains("valueCount is not equals with struct vector"));
 
       vector.getChild("f0").setValueCount(5);
-      vector.validate();
+      validate(vector);
 
       vector.getChild("f0").getDataBuffer().capacity(0);
       RuntimeException e2 = assertThrows(RuntimeException.class,
-          () -> vector.validate());
+          () -> validate(vector));
       assertTrue(e2.getMessage().contains("valueBuffer is null or capacity is 0"));
     }
   }
@@ -159,7 +160,7 @@ public class TestValidateVectorVisitor {
   @Test
   public void testUnionVector() {
     try (final UnionVector vector = UnionVector.empty("union", allocator)) {
-      vector.validate();
+      validate(vector);
 
       final NullableFloat4Holder float4Holder = new NullableFloat4Holder();
       float4Holder.value = 1.01f;
@@ -175,19 +176,19 @@ public class TestValidateVectorVisitor {
       vector.setSafe(1, float8Holder);
       vector.setValueCount(2);
 
-      vector.validate();
+      validate(vector);
 
       vector.getChildrenFromFields().get(0).setValueCount(1);
       RuntimeException e1 = assertThrows(RuntimeException.class,
-          () -> vector.validate());
+          () -> validate(vector));
       assertTrue(e1.getMessage().contains("valueCount is not equals with union vector"));
 
       vector.getChildrenFromFields().get(0).setValueCount(2);
-      vector.validate();
+      validate(vector);
 
       vector.getChildrenFromFields().get(0).getDataBuffer().capacity(0);
       RuntimeException e2 = assertThrows(RuntimeException.class,
-          () -> vector.validate());
+          () -> validate(vector));
       assertTrue(e2.getMessage().contains("valueBuffer is null or capacity is 0"));
     }
   }
@@ -195,7 +196,7 @@ public class TestValidateVectorVisitor {
   @Test
   public void testDenseUnionVector() {
     try (final DenseUnionVector vector = DenseUnionVector.empty("union", allocator)) {
-      vector.validate();
+      validate(vector);
 
       final NullableFloat4Holder float4Holder = new NullableFloat4Holder();
       float4Holder.value = 1.01f;
@@ -214,11 +215,11 @@ public class TestValidateVectorVisitor {
       vector.setSafe(1, float8Holder);
       vector.setValueCount(2);
 
-      vector.validate();
+      validate(vector);
 
       vector.getChildrenFromFields().get(0).getDataBuffer().capacity(0);
       RuntimeException e = assertThrows(RuntimeException.class,
-          () -> vector.validate());
+          () -> validate(vector));
       assertTrue(e.getMessage().contains("valueBuffer is null or capacity is 0"));
     }
   }
