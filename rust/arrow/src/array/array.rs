@@ -444,25 +444,22 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
 
     /// Returns a raw pointer to the values of this array.
     pub fn raw_values(&self) -> *const T::Native {
-        unsafe {
-            mem::transmute(self.raw_values.get().offset(self.data.offset() as isize))
-        }
+        unsafe { self.raw_values.get().add(self.data.offset()) }
     }
 
     /// Returns the primitive value at index `i`.
     ///
     /// Note this doesn't do any bound checking, for performance reason.
     pub fn value(&self, i: usize) -> T::Native {
-        unsafe { *(self.raw_values().offset(i as isize)) }
+        unsafe { *(self.raw_values().add(i)) }
     }
 
     /// Returns a slice for the given offset and length
     ///
     /// Note this doesn't do any bound checking, for performance reason.
     pub fn value_slice(&self, offset: usize, len: usize) -> &[T::Native] {
-        let raw = unsafe {
-            std::slice::from_raw_parts(self.raw_values().offset(offset as isize), len)
-        };
+        let raw =
+            unsafe { std::slice::from_raw_parts(self.raw_values().add(offset), len) };
         &raw[..]
     }
 
@@ -711,9 +708,9 @@ macro_rules! def_numeric_from_vec {
                             bit_util::set_bit(null_slice, i);
                             // unwrap() in the following should be safe here since we've
                             // made sure enough space is allocated for the values.
-                            val_buf.write(&n.to_byte_slice()).unwrap();
+                            val_buf.write_all(&n.to_byte_slice()).unwrap();
                         } else {
-                            val_buf.write(&null).unwrap();
+                            val_buf.write_all(&null).unwrap();
                         }
                     }
                 }
@@ -818,9 +815,9 @@ impl<T: ArrowTimestampType> PrimitiveArray<T> {
                     bit_util::set_bit(null_slice, i);
                     // unwrap() in the following should be safe here since we've
                     // made sure enough space is allocated for the values.
-                    val_buf.write(&n.to_byte_slice()).unwrap();
+                    val_buf.write_all(&n.to_byte_slice()).unwrap();
                 } else {
-                    val_buf.write(&null).unwrap();
+                    val_buf.write_all(&null).unwrap();
                 }
             }
         }
@@ -986,7 +983,7 @@ impl ListArray {
 
     #[inline]
     fn value_offset_at(&self, i: usize) -> i32 {
-        unsafe { *self.value_offsets.get().offset(i as isize) }
+        unsafe { *self.value_offsets.get().add(i) }
     }
 }
 
@@ -1014,7 +1011,7 @@ impl From<ArrayDataRef> for ListArray {
             assert_eq!(*value_offsets.offset(0), 0, "offsets do not start at zero");
         }
         Self {
-            data: data.clone(),
+            data,
             values,
             value_offsets: RawPtrBox::new(value_offsets),
         }
@@ -1043,24 +1040,24 @@ where
 {
     for i in 0..std::cmp::min(10, array.len()) {
         if array.is_null(i) {
-            write!(f, "  null,\n")?;
+            writeln!(f, "  null,")?;
         } else {
             write!(f, "  ")?;
             print_item(&array, i, f)?;
-            write!(f, ",\n")?;
+            writeln!(f, ",")?;
         }
     }
     if array.len() > 10 {
         if array.len() > 20 {
-            write!(f, "  ...{} elements...,\n", array.len() - 20)?;
+            writeln!(f, "  ...{} elements...,", array.len() - 20)?;
         }
         for i in array.len() - 10..array.len() {
             if array.is_null(i) {
-                write!(f, "  null,\n")?;
+                writeln!(f, "  null,")?;
             } else {
                 write!(f, "  ")?;
                 print_item(&array, i, f)?;
-                write!(f, ",\n")?;
+                writeln!(f, ",")?;
             }
         }
     }
@@ -1154,7 +1151,7 @@ impl From<ArrayDataRef> for FixedSizeListArray {
             }
         };
         Self {
-            data: data.clone(),
+            data,
             values,
             length,
         }
@@ -1249,7 +1246,7 @@ impl BinaryArray {
 
     #[inline]
     fn value_offset_at(&self, i: usize) -> i32 {
-        unsafe { *self.value_offsets.get().offset(i as isize) }
+        unsafe { *self.value_offsets.get().add(i) }
     }
 }
 
@@ -1298,7 +1295,7 @@ impl StringArray {
 
     #[inline]
     fn value_offset_at(&self, i: usize) -> i32 {
-        unsafe { *self.value_offsets.get().offset(i as isize) }
+        unsafe { *self.value_offsets.get().add(i) }
     }
 }
 
@@ -1360,7 +1357,7 @@ impl From<ArrayDataRef> for BinaryArray {
         );
         let value_data = data.buffers()[1].raw_data();
         Self {
-            data: data.clone(),
+            data,
             value_offsets: RawPtrBox::new(raw_value_offsets as *const i32),
             value_data: RawPtrBox::new(value_data),
         }
@@ -1381,7 +1378,7 @@ impl From<ArrayDataRef> for StringArray {
         );
         let value_data = data.buffers()[1].raw_data();
         Self {
-            data: data.clone(),
+            data,
             value_offsets: RawPtrBox::new(raw_value_offsets as *const i32),
             value_data: RawPtrBox::new(value_data),
         }
@@ -1401,7 +1398,7 @@ impl From<ArrayDataRef> for FixedSizeBinaryArray {
             _ => panic!("Expected data type to be FixedSizeBinary"),
         };
         Self {
-            data: data.clone(),
+            data,
             value_data: RawPtrBox::new(value_data),
             length,
         }
@@ -1739,15 +1736,15 @@ impl fmt::Debug for StructArray {
         write!(f, "StructArray\n[\n")?;
         for (child_index, name) in self.column_names().iter().enumerate() {
             let column = self.column(child_index);
-            write!(
+            writeln!(
                 f,
-                "-- child {}: \"{}\" ({:?})\n",
+                "-- child {}: \"{}\" ({:?})",
                 child_index,
                 name,
                 column.data_type()
             )?;
             fmt::Debug::fmt(column, f)?;
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
         write!(f, "]")
     }
@@ -1841,7 +1838,7 @@ where
             Some(None)
         } else {
             self.i += 1;
-            unsafe { Some(Some((&*self.ptr.offset(i as isize)).clone())) }
+            unsafe { Some(Some((&*self.ptr.add(i)).clone())) }
         }
     }
 
@@ -1859,7 +1856,7 @@ where
             Some(None)
         } else {
             self.i += n + 1;
-            unsafe { Some(Some((&*self.ptr.offset((i + n) as isize)).clone())) }
+            unsafe { Some(Some((&*self.ptr.add(i + n)).clone())) }
         }
     }
 }
@@ -1869,7 +1866,7 @@ impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
     pub fn keys(&self) -> NullableIter<'_, K::Native> {
         NullableIter::<'_, K::Native> {
             data: &self.data,
-            ptr: unsafe { self.raw_values.get().offset(self.data.offset() as isize) },
+            ptr: unsafe { self.raw_values.get().add(self.data.offset()) },
             i: 0,
             len: self.data.len(),
         }
@@ -1924,14 +1921,15 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for DictionaryArray<T> {
         let raw_values = data.buffers()[0].raw_data();
         let dtype: &DataType = data.data_type();
         let values = make_array(data.child_data()[0].clone());
-        match dtype {
-            DataType::Dictionary(_, _) => Self {
+        if let DataType::Dictionary(_, _) = dtype {
+            Self {
                 data,
                 raw_values: RawPtrBox::new(raw_values as *const T::Native),
                 values,
                 is_ordered: false,
-            },
-            _ => panic!("DictionaryArray must have Dictionary data type."),
+            }
+        } else {
+            panic!("DictionaryArray must have Dictionary data type.")
         }
     }
 }
@@ -2007,9 +2005,9 @@ impl<T: ArrowPrimitiveType> fmt::Debug for DictionaryArray<T> {
         } else {
             ""
         };
-        write!(
+        writeln!(
             f,
-            "DictionaryArray {{keys: {:?}{} values: {:?}}}\n",
+            "DictionaryArray {{keys: {:?}{} values: {:?}}}",
             keys, elipsis, self.values
         )
     }

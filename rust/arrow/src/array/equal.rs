@@ -113,12 +113,11 @@ impl ArrayEqual for BooleanArray {
 
         // TODO: we can do this more efficiently if all values are not-null
         for i in 0..self.len() {
-            if self.is_valid(i) {
-                if bit_util::get_bit(values, i + self.offset())
+            if self.is_valid(i)
+                && bit_util::get_bit(values, i + self.offset())
                     != bit_util::get_bit(other_values, i + other.offset())
-                {
-                    return false;
-                }
+            {
+                return false;
             }
         }
 
@@ -730,7 +729,7 @@ fn value_offset_equal<T: Array + ListArrayOps>(this: &T, other: &T) -> bool {
     }
 
     // The expensive case
-    for i in 0..this.len() + 1 {
+    for i in 0..=this.len() {
         if this.value_offset_at(i) - this.value_offset_at(0)
             != other.value_offset_at(i) - other.value_offset_at(0)
         {
@@ -761,12 +760,10 @@ impl<T: ArrowPrimitiveType> JsonEqual for PrimitiveArray<T> {
             return false;
         }
 
-        let result = (0..self.len()).all(|i| match json[i] {
+        (0..self.len()).all(|i| match json[i] {
             Value::Null => self.is_null(i),
             v => self.is_valid(i) && Some(v) == self.value(i).into_json_value().as_ref(),
-        });
-
-        result
+        })
     }
 }
 
@@ -794,13 +791,11 @@ impl JsonEqual for ListArray {
             return false;
         }
 
-        let result = (0..self.len()).all(|i| match json[i] {
+        (0..self.len()).all(|i| match json[i] {
             Value::Array(v) => self.is_valid(i) && self.value(i).equals_json_values(v),
             Value::Null => self.is_null(i) || self.value_length(i) == 0,
             _ => false,
-        });
-
-        result
+        })
     }
 }
 
@@ -858,13 +853,11 @@ impl JsonEqual for FixedSizeListArray {
             return false;
         }
 
-        let result = (0..self.len()).all(|i| match json[i] {
+        (0..self.len()).all(|i| match json[i] {
             Value::Array(v) => self.is_valid(i) && self.value(i).equals_json_values(v),
             Value::Null => self.is_null(i) || self.value_length() == 0,
             _ => false,
-        });
-
-        result
+        })
     }
 }
 
@@ -916,7 +909,7 @@ impl JsonEqual for StructArray {
             }
         }
 
-        return true;
+        true
     }
 }
 

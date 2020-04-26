@@ -38,7 +38,7 @@ pub fn take(
     indices: &UInt32Array,
     options: Option<TakeOptions>,
 ) -> Result<ArrayRef> {
-    let options = options.unwrap_or(Default::default());
+    let options = options.unwrap_or_default();
     if options.check_bounds {
         let len = values.len();
         for i in 0..indices.len() {
@@ -121,7 +121,7 @@ pub fn take(
                 fields.clone().into_iter().zip(arrays).collect();
             Ok(Arc::new(StructArray::from(pairs)) as ArrayRef)
         }
-        t @ _ => unimplemented!("Take not supported for data type {:?}", t),
+        t => unimplemented!("Take not supported for data type {:?}", t),
     }
 }
 
@@ -210,7 +210,7 @@ fn take_list(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
     let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
     {
         let null_slice = null_buf.data_mut();
-        &offsets[..]
+        offsets[..]
             .windows(2)
             .enumerate()
             .for_each(|(i, window): (usize, &[i32])| {

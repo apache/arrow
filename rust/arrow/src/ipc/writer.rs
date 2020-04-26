@@ -51,9 +51,9 @@ impl<W: Write> FileWriter<W> {
     pub fn try_new(writer: W, schema: &Schema) -> Result<Self> {
         let mut writer = BufWriter::new(writer);
         // write magic to header
-        writer.write(&super::ARROW_MAGIC[..])?;
-        // create an 8-byte boudnary after the header
-        writer.write(&[0, 0])?;
+        writer.write_all(&super::ARROW_MAGIC[..])?;
+        // create an 8-byte boundary after the header
+        writer.write_all(&[0, 0])?;
         // write the schema, set the written bytes to the schema + header
         let written = write_schema(&mut writer, schema)? + 8;
         Ok(Self {
@@ -122,13 +122,10 @@ impl<W: Write> FileWriter<W> {
             let fb_field_list = fbb.create_vector(&fields);
             let fb_metadata_list = fbb.create_vector(&custom_metadata);
 
-            let root = {
-                let mut builder = ipc::SchemaBuilder::new(&mut fbb);
-                builder.add_fields(fb_field_list);
-                builder.add_custom_metadata(fb_metadata_list);
-                builder.finish()
-            };
-            root
+            let mut builder = ipc::SchemaBuilder::new(&mut fbb);
+            builder.add_fields(fb_field_list);
+            builder.add_custom_metadata(fb_metadata_list);
+            builder.finish()
         };
         let root = {
             let mut footer_builder = ipc::FooterBuilder::new(&mut fbb);
@@ -140,7 +137,7 @@ impl<W: Write> FileWriter<W> {
         };
         fbb.finish(root, None);
         write_padded_data(&mut self.writer, fbb.finished_data(), WriteDataType::Footer)?;
-        self.writer.write(&super::ARROW_MAGIC)?;
+        self.writer.write_all(&super::ARROW_MAGIC)?;
         self.writer.flush()?;
         self.finished = true;
 
@@ -192,8 +189,8 @@ impl<W: Write> StreamWriter<W> {
 
     /// Write continuation bytes, and mark the stream as done
     pub fn finish(&mut self) -> Result<()> {
-        self.writer.write(&[0u8, 0, 0, 0])?;
-        self.writer.write(&[255u8, 255, 255, 255])?;
+        self.writer.write_all(&[0u8, 0, 0, 0])?;
+        self.writer.write_all(&[255u8, 255, 255, 255])?;
         self.finished = true;
 
         Ok(())
@@ -255,15 +252,15 @@ fn write_padded_data<R: Write>(
     let total_len = len + pad_len;
     // write data length
     if data_type == WriteDataType::Header {
-        writer.write(&total_len.to_le_bytes()[..])?;
+        writer.write_all(&total_len.to_le_bytes()[..])?;
     }
     // write flatbuffer data
-    writer.write(data)?;
+    writer.write_all(data)?;
     if pad_len > 0 {
-        writer.write(&vec![0u8; pad_len as usize][..])?;
+        writer.write_all(&vec![0u8; pad_len as usize][..])?;
     }
     if data_type == WriteDataType::Footer {
-        writer.write(&total_len.to_le_bytes()[..])?;
+        writer.write_all(&total_len.to_le_bytes()[..])?;
     }
     writer.flush()?;
     Ok(total_len as usize)
@@ -326,7 +323,7 @@ fn write_record_batch<R: Write>(
     // write the length of data if writing to stream
     if is_stream {
         let total_len: u32 = meta_data.len() as u32;
-        writer.write(&total_len.to_le_bytes()[..])?;
+        writer.write_all(&total_len.to_le_bytes()[..])?;
     }
     let meta_written = write_padded_data(writer, &meta_data[..], WriteDataType::Body)?;
     let arrow_data_written =
@@ -352,8 +349,7 @@ fn write_array_data(
             // create a buffer and fill it with valid bits
             let buffer = MutableBuffer::new(num_rows);
             let buffer = buffer.with_bitset(num_rows, true);
-            let buffer = buffer.freeze();
-            buffer
+            buffer.freeze()
         }
         Some(buffer) => buffer.clone(),
     };

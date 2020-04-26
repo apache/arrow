@@ -90,17 +90,18 @@ impl RecordBatch {
         }
         // check that all columns have the same row count, and match the schema
         let len = columns[0].data().len();
-        for i in 0..columns.len() {
-            if columns[i].len() != len {
+
+        for (i, column) in columns.iter().enumerate() {
+            if column.len() != len {
                 return Err(ArrowError::InvalidArgumentError(
                     "all columns in a record batch must have the same length".to_string(),
                 ));
             }
-            if columns[i].data_type() != schema.field(i).data_type() {
+            if column.data_type() != schema.field(i).data_type() {
                 return Err(ArrowError::InvalidArgumentError(format!(
                     "column types must match schema types, expected {:?} but found {:?} at column index {}",
                     schema.field(i).data_type(),
-                    columns[i].data_type(),
+                    column.data_type(),
                     i)));
             }
         }

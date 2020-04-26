@@ -36,7 +36,7 @@ use DataType::*;
 const CONTINUATION_MARKER: u32 = 0xffff_ffff;
 
 /// Read a buffer based on offset and length
-fn read_buffer(buf: &ipc::Buffer, a_data: &Vec<u8>) -> Buffer {
+fn read_buffer(buf: &ipc::Buffer, a_data: &[u8]) -> Buffer {
     let start_offset = buf.offset() as usize;
     let end_offset = start_offset + buf.length() as usize;
     let buf_data = &a_data[start_offset..end_offset];
@@ -55,9 +55,9 @@ fn read_buffer(buf: &ipc::Buffer, a_data: &Vec<u8>) -> Buffer {
 fn create_array(
     nodes: &[ipc::FieldNode],
     data_type: &DataType,
-    data: &Vec<u8>,
+    data: &[u8],
     buffers: &[ipc::Buffer],
-    dictionaries: &Vec<Option<ArrayRef>>,
+    dictionaries: &[Option<ArrayRef>],
     mut node_index: usize,
     mut buffer_index: usize,
 ) -> (ArrayRef, usize, usize) {
@@ -72,8 +72,8 @@ fn create_array(
                     .map(|buf| read_buffer(buf, data))
                     .collect(),
             );
-            node_index = node_index + 1;
-            buffer_index = buffer_index + 3;
+            node_index += 1;
+            buffer_index += 3;
             array
         }
         FixedSizeBinary(_) => {
@@ -85,8 +85,8 @@ fn create_array(
                     .map(|buf| read_buffer(buf, data))
                     .collect(),
             );
-            node_index = node_index + 1;
-            buffer_index = buffer_index + 2;
+            node_index += 1;
+            buffer_index += 2;
             array
         }
         List(ref list_data_type) => {
@@ -95,8 +95,8 @@ fn create_array(
                 .iter()
                 .map(|buf| read_buffer(buf, data))
                 .collect();
-            node_index = node_index + 1;
-            buffer_index = buffer_index + 2;
+            node_index += 1;
+            buffer_index += 2;
             let triple = create_array(
                 nodes,
                 list_data_type,
@@ -113,12 +113,12 @@ fn create_array(
         }
         FixedSizeList(ref list_data_type, _) => {
             let list_node = &nodes[node_index];
-            let list_buffers: Vec<Buffer> = buffers[buffer_index..buffer_index + 1]
+            let list_buffers: Vec<Buffer> = buffers[buffer_index..=buffer_index]
                 .iter()
                 .map(|buf| read_buffer(buf, data))
                 .collect();
-            node_index = node_index + 1;
-            buffer_index = buffer_index + 1;
+            node_index += 1;
+            buffer_index += 1;
             let triple = create_array(
                 nodes,
                 list_data_type,
@@ -136,8 +136,8 @@ fn create_array(
         Struct(struct_fields) => {
             let struct_node = &nodes[node_index];
             let null_buffer: Buffer = read_buffer(&buffers[buffer_index], data);
-            node_index = node_index + 1;
-            buffer_index = buffer_index + 1;
+            node_index += 1;
+            buffer_index += 1;
 
             // read the arrays for each field
             let mut struct_arrays = vec![];
@@ -178,8 +178,8 @@ fn create_array(
                 .map(|buf| read_buffer(buf, data))
                 .collect();
             let value_array = dictionaries[node_index].clone().unwrap();
-            node_index = node_index + 1;
-            buffer_index = buffer_index + 2;
+            node_index += 1;
+            buffer_index += 2;
 
             create_dictionary_array(
                 index_node,
@@ -197,8 +197,8 @@ fn create_array(
                     .map(|buf| read_buffer(buf, data))
                     .collect(),
             );
-            node_index = node_index + 1;
-            buffer_index = buffer_index + 2;
+            node_index += 1;
+            buffer_index += 2;
             array
         }
     };
@@ -327,7 +327,7 @@ fn create_primitive_array(
             }
             builder.build()
         }
-        t @ _ => panic!("Data type {:?} either unsupported or not primitive", t),
+        t => panic!("Data type {:?} either unsupported or not primitive", t),
     };
 
     make_array(array_data)
@@ -341,7 +341,7 @@ fn create_list_array(
     buffers: &[Buffer],
     child_array: ArrayRef,
 ) -> ArrayRef {
-    if let &DataType::List(_) = data_type {
+    if let DataType::List(_) = *data_type {
         let null_count = field_node.null_count() as usize;
         let mut builder = ArrayData::builder(data_type.clone())
             .len(field_node.length() as usize)
@@ -354,7 +354,7 @@ fn create_list_array(
                 .null_bit_buffer(buffers[0].clone())
         }
         make_array(builder.build())
-    } else if let &DataType::FixedSizeList(_, _) = data_type {
+    } else if let DataType::FixedSizeList(_, _) = *data_type {
         let null_count = field_node.null_count() as usize;
         let mut builder = ArrayData::builder(data_type.clone())
             .len(field_node.length() as usize)
@@ -380,7 +380,7 @@ fn create_dictionary_array(
     buffers: &[Buffer],
     value_array: ArrayRef,
 ) -> ArrayRef {
-    if let &DataType::Dictionary(_, _) = data_type {
+    if let DataType::Dictionary(_, _) = *data_type {
         let null_count = field_node.null_count() as usize;
         let mut builder = ArrayData::builder(data_type.clone())
             .len(field_node.length() as usize)
@@ -400,17 +400,17 @@ fn create_dictionary_array(
 
 /// Creates a record batch from binary data using the `ipc::RecordBatch` indexes and the `Schema`
 pub(crate) fn read_record_batch(
-    buf: &Vec<u8>,
+    buf: &[u8],
     batch: ipc::RecordBatch,
     schema: Arc<Schema>,
-    dictionaries: &Vec<Option<ArrayRef>>,
+    dictionaries: &[Option<ArrayRef>],
 ) -> Result<Option<RecordBatch>> {
-    let buffers = batch.buffers().ok_or(ArrowError::IoError(
-        "Unable to get buffers from IPC RecordBatch".to_string(),
-    ))?;
-    let field_nodes = batch.nodes().ok_or(ArrowError::IoError(
-        "Unable to get field nodes from IPC RecordBatch".to_string(),
-    ))?;
+    let buffers = batch.buffers().ok_or_else(|| {
+        ArrowError::IoError("Unable to get buffers from IPC RecordBatch".to_string())
+    })?;
+    let field_nodes = batch.nodes().ok_or_else(|| {
+        ArrowError::IoError("Unable to get field nodes from IPC RecordBatch".to_string())
+    })?;
     // keep track of buffer and node index, the functions that create arrays mutate these
     let mut buffer_index = 0;
     let mut node_index = 0;
@@ -432,7 +432,7 @@ pub(crate) fn read_record_batch(
         arrays.push(triple.0);
     }
 
-    RecordBatch::try_new(schema.clone(), arrays).map(|batch| Some(batch))
+    RecordBatch::try_new(schema, arrays).map(|batch| Some(batch))
 }
 
 // Linear search for the first dictionary field with a dictionary id.
@@ -509,9 +509,11 @@ impl<R: Read + Seek> FileReader<R> {
         reader.read_exact(&mut footer_data)?;
         let footer = ipc::get_root_as_footer(&footer_data[..]);
 
-        let blocks = footer.recordBatches().ok_or(ArrowError::IoError(
-            "Unable to get record batches from IPC Footer".to_string(),
-        ))?;
+        let blocks = footer.recordBatches().ok_or_else(|| {
+            ArrowError::IoError(
+                "Unable to get record batches from IPC Footer".to_string(),
+            )
+        })?;
 
         let total_blocks = blocks.len();
 
@@ -584,8 +586,7 @@ impl<R: Read + Seek> FileReader<R> {
                     // We don't currently record the isOrdered field. This could be general
                     // attributes of arrays.
                     let fields = ipc_schema.fields().unwrap();
-                    for i in 0..fields.len() {
-                        let field: ipc::Field = fields.get(i);
+                    for (i, field) in fields.iter().enumerate() {
                         if let Some(dictionary) = field.dictionary() {
                             if dictionary.id() == id {
                                 // Add (possibly multiple) array refs to the dictionaries array.
@@ -624,7 +625,7 @@ impl<R: Read + Seek> FileReader<R> {
         // get current block
         if self.current_block < self.total_blocks {
             let block = self.blocks[self.current_block];
-            self.current_block = self.current_block + 1;
+            self.current_block += 1;
 
             // read length from end of offset
             let meta_len = block.metaDataLength() - 4;
@@ -637,16 +638,15 @@ impl<R: Read + Seek> FileReader<R> {
             let message = ipc::get_root_as_message(&block_data[..]);
 
             match message.header_type() {
-                ipc::MessageHeader::Schema => {
-                    return Err(ArrowError::IoError(
-                        "Not expecting a schema when messages are read".to_string(),
-                    ));
-                }
+                ipc::MessageHeader::Schema => Err(ArrowError::IoError(
+                    "Not expecting a schema when messages are read".to_string(),
+                )),
                 ipc::MessageHeader::RecordBatch => {
-                    let batch =
-                        message.header_as_record_batch().ok_or(ArrowError::IoError(
+                    let batch = message.header_as_record_batch().ok_or_else(|| {
+                        ArrowError::IoError(
                             "Unable to read IPC message as record batch".to_string(),
-                        ))?;
+                        )
+                    })?;
                     // read the block that makes up the record batch into a buffer
                     let mut buf = vec![0; block.bodyLength() as usize];
                     self.reader.seek(SeekFrom::Start(
@@ -661,12 +661,10 @@ impl<R: Read + Seek> FileReader<R> {
                         &self.dictionaries_by_field,
                     )
                 }
-                _ => {
-                    return Err(ArrowError::IoError(
-                        "Reading types other than record batches not yet supported"
-                            .to_string(),
-                    ));
-                }
+                _ => Err(ArrowError::IoError(
+                    "Reading types other than record batches not yet supported"
+                        .to_string(),
+                )),
             }
         } else {
             Ok(None)
@@ -746,9 +744,9 @@ impl<R: Read> StreamReader<R> {
         let vecs = &meta_buffer.to_vec();
         let message = ipc::get_root_as_message(vecs);
         // message header is a Schema, so read it
-        let ipc_schema: ipc::Schema = message.header_as_schema().ok_or(
-            ArrowError::IoError("Unable to read IPC message as schema".to_string()),
-        )?;
+        let ipc_schema: ipc::Schema = message.header_as_schema().ok_or_else(|| {
+            ArrowError::IoError("Unable to read IPC message as schema".to_string())
+        })?;
         let schema = ipc::convert::fb_to_schema(ipc_schema);
 
         // Create an array of optional dictionary value arrays, one per field.
@@ -801,28 +799,24 @@ impl<R: Read> StreamReader<R> {
         let message = ipc::get_root_as_message(vecs);
 
         match message.header_type() {
-            ipc::MessageHeader::Schema => {
-                return Err(ArrowError::IoError(
-                    "Not expecting a schema when messages are read".to_string(),
-                ));
-            }
+            ipc::MessageHeader::Schema => Err(ArrowError::IoError(
+                "Not expecting a schema when messages are read".to_string(),
+            )),
             ipc::MessageHeader::RecordBatch => {
-                let batch =
-                    message.header_as_record_batch().ok_or(ArrowError::IoError(
+                let batch = message.header_as_record_batch().ok_or_else(|| {
+                    ArrowError::IoError(
                         "Unable to read IPC message as record batch".to_string(),
-                    ))?;
+                    )
+                })?;
                 // read the block that makes up the record batch into a buffer
                 let mut buf = vec![0; message.bodyLength() as usize];
                 self.reader.read_exact(&mut buf)?;
 
                 read_record_batch(&buf, batch, self.schema(), &self.dictionaries_by_field)
             }
-            _ => {
-                return Err(ArrowError::IoError(
-                    "Reading types other than record batches not yet supported"
-                        .to_string(),
-                ));
-            }
+            _ => Err(ArrowError::IoError(
+                "Reading types other than record batches not yet supported".to_string(),
+            )),
         }
     }
 
