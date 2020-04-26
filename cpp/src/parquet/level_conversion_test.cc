@@ -14,13 +14,13 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
 #include "parquet/level_conversion.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <string>
+#include <vector>
 
 #include "arrow/util/bit_util.h"
 
@@ -86,7 +86,8 @@ TEST(TestColumnReader, DefinitionLevelsToBitmapPowerOfTwo) {
   ASSERT_EQ(0, null_count);
 }
 
-TEST(TestGreaterThanBitmap, GeneratesExpectedBitmasks) {
+#if defined(ARROW_LITTLE_ENDIAN)
+TEST(GreaterThanBitmap, GeneratesExpectedBitmasks) {
   std::vector<int16_t> levels = {0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7,
                                  0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7,
                                  0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7,
@@ -101,6 +102,7 @@ TEST(TestGreaterThanBitmap, GeneratesExpectedBitmasks) {
   EXPECT_EQ(GreaterThanBitmap(levels.data(), /*num_levels=*/64, /*rhs*/ 6),
             0x8080808080808080);
 }
+#endif
 
 TEST(DefinitionLevelsToBitmap, WithRepetitionLevelFiltersOutEmptyListValues) {
   std::vector<uint8_t> validity_bitmap(/*count*/ 8, 0);

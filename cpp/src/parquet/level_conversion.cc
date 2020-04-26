@@ -14,8 +14,16 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
 #include "parquet/level_conversion.h"
+
+#include <algorithm>
+#include <limits>
+#if defined(ARROW_HAVE_BMI2)
+#include <x86intrin.h>
+#endif
+
+#include "arrow/util/bit_util.h"
+
 #include "parquet/exception.h"
 
 namespace parquet {

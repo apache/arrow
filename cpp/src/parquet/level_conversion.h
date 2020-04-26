@@ -19,12 +19,7 @@
 
 #include <cstdint>
 
-#include "arrow/util/bit_util.h"
 #include "parquet/platform.h"
-
-#if defined(ARROW_HAVE_BMI2)
-#include "x86intrin.h"
-#endif
 
 namespace parquet {
 namespace internal {
