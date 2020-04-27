@@ -143,7 +143,7 @@ namespace Apache.Arrow
         public TBuilder Append(ReadOnlySpan<T> span)
         {
             ValueBuffer.Append(span);
-            ValidityBuffer.Append(span != Span<T>.Empty);
+            ValidityBuffer.Append(true);
             return Instance;
         }
 
