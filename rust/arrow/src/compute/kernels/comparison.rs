@@ -238,11 +238,13 @@ where
         }
     }
 
-    let simd_left = T::load(left.value_slice(len - rem, lanes));
-    let simd_right = T::load(right.value_slice(len - rem, lanes));
-    let simd_result = op(simd_left, simd_right);
-    for i in 0..rem {
-        result.append(T::mask_get(&simd_result, i))?;
+    if rem > 0 {
+        let simd_left = T::load(left.value_slice(len - rem, lanes));
+        let simd_right = T::load(right.value_slice(len - rem, lanes));
+        let simd_result = op(simd_left, simd_right);
+        for i in 0..rem {
+            result.append(T::mask_get(&simd_result, i))?;
+        }
     }
 
     let data = ArrayData::new(
