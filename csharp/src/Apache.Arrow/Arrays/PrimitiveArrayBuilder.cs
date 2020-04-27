@@ -108,10 +108,7 @@ namespace Apache.Arrow
         protected BooleanArray.Builder ValidityBuffer { get; }
 
         public int Length => ValueBuffer.Length;
-
         protected int NullCount { get; set; }
-
-        // TODO: Implement support for null values (null bitmaps)
 
         internal PrimitiveArrayBuilder()
         {

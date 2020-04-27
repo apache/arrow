@@ -52,13 +52,11 @@ namespace Apache.Arrow
             where TArray : IArrowArray
             where TBuilder : class, IArrowArrayBuilder<byte, TArray, TBuilder>
         {
-
             protected IArrowType DataType { get; }
             protected TBuilder Instance => this as TBuilder;
             protected ArrowBuffer.Builder<int> ValueOffsets { get; }
             protected ArrowBuffer.Builder<byte> ValueBuffer { get; }
             protected BooleanArray.Builder ValidityBuffer { get; }
-
             protected int Offset { get; set; }
             protected int NullCount { get; private set; }
 
