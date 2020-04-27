@@ -21,12 +21,6 @@
     <AssemblyOriginatorKeyFile>$(CSharpDir)ApacheArrow.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
 
-  <ItemGroup>
-    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
-      <_Parameter1>Apache.Arrow.Tests, PublicKey=0024000004800000940000000602000000240000525341310004000001000100E504183F6D470D6B67B6D19212BE3E1F598F70C246A120194BC38130101D0C1853E4A0F2232CB12E37A7A90E707AABD38511DAC4F25FCB0D691B2AA265900BF42DE7F70468FC997551A40E1E0679B605AA2088A4A69E07C117E988F5B1738C570EE66997FBA02485E7856A49ECA5FD0706D09899B8312577CBB9034599FC92D4</_Parameter1>
-    </AssemblyAttribute>
-  </ItemGroup>
-
   <!-- NuGet properties -->
   <PropertyGroup>
     <Authors>The Apache Software Foundation</Authors>
