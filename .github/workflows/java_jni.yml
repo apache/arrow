@@ -21,13 +21,17 @@ on:
   push:
     paths:
       - '.github/workflows/java_jni.yml'
-      - 'ci/**'
+      - 'ci/docker/**'
+      - 'ci/scripts/cpp_build.sh'
+      - 'ci/scripts/java_*'
       - 'cpp/**'
       - 'java/**'
   pull_request:
     paths:
       - '.github/workflows/java_jni.yml'
-      - 'ci/**'
+      - 'ci/docker/**'
+      - 'ci/scripts/cpp_build.sh'
+      - 'ci/scripts/java_*'
       - 'cpp/**'
       - 'java/**'
 

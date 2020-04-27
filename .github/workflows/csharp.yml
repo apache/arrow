@@ -21,12 +21,12 @@ on:
   push:
     paths:
       - '.github/workflows/csharp.yml'
-      - 'ci/**'
+      - 'ci/scripts/csharp_*'
       - 'csharp/**'
   pull_request:
     paths:
       - '.github/workflows/csharp.yml'
-      - 'ci/**'
+      - 'ci/scripts/csharp_*'
       - 'csharp/**'
 
 jobs:

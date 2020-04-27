@@ -21,12 +21,15 @@ on:
   push:
     paths:
       - '.github/workflows/go.yml'
-      - 'ci/**'
+      - 'ci/docker/*_go.dockerfile'
+      - 'ci/scripts/go_*'
       - 'go/**'
   pull_request:
     paths:
       - '.github/workflows/go.yml'
-      - 'ci/**'
+      - 'ci/docker/*_go.dockerfile'
+      - 'ci/docker/**'
+      - 'ci/scripts/go_*'
       - 'go/**'
 
 env:
