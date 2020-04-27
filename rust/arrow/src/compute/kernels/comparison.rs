@@ -210,7 +210,8 @@ where
     T: ArrowNumericType,
     F: Fn(T::Simd, T::Simd) -> T::SimdMask,
 {
-    if left.len() != right.len() {
+    let len = left.len();
+    if len != right.len() {
         return Err(ArrowError::ComputeError(
             "Cannot perform comparison operation on arrays of different length"
                 .to_string(),
@@ -224,15 +225,24 @@ where
     )?;
 
     let lanes = T::lanes();
-    let mut result = BooleanBufferBuilder::new(left.len());
+    let mut result = BooleanBufferBuilder::new(len);
 
-    for i in (0..left.len()).step_by(lanes) {
+    let rem = len % lanes;
+
+    for i in (0..len - rem).step_by(lanes) {
         let simd_left = T::load(left.value_slice(i, lanes));
         let simd_right = T::load(right.value_slice(i, lanes));
         let simd_result = op(simd_left, simd_right);
         for i in 0..lanes {
             result.append(T::mask_get(&simd_result, i))?;
         }
+    }
+
+    let simd_left = T::load(left.value_slice(len - rem, lanes));
+    let simd_right = T::load(right.value_slice(len - rem, lanes));
+    let simd_result = op(simd_left, simd_right);
+    for i in 0..rem {
+        result.append(T::mask_get(&simd_result, i))?;
     }
 
     let data = ArrayData::new(
@@ -351,6 +361,7 @@ where
 mod tests {
     use super::*;
     use crate::array::Int32Array;
+    use crate::datatypes::Int8Type;
 
     #[test]
     fn test_primitive_array_eq() {
