@@ -1814,6 +1814,9 @@ pub struct DictionaryArray<K: ArrowPrimitiveType> {
 
     /// Array of any values.
     values: ArrayRef,
+
+    /// Values are ordered.
+    is_ordered: bool,
 }
 
 pub struct NullableIter<'a, T> {
@@ -1897,6 +1900,11 @@ impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
     pub fn len(&self) -> usize {
         self.data.len()
     }
+
+    // Currently exists for compatibility purposes with Arrow IPC.
+    pub fn is_ordered(&self) -> bool {
+        self.is_ordered
+    }
 }
 
 /// Constructs a `DictionaryArray` from an array data reference.
@@ -1921,6 +1929,7 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for DictionaryArray<T> {
                 data,
                 raw_values: RawPtrBox::new(raw_values as *const T::Native),
                 values,
+                is_ordered: false,
             },
             _ => panic!("DictionaryArray must have Dictionary data type."),
         }
