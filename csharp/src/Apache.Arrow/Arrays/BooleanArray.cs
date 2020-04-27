@@ -24,9 +24,9 @@ namespace Apache.Arrow
     {
         public class Builder : IArrowArrayBuilder<bool, BooleanArray, Builder>
         {
-            internal ArrowBuffer.Builder<byte> ValueBuffer { get; }
+            private ArrowBuffer.Builder<byte> ValueBuffer { get; }
 
-            internal ArrowBuffer.Builder<byte> ValidityBuffer { get; }
+            private ArrowBuffer.Builder<byte> ValidityBuffer { get; }
 
             public int Length { get; protected set; }
             public int Capacity => BitUtility.ByteCount(ValueBuffer.Capacity);
