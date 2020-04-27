@@ -249,7 +249,11 @@ namespace Apache.Arrow.Tests
                     baseArray.ValueBuffer.Span.Slice(0, (int) Math.Ceiling(slicedArray.Length / 8.0))
                         .SequenceEqual(slicedArray.Values));
 
+                Assert.Equal(baseArray.GetValue(slicedArray.Offset), slicedArray.GetValue(0));
+
+#pragma warning disable CS0618
                 Assert.Equal(baseArray.GetBoolean(slicedArray.Offset), slicedArray.GetBoolean(0));
+#pragma warning restore CS0618
             }
 
             private void ValidateArrays(BinaryArray slicedArray)

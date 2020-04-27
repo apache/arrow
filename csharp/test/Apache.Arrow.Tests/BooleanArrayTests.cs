@@ -48,13 +48,13 @@ namespace Apache.Arrow.Tests
                         .Append(false)
                         .Build();
 
-                    Assert.False(array1.GetBoolean(0));
+                    Assert.False(array1.GetValue(0).GetValueOrDefault());
 
                     var array2 = new BooleanArray.Builder()
                         .Append(true)
                         .Build();
 
-                    Assert.True(array2.GetBoolean(0));
+                    Assert.True(array2.GetValue(0).GetValueOrDefault());
                 }
             }
 
@@ -72,7 +72,7 @@ namespace Apache.Arrow.Tests
 
                     for (var i = 0; i < array.Length; i++)
                     {
-                        Assert.False(array.GetBoolean(i));
+                        Assert.False(array.GetValue(i).GetValueOrDefault());
                     }
                 }
             }
@@ -90,7 +90,7 @@ namespace Apache.Arrow.Tests
                         .Toggle(index)
                         .Build();
 
-                    Assert.False(array.GetBoolean(index));
+                    Assert.False(array.GetValue(index).GetValueOrDefault());
                 }
 
                 [Theory]
@@ -104,7 +104,7 @@ namespace Apache.Arrow.Tests
                         .Toggle(index)
                         .Build();
 
-                    Assert.True(array.GetBoolean(index));
+                    Assert.True(array.GetValue(index).GetValueOrDefault());
                 }
 
                 [Fact]
@@ -129,9 +129,9 @@ namespace Apache.Arrow.Tests
                         .Swap(0, 7)
                         .Build();
 
-                    Assert.False(array.GetBoolean(0));
+                    Assert.False(array.GetValue(0).GetValueOrDefault());
                     Assert.Null(array.GetValue(0));
-                    Assert.True(array.GetBoolean(7));
+                    Assert.True(array.GetValue(7).GetValueOrDefault());
                 }
 
                 [Fact]
@@ -160,7 +160,7 @@ namespace Apache.Arrow.Tests
                         .Set(index, true)
                         .Build();
 
-                    Assert.True(array.GetBoolean(index));
+                    Assert.True(array.GetValue(index).GetValueOrDefault());
                 }
 
                 [Theory]
@@ -176,7 +176,7 @@ namespace Apache.Arrow.Tests
                         .Set(index, false)
                         .Build();
 
-                    Assert.False(array.GetBoolean(index));
+                    Assert.False(array.GetValue(index).GetValueOrDefault());
                 }
 
                 [Theory]
@@ -192,7 +192,7 @@ namespace Apache.Arrow.Tests
                     {
                         if (i != index)
                         {
-                            Assert.False(array.GetBoolean(i));
+                            Assert.False(array.GetValue(i).GetValueOrDefault());
                             Assert.Null(array.GetValue(i));
                         }
                     }
