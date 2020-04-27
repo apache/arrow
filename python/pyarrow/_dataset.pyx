@@ -110,31 +110,51 @@ cdef class Expression:
         return Expression.wrap(self.expr.Assume(given.unwrap()))
 
     def __invert__(self):
-        return Expression.not_(self)
+        return Expression.wrap(CMakeNotExpression(self.unwrap()))
 
     @staticmethod
-    def _expr_or_scalar(expr):
+    cdef shared_ptr[CExpression] _expr_or_scalar(object expr) except *:
         if isinstance(expr, Expression):
-            return expr
-        return Expression.scalar(expr)
+            return (<Expression> expr).unwrap()
+        return (<Expression> Expression.scalar(expr)).unwrap()
+
+    @staticmethod
+    def wtf():
+        return Expression.wrap(Expression._expr_or_scalar([]))
 
     def __richcmp__(self, other, int op):
-        operator_mapping = {
-            Py_EQ: Expression.equal,
-            Py_NE: Expression.not_equal,
-            Py_GT: Expression.greater,
-            Py_GE: Expression.greater_equal,
-            Py_LT: Expression.less,
-            Py_LE: Expression.less_equal
-        }
+        cdef:
+            shared_ptr[CExpression] c_expr
+            shared_ptr[CExpression] c_left
+            shared_ptr[CExpression] c_right
 
-        return operator_mapping[op](self, Expression._expr_or_scalar(other))
+        c_left = self.unwrap()
+        c_right = Expression._expr_or_scalar(other)
 
-    def __and__(self, other):
-        return Expression.and_(self, Expression._expr_or_scalar(other))
+        if op == Py_EQ:
+            c_expr = CMakeEqualExpression(move(c_left), move(c_right))
+        elif op == Py_NE:
+            c_expr = CMakeNotEqualExpression(move(c_left), move(c_right))
+        elif op == Py_GT:
+            c_expr = CMakeGreaterExpression(move(c_left), move(c_right))
+        elif op == Py_GE:
+            c_expr = CMakeGreaterEqualExpression(move(c_left), move(c_right))
+        elif op == Py_LT:
+            c_expr = CMakeLessExpression(move(c_left), move(c_right))
+        elif op == Py_LE:
+            c_expr = CMakeLessEqualExpression(move(c_left), move(c_right))
 
-    def __or__(self, other):
-        return Expression.or_(self, Expression._expr_or_scalar(other))
+        return Expression.wrap(c_expr)
+
+    def __and__(Expression self, other):
+        c_other = Expression._expr_or_scalar(other)
+        return Expression.wrap(CMakeAndExpression(self.wrapped,
+                                                  move(c_other)))
+
+    def __or__(Expression self, other):
+        c_other = Expression._expr_or_scalar(other)
+        return Expression.wrap(CMakeOrExpression(self.wrapped,
+                                                 move(c_other)))
 
     def is_valid(self):
         """Checks whether the expression is not-null (valid)"""
@@ -142,14 +162,11 @@ cdef class Expression:
 
     def cast(self, type, bint safe=True):
         """Explicitly change the expression's data type"""
-        cdef:
-            CastOptions options
-            CCastOptions c_options
-            shared_ptr[CExpression] expr
+        cdef CastOptions options
         options = CastOptions.safe() if safe else CastOptions.unsafe()
-        c_options = options.unwrap()
         c_type = pyarrow_unwrap_data_type(ensure_type(type))
-        return Expression.wrap(self.expr.CastTo(c_type, c_options).Copy())
+        return Expression.wrap(self.expr.CastTo(c_type,
+                                                options.unwrap()).Copy())
 
     def isin(self, values):
         """Checks whether the expression is contained in values"""
@@ -166,7 +183,6 @@ cdef class Expression:
     def scalar(value):
         cdef:
             shared_ptr[CScalar] scalar
-            shared_ptr[CExpression] expr
 
         if value is None:
             scalar.reset(new CNullScalar())
@@ -182,50 +198,6 @@ cdef class Expression:
             raise TypeError('Not yet supported scalar value: {}'.format(value))
 
         return Expression.wrap(CMakeScalarExpression(move(scalar)))
-
-    @staticmethod
-    def and_(Expression left not None, Expression right not None):
-        return Expression.wrap(CMakeAndExpression(left.unwrap(),
-                                                  right.unwrap()))
-
-    @staticmethod
-    def or_(Expression left not None, Expression right not None):
-        return Expression.wrap(CMakeOrExpression(left.unwrap(),
-                                                 right.unwrap()))
-
-    @staticmethod
-    def not_(Expression operand not None):
-        return Expression.wrap(CMakeNotExpression(operand.unwrap()))
-
-    @staticmethod
-    def equal(Expression left not None, Expression right not None):
-        return Expression.wrap(CMakeEqualExpression(left.unwrap(),
-                                                    right.unwrap()))
-
-    @staticmethod
-    def not_equal(Expression left not None, Expression right not None):
-        return Expression.wrap(CMakeNotEqualExpression(left.unwrap(),
-                                                       right.unwrap()))
-
-    @staticmethod
-    def greater_equal(Expression left not None, Expression right not None):
-        return Expression.wrap(CMakeGreaterEqualExpression(left.unwrap(),
-                                                           right.unwrap()))
-
-    @staticmethod
-    def greater(Expression left not None, Expression right not None):
-        return Expression.wrap(CMakeGreaterExpression(left.unwrap(),
-                                                      right.unwrap()))
-
-    @staticmethod
-    def less_equal(Expression left not None, Expression right not None):
-        return Expression.wrap(CMakeLessEqualExpression(left.unwrap(),
-                                                        right.unwrap()))
-
-    @staticmethod
-    def less(Expression left not None, Expression right not None):
-        return Expression.wrap(CMakeLessExpression(left.unwrap(),
-                                                   right.unwrap()))
 
 
 _true = Expression.scalar(True)
@@ -453,8 +425,8 @@ cdef class FileSystemDataset(Dataset):
     cdef:
         CFileSystemDataset* filesystem_dataset
 
-    def __init__(self, paths_or_selector, schema, format, filesystem,
-                 partitions=None, Expression root_partition=_true):
+    def __init__(self, paths_or_selector, schema=None, format=None,
+                 filesystem=None, partitions=None, root_partition=_true):
         cdef:
             FileInfo info
             Expression expr

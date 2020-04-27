@@ -393,7 +393,7 @@ def test_expression_serialization():
         assert expr.equals(restored)
 
 
-def test_expression_ergonomics():
+def test_expression_construction():
     zero = ds.scalar(0)
     one = ds.scalar(1)
     true = ds.scalar(True)
@@ -403,39 +403,28 @@ def test_expression_ergonomics():
 
     expr = zero | one == string
     expr = ~true == false
-    expected = ds.Expression.equal(
-        ds.Expression.not_(ds.Expression.scalar(True)),
-        ds.Expression.scalar(False)
-    )
-    assert expr.equals(expected)
-
     for typ in ("bool", pa.bool_()):
         expr = field.cast(typ) == true
-        expected = ds.Expression.equal(
-            ds.Expression.field("field").cast(pa.bool_()),
-            ds.Expression.scalar(True)
-        )
-        assert expr.equals(expected)
 
     expr = field.isin([1, 2])
-    expected = ds.field("field").isin(pa.array([1, 2]))
-    assert expr.equals(expected)
 
     with pytest.raises(TypeError):
-        field.isin(1)
+        expr = field.isin(1)
 
     # operations with non-scalar values
     with pytest.raises(TypeError):
-        field == [1]
+        expr = field == [1]
 
     with pytest.raises(TypeError):
-        field != {1}
+        expr = field != {1}
 
     with pytest.raises(TypeError):
-        field & [1]
+        expr = field & [1]
 
     with pytest.raises(TypeError):
-        field | [1]
+        expr = field | [1]
+
+    assert expr is not None  # silence flake8
 
 
 def test_parquet_read_options():
