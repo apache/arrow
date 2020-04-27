@@ -239,6 +239,7 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   /// \brief Write to a new format and filesystem location, preserving partitioning.
   ///
   /// \param[in] plan the WritePlan to execute.
+  /// \param[in] scan_options options in which to scan fragments
   /// \param[in] scan_context context in which to scan fragments before writing.
   static Result<std::shared_ptr<FileSystemDataset>> Write(
       const WritePlan& plan, std::shared_ptr<ScanOptions> scan_options,
