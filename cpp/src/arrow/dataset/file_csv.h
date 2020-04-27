@@ -19,6 +19,8 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 #include "arrow/csv/options.h"
 #include "arrow/dataset/file_base.h"

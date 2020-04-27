@@ -20,8 +20,7 @@
 #include <algorithm>
 #include <memory>
 #include <string>
-#include <unordered_map>
-#include <vector>
+#include <utility>
 
 #include "arrow/csv/options.h"
 #include "arrow/csv/reader.h"
