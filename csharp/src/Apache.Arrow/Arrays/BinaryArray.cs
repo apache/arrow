@@ -61,7 +61,6 @@ namespace Apache.Arrow
             protected BooleanArray.Builder ValidityBuffer { get; }
 
             protected int Offset { get; set; }
-            protected int ValidityOffset { get; set; }
             protected int NullCount { get; private set; }
 
             protected BuilderBase(IArrowType dataType)
