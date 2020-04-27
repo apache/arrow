@@ -115,7 +115,7 @@ namespace Apache.Arrow
             {
                 foreach (var arr in values)
                 {
-                    if (arr != null && arr.Length > 0)
+                    if (arr == null)
                     {
                         AppendNull();
                         continue;
