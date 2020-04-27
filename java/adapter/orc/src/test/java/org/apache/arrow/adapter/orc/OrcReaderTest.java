@@ -47,7 +47,6 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 
-@Ignore
 public class OrcReaderTest {
 
   @Rule
