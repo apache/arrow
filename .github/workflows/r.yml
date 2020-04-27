@@ -176,6 +176,7 @@ jobs:
       - uses: r-lib/actions/setup-r@master
         with:
           rtools-version: ${{ matrix.rtools }}
+          r-version: '3.6'
       - name: Build Arrow C++
         run: msys2do ci/scripts/r_windows_build.sh
       - uses: actions/upload-artifact@v1
