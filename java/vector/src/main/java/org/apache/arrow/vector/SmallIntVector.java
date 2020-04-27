@@ -114,7 +114,7 @@ public final class SmallIntVector extends BaseFixedWidthVector implements BaseIn
     if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
-    return valueBuffer.getShort(index * TYPE_WIDTH);
+    return valueBuffer.getShort((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -130,7 +130,7 @@ public final class SmallIntVector extends BaseFixedWidthVector implements BaseIn
       return;
     }
     holder.isSet = 1;
-    holder.value = valueBuffer.getShort(index * TYPE_WIDTH);
+    holder.value = valueBuffer.getShort((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -143,7 +143,7 @@ public final class SmallIntVector extends BaseFixedWidthVector implements BaseIn
     if (isSet(index) == 0) {
       return null;
     } else {
-      return valueBuffer.getShort(index * TYPE_WIDTH);
+      return valueBuffer.getShort((long) index * TYPE_WIDTH);
     }
   }
 
@@ -155,11 +155,11 @@ public final class SmallIntVector extends BaseFixedWidthVector implements BaseIn
 
 
   private void setValue(int index, int value) {
-    valueBuffer.setShort(index * TYPE_WIDTH, value);
+    valueBuffer.setShort((long) index * TYPE_WIDTH, value);
   }
 
   private void setValue(int index, short value) {
-    valueBuffer.setShort(index * TYPE_WIDTH, value);
+    valueBuffer.setShort((long) index * TYPE_WIDTH, value);
   }
 
   /**
@@ -307,7 +307,7 @@ public final class SmallIntVector extends BaseFixedWidthVector implements BaseIn
    * @return value stored at the index.
    */
   public static short get(final ArrowBuf buffer, final int index) {
-    return buffer.getShort(index * TYPE_WIDTH);
+    return buffer.getShort((long) index * TYPE_WIDTH);
   }
 
 

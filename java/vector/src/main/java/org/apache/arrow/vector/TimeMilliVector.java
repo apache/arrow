@@ -116,7 +116,7 @@ public final class TimeMilliVector extends BaseFixedWidthVector {
     if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
-    return valueBuffer.getInt(index * TYPE_WIDTH);
+    return valueBuffer.getInt((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -132,7 +132,7 @@ public final class TimeMilliVector extends BaseFixedWidthVector {
       return;
     }
     holder.isSet = 1;
-    holder.value = valueBuffer.getInt(index * TYPE_WIDTH);
+    holder.value = valueBuffer.getInt((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -145,7 +145,7 @@ public final class TimeMilliVector extends BaseFixedWidthVector {
     if (isSet(index) == 0) {
       return null;
     }
-    final int millis = valueBuffer.getInt(index * TYPE_WIDTH);
+    final int millis = valueBuffer.getInt((long) index * TYPE_WIDTH);
     // TODO: this doesn't seem right, time not from epoch
     return DateUtility.getLocalDateTimeFromEpochMilli(millis);
   }
@@ -159,7 +159,7 @@ public final class TimeMilliVector extends BaseFixedWidthVector {
 
 
   private void setValue(int index, int value) {
-    valueBuffer.setInt(index * TYPE_WIDTH, value);
+    valueBuffer.setInt((long) index * TYPE_WIDTH, value);
   }
 
   /**
@@ -284,7 +284,7 @@ public final class TimeMilliVector extends BaseFixedWidthVector {
    * @return value stored at the index.
    */
   public static int get(final ArrowBuf buffer, final int index) {
-    return buffer.getInt(index * TYPE_WIDTH);
+    return buffer.getInt((long) index * TYPE_WIDTH);
   }
 
 

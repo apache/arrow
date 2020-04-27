@@ -114,7 +114,7 @@ public final class IntVector extends BaseFixedWidthVector implements BaseIntVect
     if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
-    return valueBuffer.getInt(index * TYPE_WIDTH);
+    return valueBuffer.getInt((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -130,7 +130,7 @@ public final class IntVector extends BaseFixedWidthVector implements BaseIntVect
       return;
     }
     holder.isSet = 1;
-    holder.value = valueBuffer.getInt(index * TYPE_WIDTH);
+    holder.value = valueBuffer.getInt((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -143,7 +143,7 @@ public final class IntVector extends BaseFixedWidthVector implements BaseIntVect
     if (isSet(index) == 0) {
       return null;
     } else {
-      return valueBuffer.getInt(index * TYPE_WIDTH);
+      return valueBuffer.getInt((long) index * TYPE_WIDTH);
     }
   }
 
@@ -155,7 +155,7 @@ public final class IntVector extends BaseFixedWidthVector implements BaseIntVect
 
 
   private void setValue(int index, int value) {
-    valueBuffer.setInt(index * TYPE_WIDTH, value);
+    valueBuffer.setInt((long) index * TYPE_WIDTH, value);
   }
 
   /**
@@ -279,7 +279,7 @@ public final class IntVector extends BaseFixedWidthVector implements BaseIntVect
    * @return value stored at the index.
    */
   public static int get(final ArrowBuf buffer, final int index) {
-    return buffer.getInt(index * TYPE_WIDTH);
+    return buffer.getInt((long) index * TYPE_WIDTH);
   }
 
 

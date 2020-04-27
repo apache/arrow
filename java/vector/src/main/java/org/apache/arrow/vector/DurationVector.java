@@ -110,7 +110,7 @@ public final class DurationVector extends BaseFixedWidthVector {
    * @return value stored at the index.
    */
   public static long get(final ArrowBuf buffer, final int index) {
-    return buffer.getLong(index * TYPE_WIDTH);
+    return buffer.getLong((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -123,7 +123,7 @@ public final class DurationVector extends BaseFixedWidthVector {
     if (isSet(index) == 0) {
       return null;
     }
-    return valueBuffer.slice(index * TYPE_WIDTH, TYPE_WIDTH);
+    return valueBuffer.slice((long) index * TYPE_WIDTH, TYPE_WIDTH);
   }
 
   /**
@@ -207,7 +207,7 @@ public final class DurationVector extends BaseFixedWidthVector {
    */
   public void set(int index, ArrowBuf value) {
     BitVectorHelper.setBit(validityBuffer, index);
-    valueBuffer.setBytes(index * TYPE_WIDTH, value, 0, TYPE_WIDTH);
+    valueBuffer.setBytes((long) index * TYPE_WIDTH, value, 0, TYPE_WIDTH);
   }
 
   /**
@@ -217,7 +217,7 @@ public final class DurationVector extends BaseFixedWidthVector {
    * @param value   The duration value (in the timeunit associated with this vector)
    */
   public void set(int index, long value) {
-    final int offsetIndex = index * TYPE_WIDTH;
+    final long offsetIndex = (long) index * TYPE_WIDTH;
     BitVectorHelper.setBit(validityBuffer, index);
     valueBuffer.setLong(offsetIndex, value);
   }

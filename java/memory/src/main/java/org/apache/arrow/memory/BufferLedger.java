@@ -554,13 +554,6 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
       return clazz.cast(allocationManager);
     }
 
-    // TODO: remove this in a future release.
-    if (clazz == UnsafeDirectLittleEndian.class) {
-      Preconditions.checkState(allocationManager instanceof NettyAllocationManager,
-          "Underlying memory was not allocated by Netty");
-      return clazz.cast(((NettyAllocationManager) allocationManager).getMemoryChunk());
-    }
-
     throw new IllegalArgumentException("Unexpected unwrapping class: " + clazz);
   }
 }

@@ -116,7 +116,7 @@ public final class TimeStampMicroVector extends TimeStampVector {
       return;
     }
     holder.isSet = 1;
-    holder.value = valueBuffer.getLong(index * TYPE_WIDTH);
+    holder.value = valueBuffer.getLong((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -129,7 +129,7 @@ public final class TimeStampMicroVector extends TimeStampVector {
     if (isSet(index) == 0) {
       return null;
     } else {
-      final long micros = valueBuffer.getLong(index * TYPE_WIDTH);
+      final long micros = valueBuffer.getLong((long) index * TYPE_WIDTH);
       return DateUtility.getLocalDateTimeFromEpochMicro(micros);
     }
   }
