@@ -142,8 +142,9 @@ namespace Apache.Arrow
 
         public TBuilder Append(ReadOnlySpan<T> span)
         {
+            var len = ValueBuffer.Length;
             ValueBuffer.Append(span);
-            ValidityBuffer.Append(true);
+            ValidityBuffer.AppendRange(Enumerable.Repeat(true, ValueBuffer.Length - len));
             return Instance;
         }
 
@@ -157,7 +158,7 @@ namespace Apache.Arrow
 
         public TBuilder AppendNull()
         {
-            ValidityBuffer.Append(false);
+            ValidityBuffer.Append(true);
             NullCount++;
             // Need this until this is refactored to use
             // `Offset` (much like BuilderBase does already)
