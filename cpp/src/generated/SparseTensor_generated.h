@@ -23,6 +23,9 @@ struct SparseMatrixIndexCSXBuilder;
 struct SparseTensorIndexCSF;
 struct SparseTensorIndexCSFBuilder;
 
+struct SparseTensorIndexSplitCOO;
+struct SparseTensorIndexSplitCOOBuilder;
+
 struct SparseTensor;
 struct SparseTensorBuilder;
 
@@ -61,33 +64,36 @@ enum class SparseTensorIndex : uint8_t {
   SparseTensorIndexCOO = 1,
   SparseMatrixIndexCSX = 2,
   SparseTensorIndexCSF = 3,
+  SparseTensorIndexSplitCOO = 4,
   MIN = NONE,
-  MAX = SparseTensorIndexCSF
+  MAX = SparseTensorIndexSplitCOO
 };
 
-inline const SparseTensorIndex (&EnumValuesSparseTensorIndex())[4] {
+inline const SparseTensorIndex (&EnumValuesSparseTensorIndex())[5] {
   static const SparseTensorIndex values[] = {
     SparseTensorIndex::NONE,
     SparseTensorIndex::SparseTensorIndexCOO,
     SparseTensorIndex::SparseMatrixIndexCSX,
-    SparseTensorIndex::SparseTensorIndexCSF
+    SparseTensorIndex::SparseTensorIndexCSF,
+    SparseTensorIndex::SparseTensorIndexSplitCOO
   };
   return values;
 }
 
 inline const char * const *EnumNamesSparseTensorIndex() {
-  static const char * const names[5] = {
+  static const char * const names[6] = {
     "NONE",
     "SparseTensorIndexCOO",
     "SparseMatrixIndexCSX",
     "SparseTensorIndexCSF",
+    "SparseTensorIndexSplitCOO",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameSparseTensorIndex(SparseTensorIndex e) {
-  if (flatbuffers::IsOutRange(e, SparseTensorIndex::NONE, SparseTensorIndex::SparseTensorIndexCSF)) return "";
+  if (flatbuffers::IsOutRange(e, SparseTensorIndex::NONE, SparseTensorIndex::SparseTensorIndexSplitCOO)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesSparseTensorIndex()[index];
 }
@@ -106,6 +112,10 @@ template<> struct SparseTensorIndexTraits<org::apache::arrow::flatbuf::SparseMat
 
 template<> struct SparseTensorIndexTraits<org::apache::arrow::flatbuf::SparseTensorIndexCSF> {
   static const SparseTensorIndex enum_value = SparseTensorIndex::SparseTensorIndexCSF;
+};
+
+template<> struct SparseTensorIndexTraits<org::apache::arrow::flatbuf::SparseTensorIndexSplitCOO> {
+  static const SparseTensorIndex enum_value = SparseTensorIndex::SparseTensorIndexSplitCOO;
 };
 
 bool VerifySparseTensorIndex(flatbuffers::Verifier &verifier, const void *obj, SparseTensorIndex type);
@@ -534,6 +544,77 @@ inline flatbuffers::Offset<SparseTensorIndexCSF> CreateSparseTensorIndexCSFDirec
       axisOrder__);
 }
 
+struct SparseTensorIndexSplitCOO FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SparseTensorIndexSplitCOOBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_INDICESTYPES = 4,
+    VT_INDICESBUFFERS = 6
+  };
+  /// The type of values in indicesBuffers
+  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::Int>> *indicesTypes() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::Int>> *>(VT_INDICESTYPES);
+  }
+  /// The pairs of location and size of the index arrays' data
+  const flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *> *indicesBuffers() const {
+    return GetPointer<const flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *> *>(VT_INDICESBUFFERS);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffsetRequired(verifier, VT_INDICESTYPES) &&
+           verifier.VerifyVector(indicesTypes()) &&
+           verifier.VerifyVectorOfTables(indicesTypes()) &&
+           VerifyOffsetRequired(verifier, VT_INDICESBUFFERS) &&
+           verifier.VerifyVector(indicesBuffers()) &&
+           verifier.EndTable();
+  }
+};
+
+struct SparseTensorIndexSplitCOOBuilder {
+  typedef SparseTensorIndexSplitCOO Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_indicesTypes(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::Int>>> indicesTypes) {
+    fbb_.AddOffset(SparseTensorIndexSplitCOO::VT_INDICESTYPES, indicesTypes);
+  }
+  void add_indicesBuffers(flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *>> indicesBuffers) {
+    fbb_.AddOffset(SparseTensorIndexSplitCOO::VT_INDICESBUFFERS, indicesBuffers);
+  }
+  explicit SparseTensorIndexSplitCOOBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  SparseTensorIndexSplitCOOBuilder &operator=(const SparseTensorIndexSplitCOOBuilder &);
+  flatbuffers::Offset<SparseTensorIndexSplitCOO> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<SparseTensorIndexSplitCOO>(end);
+    fbb_.Required(o, SparseTensorIndexSplitCOO::VT_INDICESTYPES);
+    fbb_.Required(o, SparseTensorIndexSplitCOO::VT_INDICESBUFFERS);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<SparseTensorIndexSplitCOO> CreateSparseTensorIndexSplitCOO(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::Int>>> indicesTypes = 0,
+    flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *>> indicesBuffers = 0) {
+  SparseTensorIndexSplitCOOBuilder builder_(_fbb);
+  builder_.add_indicesBuffers(indicesBuffers);
+  builder_.add_indicesTypes(indicesTypes);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<SparseTensorIndexSplitCOO> CreateSparseTensorIndexSplitCOODirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::Int>> *indicesTypes = nullptr,
+    const std::vector<org::apache::arrow::flatbuf::Buffer> *indicesBuffers = nullptr) {
+  auto indicesTypes__ = indicesTypes ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::Int>>(*indicesTypes) : 0;
+  auto indicesBuffers__ = indicesBuffers ? _fbb.CreateVectorOfStructs<org::apache::arrow::flatbuf::Buffer>(*indicesBuffers) : 0;
+  return org::apache::arrow::flatbuf::CreateSparseTensorIndexSplitCOO(
+      _fbb,
+      indicesTypes__,
+      indicesBuffers__);
+}
+
 struct SparseTensor FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef SparseTensorBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -642,6 +723,9 @@ struct SparseTensor FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   const org::apache::arrow::flatbuf::SparseTensorIndexCSF *sparseIndex_as_SparseTensorIndexCSF() const {
     return sparseIndex_type() == org::apache::arrow::flatbuf::SparseTensorIndex::SparseTensorIndexCSF ? static_cast<const org::apache::arrow::flatbuf::SparseTensorIndexCSF *>(sparseIndex()) : nullptr;
+  }
+  const org::apache::arrow::flatbuf::SparseTensorIndexSplitCOO *sparseIndex_as_SparseTensorIndexSplitCOO() const {
+    return sparseIndex_type() == org::apache::arrow::flatbuf::SparseTensorIndex::SparseTensorIndexSplitCOO ? static_cast<const org::apache::arrow::flatbuf::SparseTensorIndexSplitCOO *>(sparseIndex()) : nullptr;
   }
   /// The location and size of the tensor's data
   const org::apache::arrow::flatbuf::Buffer *data() const {
@@ -760,6 +844,10 @@ template<> inline const org::apache::arrow::flatbuf::SparseTensorIndexCSF *Spars
   return sparseIndex_as_SparseTensorIndexCSF();
 }
 
+template<> inline const org::apache::arrow::flatbuf::SparseTensorIndexSplitCOO *SparseTensor::sparseIndex_as<org::apache::arrow::flatbuf::SparseTensorIndexSplitCOO>() const {
+  return sparseIndex_as_SparseTensorIndexSplitCOO();
+}
+
 struct SparseTensorBuilder {
   typedef SparseTensor Table;
   flatbuffers::FlatBufferBuilder &fbb_;
@@ -857,6 +945,10 @@ inline bool VerifySparseTensorIndex(flatbuffers::Verifier &verifier, const void 
     }
     case SparseTensorIndex::SparseTensorIndexCSF: {
       auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::SparseTensorIndexCSF *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case SparseTensorIndex::SparseTensorIndexSplitCOO: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::SparseTensorIndexSplitCOO *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;
