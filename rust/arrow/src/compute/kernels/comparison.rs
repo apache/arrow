@@ -464,6 +464,24 @@ mod tests {
         assert_eq!(true, c.value(2));
     }
 
+    #[test]
+    fn test_length_of_result_buffer() {
+        // `item_count` is chosen to not be a multiple of the number of SIMD lanes for this
+        // type (`Int8Type`), 64.
+        let item_count = 130;
+
+        let select_mask: BooleanArray = vec![true; item_count].into();
+
+        let array_a: PrimitiveArray<Int8Type> = vec![1; item_count].into();
+        let array_b: PrimitiveArray<Int8Type> = vec![2; item_count].into();
+        let result_mask = gt_eq(&array_a, &array_b).unwrap();
+
+        assert_eq!(
+            result_mask.data().buffers()[0].len(),
+            select_mask.data().buffers()[0].len()
+        );
+    }
+
     macro_rules! test_utf8 {
         ($test_name:ident, $left:expr, $right:expr, $op:expr, $expected:expr) => {
             #[test]
