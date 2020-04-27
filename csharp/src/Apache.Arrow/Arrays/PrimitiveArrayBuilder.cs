@@ -166,12 +166,14 @@ namespace Apache.Arrow
         public TBuilder Clear()
         {
             ValueBuffer.Clear();
+            ValidityBuffer.Clear();
             return Instance;
         }
 
         public TBuilder Set(int index, T value)
         {
             ValueBuffer.Span[index] = value;
+            ValidityBuffer.Set(index, true);
             return Instance;
         }
 
@@ -180,6 +182,7 @@ namespace Apache.Arrow
             var x = ValueBuffer.Span[i];
             ValueBuffer.Span[i] = ValueBuffer.Span[j];
             ValueBuffer.Span[j] = x;
+            ValidityBuffer.Swap(i, j);
             return Instance;
         }
 
