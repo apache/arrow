@@ -107,7 +107,9 @@ class DockerCompose(Command):
         for parent in self.nodes[image]:
             if cache:
                 run('pull', '--ignore-pull-failures', parent, env=env)
-            run('build', parent, env=env)
+                run('build', parent, env=env)
+            else:
+                run('build', '--no-cache', parent, env=env)
 
         # build the image at last
         if cache and cache_leaf:

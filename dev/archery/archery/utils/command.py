@@ -57,7 +57,7 @@ class Command:
     """
 
     def run(self, *argv, **kwargs):
-        assert(hasattr(self, "bin"))
+        assert hasattr(self, "bin")
         invocation = shlex.split(self.bin)
         invocation.extend(argv)
 

@@ -33,7 +33,7 @@ setup(
     maintainer_email='dev@arrow.apache.org',
     packages=['archery'],
     install_requires=['click', 'pygithub'],
-    tests_require=['pytest', 'ruamel.yaml'],
+    tests_require=['pytest', 'ruamel.yaml', 'responses'],
     extras_require={
         'all': ['ruamel.yaml', 'python-dotenv'],
         'bot': ['ruamel.yaml'],
