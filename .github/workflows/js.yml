@@ -21,12 +21,14 @@ on:
   push:
     paths:
       - '.github/workflows/js.yml'
-      - 'ci/**'
+      - 'ci/docker/*js.dockerfile'
+      - 'ci/scripts/js_*'
       - 'js/**'
   pull_request:
     paths:
       - '.github/workflows/js.yml'
-      - 'ci/**'
+      - 'ci/docker/*js.dockerfile'
+      - 'ci/scripts/js_*'
       - 'js/**'
 
 env:

@@ -21,13 +21,19 @@ on:
   push:
     paths:
       - '.github/workflows/cpp.yml'
-      - 'ci/**'
+      - 'ci/docker/**'
+      - 'ci/scripts/util_*'
+      - 'ci/scripts/msys_*'
+      - 'ci/scripts/cpp_*'
       - 'cpp/**'
       - 'format/Flight.proto'
   pull_request:
     paths:
       - '.github/workflows/cpp.yml'
-      - 'ci/**'
+      - 'ci/docker/**'
+      - 'ci/scripts/util_*'
+      - 'ci/scripts/msys_*'
+      - 'ci/scripts/cpp_*'
       - 'cpp/**'
       - 'format/Flight.proto'
 
