@@ -199,10 +199,19 @@ table SparseTensorIndexCSF {
   axisOrder: [int] (required);
 }
 
+table SparseTensorIndexSplitCOO {
+  /// The type of values in indicesBuffers
+  indicesTypes: [Int] (required);
+
+  /// The pairs of location and size of the index arrays' data
+  indicesBuffers: [Buffer] (required);
+}
+
 union SparseTensorIndex {
   SparseTensorIndexCOO,
   SparseMatrixIndexCSX,
-  SparseTensorIndexCSF
+  SparseTensorIndexCSF,
+  SparseTensorIndexSplitCOO
 }
 
 table SparseTensor {
