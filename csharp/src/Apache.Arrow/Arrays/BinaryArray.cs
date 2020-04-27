@@ -89,7 +89,7 @@ namespace Apache.Arrow
             public TBuilder AppendNull()
             {
                 ValueOffsets.Append(Offset);
-                Offset++;
+                ValidityBuffer.Append(false);
                 NullCount++;
                 return Instance;
             }
@@ -108,9 +108,7 @@ namespace Apache.Arrow
                 ValueOffsets.Append(Offset);
                 ValueBuffer.Append(span);
                 ValidityBuffer.Append(true);
-                Offset += span == Span<T>.Empty
-                                            ? 1
-                                            : span.Length;
+                Offset += span.Length;
                 return Instance;
             }
 
@@ -239,9 +237,9 @@ namespace Apache.Arrow
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            if (NullBitmapBuffer.Length < index && !BitUtility.GetBit(NullBitmapBuffer.Span, Offset + index))
+            if (!IsValid(index))
             {
-                return ReadOnlySpan<byte>.Empty;
+                return null;
             }
 
             return ValueBuffer.Span.Slice(ValueOffsets[index], GetValueLength(index));

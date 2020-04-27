@@ -114,14 +114,14 @@ namespace Apache.Arrow.Tests
         public void SlicePrimitiveArrayWithNulls()
         {
             TestSlice<Int32Array, Int32Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
-            TestSlice<Int8Array, Int8Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
+            TestSlice<Int8Array, Int8Array.Builder>(x => x.Append(10).AppendNull().Append(20).AppendNull().Append(30));
             TestSlice<Int16Array, Int16Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
             TestSlice<Int64Array, Int64Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
-            TestSlice<UInt8Array, UInt8Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
-            TestSlice<UInt16Array, UInt16Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
+            TestSlice<UInt8Array, UInt8Array.Builder>(x => x.Append(10).Append(20).Append(30).AppendNull());
+            TestSlice<UInt16Array, UInt16Array.Builder>(x => x.Append(10).Append(20).AppendNull().AppendNull().Append(30));
             TestSlice<UInt32Array, UInt32Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
             TestSlice<UInt64Array, UInt64Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
-            TestSlice<FloatArray, FloatArray.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
+            TestSlice<FloatArray, FloatArray.Builder>(x => x.AppendNull().Append(10).Append(20).AppendNull().Append(30));
             TestSlice<DoubleArray, DoubleArray.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
             TestSlice<Date32Array, Date32Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).AppendNull().Append(new DateTime(2019, 1, 3)));
             TestSlice<Date64Array, Date64Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).AppendNull().Append(new DateTime(2019, 1, 3)));

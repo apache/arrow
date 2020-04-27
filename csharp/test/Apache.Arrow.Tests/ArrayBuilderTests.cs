@@ -16,6 +16,7 @@
 using Apache.Arrow.Types;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -42,30 +43,34 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void PrimitiveArrayBuildersProduceExpectedArrayWithNulls()
         {
-            TestArrayBuilder<Int8Array, Int8Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(127), 4, 2);
-            TestArrayBuilder<Int16Array, Int16Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2);
-            TestArrayBuilder<Int32Array, Int32Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2);
-            TestArrayBuilder<Int64Array, Int64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2);
-            TestArrayBuilder<UInt8Array, UInt8Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(127), 4, 2);
-            TestArrayBuilder<UInt16Array, UInt16Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2);
-            TestArrayBuilder<UInt32Array, UInt32Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2);
-            TestArrayBuilder<UInt64Array, UInt64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2);
-            TestArrayBuilder<UInt64Array, UInt64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2);
-            TestArrayBuilder<FloatArray, FloatArray.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2);
-            TestArrayBuilder<DoubleArray, DoubleArray.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2);
+            TestArrayBuilder<Int8Array, Int8Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(127), 4, 2, 0x09);
+            TestArrayBuilder<Int16Array, Int16Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+            TestArrayBuilder<Int32Array, Int32Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+            TestArrayBuilder<Int64Array, Int64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+            TestArrayBuilder<UInt8Array, UInt8Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(127), 4, 2, 0x09);
+            TestArrayBuilder<UInt16Array, UInt16Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+            TestArrayBuilder<UInt32Array, UInt32Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+            TestArrayBuilder<UInt64Array, UInt64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+            TestArrayBuilder<UInt64Array, UInt64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+            TestArrayBuilder<FloatArray, FloatArray.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+            TestArrayBuilder<DoubleArray, DoubleArray.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
         }
 
         [Fact]
         public void BooleanArrayBuilderProducersExpectedArray()
         {
             TestArrayBuilder<BooleanArray, BooleanArray.Builder>(x => x.Append(true).Append(false).Append(true));
-            TestArrayBuilder<BooleanArray, BooleanArray.Builder>(x => x.Append(true).AppendNull().Append(false).Append(true), 4, 1);
+            TestArrayBuilder<BooleanArray, BooleanArray.Builder>(x => x.Append(true).AppendNull().Append(false).Append(true), 4, 1, 0x0D);
         }
 
         [Fact]
         public void StringArrayBuilderHandlesNullsAndEmptyStrings()
         {
-            TestArrayBuilder<StringArray, StringArray.Builder>(x => x.Append("123").Append(null).Append(null).Append(string.Empty), 4, 2);
+            var stringArray = TestArrayBuilder<StringArray, StringArray.Builder>(x => x.Append("123").Append(null).AppendNull().Append(string.Empty), 4, 2, 0x09);
+            Assert.Equal("123", stringArray.GetString(0));
+            Assert.Null(stringArray.GetString(1));
+            Assert.Null(stringArray.GetString(2));
+            Assert.Equal(string.Empty, stringArray.GetString(3));
         }
 
 
@@ -80,7 +85,7 @@ namespace Apache.Arrow.Tests
             listBuilder.Append();
             valueBuilder.Append("22").Append("33");
             listBuilder.Append();
-            valueBuilder.Append("444").Append("555").Append("666");
+            valueBuilder.Append("444").AppendNull().Append("555").Append("666");
 
             var list = listBuilder.Build();
 
@@ -91,7 +96,7 @@ namespace Apache.Arrow.Tests
                 new List<string> { "22", "33" },
                 ConvertStringArrayToList(list.GetSlicedValues(1) as StringArray));
             Assert.Equal(
-                new List<string> { "444", "555", "666" },
+                new List<string> { "444", null, "555", "666" },
                 ConvertStringArrayToList(list.GetSlicedValues(2) as StringArray));
 
             List<string> ConvertStringArrayToList(StringArray array)
@@ -110,9 +115,7 @@ namespace Apache.Arrow.Tests
         public void NestedListArrayBuilder()
         {
             var childListType = new ListType(Int64Type.Default);
-            // Because internals are now visible here, the wrong
-            // ctor will be used without casting to IArrowType
-            var parentListBuilder = new ListArray.Builder((IArrowType)childListType);
+            var parentListBuilder = new ListArray.Builder(childListType);
             var childListBuilder = parentListBuilder.ValueBuilder as ListArray.Builder;
             Assert.NotNull(childListBuilder);
             var valueBuilder = childListBuilder.ValueBuilder as Int64Array.Builder;
@@ -170,7 +173,7 @@ namespace Apache.Arrow.Tests
             }
         }
 
-        private static void TestArrayBuilder<TArray, TArrayBuilder>(Action<TArrayBuilder> action, int expectedLength = 3, int expectedNullCount = 0)
+        private static TArray TestArrayBuilder<TArray, TArrayBuilder>(Action<TArrayBuilder> action, int expectedLength = 3, int expectedNullCount = 0, int expectedNulls = 0)
             where TArray : IArrowArray
             where TArrayBuilder : IArrowArrayBuilder<TArray>, new()
         {
@@ -182,6 +185,11 @@ namespace Apache.Arrow.Tests
             Assert.NotNull(array);
             Assert.Equal(expectedLength, array.Length);
             Assert.Equal(expectedNullCount, array.NullCount);
+            if (expectedNulls != 0)
+            {
+                Assert.True(array.Data.Buffers[0].Span.Slice(0, 1).SequenceEqual(new ReadOnlySpan<byte>(BitConverter.GetBytes(expectedNulls).Take(1).ToArray())));
+            }
+            return array;
         }
 
     }

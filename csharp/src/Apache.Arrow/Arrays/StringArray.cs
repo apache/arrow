@@ -76,6 +76,15 @@ namespace Apache.Arrow
 
             var bytes = GetBytes(index);
 
+            if (bytes == Span<byte>.Empty)
+            {
+                return null;
+            }
+            if (bytes.Length == 0)
+            {
+                return string.Empty;
+            }
+
             unsafe
             {
                 fixed (byte* data = &MemoryMarshal.GetReference(bytes))
