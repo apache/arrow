@@ -659,7 +659,7 @@ impl BitReader {
     pub fn get_zigzag_vlq_int(&mut self) -> Option<i64> {
         self.get_vlq_int().map(|v| {
             let u = v as u64;
-            ((u >> 1) as i64 ^ -((u & 1) as i64))
+            (u >> 1) as i64 ^ -((u & 1) as i64)
         })
     }
 

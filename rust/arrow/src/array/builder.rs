@@ -229,7 +229,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
 
     fn capacity(&self) -> usize {
         let bit_capacity = self.buffer.capacity() * 8;
-        (bit_capacity / T::get_bit_width())
+        bit_capacity / T::get_bit_width()
     }
 
     default fn advance(&mut self, i: usize) -> Result<()> {
