@@ -162,11 +162,9 @@ def _filters_to_expression(filters):
             for col, op, val in conjunction
         ]
 
-        conjunction = reduce(lambda acc, one: acc & one, conjunction_members)
-        disjunction_members.append(conjunction)
+        disjunction_members.append(reduce(operator.and_, conjunction_members))
 
-    disjunction = reduce(lambda acc, one: acc | one, disjunction_members)
-    return disjunction
+    return reduce(operator.or_, disjunction_members)
 
 
 # ----------------------------------------------------------------------

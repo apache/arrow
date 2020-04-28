@@ -62,7 +62,7 @@ def field(name):
     -------
     field_expr : Expression
     """
-    return Expression.field(name)
+    return Expression._field(name)
 
 
 def scalar(value):
@@ -78,7 +78,7 @@ def scalar(value):
     -------
     scalar_expr : Expression
     """
-    return Expression.scalar(value)
+    return Expression._scalar(value)
 
 
 def partitioning(schema=None, field_names=None, flavor=None):

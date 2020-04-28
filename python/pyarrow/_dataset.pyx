@@ -48,11 +48,8 @@ cdef class Expression:
         shared_ptr[CExpression] wrapped
         CExpression* expr
 
-    def __init__(self, Buffer buffer=None):
-        if buffer is not None:
-            c_buffer = pyarrow_unwrap_buffer(buffer)
-            expr = GetResultValue(CExpression.Deserialize(deref(c_buffer)))
-            self.init(expr)
+    def __init__(self):
+        _forbid_instantiation(self.__class__)
 
     cdef void init(self, const shared_ptr[CExpression]& sp):
         self.wrapped = sp
@@ -60,7 +57,7 @@ cdef class Expression:
 
     @staticmethod
     cdef wrap(const shared_ptr[CExpression]& sp):
-        self = Expression()
+        cdef Expression self = Expression.__new__(Expression)
         self.init(sp)
         return self
 
@@ -78,9 +75,15 @@ cdef class Expression:
             self.__class__.__name__, str(self)
         )
 
+    @staticmethod
+    def _deserialize(Buffer buffer not None):
+        c_buffer = pyarrow_unwrap_buffer(buffer)
+        c_expr = GetResultValue(CExpression.Deserialize(deref(c_buffer)))
+        return Expression.wrap(move(c_expr))
+
     def __reduce__(self):
         buffer = pyarrow_wrap_buffer(GetResultValue(self.expr.Serialize()))
-        return Expression, (buffer,)
+        return Expression._deserialize, (buffer,)
 
     def validate(self, Schema schema not None):
         """Validate this expression for execution against a schema.
@@ -116,11 +119,7 @@ cdef class Expression:
     cdef shared_ptr[CExpression] _expr_or_scalar(object expr) except *:
         if isinstance(expr, Expression):
             return (<Expression> expr).unwrap()
-        return (<Expression> Expression.scalar(expr)).unwrap()
-
-    @staticmethod
-    def wtf():
-        return Expression.wrap(Expression._expr_or_scalar([]))
+        return (<Expression> Expression._scalar(expr)).unwrap()
 
     def __richcmp__(self, other, int op):
         cdef:
@@ -176,11 +175,11 @@ cdef class Expression:
         return Expression.wrap(self.expr.In(c_values).Copy())
 
     @staticmethod
-    def field(str name not None):
+    def _field(str name not None):
         return Expression.wrap(CMakeFieldExpression(tobytes(name)))
 
     @staticmethod
-    def scalar(value):
+    def _scalar(value):
         cdef:
             shared_ptr[CScalar] scalar
 
@@ -200,7 +199,8 @@ cdef class Expression:
         return Expression.wrap(CMakeScalarExpression(move(scalar)))
 
 
-_true = Expression.scalar(True)
+_deserialize = Expression._deserialize
+cdef Expression _true = Expression._scalar(True)
 
 
 cdef class Dataset:
@@ -500,8 +500,7 @@ cdef shared_ptr[CExpression] _insert_implicit_casts(Expression filter,
     assert schema is not None
 
     if filter is None:
-        expr = <Expression> Expression.scalar(True)
-        return expr.unwrap()
+        return _true.unwrap()
 
     return GetResultValue(
         CInsertImplicitCasts(

@@ -198,7 +198,7 @@ def test_filesystem_dataset(mockfs):
     file_format = ds.ParquetFileFormat()
 
     paths = ['subdir/1/xxx/file0.parquet', 'subdir/2/yyy/file1.parquet']
-    partitions = [ds.Expression.scalar(True), ds.Expression.scalar(True)]
+    partitions = [ds.scalar(True), ds.scalar(True)]
 
     dataset = ds.FileSystemDataset(
         schema=schema,
@@ -219,20 +219,17 @@ def test_filesystem_dataset(mockfs):
 
     # validation of required arguments
     with pytest.raises(TypeError, match="incorrect type"):
-        ds.FileSystemDataset(paths, schema=None, format=file_format,
-                             filesystem=mockfs)
+        ds.FileSystemDataset(paths, format=file_format, filesystem=mockfs)
     with pytest.raises(TypeError, match="incorrect type"):
-        ds.FileSystemDataset(paths, schema=schema, format=None,
-                             filesystem=mockfs)
+        ds.FileSystemDataset(paths, schema=schema, filesystem=mockfs)
     with pytest.raises(TypeError, match="incorrect type"):
-        ds.FileSystemDataset(paths, schema=schema, format=file_format,
-                             filesystem=None)
+        ds.FileSystemDataset(paths, schema=schema, format=file_format)
     # validation of root_partition
     with pytest.raises(TypeError, match="incorrect type"):
         ds.FileSystemDataset(paths, schema=schema, format=file_format,
                              filesystem=mockfs, root_partition=1)
 
-    root_partition = ds.field('level') == ds.Expression.scalar(1337)
+    root_partition = ds.field('level') == ds.scalar(1337)
     partitions = [ds.field('part') == x for x in range(1, 3)]
     dataset = ds.FileSystemDataset(
         paths_or_selector=paths,
@@ -362,11 +359,11 @@ def test_partitioning():
 
 
 def test_expression_serialization():
-    a = ds.Expression.scalar(1)
-    b = ds.Expression.scalar(1.1)
-    c = ds.Expression.scalar(True)
-    d = ds.Expression.scalar("string")
-    e = ds.Expression.scalar(None)
+    a = ds.scalar(1)
+    b = ds.scalar(1.1)
+    c = ds.scalar(True)
+    d = ds.scalar("string")
+    e = ds.scalar(None)
 
     condition = ds.field('i64') > 5
     schema = pa.schema([
@@ -376,10 +373,10 @@ def test_expression_serialization():
     assert condition.validate(schema) == pa.bool_()
 
     assert condition.assume(ds.field('i64') == 5).equals(
-        ds.Expression.scalar(False))
+        ds.scalar(False))
 
     assert condition.assume(ds.field('i64') == 7).equals(
-        ds.Expression.scalar(True))
+        ds.scalar(True))
 
     all_exprs = [a, b, c, d, e, a == b, a > b, a & b, a | b, ~c,
                  d.is_valid(), a.cast(pa.int32(), safe=False),
@@ -387,7 +384,6 @@ def test_expression_serialization():
                  ds.field('i64') > 5, ds.field('i64') == 5,
                  ds.field('i64') == 7]
     for expr in all_exprs:
-        print(str(expr))
         assert isinstance(expr, ds.Expression)
         restored = pickle.loads(pickle.dumps(expr))
         assert expr.equals(restored)
@@ -401,30 +397,28 @@ def test_expression_construction():
     string = ds.scalar("string")
     field = ds.field("field")
 
-    expr = zero | one == string
-    expr = ~true == false
+    zero | one == string
+    ~true == false
     for typ in ("bool", pa.bool_()):
-        expr = field.cast(typ) == true
+        field.cast(typ) == true
 
-    expr = field.isin([1, 2])
+    field.isin([1, 2])
 
     with pytest.raises(TypeError):
-        expr = field.isin(1)
+        field.isin(1)
 
     # operations with non-scalar values
     with pytest.raises(TypeError):
-        expr = field == [1]
+        field == [1]
 
     with pytest.raises(TypeError):
-        expr = field != {1}
+        field != {1}
 
     with pytest.raises(TypeError):
-        expr = field & [1]
+        field & [1]
 
     with pytest.raises(TypeError):
-        expr = field | [1]
-
-    assert expr is not None  # silence flake8
+        field | [1]
 
 
 def test_parquet_read_options():
@@ -512,7 +506,7 @@ def test_filesystem_factory(mockfs, paths_or_selector):
     assert isinstance(factory.inspect_schemas(), list)
     assert isinstance(factory.finish(inspected_schema),
                       ds.FileSystemDataset)
-    assert factory.root_partition.equals(ds.Expression.scalar(True))
+    assert factory.root_partition.equals(ds.scalar(True))
 
     dataset = factory.finish()
     assert isinstance(dataset, ds.FileSystemDataset)
