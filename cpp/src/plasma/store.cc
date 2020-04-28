@@ -1230,10 +1230,12 @@ void ExitWithUsageError(const char* error_msg) {
 
 // Command-line flags.
 DEFINE_string(d, SHM_DEFAULT_PATH, "directory where to create the memory-backed file");
-DEFINE_string(e, "", "endpoint for external storage service, where objects "
-"evicted from Plasma store can be written to, optional");
+DEFINE_string(e, "",
+              "endpoint for external storage service, where objects "
+              "evicted from Plasma store can be written to, optional");
 DEFINE_bool(h, false, "whether to enable hugepage support");
-DEFINE_string(s, "", "socket name where the Plasma store will listen for requests, required");
+DEFINE_string(s, "",
+              "socket name where the Plasma store will listen for requests, required");
 DEFINE_string(m, "", "amount of memory in bytes to use for Plasma store, required");
 
 int main(int argc, char* argv[]) {
@@ -1263,32 +1265,33 @@ int main(int argc, char* argv[]) {
     char extra;
     int scanned = sscanf(FLAGS_m.c_str(), "%" SCNd64 "%c", &system_memory, &extra);
     if (scanned != 1) {
-      plasma::ExitWithUsageError("-m switch takes memory in bytes, with no letter suffix allowed");
+      plasma::ExitWithUsageError(
+          "-m switch takes memory in bytes, with no letter suffix allowed");
     }
 
     // Set system memory capacity
     plasma::PlasmaAllocator::SetFootprintLimit(static_cast<size_t>(system_memory));
     ARROW_LOG(INFO) << "Allowing the Plasma store to use up to "
-                    << static_cast<double>(system_memory) / 1000000000
-                    << "GB of memory.";
+                    << static_cast<double>(system_memory) / 1000000000 << "GB of memory.";
   }
 
   // Sanity check command line options.
   if (socket_name == nullptr && system_memory == -1) {
     // Nicer error message for the case where the user ran the program without
     // any of the required command-line switches.
-    plasma::ExitWithUsageError("please specify socket for incoming connections with -s, "
-                               "and the amount of memory (in bytes) to use with -m");
-  }
-  else if (socket_name == nullptr) {
+    plasma::ExitWithUsageError(
+        "please specify socket for incoming connections with -s, "
+        "and the amount of memory (in bytes) to use with -m");
+  } else if (socket_name == nullptr) {
     plasma::ExitWithUsageError("please specify socket for incoming connections with -s");
-  }
-  else if (system_memory == -1) {
-    plasma::ExitWithUsageError("please specify the amount of memory (in bytes) to use with -m");
+  } else if (system_memory == -1) {
+    plasma::ExitWithUsageError(
+        "please specify the amount of memory (in bytes) to use with -m");
   }
   if (hugepages_enabled && plasma_directory.empty()) {
-    plasma::ExitWithUsageError("if you want to use hugepages, please specify path to huge pages "
-                               "filesystem with -d");
+    plasma::ExitWithUsageError(
+        "if you want to use hugepages, please specify path to huge pages "
+        "filesystem with -d");
   }
   ARROW_CHECK(!plasma_directory.empty());
   ARROW_LOG(INFO) << "Starting object store with directory " << plasma_directory
