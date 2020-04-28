@@ -54,7 +54,7 @@ arrow-flight = { path = "../arrow-flight", optional = true }
 [features]
 simd = ["packed_simd"]
 flight = ["arrow-flight"]
-default = ["simd", "flight"]
+default = ["flight"]
 
 [dev-dependencies]
 criterion = "0.3"
