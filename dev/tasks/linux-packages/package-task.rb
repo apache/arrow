@@ -62,6 +62,7 @@ class PackageTask
     define_apt_task
     define_yum_task
     define_version_task
+    define_docker_tasks
   end
 
   private
@@ -115,14 +116,21 @@ class PackageTask
     end
   end
 
-  def run_docker(os, architecture=nil)
+  def docker_image(os, architecture)
+    image = "#{@package}-#{os}"
+    image << "-#{architecture}" if architecture
+    image
+  end
+
+  def docker_run(os, architecture)
     id = os
     id = "#{id}-#{architecture}" if architecture
-    docker_tag = "#{@package}-#{id}"
+    image = docker_image(os, architecture)
     build_command_line = [
       "docker",
       "build",
-      "--tag", docker_tag,
+      "--cache-from", image,
+      "--tag", image,
     ]
     run_command_line = [
       "docker",
@@ -147,7 +155,7 @@ class PackageTask
     build_command_line.concat(docker_build_options(os, architecture))
     run_command_line.concat(docker_run_options(os, architecture))
     build_command_line << docker_context
-    run_command_line.concat([docker_tag, "/host/build.sh"])
+    run_command_line.concat([image, "/host/build.sh"])
 
     sh(*build_command_line)
     sh(*run_command_line)
@@ -158,6 +166,36 @@ class PackageTask
   end
 
   def docker_run_options(os, architecture)
+    []
+  end
+
+  def docker_pull(os, architecture)
+    image = docker_image(os, architecture)
+    command_line = [
+      "docker",
+      "pull",
+      image,
+    ]
+    command_line.concat(docker_pull_options(os, architecture))
+    sh(*command_line)
+  end
+
+  def docker_pull_options(os, architecture)
+    []
+  end
+
+  def docker_push(os, architecture)
+    image = docker_image(os, architecture)
+    command_line = [
+      "docker",
+      "push",
+      image,
+    ]
+    command_line.concat(docker_push_options(os, architecture))
+    sh(*command_line)
+  end
+
+  def docker_push_options(os, architecture)
     []
   end
 
@@ -175,9 +213,11 @@ class PackageTask
     return [] unless enable_apt?
 
     targets = (ENV["APT_TARGETS"] || "").split(",")
-    return targets unless targets.empty?
+    targets = apt_targets_default if targets.empty?
 
-    apt_targets_default
+    targets.find_all do |target|
+      Dir.exist?(File.join(apt_dir, target))
+    end
   end
 
   def apt_targets_default
@@ -229,12 +269,11 @@ VERSION=#{@deb_upstream_version}
       ENV
     end
 
-    cd(apt_dir) do
-      apt_targets.each do |target|
-        next unless Dir.exist?(target)
+    apt_targets.each do |target|
+      cd(apt_dir) do
         distribution, version, architecture = target.split("-", 3)
         os = "#{distribution}-#{version}"
-        run_docker(os, architecture)
+        docker_run(os, architecture)
       end
     end
   end
@@ -281,9 +320,11 @@ VERSION=#{@deb_upstream_version}
     return [] unless enable_yum?
 
     targets = (ENV["YUM_TARGETS"] || "").split(",")
-    return targets unless targets.empty?
+    targets = yum_targets_default if targets.empty?
 
-    yum_targets_default
+    targets.find_all do |target|
+      Dir.exist?(File.join(yum_dir, target))
+    end
   end
 
   def yum_targets_default
@@ -357,12 +398,11 @@ RELEASE=#{@rpm_release}
       spec_file.print(spec_data)
     end
 
-    cd(yum_dir) do
-      yum_targets.each do |target|
-        next unless Dir.exist?(target)
+    yum_targets.each do |target|
+      cd(yum_dir) do
         distribution, version, architecture = target.split("-", 3)
         os = "#{distribution}-#{version}"
-        run_docker(os, architecture)
+        docker_run(os, architecture)
       end
     end
   end
@@ -477,6 +517,40 @@ RELEASE=#{@rpm_release}
       CHANGELOG
       content = content.sub(/^(Release:\s+)\d+/, "\\11")
       content.rstrip
+    end
+  end
+
+  def define_docker_tasks
+    namespace :docker do
+      pull_tasks = []
+      push_tasks = []
+
+      (apt_targets + yum_targets).each do |target|
+        distribution, version, architecture = target.split("-", 3)
+        os = "#{distribution}-#{version}"
+
+        namespace :pull do
+          desc "Pull built image for #{target}"
+          task target do
+            docker_pull(os, architecture)
+          end
+          pull_tasks << "docker:pull:#{target}"
+        end
+
+        namespace :push do
+          desc "Push built image for #{target}"
+          task target do
+            docker_push(os, architecture)
+          end
+          push_tasks << "docker:push:#{target}"
+        end
+      end
+
+      desc "Pull built images"
+      task :pull => pull_tasks
+
+      desc "Push built images"
+      task :push => push_tasks
     end
   end
 end
