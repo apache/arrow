@@ -2827,6 +2827,67 @@ def test_write_to_dataset_with_partitions_and_custom_filenames(tempdir):
     assert sorted(expected_basenames) == sorted(output_basenames)
 
 
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_write_to_dataset_pandas_preserve_extensiondtypes(
+    tempdir, use_legacy_dataset
+):
+    # ARROW-8251 - preserve pandas extension dtypes in roundtrip
+
+    df = pd.DataFrame({'part': 'a', "col": [1, 2, 3]})
+    df['col'] = df['col'].astype("Int64")
+    table = pa.table(df)
+
+    pq.write_to_dataset(table, str(tempdir / "case1"), partition_cols=['part'])
+    result = pq.read_table(
+        str(tempdir / "case1"), use_legacy_dataset=use_legacy_dataset
+    ).to_pandas()
+    tm.assert_frame_equal(result[["col"]], df[["col"]])
+
+    pq.write_to_dataset(table, str(tempdir / "case2"))
+    result = pq.read_table(
+        str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
+    ).to_pandas()
+    tm.assert_frame_equal(result[["col"]], df[["col"]])
+
+    pq.write_table(table, str(tempdir / "data.parquet"))
+    result = pq.read_table(
+        str(tempdir / "data.parquet"), use_legacy_dataset=use_legacy_dataset
+    ).to_pandas()
+    tm.assert_frame_equal(result[["col"]], df[["col"]])
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_write_to_dataset_pandas_preserve_index(tempdir, use_legacy_dataset):
+    # ARROW-8251 - preserve pandas index in roundtrip
+
+    df = pd.DataFrame({'part': ['a', 'a', 'b'], "col": [1, 2, 3]})
+    df.index = pd.Index(['a', 'b', 'c'], name="idx")
+    table = pa.table(df)
+    df_cat = df[["col", "part"]].copy()
+    if use_legacy_dataset:
+        df_cat["part"] = df_cat["part"].astype("category")
+
+    pq.write_to_dataset(table, str(tempdir / "case1"), partition_cols=['part'])
+    result = pq.read_table(
+        str(tempdir / "case1"), use_legacy_dataset=use_legacy_dataset
+    ).to_pandas()
+    tm.assert_frame_equal(result, df_cat)
+
+    pq.write_to_dataset(table, str(tempdir / "case2"))
+    result = pq.read_table(
+        str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
+    ).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+    pq.write_table(table, str(tempdir / "data.parquet"))
+    result = pq.read_table(
+        str(tempdir / "data.parquet"), use_legacy_dataset=use_legacy_dataset
+    ).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+
 @pytest.mark.large_memory
 def test_large_table_int32_overflow():
     size = np.iinfo('int32').max + 1
