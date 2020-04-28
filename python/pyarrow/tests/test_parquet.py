@@ -18,6 +18,7 @@
 from collections import OrderedDict
 import datetime
 import decimal
+from distutils.version import LooseVersion
 import io
 import json
 import os
@@ -2833,6 +2834,8 @@ def test_write_to_dataset_pandas_preserve_extensiondtypes(
     tempdir, use_legacy_dataset
 ):
     # ARROW-8251 - preserve pandas extension dtypes in roundtrip
+    if LooseVersion(pd.__version__) < "1.0.0":
+        pytest.skip("__arrow_array__ added to pandas in 1.0.0")
 
     df = pd.DataFrame({'part': 'a', "col": [1, 2, 3]})
     df['col'] = df['col'].astype("Int64")
