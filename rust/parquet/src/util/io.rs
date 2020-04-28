@@ -256,7 +256,6 @@ mod tests {
         let mut res = vec![0u8; 7];
         let mut chunk = FileSource::new(&file, 0, file.metadata().unwrap().len() as usize);
         chunk.read(&mut res[..]).unwrap();
-
         assert_eq!(res, vec![b'a', b'b', b'c', b'd', b'e', b'f', b'g']);
     }
 
