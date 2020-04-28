@@ -34,8 +34,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
-import org.apache.arrow.vector.util.ValueVectorUtility;
-import org.apache.arrow.vector.validate.Status;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;

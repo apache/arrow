@@ -264,5 +264,4 @@ public abstract class ExtensionTypeVector<T extends BaseValueVector & FieldVecto
   public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
     return getUnderlyingVector().accept(visitor, value);
   }
-
 }

@@ -31,6 +31,8 @@ import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.types.pojo.Field;
 
+import io.netty.buffer.ArrowBuf;
+
 /**
  * visitor to validate vector (not include data).
  */
@@ -40,7 +42,7 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
   public Void visit(BaseFixedWidthVector vector, Void value) {
     if (vector.getValueCount() > 0) {
       if (vector.getDataBuffer() == null || vector.getDataBuffer().capacity() == 0) {
-        throw new RuntimeException("valueBuffer is null or capacity is 0");
+        throw new IllegalArgumentException("valueBuffer is null or capacity is 0");
       }
     }
     return null;
@@ -51,7 +53,35 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
 
     if (vector.getValueCount() > 0) {
       if (vector.getDataBuffer() == null || vector.getDataBuffer().capacity() == 0) {
-        throw new RuntimeException("valueBuffer is null or capacity is 0");
+        throw new IllegalArgumentException("valueBuffer is null or capacity is 0");
+      }
+
+      ArrowBuf offsetBuf = vector.getOffsetBuffer();
+      int minBufferSize = (vector.getValueCount() + 1) * 4;
+
+      if (offsetBuf.capacity() < minBufferSize) {
+        throw new IllegalArgumentException(String.format("offsetBuffer too small in vector of type %s" +
+                " and valueCount %s : expected at least %s byte(s), got %s",
+            vector.getField().getType().toString(),
+            vector.getValueCount(), minBufferSize, offsetBuf.capacity()));
+      }
+
+      int firstOffset = vector.getOffsetBuffer().getInt(0);
+      int lastOffset = vector.getOffsetBuffer().getInt(vector.getValueCount() * 4);
+
+      if (firstOffset < 0 || lastOffset < 0) {
+        throw new IllegalArgumentException("Negative offsets in vector");
+      }
+
+      int dataExtent = lastOffset - firstOffset;
+
+      if (dataExtent > 0 && (vector.getDataBuffer().capacity() == 0)) {
+        throw new IllegalArgumentException("dataBuffer capacity is 0");
+      }
+
+      if (dataExtent > vector.getDataBuffer().capacity()) {
+        throw new IllegalArgumentException(String.format("Length spanned by offsets %s larger than" +
+            " dataBuffer capacity %s", dataExtent, vector.getValueCount()));
       }
     }
     return null;
@@ -63,21 +93,32 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
     FieldVector dataVector = vector.getDataVector();
 
     if (vector.getValueCount() > 0) {
+
+      ArrowBuf offsetBuf = vector.getOffsetBuffer();
+      int minBufferSize = (vector.getValueCount() + 1) * 4;
+
+      if (offsetBuf.capacity() < minBufferSize) {
+        throw new IllegalArgumentException(String.format("offsetBuffer too small in vector of type %s" +
+                " and valueCount %s : expected at least %s byte(s), got %s",
+            vector.getField().getType().toString(),
+            vector.getValueCount(), minBufferSize, offsetBuf.capacity()));
+      }
+
       int firstOffset = vector.getOffsetBuffer().getInt(0);
       int lastOffset = vector.getOffsetBuffer().getInt(vector.getValueCount() * 4);
 
       if (firstOffset < 0 || lastOffset < 0) {
-        throw new RuntimeException("Negative offsets in list vector");
+        throw new IllegalArgumentException("Negative offsets in list vector");
       }
 
       int dataExtent = lastOffset - firstOffset;
 
       if (dataExtent > 0 && (dataVector.getDataBuffer() == null || dataVector.getDataBuffer().capacity() == 0)) {
-        throw new RuntimeException("valueBuffer is null or capacity is 0");
+        throw new IllegalArgumentException("valueBuffer is null or capacity is 0");
       }
 
       if (dataExtent > dataVector.getValueCount()) {
-        throw new RuntimeException(String.format("Length spanned by list offsets (%s) larger than" +
+        throw new IllegalArgumentException(String.format("Length spanned by list offsets (%s) larger than" +
             " data vector valueCount (length %s)", dataExtent, dataVector.getValueCount()));
       }
     }
@@ -93,12 +134,12 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
     int listSize = vector.getListSize();
 
     if (valueCount > 0 && (dataVector.getDataBuffer() == null || dataVector.getDataBuffer().capacity() == 0)) {
-      throw new RuntimeException("valueBuffer is null or capacity is 0");
+      throw new IllegalArgumentException("valueBuffer is null or capacity is 0");
     }
 
     if (valueCount * listSize != dataVector.getValueCount()) {
-      throw new RuntimeException(String.format("data vector valueCount invalid, expect %s, actual is: %s",
-          valueCount * listSize, dataVector.getValueCount()));
+      throw new IllegalArgumentException(String.format("data vector valueCount invalid, expect %s, " +
+          "actual is: %s", valueCount * listSize, dataVector.getValueCount()));
     }
 
     return null;
@@ -114,12 +155,12 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
       FieldVector child = vector.getChildrenFromFields().get(i);
 
       if (child.getValueCount() != valueCount) {
-        throw new RuntimeException(String.format("struct child vector #%s valueCount is not equals with " +
+        throw new IllegalArgumentException(String.format("struct child vector #%s valueCount is not equals with " +
             "struct vector, expect %s, actual %s", i, vector.getValueCount(), child.getValueCount()));
       }
 
       if (!childFields.get(i).getType().equals(child.getField().getType())) {
-        throw new RuntimeException(String.format("struct child vector #%s does not match type: %s vs %s",
+        throw new IllegalArgumentException(String.format("struct child vector #%s does not match type: %s vs %s",
             i, childFields.get(i).getType().toString(), child.getField().getType().toString()));
       }
 
@@ -138,12 +179,12 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
       FieldVector child = vector.getChildrenFromFields().get(i);
 
       if (child.getValueCount() != valueCount) {
-        throw new RuntimeException(String.format("union child vector #%s valueCount is not equals with union" +
+        throw new IllegalArgumentException(String.format("union child vector #%s valueCount is not equals with union" +
             " vector, expect %s, actual %s", i, vector.getValueCount(), child.getValueCount()));
       }
 
       if (!childFields.get(i).getType().equals(child.getField().getType())) {
-        throw new RuntimeException(String.format("union child vector #%s does not match type: %s vs %s",
+        throw new IllegalArgumentException(String.format("union child vector #%s does not match type: %s vs %s",
             i, childFields.get(i).getType().toString(), child.getField().getType().toString()));
       }
 
@@ -160,7 +201,7 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
       FieldVector child = vector.getChildrenFromFields().get(i);
 
       if (!childFields.get(i).getType().equals(child.getField().getType())) {
-        throw new RuntimeException(String.format("union child vector #%s does not match type: %s vs %s",
+        throw new IllegalArgumentException(String.format("union child vector #%s does not match type: %s vs %s",
             i, childFields.get(i).getType().toString(), child.getField().getType().toString()));
       }
 
@@ -172,6 +213,10 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
   @Override
   public Void visit(NullVector vector, Void value) {
     return null;
+  }
+
+  private void checkOffsetBuffer(ArrowBuf offsetBuf, int valueCount, int dataCapacity) {
+
   }
 
 }

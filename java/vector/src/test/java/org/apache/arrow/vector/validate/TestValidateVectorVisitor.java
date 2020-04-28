@@ -74,7 +74,7 @@ public class TestValidateVectorVisitor {
       validate(vector);
 
       vector.getDataBuffer().capacity(0);
-      RuntimeException e = assertThrows(RuntimeException.class,
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
           () -> validate(vector));
       assertTrue(e.getMessage().contains("Buffer #1 too small in vector of type"));
     }
@@ -88,7 +88,7 @@ public class TestValidateVectorVisitor {
       validate(vector);
 
       vector.getDataBuffer().capacity(0);
-      RuntimeException e = assertThrows(RuntimeException.class,
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
           () -> validate(vector));
       assertTrue(e.getMessage().contains("Buffer #2 too small in vector of type"));
     }
@@ -102,7 +102,7 @@ public class TestValidateVectorVisitor {
       validate(vector);
 
       vector.getDataVector().setValueCount(3);
-      RuntimeException e = assertThrows(RuntimeException.class,
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
           () -> validate(vector));
       assertEquals("Length spanned by list offsets (5) larger than data vector valueCount (length 3)",
           e.getMessage());
@@ -117,7 +117,7 @@ public class TestValidateVectorVisitor {
       validate(vector);
 
       vector.getDataVector().setValueCount(3);
-      RuntimeException e = assertThrows(RuntimeException.class,
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
           () -> validate(vector));
       assertEquals("data vector valueCount invalid, expect 6, actual is: 3",
           e.getMessage());
@@ -143,7 +143,7 @@ public class TestValidateVectorVisitor {
       writer.setValueCount(5);
 
       vector.getChild("f0").setValueCount(2);
-      RuntimeException e = assertThrows(RuntimeException.class,
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
           () -> validate(vector));
       assertTrue(e.getMessage().contains("valueCount is not equals with struct vector"));
 
@@ -151,7 +151,7 @@ public class TestValidateVectorVisitor {
       validate(vector);
 
       vector.getChild("f0").getDataBuffer().capacity(0);
-      RuntimeException e2 = assertThrows(RuntimeException.class,
+      IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class,
           () -> validate(vector));
       assertTrue(e2.getMessage().contains("valueBuffer is null or capacity is 0"));
     }
@@ -179,7 +179,7 @@ public class TestValidateVectorVisitor {
       validate(vector);
 
       vector.getChildrenFromFields().get(0).setValueCount(1);
-      RuntimeException e1 = assertThrows(RuntimeException.class,
+      IllegalArgumentException e1 = assertThrows(IllegalArgumentException.class,
           () -> validate(vector));
       assertTrue(e1.getMessage().contains("valueCount is not equals with union vector"));
 
@@ -187,7 +187,7 @@ public class TestValidateVectorVisitor {
       validate(vector);
 
       vector.getChildrenFromFields().get(0).getDataBuffer().capacity(0);
-      RuntimeException e2 = assertThrows(RuntimeException.class,
+      IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class,
           () -> validate(vector));
       assertTrue(e2.getMessage().contains("valueBuffer is null or capacity is 0"));
     }
@@ -218,7 +218,7 @@ public class TestValidateVectorVisitor {
       validate(vector);
 
       vector.getChildrenFromFields().get(0).getDataBuffer().capacity(0);
-      RuntimeException e = assertThrows(RuntimeException.class,
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
           () -> validate(vector));
       assertTrue(e.getMessage().contains("valueBuffer is null or capacity is 0"));
     }

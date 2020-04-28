@@ -101,11 +101,11 @@ public class ValueVectorUtility {
     TypeLayout typeLayout = TypeLayout.getTypeLayout(arrowType);
 
     if (vector.getValueCount() < 0) {
-      throw new RuntimeException("vector valueCount is negative");
+      throw new IllegalArgumentException("vector valueCount is negative");
     }
 
     if (vector.getFieldBuffers().size() != typeBufferCount) {
-      throw new RuntimeException(String.format("Expected %s buffers in vector of type %s, got %s",
+      throw new IllegalArgumentException(String.format("Expected %s buffers in vector of type %s, got %s",
           typeBufferCount, vector.getField().getType().toString(), vector.getBufferSize()));
     }
 
@@ -118,8 +118,9 @@ public class ValueVectorUtility {
       int minBufferSize = vector.getValueCount() * bufferLayout.getTypeBitWidth();
 
       if (buffer.capacity() < minBufferSize / 8) {
-        throw new RuntimeException(String.format("Buffer #%s too small in vector of type %s and valueCount %s :" +
-                " expected at least %s byte(s), got %s", i, vector.getField().getType().toString(),
+        throw new IllegalArgumentException(String.format("Buffer #%s too small in vector of type %s" +
+                "and valueCount %s : expected at least %s byte(s), got %s",
+            i, vector.getField().getType().toString(),
             vector.getValueCount(), minBufferSize, buffer.capacity()));
       }
     }
