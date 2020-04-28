@@ -722,6 +722,8 @@ class ParquetDatasetPiece:
             # value as indicated. The distinct categories of the partition have
             # been computed in the ParquetManifest
             for i, (name, index) in enumerate(self.partition_keys):
+                if columns is not None and name not in columns:
+                    continue
                 # The partition code is the same for all values in this piece
                 indices = np.full(len(table), index, dtype='i4')
 
