@@ -269,7 +269,7 @@ DatasetFactory <- R6Class("DatasetFactory", inherit = ArrowObject,
 )
 DatasetFactory$create <- function(x,
                                   filesystem = NULL,
-                                  format = c("parquet", "arrow", "ipc", "feather", "csv"),
+                                  format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text"),
                                   partitioning = NULL,
                                   ...) {
   if (is_list_of(x, "DatasetFactory")) {
@@ -291,7 +291,7 @@ DatasetFactory$create <- function(x,
   selector <- FileSelector$create(x, allow_not_found = FALSE, recursive = TRUE)
 
   if (is.character(format)) {
-    format <- FileFormat$create(match.arg(format))
+    format <- FileFormat$create(match.arg(format), ...)
   } else {
     assert_is(format, "FileFormat")
   }
@@ -410,6 +410,8 @@ FileFormat <- R6Class("FileFormat", inherit = ArrowObject,
         shared_ptr(ParquetFileFormat, self$pointer())
       } else if (type == "ipc") {
         shared_ptr(IpcFileFormat, self$pointer())
+      } else if (type == "csv") {
+        shared_ptr(CsvFileFormat, self$pointer())
       } else {
         self
       }
@@ -422,12 +424,15 @@ FileFormat <- R6Class("FileFormat", inherit = ArrowObject,
   )
 )
 FileFormat$create <- function(format, ...) {
-  if (format == "parquet") {
+  opt_names <- names(list(...))
+  if (format %in% c("csv", "text") || any(opt_names %in% c("delim", "delimiter"))) {
+    CsvFileFormat$create(...)
+  } else if (format == c("tsv")) {
+    CsvFileFormat$create(delimiter = "\t", ...)
+  } else if (format == "parquet") {
     ParquetFileFormat$create(...)
   } else if (format %in% c("ipc", "arrow", "feather")) { # These are aliases for the same thing
     shared_ptr(IpcFileFormat, dataset___IpcFileFormat__Make())
-  } else if (format == "csv") {
-    CsvFileFormat$create(...)
   } else {
     stop("Unsupported file format: ", format, call. = FALSE)
   }
@@ -456,8 +461,18 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @rdname FileFormat
 #' @export
 CsvFileFormat <- R6Class("CsvFileFormat", inherit = FileFormat)
-CsvFileFormat$create <- function(...) {
-  shared_ptr(CsvFileFormat, dataset___CsvFileFormat__Make())
+CsvFileFormat$create <- function(..., opts = csv_file_format_parse_options(...)) {
+  shared_ptr(CsvFileFormat, dataset___CsvFileFormat__Make(opts))
+}
+
+csv_file_format_parse_options <- function(...) {
+  # Support both the readr spelling of options and the arrow spelling
+  readr_opts <- c("delim", "quote", "escape_double", "escape_backslash", "skip_empty_rows")
+  if (any(readr_opts %in% names(list(...)))) {
+    readr_to_csv_parse_options(...)
+  } else {
+    CsvParseOptions$create(...)
+  }
 }
 
 #' Scan the contents of a dataset
