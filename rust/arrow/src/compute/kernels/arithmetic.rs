@@ -38,7 +38,7 @@ use crate::buffer::Buffer;
 #[cfg(feature = "simd")]
 use crate::buffer::MutableBuffer;
 use crate::compute::util::apply_bin_op_to_option_bitmap;
-#[cfg(feature = "simd")]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
 use crate::compute::util::simd_load_set_invalid;
 use crate::datatypes;
 use crate::datatypes::ToByteSlice;
