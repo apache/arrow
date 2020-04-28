@@ -288,6 +288,19 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CFileFormat):
         pass
 
+    cdef cppclass CCsvFileFormat "arrow::dataset::CsvFileFormat"(
+            CFileFormat):
+        CCSVParseOptions parse_options
+        int32_t block_size
+        int32_t skip_rows
+        c_bool check_utf8
+        vector[c_string] null_values
+        vector[c_string] true_values
+        vector[c_string] false_values
+        c_bool strings_can_be_null
+        c_bool auto_dict_encode
+        int32_t auto_dict_max_cardinality
+
     cdef cppclass CPartitioning "arrow::dataset::Partitioning":
         c_string type_name() const
         CResult[shared_ptr[CExpression]] Parse(const c_string & path) const

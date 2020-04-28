@@ -174,9 +174,6 @@ cdef class ParseOptions:
         If False, an empty line is interpreted as containing a single empty
         value (assuming a one-column CSV file).
     """
-    cdef:
-        CCSVParseOptions options
-
     __slots__ = ()
 
     def __init__(self, delimiter=None, quote_char=None, double_quote=None,
@@ -282,6 +279,27 @@ cdef class ParseOptions:
     @ignore_empty_lines.setter
     def ignore_empty_lines(self, value):
         self.options.ignore_empty_lines = value
+
+    def equals(self, ParseOptions other):
+        return (
+            self.delimiter == other.delimiter and
+            self.quote_char == other.quote_char and
+            self.double_quote == other.double_quote and
+            self.escape_char == other.escape_char and
+            self.newlines_in_values == other.newlines_in_values and
+            self.ignore_empty_lines == other.ignore_empty_lines
+        )
+
+    @staticmethod
+    cdef ParseOptions wrap(CCSVParseOptions options):
+        out = ParseOptions()
+        out.options = options
+        return out
+
+    def __reduce__(self):
+        return ParseOptions, (self.delimiter, self.quote_char,
+                              self.double_quote, self.escape_char,
+                              self.newlines_in_values, self.ignore_empty_lines)
 
 
 cdef class ConvertOptions:

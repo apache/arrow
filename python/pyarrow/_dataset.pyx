@@ -27,6 +27,7 @@ from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.compat import frombytes, tobytes
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
+from pyarrow._csv cimport ParseOptions
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
@@ -257,7 +258,7 @@ cdef class FileSystemDataset(Dataset):
         The top-level schema of the DataDataset.
     format : FileFormat
         File format to create fragments from, currently only
-        ParquetFileFormat and IpcFileFormat are supported.
+        ParquetFileFormat, IpcFileFormat, and CsvFileFormat are supported.
     filesystem : FileSystem
         The filesystem which files are from.
     partitions : List[Expression], optional
@@ -375,6 +376,8 @@ cdef class FileFormat:
             self = ParquetFileFormat.__new__(ParquetFileFormat)
         elif typ == 'ipc':
             self = IpcFileFormat.__new__(IpcFileFormat)
+        elif typ == 'csv':
+            self = CsvFileFormat.__new__(CsvFileFormat)
         else:
             raise TypeError(typ)
 
@@ -762,6 +765,177 @@ cdef class IpcFileFormat(FileFormat):
 
     def __reduce__(self):
         return IpcFileFormat, tuple()
+
+
+cdef class CsvFileFormat(FileFormat):
+    cdef:
+        CCsvFileFormat* csv_format
+
+    def __init__(self, ParseOptions parse_options=None, block_size=None,
+                 skip_rows=None, check_utf8=None, null_values=None,
+                 true_values=None, false_values=None,
+                 strings_can_be_null=None, auto_dict_encode=None,
+                 auto_dict_max_cardinality=None):
+        self.init(shared_ptr[CFileFormat](new CCsvFileFormat()))
+        if parse_options is not None:
+            self.parse_options = parse_options
+        if block_size is not None:
+            self.block_size = block_size
+        if skip_rows is not None:
+            self.skip_rows = skip_rows
+        if check_utf8 is not None:
+            self.check_utf8 = check_utf8
+        if null_values is not None:
+            self.null_values = null_values
+        if true_values is not None:
+            self.true_values = true_values
+        if false_values is not None:
+            self.false_values = false_values
+        if strings_can_be_null is not None:
+            self.strings_can_be_null = strings_can_be_null
+        if auto_dict_encode is not None:
+            self.auto_dict_encode = auto_dict_encode
+        if auto_dict_max_cardinality is not None:
+            self.auto_dict_max_cardinality = auto_dict_max_cardinality
+
+    cdef void init(self, const shared_ptr[CFileFormat]& sp):
+        FileFormat.init(self, sp)
+        self.csv_format = <CCsvFileFormat*> sp.get()
+
+    @property
+    def parse_options(self):
+        return ParseOptions.wrap(self.csv_format.parse_options)
+
+    @parse_options.setter
+    def parse_options(self, ParseOptions parse_options not None):
+        self.csv_format.parse_options = parse_options.options
+
+    @property
+    def block_size(self):
+        """
+        How many bytes to process at a time from the input stream.
+        """
+        return self.csv_format.block_size
+
+    @block_size.setter
+    def block_size(self, value):
+        self.csv_format.block_size = value
+
+    @property
+    def skip_rows(self):
+        """
+        The number of rows to skip before the column names (if any)
+        and the CSV data.
+        """
+        return self.csv_format.skip_rows
+
+    @skip_rows.setter
+    def skip_rows(self, value):
+        self.csv_format.skip_rows = value
+
+    @property
+    def check_utf8(self):
+        """
+        Whether to check UTF8 validity of string columns.
+        """
+        return self.csv_format.check_utf8
+
+    @check_utf8.setter
+    def check_utf8(self, value):
+        self.csv_format.check_utf8 = value
+
+    @property
+    def null_values(self):
+        """
+        A sequence of strings that denote nulls in the data.
+        """
+        return [frombytes(x) for x in self.csv_format.null_values]
+
+    @null_values.setter
+    def null_values(self, value):
+        self.csv_format.null_values = [tobytes(x) for x in value]
+
+    @property
+    def true_values(self):
+        """
+        A sequence of strings that denote true booleans in the data.
+        """
+        return [frombytes(x) for x in self.csv_format.true_values]
+
+    @true_values.setter
+    def true_values(self, value):
+        self.csv_format.true_values = [tobytes(x) for x in value]
+
+    @property
+    def false_values(self):
+        """
+        A sequence of strings that denote false booleans in the data.
+        """
+        return [frombytes(x) for x in self.csv_format.false_values]
+
+    @false_values.setter
+    def false_values(self, value):
+        self.csv_format.false_values = [tobytes(x) for x in value]
+
+    @property
+    def strings_can_be_null(self):
+        """
+        Whether string / binary columns can have null values.
+        """
+        return self.csv_format.strings_can_be_null
+
+    @strings_can_be_null.setter
+    def strings_can_be_null(self, value):
+        self.csv_format.strings_can_be_null = value
+
+    @property
+    def auto_dict_encode(self):
+        """
+        Whether to try to automatically dict-encode string / binary data.
+        """
+        return self.csv_format.auto_dict_encode
+
+    @auto_dict_encode.setter
+    def auto_dict_encode(self, value):
+        self.csv_format.auto_dict_encode = value
+
+    @property
+    def auto_dict_max_cardinality(self):
+        """
+        The maximum dictionary cardinality for `auto_dict_encode`.
+
+        This value is per chunk.
+        """
+        return self.csv_format.auto_dict_max_cardinality
+
+    @auto_dict_max_cardinality.setter
+    def auto_dict_max_cardinality(self, value):
+        self.csv_format.auto_dict_max_cardinality = value
+
+    def equals(self, CsvFileFormat other):
+        return (self.parse_options.equals(other.parse_options) and
+                self.block_size == other.block_size and
+                self.skip_rows == other.skip_rows and
+                self.check_utf8 == other.check_utf8 and
+                self.null_values == other.null_values and
+                self.true_values == other.true_values and
+                self.false_values == other.false_values and
+                self.strings_can_be_null == other.strings_can_be_null and
+                self.auto_dict_encode == other.auto_dict_encode and
+                self.auto_dict_max_cardinality ==
+                other.auto_dict_max_cardinality)
+
+    def __reduce__(self):
+        return CsvFileFormat, (self.parse_options,
+                               self.block_size,
+                               self.skip_rows,
+                               self.check_utf8,
+                               self.null_values,
+                               self.true_values,
+                               self.false_values,
+                               self.strings_can_be_null,
+                               self.auto_dict_encode,
+                               self.auto_dict_max_cardinality)
 
 
 cdef class Partitioning:

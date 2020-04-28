@@ -26,6 +26,7 @@ from pyarrow._dataset import (  # noqa
     CastExpression,
     CompareOperator,
     ComparisonExpression,
+    CsvFileFormat,
     Dataset,
     DatasetFactory,
     DirectoryPartitioning,
@@ -215,6 +216,8 @@ def _ensure_format(obj):
         return ParquetFileFormat()
     elif obj in {"ipc", "arrow", "feather"}:
         return IpcFileFormat()
+    elif obj == "csv":
+        return CsvFileFormat()
     else:
         raise ValueError("format '{}' is not supported".format(obj))
 

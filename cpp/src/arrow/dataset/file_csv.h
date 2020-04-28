@@ -51,9 +51,6 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
   /// Whether to check UTF8 validity of string columns
   bool check_utf8 = true;
 
-  /// Explicit per-column types
-  std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
-
   /// Recognized spellings for null values
   std::vector<std::string> null_values = {
       "",     "#N/A", "#N/A N/A", "#NA",     "-1.#IND", "-1.#QNAN",
