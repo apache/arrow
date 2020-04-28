@@ -2614,6 +2614,20 @@ def test_ignore_no_private_directories_path_list(
     _assert_dataset_paths(dataset, paths, use_legacy_dataset)
 
 
+@parametrize_legacy_dataset_fixed
+def test_empty_directory(tempdir, use_legacy_dataset):
+    # ARROW-5310 - reading empty directory
+    # fails with legacy implementation
+    empty_dir = tempdir / 'dataset'
+    empty_dir.mkdir()
+
+    dataset = pq.ParquetDataset(
+        empty_dir, use_legacy_dataset=use_legacy_dataset)
+    result = dataset.read()
+    assert result.num_rows == 0
+    assert result.num_columns == 0
+
+
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_multiindex_duplicate_values(tempdir, use_legacy_dataset):
