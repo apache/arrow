@@ -77,7 +77,6 @@ TEST_F(TestCsvFileFormat, ScanRecordBatchReader) {
 
   for (auto maybe_batch : Batches(fragment.get())) {
     ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
-    std::cout << batch->ToString() << std::endl;
     row_count += batch->num_rows();
   }
 
@@ -118,6 +117,35 @@ TEST_F(TestCsvFileFormat, IsSupported) {
   source = GetFileSource();
   ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(*source));
   EXPECT_EQ(supported, true);
+}
+
+TEST_F(TestCsvFileFormat, DISABLED_NonMaterializedFieldWithDifferingTypeFromInferred) {
+  auto source = GetFileSource(R"(f64,str
+1.0,foo
+,
+N/A,bar
+2,baz)");
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  // a valid schema for source:
+  schema_ = schema({field("f64", utf8()), field("str", utf8())});
+  ScannerBuilder builder(schema_, fragment, ctx_);
+  // filter expression validated against declared schema
+  ASSERT_OK(builder.Filter("f64"_ == "str"_));
+  // project only "str"
+  ASSERT_OK(builder.Project({"str"}));
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto scan_task_it, scanner->Scan());
+  for (auto maybe_scan_task : scan_task_it) {
+    ASSERT_OK_AND_ASSIGN(auto scan_task, std::move(maybe_scan_task));
+    ASSERT_OK_AND_ASSIGN(auto batch_it, scan_task->Execute());
+    for (auto maybe_batch : batch_it) {
+      // ERROR: "f64" is not projected and reverts to inferred type,
+      // breaking the comparison expression
+      ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+    }
+  }
 }
 
 }  // namespace dataset
