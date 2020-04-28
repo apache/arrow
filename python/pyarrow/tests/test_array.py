@@ -739,40 +739,54 @@ def test_union_from_dense():
     value_offsets = pa.array([1, 0, 0, 2, 1, 2, 3], type='int32')
     py_value = [b'b', 1, b'a', b'c', 2, 3, b'd']
 
-    def check_result(result, expected_field_names, expected_type_codes):
+    def check_result(result, expected_field_names, expected_type_codes,
+                     expected_type_code_values):
         result.validate(full=True)
         actual_field_names = [result.type[i].name
                               for i in range(result.type.num_children)]
         assert actual_field_names == expected_field_names
+        assert result.type.mode == "dense"
         assert result.type.type_codes == expected_type_codes
         assert result.to_pylist() == py_value
+        assert expected_type_code_values.equals(result.type_codes)
+        assert value_offsets.equals(result.offsets)
+        assert result.child(0).equals(binary)
+        assert result.child(1).equals(int64)
+        with pytest.raises(KeyError):
+            result.child(-1)
+        with pytest.raises(KeyError):
+            result.child(2)
 
     # without field names and type codes
     check_result(pa.UnionArray.from_dense(types, value_offsets,
                                           [binary, int64]),
                  expected_field_names=['0', '1'],
-                 expected_type_codes=[0, 1])
+                 expected_type_codes=[0, 1],
+                 expected_type_code_values=types)
 
     # with field names
     check_result(pa.UnionArray.from_dense(types, value_offsets,
                                           [binary, int64],
                                           ['bin', 'int']),
                  expected_field_names=['bin', 'int'],
-                 expected_type_codes=[0, 1])
+                 expected_type_codes=[0, 1],
+                 expected_type_code_values=types)
 
     # with type codes
     check_result(pa.UnionArray.from_dense(logical_types, value_offsets,
                                           [binary, int64],
                                           type_codes=[11, 13]),
                  expected_field_names=['0', '1'],
-                 expected_type_codes=[11, 13])
+                 expected_type_codes=[11, 13],
+                 expected_type_code_values=logical_types)
 
     # with field names and type codes
     check_result(pa.UnionArray.from_dense(logical_types, value_offsets,
                                           [binary, int64],
                                           ['bin', 'int'], [11, 13]),
                  expected_field_names=['bin', 'int'],
-                 expected_type_codes=[11, 13])
+                 expected_type_codes=[11, 13],
+                 expected_type_code_values=logical_types)
 
     # Bad type ids
     arr = pa.UnionArray.from_dense(logical_types, value_offsets,
@@ -799,37 +813,52 @@ def test_union_from_sparse():
     logical_types = pa.array([11, 13, 11, 11, 13, 13, 11], type='int8')
     py_value = [b'a', 1, b'b', b'c', 2, 3, b'd']
 
-    def check_result(result, expected_field_names, expected_type_codes):
+    def check_result(result, expected_field_names, expected_type_codes,
+                     expected_type_code_values):
         result.validate(full=True)
         assert result.to_pylist() == py_value
         actual_field_names = [result.type[i].name
                               for i in range(result.type.num_children)]
         assert actual_field_names == expected_field_names
+        assert result.type.mode == "sparse"
         assert result.type.type_codes == expected_type_codes
+        assert expected_type_code_values.equals(result.type_codes)
+        assert result.child(0).equals(binary)
+        assert result.child(1).equals(int64)
+        with pytest.raises(pa.ArrowTypeError):
+            result.offsets
+        with pytest.raises(KeyError):
+            result.child(-1)
+        with pytest.raises(KeyError):
+            result.child(2)
 
     # without field names and type codes
     check_result(pa.UnionArray.from_sparse(types, [binary, int64]),
                  expected_field_names=['0', '1'],
-                 expected_type_codes=[0, 1])
+                 expected_type_codes=[0, 1],
+                 expected_type_code_values=types)
 
     # with field names
     check_result(pa.UnionArray.from_sparse(types, [binary, int64],
                                            ['bin', 'int']),
                  expected_field_names=['bin', 'int'],
-                 expected_type_codes=[0, 1])
+                 expected_type_codes=[0, 1],
+                 expected_type_code_values=types)
 
     # with type codes
     check_result(pa.UnionArray.from_sparse(logical_types, [binary, int64],
                                            type_codes=[11, 13]),
                  expected_field_names=['0', '1'],
-                 expected_type_codes=[11, 13])
+                 expected_type_codes=[11, 13],
+                 expected_type_code_values=logical_types)
 
     # with field names and type codes
     check_result(pa.UnionArray.from_sparse(logical_types, [binary, int64],
                                            ['bin', 'int'],
                                            [11, 13]),
                  expected_field_names=['bin', 'int'],
-                 expected_type_codes=[11, 13])
+                 expected_type_codes=[11, 13],
+                 expected_type_code_values=logical_types)
 
     # Bad type ids
     arr = pa.UnionArray.from_sparse(logical_types, [binary, int64])

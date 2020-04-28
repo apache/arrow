@@ -1720,6 +1720,39 @@ cdef class UnionArray(Array):
     Concrete class for Arrow arrays of a Union data type.
     """
 
+    def child(self, int pos):
+        """
+        Return the given child array as an individual array.
+
+        For sparse unions, the returned array has its offset, length,
+        and null count adjusted.
+
+        For dense unions, the returned array is unchanged.
+        """
+        cdef shared_ptr[CArray] result
+        result = (<CUnionArray*> self.ap).child(pos)
+        if result != NULL:
+            return pyarrow_wrap_array(result)
+        raise KeyError("UnionArray does not have child {}".format(pos))
+
+    @property
+    def type_codes(self):
+        """Get the type codes array."""
+        buf = pyarrow_wrap_buffer((<CUnionArray*> self.ap).type_codes())
+        return Array.from_buffers(int8(), len(self), [None, buf])
+
+    @property
+    def offsets(self):
+        """
+        Get the value offsets array (dense arrays only).
+
+        Does not account for any slice offset.
+        """
+        if self.type.mode != "dense":
+            raise ArrowTypeError("Can only get value offsets for dense arrays")
+        buf = pyarrow_wrap_buffer((<CUnionArray*> self.ap).value_offsets())
+        return Array.from_buffers(int32(), len(self), [None, buf])
+
     @staticmethod
     def from_dense(Array types, Array value_offsets, list children,
                    list field_names=None, list type_codes=None):
