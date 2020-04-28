@@ -65,7 +65,8 @@ parametrize_legacy_dataset_not_supported = pytest.mark.parametrize(
 parametrize_legacy_dataset_skip_buffer = pytest.mark.parametrize(
     "use_legacy_dataset", [True, pytest.param(False, marks=pytest.mark.skip)])
 parametrize_legacy_dataset_fixed = pytest.mark.parametrize(
-    "use_legacy_dataset", [pytest.param(True, marks=pytest.mark.xfail), False])
+    "use_legacy_dataset", [pytest.param(True, marks=pytest.mark.xfail),
+                           pytest.param(False, marks=pytest.mark.dataset)])
 
 
 def deterministic_row_order(use_legacy_dataset, chunk_size=-1):
