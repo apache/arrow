@@ -30,7 +30,7 @@ class TestWriteOptions < Test::Unit::TestCase
     def test_accessor
       @options.allow_64bit = true
       assert do
-        @options.use_threads?
+        @options.allow_64bit?
       end
     end
   end
