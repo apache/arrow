@@ -1536,6 +1536,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     CStatus Take(CFunctionContext* context, const CRecordBatch& batch,
                  const CArray& indices, const CTakeOptions& options,
                  shared_ptr[CRecordBatch]* out)
+    CStatus Take(CFunctionContext* context, const CTable& table,
+                 const CArray& indices, const CTakeOptions& options,
+                 shared_ptr[CTable]* out)
 
     # Filter clashes with gandiva.pyx::Filter
     CStatus FilterKernel" arrow::compute::Filter"(
