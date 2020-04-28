@@ -1786,34 +1786,33 @@ impl From<(Vec<(Field, ArrayRef)>, Buffer, usize)> for StructArray {
 /// This is mostly used to represent strings or a limited set of primitive types as integers,
 /// for example when doing NLP analysis or representing chromosomes by name.
 ///
-/// Example with nullable data:
+/// Example **with nullable** data:
 ///
 /// ```
-///     use arrow::array::DictionaryArray;
-///     use arrow::datatypes::Int8Type;
-///     let test = vec!["a", "a", "b", "c"];
-///     let array : DictionaryArray<Int8Type> = test.iter().map(|&x| if x == "b" {None} else {Some(x)}).collect();
-///     assert_eq!(array.keys().collect::<Vec<Option<i8>>>(), vec![Some(0), Some(0), None, Some(1)]);
+/// use arrow::array::DictionaryArray;
+/// use arrow::datatypes::Int8Type;
+/// let test = vec!["a", "a", "b", "c"];
+/// let array : DictionaryArray<Int8Type> = test.iter().map(|&x| if x == "b" {None} else {Some(x)}).collect();
+/// assert_eq!(array.keys().collect::<Vec<Option<i8>>>(), vec![Some(0), Some(0), None, Some(1)]);
 /// ```
 ///
-/// Example without nullable data:
+/// Example **without nullable** data:
 ///
 /// ```
-///
-///     use arrow::array::DictionaryArray;
-///     use arrow::datatypes::Int8Type;
-///     let test = vec!["a", "a", "b", "c"];
-///     let array : DictionaryArray<Int8Type> = test.into_iter().collect();
-///     assert_eq!(array.keys().collect::<Vec<Option<i8>>>(), vec![Some(0), Some(0), Some(1), Some(2)]);
+/// use arrow::array::DictionaryArray;
+/// use arrow::datatypes::Int8Type;
+/// let test = vec!["a", "a", "b", "c"];
+/// let array : DictionaryArray<Int8Type> = test.into_iter().collect();
+/// assert_eq!(array.keys().collect::<Vec<Option<i8>>>(), vec![Some(0), Some(0), Some(1), Some(2)]);
 /// ```
 pub struct DictionaryArray<K: ArrowPrimitiveType> {
-    // Array of keys, much like a PrimitiveArray
+    /// Array of keys, much like a PrimitiveArray
     data: ArrayDataRef,
 
-    // Pointer to the key values.
+    /// Pointer to the key values.
     raw_values: RawPtrBox<K::Native>,
 
-    // Array of any values.
+    /// Array of any values.
     values: ArrayRef,
 
     /// Values are ordered.
@@ -1867,13 +1866,24 @@ where
 
 impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
     /// Return an iterator to the keys of this dictionary.
-    pub fn keys(&'a self) -> NullableIter<'a, K::Native> {
-        NullableIter::<'a, K::Native> {
+    pub fn keys(&self) -> NullableIter<'_, K::Native> {
+        NullableIter::<'_, K::Native> {
             data: &self.data,
             ptr: unsafe { self.raw_values.get().offset(self.data.offset() as isize) },
             i: 0,
             len: self.data.len(),
         }
+    }
+
+    /// Returns the lookup key by doing reverse dictionary lookup
+    pub fn lookup_key(&self, value: &'static str) -> Option<K::Native> {
+        let rd_buf: &StringArray =
+            self.values.as_any().downcast_ref::<StringArray>().unwrap();
+
+        (0..rd_buf.len())
+            .position(|i| rd_buf.value(i) == value)
+            .map(K::Native::from_usize)
+            .flatten()
     }
 
     /// Returns an `ArrayRef` to the dictionary values.
@@ -1891,6 +1901,7 @@ impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
         self.data.len()
     }
 
+    // Currently exists for compatibility purposes with Arrow IPC.
     pub fn is_ordered(&self) -> bool {
         self.is_ordered
     }
@@ -1913,15 +1924,14 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for DictionaryArray<T> {
         let raw_values = data.buffers()[0].raw_data();
         let dtype: &DataType = data.data_type();
         let values = make_array(data.child_data()[0].clone());
-        if let DataType::Dictionary(_, _) = dtype {
-            Self {
-                data: data,
+        match dtype {
+            DataType::Dictionary(_, _) => Self {
+                data,
                 raw_values: RawPtrBox::new(raw_values as *const T::Native),
-                values: values,
+                values,
                 is_ordered: false,
-            }
-        } else {
-            panic!("DictionaryArray must have Dictionary data type.")
+            },
+            _ => panic!("DictionaryArray must have Dictionary data type."),
         }
     }
 }
@@ -1931,12 +1941,12 @@ impl<T: ArrowPrimitiveType + ArrowDictionaryKeyType> FromIterator<Option<&'stati
     for DictionaryArray<T>
 {
     fn from_iter<I: IntoIterator<Item = Option<&'static str>>>(iter: I) -> Self {
-        let iter = iter.into_iter();
-        let (lower, _) = iter.size_hint();
+        let it = iter.into_iter();
+        let (lower, _) = it.size_hint();
         let key_builder = PrimitiveBuilder::<T>::new(lower);
         let value_builder = StringBuilder::new(256);
         let mut builder = StringDictionaryBuilder::new(key_builder, value_builder);
-        for i in iter {
+        it.for_each(|i| {
             if let Some(i) = i {
                 // Note: impl ... for Result<DictionaryArray<T>> fails with
                 // error[E0117]: only traits defined in the current crate can be implemented for arbitrary types
@@ -1948,7 +1958,7 @@ impl<T: ArrowPrimitiveType + ArrowDictionaryKeyType> FromIterator<Option<&'stati
                     .append_null()
                     .expect("Unable to append a null value to a dictionary array.");
             }
-        }
+        });
 
         builder.finish()
     }
@@ -1959,16 +1969,16 @@ impl<T: ArrowPrimitiveType + ArrowDictionaryKeyType> FromIterator<&'static str>
     for DictionaryArray<T>
 {
     fn from_iter<I: IntoIterator<Item = &'static str>>(iter: I) -> Self {
-        let iter = iter.into_iter();
-        let (lower, _) = iter.size_hint();
+        let it = iter.into_iter();
+        let (lower, _) = it.size_hint();
         let key_builder = PrimitiveBuilder::<T>::new(lower);
         let value_builder = StringBuilder::new(256);
         let mut builder = StringDictionaryBuilder::new(key_builder, value_builder);
-        for i in iter {
+        it.for_each(|i| {
             builder
                 .append(i)
                 .expect("Unable to append a value to a dictionary array.");
-        }
+        });
 
         builder.finish()
     }
@@ -3414,5 +3424,20 @@ mod tests {
             "DictionaryArray {keys: [Some(0), Some(0), Some(1), Some(2)] values: StringArray\n[\n  \"a\",\n  \"b\",\n  \"c\",\n]}\n",
             format!("{:?}", array)
         );
+    }
+
+    #[test]
+    fn test_dictionary_array_reverse_lookup_key() {
+        let test = vec!["a", "a", "b", "c"];
+        let array: DictionaryArray<Int8Type> = test.into_iter().collect();
+
+        assert_eq!(array.lookup_key("c"), Some(2));
+
+        // Direction of building a dictionary is the iterator direction
+        let test = vec!["t3", "t3", "t2", "t2", "t1", "t3", "t4", "t1", "t0"];
+        let array: DictionaryArray<Int8Type> = test.into_iter().collect();
+
+        assert_eq!(array.lookup_key("t1"), Some(2));
+        assert_eq!(array.lookup_key("non-existent"), None);
     }
 }
