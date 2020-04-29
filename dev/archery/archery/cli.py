@@ -573,6 +573,8 @@ def _set_default(opt, default):
               help='Include JavaScript in integration tests')
 @click.option('--with-go', type=bool, default=False,
               help='Include Go in integration tests')
+@click.option('--with-rust', type=bool, default=False,
+              help='Include Rust in integration tests')
 @click.option('--write_generated_json', default=False,
               help='Generate test JSON to indicated path')
 @click.option('--run-flight', is_flag=True, default=False,
@@ -604,7 +606,7 @@ def integration(with_all=False, random_seed=12345, **args):
 
     gen_path = args['write_generated_json']
 
-    languages = ['cpp', 'java', 'js', 'go']
+    languages = ['cpp', 'java', 'js', 'go', 'rust']
 
     enabled_languages = 0
     for lang in languages:
