@@ -52,7 +52,8 @@
 #' is a list of `Dataset`s (because there should be few `Dataset`s in the list
 #' and their `Schema`s are already in memory).
 #' @param ... additional arguments passed to `dataset_factory()` when
-#' `sources` is a file path, otherwise ignored.
+#' `sources` is a file path, otherwise ignored. These may include "format" to
+#' indicate the file format, or other format-specific options.
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call [`$NewScan()`][Scanner] to construct a query directly.
 #' @export
@@ -122,9 +123,8 @@ open_dataset <- function(sources,
 #' takes the following arguments:
 #' * `filesystem`: A [FileSystem]
 #' * `selector`: A [FileSelector]
-#' * `format`: A string identifier of the format of the files in `path`.
-#'   Currently "parquet" and "ipc"/"arrow"/"feather" (aliases for each other)
-#'   are supported. For Feather, only version 2 files are supported.
+#' * `format`: A [FileFormat]
+#' * `partitioning`: Either `Partitioning`, `PartitioningFactory`, or `NULL`
 #' @section Methods:
 #'
 #' A `Dataset` has the following methods:
@@ -325,9 +325,17 @@ DatasetFactory$create <- function(x,
 #' `UnionDatasetFactory` and other arguments will be ignored.
 #' @param filesystem A [FileSystem] object; if omitted, the `FileSystem` will
 #' be detected from `x`
-#' @param format A string identifier of the format of the files in `x`.
-#' Currently "parquet" and "ipc"/"arrow"/"feather" (aliases for each other)
-#' are supported. For Feather, only version 2 files are supported.
+#' @param format A [FileFormat] object, or a string identifier of the format of
+#' the files in `x`. Currently supported values:
+#' * "parquet"
+#' * "ipc"/"arrow"/"feather", all aliases for each other; for Feather, note that
+#'   only version 2 files are supported
+#' * "csv"/"text", aliases for the same thing (because comma is the default
+#'   delimiter for text files
+#' * "tsv", equivalent to passing `format = "text", delimiter = "\t"`
+#'
+#' Default is "parquet", unless a `delimiter` is also specified, in which case
+#' it is assumed to be "text".
 #' @param partitioning One of
 #'   * A `Schema`, in which case the file paths relative to `sources` will be
 #'    parsed, and path segments will be matched with the schema fields. For
@@ -340,7 +348,10 @@ DatasetFactory$create <- function(x,
 #'    by [hive_partition()] which parses explicit or autodetected fields from
 #'    Hive-style path segments
 #'   * `NULL` for no partitioning
-#' @param ... Additional arguments, currently ignored
+#' @param ... Additional format-specific options, passed to
+#' `FileFormat$create()`. For CSV options, note that you can specify them either
+#' with the Arrow C++ library naming ("delimiter", "quoting", etc.) or the
+#' `readr`-style naming used in [read_csv_arrow()] ("delim", "quote", etc.)
 #' @return A `DatasetFactory` object. Pass this to [open_dataset()],
 #' in a list potentially with other `DatasetFactory` objects, to create
 #' a `Dataset`.
@@ -387,16 +398,25 @@ FileSystemDatasetFactory$create <- function(filesystem,
 #'
 #' @section Factory:
 #' `FileFormat$create()` takes the following arguments:
-#' * `format`: A string identifier of the format of the files in `path`.
-#'   Currently "parquet" and "ipc"/"arrow"/"feather" (aliases for each other)
-#'   are supported. For Feather, only version 2 files are supported.
+#' * `format`: A string identifier of the file format. Currently supported values:
+#'   * "parquet"
+#'   * "ipc"/"arrow"/"feather", all aliases for each other; for Feather, note that
+#'     only version 2 files are supported
+#'   * "csv"/"text", aliases for the same thing (because comma is the default
+#'     delimiter for text files
+#'   * "tsv", equivalent to passing `format = "text", delimiter = "\t"`
 #' * `...`: Additional format-specific options
-#'   format="parquet":
+#'
+#'   `format = "parquet"``:
 #'   * `use_buffered_stream`: Read files through buffered input streams rather than
 #'                            loading entire row groups at once. This may be enabled
 #'                            to reduce memory overhead. Disabled by default.
 #'   * `buffer_size`: Size of buffered stream, if enabled. Default is 8KB.
 #'   * `dict_columns`: Names of columns which should be read as dictionaries.
+#'
+#'   `format = "text"`: see [CsvReadOptions]. Note that you can specify them either
+#'   with the Arrow C++ library naming ("delimiter", "quoting", etc.) or the
+#'   `readr`-style naming used in [read_csv_arrow()] ("delim", "quote", etc.)
 #'
 #' It returns the appropriate subclass of `FileFormat` (e.g. `ParquetFileFormat`)
 #' @rdname FileFormat
