@@ -19,8 +19,8 @@
 //! regions.
 
 use std::alloc::Layout;
-use std::ptr::NonNull;
 use std::mem::align_of;
+use std::ptr::NonNull;
 
 pub const ALIGNMENT: usize = 64;
 
@@ -28,9 +28,7 @@ pub const ALIGNMENT: usize = 64;
 /// As you can see this is global and lives as long as the program lives.
 /// Be careful to not write anything to this pointer in any scenario.
 /// If you use allocation methods shown here you won't have any problems.
-const BYPASS_PTR: NonNull<u8> = unsafe {
-    NonNull::new_unchecked(0xDEADBEEF as *mut u8)
-};
+const BYPASS_PTR: NonNull<u8> = unsafe { NonNull::new_unchecked(0xDEADBEEF as *mut u8) };
 
 pub fn allocate_aligned(size: usize) -> *mut u8 {
     unsafe {
