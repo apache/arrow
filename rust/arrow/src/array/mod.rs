@@ -191,8 +191,8 @@ pub use self::builder::FixedSizeListBuilder;
 pub use self::builder::ListBuilder;
 pub use self::builder::PrimitiveBuilder;
 pub use self::builder::PrimitiveDictionaryBuilder;
-pub use self::builder::StringBuilder;
 pub use self::builder::StringDictionaryBuilder;
+pub use self::builder::StringBuilder;
 pub use self::builder::StructBuilder;
 pub use self::union::UnionBuilder;
 
