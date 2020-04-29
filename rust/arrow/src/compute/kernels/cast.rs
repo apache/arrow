@@ -163,7 +163,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                     if array.is_null(i) {
                         b.append(false)?;
                     } else {
-                        b.append_value(if from.value(i) {"1"} else {"0"})?;
+                        b.append_value(if from.value(i) { "1" } else { "0" })?;
                     }
                 }
 

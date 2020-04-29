@@ -462,7 +462,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
         }
         Timestamp(unit, tz) => {
             let children = fbb.create_vector(&empty_fields[..]);
-            let tz = tz.clone().unwrap_or_else( || Arc::new(String::new()));
+            let tz = tz.clone().unwrap_or_else(|| Arc::new(String::new()));
             let tz_str = fbb.create_string(tz.as_str());
             let mut builder = ipc::TimestampBuilder::new(fbb);
             let time_unit = match unit {

@@ -326,8 +326,7 @@ impl ArrowNativeType for u64 {
 
 impl ArrowNativeType for f32 {
     fn into_json_value(self) -> Option<Value> {
-        Number::from_f64(f64::round(self as f64 * 1000.0) / 1000.0)
-            .map(VNumber)
+        Number::from_f64(f64::round(self as f64 * 1000.0) / 1000.0).map(VNumber)
     }
 }
 
@@ -759,7 +758,7 @@ impl DataType {
                         Ok(DataType::FixedSizeBinary(size.as_i64().unwrap() as i32))
                     } else {
                         Err(ArrowError::ParseError(
-                            "Expecting a byteWidth for fixedsizebinary".to_string()
+                            "Expecting a byteWidth for fixedsizebinary".to_string(),
                         ))
                     }
                 }

@@ -277,15 +277,10 @@ where
     let mut result = MutableBuffer::new(left.len()).with_bitset(left.len(), false);
     let lanes = u8x64::lanes();
     for i in (0..left.len()).step_by(lanes) {
-        let left_data =
-            unsafe { from_raw_parts(left.raw_data().add(i), lanes) };
-        let right_data =
-            unsafe { from_raw_parts(right.raw_data().add(i), lanes) };
+        let left_data = unsafe { from_raw_parts(left.raw_data().add(i), lanes) };
+        let right_data = unsafe { from_raw_parts(right.raw_data().add(i), lanes) };
         let result_slice: &mut [u8] = unsafe {
-            from_raw_parts_mut(
-                (result.data_mut().as_mut_ptr() as *mut u8).add(i),
-                lanes,
-            )
+            from_raw_parts_mut((result.data_mut().as_mut_ptr() as *mut u8).add(i), lanes)
         };
         unsafe {
             bit_util::bitwise_bin_op_simd(&left_data, &right_data, result_slice, &op)

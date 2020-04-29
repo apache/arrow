@@ -131,11 +131,11 @@ fn infer_file_schema<R: Read + Seek>(
 
         for i in 0..header_length {
             if let Some(string) = record.get(i) {
-                    if string == "" {
-                        nulls[i] = true;
-                    } else {
-                        column_types[i].insert(infer_field_schema(string));
-                    }
+                if string == "" {
+                    nulls[i] = true;
+                } else {
+                    column_types[i].insert(infer_field_schema(string));
+                }
             }
         }
     }
@@ -345,9 +345,7 @@ impl<R: Read> Reader<R> {
 
         let projected_schema = Arc::new(Schema::new(projected_fields));
 
-        arrays.and_then(|arr| {
-            RecordBatch::try_new(projected_schema, arr).map(Some)
-        })
+        arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr).map(Some))
     }
 
     fn build_primitive_array<T: ArrowPrimitiveType>(

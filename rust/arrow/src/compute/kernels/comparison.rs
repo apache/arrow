@@ -265,7 +265,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-    return simd_compare_op(left, right,T::eq);
+    return simd_compare_op(left, right, T::eq);
 
     #[cfg(any(
         not(any(target_arch = "x86", target_arch = "x86_64")),

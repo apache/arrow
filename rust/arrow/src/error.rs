@@ -51,9 +51,7 @@ impl From<csv_crate::Error> for ArrowError {
                 err.to_string()
             )),
             csv_crate::ErrorKind::UnequalLengths {
-                expected_len,
-                len,
-                ..
+                expected_len, len, ..
             } => ArrowError::CsvError(format!(
                 "Encountered unequal lengths between records on CSV file. Expected {} \
                  records, found {} records",

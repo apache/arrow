@@ -30,8 +30,8 @@ pub fn allocate_aligned(size: usize) -> *mut u8 {
     }
 }
 
-pub unsafe fn free_aligned(p: *mut u8, size: usize) { 
-        std::alloc::dealloc(p, Layout::from_size_align_unchecked(size, ALIGNMENT));
+pub unsafe fn free_aligned(p: *mut u8, size: usize) {
+    std::alloc::dealloc(p, Layout::from_size_align_unchecked(size, ALIGNMENT));
 }
 
 pub unsafe fn reallocate(ptr: *mut u8, old_size: usize, new_size: usize) -> *mut u8 {
