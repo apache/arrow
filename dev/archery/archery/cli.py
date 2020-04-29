@@ -715,7 +715,7 @@ def docker_compose_run(obj, image, env, build, cache, cache_leaf):
     except UndefinedImage as e:
         raise click.ClickException(
             "There is no service/image defined in docker-compose.yml with "
-            "name: {}".format(image)
+            "name: {}".format(str(e))
         )
 
 

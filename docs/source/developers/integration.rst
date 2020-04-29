@@ -62,9 +62,9 @@ simplify this, we provide a Makefile.
 .. code-block:: shell
 
    # Build and run manually
-   docker-compose build cpp
-   docker-compose build python
-   docker-compose run python
+   docker-compose build conda-cpp
+   docker-compose build conda-python
+   docker-compose run conda-python
 
-   # Using the makefile with proper image dependency resolution
-   make -f Makefile.docker python
+   # Using the archery with proper image dependency resolution
+   archery docker run conda-python

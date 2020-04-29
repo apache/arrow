@@ -54,18 +54,18 @@ class Docker(Command):
 class DockerCompose(Command):
 
     def __init__(self, config_path, dotenv_path=None, compose_bin=None):
-        config_path = Path(config_path)
+        self.config_path = Path(config_path)
         if dotenv_path:
-            dotenv_path = Path(dotenv_path)
+            self.dotenv_path = Path(dotenv_path)
         else:
-            dotenv_path = config_path.parent / '.env'
+            self.dotenv_path = config_path.parent / '.env'
 
         yaml = YAML()
-        with config_path.open() as fp:
+        with self.config_path.open() as fp:
             self.config = yaml.load(fp)
 
         self.nodes = dict(flatten(self.config['x-hierarchy']))
-        self.dotenv = dotenv_values(dotenv_path)
+        self.dotenv = dotenv_values(self.dotenv_path)
         self.bin = default_bin(compose_bin, "docker-compose")
 
     def validate(self):
@@ -85,8 +85,8 @@ class DockerCompose(Command):
             )
 
         # trigger docker-compose's own validation
-        result = super().run('ps', check=False, stderr=subprocess.PIPE,
-                             stdout=subprocess.PIPE)
+        result = self._execute('ps', check=False, stderr=subprocess.PIPE,
+                               stdout=subprocess.PIPE)
 
         if result.returncode != 0:
             # strip the intro line of docker-compose errors
@@ -105,26 +105,29 @@ class DockerCompose(Command):
         if name not in self.nodes:
             raise UndefinedImage(name)
 
+    def _execute(self, *args, **kwargs):
+        # set default arguments for docker-compose
+        return super().run('--file', self.config_path, *args, **kwargs)
+
     def build(self, image, cache=True, cache_leaf=True):
         self._validate_image(image)
-
         env = self._command_env()
-        run = super().run
 
         # build all parents
         for parent in self.nodes[image]:
             if cache:
-                run('pull', '--ignore-pull-failures', parent, env=env)
-                run('build', parent, env=env)
+                self._execute('pull', '--ignore-pull-failures', parent,
+                              env=env)
+                self._execute('build', parent, env=env)
             else:
-                run('build', '--no-cache', parent, env=env)
+                self._execute('build', '--no-cache', parent, env=env)
 
         # build the image at last
         if cache and cache_leaf:
-            run('pull', '--ignore-pull-failures', image, env=env)
-            run('build', image, env=env)
+            self._execute('pull', '--ignore-pull-failures', image, env=env)
+            self._execute('build', image, env=env)
         else:
-            run('build', '--no-cache', image, env=env)
+            self._execute('build', '--no-cache', image, env=env)
 
     def run(self, image, env=None):
         self._validate_image(image)
@@ -132,7 +135,7 @@ class DockerCompose(Command):
         if env is not None:
             for k, v in env.items():
                 args.extend(['-e', '{}={}'.format(k, v)])
-        super().run('run', '--rm', *args, image, env=self._command_env())
+        self._execute('run', '--rm', *args, image, env=self._command_env())
 
     def push(self, image, user, password):
         try:
@@ -143,4 +146,4 @@ class DockerCompose(Command):
                    .format(image))
             raise RuntimeError(msg) from None
         else:
-            super().run('push', image, env=self._command_env())
+            self._execute('push', image, env=self._command_env())

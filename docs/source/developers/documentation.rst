@@ -92,10 +92,10 @@ you made.
 Building with Docker
 --------------------
 
-You can use Docker to build the documentation:
+You can use Archery to build the documentation within a docker container:
 
 .. code-block:: shell
 
-  make -f Makefile.docker docs
+  archery docker run ubuntu-docs
 
 The final output is located under ``docs/_build/html``.
