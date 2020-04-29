@@ -1700,6 +1700,21 @@ def test_create_parquet_dataset_multi_threaded(tempdir):
 
 @pytest.mark.pandas
 @parametrize_legacy_dataset
+def test_read_partitioned_columns_selection(tempdir, use_legacy_dataset):
+    # ARROW-3861 - do not include partition columns in resulting table when
+    # `columns` keyword was passed without those columns
+    fs = LocalFileSystem.get_instance()
+    base_path = tempdir
+    _partition_test_for_filesystem(fs, base_path)
+
+    dataset = pq.ParquetDataset(
+        base_path, use_legacy_dataset=use_legacy_dataset)
+    result = dataset.read(columns=["values"])
+    assert result.column_names == ["values"]
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
 def test_equivalency(tempdir, use_legacy_dataset):
     fs = LocalFileSystem.get_instance()
     base_path = tempdir
