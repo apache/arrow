@@ -17,7 +17,7 @@
 # under the License.
 
 import sys
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 if sys.version_info < (3, 5):
@@ -31,7 +31,7 @@ setup(
     url='http://github.com/apache/arrow',
     maintainer='Arrow Developers',
     maintainer_email='dev@arrow.apache.org',
-    packages=['archery'],
+    packages=find_packages(),
     install_requires=['click', 'pygithub'],
     tests_require=['pytest', 'ruamel.yaml', 'responses'],
     extras_require={
