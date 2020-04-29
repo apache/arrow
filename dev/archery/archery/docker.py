@@ -121,7 +121,7 @@ class DockerCompose(Command):
 
         # build the image at last
         if cache and cache_leaf:
-            run('pulld', '--ignore-pull-failures', image, env=env)
+            run('pull', '--ignore-pull-failures', image, env=env)
             run('build', image, env=env)
         else:
             run('build', '--no-cache', image, env=env)

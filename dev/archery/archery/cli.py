@@ -661,12 +661,29 @@ def trigger_bot(event_name, event_payload, arrow_token, crossbow_token):
 
 
 @archery.group('docker')
-@click.option('--config', '-c', type=click.Path(),
-              default=DEFAULT_ARROW_PATH / 'docker-compose.yml')
+@click.option('--config', '-c', type=click.Path(exists=True),
+              default=None)
 @click.pass_obj
 def docker_compose(obj, config):
     from .docker import DockerCompose
-    obj['compose'] = DockerCompose(config)
+
+    config_locations = [
+        Path(config) if config is not None else Path('docker-compose.yml'),
+        Path.cwd() / 'docker-compose.yml',
+        DEFAULT_ARROW_PATH / 'docker-compose.yml',
+    ]
+    for config_path in config_locations:
+        if config_path.exists():
+            break
+    else:
+        paths = [" - {}".format(p) for p in config_locations]
+        raise click.ClickException(
+            "Docker compose configuration cannot be found, try to pass it "
+            "explicitly with the `-c` option.\nThe tried paths are:\n{}"
+            .format('\n'.join(paths))
+        )
+
+    obj['compose'] = DockerCompose(config_path)
     obj['compose'].validate()
 
 
