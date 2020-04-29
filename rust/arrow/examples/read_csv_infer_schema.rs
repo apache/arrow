@@ -17,11 +17,12 @@
 
 extern crate arrow;
 
-use arrow::array::{Float64Array, StringArray};
 use arrow::csv;
+use arrow::error::Result;
+use arrow::util::pretty::print_batches;
 use std::fs::File;
 
-fn main() {
+fn main() -> Result<()> {
     let file = File::open("test/data/uk_cities_with_headers.csv").unwrap();
     let builder = csv::ReaderBuilder::new()
         .has_headers(true)
@@ -29,36 +30,5 @@ fn main() {
     let mut csv = builder.build(file).unwrap();
     let batch = csv.next().unwrap().unwrap();
 
-    println!(
-        "Loaded {} rows containing {} columns",
-        batch.num_rows(),
-        batch.num_columns()
-    );
-
-    println!("Inferred schema: {:?}", batch.schema());
-
-    let city = batch
-        .column(0)
-        .as_any()
-        .downcast_ref::<StringArray>()
-        .unwrap();
-    let lat = batch
-        .column(1)
-        .as_any()
-        .downcast_ref::<Float64Array>()
-        .unwrap();
-    let lng = batch
-        .column(2)
-        .as_any()
-        .downcast_ref::<Float64Array>()
-        .unwrap();
-
-    for i in 0..batch.num_rows() {
-        println!(
-            "City: {}, Latitude: {}, Longitude: {}",
-            city.value(i),
-            lat.value(i),
-            lng.value(i)
-        );
-    }
+    print_batches(&vec![batch])
 }
