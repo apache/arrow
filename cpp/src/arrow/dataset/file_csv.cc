@@ -42,12 +42,6 @@ using internal::checked_pointer_cast;
 static inline Result<csv::ConvertOptions> GetConvertOptions(
     const CsvFileFormat& format, const std::shared_ptr<ScanOptions>& scan_options) {
   auto options = csv::ConvertOptions::Defaults();
-  options.null_values = format.null_values;
-  options.true_values = format.true_values;
-  options.false_values = format.false_values;
-  options.strings_can_be_null = format.strings_can_be_null;
-  options.auto_dict_encode = format.auto_dict_encode;
-  options.auto_dict_max_cardinality = format.auto_dict_max_cardinality;
   if (scan_options != nullptr) {
     // This is set to true to match behavior with other formats; a missing column
     // will be materialized as null.
@@ -76,8 +70,6 @@ static inline csv::ReadOptions GetReadOptions(const CsvFileFormat& format) {
   // contention when ScanTasks are also executed in multiple threads, so we disable it
   // here.
   options.use_threads = false;
-  options.skip_rows = format.skip_rows;
-  options.block_size = format.block_size;
   return options;
 }
 

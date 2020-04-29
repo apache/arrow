@@ -540,9 +540,7 @@ def test_file_format_pickling():
         ds.IpcFileFormat(),
         ds.CsvFileFormat(),
         ds.CsvFileFormat(pa.csv.ParseOptions(delimiter='\t',
-                                             ignore_empty_lines=True),
-                         auto_dict_encode=True,
-                         auto_dict_max_cardinality=127),
+                                             ignore_empty_lines=True)),
         ds.ParquetFileFormat(),
         ds.ParquetFileFormat(
             read_options=ds.ParquetReadOptions(use_buffered_stream=True)
