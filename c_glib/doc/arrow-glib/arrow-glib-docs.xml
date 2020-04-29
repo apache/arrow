@@ -132,6 +132,10 @@
       <title>Metadata</title>
       <xi:include href="xml/metadata-version.xml"/>
     </chapter>
+    <chapter id="ipc-options">
+      <title>Options</title>
+      <xi:include href="xml/ipc-options.xml"/>
+    </chapter>
     <chapter id="reader">
       <title>Reader</title>
       <xi:include href="xml/reader.xml"/>

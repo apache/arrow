@@ -210,7 +210,8 @@ where
     T: ArrowNumericType,
     F: Fn(T::Simd, T::Simd) -> T::SimdMask,
 {
-    if left.len() != right.len() {
+    let len = left.len();
+    if len != right.len() {
         return Err(ArrowError::ComputeError(
             "Cannot perform comparison operation on arrays of different length"
                 .to_string(),
@@ -224,13 +225,24 @@ where
     )?;
 
     let lanes = T::lanes();
-    let mut result = BooleanBufferBuilder::new(left.len());
+    let mut result = BooleanBufferBuilder::new(len);
 
-    for i in (0..left.len()).step_by(lanes) {
+    let rem = len % lanes;
+
+    for i in (0..len - rem).step_by(lanes) {
         let simd_left = T::load(left.value_slice(i, lanes));
         let simd_right = T::load(right.value_slice(i, lanes));
         let simd_result = op(simd_left, simd_right);
         for i in 0..lanes {
+            result.append(T::mask_get(&simd_result, i))?;
+        }
+    }
+
+    if rem > 0 {
+        let simd_left = T::load(left.value_slice(len - rem, lanes));
+        let simd_right = T::load(right.value_slice(len - rem, lanes));
+        let simd_result = op(simd_left, simd_right);
+        for i in 0..rem {
             result.append(T::mask_get(&simd_result, i))?;
         }
     }
@@ -351,6 +363,7 @@ where
 mod tests {
     use super::*;
     use crate::array::Int32Array;
+    use crate::datatypes::Int8Type;
 
     #[test]
     fn test_primitive_array_eq() {
@@ -462,6 +475,24 @@ mod tests {
         assert_eq!(true, c.value(0));
         assert_eq!(false, c.value(1));
         assert_eq!(true, c.value(2));
+    }
+
+    #[test]
+    fn test_length_of_result_buffer() {
+        // `item_count` is chosen to not be a multiple of the number of SIMD lanes for this
+        // type (`Int8Type`), 64.
+        let item_count = 130;
+
+        let select_mask: BooleanArray = vec![true; item_count].into();
+
+        let array_a: PrimitiveArray<Int8Type> = vec![1; item_count].into();
+        let array_b: PrimitiveArray<Int8Type> = vec![2; item_count].into();
+        let result_mask = gt_eq(&array_a, &array_b).unwrap();
+
+        assert_eq!(
+            result_mask.data().buffers()[0].len(),
+            select_mask.data().buffers()[0].len()
+        );
     }
 
     macro_rules! test_utf8 {

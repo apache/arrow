@@ -48,6 +48,7 @@ sources += files(
 )
 
 sources += files(
+  'ipc-options.cpp',
   'metadata-version.cpp',
   'reader.cpp',
   'writer.cpp',
@@ -104,6 +105,7 @@ c_headers += files(
 )
 
 c_headers += files(
+  'ipc-options.h',
   'metadata-version.h',
   'reader.h',
   'writer.h',

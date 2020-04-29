@@ -975,6 +975,10 @@ Result<std::shared_ptr<Array>> UnionArray::MakeSparse(
 }
 
 std::shared_ptr<Array> UnionArray::child(int i) const {
+  if (i < 0 ||
+      static_cast<decltype(boxed_fields_)::size_type>(i) >= boxed_fields_.size()) {
+    return nullptr;
+  }
   std::shared_ptr<Array> result = internal::atomic_load(&boxed_fields_[i]);
   if (!result) {
     std::shared_ptr<ArrayData> child_data = data_->child_data[i]->Copy();

@@ -1310,6 +1310,37 @@ cdef class Table(_PandasConvertible):
 
         return wrap_datum(out)
 
+    def take(self, object indices):
+        """
+        Take rows from a Table.
+
+        The resulting table contains rows taken from the input table at the
+        given indices. If an index is null then all the cells in that row
+        will be null.
+
+        Parameters
+        ----------
+        indices : Array
+            The indices of the values to extract. Array needs to be of
+            integer type.
+
+        Returns
+        -------
+        Table
+        """
+        cdef:
+            CTakeOptions options
+            shared_ptr[CTable] out
+            Array c_indices
+
+        c_indices = asarray(indices)
+
+        with nogil:
+            check_status(Take(_context(), deref(self.table),
+                              deref(c_indices.sp_array), options, &out))
+
+        return pyarrow_wrap_table(out)
+
     def replace_schema_metadata(self, metadata=None):
         """
         EXPERIMENTAL: Create shallow copy of table by replacing schema

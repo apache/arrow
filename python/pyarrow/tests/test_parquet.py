@@ -18,6 +18,7 @@
 from collections import OrderedDict
 import datetime
 import decimal
+from distutils.version import LooseVersion
 import io
 import json
 import os
@@ -1699,6 +1700,21 @@ def test_create_parquet_dataset_multi_threaded(tempdir):
 
 @pytest.mark.pandas
 @parametrize_legacy_dataset
+def test_read_partitioned_columns_selection(tempdir, use_legacy_dataset):
+    # ARROW-3861 - do not include partition columns in resulting table when
+    # `columns` keyword was passed without those columns
+    fs = LocalFileSystem.get_instance()
+    base_path = tempdir
+    _partition_test_for_filesystem(fs, base_path)
+
+    dataset = pq.ParquetDataset(
+        base_path, use_legacy_dataset=use_legacy_dataset)
+    result = dataset.read(columns=["values"])
+    assert result.column_names == ["values"]
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
 def test_equivalency(tempdir, use_legacy_dataset):
     fs = LocalFileSystem.get_instance()
     base_path = tempdir
@@ -2825,6 +2841,69 @@ def test_write_to_dataset_with_partitions_and_custom_filenames(tempdir):
     output_basenames = [os.path.basename(p.path) for p in dataset.pieces]
 
     assert sorted(expected_basenames) == sorted(output_basenames)
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_write_to_dataset_pandas_preserve_extensiondtypes(
+    tempdir, use_legacy_dataset
+):
+    # ARROW-8251 - preserve pandas extension dtypes in roundtrip
+    if LooseVersion(pd.__version__) < "1.0.0":
+        pytest.skip("__arrow_array__ added to pandas in 1.0.0")
+
+    df = pd.DataFrame({'part': 'a', "col": [1, 2, 3]})
+    df['col'] = df['col'].astype("Int64")
+    table = pa.table(df)
+
+    pq.write_to_dataset(table, str(tempdir / "case1"), partition_cols=['part'])
+    result = pq.read_table(
+        str(tempdir / "case1"), use_legacy_dataset=use_legacy_dataset
+    ).to_pandas()
+    tm.assert_frame_equal(result[["col"]], df[["col"]])
+
+    pq.write_to_dataset(table, str(tempdir / "case2"))
+    result = pq.read_table(
+        str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
+    ).to_pandas()
+    tm.assert_frame_equal(result[["col"]], df[["col"]])
+
+    pq.write_table(table, str(tempdir / "data.parquet"))
+    result = pq.read_table(
+        str(tempdir / "data.parquet"), use_legacy_dataset=use_legacy_dataset
+    ).to_pandas()
+    tm.assert_frame_equal(result[["col"]], df[["col"]])
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_write_to_dataset_pandas_preserve_index(tempdir, use_legacy_dataset):
+    # ARROW-8251 - preserve pandas index in roundtrip
+
+    df = pd.DataFrame({'part': ['a', 'a', 'b'], "col": [1, 2, 3]})
+    df.index = pd.Index(['a', 'b', 'c'], name="idx")
+    table = pa.table(df)
+    df_cat = df[["col", "part"]].copy()
+    if use_legacy_dataset:
+        df_cat["part"] = df_cat["part"].astype("category")
+
+    pq.write_to_dataset(table, str(tempdir / "case1"), partition_cols=['part'])
+    result = pq.read_table(
+        str(tempdir / "case1"), use_legacy_dataset=use_legacy_dataset
+    ).to_pandas()
+    tm.assert_frame_equal(result, df_cat)
+
+    pq.write_to_dataset(table, str(tempdir / "case2"))
+    result = pq.read_table(
+        str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
+    ).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+    pq.write_table(table, str(tempdir / "data.parquet"))
+    result = pq.read_table(
+        str(tempdir / "data.parquet"), use_legacy_dataset=use_legacy_dataset
+    ).to_pandas()
+    tm.assert_frame_equal(result, df)
 
 
 @pytest.mark.large_memory

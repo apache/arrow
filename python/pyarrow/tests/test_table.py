@@ -1373,3 +1373,40 @@ def test_table_function_unicode_schema():
     result = pa.table(d, schema=schema)
     assert result[0].chunk(0).equals(pa.array([1, 2, 3], type='int32'))
     assert result[1].chunk(0).equals(pa.array(['a', 'b', 'c'], type='string'))
+
+
+def test_table_take_vanilla_functionality():
+    table = pa.table(
+        [pa.array([1, 2, 3, None, 5]),
+         pa.array(['a', 'b', 'c', 'd', 'e'])],
+        ['f1', 'f2'])
+
+    assert table.take(pa.array([2, 3])).equals(table.slice(2, 2))
+
+
+def test_table_take_null_index():
+    table = pa.table(
+        [pa.array([1, 2, 3, None, 5]),
+         pa.array(['a', 'b', 'c', 'd', 'e'])],
+        ['f1', 'f2'])
+
+    result_with_null_index = pa.table(
+        [pa.array([1, None]),
+         pa.array(['a', None])],
+        ['f1', 'f2'])
+
+    assert table.take(pa.array([0, None])).equals(result_with_null_index)
+
+
+def test_table_take_non_consecutive():
+    table = pa.table(
+        [pa.array([1, 2, 3, None, 5]),
+         pa.array(['a', 'b', 'c', 'd', 'e'])],
+        ['f1', 'f2'])
+
+    result_non_consecutive = pa.table(
+        [pa.array([2, None]),
+         pa.array(['b', 'd'])],
+        ['f1', 'f2'])
+
+    assert table.take(pa.array([1, 3])).equals(result_non_consecutive)

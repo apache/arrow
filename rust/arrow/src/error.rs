@@ -38,19 +38,17 @@ pub enum ArrowError {
 
 impl From<::std::io::Error> for ArrowError {
     fn from(error: std::io::Error) -> Self {
-        ArrowError::IoError(error.description().to_string())
+        ArrowError::IoError(error.to_string())
     }
 }
 
 impl From<csv_crate::Error> for ArrowError {
     fn from(error: csv_crate::Error) -> Self {
         match error.kind() {
-            csv_crate::ErrorKind::Io(error) => {
-                ArrowError::CsvError(error.description().to_string())
-            }
+            csv_crate::ErrorKind::Io(error) => ArrowError::CsvError(error.to_string()),
             csv_crate::ErrorKind::Utf8 { pos: _, err } => ArrowError::CsvError(format!(
                 "Encountered UTF-8 error while reading CSV file: {:?}",
-                err.description()
+                err.to_string()
             )),
             csv_crate::ErrorKind::UnequalLengths {
                 pos: _,
@@ -68,7 +66,7 @@ impl From<csv_crate::Error> for ArrowError {
 
 impl From<::std::string::FromUtf8Error> for ArrowError {
     fn from(error: std::string::FromUtf8Error) -> Self {
-        ArrowError::ParseError(error.description().to_string())
+        ArrowError::ParseError(error.to_string())
     }
 }
 
