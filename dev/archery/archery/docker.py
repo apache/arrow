@@ -58,7 +58,7 @@ class DockerCompose(Command):
         if dotenv_path:
             self.dotenv_path = Path(dotenv_path)
         else:
-            self.dotenv_path = config_path.parent / '.env'
+            self.dotenv_path = self.config_path.parent / '.env'
 
         yaml = YAML()
         with self.config_path.open() as fp:
@@ -107,7 +107,7 @@ class DockerCompose(Command):
 
     def _execute(self, *args, **kwargs):
         # set default arguments for docker-compose
-        return super().run('--file', self.config_path, *args, **kwargs)
+        return super().run('--file', str(self.config_path), *args, **kwargs)
 
     def build(self, image, cache=True, cache_leaf=True):
         self._validate_image(image)

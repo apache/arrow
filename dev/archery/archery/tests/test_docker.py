@@ -108,48 +108,50 @@ def test_executed_docker_commands(tmpdir):
     arrow_config = Path(__file__).parents[4] / 'docker-compose.yml'
     compose = DockerCompose(arrow_config)
 
+    base_command = ['docker-compose', '--file', str(arrow_config)]
+
     with mock.patch('subprocess.run', autospec=True) as run:
         compose.run('conda-python-pandas')
-        cmd = ['docker-compose', 'run', '--rm', 'conda-python-pandas']
+        cmd = base_command + ['run', '--rm', 'conda-python-pandas']
         run.assert_called_with(cmd, check=True, env=mock.ANY)
 
     with mock.patch('subprocess.run', autospec=True) as run:
         compose.build('conda-python-pandas', cache=False)
         commands = [
-            ['docker-compose', 'build', '--no-cache', 'conda-cpp'],
-            ['docker-compose', 'build', '--no-cache', 'conda-python'],
-            ['docker-compose', 'build', '--no-cache', 'conda-python-pandas']
+            ['build', '--no-cache', 'conda-cpp'],
+            ['build', '--no-cache', 'conda-python'],
+            ['build', '--no-cache', 'conda-python-pandas']
         ]
-        run.assert_has_calls(
-            [mock.call(cmd, check=True, env=mock.ANY) for cmd in commands]
-        )
+        run.assert_has_calls([
+            mock.call(base_command + cmd, check=True, env=mock.ANY)
+            for cmd in commands
+        ])
 
     with mock.patch('subprocess.run', autospec=True) as run:
         compose.build('conda-python-pandas', cache=True, cache_leaf=False)
         commands = [
-            ['docker-compose', 'pull', '--ignore-pull-failures', 'conda-cpp'],
-            ['docker-compose', 'build', 'conda-cpp'],
-            ['docker-compose', 'pull', '--ignore-pull-failures',
-             'conda-python'],
-            ['docker-compose', 'build', 'conda-python'],
-            ['docker-compose', 'build', '--no-cache', 'conda-python-pandas']
+            ['pull', '--ignore-pull-failures', 'conda-cpp'],
+            ['build', 'conda-cpp'],
+            ['pull', '--ignore-pull-failures', 'conda-python'],
+            ['build', 'conda-python'],
+            ['build', '--no-cache', 'conda-python-pandas']
         ]
-        run.assert_has_calls(
-            [mock.call(cmd, check=True, env=mock.ANY) for cmd in commands]
-        )
+        run.assert_has_calls([
+            mock.call(base_command + cmd, check=True, env=mock.ANY)
+            for cmd in commands
+        ])
 
     with mock.patch('subprocess.run', autospec=True) as run:
         compose.build('conda-python-pandas')
         commands = [
-            ['docker-compose', 'pull', '--ignore-pull-failures', 'conda-cpp'],
-            ['docker-compose', 'build', 'conda-cpp'],
-            ['docker-compose', 'pull', '--ignore-pull-failures',
-             'conda-python'],
-            ['docker-compose', 'build', 'conda-python'],
-            ['docker-compose', 'pull', '--ignore-pull-failures',
-             'conda-python-pandas'],
-            ['docker-compose', 'build', 'conda-python-pandas']
+            ['pull', '--ignore-pull-failures', 'conda-cpp'],
+            ['build', 'conda-cpp'],
+            ['pull', '--ignore-pull-failures', 'conda-python'],
+            ['build', 'conda-python'],
+            ['pull', '--ignore-pull-failures', 'conda-python-pandas'],
+            ['build', 'conda-python-pandas']
         ]
-        run.assert_has_calls(
-            [mock.call(cmd, check=True, env=mock.ANY) for cmd in commands]
-        )
+        run.assert_has_calls([
+            mock.call(base_command + cmd, check=True, env=mock.ANY)
+            for cmd in commands
+        ])
