@@ -45,12 +45,6 @@ jobs:
           python-version: 3.8
       - name: Setup Archery
         run: pip install arrow/dev/archery[docker]
-
-      - run: pip freeze
-      - run: which archery
-      - run: python -c "import archery"
-      - run: python -c "import archery; print(archery.__file__)"
-      - run: archery --help
       - name: Execute Docker Build
         shell: bash
         env:

@@ -17,12 +17,10 @@
 # under the License.
 
 import sys
-from setuptools import setup, find_packages
-
+from setuptools import setup
 
 if sys.version_info < (3, 5):
     sys.exit('Python < 3.5 is not supported')
-
 
 setup(
     name='archery',
@@ -31,7 +29,13 @@ setup(
     url='http://github.com/apache/arrow',
     maintainer='Arrow Developers',
     maintainer_email='dev@arrow.apache.org',
-    packages=find_packages(),
+    packages=[
+        'archery',
+        'archery.benchmark',
+        'archery.integration',
+        'archery.lang',
+        'archery.utils'
+    ],
     install_requires=['click', 'pygithub'],
     tests_require=['pytest', 'ruamel.yaml', 'responses'],
     extras_require={
