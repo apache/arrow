@@ -1099,7 +1099,7 @@ impl StructBuilder {
                 let schema = Schema::new(fields.clone());
                 Box::new(Self::from_schema(schema, capacity))
             }
-            t @ _ => panic!("Data type {:?} is not currently supported", t),
+            t => panic!("Data type {:?} is not currently supported", t),
         }
     }
 
@@ -1185,8 +1185,8 @@ where
         values_builder: PrimitiveBuilder<V>,
     ) -> Self {
         Self {
-            keys_builder: keys_builder,
-            values_builder: values_builder,
+            keys_builder,
+            values_builder,
             map: HashMap::new(),
         }
     }

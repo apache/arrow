@@ -60,7 +60,7 @@ pub fn get_bit(data: &[u8], i: usize) -> bool {
 /// responsible to guarantee that `i` is within bounds.
 #[inline]
 pub unsafe fn get_bit_raw(data: *const u8, i: usize) -> bool {
-    (*data.offset((i >> 3) as isize) & BIT_MASK[i & 7]) != 0
+    (*data.add(i >> 3) & BIT_MASK[i & 7]) != 0
 }
 
 /// Sets bit at position `i` for `data`
@@ -75,7 +75,7 @@ pub fn set_bit(data: &mut [u8], i: usize) {
 /// responsible to guarantee that `i` is within bounds.
 #[inline]
 pub unsafe fn set_bit_raw(data: *mut u8, i: usize) {
-    *data.offset((i >> 3) as isize) |= BIT_MASK[i & 7]
+    *data.add(i >> 3) |= BIT_MASK[i & 7]
 }
 
 /// Sets bits in the non-inclusive range `start..end` for `data`

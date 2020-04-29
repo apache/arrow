@@ -326,14 +326,13 @@ impl ArrowNativeType for u64 {
 
 impl ArrowNativeType for f32 {
     fn into_json_value(self) -> Option<Value> {
-        Number::from_f64(f64::round(self as f64 * 1000.0) / 1000.0)
-            .map(|num| VNumber(num))
+        Number::from_f64(f64::round(self as f64 * 1000.0) / 1000.0).map(VNumber)
     }
 }
 
 impl ArrowNativeType for f64 {
     fn into_json_value(self) -> Option<Value> {
-        Number::from_f64(self).map(|num| VNumber(num))
+        Number::from_f64(self).map(VNumber)
     }
 }
 
@@ -758,9 +757,9 @@ impl DataType {
                     if let Some(Value::Number(size)) = map.get("byteWidth") {
                         Ok(DataType::FixedSizeBinary(size.as_i64().unwrap() as i32))
                     } else {
-                        Err(ArrowError::ParseError(format!(
-                            "Expecting a byteWidth for fixedsizebinary",
-                        )))
+                        Err(ArrowError::ParseError(
+                            "Expecting a byteWidth for fixedsizebinary".to_string(),
+                        ))
                     }
                 }
                 Some(s) if s == "floatingpoint" => match map.get("precision") {
@@ -888,9 +887,9 @@ impl DataType {
                             size.as_i64().unwrap() as i32,
                         ))
                     } else {
-                        Err(ArrowError::ParseError(format!(
-                            "Expecting a listSize for fixedsizelist",
-                        )))
+                        Err(ArrowError::ParseError(
+                            "Expecting a listSize for fixedsizelist".to_string(),
+                        ))
                     }
                 }
                 Some(s) if s == "struct" => {
@@ -1284,7 +1283,7 @@ impl Schema {
 
     /// Returns an immutable reference of a specific `Field` instance selected by name
     pub fn field_with_name(&self, name: &str) -> Result<&Field> {
-        return Ok(&self.fields[self.index_of(name)?]);
+        Ok(&self.fields[self.index_of(name)?])
     }
 
     /// Find the index of the column with the given name

@@ -83,7 +83,7 @@ pub(super) fn take_value_indices_from_list(
             if start != end {
                 // type annotation needed to guide compiler a bit
                 let mut offsets: Vec<Option<u32>> =
-                    (start..end).map(|v| Some(v)).collect::<Vec<Option<u32>>>();
+                    (start..end).map(Some).collect::<Vec<Option<u32>>>();
                 values.append(&mut offsets);
             }
         } else {
@@ -113,7 +113,7 @@ where
     let mut validity = T::mask_init(true);
 
     // Validity based on `Bitmap`
-    if let &Some(b) = &bitmap {
+    if let Some(b) = bitmap {
         for j in i..min(array_len, simd_upper_bound) {
             if !b.is_set(j) {
                 validity = T::mask_set(validity, j - i, false);

@@ -106,7 +106,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             // cast primitive to list's primitive
             let cast_array = cast(array, &to)?;
             // create offsets, where if array.len() = 2, we have [0,1,2]
-            let offsets: Vec<i32> = (0..array.len() as i32 + 1).collect();
+            let offsets: Vec<i32> = (0..=array.len() as i32).collect();
             let value_offsets = Buffer::from(offsets[..].to_byte_slice());
             let list_data = ArrayData::new(
                 *to.clone(),
@@ -163,10 +163,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                     if array.is_null(i) {
                         b.append(false)?;
                     } else {
-                        b.append_value(match from.value(i) {
-                            true => "1",
-                            false => "0",
-                        })?;
+                        b.append_value(if from.value(i) { "1" } else { "0" })?;
                     }
                 }
 
@@ -708,12 +705,10 @@ where
     for i in 0..from.len() {
         if from.is_null(i) {
             b.append_null()?;
+        } else if from.value(i) != T::default_value() {
+            b.append_value(true)?;
         } else {
-            if from.value(i) != T::default_value() {
-                b.append_value(true)?;
-            } else {
-                b.append_value(false)?;
-            }
+            b.append_value(false)?;
         }
     }
 
@@ -742,16 +737,14 @@ where
     for i in 0..from.len() {
         if from.is_null(i) {
             b.append_null()?;
+        } else if from.value(i) {
+            // a workaround to cast a primitive to T::Native, infallible
+            match num::cast::cast(1) {
+                Some(v) => b.append_value(v)?,
+                None => b.append_null()?,
+            };
         } else {
-            if from.value(i) {
-                // a workaround to cast a primitive to T::Native, infallible
-                match num::cast::cast(1) {
-                    Some(v) => b.append_value(v)?,
-                    None => b.append_null()?,
-                };
-            } else {
-                b.append_value(T::default_value())?;
-            }
+            b.append_value(T::default_value())?;
         }
     }
 
