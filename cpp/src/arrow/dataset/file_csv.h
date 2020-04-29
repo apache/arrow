@@ -41,7 +41,7 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
   int32_t block_size = 1 << 20;  // 1 MB
 
   /// \defgroup csv-file-format-column-semantics properties which control how column names
-  /// are derived an values are interpreted.
+  /// are derived and values are interpreted.
   ///
   /// @{
 
