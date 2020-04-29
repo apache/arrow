@@ -123,7 +123,7 @@ class TestUnionArrayFactories : public ::testing::Test {
       ASSERT_EQ(array.child_id(i), type_ids.Value(i));
     }
     ASSERT_EQ(nullptr, array.child(-1));
-    ASSERT_EQ(nullptr, array.child(type_ids.length()));
+    ASSERT_EQ(nullptr, array.child(static_cast<int>(type_ids.length())));
   }
 
   void CheckFieldNames(const UnionArray& array, const std::vector<std::string>& names) {
