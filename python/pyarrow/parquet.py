@@ -1683,7 +1683,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
     metadata_collector = kwargs.pop('metadata_collector', None)
 
     if partition_cols is not None and len(partition_cols) > 0:
-        df = table.to_pandas(ignore_metadata=True)
+        df = table.to_pandas()
         partition_keys = [df[col] for col in partition_cols]
         data_df = df.drop(partition_cols, axis='columns')
         data_cols = df.columns.drop(partition_cols)
@@ -1704,8 +1704,8 @@ def write_to_dataset(table, root_path, partition_cols=None,
             subdir = '/'.join(
                 ['{colname}={value}'.format(colname=name, value=val)
                  for name, val in zip(partition_cols, keys)])
-            subtable = pa.Table.from_pandas(subgroup, preserve_index=False,
-                                            schema=subschema, safe=False)
+            subtable = pa.Table.from_pandas(subgroup, schema=subschema,
+                                            safe=False)
             _mkdir_if_not_exists(fs, '/'.join([root_path, subdir]))
             if partition_filename_cb:
                 outfile = partition_filename_cb(keys)
