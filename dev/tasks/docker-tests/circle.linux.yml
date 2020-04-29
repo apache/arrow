@@ -33,11 +33,11 @@ jobs:
           pip install -e arrow/dev/archery[docker]
       - name: Execute Docker Build
         environment:
-        {% if env is defined %}
+        {%- if env is defined %}
         {%- for key, value in env.items() %}
           {{ key }}: {{ value }}
         {%- endfor %}
-        {% endif %}
+        {%- endif %}
         command: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ run }}
         no_output_timeout: "1h"
 

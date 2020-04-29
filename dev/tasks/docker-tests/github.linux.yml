@@ -44,7 +44,7 @@ jobs:
         with:
           python-version: 3.8
       - name: Setup Archery
-        run: pip install dev/archery[docker]
+        run: pip install arrow/dev/archery[docker]
       - name: Execute Docker Build
         shell: bash
         env:

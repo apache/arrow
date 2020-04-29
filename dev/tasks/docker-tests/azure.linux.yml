@@ -21,11 +21,11 @@ jobs:
     vmImage: ubuntu-16.04
   timeoutInMinutes: 360
   variables:
-  {% if env is defined %}
+  {%- if env is defined %}
   {%- for key, value in env.items() %}
     {{ key }}: {{ value }}
   {%- endfor %}
-  {% endif %}
+  {%- endif %}
 
   steps:
   - task: DockerInstaller@0
@@ -41,8 +41,8 @@ jobs:
       git -C arrow submodule update --init --recursive
     displayName: Clone arrow
 
-  - run: pip install -e arrow/dev/archery[docker]
+  - script: pip install arrow/dev/archery[docker]
     displayName: Setup Archery
 
-  - run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ run }}
+  - script: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ run }}
     displayName: Execute Docker Build
