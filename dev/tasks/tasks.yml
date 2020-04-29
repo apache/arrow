@@ -1543,14 +1543,14 @@ tasks:
     platform: linux
     template: docker-tests/github.linux.yml
     params:
-      image: conda-cpp
+      run: conda-cpp
 
   test-conda-cpp-valgrind:
     ci: github
     platform: linux
     template: docker-tests/github.linux.yml
     params:
-      image: conda-cpp-valgrind
+      run: conda-cpp-valgrind
 
   test-debian-10-cpp:
     ci: github
@@ -1559,7 +1559,7 @@ tasks:
     params:
       env:
         DEBIAN: 10
-      image: debian-cpp
+      run: debian-cpp
 
   test-ubuntu-16.04-cpp:
     ci: github
@@ -1568,7 +1568,7 @@ tasks:
     params:
       env:
         UBUNTU: 16.04
-      image: ubuntu-cpp
+      run: ubuntu-cpp
 
   test-ubuntu-18.04-cpp:
     ci: github
@@ -1577,7 +1577,7 @@ tasks:
     params:
       env:
         UBUNTU: 18.04
-      image: ubuntu-cpp
+      run: ubuntu-cpp
 
   test-fedora-30-cpp:
     ci: github
@@ -1586,66 +1586,56 @@ tasks:
     params:
       env:
         FEDORA: 30
-      image: fedora-cpp
+      run: fedora-cpp
 
   test-ubuntu-18.04-cpp-release:
     ci: github
     platform: linux
     template: docker-tests/github.linux.yml
     params:
-      image: "-e ARROW_BUILD_TYPE=release ubuntu-cpp"
+      run: "-e ARROW_BUILD_TYPE=release ubuntu-cpp"
 
   test-ubuntu-18.04-cpp-static:
     ci: github
     platform: linux
     template: docker-tests/github.linux.yml
     params:
-      image: "-e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static ubuntu-cpp"
+      run: "-e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static ubuntu-cpp"
 
   test-ubuntu-18.04-cpp-cmake32:
     ci: github
     platform: linux
     template: docker-tests/github.linux.yml
     params:
-      image: ubuntu-cpp-cmake32
+      run: ubuntu-cpp-cmake32
 
   test-debian-c-glib:
     ci: github
     platform: linux
     template: docker-tests/github.linux.yml
     params:
-      image: debian-c-glib
+      run: debian-c-glib
 
   test-ubuntu-c-glib:
     ci: github
     platform: linux
     template: docker-tests/github.linux.yml
     params:
-      image: ubuntu-c-glib
+      run: ubuntu-c-glib
 
   test-debian-ruby:
     ci: azure
     platform: linux
     template: docker-tests/azure.linux.yml
     params:
-      build:
-        - debian-cpp
-        - debian-c-glib
-        - debian-ruby
-      run:
-        - debian-ruby
+      run: debian-ruby
 
   test-ubuntu-ruby:
     ci: azure
     platform: linux
     template: docker-tests/azure.linux.yml
     params:
-      build:
-        - ubuntu-cpp
-        - ubuntu-c-glib
-        - ubuntu-ruby
-      run:
-        - ubuntu-ruby
+      run: ubuntu-ruby
 
   test-conda-python-3.6:
     ci: azure
@@ -1654,11 +1644,7 @@ tasks:
     params:
       env:
         PYTHON: 3.6
-      build:
-        - conda-cpp
-        - conda-python
-      run:
-        - conda-python
+      run: conda-python
 
   test-conda-python-3.7:
     ci: azure
@@ -1667,11 +1653,7 @@ tasks:
     params:
       env:
         PYTHON: 3.7
-      build:
-        - conda-cpp
-        - conda-python
-      run:
-        - conda-python
+      run: conda-python
 
   test-conda-python-3.8:
     ci: azure
@@ -1680,11 +1662,7 @@ tasks:
     params:
       env:
         PYTHON: 3.8
-      build:
-        - conda-cpp
-        - conda-python
-      run:
-        - conda-python
+      run: conda-python
 
   test-debian-10-python-3:
     ci: azure
@@ -1693,11 +1671,7 @@ tasks:
     params:
       env:
         DEBIAN: 10
-      build:
-        - debian-cpp
-        - debian-python
-      run:
-        - debian-python
+      run: debian-python
 
   test-ubuntu-18.04-python-3:
     ci: azure
@@ -1706,11 +1680,7 @@ tasks:
     params:
       env:
         UBUNTU: 18.04
-      build:
-        - ubuntu-cpp
-        - ubuntu-python
-      run:
-        - ubuntu-python
+      run: ubuntu-python
 
   test-fedora-30-python-3:
     ci: azure
@@ -1719,11 +1689,7 @@ tasks:
     params:
       env:
         FEDORA: 30
-      build:
-        - fedora-cpp
-        - fedora-python
-      run:
-        - fedora-python
+      run: fedora-python
 
   test-r-linux-as-cran:
     ci: github
@@ -1800,11 +1766,7 @@ tasks:
       env:
         UBUNTU: 18.04
         R: 3.6
-      build:
-        - ubuntu-cpp
-        - ubuntu-r
-      run:
-        - ubuntu-r
+      run: ubuntu-r
 
   test-conda-r-3.6:
     ci: circle
@@ -1813,21 +1775,14 @@ tasks:
     params:
       env:
         R: 3.6
-      build:
-        - conda-cpp
-        - conda-r
-      run:
-        - conda-r
+      run: conda-r
 
   test-ubuntu-18.04-r-sanitizer:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
-      build:
-        - ubuntu-r-sanitizer
-      run:
-        - ubuntu-r-sanitizer
+      run: ubuntu-r-sanitizer
 
   test-debian-10-go-1.12:
     ci: circle
@@ -1836,10 +1791,7 @@ tasks:
     params:
       env:
         GO: 1.12
-      build:
-        - debian-go
-      run:
-        - debian-go
+      run: debian-go
 
   test-ubuntu-18.04-docs:
     ci: circle
@@ -1848,12 +1800,7 @@ tasks:
     params:
       env:
         UBUNTU: 18.04
-      build:
-        - ubuntu-cpp
-        - ubuntu-python
-        - ubuntu-docs
-      run:
-        - ubuntu-docs
+      run: ubuntu-docs
 
   ############################## Integration tests ############################
 
@@ -1865,13 +1812,7 @@ tasks:
       env:
         PYTHON: 3.7
         PANDAS: latest
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-pandas
-      run:
-        - conda-python-pandas
+      run: conda-python-pandas
 
   test-conda-python-3.8-pandas-latest:
     ci: circle
@@ -1881,13 +1822,7 @@ tasks:
       env:
         PYTHON: 3.8
         PANDAS: latest
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-pandas
-      run:
-        - conda-python-pandas
+      run: conda-python-pandas
 
   test-conda-python-3.7-pandas-master:
     ci: circle
@@ -1897,13 +1832,7 @@ tasks:
       env:
         PYTHON: 3.7
         PANDAS: master
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-pandas
-      run:
-        - conda-python-pandas
+      run: --no-cache-leaf conda-python-pandas
 
   test-conda-python-3.6-pandas-0.23:
     ci: circle
@@ -1913,13 +1842,7 @@ tasks:
       env:
         PYTHON: 3.6
         PANDAS: 0.23
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-pandas
-      run:
-        - conda-python-pandas
+      run: conda-python-pandas
 
   test-conda-python-3.7-dask-latest:
     ci: circle
@@ -1929,13 +1852,7 @@ tasks:
       env:
         PYTHON: 3.7
         DASK: latest
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-dask
-      run:
-        - conda-python-dask
+      run: conda-python-dask
 
   test-conda-python-3.8-dask-master:
     ci: circle
@@ -1945,13 +1862,7 @@ tasks:
       env:
         PYTHON: 3.8
         DASK: latest
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-dask
-      run:
-        - conda-python-dask
+      run: --no-cache-leaf conda-python-dask
 
   test-conda-python-3.8-jpype:
     ci: circle
@@ -1960,13 +1871,7 @@ tasks:
     params:
       env:
         PYTHON: 3.8
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-jpype
-      run:
-        - conda-python-jpype
+      run: conda-python-jpype
 
   test-conda-python-3.7-turbodbc-latest:
     ci: circle
@@ -1976,13 +1881,7 @@ tasks:
       env:
         PYTHON: 3.7
         TURBODBC: latest
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-turbodbc
-      run:
-        - conda-python-turbodbc
+      run: conda-python-turbodbc
 
   test-conda-python-3.7-turbodbc-master:
     ci: circle
@@ -1992,13 +1891,7 @@ tasks:
       env:
         PYTHON: 3.7
         TURBODBC: master
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-turbodbc
-      run:
-        - conda-python-turbodbc
+      run: conda-python-turbodbc
 
   test-conda-python-3.7-kartothek-latest:
     ci: circle
@@ -2008,13 +1901,7 @@ tasks:
       env:
         PYTHON: 3.7
         KARTOTHEK: latest
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-kartothek
-      run:
-        - conda-python-kartothek
+      run: conda-python-kartothek
 
   test-conda-python-3.7-kartothek-master:
     ci: circle
@@ -2024,13 +1911,7 @@ tasks:
       env:
         PYTHON: 3.7
         KARTOTHEK: master
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-kartothek
-      run:
-        - conda-python-kartothek
+      run: conda-python-kartothek
 
   test-conda-python-3.7-hdfs-2.9.2:
     ci: circle
@@ -2040,13 +1921,7 @@ tasks:
       env:
         PYTHON: 3.7
         HDFS: 2.9.2
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-hdfs
-      run:
-        - conda-python-hdfs
+      run: conda-python-hdfs
 
   test-conda-python-3.7-spark-master:
     ci: circle
@@ -2056,13 +1931,7 @@ tasks:
       env:
         PYTHON: 3.7
         SPARK: master
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-spark
-      run:
-        - conda-python-spark
+      run: conda-python-spark
 
   # Remove the "skipped-" prefix in ARROW-8475
   skipped-test-conda-cpp-hiveserver2:
@@ -2070,9 +1939,4 @@ tasks:
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
-      build:
-        - conda-cpp
-      nocache:
-        - conda-cpp-hiveserver2
-      run:
-        - conda-cpp-hiveserver2
+      run: conda-cpp-hiveserver2

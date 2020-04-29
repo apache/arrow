@@ -38,7 +38,7 @@ jobs:
           {{ key }}: {{ value }}
         {%- endfor %}
         {% endif %}
-        command: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ image }}
+        command: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ run }}
         no_output_timeout: "1h"
 
 workflows:

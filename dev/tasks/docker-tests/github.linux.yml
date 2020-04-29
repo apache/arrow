@@ -53,4 +53,4 @@ jobs:
           {{ key }}: {{ value }}
         {%- endfor %}
         {% endif %}
-        run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ image }}
+        run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ run }}
