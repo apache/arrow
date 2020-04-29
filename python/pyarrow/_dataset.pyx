@@ -426,7 +426,7 @@ cdef class FileSystemDataset(Dataset):
         CFileSystemDataset* filesystem_dataset
 
     def __init__(self, paths_or_selector, schema=None, format=None,
-                 filesystem=None, partitions=None, root_partition=_true):
+                 filesystem=None, partitions=None, root_partition=None):
         cdef:
             FileInfo info
             Expression expr
@@ -436,6 +436,8 @@ cdef class FileSystemDataset(Dataset):
             shared_ptr[CFileFragment] c_fragment
             vector[shared_ptr[CFileFragment]] c_fragments
             CResult[shared_ptr[CDataset]] result
+
+        root_partition = root_partition or _true
 
         for arg, class_, name in [
             (schema, Schema, 'schema'),
@@ -553,7 +555,7 @@ cdef class FileFormat:
         return pyarrow_wrap_schema(move(c_schema))
 
     def make_fragment(self, str path not None, FileSystem filesystem not None,
-                      Expression partition_expression=_true):
+                      Expression partition_expression=None):
         """
         Make a FileFragment of this FileFormat. The filter may not reference
         fields absent from the provided schema. If no schema is provided then
@@ -561,6 +563,8 @@ cdef class FileFormat:
         """
         cdef:
             shared_ptr[CFileFragment] c_fragment
+
+        partition_expression = partition_expression or _true
 
         c_fragment = GetResultValue(
             self.format.MakeFragment(CFileSource(tobytes(path),
@@ -884,10 +888,12 @@ cdef class ParquetFileFormat(FileFormat):
         return ParquetFileFormat, (self.read_options,)
 
     def make_fragment(self, str path not None, FileSystem filesystem not None,
-                      Expression partition_expression=_true, row_groups=None):
+                      Expression partition_expression=None, row_groups=None):
         cdef:
             shared_ptr[CFileFragment] c_fragment
             vector[int] c_row_groups
+
+        partition_expression = partition_expression or _true
 
         if row_groups is None:
             return super().make_fragment(path, filesystem,

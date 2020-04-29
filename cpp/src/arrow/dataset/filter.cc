@@ -1266,6 +1266,9 @@ Result<std::shared_ptr<RecordBatch>> TreeEvaluator::Filter(
 
 std::shared_ptr<Expression> scalar(bool value) { return scalar(MakeScalar(value)); }
 
+// Serialization is accomplished by converting expressions to single element StructArrays
+// then writing that to an IPC file. The last field is always an int32 column containing
+// ExpressionType, the rest store the Expression's members.
 struct SerializeImpl {
   Result<std::shared_ptr<StructArray>> ToArray(const Expression& expr) const {
     return VisitExpression(expr, *this);
@@ -1281,23 +1284,28 @@ struct SerializeImpl {
   }
 
   Result<std::shared_ptr<StructArray>> operator()(const FieldExpression& expr) const {
+    // store the field's name in a StringArray
     ARROW_ASSIGN_OR_RAISE(auto name, MakeArrayFromScalar(StringScalar(expr.name()), 1));
     return TaggedWithChildren(expr, {name});
   }
 
   Result<std::shared_ptr<StructArray>> operator()(const ScalarExpression& expr) const {
+    // store the scalar's value in a single element Array
     ARROW_ASSIGN_OR_RAISE(auto value, MakeArrayFromScalar(*expr.value(), 1));
     return TaggedWithChildren(expr, {value});
   }
 
   Result<std::shared_ptr<StructArray>> operator()(const UnaryExpression& expr) const {
+    // recurse to store the operand in a single element StructArray
     ARROW_ASSIGN_OR_RAISE(auto operand, ToArray(*expr.operand()));
     return TaggedWithChildren(expr, {operand});
   }
 
   Result<std::shared_ptr<StructArray>> operator()(const CastExpression& expr) const {
+    // recurse to store the operand in a single element StructArray
     ARROW_ASSIGN_OR_RAISE(auto operand, ToArray(*expr.operand()));
 
+    // store the cast target and a discriminant
     std::shared_ptr<Array> is_like_expr, to;
     if (const auto& to_type = expr.to_type()) {
       ARROW_ASSIGN_OR_RAISE(is_like_expr, MakeArrayFromScalar(BooleanScalar(false), 1));
@@ -1312,6 +1320,7 @@ struct SerializeImpl {
   }
 
   Result<std::shared_ptr<StructArray>> operator()(const BinaryExpression& expr) const {
+    // recurse to store the operands in single element StructArrays
     ARROW_ASSIGN_OR_RAISE(auto left_operand, ToArray(*expr.left_operand()));
     ARROW_ASSIGN_OR_RAISE(auto right_operand, ToArray(*expr.right_operand()));
     return TaggedWithChildren(expr, {left_operand, right_operand});
@@ -1319,15 +1328,19 @@ struct SerializeImpl {
 
   Result<std::shared_ptr<StructArray>> operator()(
       const ComparisonExpression& expr) const {
+    // recurse to store the operands in single element StructArrays
     ARROW_ASSIGN_OR_RAISE(auto left_operand, ToArray(*expr.left_operand()));
     ARROW_ASSIGN_OR_RAISE(auto right_operand, ToArray(*expr.right_operand()));
+    // store the CompareOperator in a single element Int32Array
     ARROW_ASSIGN_OR_RAISE(auto op, MakeArrayFromScalar(Int32Scalar(expr.op()), 1));
     return TaggedWithChildren(expr, {left_operand, right_operand, op});
   }
 
   Result<std::shared_ptr<StructArray>> operator()(const InExpression& expr) const {
+    // recurse to store the operand in a single element StructArray
     ARROW_ASSIGN_OR_RAISE(auto operand, ToArray(*expr.operand()));
 
+    // store the set as a single element ListArray
     auto set_type = list(expr.set()->type());
 
     ARROW_ASSIGN_OR_RAISE(auto set_offsets, AllocateBuffer(sizeof(int32_t) * 2));
@@ -1345,16 +1358,20 @@ struct SerializeImpl {
   Result<std::shared_ptr<StructArray>> operator()(const Expression& expr) const {
     return Status::NotImplemented("serialization of ", expr.ToString());
   }
+
+  Result<std::shared_ptr<Buffer>> ToBuffer(const Expression& expr) const {
+    ARROW_ASSIGN_OR_RAISE(auto array, SerializeImpl{}.ToArray(expr));
+    ARROW_ASSIGN_OR_RAISE(auto batch, RecordBatch::FromStructArray(array));
+    ARROW_ASSIGN_OR_RAISE(auto stream, io::BufferOutputStream::Create());
+    ARROW_ASSIGN_OR_RAISE(auto writer, ipc::NewFileWriter(stream.get(), batch->schema()));
+    RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
+    RETURN_NOT_OK(writer->Close());
+    return stream->Finish();
+  }
 };
 
 Result<std::shared_ptr<Buffer>> Expression::Serialize() const {
-  ARROW_ASSIGN_OR_RAISE(auto array, SerializeImpl{}.ToArray(*this));
-  ARROW_ASSIGN_OR_RAISE(auto batch, RecordBatch::FromStructArray(array));
-  ARROW_ASSIGN_OR_RAISE(auto stream, io::BufferOutputStream::Create());
-  ARROW_ASSIGN_OR_RAISE(auto writer, ipc::NewFileWriter(stream.get(), batch->schema()));
-  RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
-  RETURN_NOT_OK(writer->Close());
-  return stream->Finish();
+  return SerializeImpl{}.ToBuffer(*this);
 }
 
 struct DeserializeImpl {
@@ -1373,8 +1390,7 @@ struct DeserializeImpl {
       }
 
       case ExpressionType::SCALAR: {
-        ARROW_ASSIGN_OR_RAISE(auto value,
-                              Scalar::FromArraySlot(*struct_array.field(0), 0));
+        ARROW_ASSIGN_OR_RAISE(auto value, struct_array.field(0)->GetScalar(0));
         return scalar(std::move(value));
       }
 
@@ -1453,7 +1469,7 @@ struct DeserializeImpl {
   }
 
   static Result<ExpressionType::type> GetExpressionType(const StructArray& array) {
-    if (array.struct_type()->num_children() == 0) {
+    if (array.struct_type()->num_children() < 1) {
       return Status::Invalid("StructArray didn't contain ExpressionType member");
     }
 
@@ -1461,14 +1477,18 @@ struct DeserializeImpl {
                           GetView<Int32Type>(array, array.num_fields() - 1));
     return static_cast<ExpressionType::type>(expression_type);
   }
+
+  Result<std::shared_ptr<Expression>> FromBuffer(const Buffer& serialized) {
+    io::BufferReader stream(serialized);
+    ARROW_ASSIGN_OR_RAISE(auto reader, ipc::RecordBatchFileReader::Open(&stream));
+    ARROW_ASSIGN_OR_RAISE(auto batch, reader->ReadRecordBatch(0));
+    ARROW_ASSIGN_OR_RAISE(auto array, batch->ToStructArray());
+    return FromArray(*array);
+  }
 };
 
 Result<std::shared_ptr<Expression>> Expression::Deserialize(const Buffer& serialized) {
-  io::BufferReader stream(serialized);
-  ARROW_ASSIGN_OR_RAISE(auto reader, ipc::RecordBatchFileReader::Open(&stream));
-  ARROW_ASSIGN_OR_RAISE(auto batch, reader->ReadRecordBatch(0));
-  ARROW_ASSIGN_OR_RAISE(auto array, batch->ToStructArray());
-  return DeserializeImpl{}.FromArray(*array);
+  return DeserializeImpl{}.FromBuffer(serialized);
 }
 
 }  // namespace dataset
