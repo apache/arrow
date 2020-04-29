@@ -27,18 +27,18 @@ use prettytable::{Cell, Row, Table};
 use crate::error::{ArrowError, Result};
 
 ///! Create a visual representation of record batches
-pub fn pretty_format_batches(results: &Vec<RecordBatch>) -> Result<String> {
+pub fn pretty_format_batches(results: &[RecordBatch]) -> Result<String> {
     Ok(create_table(results)?.to_string())
 }
 
 ///! Prints a visual representation of record batches to stdout
-pub fn print_batches(results: &Vec<RecordBatch>) -> Result<()> {
+pub fn print_batches(results: &[RecordBatch]) -> Result<()> {
     create_table(results)?.printstd();
     Ok(())
 }
 
 ///! Convert a series of record batches into a table
-fn create_table(results: &Vec<RecordBatch>) -> Result<Table> {
+fn create_table(results: &[RecordBatch]) -> Result<Table> {
     let mut table = Table::new();
     table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
 
