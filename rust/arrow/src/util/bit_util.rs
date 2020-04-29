@@ -149,7 +149,7 @@ pub fn count_set_bits_offset(data: &[u8], offset: usize, length: usize) -> usize
 #[inline]
 pub fn ceil(value: usize, divisor: usize) -> usize {
     if value == 0_usize { // translates to jne
-        return 0_usize;
+        0_usize
     } else {
         let (quot, rem) = (value / divisor, value % divisor);
         if rem > 0 && divisor > 0 {
