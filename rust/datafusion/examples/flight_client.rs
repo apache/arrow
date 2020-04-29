@@ -22,7 +22,6 @@ use arrow::datatypes::Schema;
 use arrow::flight::flight_data_to_batch;
 use arrow::util::pretty;
 
-
 use flight::flight_descriptor;
 use flight::flight_service_client::FlightServiceClient;
 use flight::{FlightDescriptor, Ticket};
