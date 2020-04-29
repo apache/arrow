@@ -323,6 +323,9 @@ class ARROW_EXPORT Array {
            BitUtil::GetBit(null_bitmap_data_, i + data_->offset);
   }
 
+  /// \brief Return a Scalar containing the value of this array at i
+  Result<std::shared_ptr<Scalar>> GetScalar(int64_t i) const;
+
   /// Size in the number of elements this array contains.
   int64_t length() const { return data_->length; }
 
@@ -1369,6 +1372,9 @@ class ARROW_EXPORT DictionaryArray : public Array {
   /// a member of the ArrayData internal structure
   std::shared_ptr<Array> dictionary() const;
   std::shared_ptr<Array> indices() const;
+
+  /// \brief Return the ith value of indices, cast to int64_t
+  int64_t GetValueIndex(int64_t i) const;
 
   const DictionaryType* dict_type() const { return dict_type_; }
 

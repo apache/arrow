@@ -78,8 +78,6 @@ struct ARROW_EXPORT Scalar : public util::EqualityComparable<Scalar> {
   // TODO(bkietz) add compute::CastOptions
   Result<std::shared_ptr<Scalar>> CastTo(std::shared_ptr<DataType> to) const;
 
-  static Result<std::shared_ptr<Scalar>> FromArraySlot(const Array& array, int64_t index);
-
  protected:
   Scalar(std::shared_ptr<DataType> type, bool is_valid)
       : type(std::move(type)), is_valid(is_valid) {}
