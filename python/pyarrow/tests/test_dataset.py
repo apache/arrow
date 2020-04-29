@@ -1464,6 +1464,7 @@ def test_ipc_format(tempdir):
         assert result.equals(table)
 
 
+@pytest.mark.pandas
 def test_csv_format(tempdir):
     table = pa.table({'a': pa.array([1, 2, 3], type="int64"),
                       'b': pa.array([.1, .2, .3], type="float64")})
