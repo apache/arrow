@@ -19,35 +19,59 @@
 //! regions.
 
 use std::alloc::Layout;
+use std::ptr::NonNull;
 use std::mem::align_of;
 
 pub const ALIGNMENT: usize = 64;
 
+///
+/// As you can see this is global and lives as long as the program lives.
+/// Be careful to not write anything to this pointer in any scenario.
+/// If you use allocation methods shown here you won't have any problems.
+const BYPASS_PTR: NonNull<u8> = unsafe {
+    NonNull::new_unchecked(0xDEADBEEF as *mut u8)
+};
+
 pub fn allocate_aligned(size: usize) -> *mut u8 {
     unsafe {
-        let layout = Layout::from_size_align_unchecked(size, ALIGNMENT);
-        std::alloc::alloc_zeroed(layout)
+        if size == 0 {
+            // In a perfect world, there is no need to request zero size allocation.
+            // Currently, passing zero sized layout to alloc is UB.
+            // This will dodge allocator api for any type.
+            BYPASS_PTR.as_mut()
+        } else {
+            let layout = Layout::from_size_align_unchecked(size, ALIGNMENT);
+            std::alloc::alloc_zeroed(layout)
+        }
     }
 }
 
-pub unsafe fn free_aligned(p: *mut u8, size: usize) {
-    std::alloc::dealloc(p, Layout::from_size_align_unchecked(size, ALIGNMENT));
+pub unsafe fn free_aligned(ptr: *mut u8, size: usize) {
+    if size != 0x00 && ptr != BYPASS_PTR.as_mut() {
+        std::alloc::dealloc(ptr, Layout::from_size_align_unchecked(size, ALIGNMENT));
+    }
 }
 
 pub unsafe fn reallocate(ptr: *mut u8, old_size: usize, new_size: usize) -> *mut u8 {
-    let new_ptr = std::alloc::realloc(
-        ptr,
-        Layout::from_size_align_unchecked(old_size, ALIGNMENT),
-        new_size,
-    );
-    if !new_ptr.is_null() && new_size > old_size {
-        new_ptr.add(old_size).write_bytes(0, new_size - old_size);
+    if old_size == 0x00 && ptr == BYPASS_PTR.as_mut() {
+        allocate_aligned(new_size)
+    } else {
+        let new_ptr = std::alloc::realloc(
+            ptr,
+            Layout::from_size_align_unchecked(old_size, ALIGNMENT),
+            new_size,
+        );
+        if !new_ptr.is_null() && new_size > old_size {
+            new_ptr.add(old_size).write_bytes(0, new_size - old_size);
+        }
+        new_ptr
     }
-    new_ptr
 }
 
 pub unsafe fn memcpy(dst: *mut u8, src: *const u8, len: usize) {
-    std::ptr::copy_nonoverlapping(src, dst, len)
+    if len != 0x00 && src != BYPASS_PTR.as_ptr() {
+        std::ptr::copy_nonoverlapping(src, dst, len)
+    }
 }
 
 extern "C" {
