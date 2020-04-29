@@ -75,7 +75,7 @@ jobs:
             title: AMD64 Conda Python 3.7 Turbodbc latest
             turbodbc: latest
           - name: conda-python-3.7-kartothek-latest
-            image: conda-python-karthotek
+            image: conda-python-kartothek
             title: AMD64 Conda Python 3.7 Kartothek latest
             kartothek: latest
           - name: conda-python-3.7-pandas-0.24
