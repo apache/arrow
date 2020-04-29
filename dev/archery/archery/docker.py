@@ -41,6 +41,10 @@ def flatten(node, parents=None):
         raise TypeError(node)
 
 
+class UndefinedImage(Exception):
+    pass
+
+
 class Docker(Command):
 
     def __init__(self, docker_bin=None):
@@ -95,11 +99,15 @@ class DockerCompose(Command):
             )
 
     def _command_env(self):
-        env = os.environ.copy()
-        env.update(self.dotenv)
-        return env
+        return dict(os.environ, **self.dotenv)
+
+    def _validate_image(self, name):
+        if name not in self.nodes:
+            raise UndefinedImage(name)
 
     def build(self, image, cache=True, cache_leaf=True):
+        self._validate_image(image)
+
         env = self._command_env()
         run = super().run
 
@@ -113,12 +121,13 @@ class DockerCompose(Command):
 
         # build the image at last
         if cache and cache_leaf:
-            run('pull', '--ignore-pull-failures', image, env=env)
+            run('pulld', '--ignore-pull-failures', image, env=env)
             run('build', image, env=env)
         else:
             run('build', '--no-cache', image, env=env)
 
     def run(self, image, env=None):
+        self._validate_image(image)
         args = []
         if env is not None:
             for k, v in env.items():
