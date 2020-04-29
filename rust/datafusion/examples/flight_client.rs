@@ -68,7 +68,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // print the results
-    pretty::print_batches(&results).unwrap();
+    pretty::print_batches(&results)?;
 
     Ok(())
 }
