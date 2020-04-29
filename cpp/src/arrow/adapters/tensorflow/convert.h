@@ -71,18 +71,6 @@ Status GetArrowType(::tensorflow::DataType dtype, std::shared_ptr<DataType>* out
     case ::tensorflow::DT_UINT64:
       *out = arrow::uint64();
       break;
-    case ::tensorflow::DT_BFLOAT16:
-    case ::tensorflow::DT_COMPLEX64:
-    case ::tensorflow::DT_COMPLEX128:
-    case ::tensorflow::DT_INVALID:
-    case ::tensorflow::DT_QINT8:
-    case ::tensorflow::DT_QINT16:
-    case ::tensorflow::DT_QINT32:
-    case ::tensorflow::DT_QUINT8:
-    case ::tensorflow::DT_QUINT16:
-    case ::tensorflow::DT_RESOURCE:
-    case ::tensorflow::DT_STRING:
-    case ::tensorflow::DT_VARIANT:
     default:
       return Status::TypeError("TensorFlow data type is not supported");
   }
@@ -127,21 +115,6 @@ Status GetTensorFlowType(std::shared_ptr<DataType> dtype, ::tensorflow::DataType
     case Type::DOUBLE:
       *out = ::tensorflow::DT_DOUBLE;
       break;
-    case Type::STRING:
-    case Type::BINARY:
-    case Type::FIXED_SIZE_BINARY:
-    case Type::DATE32:
-    case Type::DATE64:
-    case Type::TIMESTAMP:
-    case Type::TIME32:
-    case Type::TIME64:
-    case Type::INTERVAL:
-    case Type::DECIMAL:
-    case Type::LIST:
-    case Type::STRUCT:
-    case Type::UNION:
-    case Type::DICTIONARY:
-    case Type::MAP:
     default:
       return Status::TypeError("Arrow data type is not supported");
   }
