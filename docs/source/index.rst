@@ -69,5 +69,6 @@ such topics as:
    developers/python
    developers/integration
    developers/crossbow
+   developers/docker
    developers/benchmarks
    developers/documentation
