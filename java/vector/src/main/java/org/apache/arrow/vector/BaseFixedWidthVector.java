@@ -525,7 +525,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
         /* specialized handling for BitVector */
         valueBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
       } else {
-        valueBuffer.writerIndex(valueCount * typeWidth);
+        valueBuffer.writerIndex((long) valueCount * typeWidth);
       }
     }
   }
@@ -835,8 +835,8 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
       BitVectorHelper.unsetBit(this.getValidityBuffer(), thisIndex);
     } else {
       BitVectorHelper.setBit(this.getValidityBuffer(), thisIndex);
-      PlatformDependent.copyMemory(from.getDataBuffer().memoryAddress() + fromIndex * typeWidth,
-              this.getDataBuffer().memoryAddress() + thisIndex * typeWidth, typeWidth);
+      PlatformDependent.copyMemory(from.getDataBuffer().memoryAddress() + (long) fromIndex * typeWidth,
+              this.getDataBuffer().memoryAddress() + (long) thisIndex * typeWidth, typeWidth);
     }
   }
 
@@ -878,7 +878,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     if (isNull(index)) {
       reuse.set(null, 0, 0);
     } else {
-      reuse.set(valueBuffer, index * typeWidth, typeWidth);
+      reuse.set(valueBuffer, (long) index * typeWidth, typeWidth);
     }
     return reuse;
   }
@@ -893,8 +893,8 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     if (isNull(index)) {
       return ArrowBufPointer.NULL_HASH_CODE;
     }
-    int start = typeWidth * index;
-    int end = typeWidth * (index + 1);
+    long start = (long) typeWidth * index;
+    long end = (long) typeWidth * (index + 1);
     return ByteFunctionHelpers.hash(hasher, this.getDataBuffer(), start, end);
   }
 
