@@ -193,11 +193,7 @@ Result<std::shared_ptr<Table>> Scanner::ToTable() {
     task_group->Append([&batches, &mutex, id, scan_task] {
       ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
 
-      RecordBatchVector local;
-      for (auto maybe_batch : batch_it) {
-        ARROW_ASSIGN_OR_RAISE(auto batch, std::move(maybe_batch));
-        local.emplace_back(std::move(batch));
-      }
+      ARROW_ASSIGN_OR_RAISE(auto local, batch_it.ToVector());
 
       {
         // Move into global batches.
@@ -216,7 +212,7 @@ Result<std::shared_ptr<Table>> Scanner::ToTable() {
   RETURN_NOT_OK(task_group->Finish());
 
   return Table::FromRecordBatches(scan_options_->schema(),
-                                  FlattenRecordBatchVector(batches));
+                                  FlattenRecordBatchVector(std::move(batches)));
 }
 
 }  // namespace dataset
