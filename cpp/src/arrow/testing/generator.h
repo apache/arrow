@@ -224,7 +224,7 @@ class ARROW_EXPORT ConstantArrayGenerator {
       int64_t n_batch, const std::shared_ptr<RecordBatch> batch) {
     std::vector<std::shared_ptr<RecordBatch>> batches(static_cast<size_t>(n_batch),
                                                       batch);
-    return *MakeRecordBatchReader(batches);
+    return *RecordBatchReader::Make(batches);
   }
 
   /// \brief Generates a RecordBatchReader of zeroes batches

@@ -480,6 +480,12 @@ std::shared_ptr<Table> Table::Make(std::shared_ptr<Schema> schema,
   return std::make_shared<SimpleTable>(std::move(schema), arrays, num_rows);
 }
 
+Result<std::shared_ptr<Table>> Table::FromRecordBatchReader(RecordBatchReader* reader) {
+  std::shared_ptr<Table> table = nullptr;
+  RETURN_NOT_OK(reader->ReadAll(&table));
+  return table;
+}
+
 Result<std::shared_ptr<Table>> Table::FromRecordBatches(
     std::shared_ptr<Schema> schema,
     const std::vector<std::shared_ptr<RecordBatch>>& batches) {
