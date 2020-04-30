@@ -32,6 +32,11 @@ fn hash_(data: &[u8], seed: u32) -> u32 {
             murmur_hash2_64a(data, seed as u64) as u32
         }
     }
+
+    #[cfg(target_arch = "aarch64")]
+    unsafe {
+        murmur_hash2_64a(data, seed as u64) as u32
+    }
 }
 
 const MURMUR_PRIME: u64 = 0xc6a4a7935bd1e995;
