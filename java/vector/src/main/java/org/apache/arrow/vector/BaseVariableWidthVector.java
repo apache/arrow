@@ -1198,7 +1198,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
      */
     final int startOffset = getStartOffset(index);
     /* set new end offset */
-    offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + length);
+    offsetBuffer.setInt((long) (index + 1) * OFFSET_WIDTH, startOffset + length);
     /* store the var length data in value buffer */
     valueBuffer.setBytes(startOffset, value, start, length);
   }
