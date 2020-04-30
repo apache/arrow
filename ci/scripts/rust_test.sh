@@ -34,16 +34,16 @@ cargo test
 
 # test arrow examples
 pushd arrow
-cargo run --example builders --release
-cargo run --example dynamic_types --release
-cargo run --example read_csv --release
-cargo run --example read_csv_infer_schema --release
+cargo run --example builders
+cargo run --example dynamic_types
+cargo run --example read_csv
+cargo run --example read_csv_infer_schema
 popd
 
 # test datafusion examples
 pushd datafusion
-cargo run --example csv_sql --release
-cargo run --example parquet_sql --release
+cargo run --example csv_sql
+cargo run --example parquet_sql
 popd
 
 popd
