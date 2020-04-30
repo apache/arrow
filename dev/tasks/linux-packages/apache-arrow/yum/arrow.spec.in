@@ -63,7 +63,9 @@ BuildRequires:	brotli-devel
 BuildRequires:	bzip2-devel
 BuildRequires:	cmake%{cmake_version}
 BuildRequires:	gcc-c++
+%if %{_centos_ver} >= 7
 BuildRequires:	gflags-devel
+%endif
 BuildRequires:	git
 %if %{_centos_ver} >= 7
 BuildRequires:	glog-devel
@@ -206,8 +208,8 @@ Requires:	boost%{boost_version}-filesystem
 Requires:	boost%{boost_version}-regex
 Requires:	brotli
 %endif
-Requires:	gflags
 %if %{_centos_ver} >= 7
+Requires:	gflags
 Requires:	glog
 %endif
 Requires:	libzstd
