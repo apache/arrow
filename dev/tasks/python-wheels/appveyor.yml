@@ -47,6 +47,8 @@ build_script:
   - rd /s /q C:\OpenSSL-v111-Win32
   - rd /s /q C:\OpenSSL-v111-Win64
 
+  - call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat" amd64
+
   - call %ARROW_SRC%\dev\tasks\python-wheels\{{ script }}
 
 after_build:
