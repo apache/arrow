@@ -45,9 +45,8 @@ takes the following arguments:
 \itemize{
 \item \code{filesystem}: A \link{FileSystem}
 \item \code{selector}: A \link{FileSelector}
-\item \code{format}: A string identifier of the format of the files in \code{path}.
-Currently "parquet" and "ipc"/"arrow"/"feather" (aliases for each other)
-are supported. For Feather, only version 2 files are supported.
+\item \code{format}: A \link{FileFormat}
+\item \code{partitioning}: Either \code{Partitioning}, \code{PartitioningFactory}, or \code{NULL}
 }
 }
 

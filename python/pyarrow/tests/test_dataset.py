@@ -25,6 +25,7 @@ import numpy as np
 import pytest
 
 import pyarrow as pa
+import pyarrow.csv
 import pyarrow.fs as fs
 
 try:
@@ -537,6 +538,9 @@ def test_parquet_read_options():
 def test_file_format_pickling():
     formats = [
         ds.IpcFileFormat(),
+        ds.CsvFileFormat(),
+        ds.CsvFileFormat(pa.csv.ParseOptions(delimiter='\t',
+                                             ignore_empty_lines=True)),
         ds.ParquetFileFormat(),
         ds.ParquetFileFormat(
             read_options=ds.ParquetReadOptions(use_buffered_stream=True)
@@ -1456,6 +1460,23 @@ def test_ipc_format(tempdir):
         dataset = ds.dataset(path, format=format_str)
         result = dataset.to_table()
         assert result.equals(table)
+
+
+@pytest.mark.pandas
+def test_csv_format(tempdir):
+    table = pa.table({'a': pa.array([1, 2, 3], type="int64"),
+                      'b': pa.array([.1, .2, .3], type="float64")})
+
+    path = str(tempdir / 'test.csv')
+    table.to_pandas().to_csv(path, index=False)
+
+    dataset = ds.dataset(path, format=ds.CsvFileFormat())
+    result = dataset.to_table()
+    assert result.equals(table)
+
+    dataset = ds.dataset(path, format='csv')
+    result = dataset.to_table()
+    assert result.equals(table)
 
 
 def test_feather_format(tempdir):

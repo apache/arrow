@@ -27,6 +27,7 @@ from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.compat import frombytes, tobytes
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
+from pyarrow._csv cimport ParseOptions
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
@@ -257,7 +258,7 @@ cdef class FileSystemDataset(Dataset):
         The top-level schema of the DataDataset.
     format : FileFormat
         File format to create fragments from, currently only
-        ParquetFileFormat and IpcFileFormat are supported.
+        ParquetFileFormat, IpcFileFormat, and CsvFileFormat are supported.
     filesystem : FileSystem
         The filesystem which files are from.
     partitions : List[Expression], optional
@@ -375,6 +376,8 @@ cdef class FileFormat:
             self = ParquetFileFormat.__new__(ParquetFileFormat)
         elif typ == 'ipc':
             self = IpcFileFormat.__new__(IpcFileFormat)
+        elif typ == 'csv':
+            self = CsvFileFormat.__new__(CsvFileFormat)
         else:
             raise TypeError(typ)
 
@@ -762,6 +765,34 @@ cdef class IpcFileFormat(FileFormat):
 
     def __reduce__(self):
         return IpcFileFormat, tuple()
+
+
+cdef class CsvFileFormat(FileFormat):
+    cdef:
+        CCsvFileFormat* csv_format
+
+    def __init__(self, ParseOptions parse_options=None):
+        self.init(shared_ptr[CFileFormat](new CCsvFileFormat()))
+        if parse_options is not None:
+            self.parse_options = parse_options
+
+    cdef void init(self, const shared_ptr[CFileFormat]& sp):
+        FileFormat.init(self, sp)
+        self.csv_format = <CCsvFileFormat*> sp.get()
+
+    @property
+    def parse_options(self):
+        return ParseOptions.wrap(self.csv_format.parse_options)
+
+    @parse_options.setter
+    def parse_options(self, ParseOptions parse_options not None):
+        self.csv_format.parse_options = parse_options.options
+
+    def equals(self, CsvFileFormat other):
+        return self.parse_options.equals(other.parse_options)
+
+    def __reduce__(self):
+        return CsvFileFormat, (self.parse_options,)
 
 
 cdef class Partitioning:

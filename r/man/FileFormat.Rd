@@ -4,6 +4,7 @@
 \alias{FileFormat}
 \alias{ParquetFileFormat}
 \alias{IpcFileFormat}
+\alias{CsvFileFormat}
 \title{Dataset file formats}
 \description{
 A \code{FileFormat} holds information about how to read and parse the files
@@ -14,11 +15,18 @@ file formats (\code{ParquetFileFormat} and \code{IpcFileFormat}).
 
 \code{FileFormat$create()} takes the following arguments:
 \itemize{
-\item \code{format}: A string identifier of the format of the files in \code{path}.
-Currently "parquet" and "ipc"/"arrow"/"feather" (aliases for each other)
-are supported. For Feather, only version 2 files are supported.
+\item \code{format}: A string identifier of the file format. Currently supported values:
+\itemize{
+\item "parquet"
+\item "ipc"/"arrow"/"feather", all aliases for each other; for Feather, note that
+only version 2 files are supported
+\item "csv"/"text", aliases for the same thing (because comma is the default
+delimiter for text files
+\item "tsv", equivalent to passing \verb{format = "text", delimiter = "\\t"}
+}
 \item \code{...}: Additional format-specific options
-format="parquet":
+
+`format = "parquet"``:
 \itemize{
 \item \code{use_buffered_stream}: Read files through buffered input streams rather than
 loading entire row groups at once. This may be enabled
@@ -26,6 +34,10 @@ to reduce memory overhead. Disabled by default.
 \item \code{buffer_size}: Size of buffered stream, if enabled. Default is 8KB.
 \item \code{dict_columns}: Names of columns which should be read as dictionaries.
 }
+
+\code{format = "text"}: see \link{CsvReadOptions}. Note that you can specify them either
+with the Arrow C++ library naming ("delimiter", "quoting", etc.) or the
+\code{readr}-style naming used in \code{\link[=read_csv_arrow]{read_csv_arrow()}} ("delim", "quote", etc.)
 }
 
 It returns the appropriate subclass of \code{FileFormat} (e.g. \code{ParquetFileFormat})
