@@ -27,6 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.memory.RootAllocator;
@@ -42,8 +43,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
-
-import io.netty.buffer.ArrowBuf;
 
 public class TestLargeVarCharVector {
 
@@ -451,7 +450,7 @@ public class TestLargeVarCharVector {
 
       TransferPair transferPair = vector.getTransferPair(allocator);
       transferPair.transfer();
-      try (LargeVarCharVector toVector = (LargeVarCharVector)transferPair.getTo()) {
+      try (LargeVarCharVector toVector = (LargeVarCharVector) transferPair.getTo()) {
         valueCapacity = toVector.getValueCapacity();
 
         for (int i = 0; i < valueCapacity; i++) {

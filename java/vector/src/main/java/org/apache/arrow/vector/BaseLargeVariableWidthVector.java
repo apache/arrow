@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
@@ -37,8 +38,6 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * BaseLargeVariableWidthVector is a base class providing functionality for large strings/large bytes types.
@@ -166,7 +165,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    */
   @Override
   public void setInitialCapacity(int valueCount, double density) {
-    long size = Math.max((long)(valueCount * density), 1L);
+    long size = Math.max((long) (valueCount * density), 1L);
     checkDataBufferSize(size);
     computeAndCheckOffsetsBufferSize(valueCount);
     lastValueAllocationSizeInBytes = size;
@@ -411,7 +410,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
     }
   }
 
-  /*
+  /**
    * Compute the buffer size required for 'valueCount' offsets and validity, and check if it's
    * within bounds.
    */

@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -26,7 +27,6 @@ import org.apache.arrow.memory.RootAllocator;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 /**
  * Integration test for a vector with a large (more than 2GB) {@link org.apache.arrow.memory.ArrowBuf} as
@@ -181,4 +181,42 @@ public class ITTestLargeVector {
     logger.trace("Successfully released the large vector.");
   }
 
+  @Test
+  public void testLargeLargeVarCharVector() {
+    logger.trace("Testing large large var char vector.");
+
+    final long bufSize = 4 * 1024 * 1024 * 1024L;
+    final int vecLength = (int) (bufSize / BaseLargeVariableWidthVector.OFFSET_WIDTH);
+    final String strElement = "9876543210";
+
+    try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+         LargeVarCharVector largeVec = new LargeVarCharVector("vec", allocator)) {
+      largeVec.allocateNew(vecLength);
+
+      logger.trace("Successfully allocated a vector with capacity " + vecLength);
+
+      for (int i = 0; i < vecLength; i++) {
+        largeVec.setSafe(i, strElement.getBytes());
+
+        if ((i + 1) % 10000 == 0) {
+          logger.trace("Successfully written " + (i + 1) + " values");
+        }
+      }
+      largeVec.setValueCount(vecLength);
+      assertTrue(largeVec.getOffsetBuffer().readableBytes() > Integer.MAX_VALUE);
+      assertTrue(largeVec.getDataBuffer().readableBytes() > Integer.MAX_VALUE);
+      logger.trace("Successfully written " + vecLength + " values");
+
+      for (int i = 0; i < vecLength; i++) {
+        byte[] val = largeVec.get(i);
+        assertEquals(strElement, new String(val));
+
+        if ((i + 1) % 10000 == 0) {
+          logger.trace("Successfully read " + (i + 1) + " values");
+        }
+      }
+      logger.trace("Successfully read " + vecLength + " values");
+    }
+    logger.trace("Successfully released the large vector.");
+  }
 }
