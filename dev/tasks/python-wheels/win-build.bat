@@ -46,6 +46,7 @@ pushd %ARROW_SRC%\cpp\build
 
 cmake -G "%GENERATOR%" ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
+      -DCMAKE_UNITY_BUILD=ON ^
       -DARROW_BOOST_USE_SHARED=OFF ^
       -DARROW_BUILD_TESTS=OFF ^
       -DCMAKE_BUILD_TYPE=Release ^
