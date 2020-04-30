@@ -25,6 +25,7 @@ build_dir=${2}/rust
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
 export CARGO_TARGET_DIR=${build_dir}
+export RUSTFLAGS="-D warnings"
 
 # show activated toolchain
 rustup show
@@ -35,7 +36,7 @@ mkdir -p ${build_dir}
 pushd ${source_dir}
 
 # build entire project
-RUSTFLAGS="-D warnings" cargo build --all-targets
+cargo build --all-targets
 
 # make sure we can build Arrow sub-crate without default features
 pushd arrow

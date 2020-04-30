@@ -26,6 +26,7 @@ build_dir=${2}/rust
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
 export CARGO_TARGET_DIR=${build_dir}
+export RUSTFLAGS="-D warnings"
 
 pushd ${source_dir}
 
