@@ -1605,7 +1605,7 @@ tasks:
   test-ubuntu-18.04-cpp-cmake32:
     ci: github
     platform: linux
-    template: docker-tests/github.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       run: ubuntu-cpp-cmake32
 
@@ -1640,7 +1640,7 @@ tasks:
   test-conda-python-3.6:
     ci: azure
     platform: linux
-    template: docker-tests/azure.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.6
@@ -1649,7 +1649,7 @@ tasks:
   test-conda-python-3.7:
     ci: azure
     platform: linux
-    template: docker-tests/azure.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
@@ -1658,7 +1658,7 @@ tasks:
   test-conda-python-3.8:
     ci: azure
     platform: linux
-    template: docker-tests/azure.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.8
@@ -1761,7 +1761,7 @@ tasks:
   test-ubuntu-18.04-r-3.6:
     ci: circle
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/azure.linux.yml
     params:
       env:
         UBUNTU: 18.04
@@ -1771,7 +1771,7 @@ tasks:
   test-conda-r-3.6:
     ci: circle
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         R: 3.6
@@ -1780,14 +1780,14 @@ tasks:
   test-ubuntu-18.04-r-sanitizer:
     ci: circle
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/azure.linux.yml
     params:
       run: ubuntu-r-sanitizer
 
   test-debian-10-go-1.12:
     ci: circle
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/azure.linux.yml
     params:
       env:
         GO: 1.12
@@ -1796,7 +1796,7 @@ tasks:
   test-ubuntu-18.04-docs:
     ci: circle
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/azure.linux.yml
     params:
       env:
         UBUNTU: 18.04
