@@ -19,7 +19,7 @@ version: 2
 jobs:
   build:
     machine:
-      image: ubuntu-1604:201903-01
+      image: ubuntu-1604:202004-01
     environment:
     {%- if env is defined %}
     {%- for key, value in env.items() %}
@@ -35,8 +35,13 @@ jobs:
           git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
           git -C arrow checkout FETCH_HEAD
           git -C arrow submodule update --init --recursive
+      - run:
+          name: "Set Python Version"
+          command: |
+            pyenv versions
+            pyenv global 3.7.0
       - run: |
-          pip install -e arrow/dev/archery[docker]
+          python -m pip install -e arrow/dev/archery[docker]
       - run:
           name: Execute Docker Build
           command: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ run }}
