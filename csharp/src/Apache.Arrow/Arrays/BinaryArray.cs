@@ -129,14 +129,13 @@ namespace Apache.Arrow
 
             public TBuilder AppendRange(IEnumerable<byte> values)
             {
+                if (values == null)
+                {
+                    return AppendNull();
+                }
                 var len = ValueBuffer.Length;
                 ValueBuffer.AppendRange(values);
                 var valOffset = ValueBuffer.Length - len;
-                if (valOffset == 0)
-                {
-                    AppendNull();
-                    return Instance;
-                }
                 ValueOffsets.Append(Offset);
                 Offset += valOffset;
                 ValidityBuffer.Append(true);
