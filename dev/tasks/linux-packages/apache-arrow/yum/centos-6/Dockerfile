@@ -49,7 +49,6 @@ RUN \
     cmake3 \
     bzip2-devel \
     devtoolset-${DEVTOOLSET_VERSION} \
-    gflags-devel \
     git \
     gobject-introspection-devel \
     gtk-doc \
