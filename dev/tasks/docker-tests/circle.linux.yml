@@ -39,7 +39,7 @@ jobs:
           name: "Set Python Version"
           command: |
             pyenv versions
-            pyenv global 3.7.0
+            pyenv global 3.6.10
       - run: |
           python -m pip install -e arrow/dev/archery[docker]
       - run:

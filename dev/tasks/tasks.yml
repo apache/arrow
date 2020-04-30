@@ -1555,7 +1555,7 @@ tasks:
   test-debian-10-cpp:
     ci: github
     platform: linux
-    template: docker-tests/github.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       env:
         DEBIAN: 10
@@ -1564,7 +1564,7 @@ tasks:
   test-ubuntu-16.04-cpp:
     ci: github
     platform: linux
-    template: docker-tests/github.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       env:
         UBUNTU: 16.04
@@ -1573,7 +1573,7 @@ tasks:
   test-ubuntu-18.04-cpp:
     ci: github
     platform: linux
-    template: docker-tests/github.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       env:
         UBUNTU: 18.04
@@ -1582,7 +1582,7 @@ tasks:
   test-fedora-30-cpp:
     ci: github
     platform: linux
-    template: docker-tests/github.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       env:
         FEDORA: 30
@@ -1591,14 +1591,14 @@ tasks:
   test-ubuntu-18.04-cpp-release:
     ci: github
     platform: linux
-    template: docker-tests/github.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       run: "-e ARROW_BUILD_TYPE=release ubuntu-cpp"
 
   test-ubuntu-18.04-cpp-static:
     ci: github
     platform: linux
-    template: docker-tests/github.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       run: "-e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static ubuntu-cpp"
 
@@ -1612,21 +1612,21 @@ tasks:
   test-debian-c-glib:
     ci: github
     platform: linux
-    template: docker-tests/github.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       run: debian-c-glib
 
   test-ubuntu-c-glib:
     ci: github
     platform: linux
-    template: docker-tests/github.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       run: ubuntu-c-glib
 
   test-debian-ruby:
     ci: azure
     platform: linux
-    template: docker-tests/azure.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       run: debian-ruby
 
@@ -1807,7 +1807,7 @@ tasks:
   test-conda-python-3.7-pandas-latest:
     ci: circle
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
@@ -1817,7 +1817,7 @@ tasks:
   test-conda-python-3.8-pandas-latest:
     ci: circle
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.8
@@ -1827,7 +1827,7 @@ tasks:
   test-conda-python-3.7-pandas-master:
     ci: circle
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
@@ -1837,7 +1837,7 @@ tasks:
   test-conda-python-3.6-pandas-0.23:
     ci: circle
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.6
@@ -1847,7 +1847,7 @@ tasks:
   test-conda-python-3.7-dask-latest:
     ci: circle
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
@@ -1857,7 +1857,7 @@ tasks:
   test-conda-python-3.8-dask-master:
     ci: circle
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.8
@@ -1867,7 +1867,7 @@ tasks:
   test-conda-python-3.8-jpype:
     ci: circle
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.8
@@ -1876,7 +1876,7 @@ tasks:
   test-conda-python-3.7-turbodbc-latest:
     ci: circle
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
@@ -1886,7 +1886,7 @@ tasks:
   test-conda-python-3.7-turbodbc-master:
     ci: circle
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
@@ -1896,7 +1896,7 @@ tasks:
   test-conda-python-3.7-kartothek-latest:
     ci: circle
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
@@ -1906,7 +1906,7 @@ tasks:
   test-conda-python-3.7-kartothek-master:
     ci: circle
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
@@ -1916,7 +1916,7 @@ tasks:
   test-conda-python-3.7-hdfs-2.9.2:
     ci: circle
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
@@ -1926,7 +1926,7 @@ tasks:
   test-conda-python-3.7-spark-master:
     ci: circle
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
@@ -1937,6 +1937,6 @@ tasks:
   skipped-test-conda-cpp-hiveserver2:
     ci: circle
     platform: linux
-    template: docker-tests/circle.linux.yml
+    template: docker-tests/github.linux.yml
     params:
       run: conda-cpp-hiveserver2
