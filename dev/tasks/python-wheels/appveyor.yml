@@ -19,7 +19,7 @@ os: Visual Studio 2017
 
 environment:
   ARCH: "64"
-  GENERATOR: Visual Studio 14 2015 Win64
+  GENERATOR: Ninja
   PYTHON_VERSION: "{{ python_version }}"
   ARROW_SRC: C:\apache-arrow
   PYARROW_VERSION: {{ arrow.no_rc_version }}
