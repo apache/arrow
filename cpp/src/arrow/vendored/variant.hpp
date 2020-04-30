@@ -1,4 +1,4 @@
-// Vendored from v1.4.0, from single-header branch at https://github.com/mpark/variant
+// Vendored from v1.4.0, from single-header branch at https://github.com/mpark/variant/commit/d1cdfdd3f2ed80710ba4d671fe6bffaa3e28201a
 
 // MPark.Variant
 //
