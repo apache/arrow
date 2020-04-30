@@ -689,6 +689,7 @@ def docker_compose(obj, config):
 
 @docker_compose.command('run')
 @click.argument('image')
+@click.argument('command', default=None)
 @click.option('--env', '-e', multiple=True,
               help='Set environment variable within the container')
 @click.option('--build/--no-build', default=True,
@@ -698,7 +699,7 @@ def docker_compose(obj, config):
 @click.option('--cache-leaf/--no-cache-leaf', default=True,
               help='Force build the image and its parents')
 @click.pass_obj
-def docker_compose_run(obj, image, env, build, cache, cache_leaf):
+def docker_compose_run(obj, image, command, env, build, cache, cache_leaf):
     from .docker import UndefinedImage
     from subprocess import CalledProcessError
 
@@ -706,7 +707,7 @@ def docker_compose_run(obj, image, env, build, cache, cache_leaf):
     try:
         if build:
             compose.build(image, cache=cache, cache_leaf=cache_leaf)
-        compose.run(image)
+        compose.run(image, command=command)
     except CalledProcessError as e:
         raise click.ClickException(
             "`{}` exited with a non-zero exit code {}, see the log above."

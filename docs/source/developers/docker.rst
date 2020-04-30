@@ -53,7 +53,7 @@ Archery calls the following docker-compose commands:
     docker-compose build conda-python
     docker-compose run --rm conda-python
 
-To entirely disable the pulling / caching:
+To disable the image pulling:
 
 .. code::bash
 
@@ -67,20 +67,20 @@ Which translates to:
     docker-compose build --no-cache conda-python
     docker-compose run --rm conda-python
 
-To disable the cache only for the leaf image:
-
-.. code::bash
-
-    archery docker run --no-cache-leaf conda-python
-
-This is useful to force using the development version of a dependency, like
-pandas:
+To disable the cache only for the leaf image - useful to force building the
+development version of a dependency:
 
 .. code::bash
 
     PANDAS=master archery docker run --no-cache-leaf conda-python
 
-For the available build time parameters see the .env file.
+``PANDAS`` is a build time parameter, see the defaults in the .env file.
+
+To entirely skip building the image:
+
+.. code::bash
+
+    archery docker run --no-build conda-python
 
 In order to alter the runtime parameters pass environment variables to the
 container in execution time:
@@ -88,6 +88,12 @@ container in execution time:
 .. code::bash
 
     archery docker run -e CMAKE_BUILD_TYPE=release ubuntu-cpp
+
+Starting an interactive bash session for debugging:
+
+.. code::bash
+
+    archery docker run ubuntu-cpp bash
 
 Development
 -----------

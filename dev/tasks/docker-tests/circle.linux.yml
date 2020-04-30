@@ -36,15 +36,12 @@ jobs:
           git -C arrow checkout FETCH_HEAD
           git -C arrow submodule update --init --recursive
       - run:
-          name: "Set Python Version"
+          name: Execute Docker Build
           command: |
             pyenv versions
             pyenv global 3.6.10
-      - run: |
-          python -m pip install -e arrow/dev/archery[docker]
-      - run:
-          name: Execute Docker Build
-          command: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ run }}
+            pip install -e arrow/dev/archery[docker]
+            archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ run }}
           no_output_timeout: "1h"
 
 workflows:

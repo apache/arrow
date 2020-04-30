@@ -98,7 +98,7 @@ class DockerCompose(Command):
                 'Found errors with docker-compose:\n{}'.format(msg)
             )
 
-    def _command_env(self):
+    def _compose_env(self):
         return dict(os.environ, **self.dotenv)
 
     def _validate_image(self, name):
@@ -111,7 +111,7 @@ class DockerCompose(Command):
 
     def build(self, image, cache=True, cache_leaf=True):
         self._validate_image(image)
-        env = self._command_env()
+        env = self._compose_env()
 
         # build all parents
         for parent in self.nodes[image]:
@@ -129,13 +129,16 @@ class DockerCompose(Command):
         else:
             self._execute('build', '--no-cache', image, env=env)
 
-    def run(self, image, env=None):
+    def run(self, image, command=None, env=None):
         self._validate_image(image)
         args = []
         if env is not None:
             for k, v in env.items():
                 args.extend(['-e', '{}={}'.format(k, v)])
-        self._execute('run', '--rm', *args, image, env=self._command_env())
+        args.append(image)
+        if command is not None:
+            args.append(command)
+        self._execute('run', '--rm', *args, env=self._compose_env())
 
     def push(self, image, user, password):
         try:
@@ -146,4 +149,4 @@ class DockerCompose(Command):
                    .format(image))
             raise RuntimeError(msg) from None
         else:
-            self._execute('push', image, env=self._command_env())
+            self._execute('push', image, env=self._compose_env())

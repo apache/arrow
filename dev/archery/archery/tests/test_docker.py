@@ -116,6 +116,17 @@ def test_executed_docker_commands(tmpdir):
         run.assert_called_with(cmd, check=True, env=mock.ANY)
 
     with mock.patch('subprocess.run', autospec=True) as run:
+        compose.run('conda-python-pandas', env={'MYENV': 'variable'})
+        cmd = base_command + ['run', '--rm', '-e', 'MYENV=variable',
+                              'conda-python-pandas']
+        run.assert_called_with(cmd, check=True, env=mock.ANY)
+
+    with mock.patch('subprocess.run', autospec=True) as run:
+        compose.run('conda-python-pandas', command='bash')
+        cmd = base_command + ['run', '--rm', 'conda-python-pandas', 'bash']
+        run.assert_called_with(cmd, check=True, env=mock.ANY)
+
+    with mock.patch('subprocess.run', autospec=True) as run:
         compose.build('conda-python-pandas', cache=False)
         commands = [
             ['build', '--no-cache', 'conda-cpp'],
