@@ -40,7 +40,7 @@ cargo build --all-targets
 
 # make sure we can build Arrow sub-crate without default features
 pushd arrow
-cargo build --all-targets --no-default-features
+cargo check --all-targets --no-default-features
 popd
 
 popd
