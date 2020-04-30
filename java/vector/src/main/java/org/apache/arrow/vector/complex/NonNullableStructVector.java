@@ -46,7 +46,6 @@ import org.apache.arrow.vector.util.TransferPair;
 
 import io.netty.buffer.ArrowBuf;
 
-
 /**
  * A struct vector that has no null values (and no validity buffer).
  * Child Vectors are handled in {@link AbstractStructVector}.

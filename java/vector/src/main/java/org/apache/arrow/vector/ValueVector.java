@@ -283,5 +283,4 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    * @return the name of the vector.
    */
   String getName();
-
 }

@@ -23,6 +23,7 @@ import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullVector;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
@@ -30,11 +31,14 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 
 import io.netty.buffer.ArrowBuf;
 
 /**
- * visitor to validate vector (not include data).
+ * Visitor to validate vector (without validating data).
+ * This visitor could be used for {@link ValueVector#accept(VectorVisitor, Object)} API,
+ * and also users could simply use {@link ValueVectorUtility#validate(FieldVector)}.
  */
 public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
 
@@ -57,7 +61,7 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
       }
 
       ArrowBuf offsetBuf = vector.getOffsetBuffer();
-      int minBufferSize = (vector.getValueCount() + 1) * 4;
+      int minBufferSize = (vector.getValueCount() + 1) * BaseVariableWidthVector.OFFSET_WIDTH;
 
       if (offsetBuf.capacity() < minBufferSize) {
         throw new IllegalArgumentException(String.format("offsetBuffer too small in vector of type %s" +
@@ -67,7 +71,7 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
       }
 
       int firstOffset = vector.getOffsetBuffer().getInt(0);
-      int lastOffset = vector.getOffsetBuffer().getInt(vector.getValueCount() * 4);
+      int lastOffset = vector.getOffsetBuffer().getInt(vector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
 
       if (firstOffset < 0 || lastOffset < 0) {
         throw new IllegalArgumentException("Negative offsets in vector");
@@ -95,7 +99,7 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
     if (vector.getValueCount() > 0) {
 
       ArrowBuf offsetBuf = vector.getOffsetBuffer();
-      int minBufferSize = (vector.getValueCount() + 1) * 4;
+      int minBufferSize = (vector.getValueCount() + 1) * BaseVariableWidthVector.OFFSET_WIDTH;
 
       if (offsetBuf.capacity() < minBufferSize) {
         throw new IllegalArgumentException(String.format("offsetBuffer too small in vector of type %s" +
@@ -105,7 +109,7 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
       }
 
       int firstOffset = vector.getOffsetBuffer().getInt(0);
-      int lastOffset = vector.getOffsetBuffer().getInt(vector.getValueCount() * 4);
+      int lastOffset = vector.getOffsetBuffer().getInt(vector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
 
       if (firstOffset < 0 || lastOffset < 0) {
         throw new IllegalArgumentException("Negative offsets in list vector");
@@ -214,9 +218,4 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
   public Void visit(NullVector vector, Void value) {
     return null;
   }
-
-  private void checkOffsetBuffer(ArrowBuf offsetBuf, int valueCount, int dataCapacity) {
-
-  }
-
 }
