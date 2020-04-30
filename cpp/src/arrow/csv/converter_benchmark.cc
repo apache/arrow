@@ -17,17 +17,95 @@
 
 #include "benchmark/benchmark.h"
 
+#include <fstream>
 #include <sstream>
 #include <string>
 
+#include "arrow/io/file.h"
 #include "arrow/csv/converter.h"
 #include "arrow/csv/options.h"
 #include "arrow/csv/parser.h"
+#include "arrow/csv/reader.h"
 #include "arrow/csv/test_common.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/timestamp_converter.h"
 
 namespace arrow {
 namespace csv {
+
+const std::vector<std::string> formats = {"1917-10-17,", "2018-09-13 22,",
+                                          "1941-06-22 04:00,", "1945-05-09 09:45:38,"};
+const std::string file_name = "__data.csv";
+
+const int32_t n_rows = 10000;
+const int32_t n_cols = 150;
+
+class ReadCSVBenchmark : public benchmark::Fixture {
+ public:
+  void SetUp(const ::benchmark::State& state) {
+    generateCSV(file_name, formats, n_cols, n_rows);
+  }
+
+  void TearDown(const ::benchmark::State& state) { std::remove(file_name.c_str()); }
+
+ private:
+  void generateCSV(const std::string& path_csv, const std::vector<std::string>& dates,
+                   int32_t cols, int32_t rows) {
+    ::srand(777);
+    std::ofstream file;
+    file.open(path_csv, std::ios::out);
+
+    for (int32_t row = 0; row < rows; ++row) {
+      for (int32_t col = 0; col < cols; ++col) {
+        file << dates[rand() % dates.size()];
+      }
+      file << "\n";
+    }
+    file.close();
+  }
+};
+
+static void readCSV(const std::string& path_csv, const csv::ConvertOptions& convert_opt) {
+  arrow::Status st;
+  auto memory_pool = default_memory_pool();
+
+  std::shared_ptr<io::ReadableFile> input;
+  auto file_result = io::ReadableFile::Open(path_csv.c_str());
+  st = file_result.status();
+  input = file_result.ValueOrDie();
+
+  auto read_opt = csv::ReadOptions::Defaults();
+  auto parse_opt = csv::ParseOptions::Defaults();
+
+  auto table_reader_result =
+      csv::TableReader::Make(memory_pool, input, read_opt, parse_opt, convert_opt);
+  st = table_reader_result.status();
+  auto table_reader = table_reader_result.ValueOrDie();
+
+  std::shared_ptr<Table> arrowTable;
+
+  auto arrow_table_result = table_reader->Read();
+  st = arrow_table_result.status();
+  arrowTable = arrow_table_result.ValueOrDie();
+}
+
+BENCHMARK_F(ReadCSVBenchmark, ConverterISO)(benchmark::State& state) {
+  for (auto _ : state) {
+    auto convert_options = csv::ConvertOptions::Defaults();
+    convert_options.timestamp_converters.push_back(
+        std::make_shared<ISO8601Parser>(timestamp(TimeUnit::SECOND)));
+    readCSV(file_name, convert_options);
+  }
+  state.SetItemsProcessed(state.iterations());
+}
+
+BENCHMARK_F(ReadCSVBenchmark, ConverterDefault)(benchmark::State& state) {
+  for (auto _ : state) {
+    auto convert_options = csv::ConvertOptions::Defaults();
+    readCSV(file_name, convert_options);
+  }
+  state.SetItemsProcessed(state.iterations());
+}
 
 static std::shared_ptr<BlockParser> BuildInt64Data(int32_t num_rows) {
   const std::vector<std::string> base_rows = {"123\n", "4\n",   "-317005557\n",
