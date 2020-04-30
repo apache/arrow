@@ -34,13 +34,38 @@ namespace gandiva {
 
 class LLVMGenerator;
 
+class FilterCacheKey {
+ public:
+  FilterCacheKey(std::shared_ptr<Schema> schema, std::shared_ptr<Configuration> configuration,
+                 Expression& expression);
+
+  std::size_t Hash() const { return hash_code_; }
+
+  bool operator==(const FilterCacheKey& other) const;
+
+  bool operator!=(const FilterCacheKey& other) const { return !(*this == other); }
+
+  std::shared_ptr<Schema> schema() const { return schema_; }
+
+  std::string ToString() const;
+
+ private:
+  void UpdateUniqifier(const std::string& expr);
+
+  const std::shared_ptr<Schema> schema_;
+  const std::shared_ptr<Configuration> configuration_;
+  std::string expression_as_string_;
+  size_t hash_code_;
+  uint32_t uniqifier_;
+};
+
 /// \brief filter records based on a condition.
 ///
 /// A filter is built for a specific schema and condition. Once the filter is built, it
 /// can be used to evaluate many row batches.
 class GANDIVA_EXPORT Filter {
  public:
-  Filter(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
+  Filter(std::unique_ptr<LLVMGenerator> llvm_generator, std::shared_ptr<Schema> schema,
          std::shared_ptr<Configuration> config);
 
   // Inline dtor will attempt to resolve the destructor for
@@ -52,7 +77,7 @@ class GANDIVA_EXPORT Filter {
   /// \param[in] schema schema for the record batches, and the condition.
   /// \param[in] condition filter condition.
   /// \param[out] filter the returned filter object
-  static Status Make(SchemaPtr schema, ConditionPtr condition,
+  static Status Make(std::shared_ptr<Schema> schema, ConditionPtr condition,
                      std::shared_ptr<Filter>* filter) {
     return Make(schema, condition, ConfigurationBuilder::DefaultConfiguration(), filter);
   }
@@ -64,7 +89,7 @@ class GANDIVA_EXPORT Filter {
   /// \param[in] condition filter conditions.
   /// \param[in] config run time configuration.
   /// \param[out] filter the returned filter object
-  static Status Make(SchemaPtr schema, ConditionPtr condition,
+  static Status Make(std::shared_ptr<Schema> schema, ConditionPtr condition,
                      std::shared_ptr<Configuration> config,
                      std::shared_ptr<Filter>* filter);
 
@@ -80,7 +105,7 @@ class GANDIVA_EXPORT Filter {
 
  private:
   std::unique_ptr<LLVMGenerator> llvm_generator_;
-  SchemaPtr schema_;
+  std::shared_ptr<Schema> schema_;
   std::shared_ptr<Configuration> configuration_;
 };
 

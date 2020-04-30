@@ -23,6 +23,8 @@
 #include <thread>
 #include <vector>
 
+#include "arrow/util/hashing.h"
+
 #include "gandiva/arrow.h"
 #include "gandiva/projector.h"
 
@@ -37,13 +39,13 @@ class ProjectorCacheKey {
     for (auto& expr : expression_vector) {
       std::string expr_as_string = expr->ToString();
       expressions_as_strings_.push_back(expr_as_string);
-      boost::hash_combine(result, expr_as_string);
+      arrow::internal::hash_combine(result, expr_as_string);
       UpdateUniqifier(expr_as_string);
     }
-    boost::hash_combine(result, mode);
-    boost::hash_combine(result, configuration->Hash());
-    boost::hash_combine(result, schema_->ToString());
-    boost::hash_combine(result, uniqifier_);
+    arrow::internal::hash_combine(result, mode);
+    arrow::internal::hash_combine(result, configuration->Hash());
+    arrow::internal::hash_combine(result, schema_->ToString());
+    arrow::internal::hash_combine(result, uniqifier_);
     hash_code_ = result;
   }
 

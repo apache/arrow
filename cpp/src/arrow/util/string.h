@@ -50,5 +50,12 @@ std::string JoinStrings(const std::vector<util::string_view>& strings,
 ARROW_EXPORT
 std::string TrimString(std::string value);
 
+ARROW_EXPORT
+std::string AsciiEqualsCaseInsensitive(util::string_view left,
+                                       util::string_view right);
+
+ARROW_EXPORT
+std::string AsciiToLower(util::string_view str);
+
 }  // namespace internal
 }  // namespace arrow

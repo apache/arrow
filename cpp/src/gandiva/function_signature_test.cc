@@ -21,11 +21,14 @@
 
 #include <gtest/gtest.h>
 
-namespace gandiva {
+namespace arrow {
+namespace compute {
 
 class TestFunctionSignature : public ::testing::Test {
  protected:
   virtual void SetUp() {
+    // Use make_shared so these are distinct from the static instances returned
+    // by e.g. arrow::int32()
     local_i32_type_ = std::make_shared<arrow::Int32Type>();
     local_i64_type_ = std::make_shared<arrow::Int64Type>();
     local_date32_type_ = std::make_shared<arrow::Date32Type>();
@@ -108,4 +111,5 @@ TEST_F(TestFunctionSignature, TestHash) {
   EXPECT_EQ(f3.Hash(), f4.Hash());
 }
 
-}  // namespace gandiva
+}  // namespace compute
+}  // namespace arrow
