@@ -689,7 +689,7 @@ def docker_compose(obj, config):
 
 @docker_compose.command('run')
 @click.argument('image')
-@click.argument('command', default=None)
+@click.argument('command', required=False, default=None)
 @click.option('--env', '-e', multiple=True,
               help='Set environment variable within the container')
 @click.option('--build/--no-build', default=True,
