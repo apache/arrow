@@ -55,6 +55,8 @@ public abstract class TinyIntConsumer {
     public void consume(ResultSet resultSet) throws SQLException {
       byte value = resultSet.getByte(columnIndexInResultSet);
       if (!resultSet.wasNull()) {
+        // for fixed width vectors, we have allocated enough memory proactively,
+        // so there is no need to call the setSafe method here.
         vector.set(currentIndex, value);
       }
       currentIndex++;
@@ -76,6 +78,8 @@ public abstract class TinyIntConsumer {
     @Override
     public void consume(ResultSet resultSet) throws SQLException {
       byte value = resultSet.getByte(columnIndexInResultSet);
+      // for fixed width vectors, we have allocated enough memory proactively,
+      // so there is no need to call the setSafe method here.
       vector.set(currentIndex, value);
       currentIndex++;
     }

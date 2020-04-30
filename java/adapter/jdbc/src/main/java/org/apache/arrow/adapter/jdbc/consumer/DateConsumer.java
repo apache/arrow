@@ -89,6 +89,8 @@ public class DateConsumer {
         if (day < 0 || day > MAX_DAY) {
           throw new IllegalArgumentException("Day overflow: " + day);
         }
+        // for fixed width vectors, we have allocated enough memory proactively,
+        // so there is no need to call the setSafe method here.
         vector.set(currentIndex, day);
       }
       currentIndex++;
@@ -125,6 +127,8 @@ public class DateConsumer {
       if (day < 0 || day > MAX_DAY) {
         throw new IllegalArgumentException("Day overflow: " + day);
       }
+      // for fixed width vectors, we have allocated enough memory proactively,
+      // so there is no need to call the setSafe method here.
       vector.set(currentIndex, day);
       currentIndex++;
     }

@@ -69,6 +69,8 @@ public abstract class TimeConsumer {
       Time time = calendar == null ? resultSet.getTime(columnIndexInResultSet) :
           resultSet.getTime(columnIndexInResultSet, calendar);
       if (!resultSet.wasNull()) {
+        // for fixed width vectors, we have allocated enough memory proactively,
+        // so there is no need to call the setSafe method here.
         vector.set(currentIndex, (int) time.getTime());
       }
       currentIndex++;
@@ -101,6 +103,8 @@ public abstract class TimeConsumer {
     public void consume(ResultSet resultSet) throws SQLException {
       Time time = calendar == null ? resultSet.getTime(columnIndexInResultSet) :
           resultSet.getTime(columnIndexInResultSet, calendar);
+      // for fixed width vectors, we have allocated enough memory proactively,
+      // so there is no need to call the setSafe method here.
       vector.set(currentIndex, (int) time.getTime());
       currentIndex++;
     }
