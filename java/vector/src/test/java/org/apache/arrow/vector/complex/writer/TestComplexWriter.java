@@ -268,6 +268,10 @@ public class TestComplexWriter {
 
   @Test
   public void testListScalarNull() {
+    /* Write to a integer list vector
+     * each list of size 8 and having it's data values alternating between null and a non-null.
+     * Read and verify
+     */
     try (ListVector listVector = ListVector.empty("list", allocator)) {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);

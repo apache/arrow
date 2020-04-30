@@ -178,6 +178,7 @@ public class UnionListWriter extends AbstractFieldWriter {
     writer.setPosition(writer.idx()+1);
   }
 
+  @Override
   public void writeNull() {
     writer.setPosition(writer.idx()+1);
   }
