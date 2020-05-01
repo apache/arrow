@@ -27,6 +27,12 @@
 
 namespace arrow {
 namespace io {
+
+CacheOptions CacheOptions::Defaults() {
+  return CacheOptions{internal::ReadRangeCache::kDefaultHoleSizeLimit,
+                      internal::ReadRangeCache::kDefaultRangeSizeLimit};
+}
+
 namespace internal {
 
 struct RangeCacheEntry {
@@ -40,8 +46,7 @@ struct RangeCacheEntry {
 
 struct ReadRangeCache::Impl {
   std::shared_ptr<RandomAccessFile> file;
-  int64_t hole_size_limit;
-  int64_t range_size_limit;
+  CacheOptions options;
 
   // Ordered by offset (so as to find a matching region by binary search)
   std::vector<RangeCacheEntry> entries;
@@ -60,18 +65,17 @@ struct ReadRangeCache::Impl {
 };
 
 ReadRangeCache::ReadRangeCache(std::shared_ptr<RandomAccessFile> file,
-                               int64_t hole_size_limit, int64_t range_size_limit)
+                               CacheOptions options)
     : impl_(new Impl()) {
   impl_->file = std::move(file);
-  impl_->hole_size_limit = hole_size_limit;
-  impl_->range_size_limit = range_size_limit;
+  impl_->options = options;
 }
 
 ReadRangeCache::~ReadRangeCache() {}
 
 Status ReadRangeCache::Cache(std::vector<ReadRange> ranges) {
-  ranges = internal::CoalesceReadRanges(std::move(ranges), impl_->hole_size_limit,
-                                        impl_->range_size_limit);
+  ranges = internal::CoalesceReadRanges(std::move(ranges), impl_->options.hole_size_limit,
+                                        impl_->options.range_size_limit);
   std::vector<RangeCacheEntry> entries;
   entries.reserve(ranges.size());
   for (const auto& range : ranges) {

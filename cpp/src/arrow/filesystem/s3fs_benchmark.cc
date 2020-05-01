@@ -36,6 +36,7 @@
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/range.h"
 
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/writer.h"
@@ -100,7 +101,7 @@ class MinioFixture : public benchmark::Fixture {
       ASSERT_OK(MakeObject("bytes_1mib", 1024 * 1024));
       ASSERT_OK(MakeObject("bytes_100mib", 100 * 1024 * 1024));
       ASSERT_OK(MakeObject("bytes_500mib", 500 * 1024 * 1024));
-      ASSERT_OK(MakeParquetObject(bucket_ + "/pq_c100_r250k", 100, 250000));
+      ASSERT_OK(MakeParquetObject(bucket_ + "/pq_c402_r250k", 400, 250000));
     }
   }
 
@@ -141,16 +142,31 @@ class MinioFixture : public benchmark::Fixture {
   }
 
   /// Make an object with Parquet data.
+  /// Appends integer columns to the beginning (to act as indices).
   Status MakeParquetObject(const std::string& path, int num_columns, int num_rows) {
-    std::vector<std::shared_ptr<ChunkedArray>> columns(num_columns);
-    std::vector<std::shared_ptr<Field>> fields(num_columns);
-    for (int i = 0; i < num_columns; ++i) {
+    std::vector<std::shared_ptr<ChunkedArray>> columns;
+    std::vector<std::shared_ptr<Field>> fields;
+
+    {
+      arrow::random::RandomArrayGenerator generator(0);
+      std::shared_ptr<Array> values = generator.Int64(num_rows, 0, 1e10, 0);
+      columns.push_back(std::make_shared<ChunkedArray>(values));
+      fields.push_back(::arrow::field("timestamp", values->type()));
+    }
+    {
+      arrow::random::RandomArrayGenerator generator(1);
+      std::shared_ptr<Array> values = generator.Int32(num_rows, 0, 1e9, 0);
+      columns.push_back(std::make_shared<ChunkedArray>(values));
+      fields.push_back(::arrow::field("val", values->type()));
+    }
+
+    for (int i = 0; i < num_columns; i++) {
       arrow::random::RandomArrayGenerator generator(i);
       std::shared_ptr<Array> values = generator.Float64(num_rows, -1.e10, 1e10, 0);
       std::stringstream ss;
       ss << "col" << i;
-      columns[i] = std::make_shared<ChunkedArray>(values);
-      fields[i] = ::arrow::field(ss.str(), values->type());
+      columns.push_back(std::make_shared<ChunkedArray>(values));
+      fields.push_back(::arrow::field(ss.str(), values->type()));
     }
     auto schema = std::make_shared<::arrow::Schema>(fields);
 
@@ -246,7 +262,7 @@ static void CoalescedRead(benchmark::State& st, S3FileSystem* fs,
     ASSERT_OK_AND_ASSIGN(size, file->GetSize());
     total_items += 1;
 
-    io::internal::ReadRangeCache cache(file, 8192, 64 * 1024 * 1024);
+    io::internal::ReadRangeCache cache(file, io::CacheOptions{8192, 64 * 1024 * 1024});
     std::vector<io::ReadRange> ranges;
 
     int64_t offset = 0;
@@ -271,25 +287,37 @@ static void CoalescedRead(benchmark::State& st, S3FileSystem* fs,
 }
 
 /// Read a Parquet file from S3.
-static void ParquetRead(benchmark::State& st, S3FileSystem* fs, const std::string& path) {
+static void ParquetRead(benchmark::State& st, S3FileSystem* fs, const std::string& path,
+                        std::vector<int> column_indices, bool pre_buffer,
+                        std::string read_strategy) {
   int64_t total_bytes = 0;
   int total_items = 0;
+
+  parquet::ArrowReaderProperties properties;
+  properties.set_use_threads(true);
+  properties.set_pre_buffer(pre_buffer);
+  parquet::ReaderProperties parquet_properties = parquet::default_reader_properties();
+
   for (auto _ : st) {
     std::shared_ptr<io::RandomAccessFile> file;
     int64_t size = 0;
     ASSERT_OK_AND_ASSIGN(file, fs->OpenInputFile(path));
     ASSERT_OK_AND_ASSIGN(size, file->GetSize());
 
-    parquet::ArrowReaderProperties properties;
-    properties.set_use_threads(true);
     std::unique_ptr<parquet::arrow::FileReader> reader;
     parquet::arrow::FileReaderBuilder builder;
-    ASSERT_OK(builder.Open(file));
+    ASSERT_OK(builder.Open(file, parquet_properties));
     ASSERT_OK(builder.properties(properties)->Build(&reader));
-    std::shared_ptr<RecordBatchReader> rb_reader;
-    ASSERT_OK(reader->GetRecordBatchReader({0}, &rb_reader));
+
     std::shared_ptr<Table> table;
-    ASSERT_OK(rb_reader->ReadAll(&table));
+
+    if (read_strategy == "ReadTable") {
+      ASSERT_OK(reader->ReadTable(column_indices, &table));
+    } else {
+      std::shared_ptr<RecordBatchReader> rb_reader;
+      ASSERT_OK(reader->GetRecordBatchReader({0}, column_indices, &rb_reader));
+      ASSERT_OK(rb_reader->ReadAll(&table));
+    }
 
     // TODO: actually measure table memory usage
     total_bytes += size;
@@ -297,7 +325,28 @@ static void ParquetRead(benchmark::State& st, S3FileSystem* fs, const std::strin
   }
   st.SetBytesProcessed(total_bytes);
   st.SetItemsProcessed(total_items);
-  std::cerr << "Read the file " << total_items << " times" << std::endl;
+}
+
+/// Helper function used in the macros below to template benchmarks.
+static void ParquetReadAll(benchmark::State& st, S3FileSystem* fs,
+                           const std::string& bucket, int64_t file_rows,
+                           int64_t file_cols, bool pre_buffer,
+                           std::string read_strategy) {
+  std::vector<int> column_indices(file_cols);
+  std::iota(column_indices.begin(), column_indices.end(), 0);
+  std::stringstream ss;
+  ss << bucket << "/pq_c" << file_cols << "_r" << file_rows << "k";
+  ParquetRead(st, fs, ss.str(), column_indices, false, read_strategy);
+}
+
+/// Helper function used in the macros below to template benchmarks.
+static void ParquetReadSome(benchmark::State& st, S3FileSystem* fs,
+                            const std::string& bucket, int64_t file_rows,
+                            int64_t file_cols, std::vector<int> cols_to_read,
+                            bool pre_buffer, std::string read_strategy) {
+  std::stringstream ss;
+  ss << bucket << "/pq_c" << file_cols << "_r" << file_rows << "k";
+  ParquetRead(st, fs, ss.str(), cols_to_read, false, read_strategy);
 }
 
 BENCHMARK_DEFINE_F(MinioFixture, ReadAll1Mib)(benchmark::State& st) {
@@ -331,10 +380,52 @@ BENCHMARK_DEFINE_F(MinioFixture, ReadCoalesced500Mib)(benchmark::State& st) {
 }
 BENCHMARK_REGISTER_F(MinioFixture, ReadCoalesced500Mib)->UseRealTime();
 
-BENCHMARK_DEFINE_F(MinioFixture, ReadParquet250K)(benchmark::State& st) {
-  ParquetRead(st, fs_.get(), bucket_ + "/pq_c100_r250k");
-}
-BENCHMARK_REGISTER_F(MinioFixture, ReadParquet250K)->UseRealTime();
+// Helpers to generate various multiple benchmarks for a given Parquet file.
+
+// NAME: the base name of the benchmark.
+// ROWS: the number of rows in the Parquet file.
+// COLS: the number of columns in the Parquet file.
+// STRATEGY: how to read the file (ReadTable or GetRecordBatchReader)
+#define PQ_BENCHMARK_IMPL(NAME, ROWS, COLS, STRATEGY)                                 \
+  BENCHMARK_DEFINE_F(MinioFixture, NAME##STRATEGY##AllNaive)(benchmark::State & st) { \
+    ParquetReadAll(st, fs_.get(), bucket_, ROWS, COLS, false, #STRATEGY);             \
+  }                                                                                   \
+  BENCHMARK_REGISTER_F(MinioFixture, NAME##STRATEGY##AllNaive)->UseRealTime();        \
+  BENCHMARK_DEFINE_F(MinioFixture, NAME##STRATEGY##AllCoalesced)                      \
+  (benchmark::State & st) {                                                           \
+    ParquetReadAll(st, fs_.get(), bucket_, ROWS, COLS, true, #STRATEGY);              \
+  }                                                                                   \
+  BENCHMARK_REGISTER_F(MinioFixture, NAME##STRATEGY##AllCoalesced)->UseRealTime();
+
+// COL_INDICES: a vector specifying a subset of column indices to read.
+#define PQ_BENCHMARK_PICK_IMPL(NAME, ROWS, COLS, COL_INDICES, STRATEGY)                 \
+  BENCHMARK_DEFINE_F(MinioFixture, NAME##STRATEGY##PickNaive)(benchmark::State & st) {  \
+    ParquetReadSome(st, fs_.get(), bucket_, ROWS, COLS, COL_INDICES, false, #STRATEGY); \
+  }                                                                                     \
+  BENCHMARK_REGISTER_F(MinioFixture, NAME##STRATEGY##PickNaive)->UseRealTime();         \
+  BENCHMARK_DEFINE_F(MinioFixture, NAME##STRATEGY##PickCoalesced)                       \
+  (benchmark::State & st) {                                                             \
+    ParquetReadSome(st, fs_.get(), bucket_, ROWS, COLS, COL_INDICES, true, #STRATEGY);  \
+  }                                                                                     \
+  BENCHMARK_REGISTER_F(MinioFixture, NAME##STRATEGY##PickCoalesced)->UseRealTime();
+
+#define PQ_BENCHMARK(ROWS, COLS)                                   \
+  PQ_BENCHMARK_IMPL(ReadParquet_c##COLS##_r##ROWS##K_, ROWS, COLS, \
+                    GetRecordBatchReader);                         \
+  PQ_BENCHMARK_IMPL(ReadParquet_c##COLS##_r##ROWS##K_, ROWS, COLS, ReadTable);
+
+#define PQ_BENCHMARK_PICK(NAME, ROWS, COLS, COL_INDICES)                         \
+  PQ_BENCHMARK_PICK_IMPL(ReadParquet_c##COLS##_r##ROWS##K_##NAME##_, ROWS, COLS, \
+                         COL_INDICES, GetRecordBatchReader);                     \
+  PQ_BENCHMARK_PICK_IMPL(ReadParquet_c##COLS##_r##ROWS##K_##NAME##_, ROWS, COLS, \
+                         COL_INDICES, ReadTable);
+
+// Test a Parquet file with 250k rows, 402 columns.
+PQ_BENCHMARK(250, 402);
+// Scenario A: test selecting a small set of contiguous columns, and a "far" column.
+PQ_BENCHMARK_PICK(A, 250, 402, (std::vector<int>{0, 1, 2, 3, 4, 90}));
+// Scenario B: test selecting a large set of contiguous columns.
+PQ_BENCHMARK_PICK(B, 250, 402, (::arrow::internal::Iota(41)));
 
 }  // namespace fs
 }  // namespace arrow

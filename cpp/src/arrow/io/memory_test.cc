@@ -454,9 +454,10 @@ TEST(RangeReadCache, Basics) {
   std::string data = "abcdefghijklmnopqrstuvwxyz";
 
   auto file = std::make_shared<BufferReader>(Buffer(data));
-  const int64_t hole_size_limit = 2;
-  const int64_t range_size_limit = 10;
-  internal::ReadRangeCache cache(file, hole_size_limit, range_size_limit);
+  CacheOptions options = CacheOptions::Defaults();
+  options.hole_size_limit = 2;
+  options.range_size_limit = 10;
+  internal::ReadRangeCache cache(file, options);
 
   ASSERT_OK(cache.Cache({{1, 2}, {3, 2}, {8, 2}, {20, 2}, {25, 0}}));
   ASSERT_OK(cache.Cache({{10, 4}, {14, 0}, {15, 4}}));

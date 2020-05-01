@@ -27,6 +27,19 @@
 
 namespace arrow {
 namespace io {
+
+struct ARROW_EXPORT CacheOptions {
+  /// /brief The maximum distance in bytes between two consecutive
+  ///   ranges; beyond this value, ranges are not combined
+  int64_t hole_size_limit;
+  /// /brief The maximum size in bytes of a combined range; if
+  ///   combining two consecutive ranges would produce a range of a
+  ///   size greater than this, they are not combined
+  int64_t range_size_limit;
+
+  static CacheOptions Defaults();
+};
+
 namespace internal {
 
 /// \brief A read cache designed to hide IO latencies when reading.
@@ -40,16 +53,12 @@ class ARROW_EXPORT ReadRangeCache {
   static constexpr int64_t kDefaultHoleSizeLimit = 8192;
   static constexpr int64_t kDefaultRangeSizeLimit = 32 * 1024 * 1024;
 
-  /// Construct a read cache
-  ///
-  /// \param[in] hole_size_limit The maximum distance in bytes between two
-  ///   consecutive ranges; beyond this value, ranges are not combined
-  /// \param[in] range_size_limit The maximum size in bytes of a combined range;
-  ///   if combining two consecutive ranges would produce a range of a size
-  ///   greater than this, they are not combined
-  explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file,
-                          int64_t hole_size_limit = kDefaultHoleSizeLimit,
-                          int64_t range_size_limit = kDefaultRangeSizeLimit);
+  /// Construct a read cache with default
+  explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file)
+      : ReadRangeCache(file, CacheOptions::Defaults()) {}
+
+  /// Construct a read cache with given options
+  explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file, CacheOptions options);
   ~ReadRangeCache();
 
   /// \brief Cache the given ranges in the background.

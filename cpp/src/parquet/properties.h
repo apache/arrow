@@ -23,6 +23,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include "arrow/io/caching.h"
 #include "arrow/type.h"
 #include "arrow/util/compression.h"
 #include "parquet/encryption.h"
@@ -540,7 +541,9 @@ class PARQUET_EXPORT ArrowReaderProperties {
   explicit ArrowReaderProperties(bool use_threads = kArrowDefaultUseThreads)
       : use_threads_(use_threads),
         read_dict_indices_(),
-        batch_size_(kArrowDefaultBatchSize) {}
+        batch_size_(kArrowDefaultBatchSize),
+        pre_buffer_(false),
+        cache_options_(::arrow::io::CacheOptions::Defaults()) {}
 
   void set_use_threads(bool use_threads) { use_threads_ = use_threads; }
 
@@ -565,10 +568,27 @@ class PARQUET_EXPORT ArrowReaderProperties {
 
   int64_t batch_size() const { return batch_size_; }
 
+  /// Enable read coalescing.
+  ///
+  /// When enabled, the Arrow reader will pre-buffer necessary regions
+  /// of the file in-memory. This is intended to improve performance on
+  /// high-latency filesystems (e.g. Amazon S3).
+  void set_pre_buffer(bool pre_buffer) { pre_buffer_ = pre_buffer; }
+
+  bool pre_buffer() const { return pre_buffer_; }
+
+  /// Set options for read coalescing. This can be used to tune the
+  /// implementation for characteristics of different filesystems.
+  void set_cache_options(::arrow::io::CacheOptions options) { cache_options_ = options; }
+
+  ::arrow::io::CacheOptions cache_options() const { return cache_options_; }
+
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
   int64_t batch_size_;
+  bool pre_buffer_;
+  ::arrow::io::CacheOptions cache_options_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties

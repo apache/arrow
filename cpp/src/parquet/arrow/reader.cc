@@ -315,6 +315,7 @@ class RowGroupRecordBatchReader : public ::arrow::RecordBatchReader {
     if (!reader->manifest_.GetFieldIndices(column_indices, &field_indices)) {
       return Status::Invalid("Invalid column index");
     }
+
     std::vector<std::unique_ptr<ColumnReaderImpl>> field_readers(field_indices.size());
     std::vector<std::shared_ptr<Field>> fields;
 
@@ -773,6 +774,15 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_group_in
   for (auto row_group_index : row_group_indices) {
     RETURN_NOT_OK(BoundsCheckRowGroup(row_group_index));
   }
+
+  if (reader_properties_.pre_buffer()) {
+    // PARQUET-1698/PARQUET-1820: pre-buffer row groups/column chunks if enabled
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
+    reader_->PreBuffer(row_group_indices, column_indices,
+                       reader_properties_.cache_options());
+    END_PARQUET_CATCH_EXCEPTIONS
+  }
+
   return RowGroupRecordBatchReader::Make(row_group_indices, column_indices, this,
                                          reader_properties_.batch_size(), out);
 }
@@ -801,6 +811,11 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
   std::vector<int> field_indices;
   if (!manifest_.GetFieldIndices(indices, &field_indices)) {
     return Status::Invalid("Invalid column index");
+  }
+
+  // PARQUET-1698/PARQUET-1820: pre-buffer row groups/column chunks if enabled
+  if (reader_properties_.pre_buffer()) {
+    parquet_reader()->PreBuffer(row_groups, indices, reader_properties_.cache_options());
   }
 
   int num_fields = static_cast<int>(field_indices.size());
