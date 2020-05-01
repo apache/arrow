@@ -47,8 +47,8 @@ jobs:
         run: pip install -e arrow/dev/archery[docker]
       - name: Execute Docker Build
         shell: bash
-        env:
         {%- if env is defined %}
+        env:
         {%- for key, value in env.items() %}
           {{ key }}: {{ value }}
         {%- endfor %}

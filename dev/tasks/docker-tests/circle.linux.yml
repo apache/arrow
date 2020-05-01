@@ -20,8 +20,8 @@ jobs:
   build:
     machine:
       image: ubuntu-1604:202004-01
-    environment:
     {%- if env is defined %}
+    environment:
     {%- for key, value in env.items() %}
       {{ key }}: {{ value }}
     {%- endfor %}

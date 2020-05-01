@@ -20,8 +20,8 @@ jobs:
   pool:
     vmImage: ubuntu-16.04
   timeoutInMinutes: 360
-  variables:
   {%- if env is defined %}
+  variables:
   {%- for key, value in env.items() %}
     {{ key }}: {{ value }}
   {%- endfor %}
