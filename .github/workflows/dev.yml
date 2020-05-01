@@ -43,7 +43,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: test
+          key: test1
       - name: Fetch Submodules and Tags
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space
