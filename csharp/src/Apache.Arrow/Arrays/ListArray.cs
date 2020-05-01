@@ -81,9 +81,13 @@ namespace Apache.Arrow
             {
                 Append();
 
+                var validityBuffer = NullCount > 0
+                                        ? ValidityBufferBuilder.Build(allocator).ValueBuffer
+                                        : ArrowBuffer.Empty;
+
                 return new ListArray(DataType, Length - 1,
                     ValueOffsetsBufferBuilder.Build(allocator), ValueBuilder.Build(allocator),
-                    ValidityBufferBuilder.Build(allocator).ValueBuffer, NullCount, 0);
+                    validityBuffer, NullCount, 0);
             }
 
             public Builder Reserve(int capacity)
