@@ -59,7 +59,9 @@ struct SparseTensorFormat {
     /// Compressed sparse column (CSC) format.
     CSC,
     /// Compressed sparse fiber (CSF) format.
-    CSF
+    CSF,
+    /// Coordinate list (COO) format with split indices.
+    SplitCOO
   };
 };
 
@@ -191,6 +193,59 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
  protected:
   std::shared_ptr<Tensor> coords_;
   bool is_canonical_;
+};
+
+// ----------------------------------------------------------------------
+// SparseSplitCOOIndex class
+
+/// \brief EXPERIMENTAL: The index data for a COO sparse tensor with split
+/// indices
+///
+/// A SplitCOO sparse index manages the location of its non-zero values by
+/// their coordinates.  This format is compatibe with scipy.coo_matrix.
+class ARROW_EXPORT SparseSplitCOOIndex
+    : public internal::SparseIndexBase<SparseSplitCOOIndex> {
+ public:
+  static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::SplitCOO;
+
+  /// \brief Make SparseSplitCOOIndex from raw properties
+  static Result<std::shared_ptr<SparseSplitCOOIndex>> Make(
+      const std::vector<std::shared_ptr<DataType>>& indices_types,
+      int64_t non_zero_length,
+      const std::vector<std::shared_ptr<Buffer>>& indices_data_buffers);
+
+  /// \brief Construct SparseCSXIndex from two index vectors
+  explicit SparseSplitCOOIndex(const std::vector<std::shared_ptr<Tensor>>& indices);
+
+  /// \brief Check the validity of the instance
+  Status CheckValidity() const;
+
+  /// \brief Return a vector of 1D tensors of the index vectors
+  const std::vector<std::shared_ptr<Tensor>>& indices() const { return indices_; }
+
+  /// \brief Return the number of non zero values in the sparse tensor related
+  /// to this sparse index
+  int64_t non_zero_length() const override { return indices_[0]->shape()[0]; }
+
+  /// \brief Return a string representation of the sparse index
+  std::string ToString() const override;
+
+  /// \brief Return whether the SplitCOO indices are equal
+  bool Equals(const SparseSplitCOOIndex& other) const;
+
+  inline Status ValidateShape(const std::vector<int64_t>& shape) const override {
+    ARROW_RETURN_NOT_OK(SparseIndex::ValidateShape(shape));
+
+    if (shape.size() != indices_.size()) {
+      return Status::Invalid(
+          "shape length is inconsistent with the indices in SplitCOO index");
+    }
+
+    return Status::OK();
+  }
+
+ private:
+  std::vector<std::shared_ptr<Tensor>> indices_;
 };
 
 namespace internal {
@@ -611,6 +666,9 @@ class SparseTensorImpl : public SparseTensor {
 
 /// \brief EXPERIMENTAL: Type alias for COO sparse tensor
 using SparseCOOTensor = SparseTensorImpl<SparseCOOIndex>;
+
+/// \brief EXPERIMENTAL: Type alias for SplitCOO sparse tensor
+using SparseSplitCOOTensor = SparseTensorImpl<SparseSplitCOOIndex>;
 
 /// \brief EXPERIMENTAL: Type alias for CSR sparse matrix
 using SparseCSRMatrix = SparseTensorImpl<SparseCSRIndex>;

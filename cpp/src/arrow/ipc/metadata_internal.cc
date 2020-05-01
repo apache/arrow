@@ -942,7 +942,7 @@ Status MakeSparseTensorIndexCOO(FBB& fbb, const SparseCOOIndex& sparse_index,
                                 Offset* fb_sparse_index, size_t* num_buffers) {
   *fb_sparse_index_type = flatbuf::SparseTensorIndex::SparseTensorIndexCOO;
 
-  // We assume that the value type of indices tensor is an integer.
+  // We assume that indices tensor has an integer value type.
   const auto& index_value_type =
       checked_cast<const IntegerType&>(*sparse_index.indices()->type());
   auto indices_type_offset =
@@ -959,6 +959,35 @@ Status MakeSparseTensorIndexCOO(FBB& fbb, const SparseCOOIndex& sparse_index,
                                           sparse_index.is_canonical())
           .Union();
   *num_buffers = 1;
+  return Status::OK();
+}
+
+Status MakeSparseTensorIndexSplitCOO(FBB& fbb, const SparseSplitCOOIndex& sparse_index,
+                                     const std::vector<BufferMetadata>& buffers,
+                                     flatbuf::SparseTensorIndex* fb_sparse_index_type,
+                                     Offset* fb_sparse_index, size_t* num_buffers) {
+  *fb_sparse_index_type = flatbuf::SparseTensorIndex::SparseTensorIndexSplitCOO;
+
+  using IntOffset = flatbuffers::Offset<flatbuf::Int>;
+  std::vector<IntOffset> indices_type_offsets;
+  for (const auto& tensor : sparse_index.indices()) {
+    // We assume that indices tensors have integer value types.
+    const auto& type = checked_cast<const IntegerType&>(*tensor->type());
+    auto offset = flatbuf::CreateInt(fbb, type.bit_width(), type.is_signed());
+    indices_type_offsets.push_back(offset);
+  }
+  auto fb_indices_types = fbb.CreateVector(indices_type_offsets);
+
+  // NOTE: buffers contains ndim + 1 items: indices buffers and a data buffer
+  const size_t ndim = sparse_index.indices().size();
+  std::vector<BufferMetadata> indices_buffers(buffers.begin(), buffers.begin() + ndim);
+  BufferVector fb_indices_buffers;
+  RETURN_NOT_OK(WriteBuffers(fbb, indices_buffers, &fb_indices_buffers));
+
+  *fb_sparse_index =
+      flatbuf::CreateSparseTensorIndexSplitCOO(fbb, fb_indices_types, fb_indices_buffers)
+          .Union();
+  *num_buffers = ndim;
   return Status::OK();
 }
 
@@ -982,7 +1011,7 @@ Status MakeSparseMatrixIndexCSX(FBB& fbb, const SparseIndexType& sparse_index,
                                 Offset* fb_sparse_index, size_t* num_buffers) {
   *fb_sparse_index_type = flatbuf::SparseTensorIndex::SparseMatrixIndexCSX;
 
-  // We assume that the value type of indptr tensor is an integer.
+  // We assume that the indptr tensor has an integer value type.
   const auto& indptr_value_type =
       checked_cast<const IntegerType&>(*sparse_index.indptr()->type());
   auto indptr_type_offset = flatbuf::CreateInt(fbb, indptr_value_type.bit_width(),
@@ -991,7 +1020,7 @@ Status MakeSparseMatrixIndexCSX(FBB& fbb, const SparseIndexType& sparse_index,
   const BufferMetadata& indptr_metadata = buffers[0];
   flatbuf::Buffer indptr(indptr_metadata.offset, indptr_metadata.length);
 
-  // We assume that the value type of indices tensor is an integer.
+  // We assume that the indices tensor has an integer value type.
   const auto& indices_value_type =
       checked_cast<const IntegerType&>(*sparse_index.indices()->type());
   auto indices_type_offset = flatbuf::CreateInt(fbb, indices_value_type.bit_width(),
@@ -1016,13 +1045,13 @@ Status MakeSparseTensorIndexCSF(FBB& fbb, const SparseCSFIndex& sparse_index,
   *fb_sparse_index_type = flatbuf::SparseTensorIndex::SparseTensorIndexCSF;
   const int ndim = static_cast<int>(sparse_index.axis_order().size());
 
-  // We assume that the value type of indptr tensor is an integer.
+  // We assume that the indptr tensors have a integer value type.
   const auto& indptr_value_type =
       checked_cast<const IntegerType&>(*sparse_index.indptr()[0]->type());
   auto indptr_type_offset = flatbuf::CreateInt(fbb, indptr_value_type.bit_width(),
                                                indptr_value_type.is_signed());
 
-  // We assume that the value type of indices tensor is an integer.
+  // We assume that the indices tensors have a integer value type.
   const auto& indices_value_type =
       checked_cast<const IntegerType&>(*sparse_index.indices()[0]->type());
   auto indices_type_offset = flatbuf::CreateInt(fbb, indices_value_type.bit_width(),
@@ -1078,6 +1107,12 @@ Status MakeSparseTensorIndex(FBB& fbb, const SparseIndex& sparse_index,
           fb_sparse_index_type, fb_sparse_index, num_buffers));
       break;
 
+    case SparseTensorFormat::SplitCOO:
+      RETURN_NOT_OK(MakeSparseTensorIndexSplitCOO(
+          fbb, checked_cast<const SparseSplitCOOIndex&>(sparse_index), buffers,
+          fb_sparse_index_type, fb_sparse_index, num_buffers));
+      break;
+
     case SparseTensorFormat::CSR:
       RETURN_NOT_OK(MakeSparseMatrixIndexCSX(
           fbb, checked_cast<const SparseCSRIndex&>(sparse_index), buffers,
@@ -1098,9 +1133,8 @@ Status MakeSparseTensorIndex(FBB& fbb, const SparseIndex& sparse_index,
 
     default:
       *fb_sparse_index_type = flatbuf::SparseTensorIndex::NONE;  // Silence warnings
-      std::stringstream ss;
-      ss << "Unsupported sparse tensor format:: " << sparse_index.ToString() << std::endl;
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("Unsupported sparse tensor format: ",
+                                    sparse_index.ToString());
   }
 
   return Status::OK();
@@ -1358,6 +1392,26 @@ Status GetSparseCOOIndexMetadata(const flatbuf::SparseTensorIndexCOO* sparse_ind
   return IntFromFlatbuffer(sparse_index->indicesType(), indices_type);
 }
 
+Result<std::vector<std::shared_ptr<DataType>>> GetSparseSplitCOOIndexMetadata(
+    const flatbuf::SparseTensorIndexSplitCOO* sparse_index, const size_t ndim) {
+  const auto fb_indices_types = sparse_index->indicesTypes();
+  if (fb_indices_types->size() != ndim) {
+    return Status::Invalid(
+        "The number of indices types in a SparseSplitCOOIndex is inconsistent to the "
+        "number of dimensions");
+  }
+
+  std::vector<std::shared_ptr<DataType>> indices_types;
+  indices_types.reserve(ndim);
+  for (auto fb_indices_type : *fb_indices_types) {
+    std::shared_ptr<DataType> indices_type;
+    RETURN_NOT_OK(IntFromFlatbuffer(fb_indices_type, &indices_type));
+    indices_types.push_back(indices_type);
+  }
+
+  return indices_types;
+}
+
 Status GetSparseCSXIndexMetadata(const flatbuf::SparseMatrixIndexCSX* sparse_index,
                                  std::shared_ptr<DataType>* indptr_type,
                                  std::shared_ptr<DataType>* indices_type) {
@@ -1395,9 +1449,26 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
     return Status::IOError(
         "Header-type of flatbuffer-encoded Message is not SparseTensor.");
   }
+
+  // NOTE: The value of ndim is restricted by the size of int
+  const auto ndim_max = static_cast<size_t>(std::numeric_limits<int>::max());
+  if (ndim_max < sparse_tensor->shape()->size()) {
+    return Status::Invalid(
+        "The sparse tensor to be read has too much number of dimensions (",
+        sparse_tensor->shape()->size(), " is given)");
+  }
+
   int ndim = static_cast<int>(sparse_tensor->shape()->size());
 
   if (shape || dim_names) {
+    if (shape) {
+      shape->reserve(ndim);
+    }
+
+    if (dim_names) {
+      dim_names->reserve(ndim);
+    }
+
     for (int i = 0; i < ndim; ++i) {
       auto dim = sparse_tensor->shape()->Get(i);
 
@@ -1421,6 +1492,10 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
         *sparse_tensor_format_id = SparseTensorFormat::COO;
         break;
 
+      case flatbuf::SparseTensorIndex::SparseTensorIndexSplitCOO:
+        *sparse_tensor_format_id = SparseTensorFormat::SplitCOO;
+        break;
+
       case flatbuf::SparseTensorIndex::SparseMatrixIndexCSX: {
         auto cs = sparse_tensor->sparseIndex_as_SparseMatrixIndexCSX();
         switch (cs->compressedAxis()) {
@@ -1442,7 +1517,7 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
         break;
 
       default:
-        return Status::Invalid("Unrecognized sparse index type");
+        return Status::Invalid("Unsupported sparse index type");
     }
   }
 

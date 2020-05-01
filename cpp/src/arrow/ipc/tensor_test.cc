@@ -279,6 +279,64 @@ class TestSparseTensorRoundTrip : public BaseTensorTest {
     ASSERT_TRUE(result->Equals(sparse_tensor));
   }
 
+  void CheckSparseSplitCOOTensorRoundTrip(const SparseSplitCOOTensor& sparse_tensor) {
+    using IndexValueType0 = IndexValueType;
+    using IndexValueType1 =
+        typename std::conditional<std::is_same<Int32Type, IndexValueType0>::value,
+                                  Int16Type, Int32Type>::type;
+    using IndexValueType2 =
+        typename std::conditional<std::is_same<Int64Type, IndexValueType0>::value,
+                                  Int16Type, Int64Type>::type;
+
+    const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
+    const int elem_size = type.bit_width() / CHAR_BIT;
+    const int index_elem_sizes[] = {sizeof(typename IndexValueType0::c_type),
+                                    sizeof(typename IndexValueType1::c_type),
+                                    sizeof(typename IndexValueType2::c_type)};
+
+    int32_t metadata_length;
+    int64_t body_length;
+
+    ASSERT_OK(mmap_->Seek(0));
+
+    ASSERT_OK(
+        WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length));
+
+    const auto& sparse_index =
+        checked_cast<const SparseSplitCOOIndex&>(*sparse_tensor.sparse_index());
+
+    const auto non_zero_length = sparse_tensor.non_zero_length();
+    const int64_t indices_length = std::accumulate(
+        index_elem_sizes, index_elem_sizes + 3, int64_t(0),
+        [&](int64_t sum, int index_elem_size) {
+          return sum + BitUtil::RoundUpToMultipleOf8(index_elem_size * non_zero_length);
+        });
+
+    const int64_t data_length =
+        BitUtil::RoundUpToMultipleOf8(elem_size * sparse_tensor.non_zero_length());
+
+    const int64_t expected_body_length = indices_length + data_length;
+    ASSERT_EQ(expected_body_length, body_length);
+
+    ASSERT_OK(mmap_->Seek(0));
+
+    std::shared_ptr<SparseTensor> result;
+    ASSERT_OK_AND_ASSIGN(result, ReadSparseTensor(mmap_.get()));
+    ASSERT_EQ(SparseTensorFormat::SplitCOO, result->format_id());
+
+    const auto& resulted_sparse_index =
+        checked_cast<const SparseSplitCOOIndex&>(*result->sparse_index());
+    ASSERT_EQ(resulted_sparse_index.indices().size(), sparse_index.indices().size());
+    const auto resulted_indices_length = std::accumulate(
+        resulted_sparse_index.indices().begin(), resulted_sparse_index.indices().end(),
+        int64_t(0), [&](int64_t sum, const std::shared_ptr<Tensor>& tensor) {
+          return sum + tensor->data()->size();
+        });
+    ASSERT_EQ(resulted_indices_length, indices_length);
+    ASSERT_EQ(result->data()->size(), data_length);
+    ASSERT_TRUE(result->Equals(sparse_tensor));
+  }
+
  protected:
   std::shared_ptr<SparseCOOIndex> MakeSparseCOOIndex(
       const std::vector<int64_t>& coords_shape,
@@ -489,9 +547,75 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSFIndex) {
 
   this->CheckSparseCSFTensorRoundTrip(*st);
 }
+
+TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseSplitCOOIndex) {
+  // Make all the indices different element sizes
+  using IndexValueType0 = TypeParam;
+  using c_index_value_type_0 = typename IndexValueType0::c_type;
+  using IndexValueType1 =
+      typename std::conditional<std::is_same<Int32Type, IndexValueType0>::value,
+                                Int16Type, Int32Type>::type;
+  using c_index_value_type_1 = typename IndexValueType1::c_type;
+  using IndexValueType2 =
+      typename std::conditional<std::is_same<Int64Type, IndexValueType0>::value,
+                                Int16Type, Int64Type>::type;
+  using c_index_value_type_2 = typename IndexValueType2::c_type;
+
+  std::string path = "test-write-sparse-split-coo-tensor";
+  constexpr int64_t kBufferSize = 1 << 20;
+  ASSERT_OK_AND_ASSIGN(this->mmap_,
+                       io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
+
+  // Dense representation:
+  // [
+  //   [
+  //     1 0 2 0
+  //     0 3 0 4
+  //     5 0 6 0
+  //   ],
+  //   [
+  //      0 11  0 12
+  //     13  0 14  0
+  //      0 15  0 16
+  //   ]
+  // ]
+  //
+  // Sparse representation:
+  // idx[0] = [0 0 0 0 0 0  1  1  1  1  1  1]
+  // idx[1] = [0 0 1 1 2 2  0  0  1  1  2  2]
+  // idx[2] = [0 2 1 3 0 2  1  3  0  2  1  3]
+  // data   = [1 2 3 4 5 6 11 12 13 14 15 16]
+
+  std::vector<c_index_value_type_0> indices0 = {0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1};
+  std::vector<c_index_value_type_1> indices1 = {0, 0, 1, 1, 2, 2, 0, 0, 1, 1, 2, 2};
+  std::vector<c_index_value_type_2> indices2 = {0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
+
+  std::vector<std::shared_ptr<DataType>> types = {
+      TypeTraits<IndexValueType0>::type_singleton(),
+      TypeTraits<IndexValueType1>::type_singleton(),
+      TypeTraits<IndexValueType2>::type_singleton()};
+
+  std::vector<std::shared_ptr<Buffer>> buffers = {
+      Buffer::Wrap(indices0), Buffer::Wrap(indices1), Buffer::Wrap(indices2)};
+
+  const auto non_zero_length = static_cast<int64_t>(indices0.size());
+  std::shared_ptr<SparseSplitCOOIndex> si;
+  ASSERT_OK_AND_ASSIGN(si, SparseSplitCOOIndex::Make(types, non_zero_length, buffers));
+
+  std::vector<int64_t> shape = {2, 3, 4};
+  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
+  std::vector<int64_t> values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
+  std::shared_ptr<SparseSplitCOOTensor> st;
+  ASSERT_OK_AND_ASSIGN(st, SparseSplitCOOTensor::Make(si, int64(), Buffer::Wrap(values),
+                                                      shape, dim_names));
+
+  this->CheckSparseSplitCOOTensorRoundTrip(*st);
+}
+
 REGISTER_TYPED_TEST_SUITE_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor,
                             WithSparseCOOIndexColumnMajor, WithSparseCSRIndex,
-                            WithSparseCSCIndex, WithSparseCSFIndex);
+                            WithSparseCSCIndex, WithSparseCSFIndex,
+                            WithSparseSplitCOOIndex);
 
 INSTANTIATE_TYPED_TEST_SUITE_P(TestInt8, TestSparseTensorRoundTrip, Int8Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8, TestSparseTensorRoundTrip, UInt8Type);

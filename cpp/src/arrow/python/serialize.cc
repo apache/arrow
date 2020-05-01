@@ -684,6 +684,9 @@ Status CountSparseTensors(
       case SparseTensorFormat::COO:
         ++num_coo;
         break;
+      case SparseTensorFormat::SplitCOO:
+        // TODO
+        break;
       case SparseTensorFormat::CSR:
         ++num_csr;
         break;

@@ -1338,6 +1338,40 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCOOIndex(
       sparse_index->isCanonical());
 }
 
+Result<std::shared_ptr<SparseIndex>> ReadSparseSplitCOOIndex(
+    const flatbuf::SparseTensor* sparse_tensor, const std::vector<int64_t>& shape,
+    int64_t non_zero_length, io::RandomAccessFile* file) {
+  const auto* sparse_index = sparse_tensor->sparseIndex_as_SparseTensorIndexSplitCOO();
+
+  // NOTE: This cast must be safe because the check was performed in
+  // internal::GetSparseTensorMetadata beforehand
+  const auto ndim = static_cast<flatbuffers::uoffset_t>(shape.size());
+
+  std::vector<std::shared_ptr<DataType>> indices_types;
+  ARROW_ASSIGN_OR_RAISE(indices_types,
+                        internal::GetSparseSplitCOOIndexMetadata(sparse_index, ndim));
+
+  const auto* fb_indices_buffers = sparse_index->indicesBuffers();
+  if (fb_indices_buffers->size() != ndim) {
+    return Status::Invalid(
+        "The number of indices buffers in a SparseSplitCOOIndex is inconsistent to the "
+        "number of dimensions (",
+        fb_indices_buffers->size(), " for ", ndim, ")");
+  }
+
+  std::vector<std::shared_ptr<Buffer>> indices_buffers;
+  indices_buffers.reserve(ndim);
+
+  for (flatbuffers::uoffset_t i = 0; i < ndim; ++i) {
+    const auto* fb_buffer = fb_indices_buffers->Get(i);
+    std::shared_ptr<Buffer> buffer;
+    ARROW_ASSIGN_OR_RAISE(buffer, file->ReadAt(fb_buffer->offset(), fb_buffer->length()));
+    indices_buffers.push_back(buffer);
+  }
+
+  return SparseSplitCOOIndex::Make(indices_types, non_zero_length, indices_buffers);
+}
+
 Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
     const flatbuf::SparseTensor* sparse_tensor, const std::vector<int64_t>& shape,
     int64_t non_zero_length, io::RandomAccessFile* file) {
@@ -1429,6 +1463,14 @@ Result<std::shared_ptr<SparseTensor>> MakeSparseTensorWithSparseCOOIndex(
   return SparseCOOTensor::Make(sparse_index, type, data, shape, dim_names);
 }
 
+Result<std::shared_ptr<SparseTensor>> MakeSparseTensorWithSparseSplitCOOIndex(
+    const std::shared_ptr<DataType>& type, const std::vector<int64_t>& shape,
+    const std::vector<std::string>& dim_names,
+    const std::shared_ptr<SparseSplitCOOIndex>& sparse_index, int64_t non_zero_length,
+    const std::shared_ptr<Buffer>& data) {
+  return SparseSplitCOOTensor::Make(sparse_index, type, data, shape, dim_names);
+}
+
 Result<std::shared_ptr<SparseTensor>> MakeSparseTensorWithSparseCSRIndex(
     const std::shared_ptr<DataType>& type, const std::vector<int64_t>& shape,
     const std::vector<std::string>& dim_names,
@@ -1497,6 +1539,9 @@ Result<size_t> GetSparseTensorBodyBufferCount(SparseTensorFormat::type format_id
     case SparseTensorFormat::COO:
       return 2;
 
+    case SparseTensorFormat::SplitCOO:
+      return ndim + 1;
+
     case SparseTensorFormat::CSR:
       return 3;
 
@@ -1507,7 +1552,7 @@ Result<size_t> GetSparseTensorBodyBufferCount(SparseTensorFormat::type format_id
       return 2 * ndim;
 
     default:
-      return Status::Invalid("Unrecognized sparse tensor format");
+      return Status::Invalid("Unsupported sparse tensor format");
   }
 }
 
@@ -1563,6 +1608,26 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensorPayload(const IpcPayload& 
                                                  payload.body_buffers[0]));
       return MakeSparseTensorWithSparseCOOIndex(type, shape, dim_names, sparse_index,
                                                 non_zero_length, payload.body_buffers[1]);
+    }
+    case SparseTensorFormat::SplitCOO: {
+      std::vector<std::shared_ptr<DataType>> indices_types;
+      const size_t ndim = shape.size();
+      ARROW_ASSIGN_OR_RAISE(
+          indices_types,
+          internal::GetSparseSplitCOOIndexMetadata(
+              sparse_tensor->sparseIndex_as_SparseTensorIndexSplitCOO(), ndim));
+      std::vector<std::shared_ptr<Buffer>> indices_buffers;
+      indices_buffers.reserve(ndim);
+      for (size_t i = 0; i < ndim; ++i) {
+        indices_buffers.push_back(payload.body_buffers[i]);
+      }
+      std::shared_ptr<SparseSplitCOOIndex> sparse_index;
+      ARROW_ASSIGN_OR_RAISE(
+          sparse_index,
+          SparseSplitCOOIndex::Make(indices_types, non_zero_length, indices_buffers));
+      return MakeSparseTensorWithSparseSplitCOOIndex(type, shape, dim_names, sparse_index,
+                                                     non_zero_length,
+                                                     payload.body_buffers[shape.size()]);
     }
     case SparseTensorFormat::CSR: {
       std::shared_ptr<SparseCSRIndex> sparse_index;
@@ -1651,6 +1716,13 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(const Buffer& metadata,
           sparse_index, ReadSparseCOOIndex(sparse_tensor, shape, non_zero_length, file));
       return MakeSparseTensorWithSparseCOOIndex(
           type, shape, dim_names, checked_pointer_cast<SparseCOOIndex>(sparse_index),
+          non_zero_length, data);
+    }
+    case SparseTensorFormat::SplitCOO: {
+      ARROW_ASSIGN_OR_RAISE(sparse_index, ReadSparseSplitCOOIndex(sparse_tensor, shape,
+                                                                  non_zero_length, file));
+      return MakeSparseTensorWithSparseSplitCOOIndex(
+          type, shape, dim_names, checked_pointer_cast<SparseSplitCOOIndex>(sparse_index),
           non_zero_length, data);
     }
     case SparseTensorFormat::CSR: {

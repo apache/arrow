@@ -42,6 +42,9 @@ static inline void CheckSparseIndexFormatType(SparseTensorFormat::type expected,
   ASSERT_EQ(expected, sparse_tensor.sparse_index()->format_id());
 }
 
+//-----------------------------------------------------------------------------
+// SparseCOOIndex
+
 static inline void AssertCOOIndex(const std::shared_ptr<Tensor>& sidx, const int64_t nth,
                                   const std::vector<int64_t>& expected_values) {
   int64_t n = static_cast<int64_t>(expected_values.size());
@@ -49,9 +52,6 @@ static inline void AssertCOOIndex(const std::shared_ptr<Tensor>& sidx, const int
     ASSERT_EQ(expected_values[i], sidx->Value<Int64Type>({nth, i}));
   }
 }
-
-//-----------------------------------------------------------------------------
-// SparseCOOIndex
 
 TEST(TestSparseCOOIndex, MakeRowMajorCanonical) {
   std::vector<int32_t> values = {0, 0, 0, 0, 0, 2, 0, 1, 1, 0, 1, 3, 0, 2, 0, 0, 2, 2,
@@ -152,6 +152,44 @@ TEST(TestSparseCOOIndex, MakeEmptyIndex) {
   ASSERT_TRUE(si->is_canonical());
 }
 
+//-----------------------------------------------------------------------------
+// SparseSplitCOOIndex
+
+TEST(TestSparseSplitCOOIndex, Make) {
+  std::vector<std::shared_ptr<DataType>> types = {int16(), int32(), int64()};
+
+  std::vector<int16_t> indices0_values = {0, 0, 0, 1, 1, 1};
+  std::vector<int32_t> indices1_values = {0, 1, 2, 5, 6, 7};
+  std::vector<int64_t> indices2_values = {0, 2, 1, 2, 0, 3};
+  std::vector<std::shared_ptr<Buffer>> buffers = {Buffer::Wrap(indices0_values),
+                                                  Buffer::Wrap(indices1_values),
+                                                  Buffer::Wrap(indices2_values)};
+  const auto non_zero_length = static_cast<int64_t>(indices0_values.size());
+
+  // OK
+  std::shared_ptr<SparseSplitCOOIndex> si;
+  ASSERT_OK_AND_ASSIGN(si, SparseSplitCOOIndex::Make(types, non_zero_length, buffers));
+  for (int i = 0; i < 3; ++i) {
+    ASSERT_EQ(non_zero_length, si->indices()[i]->size());
+    ASSERT_EQ(buffers[i]->data(), si->indices()[i]->raw_data());
+  }
+
+  // Non-integer type
+  auto res =
+      SparseSplitCOOIndex::Make({int16(), float32(), int64()}, non_zero_length, buffers);
+  ASSERT_RAISES(TypeError, res);
+
+  // Inconsistent length
+  std::vector<std::shared_ptr<Buffer>> buffers2 = {
+      Buffer::Wrap(indices0_values), Buffer::Wrap(indices1_values),
+      Buffer::Wrap(indices2_values), Buffer::Wrap(indices0_values)};
+  res = SparseSplitCOOIndex::Make(types, non_zero_length, buffers2);
+  ASSERT_RAISES(Invalid, res);
+}
+
+//-----------------------------------------------------------------------------
+// SparseCSRIndex
+
 TEST(TestSparseCSRIndex, Make) {
   std::vector<int32_t> indptr_values = {0, 2, 4, 6, 8, 10, 12};
   std::vector<int32_t> indices_values = {0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
@@ -183,6 +221,9 @@ TEST(TestSparseCSRIndex, Make) {
   ASSERT_RAISES(Invalid, SparseCSRIndex::Make(int32(), indptr_shape, {1, 2}, indptr_data,
                                               indices_data));
 }
+
+//-----------------------------------------------------------------------------
+// SparseCSCIndex
 
 TEST(TestSparseCSCIndex, Make) {
   std::vector<int32_t> indptr_values = {0, 2, 4, 6, 8, 10, 12};
@@ -714,6 +755,9 @@ TEST(TestSparseCOOTensorForUInt64Index, Make) {
   ASSERT_RAISES(Invalid, SparseCOOTensor::Make(dense_tensor, uint64()));
 }
 
+//-----------------------------------------------------------------------------
+// SparseCSRMatrix
+
 template <typename IndexValueType>
 class TestSparseCSRMatrixBase : public TestSparseTensorBase<Int64Type> {
  public:
@@ -1049,6 +1093,9 @@ TEST(TestSparseCSRMatrixForUInt64Index, Make) {
   ASSERT_RAISES(Invalid, SparseCSRMatrix::Make(dense_tensor, uint64()));
 }
 
+//-----------------------------------------------------------------------------
+// SparseCSCMatrix
+
 template <typename IndexValueType>
 class TestSparseCSCMatrixBase : public TestSparseTensorBase<Int64Type> {
  public:
@@ -1304,6 +1351,9 @@ REGISTER_TYPED_TEST_SUITE_P(TestFloatingSparseCSCMatrixEquality, TestEquality);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestFloat, TestFloatingSparseCSCMatrixEquality, FloatType);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestDouble, TestFloatingSparseCSCMatrixEquality,
                                DoubleType);
+
+//-----------------------------------------------------------------------------
+// SparseCSFTensor
 
 template <typename ValueType>
 class TestSparseCSFTensorEquality : public TestSparseTensorBase<ValueType> {

@@ -772,6 +772,11 @@ class SparseTensorSerializer {
             VisitSparseCOOIndex(checked_cast<const SparseCOOIndex&>(sparse_index)));
         break;
 
+      case SparseTensorFormat::SplitCOO:
+        RETURN_NOT_OK(VisitSparseSplitCOOIndex(
+            checked_cast<const SparseSplitCOOIndex&>(sparse_index)));
+        break;
+
       case SparseTensorFormat::CSR:
         RETURN_NOT_OK(
             VisitSparseCSRIndex(checked_cast<const SparseCSRIndex&>(sparse_index)));
@@ -816,10 +821,11 @@ class SparseTensorSerializer {
 
     for (size_t i = 0; i < out_->body_buffers.size(); ++i) {
       const Buffer* buffer = out_->body_buffers[i].get();
-      int64_t size = buffer->size();
-      int64_t padding = BitUtil::RoundUpToMultipleOf8(size) - size;
-      buffer_meta_.push_back({offset, size + padding});
-      offset += size + padding;
+      const int64_t size = buffer->size();
+      const int64_t padding = BitUtil::RoundUpToMultipleOf8(size) - size;
+      const auto padded_size = size + padding;
+      buffer_meta_.push_back({offset, padded_size});
+      offset += padded_size;
     }
 
     out_->body_length = offset - buffer_start_offset_;
@@ -831,6 +837,13 @@ class SparseTensorSerializer {
  private:
   Status VisitSparseCOOIndex(const SparseCOOIndex& sparse_index) {
     out_->body_buffers.emplace_back(sparse_index.indices()->data());
+    return Status::OK();
+  }
+
+  Status VisitSparseSplitCOOIndex(const SparseSplitCOOIndex& sparse_index) {
+    for (auto tensor : sparse_index.indices()) {
+      out_->body_buffers.emplace_back(tensor->data());
+    }
     return Status::OK();
   }
 
