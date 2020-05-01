@@ -77,7 +77,7 @@ x-ccache: &ccache
   CCACHE_COMPRESS: 1
   CCACHE_COMPRESSLEVEL: 5
   CCACHE_MAXSIZE: 500M
-  CCACHE_DIR: /build/ccache
+  CCACHE_DIR: /ccache
 
 x-hierarchy:
   # This section is used by the archery tool to enable building nested images,
@@ -180,7 +180,7 @@ services:
       ARROW_BUILD_BENCHMARKS: "ON"
     volumes: &conda-volumes
       - .:/arrow:delegated
-      - ${ARCH}-conda-cache:/build:delegated
+      - ${ARCH}-conda-cache:/ccache:delegated
     command: &cpp-conda-command
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"]
@@ -237,7 +237,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &cuda-volumes
       - .:/arrow:delegated
-      - ${ARCH}-cuda-${CUDA}-cache:/build:delegated
+      - ${ARCH}-cuda-${CUDA}-cache:/ccache:delegated
     command: &cpp-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -266,7 +266,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &debian-volumes
       - .:/arrow:delegated
-      - ${ARCH}-debian-${DEBIAN}-cache:/build:delegated
+      - ${ARCH}-debian-${DEBIAN}-cache:/ccache:delegated
     command: *cpp-command
 
   ubuntu-cpp:
@@ -293,7 +293,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
-      - ${ARCH}-ubuntu-${UBUNTU}-cache:/build:delegated
+      - ${ARCH}-ubuntu-${UBUNTU}-cache:/ccache:delegated
     command: *cpp-command
 
   ubuntu-cpp-sanitizer:
@@ -353,7 +353,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &fedora-volumes
       - .:/arrow:delegated
-      - ${ARCH}-fedora-${FEDORA}-cache:/build:delegated
+      - ${ARCH}-fedora-${FEDORA}-cache:/ccache:delegated
     command: *cpp-command
 
   ############################### C GLib ######################################
@@ -1063,7 +1063,7 @@ services:
     volumes:
       - .:/arrow:delegated
       - maven-cache:/root/.m2:delegated
-      - ${ARCH}-debian-9-cache:/build:delegated
+      - ${ARCH}-debian-9-cache:/ccache:delegated
     command:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -1251,7 +1251,7 @@ services:
     volumes: &conda-maven-volumes
       - .:/arrow:delegated
       - maven-cache:/root/.m2:delegated
-      - ${ARCH}-conda-cache:/build:delegated
+      - ${ARCH}-conda-cache:/ccache:delegated
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
