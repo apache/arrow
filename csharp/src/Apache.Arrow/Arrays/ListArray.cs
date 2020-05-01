@@ -156,15 +156,16 @@ namespace Apache.Arrow
 
         public int GetValueLength(int index)
         {
+            if (index < 0 || index >= Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+
             if (IsNull(index))
             {
                 return 0;
             }
 
-            if (index < 0 || index >= Length)
-            {
-                throw new ArgumentOutOfRangeException(nameof(index));
-            }
             var offsets = ValueOffsets;
             return offsets[index + 1] - offsets[index];
         }
