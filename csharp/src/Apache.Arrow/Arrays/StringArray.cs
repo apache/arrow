@@ -76,7 +76,7 @@ namespace Apache.Arrow
 
             var bytes = GetBytes(index);
 
-            if (bytes == Span<byte>.Empty)
+            if (bytes == default)
             {
                 return null;
             }
