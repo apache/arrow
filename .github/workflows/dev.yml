@@ -30,6 +30,12 @@ env:
 
 jobs:
 
+  cache:
+    name: Docker Volume Caching
+    steps:
+      - run: ls /var/lib/docker/volumes
+      - run: sudo ls /var/lib/docker/volumes
+
   lint:
     name: Lint C++, Python, R, Rust, Docker, RAT
     runs-on: ubuntu-latest
