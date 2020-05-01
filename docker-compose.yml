@@ -293,7 +293,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
-      - ${ARCH}-ubuntu-${UBUNTU}-cache:/ccache:delegated
+      - .docker/${ARCH}-ubuntu-${UBUNTU}-cache:/ccache:delegated
     command: *cpp-command
 
   ubuntu-cpp-sanitizer:

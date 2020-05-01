@@ -42,7 +42,7 @@ jobs:
       - name: Cache Docker Volumes
         uses: actions/cache@v1
         with:
-          path: /var/lib/docker/volumes
+          path: .docker
           key: test
       - name: Fetch Submodules and Tags
         run: ci/scripts/util_checkout.sh
