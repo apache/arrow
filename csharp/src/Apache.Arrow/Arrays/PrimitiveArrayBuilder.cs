@@ -157,8 +157,6 @@ namespace Apache.Arrow
         {
             ValidityBuffer.Append(false);
             NullCount++;
-            // Need this until this is refactored to use
-            // `Offset` (much like BuilderBase does already)
             ValueBuffer.Append(default(T));
             return Instance;
         }
