@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
 import java.time.LocalDateTime;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -111,7 +113,7 @@ public final class TimeStampMicroVector extends TimeStampVector {
    * @param index   position of element
    */
   public void get(int index, NullableTimeStampMicroHolder holder) {
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       holder.isSet = 0;
       return;
     }
