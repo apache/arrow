@@ -82,6 +82,7 @@ namespace Apache.Arrow.Tests
             Assert.NotNull(valueBuilder);
             listBuilder.Append();
             valueBuilder.Append("1");
+            listBuilder.AppendNull();
             listBuilder.Append();
             valueBuilder.Append("22").Append("33");
             listBuilder.Append();
@@ -92,12 +93,13 @@ namespace Apache.Arrow.Tests
             Assert.Equal(
                 new List<string> { "1" },
                 ConvertStringArrayToList(list.GetSlicedValues(0) as StringArray));
+            Assert.Null(list.GetSlicedValues(1));
             Assert.Equal(
                 new List<string> { "22", "33" },
-                ConvertStringArrayToList(list.GetSlicedValues(1) as StringArray));
+                ConvertStringArrayToList(list.GetSlicedValues(2) as StringArray));
             Assert.Equal(
                 new List<string> { "444", null, "555", "666" },
-                ConvertStringArrayToList(list.GetSlicedValues(2) as StringArray));
+                ConvertStringArrayToList(list.GetSlicedValues(3) as StringArray));
 
             List<string> ConvertStringArrayToList(StringArray array)
             {
