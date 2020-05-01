@@ -18,8 +18,8 @@
 #include "gandiva/projector.h"
 
 #include <memory>
-#include <utility>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "arrow/util/hashing.h"
