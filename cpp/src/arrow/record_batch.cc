@@ -306,11 +306,11 @@ class SimpleRecordBatchReader : public RecordBatchReader {
  public:
   SimpleRecordBatchReader(Iterator<std::shared_ptr<RecordBatch>> it,
                           std::shared_ptr<Schema> schema)
-      : schema_(schema), it_(std::move(it)) {}
+      : schema_(std::move(schema)), it_(std::move(it)) {}
 
   SimpleRecordBatchReader(std::vector<std::shared_ptr<RecordBatch>> batches,
                           std::shared_ptr<Schema> schema)
-      : schema_(schema), it_(MakeVectorIterator(std::move(batches))) {}
+      : schema_(std::move(schema)), it_(MakeVectorIterator(std::move(batches))) {}
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
     return it_.Next().Value(batch);
@@ -323,7 +323,7 @@ class SimpleRecordBatchReader : public RecordBatchReader {
   Iterator<std::shared_ptr<RecordBatch>> it_;
 };
 
-Result<std::shared_ptr<RecordBatchReader>> MakeRecordBatchReader(
+Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::Make(
     std::vector<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema) {
   if (schema == nullptr) {
     if (batches.size() == 0 || batches[0] == nullptr) {
@@ -336,10 +336,15 @@ Result<std::shared_ptr<RecordBatchReader>> MakeRecordBatchReader(
   return std::make_shared<SimpleRecordBatchReader>(std::move(batches), schema);
 }
 
+Result<std::shared_ptr<RecordBatchReader>> MakeRecordBatchReader(
+    std::vector<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema) {
+  return RecordBatchReader::Make(std::move(batches), std::move(schema));
+}
+
 Status MakeRecordBatchReader(std::vector<std::shared_ptr<RecordBatch>> batches,
                              std::shared_ptr<Schema> schema,
                              std::shared_ptr<RecordBatchReader>* out) {
-  return MakeRecordBatchReader(std::move(batches), std::move(schema)).Value(out);
+  return RecordBatchReader::Make(std::move(batches), std::move(schema)).Value(out);
 }
 
 }  // namespace arrow

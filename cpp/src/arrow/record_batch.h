@@ -233,18 +233,23 @@ class ARROW_EXPORT RecordBatchReader {
 
   /// \brief Read all batches and concatenate as arrow::Table
   Status ReadAll(std::shared_ptr<Table>* table);
+
+  /// \brief Create a RecordBatchReader from a vector of RecordBatch.
+  ///
+  /// \param[in] batches the vector of RecordBatch to read from
+  /// \param[in] schema schema to conform to. Will be inferred from the first
+  ///            element if not provided.
+  static Result<std::shared_ptr<RecordBatchReader>> Make(
+      std::vector<std::shared_ptr<RecordBatch>> batches,
+      std::shared_ptr<Schema> schema = NULLPTR);
 };
 
-/// \brief Create a RecordBatchReader from a vector of RecordBatch.
-///
-/// \param[in] batches the vector of RecordBatch to read from
-/// \param[in] schema schema to conform to. Will be inferred from the first
-///            element if not provided.
+ARROW_DEPRECATED("Use RecordBatchReader::Make")
 ARROW_EXPORT Result<std::shared_ptr<RecordBatchReader>> MakeRecordBatchReader(
     std::vector<std::shared_ptr<RecordBatch>> batches,
     std::shared_ptr<Schema> schema = NULLPTR);
 
-ARROW_DEPRECATED("Use Result-returning version")
+ARROW_DEPRECATED("Use RecordBatchReader::Make")
 ARROW_EXPORT Status MakeRecordBatchReader(
     std::vector<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema,
     std::shared_ptr<RecordBatchReader>* out);

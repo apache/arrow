@@ -869,12 +869,12 @@ def test_partitioning_function():
         ds.partitioning(schema, flavor="unsupported")
 
 
-def _create_single_file(base_dir, table=None):
+def _create_single_file(base_dir, table=None, row_group_size=None):
     import pyarrow.parquet as pq
     if table is None:
         table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
     path = base_dir / "test.parquet"
-    pq.write_table(table, path)
+    pq.write_table(table, path, row_group_size=row_group_size)
     return table, path
 
 
@@ -891,8 +891,7 @@ def _create_directory_of_files(base_dir):
 
 def _check_dataset(dataset, table):
     assert dataset.schema.equals(table.schema)
-    result = dataset.to_table(use_threads=False)  # deterministic row order
-    assert result.equals(table)
+    assert dataset.to_table().equals(table)
 
 
 def _check_dataset_from_path(path, table, **kwargs):
@@ -915,6 +914,15 @@ def _check_dataset_from_path(path, table, **kwargs):
 @pytest.mark.parquet
 def test_open_dataset_single_file(tempdir):
     table, path = _create_single_file(tempdir)
+    _check_dataset_from_path(path, table)
+
+
+@pytest.mark.parquet
+def test_deterministic_row_order(tempdir):
+    # ARROW-8447 Ensure that dataset.to_table (and Scanner::ToTable) returns a
+    # deterministic row ordering. This is achieved by constructing a single
+    # parquet file with one row per RowGroup.
+    table, path = _create_single_file(tempdir, row_group_size=1)
     _check_dataset_from_path(path, table)
 
 

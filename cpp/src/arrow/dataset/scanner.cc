@@ -165,23 +165,43 @@ std::shared_ptr<TaskGroup> ScanContext::TaskGroup() const {
   return TaskGroup::MakeSerial();
 }
 
+static inline RecordBatchVector FlattenRecordBatchVector(
+    std::vector<RecordBatchVector> nested_batches) {
+  RecordBatchVector flattened;
+
+  for (auto& task_batches : nested_batches) {
+    for (auto& batch : task_batches) {
+      flattened.emplace_back(std::move(batch));
+    }
+  }
+
+  return flattened;
+}
+
 Result<std::shared_ptr<Table>> Scanner::ToTable() {
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, Scan());
-  std::mutex mutex;
-  RecordBatchVector batches;
-
   auto task_group = scan_context_->TaskGroup();
 
+  // Protecting mutating accesses to batches
+  std::mutex mutex;
+  std::vector<RecordBatchVector> batches;
+  size_t scan_task_id = 0;
   for (auto maybe_scan_task : scan_task_it) {
     ARROW_ASSIGN_OR_RAISE(auto scan_task, std::move(maybe_scan_task));
 
-    task_group->Append([&batches, &mutex, scan_task] {
+    auto id = scan_task_id++;
+    task_group->Append([&batches, &mutex, id, scan_task] {
       ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
 
-      for (auto maybe_batch : batch_it) {
-        ARROW_ASSIGN_OR_RAISE(auto batch, std::move(maybe_batch));
+      ARROW_ASSIGN_OR_RAISE(auto local, batch_it.ToVector());
+
+      {
+        // Move into global batches.
         std::lock_guard<std::mutex> lock(mutex);
-        batches.emplace_back(std::move(batch));
+        if (batches.size() <= id) {
+          batches.resize(id + 1);
+        }
+        batches[id] = std::move(local);
       }
 
       return Status::OK();
@@ -191,7 +211,8 @@ Result<std::shared_ptr<Table>> Scanner::ToTable() {
   // Wait for all tasks to complete, or the first error.
   RETURN_NOT_OK(task_group->Finish());
 
-  return Table::FromRecordBatches(scan_options_->schema(), std::move(batches));
+  return Table::FromRecordBatches(scan_options_->schema(),
+                                  FlattenRecordBatchVector(std::move(batches)));
 }
 
 }  // namespace dataset

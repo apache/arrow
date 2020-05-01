@@ -223,21 +223,29 @@ class ARROW_EXPORT Table {
   virtual ~Table() = default;
 
   /// \brief Construct a Table from schema and columns
+  ///
   /// If columns is zero-length, the table's number of rows is zero
-  /// \param schema The table schema (column types)
-  /// \param columns The table's columns as chunked arrays
-  /// \param num_rows number of rows in table, -1 (default) to infer from columns
+  ///
+  /// \param[in] schema The table schema (column types)
+  /// \param[in] columns The table's columns as chunked arrays
+  /// \param[in] num_rows number of rows in table, -1 (default) to infer from columns
   static std::shared_ptr<Table> Make(std::shared_ptr<Schema> schema,
                                      std::vector<std::shared_ptr<ChunkedArray>> columns,
                                      int64_t num_rows = -1);
 
   /// \brief Construct a Table from schema and arrays
-  /// \param schema The table schema (column types)
-  /// \param arrays The table's columns as arrays
-  /// \param num_rows number of rows in table, -1 (default) to infer from columns
+  ///
+  /// \param[in] schema The table schema (column types)
+  /// \param[in] arrays The table's columns as arrays
+  /// \param[in] num_rows number of rows in table, -1 (default) to infer from columns
   static std::shared_ptr<Table> Make(std::shared_ptr<Schema> schema,
                                      const std::vector<std::shared_ptr<Array>>& arrays,
                                      int64_t num_rows = -1);
+
+  /// \brief Construct a Table from a RecordBatchReader.
+  ///
+  /// \param[in] reader the arrow::Schema for each batch
+  static Result<std::shared_ptr<Table>> FromRecordBatchReader(RecordBatchReader* reader);
 
   /// \brief Construct a Table from RecordBatches, using schema supplied by the first
   /// RecordBatch.
