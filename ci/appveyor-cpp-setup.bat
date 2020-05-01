@@ -42,7 +42,7 @@ conda config --set remote_connect_timeout_secs 12
 conda info -a
 
 @rem
-@rem Create conda environment
+@rem Create conda environment for Build and Toolchain jobs
 @rem
 @rem Avoid Boost 1.70 because of https://github.com/boostorg/process/issues/85
 
