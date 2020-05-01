@@ -26,69 +26,11 @@ git submodule update --init || exit /B
 set ARROW_TEST_DATA=%CD%\testing\data
 set PARQUET_TEST_DATA=%CD%\cpp\submodules\parquet-testing\data
 
-@rem In release mode, disable optimizations (/Od) for faster compiling
-set CMAKE_CXX_FLAGS_RELEASE=/Od
-
-if "%JOB%" == "Static_Crt_Build" (
-  @rem Since we link the CRT statically, we should also disable building
-  @rem the Arrow shared library to link the tests statically, otherwise
-  @rem the Arrow DLL and the tests end up using a different instance of
-  @rem the CRT, which wreaks havoc.
-
-  @rem ARROW-5403(wesm): Since changing to using gtest DLLs we can no
-  @rem longer run the unit tests because gtest.dll and the unit test
-  @rem executables have different static copies of the CRT
-
-  mkdir cpp\build-debug
-  pushd cpp\build-debug
-
-  cmake -G "%GENERATOR%" ^
-        -DARROW_BOOST_USE_SHARED=OFF ^
-        -DARROW_BUILD_EXAMPLES=ON ^
-        -DARROW_BUILD_SHARED=OFF ^
-        -DARROW_BUILD_TESTS=ON ^
-        -DARROW_CXXFLAGS="/MP" ^
-        -DARROW_ENABLE_TIMING_TESTS=OFF ^
-        -DARROW_TEST_LINKAGE=static ^
-        -DARROW_USE_STATIC_CRT=ON ^
-        -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
-        -DCMAKE_BUILD_TYPE=Debug ^
-        ..  || exit /B
-
-  cmake --build . --config Debug || exit /B
-  ctest --output-on-failure -j2 || exit /B
-  popd
-  rmdir /S /Q cpp\build-debug
-
-  mkdir cpp\build-release
-  pushd cpp\build-release
-
-  cmake -G "%GENERATOR%" ^
-        -DARROW_BOOST_USE_SHARED=OFF ^
-        -DARROW_BUILD_EXAMPLES=ON ^
-        -DARROW_BUILD_SHARED=OFF ^
-        -DARROW_BUILD_TESTS=ON ^
-        -DARROW_CXXFLAGS="/WX /MP" ^
-        -DARROW_ENABLE_TIMING_TESTS=OFF ^
-        -DARROW_TEST_LINKAGE=static ^
-        -DARROW_USE_STATIC_CRT=ON ^
-        -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
-        -DCMAKE_BUILD_TYPE=Release ^
-        -DCMAKE_CXX_FLAGS_RELEASE="/MT %CMAKE_CXX_FLAGS_RELEASE%" ^
-        ..  || exit /B
-
-  cmake --build . --config Release || exit /B
-  ctest --output-on-failure -j2 || exit /B
-  popd
-
-  @rem Finish Static_Crt_Build build successfully
-  exit /B 0
-)
-
+@rem
 @rem In the configurations below we disable building the Arrow static library
 @rem to save some time.  Unfortunately this will still build the Parquet static
 @rem library because of PARQUET-1420 (Thrift-generated symbols not exported in DLL).
-
+@rem
 if "%JOB%" == "Build_Debug" (
   mkdir cpp\build-debug
   pushd cpp\build-debug
@@ -102,11 +44,11 @@ if "%JOB%" == "Build_Debug" (
         -DARROW_ENABLE_TIMING_TESTS=OFF ^
         -DARROW_USE_PRECOMPILED_HEADERS=OFF ^
         -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
-        -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
+        -DCMAKE_BUILD_TYPE="Debug" ^
         -DCMAKE_UNITY_BUILD=ON ^
-        ..  || exit /B
+        .. || exit /B
 
-  cmake --build . --config %CONFIGURATION% || exit /B
+  cmake --build . --config Debug || exit /B
   ctest --output-on-failure -j2 || exit /B
   popd
 
@@ -123,8 +65,6 @@ set BOOST_LIBRARYDIR=%CONDA_PREFIX%\Library\lib
 @rem The "main" C++ build script for Windows CI
 @rem (i.e. for usual configurations)
 
-set ARROW_HOME=%CONDA_PREFIX%\Library
-
 if "%JOB%" == "Toolchain" (
   set CMAKE_ARGS=-DARROW_DEPENDENCY_SOURCE=CONDA -DARROW_WITH_BZ2=ON
 ) else (
@@ -135,10 +75,6 @@ if "%JOB%" == "Toolchain" (
 @rem Enable warnings-as-errors
 set ARROW_CXXFLAGS=/WX /MP
 
-@rem In release mode, disable optimizations (/Od) for faster compiling
-@rem and enable runtime assertions
-set CMAKE_CXX_FLAGS_RELEASE=/Od /UNDEBUG
-
 @rem
 @rem Build and test Arrow C++ libraries (including Parquet)
 @rem
@@ -148,6 +84,9 @@ pushd cpp\build
 
 @rem XXX Without forcing CMAKE_CXX_COMPILER, CMake can re-run itself and
 @rem unfortunately switch from Release to Debug mode...
+@rem
+@rem In release mode, disable optimizations (/Od) for faster compiling
+@rem and enable runtime assertions.
 
 cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       -DARROW_BOOST_USE_SHARED=OFF ^
@@ -171,9 +110,9 @@ cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       -DARROW_WITH_SNAPPY=ON ^
       -DARROW_WITH_ZLIB=ON ^
       -DARROW_WITH_ZSTD=ON ^
-      -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
+      -DCMAKE_BUILD_TYPE="Release" ^
       -DCMAKE_CXX_COMPILER=clcache ^
-      -DCMAKE_CXX_FLAGS_RELEASE="/MD %CMAKE_CXX_FLAGS_RELEASE%" ^
+      -DCMAKE_CXX_FLAGS_RELEASE="/MD /Od /UNDEBUG" ^
       -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library ^
       -DCMAKE_UNITY_BUILD=ON ^
       -DCMAKE_VERBOSE_MAKEFILE=OFF ^
@@ -197,8 +136,7 @@ popd
 
 pushd python
 
-call conda install -y --file=..\ci\conda_env_python.yml ^
-           pandas -c conda-forge
+call conda install -y -c conda-forge --file=..\ci\conda_env_python.yml pandas
 
 set PYARROW_BUNDLE_BOOST=OFF
 set PYARROW_CMAKE_GENERATOR=%GENERATOR%
@@ -211,6 +149,7 @@ set PYARROW_WITH_PARQUET=ON
 set PYARROW_WITH_S3=%ARROW_S3%
 set PYARROW_WITH_STATIC_BOOST=ON
 
+set ARROW_HOME=%CONDA_PREFIX%\Library
 @rem ARROW-3075; pkgconfig is broken for Parquet for now
 set PARQUET_HOME=%CONDA_PREFIX%\Library
 

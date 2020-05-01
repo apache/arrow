@@ -56,13 +56,15 @@ if "%JOB%" == "Toolchain" (
   @rem Install pre-built "toolchain" packages for faster builds
   set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.yml
 )
-
-conda create -n arrow -q -y -c conda-forge ^
+if "%JOB%" != "Build_Debug" (
+  @rem Arrow conda environment is only required for the Build and Toolchain jobs
+  conda create -n arrow -q -y -c conda-forge ^
     --file=ci\conda_env_python.yml ^
     %CONDA_PACKAGES%  ^
     "ninja" ^
     "boost-cpp<1.70" ^
     "python=%PYTHON%" || exit /B
+)
 
 @rem
 @rem Configure compiler
