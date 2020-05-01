@@ -110,7 +110,7 @@ FileSystemDatasetFactory::FileSystemDatasetFactory(
       format_(std::move(format)),
       options_(std::move(options)) {}
 
-util::optional<util::string_view> FileSystemDatasetFactory::BaselessPath(
+util::optional<util::string_view> FileSystemDatasetFactory::RemovePartitionBaseDir(
     util::string_view path) {
   const util::string_view partition_base_dir{options_.partition_base_dir};
   return fs::internal::RemoveAncestor(partition_base_dir, path);
@@ -193,7 +193,7 @@ Result<std::shared_ptr<Schema>> FileSystemDatasetFactory::PartitionSchema() {
 
   std::vector<util::string_view> relative_paths;
   for (const auto& path : paths_) {
-    if (auto relative = BaselessPath(path)) {
+    if (auto relative = RemovePartitionBaseDir(path)) {
       relative_paths.push_back(*relative);
     }
   }
@@ -241,12 +241,11 @@ Result<std::shared_ptr<Dataset>> FileSystemDatasetFactory::Finish(FinishOptions 
     ARROW_ASSIGN_OR_RAISE(partitioning, factory->Finish(schema));
   }
 
-  FragmentVector fragments;
+  std::vector<std::shared_ptr<FileFragment>> fragments;
   for (const auto& path : paths_) {
     std::shared_ptr<Expression> partition = scalar(true);
-    if (auto relative = BaselessPath(path)) {
-      std::string path_string{*relative};
-      partition = partitioning->Parse(path_string).ValueOr(scalar(true));
+    if (auto relative = RemovePartitionBaseDir(path)) {
+      partition = partitioning->Parse(relative->to_string()).ValueOr(scalar(true));
     }
 
     ARROW_ASSIGN_OR_RAISE(auto fragment, format_->MakeFragment({path, fs_}, partition));

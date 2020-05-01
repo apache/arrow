@@ -188,7 +188,11 @@ class ARROW_DS_EXPORT Expression {
   /// This is a shortcut to check if the expression is neither null nor false.
   bool IsSatisfiable() const { return !IsNull() && !Equals(false); }
 
-  bool IsSatisfiableWith(const std::shared_ptr<Expression> other) const {
+  /// Indicates if the expression is satisfiable given an other expression.
+  ///
+  /// This behaves like IsSatisfiable, but it simplifies the current expression
+  /// with the given `other` information.
+  bool IsSatisfiableWith(const std::shared_ptr<Expression>& other) const {
     return Assume(other)->IsSatisfiable();
   }
 

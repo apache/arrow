@@ -300,7 +300,7 @@ struct MakeFileSystemDatasetMixin {
     MakeFileSystem(infos);
     auto format = std::make_shared<DummyFileFormat>();
 
-    FragmentVector fragments;
+    std::vector<std::shared_ptr<FileFragment>> fragments;
     for (size_t i = 0; i < n_fragments; i++) {
       const auto& info = infos[i];
       if (!info.IsFile()) {

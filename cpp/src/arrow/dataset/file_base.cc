@@ -91,16 +91,11 @@ FileSystemDataset::FileSystemDataset(std::shared_ptr<Schema> schema,
 
 Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
     std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
-    std::shared_ptr<FileFormat> format, FragmentVector fragments) {
-  std::vector<std::shared_ptr<FileFragment>> file_fragments;
-  for (const auto& fragment : fragments) {
-    auto file_fragment = internal::checked_pointer_cast<FileFragment>(fragment);
-    file_fragments.push_back(std::move(file_fragment));
-  }
-
+    std::shared_ptr<FileFormat> format,
+    std::vector<std::shared_ptr<FileFragment>> fragments) {
   return std::shared_ptr<FileSystemDataset>(
       new FileSystemDataset(std::move(schema), std::move(root_partition),
-                            std::move(format), std::move(file_fragments)));
+                            std::move(format), std::move(fragments)));
 }
 
 Result<std::shared_ptr<Dataset>> FileSystemDataset::ReplaceSchema(
@@ -164,7 +159,7 @@ Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Write(
   auto partition_base_dir = fs::internal::EnsureTrailingSlash(plan.partition_base_dir);
   auto extension = "." + plan.format->type_name();
 
-  FragmentVector fragments;
+  std::vector<std::shared_ptr<FileFragment>> fragments;
   for (size_t i = 0; i < plan.paths.size(); ++i) {
     const auto& op = plan.fragment_or_partition_expressions[i];
     if (util::holds_alternative<std::shared_ptr<Fragment>>(op)) {

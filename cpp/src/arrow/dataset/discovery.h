@@ -233,7 +233,7 @@ class ARROW_DS_EXPORT FileSystemDatasetFactory : public DatasetFactory {
   FileSystemFactoryOptions options_;
 
  private:
-  util::optional<util::string_view> BaselessPath(util::string_view path);
+  util::optional<util::string_view> RemovePartitionBaseDir(util::string_view path);
 };
 
 }  // namespace dataset

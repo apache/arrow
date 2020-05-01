@@ -275,10 +275,11 @@ cdef class FileSystemDataset(Dataset):
         cdef:
             FileInfo info
             Expression expr
-            Fragment fragment
+            FileFragment fragment
             vector[CFileInfo] c_file_infos
             vector[shared_ptr[CExpression]] c_partitions
-            vector[shared_ptr[CFragment]] c_fragments
+            shared_ptr[CFileFragment] c_fragment
+            vector[shared_ptr[CFileFragment]] c_fragments
             CResult[shared_ptr[CDataset]] result
 
         # validate required arguments
@@ -296,7 +297,7 @@ cdef class FileSystemDataset(Dataset):
         infos = filesystem.get_file_info(paths_or_selector)
 
         if partitions is None:
-            partitions = [ScalarExpression(True) for _ in range(len(infos))]
+            partitions = [ScalarExpression(True)] * len(infos)
 
         if len(infos) != len(partitions):
             raise ValueError(
@@ -308,7 +309,9 @@ cdef class FileSystemDataset(Dataset):
             if info.is_file:
                 fragment = format.make_fragment(info.path, filesystem,
                                                 partitions[i])
-                c_fragments.push_back(fragment.unwrap())
+                c_fragments.push_back(
+                    static_pointer_cast[CFileFragment, CFragment](
+                        fragment.unwrap()))
 
         if root_partition is None:
             root_partition = ScalarExpression(True)

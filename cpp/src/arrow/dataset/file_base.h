@@ -194,6 +194,7 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   ///
   /// \param[in] schema the schema of the dataset
   /// \param[in] root_partition the partition expression of the dataset
+  /// \param[in] format the format of each FileFragment.
   /// \param[in] fragments list of fragments to create the dataset from
   ///
   /// Note that all fragment must be of `FileFragment` type. The type are
@@ -202,7 +203,8 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   /// \return A constructed dataset.
   static Result<std::shared_ptr<FileSystemDataset>> Make(
       std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
-      std::shared_ptr<FileFormat> format, FragmentVector fragments);
+      std::shared_ptr<FileFormat> format,
+      std::vector<std::shared_ptr<FileFragment>> fragments);
 
   /// \brief Write to a new format and filesystem location, preserving partitioning.
   ///

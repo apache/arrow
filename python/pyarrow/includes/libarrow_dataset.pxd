@@ -260,7 +260,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             shared_ptr[CSchema] schema,
             shared_ptr[CExpression] source_partition,
             shared_ptr[CFileFormat] format,
-            CFragmentVector fragments)
+            vector[shared_ptr[CFileFragment]] fragments)
         c_string type()
         vector[c_string] files()
         const shared_ptr[CFileFormat]& format() const
