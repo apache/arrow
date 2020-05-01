@@ -85,8 +85,12 @@ namespace Apache.Arrow
 
             public BooleanArray Build(MemoryAllocator allocator = default)
             {
+                var validityBuffer = NullCount > 0
+                                        ? ValidityBuffer.Build(allocator)
+                                        : ArrowBuffer.Empty;
+
                 return new BooleanArray(
-                    ValueBuffer.Build(allocator), ValidityBuffer.Build(allocator),
+                    ValueBuffer.Build(allocator), validityBuffer,
                     Length, NullCount, 0);
             }
 
@@ -171,9 +175,7 @@ namespace Apache.Arrow
         }
 
         public ArrowBuffer ValueBuffer => Data.Buffers[1];
-        public ReadOnlySpan<byte> Values => ValueBuffer.Span.Slice((int) Math.Floor(Offset / 8.0), (int) Math.Ceiling(Length / 8.0));
-
-        public ReadOnlySpan<byte> Nulls => NullBitmapBuffer.Span.Slice((int) Math.Floor(Offset / 8.0), (int) Math.Ceiling(Length / 8.0));
+        public ReadOnlySpan<byte> Values => ValueBuffer.Span.Slice(0, (int) Math.Ceiling(Length / 8.0));
 
         public BooleanArray(
             ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
@@ -198,9 +200,9 @@ namespace Apache.Arrow
 
         public bool? GetValue(int index)
         {
-            return BitUtility.GetBit(Nulls, Offset + index)
-                ? BitUtility.GetBit(Values, Offset + index)
-                : (bool?)null;
+            return IsNull(index)
+                ? (bool?)null
+                : BitUtility.GetBit(ValueBuffer.Span, index + Offset);
         }
     }
 }

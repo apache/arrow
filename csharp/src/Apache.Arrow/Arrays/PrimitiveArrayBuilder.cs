@@ -119,14 +119,14 @@ namespace Apache.Arrow
         public TBuilder Resize(int length)
         {
             ValueBuffer.Resize(length);
-            ValidityBuffer.Resize(length + 1);
+            ValidityBuffer.Resize(length);
             return Instance;
         }
 
         public TBuilder Reserve(int capacity)
         {
             ValueBuffer.Reserve(capacity);
-            ValidityBuffer.Reserve(capacity + 1);
+            ValidityBuffer.Reserve(capacity);
             return Instance;
         }
 
@@ -188,8 +188,12 @@ namespace Apache.Arrow
 
         public TArray Build(MemoryAllocator allocator = default)
         {
+            var validityBuffer = NullCount > 0
+                                    ? ValidityBuffer.Build(allocator).ValueBuffer
+                                    : ArrowBuffer.Empty;
+
             return Build(
-                ValueBuffer.Build(allocator), ValidityBuffer.Build(allocator).ValueBuffer,
+                ValueBuffer.Build(allocator), validityBuffer,
                 ValueBuffer.Length, NullCount, 0);
         }
 

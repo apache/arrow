@@ -76,8 +76,12 @@ namespace Apache.Arrow
             {
                 ValueOffsets.Append(Offset);
 
+                var validityBuffer = NullCount > 0
+                                        ? ValidityBuffer.Build(allocator).ValueBuffer
+                                        : ArrowBuffer.Empty;
+
                 var data = new ArrayData(DataType, ValueOffsets.Length - 1, NullCount, 0,
-                    new[] { ValidityBuffer.Build(allocator).ValueBuffer, ValueOffsets.Build(allocator), ValueBuffer.Build(allocator) });
+                    new[] { validityBuffer, ValueOffsets.Build(allocator), ValueBuffer.Build(allocator) });
 
                 return Build(data);
             }
@@ -216,7 +220,7 @@ namespace Apache.Arrow
             {
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
-            if (!BitUtility.GetBit(NullBitmapBuffer.Span, Offset + index))
+            if (!IsValid(index))
             {
                 return 0;
             }
@@ -232,7 +236,7 @@ namespace Apache.Arrow
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            if (!IsValid(index))
+            if (IsNull(index))
             {
                 return null;
             }

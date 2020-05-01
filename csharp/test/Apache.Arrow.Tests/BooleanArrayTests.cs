@@ -130,8 +130,11 @@ namespace Apache.Arrow.Tests
                         .Build();
 
                     Assert.False(array.GetValue(0).GetValueOrDefault());
-                    Assert.Null(array.GetValue(0));
                     Assert.True(array.GetValue(7).GetValueOrDefault());
+                    #pragma warning disable CS0618
+                    Assert.False(array.GetBoolean(0));
+                    Assert.True(array.GetBoolean(7));
+                    #pragma warning restore CS0618
                 }
 
                 [Fact]
@@ -193,7 +196,9 @@ namespace Apache.Arrow.Tests
                         if (i != index)
                         {
                             Assert.False(array.GetValue(i).GetValueOrDefault());
-                            Assert.Null(array.GetValue(i));
+                            #pragma warning disable CS0618
+                            Assert.False(array.GetBoolean(i));
+                            #pragma warning restore CS0618
                         }
                     }
                 }

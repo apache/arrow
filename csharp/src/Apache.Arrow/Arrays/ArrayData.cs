@@ -22,7 +22,7 @@ namespace Apache.Arrow
 {
     public sealed class ArrayData : IDisposable
     {
-        private const int RecalculateNullCount = -1;
+        public static readonly int RecalculateNullCount = -1;
 
         public readonly IArrowType DataType;
         public readonly int Length;
@@ -42,6 +42,11 @@ namespace Apache.Arrow
             Offset = offset;
             Buffers = buffers?.ToArray();
             Children = children?.ToArray();
+
+            if (NullCount == RecalculateNullCount)
+            {
+                Recalculate();
+            }
         }
 
         public ArrayData(
@@ -55,6 +60,26 @@ namespace Apache.Arrow
             Offset = offset;
             Buffers = buffers;
             Children = children;
+
+            if (NullCount == RecalculateNullCount)
+            {
+                Recalculate();
+            }
+        }
+
+        private int Recalculate()
+        {
+            // Partially implement NullCount recalculation by
+            // handling the "empty null-bitmap" case. This
+            // allows `Array.IsValid` to return quicker when
+            // there are no null values present, particularly
+            // when iterating over ArrayData slices.
+            if (Buffers[0].IsEmpty)
+            {
+                return 0;
+            }
+
+            return RecalculateNullCount;
         }
 
         public void Dispose()
