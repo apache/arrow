@@ -29,8 +29,6 @@
 
 namespace gandiva {
 
-using Schema = arrow::Schema;
-
 using ArrayPtr = std::shared_ptr<arrow::Array>;
 
 using DataTypePtr = std::shared_ptr<arrow::DataType>;

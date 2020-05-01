@@ -56,11 +56,11 @@ FunctionSignature::FunctionSignature(std::string base_name, DataTypeVector param
     : base_name_(std::move(base_name)),
       param_types_(std::move(param_types)),
       ret_type_(std::move(ret_type)) {
-  DCHECK_GT(base_name.length(), 0);
+  DCHECK_GT(base_name_.length(), 0);
   for (auto it = param_types_.begin(); it != param_types_.end(); it++) {
     DCHECK(*it);
   }
-  DCHECK(ret_type);
+  DCHECK(ret_type_);
 }
 
 bool FunctionSignature::operator==(const FunctionSignature& other) const {

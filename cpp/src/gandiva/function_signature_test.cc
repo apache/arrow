@@ -21,8 +21,7 @@
 
 #include <gtest/gtest.h>
 
-namespace arrow {
-namespace compute {
+namespace gandiva {
 
 class TestFunctionSignature : public ::testing::Test {
  protected:
@@ -111,5 +110,4 @@ TEST_F(TestFunctionSignature, TestHash) {
   EXPECT_EQ(f3.Hash(), f4.Hash());
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace gandiva
