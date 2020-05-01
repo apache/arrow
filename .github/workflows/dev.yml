@@ -30,17 +30,10 @@ env:
 
 jobs:
 
-  cache:
-    name: Docker Volume Caching
-    runs-on: ubuntu-latest
-    steps:
-      - run: ls /var/lib/docker/volumes
-      - run: sudo ls /var/lib/docker/volumes
-
   lint:
     name: Lint C++, Python, R, Rust, Docker, RAT
     runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    # if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
