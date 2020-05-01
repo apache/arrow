@@ -18,7 +18,7 @@
 @echo on
 
 @rem create conda environment for compiling
-call conda update --yes --quiet conda
+call conda update -c conda-forge --yes --quiet conda
 
 call conda create -n wheel-build -q -y -c conda-forge ^
     "boost-cpp>=1.68.0" ^
@@ -40,21 +40,22 @@ mkdir %ARROW_SRC%\cpp\build
 pushd %ARROW_SRC%\cpp\build
 
 cmake -G "%GENERATOR%" ^
-      -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       -DARROW_BOOST_USE_SHARED=OFF ^
-      -DCMAKE_BUILD_TYPE=Release ^
-      -DARROW_DEPENDENCY_SOURCE=BUNDLED ^
-      -DZLIB_SOURCE=SYSTEM ^
-      -DBOOST_SOURCE=SYSTEM ^
-      -DZLIB_ROOT=%CONDA_PREFIX%\Library ^
       -DARROW_CXXFLAGS="/MP" ^
-      -DARROW_WITH_ZLIB=ON ^
-      -DARROW_WITH_ZSTD=ON ^
+      -DARROW_DEPENDENCY_SOURCE=BUNDLED ^
+      -DARROW_PARQUET=ON ^
+      -DARROW_PYTHON=ON ^
+      -DARROW_WITH_BROTLI=ON ^
       -DARROW_WITH_LZ4=ON ^
       -DARROW_WITH_SNAPPY=ON ^
-      -DARROW_WITH_BROTLI=ON ^
-      -DARROW_PYTHON=ON ^
-      -DARROW_PARQUET=ON ^
+      -DARROW_WITH_ZLIB=ON ^
+      -DARROW_WITH_ZSTD=ON ^
+      -DBOOST_SOURCE=SYSTEM ^
+      -DCMAKE_BUILD_TYPE=Release ^
+      -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
+      -DCMAKE_UNITY_BUILD=ON ^
+      -DZLIB_ROOT=%CONDA_PREFIX%\Library ^
+      -DZLIB_SOURCE=SYSTEM ^
       .. || exit /B
 cmake --build . --target install --config Release || exit /B
 popd

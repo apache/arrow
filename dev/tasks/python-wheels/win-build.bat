@@ -18,7 +18,7 @@
 @echo on
 
 @rem create conda environment for compiling
-call conda update --yes --quiet conda
+call conda update -c conda-forge --yes --quiet conda
 
 call conda create -n wheel-build -q -y -c conda-forge ^
     --file=%ARROW_SRC%\ci\conda_env_cpp.yml ^
@@ -45,25 +45,25 @@ pushd %ARROW_SRC%\cpp\build
 @rem dependency resolution strategy for now
 
 cmake -G "%GENERATOR%" ^
-      -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
-      -DCMAKE_UNITY_BUILD=ON ^
       -DARROW_BOOST_USE_SHARED=OFF ^
       -DARROW_BUILD_TESTS=OFF ^
-      -DCMAKE_BUILD_TYPE=Release ^
-      -DARROW_DEPENDENCY_SOURCE=CONDA ^
-      -DOPENSSL_ROOT_DIR=%CONDA_PREFIX%/Library ^
       -DARROW_CXXFLAGS="/MP" ^
+      -DARROW_DATASET=ON ^
+      -DARROW_DEPENDENCY_SOURCE=CONDA ^
+      -DARROW_FLIGHT=ON ^
+      -DARROW_GANDIVA=ON ^
+      -DARROW_PARQUET=ON ^
+      -DARROW_PYTHON=ON ^
+      -DARROW_WITH_BROTLI=ON ^
       -DARROW_WITH_BZ2=OFF ^
-      -DARROW_WITH_ZLIB=ON ^
-      -DARROW_WITH_ZSTD=ON ^
       -DARROW_WITH_LZ4=ON ^
       -DARROW_WITH_SNAPPY=ON ^
-      -DARROW_WITH_BROTLI=ON ^
-      -DARROW_DATASET=ON ^
-      -DARROW_FLIGHT=ON ^
-      -DARROW_PYTHON=ON ^
-      -DARROW_PARQUET=ON ^
-      -DARROW_GANDIVA=ON ^
+      -DARROW_WITH_ZLIB=ON ^
+      -DARROW_WITH_ZSTD=ON ^
+      -DCMAKE_BUILD_TYPE=Release ^
+      -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
+      -DCMAKE_UNITY_BUILD=ON ^
+      -DOPENSSL_ROOT_DIR=%CONDA_PREFIX%/Library ^
       -DZSTD_SOURCE=BUNDLED ^
       .. || exit /B
 cmake --build . --target install --config Release || exit /B
