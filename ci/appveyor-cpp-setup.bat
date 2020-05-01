@@ -45,11 +45,9 @@ conda info -a
 @rem Create conda environment
 @rem
 @rem Avoid Boost 1.70 because of https://github.com/boostorg/process/issues/85
-set CONDA_PACKAGES="boost-cpp<1.70"
 
-if "%GENERATOR%" == "Ninja" (
-  set CONDA_PACKAGES=%CONDA_PACKAGES% ninja
-)
+set CONDA_PACKAGES=
+
 if "%ARROW_BUILD_GANDIVA%" == "ON" (
   @rem Install llvmdev in the toolchain if building gandiva.dll
   set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_gandiva.yml
@@ -58,9 +56,13 @@ if "%JOB%" == "Toolchain" (
   @rem Install pre-built "toolchain" packages for faster builds
   set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.yml
 )
-set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_python.yml python=%PYTHON%
 
-conda create -n arrow -q -y -c conda-forge %CONDA_PACKAGES% || exit /B
+conda create -n arrow -q -y -c conda-forge ^
+    --file=ci\conda_env_python.yml ^
+    %CONDA_PACKAGES%  ^
+    "ninja" ^
+    "boost-cpp<1.70" ^
+    "python=%PYTHON%" || exit /B
 
 @rem
 @rem Configure compiler
