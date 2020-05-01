@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <utility>
+#include <thread>
 #include <vector>
 
 #include "arrow/util/hashing.h"
