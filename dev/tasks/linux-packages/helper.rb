@@ -44,7 +44,7 @@ module Helper
 
     def detect_env(name)
       value = ENV[name]
-      return value if value
+      return value if value and not value.empty?
 
       dot_env_path = File.join(arrow_source_dir, ".env")
       File.open(dot_env_path) do |dot_env|
