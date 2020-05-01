@@ -61,10 +61,12 @@ if "%JOB%" NEQ "Build_Debug" (
   conda create -n arrow -q -y -c conda-forge ^
     --file=ci\conda_env_python.yml ^
     %CONDA_PACKAGES%  ^
-    "ninja" ^
     "boost-cpp<1.70" ^
+    "ninja" ^
+    "nomkl" ^
+    "pandas" ^
     "python=%PYTHON%" ^
-    "pandas" || exit /B
+    || exit /B
 )
 
 @rem
