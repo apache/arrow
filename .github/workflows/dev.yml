@@ -32,6 +32,7 @@ jobs:
 
   cache:
     name: Docker Volume Caching
+    runs-on: ubuntu-latest
     steps:
       - run: ls /var/lib/docker/volumes
       - run: sudo ls /var/lib/docker/volumes
