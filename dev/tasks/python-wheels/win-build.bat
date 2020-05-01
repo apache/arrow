@@ -69,6 +69,7 @@ cmake -G "%GENERATOR%" ^
 cmake --build . --target install --config Release || exit /B
 popd
 
+set PYARROW_CMAKE_GENERATOR=%GENERATOR%
 set PYARROW_BUILD_TYPE=Release
 set PYARROW_PARALLEL=8
 set PYARROW_WITH_DATASET=1
