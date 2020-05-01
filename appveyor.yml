@@ -30,9 +30,6 @@ only_commits:
 
 cache:
   - C:\Users\Appveyor\clcache1
-  - C:\msys64\home\appveyor\.ccache
-  - C:\Users\Appveyor\.cargo\registry
-  - '%LocalAppData%\\go-build'
 
 matrix:
   fast_finish: true

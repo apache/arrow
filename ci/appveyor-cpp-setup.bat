@@ -21,8 +21,10 @@ set "PATH=C:\Miniconda37-x64;C:\Miniconda37-x64\Scripts;C:\Miniconda37-x64\Libra
 set BOOST_ROOT=C:\Libraries\boost_1_67_0
 set BOOST_LIBRARYDIR=C:\Libraries\boost_1_67_0\lib64-msvc-14.0
 
+@rem
 @rem Avoid picking up AppVeyor-installed OpenSSL (linker errors with gRPC)
 @rem XXX Perhaps there is a smarter way of solving this issue?
+@rem
 rd /s /q C:\OpenSSL-Win32
 rd /s /q C:\OpenSSL-Win64
 rd /s /q C:\OpenSSL-v11-Win32
@@ -30,18 +32,40 @@ rd /s /q C:\OpenSSL-v11-Win64
 rd /s /q C:\OpenSSL-v111-Win32
 rd /s /q C:\OpenSSL-v111-Win64
 
+@rem
+@rem Configure miniconda
+@rem
 conda config --set auto_update_conda false
-conda info -a
-
 conda config --set show_channel_urls True
-
 @rem Help with SSL timeouts to S3
 conda config --set remote_connect_timeout_secs 12
-
 conda info -a
 
-if "%GENERATOR%"=="Ninja" set need_vcvarsall=1
+@rem
+@rem Create conda environment
+@rem
+@rem Avoid Boost 1.70 because of https://github.com/boostorg/process/issues/85
+set CONDA_PACKAGES="boost-cpp<1.70"
 
+if "%GENERATOR%" == "Ninja" (
+  set CONDA_PACKAGES=%CONDA_PACKAGES% ninja
+)
+if "%ARROW_BUILD_GANDIVA%" == "ON" (
+  @rem Install llvmdev in the toolchain if building gandiva.dll
+  set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_gandiva.yml
+)
+if "%JOB%" == "Toolchain" (
+  @rem Install pre-built "toolchain" packages for faster builds
+  set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.yml
+)
+set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_python.yml python=%PYTHON%
+
+conda create -n arrow -q -y -c conda-forge %CONDA_PACKAGES% || exit /B
+
+@rem
+@rem Configure compiler
+@rem
+if "%GENERATOR%"=="Ninja" set need_vcvarsall=1
 if defined need_vcvarsall (
     @rem Select desired compiler version
     if "%APPVEYOR_BUILD_WORKER_IMAGE%" == "Visual Studio 2017" (
@@ -51,9 +75,9 @@ if defined need_vcvarsall (
     )
 )
 
-if "%GENERATOR%"=="Ninja" conda install -y -q ninja
-
+@rem
 @rem Use clcache for faster builds
+@rem
 pip install -q git+https://github.com/frerich/clcache.git
 @rem Limit cache size to 500 MB
 clcache -M 500000000
@@ -61,7 +85,9 @@ clcache -c
 clcache -s
 powershell.exe -Command "Start-Process clcache-server"
 
+@rem
+@rem Download Minio somewhere on PATH, for unit tests
+@rem
 if "%ARROW_S3%" == "ON" (
-    @rem Download Minio somewhere on PATH, for unit tests
     appveyor DownloadFile https://dl.min.io/server/minio/release/windows-amd64/minio.exe -FileName C:\Windows\Minio.exe || exit /B
 )

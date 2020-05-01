@@ -43,16 +43,16 @@ if "%JOB%" == "Static_Crt_Build" (
   pushd cpp\build-debug
 
   cmake -G "%GENERATOR%" ^
-        -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
-        -DARROW_USE_STATIC_CRT=ON ^
         -DARROW_BOOST_USE_SHARED=OFF ^
+        -DARROW_BUILD_EXAMPLES=ON ^
         -DARROW_BUILD_SHARED=OFF ^
         -DARROW_BUILD_TESTS=ON ^
-        -DARROW_BUILD_EXAMPLES=ON ^
-        -DCMAKE_BUILD_TYPE=Debug ^
+        -DARROW_CXXFLAGS="/MP" ^
         -DARROW_ENABLE_TIMING_TESTS=OFF ^
         -DARROW_TEST_LINKAGE=static ^
-        -DARROW_CXXFLAGS="/MP" ^
+        -DARROW_USE_STATIC_CRT=ON ^
+        -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
+        -DCMAKE_BUILD_TYPE=Debug ^
         ..  || exit /B
 
   cmake --build . --config Debug || exit /B
@@ -64,17 +64,17 @@ if "%JOB%" == "Static_Crt_Build" (
   pushd cpp\build-release
 
   cmake -G "%GENERATOR%" ^
-        -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
-        -DARROW_USE_STATIC_CRT=ON ^
         -DARROW_BOOST_USE_SHARED=OFF ^
+        -DARROW_BUILD_EXAMPLES=ON ^
         -DARROW_BUILD_SHARED=OFF ^
         -DARROW_BUILD_TESTS=ON ^
-        -DARROW_BUILD_EXAMPLES=ON ^
-        -DCMAKE_BUILD_TYPE=Release ^
+        -DARROW_CXXFLAGS="/WX /MP" ^
         -DARROW_ENABLE_TIMING_TESTS=OFF ^
         -DARROW_TEST_LINKAGE=static ^
+        -DARROW_USE_STATIC_CRT=ON ^
+        -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
+        -DCMAKE_BUILD_TYPE=Release ^
         -DCMAKE_CXX_FLAGS_RELEASE="/MT %CMAKE_CXX_FLAGS_RELEASE%" ^
-        -DARROW_CXXFLAGS="/WX /MP" ^
         ..  || exit /B
 
   cmake --build . --config Release || exit /B
@@ -94,16 +94,16 @@ if "%JOB%" == "Build_Debug" (
   pushd cpp\build-debug
 
   cmake -G "%GENERATOR%" ^
-        -DARROW_USE_PRECOMPILED_HEADERS=OFF ^
-        -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
         -DARROW_BOOST_USE_SHARED=OFF ^
-        -DARROW_BUILD_TESTS=ON ^
         -DARROW_BUILD_EXAMPLES=ON ^
-        -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
-        -DCMAKE_UNITY_BUILD=ON ^
         -DARROW_BUILD_STATIC=OFF ^
+        -DARROW_BUILD_TESTS=ON ^
         -DARROW_CXXFLAGS="/MP" ^
         -DARROW_ENABLE_TIMING_TESTS=OFF ^
+        -DARROW_USE_PRECOMPILED_HEADERS=OFF ^
+        -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
+        -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
+        -DCMAKE_UNITY_BUILD=ON ^
         ..  || exit /B
 
   cmake --build . --config %CONFIGURATION% || exit /B
@@ -113,22 +113,6 @@ if "%JOB%" == "Build_Debug" (
   @rem Finish Debug build successfully
   exit /B 0
 )
-
-@rem Avoid Boost 1.70 because of https://github.com/boostorg/process/issues/85
-set CONDA_PACKAGES=--file=ci\conda_env_python.yml ^
-  python=%PYTHON% numpy=1.14 "boost-cpp<1.70"
-
-if "%ARROW_BUILD_GANDIVA%" == "ON" (
-  @rem Install llvmdev in the toolchain if building gandiva.dll
-  set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_gandiva.yml
-)
-
-if "%JOB%" == "Toolchain" (
-  @rem Install pre-built "toolchain" packages for faster builds
-  set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.yml
-)
-
-conda create -n arrow -q -y %CONDA_PACKAGES% -c conda-forge || exit /B
 
 call activate arrow
 
@@ -140,16 +124,12 @@ set BOOST_LIBRARYDIR=%CONDA_PREFIX%\Library\lib
 @rem (i.e. for usual configurations)
 
 set ARROW_HOME=%CONDA_PREFIX%\Library
-set CMAKE_ARGS=-DARROW_VERBOSE_THIRDPARTY_BUILD=OFF -DARROW_ENABLE_TIMING_TESTS=OFF
 
 if "%JOB%" == "Toolchain" (
-  set CMAKE_ARGS=^
-      %CMAKE_ARGS% ^
-      -DARROW_WITH_BZ2=ON ^
-      -DARROW_DEPENDENCY_SOURCE=CONDA
+  set CMAKE_ARGS=-DARROW_DEPENDENCY_SOURCE=CONDA -DARROW_WITH_BZ2=ON
 ) else (
   @rem We're in a conda environment but don't want to use it for the dependencies
-  set CMAKE_ARGS=%CMAKE_ARGS% -DARROW_DEPENDENCY_SOURCE=AUTO
+  set CMAKE_ARGS=-DARROW_DEPENDENCY_SOURCE=AUTO
 )
 
 @rem Enable warnings-as-errors
@@ -177,6 +157,7 @@ cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       -DARROW_CSV=ON ^
       -DARROW_CXXFLAGS="%ARROW_CXXFLAGS%" ^
       -DARROW_DATASET=ON ^
+      -DARROW_ENABLE_TIMING_TESTS=OFF ^
       -DARROW_FLIGHT=%ARROW_BUILD_FLIGHT% ^
       -DARROW_GANDIVA=%ARROW_BUILD_GANDIVA% ^
       -DARROW_MIMALLOC=ON ^
@@ -219,24 +200,16 @@ pushd python
 call conda install -y --file=..\ci\conda_env_python.yml ^
            pandas -c conda-forge
 
-set PYARROW_CXXFLAGS=%ARROW_CXXFLAGS%
-set PYARROW_CMAKE_GENERATOR=%GENERATOR%
-if "%ARROW_S3%" == "ON" (
-  set PYARROW_WITH_S3=ON
-)
-if "%ARROW_BUILD_FLIGHT%" == "ON" (
-  @rem ARROW-5441: bundling Arrow Flight libraries not implemented
-  set PYARROW_BUNDLE_ARROW_CPP=OFF
-) else (
-  set PYARROW_BUNDLE_ARROW_CPP=ON
-)
 set PYARROW_BUNDLE_BOOST=OFF
-set PYARROW_WITH_STATIC_BOOST=ON
-set PYARROW_WITH_PARQUET=ON
+set PYARROW_CMAKE_GENERATOR=%GENERATOR%
+set PYARROW_CXXFLAGS=%ARROW_CXXFLAGS%
+set PYARROW_PARALLEL=2
 set PYARROW_WITH_DATASET=ON
 set PYARROW_WITH_FLIGHT=%ARROW_BUILD_FLIGHT%
 set PYARROW_WITH_GANDIVA=%ARROW_BUILD_GANDIVA%
-set PYARROW_PARALLEL=2
+set PYARROW_WITH_PARQUET=ON
+set PYARROW_WITH_S3=%ARROW_S3%
+set PYARROW_WITH_STATIC_BOOST=ON
 
 @rem ARROW-3075; pkgconfig is broken for Parquet for now
 set PARQUET_HOME=%CONDA_PREFIX%\Library
