@@ -44,6 +44,7 @@ jobs:
         with:
           path: .docker
           key: test1
+      - run: du -d2 -h .
       - name: Fetch Submodules and Tags
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space
