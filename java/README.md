@@ -19,6 +19,16 @@
 
 # Arrow Java
 
+## Getting Started
+
+The following guides explain the fundamental data structures used in the Java implementation of Apache Arrow.
+
+- [ValueVector](https://arrow.apache.org/docs/java/vector.html) is an abstraction that is used to store a sequence of values having the same type in an individual column.
+- [VectorSchemaRoot](https://arrow.apache.org/docs/java/vector_schema_root.html) is a container that can hold multiple vectors based on a schema. 
+- The [Reading/Writing IPC formats](https://arrow.apache.org/docs/java/ipc.html) guide explains how to stream record batches as well as serializing record batches to files.
+
+Generated javadoc documentation is available [here](https://arrow.apache.org/docs/java/).
+
 ## Setup Build Environment
 
 install:
