@@ -22,7 +22,7 @@ namespace Apache.Arrow
 {
     public sealed class ArrayData : IDisposable
     {
-        public static readonly int RecalculateNullCount = -1;
+        private const int RecalculateNullCount = -1;
 
         public readonly IArrowType DataType;
         public readonly int Length;
