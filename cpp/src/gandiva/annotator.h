@@ -22,10 +22,10 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/util/logging.h"
 #include "gandiva/arrow.h"
 #include "gandiva/eval_batch.h"
 #include "gandiva/gandiva_aliases.h"
-#include "gandiva/logging.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {

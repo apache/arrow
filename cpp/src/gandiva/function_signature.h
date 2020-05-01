@@ -17,12 +17,10 @@
 
 #pragma once
 
-#include <sstream>
 #include <string>
 #include <vector>
 
 #include "gandiva/arrow.h"
-#include "gandiva/logging.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {
@@ -31,19 +29,12 @@ namespace gandiva {
 /// output types.
 class GANDIVA_EXPORT FunctionSignature {
  public:
-  FunctionSignature(const std::string& base_name, const DataTypeVector& param_types,
-                    DataTypePtr ret_type)
-      : base_name_(base_name), param_types_(param_types), ret_type_(ret_type) {
-    DCHECK_GT(base_name.length(), 0);
-    for (auto it = param_types_.begin(); it != param_types_.end(); it++) {
-      DCHECK(*it);
-    }
-    DCHECK(ret_type);
-  }
+  FunctionSignature(std::string base_name, DataTypeVector param_types,
+                    DataTypePtr ret_type);
 
   bool operator==(const FunctionSignature& other) const;
 
-  /// calculated based on base_name, datatype id of parameters and datatype id
+  /// calculated based on name, datatype id of parameters and datatype id
   /// of return type.
   std::size_t Hash() const;
 
@@ -56,24 +47,6 @@ class GANDIVA_EXPORT FunctionSignature {
   std::string ToString() const;
 
  private:
-  bool DataTypeEquals(const DataTypePtr left, const DataTypePtr right) const {
-    if (left->id() == right->id()) {
-      switch (left->id()) {
-        case arrow::Type::DECIMAL: {
-          // For decimal types, the precision/scale isn't part of the signature.
-          auto dleft = arrow::internal::checked_cast<arrow::DecimalType*>(left.get());
-          auto dright = arrow::internal::checked_cast<arrow::DecimalType*>(right.get());
-          return (dleft != NULL) && (dright != NULL) &&
-                 (dleft->byte_width() == dright->byte_width());
-        }
-        default:
-          return left->Equals(right);
-      }
-    } else {
-      return false;
-    }
-  }
-
   std::string base_name_;
   DataTypeVector param_types_;
   DataTypePtr ret_type_;

@@ -20,6 +20,7 @@
 #include <memory>
 
 #include "Types.pb.h"
+#include "arrow/util/logging.h"
 #include "gandiva/arrow.h"
 #include "gandiva/expression_registry.h"
 

@@ -21,7 +21,7 @@
 
 #include "arrow/status.h"
 
-#include "gandiva/logging.h"
+#include "arrow/util/logging.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {
