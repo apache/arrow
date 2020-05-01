@@ -23,7 +23,6 @@ only_commits:
   files:
     - appveyor.yml
     - ci/appveyor*
-    - ci/*.bat
     - ci/conda*
     - cpp/
     - format/
@@ -41,6 +40,8 @@ matrix:
 environment:
   global:
     # Make these variables visible in all jobs and build steps
+    MSVC_DEFAULT_OPTIONS: ON
+    APPVEYOR_SAVE_CACHE_ON_ERROR: true
     USE_CLCACHE: true
     # Change the clcache dir to reset caches everywhere when a setting
     # is changed incompatibly (e.g. CLCACHE_COMPRESS).
@@ -75,21 +76,11 @@ environment:
     # - JOB: "Static_Crt_Build"
     #   GENERATOR: Ninja
 
-  MSVC_DEFAULT_OPTIONS: ON
-  APPVEYOR_SAVE_CACHE_ON_ERROR: true
-
-install:
-  - python ci\detect-changes.py > generated_changes.bat
-  # Populate ARROW_CI_* variables
-  - call generated_changes.bat
-  # Decide to exit if current job doesn't exercise affected topics
-  - call ci\appveyor-filter-changes.bat
-
 before_build:
-  - call ci\appveyor-install.bat
+  - call ci\appveyor-cpp-setup.bat
 
 build_script:
-  - call ci\appveyor-build.bat
+  - call ci\appveyor-cpp-build.bat
 
 # Disable test discovery
 test: off

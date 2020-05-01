@@ -17,6 +17,10 @@
 
 @echo on
 
+set "PATH=C:\Miniconda37-x64;C:\Miniconda37-x64\Scripts;C:\Miniconda37-x64\Library\bin;%PATH%"
+set BOOST_ROOT=C:\Libraries\boost_1_67_0
+set BOOST_LIBRARYDIR=C:\Libraries\boost_1_67_0\lib64-msvc-14.0
+
 @rem Avoid picking up AppVeyor-installed OpenSSL (linker errors with gRPC)
 @rem XXX Perhaps there is a smarter way of solving this issue?
 rd /s /q C:\OpenSSL-Win32
