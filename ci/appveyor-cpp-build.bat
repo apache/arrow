@@ -136,8 +136,6 @@ popd
 
 pushd python
 
-call conda install -y -c conda-forge --file=..\ci\conda_env_python.yml pandas
-
 set PYARROW_BUNDLE_BOOST=OFF
 set PYARROW_CMAKE_GENERATOR=%GENERATOR%
 set PYARROW_CXXFLAGS=%ARROW_CXXFLAGS%

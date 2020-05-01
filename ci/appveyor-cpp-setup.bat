@@ -63,7 +63,8 @@ if "%JOB%" NEQ "Build_Debug" (
     %CONDA_PACKAGES%  ^
     "ninja" ^
     "boost-cpp<1.70" ^
-    "python=%PYTHON%" || exit /B
+    "python=%PYTHON%" ^
+    "pandas" || exit /B
 )
 
 @rem
