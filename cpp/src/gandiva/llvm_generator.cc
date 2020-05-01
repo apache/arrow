@@ -666,14 +666,6 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
       value = types->i16_constant(arrow::util::get<int16_t>(dex.holder()));
       break;
 
-    case arrow::Type::INT32:
-      value = types->i32_constant(arrow::util::get<int32_t>(dex.holder()));
-      break;
-
-    case arrow::Type::INT64:
-      value = types->i64_constant(arrow::util::get<int64_t>(dex.holder()));
-      break;
-
     case arrow::Type::FLOAT:
       value = types->float_constant(arrow::util::get<float>(dex.holder()));
       break;
@@ -692,36 +684,20 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
       break;
     }
 
+    case arrow::Type::INT32:
     case arrow::Type::DATE32:
-      value = types->i32_constant(arrow::util::get<int32_t>(dex.holder()));
-      break;
-
-    case arrow::Type::DATE64:
-      value = types->i64_constant(arrow::util::get<int64_t>(dex.holder()));
-      break;
-
     case arrow::Type::TIME32:
+    case arrow::Type::INTERVAL_MONTHS:
       value = types->i32_constant(arrow::util::get<int32_t>(dex.holder()));
       break;
 
+    case arrow::Type::INT64:
+    case arrow::Type::DATE64:
     case arrow::Type::TIME64:
-      value = types->i64_constant(arrow::util::get<int64_t>(dex.holder()));
-      break;
-
     case arrow::Type::TIMESTAMP:
+    case arrow::Type::INTERVAL_DAY_TIME:
       value = types->i64_constant(arrow::util::get<int64_t>(dex.holder()));
       break;
-
-    case arrow::Type::INTERVAL: {
-      std::shared_ptr<arrow::IntervalType> interval_type =
-          arrow::internal::checked_pointer_cast<arrow::IntervalType>(dex.type());
-      if (interval_type->interval_type() == arrow::IntervalType::type::MONTHS) {
-        value = types->i32_constant(arrow::util::get<int32_t>(dex.holder()));
-      } else {
-        value = types->i64_constant(arrow::util::get<int64_t>(dex.holder()));
-      }
-      break;
-    }
 
     case arrow::Type::DECIMAL: {
       // build code for struct

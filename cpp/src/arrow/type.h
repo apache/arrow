@@ -112,8 +112,11 @@ struct Type {
     /// nanoseconds since midnight
     TIME64,
 
-    /// YEAR_MONTH or DAY_TIME interval in SQL style
-    INTERVAL,
+    /// YEAR_MONTH interval in SQL style
+    INTERVAL_MONTHS,
+
+    /// DAY_TIME interval in SQL style
+    INTERVAL_DAY_TIME,
 
     /// Precision- and scale-based decimal type. Storage type depends on the
     /// parameters.
@@ -1222,11 +1225,11 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
 class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
  public:
   enum type { MONTHS, DAY_TIME };
-  IntervalType() : TemporalType(Type::INTERVAL) {}
 
   virtual type interval_type() const = 0;
 
  protected:
+  explicit IntervalType(Type::type subtype) : TemporalType(subtype) {}
   std::string ComputeFingerprint() const override;
 };
 
@@ -1236,7 +1239,7 @@ class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
 /// in Schema.fbs (years are defined as 12 months).
 class ARROW_EXPORT MonthIntervalType : public IntervalType {
  public:
-  static constexpr Type::type type_id = Type::INTERVAL;
+  static constexpr Type::type type_id = Type::INTERVAL_MONTHS;
   using c_type = int32_t;
 
   static constexpr const char* type_name() { return "month_interval"; }
@@ -1245,7 +1248,7 @@ class ARROW_EXPORT MonthIntervalType : public IntervalType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  MonthIntervalType() : IntervalType() {}
+  MonthIntervalType() : IntervalType(type_id) {}
 
   std::string ToString() const override { return name(); }
   std::string name() const override { return "month_interval"; }
@@ -1268,13 +1271,13 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
   using c_type = DayMilliseconds;
   static_assert(sizeof(DayMilliseconds) == 8,
                 "DayMilliseconds struct assumed to be of size 8 bytes");
-  static constexpr Type::type type_id = Type::INTERVAL;
+  static constexpr Type::type type_id = Type::INTERVAL_DAY_TIME;
 
   static constexpr const char* type_name() { return "day_time_interval"; }
 
   IntervalType::type interval_type() const override { return IntervalType::DAY_TIME; }
 
-  DayTimeIntervalType() : IntervalType() {}
+  DayTimeIntervalType() : IntervalType(type_id) {}
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 

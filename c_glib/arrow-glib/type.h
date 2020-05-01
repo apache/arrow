@@ -48,7 +48,8 @@ G_BEGIN_DECLS
  *   Default unit millisecond.
  * @GARROW_TYPE_TIME32: Exact time encoded with int32, supporting seconds or milliseconds
  * @GARROW_TYPE_TIME64: Exact time encoded with int64, supporting micro- or nanoseconds
- * @GARROW_TYPE_INTERVAL: YEAR_MONTH or DAY_TIME interval in SQL style.
+ * @GARROW_TYPE_INTERVAL_MONTHS: YEAR_MONTH interval in SQL style.
+ * @GARROW_TYPE_INTERVAL_DAY_TIME: DAY_TIME interval in SQL style.
  * @GARROW_TYPE_DECIMAL: Precision- and scale-based decimal
  *   type. Storage type depends on the parameters.
  * @GARROW_TYPE_LIST: A list of some logical data type.
@@ -88,7 +89,8 @@ typedef enum {
   GARROW_TYPE_TIMESTAMP,
   GARROW_TYPE_TIME32,
   GARROW_TYPE_TIME64,
-  GARROW_TYPE_INTERVAL,
+  GARROW_TYPE_INTERVAL_MONTHS,
+  GARROW_TYPE_INTERVAL_DAY_TIME,
   GARROW_TYPE_DECIMAL,
   GARROW_TYPE_LIST,
   GARROW_TYPE_STRUCT,
