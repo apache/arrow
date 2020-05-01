@@ -36,8 +36,8 @@ class LLVMGenerator;
 
 class FilterCacheKey {
  public:
-  FilterCacheKey(std::shared_ptr<Schema> schema, std::shared_ptr<Configuration> configuration,
-                 Expression& expression);
+  FilterCacheKey(std::shared_ptr<Schema> schema,
+                 std::shared_ptr<Configuration> configuration, Expression& expression);
 
   std::size_t Hash() const { return hash_code_; }
 

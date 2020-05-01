@@ -29,7 +29,6 @@
 #include "gandiva/dex.h"
 #include "gandiva/expr_decomposer.h"
 #include "gandiva/expression.h"
-#include "gandiva/function_registry.h"
 #include "gandiva/lvalue.h"
 
 namespace gandiva {

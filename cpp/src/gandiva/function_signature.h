@@ -20,27 +20,17 @@
 #include <string>
 #include <vector>
 
-#include "arrow/util/visibility.h"
+#include "gandiva/arrow.h"
+#include "gandiva/visibility.h"
 
-namespace arrow {
-namespace compute {
-
-/// \brief A container for an Arrow type without any parameters or children
-struct ParamType {
-  Type::type type;
-
-  bool operator==(const ParamType& other) const {
-    return this->type == other.type;
-  }
-};
+namespace gandiva {
 
 /// \brief Signature for a function : includes the base name, input param types and
 /// output types.
-class ARROW_EXPORT FunctionSignature {
+class GANDIVA_EXPORT FunctionSignature {
  public:
-  FunctionSignature(std::string name,
-                    std::vector<std::shared_ptr<DataType>> param_types,
-                    std::shared_ptr<DataType> ret_type);
+  FunctionSignature(std::string base_name, DataTypeVector param_types,
+                    DataTypePtr ret_type);
 
   bool operator==(const FunctionSignature& other) const;
 
@@ -48,19 +38,18 @@ class ARROW_EXPORT FunctionSignature {
   /// of return type.
   std::size_t Hash() const;
 
-  std::shared_ptr<DataType> ret_type() const { return ret_type_; }
+  DataTypePtr ret_type() const { return ret_type_; }
 
-  const std::string& name() const { return name_; }
+  const std::string& base_name() const { return base_name_; }
 
   DataTypeVector param_types() const { return param_types_; }
 
   std::string ToString() const;
 
  private:
-  std::string name_;
-  std::vector<std::shared_ptr<DataType>> param_types_;
-  std::shared_ptr<DataType> ret_type_;
+  std::string base_name_;
+  DataTypeVector param_types_;
+  DataTypePtr ret_type_;
 };
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace gandiva

@@ -61,6 +61,7 @@ set(SRC_FILES
     function_registry_math_ops.cc
     function_registry_string.cc
     function_registry_timestamp_arithmetic.cc
+    function_signature.cc
     gdv_function_stubs.cc
     llvm_generator.cc
     llvm_types.cc

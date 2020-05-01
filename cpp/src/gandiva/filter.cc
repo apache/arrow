@@ -18,6 +18,7 @@
 #include "gandiva/filter.h"
 
 #include <memory>
+#include <thread>
 #include <utility>
 #include <vector>
 

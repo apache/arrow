@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "gandiva/arrow.h"
 #include "gandiva/function_signature.h"
 #include "gandiva/visibility.h"
 
