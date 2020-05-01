@@ -17,6 +17,7 @@
 
 #include "gandiva/function_signature.h"
 
+#include <cstddef>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -84,10 +85,10 @@ std::size_t FunctionSignature::Hash() const {
   static const size_t kSeedValue = 17;
   size_t result = kSeedValue;
   hash_combine(result, AsciiToLower(base_name_));
-  hash_combine(result, ret_type_->id());
+  hash_combine(result, static_cast<size_t>(ret_type_->id()));
   // not using hash_range since we only want to include the id from the data type
   for (auto& param_type : param_types_) {
-    hash_combine(result, param_type->id());
+    hash_combine(result, static_cast<size_t>(param_type->id()));
   }
   return result;
 }
