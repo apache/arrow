@@ -20,6 +20,12 @@
 git config core.symlinks true
 git reset --hard
 
+@rem Retrieve git submodules, configure env var for Parquet unit tests
+git submodule update --init || exit /B
+
+set ARROW_TEST_DATA=%CD%\testing\data
+set PARQUET_TEST_DATA=%CD%\cpp\submodules\parquet-testing\data
+
 @rem In release mode, disable optimizations (/Od) for faster compiling
 set CMAKE_CXX_FLAGS_RELEASE=/Od
 
@@ -146,19 +152,6 @@ if "%JOB%" == "Toolchain" (
   set CMAKE_ARGS=%CMAKE_ARGS% -DARROW_DEPENDENCY_SOURCE=AUTO
 )
 
-if "%USE_CLCACHE%" == "true" (
-  @rem XXX Without forcing CMAKE_CXX_COMPILER, CMake can re-run itself and
-  @rem unfortunately switch from Release to Debug mode...
-  set CMAKE_ARGS=%CMAKE_ARGS% ^
-      -DARROW_USE_CLCACHE=ON ^
-      -DCMAKE_CXX_COMPILER=clcache
-)
-
-@rem Retrieve git submodules, configure env var for Parquet unit tests
-git submodule update --init || exit /B
-set ARROW_TEST_DATA=%CD%\testing\data
-set PARQUET_TEST_DATA=%CD%\cpp\submodules\parquet-testing\data
-
 @rem Enable warnings-as-errors
 set ARROW_CXXFLAGS=/WX /MP
 
@@ -173,33 +166,38 @@ set CMAKE_CXX_FLAGS_RELEASE=/Od /UNDEBUG
 mkdir cpp\build
 pushd cpp\build
 
+@rem XXX Without forcing CMAKE_CXX_COMPILER, CMake can re-run itself and
+@rem unfortunately switch from Release to Debug mode...
+
 cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
-      -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
-      -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library ^
-      -DCMAKE_VERBOSE_MAKEFILE=OFF ^
-      -DCMAKE_UNITY_BUILD=ON ^
-      -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
       -DARROW_BOOST_USE_SHARED=OFF ^
+      -DARROW_BUILD_EXAMPLES=ON ^
       -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BUILD_TESTS=ON ^
-      -DARROW_BUILD_EXAMPLES=ON ^
-      -DARROW_WITH_ZLIB=ON ^
-      -DARROW_WITH_ZSTD=ON ^
-      -DARROW_WITH_LZ4=ON ^
-      -DARROW_WITH_SNAPPY=ON ^
-      -DARROW_WITH_BROTLI=ON ^
+      -DARROW_CSV=ON ^
       -DARROW_CXXFLAGS="%ARROW_CXXFLAGS%" ^
-      -DCMAKE_CXX_FLAGS_RELEASE="/MD %CMAKE_CXX_FLAGS_RELEASE%" ^
+      -DARROW_DATASET=ON ^
       -DARROW_FLIGHT=%ARROW_BUILD_FLIGHT% ^
       -DARROW_GANDIVA=%ARROW_BUILD_GANDIVA% ^
-      -DARROW_DATASET=ON ^
-      -DARROW_S3=%ARROW_S3% ^
       -DARROW_MIMALLOC=ON ^
       -DARROW_PARQUET=ON ^
-      -DARROW_CSV=ON ^
-      -DPARQUET_REQUIRE_ENCRYPTION=ON ^
-      -DPARQUET_BUILD_EXECUTABLES=ON ^
       -DARROW_PYTHON=ON ^
+      -DARROW_S3=%ARROW_S3% ^
+      -DARROW_USE_CLCACHE=ON ^
+      -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
+      -DARROW_WITH_BROTLI=ON ^
+      -DARROW_WITH_LZ4=ON ^
+      -DARROW_WITH_SNAPPY=ON ^
+      -DARROW_WITH_ZLIB=ON ^
+      -DARROW_WITH_ZSTD=ON ^
+      -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
+      -DCMAKE_CXX_COMPILER=clcache ^
+      -DCMAKE_CXX_FLAGS_RELEASE="/MD %CMAKE_CXX_FLAGS_RELEASE%" ^
+      -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library ^
+      -DCMAKE_UNITY_BUILD=ON ^
+      -DCMAKE_VERBOSE_MAKEFILE=OFF ^
+      -DPARQUET_BUILD_EXECUTABLES=ON ^
+      -DPARQUET_REQUIRE_ENCRYPTION=ON ^
       ..  || exit /B
 cmake --build . --target install --config %CONFIGURATION%  || exit /B
 

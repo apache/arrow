@@ -53,15 +53,13 @@ if defined need_vcvarsall (
 
 if "%GENERATOR%"=="Ninja" conda install -y -q ninja
 
-if "%USE_CLCACHE%" == "true" (
-    @rem Use clcache for faster builds
-    pip install -q git+https://github.com/frerich/clcache.git
-    @rem Limit cache size to 500 MB
-    clcache -M 500000000
-    clcache -c
-    clcache -s
-    powershell.exe -Command "Start-Process clcache-server"
-)
+@rem Use clcache for faster builds
+pip install -q git+https://github.com/frerich/clcache.git
+@rem Limit cache size to 500 MB
+clcache -M 500000000
+clcache -c
+clcache -s
+powershell.exe -Command "Start-Process clcache-server"
 
 if "%ARROW_S3%" == "ON" (
     @rem Download Minio somewhere on PATH, for unit tests

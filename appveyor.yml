@@ -42,7 +42,6 @@ environment:
     # Make these variables visible in all jobs and build steps
     MSVC_DEFAULT_OPTIONS: ON
     APPVEYOR_SAVE_CACHE_ON_ERROR: true
-    USE_CLCACHE: true
     # Change the clcache dir to reset caches everywhere when a setting
     # is changed incompatibly (e.g. CLCACHE_COMPRESS).
     CLCACHE_DIR: C:\Users\Appveyor\clcache1
@@ -86,4 +85,4 @@ build_script:
 test: off
 
 after_build:
-  - if "%USE_CLCACHE%" == "true" clcache -s
+  - clcache -s
