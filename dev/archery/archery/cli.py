@@ -683,7 +683,9 @@ def docker_compose(obj, config):
             .format('\n'.join(paths))
         )
 
-    obj['compose'] = DockerCompose(config_path)
+    # take the docker-compose parameters like PYTHON, PANDAS, UBUNTU from the
+    # environment variables to keep the usage similar to docker-compose
+    obj['compose'] = DockerCompose(config_path, params=os.environ)
     obj['compose'].validate()
 
 

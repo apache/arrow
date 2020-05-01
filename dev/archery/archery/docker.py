@@ -53,7 +53,8 @@ class Docker(Command):
 
 class DockerCompose(Command):
 
-    def __init__(self, config_path, dotenv_path=None, compose_bin=None):
+    def __init__(self, config_path, dotenv_path=None, compose_bin=None,
+                 params=None):
         self.config_path = Path(config_path)
         if dotenv_path:
             self.dotenv_path = Path(dotenv_path)
@@ -64,9 +65,14 @@ class DockerCompose(Command):
         with self.config_path.open() as fp:
             self.config = yaml.load(fp)
 
+        self.bin = default_bin(compose_bin, 'docker-compose')
         self.nodes = dict(flatten(self.config['x-hierarchy']))
         self.dotenv = dotenv_values(self.dotenv_path)
-        self.bin = default_bin(compose_bin, "docker-compose")
+        # override the default parameters defined in dotenv
+        if params is None:
+            self.params = self.dotenv
+        else:
+            self.params = {k: params.get(k, v) for k, v in self.dotenv.items()}
 
     def validate(self):
         services = self.config['services'].keys()
@@ -98,8 +104,15 @@ class DockerCompose(Command):
                 'Found errors with docker-compose:\n{}'.format(msg)
             )
 
-    def _compose_env(self):
-        return dict(os.environ, **self.dotenv)
+    def _compose_env(self, params):
+        # forward the process' environment variables
+        env = os.environ.copy()
+        # update the default parameters parsed from dotenv
+        env.update(self.params)
+        # override the default parameters
+        if params:
+            env.update(params)
+        return env
 
     def _validate_image(self, name):
         if name not in self.nodes:
@@ -109,39 +122,42 @@ class DockerCompose(Command):
         # set default arguments for docker-compose
         return super().run('--file', str(self.config_path), *args, **kwargs)
 
-    def build(self, image, cache=True, cache_leaf=True):
-        self._validate_image(image)
-        env = self._compose_env()
-
-        # build all parents
-        for parent in self.nodes[image]:
-            if cache:
-                self._execute('pull', '--ignore-pull-failures', parent,
-                              env=env)
-                self._execute('build', parent, env=env)
-            else:
-                self._execute('build', '--no-cache', parent, env=env)
-
-        # build the image at last
-        if cache and cache_leaf:
+    def _pull_andor_build(self, image, env, pull_if):
+        if pull_if:
             self._execute('pull', '--ignore-pull-failures', image, env=env)
             self._execute('build', image, env=env)
         else:
             self._execute('build', '--no-cache', image, env=env)
 
-    def run(self, image, command=None, env=None):
+    def build(self, image, cache=True, cache_leaf=True, params=None):
         self._validate_image(image)
+        env = self._compose_env(params)
+
+        # build each ancestors
+        for ancestor in self.nodes[image]:
+            self._pull_andor_build(ancestor, env=env, pull_if=cache)
+
+        # build the image at last
+        self._pull_andor_build(image, env=env, pull_if=(cache and cache_leaf))
+
+    def run(self, image, command=None, env=None, params=None):
+        self._validate_image(image)
+
         args = []
         if env is not None:
             for k, v in env.items():
                 args.extend(['-e', '{}={}'.format(k, v)])
+
         args.append(image)
         if command is not None:
             args.append(command)
-        self._execute('run', '--rm', *args, env=self._compose_env())
 
-    def push(self, image, user, password):
+        self._execute('run', '--rm', *args, env=self._compose_env(params))
+
+    def push(self, image, user, password, params=None):
+        self._validate_image(image)
         try:
+            # TODO(kszucs): have an option for a prompt
             Docker().run('login', '-u', user, '-p', password)
         except subprocess.CalledProcessError:
             # hide credentials
@@ -149,4 +165,4 @@ class DockerCompose(Command):
                    .format(image))
             raise RuntimeError(msg) from None
         else:
-            self._execute('push', image, env=self._compose_env())
+            self._execute('push', image, env=self._compose_env(params))
