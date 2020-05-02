@@ -527,11 +527,18 @@ pub struct ListBuilder<T: ArrayBuilder> {
 impl<T: ArrayBuilder> ListBuilder<T> {
     /// Creates a new `ListArrayBuilder` from a given values array builder
     pub fn new(values_builder: T) -> Self {
-        let mut offsets_builder = Int32BufferBuilder::new(values_builder.len() + 1);
+        let capacity = values_builder.len();
+        Self::with_capacity(values_builder, capacity)
+    }
+
+    /// Creates a new `ListArrayBuilder` from a given values array builder
+    /// `capacity` is the number of items to pre-allocate space for in this builder
+    pub fn with_capacity(values_builder: T, capacity: usize) -> Self {
+        let mut offsets_builder = Int32BufferBuilder::new(capacity + 1);
         offsets_builder.append(0).unwrap();
         Self {
             offsets_builder,
-            bitmap_builder: BooleanBufferBuilder::new(values_builder.len()),
+            bitmap_builder: BooleanBufferBuilder::new(capacity),
             values_builder,
             len: 0,
         }
@@ -626,12 +633,21 @@ pub struct FixedSizeListBuilder<T: ArrayBuilder> {
 }
 
 impl<T: ArrayBuilder> FixedSizeListBuilder<T> {
-    /// Creates a new `ListArrayBuilder` from a given values array builder
+    /// Creates a new `FixedSizeListBuilder` from a given values array builder
+    /// `length` is the number of values within each array
     pub fn new(values_builder: T, length: i32) -> Self {
-        let mut offsets_builder = Int32BufferBuilder::new(values_builder.len() + 1);
+        let capacity = values_builder.len();
+        Self::with_capacity(values_builder, length, capacity)
+    }
+
+    /// Creates a new `FixedSizeListBuilder` from a given values array builder
+    /// `length` is the number of values within each array
+    /// `capacity` is the number of items to pre-allocate space for in this builder
+    pub fn with_capacity(values_builder: T, length: i32, capacity: usize) -> Self {
+        let mut offsets_builder = Int32BufferBuilder::new(capacity + 1);
         offsets_builder.append(0).unwrap();
         Self {
-            bitmap_builder: BooleanBufferBuilder::new(values_builder.len()),
+            bitmap_builder: BooleanBufferBuilder::new(capacity),
             values_builder,
             len: 0,
             list_len: length,
@@ -873,12 +889,22 @@ impl BinaryBuilder {
 }
 
 impl StringBuilder {
-    /// Creates a new `StringBuilder`, `capacity` is the number of bytes in the values
-    /// array
+    /// Creates a new `StringBuilder`,
+    /// `capacity` is the number of bytes of string data to pre-allocate space for in this builder
     pub fn new(capacity: usize) -> Self {
         let values_builder = UInt8Builder::new(capacity);
         Self {
             builder: ListBuilder::new(values_builder),
+        }
+    }
+
+    /// Creates a new `StringBuilder`,
+    /// `data_capacity` is the number of bytes of string data to pre-allocate space for in this builder
+    /// `item_capacity` is the number of items to pre-allocate space for in this builder
+    pub fn with_capacity(item_capacity: usize, data_capacity: usize) -> Self {
+        let values_builder = UInt8Builder::new(data_capacity);
+        Self {
+            builder: ListBuilder::with_capacity(values_builder, item_capacity),
         }
     }
 
