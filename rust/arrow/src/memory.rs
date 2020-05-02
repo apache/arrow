@@ -28,7 +28,8 @@ pub const ALIGNMENT: usize = 64;
 /// As you can see this is global and lives as long as the program lives.
 /// Be careful to not write anything to this pointer in any scenario.
 /// If you use allocation methods shown here you won't have any problems.
-const BYPASS_PTR: NonNull<u8> = unsafe { NonNull::new_unchecked(0xDEADBEEF as *mut u8) };
+const BYPASS_PTR: NonNull<u8> =
+    unsafe { NonNull::new_unchecked(0xFFFFFFFFFFFFFFFE as *mut u8) };
 
 pub fn allocate_aligned(size: usize) -> *mut u8 {
     unsafe {
@@ -51,7 +52,7 @@ pub unsafe fn free_aligned(ptr: *mut u8, size: usize) {
 }
 
 pub unsafe fn reallocate(ptr: *mut u8, old_size: usize, new_size: usize) -> *mut u8 {
-    if old_size == 0x00 && ptr == BYPASS_PTR.as_mut() {
+    if ptr == BYPASS_PTR.as_mut() {
         allocate_aligned(new_size)
     } else {
         let new_ptr = std::alloc::realloc(
