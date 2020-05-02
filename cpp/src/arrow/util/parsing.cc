@@ -99,7 +99,7 @@ class StrptimeTimestampParser : public TimestampParser {
     arrow_vendored::date::sys_time<std::chrono::seconds> time_point;
     if (std::stringstream({s, length}) >>
         arrow_vendored::date::parse(format_, time_point)) {
-      *out = detail::ConvertTimePoint(time_point, out_unit, out);
+      *out = detail::ConvertTimePoint(time_point, out_unit);
       return true;
     }
     return false;

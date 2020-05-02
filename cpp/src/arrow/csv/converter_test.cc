@@ -374,6 +374,16 @@ TEST(TimestampConversion, CustomNulls) {
                                            {{true}, {false}, {false}}, options);
 }
 
+TEST(TimestampConversion, SingleCustomFormat) {
+  auto options = ConvertOptions::Defaults();
+  options.null_values = {"xxx", "zzz"};
+
+  auto type = timestamp(TimeUnit::MILLI);
+  AssertConversion<TimestampType, int64_t>(type, {"1970-01-01 00:01:00,xxx,zzz\n"},
+                                           {{60000}, {0}, {0}},
+                                           {{true}, {false}, {false}}, options);
+}
+
 Decimal128 Dec128(util::string_view value) {
   Decimal128 dec;
   int32_t scale = 0;

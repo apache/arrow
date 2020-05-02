@@ -57,8 +57,8 @@ static Result<std::shared_ptr<Table>> ReadCSV(const Buffer& data,
 
 const std::vector<std::string> kExampleDates = {
     "1917-10-17,", "2018-09-13 22,", "1941-06-22 04:00,", "1945-05-09 09:45:38,"};
-constexpr int32_t kNumRows = 10000;
-constexpr int32_t kNumCols = 150;
+constexpr int32_t kNumRows = 10000000;
+constexpr int32_t kNumCols = 10;
 
 static void ConvertTimestampVirtualISO8601(benchmark::State& state) {
   auto data = GenerateTimestampsCSV(kExampleDates, kNumCols, kNumRows);

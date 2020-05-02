@@ -382,26 +382,22 @@ namespace detail {
 using ts_type = TimestampType::c_type;
 
 template <class TimePoint>
-static inline bool ConvertTimePoint(TimePoint tp, TimeUnit::type unit, ts_type* out) {
+static inline ts_type ConvertTimePoint(TimePoint tp, TimeUnit::type unit) {
   auto duration = tp.time_since_epoch();
   switch (unit) {
     case TimeUnit::SECOND:
-      *out = std::chrono::duration_cast<std::chrono::seconds>(duration).count();
-      return true;
+      return std::chrono::duration_cast<std::chrono::seconds>(duration).count();
     case TimeUnit::MILLI:
-      *out = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
-      return true;
+      return std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
     case TimeUnit::MICRO:
-      *out = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
-      return true;
+      return std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
     case TimeUnit::NANO:
-      *out = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
-      return true;
+      return std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+    default:
+      // Compiler errors without default case even though all enum cases are handled
+      assert(0);
+      return 0;
   }
-  // Unreachable, but suppress compiler warning
-  assert(0);
-  *out = 0;
-  return true;
 }
 
 static inline bool ParseYYYY_MM_DD(const char* s,
@@ -508,7 +504,8 @@ static inline bool ParseISO8601(const char* s, size_t length, TimeUnit::type uni
     if (ARROW_PREDICT_FALSE(!detail::ParseYYYY_MM_DD(s, &ymd))) {
       return false;
     }
-    return detail::ConvertTimePoint(arrow_vendored::date::sys_days(ymd), unit, out);
+    *out = detail::ConvertTimePoint(arrow_vendored::date::sys_days(ymd), unit);
+    return true;
   }
   if (ARROW_PREDICT_FALSE(s[10] != ' ') && ARROW_PREDICT_FALSE(s[10] != 'T')) {
     return false;
@@ -524,8 +521,8 @@ static inline bool ParseISO8601(const char* s, size_t length, TimeUnit::type uni
     if (ARROW_PREDICT_FALSE(!detail::ParseHH(s + 11, &seconds))) {
       return false;
     }
-    return detail::ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, unit,
-                                    out);
+    *out = detail::ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, unit);
+    return true;
   }
   if (length == 16) {
     if (ARROW_PREDICT_FALSE(!detail::ParseYYYY_MM_DD(s, &ymd))) {
@@ -535,8 +532,8 @@ static inline bool ParseISO8601(const char* s, size_t length, TimeUnit::type uni
     if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM(s + 11, &seconds))) {
       return false;
     }
-    return detail::ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, unit,
-                                    out);
+    *out = detail::ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, unit);
+    return true;
   }
   if (length == 19) {
     if (ARROW_PREDICT_FALSE(!detail::ParseYYYY_MM_DD(s, &ymd))) {
@@ -546,8 +543,8 @@ static inline bool ParseISO8601(const char* s, size_t length, TimeUnit::type uni
     if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM_SS(s + 11, &seconds))) {
       return false;
     }
-    return detail::ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, unit,
-                                    out);
+    *out = detail::ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, unit);
+    return true;
   }
   return false;
 }
