@@ -17,15 +17,22 @@
 
 #include "benchmark/benchmark.h"
 
+#include <algorithm>
+#include <cstdint>
+#include <cstdlib>
+#include <iostream>
 #include <limits>
-#include <numeric>
+#include <memory>
 #include <string>
 #include <type_traits>
 #include <vector>
 
+#include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/type.h"
 #include "arrow/util/formatting.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {

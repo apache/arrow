@@ -21,15 +21,17 @@
 
 #include <cassert>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <string>
 #include <type_traits>
 
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/config.h"
+#include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 #include "arrow/vendored/datetime.h"
 
 namespace arrow {

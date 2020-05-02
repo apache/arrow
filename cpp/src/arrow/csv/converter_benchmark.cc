@@ -63,7 +63,7 @@ constexpr int32_t kNumCols = 10;
 static void ConvertTimestampVirtualISO8601(benchmark::State& state) {
   auto data = GenerateTimestampsCSV(kExampleDates, kNumCols, kNumRows);
   auto convert_options = csv::ConvertOptions::Defaults();
-  convert_options.timestamp_converters.push_back(TimestampParser::MakeISO8601());
+  convert_options.timestamp_parsers.push_back(TimestampParser::MakeISO8601());
   for (auto _ : state) {
     auto result = ReadCSV(*data, convert_options);
     benchmark::DoNotOptimize(result);
