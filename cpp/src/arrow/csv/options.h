@@ -102,7 +102,7 @@ struct ARROW_EXPORT ConvertOptions {
   bool include_missing_columns = false;
 
   /// Custom
-  std::vector<std::shared_ptr<TimestampParser>> timestamp_converters;
+  std::vector<std::shared_ptr<TimestampParser>> timestamp_parsers;
 
   /// Create conversion options with default values, including conventional
   /// values for `null_values`, `true_values` and `false_values`

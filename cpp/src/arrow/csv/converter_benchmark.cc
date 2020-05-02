@@ -28,7 +28,7 @@
 #include "arrow/csv/test_common.h"
 #include "arrow/io/memory.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/parsing.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 namespace csv {

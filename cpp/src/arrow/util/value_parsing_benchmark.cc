@@ -26,7 +26,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/formatting.h"
-#include "arrow/util/parsing.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 namespace internal {
@@ -160,6 +160,40 @@ static void TimestampParsing(benchmark::State& state) {  // NOLINT non-const ref
   state.SetItemsProcessed(state.iterations() * strings.size());
 }
 
+static void BenchTimestampParser(benchmark::State& state,  // NOLINT non-const reference
+                                 const TimestampParser& parser) {
+  using c_type = TimestampType::c_type;
+
+  auto strings = MakeTimestampStrings(1000);
+  auto unit = TimeUnit::MILLI;
+
+  for (auto _ : state) {
+    c_type total = 0;
+    for (const auto& s : strings) {
+      c_type value;
+      if (!parser(s.data(), s.length(), unit, &value)) {
+        std::cerr << "Conversion failed for '" << s << "'";
+        std::abort();
+      }
+      total += value;
+    }
+    benchmark::DoNotOptimize(total);
+  }
+  state.SetItemsProcessed(state.iterations() * strings.size());
+}
+
+static void VirtualISO8601TimestampParsing(
+    benchmark::State& state) {  // NOLINT non-const reference
+  auto parser = TimestampParser::MakeISO8601();
+  BenchTimestampParser(state, *parser);
+}
+
+static void StrptimeTimestampParsing(
+    benchmark::State& state) {  // NOLINT non-const reference
+  auto parser = TimestampParser::MakeStrptime("%Y-%m-%d %H:%M:%S");
+  BenchTimestampParser(state, *parser);
+}
+
 struct DummyAppender {
   Status operator()(util::string_view v) {
     if (pos_ >= static_cast<int32_t>(v.size())) {
@@ -219,6 +253,8 @@ BENCHMARK_TEMPLATE(TimestampParsing, TimeUnit::SECOND);
 BENCHMARK_TEMPLATE(TimestampParsing, TimeUnit::MILLI);
 BENCHMARK_TEMPLATE(TimestampParsing, TimeUnit::MICRO);
 BENCHMARK_TEMPLATE(TimestampParsing, TimeUnit::NANO);
+BENCHMARK(VirtualISO8601TimestampParsing);
+BENCHMARK(StrptimeTimestampParsing);
 
 BENCHMARK_TEMPLATE(IntegerFormatting, Int8Type);
 BENCHMARK_TEMPLATE(IntegerFormatting, Int16Type);

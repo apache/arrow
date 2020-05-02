@@ -21,8 +21,8 @@
 #include <sstream>
 #include <vector>
 
-#include "arrow/util/parsing.h"
 #include "arrow/util/string_view.h"
+#include "arrow/util/value_parsing.h"
 #include "arrow/vendored/uriparser/Uri.h"
 
 namespace arrow {

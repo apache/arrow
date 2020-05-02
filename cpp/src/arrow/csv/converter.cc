@@ -32,9 +32,9 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/parsing.h"  // IWYU pragma: keep
 #include "arrow/util/trie.h"
 #include "arrow/util/utf8.h"
+#include "arrow/util/value_parsing.h"  // IWYU pragma: keep
 
 namespace arrow {
 namespace csv {
@@ -462,17 +462,17 @@ class TimestampConverter : public ConcreteConverter {
     RETURN_NOT_OK(builder.Resize(parser.num_rows()));
 
     TimeUnit::type unit = checked_cast<const TimestampType&>(*type_).unit();
-    if (options_.timestamp_converters.size() == 0) {
+    if (options_.timestamp_parsers.size() == 0) {
       // Default to ISO-8601
       InlineISO8601 converter(unit);
       RETURN_NOT_OK(ConvertValuesWith(parser, col_index, converter, &builder));
-    } else if (options_.timestamp_converters.size() == 1) {
+    } else if (options_.timestamp_parsers.size() == 1) {
       // Single user-supplied converter
-      SingleTimestampParser converter(*options_.timestamp_converters[0], unit);
+      SingleTimestampParser converter(*options_.timestamp_parsers[0], unit);
       RETURN_NOT_OK(ConvertValuesWith(parser, col_index, converter, &builder));
     } else {
       // Multiple converters, must iterate for each value
-      MultipleTimestampParsers converter(options_.timestamp_converters, unit);
+      MultipleTimestampParsers converter(options_.timestamp_parsers, unit);
       RETURN_NOT_OK(ConvertValuesWith(parser, col_index, converter, &builder));
     }
 

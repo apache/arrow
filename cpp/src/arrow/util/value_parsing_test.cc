@@ -22,7 +22,7 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
-#include "arrow/util/parsing.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 namespace internal {
