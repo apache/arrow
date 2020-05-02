@@ -185,6 +185,16 @@ Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& b
 ARROW_EXPORT
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
 
+/// \brief Compute the number of bytes needed to write a record batch including metadata
+///
+/// \param[in] batch the record batch to write
+/// \param[in] options options for serialization
+/// \param[out] size the size of the complete encapsulated message
+/// \return Status
+ARROW_EXPORT
+Status GetRecordBatchSize(const RecordBatch& batch, const IpcWriteOptions& options,
+                          int64_t* size);
+
 /// \brief Compute the number of bytes needed to write a tensor including metadata
 ///
 /// \param[in] tensor the tensor to write

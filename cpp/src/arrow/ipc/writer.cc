@@ -867,8 +867,12 @@ Result<std::unique_ptr<Message>> GetSparseTensorMessage(const SparseTensor& spar
 }
 
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
+  return GetRecordBatchSize(batch, IpcWriteOptions::Defaults(), size);
+}
+
+Status GetRecordBatchSize(const RecordBatch& batch, const IpcWriteOptions& options,
+                          int64_t* size) {
   // emulates the behavior of Write without actually writing
-  auto options = IpcWriteOptions::Defaults();
   int32_t metadata_length = 0;
   int64_t body_length = 0;
   io::MockOutputStream dst;
@@ -1198,12 +1202,12 @@ Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
 
 Result<std::shared_ptr<Buffer>> SerializeRecordBatch(const RecordBatch& batch,
                                                      std::shared_ptr<MemoryManager> mm) {
+  auto options = IpcWriteOptions::Defaults();
   int64_t size = 0;
-  RETURN_NOT_OK(GetRecordBatchSize(batch, &size));
+  RETURN_NOT_OK(GetRecordBatchSize(batch, options, &size));
   ARROW_ASSIGN_OR_RAISE(auto buffer, mm->AllocateBuffer(size));
   ARROW_ASSIGN_OR_RAISE(auto writer, Buffer::GetWriter(buffer));
 
-  IpcWriteOptions options;
   // XXX Should we have a helper function for getting a MemoryPool
   // for any MemoryManager (not only CPU)?
   if (mm->is_cpu()) {
@@ -1217,7 +1221,7 @@ Result<std::shared_ptr<Buffer>> SerializeRecordBatch(const RecordBatch& batch,
 Result<std::shared_ptr<Buffer>> SerializeRecordBatch(const RecordBatch& batch,
                                                      const IpcWriteOptions& options) {
   int64_t size = 0;
-  RETURN_NOT_OK(GetRecordBatchSize(batch, &size));
+  RETURN_NOT_OK(GetRecordBatchSize(batch, options, &size));
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer,
                         AllocateBuffer(size, options.memory_pool));
 

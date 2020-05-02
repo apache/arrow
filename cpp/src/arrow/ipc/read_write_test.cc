@@ -649,7 +649,7 @@ void TestGetRecordBatchSize(const IpcWriteOptions& options,
   int64_t size = -1;
   ASSERT_OK(WriteRecordBatch(*batch, 0, &mock, &mock_metadata_length, &mock_body_length,
                              options));
-  ASSERT_OK(GetRecordBatchSize(*batch, &size));
+  ASSERT_OK(GetRecordBatchSize(*batch, options, &size));
   ASSERT_EQ(mock.GetExtentBytesWritten(), size);
 }
 
