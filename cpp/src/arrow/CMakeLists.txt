@@ -185,7 +185,6 @@ set(ARROW_SRCS
     util/task_group.cc
     util/thread_pool.cc
     util/time.cc
-    util/timestamp_converter.cc
     util/trie.cc
     util/uri.cc
     util/utf8.cc

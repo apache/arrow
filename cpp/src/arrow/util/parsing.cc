@@ -16,6 +16,14 @@
 // under the License.
 
 #include "arrow/util/parsing.h"
+
+#include <chrono>
+#include <cstring>
+#include <ctime>
+#include <iomanip>
+#include <string>
+#include <utility>
+
 #include "arrow/util/double_conversion.h"
 
 namespace arrow {
@@ -79,5 +87,46 @@ bool StringToFloatConverter::StringToFloat(const char* s, size_t length, double*
   return true;
 }
 
+// ----------------------------------------------------------------------
+// strptime-like parsing
+
+class StrptimeTimestampParser : public TimestampParser {
+ public:
+  explicit StrptimeTimestampParser(std::string format) : format_(std::move(format)) {}
+
+  bool operator()(const char* s, size_t length, TimeUnit::type out_unit,
+                  value_type* out) const override {
+    arrow_vendored::date::sys_time<std::chrono::seconds> time_point;
+    if (std::stringstream({s, length}) >>
+        arrow_vendored::date::parse(format_, time_point)) {
+      *out = detail::ConvertTimePoint(time_point, out_unit, out);
+      return true;
+    }
+    return false;
+  }
+
+ private:
+  std::string format_;
+};
+
+class ISO8601Parser : public TimestampParser {
+ public:
+  ISO8601Parser() {}
+
+  bool operator()(const char* s, size_t length, TimeUnit::type out_unit,
+                  value_type* out) const override {
+    return ParseISO8601(s, length, out_unit, out);
+  }
+};
+
 }  // namespace internal
+
+std::shared_ptr<TimestampParser> TimestampParser::MakeStrptime(std::string format) {
+  return std::make_shared<internal::StrptimeTimestampParser>(std::move(format));
+}
+
+std::shared_ptr<TimestampParser> TimestampParser::MakeISO8601() {
+  return std::make_shared<internal::ISO8601Parser>();
+}
+
 }  // namespace arrow

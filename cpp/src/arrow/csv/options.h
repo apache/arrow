@@ -28,7 +28,7 @@
 namespace arrow {
 
 class DataType;
-class TimestampConverter;
+class TimestampParser;
 
 namespace csv {
 
@@ -101,7 +101,8 @@ struct ARROW_EXPORT ConvertOptions {
   /// This option is ignored if `include_columns` is empty.
   bool include_missing_columns = false;
 
-  std::vector<std::shared_ptr<arrow::TimestampConverter>> timestamp_converters;
+  /// Custom
+  std::vector<std::shared_ptr<TimestampParser>> timestamp_converters;
 
   /// Create conversion options with default values, including conventional
   /// values for `null_values`, `true_values` and `false_values`
