@@ -174,5 +174,12 @@ valid:   [
       assert_equal(["valid"],
                    new_record_batch.schema.fields.collect(&:name))
     end
+
+    def test_serialize
+      buffer = @record_batch.serialize
+      input_stream = Arrow::BufferInputStream.new(buffer)
+      assert_equal(@record_batch,
+                   input_stream.read_record_batch(@record_batch.schema))
+    end
   end
 end

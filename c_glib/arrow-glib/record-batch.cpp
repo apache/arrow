@@ -22,9 +22,11 @@
 #endif
 
 #include <arrow-glib/array.hpp>
+#include <arrow-glib/buffer.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/field.hpp>
 #include <arrow-glib/internal-index.hpp>
+#include <arrow-glib/ipc-options.hpp>
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
 
@@ -367,9 +369,12 @@ garrow_record_batch_add_column(GArrowRecordBatch *record_batch,
   const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
   const auto arrow_field = garrow_field_get_raw(field);
   const auto arrow_column = garrow_array_get_raw(column);
-  auto maybe_new_batch = arrow_record_batch->AddColumn(i, arrow_field, arrow_column);
-  if (garrow::check(error, maybe_new_batch, "[record-batch][add-column]")) {
-    return garrow_record_batch_new_raw(&(*maybe_new_batch));
+  auto arrow_new_record_batch =
+    arrow_record_batch->AddColumn(i, arrow_field, arrow_column);
+  if (garrow::check(error,
+                    arrow_new_record_batch,
+                    "[record-batch][add-column]")) {
+    return garrow_record_batch_new_raw(&(*arrow_new_record_batch));
   } else {
     return NULL;
   }
@@ -392,11 +397,53 @@ garrow_record_batch_remove_column(GArrowRecordBatch *record_batch,
                                   GError **error)
 {
   const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
-  auto maybe_new_batch = arrow_record_batch->RemoveColumn(i);
-  if (garrow::check(error, maybe_new_batch, "[record-batch][remove-column]")) {
-    return garrow_record_batch_new_raw(&(*maybe_new_batch));
+  auto arrow_new_record_batch = arrow_record_batch->RemoveColumn(i);
+  if (garrow::check(error,
+                    arrow_new_record_batch,
+                    "[record-batch][remove-column]")) {
+    return garrow_record_batch_new_raw(&(*arrow_new_record_batch));
   } else {
     return NULL;
+  }
+}
+
+/**
+ * garrow_record_batch_serialize:
+ * @record_batch: A #GArrowRecordBatch.
+ * @options: (nullable): A #GArrowWriteOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The newly allocated
+ *   #GArrowBuffer that contains a serialized record batch or %NULL on
+ *   error.
+ *
+ * Since: 1.0.0
+ */
+GArrowBuffer *
+garrow_record_batch_serialize(GArrowRecordBatch *record_batch,
+                              GArrowWriteOptions *options,
+                              GError **error)
+{
+  const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
+  arrow::Result<std::shared_ptr<arrow::Buffer>> arrow_buffer;
+  if (options) {
+    auto arrow_options = garrow_write_options_get_raw(options);
+    auto arrow_buffer = arrow::ipc::SerializeRecordBatch(*arrow_record_batch,
+                                                         *arrow_options);
+    if (garrow::check(error, arrow_buffer, "[record-batch][serialize]")) {
+      return garrow_buffer_new_raw(&(*arrow_buffer));
+    } else {
+      return NULL;
+    }
+  } else {
+    const auto arrow_options = arrow::ipc::IpcWriteOptions::Defaults();
+    auto arrow_buffer = arrow::ipc::SerializeRecordBatch(*arrow_record_batch,
+                                                         arrow_options);
+    if (garrow::check(error, arrow_buffer, "[record-batch][serialize]")) {
+      return garrow_buffer_new_raw(&(*arrow_buffer));
+    } else {
+      return NULL;
+    }
   }
 }
 

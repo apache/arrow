@@ -159,6 +159,7 @@ cpp_headers += files(
 )
 
 cpp_headers += files(
+  'ipc-options.hpp',
   'metadata-version.hpp',
   'reader.hpp',
   'writer.hpp',

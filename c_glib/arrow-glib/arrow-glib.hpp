@@ -44,6 +44,7 @@
 #include <arrow-glib/writable.hpp>
 #include <arrow-glib/writable-file.hpp>
 
+#include <arrow-glib/ipc-options.hpp>
 #include <arrow-glib/metadata-version.hpp>
 #include <arrow-glib/reader.hpp>
 #include <arrow-glib/writer.hpp>
