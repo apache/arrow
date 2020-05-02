@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using Apache.Arrow.Types;
+using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -35,23 +36,27 @@ namespace Apache.Arrow
 
             public Builder Append(string value, Encoding encoding = null)
             {
+                if (value == null)
+                {
+                    return AppendNull();
+                }
                 encoding = encoding ?? DefaultEncoding;
                 var span = encoding.GetBytes(value);
-                return Append(span);
+                return Append(span.AsSpan());
             }
 
             public Builder AppendRange(IEnumerable<string> values, Encoding encoding = null)
             {
                 foreach (var value in values)
                 {
-                    Append(value);
+                    Append(value, encoding);
                 }
 
                 return this;
             }
         }
 
-        public StringArray(ArrayData data) 
+        public StringArray(ArrayData data)
             : base(ArrowTypeId.String, data) { }
 
         public StringArray(int length,
@@ -70,6 +75,15 @@ namespace Apache.Arrow
             encoding = encoding ?? DefaultEncoding;
 
             var bytes = GetBytes(index);
+
+            if (bytes == default)
+            {
+                return null;
+            }
+            if (bytes.Length == 0)
+            {
+                return string.Empty;
+            }
 
             unsafe
             {
