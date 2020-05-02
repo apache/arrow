@@ -18,7 +18,8 @@
 #include "arrow/util/value_parsing.h"
 
 #include <chrono>
-#include <sstream>
+#include <istream>
+#include <streambuf>
 #include <string>
 #include <utility>
 
@@ -88,6 +89,14 @@ bool StringToFloatConverter::StringToFloat(const char* s, size_t length, double*
 // ----------------------------------------------------------------------
 // strptime-like parsing
 
+// To avoid copying data into a std::istringstream
+struct StreambufView : std::streambuf {
+  StreambufView(const char* s, size_t length) {
+    char* start = const_cast<char*>(s);
+    this->setg(start, start, start + length);
+  }
+};
+
 class StrptimeTimestampParser : public TimestampParser {
  public:
   explicit StrptimeTimestampParser(std::string format) : format_(std::move(format)) {}
@@ -95,8 +104,8 @@ class StrptimeTimestampParser : public TimestampParser {
   bool operator()(const char* s, size_t length, TimeUnit::type out_unit,
                   value_type* out) const override {
     arrow_vendored::date::sys_time<std::chrono::seconds> time_point;
-    if (std::stringstream({s, length}) >>
-        arrow_vendored::date::parse(format_, time_point)) {
+    StreambufView view(s, length);
+    if (std::istream(&view) >> arrow_vendored::date::parse(format_, time_point)) {
       *out = detail::ConvertTimePoint(time_point, out_unit);
       return true;
     }

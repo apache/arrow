@@ -45,14 +45,13 @@ static std::shared_ptr<Buffer> GenerateTimestampsCSV(
   return Buffer::FromString(ss.str());
 }
 
-static Result<std::shared_ptr<Table>> ReadCSV(const Buffer& data,
-                                              const csv::ConvertOptions& convert_opt) {
+static Status ReadCSV(const Buffer& data, const csv::ConvertOptions& convert_opt) {
   ARROW_ASSIGN_OR_RAISE(
       auto table_reader,
       csv::TableReader::Make(
           default_memory_pool(), std::make_shared<io::BufferReader>(data),
           csv::ReadOptions::Defaults(), csv::ParseOptions::Defaults(), convert_opt));
-  return table_reader->Read();
+  return table_reader->Read().status();
 }
 
 const std::vector<std::string> kExampleDates = {
@@ -65,8 +64,7 @@ static void ConvertTimestampVirtualISO8601(benchmark::State& state) {
   auto convert_options = csv::ConvertOptions::Defaults();
   convert_options.timestamp_parsers.push_back(TimestampParser::MakeISO8601());
   for (auto _ : state) {
-    auto result = ReadCSV(*data, convert_options);
-    benchmark::DoNotOptimize(result);
+    ABORT_NOT_OK(ReadCSV(*data, convert_options));
   }
   state.SetItemsProcessed(state.iterations());
 }
@@ -75,8 +73,7 @@ static void ConvertTimestampInlineISO8601(benchmark::State& state) {
   auto data = GenerateTimestampsCSV(kExampleDates, kNumCols, kNumRows);
   auto convert_options = csv::ConvertOptions::Defaults();
   for (auto _ : state) {
-    auto result = ReadCSV(*data, convert_options);
-    benchmark::DoNotOptimize(result);
+    ABORT_NOT_OK(ReadCSV(*data, convert_options));
   }
   state.SetItemsProcessed(state.iterations());
 }
