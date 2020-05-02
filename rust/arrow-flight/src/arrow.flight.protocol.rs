@@ -1,3 +1,5 @@
+// This file was automatically generated through the build.rs script, and should not be edited.
+
 ///
 /// The request that a client provides to a server on handshake.
 #[derive(Clone, PartialEq, ::prost::Message)]

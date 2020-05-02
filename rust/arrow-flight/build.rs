@@ -15,7 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::{env, path::Path};
+use std::{
+    env,
+    fs::OpenOptions,
+    io::{Read, Write},
+    path::Path,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // avoid rerunning build if the file has not changed
@@ -29,6 +34,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = Path::new("../../format/Flight.proto");
     if path.exists() {
         tonic_build::compile_protos("../../format/Flight.proto")?;
+        // read file contents to string
+        let mut file = OpenOptions::new()
+            .read(true)
+            .open("src/arrow.flight.protocol.rs")?;
+        let mut buffer = String::new();
+        file.read_to_string(&mut buffer)?;
+        // append warning that file was auto-generate
+        let mut file = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open("src/arrow.flight.protocol.rs")?;
+        file.write("// This file was automatically generated through the build.rs script, and should not be edited.\n\n".as_bytes())?;
+        file.write(buffer.as_bytes())?;
     }
 
     // As the proto file is checked in, the build should not fail if the file is not found
