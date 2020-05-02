@@ -35,7 +35,6 @@ RUN \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     build-essential \
-    clang-${LLVM} \
     cmake \
     debhelper \
     devscripts \
@@ -57,7 +56,6 @@ RUN \
     libssl-dev \
     libthrift-dev \
     libzstd-dev \
-    llvm-${LLVM}-dev \
     lsb-release \
     ninja-build \
     pkg-config \
@@ -68,6 +66,11 @@ RUN \
     rapidjson-dev \
     tzdata \
     zlib1g-dev && \
+  if [ "$(dpkg --print-architecture)" != "arm64" ]; then \
+    apt install -y -V ${quiet} \
+      clang-${LLVM} \
+      llvm-${LLVM}-dev; \
+  fi && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \

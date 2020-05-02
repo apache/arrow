@@ -28,11 +28,16 @@ groups:
     - wheel-*
 
   linux:
+    - debian-*
+    - ubuntu-*
+    - centos-*
+
+  linux-amd64:
     - debian-*-amd64
     - ubuntu-*-amd64
     - centos-*-amd64
 
-  linux-arm:
+  linux-arm64:
     - debian-*-arm64
     - ubuntu-*-arm64
     - centos-*-aarch64
@@ -94,9 +99,9 @@ groups:
   ######################## Tasks to run regularly #############################
 
   nightly:
-    - centos-*-amd64
-    - debian-*-amd64
-    - ubuntu-*-amd64
+    - centos-*
+    - debian-*
+    - ubuntu-*
     - conda-*
     - gandiva-*
     # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
@@ -478,13 +483,15 @@ tasks:
   debian-stretch-amd64:
     ci: github
     platform: linux
-    template: linux-packages/github.linux.yml
+    template: linux-packages/github.linux.amd64.yml
     params:
-      build_command: rake apt:build APT_TARGETS=debian-stretch
+      build_task: "apt:build"
+      target: "debian-stretch"
       upload_extensions:
+        - .ddeb
         - .deb
-        - .dsc
         - .debian.tar.xz
+        - .dsc
         - .orig.tar.gz
     artifacts:
       - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
@@ -502,112 +509,104 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-glib18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-cuda-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-cuda18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-dataset18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-python18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow18_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libgandiva-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libgandiva18_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libparquet-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libparquet18_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libplasma-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libplasma18_{no_rc_version}-1_[a-z0-9]+.deb
-      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   debian-stretch-arm64:
-    ci: github
+    ci: travis
     platform: linux
-    template: linux-packages/github.linux.arm64.yml
+    template: linux-packages/travis.linux.arm64.yml
     params:
-      build_command: rake apt:build APT_TARGETS=debian-stretch-arm64
+      build_task: "apt:build"
+      target: "debian-stretch-arm64"
       upload_extensions:
+        - .ddeb
         - .deb
-        - .dsc
         - .debian.tar.xz
+        - .dsc
         - .orig.tar.gz
     artifacts:
-      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
-      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
-      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
-      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-dataset18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-glib18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-python18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva18_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libparquet-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libparquet18_{no_rc_version}-1_[a-z0-9]+.deb
 
   debian-buster-amd64:
     ci: github
     platform: linux
-    template: linux-packages/github.linux.yml
+    template: linux-packages/github.linux.amd64.yml
     params:
-      build_command: rake apt:build APT_TARGETS=debian-buster
+      build_task: "apt:build"
+      target: "debian-buster"
       upload_extensions:
+        - .ddeb
         - .deb
-        - .dsc
         - .debian.tar.xz
+        - .dsc
         - .orig.tar.gz
     artifacts:
       - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
@@ -625,112 +624,104 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-glib18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-cuda-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-cuda18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-dataset18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-python18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow18_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libgandiva-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libgandiva18_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libparquet-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libparquet18_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libplasma-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libplasma18_{no_rc_version}-1_[a-z0-9]+.deb
-      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   debian-buster-arm64:
-    ci: github
+    ci: travis
     platform: linux
-    template: linux-packages/github.linux.arm64.yml
+    template: linux-packages/travis.linux.arm64.yml
     params:
-      build_command: rake apt:build APT_TARGETS=debian-buster-arm64
+      build_task: "apt:build"
+      target: "debian-buster-arm64"
       upload_extensions:
+        - .ddeb
         - .deb
-        - .dsc
         - .debian.tar.xz
+        - .dsc
         - .orig.tar.gz
     artifacts:
-      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
-      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
-      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
-      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-dataset18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-glib18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-python18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva18_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libparquet-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libparquet18_{no_rc_version}-1_[a-z0-9]+.deb
 
   ubuntu-xenial-amd64:
     ci: github
     platform: linux
-    template: linux-packages/github.linux.yml
+    template: linux-packages/github.linux.amd64.yml
     params:
-      build_command: rake apt:build APT_TARGETS=ubuntu-xenial
+      build_task: "apt:build"
+      target: "ubuntu-xenial"
       upload_extensions:
+        - .ddeb
         - .deb
-        - .dsc
         - .debian.tar.xz
+        - .dsc
         - .orig.tar.gz
     artifacts:
       - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
@@ -754,7 +745,6 @@ tasks:
       - libarrow-cuda-glib18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python18_{no_rc_version}-1_[a-z0-9]+.deb
@@ -774,42 +764,32 @@ tasks:
       - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib18_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma18_{no_rc_version}-1_[a-z0-9]+.deb
-      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   ubuntu-xenial-arm64:
-    ci: github
+    ci: travis
     platform: linux
-    template: linux-packages/github.linux.arm64.yml
+    template: linux-packages/travis.linux.arm64.yml
     params:
-      build_command: rake apt:build APT_TARGETS=ubuntu-xenial-arm64
+      build_task: "apt:build"
+      target: "ubuntu-xenial-arm64"
       upload_extensions:
+        - .ddeb
         - .deb
-        - .dsc
         - .debian.tar.xz
+        - .dsc
         - .orig.tar.gz
     artifacts:
-      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
-      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
-      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
-      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-plasma-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python18_{no_rc_version}-1_[a-z0-9]+.deb
@@ -819,24 +799,19 @@ tasks:
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib18_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma18_{no_rc_version}-1_[a-z0-9]+.deb
-      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   ubuntu-bionic-amd64:
     ci: github
     platform: linux
-    template: linux-packages/github.linux.yml
+    template: linux-packages/github.linux.amd64.yml
     params:
-      build_command: rake apt:build APT_TARGETS=ubuntu-bionic
+      build_task: "apt:build"
+      target: "ubuntu-bionic"
       upload_extensions:
+        - .ddeb
         - .deb
-        - .dsc
         - .debian.tar.xz
+        - .dsc
         - .orig.tar.gz
     artifacts:
       - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
@@ -860,10 +835,10 @@ tasks:
       - libarrow-cuda-glib18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-dataset18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python18_{no_rc_version}-1_[a-z0-9]+.deb
@@ -883,78 +858,59 @@ tasks:
       - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib18_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma18_{no_rc_version}-1_[a-z0-9]+.deb
-      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   ubuntu-bionic-arm64:
-    ci: github
+    ci: travis
     platform: linux
-    template: linux-packages/github.linux.arm64.yml
+    template: linux-packages/travis.linux.arm64.yml
     params:
-      build_command: rake apt:build APT_TARGETS=ubuntu-bionic-arm64
+      build_task: "apt:build"
+      target: "ubuntu-bionic-arm64"
       upload_extensions:
+        - .ddeb
         - .deb
-        - .dsc
         - .debian.tar.xz
+        - .dsc
         - .orig.tar.gz
     artifacts:
-      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
-      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
-      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
-      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-plasma-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-dataset18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva18_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib18_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma18_{no_rc_version}-1_[a-z0-9]+.deb
-      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   ubuntu-eoan-amd64:
     ci: github
     platform: linux
-    template: linux-packages/github.linux.yml
+    template: linux-packages/github.linux.amd64.yml
     params:
-      build_command: rake apt:build APT_TARGETS=ubuntu-eoan
+      build_task: "apt:build"
+      target: "ubuntu-eoan"
       upload_extensions:
+        - .ddeb
         - .deb
-        - .dsc
         - .debian.tar.xz
+        - .dsc
         - .orig.tar.gz
     artifacts:
       - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
@@ -978,10 +934,10 @@ tasks:
       - libarrow-cuda-glib18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-dataset18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python18_{no_rc_version}-1_[a-z0-9]+.deb
@@ -1001,78 +957,59 @@ tasks:
       - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib18_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma18_{no_rc_version}-1_[a-z0-9]+.deb
-      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   ubuntu-eoan-arm64:
-    ci: github
+    ci: travis
     platform: linux
-    template: linux-packages/github.linux.arm64.yml
+    template: linux-packages/travis.linux.arm64.yml
     params:
-      build_command: rake apt:build APT_TARGETS=ubuntu-eoan-arm64
+      build_task: "apt:build"
+      target: "ubuntu-eoan-arm64"
       upload_extensions:
+        - .ddeb
         - .deb
-        - .dsc
         - .debian.tar.xz
+        - .dsc
         - .orig.tar.gz
     artifacts:
-      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
-      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
-      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
-      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-plasma-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-dataset18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva18_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib18_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma18_{no_rc_version}-1_[a-z0-9]+.deb
-      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   ubuntu-focal-amd64:
     ci: github
     platform: linux
-    template: linux-packages/github.linux.yml
+    template: linux-packages/github.linux.amd64.yml
     params:
-      build_command: rake apt:build APT_TARGETS=ubuntu-focal
+      build_task: "apt:build"
+      target: "ubuntu-focal"
       upload_extensions:
+        - .ddeb
         - .deb
-        - .dsc
         - .debian.tar.xz
+        - .dsc
         - .orig.tar.gz
     artifacts:
       - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
@@ -1096,10 +1033,10 @@ tasks:
       - libarrow-cuda-glib18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-dataset18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python18_{no_rc_version}-1_[a-z0-9]+.deb
@@ -1119,74 +1056,54 @@ tasks:
       - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib18_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma18_{no_rc_version}-1_[a-z0-9]+.deb
-      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   ubuntu-focal-arm64:
-    ci: github
+    ci: travis
     platform: linux
-    template: linux-packages/github.linux.arm64.yml
+    template: linux-packages/travis.linux.arm64.yml
     params:
-      build_command: rake apt:build APT_TARGETS=ubuntu-focal-arm64
+      build_task: "apt:build"
+      target: "ubuntu-focal-arm64"
       upload_extensions:
+        - .ddeb
         - .deb
-        - .dsc
         - .debian.tar.xz
+        - .dsc
         - .orig.tar.gz
     artifacts:
-      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
-      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
-      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
-      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-plasma-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-dataset18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight18-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python18_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva18_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib18_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib18_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma18_{no_rc_version}-1_[a-z0-9]+.deb
-      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb
-      - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
 
   centos-6-amd64:
     ci: github
     platform: linux
-    template: linux-packages/github.linux.yml
+    template: linux-packages/github.linux.amd64.yml
     params:
-      build_command: rake yum:build YUM_TARGETS=centos-6
+      build_task: "yum:build"
+      target: "centos-6"
       upload_extensions:
         - .rpm
     artifacts:
@@ -1206,9 +1123,10 @@ tasks:
   centos-7-amd64:
     ci: github
     platform: linux
-    template: linux-packages/github.linux.yml
+    template: linux-packages/github.linux.amd64.yml
     params:
-      build_command: rake yum:build YUM_TARGETS=centos-7
+      build_task: "yum:build"
+      target: "centos-7"
       upload_extensions:
         - .rpm
     artifacts:
@@ -1238,11 +1156,12 @@ tasks:
       - plasma-store-server-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
 
   centos-7-aarch64:
-    ci: github
+    ci: travis
     platform: linux
-    template: linux-packages/github.linux.arm64.yml
+    template: linux-packages/travis.linux.arm64.yml
     params:
-      build_command: rake yum:build YUM_TARGETS=centos-7-aarch64
+      build_task: "yum:build"
+      target: "centos-7-aarch64"
       upload_extensions:
         - .rpm
     artifacts:
@@ -1272,9 +1191,10 @@ tasks:
   centos-8-amd64:
     ci: github
     platform: linux
-    template: linux-packages/github.linux.yml
+    template: linux-packages/github.linux.amd64.yml
     params:
-      build_command: rake yum:build YUM_TARGETS=centos-8
+      build_task: "yum:build"
+      target: "centos-8"
       upload_extensions:
         - .rpm
     artifacts:
@@ -1327,11 +1247,12 @@ tasks:
       - plasma-store-server-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
 
   centos-8-aarch64:
-    ci: github
+    ci: travis
     platform: linux
-    template: linux-packages/github.linux.arm64.yml
+    template: linux-packages/travis.linux.arm64.yml
     params:
-      build_command: rake yum:build YUM_TARGETS=centos-8-aarch64
+      build_task: "yum:build"
+      target: "centos-8-aarch64"
       upload_extensions:
         - .rpm
     artifacts:
@@ -1357,13 +1278,6 @@ tasks:
       - arrow-python-flight-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-python-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-python-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
-      - gandiva-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
-      - gandiva-glib-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
-      - gandiva-glib-doc-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
-      - gandiva-glib-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
-      - gandiva-glib-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
-      - gandiva-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
-      - gandiva-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - parquet-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - parquet-glib-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - parquet-glib-doc-{no_rc_version}-1.el8.[a-z0-9_]+.rpm

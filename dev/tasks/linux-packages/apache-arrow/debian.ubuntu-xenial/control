@@ -5,7 +5,7 @@ Maintainer: Apache Arrow Developers <dev@arrow.apache.org>
 Build-Depends:
   autoconf-archive,
   cmake,
-  debhelper (>= 9.20160115),
+  debhelper (>= 10),
   dh-autoreconf,
   git,
   gobject-introspection,
