@@ -137,13 +137,28 @@ where
         + Zero
         + One,
 {
-    math_op(left, right, |a, b| {
-        if b.is_zero() {
-            Err(ArrowError::DivideByZero)
-        } else {
-            Ok(a / b)
+    if right.null_count() == 0 {
+        math_op(left, right, |a, b| {
+            if b.is_zero() {
+                Err(ArrowError::DivideByZero)
+            } else {
+                Ok(a / b)
+            }
+        })
+    } else {
+        // check for nulls, then check if RHS is zero
+        let mut b = PrimitiveBuilder::<T>::new(left.len());
+        for i in 0..left.len() {
+            if left.is_null(i) || right.is_null(i) {
+                b.append_null()?;
+            } else if right.value(i).is_zero() {
+                return Err(ArrowError::DivideByZero);
+            } else {
+                b.append_value(left.value(i) / right.value(i))?;
+            }
         }
-    })
+        Ok(b.finish())
+    }
 }
 
 #[cfg(test)]
