@@ -154,8 +154,10 @@ pub fn fb_to_schema(fb: ipc::Schema) -> Schema {
             let kv = md_fields.get(i);
             let k_str = kv.key();
             let v_str = kv.value();
-            if k_str.is_some() && v_str.is_some() {
-                metadata.insert(k_str.unwrap().to_string(), v_str.unwrap().to_string());
+            if let Some(k) = k_str {
+                if let Some(v) = v_str {
+                    metadata.insert(k.to_string(), v.to_string());
+                }
             }
         }
     }
@@ -239,7 +241,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
                     DataType::Time64(TimeUnit::Microsecond)
                 }
                 (64, ipc::TimeUnit::NANOSECOND) => DataType::Time64(TimeUnit::Nanosecond),
-                z @ _ => panic!(
+                z => panic!(
                     "Time type with bit width of {} and unit of {:?} not supported",
                     z.0, z.1
                 ),
@@ -311,7 +313,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
 
             DataType::Struct(fields)
         }
-        t @ _ => unimplemented!("Type {:?} not supported", t),
+        t => unimplemented!("Type {:?} not supported", t),
     }
 }
 
@@ -460,7 +462,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
         }
         Timestamp(unit, tz) => {
             let children = fbb.create_vector(&empty_fields[..]);
-            let tz = tz.clone().unwrap_or(Arc::new(String::new()));
+            let tz = tz.clone().unwrap_or_else(|| Arc::new(String::new()));
             let tz_str = fbb.create_string(tz.as_str());
             let mut builder = ipc::TimestampBuilder::new(fbb);
             let time_unit = match unit {
@@ -579,7 +581,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
                 Some(children),
             )
         }
-        t @ _ => unimplemented!("Type {:?} not supported", t),
+        t => unimplemented!("Type {:?} not supported", t),
     }
 }
 

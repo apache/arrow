@@ -326,7 +326,7 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
 
 // Constructor with a contiguous NumericTensor
 SparseCOOIndex::SparseCOOIndex(const std::shared_ptr<Tensor>& coords)
-    : SparseIndexBase(coords->shape()[0]), coords_(coords) {
+    : SparseIndexBase(), coords_(coords) {
   ARROW_CHECK_OK(
       CheckSparseCOOIndexValidity(coords_->type(), coords_->shape(), coords_->strides()));
 }
@@ -428,10 +428,7 @@ Result<std::shared_ptr<SparseCSFIndex>> SparseCSFIndex::Make(
 SparseCSFIndex::SparseCSFIndex(const std::vector<std::shared_ptr<Tensor>>& indptr,
                                const std::vector<std::shared_ptr<Tensor>>& indices,
                                const std::vector<int64_t>& axis_order)
-    : SparseIndexBase(indices.back()->size()),
-      indptr_(indptr),
-      indices_(indices),
-      axis_order_(axis_order) {
+    : SparseIndexBase(), indptr_(indptr), indices_(indices), axis_order_(axis_order) {
   ARROW_CHECK_OK(CheckSparseCSFIndexValidity(
       indptr_.front()->type(), indices_.front()->type(), indptr_.size(), indices_.size(),
       indptr_.back()->shape(), indices_.back()->shape(), axis_order_.size()));

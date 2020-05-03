@@ -128,7 +128,12 @@ pub struct Utf8ArrayConverter {}
 
 impl Converter<Vec<Option<ByteArray>>, StringArray> for Utf8ArrayConverter {
     fn convert(source: Vec<Option<ByteArray>>) -> Result<StringArray> {
-        let mut builder = StringBuilder::new(source.len());
+        let data_size = source
+            .iter()
+            .map(|x| x.as_ref().map(|b| b.len()).unwrap_or(0))
+            .sum();
+
+        let mut builder = StringBuilder::with_capacity(source.len(), data_size);
         for v in source {
             match v {
                 Some(array) => builder.append_value(array.as_utf8()?),

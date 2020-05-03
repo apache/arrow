@@ -996,6 +996,7 @@ endif()
 if(ARROW_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS
    OR ARROW_BUILD_INTEGRATION
+   OR ARROW_PLASMA
    OR ARROW_USE_GLOG
    OR ARROW_WITH_GRPC)
   set(ARROW_NEED_GFLAGS 1)
@@ -1047,10 +1048,11 @@ macro(build_gflags)
 endmacro()
 
 if(ARROW_NEED_GFLAGS)
+  set(ARROW_GFLAGS_REQUIRED_VERSION "2.1.0")
   if(gflags_SOURCE STREQUAL "AUTO")
-    find_package(gflags QUIET)
+    find_package(gflags ${ARROW_GFLAGS_REQUIRED_VERSION} QUIET)
     if(NOT gflags_FOUND)
-      find_package(gflagsAlt)
+      find_package(gflagsAlt ${ARROW_GFLAGS_REQUIRED_VERSION})
     endif()
     if(NOT gflags_FOUND AND NOT gflagsAlt_FOUND)
       build_gflags()
@@ -1060,9 +1062,9 @@ if(ARROW_NEED_GFLAGS)
   elseif(gflags_SOURCE STREQUAL "SYSTEM")
     # gflagsConfig.cmake is not installed on Ubuntu/Debian
     # TODO: Make a bug report upstream
-    find_package(gflags)
+    find_package(gflags ${ARROW_GFLAGS_REQUIRED_VERSION})
     if(NOT gflags_FOUND)
-      find_package(gflagsAlt REQUIRED)
+      find_package(gflagsAlt ${ARROW_GFLAGS_REQUIRED_VERSION} REQUIRED)
     endif()
   endif()
   # TODO: Don't use global includes but rather target_include_directories

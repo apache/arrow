@@ -50,7 +50,8 @@ is a list of \code{Dataset}s (because there should be few \code{Dataset}s in the
 and their \code{Schema}s are already in memory).}
 
 \item{...}{additional arguments passed to \code{dataset_factory()} when
-\code{sources} is a file path, otherwise ignored.}
+\code{sources} is a file path, otherwise ignored. These may include "format" to
+indicate the file format, or other format-specific options.}
 }
 \value{
 A \link{Dataset} R6 object. Use \code{dplyr} methods on it to query the data,

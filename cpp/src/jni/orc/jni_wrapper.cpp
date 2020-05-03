@@ -276,9 +276,16 @@ Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_next(JNIEnv* env,
 
   for (size_t j = 0; j < buffers.size(); ++j) {
     auto buffer = buffers[j];
+    uint8_t* data = nullptr;
+    int size = 0;
+    int64_t capacity = 0;
+    if (buffer != nullptr) {
+      data = (uint8_t*)buffer->data();
+      size = (int)buffer->size();
+      capacity = buffer->capacity();
+    }
     jobject memory = env->NewObject(orc_memory_class, orc_memory_constructor,
-                                    buffer_holder_.Insert(buffer), buffer->data(),
-                                    buffer->size(), buffer->capacity());
+                                    buffer_holder_.Insert(buffer), data, size, capacity);
     env->SetObjectArrayElement(memory_array, j, memory);
   }
 

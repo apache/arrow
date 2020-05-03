@@ -191,8 +191,8 @@ add_gandiva_test(internals-test
                  SOURCES
                  bitmap_accumulator_test.cc
                  engine_llvm_test.cc
-                 function_signature_test.cc
                  function_registry_test.cc
+                 function_signature_test.cc
                  llvm_types_test.cc
                  llvm_generator_test.cc
                  annotator_test.cc

@@ -62,8 +62,6 @@ class GANDIVA_EXPORT ExpressionRegistry {
 
  private:
   static DataTypeVector supported_types_;
-  static DataTypeVector InitSupportedTypes();
-  static void AddArrowTypesToVector(arrow::Type::type& type, DataTypeVector& vector);
   std::unique_ptr<FunctionRegistry> function_registry_;
 };
 

@@ -267,6 +267,45 @@ public class TestComplexWriter {
   }
 
   @Test
+  public void testListScalarNull() {
+    /* Write to a integer list vector
+     * each list of size 8 and having it's data values alternating between null and a non-null.
+     * Read and verify
+     */
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          if (j % 2 == 0) {
+            listWriter.writeNull();
+          } else {
+            IntHolder holder = new IntHolder();
+            holder.value = j;
+            listWriter.write(holder);
+          }
+        }
+        listWriter.endList();
+      }
+      listWriter.setValueCount(COUNT);
+      UnionListReader listReader = new UnionListReader(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listReader.setPosition(i);
+        for (int j = 0; j < i % 7; j++) {
+          listReader.next();
+          if (j % 2 == 0) {
+            assertFalse("index is set: " + j, listReader.reader().isSet());
+          } else {
+            assertTrue("index is not set: " + j, listReader.reader().isSet());
+            assertEquals(j, listReader.reader().readInteger().intValue());
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   public void listDecimalType() {
     try (ListVector listVector = ListVector.empty("list", allocator)) {
       listVector.allocateNew();

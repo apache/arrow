@@ -116,7 +116,7 @@ fn coerce_data_type(dt: Vec<&DataType>) -> Result<DataType> {
                             ])?)))
                         }
                     }
-                    (t1 @ _, t2 @ _) => Err(ArrowError::JsonError(format!(
+                    (t1, t2) => Err(ArrowError::JsonError(format!(
                         "Cannot coerce data types for {:?} and {:?}",
                         t1, t2
                     ))),
@@ -163,7 +163,7 @@ fn infer_json_schema(file: File, max_read_records: Option<usize>) -> Result<Arc<
 
     let mut line = String::new();
     for _ in 0..max_read_records.unwrap_or(std::usize::MAX) {
-        &reader.read_line(&mut line)?;
+        reader.read_line(&mut line)?;
         if line.is_empty() {
             break;
         }
@@ -293,7 +293,7 @@ fn infer_json_schema(file: File, max_read_records: Option<usize>) -> Result<Arc<
                     Err(e) => return Err(e),
                 }
             }
-            t @ _ => {
+            t => {
                 return Err(ArrowError::JsonError(format!(
                     "Expected JSON record to be an object, found {:?}",
                     t
@@ -305,7 +305,7 @@ fn infer_json_schema(file: File, max_read_records: Option<usize>) -> Result<Arc<
     let schema = generate_schema(values)?;
 
     // return the reader seek back to the start
-    &reader.into_inner().seek(SeekFrom::Start(0))?;
+    reader.into_inner().seek(SeekFrom::Start(0))?;
 
     Ok(schema)
 }
@@ -379,7 +379,7 @@ impl<R: Read> Reader<R> {
         }
 
         let rows = &rows[..];
-        let projection = self.projection.clone().unwrap_or(vec![]);
+        let projection = self.projection.clone().unwrap_or_else(|| vec![]);
         let arrays: Result<Vec<ArrayRef>> = self
             .schema
             .clone()
@@ -416,16 +416,15 @@ impl<R: Read> Reader<R> {
                     DataType::UInt8 => self.build_primitive_array::<UInt8Type>(rows, field.name()),
                     DataType::Utf8 => {
                         let mut builder = StringBuilder::new(rows.len());
-                        for row_index in 0..rows.len() {
-                            match rows[row_index].get(field.name()) {
-                                Some(value) => {
-                                    match value.as_str() {
-                                        Some(v) => builder.append_value(v)?,
-                                        // TODO: value might exist as something else, coerce so we don't lose it
-                                        None => builder.append(false)?,
-                                    }
+                        for row in rows {
+                            if let Some(value) = row.get(field.name()) {
+                                if let Some(str_v) = value.as_str() {
+                                    builder.append_value(str_v)?
+                                } else {
+                                    builder.append(false)?
                                 }
-                                None => builder.append(false)?,
+                            } else {
+                                builder.append(false)?
                             }
                         }
                         Ok(Arc::new(builder.finish()) as ArrayRef)
@@ -445,9 +444,8 @@ impl<R: Read> Reader<R> {
                         DataType::Utf8 => {
                             let values_builder = StringBuilder::new(rows.len() * 5);
                             let mut builder = ListBuilder::new(values_builder);
-                            for row_index in 0..rows.len() {
-                                match rows[row_index].get(field.name()) {
-                                    Some(value) => {
+                            for row in rows {
+                                if let Some(value) = row.get(field.name()) {
                                         // value can be an array or a scalar
                                         let vals: Vec<Option<String>> = if let Value::String(v) = value {
                                             vec![Some(v.to_string())]
@@ -465,29 +463,26 @@ impl<R: Read> Reader<R> {
                                             }).collect()
                                         } else if let Value::Null = value {
                                             vec![None]
+                                        } else if !value.is_object() {
+                                            vec![Some(value.to_string())]
                                         } else {
-                                            if !value.is_object() {
-                                                vec![Some(value.to_string())]
-                                            } else {
-                                                return Err(ArrowError::JsonError("1Only scalars are currently supported in JSON arrays".to_string()))
-                                            }
+                                            return Err(ArrowError::JsonError("Only scalars are currently supported in JSON arrays".to_string()))
                                         };
-                                        for i in 0..vals.len() {
-                                            match &vals[i] {
-                                                Some(v) => builder.values().append_value(&v)?,
-                                                None => builder.values().append_null()?,
+                                        for val in vals {
+                                           if let Some(v) = val {
+                                                builder.values().append_value(&v)?
+                                            } else {
+                                                builder.values().append_null()?
                                             };
                                         }
-                                    }
-                                    None => {}
                                 }
                                 builder.append(true)?
                             }
                             Ok(Arc::new(builder.finish()) as ArrayRef)
                         }
-                        _ => return Err(ArrowError::JsonError("Data type is currently not supported in a list".to_string())),
+                        _ => Err(ArrowError::JsonError("Data type is currently not supported in a list".to_string())),
                     },
-                    _ => return Err(ArrowError::JsonError("struct types are not yet supported".to_string())),
+                    _ => Err(ArrowError::JsonError("struct types are not yet supported".to_string())),
                 }
             })
             .collect();
@@ -505,22 +500,20 @@ impl<R: Read> Reader<R> {
 
         let projected_schema = Arc::new(Schema::new(projected_fields));
 
-        arrays.and_then(|arr| {
-            RecordBatch::try_new(projected_schema, arr).map(|batch| Some(batch))
-        })
+        arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr).map(Some))
     }
 
     fn build_boolean_array(&self, rows: &[Value], col_name: &str) -> Result<ArrayRef> {
         let mut builder = BooleanBuilder::new(rows.len());
-        for row_index in 0..rows.len() {
-            match rows[row_index].get(col_name) {
-                Some(value) => match value.as_bool() {
-                    Some(v) => builder.append_value(v)?,
-                    None => builder.append_null()?,
-                },
-                None => {
+        for row in rows {
+            if let Some(value) = row.get(&col_name) {
+                if let Some(boolean) = value.as_bool() {
+                    builder.append_value(boolean)?
+                } else {
                     builder.append_null()?;
                 }
+            } else {
+                builder.append_null()?;
             }
         }
         Ok(Arc::new(builder.finish()))
@@ -533,30 +526,27 @@ impl<R: Read> Reader<R> {
     ) -> Result<ArrayRef> {
         let values_builder = BooleanBuilder::new(rows.len() * 5);
         let mut builder = ListBuilder::new(values_builder);
-        for row_index in 0..rows.len() {
-            match rows[row_index].get(col_name) {
-                Some(value) => {
-                    // value can be an array or a scalar
-                    let vals: Vec<Option<bool>> = if let Value::Bool(v) = value {
-                        vec![Some(*v)]
-                    } else if let Value::Array(n) = value {
-                        n.iter().map(|v: &Value| v.as_bool()).collect()
-                    } else if let Value::Null = value {
-                        vec![None]
-                    } else {
-                        return Err(ArrowError::JsonError(
-                            "2Only scalars are currently supported in JSON arrays"
-                                .to_string(),
-                        ));
+        for row in rows {
+            if let Some(value) = row.get(col_name) {
+                // value can be an array or a scalar
+                let vals: Vec<Option<bool>> = if let Value::Bool(v) = value {
+                    vec![Some(*v)]
+                } else if let Value::Array(n) = value {
+                    n.iter().map(|v: &Value| v.as_bool()).collect()
+                } else if let Value::Null = value {
+                    vec![None]
+                } else {
+                    return Err(ArrowError::JsonError(
+                        "2Only scalars are currently supported in JSON arrays"
+                            .to_string(),
+                    ));
+                };
+                for val in vals {
+                    match val {
+                        Some(v) => builder.values().append_value(v)?,
+                        None => builder.values().append_null()?,
                     };
-                    for i in 0..vals.len() {
-                        match vals[i] {
-                            Some(v) => builder.values().append_value(v)?,
-                            None => builder.values().append_null()?,
-                        };
-                    }
                 }
-                None => {}
             }
             builder.append(true)?
         }
@@ -573,21 +563,18 @@ impl<R: Read> Reader<R> {
         T::Native: num::NumCast,
     {
         let mut builder = PrimitiveBuilder::<T>::new(rows.len());
-        for row_index in 0..rows.len() {
-            match rows[row_index].get(col_name) {
-                Some(value) => {
-                    // check that value is of expected datatype
-                    match value.as_f64() {
-                        Some(v) => match num::cast::cast(v) {
-                            Some(v) => builder.append_value(v)?,
-                            None => builder.append_null()?,
-                        },
+        for row in rows {
+            if let Some(value) = row.get(&col_name) {
+                // check that value is of expected datatype
+                match value.as_f64() {
+                    Some(v) => match num::cast::cast(v) {
+                        Some(v) => builder.append_value(v)?,
                         None => builder.append_null()?,
-                    }
+                    },
+                    None => builder.append_null()?,
                 }
-                None => {
-                    builder.append_null()?;
-                }
+            } else {
+                builder.append_null()?;
             }
         }
         Ok(Arc::new(builder.finish()))
@@ -603,33 +590,30 @@ impl<R: Read> Reader<R> {
     {
         let values_builder: PrimitiveBuilder<T> = PrimitiveBuilder::new(rows.len());
         let mut builder = ListBuilder::new(values_builder);
-        for row_index in 0..rows.len() {
-            match rows[row_index].get(col_name) {
-                Some(value) => {
-                    // value can be an array or a scalar
-                    let vals: Vec<Option<f64>> = if let Value::Number(value) = value {
-                        vec![value.as_f64()]
-                    } else if let Value::Array(n) = value {
-                        n.iter().map(|v: &Value| v.as_f64()).collect()
-                    } else if let Value::Null = value {
-                        vec![None]
-                    } else {
-                        return Err(ArrowError::JsonError(
-                            "3Only scalars are currently supported in JSON arrays"
-                                .to_string(),
-                        ));
-                    };
-                    for i in 0..vals.len() {
-                        match vals[i] {
-                            Some(v) => match num::cast::cast(v) {
-                                Some(v) => builder.values().append_value(v)?,
-                                None => builder.values().append_null()?,
-                            },
+        for row in rows {
+            if let Some(value) = row.get(&col_name) {
+                // value can be an array or a scalar
+                let vals: Vec<Option<f64>> = if let Value::Number(value) = value {
+                    vec![value.as_f64()]
+                } else if let Value::Array(n) = value {
+                    n.iter().map(|v: &Value| v.as_f64()).collect()
+                } else if let Value::Null = value {
+                    vec![None]
+                } else {
+                    return Err(ArrowError::JsonError(
+                        "3Only scalars are currently supported in JSON arrays"
+                            .to_string(),
+                    ));
+                };
+                for val in vals {
+                    match val {
+                        Some(v) => match num::cast::cast(v) {
+                            Some(v) => builder.values().append_value(v)?,
                             None => builder.values().append_null()?,
-                        };
-                    }
+                        },
+                        None => builder.values().append_null()?,
+                    };
                 }
-                None => {}
             }
             builder.append(true)?
         }
@@ -726,11 +710,7 @@ impl ReaderBuilder {
         // check if schema should be inferred
         let schema = match self.schema {
             Some(schema) => schema,
-            None => {
-                let inferred = infer_json_schema(file.try_clone()?, self.max_records)?;
-
-                inferred
-            }
+            None => infer_json_schema(file.try_clone()?, self.max_records)?,
         };
         let buf_reader = BufReader::new(file);
         Ok(Reader::new(

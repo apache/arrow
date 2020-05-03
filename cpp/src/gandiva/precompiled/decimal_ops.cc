@@ -23,10 +23,10 @@
 #include <cmath>
 #include <limits>
 
+#include "arrow/util/logging.h"
 #include "gandiva/decimal_type_util.h"
 #include "gandiva/decimal_xlarge.h"
 #include "gandiva/gdv_function_stubs.h"
-#include "gandiva/logging.h"
 
 // Several operations (multiply, divide, mod, ..) require converting to 256-bit, and we
 // use the boost library for doing 256-bit operations. To avoid references to boost from

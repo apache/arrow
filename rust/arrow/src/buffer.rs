@@ -78,7 +78,7 @@ impl PartialEq for BufferData {
 impl Drop for BufferData {
     fn drop(&mut self) {
         if !self.ptr.is_null() && self.owned {
-            memory::free_aligned(self.ptr as *mut u8, self.capacity);
+            unsafe { memory::free_aligned(self.ptr as *mut u8, self.capacity) };
         }
     }
 }
@@ -215,7 +215,7 @@ impl Buffer {
     /// Note that this should be used cautiously, and the returned pointer should not be
     /// stored anywhere, to avoid dangling pointers.
     pub fn raw_data(&self) -> *const u8 {
-        unsafe { self.data.ptr.offset(self.offset as isize) }
+        unsafe { self.data.ptr.add(self.offset) }
     }
 
     /// View buffer as typed slice.
@@ -232,7 +232,7 @@ impl Buffer {
         assert_eq!(self.len() % mem::size_of::<T>(), 0);
         assert!(memory::is_ptr_aligned::<T>(self.raw_data() as *const T));
         from_raw_parts(
-            mem::transmute::<*const u8, *const T>(self.raw_data()),
+            self.raw_data() as *const T,
             self.len() / mem::size_of::<T>(),
         )
     }
@@ -277,21 +277,16 @@ where
     let mut result = MutableBuffer::new(left.len()).with_bitset(left.len(), false);
     let lanes = u8x64::lanes();
     for i in (0..left.len()).step_by(lanes) {
-        let left_data =
-            unsafe { from_raw_parts(left.raw_data().offset(i as isize), lanes) };
-        let right_data =
-            unsafe { from_raw_parts(right.raw_data().offset(i as isize), lanes) };
+        let left_data = unsafe { from_raw_parts(left.raw_data().add(i), lanes) };
+        let right_data = unsafe { from_raw_parts(right.raw_data().add(i), lanes) };
         let result_slice: &mut [u8] = unsafe {
-            from_raw_parts_mut(
-                (result.data_mut().as_mut_ptr() as *mut u8).offset(i as isize),
-                lanes,
-            )
+            from_raw_parts_mut((result.data_mut().as_mut_ptr() as *mut u8).add(i), lanes)
         };
         unsafe {
             bit_util::bitwise_bin_op_simd(&left_data, &right_data, result_slice, &op)
         };
     }
-    return result.freeze();
+    result.freeze()
 }
 
 impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
@@ -374,11 +369,11 @@ impl Not for &Buffer {
             let lanes = u8x64::lanes();
             for i in (0..self.len()).step_by(lanes) {
                 unsafe {
-                    let data = from_raw_parts(self.raw_data().offset(i as isize), lanes);
+                    let data = from_raw_parts(self.raw_data().add(i), lanes);
                     let data_simd = u8x64::from_slice_unaligned_unchecked(data);
                     let simd_result = !data_simd;
                     let result_slice: &mut [u8] = from_raw_parts_mut(
-                        (result.data_mut().as_mut_ptr() as *mut u8).offset(i as isize),
+                        (result.data_mut().as_mut_ptr() as *mut u8).add(i),
                         lanes,
                     );
                     simd_result.write_to_slice_unaligned_unchecked(result_slice);
@@ -449,7 +444,7 @@ impl MutableBuffer {
     pub fn set_null_bits(&mut self, start: usize, count: usize) {
         assert!(start + count <= self.capacity);
         unsafe {
-            std::ptr::write_bytes(self.data.offset(start as isize), 0, count);
+            std::ptr::write_bytes(self.data.add(start), 0, count);
         }
     }
 
@@ -461,7 +456,8 @@ impl MutableBuffer {
         if capacity > self.capacity {
             let new_capacity = bit_util::round_upto_multiple_of_64(capacity);
             let new_capacity = cmp::max(new_capacity, self.capacity * 2);
-            let new_data = memory::reallocate(self.data, self.capacity, new_capacity);
+            let new_data =
+                unsafe { memory::reallocate(self.data, self.capacity, new_capacity) };
             self.data = new_data as *mut u8;
             self.capacity = new_capacity;
         }
@@ -481,7 +477,8 @@ impl MutableBuffer {
         } else {
             let new_capacity = bit_util::round_upto_multiple_of_64(new_len);
             if new_capacity < self.capacity {
-                let new_data = memory::reallocate(self.data, self.capacity, new_capacity);
+                let new_data =
+                    unsafe { memory::reallocate(self.data, self.capacity, new_capacity) };
                 self.data = new_data as *mut u8;
                 self.capacity = new_capacity;
             }
@@ -571,7 +568,7 @@ impl MutableBuffer {
 impl Drop for MutableBuffer {
     fn drop(&mut self) {
         if !self.data.is_null() {
-            memory::free_aligned(self.data, self.capacity);
+            unsafe { memory::free_aligned(self.data, self.capacity) };
         }
     }
 }
@@ -595,7 +592,7 @@ impl Write for MutableBuffer {
             return Err(IoError::new(ErrorKind::Other, "Buffer not big enough"));
         }
         unsafe {
-            memory::memcpy(self.data.offset(self.len as isize), buf.as_ptr(), buf.len());
+            memory::memcpy(self.data.add(self.len), buf.as_ptr(), buf.len());
             self.len += buf.len();
             Ok(buf.len())
         }

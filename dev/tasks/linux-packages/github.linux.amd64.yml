@@ -40,31 +40,33 @@ jobs:
       - name: Free Up Disk Space
         shell: bash
         run: arrow/ci/scripts/util_cleanup.sh
-
-      # We can remove this with binfmt-support 2.1.7 or later and
-      # qemu-user-static 2.12 or later. It requires Debian buster or later,
-      # or Ubuntu 18.10 or later.
-      - name: Prepare qemu-user-static
-        run: |
-          sudo apt install -y qemu-user-static unar
-          wget http://archive.ubuntu.com/ubuntu/pool/universe/q/qemu/qemu-user-static_3.1+dfsg-2ubuntu3.7_amd64.deb
-          unar *.deb
-          rm *.deb
-          pushd qemu-user-static*
-          unar data.*
-          for dockerfile in ../arrow/dev/tasks/linux-packages/*/*/*/Dockerfile; do
-            cp data/usr/bin/qemu-aarch64-static $(dirname ${dockerfile})
-          done
-          popd
       - name: Build
         run: |
           set -e
           pushd arrow/dev/tasks/linux-packages
           rake version:update
-          {{ build_command }}
+          rake docker:pull || :
+          rake {{ build_task }}
           popd
         env:
+          APT_TARGETS: {{ target }}
           ARROW_VERSION: {{ arrow.version }}
+          REPO: {{ '${{ secrets.REPO }}' }}
+          YUM_TARGETS: {{ target }}
+      - name: Docker Push
+        if: success()
+        continue-on-error: true
+        shell: bash
+        run: |
+          pushd arrow/dev/tasks/linux-packages
+          docker login -u "{{ '${{ secrets.DOCKERHUB_USER }}' }}" \
+                       -p "{{ '${{ secrets.DOCKERHUB_TOKEN }}' }}"
+          rake docker:push
+          popd
+        env:
+          APT_TARGETS: {{ target }}
+          REPO: {{ '${{ secrets.REPO }}' }}
+          YUM_TARGETS: {{ target }}
       # Using GitHub release tries to find a common ancestor between the
       # currently pushed tag and the latest tag of the GitHub repository
       # (don't know why).

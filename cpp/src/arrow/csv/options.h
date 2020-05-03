@@ -80,7 +80,7 @@ struct ARROW_EXPORT ConvertOptions {
 
   /// Whether to try to automatically dict-encode string / binary data.
   /// If true, then when type inference detects a string or binary column,
-  /// it it dict-encoded up to `auto_dict_max_cardinality` distinct values
+  /// it is dict-encoded up to `auto_dict_max_cardinality` distinct values
   /// (per chunk), after which it switches to regular encoding.
   ///
   /// This setting is ignored for non-inferred columns (those in `column_types`).

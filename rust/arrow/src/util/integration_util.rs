@@ -309,9 +309,9 @@ impl ArrowJsonBatch {
                                 &json_array.iter().collect::<Vec<&Value>>()[..],
                             )
                         }
-                        t @ _ => panic!("Unsupported dictionary comparison for {:?}", t),
+                        t => panic!("Unsupported dictionary comparison for {:?}", t),
                     },
-                    t @ _ => panic!("Unsupported comparison for {:?}", t),
+                    t => panic!("Unsupported comparison for {:?}", t),
                 }
             })
     }
@@ -330,7 +330,7 @@ fn json_from_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value> {
 }
 
 /// Merge VALIDITY and DATA vectors from a primitive data type into a `Value` vector with nulls
-fn merge_json_array(validity: &Vec<u8>, data: &Vec<Value>) -> Vec<Value> {
+fn merge_json_array(validity: &[u8], data: &[Value]) -> Vec<Value> {
     validity
         .iter()
         .zip(data)
@@ -343,7 +343,7 @@ fn merge_json_array(validity: &Vec<u8>, data: &Vec<Value>) -> Vec<Value> {
 }
 
 /// Convert an Arrow JSON column/array of a `DataType::Struct` into a vector of `Value`
-fn json_from_struct_col(col: &ArrowJsonColumn, fields: &Vec<Field>) -> Vec<Value> {
+fn json_from_struct_col(col: &ArrowJsonColumn, fields: &[Field]) -> Vec<Value> {
     let mut values = Vec::with_capacity(col.count);
 
     let children: Vec<Vec<Value>> = col
@@ -379,7 +379,7 @@ fn json_from_list_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value>
         .unwrap()
         .iter()
         .map(|o| match o {
-            Value::String(s) => *&s.parse::<usize>().unwrap(),
+            Value::String(s) => s.parse::<usize>().unwrap(),
             Value::Number(n) => n.as_u64().unwrap() as usize,
             _ => panic!(
                 "Offsets should be numbers or strings that are convertible to numbers"

@@ -18,15 +18,107 @@
 #include "gandiva/projector.h"
 
 #include <memory>
+#include <thread>
 #include <utility>
 #include <vector>
+
+#include "arrow/util/hashing.h"
 
 #include "gandiva/cache.h"
 #include "gandiva/expr_validator.h"
 #include "gandiva/llvm_generator.h"
-#include "gandiva/projector_cache_key.h"
 
 namespace gandiva {
+
+class ProjectorCacheKey {
+ public:
+  ProjectorCacheKey(SchemaPtr schema, std::shared_ptr<Configuration> configuration,
+                    ExpressionVector expression_vector, SelectionVector::Mode mode)
+      : schema_(schema), configuration_(configuration), mode_(mode), uniqifier_(0) {
+    static const int kSeedValue = 4;
+    size_t result = kSeedValue;
+    for (auto& expr : expression_vector) {
+      std::string expr_as_string = expr->ToString();
+      expressions_as_strings_.push_back(expr_as_string);
+      arrow::internal::hash_combine(result, expr_as_string);
+      UpdateUniqifier(expr_as_string);
+    }
+    arrow::internal::hash_combine(result, static_cast<size_t>(mode));
+    arrow::internal::hash_combine(result, configuration->Hash());
+    arrow::internal::hash_combine(result, schema_->ToString());
+    arrow::internal::hash_combine(result, uniqifier_);
+    hash_code_ = result;
+  }
+
+  std::size_t Hash() const { return hash_code_; }
+
+  bool operator==(const ProjectorCacheKey& other) const {
+    // arrow schema does not overload equality operators.
+    if (!(schema_->Equals(*other.schema().get(), true))) {
+      return false;
+    }
+
+    if (*configuration_ != *other.configuration_) {
+      return false;
+    }
+
+    if (expressions_as_strings_ != other.expressions_as_strings_) {
+      return false;
+    }
+
+    if (mode_ != other.mode_) {
+      return false;
+    }
+
+    if (uniqifier_ != other.uniqifier_) {
+      return false;
+    }
+    return true;
+  }
+
+  bool operator!=(const ProjectorCacheKey& other) const { return !(*this == other); }
+
+  SchemaPtr schema() const { return schema_; }
+
+  std::string ToString() const {
+    std::stringstream ss;
+    // indent, window, indent_size, null_rep and skip new lines.
+    arrow::PrettyPrintOptions options{0, 10, 2, "null", true};
+    DCHECK_OK(PrettyPrint(*schema_.get(), options, &ss));
+
+    ss << "Expressions: [";
+    bool first = true;
+    for (auto& expr : expressions_as_strings_) {
+      if (first) {
+        first = false;
+      } else {
+        ss << ", ";
+      }
+
+      ss << expr;
+    }
+    ss << "]";
+    return ss.str();
+  }
+
+ private:
+  void UpdateUniqifier(const std::string& expr) {
+    if (uniqifier_ == 0) {
+      // caching of expressions with re2 patterns causes lock contention. So, use
+      // multiple instances to reduce contention.
+      if (expr.find(" like(") != std::string::npos) {
+        uniqifier_ = std::hash<std::thread::id>()(std::this_thread::get_id()) % 16;
+      }
+    }
+  }
+
+  const SchemaPtr schema_;
+  const std::shared_ptr<Configuration> configuration_;
+  SelectionVector::Mode mode_;
+  std::vector<std::string> expressions_as_strings_;
+  size_t hash_code_;
+  uint32_t uniqifier_;
+};
 
 Projector::Projector(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
                      const FieldVector& output_fields,

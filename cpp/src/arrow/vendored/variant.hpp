@@ -1,4 +1,4 @@
-// Vendored from v1.4.0, from single-header branch at https://github.com/mpark/variant
+// Vendored from v1.4.0, from single-header branch at https://github.com/mpark/variant/commit/d1cdfdd3f2ed80710ba4d671fe6bffaa3e28201a
 
 // MPark.Variant
 //
@@ -200,6 +200,7 @@ namespace std {
 #include <exception>
 #include <functional>
 #include <initializer_list>
+#include <limits>
 #include <new>
 #include <type_traits>
 #include <utility>
@@ -282,7 +283,7 @@ namespace std {
 #define MPARK_INTEGER_SEQUENCE
 #endif
 
-#if defined(__cpp_return_type_deduction) || defined(_MSC_VER)
+#if (defined(__cpp_decltype_auto) && defined(__cpp_return_type_deduction)) || defined(_MSC_VER)
 #define MPARK_RETURN_TYPE_DEDUCTION
 #endif
 
@@ -387,6 +388,10 @@ namespace mpark {
 
       template <typename T>
       using remove_reference_t = typename std::remove_reference<T>::type;
+
+      template <typename T>
+      using remove_cvref_t =
+          typename std::remove_cv<remove_reference_t<T>>::type;
 
       template <typename T>
       inline constexpr T &&forward(remove_reference_t<T> &t) noexcept {
@@ -692,44 +697,6 @@ namespace mpark {
 
       template <typename R, typename F, typename... Args>
       using is_invocable_r = detail::is_invocable_r<void, R, F, Args...>;
-
-      namespace detail {
-
-        template <bool Invocable, typename F, typename... Args>
-        struct is_nothrow_invocable {
-          static constexpr bool value =
-              noexcept(lib::invoke(std::declval<F>(), std::declval<Args>()...));
-        };
-
-        template <typename F, typename... Args>
-        struct is_nothrow_invocable<false, F, Args...> : std::false_type {};
-
-        template <bool Invocable, typename R, typename F, typename... Args>
-        struct is_nothrow_invocable_r {
-          private:
-          inline static R impl() {
-            return lib::invoke(std::declval<F>(), std::declval<Args>()...);
-          }
-
-          public:
-          static constexpr bool value = noexcept(impl());
-        };
-
-        template <typename R, typename F, typename... Args>
-        struct is_nothrow_invocable_r<false, R, F, Args...> : std::false_type {};
-
-      }  // namespace detail
-
-      template <typename F, typename... Args>
-      using is_nothrow_invocable = detail::
-          is_nothrow_invocable<is_invocable<F, Args...>::value, F, Args...>;
-
-      template <typename R, typename F, typename... Args>
-      using is_nothrow_invocable_r =
-          detail::is_nothrow_invocable_r<is_invocable_r<R, F, Args...>::value,
-                                         R,
-                                         F,
-                                         Args...>;
 
       // <memory>
 #ifdef MPARK_BUILTIN_ADDRESSOF
@@ -1697,13 +1664,21 @@ namespace mpark {
 
 #undef MPARK_VARIANT_RECURSIVE_UNION
 
-    using index_t = unsigned int;
+    template <typename... Ts>
+    using index_t = typename std::conditional<
+            sizeof...(Ts) < (std::numeric_limits<unsigned char>::max)(),
+            unsigned char,
+            typename std::conditional<
+                sizeof...(Ts) < (std::numeric_limits<unsigned short>::max)(),
+                unsigned short,
+                unsigned int>::type
+            >::type;
 
     template <Trait DestructibleTrait, typename... Ts>
     class base {
       public:
       inline explicit constexpr base(valueless_t tag) noexcept
-          : data_(tag), index_(static_cast<index_t>(-1)) {}
+          : data_(tag), index_(static_cast<index_t<Ts...>>(-1)) {}
 
       template <std::size_t I, typename... Args>
       inline explicit constexpr base(in_place_index_t<I>, Args &&... args)
@@ -1711,7 +1686,7 @@ namespace mpark {
             index_(I) {}
 
       inline constexpr bool valueless_by_exception() const noexcept {
-        return index_ == static_cast<index_t>(-1);
+        return index_ == static_cast<index_t<Ts...>>(-1);
       }
 
       inline constexpr std::size_t index() const noexcept {
@@ -1734,7 +1709,7 @@ namespace mpark {
       inline static constexpr std::size_t size() { return sizeof...(Ts); }
 
       data_t data_;
-      index_t index_;
+      index_t<Ts...> index_;
 
       friend struct access::base;
       friend struct visitation::base;
@@ -1788,7 +1763,7 @@ namespace mpark {
         Trait::TriviallyAvailable,
         ~destructor() = default;,
         inline void destroy() noexcept {
-          this->index_ = static_cast<index_t>(-1);
+          this->index_ = static_cast<index_t<Ts...>>(-1);
         });
 
     MPARK_VARIANT_DESTRUCTOR(
@@ -1798,7 +1773,7 @@ namespace mpark {
           if (!this->valueless_by_exception()) {
             visitation::alt::visit_alt(dtor{}, *this);
           }
-          this->index_ = static_cast<index_t>(-1);
+          this->index_ = static_cast<index_t<Ts...>>(-1);
         });
 
     MPARK_VARIANT_DESTRUCTOR(
@@ -2099,6 +2074,12 @@ namespace mpark {
       MPARK_INHERITING_CTOR(impl, super)
       using super::operator=;
 
+      impl(const impl&) = default;
+      impl(impl&&) = default;
+      ~impl() = default;
+      impl &operator=(const impl &) = default;
+      impl &operator=(impl &&) = default;
+
       template <std::size_t I, typename Arg>
       inline void assign(Arg &&arg) {
         this->assign_alt(access::base::get_alt<I>(*this),
@@ -2169,30 +2150,69 @@ namespace mpark {
 
 #undef MPARK_INHERITING_CTOR
 
-    template <std::size_t I, typename T>
-    struct overload_leaf {
-      using F = lib::size_constant<I> (*)(T);
-      operator F() const { return nullptr; }
+    template <typename From, typename To>
+    struct is_non_narrowing_convertible {
+      template <typename T>
+      static std::true_type test(T(&&)[1]);
+
+      template <typename T>
+      static auto impl(int) -> decltype(test<T>({std::declval<From>()}));
+
+      template <typename>
+      static auto impl(...) -> std::false_type;
+
+      static constexpr bool value = decltype(impl<To>(0))::value;
     };
 
-    template <typename... Ts>
+    template <typename Arg,
+              std::size_t I,
+              typename T,
+              bool = std::is_arithmetic<T>::value,
+              typename = void>
+    struct overload_leaf {};
+
+    template <typename Arg, std::size_t I, typename T>
+    struct overload_leaf<Arg, I, T, false> {
+      using impl = lib::size_constant<I> (*)(T);
+      operator impl() const { return nullptr; };
+    };
+
+    template <typename Arg, std::size_t I, typename T>
+    struct overload_leaf<
+        Arg,
+        I,
+        T,
+        true
+#if defined(__clang__) || !defined(__GNUC__) || __GNUC__ >= 5
+        ,
+        lib::enable_if_t<
+            std::is_same<lib::remove_cvref_t<T>, bool>::value
+                ? std::is_same<lib::remove_cvref_t<Arg>, bool>::value
+                : is_non_narrowing_convertible<Arg, T>::value>
+#endif
+        > {
+      using impl = lib::size_constant<I> (*)(T);
+      operator impl() const { return nullptr; };
+    };
+
+    template <typename Arg, typename... Ts>
     struct overload_impl {
       private:
       template <typename>
       struct impl;
 
       template <std::size_t... Is>
-      struct impl<lib::index_sequence<Is...>> : overload_leaf<Is, Ts>... {};
+      struct impl<lib::index_sequence<Is...>> : overload_leaf<Arg, Is, Ts>... {};
 
       public:
       using type = impl<lib::index_sequence_for<Ts...>>;
     };
 
-    template <typename... Ts>
-    using overload = typename overload_impl<Ts...>::type;
+    template <typename Arg, typename... Ts>
+    using overload = typename overload_impl<Arg, Ts...>::type;
 
-    template <typename T, typename... Ts>
-    using best_match = lib::invoke_result_t<overload<Ts...>, T &&>;
+    template <typename Arg, typename... Ts>
+    using best_match = lib::invoke_result_t<overload<Arg, Ts...>, Arg>;
 
     template <typename T>
     struct is_in_place_index : std::false_type {};
@@ -2660,20 +2680,20 @@ namespace mpark {
 #ifdef MPARK_CPP14_CONSTEXPR
   namespace detail {
 
-    inline constexpr bool all(std::initializer_list<bool> bs) {
+    inline constexpr bool any(std::initializer_list<bool> bs) {
       for (bool b : bs) {
-        if (!b) {
-          return false;
+        if (b) {
+          return true;
         }
       }
-      return true;
+      return false;
     }
 
   }  // namespace detail
 
   template <typename Visitor, typename... Vs>
   inline constexpr decltype(auto) visit(Visitor &&visitor, Vs &&... vs) {
-    return (detail::all({!vs.valueless_by_exception()...})
+    return (!detail::any({vs.valueless_by_exception()...})
                 ? (void)0
                 : throw_bad_variant_access()),
            detail::visitation::variant::visit_value(

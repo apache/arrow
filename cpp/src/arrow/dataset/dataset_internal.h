@@ -34,8 +34,8 @@ namespace dataset {
 
 /// \brief GetFragmentsFromDatasets transforms a vector<Dataset> into a
 /// flattened FragmentIterator.
-static inline FragmentIterator GetFragmentsFromDatasets(
-    const DatasetVector& datasets, std::shared_ptr<Expression> predicate) {
+inline FragmentIterator GetFragmentsFromDatasets(const DatasetVector& datasets,
+                                                 std::shared_ptr<Expression> predicate) {
   // Iterator<Dataset>
   auto datasets_it = MakeVectorIterator(datasets);
 
@@ -51,12 +51,11 @@ static inline FragmentIterator GetFragmentsFromDatasets(
   return MakeFlattenIterator(std::move(fragments_it));
 }
 
-static inline RecordBatchIterator IteratorFromReader(
-    std::shared_ptr<RecordBatchReader> reader) {
+inline RecordBatchIterator IteratorFromReader(std::shared_ptr<RecordBatchReader> reader) {
   return MakeFunctionIterator([reader] { return reader->Next(); });
 }
 
-static inline std::shared_ptr<Schema> SchemaFromColumnNames(
+inline std::shared_ptr<Schema> SchemaFromColumnNames(
     const std::shared_ptr<Schema>& input, const std::vector<std::string>& column_names) {
   std::vector<std::shared_ptr<Field>> columns;
   for (FieldRef ref : column_names) {

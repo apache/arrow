@@ -16,6 +16,7 @@
 using Apache.Arrow.Types;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -39,6 +40,39 @@ namespace Apache.Arrow.Tests
             TestArrayBuilder<DoubleArray, DoubleArray.Builder>(x => x.Append(10).Append(20).Append(30));
         }
 
+        [Fact]
+        public void PrimitiveArrayBuildersProduceExpectedArrayWithNulls()
+        {
+            TestArrayBuilder<Int8Array, Int8Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(127), 4, 2, 0x09);
+            TestArrayBuilder<Int16Array, Int16Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+            TestArrayBuilder<Int32Array, Int32Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+            TestArrayBuilder<Int64Array, Int64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+            TestArrayBuilder<UInt8Array, UInt8Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(127), 4, 2, 0x09);
+            TestArrayBuilder<UInt16Array, UInt16Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+            TestArrayBuilder<UInt32Array, UInt32Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+            TestArrayBuilder<UInt64Array, UInt64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+            TestArrayBuilder<UInt64Array, UInt64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+            TestArrayBuilder<FloatArray, FloatArray.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+            TestArrayBuilder<DoubleArray, DoubleArray.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+        }
+
+        [Fact]
+        public void BooleanArrayBuilderProducersExpectedArray()
+        {
+            TestArrayBuilder<BooleanArray, BooleanArray.Builder>(x => x.Append(true).Append(false).Append(true));
+            TestArrayBuilder<BooleanArray, BooleanArray.Builder>(x => x.Append(true).AppendNull().Append(false).Append(true), 4, 1, 0x0D);
+        }
+
+        [Fact]
+        public void StringArrayBuilderHandlesNullsAndEmptyStrings()
+        {
+            var stringArray = TestArrayBuilder<StringArray, StringArray.Builder>(x => x.Append("123").Append(null).AppendNull().Append(string.Empty), 4, 2, 0x09);
+            Assert.Equal("123", stringArray.GetString(0));
+            Assert.Null(stringArray.GetString(1));
+            Assert.Null(stringArray.GetString(2));
+            Assert.Equal(string.Empty, stringArray.GetString(3));
+        }
+
 
         [Fact]
         public void ListArrayBuilder()
@@ -48,22 +82,24 @@ namespace Apache.Arrow.Tests
             Assert.NotNull(valueBuilder);
             listBuilder.Append();
             valueBuilder.Append("1");
+            listBuilder.AppendNull();
             listBuilder.Append();
             valueBuilder.Append("22").Append("33");
             listBuilder.Append();
-            valueBuilder.Append("444").Append("555").Append("666");
+            valueBuilder.Append("444").AppendNull().Append("555").Append("666");
 
             var list = listBuilder.Build();
 
             Assert.Equal(
                 new List<string> { "1" },
                 ConvertStringArrayToList(list.GetSlicedValues(0) as StringArray));
+            Assert.Null(list.GetSlicedValues(1));
             Assert.Equal(
                 new List<string> { "22", "33" },
-                ConvertStringArrayToList(list.GetSlicedValues(1) as StringArray));
-            Assert.Equal(
-                new List<string> { "444", "555", "666" },
                 ConvertStringArrayToList(list.GetSlicedValues(2) as StringArray));
+            Assert.Equal(
+                new List<string> { "444", null, "555", "666" },
+                ConvertStringArrayToList(list.GetSlicedValues(3) as StringArray));
 
             List<string> ConvertStringArrayToList(StringArray array)
             {
@@ -139,7 +175,7 @@ namespace Apache.Arrow.Tests
             }
         }
 
-        private static void TestArrayBuilder<TArray, TArrayBuilder>(Action<TArrayBuilder> action)
+        private static TArray TestArrayBuilder<TArray, TArrayBuilder>(Action<TArrayBuilder> action, int expectedLength = 3, int expectedNullCount = 0, int expectedNulls = 0)
             where TArray : IArrowArray
             where TArrayBuilder : IArrowArrayBuilder<TArray>, new()
         {
@@ -149,8 +185,13 @@ namespace Apache.Arrow.Tests
 
             Assert.IsAssignableFrom<TArray>(array);
             Assert.NotNull(array);
-            Assert.Equal(3, array.Length);
-            Assert.Equal(0, array.NullCount);
+            Assert.Equal(expectedLength, array.Length);
+            Assert.Equal(expectedNullCount, array.NullCount);
+            if (expectedNulls != 0)
+            {
+                Assert.True(array.Data.Buffers[0].Span.Slice(0, 1).SequenceEqual(new ReadOnlySpan<byte>(BitConverter.GetBytes(expectedNulls).Take(1).ToArray())));
+            }
+            return array;
         }
 
     }

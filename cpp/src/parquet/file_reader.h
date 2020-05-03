@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/io/caching.h"
 #include "parquet/metadata.h"  // IWYU pragma: keep
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -116,6 +117,28 @@ class PARQUET_EXPORT ParquetFileReader {
 
   // Returns the file metadata. Only one instance is ever created
   std::shared_ptr<FileMetaData> metadata() const;
+
+  /// Pre-buffer the specified column indices in all row groups.
+  ///
+  /// Readers can optionally call this to cache the necessary slices
+  /// of the file in-memory before deserialization. Arrow readers can
+  /// automatically do this via an option. This is intended to
+  /// increase performance when reading from high-latency filesystems
+  /// (e.g. Amazon S3).
+  ///
+  /// After calling this, creating readers for row groups/column
+  /// indices that were not buffered may fail. Creating multiple
+  /// readers for the a subset of the buffered regions is
+  /// acceptable. This may be called again to buffer a different set
+  /// of row groups/columns.
+  ///
+  /// If memory usage is a concern, note that data will remain
+  /// buffered in memory until either \a PreBuffer() is called again,
+  /// or the reader itself is destructed. Reading - and buffering -
+  /// only one row group at a time may be useful.
+  void PreBuffer(const std::vector<int>& row_groups,
+                 const std::vector<int>& column_indices,
+                 const ::arrow::io::CacheOptions& options);
 
  private:
   // Holds a pointer to an instance of Contents implementation

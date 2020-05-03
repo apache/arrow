@@ -265,7 +265,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-    return simd_compare_op(left, right, |a, b| T::eq(a, b));
+    return simd_compare_op(left, right, T::eq);
 
     #[cfg(any(
         not(any(target_arch = "x86", target_arch = "x86_64")),
@@ -280,7 +280,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-    return simd_compare_op(left, right, |a, b| T::ne(a, b));
+    return simd_compare_op(left, right, T::ne);
 
     #[cfg(any(
         not(any(target_arch = "x86", target_arch = "x86_64")),
@@ -296,7 +296,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-    return simd_compare_op(left, right, |a, b| T::lt(a, b));
+    return simd_compare_op(left, right, T::lt);
 
     #[cfg(any(
         not(any(target_arch = "x86", target_arch = "x86_64")),
@@ -315,7 +315,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-    return simd_compare_op(left, right, |a, b| T::le(a, b));
+    return simd_compare_op(left, right, T::le);
 
     #[cfg(any(
         not(any(target_arch = "x86", target_arch = "x86_64")),
@@ -331,7 +331,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-    return simd_compare_op(left, right, |a, b| T::gt(a, b));
+    return simd_compare_op(left, right, T::gt);
 
     #[cfg(any(
         not(any(target_arch = "x86", target_arch = "x86_64")),
@@ -350,7 +350,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-    return simd_compare_op(left, right, |a, b| T::ge(a, b));
+    return simd_compare_op(left, right, T::ge);
 
     #[cfg(any(
         not(any(target_arch = "x86", target_arch = "x86_64")),

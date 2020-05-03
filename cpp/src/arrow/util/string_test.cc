@@ -37,6 +37,22 @@ TEST(Trim, Basics) {
   }
 }
 
+TEST(AsciiEqualsCaseInsensitive, Basics) {
+  ASSERT_TRUE(AsciiEqualsCaseInsensitive("foo", "Foo"));
+  ASSERT_TRUE(AsciiEqualsCaseInsensitive("foo!", "FOO!"));
+  ASSERT_TRUE(AsciiEqualsCaseInsensitive("", ""));
+  ASSERT_TRUE(AsciiEqualsCaseInsensitive("fooo", "fooO"));
+
+  ASSERT_FALSE(AsciiEqualsCaseInsensitive("f", "G"));
+  ASSERT_FALSE(AsciiEqualsCaseInsensitive("foo!", "FOO"));
+}
+
+TEST(AsciiToLower, Basics) {
+  ASSERT_EQ("something", AsciiToLower("Something"));
+  ASSERT_EQ("something", AsciiToLower("SOMETHING"));
+  ASSERT_EQ("", AsciiToLower(""));
+}
+
 TEST(ParseHexValue, Valid) {
   uint8_t output;
 

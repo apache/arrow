@@ -29,8 +29,8 @@
 #include <vector>
 
 #include "arrow/util/basic_decimal.h"
+#include "arrow/util/logging.h"
 #include "gandiva/decimal_type_util.h"
-#include "gandiva/logging.h"
 
 #ifndef GANDIVA_UNIT_TEST
 #include "gandiva/engine.h"

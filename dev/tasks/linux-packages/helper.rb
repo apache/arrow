@@ -32,7 +32,7 @@ module Helper
     end
 
     def detect_version(release_time)
-      version_env = ENV['ARROW_VERSION']
+      version_env = ENV["ARROW_VERSION"]
       return version_env if version_env
 
       pom_xml_path = File.join(arrow_source_dir, "java", "pom.xml")
@@ -40,6 +40,31 @@ module Helper
       version = pom_xml_content[/^  <version>(.+?)<\/version>/, 1]
       formatted_release_time = release_time.strftime("%Y%m%d")
       version.gsub(/-SNAPSHOT\z/) {"-dev#{formatted_release_time}"}
+    end
+
+    def detect_env(name)
+      value = ENV[name]
+      return value if value and not value.empty?
+
+      dot_env_path = File.join(arrow_source_dir, ".env")
+      File.open(dot_env_path) do |dot_env|
+        dot_env.each_line do |line|
+          case line.chomp
+          when /\A#{Regexp.escape(name)}=(.*)/
+            return $1
+          end
+        end
+      end
+      raise "Failed to detect #{name} environment variable"
+    end
+
+    def detect_repo
+      detect_env("REPO")
+    end
+
+    def docker_image(os, architecture)
+      architecture ||= "amd64"
+      "#{detect_repo}:#{architecture}-#{os}-package-#{@package}"
     end
   end
 end

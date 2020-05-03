@@ -26,6 +26,8 @@ namespace gandiva {
 class TestFunctionSignature : public ::testing::Test {
  protected:
   virtual void SetUp() {
+    // Use make_shared so these are distinct from the static instances returned
+    // by e.g. arrow::int32()
     local_i32_type_ = std::make_shared<arrow::Int32Type>();
     local_i64_type_ = std::make_shared<arrow::Int64Type>();
     local_date32_type_ = std::make_shared<arrow::Date32Type>();
