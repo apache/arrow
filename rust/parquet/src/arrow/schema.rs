@@ -1087,6 +1087,10 @@ mod tests {
             OPTIONAL INT64   time_micro (TIME_MICROS);
             OPTIONAL INT64   ts_milli (TIMESTAMP_MILLIS);
             REQUIRED INT64   ts_micro (TIMESTAMP_MICROS);
+            REQUIRED GROUP struct {
+                REQUIRED BOOLEAN bools;
+                REQUIRED INT32 uint32 (UINT_32);
+            }
         }
         ";
         let parquet_group_type = parse_message_type(message_type).unwrap();
@@ -1114,6 +1118,14 @@ mod tests {
             Field::new(
                 "ts_micro",
                 DataType::Timestamp(TimeUnit::Microsecond, None),
+                false,
+            ),
+            Field::new(
+                "struct",
+                DataType::Struct(vec![
+                    Field::new("bools", DataType::Boolean, false),
+                    Field::new("uint32", DataType::UInt32, false),
+                ]),
                 false,
             ),
         ];
