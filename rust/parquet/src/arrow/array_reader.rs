@@ -312,10 +312,10 @@ where
 
             // Fill space
             if levels_read > data_read {
-                def_levels_buffer.iter().for_each(|cur_def_levels_buf| {
+                def_levels_buffer.iter().for_each(|def_levels_buffer| {
                     let (mut level_pos, mut data_pos) = (levels_read, data_read);
                     while level_pos > 0 && data_pos > 0 {
-                        if cur_def_levels_buf[level_pos - 1]
+                        if def_levels_buffer[num_read + level_pos - 1]
                             == self.column_desc.max_def_level()
                         {
                             cur_data_buf.swap(level_pos - 1, data_pos - 1);
@@ -885,24 +885,26 @@ impl<'a> ArrayReaderBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::arrow::array_reader::{
-        build_array_reader, ArrayReader, PrimitiveArrayReader, StructArrayReader,
-    };
+    use super::*;
+    use crate::arrow::converter::Utf8Converter;
     use crate::basic::{Encoding, Type as PhysicalType};
     use crate::column::page::Page;
-    use crate::data_type::{DataType, Int32Type, Int64Type};
+    use crate::data_type::{ByteArray, DataType, Int32Type, Int64Type};
     use crate::errors::Result;
     use crate::file::reader::{FileReader, SerializedFileReader};
     use crate::schema::parser::parse_message_type;
     use crate::schema::types::{ColumnDescPtr, SchemaDescriptor};
-    use crate::util::test_common::page_util::InMemoryPageIterator;
+    use crate::util::test_common::page_util::{
+        DataPageBuilder, DataPageBuilderImpl, InMemoryPageIterator,
+    };
     use crate::util::test_common::{get_test_file, make_pages};
-    use arrow::array::{Array, ArrayRef, PrimitiveArray, StructArray};
+    use arrow::array::{Array, ArrayRef, PrimitiveArray, StringArray, StructArray};
     use arrow::datatypes::{
         DataType as ArrowType, Field, Int32Type as ArrowInt32, UInt32Type as ArrowUInt32,
         UInt64Type as ArrowUInt64,
     };
     use rand::distributions::uniform::SampleUniform;
+    use rand::{thread_rng, Rng};
     use std::any::Any;
     use std::collections::VecDeque;
     use std::rc::Rc;
@@ -1228,6 +1230,130 @@ mod tests {
                 array_reader.get_rep_levels()
             );
         }
+    }
+
+    #[test]
+    fn test_complex_array_reader_def_and_rep_levels() {
+        // Construct column schema
+        let message_type = "
+        message test_schema {
+            REPEATED Group test_mid {
+                OPTIONAL BYTE_ARRAY leaf (UTF8);
+            }
+        }
+        ";
+        let num_pages = 2;
+        let values_per_page = 100;
+        let str_base = "Hello World";
+
+        let schema = parse_message_type(message_type)
+            .map(|t| Rc::new(SchemaDescriptor::new(Rc::new(t))))
+            .unwrap();
+
+        let max_def_level = schema.column(0).max_def_level();
+        let max_rep_level = schema.column(0).max_rep_level();
+
+        assert_eq!(max_def_level, 2);
+        assert_eq!(max_rep_level, 1);
+
+        let mut rng = thread_rng();
+        let column_desc = schema.column(0);
+        let mut pages: Vec<Vec<Page>> = Vec::new();
+
+        let mut rep_levels = Vec::with_capacity(num_pages * values_per_page);
+        let mut def_levels = Vec::with_capacity(num_pages * values_per_page);
+        let mut all_values = Vec::with_capacity(num_pages * values_per_page);
+
+        for i in 0..num_pages {
+            let mut values = Vec::with_capacity(values_per_page);
+
+            for _ in 0..values_per_page {
+                let def_level = rng.gen_range(0, max_def_level + 1);
+                let rep_level = rng.gen_range(0, max_rep_level + 1);
+                if def_level == max_def_level {
+                    let len = rng.gen_range(1, str_base.len());
+                    let slice = &str_base[..len];
+                    values.push(ByteArray::from(slice));
+                    all_values.push(Some(slice.to_string()));
+                } else {
+                    all_values.push(None)
+                }
+                rep_levels.push(rep_level);
+                def_levels.push(def_level)
+            }
+
+            let range = i * values_per_page..(i + 1) * values_per_page;
+            let mut pb =
+                DataPageBuilderImpl::new(column_desc.clone(), values.len() as u32, true);
+
+            pb.add_rep_levels(max_rep_level, &rep_levels.as_slice()[range.clone()]);
+            pb.add_def_levels(max_def_level, &def_levels.as_slice()[range]);
+            pb.add_values::<ByteArrayType>(Encoding::PLAIN, values.as_slice());
+
+            let data_page = pb.consume();
+            pages.push(vec![data_page]);
+        }
+
+        let page_iterator =
+            InMemoryPageIterator::new(schema.clone(), column_desc.clone(), pages);
+
+        let mut array_reader =
+            ComplexObjectArrayReader::<ByteArrayType, Utf8Converter>::new(
+                Box::new(page_iterator),
+                column_desc.clone(),
+            )
+            .unwrap();
+
+        let mut accu_len: usize = 0;
+
+        let array = array_reader.next_batch(values_per_page / 2).unwrap();
+        assert_eq!(array.len(), values_per_page / 2);
+        assert_eq!(
+            Some(&def_levels[accu_len..(accu_len + array.len())]),
+            array_reader.get_def_levels()
+        );
+        assert_eq!(
+            Some(&rep_levels[accu_len..(accu_len + array.len())]),
+            array_reader.get_rep_levels()
+        );
+        accu_len += array.len();
+
+        // Read next values_per_page values, the first values_per_page/2 ones are from the first column chunk,
+        // and the last values_per_page/2 ones are from the second column chunk
+        let array = array_reader.next_batch(values_per_page).unwrap();
+        assert_eq!(array.len(), values_per_page);
+        assert_eq!(
+            Some(&def_levels[accu_len..(accu_len + array.len())]),
+            array_reader.get_def_levels()
+        );
+        assert_eq!(
+            Some(&rep_levels[accu_len..(accu_len + array.len())]),
+            array_reader.get_rep_levels()
+        );
+        let strings = array.as_any().downcast_ref::<StringArray>().unwrap();
+        for i in 0..array.len() {
+            if array.is_valid(i) {
+                assert_eq!(
+                    all_values[i + accu_len].as_ref().unwrap().as_str(),
+                    strings.value(i)
+                )
+            } else {
+                assert_eq!(all_values[i + accu_len], None)
+            }
+        }
+        accu_len += array.len();
+
+        // Try to read values_per_page values, however there are only values_per_page/2 values
+        let array = array_reader.next_batch(values_per_page).unwrap();
+        assert_eq!(array.len(), values_per_page / 2);
+        assert_eq!(
+            Some(&def_levels[accu_len..(accu_len + array.len())]),
+            array_reader.get_def_levels()
+        );
+        assert_eq!(
+            Some(&rep_levels[accu_len..(accu_len + array.len())]),
+            array_reader.get_rep_levels()
+        );
     }
 
     /// Array reader for test.
