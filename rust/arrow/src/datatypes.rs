@@ -520,6 +520,8 @@ where
     /// Gets the value of a single lane in a SIMD mask
     fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool;
 
+    fn bitmask<T>(mask: &Self::SimdMask, action: T) where T: FnMut(&[u8]);
+
     /// Sets the value of a single lane of a SIMD mask
     fn mask_set(mask: Self::SimdMask, idx: usize, value: bool) -> Self::SimdMask;
 
@@ -590,6 +592,10 @@ macro_rules! make_numeric_type {
 
             fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool {
                 unsafe { mask.extract_unchecked(idx) }
+            }
+
+            fn bitmask<T>(mask: &Self::SimdMask, mut action: T) where T: FnMut(&[u8]) {
+                action(mask.bitmask().to_byte_slice());
             }
 
             fn mask_set(mask: Self::SimdMask, idx: usize, value: bool) -> Self::SimdMask {
