@@ -39,22 +39,22 @@ using fs::internal::GetAbstractPathExtension;
 using internal::TemporaryDir;
 
 TEST(FileSource, PathBased) {
-  fs::LocalFileSystem localfs;
+  auto localfs = std::make_shared<fs::LocalFileSystem>();
 
   std::string p1 = "/path/to/file.ext";
   std::string p2 = "/path/to/file.ext.gz";
 
-  FileSource source1(p1, &localfs);
-  FileSource source2(p2, &localfs, Compression::GZIP);
+  FileSource source1(p1, localfs);
+  FileSource source2(p2, localfs, Compression::GZIP);
 
   ASSERT_EQ(p1, source1.path());
-  ASSERT_EQ(&localfs, source1.filesystem());
-  ASSERT_EQ(FileSource::PATH, source1.type());
+  ASSERT_TRUE(localfs->Equals(*source1.filesystem()));
+  ASSERT_EQ(FileSource::PATH, source1.id());
   ASSERT_EQ(Compression::UNCOMPRESSED, source1.compression());
 
   ASSERT_EQ(p2, source2.path());
-  ASSERT_EQ(&localfs, source2.filesystem());
-  ASSERT_EQ(FileSource::PATH, source2.type());
+  ASSERT_TRUE(localfs->Equals(*source2.filesystem()));
+  ASSERT_EQ(FileSource::PATH, source2.id());
   ASSERT_EQ(Compression::GZIP, source2.compression());
 
   // Test copy constructor and comparison
@@ -69,11 +69,11 @@ TEST(FileSource, BufferBased) {
   FileSource source1(buf);
   FileSource source2(buf, Compression::LZ4);
 
-  ASSERT_EQ(FileSource::BUFFER, source1.type());
+  ASSERT_EQ(FileSource::BUFFER, source1.id());
   ASSERT_TRUE(source1.buffer()->Equals(*buf));
   ASSERT_EQ(Compression::UNCOMPRESSED, source1.compression());
 
-  ASSERT_EQ(FileSource::BUFFER, source2.type());
+  ASSERT_EQ(FileSource::BUFFER, source2.id());
   ASSERT_TRUE(source2.buffer()->Equals(*buf));
   ASSERT_EQ(Compression::LZ4, source2.compression());
 }
@@ -96,7 +96,7 @@ TEST_F(TestFileSystemDataset, ReplaceSchema) {
   auto schm = schema({field("i32", int32()), field("f64", float64())});
   auto format = std::make_shared<DummyFileFormat>(schm);
   ASSERT_OK_AND_ASSIGN(auto dataset,
-                       FileSystemDataset::Make(schm, scalar(true), format, fs_, {}));
+                       FileSystemDataset::Make(schm, scalar(true), format, {}));
 
   // drop field
   ASSERT_OK(dataset->ReplaceSchema(schema({field("i32", int32())})).status());
@@ -147,9 +147,12 @@ TEST_F(TestFileSystemDataset, TreePartitionPruning) {
   };
 
   ExpressionVector partitions = {
-      ("state"_ == "NY").Copy(),           ("city"_ == "New York").Copy(),
-      ("city"_ == "Franklin").Copy(),      ("state"_ == "CA").Copy(),
-      ("city"_ == "San Francisco").Copy(), ("city"_ == "Franklin").Copy(),
+      ("state"_ == "NY").Copy(),
+      ("state"_ == "NY" and "city"_ == "New York").Copy(),
+      ("state"_ == "NY" and "city"_ == "Franklin").Copy(),
+      ("state"_ == "CA").Copy(),
+      ("state"_ == "CA" and "city"_ == "San Francisco").Copy(),
+      ("state"_ == "CA" and "city"_ == "Franklin").Copy(),
   };
 
   MakeDataset(regions, root_partition, partitions);
@@ -184,15 +187,18 @@ TEST_F(TestFileSystemDataset, FragmentPartitions) {
   };
 
   ExpressionVector partitions = {
-      ("state"_ == "NY").Copy(),           ("city"_ == "New York").Copy(),
-      ("city"_ == "Franklin").Copy(),      ("state"_ == "CA").Copy(),
-      ("city"_ == "San Francisco").Copy(), ("city"_ == "Franklin").Copy(),
+      ("state"_ == "NY").Copy(),
+      ("state"_ == "NY" and "city"_ == "New York").Copy(),
+      ("state"_ == "NY" and "city"_ == "Franklin").Copy(),
+      ("state"_ == "CA").Copy(),
+      ("state"_ == "CA" and "city"_ == "San Francisco").Copy(),
+      ("state"_ == "CA" and "city"_ == "Franklin").Copy(),
   };
 
   MakeDataset(regions, root_partition, partitions);
 
   auto with_root = [&](const Expression& state, const Expression& city) {
-    return and_(and_(root_partition, state.Copy()), city.Copy());
+    return and_(state.Copy(), city.Copy());
   };
 
   AssertFragmentsHavePartitionExpressions(

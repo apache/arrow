@@ -233,9 +233,9 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CFileSource "arrow::dataset::FileSource":
         const c_string& path() const
-        CFileSystem* filesystem() const
+        const shared_ptr[CFileSystem]& filesystem() const
         const shared_ptr[CBuffer]& buffer() const
-        CFileSource(c_string path, CFileSystem* filesystem)
+        CFileSource(c_string path, shared_ptr[CFileSystem] filesystem)
 
     cdef cppclass CFileFormat "arrow::dataset::FileFormat":
         c_string type_name() const
@@ -260,12 +260,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             shared_ptr[CSchema] schema,
             shared_ptr[CExpression] source_partition,
             shared_ptr[CFileFormat] format,
-            shared_ptr[CFileSystem] filesystem,
-            vector[CFileInfo] infos,
-            CExpressionVector partitions)
+            vector[shared_ptr[CFileFragment]] fragments)
         c_string type()
         vector[c_string] files()
-        const shared_ptr[CFileFormat] format()
+        const shared_ptr[CFileFormat]& format() const
 
     cdef cppclass CParquetFileFormatReaderOptions \
             "arrow::dataset::ParquetFileFormat::ReaderOptions":

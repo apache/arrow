@@ -92,7 +92,7 @@ TEST_F(TestCsvFileFormat, OpenFailureWithRelevantError) {
   ASSERT_OK_AND_ASSIGN(
       auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {fs::File(file_name)}));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr(file_name),
-                                  format_->Inspect({file_name, fs.get()}).status());
+                                  format_->Inspect({file_name, fs}).status());
 }
 
 TEST_F(TestCsvFileFormat, Inspect) {

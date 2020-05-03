@@ -275,8 +275,11 @@ cdef class FileSystemDataset(Dataset):
         cdef:
             FileInfo info
             Expression expr
+            FileFragment fragment
             vector[CFileInfo] c_file_infos
             vector[shared_ptr[CExpression]] c_partitions
+            shared_ptr[CFileFragment] c_fragment
+            vector[shared_ptr[CFileFragment]] c_fragments
             CResult[shared_ptr[CDataset]] result
 
         # validate required arguments
@@ -291,20 +294,24 @@ cdef class FileSystemDataset(Dataset):
                     "got {2})".format(name, class_.__name__, type(arg))
                 )
 
-        for info in filesystem.get_file_info(paths_or_selector):
-            c_file_infos.push_back(info.unwrap())
+        infos = filesystem.get_file_info(paths_or_selector)
 
         if partitions is None:
-            partitions = [
-                ScalarExpression(True) for _ in range(c_file_infos.size())]
-        for expr in partitions:
-            c_partitions.push_back(expr.unwrap())
+            partitions = [ScalarExpression(True)] * len(infos)
 
-        if c_file_infos.size() != c_partitions.size():
+        if len(infos) != len(partitions):
             raise ValueError(
                 'The number of files resulting from paths_or_selector '
                 'must be equal to the number of partitions.'
             )
+
+        for i, info in enumerate(infos):
+            if info.is_file:
+                fragment = format.make_fragment(info.path, filesystem,
+                                                partitions[i])
+                c_fragments.push_back(
+                    static_pointer_cast[CFileFragment, CFragment](
+                        fragment.unwrap()))
 
         if root_partition is None:
             root_partition = ScalarExpression(True)
@@ -318,9 +325,7 @@ cdef class FileSystemDataset(Dataset):
             pyarrow_unwrap_schema(schema),
             (<Expression> root_partition).unwrap(),
             (<FileFormat> format).unwrap(),
-            (<FileSystem> filesystem).unwrap(),
-            c_file_infos,
-            c_partitions
+            c_fragments
         )
         self.init(GetResultValue(result))
 
@@ -338,6 +343,7 @@ cdef class FileSystemDataset(Dataset):
     def format(self):
         """The FileFormat of this source."""
         return FileFormat.wrap(self.filesystem_dataset.format())
+
 
 cdef shared_ptr[CExpression] _insert_implicit_casts(Expression filter,
                                                     Schema schema) except *:
@@ -393,7 +399,7 @@ cdef class FileFormat:
             shared_ptr[CSchema] c_schema
 
         c_schema = GetResultValue(self.format.Inspect(CFileSource(
-            tobytes(path), filesystem.unwrap().get())))
+            tobytes(path), filesystem.unwrap())))
         return pyarrow_wrap_schema(move(c_schema))
 
     def make_fragment(self, str path not None, FileSystem filesystem not None,
@@ -408,7 +414,7 @@ cdef class FileFormat:
 
         c_fragment = GetResultValue(
             self.format.MakeFragment(CFileSource(tobytes(path),
-                                                 filesystem.unwrap().get()),
+                                                 filesystem.unwrap()),
                                      partition_expression.unwrap()))
         return Fragment.wrap(<shared_ptr[CFragment]> move(c_fragment))
 
@@ -569,7 +575,7 @@ cdef class FileFragment(Fragment):
         """
         cdef:
             shared_ptr[CFileSystem] fs
-        fs = self.file_fragment.source().filesystem().shared_from_this()
+        fs = self.file_fragment.source().filesystem()
         return FileSystem.wrap(fs)
 
     @property
@@ -748,8 +754,7 @@ cdef class ParquetFileFormat(FileFormat):
 
         c_fragment = GetResultValue(
             self.parquet_format.MakeFragment(CFileSource(tobytes(path),
-                                                         filesystem.unwrap()
-                                                         .get()),
+                                                         filesystem.unwrap()),
                                              partition_expression.unwrap(),
                                              move(c_row_groups)))
         return Fragment.wrap(<shared_ptr[CFragment]> move(c_fragment))

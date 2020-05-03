@@ -192,6 +192,19 @@ def _apply_options(cmd, options):
               "it will toggle required options")
 @click.option("--with-s3", default=None, type=BOOL,
               help="Build Arrow with S3 support.")
+# Compressions
+@click.option("--with-brotli", default=None, type=BOOL,
+              help="Build Arrow with brotli compression.")
+@click.option("--with-bz2", default=None, type=BOOL,
+              help="Build Arrow with bz2 compression.")
+@click.option("--with-lz4", default=None, type=BOOL,
+              help="Build Arrow with lz4 compression.")
+@click.option("--with-snappy", default=None, type=BOOL,
+              help="Build Arrow with snappy compression.")
+@click.option("--with-zlib", default=None, type=BOOL,
+              help="Build Arrow with zlib compression.")
+@click.option("--with-zstd", default=None, type=BOOL,
+              help="Build Arrow with zstd compression.")
 # CMake extra feature
 @click.option("--cmake-extras", type=str, multiple=True,
               help="Extra flags/options to pass to cmake invocation. "

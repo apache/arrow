@@ -209,12 +209,14 @@ def test_filesystem_dataset(mockfs):
         paths_or_selector=paths,
         partitions=partitions
     )
+
     assert isinstance(dataset.format, ds.ParquetFileFormat)
 
     # the root_partition and partitions keywords have defaults
     dataset = ds.FileSystemDataset(
         paths, schema, format=file_format, filesystem=mockfs,
     )
+
     assert isinstance(dataset.format, ds.ParquetFileFormat)
 
     # validation of required arguments
@@ -259,9 +261,9 @@ def test_filesystem_dataset(mockfs):
 
     fragments = list(dataset.get_fragments())
     for fragment, partition, path in zip(fragments, partitions, paths):
-        assert fragment.partition_expression.equals(
-            ds.AndExpression(root_partition, partition))
+        assert fragment.partition_expression.equals(partition)
         assert fragment.path == path
+        assert isinstance(fragment.format, ds.ParquetFileFormat)
         assert isinstance(fragment, ds.ParquetFileFragment)
         assert fragment.row_groups is None
 

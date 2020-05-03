@@ -220,16 +220,20 @@ class ARROW_DS_EXPORT FileSystemDatasetFactory : public DatasetFactory {
   Result<std::shared_ptr<Dataset>> Finish(FinishOptions options) override;
 
  protected:
-  FileSystemDatasetFactory(std::shared_ptr<fs::FileSystem> filesystem,
-                           fs::PathForest forest, std::shared_ptr<FileFormat> format,
+  FileSystemDatasetFactory(std::vector<std::string> paths,
+                           std::shared_ptr<fs::FileSystem> filesystem,
+                           std::shared_ptr<FileFormat> format,
                            FileSystemFactoryOptions options);
 
   Result<std::shared_ptr<Schema>> PartitionSchema();
 
+  std::vector<std::string> paths_;
   std::shared_ptr<fs::FileSystem> fs_;
-  fs::PathForest forest_;
   std::shared_ptr<FileFormat> format_;
   FileSystemFactoryOptions options_;
+
+ private:
+  util::optional<util::string_view> RemovePartitionBaseDir(util::string_view path);
 };
 
 }  // namespace dataset

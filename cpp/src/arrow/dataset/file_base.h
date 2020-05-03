@@ -44,12 +44,12 @@ namespace dataset {
 class ARROW_DS_EXPORT FileSource {
  public:
   // NOTE(kszucs): it'd be better to separate the BufferSource from FileSource
-  enum DatasetType { PATH, BUFFER };
+  enum SourceKind { PATH, BUFFER };
 
-  FileSource(std::string path, fs::FileSystem* filesystem,
+  FileSource(std::string path, std::shared_ptr<fs::FileSystem> filesystem,
              Compression::type compression = Compression::UNCOMPRESSED,
              bool writable = true)
-      : impl_(PathAndFileSystem{std::move(path), filesystem}),
+      : impl_(PathAndFileSystem{std::move(path), std::move(filesystem)}),
         compression_(compression),
         writable_(writable) {}
 
@@ -62,11 +62,11 @@ class ARROW_DS_EXPORT FileSource {
       : impl_(std::move(buffer)), compression_(compression), writable_(true) {}
 
   bool operator==(const FileSource& other) const {
-    if (type() != other.type()) {
+    if (id() != other.id()) {
       return false;
     }
 
-    if (type() == PATH) {
+    if (id() == PATH) {
       return path() == other.path() && filesystem() == other.filesystem();
     }
 
@@ -75,7 +75,7 @@ class ARROW_DS_EXPORT FileSource {
 
   /// \brief The kind of file, whether stored in a filesystem, memory
   /// resident, or other
-  DatasetType type() const { return static_cast<DatasetType>(impl_.index()); }
+  SourceKind id() const { return static_cast<SourceKind>(impl_.index()); }
 
   /// \brief Return the type of raw compression on the file, if any
   Compression::type compression() const { return compression_; }
@@ -87,20 +87,21 @@ class ARROW_DS_EXPORT FileSource {
   /// type is PATH
   const std::string& path() const {
     static std::string buffer_path = "<Buffer>";
-    return type() == PATH ? util::get<PATH>(impl_).path : buffer_path;
+    return id() == PATH ? util::get<PATH>(impl_).path : buffer_path;
   }
 
   /// \brief Return the filesystem, if any. Only non null when file
   /// source type is PATH
-  fs::FileSystem* filesystem() const {
-    return type() == PATH ? util::get<PATH>(impl_).filesystem : NULLPTR;
+  const std::shared_ptr<fs::FileSystem>& filesystem() const {
+    static std::shared_ptr<fs::FileSystem> no_fs = NULLPTR;
+    return id() == PATH ? util::get<PATH>(impl_).filesystem : no_fs;
   }
 
   /// \brief Return the buffer containing the file, if any. Only value
   /// when file source type is BUFFER
   const std::shared_ptr<Buffer>& buffer() const {
     static std::shared_ptr<Buffer> path_buffer = NULLPTR;
-    return type() == BUFFER ? util::get<BUFFER>(impl_) : path_buffer;
+    return id() == BUFFER ? util::get<BUFFER>(impl_) : path_buffer;
   }
 
   /// \brief Get a RandomAccessFile which views this file source
@@ -112,7 +113,7 @@ class ARROW_DS_EXPORT FileSource {
  private:
   struct PathAndFileSystem {
     std::string path;
-    fs::FileSystem* filesystem;
+    std::shared_ptr<fs::FileSystem> filesystem;
   };
 
   util::variant<PathAndFileSystem, std::shared_ptr<Buffer>> impl_;
@@ -184,57 +185,26 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
 };
 
 /// \brief A Dataset of FileFragments.
+///
+/// A FileSystemDataset is composed of one or more FileFragment. The fragments
+/// are independent and don't need to share the same format and/or filesystem.
 class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
  public:
   /// \brief Create a FileSystemDataset.
   ///
-  /// \param[in] schema the top-level schema of the DataDataset
-  /// \param[in] root_partition the top-level partition of the DataDataset
-  /// \param[in] format file format to create fragments from.
-  /// \param[in] filesystem the filesystem which files are from.
-  /// \param[in] infos a list of files/directories to consume.
-  /// attach additional partition expressions to FileInfo found in `infos`.
+  /// \param[in] schema the schema of the dataset
+  /// \param[in] root_partition the partition expression of the dataset
+  /// \param[in] format the format of each FileFragment.
+  /// \param[in] fragments list of fragments to create the dataset from
   ///
-  /// The caller is not required to provide a complete coverage of nodes and
-  /// partitions.
+  /// Note that all fragment must be of `FileFragment` type. The type are
+  /// erased to simplify callers.
+  ///
+  /// \return A constructed dataset.
   static Result<std::shared_ptr<FileSystemDataset>> Make(
       std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
-      std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
-      std::vector<fs::FileInfo> infos);
-
-  /// \brief Create a FileSystemDataset with file-level partitions.
-  ///
-  /// \param[in] schema the top-level schema of the DataDataset
-  /// \param[in] root_partition the top-level partition of the DataDataset
-  /// \param[in] format file format to create fragments from.
-  /// \param[in] filesystem the filesystem which files are from.
-  /// \param[in] infos a list of files/directories to consume.
-  /// \param[in] partitions partition information associated with `infos`.
-  /// attach additional partition expressions to FileInfo found in `infos`.
-  ///
-  /// The caller is not required to provide a complete coverage of nodes and
-  /// partitions.
-  static Result<std::shared_ptr<FileSystemDataset>> Make(
-      std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
-      std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
-      std::vector<fs::FileInfo> infos, ExpressionVector partitions);
-
-  /// \brief Create a FileSystemDataset with file-level partitions.
-  ///
-  /// \param[in] schema the top-level schema of the DataDataset
-  /// \param[in] root_partition the top-level partition of the DataDataset
-  /// \param[in] format file format to create fragments from.
-  /// \param[in] filesystem the filesystem which files are from.
-  /// \param[in] forest a PathForest of files/directories to consume.
-  /// \param[in] partitions partition information associated with `forest`.
-  /// attach additional partition expressions to FileInfo found in `forest`.
-  ///
-  /// The caller is not required to provide a complete coverage of nodes and
-  /// partitions.
-  static Result<std::shared_ptr<FileSystemDataset>> Make(
-      std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
-      std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
-      fs::PathForest forest, ExpressionVector partitions);
+      std::shared_ptr<FileFormat> format,
+      std::vector<std::shared_ptr<FileFragment>> fragments);
 
   /// \brief Write to a new format and filesystem location, preserving partitioning.
   ///
@@ -245,16 +215,18 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
       const WritePlan& plan, std::shared_ptr<ScanOptions> scan_options,
       std::shared_ptr<ScanContext> scan_context);
 
+  /// \brief Return the type name of the dataset.
   std::string type_name() const override { return "filesystem"; }
 
+  /// \brief Replace the schema of the dataset.
   Result<std::shared_ptr<Dataset>> ReplaceSchema(
       std::shared_ptr<Schema> schema) const override;
 
-  const std::shared_ptr<FileFormat>& format() const { return format_; }
-
+  /// \brief Return the path of files.
   std::vector<std::string> files() const;
 
-  const ExpressionVector& partitions() const { return partitions_; }
+  /// \brief Return the format.
+  const std::shared_ptr<FileFormat>& format() const { return format_; }
 
   std::string ToString() const;
 
@@ -264,13 +236,10 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   FileSystemDataset(std::shared_ptr<Schema> schema,
                     std::shared_ptr<Expression> root_partition,
                     std::shared_ptr<FileFormat> format,
-                    std::shared_ptr<fs::FileSystem> filesystem, fs::PathForest forest,
-                    ExpressionVector file_partitions);
+                    std::vector<std::shared_ptr<FileFragment>> fragments);
 
   std::shared_ptr<FileFormat> format_;
-  std::shared_ptr<fs::FileSystem> filesystem_;
-  fs::PathForest forest_;
-  ExpressionVector partitions_;
+  std::vector<std::shared_ptr<FileFragment>> fragments_;
 };
 
 /// \brief Write a fragment to a single OutputStream.
