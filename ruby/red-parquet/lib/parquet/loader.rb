@@ -31,6 +31,7 @@ module Parquet
     def require_libraries
       require "parquet/arrow-table-loadable"
       require "parquet/arrow-table-savable"
+      require "parquet/writer-properties"
     end
 
     def load_object_info(info)
