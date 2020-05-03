@@ -729,24 +729,24 @@ void ColumnWriterImpl::AddDataPage() {
   int64_t repetition_levels_rle_size = 0;
 
   std::shared_ptr<Buffer> values = GetValuesBuffer();
-  bool is_v1 = properties_->version() == ParquetVersion::PARQUET_1_0;
+  bool is_v1_data_page = properties_->data_page_version() == ParquetDataPageVersion::V1;
 
   if (descr_->max_definition_level() > 0) {
-    definition_levels_rle_size =
-        RleEncodeLevels(definition_levels_sink_.data(), definition_levels_rle_.get(),
-                        descr_->max_definition_level(), /*include_length_prefix=*/is_v1);
+    definition_levels_rle_size = RleEncodeLevels(
+        definition_levels_sink_.data(), definition_levels_rle_.get(),
+        descr_->max_definition_level(), /*include_length_prefix=*/is_v1_data_page);
   }
 
   if (descr_->max_repetition_level() > 0) {
-    repetition_levels_rle_size =
-        RleEncodeLevels(repetition_levels_sink_.data(), repetition_levels_rle_.get(),
-                        descr_->max_repetition_level(), /*include_length_prefix=*/is_v1);
+    repetition_levels_rle_size = RleEncodeLevels(
+        repetition_levels_sink_.data(), repetition_levels_rle_.get(),
+        descr_->max_repetition_level(), /*include_length_prefix=*/is_v1_data_page);
   }
 
   int64_t uncompressed_size =
       definition_levels_rle_size + repetition_levels_rle_size + values->size();
 
-  if (is_v1) {
+  if (is_v1_data_page) {
     BuildDataPageV1(definition_levels_rle_size, repetition_levels_rle_size,
                     uncompressed_size, values);
   } else {

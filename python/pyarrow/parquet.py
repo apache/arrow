@@ -481,6 +481,9 @@ writer_engine_version: str, default "V2"
     all nested types. V1 is legacy and will be removed in a future release.
     Setting the environment variable ARROW_PARQUET_WRITER_ENGINE will
     override the default.
+data_page_version : {"1.0", "2.0"}, default "1.0"
+    The Parquet data page version to write, defaults to 1.0. This differs from
+    version which indicates what version of schema types to use.
 """
 
 
@@ -511,6 +514,7 @@ schema : arrow Schema
                  compression_level=None,
                  use_byte_stream_split=False,
                  writer_engine_version=None,
+                 data_page_version='1.0',
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -549,6 +553,7 @@ schema : arrow Schema
             compression_level=compression_level,
             use_byte_stream_split=use_byte_stream_split,
             writer_engine_version=engine_version,
+            data_page_version=data_page_version,
             **options)
         self.is_open = True
 
@@ -1586,6 +1591,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 filesystem=None,
                 compression_level=None,
                 use_byte_stream_split=False,
+                data_page_version='1.0',
                 **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
@@ -1604,6 +1610,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 use_deprecated_int96_timestamps=use_int96,
                 compression_level=compression_level,
                 use_byte_stream_split=use_byte_stream_split,
+                data_page_version=data_page_version,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:

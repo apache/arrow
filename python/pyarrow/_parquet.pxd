@@ -347,6 +347,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
 cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
     cdef cppclass WriterProperties:
         cppclass Builder:
+            Builder* data_page_version(ParquetDataPageVersion version)
             Builder* version(ParquetVersion version)
             Builder* compression(ParquetCompression codec)
             Builder* compression(const c_string& path,
@@ -442,6 +443,14 @@ cdef extern from "parquet/properties.h" namespace "parquet" nogil:
     cdef enum ArrowWriterEngineVersion:
         V1 "parquet::ArrowWriterProperties::V1",
         V2 "parquet::ArrowWriterProperties::V2"
+
+    cdef cppclass ParquetDataPageVersion:
+        pass
+
+    cdef ParquetDataPageVersion ParquetDataPageVersion_V1 \
+        " parquet::ParquetDataPageVersion::V1"
+    cdef ParquetDataPageVersion ParquetDataPageVersion_V2 \
+        " parquet::ParquetDataPageVersion::V2"
 
 cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
     cdef cppclass FileWriter:
