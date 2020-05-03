@@ -19,4 +19,4 @@ mod flight {
     include!("arrow.flight.protocol.rs");
 }
 
-pub use flight::*;
+pub use crate::flight::*;
