@@ -22,9 +22,7 @@
 #endif
 
 #include <arrow-glib/enums.h>
-#include <arrow-glib/ipc-options.h>
-
-#include <arrow/ipc/api.h>
+#include <arrow-glib/ipc-options.hpp>
 
 G_BEGIN_DECLS
 
@@ -41,6 +39,7 @@ G_BEGIN_DECLS
 
 typedef struct GArrowReadOptionsPrivate_ {
   arrow::ipc::IpcReadOptions options;
+  arrow::ipc::DictionaryMemo dictionary_memo;
 } GArrowReadOptionsPrivate;
 
 enum {
@@ -63,6 +62,7 @@ garrow_read_options_finalize(GObject *object)
   auto priv = GARROW_READ_OPTIONS_GET_PRIVATE(object);
 
   priv->options.~IpcReadOptions();
+  priv->dictionary_memo.~DictionaryMemo();
 
   G_OBJECT_CLASS(garrow_read_options_parent_class)->finalize(object);
 }
@@ -115,6 +115,7 @@ garrow_read_options_init(GArrowReadOptions *object)
   auto priv = GARROW_READ_OPTIONS_GET_PRIVATE(object);
   new(&priv->options) arrow::ipc::IpcReadOptions;
   priv->options = arrow::ipc::IpcReadOptions::Defaults();
+  new(&priv->dictionary_memo) arrow::ipc::DictionaryMemo;
 }
 
 static void
@@ -510,3 +511,24 @@ garrow_write_options_new(void)
 }
 
 G_END_DECLS
+
+arrow::ipc::IpcReadOptions *
+garrow_read_options_get_raw(GArrowReadOptions *options)
+{
+  auto priv = GARROW_READ_OPTIONS_GET_PRIVATE(options);
+  return &(priv->options);
+}
+
+arrow::ipc::DictionaryMemo *
+garrow_read_options_get_dictionary_memo_raw(GArrowReadOptions *options)
+{
+  auto priv = GARROW_READ_OPTIONS_GET_PRIVATE(options);
+  return &(priv->dictionary_memo);
+}
+
+arrow::ipc::IpcWriteOptions *
+garrow_write_options_get_raw(GArrowWriteOptions *options)
+{
+  auto priv = GARROW_WRITE_OPTIONS_GET_PRIVATE(options);
+  return &(priv->options);
+}

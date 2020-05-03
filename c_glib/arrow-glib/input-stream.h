@@ -23,6 +23,8 @@
 
 #include <arrow-glib/buffer.h>
 #include <arrow-glib/codec.h>
+#include <arrow-glib/ipc-options.h>
+#include <arrow-glib/record-batch.h>
 #include <arrow-glib/tensor.h>
 
 G_BEGIN_DECLS
@@ -46,6 +48,12 @@ gboolean garrow_input_stream_align(GArrowInputStream *input_stream,
                                    GError **error);
 GArrowTensor *garrow_input_stream_read_tensor(GArrowInputStream *input_stream,
                                               GError **error);
+GARROW_AVAILABLE_IN_1_0
+GArrowRecordBatch *
+garrow_input_stream_read_record_batch(GArrowInputStream *input_stream,
+                                      GArrowSchema *schema,
+                                      GArrowReadOptions *options,
+                                      GError **error);
 
 #define GARROW_TYPE_SEEKABLE_INPUT_STREAM       \
   (garrow_seekable_input_stream_get_type())
