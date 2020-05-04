@@ -102,9 +102,9 @@ Status ErrorToStatus(const Aws::Client::AWSError<ErrorType>& error) {
   return ErrorToStatus(std::string(), error);
 }
 
-template <typename Result, typename Error>
+template <typename AwsResult, typename Error>
 Status OutcomeToStatus(const std::string& prefix,
-                       const Aws::Utils::Outcome<Result, Error>& outcome) {
+                       const Aws::Utils::Outcome<AwsResult, Error>& outcome) {
   if (outcome.IsSuccess()) {
     return Status::OK();
   } else {
@@ -112,9 +112,9 @@ Status OutcomeToStatus(const std::string& prefix,
   }
 }
 
-template <typename Result, typename Error, typename... Args>
+template <typename AwsResult, typename Error, typename... Args>
 Status OutcomeToStatus(const std::tuple<Args&...>& prefix,
-                       const Aws::Utils::Outcome<Result, Error>& outcome) {
+                       const Aws::Utils::Outcome<AwsResult, Error>& outcome) {
   if (outcome.IsSuccess()) {
     return Status::OK();
   } else {
@@ -122,9 +122,18 @@ Status OutcomeToStatus(const std::tuple<Args&...>& prefix,
   }
 }
 
-template <typename Result, typename Error>
-Status OutcomeToStatus(const Aws::Utils::Outcome<Result, Error>& outcome) {
+template <typename AwsResult, typename Error>
+Status OutcomeToStatus(const Aws::Utils::Outcome<AwsResult, Error>& outcome) {
   return OutcomeToStatus(std::string(), outcome);
+}
+
+template <typename AwsResult, typename Error>
+Result<AwsResult> OutcomeToResult(Aws::Utils::Outcome<AwsResult, Error> outcome) {
+  if (outcome.IsSuccess()) {
+    return std::move(outcome).GetResultWithOwnership();
+  } else {
+    return ErrorToStatus(outcome.GetError());
+  }
 }
 
 inline Aws::String ToAwsString(const std::string& s) {
