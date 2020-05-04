@@ -890,8 +890,7 @@ mod tests {
         .project(vec![col("state"), col("total_salary")])?
         .build()?;
 
-        let expected =
-            "Projection: #state, #total_salary\
+        let expected = "Projection: #state, #total_salary\
              \n  Aggregate: groupBy=[[#state]], aggr=[[SUM(#salary) AS total_salary]]\
              \n    TableScan: employee.csv projection=Some([3, 4])";
 
