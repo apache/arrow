@@ -946,7 +946,7 @@ def test_open_dataset_list_of_files(tempdir):
     ]
     for dataset in datasets:
         assert dataset.schema.equals(table.schema)
-        result = dataset.to_table(use_threads=False)  # deterministic row order
+        result = dataset.to_table()
         assert result.equals(table)
 
 
@@ -973,9 +973,9 @@ def test_construct_from_single_directory(tempdir):
     d1 = ds.dataset(directory)
     d2 = ds.dataset(directory, filesystem=fs.LocalFileSystem())
     d3 = ds.dataset(directory.name, filesystem=_filesystem_uri(tempdir))
-    t1 = d1.to_table(use_threads=False)
-    t2 = d2.to_table(use_threads=False)
-    t3 = d3.to_table(use_threads=False)
+    t1 = d1.to_table()
+    t2 = d2.to_table()
+    t3 = d3.to_table()
     assert t1 == t2 == t3
 
 
@@ -988,15 +988,15 @@ def test_construct_from_list_of_files(tempdir):
     relative_paths = [p.relative_to(tempdir) for p in paths]
     with change_cwd(tempdir):
         d1 = ds.dataset(relative_paths)
-        t1 = d1.to_table(use_threads=False)
+        t1 = d1.to_table()
         assert len(t1) == sum(map(len, tables))
 
     d2 = ds.dataset(relative_paths, filesystem=_filesystem_uri(tempdir))
-    t2 = d2.to_table(use_threads=False)
+    t2 = d2.to_table()
     d3 = ds.dataset(paths)
-    t3 = d3.to_table(use_threads=False)
+    t3 = d3.to_table()
     d4 = ds.dataset(paths, filesystem=fs.LocalFileSystem())
-    t4 = d4.to_table(use_threads=False)
+    t4 = d4.to_table()
 
     assert t1 == t2 == t3 == t4
 
@@ -1113,7 +1113,7 @@ def test_open_dataset_partitioned_directory(tempdir):
     expected_schema = table.schema.append(pa.field("part", pa.int8()))
     assert dataset.schema.equals(expected_schema)
 
-    result = dataset.to_table(use_threads=False)
+    result = dataset.to_table()
     expected = full_table.append_column(
         "part", pa.array(np.repeat([0, 1, 2], 9), type=pa.int8()))
     assert result.equals(expected)
