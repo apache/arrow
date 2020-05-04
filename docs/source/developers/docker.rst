@@ -34,24 +34,22 @@ to use the archery tool:
 Installation
 ~~~~~~~~~~~~
 
-Requires ``python>=3.5``. It is recommended to install archery in ``editable``
-mode to automatically update the intallation by pulling the arrow repository.
+``archery`` requires ``python>=3.5``. It is recommended to install archery in
+``editable`` mode with the ``-e`` flag to automatically update the intallation
+by pulling the arrow repository.
 
 .. code:: bash
 
     pip install -e dev/archery[docker]
 
-Inspect the available commands and options
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+For the available commands and options invoke the installed archery commands
+with the ``--help`` flag:
 
 .. code:: bash
 
     archery docker --help
     archery docker run --help
 
-``archery docker run`` tries to provide a similar interface to
-``docker-compose run``, but with builtin support for building hierarchical
-images.
 
 Examples
 ~~~~~~~~
@@ -89,7 +87,9 @@ Which translates to:
 **To disable the cache only for the leaf image:**
 
 Useful to force building the development version of a dependency.
-The leaf image is ``conda-python-pandas`` in the example.
+In case of the example below the command builds the
+``conda-cpp > conda-python > conda-python-pandas`` branch of the image tree
+where the leaf image is ``conda-python-pandas``.
 
 .. code:: bash
 
@@ -107,7 +107,7 @@ Which translates to:
     docker-compose build --no-cache conda-python-pandas
     docker-compose run --rm conda-python-pandas
 
-Note that it doens't pull the conda-python-pandas image and disable the cache
+Note that it doesn't pull the conda-python-pandas image and disable the cache
 when building it.
 
 ``PANDAS`` is a `build parameter <Docker Build Parameters>`_, see the
@@ -115,24 +115,39 @@ defaults in the .env file.
 
 **To entirely skip building the image:**
 
+The layer caching mechanism of docker-compose is less reliable than docker's
+depending on the version, ``cache_from`` build entry and the used backend
+(docker-py, docker-cli, docker-cli and buildkit). This can lead to different
+layer hashes - even when executing the same build command repeatedly -
+eventually causing cache misses full image rebuilds.
+
+If the image has been already built but the cache doesn't work properly, it can
+be useful to skip the build phases:
+
 .. code:: bash
 
     archery docker run --no-build conda-python
 
-In order to alter the runtime parameters pass docker environment variables to
-the container during its execution:
+**Pass environment variables to the container:**
+
+Most of the builds can be configured through environment variables. Any
+environment variable can be passed in a similar fashion like ``docker run`` and
+``docker-compose run`` expect it:
 
 .. code:: bash
 
     archery docker run --env CMAKE_BUILD_TYPE=release ubuntu-cpp
 
-See the available C++ in the ``ci/scripts/cpp_build.sh`` script.
+For the available environment variables in the C++ builds see the
+``ci/scripts/cpp_build.sh`` script.
 
 **Run the image with custom command:**
 
-Custom docker commands may be passed as the second argument. The following
-example starts an interactive ``bash`` session in the container - useful for
-debugging the build interactively:
+Custom docker commands may be passed as the second argument to
+``archery docker run``.
+
+The following example starts an interactive ``bash`` session in the container
+- useful for debugging the build interactively:
 
 .. code:: bash
 
@@ -147,8 +162,8 @@ containers using hierarchical images. For example multiple language bindings
 are dependent on the C++ implementation, so instead of redefining the
 C++ environment multiple Dockerfiles, we can reuse the exact same base C++
 image when building Glib, Ruby, R and Python bindings.
-This helps reducing duplications and preventing a series of maintenance, but
-makes the docker-compose configuration more complicated.
+This reduces duplication and streamlines maintenance, but makes the
+docker-compose configuration more complicated.
 
 Docker Build Parameters
 ~~~~~~~~~~~~~~~~~~~~~~~
