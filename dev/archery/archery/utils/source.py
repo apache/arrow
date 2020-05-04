@@ -91,7 +91,7 @@ class ArrowSources:
     @property
     def git_backed(self):
         """ Indicate if the sources are backed by git. """
-        return (self.path / ".git").exist()
+        return (self.path / ".git").exists()
 
     @property
     def git_dirty(self):

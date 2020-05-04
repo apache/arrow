@@ -51,9 +51,9 @@ jobs:
         uses: actions/setup-python@v1
         with:
           python-version: '3.5'
-      - name: Install
+      - name: Install Archery, Crossbow- and Test Dependencies
         working-directory: dev/archery
-        run: pip install pytest python-dotenv responses ruamel.yaml toolz jinja2 -e .
+        run: pip install pytest responses toolz jinja2 -e .[all]
       - name: Archery Unittests
         working-directory: dev/archery
         run: pytest -v archery
