@@ -1416,7 +1416,9 @@ class _ParquetDatasetV2:
         Parameters
         ----------
         columns : List[str]
-            Names of columns to read from the dataset.
+            Names of columns to read from the dataset. The partition fields
+            are not automatically included (in contrast to when setting
+            ``use_legacy_dataset=True``).
         use_threads : bool, default True
             Perform multi-threaded column reads.
         use_pandas_metadata : bool, default False
