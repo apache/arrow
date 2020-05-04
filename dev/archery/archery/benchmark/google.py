@@ -47,19 +47,21 @@ class GoogleBenchmarkCommand(Command):
     def list_benchmarks(self):
         argv = ["--benchmark_list_tests"]
         if self.benchmark_filter:
-            argv.append(f"--benchmark_filter={self.benchmark_filter}")
+            argv.append("--benchmark_filter={}".format(self.benchmark_filter))
         result = self.run(*argv, stdout=subprocess.PIPE,
                           stderr=subprocess.PIPE)
         return str.splitlines(result.stdout.decode("utf-8"))
 
     def results(self, repetitions=DEFAULT_REPETITIONS):
         with NamedTemporaryFile() as out:
-            argv = [f"--benchmark_repetitions={repetitions}",
-                    f"--benchmark_out={out.name}",
+            argv = ["--benchmark_repetitions={}".format(repetitions),
+                    "--benchmark_out={}".format(out.name),
                     "--benchmark_out_format=json"]
 
             if self.benchmark_filter:
-                argv.append(f"--benchmark_filter={self.benchmark_filter}")
+                argv.append(
+                    "--benchmark_filter={}".format(self.benchmark_filter)
+                )
 
             self.run(*argv, check=True)
             return json.load(out)
@@ -134,7 +136,7 @@ class GoogleBenchmarkObservation:
             return self.time_unit
 
     def __repr__(self):
-        return f"{self.value}"
+        return self.value
 
 
 class GoogleBenchmark(Benchmark):
@@ -161,7 +163,7 @@ class GoogleBenchmark(Benchmark):
         super().__init__(name, unit, less_is_better, values)
 
     def __repr__(self):
-        return f"GoogleBenchmark[name={self.name},runs={self.runs}]"
+        return "GoogleBenchmark[name={},runs={}]".format(self.names, self.runs)
 
     @classmethod
     def from_json(cls, payload):

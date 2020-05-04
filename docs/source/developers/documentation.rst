@@ -86,13 +86,11 @@ format in ``docs/_build/html``.  In particular, you can point your browser
 at ``docs/_build/html/index.html`` to read the docs and review any changes
 you made.
 
-
-.. _building-docker:
-
 Building with Docker
 --------------------
 
-You can use Archery to build the documentation within a docker container:
+You can use Archery to build the documentation within a docker container.
+For installation and usage see `Running Docker Builds`_ section.
 
 .. code-block:: shell
 

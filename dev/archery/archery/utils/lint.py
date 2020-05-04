@@ -231,7 +231,7 @@ def rat_linter(src, root):
 
     violations = list(report.validate(exclusion=exclusion))
     for violation in violations:
-        print(f"apache-rat license violation: {violation}")
+        print("apache-rat license violation: {}".format(violation))
 
     yield LintResult(len(violations) == 0)
 

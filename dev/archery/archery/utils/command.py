@@ -70,7 +70,7 @@ class Command:
         if "check" not in kwargs:
             kwargs["check"] = True
 
-        logger.debug(f"Executing `{invocation}`")
+        logger.debug("Executing `{}`".format(invocation))
         return subprocess.run(invocation, **kwargs)
 
     @property

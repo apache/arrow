@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import collections
 import os
 import re
 from unittest import mock
@@ -305,10 +306,10 @@ def test_compose_run(arrow_compose):
     ]
     expected_env = PartialEnv(PYTHON='3.6')
     with assert_compose_calls(arrow_compose, expected_calls, env=expected_env):
-        env = {
-            "CONTAINER_ENV_VAR_A": "a",
-            "CONTAINER_ENV_VAR_B": "b"
-        }
+        env = collections.OrderedDict([
+            ("CONTAINER_ENV_VAR_A", "a"),
+            ("CONTAINER_ENV_VAR_B", "b")
+        ])
         arrow_compose.run('conda-python', env=env)
 
 

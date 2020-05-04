@@ -39,7 +39,7 @@ class Benchmark:
         return self.median
 
     def __repr__(self):
-        return f"Benchmark[name={self.name},value={self.value}]"
+        return "Benchmark[name={},value={}]".format(self.name, self.value)
 
 
 class BenchmarkSuite:
@@ -48,6 +48,6 @@ class BenchmarkSuite:
         self.benchmarks = benchmarks
 
     def __repr__(self):
-        name = self.name
-        benchmarks = self.benchmarks
-        return f"BenchmarkSuite[name={name}, benchmarks={benchmarks}]"
+        return "BenchmarkSuite[name={}, benchmarks={}]".format(
+            self.name, self.benchmarks
+        )

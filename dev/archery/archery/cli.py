@@ -31,7 +31,7 @@ from .lang.cpp import CppCMakeDefinition, CppConfiguration
 from .utils.codec import JsonEncoder
 from .utils.lint import linter, python_numpydoc, LintValidationException
 from .utils.logger import logger, ctx as log_ctx
-from .utils.source import ArrowSources
+from .utils.source import ArrowSources, InvalidArrowSource
 from .utils.tmpdir import tmpdir
 from .bot import CommentBot, actions
 
@@ -94,11 +94,10 @@ def archery(ctx, debug, pdb, quiet):
 
 def validate_arrow_sources(ctx, param, src):
     """ Ensure a directory contains Arrow cpp sources. """
-    if isinstance(src, str):
-        if not ArrowSources.valid(src):
-            raise click.BadParameter(f"No Arrow C++ sources found in {src}.")
-        src = ArrowSources(src)
-    return src
+    try:
+        return ArrowSources.find(src)
+    except InvalidArrowSource as e:
+        raise click.BadParameter(str(e))
 
 
 build_dir_type = click.Path(dir_okay=True, file_okay=False, resolve_path=True)
@@ -129,7 +128,7 @@ def _apply_options(cmd, options):
 
 
 @archery.command(short_help="Initialize an Arrow C++ build")
-@click.option("--src", metavar="<arrow_src>", default=ArrowSources.find(),
+@click.option("--src", metavar="<arrow_src>", default=None,
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
 # toolchain
@@ -288,7 +287,7 @@ def decorate_lint_command(cmd):
 
 
 @archery.command(short_help="Check Arrow source tree for errors")
-@click.option("--src", metavar="<arrow_src>", default=ArrowSources.find(),
+@click.option("--src", metavar="<arrow_src>", default=None,
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
 @click.option("--fix", is_flag=True, type=BOOL, default=False,
@@ -316,7 +315,7 @@ def lint(ctx, src, fix, iwyu_all, **checks):
 
 @archery.command(short_help="Lint python docstring with NumpyDoc")
 @click.argument('symbols', nargs=-1)
-@click.option("--src", metavar="<arrow_src>", default=ArrowSources.find(),
+@click.option("--src", metavar="<arrow_src>", default=None,
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
 @click.option("--whitelist", "-w", help="Allow only these rules")
@@ -356,8 +355,7 @@ def benchmark(ctx):
 def benchmark_common_options(cmd):
     options = [
         click.option("--src", metavar="<arrow_src>", show_default=True,
-                     default=ArrowSources.find(),
-                     callback=validate_arrow_sources,
+                     default=None, callback=validate_arrow_sources,
                      help="Specify Arrow source directory"),
         click.option("--preserve", type=BOOL, default=False, show_default=True,
                      is_flag=True,
@@ -396,7 +394,7 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
     """ List benchmark suite.
     """
     with tmpdir(preserve=preserve) as root:
-        logger.debug(f"Running benchmark {rev_or_path}")
+        logger.debug("Running benchmark {}".format(rev_or_path))
 
         conf = CppBenchmarkRunner.default_configuration(
             cmake_extras=cmake_extras, **kwargs)
@@ -449,7 +447,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
     archery benchmark run --output=run.json
     """
     with tmpdir(preserve=preserve) as root:
-        logger.debug(f"Running benchmark {rev_or_path}")
+        logger.debug("Running benchmark {}".format(rev_or_path))
 
         conf = CppBenchmarkRunner.default_configuration(
             cmake_extras=cmake_extras, **kwargs)
@@ -546,8 +544,8 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
     archery --quiet benchmark diff WORKSPACE run.json > result.json
     """
     with tmpdir(preserve=preserve) as root:
-        logger.debug(f"Comparing {contender} (contender) with "
-                     f"{baseline} (baseline)")
+        logger.debug("Comparing {} (contender) with {} (baseline)"
+                     .format(contender, baseline))
 
         conf = CppBenchmarkRunner.default_configuration(
             cmake_extras=cmake_extras, **kwargs)
@@ -661,27 +659,19 @@ def trigger_bot(event_name, event_payload, arrow_token, crossbow_token):
 
 
 @archery.group('docker')
-@click.option('--config', '-c', type=click.Path(exists=True),
-              default=None)
+@click.option("--src", metavar="<arrow_src>", default=None,
+              callback=validate_arrow_sources,
+              help="Specify Arrow source directory.")
 @click.pass_obj
-def docker_compose(obj, config):
+def docker_compose(obj, src):
     """Interact with docker-compose based builds."""
     from .docker import DockerCompose
 
-    config_locations = [
-        Path(config) if config is not None else Path('docker-compose.yml'),
-        Path.cwd() / 'docker-compose.yml',
-        DEFAULT_ARROW_PATH / 'docker-compose.yml',
-    ]
-    for config_path in config_locations:
-        if config_path.exists():
-            break
-    else:
-        paths = [" - {}".format(p) for p in config_locations]
+    config_path = src.path / 'docker-compose.yml'
+    if not config_path.exists():
         raise click.ClickException(
-            "Docker compose configuration cannot be found, try to pass it "
-            "explicitly with the `-c` option.\nThe tried paths are:\n{}"
-            .format('\n'.join(paths))
+            "Docker compose configuration cannot be found in directory {}, "
+            "try to pass the arrow source directory explicitly.".format(src)
         )
 
     # take the docker-compose parameters like PYTHON, PANDAS, UBUNTU from the

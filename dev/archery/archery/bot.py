@@ -132,8 +132,9 @@ class CrossbowCommentFormatter:
         url = 'https://github.com/{repo}/branches/all?query={branch}'
         sha = job['target']['head']
 
-        msg = f'Revision: {sha}\n\n'
-        msg += f'Submitted crossbow builds: [{{repo}} @ {{branch}}]({url})\n'
+        msg = 'Revision: {}\n\n'.format(sha)
+        msg += 'Submitted crossbow builds: [{repo} @ {branch}]'
+        msg += '({})\n'.format(url)
         msg += '\n|Task|Status|\n|----|------|'
 
         tasks = sorted(job['tasks'].items(), key=operator.itemgetter(0))
@@ -150,7 +151,7 @@ class CrossbowCommentFormatter:
             except KeyError:
                 badge = 'unsupported CI service `{}`'.format(task['ci'])
 
-            msg += f'\n|{key}|{badge}|'
+            msg += '\n|{}|{}|'.format(key, badge)
 
         return msg.format(repo=self.crossbow_repo, branch=job['branch'])
 
@@ -169,7 +170,7 @@ class CommentBot:
         # only allow users of apache org to submit commands, for more see
         # https://developer.github.com/v4/enum/commentauthorassociation/
         allowed_roles = {'OWNER', 'MEMBER', 'CONTRIBUTOR'}
-        mention = f'@{self.name}'
+        mention = '@{}'.format(self.name)
         comment = payload['comment']
 
         if payload['sender']['login'] == self.name:

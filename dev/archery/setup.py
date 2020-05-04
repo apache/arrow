@@ -16,11 +16,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import functools
+import operator
 import sys
 from setuptools import setup
 
 if sys.version_info < (3, 5):
     sys.exit('Python < 3.5 is not supported')
+
+extras = {
+    'bot': ['ruamel.yaml', 'pygithub'],
+    'docker': ['ruamel.yaml', 'python-dotenv']
+}
+extras['all'] = list(set(functools.reduce(operator.add, extras.values())))
 
 setup(
     name='archery',
@@ -36,13 +44,9 @@ setup(
         'archery.lang',
         'archery.utils'
     ],
-    install_requires=['click', 'pygithub'],
-    tests_require=['pytest', 'ruamel.yaml', 'responses'],
-    extras_require={
-        'all': ['ruamel.yaml', 'python-dotenv'],
-        'bot': ['ruamel.yaml'],
-        'docker': ['ruamel.yaml', 'python-dotenv']
-    },
+    install_requires=['click'],
+    tests_require=['pytest', 'responses'],
+    extras_require=extras,
     entry_points='''
         [console_scripts]
         archery=archery.cli:archery

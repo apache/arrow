@@ -17,13 +17,13 @@
 # under the License.
 
 import os
-from pathlib import Path
 import subprocess
 
 from dotenv import dotenv_values
 from ruamel.yaml import YAML
 
 from .utils.command import Command, default_bin
+from .compat import _ensure_path
 
 
 def flatten(node, parents=None):
@@ -55,9 +55,9 @@ class DockerCompose(Command):
 
     def __init__(self, config_path, dotenv_path=None, compose_bin=None,
                  params=None):
-        self.config_path = Path(config_path)
+        self.config_path = _ensure_path(config_path)
         if dotenv_path:
-            self.dotenv_path = Path(dotenv_path)
+            self.dotenv_path = _ensure_path(dotenv_path)
         else:
             self.dotenv_path = self.config_path.parent / '.env'
 
@@ -67,7 +67,7 @@ class DockerCompose(Command):
 
         self.bin = default_bin(compose_bin, 'docker-compose')
         self.nodes = dict(flatten(self.config['x-hierarchy']))
-        self.dotenv = dotenv_values(self.dotenv_path)
+        self.dotenv = dotenv_values(str(self.dotenv_path))
         # override the default parameters defined in dotenv
         if params is None:
             self.params = self.dotenv
