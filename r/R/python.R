@@ -35,9 +35,13 @@ r_to_py.Array <- function(x, convert = FALSE) {
     delete_arrow_array(array_ptr)
   })
 
-  pa <- reticulate::import("pyarrow", convert = convert)
+  # Import with convert = FALSE so that `_import_from_c` returns a Python object
+  pa <- reticulate::import("pyarrow", convert = FALSE)
   ExportArray(x, array_ptr, schema_ptr)
-  pa$Array$`_import_from_c`(array_ptr, schema_ptr)
+  out <- pa$Array$`_import_from_c`(array_ptr, schema_ptr)
+  # But set the convert attribute on the return object to the requested value
+  assign("convert", convert, out)
+  out
 }
 
 py_to_r.pyarrow.lib.RecordBatch <- function(x, ...) {
@@ -60,9 +64,13 @@ r_to_py.RecordBatch <- function(x, convert = FALSE) {
     delete_arrow_array(array_ptr)
   })
 
-  pa <- reticulate::import("pyarrow", convert = convert)
+  # Import with convert = FALSE so that `_import_from_c` returns a Python object
+  pa <- reticulate::import("pyarrow", convert = FALSE)
   ExportRecordBatch(x, array_ptr, schema_ptr)
-  pa$RecordBatch$`_import_from_c`(array_ptr, schema_ptr)
+  out <- pa$RecordBatch$`_import_from_c`(array_ptr, schema_ptr)
+  # But set the convert attribute on the return object to the requested value
+  assign("convert", convert, out)
+  out
 }
 
 #' Install pyarrow for use with reticulate
