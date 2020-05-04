@@ -31,20 +31,32 @@ Usage
 There are multiple ways to execute the docker based builds. The recommended is
 to use the archery tool:
 
-Installation:
+Installation
+~~~~~~~~~~~~
+
+Requires ``python>=3.5``. It is recommended to install archery in ``editable``
+mode to automatically update the intallation by pulling the arrow repository.
 
 .. code:: bash
 
     pip install -e dev/archery[docker]
 
-Inspect the available commands and options:
+Inspect the available commands and options
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code:: bash
 
     archery docker --help
     archery docker run --help
 
-Execute a build:
+``archery docker run`` tries to provide a similar interface to
+``docker-compose run``, but with builtin support for building hierarchical
+images.
+
+Examples
+~~~~~~~~
+
+**Execute a build:**
 
 .. code:: bash
 
@@ -60,7 +72,7 @@ Archery calls the following docker-compose commands:
     docker-compose build conda-python
     docker-compose run --rm conda-python
 
-To disable the image pulling:
+**To disable the image pulling:**
 
 .. code:: bash
 
@@ -74,8 +86,10 @@ Which translates to:
     docker-compose build --no-cache conda-python
     docker-compose run --rm conda-python
 
-To disable the cache only for the leaf image (conda-python-pandas in the
-example) - useful to force building the development version of a dependency:
+**To disable the cache only for the leaf image:**
+
+Useful to force building the development version of a dependency.
+The leaf image is ``conda-python-pandas`` in the example.
 
 .. code:: bash
 
@@ -90,15 +104,16 @@ Which translates to:
     docker-compose build conda-cpp
     docker-compose pull --ignore-pull-failures conda-python
     docker-compose build conda-python
-    # doens't pull the conda-python-pandas image and disable the cache when
-    # building it
     docker-compose build --no-cache conda-python-pandas
     docker-compose run --rm conda-python-pandas
 
-``PANDAS`` is a :ref:`build parameter <docker-build-parameters>`, see the
+Note that it doens't pull the conda-python-pandas image and disable the cache
+when building it.
+
+``PANDAS`` is a `build parameter <Docker Build Parameters>`_, see the
 defaults in the .env file.
 
-To entirely skip building the image:
+**To entirely skip building the image:**
 
 .. code:: bash
 
@@ -109,13 +124,20 @@ the container during its execution:
 
 .. code:: bash
 
-    archery docker run -e CMAKE_BUILD_TYPE=release ubuntu-cpp
+    archery docker run --env CMAKE_BUILD_TYPE=release ubuntu-cpp
 
-Starting an interactive bash session for debugging:
+See the available C++ in the ``ci/scripts/cpp_build.sh`` script.
+
+**Run the image with custom command:**
+
+Custom docker commands may be passed as the second argument. The following
+example starts an interactive ``bash`` session in the container - useful for
+debugging the build interactively:
 
 .. code:: bash
 
     archery docker run ubuntu-cpp bash
+
 
 Development
 -----------
@@ -127,8 +149,6 @@ C++ environment multiple Dockerfiles, we can reuse the exact same base C++
 image when building Glib, Ruby, R and Python bindings.
 This helps reducing duplications and preventing a series of maintenance, but
 makes the docker-compose configuration more complicated.
-
-.. _docker-build-parameters:
 
 Docker Build Parameters
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -150,14 +170,16 @@ Build Scripts
 ~~~~~~~~~~~~~
 
 The scripts maintainted under ci/scripts directory should be kept as minimal as
-possible to be responsible only a subset of tasks.
+possible to be responsible for only a subset of tasks.
 
-The parametrization is done through environment variables with sane defaults to
-keep the build configurations declerative. Note that these parameters are
-different from the ones described previously, these are affecting the runtime
-behaviour of the builds scripts within the containers.
+The parametrization (like the C++ CMake options) is achieved via environment
+variables with useful defaults to keep the build configurations declarative.
 
-A good example is cpp_build.sh build script which forwards environment
+Note that these parameters are different from the ones described previously,
+these are affecting the runtime behaviour of the builds scripts within the
+containers.
+
+A good example is ``cpp_build.sh`` build script which forwards environment
 variables as CMake options - so the same scripts can be invoked in various
 configurations without the necessity of chaning it. For examples see how the
 environment variables are passed in the docker-compose.yml's C++ images.
