@@ -17,11 +17,9 @@
 
 package org.apache.arrow.memory.util.hash;
 
-import static io.netty.util.internal.PlatformDependent.getByte;
-import static io.netty.util.internal.PlatformDependent.getInt;
-import static io.netty.util.internal.PlatformDependent.getLong;
 
 import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.memory.util.MemoryUtil;
 
 /**
  * A simple hasher that calculates the hash code of integers as is,
@@ -58,21 +56,21 @@ public class SimpleHasher implements ArrowBufHasher {
     int hashValue = 0;
     int index = 0;
     while (index + 8 <= length) {
-      long longValue = getLong(address + index);
+      long longValue = MemoryUtil.UNSAFE.getLong(address + index);
       int longHash = getLongHashCode(longValue);
       hashValue = combineHashCode(hashValue, longHash);
       index += 8;
     }
 
     if (index + 4 <= length) {
-      int intValue = getInt(address + index);
+      int intValue = MemoryUtil.UNSAFE.getInt(address + index);
       int intHash = intValue;
       hashValue = combineHashCode(hashValue, intHash);
       index += 4;
     }
 
     while (index < length) {
-      byte byteValue = getByte(address + index);
+      byte byteValue = MemoryUtil.UNSAFE.getByte(address + index);
       int byteHash = byteValue;
       hashValue = combineHashCode(hashValue, byteHash);
       index += 1;

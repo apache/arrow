@@ -17,10 +17,8 @@
 
 package org.apache.arrow.memory.util.hash;
 
-import static io.netty.util.internal.PlatformDependent.getByte;
-import static io.netty.util.internal.PlatformDependent.getInt;
-
 import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.memory.util.MemoryUtil;
 
 /**
  * Implementation of the Murmur hashing algorithm.
@@ -90,7 +88,7 @@ public class MurmurHasher implements ArrowBufHasher {
     int index = 0;
     int hash = seed;
     while (index + 4 <= length) {
-      int intValue = getInt(address + index);
+      int intValue = MemoryUtil.UNSAFE.getInt(address + index);
       hash = combineHashCode(hash, intValue);
       index += 4;
     }
@@ -100,7 +98,7 @@ public class MurmurHasher implements ArrowBufHasher {
       int intValue = 0;
       for (int i = index - 1; i >= index; i--) {
         intValue <<= 8;
-        intValue |= (getByte(address + i) & 0x000000ff);
+        intValue |= (MemoryUtil.UNSAFE.getByte(address + i) & 0x000000ff);
         index += 1;
       }
       hash = combineHashCode(hash, intValue);
