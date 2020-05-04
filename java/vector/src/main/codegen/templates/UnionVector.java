@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
@@ -40,10 +40,10 @@ import org.apache.arrow.vector.util.ValueVectorUtility;
 package org.apache.arrow.vector.complex;
 
 <#include "/@includes/vv_imports.ftl" />
-import io.netty.buffer.ArrowBuf;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;

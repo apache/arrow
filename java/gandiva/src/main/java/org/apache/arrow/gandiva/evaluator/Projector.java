@@ -27,6 +27,7 @@ import org.apache.arrow.gandiva.expression.ArrowTypeHelper;
 import org.apache.arrow.gandiva.expression.ExpressionTree;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.gandiva.ipc.GandivaTypes.SelectionVectorType;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.FixedWidthVector;
 import org.apache.arrow.vector.ValueVector;
@@ -34,8 +35,6 @@ import org.apache.arrow.vector.VariableWidthVector;
 import org.apache.arrow.vector.ipc.message.ArrowBuffer;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * This class provides a mechanism to evaluate a set of expressions against a RecordBatch.

@@ -21,7 +21,8 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
+
 import io.netty.util.internal.PlatformDependent;
 
 /**

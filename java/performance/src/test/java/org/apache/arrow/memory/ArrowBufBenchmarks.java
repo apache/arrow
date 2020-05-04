@@ -15,12 +15,10 @@
  * limitations under the License.
  */
 
-package io.netty.buffer;
+package org.apache.arrow.memory;
 
 import java.util.concurrent.TimeUnit;
 
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;

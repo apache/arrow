@@ -17,8 +17,6 @@
 
 package org.apache.arrow.memory;
 
-import io.netty.buffer.ArrowBuf;
-
 /**
  * An {@link OwnershipTransferResult} indicating no transfer needed.
  */

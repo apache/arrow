@@ -21,6 +21,7 @@ import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import java.math.BigInteger;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.UInt8ReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -30,8 +31,6 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * UInt8Vector implements a fixed width vector (8 bytes) of

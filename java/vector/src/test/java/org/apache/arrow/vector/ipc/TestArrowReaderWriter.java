@@ -44,6 +44,7 @@ import java.util.stream.Collectors;
 import org.apache.arrow.flatbuf.FieldNode;
 import org.apache.arrow.flatbuf.Message;
 import org.apache.arrow.flatbuf.RecordBatch;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -76,8 +77,6 @@ import org.apache.arrow.vector.util.DictionaryUtility;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 
 public class TestArrowReaderWriter {
 

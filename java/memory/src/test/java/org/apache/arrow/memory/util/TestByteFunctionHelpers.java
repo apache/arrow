@@ -19,13 +19,12 @@ package org.apache.arrow.memory.util;
 
 import static org.junit.Assert.assertEquals;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 
 public class TestByteFunctionHelpers {
 

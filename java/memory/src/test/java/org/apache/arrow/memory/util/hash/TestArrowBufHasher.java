@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.Arrays;
 import java.util.Collection;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.After;
@@ -30,8 +31,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Test cases for {@link ArrowBufHasher} and its subclasses.

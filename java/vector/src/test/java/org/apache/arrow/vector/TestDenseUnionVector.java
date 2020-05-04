@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.StructVector;
@@ -46,8 +47,6 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 
 public class TestDenseUnionVector {
   private static final String EMPTY_SCHEMA_PATH = "";

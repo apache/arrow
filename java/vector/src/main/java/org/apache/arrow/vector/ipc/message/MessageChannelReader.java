@@ -20,10 +20,9 @@ package org.apache.arrow.vector.ipc.message;
 import java.io.IOException;
 
 import org.apache.arrow.flatbuf.Message;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.ReadChannel;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Reads a sequence of messages using a ReadChannel.

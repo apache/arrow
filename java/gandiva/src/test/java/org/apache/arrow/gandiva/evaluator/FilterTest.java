@@ -23,6 +23,7 @@ import java.util.stream.IntStream;
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.expression.Condition;
 import org.apache.arrow.gandiva.expression.TreeBuilder;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -31,8 +32,6 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import com.google.common.collect.Lists;
-
-import io.netty.buffer.ArrowBuf;
 
 public class FilterTest extends BaseEvaluatorTest {
 

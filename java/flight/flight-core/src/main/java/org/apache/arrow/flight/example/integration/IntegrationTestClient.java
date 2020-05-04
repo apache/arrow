@@ -33,6 +33,7 @@ import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.PutResult;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorLoader;
@@ -47,8 +48,6 @@ import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * An Example Flight Server that provides access to the InMemoryStore.

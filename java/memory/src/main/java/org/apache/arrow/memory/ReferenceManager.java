@@ -17,9 +17,6 @@
 
 package org.apache.arrow.memory;
 
-
-import io.netty.buffer.ArrowBuf;
-
 /**
  * Reference Manager manages one or more ArrowBufs that share the
  * reference count for the underlying memory chunk.

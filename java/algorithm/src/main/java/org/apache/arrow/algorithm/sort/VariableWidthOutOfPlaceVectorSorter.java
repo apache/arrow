@@ -17,11 +17,11 @@
 
 package org.apache.arrow.algorithm.sort;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.IntVector;
 
-import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
 
 /**

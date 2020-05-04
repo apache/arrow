@@ -25,13 +25,12 @@ import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.expression.ArrowTypeHelper;
 import org.apache.arrow.gandiva.expression.Condition;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.ipc.message.ArrowBuffer;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * This class provides a mechanism to filter a RecordBatch by evaluating a condition expression.

@@ -28,6 +28,7 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ScatteringByteChannel;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.ArrowByteBufAllocator;
 import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.util.Preconditions;

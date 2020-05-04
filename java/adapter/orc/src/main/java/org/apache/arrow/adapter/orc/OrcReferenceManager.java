@@ -19,12 +19,11 @@ package org.apache.arrow.adapter.orc;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OwnershipTransferResult;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.util.Preconditions;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * A simple reference manager implementation for memory allocated by native code.

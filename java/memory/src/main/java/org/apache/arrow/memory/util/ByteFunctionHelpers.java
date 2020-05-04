@@ -17,11 +17,11 @@
 
 package org.apache.arrow.memory.util;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
 
-import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
 
 /**
