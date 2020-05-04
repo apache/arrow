@@ -1433,7 +1433,7 @@ yaml.register_class(Target)
 
 
 # define default paths
-DEFAULT_CONFIG_PATH = CWD / 'tasks.yml'
+DEFAULT_CONFIG_PATH = str(CWD / 'tasks.yml')
 DEFAULT_ARROW_PATH = CWD.parents[1]
 DEFAULT_QUEUE_PATH = CWD.parents[2] / 'crossbow'
 
