@@ -28,7 +28,7 @@ minimal makes local reproducibility possible.
 Usage
 -----
 
-There are multiple ways to execute the docker based builds. The recommented is
+There are multiple ways to execute the docker based builds. The recommended is
 to use the archery tool:
 
 Installation:
@@ -37,15 +37,22 @@ Installation:
 
     pip install -e dev/archery[docker]
 
+Inspect the available commands and options:
+
+.. code:: bash
+
+    archery docker --help
+    archery docker run --help
+
 Execute a build:
 
-.. code::bash
+.. code:: bash
 
     archery docker run conda-python
 
 Archery calls the following docker-compose commands:
 
-.. code::bash
+.. code:: bash
 
     docker-compose pull --ignore-pull-failures conda-cpp
     docker-compose build conda-cpp
@@ -55,43 +62,58 @@ Archery calls the following docker-compose commands:
 
 To disable the image pulling:
 
-.. code::bash
+.. code:: bash
 
     archery docker run --no-cache conda-python
 
 Which translates to:
 
-.. code::bash
+.. code:: bash
 
     docker-compose build --no-cache conda-cpp
     docker-compose build --no-cache conda-python
     docker-compose run --rm conda-python
 
-To disable the cache only for the leaf image - useful to force building the
-development version of a dependency:
+To disable the cache only for the leaf image (conda-python-pandas in the
+example) - useful to force building the development version of a dependency:
 
-.. code::bash
+.. code:: bash
 
-    PANDAS=master archery docker run --no-cache-leaf conda-python
+    PANDAS=master archery docker run --no-cache-leaf conda-python-pandas
 
-``PANDAS`` is a build time parameter, see the defaults in the .env file.
+Which translates to:
+
+.. code:: bash
+
+    export PANDAS=master
+    docker-compose pull --ignore-pull-failures conda-cpp
+    docker-compose build conda-cpp
+    docker-compose pull --ignore-pull-failures conda-python
+    docker-compose build conda-python
+    # doens't pull the conda-python-pandas image and disable the cache when
+    # building it
+    docker-compose build --no-cache conda-python-pandas
+    docker-compose run --rm conda-python-pandas
+
+``PANDAS`` is a :ref:`build parameter <docker-build-parameters>`, see the
+defaults in the .env file.
 
 To entirely skip building the image:
 
-.. code::bash
+.. code:: bash
 
     archery docker run --no-build conda-python
 
-In order to alter the runtime parameters pass environment variables to the
-container in execution time:
+In order to alter the runtime parameters pass docker environment variables to
+the container during its execution:
 
-.. code::bash
+.. code:: bash
 
     archery docker run -e CMAKE_BUILD_TYPE=release ubuntu-cpp
 
 Starting an interactive bash session for debugging:
 
-.. code::bash
+.. code:: bash
 
     archery docker run ubuntu-cpp bash
 
@@ -106,20 +128,23 @@ image when building Glib, Ruby, R and Python bindings.
 This helps reducing duplications and preventing a series of maintenance, but
 makes the docker-compose configuration more complicated.
 
+.. _docker-build-parameters:
+
 Docker Build Parameters
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The build time parameters are pushed down to the [dockerfiles] to make the
-image building more flexible. These are usually called docker build args.
-The docker-compose.yml uses these build args extensively for:
+The build time parameters are pushed down to the dockerfiles to make the
+image building more flexible. These parameters are usually called as docker
+build args, but we pass these values as environment variables to
+docker-compose.yml. The build parameters are extensively used for:
 
 - defining the docker registry used for caching
 - platform architectures
 - operation systems and versions
 - defining various versions if dependencies
 
-The default values are stored in the top level .env file. For examples see the
-docker-compose.yml
+The default parameter values are stored in the top level .env file.
+For detailed examples see the docker-compose.yml.
 
 Build Scripts
 ~~~~~~~~~~~~~

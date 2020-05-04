@@ -475,7 +475,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
 def benchmark_diff(ctx, src, preserve, output, cmake_extras,
                    suite_filter, benchmark_filter,
                    threshold, contender, baseline, **kwargs):
-    """ Compare (diff) benchmark runs.
+    """Compare (diff) benchmark runs.
 
     This command acts like git-diff but for benchmark results.
 
@@ -665,6 +665,7 @@ def trigger_bot(event_name, event_payload, arrow_token, crossbow_token):
               default=None)
 @click.pass_obj
 def docker_compose(obj, config):
+    """Interact with docker-compose based builds."""
     from .docker import DockerCompose
 
     config_locations = [
@@ -702,6 +703,33 @@ def docker_compose(obj, config):
               help='Force build the image and its parents')
 @click.pass_obj
 def docker_compose_run(obj, image, command, env, build, cache, cache_leaf):
+    """Execute docker-compose builds.
+
+    To see the available builds run `archery docker list`.
+
+    Examples:
+
+    # execute a single build
+    archery docker run conda-python
+
+    # execute the builds but disable the image pulling
+    archery docker run --no-cache conda-python
+
+    # pass a docker-compose parameter, like the python version
+    PYTHON=3.8 archery docker run conda-python
+
+    # disable the cache only for the leaf image
+    PANDAS=master archery docker run --no-cache-leaf conda-python-pandas
+
+    # entirely skip building the image
+    archery docker run --no-build conda-python
+
+    # pass runtime parameters via docker environment variables
+    archery docker run -e CMAKE_BUILD_TYPE=release ubuntu-cpp
+
+    # starting an interactive bash session for debugging
+    archery docker run ubuntu-cpp bash
+    """
     from .docker import UndefinedImage
     from subprocess import CalledProcessError
 
@@ -731,6 +759,7 @@ def docker_compose_run(obj, image, command, env, build, cache, cache_leaf):
               help='Docker login user')
 @click.pass_obj
 def docker_compose_push(obj, image, user, password):
+    """Push the generated docker-compose image."""
     compose = obj['compose']
     compose.push(image, user=user, password=password)
 
