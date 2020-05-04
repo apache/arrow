@@ -722,23 +722,19 @@ def docker_compose_run(obj, image, command, env, build, cache, cache_leaf):
     archery docker run ubuntu-cpp bash
     """
     from .docker import UndefinedImage
-    from subprocess import CalledProcessError
 
     compose = obj['compose']
     try:
         if build:
             compose.build(image, cache=cache, cache_leaf=cache_leaf)
         compose.run(image, command=command)
-    except CalledProcessError as e:
-        raise click.ClickException(
-            "`{}` exited with a non-zero exit code {}, see the log above."
-            .format(' '.join(e.cmd), e.returncode)
-        )
     except UndefinedImage as e:
         raise click.ClickException(
             "There is no service/image defined in docker-compose.yml with "
             "name: {}".format(str(e))
         )
+    except RuntimeError as e:
+        raise click.ClickException(str(e))
 
 
 @docker_compose.command('push')

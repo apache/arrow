@@ -68,11 +68,17 @@ class DockerCompose(Command):
         self.bin = default_bin(compose_bin, 'docker-compose')
         self.nodes = dict(flatten(self.config['x-hierarchy']))
         self.dotenv = dotenv_values(str(self.dotenv_path))
-        # override the default parameters defined in dotenv
         if params is None:
-            self.params = self.dotenv
+            self.params = {}
         else:
-            self.params = {k: params.get(k, v) for k, v in self.dotenv.items()}
+            self.params = {k: v for k, v in params.items() if k in self.dotenv}
+
+        # forward the process' environment variables
+        self._compose_env = os.environ.copy()
+        # set the defaults from the dotenv files
+        self._compose_env.update(self.dotenv)
+        # override the defaults passed as parameters
+        self._compose_env.update(self.params)
 
     def validate(self):
         services = self.config['services'].keys()
@@ -91,7 +97,7 @@ class DockerCompose(Command):
             )
 
         # trigger docker-compose's own validation
-        result = self._execute('ps', check=False, stderr=subprocess.PIPE,
+        result = self._execute('config', check=False, stderr=subprocess.PIPE,
                                stdout=subprocess.PIPE)
 
         if result.returncode != 0:
@@ -104,41 +110,50 @@ class DockerCompose(Command):
                 'Found errors with docker-compose:\n{}'.format(msg)
             )
 
-    def _compose_env(self, params):
-        # forward the process' environment variables
-        env = os.environ.copy()
-        # update the default parameters parsed from dotenv
-        env.update(self.params)
-        # override the default parameters
-        if params:
-            env.update(params)
-        return env
-
     def _validate_image(self, name):
         if name not in self.nodes:
             raise UndefinedImage(name)
 
     def _execute(self, *args, **kwargs):
-        # set default arguments for docker-compose
-        return super().run('--file', str(self.config_path), *args, **kwargs)
+        try:
+            return super().run('--file', str(self.config_path), *args,
+                               env=self._compose_env, **kwargs)
+        except subprocess.CalledProcessError as e:
+            def formatdict(d, template):
+                return '\n'.join(
+                    template.format(k, v) for k, v in sorted(d.items())
+                )
+            msg = (
+                "`{cmd}` exited with a non-zero exit code {code}, see the "
+                "process log above.\n\nThe docker-compose command was "
+                "invoked with the following parameters:\n\nDefaults defined "
+                "in .env:\n{dotenv}\n\nArchery was called with:\n{params}"
+            )
+            raise RuntimeError(
+                msg.format(
+                    cmd=' '.join(e.cmd),
+                    code=e.returncode,
+                    dotenv=formatdict(self.dotenv, template='  {}: {}'),
+                    params=formatdict(self.params, template='  export {}={}')
+                )
+            )
 
-    def _pull_andor_build(self, image, env, pull_if):
+    def _pull_andor_build(self, image, pull_if):
         if pull_if:
-            self._execute('pull', '--ignore-pull-failures', image, env=env)
-            self._execute('build', image, env=env)
+            self._execute('pull', '--ignore-pull-failures', image)
+            self._execute('build', image)
         else:
-            self._execute('build', '--no-cache', image, env=env)
+            self._execute('build', '--no-cache', image)
 
     def build(self, image, cache=True, cache_leaf=True, params=None):
         self._validate_image(image)
-        env = self._compose_env(params)
 
         # build each ancestors
         for ancestor in self.nodes[image]:
-            self._pull_andor_build(ancestor, env=env, pull_if=cache)
+            self._pull_andor_build(ancestor, pull_if=cache)
 
         # build the image at last
-        self._pull_andor_build(image, env=env, pull_if=(cache and cache_leaf))
+        self._pull_andor_build(image, pull_if=(cache and cache_leaf))
 
     def run(self, image, command=None, env=None, params=None):
         self._validate_image(image)
@@ -152,9 +167,9 @@ class DockerCompose(Command):
         if command is not None:
             args.append(command)
 
-        self._execute('run', '--rm', *args, env=self._compose_env(params))
+        self._execute('run', '--rm', *args)
 
-    def push(self, image, user, password, params=None):
+    def push(self, image, user, password):
         self._validate_image(image)
         try:
             # TODO(kszucs): have an option for a prompt
@@ -165,4 +180,4 @@ class DockerCompose(Command):
                    .format(image))
             raise RuntimeError(msg) from None
         else:
-            self._execute('push', image, env=self._compose_env(params))
+            self._execute('push', image)
