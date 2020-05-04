@@ -19,46 +19,54 @@ package org.apache.arrow.memory;
 
 import static org.junit.Assert.assertEquals;
 
+import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
 /**
  * Integration test for large (more than 2GB) {@link org.apache.arrow.memory.ArrowBuf}.
  * To run this test, please make sure there is at least 4GB memory in the system.
- * <p>
- *   Please note that this is not a standard test case, so please run it by manually invoking the
- *   main method.
- * </p>
  */
-public class TestLargeArrowBuf {
+public class ITTestLargeArrowBuf {
+  private static final Logger logger = LoggerFactory.getLogger(ITTestLargeArrowBuf.class);
 
-  private static void testLargeArrowBuf(long bufSize) {
+  private void run(long bufSize) {
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
          ArrowBuf largeBuf = allocator.buffer(bufSize)) {
       assertEquals(bufSize, largeBuf.capacity());
-      System.out.println("Successfully allocated a buffer with capacity " + largeBuf.capacity());
+      logger.trace("Successfully allocated a buffer with capacity {}", largeBuf.capacity());
 
       for (long i = 0; i < bufSize / 8; i++) {
         largeBuf.setLong(i * 8, i);
 
         if ((i + 1) % 10000 == 0) {
-          System.out.println("Successfully written " + (i + 1) + " long words");
+          logger.trace("Successfully written {} long words", i + 1);
         }
       }
-      System.out.println("Successfully written " + (bufSize / 8) + " long words");
+      logger.trace("Successfully written {} long words", bufSize / 8);
 
       for (long i = 0; i < bufSize / 8; i++) {
         long val = largeBuf.getLong(i * 8);
         assertEquals(i, val);
 
         if ((i + 1) % 10000 == 0) {
-          System.out.println("Successfully read " + (i + 1) + " long words");
+          logger.trace("Successfully read {} long words", i + 1);
         }
       }
-      System.out.println("Successfully read " + (bufSize / 8) + " long words");
+      logger.trace("Successfully read {} long words", bufSize / 8);
     }
-    System.out.println("Successfully released the large buffer.");
+    logger.trace("Successfully released the large buffer.");
   }
 
-  public static void main(String[] args) {
-    testLargeArrowBuf(4 * 1024 * 1024 * 1024L);
-    testLargeArrowBuf(Integer.MAX_VALUE);
+  @Test
+  public void testLargeArrowBuf() {
+    run(4 * 1024 * 1024 * 1024L);
   }
+
+  @Test
+  public void testMaxIntArrowBuf() {
+    run(Integer.MAX_VALUE);
+  }
+
 }

@@ -23,20 +23,22 @@ import static org.junit.Assert.assertEquals;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 /**
  * Integration test for a vector with a large (more than 2GB) {@link org.apache.arrow.memory.ArrowBuf} as
  * the data buffer.
  * To run this test, please make sure there is at least 4GB free memory in the system.
- * <p>
- *  Please note that this is not a standard test case, so please run it by manually invoking the
- *  main method.
- * </p>
  */
-public class TestLargeVector {
+public class ITTestLargeVector {
+  private static final Logger logger = LoggerFactory.getLogger(ITTestLargeVector.class);
 
-  private static void testLargeLongVector() {
-    System.out.println("Testing large big int vector.");
+  @Test
+  public void testLargeLongVector() {
+    logger.trace("Testing large big int vector.");
 
     final long bufSize = 4 * 1024 * 1024 * 1024L;
     final int vecLength = (int) (bufSize / BigIntVector.TYPE_WIDTH);
@@ -45,32 +47,33 @@ public class TestLargeVector {
         BigIntVector largeVec = new BigIntVector("vec", allocator)) {
       largeVec.allocateNew(vecLength);
 
-      System.out.println("Successfully allocated a vector with capacity " + vecLength);
+      logger.trace("Successfully allocated a vector with capacity {}", vecLength);
 
       for (int i = 0; i < vecLength; i++) {
         largeVec.set(i, i * 10L);
 
         if ((i + 1) % 10000 == 0) {
-          System.out.println("Successfully written " + (i + 1) + " values");
+          logger.trace("Successfully written {} values", i + 1);
         }
       }
-      System.out.println("Successfully written " + vecLength + " values");
+      logger.trace("Successfully written {} values", vecLength);
 
       for (int i = 0; i < vecLength; i++) {
         long val = largeVec.get(i);
         assertEquals(i * 10L, val);
 
         if ((i + 1) % 10000 == 0) {
-          System.out.println("Successfully read " + (i + 1) + " values");
+          logger.trace("Successfully read {} values", i + 1);
         }
       }
-      System.out.println("Successfully read " + vecLength + " values");
+      logger.trace("Successfully read {} values", vecLength);
     }
-    System.out.println("Successfully released the large vector.");
+    logger.trace("Successfully released the large vector.");
   }
 
-  private static void testLargeIntVector() {
-    System.out.println("Testing large int vector.");
+  @Test
+  public void testLargeIntVector() {
+    logger.trace("Testing large int vector.");
 
     final long bufSize = 4 * 1024 * 1024 * 1024L;
     final int vecLength = (int) (bufSize / IntVector.TYPE_WIDTH);
@@ -79,32 +82,33 @@ public class TestLargeVector {
          IntVector largeVec = new IntVector("vec", allocator)) {
       largeVec.allocateNew(vecLength);
 
-      System.out.println("Successfully allocated a vector with capacity " + vecLength);
+      logger.trace("Successfully allocated a vector with capacity {}", vecLength);
 
       for (int i = 0; i < vecLength; i++) {
         largeVec.set(i, i);
 
         if ((i + 1) % 10000 == 0) {
-          System.out.println("Successfully written " + (i + 1) + " values");
+          logger.trace("Successfully written {} values", i + 1);
         }
       }
-      System.out.println("Successfully written " + vecLength + " values");
+      logger.trace("Successfully written {} values", vecLength);
 
       for (int i = 0; i < vecLength; i++) {
         long val = largeVec.get(i);
         assertEquals(i, val);
 
         if ((i + 1) % 10000 == 0) {
-          System.out.println("Successfully read " + (i + 1) + " values");
+          logger.trace("Successfully read {} values", i + 1);
         }
       }
-      System.out.println("Successfully read " + vecLength + " values");
+      logger.trace("Successfully read {} values", vecLength);
     }
-    System.out.println("Successfully released the large vector.");
+    logger.trace("Successfully released the large vector.");
   }
 
-  private static void testLargeDecimalVector() {
-    System.out.println("Testing large decimal vector.");
+  @Test
+  public void testLargeDecimalVector() {
+    logger.trace("Testing large decimal vector.");
 
     final long bufSize = 4 * 1024 * 1024 * 1024L;
     final int vecLength = (int) (bufSize / DecimalVector.TYPE_WIDTH);
@@ -113,16 +117,16 @@ public class TestLargeVector {
          DecimalVector largeVec = new DecimalVector("vec", allocator, 38, 16)) {
       largeVec.allocateNew(vecLength);
 
-      System.out.println("Successfully allocated a vector with capacity " + vecLength);
+      logger.trace("Successfully allocated a vector with capacity {}", vecLength);
 
       for (int i = 0; i < vecLength; i++) {
         largeVec.set(i, 0);
 
         if ((i + 1) % 10000 == 0) {
-          System.out.println("Successfully written " + (i + 1) + " values");
+          logger.trace("Successfully written {} values", i + 1);
         }
       }
-      System.out.println("Successfully written " + vecLength + " values");
+      logger.trace("Successfully written {} values", vecLength);
 
       for (int i = 0; i < vecLength; i++) {
         ArrowBuf buf = largeVec.get(i);
@@ -131,16 +135,17 @@ public class TestLargeVector {
         assertEquals(0, buf.getLong(8));
 
         if ((i + 1) % 10000 == 0) {
-          System.out.println("Successfully read " + (i + 1) + " values");
+          logger.trace("Successfully read {} values", i + 1);
         }
       }
-      System.out.println("Successfully read " + vecLength + " values");
+      logger.trace("Successfully read {} values", vecLength);
     }
-    System.out.println("Successfully released the large vector.");
+    logger.trace("Successfully released the large vector.");
   }
 
-  private static void testLargeFixedSizeBinaryVector() {
-    System.out.println("Testing large fixed size binary vector.");
+  @Test
+  public void testLargeFixedSizeBinaryVector() {
+    logger.trace("Testing large fixed size binary vector.");
 
     final long bufSize = 4 * 1024 * 1024 * 1024L;
     final int typeWidth = 8;
@@ -150,17 +155,17 @@ public class TestLargeVector {
          FixedSizeBinaryVector largeVec = new FixedSizeBinaryVector("vec", allocator, typeWidth)) {
       largeVec.allocateNew(vecLength);
 
-      System.out.println("Successfully allocated a vector with capacity " + vecLength);
+      logger.trace("Successfully allocated a vector with capacity {}", vecLength);
 
       byte[] value = new byte[] {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
       for (int i = 0; i < vecLength; i++) {
         largeVec.set(i, value);
 
         if ((i + 1) % 10000 == 0) {
-          System.out.println("Successfully written " + (i + 1) + " values");
+          logger.trace("Successfully written {} values", i + 1);
         }
       }
-      System.out.println("Successfully written " + vecLength + " values");
+      logger.trace("Successfully written {} values", vecLength);
 
       for (int i = 0; i < vecLength; i++) {
         byte[] buf = largeVec.get(i);
@@ -168,18 +173,12 @@ public class TestLargeVector {
         assertArrayEquals(buf, value);
 
         if ((i + 1) % 10000 == 0) {
-          System.out.println("Successfully read " + (i + 1) + " values");
+          logger.trace("Successfully read {} values", i + 1);
         }
       }
-      System.out.println("Successfully read " + vecLength + " values");
+      logger.trace("Successfully read {} values", vecLength);
     }
-    System.out.println("Successfully released the large vector.");
+    logger.trace("Successfully released the large vector.");
   }
 
-  public static void main(String[] args) {
-    testLargeLongVector();
-    testLargeIntVector();
-    testLargeDecimalVector();
-    testLargeFixedSizeBinaryVector();
-  }
 }
