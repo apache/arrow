@@ -30,12 +30,12 @@ import pyarrow as pa
 
 def jvm_buffer(arrowbuf):
     """
-    Construct an Arrow buffer from io.netty.buffer.ArrowBuf
+    Construct an Arrow buffer from org.apache.arrow.memory.ArrowBuf
 
     Parameters
     ----------
 
-    arrowbuf: io.netty.buffer.ArrowBuf
+    arrowbuf: org.apache.arrow.memory.ArrowBuf
         Arrow Buffer representation on the JVM.
 
     Returns
