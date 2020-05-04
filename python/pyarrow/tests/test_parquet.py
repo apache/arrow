@@ -66,12 +66,6 @@ parametrize_legacy_dataset_skip_buffer = pytest.mark.parametrize(
     "use_legacy_dataset", [True, pytest.param(False, marks=pytest.mark.skip)])
 
 
-def deterministic_row_order(use_legacy_dataset, chunk_size=-1):
-    # TODO(datasets) ensure to use use_threads=False with the new dataset API
-    # in the tests because otherwise the row order is not deterministic
-    return False if not use_legacy_dataset and chunk_size is not None else True
-
-
 def _write_table(table, path, **kwargs):
     # So we see the ImportError somewhere
     import pyarrow.parquet as pq
@@ -191,10 +185,8 @@ def test_pandas_parquet_2_0_roundtrip(tempdir, chunk_size, use_legacy_dataset):
 
     _write_table(arrow_table, filename, version="2.0",
                  coerce_timestamps='ms', chunk_size=chunk_size)
-    use_threads = deterministic_row_order(use_legacy_dataset, chunk_size)
     table_read = pq.read_pandas(
-        filename, use_legacy_dataset=use_legacy_dataset,
-        use_threads=use_threads)
+        filename, use_legacy_dataset=use_legacy_dataset)
     assert table_read.schema.pandas_metadata is not None
 
     read_metadata = table_read.schema.metadata
@@ -2303,9 +2295,7 @@ def test_read_multiple_files(tempdir, use_legacy_dataset):
     # Write a _SUCCESS.crc file
     (dirpath / '_SUCCESS.crc').touch()
 
-    # TODO(datasets) changed to use_threads=False because otherwise the
-    # row order is not deterministic
-    def read_multiple_files(paths, columns=None, use_threads=False, **kwargs):
+    def read_multiple_files(paths, columns=None, use_threads=True, **kwargs):
         dataset = pq.ParquetDataset(
             paths, use_legacy_dataset=use_legacy_dataset, **kwargs)
         return dataset.read(columns=columns, use_threads=use_threads)
@@ -2394,9 +2384,7 @@ def test_dataset_read_pandas(tempdir, use_legacy_dataset):
 
     dataset = pq.ParquetDataset(dirpath, use_legacy_dataset=use_legacy_dataset)
     columns = ['uint8', 'strings']
-    use_threads = deterministic_row_order(use_legacy_dataset)
-    result = dataset.read_pandas(
-        columns=columns, use_threads=use_threads).to_pandas()
+    result = dataset.read_pandas(columns=columns).to_pandas()
     expected = pd.concat([x[columns] for x in frames])
 
     tm.assert_frame_equal(result, expected)
@@ -2719,8 +2707,7 @@ def _test_write_to_dataset_with_partitions(base_path,
 
     assert dataset_cols == set(output_table.schema.names)
 
-    use_threads = deterministic_row_order(use_legacy_dataset)
-    input_table = dataset.read(use_threads=use_threads)
+    input_table = dataset.read()
     input_df = input_table.to_pandas()
 
     # Read data back in and compare with original DataFrame
@@ -2733,9 +2720,6 @@ def _test_write_to_dataset_with_partitions(base_path,
         # Partitioned columns become 'categorical' dtypes
         for col in partition_by:
             output_df[col] = output_df[col].astype('category')
-    else:
-        # ensure deterministic row order
-        input_df = input_df.sort_values(by=["num"]).reset_index(drop=True)
     tm.assert_frame_equal(output_df, input_df)
 
 
@@ -2765,11 +2749,10 @@ def _test_write_to_dataset_no_partitions(base_path,
 
     # Deduplicated incoming DataFrame should match
     # original outgoing Dataframe
-    use_threads = deterministic_row_order(use_legacy_dataset)
     input_table = pq.ParquetDataset(
         base_path, filesystem=filesystem,
         use_legacy_dataset=use_legacy_dataset
-    ).read(use_threads=use_threads)
+    ).read()
     input_df = input_table.to_pandas()
     input_df = input_df.drop_duplicates()
     input_df = input_df[cols]
