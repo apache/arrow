@@ -169,22 +169,29 @@ For detailed examples see the docker-compose.yml.
 Build Scripts
 ~~~~~~~~~~~~~
 
-The scripts maintainted under ci/scripts directory should be kept as minimal as
-possible to be responsible for only a subset of tasks.
+The scripts maintainted under ci/scripts directory should be kept
+parametrizable but reasonably minimal to clearly encapsulate the tasks it is
+responsible for. Like:
+
+- ``cpp_build.sh``: build the C++ implementation without running the tests.
+- ``cpp_test.sh``: execute the C++ tests.
+- ``python_build.sh``: build the Python bindings without running the tests.
+- ``python_test.sh``: execute the python tests.
+- ``docs_build.sh``: build the Sphinx documentation.
+- ``integration_dask.sh``: execute the dask integration tests.
+- ``integration_pandas.sh``: execute the pandas integration tests.
+- ``install_minio.sh``: install minio server for multiple platforms.
+- ``install_conda.sh``: install miniconda for multiple platforms.
 
 The parametrization (like the C++ CMake options) is achieved via environment
 variables with useful defaults to keep the build configurations declarative.
 
-Note that these parameters are different from the ones described previously,
-these are affecting the runtime behaviour of the builds scripts within the
-containers.
-
 A good example is ``cpp_build.sh`` build script which forwards environment
 variables as CMake options - so the same scripts can be invoked in various
-configurations without the necessity of chaning it. For examples see how the
+configurations without the necessity of changing it. For examples see how the
 environment variables are passed in the docker-compose.yml's C++ images.
 
 Adding New Images
 ~~~~~~~~~~~~~~~~~
 
-See more in the docker-compose.yml
+See the inline comments available in the docker-compose.yml file.
