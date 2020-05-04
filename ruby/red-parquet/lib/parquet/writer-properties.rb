@@ -15,35 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class FeatherTest < Test::Unit::TestCase
-  include Helper::Fixture
-
-  def setup
-    columns = {
-      "message" => Arrow::StringArray.new(["Start", "Crash", "Shutdown"]),
-      "is_critical" => Arrow::BooleanArray.new([false, true, false]),
-    }
-    @table = Arrow::Table.new(columns)
-
-    @output = Tempfile.new(["red-arrow", ".feather"])
-    begin
-      yield(@output)
-    ensure
-      @output.close!
+module Parquet
+  class WriterProperties
+    def set_dictionary(enable, path=nil)
+      if enable
+        enable_dictionary(path)
+      else
+        disable_dictionary(path)
+      end
     end
-  end
-
-  def test_default
-    @table.save(@output.path)
-    @output.close
-
-    assert_equal(@table, Arrow::Table.load(@output.path))
-  end
-
-  def test_compression
-    @table.save(@output.path, compression: :zstd)
-    @output.close
-
-    assert_equal(@table, Arrow::Table.load(@output.path))
   end
 end
