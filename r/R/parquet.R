@@ -439,7 +439,7 @@ ParquetFileWriter$create <- function(
 #' @export
 #' @examples
 #' \donttest{
-#' f <- system.file("v0.7.1.parquet", package="arrow")
+#' f <- ReadableFile$create(system.file("v0.7.1.parquet", package="arrow"))
 #' pq <- ParquetFileReader$create(f)
 #' pq$GetSchema()
 #' if (codec_is_available("snappy")) {
@@ -447,6 +447,7 @@ ParquetFileWriter$create <- function(
 #'   tab <- pq$ReadTable(starts_with("c"))
 #'   tab$schema
 #' }
+#' f$close()
 #' }
 #' @include arrow-package.R
 ParquetFileReader <- R6Class("ParquetFileReader",
