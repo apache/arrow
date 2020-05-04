@@ -76,6 +76,12 @@ Archery calls the following docker-compose commands:
     docker-compose build conda-python
     docker-compose run --rm conda-python
 
+**Show the docker-compose commands instead of executing them:**
+
+.. code:: bash
+
+    archery docker run --dry-run conda-python
+
 **To disable the image pulling:**
 
 .. code:: bash
@@ -136,9 +142,9 @@ be useful to skip the build phases:
 
 **Pass environment variables to the container:**
 
-Most of the builds can be configured through environment variables. Any
-environment variable can be passed in a similar fashion like ``docker run`` and
-``docker-compose run`` expect it:
+Most of the build scripts used within the containers can be configured through
+environment variables. Pass them using ``--env`` or ``-e`` CLI options -
+similarly to ``docker run`` and ``docker-compose run`` interface.
 
 .. code:: bash
 
