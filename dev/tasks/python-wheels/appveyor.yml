@@ -20,7 +20,6 @@ os: Visual Studio 2015
 environment:
   ARCH: "64"
   GENERATOR: Visual Studio 14 2015 Win64
-  NUMPY_VERSION: "1.14"
   PYTHON_VERSION: "{{ python_version }}"
   ARROW_SRC: C:\apache-arrow
   PYARROW_VERSION: {{ arrow.no_rc_version }}
@@ -73,8 +72,3 @@ deploy:
   artifact: /.*\.whl/
   draft: false
   prerelease: false
-
-notifications:
-  - provider: Email
-    to:
-      - {{ job.email }}

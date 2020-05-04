@@ -28,9 +28,7 @@ using Rcpp::DataFrame;
 std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl) {
   auto rb = RecordBatch__from_dataframe(tbl);
 
-  std::shared_ptr<arrow::Table> out;
-  STOP_IF_NOT_OK(arrow::Table::FromRecordBatches({std::move(rb)}, &out));
-  return out;
+  return ValueOrStop(arrow::Table::FromRecordBatches({std::move(rb)}));
 }
 
 // [[arrow::export]]
@@ -98,6 +96,18 @@ bool Table__Equals(const std::shared_ptr<arrow::Table>& lhs,
 }
 
 // [[arrow::export]]
+bool Table__Validate(const std::shared_ptr<arrow::Table>& table) {
+  StopIfNotOk(table->Validate());
+  return true;
+}
+
+// [[arrow::export]]
+bool Table__ValidateFull(const std::shared_ptr<arrow::Table>& table) {
+  StopIfNotOk(table->ValidateFull());
+  return true;
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> Table__GetColumnByName(
     const std::shared_ptr<arrow::Table>& table, const std::string& name) {
   return table->GetColumnByName(name);
@@ -140,15 +150,15 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
 
     if (Rf_inherits(schema_sxp, "Schema")) {
       auto schema = arrow::r::extract<arrow::Schema>(schema_sxp);
-      STOP_IF_NOT_OK(arrow::Table::FromRecordBatches(schema, batches, &tab));
+      tab = ValueOrStop(arrow::Table::FromRecordBatches(schema, std::move(batches)));
     } else {
-      STOP_IF_NOT_OK(arrow::Table::FromRecordBatches(batches, &tab));
+      tab = ValueOrStop(arrow::Table::FromRecordBatches(std::move(batches)));
     }
     return tab;
   }
 
   int num_fields;
-  STOP_IF_NOT_OK(arrow::r::count_fields(lst, &num_fields));
+  StopIfNotOk(arrow::r::count_fields(lst, &num_fields));
 
   std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(num_fields);
   std::shared_ptr<arrow::Schema> schema;

@@ -14,7 +14,7 @@ build:
 
 requirements:
   build:
-    - cmake
+    - cmake 3.16.*
     - autoconf  # [unix]
     - ninja
     - {{ compiler('c') }}

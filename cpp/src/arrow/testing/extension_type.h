@@ -41,9 +41,9 @@ class ARROW_EXPORT UUIDType : public ExtensionType {
 
   std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
 
-  Status Deserialize(std::shared_ptr<DataType> storage_type,
-                     const std::string& serialized,
-                     std::shared_ptr<DataType>* out) const override;
+  Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
+      const std::string& serialized) const override;
 
   std::string Serialize() const override { return "uuid-type-unique-code"; }
 };
@@ -63,9 +63,9 @@ class ARROW_EXPORT SmallintType : public ExtensionType {
 
   std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
 
-  Status Deserialize(std::shared_ptr<DataType> storage_type,
-                     const std::string& serialized,
-                     std::shared_ptr<DataType>* out) const override;
+  Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
+      const std::string& serialized) const override;
 
   std::string Serialize() const override { return "smallint"; }
 };

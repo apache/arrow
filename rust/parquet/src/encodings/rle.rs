@@ -15,14 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::{
-    cmp,
-    mem::{size_of, transmute_copy},
-};
+use std::{cmp, mem::size_of};
 
 use crate::errors::{ParquetError, Result};
 use crate::util::{
-    bit_util::{self, BitReader, BitWriter},
+    bit_util::{self, from_ne_slice, BitReader, BitWriter, FromBytes},
     memory::ByteBufferPtr,
 };
 
@@ -369,7 +366,7 @@ impl RleDecoder {
     }
 
     #[inline]
-    pub fn get<T: Default>(&mut self) -> Result<Option<T>> {
+    pub fn get<T: FromBytes>(&mut self) -> Result<Option<T>> {
         assert!(size_of::<T>() <= 8);
 
         while self.rle_left <= 0 && self.bit_packed_left <= 0 {
@@ -379,13 +376,13 @@ impl RleDecoder {
         }
 
         let value = if self.rle_left > 0 {
-            let rle_value = unsafe {
-                transmute_copy::<u64, T>(
-                    self.current_value
-                        .as_mut()
-                        .expect("current_value should be Some"),
-                )
-            };
+            let rle_value = from_ne_slice(
+                &self
+                    .current_value
+                    .as_mut()
+                    .expect("current_value should be Some")
+                    .to_ne_bytes(),
+            );
             self.rle_left -= 1;
             rle_value
         } else {
@@ -402,7 +399,7 @@ impl RleDecoder {
     }
 
     #[inline]
-    pub fn get_batch<T: Default>(&mut self, buffer: &mut [T]) -> Result<usize> {
+    pub fn get_batch<T: FromBytes>(&mut self, buffer: &mut [T]) -> Result<usize> {
         assert!(self.bit_reader.is_some());
         assert!(size_of::<T>() <= 8);
 
@@ -413,9 +410,9 @@ impl RleDecoder {
                 let num_values =
                     cmp::min(buffer.len() - values_read, self.rle_left as usize);
                 for i in 0..num_values {
-                    let repeated_value = unsafe {
-                        transmute_copy::<u64, T>(self.current_value.as_mut().unwrap())
-                    };
+                    let repeated_value = from_ne_slice(
+                        &self.current_value.as_mut().unwrap().to_ne_bytes(),
+                    );
                     buffer[values_read + i] = repeated_value;
                 }
                 self.rle_left -= num_values as u32;
@@ -525,11 +522,7 @@ impl RleDecoder {
 mod tests {
     use super::*;
 
-    use rand::{
-        self,
-        distributions::{Distribution, Standard},
-        thread_rng, Rng, SeedableRng,
-    };
+    use rand::{self, distributions::Standard, thread_rng, Rng, SeedableRng};
 
     use crate::util::memory::ByteBufferPtr;
 
@@ -833,7 +826,7 @@ mod tests {
             values.clear();
             let mut rng = thread_rng();
             let seed_vec: Vec<u8> =
-                Standard.sample_iter(&mut rng).take(seed_len).collect();
+                rng.sample_iter::<u8, _>(&Standard).take(seed_len).collect();
             let mut seed = [0u8; 32];
             seed.copy_from_slice(&seed_vec[0..seed_len]);
             let mut gen = rand::rngs::StdRng::from_seed(seed);

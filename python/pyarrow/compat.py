@@ -40,8 +40,11 @@ def tobytes(o):
     else:
         return o
 
-def frombytes(o):
-    return o.decode('utf8')
+def frombytes(o, *, safe=False):
+    if safe:
+        return o.decode('utf8', errors='replace')
+    else:
+        return o.decode('utf8')
 
 
 if sys.version_info >= (3, 7):

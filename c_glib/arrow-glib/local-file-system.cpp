@@ -124,7 +124,7 @@ garrow_local_file_system_options_class_init(GArrowLocalFileSystemOptionsClass *k
    * Whether open_input_stream and open_input_file return a mmap'ed file,
    * or a regular one.
    *
-   * Since: 1.0.0
+   * Since: 0.17.0
    */
   spec = g_param_spec_boolean("use-mmap",
                               "Use mmap",
@@ -141,7 +141,7 @@ garrow_local_file_system_options_class_init(GArrowLocalFileSystemOptionsClass *k
  *
  * Returns: (transfer full): A newly created #GArrowLocalFileSystemOptions.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowLocalFileSystemOptions *
 garrow_local_file_system_options_new(void)
@@ -172,7 +172,7 @@ garrow_local_file_system_class_init(GArrowLocalFileSystemClass *klass)
  *
  * Returns: (transfer full): A newly created #GArrowLocalFileSystem.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowLocalFileSystem *
 garrow_local_file_system_new(GArrowLocalFileSystemOptions *options)

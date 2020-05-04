@@ -174,7 +174,7 @@ int main(int argc, char** argv) {
       locations = {location};
     }
 
-    for (const auto location : locations) {
+    for (const auto& location : locations) {
       std::cout << "Verifying location " << location.ToString() << std::endl;
       // 3. Stream data from the server, comparing individual batches.
       ABORT_NOT_OK(ConsumeFlightLocation(location, ticket, original_data));

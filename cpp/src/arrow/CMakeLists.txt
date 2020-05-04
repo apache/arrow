@@ -308,6 +308,7 @@ if(ARROW_CSV)
               csv/converter.cc
               csv/chunker.cc
               csv/column_builder.cc
+              csv/column_decoder.cc
               csv/options.cc
               csv/parser.cc
               csv/reader.cc)
@@ -318,9 +319,6 @@ endif()
 if(ARROW_COMPUTE)
   list(APPEND ARROW_SRCS
               compute/context.cc
-              compute/expression.cc
-              compute/logical_type.cc
-              compute/operation.cc
               compute/kernels/aggregate.cc
               compute/kernels/boolean.cc
               compute/kernels/cast.cc
@@ -337,9 +335,7 @@ if(ARROW_COMPUTE)
               compute/kernels/take.cc
               compute/kernels/isin.cc
               compute/kernels/match.cc
-              compute/kernels/util_internal.cc
-              compute/operations/cast.cc
-              compute/operations/literal.cc)
+              compute/kernels/util_internal.cc)
 endif()
 
 if(ARROW_FILESYSTEM)
@@ -555,6 +551,7 @@ if(ARROW_COMPUTE)
 endif()
 
 add_arrow_benchmark(builder_benchmark)
+add_arrow_benchmark(memory_pool_benchmark)
 add_arrow_benchmark(type_benchmark)
 
 #

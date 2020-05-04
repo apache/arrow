@@ -300,28 +300,28 @@ Table__TakeChunked <- function(table, indices){
     .Call(`_arrow_Table__TakeChunked` , table, indices)
 }
 
-Array__Filter <- function(values, filter){
-    .Call(`_arrow_Array__Filter` , values, filter)
+Array__Filter <- function(values, filter, keep_na){
+    .Call(`_arrow_Array__Filter` , values, filter, keep_na)
 }
 
-RecordBatch__Filter <- function(batch, filter){
-    .Call(`_arrow_RecordBatch__Filter` , batch, filter)
+RecordBatch__Filter <- function(batch, filter, keep_na){
+    .Call(`_arrow_RecordBatch__Filter` , batch, filter, keep_na)
 }
 
-ChunkedArray__Filter <- function(values, filter){
-    .Call(`_arrow_ChunkedArray__Filter` , values, filter)
+ChunkedArray__Filter <- function(values, filter, keep_na){
+    .Call(`_arrow_ChunkedArray__Filter` , values, filter, keep_na)
 }
 
-ChunkedArray__FilterChunked <- function(values, filter){
-    .Call(`_arrow_ChunkedArray__FilterChunked` , values, filter)
+ChunkedArray__FilterChunked <- function(values, filter, keep_na){
+    .Call(`_arrow_ChunkedArray__FilterChunked` , values, filter, keep_na)
 }
 
-Table__Filter <- function(table, filter){
-    .Call(`_arrow_Table__Filter` , table, filter)
+Table__Filter <- function(table, filter, keep_na){
+    .Call(`_arrow_Table__Filter` , table, filter, keep_na)
 }
 
-Table__FilterChunked <- function(table, filter){
-    .Call(`_arrow_Table__FilterChunked` , table, filter)
+Table__FilterChunked <- function(table, filter, keep_na){
+    .Call(`_arrow_Table__FilterChunked` , table, filter, keep_na)
 }
 
 csv___ReadOptions__initialize <- function(options){
@@ -356,6 +356,10 @@ dataset___Dataset__type_name <- function(dataset){
     .Call(`_arrow_dataset___Dataset__type_name` , dataset)
 }
 
+dataset___Dataset__ReplaceSchema <- function(dataset, schm){
+    .Call(`_arrow_dataset___Dataset__ReplaceSchema` , dataset, schm)
+}
+
 dataset___UnionDataset__create <- function(datasets, schm){
     .Call(`_arrow_dataset___UnionDataset__create` , datasets, schm)
 }
@@ -372,16 +376,16 @@ dataset___FileSystemDataset__files <- function(dataset){
     .Call(`_arrow_dataset___FileSystemDataset__files` , dataset)
 }
 
-dataset___DatasetFactory__Finish1 <- function(factory){
-    .Call(`_arrow_dataset___DatasetFactory__Finish1` , factory)
+dataset___DatasetFactory__Finish1 <- function(factory, unify_schemas){
+    .Call(`_arrow_dataset___DatasetFactory__Finish1` , factory, unify_schemas)
 }
 
 dataset___DatasetFactory__Finish2 <- function(factory, schema){
     .Call(`_arrow_dataset___DatasetFactory__Finish2` , factory, schema)
 }
 
-dataset___DatasetFactory__Inspect <- function(factory){
-    .Call(`_arrow_dataset___DatasetFactory__Inspect` , factory)
+dataset___DatasetFactory__Inspect <- function(factory, unify_schemas){
+    .Call(`_arrow_dataset___DatasetFactory__Inspect` , factory, unify_schemas)
 }
 
 dataset___UnionDatasetFactory__Make <- function(children){
@@ -410,6 +414,10 @@ dataset___ParquetFileFormat__Make <- function(use_buffered_stream, buffer_size, 
 
 dataset___IpcFileFormat__Make <- function(){
     .Call(`_arrow_dataset___IpcFileFormat__Make` )
+}
+
+dataset___CsvFileFormat__Make <- function(parse_options){
+    .Call(`_arrow_dataset___CsvFileFormat__Make` , parse_options)
 }
 
 dataset___DirectoryPartitioning <- function(schm){
@@ -454,6 +462,14 @@ dataset___ScannerBuilder__Finish <- function(sb){
 
 dataset___Scanner__ToTable <- function(scanner){
     .Call(`_arrow_dataset___Scanner__ToTable` , scanner)
+}
+
+dataset___Scanner__Scan <- function(scanner){
+    .Call(`_arrow_dataset___Scanner__Scan` , scanner)
+}
+
+dataset___ScanTask__get_batches <- function(scan_task){
+    .Call(`_arrow_dataset___ScanTask__get_batches` , scan_task)
 }
 
 shared_ptr_is_null <- function(xp){
@@ -860,12 +876,28 @@ fs___FileSystem__OpenAppendStream <- function(file_system, path){
     .Call(`_arrow_fs___FileSystem__OpenAppendStream` , file_system, path)
 }
 
+fs___FileSystem__type_name <- function(file_system){
+    .Call(`_arrow_fs___FileSystem__type_name` , file_system)
+}
+
 fs___LocalFileSystem__create <- function(){
     .Call(`_arrow_fs___LocalFileSystem__create` )
 }
 
 fs___SubTreeFileSystem__create <- function(base_path, base_fs){
     .Call(`_arrow_fs___SubTreeFileSystem__create` , base_path, base_fs)
+}
+
+fs___FileSystemFromUri <- function(path){
+    .Call(`_arrow_fs___FileSystemFromUri` , path)
+}
+
+fs___EnsureS3Initialized <- function(){
+    invisible(.Call(`_arrow_fs___EnsureS3Initialized` ))
+}
+
+fs___S3FileSystem__create <- function(){
+    .Call(`_arrow_fs___S3FileSystem__create` )
 }
 
 io___Readable__Read <- function(x, nbytes){
@@ -954,18 +986,6 @@ io___BufferOutputStream__Tell <- function(stream){
 
 io___BufferOutputStream__Write <- function(stream, bytes){
     invisible(.Call(`_arrow_io___BufferOutputStream__Write` , stream, bytes))
-}
-
-io___MockOutputStream__initialize <- function(){
-    .Call(`_arrow_io___MockOutputStream__initialize` )
-}
-
-io___MockOutputStream__GetExtentBytesWritten <- function(stream){
-    .Call(`_arrow_io___MockOutputStream__GetExtentBytesWritten` , stream)
-}
-
-io___FixedSizeBufferWriter__initialize <- function(buffer){
-    .Call(`_arrow_io___FixedSizeBufferWriter__initialize` , buffer)
 }
 
 json___ReadOptions__initialize <- function(options){
@@ -1256,8 +1276,8 @@ RecordBatch__from_dataframe <- function(tbl){
     .Call(`_arrow_RecordBatch__from_dataframe` , tbl)
 }
 
-RecordBatch__Equals <- function(self, other){
-    .Call(`_arrow_RecordBatch__Equals` , self, other)
+RecordBatch__Equals <- function(self, other, check_metadata){
+    .Call(`_arrow_RecordBatch__Equals` , self, other, check_metadata)
 }
 
 RecordBatch__RemoveColumn <- function(batch, i){
@@ -1404,6 +1424,10 @@ Schema__Equals <- function(schema, other, check_metadata){
     .Call(`_arrow_Schema__Equals` , schema, other, check_metadata)
 }
 
+arrow__UnifySchemas <- function(schemas){
+    .Call(`_arrow_arrow__UnifySchemas` , schemas)
+}
+
 Table__from_dataframe <- function(tbl){
     .Call(`_arrow_Table__from_dataframe` , tbl)
 }
@@ -1446,6 +1470,14 @@ Table__Slice2 <- function(table, offset, length){
 
 Table__Equals <- function(lhs, rhs, check_metadata){
     .Call(`_arrow_Table__Equals` , lhs, rhs, check_metadata)
+}
+
+Table__Validate <- function(table){
+    .Call(`_arrow_Table__Validate` , table)
+}
+
+Table__ValidateFull <- function(table){
+    .Call(`_arrow_Table__ValidateFull` , table)
 }
 
 Table__GetColumnByName <- function(table, name){

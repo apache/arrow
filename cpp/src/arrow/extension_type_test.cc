@@ -80,14 +80,13 @@ class Parametric1Type : public ExtensionType {
     return std::make_shared<Parametric1Array>(data);
   }
 
-  Status Deserialize(std::shared_ptr<DataType> storage_type,
-                     const std::string& serialized,
-                     std::shared_ptr<DataType>* out) const override {
+  Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
+      const std::string& serialized) const override {
     DCHECK_EQ(4, serialized.size());
     const int32_t parameter = *reinterpret_cast<const int32_t*>(serialized.data());
     DCHECK(storage_type->Equals(int32()));
-    *out = std::make_shared<Parametric1Type>(parameter);
-    return Status::OK();
+    return std::make_shared<Parametric1Type>(parameter);
   }
 
   std::string Serialize() const override {
@@ -127,14 +126,13 @@ class Parametric2Type : public ExtensionType {
     return std::make_shared<Parametric2Array>(data);
   }
 
-  Status Deserialize(std::shared_ptr<DataType> storage_type,
-                     const std::string& serialized,
-                     std::shared_ptr<DataType>* out) const override {
+  Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
+      const std::string& serialized) const override {
     DCHECK_EQ(4, serialized.size());
     const int32_t parameter = *reinterpret_cast<const int32_t*>(serialized.data());
     DCHECK(storage_type->Equals(int32()));
-    *out = std::make_shared<Parametric2Type>(parameter);
-    return Status::OK();
+    return std::make_shared<Parametric2Type>(parameter);
   }
 
   std::string Serialize() const override {
@@ -172,14 +170,13 @@ class ExtStructType : public ExtensionType {
     return std::make_shared<ExtStructArray>(data);
   }
 
-  Status Deserialize(std::shared_ptr<DataType> storage_type,
-                     const std::string& serialized,
-                     std::shared_ptr<DataType>* out) const override {
+  Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
+      const std::string& serialized) const override {
     if (serialized != "ext-struct-type-unique-code") {
       return Status::Invalid("Type identifier did not match");
     }
-    *out = std::make_shared<ExtStructType>();
-    return Status::OK();
+    return std::make_shared<ExtStructType>();
   }
 
   std::string Serialize() const override { return "ext-struct-type-unique-code"; }
@@ -209,8 +206,8 @@ TEST_F(TestExtensionType, ExtensionTypeTest) {
   const auto& ext_type = static_cast<const ExtensionType&>(*type);
   std::string serialized = ext_type.Serialize();
 
-  std::shared_ptr<DataType> deserialized;
-  ASSERT_OK(ext_type.Deserialize(fixed_size_binary(16), serialized, &deserialized));
+  ASSERT_OK_AND_ASSIGN(auto deserialized,
+                       ext_type.Deserialize(fixed_size_binary(16), serialized));
   ASSERT_TRUE(deserialized->Equals(*type));
   ASSERT_FALSE(deserialized->Equals(*fixed_size_binary(16)));
 }
@@ -239,9 +236,7 @@ TEST_F(TestExtensionType, IpcRoundtrip) {
 
   // Wrap type in a ListArray and ensure it also makes it
   auto offsets_arr = ArrayFromJSON(int32(), "[0, 0, 2, 4]");
-  std::shared_ptr<Array> list_arr;
-  ASSERT_OK(
-      ListArray::FromArrays(*offsets_arr, *ext_arr, default_memory_pool(), &list_arr));
+  ASSERT_OK_AND_ASSIGN(auto list_arr, ListArray::FromArrays(*offsets_arr, *ext_arr));
   batch = RecordBatch::Make(schema({field("f0", list(uuid()))}), 3, {list_arr});
   RoundtripBatch(batch, &read_batch);
   CompareBatch(*batch, *read_batch, false /* compare_metadata */);

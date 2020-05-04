@@ -116,8 +116,9 @@ def python_linter(src):
         return
 
     setup_py = os.path.join(src.python, "setup.py")
-    yield LintResult.from_cmd(flake8(setup_py, src.pyarrow, src.dev,
-                                     check=False))
+    yield LintResult.from_cmd(flake8(setup_py, src.pyarrow,
+                                     os.path.join(src.python, "examples"),
+                                     src.dev, check=False))
     config = os.path.join(src.python, ".flake8.cython")
     yield LintResult.from_cmd(flake8("--config=" + config, src.pyarrow,
                                      check=False))
@@ -216,7 +217,7 @@ def rat_linter(src, root):
     logger.info("Running apache-rat linter")
 
     if src.git_dirty:
-        logger.warn("Due to the usage of git-archive, uncommited files will"
+        logger.warn("Due to the usage of git-archive, uncommitted files will"
                     " not be checked for rat violations. ")
 
     exclusion = exclusion_from_globs(

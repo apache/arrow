@@ -106,6 +106,14 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
                        "AVX2"
                        "AVX512")
 
+  # Arm64 architectures and extensions can lead to exploding combinations.
+  # So set it directly through cmake command line.
+  define_option_string(ARROW_ARMV8_ARCH
+                       "Arm64 arch and extensions"
+                       "armv8-a" # Default
+                       "armv8-a"
+                       "armv8-a+crc+crypto")
+
   define_option(ARROW_ALTIVEC "Build with Altivec if compiler has support" ON)
 
   define_option(ARROW_RPATH_ORIGIN "Build Arrow libraries with RATH set to \$ORIGIN" OFF)
@@ -134,9 +142,15 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_BUILD_BENCHMARKS_REFERENCE
                 "Build the Arrow micro reference benchmarks" OFF)
 
+  if(ARROW_BUILD_SHARED)
+    set(ARROW_TEST_LINKAGE_DEFAULT "shared")
+  else()
+    set(ARROW_TEST_LINKAGE_DEFAULT "static")
+  endif()
+
   define_option_string(ARROW_TEST_LINKAGE
                        "Linkage of Arrow libraries with unit tests executables."
-                       "shared"
+                       "${ARROW_TEST_LINKAGE_DEFAULT}"
                        "shared"
                        "static")
 

@@ -80,7 +80,7 @@ install:
   - pip3 install click ruamel.yaml setuptools_scm github3.py toolz requests[security]
   - python3 arrow/dev/tasks/crossbow.py
       --queue-path $(pwd)
-      --queue-remote {{ queue.remote_url }}
+      --queue-remote {{ queue_remote_url }}
       upload-artifacts
       --sha {{ task.branch }}
       --tag {{ task.tag }}
@@ -91,7 +91,3 @@ install:
   - path=$(ls arrow/python/dist/*.whl)
   - curl -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/
   {% endif %}
-
-notifications:
-  email:
-    - {{ job.email }}

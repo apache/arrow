@@ -26,6 +26,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/sort.h"
@@ -81,6 +83,41 @@ void KeyValueMetadata::ToUnorderedMap(
 void KeyValueMetadata::Append(const std::string& key, const std::string& value) {
   keys_.push_back(key);
   values_.push_back(value);
+}
+
+Result<std::string> KeyValueMetadata::Get(const std::string& key) const {
+  auto index = FindKey(key);
+  if (index < 0) {
+    return Status::KeyError(key);
+  } else {
+    return value(index);
+  }
+}
+
+Status KeyValueMetadata::Delete(const std::string& key) {
+  auto index = FindKey(key);
+  if (index < 0) {
+    return Status::KeyError(key);
+  } else {
+    keys_.erase(keys_.begin() + index);
+    values_.erase(values_.begin() + index);
+    return Status::OK();
+  }
+}
+
+Status KeyValueMetadata::Set(const std::string& key, const std::string& value) {
+  auto index = FindKey(key);
+  if (index < 0) {
+    Append(key, value);
+  } else {
+    keys_[index] = key;
+    values_[index] = value;
+  }
+  return Status::OK();
+}
+
+bool KeyValueMetadata::Contains(const std::string& key) const {
+  return FindKey(key) >= 0;
 }
 
 void KeyValueMetadata::reserve(int64_t n) {

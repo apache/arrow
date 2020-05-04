@@ -214,7 +214,7 @@ the float NaN value which is either represented by the Python object
 value during the conversion. If an integer input is supplied to
 ``pyarrow.array`` that contains ``np.nan``, ``ValueError`` is raised.
 
-To handle better compability with Pandas, we support interpreting NaN values as
+To handle better compatibility with Pandas, we support interpreting NaN values as
 null elements. This is enabled automatically on all ``from_pandas`` function and
 can be enable on the other conversion functions by passing ``from_pandas=True``
 as a function parameter.

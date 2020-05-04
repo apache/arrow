@@ -61,7 +61,7 @@
 #'    of the table if `NULL`, the default.
 #' - `$Take(i)`: return an `RecordBatch` with rows at positions given by
 #'    integers (R vector or Array Array) `i`.
-#' - `$Filter(i)`: return an `RecordBatch` with rows at positions where logical
+#' - `$Filter(i, keep_na = TRUE)`: return an `RecordBatch` with rows at positions where logical
 #'    vector (or Arrow boolean Array) `i` is `TRUE`.
 #' - `$serialize()`: Returns a raw vector suitable for interprocess communication
 #' - `$cast(target_schema, safe = TRUE, options = cast_options(safe))`: Alter
@@ -79,10 +79,8 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
     column = function(i) shared_ptr(Array, RecordBatch__column(self, i)),
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
-    Equals = function(other, ...) {
-      # RecordBatch->Equals should have a check_metadata arg
-      # https://issues.apache.org/jira/browse/ARROW-7891
-      inherits(other, "RecordBatch") && RecordBatch__Equals(self, other)
+    Equals = function(other, check_metadata = FALSE, ...) {
+      inherits(other, "RecordBatch") && RecordBatch__Equals(self, other, isTRUE(check_metadata))
     },
     GetColumnByName = function(name) {
       assert_is(name, "character")
@@ -121,12 +119,12 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
       assert_is(i, "Array")
       shared_ptr(RecordBatch, RecordBatch__Take(self, i))
     },
-    Filter = function(i) {
+    Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
       assert_is(i, "Array")
-      shared_ptr(RecordBatch, RecordBatch__Filter(self, i))
+      shared_ptr(RecordBatch, RecordBatch__Filter(self, i, keep_na))
     },
     serialize = function() ipc___SerializeRecordBatch__Raw(self),
     ToString = function() ToString_tabular(self),
@@ -147,21 +145,41 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
   )
 )
 
-RecordBatch$create <- function(..., schema = NULL){
+RecordBatch$create <- function(..., schema = NULL) {
   arrays <- list2(...)
+  if (length(arrays) == 1 && inherits(arrays[[1]], c("raw", "Buffer", "InputStream", "Message"))) {
+    return(RecordBatch$from_message(arrays[[1]], schema))
+  }
+  # Else, list of arrays
   # making sure there are always names
   if (is.null(names(arrays))) {
     names(arrays) <- rep_len("", length(arrays))
   }
   stopifnot(length(arrays) > 0)
+  # TODO: should this also assert that they're all Arrays?
   shared_ptr(RecordBatch, RecordBatch__from_arrays(schema, arrays))
+}
+
+RecordBatch$from_message <- function(obj, schema) {
+  # Message/Buffer readers, previously in read_record_batch()
+  assert_is(schema, "Schema")
+  if (inherits(obj, c("raw", "Buffer"))) {
+    obj <- BufferReader$create(obj)
+    on.exit(obj$close())
+  }
+  if (inherits(obj, "InputStream")) {
+    shared_ptr(RecordBatch, ipc___ReadRecordBatch__InputStream__Schema(obj, schema))
+  } else {
+    shared_ptr(RecordBatch, ipc___ReadRecordBatch__Message__Schema(obj, schema))
+  }
 }
 
 #' @param ... A `data.frame` or a named set of Arrays or vectors. If given a
 #' mixture of data.frames and vectors, the inputs will be autospliced together
-#' (see examples).
+#' (see examples). Alternatively, you can provide a single Arrow IPC
+#' `InputStream`, `Message`, `Buffer`, or R `raw` object containing a `Buffer`.
 #' @param schema a [Schema], or `NULL` (the default) to infer the schema from
-#' the data in `...`
+#' the data in `...`. When providing an Arrow IPC buffer, `schema` is required.
 #' @rdname RecordBatch
 #' @examples
 #' \donttest{
@@ -226,7 +244,7 @@ dim.RecordBatch <- function(x) {
 }
 
 #' @export
-as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
+as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...) {
   RecordBatch__to_dataframe(x, use_threads = option_use_threads())
 }
 

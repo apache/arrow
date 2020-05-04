@@ -87,9 +87,9 @@ class TestIpcFileFormat : public ArrowIpcWriterMixin {
   }
 
   Result<FileSource> GetFileSink() {
-    std::shared_ptr<ResizableBuffer> buffer;
-    RETURN_NOT_OK(AllocateResizableBuffer(0, &buffer));
-    return FileSource(buffer);
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> buffer,
+                          AllocateResizableBuffer(0));
+    return FileSource(std::move(buffer));
   }
 
   RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
@@ -99,7 +99,7 @@ class TestIpcFileFormat : public ArrowIpcWriterMixin {
   }
 
   RecordBatchIterator Batches(Fragment* fragment) {
-    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(ctx_));
+    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_, ctx_));
     return Batches(std::move(scan_task_it));
   }
 
@@ -115,7 +115,7 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReader) {
   auto source = GetFileSource(reader.get());
 
   opts_ = ScanOptions::Make(reader->schema());
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
   int64_t row_count = 0;
 
@@ -132,11 +132,12 @@ TEST_F(TestIpcFileFormat, WriteRecordBatchReader) {
   auto source = GetFileSource(reader.get());
 
   opts_ = ScanOptions::Make(reader->schema());
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
   EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
 
-  EXPECT_OK_AND_ASSIGN(auto write_task, format_->WriteFragment(sink, fragment, ctx_));
+  EXPECT_OK_AND_ASSIGN(auto write_task,
+                       format_->WriteFragment(sink, fragment, opts_, ctx_));
 
   ASSERT_OK(write_task->Execute());
 
@@ -147,68 +148,35 @@ class TestIpcFileSystemDataset : public TestIpcFileFormat,
                                  public MakeFileSystemDatasetMixin {};
 
 TEST_F(TestIpcFileSystemDataset, Write) {
-  MakeDatasetFromPathlist(R"(
-    old_root/i32=0/
-    old_root/i32=0/str=aaa/
+  std::string paths = R"(
     old_root/i32=0/str=aaa/dat
-    old_root/i32=0/str=bbb/
     old_root/i32=0/str=bbb/dat
-    old_root/i32=0/str=ccc/
     old_root/i32=0/str=ccc/dat
-
-    old_root/i32=1/
-    old_root/i32=1/str=aaa/
     old_root/i32=1/str=aaa/dat
-    old_root/i32=1/str=bbb/
     old_root/i32=1/str=bbb/dat
-    old_root/i32=1/str=ccc/
     old_root/i32=1/str=ccc/dat
-    )",
-                          scalar(true),
-                          {
-                              ("i32"_ == 0).Copy(),
-                              ("str"_ == "aaa").Copy(),
-                              scalar(true),
-                              ("str"_ == "bbb").Copy(),
-                              scalar(true),
-                              ("str"_ == "ccc").Copy(),
-                              scalar(true),
-                              ("i32"_ == 1).Copy(),
-                              ("str"_ == "aaa").Copy(),
-                              scalar(true),
-                              ("str"_ == "bbb").Copy(),
-                              scalar(true),
-                              ("str"_ == "ccc").Copy(),
-                              scalar(true),
-                          });
+  )";
+
+  ExpressionVector partitions{
+      ("i32"_ == 0 and "str"_ == "aaa").Copy(), ("i32"_ == 0 and "str"_ == "bbb").Copy(),
+      ("i32"_ == 0 and "str"_ == "ccc").Copy(), ("i32"_ == 1 and "str"_ == "aaa").Copy(),
+      ("i32"_ == 1 and "str"_ == "bbb").Copy(), ("i32"_ == 1 and "str"_ == "ccc").Copy(),
+  };
+
+  MakeDatasetFromPathlist(paths, scalar(true), partitions);
 
   auto schema = arrow::schema({field("i32", int32()), field("str", utf8())});
   opts_ = ScanOptions::Make(schema);
 
   auto partitioning_factory = DirectoryPartitioning::MakeFactory({"str", "i32"});
   ASSERT_OK_AND_ASSIGN(
-      auto plan, partitioning_factory->MakeWritePlan(dataset_->GetFragments(options_)));
+      auto plan, partitioning_factory->MakeWritePlan(schema, dataset_->GetFragments()));
 
   plan.format = format_;
   plan.filesystem = fs_;
   plan.partition_base_dir = "new_root/";
 
-  ASSERT_OK_AND_ASSIGN(auto written, FileSystemDataset::Write(plan, ctx_));
-
-  using E = TestExpression;
-  std::vector<E> actual_partitions;
-  for (const auto& partition : written->partitions()) {
-    actual_partitions.emplace_back(partition);
-  }
-  EXPECT_THAT(actual_partitions,
-              testing::ElementsAre(E{"str"_ == "aaa"}, E{"i32"_ == 0}, E{scalar(true)},
-                                   E{"i32"_ == 1}, E{scalar(true)},
-
-                                   E{"str"_ == "bbb"}, E{"i32"_ == 0}, E{scalar(true)},
-                                   E{"i32"_ == 1}, E{scalar(true)},
-
-                                   E{"str"_ == "ccc"}, E{"i32"_ == 0}, E{scalar(true)},
-                                   E{"i32"_ == 1}, E{scalar(true)}));
+  ASSERT_OK_AND_ASSIGN(auto written, FileSystemDataset::Write(plan, opts_, ctx_));
 
   auto parent_directories = written->files();
   for (auto& path : parent_directories) {
@@ -230,7 +198,7 @@ TEST_F(TestIpcFileFormat, OpenFailureWithRelevantError) {
   constexpr auto file_name = "herp/derp";
   ASSERT_OK_AND_ASSIGN(
       auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {fs::File(file_name)}));
-  result = format_->Inspect({file_name, fs.get()});
+  result = format_->Inspect({file_name, fs});
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr(file_name),
                                   result.status());
 }
@@ -249,7 +217,7 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjected) {
 
   auto reader = GetRecordBatchReader();
   auto source = GetFileSource(reader.get());
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
   int64_t row_count = 0;
 
@@ -282,7 +250,7 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
   auto readers = {reader.get(), reader_without_i32.get(), reader_without_f64.get()};
   for (auto reader : readers) {
     auto source = GetFileSource(reader);
-    ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source, opts_));
+    ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
     // NB: projector is applied by the scanner; Fragment does not evaluate it.
     // We will not drop "i32" even though it is not in the projector's schema.

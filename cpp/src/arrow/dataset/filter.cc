@@ -49,8 +49,8 @@ namespace arrow {
 namespace dataset {
 
 using arrow::compute::Datum;
-using internal::checked_cast;
-using internal::checked_pointer_cast;
+using arrow::internal::checked_cast;
+using arrow::internal::checked_pointer_cast;
 
 inline std::shared_ptr<ScalarExpression> NullExpression() {
   return std::make_shared<ScalarExpression>(std::make_shared<BooleanScalar>());
@@ -655,31 +655,32 @@ std::string ScalarExpression::ToString() const {
   return value_->ToString() + ":" + type_repr;
 }
 
+using arrow::internal::JoinStrings;
+
 std::string AndExpression::ToString() const {
-  return internal::JoinStrings(
+  return JoinStrings(
       {"(", left_operand_->ToString(), " and ", right_operand_->ToString(), ")"}, "");
 }
 
 std::string OrExpression::ToString() const {
-  return internal::JoinStrings(
+  return JoinStrings(
       {"(", left_operand_->ToString(), " or ", right_operand_->ToString(), ")"}, "");
 }
 
 std::string NotExpression::ToString() const {
   if (operand_->type() == ExpressionType::IS_VALID) {
     const auto& is_valid = checked_cast<const IsValidExpression&>(*operand_);
-    return internal::JoinStrings({"(", is_valid.operand()->ToString(), " is null)"}, "");
+    return JoinStrings({"(", is_valid.operand()->ToString(), " is null)"}, "");
   }
-  return internal::JoinStrings({"(not ", operand_->ToString(), ")"}, "");
+  return JoinStrings({"(not ", operand_->ToString(), ")"}, "");
 }
 
 std::string IsValidExpression::ToString() const {
-  return internal::JoinStrings({"(", operand_->ToString(), " is not null)"}, "");
+  return JoinStrings({"(", operand_->ToString(), " is not null)"}, "");
 }
 
 std::string InExpression::ToString() const {
-  return internal::JoinStrings(
-      {"(", operand_->ToString(), " is in ", set_->ToString(), ")"}, "");
+  return JoinStrings({"(", operand_->ToString(), " is in ", set_->ToString(), ")"}, "");
 }
 
 std::string CastExpression::ToString() const {
@@ -691,13 +692,13 @@ std::string CastExpression::ToString() const {
     auto like = arrow::util::get<std::shared_ptr<Expression>>(to_);
     to = " like " + like->ToString();
   }
-  return internal::JoinStrings({"(cast ", operand_->ToString(), std::move(to), ")"}, "");
+  return JoinStrings({"(cast ", operand_->ToString(), std::move(to), ")"}, "");
 }
 
 std::string ComparisonExpression::ToString() const {
-  return internal::JoinStrings({"(", left_operand_->ToString(), " ", OperatorName(op()),
-                                " ", right_operand_->ToString(), ")"},
-                               "");
+  return JoinStrings({"(", left_operand_->ToString(), " ", OperatorName(op()), " ",
+                      right_operand_->ToString(), ")"},
+                     "");
 }
 
 bool UnaryExpression::Equals(const Expression& other) const {
@@ -1122,16 +1123,16 @@ struct TreeEvaluator::Impl {
     ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand()));
 
     if (lhs.is_scalar()) {
-      std::shared_ptr<Array> lhs_array;
-      RETURN_NOT_OK(MakeArrayFromScalar(ctx_.memory_pool(), *lhs.scalar(),
-                                        batch_.num_rows(), &lhs_array));
+      ARROW_ASSIGN_OR_RAISE(
+          auto lhs_array,
+          MakeArrayFromScalar(*lhs.scalar(), batch_.num_rows(), ctx_.memory_pool()));
       lhs = Datum(std::move(lhs_array));
     }
 
     if (rhs.is_scalar()) {
-      std::shared_ptr<Array> rhs_array;
-      RETURN_NOT_OK(MakeArrayFromScalar(ctx_.memory_pool(), *rhs.scalar(),
-                                        batch_.num_rows(), &rhs_array));
+      ARROW_ASSIGN_OR_RAISE(
+          auto rhs_array,
+          MakeArrayFromScalar(*rhs.scalar(), batch_.num_rows(), ctx_.memory_pool()));
       rhs = Datum(std::move(rhs_array));
     }
 
@@ -1242,10 +1243,10 @@ Result<std::shared_ptr<RecordBatch>> TreeEvaluator::Filter(
     MemoryPool* pool) const {
   if (selection.is_array()) {
     auto selection_array = selection.make_array();
-    std::shared_ptr<RecordBatch> filtered;
+    compute::Datum filtered;
     compute::FunctionContext ctx{pool};
-    RETURN_NOT_OK(compute::Filter(&ctx, *batch, *selection_array, &filtered));
-    return std::move(filtered);
+    RETURN_NOT_OK(compute::Filter(&ctx, batch, selection_array, {}, &filtered));
+    return filtered.record_batch();
   }
 
   if (!selection.is_scalar() || selection.type()->id() != Type::BOOL) {

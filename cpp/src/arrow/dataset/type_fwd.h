@@ -53,10 +53,12 @@ class FileFormat;
 class FileFragment;
 class FileSystemDataset;
 
-class ParquetFileFormat;
-class ParquetFileFragment;
+class CsvFileFormat;
 
 class IpcFileFormat;
+
+class ParquetFileFormat;
+class ParquetFileFragment;
 
 class Expression;
 using ExpressionVector = std::vector<std::shared_ptr<Expression>>;

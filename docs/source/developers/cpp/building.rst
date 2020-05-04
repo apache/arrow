@@ -124,7 +124,7 @@ Minimal debug build with unit tests:
    make unittest
 
 The unit tests are not built by default. After building, one can also invoke
-the unit tests using the ``ctest`` tool provided by CMake (not that ``test``
+the unit tests using the ``ctest`` tool provided by CMake (note that ``test``
 depends on ``python`` being available).
 
 On some Linux distributions, running the test suite might require setting an
@@ -237,7 +237,7 @@ CMake:
 LLVM and Clang Tools
 ~~~~~~~~~~~~~~~~~~~~
 
-We are currently using LLVM 7 for library builds and for other developer tools
+We are currently using LLVM 8 for library builds and for other developer tools
 such as code formatting with ``clang-format``. LLVM can be installed via most
 modern package managers (apt, yum, conda, Homebrew, chocolatey).
 

@@ -74,14 +74,12 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Slice2(
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__View(
     const std::shared_ptr<arrow::ChunkedArray>& array,
     const std::shared_ptr<arrow::DataType>& type) {
-  std::shared_ptr<arrow::ChunkedArray> out;
-  STOP_IF_NOT_OK(array->View(type, &out));
-  return out;
+  return ValueOrStop(array->View(type));
 }
 
 // [[arrow::export]]
 void ChunkedArray__Validate(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  STOP_IF_NOT_OK(chunked_array->Validate());
+  StopIfNotOk(chunked_array->Validate());
 }
 
 // [[arrow::export]]

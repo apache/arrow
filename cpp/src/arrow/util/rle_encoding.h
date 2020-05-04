@@ -414,6 +414,10 @@ static inline bool IndexInRange(int32_t idx, int32_t dictionary_length) {
 template <typename T>
 inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_length,
                                         T* values, int batch_size) {
+  // Per https://github.com/apache/parquet-format/blob/master/Encodings.md,
+  // the maximum dictionary index width in Parquet is 32 bits.
+  using IndexType = int32_t;
+
   DCHECK_GE(bit_width_, 0);
   int values_read = 0;
 
@@ -423,7 +427,7 @@ inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_
     int remaining = batch_size - values_read;
 
     if (repeat_count_ > 0) {
-      auto idx = static_cast<int32_t>(current_value_);
+      auto idx = static_cast<IndexType>(current_value_);
       if (ARROW_PREDICT_FALSE(!IndexInRange(idx, dictionary_length))) {
         return values_read;
       }
@@ -438,7 +442,7 @@ inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_
       out += repeat_batch;
     } else if (literal_count_ > 0) {
       constexpr int kBufferSize = 1024;
-      int indices[kBufferSize];
+      IndexType indices[kBufferSize];
 
       int literal_batch = std::min(remaining, literal_count_);
       literal_batch = std::min(literal_batch, kBufferSize);
@@ -449,7 +453,7 @@ inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_
       }
 
       for (int i = 0; i < literal_batch; ++i) {
-        int index = indices[i];
+        IndexType index = indices[i];
         if (ARROW_PREDICT_FALSE(!IndexInRange(index, dictionary_length))) {
           return values_read;
         }
@@ -461,7 +465,7 @@ inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_
       values_read += literal_batch;
       out += literal_batch;
     } else {
-      if (!NextCounts<T>()) return values_read;
+      if (!NextCounts<IndexType>()) return values_read;
     }
   }
 
@@ -474,6 +478,8 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
                                               int batch_size, int null_count,
                                               const uint8_t* valid_bits,
                                               int64_t valid_bits_offset) {
+  using IndexType = int32_t;
+
   DCHECK_GE(bit_width_, 0);
   int values_read = 0;
   int remaining_nulls = null_count;
@@ -488,10 +494,10 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
 
     if (is_valid) {
       if ((repeat_count_ == 0) && (literal_count_ == 0)) {
-        if (!NextCounts<T>()) return values_read;
+        if (!NextCounts<IndexType>()) return values_read;
       }
       if (repeat_count_ > 0) {
-        auto idx = static_cast<int32_t>(current_value_);
+        auto idx = static_cast<IndexType>(current_value_);
         if (ARROW_PREDICT_FALSE(!IndexInRange(idx, dictionary_length))) {
           return values_read;
         }
@@ -520,7 +526,7 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
 
         // Decode the literals
         constexpr int kBufferSize = 1024;
-        int indices[kBufferSize];
+        IndexType indices[kBufferSize];
         literal_batch = std::min(literal_batch, kBufferSize);
         int actual_read = bit_reader_.GetBatch(bit_width_, &indices[0], literal_batch);
         if (actual_read != literal_batch) return values_read;
@@ -528,7 +534,7 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
         int skipped = 0;
         int literals_read = 1;
 
-        int first_idx = indices[0];
+        IndexType first_idx = indices[0];
         if (ARROW_PREDICT_FALSE(!IndexInRange(first_idx, dictionary_length))) {
           return values_read;
         }
@@ -538,7 +544,7 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
         while (literals_read < literal_batch) {
           DCHECK_LT(bit_reader.position(), batch_size);
           if (bit_reader.IsSet()) {
-            int idx = indices[literals_read];
+            IndexType idx = indices[literals_read];
             if (ARROW_PREDICT_FALSE(!IndexInRange(idx, dictionary_length))) {
               return values_read;
             }

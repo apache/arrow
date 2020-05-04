@@ -114,14 +114,6 @@ class ARROW_DS_EXPORT ScanTask {
   const std::shared_ptr<ScanOptions>& options() const { return options_; }
   const std::shared_ptr<ScanContext>& context() const { return context_; }
 
-  /// \brief Convert a sequence of ScanTasks into a Table.
-  ///
-  /// Use this convenience utility with care. This will serially materialize the
-  /// Scan result in memory before creating the Table.
-  static Result<std::shared_ptr<Table>> ToTable(
-      const std::shared_ptr<ScanOptions>& options,
-      const std::shared_ptr<ScanContext>& context, ScanTaskIterator scan_tasks);
-
  protected:
   ScanTask(std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context)
       : options_(std::move(options)), context_(std::move(context)) {}
@@ -151,18 +143,23 @@ ARROW_DS_EXPORT Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
 
 /// \brief Scanner is a materialized scan operation with context and options
 /// bound. A scanner is the class that glues ScanTask, Fragment,
-/// and Source. In python pseudo code, it performs the following:
+/// and Dataset. In python pseudo code, it performs the following:
 ///
 ///  def Scan():
-///    for source in this.sources_:
-///      for fragment in source.GetFragments(this.options_):
-///        for scan_task in fragment.Scan(this.context_):
-///          yield scan_task
+///    for fragment in self.dataset.GetFragments(this.options.filter):
+///      for scan_task in fragment.Scan(this.options):
+///        yield scan_task
 class ARROW_DS_EXPORT Scanner {
  public:
   Scanner(std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanOptions> scan_options,
           std::shared_ptr<ScanContext> scan_context)
       : dataset_(std::move(dataset)),
+        scan_options_(std::move(scan_options)),
+        scan_context_(std::move(scan_context)) {}
+
+  Scanner(std::shared_ptr<Fragment> fragment, std::shared_ptr<ScanOptions> scan_options,
+          std::shared_ptr<ScanContext> scan_context)
+      : fragment_(std::move(fragment)),
         scan_options_(std::move(scan_options)),
         scan_context_(std::move(scan_context)) {}
 
@@ -188,6 +185,8 @@ class ARROW_DS_EXPORT Scanner {
 
  protected:
   std::shared_ptr<Dataset> dataset_;
+  // TODO(ARROW-8065) remove fragment_ after a Dataset is constuctible from fragments
+  std::shared_ptr<Fragment> fragment_;
   std::shared_ptr<ScanOptions> scan_options_;
   std::shared_ptr<ScanContext> scan_context_;
 };
@@ -198,6 +197,9 @@ class ARROW_DS_EXPORT Scanner {
 class ARROW_DS_EXPORT ScannerBuilder {
  public:
   ScannerBuilder(std::shared_ptr<Dataset> dataset,
+                 std::shared_ptr<ScanContext> scan_context);
+
+  ScannerBuilder(std::shared_ptr<Schema> schema, std::shared_ptr<Fragment> fragment,
                  std::shared_ptr<ScanContext> scan_context);
 
   /// \brief Set the subset of columns to materialize.
@@ -241,10 +243,11 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \brief Return the constructed now-immutable Scanner object
   Result<std::shared_ptr<Scanner>> Finish() const;
 
-  std::shared_ptr<Schema> schema() const { return dataset_->schema(); }
+  std::shared_ptr<Schema> schema() const { return scan_options_->schema(); }
 
  private:
   std::shared_ptr<Dataset> dataset_;
+  std::shared_ptr<Fragment> fragment_;
   std::shared_ptr<ScanOptions> scan_options_;
   std::shared_ptr<ScanContext> scan_context_;
   bool has_projection_ = false;

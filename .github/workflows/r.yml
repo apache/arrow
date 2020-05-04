@@ -39,10 +39,15 @@ on:
       - 'cpp/**'
       - 'r/**'
 
+env:
+  DOCKER_BUILDKIT: 0
+  COMPOSE_DOCKER_CLI_BUILD: 1
+
 jobs:
   ubuntu:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -59,6 +64,9 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
       - name: Docker Pull
         shell: bash
         run: |
@@ -87,6 +95,7 @@ jobs:
   rstudio:
     name: "rstudio/r-base:${{ matrix.r_version }}-${{ matrix.r_image }}"
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -106,6 +115,9 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
       - name: Docker Pull
         shell: bash
         run: docker-compose pull --ignore-pull-failures r
@@ -130,6 +142,7 @@ jobs:
   windows:
     name: AMD64 Windows RTools ${{ matrix.rtools }}
     runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -148,14 +161,28 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
+      - name: Make R tests verbose
+        # If you get a segfault/mysterious test Execution halted,
+        # make this `true` to see where it dies.
+        if: false
+        shell: cmd
+        run: |
+          cd r/tests
+          sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
+          rm -f testthat.R.bak
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
       - uses: r-lib/actions/setup-r@master
         with:
           rtools-version: ${{ matrix.rtools }}
+          r-version: '3.6'
       - name: Build Arrow C++
         run: msys2do ci/scripts/r_windows_build.sh
+      - uses: actions/upload-artifact@v1
+        with:
+          name: Rtools Arrow C++
+          path: libarrow.zip
       - name: Install R package dependencies
         shell: Rscript {0}
         run: |

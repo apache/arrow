@@ -208,8 +208,15 @@ namespace Apache.Arrow.Tests
             {
                 for (var i = 0; i < Length; i++)
                 {
-                    var value = generator(i);
-                    builder.Append(value);
+                    if (i == Length - 2)
+                    {
+                        builder.AppendNull();
+                    }
+                    else
+                    {
+                        var value = generator(i);
+                        builder.Append(value);
+                    }
                 }
 
                 Array = builder.Build(default);

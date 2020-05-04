@@ -38,9 +38,6 @@ Concrete Subclasses
 .. autosummary::
    :toctree: ../generated/
 
-   LocalFileSystemOptions
    LocalFileSystem
-   S3Options
    S3FileSystem
-   HdfsOptions
    HadoopFileSystem

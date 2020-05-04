@@ -269,8 +269,7 @@ TEST(ReaderTest, ListArrayWithFewValues) {
         {"a": [1], "b": {"c": true, "d": "1991-02-03"}},
         {"a": [], "b": {"c": false, "d": "2019-04-01"}}
       ])");
-  std::shared_ptr<Table> expected_table;
-  ASSERT_OK(Table::FromRecordBatches({expected_batch}, &expected_table));
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({expected_batch}));
 
   std::string json = R"({"a": [1], "b": {"c": true, "d": "1991-02-03"}}
 {"a": [], "b": {"c": false, "d": "2019-04-01"}}

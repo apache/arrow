@@ -47,9 +47,9 @@ asf_jira = jira.client.JIRA(options={'server': JIRA_API_BASE},
 locale.setlocale(locale.LC_ALL, 'en_US.utf-8')
 
 
-if 'ARROW_ROOT' not in os.environ:
-    raise Exception("Please set $ARROW_ROOT to the location of your "
-                    "Arrow git clone")
+release_dir = os.path.realpath(os.path.dirname(__file__))
+ARROW_ROOT_DEFAULT = os.path.join(release_dir, '..', '..')
+ARROW_ROOT = os.environ.get("ARROW_ROOT", ARROW_ROOT_DEFAULT)
 
 
 def get_issues_for_version(version):
@@ -91,7 +91,7 @@ def get_jiras_from_git_changelog(current_version):
     last_major_version = get_last_major_version(current_version)
 
     # Path to .git directory
-    git_dir = os.path.join(os.environ['ARROW_ROOT'], '.git')
+    git_dir = os.path.join(ARROW_ROOT, '.git')
 
     cmd = ['git', '--git-dir', git_dir, 'log', '--pretty=format:%s',
            'apache-arrow-{}..apache-arrow-{}'.format(last_major_version,

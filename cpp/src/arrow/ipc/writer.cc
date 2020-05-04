@@ -50,6 +50,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/parallel.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -167,35 +168,39 @@ class RecordBatchSerializer {
                         std::shared_ptr<Buffer>* out) {
     // Convert buffer to uncompressed-length-prefixed compressed buffer
     int64_t maximum_length = codec->MaxCompressedLen(buffer.size(), buffer.data());
-    std::shared_ptr<Buffer> result;
-    RETURN_NOT_OK(AllocateBuffer(maximum_length + sizeof(int64_t), &result));
+    ARROW_ASSIGN_OR_RAISE(auto result, AllocateBuffer(maximum_length + sizeof(int64_t)));
 
     int64_t actual_length;
     ARROW_ASSIGN_OR_RAISE(actual_length,
                           codec->Compress(buffer.size(), buffer.data(), maximum_length,
                                           result->mutable_data() + sizeof(int64_t)));
     *reinterpret_cast<int64_t*>(result->mutable_data()) = buffer.size();
-    *out = SliceBuffer(result, /*offset=*/0, actual_length + sizeof(int64_t));
+    *out = SliceBuffer(std::move(result), /*offset=*/0, actual_length + sizeof(int64_t));
     return Status::OK();
   }
 
   Status CompressBodyBuffers() {
     std::unique_ptr<util::Codec> codec;
 
+    RETURN_NOT_OK(internal::CheckCompressionSupported(options_.compression));
+
     // TODO check allowed values for compression?
-    AppendCustomMetadata("ARROW:body_compression",
+    AppendCustomMetadata("ARROW:experimental_compression",
                          util::Codec::GetCodecAsString(options_.compression));
 
     ARROW_ASSIGN_OR_RAISE(
         codec, util::Codec::Create(options_.compression, options_.compression_level));
-    // TODO: Parallelize buffer compression
-    for (size_t i = 0; i < out_->body_buffers.size(); ++i) {
+
+    auto CompressOne = [&](size_t i) {
       if (out_->body_buffers[i]->size() > 0) {
         RETURN_NOT_OK(
             CompressBuffer(*out_->body_buffers[i], codec.get(), &out_->body_buffers[i]));
       }
-    }
-    return Status::OK();
+      return Status::OK();
+    };
+
+    return ::arrow::internal::OptionalParallelFor(
+        options_.use_threads, static_cast<int>(out_->body_buffers.size()), CompressOne);
   }
 
   Status Assemble(const RecordBatch& batch) {
@@ -261,9 +266,8 @@ class RecordBatchSerializer {
       // zero. We must a) create a new offsets array with shifted offsets and
       // b) slice the values array accordingly
 
-      std::shared_ptr<Buffer> shifted_offsets;
-      RETURN_NOT_OK(
-          AllocateBuffer(options_.memory_pool, required_bytes, &shifted_offsets));
+      ARROW_ASSIGN_OR_RAISE(auto shifted_offsets,
+                            AllocateBuffer(required_bytes, options_.memory_pool));
 
       offset_type* dest_offsets =
           reinterpret_cast<offset_type*>(shifted_offsets->mutable_data());
@@ -274,7 +278,7 @@ class RecordBatchSerializer {
       }
       // Final offset
       dest_offsets[array.length()] = array.value_offset(array.length()) - start_offset;
-      offsets = shifted_offsets;
+      offsets = std::move(shifted_offsets);
     } else {
       // ARROW-6046: Slice offsets to used extent, in case we have a truncated
       // slice
@@ -282,7 +286,7 @@ class RecordBatchSerializer {
         offsets = SliceBuffer(offsets, 0, required_bytes);
       }
     }
-    *value_offsets = offsets;
+    *value_offsets = std::move(offsets);
     return Status::OK();
   }
 
@@ -433,9 +437,9 @@ class RecordBatchSerializer {
         const int8_t* type_codes = array.raw_type_codes();
 
         // Allocate the shifted offsets
-        std::shared_ptr<Buffer> shifted_offsets_buffer;
-        RETURN_NOT_OK(AllocateBuffer(options_.memory_pool, length * sizeof(int32_t),
-                                     &shifted_offsets_buffer));
+        ARROW_ASSIGN_OR_RAISE(
+            auto shifted_offsets_buffer,
+            AllocateBuffer(length * sizeof(int32_t), options_.memory_pool));
         int32_t* shifted_offsets =
             reinterpret_cast<int32_t*>(shifted_offsets_buffer->mutable_data());
 
@@ -458,7 +462,7 @@ class RecordBatchSerializer {
           child_lengths[code] = std::max(child_lengths[code], shifted_offsets[i] + 1);
         }
 
-        value_offsets = shifted_offsets_buffer;
+        value_offsets = std::move(shifted_offsets_buffer);
       }
       out_->body_buffers.emplace_back(value_offsets);
 
@@ -663,13 +667,12 @@ Status GetContiguousTensor(const Tensor& tensor, MemoryPool* pool,
   const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
   const int elem_size = type.bit_width() / 8;
 
-  std::shared_ptr<Buffer> scratch_space;
-  RETURN_NOT_OK(AllocateBuffer(pool, tensor.shape()[tensor.ndim() - 1] * elem_size,
-                               &scratch_space));
+  ARROW_ASSIGN_OR_RAISE(
+      auto scratch_space,
+      AllocateBuffer(tensor.shape()[tensor.ndim() - 1] * elem_size, pool));
 
-  std::shared_ptr<ResizableBuffer> contiguous_data;
-  RETURN_NOT_OK(
-      AllocateResizableBuffer(pool, tensor.size() * elem_size, &contiguous_data));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> contiguous_data,
+                        AllocateResizableBuffer(tensor.size() * elem_size, pool));
 
   io::BufferOutputStream stream(contiguous_data);
   RETURN_NOT_OK(WriteStridedTensorData(0, 0, elem_size, tensor,
@@ -705,9 +708,8 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
 
     // TODO: Do we care enough about this temporary allocation to pass in a
     // MemoryPool to this function?
-    std::shared_ptr<Buffer> scratch_space;
-    RETURN_NOT_OK(
-        AllocateBuffer(tensor.shape()[tensor.ndim() - 1] * elem_size, &scratch_space));
+    ARROW_ASSIGN_OR_RAISE(auto scratch_space,
+                          AllocateBuffer(tensor.shape()[tensor.ndim() - 1] * elem_size));
 
     RETURN_NOT_OK(WriteStridedTensorData(0, 0, elem_size, tensor,
                                          scratch_space->mutable_data(), dst));
@@ -716,8 +718,8 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
   return Status::OK();
 }
 
-Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
-                        std::unique_ptr<Message>* out) {
+Result<std::unique_ptr<Message>> GetTensorMessage(const Tensor& tensor,
+                                                  MemoryPool* pool) {
   const Tensor* tensor_to_write = &tensor;
   std::unique_ptr<Tensor> temp_tensor;
 
@@ -728,8 +730,7 @@ Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
 
   std::shared_ptr<Buffer> metadata;
   ARROW_ASSIGN_OR_RAISE(metadata, internal::WriteTensorMessage(*tensor_to_write, 0));
-  out->reset(new Message(metadata, tensor_to_write->data()));
-  return Status::OK();
+  return std::unique_ptr<Message>(new Message(metadata, tensor_to_write->data()));
 }
 
 namespace internal {
@@ -756,6 +757,11 @@ class SparseTensorSerializer {
       case SparseTensorFormat::CSC:
         RETURN_NOT_OK(
             VisitSparseCSCIndex(checked_cast<const SparseCSCIndex&>(sparse_index)));
+        break;
+
+      case SparseTensorFormat::CSF:
+        RETURN_NOT_OK(
+            VisitSparseCSFIndex(checked_cast<const SparseCSFIndex&>(sparse_index)));
         break;
 
       default:
@@ -816,6 +822,16 @@ class SparseTensorSerializer {
     return Status::OK();
   }
 
+  Status VisitSparseCSFIndex(const SparseCSFIndex& sparse_index) {
+    for (const std::shared_ptr<arrow::Tensor>& indptr : sparse_index.indptr()) {
+      out_->body_buffers.emplace_back(indptr->data());
+    }
+    for (const std::shared_ptr<arrow::Tensor>& indices : sparse_index.indices()) {
+      out_->body_buffers.emplace_back(indices->data());
+    }
+    return Status::OK();
+  }
+
   IpcPayload* out_;
 
   std::vector<internal::BufferMetadata> buffer_meta_;
@@ -842,16 +858,12 @@ Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* ds
                                    metadata_length);
 }
 
-Status GetSparseTensorMessage(const SparseTensor& sparse_tensor, MemoryPool* pool,
-                              std::unique_ptr<Message>* out) {
+Result<std::unique_ptr<Message>> GetSparseTensorMessage(const SparseTensor& sparse_tensor,
+                                                        MemoryPool* pool) {
   internal::IpcPayload payload;
   RETURN_NOT_OK(internal::GetSparseTensorPayload(sparse_tensor, pool, &payload));
-
-  const std::shared_ptr<Buffer> metadata = payload.metadata;
-  const std::shared_ptr<Buffer> buffer = *payload.body_buffers.data();
-
-  out->reset(new Message(metadata, buffer));
-  return Status::OK();
+  return std::unique_ptr<Message>(
+      new Message(std::move(payload.metadata), std::move(payload.body_buffers[0])));
 }
 
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
@@ -1074,8 +1086,9 @@ class PayloadStreamWriter : public IpcPayloadWriter, protected StreamBookKeeper 
 class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBookKeeper {
  public:
   PayloadFileWriter(const IpcWriteOptions& options, const std::shared_ptr<Schema>& schema,
+                    const std::shared_ptr<const KeyValueMetadata>& metadata,
                     io::OutputStream* sink)
-      : StreamBookKeeper(options, sink), schema_(schema) {}
+      : StreamBookKeeper(options, sink), schema_(schema), metadata_(metadata) {}
 
   ~PayloadFileWriter() override = default;
 
@@ -1125,7 +1138,8 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
     // Write file footer
     RETURN_NOT_OK(UpdatePosition());
     int64_t initial_position = position_;
-    RETURN_NOT_OK(WriteFileFooter(*schema_, dictionaries_, record_batches_, sink_));
+    RETURN_NOT_OK(
+        WriteFileFooter(*schema_, dictionaries_, record_batches_, metadata_, sink_));
 
     // Write footer length
     RETURN_NOT_OK(UpdatePosition());
@@ -1142,6 +1156,7 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
 
  protected:
   std::shared_ptr<Schema> schema_;
+  std::shared_ptr<const KeyValueMetadata> metadata_;
   std::vector<FileBlock> dictionaries_;
   std::vector<FileBlock> record_batches_;
 };
@@ -1158,21 +1173,15 @@ Result<std::shared_ptr<RecordBatchWriter>> NewStreamWriter(
 
 Result<std::shared_ptr<RecordBatchWriter>> NewFileWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-    const IpcWriteOptions& options) {
+    const IpcWriteOptions& options,
+    const std::shared_ptr<const KeyValueMetadata>& metadata) {
   return std::make_shared<internal::IpcFormatWriter>(
-      ::arrow::internal::make_unique<internal::PayloadFileWriter>(options, schema, sink),
+      ::arrow::internal::make_unique<internal::PayloadFileWriter>(options, schema,
+                                                                  metadata, sink),
       schema, options);
 }
 
 namespace internal {
-
-Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
-                             const std::shared_ptr<Schema>& schema,
-                             std::unique_ptr<RecordBatchWriter>* out) {
-  auto options = IpcWriteOptions::Defaults();
-  ASSIGN_OR_RAISE(*out, OpenRecordBatchWriter(std::move(sink), schema, options));
-  return Status::OK();
-}
 
 Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
     std::unique_ptr<IpcPayloadWriter> sink, const std::shared_ptr<Schema>& schema,
@@ -1205,17 +1214,16 @@ Result<std::shared_ptr<Buffer>> SerializeRecordBatch(const RecordBatch& batch,
   return buffer;
 }
 
-Status SerializeRecordBatch(const RecordBatch& batch, const IpcWriteOptions& options,
-                            std::shared_ptr<Buffer>* out) {
+Result<std::shared_ptr<Buffer>> SerializeRecordBatch(const RecordBatch& batch,
+                                                     const IpcWriteOptions& options) {
   int64_t size = 0;
   RETURN_NOT_OK(GetRecordBatchSize(batch, &size));
-  std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(AllocateBuffer(options.memory_pool, size, &buffer));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer,
+                        AllocateBuffer(size, options.memory_pool));
 
   io::FixedSizeBufferWriter stream(buffer);
   RETURN_NOT_OK(SerializeRecordBatch(batch, options, &stream));
-  *out = buffer;
-  return Status::OK();
+  return buffer;
 }
 
 Status SerializeRecordBatch(const RecordBatch& batch, const IpcWriteOptions& options,
@@ -1225,8 +1233,9 @@ Status SerializeRecordBatch(const RecordBatch& batch, const IpcWriteOptions& opt
   return WriteRecordBatch(batch, 0, out, &metadata_length, &body_length, options);
 }
 
-Status SerializeSchema(const Schema& schema, DictionaryMemo* dictionary_memo,
-                       MemoryPool* pool, std::shared_ptr<Buffer>* out) {
+Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema,
+                                                DictionaryMemo* dictionary_memo,
+                                                MemoryPool* pool) {
   ARROW_ASSIGN_OR_RAISE(auto stream, io::BufferOutputStream::Create(1024, pool));
 
   auto options = IpcWriteOptions::Defaults();
@@ -1235,7 +1244,7 @@ Status SerializeSchema(const Schema& schema, DictionaryMemo* dictionary_memo,
       options, dictionary_memo);
   // Write schema and populate fields (but not dictionaries) in dictionary_memo
   RETURN_NOT_OK(writer.Start());
-  return stream->Finish().Value(out);
+  return stream->Finish();
 }
 
 // ----------------------------------------------------------------------
@@ -1277,11 +1286,16 @@ Result<std::shared_ptr<RecordBatchWriter>> RecordBatchFileWriter::Open(
   return NewFileWriter(sink, schema, options);
 }
 
+Status SerializeRecordBatch(const RecordBatch& batch, const IpcWriteOptions& options,
+                            std::shared_ptr<Buffer>* out) {
+  return SerializeRecordBatch(batch, options).Value(out);
+}
+
 Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
                             std::shared_ptr<Buffer>* out) {
   IpcWriteOptions options;
   options.memory_pool = pool;
-  return SerializeRecordBatch(batch, options, out);
+  return SerializeRecordBatch(batch, options).Value(out);
 }
 
 Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
@@ -1289,6 +1303,11 @@ Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
   IpcWriteOptions options;
   options.memory_pool = pool;
   return SerializeRecordBatch(batch, options, out);
+}
+
+Status SerializeSchema(const Schema& schema, DictionaryMemo* dictionary_memo,
+                       MemoryPool* pool, std::shared_ptr<Buffer>* out) {
+  return SerializeSchema(schema, dictionary_memo, pool).Value(out);
 }
 
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
@@ -1301,7 +1320,23 @@ Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
                           modified_options);
 }
 
+Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
+                        std::unique_ptr<Message>* out) {
+  return GetTensorMessage(tensor, pool).Value(out);
+}
+
+Status GetSparseTensorMessage(const SparseTensor& sparse_tensor, MemoryPool* pool,
+                              std::unique_ptr<Message>* out) {
+  return GetSparseTensorMessage(sparse_tensor, pool).Value(out);
+}
+
 namespace internal {
+
+Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
+                             const std::shared_ptr<Schema>& schema,
+                             std::unique_ptr<RecordBatchWriter>* out) {
+  return OpenRecordBatchWriter(std::move(sink), schema).Value(out);
+}
 
 Status GetRecordBatchPayload(const RecordBatch& batch, const IpcWriteOptions& options,
                              MemoryPool* pool, IpcPayload* out) {

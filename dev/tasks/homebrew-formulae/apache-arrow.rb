@@ -1,12 +1,11 @@
 class ApacheArrow < Formula
   desc "Columnar in-memory analytics layer designed to accelerate big data"
   homepage "https://arrow.apache.org/"
-  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-1.0.0-SNAPSHOT/apache-arrow-1.0.0-SNAPSHOT.tar.gz"
+  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-0.18.0-SNAPSHOT/apache-arrow-0.18.0-SNAPSHOT.tar.gz"
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
   head "https://github.com/apache/arrow.git"
 
   depends_on "cmake" => :build
-  depends_on "boost"
   depends_on "brotli"
   depends_on "glog"
   depends_on "grpc"

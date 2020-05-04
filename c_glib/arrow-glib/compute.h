@@ -68,6 +68,37 @@ GArrowCountOptions *
 garrow_count_options_new(void);
 
 
+/**
+ * GArrowFilterNullSelectionBehavior:
+ * @GARROW_FILTER_NULL_SELECTION_DROP:
+ *   Filtered value will be removed in the output.
+ * @GARROW_FILTER_NULL_SELECTION_EMIT_NULL:
+ *   Filtered value will be null in the output.
+ *
+ * They are corresponding to
+ * `arrow::compute::FilterOptions::NullSelectionBehavior` values.
+ */
+typedef enum {
+  GARROW_FILTER_NULL_SELECTION_DROP,
+  GARROW_FILTER_NULL_SELECTION_EMIT_NULL,
+} GArrowFilterNullSelectionBehavior;
+
+#define GARROW_TYPE_FILTER_OPTIONS (garrow_filter_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowFilterOptions,
+                         garrow_filter_options,
+                         GARROW,
+                         FILTER_OPTIONS,
+                         GObject)
+struct _GArrowFilterOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_17
+GArrowFilterOptions *
+garrow_filter_options_new(void);
+
+
 #define GARROW_TYPE_TAKE_OPTIONS (garrow_take_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowTakeOptions,
                          garrow_take_options,
@@ -191,37 +222,37 @@ GArrowArray *garrow_array_take(GArrowArray *array,
                                GArrowArray *indices,
                                GArrowTakeOptions *options,
                                GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowChunkedArray *
 garrow_array_take_chunked_array(GArrowArray *array,
                                 GArrowChunkedArray *indices,
                                 GArrowTakeOptions *options,
                                 GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowTable *
 garrow_table_take(GArrowTable *table,
                   GArrowArray *indices,
                   GArrowTakeOptions *options,
                   GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowTable *
 garrow_table_take_chunked_array(GArrowTable *table,
                                 GArrowChunkedArray *indices,
                                 GArrowTakeOptions *options,
                                 GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowChunkedArray *
 garrow_chunked_array_take(GArrowChunkedArray *chunked_array,
                           GArrowArray *indices,
                           GArrowTakeOptions *options,
                           GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowChunkedArray *
 garrow_chunked_array_take_chunked_array(GArrowChunkedArray *chunked_array,
                                         GArrowChunkedArray *indices,
                                         GArrowTakeOptions *options,
                                         GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowRecordBatch *
 garrow_record_batch_take(GArrowRecordBatch *record_batch,
                          GArrowArray *indices,
@@ -291,6 +322,7 @@ GARROW_AVAILABLE_IN_0_15
 GArrowArray *
 garrow_array_filter(GArrowArray *array,
                     GArrowBooleanArray *filter,
+                    GArrowFilterOptions *options,
                     GError **error);
 GARROW_AVAILABLE_IN_0_15
 GArrowBooleanArray *
@@ -306,30 +338,35 @@ GARROW_AVAILABLE_IN_0_15
 GArrowUInt64Array *
 garrow_array_sort_to_indices(GArrowArray *array,
                              GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowTable *
 garrow_table_filter(GArrowTable *table,
                     GArrowBooleanArray *filter,
+                    GArrowFilterOptions *options,
                     GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowTable *
 garrow_table_filter_chunked_array(GArrowTable *table,
                                   GArrowChunkedArray *filter,
+                                  GArrowFilterOptions *options,
                                   GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowChunkedArray *
 garrow_chunked_array_filter(GArrowChunkedArray *chunked_array,
                             GArrowBooleanArray *filter,
+                            GArrowFilterOptions *options,
                             GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowChunkedArray *
 garrow_chunked_array_filter_chunked_array(GArrowChunkedArray *chunked_array,
                                           GArrowChunkedArray *filter,
+                                          GArrowFilterOptions *options,
                                           GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowRecordBatch *
 garrow_record_batch_filter(GArrowRecordBatch *record_batch,
                            GArrowBooleanArray *filter,
+                           GArrowFilterOptions *options,
                            GError **error);
 
 G_END_DECLS

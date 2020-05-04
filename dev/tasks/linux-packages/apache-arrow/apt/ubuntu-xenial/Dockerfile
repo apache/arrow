@@ -37,7 +37,6 @@ RUN \
     autoconf-archive \
     build-essential \
     cmake \
-    debhelper\
     devscripts \
     dh-autoreconf \
     fakeroot \
@@ -57,13 +56,14 @@ RUN \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
+    libzstd1-dev \
     lsb-release \
     pkg-config \
     protobuf-compiler \
     python3-dev \
     python3-numpy \
     zlib1g-dev && \
-  if apt list | grep "^clang-${LLVM}/"; then \
+  if [ "$(dpkg --print-architecture)" != "arm64" ]; then \
     apt install -y -V ${quiet} \
       clang-${LLVM} \
       llvm-${LLVM}-dev; \
@@ -71,5 +71,7 @@ RUN \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \
+  apt install -y -V -t xenial-backports ${quiet} \
+    debhelper && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*

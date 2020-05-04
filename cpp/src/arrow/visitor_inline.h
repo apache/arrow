@@ -65,6 +65,8 @@ namespace arrow {
   ACTION(Timestamp);                            \
   ACTION(Time32);                               \
   ACTION(Time64);                               \
+  ACTION(MonthInterval);                        \
+  ACTION(DayTimeInterval);                      \
   ACTION(Decimal128);                           \
   ACTION(List);                                 \
   ACTION(LargeList);                            \
@@ -83,16 +85,6 @@ template <typename VISITOR>
 inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
   switch (type.id()) {
     ARROW_GENERATE_FOR_ALL_TYPES(TYPE_VISIT_INLINE);
-    case Type::INTERVAL: {
-      const auto& interval_type = dynamic_cast<const IntervalType&>(type);
-      if (interval_type.interval_type() == IntervalType::MONTHS) {
-        return visitor->Visit(internal::checked_cast<const MonthIntervalType&>(type));
-      }
-      if (interval_type.interval_type() == IntervalType::DAY_TIME) {
-        return visitor->Visit(internal::checked_cast<const DayTimeIntervalType&>(type));
-      }
-      break;
-    }
     default:
       break;
   }
@@ -111,17 +103,6 @@ template <typename VISITOR>
 inline Status VisitArrayInline(const Array& array, VISITOR* visitor) {
   switch (array.type_id()) {
     ARROW_GENERATE_FOR_ALL_TYPES(ARRAY_VISIT_INLINE);
-    case Type::INTERVAL: {
-      const auto& interval_type = dynamic_cast<const IntervalType&>(*array.type());
-      if (interval_type.interval_type() == IntervalType::MONTHS) {
-        return visitor->Visit(internal::checked_cast<const MonthIntervalArray&>(array));
-      }
-      if (interval_type.interval_type() == IntervalType::DAY_TIME) {
-        return visitor->Visit(internal::checked_cast<const DayTimeIntervalArray&>(array));
-      }
-      break;
-    }
-
     default:
       break;
   }
@@ -454,17 +435,6 @@ template <typename VISITOR>
 inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor) {
   switch (scalar.type->id()) {
     ARROW_GENERATE_FOR_ALL_TYPES(SCALAR_VISIT_INLINE);
-    case Type::INTERVAL: {
-      const auto& interval_type =
-          internal::checked_cast<const IntervalType&>(*scalar.type);
-      if (interval_type.interval_type() == IntervalType::MONTHS) {
-        return visitor->Visit(internal::checked_cast<const MonthIntervalScalar&>(scalar));
-      }
-      if (interval_type.interval_type() == IntervalType::DAY_TIME) {
-        return visitor->Visit(
-            internal::checked_cast<const DayTimeIntervalScalar&>(scalar));
-      }
-    }
     default:
       break;
   }

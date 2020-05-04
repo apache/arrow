@@ -37,7 +37,7 @@
   fi)
 
 %define use_flight (%{_centos_ver} >= 8)
-%define use_gandiva (%{_centos_ver} >= 8)
+%define use_gandiva (%{_centos_ver} >= 8 && %{_arch} != "aarch64")
 %define use_ninja (%{_centos_ver} >= 8)
 %define use_parquet (%{_centos_ver} >= 7)
 
@@ -63,7 +63,9 @@ BuildRequires:	brotli-devel
 BuildRequires:	bzip2-devel
 BuildRequires:	cmake%{cmake_version}
 BuildRequires:	gcc-c++
+%if %{_centos_ver} >= 7
 BuildRequires:	gflags-devel
+%endif
 BuildRequires:	git
 %if %{_centos_ver} >= 7
 BuildRequires:	glog-devel
@@ -135,6 +137,7 @@ cd cpp/build
   -DARROW_WITH_ZLIB=ON \
   -DARROW_WITH_ZSTD=ON \
   -DCMAKE_BUILD_TYPE=$cpp_build_type \
+  -DCMAKE_UNITY_BUILD=ON \
   -DPythonInterp_FIND_VERSION=ON \
   -DPythonInterp_FIND_VERSION_MAJOR=3 \
 %if %{use_ninja}
@@ -145,33 +148,6 @@ cd cpp/build
 ninja
 %else
 make %{?_smp_mflags}
-%endif
-cd -
-
-%if %{use_glib} && !%{use_meson}
-cd c_glib
-./autogen.sh
-%configure \
-  --with-arrow-cpp-build-dir=$PWD/../cpp/build \
-  --with-arrow-cpp-build-type=$cpp_build_type \
-  --enable-gtk-doc
-sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
-sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
-ld_library_path=$PWD/arrow-glib/.libs/
-ld_library_path=$ld_library_path:$PWD/plasma-glib/.libs/
-ld_library_path=$ld_library_path:$PWD/parquet-glib/.libs/
-ld_library_path=$ld_library_path:$PWD/../cpp/build/$cpp_build_type
-LD_LIBRARY_PATH=$ld_library_path make %{?_smp_mflags}
-cd -
-%endif
-
-%install
-cpp_build_type=release
-cd cpp/build
-%if %{use_ninja}
-DESTDIR=$RPM_BUILD_ROOT ninja install
-%else
-make install DESTDIR=$RPM_BUILD_ROOT
 %endif
 cd -
 
@@ -186,16 +162,49 @@ meson setup build \
   -Darrow_cpp_build_dir=../cpp/build \
   -Darrow_cpp_build_type=$cpp_build_type \
   -Dgtk_doc=true
-LD_LIBRARY_PATH=$PWD/../cpp/build/$cpp_build_type \
-  ninja -C build all
-DESTDIR=$RPM_BUILD_ROOT \
-  ninja -C build install
+LD_LIBRARY_PATH=$PWD/../cpp/build/$cpp_build_type ninja -C build
   %else
-make install DESTDIR=$RPM_BUILD_ROOT
-rm $RPM_BUILD_ROOT%{_libdir}/*.la
+./autogen.sh
+%configure \
+  --with-arrow-cpp-build-dir=$PWD/../cpp/build \
+  --with-arrow-cpp-build-type=$cpp_build_type \
+  --enable-gtk-doc
+sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
+sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
+ld_library_path=$PWD/arrow-glib/.libs/
+ld_library_path=$ld_library_path:$PWD/plasma-glib/.libs/
+ld_library_path=$ld_library_path:$PWD/parquet-glib/.libs/
+ld_library_path=$ld_library_path:$PWD/../cpp/build/$cpp_build_type
+LD_LIBRARY_PATH=$ld_library_path make %{?_smp_mflags}
   %endif
 cd -
 %endif
+
+%install
+cpp_build_type=release
+
+%if %{use_glib}
+cd c_glib
+  %if %{use_meson}
+DESTDIR=$RPM_BUILD_ROOT ninja -C build install
+ninja -C build clean
+  %else
+make install DESTDIR=$RPM_BUILD_ROOT
+rm $RPM_BUILD_ROOT%{_libdir}/*.la
+make clean
+  %endif
+cd -
+%endif
+
+cd cpp/build
+%if %{use_ninja}
+DESTDIR=$RPM_BUILD_ROOT ninja install
+ninja clean
+%else
+make install DESTDIR=$RPM_BUILD_ROOT
+make clean
+%endif
+cd -
 
 %package libs
 Summary:	Runtime libraries for Apache Arrow C++
@@ -206,8 +215,8 @@ Requires:	boost%{boost_version}-filesystem
 Requires:	boost%{boost_version}-regex
 Requires:	brotli
 %endif
-Requires:	gflags
 %if %{_centos_ver} >= 7
+Requires:	gflags
 Requires:	glog
 %endif
 Requires:	libzstd
@@ -567,7 +576,7 @@ Documentation for Apache Arrow GLib.
 %{_docdir}/arrow-glib/
 %{_datadir}/gtk-doc/html/arrow-glib/
 
-%if %{use_flight} && %{use_glib}
+%if %{use_gandiva} && %{use_glib}
 %package -n gandiva-glib-libs
 Summary:	Runtime libraries for Gandiva GLib
 License:	Apache-2.0
@@ -708,6 +717,9 @@ Documentation for Apache Parquet GLib.
 %endif
 
 %changelog
+* Thu Apr 16 2020 Krisztián Szűcs <szucs.krisztian@gmail.com> - 0.17.0-1
+- New upstream release.
+
 * Thu Jan 30 2020 Krisztián Szűcs <szucs.krisztian@gmail.com> - 0.16.0-1
 - New upstream release.
 

@@ -458,9 +458,9 @@ class TakeExpression : public CustomExpression {
       ARROW_ASSIGN_OR_RAISE(auto indices, Evaluate(*take_expr.operand_, batch, pool));
 
       if (indices.kind() == Datum::SCALAR) {
-        std::shared_ptr<Array> indices_array;
-        RETURN_NOT_OK(MakeArrayFromScalar(default_memory_pool(), *indices.scalar(),
-                                          batch.num_rows(), &indices_array));
+        ARROW_ASSIGN_OR_RAISE(auto indices_array,
+                              MakeArrayFromScalar(*indices.scalar(), batch.num_rows(),
+                                                  default_memory_pool()));
         indices = compute::Datum(indices_array->data());
       }
 

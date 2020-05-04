@@ -123,4 +123,9 @@ public interface ObjectStoreLink {
    * @param objectId used to identify an object.
    */
   boolean contains(byte[] objectId);
+
+  /**
+   * List all objects in the PlasmaStore.
+   */
+  List<byte[]> list();
 }

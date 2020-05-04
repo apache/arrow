@@ -46,7 +46,7 @@ void BlockSplitBloomFilter::Init(uint32_t num_bytes) {
   }
 
   num_bytes_ = num_bytes;
-  PARQUET_THROW_NOT_OK(::arrow::AllocateBuffer(pool_, num_bytes_, &data_));
+  PARQUET_ASSIGN_OR_THROW(data_, ::arrow::AllocateBuffer(num_bytes_, pool_));
   memset(data_->mutable_data(), 0, num_bytes_);
 
   this->hasher_.reset(new MurmurHash3());
@@ -61,7 +61,7 @@ void BlockSplitBloomFilter::Init(const uint8_t* bitset, uint32_t num_bytes) {
   }
 
   num_bytes_ = num_bytes;
-  PARQUET_THROW_NOT_OK(::arrow::AllocateBuffer(pool_, num_bytes_, &data_));
+  PARQUET_ASSIGN_OR_THROW(data_, ::arrow::AllocateBuffer(num_bytes_, pool_));
   memcpy(data_->mutable_data(), bitset, num_bytes_);
 
   this->hasher_.reset(new MurmurHash3());

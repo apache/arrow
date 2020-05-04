@@ -57,17 +57,13 @@ script:
   # gandiva libraries are already built we can reset MACOS_DEPLOYMENT_TARGET to current osx version
   - if [[ $MACOSX_DEPLOYMENT_TARGET ]] ; then export MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion | cut -d '.' -f 1,2) ; fi
   - brew install libgit2
-  - pip3 install pygit2==1.0.3
+  - pip3 install pygit2
   - pip3 install click github3.py jinja2 jira ruamel.yaml setuptools_scm toolz
   - >
     python3 dev/tasks/crossbow.py
     --queue-path $TRAVIS_BUILD_DIR
-    --queue-remote {{ queue.remote_url }}
+    --queue-remote {{ queue_remote_url }}
     upload-artifacts
     --sha {{ task.branch }}
     --tag {{ task.tag }}
     --pattern "dist/*.jar"
-
-notifications:
-  email:
-    - {{ job.email }}

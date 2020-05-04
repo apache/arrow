@@ -390,8 +390,7 @@ class TestFlightClient : public ::testing::Test {
 class AuthTestServer : public FlightServerBase {
   Status DoAction(const ServerCallContext& context, const Action& action,
                   std::unique_ptr<ResultStream>* result) override {
-    std::shared_ptr<Buffer> buf;
-    RETURN_NOT_OK(Buffer::FromString(context.peer_identity(), &buf));
+    auto buf = Buffer::FromString(context.peer_identity());
     *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
     return Status::OK();
   }
@@ -400,8 +399,7 @@ class AuthTestServer : public FlightServerBase {
 class TlsTestServer : public FlightServerBase {
   Status DoAction(const ServerCallContext& context, const Action& action,
                   std::unique_ptr<ResultStream>* result) override {
-    std::shared_ptr<Buffer> buf;
-    RETURN_NOT_OK(Buffer::FromString("Hello, world!", &buf));
+    auto buf = Buffer::FromString("Hello, world!");
     *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
     return Status::OK();
   }
@@ -717,10 +715,9 @@ class ReportContextTestServer : public FlightServerBase {
     std::shared_ptr<Buffer> buf;
     const ServerMiddleware* middleware = context.GetMiddleware("tracing");
     if (middleware == nullptr || middleware->name() != "TracingServerMiddleware") {
-      RETURN_NOT_OK(Buffer::FromString("", &buf));
+      buf = Buffer::FromString("");
     } else {
-      RETURN_NOT_OK(Buffer::FromString(
-          ((const TracingServerMiddleware*)middleware)->span_id, &buf));
+      buf = Buffer::FromString(((const TracingServerMiddleware*)middleware)->span_id);
     }
     *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
     return Status::OK();
@@ -730,16 +727,13 @@ class ReportContextTestServer : public FlightServerBase {
 class ErrorMiddlewareServer : public FlightServerBase {
   Status DoAction(const ServerCallContext& context, const Action& action,
                   std::unique_ptr<ResultStream>* result) override {
-    std::shared_ptr<Buffer> buf;
     std::string msg = "error_message";
-    Status s = Buffer::FromString("", &buf);
+    auto buf = Buffer::FromString("");
 
     std::shared_ptr<FlightStatusDetail> flightStatusDetail(
         new FlightStatusDetail(FlightStatusCode::Failed, msg));
     *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
-    Status s_err = Status(StatusCode::ExecutionError, "test failed", flightStatusDetail);
-    RETURN_NOT_OK(s_err);
-    return Status::OK();
+    return Status(StatusCode::ExecutionError, "test failed", flightStatusDetail);
   }
 };
 
@@ -895,8 +889,7 @@ TEST_F(TestErrorMiddleware, TestMetadata) {
   // Run action1
   action.type = "action1";
 
-  const std::string action1_value = "action1-content";
-  ASSERT_OK(Buffer::FromString(action1_value, &action.body));
+  action.body = Buffer::FromString("action1-content");
   Status s = client_->DoAction(action, &stream);
   ASSERT_FALSE(s.ok());
   std::shared_ptr<FlightStatusDetail> flightStatusDetail =
@@ -1009,7 +1002,7 @@ TEST_F(TestFlightClient, DoAction) {
   action.type = "action1";
 
   const std::string action1_value = "action1-content";
-  ASSERT_OK(Buffer::FromString(action1_value, &action.body));
+  action.body = Buffer::FromString(action1_value);
   ASSERT_OK(client_->DoAction(action, &stream));
 
   for (int i = 0; i < 3; ++i) {
@@ -1473,8 +1466,7 @@ TEST_F(TestPropagatingMiddleware, Propagate) {
   client_middleware_->Reset();
 
   action.type = "action1";
-  const std::string action1_value = "action1-content";
-  ASSERT_OK(Buffer::FromString(action1_value, &action.body));
+  action.body = Buffer::FromString("action1-content");
   ASSERT_OK(client_->DoAction(action, &stream));
 
   ASSERT_OK(stream->Next(&result));

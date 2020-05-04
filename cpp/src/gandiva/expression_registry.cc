@@ -75,10 +75,9 @@ operator++(int increment) {
   return func_sig_it_;
 }
 
-DataTypeVector ExpressionRegistry::supported_types_ =
-    ExpressionRegistry::InitSupportedTypes();
+static void AddArrowTypesToVector(arrow::Type::type type, DataTypeVector& vector);
 
-DataTypeVector ExpressionRegistry::InitSupportedTypes() {
+static DataTypeVector InitSupportedTypes() {
   DataTypeVector data_type_vector;
   llvm::LLVMContext llvm_context;
   LLVMTypes llvm_types(llvm_context);
@@ -89,8 +88,9 @@ DataTypeVector ExpressionRegistry::InitSupportedTypes() {
   return data_type_vector;
 }
 
-void ExpressionRegistry::AddArrowTypesToVector(arrow::Type::type& type,
-                                               DataTypeVector& vector) {
+DataTypeVector ExpressionRegistry::supported_types_ = InitSupportedTypes();
+
+static void AddArrowTypesToVector(arrow::Type::type type, DataTypeVector& vector) {
   switch (type) {
     case arrow::Type::type::BOOL:
       vector.push_back(arrow::boolean());
@@ -160,9 +160,11 @@ void ExpressionRegistry::AddArrowTypesToVector(arrow::Type::type& type,
     case arrow::Type::type::DECIMAL:
       vector.push_back(arrow::decimal(38, 0));
       break;
-    case arrow::Type::type::INTERVAL:
-      vector.push_back(arrow::day_time_interval());
+    case arrow::Type::type::INTERVAL_MONTHS:
       vector.push_back(arrow::month_interval());
+      break;
+    case arrow::Type::type::INTERVAL_DAY_TIME:
+      vector.push_back(arrow::day_time_interval());
       break;
     default:
       // Unsupported types. test ensures that

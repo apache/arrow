@@ -104,10 +104,12 @@ class ARROW_DS_EXPORT PartitioningFactory {
 
   // FIXME(bkietz) Make these pure virtual
   /// Construct a WritePlan for the provided fragments
-  virtual Result<WritePlan> MakeWritePlan(FragmentIterator fragments,
-                                          const std::shared_ptr<Schema>& schema);
+  virtual Result<WritePlan> MakeWritePlan(std::shared_ptr<Schema> schema,
+                                          FragmentIterator fragments,
+                                          std::shared_ptr<Schema> partition_schema);
   /// Construct a WritePlan for the provided fragments, inferring schema
-  virtual Result<WritePlan> MakeWritePlan(FragmentIterator fragments);
+  virtual Result<WritePlan> MakeWritePlan(std::shared_ptr<Schema> schema,
+                                          FragmentIterator fragments);
 };
 
 /// \brief Subclass for representing the default, a partitioning that returns
@@ -158,6 +160,9 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
       const Expression& expr,
       const std::function<Status(const std::string& name,
                                  const std::shared_ptr<Scalar>& value)>& visitor);
+
+  static Status SetDefaultValuesFromKeys(const Expression& expr,
+                                         RecordBatchProjector* projector);
 
   /// Convert a Key to a full expression.
   /// If the field referenced in key is absent from the schema will be ignored.

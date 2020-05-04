@@ -23,7 +23,7 @@
 Add this to your Cargo.toml:
 ```toml
 [dependencies]
-parquet = "1.0.0-SNAPSHOT"
+parquet = "0.18.0-SNAPSHOT"
 ```
 
 and this to your crate root:
@@ -44,7 +44,7 @@ while let Some(record) = iter.next() {
     println!("{}", record);
 }
 ```
-See [crate documentation](https://docs.rs/crate/parquet/1.0.0-SNAPSHOT) on available API.
+See [crate documentation](https://docs.rs/crate/parquet/0.18.0-SNAPSHOT) on available API.
 
 ## Supported Parquet Version
 - Parquet-format 2.4.0
@@ -59,7 +59,7 @@ version is available. Then simply update version of `parquet-format` crate in Ca
   - [X] Primitive column value readers
   - [X] Row record reader
   - [X] Arrow record reader
-- [X] Statistics support
+- [ ] Statistics support
 - [X] Write support
   - [X] Primitive column value writers
   - [ ] Row record writer

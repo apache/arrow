@@ -21,21 +21,30 @@ on:
   push:
     paths:
       - '.github/workflows/java_jni.yml'
-      - 'ci/**'
+      - 'ci/docker/**'
+      - 'ci/scripts/cpp_build.sh'
+      - 'ci/scripts/java_*'
       - 'cpp/**'
       - 'java/**'
   pull_request:
     paths:
       - '.github/workflows/java_jni.yml'
-      - 'ci/**'
+      - 'ci/docker/**'
+      - 'ci/scripts/cpp_build.sh'
+      - 'ci/scripts/java_*'
       - 'cpp/**'
       - 'java/**'
+
+env:
+  DOCKER_BUILDKIT: 0
+  COMPOSE_DOCKER_CLI_BUILD: 1
 
 jobs:
 
   debian:
     name: AMD64 Debian 9 Java JNI and Plasma
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -52,6 +61,9 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
       - name: Docker Pull
         run: |
           docker-compose pull --ignore-pull-failures debian-java

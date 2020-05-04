@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -46,11 +47,7 @@ using internal::checked_cast;
 class PrettyPrinter {
  public:
   PrettyPrinter(const PrettyPrintOptions& options, std::ostream* sink)
-      : indent_(options.indent),
-        indent_size_(options.indent_size),
-        window_(options.window),
-        skip_new_lines_(options.skip_new_lines),
-        sink_(sink) {}
+      : options_(options), indent_(options.indent), sink_(sink) {}
 
   void Write(const char* data);
   void Write(const std::string& data);
@@ -64,10 +61,8 @@ class PrettyPrinter {
   void Flush() { (*sink_) << std::flush; }
 
  protected:
+  const PrettyPrintOptions& options_;
   int indent_;
-  int indent_size_;
-  int window_;
-  bool skip_new_lines_;
   std::ostream* sink_;
 };
 
@@ -76,13 +71,13 @@ void PrettyPrinter::OpenArray(const Array& array) {
   (*sink_) << "[";
   if (array.length() > 0) {
     (*sink_) << "\n";
-    indent_ += indent_size_;
+    indent_ += options_.indent_size;
   }
 }
 
 void PrettyPrinter::CloseArray(const Array& array) {
   if (array.length() > 0) {
-    indent_ -= indent_size_;
+    indent_ -= options_.indent_size;
     Indent();
   }
   (*sink_) << "]";
@@ -102,7 +97,7 @@ void PrettyPrinter::WriteIndented(const std::string& data) {
 }
 
 void PrettyPrinter::Newline() {
-  if (skip_new_lines_) {
+  if (options_.skip_new_lines) {
     return;
   }
   (*sink_) << "\n";
@@ -118,7 +113,7 @@ void PrettyPrinter::Indent() {
 class ArrayPrinter : public PrettyPrinter {
  public:
   ArrayPrinter(const PrettyPrintOptions& options, std::ostream* sink)
-      : PrettyPrinter(options, sink), null_rep_(options.null_rep) {}
+      : PrettyPrinter(options, sink) {}
 
   template <typename FormatFunction>
   void WriteValues(const Array& array, FormatFunction&& func) {
@@ -130,12 +125,12 @@ class ArrayPrinter : public PrettyPrinter {
         (*sink_) << ",\n";
       }
       Indent();
-      if ((i >= window_) && (i < (array.length() - window_))) {
+      if ((i >= options_.window) && (i < (array.length() - options_.window))) {
         (*sink_) << "...\n";
-        i = array.length() - window_ - 1;
+        i = array.length() - options_.window - 1;
         skip_comma = true;
       } else if (array.IsNull(i)) {
-        (*sink_) << null_rep_;
+        (*sink_) << options_.null_rep;
       } else {
         func(i);
       }
@@ -239,18 +234,18 @@ class ArrayPrinter : public PrettyPrinter {
       } else {
         (*sink_) << ",\n";
       }
-      if ((i >= window_) && (i < (array.length() - window_))) {
+      if ((i >= options_.window) && (i < (array.length() - options_.window))) {
         Indent();
         (*sink_) << "...\n";
-        i = array.length() - window_ - 1;
+        i = array.length() - options_.window - 1;
         skip_comma = true;
       } else if (array.IsNull(i)) {
         Indent();
-        (*sink_) << null_rep_;
+        (*sink_) << options_.null_rep;
       } else {
         std::shared_ptr<Array> slice =
             array.values()->Slice(array.value_offset(i), array.value_length(i));
-        RETURN_NOT_OK(PrettyPrint(*slice, {indent_, window_}, sink_));
+        RETURN_NOT_OK(PrettyPrint(*slice, {indent_, options_.window}, sink_));
       }
     }
     (*sink_) << "\n";
@@ -265,26 +260,26 @@ class ArrayPrinter : public PrettyPrinter {
       } else {
         (*sink_) << ",\n";
       }
-      if ((i >= window_) && (i < (array.length() - window_))) {
+      if ((i >= options_.window) && (i < (array.length() - options_.window))) {
         Indent();
         (*sink_) << "...\n";
-        i = array.length() - window_ - 1;
+        i = array.length() - options_.window - 1;
         skip_comma = true;
       } else if (array.IsNull(i)) {
         Indent();
-        (*sink_) << null_rep_;
+        (*sink_) << options_.null_rep;
       } else {
         Indent();
         (*sink_) << "keys:\n";
         auto keys_slice =
             array.keys()->Slice(array.value_offset(i), array.value_length(i));
-        RETURN_NOT_OK(PrettyPrint(*keys_slice, {indent_, window_}, sink_));
+        RETURN_NOT_OK(PrettyPrint(*keys_slice, {indent_, options_.window}, sink_));
         (*sink_) << "\n";
         Indent();
         (*sink_) << "values:\n";
         auto values_slice =
             array.items()->Slice(array.value_offset(i), array.value_length(i));
-        RETURN_NOT_OK(PrettyPrint(*values_slice, {indent_, window_}, sink_));
+        RETURN_NOT_OK(PrettyPrint(*values_slice, {indent_, options_.window}, sink_));
       }
     }
     (*sink_) << "\n";
@@ -332,7 +327,7 @@ class ArrayPrinter : public PrettyPrinter {
         field = field->Slice(offset, length);
       }
 
-      RETURN_NOT_OK(PrettyPrint(*field, indent_ + indent_size_, sink_));
+      RETURN_NOT_OK(PrettyPrint(*field, indent_ + options_.indent_size, sink_));
     }
     return Status::OK();
   }
@@ -353,14 +348,14 @@ class ArrayPrinter : public PrettyPrinter {
     Newline();
     Write("-- type_ids: ");
     UInt8Array type_codes(array.length(), array.type_codes(), nullptr, 0, array.offset());
-    RETURN_NOT_OK(PrettyPrint(type_codes, indent_ + indent_size_, sink_));
+    RETURN_NOT_OK(PrettyPrint(type_codes, indent_ + options_.indent_size, sink_));
 
     if (array.mode() == UnionMode::DENSE) {
       Newline();
       Write("-- value_offsets: ");
       Int32Array value_offsets(array.length(), array.value_offsets(), nullptr, 0,
                                array.offset());
-      RETURN_NOT_OK(PrettyPrint(value_offsets, indent_ + indent_size_, sink_));
+      RETURN_NOT_OK(PrettyPrint(value_offsets, indent_ + options_.indent_size, sink_));
     }
 
     // Print the children without any offset, because the type ids are absolute
@@ -375,11 +370,12 @@ class ArrayPrinter : public PrettyPrinter {
   Status Visit(const DictionaryArray& array) {
     Newline();
     Write("-- dictionary:\n");
-    RETURN_NOT_OK(PrettyPrint(*array.dictionary(), indent_ + indent_size_, sink_));
+    RETURN_NOT_OK(
+        PrettyPrint(*array.dictionary(), indent_ + options_.indent_size, sink_));
 
     Newline();
     Write("-- indices:\n");
-    return PrettyPrint(*array.indices(), indent_ + indent_size_, sink_);
+    return PrettyPrint(*array.indices(), indent_ + options_.indent_size, sink_);
   }
 
   Status Print(const Array& array) {
@@ -417,7 +413,6 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   static arrow_vendored::date::sys_days epoch_;
-  std::string null_rep_;
 };
 
 arrow_vendored::date::sys_days ArrayPrinter::epoch_ =
@@ -431,7 +426,7 @@ Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
     Newline();
     BooleanArray is_valid(array.length(), array.null_bitmap(), nullptr, 0,
                           array.offset());
-    return PrettyPrint(is_valid, indent_ + indent_size_, sink_);
+    return PrettyPrint(is_valid, indent_ + options_.indent_size, sink_);
   } else {
     Write(" all not null");
     return Status::OK();
@@ -562,20 +557,41 @@ class SchemaPrinter : public PrettyPrinter {
  public:
   SchemaPrinter(const Schema& schema, const PrettyPrintOptions& options,
                 std::ostream* sink)
-      : PrettyPrinter(options, sink),
-        schema_(schema),
-        show_metadata_(options.show_metadata) {}
+      : PrettyPrinter(options, sink), schema_(schema) {}
 
   Status PrintType(const DataType& type, bool nullable);
   Status PrintField(const Field& field);
 
-  void PrintMetadata(const KeyValueMetadata& metadata) {
+  void PrintVerboseMetadata(const KeyValueMetadata& metadata) {
+    for (int64_t i = 0; i < metadata.size(); ++i) {
+      Newline();
+      Write(metadata.key(i) + ": '" + metadata.value(i) + "'");
+    }
+  }
+
+  void PrintTruncatedMetadata(const KeyValueMetadata& metadata) {
+    for (int64_t i = 0; i < metadata.size(); ++i) {
+      Newline();
+      size_t size = metadata.value(i).size();
+      size_t truncated_size = std::max<size_t>(10, 70 - metadata.key(i).size() - indent_);
+      if (size <= truncated_size) {
+        Write(metadata.key(i) + ": '" + metadata.value(i) + "'");
+        continue;
+      }
+
+      Write(metadata.key(i) + ": '" + metadata.value(i).substr(0, truncated_size) +
+            "' + " + std::to_string(size - truncated_size));
+    }
+  }
+
+  void PrintMetadata(const std::string& metadata_type, const KeyValueMetadata& metadata) {
     if (metadata.size() > 0) {
       Newline();
-      Write("-- metadata --");
-      for (int64_t i = 0; i < metadata.size(); ++i) {
-        Newline();
-        Write(metadata.key(i) + ": " + metadata.value(i));
+      Write(metadata_type);
+      if (options_.truncate_metadata) {
+        PrintTruncatedMetadata(metadata);
+      } else {
+        PrintVerboseMetadata(metadata);
       }
     }
   }
@@ -590,8 +606,8 @@ class SchemaPrinter : public PrettyPrinter {
       RETURN_NOT_OK(PrintField(*schema_.field(i)));
     }
 
-    if (show_metadata_ && schema_.metadata()) {
-      PrintMetadata(*schema_.metadata());
+    if (options_.show_schema_metadata && schema_.metadata() != nullptr) {
+      PrintMetadata("-- schema metadata --", *schema_.metadata());
     }
     Flush();
     return Status::OK();
@@ -599,7 +615,6 @@ class SchemaPrinter : public PrettyPrinter {
 
  private:
   const Schema& schema_;
-  bool show_metadata_;
 };
 
 Status SchemaPrinter::PrintType(const DataType& type, bool nullable) {
@@ -613,10 +628,10 @@ Status SchemaPrinter::PrintType(const DataType& type, bool nullable) {
     std::stringstream ss;
     ss << "child " << i << ", ";
 
-    indent_ += indent_size_;
+    indent_ += options_.indent_size;
     WriteIndented(ss.str());
     RETURN_NOT_OK(PrintField(*type.child(i)));
-    indent_ -= indent_size_;
+    indent_ -= options_.indent_size;
   }
   return Status::OK();
 }
@@ -626,10 +641,10 @@ Status SchemaPrinter::PrintField(const Field& field) {
   Write(": ");
   RETURN_NOT_OK(PrintType(*field.type(), field.nullable()));
 
-  if (show_metadata_ && field.metadata()) {
-    indent_ += indent_size_;
-    PrintMetadata(*field.metadata());
-    indent_ -= indent_size_;
+  if (options_.show_field_metadata && field.metadata() != nullptr) {
+    indent_ += options_.indent_size;
+    PrintMetadata("-- field metadata --", *field.metadata());
+    indent_ -= options_.indent_size;
   }
   return Status::OK();
 }

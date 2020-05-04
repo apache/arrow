@@ -16,6 +16,7 @@
 # under the License.
 
 import atexit
+from collections.abc import Mapping
 import re
 import sys
 import warnings
@@ -27,7 +28,7 @@ from pyarrow.compat import builtin_pickle
 # These are imprecise because the type (in pandas 0.x) depends on the presence
 # of nulls
 cdef dict _pandas_type_map = {
-    _Type_NA: np.float64,  # NaNs
+    _Type_NA: np.object_,  # NaNs
     _Type_BOOL: np.bool_,
     _Type_INT8: np.int8,
     _Type_INT16: np.int16,
@@ -386,6 +387,19 @@ cdef class StructType(DataType):
         else:
             return pyarrow_wrap_field(fields[0])
 
+    def get_field_index(self, name):
+        """
+        Return index of field with given unique name. Returns -1 if not found
+        or if duplicated
+        """
+        return self.struct_type.GetFieldIndex(tobytes(name))
+
+    def get_all_field_indices(self, name):
+        """
+        Return sorted list of indices for fields with the given name
+        """
+        return self.struct_type.GetAllFieldIndices(tobytes(name))
+
     def __len__(self):
         """
         Like num_children().
@@ -704,6 +718,16 @@ cdef class ExtensionType(BaseExtensionType):
         """
         return NotImplementedError
 
+    def __arrow_ext_class__(self):
+        """Return an extension array class to be used for building or
+        deserializing arrays with this extension type.
+
+        This method should return a subclass of the ExtensionArray class. By
+        default, if not specialized in the extension implementation, an
+        extension type array will be a built-in ExtensionArray instance.
+        """
+        return ExtensionArray
+
 
 cdef class PyExtensionType(ExtensionType):
     """
@@ -808,6 +832,132 @@ def unregister_extension_type(type_name):
     check_status(UnregisterPyExtensionType(c_type_name))
 
 
+cdef class KeyValueMetadata(_Metadata, Mapping):
+
+    def __init__(self, __arg0__=None, **kwargs):
+        cdef:
+            vector[c_string] keys, values
+            shared_ptr[const CKeyValueMetadata] result
+
+        items = []
+        if __arg0__ is not None:
+            other = (__arg0__.items() if isinstance(__arg0__, Mapping)
+                     else __arg0__)
+            items.extend((tobytes(k), v) for k, v in other)
+
+        prior_keys = {k for k, v in items}
+        for k, v in kwargs.items():
+            k = tobytes(k)
+            if k in prior_keys:
+                raise KeyError("Duplicate key {}, "
+                               "use pass all items as list of tuples if you "
+                               "intend to have duplicate keys")
+            items.append((k, v))
+
+        keys.reserve(len(items))
+        for key, value in items:
+            keys.push_back(tobytes(key))
+            values.push_back(tobytes(value))
+        result.reset(new CKeyValueMetadata(move(keys), move(values)))
+        self.init(result)
+
+    cdef void init(self, const shared_ptr[const CKeyValueMetadata]& wrapped):
+        self.wrapped = wrapped
+        self.metadata = wrapped.get()
+
+    @staticmethod
+    cdef wrap(const shared_ptr[const CKeyValueMetadata]& sp):
+        cdef KeyValueMetadata self = KeyValueMetadata.__new__(KeyValueMetadata)
+        self.init(sp)
+        return self
+
+    cdef inline shared_ptr[const CKeyValueMetadata] unwrap(self) nogil:
+        return self.wrapped
+
+    def equals(self, KeyValueMetadata other):
+        return self.metadata.Equals(deref(other.wrapped))
+
+    def __repr__(self):
+        return str(self)
+
+    def __str__(self):
+        return frombytes(self.metadata.ToString())
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            pass
+
+        if isinstance(other, Mapping):
+            try:
+                other = KeyValueMetadata(other)
+                return self.equals(other)
+            except TypeError:
+                pass
+
+        return NotImplemented
+
+    def __len__(self):
+        return self.metadata.size()
+
+    def __contains__(self, key):
+        return self.metadata.Contains(tobytes(key))
+
+    def __getitem__(self, key):
+        return GetResultValue(self.metadata.Get(tobytes(key)))
+
+    def __iter__(self):
+        return self.keys()
+
+    def __reduce__(self):
+        return KeyValueMetadata, (list(self.items()),)
+
+    def key(self, i):
+        return self.metadata.key(i)
+
+    def value(self, i):
+        return self.metadata.value(i)
+
+    def keys(self):
+        for i in range(self.metadata.size()):
+            yield self.metadata.key(i)
+
+    def values(self):
+        for i in range(self.metadata.size()):
+            yield self.metadata.value(i)
+
+    def items(self):
+        for i in range(self.metadata.size()):
+            yield (self.metadata.key(i), self.metadata.value(i))
+
+    def get_all(self, key):
+        key = tobytes(key)
+        return [v for k, v in self.items() if k == key]
+
+    def to_dict(self):
+        """
+        Convert KeyValueMetadata to dict. If a key occurs twice, the value for
+        the first one is returned
+        """
+        cdef object key  # to force coercion to Python
+        result = ordered_dict()
+        for i in range(self.metadata.size()):
+            key = self.metadata.key(i)
+            if key not in result:
+                result[key] = self.metadata.value(i)
+        return result
+
+
+cdef KeyValueMetadata ensure_metadata(object meta, c_bool allow_none=False):
+    if allow_none and meta is None:
+        return None
+    elif isinstance(meta, KeyValueMetadata):
+        return meta
+    else:
+        return KeyValueMetadata(meta)
+
+
 cdef class Field:
     """
     A named field, with a data type, nullability, and optional metadata.
@@ -872,7 +1022,11 @@ cdef class Field:
 
     @property
     def metadata(self):
-        return pyarrow_wrap_metadata(self.field.metadata())
+        wrapped = pyarrow_wrap_metadata(self.field.metadata())
+        if wrapped is not None:
+            return wrapped.to_dict()
+        else:
+            return wrapped
 
     def add_metadata(self, metadata):
         warnings.warn("The 'add_metadata' method is deprecated, use "
@@ -892,16 +1046,11 @@ cdef class Field:
         -------
         field : pyarrow.Field
         """
-        cdef:
-            shared_ptr[CField] c_field
-            shared_ptr[CKeyValueMetadata] c_meta
+        cdef shared_ptr[CField] c_field
 
-        if not isinstance(metadata, dict):
-            raise TypeError('Metadata must be an instance of dict')
-
-        c_meta = pyarrow_unwrap_metadata(metadata)
+        meta = ensure_metadata(metadata, allow_none=False)
         with nogil:
-            c_field = self.field.WithMetadata(c_meta)
+            c_field = self.field.WithMetadata(meta.unwrap())
 
         return pyarrow_wrap_field(c_field)
 
@@ -1081,7 +1230,11 @@ cdef class Schema:
 
     @property
     def metadata(self):
-        return pyarrow_wrap_metadata(self.schema.metadata())
+        wrapped = pyarrow_wrap_metadata(self.schema.metadata())
+        if wrapped is not None:
+            return wrapped.to_dict()
+        else:
+            return wrapped
 
     def __eq__(self, other):
         try:
@@ -1226,7 +1379,17 @@ cdef class Schema:
             return pyarrow_wrap_field(results[0])
 
     def get_field_index(self, name):
+        """
+        Return index of field with given unique name. Returns -1 if not found
+        or if duplicated
+        """
         return self.schema.GetFieldIndex(tobytes(name))
+
+    def get_all_field_indices(self, name):
+        """
+        Return sorted list of indices for fields with the given name
+        """
+        return self.schema.GetAllFieldIndices(tobytes(name))
 
     def append(self, Field field):
         """
@@ -1266,7 +1429,7 @@ cdef class Schema:
         c_field = field.sp_field
 
         with nogil:
-            check_status(self.schema.AddField(i, c_field, &new_schema))
+            new_schema = GetResultValue(self.schema.AddField(i, c_field))
 
         return pyarrow_wrap_schema(new_schema)
 
@@ -1285,7 +1448,7 @@ cdef class Schema:
         cdef shared_ptr[CSchema] new_schema
 
         with nogil:
-            check_status(self.schema.RemoveField(i, &new_schema))
+            new_schema = GetResultValue(self.schema.RemoveField(i))
 
         return pyarrow_wrap_schema(new_schema)
 
@@ -1309,7 +1472,7 @@ cdef class Schema:
         c_field = field.sp_field
 
         with nogil:
-            check_status(self.schema.SetField(i, c_field, &new_schema))
+            new_schema = GetResultValue(self.schema.SetField(i, c_field))
 
         return pyarrow_wrap_schema(new_schema)
 
@@ -1331,16 +1494,11 @@ cdef class Schema:
         -------
         schema : pyarrow.Schema
         """
-        cdef:
-            shared_ptr[CKeyValueMetadata] c_meta
-            shared_ptr[CSchema] c_schema
+        cdef shared_ptr[CSchema] c_schema
 
-        if not isinstance(metadata, dict):
-            raise TypeError('Metadata must be an instance of dict')
-
-        c_meta = pyarrow_unwrap_metadata(metadata)
+        meta = ensure_metadata(metadata, allow_none=False)
         with nogil:
-            c_schema = self.schema.WithMetadata(c_meta)
+            c_schema = self.schema.WithMetadata(meta.unwrap())
 
         return pyarrow_wrap_schema(c_schema)
 
@@ -1373,8 +1531,8 @@ cdef class Schema:
             arg_dict_memo = &temp_memo
 
         with nogil:
-            check_status(SerializeSchema(deref(self.schema), arg_dict_memo,
-                                         pool, &buffer))
+            buffer = GetResultValue(SerializeSchema(deref(self.schema),
+                                                    arg_dict_memo, pool))
         return pyarrow_wrap_buffer(buffer)
 
     def remove_metadata(self):
@@ -1390,15 +1548,20 @@ cdef class Schema:
             new_schema = self.schema.RemoveMetadata()
         return pyarrow_wrap_schema(new_schema)
 
-    def to_string(self, bint show_metadata=False):
+    def to_string(self, truncate_metadata=True, show_field_metadata=True,
+                  show_schema_metadata=True):
         """
         Return human-readable representation of Schema
 
         Parameters
         ----------
-        show_metadata : boolean, default False
-            If True, and there is non-empty metadata, it will be printed after
-            the column names and types
+        truncate_metadata : boolean, default True
+            Limit metadata key/value display to a single line of ~80 characters
+            or less
+        show_field_metadata : boolean, default True
+            Display Field-level KeyValueMetadata
+        show_schema_metadata : boolean, default True
+            Display Schema-level KeyValueMetadata
 
         Returns
         -------
@@ -1406,11 +1569,14 @@ cdef class Schema:
         """
         cdef:
             c_string result
-            PrettyPrintOptions options
+            PrettyPrintOptions options = PrettyPrintOptions.Defaults()
+
+        options.indent = 0
+        options.truncate_metadata = truncate_metadata
+        options.show_field_metadata = show_field_metadata
+        options.show_schema_metadata = show_schema_metadata
 
         with nogil:
-            options.indent = 0
-            options.show_metadata = show_metadata
             check_status(
                 PrettyPrint(
                     deref(self.schema),
@@ -1443,10 +1609,49 @@ cdef class Schema:
         return pyarrow_wrap_schema(result)
 
     def __str__(self):
-        return self.to_string(show_metadata=False)
+        return self.to_string()
 
     def __repr__(self):
         return self.__str__()
+
+
+def unify_schemas(list schemas):
+    """
+    Unify schemas by merging fields by name.
+
+    The resulting schema will contain the union of fields from all schemas.
+    Fields with the same name will be merged. Note that two fields with
+    different types will fail merging.
+
+    - The unified field will inherit the metadata from the schema where
+        that field is first defined.
+    - The first N fields in the schema will be ordered the same as the
+        N fields in the first schema.
+
+    The resulting schema will inherit its metadata from the first input
+    schema.
+
+    Parameters
+    ----------
+    schemas : list of Schema
+        Schemas to merge into a single one.
+
+    Returns
+    -------
+    Schema
+
+    Raises
+    ------
+    ArrowInvalid :
+        If any input schema contains fields with duplicate names.
+        If Fields of the same name are not mergeable.
+    """
+    cdef:
+        Schema schema
+        vector[shared_ptr[CSchema]] c_schemas
+    for schema in schemas:
+        c_schemas.push_back(pyarrow_unwrap_schema(schema))
+    return pyarrow_wrap_schema(GetResultValue(UnifySchemas(c_schemas)))
 
 
 cdef dict _type_cache = {}
@@ -1490,12 +1695,10 @@ def field(name, type, bint nullable=True, metadata=None):
     cdef:
         Field result = Field.__new__(Field)
         DataType _type = ensure_type(type, allow_none=False)
-        shared_ptr[CKeyValueMetadata] c_meta
+        shared_ptr[const CKeyValueMetadata] c_meta
 
-    if metadata is not None:
-        if not isinstance(metadata, dict):
-            raise TypeError('Metadata must be an instance of dict')
-        c_meta = pyarrow_unwrap_metadata(metadata)
+    metadata = ensure_metadata(metadata, allow_none=True)
+    c_meta = pyarrow_unwrap_metadata(metadata)
 
     result.sp_field.reset(
         new CField(tobytes(name), _type.sp_type, nullable, c_meta)
@@ -2345,7 +2548,7 @@ def schema(fields, metadata=None):
     schema : pyarrow.Schema
     """
     cdef:
-        shared_ptr[CKeyValueMetadata] c_meta
+        shared_ptr[const CKeyValueMetadata] c_meta
         shared_ptr[CSchema] c_schema
         Schema result
         Field py_field
@@ -2363,10 +2566,8 @@ def schema(fields, metadata=None):
             raise TypeError("field or tuple expected, got None")
         c_fields.push_back(py_field.sp_field)
 
-    if metadata is not None:
-        if not isinstance(metadata, dict):
-            raise TypeError('Metadata must be an instance of dict')
-        c_meta = pyarrow_unwrap_metadata(metadata)
+    metadata = ensure_metadata(metadata, allow_none=True)
+    c_meta = pyarrow_unwrap_metadata(metadata)
 
     c_schema.reset(new CSchema(c_fields, c_meta))
     result = Schema.__new__(Schema)

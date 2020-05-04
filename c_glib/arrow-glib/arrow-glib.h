@@ -46,6 +46,7 @@
 #include <arrow-glib/writable.h>
 #include <arrow-glib/writable-file.h>
 
+#include <arrow-glib/ipc-options.h>
 #include <arrow-glib/metadata-version.h>
 #include <arrow-glib/reader.h>
 #include <arrow-glib/writer.h>

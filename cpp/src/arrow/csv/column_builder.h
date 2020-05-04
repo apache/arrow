@@ -19,10 +19,9 @@
 
 #include <cstdint>
 #include <memory>
+#include <utility>
 
-#include "arrow/array.h"
 #include "arrow/result.h"
-#include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
@@ -45,7 +44,7 @@ class ARROW_EXPORT ColumnBuilder {
   /// Spawn a task that will try to convert and append the given CSV block.
   /// All calls to Append() should happen on the same thread, otherwise
   /// call Insert() instead.
-  virtual void Append(const std::shared_ptr<BlockParser>& parser);
+  virtual void Append(const std::shared_ptr<BlockParser>& parser) = 0;
 
   /// Spawn a task that will try to convert and insert the given CSV block
   virtual void Insert(int64_t block_index,
@@ -53,9 +52,6 @@ class ARROW_EXPORT ColumnBuilder {
 
   /// Return the final chunked array.  The TaskGroup _must_ have finished!
   virtual Result<std::shared_ptr<ChunkedArray>> Finish() = 0;
-
-  /// Change the task group.  The previous TaskGroup _must_ have finished!
-  void SetTaskGroup(const std::shared_ptr<internal::TaskGroup>& task_group);
 
   std::shared_ptr<internal::TaskGroup> task_group() { return task_group_; }
 
@@ -77,11 +73,10 @@ class ARROW_EXPORT ColumnBuilder {
       const std::shared_ptr<internal::TaskGroup>& task_group);
 
  protected:
-  explicit ColumnBuilder(const std::shared_ptr<internal::TaskGroup>& task_group)
-      : task_group_(task_group) {}
+  explicit ColumnBuilder(std::shared_ptr<internal::TaskGroup> task_group)
+      : task_group_(std::move(task_group)) {}
 
   std::shared_ptr<internal::TaskGroup> task_group_;
-  ArrayVector chunks_;
 };
 
 }  // namespace csv

@@ -119,6 +119,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_USE_LD_GOLD: "ON"
       ARROW_USE_PRECOMPILED_HEADERS: "ON"
+      ARROW_BUILD_BENCHMARKS: "ON"
     volumes: &conda-volumes
       - .:/arrow:delegated
       - ${ARCH}-conda-cache:/build:delegated
@@ -783,6 +784,7 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
+      NOT_CRAN: 'true'
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -807,6 +809,7 @@ services:
       <<: *ccache
       ARROW_R_CXXFLAGS: '-Werror'
       LIBARROW_BUILD: 'false'
+      NOT_CRAN: 'true'
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
@@ -833,6 +836,7 @@ services:
     environment:
       LIBARROW_DOWNLOAD: "false"
       ARROW_HOME: "/arrow"
+      # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
       ARROW_USE_PKG_CONFIG: "false"
     volumes:
       - .:/arrow:delegated
@@ -1042,7 +1046,7 @@ services:
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/js_build.sh /arrow /build &&
         pip install -e /arrow/dev/archery &&
-        archery integration --with-all --serial --run-flight"]
+        archery integration --with-all --run-flight"]
 
   ################################ Docs #######################################
 

@@ -34,6 +34,33 @@
 namespace arrow {
 namespace dataset {
 
+Status CheckProjectable(const Schema& from, const Schema& to) {
+  for (const auto& to_field : to.fields()) {
+    ARROW_ASSIGN_OR_RAISE(auto from_field, FieldRef(to_field->name()).GetOneOrNone(from));
+
+    if (from_field == nullptr) {
+      if (to_field->nullable()) continue;
+
+      return Status::TypeError("field ", to_field->ToString(),
+                               " is not nullable and does not exist in origin schema ",
+                               from);
+    }
+
+    if (!from_field->type()->Equals(to_field->type())) {
+      return Status::TypeError("fields had matching names but differing types. From: ",
+                               from_field->ToString(), " To: ", to_field->ToString());
+    }
+
+    if (from_field->nullable() && !to_field->nullable()) {
+      return Status::TypeError("field ", to_field->ToString(),
+                               " is not nullable but is not required in origin schema ",
+                               from);
+    }
+  }
+
+  return Status::OK();
+}
+
 RecordBatchProjector::RecordBatchProjector(std::shared_ptr<Schema> to)
     : to_(std::move(to)),
       missing_columns_(to_->num_fields(), nullptr),
@@ -86,32 +113,23 @@ Result<std::shared_ptr<RecordBatch>> RecordBatchProjector::Project(
 
 Status RecordBatchProjector::SetInputSchema(std::shared_ptr<Schema> from,
                                             MemoryPool* pool) {
+  RETURN_NOT_OK(CheckProjectable(*from, *to_));
   from_ = std::move(from);
 
   for (int i = 0; i < to_->num_fields(); ++i) {
-    const auto& field = to_->field(i);
-    FieldRef ref(field->name());
-    auto matches = ref.FindAll(*from_);
+    ARROW_ASSIGN_OR_RAISE(auto match,
+                          FieldRef(to_->field(i)->name()).FindOneOrNone(*from_));
 
-    if (matches.empty()) {
+    if (match.indices().empty()) {
       // Mark column i as missing by setting missing_columns_[i]
       // to a non-null placeholder.
-      RETURN_NOT_OK(
-          MakeArrayOfNull(pool, to_->field(i)->type(), 0, &missing_columns_[i]));
+      ARROW_ASSIGN_OR_RAISE(missing_columns_[i],
+                            MakeArrayOfNull(to_->field(i)->type(), 0, pool));
       column_indices_[i] = kNoMatch;
     } else {
-      RETURN_NOT_OK(ref.CheckNonMultiple(matches, *from_));
-      int matching_index = matches[0].indices()[0];
-
-      if (!from_->field(matching_index)->Equals(field, /*check_metadata=*/false)) {
-        return Status::TypeError("fields had matching names but were not equivalent ",
-                                 from_->field(matching_index)->ToString(), " vs ",
-                                 field->ToString());
-      }
-
       // Mark column i as not missing by setting missing_columns_[i] to nullptr
       missing_columns_[i] = nullptr;
-      column_indices_[i] = matching_index;
+      column_indices_[i] = match.indices()[0];
     }
   }
   return Status::OK();
@@ -125,12 +143,13 @@ Status RecordBatchProjector::ResizeMissingColumns(int64_t new_length, MemoryPool
       continue;
     }
     if (scalars_[i] == nullptr) {
-      RETURN_NOT_OK(MakeArrayOfNull(pool, missing_columns_[i]->type(), new_length,
-                                    &missing_columns_[i]));
+      ARROW_ASSIGN_OR_RAISE(
+          missing_columns_[i],
+          MakeArrayOfNull(missing_columns_[i]->type(), new_length, pool));
       continue;
     }
-    RETURN_NOT_OK(
-        MakeArrayFromScalar(pool, *scalars_[i], new_length, &missing_columns_[i]));
+    ARROW_ASSIGN_OR_RAISE(missing_columns_[i],
+                          MakeArrayFromScalar(*scalars_[i], new_length, pool));
   }
   missing_columns_length_ = new_length;
   return Status::OK();

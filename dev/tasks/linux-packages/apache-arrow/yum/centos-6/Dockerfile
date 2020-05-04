@@ -20,7 +20,7 @@ FROM centos:6
 ARG DEBUG
 
 ENV \
-  DEVTOOLSET_VERSION=6 \
+  DEVTOOLSET_VERSION=8 \
   LIBARCHIVE_SRPM_BASE=libarchive-3.1.2-10.el7_2.src.rpm \
   SRPM_DOWNLOAD_URL=http://vault.centos.org/7.6.1810/os/Source/SPackages
 
@@ -49,7 +49,6 @@ RUN \
     cmake3 \
     bzip2-devel \
     devtoolset-${DEVTOOLSET_VERSION} \
-    gflags-devel \
     git \
     gobject-introspection-devel \
     gtk-doc \

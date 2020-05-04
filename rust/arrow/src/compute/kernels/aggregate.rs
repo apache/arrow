@@ -80,17 +80,17 @@ where
         let mut n: T::Native = T::default_value();
         let data = array.data();
         let m = array.value_slice(0, data.len());
-        for i in 0..data.len() {
-            n = n + m[i];
+        for item in m.iter().take(data.len()) {
+            n = n + *item;
         }
         Some(n)
     } else {
         let mut n: T::Native = T::default_value();
         let data = array.data();
         let m = array.value_slice(0, data.len());
-        for i in 0..data.len() {
+        for (i, item) in m.iter().enumerate() {
             if data.is_valid(i) {
-                n = n + m[i];
+                n = n + *item;
             }
         }
         Some(n)

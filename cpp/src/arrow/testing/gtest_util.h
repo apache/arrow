@@ -97,11 +97,12 @@ class Result;
 
 #define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))
 
-#define ARROW_EXPECT_OK(expr)                                       \
-  do {                                                              \
-    auto _res = (expr);                                             \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res); \
-    EXPECT_TRUE(_st.ok());                                          \
+#define ARROW_EXPECT_OK(expr)                                           \
+  do {                                                                  \
+    auto _res = (expr);                                                 \
+    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);     \
+    EXPECT_TRUE(_st.ok()) << "'" ARROW_STRINGIFY(expr) "' failed with " \
+                          << _st.ToString();                            \
   } while (false)
 
 #define ABORT_NOT_OK(expr)                                          \
@@ -184,36 +185,36 @@ ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const std::string& exp
 ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const Buffer& expected);
 
 ARROW_EXPORT void AssertTypeEqual(const DataType& lhs, const DataType& rhs,
-                                  bool check_metadata = true);
+                                  bool check_metadata = false);
 ARROW_EXPORT void AssertTypeEqual(const std::shared_ptr<DataType>& lhs,
                                   const std::shared_ptr<DataType>& rhs,
-                                  bool check_metadata = true);
+                                  bool check_metadata = false);
 ARROW_EXPORT void AssertFieldEqual(const Field& lhs, const Field& rhs,
-                                   bool check_metadata = true);
+                                   bool check_metadata = false);
 ARROW_EXPORT void AssertFieldEqual(const std::shared_ptr<Field>& lhs,
                                    const std::shared_ptr<Field>& rhs,
-                                   bool check_metadata = true);
+                                   bool check_metadata = false);
 ARROW_EXPORT void AssertSchemaEqual(const Schema& lhs, const Schema& rhs,
-                                    bool check_metadata = true);
+                                    bool check_metadata = false);
 ARROW_EXPORT void AssertSchemaEqual(const std::shared_ptr<Schema>& lhs,
                                     const std::shared_ptr<Schema>& rhs,
-                                    bool check_metadata = true);
+                                    bool check_metadata = false);
 
 ARROW_EXPORT void AssertTypeNotEqual(const DataType& lhs, const DataType& rhs,
-                                     bool check_metadata = true);
+                                     bool check_metadata = false);
 ARROW_EXPORT void AssertTypeNotEqual(const std::shared_ptr<DataType>& lhs,
                                      const std::shared_ptr<DataType>& rhs,
-                                     bool check_metadata = true);
+                                     bool check_metadata = false);
 ARROW_EXPORT void AssertFieldNotEqual(const Field& lhs, const Field& rhs,
-                                      bool check_metadata = true);
+                                      bool check_metadata = false);
 ARROW_EXPORT void AssertFieldNotEqual(const std::shared_ptr<Field>& lhs,
                                       const std::shared_ptr<Field>& rhs,
-                                      bool check_metadata = true);
+                                      bool check_metadata = false);
 ARROW_EXPORT void AssertSchemaNotEqual(const Schema& lhs, const Schema& rhs,
-                                       bool check_metadata = true);
+                                       bool check_metadata = false);
 ARROW_EXPORT void AssertSchemaNotEqual(const std::shared_ptr<Schema>& lhs,
                                        const std::shared_ptr<Schema>& rhs,
-                                       bool check_metadata = true);
+                                       bool check_metadata = false);
 
 ARROW_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
                                     bool same_chunk_layout = true, bool flatten = false);
@@ -384,8 +385,7 @@ static inline Status GetBitmapFromVector(const std::vector<T>& is_valid,
                                          std::shared_ptr<Buffer>* result) {
   size_t length = is_valid.size();
 
-  std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(AllocateEmptyBitmap(length, &buffer));
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateEmptyBitmap(length));
 
   uint8_t* bitmap = buffer->mutable_data();
   for (size_t i = 0; i < static_cast<size_t>(length); ++i) {

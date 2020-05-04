@@ -112,8 +112,11 @@ struct Type {
     /// nanoseconds since midnight
     TIME64,
 
-    /// YEAR_MONTH or DAY_TIME interval in SQL style
-    INTERVAL,
+    /// YEAR_MONTH interval in SQL style
+    INTERVAL_MONTHS,
+
+    /// DAY_TIME interval in SQL style
+    INTERVAL_DAY_TIME,
 
     /// Precision- and scale-based decimal type. Storage type depends on the
     /// parameters.
@@ -240,7 +243,7 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   ///
   /// Types that are logically convertible from one to another (e.g. List<UInt8>
   /// and Binary) are NOT equal.
-  bool Equals(const DataType& other, bool check_metadata = true) const;
+  bool Equals(const DataType& other, bool check_metadata = false) const;
 
   /// \brief Return whether the types are equal
   bool Equals(const std::shared_ptr<DataType>& other) const;
@@ -414,8 +417,8 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   ///            equality.
   ///
   /// \return true if fields are equal, false otherwise.
-  bool Equals(const Field& other, bool check_metadata = true) const;
-  bool Equals(const std::shared_ptr<Field>& other, bool check_metadata = true) const;
+  bool Equals(const Field& other, bool check_metadata = false) const;
+  bool Equals(const std::shared_ptr<Field>& other, bool check_metadata = false) const;
 
   /// \brief Indicate if fields are compatibles.
   ///
@@ -935,7 +938,7 @@ class ARROW_EXPORT StructType : public NestedType {
   /// same name
   int GetFieldIndex(const std::string& name) const;
 
-  /// Return the indices of all fields having this name
+  /// \brief Return the indices of all fields having this name in sorted order
   std::vector<int> GetAllFieldIndices(const std::string& name) const;
 
  private:
@@ -974,6 +977,9 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
   explicit Decimal128Type(int32_t precision, int32_t scale);
 
   /// Decimal128Type constructor that returns an error on invalid input.
+  static Result<std::shared_ptr<DataType>> Make(int32_t precision, int32_t scale);
+
+  ARROW_DEPRECATED("Use Result-returning version")
   static Status Make(int32_t precision, int32_t scale, std::shared_ptr<DataType>* out);
 
   std::string ToString() const override;
@@ -1219,11 +1225,11 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
 class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
  public:
   enum type { MONTHS, DAY_TIME };
-  IntervalType() : TemporalType(Type::INTERVAL) {}
 
   virtual type interval_type() const = 0;
 
  protected:
+  explicit IntervalType(Type::type subtype) : TemporalType(subtype) {}
   std::string ComputeFingerprint() const override;
 };
 
@@ -1233,7 +1239,7 @@ class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
 /// in Schema.fbs (years are defined as 12 months).
 class ARROW_EXPORT MonthIntervalType : public IntervalType {
  public:
-  static constexpr Type::type type_id = Type::INTERVAL;
+  static constexpr Type::type type_id = Type::INTERVAL_MONTHS;
   using c_type = int32_t;
 
   static constexpr const char* type_name() { return "month_interval"; }
@@ -1242,7 +1248,7 @@ class ARROW_EXPORT MonthIntervalType : public IntervalType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  MonthIntervalType() : IntervalType() {}
+  MonthIntervalType() : IntervalType(type_id) {}
 
   std::string ToString() const override { return name(); }
   std::string name() const override { return "month_interval"; }
@@ -1265,13 +1271,13 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
   using c_type = DayMilliseconds;
   static_assert(sizeof(DayMilliseconds) == 8,
                 "DayMilliseconds struct assumed to be of size 8 bytes");
-  static constexpr Type::type type_id = Type::INTERVAL;
+  static constexpr Type::type type_id = Type::INTERVAL_DAY_TIME;
 
   static constexpr const char* type_name() { return "day_time_interval"; }
 
   IntervalType::type interval_type() const override { return IntervalType::DAY_TIME; }
 
-  DayTimeIntervalType() : IntervalType() {}
+  DayTimeIntervalType() : IntervalType(type_id) {}
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
@@ -1356,9 +1362,12 @@ class ARROW_EXPORT DictionaryUnifier {
   virtual ~DictionaryUnifier() = default;
 
   /// \brief Construct a DictionaryUnifier
-  /// \param[in] pool MemoryPool to use for memory allocations
   /// \param[in] value_type the data type of the dictionaries
-  /// \param[out] out the constructed unifier
+  /// \param[in] pool MemoryPool to use for memory allocations
+  static Result<std::unique_ptr<DictionaryUnifier>> Make(
+      std::shared_ptr<DataType> value_type, MemoryPool* pool = default_memory_pool());
+
+  ARROW_DEPRECATED("Use Result-returning version")
   static Status Make(MemoryPool* pool, std::shared_ptr<DataType> value_type,
                      std::unique_ptr<DictionaryUnifier>* out);
 
@@ -1640,8 +1649,8 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   ~Schema() override;
 
   /// Returns true if all of the schema fields are equal
-  bool Equals(const Schema& other, bool check_metadata = true) const;
-  bool Equals(const std::shared_ptr<Schema>& other, bool check_metadata = true) const;
+  bool Equals(const Schema& other, bool check_metadata = false) const;
+  bool Equals(const std::shared_ptr<Schema>& other, bool check_metadata = false) const;
 
   /// \brief Return the number of fields (columns) in the schema
   int num_fields() const;
@@ -1656,7 +1665,7 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// Returns null if name not found
   std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
 
-  /// Return all fields having this name
+  /// \brief Return the indices of all fields having this name in sorted order
   std::vector<std::shared_ptr<Field>> GetAllFieldsByName(const std::string& name) const;
 
   /// Returns -1 if name not found
@@ -1678,9 +1687,18 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// print keys and values in the output
   std::string ToString(bool show_metadata = false) const;
 
+  Result<std::shared_ptr<Schema>> AddField(int i,
+                                           const std::shared_ptr<Field>& field) const;
+  Result<std::shared_ptr<Schema>> RemoveField(int i) const;
+  Result<std::shared_ptr<Schema>> SetField(int i,
+                                           const std::shared_ptr<Field>& field) const;
+
+  ARROW_DEPRECATED("Use Result-returning version")
   Status AddField(int i, const std::shared_ptr<Field>& field,
                   std::shared_ptr<Schema>* out) const;
+  ARROW_DEPRECATED("Use Result-returning version")
   Status RemoveField(int i, std::shared_ptr<Schema>* out) const;
+  ARROW_DEPRECATED("Use Result-returning version")
   Status SetField(int i, const std::shared_ptr<Field>& field,
                   std::shared_ptr<Schema>* out) const;
 

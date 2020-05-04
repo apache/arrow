@@ -79,7 +79,7 @@ class ARROW_EXPORT RecordBatchWriter {
   /// \return Status
   virtual Status Close() = 0;
 
-  ARROW_DEPRECATED("No-op. Pass MemoryPool using IpcWriteOptions")
+  ARROW_DEPRECATED("Deprecated in 0.17.0. No-op. Pass MemoryPool using IpcWriteOptions")
   void set_memory_pool(MemoryPool* pool) {}
 };
 
@@ -99,12 +99,14 @@ Result<std::shared_ptr<RecordBatchWriter>> NewStreamWriter(
 ///
 /// \param[in] sink output stream to write to
 /// \param[in] schema the schema of the record batches to be written
-/// \param[in] options options for serialization
+/// \param[in] options options for serialization, optional
+/// \param[in] metadata custom metadata for File Footer, optional
 /// \return Status
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatchWriter>> NewFileWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-    const IpcWriteOptions& options = IpcWriteOptions::Defaults());
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults(),
+    const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
 
 /// \brief Low-level API for writing a record batch (without schema)
 /// to an OutputStream as encapsulated IPC message. See Arrow format
@@ -128,11 +130,10 @@ Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
 ///
 /// \param[in] batch the record batch
 /// \param[in] options the IpcWriteOptions to use for serialization
-/// \param[out] out the serialized message
-/// \return Status
+/// \return the serialized message
 ARROW_EXPORT
-Status SerializeRecordBatch(const RecordBatch& batch, const IpcWriteOptions& options,
-                            std::shared_ptr<Buffer>* out);
+Result<std::shared_ptr<Buffer>> SerializeRecordBatch(const RecordBatch& batch,
+                                                     const IpcWriteOptions& options);
 
 /// \brief Serialize record batch as encapsulated IPC message in a new buffer
 ///
@@ -161,11 +162,11 @@ Status SerializeRecordBatch(const RecordBatch& batch, const IpcWriteOptions& opt
 /// \param[in] schema the schema to write
 /// \param[in] dictionary_memo a DictionaryMemo for recording dictionary ids
 /// \param[in] pool a MemoryPool to allocate memory from
-/// \param[out] out the serialized schema
-/// \return Status
+/// \return the serialized schema
 ARROW_EXPORT
-Status SerializeSchema(const Schema& schema, DictionaryMemo* dictionary_memo,
-                       MemoryPool* pool, std::shared_ptr<Buffer>* out);
+Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema,
+                                                DictionaryMemo* dictionary_memo,
+                                                MemoryPool* pool = default_memory_pool());
 
 /// \brief Write multiple record batches to OutputStream, including schema
 /// \param[in] batches a vector of batches. Must all have same schema
@@ -197,11 +198,9 @@ Status GetTensorSize(const Tensor& tensor, int64_t* size);
 ///
 /// \param[in] tensor the Tensor to write
 /// \param[in] pool MemoryPool to allocate space for metadata
-/// \param[out] out the resulting Message
-/// \return Status
+/// \return the resulting Message
 ARROW_EXPORT
-Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
-                        std::unique_ptr<Message>* out);
+Result<std::unique_ptr<Message>> GetTensorMessage(const Tensor& tensor, MemoryPool* pool);
 
 /// \brief Write arrow::Tensor as a contiguous message.
 ///
@@ -233,11 +232,10 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
 ///
 /// \param[in] sparse_tensor the SparseTensor to write
 /// \param[in] pool MemoryPool to allocate space for metadata
-/// \param[out] out the resulting Message
-/// \return Status
+/// \return the resulting Message
 ARROW_EXPORT
-Status GetSparseTensorMessage(const SparseTensor& sparse_tensor, MemoryPool* pool,
-                              std::unique_ptr<Message>* out);
+Result<std::unique_ptr<Message>> GetSparseTensorMessage(const SparseTensor& sparse_tensor,
+                                                        MemoryPool* pool);
 
 /// \brief EXPERIMENTAL: Write arrow::SparseTensor as a contiguous message. The metadata,
 /// sparse index, and body are written assuming 64-byte alignment. It is the
@@ -284,10 +282,6 @@ class ARROW_EXPORT IpcPayloadWriter {
 /// \param[in] schema the schema of the record batches to be written
 /// \param[out] out the created RecordBatchWriter
 /// \return Status
-ARROW_EXPORT
-Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
-                             const std::shared_ptr<Schema>& schema,
-                             std::unique_ptr<RecordBatchWriter>* out);
 
 /// Create a new RecordBatchWriter from IpcPayloadWriter and schema.
 ///
@@ -298,7 +292,7 @@ Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
 ARROW_EXPORT
 Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
     std::unique_ptr<IpcPayloadWriter> sink, const std::shared_ptr<Schema>& schema,
-    const IpcWriteOptions& options);
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults());
 
 /// \brief Compute IpcPayload for the given schema
 /// \param[in] schema the Schema that is being serialized
@@ -358,7 +352,7 @@ class ARROW_EXPORT RecordBatchStreamWriter : public RecordBatchWriter {
   /// \param[in] schema the schema of the record batches to be written
   /// \param[out] out the created stream writer
   /// \return Status
-  ARROW_DEPRECATED("Use arrow::ipc::NewStreamWriter()")
+  ARROW_DEPRECATED("Deprecated in 0.17.0. Use arrow::ipc::NewStreamWriter()")
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
                      std::shared_ptr<RecordBatchWriter>* out);
 
@@ -368,11 +362,11 @@ class ARROW_EXPORT RecordBatchStreamWriter : public RecordBatchWriter {
   /// \param[in] sink output stream to write to
   /// \param[in] schema the schema of the record batches to be written
   /// \return Result<std::shared_ptr<RecordBatchWriter>>
-  ARROW_DEPRECATED("Use arrow::ipc::NewStreamWriter()")
+  ARROW_DEPRECATED("Deprecated in 0.17.0. Use arrow::ipc::NewStreamWriter()")
   static Result<std::shared_ptr<RecordBatchWriter>> Open(
       io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
 
-  ARROW_DEPRECATED("Use arrow::ipc::NewStreamWriter()")
+  ARROW_DEPRECATED("Deprecated in 0.17.0. Use arrow::ipc::NewStreamWriter()")
   static Result<std::shared_ptr<RecordBatchWriter>> Open(
       io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
       const IpcWriteOptions& options);
@@ -391,7 +385,7 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
   /// \param[in] schema the schema of the record batches to be written
   /// \param[out] out the created stream writer
   /// \return Status
-  ARROW_DEPRECATED("Use arrow::ipc::NewFileWriter")
+  ARROW_DEPRECATED("Deprecated in 0.17.0. Use arrow::ipc::NewFileWriter")
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
                      std::shared_ptr<RecordBatchWriter>* out);
 
@@ -400,18 +394,18 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
   /// \param[in] sink output stream to write to
   /// \param[in] schema the schema of the record batches to be written
   /// \return Result<std::shared_ptr<RecordBatchWriter>>
-  ARROW_DEPRECATED("Use arrow::ipc::NewFileWriter")
+  ARROW_DEPRECATED("Deprecated in 0.17.0. Use arrow::ipc::NewFileWriter")
   static Result<std::shared_ptr<RecordBatchWriter>> Open(
       io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
 
-  ARROW_DEPRECATED("Use arrow::ipc::NewFileWriter")
+  ARROW_DEPRECATED("Deprecated in 0.17.0. Use arrow::ipc::NewFileWriter")
   static Result<std::shared_ptr<RecordBatchWriter>> Open(
       io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
       const IpcWriteOptions& options);
 };
 
 ARROW_DEPRECATED(
-    "Use version without MemoryPool argument "
+    "Deprecated in 0.17.0. Use version without MemoryPool argument "
     "(use IpcWriteOptions to pass MemoryPool")
 ARROW_EXPORT
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
@@ -419,25 +413,55 @@ Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
                         int64_t* body_length, const IpcWriteOptions& options,
                         MemoryPool* pool);
 
-ARROW_DEPRECATED("Use version with IpcWriteOptions")
+ARROW_DEPRECATED("Deprecated in 0.17.0. Use Result-returning version")
+ARROW_EXPORT
+Status SerializeRecordBatch(const RecordBatch& batch, const IpcWriteOptions& options,
+                            std::shared_ptr<Buffer>* out);
+
+ARROW_DEPRECATED(
+    "Deprecated in 0.17.0. Use Result-returning version with "
+    "IpcWriteOptions")
 ARROW_EXPORT
 Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
                             std::shared_ptr<Buffer>* out);
 
-ARROW_DEPRECATED("Use version with IpcWriteOptions")
+ARROW_DEPRECATED(
+    "Deprecated in 0.17.0. Use Result-returning version with "
+    "IpcWriteOptions")
 ARROW_EXPORT
 Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
                             io::OutputStream* out);
 
+ARROW_DEPRECATED("Deprecated in 0.17.0. Use Result-returning version")
+ARROW_EXPORT
+Status SerializeSchema(const Schema& schema, DictionaryMemo* dictionary_memo,
+                       MemoryPool* pool, std::shared_ptr<Buffer>* out);
+
+ARROW_DEPRECATED("Deprecated in 0.17.0. Use Result-returning version")
+ARROW_EXPORT
+Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
+                        std::unique_ptr<Message>* out);
+
+ARROW_DEPRECATED("Deprecated in 0.17.0. Use Result-returning version")
+ARROW_EXPORT
+Status GetSparseTensorMessage(const SparseTensor& sparse_tensor, MemoryPool* pool,
+                              std::unique_ptr<Message>* out);
+
 namespace internal {
 
-ARROW_DEPRECATED("Pass MemoryPool with IpcWriteOptions")
+ARROW_DEPRECATED("Deprecated in 0.17.0. Use Result-returning version")
+ARROW_EXPORT
+Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
+                             const std::shared_ptr<Schema>& schema,
+                             std::unique_ptr<RecordBatchWriter>* out);
+
+ARROW_DEPRECATED("Deprecated in 0.17.0. Pass MemoryPool with IpcWriteOptions")
 ARROW_EXPORT
 Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary,
                             const IpcWriteOptions& options, MemoryPool* pool,
                             IpcPayload* payload);
 
-ARROW_DEPRECATED("Pass MemoryPool with IpcWriteOptions")
+ARROW_DEPRECATED("Deprecated in 0.17.0. Pass MemoryPool with IpcWriteOptions")
 ARROW_EXPORT
 Status GetRecordBatchPayload(const RecordBatch& batch, const IpcWriteOptions& options,
                              MemoryPool* pool, IpcPayload* out);

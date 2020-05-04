@@ -97,14 +97,14 @@ struct DictionaryTraits<T, enable_if_has_c_type<T>> {
                                        const MemoTableType& memo_table,
                                        int64_t start_offset,
                                        std::shared_ptr<ArrayData>* out) {
-    std::shared_ptr<Buffer> dict_buffer;
     auto dict_length = static_cast<int64_t>(memo_table.size()) - start_offset;
     // This makes a copy, but we assume a dictionary array is usually small
     // compared to the size of the dictionary-using array.
     // (also, copying the dictionary values is cheap compared to the cost
     //  of building the memo table)
-    RETURN_NOT_OK(
-        AllocateBuffer(pool, TypeTraits<T>::bytes_required(dict_length), &dict_buffer));
+    ARROW_ASSIGN_OR_RAISE(
+        std::shared_ptr<Buffer> dict_buffer,
+        AllocateBuffer(TypeTraits<T>::bytes_required(dict_length), pool));
     memo_table.CopyValues(static_cast<int32_t>(start_offset),
                           reinterpret_cast<c_type*>(dict_buffer->mutable_data()));
 
@@ -128,22 +128,18 @@ struct DictionaryTraits<T, enable_if_base_binary<T>> {
                                        int64_t start_offset,
                                        std::shared_ptr<ArrayData>* out) {
     using offset_type = typename T::offset_type;
-    std::shared_ptr<Buffer> dict_offsets;
-    std::shared_ptr<Buffer> dict_data;
 
     // Create the offsets buffer
     auto dict_length = static_cast<int64_t>(memo_table.size() - start_offset);
-    if (dict_length > 0) {
-      RETURN_NOT_OK(
-          AllocateBuffer(pool, sizeof(offset_type) * (dict_length + 1), &dict_offsets));
-      auto raw_offsets = reinterpret_cast<offset_type*>(dict_offsets->mutable_data());
-      memo_table.CopyOffsets(static_cast<int32_t>(start_offset), raw_offsets);
-    }
+    ARROW_ASSIGN_OR_RAISE(auto dict_offsets,
+                          AllocateBuffer(sizeof(offset_type) * (dict_length + 1), pool));
+    auto raw_offsets = reinterpret_cast<offset_type*>(dict_offsets->mutable_data());
+    memo_table.CopyOffsets(static_cast<int32_t>(start_offset), raw_offsets);
 
     // Create the data buffer
     auto values_size = memo_table.values_size();
+    ARROW_ASSIGN_OR_RAISE(auto dict_data, AllocateBuffer(values_size, pool));
     if (values_size > 0) {
-      RETURN_NOT_OK(AllocateBuffer(pool, values_size, &dict_data));
       memo_table.CopyValues(static_cast<int32_t>(start_offset), dict_data->size(),
                             dict_data->mutable_data());
     }
@@ -153,7 +149,8 @@ struct DictionaryTraits<T, enable_if_base_binary<T>> {
     RETURN_NOT_OK(
         ComputeNullBitmap(pool, memo_table, start_offset, &null_count, &null_bitmap));
 
-    *out = ArrayData::Make(type, dict_length, {null_bitmap, dict_offsets, dict_data},
+    *out = ArrayData::Make(type, dict_length,
+                           {null_bitmap, std::move(dict_offsets), std::move(dict_data)},
                            null_count);
 
     return Status::OK();
@@ -170,13 +167,12 @@ struct DictionaryTraits<T, enable_if_fixed_size_binary<T>> {
                                        int64_t start_offset,
                                        std::shared_ptr<ArrayData>* out) {
     const T& concrete_type = internal::checked_cast<const T&>(*type);
-    std::shared_ptr<Buffer> dict_data;
 
     // Create the data buffer
     auto dict_length = static_cast<int64_t>(memo_table.size() - start_offset);
     auto width_length = concrete_type.byte_width();
     auto data_length = dict_length * width_length;
-    RETURN_NOT_OK(AllocateBuffer(pool, data_length, &dict_data));
+    ARROW_ASSIGN_OR_RAISE(auto dict_data, AllocateBuffer(data_length, pool));
     auto data = dict_data->mutable_data();
 
     memo_table.CopyFixedWidthValues(static_cast<int32_t>(start_offset), width_length,
@@ -187,7 +183,8 @@ struct DictionaryTraits<T, enable_if_fixed_size_binary<T>> {
     RETURN_NOT_OK(
         ComputeNullBitmap(pool, memo_table, start_offset, &null_count, &null_bitmap));
 
-    *out = ArrayData::Make(type, dict_length, {null_bitmap, dict_data}, null_count);
+    *out = ArrayData::Make(type, dict_length, {null_bitmap, std::move(dict_data)},
+                           null_count);
     return Status::OK();
   }
 };

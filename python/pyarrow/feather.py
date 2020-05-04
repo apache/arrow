@@ -137,10 +137,11 @@ def write_feather(df, dest, compression=None, compression_level=None,
         Feather file version. Version 2 is the current. Version 1 is the more
         limited legacy format
     """
-    _check_pandas_version()
-    if (_pandas_api.has_sparse
-            and isinstance(df, _pandas_api.pd.SparseDataFrame)):
-        df = df.to_dense()
+    if _pandas_api.have_pandas:
+        _check_pandas_version()
+        if (_pandas_api.has_sparse
+                and isinstance(df, _pandas_api.pd.SparseDataFrame)):
+            df = df.to_dense()
 
     if _pandas_api.is_data_frame(df):
         table = Table.from_pandas(df, preserve_index=False)
@@ -183,7 +184,7 @@ def write_feather(df, dest, compression=None, compression_level=None,
         raise
 
 
-def read_feather(source, columns=None, use_threads=True):
+def read_feather(source, columns=None, use_threads=True, memory_map=True):
     """
     Read a pandas.DataFrame from Feather format. To read as pyarrow.Table use
     feather.read_table.
@@ -196,15 +197,19 @@ def read_feather(source, columns=None, use_threads=True):
         read.
     use_threads: bool, default True
         Whether to parallelize reading using multiple threads.
+    memory_map : boolean, default True
+        Use memory mapping when opening file on disk
 
     Returns
     -------
     df : pandas.DataFrame
     """
-    return read_table(source, columns=columns).to_pandas(use_threads=True)
+    _check_pandas_version()
+    return (read_table(source, columns=columns, memory_map=memory_map)
+            .to_pandas(use_threads=use_threads))
 
 
-def read_table(source, columns=None):
+def read_table(source, columns=None, memory_map=True):
     """
     Read a pyarrow.Table from Feather format
 
@@ -214,14 +219,15 @@ def read_table(source, columns=None):
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
         read.
+    memory_map : boolean, default True
+        Use memory mapping when opening file on disk
 
     Returns
     -------
     table : pyarrow.Table
     """
-    _check_pandas_version()
     reader = ext.FeatherReader()
-    reader.open(source)
+    reader.open(source, use_memory_map=memory_map)
 
     if columns is None:
         return reader.read()

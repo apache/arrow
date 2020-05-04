@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -x
+set -ex
 
 : ${ARROW_HOME:=$(pwd)}
 # Make sure it is absolute and exported
@@ -81,8 +81,8 @@ mv mingw64/lib/*.a $DST_DIR/lib-4.9.3/x64
 mv mingw32/lib/*.a $DST_DIR/lib-4.9.3/i386
 
 # These are from https://dl.bintray.com/rtools/backports/
-cp $MSYS_LIB_DIR/mingw64/lib/lib{thrift,snappy,boost*}.a $DST_DIR/lib-4.9.3/x64
-cp $MSYS_LIB_DIR/mingw32/lib/lib{thrift,snappy,boost*}.a $DST_DIR/lib-4.9.3/i386
+cp $MSYS_LIB_DIR/mingw64/lib/lib{thrift,snappy}.a $DST_DIR/lib-4.9.3/x64
+cp $MSYS_LIB_DIR/mingw32/lib/lib{thrift,snappy}.a $DST_DIR/lib-4.9.3/i386
 
 # These are from https://dl.bintray.com/rtools/mingw{32,64}/
 cp $MSYS_LIB_DIR/mingw64/lib/lib{zstd,lz4,crypto}.a $DST_DIR/lib/x64

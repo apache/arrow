@@ -81,14 +81,6 @@ module Arrow
     #     `Array`.
     #
     #   @example Create a table from column name and values
-    #     count_chunks = [
-    #       Arrow::UInt32Array.new([0, 2]),
-    #       Arrow::UInt32Array.new([nil, 4]),
-    #     ]
-    #     visible_chunks = [
-    #       Arrow::BooleanArray.new([true]),
-    #       Arrow::BooleanArray.new([nil, nil, false]),
-    #     ]
     #     Arrow::Table.new("count" => [0, 2, nil, 4],
     #                      "visible" => [true, nil, nil, false])
     #
@@ -304,6 +296,8 @@ module Arrow
         end
       end
 
+      filter_options = Arrow::FilterOptions.new
+      filter_options.null_selection_behavior = :emit_null
       sliced_tables = []
       slicers.each do |slicer|
         slicer = slicer.evaluate if slicer.respond_to?(:evaluate)
@@ -325,7 +319,7 @@ module Arrow
           to += n_rows if to < 0
           sliced_tables << slice_by_range(from, to)
         when ::Array, BooleanArray, ChunkedArray
-          sliced_tables << filter(slicer)
+          sliced_tables << filter(slicer, filter_options)
         else
           message = "slicer must be Integer, Range, (from, to), " +
             "Arrow::ChunkedArray of Arrow::BooleanArray, " +

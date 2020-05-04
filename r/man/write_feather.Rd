@@ -14,9 +14,9 @@ write_feather(
 )
 }
 \arguments{
-\item{x}{\code{data.frame}, \code{RecordBatch}, or \code{Table}}
+\item{x}{\code{data.frame}, \link{RecordBatch}, or \link{Table}}
 
-\item{sink}{A file path or an \code{OutputStream}}
+\item{sink}{A string file path or \link{OutputStream}}
 
 \item{version}{integer Feather file version. Version 2 is the current.
 Version 1 is the more limited legacy format.}
@@ -36,10 +36,15 @@ specify an integer compression level. If omitted, the compression codec's
 default compression level is used.}
 }
 \value{
-The input \code{x}, invisibly.
+The input \code{x}, invisibly. Note that if \code{sink} is an \link{OutputStream},
+the stream will be left open.
 }
 \description{
-Write data in the Feather format
+Feather provides binary columnar serialization for data frames.
+It is designed to make reading and writing data frames efficient,
+and to make sharing data across data analysis languages easy.
+This function writes both the original, limited specification of the format
+and the version 2 specification, which is the Apache Arrow IPC file format.
 }
 \examples{
 \donttest{
@@ -47,4 +52,7 @@ tf <- tempfile()
 on.exit(unlink(tf))
 write_feather(mtcars, tf)
 }
+}
+\seealso{
+\link{RecordBatchWriter} for lower-level access to writing Arrow IPC data.
 }

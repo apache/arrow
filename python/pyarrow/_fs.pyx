@@ -21,13 +21,12 @@ from cpython.datetime cimport datetime, PyDateTime_DateTime
 
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport (
-    PyDateTime_from_TimePoint, PyDateTime_to_TimePoint
-)
+from pyarrow.includes.libarrow cimport PyDateTime_to_TimePoint
 from pyarrow.lib import _detect_compression
 from pyarrow.lib cimport *
 from pyarrow.util import _stringify_path
 
+from datetime import timezone
 import pathlib
 
 
@@ -82,7 +81,7 @@ cdef class FileInfo:
                 return ''
 
         s = '<FileInfo for {!r}: type={}'.format(self.path, str(self.type))
-        if self.type == FileType.File:
+        if self.is_file:
             s += ', size={}'.format(self.size)
         s += '>'
         return s
@@ -108,6 +107,12 @@ cdef class FileInfo:
         return FileType(<int8_t> self.info.type())
 
     @property
+    def is_file(self):
+        """
+        """
+        return self.type == FileType.File
+
+    @property
     def path(self):
         """
         The full file path in the filesystem.
@@ -130,9 +135,7 @@ cdef class FileInfo:
 
         Only regular files are guaranteed to have a size.
         """
-        if self.info.type() != CFileType_File:
-            return None
-        return self.info.size()
+        return self.info.size() if self.is_file else None
 
     @property
     def extension(self):
@@ -150,9 +153,21 @@ cdef class FileInfo:
         -------
         mtime : datetime.datetime
         """
-        cdef PyObject *out
-        check_status(PyDateTime_from_TimePoint(self.info.mtime(), &out))
-        return PyObject_to_object(out)
+        cdef int64_t nanoseconds
+        nanoseconds = TimePoint_to_ns(self.info.mtime())
+        return datetime.fromtimestamp(nanoseconds / 1.0e9, timezone.utc)
+
+    @property
+    def mtime_ns(self):
+        """
+        The time of last modification, if available, expressed in nanoseconds
+        since the Unix epoch.
+
+        Returns
+        -------
+        mtime_ns : int
+        """
+        return TimePoint_to_ns(self.info.mtime())
 
 
 cdef class FileSelector:
@@ -239,8 +254,8 @@ cdef class FileSystem:
 
         Returns
         -------
-        With (filesystem, path) tuple where path is the abtract path inside the
-        FileSystem instance.
+        With (filesystem, path) tuple where path is the abstract path inside
+        the FileSystem instance.
         """
         cdef:
             c_string path
@@ -645,6 +660,15 @@ cdef class SubTreeFileSystem(FileSystem):
             frombytes(self.subtreefs.base_path()),
             FileSystem.wrap(self.subtreefs.base_fs())
         )
+
+    @property
+    def base_path(self):
+        return frombytes(self.subtreefs.base_path())
+
+    @property
+    def base_fs(self):
+        return FileSystem.wrap(self.subtreefs.base_fs())
+
 
 cdef class _MockFileSystem(FileSystem):
 

@@ -119,7 +119,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   /// record batches yielded by the data fragment.
   void AssertFragmentEquals(RecordBatchReader* expected, Fragment* fragment,
                             bool ensure_drained = true) {
-    ASSERT_OK_AND_ASSIGN(auto it, fragment->Scan(ctx_));
+    ASSERT_OK_AND_ASSIGN(auto it, fragment->Scan(options_, ctx_));
 
     ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<ScanTask> task) -> Status {
       AssertScanTaskEquals(expected, task.get(), false);
@@ -135,7 +135,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   /// record batches yielded by the data fragments of a dataset.
   void AssertDatasetFragmentsEqual(RecordBatchReader* expected, Dataset* dataset,
                                    bool ensure_drained = true) {
-    auto it = dataset->GetFragments(options_);
+    auto it = dataset->GetFragments(options_->filter);
 
     ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<Fragment> fragment) -> Status {
       AssertFragmentEquals(expected, fragment.get(), false);
@@ -292,15 +292,28 @@ struct MakeFileSystemDatasetMixin {
   void MakeDataset(const std::vector<fs::FileInfo>& infos,
                    std::shared_ptr<Expression> root_partition = scalar(true),
                    ExpressionVector partitions = {}) {
+    auto n_fragments = infos.size();
     if (partitions.empty()) {
-      partitions.resize(infos.size(), scalar(true));
+      partitions.resize(n_fragments, scalar(true));
     }
 
     MakeFileSystem(infos);
     auto format = std::make_shared<DummyFileFormat>();
-    ASSERT_OK_AND_ASSIGN(
-        dataset_, FileSystemDataset::Make(schema({}), root_partition, format, fs_, infos,
-                                          partitions));
+
+    std::vector<std::shared_ptr<FileFragment>> fragments;
+    for (size_t i = 0; i < n_fragments; i++) {
+      const auto& info = infos[i];
+      if (!info.IsFile()) {
+        continue;
+      }
+
+      ASSERT_OK_AND_ASSIGN(auto fragment,
+                           format->MakeFragment({info.path(), fs_}, partitions[i]));
+      fragments.push_back(std::move(fragment));
+    }
+
+    ASSERT_OK_AND_ASSIGN(dataset_, FileSystemDataset::Make(schema({}), root_partition,
+                                                           format, std::move(fragments)));
   }
 
   void MakeDatasetFromPathlist(const std::string& pathlist,

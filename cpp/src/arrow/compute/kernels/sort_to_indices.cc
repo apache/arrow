@@ -25,8 +25,6 @@
 
 #include "arrow/builder.h"
 #include "arrow/compute/context.h"
-#include "arrow/compute/expression.h"
-#include "arrow/compute/logical_type.h"
 #include "arrow/type_traits.h"
 #include "arrow/visitor_inline.h"
 
@@ -168,7 +166,7 @@ class CountOrCompareSorter {
       };
       VisitArrayDataInline<ArrowType>(*values.data(), std::move(update_minmax));
       // For signed int32/64, (max - min) may overflow and trigger UBSAN.
-      // Cast to largest unsigned type(uint64_t) before substraction.
+      // Cast to largest unsigned type(uint64_t) before subtraction.
       if (static_cast<uint64_t>(max) - static_cast<uint64_t>(min) <=
           countsort_max_range_) {
         count_sorter_.SetMinMax(min, max);
@@ -227,15 +225,14 @@ class SortToIndicesKernelImpl : public SortToIndicesKernel {
 
   Status SortToIndicesImpl(FunctionContext* ctx, const std::shared_ptr<ArrayType>& values,
                            std::shared_ptr<Array>* offsets) {
-    std::shared_ptr<Buffer> indices_buf;
     int64_t buf_size = values->length() * sizeof(uint64_t);
-    RETURN_NOT_OK(AllocateBuffer(ctx->memory_pool(), buf_size, &indices_buf));
+    ARROW_ASSIGN_OR_RAISE(auto indices_buf, AllocateBuffer(buf_size, ctx->memory_pool()));
 
     int64_t* indices_begin = reinterpret_cast<int64_t*>(indices_buf->mutable_data());
     int64_t* indices_end = indices_begin + values->length();
 
     sorter_.Sort(indices_begin, indices_end, *values.get());
-    *offsets = std::make_shared<UInt64Array>(values->length(), indices_buf);
+    *offsets = std::make_shared<UInt64Array>(values->length(), std::move(indices_buf));
     return Status::OK();
   }
 };

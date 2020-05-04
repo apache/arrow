@@ -38,10 +38,11 @@ class ManagedAggregateState {
 
   static std::shared_ptr<ManagedAggregateState> Make(
       std::shared_ptr<AggregateFunction>& desc, MemoryPool* pool) {
-    std::shared_ptr<Buffer> buf;
-    if (!AllocateBuffer(pool, desc->Size(), &buf).ok()) return nullptr;
-
-    return std::make_shared<ManagedAggregateState>(desc, std::move(buf));
+    auto maybe_buf = AllocateBuffer(desc->Size(), pool);
+    if (!maybe_buf.ok()) {
+      return nullptr;
+    }
+    return std::make_shared<ManagedAggregateState>(desc, *std::move(maybe_buf));
   }
 
  private:

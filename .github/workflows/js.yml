@@ -21,19 +21,26 @@ on:
   push:
     paths:
       - '.github/workflows/js.yml'
-      - 'ci/**'
+      - 'ci/docker/*js.dockerfile'
+      - 'ci/scripts/js_*'
       - 'js/**'
   pull_request:
     paths:
       - '.github/workflows/js.yml'
-      - 'ci/**'
+      - 'ci/docker/*js.dockerfile'
+      - 'ci/scripts/js_*'
       - 'js/**'
+
+env:
+  DOCKER_BUILDKIT: 0
+  COMPOSE_DOCKER_CLI_BUILD: 1
 
 jobs:
 
   debian:
     name: AMD64 Debian 10 NodeJS ${{ matrix.node }}
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -48,6 +55,9 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
       - name: Docker Pull
         run: docker-compose pull --ignore-pull-failures debian-js
       - name: Docker Build

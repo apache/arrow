@@ -35,6 +35,7 @@ class PrepareTest < Test::Unit::TestCase
         git("checkout", "-b", @release_branch, @current_commit)
         yield
       end
+      FileUtils.rm_rf(@test_git_repository)
     end
   end
 
@@ -530,8 +531,8 @@ class PrepareTest < Test::Unit::TestCase
       },
       {
         sampled_diff: [
-          "-      - libarrow-glib#{@so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb",
-          "+      - libarrow-glib#{@next_so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.deb",
+          "-      - libarrow-glib#{@so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
+          "+      - libarrow-glib#{@next_so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
         ],
         path: "dev/tasks/tasks.yml",
       },

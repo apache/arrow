@@ -6,11 +6,9 @@
 \usage{
 dataset_factory(
   x,
-  filesystem = c("auto", "local"),
-  format = c("parquet", "arrow", "ipc"),
+  filesystem = NULL,
+  format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text"),
   partitioning = NULL,
-  allow_not_found = FALSE,
-  recursive = TRUE,
   ...
 )
 }
@@ -20,12 +18,22 @@ a list of \code{DatasetFactory} objects whose datasets should be
 grouped. If this argument is specified it will be used to construct a
 \code{UnionDatasetFactory} and other arguments will be ignored.}
 
-\item{filesystem}{A string identifier for the filesystem corresponding to
-\code{x}. Currently only "local" is supported.}
+\item{filesystem}{A \link{FileSystem} object; if omitted, the \code{FileSystem} will
+be detected from \code{x}}
 
-\item{format}{A string identifier of the format of the files in \code{x}.
-Currently supported options are "parquet", "arrow", and "ipc" (an alias for
-the Arrow file format)}
+\item{format}{A \link{FileFormat} object, or a string identifier of the format of
+the files in \code{x}. Currently supported values:
+\itemize{
+\item "parquet"
+\item "ipc"/"arrow"/"feather", all aliases for each other; for Feather, note that
+only version 2 files are supported
+\item "csv"/"text", aliases for the same thing (because comma is the default
+delimiter for text files
+\item "tsv", equivalent to passing \verb{format = "text", delimiter = "\\t"}
+}
+
+Default is "parquet", unless a \code{delimiter} is also specified, in which case
+it is assumed to be "text".}
 
 \item{partitioning}{One of
 \itemize{
@@ -42,13 +50,10 @@ Hive-style path segments
 \item \code{NULL} for no partitioning
 }}
 
-\item{allow_not_found}{logical: is \code{x} allowed to not exist? Default
-\code{FALSE}. See \link{FileSelector}.}
-
-\item{recursive}{logical: should files be discovered in subdirectories of
-\code{x}? Default \code{TRUE}.}
-
-\item{...}{Additional arguments passed to the \link{FileSystem} \verb{$create()} method}
+\item{...}{Additional format-specific options, passed to
+\code{FileFormat$create()}. For CSV options, note that you can specify them either
+with the Arrow C++ library naming ("delimiter", "quoting", etc.) or the
+\code{readr}-style naming used in \code{\link[=read_csv_arrow]{read_csv_arrow()}} ("delim", "quote", etc.)}
 }
 \value{
 A \code{DatasetFactory} object. Pass this to \code{\link[=open_dataset]{open_dataset()}},

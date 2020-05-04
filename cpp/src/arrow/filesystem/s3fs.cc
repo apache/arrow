@@ -291,7 +291,16 @@ struct S3Path {
     out->bucket = std::string(src.substr(0, first_sep));
     out->key = std::string(src.substr(first_sep + 1));
     out->key_parts = internal::SplitAbstractPath(out->key);
-    return internal::ValidateAbstractPathParts(out->key_parts);
+    return Validate(out);
+  }
+
+  static Status Validate(S3Path* path) {
+    auto result = internal::ValidateAbstractPathParts(path->key_parts);
+    if (!result.ok()) {
+      return Status::Invalid(result.message(), " in path ", path->full_path);
+    } else {
+      return result;
+    }
   }
 
   Aws::String ToURLEncodedAwsString() const {
@@ -460,15 +469,14 @@ class ObjectInputFile : public io::RandomAccessFile {
     // No need to allocate more than the remaining number of bytes
     nbytes = std::min(nbytes, content_length_ - position);
 
-    std::shared_ptr<ResizableBuffer> buf;
-    RETURN_NOT_OK(AllocateResizableBuffer(nbytes, &buf));
+    ARROW_ASSIGN_OR_RAISE(auto buf, AllocateResizableBuffer(nbytes));
     if (nbytes > 0) {
       ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
                             ReadAt(position, nbytes, buf->mutable_data()));
       DCHECK_LE(bytes_read, nbytes);
       RETURN_NOT_OK(buf->Resize(bytes_read));
     }
-    return buf;
+    return std::move(buf);
   }
 
   Result<int64_t> Read(int64_t nbytes, void* out) override {
@@ -480,7 +488,7 @@ class ObjectInputFile : public io::RandomAccessFile {
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
     ARROW_ASSIGN_OR_RAISE(auto buffer, ReadAt(pos_, nbytes));
     pos_ += buffer->size();
-    return buffer;
+    return std::move(buffer);
   }
 
  protected:
@@ -635,21 +643,6 @@ class ObjectOutputStream : public io::OutputStream {
       return Status::Invalid("Operation on closed stream");
     }
 
-    // With up to 10000 parts in an upload (S3 limit), a stream writing chunks
-    // of exactly 5MB would be limited to 50GB total.  To avoid that, we bump
-    // the upload threshold every 100 parts.  So the pattern is:
-    // - part 1 to 99: 5MB threshold
-    // - part 100 to 199: 10MB threshold
-    // - part 200 to 299: 15MB threshold
-    // ...
-    // - part 9900 to 9999: 500MB threshold
-    // So the total size limit is 2475000MB or ~2.4TB, while keeping manageable
-    // chunk sizes and avoiding too much buffering in the common case of a small-ish
-    // stream.  If the limit's not enough, we can revisit.
-    if (part_number_ % 100 == 0) {
-      part_upload_threshold_ += kMinimumPartUpload;
-    }
-
     if (!current_part_ && nbytes >= part_upload_threshold_) {
       // No current part and data large enough, upload it directly
       // (without copying if the buffer is owned)
@@ -723,7 +716,7 @@ class ObjectOutputStream : public io::OutputStream {
 
       // If the data isn't owned, make an immutable copy for the lifetime of the closure
       if (owned_buffer == nullptr) {
-        RETURN_NOT_OK(AllocateBuffer(nbytes, &owned_buffer));
+        ARROW_ASSIGN_OR_RAISE(owned_buffer, AllocateBuffer(nbytes));
         memcpy(owned_buffer->mutable_data(), data, nbytes);
       } else {
         DCHECK_EQ(data, owned_buffer->data());
@@ -751,7 +744,23 @@ class ObjectOutputStream : public io::OutputStream {
       ++upload_state_->parts_in_progress;
       client_->UploadPartAsync(req, handler);
     }
+
     ++part_number_;
+    // With up to 10000 parts in an upload (S3 limit), a stream writing chunks
+    // of exactly 5MB would be limited to 50GB total.  To avoid that, we bump
+    // the upload threshold every 100 parts.  So the pattern is:
+    // - part 1 to 99: 5MB threshold
+    // - part 100 to 199: 10MB threshold
+    // - part 200 to 299: 15MB threshold
+    // ...
+    // - part 9900 to 9999: 500MB threshold
+    // So the total size limit is 2475000MB or ~2.4TB, while keeping manageable
+    // chunk sizes and avoiding too much buffering in the common case of a small-ish
+    // stream.  If the limit's not enough, we can revisit.
+    if (part_number_ % 100 == 0) {
+      part_upload_threshold_ += kMinimumPartUpload;
+    }
+
     return Status::OK();
   }
 

@@ -507,13 +507,11 @@ garrow_record_batch_file_reader_read_record_batch(GArrowRecordBatchFileReader *r
                                                   GError **error)
 {
   auto arrow_reader = garrow_record_batch_file_reader_get_raw(reader);
-  std::shared_ptr<arrow::RecordBatch> arrow_record_batch;
-  auto status = arrow_reader->ReadRecordBatch(i, &arrow_record_batch);
+  auto arrow_record_batch = arrow_reader->ReadRecordBatch(i);
 
-  if (garrow_error_check(error,
-                         status,
-                         "[record-batch-file-reader][read-record-batch]")) {
-    return garrow_record_batch_new_raw(&arrow_record_batch);
+  if (garrow::check(error, arrow_record_batch,
+                    "[record-batch-file-reader][read-record-batch]")) {
+    return garrow_record_batch_new_raw(&(*arrow_record_batch));
   } else {
     return NULL;
   }
@@ -935,7 +933,7 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
    * The number of header rows to skip (not including
    * the row of column names, if any)
    *
-   * Since: 1.0.0
+   * Since: 0.15.0
    */
   spec = g_param_spec_uint("n-skip-rows",
                            "N skip rows",
@@ -1418,7 +1416,7 @@ garrow_csv_read_options_add_false_value(GArrowCSVReadOptions *options,
  *   row after `skip_rows`)
  * @n_column_names: The number of the specified column names.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 void
 garrow_csv_read_options_set_column_names(GArrowCSVReadOptions *options,
@@ -1441,7 +1439,7 @@ garrow_csv_read_options_set_column_names(GArrowCSVReadOptions *options,
  *   If the number of values is zero, this returns %NULL.
  *   It must be freed with g_strfreev() when no longer needed.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 gchar **
 garrow_csv_read_options_get_column_names(GArrowCSVReadOptions *options)
@@ -1466,7 +1464,7 @@ garrow_csv_read_options_get_column_names(GArrowCSVReadOptions *options)
  * @options: A #GArrowCSVReadOptions.
  * @column_name: The column name to be added.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 void
 garrow_csv_read_options_add_column_name(GArrowCSVReadOptions *options,

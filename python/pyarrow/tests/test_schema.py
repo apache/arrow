@@ -48,7 +48,7 @@ def test_type_integers():
 def test_type_to_pandas_dtype():
     M8_ns = np.dtype('datetime64[ns]')
     cases = [
-        (pa.null(), np.float64),
+        (pa.null(), np.object_),
         (pa.bool_(), np.bool_),
         (pa.int8(), np.int8),
         (pa.int16(), np.int16),
@@ -245,17 +245,74 @@ baz: list<item: int8>
 
 
 def test_schema_to_string_with_metadata():
+    lorem = """\
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla accumsan vel
+turpis et mollis. Aliquam tincidunt arcu id tortor blandit blandit. Donec
+eget leo quis lectus scelerisque varius. Class aptent taciti sociosqu ad
+litora torquent per conubia nostra, per inceptos himenaeos. Praesent
+faucibus, diam eu volutpat iaculis, tellus est porta ligula, a efficitur
+turpis nulla facilisis quam. Aliquam vitae lorem erat. Proin a dolor ac libero
+dignissim mollis vitae eu mauris. Quisque posuere tellus vitae massa
+pellentesque sagittis. Aenean feugiat, diam ac dignissim fermentum, lorem
+sapien commodo massa, vel volutpat orci nisi eu justo. Nulla non blandit
+sapien. Quisque pretium vestibulum urna eu vehicula."""
     # ARROW-7063
     my_schema = pa.schema([pa.field("foo", "int32", False,
-                                    metadata={"key1": "value1"})],
-                          metadata={"key2": "value2"})
+                                    metadata={"key1": "value1"}),
+                           pa.field("bar", "string", True,
+                                    metadata={"key3": "value3"})],
+                          metadata={"lorem": lorem})
 
-    assert my_schema.to_string(show_metadata=True) == """\
+    assert my_schema.to_string() == """\
 foo: int32 not null
-  -- metadata --
-  key1: value1
--- metadata --
-key2: value2"""
+  -- field metadata --
+  key1: 'value1'
+bar: string
+  -- field metadata --
+  key3: 'value3'
+-- schema metadata --
+lorem: '""" + lorem[:65] + "' + " + str(len(lorem) - 65)
+
+    # Metadata that exactly fits
+    result = pa.schema([('f0', 'int32')],
+                       metadata={'key': 'value' + 'x' * 62}).to_string()
+    assert result == """\
+f0: int32
+-- schema metadata --
+key: 'valuexxxxxxxxxxxxxxxxxxxxxxxxxxxxx\
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'"""
+
+    assert my_schema.to_string(truncate_metadata=False) == """\
+foo: int32 not null
+  -- field metadata --
+  key1: 'value1'
+bar: string
+  -- field metadata --
+  key3: 'value3'
+-- schema metadata --
+lorem: '{}'""".format(lorem)
+
+    assert my_schema.to_string(truncate_metadata=False,
+                               show_field_metadata=False) == """\
+foo: int32 not null
+bar: string
+-- schema metadata --
+lorem: '{}'""".format(lorem)
+
+    assert my_schema.to_string(truncate_metadata=False,
+                               show_schema_metadata=False) == """\
+foo: int32 not null
+  -- field metadata --
+  key1: 'value1'
+bar: string
+  -- field metadata --
+  key3: 'value3'"""
+
+    assert my_schema.to_string(truncate_metadata=False,
+                               show_field_metadata=False,
+                               show_schema_metadata=False) == """\
+foo: int32 not null
+bar: string"""
 
 
 def test_schema_from_tuples():
@@ -323,6 +380,12 @@ foo: list<item: int8>
         assert sch.field_by_name('xxx') is None
     with pytest.warns((UserWarning, FutureWarning)):
         assert sch.field_by_name('foo') is None
+
+    # Schema::GetFieldIndex
+    assert sch.get_field_index('foo') == -1
+
+    # Schema::GetAllFieldIndices
+    assert sch.get_all_field_indices('foo') == [0, 2]
 
 
 def test_field_flatten():
@@ -591,3 +654,35 @@ def test_schema_sizeof():
     assert sys.getsizeof(schema2) > sys.getsizeof(schema)
     schema3 = schema.with_metadata({"key": "some more metadata"})
     assert sys.getsizeof(schema3) > sys.getsizeof(schema2)
+
+
+def test_schema_merge():
+    a = pa.schema([
+        pa.field('foo', pa.int32()),
+        pa.field('bar', pa.string()),
+        pa.field('baz', pa.list_(pa.int8()))
+    ])
+    b = pa.schema([
+        pa.field('foo', pa.int32()),
+        pa.field('qux', pa.bool_())
+    ])
+    c = pa.schema([
+        pa.field('quux', pa.dictionary(pa.int32(), pa.string()))
+    ])
+    d = pa.schema([
+        pa.field('foo', pa.int64()),
+        pa.field('qux', pa.bool_())
+    ])
+
+    result = pa.unify_schemas([a, b, c])
+    expected = pa.schema([
+        pa.field('foo', pa.int32()),
+        pa.field('bar', pa.string()),
+        pa.field('baz', pa.list_(pa.int8())),
+        pa.field('qux', pa.bool_()),
+        pa.field('quux', pa.dictionary(pa.int32(), pa.string()))
+    ])
+    assert result.equals(expected)
+
+    with pytest.raises(pa.ArrowInvalid):
+        pa.unify_schemas([b, d])

@@ -114,7 +114,7 @@ public final class Float8Vector extends BaseFixedWidthVector implements Floating
     if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
-    return valueBuffer.getDouble(index * TYPE_WIDTH);
+    return valueBuffer.getDouble((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -130,7 +130,7 @@ public final class Float8Vector extends BaseFixedWidthVector implements Floating
       return;
     }
     holder.isSet = 1;
-    holder.value = valueBuffer.getDouble(index * TYPE_WIDTH);
+    holder.value = valueBuffer.getDouble((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -143,7 +143,7 @@ public final class Float8Vector extends BaseFixedWidthVector implements Floating
     if (isSet(index) == 0) {
       return null;
     } else {
-      return valueBuffer.getDouble(index * TYPE_WIDTH);
+      return valueBuffer.getDouble((long) index * TYPE_WIDTH);
     }
   }
 
@@ -156,7 +156,7 @@ public final class Float8Vector extends BaseFixedWidthVector implements Floating
 
 
   private void setValue(int index, double value) {
-    valueBuffer.setDouble(index * TYPE_WIDTH, value);
+    valueBuffer.setDouble((long) index * TYPE_WIDTH, value);
   }
 
   /**
@@ -280,7 +280,7 @@ public final class Float8Vector extends BaseFixedWidthVector implements Floating
    * @return value stored at the index.
    */
   public static double get(final ArrowBuf buffer, final int index) {
-    return buffer.getDouble(index * TYPE_WIDTH);
+    return buffer.getDouble((long) index * TYPE_WIDTH);
   }
 
   @Override

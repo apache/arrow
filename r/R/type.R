@@ -364,7 +364,7 @@ timestamp <- function(unit = c("s", "ms", "us", "ns"), timezone = "") {
     unit <- match.arg(unit)
   }
   unit <- make_valid_time_unit(unit, c(valid_time64_units, valid_time32_units))
-  assert_that(is.character(timezone), length(timezone) == 1)
+  assert_that(is.string(timezone))
   shared_ptr(Timestamp, Timestamp__initialize(unit, timezone))
 }
 

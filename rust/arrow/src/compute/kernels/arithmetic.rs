@@ -38,7 +38,7 @@ use crate::buffer::Buffer;
 #[cfg(feature = "simd")]
 use crate::buffer::MutableBuffer;
 use crate::compute::util::apply_bin_op_to_option_bitmap;
-#[cfg(feature = "simd")]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
 use crate::compute::util::simd_load_set_invalid;
 use crate::datatypes;
 use crate::datatypes::ToByteSlice;
@@ -123,7 +123,7 @@ where
 
         let result_slice: &mut [T::Native] = unsafe {
             from_raw_parts_mut(
-                (result.data_mut().as_mut_ptr() as *mut T::Native).offset(i as isize),
+                (result.data_mut().as_mut_ptr() as *mut T::Native).add(i),
                 lanes,
             )
         };
@@ -186,14 +186,14 @@ where
 
         let result_slice: &mut [T::Native] = unsafe {
             from_raw_parts_mut(
-                (result.data_mut().as_mut_ptr() as *mut T::Native).offset(i as isize),
+                (result.data_mut().as_mut_ptr() as *mut T::Native).add(i),
                 lanes,
             )
         };
         T::write(simd_result, result_slice);
     }
 
-    let null_bit_buffer = bitmap.and_then(|b| Some(b.bits));
+    let null_bit_buffer = bitmap.map(|b| b.bits);
 
     let data = ArrayData::new(
         T::get_data_type(),

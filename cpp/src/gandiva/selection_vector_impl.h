@@ -23,8 +23,8 @@
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 
+#include "arrow/util/logging.h"
 #include "gandiva/arrow.h"
-#include "gandiva/logging.h"
 #include "gandiva/selection_vector.h"
 
 namespace gandiva {

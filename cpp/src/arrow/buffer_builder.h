@@ -41,7 +41,7 @@ namespace arrow {
 /// data
 class ARROW_EXPORT BufferBuilder {
  public:
-  explicit BufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+  explicit BufferBuilder(MemoryPool* pool = default_memory_pool())
       : pool_(pool),
         data_(/*ensure never null to make ubsan happy and avoid check penalties below*/
               &util::internal::non_null_filler),
@@ -53,7 +53,7 @@ class ARROW_EXPORT BufferBuilder {
   /// the provided buffer until Finish/Reset are called.
   /// The buffer is not resized.
   explicit BufferBuilder(std::shared_ptr<ResizableBuffer> buffer,
-                         MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+                         MemoryPool* pool = default_memory_pool())
       : buffer_(std::move(buffer)),
         pool_(pool),
         data_(buffer_->mutable_data()),
@@ -73,7 +73,7 @@ class ARROW_EXPORT BufferBuilder {
       return Status::OK();
     }
     if (buffer_ == NULLPTR) {
-      ARROW_RETURN_NOT_OK(AllocateResizableBuffer(pool_, new_capacity, &buffer_));
+      ARROW_ASSIGN_OR_RAISE(buffer_, AllocateResizableBuffer(new_capacity, pool_));
     } else {
       ARROW_RETURN_NOT_OK(buffer_->Resize(new_capacity, shrink_to_fit));
     }
@@ -155,7 +155,7 @@ class ARROW_EXPORT BufferBuilder {
     if (size_ != 0) buffer_->ZeroPadding();
     *out = buffer_;
     if (*out == NULLPTR) {
-      ARROW_RETURN_NOT_OK(AllocateBuffer(pool_, 0, out));
+      ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer(0, pool_));
     }
     Reset();
     return Status::OK();
@@ -194,11 +194,11 @@ class TypedBufferBuilder<
     T, typename std::enable_if<std::is_arithmetic<T>::value ||
                                std::is_standard_layout<T>::value>::type> {
  public:
-  explicit TypedBufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+  explicit TypedBufferBuilder(MemoryPool* pool = default_memory_pool())
       : bytes_builder_(pool) {}
 
   explicit TypedBufferBuilder(std::shared_ptr<ResizableBuffer> buffer,
-                              MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+                              MemoryPool* pool = default_memory_pool())
       : bytes_builder_(std::move(buffer), pool) {}
 
   Status Append(T value) {
@@ -270,7 +270,7 @@ class TypedBufferBuilder<
 template <>
 class TypedBufferBuilder<bool> {
  public:
-  explicit TypedBufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+  explicit TypedBufferBuilder(MemoryPool* pool = default_memory_pool())
       : bytes_builder_(pool) {}
 
   Status Append(bool value) {

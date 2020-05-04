@@ -18,6 +18,7 @@
 #include "arrow/util/string.h"
 
 #include <algorithm>
+#include <cctype>
 
 #include "arrow/status.h"
 
@@ -118,6 +119,28 @@ std::string TrimString(std::string value) {
   }
   value.erase(value.size() - rtrim_chars, rtrim_chars);
   return value;
+}
+
+bool AsciiEqualsCaseInsensitive(util::string_view left, util::string_view right) {
+  // TODO: ASCII validation
+  if (left.size() != right.size()) {
+    return false;
+  }
+  for (size_t i = 0; i < left.size(); ++i) {
+    if (std::tolower(static_cast<unsigned char>(left[i])) !=
+        std::tolower(static_cast<unsigned char>(right[i]))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+std::string AsciiToLower(util::string_view value) {
+  // TODO: ASCII validation
+  std::string result = std::string(value);
+  std::transform(result.begin(), result.end(), result.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  return result;
 }
 
 }  // namespace internal

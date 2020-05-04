@@ -15,15 +15,59 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gandiva/function_signature.h>
+#include "gandiva/function_signature.h"
 
-#include <boost/functional/hash.hpp>
+#include <cstddef>
+#include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/hashing.h"
+#include "arrow/util/string.h"
+
+using arrow::internal::AsciiEqualsCaseInsensitive;
+using arrow::internal::AsciiToLower;
+using arrow::internal::checked_cast;
+using arrow::internal::hash_combine;
 
 namespace gandiva {
 
+bool DataTypeEquals(const DataTypePtr& left, const DataTypePtr& right) {
+  if (left->id() == right->id()) {
+    switch (left->id()) {
+      case arrow::Type::DECIMAL: {
+        // For decimal types, the precision/scale isn't part of the signature.
+        auto dleft = checked_cast<arrow::DecimalType*>(left.get());
+        auto dright = checked_cast<arrow::DecimalType*>(right.get());
+        return (dleft != NULL) && (dright != NULL) &&
+               (dleft->byte_width() == dright->byte_width());
+      }
+      default:
+        return left->Equals(right);
+    }
+  } else {
+    return false;
+  }
+}
+
+FunctionSignature::FunctionSignature(std::string base_name, DataTypeVector param_types,
+                                     DataTypePtr ret_type)
+    : base_name_(std::move(base_name)),
+      param_types_(std::move(param_types)),
+      ret_type_(std::move(ret_type)) {
+  DCHECK_GT(base_name_.length(), 0);
+  for (auto it = param_types_.begin(); it != param_types_.end(); it++) {
+    DCHECK(*it);
+  }
+  DCHECK(ret_type_);
+}
+
 bool FunctionSignature::operator==(const FunctionSignature& other) const {
   if (param_types_.size() != other.param_types_.size() ||
-      !DataTypeEquals(ret_type_, other.ret_type_) || base_name_ != other.base_name_) {
+      !DataTypeEquals(ret_type_, other.ret_type_) ||
+      !AsciiEqualsCaseInsensitive(base_name_, other.base_name_)) {
     return false;
   }
 
@@ -35,16 +79,16 @@ bool FunctionSignature::operator==(const FunctionSignature& other) const {
   return true;
 }
 
-/// calculated based on base_name, datatype id of parameters and datatype id
+/// calculated based on name, datatype id of parameters and datatype id
 /// of return type.
 std::size_t FunctionSignature::Hash() const {
   static const size_t kSeedValue = 17;
   size_t result = kSeedValue;
-  boost::hash_combine(result, base_name_);
-  boost::hash_combine(result, ret_type_->id());
+  hash_combine(result, AsciiToLower(base_name_));
+  hash_combine(result, static_cast<size_t>(ret_type_->id()));
   // not using hash_range since we only want to include the id from the data type
   for (auto& param_type : param_types_) {
-    boost::hash_combine(result, param_type->id());
+    hash_combine(result, static_cast<size_t>(param_type->id()));
   }
   return result;
 }
@@ -64,4 +108,5 @@ std::string FunctionSignature::ToString() const {
   s << ")";
   return s.str();
 }
+
 }  // namespace gandiva

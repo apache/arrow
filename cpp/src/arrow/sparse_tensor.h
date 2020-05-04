@@ -64,8 +64,7 @@ struct SparseTensorFormat {
 /// format_id must have only one corresponding concrete subclass of SparseIndex.
 class ARROW_EXPORT SparseIndex {
  public:
-  explicit SparseIndex(SparseTensorFormat::type format_id, int64_t non_zero_length)
-      : format_id_(format_id), non_zero_length_(non_zero_length) {}
+  explicit SparseIndex(SparseTensorFormat::type format_id) : format_id_(format_id) {}
 
   virtual ~SparseIndex() = default;
 
@@ -74,7 +73,7 @@ class ARROW_EXPORT SparseIndex {
 
   /// \brief Return the number of non zero values in the sparse tensor related
   /// to this sparse index
-  int64_t non_zero_length() const { return non_zero_length_; }
+  virtual int64_t non_zero_length() const = 0;
 
   /// \brief Return the string representation of the sparse index
   virtual std::string ToString() const = 0;
@@ -82,16 +81,14 @@ class ARROW_EXPORT SparseIndex {
   virtual Status ValidateShape(const std::vector<int64_t>& shape) const;
 
  protected:
-  SparseTensorFormat::type format_id_;
-  int64_t non_zero_length_;
+  const SparseTensorFormat::type format_id_;
 };
 
 namespace internal {
 template <typename SparseIndexType>
 class SparseIndexBase : public SparseIndex {
  public:
-  explicit SparseIndexBase(int64_t non_zero_length)
-      : SparseIndex(SparseIndexType::format_id, non_zero_length) {}
+  SparseIndexBase() : SparseIndex(SparseIndexType::format_id) {}
 };
 }  // namespace internal
 
@@ -130,6 +127,10 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
   /// The column at index `i` is a D-tuple of coordinates indicating that the
   /// logical value at those coordinates should be found at physical index `i`.
   const std::shared_ptr<Tensor>& indices() const { return coords_; }
+
+  /// \brief Return the number of non zero values in the sparse tensor related
+  /// to this sparse index
+  int64_t non_zero_length() const override { return coords_->shape()[0]; }
 
   /// \brief Return a string representation of the sparse index
   std::string ToString() const override;
@@ -232,9 +233,7 @@ class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
   /// \brief Construct SparseCSXIndex from two index vectors
   explicit SparseCSXIndex(const std::shared_ptr<Tensor>& indptr,
                           const std::shared_ptr<Tensor>& indices)
-      : SparseIndexBase<SparseIndexType>(indices->shape()[0]),
-        indptr_(indptr),
-        indices_(indices) {
+      : SparseIndexBase<SparseIndexType>(), indptr_(indptr), indices_(indices) {
     CheckSparseCSXIndexValidity(indptr_->type(), indices_->type(), indptr_->shape(),
                                 indices_->shape(), SparseIndexType::kTypeName);
   }
@@ -244,6 +243,10 @@ class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
 
   /// \brief Return a 1D tensor of indices vector
   const std::shared_ptr<Tensor>& indices() const { return indices_; }
+
+  /// \brief Return the number of non zero values in the sparse tensor related
+  /// to this sparse index
+  int64_t non_zero_length() const override { return indices_->shape()[0]; }
 
   /// \brief Return a string representation of the sparse index
   std::string ToString() const override {
@@ -351,7 +354,7 @@ class ARROW_EXPORT SparseCSCIndex
 /// CSF is implemented with three vectors.
 ///
 /// Vectors inptr and indices contain N-1 and N buffers respectively, where N is the
-/// number of dimensions. Axis_order is a vector of integers of legth N. Indptr and
+/// number of dimensions. Axis_order is a vector of integers of length N. Indptr and
 /// indices describe the set of prefix trees. Trees traverse dimensions in order given by
 /// axis_order.
 class ARROW_EXPORT SparseCSFIndex : public internal::SparseIndexBase<SparseCSFIndex> {
@@ -390,6 +393,10 @@ class ARROW_EXPORT SparseCSFIndex : public internal::SparseIndexBase<SparseCSFIn
 
   /// \brief Return a 1D vector specifying the order of axes
   const std::vector<int64_t>& axis_order() const { return axis_order_; }
+
+  /// \brief Return the number of non zero values in the sparse tensor related
+  /// to this sparse index
+  int64_t non_zero_length() const override { return indices_.back()->shape()[0]; }
 
   /// \brief Return a string representation of the sparse index
   std::string ToString() const override;

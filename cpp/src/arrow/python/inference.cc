@@ -447,8 +447,8 @@ class TypeInferrer {
       RETURN_NOT_OK(GetStructType(out));
     } else if (decimal_count_) {
       // the default constructor does not validate the precision and scale
-      RETURN_NOT_OK(Decimal128Type::Make(max_decimal_metadata_.precision(),
-                                         max_decimal_metadata_.scale(), out));
+      ARROW_ASSIGN_OR_RAISE(*out, Decimal128Type::Make(max_decimal_metadata_.precision(),
+                                                       max_decimal_metadata_.scale()));
     } else if (float_count_) {
       // Prioritize floats before integers
       *out = float64();

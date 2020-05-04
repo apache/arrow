@@ -49,7 +49,7 @@ class CompressedOutputStream::Impl {
 
   Status Init(Codec* codec) {
     ARROW_ASSIGN_OR_RAISE(compressor_, codec->MakeCompressor());
-    RETURN_NOT_OK(AllocateResizableBuffer(pool_, kChunkSize, &compressed_));
+    ARROW_ASSIGN_OR_RAISE(compressed_, AllocateResizableBuffer(kChunkSize, pool_));
     compressed_pos_ = 0;
     is_open_ = true;
     return Status::OK();
@@ -282,7 +282,8 @@ class CompressedInputStream::Impl {
     int64_t decompress_size = kDecompressSize;
 
     while (true) {
-      RETURN_NOT_OK(AllocateResizableBuffer(pool_, decompress_size, &decompressed_));
+      ARROW_ASSIGN_OR_RAISE(decompressed_,
+                            AllocateResizableBuffer(decompress_size, pool_));
       decompressed_pos_ = 0;
 
       int64_t input_len = compressed_->size() - compressed_pos_;
@@ -376,11 +377,10 @@ class CompressedInputStream::Impl {
   }
 
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) {
-    std::shared_ptr<ResizableBuffer> buf;
-    RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &buf));
+    ARROW_ASSIGN_OR_RAISE(auto buf, AllocateResizableBuffer(nbytes, pool_));
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buf->mutable_data()));
     RETURN_NOT_OK(buf->Resize(bytes_read));
-    return buf;
+    return std::move(buf);
   }
 
   std::shared_ptr<InputStream> raw() const { return raw_; }

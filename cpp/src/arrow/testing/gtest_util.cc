@@ -80,7 +80,7 @@ void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose)
 
 void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual,
                         bool check_metadata) {
-  AssertTsEqual(expected, actual);
+  AssertTsEqual(expected, actual, check_metadata);
 }
 
 void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
@@ -239,15 +239,12 @@ std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataTyp
 
 std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& schema,
                                                  util::string_view json) {
-  // Parses as a StructArray
+  // Parse as a StructArray
   auto struct_type = struct_(schema->fields());
   std::shared_ptr<Array> struct_array = ArrayFromJSON(struct_type, json);
 
-  // Converts StructArray to RecordBatch
-  std::shared_ptr<RecordBatch> record_batch;
-  ABORT_NOT_OK(RecordBatch::FromStructArray(struct_array, &record_batch));
-
-  return record_batch;
+  // Convert StructArray to RecordBatch
+  return *RecordBatch::FromStructArray(struct_array);
 }
 
 std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
@@ -256,10 +253,7 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
   for (const std::string& batch_json : json) {
     batches.push_back(RecordBatchFromJSON(schema, batch_json));
   }
-  std::shared_ptr<Table> table;
-  ABORT_NOT_OK(Table::FromRecordBatches(schema, batches, &table));
-
-  return table;
+  return *Table::FromRecordBatches(schema, std::move(batches));
 }
 
 void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chunk_layout,
@@ -268,9 +262,8 @@ void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chu
 
   if (combine_chunks) {
     auto pool = default_memory_pool();
-    std::shared_ptr<Table> new_expected, new_actual;
-    ASSERT_OK(expected.CombineChunks(pool, &new_expected));
-    ASSERT_OK(actual.CombineChunks(pool, &new_actual));
+    ASSERT_OK_AND_ASSIGN(auto new_expected, expected.CombineChunks(pool));
+    ASSERT_OK_AND_ASSIGN(auto new_actual, actual.CombineChunks(pool));
 
     AssertTablesEqual(*new_expected, *new_actual, false, false);
     return;
@@ -401,17 +394,15 @@ std::shared_ptr<Array> UUIDType::MakeArray(std::shared_ptr<ArrayData> data) cons
   return std::make_shared<UUIDArray>(data);
 }
 
-Status UUIDType::Deserialize(std::shared_ptr<DataType> storage_type,
-                             const std::string& serialized,
-                             std::shared_ptr<DataType>* out) const {
+Result<std::shared_ptr<DataType>> UUIDType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
   if (serialized != "uuid-type-unique-code") {
     return Status::Invalid("Type identifier did not match");
   }
   if (!storage_type->Equals(*fixed_size_binary(16))) {
     return Status::Invalid("Invalid storage type for UUIDType");
   }
-  *out = std::make_shared<UUIDType>();
-  return Status::OK();
+  return std::make_shared<UUIDType>();
 }
 
 std::shared_ptr<DataType> uuid() { return std::make_shared<UUIDType>(); }
@@ -439,17 +430,15 @@ std::shared_ptr<Array> SmallintType::MakeArray(std::shared_ptr<ArrayData> data) 
   return std::make_shared<SmallintArray>(data);
 }
 
-Status SmallintType::Deserialize(std::shared_ptr<DataType> storage_type,
-                                 const std::string& serialized,
-                                 std::shared_ptr<DataType>* out) const {
+Result<std::shared_ptr<DataType>> SmallintType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
   if (serialized != "smallint") {
     return Status::Invalid("Type identifier did not match");
   }
   if (!storage_type->Equals(*int16())) {
     return Status::Invalid("Invalid storage type for SmallintType");
   }
-  *out = std::make_shared<SmallintType>();
-  return Status::OK();
+  return std::make_shared<SmallintType>();
 }
 
 std::shared_ptr<DataType> smallint() { return std::make_shared<SmallintType>(); }

@@ -17,8 +17,6 @@
 
 #include "gandiva/configuration.h"
 
-#include <boost/functional/hash.hpp>
-
 namespace gandiva {
 
 const std::shared_ptr<Configuration> ConfigurationBuilder::default_configuration_ =

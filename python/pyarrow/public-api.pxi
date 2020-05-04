@@ -119,28 +119,21 @@ cdef api object pyarrow_wrap_data_type(
 
 cdef object pyarrow_wrap_metadata(
         const shared_ptr[const CKeyValueMetadata]& meta):
-    cdef const CKeyValueMetadata* cmeta = meta.get()
-
-    if cmeta == nullptr:
+    if meta.get() == nullptr:
         return None
-
-    result = ordered_dict()
-    for i in range(cmeta.size()):
-        result[cmeta.key(i)] = cmeta.value(i)
-
-    return result
+    else:
+        return KeyValueMetadata.wrap(meta)
 
 
-cdef shared_ptr[CKeyValueMetadata] pyarrow_unwrap_metadata(object meta) \
-        except *:
-    cdef vector[c_string] keys, values
+cdef api bint pyarrow_is_metadata(object metadata):
+    return isinstance(metadata, KeyValueMetadata)
 
-    if isinstance(meta, dict):
-        keys = map(tobytes, meta.keys())
-        values = map(tobytes, meta.values())
-        return make_shared[CKeyValueMetadata](keys, values)
 
-    return shared_ptr[CKeyValueMetadata]()
+cdef shared_ptr[const CKeyValueMetadata] pyarrow_unwrap_metadata(object meta):
+    cdef shared_ptr[const CKeyValueMetadata] c_meta
+    if pyarrow_is_metadata(meta):
+        c_meta = (<KeyValueMetadata>meta).unwrap()
+    return c_meta
 
 
 cdef api bint pyarrow_is_field(object field):
@@ -200,16 +193,24 @@ cdef api object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array):
     if sp_array.get() == NULL:
         raise ValueError('Array was NULL')
 
-    cdef CDataType* data_type = sp_array.get().type().get()
-
-    if data_type == NULL:
-        raise ValueError('Array data type was NULL')
-
-    klass = _array_classes[data_type.id()]
+    klass = get_array_class_from_type(sp_array.get().type())
 
     cdef Array arr = klass.__new__(klass)
     arr.init(sp_array)
     return arr
+
+
+cdef api bint pyarrow_is_chunked_array(object array):
+    return isinstance(array, ChunkedArray)
+
+
+cdef api shared_ptr[CChunkedArray] pyarrow_unwrap_chunked_array(object array):
+    cdef ChunkedArray arr
+    if pyarrow_is_chunked_array(array):
+        arr = <ChunkedArray>(array)
+        return arr.sp_chunked_array
+
+    return shared_ptr[CChunkedArray]()
 
 
 cdef api object pyarrow_wrap_chunked_array(

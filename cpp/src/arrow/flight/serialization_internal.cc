@@ -24,6 +24,11 @@
 
 #include "arrow/flight/platform.h"
 
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4267)
+#endif
+
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl_lite.h>
 #include <google/protobuf/wire_format_lite.h>
@@ -35,6 +40,10 @@
 #else
 #include <grpc++/grpc++.h>
 #include <grpc++/impl/codegen/proto_utils.h>
+#endif
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
 #endif
 
 #include "arrow/buffer.h"
@@ -335,7 +344,7 @@ grpc::Status FlightDataDeserialize(ByteBuffer* buffer, FlightData* out) {
 }
 
 Status FlightData::OpenMessage(std::unique_ptr<ipc::Message>* message) {
-  return ipc::Message::Open(metadata, body, message);
+  return ipc::Message::Open(metadata, body).Value(message);
 }
 
 // The pointer bitcast hack below causes legitimate warnings, silence them.

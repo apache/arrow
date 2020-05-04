@@ -305,9 +305,9 @@ class QuadraticSpaceMyersDiff {
     DCHECK(Done());
 
     int64_t length = edit_count_ + 1;
-    std::shared_ptr<Buffer> insert_buf, run_length_buf;
-    RETURN_NOT_OK(AllocateEmptyBitmap(pool, length, &insert_buf));
-    RETURN_NOT_OK(AllocateBuffer(pool, length * sizeof(int64_t), &run_length_buf));
+    ARROW_ASSIGN_OR_RAISE(auto insert_buf, AllocateEmptyBitmap(length, pool));
+    ARROW_ASSIGN_OR_RAISE(auto run_length_buf,
+                          AllocateBuffer(length * sizeof(int64_t), pool));
     auto run_length = reinterpret_cast<int64_t*>(run_length_buf->mutable_data());
 
     auto index = finish_index_;
@@ -336,9 +336,10 @@ class QuadraticSpaceMyersDiff {
     BitUtil::SetBitTo(insert_buf->mutable_data(), 0, false);
     run_length[0] = endpoint.base - base_begin_;
 
-    return StructArray::Make({std::make_shared<BooleanArray>(length, insert_buf),
-                              std::make_shared<Int64Array>(length, run_length_buf)},
-                             {field("insert", boolean()), field("run_length", int64())});
+    return StructArray::Make(
+        {std::make_shared<BooleanArray>(length, std::move(insert_buf)),
+         std::make_shared<Int64Array>(length, std::move(run_length_buf))},
+        {field("insert", boolean()), field("run_length", int64())});
   }
 
  private:

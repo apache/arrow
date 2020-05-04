@@ -17,10 +17,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# this script is github actions specific
+# this script is github actions specific to check out the submodules and tags
 
-# checkout the submodules, remove it once the "submodules: recursive" feature
-# gets released again
+# TODO(kszucs): remove it once the "submodules: recursive" feature is released
 auth_header="$(git config --local --get http.https://github.com/.extraheader)"
 git submodule sync --recursive
 git -c "http.extraheader=$auth_header" -c protocol.version=2 submodule update --init --force --recursive --depth=1

@@ -127,14 +127,14 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     mask : array[bool], optional
         Indicate which values are null (True) or not null (False).
     size : int64, optional
-        Size of the elements. If the imput is larger than size bail at this
+        Size of the elements. If the input is larger than size bail at this
         length. For iterators, if size is larger than the input iterator this
         will be treated as a "max size", but will involve an initial allocation
         of size followed by a resize to the actual size (so if you know the
         exact size specifying it correctly will give you better performance).
     from_pandas : bool, default None
         Use pandas's semantics for inferring nulls from values in
-        ndarray-like data. If passed, the mask tasks precendence, but
+        ndarray-like data. If passed, the mask tasks precedence, but
         if a value is unmasked (not-null), but still null according to
         pandas semantics, then it is null. Defaults to False if not
         passed explicitly by user, or True if a pandas object is
@@ -325,6 +325,10 @@ def infer_type(values, mask=None, from_pandas=False):
 
 
 def _normalize_slice(object arrow_obj, slice key):
+    """
+    Slices with step not equal to 1 (or None) will produce a copy
+    rather than a zero-copy view
+    """
     cdef:
         Py_ssize_t start, stop, step
         Py_ssize_t n = len(arrow_obj)
@@ -347,7 +351,16 @@ def _normalize_slice(object arrow_obj, slice key):
 
     step = key.step or 1
     if step != 1:
-        raise IndexError('only slices with step 1 supported')
+        if step < 0:
+            # Negative steps require some special handling
+            if key.start is None:
+                start = n - 1
+
+            if key.stop is None:
+                stop = -1
+
+        indices = np.arange(start, stop, step)
+        return arrow_obj.take(indices)
     else:
         return arrow_obj.slice(start, stop - start)
 
@@ -381,6 +394,10 @@ cdef wrap_datum(const CDatum& datum):
         return pyarrow_wrap_array(MakeArray(datum.array()))
     elif datum.kind() == DatumType_CHUNKED_ARRAY:
         return pyarrow_wrap_chunked_array(datum.chunked_array())
+    elif datum.kind() == DatumType_RECORD_BATCH:
+        return pyarrow_wrap_batch(datum.record_batch())
+    elif datum.kind() == DatumType_TABLE:
+        return pyarrow_wrap_table(datum.table())
     elif datum.kind() == DatumType_SCALAR:
         return pyarrow_wrap_scalar(datum.scalar())
     else:
@@ -475,6 +492,23 @@ def _restore_array(data):
     """
     cdef shared_ptr[CArrayData] ad = _reconstruct_array_data(data)
     return pyarrow_wrap_array(MakeArray(ad))
+
+
+cdef CFilterOptions _convert_filter_option(object null_selection_behavior):
+    cdef CFilterOptions options
+
+    if null_selection_behavior == 'drop':
+        options.null_selection_behavior = \
+            CFilterNullSelectionBehavior_DROP
+    elif null_selection_behavior == 'emit_null':
+        options.null_selection_behavior = \
+            CFilterNullSelectionBehavior_EMIT_NULL
+    else:
+        raise ValueError(
+            '"{}" is not a valid null_selection_behavior'.format(
+                null_selection_behavior)
+        )
+    return options
 
 
 cdef class _PandasConvertible:
@@ -694,7 +728,7 @@ cdef class Array(_PandasConvertible):
         cdef DataType type = ensure_type(target_type)
         cdef shared_ptr[CArray] result
         with nogil:
-            check_status(self.ap.View(type.sp_type, &result))
+            result = GetResultValue(self.ap.View(type.sp_type))
         return pyarrow_wrap_array(result)
 
     def sum(self):
@@ -876,7 +910,7 @@ cdef class Array(_PandasConvertible):
         type_format = object.__repr__(self)
         return '{0}\n{1}'.format(type_format, str(self))
 
-    def format(self, int indent=0, int window=10):
+    def to_string(self, int indent=0, int window=10):
         cdef:
             c_string result
 
@@ -891,8 +925,13 @@ cdef class Array(_PandasConvertible):
 
         return frombytes(result)
 
+    def format(self, **kwargs):
+        import warnings
+        warnings.warn('Array.format is deprecated, use Array.to_string')
+        return self.to_string(**kwargs)
+
     def __str__(self):
-        return self.format()
+        return self.to_string()
 
     def equals(Array self, Array other):
         return self.ap.Equals(deref(other.ap))
@@ -909,18 +948,24 @@ cdef class Array(_PandasConvertible):
     def isnull(self):
         raise NotImplemented
 
-    def __getitem__(self, index):
+    def __getitem__(self, key):
         """
-        Return the value at the given index.
+        Slice or return value at given index
+
+        Parameters
+        ----------
+        key : integer or slice
+            Slices with step not equal to 1 (or None) will produce a copy
+            rather than a zero-copy view
 
         Returns
         -------
-        value : Scalar
+        value : Scalar (index) or Array (slice)
         """
-        if PySlice_Check(index):
-            return _normalize_slice(self, index)
+        if PySlice_Check(key):
+            return _normalize_slice(self, key)
 
-        return self.getitem(_normalize_index(index, self.length()))
+        return self.getitem(_normalize_index(key, self.length()))
 
     cdef getitem(self, int64_t i):
         return box_scalar(self.type, self.sp_array, i)
@@ -954,7 +999,7 @@ cdef class Array(_PandasConvertible):
 
         return pyarrow_wrap_array(result)
 
-    def take(self, Array indices):
+    def take(self, object indices):
         """
         Take elements from an array.
 
@@ -990,14 +1035,17 @@ cdef class Array(_PandasConvertible):
         cdef:
             cdef CTakeOptions options
             cdef CDatum out
+            cdef Array c_indices
+
+        c_indices = asarray(indices)
 
         with nogil:
             check_status(Take(_context(), CDatum(self.sp_array),
-                              CDatum(indices.sp_array), options, &out))
+                              CDatum(c_indices.sp_array), options, &out))
 
         return wrap_datum(out)
 
-    def filter(self, Array mask):
+    def filter(self, Array mask, null_selection_behavior='drop'):
         """
         Filter the array with a boolean mask.
 
@@ -1005,6 +1053,12 @@ cdef class Array(_PandasConvertible):
         ----------
         mask : Array
             The boolean mask indicating which values to extract.
+        null_selection_behavior : str, default 'drop'
+            Configure the behavior on encountering a null slot in the mask.
+            Allowed values are 'drop' and 'emit_null'.
+
+            - 'drop': nulls will be treated as equivalent to False.
+            - 'emit_null': nulls will result in a null in the output.
 
         Returns
         -------
@@ -1020,16 +1074,25 @@ cdef class Array(_PandasConvertible):
         <pyarrow.lib.StringArray object at 0x7fa826df9200>
         [
           "a",
+          "e"
+        ]
+        >>> arr.filter(mask, null_selection_behavior='emit_null')
+        <pyarrow.lib.StringArray object at 0x7fa826df9200>
+        [
+          "a",
           null,
           "e"
         ]
         """
         cdef:
-            cdef CDatum out
+            CDatum out
+            CFilterOptions options
+
+        options = _convert_filter_option(null_selection_behavior)
 
         with nogil:
             check_status(FilterKernel(_context(), CDatum(self.sp_array),
-                                      CDatum(mask.sp_array), &out))
+                                      CDatum(mask.sp_array), options, &out))
 
         return wrap_datum(out)
 
@@ -1421,8 +1484,8 @@ cdef class ListArray(Array):
         _values = asarray(values)
 
         with nogil:
-            check_status(CListArray.FromArrays(_offsets.ap[0], _values.ap[0],
-                                               cpool, &out))
+            out = GetResultValue(
+                CListArray.FromArrays(_offsets.ap[0], _values.ap[0], cpool))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -1503,9 +1566,9 @@ cdef class LargeListArray(Array):
         _values = asarray(values)
 
         with nogil:
-            check_status(CLargeListArray.FromArrays(_offsets.ap[0],
-                                                    _values.ap[0],
-                                                    cpool, &out))
+            out = GetResultValue(
+                CLargeListArray.FromArrays(_offsets.ap[0], _values.ap[0],
+                                           cpool))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -1586,9 +1649,10 @@ cdef class MapArray(Array):
         _items = asarray(items)
 
         with nogil:
-            check_status(CMapArray.FromArrays(_offsets.sp_array,
-                                              _keys.sp_array, _items.sp_array,
-                                              cpool, &out))
+            out = GetResultValue(
+                CMapArray.FromArrays(_offsets.sp_array,
+                                     _keys.sp_array,
+                                     _items.sp_array, cpool))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -1656,6 +1720,39 @@ cdef class UnionArray(Array):
     Concrete class for Arrow arrays of a Union data type.
     """
 
+    def child(self, int pos):
+        """
+        Return the given child array as an individual array.
+
+        For sparse unions, the returned array has its offset, length,
+        and null count adjusted.
+
+        For dense unions, the returned array is unchanged.
+        """
+        cdef shared_ptr[CArray] result
+        result = (<CUnionArray*> self.ap).child(pos)
+        if result != NULL:
+            return pyarrow_wrap_array(result)
+        raise KeyError("UnionArray does not have child {}".format(pos))
+
+    @property
+    def type_codes(self):
+        """Get the type codes array."""
+        buf = pyarrow_wrap_buffer((<CUnionArray*> self.ap).type_codes())
+        return Array.from_buffers(int8(), len(self), [None, buf])
+
+    @property
+    def offsets(self):
+        """
+        Get the value offsets array (dense arrays only).
+
+        Does not account for any slice offset.
+        """
+        if self.type.mode != "dense":
+            raise ArrowTypeError("Can only get value offsets for dense arrays")
+        buf = pyarrow_wrap_buffer((<CUnionArray*> self.ap).value_offsets())
+        return Array.from_buffers(int32(), len(self), [None, buf])
+
     @staticmethod
     def from_dense(Array types, Array value_offsets, list children,
                    list field_names=None, list type_codes=None):
@@ -1689,9 +1786,9 @@ cdef class UnionArray(Array):
             for x in type_codes:
                 c_type_codes.push_back(x)
         with nogil:
-            check_status(CUnionArray.MakeDense(
+            out = GetResultValue(CUnionArray.MakeDense(
                 deref(types.ap), deref(value_offsets.ap), c, c_field_names,
-                c_type_codes, &out))
+                c_type_codes))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -1728,10 +1825,8 @@ cdef class UnionArray(Array):
             for x in type_codes:
                 c_type_codes.push_back(x)
         with nogil:
-            check_status(CUnionArray.MakeSparse(deref(types.ap), c,
-                                                c_field_names,
-                                                c_type_codes,
-                                                &out))
+            out = GetResultValue(CUnionArray.MakeSparse(
+                deref(types.ap), c, c_field_names, c_type_codes))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -1901,10 +1996,9 @@ cdef class DictionaryArray(Array):
 
         if safe:
             with nogil:
-                check_status(
+                c_result = GetResultValue(
                     CDictionaryArray.FromArrays(c_type, _indices.sp_array,
-                                                _dictionary.sp_array,
-                                                &c_result))
+                                                _dictionary.sp_array))
         else:
             c_result.reset(new CDictionaryArray(c_type, _indices.sp_array,
                                                 _dictionary.sp_array))
@@ -1967,7 +2061,7 @@ cdef class StructArray(Array):
             CStructArray* sarr = <CStructArray*> self.ap
 
         with nogil:
-            check_status(sarr.Flatten(pool, &arrays))
+            arrays = GetResultValue(sarr.Flatten(pool))
 
         return [pyarrow_wrap_array(arr) for arr in arrays]
 
@@ -2132,6 +2226,19 @@ cdef dict _array_classes = {
     _Type_STRUCT: StructArray,
     _Type_EXTENSION: ExtensionArray,
 }
+
+
+cdef object get_array_class_from_type(
+        const shared_ptr[CDataType]& sp_data_type):
+    cdef CDataType* data_type = sp_data_type.get()
+    if data_type == NULL:
+        raise ValueError('Array data type was NULL')
+
+    if data_type.id() == _Type_EXTENSION:
+        py_ext_data_type = pyarrow_wrap_data_type(sp_data_type)
+        return py_ext_data_type.__arrow_ext_class__()
+    else:
+        return _array_classes[data_type.id()]
 
 
 cdef object get_values(object obj, bint* is_series):

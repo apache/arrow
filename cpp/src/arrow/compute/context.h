@@ -45,7 +45,7 @@ namespace compute {
 /// \brief Container for variables and options used by function evaluation
 class ARROW_EXPORT FunctionContext {
  public:
-  explicit FunctionContext(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  explicit FunctionContext(MemoryPool* pool = default_memory_pool());
   MemoryPool* memory_pool() const;
 
   /// \brief Allocate buffer from the context's memory pool

@@ -80,7 +80,7 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
    * @return value stored at the index.
    */
   public static char get(final ArrowBuf buffer, final int index) {
-    return buffer.getChar(index * TYPE_WIDTH);
+    return buffer.getChar((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -93,7 +93,7 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
     if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
-    return valueBuffer.getChar(index * TYPE_WIDTH);
+    return valueBuffer.getChar((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -109,7 +109,7 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
       return;
     }
     holder.isSet = 1;
-    holder.value = valueBuffer.getChar(index * TYPE_WIDTH);
+    holder.value = valueBuffer.getChar((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -122,7 +122,7 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
     if (isSet(index) == 0) {
       return null;
     } else {
-      return valueBuffer.getChar(index * TYPE_WIDTH);
+      return valueBuffer.getChar((long) index * TYPE_WIDTH);
     }
   }
 
@@ -135,11 +135,11 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
 
 
   private void setValue(int index, int value) {
-    valueBuffer.setChar(index * TYPE_WIDTH, value);
+    valueBuffer.setChar((long) index * TYPE_WIDTH, value);
   }
 
   private void setValue(int index, char value) {
-    valueBuffer.setChar(index * TYPE_WIDTH, value);
+    valueBuffer.setChar((long) index * TYPE_WIDTH, value);
   }
 
   /**

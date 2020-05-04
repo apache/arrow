@@ -96,7 +96,7 @@ impl PartialEq for Bitmap {
         if self_len != other_len {
             return false;
         }
-        &self.bits.data()[..self_len] == &other.bits.data()[..self_len]
+        self.bits.data()[..self_len] == other.bits.data()[..self_len]
     }
 }
 

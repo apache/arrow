@@ -51,7 +51,6 @@ struct _GGandivaNativeFunctionClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
 GList *
 ggandiva_native_function_get_signatures(GGandivaNativeFunction *native_function);
 gboolean

@@ -1,0 +1,131 @@
+---
+title: "Apache Arrow in Python and R with reticulate"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Apache Arrow in Python and R with reticulate}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+The `arrow` package provides `reticulate` methods for passing data between
+R and Python in the same process. This document provides a brief overview.
+
+## Installing
+
+To use `arrow` in Python, at a minimum you'll need the `pyarrow` library.
+To install it in a virtualenv,
+
+```r
+library(reticulate)
+virtualenv_create("arrow-env")
+install_pyarrow("arrow-env")
+```
+
+If you want to install a development version of `pyarrow`,
+add `nightly = TRUE`:
+
+```r
+install_pyarrow("arrow-env", nightly = TRUE)
+```
+
+`install_pyarrow()` also works with `conda` environments
+(`conda_create()` instead of `virtualenv_create()`).
+
+For more on installing and configuring Python,
+see the [reticulate docs](https://rstudio.github.io/reticulate/articles/python_packages.html).
+
+## Using
+
+To start, load `arrow` and `reticulate`, and then import `pyarrow`.
+
+```r
+library(arrow)
+library(reticulate)
+use_virtualenv("arrow-env")
+pa <- import("pyarrow")
+```
+
+The package includes support for sharing Arrow `Array` and `RecordBatch`
+objects in-process between R and Python. For example, let's create an `Array`
+in `pyarrow`.
+
+```r
+a <- pa$array(c(1, 2, 3))
+a
+
+## Array
+## <double>
+## [
+##   1,
+##   2,
+##   3
+## ]
+```
+
+`a` is now an `Array` object in our R session, even though we created it in Python.
+We can apply R methods on it:
+
+```r
+a[a > 1]
+
+## Array
+## <double>
+## [
+##   2,
+##   3
+## ]
+```
+
+We can send data both ways. One reason we might want to use `pyarrow` in R is
+to take advantage of functionality that is better supported in Python than in R.
+For example, `pyarrow` has a `concat_arrays` function, but as of 0.17, this
+function is not implemented in the `arrow` R package. We can use `reticulate`
+to use it efficiently.
+
+```r
+b <- Array$create(c(5, 6, 7, 8, 9))
+a_and_b <- pa$concat_arrays(r_to_py(list(a, b)))
+a_and_b
+
+## Array
+## <double>
+## [
+##   1,
+##   2,
+##   3,
+##   5,
+##   6,
+##   7,
+##   8,
+##   9
+## ]
+```
+
+Now we have a single `Array` in R.
+
+"Send", however, isn't the correct word. Internally, we're passing pointers to
+the data between the R and Python interpreters running together in the same
+process, without copying anything. Nothing is being sent: we're sharing and
+accessing the same internal Arrow memory buffers.
+
+## Troubleshooting
+
+If you get an error like
+
+```
+Error in py_get_attr_impl(x, name, silent) :
+  AttributeError: 'pyarrow.lib.DoubleArray' object has no attribute '_export_to_c'
+```
+
+it means that the version of `pyarrow` you're using is too old.
+Support for passing data to and from R is included in versions 0.17 and greater.
+Check your pyarrow version like this:
+
+```r
+pa$`__version__`
+
+## [1] "0.16.0"
+```
+
+Note that your `pyarrow` and `arrow` versions don't need themselves to match:
+they just need to be 0.17 or greater.

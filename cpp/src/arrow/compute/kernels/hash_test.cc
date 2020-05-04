@@ -37,6 +37,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 
 #include "arrow/compute/context.h"
@@ -48,6 +49,9 @@
 #include "arrow/ipc/json_simple.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace compute {
 
 using StringTypes =
@@ -583,7 +587,8 @@ TEST_F(TestHashKernel, DictEncodeDecimal) {
                                               {}, {0, 0, 1, 0, 2});
 }
 
-/* TODO(ARROW-4124): Determine if we wan to do something that is reproducable with floats.
+/* TODO(ARROW-4124): Determine if we want to do something that is reproducible with
+ * floats.
 TEST_F(TestHashKernel, ValueCountsFloat) {
 
     // No nulls
@@ -642,6 +647,18 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
   ASSERT_EQ(Datum::CHUNKED_ARRAY, encoded_out.kind());
 
   AssertChunkedEqual(*dict_carr, *encoded_out.chunked_array());
+}
+
+TEST_F(TestHashKernel, ZeroLengthDictionaryEncode) {
+  // ARROW-7008
+  auto values = ArrayFromJSON(utf8(), "[]");
+  Datum datum_result;
+  ASSERT_OK(DictionaryEncode(&this->ctx_, values, &datum_result));
+
+  std::shared_ptr<Array> result = datum_result.make_array();
+  const auto& dict_result = checked_cast<const DictionaryArray&>(*result);
+  ASSERT_OK(dict_result.Validate());
+  ASSERT_OK(dict_result.ValidateFull());
 }
 
 TEST_F(TestHashKernel, ChunkedArrayZeroChunk) {

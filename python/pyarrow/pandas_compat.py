@@ -17,12 +17,12 @@
 
 
 import ast
+from copy import deepcopy
 from itertools import zip_longest
 import json
 import operator
 import re
 import warnings
-from copy import deepcopy
 
 import numpy as np
 

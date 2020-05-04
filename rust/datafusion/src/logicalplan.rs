@@ -376,11 +376,49 @@ pub fn lit_str(str: &str) -> Expr {
     Expr::Literal(ScalarValue::Utf8(str.to_owned()))
 }
 
+/// Create an convenience function representing a unary scalar function
+macro_rules! unary_math_expr {
+    ($NAME:expr, $FUNC:ident) => {
+        #[allow(missing_docs)]
+        pub fn $FUNC(e: Expr) -> Expr {
+            scalar_function($NAME, vec![e], DataType::Float64)
+        }
+    };
+}
+
+// generate methods for creating the supported unary math expressions
+unary_math_expr!("sqrt", sqrt);
+unary_math_expr!("sin", sin);
+unary_math_expr!("cos", cos);
+unary_math_expr!("tan", tan);
+unary_math_expr!("asin", asin);
+unary_math_expr!("acos", acos);
+unary_math_expr!("atan", atan);
+unary_math_expr!("floor", floor);
+unary_math_expr!("ceil", ceil);
+unary_math_expr!("round", round);
+unary_math_expr!("trunc", trunc);
+unary_math_expr!("abs", abs);
+unary_math_expr!("signum", signum);
+unary_math_expr!("exp", exp);
+unary_math_expr!("log", ln);
+unary_math_expr!("log2", log2);
+unary_math_expr!("log10", log10);
+
 /// Create an aggregate expression
 pub fn aggregate_expr(name: &str, expr: Expr, return_type: DataType) -> Expr {
     Expr::AggregateFunction {
         name: name.to_owned(),
         args: vec![expr],
+        return_type,
+    }
+}
+
+/// Create an aggregate expression
+pub fn scalar_function(name: &str, expr: Vec<Expr>, return_type: DataType) -> Expr {
+    Expr::ScalarFunction {
+        name: name.to_owned(),
+        args: expr,
         return_type,
     }
 }

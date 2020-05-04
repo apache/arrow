@@ -52,7 +52,7 @@ Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
 
   int64_t nbytes = capacity * int_size_;
   if (capacity_ == 0) {
-    RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &data_));
+    ARROW_ASSIGN_OR_RAISE(data_, AllocateResizableBuffer(nbytes, pool_));
   } else {
     RETURN_NOT_OK(data_->Resize(nbytes));
   }
@@ -75,7 +75,7 @@ AdaptiveIntBuilderBase::ExpandIntSizeInternal() {
 
   const old_type* src = reinterpret_cast<old_type*>(raw_data_);
   new_type* dst = reinterpret_cast<new_type*>(raw_data_);
-  // By doing the backward copy, we ensure that no element is overriden during
+  // By doing the backward copy, we ensure that no element is overridden during
   // the copy process while the copy stays in-place.
   std::copy_backward(src, src + length_, dst + length_);
 

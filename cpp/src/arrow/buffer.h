@@ -122,10 +122,15 @@ class ARROW_EXPORT Buffer {
   bool Equals(const Buffer& other) const;
 
   /// Copy a section of the buffer into a new Buffer.
+  Result<std::shared_ptr<Buffer>> CopySlice(
+      const int64_t start, const int64_t nbytes,
+      MemoryPool* pool = default_memory_pool()) const;
+
+  ARROW_DEPRECATED("Use CopySlice")
   Status Copy(const int64_t start, const int64_t nbytes, MemoryPool* pool,
               std::shared_ptr<Buffer>* out) const;
 
-  /// Copy a section of the buffer using the default memory pool into a new Buffer.
+  ARROW_DEPRECATED("Use CopySlice")
   Status Copy(const int64_t start, const int64_t nbytes,
               std::shared_ptr<Buffer>* out) const;
 
@@ -140,25 +145,19 @@ class ARROW_EXPORT Buffer {
     }
   }
 
-  /// \brief Construct a new buffer that owns its memory from a std::string
+  /// \brief Construct an immutable buffer that takes ownership of the contents
+  /// of an std::string (without copying it).
   ///
-  /// \param[in] data a std::string object
-  /// \param[in] pool a memory pool
-  /// \param[out] out the created buffer
-  ///
-  /// \return Status message
+  /// \param[in] data a string to own
+  /// \return a new Buffer instance
+  static std::shared_ptr<Buffer> FromString(std::string data);
+
+  ARROW_DEPRECATED("Use Buffer-returning version")
   static Status FromString(const std::string& data, MemoryPool* pool,
                            std::shared_ptr<Buffer>* out);
 
-  /// \brief Construct a new buffer that owns its memory from a std::string
-  /// using the default memory pool
+  ARROW_DEPRECATED("Use Buffer-returning version")
   static Status FromString(const std::string& data, std::shared_ptr<Buffer>* out);
-
-  /// \brief Construct an immutable buffer that takes ownership of the contents
-  /// of an std::string
-  /// \param[in] data an rvalue-reference of a string
-  /// \return a new Buffer instance
-  static std::shared_ptr<Buffer> FromString(std::string&& data);
 
   /// \brief Create buffer referencing typed memory with some length without
   /// copying
@@ -447,110 +446,80 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
 
 /// \brief Allocate a fixed size mutable buffer from a memory pool, zero its padding.
 ///
-/// \param[in] pool a memory pool
 /// \param[in] size size of buffer to allocate
-/// \param[out] out the allocated buffer (contains padding)
-///
-/// \return Status message
+/// \param[in] pool a memory pool
+ARROW_EXPORT
+Result<std::unique_ptr<Buffer>> AllocateBuffer(const int64_t size,
+                                               MemoryPool* pool = NULLPTR);
+
+ARROW_DEPRECATED("Use Result-returning version")
 ARROW_EXPORT
 Status AllocateBuffer(MemoryPool* pool, const int64_t size, std::shared_ptr<Buffer>* out);
 
-/// \brief Allocate a fixed size mutable buffer from a memory pool, zero its padding.
-///
-/// \param[in] pool a memory pool
-/// \param[in] size size of buffer to allocate
-/// \param[out] out the allocated buffer (contains padding)
-///
-/// \return Status message
-ARROW_EXPORT
-Status AllocateBuffer(MemoryPool* pool, const int64_t size, std::unique_ptr<Buffer>* out);
-
-/// \brief Allocate a fixed-size mutable buffer from the default memory pool
-///
-/// \param[in] size size of buffer to allocate
-/// \param[out] out the allocated buffer (contains padding)
-///
-/// \return Status message
+ARROW_DEPRECATED("Use Result-returning version")
 ARROW_EXPORT
 Status AllocateBuffer(const int64_t size, std::shared_ptr<Buffer>* out);
 
-/// \brief Allocate a fixed-size mutable buffer from the default memory pool
-///
-/// \param[in] size size of buffer to allocate
-/// \param[out] out the allocated buffer (contains padding)
-///
-/// \return Status message
+ARROW_DEPRECATED("Use Result-returning version")
+ARROW_EXPORT
+Status AllocateBuffer(MemoryPool* pool, const int64_t size, std::unique_ptr<Buffer>* out);
+
+ARROW_DEPRECATED("Use Result-returning version")
 ARROW_EXPORT
 Status AllocateBuffer(const int64_t size, std::unique_ptr<Buffer>* out);
 
 /// \brief Allocate a resizeable buffer from a memory pool, zero its padding.
 ///
-/// \param[in] pool a memory pool
 /// \param[in] size size of buffer to allocate
-/// \param[out] out the allocated buffer
-///
-/// \return Status message
+/// \param[in] pool a memory pool
+ARROW_EXPORT
+Result<std::unique_ptr<ResizableBuffer>> AllocateResizableBuffer(
+    const int64_t size, MemoryPool* pool = NULLPTR);
+
+ARROW_DEPRECATED("Use Result-returning version")
 ARROW_EXPORT
 Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
                                std::shared_ptr<ResizableBuffer>* out);
 
-/// \brief Allocate a resizeable buffer from a memory pool, zero its padding.
-///
-/// \param[in] pool a memory pool
-/// \param[in] size size of buffer to allocate
-/// \param[out] out the allocated buffer
-///
-/// \return Status message
+ARROW_DEPRECATED("Use Result-returning version")
+ARROW_EXPORT
+Status AllocateResizableBuffer(const int64_t size, std::shared_ptr<ResizableBuffer>* out);
+
+ARROW_DEPRECATED("Use Result-returning version")
 ARROW_EXPORT
 Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
                                std::unique_ptr<ResizableBuffer>* out);
 
-/// \brief Allocate a resizeable buffer from the default memory pool
-///
-/// \param[in] size size of buffer to allocate
-/// \param[out] out the allocated buffer
-///
-/// \return Status message
-ARROW_EXPORT
-Status AllocateResizableBuffer(const int64_t size, std::shared_ptr<ResizableBuffer>* out);
-
-/// \brief Allocate a resizeable buffer from the default memory pool
-///
-/// \param[in] size size of buffer to allocate
-/// \param[out] out the allocated buffer
-///
-/// \return Status message
+ARROW_DEPRECATED("Use Result-returning version")
 ARROW_EXPORT
 Status AllocateResizableBuffer(const int64_t size, std::unique_ptr<ResizableBuffer>* out);
 
 /// \brief Allocate a bitmap buffer from a memory pool
 /// no guarantee on values is provided.
 ///
-/// \param[in] pool memory pool to allocate memory from
 /// \param[in] length size in bits of bitmap to allocate
-/// \param[out] out the resulting buffer
-///
-/// \return Status message
+/// \param[in] pool memory pool to allocate memory from
+ARROW_EXPORT
+Result<std::shared_ptr<Buffer>> AllocateBitmap(int64_t length,
+                                               MemoryPool* pool = NULLPTR);
+
 ARROW_EXPORT
 Status AllocateBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* out);
 
 /// \brief Allocate a zero-initialized bitmap buffer from a memory pool
 ///
-/// \param[in] pool memory pool to allocate memory from
 /// \param[in] length size in bits of bitmap to allocate
-/// \param[out] out the resulting buffer (zero-initialized).
-///
-/// \return Status message
+/// \param[in] pool memory pool to allocate memory from
+ARROW_EXPORT
+Result<std::shared_ptr<Buffer>> AllocateEmptyBitmap(int64_t length,
+                                                    MemoryPool* pool = NULLPTR);
+
+ARROW_DEPRECATED("Use Result-returning version")
 ARROW_EXPORT
 Status AllocateEmptyBitmap(MemoryPool* pool, int64_t length,
                            std::shared_ptr<Buffer>* out);
 
-/// \brief Allocate a zero-initialized bitmap buffer from the default memory pool
-///
-/// \param[in] length size in bits of bitmap to allocate
-/// \param[out] out the resulting buffer
-///
-/// \return Status message
+ARROW_DEPRECATED("Use Result-returning version")
 ARROW_EXPORT
 Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out);
 
@@ -558,9 +527,10 @@ Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out);
 ///
 /// \param[in] buffers to be concatenated
 /// \param[in] pool memory pool to allocate the new buffer from
-/// \param[out] out the concatenated buffer
-///
-/// \return Status
+ARROW_EXPORT
+Result<std::shared_ptr<Buffer>> ConcatenateBuffers(const BufferVector& buffers,
+                                                   MemoryPool* pool = NULLPTR);
+
 ARROW_EXPORT
 Status ConcatenateBuffers(const BufferVector& buffers, MemoryPool* pool,
                           std::shared_ptr<Buffer>* out);

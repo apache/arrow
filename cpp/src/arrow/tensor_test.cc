@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -140,8 +141,8 @@ TEST(TestTensor, ZeroDim) {
 
   using T = int64_t;
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(values * sizeof(T), &buffer));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer,
+                       AllocateBuffer(values * sizeof(T)));
 
   Tensor t0(int64(), buffer, shape);
 
@@ -156,8 +157,8 @@ TEST(TestTensor, BasicCtors) {
 
   using T = int64_t;
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(values * sizeof(T), &buffer));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer,
+                       AllocateBuffer(values * sizeof(T)));
 
   Tensor t1(int64(), buffer, shape);
   Tensor t2(int64(), buffer, shape, strides);
@@ -185,8 +186,8 @@ TEST(TestTensor, IsContiguous) {
 
   using T = int64_t;
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(values * sizeof(T), &buffer));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer,
+                       AllocateBuffer(values * sizeof(T)));
 
   std::vector<int64_t> c_strides = {48, 8};
   std::vector<int64_t> f_strides = {8, 32};
@@ -203,8 +204,7 @@ TEST(TestTensor, IsContiguous) {
 TEST(TestTensor, ZeroSizedTensor) {
   std::vector<int64_t> shape = {0};
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(0, &buffer));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer, AllocateBuffer(0));
 
   Tensor t(int64(), buffer, shape);
   ASSERT_EQ(t.strides().size(), 1);
@@ -213,8 +213,7 @@ TEST(TestTensor, ZeroSizedTensor) {
 TEST(TestTensor, CountNonZeroForZeroSizedTensor) {
   std::vector<int64_t> shape = {0};
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(0, &buffer));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer, AllocateBuffer(0));
 
   Tensor t(int64(), buffer, shape);
   AssertCountNonZero(t, 0);
@@ -349,11 +348,10 @@ TEST(TestTensor, EqualsInt64) {
   EXPECT_FALSE(tf3.Equals(tnc));
 
   // zero-size tensor
-  std::shared_ptr<Buffer> empty_buffer1, empty_buffer2;
-  ASSERT_OK(AllocateBuffer(0, &empty_buffer1));
-  ASSERT_OK(AllocateBuffer(0, &empty_buffer2));
-  Tensor empty1(int64(), empty_buffer1, {0});
-  Tensor empty2(int64(), empty_buffer2, {0});
+  ASSERT_OK_AND_ASSIGN(auto empty_buffer1, AllocateBuffer(0));
+  ASSERT_OK_AND_ASSIGN(auto empty_buffer2, AllocateBuffer(0));
+  Tensor empty1(int64(), std::move(empty_buffer1), {0});
+  Tensor empty2(int64(), std::move(empty_buffer2), {0});
   EXPECT_FALSE(empty1.Equals(tc1));
   EXPECT_TRUE(empty1.Equals(empty2));
 }

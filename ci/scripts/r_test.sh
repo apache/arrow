@@ -41,15 +41,19 @@ export TEST_R_WITH_ARROW=TRUE
 export _R_CHECK_TESTS_NLINES_=0
 export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE
 export _R_CHECK_LIMIT_CORES_=FALSE
-export VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
+# By default, aws-sdk tries to contact a non-existing local ip host
+# to retrieve metadata. Disable this so that S3FileSystem tests run faster.
+export AWS_EC2_METADATA_DISABLED=TRUE
 
 # Make sure we aren't writing to the home dir (CRAN _hates_ this but there is no official check)
 BEFORE=$(ls -alh ~/)
 
-# Conditionally run --as-cran because crossbow jobs aren't using _R_CHECK_COMPILATION_FLAGS_KNOWN_
-# (maybe an R version thing, needs 3.6.2?)
-# Also only --run-donttest if NOT_CRAN because Parquet example requires snappy (optional dependency)
-${R_BIN} -e "cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true'); rcmdcheck::rcmdcheck(build_args = '--no-build-vignettes', args = c('--no-manual', '--ignore-vignettes', ifelse(cran, '--as-cran', '--run-donttest')), error_on = 'warning', check_dir = 'check')"
+${R_BIN} -e "as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
+  if (as_cran) {
+    rcmdcheck::rcmdcheck(args = c('--as-cran', '--run-donttest'), error_on = 'warning', check_dir = 'check')
+  } else {
+    rcmdcheck::rcmdcheck(build_args = '--no-build-vignettes', args = c('--no-manual', '--ignore-vignettes', '--run-donttest'), error_on = 'warning', check_dir = 'check')
+  }"
 
 AFTER=$(ls -alh ~/)
 if [ "$BEFORE" != "$AFTER" ]; then

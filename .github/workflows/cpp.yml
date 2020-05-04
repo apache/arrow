@@ -21,15 +21,25 @@ on:
   push:
     paths:
       - '.github/workflows/cpp.yml'
-      - 'ci/**'
+      - 'ci/docker/**'
+      - 'ci/scripts/util_*'
+      - 'ci/scripts/msys_*'
+      - 'ci/scripts/cpp_*'
       - 'cpp/**'
+      - 'format/Flight.proto'
   pull_request:
     paths:
       - '.github/workflows/cpp.yml'
-      - 'ci/**'
+      - 'ci/docker/**'
+      - 'ci/scripts/util_*'
+      - 'ci/scripts/msys_*'
+      - 'ci/scripts/cpp_*'
       - 'cpp/**'
+      - 'format/Flight.proto'
 
 env:
+  DOCKER_BUILDKIT: 0
+  COMPOSE_DOCKER_CLI_BUILD: 1
   ARROW_ENABLE_TIMING_TESTS: OFF
 
 jobs:
@@ -37,6 +47,7 @@ jobs:
   conda:
     name: AMD64 Conda C++
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -45,6 +56,9 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
       - name: Docker Pull
         shell: bash
         run: docker-compose pull --ignore-pull-failures conda-cpp
@@ -69,6 +83,7 @@ jobs:
   ubuntu-sanitizer:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} C++ ASAN UBSAN
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -83,6 +98,9 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
       - name: Docker Pull
         shell: bash
         run: docker-compose pull --ignore-pull-failures ubuntu-cpp-sanitizer
@@ -104,6 +122,7 @@ jobs:
   macos:
     name: AMD64 MacOS 10.15 C++
     runs-on: macos-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
     env:
@@ -158,6 +177,7 @@ jobs:
   windows:
     name: AMD64 ${{ matrix.name }} C++
     runs-on: ${{ matrix.os }}
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -214,7 +234,9 @@ jobs:
         run: ci/scripts/util_checkout.sh
       - name: Build
         shell: bash
-        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+        run: |
+          export BOOST_ROOT=$BOOST_ROOT_1_72_0
+          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
         run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
@@ -222,6 +244,7 @@ jobs:
   windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} C++
     runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:

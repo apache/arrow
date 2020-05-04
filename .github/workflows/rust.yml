@@ -21,23 +21,34 @@ on:
   push:
     paths:
       - '.github/workflows/rust.yml'
-      - 'ci/**'
+      - 'ci/docker/*rust*'
+      - 'ci/scripts/rust_*.sh'
+      - 'ci/scripts/util_*.sh'
       - 'rust/**'
+      - 'format/Flight.proto'
   pull_request:
     paths:
       - '.github/workflows/rust.yml'
-      - 'ci/**'
+      - 'ci/docker/*rust*'
+      - 'ci/scripts/rust_*.sh'
+      - 'ci/scripts/util_*.sh'
       - 'rust/**'
+      - 'format/Flight.proto'
+
+env:
+  DOCKER_BUILDKIT: 0
+  COMPOSE_DOCKER_CLI_BUILD: 1
 
 jobs:
 
   debian:
     name: AMD64 Debian 10 Rust ${{ matrix.rust }}
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
-        rust: [nightly-2019-11-14]
+        rust: [nightly-2020-04-22]
     env:
       RUST: ${{ matrix.rust }}
     steps:
@@ -48,6 +59,9 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
       - name: Docker Pull
         run: docker-compose pull --ignore-pull-failures debian-rust
       - name: Docker Build
@@ -66,16 +80,18 @@ jobs:
   windows:
     name: AMD64 Windows 2019 Rust ${{ matrix.rust }}
     runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
-        rust: [nightly-2019-11-14]
+        rust: [nightly-2020-04-22]
     steps:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
             toolchain: ${{ matrix.rust }}
             override: true
+            components: rustfmt
       - name: Install Flatbuffers
         shell: bash
         run: choco install flatc
@@ -96,16 +112,18 @@ jobs:
   macos:
     name: AMD64 MacOS 10.15 Rust ${{ matrix.rust }}
     runs-on: macos-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
-        rust: [nightly-2019-11-14]
+        rust: [nightly-2020-04-22]
     steps:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
             toolchain: ${{ matrix.rust }}
             override: true
+            components: rustfmt
       - name: Install Flatbuffers
         shell: bash
         run: brew install flatbuffers

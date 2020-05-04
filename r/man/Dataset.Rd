@@ -7,9 +7,6 @@
 \alias{DatasetFactory}
 \alias{FileSystemDatasetFactory}
 \title{Multi-file datasets}
-\value{
-A \link{ScannerBuilder}
-}
 \description{
 Arrow Datasets allow you to query against data that has been split across
 multiple files. This sharding of data may indicate partitioning, which
@@ -18,26 +15,9 @@ can accelerate queries that only touch some partitions (files).
 A \code{Dataset} contains one or more \code{Fragments}, such as files, of potentially
 differing type and partitioning.
 
-The \code{Dataset$create()} method instantiates a \code{Dataset} which wraps child Datasets.
-It takes the following arguments:
-\itemize{
-\item \code{children}: a list of \link{Dataset} objects
-\item \code{schema}: a \link{Schema}
-}
+For \code{Dataset$create()}, see \code{\link[=open_dataset]{open_dataset()}}, which is an alias for it.
 
 \code{DatasetFactory} is used to provide finer control over the creation of \code{Dataset}s.
-
-Start a new scan of the data
-
-Return the Dataset's \code{Schema}
-
-Return the Dataset's type.
-
-Return the files contained in this \code{FileSystemDataset}
-
-Return the format of files in this \code{Dataset}
-
-Return the UnionDataset's child \code{Dataset}s
 }
 \section{Factory}{
 
@@ -50,8 +30,14 @@ file system.
 For the \code{DatasetFactory$create()} factory method, see \code{\link[=dataset_factory]{dataset_factory()}}, an
 alias for it. A \code{DatasetFactory} has:
 \itemize{
-\item \verb{$Inspect()}: Returns a common \link{Schema} for all data discovered by the factory.
-\item \verb{$Finish(schema)}: Returns a \code{Dataset}
+\item \verb{$Inspect(unify_schemas)}: If \code{unify_schemas} is \code{TRUE}, all fragments
+will be scanned and a unified \link{Schema} will be created from them; if \code{FALSE}
+(default), only the first fragment will be inspected for its schema. Use this
+fast path when you know and trust that all fragments have an identical schema.
+\item \verb{$Finish(schema, unify_schemas)}: Returns a \code{Dataset}. If \code{schema} is provided,
+it will be used for the \code{Dataset}; if omitted, a \code{Schema} will be created from
+inspecting the fragments (files) in the dataset, following \code{unify_schemas}
+as described above.
 }
 
 \code{FileSystemDatasetFactory$create()} is a lower-level factory method and
@@ -59,9 +45,8 @@ takes the following arguments:
 \itemize{
 \item \code{filesystem}: A \link{FileSystem}
 \item \code{selector}: A \link{FileSelector}
-\item \code{format}: A string identifier of the format of the files in \code{path}.
-Currently supported options are "parquet", "arrow", and "ipc" (an alias for
-the Arrow file format)
+\item \code{format}: A \link{FileFormat}
+\item \code{partitioning}: Either \code{Partitioning}, \code{PartitioningFactory}, or \code{NULL}
 }
 }
 
@@ -71,7 +56,10 @@ the Arrow file format)
 A \code{Dataset} has the following methods:
 \itemize{
 \item \verb{$NewScan()}: Returns a \link{ScannerBuilder} for building a query
-\item \verb{$schema}: Active binding, returns the \link{Schema} of the Dataset
+\item \verb{$schema}: Active binding that returns the \link{Schema} of the Dataset; you
+may also replace the dataset's schema by using \code{ds$schema <- new_schema}.
+This method currently supports only adding, removing, or reordering
+fields in the schema: you cannot alter or cast the field types.
 }
 
 \code{FileSystemDataset} has the following methods:

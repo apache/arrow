@@ -219,6 +219,15 @@ def test_jvm_array(root_allocator, pa_type, py_data, jvm_type):
     assert py_array.equals(jvm_array)
 
 
+def test_jvm_array_empty(root_allocator):
+    cls = "org.apache.arrow.vector.{}".format('IntVector')
+    jvm_vector = jpype.JClass(cls)("vector", root_allocator)
+    jvm_vector.allocateNew()
+    jvm_array = pa_jvm.array(jvm_vector)
+    assert len(jvm_array) == 0
+    assert jvm_array.type == pa.int32()
+
+
 # These test parameters mostly use an integer range as an input as this is
 # often the only type that is understood by both Python and Java
 # implementations of Arrow.

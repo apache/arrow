@@ -16,6 +16,7 @@
 // under the License.
 
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -52,7 +53,7 @@ std::ostream& operator<<(std::ostream& os, const ReadRange& range) {
 class TestBufferOutputStream : public ::testing::Test {
  public:
   void SetUp() {
-    ASSERT_OK(AllocateResizableBuffer(0, &buffer_));
+    ASSERT_OK_AND_ASSIGN(buffer_, AllocateResizableBuffer(0));
     stream_.reset(new BufferOutputStream(buffer_));
   }
 
@@ -115,8 +116,7 @@ TEST_F(TestBufferOutputStream, Reset) {
 }
 
 TEST(TestFixedSizeBufferWriter, Basics) {
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(1024, &buffer));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer, AllocateBuffer(1024));
 
   FixedSizeBufferWriter writer(buffer);
 
@@ -145,8 +145,7 @@ TEST(TestFixedSizeBufferWriter, Basics) {
 }
 
 TEST(TestFixedSizeBufferWriter, InvalidWrites) {
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(1024, &buffer));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer, AllocateBuffer(1024));
 
   FixedSizeBufferWriter writer(buffer);
   const uint8_t data[10]{};
@@ -242,8 +241,8 @@ TEST(TestBufferReader, RetainParentReference) {
   std::shared_ptr<Buffer> slice1;
   std::shared_ptr<Buffer> slice2;
   {
-    std::shared_ptr<Buffer> buffer;
-    ASSERT_OK(AllocateBuffer(nullptr, static_cast<int64_t>(data.size()), &buffer));
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer,
+                         AllocateBuffer(static_cast<int64_t>(data.size())));
     std::memcpy(buffer->mutable_data(), data.c_str(), data.size());
     BufferReader reader(buffer);
     ASSERT_OK_AND_ASSIGN(slice1, reader.Read(4));
@@ -323,10 +322,8 @@ TEST(TestMemcopy, ParallelMemcopy) {
     // randomize size so the memcopy alignment is tested
     int64_t total_size = 3 * THRESHOLD + std::rand() % 100;
 
-    std::shared_ptr<Buffer> buffer1, buffer2;
-
-    ASSERT_OK(AllocateBuffer(total_size, &buffer1));
-    ASSERT_OK(AllocateBuffer(total_size, &buffer2));
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer1, AllocateBuffer(total_size));
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer2, AllocateBuffer(total_size));
 
     random_bytes(total_size, 0, buffer2->mutable_data());
 
@@ -421,6 +418,14 @@ TEST(CoalesceReadRanges, Basics) {
   };
 
   check({}, {});
+  // Zero sized range that ends up in empty list
+  check({{110, 0}}, {});
+  // Combination on 1 zero sized range and 1 non-zero sized range
+  check({{110, 10}, {120, 0}}, {{110, 10}});
+  // 1 non-zero sized range
+  check({{110, 10}}, {{110, 10}});
+  // No holes + unordered ranges
+  check({{130, 10}, {110, 10}, {120, 10}}, {{110, 30}});
   // No holes
   check({{110, 10}, {120, 10}, {130, 10}}, {{110, 30}});
   // Small holes only
@@ -450,9 +455,10 @@ TEST(RangeReadCache, Basics) {
   std::string data = "abcdefghijklmnopqrstuvwxyz";
 
   auto file = std::make_shared<BufferReader>(Buffer(data));
-  const int64_t hole_size_limit = 2;
-  const int64_t range_size_limit = 10;
-  internal::ReadRangeCache cache(file, hole_size_limit, range_size_limit);
+  CacheOptions options = CacheOptions::Defaults();
+  options.hole_size_limit = 2;
+  options.range_size_limit = 10;
+  internal::ReadRangeCache cache(file, options);
 
   ASSERT_OK(cache.Cache({{1, 2}, {3, 2}, {8, 2}, {20, 2}, {25, 0}}));
   ASSERT_OK(cache.Cache({{10, 4}, {14, 0}, {15, 4}}));
@@ -480,6 +486,29 @@ TEST(RangeReadCache, Basics) {
   ASSERT_RAISES(Invalid, cache.Read({19, 3}));
   ASSERT_RAISES(Invalid, cache.Read({0, 3}));
   ASSERT_RAISES(Invalid, cache.Read({25, 2}));
+}
+
+TEST(CacheOptions, Basics) {
+  auto check = [](const CacheOptions actual, const double expected_hole_size_limit_MiB,
+                  const double expected_range_size_limit_MiB) -> void {
+    const CacheOptions expected = {
+        static_cast<int64_t>(std::round(expected_hole_size_limit_MiB * 1024 * 1024)),
+        static_cast<int64_t>(std::round(expected_range_size_limit_MiB * 1024 * 1024))};
+    ASSERT_EQ(actual, expected);
+  };
+
+  // Test: normal usage.
+  // TTFB = 5 ms, BW = 500 MiB/s,
+  // we expect hole_size_limit = 2.5 MiB, and range_size_limit = 22.5 MiB
+  check(CacheOptions::MakeFromNetworkMetrics(5, 500), 2.5, 22.5);
+  // Test: custom bandwidth utilization.
+  // TTFB = 5 ms, BW = 500 MiB/s, BW_utilization = 75%,
+  // we expect a change in range_size_limit = 7.5 MiB.
+  check(CacheOptions::MakeFromNetworkMetrics(5, 500, .75), 2.5, 7.5);
+  // Test: custom max_ideal_request_size, range_size_limit gets capped.
+  // TTFB = 5 ms, BW = 500 MiB/s, BW_utilization = 75%, max_ideal_request_size = 5 MiB,
+  // we expect the range_size_limit to be capped at 5 MiB.
+  check(CacheOptions::MakeFromNetworkMetrics(5, 500, .75, 5), 2.5, 5);
 }
 
 }  // namespace io

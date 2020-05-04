@@ -94,7 +94,7 @@ using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
 static Status MakeArrowDecimal(const LogicalType& logical_type,
                                std::shared_ptr<DataType>* out) {
   const auto& decimal = checked_cast<const DecimalLogicalType&>(logical_type);
-  return ::arrow::Decimal128Type::Make(decimal.precision(), decimal.scale(), out);
+  return ::arrow::Decimal128Type::Make(decimal.precision(), decimal.scale()).Value(out);
 }
 
 static Status MakeArrowInt(const LogicalType& logical_type,
@@ -653,8 +653,8 @@ Status ApplyOriginalMetadata(std::shared_ptr<Field> field, const Field& origin_f
       std::shared_ptr<::arrow::ExtensionType> ext_type =
           ::arrow::GetExtensionType(type_name);
       if (ext_type != nullptr) {
-        std::shared_ptr<DataType> deserialized;
-        RETURN_NOT_OK(ext_type->Deserialize(field->type(), type_data, &deserialized));
+        ARROW_ASSIGN_OR_RAISE(auto deserialized,
+                              ext_type->Deserialize(field->type(), type_data));
         field = field->WithType(deserialized);
       }
     }
@@ -798,14 +798,14 @@ Status TransferInt(RecordReader* reader, MemoryPool* pool,
   using ArrowCType = typename ArrowType::c_type;
   using ParquetCType = typename ParquetType::c_type;
   int64_t length = reader->values_written();
-  std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * sizeof(ArrowCType), &data));
+  ARROW_ASSIGN_OR_RAISE(auto data,
+                        ::arrow::AllocateBuffer(length * sizeof(ArrowCType), pool));
 
   auto values = reinterpret_cast<const ParquetCType*>(reader->values());
   auto out_ptr = reinterpret_cast<ArrowCType*>(data->mutable_data());
   std::copy(values, values + length, out_ptr);
   *out = std::make_shared<ArrayType<ArrowType>>(
-      type, length, data, reader->ReleaseIsValid(), reader->null_count());
+      type, length, std::move(data), reader->ReleaseIsValid(), reader->null_count());
   return Status::OK();
 }
 
@@ -820,10 +820,9 @@ std::shared_ptr<Array> TransferZeroCopy(RecordReader* reader,
 
 Status TransferBool(RecordReader* reader, MemoryPool* pool, Datum* out) {
   int64_t length = reader->values_written();
-  std::shared_ptr<Buffer> data;
 
   const int64_t buffer_size = BitUtil::BytesForBits(length);
-  RETURN_NOT_OK(::arrow::AllocateBuffer(pool, buffer_size, &data));
+  ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(buffer_size, pool));
 
   // Transfer boolean values to packed bitmap
   auto values = reinterpret_cast<const bool*>(reader->values());
@@ -836,7 +835,7 @@ Status TransferBool(RecordReader* reader, MemoryPool* pool, Datum* out) {
     }
   }
 
-  *out = std::make_shared<BooleanArray>(length, data, reader->ReleaseIsValid(),
+  *out = std::make_shared<BooleanArray>(length, std::move(data), reader->ReleaseIsValid(),
                                         reader->null_count());
   return Status::OK();
 }
@@ -845,8 +844,8 @@ Status TransferInt96(RecordReader* reader, MemoryPool* pool,
                      const std::shared_ptr<DataType>& type, Datum* out) {
   int64_t length = reader->values_written();
   auto values = reinterpret_cast<const Int96*>(reader->values());
-  std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * sizeof(int64_t), &data));
+  ARROW_ASSIGN_OR_RAISE(auto data,
+                        ::arrow::AllocateBuffer(length * sizeof(int64_t), pool));
   auto data_ptr = reinterpret_cast<int64_t*>(data->mutable_data());
   for (int64_t i = 0; i < length; i++) {
     if (values[i].value[2] == 0) {
@@ -857,8 +856,8 @@ Status TransferInt96(RecordReader* reader, MemoryPool* pool,
       *data_ptr++ = Int96GetNanoSeconds(values[i]);
     }
   }
-  *out = std::make_shared<TimestampArray>(type, length, data, reader->ReleaseIsValid(),
-                                          reader->null_count());
+  *out = std::make_shared<TimestampArray>(type, length, std::move(data),
+                                          reader->ReleaseIsValid(), reader->null_count());
   return Status::OK();
 }
 
@@ -867,8 +866,8 @@ Status TransferDate64(RecordReader* reader, MemoryPool* pool,
   int64_t length = reader->values_written();
   auto values = reinterpret_cast<const int32_t*>(reader->values());
 
-  std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * sizeof(int64_t), &data));
+  ARROW_ASSIGN_OR_RAISE(auto data,
+                        ::arrow::AllocateBuffer(length * sizeof(int64_t), pool));
   auto out_ptr = reinterpret_cast<int64_t*>(data->mutable_data());
 
   for (int64_t i = 0; i < length; i++) {
@@ -876,7 +875,7 @@ Status TransferDate64(RecordReader* reader, MemoryPool* pool,
   }
 
   *out = std::make_shared<::arrow::Date64Array>(
-      type, length, data, reader->ReleaseIsValid(), reader->null_count());
+      type, length, std::move(data), reader->ReleaseIsValid(), reader->null_count());
   return Status::OK();
 }
 
@@ -890,7 +889,7 @@ Status TransferDictionary(RecordReader* reader,
   DCHECK(dict_reader);
   *out = dict_reader->GetResult();
   if (!logical_value_type->Equals(*(*out)->type())) {
-    RETURN_NOT_OK((*out)->View(logical_value_type, out));
+    ARROW_ASSIGN_OR_RAISE(*out, (*out)->View(logical_value_type));
   }
   return Status::OK();
 }
@@ -907,7 +906,8 @@ Status TransferBinary(RecordReader* reader,
   auto chunks = binary_reader->GetBuilderChunks();
   for (const auto& chunk : chunks) {
     if (!chunk->type()->Equals(*logical_value_type)) {
-      return ChunkedArray(chunks).View(logical_value_type, out);
+      ARROW_ASSIGN_OR_RAISE(*out, ChunkedArray(chunks).View(logical_value_type));
+      return Status::OK();
     }
   }
   *out = std::make_shared<ChunkedArray>(chunks, logical_value_type);
@@ -1065,8 +1065,7 @@ Status ConvertToDecimal128<FLBAType>(const Array& array,
   }
 
   // allocate memory for the decimal array
-  std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * type_length, &data));
+  ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(length * type_length, pool));
 
   // raw bytes that we can write to
   uint8_t* out_ptr = data->mutable_data();
@@ -1086,7 +1085,7 @@ Status ConvertToDecimal128<FLBAType>(const Array& array,
   }
 
   *out = std::make_shared<::arrow::Decimal128Array>(
-      type, length, data, fixed_size_binary_array.null_bitmap(), null_count);
+      type, length, std::move(data), fixed_size_binary_array.null_bitmap(), null_count);
 
   return Status::OK();
 }
@@ -1101,8 +1100,7 @@ Status ConvertToDecimal128<ByteArrayType>(const Array& array,
   const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(*type);
   const int64_t type_length = decimal_type.byte_width();
 
-  std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * type_length, &data));
+  ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(length * type_length, pool));
 
   // raw bytes that we can write to
   uint8_t* out_ptr = data->mutable_data();
@@ -1133,7 +1131,7 @@ Status ConvertToDecimal128<ByteArrayType>(const Array& array,
   }
 
   *out = std::make_shared<::arrow::Decimal128Array>(
-      type, length, data, binary_array.null_bitmap(), null_count);
+      type, length, std::move(data), binary_array.null_bitmap(), null_count);
   return Status::OK();
 }
 
@@ -1161,8 +1159,7 @@ static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
   const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(*type);
   const int64_t type_length = decimal_type.byte_width();
 
-  std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * type_length, &data));
+  ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(length * type_length, pool));
   uint8_t* out_ptr = data->mutable_data();
 
   using ::arrow::BitUtil::FromLittleEndian;
@@ -1182,10 +1179,10 @@ static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
 
   if (reader->nullable_values()) {
     std::shared_ptr<ResizableBuffer> is_valid = reader->ReleaseIsValid();
-    *out = std::make_shared<::arrow::Decimal128Array>(type, length, data, is_valid,
-                                                      reader->null_count());
+    *out = std::make_shared<::arrow::Decimal128Array>(type, length, std::move(data),
+                                                      is_valid, reader->null_count());
   } else {
-    *out = std::make_shared<::arrow::Decimal128Array>(type, length, data);
+    *out = std::make_shared<::arrow::Decimal128Array>(type, length, std::move(data));
   }
   return Status::OK();
 }

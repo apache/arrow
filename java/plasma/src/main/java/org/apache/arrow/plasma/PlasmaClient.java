@@ -19,6 +19,7 @@ package org.apache.arrow.plasma;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.arrow.plasma.exceptions.DuplicateObjectException;
@@ -116,6 +117,11 @@ public class PlasmaClient implements ObjectStoreLink {
     byte[][] objectIds = new byte[][]{objectId};
     ByteBuffer[][] bufs = PlasmaClientJNI.get(conn, objectIds, timeoutMs);
     return bufs[0][isMetadata ? 1 : 0];
+  }
+
+  @Override
+  public List<byte[]> list() {
+    return Arrays.asList(PlasmaClientJNI.list(conn));
   }
 
   @Override

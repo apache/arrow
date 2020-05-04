@@ -49,8 +49,7 @@ std::shared_ptr<RecordBatch> ExampleRecordBatch() {
   int64_t length = 1000;
   std::vector<std::shared_ptr<Array>> columns;
   for (const auto& field : schema->fields()) {
-    std::shared_ptr<Array> array;
-    ABORT_NOT_OK(MakeArrayOfNull(field->type(), length, &array));
+    auto array = *MakeArrayOfNull(field->type(), length);
     columns.push_back(array);
   }
   return RecordBatch::Make(schema, length, columns);

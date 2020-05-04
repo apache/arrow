@@ -24,5 +24,6 @@ pub mod cast;
 pub mod comparison;
 pub mod filter;
 pub mod limit;
+pub mod sort;
 pub mod take;
 pub mod temporal;

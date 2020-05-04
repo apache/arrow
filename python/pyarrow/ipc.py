@@ -119,6 +119,17 @@ def _get_legacy_format_default(use_legacy_format):
         return use_legacy_format
 
 
+def new_stream(sink, schema, use_legacy_format=None):
+    return RecordBatchStreamWriter(sink, schema,
+                                   use_legacy_format=use_legacy_format)
+
+
+new_stream.__doc__ = """\
+Create an Arrow columnar IPC stream writer instance
+
+{}""".format(_ipc_writer_class_doc)
+
+
 def open_stream(source):
     """
     Create reader for Arrow streaming format.
@@ -127,15 +138,23 @@ def open_stream(source):
     ----------
     source : bytes/buffer-like, pyarrow.NativeFile, or file-like Python object
         Either an in-memory buffer, or a readable file object.
-    footer_offset : int, default None
-        If the file is embedded in some larger file, this is the byte offset to
-        the very end of the file data.
 
     Returns
     -------
     reader : RecordBatchStreamReader
     """
     return RecordBatchStreamReader(source)
+
+
+def new_file(sink, schema, use_legacy_format=None):
+    return RecordBatchFileWriter(sink, schema,
+                                 use_legacy_format=use_legacy_format)
+
+
+new_file.__doc__ = """\
+Create an Arrow columnar IPC file writer instance
+
+{}""".format(_ipc_writer_class_doc)
 
 
 def open_file(source, footer_offset=None):

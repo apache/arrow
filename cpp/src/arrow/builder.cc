@@ -75,9 +75,9 @@ struct DictionaryBuilderCase {
   std::unique_ptr<ArrayBuilder>* out;
 };
 
-#define BUILDER_CASE(ENUM, BuilderType)      \
-  case Type::ENUM:                           \
-    out->reset(new BuilderType(type, pool)); \
+#define BUILDER_CASE(TYPE_CLASS)                     \
+  case TYPE_CLASS##Type::type_id:                    \
+    out->reset(new TYPE_CLASS##Builder(type, pool)); \
     return Status::OK();
 
 Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
@@ -87,48 +87,37 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       out->reset(new NullBuilder(pool));
       return Status::OK();
     }
-      BUILDER_CASE(UINT8, UInt8Builder);
-      BUILDER_CASE(INT8, Int8Builder);
-      BUILDER_CASE(UINT16, UInt16Builder);
-      BUILDER_CASE(INT16, Int16Builder);
-      BUILDER_CASE(UINT32, UInt32Builder);
-      BUILDER_CASE(INT32, Int32Builder);
-      BUILDER_CASE(UINT64, UInt64Builder);
-      BUILDER_CASE(INT64, Int64Builder);
-      BUILDER_CASE(DATE32, Date32Builder);
-      BUILDER_CASE(DATE64, Date64Builder);
-      BUILDER_CASE(DURATION, DurationBuilder);
-      BUILDER_CASE(TIME32, Time32Builder);
-      BUILDER_CASE(TIME64, Time64Builder);
-      BUILDER_CASE(TIMESTAMP, TimestampBuilder);
-      BUILDER_CASE(BOOL, BooleanBuilder);
-      BUILDER_CASE(HALF_FLOAT, HalfFloatBuilder);
-      BUILDER_CASE(FLOAT, FloatBuilder);
-      BUILDER_CASE(DOUBLE, DoubleBuilder);
-      BUILDER_CASE(STRING, StringBuilder);
-      BUILDER_CASE(BINARY, BinaryBuilder);
-      BUILDER_CASE(LARGE_STRING, LargeStringBuilder);
-      BUILDER_CASE(LARGE_BINARY, LargeBinaryBuilder);
-      BUILDER_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryBuilder);
-      BUILDER_CASE(DECIMAL, Decimal128Builder);
+      BUILDER_CASE(UInt8);
+      BUILDER_CASE(Int8);
+      BUILDER_CASE(UInt16);
+      BUILDER_CASE(Int16);
+      BUILDER_CASE(UInt32);
+      BUILDER_CASE(Int32);
+      BUILDER_CASE(UInt64);
+      BUILDER_CASE(Int64);
+      BUILDER_CASE(Date32);
+      BUILDER_CASE(Date64);
+      BUILDER_CASE(Duration);
+      BUILDER_CASE(Time32);
+      BUILDER_CASE(Time64);
+      BUILDER_CASE(Timestamp);
+      BUILDER_CASE(MonthInterval);
+      BUILDER_CASE(DayTimeInterval);
+      BUILDER_CASE(Boolean);
+      BUILDER_CASE(HalfFloat);
+      BUILDER_CASE(Float);
+      BUILDER_CASE(Double);
+      BUILDER_CASE(String);
+      BUILDER_CASE(Binary);
+      BUILDER_CASE(LargeString);
+      BUILDER_CASE(LargeBinary);
+      BUILDER_CASE(FixedSizeBinary);
+      BUILDER_CASE(Decimal128);
 
     case Type::DICTIONARY: {
       const auto& dict_type = static_cast<const DictionaryType&>(*type);
       DictionaryBuilderCase visitor = {pool, dict_type.value_type(), nullptr, out};
       return visitor.Make();
-    }
-
-    case Type::INTERVAL: {
-      const auto& interval_type = internal::checked_cast<const IntervalType&>(*type);
-      if (interval_type.interval_type() == IntervalType::MONTHS) {
-        out->reset(new MonthIntervalBuilder(type, pool));
-        return Status::OK();
-      }
-      if (interval_type.interval_type() == IntervalType::DAY_TIME) {
-        out->reset(new DayTimeIntervalBuilder(pool));
-        return Status::OK();
-      }
-      break;
     }
 
     case Type::LIST: {

@@ -44,7 +44,13 @@ class ApacheArrowArchiveKeyringPackageTask < PackageTask
 
     if deb_archive_name != @archive_name
       file deb_archive_name => @archive_name do
-        cp(@archive_name, deb_archive_name)
+        if @archive_base_name == deb_archive_base_name
+          cp(@archive_name, deb_archive_name)
+        else
+          sh("tar", "xf", @archive_name)
+          mv(@archive_base_name, deb_archive_base_name)
+          sh("tar", "czf", deb_archive_name, deb_archive_base_name)
+        end
       end
     end
   end

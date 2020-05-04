@@ -23,8 +23,8 @@ Tabular Data
 ============
 
 While arrays and chunked arrays represent a one-dimensional sequence of
-homogenous values, data often comes in the form of two-dimensional sets of
-heterogenous data (such as database tables, CSV files...).  Arrow provides
+homogeneous values, data often comes in the form of two-dimensional sets of
+heterogeneous data (such as database tables, CSV files...).  Arrow provides
 several abstractions to handle such data conveniently and efficiently.
 
 Fields

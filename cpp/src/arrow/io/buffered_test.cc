@@ -454,13 +454,12 @@ class TestBufferedInputStreamBound : public ::testing::Test {
   void CreateExample(bool bounded = true) {
     // Create a buffer larger than source size, to check that the
     // stream end is respected
-    std::shared_ptr<ResizableBuffer> buf;
-    ASSERT_OK(AllocateResizableBuffer(default_memory_pool(), source_size_ + 10, &buf));
+    ASSERT_OK_AND_ASSIGN(auto buf, AllocateResizableBuffer(source_size_ + 10));
     ASSERT_LT(source_size_, buf->size());
     for (int i = 0; i < source_size_; i++) {
       buf->mutable_data()[i] = static_cast<uint8_t>(i);
     }
-    source_ = std::make_shared<BufferReader>(buf);
+    source_ = std::make_shared<BufferReader>(std::move(buf));
     ASSERT_OK(source_->Advance(stream_offset_));
     ASSERT_OK_AND_ASSIGN(
         stream_, BufferedInputStream::Create(chunk_size_, default_memory_pool(), source_,

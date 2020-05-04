@@ -31,7 +31,7 @@ namespace compute {
 
 /// \brief Match examines each slot in the haystack against a needles array.
 /// If the value is not found in needles, null will be output.
-/// If found, the index of occurence within needles (ignoring duplicates)
+/// If found, the index of occurrence within needles (ignoring duplicates)
 /// will be output.
 ///
 /// For example given haystack = [99, 42, 3, null] and

@@ -39,11 +39,11 @@ namespace gandiva {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, int64, date64, date64),       \
       BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, int64, timestamp, timestamp)
 
-#define DATE_DIFF_FNS(name, ALIASES)                                             \
-  BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, int32, date64, date64),        \
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, int32, timestamp, date64), \
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, int64, date64, date64),    \
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, int64, timestamp, date64)
+#define DATE_DIFF_FNS(name, ALIASES)                                                \
+  BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, date64, int32, date64),           \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, int32, timestamp), \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, date64, int64, date64),       \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, int64, timestamp)
 
 std::vector<NativeFunction> GetDateTimeArithmeticFunctionRegistry() {
   static std::vector<NativeFunction> datetime_fn_registry_ = {

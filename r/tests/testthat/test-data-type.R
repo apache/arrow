@@ -30,7 +30,7 @@ test_that("null type works as expected",{
 
 test_that("boolean type work as expected",{
   x <- boolean()
-  expect_equal(x$id, 1L)
+  expect_equal(x$id, Type$BOOL)
   expect_equal(x$name, "bool")
   expect_equal(x$ToString(), "bool")
   expect_true(x == x)
@@ -42,7 +42,7 @@ test_that("boolean type work as expected",{
 
 test_that("int types works as expected",{
   x <- uint8()
-  expect_equal(x$id, 2L)
+  expect_equal(x$id, Type$UINT8)
   expect_equal(x$name, "uint8")
   expect_equal(x$ToString(), "uint8")
   expect_true(x == x)
@@ -52,7 +52,7 @@ test_that("int types works as expected",{
   expect_equal(x$bit_width, 8L)
 
   x <- int8()
-  expect_equal(x$id, 3L)
+  expect_equal(x$id, Type$INT8)
   expect_equal(x$name, "int8")
   expect_equal(x$ToString(), "int8")
   expect_true(x == x)
@@ -62,7 +62,7 @@ test_that("int types works as expected",{
   expect_equal(x$bit_width, 8L)
 
   x <- uint16()
-  expect_equal(x$id, 4L)
+  expect_equal(x$id, Type$UINT16)
   expect_equal(x$name, "uint16")
   expect_equal(x$ToString(), "uint16")
   expect_true(x == x)
@@ -72,7 +72,7 @@ test_that("int types works as expected",{
   expect_equal(x$bit_width, 16L)
 
   x <- int16()
-  expect_equal(x$id, 5L)
+  expect_equal(x$id, Type$INT16)
   expect_equal(x$name, "int16")
   expect_equal(x$ToString(), "int16")
   expect_true(x == x)
@@ -82,7 +82,7 @@ test_that("int types works as expected",{
   expect_equal(x$bit_width, 16L)
 
   x <- uint32()
-  expect_equal(x$id, 6L)
+  expect_equal(x$id, Type$UINT32)
   expect_equal(x$name, "uint32")
   expect_equal(x$ToString(), "uint32")
   expect_true(x == x)
@@ -92,7 +92,7 @@ test_that("int types works as expected",{
   expect_equal(x$bit_width, 32L)
 
   x <- int32()
-  expect_equal(x$id, 7L)
+  expect_equal(x$id, Type$INT32)
   expect_equal(x$name, "int32")
   expect_equal(x$ToString(), "int32")
   expect_true(x == x)
@@ -102,7 +102,7 @@ test_that("int types works as expected",{
   expect_equal(x$bit_width, 32L)
 
   x <- uint64()
-  expect_equal(x$id, 8L)
+  expect_equal(x$id, Type$UINT64)
   expect_equal(x$name, "uint64")
   expect_equal(x$ToString(), "uint64")
   expect_true(x == x)
@@ -112,7 +112,7 @@ test_that("int types works as expected",{
   expect_equal(x$bit_width, 64L)
 
   x <- int64()
-  expect_equal(x$id, 9L)
+  expect_equal(x$id, Type$INT64)
   expect_equal(x$name, "int64")
   expect_equal(x$ToString(), "int64")
   expect_true(x == x)
@@ -124,7 +124,7 @@ test_that("int types works as expected",{
 
 test_that("float types work as expected",{
   x <- float16()
-  expect_equal(x$id, 10L)
+  expect_equal(x$id, Type$HALF_FLOAT)
   expect_equal(x$name, "halffloat")
   expect_equal(x$ToString(), "halffloat")
   expect_true(x == x)
@@ -134,7 +134,7 @@ test_that("float types work as expected",{
   expect_equal(x$bit_width, 16L)
 
   x <- float32()
-  expect_equal(x$id, 11L)
+  expect_equal(x$id, Type$FLOAT)
   expect_equal(x$name, "float")
   expect_equal(x$ToString(), "float")
   expect_true(x == x)
@@ -144,7 +144,7 @@ test_that("float types work as expected",{
   expect_equal(x$bit_width, 32L)
 
   x <- float64()
-  expect_equal(x$id, 12L)
+  expect_equal(x$id, Type$DOUBLE)
   expect_equal(x$name, "double")
   expect_equal(x$ToString(), "double")
   expect_true(x == x)
@@ -156,7 +156,7 @@ test_that("float types work as expected",{
 
 test_that("utf8 type works as expected",{
   x <- utf8()
-  expect_equal(x$id, 13L)
+  expect_equal(x$id, Type$STRING)
   expect_equal(x$name, "utf8")
   expect_equal(x$ToString(), "string")
   expect_true(x == x)
@@ -167,7 +167,7 @@ test_that("utf8 type works as expected",{
 
 test_that("date types work as expected", {
   x <- date32()
-  expect_equal(x$id, 16L)
+  expect_equal(x$id, Type$DATE32)
   expect_equal(x$name, "date32")
   expect_equal(x$ToString(), "date32[day]")
   expect_true(x == x)
@@ -177,7 +177,7 @@ test_that("date types work as expected", {
   expect_equal(x$unit(), unclass(DateUnit$DAY))
 
   x <- date64()
-  expect_equal(x$id, 17L)
+  expect_equal(x$id, Type$DATE64)
   expect_equal(x$name, "date64")
   expect_equal(x$ToString(), "date64[ms]")
   expect_true(x == x)
@@ -189,7 +189,7 @@ test_that("date types work as expected", {
 
 test_that("timestamp type works as expected", {
   x <- timestamp(TimeUnit$SECOND)
-  expect_equal(x$id, 18L)
+  expect_equal(x$id, Type$TIMESTAMP)
   expect_equal(x$name, "timestamp")
   expect_equal(x$ToString(), "timestamp[s]")
   expect_true(x == x)
@@ -201,7 +201,7 @@ test_that("timestamp type works as expected", {
   expect_equal(x$unit(), unclass(TimeUnit$SECOND))
 
   x <- timestamp(TimeUnit$MILLI)
-  expect_equal(x$id, 18L)
+  expect_equal(x$id, Type$TIMESTAMP)
   expect_equal(x$name, "timestamp")
   expect_equal(x$ToString(), "timestamp[ms]")
   expect_true(x == x)
@@ -213,7 +213,7 @@ test_that("timestamp type works as expected", {
   expect_equal(x$unit(), unclass(TimeUnit$MILLI))
 
   x <- timestamp(TimeUnit$MICRO)
-  expect_equal(x$id, 18L)
+  expect_equal(x$id, Type$TIMESTAMP)
   expect_equal(x$name, "timestamp")
   expect_equal(x$ToString(), "timestamp[us]")
   expect_true(x == x)
@@ -225,7 +225,7 @@ test_that("timestamp type works as expected", {
   expect_equal(x$unit(), unclass(TimeUnit$MICRO))
 
   x <- timestamp(TimeUnit$NANO)
-  expect_equal(x$id, 18L)
+  expect_equal(x$id, Type$TIMESTAMP)
   expect_equal(x$name, "timestamp")
   expect_equal(x$ToString(), "timestamp[ns]")
   expect_true(x == x)
@@ -243,7 +243,7 @@ test_that("timestamp with timezone", {
 
 test_that("time32 types work as expected", {
   x <- time32(TimeUnit$SECOND)
-  expect_equal(x$id, 19L)
+  expect_equal(x$id, Type$TIME32)
   expect_equal(x$name, "time32")
   expect_equal(x$ToString(), "time32[s]")
   expect_true(x == x)
@@ -254,7 +254,7 @@ test_that("time32 types work as expected", {
   expect_equal(x$unit(), unclass(TimeUnit$SECOND))
 
   x <- time32(TimeUnit$MILLI)
-  expect_equal(x$id, 19L)
+  expect_equal(x$id, Type$TIME32)
   expect_equal(x$name, "time32")
   expect_equal(x$ToString(), "time32[ms]")
   expect_true(x == x)
@@ -267,7 +267,7 @@ test_that("time32 types work as expected", {
 
 test_that("time64 types work as expected", {
   x <- time64(TimeUnit$MICRO)
-  expect_equal(x$id, 20L)
+  expect_equal(x$id, Type$TIME64)
   expect_equal(x$name, "time64")
   expect_equal(x$ToString(), "time64[us]")
   expect_true(x == x)
@@ -278,7 +278,7 @@ test_that("time64 types work as expected", {
   expect_equal(x$unit(), unclass(TimeUnit$MICRO))
 
   x <- time64(TimeUnit$NANO)
-  expect_equal(x$id, 20L)
+  expect_equal(x$id, Type$TIME64)
   expect_equal(x$name, "time64")
   expect_equal(x$ToString(), "time64[ns]")
   expect_true(x == x)
@@ -314,18 +314,17 @@ test_that("timestamp type input validation", {
   )
   expect_error(
     timestamp(timezone = 1231231),
-    "timezone is not a character vector"
+    "timezone is not a string"
   )
   expect_error(
     timestamp(timezone = c("not", "a", "timezone")),
-    "length(timezone) not equal to 1",
-    fixed = TRUE
+    "timezone is not a string"
   )
 })
 
 test_that("list type works as expected", {
   x <- list_of(int32())
-  expect_equal(x$id, 23L)
+  expect_equal(x$id, Type$LIST)
   expect_equal(x$name, "list")
   expect_equal(x$ToString(), "list<item: int32>")
   expect_true(x == x)
@@ -341,7 +340,7 @@ test_that("list type works as expected", {
 
 test_that("struct type works as expected", {
   x <- struct(x = int32(), y = boolean())
-  expect_equal(x$id, 24L)
+  expect_equal(x$id, Type$STRUCT)
   expect_equal(x$name, "struct")
   expect_equal(x$ToString(), "struct<x: int32, y: bool>")
   expect_true(x == x)

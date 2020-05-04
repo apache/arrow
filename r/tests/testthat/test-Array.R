@@ -413,6 +413,11 @@ test_that("Array$create() can handle data frame with custom struct type (not inf
   expect_error(Array$create(df, type = type), regexp = "Expecting a character vector")
 })
 
+test_that("Array$create() supports tibble with no columns (ARROW-8354)", {
+  df <- tibble::tibble()
+  expect_equal(Array$create(df)$as_vector(), df)
+})
+
 test_that("Array$create() handles vector -> list arrays (ARROW-7662)", {
   # Should be able to create an empty list with a type hint.
   expect_is(Array$create(list(), list_of(bool())), "ListArray")

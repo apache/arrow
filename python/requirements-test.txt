@@ -1,5 +1,4 @@
 cffi
-cython
 hypothesis==5.0; python_version <= "3.5.2"
 hypothesis; python_version > "3.5.2"
 pandas==0.24; python_version <= "3.5.2"

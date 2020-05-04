@@ -1446,22 +1446,19 @@ TEST_F(TestCast, ListToList) {
 
   std::shared_ptr<Array> int32_plain_array =
       TestBase::MakeRandomArray<typename TypeTraits<Int32Type>::ArrayType>(10, 2);
-  std::shared_ptr<Array> int32_list_array;
-  ASSERT_OK(
-      ListArray::FromArrays(*offsets, *int32_plain_array, pool_, &int32_list_array));
+  ASSERT_OK_AND_ASSIGN(auto int32_list_array,
+                       ListArray::FromArrays(*offsets, *int32_plain_array, pool_));
 
   std::shared_ptr<Array> int64_plain_array;
   ASSERT_OK(Cast(&this->ctx_, *int32_plain_array, int64(), options, &int64_plain_array));
-  std::shared_ptr<Array> int64_list_array;
-  ASSERT_OK(
-      ListArray::FromArrays(*offsets, *int64_plain_array, pool_, &int64_list_array));
+  ASSERT_OK_AND_ASSIGN(auto int64_list_array,
+                       ListArray::FromArrays(*offsets, *int64_plain_array, pool_));
 
   std::shared_ptr<Array> float64_plain_array;
   ASSERT_OK(
       Cast(&this->ctx_, *int32_plain_array, float64(), options, &float64_plain_array));
-  std::shared_ptr<Array> float64_list_array;
-  ASSERT_OK(
-      ListArray::FromArrays(*offsets, *float64_plain_array, pool_, &float64_list_array));
+  ASSERT_OK_AND_ASSIGN(auto float64_list_array,
+                       ListArray::FromArrays(*offsets, *float64_plain_array, pool_));
 
   CheckPass(*int32_list_array, *int64_list_array, int64_list_array->type(), options);
   CheckPass(*int32_list_array, *float64_list_array, float64_list_array->type(), options);
@@ -1484,16 +1481,14 @@ TEST_F(TestCast, LargeListToLargeList) {
 
   std::shared_ptr<Array> int32_plain_array =
       TestBase::MakeRandomArray<typename TypeTraits<Int32Type>::ArrayType>(10, 2);
-  std::shared_ptr<Array> int32_list_array;
-  ASSERT_OK(
-      LargeListArray::FromArrays(*offsets, *int32_plain_array, pool_, &int32_list_array));
+  ASSERT_OK_AND_ASSIGN(auto int32_list_array,
+                       LargeListArray::FromArrays(*offsets, *int32_plain_array, pool_));
 
   std::shared_ptr<Array> float64_plain_array;
   ASSERT_OK(
       Cast(&this->ctx_, *int32_plain_array, float64(), options, &float64_plain_array));
-  std::shared_ptr<Array> float64_list_array;
-  ASSERT_OK(LargeListArray::FromArrays(*offsets, *float64_plain_array, pool_,
-                                       &float64_list_array));
+  ASSERT_OK_AND_ASSIGN(auto float64_list_array,
+                       LargeListArray::FromArrays(*offsets, *float64_plain_array, pool_));
 
   CheckPass(*int32_list_array, *float64_list_array, float64_list_array->type(), options);
 

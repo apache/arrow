@@ -33,7 +33,7 @@ pushd ${source_dir}
 ${mvn} test
 
 if [ "${ARROW_GANDIVA_JAVA}" = "ON" ]; then
-  ${mvn} test -Parrow-jni -pl gandiva -Darrow.cpp.build.dir=${cpp_build_dir}
+  ${mvn} test -Parrow-jni -pl adapter/orc,gandiva -Darrow.cpp.build.dir=${cpp_build_dir}
 fi
 
 if [ "${ARROW_PLASMA}" = "ON" ]; then

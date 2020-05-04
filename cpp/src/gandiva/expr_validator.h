@@ -20,7 +20,6 @@
 #include <string>
 #include <unordered_map>
 
-#include <boost/functional/hash.hpp>
 #include "arrow/status.h"
 
 #include "gandiva/arrow.h"
@@ -71,7 +70,7 @@ class ExprValidator : public NodeVisitor {
 
   SchemaPtr schema_;
 
-  using FieldMap = std::unordered_map<std::string, FieldPtr, boost::hash<std::string>>;
+  using FieldMap = std::unordered_map<std::string, FieldPtr>;
   FieldMap field_map_;
 };
 

@@ -29,11 +29,18 @@ if(!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))){
   } else {
     # Download static arrow from rwinlib
     if (getRversion() < "3.3.0") setInternet2()
+    quietly <- !identical(tolower(Sys.getenv("ARROW_R_DEV")), "true")
     get_file <- function(template, version) {
-      try(download.file(sprintf(template, version), "lib.zip", quiet = TRUE), silent = TRUE)
+      try(
+        suppressWarnings(
+          download.file(sprintf(template, version), "lib.zip", quiet = quietly)
+        ),
+        silent = quietly
+      )
     }
     # URL templates
     # TODO: don't hard-code RTools 3.5? Can we detect which toolchain we have?
+    # ifelse(nzchar(Sys.getenv("RTOOLS40_HOME")), "40", "35")
     nightly <- "https://dl.bintray.com/ursalabs/arrow-r/libarrow/bin/windows-35/arrow-%s.zip"
     rwinlib <- "https://github.com/rwinlib/arrow/archive/v%s.zip"
     # First look for a nightly

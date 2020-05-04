@@ -980,6 +980,19 @@ TEST(TestDictionary, Validate) {
   // Only checking index type for now
   ASSERT_OK(arr->ValidateFull());
 
+  // ARROW-7008: Invalid dict was not being validated
+  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, nullptr, nullptr};
+  auto invalid_data = std::make_shared<ArrayData>(utf8(), 0, buffers);
+
+  indices = ArrayFromJSON(int16(), "[]");
+  arr = std::make_shared<DictionaryArray>(dict_type, indices, MakeArray(invalid_data));
+  ASSERT_RAISES(Invalid, arr->ValidateFull());
+
+  // Make the data buffer non-null
+  ASSERT_OK_AND_ASSIGN(buffers[2], AllocateBuffer(0));
+  arr = std::make_shared<DictionaryArray>(dict_type, indices, MakeArray(invalid_data));
+  ASSERT_RAISES(Invalid, arr->ValidateFull());
+
   ASSERT_DEATH(
       {
         std::shared_ptr<Array> null_dict_arr =
@@ -1004,11 +1017,10 @@ TEST(TestDictionary, FromArray) {
   // Index out of bounds
   auto indices4 = ArrayFromJSON(int16(), "[1, 2, null, 3, 2, 0]");
 
-  std::shared_ptr<Array> arr1, arr2, arr3, arr4;
-  ASSERT_OK(DictionaryArray::FromArrays(dict_type, indices1, dict, &arr1));
-  ASSERT_RAISES(Invalid, DictionaryArray::FromArrays(dict_type, indices2, dict, &arr2));
-  ASSERT_OK(DictionaryArray::FromArrays(dict_type, indices3, dict, &arr3));
-  ASSERT_RAISES(Invalid, DictionaryArray::FromArrays(dict_type, indices4, dict, &arr4));
+  ASSERT_OK_AND_ASSIGN(auto arr1, DictionaryArray::FromArrays(dict_type, indices1, dict));
+  ASSERT_RAISES(Invalid, DictionaryArray::FromArrays(dict_type, indices2, dict));
+  ASSERT_OK_AND_ASSIGN(auto arr3, DictionaryArray::FromArrays(dict_type, indices3, dict));
+  ASSERT_RAISES(Invalid, DictionaryArray::FromArrays(dict_type, indices4, dict));
 }
 
 static void CheckTranspose(const std::shared_ptr<Array>& input,
@@ -1016,26 +1028,24 @@ static void CheckTranspose(const std::shared_ptr<Array>& input,
                            const std::shared_ptr<DataType>& out_dict_type,
                            const std::shared_ptr<Array>& out_dict,
                            const std::shared_ptr<Array>& expected_indices) {
-  std::shared_ptr<Array> out, expected;
-  ASSERT_OK(internal::checked_cast<const DictionaryArray&>(*input).Transpose(
-      default_memory_pool(), out_dict_type, out_dict, transpose_map, &out));
-  ASSERT_OK(out->ValidateFull());
+  ASSERT_OK_AND_ASSIGN(auto transposed,
+                       internal::checked_cast<const DictionaryArray&>(*input).Transpose(
+                           out_dict_type, out_dict, transpose_map));
+  ASSERT_OK(transposed->ValidateFull());
 
-  ASSERT_OK(
-      DictionaryArray::FromArrays(out_dict_type, expected_indices, out_dict, &expected));
-  AssertArraysEqual(*out, *expected);
+  ASSERT_OK_AND_ASSIGN(auto expected, DictionaryArray::FromArrays(
+                                          out_dict_type, expected_indices, out_dict));
+  AssertArraysEqual(*transposed, *expected);
 }
 
 TEST(TestDictionary, TransposeBasic) {
-  std::shared_ptr<Array> arr, sliced;
-
   auto dict = ArrayFromJSON(utf8(), "[\"A\", \"B\", \"C\"]");
   auto dict_type = dictionary(int16(), utf8());
   auto indices = ArrayFromJSON(int16(), "[1, 2, 0, 0]");
   // ["B", "C", "A", "A"]
-  ASSERT_OK(DictionaryArray::FromArrays(dict_type, indices, dict, &arr));
+  ASSERT_OK_AND_ASSIGN(auto arr, DictionaryArray::FromArrays(dict_type, indices, dict));
   // ["C", "A"]
-  sliced = arr->Slice(1, 2);
+  auto sliced = arr->Slice(1, 2);
 
   // Transpose to same index type
   {
@@ -1068,15 +1078,14 @@ TEST(TestDictionary, TransposeBasic) {
 
 TEST(TestDictionary, TransposeTrivial) {
   // Test a trivial transposition, possibly optimized away
-  std::shared_ptr<Array> arr, sliced;
 
   auto dict = ArrayFromJSON(utf8(), "[\"A\", \"B\", \"C\"]");
   auto dict_type = dictionary(int16(), utf8());
   auto indices = ArrayFromJSON(int16(), "[1, 2, 0, 0]");
   // ["B", "C", "A", "A"]
-  ASSERT_OK(DictionaryArray::FromArrays(dict_type, indices, dict, &arr));
+  ASSERT_OK_AND_ASSIGN(auto arr, DictionaryArray::FromArrays(dict_type, indices, dict));
   // ["C", "A"]
-  sliced = arr->Slice(1, 2);
+  auto sliced = arr->Slice(1, 2);
 
   std::vector<int32_t> transpose_map = {0, 1, 2};
 
@@ -1108,15 +1117,13 @@ TEST(TestDictionary, TransposeTrivial) {
 }
 
 TEST(TestDictionary, TransposeNulls) {
-  std::shared_ptr<Array> arr, sliced;
-
   auto dict = ArrayFromJSON(utf8(), "[\"A\", \"B\", \"C\"]");
   auto dict_type = dictionary(int16(), utf8());
   auto indices = ArrayFromJSON(int16(), "[1, 2, null, 0]");
   // ["B", "C", null, "A"]
-  ASSERT_OK(DictionaryArray::FromArrays(dict_type, indices, dict, &arr));
+  ASSERT_OK_AND_ASSIGN(auto arr, DictionaryArray::FromArrays(dict_type, indices, dict));
   // ["C", null]
-  sliced = arr->Slice(1, 2);
+  auto sliced = arr->Slice(1, 2);
 
   auto out_dict = ArrayFromJSON(utf8(), "[\"Z\", \"A\", \"C\", \"B\"]");
   auto out_dict_type = dictionary(int16(), utf8());
@@ -1182,9 +1189,11 @@ TEST(TestDictionary, CanCompareIndices) {
   auto make_dict = [](std::shared_ptr<DataType> index_type,
                       std::shared_ptr<DataType> value_type, std::string dictionary_json) {
     std::shared_ptr<Array> out;
-    ARROW_EXPECT_OK(DictionaryArray::FromArrays(
-        dictionary(index_type, value_type), ArrayFromJSON(index_type, "[]"),
-        ArrayFromJSON(value_type, dictionary_json), &out));
+    ARROW_EXPECT_OK(
+        DictionaryArray::FromArrays(dictionary(index_type, value_type),
+                                    ArrayFromJSON(index_type, "[]"),
+                                    ArrayFromJSON(value_type, dictionary_json))
+            .Value(&out));
     return checked_pointer_cast<DictionaryArray>(out);
   };
 

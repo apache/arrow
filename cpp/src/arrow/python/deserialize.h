@@ -42,9 +42,13 @@ struct ARROW_PYTHON_EXPORT SparseTensorCounts {
   int coo;
   int csr;
   int csc;
+  int csf;
+  int ndim_csf;
 
-  int num_total_tensors() const { return coo + csr + csc; }
-  int num_total_buffers() const { return coo * 3 + csr * 4 + csc * 4; }
+  int num_total_tensors() const { return coo + csr + csc + csf; }
+  int num_total_buffers() const {
+    return coo * 3 + csr * 4 + csc * 4 + 2 * ndim_csf + csf;
+  }
 };
 
 /// \brief Read serialized Python sequence from file interface using Arrow IPC
@@ -63,7 +67,7 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out);
 /// \param[in] num_buffers number of buffers in the object
 /// \param[in] data a list containing pyarrow.Buffer instances. It must be 1 +
 /// num_tensors * 2 + num_coo_tensors * 3 + num_csr_tensors * 4 + num_csc_tensors * 4 +
-/// num_buffers in length
+/// num_csf_tensors * (2 * ndim_csf + 3) + num_buffers in length
 /// \param[out] out the reconstructed object
 /// \return Status
 ARROW_PYTHON_EXPORT

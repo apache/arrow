@@ -68,18 +68,18 @@ lazy_static! {
 fn infer_field_schema(string: &str) -> DataType {
     // when quoting is enabled in the reader, these quotes aren't escaped, we default to
     // Utf8 for them
-    if string.starts_with("\"") {
+    if string.starts_with('"') {
         return DataType::Utf8;
     }
     // match regex in a particular order
     if BOOLEAN_RE.is_match(string) {
-        return DataType::Boolean;
+        DataType::Boolean
     } else if DECIMAL_RE.is_match(string) {
-        return DataType::Float64;
+        DataType::Float64
     } else if INTEGER_RE.is_match(string) {
-        return DataType::Int64;
+        DataType::Int64
     } else {
-        return DataType::Utf8;
+        DataType::Utf8
     }
 }
 
@@ -106,7 +106,6 @@ fn infer_file_schema<R: Read + Seek>(
         let first_record_count = &csv_reader.headers()?.len();
         (0..*first_record_count)
             .map(|i| format!("column_{}", i + 1))
-            .into_iter()
             .collect()
     };
 
@@ -131,16 +130,12 @@ fn infer_file_schema<R: Read + Seek>(
         let record = result?;
 
         for i in 0..header_length {
-            let string: Option<&str> = record.get(i);
-            match string {
-                Some(s) => {
-                    if s == "" {
-                        nulls[i] = true;
-                    } else {
-                        column_types[i].insert(infer_field_schema(s));
-                    }
+            if let Some(string) = record.get(i) {
+                if string == "" {
+                    nulls[i] = true;
+                } else {
+                    column_types[i].insert(infer_field_schema(string));
                 }
-                _ => {}
             }
         }
     }
@@ -295,7 +290,8 @@ impl<R: Read> Reader<R> {
         let arrays: Result<Vec<ArrayRef>> = projection
             .iter()
             .map(|i| {
-                let field = self.schema.field(*i);
+                let i = *i;
+                let field = self.schema.field(i);
                 match field.data_type() {
                     &DataType::Boolean => {
                         self.build_primitive_array::<BooleanType>(rows, i)
@@ -322,8 +318,8 @@ impl<R: Read> Reader<R> {
                     }
                     &DataType::Utf8 => {
                         let mut builder = StringBuilder::new(rows.len());
-                        for row_index in 0..rows.len() {
-                            match rows[row_index].get(*i) {
+                        for row in rows.iter() {
+                            match row.get(i) {
                                 Some(s) => builder.append_value(s).unwrap(),
                                 _ => builder.append(false).unwrap(),
                             }
@@ -349,22 +345,20 @@ impl<R: Read> Reader<R> {
 
         let projected_schema = Arc::new(Schema::new(projected_fields));
 
-        arrays.and_then(|arr| {
-            RecordBatch::try_new(projected_schema, arr).map(|batch| Some(batch))
-        })
+        arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr).map(Some))
     }
 
     fn build_primitive_array<T: ArrowPrimitiveType>(
         &self,
         rows: &[StringRecord],
-        col_idx: &usize,
+        col_idx: usize,
     ) -> Result<ArrayRef> {
         let mut builder = PrimitiveBuilder::<T>::new(rows.len());
         let is_boolean_type =
-            *self.schema.field(*col_idx).data_type() == DataType::Boolean;
-        for row_index in 0..rows.len() {
-            match rows[row_index].get(*col_idx) {
-                Some(s) if s.len() > 0 => {
+            *self.schema.field(col_idx).data_type() == DataType::Boolean;
+        for (row_index, row) in rows.iter().enumerate() {
+            match row.get(col_idx) {
+                Some(s) if !s.is_empty() => {
                     let t = if is_boolean_type {
                         s.to_lowercase().parse::<T::Native>()
                     } else {

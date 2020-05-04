@@ -120,7 +120,7 @@ std::vector<std::shared_ptr<T>> shared_ptr_vector(const std::vector<T>& vec) {
 std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_Paths(
     const std::shared_ptr<fs::FileSystem>& file_system,
     const std::vector<std::string>& paths) {
-  auto results = VALUE_OR_STOP(file_system->GetFileInfo(paths));
+  auto results = ValueOrStop(file_system->GetFileInfo(paths));
   return shared_ptr_vector(results);
 }
 
@@ -128,74 +128,80 @@ std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_Paths
 std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_FileSelector(
     const std::shared_ptr<fs::FileSystem>& file_system,
     const std::shared_ptr<fs::FileSelector>& selector) {
-  auto results = VALUE_OR_STOP(file_system->GetFileInfo(*selector));
+  auto results = ValueOrStop(file_system->GetFileInfo(*selector));
   return shared_ptr_vector(results);
 }
 
 // [[arrow::export]]
 void fs___FileSystem__CreateDir(const std::shared_ptr<fs::FileSystem>& file_system,
                                 const std::string& path, bool recursive) {
-  STOP_IF_NOT_OK(file_system->CreateDir(path, recursive));
+  StopIfNotOk(file_system->CreateDir(path, recursive));
 }
 
 // [[arrow::export]]
 void fs___FileSystem__DeleteDir(const std::shared_ptr<fs::FileSystem>& file_system,
                                 const std::string& path) {
-  STOP_IF_NOT_OK(file_system->DeleteDir(path));
+  StopIfNotOk(file_system->DeleteDir(path));
 }
 
 // [[arrow::export]]
 void fs___FileSystem__DeleteDirContents(
     const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path) {
-  STOP_IF_NOT_OK(file_system->DeleteDirContents(path));
+  StopIfNotOk(file_system->DeleteDirContents(path));
 }
 
 // [[arrow::export]]
 void fs___FileSystem__DeleteFile(const std::shared_ptr<fs::FileSystem>& file_system,
                                  const std::string& path) {
-  STOP_IF_NOT_OK(file_system->DeleteFile(path));
+  StopIfNotOk(file_system->DeleteFile(path));
 }
 
 // [[arrow::export]]
 void fs___FileSystem__DeleteFiles(const std::shared_ptr<fs::FileSystem>& file_system,
                                   const std::vector<std::string>& paths) {
-  STOP_IF_NOT_OK(file_system->DeleteFiles(paths));
+  StopIfNotOk(file_system->DeleteFiles(paths));
 }
 
 // [[arrow::export]]
 void fs___FileSystem__Move(const std::shared_ptr<fs::FileSystem>& file_system,
                            const std::string& src, const std::string& dest) {
-  STOP_IF_NOT_OK(file_system->Move(src, dest));
+  StopIfNotOk(file_system->Move(src, dest));
 }
 
 // [[arrow::export]]
 void fs___FileSystem__CopyFile(const std::shared_ptr<fs::FileSystem>& file_system,
                                const std::string& src, const std::string& dest) {
-  STOP_IF_NOT_OK(file_system->CopyFile(src, dest));
+  StopIfNotOk(file_system->CopyFile(src, dest));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::io::InputStream> fs___FileSystem__OpenInputStream(
     const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path) {
-  return VALUE_OR_STOP(file_system->OpenInputStream(path));
+  return ValueOrStop(file_system->OpenInputStream(path));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::io::RandomAccessFile> fs___FileSystem__OpenInputFile(
     const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path) {
-  return VALUE_OR_STOP(file_system->OpenInputFile(path));
+  return ValueOrStop(file_system->OpenInputFile(path));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::io::OutputStream> fs___FileSystem__OpenOutputStream(
     const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path) {
-  return VALUE_OR_STOP(file_system->OpenOutputStream(path));
+  return ValueOrStop(file_system->OpenOutputStream(path));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::io::OutputStream> fs___FileSystem__OpenAppendStream(
     const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path) {
-  return VALUE_OR_STOP(file_system->OpenAppendStream(path));
+  return ValueOrStop(file_system->OpenAppendStream(path));
+}
+
+// [[arrow::export]]
+std::string fs___FileSystem__type_name(
+    const std::shared_ptr<fs::FileSystem>& file_system) {
+  return file_system->type_name();
 }
 
 // [[arrow::export]]
@@ -207,6 +213,27 @@ std::shared_ptr<fs::LocalFileSystem> fs___LocalFileSystem__create() {
 std::shared_ptr<fs::SubTreeFileSystem> fs___SubTreeFileSystem__create(
     const std::string& base_path, const std::shared_ptr<fs::FileSystem>& base_fs) {
   return std::make_shared<fs::SubTreeFileSystem>(base_path, base_fs);
+}
+
+// [[arrow::export]]
+Rcpp::List fs___FileSystemFromUri(const std::string& path) {
+  std::string out_path;
+  auto file_system = ValueOrStop(fs::FileSystemFromUri(path, &out_path));
+  return Rcpp::List::create(Rcpp::Named("fs") = file_system,
+                            Rcpp::Named("path") = out_path);
+}
+
+#endif
+
+#if defined(ARROW_R_WITH_S3)
+
+// [[s3::export]]
+void fs___EnsureS3Initialized() { StopIfNotOk(fs::EnsureS3Initialized()); }
+
+// [[s3::export]]
+std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create() {
+  auto opts = fs::S3Options::Defaults();
+  return ValueOrStop(fs::S3FileSystem::Make(opts));
 }
 
 #endif
