@@ -100,7 +100,7 @@ jobs:
       fail-fast: false
       matrix:
         # See https://hub.docker.com/r/rstudio/r-base
-        r_version: ["3.6"]
+        r_version: ["3.6", "4.0"]
         r_image:
           - centos7
     env:
@@ -148,7 +148,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rtools: [35, 40]
+        rtools: [35]
     env:
       TEST_R_WITH_ARROW: "TRUE"
       ARROW_R_CXXFLAGS: '-Werror'
