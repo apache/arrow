@@ -692,8 +692,12 @@ def docker_compose(obj, src):
               help='Try to pull the image and its parents')
 @click.option('--cache-leaf/--no-cache-leaf', default=True,
               help='Force build the image and its parents')
+@click.option('--dry-run/--execute', default=False,
+              help='Display the docker-compose commands instead of executing '
+                   'them')
 @click.pass_obj
-def docker_compose_run(obj, image, command, env, build, cache, cache_leaf):
+def docker_compose_run(obj, image, command, env, build, cache, cache_leaf,
+                       dry_run):
     """Execute docker-compose builds.
 
     To see the available builds run `archery docker list`.
@@ -724,6 +728,17 @@ def docker_compose_run(obj, image, command, env, build, cache, cache_leaf):
     from .docker import UndefinedImage
 
     compose = obj['compose']
+
+    if dry_run:
+        from types import MethodType
+
+        def _print_command(self, *args, **kwargs):
+            params = ['{}={}'.format(k, v) for k, v in self.params.items()]
+            command = ' '.join(params + ['docker-compose'] + list(args))
+            click.echo(command)
+
+        compose._execute = MethodType(_print_command, compose)
+
     try:
         if build:
             compose.build(image, cache=cache, cache_leaf=cache_leaf)
