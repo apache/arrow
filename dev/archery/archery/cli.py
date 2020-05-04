@@ -751,5 +751,15 @@ def docker_compose_push(obj, image, user, password):
     compose.push(image, user=user, password=password)
 
 
+@docker_compose.command('images')
+@click.pass_obj
+def docker_compose_images(obj):
+    """Push the generated docker-compose image."""
+    compose = obj['compose']
+    click.echo('Available images:')
+    for image in compose.images():
+        click.echo(' - {}'.format(image))
+
+
 if __name__ == "__main__":
     archery(obj={})

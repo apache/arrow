@@ -54,6 +54,12 @@ with the ``--help`` flag:
 Examples
 ~~~~~~~~
 
+**List the available images:**
+
+.. code:: bash
+
+    archery docker images
+
 **Execute a build:**
 
 .. code:: bash

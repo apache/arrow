@@ -181,3 +181,6 @@ class DockerCompose(Command):
             raise RuntimeError(msg) from None
         else:
             self._execute('push', image)
+
+    def images(self):
+        return sorted(self.nodes.keys())

@@ -365,6 +365,18 @@ def test_compose_run(arrow_compose_path):
         compose.run('conda-python', env=env)
 
 
+def test_compose_push(arrow_compose_path):
+    compose = DockerCompose(arrow_compose_path, params=dict(PYTHON='3.8'))
+    expected_env = PartialEnv(PYTHON="3.8")
+    expected_calls = [
+        mock.call(["docker", "login", "-u", "user", "-p", "pass"], check=True),
+        mock.call(["docker-compose", "--file", str(compose.config_path),
+                   "push", "conda-python"], check=True, env=expected_env)
+    ]
+    with assert_subprocess_calls(expected_calls):
+        compose.push('conda-python', user='user', password='pass')
+
+
 def test_compose_error(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path, params=dict(
         PYTHON='3.8',
@@ -383,13 +395,16 @@ def test_compose_error(arrow_compose_path):
     assert "export PANDAS=master" in exception_message
 
 
-def test_compose_push(arrow_compose_path):
-    compose = DockerCompose(arrow_compose_path, params=dict(PYTHON='3.8'))
-    expected_env = PartialEnv(PYTHON="3.8")
-    expected_calls = [
-        mock.call(["docker", "login", "-u", "user", "-p", "pass"], check=True),
-        mock.call(["docker-compose", "--file", str(compose.config_path),
-                   "push", "conda-python"], check=True, env=expected_env)
+def test_listing_images(arrow_compose_path):
+    compose = DockerCompose(arrow_compose_path)
+    assert compose.images() == [
+        'conda-cpp',
+        'conda-python',
+        'conda-python-dask',
+        'conda-python-pandas',
+        'conda-r',
+        'ubuntu-c-glib',
+        'ubuntu-cpp',
+        'ubuntu-cpp-cmake32',
+        'ubuntu-ruby',
     ]
-    with assert_subprocess_calls(expected_calls):
-        compose.push('conda-python', user='user', password='pass')
