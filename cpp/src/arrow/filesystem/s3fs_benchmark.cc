@@ -58,7 +58,8 @@ static const char* kEnvAwsRegion = "ARROW_TEST_S3_REGION";
 class MinioFixture : public benchmark::Fixture {
  public:
   void SetUp(const ::benchmark::State& state) override {
-    ASSERT_OK(minio_.Start());
+    minio_.reset(new MinioTestServer());
+    ASSERT_OK(minio_->Start());
 
     const char* region_str = std::getenv(kEnvAwsRegion);
     if (region_str) {
@@ -77,13 +78,13 @@ class MinioFixture : public benchmark::Fixture {
       std::cerr << "Using default bucket: " << bucket_ << std::endl;
     }
 
-    client_config_.endpointOverride = ToAwsString(minio_.connect_string());
+    client_config_.endpointOverride = ToAwsString(minio_->connect_string());
     client_config_.scheme = Aws::Http::Scheme::HTTP;
     if (!region_.empty()) {
       client_config_.region = ToAwsString(region_);
     }
     client_config_.retryStrategy = std::make_shared<ConnectRetryStrategy>();
-    credentials_ = {ToAwsString(minio_.access_key()), ToAwsString(minio_.secret_key())};
+    credentials_ = {ToAwsString(minio_->access_key()), ToAwsString(minio_->secret_key())};
     bool use_virtual_addressing = false;
     client_.reset(
         new Aws::S3::S3Client(credentials_, client_config_,
@@ -106,12 +107,12 @@ class MinioFixture : public benchmark::Fixture {
   }
 
   void MakeFileSystem() {
-    options_.ConfigureAccessKey(minio_.access_key(), minio_.secret_key());
+    options_.ConfigureAccessKey(minio_->access_key(), minio_->secret_key());
     options_.scheme = "http";
     if (!region_.empty()) {
       options_.region = region_;
     }
-    options_.endpoint_override = minio_.connect_string();
+    options_.endpoint_override = minio_->connect_string();
     ASSERT_OK_AND_ASSIGN(fs_, S3FileSystem::Make(options_));
   }
 
@@ -180,10 +181,14 @@ class MinioFixture : public benchmark::Fixture {
     return Status::OK();
   }
 
-  void TearDown(const ::benchmark::State& state) override { ASSERT_OK(minio_.Stop()); }
+  void TearDown(const ::benchmark::State& state) override {
+    ASSERT_OK(minio_->Stop());
+    // Delete temporary directory, freeing up disk space
+    minio_.reset();
+  }
 
  protected:
-  MinioTestServer minio_;
+  std::unique_ptr<MinioTestServer> minio_;
   std::string region_;
   std::string bucket_;
   Aws::Client::ClientConfiguration client_config_;

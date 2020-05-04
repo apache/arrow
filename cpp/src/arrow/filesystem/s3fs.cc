@@ -89,6 +89,7 @@ using ::arrow::fs::internal::FromAwsDatetime;
 using ::arrow::fs::internal::FromAwsString;
 using ::arrow::fs::internal::IsAlreadyExists;
 using ::arrow::fs::internal::IsNotFound;
+using ::arrow::fs::internal::OutcomeToResult;
 using ::arrow::fs::internal::OutcomeToStatus;
 using ::arrow::fs::internal::ToAwsString;
 using ::arrow::fs::internal::ToURLEncodedAwsString;
@@ -359,14 +360,35 @@ std::string FormatRange(int64_t start, int64_t length) {
   return ss.str();
 }
 
-Status GetObjectRange(Aws::S3::S3Client* client, const S3Path& path, int64_t start,
-                      int64_t length, S3Model::GetObjectResult* out) {
+// A non-copying iostream.
+// See https://stackoverflow.com/questions/35322033/aws-c-sdk-uploadpart-times-out
+// https://stackoverflow.com/questions/13059091/creating-an-input-stream-from-constant-memory
+class StringViewStream : Aws::Utils::Stream::PreallocatedStreamBuf, public std::iostream {
+ public:
+  StringViewStream(const void* data, int64_t nbytes)
+      : Aws::Utils::Stream::PreallocatedStreamBuf(
+            reinterpret_cast<unsigned char*>(const_cast<void*>(data)),
+            static_cast<size_t>(nbytes)),
+        std::iostream(this) {}
+};
+
+// By default, the AWS SDK reads object data into an auto-growing StringStream.
+// To avoid copies, read directly into our preallocated buffer instead.
+// See https://github.com/aws/aws-sdk-cpp/issues/64 for an alternative but
+// functionally similar recipe.
+Aws::IOStreamFactory AwsWriteableStreamFactory(void* data, int64_t nbytes) {
+  return [=]() { return new StringViewStream(data, nbytes); };
+}
+
+Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3::S3Client* client,
+                                                const S3Path& path, int64_t start,
+                                                int64_t length, void* out) {
   S3Model::GetObjectRequest req;
   req.SetBucket(ToAwsString(path.bucket));
   req.SetKey(ToAwsString(path.key));
   req.SetRange(ToAwsString(FormatRange(start, length)));
-  ARROW_AWS_ASSIGN_OR_RAISE(*out, client->GetObject(req));
-  return Status::OK();
+  req.SetResponseStreamFactory(AwsWriteableStreamFactory(out, length));
+  return OutcomeToResult(client->GetObject(req));
 }
 
 // A RandomAccessFile that reads from a S3 object
@@ -452,11 +474,11 @@ class ObjectInputFile : public io::RandomAccessFile {
     }
 
     // Read the desired range of bytes
-    S3Model::GetObjectResult result;
-    RETURN_NOT_OK(GetObjectRange(client_, path_, position, nbytes, &result));
+    ARROW_ASSIGN_OR_RAISE(S3Model::GetObjectResult result,
+                          GetObjectRange(client_, path_, position, nbytes, out));
 
     auto& stream = result.GetBody();
-    stream.read(reinterpret_cast<char*>(out), nbytes);
+    stream.ignore(nbytes);
     // NOTE: the stream is a stringstream by default, there is no actual error
     // to check for.  However, stream.fail() may return true if EOF is reached.
     return stream.gcount();
@@ -497,19 +519,6 @@ class ObjectInputFile : public io::RandomAccessFile {
   bool closed_ = false;
   int64_t pos_ = 0;
   int64_t content_length_ = -1;
-};
-
-// A non-copying istream.
-// See https://stackoverflow.com/questions/35322033/aws-c-sdk-uploadpart-times-out
-// https://stackoverflow.com/questions/13059091/creating-an-input-stream-from-constant-memory
-
-class StringViewStream : Aws::Utils::Stream::PreallocatedStreamBuf, public std::iostream {
- public:
-  StringViewStream(const void* data, int64_t nbytes)
-      : Aws::Utils::Stream::PreallocatedStreamBuf(
-            reinterpret_cast<unsigned char*>(const_cast<void*>(data)),
-            static_cast<size_t>(nbytes)),
-        std::iostream(this) {}
 };
 
 // Minimum size for each part of a multipart upload, except for the last part.
