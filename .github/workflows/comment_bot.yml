@@ -44,7 +44,7 @@ jobs:
       - name: Instal Archery and Crossbow dependencies
         run: |
           conda install -y --file arrow/ci/conda_env_crossbow.txt pygithub
-          pip install -e arrow/dev/archery
+          pip install -e arrow/dev/archery[bot]
       - name: Handle Github comment event
         env:
           ARROW_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

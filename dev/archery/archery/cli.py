@@ -33,7 +33,6 @@ from .utils.lint import linter, python_numpydoc, LintValidationException
 from .utils.logger import logger, ctx as log_ctx
 from .utils.source import ArrowSources, InvalidArrowSource
 from .utils.tmpdir import tmpdir
-from .bot import CommentBot, actions
 
 # Set default logging to INFO in command line.
 logging.basicConfig(level=logging.INFO)
@@ -652,6 +651,8 @@ def integration(with_all=False, random_seed=12345, **args):
 @click.option('--crossbow-token', '-ct', envvar='CROSSBOW_GITHUB_TOKEN',
               help='OAuth token for pushing to the crossow repository')
 def trigger_bot(event_name, event_payload, arrow_token, crossbow_token):
+    from .bot import CommentBot, actions
+
     event_payload = json.loads(event_payload.read())
 
     bot = CommentBot(name='github-actions', handler=actions, token=arrow_token)
