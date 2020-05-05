@@ -422,7 +422,15 @@ def _sanitize_table(table, new_schema, flavor):
 
 
 _parquet_writer_arg_docs = """version : {"1.0", "2.0"}, default "1.0"
-    The Parquet format version, defaults to 1.0.
+    Determine which Parquet logical types are available for use, whether the
+    reduced set from the Parquet 1.x.x format or the expanded logical types
+    added in format version 2.0.0 and after. Note that files written with
+    version='2.0' may not be readable in all Parquet implementations, so
+    version='1.0' is likely the choice that maximizes file compatibility. Some
+    features, such as lossless storage of nanosecond timestamps as INT64
+    physical storage, are only available with version='2.0'. The Parquet 2.0.0
+    format version also introduced a new serialized data page format; this can
+    be enabled separately using the data_page_version option.
 use_dictionary : bool or list
     Specify if we should use dictionary encoding in general or only for
     some columns.
@@ -471,6 +479,10 @@ writer_engine_version: str, default "V2"
     all nested types. V1 is legacy and will be removed in a future release.
     Setting the environment variable ARROW_PARQUET_WRITER_ENGINE will
     override the default.
+data_page_version : {"1.0", "2.0"}, default "1.0"
+    The serialized Parquet data page format version to write, defaults to
+    1.0. This does not impact the file schema logical types and Arrow to
+    Parquet type casting behavior; for that use the "version" option.
 """
 
 
@@ -501,6 +513,7 @@ schema : arrow Schema
                  compression_level=None,
                  use_byte_stream_split=False,
                  writer_engine_version=None,
+                 data_page_version='1.0',
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -539,6 +552,7 @@ schema : arrow Schema
             compression_level=compression_level,
             use_byte_stream_split=use_byte_stream_split,
             writer_engine_version=engine_version,
+            data_page_version=data_page_version,
             **options)
         self.is_open = True
 
@@ -1576,6 +1590,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 filesystem=None,
                 compression_level=None,
                 use_byte_stream_split=False,
+                data_page_version='1.0',
                 **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
@@ -1594,6 +1609,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 use_deprecated_int96_timestamps=use_int96,
                 compression_level=compression_level,
                 use_byte_stream_split=use_byte_stream_split,
+                data_page_version=data_page_version,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:

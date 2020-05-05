@@ -206,6 +206,10 @@ def test_parquet_invalid_version(tempdir):
     table = pa.table({'a': [1, 2, 3]})
     with pytest.raises(ValueError, match="Unsupported Parquet format version"):
         _write_table(table, tempdir / 'test_version.parquet', version="2.2")
+    with pytest.raises(ValueError, match="Unsupported Parquet data page " +
+                       "version"):
+        _write_table(table, tempdir / 'test_version.parquet',
+                     data_page_version="2.2")
 
 
 @parametrize_legacy_dataset
@@ -226,16 +230,19 @@ def test_chunked_table_write(use_legacy_dataset):
     # ARROW-232
     df = alltypes_sample(size=10)
 
-    batch = pa.RecordBatch.from_pandas(df)
-    table = pa.Table.from_batches([batch] * 3)
-    _check_roundtrip(
-        table, version='2.0', use_legacy_dataset=use_legacy_dataset)
+    for data_page_version in ['1.0', '2.0']:
+        batch = pa.RecordBatch.from_pandas(df)
+        table = pa.Table.from_batches([batch] * 3)
+        _check_roundtrip(
+            table, version='2.0', use_legacy_dataset=use_legacy_dataset,
+            data_page_version=data_page_version)
 
-    df, _ = dataframe_with_lists()
-    batch = pa.RecordBatch.from_pandas(df)
-    table = pa.Table.from_batches([batch] * 3)
-    _check_roundtrip(
-        table, version='2.0', use_legacy_dataset=use_legacy_dataset)
+        df, _ = dataframe_with_lists()
+        batch = pa.RecordBatch.from_pandas(df)
+        table = pa.Table.from_batches([batch] * 3)
+        _check_roundtrip(
+            table, version='2.0', use_legacy_dataset=use_legacy_dataset,
+            data_page_version=data_page_version)
 
 
 @pytest.mark.pandas
@@ -3865,7 +3872,7 @@ def test_multi_dataset_metadata(tempdir):
         'one': [1, 2, 3],
         'two': [-1, -2, -3],
         'three': [[1, 2], [2, 3], [3, 4]],
-        })
+    })
     table = pa.Table.from_pandas(df)
 
     # write dataset twice and collect/merge metadata

@@ -35,9 +35,29 @@
 
 namespace parquet {
 
+/// Determines use of Parquet Format version >= 2.0.0 logical types. For
+/// example, when writing from Arrow data structures, PARQUET_2_0 will enable
+/// use of INT_* and UINT_* converted types as well as nanosecond timestamps
+/// stored physically as INT64. Since some Parquet implementations do not
+/// support the logical types added in the 2.0.0 format version, if you want to
+/// maximize compatibility of your files you may want to use PARQUET_1_0.
+///
+/// Note that the 2.x format version series also introduced new serialized
+/// data page metadata and on disk data page layout. To enable this, use
+/// ParquetDataPageVersion.
 struct ParquetVersion {
   enum type { PARQUET_1_0, PARQUET_2_0 };
 };
+
+/// Controls serialization format of data pages.  parquet-format v2.0.0
+/// introduced a new data page metadata type DataPageV2 and serialized page
+/// structure (for example, encoded levels are no longer compressed). Prior to
+/// the completion of PARQUET-457 in 2020, this library did not implement
+/// DataPageV2 correctly, so if you use the V2 data page format, you may have
+/// forward compatibility issues (older versions of the library will be unable
+/// to read the files). Note that some Parquet implementations do not implement
+/// DataPageV2 at all.
+enum class ParquetDataPageVersion { V1, V2 };
 
 static int64_t DEFAULT_BUFFER_SIZE = 1024;
 static bool DEFAULT_USE_BUFFERED_STREAM = false;
@@ -90,8 +110,6 @@ static constexpr int64_t DEFAULT_MAX_ROW_GROUP_LENGTH = 64 * 1024 * 1024;
 static constexpr bool DEFAULT_ARE_STATISTICS_ENABLED = true;
 static constexpr int64_t DEFAULT_MAX_STATISTICS_SIZE = 4096;
 static constexpr Encoding::type DEFAULT_ENCODING = Encoding::PLAIN;
-static constexpr ParquetVersion::type DEFAULT_WRITER_VERSION =
-    ParquetVersion::PARQUET_1_0;
 static const char DEFAULT_CREATED_BY[] = CREATED_BY_VERSION;
 static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOMPRESSED;
 
@@ -160,7 +178,8 @@ class PARQUET_EXPORT WriterProperties {
           write_batch_size_(DEFAULT_WRITE_BATCH_SIZE),
           max_row_group_length_(DEFAULT_MAX_ROW_GROUP_LENGTH),
           pagesize_(kDefaultDataPageSize),
-          version_(DEFAULT_WRITER_VERSION),
+          version_(ParquetVersion::PARQUET_1_0),
+          data_page_version_(ParquetDataPageVersion::V1),
           created_by_(DEFAULT_CREATED_BY) {}
     virtual ~Builder() {}
 
@@ -214,6 +233,11 @@ class PARQUET_EXPORT WriterProperties {
 
     Builder* data_pagesize(int64_t pg_size) {
       pagesize_ = pg_size;
+      return this;
+    }
+
+    Builder* data_page_version(ParquetDataPageVersion data_page_version) {
+      data_page_version_ = data_page_version;
       return this;
     }
 
@@ -395,7 +419,7 @@ class PARQUET_EXPORT WriterProperties {
       return std::shared_ptr<WriterProperties>(new WriterProperties(
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
           pagesize_, version_, created_by_, std::move(file_encryption_properties_),
-          default_column_properties_, column_properties));
+          default_column_properties_, column_properties, data_page_version_));
     }
 
    private:
@@ -405,6 +429,7 @@ class PARQUET_EXPORT WriterProperties {
     int64_t max_row_group_length_;
     int64_t pagesize_;
     ParquetVersion::type version_;
+    ParquetDataPageVersion data_page_version_;
     std::string created_by_;
 
     std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
@@ -427,6 +452,10 @@ class PARQUET_EXPORT WriterProperties {
   inline int64_t max_row_group_length() const { return max_row_group_length_; }
 
   inline int64_t data_pagesize() const { return pagesize_; }
+
+  inline ParquetDataPageVersion data_page_version() const {
+    return parquet_data_page_version_;
+  }
 
   inline ParquetVersion::type version() const { return parquet_version_; }
 
@@ -499,12 +528,14 @@ class PARQUET_EXPORT WriterProperties {
       const std::string& created_by,
       std::shared_ptr<FileEncryptionProperties> file_encryption_properties,
       const ColumnProperties& default_column_properties,
-      const std::unordered_map<std::string, ColumnProperties>& column_properties)
+      const std::unordered_map<std::string, ColumnProperties>& column_properties,
+      ParquetDataPageVersion data_page_version)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
         max_row_group_length_(max_row_group_length),
         pagesize_(pagesize),
+        parquet_data_page_version_(data_page_version),
         parquet_version_(version),
         parquet_created_by_(created_by),
         file_encryption_properties_(file_encryption_properties),
@@ -516,6 +547,7 @@ class PARQUET_EXPORT WriterProperties {
   int64_t write_batch_size_;
   int64_t max_row_group_length_;
   int64_t pagesize_;
+  ParquetDataPageVersion parquet_data_page_version_;
   ParquetVersion::type parquet_version_;
   std::string parquet_created_by_;
 
