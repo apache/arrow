@@ -51,6 +51,7 @@ jobs:
           - conda-python-3.8-nopandas
           - conda-python-3.6-pandas-0.23
           - conda-python-3.6-pandas-latest
+          - centos-python-3.6-manylinux1
         include:
           - name: ubuntu-16.04-python-3
             image: ubuntu-python
@@ -75,6 +76,10 @@ jobs:
             python: 3.6
             pandas: latest
             cache: conda
+          - name: centos-python-3.6-manylinux1
+            image: centos-python-manylinux1
+            title: AMD64 CentOS 5.11 Python 3.6 manylinux1
+            cache: centos-5
     env:
       PYTHON: ${{ matrix.python || 3.7 }}
       UBUNTU: ${{ matrix.ubuntu || 18.04 }}
@@ -111,33 +116,6 @@ jobs:
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
         run: archery docker push ${{ matrix.image }}
-
-  manylinux1:
-    name: AMD64 CentOS 5.11 Python 3.6 manylinux1
-    runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        shell: bash
-        run: ci/scripts/util_cleanup.sh
-      - name: Setup Python
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.8
-      - name: Setup Archery
-        run: pip install -e dev/archery[docker]
-      - name: Execute Docker Build
-        run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
-          archery docker run --no-build ${{ matrix.image }}
 
   macos:
     name: AMD64 MacOS 10.15 Python 3.7
