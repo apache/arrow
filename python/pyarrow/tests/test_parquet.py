@@ -3958,7 +3958,7 @@ def test_fastparquet_cross_compatibility(tempdir):
 def test_table_large_metadata():
     # ARROW-8694
     my_schema = pa.schema([pa.field('f0', 'double')],
-                          metadata={'large': 'x' * 10_000_000})
+                          metadata={'large': 'x' * 10000000})
 
     table = pa.table([np.arange(10)], schema=my_schema)
     _check_roundtrip(table)
