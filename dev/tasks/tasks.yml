@@ -1680,7 +1680,7 @@ tasks:
     params:
       r_org: rstudio
       r_image: r-base
-      r_tag: 3.6-opensuse24
+      r_tag: 3.6-opensuse42
       not_cran: "TRUE"
 
   test-conda-r-4.0:
