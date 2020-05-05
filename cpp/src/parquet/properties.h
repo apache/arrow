@@ -41,6 +41,9 @@ struct ParquetVersion {
 };
 
 /// Controls layout of data pages.
+/// parquet-format v2.0.0 introduced a data page metadata
+/// and serialized page structure (for example, encoded
+/// levels are no longer compressed)
 enum class ParquetDataPageVersion { V1, V2 };
 
 static int64_t DEFAULT_BUFFER_SIZE = 1024;
