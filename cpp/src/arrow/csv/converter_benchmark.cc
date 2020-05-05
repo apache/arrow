@@ -74,7 +74,8 @@ static std::shared_ptr<BlockParser> BuildISO8601Data(int32_t num_rows) {
 }
 
 static std::shared_ptr<BlockParser> BuildStrptimeData(int32_t num_rows) {
-  const std::vector<std::string> base_rows = {"10/17/1917\n", "9/13/2018\n", "9/5/1945"};
+  const std::vector<std::string> base_rows = {"10/17/1917\n", "9/13/2018\n",
+                                              "9/5/1945\n"};
   return BuildFromExamples(base_rows, num_rows);
 }
 
