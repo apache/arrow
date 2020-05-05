@@ -27,6 +27,7 @@ FLATC="flatc -c --cpp-std c++11"
 
 $FLATC -o $SOURCE_DIR/generated \
       --scoped-enums \
+      --bfbs-gen-embed \
       $FORMAT_DIR/Message.fbs \
       $FORMAT_DIR/File.fbs \
       $FORMAT_DIR/Schema.fbs \
@@ -37,5 +38,6 @@ $FLATC -o $SOURCE_DIR/generated \
 $FLATC -o $SOURCE_DIR/plasma \
       --gen-object-api \
       --scoped-enums \
+      --bfbs-gen-embed \
       $SOURCE_DIR/plasma/common.fbs \
       $SOURCE_DIR/plasma/plasma.fbs

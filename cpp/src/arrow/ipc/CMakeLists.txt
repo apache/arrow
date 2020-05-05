@@ -79,3 +79,7 @@ endif()
 
 add_arrow_fuzz_target(file_fuzz PREFIX "arrow-ipc")
 add_arrow_fuzz_target(stream_fuzz PREFIX "arrow-ipc")
+
+# FIXME Don't merge this! Just for proof of concept.
+add_executable(arrow-schema arrow_schema.cc)
+target_link_libraries(arrow-schema ${ARROW_UTIL_LIB} /usr/local/lib/libflatbuffers.a)

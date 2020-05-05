@@ -20,6 +20,8 @@
 #include <algorithm>
 #include <climits>
 #include <cstddef>
+#include <fstream>
+#include <iostream>
 #include <ostream>
 #include <sstream>  // IWYU pragma: keep
 #include <string>
@@ -28,9 +30,13 @@
 #include <utility>
 #include <vector>
 
+#include <flatbuffers/idl.h>
+
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compare.h"
+#include "arrow/ipc/dictionary.h"
+#include "arrow/ipc/metadata_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -44,6 +50,8 @@
 #include "arrow/util/range.h"
 #include "arrow/util/vector.h"
 #include "arrow/visitor_inline.h"
+
+#include "generated/Schema_bfbs_generated.h"
 
 namespace arrow {
 
@@ -1404,6 +1412,60 @@ std::shared_ptr<const KeyValueMetadata> Schema::metadata() const {
 std::shared_ptr<Schema> Schema::RemoveMetadata() const {
   return std::make_shared<Schema>(impl_->fields_);
 }
+
+Schema Schema::FromJson(const std::string& json_schema) {
+  // TOOD Fix duplication (A), cache.
+  // Create Flatbuffers parser for Arrow Schema.
+  flatbuffers::Parser parser;
+  using org::apache::arrow::flatbuf::SchemaBinarySchema;
+  if (!parser.Deserialize(SchemaBinarySchema::data(), SchemaBinarySchema::size())) {
+    std::cerr << "Error during parsing of Flatbuffers schema for Arrow metadata: " << parser.error_ << std::endl;
+    // TOOD What's the right strategy for errors here?
+    exit(1);
+  }
+
+  if (!parser.Parse(json_schema.c_str())) {
+    std::cerr << "Error during loading of Arrow JSON schema: " << parser.error_ << std::endl;
+    // TOOD What's the right strategy for errors here?
+    exit(2);
+  }
+
+  // Create Arrow Schema object.
+  ipc::DictionaryMemo dict_memo;
+  std::shared_ptr<Schema> schema_ptr;
+  ARROW_CHECK(ipc::internal::GetSchema(parser.builder_.GetBufferPointer(), &dict_memo, &schema_ptr).ok());
+
+  return *schema_ptr;
+}
+
+std::string Schema::ToJson() const {
+  // Convert schema to Arrow's Flatbuffer representation.
+  ipc::DictionaryMemo dict_memo;
+  flatbuffers::FlatBufferBuilder fbb;
+  flatbuffers::Offset<flatbuf::Schema> fb_schema;
+  ARROW_CHECK(ipc::internal::SchemaToFlatbuffer(fbb, *this, &dict_memo, &fb_schema).ok());
+  fbb.Finish(fb_schema);
+
+  // TOOD Fix duplication (A), cache.
+  // Create Flatbuffers parser for Arrow Schema.
+  flatbuffers::Parser parser;
+  using org::apache::arrow::flatbuf::SchemaBinarySchema;
+  if (!parser.Deserialize(SchemaBinarySchema::data(), SchemaBinarySchema::size())) {
+    std::cerr << "Error during parsing of Flatbuffers schema for Arrow metadata: " << parser.error_ << std::endl;
+    // TOOD What's the right strategy for errors here?
+    exit(1);
+  }
+
+  // Use Flatbuffer's JSON support to create JSON representation.
+  std::string text_schema;
+  if (!flatbuffers::GenerateText(parser, fbb.GetBufferPointer(), &text_schema)) {
+    std::cerr << "Failed to generate Arrow text schema!" << std::endl;
+    // TOOD What's the right strategy for errors here?
+    exit(2);
+  }
+  return text_schema;
+}
+
 
 std::string Schema::ToString(bool show_metadata) const {
   std::stringstream buffer;

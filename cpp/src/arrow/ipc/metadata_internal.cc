@@ -845,22 +845,6 @@ flatbuffers::Offset<KVVector> SerializeCustomMetadata(
   }
 }
 
-Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema, DictionaryMemo* dictionary_memo,
-                          flatbuffers::Offset<flatbuf::Schema>* out) {
-  /// Fields
-  std::vector<FieldOffset> field_offsets;
-  for (int i = 0; i < schema.num_fields(); ++i) {
-    FieldOffset offset;
-    RETURN_NOT_OK(FieldToFlatbuffer(fbb, schema.field(i), dictionary_memo, &offset));
-    field_offsets.push_back(offset);
-  }
-
-  auto fb_offsets = fbb.CreateVector(field_offsets);
-  *out = flatbuf::CreateSchema(fbb, endianness(), fb_offsets,
-                               SerializeCustomMetadata(fbb, schema.metadata()));
-  return Status::OK();
-}
-
 Result<std::shared_ptr<Buffer>> WriteFBMessage(
     FBB& fbb, flatbuf::MessageHeader header_type, flatbuffers::Offset<void> header,
     int64_t body_length, MetadataVersion version,
@@ -1149,6 +1133,22 @@ Status MakeSparseTensor(FBB& fbb, const SparseTensor& sparse_tensor, int64_t bod
 }
 
 }  // namespace
+
+Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema, DictionaryMemo* dictionary_memo,
+                          flatbuffers::Offset<flatbuf::Schema>* out) {
+  /// Fields
+  std::vector<FieldOffset> field_offsets;
+  for (int i = 0; i < schema.num_fields(); ++i) {
+    FieldOffset offset;
+    RETURN_NOT_OK(FieldToFlatbuffer(fbb, schema.field(i), dictionary_memo, &offset));
+    field_offsets.push_back(offset);
+  }
+
+  auto fb_offsets = fbb.CreateVector(field_offsets);
+  *out = flatbuf::CreateSchema(fbb, endianness(), fb_offsets,
+                               SerializeCustomMetadata(fbb, schema.metadata()));
+  return Status::OK();
+}
 
 Status GetKeyValueMetadata(const KVVector* fb_metadata,
                            std::shared_ptr<KeyValueMetadata>* out) {

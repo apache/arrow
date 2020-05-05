@@ -1630,6 +1630,16 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// \return metadata may be null
   std::shared_ptr<const KeyValueMetadata> metadata() const;
 
+  /// \brief Serialize schema to JSON
+  /// \return JSON string, suitable for storing externally, and that can be loaded
+  /// back with Schema::FromJson()
+  std::string ToJson() const;
+
+  /// \brief Create Schema from JSON representation
+  /// /param[in] json_schema JSON representation of an Arrow schema, created by
+  /// Schema::ToJson(), or compatible with it
+  static Schema FromJson(const std::string& json_schema);
+
   /// \brief Render a string representation of the schema suitable for debugging
   /// \param[in] show_metadata when true, if KeyValueMetadata is non-empty,
   /// print keys and values in the output
