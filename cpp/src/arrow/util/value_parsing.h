@@ -25,9 +25,6 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
-#if defined(_WIN32)
-#include <sstream>
-#endif
 #include <string>
 #include <type_traits>
 
@@ -36,6 +33,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 #include "arrow/vendored/datetime.h"
+#include "arrow/vendored/strptime.h"
 
 namespace arrow {
 
@@ -558,39 +556,16 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
                                           const char* format, bool ignore_time_in_day,
                                           bool allow_trailing_chars, TimeUnit::type unit,
                                           int64_t* out) {
-#if defined(_WIN32)
-  // NOTE: not using std::time_get() as implementations can be severely buggy.
-  static std::locale lc_all(setlocale(LC_ALL, NULLPTR));
-  std::istringstream stream(std::string(buf, length));
-  stream.imbue(lc_all);
-
-  arrow_vendored::date::sys_seconds seconds;
-  if (ignore_time_in_day) {
-    arrow_vendored::date::sys_days days;
-    stream >> arrow_vendored::date::parse(format, days);
-    if (stream.fail()) {
-      return false;
-    }
-    seconds = days;
-  } else {
-    stream >> arrow_vendored::date::parse(format, seconds);
-    if (stream.fail()) {
-      return false;
-    }
-  }
-  if (!allow_trailing_chars && static_cast<size_t>(stream.tellg()) != length) {
-    return false;
-  }
-  *out = detail::ConvertTimePoint(seconds, unit);
-  return true;
-
-#else
   // NOTE: strptime() is more than 10x faster than arrow_vendored::date::parse().
   // The buffer may not be nul-terminated
   std::string clean_copy(buf, length);
   struct tm result;
   memset(&result, 0, sizeof(struct tm));
+#ifdef _WIN32
+  char* ret = arrow_strptime(clean_copy.c_str(), format, &result);
+#else
   char* ret = strptime(clean_copy.c_str(), format, &result);
+#endif
   if (ret == NULLPTR) {
     return false;
   }
@@ -607,7 +582,6 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   }
   *out = detail::ConvertTimePoint(secs, unit);
   return true;
-#endif
 }
 
 // A StringConverter that parses ISO8601 at a fixed unit

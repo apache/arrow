@@ -200,6 +200,7 @@ set(ARROW_SRCS
     vendored/double-conversion/strtod.cc)
 
 set(ARROW_C_SRCS
+    vendored/musl/strptime.c
     vendored/uriparser/UriCommon.c
     vendored/uriparser/UriCompare.c
     vendored/uriparser/UriEscape.c

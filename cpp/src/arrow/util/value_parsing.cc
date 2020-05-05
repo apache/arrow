@@ -17,7 +17,6 @@
 
 #include "arrow/util/value_parsing.h"
 
-#include <chrono>
 #include <string>
 #include <utility>
 
