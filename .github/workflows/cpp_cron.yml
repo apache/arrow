@@ -95,8 +95,8 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: docker-${{ matrix.cache }}-${{ github.ref }}
-          restore-keys: docker-${{ matrix.cache }}-master
+          key: PREF-${{ matrix.cache }}-${{ hashFiles('cpp/**') }}
+          restore-keys: PREF-${{ matrix.cache }}-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:

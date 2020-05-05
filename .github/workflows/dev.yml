@@ -84,8 +84,8 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: docker-ubuntu-18.04-${{ github.ref }}
-          restore-keys: docker-ubuntu-18.04-master
+          key: PREF-ubuntu-18.04-${{ hashFiles('cpp/**') }}
+          restore-keys: PREF-ubuntu-18.04-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:

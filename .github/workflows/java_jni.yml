@@ -68,8 +68,8 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: docker-debian-java-jni-${{ github.ref }}
-          restore-keys: docker-debian-java-jni-master
+          key: PREF-debian-java-jni-${{ hashFiles('cpp/**') }}-${{ hashFiles('java/**') }}
+          restore-keys: PREF-debian-java-jni-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
