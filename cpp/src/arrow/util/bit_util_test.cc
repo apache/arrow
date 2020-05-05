@@ -344,6 +344,42 @@ TEST(FirstTimeBitmapWriter, AppendWordOffsetOverwritesCorrectBitsOnExistingByte)
   check_append("00000111", 5);
   check_append("00000011", 6);
   check_append("00000001", 7);
+
+  auto check_with_set = [](const std::string& expected_bits, int64_t offset) {
+    std::vector<uint8_t> valid_bits = {0x1};
+    constexpr int64_t kBitsAfterAppend = 8;
+    internal::FirstTimeBitmapWriter writer(valid_bits.data(), offset,
+                                           /*length=*/(8 * valid_bits.size()) - offset);
+    writer.AppendWord(/*word=*/0xFF, /*number_of_bits=*/kBitsAfterAppend - offset);
+    writer.Finish();
+    EXPECT_EQ(BitmapToString(valid_bits, kBitsAfterAppend), expected_bits);
+  };
+  // 0ffset zero would not be a valid mask.
+  check_with_set("11111111", 1);
+  check_with_set("10111111", 2);
+  check_with_set("10011111", 3);
+  check_with_set("10001111", 4);
+  check_with_set("10000111", 5);
+  check_with_set("10000011", 6);
+  check_with_set("10000001", 7);
+
+  auto check_with_preceding = [](const std::string& expected_bits, int64_t offset) {
+    std::vector<uint8_t> valid_bits = {BitUtil::kPrecedingBitmask[offset]};
+    constexpr int64_t kBitsAfterAppend = 8;
+    internal::FirstTimeBitmapWriter writer(valid_bits.data(), offset,
+                                           /*length=*/(8 * valid_bits.size()) - offset);
+    writer.AppendWord(/*word=*/0xFF, /*number_of_bits=*/kBitsAfterAppend - offset);
+    writer.Finish();
+    EXPECT_EQ(BitmapToString(valid_bits, kBitsAfterAppend), expected_bits);
+  };
+  check_with_preceding("11111111", 0);
+  check_with_preceding("11111111", 1);
+  check_with_preceding("11111111", 2);
+  check_with_preceding("11111111", 3);
+  check_with_preceding("11111111", 4);
+  check_with_preceding("11111111", 5);
+  check_with_preceding("11111111", 6);
+  check_with_preceding("11111111", 7);
 }
 
 TEST(FirstTimeBitmapWriter, AppendZeroBitsHasNoImpact) {
@@ -357,7 +393,7 @@ TEST(FirstTimeBitmapWriter, AppendZeroBitsHasNoImpact) {
   EXPECT_EQ(valid_bits[0], 0x2);
 }
 
-TEST(FirstTimeBitmapWriter, AppendLessThenByte) {
+TEST(FirstTimeBitmapWriter, AppendLessThanByte) {
   std::vector<uint8_t> valid_bits(/*count*/ 8, 0);
   internal::FirstTimeBitmapWriter writer(valid_bits.data(), /*start_offset=*/1,
                                          /*length=*/8);

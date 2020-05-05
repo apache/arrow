@@ -633,7 +633,6 @@ class FirstTimeBitmapWriter {
     if (bit_mask_ == 0x1) {
       current_byte_ = 0;
     } else {
-      // current_byte_ = *(reinterpret_cast<uint8_t*>(&word) + bytes_for_word - 1) : 0;
       current_byte_ = *(append_position + bytes_for_word - 1);
     }
 
