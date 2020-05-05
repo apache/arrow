@@ -18,8 +18,6 @@
 #include "arrow/util/value_parsing.h"
 
 #include <chrono>
-#include <istream>
-#include <streambuf>
 #include <string>
 #include <utility>
 
@@ -95,10 +93,9 @@ class StrptimeTimestampParser : public TimestampParser {
 
   bool operator()(const char* s, size_t length, TimeUnit::type out_unit,
                   int64_t* out) const override {
-    // The buffer s may not be nul-terminated
-    std::string clean_copy(s, length);
-    return ParseTimestampStrptime(clean_copy.c_str(), format_.c_str(),
-                                  /*ignore_time_in_day=*/false, out_unit, out);
+    return ParseTimestampStrptime(s, length, format_.c_str(),
+                                  /*ignore_time_in_day=*/false,
+                                  /*allow_trailing_chars=*/false, out_unit, out);
   }
 
  private:

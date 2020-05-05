@@ -367,7 +367,8 @@ TEST(TimestampParser, StrptimeParser) {
     std::string iso8601;
   };
 
-  std::vector<Case> cases = {{"5/1/2000 12:34:56", "2000-05-01 12:34:56"}};
+  std::vector<Case> cases = {{"5/31/2000 12:34:56", "2000-05-31 12:34:56"},
+                             {"5/31/2000 00:00:00", "2000-05-31 00:00:00"}};
 
   std::vector<TimeUnit::type> units = {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO,
                                        TimeUnit::NANO};
@@ -383,7 +384,7 @@ TEST(TimestampParser, StrptimeParser) {
   }
 
   // Unparseable strings
-  std::vector<std::string> unparseables = {"foo", "5/1/2000"};
+  std::vector<std::string> unparseables = {"foo", "5/1/2000", "5/1/2000 12:34:56:6"};
   for (auto& value : unparseables) {
     int64_t dummy;
     ASSERT_FALSE((*parser)(value.c_str(), value.size(), TimeUnit::SECOND, &dummy));

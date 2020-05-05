@@ -18,6 +18,7 @@
 #pragma once
 
 #include <ctime>
+#include <string>
 
 #include <gtest/gtest.h>
 
@@ -29,10 +30,11 @@
 
 namespace gandiva {
 
-static inline gdv_timestamp StringToTimestamp(const char* buf) {
+static inline gdv_timestamp StringToTimestamp(const std::string& s) {
   int64_t out = 0;
   bool success = ::arrow::internal::ParseTimestampStrptime(
-      buf, "%Y-%m-%d %H:%M:%S", false, ::arrow::TimeUnit::SECOND, &out);
+      s.c_str(), s.length(), "%Y-%m-%d %H:%M:%S", /*ignore_time_in_day=*/false,
+      /*allow_trailing_chars=*/false, ::arrow::TimeUnit::SECOND, &out);
   DCHECK(success);
   ARROW_UNUSED(success);
   return out * 1000;

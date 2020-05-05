@@ -84,8 +84,9 @@ int64_t ToDateHolder::operator()(ExecutionContext* context, const std::string& d
   // 2. does not process time in format +08:00 (or) id.
   int64_t seconds_since_epoch = 0;
   if (!::arrow::internal::ParseTimestampStrptime(
-          data.c_str(), pattern_.c_str(),
-          /*ignore_time_in_day=*/true, ::arrow::TimeUnit::SECOND, &seconds_since_epoch)) {
+          data.c_str(), data.length(), pattern_.c_str(),
+          /*ignore_time_in_day=*/true, /*allow_trailing_chars=*/true,
+          ::arrow::TimeUnit::SECOND, &seconds_since_epoch)) {
     return_error(context, data);
     return 0;
   }

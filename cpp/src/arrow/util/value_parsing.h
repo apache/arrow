@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <type_traits>
 
@@ -551,16 +552,17 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
 }
 
 /// \brief Returns time since the UNIX epoch in the requested unit
-static inline bool ParseTimestampStrptime(const char* buf, const char* format,
-                                          bool ignore_time_in_day, TimeUnit::type unit,
+static inline bool ParseTimestampStrptime(const char* buf, size_t length,
+                                          const char* format, bool ignore_time_in_day,
+                                          bool allow_trailing_chars, TimeUnit::type unit,
                                           int64_t* out) {
 #if defined(_MSC_VER)
+  // NOTE: not using std::time_get() as implementations can be severely buggy.
   static std::locale lc_all(setlocale(LC_ALL, NULLPTR));
-  std::istringstream stream(buf);
+  std::istringstream stream;
   stream.imbue(lc_all);
+  stream.rdbuf()->pubsetbuf(const_cast<char*>(buf), length);
 
-  // TODO: date::parse fails parsing when the hour value is 0.
-  // eg.1886-12-01 00:00:00
   arrow_vendored::date::sys_seconds seconds;
   if (ignore_time_in_day) {
     arrow_vendored::date::sys_days days;
@@ -575,13 +577,23 @@ static inline bool ParseTimestampStrptime(const char* buf, const char* format,
       return false;
     }
   }
-  *out = detail::ConvertTimePoint(secs, unit);
+  if (!allow_trailing_chars && static_cast<size_t>(stream.tellg()) != length) {
+    return false;
+  }
+  *out = detail::ConvertTimePoint(seconds, unit);
   return true;
+
 #else
+  // NOTE: strptime() is more than 10x faster than arrow_vendored::date::parse().
+  // The buffer may not be nul-terminated
+  std::string clean_copy(buf, length);
   struct tm result;
   memset(&result, 0, sizeof(struct tm));
-  char* ret = strptime(buf, format, &result);
+  char* ret = strptime(clean_copy.c_str(), format, &result);
   if (ret == NULLPTR) {
+    return false;
+  }
+  if (!allow_trailing_chars && static_cast<size_t>(ret - clean_copy.c_str()) != length) {
     return false;
   }
   // ignore the time part
