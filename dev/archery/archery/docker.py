@@ -148,12 +148,24 @@ class DockerCompose(Command):
     def build(self, image, cache=True, cache_leaf=True, params=None):
         self._validate_image(image)
 
-        # build each ancestors
-        for ancestor in self.nodes[image]:
-            self._pull_andor_build(ancestor, pull_if=cache)
-
-        # build the image at last
-        self._pull_andor_build(image, pull_if=(cache and cache_leaf))
+        if cache:
+            # pull
+            for ancestor in self.nodes[image]:
+                self._execute('pull', '--ignore-pull-failures', ancestor)
+            if cache_leaf:
+                self._execute('pull', '--ignore-pull-failures', image)
+            # build
+            for ancestor in self.nodes[image]:
+                self._execute('build', ancestor)
+            if cache_leaf:
+                self._execute('build', image)
+            else:
+                self._execute('build', '--no-cache', image)
+        else:
+            # build
+            for ancestor in self.nodes[image]:
+                self._execute('build', '--no-cache', ancestor)
+            self._execute('build', '--no-cache', image)
 
     def run(self, image, command=None, env=None, params=None):
         self._validate_image(image)
