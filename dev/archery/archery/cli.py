@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -696,9 +695,11 @@ def docker_compose(obj, src):
 @click.option('--dry-run/--execute', default=False,
               help="Display the docker-compose commands instead of executing "
                    "them.")
+@click.option('--volume', '-v', multiple=True,
+              help="Set volume within the container")
 @click.pass_obj
 def docker_compose_run(obj, image, command, env, force_pull, force_build,
-                       use_cache, use_leaf_cache, dry_run):
+                       use_cache, use_leaf_cache, dry_run, volume):
     """Execute docker-compose builds.
 
     To see the available builds run `archery docker list`.
@@ -722,6 +723,9 @@ def docker_compose_run(obj, image, command, env, force_pull, force_build,
 
     # pass runtime parameters via docker environment variables
     archery docker run -e CMAKE_BUILD_TYPE=release ubuntu-cpp
+
+    # set a volume
+    archery docker run -v $PWD/build:/build ubuntu-cpp
 
     # starting an interactive bash session for debugging
     archery docker run ubuntu-cpp bash
@@ -749,7 +753,8 @@ def docker_compose_run(obj, image, command, env, force_pull, force_build,
             force_pull=force_pull,
             force_build=force_build,
             use_cache=use_cache,
-            use_leaf_cache=use_leaf_cache
+            use_leaf_cache=use_leaf_cache,
+            volumes=volume
         )
     except UndefinedImage as e:
         raise click.ClickException(

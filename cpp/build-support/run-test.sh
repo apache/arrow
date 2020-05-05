@@ -97,7 +97,7 @@ function run_test() {
   rm -f $XMLFILE
 
   $TEST_EXECUTABLE "$@" 2>&1 \
-    | $ROOT/build-support/asan_symbolize.py \
+    | ${PYTHON:-python} $ROOT/build-support/asan_symbolize.py \
     | ${CXXFILT:-c++filt} \
     | $ROOT/build-support/stacktrace_addr2line.pl $TEST_EXECUTABLE \
     | $pipe_cmd 2>&1 | tee $LOGFILE
