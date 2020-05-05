@@ -22,7 +22,6 @@ import errno
 import json
 import logging
 import os
-from pathlib import Path
 import sys
 
 from .benchmark.compare import RunnerComparator, DEFAULT_THRESHOLD
