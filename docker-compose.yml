@@ -353,7 +353,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &fedora-volumes
       - .:/arrow:delegated
-      - ${ARCH}-fedora-${FEDORA}-cache:/ccache:delegated
+      - .docker/${ARCH}-fedora-${FEDORA}-cache:/ccache:delegated
     command: *cpp-command
 
   ############################### C GLib ######################################
@@ -1036,7 +1036,7 @@ services:
     shm_size: *shm-size
     volumes: &java-volumes
       - .:/arrow:delegated
-      - maven-cache:/root/.m2:delegated
+      - .docker/maven-cache:/root/.m2:delegated
     command: &java-command >
       /bin/bash -c "
         /arrow/ci/scripts/java_build.sh /arrow /build &&
@@ -1062,8 +1062,8 @@ services:
       <<: *ccache
     volumes:
       - .:/arrow:delegated
-      - maven-cache:/root/.m2:delegated
-      - ${ARCH}-debian-9-cache:/ccache:delegated
+      - .docker/maven-cache:/root/.m2:delegated
+      - .docker/${ARCH}-debian-9-cache:/ccache:delegated
     command:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -1250,8 +1250,8 @@ services:
     shm_size: *shm-size
     volumes: &conda-maven-volumes
       - .:/arrow:delegated
-      - maven-cache:/root/.m2:delegated
-      - ${ARCH}-conda-cache:/ccache:delegated
+      - .docker/maven-cache:/root/.m2:delegated
+      - .docker/${ARCH}-conda-cache:/ccache:delegated
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
