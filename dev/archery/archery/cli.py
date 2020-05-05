@@ -755,10 +755,10 @@ def docker_compose_run(obj, image, command, env, build, cache, cache_leaf,
 @docker_compose.command('push')
 @click.argument('image')
 @click.option('--user', '-u', required=True, envvar='ARCHERY_DOCKER_USER',
-              help='Docker login user')
+              help='Docker repository username')
 @click.option('--password', '-p', required=True,
               envvar='ARCHERY_DOCKER_PASSWORD',
-              help='Docker login user')
+              help='Docker repository password')
 @click.pass_obj
 def docker_compose_push(obj, image, user, password):
     """Push the generated docker-compose image."""
@@ -769,7 +769,7 @@ def docker_compose_push(obj, image, user, password):
 @docker_compose.command('images')
 @click.pass_obj
 def docker_compose_images(obj):
-    """Push the generated docker-compose image."""
+    """List the available docker-compose images."""
     compose = obj['compose']
     click.echo('Available images:')
     for image in compose.images():

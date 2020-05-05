@@ -62,12 +62,12 @@ jobs:
           python: 3.8
         - name: conda-python-3.6-pandas-0.23
           image: conda-python-pandas
-          title: AMD64 Conda Python 3.8 Pandas 0.23
+          title: AMD64 Conda Python 3.6 Pandas 0.23
           python: 3.6
           pandas: 0.23
         - name: conda-python-3.6-pandas-latest
           image: conda-python-pandas
-          title: AMD64 Conda Python 3.8 Pandas latest
+          title: AMD64 Conda Python 3.6 Pandas latest
           python: 3.6
           pandas: latest
     env:
