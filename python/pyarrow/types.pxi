@@ -831,7 +831,7 @@ def unregister_extension_type(type_name):
         The name of the ExtensionType subclass to unregister.
 
     """
-    return _unregister_extension_type(type_name)
+    return _unregister_extension_type(tobytes(type_name))
 
 
 cdef class KeyValueMetadata(_Metadata, Mapping):
