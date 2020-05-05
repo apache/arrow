@@ -47,7 +47,6 @@ with the ``--help`` flag:
     archery docker --help
     archery docker run --help
 
-
 Examples
 ~~~~~~~~
 
