@@ -682,12 +682,14 @@ def docker_compose(obj, src):
 @click.argument('command', required=False, default=None)
 @click.option('--env', '-e', multiple=True,
               help="Set environment variable within the container")
-@click.option('--build/--no-build', default=True,
+@click.option('--force-pull/--no-pull', default=True,
+              help="Whether to force pull the image and its ancestor images")
+@click.option('--force-build/--no-build', default=True,
               help="Whether to force build the image and its ancestor images")
-@click.option('--cache/--no-cache', default=True,
+@click.option('--use-cache/--no-cache', default=True,
               help="Whether to use cache when building the image and its "
                    "ancestor images")
-@click.option('--cache-leaf/--no-cache-leaf', default=True,
+@click.option('--use-leaf-cache/--no-leaf-cache', default=True,
               help="Whether to use cache when building only the (leaf) image "
                    "passed as the argument. To disable caching for both the "
                    "image and its ancestors use --no-cache option.")
@@ -695,8 +697,8 @@ def docker_compose(obj, src):
               help="Display the docker-compose commands instead of executing "
                    "them.")
 @click.pass_obj
-def docker_compose_run(obj, image, command, env, build, cache, cache_leaf,
-                       dry_run):
+def docker_compose_run(obj, image, command, env, force_pull, force_build,
+                       use_cache, use_leaf_cache, dry_run):
     """Execute docker-compose builds.
 
     To see the available builds run `archery docker list`.
@@ -713,10 +715,10 @@ def docker_compose_run(obj, image, command, env, build, cache, cache_leaf,
     PYTHON=3.8 archery docker run conda-python
 
     # disable the cache only for the leaf image
-    PANDAS=master archery docker run --no-cache-leaf conda-python-pandas
+    PANDAS=master archery docker run --no-leaf-cache conda-python-pandas
 
     # entirely skip building the image
-    archery docker run --no-build conda-python
+    archery docker run --no-pull --no-build conda-python
 
     # pass runtime parameters via docker environment variables
     archery docker run -e CMAKE_BUILD_TYPE=release ubuntu-cpp
@@ -739,9 +741,14 @@ def docker_compose_run(obj, image, command, env, build, cache, cache_leaf,
         compose._execute = MethodType(_print_command, compose)
 
     try:
-        if build:
-            compose.build(image, cache=cache, cache_leaf=cache_leaf)
-        compose.run(image, command=command)
+        compose.run(
+            image,
+            command=command,
+            force_pull=force_pull,
+            force_build=force_build,
+            use_cache=use_cache,
+            use_leaf_cache=use_leaf_cache
+        )
     except UndefinedImage as e:
         raise click.ClickException(
             "There is no service/image defined in docker-compose.yml with "

@@ -1706,7 +1706,7 @@ tasks:
         PYTHON: 3.7
         PANDAS: latest
       # use the latest pandas release, so prevent reusing any cached layers
-      run: --no-cache-leaf conda-python-pandas
+      run: --no-leaf-cache conda-python-pandas
 
   test-conda-python-3.8-pandas-latest:
     ci: github
@@ -1716,7 +1716,7 @@ tasks:
         PYTHON: 3.8
         PANDAS: latest
       # use the latest pandas release, so prevent reusing any cached layers
-      run: --no-cache-leaf conda-python-pandas
+      run: --no-leaf-cache conda-python-pandas
 
   test-conda-python-3.7-pandas-master:
     ci: github
@@ -1726,7 +1726,7 @@ tasks:
         PYTHON: 3.7
         PANDAS: master
       # use the master branch of pandas, so prevent reusing any cached layers
-      run: --no-cache-leaf conda-python-pandas
+      run: --no-leaf-cache conda-python-pandas
 
   test-conda-python-3.6-pandas-0.23:
     ci: github
@@ -1745,7 +1745,7 @@ tasks:
         PYTHON: 3.7
         DASK: latest
       # use the latest dask release, so prevent reusing any cached layers
-      run: --no-cache-leaf conda-python-dask
+      run: --no-leaf-cache conda-python-dask
 
   test-conda-python-3.8-dask-master:
     ci: github
@@ -1755,7 +1755,7 @@ tasks:
         PYTHON: 3.8
         DASK: master
       # use the master branch of dask, so prevent reusing any cached layers
-      run: --no-cache-leaf conda-python-dask
+      run: --no-leaf-cache conda-python-dask
 
   test-conda-python-3.8-jpype:
     ci: github
@@ -1773,7 +1773,7 @@ tasks:
         PYTHON: 3.7
         TURBODBC: latest
       # use the latest turbodbc release, so prevent reusing any cached layers
-      run: --no-cache-leaf conda-python-turbodbc
+      run: --no-leaf-cache conda-python-turbodbc
 
   test-conda-python-3.7-turbodbc-master:
     ci: github
@@ -1783,7 +1783,7 @@ tasks:
         PYTHON: 3.7
         TURBODBC: master
       # use the master branch of dask, so prevent reusing any cached layers
-      run: --no-cache-leaf conda-python-turbodbc
+      run: --no-leaf-cache conda-python-turbodbc
 
   test-conda-python-3.7-kartothek-latest:
     ci: github
@@ -1792,7 +1792,7 @@ tasks:
       env:
         PYTHON: 3.7
         KARTOTHEK: latest
-      run: --no-cache-leaf conda-python-kartothek
+      run: --no-leaf-cache conda-python-kartothek
 
   test-conda-python-3.7-kartothek-master:
     ci: github
@@ -1802,7 +1802,7 @@ tasks:
         PYTHON: 3.7
         KARTOTHEK: master
       # use the master branch of kartothek, so prevent reusing any layers
-      run: --no-cache-leaf conda-python-kartothek
+      run: --no-leaf-cache conda-python-kartothek
 
   test-conda-python-3.7-hdfs-2.9.2:
     ci: github
@@ -1821,7 +1821,7 @@ tasks:
         PYTHON: 3.7
         SPARK: master
       # use the master branch of spark, so prevent reusing any layers
-      run: --no-cache-leaf conda-python-spark
+      run: --no-leaf-cache conda-python-spark
 
   # Remove the "skipped-" prefix in ARROW-8475
   skipped-test-conda-cpp-hiveserver2:

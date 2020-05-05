@@ -67,8 +67,8 @@ Archery calls the following docker-compose commands:
 .. code:: bash
 
     docker-compose pull --ignore-pull-failures conda-cpp
-    docker-compose build conda-cpp
     docker-compose pull --ignore-pull-failures conda-python
+    docker-compose build conda-cpp
     docker-compose build conda-python
     docker-compose run --rm conda-python
 
@@ -101,7 +101,7 @@ where the leaf image is ``conda-python-pandas``.
 
 .. code:: bash
 
-    PANDAS=master archery docker run --no-cache-leaf conda-python-pandas
+    PANDAS=master archery docker run --no-leaf-cache conda-python-pandas
 
 Which translates to:
 
@@ -109,8 +109,8 @@ Which translates to:
 
     export PANDAS=master
     docker-compose pull --ignore-pull-failures conda-cpp
-    docker-compose build conda-cpp
     docker-compose pull --ignore-pull-failures conda-python
+    docker-compose build conda-cpp
     docker-compose build conda-python
     docker-compose build --no-cache conda-python-pandas
     docker-compose run --rm conda-python-pandas
@@ -143,9 +143,9 @@ can be useful to skip the build phases:
     archery docker run conda-python
 
     # since the image is properly built with the first command, there is no
-    # need to rebuild it, so manually disable the build phase to spare the
-    # build time
-    archery docker run --no-build conda-python
+    # need to rebuild it, so manually disable the pull and build phases to
+    # spare the some time
+    archery docker run --no-pull --no-build conda-python
 
 **Pass environment variables to the container:**
 
