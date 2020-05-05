@@ -1291,10 +1291,7 @@ tasks:
     platform: linux
     template: nuget-packages/github.linux.yml
     params:
-      commands:
-        - docker-compose pull --ignore-pull-failures ubuntu-csharp-nuget
-        - docker-compose build ubuntu-csharp-nuget
-        - docker-compose run ubuntu-csharp-nuget
+      run: ubuntu-csharp
     artifacts:
       - Apache.Arrow.{no_rc_version}.nupkg
       - Apache.Arrow.{no_rc_version}.snupkg

@@ -39,23 +39,25 @@ jobs:
           git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
           git -C arrow checkout FETCH_HEAD
           git -C arrow submodule update --init --recursive
+      - name: Setup Python
+        uses: actions/setup-python@v1
+      - name: Setup Archery
+        run: pip install -e arrow/dev/archery[docker]
+      - name: Prepare version
+        run: |
+          sed -i'' -E -e \
+            "s/^    <Version>.+<\/Version>/    <Version>{{ arrow.no_rc_version }}<\/Version>/" \
+            arrow/csharp/Directory.Build.props
       - name: Build package
         run: |
           pushd arrow
-          sed -i'' -E -e \
-            "s/^    <Version>.+<\/Version>/    <Version>{{ arrow.no_rc_version }}<\/Version>/" \
-            csharp/Directory.Build.props
-          {%- for command in commands %}
-            {{ command }}
-          {%- endfor %}
+          archery docker run {{ run }}
           popd
       # Using GitHub release tries to find a common ancestor between the
       # currently pushed tag and the latest tag of the GitHub repository
       # (don't know why).
       # The tag upload took 43 minutes because of this scan, so use an
       # alternative upload script.
-      - name: Set up Python
-        uses: actions/setup-python@v1
       - name: Set up Crossbow
         run: |
           pip install \

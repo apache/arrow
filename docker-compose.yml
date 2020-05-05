@@ -1015,25 +1015,8 @@ services:
     command: &csharp-command >
       /bin/bash -c "
         /arrow/ci/scripts/csharp_build.sh /arrow &&
-        /arrow/ci/scripts/csharp_test.sh /arrow"
-
-  ubuntu-csharp-nuget:
-    # Usage:
-    #   docker-compose build ubuntu-csharp-nuget
-    #   docker-compose run ubuntu-csharp-nuget
-    image: ${REPO}:${ARCH}-ubuntu-18.04-csharp-${DOTNET}
-    build:
-      context: .
-      dockerfile: ci/docker/ubuntu-18.04-csharp.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-ubuntu-18.04-csharp-${DOTNET}
-      args:
-        dotnet: ${DOTNET}
-        platform: bionic
-    shm_size: *shm-size
-    volumes: *ubuntu-volumes
-    command: >
-      /arrow/ci/scripts/csharp_nuget.sh /arrow
+        /arrow/ci/scripts/csharp_test.sh /arrow &&
+        /arrow/ci/scripts/csharp_nuget.sh /arrow"
 
   ################################ Java #######################################
 
