@@ -291,6 +291,12 @@ def test_special_chars_filename(tempdir, use_legacy_dataset):
     assert table_read.equals(table)
 
 
+@pytest.mark.slow
+def test_file_with_over_int16_max_row_groups():
+    t = pa.table([list(range(40000))], names=['f0'])
+    _check_roundtrip(t, row_group_size=1)
+
+
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_empty_table_roundtrip(use_legacy_dataset):

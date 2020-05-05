@@ -76,7 +76,8 @@ class FileColumnIterator {
       return nullptr;
     }
 
-    auto row_group_reader = reader_->RowGroup(row_groups_.front());
+    int row_group_index = row_groups_.front();
+    auto row_group_reader = reader_->RowGroup(row_group_index);
     row_groups_.pop_front();
     return row_group_reader->GetColumnPageReader(column_index_);
   }
