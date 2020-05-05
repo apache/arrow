@@ -180,7 +180,7 @@ public class UnionListWriter extends AbstractFieldWriter {
 
   @Override
   public void writeNull() {
-    writer.setPosition(writer.idx()+1);
+    writer.writeNull();
   }
 
   public void writeDecimal(int start, ArrowBuf buffer, ArrowType arrowType) {
