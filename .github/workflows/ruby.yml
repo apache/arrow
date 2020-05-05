@@ -69,8 +69,8 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: PREF-ubuntu-${{ matrix.ubuntu }}-${{ hashFiles('cpp/**') }}
-          restore-keys: PREF-${{ matrix.ubuntu }}-
+          key: PREF-ubuntu-${{ matrix.ubuntu }}-ccache-${{ hashFiles('cpp/**') }}
+          restore-keys: PREF-${{ matrix.ubuntu }}-ccache-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:

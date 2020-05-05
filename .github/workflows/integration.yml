@@ -66,8 +66,8 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: PREF-conda-${{ hashFiles('cpp/**') }}
-          restore-keys: PREF-conda-
+          key: PREF-conda-ccache-${{ hashFiles('cpp/**') }}
+          restore-keys: PREF-conda-ccache-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
