@@ -25,7 +25,9 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#if defined(_WIN32)
 #include <sstream>
+#endif
 #include <string>
 #include <type_traits>
 
@@ -556,12 +558,11 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
                                           const char* format, bool ignore_time_in_day,
                                           bool allow_trailing_chars, TimeUnit::type unit,
                                           int64_t* out) {
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   // NOTE: not using std::time_get() as implementations can be severely buggy.
   static std::locale lc_all(setlocale(LC_ALL, NULLPTR));
-  std::istringstream stream;
+  std::istringstream stream(std::string(buf, length));
   stream.imbue(lc_all);
-  stream.rdbuf()->pubsetbuf(const_cast<char*>(buf), length);
 
   arrow_vendored::date::sys_seconds seconds;
   if (ignore_time_in_day) {
