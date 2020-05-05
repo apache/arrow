@@ -200,15 +200,13 @@ fn parquet_list_columns() {
         &PrimitiveArray::<Int64Type>::from(vec![Some(4),])
     );
 
-    assert_eq!(
-        utf8_list_array
-            .value(2)
-            .as_any()
-            .downcast_ref::<StringArray>()
-            .unwrap(),
-        &StringArray::try_from(vec![Some("efg"), None, Some("hij"), Some("xyz")])
-            .unwrap()
-    );
+    let result = utf8_list_array.value(2);
+    let result = result.as_any().downcast_ref::<StringArray>().unwrap();
+
+    assert_eq!(result.value(0), "efg");
+    assert!(result.is_null(1));
+    assert_eq!(result.value(2), "hij");
+    assert_eq!(result.value(3), "xyz");
 }
 
 #[test]
