@@ -3955,6 +3955,15 @@ def test_fastparquet_cross_compatibility(tempdir):
     tm.assert_frame_equal(table_fp.to_pandas(), df)
 
 
+def test_table_large_metadata():
+    # ARROW-8694
+    my_schema = pa.schema([pa.field('f0', 'double')],
+                          metadata={'large': 'x' * 10000000})
+
+    table = pa.table([np.arange(10)], schema=my_schema)
+    _check_roundtrip(table)
+
+
 @parametrize_legacy_dataset_skip_buffer
 @pytest.mark.parametrize('array_factory', [
     lambda: pa.array([0, None] * 10),
