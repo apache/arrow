@@ -17,6 +17,24 @@
 
 #pragma once
 
+#ifdef _MSC_VER
+// MSVC x86_64/arm64
+
+#if defined(_M_AMD64) || defined(_M_X64)
+#include <intrin.h>
+#elif defined(_M_ARM64)
+#include <arm64_neon.h>
+#endif
+
+#else
+// gcc/clang (possibly others)
+
+#if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_AVX512)
+#include <immintrin.h>
+#elif defined(ARROW_HAVE_SSE4_2)
+#include <nmmintrin.h>
+#endif
+
 #ifdef ARROW_HAVE_NEON
 #include <arm_neon.h>
 #endif
@@ -25,26 +43,4 @@
 #include <arm_acle.h>
 #endif
 
-namespace arrow {
-
-#ifdef ARROW_HAVE_ARMV8_CRC
-
-static inline uint32_t ARMCE_crc32_u8(uint32_t crc, uint8_t v) {
-  return __crc32cb(crc, v);
-}
-
-static inline uint32_t ARMCE_crc32_u16(uint32_t crc, uint16_t v) {
-  return __crc32ch(crc, v);
-}
-
-static inline uint32_t ARMCE_crc32_u32(uint32_t crc, uint32_t v) {
-  return __crc32cw(crc, v);
-}
-
-static inline uint32_t ARMCE_crc32_u64(uint32_t crc, uint64_t v) {
-  return __crc32cd(crc, v);
-}
-
-#endif  // ARROW_HAVE_ARMV8_CRC
-
-}  // namespace arrow
+#endif

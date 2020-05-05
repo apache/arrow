@@ -59,7 +59,7 @@ Sometimes, it is required to pass custom CMake flags, e.g.
 .. code-block:: shell
 
   export CC=clang-8 CXX=clang++8
-  archery benchmark run --cmake-extras="-DARROW_USE_SIMD=ON"
+  archery benchmark run --cmake-extras="-DARROW_SIMD_LEVEL=NONE"
 
 Comparison
 ==========
