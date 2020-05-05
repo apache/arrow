@@ -1207,6 +1207,7 @@ cdef class ParquetWriter:
         object allow_truncated_timestamps
         object compression
         object compression_level
+        object data_page_version
         object version
         object write_statistics
         object writer_engine_version
@@ -1223,7 +1224,8 @@ cdef class ParquetWriter:
                   allow_truncated_timestamps=False,
                   compression_level=None,
                   use_byte_stream_split=False,
-                  writer_engine_version=None):
+                  writer_engine_version=None,
+                  data_page_version=None):
         cdef:
             shared_ptr[WriterProperties] properties
             c_string c_where
@@ -1250,8 +1252,10 @@ cdef class ParquetWriter:
         self.allow_truncated_timestamps = allow_truncated_timestamps
         self.use_byte_stream_split = use_byte_stream_split
         self.writer_engine_version = writer_engine_version
+        self.data_page_version = data_page_version
 
         cdef WriterProperties.Builder properties_builder
+        self._set_data_page_version(&properties_builder)
         self._set_version(&properties_builder)
         self._set_compression_props(&properties_builder)
         self._set_dictionary_props(&properties_builder)
@@ -1323,6 +1327,17 @@ cdef class ParquetWriter:
             else:
                 raise ValueError("Unsupported Parquet format version: {0}"
                                  .format(self.version))
+
+    cdef int _set_data_page_version(self, WriterProperties.Builder* props) \
+            except -1:
+        if self.data_page_version is not None:
+            if self.data_page_version == "1.0":
+                props.data_page_version(ParquetDataPageVersion_V1)
+            elif self.data_page_version == "2.0":
+                props.data_page_version(ParquetDataPageVersion_V2)
+            else:
+                raise ValueError("Unsupported Parquet data page version: {0}"
+                                 .format(self.data_page_version))
 
     cdef void _set_compression_props(self, WriterProperties.Builder* props) \
             except *:
