@@ -37,9 +37,9 @@
 #include "arrow/util/formatting.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/parsing.h"  // IWYU pragma: keep
 #include "arrow/util/time.h"
 #include "arrow/util/utf8.h"
+#include "arrow/util/value_parsing.h"  // IWYU pragma: keep
 #include "arrow/visitor_inline.h"
 
 #include "arrow/compute/context.h"

@@ -17,16 +17,23 @@
 
 #include "benchmark/benchmark.h"
 
+#include <algorithm>
+#include <cstdint>
+#include <cstdlib>
+#include <iostream>
 #include <limits>
-#include <numeric>
+#include <memory>
 #include <string>
 #include <type_traits>
 #include <vector>
 
+#include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/type.h"
 #include "arrow/util/formatting.h"
-#include "arrow/util/parsing.h"
+#include "arrow/util/string_view.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 namespace internal {
@@ -137,19 +144,18 @@ static void FloatParsing(benchmark::State& state) {  // NOLINT non-const referen
   state.SetItemsProcessed(state.iterations() * strings.size());
 }
 
-template <TimeUnit::type UNIT>
-static void TimestampParsing(benchmark::State& state) {  // NOLINT non-const reference
+static void BenchTimestampParsing(
+    benchmark::State& state, TimeUnit::type unit,
+    const TimestampParser& parser) {  // NOLINT non-const reference
   using c_type = TimestampType::c_type;
 
   auto strings = MakeTimestampStrings(1000);
-  auto type = timestamp(UNIT);
-  StringConverter<TimestampType> converter(type);
 
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     c_type total = 0;
     for (const auto& s : strings) {
       c_type value;
-      if (!converter(s.data(), s.length(), &value)) {
+      if (!parser(s.data(), s.length(), unit, &value)) {
         std::cerr << "Conversion failed for '" << s << "'";
         std::abort();
       }
@@ -158,6 +164,20 @@ static void TimestampParsing(benchmark::State& state) {  // NOLINT non-const ref
     benchmark::DoNotOptimize(total);
   }
   state.SetItemsProcessed(state.iterations() * strings.size());
+}
+
+template <TimeUnit::type UNIT>
+static void TimestampParsingISO8601(
+    benchmark::State& state) {  // NOLINT non-const reference
+  auto parser = TimestampParser::MakeISO8601();
+  BenchTimestampParsing(state, UNIT, *parser);
+}
+
+template <TimeUnit::type UNIT>
+static void TimestampParsingStrptime(
+    benchmark::State& state) {  // NOLINT non-const reference
+  auto parser = TimestampParser::MakeStrptime("%Y-%m-%d %H:%M:%S");
+  BenchTimestampParsing(state, UNIT, *parser);
 }
 
 struct DummyAppender {
@@ -215,10 +235,11 @@ BENCHMARK_TEMPLATE(IntegerParsing, UInt64Type);
 BENCHMARK_TEMPLATE(FloatParsing, FloatType);
 BENCHMARK_TEMPLATE(FloatParsing, DoubleType);
 
-BENCHMARK_TEMPLATE(TimestampParsing, TimeUnit::SECOND);
-BENCHMARK_TEMPLATE(TimestampParsing, TimeUnit::MILLI);
-BENCHMARK_TEMPLATE(TimestampParsing, TimeUnit::MICRO);
-BENCHMARK_TEMPLATE(TimestampParsing, TimeUnit::NANO);
+BENCHMARK_TEMPLATE(TimestampParsingISO8601, TimeUnit::SECOND);
+BENCHMARK_TEMPLATE(TimestampParsingISO8601, TimeUnit::MILLI);
+BENCHMARK_TEMPLATE(TimestampParsingISO8601, TimeUnit::MICRO);
+BENCHMARK_TEMPLATE(TimestampParsingISO8601, TimeUnit::NANO);
+BENCHMARK_TEMPLATE(TimestampParsingStrptime, TimeUnit::MILLI);
 
 BENCHMARK_TEMPLATE(IntegerFormatting, Int8Type);
 BENCHMARK_TEMPLATE(IntegerFormatting, Int16Type);

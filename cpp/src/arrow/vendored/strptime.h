@@ -17,16 +17,19 @@
 
 #pragma once
 
-#include "arrow/vendored/double-conversion/double-conversion.h"  // IWYU pragma: export
+#include <time.h>
 
-namespace arrow {
-namespace util {
-namespace double_conversion {
+#include "arrow/util/visibility.h"
 
-using ::double_conversion::DoubleToStringConverter;
-using ::double_conversion::StringBuilder;
-using ::double_conversion::StringToDoubleConverter;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-}  // namespace double_conversion
-}  // namespace util
-}  // namespace arrow
+// A less featureful implementation of strptime() for platforms lacking
+// a standard implementation (e.g. Windows).
+ARROW_EXPORT char* arrow_strptime(const char* __restrict, const char* __restrict,
+                                  struct tm* __restrict);
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif

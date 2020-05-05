@@ -38,7 +38,7 @@
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/parsing.h"
+#include "arrow/util/value_parsing.h"
 
 #include "arrow/python/common.h"
 #include "arrow/python/datetime.h"

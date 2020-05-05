@@ -21,18 +21,38 @@
 
 #include <cassert>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <string>
 #include <type_traits>
 
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/config.h"
+#include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 #include "arrow/vendored/datetime.h"
+#include "arrow/vendored/strptime.h"
 
 namespace arrow {
+
+/// \brief A virtual string to timestamp parser
+class ARROW_EXPORT TimestampParser {
+ public:
+  virtual ~TimestampParser() = default;
+
+  virtual bool operator()(const char* s, size_t length, TimeUnit::type out_unit,
+                          int64_t* out) const = 0;
+
+  /// \brief Create a TimestampParser that recognizes strptime-like format strings
+  static std::shared_ptr<TimestampParser> MakeStrptime(std::string format);
+
+  /// \brief Create a TimestampParser that recognizes (locale-agnostic) ISO8601
+  /// timestamps
+  static std::shared_ptr<TimestampParser> MakeISO8601();
+};
+
 namespace internal {
 
 /// \brief A class providing conversion from strings to some Arrow data types
@@ -356,6 +376,215 @@ class StringConverter<Int64Type> : public StringToSignedIntConverterMixin<Int64T
   using StringToSignedIntConverterMixin<Int64Type>::StringToSignedIntConverterMixin;
 };
 
+// Inline-able ISO-8601 parser
+
+namespace detail {
+
+using ts_type = TimestampType::c_type;
+
+template <class TimePoint>
+static inline ts_type ConvertTimePoint(TimePoint tp, TimeUnit::type unit) {
+  auto duration = tp.time_since_epoch();
+  switch (unit) {
+    case TimeUnit::SECOND:
+      return std::chrono::duration_cast<std::chrono::seconds>(duration).count();
+    case TimeUnit::MILLI:
+      return std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+    case TimeUnit::MICRO:
+      return std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
+    case TimeUnit::NANO:
+      return std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+    default:
+      // Compiler errors without default case even though all enum cases are handled
+      assert(0);
+      return 0;
+  }
+}
+
+static inline bool ParseYYYY_MM_DD(const char* s,
+                                   arrow_vendored::date::year_month_day* out) {
+  uint16_t year;
+  uint8_t month, day;
+  if (ARROW_PREDICT_FALSE(s[4] != '-') || ARROW_PREDICT_FALSE(s[7] != '-')) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 0, 4, &year))) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 5, 2, &month))) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 8, 2, &day))) {
+    return false;
+  }
+  *out = {arrow_vendored::date::year{year}, arrow_vendored::date::month{month},
+          arrow_vendored::date::day{day}};
+  return out->ok();
+}
+
+static inline bool ParseHH(const char* s, std::chrono::duration<ts_type>* out) {
+  uint8_t hours;
+  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 0, 2, &hours))) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(hours >= 24)) {
+    return false;
+  }
+  *out = std::chrono::duration<ts_type>(3600U * hours);
+  return true;
+}
+
+static inline bool ParseHH_MM(const char* s, std::chrono::duration<ts_type>* out) {
+  uint8_t hours, minutes;
+  if (ARROW_PREDICT_FALSE(s[2] != ':')) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 0, 2, &hours))) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 3, 2, &minutes))) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(hours >= 24)) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(minutes >= 60)) {
+    return false;
+  }
+  *out = std::chrono::duration<ts_type>(3600U * hours + 60U * minutes);
+  return true;
+}
+
+static inline bool ParseHH_MM_SS(const char* s, std::chrono::duration<ts_type>* out) {
+  uint8_t hours, minutes, seconds;
+  if (ARROW_PREDICT_FALSE(s[2] != ':') || ARROW_PREDICT_FALSE(s[5] != ':')) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 0, 2, &hours))) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 3, 2, &minutes))) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 6, 2, &seconds))) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(hours >= 24)) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(minutes >= 60)) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(seconds >= 60)) {
+    return false;
+  }
+  *out = std::chrono::duration<ts_type>(3600U * hours + 60U * minutes + seconds);
+  return true;
+}
+
+}  // namespace detail
+
+static inline bool ParseTimestampISO8601(const char* s, size_t length,
+                                         TimeUnit::type unit,
+                                         TimestampType::c_type* out) {
+  using ts_type = TimestampType::c_type;
+
+  // We allow the following formats:
+  // - "YYYY-MM-DD"
+  // - "YYYY-MM-DD[ T]hh"
+  // - "YYYY-MM-DD[ T]hhZ"
+  // - "YYYY-MM-DD[ T]hh:mm"
+  // - "YYYY-MM-DD[ T]hh:mmZ"
+  // - "YYYY-MM-DD[ T]hh:mm:ss"
+  // - "YYYY-MM-DD[ T]hh:mm:ssZ"
+  // UTC is always assumed, and the DataType's timezone is ignored.
+  arrow_vendored::date::year_month_day ymd;
+  if (ARROW_PREDICT_FALSE(length < 10)) {
+    return false;
+  }
+  if (length == 10) {
+    if (ARROW_PREDICT_FALSE(!detail::ParseYYYY_MM_DD(s, &ymd))) {
+      return false;
+    }
+    *out = detail::ConvertTimePoint(arrow_vendored::date::sys_days(ymd), unit);
+    return true;
+  }
+  if (ARROW_PREDICT_FALSE(s[10] != ' ') && ARROW_PREDICT_FALSE(s[10] != 'T')) {
+    return false;
+  }
+  if (s[length - 1] == 'Z') {
+    --length;
+  }
+  if (length == 13) {
+    if (ARROW_PREDICT_FALSE(!detail::ParseYYYY_MM_DD(s, &ymd))) {
+      return false;
+    }
+    std::chrono::duration<ts_type> seconds;
+    if (ARROW_PREDICT_FALSE(!detail::ParseHH(s + 11, &seconds))) {
+      return false;
+    }
+    *out = detail::ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, unit);
+    return true;
+  }
+  if (length == 16) {
+    if (ARROW_PREDICT_FALSE(!detail::ParseYYYY_MM_DD(s, &ymd))) {
+      return false;
+    }
+    std::chrono::duration<ts_type> seconds;
+    if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM(s + 11, &seconds))) {
+      return false;
+    }
+    *out = detail::ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, unit);
+    return true;
+  }
+  if (length == 19) {
+    if (ARROW_PREDICT_FALSE(!detail::ParseYYYY_MM_DD(s, &ymd))) {
+      return false;
+    }
+    std::chrono::duration<ts_type> seconds;
+    if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM_SS(s + 11, &seconds))) {
+      return false;
+    }
+    *out = detail::ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, unit);
+    return true;
+  }
+  return false;
+}
+
+/// \brief Returns time since the UNIX epoch in the requested unit
+static inline bool ParseTimestampStrptime(const char* buf, size_t length,
+                                          const char* format, bool ignore_time_in_day,
+                                          bool allow_trailing_chars, TimeUnit::type unit,
+                                          int64_t* out) {
+  // NOTE: strptime() is more than 10x faster than arrow_vendored::date::parse().
+  // The buffer may not be nul-terminated
+  std::string clean_copy(buf, length);
+  struct tm result;
+  memset(&result, 0, sizeof(struct tm));
+#ifdef _WIN32
+  char* ret = arrow_strptime(clean_copy.c_str(), format, &result);
+#else
+  char* ret = strptime(clean_copy.c_str(), format, &result);
+#endif
+  if (ret == NULLPTR) {
+    return false;
+  }
+  if (!allow_trailing_chars && static_cast<size_t>(ret - clean_copy.c_str()) != length) {
+    return false;
+  }
+  // ignore the time part
+  arrow_vendored::date::sys_seconds secs =
+      arrow_vendored::date::sys_days(arrow_vendored::date::year(result.tm_year + 1900) /
+                                     (result.tm_mon + 1) / result.tm_mday);
+  if (!ignore_time_in_day) {
+    secs += (std::chrono::hours(result.tm_hour) + std::chrono::minutes(result.tm_min) +
+             std::chrono::seconds(result.tm_sec));
+  }
+  *out = detail::ConvertTimePoint(secs, unit);
+  return true;
+}
+
+// A StringConverter that parses ISO8601 at a fixed unit
 template <>
 class StringConverter<TimestampType> {
  public:
@@ -365,168 +594,10 @@ class StringConverter<TimestampType> {
       : unit_(checked_cast<TimestampType*>(type.get())->unit()) {}
 
   bool operator()(const char* s, size_t length, value_type* out) {
-    // We allow the following formats:
-    // - "YYYY-MM-DD"
-    // - "YYYY-MM-DD[ T]hh"
-    // - "YYYY-MM-DD[ T]hhZ"
-    // - "YYYY-MM-DD[ T]hh:mm"
-    // - "YYYY-MM-DD[ T]hh:mmZ"
-    // - "YYYY-MM-DD[ T]hh:mm:ss"
-    // - "YYYY-MM-DD[ T]hh:mm:ssZ"
-    // UTC is always assumed, and the DataType's timezone is ignored.
-    arrow_vendored::date::year_month_day ymd;
-    if (ARROW_PREDICT_FALSE(length < 10)) {
-      return false;
-    }
-    if (length == 10) {
-      if (ARROW_PREDICT_FALSE(!ParseYYYY_MM_DD(s, &ymd))) {
-        return false;
-      }
-      return ConvertTimePoint(arrow_vendored::date::sys_days(ymd), out);
-    }
-    if (ARROW_PREDICT_FALSE(s[10] != ' ') && ARROW_PREDICT_FALSE(s[10] != 'T')) {
-      return false;
-    }
-    if (s[length - 1] == 'Z') {
-      --length;
-    }
-    if (length == 13) {
-      if (ARROW_PREDICT_FALSE(!ParseYYYY_MM_DD(s, &ymd))) {
-        return false;
-      }
-      std::chrono::duration<value_type> seconds;
-      if (ARROW_PREDICT_FALSE(!ParseHH(s + 11, &seconds))) {
-        return false;
-      }
-      return ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, out);
-    }
-    if (length == 16) {
-      if (ARROW_PREDICT_FALSE(!ParseYYYY_MM_DD(s, &ymd))) {
-        return false;
-      }
-      std::chrono::duration<value_type> seconds;
-      if (ARROW_PREDICT_FALSE(!ParseHH_MM(s + 11, &seconds))) {
-        return false;
-      }
-      return ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, out);
-    }
-    if (length == 19) {
-      if (ARROW_PREDICT_FALSE(!ParseYYYY_MM_DD(s, &ymd))) {
-        return false;
-      }
-      std::chrono::duration<value_type> seconds;
-      if (ARROW_PREDICT_FALSE(!ParseHH_MM_SS(s + 11, &seconds))) {
-        return false;
-      }
-      return ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, out);
-    }
-    return false;
+    return ParseTimestampISO8601(s, length, unit_, out);
   }
 
- protected:
-  template <class TimePoint>
-  bool ConvertTimePoint(TimePoint tp, value_type* out) {
-    auto duration = tp.time_since_epoch();
-    switch (unit_) {
-      case TimeUnit::SECOND:
-        *out = std::chrono::duration_cast<std::chrono::seconds>(duration).count();
-        return true;
-      case TimeUnit::MILLI:
-        *out = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
-        return true;
-      case TimeUnit::MICRO:
-        *out = std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
-        return true;
-      case TimeUnit::NANO:
-        *out = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
-        return true;
-    }
-    // Unreachable, but suppress compiler warning
-    assert(0);
-    *out = 0;
-    return true;
-  }
-
-  bool ParseYYYY_MM_DD(const char* s, arrow_vendored::date::year_month_day* out) {
-    uint16_t year;
-    uint8_t month, day;
-    if (ARROW_PREDICT_FALSE(s[4] != '-') || ARROW_PREDICT_FALSE(s[7] != '-')) {
-      return false;
-    }
-    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 0, 4, &year))) {
-      return false;
-    }
-    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 5, 2, &month))) {
-      return false;
-    }
-    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 8, 2, &day))) {
-      return false;
-    }
-    *out = {arrow_vendored::date::year{year}, arrow_vendored::date::month{month},
-            arrow_vendored::date::day{day}};
-    return out->ok();
-  }
-
-  bool ParseHH(const char* s, std::chrono::duration<value_type>* out) {
-    uint8_t hours;
-    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 0, 2, &hours))) {
-      return false;
-    }
-    if (ARROW_PREDICT_FALSE(hours >= 24)) {
-      return false;
-    }
-    *out = std::chrono::duration<value_type>(3600U * hours);
-    return true;
-  }
-
-  bool ParseHH_MM(const char* s, std::chrono::duration<value_type>* out) {
-    uint8_t hours, minutes;
-    if (ARROW_PREDICT_FALSE(s[2] != ':')) {
-      return false;
-    }
-    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 0, 2, &hours))) {
-      return false;
-    }
-    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 3, 2, &minutes))) {
-      return false;
-    }
-    if (ARROW_PREDICT_FALSE(hours >= 24)) {
-      return false;
-    }
-    if (ARROW_PREDICT_FALSE(minutes >= 60)) {
-      return false;
-    }
-    *out = std::chrono::duration<value_type>(3600U * hours + 60U * minutes);
-    return true;
-  }
-
-  bool ParseHH_MM_SS(const char* s, std::chrono::duration<value_type>* out) {
-    uint8_t hours, minutes, seconds;
-    if (ARROW_PREDICT_FALSE(s[2] != ':') || ARROW_PREDICT_FALSE(s[5] != ':')) {
-      return false;
-    }
-    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 0, 2, &hours))) {
-      return false;
-    }
-    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 3, 2, &minutes))) {
-      return false;
-    }
-    if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 6, 2, &seconds))) {
-      return false;
-    }
-    if (ARROW_PREDICT_FALSE(hours >= 24)) {
-      return false;
-    }
-    if (ARROW_PREDICT_FALSE(minutes >= 60)) {
-      return false;
-    }
-    if (ARROW_PREDICT_FALSE(seconds >= 60)) {
-      return false;
-    }
-    *out = std::chrono::duration<value_type>(3600U * hours + 60U * minutes + seconds);
-    return true;
-  }
-
+ private:
   const TimeUnit::type unit_;
 };
 

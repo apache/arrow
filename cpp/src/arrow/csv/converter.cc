@@ -30,14 +30,16 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/parsing.h"  // IWYU pragma: keep
 #include "arrow/util/trie.h"
 #include "arrow/util/utf8.h"
+#include "arrow/util/value_parsing.h"  // IWYU pragma: keep
 
 namespace arrow {
 namespace csv {
 
+using internal::checked_cast;
 using internal::StringConverter;
 using internal::Trie;
 using internal::TrieBuilder;
@@ -381,32 +383,98 @@ class NumericConverter : public ConcreteConverter {
 /////////////////////////////////////////////////////////////////////////
 // Concrete Converter for timestamps
 
+namespace {
+
+struct InlineISO8601 {
+  TimeUnit::type unit;
+
+  explicit InlineISO8601(TimeUnit::type unit) : unit(unit) {}
+
+  bool operator()(const char* s, size_t length, int64_t* out) const {
+    return internal::ParseTimestampISO8601(s, length, unit, out);
+  }
+};
+
+struct SingleTimestampParser {
+  const TimestampParser& parser;
+  TimeUnit::type unit;
+
+  SingleTimestampParser(const TimestampParser& parser, TimeUnit::type unit)
+      : parser(parser), unit(unit) {}
+
+  bool operator()(const char* s, size_t length, int64_t* out) const {
+    return this->parser(s, length, this->unit, out);
+  }
+};
+
+struct MultipleTimestampParsers {
+  std::vector<const TimestampParser*> parsers;
+  TimeUnit::type unit;
+
+  MultipleTimestampParsers(const std::vector<std::shared_ptr<TimestampParser>>& parsers,
+                           TimeUnit::type unit)
+      : unit(unit) {
+    for (const auto& parser : parsers) {
+      this->parsers.push_back(parser.get());
+    }
+  }
+
+  bool operator()(const char* s, size_t length, int64_t* out) const {
+    for (const auto& parser : this->parsers) {
+      if (parser->operator()(s, length, this->unit, out)) {
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+}  // namespace
+
 class TimestampConverter : public ConcreteConverter {
  public:
   using ConcreteConverter::ConcreteConverter;
 
-  Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
-                                         int32_t col_index) override {
+  template <typename ConvertValue>
+  Status ConvertValuesWith(const BlockParser& parser, int32_t col_index,
+                           const ConvertValue& converter, TimestampBuilder* builder) {
     using value_type = TimestampType::c_type;
-
-    TimestampBuilder builder(type_, pool_);
-    StringConverter<TimestampType> converter(type_);
-
     auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
       value_type value = 0;
       if (IsNull(data, size, quoted)) {
-        builder.UnsafeAppendNull();
+        builder->UnsafeAppendNull();
         return Status::OK();
       }
+
       if (ARROW_PREDICT_FALSE(
               !converter(reinterpret_cast<const char*>(data), size, &value))) {
         return GenericConversionError(type_, data, size);
       }
-      builder.UnsafeAppend(value);
+      builder->UnsafeAppend(value);
       return Status::OK();
     };
+    return parser.VisitColumn(col_index, visit);
+  }
+
+  Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
+                                         int32_t col_index) override {
+    TimestampBuilder builder(type_, pool_);
     RETURN_NOT_OK(builder.Resize(parser.num_rows()));
-    RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
+
+    TimeUnit::type unit = checked_cast<const TimestampType&>(*type_).unit();
+    if (options_.timestamp_parsers.size() == 0) {
+      // Default to ISO-8601
+      InlineISO8601 converter(unit);
+      RETURN_NOT_OK(ConvertValuesWith(parser, col_index, converter, &builder));
+    } else if (options_.timestamp_parsers.size() == 1) {
+      // Single user-supplied converter
+      SingleTimestampParser converter(*options_.timestamp_parsers[0], unit);
+      RETURN_NOT_OK(ConvertValuesWith(parser, col_index, converter, &builder));
+    } else {
+      // Multiple converters, must iterate for each value
+      MultipleTimestampParsers converter(options_.timestamp_parsers, unit);
+      RETURN_NOT_OK(ConvertValuesWith(parser, col_index, converter, &builder));
+    }
 
     std::shared_ptr<Array> res;
     RETURN_NOT_OK(builder.Finish(&res));
