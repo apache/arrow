@@ -93,6 +93,8 @@ jobs:
         with:
           path: .docker
           key: docker2-${{ matrix.cache }}
+      - name: Debug
+        run: du -d1 -h .docker
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
