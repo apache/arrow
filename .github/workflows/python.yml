@@ -57,20 +57,24 @@ jobs:
           # this image always builds with python 3.5
           title: AMD64 Ubuntu 16.04 Python 3.5
           ubuntu: 16.04
+          cache: ubuntu-16.04
         - name: conda-python-3.8-nopandas
           image: conda-python
           title: AMD64 Conda Python 3.8 Without Pandas
           python: 3.8
+          cache: conda
         - name: conda-python-3.6-pandas-0.23
           image: conda-python-pandas
           title: AMD64 Conda Python 3.6 Pandas 0.23
           python: 3.6
           pandas: 0.23
+          cache: conda
         - name: conda-python-3.6-pandas-latest
           image: conda-python-pandas
           title: AMD64 Conda Python 3.6 Pandas latest
           python: 3.6
           pandas: latest
+          cache: conda
     env:
       PYTHON: ${{ matrix.python || 3.7 }}
       UBUNTU: ${{ matrix.ubuntu || 18.04 }}
@@ -84,6 +88,13 @@ jobs:
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space
         run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
+        with:
+          path: .docker
+          key: docker-${{ matrix.cache }}-${{ github.ref }}
+          restore-keys:
+            - docker-${{ matrix.cache }}-master
       - name: Setup Python
         uses: actions/setup-python@v1
         with:

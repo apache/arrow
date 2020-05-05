@@ -33,24 +33,23 @@ jobs:
   lint:
     name: Lint C++, Python, R, Rust, Docker, RAT
     runs-on: ubuntu-latest
-    # if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Cache Docker Volumes
-        uses: actions/cache@v1
-        with:
-          path: .docker
-          key: prefix-${{ github.ref }}-ubuntu
-          restore-keys:
-            - prefix-master-ubuntu
-      - run: du -d2 -h .
       - name: Fetch Submodules and Tags
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space
         run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
+        with:
+          path: .docker
+          key: docker-ubuntu-${{ github.ref }}
+          restore-keys:
+            - docker-ubuntu-master
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -82,6 +81,13 @@ jobs:
       - name: Free Up Disk Space
         shell: bash
         run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
+        with:
+          path: .docker
+          key: docker-ubuntu-18.04-${{ github.ref }}
+          restore-keys:
+            - docker-ubuntu-18.04-master
       - name: Setup Python
         uses: actions/setup-python@v1
         with:

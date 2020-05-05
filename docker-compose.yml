@@ -180,7 +180,7 @@ services:
       ARROW_BUILD_BENCHMARKS: "ON"
     volumes: &conda-volumes
       - .:/arrow:delegated
-      - ${ARCH}-conda-cache:/ccache:delegated
+      - .docker/${ARCH}-conda-cache:/ccache:delegated
     command: &cpp-conda-command
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"]
@@ -237,7 +237,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &cuda-volumes
       - .:/arrow:delegated
-      - ${ARCH}-cuda-${CUDA}-cache:/ccache:delegated
+      - .docker/${ARCH}-cuda-${CUDA}-cache:/ccache:delegated
     command: &cpp-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -266,7 +266,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &debian-volumes
       - .:/arrow:delegated
-      - ${ARCH}-debian-${DEBIAN}-cache:/ccache:delegated
+      - .docker/${ARCH}-debian-${DEBIAN}-cache:/ccache:delegated
     command: *cpp-command
 
   ubuntu-cpp:

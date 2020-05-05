@@ -62,6 +62,13 @@ jobs:
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space
         run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
+        with:
+          path: .docker
+          key: docker-conda-${{ github.ref }}
+          restore-keys:
+            - docker-conda-master
       - name: Setup Python
         uses: actions/setup-python@v1
         with:

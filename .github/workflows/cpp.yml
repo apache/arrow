@@ -49,7 +49,7 @@ jobs:
   docker:
     name: ${{ matrix.title }}
     runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    # if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -59,8 +59,10 @@ jobs:
         include:
           - image: conda-cpp
             title: AMD64 Conda C++
+            cache: conda
           - image: ubuntu-cpp-sanitizer
             title: AMD64 Ubuntu 18.04 C++ ASAN UBSAN
+            cache: ubuntu-18.04
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -70,6 +72,13 @@ jobs:
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space
         run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
+        with:
+          path: .docker
+          key: docker-${{ matrix.cache }}-${{ github.ref }}
+          restore-keys:
+            - docker-${{ matrix.cache }}-master
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
