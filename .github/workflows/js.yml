@@ -34,44 +34,39 @@ on:
 env:
   DOCKER_BUILDKIT: 0
   COMPOSE_DOCKER_CLI_BUILD: 1
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_TOKEN }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_USER }}
 
 jobs:
 
-  debian:
-    name: AMD64 Debian 10 NodeJS ${{ matrix.node }}
+  docker:
+    name: AMD64 Debian 10 NodeJS 11
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [11]
-    env:
-      NODE: ${{ matrix.node }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
       - name: Fetch Submodules and Tags
-        shell: bash
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space
-        shell: bash
         run: ci/scripts/util_cleanup.sh
-      - name: Docker Pull
-        run: docker-compose pull --ignore-pull-failures debian-js
-      - name: Docker Build
-        run: docker-compose build debian-js
-      - name: Docker Run
-        run: docker-compose run debian-js
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run debian-js
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push debian-js
+        run: archery docker push debian-js
 
   macos:
     name: AMD64 MacOS 10.15 NodeJS ${{ matrix.node }}

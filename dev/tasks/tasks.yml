@@ -112,7 +112,6 @@ groups:
 
 tasks:
   # arbitrary_task_name:
-  #   platform: osx|linux|win
   #   template: path of jinja2 templated yml
   #   params: optional extra parameters
   #   artifacts: list of regex patterns, each needs to match a single github
@@ -124,7 +123,6 @@ tasks:
 
   conda-linux-gcc-py36:
     ci: azure
-    platform: linux
     template: conda-recipes/azure.linux.yml
     params:
       config: linux_python3.6
@@ -134,7 +132,6 @@ tasks:
 
   conda-linux-gcc-py37:
     ci: azure
-    platform: linux
     template: conda-recipes/azure.linux.yml
     params:
       config: linux_python3.7
@@ -144,7 +141,6 @@ tasks:
 
   conda-linux-gcc-py38:
     ci: azure
-    platform: linux
     template: conda-recipes/azure.linux.yml
     params:
       config: linux_python3.8
@@ -156,7 +152,6 @@ tasks:
 
   conda-osx-clang-py36:
     ci: azure
-    platform: osx
     template: conda-recipes/azure.osx.yml
     params:
       config: osx_python3.6
@@ -166,7 +161,6 @@ tasks:
 
   conda-osx-clang-py37:
     ci: azure
-    platform: osx
     template: conda-recipes/azure.osx.yml
     params:
       config: osx_python3.7
@@ -176,7 +170,6 @@ tasks:
 
   conda-osx-clang-py38:
     ci: azure
-    platform: osx
     template: conda-recipes/azure.osx.yml
     params:
       config: osx_python3.8
@@ -188,7 +181,6 @@ tasks:
 
   conda-win-vs2015-py36:
     ci: azure
-    platform: win
     template: conda-recipes/azure.win.yml
     params:
       config: win_c_compilervs2015cxx_compilervs2015python3.6vc14
@@ -198,7 +190,6 @@ tasks:
 
   conda-win-vs2015-py37:
     ci: azure
-    platform: win
     template: conda-recipes/azure.win.yml
     params:
       config: win_c_compilervs2015cxx_compilervs2015python3.7vc14
@@ -208,7 +199,6 @@ tasks:
 
   conda-win-vs2015-py38:
     ci: azure
-    platform: win
     template: conda-recipes/azure.win.yml
     params:
       config: win_c_compilervs2015cxx_compilervs2015python3.8vc14
@@ -220,7 +210,6 @@ tasks:
 
   wheel-manylinux1-cp35m:
     ci: azure
-    platform: linux
     template: python-wheels/azure.linux.yml
     params:
       python_version: 3.5
@@ -235,7 +224,6 @@ tasks:
 
   wheel-manylinux1-cp36m:
     ci: azure
-    platform: linux
     template: python-wheels/azure.linux.yml
     params:
       python_version: 3.6
@@ -250,7 +238,6 @@ tasks:
 
   wheel-manylinux1-cp37m:
     ci: azure
-    platform: linux
     template: python-wheels/azure.linux.yml
     params:
       python_version: 3.7
@@ -265,7 +252,6 @@ tasks:
 
   wheel-manylinux1-cp38:
     ci: azure
-    platform: linux
     template: python-wheels/azure.linux.yml
     params:
       python_version: 3.8
@@ -280,7 +266,6 @@ tasks:
 
   wheel-manylinux2010-cp35m:
     ci: azure
-    platform: linux
     template: python-wheels/azure.linux.yml
     params:
       python_version: 3.5
@@ -295,7 +280,6 @@ tasks:
 
   wheel-manylinux2010-cp36m:
     ci: azure
-    platform: linux
     template: python-wheels/azure.linux.yml
     params:
       python_version: 3.6
@@ -310,7 +294,6 @@ tasks:
 
   wheel-manylinux2010-cp37m:
     ci: azure
-    platform: linux
     template: python-wheels/azure.linux.yml
     params:
       python_version: 3.7
@@ -325,7 +308,6 @@ tasks:
 
   wheel-manylinux2010-cp38:
     ci: azure
-    platform: linux
     template: python-wheels/azure.linux.yml
     params:
       python_version: 3.8
@@ -340,7 +322,6 @@ tasks:
 
   wheel-manylinux2014-cp35m:
     ci: azure
-    platform: linux
     template: python-wheels/azure.linux.yml
     params:
       python_version: 3.5
@@ -355,7 +336,6 @@ tasks:
 
   wheel-manylinux2014-cp36m:
     ci: azure
-    platform: linux
     template: python-wheels/azure.linux.yml
     params:
       python_version: 3.6
@@ -370,7 +350,6 @@ tasks:
 
   wheel-manylinux2014-cp37m:
     ci: azure
-    platform: linux
     template: python-wheels/azure.linux.yml
     params:
       python_version: 3.7
@@ -385,7 +364,6 @@ tasks:
 
   wheel-manylinux2014-cp38:
     ci: azure
-    platform: linux
     template: python-wheels/azure.linux.yml
     params:
       python_version: 3.8
@@ -402,7 +380,6 @@ tasks:
 
   wheel-osx-cp35m:
     ci: travis
-    platform: osx
     template: python-wheels/travis.osx.yml
     params:
       python_version: 3.5
@@ -411,7 +388,6 @@ tasks:
 
   wheel-osx-cp36m:
     ci: travis
-    platform: osx
     template: python-wheels/travis.osx.yml
     params:
       python_version: 3.6
@@ -420,7 +396,6 @@ tasks:
 
   wheel-osx-cp37m:
     ci: travis
-    platform: osx
     template: python-wheels/travis.osx.yml
     params:
       python_version: 3.7
@@ -429,7 +404,6 @@ tasks:
 
   wheel-osx-cp38:
     ci: travis
-    platform: osx
     template: python-wheels/travis.osx.yml
     params:
       python_version: 3.8
@@ -440,7 +414,6 @@ tasks:
 
   wheel-win-cp35m:
     ci: appveyor
-    platform: win
     template: python-wheels/appveyor.yml
     params:
       script: win-build-3.5.bat
@@ -450,7 +423,6 @@ tasks:
 
   wheel-win-cp36m:
     ci: appveyor
-    platform: win
     template: python-wheels/appveyor.yml
     params:
       script: win-build.bat
@@ -460,7 +432,6 @@ tasks:
 
   wheel-win-cp37m:
     ci: appveyor
-    platform: win
     template: python-wheels/appveyor.yml
     params:
       script: win-build.bat
@@ -470,7 +441,6 @@ tasks:
 
   wheel-win-cp38:
     ci: appveyor
-    platform: win
     template: python-wheels/appveyor.yml
     params:
       script: win-build.bat
@@ -482,7 +452,6 @@ tasks:
 
   debian-stretch-amd64:
     ci: github
-    platform: linux
     template: linux-packages/github.linux.amd64.yml
     params:
       build_task: "apt:build"
@@ -554,7 +523,6 @@ tasks:
 
   debian-stretch-arm64:
     ci: travis
-    platform: linux
     template: linux-packages/travis.linux.arm64.yml
     params:
       build_task: "apt:build"
@@ -597,7 +565,6 @@ tasks:
 
   debian-buster-amd64:
     ci: github
-    platform: linux
     template: linux-packages/github.linux.amd64.yml
     params:
       build_task: "apt:build"
@@ -669,7 +636,6 @@ tasks:
 
   debian-buster-arm64:
     ci: travis
-    platform: linux
     template: linux-packages/travis.linux.arm64.yml
     params:
       build_task: "apt:build"
@@ -712,7 +678,6 @@ tasks:
 
   ubuntu-xenial-amd64:
     ci: github
-    platform: linux
     template: linux-packages/github.linux.amd64.yml
     params:
       build_task: "apt:build"
@@ -768,7 +733,6 @@ tasks:
 
   ubuntu-xenial-arm64:
     ci: travis
-    platform: linux
     template: linux-packages/travis.linux.arm64.yml
     params:
       build_task: "apt:build"
@@ -802,7 +766,6 @@ tasks:
 
   ubuntu-bionic-amd64:
     ci: github
-    platform: linux
     template: linux-packages/github.linux.amd64.yml
     params:
       build_task: "apt:build"
@@ -863,7 +826,6 @@ tasks:
 
   ubuntu-bionic-arm64:
     ci: travis
-    platform: linux
     template: linux-packages/travis.linux.arm64.yml
     params:
       build_task: "apt:build"
@@ -901,7 +863,6 @@ tasks:
 
   ubuntu-eoan-amd64:
     ci: github
-    platform: linux
     template: linux-packages/github.linux.amd64.yml
     params:
       build_task: "apt:build"
@@ -962,7 +923,6 @@ tasks:
 
   ubuntu-eoan-arm64:
     ci: travis
-    platform: linux
     template: linux-packages/travis.linux.arm64.yml
     params:
       build_task: "apt:build"
@@ -1000,7 +960,6 @@ tasks:
 
   ubuntu-focal-amd64:
     ci: github
-    platform: linux
     template: linux-packages/github.linux.amd64.yml
     params:
       build_task: "apt:build"
@@ -1061,7 +1020,6 @@ tasks:
 
   ubuntu-focal-arm64:
     ci: travis
-    platform: linux
     template: linux-packages/travis.linux.arm64.yml
     params:
       build_task: "apt:build"
@@ -1099,7 +1057,6 @@ tasks:
 
   centos-6-amd64:
     ci: github
-    platform: linux
     template: linux-packages/github.linux.amd64.yml
     params:
       build_task: "yum:build"
@@ -1122,7 +1079,6 @@ tasks:
 
   centos-7-amd64:
     ci: github
-    platform: linux
     template: linux-packages/github.linux.amd64.yml
     params:
       build_task: "yum:build"
@@ -1157,7 +1113,6 @@ tasks:
 
   centos-7-aarch64:
     ci: travis
-    platform: linux
     template: linux-packages/travis.linux.arm64.yml
     params:
       build_task: "yum:build"
@@ -1190,7 +1145,6 @@ tasks:
 
   centos-8-amd64:
     ci: github
-    platform: linux
     template: linux-packages/github.linux.amd64.yml
     params:
       build_task: "yum:build"
@@ -1248,7 +1202,6 @@ tasks:
 
   centos-8-aarch64:
     ci: travis
-    platform: linux
     template: linux-packages/travis.linux.arm64.yml
     params:
       build_task: "yum:build"
@@ -1299,14 +1252,12 @@ tasks:
 
   homebrew-cpp:
     ci: travis
-    platform: osx
     template: homebrew-formulae/travis.osx.yml
     params:
       formula: apache-arrow.rb
 
   homebrew-cpp-autobrew:
     ci: travis
-    platform: osx
     template: homebrew-formulae/travis.osx.yml
     params:
       formula: autobrew/apache-arrow.rb
@@ -1314,7 +1265,6 @@ tasks:
   homebrew-r-autobrew:
     # This tests that the autobrew formula + script work in practice
     ci: travis
-    platform: osx
     template: homebrew-formulae/travis.osx.r.yml
     params:
       r_version: release
@@ -1323,14 +1273,12 @@ tasks:
 
   gandiva-jar-xenial:
     ci: travis
-    platform: linux
     template: gandiva-jars/travis.linux.yml
     artifacts:
       - arrow-gandiva-{no_rc_version}-SNAPSHOT.jar
 
   gandiva-jar-osx:
     ci: travis
-    platform: osx
     template: gandiva-jars/travis.osx.yml
     artifacts:
       - arrow-gandiva-{no_rc_version}-SNAPSHOT.jar
@@ -1339,7 +1287,6 @@ tasks:
 
   verify-rc-binaries-binary:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "ubuntu"
@@ -1348,7 +1295,6 @@ tasks:
 
   verify-rc-binaries-apt:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "ubuntu"
@@ -1357,7 +1303,6 @@ tasks:
 
   verify-rc-binaries-yum:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "ubuntu"
@@ -1366,7 +1311,6 @@ tasks:
 
   verify-rc-wheels-linux:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "ubuntu"
@@ -1375,7 +1319,6 @@ tasks:
 
   verify-rc-wheels-macos:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "macOS"
@@ -1384,7 +1327,6 @@ tasks:
 
   verify-rc-source-macos-java:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "macOS"
@@ -1393,7 +1335,6 @@ tasks:
 
   verify-rc-source-macos-csharp:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "macOS"
@@ -1402,7 +1343,6 @@ tasks:
 
   verify-rc-source-macos-ruby:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "macOS"
@@ -1411,7 +1351,6 @@ tasks:
 
   verify-rc-source-macos-python:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "macOS"
@@ -1420,7 +1359,6 @@ tasks:
 
   verify-rc-source-macos-js:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "macOS"
@@ -1429,7 +1367,6 @@ tasks:
 
   verify-rc-source-macos-go:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "macOS"
@@ -1438,7 +1375,6 @@ tasks:
 
   verify-rc-source-macos-rust:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "macOS"
@@ -1447,7 +1383,6 @@ tasks:
 
   verify-rc-source-macos-integration:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "macOS"
@@ -1456,7 +1391,6 @@ tasks:
 
   verify-rc-source-linux-java:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "ubuntu"
@@ -1465,7 +1399,6 @@ tasks:
 
   verify-rc-source-linux-csharp:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "ubuntu"
@@ -1474,7 +1407,6 @@ tasks:
 
   verify-rc-source-linux-ruby:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "ubuntu"
@@ -1483,7 +1415,6 @@ tasks:
 
   verify-rc-source-linux-python:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "ubuntu"
@@ -1492,7 +1423,6 @@ tasks:
 
   verify-rc-source-linux-js:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "ubuntu"
@@ -1501,7 +1431,6 @@ tasks:
 
   verify-rc-source-linux-go:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "ubuntu"
@@ -1510,7 +1439,6 @@ tasks:
 
   verify-rc-source-linux-rust:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "ubuntu"
@@ -1519,7 +1447,6 @@ tasks:
 
   verify-rc-source-linux-integration:
     ci: github
-    platform: linux
     template: verify-rc/github.nix.yml
     params:
       os: "ubuntu"
@@ -1528,248 +1455,156 @@ tasks:
 
   verify-rc-source-windows:
     ci: github
-    platform: linux
     template: verify-rc/github.windows.source.yml
 
   verify-rc-wheels-windows:
     ci: github
-    platform: linux
     template: verify-rc/github.windows.wheels.yml
 
   ############################## Docker tests #################################
 
   test-conda-cpp:
     ci: github
-    platform: linux
     template: docker-tests/github.linux.yml
     params:
-      build:
-        - conda-cpp
-      run:
-        - conda-cpp
+      run: conda-cpp
 
   test-conda-cpp-valgrind:
     ci: github
-    platform: linux
     template: docker-tests/github.linux.yml
     params:
-      build:
-        - conda-cpp
-      run:
-        - conda-cpp-valgrind
+      run: conda-cpp-valgrind
 
   test-debian-10-cpp:
-    ci: github
-    platform: linux
-    template: docker-tests/github.linux.yml
+    ci: circle
+    template: docker-tests/circle.linux.yml
     params:
       env:
         DEBIAN: 10
-      build:
-        - debian-cpp
-      run:
-        - debian-cpp
+      run: debian-cpp
 
   test-ubuntu-16.04-cpp:
-    ci: github
-    platform: linux
-    template: docker-tests/github.linux.yml
+    ci: circle
+    template: docker-tests/circle.linux.yml
     params:
       env:
         UBUNTU: 16.04
-      build:
-        - ubuntu-cpp
-      run:
-        - ubuntu-cpp
+      run: ubuntu-cpp
 
   test-ubuntu-18.04-cpp:
-    ci: github
-    platform: linux
-    template: docker-tests/github.linux.yml
+    ci: circle
+    template: docker-tests/circle.linux.yml
     params:
       env:
         UBUNTU: 18.04
-      build:
-        - ubuntu-cpp
-      run:
-        - ubuntu-cpp
+      run: ubuntu-cpp
 
   test-fedora-30-cpp:
-    ci: github
-    platform: linux
-    template: docker-tests/github.linux.yml
+    ci: circle
+    template: docker-tests/circle.linux.yml
     params:
       env:
         FEDORA: 30
-      build:
-        - fedora-cpp
-      run:
-        - fedora-cpp
+      run: fedora-cpp
 
   test-ubuntu-18.04-cpp-release:
-    ci: github
-    platform: linux
-    template: docker-tests/github.linux.yml
+    ci: circle
+    template: docker-tests/circle.linux.yml
     params:
-      build:
-        - ubuntu-cpp
-      run:
-        - -e ARROW_BUILD_TYPE=release ubuntu-cpp
+      run: "-e ARROW_BUILD_TYPE=release ubuntu-cpp"
 
   test-ubuntu-18.04-cpp-static:
-    ci: github
-    platform: linux
-    template: docker-tests/github.linux.yml
+    ci: circle
+    template: docker-tests/circle.linux.yml
     params:
-      build:
-        - ubuntu-cpp
-      run:
-        - -e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static ubuntu-cpp
+      run: "-e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static ubuntu-cpp"
 
   test-ubuntu-18.04-cpp-cmake32:
-    ci: github
-    platform: linux
-    template: docker-tests/github.linux.yml
+    ci: circle
+    template: docker-tests/circle.linux.yml
     params:
-      build:
-        - ubuntu-cpp-cmake32
-      run:
-        - ubuntu-cpp-cmake32
+      run: ubuntu-cpp-cmake32
 
   test-debian-c-glib:
-    ci: github
-    platform: linux
-    template: docker-tests/github.linux.yml
+    ci: circle
+    template: docker-tests/circle.linux.yml
     params:
-      build:
-        - debian-cpp
-        - debian-c-glib
-      run:
-        - debian-c-glib
+      run: debian-c-glib
 
   test-ubuntu-c-glib:
-    ci: github
-    platform: linux
-    template: docker-tests/github.linux.yml
+    ci: circle
+    template: docker-tests/circle.linux.yml
     params:
-      build:
-        - ubuntu-cpp
-        - ubuntu-c-glib
-      run:
-        - ubuntu-c-glib
+      run: ubuntu-c-glib
 
   test-debian-ruby:
-    ci: azure
-    platform: linux
-    template: docker-tests/azure.linux.yml
+    ci: circle
+    template: docker-tests/circle.linux.yml
     params:
-      build:
-        - debian-cpp
-        - debian-c-glib
-        - debian-ruby
-      run:
-        - debian-ruby
+      run: debian-ruby
 
   test-ubuntu-ruby:
     ci: azure
-    platform: linux
     template: docker-tests/azure.linux.yml
     params:
-      build:
-        - ubuntu-cpp
-        - ubuntu-c-glib
-        - ubuntu-ruby
-      run:
-        - ubuntu-ruby
+      run: ubuntu-ruby
 
   test-conda-python-3.6:
-    ci: azure
-    platform: linux
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.6
-      build:
-        - conda-cpp
-        - conda-python
-      run:
-        - conda-python
+      run: conda-python
 
   test-conda-python-3.7:
-    ci: azure
-    platform: linux
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
-      build:
-        - conda-cpp
-        - conda-python
-      run:
-        - conda-python
+      run: conda-python
 
   test-conda-python-3.8:
-    ci: azure
-    platform: linux
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.8
-      build:
-        - conda-cpp
-        - conda-python
-      run:
-        - conda-python
+      run: conda-python
 
   test-debian-10-python-3:
     ci: azure
-    platform: linux
     template: docker-tests/azure.linux.yml
     params:
       env:
         DEBIAN: 10
-      build:
-        - debian-cpp
-        - debian-python
-      run:
-        - debian-python
+      run: debian-python
 
   test-ubuntu-18.04-python-3:
     ci: azure
-    platform: linux
     template: docker-tests/azure.linux.yml
     params:
       env:
         UBUNTU: 18.04
-      build:
-        - ubuntu-cpp
-        - ubuntu-python
-      run:
-        - ubuntu-python
+      run: ubuntu-python
 
   test-fedora-30-python-3:
     ci: azure
-    platform: linux
     template: docker-tests/azure.linux.yml
     params:
       env:
         FEDORA: 30
-      build:
-        - fedora-cpp
-        - fedora-python
-      run:
-        - fedora-python
+      run: fedora-python
 
   test-r-linux-as-cran:
     ci: github
-    platform: linux
     template: r/github.linux.cran.yml
     params:
       MATRIX: "${{ matrix.r_image }}"
 
   test-r-rhub-ubuntu-gcc-release:
     ci: azure
-    platform: linux
     template: r/azure.linux.yml
     params:
       r_org: rhub
@@ -1779,7 +1614,6 @@ tasks:
 
   test-r-rocker-r-base-latest:
     ci: azure
-    platform: linux
     template: r/azure.linux.yml
     params:
       r_org: rocker
@@ -1789,7 +1623,6 @@ tasks:
 
   test-r-rstudio-r-base-3.6-bionic:
     ci: azure
-    platform: linux
     template: r/azure.linux.yml
     params:
       r_org: rstudio
@@ -1799,7 +1632,6 @@ tasks:
 
   test-r-rstudio-r-base-3.6-centos6:
     ci: azure
-    platform: linux
     template: r/azure.linux.yml
     params:
       r_org: rstudio
@@ -1809,7 +1641,6 @@ tasks:
 
   test-r-rstudio-r-base-3.6-opensuse15:
     ci: azure
-    platform: linux
     template: r/azure.linux.yml
     params:
       r_org: rstudio
@@ -1819,7 +1650,6 @@ tasks:
 
   test-r-rstudio-r-base-3.6-opensuse42:
     ci: azure
-    platform: linux
     template: r/azure.linux.yml
     params:
       r_org: rstudio
@@ -1828,286 +1658,174 @@ tasks:
       not_cran: "TRUE"
 
   test-ubuntu-18.04-r-3.6:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
+    ci: azure
+    template: docker-tests/azure.linux.yml
     params:
       env:
         UBUNTU: 18.04
         R: 3.6
-      build:
-        - ubuntu-cpp
-        - ubuntu-r
-      run:
-        - ubuntu-r
+      run: ubuntu-r
 
   test-conda-r-3.6:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         R: 3.6
-      build:
-        - conda-cpp
-        - conda-r
-      run:
-        - conda-r
+      run: conda-r
 
   test-ubuntu-18.04-r-sanitizer:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
+    ci: azure
+    template: docker-tests/azure.linux.yml
     params:
-      build:
-        - ubuntu-r-sanitizer
-      run:
-        - ubuntu-r-sanitizer
+      run: ubuntu-r-sanitizer
 
   test-debian-10-go-1.12:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
+    ci: azure
+    template: docker-tests/azure.linux.yml
     params:
       env:
         GO: 1.12
-      build:
-        - debian-go
-      run:
-        - debian-go
+      run: debian-go
 
   test-ubuntu-18.04-docs:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
+    ci: azure
+    template: docker-tests/azure.linux.yml
     params:
       env:
         UBUNTU: 18.04
-      build:
-        - ubuntu-cpp
-        - ubuntu-python
-        - ubuntu-docs
-      run:
-        - ubuntu-docs
+      run: ubuntu-docs
 
   ############################## Integration tests ############################
 
   test-conda-python-3.7-pandas-latest:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
         PANDAS: latest
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-pandas
-      run:
-        - conda-python-pandas
+      # use the latest pandas release, so prevent reusing any cached layers
+      run: --no-cache-leaf conda-python-pandas
 
   test-conda-python-3.8-pandas-latest:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.8
         PANDAS: latest
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-pandas
-      run:
-        - conda-python-pandas
+      # use the latest pandas release, so prevent reusing any cached layers
+      run: --no-cache-leaf conda-python-pandas
 
   test-conda-python-3.7-pandas-master:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
         PANDAS: master
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-pandas
-      run:
-        - conda-python-pandas
+      # use the master branch of pandas, so prevent reusing any cached layers
+      run: --no-cache-leaf conda-python-pandas
 
   test-conda-python-3.6-pandas-0.23:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.6
         PANDAS: 0.23
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-pandas
-      run:
-        - conda-python-pandas
+      run: conda-python-pandas
 
   test-conda-python-3.7-dask-latest:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
         DASK: latest
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-dask
-      run:
-        - conda-python-dask
+      # use the latest dask release, so prevent reusing any cached layers
+      run: --no-cache-leaf conda-python-dask
 
   test-conda-python-3.8-dask-master:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.8
-        DASK: latest
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-dask
-      run:
-        - conda-python-dask
+        DASK: master
+      # use the master branch of dask, so prevent reusing any cached layers
+      run: --no-cache-leaf conda-python-dask
 
   test-conda-python-3.8-jpype:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.8
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-jpype
-      run:
-        - conda-python-jpype
+      run: conda-python-jpype
 
   test-conda-python-3.7-turbodbc-latest:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
         TURBODBC: latest
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-turbodbc
-      run:
-        - conda-python-turbodbc
+      # use the latest turbodbc release, so prevent reusing any cached layers
+      run: --no-cache-leaf conda-python-turbodbc
 
   test-conda-python-3.7-turbodbc-master:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
         TURBODBC: master
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-turbodbc
-      run:
-        - conda-python-turbodbc
+      # use the master branch of dask, so prevent reusing any cached layers
+      run: --no-cache-leaf conda-python-turbodbc
 
   test-conda-python-3.7-kartothek-latest:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
         KARTOTHEK: latest
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-kartothek
-      run:
-        - conda-python-kartothek
+      run: --no-cache-leaf conda-python-kartothek
 
   test-conda-python-3.7-kartothek-master:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
         KARTOTHEK: master
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-kartothek
-      run:
-        - conda-python-kartothek
+      # use the master branch of kartothek, so prevent reusing any layers
+      run: --no-cache-leaf conda-python-kartothek
 
   test-conda-python-3.7-hdfs-2.9.2:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
         HDFS: 2.9.2
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-hdfs
-      run:
-        - conda-python-hdfs
+      run: conda-python-hdfs
 
   test-conda-python-3.7-spark-master:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: 3.7
         SPARK: master
-      build:
-        - conda-cpp
-        - conda-python
-      nocache:
-        - conda-python-spark
-      run:
-        - conda-python-spark
+      # use the master branch of spark, so prevent reusing any layers
+      run: --no-cache-leaf conda-python-spark
 
   # Remove the "skipped-" prefix in ARROW-8475
   skipped-test-conda-cpp-hiveserver2:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
-      build:
-        - conda-cpp
-      nocache:
-        - conda-cpp-hiveserver2
-      run:
-        - conda-cpp-hiveserver2
+      run: conda-cpp-hiveserver2

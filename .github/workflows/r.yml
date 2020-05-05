@@ -42,8 +42,11 @@ on:
 env:
   DOCKER_BUILDKIT: 0
   COMPOSE_DOCKER_CLI_BUILD: 1
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_TOKEN }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_USER }}
 
 jobs:
+
   ubuntu:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}
     runs-on: ubuntu-latest
@@ -51,93 +54,55 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        r: [3.6]
-        ubuntu: [18.04]
+        name:
+          - amd64-ubuntu-18.04-r-3.6
+          - amd64-centos-7-rstudio-r-3.6
+        include:
+          - name: amd64-ubuntu-18.04-r-3.6
+            image: ubuntu-r
+            title: AMD64 Ubuntu 18.04 R 3.6
+            ubuntu: 18.04
+            r: 3.6
+          - name: amd64-centos-7-rstudio-r-3.6
+            image: r
+            title: AMD64 CentOS 7 RStudio R 3.6
+            r: 3.6
+            r_org: rstudio
+            r_image: r-base
+            r_tag: 3.6-centos7
     env:
-      R: ${{ matrix.r }}
-      UBUNTU: ${{ matrix.ubuntu }}
+      R: ${{ matrix.r || 3.6 }}
+      UBUNTU: ${{ matrix.ubuntu || 18.04 }}
+      R_ORG: ${{ matrix.r_org || "rhub" }}
+      R_IMAGE: ${{ matrix.r_image || ubuntu-gcc-release }}
+      R_TAG: ${{ matrix.r_tag || "latest" }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
       - name: Fetch Submodules and Tags
-        shell: bash
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space
-        shell: bash
         run: ci/scripts/util_cleanup.sh
-      - name: Docker Pull
-        shell: bash
-        run: |
-          docker-compose pull --ignore-pull-failures ubuntu-cpp
-          docker-compose pull --ignore-pull-failures ubuntu-r
-      - name: Docker Build
-        shell: bash
-        run: |
-          docker-compose build ubuntu-cpp
-          docker-compose build ubuntu-r
-      - name: Docker Run
-        shell: bash
-        run: docker-compose run ubuntu-r
-      - name: Dump install logs on failure
-        if: failure()
-        run: cat r/check/arrow.Rcheck/00install.out
-      - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
-        continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push ubuntu-r
-
-  rstudio:
-    name: "rstudio/r-base:${{ matrix.r_version }}-${{ matrix.r_image }}"
-    runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    strategy:
-      fail-fast: false
-      matrix:
-        # See https://hub.docker.com/r/rstudio/r-base
-        r_version: ["3.6"]
-        r_image:
-          - centos7
-    env:
-      R_ORG: "rstudio"
-      R_IMAGE: "r-base"
-      R_TAG: ${{ matrix.r_version }}-${{ matrix.r_image }}
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v1
         with:
-          fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        shell: bash
-        run: ci/scripts/util_cleanup.sh
-      - name: Docker Pull
-        shell: bash
-        run: docker-compose pull --ignore-pull-failures r
-      - name: Docker Build
-        shell: bash
-        run: docker-compose build r
-      - name: Docker Run
-        shell: bash
-        run: docker-compose run r
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run {{ matrix.image }}
       - name: Dump install logs on failure
         if: failure()
         run: cat r/check/arrow.Rcheck/00install.out
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push r
+        run: archery docker push ubuntu-r
 
   windows:
     name: AMD64 Windows RTools ${{ matrix.rtools }}

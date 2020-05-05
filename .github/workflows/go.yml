@@ -35,10 +35,12 @@ on:
 env:
   DOCKER_BUILDKIT: 0
   COMPOSE_DOCKER_CLI_BUILD: 1
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_TOKEN }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_USER }}
 
 jobs:
 
-  debian:
+  docker:
     name: AMD64 Debian 10 Go ${{ matrix.go }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
@@ -54,25 +56,21 @@ jobs:
         with:
           fetch-depth: 0
       - name: Fetch Submodules and Tags
-        shell: bash
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space
-        shell: bash
         run: ci/scripts/util_cleanup.sh
-      - name: Docker Pull
-        run: docker-compose pull --ignore-pull-failures debian-go
-      - name: Docker Build
-        run: docker-compose build debian-go
-      - name: Docker Run
-        run: docker-compose run debian-go
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        run: archery docker run debian-go
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push debian-go
+        run: archery docker push debian-go
 
   windows:
     name: AMD64 Windows 2019 Go ${{ matrix.go }}

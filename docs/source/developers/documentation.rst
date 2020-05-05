@@ -86,16 +86,14 @@ format in ``docs/_build/html``.  In particular, you can point your browser
 at ``docs/_build/html/index.html`` to read the docs and review any changes
 you made.
 
-
-.. _building-docker:
-
 Building with Docker
 --------------------
 
-You can use Docker to build the documentation:
+You can use Archery to build the documentation within a docker container.
+For installation and usage see `Running Docker Builds`_ section.
 
 .. code-block:: shell
 
-  make -f Makefile.docker docs
+  archery docker run ubuntu-docs
 
 The final output is located under ``docs/_build/html``.

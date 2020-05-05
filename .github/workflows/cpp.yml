@@ -41,83 +41,50 @@ env:
   DOCKER_BUILDKIT: 0
   COMPOSE_DOCKER_CLI_BUILD: 1
   ARROW_ENABLE_TIMING_TESTS: OFF
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_TOKEN }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_USER }}
 
 jobs:
 
-  conda:
-    name: AMD64 Conda C++
-    runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        shell: bash
-        run: ci/scripts/util_cleanup.sh
-      - name: Docker Pull
-        shell: bash
-        run: docker-compose pull --ignore-pull-failures conda-cpp
-      - name: Docker Build
-        shell: bash
-        run: docker-compose build conda-cpp
-      - name: Docker Run
-        shell: bash
-        run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
-          docker-compose run conda-cpp
-      - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
-        continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push conda-cpp
-
-  ubuntu-sanitizer:
-    name: AMD64 Ubuntu ${{ matrix.ubuntu }} C++ ASAN UBSAN
+  docker:
+    name: ${{ matrix.title }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
-        ubuntu: [18.04]
-    env:
-      UBUNTU: ${{ matrix.ubuntu }}
+        image:
+          - conda-cpp
+          - ubuntu-cpp-sanitizer
+        include:
+          - image: conda-cpp
+            title: AMD64 Conda C++
+          - image: ubuntu-cpp-sanitizer
+            title: AMD64 Ubuntu 18.04 C++ ASAN UBSAN
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
       - name: Fetch Submodules and Tags
-        shell: bash
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space
-        shell: bash
         run: ci/scripts/util_cleanup.sh
-      - name: Docker Pull
-        shell: bash
-        run: docker-compose pull --ignore-pull-failures ubuntu-cpp-sanitizer
-      - name: Docker Build
-        shell: bash
-        run: docker-compose build ubuntu-cpp-sanitizer
-      - name: Docker Run
-        shell: bash
-        run: docker-compose run ubuntu-cpp-sanitizer
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run ${{ matrix.image }}
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push ubuntu-cpp-sanitizer
+        run: archery docker push ${{ matrix.image }}
 
   macos:
     name: AMD64 MacOS 10.15 C++

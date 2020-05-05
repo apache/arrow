@@ -128,8 +128,7 @@ codebase:
 
 .. code-block:: shell
 
-   make -f Makefile.docker build-iwyu
-   docker-compose run lint
+   archery docker run ubuntu-lint
 
 Checking for ABI and API stability
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

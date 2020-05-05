@@ -19,46 +19,29 @@ version: 2
 jobs:
   build:
     machine:
-      image: ubuntu-1604:201903-01
+      image: ubuntu-1604:202004-01
+    {%- if env is defined %}
+    environment:
+    {%- for key, value in env.items() %}
+      {{ key }}: {{ value }}
+    {%- endfor %}
+    {%- endif %}
     steps:
-      - run: docker -v
-      - run: docker-compose -v
-      {% if arrow.branch == "master" %}
       - run: |
-          if [ -n $DOCKER_USER ] && [ -n $DOCKER_PASS ]; then
-            docker login -u $DOCKER_USER -p $DOCKER_PASS
-          fi
-      {% endif %}
-      - run: git clone --no-checkout {{ arrow.remote }} arrow
-      - run: git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-      - run: git -C arrow checkout FETCH_HEAD
-      - run: git -C arrow submodule update --init --recursive
+          docker -v
+          docker-compose -v
+      - run: |
+          git clone --no-checkout {{ arrow.remote }} arrow
+          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+          git -C arrow checkout FETCH_HEAD
+          git -C arrow submodule update --init --recursive
       - run:
+          name: Execute Docker Build
           command: |
-            pushd arrow
-            {% if env is defined %}
-            {%- for key, value in env.items() %}
-              export {{ key }}={{ value }}
-            {%- endfor %}
-            {% endif %}
-
-            {% if build is defined %}
-            {%- for image in build %}
-              docker-compose pull --ignore-pull-failures {{ image }}
-              docker-compose build {{ image }}
-            {%- endfor %}
-            {% endif %}
-
-            {% if nocache is defined %}
-            {%- for image in nocache %}
-              docker-compose build --no-cache {{ image }}
-            {%- endfor %}
-            {% endif %}
-
-            {%- for image in run %}
-              docker-compose run --rm -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ image }}
-            {%- endfor %}
-            popd
+            pyenv versions
+            pyenv global 3.6.10
+            pip install -e arrow/dev/archery[docker]
+            archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ run }}
           no_output_timeout: "1h"
 
 workflows:

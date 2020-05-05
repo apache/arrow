@@ -36,6 +36,8 @@ on:
 env:
   DOCKER_BUILDKIT: 0
   COMPOSE_DOCKER_CLI_BUILD: 1
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_TOKEN }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_USER }}
 
 jobs:
 
@@ -63,30 +65,22 @@ jobs:
       - name: Free Up Disk Space
         shell: bash
         run: ci/scripts/util_cleanup.sh
-      - name: Docker Pull
-        shell: bash
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
         run: |
-          docker-compose pull --ignore-pull-failures ubuntu-cpp
-          docker-compose pull --ignore-pull-failures ubuntu-c-glib
-          docker-compose pull --ignore-pull-failures ubuntu-ruby
-      - name: Docker Build
-        shell: bash
-        run: |
-          docker-compose build ubuntu-cpp
-          docker-compose build ubuntu-c-glib
-          docker-compose build ubuntu-ruby
-      - name: Docker Run
-        shell: bash
-        run: docker-compose run ubuntu-ruby
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run ubuntu-ruby
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
         shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push ubuntu-c-glib
-          docker-compose push ubuntu-ruby
+        run: archery docker push ubuntu-ruby
 
   macos:
     name: AMD64 MacOS 10.15 GLib & Ruby
