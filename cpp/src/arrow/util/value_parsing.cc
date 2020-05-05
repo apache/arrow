@@ -94,9 +94,11 @@ class StrptimeTimestampParser : public TimestampParser {
   explicit StrptimeTimestampParser(std::string format) : format_(std::move(format)) {}
 
   bool operator()(const char* s, size_t length, TimeUnit::type out_unit,
-                  value_type* out) const override {
-    return ParseTimestampStrptime(s, format_.c_str(), /*ignore_time_in_day=*/false,
-                                  out_unit, out);
+                  int64_t* out) const override {
+    // The buffer s may not be nul-terminated
+    std::string clean_copy(s, length);
+    return ParseTimestampStrptime(clean_copy.c_str(), format_.c_str(),
+                                  /*ignore_time_in_day=*/false, out_unit, out);
   }
 
  private:
@@ -108,7 +110,7 @@ class ISO8601Parser : public TimestampParser {
   ISO8601Parser() {}
 
   bool operator()(const char* s, size_t length, TimeUnit::type out_unit,
-                  value_type* out) const override {
+                  int64_t* out) const override {
     return ParseTimestampISO8601(s, length, out_unit, out);
   }
 };

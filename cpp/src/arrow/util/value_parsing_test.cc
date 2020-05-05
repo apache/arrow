@@ -376,8 +376,8 @@ TEST(TimestampParser, StrptimeParser) {
     for (const auto& case_ : cases) {
       int64_t converted, expected;
       ASSERT_TRUE((*parser)(case_.value.c_str(), case_.value.size(), unit, &converted));
-      ASSERT_TRUE(
-          ParseTimestampISO8601(case_.iso8601.c_str(), case_.iso8601.size(), unit, &expected));
+      ASSERT_TRUE(ParseTimestampISO8601(case_.iso8601.c_str(), case_.iso8601.size(), unit,
+                                        &expected));
       ASSERT_EQ(expected, converted);
     }
   }

@@ -22,6 +22,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/util/logging.h"
+#include "arrow/util/value_parsing.h"
 
 #include "gandiva/date_utils.h"
 #include "gandiva/precompiled/types.h"
@@ -30,7 +31,8 @@ namespace gandiva {
 
 static inline gdv_timestamp StringToTimestamp(const char* buf) {
   int64_t out = 0;
-  bool success = internal::ParseTimestamp(buf, "%Y-%m-%d %H:%M:%S", false, &out);
+  bool success = ::arrow::internal::ParseTimestampStrptime(
+      buf, "%Y-%m-%d %H:%M:%S", false, ::arrow::TimeUnit::SECOND, &out);
   DCHECK(success);
   ARROW_UNUSED(success);
   return out * 1000;

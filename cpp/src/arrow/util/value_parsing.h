@@ -39,12 +39,10 @@ namespace arrow {
 /// \brief A virtual string to timestamp parser
 class ARROW_EXPORT TimestampParser {
  public:
-  using value_type = TimestampType::c_type;
-
   virtual ~TimestampParser() = default;
 
   virtual bool operator()(const char* s, size_t length, TimeUnit::type out_unit,
-                          value_type* out) const = 0;
+                          int64_t* out) const = 0;
 
   /// \brief Create a TimestampParser that recognizes strptime-like format strings
   static std::shared_ptr<TimestampParser> MakeStrptime(std::string format);
@@ -581,6 +579,7 @@ static inline bool ParseTimestampStrptime(const char* buf, const char* format,
   return true;
 #else
   struct tm result;
+  memset(&result, 0, sizeof(struct tm));
   char* ret = strptime(buf, format, &result);
   if (ret == NULLPTR) {
     return false;
