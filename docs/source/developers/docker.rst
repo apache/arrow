@@ -124,24 +124,35 @@ defaults in the .env file.
 
 **To entirely skip building the image:**
 
-The layer caching mechanism of docker-compose is less reliable than docker's
-depending on the version, ``cache_from`` build entry and the used backend
-(docker-py, docker-cli, docker-cli and buildkit). This can lead to different
-layer hashes - even when executing the same build command repeatedly -
-eventually causing cache misses full image rebuilds.
+The layer-caching mechanism of docker-compose can be less reliable than
+docker's, depending on the version, the ``cache_from`` build entry, and the
+used backend (docker-py, docker-cli, docker-cli and buildkit). This can lead to
+different layer hashes - even when executing the same build command
+repeatedly - eventually causing cache misses full image rebuilds.
 
-If the image has been already built but the cache doesn't work properly, it can
-be useful to skip the build phases:
+*If the image has been already built but the cache doesn't work properly*, it
+can be useful to skip the build phases:
 
 .. code:: bash
 
+    # first run ensures that the image is built
+    archery docker run conda-python
+
+    # if the second run tries the build the image again and none of the files
+    # referenced in the relevant dockerfile have changed, then it indicates a
+    # cache miss caused by the issue desribed above
+    archery docker run conda-python
+
+    # since the image is properly built with the first command, there is no
+    # need to rebuild it, so manually disable the build phase to spare the
+    # build time
     archery docker run --no-build conda-python
 
 **Pass environment variables to the container:**
 
 Most of the build scripts used within the containers can be configured through
 environment variables. Pass them using ``--env`` or ``-e`` CLI options -
-similarly to ``docker run`` and ``docker-compose run`` interface.
+similar to the ``docker run`` and ``docker-compose run`` interface.
 
 .. code:: bash
 

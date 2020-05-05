@@ -38,9 +38,6 @@ from .utils.tmpdir import tmpdir
 logging.basicConfig(level=logging.INFO)
 
 
-DEFAULT_ARROW_PATH = Path(__file__).parents[3].absolute()
-
-
 class ArrowBool(click.types.BoolParamType):
     """
     ArrowBool supports the 'ON' and 'OFF' values on top of the values
