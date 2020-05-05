@@ -44,6 +44,8 @@ jobs:
         with:
           path: .docker
           key: prefix-${{ github.ref }}-ubuntu
+          restore-keys:
+            - prefix-master-ubuntu
       - run: du -d2 -h .
       - name: Fetch Submodules and Tags
         run: ci/scripts/util_checkout.sh
