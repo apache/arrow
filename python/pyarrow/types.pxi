@@ -817,6 +817,10 @@ def register_extension_type(ext_type):
     _python_extension_types_registry.append(_type)
 
 
+def _unregister_extension_type(bytes type_name):
+    check_status(UnregisterPyExtensionType(type_name))
+
+
 def unregister_extension_type(type_name):
     """
     Unregister a Python extension type.
@@ -827,9 +831,7 @@ def unregister_extension_type(type_name):
         The name of the ExtensionType subclass to unregister.
 
     """
-    cdef:
-        c_string c_type_name = tobytes(type_name)
-    check_status(UnregisterPyExtensionType(c_type_name))
+    return _unregister_extension_type(type_name)
 
 
 cdef class KeyValueMetadata(_Metadata, Mapping):
@@ -2635,10 +2637,10 @@ def _unregister_py_extension_types():
     # finalized.  If the C++ type is destroyed later in the process
     # teardown stage, it will invoke CPython APIs such as Py_DECREF
     # with a destroyed interpreter.
-    unregister_extension_type("arrow.py_extension_type")
+    _unregister_extension_type(b"arrow.py_extension_type")
     for ext_type in _python_extension_types_registry:
         try:
-            unregister_extension_type(ext_type.extension_name)
+            _unregister_extension_type(ext_type.extension_name.encode("utf-8"))
         except KeyError:
             pass
     _registry_nanny.release_registry()
