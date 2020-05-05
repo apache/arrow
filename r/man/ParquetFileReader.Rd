@@ -33,7 +33,7 @@ with columns filtered by a character vector of column names or a
 
 \examples{
 \donttest{
-f <- ReadableFile$create(system.file("v0.7.1.parquet", package="arrow"))
+f <- system.file("v0.7.1.parquet", package="arrow")
 pq <- ParquetFileReader$create(f)
 pq$GetSchema()
 if (codec_is_available("snappy")) {
@@ -41,6 +41,5 @@ if (codec_is_available("snappy")) {
   tab <- pq$ReadTable(starts_with("c"))
   tab$schema
 }
-f$close()
 }
 }
