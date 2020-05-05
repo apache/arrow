@@ -1705,7 +1705,13 @@ def test_read_partitioned_columns_selection(tempdir, use_legacy_dataset):
     dataset = pq.ParquetDataset(
         base_path, use_legacy_dataset=use_legacy_dataset)
     result = dataset.read(columns=["values"])
-    assert result.column_names == ["values"]
+    if use_legacy_dataset:
+        # ParquetDataset implementation always includes the partition columns
+        # automatically, and we can't easily "fix" this since dask relies on
+        # this behaviour (ARROW-8644)
+        assert result.column_names == ["values", "foo", "bar"]
+    else:
+        assert result.column_names == ["values"]
 
 
 @pytest.mark.pandas

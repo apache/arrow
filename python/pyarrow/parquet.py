@@ -722,8 +722,6 @@ class ParquetDatasetPiece:
             # value as indicated. The distinct categories of the partition have
             # been computed in the ParquetManifest
             for i, (name, index) in enumerate(self.partition_keys):
-                if columns is not None and name not in columns:
-                    continue
                 # The partition code is the same for all values in this piece
                 indices = np.full(len(table), index, dtype='i4')
 
@@ -1418,7 +1416,9 @@ class _ParquetDatasetV2:
         Parameters
         ----------
         columns : List[str]
-            Names of columns to read from the dataset.
+            Names of columns to read from the dataset. The partition fields
+            are not automatically included (in contrast to when setting
+            ``use_legacy_dataset=True``).
         use_threads : bool, default True
             Perform multi-threaded column reads.
         use_pandas_metadata : bool, default False
