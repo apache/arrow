@@ -57,8 +57,7 @@ jobs:
         with:
           path: .docker
           key: docker-debian-10-${{ github.ref }}
-          restore-keys:
-            - docker-debian-10-master
+          restore-keys: docker-debian-10-master
       - name: Setup Python
         uses: actions/setup-python@v1
         with:

@@ -71,8 +71,7 @@ jobs:
         with:
           path: .docker
           key: docker-debian-java-${{ github.ref }}
-          restore-keys:
-            - docker-debian-java-master
+          restore-keys: docker-debian-java-master
       - name: Setup Python
         uses: actions/setup-python@v1
         with:

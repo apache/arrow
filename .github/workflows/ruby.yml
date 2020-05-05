@@ -70,8 +70,7 @@ jobs:
         with:
           path: .docker
           key: docker-ubuntu-${{ matrix.ubuntu }}-${{ github.ref }}
-          restore-keys:
-            - docker-ubuntu-${{ matrix.ubuntu }}-master
+          restore-keys: docker-ubuntu-${{ matrix.ubuntu }}-master
       - name: Setup Python
         uses: actions/setup-python@v1
         with:

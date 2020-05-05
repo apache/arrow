@@ -47,9 +47,8 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: docker-ubuntu-${{ github.ref }}
-          restore-keys:
-            - docker-ubuntu-master
+          key: docker-ubuntu-18.04-${{ github.ref }}
+          restore-keys: docker-ubuntu-18.04-master
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -86,8 +85,7 @@ jobs:
         with:
           path: .docker
           key: docker-ubuntu-18.04-${{ github.ref }}
-          restore-keys:
-            - docker-ubuntu-18.04-master
+          restore-keys: docker-ubuntu-18.04-master
       - name: Setup Python
         uses: actions/setup-python@v1
         with:

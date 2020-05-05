@@ -67,8 +67,7 @@ jobs:
         with:
           path: .docker
           key: docker-conda-${{ github.ref }}
-          restore-keys:
-            - docker-conda-master
+          restore-keys: docker-conda-master
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
