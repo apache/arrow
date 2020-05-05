@@ -126,7 +126,7 @@ defaults in the .env file.
 
 The layer-caching mechanism of docker-compose can be less reliable than
 docker's, depending on the version, the ``cache_from`` build entry, and the
-used backend (docker-py, docker-cli, docker-cli and buildkit). This can lead to
+backend used (docker-py, docker-cli, docker-cli and buildkit). This can lead to
 different layer hashes - even when executing the same build command
 repeatedly - eventually causing cache misses full image rebuilds.
 

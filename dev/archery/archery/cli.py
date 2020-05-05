@@ -681,16 +681,19 @@ def docker_compose(obj, src):
 @click.argument('image')
 @click.argument('command', required=False, default=None)
 @click.option('--env', '-e', multiple=True,
-              help='Set environment variable within the container')
+              help="Set environment variable within the container")
 @click.option('--build/--no-build', default=True,
-              help='Force build the image and its parents')
+              help="Whether to force build the image and its ancestor images")
 @click.option('--cache/--no-cache', default=True,
-              help='Try to pull the image and its parents')
+              help="Whether to use cache when building the image and its "
+                   "ancestor images")
 @click.option('--cache-leaf/--no-cache-leaf', default=True,
-              help='Force build the image and its parents')
+              help="Whether to use cache when building only the (leaf) image "
+                   "passed as the argument. To disable caching for both the "
+                   "image and its ancestors use --no-cache option.")
 @click.option('--dry-run/--execute', default=False,
-              help='Display the docker-compose commands instead of executing '
-                   'them')
+              help="Display the docker-compose commands instead of executing "
+                   "them.")
 @click.pass_obj
 def docker_compose_run(obj, image, command, env, build, cache, cache_leaf,
                        dry_run):
