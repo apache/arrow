@@ -30,6 +30,7 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.reader.FieldReader;
+import org.apache.arrow.vector.complex.writer.BaseWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.holders.DecimalHolder;
@@ -203,6 +204,317 @@ public class TestComplexCopier {
       // validate equals
       assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
 
+    }
+  }
+
+  @Test
+  public void testCopyListVectorWithNulls() {
+    try (ListVector from = ListVector.empty("v", allocator);
+         ListVector to = ListVector.empty("v", allocator)) {
+
+      UnionListWriter listWriter = from.getWriter();
+      listWriter.allocate();
+
+      // writer null, [null,i,null,i*2,null] alternatively
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.setPosition(i);
+        if (i % 2 == 0) {
+          listWriter.writeNull();
+          continue;
+        }
+        listWriter.startList();
+        listWriter.integer().writeNull();
+        listWriter.integer().writeInt(i);
+        listWriter.integer().writeNull();
+        listWriter.integer().writeInt(i * 2);
+        listWriter.integer().writeNull();
+        listWriter.endList();
+      }
+      from.setValueCount(COUNT);
+
+      // copy values
+      FieldReader in = from.getReader();
+      FieldWriter out = to.getWriter();
+      for (int i = 0; i < COUNT; i++) {
+        in.setPosition(i);
+        out.setPosition(i);
+        ComplexCopier.copy(in, out);
+      }
+
+      to.setValueCount(COUNT);
+
+      // validate equals
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
+    }
+  }
+
+  @Test
+  public void testCopyListOfListVectorWithNulls() {
+    try (ListVector from = ListVector.empty("v", allocator);
+         ListVector to = ListVector.empty("v", allocator);) {
+
+      UnionListWriter listWriter = from.getWriter();
+      listWriter.allocate();
+
+      // write null, [null,[50,100,null,200],null,
+      // [null,50,null,100,null,200,null],null] alternatively
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.setPosition(i);
+        if (i % 2 == 0) {
+          listWriter.writeNull();
+          continue;
+        }
+        listWriter.startList();
+        listWriter.list().writeNull();
+        listWriter.list().startList();
+        listWriter.list().bigInt().writeBigInt(50);
+        listWriter.list().bigInt().writeBigInt(100);
+        listWriter.list().bigInt().writeNull();
+        listWriter.list().bigInt().writeBigInt(200);
+        listWriter.list().endList();
+        listWriter.list().writeNull();
+        listWriter.list().startList();
+        listWriter.list().bigInt().writeNull();
+        listWriter.list().bigInt().writeBigInt(50);
+        listWriter.list().bigInt().writeNull();
+        listWriter.list().bigInt().writeBigInt(100);
+        listWriter.list().bigInt().writeNull();
+        listWriter.list().bigInt().writeBigInt(200);
+        listWriter.list().bigInt().writeNull();
+        listWriter.list().endList();
+        listWriter.list().writeNull();
+        listWriter.endList();
+      }
+      from.setValueCount(COUNT);
+
+      // copy values
+      FieldReader in = from.getReader();
+      FieldWriter out = to.getWriter();
+      for (int i = 0; i < COUNT; i++) {
+        in.setPosition(i);
+        out.setPosition(i);
+        ComplexCopier.copy(in, out);
+      }
+
+      to.setValueCount(COUNT);
+
+      // validate equals
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
+    }
+  }
+
+  @Test
+  public void testCopyListOStructVectorWithNulls() {
+    try (ListVector from = ListVector.empty("v", allocator);
+         ListVector to = ListVector.empty("v", allocator);) {
+
+      UnionListWriter listWriter = from.getWriter();
+      listWriter.allocate();
+
+      // write null, [null,{"f1":1,"f2":2},null,
+      // {"f1":1,"f2":2},null] alternatively
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.setPosition(i);
+        if (i % 2 == 0) {
+          listWriter.writeNull();
+          continue;
+        }
+        listWriter.startList();
+        listWriter.struct().writeNull();
+        listWriter.struct().start();
+        listWriter.struct().integer("f1").writeInt(1);
+        listWriter.struct().integer("f2").writeInt(2);
+        listWriter.struct().integer("f3").writeNull();
+        listWriter.struct().end();
+        listWriter.struct().writeNull();
+        listWriter.struct().start();
+        listWriter.struct().integer("f1").writeInt(1);
+        listWriter.struct().integer("f2").writeInt(2);
+        listWriter.struct().integer("f3").writeNull();
+        listWriter.struct().end();
+        listWriter.struct().writeNull();
+        listWriter.endList();
+      }
+      from.setValueCount(COUNT);
+
+      // copy values
+      FieldReader in = from.getReader();
+      FieldWriter out = to.getWriter();
+      for (int i = 0; i < COUNT; i++) {
+        in.setPosition(i);
+        out.setPosition(i);
+        ComplexCopier.copy(in, out);
+      }
+
+      to.setValueCount(COUNT);
+
+      // validate equals
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
+    }
+  }
+
+  @Test
+  public void testCopyListOfListOfStructVectorWithNulls() {
+    try (ListVector from = ListVector.empty("v", allocator);
+         ListVector to = ListVector.empty("v", allocator);) {
+
+      UnionListWriter listWriter = from.getWriter();
+      listWriter.allocate();
+
+      // write null,
+      // [null,[{"f1":50},null,{"f1":100},null,{"f1":200}],null,
+      // [null,{"f1":50},null,{"f1":100},null,{"f1":200},null],null]
+      // alternatively
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.setPosition(i);
+        if (i % 2 == 0) {
+          listWriter.writeNull();
+          continue;
+        }
+        listWriter.startList();
+        listWriter.list().writeNull();
+        listWriter.list().startList();
+        listWriter.list().struct().start();
+        listWriter.list().struct().bigInt("f1").writeBigInt(50);
+        listWriter.list().struct().end();
+        listWriter.list().struct().writeNull();
+        listWriter.list().struct().start();
+        listWriter.list().struct().bigInt("f1").writeBigInt(100);
+        listWriter.list().struct().end();
+        listWriter.list().struct().writeNull();
+        listWriter.list().struct().start();
+        listWriter.list().struct().bigInt("f1").writeBigInt(200);
+        listWriter.list().struct().end();
+        listWriter.list().endList();
+
+        listWriter.list().writeNull();
+
+        listWriter.list().startList();
+        listWriter.list().struct().writeNull();
+        listWriter.list().struct().start();
+        listWriter.list().struct().bigInt("f1").writeBigInt(50);
+        listWriter.list().struct().end();
+
+        listWriter.list().struct().writeNull();
+        listWriter.list().struct().start();
+        listWriter.list().struct().bigInt("f1").writeBigInt(100);
+        listWriter.list().struct().end();
+
+        listWriter.list().struct().writeNull();
+        listWriter.list().struct().start();
+        listWriter.list().struct().bigInt("f1").writeBigInt(200);
+        listWriter.list().struct().end();
+
+        listWriter.list().struct().writeNull();
+        listWriter.list().endList();
+
+        listWriter.list().writeNull();
+
+        listWriter.endList();
+      }
+      from.setValueCount(COUNT);
+
+      // copy values
+      FieldReader in = from.getReader();
+      FieldWriter out = to.getWriter();
+      for (int i = 0; i < COUNT; i++) {
+        in.setPosition(i);
+        out.setPosition(i);
+        ComplexCopier.copy(in, out);
+      }
+
+      to.setValueCount(COUNT);
+
+      // validate equals
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
+    }
+  }
+
+  @Test
+  public void testMapWithListValue() throws Exception {
+    try (MapVector from = MapVector.empty("map", allocator, false);
+         MapVector to = MapVector.empty("map", allocator, false)) {
+
+      UnionMapWriter mapWriter = from.getWriter();
+      BaseWriter.ListWriter valueWriter;
+
+      /* allocate memory */
+      mapWriter.allocate();
+
+      // write null, [{},
+      // {"value":[]},{"key":1,"value":[null,50,null,100,null,200,null]},
+      // null,{"key":2,"value":[null,75,null,125,null,150,null,175,null]}]
+      // alternatively
+      for (int i = 0; i < COUNT; i++) {
+        mapWriter.setPosition(i);
+        if (i % 2 == 0) {
+          mapWriter.writeNull();
+          continue;
+        }
+
+        mapWriter.startMap();
+
+        mapWriter.startEntry();
+        mapWriter.key().bigInt().writeNull();
+        mapWriter.value().list().writeNull();
+        mapWriter.endEntry();
+
+        mapWriter.startEntry();
+        mapWriter.key().bigInt().writeNull();
+        valueWriter = mapWriter.value().list();
+        valueWriter.startList();
+        valueWriter.endList();
+        mapWriter.endEntry();
+
+        mapWriter.startEntry();
+        mapWriter.key().bigInt().writeBigInt(1);
+        valueWriter = mapWriter.value().list();
+        valueWriter.startList();
+        valueWriter.bigInt().writeNull();
+        valueWriter.bigInt().writeBigInt(50);
+        valueWriter.bigInt().writeNull();
+        valueWriter.bigInt().writeBigInt(100);
+        valueWriter.bigInt().writeNull();
+        valueWriter.bigInt().writeBigInt(200);
+        valueWriter.bigInt().writeNull();
+        valueWriter.endList();
+        mapWriter.endEntry();
+
+        mapWriter.writeNull();
+
+        mapWriter.startEntry();
+        mapWriter.key().bigInt().writeBigInt(2);
+        valueWriter = mapWriter.value().list();
+        valueWriter.startList();
+        valueWriter.bigInt().writeNull();
+        valueWriter.bigInt().writeBigInt(75);
+        valueWriter.bigInt().writeNull();
+        valueWriter.bigInt().writeBigInt(125);
+        valueWriter.bigInt().writeNull();
+        valueWriter.bigInt().writeBigInt(150);
+        valueWriter.bigInt().writeNull();
+        valueWriter.bigInt().writeBigInt(175);
+        valueWriter.bigInt().writeNull();
+        valueWriter.endList();
+        mapWriter.endEntry();
+
+        mapWriter.endMap();
+      }
+      mapWriter.setValueCount(COUNT);
+
+      // copy values
+      FieldReader in = from.getReader();
+      FieldWriter out = to.getWriter();
+      for (int i = 0; i < COUNT; i++) {
+        in.setPosition(i);
+        out.setPosition(i);
+        ComplexCopier.copy(in, out);
+      }
+
+      to.setValueCount(COUNT);
+
+      // validate equals
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
     }
   }
 

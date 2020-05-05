@@ -183,7 +183,10 @@ public class UnionFixedSizeListWriter extends AbstractFieldWriter {
 
   @Override
   public void writeNull() {
-    writer.setPosition(writer.idx()+1);
+    if (writer.idx() >= (idx() + 1) * listSize) {
+      throw new IllegalStateException(String.format("values at index %s is greater than listSize %s", idx(), listSize));
+    }
+    writer.writeNull();
   }
 
   public void writeDecimal(int start, ArrowBuf buffer, ArrowType arrowType) {
