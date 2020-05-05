@@ -328,6 +328,25 @@ Null: ::
       "name": "null"
     }
 
+Extension types are, as in the IPC format, represented as their underlying
+storage type plus some dedicated field metadata to reconstruct the extension
+type.  For example, assuming a "uuid" extension type backed by a
+FixedSizeBinary(16) storage, here is how a "uuid" field would be represented::
+
+    {
+      "name" : "name_of_the_field",
+      "nullable" : /* boolean */,
+      "type" : {
+         "name" : "fixedsizebinary",
+         "byteWidth" : 16
+      },
+      "children" : [],
+      "metadata" : [
+         {"key": "ARROW:extension:name", "value": "uuid"},
+         {"key": "ARROW:extension:metadata", "value": "uuid-serialized"}
+      ]
+    }
+
 **RecordBatch**::
 
     {

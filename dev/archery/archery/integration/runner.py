@@ -305,7 +305,7 @@ def get_static_json_files():
 def run_all_tests(with_cpp=True, with_java=True, with_js=True,
                   with_go=True, run_flight=False,
                   tempdir=None, **kwargs):
-    tempdir = tempdir or tempfile.mkdtemp()
+    tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
 
     testers = []
 

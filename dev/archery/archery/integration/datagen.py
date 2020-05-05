@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections import OrderedDict
+from collections import namedtuple, OrderedDict
 import binascii
 import json
 import os
@@ -28,25 +28,36 @@ from .util import (frombytes, tobytes, random_bytes, random_utf8,
                    SKIP_ARROW, SKIP_FLIGHT)
 
 
+def metadata_key_values(pairs):
+    return [{'key': k, 'value': v} for k, v in pairs]
+
+
 class Field(object):
 
-    def __init__(self, name, *, nullable=True, metadata=[]):
+    def __init__(self, name, *, nullable=True, metadata=None):
         self.name = name
         self.nullable = nullable
-        self.metadata = metadata
+        self.metadata = metadata or []
 
     def get_json(self):
         entries = [
             ('name', self.name),
             ('type', self._get_type()),
             ('nullable', self.nullable),
-            ('children', self._get_children())
+            ('children', self._get_children()),
         ]
 
+        dct = self._get_dictionary()
+        if dct:
+            entries.append(('dictionary', dct))
+
         if self.metadata is not None and len(self.metadata) > 0:
-            entries.append(('metadata', self.metadata))
+            entries.append(('metadata', metadata_key_values(self.metadata)))
 
         return OrderedDict(entries)
+
+    def _get_dictionary(self):
+        return None
 
     def _make_is_valid(self, size, null_probability=0.4):
         if self.nullable:
@@ -117,7 +128,7 @@ class NullColumn(Column):
 
 class NullField(PrimitiveField):
 
-    def __init__(self, name, metadata=[]):
+    def __init__(self, name, metadata=None):
         super().__init__(name, nullable=True,
                          metadata=metadata)
 
@@ -135,7 +146,7 @@ TEST_INT_MIN = ~TEST_INT_MAX
 class IntegerField(PrimitiveField):
 
     def __init__(self, name, is_signed, bit_width, *, nullable=True,
-                 metadata=[],
+                 metadata=None,
                  min_value=TEST_INT_MIN,
                  max_value=TEST_INT_MAX):
         super().__init__(name, nullable=nullable,
@@ -190,7 +201,7 @@ class DateField(IntegerField):
         MILLISECOND: [-62135596800000, 253402214400000]
     }
 
-    def __init__(self, name, unit, *, nullable=True, metadata=[]):
+    def __init__(self, name, unit, *, nullable=True, metadata=None):
         bit_width = 32 if unit == self.DAY else 64
 
         min_value, max_value = self._ranges[unit]
@@ -233,7 +244,7 @@ class TimeField(IntegerField):
     }
 
     def __init__(self, name, unit='s', *, nullable=True,
-                 metadata=[]):
+                 metadata=None):
         min_val, max_val = self._ranges[unit]
         super().__init__(name, True, self.BIT_WIDTHS[unit],
                          nullable=nullable, metadata=metadata,
@@ -261,7 +272,7 @@ class TimestampField(IntegerField):
     }
 
     def __init__(self, name, unit='s', tz=None, *, nullable=True,
-                 metadata=[]):
+                 metadata=None):
         min_val, max_val = self._ranges[unit]
         super().__init__(name, True, 64,
                          nullable=nullable,
@@ -286,7 +297,7 @@ class TimestampField(IntegerField):
 class DurationIntervalField(IntegerField):
 
     def __init__(self, name, unit='s', *, nullable=True,
-                 metadata=[]):
+                 metadata=None):
         min_val, max_val = np.iinfo('int64').min, np.iinfo('int64').max,
         super().__init__(
             name, True, 64,
@@ -304,7 +315,7 @@ class DurationIntervalField(IntegerField):
 
 
 class YearMonthIntervalField(IntegerField):
-    def __init__(self, name, *, nullable=True, metadata=[]):
+    def __init__(self, name, *, nullable=True, metadata=None):
         min_val, max_val = [-10000*12, 10000*12]  # +/- 10000 years.
         super().__init__(
             name, True, 32,
@@ -321,7 +332,7 @@ class YearMonthIntervalField(IntegerField):
 
 
 class DayTimeIntervalField(PrimitiveField):
-    def __init__(self, name, *, nullable=True, metadata=[]):
+    def __init__(self, name, *, nullable=True, metadata=None):
         super().__init__(name,
                          nullable=True,
                          metadata=metadata)
@@ -352,7 +363,7 @@ class DayTimeIntervalField(PrimitiveField):
 class FloatingPointField(PrimitiveField):
 
     def __init__(self, name, bit_width, *, nullable=True,
-                 metadata=[]):
+                 metadata=None):
         super().__init__(name,
                          nullable=nullable,
                          metadata=metadata)
@@ -404,7 +415,7 @@ def decimal_range_from_precision(precision):
 
 class DecimalField(PrimitiveField):
     def __init__(self, name, precision, scale, bit_width=128, *,
-                 nullable=True, metadata=[]):
+                 nullable=True, metadata=None):
         super().__init__(name, nullable=True,
                          metadata=metadata)
         self.precision = precision
@@ -463,7 +474,7 @@ class BooleanField(PrimitiveField):
 class FixedSizeBinaryField(PrimitiveField):
 
     def __init__(self, name, byte_width, *, nullable=True,
-                 metadata=[]):
+                 metadata=None):
         super().__init__(name, nullable=nullable,
                          metadata=metadata)
         self.byte_width = byte_width
@@ -582,7 +593,7 @@ class Schema(object):
         ]
 
         if self.metadata is not None and len(self.metadata) > 0:
-            entries.append(('metadata', self.metadata))
+            entries.append(('metadata', metadata_key_values(self.metadata)))
 
         return OrderedDict(entries)
 
@@ -668,7 +679,7 @@ class FixedSizeBinaryColumn(PrimitiveColumn):
 class ListField(Field):
 
     def __init__(self, name, value_field, *, nullable=True,
-                 metadata=[]):
+                 metadata=None):
         super().__init__(name, nullable=nullable,
                          metadata=metadata)
         self.value_field = value_field
@@ -747,7 +758,7 @@ class LargeListColumn(_BaseListColumn, _LargeOffsetsMixin):
 class MapField(Field):
 
     def __init__(self, name, key_field, item_field, *, nullable=True,
-                 metadata=[], keys_sorted=False):
+                 metadata=None, keys_sorted=False):
         super().__init__(name, nullable=nullable,
                          metadata=metadata)
 
@@ -809,7 +820,7 @@ class MapColumn(Column):
 class FixedSizeListField(Field):
 
     def __init__(self, name, value_field, list_size, *, nullable=True,
-                 metadata=[]):
+                 metadata=None):
         super().__init__(name, nullable=nullable,
                          metadata=metadata)
         self.value_field = value_field
@@ -852,7 +863,7 @@ class FixedSizeListColumn(Column):
 class StructField(Field):
 
     def __init__(self, name, fields, *, nullable=True,
-                 metadata=[]):
+                 metadata=None):
         super().__init__(name, nullable=nullable,
                          metadata=metadata)
         self.fields = fields
@@ -877,7 +888,7 @@ class StructField(Field):
 class _BaseUnionField(Field):
 
     def __init__(self, name, fields, type_ids=None, *, nullable=True,
-                 metadata=[]):
+                 metadata=None):
         super().__init__(name, nullable=nullable, metadata=metadata)
         if type_ids is None:
             type_ids = list(range(fields))
@@ -974,7 +985,7 @@ class Dictionary(object):
 class DictionaryField(Field):
 
     def __init__(self, name, index_field, dictionary, *, nullable=True,
-                 metadata=[]):
+                 metadata=None):
         super().__init__(name, nullable=nullable,
                          metadata=metadata)
         assert index_field.name == ''
@@ -984,17 +995,17 @@ class DictionaryField(Field):
         self.index_field = index_field
         self.dictionary = dictionary
 
-    def get_json(self):
+    def _get_type(self):
+        return self.dictionary.field._get_type()
+
+    def _get_children(self):
+        return self.dictionary.field._get_children()
+
+    def _get_dictionary(self):
         return OrderedDict([
-            ('name', self.name),
-            ('type', self.dictionary.field._get_type()),
-            ('nullable', self.nullable),
-            ('children', self.dictionary.field._get_children()),
-            ('dictionary', OrderedDict([
-                ('id', self.dictionary.id_),
-                ('indexType', self.index_field._get_type()),
-                ('isOrdered', self.dictionary.ordered)
-            ]))
+            ('id', self.dictionary.id_),
+            ('indexType', self.index_field._get_type()),
+            ('isOrdered', self.dictionary.ordered)
         ])
 
     def generate_column(self, size, name=None):
@@ -1002,6 +1013,35 @@ class DictionaryField(Field):
             name = self.name
         return self.index_field.generate_range(size, 0, len(self.dictionary),
                                                name=name)
+
+
+ExtensionType = namedtuple(
+    'ExtensionType', ['extension_name', 'serialized', 'storage_field'])
+
+
+class ExtensionField(Field):
+
+    def __init__(self, name, extension_type, *, nullable=True, metadata=None):
+        metadata = (metadata or []) + [
+            ('ARROW:extension:name', extension_type.extension_name),
+            ('ARROW:extension:metadata', extension_type.serialized),
+        ]
+        super().__init__(name, nullable=nullable, metadata=metadata)
+        self.extension_type = extension_type
+
+    def _get_type(self):
+        return self.extension_type.storage_field._get_type()
+
+    def _get_children(self):
+        return self.extension_type.storage_field._get_children()
+
+    def _get_dictionary(self):
+        return self.extension_type.storage_field._get_dictionary()
+
+    def generate_column(self, size, name=None):
+        if name is None:
+            name = self.name
+        return self.extension_type.storage_field.generate_column(size, name)
 
 
 class StructColumn(Column):
@@ -1141,7 +1181,7 @@ def get_field(name, type_, **kwargs):
 
 
 def _generate_file(name, fields, batch_sizes, dictionaries=None, skip=None,
-                   metadata=[]):
+                   metadata=None):
     schema = Schema(fields, metadata=metadata)
     batches = []
     for size in batch_sizes:
@@ -1159,16 +1199,20 @@ def generate_custom_metadata_case():
     def meta(items):
         # Generate a simple block of metadata where each value is '{}'.
         # Keys are delimited by whitespace in `items`.
-        return [{'key': item, 'value': '{}'} for item in items.split()]
+        return [(k, '{}') for k in items.split()]
 
     fields = [
         get_field('sort_of_pandas', 'int8', metadata=meta('pandas')),
 
         get_field('lots_of_meta', 'int8', metadata=meta('a b c d .. w x y z')),
 
-        get_field('unregistered_extension', 'int8',
-                  metadata=meta('ARROW:extension:name '
-                                'ARROW:extension:metadata')),
+        get_field(
+            'unregistered_extension', 'int8',
+            metadata=[
+                ('ARROW:extension:name', '!nonexistent'),
+                ('ARROW:extension:metadata', ''),
+                ('ARROW:integration:allow_unregistered_extension', 'true'),
+            ]),
 
         ListField('list_with_odd_values',
                   get_field('item', 'int32', metadata=meta('odd_values'))),
@@ -1401,8 +1445,27 @@ def generate_nested_dictionary_case():
                           dictionaries=[dict0, dict1, dict2])
 
 
+def generate_extension_case():
+    dict0 = Dictionary(0, StringField('dictionary0'), size=5, name='DICT0')
+
+    uuid_type = ExtensionType('uuid', 'uuid-serialized',
+                              FixedSizeBinaryField('', 16))
+    dict_ext_type = ExtensionType(
+        'dict-extension', 'dict-extension-serialized',
+        DictionaryField('str_dict', get_field('', 'int8'), dict0))
+
+    fields = [
+        ExtensionField('uuids', uuid_type),
+        ExtensionField('dict_exts', dict_ext_type),
+    ]
+
+    batch_sizes = [0, 13]
+    return _generate_file("extension", fields, batch_sizes,
+                          dictionaries=[dict0])
+
+
 def get_generated_json_files(tempdir=None, flight=False):
-    tempdir = tempdir or tempfile.mkdtemp()
+    tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
 
     def _temp_path():
         return
@@ -1465,6 +1528,10 @@ def get_generated_json_files(tempdir=None, flight=False):
         # TODO(ARROW-7902)
         generate_nested_dictionary_case().skip_category(SKIP_ARROW)
                                          .skip_category(SKIP_FLIGHT),
+
+        generate_extension_case().skip_category('Go')
+                                 .skip_category('Java')  # TODO(ARROW-8485)
+                                 .skip_category('JS'),
     ]
 
     if flight:

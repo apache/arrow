@@ -26,14 +26,14 @@
 
 namespace arrow {
 
-class ARROW_EXPORT UUIDArray : public ExtensionArray {
+class ARROW_EXPORT UuidArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
 };
 
-class ARROW_EXPORT UUIDType : public ExtensionType {
+class ARROW_EXPORT UuidType : public ExtensionType {
  public:
-  UUIDType() : ExtensionType(fixed_size_binary(16)) {}
+  UuidType() : ExtensionType(fixed_size_binary(16)) {}
 
   std::string extension_name() const override { return "uuid"; }
 
@@ -45,7 +45,7 @@ class ARROW_EXPORT UUIDType : public ExtensionType {
       std::shared_ptr<DataType> storage_type,
       const std::string& serialized) const override;
 
-  std::string Serialize() const override { return "uuid-type-unique-code"; }
+  std::string Serialize() const override { return "uuid-serialized"; }
 };
 
 class ARROW_EXPORT SmallintArray : public ExtensionArray {
@@ -70,6 +70,23 @@ class ARROW_EXPORT SmallintType : public ExtensionType {
   std::string Serialize() const override { return "smallint"; }
 };
 
+class ARROW_EXPORT DictExtensionType : public ExtensionType {
+ public:
+  DictExtensionType() : ExtensionType(dictionary(int8(), utf8())) {}
+
+  std::string extension_name() const override { return "dict-extension"; }
+
+  bool ExtensionEquals(const ExtensionType& other) const override;
+
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
+
+  Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
+      const std::string& serialized) const override;
+
+  std::string Serialize() const override { return "dict-extension-serialized"; }
+};
+
 ARROW_EXPORT
 std::shared_ptr<DataType> uuid();
 
@@ -77,9 +94,26 @@ ARROW_EXPORT
 std::shared_ptr<DataType> smallint();
 
 ARROW_EXPORT
-std::shared_ptr<Array> ExampleUUID();
+std::shared_ptr<DataType> dict_extension_type();
+
+ARROW_EXPORT
+std::shared_ptr<Array> ExampleUuid();
 
 ARROW_EXPORT
 std::shared_ptr<Array> ExampleSmallint();
+
+// A RAII class that registers an extension type on construction
+// and unregisters it on destruction.
+class ARROW_EXPORT ExtensionTypeGuard {
+ public:
+  explicit ExtensionTypeGuard(const std::shared_ptr<DataType>& type);
+  ~ExtensionTypeGuard();
+  ARROW_DEFAULT_MOVE_AND_ASSIGN(ExtensionTypeGuard);
+
+ protected:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(ExtensionTypeGuard);
+
+  std::string extension_name_;
+};
 
 }  // namespace arrow
