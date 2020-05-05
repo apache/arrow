@@ -122,7 +122,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   SerializedRowGroup(std::shared_ptr<ArrowInputFile> source,
                      std::shared_ptr<::arrow::io::internal::ReadRangeCache> cached_source,
                      int64_t source_size, FileMetaData* file_metadata,
-                     int32_t row_group_number, const ReaderProperties& props,
+                     int row_group_number, const ReaderProperties& props,
                      std::shared_ptr<InternalFileDecryptor> file_decryptor = nullptr)
       : source_(std::move(source)),
         cached_source_(std::move(cached_source)),
