@@ -138,13 +138,6 @@ class DockerCompose(Command):
                 )
             )
 
-    def _pull_andor_build(self, image, pull_if):
-        if pull_if:
-            self._execute('pull', '--ignore-pull-failures', image)
-            self._execute('build', image)
-        else:
-            self._execute('build', '--no-cache', image)
-
     def build(self, image, cache=True, cache_leaf=True, params=None):
         self._validate_image(image)
 
