@@ -254,10 +254,10 @@ def test_compose_build(arrow_compose_path):
 
     expected_calls = [
         "pull --ignore-pull-failures conda-cpp",
-        "build conda-cpp",
         "pull --ignore-pull-failures conda-python",
-        "build conda-python",
         "pull --ignore-pull-failures conda-python-pandas",
+        "build conda-cpp",
+        "build conda-python",
         "build conda-python-pandas"
     ]
     with assert_compose_calls(compose, expected_calls):
@@ -273,8 +273,8 @@ def test_compose_build(arrow_compose_path):
 
     expected_calls = [
         "pull --ignore-pull-failures conda-cpp",
-        "build conda-cpp",
         "pull --ignore-pull-failures conda-python",
+        "build conda-cpp",
         "build conda-python",
         "build --no-cache conda-python-pandas",
     ]
