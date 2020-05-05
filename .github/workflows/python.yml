@@ -77,7 +77,7 @@ jobs:
             pandas: latest
             cache: conda
           - name: centos-python-3.6-manylinux1
-            image: --pull --no-build centos-python-manylinux1
+            image: --force-pull --no-build centos-python-manylinux1
             title: AMD64 CentOS 5.11 Python 3.6 manylinux1
             cache: centos-5
     env:

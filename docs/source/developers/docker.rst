@@ -172,6 +172,16 @@ The following example starts an interactive ``bash`` session in the container
 
     archery docker run ubuntu-cpp bash
 
+Docker Volume Caches
+~~~~~~~~~~~~~~~~~~~~
+
+Most of the compose container have specific directories mounted from the host
+to reuse ``ccache`` and ``maven`` artifacts. These docker volumes are placed
+in the ``.docker`` directory.
+
+In order to clean up the cache simply delete one or more directories (or the
+whole ``.docker`` directory).
+
 
 Development
 -----------
