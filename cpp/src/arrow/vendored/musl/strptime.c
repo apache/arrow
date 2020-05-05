@@ -27,7 +27,7 @@
 
 #define strptime arrow_strptime
 
-char *strptime(const char *restrict s, const char *restrict f, struct tm *restrict tm)
+char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__restrict tm)
 {
 	int i, w, neg, adj, min, range, *dest, dummy;
 #ifdef HAVE_LANGINFO
