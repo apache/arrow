@@ -55,23 +55,6 @@
 
 version: '3.5'
 
-volumes:
-  # Named volumes must be predefined, so in order to use other architecture,
-  # like ARM64v8 with debian 10, then the appropriate parametrized volume name
-  # must be added the list below: arm64v8-debian-10-cache
-  amd64-conda-cache:
-  amd64-cuda-9.1-cache:
-  amd64-cuda-10.0-cache:
-  amd64-cuda-10.1-cache:
-  amd64-debian-9-cache:
-  amd64-debian-10-cache:
-  amd64-fedora-30-cache:
-  amd64-ubuntu-14.04-cache:
-  amd64-ubuntu-16.04-cache:
-  amd64-ubuntu-18.04-cache:
-  amd64-ubuntu-20.04-cache:
-  maven-cache:
-
 x-ccache: &ccache
   CCACHE_COMPILERCHECK: content
   CCACHE_COMPRESS: 1
@@ -180,7 +163,7 @@ services:
       ARROW_BUILD_BENCHMARKS: "ON"
     volumes: &conda-volumes
       - .:/arrow:delegated
-      - .docker/${ARCH}-conda-cache:/ccache:delegated
+      - .docker/${ARCH}-conda-ccache:/ccache:delegated
     command: &cpp-conda-command
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"]
@@ -237,7 +220,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &cuda-volumes
       - .:/arrow:delegated
-      - .docker/${ARCH}-cuda-${CUDA}-cache:/ccache:delegated
+      - .docker/${ARCH}-cuda-${CUDA}-ccache:/ccache:delegated
     command: &cpp-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -266,7 +249,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &debian-volumes
       - .:/arrow:delegated
-      - .docker/${ARCH}-debian-${DEBIAN}-cache:/ccache:delegated
+      - .docker/${ARCH}-debian-${DEBIAN}-ccache:/ccache:delegated
     command: *cpp-command
 
   ubuntu-cpp:
@@ -293,7 +276,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
-      - .docker/${ARCH}-ubuntu-${UBUNTU}-cache:/ccache:delegated
+      - .docker/${ARCH}-ubuntu-${UBUNTU}-ccache:/ccache:delegated
     command: *cpp-command
 
   ubuntu-cpp-sanitizer:
@@ -353,7 +336,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &fedora-volumes
       - .:/arrow:delegated
-      - .docker/${ARCH}-fedora-${FEDORA}-cache:/ccache:delegated
+      - .docker/${ARCH}-fedora-${FEDORA}-ccache:/ccache:delegated
     command: *cpp-command
 
   ############################### C GLib ######################################
@@ -1063,7 +1046,7 @@ services:
     volumes:
       - .:/arrow:delegated
       - .docker/maven-cache:/root/.m2:delegated
-      - .docker/${ARCH}-debian-9-cache:/ccache:delegated
+      - .docker/${ARCH}-debian-9-ccache:/ccache:delegated
     command:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -1251,7 +1234,7 @@ services:
     volumes: &conda-maven-volumes
       - .:/arrow:delegated
       - .docker/maven-cache:/root/.m2:delegated
-      - .docker/${ARCH}-conda-cache:/ccache:delegated
+      - .docker/${ARCH}-conda-ccache:/ccache:delegated
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
