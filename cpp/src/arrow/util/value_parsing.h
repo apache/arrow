@@ -485,8 +485,9 @@ static inline bool ParseHH_MM_SS(const char* s, std::chrono::duration<ts_type>* 
 
 }  // namespace detail
 
-static inline bool ParseISO8601(const char* s, size_t length, TimeUnit::type unit,
-                                TimestampType::c_type* out) {
+static inline bool ParseTimestampISO8601(const char* s, size_t length,
+                                         TimeUnit::type unit,
+                                         TimestampType::c_type* out) {
   using ts_type = TimestampType::c_type;
 
   // We allow the following formats:
@@ -551,6 +552,52 @@ static inline bool ParseISO8601(const char* s, size_t length, TimeUnit::type uni
   return false;
 }
 
+/// \brief Returns time since the UNIX epoch in the requested unit
+static inline bool ParseTimestampStrptime(const char* buf, const char* format,
+                                          bool ignore_time_in_day, TimeUnit::type unit,
+                                          int64_t* out) {
+#if defined(_MSC_VER)
+  static std::locale lc_all(setlocale(LC_ALL, NULLPTR));
+  std::istringstream stream(buf);
+  stream.imbue(lc_all);
+
+  // TODO: date::parse fails parsing when the hour value is 0.
+  // eg.1886-12-01 00:00:00
+  arrow_vendored::date::sys_seconds seconds;
+  if (ignore_time_in_day) {
+    arrow_vendored::date::sys_days days;
+    stream >> arrow_vendored::date::parse(format, days);
+    if (stream.fail()) {
+      return false;
+    }
+    seconds = days;
+  } else {
+    stream >> arrow_vendored::date::parse(format, seconds);
+    if (stream.fail()) {
+      return false;
+    }
+  }
+  *out = detail::ConvertTimePoint(secs, unit);
+  return true;
+#else
+  struct tm result;
+  char* ret = strptime(buf, format, &result);
+  if (ret == NULLPTR) {
+    return false;
+  }
+  // ignore the time part
+  arrow_vendored::date::sys_seconds secs =
+      arrow_vendored::date::sys_days(arrow_vendored::date::year(result.tm_year + 1900) /
+                                     (result.tm_mon + 1) / result.tm_mday);
+  if (!ignore_time_in_day) {
+    secs += (std::chrono::hours(result.tm_hour) + std::chrono::minutes(result.tm_min) +
+             std::chrono::seconds(result.tm_sec));
+  }
+  *out = detail::ConvertTimePoint(secs, unit);
+  return true;
+#endif
+}
+
 // A StringConverter that parses ISO8601 at a fixed unit
 template <>
 class StringConverter<TimestampType> {
@@ -561,7 +608,7 @@ class StringConverter<TimestampType> {
       : unit_(checked_cast<TimestampType*>(type.get())->unit()) {}
 
   bool operator()(const char* s, size_t length, value_type* out) {
-    return ParseISO8601(s, length, unit_, out);
+    return ParseTimestampISO8601(s, length, unit_, out);
   }
 
  private:

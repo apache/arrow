@@ -33,57 +33,8 @@
 namespace arrow {
 namespace csv {
 
-static std::shared_ptr<Buffer> GenerateTimestampsCSV(
-    const std::vector<std::string>& dates, int32_t cols, int32_t rows) {
-  std::stringstream ss;
-  for (int32_t row = 0; row < rows; ++row) {
-    for (int32_t col = 0; col < cols; ++col) {
-      ss << dates[rand() % dates.size()];
-    }
-    ss << "\n";
-  }
-  return Buffer::FromString(ss.str());
-}
-
-static Status ReadCSV(const Buffer& data, const csv::ConvertOptions& convert_opt) {
-  ARROW_ASSIGN_OR_RAISE(
-      auto table_reader,
-      csv::TableReader::Make(
-          default_memory_pool(), std::make_shared<io::BufferReader>(data),
-          csv::ReadOptions::Defaults(), csv::ParseOptions::Defaults(), convert_opt));
-  return table_reader->Read().status();
-}
-
-const std::vector<std::string> kExampleDates = {
-    "1917-10-17,", "2018-09-13 22,", "1941-06-22 04:00,", "1945-05-09 09:45:38,"};
-constexpr int32_t kNumRows = 10000000;
-constexpr int32_t kNumCols = 10;
-
-static void ConvertTimestampVirtualISO8601(benchmark::State& state) {
-  auto data = GenerateTimestampsCSV(kExampleDates, kNumCols, kNumRows);
-  auto convert_options = csv::ConvertOptions::Defaults();
-  convert_options.timestamp_parsers.push_back(TimestampParser::MakeISO8601());
-  for (auto _ : state) {
-    ABORT_NOT_OK(ReadCSV(*data, convert_options));
-  }
-  state.SetItemsProcessed(state.iterations());
-}
-
-static void ConvertTimestampInlineISO8601(benchmark::State& state) {
-  auto data = GenerateTimestampsCSV(kExampleDates, kNumCols, kNumRows);
-  auto convert_options = csv::ConvertOptions::Defaults();
-  for (auto _ : state) {
-    ABORT_NOT_OK(ReadCSV(*data, convert_options));
-  }
-  state.SetItemsProcessed(state.iterations());
-}
-
-BENCHMARK(ConvertTimestampInlineISO8601);
-BENCHMARK(ConvertTimestampVirtualISO8601);
-
-static std::shared_ptr<BlockParser> BuildInt64Data(int32_t num_rows) {
-  const std::vector<std::string> base_rows = {"123\n", "4\n",   "-317005557\n",
-                                              "\n",    "N/A\n", "0\n"};
+static std::shared_ptr<BlockParser> BuildFromExamples(
+    const std::vector<std::string>& base_rows, int32_t num_rows) {
   std::vector<std::string> rows;
   for (int32_t i = 0; i < num_rows; ++i) {
     rows.push_back(base_rows[i % base_rows.size()]);
@@ -92,36 +43,39 @@ static std::shared_ptr<BlockParser> BuildInt64Data(int32_t num_rows) {
   std::shared_ptr<BlockParser> result;
   MakeCSVParser(rows, &result);
   return result;
+}
+
+static std::shared_ptr<BlockParser> BuildInt64Data(int32_t num_rows) {
+  const std::vector<std::string> base_rows = {"123\n", "4\n",   "-317005557\n",
+                                              "\n",    "N/A\n", "0\n"};
+  return BuildFromExamples(base_rows, num_rows);
 }
 
 static std::shared_ptr<BlockParser> BuildFloatData(int32_t num_rows) {
   const std::vector<std::string> base_rows = {"0\n", "123.456\n", "-3170.55766\n", "\n",
                                               "N/A\n"};
-  std::vector<std::string> rows;
-  for (int32_t i = 0; i < num_rows; ++i) {
-    rows.push_back(base_rows[i % base_rows.size()]);
-  }
-
-  std::shared_ptr<BlockParser> result;
-  MakeCSVParser(rows, &result);
-  return result;
+  return BuildFromExamples(base_rows, num_rows);
 }
 
 static std::shared_ptr<BlockParser> BuildDecimal128Data(int32_t num_rows) {
   const std::vector<std::string> base_rows = {"0\n", "123.456\n", "-3170.55766\n",
                                               "\n",  "N/A\n",     "1233456789.123456789"};
-  std::vector<std::string> rows;
-  for (int32_t i = 0; i < num_rows; ++i) {
-    rows.push_back(base_rows[i % base_rows.size()]);
-  }
-
-  std::shared_ptr<BlockParser> result;
-  MakeCSVParser(rows, &result);
-  return result;
+  return BuildFromExamples(base_rows, num_rows);
 }
 
 static std::shared_ptr<BlockParser> BuildStringData(int32_t num_rows) {
   return BuildDecimal128Data(num_rows);
+}
+
+static std::shared_ptr<BlockParser> BuildISO8601Data(int32_t num_rows) {
+  const std::vector<std::string> base_rows = {
+      "1917-10-17\n", "2018-09-13\n", "1941-06-22 04:00\n", "1945-05-09 09:45:38\n"};
+  return BuildFromExamples(base_rows, num_rows);
+}
+
+static std::shared_ptr<BlockParser> BuildStrptimeData(int32_t num_rows) {
+  const std::vector<std::string> base_rows = {"10/17/1917\n", "9/13/2018\n", "9/5/1945"};
+  return BuildFromExamples(base_rows, num_rows);
 }
 
 static void BenchmarkConversion(benchmark::State& state,  // NOLINT non-const reference
@@ -171,10 +125,27 @@ static void StringConversion(benchmark::State& state) {  // NOLINT non-const ref
   BenchmarkConversion(state, *parser, utf8(), options);
 }
 
+static void TimestampConversionDefault(
+    benchmark::State& state) {  // NOLINT non-const reference
+  auto parser = BuildISO8601Data(num_rows);
+  auto options = ConvertOptions::Defaults();
+  BenchmarkConversion(state, *parser, timestamp(TimeUnit::MILLI), options);
+}
+
+static void TimestampConversionStrptime(
+    benchmark::State& state) {  // NOLINT non-const reference
+  auto parser = BuildStrptimeData(num_rows);
+  auto options = ConvertOptions::Defaults();
+  options.timestamp_parsers.push_back(TimestampParser::MakeStrptime("%m/%d/%Y"));
+  BenchmarkConversion(state, *parser, timestamp(TimeUnit::MILLI), options);
+}
+
 BENCHMARK(Int64Conversion);
 BENCHMARK(FloatConversion);
 BENCHMARK(Decimal128Conversion);
 BENCHMARK(StringConversion);
+BENCHMARK(TimestampConversionDefault);
+BENCHMARK(TimestampConversionStrptime);
 
 }  // namespace csv
 }  // namespace arrow

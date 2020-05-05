@@ -391,7 +391,7 @@ struct InlineISO8601 {
   explicit InlineISO8601(TimeUnit::type unit) : unit(unit) {}
 
   bool operator()(const char* s, size_t length, int64_t* out) const {
-    return internal::ParseISO8601(s, length, unit, out);
+    return internal::ParseTimestampISO8601(s, length, unit, out);
   }
 };
 

@@ -377,7 +377,7 @@ TEST(TimestampParser, StrptimeParser) {
       int64_t converted, expected;
       ASSERT_TRUE((*parser)(case_.value.c_str(), case_.value.size(), unit, &converted));
       ASSERT_TRUE(
-          ParseISO8601(case_.iso8601.c_str(), case_.iso8601.size(), unit, &expected));
+          ParseTimestampISO8601(case_.iso8601.c_str(), case_.iso8601.size(), unit, &expected));
       ASSERT_EQ(expected, converted);
     }
   }

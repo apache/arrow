@@ -95,13 +95,8 @@ class StrptimeTimestampParser : public TimestampParser {
 
   bool operator()(const char* s, size_t length, TimeUnit::type out_unit,
                   value_type* out) const override {
-    arrow_vendored::date::sys_seconds time_point;
-    std::istringstream stream(std::string(s, length));
-    if (stream >> arrow_vendored::date::parse(format_, time_point)) {
-      *out = detail::ConvertTimePoint(time_point, out_unit);
-      return true;
-    }
-    return false;
+    return ParseTimestampStrptime(s, format_.c_str(), /*ignore_time_in_day=*/false,
+                                  out_unit, out);
   }
 
  private:
@@ -114,7 +109,7 @@ class ISO8601Parser : public TimestampParser {
 
   bool operator()(const char* s, size_t length, TimeUnit::type out_unit,
                   value_type* out) const override {
-    return ParseISO8601(s, length, out_unit, out);
+    return ParseTimestampISO8601(s, length, out_unit, out);
   }
 };
 
