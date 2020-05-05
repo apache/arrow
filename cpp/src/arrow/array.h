@@ -323,6 +323,9 @@ class ARROW_EXPORT Array {
            BitUtil::GetBit(null_bitmap_data_, i + data_->offset);
   }
 
+  /// \brief Return a Scalar containing the value of this array at i
+  Result<std::shared_ptr<Scalar>> GetScalar(int64_t i) const;
+
   /// Size in the number of elements this array contains.
   int64_t length() const { return data_->length; }
 
@@ -615,12 +618,11 @@ class BaseListArray : public Array {
 /// Concrete Array class for list data
 class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
  public:
-  explicit ListArray(const std::shared_ptr<ArrayData>& data);
+  explicit ListArray(std::shared_ptr<ArrayData> data);
 
-  ListArray(const std::shared_ptr<DataType>& type, int64_t length,
-            const std::shared_ptr<Buffer>& value_offsets,
-            const std::shared_ptr<Array>& values,
-            const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+  ListArray(std::shared_ptr<DataType> type, int64_t length,
+            std::shared_ptr<Buffer> value_offsets, std::shared_ptr<Array> values,
+            std::shared_ptr<Buffer> null_bitmap = NULLPTR,
             int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
   /// \brief Construct ListArray from array of offsets and child value array
@@ -1081,6 +1083,8 @@ class ARROW_EXPORT StructArray : public Array {
   // count adjusted.
   std::shared_ptr<Array> field(int pos) const;
 
+  const ArrayVector& fields() const;
+
   /// Returns null if name not found
   std::shared_ptr<Array> GetFieldByName(const std::string& name) const;
 
@@ -1095,7 +1099,7 @@ class ARROW_EXPORT StructArray : public Array {
  private:
   // For caching boxed child data
   // XXX This is not handled in a thread-safe manner.
-  mutable std::vector<std::shared_ptr<Array>> boxed_fields_;
+  mutable ArrayVector boxed_fields_;
 };
 
 // ----------------------------------------------------------------------
@@ -1368,6 +1372,9 @@ class ARROW_EXPORT DictionaryArray : public Array {
   /// a member of the ArrayData internal structure
   std::shared_ptr<Array> dictionary() const;
   std::shared_ptr<Array> indices() const;
+
+  /// \brief Return the ith value of indices, cast to int64_t
+  int64_t GetValueIndex(int64_t i) const;
 
   const DictionaryType* dict_type() const { return dict_type_; }
 

@@ -38,7 +38,7 @@ arrow_dplyr_query <- function(.data) {
       # * vector names are the names they should be in the end (i.e. this
       #   records any renaming)
       selected_columns = set_names(names(.data)),
-      # filtered_rows will be a ComparisonExpression
+      # filtered_rows will be an Expression
       filtered_rows = TRUE,
       # group_by_vars is a character vector of columns (as renamed)
       # in the data. They will be kept when data is pulled into R.
@@ -198,7 +198,7 @@ filter_mask <- function(.data) {
       force(operator)
       function(e1, e2) make_expression(operator, e1, e2)
     }
-    var_binder <- function(x) FieldExpression$create(x)
+    var_binder <- function(x) Expression$field_ref(x)
   } else {
     comp_func <- function(operator) {
       force(operator)

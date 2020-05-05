@@ -18,7 +18,7 @@ An object of class \code{TimeUnit::type} (inherits from \code{arrow-enum}) of le
 
 An object of class \code{DateUnit} (inherits from \code{arrow-enum}) of length 2.
 
-An object of class \code{Type::type} (inherits from \code{arrow-enum}) of length 28.
+An object of class \code{Type::type} (inherits from \code{arrow-enum}) of length 29.
 
 An object of class \code{StatusCode} (inherits from \code{arrow-enum}) of length 17.
 

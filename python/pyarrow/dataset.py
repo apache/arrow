@@ -22,16 +22,11 @@ from pyarrow.fs import _normalize_path, _MockFileSystem
 from pyarrow.util import _stringify_path, _is_path_like
 
 from pyarrow._dataset import (  # noqa
-    AndExpression,
-    CastExpression,
-    CompareOperator,
-    ComparisonExpression,
     CsvFileFormat,
+    Expression,
     Dataset,
     DatasetFactory,
     DirectoryPartitioning,
-    Expression,
-    FieldExpression,
     FileFormat,
     FileFragment,
     FileSystemDataset,
@@ -39,17 +34,12 @@ from pyarrow._dataset import (  # noqa
     FileSystemFactoryOptions,
     Fragment,
     HivePartitioning,
-    InExpression,
     IpcFileFormat,
-    IsValidExpression,
-    NotExpression,
-    OrExpression,
     ParquetFileFormat,
     ParquetFileFragment,
     ParquetReadOptions,
     Partitioning,
     PartitioningFactory,
-    ScalarExpression,
     Scanner,
     ScanTask,
     UnionDataset,
@@ -70,9 +60,9 @@ def field(name):
 
     Returns
     -------
-    field_expr : FieldExpression
+    field_expr : Expression
     """
-    return FieldExpression(name)
+    return Expression._field(name)
 
 
 def scalar(value):
@@ -86,9 +76,9 @@ def scalar(value):
 
     Returns
     -------
-    scalar_expr : ScalarExpression
+    scalar_expr : Expression
     """
-    return ScalarExpression(value)
+    return Expression._scalar(value)
 
 
 def partitioning(schema=None, field_names=None, flavor=None):

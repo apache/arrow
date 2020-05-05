@@ -19,6 +19,8 @@
 /// dataset with possible partitioning according to available
 /// partitioning
 
+// This API is EXPERIMENTAL.
+
 #pragma once
 
 #include <memory>

@@ -31,7 +31,9 @@ namespace arrow {
 namespace dataset {
 
 Fragment::Fragment(std::shared_ptr<Expression> partition_expression)
-    : partition_expression_(partition_expression ? partition_expression : scalar(true)) {}
+    : partition_expression_(std::move(partition_expression)) {
+  DCHECK_NE(partition_expression_, nullptr);
+}
 
 Result<std::shared_ptr<Schema>> InMemoryFragment::ReadPhysicalSchema() { return schema_; }
 
@@ -70,6 +72,12 @@ Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanOptions> opt
   return MakeMapIterator(fn, std::move(batches_it));
 }
 
+Dataset::Dataset(std::shared_ptr<Schema> schema,
+                 std::shared_ptr<Expression> partition_expression)
+    : schema_(std::move(schema)), partition_expression_(std::move(partition_expression)) {
+  DCHECK_NE(partition_expression_, nullptr);
+}
+
 Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan(
     std::shared_ptr<ScanContext> context) {
   return std::make_shared<ScannerBuilder>(this->shared_from_this(), context);
@@ -79,13 +87,8 @@ Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan() {
   return NewScan(std::make_shared<ScanContext>());
 }
 
-FragmentIterator Dataset::GetFragments() { return GetFragments(scalar(true)); }
-
 FragmentIterator Dataset::GetFragments(std::shared_ptr<Expression> predicate) {
-  if (partition_expression_) {
-    predicate = predicate->Assume(*partition_expression_);
-  }
-
+  predicate = predicate->Assume(*partition_expression_);
   return predicate->IsSatisfiable() ? GetFragmentsImpl(std::move(predicate))
                                     : MakeEmptyIterator<std::shared_ptr<Fragment>>();
 }
