@@ -7,7 +7,13 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef _WIN32
+#define strncasecmp _strnicmp
+#define strcasecmp _stricmp
+#else
 #include <strings.h>
+#endif
 
 #undef HAVE_LANGINFO
 
