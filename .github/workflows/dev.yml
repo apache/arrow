@@ -43,7 +43,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: test1
+          key: prefix-${{ github.ref }}-ubuntu
       - run: du -d2 -h .
       - name: Fetch Submodules and Tags
         run: ci/scripts/util_checkout.sh
