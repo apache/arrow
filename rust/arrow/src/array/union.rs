@@ -343,7 +343,7 @@ struct FieldData {
     slots: usize,
     /// The number of null array slots in this child array
     null_count: usize,
-    /// A builder for the bitmap if required
+    /// A builder for the bitmap if required (for Sparse Unions)
     bitmap_builder: Option<BooleanBufferBuilder>,
 }
 
