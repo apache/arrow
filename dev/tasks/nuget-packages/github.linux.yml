@@ -46,7 +46,7 @@ jobs:
       - name: Prepare version
         run: |
           sed -i'' -E -e \
-            "s/^    <Version>.+<\/Version>/    <Version>{{ arrow.no_rc_version }}<\/Version>/" \
+            "s/^    <Version>.+<\/Version>/    <Version>{{ arrow.no_rc_semver_version }}<\/Version>/" \
             arrow/csharp/Directory.Build.props
       - name: Build package
         run: |
