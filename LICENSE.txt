@@ -321,6 +321,20 @@ License: Apache License Version 2.0 http://www.apache.org/licenses/LICENSE-2.0
 
 --------------------------------------------------------------------------------
 
+This project includes code from Daniel Lemire's simdprune project.
+
+https://github.com/lemire/simdprune/blob/ccbbe607d36533472511770119e1da7b0562c72c/scripts/epi32.py
+
+https://github.com/lemire/simdprune/blob/ccbbe607d36533472511770119e1da7b0562c72c/scripts/epi8.py
+
+Copyright: Daniel Lemire
+Home page: http://lemire.me/en/
+Project page: https://github.com/lemire/simdprune
+License: Apache License Version 2.0 http://www.apache.org/licenses/LICENSE-2.0
+
+--------------------------------------------------------------------------------
+
+
 This project includes code from the TensorFlow project
 
 Copyright 2015 The TensorFlow Authors. All Rights Reserved.

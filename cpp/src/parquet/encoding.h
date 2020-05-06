@@ -22,6 +22,8 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/util/spaced.h"
+
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
@@ -294,27 +296,8 @@ class TypedDecoder : virtual public Decoder {
       throw ParquetException("Number of values / definition_levels read did not match");
     }
 
-    // Depending on the number of nulls, some of the value slots in buffer may
-    // be uninitialized, and this will cause valgrind warnings / potentially UB
-    memset(static_cast<void*>(buffer + values_read), 0,
-           (num_values - values_read) * sizeof(T));
-
-    // Add spacing for null entries. As we have filled the buffer from the front,
-    // we need to add the spacing from the back.
-    int values_to_move = values_read - 1;
-    // We stop early on one of two conditions:
-    // 1. There are no more null values that need spacing.  Note we infer this
-    //     backwards, when 'i' is equal to 'values_to_move' it indicates
-    //    all nulls have been consumed.
-    // 2. There are no more non-null values that need to move which indicates
-    //    all remaining slots are null, so their exact value doesn't matter.
-    for (int i = num_values - 1; (i > values_to_move) && (values_to_move >= 0); i--) {
-      if (BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
-        buffer[i] = buffer[values_to_move];
-        values_to_move--;
-      }
-    }
-    return num_values;
+    return ::arrow::util::internal::SpacedExpand<T>(buffer, num_values, null_count,
+                                                    valid_bits, valid_bits_offset);
   }
 
   /// \brief Decode into an ArrayBuilder or other accumulator

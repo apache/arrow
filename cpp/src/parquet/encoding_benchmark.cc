@@ -199,6 +199,107 @@ static void BM_PlainDecodingFloat(benchmark::State& state) {
 
 BENCHMARK(BM_PlainDecodingFloat)->Range(MIN_RANGE, MAX_RANGE);
 
+static void BM_PlainEncodingSpacedBoolean(benchmark::State& state) {
+  const int num_values = state.range(0);
+  bool* values = new bool[num_values];
+  // Fixed half spaced pattern
+  std::vector<uint8_t> valid_bits(arrow::BitUtil::BytesForBits(num_values), 0b10101010);
+  auto encoder = MakeTypedEncoder<BooleanType>(Encoding::PLAIN);
+
+  for (auto _ : state) {
+    encoder->PutSpaced(values, num_values, valid_bits.data(), 0);
+    encoder->FlushValues();
+  }
+  state.SetBytesProcessed(state.iterations() * num_values * sizeof(bool));
+  delete[] values;
+}
+
+BENCHMARK(BM_PlainEncodingSpacedBoolean)->Range(MIN_RANGE, MAX_RANGE);
+
+static void BM_PlainDecodingSpacedBoolean(benchmark::State& state) {
+  const int num_values = state.range(0);
+  const int num_values_half = num_values / 2;
+  bool* values = new bool[num_values];
+  // Fixed half spaced pattern
+  std::vector<uint8_t> valid_bits(arrow::BitUtil::BytesForBits(num_values), 0b10101010);
+  auto encoder = MakeTypedEncoder<BooleanType>(Encoding::PLAIN);
+
+  encoder->PutSpaced(values, num_values, valid_bits.data(), 0);
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  for (auto _ : state) {
+    auto decoder = MakeTypedDecoder<BooleanType>(Encoding::PLAIN);
+    decoder->SetData(num_values_half, buf->data(), buf->size());
+    decoder->DecodeSpaced(values, num_values, num_values_half, valid_bits.data(), 0);
+  }
+  state.SetBytesProcessed(state.iterations() * num_values * sizeof(bool));
+  delete[] values;
+}
+
+BENCHMARK(BM_PlainDecodingSpacedBoolean)->Range(MIN_RANGE, MAX_RANGE);
+
+template <typename Type>
+static void BM_PlainEncodingSpaced(benchmark::State& state) {
+  typedef typename Type::c_type T;
+
+  const int num_values = state.range(0);
+  std::vector<T> values(num_values, 64.0);
+  // Fixed half spaced pattern
+  std::vector<uint8_t> valid_bits(arrow::BitUtil::BytesForBits(num_values), 0b10101010);
+  auto encoder = MakeTypedEncoder<Type>(Encoding::PLAIN);
+
+  for (auto _ : state) {
+    encoder->PutSpaced(values.data(), num_values, valid_bits.data(), 0);
+    encoder->FlushValues();
+  }
+  state.SetBytesProcessed(state.iterations() * num_values * sizeof(T));
+}
+
+static void BM_PlainEncodingSpacedFloat(benchmark::State& state) {
+  BM_PlainEncodingSpaced<FloatType>(state);
+}
+
+static void BM_PlainEncodingSpacedDouble(benchmark::State& state) {
+  BM_PlainEncodingSpaced<DoubleType>(state);
+}
+
+BENCHMARK(BM_PlainEncodingSpacedFloat)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_PlainEncodingSpacedDouble)->Range(MIN_RANGE, MAX_RANGE);
+
+template <typename Type>
+static void BM_PlainDecodingSpaced(benchmark::State& state) {
+  typedef typename Type::c_type T;
+
+  const int num_values = state.range(0);
+  const int num_values_half = num_values / 2;
+  std::vector<T> values(num_values, 64.0);
+  // Fixed half spaced pattern
+  std::vector<uint8_t> valid_bits(arrow::BitUtil::BytesForBits(num_values), 0b10101010);
+  auto encoder = MakeTypedEncoder<Type>(Encoding::PLAIN);
+
+  encoder->PutSpaced(values.data(), num_values, valid_bits.data(), 0);
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  for (auto _ : state) {
+    auto decoder = MakeTypedDecoder<Type>(Encoding::PLAIN);
+    decoder->SetData(num_values_half, buf->data(), buf->size());
+    decoder->DecodeSpaced(values.data(), num_values, num_values_half, valid_bits.data(),
+                          0);
+  }
+  state.SetBytesProcessed(state.iterations() * num_values * sizeof(T));
+}
+
+static void BM_PlainDecodingSpacedFloat(benchmark::State& state) {
+  BM_PlainDecodingSpaced<FloatType>(state);
+}
+
+static void BM_PlainDecodingSpacedDouble(benchmark::State& state) {
+  BM_PlainDecodingSpaced<DoubleType>(state);
+}
+
+BENCHMARK(BM_PlainDecodingSpacedFloat)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_PlainDecodingSpacedDouble)->Range(MIN_RANGE, MAX_RANGE);
+
 template <typename T, typename DecodeFunc>
 static void BM_ByteStreamSplitDecode(benchmark::State& state, DecodeFunc&& decode_func) {
   std::vector<T> values(state.range(0), 64.0);
