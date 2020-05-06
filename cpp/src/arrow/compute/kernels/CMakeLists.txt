@@ -15,37 +15,49 @@
 # specific language governing permissions and limitations
 # under the License.
 
-arrow_install_all_headers("arrow/compute/kernels")
+# ----------------------------------------------------------------------
+# Scalar kernels
 
-add_arrow_compute_test(boolean_test)
-add_arrow_compute_test(cast_test)
-add_arrow_compute_test(hash_test)
-add_arrow_compute_test(isin_test)
-add_arrow_compute_test(match_test)
-add_arrow_compute_test(sort_to_indices_test)
-add_arrow_compute_test(nth_to_indices_test)
-add_arrow_compute_test(util_internal_test)
-add_arrow_compute_test(add_test)
+add_arrow_compute_test(scalar_test
+                       SOURCES
+                       scalar_arithmetic_test.cc
+                       scalar_boolean_test.cc
+                       scalar_compare_test.cc
+                       scalar_set_lookup_test.cc)
+
+# add_arrow_compute_test(cast_test)
+
+add_arrow_benchmark(scalar_compare_benchmark PREFIX "arrow-compute")
+
+# ----------------------------------------------------------------------
+# Vector kernels
+
+add_arrow_compute_test(vector_test
+                       SOURCES
+                       vector_partition_test.cc)
+
+# add_arrow_compute_test(hash_test)
+
+# add_arrow_benchmark(hash_benchmark PREFIX "arrow-compute")
+
+# Single-array sorting
+
+# add_arrow_compute_test(sort_to_indices_test)
+# add_arrow_benchmark(sort_to_indices_benchmark PREFIX "arrow-compute")
+# add_arrow_benchmark(nth_to_indices_benchmark PREFIX "arrow-compute")
+
+# Array value selection
+
+# add_arrow_compute_test(filter_test)
+# add_arrow_compute_test(take_test)
+
+# add_arrow_benchmark(filter_benchmark PREFIX "arrow-compute")a
+# add_arrow_benchmark(take_benchmark PREFIX "arrow-compute")
+
+# ----------------------------------------------------------------------
+# Aggregate kernels
 
 # Aggregates
+
 add_arrow_compute_test(aggregate_test)
-
-# Comparison
-add_arrow_compute_test(compare_test)
-
-# Selection
-add_arrow_compute_test(take_test)
-add_arrow_compute_test(filter_test)
-
-add_arrow_benchmark(sort_to_indices_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(nth_to_indices_benchmark PREFIX "arrow-compute")
-
-# Aggregates
-add_arrow_benchmark(aggregate_benchmark PREFIX "arrow-compute")
-
-# Comparison
-add_arrow_benchmark(compare_benchmark PREFIX "arrow-compute")
-
-# Selection
-add_arrow_benchmark(filter_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(take_benchmark PREFIX "arrow-compute")
+# add_arrow_benchmark(aggregate_benchmark PREFIX "arrow-compute")

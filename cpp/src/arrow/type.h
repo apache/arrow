@@ -161,6 +161,13 @@ struct Type {
   };
 };
 
+namespace internal {
+
+ARROW_EXPORT
+std::string ToString(Type::type id);
+
+}  // namespace internal
+
 namespace detail {
 
 class ARROW_EXPORT Fingerprintable {
@@ -270,6 +277,9 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
 
   /// \brief A string representation of the type, including any children
   virtual std::string ToString() const = 0;
+
+  /// \brief Return hash value (excluding metadata in child fields)
+  size_t Hash() const;
 
   /// \brief A string name of the type, omitting any child fields
   ///

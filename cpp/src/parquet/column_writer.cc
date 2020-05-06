@@ -28,7 +28,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer_builder.h"
-#include "arrow/compute/api.h"
+#include "arrow/compute/api_eager.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -49,9 +49,9 @@
 #include "parquet/thrift_internal.h"
 #include "parquet/types.h"
 
+using arrow::Datum;
 using arrow::Status;
 using arrow::BitUtil::BitWriter;
-using arrow::compute::Datum;
 using arrow::internal::checked_cast;
 using arrow::util::RleEncoder;
 
@@ -923,10 +923,10 @@ Status ConvertDictionaryToDense(const ::arrow::Array& array, MemoryPool* pool,
     return Status::OK();
   }
 
-  ::arrow::compute::FunctionContext ctx(pool);
-  Datum cast_output;
-  RETURN_NOT_OK(::arrow::compute::Cast(&ctx, Datum(array.data()), dict_type.value_type(),
-                                       ::arrow::compute::CastOptions(), &cast_output));
+  ::arrow::compute::ExecContext ctx(pool);
+  ARROW_ASSIGN_OR_RAISE(Datum cast_output,
+                        ::arrow::compute::Cast(array.data(), dict_type.value_type(),
+                                               ::arrow::compute::CastOptions(), &ctx));
   *out = cast_output.make_array();
   return Status::OK();
 }

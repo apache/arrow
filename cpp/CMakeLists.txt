@@ -309,6 +309,10 @@ if(ARROW_DATASET)
   set(ARROW_FILESYSTEM ON)
 endif()
 
+if(ARROW_GANDIVA)
+  set(ARROW_COMPUTE ON)
+endif()
+
 if(ARROW_PARQUET)
   set(ARROW_COMPUTE ON)
 endif()

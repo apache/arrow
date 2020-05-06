@@ -33,8 +33,7 @@
 #include "arrow/array/diff.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
-#include "arrow/compute/context.h"
-#include "arrow/compute/kernels/filter.h"
+#include "arrow/compute/api.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/random.h"
@@ -119,20 +118,19 @@ class DiffTest : public ::testing::Test {
 
   void BaseAndTargetFromRandomFilter(std::shared_ptr<Array> values,
                                      double filter_probability) {
-    compute::Datum out_datum, base_filter, target_filter;
+    std::shared_ptr<Array> base_filter, target_filter;
     do {
       base_filter = this->rng_.Boolean(values->length(), filter_probability, 0.0);
       target_filter = this->rng_.Boolean(values->length(), filter_probability, 0.0);
-    } while (base_filter.Equals(target_filter));
+    } while (base_filter->Equals(target_filter));
 
-    ASSERT_OK(compute::Filter(&ctx_, values, base_filter, {}, &out_datum));
+    ASSERT_OK_AND_ASSIGN(Datum out_datum, compute::Filter(values, base_filter));
     base_ = out_datum.make_array();
 
-    ASSERT_OK(compute::Filter(&ctx_, values, target_filter, {}, &out_datum));
+    ASSERT_OK_AND_ASSIGN(out_datum, compute::Filter(values, target_filter));
     target_ = out_datum.make_array();
   }
 
-  compute::FunctionContext ctx_;
   random::RandomArrayGenerator rng_;
   std::shared_ptr<StructArray> edits_;
   std::shared_ptr<Array> base_, target_;
@@ -616,7 +614,6 @@ void MakeSameLength(std::shared_ptr<Array>* a, std::shared_ptr<Array>* b) {
 }
 
 TEST_F(DiffTest, CompareRandomStruct) {
-  compute::FunctionContext ctx;
   for (auto null_probability : {0.0, 0.25}) {
     constexpr auto length = 1 << 10;
     auto int32_values = this->rng_.Int32(length, 0, 127, null_probability);

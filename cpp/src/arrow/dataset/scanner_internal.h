@@ -33,7 +33,7 @@ inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it,
                                              const Expression& filter, MemoryPool* pool) {
   return MakeMaybeMapIterator(
       [&filter, &evaluator, pool](std::shared_ptr<RecordBatch> in) {
-        return evaluator.Evaluate(filter, *in, pool).Map([&](compute::Datum selection) {
+        return evaluator.Evaluate(filter, *in, pool).Map([&](Datum selection) {
           return evaluator.Filter(selection, in);
         });
       },

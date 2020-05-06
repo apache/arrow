@@ -408,7 +408,7 @@ TEST(TestTableFromTupleVector, AppendingMultipleRows) {
 }
 
 TEST(TestTupleVectorFromTable, PrimitiveTypes) {
-  compute::FunctionContext ctx;
+  compute::ExecContext ctx;
   compute::CastOptions cast_options;
 
   std::vector<primitive_types_tuple> expected_rows{
@@ -463,7 +463,7 @@ TEST(TestTupleVectorFromTable, PrimitiveTypes) {
 TEST(TestTupleVectorFromTable, ListType) {
   using tuple_type = std::tuple<std::vector<int64_t>>;
 
-  compute::FunctionContext ctx;
+  compute::ExecContext ctx;
   compute::CastOptions cast_options;
   auto expected_schema =
       std::shared_ptr<Schema>(new Schema({field("column1", list(int64()), false)}));
@@ -482,7 +482,7 @@ TEST(TestTupleVectorFromTable, ListType) {
 TEST(TestTupleVectorFromTable, CastingNeeded) {
   using tuple_type = std::tuple<std::vector<int64_t>>;
 
-  compute::FunctionContext ctx;
+  compute::ExecContext ctx;
   compute::CastOptions cast_options;
   auto expected_schema =
       std::shared_ptr<Schema>(new Schema({field("column1", list(int16()), false)}));

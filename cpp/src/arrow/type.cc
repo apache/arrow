@@ -86,7 +86,86 @@ constexpr Type::type DurationType::type_id;
 
 constexpr Type::type DictionaryType::type_id;
 
+namespace internal {
+
+std::string ToString(Type::type id) {
+  switch (id) {
+    case Type::NA:
+      return "null";
+    case Type::BOOL:
+      return "bool";
+    case Type::UINT8:
+      return "uint8";
+    case Type::INT8:
+      return "int8";
+    case Type::UINT16:
+      return "uint16";
+    case Type::INT16:
+      return "int16";
+    case Type::UINT32:
+      return "uint32";
+    case Type::INT32:
+      return "int32";
+    case Type::UINT64:
+      return "uint64";
+    case Type::INT64:
+      return "int64";
+    case Type::HALF_FLOAT:
+      return "half_float";
+    case Type::FLOAT:
+      return "float";
+    case Type::DOUBLE:
+      return "double";
+    case Type::STRING:
+      return "utf8";
+    case Type::BINARY:
+      return "binary";
+    case Type::FIXED_SIZE_BINARY:
+      return "fixed_size_binary";
+    case Type::DATE64:
+      return "date64";
+    case Type::TIMESTAMP:
+      return "timestamp";
+    case Type::TIME32:
+      return "time32";
+    case Type::TIME64:
+      return "time64";
+    case Type::INTERVAL_MONTHS:
+      return "interval_months";
+    case Type::INTERVAL_DAY_TIME:
+      return "interval_day_time";
+    case Type::DECIMAL:
+      return "decimal";
+    case Type::LIST:
+      return "list";
+    case Type::STRUCT:
+      return "struct";
+    case Type::UNION:
+      return "union";
+    case Type::DICTIONARY:
+      return "dictionary";
+    case Type::MAP:
+      return "map";
+    case Type::EXTENSION:
+      return "extension";
+    case Type::FIXED_SIZE_LIST:
+      return "fixed_size_list";
+    case Type::DURATION:
+      return "duration";
+    case Type::LARGE_BINARY:
+      return "large_binary";
+    case Type::LARGE_LIST:
+      return "large_list";
+    default:
+      DCHECK(false) << "Should not be able to reach here";
+      return "unknown";
+  }
+}
+
+}  // namespace internal
+
 namespace {
+
 using internal::checked_cast;
 
 // Merges `existing` and `other` if one of them is of NullType, otherwise
@@ -246,6 +325,13 @@ bool DataType::Equals(const std::shared_ptr<DataType>& other) const {
     return false;
   }
   return Equals(*other.get());
+}
+
+size_t DataType::Hash() const {
+  static constexpr size_t kHashSeed = 0;
+  size_t result = kHashSeed;
+  internal::hash_combine(result, this->ComputeFingerprint());
+  return result;
 }
 
 std::ostream& operator<<(std::ostream& os, const DataType& type) {
