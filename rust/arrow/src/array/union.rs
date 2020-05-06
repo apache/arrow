@@ -581,7 +581,9 @@ impl UnionBuilder {
             },
         ) in self.fields.into_iter()
         {
-            let buffer = values_buffer.expect("UPDATE LATER").freeze();
+            let buffer = values_buffer
+                .expect("The `values_buffer` should only ever be None inside the `append` method.")
+                .freeze();
             let arr_data_builder = ArrayDataBuilder::new(data_type.clone())
                 .add_buffer(buffer)
                 .null_count(null_count)
@@ -589,7 +591,6 @@ impl UnionBuilder {
             //                .build();
             let arr_data_ref = match bitmap_builder {
                 Some(mut bb) => {
-                    // TODO: YOU'RE HERE
                     arr_data_builder.null_bit_buffer(bb.finish()).build()
                 }
                 None => arr_data_builder.build(),
@@ -600,7 +601,7 @@ impl UnionBuilder {
 
         children.sort_by(|a, b| {
             a.0.partial_cmp(&b.0)
-                .expect("This will never be Nono as type ids are always i8 values.")
+                .expect("This will never be None as type ids are always i8 values.")
         });
         let children: Vec<_> = children.into_iter().map(|(_, b)| b).collect();
         let bitmap = self.bitmap_builder.map(|mut b| b.finish());
