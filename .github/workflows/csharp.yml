@@ -53,7 +53,7 @@ jobs:
         run: ci/scripts/util_checkout.sh
       - name: Install Source Link
         shell: bash
-        run: sudo dotnet tool install --tool-path /usr/local/bin sourcelink
+        run: dotnet tool install --global sourcelink
       - name: Build
         shell: bash
         run: ci/scripts/csharp_build.sh $(pwd)
@@ -82,8 +82,7 @@ jobs:
         shell: bash
         run: ci/scripts/util_checkout.sh
       - name: Install Source Link
-        shell: bash
-        run: sudo dotnet tool install --tool-path /usr/local/bin sourcelink
+        run: dotnet tool install --global sourcelink
       - name: Build
         shell: bash
         run: ci/scripts/csharp_build.sh $(pwd)
@@ -109,7 +108,8 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install Source Link
-        run: dotnet tool install sourcelink
+        shell: bash
+        run: dotnet tool install --global sourcelink
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
