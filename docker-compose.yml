@@ -759,12 +759,14 @@ services:
         llvm: ${LLVM}
     shm_size: *shm-size
     environment:
+      <<: *ccache
       PYARROW_PARALLEL: 3
       PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
       UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux1:/io:delegated
+      - .docker/centos-python-manylinux1-ccache:/ccache:delegated
     command: &manylinux-command /io/build_arrow.sh
 
   centos-python-manylinux2010:
@@ -778,12 +780,14 @@ services:
         llvm: ${LLVM}
     shm_size: *shm-size
     environment:
+      <<: *ccache
       PYARROW_PARALLEL: 3
       PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
       UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux201x:/io:delegated
+      - .docker/centos-python-manylinux2010-ccache:/ccache:delegated
     command: *manylinux-command
 
   centos-python-manylinux2014:
@@ -797,12 +801,14 @@ services:
         llvm: ${LLVM}
     shm_size: *shm-size
     environment:
+      <<: *ccache
       PYARROW_PARALLEL: 3
       PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
       UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux201x:/io:delegated
+      - .docker/centos-python-manylinux2014-ccache:/ccache:delegated
     command: *manylinux-command
 
   ################################## R ########################################
