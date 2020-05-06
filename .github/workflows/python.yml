@@ -97,8 +97,8 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: PREF-${{ matrix.cache }}-${{ hashFiles('cpp/**') }}
-          restore-keys: PREF-${{ matrix.cache }}-
+          key: ${{ matrix.cache }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ${{ matrix.cache }}-
       - name: Debug
         run: mkdir -p .docker && du -d1 -h .docker
       - name: Setup Python

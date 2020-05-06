@@ -70,8 +70,8 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: PREF-maven-${{ hashFiles('java/**') }}
-          restore-keys: PREF-maven-
+          key: maven-${{ hashFiles('java/**') }}
+          restore-keys: maven-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
