@@ -757,14 +757,14 @@ class LargeListColumn(_BaseListColumn, _LargeOffsetsMixin):
 class MapField(Field):
 
     def __init__(self, name, key_field, item_field, *, nullable=True,
-                 metadata=None, keys_sorted=False):
+                 metadata=None, keys_sorted=False, entries_name='entries'):
         super().__init__(name, nullable=nullable,
                          metadata=metadata)
 
         assert not key_field.nullable
         self.key_field = key_field
         self.item_field = item_field
-        self.pair_field = StructField('entries', [key_field, item_field],
+        self.pair_field = StructField(entries_name, [key_field, item_field],
                                       nullable=False)
         self.keys_sorted = keys_sorted
 
@@ -1340,6 +1340,18 @@ def generate_map_case():
     return _generate_file("map", fields, batch_sizes)
 
 
+def generate_non_canonical_map_case():
+    fields = [
+        MapField('map_other_names',
+                 get_field('some_key', 'utf8', nullable=False),
+                 get_field('some_value', 'int32'),
+                 entries_name='some_entries'),
+    ]
+
+    batch_sizes = [7]
+    return _generate_file("map_non_canonical", fields, batch_sizes)
+
+
 def generate_nested_case():
     fields = [
         ListField('list_nullable', get_field('item', 'int32')),
@@ -1498,6 +1510,12 @@ def get_generated_json_files(tempdir=None, flight=False):
 
         generate_map_case()
         .skip_category('Go')  # TODO(ARROW-5620): Map + Go
+        .skip_category('Rust'),
+
+        generate_non_canonical_map_case()
+        .skip_category('Go')     # TODO(ARROW-5620)
+        .skip_category('Java')   # TODO(ARROW-8715)
+        .skip_category('JS')     # TODO(ARROW-8716)
         .skip_category('Rust'),
 
         generate_nested_case()

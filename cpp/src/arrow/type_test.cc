@@ -1130,8 +1130,22 @@ TEST(TestMapType, Basics) {
   std::shared_ptr<DataType> mt = std::make_shared<MapType>(it, kt);
   ASSERT_EQ("map<uint8, string>", mt->ToString());
 
-  MapType mt2(kt, mt, true);
+  MapType mt2(kt, mt, /*keys_sorted=*/true);
   ASSERT_EQ("map<string, map<uint8, string>, keys_sorted>", mt2.ToString());
+  AssertTypeNotEqual(map_type, mt2);
+  MapType mt3(kt, mt);
+  ASSERT_EQ("map<string, map<uint8, string>>", mt3.ToString());
+  AssertTypeNotEqual(mt2, mt3);
+  MapType mt4(kt, mt);
+  AssertTypeEqual(mt3, mt4);
+
+  // Field names are indifferent when comparing map types
+  ASSERT_OK_AND_ASSIGN(
+      auto mt5,
+      MapType::Make(field(
+          "some_entries",
+          struct_({field("some_key", kt, false), field("some_value", mt)}), false)));
+  AssertTypeEqual(mt3, *mt5);
 }
 
 TEST(TestFixedSizeListType, Basics) {

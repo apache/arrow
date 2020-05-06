@@ -744,11 +744,20 @@ class ARROW_EXPORT MapType : public ListType {
 
   static constexpr const char* type_name() { return "map"; }
 
-  MapType(const std::shared_ptr<DataType>& key_type,
-          const std::shared_ptr<DataType>& item_type, bool keys_sorted = false);
+  MapType(std::shared_ptr<DataType> key_type, std::shared_ptr<DataType> item_type,
+          bool keys_sorted = false);
 
-  MapType(const std::shared_ptr<DataType>& key_type,
-          const std::shared_ptr<Field>& item_field, bool keys_sorted = false);
+  MapType(std::shared_ptr<DataType> key_type, std::shared_ptr<Field> item_field,
+          bool keys_sorted = false);
+
+  MapType(std::shared_ptr<Field> key_field, std::shared_ptr<Field> item_field,
+          bool keys_sorted = false);
+
+  explicit MapType(std::shared_ptr<Field> value_field, bool keys_sorted = false);
+
+  // Validating constructor
+  static Result<std::shared_ptr<DataType>> Make(std::shared_ptr<Field> value_field,
+                                                bool keys_sorted = false);
 
   std::shared_ptr<Field> key_field() const { return value_type()->field(0); }
   std::shared_ptr<DataType> key_type() const { return key_field()->type(); }
