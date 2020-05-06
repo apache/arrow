@@ -817,7 +817,9 @@ def register_extension_type(ext_type):
     _python_extension_types_registry.append(_type)
 
 
-def _unregister_extension_type(bytes type_name):
+cdef _unregister_extension_type(bytes type_name):
+    # ARROW-8684: Due to a Cython (?) bug we cannot call "compat.tobytes"
+    # inside the atexit handler
     check_status(UnregisterPyExtensionType(type_name))
 
 
