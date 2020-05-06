@@ -49,7 +49,7 @@ uint64_t LevelsToBitmap(const int16_t* levels, int64_t num_levels, Predicate pre
   // Both clang and GCC can vectorize this automatically with SSE4/AVX2.
   uint64_t mask = 0;
   for (int x = 0; x < num_levels; x++) {
-    mask |= static_cast<int64_t>(predicate(levels[x]) ? 1 : 0) << x;
+    mask |= static_cast<uint64_t>(predicate(levels[x]) ? 1 : 0) << x;
   }
   return mask;
 }
@@ -58,7 +58,7 @@ uint64_t LevelsToBitmap(const int16_t* levels, int64_t num_levels, Predicate pre
 /// than rhs.
 static inline uint64_t GreaterThanBitmap(const int16_t* levels, int64_t num_levels,
                                          int16_t rhs) {
-  return LevelsToBitmap(levels, num_levels, [&](int16_t value) { return value > rhs; });
+  return LevelsToBitmap(levels, num_levels, [rhs](int16_t value) { return value > rhs; });
 }
 
 #endif

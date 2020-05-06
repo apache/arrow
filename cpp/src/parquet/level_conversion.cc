@@ -23,6 +23,7 @@
 #endif
 
 #include "arrow/util/bit_util.h"
+#include "arrow/util/logging.h"
 
 #include "parquet/exception.h"
 
@@ -85,6 +86,40 @@ inline void DefinitionLevelsToBitmapScalar(
 #endif
 
 template <bool has_repeated_parent>
+void DefinitionLevelsBatchToBitmap(const int16_t* def_levels, int64_t num_def_levels,
+                                   const int16_t required_definition_level,
+                                   const int batch_size, int64_t* set_count,
+                                   ::arrow::internal::FirstTimeBitmapWriter* writer) {
+  CheckLevelRange(def_levels, batch_size, required_definition_level);
+  uint64_t defined_bitmap =
+      internal::GreaterThanBitmap(def_levels, batch_size, required_definition_level - 1);
+
+  DCHECK_LE(batch_size, 64);
+  if (has_repeated_parent) {
+#if defined(ARROW_HAVE_BMI2)
+    // This is currently a specialized code path assuming only (nested) lists
+    // present through the leaf (i.e. no structs).
+    // Upper level code only calls this method
+    // when the leaf-values are nullable (otherwise no spacing is needed),
+    // Because only nested lists exists it is sufficient to know that the field
+    // was either null or included it (i.e. definition level > max_definitation_level
+    // -2) If there where structs mixed in, we need to know the def_level of the
+    // repeated parent so we can check for def_level > "def level of repeated parent".
+    uint64_t present_bitmap = internal::GreaterThanBitmap(def_levels, batch_size,
+                                                          required_definition_level - 2);
+    uint64_t selected_bits = _pext_u64(defined_bitmap, present_bitmap);
+    writer->AppendWord(selected_bits, ::arrow::BitUtil::PopCount(present_bitmap));
+    *set_count += ::arrow::BitUtil::PopCount(selected_bits);
+#else
+    assert(false && "must not execute this without BMI2");
+#endif
+  } else {
+    writer->AppendWord(defined_bitmap, batch_size);
+    *set_count += ::arrow::BitUtil::PopCount(defined_bitmap);
+  }
+}
+
+template <bool has_repeated_parent>
 void DefinitionLevelsToBitmapSimd(const int16_t* def_levels, int64_t num_def_levels,
                                   const int16_t required_definition_level,
                                   int64_t* values_read, int64_t* null_count,
@@ -95,52 +130,27 @@ void DefinitionLevelsToBitmapSimd(const int16_t* def_levels, int64_t num_def_lev
                                                   /*length=*/num_def_levels);
   int64_t set_count = 0;
   *values_read = 0;
-  while (num_def_levels > 0) {
-    int64_t batch_size = std::min(num_def_levels, kBitMaskSize);
-    CheckLevelRange(def_levels, batch_size, required_definition_level);
-    uint64_t defined_bitmap = internal::GreaterThanBitmap(def_levels, batch_size,
-                                                          required_definition_level - 1);
-    if (has_repeated_parent) {
-#if defined(ARROW_HAVE_BMI2)
-      // This is currently a specialized code path assuming only (nested) lists
-      // present through the leaf (i.e. no structs).
-      // Upper level code only calls this method
-      // when the leaf-values are nullable (otherwise no spacing is needed),
-      // Because only nested lists exists it is sufficient to know that the field
-      // was either null or included it (i.e. definition level > max_definitation_level
-      // -2) If there where structs mixed in, we need to know the def_level of the
-      // repeated parent so we can check for def_level > "def level of repeated parent".
-      uint64_t present_bitmap = internal::GreaterThanBitmap(
-          def_levels, batch_size, required_definition_level - 2);
-      uint64_t selected_bits = _pext_u64(defined_bitmap, present_bitmap);
-      writer.AppendWord(selected_bits, ::arrow::BitUtil::PopCount(present_bitmap));
-      set_count += ::arrow::BitUtil::PopCount(selected_bits);
-#else
-      assert(false && "must not execute this without BMI2");
-#endif
-    } else {
-      writer.AppendWord(defined_bitmap, batch_size);
-      set_count += ::arrow::BitUtil::PopCount(defined_bitmap);
-    }
-    def_levels += batch_size;
-    num_def_levels -= batch_size;
+  while (num_def_levels > kBitMaskSize) {
+    DefinitionLevelsBatchToBitmap<has_repeated_parent>(
+        def_levels, num_def_levels, required_definition_level,
+        /*batch_size=*/kBitMaskSize, &set_count, &writer);
+    def_levels += kBitMaskSize;
+    num_def_levels -= kBitMaskSize;
   }
+  DefinitionLevelsBatchToBitmap<has_repeated_parent>(
+      def_levels, num_def_levels, required_definition_level,
+      /*batch_size=*/num_def_levels, &set_count, &writer);
 
   *values_read = writer.position();
   *null_count += *values_read - set_count;
   writer.Finish();
 }
 
-}  // namespace
-
-void DefinitionLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
-                              const int16_t max_definition_level,
-                              const int16_t max_repetition_level, int64_t* values_read,
-                              int64_t* null_count, uint8_t* valid_bits,
-                              int64_t valid_bits_offset) {
+void DefinitionLevelsToBitmapLittleEndian(
+    const int16_t* def_levels, int64_t num_def_levels, const int16_t max_definition_level,
+    const int16_t max_repetition_level, int64_t* values_read, int64_t* null_count,
+    uint8_t* valid_bits, int64_t valid_bits_offset) {
   if (max_repetition_level > 0) {
-#if ARROW_LITTLE_ENDIAN
-
 #if defined(ARROW_HAVE_BMI2)
     // BMI2 is required for efficient bit extraction.
     DefinitionLevelsToBitmapSimd</*has_repeated_parent=*/true>(
@@ -158,11 +168,25 @@ void DefinitionLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
         def_levels, num_def_levels, max_definition_level, values_read, null_count,
         valid_bits, valid_bits_offset);
   }
+}
 
-#else  // big-endian
-    DefinitionLevelsToBitmapScalar(def_levels, num_def_levels, max_definition_level,
-                                   max_repetition_level, values_read, null_count,
-                                   valid_bits, valid_bits_offset);
+}  // namespace
+
+void DefinitionLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
+                              const int16_t max_definition_level,
+                              const int16_t max_repetition_level, int64_t* values_read,
+                              int64_t* null_count, uint8_t* valid_bits,
+                              int64_t valid_bits_offset) {
+#if ARROW_LITTLE_ENDIAN
+  DefinitionLevelsToBitmapLittleEndian(def_levels, num_def_levels, max_definition_level,
+                                       max_repetition_level, values_read, null_count,
+                                       valid_bits, valid_bits_offset);
+
+#else
+  DefinitionLevelsToBitmapScalar(def_levels, num_def_levels, max_definition_level,
+                                 max_repetition_level, values_read, null_count,
+                                 valid_bits, valid_bits_offset);
+
 #endif
 }
 
