@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,8 +17,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG platform=bionic
-ARG dotnet=2.1
-FROM mcr.microsoft.com/dotnet/core/sdk:${dotnet}-${platform}
+set -eux
 
-RUN dotnet tool install --tool-path /usr/local/bin sourcelink
+source_dir=${1}/csharp
+
+pushd ${source_dir}
+dotnet pack -c Release
+popd

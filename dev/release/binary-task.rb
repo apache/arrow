@@ -28,8 +28,8 @@ class BinaryTask
   include Rake::DSL
 
   class ThreadPool
-    def initialize(n_workers=nil, &worker)
-      @n_workers = n_workers || detect_n_processors
+    def initialize(use_case, &worker)
+      @n_workers = choose_n_workers(use_case)
       @worker = worker
       @jobs = Thread::Queue.new
       @workers = @n_workers.times.collect do
@@ -55,11 +55,16 @@ class BinaryTask
     end
 
     private
-    def detect_n_processors
-      if File.exist?("/proc/cpuinfo")
-        File.readlines("/proc/cpuinfo").grep(/^processor/).size
+    def choose_n_workers(use_case)
+      case use_case
+      when :bintray
+        # Too many workers cause Bintray error.
+        6
+      when :gpg
+        # Too many workers cause gpg-agent error.
+        2
       else
-        8
+        raise "Unknown use case: #{use_case}"
       end
     end
   end
@@ -512,7 +517,7 @@ class BinaryTask
 
       progress_label = "Downloading: #{package} #{full_version}"
       progress_reporter = ProgressReporter.new(progress_label)
-      pool = ThreadPool.new do |path, output_path|
+      pool = ThreadPool.new(:bintray) do |path, output_path|
         download_file(path, output_path)
         progress_reporter.advance
       end
@@ -637,6 +642,7 @@ class BinaryTask
 
     def initialize(repository:,
                    distribution:,
+                   distribution_label:,
                    version:,
                    rc: nil,
                    source:,
@@ -645,6 +651,7 @@ class BinaryTask
                    api_key:)
       @repository = repository
       @distribution = distribution
+      @distribution_label = distribution_label
       @version = version
       @rc = rc
       @source = source
@@ -660,7 +667,7 @@ class BinaryTask
 
       progress_label = "Uploading: #{package} #{full_version}"
       progress_reporter = ProgressReporter.new(progress_label)
-      pool = ThreadPool.new do |path, relative_path|
+      pool = ThreadPool.new(:bintray) do |path, relative_path|
         upload_file(path, relative_path)
         progress_reporter.advance
       end
@@ -704,24 +711,20 @@ class BinaryTask
         release_type = "Release"
       end
       case @distribution
-      when "debian"
-        "#{release_type} deb packages for Debian"
-      when "ubuntu"
-        "#{release_type} deb packages for Ubuntu"
+      when "debian", "ubuntu"
+        "#{release_type} deb packages for #{@distribution_label}"
       when "centos"
-        "#{release_type} RPM packages for CentOS"
-      when "Python"
-        "#{release_type} binaries for Python"
+        "#{release_type} RPM packages for #{@distribution_label}"
       else
-        "#{release_type} binaries for #{@distribution}"
+        "#{release_type} binaries for #{@distribution_label}"
       end
     end
 
     def version_description
       if @rc
-        "Apache Arrow #{@version} RC#{@rc} for #{@distribution}"
+        "Apache Arrow #{@version} RC#{@rc} for #{@distribution_label}"
       else
-        "Apache Arrow #{@version} for #{@distribution}"
+        "Apache Arrow #{@version} for #{@distribution_label}"
       end
     end
 
@@ -779,6 +782,7 @@ class BinaryTask
     define_apt_tasks
     define_yum_tasks
     define_python_tasks
+    define_nuget_tasks
     define_summary_tasks
   end
 
@@ -1020,6 +1024,17 @@ class BinaryTask
     ]
   end
 
+  def apt_distribution_label(distribution)
+    case distribution
+    when "debian"
+      "Debian"
+    when "ubuntu"
+      "Ubuntu"
+    else
+      distribution
+    end
+  end
+
   def apt_targets
     env_apt_targets = (ENV["APT_TARGETS"] || "").split(",")
     if env_apt_targets.empty?
@@ -1124,8 +1139,10 @@ class BinaryTask
       task :upload do
         apt_distributions.each do |distribution|
           distribution_dir = "#{deb_dir}/#{distribution}"
+          distribution_label = apt_distribution_label(distribution)
           uploader = BintrayUploader.new(repository: bintray_repository,
                                          distribution: distribution,
+                                         distribution_label: distribution_label,
                                          version: version,
                                          rc: rc,
                                          source: distribution_dir,
@@ -1300,8 +1317,10 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         task :upload => apt_rc_repositories_dir do
           apt_distributions.each do |distribution|
             dists_dir = "#{apt_rc_repositories_dir}/#{distribution}/dists"
+            distribution_label = apt_distribution_label(distribution)
             uploader = BintrayUploader.new(repository: bintray_repository,
                                            distribution: distribution,
+                                           distribution_label: distribution_label,
                                            version: version,
                                            rc: rc,
                                            source: dists_dir,
@@ -1340,8 +1359,10 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         task :upload => apt_release_repositories_dir do
           apt_distributions.each do |distribution|
             distribution_dir = "#{apt_release_repositories_dir}/#{distribution}"
+            distribution_label = apt_distribution_label(distribution)
             uploader = BintrayUploader.new(repository: bintray_repository,
                                            distribution: distribution,
+                                           distribution_label: distribution_label,
                                            version: version,
                                            source: distribution_dir,
                                            user: bintray_user,
@@ -1386,6 +1407,15 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     ]
   end
 
+  def yum_distribution_label(distribution)
+    case distribution
+    when "centos"
+      "CentOS"
+    else
+      distribution
+    end
+  end
+
   def yum_targets
     env_yum_targets = (ENV["YUM_TARGETS"] || "").split(",")
     if env_yum_targets.empty?
@@ -1420,7 +1450,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
   end
 
   def sign_rpms(directory)
-    thread_pool = ThreadPool.new(2) do |rpm|
+    thread_pool = ThreadPool.new(:gpg) do |rpm|
       unless signed_rpm?(rpm)
         sh("rpm",
            "-D", "_gpg_name #{gpg_key_id}",
@@ -1540,8 +1570,10 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
       task :upload do
         yum_distributions.each do |distribution|
           distribution_dir = "#{rpm_dir}/#{distribution}"
+          distribution_label = yum_distribution_label(distribution)
           uploader = BintrayUploader.new(repository: bintray_repository,
                                          distribution: distribution,
+                                         distribution_label: distribution_label,
                                          version: version,
                                          rc: rc,
                                          source: distribution_dir,
@@ -1611,6 +1643,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         desc "Upload RC Yum repositories"
         task :upload => yum_rc_repositories_dir do
           yum_targets.each do |distribution, distribution_version|
+            distribution_label = yum_distribution_label(distribution)
             base_dir = [
               yum_rc_repositories_dir,
               distribution,
@@ -1625,6 +1658,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
               uploader =
                 BintrayUploader.new(repository: bintray_repository,
                                     distribution: distribution,
+                                    distribution_label: distribution_label,
                                     version: version,
                                     rc: rc,
                                     source: repodata_dir.to_s,
@@ -1664,8 +1698,10 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         task :upload => yum_release_repositories_dir do
           yum_distributions.each do |distribution|
             distribution_dir = "#{yum_release_repositories_dir}/#{distribution}"
+            distribution_label = yum_distribution_label(distribution)
             uploader = BintrayUploader.new(repository: bintray_repository,
                                            distribution: distribution,
+                                           distribution_label: distribution_label,
                                            version: version,
                                            source: distribution_dir,
                                            user: bintray_user,
@@ -1690,28 +1726,23 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     define_yum_release_tasks
   end
 
-  def python_rc_dir
-    "#{rc_dir}/python/#{full_version}"
-  end
+  def define_generic_data_rc_tasks(label,
+                                   id,
+                                   rc_dir,
+                                   target_files_glob)
+    directory rc_dir
 
-  def python_release_dir
-    "#{release_dir}/python/#{full_version}"
-  end
-
-  def define_python_rc_tasks
-    directory python_rc_dir
-
-    namespace :python do
+    namespace id do
       namespace :rc do
-        desc "Copy Python packages"
-        task :copy => python_rc_dir do
-          progress_label = "Copying: Python"
+        desc "Copy #{label} packages"
+        task :copy => rc_dir do
+          progress_label = "Copying: #{label}"
           progress_reporter = ProgressReporter.new(progress_label)
 
-          Pathname(artifacts_dir).glob("{conda,wheel}-*/**/*") do |path|
+          Pathname(artifacts_dir).glob(target_files_glob) do |path|
             next if path.directory?
             destination_path = [
-              python_rc_dir,
+              rc_dir,
               path.basename.to_s,
             ].join("/")
             copy_artifact(path, destination_path, progress_reporter)
@@ -1720,18 +1751,19 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
           progress_reporter.finish
         end
 
-        desc "Sign Python packages"
-        task :sign => python_rc_dir do
-          sign_dir("Python", python_rc_dir)
+        desc "Sign #{label} packages"
+        task :sign => rc_dir do
+          sign_dir(label, rc_dir)
         end
 
-        desc "Upload Python packages"
+        desc "Upload #{label} packages"
         task :upload do
           uploader = BintrayUploader.new(repository: bintray_repository,
-                                         distribution: "python",
+                                         distribution: id.to_s,
+                                         distribution_label: label,
                                          version: version,
                                          rc: rc,
-                                         source: python_rc_dir,
+                                         source: rc_dir,
                                          destination_prefix: "#{full_version}/",
                                          user: bintray_user,
                                          api_key: bintray_api_key)
@@ -1739,31 +1771,32 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         end
       end
 
-      desc "Release RC Python packages"
-      python_rc_tasks = [
-        "python:rc:copy",
-        "python:rc:sign",
-        "python:rc:upload",
+      desc "Release RC #{label} packages"
+      rc_tasks = [
+        "#{id}:rc:copy",
+        "#{id}:rc:sign",
+        "#{id}:rc:upload",
       ]
-      task :rc => python_rc_tasks
+      task :rc => rc_tasks
     end
   end
 
-  def define_python_release_tasks
-    directory python_release_dir
+  def define_generic_data_release_tasks(label, id, release_dir)
+    directory release_dir
 
-    namespace :python do
+    namespace id do
       namespace :release do
-        desc "Download RC Python packages"
-        task :download => python_release_dir do
-          download_distribution("python", python_release_dir)
+        desc "Download RC #{label} packages"
+        task :download => release_dir do
+          download_distribution(id.to_s, release_dir)
         end
 
-        desc "Upload release Python packages"
-        task :upload => python_release_dir do
-          packages_dir = "#{python_release_dir}/#{full_version}"
+        desc "Upload release #{label} packages"
+        task :upload => release_dir do
+          packages_dir = "#{release_dir}/#{full_version}"
           uploader = BintrayUploader.new(repository: bintray_repository,
-                                         distribution: "python",
+                                         distribution: id.to_s,
+                                         distribution_label: label,
                                          version: version,
                                          source: packages_dir,
                                          destination_prefix: "#{version}/",
@@ -1773,18 +1806,38 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         end
       end
 
-      desc "Release Python packages"
-      python_release_tasks = [
-        "python:release:download",
-        "python:release:upload",
+      desc "Release #{label} packages"
+      release_tasks = [
+        "#{id}:release:download",
+        "#{id}:release:upload",
       ]
-      task :release => python_release_tasks
+      task :release => release_tasks
     end
   end
 
+  def define_generic_data_tasks(label,
+                                id,
+                                rc_dir,
+                                release_dir,
+                                target_files_glob)
+    define_generic_data_rc_tasks(label, id, rc_dir, target_files_glob)
+    define_generic_data_release_tasks(label, id, release_dir)
+  end
+
   def define_python_tasks
-    define_python_rc_tasks
-    define_python_release_tasks
+    define_generic_data_tasks("Python",
+                              :python,
+                              "#{rc_dir}/python/#{full_version}",
+                              "#{release_dir}/python/#{full_version}",
+                              "{conda,wheel}-*/**/*")
+  end
+
+  def define_nuget_tasks
+    define_generic_data_tasks("NuGet",
+                              :nuget,
+                              "#{rc_dir}/nuget/#{full_version}",
+                              "#{release_dir}/nuget/#{full_version}",
+                              "nuget/**/*")
   end
 
   def define_summary_tasks
@@ -1797,6 +1850,7 @@ Success! The release candidate binaries are available here:
   https://bintray.com/#{bintray_repository}/ubuntu-rc/#{full_version}
   https://bintray.com/#{bintray_repository}/centos-rc/#{full_version}
   https://bintray.com/#{bintray_repository}/python-rc/#{full_version}
+  https://bintray.com/#{bintray_repository}/nuget-rc/#{full_version}
         SUMMARY
       end
 
@@ -1808,6 +1862,7 @@ Success! The release binaries are available here:
   https://bintray.com/#{bintray_repository}/ubuntu/#{version}
   https://bintray.com/#{bintray_repository}/centos/#{version}
   https://bintray.com/#{bintray_repository}/python/#{version}
+  https://bintray.com/#{bintray_repository}/nuget/#{version}
         SUMMARY
       end
     end
