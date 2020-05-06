@@ -38,7 +38,7 @@ inline void CheckLevelRange(const int16_t* levels, int64_t num_levels,
     min_level = std::min(levels[x], min_level);
     max_level = std::max(levels[x], max_level);
   }
-  if (ARROW_PREDICT_FALSE(num_levels > 0 && (min_level < 0 || max_level > max_level))) {
+  if (ARROW_PREDICT_FALSE(num_levels > 0 && (min_level < 0 || max_level > max_expected_level))) {
     throw ParquetException("definition level exceeds maximum");
   }
 }
