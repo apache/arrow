@@ -39,38 +39,47 @@ env:
 
 jobs:
 
- docker:
-  name: ${{ matrix.title }}
-  runs-on: ubuntu-latest
-  if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-  strategy:
-    fail-fast: false
-    matrix:
-      name:
-        - ubuntu-16.04-python-3
-        - conda-python-3.8-nopandas
-        - conda-python-3.6-pandas-0.23
-        - conda-python-3.6-pandas-latest
-      include:
-        - name: ubuntu-16.04-python-3
-          image: ubuntu-python
-          # this image always builds with python 3.5
-          title: AMD64 Ubuntu 16.04 Python 3.5
-          ubuntu: 16.04
-        - name: conda-python-3.8-nopandas
-          image: conda-python
-          title: AMD64 Conda Python 3.8 Without Pandas
-          python: 3.8
-        - name: conda-python-3.6-pandas-0.23
-          image: conda-python-pandas
-          title: AMD64 Conda Python 3.6 Pandas 0.23
-          python: 3.6
-          pandas: 0.23
-        - name: conda-python-3.6-pandas-latest
-          image: conda-python-pandas
-          title: AMD64 Conda Python 3.6 Pandas latest
-          python: 3.6
-          pandas: latest
+  docker:
+    name: ${{ matrix.title }}
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        name:
+          - ubuntu-16.04-python-3
+          - conda-python-3.8-nopandas
+          - conda-python-3.6-pandas-0.23
+          - conda-python-3.6-pandas-latest
+          - centos-python-3.6-manylinux1
+        include:
+          - name: ubuntu-16.04-python-3
+            cache: ubuntu-16.04-python-3
+            image: ubuntu-python
+            # this image always builds with python 3.5
+            title: AMD64 Ubuntu 16.04 Python 3.5
+            ubuntu: 16.04
+          - name: conda-python-3.8-nopandas
+            cache: conda-python-3.8
+            image: conda-python
+            title: AMD64 Conda Python 3.8 Without Pandas
+            python: 3.8
+          - name: conda-python-3.6-pandas-0.23
+            cache: conda-python-3.6
+            image: conda-python-pandas
+            title: AMD64 Conda Python 3.6 Pandas 0.23
+            python: 3.6
+            pandas: 0.23
+          - name: conda-python-3.6-pandas-latest
+            cache: conda-python-3.6
+            image: conda-python-pandas
+            title: AMD64 Conda Python 3.6 Pandas latest
+            python: 3.6
+            pandas: latest
+          - name: centos-python-3.6-manylinux1
+            cache: manylinux1
+            image: --force-pull --no-build centos-python-manylinux1
+            title: AMD64 CentOS 5.11 Python 3.6 manylinux1
     env:
       PYTHON: ${{ matrix.python || 3.7 }}
       UBUNTU: ${{ matrix.ubuntu || 18.04 }}
@@ -84,6 +93,12 @@ jobs:
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space
         run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
+        with:
+          path: .docker
+          key: ${{ matrix.cache }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ${{ matrix.cache }}-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -99,33 +114,6 @@ jobs:
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
         run: archery docker push ${{ matrix.image }}
-
-  manylinux1:
-    name: AMD64 CentOS 5.11 Python 3.6 manylinux1
-    runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        shell: bash
-        run: ci/scripts/util_cleanup.sh
-      - name: Setup Python
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.8
-      - name: Setup Archery
-        run: pip install -e dev/archery[docker]
-      - name: Execute Docker Build
-        run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
-          archery docker run --no-build ${{ matrix.image }}
 
   macos:
     name: AMD64 MacOS 10.15 Python 3.7
