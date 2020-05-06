@@ -108,7 +108,7 @@ jobs:
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        run: archery docker push ubuntu-r
+        run: archery docker push ${{ matrix.image }}
 
   windows:
     name: AMD64 Windows RTools ${{ matrix.rtools }}
