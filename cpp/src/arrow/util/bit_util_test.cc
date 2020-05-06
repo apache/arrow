@@ -364,7 +364,7 @@ TEST(FirstTimeBitmapWriter, AppendWordOffsetOverwritesCorrectBitsOnExistingByte)
   check_with_set("10000001", 7);
 
   auto check_with_preceding = [](const std::string& expected_bits, int64_t offset) {
-    std::vector<uint8_t> valid_bits = {BitUtil::kPrecedingBitmask[offset]};
+    std::vector<uint8_t> valid_bits = {0xFF};
     constexpr int64_t kBitsAfterAppend = 8;
     internal::FirstTimeBitmapWriter writer(valid_bits.data(), offset,
                                            /*length=*/(8 * valid_bits.size()) - offset);
@@ -394,36 +394,59 @@ TEST(FirstTimeBitmapWriter, AppendZeroBitsHasNoImpact) {
 }
 
 TEST(FirstTimeBitmapWriter, AppendLessThanByte) {
-  std::vector<uint8_t> valid_bits(/*count*/ 8, 0);
-  internal::FirstTimeBitmapWriter writer(valid_bits.data(), /*start_offset=*/1,
-                                         /*length=*/8);
-  writer.AppendWord(0xB, 4);
-  writer.Finish();
-  EXPECT_EQ(BitmapToString(valid_bits, /*bit_count=*/8), "01101000");
+  {
+    std::vector<uint8_t> valid_bits(/*count*/ 8, 0);
+    internal::FirstTimeBitmapWriter writer(valid_bits.data(), /*start_offset=*/1,
+                                           /*length=*/8);
+    writer.AppendWord(0xB, 4);
+    writer.Finish();
+    EXPECT_EQ(BitmapToString(valid_bits, /*bit_count=*/8), "01101000");
+  }
+  {
+    // Test with all bits initially set.
+    std::vector<uint8_t> valid_bits(/*count*/ 8, 0xFF);
+    internal::FirstTimeBitmapWriter writer(valid_bits.data(), /*start_offset=*/1,
+                                           /*length=*/8);
+    writer.AppendWord(0xB, 4);
+    writer.Finish();
+    EXPECT_EQ(BitmapToString(valid_bits, /*bit_count=*/8), "11101000");
+  }
 }
 
 TEST(FirstTimeBitmapWriter, AppendByteThenMore) {
-  std::vector<uint8_t> valid_bits(/*count*/ 8, 0);
-  internal::FirstTimeBitmapWriter writer(valid_bits.data(), /*start_offset=*/0,
-                                         /*length=*/9);
-  writer.AppendWord(0xC3, 8);
-  writer.AppendWord(0x01, 1);
-  writer.Finish();
-  EXPECT_EQ(BitmapToString(valid_bits, /*bit_count=*/9), "11000011 1");
+  {
+    std::vector<uint8_t> valid_bits(/*count*/ 8, 0);
+    internal::FirstTimeBitmapWriter writer(valid_bits.data(), /*start_offset=*/0,
+                                           /*length=*/9);
+    writer.AppendWord(0xC3, 8);
+    writer.AppendWord(0x01, 1);
+    writer.Finish();
+    EXPECT_EQ(BitmapToString(valid_bits, /*bit_count=*/9), "11000011 1");
+  }
+  {
+    std::vector<uint8_t> valid_bits(/*count*/ 8, 0xFF);
+    internal::FirstTimeBitmapWriter writer(valid_bits.data(), /*start_offset=*/0,
+                                           /*length=*/9);
+    writer.AppendWord(0xC3, 8);
+    writer.AppendWord(0x01, 1);
+    writer.Finish();
+    EXPECT_EQ(BitmapToString(valid_bits, /*bit_count=*/9), "11000011 1");
+  }
 }
 
 TEST(FirstTimeBitmapWriter, AppendWordShiftsBitsCorrectly) {
   constexpr uint64_t kPattern = 0x9A9A9A9A9A9A9A9A;
   auto check_append = [&](const std::string& leading_bits, const std::string& middle_bits,
-                          const std::string& trailing_bits, int64_t offset) {
+                          const std::string& trailing_bits, int64_t offset,
+                          bool preset_buffer_bits = false) {
     ASSERT_GE(offset, 8);
-    std::vector<uint8_t> valid_bits(/*count=*/10, 0);
+    std::vector<uint8_t> valid_bits(/*count=*/10, preset_buffer_bits ? 0xFF : 0);
     valid_bits[0] = 0x99;
     internal::FirstTimeBitmapWriter writer(valid_bits.data(), offset,
-                                           /*length=*/(8 * valid_bits.size()) - offset);
+                                           /*length=*/(9 * sizeof(kPattern)) - offset);
     writer.AppendWord(/*word=*/kPattern, /*number_of_bits=*/64);
     writer.Finish();
-    EXPECT_EQ(valid_bits[0], 0x99);  // shouldn't get chanked.
+    EXPECT_EQ(valid_bits[0], 0x99);  // shouldn't get changed.
     EXPECT_EQ(BitmapToString(valid_bits.data() + 1, /*num_bits=*/8), leading_bits);
     for (int x = 2; x < 9; x++) {
       EXPECT_EQ(BitmapToString(valid_bits.data() + x, /*num_bits=*/8), middle_bits)
@@ -441,6 +464,16 @@ TEST(FirstTimeBitmapWriter, AppendWordShiftsBitsCorrectly) {
   check_append("00000010", "11001010", "11001000", 13);
   check_append("00000001", "01100101", "01100100", 14);
   check_append("00000000", "10110010", "10110010", 15);
+
+  check_append(/*leading_bits= */ "01011001", /*middle_bits=*/"01011001",
+               /*trailing_bits=*/"11111111", /*offset=*/8, /*preset_buffer_bits=*/true);
+  check_append("10101100", "10101100", "10000000", 9, true);
+  check_append("11010110", "01010110", "01000000", 10, true);
+  check_append("11101011", "00101011", "00100000", 11, true);
+  check_append("11110101", "10010101", "10010000", 12, true);
+  check_append("11111010", "11001010", "11001000", 13, true);
+  check_append("11111101", "01100101", "01100100", 14, true);
+  check_append("11111110", "10110010", "10110010", 15, true);
 }
 
 TEST(TestAppendBitmap, AppendWordOnlyApproriateBytesWritten) {
