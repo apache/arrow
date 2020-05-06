@@ -590,9 +590,7 @@ impl UnionBuilder {
                 .len(slots);
             //                .build();
             let arr_data_ref = match bitmap_builder {
-                Some(mut bb) => {
-                    arr_data_builder.null_bit_buffer(bb.finish()).build()
-                }
+                Some(mut bb) => arr_data_builder.null_bit_buffer(bb.finish()).build(),
                 None => arr_data_builder.build(),
             };
             let array_ref = make_array(arr_data_ref);
