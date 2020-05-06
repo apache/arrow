@@ -30,6 +30,8 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import io.netty.buffer.PooledByteBufAllocatorL;
+
 public class TestArrowBuf {
 
   private static final int MAX_ALLOCATION = 8 * 1024;

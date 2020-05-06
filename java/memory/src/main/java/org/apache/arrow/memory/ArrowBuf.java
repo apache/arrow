@@ -33,6 +33,7 @@ import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.util.Preconditions;
 
 import io.netty.buffer.NettyArrowBuf;
+import io.netty.buffer.PooledByteBufAllocatorL;
 
 /**
  * ArrowBuf serves as a facade over underlying memory by providing
