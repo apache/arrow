@@ -67,8 +67,8 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: ${{ matrix.name }}-${{ hashFiles('cpp/**') }}
-          restore-keys: ${{ matrix.name }}-
+          key: ubuntu-18.04-r-3.6-${{ hashFiles('cpp/**') }}
+          restore-keys: ubuntu-18.04-r-3.6-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -110,8 +110,8 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: ${{ matrix.name }}-${{ hashFiles('cpp/**') }}
-          restore-keys: ${{ matrix.name }}-
+          key: centos-7-r-${{ hashFiles('cpp/**') }}
+          restore-keys: centos-7-r-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
