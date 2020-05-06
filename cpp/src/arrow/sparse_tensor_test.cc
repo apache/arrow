@@ -315,6 +315,27 @@ TEST_F(TestSparseCOOTensor, TestToTensor) {
   ASSERT_TRUE(tensor.Equals(*dense_tensor));
 }
 
+TEST_F(TestSparseCOOTensor, TestElementAccess) {
+  std::vector<int64_t> shape = {5, 2, 3, 4};
+  int16_t values[5][2][3][4] = {};
+  values[0][0][0][1] = 1;
+  values[0][0][0][2] = 2;
+  values[0][1][0][0] = 3;
+  values[0][1][0][2] = 4;
+  values[0][1][1][0] = 5;
+
+  auto buffer = Buffer::Wrap(values, sizeof(values));
+  Tensor tensor(int16(), buffer, shape, {}, {});
+  std::shared_ptr<SparseCOOTensor> sparse_tensor;
+  ASSERT_OK_AND_ASSIGN(sparse_tensor, SparseCOOTensor::Make(tensor));
+
+  EXPECT_EQ(1, sparse_tensor->Value<Int16Type>({0, 0, 0, 1}));
+  EXPECT_EQ(2, sparse_tensor->Value<Int16Type>({0, 0, 0, 2}));
+  EXPECT_EQ(3, sparse_tensor->Value<Int16Type>({0, 1, 0, 0}));
+  EXPECT_EQ(4, sparse_tensor->Value<Int16Type>({0, 1, 0, 2}));
+  EXPECT_EQ(5, sparse_tensor->Value<Int16Type>({0, 1, 1, 0}));
+}
+
 template <typename ValueType>
 class TestSparseCOOTensorEquality : public TestSparseTensorBase<ValueType> {
  public:
@@ -742,6 +763,27 @@ TEST_F(TestSparseCSRMatrix, TestToTensor) {
   ASSERT_TRUE(tensor.Equals(*dense_tensor));
 }
 
+TEST_F(TestSparseCSRMatrix, TestElementAccess) {
+  std::vector<int64_t> shape = {4, 3};
+  int16_t values[4][3] = {};
+  values[0][0] = 1;
+  values[1][1] = 2;
+  values[2][0] = 3;
+  values[2][2] = 4;
+  values[3][0] = 5;
+
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(values, sizeof(values));
+  Tensor tensor(int16(), buffer, shape, {}, {});
+  std::shared_ptr<SparseCSRMatrix> sparse_tensor;
+  ASSERT_OK_AND_ASSIGN(sparse_tensor, SparseCSRMatrix::Make(tensor));
+
+  EXPECT_EQ(1, sparse_tensor->Value<Int16Type>({0, 0}));
+  EXPECT_EQ(2, sparse_tensor->Value<Int16Type>({1, 1}));
+  EXPECT_EQ(3, sparse_tensor->Value<Int16Type>({2, 0}));
+  EXPECT_EQ(4, sparse_tensor->Value<Int16Type>({2, 2}));
+  EXPECT_EQ(5, sparse_tensor->Value<Int16Type>({3, 0}));
+}
+
 template <typename ValueType>
 class TestSparseCSRMatrixEquality : public TestSparseTensorBase<ValueType> {
  public:
@@ -1054,6 +1096,27 @@ TEST_F(TestSparseCSCMatrix, TestToTensor) {
   std::shared_ptr<Tensor> dense_tensor;
   ASSERT_OK(sparse_tensor->ToTensor(&dense_tensor));
   ASSERT_TRUE(tensor.Equals(*dense_tensor));
+}
+
+TEST_F(TestSparseCSCMatrix, TestElementAccess) {
+  std::vector<int64_t> shape = {4, 3};
+  int16_t values[4][3] = {};
+  values[0][0] = 1;
+  values[1][1] = 2;
+  values[2][0] = 3;
+  values[2][2] = 4;
+  values[3][0] = 5;
+
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(values, sizeof(values));
+  Tensor tensor(int16(), buffer, shape, {}, {});
+  std::shared_ptr<SparseCSCMatrix> sparse_tensor;
+  ASSERT_OK_AND_ASSIGN(sparse_tensor, SparseCSCMatrix::Make(tensor));
+
+  EXPECT_EQ(1, sparse_tensor->Value<Int16Type>({0, 0}));
+  EXPECT_EQ(2, sparse_tensor->Value<Int16Type>({1, 1}));
+  EXPECT_EQ(3, sparse_tensor->Value<Int16Type>({2, 0}));
+  EXPECT_EQ(4, sparse_tensor->Value<Int16Type>({2, 2}));
+  EXPECT_EQ(5, sparse_tensor->Value<Int16Type>({3, 0}));
 }
 
 template <typename ValueType>
@@ -1388,6 +1451,32 @@ TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, TestSparseTensorToTensor) {
   ASSERT_EQ(dense_tensor.dim_names(), dt->dim_names());
 }
 
+TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, TestElementAccess) {
+  using IndexValueType = TypeParam;
+  using c_index_value_type = typename IndexValueType::c_type;
+
+  std::vector<int64_t> shape = {5, 2, 3, 4};
+  int16_t values[5][2][3][4] = {};
+  values[0][0][0][1] = 1;
+  values[0][0][0][2] = 2;
+  values[0][1][0][0] = 3;
+  values[0][1][0][2] = 4;
+  values[0][1][1][0] = 5;
+
+  auto buffer = Buffer::Wrap(values, sizeof(values));
+  Tensor tensor(int16(), buffer, shape, {}, {});
+  std::shared_ptr<SparseCSFTensor> sparse_tensor;
+  ASSERT_OK_AND_ASSIGN(
+      sparse_tensor,
+      SparseCSFTensor::Make(tensor, TypeTraits<Int64Type>::type_singleton()));
+
+  EXPECT_EQ(1, sparse_tensor->Value<Int16Type>({0, 0, 0, 1}));
+  EXPECT_EQ(2, sparse_tensor->Value<Int16Type>({0, 0, 0, 2}));
+  EXPECT_EQ(3, sparse_tensor->Value<Int16Type>({0, 1, 0, 0}));
+  EXPECT_EQ(4, sparse_tensor->Value<Int16Type>({0, 1, 0, 2}));
+  EXPECT_EQ(5, sparse_tensor->Value<Int16Type>({0, 1, 1, 0}));
+}
+
 TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, TestRoundTrip) {
   using IndexValueType = TypeParam;
 
@@ -1478,7 +1567,7 @@ TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, TestNonAscendingShape) {
 REGISTER_TYPED_TEST_SUITE_P(TestSparseCSFTensorForIndexValueType, TestCreateSparseTensor,
                             TestTensorToSparseTensor, TestSparseTensorToTensor,
                             TestAlternativeAxisOrder, TestNonAscendingShape,
-                            TestRoundTrip);
+                            TestRoundTrip, TestElementAccess);
 
 INSTANTIATE_TYPED_TEST_SUITE_P(TestInt8, TestSparseCSFTensorForIndexValueType, Int8Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8, TestSparseCSFTensorForIndexValueType,

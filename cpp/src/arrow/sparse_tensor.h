@@ -462,6 +462,109 @@ class ARROW_EXPORT SparseTensor {
   bool Equals(const SparseTensor& other,
               const EqualOptions& = EqualOptions::Defaults()) const;
 
+  /// Return the offset of the given index on the given strides
+  template <typename IndexValueType = Int64Type>
+  static int64_t CalculateValueOffset(const std::shared_ptr<SparseIndex>& sparse_index,
+                                      const SparseTensorFormat::type& format_id,
+                                      const std::vector<int64_t>& shape,
+                                      const std::vector<int64_t>& index) {
+    const int64_t ndim = static_cast<int64_t>(index.size());
+
+    switch (format_id) {
+      case SparseTensorFormat::COO: {
+        const auto& si =
+            internal::checked_pointer_cast<const SparseCOOIndex>(sparse_index);
+        const std::shared_ptr<const Tensor> coords = si->indices();
+        // We assume coords matrix is not sorted and search all rows for matching index
+        for (int64_t i = 0; i < coords->shape()[0]; ++i) {
+          for (int64_t j = 0; j < coords->shape()[1]; ++j) {
+            if (coords->Value<IndexValueType>({i, j}) != index[j]) {
+              break;
+            } else if (j == ndim - 1) {
+              return i;
+            }
+          }
+        }
+      }
+
+      case SparseTensorFormat::CSR: {
+        const auto& si =
+            internal::checked_pointer_cast<const SparseCSRIndex>(sparse_index);
+        const std::shared_ptr<const Tensor> indptr = si->indptr();
+        const std::shared_ptr<const Tensor> indices = si->indices();
+        const int64_t start = indptr->Value<IndexValueType>({index[0]});
+        const int64_t stop = indptr->Value<IndexValueType>({index[0] + 1});
+
+        for (int64_t i = start; i < stop; ++i) {
+          if (indices->Value<IndexValueType>({i}) == index[1]) {
+            return i;
+          }
+        }
+      }
+
+      case SparseTensorFormat::CSC: {
+        const auto& si =
+            internal::checked_pointer_cast<const SparseCSCIndex>(sparse_index);
+        const std::shared_ptr<const Tensor> indptr = si->indptr();
+        const std::shared_ptr<const Tensor> indices = si->indices();
+        const int64_t start = indptr->Value<IndexValueType>({index[1]});
+        const int64_t stop = indptr->Value<IndexValueType>({index[1] + 1});
+
+        for (int64_t i = start; i < stop; ++i) {
+          if (indices->Value<IndexValueType>({i}) == index[0]) {
+            return i;
+          }
+        }
+      }
+
+      case SparseTensorFormat::CSF: {
+        const auto& si =
+            internal::checked_pointer_cast<const SparseCSFIndex>(sparse_index);
+        const std::vector<std::shared_ptr<Tensor>> indptr = si->indptr();
+        const std::vector<std::shared_ptr<Tensor>> indices = si->indices();
+        const std::vector<int64_t> axis_order = si->axis_order();
+        int64_t indptr_start = 0;
+        int64_t indptr_end = indices[0]->size();
+        bool index_found;
+
+        for (int64_t i = 0; i < ndim; ++i) {
+          index_found = false;
+          for (int64_t j = indptr_start; j < indptr_end; ++j) {
+            if (indices[i]->Value<IndexValueType>({j}) == index[axis_order[i]]) {
+              if (i == ndim - 1) {
+                return j;
+              }
+              index_found = true;
+              indptr_start = indptr[i]->Value<IndexValueType>({j});
+              indptr_end = indptr[i]->Value<IndexValueType>({j + 1});
+              break;
+            }
+          }
+          if (!index_found) {
+            break;
+          }
+        }
+      }
+    }
+
+    return -1;
+  }
+
+  /// \bried Returns the value at the given COO index without data-type check
+  template <typename ValueType>
+  const typename ValueType::c_type& Value(const std::vector<int64_t>& index) const {
+    using c_type = typename ValueType::c_type;
+    const int64_t offset =
+        SparseTensor::CalculateValueOffset(sparse_index_, format_id(), shape(), index);
+
+    if (offset == -1) {
+      const c_type result = 0;
+      return result;
+    }
+    const c_type* ptr = reinterpret_cast<const c_type*>(raw_data() + offset);
+    return *ptr;
+  }
+
   /// \brief Return dense representation of sparse tensor as tensor
   ///
   /// The returned Tensor has row-major order (C-like).
