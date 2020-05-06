@@ -22,7 +22,7 @@ import org.apache.arrow.memory.util.MemoryUtil;
 /**
  * Allocation manager based on unsafe API.
  */
-public class UnsafeAllocationManager extends AllocationManager {
+public final class UnsafeAllocationManager extends AllocationManager {
 
   public static final Factory FACTORY = new Factory();
 
@@ -30,7 +30,7 @@ public class UnsafeAllocationManager extends AllocationManager {
 
   private final long allocatedAddress;
 
-  protected UnsafeAllocationManager(BaseAllocator accountingAllocator, long requestedSize) {
+  UnsafeAllocationManager(BaseAllocator accountingAllocator, long requestedSize) {
     super(accountingAllocator);
     allocatedAddress = MemoryUtil.UNSAFE.allocateMemory(requestedSize);
     allocatedSize = requestedSize;
