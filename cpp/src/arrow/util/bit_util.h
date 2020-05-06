@@ -637,16 +637,7 @@ class FirstTimeBitmapWriter {
     }
 
 #else  // big-endian
-    for (int x = 0; x < number_of_bits; x++) {
-      if (word & 0x1) {
-        Set();
-      } else {
-        Clear();
-      }
-      Next();
-      word >>= 1;
-    }
-    return;
+    static_assert(false, "AppendWord not implement on Big Endian");
 #endif
   }
 
