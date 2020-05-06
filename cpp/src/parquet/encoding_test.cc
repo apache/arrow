@@ -308,12 +308,12 @@ TYPED_TEST(TestPlainEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(10000, 1));
 
   // Spaced test with different sizes and offest to guarantee SIMD implementation
-  constexpr size_t kAvx512Size = 64;         // sizeof(__m512i) for Avx512
-  constexpr size_t kSimdSize = kAvx512Size;  // Current the max is Avx512
-  constexpr size_t kMultiSimdSize = kSimdSize * 33;
+  constexpr int kAvx512Size = 64;         // sizeof(__m512i) for Avx512
+  constexpr int kSimdSize = kAvx512Size;  // Current the max is Avx512
+  constexpr int kMultiSimdSize = kSimdSize * 33;
 
   // Test with both size and offset up to 3 Simd block
-  for (size_t i = 1; i < kSimdSize * 3; i++) {
+  for (int i = 1; i < kSimdSize * 3; i++) {
     ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(i, 1, 0));
     ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(i, 1, i + 1));
   }
