@@ -31,6 +31,10 @@ pushd ${source_dir}
 
 # run unit tests
 cargo test
+# run unit tests with SIMD on
+pushd arrow
+cargo test --features "simd"
+popd
 
 # test arrow examples
 pushd arrow
