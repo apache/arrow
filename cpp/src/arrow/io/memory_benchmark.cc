@@ -40,12 +40,16 @@ constexpr size_t kMemoryPerCore = 32 * 1024 * 1024;
 using BufferPtr = std::shared_ptr<Buffer>;
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
+
+#undef HAVE_VECTOR_OPS
+
 #ifndef _MSC_VER
 
 #ifdef ARROW_HAVE_SSE4_2
 
 #ifdef ARROW_HAVE_AVX512
 
+#define HAVE_VECTOR_OPS 1
 using VectorType = __m512i;
 #define VectorSet _mm512_set1_epi32
 #define VectorLoad _mm512_stream_load_si512
@@ -60,6 +64,7 @@ using VectorType = __m512i;
 
 #ifdef ARROW_HAVE_AVX2
 
+#define HAVE_VECTOR_OPS 1
 using VectorType = __m256i;
 #define VectorSet _mm256_set1_epi32
 #define VectorLoad _mm256_stream_load_si256
@@ -72,6 +77,7 @@ using VectorType = __m256i;
 
 #else  // ARROW_HAVE_AVX2 not set
 
+#define HAVE_VECTOR_OPS 1
 using VectorType = __m128i;
 #define VectorSet _mm_set1_epi32
 #define VectorLoad _mm_stream_load_si128
@@ -157,6 +163,7 @@ static void StreamReadWrite(void* src, void* dst, size_t size) {
 
 #ifdef ARROW_HAVE_ARMV8_CRYPTO
 
+#define HAVE_VECTOR_OPS 1
 using VectorType = uint8x16_t;
 using VectorTypeDual = uint8x16x2_t;
 
@@ -242,7 +249,7 @@ static void StreamReadWrite(void* src, void* dst, size_t size) {
 
 static void PlatformMemcpy(void* src, void* dst, size_t size) { memcpy(src, dst, size); }
 
-using ApplyFn = decltype(Read);
+using ApplyFn = decltype(PlatformMemcpy);
 
 template <ApplyFn Apply>
 static void MemoryBandwidth(benchmark::State& state) {  // NOLINT non-const reference
@@ -281,9 +288,11 @@ static void SetMemoryBandwidthArgs(benchmark::internal::Benchmark* bench) {
   bench->Arg(kMemoryPerCore)->ThreadRange(1, kNumCores)->UseRealTime();
 }
 
+#ifdef HAVE_VECTOR_OPS
 BENCHMARK_TEMPLATE(MemoryBandwidth, StreamRead)->Apply(SetMemoryBandwidthArgs);
 BENCHMARK_TEMPLATE(MemoryBandwidth, StreamWrite)->Apply(SetMemoryBandwidthArgs);
 BENCHMARK_TEMPLATE(MemoryBandwidth, StreamReadWrite)->Apply(SetMemoryBandwidthArgs);
+#endif
 BENCHMARK_TEMPLATE(MemoryBandwidth, PlatformMemcpy)->Apply(SetMemoryBandwidthArgs);
 
 #endif  // _MSC_VER
