@@ -21,12 +21,12 @@ use std::sync::Arc;
 use arrow::array::{Int32Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
+use arrow::util::pretty;
 
 use datafusion::datasource::MemTable;
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
 use datafusion::logicalplan::{Expr, ScalarValue};
-use datafusion::utils;
 
 /// This example demonstrates basic uses of the Table API on an in-memory table
 fn main() -> Result<()> {
@@ -62,7 +62,7 @@ fn main() -> Result<()> {
     let results = t.collect(&mut ctx, 10)?;
 
     // print the results
-    utils::print_batches(&results)?;
+    pretty::print_batches(&results)?;
 
     Ok(())
 }
