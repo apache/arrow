@@ -988,8 +988,8 @@ services:
 
   ubuntu-csharp:
     # Usage:
-    #   docker-compose build debian-csharp
-    #   docker-compose run debian-csharp
+    #   docker-compose build ubuntu-csharp
+    #   docker-compose run ubuntu-csharp
     image: ${REPO}:${ARCH}-ubuntu-18.04-csharp-${DOTNET}
     build:
       context: .
@@ -1004,7 +1004,8 @@ services:
     command: &csharp-command >
       /bin/bash -c "
         /arrow/ci/scripts/csharp_build.sh /arrow &&
-        /arrow/ci/scripts/csharp_test.sh /arrow"
+        /arrow/ci/scripts/csharp_test.sh /arrow &&
+        /arrow/ci/scripts/csharp_pack.sh /arrow"
 
   ################################ Java #######################################
 
