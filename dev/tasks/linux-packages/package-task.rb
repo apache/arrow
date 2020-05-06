@@ -139,6 +139,12 @@ class PackageTask
       "--tty",
       "--volume", "#{Dir.pwd}:/host:rw",
     ]
+    build_dir = ENV["BUILD_DIR"]
+    if build_dir
+      build_dir = "#{File.expand_path(build_dir)}/#{id}"
+      mkdir_p(build_dir)
+      run_command_line.concat(["--volume", "#{build_dir}:/build:rw"])
+    end
     if debug_build?
       build_command_line.concat(["--build-arg", "DEBUG=yes"])
       run_command_line.concat(["--env", "DEBUG=yes"])
