@@ -24,7 +24,6 @@
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
-
 #include "parquet/exception.h"
 
 namespace parquet {
@@ -38,7 +37,8 @@ inline void CheckLevelRange(const int16_t* levels, int64_t num_levels,
     min_level = std::min(levels[x], min_level);
     max_level = std::max(levels[x], max_level);
   }
-  if (ARROW_PREDICT_FALSE(num_levels > 0 && (min_level < 0 || max_level > max_expected_level))) {
+  if (ARROW_PREDICT_FALSE(num_levels > 0 &&
+                          (min_level < 0 || max_level > max_expected_level))) {
     throw ParquetException("definition level exceeds maximum");
   }
 }
@@ -86,10 +86,9 @@ inline void DefinitionLevelsToBitmapScalar(
 #endif
 
 template <bool has_repeated_parent>
-void DefinitionLevelsBatchToBitmap(const int16_t* def_levels, int64_t num_def_levels,
-                                   const int16_t required_definition_level,
-                                   const int batch_size, int64_t* set_count,
-                                   ::arrow::internal::FirstTimeBitmapWriter* writer) {
+int64_t DefinitionLevelsBatchToBitmap(const int16_t* def_levels, const int64_t batch_size,
+                                      const int16_t required_definition_level,
+                                      ::arrow::internal::FirstTimeBitmapWriter* writer) {
   CheckLevelRange(def_levels, batch_size, required_definition_level);
   uint64_t defined_bitmap =
       internal::GreaterThanBitmap(def_levels, batch_size, required_definition_level - 1);
@@ -98,9 +97,8 @@ void DefinitionLevelsBatchToBitmap(const int16_t* def_levels, int64_t num_def_le
   if (has_repeated_parent) {
 #if defined(ARROW_HAVE_BMI2)
     // This is currently a specialized code path assuming only (nested) lists
-    // present through the leaf (i.e. no structs).
-    // Upper level code only calls this method
-    // when the leaf-values are nullable (otherwise no spacing is needed),
+    // present through the leaf (i.e. no structs). Upper level code only calls
+    // this method when the leaf-values are nullable (otherwise no spacing is needed),
     // Because only nested lists exists it is sufficient to know that the field
     // was either null or included it (i.e. definition level > max_definitation_level
     // -2) If there where structs mixed in, we need to know the def_level of the
@@ -109,13 +107,13 @@ void DefinitionLevelsBatchToBitmap(const int16_t* def_levels, int64_t num_def_le
                                                           required_definition_level - 2);
     uint64_t selected_bits = _pext_u64(defined_bitmap, present_bitmap);
     writer->AppendWord(selected_bits, ::arrow::BitUtil::PopCount(present_bitmap));
-    *set_count += ::arrow::BitUtil::PopCount(selected_bits);
+    return ::arrow::BitUtil::PopCount(selected_bits);
 #else
     assert(false && "must not execute this without BMI2");
 #endif
   } else {
     writer->AppendWord(defined_bitmap, batch_size);
-    *set_count += ::arrow::BitUtil::PopCount(defined_bitmap);
+    return ::arrow::BitUtil::PopCount(defined_bitmap);
   }
 }
 
@@ -131,15 +129,13 @@ void DefinitionLevelsToBitmapSimd(const int16_t* def_levels, int64_t num_def_lev
   int64_t set_count = 0;
   *values_read = 0;
   while (num_def_levels > kBitMaskSize) {
-    DefinitionLevelsBatchToBitmap<has_repeated_parent>(
-        def_levels, num_def_levels, required_definition_level,
-        /*batch_size=*/kBitMaskSize, &set_count, &writer);
+    set_count += DefinitionLevelsBatchToBitmap<has_repeated_parent>(
+        def_levels, kBitMaskSize, required_definition_level, &writer);
     def_levels += kBitMaskSize;
     num_def_levels -= kBitMaskSize;
   }
-  DefinitionLevelsBatchToBitmap<has_repeated_parent>(
-      def_levels, num_def_levels, required_definition_level,
-      /*batch_size=*/num_def_levels, &set_count, &writer);
+  set_count += DefinitionLevelsBatchToBitmap<has_repeated_parent>(
+      def_levels, num_def_levels, required_definition_level, &writer);
 
   *values_read = writer.position();
   *null_count += *values_read - set_count;

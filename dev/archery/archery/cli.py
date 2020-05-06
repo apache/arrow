@@ -102,6 +102,9 @@ build_type = click.Choice(["debug", "relwithdebinfo", "release"],
 warn_level_type = click.Choice(["everything", "checkin", "production"],
                                case_sensitive=False)
 
+simd_level = click.Choice(["NONE", "SSE4_2", "AVX2", "AVX512"],
+                          case_sensitive=True)
+
 
 def cpp_toolchain_options(cmd):
     options = [
@@ -133,6 +136,8 @@ def _apply_options(cmd, options):
               help="Controls compiler warnings -W(no-)error.")
 @click.option("--use-gold-linker", default=True, type=BOOL,
               help="Toggles ARROW_USE_LD_GOLD option.")
+@click.option("--simd-level", default="SSE4_2", type=simd_level,
+              help="Toggles ARROW_SIMD_LEVEL option.")
 # Tests and benchmarks
 @click.option("--with-tests", default=True, type=BOOL,
               help="Build with tests.")
