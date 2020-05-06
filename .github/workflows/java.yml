@@ -70,8 +70,8 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: PREF-debian-9-maven-${{ hashFiles('java/**') }}
-          restore-keys: PREF-debian-9-maven-
+          key: PREF-maven-${{ hashFiles('java/**') }}
+          restore-keys: PREF-maven-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:

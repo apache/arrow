@@ -78,8 +78,8 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: PREF-ubuntu-18.04-ccache-${{ hashFiles('cpp/**') }}
-          restore-keys: PREF-ubuntu-18.04-ccache-
+          key: PREF-ubuntu-18.04-${{ hashFiles('cpp/**') }}
+          restore-keys: PREF-ubuntu-18.04-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:

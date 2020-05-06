@@ -63,7 +63,6 @@ jobs:
             title: AMD64 Ubuntu 18.04 R 3.6
             ubuntu: 18.04
             r: 3.6
-            cache: ubuntu-18.04
           - name: amd64-centos-7-rstudio-r-3.6
             image: r
             title: AMD64 CentOS 7 RStudio R 3.6
@@ -71,7 +70,6 @@ jobs:
             r_org: rstudio
             r_image: r-base
             r_tag: 3.6-centos7
-            cache: centos-7
     env:
       R: ${{ matrix.r || 3.6 }}
       UBUNTU: ${{ matrix.ubuntu || 18.04 }}
@@ -91,8 +89,8 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: PREF-${{ matrix.cache }}-ccache-${{ hashFiles('cpp/**') }}
-          restore-keys: PREF-${{ matrix.cache }}-ccache-
+          key: PREF-${{ matrix.name }}-${{ hashFiles('cpp/**') }}
+          restore-keys: PREF-${{ matrix.name }}-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
