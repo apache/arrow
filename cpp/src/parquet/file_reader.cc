@@ -59,9 +59,12 @@ RowGroupReader::RowGroupReader(std::unique_ptr<Contents> contents)
     : contents_(std::move(contents)) {}
 
 std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
-  DCHECK(i < metadata()->num_columns())
-      << "The RowGroup only has " << metadata()->num_columns()
-      << "columns, requested column: " << i;
+  if (i >= metadata()->num_columns()) {
+    std::stringstream ss;
+    ss << "Trying to read column index " << i << " but row group metadata has only "
+       << metadata()->num_columns() << " columns";
+    throw ParquetException(ss.str());
+  }
   const ColumnDescriptor* descr = metadata()->schema()->Column(i);
 
   std::unique_ptr<PageReader> page_reader = contents_->GetColumnPageReader(i);
@@ -71,9 +74,12 @@ std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
 }
 
 std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReader(int i) {
-  DCHECK(i < metadata()->num_columns())
-      << "The RowGroup only has " << metadata()->num_columns()
-      << "columns, requested column: " << i;
+  if (i >= metadata()->num_columns()) {
+    std::stringstream ss;
+    ss << "Trying to read column index " << i << " but row group metadata has only "
+       << metadata()->num_columns() << " columns";
+    throw ParquetException(ss.str());
+  }
   return contents_->GetColumnPageReader(i);
 }
 
@@ -160,6 +166,12 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       throw ParquetException("RowGroup is noted as encrypted but no file decryptor");
     }
 
+    constexpr auto kEncryptedRowGroupsLimit = 32767;
+    if (i > kEncryptedRowGroupsLimit) {
+      throw ParquetException(
+          "Encrypted files cannot contain more than 32767 row groups");
+    }
+
     // The column is encrypted
     std::shared_ptr<Decryptor> meta_decryptor;
     std::shared_ptr<Decryptor> data_decryptor;
@@ -196,7 +208,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   FileMetaData* file_metadata_;
   std::unique_ptr<RowGroupMetaData> row_group_metadata_;
   ReaderProperties properties_;
-  int16_t row_group_ordinal_;
+  int row_group_ordinal_;
   std::shared_ptr<InternalFileDecryptor> file_decryptor_;
 };
 
@@ -226,9 +238,9 @@ class SerializedFile : public ParquetFileReader::Contents {
   }
 
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
-    std::unique_ptr<SerializedRowGroup> contents(new SerializedRowGroup(
-        source_, cached_source_, source_size_, file_metadata_.get(),
-        static_cast<int16_t>(i), properties_, file_decryptor_));
+    std::unique_ptr<SerializedRowGroup> contents(
+        new SerializedRowGroup(source_, cached_source_, source_size_,
+                               file_metadata_.get(), i, properties_, file_decryptor_));
     return std::make_shared<RowGroupReader>(std::move(contents));
   }
 
@@ -571,10 +583,12 @@ std::shared_ptr<FileMetaData> ParquetFileReader::metadata() const {
 }
 
 std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {
-  DCHECK(i < metadata()->num_row_groups())
-      << "The file only has " << metadata()->num_row_groups()
-      << "row groups, requested reader for: " << i;
-
+  if (i >= metadata()->num_row_groups()) {
+    std::stringstream ss;
+    ss << "Trying to read row group " << i << " but file only has "
+       << metadata()->num_row_groups() << " row groups";
+    throw ParquetException(ss.str());
+  }
   return contents_->GetRowGroup(i);
 }
 
