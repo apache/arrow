@@ -168,8 +168,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     constexpr auto kEncryptedRowGroupsLimit = 32767;
     if (i > kEncryptedRowGroupsLimit) {
-      throw ParquetException(
-          "Encrypted files cannot contain more than 32767 row groups");
+      throw ParquetException("Encrypted files cannot contain more than 32767 row groups");
     }
 
     // The column is encrypted
