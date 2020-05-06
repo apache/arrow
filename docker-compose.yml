@@ -1016,7 +1016,7 @@ services:
       /bin/bash -c "
         /arrow/ci/scripts/csharp_build.sh /arrow &&
         /arrow/ci/scripts/csharp_test.sh /arrow &&
-        /arrow/ci/scripts/csharp_nuget.sh /arrow"
+        /arrow/ci/scripts/csharp_pack.sh /arrow"
 
   ################################ Java #######################################
 
