@@ -301,33 +301,33 @@ impl Array for UnionArray {
 impl fmt::Debug for UnionArray {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let header = if self.is_dense() {
-            "UnionArray(Dense)\n[\n"
+            "UnionArray(Dense)\n["
         } else {
-            "UnionArray(Sparse)\n[\n"
+            "UnionArray(Sparse)\n["
         };
-        write!(f, "{}", header)?;
+        writeln!(f, "{}", header)?;
 
-        write!(f, "-- type id buffer:\n")?;
-        write!(f, "{:?}\n", self.data().buffers()[0])?;
+        writeln!(f, "-- type id buffer:")?;
+        writeln!(f, "{:?}", self.data().buffers()[0])?;
 
         if self.is_dense() {
-            write!(f, "-- offsets buffer:\n")?;
-            write!(f, "{:?}\n", self.data().buffers()[1])?;
+            writeln!(f, "-- offsets buffer:")?;
+            writeln!(f, "{:?}", self.data().buffers()[1])?;
         }
 
         for (child_index, name) in self.type_names().iter().enumerate() {
             let column = &self.boxed_fields[child_index];
-            write!(
+            writeln!(
                 f,
-                "-- child {}: \"{}\" ({:?})\n",
+                "-- child {}: \"{}\" ({:?})",
                 child_index,
                 *name,
                 column.data_type()
             )?;
             fmt::Debug::fmt(column, f)?;
-            write!(f, "\n")?;
+            writeln!(f, "")?;
         }
-        write!(f, "]")
+        writeln!(f, "]")
     }
 }
 
