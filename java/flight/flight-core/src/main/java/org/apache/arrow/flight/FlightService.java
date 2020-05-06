@@ -33,6 +33,7 @@ import org.apache.arrow.flight.grpc.ServerInterceptorAdapter;
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceImplBase;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -45,7 +46,6 @@ import org.slf4j.LoggerFactory;
 import io.grpc.Status;
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
-import io.netty.buffer.ArrowBuf;
 
 /**
  * GRPC service implementation for a flight server.

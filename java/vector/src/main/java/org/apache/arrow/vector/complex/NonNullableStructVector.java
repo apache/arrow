@@ -25,6 +25,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
@@ -43,8 +44,6 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.TransferPair;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * A struct vector that has no null values (and no validity buffer).

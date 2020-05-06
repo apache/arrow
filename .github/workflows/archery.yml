@@ -23,11 +23,13 @@ on:
       - '.github/workflows/archery.yml'
       - 'dev/archery/**'
       - 'dev/tasks/**'
+      - 'docker-compose.yml'
   pull_request:
     paths:
       - '.github/workflows/archery.yml'
       - 'dev/archery/**'
       - 'dev/tasks/**'
+      - 'docker-compose.yml'
 
 jobs:
 
@@ -48,13 +50,15 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
-          python-version: '3.7'
-      - name: Install
+          python-version: '3.5'
+      - name: Install Archery, Crossbow- and Test Dependencies
         working-directory: dev/archery
-        run: pip install pytest responses ruamel.yaml toolz jinja2 -e .
+        run: pip install pytest responses toolz jinja2 -e .[all]
       - name: Archery Unittests
         working-directory: dev/archery
         run: pytest -v archery
+      - name: Archery Docker Validation
+        run: archery docker
       - name: Crossbow Check Config
         working-directory: dev/tasks
         run: python crossbow.py check-config

@@ -27,6 +27,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.arrow.flight.ArrowMessage.HeaderType;
 import org.apache.arrow.flight.grpc.StatusUtils;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
@@ -43,7 +44,6 @@ import org.apache.arrow.vector.util.DictionaryUtility;
 import com.google.common.util.concurrent.SettableFuture;
 
 import io.grpc.stub.StreamObserver;
-import io.netty.buffer.ArrowBuf;
 
 /**
  * An adaptor between protobuf streams and flight data streams.

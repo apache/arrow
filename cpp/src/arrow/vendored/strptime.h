@@ -17,34 +17,19 @@
 
 #pragma once
 
-#ifdef ARROW_HAVE_NEON
-#include <arm_neon.h>
+#include <time.h>
+
+#include "arrow/util/visibility.h"
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-#ifdef ARROW_HAVE_ARMV8_CRC
-#include <arm_acle.h>
+// A less featureful implementation of strptime() for platforms lacking
+// a standard implementation (e.g. Windows).
+ARROW_EXPORT char* arrow_strptime(const char* __restrict, const char* __restrict,
+                                  struct tm* __restrict);
+
+#ifdef __cplusplus
+}  // extern "C"
 #endif
-
-namespace arrow {
-
-#ifdef ARROW_HAVE_ARMV8_CRC
-
-static inline uint32_t ARMCE_crc32_u8(uint32_t crc, uint8_t v) {
-  return __crc32cb(crc, v);
-}
-
-static inline uint32_t ARMCE_crc32_u16(uint32_t crc, uint16_t v) {
-  return __crc32ch(crc, v);
-}
-
-static inline uint32_t ARMCE_crc32_u32(uint32_t crc, uint32_t v) {
-  return __crc32cw(crc, v);
-}
-
-static inline uint32_t ARMCE_crc32_u64(uint32_t crc, uint64_t v) {
-  return __crc32cd(crc, v);
-}
-
-#endif  // ARROW_HAVE_ARMV8_CRC
-
-}  // namespace arrow

@@ -25,6 +25,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorLoader;
@@ -35,8 +36,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * A collection of Arrow record batches.

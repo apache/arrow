@@ -21,6 +21,7 @@ import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
@@ -28,8 +29,6 @@ import org.apache.arrow.memory.util.hash.SimpleHasher;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Test cases for {@link ArrowBufPointer}.

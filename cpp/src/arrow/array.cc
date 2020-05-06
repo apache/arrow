@@ -132,6 +132,99 @@ int64_t ArrayData::GetNullCount() const {
 
 int64_t Array::null_count() const { return data_->GetNullCount(); }
 
+namespace internal {
+
+struct ScalarFromArraySlotImpl {
+  template <typename T>
+  using ScalarType = typename TypeTraits<T>::ScalarType;
+
+  Status Visit(const NullArray& a) {
+    out_ = std::make_shared<NullScalar>();
+    return Status::OK();
+  }
+
+  Status Visit(const BooleanArray& a) { return Finish(a.Value(index_)); }
+
+  template <typename T>
+  Status Visit(const NumericArray<T>& a) {
+    return Finish(a.Value(index_));
+  }
+
+  template <typename T>
+  Status Visit(const BaseBinaryArray<T>& a) {
+    return Finish(a.GetString(index_));
+  }
+
+  Status Visit(const FixedSizeBinaryArray& a) { return Finish(a.GetString(index_)); }
+
+  Status Visit(const DayTimeIntervalArray& a) { return Finish(a.Value(index_)); }
+
+  template <typename T>
+  Status Visit(const BaseListArray<T>& a) {
+    return Finish(a.value_slice(index_));
+  }
+
+  Status Visit(const FixedSizeListArray& a) { return Finish(a.value_slice(index_)); }
+
+  Status Visit(const StructArray& a) {
+    ScalarVector children;
+    for (const auto& child : a.fields()) {
+      children.emplace_back();
+      ARROW_ASSIGN_OR_RAISE(children.back(), child->GetScalar(index_));
+    }
+    return Finish(std::move(children));
+  }
+
+  Status Visit(const UnionArray& a) {
+    return Status::NotImplemented("Non-null UnionScalar");
+  }
+
+  Status Visit(const DictionaryArray& a) {
+    ARROW_ASSIGN_OR_RAISE(auto value, a.dictionary()->GetScalar(a.GetValueIndex(index_)));
+    return Finish(std::move(value));
+  }
+
+  Status Visit(const ExtensionArray& a) {
+    return Status::NotImplemented("Non-null ExtensionScalar");
+  }
+
+  template <typename Arg>
+  Status Finish(Arg&& arg) {
+    return MakeScalar(array_.type(), std::forward<Arg>(arg)).Value(&out_);
+  }
+
+  Status Finish(std::string arg) {
+    return MakeScalar(array_.type(), Buffer::FromString(std::move(arg))).Value(&out_);
+  }
+
+  Result<std::shared_ptr<Scalar>> Finish() && {
+    if (index_ >= array_.length()) {
+      return Status::IndexError("tried to refer to element ", index_,
+                                " but array is only ", array_.length(), " long");
+    }
+
+    if (array_.IsNull(index_)) {
+      return MakeNullScalar(array_.type());
+    }
+
+    RETURN_NOT_OK(VisitArrayInline(array_, this));
+    return std::move(out_);
+  }
+
+  ScalarFromArraySlotImpl(const Array& array, int64_t index)
+      : array_(array), index_(index) {}
+
+  const Array& array_;
+  int64_t index_;
+  std::shared_ptr<Scalar> out_;
+};
+
+}  // namespace internal
+
+Result<std::shared_ptr<Scalar>> Array::GetScalar(int64_t i) const {
+  return internal::ScalarFromArraySlotImpl{*this, i}.Finish();
+}
+
 std::string Array::Diff(const Array& other) const {
   std::stringstream diff;
   ARROW_IGNORE_EXPR(Equals(other, EqualOptions().diff_sink(&diff)));
@@ -363,20 +456,20 @@ Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
 
 }  // namespace
 
-ListArray::ListArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
+ListArray::ListArray(std::shared_ptr<ArrayData> data) { SetData(std::move(data)); }
 
 LargeListArray::LargeListArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
 
-ListArray::ListArray(const std::shared_ptr<DataType>& type, int64_t length,
-                     const std::shared_ptr<Buffer>& value_offsets,
-                     const std::shared_ptr<Array>& values,
-                     const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
+ListArray::ListArray(std::shared_ptr<DataType> type, int64_t length,
+                     std::shared_ptr<Buffer> value_offsets, std::shared_ptr<Array> values,
+                     std::shared_ptr<Buffer> null_bitmap, int64_t null_count,
                      int64_t offset) {
   ARROW_CHECK_EQ(type->id(), Type::LIST);
-  auto internal_data =
-      ArrayData::Make(type, length, {null_bitmap, value_offsets}, null_count, offset);
+  auto internal_data = ArrayData::Make(
+      std::move(type), length,
+      BufferVector{std::move(null_bitmap), std::move(value_offsets)}, null_count, offset);
   internal_data->child_data.emplace_back(values->data());
-  SetData(internal_data);
+  SetData(std::move(internal_data));
 }
 
 LargeListArray::LargeListArray(const std::shared_ptr<DataType>& type, int64_t length,
@@ -788,6 +881,13 @@ const StructType* StructArray::struct_type() const {
   return checked_cast<const StructType*>(data_->type.get());
 }
 
+const ArrayVector& StructArray::fields() const {
+  for (int i = 0; i < num_fields(); ++i) {
+    (void)field(i);
+  }
+  return boxed_fields_;
+}
+
 std::shared_ptr<Array> StructArray::field(int i) const {
   std::shared_ptr<Array> result = internal::atomic_load(&boxed_fields_[i]);
   if (!result) {
@@ -1033,6 +1133,23 @@ Status ValidateDictionaryIndices(const std::shared_ptr<Array>& indices,
 }
 
 std::shared_ptr<Array> DictionaryArray::indices() const { return indices_; }
+
+int64_t DictionaryArray::GetValueIndex(int64_t i) const {
+  switch (indices_->type_id()) {
+    case Type::INT8:
+      return checked_cast<const Int8Array&>(*indices_).Value(i);
+    case Type::INT16:
+      return checked_cast<const Int16Array&>(*indices_).Value(i);
+    case Type::INT32:
+      return checked_cast<const Int32Array&>(*indices_).Value(i);
+    case Type::INT64:
+      return checked_cast<const Int64Array&>(*indices_).Value(i);
+    default:
+      break;
+  }
+  ARROW_CHECK(false) << "unreachable";
+  return -1;
+}
 
 DictionaryArray::DictionaryArray(const std::shared_ptr<ArrayData>& data)
     : dict_type_(checked_cast<const DictionaryType*>(data->type.get())) {

@@ -769,11 +769,9 @@ class Task(Serializable):
     submitting the job to a queue.
     """
 
-    def __init__(self, platform, ci, template, artifacts=None, params=None):
-        assert platform in {'win', 'osx', 'linux'}
+    def __init__(self, ci, template, artifacts=None, params=None):
         assert ci in {'circle', 'travis', 'appveyor', 'azure', 'github'}
         self.ci = ci
-        self.platform = platform
         self.template = template
         self.artifacts = artifacts or []
         self.params = params or {}
@@ -1435,7 +1433,7 @@ yaml.register_class(Target)
 
 
 # define default paths
-DEFAULT_CONFIG_PATH = CWD / 'tasks.yml'
+DEFAULT_CONFIG_PATH = str(CWD / 'tasks.yml')
 DEFAULT_ARROW_PATH = CWD.parents[1]
 DEFAULT_QUEUE_PATH = CWD.parents[2] / 'crossbow'
 

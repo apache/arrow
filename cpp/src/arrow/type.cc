@@ -43,6 +43,49 @@
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
+
+constexpr Type::type NullType::type_id;
+constexpr Type::type ListType::type_id;
+constexpr Type::type LargeListType::type_id;
+
+constexpr Type::type MapType::type_id;
+
+constexpr Type::type FixedSizeListType::type_id;
+
+constexpr Type::type BinaryType::type_id;
+
+constexpr Type::type LargeBinaryType::type_id;
+
+constexpr Type::type StringType::type_id;
+
+constexpr Type::type LargeStringType::type_id;
+
+constexpr Type::type FixedSizeBinaryType::type_id;
+
+constexpr Type::type StructType::type_id;
+
+constexpr Type::type Decimal128Type::type_id;
+
+constexpr Type::type UnionType::type_id;
+
+constexpr Type::type Date32Type::type_id;
+
+constexpr Type::type Date64Type::type_id;
+
+constexpr Type::type Time32Type::type_id;
+
+constexpr Type::type Time64Type::type_id;
+
+constexpr Type::type TimestampType::type_id;
+
+constexpr Type::type MonthIntervalType::type_id;
+
+constexpr Type::type DayTimeIntervalType::type_id;
+
+constexpr Type::type DurationType::type_id;
+
+constexpr Type::type DictionaryType::type_id;
+
 namespace {
 using internal::checked_cast;
 
@@ -1211,7 +1254,7 @@ std::string Schema::ToString(bool show_metadata) const {
     if (i > 0) {
       buffer << std::endl;
     }
-    buffer << field->ToString();
+    buffer << field->ToString(show_metadata);
     ++i;
   }
 

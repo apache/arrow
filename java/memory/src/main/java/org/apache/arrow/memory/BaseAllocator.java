@@ -32,8 +32,6 @@ import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
 import org.immutables.value.Value;
 
-import io.netty.buffer.ArrowBuf;
-
 /**
  * A base-class that implements all functionality of {@linkplain BufferAllocator}s.
  *

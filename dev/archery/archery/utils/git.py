@@ -16,6 +16,7 @@
 # under the License.
 
 from .command import Command, capture_stdout, default_bin
+from ..compat import _stringify_path
 
 
 # Decorator prepending argv with the git sub-command found with the method
@@ -36,8 +37,8 @@ class Git(Command):
     def run_cmd(self, cmd, *argv, git_dir=None, **kwargs):
         """ Inject flags before sub-command in argv. """
         opts = []
-        if git_dir and isinstance(git_dir, str):
-            opts.extend(("-C", git_dir))
+        if git_dir is not None:
+            opts.extend(["-C", _stringify_path(git_dir)])
 
         return self.run(*opts, cmd, *argv, **kwargs)
 
@@ -89,6 +90,11 @@ class Git(Command):
     @capture_stdout(strip=True)
     def current_branch(self, **kwargs):
         return self.rev_parse("--abbrev-ref", "HEAD", **kwargs)
+
+    def repository_root(self, git_dir=None, **kwargs):
+        """ Locates the repository's root path from a subdirectory. """
+        stdout = self.rev_parse("--show-toplevel", git_dir=git_dir, **kwargs)
+        return stdout.decode('utf-8')
 
 
 git = Git()

@@ -17,14 +17,13 @@
 
 package org.apache.arrow.algorithm.deduplicate;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.ValueVector;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Remove adjacent equal elements from a vector.

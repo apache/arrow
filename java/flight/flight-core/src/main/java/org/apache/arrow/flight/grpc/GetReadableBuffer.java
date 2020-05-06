@@ -21,11 +21,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 
+import org.apache.arrow.memory.ArrowBuf;
+
 import com.google.common.base.Throwables;
 import com.google.common.io.ByteStreams;
 
 import io.grpc.internal.ReadableBuffer;
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Enable access to ReadableBuffer directly to copy data from a BufferInputStream into a target

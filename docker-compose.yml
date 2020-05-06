@@ -79,6 +79,64 @@ x-ccache: &ccache
   CCACHE_MAXSIZE: 500M
   CCACHE_DIR: /build/ccache
 
+x-hierarchy:
+  # This section is used by the archery tool to enable building nested images,
+  # so it is enough to call:
+  #   archery run debian-ruby
+  # instead of a seguence of docker-compose commands:
+  #   docker-compose build debian-cpp
+  #   docker-compose build debian-c-glib
+  #   docker-compose build debian-ruby
+  #   docker-compose run --rm debian-ruby
+  #
+  # Each node must be either a string scalar of a list containing the
+  # descendant images if any. Archery checks that all node has a corresponding
+  # service entry, so any new image/service must be listed here.
+  - centos-python-manylinux1
+  - centos-python-manylinux2010
+  - centos-python-manylinux2014
+  - conda-cpp:
+    - conda-cpp-hiveserver2
+    - conda-cpp-valgrind
+    - conda-integration
+    - conda-python:
+      - conda-python-pandas
+      - conda-python-dask
+      - conda-python-hdfs
+      - conda-python-jpype
+      - conda-python-turbodbc
+      - conda-python-kartothek
+      - conda-python-spark
+    - conda-r
+  - cuda-cpp:
+    - cuda-python
+  - debian-cpp:
+    - debian-c-glib:
+      - debian-ruby
+    - debian-python
+  - debian-go
+  - debian-java:
+    - debian-java-jni
+  - debian-js
+  - debian-rust
+  - fedora-cpp:
+    - fedora-python
+  - ubuntu-cpp:
+    - ubuntu-cpp-cmake32
+    - ubuntu-c-glib:
+      - ubuntu-ruby
+    - ubuntu-lint
+    - ubuntu-python:
+      - ubuntu-docs
+    - ubuntu-r
+  - ubuntu-csharp
+  - ubuntu-cpp-sanitizer
+  - ubuntu-r-sanitizer
+  - r
+  # helper services
+  - impala
+  - postgres
+
 services:
 
   ################################# C++ #######################################
@@ -1148,14 +1206,13 @@ services:
     links:
       - impala:impala
     environment:
-      - ARROW_FLIGHT=OFF
-      - ARROW_GANDIVA=OFF
-      - ARROW_PLASMA=OFF
-      - ARROW_HIVESERVER2=ON
-      - ARROW_HIVESERVER2_TEST_HOST=impala
-    shm_size: *shm-size
-    environment:
       <<: *ccache
+      ARROW_FLIGHT: "OFF"
+      ARROW_GANDIVA: "OFF"
+      ARROW_PLASMA: "OFF"
+      ARROW_HIVESERVER2: "ON"
+      ARROW_HIVESERVER2_TEST_HOST: impala
+    shm_size: *shm-size
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&

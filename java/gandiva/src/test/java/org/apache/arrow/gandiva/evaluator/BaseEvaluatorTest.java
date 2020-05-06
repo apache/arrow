@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.expression.Condition;
 import org.apache.arrow.gandiva.expression.ExpressionTree;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.DecimalVector;
@@ -40,8 +41,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.After;
 import org.junit.Before;
-
-import io.netty.buffer.ArrowBuf;
 
 class BaseEvaluatorTest {
 

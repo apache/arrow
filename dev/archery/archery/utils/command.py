@@ -57,7 +57,7 @@ class Command:
     """
 
     def run(self, *argv, **kwargs):
-        assert(hasattr(self, "bin"))
+        assert hasattr(self, "bin")
         invocation = shlex.split(self.bin)
         invocation.extend(argv)
 
@@ -70,7 +70,7 @@ class Command:
         if "check" not in kwargs:
             kwargs["check"] = True
 
-        logger.debug(f"Executing `{invocation}`")
+        logger.debug("Executing `{}`".format(invocation))
         return subprocess.run(invocation, **kwargs)
 
     @property

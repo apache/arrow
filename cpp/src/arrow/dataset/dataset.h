@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// This API is EXPERIMENTAL.
+
 #pragma once
 
 #include <functional>
@@ -74,9 +76,10 @@ class ARROW_DS_EXPORT Fragment {
   virtual ~Fragment() = default;
 
  protected:
-  explicit Fragment(std::shared_ptr<Expression> partition_expression = NULLPTR);
+  Fragment() = default;
+  explicit Fragment(std::shared_ptr<Expression> partition_expression);
 
-  std::shared_ptr<Expression> partition_expression_;
+  std::shared_ptr<Expression> partition_expression_ = scalar(true);
 };
 
 /// \brief A trivial Fragment that yields ScanTask out of a fixed set of
@@ -84,9 +87,9 @@ class ARROW_DS_EXPORT Fragment {
 class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
  public:
   InMemoryFragment(std::shared_ptr<Schema> schema, RecordBatchVector record_batches,
-                   std::shared_ptr<Expression> = NULLPTR);
+                   std::shared_ptr<Expression> = scalar(true));
   explicit InMemoryFragment(RecordBatchVector record_batches,
-                            std::shared_ptr<Expression> = NULLPTR);
+                            std::shared_ptr<Expression> = scalar(true));
 
   Result<std::shared_ptr<Schema>> ReadPhysicalSchema() override;
 
@@ -114,8 +117,7 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   Result<std::shared_ptr<ScannerBuilder>> NewScan();
 
   /// \brief GetFragments returns an iterator of Fragments given a predicate.
-  FragmentIterator GetFragments(std::shared_ptr<Expression> predicate);
-  FragmentIterator GetFragments();
+  FragmentIterator GetFragments(std::shared_ptr<Expression> predicate = scalar(true));
 
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
@@ -140,14 +142,13 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
  protected:
   explicit Dataset(std::shared_ptr<Schema> schema) : schema_(std::move(schema)) {}
 
-  Dataset(std::shared_ptr<Schema> schema, std::shared_ptr<Expression> e)
-      : schema_(std::move(schema)), partition_expression_(std::move(e)) {}
-  Dataset() = default;
+  Dataset(std::shared_ptr<Schema> schema,
+          std::shared_ptr<Expression> partition_expression);
 
   virtual FragmentIterator GetFragmentsImpl(std::shared_ptr<Expression> predicate) = 0;
 
   std::shared_ptr<Schema> schema_;
-  std::shared_ptr<Expression> partition_expression_;
+  std::shared_ptr<Expression> partition_expression_ = scalar(true);
 };
 
 /// \brief A Source which yields fragments wrapping a stream of record batches.

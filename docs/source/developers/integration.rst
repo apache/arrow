@@ -31,11 +31,11 @@ Docker images (services)
 ------------------------
 
 The docker-compose services are defined in the ``docker-compose.yml`` file.
-Each service usually correspond to a language binding or an important service to
-test with Arrow.
+Each service usually correspond to a language binding or an important service
+to test with Arrow.
 
-Services are configured with 2 local mounts, ``/arrow`` for the top-level source
-directory and ``/build`` for caching build artifacts. The source level
+Services are configured with 2 local mounts, ``/arrow`` for the top-level
+source directory and ``/build`` for caching build artifacts. The source level
 directory mount can be paired with git checkout to test a specific commit. The
 build mount is used for caching and sharing state between staged images.
 
@@ -56,15 +56,19 @@ build mount is used for caching and sharing state between staged images.
 You can build and run a service by using the `build` and `run` docker-compose
 sub-command, e.g. `docker-compose build python && docker-compose run python`.
 We do not publish the build images, you need to build them manually. This
-method requires the user to build the images in reverse dependency order. To
-simplify this, we provide a Makefile.
+method requires the user to build the images in reverse dependency order.
 
 .. code-block:: shell
 
    # Build and run manually
-   docker-compose build cpp
-   docker-compose build python
-   docker-compose run python
+   docker-compose build conda-cpp
+   docker-compose build conda-python
+   docker-compose run conda-python
 
-   # Using the makefile with proper image dependency resolution
-   make -f Makefile.docker python
+To simplify this, Archery provides a command for it:
+
+.. code-block:: shell
+
+   archery docker run conda-python
+
+See `Running Docker Builds`_ for more details.

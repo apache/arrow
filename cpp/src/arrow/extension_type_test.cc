@@ -184,7 +184,7 @@ class ExtStructType : public ExtensionType {
 
 class TestExtensionType : public ::testing::Test {
  public:
-  void SetUp() { ASSERT_OK(RegisterExtensionType(std::make_shared<UUIDType>())); }
+  void SetUp() { ASSERT_OK(RegisterExtensionType(std::make_shared<UuidType>())); }
 
   void TearDown() {
     if (GetExtensionType("uuid")) {
@@ -227,7 +227,7 @@ auto RoundtripBatch = [](const std::shared_ptr<RecordBatch>& batch,
 };
 
 TEST_F(TestExtensionType, IpcRoundtrip) {
-  auto ext_arr = ExampleUUID();
+  auto ext_arr = ExampleUuid();
   auto batch = RecordBatch::Make(schema({field("f0", uuid())}), 4, {ext_arr});
 
   std::shared_ptr<RecordBatch> read_batch;
@@ -243,7 +243,7 @@ TEST_F(TestExtensionType, IpcRoundtrip) {
 }
 
 TEST_F(TestExtensionType, UnrecognizedExtension) {
-  auto ext_arr = ExampleUUID();
+  auto ext_arr = ExampleUuid();
   auto batch = RecordBatch::Make(schema({field("f0", uuid())}), 4, {ext_arr});
 
   auto storage_arr = static_cast<const ExtensionArray&>(*ext_arr).storage();
@@ -259,7 +259,7 @@ TEST_F(TestExtensionType, UnrecognizedExtension) {
   ASSERT_OK(UnregisterExtensionType("uuid"));
   auto ext_metadata =
       key_value_metadata({{"ARROW:extension:name", "uuid"},
-                          {"ARROW:extension:metadata", "uuid-type-unique-code"}});
+                          {"ARROW:extension:metadata", "uuid-serialized"}});
   auto ext_field = field("f0", fixed_size_binary(16), true, ext_metadata);
   auto batch_no_ext = RecordBatch::Make(schema({ext_field}), 4, {storage_arr});
 
@@ -327,7 +327,7 @@ std::shared_ptr<Array> ExampleStruct() {
 }
 
 TEST_F(TestExtensionType, ValidateExtensionArray) {
-  auto ext_arr1 = ExampleUUID();
+  auto ext_arr1 = ExampleUuid();
   auto p1_type = std::make_shared<Parametric1Type>(6);
   auto ext_arr2 = ExampleParametric(p1_type, "[null, 1, 2, 3]");
   auto ext_arr3 = ExampleStruct();

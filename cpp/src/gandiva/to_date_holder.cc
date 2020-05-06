@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <string>
 
+#include "arrow/util/value_parsing.h"
 #include "arrow/vendored/datetime.h"
 
 #include "gandiva/date_utils.h"
@@ -82,8 +83,10 @@ int64_t ToDateHolder::operator()(ExecutionContext* context, const std::string& d
   // 1. processes date that do not match the format.
   // 2. does not process time in format +08:00 (or) id.
   int64_t seconds_since_epoch = 0;
-  if (!internal::ParseTimestamp(data.c_str(), pattern_.c_str(), true,
-                                &seconds_since_epoch)) {
+  if (!::arrow::internal::ParseTimestampStrptime(
+          data.c_str(), data.length(), pattern_.c_str(),
+          /*ignore_time_in_day=*/true, /*allow_trailing_chars=*/true,
+          ::arrow::TimeUnit::SECOND, &seconds_since_epoch)) {
     return_error(context, data);
     return 0;
   }

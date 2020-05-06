@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 
 import org.apache.arrow.flight.FlightClient.PutListener;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -34,8 +35,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Tests for application-specific metadata support in Flight.

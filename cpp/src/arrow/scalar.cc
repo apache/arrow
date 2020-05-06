@@ -30,8 +30,8 @@
 #include "arrow/util/formatting.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/parsing.h"
 #include "arrow/util/time.h"
+#include "arrow/util/value_parsing.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -136,17 +136,35 @@ FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::shared_ptr<Buffer> value,
 
 BaseListScalar::BaseListScalar(std::shared_ptr<Array> value,
                                std::shared_ptr<DataType> type)
-    : Scalar{std::move(type), true}, value(std::move(value)) {}
+    : Scalar{std::move(type), true}, value(std::move(value)) {
+  ARROW_CHECK(this->type->child(0)->type()->Equals(this->value->type()));
+}
 
-BaseListScalar::BaseListScalar(std::shared_ptr<Array> value)
-    : Scalar(value->type(), true), value(std::move(value)) {}
+ListScalar::ListScalar(std::shared_ptr<Array> value)
+    : BaseListScalar(value, list(value->type())) {}
+
+LargeListScalar::LargeListScalar(std::shared_ptr<Array> value)
+    : BaseListScalar(value, large_list(value->type())) {}
+
+inline std::shared_ptr<DataType> MakeMapType(const std::shared_ptr<DataType>& pair_type) {
+  ARROW_CHECK_EQ(pair_type->id(), Type::STRUCT);
+  ARROW_CHECK_EQ(pair_type->num_children(), 2);
+  return map(pair_type->child(0)->type(), pair_type->child(1));
+}
+
+MapScalar::MapScalar(std::shared_ptr<Array> value)
+    : BaseListScalar(value, MakeMapType(value->type())) {}
 
 FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value,
                                          std::shared_ptr<DataType> type)
-    : BaseListScalar(std::move(value), std::move(type)) {
+    : BaseListScalar(value, std::move(type)) {
   ARROW_CHECK_EQ(this->value->length(),
                  checked_cast<const FixedSizeListType&>(*this->type).list_size());
 }
+
+FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value)
+    : BaseListScalar(
+          value, fixed_size_list(value->type(), static_cast<int32_t>(value->length()))) {}
 
 DictionaryScalar::DictionaryScalar(std::shared_ptr<DataType> type)
     : Scalar(std::move(type)),

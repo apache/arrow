@@ -483,6 +483,9 @@ class ARROW_EXPORT CTypeImpl : public BASE {
   std::string ToString() const override { return this->name(); }
 };
 
+template <typename DERIVED, typename BASE, Type::type TYPE_ID, typename C_TYPE>
+constexpr Type::type CTypeImpl<DERIVED, BASE, TYPE_ID, C_TYPE>::type_id;
+
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
 class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, IntegerType, TYPE_ID, C_TYPE> {
   bool is_signed() const override { return std::is_signed<C_TYPE>::value; }

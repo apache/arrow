@@ -33,7 +33,7 @@
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/parsing.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 

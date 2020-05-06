@@ -27,18 +27,18 @@ use prettytable::{Cell, Row, Table};
 use crate::error::{ArrowError, Result};
 
 ///! Create a visual representation of record batches
-pub fn pretty_format_batches(results: &Vec<RecordBatch>) -> Result<String> {
+pub fn pretty_format_batches(results: &[RecordBatch]) -> Result<String> {
     Ok(create_table(results)?.to_string())
 }
 
 ///! Prints a visual representation of record batches to stdout
-pub fn print_batches(results: &Vec<RecordBatch>) -> Result<()> {
+pub fn print_batches(results: &[RecordBatch]) -> Result<()> {
     create_table(results)?.printstd();
     Ok(())
 }
 
 ///! Convert a series of record batches into a table
-fn create_table(results: &Vec<RecordBatch>) -> Result<Table> {
+fn create_table(results: &[RecordBatch]) -> Result<Table> {
     let mut table = Table::new();
     table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
 
@@ -76,6 +76,22 @@ macro_rules! make_string {
             .unwrap()
             .value($row)
             .to_string())
+    }};
+}
+
+macro_rules! make_string_from_list {
+    ($column: ident, $row: ident) => {{
+        let list = $column
+            .as_any()
+            .downcast_ref::<array::ListArray>()
+            .ok_or(ArrowError::InvalidArgumentError(format!(
+                "Repl error: could not convert list column to list array."
+            )))?
+            .value($row);
+        let string_values = (0..list.len())
+            .map(|i| array_value_to_string(list.clone(), i))
+            .collect::<Result<Vec<String>>>()?;
+        Ok(format!("[{}]", string_values.join(", ")))
     }};
 }
 
@@ -125,6 +141,7 @@ fn array_value_to_string(column: array::ArrayRef, row: usize) -> Result<String> 
         DataType::Time64(unit) if *unit == TimeUnit::Nanosecond => {
             make_string!(array::Time64NanosecondArray, column, row)
         }
+        DataType::List(_) => make_string_from_list!(column, row),
         _ => Err(ArrowError::InvalidArgumentError(format!(
             "Unsupported {:?} type for repl.",
             column.data_type()

@@ -44,7 +44,7 @@ using ::arrow::internal::PlatformFilename;
 using internal::json::ArrayFromJSON;
 
 Result<std::shared_ptr<RecordBatch>> MakeExtensionBatch() {
-  auto array = ExampleUUID();
+  auto array = ExampleUuid();
   auto md = key_value_metadata({"key1", "key2"}, {"value1", ""});
   auto schema = ::arrow::schema({field("f0", array->type())}, md);
   return RecordBatch::Make(schema, array->length(), {array});

@@ -74,8 +74,8 @@ class ExpressionsTest : public ::testing::Test {
   std::shared_ptr<Schema> schema_ =
       schema({field("a", int32()), field("b", int32()), field("f", float64()),
               field("s", utf8()), field("ts", ns)});
-  std::shared_ptr<ScalarExpression> always = scalar(true);
-  std::shared_ptr<ScalarExpression> never = scalar(false);
+  std::shared_ptr<Expression> always = scalar(true);
+  std::shared_ptr<Expression> never = scalar(false);
 };
 
 TEST_F(ExpressionsTest, StringRepresentation) {
@@ -539,6 +539,36 @@ TEST(FieldsInExpressionTest, Basic) {
   AssertFieldsInExpression(("a"_ == 1 || "b"_ == 2).Copy(), {"a", "b"});
   AssertFieldsInExpression((not("a"_ == 1) && ("b"_ == 2 || not("c"_ < 3))).Copy(),
                            {"a", "b", "c"});
+}
+
+TEST(ExpressionSerializationTest, RoundTrips) {
+  std::vector<TestExpression> exprs{
+      scalar(MakeNullScalar(null())),
+      scalar(MakeNullScalar(int32())),
+      scalar(MakeNullScalar(struct_({field("i", int32()), field("s", utf8())}))),
+      scalar(true),
+      scalar(false),
+      scalar(1),
+      scalar(1.125),
+      scalar("stringy strings"),
+      "field"_,
+      "a"_ > 0.25,
+      "a"_ == 1 or "b"_ != "hello" or "b"_ == "foo bar",
+      not"alpha"_,
+      "valid"_ and "a"_.CastLike("b"_) >= "b"_,
+      "version"_.CastTo(float64()).In(ArrayFromJSON(float64(), "[0.5, 1.0, 2.0]")),
+      "validity"_.IsValid(),
+      ("x"_ >= -1.5 and "x"_ < 0.0) and ("y"_ >= 0.0 and "y"_ < 1.5) and
+          ("z"_ > 1.5 and "z"_ <= 3.0),
+      "year"_ == int16_t(1999) and "month"_ == int8_t(12) and "day"_ == int8_t(31) and
+          "hour"_ == int8_t(0) and "alpha"_ == int32_t(0) and "beta"_ == 3.25f,
+  };
+
+  for (const auto& expr : exprs) {
+    ASSERT_OK_AND_ASSIGN(auto serialized, expr.expression->Serialize());
+    ASSERT_OK_AND_ASSIGN(E roundtripped, Expression::Deserialize(*serialized));
+    ASSERT_EQ(expr, roundtripped);
+  }
 }
 
 }  // namespace dataset

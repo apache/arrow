@@ -20,6 +20,12 @@ jobs:
   pool:
     vmImage: ubuntu-16.04
   timeoutInMinutes: 360
+  {%- if env is defined %}
+  variables:
+  {%- for key, value in env.items() %}
+    {{ key }}: {{ value }}
+  {%- endfor %}
+  {%- endif %}
 
   steps:
   - task: DockerInstaller@0
@@ -28,6 +34,10 @@ jobs:
       dockerVersion: 17.09.0-ce
       releaseType: stable
 
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.6'
+
   - script: |
       git clone --no-checkout {{ arrow.remote }} arrow
       git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
@@ -35,28 +45,8 @@ jobs:
       git -C arrow submodule update --init --recursive
     displayName: Clone arrow
 
-  - script: |
-    {% if env is defined %}
-    {%- for key, value in env.items() %}
-      export {{ key }}={{ value }}
-    {%- endfor %}
-    {% endif %}
+  - script: pip install -e arrow/dev/archery[docker]
+    displayName: Setup Archery
 
-    {% if build is defined %}
-    {%- for image in build %}
-      docker-compose pull --ignore-pull-failures {{ image }}
-      docker-compose build {{ image }}
-    {%- endfor %}
-    {% endif %}
-
-    {% if nocache is defined %}
-    {%- for image in nocache %}
-      docker-compose build --no-cache {{ image }}
-    {%- endfor %}
-    {% endif %}
-
-    {%- for image in run %}
-      docker-compose run --rm -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ image }}
-    {%- endfor %}
-    workingDirectory: arrow
-    displayName: Run docker test
+  - script: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ run }}
+    displayName: Execute Docker Build

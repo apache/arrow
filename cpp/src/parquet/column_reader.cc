@@ -35,6 +35,7 @@
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
 #include "parquet/column_page.h"
@@ -1024,7 +1025,10 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
 
   // Compute the values capacity in bytes for the given number of elements
   int64_t bytes_for_values(int64_t nitems) const {
-    int type_size = GetTypeByteSize(this->descr_->physical_type());
+    int64_t type_size = GetTypeByteSize(this->descr_->physical_type());
+    if (::arrow::internal::HasMultiplyOverflow(nitems, type_size)) {
+      throw ParquetException("Total size of items too large");
+    }
     return nitems * type_size;
   }
 

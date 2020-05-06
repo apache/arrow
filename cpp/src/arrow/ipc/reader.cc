@@ -455,7 +455,7 @@ Status GetCompression(const flatbuf::Message* message, Compression::type* out) {
   *out = Compression::UNCOMPRESSED;
   if (message->custom_metadata() != nullptr) {
     // TODO: Ensure this deserialization only ever happens once
-    std::shared_ptr<const KeyValueMetadata> metadata;
+    std::shared_ptr<KeyValueMetadata> metadata;
     RETURN_NOT_OK(internal::GetKeyValueMetadata(message->custom_metadata(), &metadata));
     int index = metadata->FindKey("ARROW:experimental_compression");
     if (index != -1) {
@@ -899,7 +899,9 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
     auto fb_metadata = footer_->custom_metadata();
     if (fb_metadata != nullptr) {
-      RETURN_NOT_OK(internal::GetKeyValueMetadata(fb_metadata, &metadata_));
+      std::shared_ptr<KeyValueMetadata> md;
+      RETURN_NOT_OK(internal::GetKeyValueMetadata(fb_metadata, &md));
+      metadata_ = std::move(md);  // const-ify
     }
 
     return Status::OK();

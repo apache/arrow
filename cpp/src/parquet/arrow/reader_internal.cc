@@ -568,6 +568,7 @@ Status NodeToSchemaField(const Node& node, int16_t max_def_level, int16_t max_re
   }
 }
 
+// Get the original Arrow schema, as serialized in the Parquet metadata
 Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
                        std::shared_ptr<const KeyValueMetadata>* clean_metadata,
                        std::shared_ptr<::arrow::Schema>* out) {
@@ -585,14 +586,15 @@ Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
     return Status::OK();
   }
 
-  // The original Arrow schema was serialized using the store_schema option. We
-  // deserialize it here and use it to inform read options such as
-  // dictionary-encoded fields
+  // The original Arrow schema was serialized using the store_schema option.
+  // We deserialize it here and use it to inform read options such as
+  // dictionary-encoded fields.
   auto decoded = ::arrow::util::base64_decode(metadata->value(schema_index));
   auto schema_buf = std::make_shared<Buffer>(decoded);
 
   ::arrow::ipc::DictionaryMemo dict_memo;
   ::arrow::io::BufferReader input(schema_buf);
+
   ARROW_ASSIGN_OR_RAISE(*out, ::arrow::ipc::ReadSchema(&input, &dict_memo));
 
   if (metadata->size() > 1) {
@@ -611,6 +613,9 @@ Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
   return Status::OK();
 }
 
+// Restore original Arrow field information that was serialized as Parquet metadata
+// but that is not necessarily present in the field reconstitued from Parquet data
+// (for example, Parquet timestamp types doesn't carry timezone information).
 Status ApplyOriginalMetadata(std::shared_ptr<Field> field, const Field& origin_field,
                              std::shared_ptr<Field>* out) {
   auto origin_type = origin_field.type();
@@ -634,7 +639,16 @@ Status ApplyOriginalMetadata(std::shared_ptr<Field> field, const Field& origin_f
     field = field->WithType(
         ::arrow::dictionary(::arrow::int32(), field->type(), dict_origin_type.ordered()));
   }
-  // restore field metadata
+
+  if (origin_type->id() == ::arrow::Type::EXTENSION) {
+    // Restore extension type, if the storage type is as read from Parquet
+    const auto& ex_type = checked_cast<const ::arrow::ExtensionType&>(*origin_type);
+    if (ex_type.storage_type()->Equals(*field->type())) {
+      field = field->WithType(origin_type);
+    }
+  }
+
+  // Restore field metadata
   std::shared_ptr<const KeyValueMetadata> field_metadata = origin_field.metadata();
   if (field_metadata != nullptr) {
     if (field->metadata()) {
@@ -642,22 +656,6 @@ Status ApplyOriginalMetadata(std::shared_ptr<Field> field, const Field& origin_f
       field_metadata = field_metadata->Merge(*field->metadata());
     }
     field = field->WithMetadata(field_metadata);
-
-    // extension type
-    int name_index = field_metadata->FindKey(::arrow::kExtensionTypeKeyName);
-    if (name_index != -1) {
-      std::string type_name = field_metadata->value(name_index);
-      int data_index = field_metadata->FindKey(::arrow::kExtensionMetadataKeyName);
-      std::string type_data = data_index == -1 ? "" : field_metadata->value(data_index);
-
-      std::shared_ptr<::arrow::ExtensionType> ext_type =
-          ::arrow::GetExtensionType(type_name);
-      if (ext_type != nullptr) {
-        ARROW_ASSIGN_OR_RAISE(auto deserialized,
-                              ext_type->Deserialize(field->type(), type_data));
-        field = field->WithType(deserialized);
-      }
-    }
   }
   *out = field;
   return Status::OK();

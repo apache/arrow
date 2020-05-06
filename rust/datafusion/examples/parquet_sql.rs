@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use arrow::util::pretty;
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
-use datafusion::utils;
 
 /// This example demonstrates executing a simple query against an Arrow data source (Parquet) and
 /// fetching results
@@ -46,7 +46,7 @@ fn main() -> Result<()> {
     let results = ctx.collect(plan.as_ref())?;
 
     // print the results
-    utils::print_batches(&results)?;
+    pretty::print_batches(&results)?;
 
     Ok(())
 }

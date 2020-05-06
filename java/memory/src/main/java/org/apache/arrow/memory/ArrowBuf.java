@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package io.netty.buffer;
+package org.apache.arrow.memory;
 
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 
@@ -27,16 +27,12 @@ import java.nio.ByteOrder;
 import java.nio.ReadOnlyBufferException;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.arrow.memory.AllocationManager;
-import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BaseAllocator.Verbosity;
-import org.apache.arrow.memory.BoundsChecking;
-import org.apache.arrow.memory.BufferLedger;
-import org.apache.arrow.memory.BufferManager;
-import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.util.Preconditions;
+
+import io.netty.buffer.NettyArrowBuf;
 
 /**
  * ArrowBuf serves as a facade over underlying memory by providing

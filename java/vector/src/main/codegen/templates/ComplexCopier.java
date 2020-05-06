@@ -56,9 +56,17 @@ public class ComplexCopier {
         if (reader.isSet()) {
           writer.startList();
           while (reader.next()) {
-            writeValue(reader.reader(), getListWriterForReader(reader.reader(), writer));
+            FieldReader childReader = reader.reader();
+            FieldWriter childWriter = getListWriterForReader(childReader, writer);
+            if (childReader.isSet()) {
+              writeValue(childReader, childWriter);
+            } else {
+              childWriter.writeNull();
+            }
           }
           writer.endList();
+        } else {
+          writer.writeNull();
         }
         break;
       case MAP:
@@ -75,9 +83,13 @@ public class ComplexCopier {
               writeValue(mapReader.key(), getStructWriterForReader(mapReader.key(), structWriter.key(), MapVector.KEY_NAME));
               writeValue(mapReader.value(), getStructWriterForReader(mapReader.value(), structWriter.value(), MapVector.VALUE_NAME));
               mapWriter.endEntry();
+            } else {
+              structWriter.writeNull();
             }
           }
           mapWriter.endMap();
+        } else {
+          writer.writeNull();
         }
         break;
       case STRUCT:
@@ -85,11 +97,16 @@ public class ComplexCopier {
           writer.start();
           for(String name : reader){
             FieldReader childReader = reader.reader(name);
+            FieldWriter childWriter = getStructWriterForReader(childReader, writer, name);
             if(childReader.isSet()){
-              writeValue(childReader, getStructWriterForReader(childReader, writer, name));
+              writeValue(childReader, childWriter);
+            } else {
+              childWriter.writeNull();
             }
           }
           writer.end();
+        } else {
+          writer.writeNull();
         }
         break;
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
@@ -105,6 +122,8 @@ public class ComplexCopier {
           if (${uncappedName}Holder.isSet == 1) {
             writer.write${name}(<#list fields as field>${uncappedName}Holder.${field.name}<#if field_has_next>, </#if></#list><#if minor.class == "Decimal">, new ArrowType.Decimal(decimalHolder.precision, decimalHolder.scale)</#if>);
           }
+        } else {
+          writer.writeNull();
         }
         break;
 
@@ -158,6 +177,7 @@ public class ComplexCopier {
     case FIXED_SIZE_LIST:
     case LIST:
     case MAP:
+    case NULL:
       return (FieldWriter) writer.list();
     default:
       throw new UnsupportedOperationException(reader.getMinorType().toString());

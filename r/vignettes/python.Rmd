@@ -84,7 +84,7 @@ to use it efficiently.
 
 ```r
 b <- Array$create(c(5, 6, 7, 8, 9))
-a_and_b <- pa$concat_arrays(r_to_py(list(a, b)))
+a_and_b <- pa$concat_arrays(list(a, b))
 a_and_b
 
 ## Array

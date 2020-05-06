@@ -24,8 +24,6 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
-import io.netty.buffer.ArrowBuf;
-
 /**
  * Test cases for {@link NettyAllocationManager}.
  */

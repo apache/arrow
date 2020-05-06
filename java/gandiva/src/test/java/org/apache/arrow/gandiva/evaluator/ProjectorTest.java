@@ -35,6 +35,7 @@ import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.expression.ExpressionTree;
 import org.apache.arrow.gandiva.expression.TreeBuilder;
 import org.apache.arrow.gandiva.expression.TreeNode;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.Float8Vector;
@@ -57,8 +58,6 @@ import org.junit.rules.ExpectedException;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-
-import io.netty.buffer.ArrowBuf;
 
 public class ProjectorTest extends BaseEvaluatorTest {
 

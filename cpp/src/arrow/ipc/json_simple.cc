@@ -26,8 +26,8 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/parsing.h"
 #include "arrow/util/string_view.h"
+#include "arrow/util/value_parsing.h"
 
 #include "arrow/json/rapidjson_defs.h"
 

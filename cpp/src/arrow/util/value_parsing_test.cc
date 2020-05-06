@@ -16,16 +16,16 @@
 // under the License.
 
 #include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
-#include "arrow/util/parsing.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
-
-using internal::StringConverter;
+namespace internal {
 
 template <typename ConverterType, typename C_TYPE>
 void AssertConversion(ConverterType& converter, const std::string& s, C_TYPE expected) {
@@ -251,7 +251,7 @@ TEST(StringConversion, ToUInt64) {
   AssertConversionFails(converter, "e");
 }
 
-TEST(StringConversion, ToTimestampDate) {
+TEST(StringConversion, ToTimestampDate_ISO8601) {
   {
     StringConverter<TimestampType> converter(timestamp(TimeUnit::SECOND));
 
@@ -301,7 +301,7 @@ TEST(StringConversion, ToTimestampDate) {
   }
 }
 
-TEST(StringConversion, ToTimestampDateTime) {
+TEST(StringConversion, ToTimestampDateTime_ISO8601) {
   {
     StringConverter<TimestampType> converter(timestamp(TimeUnit::SECOND));
 
@@ -358,4 +358,38 @@ TEST(StringConversion, ToTimestampDateTime) {
   }
 }
 
+TEST(TimestampParser, StrptimeParser) {
+  std::string format = "%m/%d/%Y %H:%M:%S";
+  auto parser = TimestampParser::MakeStrptime(format);
+
+  struct Case {
+    std::string value;
+    std::string iso8601;
+  };
+
+  std::vector<Case> cases = {{"5/31/2000 12:34:56", "2000-05-31 12:34:56"},
+                             {"5/31/2000 00:00:00", "2000-05-31 00:00:00"}};
+
+  std::vector<TimeUnit::type> units = {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO,
+                                       TimeUnit::NANO};
+
+  for (auto unit : units) {
+    for (const auto& case_ : cases) {
+      int64_t converted, expected;
+      ASSERT_TRUE((*parser)(case_.value.c_str(), case_.value.size(), unit, &converted));
+      ASSERT_TRUE(ParseTimestampISO8601(case_.iso8601.c_str(), case_.iso8601.size(), unit,
+                                        &expected));
+      ASSERT_EQ(expected, converted);
+    }
+  }
+
+  // Unparseable strings
+  std::vector<std::string> unparseables = {"foo", "5/1/2000", "5/1/2000 12:34:56:6"};
+  for (auto& value : unparseables) {
+    int64_t dummy;
+    ASSERT_FALSE((*parser)(value.c_str(), value.size(), TimeUnit::SECOND, &dummy));
+  }
+}
+
+}  // namespace internal
 }  // namespace arrow

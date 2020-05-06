@@ -358,36 +358,6 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
   }
 }
 
-static Status TypeFromFlatbuffer(const flatbuf::Field* field,
-                                 const std::vector<std::shared_ptr<Field>>& children,
-                                 const KeyValueMetadata* field_metadata,
-                                 std::shared_ptr<DataType>* out) {
-  auto type_data = field->type();
-  CHECK_FLATBUFFERS_NOT_NULL(type_data, "Field.type");
-  RETURN_NOT_OK(ConcreteTypeFromFlatbuffer(field->type_type(), type_data, children, out));
-
-  // Look for extension metadata in custom_metadata field
-  // TODO(wesm): Should this be part of the Field Flatbuffers table?
-  if (field_metadata != nullptr) {
-    int name_index = field_metadata->FindKey(kExtensionTypeKeyName);
-    if (name_index == -1) {
-      return Status::OK();
-    }
-    std::string type_name = field_metadata->value(name_index);
-    int data_index = field_metadata->FindKey(kExtensionMetadataKeyName);
-    std::string type_data = data_index == -1 ? "" : field_metadata->value(data_index);
-
-    std::shared_ptr<ExtensionType> type = GetExtensionType(type_name);
-    if (type == nullptr) {
-      // TODO(wesm): Extension type is unknown; we do not raise here and simply
-      // return the raw data
-      return Status::OK();
-    }
-    ARROW_ASSIGN_OR_RAISE(*out, type->Deserialize(*out, type_data));
-  }
-  return Status::OK();
-}
-
 Status TensorTypeToFlatbuffer(FBB& fbb, const DataType& type, flatbuf::Type* out_type,
                               Offset* offset) {
   switch (type.id()) {
@@ -426,12 +396,11 @@ Status TensorTypeToFlatbuffer(FBB& fbb, const DataType& type, flatbuf::Type* out
   return Status::OK();
 }
 
-Status GetDictionaryEncoding(FBB& fbb, const std::shared_ptr<Field>& field,
-                             DictionaryMemo* memo, DictionaryOffset* out) {
+static Status GetDictionaryEncoding(FBB& fbb, const std::shared_ptr<Field>& field,
+                                    const DictionaryType& type, DictionaryMemo* memo,
+                                    DictionaryOffset* out) {
   int64_t dictionary_id = -1;
   RETURN_NOT_OK(memo->GetOrAssignId(field, &dictionary_id));
-
-  const auto& type = checked_cast<const DictionaryType&>(*field->type());
 
   // We assume that the dictionary index type (as an integer) has already been
   // validated elsewhere, and can safely assume we are dealing with signed
@@ -446,13 +415,13 @@ Status GetDictionaryEncoding(FBB& fbb, const std::shared_ptr<Field>& field,
   return Status::OK();
 }
 
-KeyValueOffset AppendKeyValue(FBB& fbb, const std::string& key,
-                              const std::string& value) {
+static KeyValueOffset AppendKeyValue(FBB& fbb, const std::string& key,
+                                     const std::string& value) {
   return flatbuf::CreateKeyValue(fbb, fbb.CreateString(key), fbb.CreateString(value));
 }
 
-void AppendKeyValueMetadata(FBB& fbb, const KeyValueMetadata& metadata,
-                            std::vector<KeyValueOffset>* key_values) {
+static void AppendKeyValueMetadata(FBB& fbb, const KeyValueMetadata& metadata,
+                                   std::vector<KeyValueOffset>* key_values) {
   key_values->reserve(metadata.size());
   for (int i = 0; i < metadata.size(); ++i) {
     key_values->push_back(AppendKeyValue(fbb, metadata.key(i), metadata.value(i)));
@@ -685,8 +654,15 @@ class FieldToFlatbufferVisitor {
     auto fb_children = fbb_.CreateVector(children_.data(), children_.size());
 
     DictionaryOffset dictionary = 0;
-    if (field->type()->id() == Type::DICTIONARY) {
-      RETURN_NOT_OK(GetDictionaryEncoding(fbb_, field, dictionary_memo_, &dictionary));
+    const DataType* storage_type = field->type().get();
+    if (storage_type->id() == Type::EXTENSION) {
+      storage_type =
+          checked_cast<const ExtensionType&>(*storage_type).storage_type().get();
+    }
+    if (storage_type->id() == Type::DICTIONARY) {
+      RETURN_NOT_OK(GetDictionaryEncoding(
+          fbb_, field, checked_cast<const DictionaryType&>(*storage_type),
+          dictionary_memo_, &dictionary));
     }
 
     auto metadata = field->metadata();
@@ -697,8 +673,8 @@ class FieldToFlatbufferVisitor {
       AppendKeyValueMetadata(fbb_, *metadata, &key_values);
     }
 
-    for (auto it : extra_type_metadata_) {
-      key_values.push_back(AppendKeyValue(fbb_, it.first, it.second));
+    for (const auto& pair : extra_type_metadata_) {
+      key_values.push_back(AppendKeyValue(fbb_, pair.first, pair.second));
     }
 
     if (key_values.size() > 0) {
@@ -729,23 +705,28 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictiona
                            std::shared_ptr<Field>* out) {
   std::shared_ptr<DataType> type;
 
-  std::shared_ptr<const KeyValueMetadata> metadata;
+  std::shared_ptr<KeyValueMetadata> metadata;
   RETURN_NOT_OK(internal::GetKeyValueMetadata(field->custom_metadata(), &metadata));
 
   // Reconstruct the data type
-  auto children = field->children();
+  // 1. Data type children
+  const auto& children = field->children();
   CHECK_FLATBUFFERS_NOT_NULL(children, "Field.children");
   std::vector<std::shared_ptr<Field>> child_fields(children->size());
   for (int i = 0; i < static_cast<int>(children->size()); ++i) {
     RETURN_NOT_OK(
         FieldFromFlatbuffer(children->Get(i), dictionary_memo, &child_fields[i]));
   }
-  RETURN_NOT_OK(TypeFromFlatbuffer(field, child_fields, metadata.get(), &type));
 
-  auto field_name = StringFromFlatbuffers(field->name());
+  // 2. Top-level concrete data type
+  auto type_data = field->type();
+  CHECK_FLATBUFFERS_NOT_NULL(type_data, "Field.type");
+  RETURN_NOT_OK(
+      ConcreteTypeFromFlatbuffer(field->type_type(), type_data, child_fields, &type));
 
+  // 3. Is it a dictionary type?
+  int64_t dictionary_id = -1;
   const flatbuf::DictionaryEncoding* encoding = field->dictionary();
-
   if (encoding != nullptr) {
     // The field is dictionary-encoded. Construct the DictionaryType
     // based on the DictionaryEncoding metadata and record in the
@@ -756,10 +737,39 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictiona
     RETURN_NOT_OK(IntFromFlatbuffer(int_data, &index_type));
     ARROW_ASSIGN_OR_RAISE(type,
                           DictionaryType::Make(index_type, type, encoding->isOrdered()));
-    *out = ::arrow::field(field_name, type, field->nullable(), metadata);
-    RETURN_NOT_OK(dictionary_memo->AddField(encoding->id(), *out));
-  } else {
-    *out = ::arrow::field(field_name, type, field->nullable(), metadata);
+    dictionary_id = encoding->id();
+  }
+
+  // 4. Is it an extension type?
+  if (metadata != nullptr) {
+    // Look for extension metadata in custom_metadata field
+    int name_index = metadata->FindKey(kExtensionTypeKeyName);
+    if (name_index != -1) {
+      std::shared_ptr<ExtensionType> ext_type =
+          GetExtensionType(metadata->value(name_index));
+      if (ext_type != nullptr) {
+        int data_index = metadata->FindKey(kExtensionMetadataKeyName);
+        std::string type_data = data_index == -1 ? "" : metadata->value(data_index);
+
+        ARROW_ASSIGN_OR_RAISE(type, ext_type->Deserialize(type, type_data));
+        // Remove the metadata, for faithful roundtripping
+        if (data_index != -1) {
+          RETURN_NOT_OK(metadata->DeleteMany({name_index, data_index}));
+        } else {
+          RETURN_NOT_OK(metadata->Delete(name_index));
+        }
+      }
+      // NOTE: if extension type is unknown, we do not raise here and
+      // simply return the storage type.
+    }
+  }
+
+  // Reconstruct field
+  auto field_name = StringFromFlatbuffers(field->name());
+  *out =
+      ::arrow::field(std::move(field_name), type, field->nullable(), std::move(metadata));
+  if (dictionary_id != -1) {
+    RETURN_NOT_OK(dictionary_memo->AddField(dictionary_id, *out));
   }
   return Status::OK();
 }
@@ -1070,7 +1080,7 @@ Status MakeSparseTensor(FBB& fbb, const SparseTensor& sparse_tensor, int64_t bod
 }  // namespace
 
 Status GetKeyValueMetadata(const KVVector* fb_metadata,
-                           std::shared_ptr<const KeyValueMetadata>* out) {
+                           std::shared_ptr<KeyValueMetadata>* out) {
   if (fb_metadata == nullptr) {
     *out = nullptr;
     return Status::OK();
@@ -1238,7 +1248,7 @@ Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
     RETURN_NOT_OK(FieldFromFlatbuffer(field, dictionary_memo, &fields[i]));
   }
 
-  std::shared_ptr<const KeyValueMetadata> metadata;
+  std::shared_ptr<KeyValueMetadata> metadata;
   RETURN_NOT_OK(internal::GetKeyValueMetadata(schema->custom_metadata(), &metadata));
   *out = ::arrow::schema(std::move(fields), metadata);
   return Status::OK();
