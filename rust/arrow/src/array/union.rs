@@ -400,6 +400,7 @@ impl FieldData {
             let mutable_buffer = builder_to_mutable_buffer(builder);
             self.values_buffer = Some(mutable_buffer);
             self.slots += 1;
+            self.null_count += 1;
             b.append(false)?;
         };
         Ok(())
