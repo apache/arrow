@@ -64,17 +64,14 @@ namespace internal {
 /// so it's recommended to use a single instance many times, if doing bulk
 /// conversion. Instances of this class are not guaranteed to be thread-safe.
 ///
-template <typename ARROW_TYPE, typename Enable = void>
-class StringConverter;
+template <typename ARROW_TYPE, typename... Args>
+struct StringConverter;
 
 template <>
-class StringConverter<BooleanType> {
- public:
-  explicit StringConverter(const std::shared_ptr<DataType>& = NULLPTR) {}
-
+struct StringConverter<BooleanType> {
   using value_type = bool;
 
-  bool operator()(const char* s, size_t length, value_type* out) {
+  static bool Convert(const char* s, size_t length, value_type* out) {
     if (length == 1) {
       // "0" or "1"?
       if (s[0] == '0') {
@@ -109,39 +106,28 @@ class StringConverter<BooleanType> {
 // - https://github.com/google/double-conversion [used here]
 // - https://github.com/achan001/dtoa-fast
 
-class ARROW_EXPORT StringToFloatConverter {
- public:
-  StringToFloatConverter();
-  ~StringToFloatConverter();
+ARROW_EXPORT
+bool StringToFloat(const char* s, size_t length, float* out);
 
-  bool StringToFloat(const char* s, size_t length, float* out);
-  bool StringToFloat(const char* s, size_t length, double* out);
+ARROW_EXPORT
+bool StringToFloat(const char* s, size_t length, double* out);
 
- protected:
-  struct Impl;
-  std::unique_ptr<Impl> impl_;
-};
+template <>
+struct StringConverter<FloatType> {
+  using value_type = float;
 
-template <class ARROW_TYPE>
-class StringToFloatConverterMixin : public StringToFloatConverter {
- public:
-  using value_type = typename ARROW_TYPE::c_type;
-
-  explicit StringToFloatConverterMixin(const std::shared_ptr<DataType>& = NULLPTR) {}
-
-  bool operator()(const char* s, size_t length, value_type* out) {
+  static bool Convert(const char* s, size_t length, value_type* out) {
     return ARROW_PREDICT_TRUE(StringToFloat(s, length, out));
   }
 };
 
 template <>
-class StringConverter<FloatType> : public StringToFloatConverterMixin<FloatType> {
-  using StringToFloatConverterMixin<FloatType>::StringToFloatConverterMixin;
-};
+struct StringConverter<DoubleType> {
+  using value_type = double;
 
-template <>
-class StringConverter<DoubleType> : public StringToFloatConverterMixin<DoubleType> {
-  using StringToFloatConverterMixin<DoubleType>::StringToFloatConverterMixin;
+  static bool Convert(const char* s, size_t length, value_type* out) {
+    return ARROW_PREDICT_TRUE(StringToFloat(s, length, out));
+  }
 };
 
 // NOTE: HalfFloatType would require a half<->float conversion library
@@ -264,14 +250,10 @@ inline bool ParseUnsigned(const char* s, size_t length, uint64_t* out) {
 }  // namespace detail
 
 template <class ARROW_TYPE>
-class StringToUnsignedIntConverterMixin {
- public:
+struct StringToUnsignedIntConverterMixin {
   using value_type = typename ARROW_TYPE::c_type;
 
-  explicit StringToUnsignedIntConverterMixin(const std::shared_ptr<DataType>& = NULLPTR) {
-  }
-
-  bool operator()(const char* s, size_t length, value_type* out) {
+  static bool Convert(const char* s, size_t length, value_type* out) {
     if (ARROW_PREDICT_FALSE(length == 0)) {
       return false;
     }
@@ -285,34 +267,34 @@ class StringToUnsignedIntConverterMixin {
 };
 
 template <>
-class StringConverter<UInt8Type> : public StringToUnsignedIntConverterMixin<UInt8Type> {
+struct StringConverter<UInt8Type> : public StringToUnsignedIntConverterMixin<UInt8Type> {
   using StringToUnsignedIntConverterMixin<UInt8Type>::StringToUnsignedIntConverterMixin;
 };
 
 template <>
-class StringConverter<UInt16Type> : public StringToUnsignedIntConverterMixin<UInt16Type> {
+struct StringConverter<UInt16Type>
+    : public StringToUnsignedIntConverterMixin<UInt16Type> {
   using StringToUnsignedIntConverterMixin<UInt16Type>::StringToUnsignedIntConverterMixin;
 };
 
 template <>
-class StringConverter<UInt32Type> : public StringToUnsignedIntConverterMixin<UInt32Type> {
+struct StringConverter<UInt32Type>
+    : public StringToUnsignedIntConverterMixin<UInt32Type> {
   using StringToUnsignedIntConverterMixin<UInt32Type>::StringToUnsignedIntConverterMixin;
 };
 
 template <>
-class StringConverter<UInt64Type> : public StringToUnsignedIntConverterMixin<UInt64Type> {
+struct StringConverter<UInt64Type>
+    : public StringToUnsignedIntConverterMixin<UInt64Type> {
   using StringToUnsignedIntConverterMixin<UInt64Type>::StringToUnsignedIntConverterMixin;
 };
 
 template <class ARROW_TYPE>
-class StringToSignedIntConverterMixin {
- public:
+struct StringToSignedIntConverterMixin {
   using value_type = typename ARROW_TYPE::c_type;
   using unsigned_type = typename std::make_unsigned<value_type>::type;
 
-  explicit StringToSignedIntConverterMixin(const std::shared_ptr<DataType>& = NULLPTR) {}
-
-  bool operator()(const char* s, size_t length, value_type* out) {
+  static bool Convert(const char* s, size_t length, value_type* out) {
     static constexpr unsigned_type max_positive =
         static_cast<unsigned_type>(std::numeric_limits<value_type>::max());
     // Assuming two's complement
@@ -357,22 +339,22 @@ class StringToSignedIntConverterMixin {
 };
 
 template <>
-class StringConverter<Int8Type> : public StringToSignedIntConverterMixin<Int8Type> {
+struct StringConverter<Int8Type> : public StringToSignedIntConverterMixin<Int8Type> {
   using StringToSignedIntConverterMixin<Int8Type>::StringToSignedIntConverterMixin;
 };
 
 template <>
-class StringConverter<Int16Type> : public StringToSignedIntConverterMixin<Int16Type> {
+struct StringConverter<Int16Type> : public StringToSignedIntConverterMixin<Int16Type> {
   using StringToSignedIntConverterMixin<Int16Type>::StringToSignedIntConverterMixin;
 };
 
 template <>
-class StringConverter<Int32Type> : public StringToSignedIntConverterMixin<Int32Type> {
+struct StringConverter<Int32Type> : public StringToSignedIntConverterMixin<Int32Type> {
   using StringToSignedIntConverterMixin<Int32Type>::StringToSignedIntConverterMixin;
 };
 
 template <>
-class StringConverter<Int64Type> : public StringToSignedIntConverterMixin<Int64Type> {
+struct StringConverter<Int64Type> : public StringToSignedIntConverterMixin<Int64Type> {
   using StringToSignedIntConverterMixin<Int64Type>::StringToSignedIntConverterMixin;
 };
 
@@ -583,23 +565,6 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   *out = detail::ConvertTimePoint(secs, unit);
   return true;
 }
-
-// A StringConverter that parses ISO8601 at a fixed unit
-template <>
-class StringConverter<TimestampType> {
- public:
-  using value_type = TimestampType::c_type;
-
-  explicit StringConverter(const std::shared_ptr<DataType>& type)
-      : unit_(checked_cast<TimestampType*>(type.get())->unit()) {}
-
-  bool operator()(const char* s, size_t length, value_type* out) {
-    return ParseTimestampISO8601(s, length, unit_, out);
-  }
-
- private:
-  const TimeUnit::type unit_;
-};
 
 }  // namespace internal
 }  // namespace arrow

@@ -352,7 +352,6 @@ class NumericConverter : public ConcreteConverter {
     using value_type = typename StringConverter<T>::value_type;
 
     BuilderType builder(type_, pool_);
-    StringConverter<T> converter;
 
     auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
       // XXX should quoted values be allowed at all?
@@ -364,8 +363,8 @@ class NumericConverter : public ConcreteConverter {
       if (!std::is_same<BooleanType, T>::value) {
         TrimWhiteSpace(&data, &size);
       }
-      if (ARROW_PREDICT_FALSE(
-              !converter(reinterpret_cast<const char*>(data), size, &value))) {
+      if (ARROW_PREDICT_FALSE(!StringConverter<T>::Convert(
+              reinterpret_cast<const char*>(data), size, &value))) {
         return GenericConversionError(type_, data, size);
       }
       builder.UnsafeAppend(value);

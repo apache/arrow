@@ -1351,6 +1351,8 @@ class ArrayReader {
   template <typename T>
   Status GetIntArray(const RjArray& json_array, const int32_t length,
                      std::shared_ptr<Buffer>* out) {
+    using ConverterType =
+        ::arrow::internal::StringConverter<typename CTypeTraits<T>::ArrowType>;
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(length * sizeof(T), pool_));
 
     T* values = reinterpret_cast<T*>(buffer->mutable_data());
@@ -1367,11 +1369,11 @@ class ArrayReader {
     } else {
       // Read 64-bit integers as strings, as JSON numbers cannot represent
       // them exactly.
-      ::arrow::internal::StringConverter<typename CTypeTraits<T>::ArrowType> converter;
+
       for (int i = 0; i < length; ++i) {
         const rj::Value& val = json_array[i];
         DCHECK(val.IsString());
-        if (!converter(val.GetString(), val.GetStringLength(), &values[i])) {
+        if (!ConverterType::Convert(val.GetString(), val.GetStringLength(), &values[i])) {
           return Status::Invalid("Failed to parse integer: '",
                                  std::string(val.GetString(), val.GetStringLength()),
                                  "'");

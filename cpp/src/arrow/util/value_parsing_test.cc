@@ -27,58 +27,55 @@
 namespace arrow {
 namespace internal {
 
-template <typename ConverterType, typename C_TYPE>
-void AssertConversion(ConverterType& converter, const std::string& s, C_TYPE expected) {
-  typename ConverterType::value_type out;
-  ASSERT_TRUE(converter(s.data(), s.length(), &out))
+template <typename Converter, typename C_TYPE>
+void AssertConversion(const std::string& s, C_TYPE expected) {
+  typename Converter::value_type out;
+  ASSERT_TRUE(Converter::Convert(s.data(), s.length(), &out))
       << "Conversion failed for '" << s << "' (expected to return " << expected << ")";
   ASSERT_EQ(out, expected) << "Conversion failed for '" << s << "'";
 }
 
-template <typename ConverterType>
-void AssertConversionFails(ConverterType& converter, const std::string& s) {
-  typename ConverterType::value_type out;
-  ASSERT_FALSE(converter(s.data(), s.length(), &out))
+template <typename Converter>
+void AssertConversionFails(const std::string& s) {
+  typename Converter::value_type out;
+  ASSERT_FALSE(Converter::Convert(s.data(), s.length(), &out))
       << "Conversion should have failed for '" << s << "' (returned " << out << ")";
 }
 
 TEST(StringConversion, ToBoolean) {
-  StringConverter<BooleanType> converter;
+  using CType = StringConverter<BooleanType>;
+  AssertConversion<CType>("true", true);
+  AssertConversion<CType>("tRuE", true);
+  AssertConversion<CType>("FAlse", false);
+  AssertConversion<CType>("false", false);
+  AssertConversion<CType>("1", true);
+  AssertConversion<CType>("0", false);
 
-  AssertConversion(converter, "true", true);
-  AssertConversion(converter, "tRuE", true);
-  AssertConversion(converter, "FAlse", false);
-  AssertConversion(converter, "false", false);
-  AssertConversion(converter, "1", true);
-  AssertConversion(converter, "0", false);
-
-  AssertConversionFails(converter, "");
+  AssertConversionFails<CType>("");
 }
 
 TEST(StringConversion, ToFloat) {
-  StringConverter<FloatType> converter;
-
-  AssertConversion(converter, "1.5", 1.5f);
-  AssertConversion(converter, "0", 0.0f);
+  using CType = StringConverter<FloatType>;
+  AssertConversion<CType>("1.5", 1.5f);
+  AssertConversion<CType>("0", 0.0f);
   // XXX ASSERT_EQ doesn't distinguish signed zeros
-  AssertConversion(converter, "-0.0", -0.0f);
-  AssertConversion(converter, "-1e20", -1e20f);
+  AssertConversion<CType>("-0.0", -0.0f);
+  AssertConversion<CType>("-1e20", -1e20f);
 
-  AssertConversionFails(converter, "");
-  AssertConversionFails(converter, "e");
+  AssertConversionFails<CType>("");
+  AssertConversionFails<CType>("e");
 }
 
 TEST(StringConversion, ToDouble) {
-  StringConverter<DoubleType> converter;
-
-  AssertConversion(converter, "1.5", 1.5);
-  AssertConversion(converter, "0", 0);
+  using CType = StringConverter<DoubleType>;
+  AssertConversion<CType>("1.5", 1.5);
+  AssertConversion<CType>("0", 0);
   // XXX ASSERT_EQ doesn't distinguish signed zeros
-  AssertConversion(converter, "-0.0", -0.0);
-  AssertConversion(converter, "-1e100", -1e100);
+  AssertConversion<CType>("-0.0", -0.0);
+  AssertConversion<CType>("-1e100", -1e100);
 
-  AssertConversionFails(converter, "");
-  AssertConversionFails(converter, "e");
+  AssertConversionFails<CType>("");
+  AssertConversionFails<CType>("e");
 }
 
 #if !defined(_WIN32) || defined(NDEBUG)
@@ -87,274 +84,283 @@ TEST(StringConversion, ToFloatLocale) {
   // French locale uses the comma as decimal point
   LocaleGuard locale_guard("fr_FR.UTF-8");
 
-  StringConverter<FloatType> converter;
-  AssertConversion(converter, "1.5", 1.5f);
+  AssertConversion<StringConverter<FloatType>>("1.5", 1.5f);
 }
 
 TEST(StringConversion, ToDoubleLocale) {
   // French locale uses the comma as decimal point
   LocaleGuard locale_guard("fr_FR.UTF-8");
 
-  StringConverter<DoubleType> converter;
-  AssertConversion(converter, "1.5", 1.5f);
+  AssertConversion<StringConverter<DoubleType>>("1.5", 1.5f);
 }
 
 #endif  // _WIN32
 
 TEST(StringConversion, ToInt8) {
-  StringConverter<Int8Type> converter;
+  using CType = StringConverter<Int8Type>;
 
-  AssertConversion(converter, "0", 0);
-  AssertConversion(converter, "127", 127);
-  AssertConversion(converter, "0127", 127);
-  AssertConversion(converter, "-128", -128);
-  AssertConversion(converter, "-00128", -128);
+  AssertConversion<CType>("0", 0);
+  AssertConversion<CType>("127", 127);
+  AssertConversion<CType>("0127", 127);
+  AssertConversion<CType>("-128", -128);
+  AssertConversion<CType>("-00128", -128);
 
   // Non-representable values
-  AssertConversionFails(converter, "128");
-  AssertConversionFails(converter, "-129");
+  AssertConversionFails<CType>("128");
+  AssertConversionFails<CType>("-129");
 
-  AssertConversionFails(converter, "");
-  AssertConversionFails(converter, "-");
-  AssertConversionFails(converter, "0.0");
-  AssertConversionFails(converter, "e");
+  AssertConversionFails<CType>("");
+  AssertConversionFails<CType>("-");
+  AssertConversionFails<CType>("0.0");
+  AssertConversionFails<CType>("e");
 }
 
 TEST(StringConversion, ToUInt8) {
-  StringConverter<UInt8Type> converter;
+  using CType = StringConverter<UInt8Type>;
 
-  AssertConversion(converter, "0", 0);
-  AssertConversion(converter, "26", 26);
-  AssertConversion(converter, "255", 255);
-  AssertConversion(converter, "0255", 255);
+  AssertConversion<CType>("0", 0);
+  AssertConversion<CType>("26", 26);
+  AssertConversion<CType>("255", 255);
+  AssertConversion<CType>("0255", 255);
 
   // Non-representable values
-  AssertConversionFails(converter, "-1");
-  AssertConversionFails(converter, "256");
-  AssertConversionFails(converter, "260");
-  AssertConversionFails(converter, "1234");
+  AssertConversionFails<CType>("-1");
+  AssertConversionFails<CType>("256");
+  AssertConversionFails<CType>("260");
+  AssertConversionFails<CType>("1234");
 
-  AssertConversionFails(converter, "");
-  AssertConversionFails(converter, "-");
-  AssertConversionFails(converter, "0.0");
-  AssertConversionFails(converter, "e");
+  AssertConversionFails<CType>("");
+  AssertConversionFails<CType>("-");
+  AssertConversionFails<CType>("0.0");
+  AssertConversionFails<CType>("e");
 }
 
 TEST(StringConversion, ToInt16) {
-  StringConverter<Int16Type> converter;
+  using CType = StringConverter<Int16Type>;
 
-  AssertConversion(converter, "0", 0);
-  AssertConversion(converter, "32767", 32767);
-  AssertConversion(converter, "032767", 32767);
-  AssertConversion(converter, "-32768", -32768);
-  AssertConversion(converter, "-0032768", -32768);
+  AssertConversion<CType>("0", 0);
+  AssertConversion<CType>("32767", 32767);
+  AssertConversion<CType>("032767", 32767);
+  AssertConversion<CType>("-32768", -32768);
+  AssertConversion<CType>("-0032768", -32768);
 
   // Non-representable values
-  AssertConversionFails(converter, "32768");
-  AssertConversionFails(converter, "-32769");
+  AssertConversionFails<CType>("32768");
+  AssertConversionFails<CType>("-32769");
 
-  AssertConversionFails(converter, "");
-  AssertConversionFails(converter, "-");
-  AssertConversionFails(converter, "0.0");
-  AssertConversionFails(converter, "e");
+  AssertConversionFails<CType>("");
+  AssertConversionFails<CType>("-");
+  AssertConversionFails<CType>("0.0");
+  AssertConversionFails<CType>("e");
 }
 
 TEST(StringConversion, ToUInt16) {
-  StringConverter<UInt16Type> converter;
+  using CType = StringConverter<UInt16Type>;
 
-  AssertConversion(converter, "0", 0);
-  AssertConversion(converter, "6660", 6660);
-  AssertConversion(converter, "65535", 65535);
-  AssertConversion(converter, "065535", 65535);
+  AssertConversion<CType>("0", 0);
+  AssertConversion<CType>("6660", 6660);
+  AssertConversion<CType>("65535", 65535);
+  AssertConversion<CType>("065535", 65535);
 
   // Non-representable values
-  AssertConversionFails(converter, "-1");
-  AssertConversionFails(converter, "65536");
-  AssertConversionFails(converter, "123456");
+  AssertConversionFails<CType>("-1");
+  AssertConversionFails<CType>("65536");
+  AssertConversionFails<CType>("123456");
 
-  AssertConversionFails(converter, "");
-  AssertConversionFails(converter, "-");
-  AssertConversionFails(converter, "0.0");
-  AssertConversionFails(converter, "e");
+  AssertConversionFails<CType>("");
+  AssertConversionFails<CType>("-");
+  AssertConversionFails<CType>("0.0");
+  AssertConversionFails<CType>("e");
 }
 
 TEST(StringConversion, ToInt32) {
-  StringConverter<Int32Type> converter;
+  using CType = StringConverter<Int32Type>;
 
-  AssertConversion(converter, "0", 0);
-  AssertConversion(converter, "2147483647", 2147483647);
-  AssertConversion(converter, "02147483647", 2147483647);
-  AssertConversion(converter, "-2147483648", -2147483648LL);
-  AssertConversion(converter, "-002147483648", -2147483648LL);
+  AssertConversion<CType>("0", 0);
+  AssertConversion<CType>("2147483647", 2147483647);
+  AssertConversion<CType>("02147483647", 2147483647);
+  AssertConversion<CType>("-2147483648", -2147483648LL);
+  AssertConversion<CType>("-002147483648", -2147483648LL);
 
   // Non-representable values
-  AssertConversionFails(converter, "2147483648");
-  AssertConversionFails(converter, "-2147483649");
+  AssertConversionFails<CType>("2147483648");
+  AssertConversionFails<CType>("-2147483649");
 
-  AssertConversionFails(converter, "");
-  AssertConversionFails(converter, "-");
-  AssertConversionFails(converter, "0.0");
-  AssertConversionFails(converter, "e");
+  AssertConversionFails<CType>("");
+  AssertConversionFails<CType>("-");
+  AssertConversionFails<CType>("0.0");
+  AssertConversionFails<CType>("e");
 }
 
 TEST(StringConversion, ToUInt32) {
-  StringConverter<UInt32Type> converter;
+  using CType = StringConverter<UInt32Type>;
 
-  AssertConversion(converter, "0", 0);
-  AssertConversion(converter, "432198765", 432198765UL);
-  AssertConversion(converter, "4294967295", 4294967295UL);
-  AssertConversion(converter, "04294967295", 4294967295UL);
+  AssertConversion<CType>("0", 0);
+  AssertConversion<CType>("432198765", 432198765UL);
+  AssertConversion<CType>("4294967295", 4294967295UL);
+  AssertConversion<CType>("04294967295", 4294967295UL);
 
   // Non-representable values
-  AssertConversionFails(converter, "-1");
-  AssertConversionFails(converter, "4294967296");
-  AssertConversionFails(converter, "12345678901");
+  AssertConversionFails<CType>("-1");
+  AssertConversionFails<CType>("4294967296");
+  AssertConversionFails<CType>("12345678901");
 
-  AssertConversionFails(converter, "");
-  AssertConversionFails(converter, "-");
-  AssertConversionFails(converter, "0.0");
-  AssertConversionFails(converter, "e");
+  AssertConversionFails<CType>("");
+  AssertConversionFails<CType>("-");
+  AssertConversionFails<CType>("0.0");
+  AssertConversionFails<CType>("e");
 }
 
 TEST(StringConversion, ToInt64) {
-  StringConverter<Int64Type> converter;
+  using CType = StringConverter<Int64Type>;
 
-  AssertConversion(converter, "0", 0);
-  AssertConversion(converter, "9223372036854775807", 9223372036854775807LL);
-  AssertConversion(converter, "09223372036854775807", 9223372036854775807LL);
-  AssertConversion(converter, "-9223372036854775808", -9223372036854775807LL - 1);
-  AssertConversion(converter, "-009223372036854775808", -9223372036854775807LL - 1);
+  AssertConversion<CType>("0", 0);
+  AssertConversion<CType>("9223372036854775807", 9223372036854775807LL);
+  AssertConversion<CType>("09223372036854775807", 9223372036854775807LL);
+  AssertConversion<CType>("-9223372036854775808", -9223372036854775807LL - 1);
+  AssertConversion<CType>("-009223372036854775808", -9223372036854775807LL - 1);
 
   // Non-representable values
-  AssertConversionFails(converter, "9223372036854775808");
-  AssertConversionFails(converter, "-9223372036854775809");
+  AssertConversionFails<CType>("9223372036854775808");
+  AssertConversionFails<CType>("-9223372036854775809");
 
-  AssertConversionFails(converter, "");
-  AssertConversionFails(converter, "-");
-  AssertConversionFails(converter, "0.0");
-  AssertConversionFails(converter, "e");
+  AssertConversionFails<CType>("");
+  AssertConversionFails<CType>("-");
+  AssertConversionFails<CType>("0.0");
+  AssertConversionFails<CType>("e");
 }
 
 TEST(StringConversion, ToUInt64) {
-  StringConverter<UInt64Type> converter;
+  using CType = StringConverter<UInt64Type>;
 
-  AssertConversion(converter, "0", 0);
-  AssertConversion(converter, "18446744073709551615", 18446744073709551615ULL);
+  AssertConversion<CType>("0", 0);
+  AssertConversion<CType>("18446744073709551615", 18446744073709551615ULL);
 
   // Non-representable values
-  AssertConversionFails(converter, "-1");
-  AssertConversionFails(converter, "18446744073709551616");
+  AssertConversionFails<CType>("-1");
+  AssertConversionFails<CType>("18446744073709551616");
 
-  AssertConversionFails(converter, "");
-  AssertConversionFails(converter, "-");
-  AssertConversionFails(converter, "0.0");
-  AssertConversionFails(converter, "e");
+  AssertConversionFails<CType>("");
+  AssertConversionFails<CType>("-");
+  AssertConversionFails<CType>("0.0");
+  AssertConversionFails<CType>("e");
 }
+
+template <TimeUnit::type UNIT>
+struct TimestampChecks {
+  static void AssertPasses(const std::string& s, int64_t expected) {
+    auto parser = TimestampParser::MakeISO8601();
+    int64_t out;
+    ASSERT_TRUE((*parser)(s.data(), s.length(), UNIT, &out))
+        << "Conversion failed for '" << s << "' (expected to return " << expected << ")";
+    ASSERT_EQ(out, expected) << "Conversion failed for '" << s << "'";
+  }
+
+  static void AssertFails(const std::string& s) {
+    auto parser = TimestampParser::MakeISO8601();
+    int64_t out;
+    ASSERT_FALSE((*parser)(s.data(), s.length(), UNIT, &out))
+        << "Conversion should have failed for '" << s << "' (returned " << out << ")";
+  }
+};
+
+auto AssertSecond = TimestampChecks<TimeUnit::SECOND>::AssertPasses;
+auto AssertSecondFails = TimestampChecks<TimeUnit::SECOND>::AssertFails;
+auto AssertMilli = TimestampChecks<TimeUnit::MILLI>::AssertPasses;
+auto AssertMilliFails = TimestampChecks<TimeUnit::MILLI>::AssertFails;
+auto AssertMicro = TimestampChecks<TimeUnit::MICRO>::AssertPasses;
+auto AssertMicroFails = TimestampChecks<TimeUnit::MICRO>::AssertFails;
+auto AssertNano = TimestampChecks<TimeUnit::NANO>::AssertPasses;
+auto AssertNanoFails = TimestampChecks<TimeUnit::NANO>::AssertFails;
 
 TEST(StringConversion, ToTimestampDate_ISO8601) {
   {
-    StringConverter<TimestampType> converter(timestamp(TimeUnit::SECOND));
+    AssertSecond("1970-01-01", 0);
+    AssertSecond("1989-07-14", 616377600);
+    AssertSecond("2000-02-29", 951782400);
+    AssertSecond("3989-07-14", 63730281600LL);
+    AssertSecond("1900-02-28", -2203977600LL);
 
-    AssertConversion(converter, "1970-01-01", 0);
-    AssertConversion(converter, "1989-07-14", 616377600);
-    AssertConversion(converter, "2000-02-29", 951782400);
-    AssertConversion(converter, "3989-07-14", 63730281600LL);
-    AssertConversion(converter, "1900-02-28", -2203977600LL);
-
-    AssertConversionFails(converter, "");
-    AssertConversionFails(converter, "1970");
-    AssertConversionFails(converter, "19700101");
-    AssertConversionFails(converter, "1970/01/01");
-    AssertConversionFails(converter, "1970-01-01 ");
-    AssertConversionFails(converter, "1970-01-01Z");
+    AssertSecondFails("");
+    AssertSecondFails("1970");
+    AssertSecondFails("19700101");
+    AssertSecondFails("1970/01/01");
+    AssertSecondFails("1970-01-01 ");
+    AssertSecondFails("1970-01-01Z");
 
     // Invalid dates
-    AssertConversionFails(converter, "1970-00-01");
-    AssertConversionFails(converter, "1970-13-01");
-    AssertConversionFails(converter, "1970-01-32");
-    AssertConversionFails(converter, "1970-02-29");
-    AssertConversionFails(converter, "2100-02-29");
+    AssertSecondFails("1970-00-01");
+    AssertSecondFails("1970-13-01");
+    AssertSecondFails("1970-01-32");
+    AssertSecondFails("1970-02-29");
+    AssertSecondFails("2100-02-29");
   }
   {
-    StringConverter<TimestampType> converter(timestamp(TimeUnit::MILLI));
-
-    AssertConversion(converter, "1970-01-01", 0);
-    AssertConversion(converter, "1989-07-14", 616377600000LL);
-    AssertConversion(converter, "3989-07-14", 63730281600000LL);
-    AssertConversion(converter, "1900-02-28", -2203977600000LL);
+    AssertMilli("1970-01-01", 0);
+    AssertMilli("1989-07-14", 616377600000LL);
+    AssertMilli("3989-07-14", 63730281600000LL);
+    AssertMilli("1900-02-28", -2203977600000LL);
   }
   {
-    StringConverter<TimestampType> converter(timestamp(TimeUnit::MICRO));
-
-    AssertConversion(converter, "1970-01-01", 0);
-    AssertConversion(converter, "1989-07-14", 616377600000000LL);
-    AssertConversion(converter, "3989-07-14", 63730281600000000LL);
-    AssertConversion(converter, "1900-02-28", -2203977600000000LL);
+    AssertMicro("1970-01-01", 0);
+    AssertMicro("1989-07-14", 616377600000000LL);
+    AssertMicro("3989-07-14", 63730281600000000LL);
+    AssertMicro("1900-02-28", -2203977600000000LL);
   }
   {
-    StringConverter<TimestampType> converter(timestamp(TimeUnit::NANO));
-
-    AssertConversion(converter, "1970-01-01", 0);
-    AssertConversion(converter, "1989-07-14", 616377600000000000LL);
-    AssertConversion(converter, "2018-11-13", 1542067200000000000LL);
-    AssertConversion(converter, "1900-02-28", -2203977600000000000LL);
+    AssertNano("1970-01-01", 0);
+    AssertNano("1989-07-14", 616377600000000000LL);
+    AssertNano("2018-11-13", 1542067200000000000LL);
+    AssertNano("1900-02-28", -2203977600000000000LL);
   }
 }
 
 TEST(StringConversion, ToTimestampDateTime_ISO8601) {
   {
-    StringConverter<TimestampType> converter(timestamp(TimeUnit::SECOND));
-
-    AssertConversion(converter, "1970-01-01 00:00:00", 0);
-    AssertConversion(converter, "2018-11-13 17", 1542128400);
-    AssertConversion(converter, "2018-11-13T17", 1542128400);
-    AssertConversion(converter, "2018-11-13 17Z", 1542128400);
-    AssertConversion(converter, "2018-11-13T17Z", 1542128400);
-    AssertConversion(converter, "2018-11-13 17:11", 1542129060);
-    AssertConversion(converter, "2018-11-13T17:11", 1542129060);
-    AssertConversion(converter, "2018-11-13 17:11Z", 1542129060);
-    AssertConversion(converter, "2018-11-13T17:11Z", 1542129060);
-    AssertConversion(converter, "2018-11-13 17:11:10", 1542129070);
-    AssertConversion(converter, "2018-11-13T17:11:10", 1542129070);
-    AssertConversion(converter, "2018-11-13 17:11:10Z", 1542129070);
-    AssertConversion(converter, "2018-11-13T17:11:10Z", 1542129070);
-    AssertConversion(converter, "1900-02-28 12:34:56", -2203932304LL);
+    AssertSecond("1970-01-01 00:00:00", 0);
+    AssertSecond("2018-11-13 17", 1542128400);
+    AssertSecond("2018-11-13T17", 1542128400);
+    AssertSecond("2018-11-13 17Z", 1542128400);
+    AssertSecond("2018-11-13T17Z", 1542128400);
+    AssertSecond("2018-11-13 17:11", 1542129060);
+    AssertSecond("2018-11-13T17:11", 1542129060);
+    AssertSecond("2018-11-13 17:11Z", 1542129060);
+    AssertSecond("2018-11-13T17:11Z", 1542129060);
+    AssertSecond("2018-11-13 17:11:10", 1542129070);
+    AssertSecond("2018-11-13T17:11:10", 1542129070);
+    AssertSecond("2018-11-13 17:11:10Z", 1542129070);
+    AssertSecond("2018-11-13T17:11:10Z", 1542129070);
+    AssertSecond("1900-02-28 12:34:56", -2203932304LL);
 
     // Invalid dates
-    AssertConversionFails(converter, "1970-02-29 00:00:00");
-    AssertConversionFails(converter, "2100-02-29 00:00:00");
+    AssertSecondFails("1970-02-29 00:00:00");
+    AssertSecondFails("2100-02-29 00:00:00");
     // Invalid times
-    AssertConversionFails(converter, "1970-01-01 24");
-    AssertConversionFails(converter, "1970-01-01 00:60");
-    AssertConversionFails(converter, "1970-01-01 00,00");
-    AssertConversionFails(converter, "1970-01-01 24:00:00");
-    AssertConversionFails(converter, "1970-01-01 00:60:00");
-    AssertConversionFails(converter, "1970-01-01 00:00:60");
-    AssertConversionFails(converter, "1970-01-01 00:00,00");
-    AssertConversionFails(converter, "1970-01-01 00,00:00");
+    AssertSecondFails("1970-01-01 24");
+    AssertSecondFails("1970-01-01 00:60");
+    AssertSecondFails("1970-01-01 00,00");
+    AssertSecondFails("1970-01-01 24:00:00");
+    AssertSecondFails("1970-01-01 00:60:00");
+    AssertSecondFails("1970-01-01 00:00:60");
+    AssertSecondFails("1970-01-01 00:00,00");
+    AssertSecondFails("1970-01-01 00,00:00");
   }
   {
-    StringConverter<TimestampType> converter(timestamp(TimeUnit::MILLI));
-
-    AssertConversion(converter, "2018-11-13 17:11:10", 1542129070000LL);
-    AssertConversion(converter, "2018-11-13T17:11:10Z", 1542129070000LL);
-    AssertConversion(converter, "3989-07-14T11:22:33Z", 63730322553000LL);
-    AssertConversion(converter, "1900-02-28 12:34:56", -2203932304000LL);
+    AssertMilli("2018-11-13 17:11:10", 1542129070000LL);
+    AssertMilli("2018-11-13T17:11:10Z", 1542129070000LL);
+    AssertMilli("3989-07-14T11:22:33Z", 63730322553000LL);
+    AssertMilli("1900-02-28 12:34:56", -2203932304000LL);
   }
   {
-    StringConverter<TimestampType> converter(timestamp(TimeUnit::MICRO));
-
-    AssertConversion(converter, "2018-11-13 17:11:10", 1542129070000000LL);
-    AssertConversion(converter, "2018-11-13T17:11:10Z", 1542129070000000LL);
-    AssertConversion(converter, "3989-07-14T11:22:33Z", 63730322553000000LL);
-    AssertConversion(converter, "1900-02-28 12:34:56", -2203932304000000LL);
+    AssertMicro("2018-11-13 17:11:10", 1542129070000000LL);
+    AssertMicro("2018-11-13T17:11:10Z", 1542129070000000LL);
+    AssertMicro("3989-07-14T11:22:33Z", 63730322553000000LL);
+    AssertMicro("1900-02-28 12:34:56", -2203932304000000LL);
   }
   {
-    StringConverter<TimestampType> converter(timestamp(TimeUnit::NANO));
-
-    AssertConversion(converter, "2018-11-13 17:11:10", 1542129070000000000LL);
-    AssertConversion(converter, "2018-11-13T17:11:10Z", 1542129070000000000LL);
-    AssertConversion(converter, "1900-02-28 12:34:56", -2203932304000000000LL);
+    AssertNano("2018-11-13 17:11:10", 1542129070000000000LL);
+    AssertNano("2018-11-13T17:11:10Z", 1542129070000000000LL);
+    AssertNano("1900-02-28 12:34:56", -2203932304000000000LL);
   }
 }
 

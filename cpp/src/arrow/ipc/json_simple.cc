@@ -318,10 +318,11 @@ class DecimalConverter final : public ConcreteConverter<DecimalConverter> {
 
 class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
  public:
-  explicit TimestampConverter(const std::shared_ptr<DataType>& type)
-      : from_string_(type) {
+  explicit TimestampConverter(const std::shared_ptr<DataType>& type) {
     this->type_ = type;
+    unit_ = checked_cast<const TimestampType&>(*type).unit();
     builder_ = std::make_shared<TimestampBuilder>(type, default_memory_pool());
+    this->parser_ = TimestampParser::MakeISO8601();
   }
 
   Status AppendNull() override { return builder_->AppendNull(); }
@@ -335,7 +336,7 @@ class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
       RETURN_NOT_OK(ConvertNumber<Int64Type>(json_obj, *this->type_, &value));
     } else if (json_obj.IsString()) {
       auto view = util::string_view(json_obj.GetString(), json_obj.GetStringLength());
-      if (!from_string_(view.data(), view.size(), &value)) {
+      if (!(*parser_)(view.data(), view.size(), unit_, &value)) {
         return Status::Invalid("couldn't parse timestamp from ", view);
       }
     } else {
@@ -347,8 +348,9 @@ class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
   std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
 
  private:
-  ::arrow::internal::StringConverter<TimestampType> from_string_;
+  TimeUnit::type unit_;
   std::shared_ptr<TimestampBuilder> builder_;
+  std::shared_ptr<TimestampParser> parser_;
 };
 
 // ------------------------------------------------------------------------

@@ -224,10 +224,18 @@ struct ScalarParseImpl {
             typename Value = typename Converter::value_type>
   Status Visit(const T& t) {
     Value value;
-    if (!Converter{type_}(s_.data(), s_.size(), &value)) {
+    if (!Converter::Convert(s_.data(), s_.size(), &value)) {
       return Status::Invalid("error parsing '", s_, "' as scalar of type ", t);
     }
     return Finish(std::move(value));
+  }
+
+  Status Visit(const TimestampType& t) {
+    int64_t value;
+    if (!internal::ParseTimestampISO8601(s_.data(), s_.size(), t.unit(), &value)) {
+      return Status::Invalid("error parsing '", s_, "' as scalar of type ", t);
+    }
+    return Finish(value);
   }
 
   Status Visit(const BinaryType&) { return FinishWithBuffer(); }

@@ -1073,15 +1073,13 @@ struct CastFunctor<
 
     typename TypeTraits<I>::ArrayType input_array(input.Copy());
     auto out_data = output->GetMutableValues<out_type>(1);
-    internal::StringConverter<O> converter;
-
     for (int64_t i = 0; i < input.length; ++i, ++out_data) {
       if (input_array.IsNull(i)) {
         continue;
       }
 
       auto str = input_array.GetView(i);
-      if (!converter(str.data(), str.length(), out_data)) {
+      if (!internal::StringConverter<O>::Convert(str.data(), str.length(), out_data)) {
         ctx->SetStatus(Status::Invalid("Failed to cast String '", str, "' into ",
                                        output->type->ToString()));
         return;
@@ -1100,7 +1098,6 @@ struct CastFunctor<BooleanType, I, enable_if_t<is_string_like_type<I>::value>> {
     typename TypeTraits<I>::ArrayType input_array(input.Copy());
     internal::FirstTimeBitmapWriter writer(output->buffers[1]->mutable_data(),
                                            output->offset, input.length);
-    internal::StringConverter<BooleanType> converter;
 
     for (int64_t i = 0; i < input.length; ++i) {
       if (input_array.IsNull(i)) {
@@ -1110,7 +1107,8 @@ struct CastFunctor<BooleanType, I, enable_if_t<is_string_like_type<I>::value>> {
 
       bool value;
       auto str = input_array.GetView(i);
-      if (!converter(str.data(), str.length(), &value)) {
+      if (!internal::StringConverter<BooleanType>::Convert(str.data(), str.length(),
+                                                           &value)) {
         ctx->SetStatus(Status::Invalid("Failed to cast String '",
                                        input_array.GetString(i), "' into ",
                                        output->type->ToString()));
@@ -1139,15 +1137,16 @@ struct CastFunctor<TimestampType, I, enable_if_t<is_string_like_type<I>::value>>
 
     typename TypeTraits<I>::ArrayType input_array(input.Copy());
     auto out_data = output->GetMutableValues<out_type>(1);
-    internal::StringConverter<TimestampType> converter(output->type);
+
+    auto parser = TimestampParser::MakeISO8601();
+    const TimeUnit::type unit = checked_cast<const TimestampType&>(*output->type).unit();
 
     for (int64_t i = 0; i < input.length; ++i, ++out_data) {
       if (input_array.IsNull(i)) {
         continue;
       }
-
       const auto str = input_array.GetView(i);
-      if (!converter(str.data(), str.length(), out_data)) {
+      if (!(*parser)(str.data(), str.length(), unit, out_data)) {
         ctx->SetStatus(Status::Invalid("Failed to cast String '", str, "' into ",
                                        output->type->ToString()));
         return;
