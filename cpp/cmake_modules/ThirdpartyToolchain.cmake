@@ -181,7 +181,7 @@ include_directories(SYSTEM "${THIRDPARTY_DIR}/flatbuffers/include")
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
 
-if(ARROW_THRIFT OR ARROW_WITH_ZLIB)
+if(ARROW_THRIFT)
   set(ARROW_WITH_ZLIB ON)
 endif()
 
