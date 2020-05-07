@@ -577,7 +577,7 @@ class BitmapOp : public TestBase {
     std::shared_ptr<Buffer> left, right, out;
     int64_t length;
 
-    for (int64_t left_offset : {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120}) {
+    for (int64_t left_offset : {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120, 65536}) {
       BitmapFromVector(left_bits, left_offset, &left, &length);
       for (int64_t right_offset : {left_offset, left_offset + 8, left_offset + 40}) {
         BitmapFromVector(right_bits, right_offset, &right, &length);
@@ -604,7 +604,7 @@ class BitmapOp : public TestBase {
                      const std::vector<int>& result_bits) {
     std::shared_ptr<Buffer> left, right, out;
     int64_t length;
-    auto offset_values = {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120};
+    auto offset_values = {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120, 65536};
 
     for (int64_t left_offset : offset_values) {
       BitmapFromVector(left_bits, left_offset, &left, &length);

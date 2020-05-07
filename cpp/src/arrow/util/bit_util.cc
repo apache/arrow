@@ -264,7 +264,7 @@ void AlignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* ri
   DCHECK_EQ(left_offset % 8, right_offset % 8);
   DCHECK_EQ(left_offset % 8, out_offset % 8);
 
-  const int64_t nbytes = BitUtil::BytesForBits(length + left_offset);
+  const int64_t nbytes = BitUtil::BytesForBits(length + left_offset % 8);
   left += left_offset / 8;
   right += right_offset / 8;
   out += out_offset / 8;
