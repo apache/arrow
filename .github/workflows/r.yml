@@ -93,7 +93,6 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     env:
-      R: 3.6
       R_ORG: rstudio
       R_IMAGE: r-base
       R_TAG: 3.6-centos7
