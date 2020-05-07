@@ -1137,7 +1137,6 @@ struct CastFunctor<TimestampType, I, enable_if_t<is_string_like_type<I>::value>>
     typename TypeTraits<I>::ArrayType input_array(input.Copy());
     auto out_data = output->GetMutableValues<out_type>(1);
 
-    auto parser = TimestampParser::MakeISO8601();
     const TimeUnit::type unit = checked_cast<const TimestampType&>(*output->type).unit();
 
     for (int64_t i = 0; i < input.length; ++i, ++out_data) {
@@ -1145,7 +1144,7 @@ struct CastFunctor<TimestampType, I, enable_if_t<is_string_like_type<I>::value>>
         continue;
       }
       const auto str = input_array.GetView(i);
-      if (!(*parser)(str.data(), str.length(), unit, out_data)) {
+      if (!internal::ParseTimestampISO8601(str.data(), str.length(), unit, out_data)) {
         ctx->SetStatus(Status::Invalid("Failed to cast String '", str, "' into ",
                                        output->type->ToString()));
         return;
