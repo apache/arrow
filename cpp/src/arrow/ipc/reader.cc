@@ -17,6 +17,7 @@
 
 #include "arrow/ipc/reader.h"
 
+#include <algorithm>
 #include <climits>
 #include <cstdint>
 #include <cstring>
@@ -528,8 +529,11 @@ Status GetInclusionMaskAndOutSchema(const std::shared_ptr<Schema>& full_schema,
 
   inclusion_mask->resize(full_schema->num_fields(), false);
 
+  auto included_indices_sorted = included_indices;
+  std::sort(included_indices_sorted.begin(), included_indices_sorted.end());
+
   FieldVector included_fields;
-  for (int i : included_indices) {
+  for (int i : included_indices_sorted) {
     // Ignore out of bounds indices
     if (i < 0 || i >= full_schema->num_fields()) {
       return Status::Invalid("Out of bounds field index: ", i);
