@@ -18,6 +18,8 @@ using Xunit;
 
 namespace Apache.Arrow.Tests
 {
+    using System.Linq;
+
     public class BooleanArrayTests
     {
         public class Builder
@@ -124,12 +126,14 @@ namespace Apache.Arrow.Tests
                 public void SwapsExpectedBits()
                 {
                     var array = new BooleanArray.Builder()
-                        .Resize(8)
+                        .AppendRange(Enumerable.Repeat(false, 8))
                         .Set(0, true)
                         .Swap(0, 7)
                         .Build();
 
+                    Assert.True(array.GetValue(0).HasValue);
                     Assert.False(array.GetValue(0).Value);
+                    Assert.True(array.GetValue(7).HasValue);
                     Assert.True(array.GetValue(7).Value);
                     #pragma warning disable CS0618
                     Assert.False(array.GetBoolean(0));
@@ -187,7 +191,7 @@ namespace Apache.Arrow.Tests
                 public void UnsetBitsAreUnchanged(int index)
                 {
                     var array = new BooleanArray.Builder()
-                        .Resize(8)
+                        .AppendRange(Enumerable.Repeat(false, 8))
                         .Set(index, true)
                         .Build();
 
@@ -195,6 +199,7 @@ namespace Apache.Arrow.Tests
                     {
                         if (i != index)
                         {
+                            Assert.True(array.GetValue(i).HasValue);
                             Assert.False(array.GetValue(i).Value);
                             #pragma warning disable CS0618
                             Assert.False(array.GetBoolean(i));

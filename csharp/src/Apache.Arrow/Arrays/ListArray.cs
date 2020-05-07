@@ -21,8 +21,6 @@ namespace Apache.Arrow
 {
     public class ListArray : Array
     {
-
-
         public class Builder : IArrowArrayBuilder<ListArray, Builder>
         {
             public IArrowArrayBuilder<IArrowArray, IArrowArrayBuilder<IArrowArray>> ValueBuilder { get; }
@@ -31,7 +29,7 @@ namespace Apache.Arrow
 
             private ArrowBuffer.Builder<int> ValueOffsetsBufferBuilder { get; }
 
-            private BooleanArray.Builder ValidityBufferBuilder { get; }
+            private ArrowBuffer.BitPackedBuilder ValidityBufferBuilder { get; }
 
             public int NullCount { get; protected set; }
 
@@ -49,7 +47,7 @@ namespace Apache.Arrow
             {
                 ValueBuilder = ArrowArrayBuilderFactory.Build(dataType.ValueDataType);
                 ValueOffsetsBufferBuilder = new ArrowBuffer.Builder<int>();
-                ValidityBufferBuilder = new BooleanArray.Builder();
+                ValidityBufferBuilder = new ArrowBuffer.BitPackedBuilder();
                 DataType = dataType;
             }
 
@@ -81,9 +79,7 @@ namespace Apache.Arrow
             {
                 Append();
 
-                var validityBuffer = NullCount > 0
-                                        ? ValidityBufferBuilder.Build(allocator).ValueBuffer
-                                        : ArrowBuffer.Empty;
+                var validityBuffer = NullCount > 0 ? ValidityBufferBuilder.Build(allocator) : ArrowBuffer.Empty;
 
                 return new ListArray(DataType, Length - 1,
                     ValueOffsetsBufferBuilder.Build(allocator), ValueBuilder.Build(allocator),
