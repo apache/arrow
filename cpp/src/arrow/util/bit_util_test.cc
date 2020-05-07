@@ -661,6 +661,33 @@ TEST_F(BitmapOp, Xor) {
   TestUnaligned(op, left, right, result);
 }
 
+TEST_F(BitmapOp, RandomXor) {
+  const int kBitCount = 1000;
+  uint8_t buffer[kBitCount * 2] = {0};
+
+  random_bytes(kBitCount * 2, 0, buffer);
+
+  std::vector<int> left(kBitCount);
+  std::vector<int> right(kBitCount);
+  std::vector<int> result(kBitCount);
+
+  for (int i = 0; i < kBitCount; ++i) {
+    left[i] = buffer[i] & 1;
+    right[i] = buffer[i + kBitCount] & 1;
+    result[i] = left[i] ^ right[i];
+  }
+
+  BitmapXorOp op;
+  for (int i = 0; i < 3; ++i) {
+    TestAligned(op, left, right, result);
+    TestUnaligned(op, left, right, result);
+
+    left.resize(left.size() * 5 / 11);
+    right.resize(left.size());
+    result.resize(left.size());
+  }
+}
+
 static inline int64_t SlowCountBits(const uint8_t* data, int64_t bit_offset,
                                     int64_t length) {
   int64_t count = 0;
