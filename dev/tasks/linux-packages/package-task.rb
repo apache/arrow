@@ -135,6 +135,7 @@ class PackageTask
     run_command_line = [
       "docker",
       "run",
+      "--interactive",
       "--rm",
       "--tty",
       "--volume", "#{Dir.pwd}:/host:rw",
