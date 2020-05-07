@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/util/versioning.h"
 #include "arrow/util/key_value_metadata.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -50,6 +51,7 @@ class ColumnPath;
 }  // namespace schema
 
 using KeyValueMetadata = ::arrow::KeyValueMetadata;
+using SemVer = ::arrow::internal::SemVer;
 
 class PARQUET_EXPORT ApplicationVersion {
  public:
@@ -58,11 +60,6 @@ class PARQUET_EXPORT ApplicationVersion {
   static const ApplicationVersion& PARQUET_816_FIXED_VERSION();
   static const ApplicationVersion& PARQUET_CPP_FIXED_STATS_VERSION();
   static const ApplicationVersion& PARQUET_MR_FIXED_STATS_VERSION();
-  // Regular expression for the version format
-  // major . minor . patch unknown - prerelease.x + build info
-  // Eg: 1.5.0ab-cdh5.5.0+cd
-  static constexpr char const* VERSION_FORMAT =
-      "^(\\d+)\\.(\\d+)\\.(\\d+)([^-+]*)?(?:-([^+]*))?(?:\\+(.*))?$";
   // Regular expression for the application format
   // application_name version VERSION_FORMAT (build build_name)
   // Eg: parquet-cpp version 1.5.0ab-xyz5.5.0+cd (build abcd)
@@ -76,18 +73,7 @@ class PARQUET_EXPORT ApplicationVersion {
 
   // Version of the application that wrote the file, expressed as
   // (<major>.<minor>.<patch>). Unmatched parts default to 0.
-  // "1.2.3"    => {1, 2, 3}
-  // "1.2"      => {0, 0, 0}
-  // "1.2-cdh5" => {0, 0, 0}
-  // TODO (majetideepak): Implement support for pre_release
-  struct {
-    int major;
-    int minor;
-    int patch;
-    std::string unknown;
-    std::string pre_release;
-    std::string build_info;
-  } version;
+  SemVer version;
 
   ApplicationVersion() {}
   explicit ApplicationVersion(const std::string& created_by);

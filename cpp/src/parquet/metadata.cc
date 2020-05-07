@@ -874,20 +874,19 @@ std::string FileMetaData::SerializeToString() const {
 
 ApplicationVersion::ApplicationVersion(const std::string& application, int major,
                                        int minor, int patch)
-    : application_(application), version{major, minor, patch, "", "", ""} {}
+    : application_(application), version{major, minor, patch, "", ""} {}
 
 ApplicationVersion::ApplicationVersion(const std::string& created_by) {
+  using SemVer = ::arrow::internal::SemVer;
+
   regex app_regex{ApplicationVersion::APPLICATION_FORMAT};
-  regex ver_regex{ApplicationVersion::VERSION_FORMAT};
   smatch app_matches;
-  smatch ver_matches;
 
   std::string created_by_lower = created_by;
   std::transform(created_by_lower.begin(), created_by_lower.end(),
                  created_by_lower.begin(), ::tolower);
 
   bool app_success = regex_match(created_by_lower, app_matches, app_regex);
-  bool ver_success = false;
   std::string version_str;
 
   if (app_success && app_matches.size() >= 4) {
@@ -895,42 +894,19 @@ ApplicationVersion::ApplicationVersion(const std::string& created_by) {
     application_ = app_matches[1];
     version_str = app_matches[3];
     build_ = app_matches[4];
-    ver_success = regex_match(version_str, ver_matches, ver_regex);
+    PARQUET_ASSIGN_OR_THROW(version, SemVer::Parse(version_str));
   } else {
     application_ = "unknown";
-  }
-
-  if (ver_success && ver_matches.size() >= 7) {
-    version.major = atoi(ver_matches[1].str().c_str());
-    version.minor = atoi(ver_matches[2].str().c_str());
-    version.patch = atoi(ver_matches[3].str().c_str());
-    version.unknown = ver_matches[4].str();
-    version.pre_release = ver_matches[5].str();
-    version.build_info = ver_matches[6].str();
-  } else {
-    version.major = 0;
-    version.minor = 0;
-    version.patch = 0;
   }
 }
 
 bool ApplicationVersion::VersionLt(const ApplicationVersion& other_version) const {
   if (application_ != other_version.application_) return false;
-
-  if (version.major < other_version.version.major) return true;
-  if (version.major > other_version.version.major) return false;
-  DCHECK_EQ(version.major, other_version.version.major);
-  if (version.minor < other_version.version.minor) return true;
-  if (version.minor > other_version.version.minor) return false;
-  DCHECK_EQ(version.minor, other_version.version.minor);
-  return version.patch < other_version.version.patch;
+  return version < other_version.version;
 }
 
 bool ApplicationVersion::VersionEq(const ApplicationVersion& other_version) const {
-  return application_ == other_version.application_ &&
-         version.major == other_version.version.major &&
-         version.minor == other_version.version.minor &&
-         version.patch == other_version.version.patch;
+  return application_ == other_version.application_ && version == other_version.version;
 }
 
 // Reference:

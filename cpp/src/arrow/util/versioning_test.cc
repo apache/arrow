@@ -36,7 +36,7 @@ TEST(SemVer, TestParseBasic) {
   ASSERT_EQ(v.minor, 0);
   ASSERT_EQ(v.patch, 0);
   ASSERT_EQ(v.pre_release, "");
-  ASSERT_EQ(v.build, "");
+  ASSERT_EQ(v.build_info, "");
   ASSERT_EQ(v.ToString(), "0.0.0");
 
   auto versions = {
@@ -52,7 +52,7 @@ TEST(SemVer, TestParseBasic) {
     ASSERT_EQ(v.minor, 0);
     ASSERT_EQ(v.patch, 0);
     ASSERT_EQ(v.pre_release, "");
-    ASSERT_EQ(v.build, "");
+    ASSERT_EQ(v.build_info, "");
     ASSERT_EQ(v.ToString(), "1.0.0");
   }
 
@@ -61,7 +61,7 @@ TEST(SemVer, TestParseBasic) {
   ASSERT_EQ(v.minor, 10);
   ASSERT_EQ(v.patch, 2);
   ASSERT_EQ(v.pre_release, "");
-  ASSERT_EQ(v.build, "");
+  ASSERT_EQ(v.build_info, "");
   ASSERT_EQ(v.ToString(), "0.10.2");
 }
 
@@ -71,7 +71,7 @@ TEST(SemVer, TestParseMetadata) {
   ASSERT_EQ(v1.minor, 3);
   ASSERT_EQ(v1.patch, 4);
   ASSERT_EQ(v1.pre_release, "alpha.1");
-  ASSERT_EQ(v1.build, "123");
+  ASSERT_EQ(v1.build_info, "123");
   ASSERT_EQ(v1.ToString(), "2.3.4-alpha.1+123");
 
   ASSERT_OK_AND_ASSIGN(auto v2, SemVer::Parse("1.2.12-beta.alpha.1.2"));
@@ -79,7 +79,7 @@ TEST(SemVer, TestParseMetadata) {
   ASSERT_EQ(v2.minor, 2);
   ASSERT_EQ(v2.patch, 12);
   ASSERT_EQ(v2.pre_release, "beta.alpha.1.2");
-  ASSERT_EQ(v2.build, "");
+  ASSERT_EQ(v2.build_info, "");
   ASSERT_EQ(v2.ToString(), "1.2.12-beta.alpha.1.2");
 
   ASSERT_OK_AND_ASSIGN(auto v3, SemVer::Parse("0.12+20200101"));
@@ -87,7 +87,7 @@ TEST(SemVer, TestParseMetadata) {
   ASSERT_EQ(v3.minor, 12);
   ASSERT_EQ(v3.patch, 0);
   ASSERT_EQ(v3.pre_release, "");
-  ASSERT_EQ(v3.build, "20200101");
+  ASSERT_EQ(v3.build_info, "20200101");
   ASSERT_EQ(v3.ToString(), "0.12.0+20200101");
 }
 
@@ -110,6 +110,8 @@ TEST(SemVer, TestCompare) {
   ASSERT_TRUE(v3 > v111);
   ASSERT_TRUE(v3 >= v111);
 }
+
+// TODO(kszucs): test errors
 
 }
 }
