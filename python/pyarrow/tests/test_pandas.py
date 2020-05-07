@@ -503,7 +503,10 @@ class TestConvertMetadata:
 
             table_subset = table.remove_column(1)
             result = table_subset.to_pandas()
-            tm.assert_frame_equal(result, df[['a']])
+            expected = df[['a']]
+            if isinstance(df.index, pd.DatetimeIndex):
+                df.index.freq = None
+            tm.assert_frame_equal(result, expected)
 
             table_subset2 = table_subset.remove_column(1)
             result = table_subset2.to_pandas()
