@@ -27,7 +27,7 @@ use crate::logicalplan::Expr;
 /// Recursively walk a list of expression trees, collecting the unique set of column
 /// indexes referenced in the expression
 pub fn exprlist_to_column_indices(
-    expr: &Vec<Expr>,
+    expr: &[Expr],
     accum: &mut HashSet<usize>,
 ) -> Result<()> {
     for e in expr {
@@ -123,7 +123,7 @@ pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
 }
 
 /// Create field meta-data from an expression, for use in a result set schema
-pub fn exprlist_to_fields(expr: &Vec<Expr>, input_schema: &Schema) -> Result<Vec<Field>> {
+pub fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Field>> {
     expr.iter()
         .map(|e| expr_to_field(e, input_schema))
         .collect()

@@ -183,7 +183,7 @@ impl ProjectionPushDown {
 
     fn rewrite_expr_list(
         &self,
-        expr: &Vec<Expr>,
+        expr: &[Expr],
         mapping: &HashMap<usize, usize>,
     ) -> Result<Vec<Expr>> {
         Ok(expr

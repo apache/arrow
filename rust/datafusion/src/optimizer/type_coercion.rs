@@ -45,7 +45,7 @@ impl<'a> TypeCoercionRule<'a> {
     }
 
     /// Rewrite an expression list to include explicit CAST operations when required
-    fn rewrite_expr_list(&self, expr: &Vec<Expr>, schema: &Schema) -> Result<Vec<Expr>> {
+    fn rewrite_expr_list(&self, expr: &[Expr], schema: &Schema) -> Result<Vec<Expr>> {
         Ok(expr
             .iter()
             .map(|e| self.rewrite_expr(e, schema))
