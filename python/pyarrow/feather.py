@@ -20,7 +20,7 @@ import os
 
 from pyarrow.pandas_compat import _pandas_api  # noqa
 from pyarrow.lib import FeatherError  # noqa
-from pyarrow.lib import Table, concat_tables
+from pyarrow.lib import Table, concat_tables, schema
 import pyarrow.lib as ext
 
 
@@ -234,11 +234,24 @@ def read_table(source, columns=None, memory_map=True):
 
     column_types = [type(column) for column in columns]
     if all(map(lambda t: t == int, column_types)):
-        return reader.read_indices(columns)
+        table = reader.read_indices(columns)
     elif all(map(lambda t: t == str, column_types)):
-        return reader.read_names(columns)
+        table = reader.read_names(columns)
+    else:
+        column_type_names = [t.__name__ for t in column_types]
+        raise TypeError("Columns must be indices or names. "
+                        "Got columns {} of types {}"
+                        .format(columns, column_type_names))
 
-    column_type_names = [t.__name__ for t in column_types]
-    raise TypeError("Columns must be indices or names. "
-                    "Got columns {} of types {}"
-                    .format(columns, column_type_names))
+    # Feather v1 already respects the column selection
+    if reader.version < 3:
+        return table
+    # Feather v2 reads with sorted / deduplicated selection
+    elif sorted(set(columns)) == columns:
+        return table
+    else:
+        # follow exact order / selection of names
+        new_fields = [table.schema.field(c) for c in columns]
+        new_schema = schema(new_fields, metadata=table.schema.metadata)
+        new_columns = [table.column(c) for c in columns]
+        return Table.from_arrays(new_columns, schema=new_schema)
