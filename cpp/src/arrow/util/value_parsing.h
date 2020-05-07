@@ -457,8 +457,9 @@ static inline bool ParseHH_MM_SS(const char* s, std::chrono::duration<ts_type>* 
 
 /// \brief Attempt to convert a string to the primitive type corresponding to
 /// an Arrow data type
-template <typename T>
-static inline bool ParseValue(const char* s, size_t length, typename T::c_type* out) {
+template <typename T, typename ParseContext = void>
+inline bool ParseValue(const char* s, size_t length, typename T::c_type* out,
+                       const ParseContext* ctx = NULLPTR) {
   return detail::StringConverter<T>::Convert(s, length, out);
 }
 
@@ -560,6 +561,17 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   }
   *out = detail::ConvertTimePoint(secs, unit);
   return true;
+}
+
+/// \brief Parsing options for timestamps
+struct ParseTimestampContext {
+  TimeUnit::type unit;
+};
+
+template <>
+inline bool ParseValue<TimestampType, ParseTimestampContext>(
+    const char* s, size_t length, int64_t* out, const ParseTimestampContext* ctx) {
+  return ParseTimestampISO8601(s, length, ctx->unit, out);
 }
 
 }  // namespace internal
