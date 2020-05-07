@@ -48,34 +48,12 @@ env:
 jobs:
 
   ubuntu:
-    name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}
+    name: AMD64 Ubuntu 18.04 R 3.6
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    strategy:
-      fail-fast: false
-      matrix:
-        name:
-          - amd64-ubuntu-18.04-r-3.6
-          - amd64-centos-7-rstudio-r-3.6
-        include:
-          - name: amd64-ubuntu-18.04-r-3.6
-            image: ubuntu-r
-            title: AMD64 Ubuntu 18.04 R 3.6
-            ubuntu: 18.04
-            r: 3.6
-          - name: amd64-centos-7-rstudio-r-3.6
-            image: r
-            title: AMD64 CentOS 7 RStudio R 3.6
-            r: 3.6
-            r_org: rstudio
-            r_image: r-base
-            r_tag: 3.6-centos7
     env:
-      R: ${{ matrix.r || 3.6 }}
-      UBUNTU: ${{ matrix.ubuntu || 18.04 }}
-      R_ORG: ${{ matrix.r_org || "rhub" }}
-      R_IMAGE: ${{ matrix.r_image || ubuntu-gcc-release }}
-      R_TAG: ${{ matrix.r_tag || "latest" }}
+      R: '3.6'
+      UBUNTU: '18.04'
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -89,8 +67,8 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: ${{ matrix.name }}-${{ hashFiles('cpp/**') }}
-          restore-keys: ${{ matrix.name }}-
+          key: ubuntu-18.04-r-3.6-${{ hashFiles('cpp/**') }}
+          restore-keys: ubuntu-18.04-r-3.6-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -101,7 +79,7 @@ jobs:
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
-          archery docker run {{ matrix.image }}
+          archery docker run ubuntu-r
       - name: Dump install logs on failure
         if: failure()
         run: cat r/check/arrow.Rcheck/00install.out
@@ -109,6 +87,48 @@ jobs:
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
         run: archery docker push ubuntu-r
+
+  rstudio:
+    name: AMD64 CentOS 7 RStudio R 3.6
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    env:
+      R_ORG: rstudio
+      R_IMAGE: r-base
+      R_TAG: 3.6-centos7
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
+        with:
+          path: .docker
+          key: centos-7-r-${{ hashFiles('cpp/**') }}
+          restore-keys: centos-7-r-
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run r
+      - name: Dump install logs on failure
+        if: failure()
+        run: cat r/check/arrow.Rcheck/00install.out
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        run: archery docker push r
 
   windows:
     name: AMD64 Windows RTools ${{ matrix.rtools }}
