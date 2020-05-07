@@ -27,55 +27,52 @@
 namespace arrow {
 namespace internal {
 
-template <typename Converter, typename C_TYPE>
-void AssertConversion(const std::string& s, C_TYPE expected) {
-  typename Converter::value_type out;
-  ASSERT_TRUE(Converter::Convert(s.data(), s.length(), &out))
+template <typename T>
+void AssertConversion(const std::string& s, typename T::c_type expected) {
+  typename T::c_type out;
+  ASSERT_TRUE(ParseValue<T>(s.data(), s.length(), &out))
       << "Conversion failed for '" << s << "' (expected to return " << expected << ")";
   ASSERT_EQ(out, expected) << "Conversion failed for '" << s << "'";
 }
 
-template <typename Converter>
+template <typename T>
 void AssertConversionFails(const std::string& s) {
-  typename Converter::value_type out;
-  ASSERT_FALSE(Converter::Convert(s.data(), s.length(), &out))
+  typename T::c_type out;
+  ASSERT_FALSE(ParseValue<T>(s.data(), s.length(), &out))
       << "Conversion should have failed for '" << s << "' (returned " << out << ")";
 }
 
 TEST(StringConversion, ToBoolean) {
-  using CType = StringConverter<BooleanType>;
-  AssertConversion<CType>("true", true);
-  AssertConversion<CType>("tRuE", true);
-  AssertConversion<CType>("FAlse", false);
-  AssertConversion<CType>("false", false);
-  AssertConversion<CType>("1", true);
-  AssertConversion<CType>("0", false);
+  AssertConversion<BooleanType>("true", true);
+  AssertConversion<BooleanType>("tRuE", true);
+  AssertConversion<BooleanType>("FAlse", false);
+  AssertConversion<BooleanType>("false", false);
+  AssertConversion<BooleanType>("1", true);
+  AssertConversion<BooleanType>("0", false);
 
-  AssertConversionFails<CType>("");
+  AssertConversionFails<BooleanType>("");
 }
 
 TEST(StringConversion, ToFloat) {
-  using CType = StringConverter<FloatType>;
-  AssertConversion<CType>("1.5", 1.5f);
-  AssertConversion<CType>("0", 0.0f);
+  AssertConversion<FloatType>("1.5", 1.5f);
+  AssertConversion<FloatType>("0", 0.0f);
   // XXX ASSERT_EQ doesn't distinguish signed zeros
-  AssertConversion<CType>("-0.0", -0.0f);
-  AssertConversion<CType>("-1e20", -1e20f);
+  AssertConversion<FloatType>("-0.0", -0.0f);
+  AssertConversion<FloatType>("-1e20", -1e20f);
 
-  AssertConversionFails<CType>("");
-  AssertConversionFails<CType>("e");
+  AssertConversionFails<FloatType>("");
+  AssertConversionFails<FloatType>("e");
 }
 
 TEST(StringConversion, ToDouble) {
-  using CType = StringConverter<DoubleType>;
-  AssertConversion<CType>("1.5", 1.5);
-  AssertConversion<CType>("0", 0);
+  AssertConversion<DoubleType>("1.5", 1.5);
+  AssertConversion<DoubleType>("0", 0);
   // XXX ASSERT_EQ doesn't distinguish signed zeros
-  AssertConversion<CType>("-0.0", -0.0);
-  AssertConversion<CType>("-1e100", -1e100);
+  AssertConversion<DoubleType>("-0.0", -0.0);
+  AssertConversion<DoubleType>("-1e100", -1e100);
 
-  AssertConversionFails<CType>("");
-  AssertConversionFails<CType>("e");
+  AssertConversionFails<DoubleType>("");
+  AssertConversionFails<DoubleType>("e");
 }
 
 #if !defined(_WIN32) || defined(NDEBUG)
@@ -84,166 +81,150 @@ TEST(StringConversion, ToFloatLocale) {
   // French locale uses the comma as decimal point
   LocaleGuard locale_guard("fr_FR.UTF-8");
 
-  AssertConversion<StringConverter<FloatType>>("1.5", 1.5f);
+  AssertConversion<FloatType>("1.5", 1.5f);
 }
 
 TEST(StringConversion, ToDoubleLocale) {
   // French locale uses the comma as decimal point
   LocaleGuard locale_guard("fr_FR.UTF-8");
 
-  AssertConversion<StringConverter<DoubleType>>("1.5", 1.5f);
+  AssertConversion<DoubleType>("1.5", 1.5f);
 }
 
 #endif  // _WIN32
 
 TEST(StringConversion, ToInt8) {
-  using CType = StringConverter<Int8Type>;
-
-  AssertConversion<CType>("0", 0);
-  AssertConversion<CType>("127", 127);
-  AssertConversion<CType>("0127", 127);
-  AssertConversion<CType>("-128", -128);
-  AssertConversion<CType>("-00128", -128);
+  AssertConversion<Int8Type>("0", 0);
+  AssertConversion<Int8Type>("127", 127);
+  AssertConversion<Int8Type>("0127", 127);
+  AssertConversion<Int8Type>("-128", -128);
+  AssertConversion<Int8Type>("-00128", -128);
 
   // Non-representable values
-  AssertConversionFails<CType>("128");
-  AssertConversionFails<CType>("-129");
+  AssertConversionFails<Int8Type>("128");
+  AssertConversionFails<Int8Type>("-129");
 
-  AssertConversionFails<CType>("");
-  AssertConversionFails<CType>("-");
-  AssertConversionFails<CType>("0.0");
-  AssertConversionFails<CType>("e");
+  AssertConversionFails<Int8Type>("");
+  AssertConversionFails<Int8Type>("-");
+  AssertConversionFails<Int8Type>("0.0");
+  AssertConversionFails<Int8Type>("e");
 }
 
 TEST(StringConversion, ToUInt8) {
-  using CType = StringConverter<UInt8Type>;
-
-  AssertConversion<CType>("0", 0);
-  AssertConversion<CType>("26", 26);
-  AssertConversion<CType>("255", 255);
-  AssertConversion<CType>("0255", 255);
+  AssertConversion<UInt8Type>("0", 0);
+  AssertConversion<UInt8Type>("26", 26);
+  AssertConversion<UInt8Type>("255", 255);
+  AssertConversion<UInt8Type>("0255", 255);
 
   // Non-representable values
-  AssertConversionFails<CType>("-1");
-  AssertConversionFails<CType>("256");
-  AssertConversionFails<CType>("260");
-  AssertConversionFails<CType>("1234");
+  AssertConversionFails<UInt8Type>("-1");
+  AssertConversionFails<UInt8Type>("256");
+  AssertConversionFails<UInt8Type>("260");
+  AssertConversionFails<UInt8Type>("1234");
 
-  AssertConversionFails<CType>("");
-  AssertConversionFails<CType>("-");
-  AssertConversionFails<CType>("0.0");
-  AssertConversionFails<CType>("e");
+  AssertConversionFails<UInt8Type>("");
+  AssertConversionFails<UInt8Type>("-");
+  AssertConversionFails<UInt8Type>("0.0");
+  AssertConversionFails<UInt8Type>("e");
 }
 
 TEST(StringConversion, ToInt16) {
-  using CType = StringConverter<Int16Type>;
-
-  AssertConversion<CType>("0", 0);
-  AssertConversion<CType>("32767", 32767);
-  AssertConversion<CType>("032767", 32767);
-  AssertConversion<CType>("-32768", -32768);
-  AssertConversion<CType>("-0032768", -32768);
+  AssertConversion<Int16Type>("0", 0);
+  AssertConversion<Int16Type>("32767", 32767);
+  AssertConversion<Int16Type>("032767", 32767);
+  AssertConversion<Int16Type>("-32768", -32768);
+  AssertConversion<Int16Type>("-0032768", -32768);
 
   // Non-representable values
-  AssertConversionFails<CType>("32768");
-  AssertConversionFails<CType>("-32769");
+  AssertConversionFails<Int16Type>("32768");
+  AssertConversionFails<Int16Type>("-32769");
 
-  AssertConversionFails<CType>("");
-  AssertConversionFails<CType>("-");
-  AssertConversionFails<CType>("0.0");
-  AssertConversionFails<CType>("e");
+  AssertConversionFails<Int16Type>("");
+  AssertConversionFails<Int16Type>("-");
+  AssertConversionFails<Int16Type>("0.0");
+  AssertConversionFails<Int16Type>("e");
 }
 
 TEST(StringConversion, ToUInt16) {
-  using CType = StringConverter<UInt16Type>;
-
-  AssertConversion<CType>("0", 0);
-  AssertConversion<CType>("6660", 6660);
-  AssertConversion<CType>("65535", 65535);
-  AssertConversion<CType>("065535", 65535);
+  AssertConversion<UInt16Type>("0", 0);
+  AssertConversion<UInt16Type>("6660", 6660);
+  AssertConversion<UInt16Type>("65535", 65535);
+  AssertConversion<UInt16Type>("065535", 65535);
 
   // Non-representable values
-  AssertConversionFails<CType>("-1");
-  AssertConversionFails<CType>("65536");
-  AssertConversionFails<CType>("123456");
+  AssertConversionFails<UInt16Type>("-1");
+  AssertConversionFails<UInt16Type>("65536");
+  AssertConversionFails<UInt16Type>("123456");
 
-  AssertConversionFails<CType>("");
-  AssertConversionFails<CType>("-");
-  AssertConversionFails<CType>("0.0");
-  AssertConversionFails<CType>("e");
+  AssertConversionFails<UInt16Type>("");
+  AssertConversionFails<UInt16Type>("-");
+  AssertConversionFails<UInt16Type>("0.0");
+  AssertConversionFails<UInt16Type>("e");
 }
 
 TEST(StringConversion, ToInt32) {
-  using CType = StringConverter<Int32Type>;
-
-  AssertConversion<CType>("0", 0);
-  AssertConversion<CType>("2147483647", 2147483647);
-  AssertConversion<CType>("02147483647", 2147483647);
-  AssertConversion<CType>("-2147483648", -2147483648LL);
-  AssertConversion<CType>("-002147483648", -2147483648LL);
+  AssertConversion<Int32Type>("0", 0);
+  AssertConversion<Int32Type>("2147483647", 2147483647);
+  AssertConversion<Int32Type>("02147483647", 2147483647);
+  AssertConversion<Int32Type>("-2147483648", -2147483648LL);
+  AssertConversion<Int32Type>("-002147483648", -2147483648LL);
 
   // Non-representable values
-  AssertConversionFails<CType>("2147483648");
-  AssertConversionFails<CType>("-2147483649");
+  AssertConversionFails<Int32Type>("2147483648");
+  AssertConversionFails<Int32Type>("-2147483649");
 
-  AssertConversionFails<CType>("");
-  AssertConversionFails<CType>("-");
-  AssertConversionFails<CType>("0.0");
-  AssertConversionFails<CType>("e");
+  AssertConversionFails<Int32Type>("");
+  AssertConversionFails<Int32Type>("-");
+  AssertConversionFails<Int32Type>("0.0");
+  AssertConversionFails<Int32Type>("e");
 }
 
 TEST(StringConversion, ToUInt32) {
-  using CType = StringConverter<UInt32Type>;
-
-  AssertConversion<CType>("0", 0);
-  AssertConversion<CType>("432198765", 432198765UL);
-  AssertConversion<CType>("4294967295", 4294967295UL);
-  AssertConversion<CType>("04294967295", 4294967295UL);
+  AssertConversion<UInt32Type>("0", 0);
+  AssertConversion<UInt32Type>("432198765", 432198765UL);
+  AssertConversion<UInt32Type>("4294967295", 4294967295UL);
+  AssertConversion<UInt32Type>("04294967295", 4294967295UL);
 
   // Non-representable values
-  AssertConversionFails<CType>("-1");
-  AssertConversionFails<CType>("4294967296");
-  AssertConversionFails<CType>("12345678901");
+  AssertConversionFails<UInt32Type>("-1");
+  AssertConversionFails<UInt32Type>("4294967296");
+  AssertConversionFails<UInt32Type>("12345678901");
 
-  AssertConversionFails<CType>("");
-  AssertConversionFails<CType>("-");
-  AssertConversionFails<CType>("0.0");
-  AssertConversionFails<CType>("e");
+  AssertConversionFails<UInt32Type>("");
+  AssertConversionFails<UInt32Type>("-");
+  AssertConversionFails<UInt32Type>("0.0");
+  AssertConversionFails<UInt32Type>("e");
 }
 
 TEST(StringConversion, ToInt64) {
-  using CType = StringConverter<Int64Type>;
-
-  AssertConversion<CType>("0", 0);
-  AssertConversion<CType>("9223372036854775807", 9223372036854775807LL);
-  AssertConversion<CType>("09223372036854775807", 9223372036854775807LL);
-  AssertConversion<CType>("-9223372036854775808", -9223372036854775807LL - 1);
-  AssertConversion<CType>("-009223372036854775808", -9223372036854775807LL - 1);
+  AssertConversion<Int64Type>("0", 0);
+  AssertConversion<Int64Type>("9223372036854775807", 9223372036854775807LL);
+  AssertConversion<Int64Type>("09223372036854775807", 9223372036854775807LL);
+  AssertConversion<Int64Type>("-9223372036854775808", -9223372036854775807LL - 1);
+  AssertConversion<Int64Type>("-009223372036854775808", -9223372036854775807LL - 1);
 
   // Non-representable values
-  AssertConversionFails<CType>("9223372036854775808");
-  AssertConversionFails<CType>("-9223372036854775809");
+  AssertConversionFails<Int64Type>("9223372036854775808");
+  AssertConversionFails<Int64Type>("-9223372036854775809");
 
-  AssertConversionFails<CType>("");
-  AssertConversionFails<CType>("-");
-  AssertConversionFails<CType>("0.0");
-  AssertConversionFails<CType>("e");
+  AssertConversionFails<Int64Type>("");
+  AssertConversionFails<Int64Type>("-");
+  AssertConversionFails<Int64Type>("0.0");
+  AssertConversionFails<Int64Type>("e");
 }
 
 TEST(StringConversion, ToUInt64) {
-  using CType = StringConverter<UInt64Type>;
-
-  AssertConversion<CType>("0", 0);
-  AssertConversion<CType>("18446744073709551615", 18446744073709551615ULL);
+  AssertConversion<UInt64Type>("0", 0);
+  AssertConversion<UInt64Type>("18446744073709551615", 18446744073709551615ULL);
 
   // Non-representable values
-  AssertConversionFails<CType>("-1");
-  AssertConversionFails<CType>("18446744073709551616");
+  AssertConversionFails<UInt64Type>("-1");
+  AssertConversionFails<UInt64Type>("18446744073709551616");
 
-  AssertConversionFails<CType>("");
-  AssertConversionFails<CType>("-");
-  AssertConversionFails<CType>("0.0");
-  AssertConversionFails<CType>("e");
+  AssertConversionFails<UInt64Type>("");
+  AssertConversionFails<UInt64Type>("-");
+  AssertConversionFails<UInt64Type>("0.0");
+  AssertConversionFails<UInt64Type>("e");
 }
 
 template <TimeUnit::type UNIT>

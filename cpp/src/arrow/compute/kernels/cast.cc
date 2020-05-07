@@ -1079,7 +1079,7 @@ struct CastFunctor<
       }
 
       auto str = input_array.GetView(i);
-      if (!internal::StringConverter<O>::Convert(str.data(), str.length(), out_data)) {
+      if (!internal::ParseValue<O>(str.data(), str.length(), out_data)) {
         ctx->SetStatus(Status::Invalid("Failed to cast String '", str, "' into ",
                                        output->type->ToString()));
         return;
@@ -1107,8 +1107,7 @@ struct CastFunctor<BooleanType, I, enable_if_t<is_string_like_type<I>::value>> {
 
       bool value;
       auto str = input_array.GetView(i);
-      if (!internal::StringConverter<BooleanType>::Convert(str.data(), str.length(),
-                                                           &value)) {
+      if (!internal::ParseValue<BooleanType>(str.data(), str.length(), &value)) {
         ctx->SetStatus(Status::Invalid("Failed to cast String '",
                                        input_array.GetString(i), "' into ",
                                        output->type->ToString()));

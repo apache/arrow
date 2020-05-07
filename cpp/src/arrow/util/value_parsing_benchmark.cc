@@ -112,7 +112,7 @@ static void IntegerParsing(benchmark::State& state) {  // NOLINT non-const refer
     C_TYPE total = 0;
     for (const auto& s : strings) {
       C_TYPE value;
-      if (!StringConverter<ARROW_TYPE>::Convert(s.data(), s.length(), &value)) {
+      if (!ParseValue<ARROW_TYPE>(s.data(), s.length(), &value)) {
         std::cerr << "Conversion failed for '" << s << "'";
         std::abort();
       }
@@ -131,7 +131,7 @@ static void FloatParsing(benchmark::State& state) {  // NOLINT non-const referen
     C_TYPE total = 0;
     for (const auto& s : strings) {
       C_TYPE value;
-      if (!StringConverter<ARROW_TYPE>::Convert(s.data(), s.length(), &value)) {
+      if (!ParseValue<ARROW_TYPE>(s.data(), s.length(), &value)) {
         std::cerr << "Conversion failed for '" << s << "'";
         std::abort();
       }

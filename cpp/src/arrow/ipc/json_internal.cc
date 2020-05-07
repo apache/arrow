@@ -58,6 +58,7 @@ constexpr char kYearMonth[] = "YEAR_MONTH";
 class MemoryPool;
 
 using internal::checked_cast;
+using internal::ParseValue;
 
 namespace ipc {
 namespace internal {
@@ -1351,8 +1352,7 @@ class ArrayReader {
   template <typename T>
   Status GetIntArray(const RjArray& json_array, const int32_t length,
                      std::shared_ptr<Buffer>* out) {
-    using ConverterType =
-        ::arrow::internal::StringConverter<typename CTypeTraits<T>::ArrowType>;
+    using ArrowType = typename CTypeTraits<T>::ArrowType;
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(length * sizeof(T), pool_));
 
     T* values = reinterpret_cast<T*>(buffer->mutable_data());
@@ -1373,7 +1373,7 @@ class ArrayReader {
       for (int i = 0; i < length; ++i) {
         const rj::Value& val = json_array[i];
         DCHECK(val.IsString());
-        if (!ConverterType::Convert(val.GetString(), val.GetStringLength(), &values[i])) {
+        if (!ParseValue<ArrowType>(val.GetString(), val.GetStringLength(), &values[i])) {
           return Status::Invalid("Failed to parse integer: '",
                                  std::string(val.GetString(), val.GetStringLength()),
                                  "'");

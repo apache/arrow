@@ -256,8 +256,7 @@ Status Uri::Parse(const std::string& uri_string) {
   auto port_text = TextRangeToView(impl_->uri_.portText);
   if (port_text.size()) {
     uint16_t port_num;
-    if (!StringConverter<UInt16Type>::Convert(port_text.data(), port_text.size(),
-                                              &port_num)) {
+    if (!ParseValue<UInt16Type>(port_text.data(), port_text.size(), &port_num)) {
       return Status::Invalid("Invalid port number '", port_text, "' in URI '", uri_string,
                              "'");
     }

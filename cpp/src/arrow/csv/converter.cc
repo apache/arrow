@@ -40,7 +40,6 @@ namespace arrow {
 namespace csv {
 
 using internal::checked_cast;
-using internal::StringConverter;
 using internal::Trie;
 using internal::TrieBuilder;
 
@@ -349,7 +348,7 @@ class NumericConverter : public ConcreteConverter {
   Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
                                          int32_t col_index) override {
     using BuilderType = typename TypeTraits<T>::BuilderType;
-    using value_type = typename StringConverter<T>::value_type;
+    using value_type = typename T::c_type;
 
     BuilderType builder(type_, pool_);
 
@@ -363,7 +362,7 @@ class NumericConverter : public ConcreteConverter {
       if (!std::is_same<BooleanType, T>::value) {
         TrimWhiteSpace(&data, &size);
       }
-      if (ARROW_PREDICT_FALSE(!StringConverter<T>::Convert(
+      if (ARROW_PREDICT_FALSE(!internal::ParseValue<T>(
               reinterpret_cast<const char*>(data), size, &value))) {
         return GenericConversionError(type_, data, size);
       }

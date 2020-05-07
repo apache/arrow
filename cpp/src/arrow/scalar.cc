@@ -220,11 +220,10 @@ std::string Scalar::ToString() const {
 }
 
 struct ScalarParseImpl {
-  template <typename T, typename Converter = internal::StringConverter<T>,
-            typename Value = typename Converter::value_type>
+  template <typename T, typename Value = typename T::c_type>
   Status Visit(const T& t) {
     Value value;
-    if (!Converter::Convert(s_.data(), s_.size(), &value)) {
+    if (!internal::ParseValue<T>(s_.data(), s_.size(), &value)) {
       return Status::Invalid("error parsing '", s_, "' as scalar of type ", t);
     }
     return Finish(std::move(value));

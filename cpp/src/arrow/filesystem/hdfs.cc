@@ -31,7 +31,7 @@
 
 namespace arrow {
 
-using internal::StringConverter;
+using internal::ParseValue;
 using internal::Uri;
 
 namespace fs {
@@ -314,7 +314,7 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
   if (it != options_map.end()) {
     const auto& v = it->second;
     int16_t replication;
-    if (!StringConverter<Int16Type>::Convert(v.data(), v.size(), &replication)) {
+    if (!ParseValue<Int16Type>(v.data(), v.size(), &replication)) {
       return Status::Invalid("Invalid value for option 'replication': '", v, "'");
     }
     options.ConfigureReplication(replication);
@@ -325,7 +325,7 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
   if (it != options_map.end()) {
     const auto& v = it->second;
     int32_t buffer_size;
-    if (!StringConverter<Int32Type>::Convert(v.data(), v.size(), &buffer_size)) {
+    if (!ParseValue<Int32Type>(v.data(), v.size(), &buffer_size)) {
       return Status::Invalid("Invalid value for option 'buffer_size': '", v, "'");
     }
     options.ConfigureBufferSize(buffer_size);
@@ -336,7 +336,7 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
   if (it != options_map.end()) {
     const auto& v = it->second;
     int64_t default_block_size;
-    if (!StringConverter<Int64Type>::Convert(v.data(), v.size(), &default_block_size)) {
+    if (!ParseValue<Int64Type>(v.data(), v.size(), &default_block_size)) {
       return Status::Invalid("Invalid value for option 'default_block_size': '", v, "'");
     }
     options.ConfigureBlockSize(default_block_size);

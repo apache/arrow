@@ -55,17 +55,14 @@ class ARROW_EXPORT TimestampParser {
 
 namespace internal {
 
-/// \brief A class providing conversion from strings to some Arrow data types
-///
-/// Conversion is triggered by calling operator().  It returns true on
-/// success, false on failure.
-///
-/// The class may have a non-trivial construction cost in some cases,
-/// so it's recommended to use a single instance many times, if doing bulk
-/// conversion. Instances of this class are not guaranteed to be thread-safe.
-///
-template <typename ARROW_TYPE, typename... Args>
-struct StringConverter;
+namespace detail {
+
+template <typename ARROW_TYPE>
+struct StringConverter {
+  using value_type = void;
+
+  static bool Convert(const char*, size_t, value_type*) { return false; }
+};
 
 template <>
 struct StringConverter<BooleanType> {
@@ -131,8 +128,6 @@ struct StringConverter<DoubleType> {
 };
 
 // NOTE: HalfFloatType would require a half<->float conversion library
-
-namespace detail {
 
 inline uint8_t ParseDecimalDigit(char c) { return static_cast<uint8_t>(c - '0'); }
 
@@ -247,8 +242,6 @@ inline bool ParseUnsigned(const char* s, size_t length, uint64_t* out) {
 #undef PARSE_UNSIGNED_ITERATION
 #undef PARSE_UNSIGNED_ITERATION_LAST
 
-}  // namespace detail
-
 template <class ARROW_TYPE>
 struct StringToUnsignedIntConverterMixin {
   using value_type = typename ARROW_TYPE::c_type;
@@ -262,7 +255,7 @@ struct StringToUnsignedIntConverterMixin {
       length--;
       s++;
     }
-    return detail::ParseUnsigned(s, length, out);
+    return ParseUnsigned(s, length, out);
   }
 };
 
@@ -317,7 +310,7 @@ struct StringToSignedIntConverterMixin {
       length--;
       s++;
     }
-    if (!ARROW_PREDICT_TRUE(detail::ParseUnsigned(s, length, &unsigned_value))) {
+    if (!ARROW_PREDICT_TRUE(ParseUnsigned(s, length, &unsigned_value))) {
       return false;
     }
     if (negative) {
@@ -359,8 +352,6 @@ struct StringConverter<Int64Type> : public StringToSignedIntConverterMixin<Int64
 };
 
 // Inline-able ISO-8601 parser
-
-namespace detail {
 
 using ts_type = TimestampType::c_type;
 
@@ -465,6 +456,13 @@ static inline bool ParseHH_MM_SS(const char* s, std::chrono::duration<ts_type>* 
 }
 
 }  // namespace detail
+
+/// \brief Attempt to convert a string to the primitive type corresponding to
+/// an Arrow data type
+template <typename T>
+static inline bool ParseValue(const char* s, size_t length, typename T::c_type* out) {
+  return detail::StringConverter<T>::Convert(s, length, out);
+}
 
 static inline bool ParseTimestampISO8601(const char* s, size_t length,
                                          TimeUnit::type unit,

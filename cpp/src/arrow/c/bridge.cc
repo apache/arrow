@@ -653,7 +653,7 @@ class FormatStringParser {
   Result<IntType> ParseInt(util::string_view v) {
     using ArrowIntType = typename CTypeTraits<IntType>::ArrowType;
     IntType value;
-    if (!internal::StringConverter<ArrowIntType>::Convert(v.data(), v.size(), &value)) {
+    if (!internal::ParseValue<ArrowIntType>(v.data(), v.size(), &value)) {
       return Invalid();
     }
     return value;

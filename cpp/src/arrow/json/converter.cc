@@ -109,7 +109,7 @@ struct ParserAdapter {
   void InitParser(const DataType& type) {}
 
   bool ConvertOne(const char* s, size_t length, value_type* out) {
-    return internal::StringConverter<T>::Convert(s, length, out);
+    return internal::ParseValue<T>(s, length, out);
   }
 };
 
