@@ -19,10 +19,7 @@
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/simd.h"
-
-#if defined(ARROW_HAVE_SSE4_2)
-#include "arrow/util/spaced_sse_generated.h"
-#endif  // ARROW_HAVE_SSE4_2
+#include "arrow/util/spaced_sse.h"
 
 namespace arrow {
 namespace util {
@@ -72,6 +69,9 @@ int SpacedExpandScalar(T* buffer, int num_values, int null_count,
 }
 
 #if defined(ARROW_HAVE_SSE4_2)
+// Compress the buffer to spaced with help of _mm_shuffle_epi8 API, the shuffle control
+// mask achieved by a lookup table for better performance, dynamically generated the mask
+// by looping the valid bits is very slow.
 template <typename T>
 int SpacedCompressSseShuffle(const T* values, int num_values, const uint8_t* valid_bits,
                              int64_t valid_bits_offset, T* output) {
@@ -101,6 +101,10 @@ int SpacedCompressSseShuffle(const T* values, int num_values, const uint8_t* val
     // Compiler able to pick the path at instantiation time
     if (sizeof(T) == 1) {
       // Path for epi8, 16 epi8 one batch, two bytes in valid_bits
+      const uint64_t* kMask64ThinTable =
+          reinterpret_cast<const uint64_t*>(arrow::internal::kMask64SseCompressEpi8Thin);
+      const __m128i* kMask128ThinCompactTable =
+          reinterpret_cast<const __m128i*>(arrow::internal::kMask128SseEpi8ThinCompact);
       uint8_t valid_byte_value_high, valid_count_low, valid_count_high;
       valid_count_low = BitUtil::kBytePopcount[valid_byte_value];
 
@@ -108,22 +112,17 @@ int SpacedCompressSseShuffle(const T* values, int num_values, const uint8_t* val
       idx_valid_bytes++;
       valid_count_high = BitUtil::kBytePopcount[valid_byte_value_high];
 
-      // Thin table used, it need add back the offset of high and compact two parts
+      // Thin table used to avoid the large full table(1M), the addtional step is it need
+      // add back the offset of high and compact two parts
       __m128i src =
           _mm_loadu_si128(reinterpret_cast<const __m128i*>(values + idx_values));
-      __m128i mask = _mm_set_epi64x(*(reinterpret_cast<const uint64_t*>(
-                                          arrow::internal::kMask128SseCompressEpi8Thin) +
-                                      valid_byte_value_high),
-                                    *(reinterpret_cast<const uint64_t*>(
-                                          arrow::internal::kMask128SseCompressEpi8Thin) +
-                                      valid_byte_value));
+      __m128i mask = _mm_set_epi64x(kMask64ThinTable[valid_byte_value_high],
+                                    kMask64ThinTable[valid_byte_value]);
       mask = _mm_add_epi8(mask, _mm_set_epi32(0x08080808, 0x08080808, 0x0, 0x0));
       __m128i pruned = _mm_shuffle_epi8(src, mask);
       // Compact the final result
       __m128i result =
-          _mm_shuffle_epi8(pruned, *(reinterpret_cast<const __m128i*>(
-                                         arrow::internal::kMask128SseEpi8ThinCompact) +
-                                     valid_count_low));
+          _mm_shuffle_epi8(pruned, kMask128ThinCompactTable[valid_count_low]);
       // Safe to store the spare null values which will be covered next batch
       _mm_storeu_si128(reinterpret_cast<__m128i*>(output + num_valid_values), result);
 
@@ -132,6 +131,8 @@ int SpacedCompressSseShuffle(const T* values, int num_values, const uint8_t* val
       idx_valid_bits += kBatchSize;
     } else if (sizeof(T) == 4) {
       // Path for epi32, compress from low to high, 4 bits each time
+      const __m128i* kMask128Table =
+          reinterpret_cast<const __m128i*>(arrow::internal::kMask128SseCompressEpi32);
       uint8_t valid_value, valid_count;
       for (int i = 0; i < 2; i++) {
         valid_value = (valid_byte_value >> (4 * i)) & 0x0F;
@@ -139,9 +140,7 @@ int SpacedCompressSseShuffle(const T* values, int num_values, const uint8_t* val
 
         __m128i src =
             _mm_loadu_si128(reinterpret_cast<const __m128i*>(values + idx_values));
-        __m128i mask = _mm_load_si128(
-            reinterpret_cast<const __m128i*>(arrow::internal::kMask128SseCompressEpi32) +
-            valid_value);
+        __m128i mask = _mm_load_si128(&kMask128Table[valid_value]);
         // Safe to store the spare null values which will be covered next batch
         _mm_storeu_si128(reinterpret_cast<__m128i*>(output + num_valid_values),
                          _mm_shuffle_epi8(src, mask));
@@ -151,17 +150,17 @@ int SpacedCompressSseShuffle(const T* values, int num_values, const uint8_t* val
         idx_valid_bits += 4;
       }
     } else {
-      uint8_t valid_value, valid_count;
       // Path for epi64, compress from low to high, 2 bits each time
+      const __m128i* kMask128Table =
+          reinterpret_cast<const __m128i*>(arrow::internal::kMask128SseCompressEpi64);
+      uint8_t valid_value, valid_count;
       for (int i = 0; i < 4; i++) {
         valid_value = (valid_byte_value >> (2 * i)) & 0x03;
         valid_count = BitUtil::kBytePopcount[valid_value];
 
         __m128i src =
             _mm_loadu_si128(reinterpret_cast<const __m128i*>(values + idx_values));
-        __m128i mask = _mm_load_si128(
-            reinterpret_cast<const __m128i*>(arrow::internal::kMask128SseCompressEpi64) +
-            valid_value);
+        __m128i mask = _mm_load_si128(&kMask128Table[valid_value]);
         // Safe to store the spare null values which will be covered next batch
         _mm_storeu_si128(reinterpret_cast<__m128i*>(output + num_valid_values),
                          _mm_shuffle_epi8(src, mask));
@@ -186,6 +185,9 @@ int SpacedCompressSseShuffle(const T* values, int num_values, const uint8_t* val
   return num_valid_values;
 }
 
+// Expand the spaced buffer with _mm_shuffle_epi8 API, the shuffle control mask achieved
+// by a lookup table for better performance, dynamically generated the mask by looping
+// the valid bits is very slow.
 template <typename T>
 int SpacedExpandSseShuffle(T* buffer, int num_values, int null_count,
                            const uint8_t* valid_bits, int64_t valid_bits_offset) {
@@ -220,6 +222,8 @@ int SpacedExpandSseShuffle(T* buffer, int num_values, int null_count,
     // Compiler able to pick the path at instantiation time
     if (sizeof(T) == 1) {
       // Path for epi8, 16 epi8 one batch, two bytes in valid_bits
+      const uint64_t* kMask64ThinTable =
+          reinterpret_cast<const uint64_t*>(arrow::internal::kMask64SseExpandEpi8Thin);
       uint8_t valid_byte_value_low, valid_count_low, valid_count_high;
       valid_count_high = BitUtil::kBytePopcount[valid_byte_value];
 
@@ -231,15 +235,12 @@ int SpacedExpandSseShuffle(T* buffer, int num_values, int null_count,
       idx_spaced -= kBatchSize;
       idx_valid_bits -= kBatchSize;
 
-      // Thin table used, it need add back the count of low to high part
+      // Thin table used to avoid the large full table(1M), the addtional step is it need
+      // add back the count of low to high part
       __m128i src =
           _mm_loadu_si128(reinterpret_cast<const __m128i*>(buffer + idx_decode + 1));
-      __m128i mask = _mm_set_epi64x(*(reinterpret_cast<const uint64_t*>(
-                                          arrow::internal::kMask128SseExpandEpi8Thin) +
-                                      valid_byte_value),
-                                    *(reinterpret_cast<const uint64_t*>(
-                                          arrow::internal::kMask128SseExpandEpi8Thin) +
-                                      valid_byte_value_low));
+      __m128i mask = _mm_set_epi64x(kMask64ThinTable[valid_byte_value],
+                                    kMask64ThinTable[valid_byte_value_low]);
       __m128i mask_offset =
           _mm_set_epi8(valid_count_low, valid_count_low, valid_count_low, valid_count_low,
                        valid_count_low, valid_count_low, valid_count_low, valid_count_low,
@@ -250,6 +251,8 @@ int SpacedExpandSseShuffle(T* buffer, int num_values, int null_count,
 
     } else if (sizeof(T) == 4) {
       // Path for epi32, expand from high to low, 4 bits each time
+      const __m128i* kMask128Table =
+          reinterpret_cast<const __m128i*>(arrow::internal::kMask128SseExpandEpi32);
       uint8_t valid_value, valid_count;
       for (int i = 0; i < 2; i++) {
         valid_value = (valid_byte_value >> (4 * (2 - i - 1))) & 0x0F;
@@ -260,14 +263,14 @@ int SpacedExpandSseShuffle(T* buffer, int num_values, int null_count,
 
         __m128i src =
             _mm_loadu_si128(reinterpret_cast<const __m128i*>(buffer + idx_decode + 1));
-        __m128i mask = _mm_load_si128(
-            reinterpret_cast<const __m128i*>(arrow::internal::kMask128SseExpandEpi32) +
-            valid_value);
+        __m128i mask = _mm_load_si128(&kMask128Table[valid_value]);
         _mm_storeu_si128(reinterpret_cast<__m128i*>(buffer + idx_spaced + 1),
                          _mm_shuffle_epi8(src, mask));
       }
     } else {
       // Path for epi64, expand from high to low, 2 bits each time
+      const __m128i* kMask128Table =
+          reinterpret_cast<const __m128i*>(arrow::internal::kMask128SseExpandEpi64);
       uint8_t valid_value, valid_count;
       for (int i = 0; i < 4; i++) {
         valid_value = (valid_byte_value >> (2 * (4 - i - 1))) & 0x03;
@@ -278,9 +281,7 @@ int SpacedExpandSseShuffle(T* buffer, int num_values, int null_count,
 
         __m128i src =
             _mm_loadu_si128(reinterpret_cast<const __m128i*>(buffer + idx_decode + 1));
-        __m128i mask = _mm_load_si128(
-            reinterpret_cast<const __m128i*>(arrow::internal::kMask128SseExpandEpi64) +
-            valid_value);
+        __m128i mask = _mm_load_si128(&kMask128Table[valid_value]);
         _mm_storeu_si128(reinterpret_cast<__m128i*>(buffer + idx_spaced + 1),
                          _mm_shuffle_epi8(src, mask));
       }

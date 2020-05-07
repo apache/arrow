@@ -179,6 +179,7 @@ set(ARROW_SRCS
     util/logging.cc
     util/key_value_metadata.cc
     util/memory.cc
+    util/spaced_sse_table_generated.cc
     util/string.cc
     util/string_builder.cc
     util/task_group.cc
