@@ -220,7 +220,9 @@ std::string Scalar::ToString() const {
 }
 
 struct ScalarParseImpl {
-  template <typename T, typename Value = typename T::c_type>
+  // XXX Use of detail here not ideal
+  template <typename T,
+            typename Value = typename internal::detail::StringConverter<T>::value_type>
   Status Visit(const T& t) {
     Value value;
     if (!internal::ParseValue<T>(s_.data(), s_.size(), &value)) {

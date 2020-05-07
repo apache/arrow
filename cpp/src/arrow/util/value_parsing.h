@@ -59,9 +59,7 @@ namespace detail {
 
 template <typename ARROW_TYPE>
 struct StringConverter {
-  using value_type = void;
-
-  static bool Convert(const char*, size_t, value_type*) { return false; }
+  static bool Convert(const char*, size_t, void*) { return false; }
 };
 
 template <>
