@@ -17,6 +17,7 @@
 
 #include "arrow/ipc/reader.h"
 
+#include <algorithm>
 #include <climits>
 #include <cstdint>
 #include <cstring>
