@@ -1056,6 +1056,24 @@ class ReaderWriterMixin : public ExtensionTypesMixin {
       AssertBatchesEqual(*ex_batch, *out_batches[0], /*check_metadata=*/true);
     }
 
+    // Duplicated or unordered indices are normalized when reading
+    options.included_fields = {3, 1, 1};
+
+    {
+      WriterHelper writer_helper;
+      BatchVector out_batches;
+      std::shared_ptr<Schema> out_schema;
+      ASSERT_OK(RoundTripHelper(writer_helper, {batch}, IpcWriteOptions::Defaults(),
+                                options, &out_batches, &out_schema));
+
+      auto ex_schema = schema({field("a1", utf8()), field("a3", utf8())},
+                              key_value_metadata({"key1"}, {"value1"}));
+      AssertSchemaEqual(*ex_schema, *out_schema);
+
+      auto ex_batch = RecordBatch::Make(ex_schema, a0->length(), {a1, a3});
+      AssertBatchesEqual(*ex_batch, *out_batches[0], /*check_metadata=*/true);
+    }
+
     // Out of bounds cases
     options.included_fields = {1, 3, 5};
     {

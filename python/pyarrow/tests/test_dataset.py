@@ -1415,6 +1415,12 @@ def test_feather_format(tempdir):
     result = dataset.to_table()
     assert result.equals(table)
 
+    # ARROW-8641 - column selection order
+    result = dataset.to_table(columns=["b", "a"])
+    assert result.column_names == ["b", "a"]
+    result = dataset.to_table(columns=["a", "a"])
+    assert result.column_names == ["a", "a"]
+
     # error with Feather v1 files
     write_feather(table, str(basedir / "data1.feather"), version=1)
     with pytest.raises(ValueError):
