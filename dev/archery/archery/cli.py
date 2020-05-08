@@ -740,10 +740,16 @@ def docker_compose_run(obj, image, command, env, force_pull, force_build,
 
         compose._execute = MethodType(_print_command, compose)
 
+    envvars = {}
+    for kv in env:
+        k, v = kv.split('=')
+        envvars[k] = v
+
     try:
         compose.run(
             image,
             command=command,
+            env=envvars,
             force_pull=force_pull,
             force_build=force_build,
             use_cache=use_cache,
