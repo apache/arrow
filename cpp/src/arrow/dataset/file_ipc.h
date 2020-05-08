@@ -48,7 +48,7 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
                                     std::shared_ptr<ScanContext> context) const override;
 
   Result<std::shared_ptr<WriteTask>> WriteFragment(
-      FileSource destination, std::shared_ptr<Fragment> fragment,
+      WritableFileSource destination, std::shared_ptr<Fragment> fragment,
       std::shared_ptr<ScanOptions> options,
       std::shared_ptr<ScanContext> context) override;
 };

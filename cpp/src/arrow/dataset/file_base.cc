@@ -35,19 +35,19 @@ namespace arrow {
 namespace dataset {
 
 Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
-  if (id() == PATH) {
+  if (IsPath()) {
     return filesystem()->OpenInputFile(path());
   }
 
-  return std::make_shared<::arrow::io::BufferReader>(buffer());
-}
-
-Result<std::shared_ptr<arrow::io::OutputStream>> FileSource::OpenWritable() const {
-  if (!writable_) {
-    return Status::Invalid("file source '", path(), "' is not writable");
+  if (IsBuffer()) {
+    return std::make_shared<::arrow::io::BufferReader>(buffer());
   }
 
-  if (id() == PATH) {
+  return util::get<std::shared_ptr<io::RandomAccessFile>>(impl_);
+}
+
+Result<std::shared_ptr<arrow::io::OutputStream>> WritableFileSource::Open() const {
+  if (IsPath()) {
     return filesystem()->OpenOutputStream(path());
   }
 
@@ -66,7 +66,7 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
 }
 
 Result<std::shared_ptr<WriteTask>> FileFormat::WriteFragment(
-    FileSource destination, std::shared_ptr<Fragment> fragment,
+    WritableFileSource destination, std::shared_ptr<Fragment> fragment,
     std::shared_ptr<ScanOptions> scan_options,
     std::shared_ptr<ScanContext> scan_context) {
   return Status::NotImplemented("writing fragment of format ", type_name());
@@ -168,15 +168,15 @@ Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Write(
       const auto& input_fragment = op.fragment();
       FileSource dest(path, filesystem);
 
-      ARROW_ASSIGN_OR_RAISE(
-          auto fragment,
-          plan.format->MakeFragment(dest, input_fragment->partition_expression()));
-      fragments.push_back(std::move(fragment));
+      ARROW_ASSIGN_OR_RAISE(auto write_task,
+                            plan.format->WriteFragment({path, filesystem}, input_fragment,
+                                                       scan_options, scan_context));
+      task_group->Append([write_task] { return write_task->Execute(); });
 
       ARROW_ASSIGN_OR_RAISE(
-          auto write_task,
-          plan.format->WriteFragment(dest, input_fragment, scan_options, scan_context));
-      task_group->Append([write_task] { return write_task->Execute(); });
+          auto fragment, plan.format->MakeFragment(
+                             {path, filesystem}, input_fragment->partition_expression()));
+      fragments.push_back(std::move(fragment));
     }
   }
 

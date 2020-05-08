@@ -223,8 +223,9 @@ TEST_F(FileSystemDatasetFactoryTest, MissingDirectories) {
       schema({field("a", int32()), field("b", int32())}));
 
   ASSERT_OK_AND_ASSIGN(
-      factory_, FileSystemDatasetFactory::Make(fs_, {partition_path, unpartition_path},
-                                               format_, factory_options_));
+      factory_, FileSystemDatasetFactory::Make(
+                    SourcesFromPaths(fs_, {partition_path, unpartition_path}), format_,
+                    factory_options_));
 
   InspectOptions options;
   AssertInspect(schema({field("a", int32()), field("b", int32())}), options);
@@ -257,7 +258,8 @@ TEST_F(FileSystemDatasetFactoryTest, OptionsIgnoredDefaultExplicitFiles) {
   std::vector<std::string> paths;
   for (const auto& info : ignored_by_default) paths.push_back(info.path());
   ASSERT_OK_AND_ASSIGN(
-      factory_, FileSystemDatasetFactory::Make(fs_, paths, format_, factory_options_));
+      factory_, FileSystemDatasetFactory::Make(SourcesFromPaths(fs_, paths), format_,
+                                               factory_options_));
 
   AssertFinishWithPaths(paths);
 }

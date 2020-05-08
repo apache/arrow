@@ -191,13 +191,12 @@ class ARROW_DS_EXPORT FileSystemDatasetFactory : public DatasetFactory {
   /// \brief Build a FileSystemDatasetFactory from an explicit list of
   /// paths.
   ///
-  /// \param[in] filesystem passed to FileSystemDataset
-  /// \param[in] paths passed to FileSystemDataset
+  /// \param[in] sources inspected and used to construct FileFragments
   /// \param[in] format passed to FileSystemDataset
   /// \param[in] options see FileSystemFactoryOptions for more information.
-  static Result<std::shared_ptr<DatasetFactory>> Make(
-      std::shared_ptr<fs::FileSystem> filesystem, const std::vector<std::string>& paths,
-      std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options);
+  static Result<std::shared_ptr<DatasetFactory>> Make(std::vector<FileSource> sources,
+                                                      std::shared_ptr<FileFormat> format,
+                                                      FileSystemFactoryOptions options);
 
   /// \brief Build a FileSystemDatasetFactory from a fs::FileSelector.
   ///
@@ -222,15 +221,13 @@ class ARROW_DS_EXPORT FileSystemDatasetFactory : public DatasetFactory {
   Result<std::shared_ptr<Dataset>> Finish(FinishOptions options) override;
 
  protected:
-  FileSystemDatasetFactory(std::vector<std::string> paths,
-                           std::shared_ptr<fs::FileSystem> filesystem,
+  FileSystemDatasetFactory(std::vector<FileSource> sources,
                            std::shared_ptr<FileFormat> format,
                            FileSystemFactoryOptions options);
 
   Result<std::shared_ptr<Schema>> PartitionSchema();
 
-  std::vector<std::string> paths_;
-  std::shared_ptr<fs::FileSystem> fs_;
+  std::vector<FileSource> sources_;
   std::shared_ptr<FileFormat> format_;
   FileSystemFactoryOptions options_;
 
