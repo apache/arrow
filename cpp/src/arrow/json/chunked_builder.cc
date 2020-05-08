@@ -313,7 +313,7 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
       // columns exclusively in the ordering specified in ParseOptions::explicit_schema,
       // so child_builders_ is immutable and no associative lookup is necessary.
       for (int i = 0; i < unconverted->num_fields(); ++i) {
-        child_builders_[i]->Insert(block_index, unconverted->type()->child(i),
+        child_builders_[i]->Insert(block_index, unconverted->type()->field(i),
                                    struct_array->field(i));
       }
     } else {
@@ -386,7 +386,7 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
   // differently ordered fields
   // call from Insert() only, with mutex_ locked
   Status InsertChildren(int64_t block_index, const StructArray* unconverted) {
-    const auto& fields = unconverted->type()->children();
+    const auto& fields = unconverted->type()->fields();
 
     for (int i = 0; i < unconverted->num_fields(); ++i) {
       auto it = name_to_index_.find(fields[i]->name());
@@ -407,7 +407,7 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
         child_builders_.emplace_back(std::move(child_builder));
       }
 
-      auto unconverted_field = unconverted->type()->child(i);
+      auto unconverted_field = unconverted->type()->field(i);
       child_builders_[it->second]->Insert(block_index, unconverted_field,
                                           unconverted->field(i));
 
@@ -435,7 +435,7 @@ Status MakeChunkedArrayBuilder(const std::shared_ptr<TaskGroup>& task_group,
   if (type->id() == Type::STRUCT) {
     std::vector<std::pair<std::string, std::shared_ptr<ChunkedArrayBuilder>>>
         child_builders;
-    for (const auto& f : type->children()) {
+    for (const auto& f : type->fields()) {
       std::shared_ptr<ChunkedArrayBuilder> child_builder;
       RETURN_NOT_OK(MakeChunkedArrayBuilder(task_group, pool, promotion_graph, f->type(),
                                             &child_builder));

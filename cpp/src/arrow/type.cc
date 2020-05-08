@@ -177,7 +177,7 @@ Result<std::shared_ptr<Field>> Field::MergeWith(const std::shared_ptr<Field>& ot
 std::vector<std::shared_ptr<Field>> Field::Flatten() const {
   std::vector<std::shared_ptr<Field>> flattened;
   if (type_->id() == Type::STRUCT) {
-    for (const auto& child : type_->children()) {
+    for (const auto& child : type_->fields()) {
       auto flattened_child = child->Copy();
       flattened.push_back(flattened_child);
       flattened_child->name_.insert(0, name() + ".");
@@ -279,11 +279,11 @@ std::string LargeListType::ToString() const {
 
 MapType::MapType(const std::shared_ptr<DataType>& key_type,
                  const std::shared_ptr<DataType>& item_type, bool keys_sorted)
-    : MapType(key_type, field("value", item_type), keys_sorted) {}
+    : MapType(key_type, ::arrow::field("value", item_type), keys_sorted) {}
 
 MapType::MapType(const std::shared_ptr<DataType>& key_type,
                  const std::shared_ptr<Field>& item_field, bool keys_sorted)
-    : ListType(field(
+    : ListType(::arrow::field(
           "entries",
           struct_({std::make_shared<Field>("key", key_type, false), item_field}), false)),
       keys_sorted_(keys_sorted) {
@@ -530,11 +530,11 @@ StructType::~StructType() {}
 std::string StructType::ToString() const {
   std::stringstream s;
   s << "struct<";
-  for (int i = 0; i < this->num_children(); ++i) {
+  for (int i = 0; i < this->num_fields(); ++i) {
     if (i > 0) {
       s << ", ";
     }
-    std::shared_ptr<Field> field = this->child(i);
+    std::shared_ptr<Field> field = this->field(i);
     s << field->ToString();
   }
   s << ">";
@@ -751,7 +751,7 @@ struct FieldPathGetImpl {
   static Result<std::shared_ptr<Field>> Get(const FieldPath* path,
                                             const FieldVector& fields) {
     return FieldPathGetImpl::Get(path, &fields, [](const std::shared_ptr<Field>& field) {
-      return &field->type()->children();
+      return &field->type()->fields();
     });
   }
 
@@ -770,7 +770,7 @@ struct FieldPathGetImpl {
         path, &columns, [&](const std::shared_ptr<ChunkedArray>& a) {
           columns.clear();
 
-          for (int i = 0; i < a->type()->num_children(); ++i) {
+          for (int i = 0; i < a->type()->num_fields(); ++i) {
             ArrayVector child_chunks;
 
             for (const auto& chunk : a->chunks()) {
@@ -779,7 +779,7 @@ struct FieldPathGetImpl {
             }
 
             auto child_column = std::make_shared<ChunkedArray>(
-                std::move(child_chunks), a->type()->child(i)->type());
+                std::move(child_chunks), a->type()->field(i)->type());
 
             columns.emplace_back(std::move(child_column));
           }
@@ -794,11 +794,11 @@ Result<std::shared_ptr<Field>> FieldPath::Get(const Schema& schema) const {
 }
 
 Result<std::shared_ptr<Field>> FieldPath::Get(const Field& field) const {
-  return FieldPathGetImpl::Get(this, field.type()->children());
+  return FieldPathGetImpl::Get(this, field.type()->fields());
 }
 
 Result<std::shared_ptr<Field>> FieldPath::Get(const DataType& type) const {
-  return FieldPathGetImpl::Get(this, type.children());
+  return FieldPathGetImpl::Get(this, type.fields());
 }
 
 Result<std::shared_ptr<Field>> FieldPath::Get(const FieldVector& fields) const {
@@ -966,11 +966,11 @@ std::vector<FieldPath> FieldRef::FindAll(const Schema& schema) const {
 }
 
 std::vector<FieldPath> FieldRef::FindAll(const Field& field) const {
-  return FindAll(field.type()->children());
+  return FindAll(field.type()->fields());
 }
 
 std::vector<FieldPath> FieldRef::FindAll(const DataType& type) const {
-  return FindAll(type.children());
+  return FindAll(type.fields());
 }
 
 std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
@@ -980,7 +980,7 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
       int out_of_range_depth;
       auto maybe_field = FieldPathGetImpl::Get(
           &path, &fields_,
-          [](const std::shared_ptr<Field>& field) { return &field->type()->children(); },
+          [](const std::shared_ptr<Field>& field) { return &field->type()->fields(); },
           &out_of_range_depth);
 
       DCHECK_OK(maybe_field.status());
@@ -1040,7 +1040,7 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
           const auto& referent = *matches.referents[i];
 
           for (const FieldPath& match : ref_it->FindAll(referent)) {
-            next_matches.Add(matches.prefixes[i], match, referent.type()->children());
+            next_matches.Add(matches.prefixes[i], match, referent.type()->fields());
           }
         }
         matches = std::move(next_matches);

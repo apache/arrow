@@ -75,8 +75,8 @@ void AssertUnconvertedStructArraysEqual(const StructArray& expected,
                                         const StructArray& actual) {
   ASSERT_EQ(expected.num_fields(), actual.num_fields());
   for (int i = 0; i < expected.num_fields(); ++i) {
-    auto expected_name = expected.type()->child(i)->name();
-    auto actual_name = actual.type()->child(i)->name();
+    auto expected_name = expected.type()->field(i)->name();
+    auto actual_name = actual.type()->field(i)->name();
     ASSERT_EQ(expected_name, actual_name);
     AssertUnconvertedArraysEqual(*expected.field(i), *actual.field(i));
   }
