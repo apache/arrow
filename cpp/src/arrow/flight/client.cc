@@ -526,7 +526,7 @@ class GrpcMetadataReader : public FlightMetadataReader {
 
 class FlightClient::FlightClientImpl {
  public:
-  Status Connect(const Location& location, const& options) {
+  Status Connect(const Location& location, const FlightClientOptions& options) {
     const std::string& scheme = location.scheme();
 
     std::stringstream grpc_uri;
