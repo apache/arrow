@@ -44,7 +44,7 @@ struct StringToFloatConverterImpl {
   util::double_conversion::StringToDoubleConverter fallback_converter_;
 };
 
-static StringToFloatConverterImpl g_string_to_float;
+static const StringToFloatConverterImpl g_string_to_float;
 
 bool StringToFloat(const char* s, size_t length, float* out) {
   int processed_length;

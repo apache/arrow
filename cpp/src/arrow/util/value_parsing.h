@@ -57,10 +57,8 @@ namespace internal {
 
 namespace detail {
 
-template <typename ARROW_TYPE>
-struct StringConverter {
-  static bool Convert(const char*, size_t, void*) { return false; }
-};
+template <typename ARROW_TYPE, typename Enable = void>
+struct StringConverter;
 
 template <>
 struct StringConverter<BooleanType> {
