@@ -83,7 +83,7 @@ where
         .map(|fields| Schema::new_with_metadata(fields, metadata))
 }
 
-/// Convert arrow schema to parquet chema
+/// Convert arrow schema to parquet schema
 pub fn arrow_to_parquet_schema(schema: &Schema) -> Result<SchemaDescriptor> {
     let fields: Result<Vec<TypePtr>> = schema
         .fields()
@@ -1073,11 +1073,11 @@ mod tests {
             REQUIRED INT32   int8  (INT_8);
             REQUIRED INT32   int16 (INT_16);
             REQUIRED INT32   int32;
-            REQUIRED INT64   int64 ;
+            REQUIRED INT64   int64;
             OPTIONAL DOUBLE  double;
             OPTIONAL FLOAT   float;
             OPTIONAL BINARY  string (UTF8);
-            REQUIRED GROUP bools (LIST) {
+            REQUIRED GROUP   bools (LIST) {
                 REPEATED GROUP list {
                     OPTIONAL BOOLEAN element;
                 }
@@ -1090,7 +1090,13 @@ mod tests {
             REQUIRED GROUP struct {
                 REQUIRED BOOLEAN bools;
                 REQUIRED INT32 uint32 (UINT_32);
+                REQUIRED GROUP   int32 (LIST) {
+                    REPEATED GROUP list {
+                        OPTIONAL INT32 element;
+                    }
+                }
             }
+            REQUIRED BINARY  dictionary_strings (UTF8);
         }
         ";
         let parquet_group_type = parse_message_type(message_type).unwrap();
@@ -1125,7 +1131,13 @@ mod tests {
                 DataType::Struct(vec![
                     Field::new("bools", DataType::Boolean, false),
                     Field::new("uint32", DataType::UInt32, false),
+                    Field::new("int32", DataType::List(Box::new(DataType::Int32)), true),
                 ]),
+                false,
+            ),
+            Field::new(
+                "dictionary_strings",
+                DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
                 false,
             ),
         ];
