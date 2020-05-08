@@ -19,6 +19,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include <gtest/gtest.h>
 
@@ -51,6 +52,7 @@ TEST(SemVer, TestParseBasic) {
     ASSERT_EQ(v.major, 1);
     ASSERT_EQ(v.minor, 0);
     ASSERT_EQ(v.patch, 0);
+    ASSERT_EQ(v.unknown, "");
     ASSERT_EQ(v.pre_release, "");
     ASSERT_EQ(v.build_info, "");
     ASSERT_EQ(v.ToString(), "1.0.0");
@@ -63,6 +65,17 @@ TEST(SemVer, TestParseBasic) {
   ASSERT_EQ(v.pre_release, "");
   ASSERT_EQ(v.build_info, "");
   ASSERT_EQ(v.ToString(), "0.10.2");
+}
+
+TEST(SemVer, TestUnknownPart) {
+  ASSERT_OK_AND_ASSIGN(auto v1, SemVer::Parse("2.3.4rc0-alpha.1+123"));
+  ASSERT_EQ(v1.major, 2);
+  ASSERT_EQ(v1.minor, 3);
+  ASSERT_EQ(v1.patch, 4);
+  ASSERT_EQ(v1.unknown, "rc0");
+  ASSERT_EQ(v1.pre_release, "alpha.1");
+  ASSERT_EQ(v1.build_info, "123");
+  ASSERT_EQ(v1.ToString(), "2.3.4rc0-alpha.1+123");
 }
 
 TEST(SemVer, TestParseMetadata) {

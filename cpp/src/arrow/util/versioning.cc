@@ -37,15 +37,15 @@ enum VersionPart {
   MAJOR,
   MINOR,
   PATCH,
+  UNKNOWN,
   PRE_RELEASE,
   BUILD_INFO
 };
 
 
-
 Result<SemVer> SemVer::Parse(const std::string& version_string) {
   std::string major = "0", minor = "0", patch = "0";
-  std::string pre_release, build_info;
+  std::string unknown, pre_release, build_info;
 
   auto part = VersionPart::MAJOR;
   for (char const &c: version_string) {
@@ -59,6 +59,9 @@ Result<SemVer> SemVer::Parse(const std::string& version_string) {
           part = VersionPart::PRE_RELEASE;
         } else if (c == '+') {
           part = VersionPart::BUILD_INFO;
+        } else if (std::isalpha(c)) {
+          unknown += c;
+          part = VersionPart::UNKNOWN;
         } else {
           return Status::Invalid("");
         }
@@ -72,6 +75,9 @@ Result<SemVer> SemVer::Parse(const std::string& version_string) {
           part = VersionPart::PRE_RELEASE;
         } else if (c == '+') {
           part = VersionPart::BUILD_INFO;
+        } else if (std::isalpha(c)) {
+          unknown += c;
+          part = VersionPart::UNKNOWN;
         } else {
           return Status::Invalid("");
         }
@@ -79,6 +85,20 @@ Result<SemVer> SemVer::Parse(const std::string& version_string) {
       case VersionPart::PATCH:
         if (std::isdigit(c)) {
           patch += c;
+        } else if (c == '-') {
+          part = VersionPart::PRE_RELEASE;
+        } else if (c == '+') {
+          part = VersionPart::BUILD_INFO;
+        } else if (std::isalpha(c)) {
+          unknown += c;
+          part = VersionPart::UNKNOWN;
+        } else {
+          return Status::Invalid("");
+        }
+        break;
+      case VersionPart::UNKNOWN:
+        if (std::isalnum(c)) {
+          unknown += c;
         } else if (c == '-') {
           part = VersionPart::PRE_RELEASE;
         } else if (c == '+') {
@@ -106,7 +126,8 @@ Result<SemVer> SemVer::Parse(const std::string& version_string) {
     }
   }
   try {
-    return SemVer(std::stoi(major), std::stoi(minor), std::stoi(patch), pre_release, build_info);
+    return SemVer(std::stoi(major), std::stoi(minor), std::stoi(patch), unknown,
+                  pre_release, build_info);
   } catch (std::invalid_argument& e) {
     return Status::Invalid("Unable to convert version");
   } catch (std::out_of_range& e) {
@@ -116,7 +137,7 @@ Result<SemVer> SemVer::Parse(const std::string& version_string) {
 
 std::string SemVer::ToString() const {
   std::stringstream ss;
-  ss << major << '.' << minor << '.' << patch;
+  ss << major << '.' << minor << '.' << patch << unknown;
   if (pre_release.size()) {
     ss << '-' << pre_release;
   }

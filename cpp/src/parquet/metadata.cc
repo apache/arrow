@@ -24,6 +24,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include "arrow/util/logging.h"
 #include "parquet/encryption_internal.h"
@@ -876,28 +877,62 @@ ApplicationVersion::ApplicationVersion(const std::string& application, int major
                                        int minor, int patch)
     : application_(application), version{major, minor, patch, "", ""} {}
 
+
+inline std::string& trim(std::string& s, const char* t=" \t\n\r\f\v") {
+  s.erase(s.find_last_not_of(t) + 1);
+  s.erase(0, s.find_first_not_of(t));
+  return s;
+}
+
 ApplicationVersion::ApplicationVersion(const std::string& created_by) {
   using SemVer = ::arrow::internal::SemVer;
 
-  regex app_regex{ApplicationVersion::APPLICATION_FORMAT};
-  smatch app_matches;
+  size_t index;
+  std::string app, ver, build;
 
-  std::string created_by_lower = created_by;
-  std::transform(created_by_lower.begin(), created_by_lower.end(),
-                 created_by_lower.begin(), ::tolower);
+  // make it lowercase
+  std::string s = created_by;
+  std::transform(s.begin(), s.end(), s.begin(), ::tolower);
 
-  bool app_success = regex_match(created_by_lower, app_matches, app_regex);
-  std::string version_str;
-
-  if (app_success && app_matches.size() >= 4) {
-    // first match is the entire string. sub-matches start from second.
-    application_ = app_matches[1];
-    version_str = app_matches[3];
-    build_ = app_matches[4];
-    PARQUET_ASSIGN_OR_THROW(version, SemVer::Parse(version_str));
+  // example: parquet-mr version 1.5.0-cdh5.5.0+cd (build abcd)
+  index = s.rfind(" version ");
+  if (index == std::string::npos) {
+    // treat the whole string as the application name
+    app = s;
   } else {
-    application_ = "unknown";
+    // first part is the application name
+    app = s.substr(0, index);
+    // keep working on the rest of the string
+    s = s.substr(index + 9);
+    // search for the opening bracket of the build string
+    index = s.find('(');
+    if (index == std::string::npos) {
+      // treat the remaining string as the version string
+      ver = s;
+    } else {
+      // split by the opening bracket
+      ver = s.substr(0, index);
+      // keep working on the rest of the string
+      s = s.substr(index);
+      // search for the 'build' prefix
+      index = s.find("build ");
+      if (index == std::string::npos) {
+        // not found, nothing to do
+      } else {
+        build = std::string(&s[index + 6], &s[s.rfind(')')]);
+      }
+    }
   }
+
+  // trim whitespaces from both ends
+  app = trim(app);
+  ver = trim(ver);
+  build = trim(build);
+
+  // set class members
+  application_ = app.size() ? app : "unknown";
+  version = SemVer::Parse(ver).ValueOr(SemVer(0, 0, 0));
+  build_ = build;
 }
 
 bool ApplicationVersion::VersionLt(const ApplicationVersion& other_version) const {

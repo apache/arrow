@@ -34,11 +34,12 @@ struct ARROW_EXPORT SemVer {
  public:
 
   SemVer() {};
-  SemVer(int major, int minor, int patch, const std::string& pre_release="",
-         const std::string& build_info="")
+  SemVer(int major, int minor, int patch, const std::string& unknown="",
+         const std::string& pre_release="", const std::string& build_info="")
     : major(major),
       minor(minor),
       patch(patch),
+      unknown(unknown),
       pre_release(pre_release),
       build_info(build_info)
       {};
@@ -64,7 +65,7 @@ struct ARROW_EXPORT SemVer {
   static Result<SemVer> Parse(const std::string& version_string);
 
   unsigned int major, minor, patch;
-  std::string pre_release, build_info;
+  std::string unknown, pre_release, build_info;
 };
 
 }  // namespace internal
