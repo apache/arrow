@@ -120,9 +120,9 @@ Result<SemVer> SemVer::Parse(const std::string& version_string) {
   try {
     return SemVer(std::stoi(major), std::stoi(minor), std::stoi(patch), unknown,
                   pre_release, build_info);
-  } catch (std::invalid_argument& e) {
+  } catch (std::invalid_argument&) {
     return Status::Invalid("Unable to convert version");
-  } catch (std::out_of_range& e) {
+  } catch (std::out_of_range&) {
     return Status::Invalid("Unable to convert version");
   }
 }
