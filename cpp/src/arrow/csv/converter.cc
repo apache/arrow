@@ -40,7 +40,6 @@ namespace arrow {
 namespace csv {
 
 using internal::checked_cast;
-using internal::StringConverter;
 using internal::Trie;
 using internal::TrieBuilder;
 
@@ -349,10 +348,9 @@ class NumericConverter : public ConcreteConverter {
   Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
                                          int32_t col_index) override {
     using BuilderType = typename TypeTraits<T>::BuilderType;
-    using value_type = typename StringConverter<T>::value_type;
+    using value_type = typename T::c_type;
 
     BuilderType builder(type_, pool_);
-    StringConverter<T> converter;
 
     auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
       // XXX should quoted values be allowed at all?
@@ -364,8 +362,8 @@ class NumericConverter : public ConcreteConverter {
       if (!std::is_same<BooleanType, T>::value) {
         TrimWhiteSpace(&data, &size);
       }
-      if (ARROW_PREDICT_FALSE(
-              !converter(reinterpret_cast<const char*>(data), size, &value))) {
+      if (ARROW_PREDICT_FALSE(!internal::ParseValue<T>(
+              reinterpret_cast<const char*>(data), size, &value))) {
         return GenericConversionError(type_, data, size);
       }
       builder.UnsafeAppend(value);

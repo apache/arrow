@@ -220,14 +220,23 @@ std::string Scalar::ToString() const {
 }
 
 struct ScalarParseImpl {
-  template <typename T, typename Converter = internal::StringConverter<T>,
-            typename Value = typename Converter::value_type>
+  // XXX Use of detail here not ideal
+  template <typename T,
+            typename Value = typename internal::detail::StringConverter<T>::value_type>
   Status Visit(const T& t) {
     Value value;
-    if (!Converter{type_}(s_.data(), s_.size(), &value)) {
+    if (!internal::ParseValue<T>(s_.data(), s_.size(), &value)) {
       return Status::Invalid("error parsing '", s_, "' as scalar of type ", t);
     }
     return Finish(std::move(value));
+  }
+
+  Status Visit(const TimestampType& t) {
+    int64_t value;
+    if (!internal::ParseTimestampISO8601(s_.data(), s_.size(), t.unit(), &value)) {
+      return Status::Invalid("error parsing '", s_, "' as scalar of type ", t);
+    }
+    return Finish(value);
   }
 
   Status Visit(const BinaryType&) { return FinishWithBuffer(); }

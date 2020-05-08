@@ -652,9 +652,8 @@ class FormatStringParser {
   template <typename IntType = int32_t>
   Result<IntType> ParseInt(util::string_view v) {
     using ArrowIntType = typename CTypeTraits<IntType>::ArrowType;
-    internal::StringConverter<ArrowIntType> converter;
     IntType value;
-    if (!converter(v.data(), v.size(), &value)) {
+    if (!internal::ParseValue<ArrowIntType>(v.data(), v.size(), &value)) {
       return Invalid();
     }
     return value;

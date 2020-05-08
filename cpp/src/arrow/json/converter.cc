@@ -103,12 +103,38 @@ class BooleanConverter : public PrimitiveConverter {
 };
 
 template <typename T>
-class NumericConverter : public PrimitiveConverter {
+struct ParserAdapter {
+  using value_type = typename T::c_type;
+
+  void InitParser(const DataType& type) {}
+
+  bool ConvertOne(const char* s, size_t length, value_type* out) {
+    return internal::ParseValue<T>(s, length, out);
+  }
+};
+
+template <>
+struct ParserAdapter<TimestampType> {
+  void InitParser(const DataType& type) {
+    this->unit = internal::checked_cast<const TimestampType&>(type).unit();
+  }
+
+  bool ConvertOne(const char* s, size_t length, int64_t* out) {
+    return internal::ParseTimestampISO8601(s, length, unit, out);
+  }
+
+  TimeUnit::type unit;
+};
+
+template <typename T>
+class NumericConverter : public PrimitiveConverter, public ParserAdapter<T> {
  public:
-  using value_type = typename internal::StringConverter<T>::value_type;
+  using value_type = typename T::c_type;
 
   NumericConverter(MemoryPool* pool, const std::shared_ptr<DataType>& type)
-      : PrimitiveConverter(pool, type), convert_one_(type) {}
+      : PrimitiveConverter(pool, type) {
+    ParserAdapter<T>::InitParser(*type);
+  }
 
   Status Convert(const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) override {
     if (in->type_id() == Type::NA) {
@@ -122,7 +148,7 @@ class NumericConverter : public PrimitiveConverter {
 
     auto visit_valid = [&](string_view repr) {
       value_type value;
-      if (!convert_one_(repr.data(), repr.size(), &value)) {
+      if (!ParserAdapter<T>::ConvertOne(repr.data(), repr.size(), &value)) {
         return GenericConversionError(*out_type_, ", couldn't parse:", repr);
       }
 
@@ -138,8 +164,6 @@ class NumericConverter : public PrimitiveConverter {
     RETURN_NOT_OK(VisitDictionaryEntries(dict_array, visit_valid, visit_null));
     return builder.Finish(out);
   }
-
-  internal::StringConverter<T> convert_one_;
 };
 
 template <typename DateTimeType>

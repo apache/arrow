@@ -50,7 +50,7 @@
 namespace arrow {
 
 using internal::checked_cast;
-using internal::StringConverter;
+using internal::ParseValue;
 
 namespace py {
 
@@ -232,10 +232,9 @@ Status GetPythonTypes(const UnionArray& data, std::vector<int8_t>* result) {
   ARROW_CHECK(result != nullptr);
   auto type = data.type();
   for (int i = 0; i < type->num_children(); ++i) {
-    StringConverter<Int8Type> converter;
     int8_t tag = 0;
     const std::string& data = type->child(i)->name();
-    if (!converter(data.c_str(), data.size(), &tag)) {
+    if (!ParseValue<Int8Type>(data.c_str(), data.size(), &tag)) {
       return Status::SerializationError("Cannot convert string: \"",
                                         type->child(i)->name(), "\" to int8_t");
     }
