@@ -877,7 +877,7 @@ mod tests {
         let provider = MemTable::new(schema, vec![batch])?;
         ctx.register_table("t", Box::new(provider));
 
-        let myfunc: ScalarUdf = |args: &Vec<ArrayRef>| {
+        let myfunc: ScalarUdf = |args: &[ArrayRef]| {
             let l = &args[0]
                 .as_any()
                 .downcast_ref::<Int32Array>()

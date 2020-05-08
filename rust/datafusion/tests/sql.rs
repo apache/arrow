@@ -171,7 +171,7 @@ fn create_ctx() -> Result<ExecutionContext> {
     Ok(ctx)
 }
 
-fn custom_sqrt(args: &Vec<ArrayRef>) -> Result<ArrayRef> {
+fn custom_sqrt(args: &[ArrayRef]) -> Result<ArrayRef> {
     let input = &args[0]
         .as_any()
         .downcast_ref::<Float64Array>()
@@ -463,7 +463,7 @@ fn execute(ctx: &mut ExecutionContext, sql: &str) -> Vec<String> {
     result_str(&results)
 }
 
-fn result_str(results: &Vec<RecordBatch>) -> Vec<String> {
+fn result_str(results: &[RecordBatch]) -> Vec<String> {
     let mut result = vec![];
     for batch in results {
         for row_index in 0..batch.num_rows() {

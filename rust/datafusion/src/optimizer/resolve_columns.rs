@@ -63,7 +63,7 @@ impl OptimizerRule for ResolveColumnsRule {
         }
     }
 }
-fn rewrite_expr_list(expr: &Vec<Expr>, schema: &Schema) -> Result<Vec<Expr>> {
+fn rewrite_expr_list(expr: &[Expr], schema: &Schema) -> Result<Vec<Expr>> {
     Ok(expr
         .iter()
         .map(|e| rewrite_expr(e, schema))
