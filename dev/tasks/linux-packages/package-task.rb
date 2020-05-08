@@ -135,11 +135,11 @@ class PackageTask
     run_command_line = [
       "docker",
       "run",
-      "--interactive",
       "--rm",
       "--tty",
       "--volume", "#{Dir.pwd}:/host:rw",
     ]
+    run_command_line << "--interactive" if $stdin.tty?
     build_dir = ENV["BUILD_DIR"]
     if build_dir
       build_dir = "#{File.expand_path(build_dir)}/#{id}"
