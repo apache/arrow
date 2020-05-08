@@ -898,7 +898,7 @@ ApplicationVersion::ApplicationVersion(const std::string& created_by) {
   std::transform(s.begin(), s.end(), s.begin(), ::tolower);
 
   // example: parquet-mr version 1.5.0-cdh5.5.0+cd (build abcd)
-  index = s.rfind(" version ");
+  index = s.find(" version");
   if (index == std::string::npos) {
     // treat the whole string as the application name
     app = s;
@@ -906,7 +906,7 @@ ApplicationVersion::ApplicationVersion(const std::string& created_by) {
     // first part is the application name
     app = s.substr(0, index);
     // keep working on the rest of the string
-    s = s.substr(index + 9);
+    s = s.substr(index + 8);
     // search for the opening bracket of the build string
     index = s.find('(');
     if (index == std::string::npos) {
