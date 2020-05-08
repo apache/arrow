@@ -20,11 +20,11 @@
 #include <inttypes.h>
 
 #include <algorithm>
+#include <iostream>
 #include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
-#include <iostream>
 
 #include "arrow/util/logging.h"
 #include "parquet/encryption_internal.h"
@@ -877,12 +877,15 @@ ApplicationVersion::ApplicationVersion(const std::string& application, int major
                                        int minor, int patch)
     : application_(application), version{major, minor, patch, "", ""} {}
 
+namespace {
 
-inline std::string& trim(std::string& s, const char* t=" \t\n\r\f\v") {
+inline std::string& trim(std::string& s, const char* t = " \t\n\r\f\v") {
   s.erase(s.find_last_not_of(t) + 1);
   s.erase(0, s.find_first_not_of(t));
   return s;
 }
+
+}  // namespace
 
 ApplicationVersion::ApplicationVersion(const std::string& created_by) {
   using SemVer = ::arrow::internal::SemVer;

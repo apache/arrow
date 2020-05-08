@@ -32,31 +32,29 @@ namespace internal {
 /// \brief Semantic versioning
 struct ARROW_EXPORT SemVer {
  public:
+  SemVer(){};
+  SemVer(int major, int minor, int patch, const std::string& unknown = "",
+         const std::string& pre_release = "", const std::string& build_info = "")
+      : major(major),
+        minor(minor),
+        patch(patch),
+        unknown(unknown),
+        pre_release(pre_release),
+        build_info(build_info){};
 
-  SemVer() {};
-  SemVer(int major, int minor, int patch, const std::string& unknown="",
-         const std::string& pre_release="", const std::string& build_info="")
-    : major(major),
-      minor(minor),
-      patch(patch),
-      unknown(unknown),
-      pre_release(pre_release),
-      build_info(build_info)
-      {};
+  ~SemVer(){};
 
-  ~SemVer() {};
+  bool operator==(const SemVer& other) const;
 
-  bool operator==(const SemVer &other) const;
+  bool operator!=(const SemVer& other) const;
 
-  bool operator!=(const SemVer &other) const;
+  bool operator<(const SemVer& other) const;
 
-  bool operator<(const SemVer &other) const;
+  bool operator>(const SemVer& other) const;
 
-  bool operator>(const SemVer &other) const;
+  bool operator<=(const SemVer& other) const;
 
-  bool operator<=(const SemVer &other) const;
-
-  bool operator>=(const SemVer &other) const;
+  bool operator>=(const SemVer& other) const;
 
   /// Get the string representation of this version.
   std::string ToString() const;

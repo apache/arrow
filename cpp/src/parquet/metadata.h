@@ -24,8 +24,8 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/util/versioning.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/versioning.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
@@ -60,11 +60,6 @@ class PARQUET_EXPORT ApplicationVersion {
   static const ApplicationVersion& PARQUET_816_FIXED_VERSION();
   static const ApplicationVersion& PARQUET_CPP_FIXED_STATS_VERSION();
   static const ApplicationVersion& PARQUET_MR_FIXED_STATS_VERSION();
-  // Regular expression for the application format
-  // application_name version VERSION_FORMAT (build build_name)
-  // Eg: parquet-cpp version 1.5.0ab-xyz5.5.0+cd (build abcd)
-  static constexpr char const* APPLICATION_FORMAT =
-      "(.*?)\\s*(?:(version\\s*(?:([^(]*?)\\s*(?:\\(\\s*build\\s*([^)]*?)\\s*\\))?)?)?)";
 
   // Application that wrote the file. e.g. "IMPALA"
   std::string application_;

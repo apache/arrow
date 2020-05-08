@@ -17,38 +17,30 @@
 
 #include "arrow/util/versioning.h"
 
+#include <cctype>
 #include <cstdint>
 #include <memory>
-#include <string>
 #include <sstream>
+#include <string>
 #include <utility>
 #include <vector>
-#include <cctype>
 
-#include "arrow/type_fwd.h"
 #include "arrow/result.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
 namespace internal {
 
 // ? optionally support `v` prefix?
 
-enum VersionPart {
-  MAJOR,
-  MINOR,
-  PATCH,
-  UNKNOWN,
-  PRE_RELEASE,
-  BUILD_INFO
-};
-
+enum VersionPart { MAJOR, MINOR, PATCH, UNKNOWN, PRE_RELEASE, BUILD_INFO };
 
 Result<SemVer> SemVer::Parse(const std::string& version_string) {
   std::string major = "0", minor = "0", patch = "0";
   std::string unknown, pre_release, build_info;
 
   auto part = VersionPart::MAJOR;
-  for (char const &c: version_string) {
+  for (char const& c : version_string) {
     switch (part) {
       case VersionPart::MAJOR:
         if (std::isdigit(c)) {
@@ -147,7 +139,7 @@ std::string SemVer::ToString() const {
   return ss.str();
 }
 
-static int compare(const SemVer &lhs, const SemVer &rhs) {
+static int compare(const SemVer& lhs, const SemVer& rhs) {
   // -1 if lhs < rhs, zero if lhs == rhs, +1 if lhs > rhs
   if (lhs.major < rhs.major) {
     return -1;
@@ -170,32 +162,17 @@ static int compare(const SemVer &lhs, const SemVer &rhs) {
   return 0;
 }
 
-bool SemVer::operator==(const SemVer &other) const {
-  return compare(*this, other) == 0;
-}
+bool SemVer::operator==(const SemVer& other) const { return compare(*this, other) == 0; }
 
-bool SemVer::operator!=(const SemVer &other) const {
-  return compare(*this, other) != 0;
-}
+bool SemVer::operator!=(const SemVer& other) const { return compare(*this, other) != 0; }
 
-bool SemVer::operator<(const SemVer &other) const {
-  return compare(*this, other) < 0;
-}
+bool SemVer::operator<(const SemVer& other) const { return compare(*this, other) < 0; }
 
-bool SemVer::operator>(const SemVer &other) const {
-  return compare(*this, other) > 0;
-}
+bool SemVer::operator>(const SemVer& other) const { return compare(*this, other) > 0; }
 
-bool SemVer::operator<=(const SemVer &other) const {
-  return compare(other, *this) > 0;
-}
+bool SemVer::operator<=(const SemVer& other) const { return compare(other, *this) > 0; }
 
-bool SemVer::operator>=(const SemVer &other) const {
-  return compare(other, *this) < 0;
-}
+bool SemVer::operator>=(const SemVer& other) const { return compare(other, *this) < 0; }
 
 }  // namespace internal
 }  // namespace arrow
-
-
-

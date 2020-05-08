@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <iostream>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
-#include <iostream>
 
 #include <gtest/gtest.h>
 
@@ -40,13 +40,7 @@ TEST(SemVer, TestParseBasic) {
   ASSERT_EQ(v.build_info, "");
   ASSERT_EQ(v.ToString(), "0.0.0");
 
-  auto versions = {
-    "1.0.0",
-    "1.0.",
-    "1.0",
-    "1.",
-    "1"
-  };
+  auto versions = {"1.0.0", "1.0.", "1.0", "1.", "1"};
   for (auto const& version : versions) {
     ASSERT_OK_AND_ASSIGN(v, SemVer::Parse(version));
     ASSERT_EQ(v.major, 1);
@@ -126,5 +120,5 @@ TEST(SemVer, TestCompare) {
 
 // TODO(kszucs): test errors
 
-}
-}
+}  // namespace internal
+}  // namespace arrow
