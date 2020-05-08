@@ -526,19 +526,24 @@ class GrpcMetadataReader : public FlightMetadataReader {
 
 class FlightClient::FlightClientImpl {
  public:
-  Status Connect(const Location& location, const FlightClientOptions& options) {
+  Status Connect(const Location& location, const& options) {
     const std::string& scheme = location.scheme();
 
     std::stringstream grpc_uri;
     std::shared_ptr<grpc::ChannelCredentials> creds;
-    if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls) {
+    if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls || scheme == kSchemeGrpcMTls) {
       grpc_uri << location.uri_->host() << ":" << location.uri_->port_text();
 
-      if (scheme == "grpc+tls") {
+      if ((scheme == "grpc+tls") || (scheme == "grpc+mtls") {
         grpc::SslCredentialsOptions ssl_options;
         if (!options.tls_root_certs.empty()) {
           ssl_options.pem_root_certs = options.tls_root_certs;
         }
+        if (scheme  == 'grpc+mtls'){
+        for (const auto& pair : options.tls_certificates) {
+        ssl_options.pem_key_cert_pairs.push_back({pair.pem_key, pair.pem_cert});
+        }
+      }
         creds = grpc::SslCredentials(ssl_options);
       } else {
         creds = grpc::InsecureChannelCredentials();

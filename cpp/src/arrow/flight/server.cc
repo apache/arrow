@@ -665,15 +665,19 @@ Status FlightServerBase::Init(const FlightServerOptions& options) {
 
   const Location& location = options.location;
   const std::string scheme = location.scheme();
-  if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls) {
+  if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls || scheme == kSchemeGrpcMTls) {
     std::stringstream address;
     address << location.uri_->host() << ':' << location.uri_->port_text();
 
     std::shared_ptr<grpc::ServerCredentials> creds;
-    if (scheme == kSchemeGrpcTls) {
+    if ((scheme == kSchemeGrpcTls) || (scheme == kSchemeGrpcMTls)) {
       grpc::SslServerCredentialsOptions ssl_options;
       for (const auto& pair : options.tls_certificates) {
         ssl_options.pem_key_cert_pairs.push_back({pair.pem_key, pair.pem_cert});
+      }
+      if (scheme == kSchemeGrpcMTls) {
+        ssl_options.client_certificate_request = 
+        GRPC_SSL_REQUEST_AND_REQUIRE_CLIENT_CERTIFICATE_AND_VERIFY 
       }
       creds = grpc::SslServerCredentials(ssl_options);
     } else {

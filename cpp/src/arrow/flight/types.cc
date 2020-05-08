@@ -36,6 +36,7 @@ const char* kSchemeGrpc = "grpc";
 const char* kSchemeGrpcTcp = "grpc+tcp";
 const char* kSchemeGrpcUnix = "grpc+unix";
 const char* kSchemeGrpcTls = "grpc+tls";
+const char* kSchemeGrpcMTls = "grpc+mtls";
 
 const char* kErrorDetailTypeId = "flight::FlightStatusDetail";
 
@@ -226,6 +227,12 @@ Status Location::ForGrpcTcp(const std::string& host, const int port, Location* l
 Status Location::ForGrpcTls(const std::string& host, const int port, Location* location) {
   std::stringstream uri_string;
   uri_string << "grpc+tls://" << host << ':' << port;
+  return Location::Parse(uri_string.str(), location);
+}
+
+Status Location::ForGrpcMTls(const std::string& host, const int port, Location* location) {
+  std::stringstream uri_string;
+  uri_string << "grpc+mtls://" << host << ':' << port;
   return Location::Parse(uri_string.str(), location);
 }
 
