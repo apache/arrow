@@ -23,9 +23,6 @@ import static org.junit.Assert.assertEquals;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.ReferenceManager;
-import org.apache.arrow.memory.RootAllocator;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
