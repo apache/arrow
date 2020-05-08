@@ -71,13 +71,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_GANDIVA "Build the PyArrow Gandiva integration" OFF)
   option(PYARROW_BUILD_PARQUET "Build the PyArrow Parquet integration" OFF)
   option(PYARROW_PARQUET_USE_SHARED "Rely on parquet shared libraries where relevant" ON)
-  option(PYARROW_BOOST_USE_SHARED
-         "Rely on boost shared libraries on linking static parquet" ON)
   option(PYARROW_BUILD_PLASMA "Build the PyArrow Plasma integration" OFF)
   option(PYARROW_USE_TENSORFLOW "Build PyArrow with TensorFlow support" OFF)
   option(PYARROW_BUILD_ORC "Build the PyArrow ORC integration" OFF)
   option(PYARROW_BUNDLE_ARROW_CPP "Bundle the Arrow C++ libraries" OFF)
-  option(PYARROW_BUNDLE_BOOST "Bundle the Boost libraries when we bundle Arrow C++" OFF)
   option(PYARROW_GENERATE_COVERAGE "Build with Cython code coverage enabled" OFF)
   set(PYARROW_CXXFLAGS "" CACHE STRING "Compiler flags to append when compiling Arrow")
 endif()
@@ -250,26 +247,6 @@ function(bundle_arrow_import_lib library_path)
                  COPYONLY)
 endfunction(bundle_arrow_import_lib)
 
-function(bundle_boost_lib library_path)
-  get_filename_component(LIBRARY_NAME ${${library_path}} NAME)
-  get_filename_component(LIBRARY_NAME_WE ${${library_path}} NAME_WE)
-  configure_file(${${library_path}} ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}
-                 COPYONLY)
-  set(Boost_SO_VERSION
-      "${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")
-  if(APPLE)
-    configure_file(
-      ${${library_path}}
-      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME_WE}${CMAKE_SHARED_LIBRARY_SUFFIX}
-      COPYONLY)
-  else()
-    configure_file(
-      ${${library_path}}
-      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME_WE}${CMAKE_SHARED_LIBRARY_SUFFIX}.${Boost_SO_VERSION}
-      COPYONLY)
-  endif()
-endfunction()
-
 function(bundle_arrow_dependency library_name)
   if(MSVC)
     if(DEFINED ENV{CONDA_PREFIX})
@@ -325,38 +302,6 @@ if(PYARROW_BUNDLE_ARROW_CPP)
   # arrow
   bundle_arrow_lib(ARROW_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
   bundle_arrow_lib(ARROW_PYTHON_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
-
-  # boost
-  if(PYARROW_BOOST_USE_SHARED AND PYARROW_BUNDLE_BOOST)
-    set(Boost_USE_STATIC_LIBS OFF)
-    set(Boost_USE_MULTITHREADED ON)
-    if(MSVC AND ARROW_USE_STATIC_CRT)
-      set(Boost_USE_STATIC_RUNTIME ON)
-    endif()
-    set(Boost_ADDITIONAL_VERSIONS
-        "1.66.0"
-        "1.66"
-        "1.65.0"
-        "1.65"
-        "1.64.0"
-        "1.64"
-        "1.63.0"
-        "1.63"
-        "1.62.0"
-        "1.61"
-        "1.61.0"
-        "1.62"
-        "1.60.0"
-        "1.60")
-    list(GET Boost_ADDITIONAL_VERSIONS 0 BOOST_LATEST_VERSION)
-    string(REPLACE "." "_" BOOST_LATEST_VERSION_IN_PATH ${BOOST_LATEST_VERSION})
-    if(MSVC)
-      # disable autolinking in boost
-      add_definitions(-DBOOST_ALL_NO_LIB)
-    endif()
-    find_package(Boost COMPONENTS regex REQUIRED)
-    bundle_boost_lib(Boost_REGEX_LIBRARY)
-  endif()
 
   if(MSVC)
     find_package(ZLIB)
@@ -442,15 +387,8 @@ if(PYARROW_BUILD_PARQUET)
     set(PARQUET_LINK_LIBS parquet_shared)
   else()
     find_package(Thrift)
-    if(PYARROW_BOOST_USE_SHARED)
-      set(Boost_USE_STATIC_LIBS OFF)
-    else()
-      set(Boost_USE_STATIC_LIBS ON)
-    endif()
-    find_package(Boost COMPONENTS regex REQUIRED)
-    add_thirdparty_lib(boost_regex STATIC_LIB ${Boost_REGEX_LIBRARY_RELEASE})
     add_thirdparty_lib(thrift STATIC_LIB ${THRIFT_STATIC_LIB})
-    set(PARQUET_LINK_LIBS parquet_static thrift_static boost_regex_static)
+    set(PARQUET_LINK_LIBS parquet_static thrift_static)
   endif()
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _parquet)
 endif()

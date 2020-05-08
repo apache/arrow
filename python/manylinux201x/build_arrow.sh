@@ -51,7 +51,6 @@ export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 export PYARROW_BUNDLE_ARROW_CPP=1
 # Boost is only a compile-time dependency for wheels => no need to bundle .so's
-export PYARROW_BUNDLE_BOOST=0
 export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/arrow-dist/lib/pkgconfig
 
 # Ensure the target directory exists

@@ -33,14 +33,16 @@ namespace internal {
 struct ARROW_EXPORT SemVer {
  public:
   SemVer(){};
-  SemVer(int major, int minor, int patch, const std::string& unknown = "",
-         const std::string& pre_release = "", const std::string& build_info = "")
-      : major(major),
-        minor(minor),
-        patch(patch),
-        unknown(unknown),
-        pre_release(pre_release),
-        build_info(build_info){};
+  SemVer(int major_version, int minor_version, int patch_version,
+         const std::string& unknown = "", const std::string& pre_release = "",
+         const std::string& build_info = "")
+      : unknown(unknown), pre_release(pre_release), build_info(build_info) {
+    // using major minor in the initializer list expands unwanted macros on gcc 4.8
+    // https://bugzilla.redhat.com/show_bug.cgi?id=130601
+    major = major_version;
+    minor = minor_version;
+    patch = patch_version;
+  };
 
   ~SemVer(){};
 

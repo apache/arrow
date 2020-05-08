@@ -102,14 +102,11 @@ class build_ext(_build_ext):
                      ('extra-cmake-args=', None, 'extra arguments for CMake'),
                      ('build-type=', None,
                       'build type (debug or release), default release'),
-                     ('boost-namespace=', None,
-                      'namespace of boost (default: boost)'),
                      ('with-cuda', None, 'build the Cuda extension'),
                      ('with-flight', None, 'build the Flight extension'),
                      ('with-dataset', None, 'build the Dataset extension'),
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
-                     ('with-static-boost', None, 'link boost statically'),
                      ('with-plasma', None, 'build the Plasma extension'),
                      ('with-tensorflow', None,
                       'build pyarrow with TensorFlow support'),
@@ -117,8 +114,6 @@ class build_ext(_build_ext):
                      ('with-gandiva', None, 'build the Gandiva extension'),
                      ('generate-coverage', None,
                       'enable Cython code coverage'),
-                     ('bundle-boost', None,
-                      'bundle the (shared) Boost libraries'),
                      ('bundle-arrow-cpp', None,
                       'bundle the Arrow C++ libraries')] +
                     _build_ext.user_options)
@@ -131,9 +126,6 @@ class build_ext(_build_ext):
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
         self.build_type = os.environ.get('PYARROW_BUILD_TYPE',
                                          'release').lower()
-        self.boost_namespace = os.environ.get('PYARROW_BOOST_NAMESPACE',
-                                              'boost')
-
         self.cmake_cxxflags = os.environ.get('PYARROW_CXXFLAGS', '')
 
         if sys.platform == 'win32':
@@ -156,8 +148,6 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
         self.with_static_parquet = strtobool(
             os.environ.get('PYARROW_WITH_STATIC_PARQUET', '0'))
-        self.with_static_boost = strtobool(
-            os.environ.get('PYARROW_WITH_STATIC_BOOST', '0'))
         self.with_plasma = strtobool(
             os.environ.get('PYARROW_WITH_PLASMA', '0'))
         self.with_tensorflow = strtobool(
@@ -170,8 +160,6 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_GENERATE_COVERAGE', '0'))
         self.bundle_arrow_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
-        self.bundle_boost = strtobool(
-            os.environ.get('PYARROW_BUNDLE_BOOST', '0'))
 
     CYTHON_MODULE_NAMES = [
         'lib',
@@ -244,21 +232,13 @@ class build_ext(_build_ext):
             append_cmake_bool(self.with_tensorflow, 'PYARROW_USE_TENSORFLOW')
             append_cmake_bool(self.bundle_arrow_cpp,
                               'PYARROW_BUNDLE_ARROW_CPP')
-            append_cmake_bool(self.bundle_boost,
-                              'PYARROW_BUNDLE_BOOST')
             append_cmake_bool(self.generate_coverage,
                               'PYARROW_GENERATE_COVERAGE')
-            append_cmake_bool(not self.with_static_boost,
-                              'PYARROW_BOOST_USE_SHARED')
             append_cmake_bool(not self.with_static_parquet,
                               'PYARROW_PARQUET_USE_SHARED')
 
             cmake_options.append('-DCMAKE_BUILD_TYPE={0}'
                                  .format(self.build_type.lower()))
-
-            if self.boost_namespace != 'boost':
-                cmake_options.append('-DBoost_NAMESPACE={}'
-                                     .format(self.boost_namespace))
 
             extra_cmake_args = shlex.split(self.extra_cmake_args)
 
@@ -369,11 +349,6 @@ class build_ext(_build_ext):
                     move_shared_libs(build_prefix, build_lib, "gandiva")
                 if self.with_parquet and not self.with_static_parquet:
                     move_shared_libs(build_prefix, build_lib, "parquet")
-                if not self.with_static_boost and self.bundle_boost:
-                    move_shared_libs(
-                        build_prefix, build_lib,
-                        "{}_regex".format(self.boost_namespace),
-                        implib_required=False)
                 if sys.platform == 'win32':
                     # zlib uses zlib.dll for Windows
                     zlib_lib_name = 'zlib'
