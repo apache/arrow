@@ -1074,9 +1074,7 @@ Result<std::shared_ptr<Array>> UnionArray::MakeSparse(
   return std::make_shared<UnionArray>(internal_data);
 }
 
-std::shared_ptr<Array> UnionArray::child(int i) const {
-  return field(i);
-}
+std::shared_ptr<Array> UnionArray::child(int i) const { return field(i); }
 
 std::shared_ptr<Array> UnionArray::field(int i) const {
   if (i < 0 ||
