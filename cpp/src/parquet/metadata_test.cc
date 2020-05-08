@@ -370,23 +370,33 @@ TEST(ApplicationVersion, ParquetMr) {
   ASSERT_EQ(v7.version.pre_release, "");
   ASSERT_EQ(v7.build_, "");
 
-  auto v8 = ApplicationVersion("parquet-mr version 1.6.0 (build)");
-  ASSERT_EQ(v8.application_, "parquet-mr");
-  ASSERT_EQ(v8.version.major, 1);
-  ASSERT_EQ(v8.version.minor, 6);
-  ASSERT_EQ(v8.version.patch, 0);
-  ASSERT_EQ(v8.version.unknown, "");
-  ASSERT_EQ(v8.version.pre_release, "");
-  ASSERT_EQ(v8.build_, "");
+  ApplicationVersion v8;
+  auto cases8 = {"parquet-mr version 1.6.0 (build)",
+                 "parquet-mr     version 1.6.0 (    build)",
+                 "parquet-mr version 1.6.0 (  build )"};
+  for (auto const& s : cases8) {
+    auto v8 = ApplicationVersion(s);
+    ASSERT_EQ(v8.application_, "parquet-mr");
+    ASSERT_EQ(v8.version.major, 1);
+    ASSERT_EQ(v8.version.minor, 6);
+    ASSERT_EQ(v8.version.patch, 0);
+    ASSERT_EQ(v8.version.unknown, "");
+    ASSERT_EQ(v8.version.pre_release, "");
+    ASSERT_EQ(v8.build_, "");
+  }
 
-  auto v9 = ApplicationVersion("parquet-mr version (build )");
-  ASSERT_EQ(v9.application_, "parquet-mr");
-  ASSERT_EQ(v9.version.major, 0);
-  ASSERT_EQ(v9.version.minor, 0);
-  ASSERT_EQ(v9.version.patch, 0);
-  ASSERT_EQ(v9.version.unknown, "");
-  ASSERT_EQ(v9.version.pre_release, "");
-  ASSERT_EQ(v9.build_, "");
+  ApplicationVersion v9;
+  auto cases9 = {"parquet-mr version (build )", "parquet-mr      version"};
+  for (auto const& s : cases9) {
+    auto v9 = ApplicationVersion(s);
+    ASSERT_EQ(v9.application_, "parquet-mr");
+    ASSERT_EQ(v9.version.major, 0);
+    ASSERT_EQ(v9.version.minor, 0);
+    ASSERT_EQ(v9.version.patch, 0);
+    ASSERT_EQ(v9.version.unknown, "");
+    ASSERT_EQ(v9.version.pre_release, "");
+    ASSERT_EQ(v9.build_, "");
+  }
 
   auto v10 = ApplicationVersion("");
   ASSERT_EQ(v10.application_, "unknown");
@@ -398,51 +408,59 @@ TEST(ApplicationVersion, ParquetMr) {
   ASSERT_EQ(v10.build_, "");
 
   // missing entire build section
-  auto v11 = ApplicationVersion("parquet-mr version 1.6.0");
-  ASSERT_EQ(v11.application_, "parquet-mr");
-  ASSERT_EQ(v11.version.major, 1);
-  ASSERT_EQ(v11.version.minor, 6);
-  ASSERT_EQ(v11.version.patch, 0);
-  ASSERT_EQ(v11.version.unknown, "");
-  ASSERT_EQ(v11.version.pre_release, "");
-  ASSERT_EQ(v11.build_, "");
+  ApplicationVersion v11;
+  auto cases11 = {"parquet-mr version 1.6.0", "parquet-mr     version    1.6.0"};
+  for (auto const& s : cases11) {
+    auto v11 = ApplicationVersion(s);
+    ASSERT_EQ(v11.application_, "parquet-mr");
+    ASSERT_EQ(v11.version.major, 1);
+    ASSERT_EQ(v11.version.minor, 6);
+    ASSERT_EQ(v11.version.patch, 0);
+    ASSERT_EQ(v11.version.unknown, "");
+    ASSERT_EQ(v11.version.pre_release, "");
+    ASSERT_EQ(v11.build_, "");
+  }
 
-  auto v12 = ApplicationVersion("parquet-mr version 1.8.0rc4");
-  ASSERT_EQ(v12.application_, "parquet-mr");
-  ASSERT_EQ(v12.version.major, 1);
-  ASSERT_EQ(v12.version.minor, 8);
-  ASSERT_EQ(v12.version.patch, 0);
-  ASSERT_EQ(v12.version.unknown, "rc4");
-  ASSERT_EQ(v12.version.pre_release, "");
-  ASSERT_EQ(v12.build_, "");
+  ApplicationVersion v12;
+  auto cases12 = {"parquet-mr version 1.8.0rc4", "parquet-mr     version    1.8.0rc4"};
+  for (auto const& s : cases12) {
+    auto v12 = ApplicationVersion(s);
+    ASSERT_EQ(v12.application_, "parquet-mr");
+    ASSERT_EQ(v12.version.major, 1);
+    ASSERT_EQ(v12.version.minor, 8);
+    ASSERT_EQ(v12.version.patch, 0);
+    ASSERT_EQ(v12.version.unknown, "rc4");
+    ASSERT_EQ(v12.version.pre_release, "");
+    ASSERT_EQ(v12.build_, "");
+  }
 
-  auto v13 = ApplicationVersion("parquet-mr version 1.8.0rc4-SNAPSHOT");
-  ASSERT_EQ(v13.application_, "parquet-mr");
-  ASSERT_EQ(v13.version.major, 1);
-  ASSERT_EQ(v13.version.minor, 8);
-  ASSERT_EQ(v13.version.patch, 0);
-  ASSERT_EQ(v13.version.unknown, "rc4");
-  ASSERT_EQ(v13.version.pre_release, "snapshot");
-  ASSERT_EQ(v13.build_, "");
+  ApplicationVersion v13;
+  auto cases13 = {"parquet-mr version 1.8.0rc4-SNAPSHOT",
+                  "parquet-mr      version    1.8.0rc4-SNAPSHOT  "};
+  for (auto const& s : cases13) {
+    auto v13 = ApplicationVersion(s);
+    ASSERT_EQ(v13.application_, "parquet-mr");
+    ASSERT_EQ(v13.version.major, 1);
+    ASSERT_EQ(v13.version.minor, 8);
+    ASSERT_EQ(v13.version.patch, 0);
+    ASSERT_EQ(v13.version.unknown, "rc4");
+    ASSERT_EQ(v13.version.pre_release, "snapshot");
+    ASSERT_EQ(v13.build_, "");
+  }
 
-  auto v14 = ApplicationVersion("parquet-mr version");
-  ASSERT_EQ(v14.application_, "parquet-mr");
-  ASSERT_EQ(v14.version.major, 0);
-  ASSERT_EQ(v14.version.minor, 0);
-  ASSERT_EQ(v14.version.patch, 0);
-  ASSERT_EQ(v14.version.unknown, "");
-  ASSERT_EQ(v14.version.pre_release, "");
-  ASSERT_EQ(v14.build_, "");
-
-  // // Various spaces
-  // assertEquals(new ParsedVersion("parquet-mr", "1.6.0", null), VersionParser.parse("parquet-mr     version    1.6.0"));
-  // assertEquals(new ParsedVersion("parquet-mr", "1.8.0rc4", null), VersionParser.parse("parquet-mr     version    1.8.0rc4"));
-  // assertEquals(new ParsedVersion("parquet-mr", "1.8.0rc4-SNAPSHOT", null), VersionParser.parse("parquet-mr      version    1.8.0rc4-SNAPSHOT  "));
-  // assertEquals(new ParsedVersion("parquet-mr", null, null), VersionParser.parse("parquet-mr      version"));
-  // assertEquals(new ParsedVersion("parquet-mr", "1.6.0", null), VersionParser.parse("parquet-mr version 1.6.0 (  build )"));
-  // assertEquals(new ParsedVersion("parquet-mr", "1.6.0", null), VersionParser.parse("parquet-mr     version 1.6.0 (    build)"));
-  // assertEquals(new ParsedVersion("parquet-mr", null, null), VersionParser.parse("parquet-mr     version (    build)"));
-  // assertEquals(new ParsedVersion("parquet-mr", null, null), VersionParser.parse("parquet-mr    version    (build    )"));
+  ApplicationVersion v14;
+  auto cases14 = {"parquet-mr version", "parquet-mr     version (    build)",
+                  "parquet-mr    version    (build    )"};
+  for (auto const& s : cases14) {
+    v14 = ApplicationVersion(s);
+    ASSERT_EQ(v14.application_, "parquet-mr");
+    ASSERT_EQ(v14.version.major, 0);
+    ASSERT_EQ(v14.version.minor, 0);
+    ASSERT_EQ(v14.version.patch, 0);
+    ASSERT_EQ(v14.version.unknown, "");
+    ASSERT_EQ(v14.version.pre_release, "");
+    ASSERT_EQ(v14.build_, "");
+  }
 }
 
 }  // namespace metadata
