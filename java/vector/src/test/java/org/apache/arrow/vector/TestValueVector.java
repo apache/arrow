@@ -889,6 +889,33 @@ public class TestValueVector {
    */
 
   @Test /* VarCharVector */
+  public void testSplitAndTransfer() {
+
+    try (final VarCharVector vector = newVarCharVector(EMPTY_SCHEMA_PATH, allocator);
+         final VarCharVector target = newVarCharVector("split-target", allocator)) {
+      vector.allocateNew(1024 * 10, 1024);
+
+      vector.set(0, STR1);
+      vector.set(1, STR2);
+      vector.set(2, STR3);
+      vector.setValueCount(3);
+
+      final long allocatedMem = allocator.getAllocatedMemory();
+
+      // split and transfer with slice starting at the beginning: this should not allocate anything new
+      vector.splitAndTransferTo(0, 2, target);
+      assertEquals(allocator.getAllocatedMemory(), allocatedMem);
+
+      // Check the sample strings.
+      assertArrayEquals(STR1, vector.get(0));
+      assertArrayEquals(STR2, vector.get(1));
+      assertArrayEquals(STR3, vector.get(2));
+      assertArrayEquals(STR1, target.get(0));
+      assertArrayEquals(STR2, target.get(1));
+    }
+  }
+
+  @Test /* VarCharVector */
   public void testNullableVarType1() {
 
     // Create a new value vector for 1024 integers.
