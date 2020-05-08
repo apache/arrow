@@ -35,45 +35,6 @@
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"
 
-// ARROW-6096: The boost regex library must be used when compiling with gcc < 4.9
-#if defined(PARQUET_USE_BOOST_REGEX)
-#include <boost/regex.hpp>  // IWYU pragma: keep
-using ::boost::regex;
-using ::boost::smatch;
-
-template <typename... Args>
-static bool regex_match(Args&&... args) {
-  try {
-    return boost::regex_match(std::forward<Args>(args)...);
-  } catch (const boost::regex_error& e) {
-    if (e.code() == boost::regex_constants::error_complexity ||
-        e.code() == boost::regex_constants::error_stack) {
-      // Input-dependent error => return as if matching failed
-      return false;
-    }
-    throw;
-  }
-}
-#else
-#include <regex>
-using ::std::regex;
-using ::std::smatch;
-
-template <typename... Args>
-static bool regex_match(Args&&... args) {
-  try {
-    return std::regex_match(std::forward<Args>(args)...);
-  } catch (const std::regex_error& e) {
-    if (e.code() == std::regex_constants::error_complexity ||
-        e.code() == std::regex_constants::error_stack) {
-      // Input-dependent error => return as if matching failed
-      return false;
-    }
-    throw;
-  }
-}
-#endif
-
 namespace parquet {
 
 const ApplicationVersion& ApplicationVersion::PARQUET_251_FIXED_VERSION() {
