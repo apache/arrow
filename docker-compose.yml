@@ -22,8 +22,8 @@
 # defaults are set in .env file.
 #
 # Example:
-# $ ARCH=arm64v8 docker-compose build ubuntu-bionic-cpp
-# $ ARCH=arm64v8 docker-compose run ubuntu-bionic-cpp
+# $ ARCH=arm64v8 docker-compose build ubuntu-cpp
+# $ ARCH=arm64v8 docker-compose run ubuntu-cpp
 #
 #
 # Coredumps
@@ -257,7 +257,7 @@ services:
     #   docker-compose build ubuntu-cpp
     #   docker-compose run --rm ubuntu-cpp
     # Parameters:
-    #   ARCH: amd64, arm64v8, ...
+    #   ARCH: amd64, arm64v8, s390x, ...
     #   UBUNTU: 16.04, 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:

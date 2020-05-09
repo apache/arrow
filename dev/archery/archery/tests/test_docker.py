@@ -384,6 +384,17 @@ def test_compose_run(arrow_compose_path):
         ])
         compose.run('conda-python', env=env)
 
+    expected_calls = [
+        (
+            "run --rm --volume /host/build:/build "
+            "--volume /host/ccache:/ccache:delegated conda-python"
+        )
+    ]
+    compose = DockerCompose(arrow_compose_path)
+    with assert_compose_calls(compose, expected_calls):
+        volumes = ("/host/build:/build", "/host/ccache:/ccache:delegated")
+        compose.run('conda-python', volumes=volumes)
+
 
 def test_compose_run_force_pull_and_build(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path)

@@ -34,7 +34,8 @@ from archery.docker import DockerCompose
             force_pull=True,
             force_build=True,
             use_cache=True,
-            use_leaf_cache=True
+            use_leaf_cache=True,
+            volumes=()
         )
     ),
     (
@@ -46,7 +47,8 @@ from archery.docker import DockerCompose
             force_pull=True,
             force_build=True,
             use_cache=True,
-            use_leaf_cache=True
+            use_leaf_cache=True,
+            volumes=()
         )
     ),
     (
@@ -58,7 +60,8 @@ from archery.docker import DockerCompose
             force_pull=False,
             force_build=False,
             use_cache=True,
-            use_leaf_cache=True
+            use_leaf_cache=True,
+            volumes=()
         )
     ),
     (
@@ -73,11 +76,12 @@ from archery.docker import DockerCompose
             force_pull=False,
             force_build=True,
             use_cache=False,
-            use_leaf_cache=False
+            use_leaf_cache=False,
+            volumes=()
         )
     ),
     (
-        ['-e', 'ARROW_GANDIVA=OFF', '-e',  'ARROW_FLIGHT=ON', 'ubuntu-cpp'],
+        ['-e', 'ARROW_GANDIVA=OFF', '-e', 'ARROW_FLIGHT=ON', 'ubuntu-cpp'],
         ['ubuntu-cpp'],
         dict(
             command=None,
@@ -88,7 +92,27 @@ from archery.docker import DockerCompose
             force_pull=True,
             force_build=True,
             use_cache=True,
-            use_leaf_cache=True
+            use_leaf_cache=True,
+            volumes=()
+        )
+    ),
+    (
+        [
+            '--volume', './build:/build', '-v', './ccache:/ccache:delegated',
+            'ubuntu-cpp'
+        ],
+        ['ubuntu-cpp'],
+        dict(
+            command=None,
+            env={},
+            force_pull=True,
+            force_build=True,
+            use_cache=True,
+            use_leaf_cache=True,
+            volumes=(
+                './build:/build',
+                './ccache:/ccache:delegated',
+            )
         )
     )
 ])
