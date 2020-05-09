@@ -16,7 +16,7 @@
 // under the License.
 
 use std::cmp::{max, min};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::mem::size_of;
 use std::rc::Rc;
@@ -590,20 +590,11 @@ pub fn build_array_reader<T>(
 where
     T: IntoIterator<Item = usize>,
 {
-    let mut base_nodes = Vec::new();
-    let mut base_nodes_set = HashSet::new();
     let mut leaves = HashMap::<*const Type, usize>::new();
 
     for c in column_indices {
         let column = parquet_schema.column(c).self_type() as *const Type;
-        let root = parquet_schema.get_column_root_ptr(c);
-        let root_raw_ptr = root.clone().as_ref() as *const Type;
-
         leaves.insert(column, c);
-        if !base_nodes_set.contains(&root_raw_ptr) {
-            base_nodes.push(root);
-            base_nodes_set.insert(root_raw_ptr);
-        }
     }
 
     if leaves.is_empty() {
