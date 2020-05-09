@@ -156,7 +156,10 @@ impl<T: DataType> RecordReader<T> {
     ///
     /// Number of actual records read.
     pub fn read_records(&mut self, num_records: usize) -> Result<usize> {
-        assert!(self.column_reader.is_some());
+        if self.column_reader.is_none() {
+            return Ok(0);
+        }
+
         let mut records_read = 0;
 
         // Used to mark whether we have reached the end of current

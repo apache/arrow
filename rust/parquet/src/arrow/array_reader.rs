@@ -97,11 +97,12 @@ impl<T: DataType> PrimitiveArrayReader<T> {
             .clone();
 
         let mut record_reader = RecordReader::<T>::new(column_desc.clone());
-        record_reader.set_page_reader(
-            pages
-                .next()
-                .ok_or_else(|| general_err!("Can't build array without pages!"))??,
-        )?;
+        match pages.next() {
+            Some(page_reader) => {
+                record_reader.set_page_reader(page_reader?)?;
+            }
+            None => {}
+        }
 
         Ok(Self {
             data_type,
@@ -133,6 +134,9 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
             let records_to_read = batch_size - records_read;
 
             let records_read_once = self.record_reader.read_records(records_to_read)?;
+            if records_read_once == 0 {
+                break; // record reader has no record
+            }
             records_read = records_read + records_read_once;
 
             // Record reader exhausted
