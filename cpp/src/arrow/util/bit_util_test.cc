@@ -1244,7 +1244,7 @@ TEST(Bitmap, ToString) {
   uint64_t bitmap_value = 0xCAAC, bitmap_storage = 0;
   Bitmap bitmap(&bitmap_storage, 0, sizeof(uint64_t) * 8);
   for (size_t i = 0; i < sizeof(uint64_t) * 8; i++) {
-    bitmap.SetBitTo(i, (bitmap_value & (1L << i)) ? true : false);
+    bitmap.SetBitTo(i, (bitmap_value & (1ULL << i)) ? true : false);
   }
   EXPECT_EQ(bitmap.Slice(/*bit_offset*/ 0, /*length=*/34).ToString(),
             "00110101 01010011 00000000 00000000 00");
