@@ -1241,23 +1241,17 @@ TEST(Bitmap, VisitPartialWords) {
 #endif  // ARROW_VALGRIND
 
 TEST(Bitmap, ToString) {
-  uint64_t bitmap_value = 0xCAAC;
-  uint8_t* bitmap = reinterpret_cast<uint8_t*>(&bitmap_value);
-#if ARROW_LITTLE_ENDIAN
-  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/34).ToString(),
+  uint64_t bitmap_value = 0xCAAC, bitmap_storage = 0;
+  Bitmap bitmap(&bitmap_storage, 0, sizeof(uint64_t) * 8);
+  for (size_t i = 0; i < sizeof(uint64_t) * 8; i++) {
+    bitmap.SetBitTo(i, (bitmap_value & (1L << i)) ? true : false);
+  }
+  EXPECT_EQ(bitmap.Slice(/*bit_offset*/ 0, /*length=*/34).ToString(),
             "00110101 01010011 00000000 00000000 00");
-  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/16).ToString(),
+  EXPECT_EQ(bitmap.Slice(/*bit_offset*/ 0, /*length=*/16).ToString(),
             "00110101 01010011");
-  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/11).ToString(), "00110101 010");
-  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 3, /*length=*/8).ToString(), "10101010");
-#else
-  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 30, /*length=*/34).ToString(),
-            "00000000 00000000 00010100 11001101 01");
-  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 48, /*length=*/16).ToString(),
-            "01010011 00110101");
-  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 48, /*length=*/11).ToString(), "01010011 001");
-  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 53, /*length=*/8).ToString(), "01100110");
-#endif
+  EXPECT_EQ(bitmap.Slice(/*bit_offset*/ 0, /*length=*/11).ToString(), "00110101 010");
+  EXPECT_EQ(bitmap.Slice(/*bit_offset*/ 3, /*length=*/8).ToString(), "10101010");
 }
 
 // compute bitwise AND of bitmaps using word-wise visit
