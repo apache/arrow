@@ -340,8 +340,7 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
 PlasmaBuffer::~PlasmaBuffer() { ARROW_UNUSED(client_->Release(object_id_)); }
 
-PlasmaClient::Impl::Impl() : store_conn_(0), store_capacity_(0) {
-}
+PlasmaClient::Impl::Impl() : store_conn_(0), store_capacity_(0) {}
 
 PlasmaClient::Impl::~Impl() {}
 
@@ -411,7 +410,8 @@ void PlasmaClient::Impl::IncrementObjectCount(const ObjectID& object_id,
 }
 
 #ifdef PLASMA_CUDA
-arrow::Result<std::shared_ptr<CudaContext>> PlasmaClient::Impl::GetCudaContext(int device_number) {
+arrow::Result<std::shared_ptr<CudaContext>> PlasmaClient::Impl::GetCudaContext(
+    int device_number) {
   ARROW_ASSIGN_OR_RAISE(auto manager, CudaDeviceManager::Instance());
   return manager->GetContext(device_number);
 }
