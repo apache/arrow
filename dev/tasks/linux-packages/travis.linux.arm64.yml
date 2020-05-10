@@ -52,7 +52,7 @@ script:
   - |
     rake docker:pull || :
   - rake BUILD_DIR=build {{ build_task }}
-  - rm -rf */*/build
+  - sudo rm -rf */*/build
   - popd
 
 after_success:
