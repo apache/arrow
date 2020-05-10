@@ -87,6 +87,9 @@ jobs:
             toolz
       - name: Upload artifacts
         run: |
+          pwd
+          sudo apt install -y tree
+          tree
           python arrow/dev/tasks/crossbow.py \
             --queue-path . \
             --queue-remote {{ queue_remote_url }} \
