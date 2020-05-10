@@ -19,6 +19,10 @@ dist: bionic
 
 language: minimal
 
+cache:
+  directories:
+    - $TRAVIS_BUILD_DIR/.docker
+
 addons:
   apt:
     packages:
@@ -29,6 +33,14 @@ services:
 
 jobs:
   include:
+    - name: "C++ on ARM"
+      os: linux
+      arch: arm64
+      env:
+        ARCH: arm64v8
+        ARROW_CI_MODULES: "CPP"
+        DOCKER_IMAGE_ID: ubuntu-cpp
+        UBUNTU: "20.04"
     - name: "C++ on s390x"
       os: linux
       arch: s390x
@@ -64,7 +76,7 @@ before_install:
     arrow_ci_affected=no
     for arrow_ci_module in ${ARROW_CI_MODULES}; do
       arrow_ci_affected_variable=ARROW_CI_${arrow_ci_module}_AFFECTED
-      if [ "$(eval 'echo ${arrow_ci_affected_variable}')" != "1" ]; then
+      if [ "$(eval "echo \$${arrow_ci_affected_variable}")" = "1" ]; then
         arrow_ci_affected=yes
       fi
     done
@@ -101,4 +113,7 @@ script:
 
 after_success:
   - |
-    archery docker push ${DOCKER_IMAGE_ID} || :
+    if [ "${TRAVIS_EVENT_TYPE}" = "push" -a \
+         "${TRAVIS_REPO_SLUG}" = "apache/arrow" ]; then
+      archery docker push ${DOCKER_IMAGE_ID} || :
+    fi
