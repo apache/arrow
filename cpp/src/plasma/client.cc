@@ -413,7 +413,7 @@ void PlasmaClient::Impl::IncrementObjectCount(const ObjectID& object_id,
 arrow::Result<std::shared_ptr<CudaContext>> PlasmaClient::Impl::GetCudaContext(
     int device_number) {
   ARROW_ASSIGN_OR_RAISE(auto manager, CudaDeviceManager::Instance());
-  return manager->GetContext(device_number);
+  return manager->GetContext(device_number - 1);
 }
 #endif
 
@@ -455,7 +455,7 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
     }
   } else {
 #ifdef PLASMA_CUDA
-    ARROW_ASSIGN_OR_RAISE(auto context, GetCudaContext(device_num - 1));
+    ARROW_ASSIGN_OR_RAISE(auto context, GetCudaContext(device_num));
     GpuProcessHandle* handle = new GpuProcessHandle();
     handle->client_count = 2;
     ARROW_ASSIGN_OR_RAISE(handle->ptr, context->OpenIpcBuffer(*object.ipc_handle));
@@ -639,7 +639,7 @@ Status PlasmaClient::Impl::GetBuffers(
         std::lock_guard<std::mutex> lock(gpu_mutex);
         auto iter = gpu_object_map.find(object_ids[i]);
         if (iter == gpu_object_map.end()) {
-          ARROW_ASSIGN_OR_RAISE(auto context, GetCudaContext(object->device_num - 1));
+          ARROW_ASSIGN_OR_RAISE(auto context, GetCudaContext(object->device_num));
           GpuProcessHandle* obj_handle = new GpuProcessHandle();
           obj_handle->client_count = 1;
           ARROW_ASSIGN_OR_RAISE(obj_handle->ptr,
