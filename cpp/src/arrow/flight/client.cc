@@ -389,17 +389,8 @@ class GrpcIpcMessageReader : public ipc::MessageReader {
         stream_finished_(false) {}
 
   ::arrow::Result<std::unique_ptr<ipc::Message>> ReadNextMessage() override {
-    std::unique_ptr<ipc::Message> out;
-    RETURN_NOT_OK(GetNextMessage(&out));
-    return std::move(out);
-  }
-
- protected:
-  Status GetNextMessage(std::unique_ptr<ipc::Message>* out) {
-    // TODO: Use Result APIs
-    *out = nullptr;
     if (stream_finished_) {
-      return Status::OK();
+      return nullptr;
     }
     internal::FlightData* data;
     {
@@ -412,12 +403,12 @@ class GrpcIpcMessageReader : public ipc::MessageReader {
       return stream_->Finish(Status::OK());
     }
     // Validate IPC message
-    auto st = data->OpenMessage(out);
-    if (!st.ok()) {
-      return stream_->Finish(std::move(st));
+    auto result = data->OpenMessage();
+    if (!result.ok()) {
+      return stream_->Finish(result.status());
     }
     *app_metadata_ = std::move(data->app_metadata);
-    return Status::OK();
+    return std::move(result);
   }
 
  private:

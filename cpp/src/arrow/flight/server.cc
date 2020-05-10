@@ -101,17 +101,8 @@ class FlightIpcMessageReader : public ipc::MessageReader {
       : peekable_reader_(peekable_reader), app_metadata_(app_metadata) {}
 
   ::arrow::Result<std::unique_ptr<ipc::Message>> ReadNextMessage() override {
-    std::unique_ptr<ipc::Message> out;
-    RETURN_NOT_OK(GetNextMessage(&out));
-    return std::move(out);
-  }
-
- protected:
-  Status GetNextMessage(std::unique_ptr<ipc::Message>* out) {
-    // TODO: Migrate to Result APIs
-    *out = nullptr;
     if (stream_finished_) {
-      return Status::OK();
+      return nullptr;
     }
     internal::FlightData* data;
     peekable_reader_->Next(&data);
@@ -121,10 +112,10 @@ class FlightIpcMessageReader : public ipc::MessageReader {
         return Status::Invalid(
             "Client provided malformed message or did not provide message");
       }
-      return Status::OK();
+      return nullptr;
     }
     *app_metadata_ = std::move(data->app_metadata);
-    return data->OpenMessage(out);
+    return data->OpenMessage();
   }
 
  protected:

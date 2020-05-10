@@ -379,8 +379,8 @@ grpc::Status FlightDataDeserialize(ByteBuffer* buffer, FlightData* out) {
   return grpc::Status::OK;
 }
 
-Status FlightData::OpenMessage(std::unique_ptr<ipc::Message>* message) {
-  return ipc::Message::Open(metadata, body).Value(message);
+::arrow::Result<std::unique_ptr<ipc::Message>> FlightData::OpenMessage() {
+  return ipc::Message::Open(metadata, body);
 }
 
 // The pointer bitcast hack below causes legitimate warnings, silence them.

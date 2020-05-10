@@ -25,7 +25,7 @@
 #include "arrow/flight/internal.h"
 #include "arrow/flight/types.h"
 #include "arrow/ipc/message.h"
-#include "arrow/status.h"
+#include "arrow/result.h"
 
 namespace arrow {
 
@@ -50,7 +50,7 @@ struct FlightData {
   std::shared_ptr<Buffer> body;
 
   /// Open IPC message from the metadata and body
-  Status OpenMessage(std::unique_ptr<ipc::Message>* message);
+  ::arrow::Result<std::unique_ptr<ipc::Message>> OpenMessage();
 };
 
 /// Write Flight message on gRPC stream with zero-copy optimizations.
