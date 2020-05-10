@@ -47,6 +47,7 @@ jobs:
           rake version:update
           rake docker:pull || :
           rake BUILD_DIR=build {{ build_task }}
+          sudo rm -rf */*/build
           popd
         env:
           APT_TARGETS: {{ target }}
