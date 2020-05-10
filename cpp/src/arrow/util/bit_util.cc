@@ -299,13 +299,13 @@ void UnalignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* 
     const Word out_mask = (1U << out_offset) - 1;
 
     length -= (nwords - 1) * bits_per_word;
-    Word left_word0 = util::SafeLoadAs<Word>(left);
-    Word right_word0 = util::SafeLoadAs<Word>(right);
-    Word out_word0 = util::SafeLoadAs<Word>(out);
+    Word left_word0 = BitUtil::ToLittleEndian(util::SafeLoadAs<Word>(left));
+    Word right_word0 = BitUtil::ToLittleEndian(util::SafeLoadAs<Word>(right));
+    Word out_word0 = BitUtil::ToLittleEndian(util::SafeLoadAs<Word>(out));
 
     do {
       left += sizeof(Word);
-      const Word left_word1 = util::SafeLoadAs<Word>(left);
+      const Word left_word1 = BitUtil::ToLittleEndian(util::SafeLoadAs<Word>(left));
       Word left_word = left_word0;
       if (left_offset) {
         // combine two adjacent words into one word
@@ -325,7 +325,7 @@ void UnalignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* 
       left_word0 = left_word1;
 
       right += sizeof(Word);
-      const Word right_word1 = util::SafeLoadAs<Word>(right);
+      const Word right_word1 = BitUtil::ToLittleEndian(util::SafeLoadAs<Word>(right));
       Word right_word = right_word0;
       if (right_offset) {
         right_word >>= right_offset;
@@ -348,13 +348,14 @@ void UnalignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* 
         // |<--- out_word1 --->|<--- out_word0 --->|
         out_word = (out_word << out_offset) | (out_word >> (bits_per_word - out_offset));
         Word out_word1 = util::SafeLoadAs<Word>(out + sizeof(Word));
+        out_word1 = BitUtil::ToLittleEndian(out_word1);
         out_word0 = (out_word0 & out_mask) | (out_word & ~out_mask);
         out_word1 = (out_word1 & ~out_mask) | (out_word & out_mask);
-        util::SafeStore(out, out_word0);
-        util::SafeStore(out + sizeof(Word), out_word1);
+        util::SafeStore(out, BitUtil::FromLittleEndian(out_word0));
+        util::SafeStore(out + sizeof(Word), BitUtil::FromLittleEndian(out_word1));
         out_word0 = out_word1;
       } else {
-        util::SafeStore(out, out_word);
+        util::SafeStore(out, BitUtil::FromLittleEndian(out_word));
       }
       out += sizeof(Word);
 
