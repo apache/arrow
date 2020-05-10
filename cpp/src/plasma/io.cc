@@ -65,7 +65,7 @@ Status WriteBytes(int fd, uint8_t* cursor, size_t length) {
 
 Status WriteMessage(int fd, MessageType type, int64_t length, uint8_t* bytes) {
   int64_t version = arrow::BitUtil::ToLittleEndian(kPlasmaProtocolVersion);
-  static_assert(sizeof(MessageType) == sizeof(int64_t));
+  assert(sizeof(MessageType) == sizeof(int64_t));
   type = static_cast<MessageType>(
       arrow::BitUtil::ToLittleEndian(static_cast<int64_t>(type)));
   int64_t length_le = arrow::BitUtil::ToLittleEndian(length);
@@ -106,7 +106,7 @@ Status ReadMessage(int fd, MessageType* type, std::vector<uint8_t>* buffer) {
   ARROW_CHECK(version == kPlasmaProtocolVersion) << "version = " << version;
   RETURN_NOT_OK_ELSE(ReadBytes(fd, reinterpret_cast<uint8_t*>(type), sizeof(*type)),
                      *type = MessageType::PlasmaDisconnectClient);
-  static_assert(sizeof(MessageType) == sizeof(int64_t));
+  assert(sizeof(MessageType) == sizeof(int64_t));
   *type = static_cast<MessageType>(
       arrow::BitUtil::FromLittleEndian(static_cast<int64_t>(*type)));
   int64_t length_temp;
