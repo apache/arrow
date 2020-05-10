@@ -172,7 +172,7 @@ inline bool ValidateUTF8(const util::string_view& str) {
   return ValidateUTF8(data, length);
 }
 
-inline bool ValidateAscii(const uint8_t* data, int64_t len) {
+inline bool ValidateAsciiSw(const uint8_t* data, int64_t len) {
   uint8_t orall = 0;
 
   if (len >= 16) {
@@ -198,13 +198,6 @@ inline bool ValidateAscii(const uint8_t* data, int64_t len) {
     return false;
 }
 
-inline bool ValidateAscii(const util::string_view& str) {
-  const uint8_t* data = reinterpret_cast<const uint8_t*>(str.data());
-  const size_t length = str.size();
-
-  return ValidateAscii(data, length);
-}
-
 #ifdef ARROW_HAVE_NEON
 inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
   if (len >= 32) {
@@ -227,7 +220,7 @@ inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
     if (vmaxvq_u8(or1) >= 0x80) return false;
   }
 
-  return ValidateAscii(data, len);
+  return ValidateAsciiSw(data, len);
 }
 #endif  // ARROW_HAVE_NEON
 
@@ -253,18 +246,24 @@ inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
     if (_mm_movemask_epi8(_mm_cmplt_epi8(or1, _mm_set1_epi8(0)))) return false;
   }
 
-  return ValidateAscii(data, len);
+  return ValidateAsciiSw(data, len);
 }
 #endif  // ARROW_HAVE_SSE4_2
 
+inline bool ValidateAscii(const uint8_t* data, int64_t len) {
 #if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
-inline bool ValidateAsciiSimd(const util::string_view& str) {
+  return ValidateAsciiSimd(data, len);
+#else
+  return ValidateAsciiSw(data, len);
+#endif
+}
+
+inline bool ValidateAscii(const util::string_view& str) {
   const uint8_t* data = reinterpret_cast<const uint8_t*>(str.data());
   const size_t length = str.size();
 
-  return ValidateAsciiSimd(data, length);
+  return ValidateAscii(data, length);
 }
-#endif  // ARROW_HAVE_NEON || ARROW_HAVE_SSE4_2
 
 // Skip UTF8 byte order mark, if any.
 ARROW_EXPORT

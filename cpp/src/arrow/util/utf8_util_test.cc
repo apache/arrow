@@ -120,11 +120,7 @@ class ASCIIValidationTest : public UTF8Test {};
 }
 
 ::testing::AssertionResult IsValidASCII(const std::string& s) {
-#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
-  if (ValidateAsciiSimd(reinterpret_cast<const uint8_t*>(s.data()), s.size())) {
-#else
   if (ValidateAscii(reinterpret_cast<const uint8_t*>(s.data()), s.size())) {
-#endif
     return ::testing::AssertionSuccess();
   } else {
     std::string h = HexEncode(reinterpret_cast<const uint8_t*>(s.data()),
@@ -135,11 +131,7 @@ class ASCIIValidationTest : public UTF8Test {};
 }
 
 ::testing::AssertionResult IsInvalidASCII(const std::string& s) {
-#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
-  if (!ValidateAsciiSimd(reinterpret_cast<const uint8_t*>(s.data()), s.size())) {
-#else
   if (!ValidateAscii(reinterpret_cast<const uint8_t*>(s.data()), s.size())) {
-#endif
     return ::testing::AssertionSuccess();
   } else {
     std::string h = HexEncode(reinterpret_cast<const uint8_t*>(s.data()),

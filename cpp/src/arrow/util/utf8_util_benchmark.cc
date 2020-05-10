@@ -77,22 +77,14 @@ static void BenchmarkASCIIValidation(
   auto data_size = static_cast<int64_t>(s.size());
 
   InitializeUTF8();
-#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
-  bool b = ValidateAsciiSimd(data, data_size);
-#else
   bool b = ValidateAscii(data, data_size);
-#endif
   if (b != expected) {
     std::cerr << "Unexpected validation result" << std::endl;
     std::abort();
   }
 
   while (state.KeepRunning()) {
-#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
-    bool b = ValidateAsciiSimd(data, data_size);
-#else
     bool b = ValidateAscii(data, data_size);
-#endif
     benchmark::DoNotOptimize(b);
   }
   state.SetBytesProcessed(state.iterations() * s.size());
