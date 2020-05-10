@@ -28,5 +28,6 @@ executable=${plasma_store_server}
 Name: Plasma
 Description: Plasma is an in-memory object store and cache for big data.
 Version: @PLASMA_VERSION@
+Requires: arrow
 Libs: -L${libdir} -lplasma
 Cflags: -I${includedir}
