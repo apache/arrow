@@ -47,17 +47,10 @@ jobs:
       env:
         ARCH: s390x
         ARROW_CI_MODULES: "CPP"
-        ARROW_COMPUTE: "OFF"
         ARROW_CSV: "OFF"
-        ARROW_DATASET: "OFF"
-        ARROW_FILESYSTEM: "OFF"
         ARROW_FLIGHT: "OFF"
         ARROW_GANDIVA: "OFF"
-        ARROW_HDFS: "OFF"
-        ARROW_IPC: "OFF"
-        ARROW_ORC: "OFF"
         ARROW_PARQUET: "OFF"
-        ARROW_PLASMA: "OFF"
         PARQUET_BUILD_EXAMPLES: "OFF"
         PARQUET_BUILD_EXECUTABLES: "OFF"
         DOCKER_IMAGE_ID: ubuntu-cpp
