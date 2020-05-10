@@ -379,11 +379,13 @@ class GrpcIpcMessageReader : public ipc::MessageReader {
       std::shared_ptr<ClientRpc> rpc, std::shared_ptr<std::mutex> read_mutex,
       std::shared_ptr<FinishableStream<Reader, internal::FlightData>> stream,
       std::shared_ptr<internal::PeekableFlightDataReader<std::shared_ptr<Reader>>>
-          peekable_reader)
+          peekable_reader,
+      std::shared_ptr<Buffer>* app_metadata)
       : rpc_(rpc),
         read_mutex_(read_mutex),
         stream_(std::move(stream)),
         peekable_reader_(peekable_reader),
+        app_metadata_(app_metadata),
         stream_finished_(false) {}
 
   ::arrow::Result<std::unique_ptr<ipc::Message>> ReadNextMessage() override {
@@ -414,6 +416,7 @@ class GrpcIpcMessageReader : public ipc::MessageReader {
     if (!st.ok()) {
       return stream_->Finish(std::move(st));
     }
+    *app_metadata_ = std::move(data->app_metadata);
     return Status::OK();
   }
 
@@ -426,6 +429,12 @@ class GrpcIpcMessageReader : public ipc::MessageReader {
   std::shared_ptr<FinishableStream<Reader, internal::FlightData>> stream_;
   std::shared_ptr<internal::PeekableFlightDataReader<std::shared_ptr<Reader>>>
       peekable_reader_;
+  // A reference to GrpcStreamReader.app_metadata_. That class
+  // can't access the app metadata because when it Peek()s the stream,
+  // it may be looking at a dictionary batch, not the record
+  // batch. Updating it here ensures the reader is always updated with
+  // the last metadata message read.
+  std::shared_ptr<Buffer>* app_metadata_;
   bool stream_finished_;
 };
 
@@ -440,7 +449,8 @@ class GrpcStreamReader : public FlightStreamReader {
         read_mutex_(read_mutex),
         stream_(stream),
         peekable_reader_(new internal::PeekableFlightDataReader<std::shared_ptr<Reader>>(
-            stream->stream())) {}
+            stream->stream())),
+        app_metadata_(nullptr) {}
 
   Status EnsureDataStarted() {
     if (!batch_reader_) {
@@ -455,8 +465,9 @@ class GrpcStreamReader : public FlightStreamReader {
             FlightStatusCode::Internal, "Server never sent a data message"));
       }
 
-      auto message_reader = std::unique_ptr<ipc::MessageReader>(
-          new GrpcIpcMessageReader<Reader>(rpc_, read_mutex_, stream_, peekable_reader_));
+      auto message_reader =
+          std::unique_ptr<ipc::MessageReader>(new GrpcIpcMessageReader<Reader>(
+              rpc_, read_mutex_, stream_, peekable_reader_, &app_metadata_));
       auto result = ipc::RecordBatchStreamReader::Open(std::move(message_reader));
       RETURN_NOT_OK(OverrideWithServerError(std::move(result).Value(&batch_reader_)));
     }
@@ -494,9 +505,9 @@ class GrpcStreamReader : public FlightStreamReader {
       // Re-peek here since EnsureDataStarted() advances the stream
       return Next(out);
     }
-
-    out->app_metadata = data->app_metadata;
-    return batch_reader_->ReadNext(&out->data);
+    RETURN_NOT_OK(batch_reader_->ReadNext(&out->data));
+    out->app_metadata = std::move(app_metadata_);
+    return Status::OK();
   }
   void Cancel() override { rpc_->context.TryCancel(); }
 
@@ -513,6 +524,7 @@ class GrpcStreamReader : public FlightStreamReader {
     return stream_->Finish(std::move(st));
   }
 
+  friend class GrpcIpcMessageReader<Reader>;
   std::shared_ptr<ClientRpc> rpc_;
   // Guard reads with a lock to prevent Finish()/Close() from being
   // called on the writer while the reader has a pending
@@ -522,6 +534,7 @@ class GrpcStreamReader : public FlightStreamReader {
   std::shared_ptr<internal::PeekableFlightDataReader<std::shared_ptr<Reader>>>
       peekable_reader_;
   std::shared_ptr<ipc::RecordBatchReader> batch_reader_;
+  std::shared_ptr<Buffer> app_metadata_;
 };
 
 // The next two classes implement writing to a FlightData stream.

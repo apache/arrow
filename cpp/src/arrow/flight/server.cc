@@ -96,8 +96,9 @@ template <typename Reader>
 class FlightIpcMessageReader : public ipc::MessageReader {
  public:
   explicit FlightIpcMessageReader(
-      std::shared_ptr<internal::PeekableFlightDataReader<Reader*>> peekable_reader)
-      : peekable_reader_(peekable_reader) {}
+      std::shared_ptr<internal::PeekableFlightDataReader<Reader*>> peekable_reader,
+      std::shared_ptr<Buffer>* app_metadata)
+      : peekable_reader_(peekable_reader), app_metadata_(app_metadata) {}
 
   ::arrow::Result<std::unique_ptr<ipc::Message>> ReadNextMessage() override {
     std::unique_ptr<ipc::Message> out;
@@ -122,12 +123,18 @@ class FlightIpcMessageReader : public ipc::MessageReader {
       }
       return Status::OK();
     }
-
+    *app_metadata_ = std::move(data->app_metadata);
     return data->OpenMessage(out);
   }
 
  protected:
   std::shared_ptr<internal::PeekableFlightDataReader<Reader*>> peekable_reader_;
+  // A reference to FlightMessageReaderImpl.app_metadata_. That class
+  // can't access the app metadata because when it Peek()s the stream,
+  // it may be looking at a dictionary batch, not the record
+  // batch. Updating it here ensures the reader is always updated with
+  // the last metadata message read.
+  std::shared_ptr<Buffer>* app_metadata_;
   bool first_message_ = true;
   bool stream_finished_ = false;
 };
@@ -189,8 +196,9 @@ class FlightMessageReaderImpl : public FlightMessageReader {
       // re-peek here since EnsureDataStarted() advances the stream
       return Next(out);
     }
-    out->app_metadata = data->app_metadata;
-    return batch_reader_->ReadNext(&out->data);
+    RETURN_NOT_OK(batch_reader_->ReadNext(&out->data));
+    out->app_metadata = std::move(app_metadata_);
+    return Status::OK();
   }
 
  private:
@@ -202,7 +210,7 @@ class FlightMessageReaderImpl : public FlightMessageReader {
         return Status::IOError("Client never sent a data message");
       }
       auto message_reader = std::unique_ptr<ipc::MessageReader>(
-          new FlightIpcMessageReader<GrpcStream>(peekable_reader_));
+          new FlightIpcMessageReader<GrpcStream>(peekable_reader_, &app_metadata_));
       ARROW_ASSIGN_OR_RAISE(
           batch_reader_, ipc::RecordBatchStreamReader::Open(std::move(message_reader)));
     }
@@ -213,6 +221,7 @@ class FlightMessageReaderImpl : public FlightMessageReader {
   GrpcStream* reader_;
   std::shared_ptr<internal::PeekableFlightDataReader<GrpcStream*>> peekable_reader_;
   std::shared_ptr<RecordBatchReader> batch_reader_;
+  std::shared_ptr<Buffer> app_metadata_;
 };
 
 class GrpcMetadataWriter : public FlightMetadataWriter {

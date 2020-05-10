@@ -425,7 +425,11 @@ class MetadataTestServer : public FlightServerBase {
   Status DoGet(const ServerCallContext& context, const Ticket& request,
                std::unique_ptr<FlightDataStream>* data_stream) override {
     BatchVector batches;
-    RETURN_NOT_OK(ExampleIntBatches(&batches));
+    if (request.ticket == "dicts") {
+      RETURN_NOT_OK(ExampleDictBatches(&batches));
+    } else {
+      RETURN_NOT_OK(ExampleIntBatches(&batches));
+    }
     std::shared_ptr<RecordBatchReader> batch_reader =
         std::make_shared<BatchIterator>(batches[0]->schema(), batches);
 
@@ -1613,6 +1617,31 @@ TEST_F(TestMetadata, DoGet) {
   ASSERT_EQ(nullptr, chunk.data);
 }
 
+// Test dictionaries. This tests a corner case in the reader:
+// dictionary batches come in between the schema and the first record
+// batch, so the server must take care to read application metadata
+// from the record batch, and not one of the dictionary batches.
+TEST_F(TestMetadata, DoGetDictionaries) {
+  Ticket ticket{"dicts"};
+  std::unique_ptr<FlightStreamReader> stream;
+  ASSERT_OK(client_->DoGet(ticket, &stream));
+
+  BatchVector expected_batches;
+  ASSERT_OK(ExampleDictBatches(&expected_batches));
+
+  FlightStreamChunk chunk;
+  auto num_batches = static_cast<int>(expected_batches.size());
+  for (int i = 0; i < num_batches; ++i) {
+    ASSERT_OK(stream->Next(&chunk));
+    ASSERT_NE(nullptr, chunk.data);
+    ASSERT_NE(nullptr, chunk.app_metadata);
+    ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk.data);
+    ASSERT_EQ(std::to_string(i), chunk.app_metadata->ToString());
+  }
+  ASSERT_OK(stream->Next(&chunk));
+  ASSERT_EQ(nullptr, chunk.data);
+}
+
 TEST_F(TestMetadata, DoPut) {
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
@@ -1632,6 +1661,31 @@ TEST_F(TestMetadata, DoPut) {
   // This eventually calls grpc::ClientReaderWriter::Finish which can
   // hang if there are unread messages. So make sure our wrapper
   // around this doesn't hang (because it drains any unread messages)
+  ASSERT_OK(writer->Close());
+}
+
+// Test DoPut() with dictionaries. This tests a corner case in the
+// server-side reader; see DoGetDictionaries above.
+TEST_F(TestMetadata, DoPutDictionaries) {
+  std::unique_ptr<FlightStreamWriter> writer;
+  std::unique_ptr<FlightMetadataReader> reader;
+  BatchVector expected_batches;
+  ASSERT_OK(ExampleDictBatches(&expected_batches));
+  // ARROW-8749: don't get the schema via ExampleDictSchema because
+  // DictionaryMemo uses field addresses to determine whether it's
+  // seen a field before. Hence, if we use a schema that is different
+  // (identity-wise) than the schema of the first batch we write,
+  // we'll end up generating a duplicate set of dictionaries that
+  // confuses the reader.
+  ASSERT_OK(client_->DoPut(FlightDescriptor{}, expected_batches[0]->schema(), &writer,
+                           &reader));
+  std::shared_ptr<RecordBatch> chunk;
+  std::shared_ptr<Buffer> metadata;
+  auto num_batches = static_cast<int>(expected_batches.size());
+  for (int i = 0; i < num_batches; ++i) {
+    ASSERT_OK(writer->WriteWithMetadata(*expected_batches[i],
+                                        Buffer::FromString(std::to_string(i))));
+  }
   ASSERT_OK(writer->Close());
 }
 
