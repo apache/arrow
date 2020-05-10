@@ -46,7 +46,8 @@ jobs:
           pushd arrow/dev/tasks/linux-packages
           rake version:update
           rake docker:pull || :
-          rake BUILD_DIR=${HOME}/build {{ build_task }}
+          rake BUILD_DIR=build {{ build_task }}
+          rm -rf */*/build
           popd
         env:
           APT_TARGETS: {{ target }}
