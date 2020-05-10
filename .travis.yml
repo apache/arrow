@@ -113,4 +113,7 @@ script:
 
 after_success:
   - |
-    archery docker push ${DOCKER_IMAGE_ID} || :
+    if [ "${TRAVIS_EVENT_TYPE}" = "push" -a \
+         "${TRAVIS_REPO_SLUG}" = "apache/arrow" ]; then
+      archery docker push ${DOCKER_IMAGE_ID} || :
+    fi
