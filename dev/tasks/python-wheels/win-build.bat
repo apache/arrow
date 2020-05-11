@@ -23,6 +23,7 @@ call conda update --yes --quiet conda
 call conda create -n wheel-build -q -y -c conda-forge ^
     --file=%ARROW_SRC%\ci\conda_env_cpp.yml ^
     --file=%ARROW_SRC%\ci\conda_env_gandiva.yml ^
+    "vs2015_runtime<14.16" ^
     python=%PYTHON_VERSION% || exit /B
 
 call conda.bat activate wheel-build
@@ -90,6 +91,7 @@ set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
 @rem TODO For maximum reliability, we should test in a plain virtualenv instead.
 call conda create -n wheel-test -c conda-forge -q -y python=%PYTHON_VERSION% || exit /B
 call conda.bat activate wheel-test
+call conda install -y "vs2015_runtime<14.16"
 
 @rem install the built wheel
 pip install -r %ARROW_SRC%\python\requirements-wheel-test.txt || exit /B
