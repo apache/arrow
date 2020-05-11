@@ -25,6 +25,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include "arrow/flight/server_auth.h"
 #include "arrow/flight/types.h"       // IWYU pragma: keep
