@@ -178,7 +178,7 @@ jobs:
       - name: Build Arrow C++
         run: |
           C:\rtools40\usr\bin\pacman --noconfirm -Syyu
-          C:\rtools40\usr\bin\bash --login -c "cd $GITHUB_WORKSPACE && pwd && ls && printenv"
+          C:\rtools40\usr\bin\bash --login -c "cd $OLDPWD && pwd && ls && printenv"
       - uses: actions/upload-artifact@v1
         with:
           name: Rtools ${{ matrix.rtools }} Arrow C++
