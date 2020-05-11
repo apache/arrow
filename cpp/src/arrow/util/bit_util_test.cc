@@ -1241,17 +1241,13 @@ TEST(Bitmap, VisitPartialWords) {
 #endif  // ARROW_VALGRIND
 
 TEST(Bitmap, ToString) {
-  uint64_t bitmap_value = 0xCAAC, bitmap_storage = 0;
-  Bitmap bitmap(&bitmap_storage, 0, sizeof(uint64_t) * 8);
-  for (size_t i = 0; i < sizeof(uint64_t) * 8; i++) {
-    bitmap.SetBitTo(i, (bitmap_value & (1ULL << i)) ? true : false);
-  }
-  EXPECT_EQ(bitmap.Slice(/*bit_offset*/ 0, /*length=*/34).ToString(),
+  uint8_t bitmap[8] = {0xAC, 0xCA, 0, 0, 0, 0, 0, 0};
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/34).ToString(),
             "00110101 01010011 00000000 00000000 00");
-  EXPECT_EQ(bitmap.Slice(/*bit_offset*/ 0, /*length=*/16).ToString(),
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/16).ToString(),
             "00110101 01010011");
-  EXPECT_EQ(bitmap.Slice(/*bit_offset*/ 0, /*length=*/11).ToString(), "00110101 010");
-  EXPECT_EQ(bitmap.Slice(/*bit_offset*/ 3, /*length=*/8).ToString(), "10101010");
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/11).ToString(), "00110101 010");
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 3, /*length=*/8).ToString(), "10101010");
 }
 
 // compute bitwise AND of bitmaps using word-wise visit
