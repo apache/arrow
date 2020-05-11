@@ -18,7 +18,7 @@
 @echo on
 
 @rem create conda environment for compiling
-call conda update --yes --quiet conda
+REM call conda update --yes --quiet conda
 
 call conda create -n wheel-build -q -y -c conda-forge ^
     --file=%ARROW_SRC%\ci\conda_env_cpp.yml ^
@@ -65,7 +65,6 @@ cmake -G "%GENERATOR%" ^
       -DARROW_PARQUET=ON ^
       -DARROW_GANDIVA=ON ^
       -DZSTD_SOURCE=BUNDLED ^
-      -DCMAKE_UNITY_BUILD=ON ^
       .. || exit /B
 cmake --build . --target install --config Release || exit /B
 popd
@@ -88,18 +87,34 @@ call conda.bat deactivate
 
 set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
 
-@rem test the wheel
-@rem TODO For maximum reliability, we should test in a plain virtualenv instead.
-call conda create -n wheel-test -c conda-forge -q -y python=%PYTHON_VERSION% || exit /B
-call conda.bat activate wheel-test
-call conda install -y "vs2015_runtime<14.16"
+@rem install the test dependencies
+%PYTHON_INTERPRETER% -m pip install -r %ARROW_SRC%\python\requirements-wheel-test.txt || exit /B
 
-@rem install the built wheel
-pip install -r %ARROW_SRC%\python\requirements-wheel-test.txt || exit /B
-pip install --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B
+@rem install the produced wheel in a non-conda environment
+%PYTHON_INTERPRETER% -m pip install --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B
 
 @rem test the imports
-python -c "import pyarrow; import pyarrow.parquet; import pyarrow.flight; import pyarrow.dataset; import pyarrow.gandiva;" || exit /B
+%PYTHON_INTERPRETER% -c "import pyarrow" || exit /B
+%PYTHON_INTERPRETER% -c "import pyarrow.parquet" || exit /B
+%PYTHON_INTERPRETER% -c "import pyarrow.flight" || exit /B
+%PYTHON_INTERPRETER% -c "import pyarrow.gandiva" || exit /B
+%PYTHON_INTERPRETER% -c "import pyarrow.dataset" || exit /B
 
 @rem run the python tests
-pytest -rs --pyargs pyarrow || exit /B
+%PYTHON_INTERPRETER% -m pytest -rs --pyargs pyarrow || exit /B
+
+REM @rem test the wheel in a conda environment
+REM @rem TODO For maximum reliability, we should test in a plain virtualenv instead.
+REM call conda create -n wheel-test -c conda-forge -q -y python=%PYTHON_VERSION% || exit /B
+REM call conda.bat activate wheel-test
+REM call conda install -y "vs2015_runtime<14.16"
+
+REM @rem install the built wheel
+REM pip install -r %ARROW_SRC%\python\requirements-wheel-test.txt || exit /B
+REM pip install --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B
+
+REM @rem test the imports
+REM python -c "import pyarrow; import pyarrow.parquet; import pyarrow.flight; import pyarrow.dataset; import pyarrow.gandiva;" || exit /B
+
+REM @rem run the python tests
+REM pytest -rs --pyargs pyarrow || exit /B
