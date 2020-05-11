@@ -1245,8 +1245,7 @@ TEST(Bitmap, VisitPartialWords) {
 #endif  // ARROW_VALGRIND
 
 TEST(Bitmap, ToString) {
-  uint64_t bitmap_value = 0xCAAC;
-  uint8_t* bitmap = reinterpret_cast<uint8_t*>(&bitmap_value);
+  uint8_t bitmap[8] = {0xAC, 0xCA, 0, 0, 0, 0, 0, 0};
   EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/34).ToString(),
             "00110101 01010011 00000000 00000000 00");
   EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/16).ToString(),
