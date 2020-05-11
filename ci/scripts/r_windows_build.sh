@@ -27,7 +27,7 @@ export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 # pacman --sync --noconfirm ccache
 
 # msys64: remove preinstalled toolchains and switch to rtools40 repositories
-pacman --noconfirm -Rcsu mingw-w64-{i686,x86_64}-toolchain gcc pkg-config
+pacman --noconfirm -Rcsu mingw-w64-{i686,x86_64}-toolchain
 curl https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf > /etc/pacman.conf
 
 pacman --noconfirm -Scc

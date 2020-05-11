@@ -171,10 +171,12 @@ jobs:
       # - name: Fetch Submodules and Tags
       #   shell: bash
       #   run: ci/scripts/util_checkout.sh
-      - uses: r-lib/actions/setup-r@master
+      - uses: nealrichardson/actions/setup-r@no-qpdf
         with:
           rtools-version: ${{ matrix.rtools }}
           r-version: '4.0'
+          Ncpus: 2
+          qpdf: false
       - name: Build Arrow C++
         run: |
           C:\rtools40\usr\bin\pacman --noconfirm -Syyu
