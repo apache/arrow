@@ -28,12 +28,13 @@ import pyarrow.flight
 
 class FlightServer(pyarrow.flight.FlightServerBase):
     def __init__(self, host="localhost", location=None,
-                 tls_certificates=None, auth_handler=None):
+                 tls_certificates=None, verify_client=False, auth_handler=None):
         super(FlightServer, self).__init__(
-            location, auth_handler, tls_certificates)
+            location, auth_handler, tls_certificates, verify_client)
         self.flights = {}
         self.host = host
         self.tls_certificates = tls_certificates
+        self.verify_client = verify_client
 
     @classmethod
     def descriptor_to_key(self, descriptor):
@@ -125,6 +126,8 @@ def main():
     parser.add_argument("--tls", nargs=2, default=None,
                         metavar=('CERTFILE', 'KEYFILE'),
                         help="Enable transport-level security")
+    parser.add_argument("--verify_client", type=bool, default="False",
+                        help="enable mutual TLS and verify the client if True")
 
     args = parser.parse_args()
     tls_certificates = []
@@ -139,8 +142,10 @@ def main():
 
     location = "{}://{}:{}".format(scheme, args.host, args.port)
 
+    verify_client = str(args.verify_client).lower()
+
     server = FlightServer(args.host, location,
-                          tls_certificates=tls_certificates)
+                          tls_certificates=tls_certificates, verify_client=verify_client)
     print("Serving on", location)
     server.serve()
 

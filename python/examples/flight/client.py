@@ -165,12 +165,12 @@ def main():
             with open(args.tls_roots, "rb") as root_certs:
                 connection_args["tls_root_certs"] = root_certs.read()
     if args.mtls:
-        scheme = "grpc+mtls"
         with open(args.mtls[0], "rb") as cert_file:
             tls_cert_chain = cert_file.read()
         with open(args.mtls[1], "rb") as key_file:
             tls_private_key = key_file.read()
         tls_certificates.append((tls_cert_chain, tls_private_key))
+        connection_args["tls_certificates"] = tls_certificates
     client = pyarrow.flight.FlightClient(f"{scheme}://{host}:{port}",
                                          **connection_args)
     while True:

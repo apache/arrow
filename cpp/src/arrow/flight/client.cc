@@ -531,16 +531,15 @@ class FlightClient::FlightClientImpl {
 
     std::stringstream grpc_uri;
     std::shared_ptr<grpc::ChannelCredentials> creds;
-    if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls || scheme == kSchemeGrpcMTls) {
+    if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls) {
       grpc_uri << location.uri_->host() << ":" << location.uri_->port_text();
 
-      if ((scheme == "grpc+tls") || (scheme == "grpc+mtls") {
+      if (scheme == "grpc+tls") {
         grpc::SslCredentialsOptions ssl_options;
         if (!options.tls_root_certs.empty()) {
           ssl_options.pem_root_certs = options.tls_root_certs;
         }
-        if (scheme  == 'grpc+mtls'){
-        for (const auto& pair : options.tls_certificates) {
+        if (!options.tls_certificates.empty()){
         ssl_options.pem_key_cert_pairs.push_back({pair.pem_key, pair.pem_cert});
         }
       }

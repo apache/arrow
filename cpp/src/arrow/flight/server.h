@@ -121,7 +121,8 @@ class ARROW_FLIGHT_EXPORT FlightServerOptions {
   std::shared_ptr<ServerAuthHandler> auth_handler;
   /// \brief A list of TLS certificate+key pairs to use.
   std::vector<CertKeyPair> tls_certificates;
-
+  /// \brief A boolean flag for if the client should also be verified.
+  std::boolalpha verify_client;
   /// \brief A list of server middleware to apply, along with a key to
   /// identify them by.
   ///

@@ -294,14 +294,6 @@ struct ARROW_FLIGHT_EXPORT Location {
   /// \param[out] location The resulting location
   static Status ForGrpcTls(const std::string& host, const int port, Location* location);
 
-  /// \brief Initialize a location for a mutual TLS-enabled, gRPC-based Flight
-  /// service from a host and port
-  /// \param[in] host The hostname to connect to
-  /// \param[in] port The port
-  /// \param[out] location The resulting location
-  static Status ForGrpcMTls(const std::string& host, const int port, Location* location);
-
-
 
   /// \brief Initialize a location for a domain socket-based Flight
   /// service
