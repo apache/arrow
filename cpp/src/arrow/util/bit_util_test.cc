@@ -1120,8 +1120,6 @@ TEST(BitUtil, BitsetStack) {
 // test the basic assumption of word level Bitmap::Visit
 TEST(Bitmap, ShiftingWordsOptimization) {
   // single word
-  // this test assumes the little endian memory layout in *bytes
-  // Therefore, convert data layout of word to little-endian on big-endian platform
   {
     uint64_t word;
     auto bytes = reinterpret_cast<uint8_t*>(&word);
@@ -1129,19 +1127,16 @@ TEST(Bitmap, ShiftingWordsOptimization) {
 
     for (int seed = 0; seed < 64; ++seed) {
       random_bytes(sizeof(word), seed, bytes);
-      uint64_t original_word = word;
-      // convert 8-bytes word to in little-endian
-      word = arrow::BitUtil::ToLittleEndian(word);
+      uint64_t native_word = BitUtil::FromLittleEndian(word);
 
       // bits are accessible through simple bit shifting of the word
       for (size_t i = 0; i < kBitWidth; ++i) {
-        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((original_word >> i) & 1));
+        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((native_word >> i) & 1));
       }
 
       // bit offset can therefore be accommodated by shifting the word
       for (size_t offset = 0; offset < (kBitWidth * 3) / 4; ++offset) {
-        uint64_t shifted_word = original_word >> offset;
-        shifted_word = arrow::BitUtil::ToLittleEndian(shifted_word);
+        uint64_t shifted_word = arrow::BitUtil::ToLittleEndian(native_word >> offset);
         auto shifted_bytes = reinterpret_cast<uint8_t*>(&shifted_word);
         ASSERT_TRUE(
             internal::BitmapEquals(bytes, offset, shifted_bytes, 0, kBitWidth - offset));
@@ -1150,8 +1145,6 @@ TEST(Bitmap, ShiftingWordsOptimization) {
   }
 
   // two words
-  // this test assumes the little endian memory layout in *bytes
-  // Therefore, convert data layout of words to little-endian on big-endian platform
   {
     uint64_t words[2];
     auto bytes = reinterpret_cast<uint8_t*>(words);
@@ -1159,29 +1152,24 @@ TEST(Bitmap, ShiftingWordsOptimization) {
 
     for (int seed = 0; seed < 64; ++seed) {
       random_bytes(sizeof(words), seed, bytes);
-      uint64_t original_words0 = words[0];
-      uint64_t original_words1 = words[1];
-      // convert two 8-bytes words to in little-endian
-      words[0] = arrow::BitUtil::ToLittleEndian(words[0]);
-      words[1] = arrow::BitUtil::ToLittleEndian(words[1]);
+      uint64_t native_words0 = BitUtil::FromLittleEndian(words[0]);
+      uint64_t native_words1 = BitUtil::FromLittleEndian(words[1]);
 
       // bits are accessible through simple bit shifting of a word
       for (size_t i = 0; i < kBitWidth; ++i) {
-        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((original_words0 >> i) & 1));
+        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((native_words0 >> i) & 1));
       }
       for (size_t i = 0; i < kBitWidth; ++i) {
         ASSERT_EQ(BitUtil::GetBit(bytes, i + kBitWidth),
-                  bool((original_words1 >> i) & 1));
+                  bool((native_words1 >> i) & 1));
       }
 
       // bit offset can therefore be accommodated by shifting the word
       for (size_t offset = 1; offset < (kBitWidth * 3) / 4; offset += 3) {
         uint64_t shifted_words[2];
-        shifted_words[0] =
-            original_words0 >> offset | (original_words1 << (kBitWidth - offset));
-        shifted_words[1] = original_words1 >> offset;
-        shifted_words[0] = arrow::BitUtil::ToLittleEndian(shifted_words[0]);
-        shifted_words[1] = arrow::BitUtil::ToLittleEndian(shifted_words[1]);
+        shifted_words[0] = arrow::BitUtil::ToLittleEndian(
+            native_words0 >> offset | (native_words1 << (kBitWidth - offset)));
+        shifted_words[1] = arrow::BitUtil::ToLittleEndian(native_words1 >> offset);
         auto shifted_bytes = reinterpret_cast<uint8_t*>(shifted_words);
 
         // from offset to unshifted word boundary
