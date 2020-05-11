@@ -40,19 +40,35 @@ struct MinMaxState<ArrowType, enable_if_integer<ArrowType>> {
 
   ThisType& operator+=(const ThisType& rhs) {
     this->has_nulls |= rhs.has_nulls;
-    this->min = std::min(this->min, rhs.min);
-    this->max = std::max(this->max, rhs.max);
+    if (ARROW_PREDICT_TRUE(this->initialized && rhs.initialized)) {
+      this->min = std::min(this->min, rhs.min);
+      this->max = std::max(this->max, rhs.max);
+    } else if (!this->initialized && rhs.initialized) {
+      this->min = rhs.min;
+      this->max = rhs.max;
+      this->initialized = true;
+    }
     return *this;
   }
 
   void MergeOne(c_type value) {
-    this->min = std::min(this->min, value);
-    this->max = std::max(this->max, value);
+    if (ARROW_PREDICT_TRUE(this->initialized)) {
+      if (value < this->min) {
+        this->min = value;
+      } else if (value > this->max) {
+        this->max = value;
+      }
+    } else {
+      this->min = value;
+      this->max = value;
+      this->initialized = true;
+    }
   }
 
-  c_type min = std::numeric_limits<c_type>::max();
-  c_type max = std::numeric_limits<c_type>::min();
+  c_type min;
+  c_type max;
   bool has_nulls = false;
+  bool initialized = false;
 };
 
 template <typename ArrowType>
@@ -62,19 +78,35 @@ struct MinMaxState<ArrowType, enable_if_floating_point<ArrowType>> {
 
   ThisType& operator+=(const ThisType& rhs) {
     this->has_nulls |= rhs.has_nulls;
-    this->min = std::fmin(this->min, rhs.min);
-    this->max = std::fmax(this->max, rhs.max);
+    if (ARROW_PREDICT_TRUE(this->initialized && rhs.initialized)) {
+      this->min = std::min(this->min, rhs.min);
+      this->max = std::max(this->max, rhs.max);
+    } else if (!this->initialized && rhs.initialized) {
+      this->min = rhs.min;
+      this->max = rhs.max;
+      this->initialized = true;
+    }
     return *this;
   }
 
   void MergeOne(c_type value) {
-    this->min = std::fmin(this->min, value);
-    this->max = std::fmax(this->max, value);
+    if (ARROW_PREDICT_TRUE(this->initialized)) {
+      if (value < this->min) {
+        this->min = value;
+      } else if (value > this->max) {
+        this->max = value;
+      }
+    } else {
+      this->min = value;
+      this->max = value;
+      this->initialized = true;
+    }
   }
 
-  c_type min = std::numeric_limits<c_type>::infinity();
-  c_type max = -std::numeric_limits<c_type>::infinity();
+  c_type min;
+  c_type max;
   bool has_nulls = false;
+  bool initialized = false;
 };
 
 template <typename ArrowType>
