@@ -29,6 +29,7 @@ from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
 from pyarrow._csv cimport ParseOptions
 from pyarrow._compute cimport CastOptions
+from pyarrow.util import _is_path_like, _stringify_path
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
@@ -41,6 +42,50 @@ def _forbid_instantiation(klass, subclasses_instead=True):
             ', '.join(subclasses)
         )
     raise TypeError(msg)
+
+
+cdef class FileSource:
+
+    cdef:
+        # XXX why is shared_ptr necessary here? CFileSource shouldn't need it
+        shared_ptr[CFileSource] wrapped
+
+    def __init__(self, file, FileSystem filesystem=None):
+        cdef:
+            shared_ptr[CFileSystem] c_filesystem
+            c_string c_path
+            shared_ptr[CRandomAccessFile] c_file
+            shared_ptr[CBuffer] c_buffer
+
+        if isinstance(file, FileSource):
+            self.wrapped = (<FileSource> file).wrapped
+
+        elif isinstance(file, Buffer):
+            c_buffer = pyarrow_unwrap_buffer(file)
+            self.wrapped.reset(new CFileSource(move(c_buffer)))
+
+        elif _is_path_like(file):
+            if filesystem is None:
+                raise ValueError("cannot construct a FileSource from "
+                                 "a path without a FileSystem")
+            c_filesystem = filesystem.unwrap()
+            c_path = tobytes(_stringify_path(file))
+            self.wrapped.reset(new CFileSource(move(c_path),
+                                               move(c_filesystem)))
+
+        else:
+            if not isinstance(file, NativeFile):
+                file = wrap_python_file(file, mode='r')
+            c_file = (<NativeFile> file).get_random_access_file()
+            self.wrapped.reset(new CFileSource(move(c_file)))
+
+    @staticmethod
+    def from_uri(uri):
+        filesystem, path = FileSystem.from_uri(uri)
+        return FileSource(path, filesystem)
+
+    cdef CFileSource unwrap(self) nogil:
+        return deref(self.wrapped)
 
 
 cdef class Expression:
@@ -411,7 +456,7 @@ cdef class FileSystemDataset(Dataset):
 
     Parameters
     ----------
-    paths_or_selector : Union[FileSelector, List[FileInfo]]
+    paths_or_selector : Union[FileSelector, List[str]]
         List of files/directories to consume.
     schema : Schema
         The top-level schema of the DataDataset.
@@ -457,8 +502,7 @@ cdef class FileSystemDataset(Dataset):
 
         infos = filesystem.get_file_info(paths_or_selector)
 
-        if partitions is None:
-            partitions = [_true] * len(infos)
+        partitions = partitions or [_true] * len(infos)
 
         if len(infos) != len(partitions):
             raise ValueError(
@@ -549,32 +593,26 @@ cdef class FileFormat:
     cdef inline shared_ptr[CFileFormat] unwrap(self):
         return self.wrapped
 
-    def inspect(self, str path not None, FileSystem filesystem not None):
+    def inspect(self, file, filesystem=None):
         """Infer the schema of a file."""
-        cdef:
-            shared_ptr[CSchema] c_schema
-
-        c_schema = GetResultValue(self.format.Inspect(CFileSource(
-            tobytes(path), filesystem.unwrap())))
+        c_source = FileSource(file, filesystem).unwrap()
+        c_schema = GetResultValue(self.format.Inspect(c_source))
         return pyarrow_wrap_schema(move(c_schema))
 
-    def make_fragment(self, str path not None, FileSystem filesystem not None,
+    def make_fragment(self, file, filesystem=None,
                       Expression partition_expression=None):
         """
         Make a FileFragment of this FileFormat. The filter may not reference
         fields absent from the provided schema. If no schema is provided then
         one will be inferred.
         """
-        cdef:
-            shared_ptr[CFileFragment] c_fragment
-
         partition_expression = partition_expression or _true
 
-        c_fragment = GetResultValue(
-            self.format.MakeFragment(CFileSource(tobytes(path),
-                                                 filesystem.unwrap()),
+        c_source = FileSource(file, filesystem).unwrap()
+        c_fragment = <shared_ptr[CFragment]> GetResultValue(
+            self.format.MakeFragment(move(c_source),
                                      partition_expression.unwrap()))
-        return Fragment.wrap(<shared_ptr[CFragment]> move(c_fragment))
+        return Fragment.wrap(move(c_fragment))
 
     def __eq__(self, other):
         try:
@@ -937,27 +975,25 @@ cdef class ParquetFileFormat(FileFormat):
     def __reduce__(self):
         return ParquetFileFormat, (self.read_options,)
 
-    def make_fragment(self, str path not None, FileSystem filesystem not None,
+    def make_fragment(self, file, filesystem=None,
                       Expression partition_expression=None, row_groups=None):
         cdef:
-            shared_ptr[CFileFragment] c_fragment
             vector[int] c_row_groups
 
         partition_expression = partition_expression or _true
 
         if row_groups is None:
-            return super().make_fragment(path, filesystem,
+            return super().make_fragment(file, filesystem,
                                          partition_expression)
 
-        for row_group in set(row_groups):
-            c_row_groups.push_back(<int> row_group)
+        c_source = FileSource(file, filesystem).unwrap()
+        c_row_groups = [<int> row_group for row_group in set(row_groups)]
 
-        c_fragment = GetResultValue(
-            self.parquet_format.MakeFragment(CFileSource(tobytes(path),
-                                                         filesystem.unwrap()),
+        c_fragment = <shared_ptr[CFragment]> GetResultValue(
+            self.parquet_format.MakeFragment(move(c_source),
                                              partition_expression.unwrap(),
                                              move(c_row_groups)))
-        return Fragment.wrap(<shared_ptr[CFragment]> move(c_fragment))
+        return Fragment.wrap(move(c_fragment))
 
 
 cdef class IpcFileFormat(FileFormat):
@@ -1425,34 +1461,33 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
                  FileFormat format not None,
                  FileSystemFactoryOptions options=None):
         cdef:
-            vector[c_string] paths
-            CFileSelector selector
+            vector[CFileSource] c_sources
+            CFileSelector c_selector
             CResult[shared_ptr[CDatasetFactory]] result
             shared_ptr[CFileSystem] c_filesystem
             shared_ptr[CFileFormat] c_format
             CFileSystemFactoryOptions c_options
 
+        options = options or FileSystemFactoryOptions()
+        c_options = options.unwrap()
         c_filesystem = filesystem.unwrap()
         c_format = format.unwrap()
 
-        options = options or FileSystemFactoryOptions()
-        c_options = options.unwrap()
-
         if isinstance(paths_or_selector, FileSelector):
             with nogil:
-                selector = (<FileSelector>paths_or_selector).selector
+                c_selector = (<FileSelector> paths_or_selector).selector
                 result = CFileSystemDatasetFactory.MakeFromSelector(
                     c_filesystem,
-                    selector,
+                    c_selector,
                     c_format,
                     c_options
                 )
         elif isinstance(paths_or_selector, (list, tuple)):
-            paths = [tobytes(s) for s in paths_or_selector]
+            for path in paths_or_selector:
+                c_sources.push_back(FileSource(path, filesystem).unwrap())
             with nogil:
-                result = CFileSystemDatasetFactory.MakeFromPaths(
-                    c_filesystem,
-                    paths,
+                result = CFileSystemDatasetFactory.MakeFromSources(
+                    move(c_sources),
                     c_format,
                     c_options
                 )

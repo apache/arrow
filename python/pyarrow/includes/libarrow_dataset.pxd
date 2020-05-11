@@ -196,6 +196,9 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const shared_ptr[CFileSystem]& filesystem() const
         const shared_ptr[CBuffer]& buffer() const
         CFileSource(c_string path, shared_ptr[CFileSystem] filesystem)
+        CFileSource(shared_ptr[CBuffer] buffer)
+        CFileSource(shared_ptr[CRandomAccessFile] file)
+        CFileSource()
 
     cdef cppclass CFileFormat "arrow::dataset::FileFormat":
         c_string type_name() const
@@ -307,9 +310,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             "arrow::dataset::FileSystemDatasetFactory"(
                 CDatasetFactory):
         @staticmethod
-        CResult[shared_ptr[CDatasetFactory]] MakeFromPaths "Make"(
-            shared_ptr[CFileSystem] filesystem,
-            vector[c_string] paths,
+        CResult[shared_ptr[CDatasetFactory]] MakeFromSources "Make"(
+            vector[CFileSource] sources,
             shared_ptr[CFileFormat] format,
             CFileSystemFactoryOptions options
         )

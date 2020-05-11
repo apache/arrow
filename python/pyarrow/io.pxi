@@ -1376,6 +1376,18 @@ cdef shared_ptr[CBuffer] as_c_buffer(object o) except *:
     return buf
 
 
+cdef NativeFile wrap_python_file(object source, str mode):
+    if 'r' in mode and not hasattr(source, 'read'):
+        # Optimistically hope this is file-like
+        raise TypeError('cannot wrap object without read method: ', source)
+
+    if 'w' in mode and not hasattr(source, 'write'):
+        # Optimistically hope this is file-like
+        raise TypeError('cannot wrap object without write method: ', source)
+
+    return PythonFile(source, mode=mode)
+
+
 cdef NativeFile _get_native_file(object source, c_bool use_memory_map):
     try:
         source_path = _stringify_path(source)

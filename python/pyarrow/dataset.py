@@ -29,6 +29,7 @@ from pyarrow._dataset import (  # noqa
     DirectoryPartitioning,
     FileFormat,
     FileFragment,
+    FileSource,
     FileSystemDataset,
     FileSystemDatasetFactory,
     FileSystemFactoryOptions,
@@ -414,6 +415,9 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
 
     if isinstance(source, (list, tuple)):
         fs, paths_or_selector = _ensure_multiple_sources(source, filesystem)
+    elif isinstance(source, FileSource):
+        # filesystem will be ignored
+        fs, paths_or_selector = _MockFileSystem(), [source]
     else:
         fs, paths_or_selector = _ensure_single_source(source, filesystem)
 
@@ -640,9 +644,13 @@ def dataset(source, schema=None, format=None, filesystem=None,
         selector_ignore_prefixes=ignore_prefixes
     )
 
+    import io
+
     # TODO(kszucs): support InMemoryDataset for a table input
     if _is_path_like(source):
         return _filesystem_dataset(source, **kwargs)
+    elif isinstance(source, (io.BytesIO, FileSource)):
+        return _filesystem_dataset(FileSource(source), **kwargs)
     elif isinstance(source, (tuple, list)):
         if all(_is_path_like(elem) for elem in source):
             return _filesystem_dataset(source, **kwargs)

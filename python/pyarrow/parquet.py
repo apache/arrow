@@ -1521,10 +1521,6 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                read_dictionary=None, filesystem=None, filters=None,
                buffer_size=0, partitioning="hive", use_legacy_dataset=True):
     if not use_legacy_dataset:
-        if not _is_path_like(source):
-            raise ValueError("File-like objects are not yet supported with "
-                             "the new Dataset API")
-
         dataset = _ParquetDatasetV2(
             source,
             filesystem=filesystem,

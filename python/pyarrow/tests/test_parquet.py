@@ -89,18 +89,11 @@ def _roundtrip_table(table, read_table_kwargs=None,
     read_table_kwargs = read_table_kwargs or {}
     write_table_kwargs = write_table_kwargs or {}
 
-    if use_legacy_dataset:
-        buf = io.BytesIO()
-        _write_table(table, buf, **write_table_kwargs)
-        buf.seek(0)
-        return _read_table(buf, **read_table_kwargs)
-    else:
-        from pyarrow.fs import _MockFileSystem
-        mockfs = _MockFileSystem()
-        with mockfs.open_output_stream("test") as out:
-            _write_table(table, out, **write_table_kwargs)
-        return _read_table("test", filesystem=mockfs, use_legacy_dataset=False,
-                           **read_table_kwargs)
+    buf = io.BytesIO()
+    _write_table(table, buf, **write_table_kwargs)
+    buf.seek(0)
+    return _read_table(buf, use_legacy_dataset=use_legacy_dataset,
+                       **read_table_kwargs)
 
 
 def _check_roundtrip(table, expected=None, read_table_kwargs=None,
