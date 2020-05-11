@@ -148,16 +148,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rtools: [35]
+        rtools: [40]
     env:
       TEST_R_WITH_ARROW: "TRUE"
       ARROW_R_CXXFLAGS: '-Werror'
       _R_CHECK_TESTS_NLINES_: 0
     steps:
       - run: git config --global core.autocrlf false
-      - uses: numworks/setup-msys2@v1
-        with:
-          update: true
       - name: Checkout Arrow
         uses: actions/checkout@v2
         with:
@@ -177,9 +174,9 @@ jobs:
       - uses: r-lib/actions/setup-r@master
         with:
           rtools-version: ${{ matrix.rtools }}
-          r-version: '3.6'
+          r-version: '4.0'
       - name: Build Arrow C++
-        run: msys2do ci/scripts/r_windows_build.sh
+        run: C:/rtools40/usr/bin/bash --login -c ci/scripts/r_windows_build.sh
       - uses: actions/upload-artifact@v1
         with:
           name: Rtools ${{ matrix.rtools }} Arrow C++

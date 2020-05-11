@@ -39,7 +39,7 @@ pacman --noconfirm --needed -S mingw-w64-{i686,x86_64}-{toolchain,crt,winpthread
 # Force static linking
 rm -f /mingw32/lib/*.dll.a
 rm -f /mingw64/lib/*.dll.a
-export PKG_CONFIG="/${MINGW_PREFIX}/bin/pkg-config --static"
+export PKG_CONFIG="C:/rtools40/usr/bin/pkg-config --static"
 
 cp $ARROW_HOME/ci/scripts/PKGBUILD .
 export PKGEXT='.pkg.tar.xz' # pacman default changed to .zst in 2020, but keep the old ext for compat
@@ -56,7 +56,7 @@ cp mingw* build
 cd build
 
 # This may vary by system/CI provider
-MSYS_LIB_DIR="D:/a/_temp/msys/msys64"
+MSYS_LIB_DIR="C:/rtools40"
 
 ls $MSYS_LIB_DIR/mingw64/lib/
 ls $MSYS_LIB_DIR/mingw32/lib/
@@ -74,6 +74,9 @@ mkdir -p $DST_DIR/lib-4.9.3/i386
 # lib is for the new gcc 8 toolchain (Rtools 4.0)
 mkdir -p $DST_DIR/lib/x64
 mkdir -p $DST_DIR/lib/i386
+
+echo gcc --version
+echo "$(subst gcc,,$(COMPILED_BY))"
 
 # Move the 64-bit versions of libarrow into the expected location
 mv mingw64/lib/*.a $DST_DIR/lib-4.9.3/x64
