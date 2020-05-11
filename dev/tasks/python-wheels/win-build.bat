@@ -101,20 +101,5 @@ set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
 %PYTHON_INTERPRETER% -c "import pyarrow.dataset" || exit /B
 
 @rem run the python tests
+set PYARROW_TEST_CYTHON=OFF
 %PYTHON_INTERPRETER% -m pytest -rs --pyargs pyarrow || exit /B
-
-REM @rem test the wheel in a conda environment
-REM @rem TODO For maximum reliability, we should test in a plain virtualenv instead.
-REM call conda create -n wheel-test -c conda-forge -q -y python=%PYTHON_VERSION% || exit /B
-REM call conda.bat activate wheel-test
-REM call conda install -y "vs2015_runtime<14.16"
-
-REM @rem install the built wheel
-REM pip install -r %ARROW_SRC%\python\requirements-wheel-test.txt || exit /B
-REM pip install --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B
-
-REM @rem test the imports
-REM python -c "import pyarrow; import pyarrow.parquet; import pyarrow.flight; import pyarrow.dataset; import pyarrow.gandiva;" || exit /B
-
-REM @rem run the python tests
-REM pytest -rs --pyargs pyarrow || exit /B
