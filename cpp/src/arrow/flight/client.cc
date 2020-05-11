@@ -542,7 +542,6 @@ class FlightClient::FlightClientImpl {
         if (!options.tls_certificates.empty()){
           ssl_options.pem_key_cert_pairs.push_back({pair.pem_key, pair.pem_cert});
         }
-      }
         creds = grpc::SslCredentials(ssl_options);
       } else {
         creds = grpc::InsecureChannelCredentials();
