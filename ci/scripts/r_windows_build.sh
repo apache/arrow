@@ -28,7 +28,11 @@ export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 
 # msys64: remove preinstalled toolchains and switch to rtools40 repositories
 pacman --noconfirm -Rcsu mingw-w64-{i686,x86_64}-toolchain
-curl https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf > /etc/pacman.conf
+# Use rtools-backports if building with rtools35
+curl https://raw.githubusercontent.com/r-windows/rtools-packages/master/pacman.conf > /etc/pacman.conf
+
+echo gcc --version
+echo "$(subst gcc,,$(COMPILED_BY))"
 
 pacman --noconfirm -Scc
 pacman --noconfirm -Syyu
@@ -75,9 +79,6 @@ mkdir -p $DST_DIR/lib-4.9.3/i386
 # lib is for the new gcc 8 toolchain (Rtools 4.0)
 mkdir -p $DST_DIR/lib/x64
 mkdir -p $DST_DIR/lib/i386
-
-echo gcc --version
-echo "$(subst gcc,,$(COMPILED_BY))"
 
 # Move the 64-bit versions of libarrow into the expected location
 mv mingw64/lib/*.a $DST_DIR/lib-4.9.3/x64
