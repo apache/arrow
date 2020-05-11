@@ -65,6 +65,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_PARQUET=ON ^
       -DARROW_GANDIVA=ON ^
       -DZSTD_SOURCE=BUNDLED ^
+      -DCMAKE_UNITY_BUILD=ON ^
       .. || exit /B
 cmake --build . --target install --config Release || exit /B
 popd
