@@ -999,8 +999,10 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
           if (offsets[i] == 0) {
             visited_words[i] = words[i][word_i];
           } else {
-            visited_words[i] = words[i][word_i] >> offsets[i];
-            visited_words[i] |= words[i][word_i + 1] << (kBitWidth - offsets[i]);
+            auto words0 = BitUtil::ToLittleEndian(words[i][word_i]);
+            auto words1 = BitUtil::ToLittleEndian(words[i][word_i + 1]);
+            visited_words[i] = BitUtil::FromLittleEndian(
+                (words0 >> offsets[i]) | (words1 << (kBitWidth - offsets[i])));
           }
         }
         visitor(visited_words);
