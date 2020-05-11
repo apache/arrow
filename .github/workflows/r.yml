@@ -176,7 +176,9 @@ jobs:
           rtools-version: ${{ matrix.rtools }}
           r-version: '4.0'
       - name: Build Arrow C++
-        run: C:/rtools40/usr/bin/bash --login -c "cd $GITHUB_WORKSPACE && ci/scripts/r_windows_build.sh"
+        run: |
+          C:\rtools40\usr\bin\pacman --noconfirm -Syyu
+          C:\rtools40\usr\bin\bash --login -c "$(cygpath ${GITHUB_WORKSPACE})/ci/scripts/r_windows_build.sh"
       - uses: actions/upload-artifact@v1
         with:
           name: Rtools ${{ matrix.rtools }} Arrow C++
