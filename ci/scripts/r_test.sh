@@ -48,6 +48,11 @@ export AWS_EC2_METADATA_DISABLED=TRUE
 # Make sure we aren't writing to the home dir (CRAN _hates_ this but there is no official check)
 BEFORE=$(ls -alh ~/)
 
+# To make sure that texlive2020 doesn't pollute the home dir, set these
+export TEXMFVAR="/dev/null"
+export TEXMFCACHE="/dev/null"
+export TEXMFCONFIG="/dev/null"
+
 ${R_BIN} -e "as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
   if (as_cran) {
     rcmdcheck::rcmdcheck(args = c('--as-cran', '--run-donttest'), error_on = 'warning', check_dir = 'check')
