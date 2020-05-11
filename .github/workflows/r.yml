@@ -178,7 +178,7 @@ jobs:
       - name: Build Arrow C++
         run: |
           C:\rtools40\usr\bin\pacman --noconfirm -Syyu
-          C:\rtools40\usr\bin\bash --login -c "pwd && cd /d/a/arrow/arrow && pwd"
+          C:\rtools40\usr\bin\bash --login -c "cd /d/a/arrow/arrow && ci/scripts/r_windows_build.sh"
       - uses: actions/upload-artifact@v1
         with:
           name: Rtools ${{ matrix.rtools }} Arrow C++
