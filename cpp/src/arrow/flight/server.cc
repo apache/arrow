@@ -675,7 +675,7 @@ Status FlightServerBase::Init(const FlightServerOptions& options) {
       for (const auto& pair : options.tls_certificates) {
         ssl_options.pem_key_cert_pairs.push_back({pair.pem_key, pair.pem_cert});
       }
-      if (options.verify_client) {
+      if (!options.verify_client.empty()) {
         ssl_options.client_certificate_request = 
         GRPC_SSL_REQUEST_AND_REQUIRE_CLIENT_CERTIFICATE_AND_VERIFY; 
       }

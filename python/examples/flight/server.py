@@ -126,7 +126,7 @@ def main():
     parser.add_argument("--tls", nargs=2, default=None,
                         metavar=('CERTFILE', 'KEYFILE'),
                         help="Enable transport-level security")
-    parser.add_argument("--verify_client", type=bool, default="False",
+    parser.add_argument("--verify_client", type=bool, default=None,
                         help="enable mutual TLS and verify the client if True")
 
     args = parser.parse_args()
@@ -142,10 +142,13 @@ def main():
 
     location = "{}://{}:{}".format(scheme, args.host, args.port)
 
-    verify_client = str(args.verify_client).lower()
+    if (args.verify_client):
 
-    server = FlightServer(args.host, location,
+        server = FlightServer(args.host, location,
                           tls_certificates=tls_certificates, verify_client=verify_client)
+    else:
+        server = FlightServer(args.host, location,
+                          tls_certificates=tls_certificates)
     print("Serving on", location)
     server.serve()
 

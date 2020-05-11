@@ -123,7 +123,7 @@ class ARROW_FLIGHT_EXPORT FlightServerOptions {
   /// \brief A list of TLS certificate+key pairs to use.
   std::vector<CertKeyPair> tls_certificates;
   /// \brief A boolean flag for if the client should also be verified.
-  std::boolalpha verify_client;
+  std::string verify_client;
   /// \brief A list of server middleware to apply, along with a key to
   /// identify them by.
   ///
