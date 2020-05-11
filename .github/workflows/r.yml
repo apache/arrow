@@ -168,9 +168,9 @@ jobs:
           cd r/tests
           sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
           rm -f testthat.R.bak
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
+      # - name: Fetch Submodules and Tags
+      #   shell: bash
+      #   run: ci/scripts/util_checkout.sh
       - uses: r-lib/actions/setup-r@master
         with:
           rtools-version: ${{ matrix.rtools }}
@@ -178,7 +178,7 @@ jobs:
       - name: Build Arrow C++
         run: |
           C:\rtools40\usr\bin\pacman --noconfirm -Syyu
-          C:\rtools40\usr\bin\bash --login -c "pwd && printenv"
+          C:\rtools40\usr\bin\bash --login -c "cd $GITHUB_WORKSPACE && pwd && ls && printenv"
       - uses: actions/upload-artifact@v1
         with:
           name: Rtools ${{ matrix.rtools }} Arrow C++
