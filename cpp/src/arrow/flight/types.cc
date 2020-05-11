@@ -230,12 +230,6 @@ Status Location::ForGrpcTls(const std::string& host, const int port, Location* l
   return Location::Parse(uri_string.str(), location);
 }
 
-Status Location::ForGrpcMTls(const std::string& host, const int port, Location* location) {
-  std::stringstream uri_string;
-  uri_string << "grpc+mtls://" << host << ':' << port;
-  return Location::Parse(uri_string.str(), location);
-}
-
 Status Location::ForGrpcUnix(const std::string& path, Location* location) {
   std::stringstream uri_string;
   uri_string << "grpc+unix://" << path;
