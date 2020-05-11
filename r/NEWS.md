@@ -17,6 +17,10 @@
   under the License.
 -->
 
+# arrow 0.17.0.9000
+
+* Updates for compatibility with `dplyr` 1.0
+
 # arrow 0.17.0
 
 ## Feather v2

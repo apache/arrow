@@ -264,7 +264,7 @@ restore_dplyr_features <- function(df, query) {
   }
   # Preserve groupings, if present
   if (length(query$group_by_vars)) {
-    df <- dplyr::grouped_df(df, dplyr::groups(query))
+    df <- dplyr::grouped_df(df, dplyr::group_vars(query))
   }
   df
 }
@@ -294,9 +294,15 @@ summarise.arrow_dplyr_query <- function(.data, ...) {
 }
 summarise.Dataset <- summarise.Table <- summarise.RecordBatch <- summarise.arrow_dplyr_query
 
-group_by.arrow_dplyr_query <- function(.data, ..., add = FALSE) {
+group_by.arrow_dplyr_query <- function(.data, ..., .add = FALSE, add = .add) {
   .data <- arrow_dplyr_query(.data)
-  .data$group_by_vars <- dplyr::group_by_prepare(.data, ..., add = add)$group_names
+  if (".add" %in% names(formals(dplyr::group_by))) {
+    # dplyr >= 1.0
+    gv <- dplyr::group_by_prepare(.data, ..., .add = .add)$group_names
+  } else {
+    gv <- dplyr::group_by_prepare(.data, ..., add = add)$group_names
+  }
+  .data$group_by_vars <- gv
   .data
 }
 group_by.Dataset <- group_by.Table <- group_by.RecordBatch <- group_by.arrow_dplyr_query
@@ -324,7 +330,6 @@ mutate.arrow_dplyr_query <- function(.data, ...) {
   dplyr::mutate(dplyr::collect(.data), ...)
 }
 mutate.Dataset <- mutate.Table <- mutate.RecordBatch <- mutate.arrow_dplyr_query
-# transmute() "just works" because it calls mutate() internally
 # TODO: add transmute() that does what summarise() does (select only the vars we need)
 
 arrange.arrow_dplyr_query <- function(.data, ...) {
