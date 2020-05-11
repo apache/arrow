@@ -26,8 +26,7 @@ export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 # ccache may be broken on MinGW.
 # pacman --sync --noconfirm ccache
 
-wget https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf
-cp -f pacman.conf /etc/pacman.conf
+curl https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf > /etc/pacman.conf
 
 pacman --noconfirm -Scc
 pacman --noconfirm -Syyu
