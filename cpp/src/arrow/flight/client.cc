@@ -540,7 +540,9 @@ class FlightClient::FlightClientImpl {
           ssl_options.pem_root_certs = options.tls_root_certs;
         }
         if (!options.tls_certificates.empty()){
-          ssl_options.pem_key_cert_pairs.push_back({pair.pem_key, pair.pem_cert});
+          for (const auto& pair : options.tls_certificates) {
+            ssl_options.pem_key_cert_pairs.push_back({pair.pem_key, pair.pem_cert});
+          }
         }
         creds = grpc::SslCredentials(ssl_options);
       } else {
