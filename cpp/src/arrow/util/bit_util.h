@@ -329,6 +329,7 @@ static inline int16_t ByteSwap(int16_t value) {
 static inline uint16_t ByteSwap(uint16_t value) {
   return static_cast<uint16_t>(ByteSwap(static_cast<int16_t>(value)));
 }
+static inline uint8_t ByteSwap(uint8_t value) { return value; }
 
 // Write the swapped bytes into dst. Src and dst cannot overlap.
 static inline void ByteSwap(void* dst, const void* src, int len) {
@@ -358,26 +359,30 @@ static inline void ByteSwap(void* dst, const void* src, int len) {
 
 // Convert to little/big endian format from the machine's native endian format.
 #if ARROW_LITTLE_ENDIAN
-template <typename T, typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t,
-                                                           uint32_t, int16_t, uint16_t>>
+template <typename T,
+          typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
+                                               int16_t, uint16_t, uint8_t>>
 static inline T ToBigEndian(T value) {
   return ByteSwap(value);
 }
 
-template <typename T, typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t,
-                                                           uint32_t, int16_t, uint16_t>>
+template <typename T,
+          typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
+                                               int16_t, uint16_t, uint8_t>>
 static inline T ToLittleEndian(T value) {
   return value;
 }
 #else
-template <typename T, typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t,
-                                                           uint32_t, int16_t, uint16_t>>
+template <typename T,
+          typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
+                                               int16_t, uint16_t, uint8_t>>
 static inline T ToBigEndian(T value) {
   return value;
 }
 
-template <typename T, typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t,
-                                                           uint32_t, int16_t, uint16_t>>
+template <typename T,
+          typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
+                                               int16_t, uint16_t, uint8_t>>
 static inline T ToLittleEndian(T value) {
   return ByteSwap(value);
 }
@@ -385,26 +390,30 @@ static inline T ToLittleEndian(T value) {
 
 // Convert from big/little endian format to the machine's native endian format.
 #if ARROW_LITTLE_ENDIAN
-template <typename T, typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t,
-                                                           uint32_t, int16_t, uint16_t>>
+template <typename T,
+          typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
+                                               int16_t, uint16_t, uint8_t>>
 static inline T FromBigEndian(T value) {
   return ByteSwap(value);
 }
 
-template <typename T, typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t,
-                                                           uint32_t, int16_t, uint16_t>>
+template <typename T,
+          typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
+                                               int16_t, uint16_t, uint8_t>>
 static inline T FromLittleEndian(T value) {
   return value;
 }
 #else
-template <typename T, typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t,
-                                                           uint32_t, int16_t, uint16_t>>
+template <typename T,
+          typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
+                                               int16_t, uint16_t, uint8_t>>
 static inline T FromBigEndian(T value) {
   return value;
 }
 
-template <typename T, typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t,
-                                                           uint32_t, int16_t, uint16_t>>
+template <typename T,
+          typename = internal::EnableIfIsOneOf<T, int64_t, uint64_t, int32_t, uint32_t,
+                                               int16_t, uint16_t, uint8_t>>
 static inline T FromLittleEndian(T value) {
   return ByteSwap(value);
 }
