@@ -1160,8 +1160,7 @@ TEST(Bitmap, ShiftingWordsOptimization) {
         ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((native_words0 >> i) & 1));
       }
       for (size_t i = 0; i < kBitWidth; ++i) {
-        ASSERT_EQ(BitUtil::GetBit(bytes, i + kBitWidth),
-                  bool((native_words1 >> i) & 1));
+        ASSERT_EQ(BitUtil::GetBit(bytes, i + kBitWidth), bool((native_words1 >> i) & 1));
       }
 
       // bit offset can therefore be accommodated by shifting the word
