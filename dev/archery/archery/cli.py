@@ -833,5 +833,39 @@ def docker_compose_images(obj):
         click.echo(' - {}'.format(image))
 
 
+@archery.group('release')
+@click.option("--src", metavar="<arrow_src>", default=None,
+              callback=validate_arrow_sources,
+              help="Specify Arrow source directory.")
+@click.pass_obj
+def release(obj, src):
+    """Release releated commands."""
+    pass
+
+
+@release.command('curate')
+@click.argument('version')
+@click.pass_obj
+def release_curate(obj, version):
+    """Release curation."""
+    from .release import Release
+
+    release = Release.from_jira(version)
+    curation = release.curate()
+
+    click.echo(curation.render_report())
+
+
+@release.command('patch')
+@click.argument('version')
+@click.pass_obj
+def release_patch(obj, version):
+    """Cherry pick commits."""
+    from .release import Release
+
+    release = Release.from_jira(version)
+    release.update_branch()
+
+
 if __name__ == "__main__":
     archery(obj={})

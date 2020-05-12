@@ -27,7 +27,8 @@ if sys.version_info < (3, 5):
 extras = {
     'benchmark': ['pandas'],
     'bot': ['ruamel.yaml', 'pygithub'],
-    'docker': ['ruamel.yaml', 'python-dotenv']
+    'docker': ['ruamel.yaml', 'python-dotenv'],
+    'release': ['semver', 'gitpython']
 }
 extras['all'] = list(set(functools.reduce(operator.add, extras.values())))
 
