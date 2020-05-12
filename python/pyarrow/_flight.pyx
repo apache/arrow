@@ -2156,7 +2156,7 @@ cdef class FlightServerBase:
         unique_ptr[PyFlightServer] server
 
     def __init__(self, location=None, auth_handler=None,
-                 tls_certificates=None, middleware=None):
+                 tls_certificates=None,verify_client=None, middleware=None):
         if isinstance(location, (bytes, str)):
             location = Location(location)
         elif isinstance(location, (tuple, type(None))):
@@ -2298,7 +2298,7 @@ cdef class FlightServerBase:
         self.wait()
 
 
-def connect(location, tls_root_certs=None, override_hostname=None,
+def connect(location, tls_root_certs=None,tls_certificates=None. override_hostname=None,
             middleware=None):
     """
     Connect to the Flight server
@@ -2319,6 +2319,12 @@ def connect(location, tls_root_certs=None, override_hostname=None,
     -------
     client : FlightClient
     """
-    return FlightClient(location, tls_root_certs=tls_root_certs,
+    if tls_certificates:
+        for cert, key in tls_certificates:
+            c_cert.pem_cert = tobytes(cert)
+            c_cert.pem_key = tobytes(key)
+            c_options.get().tls_certificates.push_back(c_cert)
+
+    return FlightClient(location, tls_root_certs=tls_root_certs, tls_certificates=tls_certificates,
                         override_hostname=override_hostname,
                         middleware=middleware)

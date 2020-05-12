@@ -241,7 +241,6 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
             const_iterator operator++()
             bint operator==(const_iterator)
             bint operator!=(const_iterator)
--
         const_iterator cbegin()
         const_iterator cend()
 

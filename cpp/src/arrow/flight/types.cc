@@ -36,7 +36,6 @@ const char* kSchemeGrpc = "grpc";
 const char* kSchemeGrpcTcp = "grpc+tcp";
 const char* kSchemeGrpcUnix = "grpc+unix";
 const char* kSchemeGrpcTls = "grpc+tls";
-const char* kSchemeGrpcMTls = "grpc+mtls";
 
 const char* kErrorDetailTypeId = "flight::FlightStatusDetail";
 
