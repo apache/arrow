@@ -22,6 +22,7 @@ set -ex
 : ${ARROW_HOME:=$(pwd)}
 # Make sure it is absolute and exported
 export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
+export PATH="/c/rtools40/usr/bin:$PATH"
 
 # Use rtools-backports if building with rtools35
 # curl https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf > /etc/pacman.conf
@@ -42,7 +43,7 @@ cp mingw* build
 cd build
 
 # This may vary by system/CI provider
-MSYS_LIB_DIR="C:/rtools40"
+MSYS_LIB_DIR="/c/rtools40"
 
 ls $MSYS_LIB_DIR/mingw64/lib/
 ls $MSYS_LIB_DIR/mingw32/lib/
