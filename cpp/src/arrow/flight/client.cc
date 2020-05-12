@@ -542,7 +542,7 @@ class FlightClient::FlightClientImpl {
         if (!options.cert_chain.empty()){
             ssl_options.pem_cert_chain = options.cert_chain;
         }
-        if (!options.private_key.empty()){}
+        if (!options.private_key.empty()){
             ssl_options.pem_private_key = options.private_key;
         }
         creds = grpc::SslCredentials(ssl_options);
