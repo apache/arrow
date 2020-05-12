@@ -23,31 +23,14 @@ set -ex
 # Make sure it is absolute and exported
 export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 
-# ccache may be broken on MinGW.
-# pacman --sync --noconfirm ccache
-
-# msys64: remove preinstalled toolchains and switch to rtools40 repositories
-pacman --noconfirm -Rcsu mingw-w64-{i686,x86_64}-toolchain
 # Use rtools-backports if building with rtools35
-curl https://raw.githubusercontent.com/r-windows/rtools-packages/master/pacman.conf > /etc/pacman.conf
+# curl https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf > /etc/pacman.conf
+# pacman --noconfirm -Scc
+# pacman --noconfirm -Syyu
 
-echo gcc --version
-echo "$(subst gcc,,$(COMPILED_BY))"
-
-pacman --noconfirm -Scc
-pacman --noconfirm -Syyu
-pacman --noconfirm --needed -S git base-devel binutils zip
-
-# Install core build stuff
-pacman --noconfirm --needed -S mingw-w64-{i686,x86_64}-{toolchain,crt,winpthreads,gcc,libtre,pkg-config,xz}
-
-# Force static linking
-rm -f /mingw32/lib/*.dll.a
-rm -f /mingw64/lib/*.dll.a
-export PKG_CONFIG="C:/rtools40/usr/bin/pkg-config --static"
+gcc --version
 
 cp $ARROW_HOME/ci/scripts/PKGBUILD .
-export PKGEXT='.pkg.tar.xz' # pacman default changed to .zst in 2020, but keep the old ext for compat
 printenv
 makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --cleanbuild
 
