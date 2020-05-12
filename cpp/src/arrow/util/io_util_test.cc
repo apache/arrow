@@ -22,6 +22,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/windows_compatibility.h"
 #include "arrow/util/windows_fixup.h"
@@ -55,6 +56,13 @@ TEST(ErrnoFromStatus, Basics) {
   ASSERT_EQ(ErrnoFromStatus(st), EPERM);
   st = IOErrorFromErrno(6789, "foo");
   ASSERT_EQ(ErrnoFromStatus(st), 6789);
+}
+
+TEST(GetPageSize, Basics) {
+  const auto page_size = GetPageSize();
+  ASSERT_GE(page_size, 4096);
+  // It's a power of 2
+  ASSERT_EQ((page_size - 1) & page_size, 0);
 }
 
 #if _WIN32

@@ -225,6 +225,9 @@ ARROW_EXPORT
 Result<Pipe> CreatePipe();
 
 ARROW_EXPORT
+int64_t GetPageSize();
+
+ARROW_EXPORT
 Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
                       void** new_addr);
 
