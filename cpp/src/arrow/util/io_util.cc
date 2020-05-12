@@ -979,6 +979,32 @@ static Status StatusFromMmapErrno(const char* prefix) {
   return IOErrorFromErrno(errno, prefix);
 }
 
+namespace {
+
+int64_t GetPageSizeInternal() {
+#if defined(__APPLE__)
+  return getpagesize();
+#elif defined(_WIN32)
+  SYSTEM_INFO si;
+  GetSystemInfo(&si);
+  return si.dwPageSize;
+#else
+  errno = 0;
+  const auto ret = sysconf(_SC_PAGESIZE);
+  if (ret == -1) {
+    ARROW_LOG(FATAL) << "sysconf(_SC_PAGESIZE) failed: " << ErrnoMessage(errno);
+  }
+  return static_cast<int64_t>(ret);
+#endif
+}
+
+}  // namespace
+
+int64_t GetPageSize() {
+  static const int64_t kPageSize = GetPageSizeInternal();  // cache it
+  return kPageSize;
+}
+
 //
 // Compatible way to remap a memory map
 //
