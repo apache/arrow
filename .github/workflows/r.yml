@@ -209,4 +209,4 @@ jobs:
           )
       - name: Dump install logs
         shell: cmd
-        run: cat r/check/arrow.Rcheck/00install.out
+        run: cat check/arrow.Rcheck/00install.out
