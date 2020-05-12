@@ -104,6 +104,7 @@ class CommitTitle:
 
 
 class Commit:
+    # TODO: support hashing
 
     def __init__(self, wrapped):
         self._title = CommitTitle.parse(wrapped.summary)
@@ -297,7 +298,7 @@ class PatchRelease(Release):
         previous = versions[versions.index(self.version) + 1]
         return Release.from_jira(previous)
 
-    def update_branch():
+    def update_branch(self):
         # cherry pick not yet cherry picked commits on top of the maintenance
         # branch
         try:
@@ -319,7 +320,10 @@ class PatchRelease(Release):
         patch_issues = self.issues
         patch_commits = [c for c in commits if c.issue in patch_issues]
 
+        # only if they are not applied already in the maint branch
+        already_picked = {c.hexsha for c in self.commits}
+
         self.repo.checkout(self.branch)
         for c in patch_commits:
-            print(c.hexsha)
-        #self.repo.cherry_pick(self.branch)
+            if c.hexsha not in already_picked:
+                self.repo.cherry_pick(c.hexsha)

@@ -856,14 +856,18 @@ def release_curate(obj, version):
     click.echo(curation.render_report())
 
 
-@release.command('patch')
+@release.command('cherry-pick')
 @click.argument('version')
 @click.pass_obj
-def release_patch(obj, version):
+def release_cherry_pick(obj, version):
     """Cherry pick commits."""
-    from .release import Release
+    from .release import Release, PatchRelease
 
     release = Release.from_jira(version)
+    if not isinstance(release, PatchRelease):
+        raise click.UsageError('Cherry-pick command only supported for patch '
+                               'releases')
+
     release.update_branch()
 
 
