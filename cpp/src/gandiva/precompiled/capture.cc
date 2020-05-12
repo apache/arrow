@@ -28,7 +28,7 @@ const char* capture_utf8_utf8(gdv_int64 context, const char* source_string,
                               gdv_int32 source_len, bool source_validity,
                               const char* pattern_string, gdv_int32 pattern_len,
                               bool pattern_validity, gdv_int32* out_len) {
-  if (!source_validity or !pattern_validity) {
+  if (!source_validity || !pattern_validity) {
     *out_len = 0;
     return "";
   } else {
