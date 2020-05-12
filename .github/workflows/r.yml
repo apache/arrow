@@ -104,8 +104,8 @@ jobs:
         r_image:
           - centos7
     env:
-      R_ORG: "rstudio"
-      R_IMAGE: "r-base"
+      R_ORG: rstudio
+      R_IMAGE: r-base
       R_TAG: ${{ matrix.r_version }}-${{ matrix.r_image }}
     steps:
       - name: Checkout Arrow
