@@ -168,18 +168,13 @@ jobs:
           cd r/tests
           sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
           rm -f testthat.R.bak
-      # - name: Fetch Submodules and Tags
-      #   shell: bash
-      #   run: ci/scripts/util_checkout.sh
-      - uses: nealrichardson/actions/setup-r@no-qpdf
+      - uses: r-lib/actions/setup-r@master
         with:
           rtools-version: ${{ matrix.rtools }}
           r-version: '4.0'
           Ncpus: 2
-          qpdf: false
       - name: Build Arrow C++
         run: |
-          C:\rtools40\usr\bin\pacman --noconfirm -Syyu
           C:\rtools40\usr\bin\bash --login -c "cd /d/a/arrow/arrow && ci/scripts/r_windows_build.sh"
       - uses: actions/upload-artifact@v1
         with:
@@ -204,3 +199,5 @@ jobs:
             error_on = 'warning',
             check_dir = 'check'
           )
+      - name: Dump install logs
+        run: cat r/check/arrow.Rcheck/00install.out
