@@ -28,8 +28,6 @@ export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 # pacman --noconfirm -Scc
 # pacman --noconfirm -Syyu
 
-gcc --version
-
 cp $ARROW_HOME/ci/scripts/PKGBUILD .
 printenv
 makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --cleanbuild
