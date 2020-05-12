@@ -539,10 +539,11 @@ class FlightClient::FlightClientImpl {
         if (!options.tls_root_certs.empty()) {
           ssl_options.pem_root_certs = options.tls_root_certs;
         }
-        if (!options.tls_certificates.empty()){
-          for (const auto& pair : options.tls_certificates) {
-            ssl_options.pem_key_cert_pairs.push_back({pair.pem_key, pair.pem_cert});
-          }
+        if (!options.cert_chain.empty()){
+            ssl_options.pem_cert_chain = options.cert_chain;
+        }
+        if (!options.private_key.empty()){}
+            ssl_options.pem_private_key = options.private_key;
         }
         creds = grpc::SslCredentials(ssl_options);
       } else {

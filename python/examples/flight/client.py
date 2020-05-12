@@ -169,8 +169,8 @@ def main():
             tls_cert_chain = cert_file.read()
         with open(args.mtls[1], "rb") as key_file:
             tls_private_key = key_file.read()
-        tls_certificates.append((tls_cert_chain, tls_private_key))
-        connection_args["tls_certificates"] = tls_certificates
+        connection_args["cert_chain"] = tls_cert_chain
+        connection_args["private_key"] = tls_private_key
     client = pyarrow.flight.FlightClient(f"{scheme}://{host}:{port}",
                                          **connection_args)
     while True:
