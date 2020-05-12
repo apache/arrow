@@ -379,10 +379,7 @@ impl ParquetTypeConverter<'_> {
             PhysicalType::FLOAT => Ok(DataType::Float32),
             PhysicalType::DOUBLE => Ok(DataType::Float64),
             PhysicalType::BYTE_ARRAY => self.from_byte_array(),
-            other => Err(ArrowError(format!(
-                "Unable to convert parquet physical type {}",
-                other
-            ))),
+            PhysicalType::FIXED_LEN_BYTE_ARRAY => self.from_fixed_len_byte_array(),
         }
     }
 
@@ -421,6 +418,21 @@ impl ParquetTypeConverter<'_> {
                 other
             ))),
         }
+    }
+
+    fn from_fixed_len_byte_array(&self) -> Result<DataType> {
+        let byte_width = match self.schema {
+            Type::PrimitiveType {
+                ref type_length, ..
+            } => *type_length,
+            _ => {
+                return Err(ArrowError(format!(
+                    "Expected a physical type, not a group type"
+                )))
+            }
+        };
+
+        Ok(DataType::FixedSizeBinary(byte_width))
     }
 
     fn from_byte_array(&self) -> Result<DataType> {
