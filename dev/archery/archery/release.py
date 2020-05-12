@@ -323,7 +323,8 @@ class PatchRelease(Release):
         # only if they are not applied already in the maint branch
         already_picked = {c.hexsha for c in self.commits}
 
-        self.repo.checkout(self.branch)
+        self.repo.git.checkout(self.branch)
         for c in patch_commits:
             if c.hexsha not in already_picked:
-                self.repo.cherry_pick(c.hexsha)
+                print('Cherry picking {}'.format(c.hexsha))
+                self.repo.git.cherry_pick(c.hexsha)
