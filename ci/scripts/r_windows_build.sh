@@ -22,13 +22,16 @@ set -ex
 : ${ARROW_HOME:=$(pwd)}
 # Make sure it is absolute and exported
 export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
-export PATH="/c/rtools40/usr/bin:$PATH"
 
 if [ "$RTOOLS_BACKPORTS" = "true" ]; then
   # Use rtools-backports if building with rtools35
   curl https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf > /etc/pacman.conf
   pacman --noconfirm -Scc
   pacman --noconfirm -Syyu
+  # lib-4.9.3 is for libraries compiled with gcc 4.9 (Rtools 3.5)
+  RWINLIB_LIB_DIR="lib-4.9.3"
+else
+  RWINLIB_LIB_DIR="lib"
 fi
 
 cp $ARROW_HOME/ci/scripts/PKGBUILD .
@@ -58,20 +61,20 @@ mv mingw64/include $DST_DIR
 
 # Make the rest of the directory structure
 # lib-4.9.3 is for libraries compiled with gcc 4.9 (Rtools 3.5)
-mkdir -p $DST_DIR/lib-4.9.3/x64
-mkdir -p $DST_DIR/lib-4.9.3/i386
+mkdir -p $DST_DIR/${RWINLIB_LIB_DIR}/x64
+mkdir -p $DST_DIR/${RWINLIB_LIB_DIR}/i386
 # lib is for the new gcc 8 toolchain (Rtools 4.0)
 mkdir -p $DST_DIR/lib/x64
 mkdir -p $DST_DIR/lib/i386
 
 # Move the 64-bit versions of libarrow into the expected location
-mv mingw64/lib/*.a $DST_DIR/lib-4.9.3/x64
+mv mingw64/lib/*.a $DST_DIR/${RWINLIB_LIB_DIR}/x64
 # Same for the 32-bit versions
-mv mingw32/lib/*.a $DST_DIR/lib-4.9.3/i386
+mv mingw32/lib/*.a $DST_DIR/${RWINLIB_LIB_DIR}/i386
 
-# These are from https://dl.bintray.com/rtools/backports/
-cp $MSYS_LIB_DIR/mingw64/lib/lib{thrift,snappy}.a $DST_DIR/lib-4.9.3/x64
-cp $MSYS_LIB_DIR/mingw32/lib/lib{thrift,snappy}.a $DST_DIR/lib-4.9.3/i386
+# These may be from https://dl.bintray.com/rtools/backports/
+cp $MSYS_LIB_DIR/mingw64/lib/lib{thrift,snappy}.a $DST_DIR/${RWINLIB_LIB_DIR}/x64
+cp $MSYS_LIB_DIR/mingw32/lib/lib{thrift,snappy}.a $DST_DIR/${RWINLIB_LIB_DIR}/i386
 
 # These are from https://dl.bintray.com/rtools/mingw{32,64}/
 cp $MSYS_LIB_DIR/mingw64/lib/lib{zstd,lz4,crypto}.a $DST_DIR/lib/x64
