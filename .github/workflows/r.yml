@@ -176,7 +176,7 @@ jobs:
           r-version: '4.0'
           Ncpus: 2
       - uses: r-lib/actions/setup-r@master
-        if: ${{ matrix.rtools }} == 35
+        if: ${{ matrix.rtools == 35 }}
         with:
           rtools-version: 35
           r-version: '3.6'
