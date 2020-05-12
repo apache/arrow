@@ -29,6 +29,7 @@ import warnings
 
 from cython.operator cimport dereference as deref
 from cython.operator cimport postincrement
+from libcpp cimport bool
 
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.lib cimport *
@@ -1010,12 +1011,13 @@ cdef class FlightClient:
                 break
 
     @classmethod
-    def connect(cls, location, tls_root_certs=None, override_hostname=None):
+    def connect(cls, location, tls_root_certs=None,cert_chain=None, private_key=None,
+                 override_hostname=None):
         warnings.warn("The 'FlightClient.connect' method is deprecated, use "
                       "FlightClient constructor or pyarrow.flight.connect "
                       "function instead")
-        return FlightClient(location, tls_root_certs=tls_root_certs,
-                            override_hostname=override_hostname)
+        return FlightClient(location, tls_root_certs=tls_root_certs, cert_chain=None,
+                             private_key=None, override_hostname=override_hostname)
 
     def authenticate(self, auth_handler, options: FlightCallOptions = None):
         """Authenticate to the server.
