@@ -143,7 +143,6 @@ def main():
     location = "{}://{}:{}".format(scheme, args.host, args.port)
 
     if (args.verify_client):
-
         server = FlightServer(args.host, location,
                           tls_certificates=tls_certificates, verify_client=verify_client)
     else:

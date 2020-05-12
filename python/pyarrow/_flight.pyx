@@ -2145,6 +2145,8 @@ cdef class FlightServerBase:
         An authentication mechanism to use. May be None.
     tls_certificates : list optional, default None
         A list of (certificate, key) pairs.
+    verify_client : boolean optional, default False
+        To be used when the mutual TLS requires the client to be validated with client certificates
     middleware : list optional, default None
         A dictionary of :class:`ServerMiddlewareFactory` items. The
         keys are used to retrieve the middleware instance during calls
@@ -2170,10 +2172,10 @@ cdef class FlightServerBase:
         elif not isinstance(location, Location):
             raise TypeError('`location` argument must be a string, tuple or a '
                             'Location instance')
-        self.init(location, auth_handler, tls_certificates, middleware)
+        self.init(location, auth_handler, tls_certificates, verify_client, middleware)
 
     cdef init(self, Location location, ServerAuthHandler auth_handler,
-              list tls_certificates, dict middleware):
+              list tls_certificates, bool verify_client, dict middleware):
         cdef:
             PyFlightServerVtable vtable = PyFlightServerVtable()
             PyFlightServer* c_server
@@ -2197,7 +2199,7 @@ cdef class FlightServerBase:
                 c_cert.pem_cert = tobytes(cert)
                 c_cert.pem_key = tobytes(key)
                 c_options.get().tls_certificates.push_back(c_cert)
-
+            
         if middleware:
             py_middleware = _ServerMiddlewareFactoryWrapper(middleware)
             c_middleware.first = CPyServerMiddlewareName
@@ -2298,7 +2300,7 @@ cdef class FlightServerBase:
         self.wait()
 
 
-def connect(location, tls_root_certs=None,tls_certificates=None. override_hostname=None,
+def connect(location, tls_root_certs=None,tls_certificates=None, override_hostname=None,
             middleware=None):
     """
     Connect to the Flight server
@@ -2310,6 +2312,8 @@ def connect(location, tls_root_certs=None,tls_certificates=None. override_hostna
         a tuple of (host, port) pair, or a Location instance.
     tls_root_certs : bytes or None
         PEM-encoded
+    tls_certificates : list optional, default None
+        A list of (certificate, key) pairs.       
     override_hostname : str or None
         Override the hostname checked by TLS. Insecure, use with caution.
     middleware : list or None
