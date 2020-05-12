@@ -637,6 +637,26 @@ def test_v2_compression_options():
         write_feather(df, buf, compression='snappy')
 
 
+def test_v2_lz4_default_compression():
+    # ARROW-8750: Make sure that the compression=None option selects lz4 if
+    # it's available
+    if not pa.Codec.is_available('lz4_frame'):
+        pytest.skip("LZ4 compression support is not built in C++")
+
+    # some highly compressible data
+    t = pa.table([np.repeat(0, 100000)], names=['f0'])
+
+    buf = io.BytesIO()
+    write_feather(t, buf)
+    default_result = buf.getvalue()
+
+    buf = io.BytesIO()
+    write_feather(t, buf, compression='uncompressed')
+    uncompressed_result = buf.getvalue()
+
+    assert len(default_result) < len(uncompressed_result)
+
+
 def test_v1_unsupported_types():
     table = pa.table([pa.array([[1, 2, 3], [], None])], names=['f0'])
 
