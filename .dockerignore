@@ -25,7 +25,10 @@
 **
 
 # include explicitly
-!ci/**
+!ci/*.yml
+!ci/*.txt
+!ci/etc/**
+!ci/scripts/**
 !c_glib/Gemfile
 !dev/archery/requirements*.txt
 !python/requirements*.txt
