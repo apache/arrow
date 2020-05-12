@@ -37,6 +37,10 @@ from pyarrow.pandas_compat import get_logical_type, _pandas_api
 from pyarrow.tests.util import random_ascii, rands
 
 import pyarrow as pa
+try:
+    from pyarrow import parquet as pq
+except ImportError:
+    pq = None
 
 try:
     import pandas as pd
@@ -3944,3 +3948,22 @@ def test_metadata_compat_missing_field_name():
     result = table.to_pandas()
     # on python 3.5 the column order can differ -> adding check_like=True
     tm.assert_frame_equal(result, expected, check_like=True)
+
+
+@pytest.mark.skipif(pq is None, reason="Parquet not available")
+def test_parquet_timestamp_roundtrip():
+    # Timestamps can be stored as Parquet and reloaded into Pandas with no loss
+    # of information.
+    df = pd.DataFrame({
+        'dateTimeMs': [
+            np.datetime64('0001-01-01 00:00', 'ms'),
+            np.datetime64('2012-05-02 12:35', 'ms'),
+            np.datetime64('2012-05-03 15:42', 'ms'),
+            np.datetime64('3000-05-03 15:42', 'ms'),
+        ],
+    })
+    table = pa.Table.from_pandas(df)
+    pq.write_table(table, 'timeseries.parquet')
+    result = pq.read_table('timeseries.parquet')
+    df2 = result.to_pandas()
+    tm.assert_frame_equal(df, df2, check_like=True)

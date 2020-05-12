@@ -1691,8 +1691,6 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
       // XXX: Hack here for ARROW-7723
       if (ts_type.timezone() != "" && !options.ignore_timezone) {
         *output_type = PandasWriter::DATETIME_NANO_TZ;
-      } else if (options.coerce_temporal_nanoseconds) {
-        *output_type = PandasWriter::DATETIME_NANO;
       } else {
         switch (ts_type.unit()) {
           case TimeUnit::SECOND:
