@@ -249,6 +249,18 @@ pub struct FromConverter<S, T> {
     _dest: PhantomData<T>,
 }
 
+impl<S, T> FromConverter<S, T>
+where
+    T: From<S>,
+{
+    pub fn new() -> Self {
+        Self {
+            _source: PhantomData,
+            _dest: PhantomData,
+        }
+    }
+}
+
 impl<S, T> Converter<S, T> for FromConverter<S, T>
 where
     T: From<S>,
@@ -330,7 +342,7 @@ mod tests {
             )
         };
 
-        let array = Int16Converter::convert(&mut record_reader).unwrap();
+        let array = Int16Converter::new().convert(&mut record_reader).unwrap();
         let array = array
             .as_any()
             .downcast_ref::<PrimitiveArray<Int16Type>>()
@@ -364,7 +376,7 @@ mod tests {
             )
         };
 
-        let array = Int32Converter::convert(&mut record_reader).unwrap();
+        let array = Int32Converter::new().convert(&mut record_reader).unwrap();
         let array = array
             .as_any()
             .downcast_ref::<PrimitiveArray<Int32Type>>()

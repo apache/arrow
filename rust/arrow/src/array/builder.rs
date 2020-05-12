@@ -720,13 +720,15 @@ where
             .finish();
         let values_data = values_arr.data();
 
-        // check that values_data length is multiple of len
-        assert!(
-            values_data.len() / len == self.list_len as usize,
-            "Values of FixedSizeList must have equal lengths, values have length {} and list has {}",
-            values_data.len(),
-            len
-        );
+        // check that values_data length is multiple of len if we have data
+        if len != 0 {
+            assert!(
+                values_data.len() / len == self.list_len as usize,
+                "Values of FixedSizeList must have equal lengths, values have length {} and list has {}",
+                values_data.len(),
+                len
+            );
+        }
 
         let null_bit_buffer = self.bitmap_builder.finish();
         let data = ArrayData::builder(DataType::FixedSizeList(

@@ -594,6 +594,28 @@ mod tests {
     }
 
     #[test]
+    fn test_byte_array_fields() {
+        let message_type = "
+        message test_schema {
+            REQUIRED BYTE_ARRAY binary;
+            REQUIRED FIXED_LEN_BYTE_ARRAY (20) fixed_binary;
+        }
+        ";
+
+        let parquet_group_type = parse_message_type(message_type).unwrap();
+
+        let parquet_schema = SchemaDescriptor::new(Rc::new(parquet_group_type));
+        let converted_arrow_schema =
+            parquet_to_arrow_schema(&parquet_schema, &None).unwrap();
+
+        let arrow_fields = vec![
+            Field::new("binary", DataType::Binary, false),
+            Field::new("fixed_binary", DataType::FixedSizeBinary(20), false),
+        ];
+        assert_eq!(&arrow_fields, converted_arrow_schema.fields());
+    }
+
+    #[test]
     fn test_duplicate_fields() {
         let message_type = "
         message test_schema {
