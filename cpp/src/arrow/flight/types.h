@@ -384,6 +384,12 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   explicit FlightInfo(Data&& data)
       : data_(std::move(data)), reconstructed_schema_(false) {}
 
+  /// \brief Factory method to construct a FlightInfo.
+  static arrow::Result<FlightInfo> Make(const Schema& schema,
+                                        const FlightDescriptor& descriptor,
+                                        const std::vector<FlightEndpoint>& endpoints,
+                                        int64_t total_records, int64_t total_bytes);
+
   /// \brief Deserialize the Arrow schema of the dataset, to be passed
   /// to each call to DoGet. Populate any dictionary encoded fields
   /// into a DictionaryMemo for bookkeeping
