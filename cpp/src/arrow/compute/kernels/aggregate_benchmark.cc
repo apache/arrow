@@ -23,6 +23,7 @@
 #include "arrow/compute/benchmark_util.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/minmax.h"
 #include "arrow/compute/kernels/sum.h"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
@@ -326,7 +327,49 @@ static void SumKernel(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * array_size * sizeof(int64_t));
 }
 
+static void MinMaxIntKernel(benchmark::State& state) {
+  const int64_t array_size = state.range(0) / sizeof(int32_t);
+  const double null_percent = static_cast<double>(state.range(1)) / 100.0;
+  auto rand = random::RandomArrayGenerator(2020);
+  auto array = std::static_pointer_cast<NumericArray<Int32Type>>(
+      rand.Int32(array_size, -100, 100, null_percent));
+
+  FunctionContext ctx;
+  MinMaxOptions options(MinMaxOptions::SKIP);
+  for (auto _ : state) {
+    Datum out;
+    ASSERT_OK(MinMax(&ctx, options, array, &out));
+    benchmark::DoNotOptimize(out);
+  }
+
+  state.counters["size"] = static_cast<double>(state.range(0));
+  state.counters["null_percent"] = static_cast<double>(state.range(1));
+  state.SetBytesProcessed(state.iterations() * array_size * sizeof(int64_t));
+}
+
+static void MinMaxFloatKernel(benchmark::State& state) {
+  const int64_t array_size = state.range(0) / sizeof(float_t);
+  const double null_percent = static_cast<double>(state.range(1)) / 100.0;
+  auto rand = random::RandomArrayGenerator(2020);
+  auto array = std::static_pointer_cast<NumericArray<FloatType>>(
+      rand.Float32(array_size, -100, 100, null_percent));
+
+  FunctionContext ctx;
+  MinMaxOptions options(MinMaxOptions::SKIP);
+  for (auto _ : state) {
+    Datum out;
+    ASSERT_OK(MinMax(&ctx, options, array, &out));
+    benchmark::DoNotOptimize(out);
+  }
+
+  state.counters["size"] = static_cast<double>(state.range(0));
+  state.counters["null_percent"] = static_cast<double>(state.range(1));
+  state.SetBytesProcessed(state.iterations() * array_size * sizeof(int64_t));
+}
+
 BENCHMARK(SumKernel)->Apply(RegressionSetArgs);
+BENCHMARK(MinMaxIntKernel)->Apply(RegressionSetArgs);
+BENCHMARK(MinMaxFloatKernel)->Apply(RegressionSetArgs);
 
 }  // namespace compute
 }  // namespace arrow
