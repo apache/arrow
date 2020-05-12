@@ -24,10 +24,12 @@ set -ex
 export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 export PATH="/c/rtools40/usr/bin:$PATH"
 
-# Use rtools-backports if building with rtools35
-# curl https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf > /etc/pacman.conf
-# pacman --noconfirm -Scc
-# pacman --noconfirm -Syyu
+if [ "$RTOOLS_BACKPORTS" = "true" ]; then
+  # Use rtools-backports if building with rtools35
+  curl https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf > /etc/pacman.conf
+  pacman --noconfirm -Scc
+  pacman --noconfirm -Syyu
+fi
 
 cp $ARROW_HOME/ci/scripts/PKGBUILD .
 printenv
