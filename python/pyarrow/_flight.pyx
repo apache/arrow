@@ -2310,7 +2310,7 @@ cdef class FlightServerBase:
         self.wait()
 
 
-def connect(location, tls_root_certs=None, override_hostname=None,
+def connect(location, tls_root_certs=None,cert_chain=None, private_key=None, override_hostname=None,
             middleware=None):
     """
     Connect to the Flight server
@@ -2321,6 +2321,8 @@ def connect(location, tls_root_certs=None, override_hostname=None,
         a tuple of (host, port) pair, or a Location instance.
     tls_root_certs : bytes or None
         PEM-encoded
+    cert_chain: str or None
+    private_key: str or None
     override_hostname : str or None
         Override the hostname checked by TLS. Insecure, use with caution.
     middleware : list or None
@@ -2329,6 +2331,6 @@ def connect(location, tls_root_certs=None, override_hostname=None,
     -------
     client : FlightClient
     """
-    return FlightClient(location, tls_root_certs=tls_root_certs,
-                        override_hostname=override_hostname,
+    return FlightClient(location, tls_root_certs=tls_root_certs, cert_chain = cert_chain,
+                        private_key=private_key, override_hostname=override_hostname,
                         middleware=middleware)
