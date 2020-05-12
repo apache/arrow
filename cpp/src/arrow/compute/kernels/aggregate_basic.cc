@@ -137,9 +137,26 @@ struct SumState {
     ThisType local;
     const auto values = array.raw_values();
     const int64_t length = array.length();
-    for (int64_t i = 0; i < length; i++) {
+
+    constexpr int64_t kRoundFactor = 8;
+    const int64_t length_rounded = BitUtil::RoundDown(length, kRoundFactor);
+    typename SumType::c_type sum_rounded[kRoundFactor] = {0};
+
+    // Unrolled the loop to add the results in parrel
+    for (int64_t i = 0; i < length_rounded; i += kRoundFactor) {
+      for (int64_t k = 0; k < kRoundFactor; k++) {
+        sum_rounded[k] += values[i + k];
+      }
+    }
+    for (int64_t k = 0; k < kRoundFactor; k++) {
+      local.sum += sum_rounded[k];
+    }
+
+    // The trailing part
+    for (int64_t i = length_rounded; i < length; ++i) {
       local.sum += values[i];
     }
+
     local.count = length;
     return local;
   }
