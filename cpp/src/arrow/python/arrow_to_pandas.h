@@ -50,6 +50,7 @@ struct PandasOptions {
   bool zero_copy_only = false;
   bool integer_object_nulls = false;
   bool date_as_object = false;
+  bool timestamp_as_object = false;
   bool use_threads = false;
 
   /// Coerce all date and timestamp to datetime64[ns]

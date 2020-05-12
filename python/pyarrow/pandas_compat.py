@@ -700,11 +700,13 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
     placement = item['placement']
 
     if (
+            (block_arr is not None) and
             (block_arr.dtype.type == np.datetime64) and
             (block_arr.dtype.name != "datetime64[ns]")
     ):
-        # Non-nanosecond timestamps can express much larger values, so this
-        # needs to be an object as dtype.
+        # Non-nanosecond timestamps can express much larger values than
+        # nanosecond timestamps, and pandas checks that the values fit into
+        # nanosecond range, so this needs to be an object as dtype.
         block_arr = block_arr.astype(np.dtype("O"))
 
     if 'dictionary' in item:
