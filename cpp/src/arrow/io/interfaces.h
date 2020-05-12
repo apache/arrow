@@ -50,10 +50,11 @@ struct ReadRange {
 
 // EXPERIMENTAL
 struct AsyncContext {
-  // `nullptr` selects the global private IO thread pool
-  ::arrow::internal::Executor* executor = NULLPTR;
+  ::arrow::internal::Executor* executor;
 
-  ::arrow::internal::Executor* GetExecutor() const;
+  // Set `executor` to a global IO-specific thread pool.
+  AsyncContext();
+  explicit AsyncContext(::arrow::internal::Executor* executor);
 };
 
 class ARROW_EXPORT FileInterface {

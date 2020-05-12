@@ -45,9 +45,9 @@ using internal::ThreadPool;
 
 namespace io {
 
-Executor* AsyncContext::GetExecutor() const {
-  return (executor == nullptr) ? internal::GetIOThreadPool() : executor;
-}
+AsyncContext::AsyncContext() : AsyncContext(internal::GetIOThreadPool()) {}
+
+AsyncContext::AsyncContext(Executor* executor) : executor(executor) {}
 
 FileInterface::~FileInterface() = default;
 
@@ -124,7 +124,7 @@ Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(const AsyncContext& 
                                                             int64_t position,
                                                             int64_t nbytes) {
   auto self = shared_from_this();
-  auto maybe_fut = ctx.GetExecutor()->Submit(
+  auto maybe_fut = ctx.executor->Submit(
       [self, position, nbytes] { return self->ReadAt(position, nbytes); });
   if (!maybe_fut.ok()) {
     return Future<std::shared_ptr<Buffer>>::MakeFinished(maybe_fut.status());
