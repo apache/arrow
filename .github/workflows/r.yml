@@ -148,7 +148,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rtools: [40]
+        rtools: [35, 40]
     env:
       TEST_R_WITH_ARROW: "TRUE"
       ARROW_R_CXXFLAGS: '-Werror'
@@ -168,14 +168,22 @@ jobs:
           cd r/tests
           sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
           rm -f testthat.R.bak
+      # We use the makepkg-mingw setup that is included in rtools40
+      # even when we use the rtools35 compilers
       - uses: r-lib/actions/setup-r@master
         with:
-          rtools-version: ${{ matrix.rtools }}
+          rtools-version: 40
           r-version: '4.0'
+          Ncpus: 2
+      - uses: r-lib/actions/setup-r@master
+        if: ${{ matrix.rtools }} == 35
+        with:
+          rtools-version: 35
+          r-version: '3.6'
           Ncpus: 2
       - name: Build Arrow C++
         run: |
-          C:\rtools40\usr\bin\bash --login -c "cd /d/a/arrow/arrow && ci/scripts/r_windows_build.sh"
+          C:\rtools40\usr\bin\bash --login -c "export RTOOLS_VERSION=${{ matrix.rtools }} && cd /d/a/arrow/arrow && ci/scripts/r_windows_build.sh"
       - uses: actions/upload-artifact@v1
         with:
           name: Rtools ${{ matrix.rtools }} Arrow C++
@@ -200,4 +208,5 @@ jobs:
             check_dir = 'check'
           )
       - name: Dump install logs
+        shell: cmd
         run: cat r/check/arrow.Rcheck/00install.out

@@ -23,7 +23,7 @@ set -ex
 # Make sure it is absolute and exported
 export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 
-if [ "$RTOOLS_BACKPORTS" = "true" ]; then
+if [ "$RTOOLS_VERSION" = "35" ]; then
   # Use rtools-backports if building with rtools35
   curl https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf > /etc/pacman.conf
   pacman --noconfirm -Scc
