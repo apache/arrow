@@ -317,14 +317,13 @@ class PatchRelease(Release):
 
         # iterate over commits applied on master and keep the original order of
         # the commits to minimize the merge conflicts during cherry-picks
-        patch_issues = self.issues
-        patch_commits = [c for c in commits if c.issue in patch_issues]
+        patch_commits = [c for c in commits if c.issue in self.issues]
 
-        # only if they are not applied already in the maint branch
-        already_picked = {c.hexsha for c in self.commits}
-
-        self.repo.git.checkout(self.branch)
+        print('git checkout -b {} {}'.format(self.branch))
+        # self.repo.git.checkout(self.branch)
         for c in patch_commits:
-            if c.hexsha not in already_picked:
-                print('Cherry picking {}'.format(c.hexsha))
-                self.repo.git.cherry_pick(c.hexsha)
+            print('git cherry-pick {}'.format(c.hexsha))
+            # try to cherry pick to a temporary branch, if the patches apply
+            # cleanly then update the maint ref
+            # self.repo.git.cherry_pick(c.hexsha)
+
