@@ -45,8 +45,9 @@ export _R_CHECK_LIMIT_CORES_=FALSE
 # to retrieve metadata. Disable this so that S3FileSystem tests run faster.
 export AWS_EC2_METADATA_DISABLED=TRUE
 
-# Hack so that texlive2020 doesn't appear to pollute the home dir
-mkdir -p ~/.texlive2020
+# Hack so that texlive2020 doesn't pollute the home dir
+export TEXMFCONFIG=/tmp/texmf-config
+export TEXMFVAR=/tmp/texmf-var
 
 # Make sure we aren't writing to the home dir (CRAN _hates_ this but there is no official check)
 BEFORE=$(ls -alh ~/)
