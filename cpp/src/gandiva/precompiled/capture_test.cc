@@ -25,10 +25,12 @@ TEST(TestCapture, capture) {
 
   const std::string source_string = "the ip address is 127.0.0.1.";
   const std::string pattern_string = "(?P<ip>\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})";
+  gdv_int32 source_string_length(source_string.size());
+  gdv_int32 pattern_string_length(pattern_string.size());
   gdv_int32 out_len;
   const char* ret =
-      capture_utf8_utf8(ctx_ptr, source_string.data(), source_string.size(), true,
-                        pattern_string.data(), pattern_string.size(), true, &out_len);
+      capture_utf8_utf8(ctx_ptr, source_string.data(), source_string_length, true,
+                        pattern_string.data(), pattern_string_length, true, &out_len);
   EXPECT_EQ(std::string(ret, out_len), "127.0.0.1");
 }
 
