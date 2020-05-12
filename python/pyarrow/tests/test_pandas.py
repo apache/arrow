@@ -3961,9 +3961,15 @@ def test_parquet_timestamp_roundtrip():
             np.datetime64('2012-05-03 15:42', 'ms'),
             np.datetime64('3000-05-03 15:42', 'ms'),
         ],
+        'dateTimeNs': [
+            np.datetime64('1991-01-01 00:00', 'ns'),
+            np.datetime64('2012-05-02 12:35', 'ns'),
+            np.datetime64('2012-05-03 15:42', 'ns'),
+            np.datetime64('2050-05-03 15:42', 'ns'),
+        ],
     })
     table = pa.Table.from_pandas(df)
-    pq.write_table(table, 'timeseries.parquet')
+    pq.write_table(table, 'timeseries.parquet', version="2.0")
     result = pq.read_table('timeseries.parquet')
     df2 = result.to_pandas()
     tm.assert_frame_equal(df, df2, check_like=True)
