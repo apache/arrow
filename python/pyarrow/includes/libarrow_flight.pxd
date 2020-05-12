@@ -95,8 +95,6 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         @staticmethod
         CStatus ForGrpcTls(c_string& host, int port, CLocation* location)
         @staticmethod
-        CStatus ForGrpcMTls(c_string& host, int port, CLocation* location)
-        @staticmethod
         CStatus ForGrpcUnix(c_string& path, CLocation* location)
 
     cdef cppclass CFlightEndpoint" arrow::flight::FlightEndpoint":
@@ -272,8 +270,9 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CFlightClientOptions" arrow::flight::FlightClientOptions":
         CFlightClientOptions()
         c_string tls_root_certs
+        c_string cert_chain
+        c_string private_key
         c_string override_hostname
-        vector[CCertKeyPair] tls_certificates
         vector[shared_ptr[CClientMiddlewareFactory]] middleware
 
     cdef cppclass CFlightClient" arrow::flight::FlightClient":

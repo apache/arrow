@@ -539,16 +539,6 @@ cdef class Location:
             CLocation.ForGrpcTls(c_host, c_port, &result.location))
         return result
 
-    @staticmethod
-    def for_grpc_mtls(host, port):
-        """Create a Location for a Mutual TLS-based gRPC service."""
-        cdef:
-            c_string c_host = tobytes(host)
-            int c_port = port
-            Location result = Location.__new__(Location)
-        check_flight_status(
-            CLocation.ForGrpcMTls(c_host, c_port, &result.location))
-        return result
 
     @staticmethod
     def for_grpc_unix(path):

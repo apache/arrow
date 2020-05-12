@@ -268,8 +268,7 @@ ARROW_FLIGHT_EXPORT
 extern const char* kSchemeGrpcUnix;
 ARROW_FLIGHT_EXPORT
 extern const char* kSchemeGrpcTls;
-ARROW_FLIGHT_EXPORT
-extern const char* kSchemeGrpcMTls;
+
 
 /// \brief A host location (a URI)
 struct ARROW_FLIGHT_EXPORT Location {
