@@ -18,8 +18,6 @@
 @echo on
 
 @rem create conda environment for compiling
-REM call conda update --yes --quiet conda
-
 call conda create -n wheel-build -q -y -c conda-forge ^
     --file=%ARROW_SRC%\ci\conda_env_cpp.yml ^
     --file=%ARROW_SRC%\ci\conda_env_gandiva.yml ^
@@ -64,6 +62,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=ON ^
       -DARROW_GANDIVA=ON ^
+      -DARROW_MIMAllOC=ON ^
       -DZSTD_SOURCE=BUNDLED ^
       .. || exit /B
 cmake --build . --target install --config Release || exit /B
@@ -100,6 +99,7 @@ set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
 %PYTHON_INTERPRETER% -c "import pyarrow.gandiva" || exit /B
 %PYTHON_INTERPRETER% -c "import pyarrow.dataset" || exit /B
 
-@rem run the python tests
+@rem run the python tests, but disable the cython because there is a linking
+@rem issue on python 3.8
 set PYARROW_TEST_CYTHON=OFF
 %PYTHON_INTERPRETER% -m pytest -rs --pyargs pyarrow || exit /B
