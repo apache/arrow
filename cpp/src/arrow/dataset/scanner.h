@@ -31,15 +31,10 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/memory_pool.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/type_fwd.h"
 
 namespace arrow {
-
-class Table;
-
-namespace internal {
-class TaskGroup;
-}
-
 namespace dataset {
 
 /// \brief Shared state for a Scan operation

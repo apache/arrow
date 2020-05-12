@@ -32,6 +32,8 @@
 namespace arrow {
 namespace internal {
 
+Executor::~Executor() {}
+
 struct ThreadPool::State {
   State() : desired_capacity_(0), please_shutdown_(false), quick_shutdown_(false) {}
 

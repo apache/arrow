@@ -63,53 +63,24 @@ namespace internal {
 namespace detail {
 
 // Make sure that both functions returning T and Result<T> can be called
-// through Submit(), and that a Future<T> is returned for both.
+// through Executor::Submit(), and that a Future<T> is returned for both.
 template <typename T>
-struct ThreadPoolResultTraits {
+struct ExecutorResultTraits {
   using ValueType = T;
 };
 
 template <typename T>
-struct ThreadPoolResultTraits<Result<T>> {
+struct ExecutorResultTraits<Result<T>> {
   using ValueType = T;
 };
 
 }  // namespace detail
 
-class ARROW_EXPORT ThreadPool {
+class ARROW_EXPORT Executor {
  public:
-  // Construct a thread pool with the given number of worker threads
-  static Result<std::shared_ptr<ThreadPool>> Make(int threads);
+  virtual ~Executor();
 
-  // Like Make(), but takes care that the returned ThreadPool is compatible
-  // with destruction late at process exit.
-  static Result<std::shared_ptr<ThreadPool>> MakeEternal(int threads);
-
-  // Destroy thread pool; the pool will first be shut down
-  ~ThreadPool();
-
-  // Return the desired number of worker threads.
-  // The actual number of workers may lag a bit before being adjusted to
-  // match this value.
-  int GetCapacity();
-
-  // Dynamically change the number of worker threads.
-  // This function returns quickly, but it may take more time before the
-  // thread count is fully adjusted.
-  Status SetCapacity(int threads);
-
-  // Heuristic for the default capacity of a thread pool for CPU-bound tasks.
-  // This is exposed as a static method to help with testing.
-  static int DefaultCapacity();
-
-  // Shutdown the pool.  Once the pool starts shutting down, new tasks
-  // cannot be submitted anymore.
-  // If "wait" is true, shutdown waits for all pending tasks to be finished.
-  // If "wait" is false, workers are stopped as soon as currently executing
-  // tasks are finished.
-  Status Shutdown(bool wait = true);
-
-  // Spawn a fire-and-forget task on one of the workers.
+  // Spawn a fire-and-forget task.
   template <typename Function>
   Status Spawn(Function&& func) {
     return SpawnReal(std::forward<Function>(func));
@@ -121,7 +92,7 @@ class ARROW_EXPORT ThreadPool {
   template <
       typename Function, typename... Args,
       typename FunctionRetType = typename std::result_of<Function && (Args && ...)>::type,
-      typename RT = typename detail::ThreadPoolResultTraits<FunctionRetType>,
+      typename RT = typename detail::ExecutorResultTraits<FunctionRetType>,
       typename ValueType = typename RT::ValueType>
   Result<Future<ValueType>> Submit(Function&& func, Args&&... args) {
     auto bound_func =
@@ -143,7 +114,7 @@ class ARROW_EXPORT ThreadPool {
   template <
       typename Function, typename... Args,
       typename FunctionRetType = typename std::result_of<Function && (Args && ...)>::type,
-      typename RT = typename detail::ThreadPoolResultTraits<FunctionRetType>,
+      typename RT = typename detail::ExecutorResultTraits<FunctionRetType>,
       typename ValueType = typename RT::ValueType>
   Future<ValueType> SubmitAsFuture(Function&& func, Args&&... args) {
     ARROW_ASSIGN_OR_RETURN_FUTURE(
@@ -151,6 +122,54 @@ class ARROW_EXPORT ThreadPool {
         Submit(std::forward<Function>(func), std::forward<Args>(args)...));
     return future;
   }
+
+  // Return the level of parallelism (the number of tasks that may be executed
+  // concurrently).  This may be an approximate number.
+  virtual int GetCapacity() = 0;
+
+ protected:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(Executor);
+
+  Executor() = default;
+
+  // Subclassing API
+  virtual Status SpawnReal(std::function<void()> task) = 0;
+};
+
+// An Executor implementation spawning tasks in FIFO manner on a fixed-size
+// pool of worker threads.
+class ARROW_EXPORT ThreadPool : public Executor {
+ public:
+  // Construct a thread pool with the given number of worker threads
+  static Result<std::shared_ptr<ThreadPool>> Make(int threads);
+
+  // Like Make(), but takes care that the returned ThreadPool is compatible
+  // with destruction late at process exit.
+  static Result<std::shared_ptr<ThreadPool>> MakeEternal(int threads);
+
+  // Destroy thread pool; the pool will first be shut down
+  ~ThreadPool();
+
+  // Return the desired number of worker threads.
+  // The actual number of workers may lag a bit before being adjusted to
+  // match this value.
+  int GetCapacity() override;
+
+  // Dynamically change the number of worker threads.
+  // This function returns quickly, but it may take more time before the
+  // thread count is fully adjusted.
+  Status SetCapacity(int threads);
+
+  // Heuristic for the default capacity of a thread pool for CPU-bound tasks.
+  // This is exposed as a static method to help with testing.
+  static int DefaultCapacity();
+
+  // Shutdown the pool.  Once the pool starts shutting down, new tasks
+  // cannot be submitted anymore.
+  // If "wait" is true, shutdown waits for all pending tasks to be finished.
+  // If "wait" is false, workers are stopped as soon as currently executing
+  // tasks are finished.
+  Status Shutdown(bool wait = true);
 
   struct State;
 
@@ -161,9 +180,8 @@ class ARROW_EXPORT ThreadPool {
 
   ThreadPool();
 
-  ARROW_DISALLOW_COPY_AND_ASSIGN(ThreadPool);
+  Status SpawnReal(std::function<void()> task) override;
 
-  Status SpawnReal(std::function<void()> task);
   // Collect finished worker threads, making sure the OS threads have exited
   void CollectFinishedWorkersUnlocked();
   // Launch a given number of additional workers

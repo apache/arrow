@@ -26,13 +26,10 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
+#include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-template <typename T>
-class Future;
-
 namespace io {
 
 struct ReadRange {
@@ -49,6 +46,14 @@ struct ReadRange {
   bool Contains(const ReadRange& other) const {
     return (offset <= other.offset && offset + length >= other.offset + other.length);
   }
+};
+
+// EXPERIMENTAL
+struct AsyncContext {
+  // `nullptr` selects the global private IO thread pool
+  ::arrow::internal::Executor* executor = NULLPTR;
+
+  ::arrow::internal::Executor* GetExecutor() const;
 };
 
 class ARROW_EXPORT FileInterface {
@@ -226,7 +231,8 @@ class ARROW_EXPORT RandomAccessFile
   virtual Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes);
 
   // EXPERIMENTAL
-  virtual Future<std::shared_ptr<Buffer>> ReadAsync(int64_t position, int64_t nbytes);
+  virtual Future<std::shared_ptr<Buffer>> ReadAsync(const AsyncContext&, int64_t position,
+                                                    int64_t nbytes);
 
  protected:
   RandomAccessFile();

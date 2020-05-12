@@ -210,8 +210,8 @@ TEST(TestBufferReader, ReadAsync) {
 
   BufferReader reader(std::make_shared<Buffer>(data));
 
-  auto fut1 = reader.ReadAsync(2, 6);
-  auto fut2 = reader.ReadAsync(1, 4);
+  auto fut1 = reader.ReadAsync({}, 2, 6);
+  auto fut2 = reader.ReadAsync({}, 1, 4);
   ASSERT_EQ(fut1.state(), FutureState::SUCCESS);
   ASSERT_EQ(fut2.state(), FutureState::SUCCESS);
   ASSERT_OK_AND_ASSIGN(auto buf, fut1.result());
@@ -230,8 +230,8 @@ TEST(TestBufferReader, InvalidReads) {
   ASSERT_RAISES(Invalid, reader.ReadAt(-1, 1, buffer));
   ASSERT_RAISES(Invalid, reader.ReadAt(1, -1, buffer));
 
-  ASSERT_RAISES(Invalid, reader.ReadAsync(-1, 1).result());
-  ASSERT_RAISES(Invalid, reader.ReadAsync(1, -1).result());
+  ASSERT_RAISES(Invalid, reader.ReadAsync({}, -1, 1).result());
+  ASSERT_RAISES(Invalid, reader.ReadAsync({}, 1, -1).result());
 }
 
 TEST(TestBufferReader, RetainParentReference) {
@@ -458,7 +458,7 @@ TEST(RangeReadCache, Basics) {
   CacheOptions options = CacheOptions::Defaults();
   options.hole_size_limit = 2;
   options.range_size_limit = 10;
-  internal::ReadRangeCache cache(file, options);
+  internal::ReadRangeCache cache(file, {}, options);
 
   ASSERT_OK(cache.Cache({{1, 2}, {3, 2}, {8, 2}, {20, 2}, {25, 0}}));
   ASSERT_OK(cache.Cache({{10, 4}, {14, 0}, {15, 4}}));

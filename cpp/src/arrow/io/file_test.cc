@@ -369,8 +369,8 @@ TEST_F(TestReadableFile, ReadAsync) {
   MakeTestFile();
   OpenFile();
 
-  auto fut1 = file_->ReadAsync(1, 10);
-  auto fut2 = file_->ReadAsync(0, 4);
+  auto fut1 = file_->ReadAsync({}, 1, 10);
+  auto fut2 = file_->ReadAsync({}, 0, 4);
   ASSERT_OK_AND_ASSIGN(auto buf1, fut1.result());
   ASSERT_OK_AND_ASSIGN(auto buf2, fut2.result());
   AssertBufferEqual(*buf1, "estdata");
@@ -634,8 +634,8 @@ TEST_F(TestMemoryMappedFile, ReadAsync) {
   ASSERT_OK_AND_ASSIGN(auto mmap, InitMemoryMap(buffer_size, path));
   ASSERT_OK(mmap->Write(buffer.data(), buffer_size));
 
-  auto fut1 = mmap->ReadAsync(1, 1000);
-  auto fut2 = mmap->ReadAsync(3, 4);
+  auto fut1 = mmap->ReadAsync({}, 1, 1000);
+  auto fut2 = mmap->ReadAsync({}, 3, 4);
   ASSERT_EQ(fut1.state(), FutureState::SUCCESS);
   ASSERT_EQ(fut2.state(), FutureState::SUCCESS);
   ASSERT_OK_AND_ASSIGN(auto buf1, fut1.result());
