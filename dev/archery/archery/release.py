@@ -319,7 +319,7 @@ class PatchRelease(Release):
         # the commits to minimize the merge conflicts during cherry-picks
         patch_commits = [c for c in commits if c.issue in self.issues]
 
-        print('git checkout -b {} {}'.format(self.branch))
+        print('git checkout -b {} {}'.format(self.branch, self.previous.tag))
         # self.repo.git.checkout(self.branch)
         for c in patch_commits:
             print('git cherry-pick {}'.format(c.hexsha))
