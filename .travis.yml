@@ -47,7 +47,6 @@ jobs:
       env:
         ARCH: s390x
         ARROW_CI_MODULES: "CPP"
-        ARROW_CSV: "OFF"
         ARROW_FLIGHT: "OFF"
         ARROW_GANDIVA: "OFF"
         ARROW_PARQUET: "OFF"
@@ -88,7 +87,6 @@ script:
     ulimit -c unlimited || :
   - |
     archery docker run \
-      -e ARROW_CSV=${ARROW_CSV:-ON} \
       -e ARROW_FLIGHT=${ARROW_FLIGHT:-OFF} \
       -e ARROW_GANDIVA=${ARROW_GANDIVA:-ON} \
       -e ARROW_PARQUET=${ARROW_PARQUET:-ON} \
