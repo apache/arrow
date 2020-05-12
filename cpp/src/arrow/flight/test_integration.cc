@@ -103,6 +103,13 @@ class AuthBasicProtoScenario : public Scenario {
   }
 };
 
+/// \brief Test middleware that echoes back the value of a particular
+/// incoming header.
+///
+/// In Java, gRPC may consolidate this header with HTTP/2 trailers if
+/// the call fails, but C++ generally doesn't do this. The integration
+/// test confirms the presence of this header to ensure we can read it
+/// regardless of what gRPC does.
 class TestServerMiddleware : public ServerMiddleware {
  public:
   explicit TestServerMiddleware(std::string received) : received_(received) {}
@@ -133,6 +140,8 @@ class TestServerMiddlewareFactory : public ServerMiddlewareFactory {
   }
 };
 
+/// \brief Test middleware that adds a header on every outgoing call,
+/// and gets the value of the expected header sent by the server.
 class TestClientMiddleware : public ClientMiddleware {
  public:
   explicit TestClientMiddleware(std::string* received_header)
@@ -143,6 +152,9 @@ class TestClientMiddleware : public ClientMiddleware {
   }
 
   void ReceivedHeaders(const CallHeaders& incoming_headers) {
+    // We expect the server to always send this header. gRPC/Java may
+    // send it in trailers instead of headers, so we expect Flight to
+    // account for this.
     const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
         incoming_headers.equal_range("x-middleware");
     if (iter_pair.first != iter_pair.second) {
@@ -167,6 +179,9 @@ class TestClientMiddlewareFactory : public ClientMiddlewareFactory {
   std::string received_header_;
 };
 
+/// \brief The server used for testing middleware. Implements only one
+/// endpoint, GetFlightInfo, in such a way that it either succeeds or
+/// returns an error based on the input, in order to test both paths.
 class MiddlewareServer : public FlightServerBase {
   Status GetFlightInfo(const ServerCallContext& context,
                        const FlightDescriptor& descriptor,
@@ -176,6 +191,7 @@ class MiddlewareServer : public FlightServerBase {
       // Don't fail
       std::shared_ptr<Schema> schema = arrow::schema({});
       Location location;
+      // Return a fake location - the test doesn't read it
       RETURN_NOT_OK(Location::ForGrpcTcp("localhost", 10010, &location));
       std::vector<FlightEndpoint> endpoints{FlightEndpoint{{"foo"}, {location}}};
       ARROW_ASSIGN_OR_RAISE(auto info,
@@ -190,6 +206,9 @@ class MiddlewareServer : public FlightServerBase {
   }
 };
 
+/// \brief The middleware scenario.
+///
+/// This tests that the server and client get expected header values.
 class MiddlewareScenario : public Scenario {
   Status MakeServer(std::unique_ptr<FlightServerBase>* server,
                     FlightServerOptions* options) override {
@@ -207,13 +226,17 @@ class MiddlewareScenario : public Scenario {
 
   Status RunClient(std::unique_ptr<FlightClient> client) override {
     std::unique_ptr<FlightInfo> info;
+    // This call is expected to fail. In gRPC/Java, this causes the
+    // server to combine headers and HTTP/2 trailers, so to read the
+    // expected header, Flight must check for both headers and
+    // trailers.
     if (client->GetFlightInfo(FlightDescriptor::Command(""), &info).ok()) {
       return Status::Invalid("Expected call to fail");
     }
     if (client_middleware_->received_header_ != "expected value") {
       return Status::Invalid(
-          "Expected to receive header x-middleware: expected value, but instead got ",
-          client_middleware_->received_header_);
+          "Expected to receive header 'x-middleware: expected value', but instead got: '",
+          client_middleware_->received_header_, "'");
     }
     std::cerr << "Headers received successfully on failing call." << std::endl;
 
@@ -222,8 +245,8 @@ class MiddlewareScenario : public Scenario {
     RETURN_NOT_OK(client->GetFlightInfo(FlightDescriptor::Command("success"), &info));
     if (client_middleware_->received_header_ != "expected value") {
       return Status::Invalid(
-          "Expected to receive header x-middleware: expected value, but instead got ",
-          client_middleware_->received_header_);
+          "Expected to receive header 'x-middleware: expected value', but instead got '",
+          client_middleware_->received_header_, "'");
     }
     std::cerr << "Headers received successfully on passing call." << std::endl;
     return Status::OK();
