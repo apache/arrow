@@ -832,27 +832,6 @@ mod tests {
     use std::thread;
 
     #[test]
-    fn logical_plan_can_be_shared_between_threads() -> Result<()> {
-        let plan = LogicalPlanBuilder::scan(
-            "default",
-            "employee.csv",
-            &employee_schema(),
-            Some(vec![0, 3]),
-        )?
-        .filter(col("id").eq(&lit_str("CO")))?
-        .project(vec![col("id")])?
-        .build()?;
-
-        // prove that a plan can be passed to a thread
-        let plan1 = plan.clone();
-        thread::spawn(move || {
-            println!("plan: {:?}", plan1);
-        });
-
-        Ok(())
-    }
-
-    #[test]
     fn plan_builder_simple() -> Result<()> {
         let plan = LogicalPlanBuilder::scan(
             "default",
