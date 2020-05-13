@@ -321,7 +321,7 @@ class PatchRelease(Release):
 
         print('git checkout -b {} {}'.format(self.branch, self.previous.tag))
         # self.repo.git.checkout(self.branch)
-        for c in patch_commits:
+        for c in reversed(patch_commits):
             print('git cherry-pick {}'.format(c.hexsha))
             # try to cherry pick to a temporary branch, if the patches apply
             # cleanly then update the maint ref
