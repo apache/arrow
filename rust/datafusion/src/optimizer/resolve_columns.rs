@@ -22,7 +22,6 @@ use crate::logicalplan::LogicalPlan;
 use crate::logicalplan::{Expr, LogicalPlanBuilder};
 use crate::optimizer::optimizer::OptimizerRule;
 use arrow::datatypes::Schema;
-use std::sync::Arc;
 
 /// Replace UnresolvedColumns with Columns
 pub struct ResolveColumnsRule {}
@@ -75,21 +74,21 @@ fn rewrite_expr(expr: &Expr, schema: &Schema) -> Result<Expr> {
         Expr::Alias(expr, alias) => Ok(rewrite_expr(&expr, schema)?.alias(&alias)),
         Expr::UnresolvedColumn(name) => Ok(Expr::Column(schema.index_of(&name)?)),
         Expr::BinaryExpr { left, op, right } => Ok(Expr::BinaryExpr {
-            left: Arc::new(rewrite_expr(&left, schema)?),
+            left: Box::new(rewrite_expr(&left, schema)?),
             op: op.clone(),
-            right: Arc::new(rewrite_expr(&right, schema)?),
+            right: Box::new(rewrite_expr(&right, schema)?),
         }),
-        Expr::Not(expr) => Ok(Expr::Not(Arc::new(rewrite_expr(&expr, schema)?))),
+        Expr::Not(expr) => Ok(Expr::Not(Box::new(rewrite_expr(&expr, schema)?))),
         Expr::IsNotNull(expr) => {
-            Ok(Expr::IsNotNull(Arc::new(rewrite_expr(&expr, schema)?)))
+            Ok(Expr::IsNotNull(Box::new(rewrite_expr(&expr, schema)?)))
         }
-        Expr::IsNull(expr) => Ok(Expr::IsNull(Arc::new(rewrite_expr(&expr, schema)?))),
+        Expr::IsNull(expr) => Ok(Expr::IsNull(Box::new(rewrite_expr(&expr, schema)?))),
         Expr::Cast { expr, data_type } => Ok(Expr::Cast {
-            expr: Arc::new(rewrite_expr(&expr, schema)?),
+            expr: Box::new(rewrite_expr(&expr, schema)?),
             data_type: data_type.clone(),
         }),
         Expr::Sort { expr, asc } => Ok(Expr::Sort {
-            expr: Arc::new(rewrite_expr(&expr, schema)?),
+            expr: Box::new(rewrite_expr(&expr, schema)?),
             asc: asc.clone(),
         }),
         Expr::ScalarFunction {

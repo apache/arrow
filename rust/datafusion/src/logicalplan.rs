@@ -180,7 +180,7 @@ impl ScalarValue {
 #[derive(Clone, PartialEq)]
 pub enum Expr {
     /// An aliased expression
-    Alias(Arc<Expr>, String),
+    Alias(Box<Expr>, String),
     /// index into a value within the row or complex value
     Column(usize),
     /// Reference to column by name
@@ -190,29 +190,29 @@ pub enum Expr {
     /// binary expression e.g. "age > 21"
     BinaryExpr {
         /// Left-hand side of the expression
-        left: Arc<Expr>,
+        left: Box<Expr>,
         /// The comparison operator
         op: Operator,
         /// Right-hand side of the expression
-        right: Arc<Expr>,
+        right: Box<Expr>,
     },
     /// unary NOT
-    Not(Arc<Expr>),
+    Not(Box<Expr>),
     /// unary IS NOT NULL
-    IsNotNull(Arc<Expr>),
+    IsNotNull(Box<Expr>),
     /// unary IS NULL
-    IsNull(Arc<Expr>),
+    IsNull(Box<Expr>),
     /// cast a value to a different type
     Cast {
         /// The expression being cast
-        expr: Arc<Expr>,
+        expr: Box<Expr>,
         /// The `DataType` the expression will yield
         data_type: DataType,
     },
     /// sort expression
     Sort {
         /// The expression to sort on
-        expr: Arc<Expr>,
+        expr: Box<Expr>,
         /// The direction of the sort
         asc: bool,
     },
@@ -285,7 +285,7 @@ impl Expr {
             Ok(self.clone())
         } else if can_coerce_from(cast_to_type, &this_type) {
             Ok(Expr::Cast {
-                expr: Arc::new(self.clone()),
+                expr: Box::new(self.clone()),
                 data_type: cast_to_type.clone(),
             })
         } else {
@@ -299,65 +299,65 @@ impl Expr {
     /// Equal
     pub fn eq(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
-            left: Arc::new(self.clone()),
+            left: Box::new(self.clone()),
             op: Operator::Eq,
-            right: Arc::new(other.clone()),
+            right: Box::new(other.clone()),
         }
     }
 
     /// Not equal
     pub fn not_eq(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
-            left: Arc::new(self.clone()),
+            left: Box::new(self.clone()),
             op: Operator::NotEq,
-            right: Arc::new(other.clone()),
+            right: Box::new(other.clone()),
         }
     }
 
     /// Greater than
     pub fn gt(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
-            left: Arc::new(self.clone()),
+            left: Box::new(self.clone()),
             op: Operator::Gt,
-            right: Arc::new(other.clone()),
+            right: Box::new(other.clone()),
         }
     }
 
     /// Greater than or equal to
     pub fn gt_eq(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
-            left: Arc::new(self.clone()),
+            left: Box::new(self.clone()),
             op: Operator::GtEq,
-            right: Arc::new(other.clone()),
+            right: Box::new(other.clone()),
         }
     }
 
     /// Less than
     pub fn lt(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
-            left: Arc::new(self.clone()),
+            left: Box::new(self.clone()),
             op: Operator::Lt,
-            right: Arc::new(other.clone()),
+            right: Box::new(other.clone()),
         }
     }
 
     /// Less than or equal to
     pub fn lt_eq(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
-            left: Arc::new(self.clone()),
+            left: Box::new(self.clone()),
             op: Operator::LtEq,
-            right: Arc::new(other.clone()),
+            right: Box::new(other.clone()),
         }
     }
 
     /// Not
     pub fn not(&self) -> Expr {
-        Expr::Not(Arc::new(self.clone()))
+        Expr::Not(Box::new(self.clone()))
     }
 
     /// Alias
     pub fn alias(&self, name: &str) -> Expr {
-        Expr::Alias(Arc::new(self.clone()), name.to_owned())
+        Expr::Alias(Box::new(self.clone()), name.to_owned())
     }
 }
 
