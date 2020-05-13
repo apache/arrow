@@ -482,7 +482,7 @@ pub enum LogicalPlan {
         /// The list of expressions
         expr: Vec<Expr>,
         /// The incoming logic plan
-        input: Arc<LogicalPlan>,
+        input: Box<LogicalPlan>,
         /// The schema description
         schema: Arc<Schema>,
     },
@@ -491,12 +491,12 @@ pub enum LogicalPlan {
         /// The expression
         expr: Expr,
         /// The incoming logic plan
-        input: Arc<LogicalPlan>,
+        input: Box<LogicalPlan>,
     },
     /// Represents a list of aggregate expressions with optional grouping expressions
     Aggregate {
         /// The incoming logic plan
-        input: Arc<LogicalPlan>,
+        input: Box<LogicalPlan>,
         /// Grouping expressions
         group_expr: Vec<Expr>,
         /// Aggregate expressions
@@ -509,7 +509,7 @@ pub enum LogicalPlan {
         /// The sort expressions
         expr: Vec<Expr>,
         /// The incoming logic plan
-        input: Arc<LogicalPlan>,
+        input: Box<LogicalPlan>,
         /// The schema description
         schema: Arc<Schema>,
     },
@@ -536,7 +536,7 @@ pub enum LogicalPlan {
         /// The expression
         expr: Expr,
         /// The logical plan
-        input: Arc<LogicalPlan>,
+        input: Box<LogicalPlan>,
         /// The schema description
         schema: Arc<Schema>,
     },
@@ -774,7 +774,7 @@ impl LogicalPlanBuilder {
 
         Ok(Self::from(&LogicalPlan::Projection {
             expr: projected_expr,
-            input: Arc::new(self.plan.clone()),
+            input: Box::new(self.plan.clone()),
             schema: Arc::new(schema),
         }))
     }
@@ -783,7 +783,7 @@ impl LogicalPlanBuilder {
     pub fn filter(&self, expr: Expr) -> Result<Self> {
         Ok(Self::from(&LogicalPlan::Selection {
             expr,
-            input: Arc::new(self.plan.clone()),
+            input: Box::new(self.plan.clone()),
         }))
     }
 
@@ -791,7 +791,7 @@ impl LogicalPlanBuilder {
     pub fn limit(&self, expr: Expr) -> Result<Self> {
         Ok(Self::from(&LogicalPlan::Limit {
             expr,
-            input: Arc::new(self.plan.clone()),
+            input: Box::new(self.plan.clone()),
             schema: self.plan.schema().clone(),
         }))
     }
@@ -800,7 +800,7 @@ impl LogicalPlanBuilder {
     pub fn sort(&self, expr: Vec<Expr>) -> Result<Self> {
         Ok(Self::from(&LogicalPlan::Sort {
             expr,
-            input: Arc::new(self.plan.clone()),
+            input: Box::new(self.plan.clone()),
             schema: self.plan.schema().clone(),
         }))
     }
@@ -814,7 +814,7 @@ impl LogicalPlanBuilder {
             Schema::new(utils::exprlist_to_fields(&all_fields, self.plan.schema())?);
 
         Ok(Self::from(&LogicalPlan::Aggregate {
-            input: Arc::new(self.plan.clone()),
+            input: Box::new(self.plan.clone()),
             group_expr,
             aggr_expr,
             schema: Arc::new(aggr_schema),
