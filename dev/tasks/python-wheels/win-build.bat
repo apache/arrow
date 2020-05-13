@@ -63,10 +63,11 @@ cmake -G "%GENERATOR%" ^
       -DARROW_WITH_BROTLI=ON ^
       -DARROW_DATASET=ON ^
       -DARROW_FLIGHT=ON ^
-      -DARROW_PYTHON=ON ^
-      -DARROW_PARQUET=ON ^
       -DARROW_GANDIVA=OFF ^
-      -DARROW_MIMAllOC=ON ^
+      -DARROW_MIMALLOC=ON ^
+      -DARROW_PARQUET=ON ^
+      -DARROW_PYTHON=ON ^
+      -DARROW_VERBOSE_THIRDPARTY_BUILD=ON ^
       -DZSTD_SOURCE=BUNDLED ^
       .. || exit /B
 cmake --build . --target install --config Release || exit /B
