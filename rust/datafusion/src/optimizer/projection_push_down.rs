@@ -25,7 +25,6 @@ use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
 use arrow::datatypes::{Field, Schema};
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 
 /// Projection Push Down optimizer rule ensures that only referenced columns are
 /// loaded into memory
@@ -154,7 +153,7 @@ impl ProjectionPushDown {
                     schema_name: schema_name.to_string(),
                     table_name: table_name.to_string(),
                     table_schema: table_schema.clone(),
-                    projected_schema: Arc::new(projected_schema),
+                    projected_schema: Box::new(projected_schema),
                     projection: Some(projection),
                 })
             }

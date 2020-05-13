@@ -22,7 +22,6 @@
 //! physical query plans and executed.
 
 use std::fmt;
-use std::sync::Arc;
 
 use arrow::datatypes::{DataType, Field, Schema};
 
@@ -484,7 +483,7 @@ pub enum LogicalPlan {
         /// The incoming logic plan
         input: Box<LogicalPlan>,
         /// The schema description
-        schema: Arc<Schema>,
+        schema: Box<Schema>,
     },
     /// A Selection (essentially a WHERE clause with a predicate expression)
     Selection {
@@ -502,7 +501,7 @@ pub enum LogicalPlan {
         /// Aggregate expressions
         aggr_expr: Vec<Expr>,
         /// The schema description
-        schema: Arc<Schema>,
+        schema: Box<Schema>,
     },
     /// Represents a list of sort expressions to be applied to a relation
     Sort {
@@ -511,7 +510,7 @@ pub enum LogicalPlan {
         /// The incoming logic plan
         input: Box<LogicalPlan>,
         /// The schema description
-        schema: Arc<Schema>,
+        schema: Box<Schema>,
     },
     /// A table scan against a table that has been registered on a context
     TableScan {
@@ -520,16 +519,16 @@ pub enum LogicalPlan {
         /// The name of the table
         table_name: String,
         /// The underlying table schema
-        table_schema: Arc<Schema>,
+        table_schema: Box<Schema>,
         /// The projected schema
-        projected_schema: Arc<Schema>,
+        projected_schema: Box<Schema>,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
     },
     /// An empty relation with an empty schema
     EmptyRelation {
         /// The schema description
-        schema: Arc<Schema>,
+        schema: Box<Schema>,
     },
     /// Represents the maximum number of records to return
     Limit {
@@ -538,12 +537,12 @@ pub enum LogicalPlan {
         /// The logical plan
         input: Box<LogicalPlan>,
         /// The schema description
-        schema: Arc<Schema>,
+        schema: Box<Schema>,
     },
     /// Represents a create external table expression.
     CreateExternalTable {
         /// The table schema
-        schema: Arc<Schema>,
+        schema: Box<Schema>,
         /// The table name
         name: String,
         /// The physical location
@@ -557,7 +556,7 @@ pub enum LogicalPlan {
 
 impl LogicalPlan {
     /// Get a reference to the logical plan's schema
-    pub fn schema(&self) -> &Arc<Schema> {
+    pub fn schema(&self) -> &Box<Schema> {
         match self {
             LogicalPlan::EmptyRelation { schema } => &schema,
             LogicalPlan::TableScan {
@@ -725,7 +724,7 @@ impl LogicalPlanBuilder {
     /// Create an empty relation
     pub fn empty() -> Self {
         Self::from(&LogicalPlan::EmptyRelation {
-            schema: Arc::new(Schema::empty()),
+            schema: Box::new(Schema::empty()),
         })
     }
 
@@ -742,8 +741,8 @@ impl LogicalPlanBuilder {
         Ok(Self::from(&LogicalPlan::TableScan {
             schema_name: schema_name.to_owned(),
             table_name: table_name.to_owned(),
-            table_schema: Arc::new(table_schema.clone()),
-            projected_schema: Arc::new(
+            table_schema: Box::new(table_schema.clone()),
+            projected_schema: Box::new(
                 projected_schema.or(Some(table_schema.clone())).unwrap(),
             ),
             projection,
@@ -775,7 +774,7 @@ impl LogicalPlanBuilder {
         Ok(Self::from(&LogicalPlan::Projection {
             expr: projected_expr,
             input: Box::new(self.plan.clone()),
-            schema: Arc::new(schema),
+            schema: Box::new(schema),
         }))
     }
 
@@ -817,7 +816,7 @@ impl LogicalPlanBuilder {
             input: Box::new(self.plan.clone()),
             group_expr,
             aggr_expr,
-            schema: Arc::new(aggr_schema),
+            schema: Box::new(aggr_schema),
         }))
     }
 
