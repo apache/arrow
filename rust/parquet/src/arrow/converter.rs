@@ -42,8 +42,8 @@ use crate::data_type::{
 };
 use arrow::datatypes::{
     Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
-    TimestampMicrosecondType, TimestampMillisecondType, TimestampNanosecondType,
-    TimestampSecondType, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+    TimestampMicrosecondType, TimestampMillisecondType, UInt16Type, UInt32Type,
+    UInt64Type, UInt8Type,
 };
 
 /// A converter is used to consume record reader's content and convert it to arrow
@@ -221,14 +221,10 @@ pub type UInt16Converter = CastConverter<ParquetInt32Type, Int32Type, UInt16Type
 pub type Int32Converter = CastConverter<ParquetInt32Type, Int32Type, Int32Type>;
 pub type UInt32Converter = CastConverter<ParquetInt32Type, UInt32Type, UInt32Type>;
 pub type Int64Converter = CastConverter<ParquetInt64Type, Int64Type, Int64Type>;
-pub type TimestampSecondConverter =
-    CastConverter<ParquetInt32Type, TimestampSecondType, TimestampSecondType>;
 pub type TimestampMillisecondConverter =
-    CastConverter<ParquetInt32Type, TimestampMillisecondType, TimestampMillisecondType>;
+    CastConverter<ParquetInt64Type, TimestampMillisecondType, TimestampMillisecondType>;
 pub type TimestampMicrosecondConverter =
     CastConverter<ParquetInt64Type, TimestampMicrosecondType, TimestampMicrosecondType>;
-pub type TimestampNanosecondConverter =
-    CastConverter<ParquetInt64Type, TimestampNanosecondType, TimestampNanosecondType>;
 pub type UInt64Converter = CastConverter<ParquetInt64Type, UInt64Type, UInt64Type>;
 pub type Float32Converter = CastConverter<ParquetFloatType, Float32Type, Float32Type>;
 pub type Float64Converter = CastConverter<ParquetDoubleType, Float64Type, Float64Type>;

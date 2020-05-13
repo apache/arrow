@@ -785,6 +785,16 @@ def_numeric_from_vec!(
     i64,
     DataType::Duration(TimeUnit::Nanosecond)
 );
+def_numeric_from_vec!(
+    TimestampMillisecondType,
+    i64,
+    DataType::Timestamp(TimeUnit::Millisecond, None)
+);
+def_numeric_from_vec!(
+    TimestampMicrosecondType,
+    i64,
+    DataType::Timestamp(TimeUnit::Microsecond, None)
+);
 
 impl<T: ArrowTimestampType> PrimitiveArray<T> {
     /// Construct a timestamp array from a vec of i64 values and an optional timezone

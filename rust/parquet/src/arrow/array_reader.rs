@@ -36,8 +36,7 @@ use crate::arrow::converter::{
     Converter, FixedLenBinaryConverter, FixedSizeArrayConverter, Float32Converter,
     Float64Converter, Int16Converter, Int32Converter, Int64Converter, Int8Converter,
     Int96ArrayConverter, Int96Converter, TimestampMicrosecondConverter,
-    TimestampMillisecondConverter, TimestampNanosecondConverter,
-    TimestampSecondConverter, UInt16Converter, UInt32Converter, UInt64Converter,
+    TimestampMillisecondConverter, UInt16Converter, UInt32Converter, UInt64Converter,
     UInt8Converter, Utf8ArrayConverter, Utf8Converter,
 };
 use crate::arrow::record_reader::RecordReader;
@@ -186,19 +185,12 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
                     .convert(self.record_reader.cast::<FloatType>()),
                 (ArrowType::Float64, PhysicalType::DOUBLE) => Float64Converter::new()
                     .convert(self.record_reader.cast::<DoubleType>()),
-                (ArrowType::Timestamp(unit, _), PhysicalType::INT32) => match unit {
-                    TimeUnit::Second => TimestampSecondConverter::new()
-                        .convert(self.record_reader.cast::<Int32Type>()),
-                    TimeUnit::Millisecond => TimestampMillisecondConverter::new()
-                        .convert(self.record_reader.cast::<Int32Type>()),
-                    _ => Err(general_err!("")),
-                },
                 (ArrowType::Timestamp(unit, _), PhysicalType::INT64) => match unit {
+                    TimeUnit::Millisecond => TimestampMillisecondConverter::new()
+                        .convert(self.record_reader.cast::<Int64Type>()),
                     TimeUnit::Microsecond => TimestampMicrosecondConverter::new()
                         .convert(self.record_reader.cast::<Int64Type>()),
-                    TimeUnit::Nanosecond => TimestampNanosecondConverter::new()
-                        .convert(self.record_reader.cast::<Int64Type>()),
-                    _ => Err(general_err!("")),
+                    _ => Err(general_err!("No conversion from parquet type to arrow type for timestamp with unit {:?}", unit)),
                 },
                 (ArrowType::Date32(_), PhysicalType::INT32) => {
                     UInt32Converter::new().convert(self.record_reader.cast::<Int32Type>())
@@ -942,8 +934,10 @@ mod tests {
     use crate::util::test_common::{get_test_file, make_pages};
     use arrow::array::{Array, ArrayRef, PrimitiveArray, StructArray};
     use arrow::datatypes::{
-        DataType as ArrowType, Field, Int32Type as ArrowInt32, UInt32Type as ArrowUInt32,
-        UInt64Type as ArrowUInt64,
+        DataType as ArrowType, Field, Int32Type as ArrowInt32,
+        TimestampMicrosecondType as ArrowTimestampMicrosecondType,
+        TimestampMillisecondType as ArrowTimestampMillisecondType,
+        UInt32Type as ArrowUInt32, UInt64Type as ArrowUInt64,
     };
     use rand::distributions::uniform::SampleUniform;
     use std::any::Any;
@@ -1092,16 +1086,22 @@ mod tests {
             ",
                 $physical_type, $logical_type_str
             );
+            eprintln!("1");
             let schema = parse_message_type(&message_type)
                 .map(|t| Rc::new(SchemaDescriptor::new(Rc::new(t))))
                 .unwrap();
 
+            eprintln!("2");
             let column_desc = schema.column(0);
+            eprintln!("3");
 
             // Construct page iterator
             {
+                eprintln!("4");
                 let mut data = Vec::new();
+                eprintln!("5");
                 let mut page_lists = Vec::new();
+                eprintln!("6");
                 make_column_chuncks::<$arrow_parquet_type>(
                     column_desc.clone(),
                     Encoding::PLAIN,
@@ -1115,24 +1115,29 @@ mod tests {
                     true,
                     2,
                 );
+                eprintln!("7");
                 let page_iterator = InMemoryPageIterator::new(
                     schema.clone(),
                     column_desc.clone(),
                     page_lists,
                 );
+                eprintln!("8");
                 let mut array_reader = PrimitiveArrayReader::<$arrow_parquet_type>::new(
                     Box::new(page_iterator),
                     column_desc.clone(),
                 )
                 .unwrap();
+                eprintln!("9");
 
                 let array = array_reader.next_batch(50).unwrap();
 
+                eprintln!("10");
                 let array = array
                     .as_any()
                     .downcast_ref::<PrimitiveArray<$result_arrow_type>>()
                     .unwrap();
 
+                eprintln!("11");
                 assert_eq!(
                     &PrimitiveArray::<$result_arrow_type>::from(
                         data[0..50]
@@ -1173,15 +1178,15 @@ mod tests {
             Int64Type,
             PhysicalType::INT64,
             "TIMESTAMP_MILLIS",
-            ArrowUInt64,
-            u64
+            ArrowTimestampMillisecondType,
+            i64
         );
         test_primitive_array_reader_one_type!(
             Int64Type,
             PhysicalType::INT64,
             "TIMESTAMP_MICROS",
-            ArrowUInt64,
-            u64
+            ArrowTimestampMicrosecondType,
+            i64
         );
     }
 
