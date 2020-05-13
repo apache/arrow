@@ -1657,7 +1657,6 @@ tasks:
 
   test-r-rstudio-r-base-3.6-centos8:
     ci: azure
-    platform: linux
     template: r/azure.linux.yml
     params:
       r_org: rstudio
