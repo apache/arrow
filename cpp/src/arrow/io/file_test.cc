@@ -390,6 +390,17 @@ TEST_F(TestReadableFile, SeekingRequired) {
   AssertBufferEqual(*buffer, "test");
 }
 
+TEST_F(TestReadableFile, WillNeed) {
+  MakeTestFile();
+  OpenFile();
+
+  ASSERT_OK(file_->WillNeed({}));
+  ASSERT_OK(file_->WillNeed({{0, 3}, {4, 6}}));
+  ASSERT_OK(file_->WillNeed({{10, 0}}));
+
+  ASSERT_RAISES(Invalid, file_->WillNeed({{-1, -1}}));
+}
+
 TEST_F(TestReadableFile, NonexistentFile) {
   std::string path = "0xDEADBEEF.txt";
   auto maybe_file = ReadableFile::Open(path);
@@ -643,6 +654,21 @@ TEST_F(TestMemoryMappedFile, ReadAsync) {
 
   AssertBufferEqual(*buf1, Buffer(buffer.data() + 1, 1000));
   AssertBufferEqual(*buf2, Buffer(buffer.data() + 3, 4));
+}
+
+TEST_F(TestMemoryMappedFile, WillNeed) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+  random_bytes(1024, 0, buffer.data());
+
+  std::string path = "io-memory-map-will-need-test";
+  ASSERT_OK_AND_ASSIGN(auto mmap, InitMemoryMap(buffer_size, path));
+  ASSERT_OK(mmap->Write(buffer.data(), buffer_size));
+
+  ASSERT_OK(mmap->WillNeed({}));
+  ASSERT_OK(mmap->WillNeed({{0, 4}, {100, 924}}));
+  ASSERT_OK(mmap->WillNeed({{1024, 0}}));
+  ASSERT_RAISES(IOError, mmap->WillNeed({{1025, 1}}));  // Out of bounds
 }
 
 TEST_F(TestMemoryMappedFile, InvalidReads) {

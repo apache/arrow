@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "arrow/io/concurrency.h"
 #include "arrow/io/interfaces.h"
@@ -110,6 +111,8 @@ class ARROW_EXPORT ReadableFile
 
   int file_descriptor() const;
 
+  Status WillNeed(const std::vector<ReadRange>& ranges) override;
+
  private:
   friend RandomAccessFileConcurrencyWrapper<ReadableFile>;
 
@@ -184,6 +187,8 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
   // Synchronous ReadAsync override
   Future<std::shared_ptr<Buffer>> ReadAsync(const AsyncContext&, int64_t position,
                                             int64_t nbytes) override;
+
+  Status WillNeed(const std::vector<ReadRange>& ranges) override;
 
   bool supports_zero_copy() const override;
 

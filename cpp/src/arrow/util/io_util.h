@@ -227,9 +227,16 @@ Result<Pipe> CreatePipe();
 ARROW_EXPORT
 int64_t GetPageSize();
 
+struct MemoryRegion {
+  void* addr;
+  size_t size;
+};
+
 ARROW_EXPORT
 Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
                       void** new_addr);
+ARROW_EXPORT
+Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions);
 
 ARROW_EXPORT
 Result<std::string> GetEnvVar(const char* name);

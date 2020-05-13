@@ -28,6 +28,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/future.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/memory.h"
@@ -299,6 +300,26 @@ Result<util::string_view> BufferReader::DoPeek(int64_t nbytes) {
 
 bool BufferReader::supports_zero_copy() const { return true; }
 
+Status BufferReader::WillNeed(const std::vector<ReadRange>& ranges) {
+  using ::arrow::internal::MemoryRegion;
+
+  RETURN_NOT_OK(CheckClosed());
+
+  std::vector<MemoryRegion> regions(ranges.size());
+  for (size_t i = 0; i < ranges.size(); ++i) {
+    const auto& range = ranges[i];
+    ARROW_ASSIGN_OR_RAISE(auto size,
+                          internal::ValidateReadRange(range.offset, range.length, size_));
+    regions[i] = {const_cast<uint8_t*>(data_ + range.offset), static_cast<size_t>(size)};
+  }
+  const auto st = ::arrow::internal::MemoryAdviseWillNeed(regions);
+  if (st.IsIOError()) {
+    // Ignore any system-level errors, in case the memory area isn't madvise()-able
+    return Status::OK();
+  }
+  return st;
+}
+
 Future<std::shared_ptr<Buffer>> BufferReader::ReadAsync(const AsyncContext&,
                                                         int64_t position,
                                                         int64_t nbytes) {
@@ -321,6 +342,11 @@ Result<std::shared_ptr<Buffer>> BufferReader::DoReadAt(int64_t position, int64_t
 
   ARROW_ASSIGN_OR_RAISE(nbytes, internal::ValidateReadRange(position, nbytes, size_));
   DCHECK_GE(nbytes, 0);
+
+  // Arrange for data to be paged in
+  RETURN_NOT_OK(::arrow::internal::MemoryAdviseWillNeed(
+      {{const_cast<uint8_t*>(data_ + position), static_cast<size_t>(nbytes)}}));
+
   if (nbytes > 0 && buffer_ != nullptr) {
     return SliceBuffer(buffer_, position, nbytes);
   } else {
