@@ -417,8 +417,9 @@ tasks:
     ci: appveyor
     template: python-wheels/appveyor.yml
     params:
-      script: win-build-3.5.bat
+      script: win-build.bat
       python_version: 3.5
+      python_interpreter: C:\Python35-x64\python.exe
     artifacts:
       - pyarrow-{no_rc_version}-cp35-cp35m-win_amd64.whl
 
@@ -428,6 +429,7 @@ tasks:
     params:
       script: win-build.bat
       python_version: 3.6
+      python_interpreter: C:\Python36-x64\python.exe
     artifacts:
       - pyarrow-{no_rc_version}-cp36-cp36m-win_amd64.whl
 
@@ -437,6 +439,7 @@ tasks:
     params:
       script: win-build.bat
       python_version: 3.7
+      python_interpreter: C:\Python37-x64\python.exe
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-win_amd64.whl
 
@@ -446,6 +449,7 @@ tasks:
     params:
       script: win-build.bat
       python_version: 3.8
+      python_interpreter: C:\Python38-x64\python.exe
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-win_amd64.whl
 
