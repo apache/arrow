@@ -341,8 +341,8 @@ struct BoundMethod<Self, R(A...)> {
   }
 
   Result<R> operator()(A... args) const {
-    return SafeCallIntoPython([=]() -> Result<R> {
-      R out = unbound_(reinterpret_cast<Self*>(self_.obj()), static_cast<A>(args)...);
+    return SafeCallIntoPython([&]() -> Result<R> {
+      R out = unbound_(reinterpret_cast<Self*>(self_.obj()), std::forward<A>(args)...);
       RETURN_IF_PYERROR();
       return out;
     });
