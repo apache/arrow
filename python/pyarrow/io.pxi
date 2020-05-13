@@ -1377,6 +1377,9 @@ cdef shared_ptr[CBuffer] as_c_buffer(object o) except *:
 
 
 cdef NativeFile wrap_python_file(object source, str mode):
+    if isinstance(source, NativeFile):
+        return source
+
     if 'r' in mode and not hasattr(source, 'read'):
         # Optimistically hope this is file-like
         raise TypeError('cannot wrap object without read method: ', source)

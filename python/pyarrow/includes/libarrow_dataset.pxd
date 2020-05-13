@@ -197,7 +197,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const shared_ptr[CBuffer]& buffer() const
         CFileSource(c_string path, shared_ptr[CFileSystem] filesystem)
         CFileSource(shared_ptr[CBuffer] buffer)
-        CFileSource(shared_ptr[CRandomAccessFile] file)
         CFileSource()
 
     cdef cppclass CFileFormat "arrow::dataset::FileFormat":

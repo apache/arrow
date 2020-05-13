@@ -43,7 +43,7 @@ Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
     return std::make_shared<::arrow::io::BufferReader>(buffer());
   }
 
-  return util::get<std::shared_ptr<io::RandomAccessFile>>(impl_);
+  return util::get<CustomOpen>(impl_)();
 }
 
 Result<std::shared_ptr<arrow::io::OutputStream>> WritableFileSource::Open() const {

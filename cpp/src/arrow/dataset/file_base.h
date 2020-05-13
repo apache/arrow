@@ -54,9 +54,17 @@ class ARROW_DS_EXPORT FileSource {
                       Compression::type compression = Compression::UNCOMPRESSED)
       : source_kind_(BUFFER), buffer_(std::move(buffer)), compression_(compression) {}
 
-  explicit FileSource(std::shared_ptr<io::RandomAccessFile> file = NULLPTR,
+  using CustomOpen = std::function<Result<std::shared_ptr<io::RandomAccessFile>>()>;
+  explicit FileSource(CustomOpen open) : impl_(std::move(open)) {}
+
+  using CustomOpenWithCompression =
+      std::function<Result<std::shared_ptr<io::RandomAccessFile>>(Compression::type)>;
+  explicit FileSource(CustomOpenWithCompression open_with_compression,
                       Compression::type compression = Compression::UNCOMPRESSED)
-      : impl_(std::move(file)), compression_(compression) {}
+      : impl_(std::bind(std::move(open_with_compression), compression)),
+        compression_(compression) {}
+
+  FileSource() : impl_(CustomOpen{&InvalidOpen}) {}
 
   /// \brief Return the type of raw compression on the file, if any
   Compression::type compression() const { return compression_; }
@@ -70,7 +78,7 @@ class ARROW_DS_EXPORT FileSource {
       static std::string no_path = "<Buffer>";
       return no_path;
     } else {
-      static std::string no_path = "<RandomAccessFile>";
+      static std::string no_path = "<CustomOpen>";
       return no_path;
     }
   }
@@ -98,6 +106,10 @@ class ARROW_DS_EXPORT FileSource {
   Result<std::shared_ptr<io::RandomAccessFile>> Open() const;
 
  private:
+  static Result<std::shared_ptr<io::RandomAccessFile>> InvalidOpen() {
+    return Status::Invalid("Called Open() on an uninitialized FileSource");
+  }
+
   bool IsPath() const { return util::holds_alternative<PathAndFileSystem>(impl_); }
 
   bool IsBuffer() const {
@@ -109,10 +121,8 @@ class ARROW_DS_EXPORT FileSource {
     std::shared_ptr<fs::FileSystem> filesystem;
   };
 
-  util::variant<PathAndFileSystem, std::shared_ptr<Buffer>,
-                std::shared_ptr<io::RandomAccessFile>>
-      impl_;
-  Compression::type compression_;
+  util::variant<PathAndFileSystem, std::shared_ptr<Buffer>, CustomOpen> impl_;
+  Compression::type compression_ = Compression::UNCOMPRESSED;
 };
 
 /// \brief The path and filesystem where an actual file is located or a buffer which can

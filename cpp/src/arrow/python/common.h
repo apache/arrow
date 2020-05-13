@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <utility>
 
@@ -55,9 +56,9 @@ inline Status CheckPyError(StatusCode code = StatusCode::UnknownError) {
   }
 }
 
-#define RETURN_IF_PYERROR() ARROW_RETURN_NOT_OK(CheckPyError());
+#define RETURN_IF_PYERROR() ARROW_RETURN_NOT_OK(CheckPyError())
 
-#define PY_RETURN_IF_ERROR(CODE) ARROW_RETURN_NOT_OK(CheckPyError(CODE));
+#define PY_RETURN_IF_ERROR(CODE) ARROW_RETURN_NOT_OK(CheckPyError(CODE))
 
 // For Cython, as you can't define template C++ functions in Cython, only use them.
 // This function can set a Python exception.  It assumes that T has a (cheap)
@@ -152,6 +153,8 @@ class ARROW_PYTHON_EXPORT OwnedRef {
     Py_XDECREF(obj_);
     obj_ = obj;
   }
+
+  void incref() { Py_XINCREF(obj_); }
 
   void reset() { reset(NULLPTR); }
 
@@ -301,6 +304,36 @@ static inline PyObject* cpp_PyObject_CallMethod(PyObject* obj, const char* metho
                                                 const char* argspec, ArgTypes... args) {
   return PyObject_CallMethod(obj, const_cast<char*>(method_name),
                              const_cast<char*>(argspec), args...);
+}
+
+template <typename Self, typename Fn>
+struct BoundMethod;
+
+template <typename Self, typename R, typename... A>
+struct BoundMethod<Self, R(A...)> {
+  using Unbound = R(Self*, A...);
+
+  BoundMethod(void* self, Unbound* unbound)
+      : self_(new OwnedRefNoGIL(reinterpret_cast<PyObject*>(self))), unbound_(unbound) {
+    self_->incref();
+  }
+
+  Result<R> operator()(A... args) const {
+    return SafeCallIntoPython([=]() -> Result<R> {
+      R out = unbound_(reinterpret_cast<Self*>(self_->obj()), static_cast<A>(args)...);
+      RETURN_IF_PYERROR();
+      return out;
+    });
+  }
+
+  std::shared_ptr<OwnedRefNoGIL> self_;
+  Unbound* unbound_;
+};
+
+template <typename Fn, typename R, typename Self, typename... A>
+std::function<Fn> BindMethod(void* self, R (*unbound)(Self* self, A...)) {
+  BoundMethod<Self, R(A...)> bound{self, unbound};
+  return std::function<Fn>(std::move(bound));
 }
 
 }  // namespace py
