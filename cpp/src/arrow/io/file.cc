@@ -270,9 +270,17 @@ class ReadableFile::ReadableFileImpl : public OSFile {
     RETURN_NOT_OK(CheckClosed());
     for (const auto& range : ranges) {
       RETURN_NOT_OK(internal::ValidateRange(range.offset, range.length));
-#ifndef _WIN32
+#if defined(POSIX_FADV_WILLNEED)
       if (posix_fadvise(fd_, range.offset, range.length, POSIX_FADV_WILLNEED)) {
         return IOErrorFromErrno(errno, "posix_fadvise failed");
+      }
+#elif defined(F_RDADVISE)  // macOS, BSD?
+      struct {
+        off_t ra_offset;
+        int ra_count;
+      } radvisory{range.offset, static_cast<int>(range.length)};
+      if (fcntl(fd_, F_RDADVISE, &radvisory) == -1) {
+        return IOErrorFromErrno(errno, "fcntl(fd, F_RDADVISE, ...) failed");
       }
 #endif
     }
