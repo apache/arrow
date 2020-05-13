@@ -49,7 +49,7 @@ struct ReadRange {
 };
 
 // EXPERIMENTAL
-struct AsyncContext {
+struct ARROW_EXPORT AsyncContext {
   ::arrow::internal::Executor* executor;
 
   // Set `executor` to a global IO-specific thread pool.
