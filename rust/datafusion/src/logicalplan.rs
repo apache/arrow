@@ -829,7 +829,6 @@ impl LogicalPlanBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::thread;
 
     #[test]
     fn plan_builder_simple() -> Result<()> {
