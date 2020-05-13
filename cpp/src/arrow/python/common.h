@@ -340,9 +340,51 @@ struct BoundMethod<Self, R(A...)> {
     return *this;
   }
 
-  Result<R> operator()(A... args) const {
+  // TODO(bkietz) manual parameter packing is necessary since GCC 4.8 can't pass a
+  // parameter pack through a [&] lambda capture
+  //
+  // Result<R> operator()(A... a) const {
+  //   return SafeCallIntoPython([&]() -> Result<R> {
+  //     R out = unbound_(reinterpret_cast<Self*>(self_.obj()), std::forward<A>(a)...);
+  //     RETURN_IF_PYERROR();
+  //     return out;
+  //   });
+  // }
+
+  template <typename A0>
+  Result<R> operator()(A0&& a0) const {
     return SafeCallIntoPython([&]() -> Result<R> {
-      R out = unbound_(reinterpret_cast<Self*>(self_.obj()), std::forward<A>(args)...);
+      R out = unbound_(reinterpret_cast<Self*>(self_.obj()), std::forward<A0>(a0));
+      RETURN_IF_PYERROR();
+      return out;
+    });
+  }
+
+  template <typename A0, typename A1>
+  Result<R> operator()(A0&& a0, A1&& a1) const {
+    return SafeCallIntoPython([&]() -> Result<R> {
+      R out = unbound_(reinterpret_cast<Self*>(self_.obj()), std::forward<A0>(a0),
+                       std::forward<A1>(a1));
+      RETURN_IF_PYERROR();
+      return out;
+    });
+  }
+
+  template <typename A0, typename A1, typename A2>
+  Result<R> operator()(A0&& a0, A1&& a1, A2&& a2) const {
+    return SafeCallIntoPython([&]() -> Result<R> {
+      R out = unbound_(reinterpret_cast<Self*>(self_.obj()), std::forward<A0>(a0),
+                       std::forward<A1>(a1), std::forward<A2>(a2));
+      RETURN_IF_PYERROR();
+      return out;
+    });
+  }
+
+  template <typename A0, typename A1, typename A2, typename A3>
+  Result<R> operator()(A0&& a0, A1&& a1, A2&& a2, A3&& a3) const {
+    return SafeCallIntoPython([&]() -> Result<R> {
+      R out = unbound_(reinterpret_cast<Self*>(self_.obj()), std::forward<A0>(a0),
+                       std::forward<A1>(a1), std::forward<A2>(a2), std::forward<A3>(a3));
       RETURN_IF_PYERROR();
       return out;
     });
