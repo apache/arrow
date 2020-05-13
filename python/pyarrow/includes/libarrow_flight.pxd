@@ -265,6 +265,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         unique_ptr[CServerAuthHandler] auth_handler
         vector[CCertKeyPair] tls_certificates
         c_bool verify_client
+        c_string root_certificates
         vector[pair[c_string, shared_ptr[CServerMiddlewareFactory]]] middleware
 
     cdef cppclass CFlightClientOptions" arrow::flight::FlightClientOptions":

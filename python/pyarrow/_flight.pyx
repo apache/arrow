@@ -29,7 +29,7 @@ import warnings
 
 from cython.operator cimport dereference as deref
 from cython.operator cimport postincrement
-from libcpp cimport bool
+from libcpp cimport bool as c_bool
 
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.lib cimport *
@@ -2149,6 +2149,9 @@ cdef class FlightServerBase:
     verify_client : boolean optional, default False
         If True, then enable mutual TLS: require the client to present
         a client certificate, and validate the certificate.
+    root_certificates : bytes optional, default None
+        If enabling mutual TLS, this specifies the PEM-encoded root
+        certificate used to validate client certificates.
     middleware : list optional, default None
         A dictionary of :class:`ServerMiddlewareFactory` items. The
         keys are used to retrieve the middleware instance during calls
@@ -2160,7 +2163,8 @@ cdef class FlightServerBase:
         unique_ptr[PyFlightServer] server
 
     def __init__(self, location=None, auth_handler=None,
-                 tls_certificates=None, verify_client=None, middleware=None):
+                 tls_certificates=None, verify_client=None,
+                 root_certificates=None, middleware=None):
         if isinstance(location, (bytes, str)):
             location = Location(location)
         elif isinstance(location, (tuple, type(None))):
@@ -2175,10 +2179,11 @@ cdef class FlightServerBase:
             raise TypeError('`location` argument must be a string, tuple or a '
                             'Location instance')
         self.init(location, auth_handler, tls_certificates, verify_client,
-                  middleware)
+                  tobytes(root_certificates), middleware)
 
     cdef init(self, Location location, ServerAuthHandler auth_handler,
-              list tls_certificates, bool verify_client, dict middleware):
+              list tls_certificates, c_bool verify_client,
+              bytes root_certificates, dict middleware):
         cdef:
             PyFlightServerVtable vtable = PyFlightServerVtable()
             PyFlightServer* c_server
@@ -2189,6 +2194,9 @@ cdef class FlightServerBase:
             pair[c_string, shared_ptr[CServerMiddlewareFactory]] c_middleware
 
         c_options.reset(new CFlightServerOptions(Location.unwrap(location)))
+        # mTLS configuration
+        c_options.get().verify_client = verify_client
+        c_options.get().root_certificates = root_certificates
 
         if auth_handler:
             if not isinstance(auth_handler, ServerAuthHandler):
