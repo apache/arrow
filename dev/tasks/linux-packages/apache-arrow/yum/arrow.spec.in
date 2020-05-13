@@ -222,7 +222,9 @@ Requires:	brotli
 Requires:	gflags
 Requires:	glog
 %endif
+%if %{have_zstd}
 Requires:	libzstd
+%endif
 Requires:	lz4
 %if %{_centos_ver} >= 8
 Requires:	re2
