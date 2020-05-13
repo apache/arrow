@@ -279,7 +279,7 @@ class ReadableFile::ReadableFileImpl : public OSFile {
         off_t ra_offset;
         int ra_count;
       } radvisory{range.offset, static_cast<int>(range.length)};
-      if (fcntl(fd_, F_RDADVISE, &radvisory) == -1) {
+      if (radvisory.ra_count > 0 && fcntl(fd_, F_RDADVISE, &radvisory) == -1) {
         return IOErrorFromErrno(errno, "fcntl(fd, F_RDADVISE, ...) failed");
       }
 #endif
