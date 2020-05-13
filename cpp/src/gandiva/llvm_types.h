@@ -15,15 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_LLVM_TYPES_H
-#define GANDIVA_LLVM_TYPES_H
+#pragma once
 
 #include <map>
 #include <vector>
 
+#include "arrow/util/logging.h"
 #include "gandiva/arrow.h"
 #include "gandiva/llvm_includes.h"
-#include "gandiva/logging.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {
@@ -129,5 +128,3 @@ class GANDIVA_EXPORT LLVMTypes {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_LLVM_TYPES_H

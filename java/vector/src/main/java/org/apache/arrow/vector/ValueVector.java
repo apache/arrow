@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import java.io.Closeable;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
@@ -28,8 +29,6 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * An abstraction that is used to store a sequence of values in an individual column.
@@ -180,7 +179,7 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    *
    * @param clear Whether to clear vector before returning; the buffers will still be refcounted;
    *              but the returned array will be the only reference to them
-   * @return The underlying {@link io.netty.buffer.ArrowBuf buffers} that is used by this vector instance.
+   * @return The underlying {@link ArrowBuf buffers} that is used by this vector instance.
    */
   ArrowBuf[] getBuffers(boolean clear);
 

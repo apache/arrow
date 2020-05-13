@@ -28,6 +28,7 @@ import org.apache.arrow.gandiva.expression.Condition;
 import org.apache.arrow.gandiva.expression.ExpressionTree;
 import org.apache.arrow.gandiva.expression.TreeBuilder;
 import org.apache.arrow.gandiva.ipc.GandivaTypes.SelectionVectorType;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
@@ -37,8 +38,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Test;
 
 import com.google.common.collect.Lists;
-
-import io.netty.buffer.ArrowBuf;
 
 public class FilterProjectTest extends BaseEvaluatorTest {
 

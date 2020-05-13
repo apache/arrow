@@ -49,7 +49,6 @@ GArrowSchema *
 gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *reader,
                                       GError **error);
 
-GARROW_AVAILABLE_IN_1_0
 GArrowChunkedArray *
 gparquet_arrow_file_reader_read_column_data(GParquetArrowFileReader *reader,
                                             gint i,

@@ -18,6 +18,14 @@
 # Wrap testthat::test_that with a check for the C++ library
 options(..skip.tests = !arrow:::arrow_available())
 
+if (tolower(Sys.info()[["sysname"]]) == "windows") {
+  # For now, disable multithreading by default on Windows
+  # See https://issues.apache.org/jira/browse/ARROW-8379
+  options(arrow.use_threads = FALSE)
+}
+
+set.seed(1)
+
 test_that <- function(what, code) {
   testthat::test_that(what, {
     skip_if(getOption("..skip.tests", TRUE), "arrow C++ library not available")

@@ -170,24 +170,25 @@ Status InvokeBinaryArrayKernel(FunctionContext* ctx, BinaryKernel* kernel,
                                const Datum& left, const Datum& right, Datum* output) {
   std::vector<Datum> result;
   RETURN_NOT_OK(InvokeBinaryArrayKernel(ctx, kernel, left, right, &result));
-  *output = detail::WrapDatumsLike(left, result);
+  *output = detail::WrapDatumsLike(left, kernel->out_type(), result);
   return Status::OK();
 }
 
-Datum WrapArraysLike(const Datum& value,
+Datum WrapArraysLike(const Datum& value, std::shared_ptr<DataType> type,
                      const std::vector<std::shared_ptr<Array>>& arrays) {
   // Create right kind of datum
   if (value.kind() == Datum::ARRAY) {
     return Datum(arrays[0]->data());
   } else if (value.kind() == Datum::CHUNKED_ARRAY) {
-    return Datum(std::make_shared<ChunkedArray>(arrays));
+    return Datum(std::make_shared<ChunkedArray>(arrays, std::move(type)));
   } else {
     ARROW_LOG(FATAL) << "unhandled datum kind";
     return Datum();
   }
 }
 
-Datum WrapDatumsLike(const Datum& value, const std::vector<Datum>& datums) {
+Datum WrapDatumsLike(const Datum& value, std::shared_ptr<DataType> type,
+                     const std::vector<Datum>& datums) {
   // Create right kind of datum
   if (value.kind() == Datum::ARRAY) {
     DCHECK_EQ(1, datums.size());
@@ -196,9 +197,9 @@ Datum WrapDatumsLike(const Datum& value, const std::vector<Datum>& datums) {
     std::vector<std::shared_ptr<Array>> arrays;
     for (const Datum& datum : datums) {
       DCHECK_EQ(Datum::ARRAY, datum.kind());
-      arrays.emplace_back(MakeArray(datum.array()));
+      arrays.push_back(datum.make_array());
     }
-    return Datum(std::make_shared<ChunkedArray>(arrays));
+    return Datum(std::make_shared<ChunkedArray>(std::move(arrays), std::move(type)));
   } else {
     ARROW_LOG(FATAL) << "unhandled datum kind";
     return Datum();

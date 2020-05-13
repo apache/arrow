@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.StructVector;
@@ -46,8 +47,6 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 
 public class TestDenseUnionVector {
   private static final String EMPTY_SCHEMA_PATH = "";
@@ -326,8 +325,8 @@ public class TestDenseUnionVector {
     metadata.put("key1", "value1");
 
     int[] typeIds = new int[2];
-    typeIds[0] = MinorType.INT.ordinal();
-    typeIds[1] = MinorType.VARCHAR.ordinal();
+    typeIds[0] = 0;
+    typeIds[1] = 1;
 
     List<Field> children = new ArrayList<>();
     children.add(new Field("int", FieldType.nullable(MinorType.INT.getType()), null));
@@ -341,7 +340,7 @@ public class TestDenseUnionVector {
     DenseUnionVector vector = (DenseUnionVector) minorType.getNewVector(field, allocator, null);
     vector.initializeChildrenFromFields(children);
 
-    assertTrue(vector.getField().equals(field));
+    assertEquals(vector.getField(), field);
   }
 
   @Test

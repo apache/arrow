@@ -43,6 +43,49 @@
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
+
+constexpr Type::type NullType::type_id;
+constexpr Type::type ListType::type_id;
+constexpr Type::type LargeListType::type_id;
+
+constexpr Type::type MapType::type_id;
+
+constexpr Type::type FixedSizeListType::type_id;
+
+constexpr Type::type BinaryType::type_id;
+
+constexpr Type::type LargeBinaryType::type_id;
+
+constexpr Type::type StringType::type_id;
+
+constexpr Type::type LargeStringType::type_id;
+
+constexpr Type::type FixedSizeBinaryType::type_id;
+
+constexpr Type::type StructType::type_id;
+
+constexpr Type::type Decimal128Type::type_id;
+
+constexpr Type::type UnionType::type_id;
+
+constexpr Type::type Date32Type::type_id;
+
+constexpr Type::type Date64Type::type_id;
+
+constexpr Type::type Time32Type::type_id;
+
+constexpr Type::type Time64Type::type_id;
+
+constexpr Type::type TimestampType::type_id;
+
+constexpr Type::type MonthIntervalType::type_id;
+
+constexpr Type::type DayTimeIntervalType::type_id;
+
+constexpr Type::type DurationType::type_id;
+
+constexpr Type::type DictionaryType::type_id;
+
 namespace {
 using internal::checked_cast;
 
@@ -513,6 +556,9 @@ std::vector<int> StructType::GetAllFieldIndices(const std::string& name) const {
   for (auto it = p.first; it != p.second; ++it) {
     result.push_back(it->second);
   }
+  if (result.size() > 1) {
+    std::sort(result.begin(), result.end());
+  }
   return result;
 }
 
@@ -526,21 +572,6 @@ std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
   return result;
 }
 
-// Deprecated methods
-
-std::shared_ptr<Field> Field::AddMetadata(
-    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
-  return WithMetadata(metadata);
-}
-
-std::shared_ptr<Field> StructType::GetChildByName(const std::string& name) const {
-  return GetFieldByName(name);
-}
-
-int StructType::GetChildIndex(const std::string& name) const {
-  return GetFieldIndex(name);
-}
-
 // ----------------------------------------------------------------------
 // Decimal128 type
 
@@ -550,13 +581,16 @@ Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
   ARROW_CHECK_LE(precision, kMaxPrecision);
 }
 
-Status Decimal128Type::Make(int32_t precision, int32_t scale,
-                            std::shared_ptr<DataType>* out) {
+Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_t scale) {
   if (precision < kMinPrecision || precision > kMaxPrecision) {
     return Status::Invalid("Decimal precision out of range: ", precision);
   }
-  *out = std::make_shared<Decimal128Type>(precision, scale);
-  return Status::OK();
+  return std::make_shared<Decimal128Type>(precision, scale);
+}
+
+Status Decimal128Type::Make(int32_t precision, int32_t scale,
+                            std::shared_ptr<DataType>* out) {
+  return Make(precision, scale).Value(out);
 }
 
 // ----------------------------------------------------------------------
@@ -615,12 +649,12 @@ std::string NullType::ToString() const { return name(); }
 // FieldRef
 
 size_t FieldPath::hash() const {
-  return internal::ComputeStringHash<0>(data(), size() * sizeof(int));
+  return internal::ComputeStringHash<0>(indices().data(), indices().size() * sizeof(int));
 }
 
 std::string FieldPath::ToString() const {
   std::string repr = "FieldPath(";
-  for (auto index : *this) {
+  for (auto index : this->indices()) {
     repr += std::to_string(index) + " ";
   }
   repr.resize(repr.size() - 1);
@@ -658,7 +692,7 @@ struct FieldPathGetImpl {
 
     ss << "indices=[ ";
     int depth = 0;
-    for (int i : *path) {
+    for (int i : path->indices()) {
       if (depth != out_of_range_depth) {
         ss << i << " ";
         continue;
@@ -681,13 +715,13 @@ struct FieldPathGetImpl {
   template <typename T, typename GetChildren>
   static Result<T> Get(const FieldPath* path, const std::vector<T>* children,
                        GetChildren&& get_children, int* out_of_range_depth) {
-    if (path->empty()) {
+    if (path->indices().empty()) {
       return Status::Invalid("empty indices cannot be traversed");
     }
 
     int depth = 0;
     const T* out;
-    for (int index : *path) {
+    for (int index : path->indices()) {
       if (index < 0 || static_cast<size_t>(index) >= children->size()) {
         *out_of_range_depth = depth;
         return nullptr;
@@ -704,7 +738,7 @@ struct FieldPathGetImpl {
   template <typename T, typename GetChildren>
   static Result<T> Get(const FieldPath* path, const std::vector<T>* children,
                        GetChildren&& get_children) {
-    int out_of_range_depth;
+    int out_of_range_depth = -1;
     ARROW_ASSIGN_OR_RAISE(auto child,
                           Get(path, children, std::forward<GetChildren>(get_children),
                               &out_of_range_depth));
@@ -781,7 +815,7 @@ Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(const Table& table) const {
 }
 
 FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {
-  DCHECK_GT(util::get<FieldPath>(impl_).size(), 0);
+  DCHECK_GT(util::get<FieldPath>(impl_).indices().size(), 0);
 }
 
 void FieldRef::Flatten(std::vector<FieldRef> children) {
@@ -988,8 +1022,9 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
         auto maybe_field = match.Get(fields);
         DCHECK_OK(maybe_field.status());
 
-        prefix.resize(prefix.size() + match.size());
-        std::copy(match.begin(), match.end(), prefix.end() - match.size());
+        prefix.indices().resize(prefix.indices().size() + match.indices().size());
+        std::copy(match.indices().begin(), match.indices().end(),
+                  prefix.indices().end() - match.indices().size());
         prefixes.push_back(std::move(prefix));
         referents.push_back(std::move(maybe_field).ValueOrDie());
       }
@@ -1118,6 +1153,9 @@ std::vector<int> Schema::GetAllFieldIndices(const std::string& name) const {
   for (auto it = p.first; it != p.second; ++it) {
     result.push_back(it->second);
   }
+  if (result.size() > 1) {
+    std::sort(result.begin(), result.end());
+  }
   return result;
 }
 
@@ -1142,26 +1180,47 @@ std::vector<std::shared_ptr<Field>> Schema::GetAllFieldsByName(
   return result;
 }
 
-Status Schema::AddField(int i, const std::shared_ptr<Field>& field,
-                        std::shared_ptr<Schema>* out) const {
+Result<std::shared_ptr<Schema>> Schema::AddField(
+    int i, const std::shared_ptr<Field>& field) const {
   if (i < 0 || i > this->num_fields()) {
     return Status::Invalid("Invalid column index to add field.");
   }
 
-  *out = std::make_shared<Schema>(internal::AddVectorElement(impl_->fields_, i, field),
+  return std::make_shared<Schema>(internal::AddVectorElement(impl_->fields_, i, field),
                                   impl_->metadata_);
-  return Status::OK();
+}
+
+Result<std::shared_ptr<Schema>> Schema::SetField(
+    int i, const std::shared_ptr<Field>& field) const {
+  if (i < 0 || i > this->num_fields()) {
+    return Status::Invalid("Invalid column index to add field.");
+  }
+
+  return std::make_shared<Schema>(
+      internal::ReplaceVectorElement(impl_->fields_, i, field), impl_->metadata_);
+}
+
+Result<std::shared_ptr<Schema>> Schema::RemoveField(int i) const {
+  if (i < 0 || i >= this->num_fields()) {
+    return Status::Invalid("Invalid column index to remove field.");
+  }
+
+  return std::make_shared<Schema>(internal::DeleteVectorElement(impl_->fields_, i),
+                                  impl_->metadata_);
+}
+
+Status Schema::AddField(int i, const std::shared_ptr<Field>& field,
+                        std::shared_ptr<Schema>* out) const {
+  return AddField(i, field).Value(out);
 }
 
 Status Schema::SetField(int i, const std::shared_ptr<Field>& field,
                         std::shared_ptr<Schema>* out) const {
-  if (i < 0 || i > this->num_fields()) {
-    return Status::Invalid("Invalid column index to add field.");
-  }
+  return SetField(i, field).Value(out);
+}
 
-  *out = std::make_shared<Schema>(
-      internal::ReplaceVectorElement(impl_->fields_, i, field), impl_->metadata_);
-  return Status::OK();
+Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
+  return RemoveField(i).Value(out);
 }
 
 bool Schema::HasMetadata() const {
@@ -1179,28 +1238,12 @@ std::shared_ptr<Schema> Schema::WithMetadata(
   return std::make_shared<Schema>(impl_->fields_, metadata);
 }
 
-// deprecated method
-std::shared_ptr<Schema> Schema::AddMetadata(
-    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
-  return WithMetadata(metadata);
-}
-
 std::shared_ptr<const KeyValueMetadata> Schema::metadata() const {
   return impl_->metadata_;
 }
 
 std::shared_ptr<Schema> Schema::RemoveMetadata() const {
   return std::make_shared<Schema>(impl_->fields_);
-}
-
-Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
-  if (i < 0 || i >= this->num_fields()) {
-    return Status::Invalid("Invalid column index to remove field.");
-  }
-
-  *out = std::make_shared<Schema>(internal::DeleteVectorElement(impl_->fields_, i),
-                                  impl_->metadata_);
-  return Status::OK();
 }
 
 std::string Schema::ToString(bool show_metadata) const {
@@ -1211,7 +1254,7 @@ std::string Schema::ToString(bool show_metadata) const {
     if (i > 0) {
       buffer << std::endl;
     }
-    buffer << field->ToString();
+    buffer << field->ToString(show_metadata);
     ++i;
   }
 

@@ -36,7 +36,7 @@ until the end of the array.
 \item \verb{$Take(i)}: return a \code{ChunkedArray} with values at positions given by
 integers \code{i}. If \code{i} is an Arrow \code{Array} or \code{ChunkedArray}, it will be
 coerced to an R vector before taking.
-\item \verb{$Filter(i)}: return a \code{ChunkedArray} with values at positions where
+\item \verb{$Filter(i, keep_na = TRUE)}: return a \code{ChunkedArray} with values at positions where
 logical vector or Arrow boolean-type \verb{(Chunked)Array} \code{i} is \code{TRUE}.
 \item \verb{$cast(target_type, safe = TRUE, options = cast_options(safe))}: Alter the
 data in the array to change its type.

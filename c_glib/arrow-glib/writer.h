@@ -189,32 +189,4 @@ GArrowRecordBatchFileWriter *garrow_record_batch_file_writer_new(
   GArrowSchema *schema,
   GError **error);
 
-
-#define GARROW_TYPE_FEATHER_FILE_WRITER (garrow_feather_file_writer_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowFeatherFileWriter,
-                         garrow_feather_file_writer,
-                         GARROW,
-                         FEATHER_FILE_WRITER,
-                         GObject)
-struct _GArrowFeatherFileWriterClass
-{
-  GObjectClass parent_class;
-};
-
-GArrowFeatherFileWriter *garrow_feather_file_writer_new(GArrowOutputStream *sink,
-                                                        GError **error);
-void garrow_feather_file_writer_set_description(GArrowFeatherFileWriter *writer,
-                                                const gchar *description);
-void garrow_feather_file_writer_set_n_rows(GArrowFeatherFileWriter *writer,
-                                           gint64 n_rows);
-gboolean garrow_feather_file_writer_append(GArrowFeatherFileWriter *writer,
-                                           const gchar *name,
-                                           GArrowArray *array,
-                                           GError **error);
-gboolean garrow_feather_file_writer_write(GArrowFeatherFileWriter *writer,
-                                          GArrowTable *table,
-                                          GError **error);
-gboolean garrow_feather_file_writer_close(GArrowFeatherFileWriter *writer,
-                                          GError **error);
-
 G_END_DECLS

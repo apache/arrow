@@ -39,89 +39,101 @@ on:
       - 'cpp/**'
       - 'r/**'
 
+env:
+  DOCKER_BUILDKIT: 0
+  COMPOSE_DOCKER_CLI_BUILD: 1
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+
 jobs:
+
   ubuntu:
-    name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}
+    name: AMD64 Ubuntu 18.04 R 3.6
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        r: [3.6]
-        ubuntu: [18.04]
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     env:
-      R: ${{ matrix.r }}
-      UBUNTU: ${{ matrix.ubuntu }}
+      R: '3.6'
+      UBUNTU: '18.04'
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
-      - name: Docker Pull
-        shell: bash
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
+        with:
+          path: .docker
+          key: ubuntu-18.04-r-3.6-${{ hashFiles('cpp/**') }}
+          restore-keys: ubuntu-18.04-r-3.6-
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
         run: |
-          docker-compose pull --ignore-pull-failures ubuntu-cpp
-          docker-compose pull --ignore-pull-failures ubuntu-r
-      - name: Docker Build
-        shell: bash
-        run: |
-          docker-compose build ubuntu-cpp
-          docker-compose build ubuntu-r
-      - name: Docker Run
-        shell: bash
-        run: docker-compose run ubuntu-r
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run ubuntu-r
       - name: Dump install logs on failure
         if: failure()
         run: cat r/check/arrow.Rcheck/00install.out
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push ubuntu-r
+        run: archery docker push ubuntu-r
 
   rstudio:
-    name: "rstudio/r-base:${{ matrix.r_version }}-${{ matrix.r_image }}"
+    name: AMD64 CentOS 7 RStudio R 3.6
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # See https://hub.docker.com/r/rstudio/r-base
-        r_version: ["3.6"]
-        r_image:
-          - centos7
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     env:
-      R_ORG: "rstudio"
-      R_IMAGE: "r-base"
-      R_TAG: ${{ matrix.r_version }}-${{ matrix.r_image }}
+      R_ORG: rstudio
+      R_IMAGE: r-base
+      R_TAG: 3.6-centos7
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
-      - name: Docker Pull
-        shell: bash
-        run: docker-compose pull --ignore-pull-failures r
-      - name: Docker Build
-        shell: bash
-        run: docker-compose build r
-      - name: Docker Run
-        shell: bash
-        run: docker-compose run r
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
+        with:
+          path: .docker
+          key: centos-7-r-${{ hashFiles('cpp/**') }}
+          restore-keys: centos-7-r-
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run r
       - name: Dump install logs on failure
         if: failure()
         run: cat r/check/arrow.Rcheck/00install.out
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push r
+        run: archery docker push r
 
   windows:
     name: AMD64 Windows RTools ${{ matrix.rtools }}
     runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -136,12 +148,32 @@ jobs:
       - uses: numworks/setup-msys2@v1
         with:
           update: true
-      - uses: actions/checkout@v2
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Make R tests verbose
+        # If you get a segfault/mysterious test Execution halted,
+        # make this `true` to see where it dies.
+        if: false
+        shell: cmd
+        run: |
+          cd r/tests
+          sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
+          rm -f testthat.R.bak
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - uses: r-lib/actions/setup-r@master
         with:
           rtools-version: ${{ matrix.rtools }}
+          r-version: '3.6'
       - name: Build Arrow C++
         run: msys2do ci/scripts/r_windows_build.sh
+      - uses: actions/upload-artifact@v1
+        with:
+          name: Rtools Arrow C++
+          path: libarrow.zip
       - name: Install R package dependencies
         shell: Rscript {0}
         run: |

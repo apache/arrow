@@ -15,10 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_API_SCHEMA_H
-#define PARQUET_API_SCHEMA_H
+#pragma once
 
 // Schemas
 #include "parquet/schema.h"
-
-#endif  // PARQUET_API_SCHEMA_H

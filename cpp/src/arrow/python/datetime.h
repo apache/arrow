@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_UTIL_DATETIME_H
-#define PYARROW_UTIL_DATETIME_H
+#pragma once
 
 #include <algorithm>
 #include <chrono>
@@ -66,14 +65,13 @@ Status PyTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** out);
 ARROW_PYTHON_EXPORT
 Status PyDate_from_int(int64_t val, const DateUnit unit, PyObject** out);
 
+// WARNING: This function returns a naive datetime.
 ARROW_PYTHON_EXPORT
 Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** out);
 
+// This declaration must be the same as in filesystem/filesystem.h
 using TimePoint =
     std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
-
-ARROW_PYTHON_EXPORT
-Status PyDateTime_from_TimePoint(TimePoint val, PyObject** out);
 
 ARROW_PYTHON_EXPORT
 int64_t PyDate_to_days(PyDateTime_Date* pydate);
@@ -119,6 +117,9 @@ inline TimePoint PyDateTime_to_TimePoint(PyDateTime_DateTime* pydatetime) {
 }
 
 ARROW_PYTHON_EXPORT
+inline int64_t TimePoint_to_ns(TimePoint val) { return val.time_since_epoch().count(); }
+
+ARROW_PYTHON_EXPORT
 inline int64_t PyDelta_to_s(PyDateTime_Delta* pytimedelta) {
   int64_t total_seconds = 0;
   total_seconds += PyDateTime_DELTA_GET_SECONDS(pytimedelta);
@@ -149,5 +150,3 @@ inline int64_t PyDelta_to_ns(PyDateTime_Delta* pytimedelta) {
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow
-
-#endif  // PYARROW_UTIL_DATETIME_H

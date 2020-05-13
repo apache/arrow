@@ -18,10 +18,16 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
+#include "arrow/type_fwd.h"
+#include "arrow/util/compression.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class MemoryPool;
+
 namespace ipc {
 
 // ARROW-109: We set this number arbitrarily to help catch user mistakes. For
@@ -29,7 +35,8 @@ namespace ipc {
 // maximum allowed recursion depth
 constexpr int kMaxNestingDepth = 64;
 
-struct ARROW_EXPORT IpcOptions {
+/// \brief Options for writing Arrow IPC messages
+struct ARROW_EXPORT IpcWriteOptions {
   // If true, allow field lengths that don't fit in a signed 32-bit int.
   // Some implementations may not be able to parse such streams.
   bool allow_64bit = false;
@@ -44,8 +51,49 @@ struct ARROW_EXPORT IpcOptions {
   /// consisting of a 4-byte prefix instead of 8 byte
   bool write_legacy_ipc_format = false;
 
-  static IpcOptions Defaults();
+  /// \brief The memory pool to use for allocations made during IPC writing
+  MemoryPool* memory_pool = default_memory_pool();
+
+  /// \brief EXPERIMENTAL: Codec to use for compressing and decompressing
+  /// record batch body buffers. This is not part of the Arrow IPC protocol and
+  /// only for internal use (e.g. Feather files). May only be LZ4_FRAME and
+  /// ZSTD
+  Compression::type compression = Compression::UNCOMPRESSED;
+  int compression_level = Compression::kUseDefaultCompressionLevel;
+
+  /// \brief Use global CPU thread pool to parallelize any computational tasks
+  /// like compression
+  bool use_threads = true;
+
+  static IpcWriteOptions Defaults();
 };
 
+#ifndef ARROW_NO_DEPRECATED_API
+using IpcOptions = IpcWriteOptions;
+#endif
+
+struct ARROW_EXPORT IpcReadOptions {
+  // The maximum permitted schema nesting depth.
+  int max_recursion_depth = kMaxNestingDepth;
+
+  /// \brief The memory pool to use for allocations made during IPC writing
+  MemoryPool* memory_pool = default_memory_pool();
+
+  /// \brief EXPERIMENTAL: Top-level schema fields to include when
+  /// deserializing RecordBatch. If empty, return all deserialized fields
+  std::vector<int> included_fields;
+
+  /// \brief Use global CPU thread pool to parallelize any computational tasks
+  /// like decompression
+  bool use_threads = true;
+
+  static IpcReadOptions Defaults();
+};
+
+namespace internal {
+
+Status CheckCompressionSupported(Compression::type codec);
+
+}  // namespace internal
 }  // namespace ipc
 }  // namespace arrow

@@ -16,6 +16,7 @@
 # under the License.
 
 from collections import OrderedDict
+from collections.abc import Iterator
 
 import pickle
 import pytest
@@ -346,11 +347,6 @@ def test_struct_type():
 
     assert ty['b'] == ty[2]
 
-    # Duplicate
-    with pytest.warns(UserWarning):
-        with pytest.raises(KeyError):
-            ty['a']
-
     # Not found
     with pytest.raises(KeyError):
         ty['c']
@@ -382,6 +378,26 @@ def test_struct_type():
     # Invalid args
     with pytest.raises(TypeError):
         pa.struct([('a', None)])
+
+
+def test_struct_duplicate_field_names():
+    fields = [
+        pa.field('a', pa.int64()),
+        pa.field('b', pa.int32()),
+        pa.field('a', pa.int32())
+    ]
+    ty = pa.struct(fields)
+
+    # Duplicate
+    with pytest.warns(UserWarning):
+        with pytest.raises(KeyError):
+            ty['a']
+
+    # StructType::GetFieldIndex
+    assert ty.get_field_index('a') == -1
+
+    # StructType::GetAllFieldIndices
+    assert ty.get_all_field_indices('a') == [0, 2]
 
 
 def test_union_type():
@@ -565,6 +581,86 @@ def test_type_equality_operators():
                 assert ty != other
 
 
+def test_key_value_metadata():
+    m = pa.KeyValueMetadata({'a': 'A', 'b': 'B'})
+    assert len(m) == 2
+    assert m['a'] == b'A'
+    assert m[b'a'] == b'A'
+    assert m['b'] == b'B'
+    assert 'a' in m
+    assert b'a' in m
+    assert 'c' not in m
+
+    m1 = pa.KeyValueMetadata({'a': 'A', 'b': 'B'})
+    m2 = pa.KeyValueMetadata(a='A', b='B')
+    m3 = pa.KeyValueMetadata([('a', 'A'), ('b', 'B')])
+
+    assert m1 != 2
+    assert m1 == m2
+    assert m2 == m3
+    assert m1 == {'a': 'A', 'b': 'B'}
+    assert m1 != {'a': 'A', 'b': 'C'}
+
+    with pytest.raises(TypeError):
+        pa.KeyValueMetadata({'a': 1})
+    with pytest.raises(TypeError):
+        pa.KeyValueMetadata({1: 'a'})
+    with pytest.raises(TypeError):
+        pa.KeyValueMetadata(a=1)
+
+    expected = [(b'a', b'A'), (b'b', b'B')]
+    result = [(k, v) for k, v in m3.items()]
+    assert result == expected
+    assert list(m3.items()) == expected
+    assert list(m3.keys()) == [b'a', b'b']
+    assert list(m3.values()) == [b'A', b'B']
+    assert len(m3) == 2
+
+    # test duplicate key support
+    md = pa.KeyValueMetadata([
+        ('a', 'alpha'),
+        ('b', 'beta'),
+        ('a', 'Alpha'),
+        ('a', 'ALPHA'),
+    ])
+
+    expected = [
+        (b'a', b'alpha'),
+        (b'b', b'beta'),
+        (b'a', b'Alpha'),
+        (b'a', b'ALPHA')
+    ]
+    assert len(md) == 4
+    assert isinstance(md.keys(), Iterator)
+    assert isinstance(md.values(), Iterator)
+    assert isinstance(md.items(), Iterator)
+    assert list(md.items()) == expected
+    assert list(md.keys()) == [k for k, _ in expected]
+    assert list(md.values()) == [v for _, v in expected]
+
+    # first occurrence
+    assert md['a'] == b'alpha'
+    assert md['b'] == b'beta'
+    assert md.get_all('a') == [b'alpha', b'Alpha', b'ALPHA']
+    assert md.get_all('b') == [b'beta']
+    assert md.get_all('unkown') == []
+
+    with pytest.raises(KeyError):
+        md = pa.KeyValueMetadata([
+            ('a', 'alpha'),
+            ('b', 'beta'),
+            ('a', 'Alpha'),
+            ('a', 'ALPHA'),
+        ], b='BETA')
+
+
+def test_key_value_metadata_duplicates():
+    meta = pa.KeyValueMetadata({'a': '1', 'b': '2'})
+
+    with pytest.raises(KeyError):
+        pa.KeyValueMetadata(meta, a='3')
+
+
 def test_field_basic():
     t = pa.string()
     f = pa.field('foo', t)
@@ -665,6 +761,30 @@ def test_field_add_remove_metadata():
     f5 = pa.field('foo', pa.int32(), True, metadata)
     f6 = f0.with_metadata(metadata)
     assert f5.equals(f6)
+
+
+def test_field_modified_copies():
+    f0 = pa.field('foo', pa.int32(), True)
+    f0_ = pa.field('foo', pa.int32(), True)
+    assert f0.equals(f0_)
+
+    f1 = pa.field('foo', pa.int64(), True)
+    f1_ = f0.with_type(pa.int64())
+    assert f1.equals(f1_)
+    # Original instance is unmodified
+    assert f0.equals(f0_)
+
+    f2 = pa.field('foo', pa.int32(), False)
+    f2_ = f0.with_nullable(False)
+    assert f2.equals(f2_)
+    # Original instance is unmodified
+    assert f0.equals(f0_)
+
+    f3 = pa.field('bar', pa.int32(), True)
+    f3_ = f0.with_name('bar')
+    assert f3.equals(f3_)
+    # Original instance is unmodified
+    assert f0.equals(f0_)
 
 
 def test_is_integer_value():

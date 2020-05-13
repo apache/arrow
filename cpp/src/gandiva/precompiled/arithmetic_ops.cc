@@ -36,6 +36,7 @@ extern "C" {
 // Expand inner macros for all date/time types.
 #define DATE_TYPES(INNER, NAME, OP) \
   INNER(NAME, date64, OP)           \
+  INNER(NAME, date32, OP)           \
   INNER(NAME, timestamp, OP)        \
   INNER(NAME, time32, OP)
 
@@ -139,6 +140,7 @@ NUMERIC_TYPES(VALIDITY_OP, isnumeric, +)
   INNER(float64)
 
 #define DATE_FUNCTION(INNER) \
+  INNER(date32)              \
   INNER(date64)              \
   INNER(timestamp)           \
   INNER(time32)

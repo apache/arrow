@@ -41,11 +41,14 @@ struct ARROW_EXPORT HdfsOptions {
   int16_t replication = 3;
   int64_t default_block_size = 0;
 
-  void ConfigureEndPoint(const std::string& host, int port);
-  void ConfigureHdfsReplication(int16_t replication);
-  void ConfigureHdfsUser(const std::string& user_name);
-  void ConfigureHdfsBufferSize(int32_t buffer_size);
-  void ConfigureHdfsBlockSize(int64_t default_block_size);
+  void ConfigureEndPoint(std::string host, int port);
+  void ConfigureReplication(int16_t replication);
+  void ConfigureUser(std::string user_name);
+  void ConfigureBufferSize(int32_t buffer_size);
+  void ConfigureBlockSize(int64_t default_block_size);
+  void ConfigureKerberosTicketCachePath(std::string path);
+
+  bool Equals(const HdfsOptions& other) const;
 
   static Result<HdfsOptions> FromUri(const ::arrow::internal::Uri& uri);
   static Result<HdfsOptions> FromUri(const std::string& uri);
@@ -60,13 +63,14 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   ~HadoopFileSystem() override;
 
   std::string type_name() const override { return "hdfs"; }
+  HdfsOptions options() const;
+  bool Equals(const FileSystem& other) const override;
 
   /// \cond FALSE
-  using FileSystem::GetTargetInfo;
-  using FileSystem::GetTargetInfos;
+  using FileSystem::GetFileInfo;
   /// \endcond
-  Result<FileInfo> GetTargetInfo(const std::string& path) override;
-  Result<std::vector<FileInfo>> GetTargetInfos(const FileSelector& select) override;
+  Result<FileInfo> GetFileInfo(const std::string& path) override;
+  Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 

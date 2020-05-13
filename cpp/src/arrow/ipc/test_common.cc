@@ -30,14 +30,19 @@
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace ipc {
 namespace test {
 
@@ -103,9 +108,10 @@ static Status MakeListArray(const std::shared_ptr<Array>& child_array, int num_l
     // Force invariants
     const auto child_length = static_cast<offset_type>(child_array->length());
     offsets[0] = 0;
-    std::replace_if(offsets.begin(), offsets.end(),
-                    [child_length](offset_type offset) { return offset > child_length; },
-                    child_length);
+    std::replace_if(
+        offsets.begin(), offsets.end(),
+        [child_length](offset_type offset) { return offset > child_length; },
+        child_length);
   }
 
   offsets[num_lists] = static_cast<offset_type>(child_array->length());
@@ -716,15 +722,16 @@ Status MakeDecimal(std::shared_ptr<RecordBatch>* out) {
   constexpr int kDecimalSize = 16;
   constexpr int length = 10;
 
-  std::shared_ptr<Buffer> data, is_valid;
   std::vector<uint8_t> is_valid_bytes(length);
 
-  RETURN_NOT_OK(AllocateBuffer(kDecimalSize * length, &data));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> data,
+                        AllocateBuffer(kDecimalSize * length));
 
   random_decimals(length, 1, kDecimalPrecision, data->mutable_data());
   random_null_bytes(length, 0.1, is_valid_bytes.data());
 
-  ARROW_ASSIGN_OR_RAISE(is_valid, BitUtil::BytesToBits(is_valid_bytes));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> is_valid,
+                        BitUtil::BytesToBits(is_valid_bytes));
 
   auto a1 = std::make_shared<Decimal128Array>(f0->type(), length, data, is_valid,
                                               kUnknownNullCount);
@@ -752,6 +759,46 @@ Status MakeNull(std::shared_ptr<RecordBatch>* out) {
   ArrayFromVector<Int64Type, int64_t>(f1->type(), is_valid, int_values, &a2);
 
   *out = RecordBatch::Make(schema, a1->length(), {a1, a2});
+  return Status::OK();
+}
+
+Status MakeUuid(std::shared_ptr<RecordBatch>* out) {
+  auto uuid_type = uuid();
+  auto storage_type = checked_cast<const ExtensionType&>(*uuid_type).storage_type();
+
+  auto f0 = field("f0", uuid_type);
+  auto f1 = field("f1", uuid_type, /*nullable=*/false);
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto a0 = std::make_shared<UuidArray>(
+      uuid_type, ArrayFromJSON(storage_type, R"(["0123456789abcdef", null])"));
+  auto a1 = std::make_shared<UuidArray>(
+      uuid_type,
+      ArrayFromJSON(storage_type, R"(["ZYXWVUTSRQPONMLK", "JIHGFEDBA9876543"])"));
+
+  *out = RecordBatch::Make(schema, a1->length(), {a0, a1});
+  return Status::OK();
+}
+
+Status MakeDictExtension(std::shared_ptr<RecordBatch>* out) {
+  auto type = dict_extension_type();
+  auto storage_type = checked_cast<const ExtensionType&>(*type).storage_type();
+
+  auto f0 = field("f0", type);
+  auto f1 = field("f1", type, /*nullable=*/false);
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto storage0 = std::make_shared<DictionaryArray>(
+      storage_type, ArrayFromJSON(int8(), "[1, 0, null, 1, 1]"),
+      ArrayFromJSON(utf8(), R"(["foo", "bar"])"));
+  auto a0 = std::make_shared<ExtensionArray>(type, storage0);
+
+  auto storage1 = std::make_shared<DictionaryArray>(
+      storage_type, ArrayFromJSON(int8(), "[2, 0, 0, 1, 1]"),
+      ArrayFromJSON(utf8(), R"(["arrow", "parquet", "plasma"])"));
+  auto a1 = std::make_shared<ExtensionArray>(type, storage1);
+
+  *out = RecordBatch::Make(schema, a1->length(), {a0, a1});
   return Status::OK();
 }
 

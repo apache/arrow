@@ -341,7 +341,7 @@ void CpuInfo::VerifyCpuRequirements() {
     DCHECK(false) << "CPU does not support the Supplemental SSE3 instruction set";
   }
 #endif
-#if defined(__aarch64__)
+#if defined(ARROW_HAVE_NEON)
   if (!IsSupported(CpuInfo::ASIMD)) {
     DCHECK(false) << "CPU does not support the Armv8 Neon instruction set";
   }
@@ -349,7 +349,7 @@ void CpuInfo::VerifyCpuRequirements() {
 }
 
 bool CpuInfo::CanUseSSE4_2() const {
-#if defined(ARROW_HAVE_SSE4_2) && defined(ARROW_USE_SIMD)
+#if defined(ARROW_HAVE_SSE4_2)
   return IsSupported(CpuInfo::SSE4_2);
 #else
   return false;
@@ -377,7 +377,7 @@ int CpuInfo::num_cores() { return num_cores_; }
 std::string CpuInfo::model_name() { return model_name_; }
 
 void CpuInfo::SetDefaultCacheSize() {
-#ifdef _SC_LEVEL1_DCACHE_SIZE
+#if defined(_SC_LEVEL1_DCACHE_SIZE) && !defined(__aarch64__)
   // Call sysconf to query for the cache sizes
   cache_sizes_[0] = sysconf(_SC_LEVEL1_DCACHE_SIZE);
   cache_sizes_[1] = sysconf(_SC_LEVEL2_CACHE_SIZE);

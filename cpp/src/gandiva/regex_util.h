@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_REGEX_UTIL_H
-#define GANDIVA_REGEX_UTIL_H
+#pragma once
 
 #include <set>
 #include <sstream>
@@ -44,5 +43,3 @@ class GANDIVA_EXPORT RegexUtil {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_REGEX_UTIL_H

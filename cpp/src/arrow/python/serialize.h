@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_PYTHON_TO_ARROW_H
-#define ARROW_PYTHON_PYTHON_TO_ARROW_H
+#pragma once
 
 #include <memory>
 #include <vector>
@@ -55,7 +54,7 @@ struct ARROW_PYTHON_EXPORT SerializedPyObject {
   std::vector<std::shared_ptr<SparseTensor>> sparse_tensors;
   std::vector<std::shared_ptr<Tensor>> ndarrays;
   std::vector<std::shared_ptr<Buffer>> buffers;
-  ipc::IpcOptions ipc_options;
+  ipc::IpcWriteOptions ipc_options;
 
   SerializedPyObject();
 
@@ -135,6 +134,7 @@ struct PythonType {
     SPARSECOOTENSOR,
     SPARSECSRMATRIX,
     SPARSECSCMATRIX,
+    SPARSECSFTENSOR,
     NUM_PYTHON_TYPES
   };
 };
@@ -142,5 +142,3 @@ struct PythonType {
 }  // namespace py
 
 }  // namespace arrow
-
-#endif  // ARROW_PYTHON_PYTHON_TO_ARROW_H

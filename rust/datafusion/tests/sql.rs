@@ -27,6 +27,7 @@ use arrow::record_batch::RecordBatch;
 
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
+use datafusion::execution::physical_plan::udf::ScalarFunction;
 use datafusion::logicalplan::LogicalPlan;
 
 const DEFAULT_BATCH_SIZE: usize = 1024 * 1024;
@@ -64,7 +65,7 @@ fn nyc() -> Result<()> {
 
     let optimized_plan = ctx.optimize(&logical_plan)?;
 
-    match optimized_plan.as_ref() {
+    match &optimized_plan {
         LogicalPlan::Aggregate { input, .. } => match input.as_ref() {
             LogicalPlan::TableScan {
                 ref projected_schema,
@@ -142,6 +143,49 @@ fn csv_query_group_by_int_min_max() {
     actual.sort();
     let expected = "1\t0.05636955101974106\t0.9965400387585364\n2\t0.16301110515739792\t0.991517828651004\n3\t0.047343434291126085\t0.9293883502480845\n4\t0.02182578039211991\t0.9237877978193884\n5\t0.01479305307777301\t0.9723580396501548".to_string();
     assert_eq!(expected, actual.join("\n"));
+}
+
+#[test]
+fn csv_query_avg_sqrt() -> Result<()> {
+    let mut ctx = create_ctx()?;
+    register_aggregate_csv(&mut ctx);
+    let sql = "SELECT avg(custom_sqrt(c12)) FROM aggregate_test_100";
+    let mut actual = execute(&mut ctx, sql);
+    actual.sort();
+    let expected = "0.6706002946036462".to_string();
+    assert_eq!(actual.join("\n"), expected);
+    Ok(())
+}
+
+fn create_ctx() -> Result<ExecutionContext> {
+    let mut ctx = ExecutionContext::new();
+
+    // register a custom UDF
+    ctx.register_udf(ScalarFunction::new(
+        "custom_sqrt",
+        vec![Field::new("n", DataType::Float64, true)],
+        DataType::Float64,
+        custom_sqrt,
+    ));
+
+    Ok(ctx)
+}
+
+fn custom_sqrt(args: &[ArrayRef]) -> Result<ArrayRef> {
+    let input = &args[0]
+        .as_any()
+        .downcast_ref::<Float64Array>()
+        .expect("cast failed");
+
+    let mut builder = Float64Builder::new(input.len());
+    for i in 0..input.len() {
+        if input.is_null(i) {
+            builder.append_null()?;
+        } else {
+            builder.append_value(input.value(i).sqrt())?;
+        }
+    }
+    Ok(Arc::new(builder.finish()))
 }
 
 #[test]
@@ -253,9 +297,9 @@ fn csv_query_cast_literal() {
 fn csv_query_limit() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx);
-    let sql = "SELECT 0 FROM aggregate_test_100 LIMIT 2";
+    let sql = "SELECT c1 FROM aggregate_test_100 LIMIT 2";
     let actual = execute(&mut ctx, sql).join("\n");
-    let expected = "0\n0".to_string();
+    let expected = "\"c\"\n\"d\"".to_string();
     assert_eq!(expected, actual);
 }
 
@@ -283,7 +327,7 @@ fn csv_query_limit_with_same_nbr_of_rows() {
 fn csv_query_limit_zero() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx);
-    let sql = "SELECT 0 FROM aggregate_test_100 LIMIT 0";
+    let sql = "SELECT c1 FROM aggregate_test_100 LIMIT 0";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "".to_string();
     assert_eq!(expected, actual);
@@ -304,6 +348,26 @@ fn csv_query_external_table_count() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv_by_sql(&mut ctx);
     let sql = "SELECT COUNT(c12) FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql).join("\n");
+    let expected = "100".to_string();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn csv_query_count_star() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv_by_sql(&mut ctx);
+    let sql = "SELECT COUNT(*) FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql).join("\n");
+    let expected = "100".to_string();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn csv_query_count_one() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv_by_sql(&mut ctx);
+    let sql = "SELECT COUNT(1) FROM aggregate_test_100";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "100".to_string();
     assert_eq!(expected, actual);
@@ -399,7 +463,7 @@ fn execute(ctx: &mut ExecutionContext, sql: &str) -> Vec<String> {
     result_str(&results)
 }
 
-fn result_str(results: &Vec<RecordBatch>) -> Vec<String> {
+fn result_str(results: &[RecordBatch]) -> Vec<String> {
     let mut result = vec![];
     for batch in results {
         for row_index in 0..batch.num_rows() {

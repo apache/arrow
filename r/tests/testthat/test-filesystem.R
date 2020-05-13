@@ -19,8 +19,9 @@ context("File system")
 
 test_that("LocalFilesystem", {
   fs <- LocalFileSystem$create()
+  expect_identical(fs$type_name, "local")
   DESCRIPTION <- system.file("DESCRIPTION", package = "arrow")
-  info <- fs$GetTargetInfos(DESCRIPTION)[[1]]
+  info <- fs$GetFileInfo(DESCRIPTION)[[1]]
   expect_equal(info$base_name(), "DESCRIPTION")
   expect_equal(info$extension(), "")
   expect_equal(info$type, FileType$File)
@@ -34,33 +35,33 @@ test_that("LocalFilesystem", {
 
   tf <- tempfile(fileext = ".txt")
   fs$CopyFile(DESCRIPTION, tf)
-  info <- fs$GetTargetInfos(tf)[[1]]
+  info <- fs$GetFileInfo(tf)[[1]]
   expect_equal(info$extension(), "txt")
   expect_equal(info$size, info$size)
   expect_equal(readLines(DESCRIPTION), readLines(tf))
 
   tf2 <- tempfile(fileext = ".txt")
   fs$Move(tf, tf2)
-  infos <- fs$GetTargetInfos(c(tf, tf2, dirname(tf)))
-  expect_equal(infos[[1]]$type, FileType$NonExistent)
+  infos <- fs$GetFileInfo(c(tf, tf2, dirname(tf)))
+  expect_equal(infos[[1]]$type, FileType$NotFound)
   expect_equal(infos[[2]]$type, FileType$File)
   expect_equal(infos[[3]]$type, FileType$Directory)
 
   fs$DeleteFile(tf2)
-  expect_equal(fs$GetTargetInfos(tf2)[[1L]]$type, FileType$NonExistent)
+  expect_equal(fs$GetFileInfo(tf2)[[1L]]$type, FileType$NotFound)
   expect_true(!file.exists(tf2))
 
-  expect_equal(fs$GetTargetInfos(tf)[[1L]]$type, FileType$NonExistent)
+  expect_equal(fs$GetFileInfo(tf)[[1L]]$type, FileType$NotFound)
   expect_true(!file.exists(tf))
 
   td <- tempfile()
   fs$CreateDir(td)
-  expect_equal(fs$GetTargetInfos(td)[[1L]]$type, FileType$Directory)
+  expect_equal(fs$GetFileInfo(td)[[1L]]$type, FileType$Directory)
   fs$CopyFile(DESCRIPTION, file.path(td, "DESCRIPTION"))
   fs$DeleteDirContents(td)
   expect_equal(length(dir(td)), 0L)
   fs$DeleteDir(td)
-  expect_equal(fs$GetTargetInfos(td)[[1L]]$type, FileType$NonExistent)
+  expect_equal(fs$GetFileInfo(td)[[1L]]$type, FileType$NotFound)
 
   tf3 <- tempfile()
   os <- fs$OpenOutputStream(path = tf3)
@@ -85,19 +86,19 @@ test_that("SubTreeFilesystem", {
   expect_is(st_fs, "FileSystem")
   st_fs$CreateDir("test")
   st_fs$CopyFile("DESCRIPTION", "DESC.txt")
-  infos <- st_fs$GetTargetInfos(c("DESCRIPTION", "test", "nope", "DESC.txt"))
+  infos <- st_fs$GetFileInfo(c("DESCRIPTION", "test", "nope", "DESC.txt"))
   expect_equal(infos[[1L]]$type, FileType$File)
   expect_equal(infos[[2L]]$type, FileType$Directory)
-  expect_equal(infos[[3L]]$type, FileType$NonExistent)
+  expect_equal(infos[[3L]]$type, FileType$NotFound)
   expect_equal(infos[[4L]]$type, FileType$File)
   expect_equal(infos[[4L]]$extension(), "txt")
 
   local_fs$DeleteDirContents(td)
-  infos <- st_fs$GetTargetInfos(c("DESCRIPTION", "test", "nope", "DESC.txt"))
-  expect_equal(infos[[1L]]$type, FileType$NonExistent)
-  expect_equal(infos[[2L]]$type, FileType$NonExistent)
-  expect_equal(infos[[3L]]$type, FileType$NonExistent)
-  expect_equal(infos[[4L]]$type, FileType$NonExistent)
+  infos <- st_fs$GetFileInfo(c("DESCRIPTION", "test", "nope", "DESC.txt"))
+  expect_equal(infos[[1L]]$type, FileType$NotFound)
+  expect_equal(infos[[2L]]$type, FileType$NotFound)
+  expect_equal(infos[[3L]]$type, FileType$NotFound)
+  expect_equal(infos[[4L]]$type, FileType$NotFound)
 })
 
 test_that("LocalFileSystem + Selector", {
@@ -109,16 +110,30 @@ test_that("LocalFileSystem + Selector", {
   writeLines("...", file.path(td, "dir", "three.txt"))
 
   selector <- FileSelector$create(td, recursive = TRUE)
-  infos <- fs$GetTargetInfos(selector)
+  infos <- fs$GetFileInfo(selector)
   expect_equal(length(infos), 4L)
   types <- sapply(infos, function(.x) .x$type)
   expect_equal(sum(types == FileType$File), 3L)
   expect_equal(sum(types == FileType$Directory), 1L)
 
   selector <- FileSelector$create(td, recursive = FALSE)
-  infos <- fs$GetTargetInfos(selector)
+  infos <- fs$GetFileInfo(selector)
   expect_equal(length(infos), 3L)
   types <- sapply(infos, function(.x) .x$type)
   expect_equal(sum(types == FileType$File), 2L)
   expect_equal(sum(types == FileType$Directory), 1L)
+})
+
+test_that("FileSystem$from_uri", {
+  skip_on_cran()
+  skip_if_not_available("s3")
+  fs_and_path <- FileSystem$from_uri("s3://ursa-labs-taxi-data")
+  expect_is(fs_and_path$fs, "S3FileSystem")
+})
+
+test_that("S3FileSystem", {
+  skip_on_cran()
+  skip_if_not_available("s3")
+  s3fs <- S3FileSystem$create()
+  expect_is(s3fs, "S3FileSystem")
 })

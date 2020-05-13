@@ -18,7 +18,7 @@
 
 from collections import defaultdict
 from concurrent import futures
-from functools import partial
+from functools import partial, reduce
 
 import json
 import numpy as np
@@ -77,7 +77,7 @@ def _check_contains_null(val):
     return False
 
 
-def _check_filters(filters):
+def _check_filters(filters, check_null_strings=True):
     """
     Check if filters are well-formed.
     """
@@ -89,18 +89,83 @@ def _check_filters(filters):
             # too few:
             #   We have [(,,), ..] instead of [[(,,), ..]]
             filters = [filters]
-        for conjunction in filters:
-            for col, op, val in conjunction:
-                if (
-                    isinstance(val, list)
-                    and all(_check_contains_null(v) for v in val)
-                    or _check_contains_null(val)
-                ):
-                    raise NotImplementedError(
-                        "Null-terminated binary strings are not supported as"
-                        " filter values."
-                    )
+        if check_null_strings:
+            for conjunction in filters:
+                for col, op, val in conjunction:
+                    if (
+                        isinstance(val, list)
+                        and all(_check_contains_null(v) for v in val)
+                        or _check_contains_null(val)
+                    ):
+                        raise NotImplementedError(
+                            "Null-terminated binary strings are not supported "
+                            "as filter values."
+                        )
     return filters
+
+
+_DNF_filter_doc = """Predicates are expressed in disjunctive normal form (DNF), like
+    ``[[('x', '=', 0), ...], ...]``. DNF allows arbitrary boolean logical
+    combinations of single column predicates. The innermost tuples each
+    describe a single column predicate. The list of inner predicates is
+    interpreted as a conjunction (AND), forming a more selective and
+    multiple column predicate. Finally, the most outer list combines these
+    filters as a disjunction (OR).
+
+    Predicates may also be passed as List[Tuple]. This form is interpreted
+    as a single conjunction. To express OR in predicates, one must
+    use the (preferred) List[List[Tuple]] notation."""
+
+
+def _filters_to_expression(filters):
+    """
+    Check if filters are well-formed.
+
+    See _DNF_filter_doc above for more details.
+    """
+    import pyarrow.dataset as ds
+
+    if isinstance(filters, ds.Expression):
+        return filters
+
+    filters = _check_filters(filters, check_null_strings=False)
+
+    def convert_single_predicate(col, op, val):
+        field = ds.field(col)
+
+        if op == "=" or op == "==":
+            return field == val
+        elif op == "!=":
+            return field != val
+        elif op == '<':
+            return field < val
+        elif op == '>':
+            return field > val
+        elif op == '<=':
+            return field <= val
+        elif op == '>=':
+            return field >= val
+        elif op == 'in':
+            return field.isin(val)
+        elif op == 'not in':
+            return ~field.isin(val)
+        else:
+            raise ValueError(
+                '"{0}" is not a valid operator in predicates.'.format(
+                    (col, op, val)))
+
+    disjunction_members = []
+
+    for conjunction in filters:
+        conjunction_members = [
+            convert_single_predicate(col, op, val)
+            for col, op, val in conjunction
+        ]
+
+        disjunction_members.append(reduce(operator.and_, conjunction_members))
+
+    return reduce(operator.or_, disjunction_members)
+
 
 # ----------------------------------------------------------------------
 # Reading a single Parquet file
@@ -108,21 +173,21 @@ def _check_filters(filters):
 
 class ParquetFile:
     """
-    Reader interface for a single Parquet file
+    Reader interface for a single Parquet file.
 
     Parameters
     ----------
     source : str, pathlib.Path, pyarrow.NativeFile, or file-like object
         Readable source. For passing bytes or buffer-like file containing a
-        Parquet file, use pyarrow.BufferReader
+        Parquet file, use pyarrow.BufferReader.
     metadata : FileMetaData, default None
         Use existing metadata object, rather than reading from file.
     common_metadata : FileMetaData, default None
         Will be used in reads for pandas schema metadata if not found in the
-        main file's metadata, no other uses at the moment
-    memory_map : boolean, default False
+        main file's metadata, no other uses at the moment.
+    memory_map : bool, default False
         If the source is a file path, use a memory map to read file, which can
-        improve performance in some environments
+        improve performance in some environments.
     buffer_size : int, default 0
         If positive, perform read buffering when deserializing individual
         column chunks. Otherwise IO calls are unbuffered.
@@ -181,19 +246,19 @@ class ParquetFile:
     def read_row_group(self, i, columns=None, use_threads=True,
                        use_pandas_metadata=False):
         """
-        Read a single row group from a Parquet file
+        Read a single row group from a Parquet file.
 
         Parameters
         ----------
         columns: list
             If not None, only these columns will be read from the row group. A
             column name may be a prefix of a nested field, e.g. 'a' will select
-            'a.b', 'a.c', and 'a.d.e'
-        use_threads : boolean, default True
-            Perform multi-threaded column reads
-        use_pandas_metadata : boolean, default False
+            'a.b', 'a.c', and 'a.d.e'.
+        use_threads : bool, default True
+            Perform multi-threaded column reads.
+        use_pandas_metadata : bool, default False
             If True and file has custom pandas schema metadata, ensure that
-            index columns are also loaded
+            index columns are also loaded.
 
         Returns
         -------
@@ -208,7 +273,7 @@ class ParquetFile:
     def read_row_groups(self, row_groups, columns=None, use_threads=True,
                         use_pandas_metadata=False):
         """
-        Read a multiple row groups from a Parquet file
+        Read a multiple row groups from a Parquet file.
 
         Parameters
         ----------
@@ -217,17 +282,17 @@ class ParquetFile:
         columns: list
             If not None, only these columns will be read from the row group. A
             column name may be a prefix of a nested field, e.g. 'a' will select
-            'a.b', 'a.c', and 'a.d.e'
-        use_threads : boolean, default True
-            Perform multi-threaded column reads
-        use_pandas_metadata : boolean, default False
+            'a.b', 'a.c', and 'a.d.e'.
+        use_threads : bool, default True
+            Perform multi-threaded column reads.
+        use_pandas_metadata : bool, default False
             If True and file has custom pandas schema metadata, ensure that
-            index columns are also loaded
+            index columns are also loaded.
 
         Returns
         -------
         pyarrow.table.Table
-            Content of the row groups as a table (of columns)
+            Content of the row groups as a table (of columns).
         """
         column_indices = self._get_column_indices(
             columns, use_pandas_metadata=use_pandas_metadata)
@@ -237,24 +302,24 @@ class ParquetFile:
 
     def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
         """
-        Read a Table from Parquet format
+        Read a Table from Parquet format,
 
         Parameters
         ----------
         columns: list
             If not None, only these columns will be read from the file. A
             column name may be a prefix of a nested field, e.g. 'a' will select
-            'a.b', 'a.c', and 'a.d.e'
-        use_threads : boolean, default True
-            Perform multi-threaded column reads
-        use_pandas_metadata : boolean, default False
+            'a.b', 'a.c', and 'a.d.e'.
+        use_threads : bool, default True
+            Perform multi-threaded column reads.
+        use_pandas_metadata : bool, default False
             If True and file has custom pandas schema metadata, ensure that
-            index columns are also loaded
+            index columns are also loaded.
 
         Returns
         -------
         pyarrow.table.Table
-            Content of the file as a table (of columns)
+            Content of the file as a table (of columns).
         """
         column_indices = self._get_column_indices(
             columns, use_pandas_metadata=use_pandas_metadata)
@@ -263,16 +328,19 @@ class ParquetFile:
 
     def scan_contents(self, columns=None, batch_size=65536):
         """
-        Read contents of file with a single thread for indicated columns and
-        batch size. Number of rows in file is returned. This function is used
-        for benchmarking
+        Read contents of file for the given columns and batch size.
+
+        Notes
+        -----
+        This function's primary purpose is benchmarking.
+        The scan is executed on a single thread.
 
         Parameters
         ----------
         columns : list of integers, default None
-            If None, scan all columns
+            Select columns to read, if None scan all columns.
         batch_size : int, default 64K
-            Number of rows to read at a time internally
+            Number of rows to read at a time internally.
 
         Returns
         -------
@@ -354,33 +422,41 @@ def _sanitize_table(table, new_schema, flavor):
 
 
 _parquet_writer_arg_docs = """version : {"1.0", "2.0"}, default "1.0"
-    The Parquet format version, defaults to 1.0
+    Determine which Parquet logical types are available for use, whether the
+    reduced set from the Parquet 1.x.x format or the expanded logical types
+    added in format version 2.0.0 and after. Note that files written with
+    version='2.0' may not be readable in all Parquet implementations, so
+    version='1.0' is likely the choice that maximizes file compatibility. Some
+    features, such as lossless storage of nanosecond timestamps as INT64
+    physical storage, are only available with version='2.0'. The Parquet 2.0.0
+    format version also introduced a new serialized data page format; this can
+    be enabled separately using the data_page_version option.
 use_dictionary : bool or list
     Specify if we should use dictionary encoding in general or only for
     some columns.
-use_deprecated_int96_timestamps : boolean, default None
+use_deprecated_int96_timestamps : bool, default None
     Write timestamps to INT96 Parquet format. Defaults to False unless enabled
     by flavor argument. This take priority over the coerce_timestamps option.
-coerce_timestamps : string, default None
+coerce_timestamps : str, default None
     Cast timestamps a particular resolution.
     Valid values: {None, 'ms', 'us'}
 data_page_size : int, default None
     Set a target threshold for the approximate encoded size of data
     pages within a column chunk (in bytes). If None, use the default data page
     size of 1MByte.
-allow_truncated_timestamps : boolean, default False
+allow_truncated_timestamps : bool, default False
     Allow loss of data when coercing timestamps to a particular
     resolution. E.g. if microsecond or nanosecond data is lost when coercing to
-    'ms', do not raise an exception
+    'ms', do not raise an exception.
 compression : str or dict
     Specify the compression codec, either on a general basis or per-column.
-    Valid values: {'NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4', 'ZSTD'}
+    Valid values: {'NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4', 'ZSTD'}.
 write_statistics : bool or list
     Specify if we should write statistics in general (default is True) or only
     for some columns.
 flavor : {'spark'}, default None
     Sanitize schema or set other compatibility options to work with
-    various target systems
+    various target systems.
 filesystem : FileSystem, default None
     If nothing passed, will be inferred from `where` if path-like, else
     `where` is already a file-like object so no filesystem is needed.
@@ -395,15 +471,25 @@ compression_level: int or dict, default None
 use_byte_stream_split: bool or list, default False
     Specify if the byte_stream_split encoding should be used in general or
     only for some columns. If both dictionary and byte_stream_stream are
-    enabled, then dictionary is prefered.
+    enabled, then dictionary is preferred.
     The byte_stream_split encoding is valid only for floating-point data types
-    and should be combined with a compression codec."""
+    and should be combined with a compression codec.
+writer_engine_version: str, default "V2"
+    The engine version to use when writing out Arrow data.  V2 supports
+    all nested types. V1 is legacy and will be removed in a future release.
+    Setting the environment variable ARROW_PARQUET_WRITER_ENGINE will
+    override the default.
+data_page_version : {"1.0", "2.0"}, default "1.0"
+    The serialized Parquet data page format version to write, defaults to
+    1.0. This does not impact the file schema logical types and Arrow to
+    Parquet type casting behavior; for that use the "version" option.
+"""
 
 
 class ParquetWriter:
 
     __doc__ = """
-Class for incrementally building a Parquet file for Arrow tables
+Class for incrementally building a Parquet file for Arrow tables.
 
 Parameters
 ----------
@@ -413,8 +499,8 @@ schema : arrow Schema
 **options : dict
     If options contains a key `metadata_collector` then the
     corresponding value is assumed to be a list (or any object with
-    `.append` method) that will be filled with file metadata instances
-    of dataset pieces.
+    `.append` method) that will be filled with the file metadata instance
+    of the written file.
 """.format(_parquet_writer_arg_docs)
 
     def __init__(self, where, schema, filesystem=None,
@@ -426,6 +512,8 @@ schema : arrow Schema
                  use_deprecated_int96_timestamps=None,
                  compression_level=None,
                  use_byte_stream_split=False,
+                 writer_engine_version=None,
+                 data_page_version='1.0',
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -453,6 +541,7 @@ schema : arrow Schema
         else:
             sink = where
         self._metadata_collector = options.pop('metadata_collector', None)
+        engine_version = os.environ.get('ARROW_PARQUET_WRITER_ENGINE', 'V2')
         self.writer = _parquet.ParquetWriter(
             sink, schema,
             version=version,
@@ -462,6 +551,8 @@ schema : arrow Schema
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
             compression_level=compression_level,
             use_byte_stream_split=use_byte_stream_split,
+            writer_engine_version=engine_version,
+            data_page_version=data_page_version,
             **options)
         self.is_open = True
 
@@ -512,20 +603,21 @@ def _get_pandas_index_columns(keyvalues):
 
 class ParquetDatasetPiece:
     """
-    A single chunk of a potentially larger Parquet dataset to read. The
-    arguments will indicate to read either a single row group or all row
-    groups, and whether to add partition keys to the resulting pyarrow.Table
+    A single chunk of a potentially larger Parquet dataset to read.
+
+    The arguments will indicate to read either a single row group or all row
+    groups, and whether to add partition keys to the resulting pyarrow.Table.
 
     Parameters
     ----------
     path : str or pathlib.Path
-        Path to file in the file system where this piece is located
+        Path to file in the file system where this piece is located.
     open_file_func : callable
-        Function to use for obtaining file handle to dataset piece
+        Function to use for obtaining file handle to dataset piece.
     partition_keys : list of tuples
-      [(column name, ordinal index)]
+        Two-element tuples of ``(column name, ordinal index)``.
     row_group : int, default None
-        Row group to load. By default, reads all row groups
+        Row group to load. By default, reads all row groups.
     """
     def __init__(self, path, open_file_func=partial(open, mode='rb'),
                  file_options=None, row_group=None, partition_keys=None):
@@ -565,7 +657,7 @@ class ParquetDatasetPiece:
 
     def get_metadata(self):
         """
-        Returns the file's metadata
+        Return the file's metadata.
 
         Returns
         -------
@@ -576,7 +668,7 @@ class ParquetDatasetPiece:
 
     def open(self):
         """
-        Returns instance of ParquetFile
+        Return instance of ParquetFile.
         """
         reader = self.open_file_func(self.path)
         if not isinstance(reader, ParquetFile):
@@ -586,16 +678,16 @@ class ParquetDatasetPiece:
     def read(self, columns=None, use_threads=True, partitions=None,
              file=None, use_pandas_metadata=False):
         """
-        Read this piece as a pyarrow.Table
+        Read this piece as a pyarrow.Table.
 
         Parameters
         ----------
         columns : list of column names, default None
-        use_threads : boolean, default True
-            Perform multi-threaded column reads
+        use_threads : bool, default True
+            Perform multi-threaded column reads.
         partitions : ParquetPartitions, default None
         file : file-like object
-            passed to ParquetFile
+            Passed to ParquetFile.
 
         Returns
         -------
@@ -648,7 +740,8 @@ class ParquetDatasetPiece:
 
 
 class PartitionSet:
-    """A data structure for cataloguing the observed Parquet partitions at a
+    """
+    A data structure for cataloguing the observed Parquet partitions at a
     particular level. So if we have
 
     /foo=a/bar=0
@@ -733,7 +826,9 @@ class ParquetPartitions:
     def get_index(self, level, name, key):
         """
         Record a partition value at a particular level, returning the distinct
-        code for that value at that level. Example:
+        code for that value at that level.
+
+        Example:
 
         partitions.get_index(1, 'foo', 'a') returns 0
         partitions.get_index(1, 'foo', 'b') returns 1
@@ -744,9 +839,9 @@ class ParquetPartitions:
         ----------
         level : int
             The nesting level of the partition we are observing
-        name : string
+        name : str
             The partition name
-        key : string or int
+        key : str or int
             The partition value
         """
         if level == len(self.levels):
@@ -804,9 +899,7 @@ class ParquetPartitions:
 
 
 class ParquetManifest:
-    """
 
-    """
     def __init__(self, dirpath, open_file_func=None, filesystem=None,
                  pathsep='/', partition_scheme='hive', metadata_nthreads=1):
         filesystem, dirpath = _get_filesystem_and_path(filesystem, dirpath)
@@ -921,7 +1014,7 @@ def _parse_hive_partition(value):
 
 def _is_private_directory(x):
     _, tail = os.path.split(x)
-    return tail.startswith('_') and '=' not in tail
+    return (tail.startswith('_') or tail.startswith('.')) and '=' not in tail
 
 
 def _path_split(path, sep):
@@ -960,62 +1053,93 @@ read_dictionary : list, default None
     nested types, you must pass the full column "path", which could be
     something like level1.level2.list.item. Refer to the Parquet
     file's schema to obtain the paths.
-memory_map : boolean, default False
+memory_map : bool, default False
     If the source is a file path, use a memory map to read file, which can
-    improve performance in some environments
+    improve performance in some environments.
 buffer_size : int, default 0
     If positive, perform read buffering when deserializing individual
-    column chunks. Otherwise IO calls are unbuffered."""
+    column chunks. Otherwise IO calls are unbuffered.
+partitioning : Partitioning or str or list of str, default "hive"
+    The partitioning scheme for a partitioned dataset. The default of "hive"
+    assumes directory names with key=value pairs like "/year=2009/month=11".
+    In addition, a scheme like "/2009/11" is also supported, in which case
+    you need to specify the field names or a full schema. See the
+    ``pyarrow.dataset.partitioning()`` function for more details.
+use_legacy_dataset : bool, default True
+    Set to False to enable the new code path (experimental, using the
+    new Arrow Dataset API). Among other things, this allows to pass
+    `filters` for all columns and not only the partition keys, enables
+    different partitioning schemes, etc."""
 
 
 class ParquetDataset:
 
     __doc__ = """
 Encapsulates details of reading a complete Parquet dataset possibly
-consisting of multiple files and partitions in subdirectories
+consisting of multiple files and partitions in subdirectories.
 
 Parameters
 ----------
 path_or_paths : str or List[str]
-    A directory name, single file name, or list of file names
+    A directory name, single file name, or list of file names.
 filesystem : FileSystem, default None
     If nothing passed, paths assumed to be found in the local on-disk
-    filesystem
+    filesystem.
 metadata : pyarrow.parquet.FileMetaData
-    Use metadata obtained elsewhere to validate file schemas
+    Use metadata obtained elsewhere to validate file schemas.
 schema : pyarrow.parquet.Schema
     Use schema obtained elsewhere to validate file schemas. Alternative to
-    metadata parameter
-split_row_groups : boolean, default False
-    Divide files into pieces for each row group in the file
-validate_schema : boolean, default True
-    Check that individual file schemas are all the same / compatible
+    metadata parameter.
+split_row_groups : bool, default False
+    Divide files into pieces for each row group in the file.
+validate_schema : bool, default True
+    Check that individual file schemas are all the same / compatible.
 filters : List[Tuple] or List[List[Tuple]] or None (default)
-    List of filters to apply, like ``[[('x', '=', 0), ...], ...]``. This
-    implements partition-level (hive) filtering only, i.e., to prevent the
-    loading of some files of the dataset.
+    Rows which do not match the filter predicate will be removed from scanned
+    data. Partition keys embedded in a nested directory structure will be
+    exploited to avoid loading files at all if they contain no matching rows.
+    If `use_legacy_dataset` is True, filters can only reference partition
+    keys and only a hive-style directory structure is supported. When
+    setting `use_legacy_dataset` to False, also within-file level filtering
+    and different partitioning schemes are supported.
 
-    Predicates are expressed in disjunctive normal form (DNF). This means
-    that the innermost tuple describe a single column predicate. These
-    inner predicate make are all combined with a conjunction (AND) into a
-    larger predicate. The most outer list then combines all filters
-    with a disjunction (OR). By this, we should be able to express all
-    kinds of filters that are possible using boolean logic.
-
-    This function also supports passing in as List[Tuple]. These predicates
-    are evaluated as a conjunction. To express OR in predicates, one must
-    use the (preferred) List[List[Tuple]] notation.
+    {1}
 metadata_nthreads: int, default 1
     How many threads to allow the thread pool which is used to read the
     dataset metadata. Increasing this is helpful to read partitioned
     datasets.
-{}
-""".format(_read_docstring_common)
+{0}
+""".format(_read_docstring_common, _DNF_filter_doc)
+
+    def __new__(cls, path_or_paths=None, filesystem=None, schema=None,
+                metadata=None, split_row_groups=False, validate_schema=True,
+                filters=None, metadata_nthreads=1, read_dictionary=None,
+                memory_map=False, buffer_size=0, partitioning="hive",
+                use_legacy_dataset=True):
+        if not use_legacy_dataset:
+            return _ParquetDatasetV2(path_or_paths, filesystem=filesystem,
+                                     filters=filters,
+                                     partitioning=partitioning,
+                                     read_dictionary=read_dictionary,
+                                     memory_map=memory_map,
+                                     buffer_size=buffer_size,
+                                     # unsupported keywords
+                                     schema=schema, metadata=metadata,
+                                     split_row_groups=split_row_groups,
+                                     validate_schema=validate_schema,
+                                     metadata_nthreads=metadata_nthreads)
+        self = object.__new__(cls)
+        return self
 
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True,
                  filters=None, metadata_nthreads=1, read_dictionary=None,
-                 memory_map=False, buffer_size=0):
+                 memory_map=False, buffer_size=0, partitioning="hive",
+                 use_legacy_dataset=True):
+        if partitioning != "hive":
+            raise ValueError(
+                'Only "hive" for hive-like partitioning is supported when '
+                'using use_legacy_dataset=True')
         self._metadata = _ParquetDatasetMetadata()
         a_path = path_or_paths
         if isinstance(a_path, list):
@@ -1119,21 +1243,21 @@ metadata_nthreads: int, default 1
 
     def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
         """
-        Read multiple Parquet files as a single pyarrow.Table
+        Read multiple Parquet files as a single pyarrow.Table.
 
         Parameters
         ----------
         columns : List[str]
-            Names of columns to read from the file
-        use_threads : boolean, default True
+            Names of columns to read from the file.
+        use_threads : bool, default True
             Perform multi-threaded column reads
         use_pandas_metadata : bool, default False
-            Passed through to each dataset piece
+            Passed through to each dataset piece.
 
         Returns
         -------
         pyarrow.Table
-            Content of the file as a table (of columns)
+            Content of the file as a table (of columns).
         """
         tables = []
         for piece in self.pieces:
@@ -1160,12 +1284,12 @@ metadata_nthreads: int, default 1
     def read_pandas(self, **kwargs):
         """
         Read dataset including pandas metadata, if any. Other arguments passed
-        through to ParquetDataset.read, see docstring for further details
+        through to ParquetDataset.read, see docstring for further details.
 
         Returns
         -------
         pyarrow.Table
-            Content of the file as a table (of columns)
+            Content of the file as a table (of columns).
         """
         return self.read(use_pandas_metadata=True, **kwargs)
 
@@ -1238,6 +1362,114 @@ def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
     return pieces, partitions, common_metadata_path, metadata_path
 
 
+class _ParquetDatasetV2:
+    """
+    ParquetDataset shim using the Dataset API under the hood.
+    """
+    def __init__(self, path_or_paths, filesystem=None, filters=None,
+                 partitioning="hive", read_dictionary=None, buffer_size=None,
+                 memory_map=False, **kwargs):
+        import pyarrow.dataset as ds
+        import pyarrow.fs
+
+        # Raise error for not supported keywords
+        for keyword, default in [
+                ("schema", None), ("metadata", None),
+                ("split_row_groups", False), ("validate_schema", True),
+                ("metadata_nthreads", 1)]:
+            if keyword in kwargs and kwargs[keyword] is not default:
+                raise ValueError(
+                    "Keyword '{0}' is not yet supported with the new "
+                    "Dataset API".format(keyword))
+
+        # map old filesystems to new one
+        # TODO(dataset) deal with other file systems
+        if isinstance(filesystem, LocalFileSystem):
+            filesystem = pyarrow.fs.LocalFileSystem(use_mmap=memory_map)
+        elif filesystem is None and memory_map:
+            # if memory_map is specified, assume local file system (string
+            # path can in principle be URI for any filesystem)
+            filesystem = pyarrow.fs.LocalFileSystem(use_mmap=True)
+
+        # map additional arguments
+        read_options = {}
+        if buffer_size:
+            read_options.update(use_buffered_stream=True,
+                                buffer_size=buffer_size)
+        if read_dictionary is not None:
+            read_options.update(dictionary_columns=read_dictionary)
+        parquet_format = ds.ParquetFileFormat(read_options=read_options)
+
+        self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,
+                                   format=parquet_format,
+                                   partitioning=partitioning)
+        self._filters = filters
+        if filters is not None:
+            self._filter_expression = _filters_to_expression(filters)
+        else:
+            self._filter_expression = None
+
+    @property
+    def schema(self):
+        return self._dataset.schema
+
+    def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
+        """
+        Read (multiple) Parquet files as a single pyarrow.Table.
+
+        Parameters
+        ----------
+        columns : List[str]
+            Names of columns to read from the dataset. The partition fields
+            are not automatically included (in contrast to when setting
+            ``use_legacy_dataset=True``).
+        use_threads : bool, default True
+            Perform multi-threaded column reads.
+        use_pandas_metadata : bool, default False
+            If True and file has custom pandas schema metadata, ensure that
+            index columns are also loaded.
+
+        Returns
+        -------
+        pyarrow.Table
+            Content of the file as a table (of columns).
+        """
+        # if use_pandas_metadata, we need to include index columns in the
+        # column selection, to be able to restore those in the pandas DataFrame
+        metadata = self._dataset.schema.metadata
+        if columns is not None and use_pandas_metadata:
+            if metadata and b'pandas' in metadata:
+                index_columns = set(_get_pandas_index_columns(metadata))
+                columns = columns + list(index_columns - set(columns))
+
+        table = self._dataset.to_table(
+            columns=columns, filter=self._filter_expression,
+            use_threads=use_threads
+        )
+
+        # if use_pandas_metadata, restore the pandas metadata (which gets
+        # lost if doing a specific `columns` selection in to_table)
+        if use_pandas_metadata:
+            if metadata and b"pandas" in metadata:
+                new_metadata = table.schema.metadata or {}
+                new_metadata.update({b"pandas": metadata[b"pandas"]})
+                table = table.replace_schema_metadata(new_metadata)
+
+        return table
+
+    def read_pandas(self, **kwargs):
+        """
+        Read dataset including pandas metadata, if any. Other arguments passed
+        through to ParquetDataset.read, see docstring for further details.
+        """
+        return self.read(use_pandas_metadata=True, **kwargs)
+
+    @property
+    def pieces(self):
+        # TODO raise deprecation warning
+        return list(self._dataset.get_fragments())
+
+
 _read_table_docstring = """
 {0}
 
@@ -1246,21 +1478,26 @@ Parameters
 source: str, pyarrow.NativeFile, or file-like object
     If a string passed, can be a single file name or directory name. For
     file-like objects, only read a single file. Use pyarrow.BufferReader to
-    read a file contained in a bytes or buffer-like object
+    read a file contained in a bytes or buffer-like object.
 columns: list
     If not None, only these columns will be read from the file. A column
     name may be a prefix of a nested field, e.g. 'a' will select 'a.b',
-    'a.c', and 'a.d.e'
-use_threads : boolean, default True
-    Perform multi-threaded column reads
+    'a.c', and 'a.d.e'.
+use_threads : bool, default True
+    Perform multi-threaded column reads.
 metadata : FileMetaData
     If separately computed
 {1}
 filters : List[Tuple] or List[List[Tuple]] or None (default)
-    List of filters to apply, like ``[[('x', '=', 0), ...], ...]``. This
-    implements partition-level (hive) filtering only, i.e., to prevent the
-    loading of some files of the dataset if `source` is a directory.
-    See the docstring of ParquetDataset for more details.
+    Rows which do not match the filter predicate will be removed from scanned
+    data. Partition keys embedded in a nested directory structure will be
+    exploited to avoid loading files at all if they contain no matching rows.
+    If `use_legacy_dataset` is True, filters can only reference partition
+    keys and only a hive-style directory structure is supported. When
+    setting `use_legacy_dataset` to False, also within-file level filtering
+    and different partitioning schemes are supported.
+
+    {3}
 
 Returns
 -------
@@ -1271,12 +1508,32 @@ Returns
 def read_table(source, columns=None, use_threads=True, metadata=None,
                use_pandas_metadata=False, memory_map=False,
                read_dictionary=None, filesystem=None, filters=None,
-               buffer_size=0):
+               buffer_size=0, partitioning="hive", use_legacy_dataset=True):
+    if not use_legacy_dataset:
+        if not _is_path_like(source):
+            raise ValueError("File-like objects are not yet supported with "
+                             "the new Dataset API")
+
+        dataset = _ParquetDatasetV2(
+            source,
+            filesystem=filesystem,
+            partitioning=partitioning,
+            memory_map=memory_map,
+            read_dictionary=read_dictionary,
+            buffer_size=buffer_size,
+            filters=filters,
+            # unsupported keywords
+            metadata=metadata
+        )
+        return dataset.read(columns=columns, use_threads=use_threads,
+                            use_pandas_metadata=use_pandas_metadata)
+
     if _is_path_like(source):
         pf = ParquetDataset(source, metadata=metadata, memory_map=memory_map,
                             read_dictionary=read_dictionary,
                             buffer_size=buffer_size,
-                            filesystem=filesystem, filters=filters)
+                            filesystem=filesystem, filters=filters,
+                            partitioning=partitioning)
     else:
         pf = ParquetFile(source, metadata=metadata,
                          read_dictionary=read_dictionary,
@@ -1289,15 +1546,17 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
 read_table.__doc__ = _read_table_docstring.format(
     'Read a Table from Parquet format',
     "\n".join((_read_docstring_common,
-               """use_pandas_metadata : boolean, default False
+               """use_pandas_metadata : bool, default False
     If True and file has custom pandas schema metadata, ensure that
     index columns are also loaded""")),
     """pyarrow.Table
-    Content of the file as a table (of columns)""")
+    Content of the file as a table (of columns)""",
+    _DNF_filter_doc)
 
 
 def read_pandas(source, columns=None, use_threads=True, memory_map=False,
-                metadata=None, filters=None, buffer_size=0):
+                metadata=None, filters=None, buffer_size=0,
+                use_legacy_dataset=True):
     return read_table(
         source,
         columns=columns,
@@ -1307,6 +1566,7 @@ def read_pandas(source, columns=None, use_threads=True, memory_map=False,
         memory_map=memory_map,
         buffer_size=buffer_size,
         use_pandas_metadata=True,
+        use_legacy_dataset=use_legacy_dataset,
     )
 
 
@@ -1316,7 +1576,8 @@ read_pandas.__doc__ = _read_table_docstring.format(
     _read_docstring_common,
     """pyarrow.Table
     Content of the file as a Table of Columns, including DataFrame
-    indexes as columns""")
+    indexes as columns""",
+    _DNF_filter_doc)
 
 
 def write_table(table, where, row_group_size=None, version='1.0',
@@ -1329,6 +1590,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 filesystem=None,
                 compression_level=None,
                 use_byte_stream_split=False,
+                data_page_version='1.0',
                 **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
@@ -1347,6 +1609,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 use_deprecated_int96_timestamps=use_int96,
                 compression_level=compression_level,
                 use_byte_stream_split=use_byte_stream_split,
+                data_page_version=data_page_version,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
@@ -1359,7 +1622,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
 
 
 write_table.__doc__ = """
-Write a Table to Parquet format
+Write a Table to Parquet format.
 
 Parameters
 ----------
@@ -1402,7 +1665,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
     Parameters
     ----------
     table : pyarrow.Table
-    root_path : string,
+    root_path : str,
         The root directory of the dataset
     filesystem : FileSystem, default None
         If nothing passed, paths assumed to be found in the local on-disk
@@ -1415,17 +1678,20 @@ def write_to_dataset(table, root_path, partition_cols=None,
         and allow you to override the partition filename. If nothing is
         passed, the filename will consist of a uuid.
     **kwargs : dict,
-        kwargs for write_table function. Using `metadata_collector` in
-        kwargs allows one to collect the file metadata instances of
-        dataset pieces. See docstring for `write_table` or
-        `ParquetWriter` for more information.
+        Additional kwargs for write_table function. See docstring for
+        `write_table` or `ParquetWriter` for more information.
+        Using `metadata_collector` in kwargs allows one to collect the
+        file metadata instances of dataset pieces. The file paths in the
+        ColumnChunkMetaData will be set relative to `root_path`.
     """
     fs, root_path = _get_filesystem_and_path(filesystem, root_path)
 
     _mkdir_if_not_exists(fs, root_path)
 
+    metadata_collector = kwargs.pop('metadata_collector', None)
+
     if partition_cols is not None and len(partition_cols) > 0:
-        df = table.to_pandas(ignore_metadata=True)
+        df = table.to_pandas()
         partition_keys = [df[col] for col in partition_cols]
         data_df = df.drop(partition_cols, axis='columns')
         data_cols = df.columns.drop(partition_cols)
@@ -1446,17 +1712,20 @@ def write_to_dataset(table, root_path, partition_cols=None,
             subdir = '/'.join(
                 ['{colname}={value}'.format(colname=name, value=val)
                  for name, val in zip(partition_cols, keys)])
-            subtable = pa.Table.from_pandas(subgroup, preserve_index=False,
-                                            schema=subschema, safe=False)
-            prefix = '/'.join([root_path, subdir])
-            _mkdir_if_not_exists(fs, prefix)
+            subtable = pa.Table.from_pandas(subgroup, schema=subschema,
+                                            safe=False)
+            _mkdir_if_not_exists(fs, '/'.join([root_path, subdir]))
             if partition_filename_cb:
                 outfile = partition_filename_cb(keys)
             else:
                 outfile = guid() + '.parquet'
-            full_path = '/'.join([prefix, outfile])
+            relative_path = '/'.join([subdir, outfile])
+            full_path = '/'.join([root_path, relative_path])
             with fs.open(full_path, 'wb') as f:
-                write_table(subtable, f, **kwargs)
+                write_table(subtable, f, metadata_collector=metadata_collector,
+                            **kwargs)
+            if metadata_collector is not None:
+                metadata_collector[-1].set_file_path(relative_path)
     else:
         if partition_filename_cb:
             outfile = partition_filename_cb(None)
@@ -1464,29 +1733,32 @@ def write_to_dataset(table, root_path, partition_cols=None,
             outfile = guid() + '.parquet'
         full_path = '/'.join([root_path, outfile])
         with fs.open(full_path, 'wb') as f:
-            write_table(table, f, **kwargs)
+            write_table(table, f, metadata_collector=metadata_collector,
+                        **kwargs)
+        if metadata_collector is not None:
+            metadata_collector[-1].set_file_path(outfile)
 
 
 def write_metadata(schema, where, version='1.0',
                    use_deprecated_int96_timestamps=False,
                    coerce_timestamps=None):
     """
-    Write metadata-only Parquet file from schema
+    Write metadata-only Parquet file from schema.
 
     Parameters
     ----------
     schema : pyarrow.Schema
     where: string or pyarrow.NativeFile
     version : {"1.0", "2.0"}, default "1.0"
-        The Parquet format version, defaults to 1.0
-    use_deprecated_int96_timestamps : boolean, default False
-        Write nanosecond resolution timestamps to INT96 Parquet format
-    coerce_timestamps : string, default None
+        The Parquet format version, defaults to 1.0.
+    use_deprecated_int96_timestamps : bool, default False
+        Write nanosecond resolution timestamps to INT96 Parquet format.
+    coerce_timestamps : str, default None
         Cast timestamps a particular resolution.
-        Valid values: {None, 'ms', 'us'}
+        Valid values: {None, 'ms', 'us'}.
     filesystem : FileSystem, default None
         If nothing passed, paths assumed to be found in the local on-disk
-        filesystem
+        filesystem.
     """
     writer = ParquetWriter(
         where, schema, version=version,
@@ -1497,13 +1769,13 @@ def write_metadata(schema, where, version='1.0',
 
 def read_metadata(where, memory_map=False):
     """
-    Read FileMetadata from footer of a single Parquet file
+    Read FileMetadata from footer of a single Parquet file.
 
     Parameters
     ----------
-    where : string (filepath) or file-like object
-    memory_map : boolean, default False
-        Create memory map when the source is a file path
+    where : str (filepath) or file-like object
+    memory_map : bool, default False
+        Create memory map when the source is a file path.
 
     Returns
     -------
@@ -1514,13 +1786,13 @@ def read_metadata(where, memory_map=False):
 
 def read_schema(where, memory_map=False):
     """
-    Read effective Arrow schema from Parquet file metadata
+    Read effective Arrow schema from Parquet file metadata.
 
     Parameters
     ----------
-    where : string (filepath) or file-like object
-    memory_map : boolean, default False
-        Create memory map when the source is a file path
+    where : str (filepath) or file-like object
+    memory_map : bool, default False
+        Create memory map when the source is a file path.
 
     Returns
     -------

@@ -19,6 +19,8 @@
 /// dataset with possible partitioning according to available
 /// partitioning
 
+// This API is EXPERIMENTAL.
+
 #pragma once
 
 #include <memory>
@@ -37,22 +39,55 @@
 namespace arrow {
 namespace dataset {
 
-/// \brief SourceFactory provides a way to inspect/discover a Source's expected
-/// schema before materializing said Source.
+struct InspectOptions {
+  /// See `fragments` property.
+  static constexpr int kInspectAllFragments = -1;
+
+  /// Indicate how many fragments should be inspected to infer the unified dataset
+  /// schema. Limiting the number of fragments accessed improves the latency of
+  /// the discovery process when dealing with a high number of fragments and/or
+  /// high latency file systems.
+  ///
+  /// The default value of `1` inspects the schema of the first (in no particular
+  /// order) fragment only. If the dataset has a uniform schema for all fragments,
+  /// this default is the optimal value. In order to inspect all fragments and
+  /// robustly unify their potentially varying schemas, set this option to
+  /// `kInspectAllFragments`. A value of `0` disables inspection of fragments
+  /// altogether so only the partitioning schema will be inspected.
+  int fragments = 1;
+};
+
+struct FinishOptions {
+  /// Finalize the dataset with this given schema. If the schema is not
+  /// provided, infer the schema via the Inspect, see the `inspect_options`
+  /// property.
+  std::shared_ptr<Schema> schema = NULLPTR;
+
+  /// If the schema is not provided, it will be discovered by passing the
+  /// following options to `DatasetDiscovery::Inspect`.
+  InspectOptions inspect_options{};
+
+  /// Indicate if the given Schema (when specified), should be validated against
+  /// the fragments' schemas. `inspect_options` will control how many fragments
+  /// are checked.
+  bool validate_fragments = false;
+};
+
+/// \brief DatasetFactory provides a way to inspect/discover a Dataset's expected
+/// schema before materializing said Dataset.
 class ARROW_DS_EXPORT DatasetFactory {
  public:
   /// \brief Get the schemas of the Fragments and Partitioning.
-  virtual Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas() = 0;
+  virtual Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas(
+      InspectOptions options) = 0;
 
   /// \brief Get unified schema for the resulting Dataset.
-  virtual Result<std::shared_ptr<Schema>> Inspect();
+  Result<std::shared_ptr<Schema>> Inspect(InspectOptions options = {});
 
-  /// \brief Create a Dataset with the given schema.
-  virtual Result<std::shared_ptr<Dataset>> Finish(
-      const std::shared_ptr<Schema>& schema) = 0;
-
-  /// \brief Create a Dataset using the inspected schema.
-  virtual Result<std::shared_ptr<Dataset>> Finish();
+  /// \brief Create a Dataset
+  Result<std::shared_ptr<Dataset>> Finish();
+  Result<std::shared_ptr<Dataset>> Finish(std::shared_ptr<Schema> schema);
+  virtual Result<std::shared_ptr<Dataset>> Finish(FinishOptions options) = 0;
 
   /// \brief Optional root partition for the resulting Dataset.
   const std::shared_ptr<Expression>& root_partition() const { return root_partition_; }
@@ -82,16 +117,15 @@ class ARROW_DS_EXPORT UnionDatasetFactory : public DatasetFactory {
   }
 
   /// \brief Get the schemas of the Datasets.
-  Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas() override;
+  ///
+  /// Instead of applying options globally, it applies at each child factory.
+  /// This will not respect `options.fragments` exactly, but will respect the
+  /// spirit of peeking the first fragments or all of them.
+  Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas(
+      InspectOptions options) override;
 
-  /// \brief Get unified schema for the resulting Dataset.
-  Result<std::shared_ptr<Schema>> Inspect() override;
-
-  /// \brief Create a Dataset with the given schema.
-  Result<std::shared_ptr<Dataset>> Finish(const std::shared_ptr<Schema>& schema) override;
-
-  /// \brief Create a Dataset using the inspected schema.
-  Result<std::shared_ptr<Dataset>> Finish() override;
+  /// \brief Create a Dataset.
+  Result<std::shared_ptr<Dataset>> Finish(FinishOptions options) override;
 
  protected:
   explicit UnionDatasetFactory(std::vector<std::shared_ptr<DatasetFactory>> factories);
@@ -131,18 +165,20 @@ struct FileSystemFactoryOptions {
   // in a serial and single threaded fashion. Disabling this feature will skip the
   // IO, but unsupported files may be present in the Dataset
   // (resulting in an error at scan time).
-  bool exclude_invalid_files = true;
+  bool exclude_invalid_files = false;
 
-  // Files matching one of the following prefix will be ignored by the
-  // discovery process. This is matched to the basename of a path.
+  // When discovering from a Selector (and not from an explicit file list), ignore
+  // files and directories matching any of these prefixes.
   //
-  // Example:
-  // ignore_prefixes = {"_", ".DS_STORE" };
+  // Example (with selector = "/dataset/**"):
+  // selector_ignore_prefixes = {"_", ".DS_STORE" };
   //
   // - "/dataset/data.csv" -> not ignored
   // - "/dataset/_metadata" -> ignored
   // - "/dataset/.DS_STORE" -> ignored
-  std::vector<std::string> ignore_prefixes = {
+  // - "/dataset/_hidden/dat" -> ignored
+  // - "/dataset/nested/.DS_STORE" -> ignored
+  std::vector<std::string> selector_ignore_prefixes = {
       ".",
       "_",
   };
@@ -180,26 +216,26 @@ class ARROW_DS_EXPORT FileSystemDatasetFactory : public DatasetFactory {
       std::shared_ptr<fs::FileSystem> filesystem, fs::FileSelector selector,
       std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options);
 
-  Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas() override;
+  Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas(
+      InspectOptions options) override;
 
-  Result<std::shared_ptr<Dataset>> Finish(const std::shared_ptr<Schema>& schema) override;
+  Result<std::shared_ptr<Dataset>> Finish(FinishOptions options) override;
 
  protected:
-  FileSystemDatasetFactory(std::shared_ptr<fs::FileSystem> filesystem,
-                           fs::PathForest forest, std::shared_ptr<FileFormat> format,
+  FileSystemDatasetFactory(std::vector<std::string> paths,
+                           std::shared_ptr<fs::FileSystem> filesystem,
+                           std::shared_ptr<FileFormat> format,
                            FileSystemFactoryOptions options);
-
-  static Result<fs::PathForest> Filter(const std::shared_ptr<fs::FileSystem>& filesystem,
-                                       const std::shared_ptr<FileFormat>& format,
-                                       const FileSystemFactoryOptions& options,
-                                       fs::PathForest forest);
 
   Result<std::shared_ptr<Schema>> PartitionSchema();
 
+  std::vector<std::string> paths_;
   std::shared_ptr<fs::FileSystem> fs_;
-  fs::PathForest forest_;
   std::shared_ptr<FileFormat> format_;
   FileSystemFactoryOptions options_;
+
+ private:
+  util::optional<util::string_view> RemovePartitionBaseDir(util::string_view path);
 };
 
 }  // namespace dataset

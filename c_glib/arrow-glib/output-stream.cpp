@@ -28,7 +28,9 @@
 #include <arrow-glib/codec.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/file.hpp>
+#include <arrow-glib/ipc-options.hpp>
 #include <arrow-glib/output-stream.hpp>
+#include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/tensor.hpp>
 #include <arrow-glib/writable.hpp>
 
@@ -177,7 +179,7 @@ garrow_output_stream_class_init(GArrowOutputStreamClass *klass)
 
 /**
  * garrow_output_stream_align:
- * @stream: A #GArrowWritable.
+ * @stream: A #GArrowOutputStream.
  * @alignment: The byte multiple for the metadata prefix, usually 8
  *   or 64, to ensure the body starts on a multiple of that alignment.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -193,12 +195,12 @@ garrow_output_stream_align(GArrowOutputStream *stream,
 {
   auto arrow_stream = garrow_output_stream_get_raw(stream);
   auto status = arrow::ipc::AlignStream(arrow_stream.get(), alignment);
-  return garrow_error_check(error, status, "[output-stream][align]");
+  return garrow::check(error, status, "[output-stream][align]");
 }
 
 /**
  * garrow_output_stream_write_tensor:
- * @stream: A #GArrowWritable.
+ * @stream: A #GArrowOutputStream.
  * @tensor: A #GArrowTensor to be written.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
@@ -211,15 +213,62 @@ garrow_output_stream_write_tensor(GArrowOutputStream *stream,
                                   GArrowTensor *tensor,
                                   GError **error)
 {
-  auto arrow_tensor = garrow_tensor_get_raw(tensor);
   auto arrow_stream = garrow_output_stream_get_raw(stream);
+  auto arrow_tensor = garrow_tensor_get_raw(tensor);
   int32_t metadata_length;
   int64_t body_length;
   auto status = arrow::ipc::WriteTensor(*arrow_tensor,
                                         arrow_stream.get(),
                                         &metadata_length,
                                         &body_length);
-  if (garrow_error_check(error, status, "[output-stream][write-tensor]")) {
+  if (garrow::check(error, status, "[output-stream][write-tensor]")) {
+    return metadata_length + body_length;
+  } else {
+    return -1;
+  }
+}
+
+/**
+ * garrow_output_stream_write_record_batch:
+ * @stream: A #GArrowOutputStream.
+ * @record_batch: A #GArrowRecordBatch to be written.
+ * @options: (nullable): A #GArrowWriteOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: The number of written bytes on success, -1 on error.
+ *
+ * Since: 1.0.0
+ */
+gint64
+garrow_output_stream_write_record_batch(GArrowOutputStream *stream,
+                                        GArrowRecordBatch *record_batch,
+                                        GArrowWriteOptions *options,
+                                        GError **error)
+{
+  auto arrow_stream = garrow_output_stream_get_raw(stream);
+  auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
+  int64_t buffer_start_offset = 0;
+  int32_t metadata_length;
+  int64_t body_length;
+  arrow::Status status;
+  if (options) {
+    auto arrow_options = garrow_write_options_get_raw(options);
+    status = arrow::ipc::WriteRecordBatch(*arrow_record_batch,
+                                          buffer_start_offset,
+                                          arrow_stream.get(),
+                                          &metadata_length,
+                                          &body_length,
+                                          *arrow_options);
+  } else {
+    auto arrow_options = arrow::ipc::IpcWriteOptions::Defaults();
+    status = arrow::ipc::WriteRecordBatch(*arrow_record_batch,
+                                          buffer_start_offset,
+                                          arrow_stream.get(),
+                                          &metadata_length,
+                                          &body_length,
+                                          arrow_options);
+  }
+  if (garrow::check(error, status, "[output-stream][write-record-batch]")) {
     return metadata_length + body_length;
   } else {
     return -1;

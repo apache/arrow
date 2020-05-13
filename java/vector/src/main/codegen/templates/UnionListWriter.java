@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.complex.writer.DecimalWriter;
 import org.apache.arrow.vector.holders.DecimalHolder;
 
@@ -176,6 +176,11 @@ public class UnionListWriter extends AbstractFieldWriter {
   public void write(DecimalHolder holder) {
     writer.write(holder);
     writer.setPosition(writer.idx()+1);
+  }
+
+  @Override
+  public void writeNull() {
+    writer.writeNull();
   }
 
   public void writeDecimal(int start, ArrowBuf buffer, ArrowType arrowType) {

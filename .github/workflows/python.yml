@@ -31,125 +31,94 @@ on:
       - 'cpp/**'
       - 'python/**'
 
+env:
+  DOCKER_BUILDKIT: 0
+  COMPOSE_DOCKER_CLI_BUILD: 1
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+
 jobs:
 
-  ubuntu:
-    name: AMD64 Ubuntu ${{ matrix.ubuntu }} Python 3
+  docker:
+    name: ${{ matrix.title }}
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
-        ubuntu: [16.04, 18.04]
+        name:
+          - ubuntu-16.04-python-3
+          - conda-python-3.8-nopandas
+          - conda-python-3.6-pandas-0.23
+          - conda-python-3.6-pandas-latest
+          - centos-python-3.6-manylinux1
+        include:
+          - name: ubuntu-16.04-python-3
+            cache: ubuntu-16.04-python-3
+            image: ubuntu-python
+            # this image always builds with python 3.5
+            title: AMD64 Ubuntu 16.04 Python 3.5
+            ubuntu: 16.04
+          - name: conda-python-3.8-nopandas
+            cache: conda-python-3.8
+            image: conda-python
+            title: AMD64 Conda Python 3.8 Without Pandas
+            python: 3.8
+          - name: conda-python-3.6-pandas-0.23
+            cache: conda-python-3.6
+            image: conda-python-pandas
+            title: AMD64 Conda Python 3.6 Pandas 0.23
+            python: 3.6
+            pandas: 0.23
+          - name: conda-python-3.6-pandas-latest
+            cache: conda-python-3.6
+            image: conda-python-pandas
+            title: AMD64 Conda Python 3.6 Pandas latest
+            python: 3.6
+            pandas: latest
+          - name: centos-python-3.6-manylinux1
+            cache: manylinux1
+            image: --force-pull --no-build centos-python-manylinux1
+            title: AMD64 CentOS 5.11 Python 3.6 manylinux1
     env:
-      UBUNTU: ${{ matrix.ubuntu }}
+      PYTHON: ${{ matrix.python || 3.7 }}
+      UBUNTU: ${{ matrix.ubuntu || 18.04 }}
+      PANDAS: ${{ matrix.pandas || 'latest' }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
-      - name: Docker Pull
-        shell: bash
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
+        with:
+          path: .docker
+          key: ${{ matrix.cache }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ${{ matrix.cache }}-
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
         run: |
-          docker-compose pull --ignore-pull-failures ubuntu-cpp
-          docker-compose pull --ignore-pull-failures ubuntu-python
-      - name: Docker Build
-        shell: bash
-        run: |
-          docker-compose build ubuntu-cpp
-          docker-compose build ubuntu-python
-      - name: Docker Run
-        shell: bash
-        run: docker-compose run ubuntu-python
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run ${{ matrix.image }}
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push ubuntu-python
-
-  conda:
-    name: AMD64 Conda Python ${{ matrix.python }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python: [3.6, 3.8]
-    env:
-      PYTHON: ${{ matrix.python }}
-      PANDAS: latest
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v1
-        with:
-          submodules: true
-      - name: Docker Pull
-        shell: bash
-        run: |
-          docker-compose pull --ignore-pull-failures conda-cpp
-          docker-compose pull --ignore-pull-failures conda-python
-          docker-compose pull --ignore-pull-failures conda-python-pandas
-      - name: Docker Build
-        shell: bash
-        run: |
-          docker-compose build conda-cpp
-          docker-compose build conda-python
-          docker-compose build conda-python-pandas
-      - name: Docker Run
-        shell: bash
-        run: |
-          docker-compose run conda-python-pandas
-      - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
-        continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push conda-python-pandas
-
-  conda-nopandas:
-    name: AMD64 Conda Python ${{ matrix.python }} Nopandas
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-    strategy:
-      fail-fast: false
-      matrix:
-        python: [3.6]
-    env:
-      PYTHON: ${{ matrix.python }}
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v1
-        with:
-          submodules: true
-      - name: Docker Pull
-        shell: bash
-        run: |
-          docker-compose pull --ignore-pull-failures conda-cpp
-          docker-compose pull --ignore-pull-failures conda-python
-      - name: Docker Build
-        shell: bash
-        run: |
-          docker-compose build conda-cpp
-          docker-compose build conda-python
-      - name: Docker Run
-        shell: bash
-        run: docker-compose run conda-python
-      - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
-        continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push conda-python
+        run: archery docker push ${{ matrix.image }}
 
   macos:
-    name: AMD64 MacOS 10.15 Python 3
+    name: AMD64 MacOS 10.15 Python 3.7
     runs-on: macos-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     env:
       ARROW_HOME: /usr/local
       ARROW_DATASET: ON
@@ -169,17 +138,19 @@ jobs:
       CMAKE_ARGS: "-DPYTHON_EXECUTABLE=/usr/local/bin/python3"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Install Dependencies
         shell: bash
         run: |
           brew bundle --file=cpp/Brewfile
           brew install coreutils python
-          pip3 install -r python/requirements.txt \
-                       -r python/requirements-test.txt \
-                       cython
+          pip3 install -r python/requirements-build.txt \
+                       -r python/requirements-test.txt
       - name: Build
         shell: bash
         run: |

@@ -55,7 +55,7 @@ class BufferedBase {
     if (!buffer_) {
       // On first invocation, or if the buffer has been released, we allocate a
       // new buffer
-      RETURN_NOT_OK(AllocateResizableBuffer(pool_, buffer_size_, &buffer_));
+      ARROW_ASSIGN_OR_RAISE(buffer_, AllocateResizableBuffer(buffer_size_, pool_));
     } else if (buffer_->size() != buffer_size_) {
       RETURN_NOT_OK(buffer_->Resize(buffer_size_));
     }
@@ -209,12 +209,6 @@ Result<std::shared_ptr<BufferedOutputStream>> BufferedOutputStream::Create(
   return result;
 }
 
-Status BufferedOutputStream::Create(int64_t buffer_size, MemoryPool* pool,
-                                    std::shared_ptr<OutputStream> raw,
-                                    std::shared_ptr<BufferedOutputStream>* out) {
-  return Create(buffer_size, pool, std::move(raw)).Value(out);
-}
-
 BufferedOutputStream::~BufferedOutputStream() { internal::CloseFromDestructor(this); }
 
 Status BufferedOutputStream::SetBufferSize(int64_t new_buffer_size) {
@@ -227,10 +221,6 @@ int64_t BufferedOutputStream::bytes_buffered() const { return impl_->buffer_pos(
 
 Result<std::shared_ptr<OutputStream>> BufferedOutputStream::Detach() {
   return impl_->Detach();
-}
-
-Status BufferedOutputStream::Detach(std::shared_ptr<OutputStream>* raw) {
-  return Detach().Value(raw);
 }
 
 Status BufferedOutputStream::Close() { return impl_->Close(); }
@@ -410,8 +400,7 @@ class BufferedInputStream::Impl : public BufferedBase {
   }
 
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) {
-    std::shared_ptr<ResizableBuffer> buffer;
-    RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &buffer));
+    ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(nbytes, pool_));
 
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buffer->mutable_data()));
 
@@ -420,7 +409,7 @@ class BufferedInputStream::Impl : public BufferedBase {
       RETURN_NOT_OK(buffer->Resize(bytes_read, false /* shrink_to_fit */));
       buffer->ZeroPadding();
     }
-    return buffer;
+    return std::move(buffer);
   }
 
   // For providing access to the raw file handles
@@ -451,13 +440,6 @@ Result<std::shared_ptr<BufferedInputStream>> BufferedInputStream::Create(
       new BufferedInputStream(std::move(raw), pool, raw_total_bytes_bound));
   RETURN_NOT_OK(result->SetBufferSize(buffer_size));
   return result;
-}
-
-Status BufferedInputStream::Create(int64_t buffer_size, MemoryPool* pool,
-                                   std::shared_ptr<InputStream> raw,
-                                   std::shared_ptr<BufferedInputStream>* out,
-                                   int64_t raw_total_bytes_bound) {
-  return Create(buffer_size, pool, std::move(raw)).Value(out);
 }
 
 Status BufferedInputStream::DoClose() { return impl_->Close(); }

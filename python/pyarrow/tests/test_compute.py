@@ -149,11 +149,12 @@ def test_filter(ty, values):
     arr = pa.array(values, type=ty)
 
     mask = pa.array([True, False, False, True, None])
-    result = arr.filter(mask)
+    result = arr.filter(mask, null_selection_behavior='drop')
     result.validate()
-
-    expected = pa.array([values[0], values[3], None], type=ty)
-    assert result.equals(expected)
+    assert result.equals(pa.array([values[0], values[3]], type=ty))
+    result = arr.filter(mask, null_selection_behavior='emit_null')
+    result.validate()
+    assert result.equals(pa.array([values[0], values[3], None], type=ty))
 
     # non-boolean dtype
     mask = pa.array([0, 1, 0, 1, 0])
@@ -164,3 +165,74 @@ def test_filter(ty, values):
     mask = pa.array([True, False, True])
     with pytest.raises(ValueError, match="must have identical lengths"):
         arr.filter(mask)
+
+
+def test_filter_chunked_array():
+    arr = pa.chunked_array([["a", None], ["c", "d", "e"]])
+    expected_drop = pa.chunked_array([["a"], ["e"]])
+    expected_null = pa.chunked_array([["a"], [None, "e"]])
+
+    for mask in [
+        # mask is array
+        pa.array([True, False, None, False, True]),
+        # mask is chunked array
+        pa.chunked_array([[True, False, None], [False, True]]),
+        # mask is python object
+        [True, False, None, False, True]
+    ]:
+        result = arr.filter(mask)
+        assert result.equals(expected_drop)
+        result = arr.filter(mask, null_selection_behavior="emit_null")
+        assert result.equals(expected_null)
+
+
+def test_filter_record_batch():
+    batch = pa.record_batch(
+        [pa.array(["a", None, "c", "d", "e"])], names=["a'"])
+
+    # mask is array
+    mask = pa.array([True, False, None, False, True])
+    result = batch.filter(mask)
+    expected = pa.record_batch([pa.array(["a", "e"])], names=["a'"])
+    assert result.equals(expected)
+
+    result = batch.filter(mask, null_selection_behavior="emit_null")
+    expected = pa.record_batch([pa.array(["a", None, "e"])], names=["a'"])
+    assert result.equals(expected)
+
+
+def test_filter_table():
+    table = pa.table([pa.array(["a", None, "c", "d", "e"])], names=["a"])
+    expected_drop = pa.table([pa.array(["a", "e"])], names=["a"])
+    expected_null = pa.table([pa.array(["a", None, "e"])], names=["a"])
+
+    for mask in [
+        # mask is array
+        pa.array([True, False, None, False, True]),
+        # mask is chunked array
+        pa.chunked_array([[True, False], [None, False, True]]),
+        # mask is python object
+        [True, False, None, False, True]
+    ]:
+        result = table.filter(mask)
+        assert result.equals(expected_drop)
+        result = table.filter(mask, null_selection_behavior="emit_null")
+        assert result.equals(expected_null)
+
+
+def test_filter_errors():
+    arr = pa.chunked_array([["a", None], ["c", "d", "e"]])
+    batch = pa.record_batch(
+        [pa.array(["a", None, "c", "d", "e"])], names=["a'"])
+    table = pa.table([pa.array(["a", None, "c", "d", "e"])], names=["a"])
+
+    for obj in [arr, batch, table]:
+        # non-boolean dtype
+        mask = pa.array([0, 1, 0, 1, 0])
+        with pytest.raises(TypeError, match="must be of boolean type"):
+            obj.filter(mask)
+
+        # wrong length
+        mask = pa.array([True, False, True])
+        with pytest.raises(ValueError, match="must have identical lengths"):
+            obj.filter(mask)

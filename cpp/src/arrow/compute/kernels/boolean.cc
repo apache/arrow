@@ -75,7 +75,7 @@ Status Invert(FunctionContext* ctx, const Datum& value, Datum* out) {
   std::vector<Datum> result;
   RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, &kernel, value, &result));
 
-  *out = detail::WrapDatumsLike(value, result);
+  *out = detail::WrapDatumsLike(value, invert.out_type(), result);
   return Status::OK();
 }
 
@@ -119,7 +119,8 @@ class BinaryBooleanKernel : public BinaryKernel {
     bitmaps[RIGHT_VALID] = {right.buffers[0], right.offset, right.length};
     bitmaps[RIGHT_DATA] = {right.buffers[1], right.offset, right.length};
 
-    RETURN_NOT_OK(AllocateEmptyBitmap(ctx->memory_pool(), out->length, &out->buffers[0]));
+    ARROW_ASSIGN_OR_RAISE(out->buffers[0],
+                          AllocateEmptyBitmap(out->length, ctx->memory_pool()));
 
     auto out_validity = out->GetMutableValues<uint64_t>(0);
     auto out_data = out->GetMutableValues<uint64_t>(1);

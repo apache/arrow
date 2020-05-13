@@ -82,8 +82,10 @@ garrow_type_from_raw(arrow::Type::type type)
     return GARROW_TYPE_TIME32;
   case arrow::Type::type::TIME64:
     return GARROW_TYPE_TIME64;
-  case arrow::Type::type::INTERVAL:
-    return GARROW_TYPE_INTERVAL;
+  case arrow::Type::type::INTERVAL_MONTHS:
+    return GARROW_TYPE_INTERVAL_MONTHS;
+  case arrow::Type::type::INTERVAL_DAY_TIME:
+    return GARROW_TYPE_INTERVAL_DAY_TIME;
   case arrow::Type::type::DECIMAL:
     return GARROW_TYPE_DECIMAL;
   case arrow::Type::type::LIST:

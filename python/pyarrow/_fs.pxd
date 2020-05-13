@@ -19,14 +19,13 @@
 
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport PyDateTime_from_TimePoint
 from pyarrow.includes.libarrow_fs cimport *
 from pyarrow.lib import _detect_compression
 from pyarrow.lib cimport *
 
 
 cpdef enum FileType:
-    NonExistent = <int8_t> CFileType_NonExistent
+    NotFound = <int8_t> CFileType_NotFound
     Unknown = <int8_t> CFileType_Unknown
     File = <int8_t> CFileType_File
     Directory = <int8_t> CFileType_Directory
@@ -57,7 +56,7 @@ cdef class FileSystem:
     cdef init(self, const shared_ptr[CFileSystem]& wrapped)
 
     @staticmethod
-    cdef wrap(shared_ptr[CFileSystem]& sp)
+    cdef wrap(const shared_ptr[CFileSystem]& sp)
 
     cdef inline shared_ptr[CFileSystem] unwrap(self) nogil
 

@@ -63,7 +63,7 @@ namespace arrow {
 class MemoryPool;
 
 using internal::checked_cast;
-using internal::ParallelFor;
+using internal::OptionalParallelFor;
 
 // ----------------------------------------------------------------------
 // PyCapsule code for setting ndarray base to reference C++ object
@@ -163,12 +163,10 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::NA:  // empty list
       // The above types are all supported.
       return true;
-    case Type::LIST: {
-      const auto& list_type = checked_cast<const ListType&>(type);
-      return ListTypeSupported(*list_type.value_type());
-    }
+    case Type::FIXED_SIZE_LIST:
+    case Type::LIST:
     case Type::LARGE_LIST: {
-      const auto& list_type = checked_cast<const LargeListType&>(type);
+      const auto& list_type = checked_cast<const BaseListType&>(type);
       return ListTypeSupported(*list_type.value_type());
     }
     default:
@@ -241,8 +239,7 @@ Status PyArray_NewFromPool(int nd, npy_intp* dims, PyArray_Descr* descr, MemoryP
     total_size *= dims[i];
   }
 
-  std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(AllocateBuffer(pool, total_size, &buffer));
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(total_size, pool));
   *out = PyArray_NewFromDescr(&PyArray_Type, descr, nd, dims,
                               /*strides=*/nullptr,
                               /*data=*/buffer->mutable_data(),
@@ -252,7 +249,7 @@ Status PyArray_NewFromPool(int nd, npy_intp* dims, PyArray_Descr* descr, MemoryP
     RETURN_IF_PYERROR();
     // Trust that error set if NULL returned
   }
-  return SetBufferBase(reinterpret_cast<PyArrayObject*>(*out), buffer);
+  return SetBufferBase(reinterpret_cast<PyArrayObject*>(*out), std::move(buffer));
 }
 
 template <typename T = void>
@@ -415,7 +412,7 @@ class PandasWriter {
 
     DCHECK_EQ(1, num_columns_);
 
-    npy_intp new_dims[1] = {num_rows_};
+    npy_intp new_dims[1] = {static_cast<npy_intp>(num_rows_)};
     PyArray_Dims dims;
     dims.ptr = new_dims;
     dims.len = 1;
@@ -818,7 +815,8 @@ class TypedPandasWriter : public PandasWriter {
   Status TransferSingle(std::shared_ptr<ChunkedArray> data, PyObject* py_ref) override {
     if (CanZeroCopy(*data)) {
       PyObject* wrapped;
-      npy_intp dims[2] = {num_columns_, num_rows_};
+      npy_intp dims[2] = {static_cast<npy_intp>(num_columns_),
+                          static_cast<npy_intp>(num_rows_)};
       RETURN_NOT_OK(
           MakeNumPyView(data->chunk(0), py_ref, NPY_TYPE, /*ndim=*/2, dims, &wrapped));
       SetBlockData(wrapped);
@@ -960,22 +958,17 @@ struct ObjectWriterVisitor {
     return Status::OK();
   }
 
-  Status Visit(const ListType& type) {
+  template <typename T>
+  enable_if_t<is_fixed_size_list_type<T>::value || is_var_length_list_type<T>::value,
+              Status>
+  Visit(const T& type) {
+    using ArrayType = typename TypeTraits<T>::ArrayType;
     if (!ListTypeSupported(*type.value_type())) {
       return Status::NotImplemented(
           "Not implemented type for conversion from List to Pandas: ",
           type.value_type()->ToString());
     }
-    return ConvertListsLike<ListArray>(options, data, out_values);
-  }
-
-  Status Visit(const LargeListType& type) {
-    if (!ListTypeSupported(*type.value_type())) {
-      return Status::NotImplemented(
-          "Not implemented type for conversion from List to Pandas: ",
-          type.value_type()->ToString());
-    }
-    return ConvertListsLike<LargeListArray>(options, data, out_values);
+    return ConvertListsLike<ArrayType>(options, data, out_values);
   }
 
   Status Visit(const StructType& type) {
@@ -987,7 +980,6 @@ struct ObjectWriterVisitor {
                   std::is_same<DictionaryType, Type>::value ||
                   std::is_same<DurationType, Type>::value ||
                   std::is_same<ExtensionType, Type>::value ||
-                  std::is_same<FixedSizeListType, Type>::value ||
                   std::is_base_of<IntervalType, Type>::value ||
                   std::is_same<TimestampType, Type>::value ||
                   std::is_same<UnionType, Type>::value,
@@ -1481,9 +1473,8 @@ class CategoricalWriter
 
     const auto& dict_type = checked_cast<const DictionaryType&>(*data.type());
 
-    std::unique_ptr<DictionaryUnifier> unifier;
-    RETURN_NOT_OK(
-        DictionaryUnifier::Make(this->options_.pool, dict_type.value_type(), &unifier));
+    ARROW_ASSIGN_OR_RAISE(auto unifier, DictionaryUnifier::Make(dict_type.value_type(),
+                                                                this->options_.pool));
     for (int c = 0; c < data.num_chunks(); c++) {
       const auto& arr = checked_cast<const DictionaryArray&>(*data.chunk(c));
       const auto& indices = checked_cast<const ArrayType&>(*arr.indices());
@@ -1525,7 +1516,7 @@ class CategoricalWriter
                                                       arr_first.dictionary()->length()));
 
       PyObject* wrapped;
-      npy_intp dims[1] = {this->num_rows_};
+      npy_intp dims[1] = {static_cast<npy_intp>(this->num_rows_)};
       RETURN_NOT_OK(MakeNumPyView(indices_first, /*py_ref=*/nullptr, TRAITS::npy_type,
                                   /*ndim=*/1, dims, &wrapped));
       this->SetBlockData(wrapped);
@@ -1760,16 +1751,10 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
         }
       }
     } break;
-    case Type::LIST: {
-      auto list_type = std::static_pointer_cast<ListType>(data.type());
-      if (!ListTypeSupported(*list_type->value_type())) {
-        return Status::NotImplemented("Not implemented type for Arrow list to pandas: ",
-                                      list_type->value_type()->ToString());
-      }
-      *output_type = PandasWriter::OBJECT;
-    } break;
+    case Type::FIXED_SIZE_LIST:
+    case Type::LIST:
     case Type::LARGE_LIST: {
-      auto list_type = std::static_pointer_cast<LargeListType>(data.type());
+      auto list_type = std::static_pointer_cast<BaseListType>(data.type());
       if (!ListTypeSupported(*list_type->value_type())) {
         return Status::NotImplemented("Not implemented type for Arrow list to pandas: ",
                                       list_type->value_type()->ToString());
@@ -1940,14 +1925,7 @@ class ConsolidatedBlockCreator : public PandasBlockCreator {
       return block->Write(std::move(arrays_[i]), i, this->column_block_placement_[i]);
     };
 
-    if (options_.use_threads) {
-      return ParallelFor(num_columns_, WriteColumn);
-    } else {
-      for (int i = 0; i < num_columns_; ++i) {
-        RETURN_NOT_OK(WriteColumn(i));
-      }
-      return Status::OK();
-    }
+    return OptionalParallelFor(options_.use_threads, num_columns_, WriteColumn);
   }
 
  private:
@@ -2047,14 +2025,8 @@ Status ConvertCategoricals(const PandasOptions& options,
       }
     }
   }
-  if (options.use_threads) {
-    return ParallelFor(static_cast<int>(columns_to_encode.size()), EncodeColumn);
-  } else {
-    for (auto i : columns_to_encode) {
-      RETURN_NOT_OK(EncodeColumn(i));
-    }
-    return Status::OK();
-  }
+  return OptionalParallelFor(options.use_threads,
+                             static_cast<int>(columns_to_encode.size()), EncodeColumn);
 }
 
 Status ConvertArrayToPandas(const PandasOptions& options, std::shared_ptr<Array> arr,

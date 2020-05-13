@@ -58,13 +58,8 @@ Result<std::shared_ptr<BufferOutputStream>> BufferOutputStream::Create(
   return ptr;
 }
 
-Status BufferOutputStream::Create(int64_t initial_capacity, MemoryPool* pool,
-                                  std::shared_ptr<BufferOutputStream>* out) {
-  return Create(initial_capacity, pool).Value(out);
-}
-
 Status BufferOutputStream::Reset(int64_t initial_capacity, MemoryPool* pool) {
-  RETURN_NOT_OK(AllocateResizableBuffer(pool, initial_capacity, &buffer_));
+  ARROW_ASSIGN_OR_RAISE(buffer_, AllocateResizableBuffer(initial_capacity, pool));
   is_open_ = true;
   capacity_ = initial_capacity;
   position_ = 0;
@@ -95,10 +90,6 @@ Result<std::shared_ptr<Buffer>> BufferOutputStream::Finish() {
   buffer_->ZeroPadding();
   is_open_ = false;
   return std::move(buffer_);
-}
-
-Status BufferOutputStream::Finish(std::shared_ptr<Buffer>* result) {
-  return Finish().Value(result);
 }
 
 Result<int64_t> BufferOutputStream::Tell() const { return position_; }

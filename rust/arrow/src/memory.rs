@@ -30,24 +30,20 @@ pub fn allocate_aligned(size: usize) -> *mut u8 {
     }
 }
 
-pub fn free_aligned(p: *mut u8, size: usize) {
-    unsafe {
-        std::alloc::dealloc(p, Layout::from_size_align_unchecked(size, ALIGNMENT));
-    }
+pub unsafe fn free_aligned(p: *mut u8, size: usize) {
+    std::alloc::dealloc(p, Layout::from_size_align_unchecked(size, ALIGNMENT));
 }
 
-pub fn reallocate(ptr: *mut u8, old_size: usize, new_size: usize) -> *mut u8 {
-    unsafe {
-        let new_ptr = std::alloc::realloc(
-            ptr,
-            Layout::from_size_align_unchecked(old_size, ALIGNMENT),
-            new_size,
-        );
-        if !new_ptr.is_null() && new_size > old_size {
-            new_ptr.add(old_size).write_bytes(0, new_size - old_size);
-        }
-        new_ptr
+pub unsafe fn reallocate(ptr: *mut u8, old_size: usize, new_size: usize) -> *mut u8 {
+    let new_ptr = std::alloc::realloc(
+        ptr,
+        Layout::from_size_align_unchecked(old_size, ALIGNMENT),
+        new_size,
+    );
+    if !new_ptr.is_null() && new_size > old_size {
+        new_ptr.add(old_size).write_bytes(0, new_size - old_size);
     }
+    new_ptr
 }
 
 pub unsafe fn memcpy(dst: *mut u8, src: *const u8, len: usize) {

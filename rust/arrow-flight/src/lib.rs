@@ -15,4 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-tonic::include_proto!("arrow.flight.protocol"); // The string specified here must match the proto package name
+mod flight {
+    include!("arrow.flight.protocol.rs");
+}
+
+pub use crate::flight::*;

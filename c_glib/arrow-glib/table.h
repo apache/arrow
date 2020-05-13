@@ -20,6 +20,7 @@
 #pragma once
 
 #include <arrow-glib/chunked-array.h>
+#include <arrow-glib/output-stream.h>
 #include <arrow-glib/record-batch.h>
 #include <arrow-glib/schema.h>
 #include <arrow-glib/version.h>
@@ -42,7 +43,7 @@ GArrowTable *
 garrow_table_new_values(GArrowSchema *schema,
                         GList *values,
                         GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_15
 GArrowTable *
 garrow_table_new_chunked_arrays(GArrowSchema *schema,
                                 GArrowChunkedArray **chunked_arrays,
@@ -63,14 +64,14 @@ garrow_table_new_record_batches(GArrowSchema *schema,
 
 gboolean        garrow_table_equal         (GArrowTable *table,
                                             GArrowTable *other_table);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_17
 gboolean
 garrow_table_equal_metadata(GArrowTable *table,
                             GArrowTable *other_table,
                             gboolean check_metadata);
 
 GArrowSchema   *garrow_table_get_schema    (GArrowTable *table);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_15
 GArrowChunkedArray *
 garrow_table_get_column_data(GArrowTable *table,
                              gint i);
@@ -78,7 +79,7 @@ garrow_table_get_column_data(GArrowTable *table,
 guint           garrow_table_get_n_columns (GArrowTable *table);
 guint64         garrow_table_get_n_rows    (GArrowTable *table);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_15
 GArrowTable    *garrow_table_add_column    (GArrowTable *table,
                                             guint i,
                                             GArrowField *field,
@@ -87,7 +88,7 @@ GArrowTable    *garrow_table_add_column    (GArrowTable *table,
 GArrowTable    *garrow_table_remove_column (GArrowTable *table,
                                             guint i,
                                             GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_15
 GArrowTable    *garrow_table_replace_column(GArrowTable *table,
                                             guint i,
                                             GArrowField *field,
@@ -105,9 +106,33 @@ GArrowTable*
 garrow_table_slice(GArrowTable *table,
                    gint64 offset,
                    gint64 length);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_16
 GArrowTable*
 garrow_table_combine_chunks(GArrowTable *table,
                             GError **error);
+
+
+#define GARROW_TYPE_FEATHER_WRITE_PROPERTIES    \
+  (garrow_feather_write_properties_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowFeatherWriteProperties,
+                         garrow_feather_write_properties,
+                         GARROW,
+                         FEATHER_WRITE_PROPERTIES,
+                         GObject)
+struct _GArrowFeatherWritePropertiesClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_17
+GArrowFeatherWriteProperties *
+garrow_feather_write_properties_new(void);
+
+GARROW_AVAILABLE_IN_0_17
+gboolean
+garrow_table_write_as_feather(GArrowTable *table,
+                              GArrowOutputStream *sink,
+                              GArrowFeatherWriteProperties *properties,
+                              GError **error);
 
 G_END_DECLS

@@ -50,8 +50,13 @@ class Tester(object):
     def validate(self, json_path, arrow_path):
         raise NotImplementedError
 
-    def flight_server(self, port):
+    def flight_server(self, scenario_name=None):
+        """Start the Flight server on a free port.
+
+        This should be a context manager that returns the port as the
+        managed object, and cleans up the server on exit.
+        """
         raise NotImplementedError
 
-    def flight_request(self, port, json_path):
+    def flight_request(self, port, json_path=None, scenario_name=None):
         raise NotImplementedError

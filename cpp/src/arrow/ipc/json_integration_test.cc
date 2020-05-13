@@ -35,6 +35,7 @@
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/io_util.h"
@@ -71,9 +72,7 @@ static Status ConvertJsonToArrow(const std::string& json_path,
               << reader->schema()->ToString(/* show_metadata = */ true) << std::endl;
   }
 
-  std::shared_ptr<RecordBatchWriter> writer;
-  RETURN_NOT_OK(RecordBatchFileWriter::Open(out_file.get(), reader->schema(), &writer));
-
+  ARROW_ASSIGN_OR_RAISE(auto writer, NewFileWriter(out_file.get(), reader->schema()));
   for (int i = 0; i < reader->num_record_batches(); ++i) {
     std::shared_ptr<RecordBatch> batch;
     RETURN_NOT_OK(reader->ReadRecordBatch(i, &batch));
@@ -89,7 +88,7 @@ static Status ConvertArrowToJson(const std::string& arrow_path,
   ARROW_ASSIGN_OR_RAISE(auto out_file, io::FileOutputStream::Open(json_path));
 
   std::shared_ptr<RecordBatchFileReader> reader;
-  RETURN_NOT_OK(RecordBatchFileReader::Open(in_file.get(), &reader));
+  ARROW_ASSIGN_OR_RAISE(reader, RecordBatchFileReader::Open(in_file.get()));
 
   if (FLAGS_verbose) {
     std::cout << "Found schema:\n" << reader->schema()->ToString() << std::endl;
@@ -99,8 +98,7 @@ static Status ConvertArrowToJson(const std::string& arrow_path,
   RETURN_NOT_OK(internal::json::JsonWriter::Open(reader->schema(), &writer));
 
   for (int i = 0; i < reader->num_record_batches(); ++i) {
-    std::shared_ptr<RecordBatch> batch;
-    RETURN_NOT_OK(reader->ReadRecordBatch(i, &batch));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> batch, reader->ReadRecordBatch(i));
     RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   }
 
@@ -124,7 +122,7 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
   ARROW_ASSIGN_OR_RAISE(auto arrow_file, io::ReadableFile::Open(arrow_path));
 
   std::shared_ptr<RecordBatchFileReader> arrow_reader;
-  RETURN_NOT_OK(RecordBatchFileReader::Open(arrow_file.get(), &arrow_reader));
+  ARROW_ASSIGN_OR_RAISE(arrow_reader, RecordBatchFileReader::Open(arrow_file.get()));
 
   auto json_schema = json_reader->schema();
   auto arrow_schema = arrow_reader->schema();
@@ -154,7 +152,7 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
   std::shared_ptr<RecordBatch> json_batch;
   for (int i = 0; i < json_nbatches; ++i) {
     RETURN_NOT_OK(json_reader->ReadRecordBatch(i, &json_batch));
-    RETURN_NOT_OK(arrow_reader->ReadRecordBatch(i, &arrow_batch));
+    ARROW_ASSIGN_OR_RAISE(arrow_batch, arrow_reader->ReadRecordBatch(i));
     Status valid_st = json_batch->ValidateFull();
     if (!valid_st.ok()) {
       return Status::Invalid("JSON record batch ", i, " did not validate:\n",
@@ -184,6 +182,11 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
 
 Status RunCommand(const std::string& json_path, const std::string& arrow_path,
                   const std::string& command) {
+  // Make sure the required extension types are registered, as they will be
+  // referenced in test data.
+  ExtensionTypeGuard uuid_ext_guard(uuid());
+  ExtensionTypeGuard dict_ext_guard(dict_extension_type());
+
   if (json_path == "") {
     return Status::Invalid("Must specify json file name");
   }
@@ -253,24 +256,12 @@ static const char* JSON_EXAMPLE = R"example(
       {
         "name": "foo",
         "type": {"name": "int", "isSigned": true, "bitWidth": 32},
-        "nullable": true, "children": [],
-        "typeLayout": {
-          "vectors": [
-            {"type": "VALIDITY", "typeBitWidth": 1},
-            {"type": "DATA", "typeBitWidth": 32}
-          ]
-        }
+        "nullable": true, "children": []
       },
       {
         "name": "bar",
         "type": {"name": "floatingpoint", "precision": "DOUBLE"},
-        "nullable": true, "children": [],
-        "typeLayout": {
-          "vectors": [
-            {"type": "VALIDITY", "typeBitWidth": 1},
-            {"type": "DATA", "typeBitWidth": 64}
-          ]
-        }
+        "nullable": true, "children": []
       }
     ]
   },
@@ -321,12 +312,6 @@ static const char* JSON_EXAMPLE2 = R"example(
         "name": "foo",
         "type": {"name": "int", "isSigned": true, "bitWidth": 32},
         "nullable": true, "children": [],
-        "typeLayout": {
-          "vectors": [
-            {"type": "VALIDITY", "typeBitWidth": 1},
-            {"type": "DATA", "typeBitWidth": 32}
-          ]
-        },
         "metadata": [
           {"key": "converted_from_time32", "value": "true"}
         ]

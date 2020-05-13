@@ -27,7 +27,7 @@ set(ARROW_FLIGHT_STATIC_LINK_LIBS
     c-ares::cares)
 
 if(WIN32)
-  list(APPEND ARROW_FLIGHT_STATIC_LINK_LIBS Ws2_32.lib)
+  list(APPEND ARROW_FLIGHT_STATIC_LINK_LIBS ws2_32.lib)
 endif()
 
 if(GRPC_HAS_ADDRESS_SORTING)
@@ -119,6 +119,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
                 OUTPUTS
                 ARROW_FLIGHT_TESTING_LIBRARIES
                 SOURCES
+                test_integration.cc
                 test_util.cc
                 DEPENDENCIES
                 GTest::gtest

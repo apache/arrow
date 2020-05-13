@@ -331,6 +331,9 @@ class ErrorFlightServer(FlightServerBase):
             raise flight.FlightUnauthenticatedError("foo")
         elif action.type == "unauthorized":
             raise flight.FlightUnauthorizedError("foo")
+        elif action.type == "protobuf":
+            err_msg = b'this is an error message'
+            raise flight.FlightUnauthorizedError("foo", err_msg)
         raise NotImplementedError
 
     def list_flights(self, context, criteria):
@@ -597,7 +600,7 @@ def test_list_actions():
         client = FlightClient(('localhost', server.port))
         with pytest.raises(
                 flight.FlightServerError,
-                match=("TypeError: Results of list_actions must be "
+                match=("Results of list_actions must be "
                        "ActionType or tuple")
         ):
             list(client.list_actions())
@@ -623,6 +626,8 @@ class ConvenienceServer(FlightServerBase):
             return iter([action.body])
         elif action.type == 'bad-action':
             return iter(['foo'])
+        elif action.type == 'arrow-exception':
+            raise pa.ArrowMemoryError()
 
 
 def test_do_action_result_convenience():
@@ -643,8 +648,15 @@ def test_nicer_server_exceptions():
     with ConvenienceServer() as server:
         client = FlightClient(('localhost', server.port))
         with pytest.raises(flight.FlightServerError,
-                           match="TypeError: a bytes-like object is required"):
+                           match="a bytes-like object is required"):
             list(client.do_action('bad-action'))
+        # While Flight/C++ sends across the original status code, it
+        # doesn't get mapped to the equivalent code here, since we
+        # want to be able to distinguish between client- and server-
+        # side errors.
+        with pytest.raises(flight.FlightServerError,
+                           match="ArrowMemoryError"):
+            list(client.do_action('arrow-exception'))
 
 
 def test_get_port():
@@ -1077,3 +1089,15 @@ def test_middleware_reject():
         )
         response = next(client.do_action(flight.Action(b"", b"")))
         assert b"password" == response.body.to_pybytes()
+
+
+def test_extra_info():
+    with ErrorFlightServer() as server:
+        client = FlightClient(('localhost', server.port))
+        try:
+            list(client.do_action(flight.Action("protobuf", b"")))
+            assert False
+        except flight.FlightUnauthorizedError as e:
+            assert e.extra_info is not None
+            ei = e.extra_info
+            assert ei == b'this is an error message'

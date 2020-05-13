@@ -82,18 +82,18 @@ Status CudaIpcMemHandle::FromBuffer(const void* opaque_handle,
 }
 
 Result<std::shared_ptr<Buffer>> CudaIpcMemHandle::Serialize(MemoryPool* pool) const {
-  std::shared_ptr<Buffer> buffer;
   int64_t size = impl_->memory_size;
   const size_t handle_size =
       (size > 0 ? sizeof(int64_t) + sizeof(CUipcMemHandle) : sizeof(int64_t));
 
-  RETURN_NOT_OK(AllocateBuffer(pool, static_cast<int64_t>(handle_size), &buffer));
+  ARROW_ASSIGN_OR_RAISE(auto buffer,
+                        AllocateBuffer(static_cast<int64_t>(handle_size), pool));
   memcpy(buffer->mutable_data(), &impl_->memory_size, sizeof(impl_->memory_size));
   if (size > 0) {
     memcpy(buffer->mutable_data() + sizeof(impl_->memory_size), &impl_->ipc_handle,
            sizeof(impl_->ipc_handle));
   }
-  return buffer;
+  return std::move(buffer);
 }
 
 Status CudaIpcMemHandle::Serialize(MemoryPool* pool, std::shared_ptr<Buffer>* out) const {

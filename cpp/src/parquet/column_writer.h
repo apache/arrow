@@ -43,7 +43,7 @@ namespace parquet {
 
 struct ArrowWriteContext;
 class ColumnDescriptor;
-class CompressedDataPage;
+class DataPage;
 class DictionaryPage;
 class ColumnChunkMetaDataBuilder;
 class Encryptor;
@@ -97,7 +97,7 @@ class PARQUET_EXPORT PageWriter {
   // page limit
   virtual void Close(bool has_dictionary, bool fallback) = 0;
 
-  virtual int64_t WriteDataPage(const CompressedDataPage& page) = 0;
+  virtual int64_t WriteDataPage(const DataPage& page) = 0;
 
   virtual int64_t WriteDictionaryPage(const DictionaryPage& page) = 0;
 
@@ -161,7 +161,7 @@ class TypedColumnWriter : public ColumnWriter {
   /// Write a batch of repetition levels, definition levels, and values to the
   /// column.
   ///
-  /// In comparision to WriteBatch the length of repetition and definition levels
+  /// In comparison to WriteBatch the length of repetition and definition levels
   /// is the same as of the number of values read for max_definition_level == 1.
   /// In the case of max_definition_level > 1, the repetition and definition
   /// levels are larger than the values but the values include the null entries

@@ -24,12 +24,14 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/io/hdfs.h"
 #include "arrow/io/hdfs_internal.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/parsing.h"
+#include "arrow/util/value_parsing.h"
 #include "arrow/util/windows_fixup.h"
 
 namespace arrow {
 
+using internal::ParseValue;
 using internal::Uri;
 
 namespace fs {
@@ -63,13 +65,15 @@ class HadoopFileSystem::Impl {
     return Status::OK();
   }
 
-  Result<FileInfo> GetTargetInfo(const std::string& path) {
+  HdfsOptions options() const { return options_; }
+
+  Result<FileInfo> GetFileInfo(const std::string& path) {
     FileInfo info;
     io::HdfsPathInfo path_info;
     auto status = client_->GetPathInfo(path, &path_info);
     info.set_path(path);
     if (status.IsIOError()) {
-      info.set_type(FileType::NonExistent);
+      info.set_type(FileType::NotFound);
       return info;
     }
 
@@ -83,9 +87,9 @@ class HadoopFileSystem::Impl {
     std::vector<io::HdfsPathInfo> children;
     Status st = client_->ListDirectory(path, &children);
     if (!st.ok()) {
-      if (select.allow_non_existent) {
-        ARROW_ASSIGN_OR_RAISE(auto info, GetTargetInfo(path));
-        if (info.type() == FileType::NonExistent) {
+      if (select.allow_not_found) {
+        ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(path));
+        if (info.type() == FileType::NotFound) {
           return Status::OK();
         }
       }
@@ -112,7 +116,7 @@ class HadoopFileSystem::Impl {
     return Status::OK();
   }
 
-  Result<std::vector<FileInfo>> GetTargetInfos(const FileSelector& select) {
+  Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) {
     std::vector<FileInfo> results;
 
     std::string wd;
@@ -125,10 +129,10 @@ class HadoopFileSystem::Impl {
       wd = wd_uri.path();
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto info, GetTargetInfo(select.base_dir));
+    ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(select.base_dir));
     if (info.type() == FileType::File) {
       return Status::Invalid(
-          "GetTargetInfos expects base_dir of selector to be a directory, while '",
+          "GetFileInfo expects base_dir of selector to be a directory, while '",
           select.base_dir, "' is a file");
     }
     RETURN_NOT_OK(StatSelector(wd, select.base_dir, select, 0, &results));
@@ -249,25 +253,39 @@ class HadoopFileSystem::Impl {
   }
 };
 
-void HdfsOptions::ConfigureEndPoint(const std::string& host, int port) {
-  connection_config.host = host;
+void HdfsOptions::ConfigureEndPoint(std::string host, int port) {
+  connection_config.host = std::move(host);
   connection_config.port = port;
 }
 
-void HdfsOptions::ConfigureHdfsUser(const std::string& user_name) {
-  connection_config.user = user_name;
+void HdfsOptions::ConfigureUser(std::string user_name) {
+  connection_config.user = std::move(user_name);
 }
 
-void HdfsOptions::ConfigureHdfsReplication(int16_t replication) {
+void HdfsOptions::ConfigureKerberosTicketCachePath(std::string path) {
+  connection_config.kerb_ticket = std::move(path);
+}
+
+void HdfsOptions::ConfigureReplication(int16_t replication) {
   this->replication = replication;
 }
 
-void HdfsOptions::ConfigureHdfsBufferSize(int32_t buffer_size) {
+void HdfsOptions::ConfigureBufferSize(int32_t buffer_size) {
   this->buffer_size = buffer_size;
 }
 
-void HdfsOptions::ConfigureHdfsBlockSize(int64_t default_block_size) {
+void HdfsOptions::ConfigureBlockSize(int64_t default_block_size) {
   this->default_block_size = default_block_size;
+}
+
+bool HdfsOptions::Equals(const HdfsOptions& other) const {
+  return (buffer_size == other.buffer_size && replication == other.replication &&
+          default_block_size == other.default_block_size &&
+          connection_config.host == other.connection_config.host &&
+          connection_config.port == other.connection_config.port &&
+          connection_config.user == other.connection_config.user &&
+          connection_config.kerb_ticket == other.connection_config.kerb_ticket &&
+          connection_config.extra_conf == other.connection_config.extra_conf);
 }
 
 Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
@@ -282,6 +300,7 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
   std::string host;
   host = uri.scheme() + "://" + uri.host();
 
+  // configure endpoint
   const auto port = uri.port();
   if (port == -1) {
     // default port will be determined by hdfs FileSystem impl
@@ -290,21 +309,46 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
     options.ConfigureEndPoint(host, port);
   }
 
+  // configure replication
   auto it = options_map.find("replication");
   if (it != options_map.end()) {
     const auto& v = it->second;
-    ::arrow::internal::StringConverter<Int16Type> converter;
-    int16_t reps;
-    if (!converter(v.data(), v.size(), &reps)) {
+    int16_t replication;
+    if (!ParseValue<Int16Type>(v.data(), v.size(), &replication)) {
       return Status::Invalid("Invalid value for option 'replication': '", v, "'");
     }
-    options.ConfigureHdfsReplication(reps);
+    options.ConfigureReplication(replication);
   }
-  it = options_map.find("user");
+
+  // configure buffer_size
+  it = options_map.find("buffer_size");
   if (it != options_map.end()) {
     const auto& v = it->second;
-    options.ConfigureHdfsUser(v);
+    int32_t buffer_size;
+    if (!ParseValue<Int32Type>(v.data(), v.size(), &buffer_size)) {
+      return Status::Invalid("Invalid value for option 'buffer_size': '", v, "'");
+    }
+    options.ConfigureBufferSize(buffer_size);
   }
+
+  // configure default_block_size
+  it = options_map.find("default_block_size");
+  if (it != options_map.end()) {
+    const auto& v = it->second;
+    int64_t default_block_size;
+    if (!ParseValue<Int64Type>(v.data(), v.size(), &default_block_size)) {
+      return Status::Invalid("Invalid value for option 'default_block_size': '", v, "'");
+    }
+    options.ConfigureBlockSize(default_block_size);
+  }
+
+  // configure user
+  it = options_map.find("user");
+  if (it != options_map.end()) {
+    const auto& user = it->second;
+    options.ConfigureUser(user);
+  }
+
   return options;
 }
 
@@ -326,13 +370,25 @@ Result<std::shared_ptr<HadoopFileSystem>> HadoopFileSystem::Make(
   return ptr;
 }
 
-Result<FileInfo> HadoopFileSystem::GetTargetInfo(const std::string& path) {
-  return impl_->GetTargetInfo(path);
+Result<FileInfo> HadoopFileSystem::GetFileInfo(const std::string& path) {
+  return impl_->GetFileInfo(path);
 }
 
-Result<std::vector<FileInfo>> HadoopFileSystem::GetTargetInfos(
-    const FileSelector& select) {
-  return impl_->GetTargetInfos(select);
+HdfsOptions HadoopFileSystem::options() const { return impl_->options(); }
+
+bool HadoopFileSystem::Equals(const FileSystem& other) const {
+  if (this == &other) {
+    return true;
+  }
+  if (other.type_name() != type_name()) {
+    return false;
+  }
+  const auto& hdfs = ::arrow::internal::checked_cast<const HadoopFileSystem&>(other);
+  return options().Equals(hdfs.options());
+}
+
+Result<std::vector<FileInfo>> HadoopFileSystem::GetFileInfo(const FileSelector& select) {
+  return impl_->GetFileInfo(select);
 }
 
 Status HadoopFileSystem::CreateDir(const std::string& path, bool recursive) {

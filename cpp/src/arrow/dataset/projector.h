@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// This API is EXPERIMENTAL.
+
 #pragma once
 
 #include <memory>
@@ -26,6 +28,8 @@
 
 namespace arrow {
 namespace dataset {
+
+ARROW_DS_EXPORT Status CheckProjectable(const Schema& from, const Schema& to);
 
 /// \brief Project a RecordBatch to a given schema.
 ///

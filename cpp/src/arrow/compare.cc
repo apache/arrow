@@ -961,7 +961,7 @@ Status PrintDiff(const Array& left, const Array& right, std::ostream* os) {
 bool ArrayEquals(const Array& left, const Array& right, const EqualOptions& opts) {
   bool are_equal = ArrayEqualsImpl<ArrayEqualsVisitor>(left, right, opts);
   if (!are_equal) {
-    DCHECK_OK(PrintDiff(left, right, opts.diff_sink()));
+    ARROW_IGNORE_EXPR(PrintDiff(left, right, opts.diff_sink()));
   }
   return are_equal;
 }

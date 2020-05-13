@@ -35,6 +35,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -64,8 +65,6 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 
 public class TestValueVector {
 
@@ -2700,5 +2699,29 @@ public class TestValueVector {
       writer.integer().writeInt(v);
     }
     writer.endList();
+  }
+
+  @Test
+  public void testVariableVectorGetEndOffset() {
+    try (final VarCharVector vector1 = new VarCharVector("v1", allocator);
+         final VarBinaryVector vector2 = new VarBinaryVector("v2", allocator)) {
+
+      setVector(vector1, STR1, null, STR2);
+      setVector(vector2, STR1, STR2, STR3);
+
+      assertEquals(0, vector1.getStartOffset(0));
+      assertEquals(STR1.length, vector1.getEndOffset(0));
+      assertEquals(STR1.length, vector1.getStartOffset(1));
+      assertEquals(STR1.length, vector1.getEndOffset(1));
+      assertEquals(STR1.length, vector1.getStartOffset(2));
+      assertEquals(STR1.length + STR2.length, vector1.getEndOffset(2));
+
+      assertEquals(0, vector2.getStartOffset(0));
+      assertEquals(STR1.length, vector2.getEndOffset(0));
+      assertEquals(STR1.length, vector2.getStartOffset(1));
+      assertEquals(STR1.length + STR2.length, vector2.getEndOffset(1));
+      assertEquals(STR1.length + STR2.length, vector2.getStartOffset(2));
+      assertEquals(STR1.length + STR2.length + STR3.length, vector2.getEndOffset(2));
+    }
   }
 }

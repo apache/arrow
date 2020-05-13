@@ -70,19 +70,19 @@ class SparseCSRMatrixConverter {
     std::shared_ptr<Buffer> indptr_buffer;
     std::shared_ptr<Buffer> indices_buffer;
 
-    std::shared_ptr<Buffer> values_buffer;
-    RETURN_NOT_OK(
-        AllocateBuffer(pool_, sizeof(value_type) * nonzero_count, &values_buffer));
+    ARROW_ASSIGN_OR_RAISE(auto values_buffer,
+                          AllocateBuffer(sizeof(value_type) * nonzero_count, pool_));
     value_type* values = reinterpret_cast<value_type*>(values_buffer->mutable_data());
 
     if (ndim <= 1) {
       return Status::NotImplemented("TODO for ndim <= 1");
     } else {
-      RETURN_NOT_OK(AllocateBuffer(pool_, indices_elsize * (nr + 1), &indptr_buffer));
+      ARROW_ASSIGN_OR_RAISE(indptr_buffer,
+                            AllocateBuffer(indices_elsize * (nr + 1), pool_));
       auto* indptr = reinterpret_cast<c_index_value_type*>(indptr_buffer->mutable_data());
 
-      RETURN_NOT_OK(
-          AllocateBuffer(pool_, indices_elsize * nonzero_count, &indices_buffer));
+      ARROW_ASSIGN_OR_RAISE(indices_buffer,
+                            AllocateBuffer(indices_elsize * nonzero_count, pool_));
       auto* indices =
           reinterpret_cast<c_index_value_type*>(indices_buffer->mutable_data());
 
@@ -110,7 +110,7 @@ class SparseCSRMatrixConverter {
         std::make_shared<Tensor>(index_value_type_, indices_buffer, indices_shape);
 
     sparse_index = std::make_shared<SparseCSRIndex>(indptr_tensor, indices_tensor);
-    data = values_buffer;
+    data = std::move(values_buffer);
 
     return Status::OK();
   }

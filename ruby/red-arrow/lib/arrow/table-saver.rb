@@ -155,10 +155,14 @@ module Arrow
     end
 
     def save_as_feather
-      open_output_stream do |output|
-        FeatherFileWriter.open(output) do |writer|
-          writer.write(@table)
-        end
+      properties = FeatherWriteProperties.new
+      properties.class.properties.each do |name|
+        value = @options[name.to_sym]
+        next if value.nil?
+        properties.__send__("#{name}=", value)
+      end
+      open_raw_output_stream do |output|
+        @table.write_as_feather(output, properties)
       end
     end
   end

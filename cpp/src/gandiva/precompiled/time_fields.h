@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_TIME_FIELDS_H
-#define GANDIVA_TIME_FIELDS_H
+#pragma once
 
 namespace gandiva {
 
@@ -34,4 +33,3 @@ enum TimeFields {
 };
 
 }  // namespace gandiva
-#endif  // GANDIVA_TIME_FIELDS_H

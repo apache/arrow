@@ -28,6 +28,8 @@ make_temp_dir <- function() {
 dataset_dir <- make_temp_dir()
 hive_dir <- make_temp_dir()
 ipc_dir <- make_temp_dir()
+csv_dir <- make_temp_dir()
+tsv_dir <- make_temp_dir()
 
 first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
 df1 <- tibble(
@@ -65,9 +67,23 @@ test_that("Setup (putting data in the dir)", {
   # Now, an IPC format dataset
   dir.create(file.path(ipc_dir, 3))
   dir.create(file.path(ipc_dir, 4))
-  write_arrow(df1, file.path(ipc_dir, 3, "file1.arrow"))
-  write_arrow(df2, file.path(ipc_dir, 4, "file2.arrow"))
+  write_feather(df1, file.path(ipc_dir, 3, "file1.arrow"))
+  write_feather(df2, file.path(ipc_dir, 4, "file2.arrow"))
   expect_length(dir(ipc_dir, recursive = TRUE), 2)
+
+  # Now, CSV
+  dir.create(file.path(csv_dir, 5))
+  dir.create(file.path(csv_dir, 6))
+  write.csv(df1, file.path(csv_dir, 5, "file1.csv"), row.names = FALSE)
+  write.csv(df2, file.path(csv_dir, 6, "file2.csv"), row.names = FALSE)
+  expect_length(dir(csv_dir, recursive = TRUE), 2)
+
+  # Now, tab-delimited
+  dir.create(file.path(tsv_dir, 5))
+  dir.create(file.path(tsv_dir, 6))
+  write.table(df1, file.path(tsv_dir, 5, "file1.tsv"), row.names = FALSE, sep = "\t")
+  write.table(df2, file.path(tsv_dir, 6, "file2.tsv"), row.names = FALSE, sep = "\t")
+  expect_length(dir(tsv_dir, recursive = TRUE), 2)
 })
 
 test_that("Simple interface for datasets", {
@@ -95,6 +111,44 @@ test_that("Simple interface for datasets", {
       select(string = chr, integer = int) %>%
       filter(integer > 6) %>%
       summarize(mean = mean(integer))
+  )
+})
+
+test_that("dim method returns the correct number of rows and columns",{
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_identical(dim(ds), c(20L, 7L))
+})
+
+
+test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_query object",{
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+
+  expect_warning(dim_fil <- dim(filter(ds, chr == 'A')))
+  expect_identical(dim_fil, c(NA, 7L))
+
+  dim_sel <- dim(select(ds, chr, fct))
+  expect_identical(dim_sel, c(20L, 2L))
+
+  expect_warning(dim_sel_fil <- dim(select(ds, chr, fct) %>% filter(chr == 'A')))
+  expect_identical(dim_sel_fil, c(NA, 2L))
+
+})
+
+test_that("dataset from URI", {
+  skip_on_os("windows")
+  uri <- paste0("file://", dataset_dir)
+  ds <- open_dataset(uri, partitioning = schema(part = uint8()))
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
   )
 })
 
@@ -147,9 +201,13 @@ test_that("Partitioning inference", {
   )
 })
 
-test_that("IPC/Arrow format data", {
-  ds <- open_dataset(ipc_dir, partitioning = "part", format = "arrow")
+test_that("IPC/Feather format data", {
+  ds <- open_dataset(ipc_dir, partitioning = "part", format = "feather")
   expect_identical(names(ds), c(names(df1), "part"))
+  expect_warning(
+    dim(ds),
+    "Number of rows unknown; returning NA"
+  )
   expect_equivalent(
     ds %>%
       select(string = chr, integer = int, part) %>%
@@ -163,11 +221,73 @@ test_that("IPC/Arrow format data", {
   )
 })
 
+test_that("CSV dataset", {
+  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+  expect_identical(names(ds), c(names(df1), "part"))
+  expect_warning(
+    dim(ds),
+    "Number of rows unknown; returning NA"
+  )
+  expect_equivalent(
+    ds %>%
+      select(string = chr, integer = int, part) %>%
+      filter(integer > 6 & part == 5) %>%
+      collect() %>%
+      summarize(mean = mean(as.numeric(integer))), # as.numeric bc they're being parsed as int64
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
+test_that("Other text delimited dataset", {
+  ds1 <- open_dataset(tsv_dir, partitioning = "part", format = "tsv")
+  expect_equivalent(
+    ds1 %>%
+      select(string = chr, integer = int, part) %>%
+      filter(integer > 6 & part == 5) %>%
+      collect() %>%
+      summarize(mean = mean(as.numeric(integer))), # as.numeric bc they're being parsed as int64
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+
+  ds2 <- open_dataset(tsv_dir, partitioning = "part", format = "text", delimiter = "\t")
+  expect_equivalent(
+    ds2 %>%
+      select(string = chr, integer = int, part) %>%
+      filter(integer > 6 & part == 5) %>%
+      collect() %>%
+      summarize(mean = mean(as.numeric(integer))), # as.numeric bc they're being parsed as int64
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+
+  # Now with readr option spelling (and omitting format = "text")
+  ds3 <- open_dataset(tsv_dir, partitioning = "part", delim = "\t")
+  expect_equivalent(
+    ds3 %>%
+      select(string = chr, integer = int, part) %>%
+      filter(integer > 6 & part == 5) %>%
+      collect() %>%
+      summarize(mean = mean(as.numeric(integer))), # as.numeric bc they're being parsed as int64
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
 test_that("Dataset with multiple file formats", {
   skip("https://issues.apache.org/jira/browse/ARROW-7653")
   ds <- open_dataset(list(
-    dataset_factory(dataset_dir, format = "parquet", partitioning = "part"),
-    dataset_factory(ipc_dir, format = "arrow", partitioning = "part")
+    open_dataset(dataset_dir, format = "parquet", partitioning = "part"),
+    open_dataset(ipc_dir, format = "arrow", partitioning = "part")
   ))
   expect_identical(names(ds), c(names(df1), "part"))
   expect_equivalent(
@@ -179,6 +299,53 @@ test_that("Dataset with multiple file formats", {
       select(string = chr, integer = int) %>%
       filter(integer > 6) %>%
       rbind(., .) # Stack it twice
+  )
+})
+
+test_that("Creating UnionDataset", {
+  ds1 <- open_dataset(file.path(dataset_dir, 1))
+  ds2 <- open_dataset(file.path(dataset_dir, 2))
+  union1 <- open_dataset(list(ds1, ds2))
+  expect_is(union1, "UnionDataset")
+  expect_equivalent(
+    union1 %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>% # Testing the auto-casting of scalars
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+
+  # Now with the c() method
+  union2 <- c(ds1, ds2)
+  expect_is(union2, "UnionDataset")
+  expect_equivalent(
+    union2 %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>% # Testing the auto-casting of scalars
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+
+  # Confirm c() method error handling
+  expect_error(c(ds1, 42), "'x' must be a string or a list of DatasetFactory")
+})
+
+test_that("map_batches", {
+  ds <- open_dataset(dataset_dir, partitioning = "part")
+  expect_equivalent(
+    ds %>%
+      filter(int > 5) %>%
+      select(int, lgl) %>%
+      map_batches(~summarize(., min_int = min(int))),
+    tibble(min_int = c(6L, 101L))
   )
 })
 
@@ -277,10 +444,21 @@ test_that("filter scalar validation doesn't crash (ARROW-7772)", {
 test_that("collect() on Dataset works (if fits in memory)", {
   expect_equal(
     collect(open_dataset(dataset_dir)),
-    rbind(
-      cbind(df1),
-      cbind(df2)
-    )
+    rbind(df1, df2)
+  )
+})
+
+test_that("count()", {
+  skip("count() is not a generic so we have to get here through summarize()")
+  ds <- open_dataset(dataset_dir)
+  df <- rbind(df1, df2)
+  expect_equal(
+    ds %>%
+      filter(int > 6, int < 108) %>%
+      count(chr),
+    df %>%
+      filter(int > 6, int < 108) %>%
+      count(chr)
   )
 })
 
@@ -312,7 +490,7 @@ test_that("Dataset and query print methods", {
   expect_output(
     print(ds),
     paste(
-      "Dataset",
+      "FileSystemDataset with 2 Parquet files",
       "int: int32",
       "dbl: double",
       "lgl: bool",
@@ -365,7 +543,7 @@ expect_scan_result <- function(ds, schm) {
   expect_equal(sb$schema, schm)
 
   sb$Project(c("chr", "lgl"))
-  sb$Filter(FieldExpression$create("dbl") == 8)
+  sb$Filter(Expression$field_ref("dbl") == 8)
   scn <- sb$Finish()
   expect_is(scn, "Scanner")
 

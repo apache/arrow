@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_EXCEPTION_H
-#define PARQUET_EXCEPTION_H
+#pragma once
 
 #include <exception>
 #include <sstream>
@@ -33,18 +32,22 @@
 
 // Parquet exception to Arrow Status
 
-#define PARQUET_CATCH_NOT_OK(s)                    \
-  try {                                            \
-    (s);                                           \
-  } catch (const ::parquet::ParquetException& e) { \
-    return ::arrow::Status::IOError(e.what());     \
+#define PARQUET_CATCH_NOT_OK(s)                          \
+  try {                                                  \
+    (s);                                                 \
+  } catch (const ::parquet::ParquetStatusException& e) { \
+    return e.status();                                   \
+  } catch (const ::parquet::ParquetException& e) {       \
+    return ::arrow::Status::IOError(e.what());           \
   }
 
-#define PARQUET_CATCH_AND_RETURN(s)                \
-  try {                                            \
-    return (s);                                    \
-  } catch (const ::parquet::ParquetException& e) { \
-    return ::arrow::Status::IOError(e.what());     \
+#define PARQUET_CATCH_AND_RETURN(s)                      \
+  try {                                                  \
+    return (s);                                          \
+  } catch (const ::parquet::ParquetStatusException& e) { \
+    return e.status();                                   \
+  } catch (const ::parquet::ParquetException& e) {       \
+    return ::arrow::Status::IOError(e.what());           \
   }
 
 // Arrow Status to Parquet exception
@@ -130,5 +133,3 @@ void ThrowNotOk(StatusReturnBlock&& b) {
 }
 
 }  // namespace parquet
-
-#endif  // PARQUET_EXCEPTION_H

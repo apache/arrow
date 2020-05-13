@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_COMPUTE_TEST_UTIL_H
-#define ARROW_COMPUTE_TEST_UTIL_H
+#pragma once
 
 #include <memory>
 #include <vector>
@@ -104,5 +103,3 @@ struct DatumEqual<Type, enable_if_integer<Type>> {
 
 }  // namespace compute
 }  // namespace arrow
-
-#endif

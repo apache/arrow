@@ -20,7 +20,7 @@ import (
 	"testing"
 )
 
-func TestTypeEquals(t *testing.T) {
+func TestTypeEqual(t *testing.T) {
 	tests := []struct {
 		left, right   DataType
 		want          bool
@@ -240,12 +240,12 @@ func TestTypeEquals(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			var got bool
 			if test.checkMetadata {
-				got = TypeEquals(test.left, test.right, CheckMetadata())
+				got = TypeEqual(test.left, test.right, CheckMetadata())
 			} else {
-				got = TypeEquals(test.left, test.right)
+				got = TypeEqual(test.left, test.right)
 			}
 			if got != test.want {
-				t.Fatalf("TypeEquals(%v, %v, %v): got=%v, want=%v", test.left, test.right, test.checkMetadata, got, test.want)
+				t.Fatalf("TypeEqual(%v, %v, %v): got=%v, want=%v", test.left, test.right, test.checkMetadata, got, test.want)
 			}
 		})
 	}

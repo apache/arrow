@@ -15,11 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines the data-types of Arrow arrays.
+//! Defines the logical data types of Arrow arrays.
 //!
-//! For an overview of the terminology used within the arrow project and more general
-//! information regarding data-types and memory layouts see
-//! [here](https://arrow.apache.org/docs/memory_layout.html).
+//! The most important things you might be looking for are:
+//!  * [`Schema`](crate::datatypes::Schema) to describe a schema.
+//!  * [`Field`](crate::datatypes::Field) to describe one field withing a schema.
+//!  * [`DataType`](crate::datatypes::DataType) to describe the type of a field.
 
 use std::collections::HashMap;
 use std::fmt;
@@ -39,7 +40,11 @@ use serde_json::{
 
 use crate::error::{ArrowError, Result};
 
-/// The possible relative types that are supported.
+/// The set of datatypes that are supported by this implementation of Apache Arrow.
+///
+/// The Arrow specification on data types includes some more types.
+/// See also [`Schema.fbs`](https://github.com/apache/arrow/blob/master/format/Schema.fbs)
+/// for Arrow's specification.
 ///
 /// The variants of this enum include primitive fixed size types as well as parametric or
 /// nested types.
@@ -49,55 +54,110 @@ use crate::error::{ArrowError, Result};
 ///
 /// Nested types can themselves be nested within other arrays.
 /// For more information on these types please see
-/// [here](https://arrow.apache.org/docs/memory_layout.html).
+/// [the physical memory layout of Apache Arrow](https://arrow.apache.org/docs/format/Columnar.html#physical-memory-layout).
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum DataType {
+    /// A boolean datatype representing the values `true` and `false`.
     Boolean,
+    /// A signed 8-bit integer.
     Int8,
+    /// A signed 16-bit integer.
     Int16,
+    /// A signed 32-bit integer.
     Int32,
+    /// A signed 64-bit integer.
     Int64,
+    /// An unsigned 8-bit integer.
     UInt8,
+    /// An unsigned 16-bit integer.
     UInt16,
+    /// An unsigned 32-bit integer.
     UInt32,
+    /// An unsigned 64-bit integer.
     UInt64,
+    /// A 16-bit floating point number.
     Float16,
+    /// A 32-bit floating point number.
     Float32,
+    /// A 64-bit floating point number.
     Float64,
-    /// A timestamp with an optional timezone
+    /// A timestamp with an optional timezone.
+    ///
+    /// Time is measured as a Unix epoch, counting the seconds from
+    /// 00:00:00.000 on 1 January 1970, excluding leap seconds,
+    /// as a 64-bit integer.
+    ///
+    /// The time zone is a string indicating the name of a time zone, one of:
+    ///
+    /// * As used in the Olson time zone database (the "tz database" or
+    ///   "tzdata"), such as "America/New_York"
+    /// * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
     Timestamp(TimeUnit, Option<Arc<String>>),
+    /// A 32-bit date representing the elapsed time since UNIX epoch (1970-01-01)
+    /// in days (32 bits).
     Date32(DateUnit),
+    /// A 64-bit date representing the elapsed time since UNIX epoch (1970-01-01)
+    /// in milliseconds (64 bits).
     Date64(DateUnit),
+    /// A 32-bit time representing the elapsed time since midnight in the unit of `TimeUnit`.
     Time32(TimeUnit),
+    /// A 64-bit time representing the elapsed time since midnight in the unit of `TimeUnit`.
     Time64(TimeUnit),
+    /// Measure of elapsed time in either seconds, milliseconds, microseconds or nanoseconds.
     Duration(TimeUnit),
+    /// A "calendar" interval which models types that don't necessarily
+    /// have a precise duration without the context of a base timestamp (e.g.
+    /// days can differ in length during day light savings time transitions).
     Interval(IntervalUnit),
+    /// Opaque binary data of variable length.
     Binary,
+    /// Opaque binary data of fixed size.
+    /// Enum parameter specifies the number of bytes per value.
     FixedSizeBinary(i32),
+    /// A variable-length string in Unicode with UTF-8 encoding.
     Utf8,
+    /// A list of some logical data type with variable length.
     List(Box<DataType>),
+    /// A list of some logical data type with fixed length.
     FixedSizeList(Box<DataType>, i32),
+    /// A nested datatype that contains a number of sub-fields.
     Struct(Vec<Field>),
+    /// A dictionary array where each element is a single value indexed by an integer key.
+    /// This is mostly used to represent strings or a limited set of primitive types as integers.
     Dictionary(Box<DataType>, Box<DataType>),
 }
 
+/// Date is either a 32-bit or 64-bit type representing elapsed time since UNIX
+/// epoch (1970-01-01) in days or milliseconds.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum DateUnit {
+    /// Days since the UNIX epoch.
     Day,
+    /// Milliseconds indicating UNIX time elapsed since the epoch (no
+    /// leap seconds), where the values are evenly divisible by 86400000.
     Millisecond,
 }
 
+/// An absolute length of time in seconds, milliseconds, microseconds or nanoseconds.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum TimeUnit {
+    /// Time in seconds.
     Second,
+    /// Time in milliseconds.
     Millisecond,
+    /// Time in microseconds.
     Microsecond,
+    /// Time in nanoseconds.
     Nanosecond,
 }
 
+/// YEAR_MONTH or DAY_TIME interval in SQL style.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum IntervalUnit {
+    /// Indicates the number of elapsed whole months, stored as 4-byte integers.
     YearMonth,
+    /// Indicates the number of elapsed days and milliseconds,
+    /// stored as 2 contiguous 32-bit integers (8-bytes in total).
     DayTime,
 }
 
@@ -266,14 +326,13 @@ impl ArrowNativeType for u64 {
 
 impl ArrowNativeType for f32 {
     fn into_json_value(self) -> Option<Value> {
-        Number::from_f64(f64::round(self as f64 * 1000.0) / 1000.0)
-            .map(|num| VNumber(num))
+        Number::from_f64(f64::round(self as f64 * 1000.0) / 1000.0).map(VNumber)
     }
 }
 
 impl ArrowNativeType for f64 {
     fn into_json_value(self) -> Option<Value> {
-        Number::from_f64(self).map(|num| VNumber(num))
+        Number::from_f64(self).map(VNumber)
     }
 }
 
@@ -477,22 +536,22 @@ where
         op: F,
     ) -> Self::Simd;
 
-    // SIMD version of equal
+    /// SIMD version of equal
     fn eq(left: Self::Simd, right: Self::Simd) -> Self::SimdMask;
 
-    // SIMD version of not equal
+    /// SIMD version of not equal
     fn ne(left: Self::Simd, right: Self::Simd) -> Self::SimdMask;
 
-    // SIMD version of less than
+    /// SIMD version of less than
     fn lt(left: Self::Simd, right: Self::Simd) -> Self::SimdMask;
 
-    // SIMD version of less than or equal to
+    /// SIMD version of less than or equal to
     fn le(left: Self::Simd, right: Self::Simd) -> Self::SimdMask;
 
-    // SIMD version of greater than
+    /// SIMD version of greater than
     fn gt(left: Self::Simd, right: Self::Simd) -> Self::SimdMask;
 
-    // SIMD version of greater than or equal to
+    /// SIMD version of greater than or equal to
     fn ge(left: Self::Simd, right: Self::Simd) -> Self::SimdMask;
 
     /// Writes a SIMD result back to a slice
@@ -638,8 +697,9 @@ impl ArrowTemporalType for Time64NanosecondType {}
 // impl ArrowTemporalType for IntervalYearMonthType {}
 // impl ArrowTemporalType for IntervalDayTimeType {}
 
-/// A timestamp type allows us to create array builders that take a timestamp
+/// A timestamp type allows us to create array builders that take a timestamp.
 pub trait ArrowTimestampType: ArrowTemporalType {
+    /// Returns the `TimeUnit` of this timestamp.
     fn get_time_unit() -> TimeUnit;
 }
 
@@ -697,9 +757,9 @@ impl DataType {
                     if let Some(Value::Number(size)) = map.get("byteWidth") {
                         Ok(DataType::FixedSizeBinary(size.as_i64().unwrap() as i32))
                     } else {
-                        Err(ArrowError::ParseError(format!(
-                            "Expecting a byteWidth for fixedsizebinary",
-                        )))
+                        Err(ArrowError::ParseError(
+                            "Expecting a byteWidth for fixedsizebinary".to_string(),
+                        ))
                     }
                 }
                 Some(s) if s == "floatingpoint" => match map.get("precision") {
@@ -827,9 +887,9 @@ impl DataType {
                             size.as_i64().unwrap() as i32,
                         ))
                     } else {
-                        Err(ArrowError::ParseError(format!(
-                            "Expecting a listSize for fixedsizelist",
-                        )))
+                        Err(ArrowError::ParseError(
+                            "Expecting a listSize for fixedsizelist".to_string(),
+                        ))
                     }
                 }
                 Some(s) if s == "struct" => {
@@ -1221,6 +1281,21 @@ impl Schema {
         &self.fields[i]
     }
 
+    /// Returns an immutable reference of a specific `Field` instance selected by name
+    pub fn field_with_name(&self, name: &str) -> Result<&Field> {
+        Ok(&self.fields[self.index_of(name)?])
+    }
+
+    /// Find the index of the column with the given name
+    pub fn index_of(&self, name: &str) -> Result<usize> {
+        for i in 0..self.fields.len() {
+            if self.fields[i].name == name {
+                return Ok(i);
+            }
+        }
+        Err(ArrowError::InvalidArgumentError(name.to_owned()))
+    }
+
     /// Returns an immutable reference to the Map of custom metadata key-value pairs.
     pub fn metadata(&self) -> &HashMap<String, String> {
         &self.metadata
@@ -1307,6 +1382,7 @@ impl fmt::Display for Schema {
     }
 }
 
+/// A reference-counted reference to a [`Schema`](crate::datatypes::Schema).
 pub type SchemaRef = Arc<Schema>;
 
 #[cfg(test)]
@@ -1981,43 +2057,49 @@ mod tests {
 
     #[test]
     fn create_schema_string() {
-        let _person = Schema::new(vec![
-            Field::new("first_name", DataType::Utf8, false),
-            Field::new("last_name", DataType::Utf8, false),
-            Field::new(
-                "address",
-                DataType::Struct(vec![
-                    Field::new("street", DataType::Utf8, false),
-                    Field::new("zip", DataType::UInt16, false),
-                ]),
-                false,
-            ),
-        ]);
-        assert_eq!(_person.to_string(), "first_name: Utf8, last_name: Utf8, address: Struct([Field { name: \"street\", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false }, Field { name: \"zip\", data_type: UInt16, nullable: false, dict_id: 0, dict_is_ordered: false }])")
+        let schema = person_schema();
+        assert_eq!(schema.to_string(), "first_name: Utf8, \
+        last_name: Utf8, \
+        address: Struct([\
+        Field { name: \"street\", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false }, \
+        Field { name: \"zip\", data_type: UInt16, nullable: false, dict_id: 0, dict_is_ordered: false }])")
     }
 
     #[test]
     fn schema_field_accessors() {
-        let _person = Schema::new(vec![
-            Field::new("first_name", DataType::Utf8, false),
-            Field::new("last_name", DataType::Utf8, false),
-            Field::new(
-                "address",
-                DataType::Struct(vec![
-                    Field::new("street", DataType::Utf8, false),
-                    Field::new("zip", DataType::UInt16, false),
-                ]),
-                false,
-            ),
-        ]);
+        let schema = person_schema();
 
         // test schema accessors
-        assert_eq!(_person.fields().len(), 3);
+        assert_eq!(schema.fields().len(), 3);
 
         // test field accessors
-        assert_eq!(_person.fields()[0].name(), "first_name");
-        assert_eq!(_person.fields()[0].data_type(), &DataType::Utf8);
-        assert_eq!(_person.fields()[0].is_nullable(), false);
+        let first_name = &schema.fields()[0];
+        assert_eq!(first_name.name(), "first_name");
+        assert_eq!(first_name.data_type(), &DataType::Utf8);
+        assert_eq!(first_name.is_nullable(), false);
+    }
+
+    #[test]
+    fn schema_index_of() {
+        let schema = person_schema();
+        assert_eq!(schema.index_of("first_name"), Ok(0));
+        assert_eq!(schema.index_of("last_name"), Ok(1));
+        assert_eq!(
+            schema.index_of("nickname"),
+            Err(ArrowError::InvalidArgumentError("nickname".to_owned()))
+        );
+    }
+
+    #[test]
+    fn schema_field_with_name() -> Result<()> {
+        let schema = person_schema();
+        assert_eq!(schema.field_with_name("first_name")?.name(), "first_name");
+        assert_eq!(schema.field_with_name("last_name")?.name(), "last_name");
+        assert_eq!(
+            schema.field_with_name("nickname"),
+            Err(ArrowError::InvalidArgumentError("nickname".to_owned()))
+        );
+        Ok(())
     }
 
     #[test]
@@ -2069,5 +2151,20 @@ mod tests {
             0.01f64.into_json_value()
         );
         assert_eq!(None, NAN.into_json_value());
+    }
+
+    fn person_schema() -> Schema {
+        Schema::new(vec![
+            Field::new("first_name", DataType::Utf8, false),
+            Field::new("last_name", DataType::Utf8, false),
+            Field::new(
+                "address",
+                DataType::Struct(vec![
+                    Field::new("street", DataType::Utf8, false),
+                    Field::new("zip", DataType::UInt16, false),
+                ]),
+                false,
+            ),
+        ])
     }
 }

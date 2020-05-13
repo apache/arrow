@@ -585,9 +585,9 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
       // Allocate temporary storage for the offsets of all valid slots
       auto child_offsets_storage_size =
           std::accumulate(child_counts.begin(), child_counts.end(), 0);
-      std::shared_ptr<Buffer> child_offsets_storage;
-      RETURN_NOT_OK(AllocateBuffer(pool_, child_offsets_storage_size * sizeof(int32_t),
-                                   &child_offsets_storage));
+      ARROW_ASSIGN_OR_RAISE(
+          std::shared_ptr<Buffer> child_offsets_storage,
+          AllocateBuffer(child_offsets_storage_size * sizeof(int32_t), pool_));
 
       // Partition offsets by type_code: child_offset_partitions[type_code] will
       // point to storage for child_counts[type_code] offsets

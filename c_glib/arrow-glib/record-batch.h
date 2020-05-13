@@ -20,6 +20,7 @@
 #pragma once
 
 #include <arrow-glib/array.h>
+#include <arrow-glib/ipc-options.h>
 #include <arrow-glib/schema.h>
 
 G_BEGIN_DECLS
@@ -42,9 +43,14 @@ GArrowRecordBatch *garrow_record_batch_new(GArrowSchema *schema,
 
 gboolean garrow_record_batch_equal(GArrowRecordBatch *record_batch,
                                    GArrowRecordBatch *other_record_batch);
+GARROW_AVAILABLE_IN_0_17
+gboolean
+garrow_record_batch_equal_metadata(GArrowRecordBatch *record_batch,
+                                   GArrowRecordBatch *other_record_batch,
+                                   gboolean check_metadata);
 
 GArrowSchema *garrow_record_batch_get_schema     (GArrowRecordBatch *record_batch);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_0_15
 GArrowArray  *garrow_record_batch_get_column_data(GArrowRecordBatch *record_batch,
                                                   gint i);
 const gchar  *garrow_record_batch_get_column_name(GArrowRecordBatch *record_batch,
@@ -65,5 +71,42 @@ GArrowRecordBatch *garrow_record_batch_add_column(GArrowRecordBatch *record_batc
 GArrowRecordBatch *garrow_record_batch_remove_column(GArrowRecordBatch *record_batch,
                                                      guint i,
                                                      GError **error);
+GARROW_AVAILABLE_IN_1_0
+GArrowBuffer *
+garrow_record_batch_serialize(GArrowRecordBatch *record_batch,
+                              GArrowWriteOptions *options,
+                              GError **error);
+
+
+#define GARROW_TYPE_RECORD_BATCH_ITERATOR       \
+  (garrow_record_batch_iterator_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowRecordBatchIterator,
+                         garrow_record_batch_iterator,
+                         GARROW,
+                         RECORD_BATCH_ITERATOR,
+                         GObject)
+struct _GArrowRecordBatchIteratorClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_17
+GArrowRecordBatchIterator *
+garrow_record_batch_iterator_new(GList *record_batches);
+
+GARROW_AVAILABLE_IN_0_17
+GArrowRecordBatch *
+garrow_record_batch_iterator_next(GArrowRecordBatchIterator *iterator,
+                                  GError **error);
+
+GARROW_AVAILABLE_IN_0_17
+gboolean
+garrow_record_batch_iterator_equal(GArrowRecordBatchIterator *iterator,
+                                   GArrowRecordBatchIterator *other_iterator);
+
+GARROW_AVAILABLE_IN_0_17
+GList *
+garrow_record_batch_iterator_to_list(GArrowRecordBatchIterator *iterator,
+                                     GError **error);
 
 G_END_DECLS

@@ -22,89 +22,95 @@
 
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/filter.h"
+#include "arrow/dataset/scanner.h"
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/task_group.h"
 
 namespace arrow {
 namespace dataset {
 
 Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
-  if (type() == PATH) {
+  if (id() == PATH) {
     return filesystem()->OpenInputFile(path());
   }
 
   return std::make_shared<::arrow::io::BufferReader>(buffer());
 }
 
-Result<std::shared_ptr<Fragment>> FileFormat::MakeFragment(
-    FileSource source, std::shared_ptr<ScanOptions> options) {
-  return MakeFragment(std::move(source), std::move(options), scalar(true));
+Result<std::shared_ptr<arrow::io::OutputStream>> FileSource::OpenWritable() const {
+  if (!writable_) {
+    return Status::Invalid("file source '", path(), "' is not writable");
+  }
+
+  if (id() == PATH) {
+    return filesystem()->OpenOutputStream(path());
+  }
+
+  auto b = internal::checked_pointer_cast<ResizableBuffer>(buffer());
+  return std::make_shared<::arrow::io::BufferOutputStream>(b);
 }
 
-Result<std::shared_ptr<Fragment>> FileFormat::MakeFragment(
-    FileSource source, std::shared_ptr<ScanOptions> options,
-    std::shared_ptr<Expression> partition_expression) {
-  return std::make_shared<FileFragment>(std::move(source), shared_from_this(), options,
-                                        std::move(partition_expression));
+Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(FileSource source) {
+  return MakeFragment(std::move(source), scalar(true));
 }
 
-Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanContext> context) {
-  return format_->ScanFile(source_, scan_options_, std::move(context));
+Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
+    FileSource source, std::shared_ptr<Expression> partition_expression) {
+  return std::shared_ptr<FileFragment>(new FileFragment(
+      std::move(source), shared_from_this(), std::move(partition_expression)));
+}
+
+Result<std::shared_ptr<WriteTask>> FileFormat::WriteFragment(
+    FileSource destination, std::shared_ptr<Fragment> fragment,
+    std::shared_ptr<ScanOptions> scan_options,
+    std::shared_ptr<ScanContext> scan_context) {
+  return Status::NotImplemented("writing fragment of format ", type_name());
+}
+
+Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchema() {
+  return format_->Inspect(source_);
+}
+
+Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanOptions> options,
+                                            std::shared_ptr<ScanContext> context) {
+  return format_->ScanFile(source_, std::move(options), std::move(context));
 }
 
 FileSystemDataset::FileSystemDataset(std::shared_ptr<Schema> schema,
                                      std::shared_ptr<Expression> root_partition,
                                      std::shared_ptr<FileFormat> format,
-                                     std::shared_ptr<fs::FileSystem> filesystem,
-                                     fs::PathForest forest,
-                                     ExpressionVector file_partitions)
+                                     std::vector<std::shared_ptr<FileFragment>> fragments)
     : Dataset(std::move(schema), std::move(root_partition)),
       format_(std::move(format)),
-      filesystem_(std::move(filesystem)),
-      forest_(std::move(forest)),
-      partitions_(std::move(file_partitions)) {
-  DCHECK_EQ(static_cast<size_t>(forest_.size()), partitions_.size());
+      fragments_(std::move(fragments)) {}
+
+Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
+    std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
+    std::shared_ptr<FileFormat> format,
+    std::vector<std::shared_ptr<FileFragment>> fragments) {
+  return std::shared_ptr<FileSystemDataset>(
+      new FileSystemDataset(std::move(schema), std::move(root_partition),
+                            std::move(format), std::move(fragments)));
 }
 
-Result<std::shared_ptr<Dataset>> FileSystemDataset::Make(
-    std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
-    std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
-    std::vector<fs::FileInfo> infos) {
-  ExpressionVector partitions(infos.size(), scalar(true));
-  return Make(std::move(schema), std::move(root_partition), std::move(format),
-              std::move(filesystem), std::move(infos), std::move(partitions));
-}
-
-Result<std::shared_ptr<Dataset>> FileSystemDataset::Make(
-    std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
-    std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
-    std::vector<fs::FileInfo> infos, ExpressionVector partitions) {
-  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(infos), &partitions));
-  return Make(std::move(schema), std::move(root_partition), std::move(format),
-              std::move(filesystem), std::move(forest), std::move(partitions));
-}
-
-Result<std::shared_ptr<Dataset>> FileSystemDataset::Make(
-    std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
-    std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
-    fs::PathForest forest, ExpressionVector partitions) {
+Result<std::shared_ptr<Dataset>> FileSystemDataset::ReplaceSchema(
+    std::shared_ptr<Schema> schema) const {
+  RETURN_NOT_OK(CheckProjectable(*schema_, *schema));
   return std::shared_ptr<Dataset>(new FileSystemDataset(
-      std::move(schema), std::move(root_partition), std::move(format),
-      std::move(filesystem), std::move(forest), std::move(partitions)));
+      std::move(schema), partition_expression_, format_, fragments_));
 }
 
 std::vector<std::string> FileSystemDataset::files() const {
   std::vector<std::string> files;
 
-  DCHECK_OK(forest_.Visit([&](fs::PathForest::Ref ref) {
-    if (ref.info().IsFile()) {
-      files.push_back(ref.info().path());
-    }
-    return Status::OK();
-  }));
+  for (const auto& fragment : fragments_) {
+    files.push_back(fragment->source().path());
+  }
 
   return files;
 }
@@ -112,113 +118,80 @@ std::vector<std::string> FileSystemDataset::files() const {
 std::string FileSystemDataset::ToString() const {
   std::string repr = "FileSystemDataset:";
 
-  if (forest_.size() == 0) {
+  if (fragments_.empty()) {
     return repr + " []";
   }
 
-  DCHECK_OK(forest_.Visit([&](fs::PathForest::Ref ref) {
-    repr += "\n" + ref.info().path();
+  for (const auto& fragment : fragments_) {
+    repr += "\n" + fragment->source().path();
 
-    if (!partitions_[ref.i]->Equals(true)) {
-      repr += ": " + partitions_[ref.i]->ToString();
+    const auto& partition = fragment->partition_expression();
+    if (!partition->Equals(true)) {
+      repr += ": " + partition->ToString();
     }
-
-    return Status::OK();
-  }));
+  }
 
   return repr;
 }
 
-util::optional<std::pair<std::string, std::shared_ptr<Scalar>>> GetKey(
-    const Expression& expr) {
-  if (expr.type() != ExpressionType::COMPARISON) {
-    return util::nullopt;
-  }
-
-  const auto& cmp = internal::checked_cast<const ComparisonExpression&>(expr);
-  if (cmp.op() != compute::CompareOperator::EQUAL) {
-    return util::nullopt;
-  }
-
-  // TODO(bkietz) allow this ordering to be flipped
-
-  if (cmp.left_operand()->type() != ExpressionType::FIELD) {
-    return util::nullopt;
-  }
-
-  if (cmp.right_operand()->type() != ExpressionType::SCALAR) {
-    return util::nullopt;
-  }
-
-  return std::make_pair(
-      internal::checked_cast<const FieldExpression&>(*cmp.left_operand()).name(),
-      internal::checked_cast<const ScalarExpression&>(*cmp.right_operand()).value());
-}
-
-std::shared_ptr<Expression> FoldingAnd(const std::shared_ptr<Expression>& l,
-                                       const std::shared_ptr<Expression>& r) {
-  if (l->Equals(true)) return r;
-  if (r->Equals(true)) return l;
-  return and_(l, r);
-}
-
 FragmentIterator FileSystemDataset::GetFragmentsImpl(
-    std::shared_ptr<ScanOptions> root_options) {
+    std::shared_ptr<Expression> predicate) {
   FragmentVector fragments;
-  std::vector<std::shared_ptr<ScanOptions>> options(forest_.size());
 
-  ExpressionVector fragment_partitions(forest_.size());
-
-  auto collect_fragments = [&](fs::PathForest::Ref ref) -> fs::PathForest::MaybePrune {
-    auto partition = partitions_[ref.i];
-
-    // if available, copy parent's filter and projector
-    // (which are appropriately simplified and loaded with default values)
-    if (auto parent = ref.parent()) {
-      options[ref.i].reset(new ScanOptions(*options[parent.i]));
-      fragment_partitions[ref.i] =
-          FoldingAnd(fragment_partitions[parent.i], partitions_[ref.i]);
-    } else {
-      options[ref.i].reset(new ScanOptions(*root_options));
-      fragment_partitions[ref.i] = FoldingAnd(partition_expression_, partitions_[ref.i]);
+  for (const auto& fragment : fragments_) {
+    if (predicate->IsSatisfiableWith(fragment->partition_expression())) {
+      fragments.push_back(fragment);
     }
-
-    // simplify filter by partition information
-    auto filter = options[ref.i]->filter->Assume(partition);
-    options[ref.i]->filter = filter;
-
-    if (filter->IsNull() || filter->Equals(false)) {
-      // directories (and descendants) which can't satisfy the filter are pruned
-      return fs::PathForest::Prune;
-    }
-
-    // if possible, extract a partition key and pass it to the projector
-    auto projector = &options[ref.i]->projector;
-    if (auto name_value = GetKey(*partition)) {
-      auto index = projector->schema()->GetFieldIndex(name_value->first);
-      if (index != -1) {
-        RETURN_NOT_OK(projector->SetDefaultValue(index, std::move(name_value->second)));
-      }
-    }
-
-    if (ref.info().IsFile()) {
-      // generate a fragment for this file
-      FileSource src(ref.info().path(), filesystem_.get());
-      ARROW_ASSIGN_OR_RAISE(
-          auto fragment,
-          format_->MakeFragment(src, options[ref.i], fragment_partitions[ref.i]));
-      fragments.push_back(std::move(fragment));
-    }
-
-    return fs::PathForest::Continue;
-  };
-
-  auto status = forest_.Visit(collect_fragments);
-  if (!status.ok()) {
-    return MakeErrorIterator<std::shared_ptr<Fragment>>(status);
   }
 
   return MakeVectorIterator(std::move(fragments));
+}
+
+Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Write(
+    const WritePlan& plan, std::shared_ptr<ScanOptions> scan_options,
+    std::shared_ptr<ScanContext> scan_context) {
+  auto filesystem = plan.filesystem;
+  if (filesystem == nullptr) {
+    filesystem = std::make_shared<fs::LocalFileSystem>();
+  }
+
+  auto task_group = scan_context->TaskGroup();
+  auto partition_base_dir = fs::internal::EnsureTrailingSlash(plan.partition_base_dir);
+  auto extension = "." + plan.format->type_name();
+
+  std::vector<std::shared_ptr<FileFragment>> fragments;
+  for (size_t i = 0; i < plan.paths.size(); ++i) {
+    const auto& op = plan.fragment_or_partition_expressions[i];
+    if (util::holds_alternative<std::shared_ptr<Fragment>>(op)) {
+      auto path = partition_base_dir + plan.paths[i] + extension;
+
+      const auto& input_fragment = util::get<std::shared_ptr<Fragment>>(op);
+      FileSource dest(path, filesystem);
+
+      ARROW_ASSIGN_OR_RAISE(
+          auto fragment,
+          plan.format->MakeFragment(dest, input_fragment->partition_expression()));
+      fragments.push_back(std::move(fragment));
+
+      ARROW_ASSIGN_OR_RAISE(
+          auto write_task,
+          plan.format->WriteFragment(dest, input_fragment, scan_options, scan_context));
+      task_group->Append([write_task] { return write_task->Execute(); });
+    }
+  }
+
+  RETURN_NOT_OK(task_group->Finish());
+
+  return Make(plan.schema, scalar(true), plan.format, fragments);
+}
+
+Status WriteTask::CreateDestinationParentDir() const {
+  if (auto filesystem = destination_.filesystem()) {
+    auto parent = fs::internal::GetAbstractPathParent(destination_.path()).first;
+    return filesystem->CreateDir(parent, /* recursive = */ true);
+  }
+
+  return Status::OK();
 }
 
 }  // namespace dataset

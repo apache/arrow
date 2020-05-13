@@ -25,13 +25,7 @@ add_custom_target(gandiva-benchmarks)
 
 add_dependencies(gandiva-all gandiva gandiva-tests gandiva-benchmarks)
 
-if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
-  set(LLVM_ROOT $ENV{CONDA_PREFIX})
-endif()
-# The semantics of the upstream configuration file are different from what is
-# provided in our FindLLVM module, so the module is explicitly requested here to
-# avoid a configuration error if CMAKE_FIND_PACKAGE_PREFER_CONFIG is enabled.
-find_package(LLVM MODULE)
+find_package(LLVMAlt REQUIRED)
 
 # Set the path where the bitcode file generated, see precompiled/CMakeLists.txt
 set(GANDIVA_PRECOMPILED_BC_PATH "${CMAKE_CURRENT_BINARY_DIR}/irhelpers.bc")
@@ -197,8 +191,8 @@ add_gandiva_test(internals-test
                  SOURCES
                  bitmap_accumulator_test.cc
                  engine_llvm_test.cc
-                 function_signature_test.cc
                  function_registry_test.cc
+                 function_signature_test.cc
                  llvm_types_test.cc
                  llvm_generator_test.cc
                  annotator_test.cc

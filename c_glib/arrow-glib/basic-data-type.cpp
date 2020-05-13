@@ -359,7 +359,7 @@ garrow_integer_data_type_class_init(GArrowIntegerDataTypeClass *klass)
  *
  * Returns: %TRUE if the data type is signed, %FALSE otherwise.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 gboolean
 garrow_integer_data_type_is_signed(GArrowIntegerDataType *data_type)
@@ -810,7 +810,7 @@ garrow_large_binary_data_type_class_init(GArrowLargeBinaryDataTypeClass *klass)
  *
  * Returns: The newly created #GArrowLargeBinaryDataType.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowLargeBinaryDataType *
 garrow_large_binary_data_type_new(void)
@@ -876,7 +876,7 @@ garrow_large_string_data_type_class_init(GArrowLargeStringDataTypeClass *klass)
  *
  * Returns: The newly created #GArrowLargeStringDataType.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowLargeStringDataType *
 garrow_large_string_data_type_new(void)

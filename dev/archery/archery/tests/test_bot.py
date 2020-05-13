@@ -102,7 +102,7 @@ def test_crossbow_comment_formatter():
 
 
 @pytest.mark.parametrize('fixture_name', [
-    # the bot is not mentiond, nothing to do
+    # the bot is not mentioned, nothing to do
     'event-issue-comment-not-mentioning-ursabot.json',
     # don't respond to itself, it prevents recursive comment storms!
     'event-issue-comment-by-ursabot.json',

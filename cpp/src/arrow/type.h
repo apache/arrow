@@ -112,8 +112,11 @@ struct Type {
     /// nanoseconds since midnight
     TIME64,
 
-    /// YEAR_MONTH or DAY_TIME interval in SQL style
-    INTERVAL,
+    /// YEAR_MONTH interval in SQL style
+    INTERVAL_MONTHS,
+
+    /// DAY_TIME interval in SQL style
+    INTERVAL_DAY_TIME,
 
     /// Precision- and scale-based decimal type. Storage type depends on the
     /// parameters.
@@ -240,7 +243,7 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   ///
   /// Types that are logically convertible from one to another (e.g. List<UInt8>
   /// and Binary) are NOT equal.
-  bool Equals(const DataType& other, bool check_metadata = true) const;
+  bool Equals(const DataType& other, bool check_metadata = false) const;
 
   /// \brief Return whether the types are equal
   bool Equals(const std::shared_ptr<DataType>& other) const;
@@ -366,10 +369,6 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   std::shared_ptr<Field> WithMergedMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
 
-  ARROW_DEPRECATED("Use WithMetadata")
-  std::shared_ptr<Field> AddMetadata(
-      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
-
   /// \brief Return a copy of this field without any metadata attached to it
   std::shared_ptr<Field> RemoveMetadata() const;
 
@@ -418,8 +417,8 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   ///            equality.
   ///
   /// \return true if fields are equal, false otherwise.
-  bool Equals(const Field& other, bool check_metadata = true) const;
-  bool Equals(const std::shared_ptr<Field>& other, bool check_metadata = true) const;
+  bool Equals(const Field& other, bool check_metadata = false) const;
+  bool Equals(const std::shared_ptr<Field>& other, bool check_metadata = false) const;
 
   /// \brief Indicate if fields are compatibles.
   ///
@@ -483,6 +482,9 @@ class ARROW_EXPORT CTypeImpl : public BASE {
 
   std::string ToString() const override { return this->name(); }
 };
+
+template <typename DERIVED, typename BASE, Type::type TYPE_ID, typename C_TYPE>
+constexpr Type::type CTypeImpl<DERIVED, BASE, TYPE_ID, C_TYPE>::type_id;
 
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
 class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, IntegerType, TYPE_ID, C_TYPE> {
@@ -939,14 +941,8 @@ class ARROW_EXPORT StructType : public NestedType {
   /// same name
   int GetFieldIndex(const std::string& name) const;
 
-  /// Return the indices of all fields having this name
+  /// \brief Return the indices of all fields having this name in sorted order
   std::vector<int> GetAllFieldIndices(const std::string& name) const;
-
-  ARROW_DEPRECATED("Use GetFieldByName")
-  std::shared_ptr<Field> GetChildByName(const std::string& name) const;
-
-  ARROW_DEPRECATED("Use GetFieldIndex")
-  int GetChildIndex(const std::string& name) const;
 
  private:
   std::string ComputeFingerprint() const override;
@@ -984,6 +980,9 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
   explicit Decimal128Type(int32_t precision, int32_t scale);
 
   /// Decimal128Type constructor that returns an error on invalid input.
+  static Result<std::shared_ptr<DataType>> Make(int32_t precision, int32_t scale);
+
+  ARROW_DEPRECATED("Use Result-returning version")
   static Status Make(int32_t precision, int32_t scale, std::shared_ptr<DataType>* out);
 
   std::string ToString() const override;
@@ -991,10 +990,6 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
 
   static constexpr int32_t kMinPrecision = 1;
   static constexpr int32_t kMaxPrecision = 38;
-};
-
-struct UnionMode {
-  enum type { SPARSE, DENSE };
 };
 
 /// \brief Concrete type class for union data
@@ -1115,11 +1110,6 @@ class ARROW_EXPORT Date64Type : public DateType {
   std::string ComputeFingerprint() const override;
 };
 
-struct TimeUnit {
-  /// The unit for a time or timestamp DataType
-  enum type { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
-};
-
 ARROW_EXPORT
 std::ostream& operator<<(std::ostream& os, TimeUnit::type unit);
 
@@ -1238,11 +1228,11 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
 class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
  public:
   enum type { MONTHS, DAY_TIME };
-  IntervalType() : TemporalType(Type::INTERVAL) {}
 
   virtual type interval_type() const = 0;
 
  protected:
+  explicit IntervalType(Type::type subtype) : TemporalType(subtype) {}
   std::string ComputeFingerprint() const override;
 };
 
@@ -1252,7 +1242,7 @@ class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
 /// in Schema.fbs (years are defined as 12 months).
 class ARROW_EXPORT MonthIntervalType : public IntervalType {
  public:
-  static constexpr Type::type type_id = Type::INTERVAL;
+  static constexpr Type::type type_id = Type::INTERVAL_MONTHS;
   using c_type = int32_t;
 
   static constexpr const char* type_name() { return "month_interval"; }
@@ -1261,7 +1251,7 @@ class ARROW_EXPORT MonthIntervalType : public IntervalType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  MonthIntervalType() : IntervalType() {}
+  MonthIntervalType() : IntervalType(type_id) {}
 
   std::string ToString() const override { return name(); }
   std::string name() const override { return "month_interval"; }
@@ -1284,13 +1274,13 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
   using c_type = DayMilliseconds;
   static_assert(sizeof(DayMilliseconds) == 8,
                 "DayMilliseconds struct assumed to be of size 8 bytes");
-  static constexpr Type::type type_id = Type::INTERVAL;
+  static constexpr Type::type type_id = Type::INTERVAL_DAY_TIME;
 
   static constexpr const char* type_name() { return "day_time_interval"; }
 
   IntervalType::type interval_type() const override { return IntervalType::DAY_TIME; }
 
-  DayTimeIntervalType() : IntervalType() {}
+  DayTimeIntervalType() : IntervalType(type_id) {}
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
@@ -1375,9 +1365,12 @@ class ARROW_EXPORT DictionaryUnifier {
   virtual ~DictionaryUnifier() = default;
 
   /// \brief Construct a DictionaryUnifier
-  /// \param[in] pool MemoryPool to use for memory allocations
   /// \param[in] value_type the data type of the dictionaries
-  /// \param[out] out the constructed unifier
+  /// \param[in] pool MemoryPool to use for memory allocations
+  static Result<std::unique_ptr<DictionaryUnifier>> Make(
+      std::shared_ptr<DataType> value_type, MemoryPool* pool = default_memory_pool());
+
+  ARROW_DEPRECATED("Use Result-returning version")
   static Status Make(MemoryPool* pool, std::shared_ptr<DataType> value_type,
                      std::unique_ptr<DictionaryUnifier>* out);
 
@@ -1420,20 +1413,26 @@ class ARROW_EXPORT DictionaryUnifier {
 /// Array (returns a child array), RecordBatch (returns a column), ChunkedArray (returns a
 /// ChunkedArray where each chunk is a child array of the corresponding original chunk)
 /// and Table (returns a column).
-class ARROW_EXPORT FieldPath : public std::vector<int> {
+class ARROW_EXPORT FieldPath {
  public:
-  using std::vector<int>::vector;
-
   FieldPath() = default;
 
   FieldPath(std::vector<int> indices)  // NOLINT runtime/explicit
-      : std::vector<int>(std::move(indices)) {}
+      : indices_(std::move(indices)) {}
+
+  FieldPath(std::initializer_list<int> indices)  // NOLINT runtime/explicit
+      : indices_(std::move(indices)) {}
 
   std::string ToString() const;
 
   size_t hash() const;
 
-  explicit operator bool() const { return !empty(); }
+  explicit operator bool() const { return !indices_.empty(); }
+  bool operator==(const FieldPath& other) const { return indices() == other.indices(); }
+  bool operator!=(const FieldPath& other) const { return !(*this == other); }
+
+  std::vector<int>& indices() { return indices_; }
+  const std::vector<int>& indices() const { return indices_; }
 
   /// \brief Retrieve the referenced child Field from a Schema, Field, or DataType
   Result<std::shared_ptr<Field>> Get(const Schema& schema) const;
@@ -1448,6 +1447,9 @@ class ARROW_EXPORT FieldPath : public std::vector<int> {
   /// \brief Retrieve the referenced child Array from an Array or ChunkedArray
   Result<std::shared_ptr<Array>> Get(const Array& array) const;
   Result<std::shared_ptr<ChunkedArray>> Get(const ChunkedArray& array) const;
+
+ private:
+  std::vector<int> indices_;
 };
 
 /// \class FieldRef
@@ -1540,7 +1542,7 @@ class ARROW_EXPORT FieldRef {
   bool IsName() const { return util::holds_alternative<std::string>(impl_); }
   bool IsNested() const {
     if (IsName()) return false;
-    if (IsFieldPath()) return util::get<FieldPath>(impl_).size() > 1;
+    if (IsFieldPath()) return util::get<FieldPath>(impl_).indices().size() > 1;
     return true;
   }
 
@@ -1650,8 +1652,8 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   ~Schema() override;
 
   /// Returns true if all of the schema fields are equal
-  bool Equals(const Schema& other, bool check_metadata = true) const;
-  bool Equals(const std::shared_ptr<Schema>& other, bool check_metadata = true) const;
+  bool Equals(const Schema& other, bool check_metadata = false) const;
+  bool Equals(const std::shared_ptr<Schema>& other, bool check_metadata = false) const;
 
   /// \brief Return the number of fields (columns) in the schema
   int num_fields() const;
@@ -1666,7 +1668,7 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// Returns null if name not found
   std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
 
-  /// Return all fields having this name
+  /// \brief Return the indices of all fields having this name in sorted order
   std::vector<std::shared_ptr<Field>> GetAllFieldsByName(const std::string& name) const;
 
   /// Returns -1 if name not found
@@ -1688,9 +1690,18 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// print keys and values in the output
   std::string ToString(bool show_metadata = false) const;
 
+  Result<std::shared_ptr<Schema>> AddField(int i,
+                                           const std::shared_ptr<Field>& field) const;
+  Result<std::shared_ptr<Schema>> RemoveField(int i) const;
+  Result<std::shared_ptr<Schema>> SetField(int i,
+                                           const std::shared_ptr<Field>& field) const;
+
+  ARROW_DEPRECATED("Use Result-returning version")
   Status AddField(int i, const std::shared_ptr<Field>& field,
                   std::shared_ptr<Schema>* out) const;
+  ARROW_DEPRECATED("Use Result-returning version")
   Status RemoveField(int i, std::shared_ptr<Schema>* out) const;
+  ARROW_DEPRECATED("Use Result-returning version")
   Status SetField(int i, const std::shared_ptr<Field>& field,
                   std::shared_ptr<Schema>* out) const;
 
@@ -1699,10 +1710,6 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// \param[in] metadata new KeyValueMetadata
   /// \return new Schema
   std::shared_ptr<Schema> WithMetadata(
-      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
-
-  ARROW_DEPRECATED("Use WithMetadata")
-  std::shared_ptr<Schema> AddMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
 
   /// \brief Return copy of Schema without the KeyValueMetadata
@@ -1726,164 +1733,6 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
 };
 
 // ----------------------------------------------------------------------
-// Parametric factory functions
-// Other factory functions are in type_fwd.h
-
-/// \addtogroup type-factories
-/// @{
-
-/// \brief Create a FixedSizeBinaryType instance.
-ARROW_EXPORT
-std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
-
-/// \brief Create a Decimal128Type instance
-ARROW_EXPORT
-std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale);
-
-/// \brief Create a ListType instance from its child Field type
-ARROW_EXPORT
-std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_type);
-
-/// \brief Create a ListType instance from its child DataType
-ARROW_EXPORT
-std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type);
-
-/// \brief Create a LargeListType instance from its child Field type
-ARROW_EXPORT
-std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_type);
-
-/// \brief Create a LargeListType instance from its child DataType
-ARROW_EXPORT
-std::shared_ptr<DataType> large_list(const std::shared_ptr<DataType>& value_type);
-
-/// \brief Create a MapType instance from its key and value DataTypes
-ARROW_EXPORT
-std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
-                              const std::shared_ptr<DataType>& item_type,
-                              bool keys_sorted = false);
-
-/// \brief Create a MapType instance from its key DataType and value field.
-///
-/// The field override is provided to communicate nullability of the value.
-ARROW_EXPORT
-std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
-                              const std::shared_ptr<Field>& item_field,
-                              bool keys_sorted = false);
-
-/// \brief Create a FixedSizeListType instance from its child Field type
-ARROW_EXPORT
-std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_type,
-                                          int32_t list_size);
-
-/// \brief Create a FixedSizeListType instance from its child DataType
-ARROW_EXPORT
-std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,
-                                          int32_t list_size);
-/// \brief Return a Duration instance (naming use _type to avoid namespace conflict with
-/// built in time clases).
-std::shared_ptr<DataType> ARROW_EXPORT duration(TimeUnit::type unit);
-
-/// \brief Return a DayTimeIntervalType instance
-std::shared_ptr<DataType> ARROW_EXPORT day_time_interval();
-
-/// \brief Return a MonthIntervalType instance
-std::shared_ptr<DataType> ARROW_EXPORT month_interval();
-
-/// \brief Create a TimestampType instance from its unit
-ARROW_EXPORT
-std::shared_ptr<DataType> timestamp(TimeUnit::type unit);
-
-/// \brief Create a TimestampType instance from its unit and timezone
-ARROW_EXPORT
-std::shared_ptr<DataType> timestamp(TimeUnit::type unit, const std::string& timezone);
-
-/// \brief Create a 32-bit time type instance
-///
-/// Unit can be either SECOND or MILLI
-std::shared_ptr<DataType> ARROW_EXPORT time32(TimeUnit::type unit);
-
-/// \brief Create a 64-bit time type instance
-///
-/// Unit can be either MICRO or NANO
-std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit::type unit);
-
-/// \brief Create a StructType instance
-std::shared_ptr<DataType> ARROW_EXPORT
-struct_(const std::vector<std::shared_ptr<Field>>& fields);
-
-/// \brief Create a UnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT
-union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-       const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
-
-/// \brief Create a UnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT
-union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-       UnionMode::type mode = UnionMode::SPARSE);
-
-/// \brief Create a UnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT union_(UnionMode::type mode = UnionMode::SPARSE);
-
-/// \brief Create a UnionType instance
-std::shared_ptr<DataType> ARROW_EXPORT
-union_(const std::vector<std::shared_ptr<Array>>& children,
-       const std::vector<std::string>& field_names, const std::vector<int8_t>& type_codes,
-       UnionMode::type mode = UnionMode::SPARSE);
-
-/// \brief Create a UnionType instance
-inline std::shared_ptr<DataType> ARROW_EXPORT
-union_(const std::vector<std::shared_ptr<Array>>& children,
-       const std::vector<std::string>& field_names,
-       UnionMode::type mode = UnionMode::SPARSE) {
-  return union_(children, field_names, {}, mode);
-}
-
-/// \brief Create a UnionType instance
-inline std::shared_ptr<DataType> ARROW_EXPORT
-union_(const std::vector<std::shared_ptr<Array>>& children,
-       UnionMode::type mode = UnionMode::SPARSE) {
-  return union_(children, {}, {}, mode);
-}
-
-/// \brief Create a DictionaryType instance
-/// \param[in] index_type the type of the dictionary indices (must be
-/// a signed integer)
-/// \param[in] dict_type the type of the values in the variable dictionary
-/// \param[in] ordered true if the order of the dictionary values has
-/// semantic meaning and should be preserved where possible
-ARROW_EXPORT
-std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,
-                                     const std::shared_ptr<DataType>& dict_type,
-                                     bool ordered = false);
-
-/// @}
-
-/// \defgroup schema-factories Factory functions for fields and schemas
-///
-/// Factory functions for fields and schemas
-/// @{
-
-/// \brief Create a Field instance
-///
-/// \param name the field name
-/// \param type the field value type
-/// \param nullable whether the values are nullable, default true
-/// \param metadata any custom key-value metadata, default null
-std::shared_ptr<Field> ARROW_EXPORT
-field(std::string name, std::shared_ptr<DataType> type, bool nullable = true,
-      std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
-
-/// \brief Create a Schema instance
-///
-/// \param fields the schema's fields
-/// \param metadata any custom key-value metadata, default null
-/// \return schema shared_ptr to Schema
-ARROW_EXPORT
-std::shared_ptr<Schema> schema(
-    std::vector<std::shared_ptr<Field>> fields,
-    std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
-
-/// @}
 
 /// \brief Convenience class to incrementally construct/merge schemas.
 ///

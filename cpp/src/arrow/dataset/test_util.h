@@ -46,6 +46,7 @@ namespace arrow {
 namespace dataset {
 
 using fs::internal::GetAbstractPathExtension;
+using internal::checked_cast;
 using internal::TemporaryDir;
 
 class FileSourceFixtureMixin : public ::testing::Test {
@@ -118,7 +119,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   /// record batches yielded by the data fragment.
   void AssertFragmentEquals(RecordBatchReader* expected, Fragment* fragment,
                             bool ensure_drained = true) {
-    ASSERT_OK_AND_ASSIGN(auto it, fragment->Scan(ctx_));
+    ASSERT_OK_AND_ASSIGN(auto it, fragment->Scan(options_, ctx_));
 
     ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<ScanTask> task) -> Status {
       AssertScanTaskEquals(expected, task.get(), false);
@@ -134,7 +135,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   /// record batches yielded by the data fragments of a dataset.
   void AssertDatasetFragmentsEqual(RecordBatchReader* expected, Dataset* dataset,
                                    bool ensure_drained = true) {
-    auto it = dataset->GetFragments(options_);
+    auto it = dataset->GetFragments(options_->filter);
 
     ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<Fragment> fragment) -> Status {
       AssertFragmentEquals(expected, fragment.get(), false);
@@ -250,8 +251,32 @@ class JSONRecordBatchFileFormat : public FileFormat {
   SchemaResolver resolver_;
 };
 
-class TestFileSystemDataset : public ::testing::Test {
- public:
+struct MakeFileSystemDatasetMixin {
+  std::vector<fs::FileInfo> ParsePathList(const std::string& pathlist) {
+    std::vector<fs::FileInfo> infos;
+
+    std::stringstream ss(pathlist);
+    std::string line;
+    while (std::getline(ss, line)) {
+      if (std::all_of(line.begin(), line.end(), [](char c) { return isspace(c); })) {
+        continue;
+      }
+
+      if (line.front() == '#') {
+        continue;
+      }
+
+      if (line.back() == '/') {
+        infos.push_back(fs::Dir(line));
+        continue;
+      }
+
+      infos.push_back(fs::File(line));
+    }
+
+    return infos;
+  }
+
   void MakeFileSystem(const std::vector<fs::FileInfo>& infos) {
     ASSERT_OK_AND_ASSIGN(fs_, fs::internal::MockFileSystem::Make(fs::kNoTime, infos));
   }
@@ -267,18 +292,36 @@ class TestFileSystemDataset : public ::testing::Test {
   void MakeDataset(const std::vector<fs::FileInfo>& infos,
                    std::shared_ptr<Expression> root_partition = scalar(true),
                    ExpressionVector partitions = {}) {
+    auto n_fragments = infos.size();
     if (partitions.empty()) {
-      partitions.resize(infos.size(), scalar(true));
+      partitions.resize(n_fragments, scalar(true));
     }
 
     MakeFileSystem(infos);
     auto format = std::make_shared<DummyFileFormat>();
-    ASSERT_OK_AND_ASSIGN(
-        dataset_, FileSystemDataset::Make(schema({}), root_partition, format, fs_, infos,
-                                          partitions));
+
+    std::vector<std::shared_ptr<FileFragment>> fragments;
+    for (size_t i = 0; i < n_fragments; i++) {
+      const auto& info = infos[i];
+      if (!info.IsFile()) {
+        continue;
+      }
+
+      ASSERT_OK_AND_ASSIGN(auto fragment,
+                           format->MakeFragment({info.path(), fs_}, partitions[i]));
+      fragments.push_back(std::move(fragment));
+    }
+
+    ASSERT_OK_AND_ASSIGN(dataset_, FileSystemDataset::Make(schema({}), root_partition,
+                                                           format, std::move(fragments)));
   }
 
- protected:
+  void MakeDatasetFromPathlist(const std::string& pathlist,
+                               std::shared_ptr<Expression> root_partition = scalar(true),
+                               ExpressionVector partitions = {}) {
+    MakeDataset(ParsePathList(pathlist), root_partition, partitions);
+  }
+
   std::shared_ptr<fs::FileSystem> fs_;
   std::shared_ptr<Dataset> dataset_;
   std::shared_ptr<ScanOptions> options_ = ScanOptions::Make(schema({}));
@@ -286,9 +329,12 @@ class TestFileSystemDataset : public ::testing::Test {
 
 static const std::string& PathOf(const std::shared_ptr<Fragment>& fragment) {
   EXPECT_NE(fragment, nullptr);
-  EXPECT_EQ(fragment->type_name(), "file");
+  EXPECT_THAT(fragment->type_name(), "dummy");
   return internal::checked_cast<const FileFragment&>(*fragment).source().path();
 }
+
+class TestFileSystemDataset : public ::testing::Test,
+                              public MakeFileSystemDatasetMixin {};
 
 static std::vector<std::string> PathsOf(const FragmentVector& fragments) {
   std::vector<std::string> paths(fragments.size());
@@ -319,11 +365,17 @@ struct TestExpression : util::EqualityComparable<TestExpression>,
 
   std::shared_ptr<Expression> expression;
 
+  using util::EqualityComparable<TestExpression>::operator==;
   bool Equals(const TestExpression& other) const {
     return expression->Equals(other.expression);
   }
 
   std::string ToString() const { return expression->ToString(); }
+
+  friend bool operator==(const std::shared_ptr<Expression>& lhs,
+                         const TestExpression& rhs) {
+    return TestExpression(lhs) == rhs;
+  }
 
   friend void PrintTo(const TestExpression& expr, std::ostream* os) {
     *os << expr.ToString();

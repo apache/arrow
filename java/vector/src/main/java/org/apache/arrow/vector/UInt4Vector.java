@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.UInt4ReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -28,8 +29,6 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * UInt4Vector implements a fixed width (4 bytes) vector of
@@ -83,7 +82,7 @@ public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVe
    * @return value stored at the index.
    */
   public static long getNoOverflow(final ArrowBuf buffer, final int index) {
-    long l = buffer.getInt(index * TYPE_WIDTH);
+    long l = buffer.getInt((long) index * TYPE_WIDTH);
     return (0x00000000FFFFFFFFL) & l;
   }
 
@@ -97,7 +96,7 @@ public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVe
     if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
-    return valueBuffer.getInt(index * TYPE_WIDTH);
+    return valueBuffer.getInt((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -113,7 +112,7 @@ public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVe
       return;
     }
     holder.isSet = 1;
-    holder.value = valueBuffer.getInt(index * TYPE_WIDTH);
+    holder.value = valueBuffer.getInt((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -126,7 +125,7 @@ public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVe
     if (isSet(index) == 0) {
       return null;
     } else {
-      return valueBuffer.getInt(index * TYPE_WIDTH);
+      return valueBuffer.getInt((long) index * TYPE_WIDTH);
     }
   }
 
@@ -153,7 +152,7 @@ public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVe
 
 
   private void setValue(int index, int value) {
-    valueBuffer.setInt(index * TYPE_WIDTH, value);
+    valueBuffer.setInt((long) index * TYPE_WIDTH, value);
   }
 
   /**

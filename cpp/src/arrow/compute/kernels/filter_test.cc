@@ -38,63 +38,102 @@ using util::string_view;
 
 constexpr auto kSeed = 0x0ff1ce;
 
+std::shared_ptr<Array> CoalesceNullToFalse(FunctionContext* ctx,
+                                           std::shared_ptr<Array> filter) {
+  if (filter->null_count() == 0) {
+    return filter;
+  }
+  const auto& data = *filter->data();
+  auto is_true = std::make_shared<BooleanArray>(data.length, data.buffers[1]);
+  auto is_valid = std::make_shared<BooleanArray>(data.length, data.buffers[0]);
+  Datum out_datum;
+  ARROW_EXPECT_OK(arrow::compute::And(ctx, is_true, is_valid, &out_datum));
+  return out_datum.make_array();
+}
+
 template <typename ArrowType>
 class TestFilterKernel : public ComputeFixture, public TestBase {
  protected:
-  void AssertFilterArrays(const std::shared_ptr<Array>& values,
-                          const std::shared_ptr<Array>& filter,
-                          const std::shared_ptr<Array>& expected) {
-    std::shared_ptr<Array> actual;
-    ASSERT_OK(arrow::compute::Filter(&this->ctx_, *values, *filter, &actual));
+  TestFilterKernel() {
+    emit_null_.null_selection_behavior = FilterOptions::EMIT_NULL;
+    drop_.null_selection_behavior = FilterOptions::DROP;
+  }
+
+  void AssertFilter(std::shared_ptr<Array> values, std::shared_ptr<Array> filter,
+                    std::shared_ptr<Array> expected) {
+    // test with EMIT_NULL
+    Datum out_datum;
+    ASSERT_OK(
+        arrow::compute::Filter(&this->ctx_, values, filter, emit_null_, &out_datum));
+    auto actual = out_datum.make_array();
     ASSERT_OK(actual->ValidateFull());
+    AssertArraysEqual(*expected, *actual);
+
+    // test with DROP using EMIT_NULL and a coalesced filter
+    auto coalesced_filter = CoalesceNullToFalse(&this->ctx_, filter);
+    ASSERT_OK(arrow::compute::Filter(&this->ctx_, values, coalesced_filter, emit_null_,
+                                     &out_datum));
+    expected = out_datum.make_array();
+    ASSERT_OK(arrow::compute::Filter(&this->ctx_, values, filter, drop_, &out_datum));
+    actual = out_datum.make_array();
     AssertArraysEqual(*expected, *actual);
   }
 
-  void AssertFilter(const std::shared_ptr<DataType>& type, const std::string& values,
+  void AssertFilter(std::shared_ptr<DataType> type, const std::string& values,
                     const std::string& filter, const std::string& expected) {
-    std::shared_ptr<Array> actual;
-    ASSERT_OK(this->Filter(type, values, filter, &actual));
-    ASSERT_OK(actual->ValidateFull());
-    AssertArraysEqual(*ArrayFromJSON(type, expected), *actual);
-  }
-
-  Status Filter(const std::shared_ptr<DataType>& type, const std::string& values,
-                const std::string& filter, std::shared_ptr<Array>* out) {
-    return arrow::compute::Filter(&this->ctx_, *ArrayFromJSON(type, values),
-                                  *ArrayFromJSON(boolean(), filter), out);
+    AssertFilter(ArrayFromJSON(type, values), ArrayFromJSON(boolean(), filter),
+                 ArrayFromJSON(type, expected));
   }
 
   void ValidateFilter(const std::shared_ptr<Array>& values,
                       const std::shared_ptr<Array>& filter_boxed) {
-    std::shared_ptr<Array> filtered;
-    ASSERT_OK(arrow::compute::Filter(&this->ctx_, *values, *filter_boxed, &filtered));
-    ASSERT_OK(filtered->ValidateFull());
+    Datum out_datum;
+    ASSERT_OK(arrow::compute::Filter(&this->ctx_, values, filter_boxed, emit_null_,
+                                     &out_datum));
+    auto filtered_emit_null = out_datum.make_array();
+    ASSERT_OK(filtered_emit_null->ValidateFull());
+
+    ASSERT_OK(
+        arrow::compute::Filter(&this->ctx_, values, filter_boxed, drop_, &out_datum));
+    auto filtered_drop = out_datum.make_array();
+    ASSERT_OK(filtered_drop->ValidateFull());
 
     auto filter = checked_pointer_cast<BooleanArray>(filter_boxed);
-    int64_t values_i = 0, filtered_i = 0;
-    for (; values_i < values->length(); ++values_i, ++filtered_i) {
+    int64_t values_i = 0, emit_null_i = 0, drop_i = 0;
+    for (; values_i < values->length(); ++values_i, ++emit_null_i, ++drop_i) {
       if (filter->IsNull(values_i)) {
-        ASSERT_LT(filtered_i, filtered->length());
-        ASSERT_TRUE(filtered->IsNull(filtered_i));
+        ASSERT_LT(emit_null_i, filtered_emit_null->length());
+        ASSERT_TRUE(filtered_emit_null->IsNull(emit_null_i));
+        // this element was (null) filtered out; don't examine filtered_drop
+        --drop_i;
         continue;
       }
       if (!filter->Value(values_i)) {
-        // this element was filtered out; don't examine filtered
-        --filtered_i;
+        // this element was filtered out; don't examine filtered_emit_null
+        --emit_null_i;
+        --drop_i;
         continue;
       }
-      ASSERT_LT(filtered_i, filtered->length());
-      ASSERT_TRUE(values->RangeEquals(values_i, values_i + 1, filtered_i, filtered));
+      ASSERT_LT(emit_null_i, filtered_emit_null->length());
+      ASSERT_LT(drop_i, filtered_drop->length());
+      ASSERT_TRUE(
+          values->RangeEquals(values_i, values_i + 1, emit_null_i, filtered_emit_null));
+      ASSERT_TRUE(values->RangeEquals(values_i, values_i + 1, drop_i, filtered_drop));
     }
-    ASSERT_EQ(filtered_i, filtered->length());
+    ASSERT_EQ(emit_null_i, filtered_emit_null->length());
+    ASSERT_EQ(drop_i, filtered_drop->length());
   }
+
+  FilterOptions emit_null_, drop_;
 };
 
 class TestFilterKernelWithNull : public TestFilterKernel<NullType> {
  protected:
   void AssertFilter(const std::string& values, const std::string& filter,
                     const std::string& expected) {
-    TestFilterKernel<NullType>::AssertFilter(null(), values, filter, expected);
+    TestFilterKernel<NullType>::AssertFilter(ArrayFromJSON(null(), values),
+                                             ArrayFromJSON(boolean(), filter),
+                                             ArrayFromJSON(null(), expected));
   }
 };
 
@@ -109,7 +148,9 @@ class TestFilterKernelWithBoolean : public TestFilterKernel<BooleanType> {
  protected:
   void AssertFilter(const std::string& values, const std::string& filter,
                     const std::string& expected) {
-    TestFilterKernel<BooleanType>::AssertFilter(boolean(), values, filter, expected);
+    TestFilterKernel<BooleanType>::AssertFilter(ArrayFromJSON(boolean(), values),
+                                                ArrayFromJSON(boolean(), filter),
+                                                ArrayFromJSON(boolean(), expected));
   }
 };
 
@@ -124,11 +165,6 @@ TEST_F(TestFilterKernelWithBoolean, FilterBoolean) {
 template <typename ArrowType>
 class TestFilterKernelWithNumeric : public TestFilterKernel<ArrowType> {
  protected:
-  void AssertFilter(const std::string& values, const std::string& filter,
-                    const std::string& expected) {
-    TestFilterKernel<ArrowType>::AssertFilter(type_singleton(), values, filter, expected);
-  }
-
   std::shared_ptr<DataType> type_singleton() {
     return TypeTraits<ArrowType>::type_singleton();
   }
@@ -136,27 +172,34 @@ class TestFilterKernelWithNumeric : public TestFilterKernel<ArrowType> {
 
 TYPED_TEST_SUITE(TestFilterKernelWithNumeric, NumericArrowTypes);
 TYPED_TEST(TestFilterKernelWithNumeric, FilterNumeric) {
-  this->AssertFilter("[]", "[]", "[]");
+  auto type = this->type_singleton();
+  this->AssertFilter(type, "[]", "[]", "[]");
 
-  this->AssertFilter("[9]", "[0]", "[]");
-  this->AssertFilter("[9]", "[1]", "[9]");
-  this->AssertFilter("[9]", "[null]", "[null]");
-  this->AssertFilter("[null]", "[0]", "[]");
-  this->AssertFilter("[null]", "[1]", "[null]");
-  this->AssertFilter("[null]", "[null]", "[null]");
+  this->AssertFilter(type, "[9]", "[0]", "[]");
+  this->AssertFilter(type, "[9]", "[1]", "[9]");
+  this->AssertFilter(type, "[9]", "[null]", "[null]");
+  this->AssertFilter(type, "[null]", "[0]", "[]");
+  this->AssertFilter(type, "[null]", "[1]", "[null]");
+  this->AssertFilter(type, "[null]", "[null]", "[null]");
 
-  this->AssertFilter("[7, 8, 9]", "[0, 1, 0]", "[8]");
-  this->AssertFilter("[7, 8, 9]", "[1, 0, 1]", "[7, 9]");
-  this->AssertFilter("[null, 8, 9]", "[0, 1, 0]", "[8]");
-  this->AssertFilter("[7, 8, 9]", "[null, 1, 0]", "[null, 8]");
-  this->AssertFilter("[7, 8, 9]", "[1, null, 1]", "[7, null, 9]");
+  this->AssertFilter(type, "[7, 8, 9]", "[0, 1, 0]", "[8]");
+  this->AssertFilter(type, "[7, 8, 9]", "[1, 0, 1]", "[7, 9]");
+  this->AssertFilter(type, "[null, 8, 9]", "[0, 1, 0]", "[8]");
+  this->AssertFilter(type, "[7, 8, 9]", "[null, 1, 0]", "[null, 8]");
+  this->AssertFilter(type, "[7, 8, 9]", "[1, null, 1]", "[7, null, 9]");
 
-  this->AssertFilterArrays(ArrayFromJSON(this->type_singleton(), "[7, 8, 9]"),
-                           ArrayFromJSON(boolean(), "[0, 1, 1, 1, 0, 1]")->Slice(3, 3),
-                           ArrayFromJSON(this->type_singleton(), "[7, 9]"));
+  this->AssertFilter(ArrayFromJSON(type, "[7, 8, 9]"),
+                     ArrayFromJSON(boolean(), "[0, 1, 1, 1, 0, 1]")->Slice(3, 3),
+                     ArrayFromJSON(type, "[7, 9]"));
 
-  std::shared_ptr<Array> arr;
-  ASSERT_RAISES(Invalid, this->Filter(this->type_singleton(), "[7, 8, 9]", "[]", &arr));
+  Datum out_datum;
+  ASSERT_RAISES(Invalid,
+                arrow::compute::Filter(&this->ctx_, ArrayFromJSON(type, "[7, 8, 9]"),
+                                       ArrayFromJSON(boolean(), "[]"), this->emit_null_,
+                                       &out_datum));
+  ASSERT_RAISES(Invalid, arrow::compute::Filter(
+                             &this->ctx_, ArrayFromJSON(type, "[7, 8, 9]"),
+                             ArrayFromJSON(boolean(), "[]"), this->drop_, &out_datum));
 }
 
 TYPED_TEST(TestFilterKernelWithNumeric, FilterRandomNumeric) {
@@ -233,11 +276,11 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
     CType c_fifty = 50;
     auto fifty = std::make_shared<ScalarType>(c_fifty);
     for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-      auto options = CompareOptions(op);
       Datum selection, filtered;
-      ASSERT_OK(arrow::compute::Compare(&this->ctx_, Datum(array), Datum(fifty), options,
-                                        &selection));
-      ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(array), selection, &filtered));
+      ASSERT_OK(arrow::compute::Compare(&this->ctx_, Datum(array), Datum(fifty),
+                                        CompareOptions(op), &selection));
+      ASSERT_OK(
+          arrow::compute::Filter(&this->ctx_, Datum(array), selection, {}, &filtered));
       auto filtered_array = filtered.make_array();
       ASSERT_OK(filtered_array->ValidateFull());
       auto expected =
@@ -253,16 +296,16 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareArrayAndFilterRandomNumeric) {
   auto rand = random::RandomArrayGenerator(kSeed);
   for (size_t i = 3; i < 13; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
-    auto lhs =
-        checked_pointer_cast<ArrayType>(rand.Numeric<TypeParam>(length, 0, 100, 0));
-    auto rhs =
-        checked_pointer_cast<ArrayType>(rand.Numeric<TypeParam>(length, 0, 100, 0));
+    auto lhs = checked_pointer_cast<ArrayType>(
+        rand.Numeric<TypeParam>(length, 0, 100, /*null_probability=*/0.0));
+    auto rhs = checked_pointer_cast<ArrayType>(
+        rand.Numeric<TypeParam>(length, 0, 100, /*null_probability=*/0.0));
     for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-      auto options = CompareOptions(op);
       Datum selection, filtered;
-      ASSERT_OK(arrow::compute::Compare(&this->ctx_, Datum(lhs), Datum(rhs), options,
-                                        &selection));
-      ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(lhs), selection, &filtered));
+      ASSERT_OK(arrow::compute::Compare(&this->ctx_, Datum(lhs), Datum(rhs),
+                                        CompareOptions(op), &selection));
+      ASSERT_OK(
+          arrow::compute::Filter(&this->ctx_, Datum(lhs), selection, {}, &filtered));
       auto filtered_array = filtered.make_array();
       ASSERT_OK(filtered_array->ValidateFull());
       auto expected = CompareAndFilter<TypeParam>(lhs->raw_values(), lhs->length(),
@@ -280,8 +323,8 @@ TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
   auto rand = random::RandomArrayGenerator(kSeed);
   for (size_t i = 3; i < 13; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
-    auto array =
-        checked_pointer_cast<ArrayType>(rand.Numeric<TypeParam>(length, 0, 100, 0));
+    auto array = checked_pointer_cast<ArrayType>(
+        rand.Numeric<TypeParam>(length, 0, 100, /*null_probability=*/0.0));
     CType c_fifty = 50, c_hundred = 100;
     auto fifty = std::make_shared<ScalarType>(c_fifty);
     auto hundred = std::make_shared<ScalarType>(c_hundred);
@@ -292,7 +335,8 @@ TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
                                       CompareOptions(LESS), &less_than_hundred));
     ASSERT_OK(arrow::compute::And(&this->ctx_, greater_than_fifty, less_than_hundred,
                                   &selection));
-    ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(array), selection, &filtered));
+    ASSERT_OK(
+        arrow::compute::Filter(&this->ctx_, Datum(array), selection, {}, &filtered));
     auto filtered_array = filtered.make_array();
     ASSERT_OK(filtered_array->ValidateFull());
     auto expected = CompareAndFilter<TypeParam>(
@@ -314,21 +358,25 @@ class TestFilterKernelWithString : public TestFilterKernel<TypeClass> {
 
   void AssertFilter(const std::string& values, const std::string& filter,
                     const std::string& expected) {
-    TestFilterKernel<TypeClass>::AssertFilter(value_type(), values, filter, expected);
+    TestFilterKernel<TypeClass>::AssertFilter(ArrayFromJSON(value_type(), values),
+                                              ArrayFromJSON(boolean(), filter),
+                                              ArrayFromJSON(value_type(), expected));
   }
+
   void AssertFilterDictionary(const std::string& dictionary_values,
                               const std::string& dictionary_filter,
                               const std::string& filter,
                               const std::string& expected_filter) {
     auto dict = ArrayFromJSON(value_type(), dictionary_values);
     auto type = dictionary(int8(), value_type());
-    std::shared_ptr<Array> values, actual, expected;
-    ASSERT_OK(DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), dictionary_filter),
-                                          dict, &values));
-    ASSERT_OK(DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), expected_filter),
-                                          dict, &expected));
+    ASSERT_OK_AND_ASSIGN(auto values,
+                         DictionaryArray::FromArrays(
+                             type, ArrayFromJSON(int8(), dictionary_filter), dict));
+    ASSERT_OK_AND_ASSIGN(
+        auto expected,
+        DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), expected_filter), dict));
     auto take_filter = ArrayFromJSON(boolean(), filter);
-    this->AssertFilterArrays(values, take_filter, expected);
+    TestFilterKernel<TypeClass>::AssertFilter(values, take_filter, expected);
   }
 };
 
@@ -347,7 +395,9 @@ TYPED_TEST(TestFilterKernelWithString, FilterDictionary) {
   this->AssertFilterDictionary(dict, "[3, 4, 2]", "[null, 1, 0]", "[null, 4]");
 }
 
-class TestFilterKernelWithList : public TestFilterKernel<ListType> {};
+class TestFilterKernelWithList : public TestFilterKernel<ListType> {
+ public:
+};
 
 TEST_F(TestFilterKernelWithList, FilterListInt32) {
   std::string list_json = "[[], [1,2], null, [3]]";
@@ -482,19 +532,24 @@ TEST_F(TestFilterKernelWithUnion, FilterUnion) {
 class TestFilterKernelWithRecordBatch : public TestFilterKernel<RecordBatch> {
  public:
   void AssertFilter(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
-                    const std::string& selection, const std::string& expected_batch) {
+                    const std::string& selection, FilterOptions options,
+                    const std::string& expected_batch) {
     std::shared_ptr<RecordBatch> actual;
 
-    ASSERT_OK(this->Filter(schm, batch_json, selection, &actual));
+    ASSERT_OK(this->Filter(schm, batch_json, selection, options, &actual));
     ASSERT_OK(actual->ValidateFull());
     ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(schm, expected_batch), *actual);
   }
 
   Status Filter(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
-                const std::string& selection, std::shared_ptr<RecordBatch>* out) {
+                const std::string& selection, FilterOptions options,
+                std::shared_ptr<RecordBatch>* out) {
     auto batch = RecordBatchFromJSON(schm, batch_json);
-    return arrow::compute::Filter(&this->ctx_, *batch,
-                                  *ArrayFromJSON(boolean(), selection), out);
+    Datum out_datum;
+    RETURN_NOT_OK(arrow::compute::Filter(
+        &this->ctx_, batch, ArrayFromJSON(boolean(), selection), options, &out_datum));
+    *out = out_datum.record_batch();
+    return Status::OK();
   }
 };
 
@@ -502,22 +557,30 @@ TEST_F(TestFilterKernelWithRecordBatch, FilterRecordBatch) {
   std::vector<std::shared_ptr<Field>> fields = {field("a", int32()), field("b", utf8())};
   auto schm = schema(fields);
 
-  auto struct_json = R"([
+  auto batch_json = R"([
     {"a": null, "b": "yo"},
     {"a": 1, "b": ""},
     {"a": 2, "b": "hello"},
     {"a": 4, "b": "eh"}
   ])";
-  this->AssertFilter(schm, struct_json, "[0, 0, 0, 0]", "[]");
-  this->AssertFilter(schm, struct_json, "[0, 1, 1, null]", R"([
+  for (auto options : {this->emit_null_, this->drop_}) {
+    this->AssertFilter(schm, batch_json, "[0, 0, 0, 0]", options, "[]");
+    this->AssertFilter(schm, batch_json, "[1, 1, 1, 1]", options, batch_json);
+    this->AssertFilter(schm, batch_json, "[1, 0, 1, 0]", options, R"([
+      {"a": null, "b": "yo"},
+      {"a": 2, "b": "hello"}
+    ])");
+  }
+
+  this->AssertFilter(schm, batch_json, "[0, 1, 1, null]", this->drop_, R"([
+    {"a": 1, "b": ""},
+    {"a": 2, "b": "hello"}
+  ])");
+
+  this->AssertFilter(schm, batch_json, "[0, 1, 1, null]", this->emit_null_, R"([
     {"a": 1, "b": ""},
     {"a": 2, "b": "hello"},
     {"a": null, "b": null}
-  ])");
-  this->AssertFilter(schm, struct_json, "[1, 1, 1, 1]", struct_json);
-  this->AssertFilter(schm, struct_json, "[1, 0, 1, 0]", R"([
-    {"a": null, "b": "yo"},
-    {"a": 2, "b": "hello"}
   ])");
 }
 
@@ -545,26 +608,34 @@ class TestFilterKernelWithChunkedArray : public TestFilterKernel<ChunkedArray> {
   Status FilterWithArray(const std::shared_ptr<DataType>& type,
                          const std::vector<std::string>& values,
                          const std::string& filter, std::shared_ptr<ChunkedArray>* out) {
-    return arrow::compute::Filter(&this->ctx_, *ChunkedArrayFromJSON(type, values),
-                                  *ArrayFromJSON(boolean(), filter), out);
+    Datum out_datum;
+    RETURN_NOT_OK(arrow::compute::Filter(&this->ctx_, ChunkedArrayFromJSON(type, values),
+                                         ArrayFromJSON(boolean(), filter), {},
+                                         &out_datum));
+    *out = out_datum.chunked_array();
+    return Status::OK();
   }
 
   Status FilterWithChunkedArray(const std::shared_ptr<DataType>& type,
                                 const std::vector<std::string>& values,
                                 const std::vector<std::string>& filter,
                                 std::shared_ptr<ChunkedArray>* out) {
-    return arrow::compute::Filter(&this->ctx_, *ChunkedArrayFromJSON(type, values),
-                                  *ChunkedArrayFromJSON(boolean(), filter), out);
+    Datum out_datum;
+    RETURN_NOT_OK(arrow::compute::Filter(&this->ctx_, ChunkedArrayFromJSON(type, values),
+                                         ChunkedArrayFromJSON(boolean(), filter), {},
+                                         &out_datum));
+    *out = out_datum.chunked_array();
+    return Status::OK();
   }
 };
 
 TEST_F(TestFilterKernelWithChunkedArray, FilterChunkedArray) {
-  this->AssertFilter(int8(), {"[]"}, "[]", {"[]"});
-  this->AssertChunkedFilter(int8(), {"[]"}, {"[]"}, {"[]"});
+  this->AssertFilter(int8(), {"[]"}, "[]", {});
+  this->AssertChunkedFilter(int8(), {"[]"}, {"[]"}, {});
 
-  this->AssertFilter(int8(), {"[7]", "[8, 9]"}, "[0, 1, 0]", {"[]", "[8]"});
-  this->AssertChunkedFilter(int8(), {"[7]", "[8, 9]"}, {"[0]", "[1, 0]"}, {"[]", "[8]"});
-  this->AssertChunkedFilter(int8(), {"[7]", "[8, 9]"}, {"[0, 1]", "[0]"}, {"[8]", "[]"});
+  this->AssertFilter(int8(), {"[7]", "[8, 9]"}, "[0, 1, 0]", {"[8]"});
+  this->AssertChunkedFilter(int8(), {"[7]", "[8, 9]"}, {"[0]", "[1, 0]"}, {"[8]"});
+  this->AssertChunkedFilter(int8(), {"[7]", "[8, 9]"}, {"[0, 1]", "[0]"}, {"[8]"});
 
   std::shared_ptr<ChunkedArray> arr;
   ASSERT_RAISES(
@@ -577,38 +648,49 @@ class TestFilterKernelWithTable : public TestFilterKernel<Table> {
  public:
   void AssertFilter(const std::shared_ptr<Schema>& schm,
                     const std::vector<std::string>& table_json, const std::string& filter,
+                    FilterOptions options,
                     const std::vector<std::string>& expected_table) {
     std::shared_ptr<Table> actual;
 
-    ASSERT_OK(this->FilterWithArray(schm, table_json, filter, &actual));
+    ASSERT_OK(this->FilterWithArray(schm, table_json, filter, options, &actual));
     ASSERT_OK(actual->ValidateFull());
     ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected_table), *actual);
   }
 
   void AssertChunkedFilter(const std::shared_ptr<Schema>& schm,
                            const std::vector<std::string>& table_json,
-                           const std::vector<std::string>& filter,
+                           const std::vector<std::string>& filter, FilterOptions options,
                            const std::vector<std::string>& expected_table) {
     std::shared_ptr<Table> actual;
 
-    ASSERT_OK(this->FilterWithChunkedArray(schm, table_json, filter, &actual));
+    ASSERT_OK(this->FilterWithChunkedArray(schm, table_json, filter, options, &actual));
     ASSERT_OK(actual->ValidateFull());
-    ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected_table), *actual);
+    AssertTablesEqual(*TableFromJSON(schm, expected_table), *actual,
+                      /*same_chunk_layout=*/false);
   }
 
   Status FilterWithArray(const std::shared_ptr<Schema>& schm,
                          const std::vector<std::string>& values,
-                         const std::string& filter, std::shared_ptr<Table>* out) {
-    return arrow::compute::Filter(&this->ctx_, *TableFromJSON(schm, values),
-                                  *ArrayFromJSON(boolean(), filter), out);
+                         const std::string& filter, FilterOptions options,
+                         std::shared_ptr<Table>* out) {
+    Datum out_datum;
+    RETURN_NOT_OK(arrow::compute::Filter(&this->ctx_, TableFromJSON(schm, values),
+                                         ArrayFromJSON(boolean(), filter), options,
+                                         &out_datum));
+    *out = out_datum.table();
+    return Status::OK();
   }
 
   Status FilterWithChunkedArray(const std::shared_ptr<Schema>& schm,
                                 const std::vector<std::string>& values,
                                 const std::vector<std::string>& filter,
-                                std::shared_ptr<Table>* out) {
-    return arrow::compute::Filter(&this->ctx_, *TableFromJSON(schm, values),
-                                  *ChunkedArrayFromJSON(boolean(), filter), out);
+                                FilterOptions options, std::shared_ptr<Table>* out) {
+    Datum out_datum;
+    RETURN_NOT_OK(arrow::compute::Filter(&this->ctx_, TableFromJSON(schm, values),
+                                         ChunkedArrayFromJSON(boolean(), filter), options,
+                                         &out_datum));
+    *out = out_datum.table();
+    return Status::OK();
   }
 };
 
@@ -616,19 +698,39 @@ TEST_F(TestFilterKernelWithTable, FilterTable) {
   std::vector<std::shared_ptr<Field>> fields = {field("a", int32()), field("b", utf8())};
   auto schm = schema(fields);
 
-  std::vector<std::string> table_json = {
-      "[{\"a\": null, \"b\": \"yo\"},{\"a\": 1, \"b\": \"\"}]",
-      "[{\"a\": 2, \"b\": \"hello\"},{\"a\": 4, \"b\": \"eh\"}]"};
-  this->AssertFilter(schm, table_json, "[0, 0, 0, 0]", {"[]", "[]"});
-  this->AssertChunkedFilter(schm, table_json, {"[0]", "[0, 0, 0]"}, {"[]", "[]"});
+  std::vector<std::string> table_json = {R"([
+      {"a": null, "b": "yo"},
+      {"a": 1, "b": ""}
+    ])",
+                                         R"([
+      {"a": 2, "b": "hello"},
+      {"a": 4, "b": "eh"}
+    ])"};
+  for (auto options : {this->emit_null_, this->drop_}) {
+    this->AssertFilter(schm, table_json, "[0, 0, 0, 0]", options, {});
+    this->AssertChunkedFilter(schm, table_json, {"[0]", "[0, 0, 0]"}, options, {});
+    this->AssertFilter(schm, table_json, "[1, 1, 1, 1]", options, table_json);
+    this->AssertChunkedFilter(schm, table_json, {"[1]", "[1, 1, 1]"}, options,
+                              table_json);
+  }
 
-  std::vector<std::string> expected2 = {
-      "[{\"a\": 1, \"b\": \"\"}]",
-      "[{\"a\": 2, \"b\": \"hello\"},{\"a\": null, \"b\": null}]"};
-  this->AssertFilter(schm, table_json, "[0, 1, 1, null]", expected2);
-  this->AssertChunkedFilter(schm, table_json, {"[0, 1, 1]", "[null]"}, expected2);
-  this->AssertFilter(schm, table_json, "[1, 1, 1, 1]", table_json);
-  this->AssertChunkedFilter(schm, table_json, {"[1]", "[1, 1, 1]"}, table_json);
+  std::vector<std::string> expected_emit_null = {R"([
+    {"a": 1, "b": ""}
+  ])",
+                                                 R"([
+    {"a": 2, "b": "hello"},
+    {"a": null, "b": null}
+  ])"};
+  this->AssertFilter(schm, table_json, "[0, 1, 1, null]", this->emit_null_,
+                     expected_emit_null);
+  this->AssertChunkedFilter(schm, table_json, {"[0, 1, 1]", "[null]"}, this->emit_null_,
+                            expected_emit_null);
+
+  std::vector<std::string> expected_drop = {R"([{"a": 1, "b": ""}])",
+                                            R"([{"a": 2, "b": "hello"}])"};
+  this->AssertFilter(schm, table_json, "[0, 1, 1, null]", this->drop_, expected_drop);
+  this->AssertChunkedFilter(schm, table_json, {"[0, 1, 1]", "[null]"}, this->drop_,
+                            expected_drop);
 }
 
 }  // namespace compute

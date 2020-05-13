@@ -17,8 +17,7 @@
 
 // Buffered stream implementations
 
-#ifndef ARROW_IO_BUFFERED_H
-#define ARROW_IO_BUFFERED_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -48,11 +47,6 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   static Result<std::shared_ptr<BufferedOutputStream>> Create(
       int64_t buffer_size, MemoryPool* pool, std::shared_ptr<OutputStream> raw);
 
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Create(int64_t buffer_size, MemoryPool* pool,
-                       std::shared_ptr<OutputStream> raw,
-                       std::shared_ptr<BufferedOutputStream>* out);
-
   /// \brief Resize internal buffer
   /// \param[in] new_buffer_size the new buffer size
   /// \return Status
@@ -69,9 +63,6 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   /// OutputStream. Further operations on this object are invalid
   /// \return the underlying OutputStream
   Result<std::shared_ptr<OutputStream>> Detach();
-
-  ARROW_DEPRECATED("Use Result-returning overload")
-  Status Detach(std::shared_ptr<OutputStream>* raw);
 
   // OutputStream interface
 
@@ -118,12 +109,6 @@ class ARROW_EXPORT BufferedInputStream
   static Result<std::shared_ptr<BufferedInputStream>> Create(
       int64_t buffer_size, MemoryPool* pool, std::shared_ptr<InputStream> raw,
       int64_t raw_read_bound = -1);
-
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Create(int64_t buffer_size, MemoryPool* pool,
-                       std::shared_ptr<InputStream> raw,
-                       std::shared_ptr<BufferedInputStream>* out,
-                       int64_t raw_read_bound = -1);
 
   /// \brief Resize internal read buffer; calls to Read(...) will read at least
   /// \param[in] new_buffer_size the new read buffer size
@@ -177,5 +162,3 @@ class ARROW_EXPORT BufferedInputStream
 
 }  // namespace io
 }  // namespace arrow
-
-#endif  // ARROW_IO_BUFFERED_H

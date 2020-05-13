@@ -1032,6 +1032,31 @@ cdef class ScalarValue(Scalar):
         return hash(self.as_py())
 
 
+cdef class NullScalar(ScalarValue):
+    """
+    Concrete class for null scalars.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python None.
+        """
+        return None
+
+
+cdef class BooleanScalar(ScalarValue):
+    """
+    Concrete class for boolean scalars.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python bool.
+        """
+        cdef CBooleanScalar* sp = <CBooleanScalar*> self.sp_scalar.get()
+        return sp.value if sp.is_valid else None
+
+
 cdef class UInt8Scalar(ScalarValue):
     """
     Concrete class for uint8 scalars.
@@ -1162,7 +1187,25 @@ cdef class DoubleScalar(ScalarValue):
         return sp.value if sp.is_valid else None
 
 
+cdef class StringScalar(ScalarValue):
+    """
+    Concrete class for string scalars.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python string.
+        """
+        cdef CStringScalar* sp = <CStringScalar*> self.sp_scalar.get()
+        if sp.is_valid:
+            return frombytes(pyarrow_wrap_buffer(sp.value).to_pybytes())
+        else:
+            return None
+
+
 cdef dict _scalar_classes = {
+    _Type_NA: NullScalar,
+    _Type_BOOL: BooleanScalar,
     _Type_UINT8: UInt8Scalar,
     _Type_UINT16: UInt16Scalar,
     _Type_UINT32: UInt32Scalar,
@@ -1173,6 +1216,7 @@ cdef dict _scalar_classes = {
     _Type_INT64: Int64Scalar,
     _Type_FLOAT: FloatScalar,
     _Type_DOUBLE: DoubleScalar,
+    _Type_STRING: StringScalar,
 }
 
 cdef object box_scalar(DataType type, const shared_ptr[CArray]& sp_array,

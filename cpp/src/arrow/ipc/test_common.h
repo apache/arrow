@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_IPC_TEST_COMMON_H
-#define ARROW_IPC_TEST_COMMON_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -137,8 +136,12 @@ Status MakeDecimal(std::shared_ptr<RecordBatch>* out);
 ARROW_EXPORT
 Status MakeNull(std::shared_ptr<RecordBatch>* out);
 
+ARROW_EXPORT
+Status MakeUuid(std::shared_ptr<RecordBatch>* out);
+
+ARROW_EXPORT
+Status MakeDictExtension(std::shared_ptr<RecordBatch>* out);
+
 }  // namespace test
 }  // namespace ipc
 }  // namespace arrow
-
-#endif  // ARROW_IPC_TEST_COMMON_H

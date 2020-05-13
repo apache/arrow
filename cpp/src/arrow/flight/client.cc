@@ -38,6 +38,7 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
@@ -265,7 +266,7 @@ class GrpcStreamReader : public FlightStreamReader {
 
  private:
   friend class GrpcIpcMessageReader;
-  std::unique_ptr<ipc::RecordBatchReader> batch_reader_;
+  std::shared_ptr<ipc::RecordBatchReader> batch_reader_;
   std::shared_ptr<Buffer> last_app_metadata_;
   std::shared_ptr<ClientRpc> rpc_;
 };
@@ -279,7 +280,15 @@ class GrpcIpcMessageReader : public ipc::MessageReader {
         stream_(std::move(stream)),
         stream_finished_(false) {}
 
-  Status ReadNextMessage(std::unique_ptr<ipc::Message>* out) override {
+  ::arrow::Result<std::unique_ptr<ipc::Message>> ReadNextMessage() override {
+    std::unique_ptr<ipc::Message> out;
+    RETURN_NOT_OK(GetNextMessage(&out));
+    return std::move(out);
+  }
+
+ protected:
+  Status GetNextMessage(std::unique_ptr<ipc::Message>* out) {
+    // TODO: Use Result APIs
     if (stream_finished_) {
       *out = nullptr;
       flight_reader_->last_app_metadata_ = nullptr;
@@ -303,10 +312,9 @@ class GrpcIpcMessageReader : public ipc::MessageReader {
     return Status::OK();
   }
 
- protected:
   Status OverrideWithServerError(Status&& st) {
     // Get the gRPC status if not OK, to propagate any server error message
-    RETURN_NOT_OK(internal::FromGrpcStatus(stream_->Finish()));
+    RETURN_NOT_OK(internal::FromGrpcStatus(stream_->Finish(), &rpc_->context));
     return std::move(st);
   }
 
@@ -325,10 +333,11 @@ Status GrpcStreamReader::Open(std::unique_ptr<ClientRpc> rpc,
                               std::unique_ptr<GrpcStreamReader>* out) {
   *out = std::unique_ptr<GrpcStreamReader>(new GrpcStreamReader);
   out->get()->rpc_ = std::move(rpc);
-  std::unique_ptr<GrpcIpcMessageReader> message_reader(
+  auto reader = std::unique_ptr<ipc::MessageReader>(
       new GrpcIpcMessageReader(out->get(), out->get()->rpc_, std::move(stream)));
-  return ipc::RecordBatchStreamReader::Open(std::move(message_reader),
-                                            &(*out)->batch_reader_);
+  ARROW_ASSIGN_OR_RAISE((*out)->batch_reader_,
+                        ipc::RecordBatchStreamReader::Open(std::move(reader)));
+  return Status::OK();
 }
 
 std::shared_ptr<Schema> GrpcStreamReader::schema() const {
@@ -385,9 +394,6 @@ class GrpcStreamWriter : public FlightStreamWriter {
     }
     return Status::OK();
   }
-  void set_memory_pool(MemoryPool* pool) override {
-    batch_writer_->set_memory_pool(pool);
-  }
   Status Close() override { return batch_writer_->Close(); }
 
  private:
@@ -435,7 +441,7 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
           return Status::UnknownError("Failed to serialized Flight descriptor");
         }
       }
-      RETURN_NOT_OK(Buffer::FromString(str_descr, &payload.descriptor));
+      payload.descriptor = Buffer::FromString(std::move(str_descr));
       first_payload_ = false;
     } else if (ipc_payload.type == ipc::Message::RECORD_BATCH &&
                stream_writer_->app_metadata_) {
@@ -458,7 +464,7 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
     pb::PutResult message;
     while (writer_->Read(&message)) {
     }
-    RETURN_NOT_OK(internal::FromGrpcStatus(writer_->Finish()));
+    RETURN_NOT_OK(internal::FromGrpcStatus(writer_->Finish(), &rpc_->context));
     if (!finished_writes) {
       return Status::UnknownError(
           "Could not finish writing record batches before closing");
@@ -486,8 +492,8 @@ Status GrpcStreamWriter::Open(
   std::unique_ptr<GrpcStreamWriter> result(new GrpcStreamWriter(writer));
   std::unique_ptr<ipc::internal::IpcPayloadWriter> payload_writer(new DoPutPayloadWriter(
       descriptor, std::move(rpc), std::move(response), read_mutex, writer, result.get()));
-  RETURN_NOT_OK(ipc::internal::OpenRecordBatchWriter(std::move(payload_writer), schema,
-                                                     &result->batch_writer_));
+  ARROW_ASSIGN_OR_RAISE(result->batch_writer_, ipc::internal::OpenRecordBatchWriter(
+                                                   std::move(payload_writer), schema));
   *out = std::move(result);
   return Status::OK();
 }
@@ -577,7 +583,7 @@ class FlightClient::FlightClientImpl {
     RETURN_NOT_OK(auth_handler_->Authenticate(&outgoing, &incoming));
     // Explicitly close our side of the connection
     bool finished_writes = stream->WritesDone();
-    RETURN_NOT_OK(internal::FromGrpcStatus(stream->Finish()));
+    RETURN_NOT_OK(internal::FromGrpcStatus(stream->Finish(), &rpc.context));
     if (!finished_writes) {
       return Status::UnknownError("Could not finish writing before closing");
     }
@@ -604,7 +610,7 @@ class FlightClient::FlightClientImpl {
     }
 
     listing->reset(new SimpleFlightListing(std::move(flights)));
-    return internal::FromGrpcStatus(stream->Finish());
+    return internal::FromGrpcStatus(stream->Finish(), &rpc.context);
   }
 
   Status DoAction(const FlightCallOptions& options, const Action& action,
@@ -628,7 +634,7 @@ class FlightClient::FlightClientImpl {
 
     *results = std::unique_ptr<ResultStream>(
         new SimpleResultStream(std::move(materialized_results)));
-    return internal::FromGrpcStatus(stream->Finish());
+    return internal::FromGrpcStatus(stream->Finish(), &rpc.context);
   }
 
   Status ListActions(const FlightCallOptions& options, std::vector<ActionType>* types) {
@@ -645,7 +651,7 @@ class FlightClient::FlightClientImpl {
       RETURN_NOT_OK(internal::FromProto(pb_type, &type));
       types->emplace_back(std::move(type));
     }
-    return internal::FromGrpcStatus(stream->Finish());
+    return internal::FromGrpcStatus(stream->Finish(), &rpc.context);
   }
 
   Status GetFlightInfo(const FlightCallOptions& options,
@@ -659,7 +665,7 @@ class FlightClient::FlightClientImpl {
     ClientRpc rpc(options);
     RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
     Status s = internal::FromGrpcStatus(
-        stub_->GetFlightInfo(&rpc.context, pb_descriptor, &pb_response));
+        stub_->GetFlightInfo(&rpc.context, pb_descriptor, &pb_response), &rpc.context);
     RETURN_NOT_OK(s);
 
     FlightInfo::Data info_data;
@@ -678,7 +684,7 @@ class FlightClient::FlightClientImpl {
     ClientRpc rpc(options);
     RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
     Status s = internal::FromGrpcStatus(
-        stub_->GetSchema(&rpc.context, pb_descriptor, &pb_response));
+        stub_->GetSchema(&rpc.context, pb_descriptor, &pb_response), &rpc.context);
     RETURN_NOT_OK(s);
 
     std::string str;

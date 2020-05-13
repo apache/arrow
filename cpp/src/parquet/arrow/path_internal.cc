@@ -101,6 +101,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/util/variant.h"
 #include "arrow/visitor_inline.h"
 
@@ -135,6 +136,17 @@ enum IterationResult {
       return iteration_result;                             \
     }                                                      \
   } while (false)
+
+int64_t LazyNullCount(const Array& array) { return array.data()->null_count.load(); }
+
+bool LazyNoNulls(const Array& array) {
+  int64_t null_count = LazyNullCount(array);
+  return null_count == 0 ||
+         // kUnkownNullCount comparison is needed to account
+         // for null arrays.
+         (null_count == ::arrow::kUnknownNullCount &&
+          array.null_bitmap_data() == nullptr);
+}
 
 struct PathWriteContext {
   PathWriteContext(::arrow::MemoryPool* pool,
@@ -564,35 +576,39 @@ Status WritePath(ElementRange root_range, PathInfo* path_info,
   // |root_range| are processed.
   while (stack_position >= stack_base) {
     PathInfo::Node& node = path_info->path[stack_position - stack_base];
-    IterationResult result = kError;
     struct {
-      void operator()(NullableNode& node) {  // NOLINT google-runtime-references
-        *result = node.Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(
+          NullableNode& node) {  // NOLINT google-runtime-references
+        return node.Run(stack_position, stack_position + 1, context);
       }
-      void operator()(ListNode& node) {  // NOLINT google-runtime-references
-        *result = node.Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(ListNode& node) {  // NOLINT google-runtime-references
+        return node.Run(stack_position, stack_position + 1, context);
       }
-      void operator()(NullableTerminalNode& node) {  // NOLINT google-runtime-references
-        *result = node.Run(*stack_position, context);
+      IterationResult operator()(
+          NullableTerminalNode& node) {  // NOLINT google-runtime-references
+        return node.Run(*stack_position, context);
       }
-      void operator()(FixedSizeListNode& node) {  // NOLINT google-runtime-references
-        *result = node.Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(
+          FixedSizeListNode& node) {  // NOLINT google-runtime-references
+        return node.Run(stack_position, stack_position + 1, context);
       }
-      void operator()(AllPresentTerminalNode& node) {  // NOLINT google-runtime-references
-        *result = node.Run(*stack_position, context);
+      IterationResult operator()(
+          AllPresentTerminalNode& node) {  // NOLINT google-runtime-references
+        return node.Run(*stack_position, context);
       }
-      void operator()(AllNullsTerminalNode& node) {  // NOLINT google-runtime-references
-        *result = node.Run(*stack_position, context);
+      IterationResult operator()(
+          AllNullsTerminalNode& node) {  // NOLINT google-runtime-references
+        return node.Run(*stack_position, context);
       }
-      void operator()(LargeListNode& node) {  // NOLINT google-runtime-references
-        *result = node.Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(
+          LargeListNode& node) {  // NOLINT google-runtime-references
+        return node.Run(stack_position, stack_position + 1, context);
       }
       ElementRange* stack_position;
       PathWriteContext* context;
-      IterationResult* result;
-    } visitor = {stack_position, &context, &result};
+    } visitor = {stack_position, &context};
 
-    ::arrow::util::visit(visitor, node);
+    IterationResult result = ::arrow::util::visit(visitor, node);
 
     if (ARROW_PREDICT_FALSE(result == kError)) {
       DCHECK(!context.last_status.ok());
@@ -701,10 +717,9 @@ class PathBuilder {
     // and the array does in fact contain nulls, we will end up
     // traversing the null bitmap twice (once here and once when calculating
     // rep/def levels).
-    int64_t null_count = array.data()->null_count.load();
-    if (null_count == 0) {
+    if (LazyNoNulls(array)) {
       info_.path.push_back(AllPresentTerminalNode{info_.max_def_level});
-    } else if (null_count == array.length()) {
+    } else if (LazyNullCount(array) == array.length()) {
       info_.path.push_back(AllNullsTerminalNode(info_.max_def_level - 1));
     } else {
       info_.path.push_back(NullableTerminalNode(array.null_bitmap_data(), array.offset(),
@@ -730,9 +745,9 @@ class PathBuilder {
     // Increment necessary due to empty lists.
     info_.max_def_level++;
     info_.max_rep_level++;
+    // raw_value_offsets() accounts for any slice offset.
     ListPathNode<VarRangeSelector<typename T::offset_type>> node(
-        VarRangeSelector<typename T::offset_type>{array.raw_value_offsets() +
-                                                  array.data()->offset},
+        VarRangeSelector<typename T::offset_type>{array.raw_value_offsets()},
         info_.max_rep_level, info_.max_def_level - 1);
     info_.path.push_back(node);
     nullable_in_parent_ = array.list_type()->value_field()->nullable();
@@ -767,14 +782,13 @@ class PathBuilder {
     // rep/def levels). Because this isn't terminal this might not be
     // the right decision for structs that share the same nullable
     // parents.
-    int64_t null_count = array.data()->null_count.load();
-    if (null_count == 0) {
+    if (LazyNoNulls(array)) {
       // Don't add anything because there won't be any point checking
       // null values for the array.  There will always be at least
       // one more array to handle nullability.
       return;
     }
-    if (null_count == array.length()) {
+    if (LazyNullCount(array) == array.length()) {
       info_.path.push_back(AllNullsTerminalNode(info_.max_def_level - 1));
       return;
     }
@@ -841,14 +855,52 @@ Status PathBuilder::VisitInline(const Array& array) {
 #undef RETURN_IF_ERROR
 }  // namespace
 
-Status MultipathLevelBuilder::Write(const Array& array, bool array_nullable,
+class MultipathLevelBuilderImpl : public MultipathLevelBuilder {
+ public:
+  MultipathLevelBuilderImpl(std::shared_ptr<::arrow::ArrayData> data,
+                            std::unique_ptr<PathBuilder> path_builder)
+      : root_range_{0, data->length},
+        data_(std::move(data)),
+        path_builder_(std::move(path_builder)) {}
+
+  int GetLeafCount() const override {
+    return static_cast<int>(path_builder_->paths().size());
+  }
+
+  ::arrow::Status Write(int leaf_index, ArrowWriteContext* context,
+                        CallbackFunction write_leaf_callback) override {
+    DCHECK_GE(leaf_index, 0);
+    DCHECK_LT(leaf_index, GetLeafCount());
+    return WritePath(root_range_, &path_builder_->paths()[leaf_index], context,
+                     std::move(write_leaf_callback));
+  }
+
+ private:
+  ElementRange root_range_;
+  // Reference holder to ensure the data stays valid.
+  std::shared_ptr<::arrow::ArrayData> data_;
+  std::unique_ptr<PathBuilder> path_builder_;
+};
+
+// static
+::arrow::Result<std::unique_ptr<MultipathLevelBuilder>> MultipathLevelBuilder::Make(
+    const ::arrow::Array& array, bool array_field_nullable) {
+  auto constructor = ::arrow::internal::make_unique<PathBuilder>(array_field_nullable);
+  RETURN_NOT_OK(VisitArrayInline(array, constructor.get()));
+  return ::arrow::internal::make_unique<MultipathLevelBuilderImpl>(
+      array.data(), std::move(constructor));
+}
+
+// static
+Status MultipathLevelBuilder::Write(const Array& array, bool array_field_nullable,
                                     ArrowWriteContext* context,
                                     MultipathLevelBuilder::CallbackFunction callback) {
-  PathBuilder constructor(array_nullable);
+  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<MultipathLevelBuilder> builder,
+                        MultipathLevelBuilder::Make(array, array_field_nullable));
+  PathBuilder constructor(array_field_nullable);
   RETURN_NOT_OK(VisitArrayInline(array, &constructor));
-  ElementRange root_range{0, array.length()};
-  for (auto& write_path_info : constructor.paths()) {
-    RETURN_NOT_OK(WritePath(root_range, &write_path_info, context, callback));
+  for (int leaf_idx = 0; leaf_idx < builder->GetLeafCount(); leaf_idx++) {
+    RETURN_NOT_OK(builder->Write(leaf_idx, context, callback));
   }
   return Status::OK();
 }

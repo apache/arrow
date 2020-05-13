@@ -1,6 +1,6 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 0.16.0.9000
+Version: 0.17.0.9000
 Authors@R: c(
     person("Romain", "Fran\u00e7ois", email = "romain@rstudio.com", role = c("aut"), comment = c(ORCID = "0000-0002-2444-4226")),
     person("Jeroen", "Ooms", email = "jeroen@berkeley.edu", role = c("aut")),
@@ -37,7 +37,7 @@ Imports:
     utils,
     vctrs
 Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
-RoxygenNote: 7.0.2
+RoxygenNote: 7.1.0
 VignetteBuilder: knitr
 Suggests:
     dplyr,
@@ -61,8 +61,12 @@ Collate:
     'io.R'
     'compression.R'
     'compute.R'
+    'config.R'
     'csv.R'
     'dataset.R'
+    'filesystem.R'
+    'ipc_stream.R'
+    'deprecated.R'
     'dictionary.R'
     'record-batch.R'
     'table.R'
@@ -70,16 +74,13 @@ Collate:
     'dplyr.R'
     'feather.R'
     'field.R'
-    'filesystem.R'
     'install-arrow.R'
     'json.R'
     'list.R'
     'memory-pool.R'
     'message.R'
     'parquet.R'
-    'py-to-r.R'
-    'read-record-batch.R'
-    'read-table.R'
+    'python.R'
     'record-batch-reader.R'
     'record-batch-writer.R'
     'reexports-bit64.R'
@@ -87,4 +88,3 @@ Collate:
     'schema.R'
     'struct.R'
     'util.R'
-    'write-arrow.R'

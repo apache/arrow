@@ -79,6 +79,16 @@ TEST_F(TestArray, TestNullCount) {
   ASSERT_EQ(kUnknownNullCount, arr_default_null_count->data()->null_count);
 }
 
+TEST_F(TestArray, TestSlicePreservesAllNullCount) {
+  // These are placeholders
+  auto data = std::make_shared<Buffer>(nullptr, 0);
+  auto null_bitmap = std::make_shared<Buffer>(nullptr, 0);
+
+  Int32Array arr(/*length=*/100, data, null_bitmap,
+                 /*null_count*/ 100);
+  EXPECT_EQ(arr.Slice(1, 99)->data()->null_count, arr.Slice(1, 99)->length());
+}
+
 TEST_F(TestArray, TestLength) {
   // Placeholder buffer
   auto data = std::make_shared<Buffer>(nullptr, 0);
@@ -161,12 +171,11 @@ TEST_F(TestArray, SliceRecomputeNullCount) {
   ASSERT_EQ(5, slice->null_count());
 
   // No bitmap, compute 0
-  std::shared_ptr<Buffer> data;
   const int kBufferSize = 64;
-  ASSERT_OK(AllocateBuffer(pool_, kBufferSize, &data));
+  ASSERT_OK_AND_ASSIGN(auto data, AllocateBuffer(kBufferSize, pool_));
   memset(data->mutable_data(), 0, kBufferSize);
 
-  auto arr = std::make_shared<Int32Array>(16, data, nullptr, -1);
+  auto arr = std::make_shared<Int32Array>(16, std::move(data), nullptr, -1);
   ASSERT_EQ(0, arr->null_count());
 }
 
@@ -272,8 +281,7 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
 
   for (int64_t length : {16}) {
     for (auto type : types) {
-      std::shared_ptr<Array> array;
-      ASSERT_OK(MakeArrayOfNull(type, length, &array));
+      ASSERT_OK_AND_ASSIGN(auto array, MakeArrayOfNull(type, length));
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       ASSERT_EQ(array->null_count(), length);
@@ -300,8 +308,7 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
 
   for (int64_t length : {16}) {
     for (auto scalar : scalars) {
-      std::shared_ptr<Array> array;
-      ASSERT_OK(MakeArrayFromScalar(*scalar, length, &array));
+      ASSERT_OK_AND_ASSIGN(auto array, MakeArrayFromScalar(*scalar, length));
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       ASSERT_EQ(array->null_count(), 0);

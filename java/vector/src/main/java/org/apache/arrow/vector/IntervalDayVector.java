@@ -21,6 +21,7 @@ import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import java.time.Duration;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.IntervalDayReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -30,8 +31,6 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * IntervalDayVector implements a fixed width vector (8 bytes) of
@@ -118,7 +117,7 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
    * @return day value stored at the index.
    */
   public static int getDays(final ArrowBuf buffer, final int index) {
-    return buffer.getInt(index * TYPE_WIDTH);
+    return buffer.getInt((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -132,7 +131,7 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
    * @return milliseconds value stored at the index.
    */
   public static int getMilliseconds(final ArrowBuf buffer, final int index) {
-    return buffer.getInt((index * TYPE_WIDTH) + MILLISECOND_OFFSET);
+    return buffer.getInt((long) index * TYPE_WIDTH + MILLISECOND_OFFSET);
   }
 
   /**
@@ -145,7 +144,7 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
     if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       return null;
     }
-    return valueBuffer.slice(index * TYPE_WIDTH, TYPE_WIDTH);
+    return valueBuffer.slice((long) index * TYPE_WIDTH, TYPE_WIDTH);
   }
 
   /**
@@ -160,7 +159,7 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
       holder.isSet = 0;
       return;
     }
-    final int startIndex = index * TYPE_WIDTH;
+    final long startIndex = (long) index * TYPE_WIDTH;
     holder.isSet = 1;
     holder.days = valueBuffer.getInt(startIndex);
     holder.milliseconds = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
@@ -176,7 +175,7 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
     if (isSet(index) == 0) {
       return null;
     } else {
-      final int startIndex = index * TYPE_WIDTH;
+      final long startIndex = (long) index * TYPE_WIDTH;
       final int days = valueBuffer.getInt(startIndex);
       final int milliseconds = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
       return Duration.ofDays(days).plusMillis(milliseconds);
@@ -199,7 +198,7 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
   }
 
   private StringBuilder getAsStringBuilderHelper(int index) {
-    final int startIndex = index * TYPE_WIDTH;
+    final long startIndex = (long) index * TYPE_WIDTH;
 
     final int days = valueBuffer.getInt(startIndex);
     int millis = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
@@ -238,7 +237,7 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
    */
   public void set(int index, ArrowBuf value) {
     BitVectorHelper.setBit(validityBuffer, index);
-    valueBuffer.setBytes(index * TYPE_WIDTH, value, 0, TYPE_WIDTH);
+    valueBuffer.setBytes((long) index * TYPE_WIDTH, value, 0, TYPE_WIDTH);
   }
 
   /**
@@ -249,7 +248,7 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
    * @param milliseconds   milliseconds for the interval
    */
   public void set(int index, int days, int milliseconds) {
-    final int offsetIndex = index * TYPE_WIDTH;
+    final long offsetIndex = (long) index * TYPE_WIDTH;
     BitVectorHelper.setBit(validityBuffer, index);
     valueBuffer.setInt(offsetIndex, days);
     valueBuffer.setInt((offsetIndex + MILLISECOND_OFFSET), milliseconds);

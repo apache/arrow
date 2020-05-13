@@ -26,10 +26,13 @@
 #include <arrow/compute/api.h>
 #include <cstdint>
 #include <functional>
+#include <iostream>
 #include <sstream>
 #include <vector>
 
 #include "arrow/api.h"
+#include "arrow/compute/kernels/cast.h"
+#include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -355,25 +358,6 @@ void WriteTableToBuffer(const std::shared_ptr<Table>& table, int64_t row_group_s
   ASSERT_OK_AND_ASSIGN(*out, sink->Finish());
 }
 
-void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
-  ASSERT_EQ(expected.num_chunks(), actual.num_chunks()) << "# chunks unequal";
-  if (!actual.Equals(expected)) {
-    std::stringstream pp_result;
-    std::stringstream pp_expected;
-
-    for (int i = 0; i < actual.num_chunks(); ++i) {
-      auto c1 = actual.chunk(i);
-      auto c2 = expected.chunk(i);
-      if (!c1->Equals(*c2)) {
-        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, 0, &pp_result));
-        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c2, 0, &pp_expected));
-        FAIL() << "Chunk " << i << " Got: " << pp_result.str()
-               << "\nExpected: " << pp_expected.str();
-      }
-    }
-  }
-}
-
 void DoRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group_size,
                  std::shared_ptr<Table>* out,
                  const std::shared_ptr<::parquet::WriterProperties>& writer_properties =
@@ -445,8 +429,8 @@ void CheckSimpleRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group
                           const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
                               default_arrow_writer_properties()) {
   std::shared_ptr<Table> result;
-  DoSimpleRoundtrip(table, false /* use_threads */, row_group_size, {}, &result,
-                    arrow_properties);
+  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(
+      table, false /* use_threads */, row_group_size, {}, &result, arrow_properties));
   ::arrow::AssertSchemaEqual(*table->schema(), *result->schema(),
                              /*check_metadata=*/false);
   ::arrow::AssertTablesEqual(*table, *result, false);
@@ -1171,8 +1155,8 @@ TEST_F(TestNullParquetIO, NullListColumn) {
     std::shared_ptr<Array> offsets_array, values_array, list_array;
     ::arrow::ArrayFromVector<::arrow::Int32Type, int32_t>(offsets, &offsets_array);
     values_array = std::make_shared<::arrow::NullArray>(offsets.back());
-    ASSERT_OK(::arrow::ListArray::FromArrays(*offsets_array, *values_array,
-                                             default_memory_pool(), &list_array));
+    ASSERT_OK_AND_ASSIGN(list_array,
+                         ::arrow::ListArray::FromArrays(*offsets_array, *values_array));
 
     std::shared_ptr<Table> table = MakeSimpleTable(list_array, false /* nullable */);
     this->ResetSink();
@@ -1195,12 +1179,9 @@ TEST_F(TestNullParquetIO, NullListColumn) {
 }
 
 TEST_F(TestNullParquetIO, NullDictionaryColumn) {
-  std::shared_ptr<Buffer> null_bitmap;
-  ASSERT_OK(::arrow::AllocateEmptyBitmap(::arrow::default_memory_pool(), SMALL_SIZE,
-                                         &null_bitmap));
+  ASSERT_OK_AND_ASSIGN(auto null_bitmap, ::arrow::AllocateEmptyBitmap(SMALL_SIZE));
 
-  std::shared_ptr<Array> indices;
-  ASSERT_OK(MakeArrayOfNull(::arrow::int8(), SMALL_SIZE, &indices));
+  ASSERT_OK_AND_ASSIGN(auto indices, MakeArrayOfNull(::arrow::int8(), SMALL_SIZE));
   std::shared_ptr<::arrow::DictionaryType> dict_type =
       std::make_shared<::arrow::DictionaryType>(::arrow::int8(), ::arrow::null());
 
@@ -1931,7 +1912,56 @@ TEST(TestArrowReadWrite, ReadSingleRowGroup) {
   AssertTablesEqual(*table, *concatenated, /*same_chunk_layout=*/false);
 }
 
-TEST(TestArrowReadWrite, GetRecordBatchReader) {
+//  Exercise reading table manually with nested RowGroup and Column loops, i.e.
+//
+//  for (int i = 0; i < n_row_groups; i++)
+//    for (int j = 0; j < n_cols; j++)
+//      reader->RowGroup(i)->Column(j)->Read(&chunked_array);
+::arrow::Result<std::shared_ptr<Table>> ReadTableManually(FileReader* reader) {
+  std::vector<std::shared_ptr<Table>> tables;
+
+  std::shared_ptr<::arrow::Schema> schema;
+  RETURN_NOT_OK(reader->GetSchema(&schema));
+
+  int n_row_groups = reader->num_row_groups();
+  int n_columns = schema->num_fields();
+  for (int i = 0; i < n_row_groups; i++) {
+    std::vector<std::shared_ptr<ChunkedArray>> columns{static_cast<size_t>(n_columns)};
+
+    for (int j = 0; j < n_columns; j++) {
+      RETURN_NOT_OK(reader->RowGroup(i)->Column(j)->Read(&columns[j]));
+    }
+
+    tables.push_back(Table::Make(schema, columns));
+  }
+
+  return ConcatenateTables(tables);
+}
+
+TEST(TestArrowReadWrite, ReadTableManually) {
+  const int num_columns = 1;
+  const int num_rows = 128;
+
+  std::shared_ptr<Table> expected;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &expected));
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(expected, num_rows / 2,
+                                             default_arrow_writer_properties(), &buffer));
+
+  std::unique_ptr<FileReader> reader;
+  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
+                              ::arrow::default_memory_pool(), &reader));
+
+  ASSERT_EQ(2, reader->num_row_groups());
+
+  ASSERT_OK_AND_ASSIGN(auto actual, ReadTableManually(reader.get()));
+
+  AssertTablesEqual(*actual, *expected, /*same_chunk_layout=*/false);
+}
+
+void TestGetRecordBatchReader(
+    ArrowReaderProperties properties = default_arrow_reader_properties()) {
   const int num_columns = 20;
   const int num_rows = 1000;
   const int batch_size = 100;
@@ -1943,7 +1973,6 @@ TEST(TestArrowReadWrite, GetRecordBatchReader) {
   ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, num_rows / 2,
                                              default_arrow_writer_properties(), &buffer));
 
-  ArrowReaderProperties properties = default_arrow_reader_properties();
   properties.set_batch_size(batch_size);
 
   std::unique_ptr<FileReader> reader;
@@ -1981,6 +2010,15 @@ TEST(TestArrowReadWrite, GetRecordBatchReader) {
 
   ASSERT_OK(rb_reader->ReadNext(&actual_batch));
   ASSERT_EQ(nullptr, actual_batch);
+}
+
+TEST(TestArrowReadWrite, GetRecordBatchReader) { TestGetRecordBatchReader(); }
+
+// Same as the test above, but using coalesced reads.
+TEST(TestArrowReadWrite, CoalescedReads) {
+  ArrowReaderProperties arrow_properties = default_arrow_reader_properties();
+  arrow_properties.set_pre_buffer(true);
+  TestGetRecordBatchReader(arrow_properties);
 }
 
 TEST(TestArrowReadWrite, ScanContents) {
@@ -2029,6 +2067,46 @@ TEST(TestArrowReadWrite, ReadColumnSubset) {
   auto ex_schema = ::arrow::schema(ex_fields);
   auto expected = Table::Make(ex_schema, ex_columns);
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*expected, *result));
+}
+
+TEST(TestArrowReadWrite, ReadCoalescedColumnSubset) {
+  const int num_columns = 20;
+  const int num_rows = 1000;
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, num_rows / 2,
+                                             default_arrow_writer_properties(), &buffer));
+
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ReaderProperties properties = default_reader_properties();
+  ArrowReaderProperties arrow_properties = default_arrow_reader_properties();
+  arrow_properties.set_pre_buffer(true);
+  ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer), properties));
+  ASSERT_OK(builder.properties(arrow_properties)->Build(&reader));
+  reader->set_use_threads(true);
+
+  // Test multiple subsets to ensure we can read from the file multiple times
+  std::vector<std::vector<int>> column_subsets = {
+      {0, 4, 8, 10}, {0, 1, 2, 3}, {5, 17, 18, 19}};
+
+  for (std::vector<int>& column_subset : column_subsets) {
+    std::shared_ptr<Table> result;
+    ASSERT_OK(reader->ReadTable(column_subset, &result));
+
+    std::vector<std::shared_ptr<::arrow::ChunkedArray>> ex_columns;
+    std::vector<std::shared_ptr<::arrow::Field>> ex_fields;
+    for (int i : column_subset) {
+      ex_columns.push_back(table->column(i));
+      ex_fields.push_back(table->field(i));
+    }
+
+    auto ex_schema = ::arrow::schema(ex_fields);
+    auto expected = Table::Make(ex_schema, ex_columns);
+    ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*expected, *result));
+  }
 }
 
 TEST(TestArrowReadWrite, ListLargeRecords) {
@@ -2187,6 +2265,22 @@ TEST(TestArrowReadWrite, TableWithDuplicateColumns) {
   ASSERT_NO_FATAL_FAILURE(CheckSimpleRoundtrip(table, table->num_rows()));
 }
 
+TEST(ArrowReadWrite, SimpleStructRoundTrip) {
+  auto links = field(
+      "Links", ::arrow::struct_({field("Backward", ::arrow::int64(), /*nullable=*/true),
+                                 field("Forward", ::arrow::int64(), /*nullable=*/true)}));
+
+  auto links_id_array = ::arrow::ArrayFromJSON(links->type(),
+                                               "[{\"Backward\": null, \"Forward\": 20}, "
+                                               "{\"Backward\": 10, \"Forward\": 40}]");
+
+  CheckSimpleRoundtrip(
+      ::arrow::Table::Make(std::make_shared<::arrow::Schema>(
+                               std::vector<std::shared_ptr<::arrow::Field>>{links}),
+                           {links_id_array}),
+      2);
+}
+
 // Disabled until implementation can be finished.
 TEST(TestArrowReadWrite, DISABLED_CanonicalNestedRoundTrip) {
   auto doc_id = field("DocId", ::arrow::int64(), /*nullable=*/false);
@@ -2212,14 +2306,17 @@ TEST(TestArrowReadWrite, DISABLED_CanonicalNestedRoundTrip) {
       ::arrow::ArrayFromJSON(links->type(),
                              "[{\"Backward\":[], \"Forward\":[20, 40, 60]}, "
                              "{\"Backward\":[10, 30], \"Forward\":[80]}]");
-  auto name_array =
-      ::arrow::ArrayFromJSON(name->type(),
-                             R"([[{"Language": [{"Code": "en_us", "Country":"us"},
-                                   {"Code": "en_us", "Country": null}],
-                      "Url": "http://A"},
-                     {"Url": "http://B"},
-                     {"Language": [{"Code": "en-gb", "Country": "gb"}]}],
-                    [{"Url": "http://C"}]])");
+
+  // Written without C++11 string literal because many editors don't have C++11
+  // string literals implemented properly
+  auto name_array = ::arrow::ArrayFromJSON(
+      name->type(),
+      "([[{\"Language\": [{\"Code\": \"en_us\", \"Country\":\"us\"},"
+      "{\"Code\": \"en_us\", \"Country\": null}],"
+      "\"Url\": \"http://A\"},"
+      "{\"Url\": \"http://B\"},"
+      "{\"Language\": [{\"Code\": \"en-gb\", \"Country\": \"gb\"}]}],"
+      "[{\"Url\": \"http://C\"}]]");
   auto expected =
       ::arrow::Table::Make(schema, {doc_id_array, links_id_array, name_array});
   CheckSimpleRoundtrip(expected, 2);
@@ -2851,14 +2948,9 @@ class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
   } options;
 
   void SetUp() override {
-    GenerateData(GetParam());
-
-    // Write `num_row_groups` row groups; each row group will have a different dictionary
-    ASSERT_NO_FATAL_FAILURE(
-        WriteTableToBuffer(expected_dense_, options.num_rows / options.num_row_groups,
-                           default_arrow_writer_properties(), &buffer_));
-
     properties_ = default_arrow_reader_properties();
+
+    GenerateData(GetParam());
   }
 
   void GenerateData(double null_probability) {
@@ -2871,6 +2963,13 @@ class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
   }
 
   void TearDown() override {}
+
+  void WriteSimple() {
+    // Write `num_row_groups` row groups; each row group will have a different dictionary
+    ASSERT_NO_FATAL_FAILURE(
+        WriteTableToBuffer(expected_dense_, options.num_rows / options.num_row_groups,
+                           default_arrow_writer_properties(), &buffer_));
+  }
 
   void CheckReadWholeFile(const Table& expected) {
     ASSERT_OK_AND_ASSIGN(auto reader, GetReader());
@@ -2922,6 +3021,8 @@ void AsDictionary32Encoded(const Array& arr, std::shared_ptr<Array>* out) {
 TEST_P(TestArrowReadDictionary, ReadWholeFileDict) {
   properties_.set_read_dictionary(0, true);
 
+  WriteSimple();
+
   auto num_row_groups = options.num_row_groups;
   auto chunk_size = options.num_rows / num_row_groups;
 
@@ -2934,6 +3035,43 @@ TEST_P(TestArrowReadDictionary, ReadWholeFileDict) {
   CheckReadWholeFile(*ex_table);
 }
 
+TEST_P(TestArrowReadDictionary, IncrementalReads) {
+  // ARROW-6895
+  options.num_rows = 100;
+  options.num_uniques = 10;
+  SetUp();
+
+  properties_.set_read_dictionary(0, true);
+
+  // Just write a single row group
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(
+      expected_dense_, options.num_rows, default_arrow_writer_properties(), &buffer_));
+
+  // Read in one shot
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<FileReader> reader, GetReader());
+  std::shared_ptr<Table> expected;
+  ASSERT_OK_NO_THROW(reader->ReadTable(&expected));
+
+  ASSERT_OK_AND_ASSIGN(reader, GetReader());
+  std::unique_ptr<ColumnReader> col;
+  ASSERT_OK(reader->GetColumn(0, &col));
+
+  int num_reads = 4;
+  int batch_size = options.num_rows / num_reads;
+
+  ::arrow::compute::FunctionContext fc;
+  for (int i = 0; i < num_reads; ++i) {
+    std::shared_ptr<ChunkedArray> chunk;
+    ASSERT_OK(col->NextBatch(batch_size, &chunk));
+
+    std::shared_ptr<Array> result_dense;
+    ASSERT_OK(::arrow::compute::Cast(&fc, *chunk->chunk(0), ::arrow::utf8(),
+                                     ::arrow::compute::CastOptions::Safe(),
+                                     &result_dense));
+    AssertArraysEqual(*dense_values_->Slice(i * batch_size, batch_size), *result_dense);
+  }
+}
+
 TEST_P(TestArrowReadDictionary, StreamReadWholeFileDict) {
   // ARROW-6895 and ARROW-7545 reading a parquet file with a dictionary of
   // binary data, e.g. String, will return invalid values when using the
@@ -2944,6 +3082,7 @@ TEST_P(TestArrowReadDictionary, StreamReadWholeFileDict) {
   options.num_row_groups = 1;
   options.num_rows = 16;
   SetUp();
+  WriteSimple();
 
   // Would trigger an infinite loop when requesting a batch greater than the
   // number of available rows in a row group.
@@ -2953,6 +3092,7 @@ TEST_P(TestArrowReadDictionary, StreamReadWholeFileDict) {
 
 TEST_P(TestArrowReadDictionary, ReadWholeFileDense) {
   properties_.set_read_dictionary(0, false);
+  WriteSimple();
   CheckReadWholeFile(*expected_dense_);
 }
 
@@ -3019,11 +3159,11 @@ TEST(TestArrowWriteDictionaries, NestedSubfield) {
   auto indices = ::arrow::ArrayFromJSON(::arrow::int32(), "[0, 0, 0]");
   auto dict = ::arrow::ArrayFromJSON(::arrow::utf8(), "[\"foo\"]");
 
-  std::shared_ptr<Array> dict_values, values;
   auto dict_ty = ::arrow::dictionary(::arrow::int32(), ::arrow::utf8());
-  ASSERT_OK(::arrow::DictionaryArray::FromArrays(dict_ty, indices, dict, &dict_values));
-  ASSERT_OK(::arrow::ListArray::FromArrays(*offsets, *dict_values,
-                                           ::arrow::default_memory_pool(), &values));
+  ASSERT_OK_AND_ASSIGN(auto dict_values,
+                       ::arrow::DictionaryArray::FromArrays(dict_ty, indices, dict));
+  ASSERT_OK_AND_ASSIGN(auto values,
+                       ::arrow::ListArray::FromArrays(*offsets, *dict_values));
 
   auto dense_ty = ::arrow::list(::arrow::utf8());
   auto dense_values =

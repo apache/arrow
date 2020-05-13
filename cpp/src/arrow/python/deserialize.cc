@@ -31,12 +31,14 @@
 #include "arrow/array.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
+#include "arrow/ipc/options.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/util.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/parsing.h"
+#include "arrow/util/value_parsing.h"
 
 #include "arrow/python/common.h"
 #include "arrow/python/datetime.h"
@@ -48,7 +50,7 @@
 namespace arrow {
 
 using internal::checked_cast;
-using internal::StringConverter;
+using internal::ParseValue;
 
 namespace py {
 
@@ -202,6 +204,14 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int8_t type,
       *result = wrap_sparse_csc_matrix(sparse_csc_matrix);
       return Status::OK();
     }
+    case PythonType::SPARSECSFTENSOR: {
+      int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
+      const std::shared_ptr<SparseCSFTensor>& sparse_csf_tensor =
+          arrow::internal::checked_pointer_cast<SparseCSFTensor>(
+              blobs.sparse_tensors[ref]);
+      *result = wrap_sparse_csf_tensor(sparse_csf_tensor);
+      return Status::OK();
+    }
     case PythonType::NDARRAY: {
       int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
       return DeserializeArray(ref, base, blobs, result);
@@ -211,7 +221,9 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int8_t type,
       *result = wrap_buffer(blobs.buffers[ref]);
       return Status::OK();
     }
-    default: { ARROW_CHECK(false) << "union tag " << type << "' not recognized"; }
+    default: {
+      ARROW_CHECK(false) << "union tag " << type << "' not recognized";
+    }
   }
   return Status::OK();
 }
@@ -220,10 +232,9 @@ Status GetPythonTypes(const UnionArray& data, std::vector<int8_t>* result) {
   ARROW_CHECK(result != nullptr);
   auto type = data.type();
   for (int i = 0; i < type->num_children(); ++i) {
-    StringConverter<Int8Type> converter;
     int8_t tag = 0;
     const std::string& data = type->child(i)->name();
-    if (!converter(data.c_str(), data.size(), &tag)) {
+    if (!ParseValue<Int8Type>(data.c_str(), data.size(), &tag)) {
       return Status::SerializationError("Cannot convert string: \"",
                                         type->child(i)->name(), "\" to int8_t");
     }
@@ -265,41 +276,44 @@ Status DeserializeSequence(PyObject* context, const Array& array, int64_t start_
 Status DeserializeList(PyObject* context, const Array& array, int64_t start_idx,
                        int64_t stop_idx, PyObject* base, const SerializedPyObject& blobs,
                        PyObject** out) {
-  return DeserializeSequence(context, array, start_idx, stop_idx, base, blobs,
-                             [](int64_t size) { return PyList_New(size); },
-                             [](PyObject* seq, int64_t index, PyObject* item) {
-                               PyList_SET_ITEM(seq, index, item);
-                               return Status::OK();
-                             },
-                             out);
+  return DeserializeSequence(
+      context, array, start_idx, stop_idx, base, blobs,
+      [](int64_t size) { return PyList_New(size); },
+      [](PyObject* seq, int64_t index, PyObject* item) {
+        PyList_SET_ITEM(seq, index, item);
+        return Status::OK();
+      },
+      out);
 }
 
 Status DeserializeTuple(PyObject* context, const Array& array, int64_t start_idx,
                         int64_t stop_idx, PyObject* base, const SerializedPyObject& blobs,
                         PyObject** out) {
-  return DeserializeSequence(context, array, start_idx, stop_idx, base, blobs,
-                             [](int64_t size) { return PyTuple_New(size); },
-                             [](PyObject* seq, int64_t index, PyObject* item) {
-                               PyTuple_SET_ITEM(seq, index, item);
-                               return Status::OK();
-                             },
-                             out);
+  return DeserializeSequence(
+      context, array, start_idx, stop_idx, base, blobs,
+      [](int64_t size) { return PyTuple_New(size); },
+      [](PyObject* seq, int64_t index, PyObject* item) {
+        PyTuple_SET_ITEM(seq, index, item);
+        return Status::OK();
+      },
+      out);
 }
 
 Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
                       int64_t stop_idx, PyObject* base, const SerializedPyObject& blobs,
                       PyObject** out) {
-  return DeserializeSequence(context, array, start_idx, stop_idx, base, blobs,
-                             [](int64_t size) { return PySet_New(nullptr); },
-                             [](PyObject* seq, int64_t index, PyObject* item) {
-                               int err = PySet_Add(seq, item);
-                               Py_DECREF(item);
-                               if (err < 0) {
-                                 RETURN_IF_PYERROR();
-                               }
-                               return Status::OK();
-                             },
-                             out);
+  return DeserializeSequence(
+      context, array, start_idx, stop_idx, base, blobs,
+      [](int64_t size) { return PySet_New(nullptr); },
+      [](PyObject* seq, int64_t index, PyObject* item) {
+        int err = PySet_Add(seq, item);
+        Py_DECREF(item);
+        if (err < 0) {
+          RETURN_IF_PYERROR();
+        }
+        return Status::OK();
+      },
+      out);
 }
 
 Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) {
@@ -318,7 +332,7 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
   // Align stream to 8-byte offset
   RETURN_NOT_OK(ipc::AlignStream(src, ipc::kArrowIpcAlignment));
   std::shared_ptr<RecordBatchReader> reader;
-  RETURN_NOT_OK(ipc::RecordBatchStreamReader::Open(src, &reader));
+  ARROW_ASSIGN_OR_RAISE(reader, ipc::RecordBatchStreamReader::Open(src));
   RETURN_NOT_OK(reader->ReadNext(&out->batch));
 
   /// Skip EOS marker
@@ -386,7 +400,7 @@ Status GetSerializedFromComponents(int num_tensors,
   auto GetBuffer = [&data](Py_ssize_t index, std::shared_ptr<Buffer>* out) {
     ARROW_CHECK_LE(index, PyList_Size(data));
     PyObject* py_buf = PyList_GET_ITEM(data, index);
-    return unwrap_buffer(py_buf, out);
+    return unwrap_buffer(py_buf).Value(out);
   };
 
   Py_ssize_t buffer_index = 0;
@@ -398,7 +412,7 @@ Status GetSerializedFromComponents(int num_tensors,
     gil.release();
     io::BufferReader buf_reader(data_buffer);
     std::shared_ptr<RecordBatchReader> reader;
-    RETURN_NOT_OK(ipc::RecordBatchStreamReader::Open(&buf_reader, &reader));
+    ARROW_ASSIGN_OR_RAISE(reader, ipc::RecordBatchStreamReader::Open(&buf_reader));
     RETURN_NOT_OK(reader->ReadNext(&out->batch));
     gil.acquire();
   }

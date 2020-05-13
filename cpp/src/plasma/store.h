@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PLASMA_STORE_H
-#define PLASMA_STORE_H
+#pragma once
 
 #include <deque>
 #include <memory>
@@ -111,7 +110,7 @@ class PlasmaStore {
   /// \param object_id Object ID of the object to be deleted.
   /// \return One of the following error codes:
   ///  - PlasmaError::OK, if the object was delete successfully.
-  ///  - PlasmaError::ObjectNonexistent, if ths object isn't existed.
+  ///  - PlasmaError::ObjectNotFound, if ths object isn't existed.
   ///  - PlasmaError::ObjectInUse, if the object is in use.
   PlasmaError DeleteObject(ObjectID& object_id);
 
@@ -207,6 +206,7 @@ class PlasmaStore {
   uint8_t* AllocateMemory(size_t size, bool evict_if_full, int* fd, int64_t* map_size,
                           ptrdiff_t* offset, Client* client, bool is_create);
 #ifdef PLASMA_CUDA
+  arrow::Result<std::shared_ptr<arrow::cuda::CudaContext>> GetCudaContext(int device_num);
   Status AllocateCudaMemory(int device_num, int64_t size, uint8_t** out_pointer,
                             std::shared_ptr<CudaIpcMemHandle>* out_ipc_handle);
 
@@ -240,11 +240,6 @@ class PlasmaStore {
   /// Manages worker threads for handling asynchronous/multi-threaded requests
   /// for reading/writing data to/from external store.
   std::shared_ptr<ExternalStore> external_store_;
-#ifdef PLASMA_CUDA
-  arrow::cuda::CudaDeviceManager* manager_;
-#endif
 };
 
 }  // namespace plasma
-
-#endif  // PLASMA_STORE_H

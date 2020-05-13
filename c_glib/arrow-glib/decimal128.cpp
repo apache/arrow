@@ -266,9 +266,8 @@ garrow_decimal128_greater_than_or_equal(GArrowDecimal128 *decimal,
 gchar *
 garrow_decimal128_to_string_scale(GArrowDecimal128 *decimal, gint32 scale)
 {
-  auto arrow_decimal = garrow_decimal128_get_raw(decimal);
-  auto string =  arrow_decimal->ToString(scale);
-  return g_strndup(string.data(), string.size());
+  const auto arrow_decimal = garrow_decimal128_get_raw(decimal);
+  return g_strdup(arrow_decimal->ToString(scale).c_str());
 }
 
 /**
@@ -284,9 +283,8 @@ garrow_decimal128_to_string_scale(GArrowDecimal128 *decimal, gint32 scale)
 gchar *
 garrow_decimal128_to_string(GArrowDecimal128 *decimal)
 {
-  auto arrow_decimal = garrow_decimal128_get_raw(decimal);
-  auto string =  arrow_decimal->ToIntegerString();
-  return g_strndup(string.data(), string.size());
+  const auto arrow_decimal = garrow_decimal128_get_raw(decimal);
+  return g_strdup(arrow_decimal->ToIntegerString().c_str());
 }
 
 /**

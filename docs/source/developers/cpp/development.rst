@@ -99,7 +99,7 @@ following checks:
 
 In order to account for variations in the behavior of ``clang-format`` between
 major versions of LLVM, we pin the version of ``clang-format`` used (current
-LLVM 7).
+LLVM 8).
 
 Depending on how you installed clang-format, the build system may not be able
 to find it. You can provide an explicit path to your LLVM installation (or the
@@ -128,8 +128,7 @@ codebase:
 
 .. code-block:: shell
 
-   make -f Makefile.docker build-iwyu
-   docker-compose run lint
+   archery docker run ubuntu-lint
 
 Checking for ABI and API stability
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

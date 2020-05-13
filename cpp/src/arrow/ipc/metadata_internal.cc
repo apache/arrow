@@ -25,25 +25,25 @@
 
 #include <flatbuffers/flatbuffers.h>
 
-#include "arrow/array.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/util.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
-#include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visitor_inline.h"
 
-#include "generated/File_generated.h"  // IWYU pragma: keep
+#include "generated/File_generated.h"
 #include "generated/Message_generated.h"
-#include "generated/SparseTensor_generated.h"  // IWYU pragma: keep
-#include "generated/Tensor_generated.h"        // IWYU pragma: keep
+#include "generated/Schema_generated.h"
+#include "generated/SparseTensor_generated.h"
+#include "generated/Tensor_generated.h"
 
 namespace arrow {
 
@@ -56,12 +56,10 @@ namespace internal {
 using FBB = flatbuffers::FlatBufferBuilder;
 using DictionaryOffset = flatbuffers::Offset<flatbuf::DictionaryEncoding>;
 using FieldOffset = flatbuffers::Offset<flatbuf::Field>;
-using KeyValueOffset = flatbuffers::Offset<flatbuf::KeyValue>;
 using RecordBatchOffset = flatbuffers::Offset<flatbuf::RecordBatch>;
 using SparseTensorOffset = flatbuffers::Offset<flatbuf::SparseTensor>;
 using Offset = flatbuffers::Offset<void>;
 using FBString = flatbuffers::Offset<flatbuffers::String>;
-using KVVector = flatbuffers::Vector<KeyValueOffset>;
 
 MetadataVersion GetMetadataVersion(flatbuf::MetadataVersion version) {
   switch (version) {
@@ -251,7 +249,7 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       return Status::OK();
     case flatbuf::Type::Decimal: {
       auto dec_type = static_cast<const flatbuf::Decimal*>(type_data);
-      return Decimal128Type::Make(dec_type->precision(), dec_type->scale(), out);
+      return Decimal128Type::Make(dec_type->precision(), dec_type->scale()).Value(out);
     }
     case flatbuf::Type::Date: {
       auto date_type = static_cast<const flatbuf::Date*>(type_data);
@@ -360,36 +358,6 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
   }
 }
 
-static Status TypeFromFlatbuffer(const flatbuf::Field* field,
-                                 const std::vector<std::shared_ptr<Field>>& children,
-                                 const KeyValueMetadata* field_metadata,
-                                 std::shared_ptr<DataType>* out) {
-  auto type_data = field->type();
-  CHECK_FLATBUFFERS_NOT_NULL(type_data, "Field.type");
-  RETURN_NOT_OK(ConcreteTypeFromFlatbuffer(field->type_type(), type_data, children, out));
-
-  // Look for extension metadata in custom_metadata field
-  // TODO(wesm): Should this be part of the Field Flatbuffers table?
-  if (field_metadata != nullptr) {
-    int name_index = field_metadata->FindKey(kExtensionTypeKeyName);
-    if (name_index == -1) {
-      return Status::OK();
-    }
-    std::string type_name = field_metadata->value(name_index);
-    int data_index = field_metadata->FindKey(kExtensionMetadataKeyName);
-    std::string type_data = data_index == -1 ? "" : field_metadata->value(data_index);
-
-    std::shared_ptr<ExtensionType> type = GetExtensionType(type_name);
-    if (type == nullptr) {
-      // TODO(wesm): Extension type is unknown; we do not raise here and simply
-      // return the raw data
-      return Status::OK();
-    }
-    RETURN_NOT_OK(type->Deserialize(*out, type_data, out));
-  }
-  return Status::OK();
-}
-
 Status TensorTypeToFlatbuffer(FBB& fbb, const DataType& type, flatbuf::Type* out_type,
                               Offset* offset) {
   switch (type.id()) {
@@ -428,12 +396,11 @@ Status TensorTypeToFlatbuffer(FBB& fbb, const DataType& type, flatbuf::Type* out
   return Status::OK();
 }
 
-Status GetDictionaryEncoding(FBB& fbb, const std::shared_ptr<Field>& field,
-                             DictionaryMemo* memo, DictionaryOffset* out) {
+static Status GetDictionaryEncoding(FBB& fbb, const std::shared_ptr<Field>& field,
+                                    const DictionaryType& type, DictionaryMemo* memo,
+                                    DictionaryOffset* out) {
   int64_t dictionary_id = -1;
   RETURN_NOT_OK(memo->GetOrAssignId(field, &dictionary_id));
-
-  const auto& type = checked_cast<const DictionaryType&>(*field->type());
 
   // We assume that the dictionary index type (as an integer) has already been
   // validated elsewhere, and can safely assume we are dealing with signed
@@ -448,33 +415,17 @@ Status GetDictionaryEncoding(FBB& fbb, const std::shared_ptr<Field>& field,
   return Status::OK();
 }
 
-KeyValueOffset AppendKeyValue(FBB& fbb, const std::string& key,
-                              const std::string& value) {
+static KeyValueOffset AppendKeyValue(FBB& fbb, const std::string& key,
+                                     const std::string& value) {
   return flatbuf::CreateKeyValue(fbb, fbb.CreateString(key), fbb.CreateString(value));
 }
 
-void AppendKeyValueMetadata(FBB& fbb, const KeyValueMetadata& metadata,
-                            std::vector<KeyValueOffset>* key_values) {
+static void AppendKeyValueMetadata(FBB& fbb, const KeyValueMetadata& metadata,
+                                   std::vector<KeyValueOffset>* key_values) {
   key_values->reserve(metadata.size());
   for (int i = 0; i < metadata.size(); ++i) {
     key_values->push_back(AppendKeyValue(fbb, metadata.key(i), metadata.value(i)));
   }
-}
-
-Status KeyValueMetadataFromFlatbuffer(const KVVector* fb_metadata,
-                                      std::shared_ptr<KeyValueMetadata>* out) {
-  auto metadata = std::make_shared<KeyValueMetadata>();
-
-  metadata->reserve(fb_metadata->size());
-  for (const auto& pair : *fb_metadata) {
-    CHECK_FLATBUFFERS_NOT_NULL(pair->key(), "custom_metadata.key");
-    CHECK_FLATBUFFERS_NOT_NULL(pair->value(), "custom_metadata.value");
-    metadata->Append(pair->key()->str(), pair->value()->str());
-  }
-
-  *out = metadata;
-
-  return Status::OK();
 }
 
 class FieldToFlatbufferVisitor {
@@ -677,8 +628,7 @@ class FieldToFlatbufferVisitor {
       type_ids.push_back(code);
     }
 
-    auto fb_type_ids =
-        fbb_.CreateVector(util::MakeNonNull(type_ids.data()), type_ids.size());
+    auto fb_type_ids = fbb_.CreateVector(type_ids.data(), type_ids.size());
 
     type_offset_ = flatbuf::CreateUnion(fbb_, mode, fb_type_ids).Union();
     return Status::OK();
@@ -701,12 +651,18 @@ class FieldToFlatbufferVisitor {
   Status GetResult(const std::shared_ptr<Field>& field, FieldOffset* offset) {
     auto fb_name = fbb_.CreateString(field->name());
     RETURN_NOT_OK(VisitType(*field->type()));
-    auto fb_children =
-        fbb_.CreateVector(util::MakeNonNull(children_.data()), children_.size());
+    auto fb_children = fbb_.CreateVector(children_.data(), children_.size());
 
     DictionaryOffset dictionary = 0;
-    if (field->type()->id() == Type::DICTIONARY) {
-      RETURN_NOT_OK(GetDictionaryEncoding(fbb_, field, dictionary_memo_, &dictionary));
+    const DataType* storage_type = field->type().get();
+    if (storage_type->id() == Type::EXTENSION) {
+      storage_type =
+          checked_cast<const ExtensionType&>(*storage_type).storage_type().get();
+    }
+    if (storage_type->id() == Type::DICTIONARY) {
+      RETURN_NOT_OK(GetDictionaryEncoding(
+          fbb_, field, checked_cast<const DictionaryType&>(*storage_type),
+          dictionary_memo_, &dictionary));
     }
 
     auto metadata = field->metadata();
@@ -717,8 +673,8 @@ class FieldToFlatbufferVisitor {
       AppendKeyValueMetadata(fbb_, *metadata, &key_values);
     }
 
-    for (auto it : extra_type_metadata_) {
-      key_values.push_back(AppendKeyValue(fbb_, it.first, it.second));
+    for (const auto& pair : extra_type_metadata_) {
+      key_values.push_back(AppendKeyValue(fbb_, pair.first, pair.second));
     }
 
     if (key_values.size() > 0) {
@@ -745,36 +701,32 @@ Status FieldToFlatbuffer(FBB& fbb, const std::shared_ptr<Field>& field,
   return field_visitor.GetResult(field, offset);
 }
 
-Status GetFieldMetadata(const flatbuf::Field* field,
-                        std::shared_ptr<KeyValueMetadata>* metadata) {
-  auto fb_metadata = field->custom_metadata();
-  if (fb_metadata != nullptr) {
-    RETURN_NOT_OK(KeyValueMetadataFromFlatbuffer(fb_metadata, metadata));
-  }
-  return Status::OK();
-}
-
 Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictionary_memo,
                            std::shared_ptr<Field>* out) {
   std::shared_ptr<DataType> type;
 
   std::shared_ptr<KeyValueMetadata> metadata;
-  RETURN_NOT_OK(GetFieldMetadata(field, &metadata));
+  RETURN_NOT_OK(internal::GetKeyValueMetadata(field->custom_metadata(), &metadata));
 
   // Reconstruct the data type
-  auto children = field->children();
+  // 1. Data type children
+  const auto& children = field->children();
   CHECK_FLATBUFFERS_NOT_NULL(children, "Field.children");
   std::vector<std::shared_ptr<Field>> child_fields(children->size());
   for (int i = 0; i < static_cast<int>(children->size()); ++i) {
     RETURN_NOT_OK(
         FieldFromFlatbuffer(children->Get(i), dictionary_memo, &child_fields[i]));
   }
-  RETURN_NOT_OK(TypeFromFlatbuffer(field, child_fields, metadata.get(), &type));
 
-  auto field_name = StringFromFlatbuffers(field->name());
+  // 2. Top-level concrete data type
+  auto type_data = field->type();
+  CHECK_FLATBUFFERS_NOT_NULL(type_data, "Field.type");
+  RETURN_NOT_OK(
+      ConcreteTypeFromFlatbuffer(field->type_type(), type_data, child_fields, &type));
 
+  // 3. Is it a dictionary type?
+  int64_t dictionary_id = -1;
   const flatbuf::DictionaryEncoding* encoding = field->dictionary();
-
   if (encoding != nullptr) {
     // The field is dictionary-encoded. Construct the DictionaryType
     // based on the DictionaryEncoding metadata and record in the
@@ -785,10 +737,39 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictiona
     RETURN_NOT_OK(IntFromFlatbuffer(int_data, &index_type));
     ARROW_ASSIGN_OR_RAISE(type,
                           DictionaryType::Make(index_type, type, encoding->isOrdered()));
-    *out = ::arrow::field(field_name, type, field->nullable(), metadata);
-    RETURN_NOT_OK(dictionary_memo->AddField(encoding->id(), *out));
-  } else {
-    *out = ::arrow::field(field_name, type, field->nullable(), metadata);
+    dictionary_id = encoding->id();
+  }
+
+  // 4. Is it an extension type?
+  if (metadata != nullptr) {
+    // Look for extension metadata in custom_metadata field
+    int name_index = metadata->FindKey(kExtensionTypeKeyName);
+    if (name_index != -1) {
+      std::shared_ptr<ExtensionType> ext_type =
+          GetExtensionType(metadata->value(name_index));
+      if (ext_type != nullptr) {
+        int data_index = metadata->FindKey(kExtensionMetadataKeyName);
+        std::string type_data = data_index == -1 ? "" : metadata->value(data_index);
+
+        ARROW_ASSIGN_OR_RAISE(type, ext_type->Deserialize(type, type_data));
+        // Remove the metadata, for faithful roundtripping
+        if (data_index != -1) {
+          RETURN_NOT_OK(metadata->DeleteMany({name_index, data_index}));
+        } else {
+          RETURN_NOT_OK(metadata->Delete(name_index));
+        }
+      }
+      // NOTE: if extension type is unknown, we do not raise here and
+      // simply return the storage type.
+    }
+  }
+
+  // Reconstruct field
+  auto field_name = StringFromFlatbuffers(field->name());
+  *out =
+      ::arrow::field(std::move(field_name), type, field->nullable(), std::move(metadata));
+  if (dictionary_id != -1) {
+    RETURN_NOT_OK(dictionary_memo->AddField(dictionary_id, *out));
   }
   return Status::OK();
 }
@@ -804,6 +785,18 @@ flatbuf::Endianness endianness() {
   return bint.c[0] == 1 ? flatbuf::Endianness::Big : flatbuf::Endianness::Little;
 }
 
+flatbuffers::Offset<KVVector> SerializeCustomMetadata(
+    FBB& fbb, const std::shared_ptr<const KeyValueMetadata>& metadata) {
+  std::vector<KeyValueOffset> key_values;
+  if (metadata != nullptr) {
+    AppendKeyValueMetadata(fbb, *metadata, &key_values);
+    return fbb.CreateVector(key_values);
+  } else {
+    // null
+    return 0;
+  }
+}
+
 Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema, DictionaryMemo* dictionary_memo,
                           flatbuffers::Offset<flatbuf::Schema>* out) {
   /// Fields
@@ -815,26 +808,18 @@ Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema, DictionaryMemo* dictio
   }
 
   auto fb_offsets = fbb.CreateVector(field_offsets);
-
-  /// Custom metadata
-  auto metadata = schema.metadata();
-
-  flatbuffers::Offset<KVVector> fb_custom_metadata;
-  std::vector<KeyValueOffset> key_values;
-  if (metadata != nullptr) {
-    AppendKeyValueMetadata(fbb, *metadata, &key_values);
-    fb_custom_metadata = fbb.CreateVector(key_values);
-  }
-  *out = flatbuf::CreateSchema(fbb, endianness(), fb_offsets, fb_custom_metadata);
+  *out = flatbuf::CreateSchema(fbb, endianness(), fb_offsets,
+                               SerializeCustomMetadata(fbb, schema.metadata()));
   return Status::OK();
 }
 
-Result<std::shared_ptr<Buffer>> WriteFBMessage(FBB& fbb,
-                                               flatbuf::MessageHeader header_type,
-                                               flatbuffers::Offset<void> header,
-                                               int64_t body_length) {
-  auto message = flatbuf::CreateMessage(fbb, kCurrentMetadataVersion, header_type, header,
-                                        body_length);
+Result<std::shared_ptr<Buffer>> WriteFBMessage(
+    FBB& fbb, flatbuf::MessageHeader header_type, flatbuffers::Offset<void> header,
+    int64_t body_length,
+    const std::shared_ptr<const KeyValueMetadata>& custom_metadata = nullptr) {
+  auto message =
+      flatbuf::CreateMessage(fbb, kCurrentMetadataVersion, header_type, header,
+                             body_length, SerializeCustomMetadata(fbb, custom_metadata));
   fbb.Finish(message);
   return WriteFlatbufferBuilder(fbb);
 }
@@ -855,7 +840,7 @@ static Status WriteFieldNodes(FBB& fbb, const std::vector<FieldMetadata>& nodes,
     }
     fb_nodes.emplace_back(node.length, node.null_count);
   }
-  *out = fbb.CreateVectorOfStructs(util::MakeNonNull(fb_nodes.data()), fb_nodes.size());
+  *out = fbb.CreateVectorOfStructs(fb_nodes.data(), fb_nodes.size());
   return Status::OK();
 }
 
@@ -868,8 +853,7 @@ static Status WriteBuffers(FBB& fbb, const std::vector<BufferMetadata>& buffers,
     const BufferMetadata& buffer = buffers[i];
     fb_buffers.emplace_back(buffer.offset, buffer.length);
   }
-  *out =
-      fbb.CreateVectorOfStructs(util::MakeNonNull(fb_buffers.data()), fb_buffers.size());
+  *out = fbb.CreateVectorOfStructs(fb_buffers.data(), fb_buffers.size());
 
   return Status::OK();
 }
@@ -900,9 +884,8 @@ Status MakeSparseTensorIndexCOO(FBB& fbb, const SparseCOOIndex& sparse_index,
   auto indices_type_offset =
       flatbuf::CreateInt(fbb, index_value_type.bit_width(), index_value_type.is_signed());
 
-  auto fb_strides =
-      fbb.CreateVector(util::MakeNonNull(sparse_index.indices()->strides().data()),
-                       sparse_index.indices()->strides().size());
+  auto fb_strides = fbb.CreateVector(sparse_index.indices()->strides().data(),
+                                     sparse_index.indices()->strides().size());
 
   const BufferMetadata& indices_metadata = buffers[0];
   flatbuf::Buffer indices(indices_metadata.offset, indices_metadata.length);
@@ -961,6 +944,64 @@ Status MakeSparseMatrixIndexCSX(FBB& fbb, const SparseIndexType& sparse_index,
   return Status::OK();
 }
 
+Status MakeSparseTensorIndexCSF(FBB& fbb, const SparseCSFIndex& sparse_index,
+                                const std::vector<BufferMetadata>& buffers,
+                                flatbuf::SparseTensorIndex* fb_sparse_index_type,
+                                Offset* fb_sparse_index, size_t* num_buffers) {
+  *fb_sparse_index_type = flatbuf::SparseTensorIndex::SparseTensorIndexCSF;
+  const int ndim = static_cast<int>(sparse_index.axis_order().size());
+
+  // We assume that the value type of indptr tensor is an integer.
+  const auto& indptr_value_type =
+      checked_cast<const IntegerType&>(*sparse_index.indptr()[0]->type());
+  auto indptr_type_offset = flatbuf::CreateInt(fbb, indptr_value_type.bit_width(),
+                                               indptr_value_type.is_signed());
+
+  // We assume that the value type of indices tensor is an integer.
+  const auto& indices_value_type =
+      checked_cast<const IntegerType&>(*sparse_index.indices()[0]->type());
+  auto indices_type_offset = flatbuf::CreateInt(fbb, indices_value_type.bit_width(),
+                                                indices_value_type.is_signed());
+
+  const int64_t indptr_elem_size = indptr_value_type.bit_width() / 8;
+  const int64_t indices_elem_size = indices_value_type.bit_width() / 8;
+
+  int64_t offset = 0;
+  std::vector<flatbuf::Buffer> indptr, indices;
+
+  for (const std::shared_ptr<arrow::Tensor>& tensor : sparse_index.indptr()) {
+    const int64_t size = tensor->data()->size() / indptr_elem_size;
+    const int64_t padded_size = PaddedLength(tensor->data()->size(), kArrowIpcAlignment);
+
+    indptr.push_back({offset, size});
+    offset += padded_size;
+  }
+  for (const std::shared_ptr<arrow::Tensor>& tensor : sparse_index.indices()) {
+    const int64_t size = tensor->data()->size() / indices_elem_size;
+    const int64_t padded_size = PaddedLength(tensor->data()->size(), kArrowIpcAlignment);
+
+    indices.push_back({offset, size});
+    offset += padded_size;
+  }
+
+  auto fb_indices = fbb.CreateVectorOfStructs(indices);
+  auto fb_indptr = fbb.CreateVectorOfStructs(indptr);
+
+  std::vector<int> axis_order;
+  for (int i = 0; i < ndim; ++i) {
+    axis_order.emplace_back(static_cast<int>(sparse_index.axis_order()[i]));
+  }
+  auto fb_axis_order =
+      fbb.CreateVector(arrow::util::MakeNonNull(axis_order.data()), axis_order.size());
+
+  *fb_sparse_index =
+      flatbuf::CreateSparseTensorIndexCSF(fbb, indptr_type_offset, fb_indptr,
+                                          indices_type_offset, fb_indices, fb_axis_order)
+          .Union();
+  *num_buffers = 2 * ndim - 1;
+  return Status::OK();
+}
+
 Status MakeSparseTensorIndex(FBB& fbb, const SparseIndex& sparse_index,
                              const std::vector<BufferMetadata>& buffers,
                              flatbuf::SparseTensorIndex* fb_sparse_index_type,
@@ -984,7 +1025,14 @@ Status MakeSparseTensorIndex(FBB& fbb, const SparseIndex& sparse_index,
           fb_sparse_index_type, fb_sparse_index, num_buffers));
       break;
 
+    case SparseTensorFormat::CSF:
+      RETURN_NOT_OK(MakeSparseTensorIndexCSF(
+          fbb, checked_cast<const SparseCSFIndex&>(sparse_index), buffers,
+          fb_sparse_index_type, fb_sparse_index, num_buffers));
+      break;
+
     default:
+      *fb_sparse_index_type = flatbuf::SparseTensorIndex::NONE;  // Silence warnings
       std::stringstream ss;
       ss << "Unsupported sparse tensor format:: " << sparse_index.ToString() << std::endl;
       return Status::NotImplemented(ss.str());
@@ -1031,24 +1079,46 @@ Status MakeSparseTensor(FBB& fbb, const SparseTensor& sparse_tensor, int64_t bod
 
 }  // namespace
 
+Status GetKeyValueMetadata(const KVVector* fb_metadata,
+                           std::shared_ptr<KeyValueMetadata>* out) {
+  if (fb_metadata == nullptr) {
+    *out = nullptr;
+    return Status::OK();
+  }
+
+  auto metadata = std::make_shared<KeyValueMetadata>();
+
+  metadata->reserve(fb_metadata->size());
+  for (const auto& pair : *fb_metadata) {
+    CHECK_FLATBUFFERS_NOT_NULL(pair->key(), "custom_metadata.key");
+    CHECK_FLATBUFFERS_NOT_NULL(pair->value(), "custom_metadata.value");
+    metadata->Append(pair->key()->str(), pair->value()->str());
+  }
+
+  *out = std::move(metadata);
+  return Status::OK();
+}
+
 Status WriteSchemaMessage(const Schema& schema, DictionaryMemo* dictionary_memo,
                           std::shared_ptr<Buffer>* out) {
   FBB fbb;
   flatbuffers::Offset<flatbuf::Schema> fb_schema;
   RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, dictionary_memo, &fb_schema));
-  return WriteFBMessage(fbb, flatbuf::MessageHeader::Schema, fb_schema.Union(), 0)
+  return WriteFBMessage(fbb, flatbuf::MessageHeader::Schema, fb_schema.Union(),
+                        /*body_length=*/0)
       .Value(out);
 }
 
-Status WriteRecordBatchMessage(int64_t length, int64_t body_length,
-                               const std::vector<FieldMetadata>& nodes,
-                               const std::vector<BufferMetadata>& buffers,
-                               std::shared_ptr<Buffer>* out) {
+Status WriteRecordBatchMessage(
+    int64_t length, int64_t body_length,
+    const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
+    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
+    std::shared_ptr<Buffer>* out) {
   FBB fbb;
   RecordBatchOffset record_batch;
   RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers, &record_batch));
   return WriteFBMessage(fbb, flatbuf::MessageHeader::RecordBatch, record_batch.Union(),
-                        body_length)
+                        body_length, custom_metadata)
       .Value(out);
 }
 
@@ -1072,11 +1142,10 @@ Result<std::shared_ptr<Buffer>> WriteTensorMessage(const Tensor& tensor,
     dims.push_back(flatbuf::CreateTensorDim(fbb, tensor.shape()[i], name));
   }
 
-  auto fb_shape = fbb.CreateVector(util::MakeNonNull(dims.data()), dims.size());
+  auto fb_shape = fbb.CreateVector(dims.data(), dims.size());
 
   flatbuffers::Offset<flatbuffers::Vector<int64_t>> fb_strides;
-  fb_strides = fbb.CreateVector(util::MakeNonNull(tensor.strides().data()),
-                                tensor.strides().size());
+  fb_strides = fbb.CreateVector(tensor.strides().data(), tensor.strides().size());
   int64_t body_length = tensor.size() * elem_size;
   flatbuf::Buffer buffer(buffer_start_offset, body_length);
 
@@ -1098,16 +1167,17 @@ Result<std::shared_ptr<Buffer>> WriteSparseTensorMessage(
                         fb_sparse_tensor.Union(), body_length);
 }
 
-Status WriteDictionaryMessage(int64_t id, int64_t length, int64_t body_length,
-                              const std::vector<FieldMetadata>& nodes,
-                              const std::vector<BufferMetadata>& buffers,
-                              std::shared_ptr<Buffer>* out) {
+Status WriteDictionaryMessage(
+    int64_t id, int64_t length, int64_t body_length,
+    const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
+    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
+    std::shared_ptr<Buffer>* out) {
   FBB fbb;
   RecordBatchOffset record_batch;
   RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers, &record_batch));
   auto dictionary_batch = flatbuf::CreateDictionaryBatch(fbb, id, record_batch).Union();
   return WriteFBMessage(fbb, flatbuf::MessageHeader::DictionaryBatch, dictionary_batch,
-                        body_length)
+                        body_length, custom_metadata)
       .Value(out);
 }
 
@@ -1119,11 +1189,12 @@ FileBlocksToFlatbuffer(FBB& fbb, const std::vector<FileBlock>& blocks) {
     fb_blocks.emplace_back(block.offset, block.metadata_length, block.body_length);
   }
 
-  return fbb.CreateVectorOfStructs(util::MakeNonNull(fb_blocks.data()), fb_blocks.size());
+  return fbb.CreateVectorOfStructs(fb_blocks.data(), fb_blocks.size());
 }
 
 Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
                        const std::vector<FileBlock>& record_batches,
+                       const std::shared_ptr<const KeyValueMetadata>& metadata,
                        io::OutputStream* out) {
   FBB fbb;
 
@@ -1148,8 +1219,11 @@ Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dicti
   auto fb_dictionaries = FileBlocksToFlatbuffer(fbb, dictionaries);
   auto fb_record_batches = FileBlocksToFlatbuffer(fbb, record_batches);
 
-  auto footer = flatbuf::CreateFooter(fbb, kCurrentMetadataVersion, fb_schema,
-                                      fb_dictionaries, fb_record_batches);
+  auto fb_custom_metadata = SerializeCustomMetadata(fbb, metadata);
+
+  auto footer =
+      flatbuf::CreateFooter(fbb, kCurrentMetadataVersion, fb_schema, fb_dictionaries,
+                            fb_record_batches, fb_custom_metadata);
   fbb.Finish(footer);
 
   int32_t size = fbb.GetSize();
@@ -1174,15 +1248,9 @@ Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
     RETURN_NOT_OK(FieldFromFlatbuffer(field, dictionary_memo, &fields[i]));
   }
 
-  auto fb_metadata = schema->custom_metadata();
   std::shared_ptr<KeyValueMetadata> metadata;
-
-  if (fb_metadata != nullptr) {
-    RETURN_NOT_OK(KeyValueMetadataFromFlatbuffer(fb_metadata, &metadata));
-  }
-
+  RETURN_NOT_OK(internal::GetKeyValueMetadata(schema->custom_metadata(), &metadata));
   *out = ::arrow::schema(std::move(fields), metadata);
-
   return Status::OK();
 }
 
@@ -1225,6 +1293,23 @@ Status GetSparseCSXIndexMetadata(const flatbuf::SparseMatrixIndexCSX* sparse_ind
                                  std::shared_ptr<DataType>* indices_type) {
   RETURN_NOT_OK(IntFromFlatbuffer(sparse_index->indptrType(), indptr_type));
   RETURN_NOT_OK(IntFromFlatbuffer(sparse_index->indicesType(), indices_type));
+  return Status::OK();
+}
+
+Status GetSparseCSFIndexMetadata(const flatbuf::SparseTensorIndexCSF* sparse_index,
+                                 std::vector<int64_t>* axis_order,
+                                 std::vector<int64_t>* indices_size,
+                                 std::shared_ptr<DataType>* indptr_type,
+                                 std::shared_ptr<DataType>* indices_type) {
+  RETURN_NOT_OK(IntFromFlatbuffer(sparse_index->indptrType(), indptr_type));
+  RETURN_NOT_OK(IntFromFlatbuffer(sparse_index->indicesType(), indices_type));
+
+  const int ndim = static_cast<int>(sparse_index->axisOrder()->size());
+  for (int i = 0; i < ndim; ++i) {
+    axis_order->push_back(sparse_index->axisOrder()->Get(i));
+    indices_size->push_back(sparse_index->indicesBuffers()->Get(i)->length());
+  }
+
   return Status::OK();
 }
 
@@ -1281,6 +1366,10 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
             return Status::Invalid("Invalid value of SparseMatrixCompressedAxis");
         }
       } break;
+
+      case flatbuf::SparseTensorIndex::SparseTensorIndexCSF:
+        *sparse_tensor_format_id = SparseTensorFormat::CSF;
+        break;
 
       default:
         return Status::Invalid("Unrecognized sparse index type");

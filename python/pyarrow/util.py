@@ -32,12 +32,12 @@ def implements(f):
 
 
 def _deprecate_api(old_name, new_name, api, next_version):
-    msg = ('pyarrow.{} is deprecated as of {}, please use {} instead'
+    msg = ('pyarrow.{} is deprecated as of {}, please use pyarrow.{} instead'
            .format(old_name, next_version, new_name))
 
     def wrapper(*args, **kwargs):
         warnings.warn(msg, FutureWarning)
-        return api(*args)
+        return api(*args, **kwargs)
     return wrapper
 
 

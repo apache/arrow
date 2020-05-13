@@ -64,8 +64,8 @@
 #' parsing options provided in other arguments (e.g. `delim`, `quote`, etc.).
 #' @param convert_options see [file reader options][CsvReadOptions]
 #' @param read_options see [file reader options][CsvReadOptions]
-#' @param as_data_frame Should the function return a `data.frame` or an
-#' [arrow::Table][Table]?
+#' @param as_data_frame Should the function return a `data.frame` (default) or
+#' an Arrow [Table]?
 #'
 #' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
 #' @export
@@ -114,6 +114,10 @@ read_delim_arrow <- function(file,
     convert_options <- readr_to_csv_convert_options(na, quoted_na)
   }
 
+  if (is.string(file)) {
+    file <- make_readable_file(file)
+    on.exit(file$close())
+  }
   reader <- CsvTableReader$create(
     file,
     read_options = read_options,

@@ -31,6 +31,7 @@ namespace Apache.Arrow.Tests
             Schema.Builder builder = new Schema.Builder();
             for (int i = 0; i < columnSetCount; i++)
             {
+                builder.Field(CreateField(new ListType(Int64Type.Default), i));
                 builder.Field(CreateField(BooleanType.Default, i));
                 builder.Field(CreateField(UInt8Type.Default, i));
                 builder.Field(CreateField(Int8Type.Default, i));
@@ -52,8 +53,6 @@ namespace Apache.Arrow.Tests
                 //builder.Field(CreateField(StringType.Default));
                 //builder.Field(CreateField(Time32Type.Default));
                 //builder.Field(CreateField(Time64Type.Default));
-
-                builder.Field(CreateField(new ListType(Int64Type.Default), i));
             }
 
             Schema schema = builder.Build();
@@ -188,13 +187,15 @@ namespace Apache.Arrow.Tests
                 var builder = new ListArray.Builder(type.ValueField).Reserve(Length);
 
                 //Todo : Support various types
-                var valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(Length);
+                var valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(Length + 1);
 
                 for (var i = 0; i < Length; i++)
                 {
                     builder.Append();
                     valueBuilder.Append(i);
                 }
+                //Add a value to check if Values.Length can exceed ListArray.Length
+                valueBuilder.Append(0);
 
                 Array = builder.Build();
 
@@ -207,8 +208,15 @@ namespace Apache.Arrow.Tests
             {
                 for (var i = 0; i < Length; i++)
                 {
-                    var value = generator(i);
-                    builder.Append(value);
+                    if (i == Length - 2)
+                    {
+                        builder.AppendNull();
+                    }
+                    else
+                    {
+                        var value = generator(i);
+                        builder.Append(value);
+                    }
                 }
 
                 Array = builder.Build(default);

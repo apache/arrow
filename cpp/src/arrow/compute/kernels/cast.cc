@@ -22,6 +22,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -36,9 +37,9 @@
 #include "arrow/util/formatting.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/parsing.h"  // IWYU pragma: keep
 #include "arrow/util/time.h"
 #include "arrow/util/utf8.h"
+#include "arrow/util/value_parsing.h"  // IWYU pragma: keep
 #include "arrow/visitor_inline.h"
 
 #include "arrow/compute/context.h"
@@ -405,6 +406,150 @@ struct CastFunctor<
 };
 
 // ----------------------------------------------------------------------
+// Decimals
+
+// Decimal to Integer
+
+template <typename O>
+struct CastFunctor<O, Decimal128Type, enable_if_t<is_integer_type<O>::value>> {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    using out_type = typename O::c_type;
+    const auto& in_type_inst = checked_cast<const Decimal128Type&>(*input.type);
+    auto in_scale = in_type_inst.scale();
+
+    auto out_data = output->GetMutableValues<out_type>(1);
+
+    constexpr auto min_value = std::numeric_limits<out_type>::min();
+    constexpr auto max_value = std::numeric_limits<out_type>::max();
+    constexpr auto zero = out_type{};
+
+    if (options.allow_decimal_truncate) {
+      if (in_scale < 0) {
+        // Unsafe upscale
+        auto convert_value = [&](util::optional<util::string_view> v) {
+          *out_data = zero;
+          if (v.has_value()) {
+            auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
+            auto converted = dec_value.IncreaseScaleBy(-in_scale);
+            if (!options.allow_int_overflow &&
+                ARROW_PREDICT_FALSE(converted < min_value || converted > max_value)) {
+              ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
+            } else {
+              *out_data = static_cast<out_type>(converted.low_bits());
+            }
+          }
+          ++out_data;
+        };
+        VisitArrayDataInline<Decimal128Type>(input, std::move(convert_value));
+      } else {
+        // Unsafe downscale
+        auto convert_value = [&](util::optional<util::string_view> v) {
+          *out_data = zero;
+          if (v.has_value()) {
+            auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
+            auto converted = dec_value.ReduceScaleBy(in_scale, false);
+            if (!options.allow_int_overflow &&
+                ARROW_PREDICT_FALSE(converted < min_value || converted > max_value)) {
+              ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
+            } else {
+              *out_data = static_cast<out_type>(converted.low_bits());
+            }
+          }
+          ++out_data;
+        };
+        VisitArrayDataInline<Decimal128Type>(input, std::move(convert_value));
+      }
+    } else {
+      // Safe rescale
+      auto convert_value = [&](util::optional<util::string_view> v) {
+        *out_data = zero;
+        if (v.has_value()) {
+          auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
+          auto result = dec_value.Rescale(in_scale, 0);
+          if (ARROW_PREDICT_FALSE(!result.ok())) {
+            ctx->SetStatus(result.status());
+          } else {
+            auto converted = *std::move(result);
+            if (!options.allow_int_overflow &&
+                ARROW_PREDICT_FALSE(converted < min_value || converted > max_value)) {
+              ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
+            } else {
+              *out_data = static_cast<out_type>(converted.low_bits());
+            }
+          }
+        }
+        ++out_data;
+      };
+      VisitArrayDataInline<Decimal128Type>(input, std::move(convert_value));
+    }
+  }
+};
+
+// Decimal to Decimal
+
+template <>
+struct CastFunctor<Decimal128Type, Decimal128Type> {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    const auto& in_type_inst = checked_cast<const Decimal128Type&>(*input.type);
+    const auto& out_type_inst = checked_cast<const Decimal128Type&>(*output->type);
+    auto in_scale = in_type_inst.scale();
+    auto out_scale = out_type_inst.scale();
+
+    auto out_data = output->GetMutableValues<uint8_t>(1);
+
+    const auto write_zero = [](uint8_t* out_data) { memset(out_data, 0, 16); };
+
+    if (options.allow_decimal_truncate) {
+      if (in_scale < out_scale) {
+        // Unsafe upscale
+        auto convert_value = [&](util::optional<util::string_view> v) {
+          if (v.has_value()) {
+            auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
+            dec_value.IncreaseScaleBy(out_scale - in_scale).ToBytes(out_data);
+          } else {
+            write_zero(out_data);
+          }
+          out_data += 16;
+        };
+        VisitArrayDataInline<Decimal128Type>(input, std::move(convert_value));
+      } else {
+        // Unsafe downscale
+        auto convert_value = [&](util::optional<util::string_view> v) {
+          if (v.has_value()) {
+            auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
+            dec_value.ReduceScaleBy(in_scale - out_scale, false).ToBytes(out_data);
+          } else {
+            write_zero(out_data);
+          }
+          out_data += 16;
+        };
+        VisitArrayDataInline<Decimal128Type>(input, std::move(convert_value));
+      }
+    } else {
+      // Safe rescale
+      auto convert_value = [&](util::optional<util::string_view> v) {
+        if (v.has_value()) {
+          auto dec_value = Decimal128(reinterpret_cast<const uint8_t*>(v->data()));
+          auto result = dec_value.Rescale(in_scale, out_scale);
+          if (ARROW_PREDICT_FALSE(!result.ok())) {
+            ctx->SetStatus(result.status());
+            write_zero(out_data);
+          } else {
+            (*std::move(result)).ToBytes(out_data);
+          }
+        } else {
+          write_zero(out_data);
+        }
+        out_data += 16;
+      };
+      VisitArrayDataInline<Decimal128Type>(input, std::move(convert_value));
+    }
+  }
+};
+
+// ----------------------------------------------------------------------
 // From one timestamp to another
 
 template <typename in_type, typename out_type>
@@ -655,7 +800,7 @@ Status InvokeWithAllocation(FunctionContext* ctx, UnaryKernel* func, const Datum
     RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, func, input, &result));
   }
   ARROW_RETURN_IF_ERROR(ctx);
-  *out = detail::WrapDatumsLike(input, result);
+  *out = detail::WrapDatumsLike(input, func->out_type(), result);
   return Status::OK();
 }
 
@@ -928,15 +1073,13 @@ struct CastFunctor<
 
     typename TypeTraits<I>::ArrayType input_array(input.Copy());
     auto out_data = output->GetMutableValues<out_type>(1);
-    internal::StringConverter<O> converter;
-
     for (int64_t i = 0; i < input.length; ++i, ++out_data) {
       if (input_array.IsNull(i)) {
         continue;
       }
 
       auto str = input_array.GetView(i);
-      if (!converter(str.data(), str.length(), out_data)) {
+      if (!internal::ParseValue<O>(str.data(), str.length(), out_data)) {
         ctx->SetStatus(Status::Invalid("Failed to cast String '", str, "' into ",
                                        output->type->ToString()));
         return;
@@ -955,7 +1098,6 @@ struct CastFunctor<BooleanType, I, enable_if_t<is_string_like_type<I>::value>> {
     typename TypeTraits<I>::ArrayType input_array(input.Copy());
     internal::FirstTimeBitmapWriter writer(output->buffers[1]->mutable_data(),
                                            output->offset, input.length);
-    internal::StringConverter<BooleanType> converter;
 
     for (int64_t i = 0; i < input.length; ++i) {
       if (input_array.IsNull(i)) {
@@ -965,7 +1107,7 @@ struct CastFunctor<BooleanType, I, enable_if_t<is_string_like_type<I>::value>> {
 
       bool value;
       auto str = input_array.GetView(i);
-      if (!converter(str.data(), str.length(), &value)) {
+      if (!internal::ParseValue<BooleanType>(str.data(), str.length(), &value)) {
         ctx->SetStatus(Status::Invalid("Failed to cast String '",
                                        input_array.GetString(i), "' into ",
                                        output->type->ToString()));
@@ -994,15 +1136,15 @@ struct CastFunctor<TimestampType, I, enable_if_t<is_string_like_type<I>::value>>
 
     typename TypeTraits<I>::ArrayType input_array(input.Copy());
     auto out_data = output->GetMutableValues<out_type>(1);
-    internal::StringConverter<TimestampType> converter(output->type);
+
+    const TimeUnit::type unit = checked_cast<const TimestampType&>(*output->type).unit();
 
     for (int64_t i = 0; i < input.length; ++i, ++out_data) {
       if (input_array.IsNull(i)) {
         continue;
       }
-
       const auto str = input_array.GetView(i);
-      if (!converter(str.data(), str.length(), out_data)) {
+      if (!internal::ParseTimestampISO8601(str.data(), str.length(), unit, out_data)) {
         ctx->SetStatus(Status::Invalid("Failed to cast String '", str, "' into ",
                                        output->type->ToString()));
         return;
@@ -1127,6 +1269,62 @@ class ZeroCopyCast : public CastKernelBase {
   }
 };
 
+class ExtensionCastKernel : public CastKernelBase {
+ public:
+  static Status Make(const DataType& in_type, std::shared_ptr<DataType> out_type,
+                     const CastOptions& options,
+                     std::unique_ptr<CastKernelBase>* kernel) {
+    const auto storage_type = checked_cast<const ExtensionType&>(in_type).storage_type();
+
+    std::unique_ptr<UnaryKernel> storage_caster;
+    RETURN_NOT_OK(GetCastFunction(*storage_type, out_type, options, &storage_caster));
+    kernel->reset(
+        new ExtensionCastKernel(std::move(storage_caster), std::move(out_type)));
+
+    return Status::OK();
+  }
+
+  Status Init(const DataType& in_type) override {
+    auto& type = checked_cast<const ExtensionType&>(in_type);
+    storage_type_ = type.storage_type();
+    extension_name_ = type.extension_name();
+    return Status::OK();
+  }
+
+  Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
+    DCHECK_EQ(input.kind(), Datum::ARRAY);
+
+    // validate: type is the same as the type the kernel was constructed with
+    const auto& input_type = checked_cast<const ExtensionType&>(*input.type());
+    if (input_type.extension_name() != extension_name_) {
+      return Status::TypeError(
+          "The cast kernel was constructed to cast from the extension type named '",
+          extension_name_, "' but input has extension type named '",
+          input_type.extension_name(), "'");
+    }
+    if (!input_type.storage_type()->Equals(storage_type_)) {
+      return Status::TypeError("The cast kernel was constructed with a storage type: ",
+                               storage_type_->ToString(),
+                               ", but it is called with a different storage type:",
+                               input_type.storage_type()->ToString());
+    }
+
+    // construct an ArrayData object with the underlying storage type
+    auto new_input = input.array()->Copy();
+    new_input->type = storage_type_;
+    return InvokeWithAllocation(ctx, storage_caster_.get(), new_input, out);
+  }
+
+ protected:
+  ExtensionCastKernel(std::unique_ptr<UnaryKernel> storage_caster,
+                      std::shared_ptr<DataType> out_type)
+      : CastKernelBase(std::move(out_type)), storage_caster_(std::move(storage_caster)) {}
+
+  std::string extension_name_;
+  std::shared_ptr<DataType> storage_type_;
+  std::unique_ptr<UnaryKernel> storage_caster_;
+};
+
 class CastKernel : public CastKernelBase {
  public:
   CastKernel(const CastOptions& options, const CastFunction& func,
@@ -1203,6 +1401,7 @@ GET_CAST_FUNCTION(UINT64_CASES, UInt64Type, CastKernel)
 GET_CAST_FUNCTION(INT64_CASES, Int64Type, CastKernel)
 GET_CAST_FUNCTION(FLOAT_CASES, FloatType, CastKernel)
 GET_CAST_FUNCTION(DOUBLE_CASES, DoubleType, CastKernel)
+GET_CAST_FUNCTION(DECIMAL128_CASES, Decimal128Type, CastKernel)
 GET_CAST_FUNCTION(DATE32_CASES, Date32Type, CastKernel)
 GET_CAST_FUNCTION(DATE64_CASES, Date64Type, CastKernel)
 GET_CAST_FUNCTION(TIME32_CASES, Time32Type, CastKernel)
@@ -1227,8 +1426,8 @@ Status GetListCastFunc(const DataType& in_type, std::shared_ptr<DataType> out_ty
                        const CastOptions& options,
                        std::unique_ptr<CastKernelBase>* kernel) {
   if (out_type->id() != TypeClass::type_id) {
-    // Kernel will be null
-    return Status::OK();
+    return Status::Invalid("Cannot cast from ", in_type.ToString(), " to ",
+                           out_type->ToString());
   }
   const DataType& in_value_type = *checked_cast<const TypeClass&>(in_type).value_type();
   std::shared_ptr<DataType> out_value_type =
@@ -1275,11 +1474,6 @@ Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_ty
     return Status::OK();
   }
 
-  if (in_type.id() == Type::NA) {
-    kernel->reset(new FromNullCastKernel(std::move(out_type)));
-    return Status::OK();
-  }
-
   std::unique_ptr<CastKernelBase> cast_kernel;
   switch (in_type.id()) {
     CAST_FUNCTION_CASE(BooleanType);
@@ -1293,6 +1487,7 @@ Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_ty
     CAST_FUNCTION_CASE(Int64Type);
     CAST_FUNCTION_CASE(FloatType);
     CAST_FUNCTION_CASE(DoubleType);
+    CAST_FUNCTION_CASE(Decimal128Type);
     CAST_FUNCTION_CASE(Date32Type);
     CAST_FUNCTION_CASE(Date64Type);
     CAST_FUNCTION_CASE(Time32Type);
@@ -1304,13 +1499,19 @@ Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_ty
     CAST_FUNCTION_CASE(LargeBinaryType);
     CAST_FUNCTION_CASE(LargeStringType);
     CAST_FUNCTION_CASE(DictionaryType);
+    case Type::NA:
+      cast_kernel.reset(new FromNullCastKernel(out_type));
+      break;
     case Type::LIST:
-      RETURN_NOT_OK(
-          GetListCastFunc<ListType>(in_type, std::move(out_type), options, &cast_kernel));
+      RETURN_NOT_OK(GetListCastFunc<ListType>(in_type, out_type, options, &cast_kernel));
       break;
     case Type::LARGE_LIST:
-      RETURN_NOT_OK(GetListCastFunc<LargeListType>(in_type, std::move(out_type), options,
-                                                   &cast_kernel));
+      RETURN_NOT_OK(
+          GetListCastFunc<LargeListType>(in_type, out_type, options, &cast_kernel));
+      break;
+    case Type::EXTENSION:
+      RETURN_NOT_OK(
+          ExtensionCastKernel::Make(std::move(in_type), out_type, options, &cast_kernel));
       break;
     default:
       break;

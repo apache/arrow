@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_COMPUTE_CONTEXT_H
-#define ARROW_COMPUTE_CONTEXT_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -46,7 +45,7 @@ namespace compute {
 /// \brief Container for variables and options used by function evaluation
 class ARROW_EXPORT FunctionContext {
  public:
-  explicit FunctionContext(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  explicit FunctionContext(MemoryPool* pool = default_memory_pool());
   MemoryPool* memory_pool() const;
 
   /// \brief Allocate buffer from the context's memory pool
@@ -78,5 +77,3 @@ class ARROW_EXPORT FunctionContext {
 
 }  // namespace compute
 }  // namespace arrow
-
-#endif  // ARROW_COMPUTE_CONTEXT_H

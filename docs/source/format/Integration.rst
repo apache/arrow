@@ -38,6 +38,7 @@ distribution and environment for running the tests by using
 `miniconda <https://conda.io/miniconda.html>`_. On Linux this is:
 
 .. code-block:: shell
+
    MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
    wget -O miniconda.sh $MINICONDA_URL
    bash miniconda.sh -b -p miniconda
@@ -50,16 +51,19 @@ distribution and environment for running the tests by using
 If you are on macOS, instead use the URL:
 
 .. code-block:: shell
+
    MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
 
 Once you have Python, you can install archery
 
 .. code-block:: shell
+
    pip install -e dev/archery
 
 The integration tests are run using the ``archery integration`` command.
 
 .. code-block:: shell
+
    archery integration --help
 
 In order to run integration tests, you'll first need to build each component
@@ -74,12 +78,14 @@ Depending on which components you have built, you can enable and add them to
 the archery test run. For example, if you only have the C++ project built, run:
 
 .. code-block:: shell
+
    archery integration --with-cpp=1
 
 
 For Java, it may look like:
 
 .. code-block:: shell
+
    VERSION=0.11.0-SNAPSHOT
    export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
    archery integration --with-cpp=1 --with-java=1
@@ -87,6 +93,7 @@ For Java, it may look like:
 To run all tests, including Flight integration tests, do:
 
 .. code-block:: shell
+
    archery integration --with-all --run-flight
 
 Note that we run these tests in continuous integration, and the CI job uses
@@ -249,7 +256,7 @@ Union: ::
 
     {
       "name" : "union",
-      "mode" : "Sparse|Dense",
+      "mode" : "SPARSE|DENSE",
       "typeIds" : [ /* integer */ ]
     }
 
@@ -321,6 +328,25 @@ Null: ::
       "name": "null"
     }
 
+Extension types are, as in the IPC format, represented as their underlying
+storage type plus some dedicated field metadata to reconstruct the extension
+type.  For example, assuming a "uuid" extension type backed by a
+FixedSizeBinary(16) storage, here is how a "uuid" field would be represented::
+
+    {
+      "name" : "name_of_the_field",
+      "nullable" : /* boolean */,
+      "type" : {
+         "name" : "fixedsizebinary",
+         "byteWidth" : 16
+      },
+      "children" : [],
+      "metadata" : [
+         {"key": "ARROW:extension:name", "value": "uuid"},
+         {"key": "ARROW:extension:metadata", "value": "uuid-serialized"}
+      ]
+    }
+
 **RecordBatch**::
 
     {
@@ -355,7 +381,7 @@ For ``FieldData`` inside of a ``DictionaryBatch``, the "name" field does not
 correspond to anything.
 
 Here ``$BUFFER_TYPE`` is one of ``VALIDITY``, ``OFFSET`` (for
-variable-length types, such as strings and lists), ``TYPE`` (for unions),
+variable-length types, such as strings and lists), ``TYPE_ID`` (for unions),
 or ``DATA``.
 
 ``BufferData`` is encoded based on the type of buffer:
@@ -364,27 +390,31 @@ or ``DATA``.
   ``Field`` still has a ``VALIDITY`` array, even though all values are 1.
 * ``OFFSET``: a JSON array of integers for 32-bit offsets or
   string-formatted integers for 64-bit offsets
-* ``TYPE``: a JSON array of integers
+* ``TYPE_ID``: a JSON array of integers
 * ``DATA``: a JSON array of encoded values
 
 The value encoding for ``DATA`` is different depending on the logical
 type:
 
-* For boolean type: an array of 1 (true) and 0 (false)
-* For integer-based types (including timestamps): an array of integers
-* For 64-bit integers: an array of integers formatted as JSON strings
-  to avoid loss of precision
-* For floating point types: as is. Values are limited to 3 decimal places to
-  avoid loss of precision
-* For Binary types, a hex-string is produced to encode a variable- or
-  fixed-size binary value
+* For boolean type: an array of 1 (true) and 0 (false).
+* For integer-based types (including timestamps): an array of JSON numbers.
+* For 64-bit integers: an array of integers formatted as JSON strings,
+  so as to avoid loss of precision.
+* For floating point types: an array of JSON numbers. Values are limited
+  to 3 decimal places to avoid loss of precision.
+* For binary types, an array of uppercase hex-encoded strings, so as
+  to represent arbitrary binary data.
+* For UTF-8 string types, an array of JSON strings.
 
-For "list" type, ``BufferData`` has ``VALIDITY`` and ``OFFSET``, and the
-rest of the data is inside "children". These child ``FieldData`` contain all
-of the same attributes as non-child data, so in the example of a list of
-``int32``, the child data has ``VALIDITY`` and ``DATA``.
+For "list" and "largelist" types, ``BufferData`` has ``VALIDITY`` and
+``OFFSET``, and the rest of the data is inside "children". These child
+``FieldData`` contain all of the same attributes as non-child data, so in
+the example of a list of ``int32``, the child data has ``VALIDITY`` and
+``DATA``.
+
 For "fixedsizelist", there is no ``OFFSET`` member because the offsets are
 implied by the field's "listSize".
+
 Note that the "count" for these child data may not match the parent "count".
 For example, if a ``RecordBatch`` has 7 rows and contains a ``FixedSizeList``
 of ``listSize`` 4, then the data inside the "children" of that ``FieldData``

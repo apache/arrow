@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TENSOR_H
-#define ARROW_TENSOR_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -228,5 +227,3 @@ class NumericTensor : public Tensor {
 };
 
 }  // namespace arrow
-
-#endif  // ARROW_TENSOR_H

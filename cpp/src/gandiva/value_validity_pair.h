@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_VALUEVALIDITYPAIR_H
-#define GANDIVA_VALUEVALIDITYPAIR_H
+#pragma once
 
 #include <vector>
 
@@ -47,5 +46,3 @@ class GANDIVA_EXPORT ValueValidityPair {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_VALUEVALIDITYPAIR_H

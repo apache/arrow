@@ -108,16 +108,17 @@ def cmake_linter(src, fix=False):
 
 def python_linter(src):
     """Run flake8 linter on python/pyarrow, and dev/. """
-    logger.info("Running python linters")
+    logger.info("Running Python linters")
     flake8 = Flake8()
 
     if not flake8.available:
-        logger.error("python linter requested but flake8 binary not found.")
+        logger.error("Python linter requested but flake8 binary not found.")
         return
 
     setup_py = os.path.join(src.python, "setup.py")
-    yield LintResult.from_cmd(flake8(setup_py, src.pyarrow, src.dev,
-                                     check=False))
+    yield LintResult.from_cmd(flake8(setup_py, src.pyarrow,
+                                     os.path.join(src.python, "examples"),
+                                     src.dev, check=False))
     config = os.path.join(src.python, ".flake8.cython")
     yield LintResult.from_cmd(flake8("--config=" + config, src.pyarrow,
                                      check=False))
@@ -128,7 +129,7 @@ def python_numpydoc(symbols=None, whitelist=None, blacklist=None):
 
     Pyarrow must be available for import.
     """
-    logger.info("Running python docstring linters")
+    logger.info("Running Python docstring linters")
     # by default try to run on all pyarrow package
     symbols = symbols or {
         'pyarrow',
@@ -216,7 +217,7 @@ def rat_linter(src, root):
     logger.info("Running apache-rat linter")
 
     if src.git_dirty:
-        logger.warn("Due to the usage of git-archive, uncommited files will"
+        logger.warn("Due to the usage of git-archive, uncommitted files will"
                     " not be checked for rat violations. ")
 
     exclusion = exclusion_from_globs(
@@ -230,25 +231,25 @@ def rat_linter(src, root):
 
     violations = list(report.validate(exclusion=exclusion))
     for violation in violations:
-        print(f"apache-rat license violation: {violation}")
+        print("apache-rat license violation: {}".format(violation))
 
     yield LintResult(len(violations) == 0)
 
 
 def r_linter(src):
     """Run R linter."""
-    logger.info("Running r linter")
+    logger.info("Running R linter")
     r_lint_sh = os.path.join(src.r, "lint.sh")
     yield LintResult.from_cmd(Bash().run(r_lint_sh, check=False))
 
 
 def rust_linter(src):
     """Run Rust linter."""
-    logger.info("Running rust linter")
+    logger.info("Running Rust linter")
     cargo = Cargo()
 
     if not cargo.available:
-        logger.error("rust linter requested but cargo executable not found.")
+        logger.error("Rust linter requested but cargo executable not found.")
         return
 
     yield LintResult.from_cmd(cargo.run("+stable", "fmt", "--all", "--",
@@ -273,7 +274,7 @@ def is_docker_image(path):
 
 def docker_linter(src):
     """Run Hadolint docker linter."""
-    logger.info("Running docker linter")
+    logger.info("Running Docker linter")
 
     hadolint = Hadolint()
 

@@ -26,6 +26,18 @@ arrow_install_all_headers("arrow/util")
 # arrow_test_main
 #
 
+if(WIN32)
+  # This manifest enables long file paths on Windows 10+
+  # See https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#enable-long-paths-in-windows-10-version-1607-and-later
+  if(MSVC)
+    set(IO_UTIL_TEST_SOURCES io_util_test.cc io_util_test.manifest)
+  else()
+    set(IO_UTIL_TEST_SOURCES io_util_test.cc io_util_test.rc)
+  endif()
+else()
+  set(IO_UTIL_TEST_SOURCES io_util_test.cc)
+endif()
+
 add_arrow_test(utility-test
                SOURCES
                align_util_test.cc
@@ -37,10 +49,9 @@ add_arrow_test(utility-test
                key_value_metadata_test.cc
                hashing_test.cc
                int_util_test.cc
-               io_util_test.cc
+               ${IO_UTIL_TEST_SOURCES}
                iterator_test.cc
                logging_test.cc
-               parsing_util_test.cc
                range_test.cc
                rle_encoding_test.cc
                stl_util_test.cc
@@ -48,7 +59,8 @@ add_arrow_test(utility-test
                time_test.cc
                trie_test.cc
                uri_test.cc
-               utf8_util_test.cc)
+               utf8_util_test.cc
+               value_parsing_test.cc)
 
 add_arrow_test(threading-utility-test
                SOURCES
@@ -62,8 +74,8 @@ add_arrow_benchmark(decimal_benchmark)
 add_arrow_benchmark(hashing_benchmark)
 add_arrow_benchmark(int_util_benchmark)
 add_arrow_benchmark(machine_benchmark)
-add_arrow_benchmark(number_parsing_benchmark)
 add_arrow_benchmark(range_benchmark)
 add_arrow_benchmark(thread_pool_benchmark)
 add_arrow_benchmark(trie_benchmark)
 add_arrow_benchmark(utf8_util_benchmark)
+add_arrow_benchmark(value_parsing_benchmark)

@@ -11,10 +11,11 @@ record_batch(..., schema = NULL)
 \arguments{
 \item{...}{A \code{data.frame} or a named set of Arrays or vectors. If given a
 mixture of data.frames and vectors, the inputs will be autospliced together
-(see examples).}
+(see examples). Alternatively, you can provide a single Arrow IPC
+\code{InputStream}, \code{Message}, \code{Buffer}, or R \code{raw} object containing a \code{Buffer}.}
 
 \item{schema}{a \link{Schema}, or \code{NULL} (the default) to infer the schema from
-the data in \code{...}}
+the data in \code{...}. When providing an Arrow IPC buffer, \code{schema} is required.}
 }
 \description{
 A record batch is a collection of equal-length arrays matching
@@ -60,7 +61,7 @@ indicated integer offset and going for the given length, or to the end
 of the table if \code{NULL}, the default.
 \item \verb{$Take(i)}: return an \code{RecordBatch} with rows at positions given by
 integers (R vector or Array Array) \code{i}.
-\item \verb{$Filter(i)}: return an \code{RecordBatch} with rows at positions where logical
+\item \verb{$Filter(i, keep_na = TRUE)}: return an \code{RecordBatch} with rows at positions where logical
 vector (or Arrow boolean Array) \code{i} is \code{TRUE}.
 \item \verb{$serialize()}: Returns a raw vector suitable for interprocess communication
 \item \verb{$cast(target_schema, safe = TRUE, options = cast_options(safe))}: Alter

@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import gzip
 import pathlib
-import urllib.parse
+import pickle
 import sys
 
 import pytest
@@ -26,7 +26,7 @@ import pytest
 import pyarrow as pa
 from pyarrow.tests.test_io import assert_file_not_found
 from pyarrow.fs import (FileType, FileSelector, FileSystem, LocalFileSystem,
-                        LocalFileSystemOptions, SubTreeFileSystem,
+                        SubTreeFileSystem,
                         _MockFileSystem)
 
 
@@ -65,11 +65,9 @@ def localfs_with_mmap(request, tempdir):
 
 @pytest.fixture
 def subtree_localfs(request, tempdir, localfs):
-    prefix = 'subtree/prefix/'
-    (tempdir / prefix).mkdir(parents=True)
     return dict(
-        fs=SubTreeFileSystem(prefix, localfs['fs']),
-        pathfn=prefix.__add__,
+        fs=SubTreeFileSystem(str(tempdir), localfs['fs']),
+        pathfn=lambda p: p,
         allow_copy_file=True,
         allow_move_dir=True,
         allow_append_to_file=True,
@@ -77,19 +75,19 @@ def subtree_localfs(request, tempdir, localfs):
 
 
 @pytest.fixture
-def s3fs(request, minio_server):
+def s3fs(request, s3_connection, s3_server):
     request.config.pyarrow.requires('s3')
-    from pyarrow.fs import S3Options, S3FileSystem
+    from pyarrow.fs import S3FileSystem
 
-    address, access_key, secret_key = minio_server
+    host, port, access_key, secret_key = s3_connection
     bucket = 'pyarrow-filesystem/'
-    options = S3Options(
-        endpoint_override=address,
+
+    fs = S3FileSystem(
         access_key=access_key,
         secret_key=secret_key,
+        endpoint_override='{}:{}'.format(host, port),
         scheme='http'
     )
-    fs = S3FileSystem(options)
     fs.create_dir(bucket)
 
     return dict(
@@ -114,17 +112,15 @@ def subtree_s3fs(request, s3fs):
 
 
 @pytest.fixture
-def hdfs(request, hdfs_server):
+def hdfs(request, hdfs_connection):
     request.config.pyarrow.requires('hdfs')
     if not pa.have_libhdfs():
         pytest.skip('Cannot locate libhdfs')
 
-    from pyarrow.fs import HdfsOptions, HadoopFileSystem
+    from pyarrow.fs import HadoopFileSystem
 
-    host, port, user = hdfs_server
-    options = HdfsOptions(endpoint=(host, port), user=user)
-
-    fs = HadoopFileSystem(options)
+    host, port, user = hdfs_connection
+    fs = HadoopFileSystem(host, port=port, user=user)
 
     return dict(
         fs=fs,
@@ -195,6 +191,69 @@ def test_cannot_instantiate_base_filesystem():
         FileSystem()
 
 
+def test_filesystem_equals():
+    fs0 = LocalFileSystem()
+    fs1 = LocalFileSystem()
+    fs2 = _MockFileSystem()
+
+    assert fs0.equals(fs0)
+    assert fs0.equals(fs1)
+    with pytest.raises(TypeError):
+        fs0.equals('string')
+    assert fs0 == fs0 == fs1
+    assert fs0 != 4
+
+    assert fs2 == fs2
+    assert fs2 != _MockFileSystem()
+
+    assert SubTreeFileSystem('/base', fs0) == SubTreeFileSystem('/base', fs0)
+    assert SubTreeFileSystem('/base', fs0) != SubTreeFileSystem('/base', fs2)
+    assert SubTreeFileSystem('/base', fs0) != SubTreeFileSystem('/other', fs0)
+
+
+def test_subtree_filesystem():
+    localfs = LocalFileSystem()
+
+    subfs = SubTreeFileSystem('/base', localfs)
+    assert subfs.base_path == '/base/'
+    assert subfs.base_fs == localfs
+
+    subfs = SubTreeFileSystem('/another/base/', LocalFileSystem())
+    assert subfs.base_path == '/another/base/'
+    assert subfs.base_fs == localfs
+
+
+def test_filesystem_pickling(fs):
+    if isinstance(fs, _MockFileSystem):
+        pytest.xfail(reason='MockFileSystem is not serializable')
+
+    serialized = pickle.dumps(fs)
+    restored = pickle.loads(serialized)
+    assert isinstance(restored, FileSystem)
+    assert restored.equals(fs)
+
+
+def test_filesystem_is_functional_after_pickling(fs, pathfn):
+    if isinstance(fs, _MockFileSystem):
+        pytest.xfail(reason='MockFileSystem is not serializable')
+
+    aaa = pathfn('a/aa/aaa/')
+    bb = pathfn('a/bb')
+    c = pathfn('c.txt')
+
+    fs.create_dir(aaa)
+    with fs.open_output_stream(bb):
+        pass  # touch
+    with fs.open_output_stream(c) as fp:
+        fp.write(b'test')
+
+    restored = pickle.loads(pickle.dumps(fs))
+    aaa_info, bb_info, c_info = restored.get_file_info([aaa, bb, c])
+    assert aaa_info.type == FileType.Directory
+    assert bb_info.type == FileType.File
+    assert c_info.type == FileType.File
+
+
 def test_non_path_like_input_raises(fs):
     class Path:
         pass
@@ -206,7 +265,19 @@ def test_non_path_like_input_raises(fs):
             fs.create_dir(path)
 
 
-def test_get_target_infos(fs, pathfn):
+def check_mtime(file_info):
+    assert isinstance(file_info.mtime, datetime)
+    assert isinstance(file_info.mtime_ns, int)
+    if file_info.mtime_ns >= 0:
+        assert file_info.mtime_ns == pytest.approx(
+            file_info.mtime.timestamp() * 1e9)
+        # It's an aware UTC datetime
+        tzinfo = file_info.mtime.tzinfo
+        assert tzinfo is not None
+        assert tzinfo.utcoffset(None) == timedelta(0)
+
+
+def test_get_file_info(fs, pathfn):
     aaa = pathfn('a/aa/aaa/')
     bb = pathfn('a/bb')
     c = pathfn('c.txt')
@@ -218,14 +289,13 @@ def test_get_target_infos(fs, pathfn):
     with fs.open_output_stream(c) as fp:
         fp.write(b'test')
 
-    aaa_info, bb_info, c_info, zzz_info = \
-        fs.get_target_infos([aaa, bb, c, zzz])
+    aaa_info, bb_info, c_info, zzz_info = fs.get_file_info([aaa, bb, c, zzz])
 
     assert aaa_info.path == aaa
     assert 'aaa' in repr(aaa_info)
     assert aaa_info.extension == ''
     assert 'FileType.Directory' in repr(aaa_info)
-    assert isinstance(aaa_info.mtime, datetime)
+    check_mtime(aaa_info)
 
     assert bb_info.path == str(bb)
     assert bb_info.base_name == 'bb'
@@ -233,7 +303,7 @@ def test_get_target_infos(fs, pathfn):
     assert bb_info.type == FileType.File
     assert 'FileType.File' in repr(bb_info)
     assert bb_info.size == 0
-    assert isinstance(bb_info.mtime, datetime)
+    check_mtime(bb_info)
 
     assert c_info.path == str(c)
     assert c_info.base_name == 'c.txt'
@@ -241,17 +311,17 @@ def test_get_target_infos(fs, pathfn):
     assert c_info.type == FileType.File
     assert 'FileType.File' in repr(c_info)
     assert c_info.size == 4
-    assert isinstance(c_info.mtime, datetime)
+    check_mtime(c_info)
 
     assert zzz_info.path == str(zzz)
     assert zzz_info.base_name == 'zzz'
     assert zzz_info.extension == ''
-    assert zzz_info.type == FileType.NonExistent
-    assert 'FileType.NonExistent' in repr(zzz_info)
-    assert isinstance(c_info.mtime, datetime)
+    assert zzz_info.type == FileType.NotFound
+    assert 'FileType.NotFound' in repr(zzz_info)
+    check_mtime(zzz_info)
 
 
-def test_get_target_infos_with_selector(fs, pathfn):
+def test_get_file_info_with_selector(fs, pathfn):
     base_dir = pathfn('selector-dir/')
     file_a = pathfn('selector-dir/test_file_a')
     file_b = pathfn('selector-dir/test_file_b')
@@ -265,11 +335,11 @@ def test_get_target_infos_with_selector(fs, pathfn):
             pass
         fs.create_dir(dir_a)
 
-        selector = FileSelector(base_dir, allow_non_existent=False,
+        selector = FileSelector(base_dir, allow_not_found=False,
                                 recursive=True)
         assert selector.base_dir == base_dir
 
-        infos = fs.get_target_infos(selector)
+        infos = fs.get_file_info(selector)
         assert len(infos) == 3
 
         for info in infos:
@@ -281,6 +351,7 @@ def test_get_target_infos_with_selector(fs, pathfn):
                 assert info.type == FileType.Directory
             else:
                 raise ValueError('unexpected path {}'.format(info.path))
+            check_mtime(info)
     finally:
         fs.delete_file(file_a)
         fs.delete_file(file_b)
@@ -473,22 +544,10 @@ def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
 
 
 def test_localfs_options():
-    options = LocalFileSystemOptions()
-    assert options.use_mmap is False
-    options.use_mmap = True
-    assert options.use_mmap is True
-
-    with pytest.raises(AttributeError):
-        options.xxx = True
-
-    options = LocalFileSystemOptions(use_mmap=True)
-    assert options.use_mmap is True
-
     # LocalFileSystem instantiation
-    LocalFileSystem(LocalFileSystemOptions(use_mmap=True))
     LocalFileSystem(use_mmap=False)
 
-    with pytest.raises(AttributeError):
+    with pytest.raises(TypeError):
         LocalFileSystem(xxx=False)
 
 
@@ -512,88 +571,123 @@ def test_localfs_errors(localfs):
         fs.copy_file('/non/existent', '/xxx')
 
 
+def test_localfs_file_info(localfs):
+    fs = localfs['fs']
+
+    file_path = pathlib.Path(__file__)
+    dir_path = file_path.parent
+    [file_info, dir_info] = fs.get_file_info([file_path.as_posix(),
+                                              dir_path.as_posix()])
+    assert file_info.size == file_path.stat().st_size
+    assert file_info.mtime_ns == file_path.stat().st_mtime_ns
+    check_mtime(file_info)
+    assert dir_info.mtime_ns == dir_path.stat().st_mtime_ns
+    check_mtime(dir_info)
+
+
+def test_mockfs_mtime_roundtrip(mockfs):
+    dt = datetime.fromtimestamp(1568799826, timezone.utc)
+    fs = _MockFileSystem(dt)
+
+    with fs.open_output_stream('foo'):
+        pass
+    [info] = fs.get_file_info(['foo'])
+    assert info.mtime == dt
+
+
 @pytest.mark.s3
-def test_s3_options(minio_server):
-    from pyarrow.fs import S3Options
+def test_s3_options():
+    from pyarrow.fs import S3FileSystem
 
-    options = S3Options()
-
-    assert options.region == 'us-east-1'
-    options.region = 'us-west-1'
-    assert options.region == 'us-west-1'
-
-    assert options.scheme == 'https'
-    options.scheme = 'http'
-    assert options.scheme == 'http'
-
-    assert options.endpoint_override == ''
-    options.endpoint_override = 'localhost:8999'
-    assert options.endpoint_override == 'localhost:8999'
+    fs = S3FileSystem(access_key='access', secret_key='secret',
+                      region='us-east-1', scheme='https',
+                      endpoint_override='localhost:8999')
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
 
     with pytest.raises(ValueError):
-        S3Options(access_key='access')
+        S3FileSystem(access_key='access')
     with pytest.raises(ValueError):
-        S3Options(secret_key='secret')
-
-    address, access_key, secret_key = minio_server
-    options = S3Options(
-        access_key=access_key,
-        secret_key=secret_key,
-        endpoint_override=address,
-        scheme='http'
-    )
-    assert options.scheme == 'http'
-    assert options.endpoint_override == address
+        S3FileSystem(secret_key='secret')
 
 
 @pytest.mark.hdfs
-def test_hdfs_options(hdfs_server):
-    from pyarrow.fs import HdfsOptions, HadoopFileSystem
+def test_hdfs_options(hdfs_connection):
+    from pyarrow.fs import HadoopFileSystem
     if not pa.have_libhdfs():
         pytest.skip('Cannot locate libhdfs')
 
-    options = HdfsOptions()
-    assert options.endpoint == ('', 0)
-    options.endpoint = ('localhost', 8080)
-    assert options.endpoint == ('localhost', 8080)
+    host, port, user = hdfs_connection
+
+    replication = 2
+    buffer_size = 64*1024
+    default_block_size = 128*1024**2
+    uri = ('hdfs://{}:{}/?user={}&replication={}&buffer_size={}'
+           '&default_block_size={}')
+
+    hdfs1 = HadoopFileSystem(host, port, user='libhdfs',
+                             replication=replication, buffer_size=buffer_size,
+                             default_block_size=default_block_size)
+    hdfs2 = HadoopFileSystem.from_uri(uri.format(
+        host, port, 'libhdfs', replication, buffer_size, default_block_size
+    ))
+    hdfs3 = HadoopFileSystem.from_uri(uri.format(
+        host, port, 'me', replication, buffer_size, default_block_size
+    ))
+    hdfs4 = HadoopFileSystem.from_uri(uri.format(
+        host, port, 'me', replication + 1, buffer_size, default_block_size
+    ))
+    hdfs5 = HadoopFileSystem(host, port)
+    hdfs6 = HadoopFileSystem.from_uri('hdfs://{}:{}'.format(host, port))
+    hdfs7 = HadoopFileSystem(host, port, user='localuser')
+    hdfs8 = HadoopFileSystem(host, port, user='localuser',
+                             kerb_ticket="cache_path")
+    hdfs9 = HadoopFileSystem(host, port, user='localuser',
+                             kerb_ticket=pathlib.Path("cache_path"))
+    hdfs10 = HadoopFileSystem(host, port, user='localuser',
+                              kerb_ticket="cache_path2")
+
+    assert hdfs1 == hdfs2
+    assert hdfs5 == hdfs6
+    assert hdfs6 != hdfs7
+    assert hdfs2 != hdfs3
+    assert hdfs3 != hdfs4
+    assert hdfs7 != hdfs5
+    assert hdfs2 != hdfs3
+    assert hdfs3 != hdfs4
+    assert hdfs7 != hdfs8
+    assert hdfs8 == hdfs9
+    assert hdfs10 != hdfs9
+
     with pytest.raises(TypeError):
-        options.endpoint = 'localhost:8000'
+        HadoopFileSystem()
+    with pytest.raises(TypeError):
+        HadoopFileSystem.from_uri(3)
 
-    assert options.replication == 3
-    options.replication = 2
-    assert options.replication == 2
+    for fs in [hdfs1, hdfs2, hdfs3, hdfs4, hdfs5, hdfs6, hdfs7, hdfs8,
+               hdfs9, hdfs10]:
+        assert pickle.loads(pickle.dumps(fs)) == fs
 
-    assert options.user == ''
-    options.user = 'libhdfs'
-    assert options.user == 'libhdfs'
+    host, port, user = hdfs_connection
 
-    assert options.default_block_size == 0
-    options.default_block_size = 128*1024**2
-    assert options.default_block_size == 128*1024**2
+    hdfs = HadoopFileSystem(host, port, user=user)
+    assert hdfs.get_file_info(FileSelector('/'))
 
-    assert options.buffer_size == 0
-    options.buffer_size = 64*1024
-    assert options.buffer_size == 64*1024
-
-    options = HdfsOptions.from_uri('hdfs://localhost:8080/?user=test')
-    assert options.endpoint == ('hdfs://localhost', 8080)
-    assert options.user == 'test'
-
-    host, port, user = hdfs_server
-    uri = "hdfs://{}:{}/?user={}".format(host, port, user)
-    fs = HadoopFileSystem(uri)
-    assert fs.get_target_infos(FileSelector('/'))
+    hdfs = HadoopFileSystem.from_uri(
+        "hdfs://{}:{}/?user={}".format(host, port, user)
+    )
+    assert hdfs.get_file_info(FileSelector('/'))
 
 
 @pytest.mark.parametrize(('uri', 'expected_klass', 'expected_path'), [
-    # leading slashes are removed intentionally, becuase MockFileSystem doesn't
+    # leading slashes are removed intentionally, because MockFileSystem doesn't
     # have a distinction between relative and absolute paths
     ('mock:', _MockFileSystem, ''),
     ('mock:foo/bar', _MockFileSystem, 'foo/bar'),
     ('mock:/foo/bar', _MockFileSystem, 'foo/bar'),
     ('mock:///foo/bar', _MockFileSystem, 'foo/bar'),
-    ('file:', LocalFileSystem, ''),
-    ('file:foo/bar', LocalFileSystem, 'foo/bar'),
+    ('file:/', LocalFileSystem, '/'),
+    ('file:///', LocalFileSystem, '/'),
     ('file:/foo/bar', LocalFileSystem, '/foo/bar'),
     ('file:///foo/bar', LocalFileSystem, '/foo/bar'),
     ('/', LocalFileSystem, '/'),
@@ -621,18 +715,19 @@ def test_filesystem_from_path_object(path):
 
 
 @pytest.mark.s3
-def test_filesystem_from_uri_s3(minio_server):
+def test_filesystem_from_uri_s3(s3_connection, s3_server):
     from pyarrow.fs import S3FileSystem
 
-    address, access_key, secret_key = minio_server
-    uri = "s3://{}:{}@mybucket/foo/bar?scheme=http&endpoint_override={}" \
-        .format(access_key, secret_key, urllib.parse.quote(address))
+    host, port, access_key, secret_key = s3_connection
+
+    uri = "s3://{}:{}@mybucket/foo/bar?scheme=http&endpoint_override={}:{}" \
+        .format(access_key, secret_key, host, port)
 
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, S3FileSystem)
     assert path == "mybucket/foo/bar"
 
     fs.create_dir(path)
-    [info] = fs.get_target_infos([path])
+    [info] = fs.get_file_info([path])
     assert info.path == path
     assert info.type == FileType.Directory

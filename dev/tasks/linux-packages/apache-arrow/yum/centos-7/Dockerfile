@@ -53,3 +53,7 @@ RUN \
     tar \
     zlib-devel && \
   yum clean ${quiet} all
+
+ENV \
+  BOOST_INCLUDEDIR=/usr/include/boost169 \
+  BOOST_LIBRARYDIR=/usr/lib64/boost169

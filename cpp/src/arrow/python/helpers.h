@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_HELPERS_H
-#define ARROW_PYTHON_HELPERS_H
+#pragma once
 
 #include "arrow/python/platform.h"
 
@@ -140,5 +139,3 @@ void DebugPrint(PyObject* obj);
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow
-
-#endif  // ARROW_PYTHON_HELPERS_H

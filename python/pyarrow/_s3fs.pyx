@@ -45,12 +45,15 @@ def finalize_s3():
     check_status(CFinalizeS3())
 
 
-cdef class S3Options:
-    """Options for S3FileSystem.
+cdef class S3FileSystem(FileSystem):
+    """S3-backed FileSystem implementation
 
     If neither access_key nor secret_key are provided then attempts to
     initialize from AWS environment variables, otherwise both access_key and
     secret_key must be provided.
+
+    Note: S3 buckets are special and the operations available on them may be
+    limited or more expensive than desired.
 
     Parameters
     ----------
@@ -70,14 +73,17 @@ cdef class S3Options:
         Whether OutputStream writes will be issued in the background, without
         blocking.
     """
-    cdef:
-        CS3Options options
 
-    # Avoid mistakingly creating attributes
-    __slots__ = ()
+    cdef:
+        CS3FileSystem* s3fs
 
     def __init__(self, access_key=None, secret_key=None, region=None,
-                 scheme=None, endpoint_override=None, background_writes=None):
+                 scheme=None, endpoint_override=None,
+                 bint background_writes=True):
+        cdef:
+            CS3Options options
+            shared_ptr[CS3FileSystem] wrapped
+
         if access_key is not None and secret_key is None:
             raise ValueError(
                 'In order to initialize with explicit credentials both '
@@ -91,85 +97,40 @@ cdef class S3Options:
                 '`access_key` is not set.'
             )
         elif access_key is not None or secret_key is not None:
-            self.options = CS3Options.FromAccessKey(
+            options = CS3Options.FromAccessKey(
                 tobytes(access_key),
                 tobytes(secret_key)
             )
         else:
-            self.options = CS3Options.Defaults()
+            options = CS3Options.Defaults()
 
         if region is not None:
-            self.region = region
+            options.region = tobytes(region)
         if scheme is not None:
-            self.scheme = scheme
+            options.scheme = tobytes(scheme)
         if endpoint_override is not None:
-            self.endpoint_override = endpoint_override
+            options.endpoint_override = tobytes(endpoint_override)
         if background_writes is not None:
-            self.background_writes = background_writes
+            options.background_writes = background_writes
 
-    cdef inline CS3Options unwrap(self) nogil:
-        return self.options
-
-    @property
-    def region(self):
-        """AWS region to connect to."""
-        return frombytes(self.options.region)
-
-    @region.setter
-    def region(self, value):
-        self.options.region = tobytes(value)
-
-    @property
-    def scheme(self):
-        """S3 connection transport scheme."""
-        return frombytes(self.options.scheme)
-
-    @scheme.setter
-    def scheme(self, value):
-        self.options.scheme = tobytes(value)
-
-    @property
-    def endpoint_override(self):
-        """Override region with a connect string such as localhost:9000"""
-        return frombytes(self.options.endpoint_override)
-
-    @endpoint_override.setter
-    def endpoint_override(self, value):
-        self.options.endpoint_override = tobytes(value)
-
-    @property
-    def background_writes(self):
-        """OutputStream writes will be issued in the background"""
-        return self.options.background_writes
-
-    @background_writes.setter
-    def background_writes(self, bint value):
-        self.options.background_writes = value
-
-
-cdef class S3FileSystem(FileSystem):
-    """S3-backed FileSystem implementation
-
-    Note: S3 buckets are special and the operations available on them may be
-    limited or more expensive than desired.
-
-    Parameters
-    ----------
-    options: S3Options, default None
-        Options for connecting to S3. If None is passed then attempts to
-        initialize the connection from AWS environment variables.
-    """
-
-    cdef:
-        CS3FileSystem* s3fs
-
-    def __init__(self, S3Options options=None):
-        cdef shared_ptr[CS3FileSystem] wrapped
-        options = options or S3Options()
         with nogil:
-            wrapped = GetResultValue(CS3FileSystem.Make(options.unwrap()))
+            wrapped = GetResultValue(CS3FileSystem.Make(options))
+
         self.init(<shared_ptr[CFileSystem]> wrapped)
 
     cdef init(self, const shared_ptr[CFileSystem]& wrapped):
         FileSystem.init(self, wrapped)
         self.s3fs = <CS3FileSystem*> wrapped.get()
+
+    def __reduce__(self):
+        cdef CS3Options opts = self.s3fs.options()
+        return (
+            S3FileSystem, (
+                frombytes(opts.GetAccessKey()),
+                frombytes(opts.GetSecretKey()),
+                frombytes(opts.region),
+                frombytes(opts.scheme),
+                frombytes(opts.endpoint_override),
+                opts.background_writes
+            )
+        )

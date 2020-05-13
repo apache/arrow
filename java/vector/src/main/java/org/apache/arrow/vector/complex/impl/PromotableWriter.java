@@ -19,6 +19,7 @@ package org.apache.arrow.vector.complex.impl;
 
 import java.math.BigDecimal;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
@@ -34,8 +35,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * This FieldWriter implementation delegates all FieldWriter API calls to an inner FieldWriter. This inner field writer
@@ -186,6 +185,11 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
         writer = type.getNewFieldWriter(vector);
         break;
     }
+  }
+
+  @Override
+  public void writeNull() {
+    setPosition(idx() + 1);
   }
 
   @Override

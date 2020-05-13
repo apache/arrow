@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PLASMA_CLIENT_H
-#define PLASMA_CLIENT_H
+#pragma once
 
 #include <functional>
 #include <memory>
@@ -227,7 +226,7 @@ class ARROW_EXPORT PlasmaClient {
   /// it is a no operation.
   ///
   /// \param object_ids The list of IDs of the objects to delete.
-  /// \return The return status. If all the objects are non-existent, return OK.
+  /// \return The return status. If all the objects are nonexistent, return OK.
   Status Delete(const std::vector<ObjectID>& object_ids);
 
   /// Delete objects until we have freed up num_bytes bytes or there are no more
@@ -308,5 +307,3 @@ class ARROW_EXPORT PlasmaClient {
 };
 
 }  // namespace plasma
-
-#endif  // PLASMA_CLIENT_H

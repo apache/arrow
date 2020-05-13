@@ -296,14 +296,12 @@ GArrowRecordBatchStreamReader *
 garrow_record_batch_stream_reader_new(GArrowInputStream *stream,
                                       GError **error)
 {
-  using BaseType = arrow::ipc::RecordBatchReader;
   using ReaderType = arrow::ipc::RecordBatchStreamReader;
 
   auto arrow_input_stream = garrow_input_stream_get_raw(stream);
-  std::shared_ptr<BaseType> arrow_reader;
-  auto status = ReaderType::Open(arrow_input_stream, &arrow_reader);
-  if (garrow_error_check(error, status, "[record-batch-stream-reader][open]")) {
-    auto subtype = std::dynamic_pointer_cast<ReaderType>(arrow_reader);
+  auto arrow_reader = ReaderType::Open(arrow_input_stream);
+  if (garrow::check(error, arrow_reader, "[record-batch-stream-reader][open]")) {
+    auto subtype = std::dynamic_pointer_cast<ReaderType>(*arrow_reader);
     return garrow_record_batch_stream_reader_new_raw(&subtype);
   } else {
     return NULL;
@@ -411,14 +409,13 @@ GArrowRecordBatchFileReader *
 garrow_record_batch_file_reader_new(GArrowSeekableInputStream *file,
                                     GError **error)
 {
-  auto arrow_random_access_file = garrow_seekable_input_stream_get_raw(file);
+  using ReaderType = arrow::ipc::RecordBatchFileReader;
 
-  std::shared_ptr<arrow::ipc::RecordBatchFileReader> arrow_reader;
-  auto status =
-    arrow::ipc::RecordBatchFileReader::Open(arrow_random_access_file,
-                                            &arrow_reader);
-  if (garrow_error_check(error, status, "[record-batch-file-reader][open]")) {
-    return garrow_record_batch_file_reader_new_raw(&arrow_reader);
+  auto arrow_random_access_file = garrow_seekable_input_stream_get_raw(file);
+  auto arrow_reader = ReaderType::Open(arrow_random_access_file);
+  if (garrow::check(error, arrow_reader, "[record-batch-file-reader][open]")) {
+    auto subtype = std::dynamic_pointer_cast<ReaderType>(*arrow_reader);
+    return garrow_record_batch_file_reader_new_raw(&subtype);
   } else {
     return NULL;
   }
@@ -510,13 +507,11 @@ garrow_record_batch_file_reader_read_record_batch(GArrowRecordBatchFileReader *r
                                                   GError **error)
 {
   auto arrow_reader = garrow_record_batch_file_reader_get_raw(reader);
-  std::shared_ptr<arrow::RecordBatch> arrow_record_batch;
-  auto status = arrow_reader->ReadRecordBatch(i, &arrow_record_batch);
+  auto arrow_record_batch = arrow_reader->ReadRecordBatch(i);
 
-  if (garrow_error_check(error,
-                         status,
-                         "[record-batch-file-reader][read-record-batch]")) {
-    return garrow_record_batch_new_raw(&arrow_record_batch);
+  if (garrow::check(error, arrow_record_batch,
+                    "[record-batch-file-reader][read-record-batch]")) {
+    return garrow_record_batch_new_raw(&(*arrow_record_batch));
   } else {
     return NULL;
   }
@@ -524,12 +519,11 @@ garrow_record_batch_file_reader_read_record_batch(GArrowRecordBatchFileReader *r
 
 
 typedef struct GArrowFeatherFileReaderPrivate_ {
-  arrow::ipc::feather::TableReader *feather_table_reader;
+  std::shared_ptr<arrow::ipc::feather::Reader> feather_reader;
 } GArrowFeatherFileReaderPrivate;
 
 enum {
-  PROP_0__,
-  PROP_FEATHER_TABLE_READER
+  PROP_FEATHER_READER = 1,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowFeatherFileReader,
@@ -546,7 +540,7 @@ garrow_feather_file_reader_finalize(GObject *object)
 {
   auto priv = GARROW_FEATHER_FILE_READER_GET_PRIVATE(object);
 
-  delete priv->feather_table_reader;
+  priv->feather_reader.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_feather_file_reader_parent_class)->finalize(object);
 }
@@ -560,9 +554,9 @@ garrow_feather_file_reader_set_property(GObject *object,
   auto priv = GARROW_FEATHER_FILE_READER_GET_PRIVATE(object);
 
   switch (prop_id) {
-  case PROP_FEATHER_TABLE_READER:
-    priv->feather_table_reader =
-      static_cast<arrow::ipc::feather::TableReader *>(g_value_get_pointer(value));
+  case PROP_FEATHER_READER:
+    priv->feather_reader =
+      *static_cast<std::shared_ptr<arrow::ipc::feather::Reader> *>(g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -591,21 +585,19 @@ garrow_feather_file_reader_init(GArrowFeatherFileReader *object)
 static void
 garrow_feather_file_reader_class_init(GArrowFeatherFileReaderClass *klass)
 {
-  GObjectClass *gobject_class;
-  GParamSpec *spec;
-
-  gobject_class = G_OBJECT_CLASS(klass);
+  auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->finalize     = garrow_feather_file_reader_finalize;
   gobject_class->set_property = garrow_feather_file_reader_set_property;
   gobject_class->get_property = garrow_feather_file_reader_get_property;
 
-  spec = g_param_spec_pointer("feather-table-reader",
-                              "arrow::ipc::feather::TableReader",
-                              "The raw std::shared<arrow::ipc::feather::TableReader> *",
+  GParamSpec *spec;
+  spec = g_param_spec_pointer("feather-reader",
+                              "arrow::ipc::feather::Reader",
+                              "The raw std::shared<arrow::ipc::feather::Reader> *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_FEATHER_TABLE_READER, spec);
+  g_object_class_install_property(gobject_class, PROP_FEATHER_READER, spec);
 }
 
 
@@ -624,56 +616,12 @@ garrow_feather_file_reader_new(GArrowSeekableInputStream *file,
                                GError **error)
 {
   auto arrow_random_access_file = garrow_seekable_input_stream_get_raw(file);
-  std::unique_ptr<arrow::ipc::feather::TableReader> arrow_reader;
-  auto status =
-    arrow::ipc::feather::TableReader::Open(arrow_random_access_file,
-                                           &arrow_reader);
-  if (garrow_error_check(error, status, "[feather-file-reader][new]")) {
-    return garrow_feather_file_reader_new_raw(arrow_reader.release());
+  auto reader = arrow::ipc::feather::Reader::Open(arrow_random_access_file);
+  if (garrow::check(error, reader, "[feather-file-reader][new]")) {
+    return garrow_feather_file_reader_new_raw(&(*reader));
   } else {
     return NULL;
   }
-}
-
-/**
- * garrow_feather_file_reader_get_description:
- * @reader: A #GArrowFeatherFileReader.
- *
- * Returns: (nullable) (transfer full):
- *   The description of the file if it exists,
- *   %NULL otherwise. You can confirm whether description exists or not by
- *   garrow_feather_file_reader_has_description().
- *
- *   It should be freed with g_free() when no longer needed.
- *
- * Since: 0.4.0
- */
-gchar *
-garrow_feather_file_reader_get_description(GArrowFeatherFileReader *reader)
-{
-  auto arrow_reader = garrow_feather_file_reader_get_raw(reader);
-  if (arrow_reader->HasDescription()) {
-    auto description = arrow_reader->GetDescription();
-    return g_strndup(description.data(),
-                     description.size());
-  } else {
-    return NULL;
-  }
-}
-
-/**
- * garrow_feather_file_reader_has_description:
- * @reader: A #GArrowFeatherFileReader.
- *
- * Returns: Whether the file has description or not.
- *
- * Since: 0.4.0
- */
-gboolean
-garrow_feather_file_reader_has_description(GArrowFeatherFileReader *reader)
-{
-  auto arrow_reader = garrow_feather_file_reader_get_raw(reader);
-  return arrow_reader->HasDescription();
 }
 
 /**
@@ -689,102 +637,6 @@ garrow_feather_file_reader_get_version(GArrowFeatherFileReader *reader)
 {
   auto arrow_reader = garrow_feather_file_reader_get_raw(reader);
   return arrow_reader->version();
-}
-
-/**
- * garrow_feather_file_reader_get_n_rows:
- * @reader: A #GArrowFeatherFileReader.
- *
- * Returns: The number of rows in the file.
- *
- * Since: 0.4.0
- */
-gint64
-garrow_feather_file_reader_get_n_rows(GArrowFeatherFileReader *reader)
-{
-  auto arrow_reader = garrow_feather_file_reader_get_raw(reader);
-  return arrow_reader->num_rows();
-}
-
-/**
- * garrow_feather_file_reader_get_n_columns:
- * @reader: A #GArrowFeatherFileReader.
- *
- * Returns: The number of columns in the file.
- *
- * Since: 0.4.0
- */
-gint64
-garrow_feather_file_reader_get_n_columns(GArrowFeatherFileReader *reader)
-{
-  auto arrow_reader = garrow_feather_file_reader_get_raw(reader);
-  return arrow_reader->num_columns();
-}
-
-/**
- * garrow_feather_file_reader_get_column_name:
- * @reader: A #GArrowFeatherFileReader.
- * @i: The index of the target column. If it's negative, index is
- *   counted backward from the end of the columns. `-1` means the last
- *   column.
- *
- * Returns: (nullable) (transfer full): The i-th column name in the file.
- *
- *   It should be freed with g_free() when no longer needed.
- *
- * Since: 0.4.0
- */
-gchar *
-garrow_feather_file_reader_get_column_name(GArrowFeatherFileReader *reader,
-                                           gint i)
-{
-  auto arrow_reader = garrow_feather_file_reader_get_raw(reader);
-  if (!garrow_internal_index_adjust(i, arrow_reader->num_columns())) {
-    return NULL;
-  }
-  const auto &column_name = arrow_reader->GetColumnName(i);
-  return g_strndup(column_name.data(),
-                   column_name.size());
-}
-
-/**
- * garrow_feather_file_reader_get_column_data:
- * @reader: A #GArrowFeatherFileReader.
- * @i: The index of the target column. If it's negative, index is
- *   counted backward from the end of the columns. `-1` means the last
- *   column.
- * @error: (nullable): Return location for a #GError or %NULL.
- *
- * Returns: (nullable) (transfer full):
- *   The i-th column's data in the file or %NULL on error.
- *
- * Since: 1.0.0
- */
-GArrowChunkedArray *
-garrow_feather_file_reader_get_column_data(GArrowFeatherFileReader *reader,
-                                           gint i,
-                                           GError **error)
-{
-  const auto tag = "[feather-file-reader][get-column-data]";
-  auto arrow_reader = garrow_feather_file_reader_get_raw(reader);
-
-  const auto n_columns = arrow_reader->num_columns();
-  if (!garrow_internal_index_adjust(i, n_columns)) {
-    garrow_error_check(error,
-                       arrow::Status::IndexError("Out of index: "
-                                                 "<0..", n_columns, ">: "
-                                                 "<", i, ">"),
-                       tag);
-    return NULL;
-  }
-
-  std::shared_ptr<arrow::ChunkedArray> arrow_chunked_array;
-  auto status = arrow_reader->GetColumn(i, &arrow_chunked_array);
-  if (garrow_error_check(error, status, tag)) {
-    return garrow_chunked_array_new_raw(&arrow_chunked_array);
-  } else {
-    return NULL;
-  }
 }
 
 /**
@@ -861,7 +713,7 @@ garrow_feather_file_reader_read_names(GArrowFeatherFileReader *reader,
                                       GError **error)
 {
   auto arrow_reader = garrow_feather_file_reader_get_raw(reader);
-  std::vector<std::string> cpp_names(n_names);
+  std::vector<std::string> cpp_names;
   for (guint i = 0; i < n_names; ++i) {
     cpp_names.push_back(names[i]);
   }
@@ -1081,7 +933,7 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
    * The number of header rows to skip (not including
    * the row of column names, if any)
    *
-   * Since: 1.0.0
+   * Since: 0.15.0
    */
   spec = g_param_spec_uint("n-skip-rows",
                            "N skip rows",
@@ -1564,7 +1416,7 @@ garrow_csv_read_options_add_false_value(GArrowCSVReadOptions *options,
  *   row after `skip_rows`)
  * @n_column_names: The number of the specified column names.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 void
 garrow_csv_read_options_set_column_names(GArrowCSVReadOptions *options,
@@ -1587,7 +1439,7 @@ garrow_csv_read_options_set_column_names(GArrowCSVReadOptions *options,
  *   If the number of values is zero, this returns %NULL.
  *   It must be freed with g_strfreev() when no longer needed.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 gchar **
 garrow_csv_read_options_get_column_names(GArrowCSVReadOptions *options)
@@ -1612,7 +1464,7 @@ garrow_csv_read_options_get_column_names(GArrowCSVReadOptions *options)
  * @options: A #GArrowCSVReadOptions.
  * @column_name: The column name to be added.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 void
 garrow_csv_read_options_add_column_name(GArrowCSVReadOptions *options,
@@ -2215,21 +2067,21 @@ garrow_record_batch_file_reader_get_raw(GArrowRecordBatchFileReader *reader)
 }
 
 GArrowFeatherFileReader *
-garrow_feather_file_reader_new_raw(arrow::ipc::feather::TableReader *arrow_reader)
+garrow_feather_file_reader_new_raw(std::shared_ptr<arrow::ipc::feather::Reader> *arrow_reader)
 {
   auto reader =
     GARROW_FEATHER_FILE_READER(
       g_object_new(GARROW_TYPE_FEATHER_FILE_READER,
-                   "feather-table-reader", arrow_reader,
+                   "feather-reader", arrow_reader,
                    NULL));
   return reader;
 }
 
-arrow::ipc::feather::TableReader *
+std::shared_ptr<arrow::ipc::feather::Reader>
 garrow_feather_file_reader_get_raw(GArrowFeatherFileReader *reader)
 {
   auto priv = GARROW_FEATHER_FILE_READER_GET_PRIVATE(reader);
-  return priv->feather_table_reader;
+  return priv->feather_reader;
 }
 
 GArrowCSVReader *

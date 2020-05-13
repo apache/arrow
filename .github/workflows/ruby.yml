@@ -33,52 +33,65 @@ on:
       - 'c_glib/**'
       - 'ruby/**'
 
+env:
+  DOCKER_BUILDKIT: 0
+  COMPOSE_DOCKER_CLI_BUILD: 1
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+
 jobs:
 
   ubuntu:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} GLib & Ruby
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
         ubuntu:
           - 16.04
           - 18.04
+          - 20.04
     env:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
-      - name: Docker Pull
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
         shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
+        with:
+          path: .docker
+          key: ubuntu-${{ matrix.ubuntu }}-ruby-${{ hashFiles('cpp/**') }}
+          restore-keys: ubuntu-${{ matrix.ubuntu }}-ruby-
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
         run: |
-          docker-compose pull --ignore-pull-failures ubuntu-cpp
-          docker-compose pull --ignore-pull-failures ubuntu-c-glib
-          docker-compose pull --ignore-pull-failures ubuntu-ruby
-      - name: Docker Build
-        shell: bash
-        run: |
-          docker-compose build ubuntu-cpp
-          docker-compose build ubuntu-c-glib
-          docker-compose build ubuntu-ruby
-      - name: Docker Run
-        shell: bash
-        run: docker-compose run ubuntu-ruby
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run ubuntu-ruby
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
         shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push ubuntu-c-glib
-          docker-compose push ubuntu-ruby
+        run: archery docker push ubuntu-ruby
 
   macos:
     name: AMD64 MacOS 10.15 GLib & Ruby
     runs-on: macos-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
     env:
@@ -94,15 +107,20 @@ jobs:
       ARROW_WITH_LZ4: ON
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
+      ARROW_WITH_ZSTD: ON
       XML_CATALOG_FILES: /usr/local/etc/xml/catalog
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Install Dependencies
         shell: bash
         run: |
+          brew update
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
           bundle install --gemfile c_glib/Gemfile
@@ -125,6 +143,7 @@ jobs:
   windows:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} GLib & Ruby
     runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -170,9 +189,11 @@ jobs:
             /f
       - name: Checkout Arrow
         uses: actions/checkout@v2
-      - name: Checkout submodules
-        run: |
-          git submodule update --init --force --recursive --depth 1
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Setup Ruby
         uses: actions/setup-ruby@v1
         with:

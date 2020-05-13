@@ -24,18 +24,20 @@ RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
     debconf-set-selections
 
-ARG DEBUG
+RUN \
+  echo 'APT::Install-Recommends "false";' > \
+    /etc/apt/apt.conf.d/disable-install-recommends
 
+ARG DEBUG
+ARG LLVM
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
-    bison \
     build-essential \
-    clang-7 \
     cmake \
     devscripts \
-    flex \
+    fakeroot \
     git \
     gtk-doc-tools \
     libboost-filesystem-dev \
@@ -58,9 +60,16 @@ RUN \
     python3-dev \
     python3-numpy \
     python3-pip \
+    python3-setuptools \
+    python3-wheel \
     rapidjson-dev \
     tzdata \
     zlib1g-dev && \
+  if [ "$(dpkg --print-architecture)" != "arm64" ]; then \
+    apt install -y -V ${quiet} \
+      clang-${LLVM} \
+      llvm-${LLVM}-dev; \
+  fi && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \

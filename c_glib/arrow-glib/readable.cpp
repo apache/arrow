@@ -82,7 +82,7 @@ garrow_readable_read(GArrowReadable *readable,
  * Returns: (transfer full) (nullable): #GBytes that has read data on
  * success, %NULL if there was an error.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GBytes *
 garrow_readable_read_bytes(GArrowReadable *readable,

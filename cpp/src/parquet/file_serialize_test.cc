@@ -345,6 +345,59 @@ TEST(TestBufferedRowGroupWriter, DisabledDictionary) {
   ASSERT_FALSE(rg_reader->metadata()->ColumnChunk(0)->has_dictionary_page());
 }
 
+TEST(TestBufferedRowGroupWriter, MultiPageDisabledDictionary) {
+  constexpr int kValueCount = 10000;
+  constexpr int kPageSize = 16384;
+  auto sink = CreateOutputStream();
+  auto writer_props = parquet::WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->data_pagesize(kPageSize)
+                          ->build();
+  schema::NodeVector fields;
+  fields.push_back(
+      PrimitiveNode::Make("col", parquet::Repetition::REQUIRED, parquet::Type::INT32));
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, fields));
+  auto file_writer = parquet::ParquetFileWriter::Open(sink, schema, writer_props);
+  auto rg_writer = file_writer->AppendBufferedRowGroup();
+  auto col_writer = static_cast<Int32Writer*>(rg_writer->column(0));
+  std::vector<int32_t> values_in;
+  for (int i = 0; i < kValueCount; ++i) {
+    values_in.push_back((i % 100) + 1);
+  }
+  col_writer->WriteBatch(kValueCount, nullptr, nullptr, values_in.data());
+  rg_writer->Close();
+  file_writer->Close();
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(source);
+  auto file_metadata = file_reader->metadata();
+  ASSERT_EQ(1, file_reader->metadata()->num_row_groups());
+  std::vector<int32_t> values_out(kValueCount);
+  for (int r = 0; r < file_metadata->num_row_groups(); ++r) {
+    auto rg_reader = file_reader->RowGroup(r);
+    ASSERT_EQ(1, rg_reader->metadata()->num_columns());
+    ASSERT_EQ(kValueCount, rg_reader->metadata()->num_rows());
+    int64_t total_values_read = 0;
+    std::shared_ptr<parquet::ColumnReader> col_reader;
+    ASSERT_NO_THROW(col_reader = rg_reader->Column(0));
+    parquet::Int32Reader* int32_reader =
+        static_cast<parquet::Int32Reader*>(col_reader.get());
+    int64_t vn = kValueCount;
+    int32_t* vx = values_out.data();
+    while (int32_reader->HasNext()) {
+      int64_t values_read;
+      int32_reader->ReadBatch(vn, nullptr, nullptr, vx, &values_read);
+      vn -= values_read;
+      vx += values_read;
+      total_values_read += values_read;
+    }
+    ASSERT_EQ(kValueCount, total_values_read);
+    ASSERT_EQ(values_in, values_out);
+  }
+}
+
 }  // namespace test
 
 }  // namespace parquet

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_ENCRYPTION_INTERNAL_H
-#define PARQUET_ENCRYPTION_INTERNAL_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -113,5 +112,3 @@ void RandBytes(unsigned char* buf, int num);
 
 }  // namespace encryption
 }  // namespace parquet
-
-#endif  // PARQUET_ENCRYPTION_INTERNAL_H

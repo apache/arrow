@@ -202,11 +202,12 @@ class TestTakeKernelWithString : public TestTakeKernel<TypeClass> {
                             const std::string& expected_indices) {
     auto dict = ArrayFromJSON(value_type(), dictionary_values);
     auto type = dictionary(int8(), value_type());
-    std::shared_ptr<Array> values, actual, expected;
-    ASSERT_OK(DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), dictionary_indices),
-                                          dict, &values));
-    ASSERT_OK(DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), expected_indices),
-                                          dict, &expected));
+    ASSERT_OK_AND_ASSIGN(auto values,
+                         DictionaryArray::FromArrays(
+                             type, ArrayFromJSON(int8(), dictionary_indices), dict));
+    ASSERT_OK_AND_ASSIGN(
+        auto expected,
+        DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), expected_indices), dict));
     auto take_indices = ArrayFromJSON(int8(), indices);
     this->AssertTakeArrays(values, take_indices, expected);
   }
@@ -444,8 +445,7 @@ class TestPermutationsWithTake : public ComputeFixture, public TestBase {
   template <typename Rng>
   void Shuffle(const Int16Array& array, Rng& gen, std::shared_ptr<Int16Array>* shuffled) {
     auto byte_length = array.length() * sizeof(int16_t);
-    std::shared_ptr<Buffer> data;
-    ASSERT_OK(array.values()->Copy(0, byte_length, &data));
+    ASSERT_OK_AND_ASSIGN(auto data, array.values()->CopySlice(0, byte_length));
     auto mutable_data = reinterpret_cast<int16_t*>(data->mutable_data());
     std::shuffle(mutable_data, mutable_data + array.length(), gen);
     shuffled->reset(new Int16Array(array.length(), data));

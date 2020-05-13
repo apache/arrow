@@ -27,8 +27,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __CONFIG_H
-#define __CONFIG_H
+#pragma once
 
 #ifdef __APPLE__
 #include <AvailabilityMacros.h>
@@ -51,4 +50,3 @@
 #endif
 
 
-#endif

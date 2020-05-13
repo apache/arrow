@@ -71,14 +71,8 @@ RUN /arrow/ci/scripts/r_deps.sh /arrow
 RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
     ln -s /usr/bin/pip3 /usr/local/bin/pip
 
-COPY python/requirements.txt \
-     python/requirements-test.txt \
-     /arrow/python/
-
-RUN pip install \
-    -r arrow/python/requirements.txt \
-    cython \
-    setuptools
+COPY python/requirements-build.txt /arrow/python/
+RUN pip install -r arrow/python/requirements-build.txt
 
 ENV \
     ARROW_BUILD_STATIC=OFF \

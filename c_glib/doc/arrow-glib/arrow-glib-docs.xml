@@ -132,6 +132,10 @@
       <title>Metadata</title>
       <xi:include href="xml/metadata-version.xml"/>
     </chapter>
+    <chapter id="ipc-options">
+      <title>Options</title>
+      <xi:include href="xml/ipc-options.xml"/>
+    </chapter>
     <chapter id="reader">
       <title>Reader</title>
       <xi:include href="xml/reader.xml"/>
@@ -178,6 +182,10 @@
   <index id="api-index-0-17-0" role="0.17.0">
     <title>Index of new symbols in 0.17.0</title>
     <xi:include href="xml/api-index-0.17.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-16-0" role="0.16.0">
+    <title>Index of new symbols in 0.16.0</title>
+    <xi:include href="xml/api-index-0.16.0.xml"><xi:fallback /></xi:include>
   </index>
   <index id="api-index-0-15-0" role="0.15.0">
     <title>Index of new symbols in 0.15.0</title>

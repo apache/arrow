@@ -28,8 +28,6 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/utility.hpp>  // IWYU pragma: export
-
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_common.h"
@@ -65,7 +63,7 @@ void BitmapFromVector(const std::vector<int>& values, int64_t bit_offset,
                       std::shared_ptr<Buffer>* out_buffer, int64_t* out_length) {
   const int64_t length = values.size();
   *out_length = length;
-  ASSERT_OK(AllocateEmptyBitmap(length + bit_offset, out_buffer));
+  ASSERT_OK_AND_ASSIGN(*out_buffer, AllocateEmptyBitmap(length + bit_offset));
   auto writer = internal::BitmapWriter((*out_buffer)->mutable_data(), bit_offset, length);
   WriteVectorToWriter(writer, values);
 }
@@ -579,7 +577,7 @@ class BitmapOp : public TestBase {
     std::shared_ptr<Buffer> left, right, out;
     int64_t length;
 
-    for (int64_t left_offset : {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120}) {
+    for (int64_t left_offset : {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120, 65536}) {
       BitmapFromVector(left_bits, left_offset, &left, &length);
       for (int64_t right_offset : {left_offset, left_offset + 8, left_offset + 40}) {
         BitmapFromVector(right_bits, right_offset, &right, &length);
@@ -606,7 +604,7 @@ class BitmapOp : public TestBase {
                      const std::vector<int>& result_bits) {
     std::shared_ptr<Buffer> left, right, out;
     int64_t length;
-    auto offset_values = {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120};
+    auto offset_values = {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120, 65536};
 
     for (int64_t left_offset : offset_values) {
       BitmapFromVector(left_bits, left_offset, &left, &length);
@@ -736,8 +734,7 @@ TEST(BitUtilTests, TestSetBitsTo) {
 TEST(BitUtilTests, TestCopyBitmap) {
   const int kBufferSize = 1000;
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(kBufferSize, &buffer));
+  ASSERT_OK_AND_ASSIGN(auto buffer, AllocateBuffer(kBufferSize));
   memset(buffer->mutable_data(), 0, kBufferSize);
   random_bytes(kBufferSize, 0, buffer->mutable_data());
 
@@ -765,15 +762,13 @@ TEST(BitUtilTests, TestCopyBitmapPreAllocated) {
   std::vector<int64_t> lengths = {kBufferSize * 8 - 4, kBufferSize * 8};
   std::vector<int64_t> offsets = {0, 12, 16, 32, 37, 63, 64, 128};
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(kBufferSize, &buffer));
+  ASSERT_OK_AND_ASSIGN(auto buffer, AllocateBuffer(kBufferSize));
   memset(buffer->mutable_data(), 0, kBufferSize);
   random_bytes(kBufferSize, 0, buffer->mutable_data());
   const uint8_t* src = buffer->data();
 
-  std::shared_ptr<Buffer> other_buffer;
   // Add 16 byte padding on both sides
-  ASSERT_OK(AllocateBuffer(kBufferSize + 32, &other_buffer));
+  ASSERT_OK_AND_ASSIGN(auto other_buffer, AllocateBuffer(kBufferSize + 32));
   memset(other_buffer->mutable_data(), 0, kBufferSize + 32);
   random_bytes(kBufferSize + 32, 0, other_buffer->mutable_data());
   const uint8_t* other = other_buffer->data();
@@ -783,8 +778,7 @@ TEST(BitUtilTests, TestCopyBitmapPreAllocated) {
       for (int64_t dest_offset : offsets) {
         const int64_t copy_length = num_bits - offset;
 
-        std::shared_ptr<Buffer> copy;
-        ASSERT_OK(AllocateBuffer(other_buffer->size(), &copy));
+        ASSERT_OK_AND_ASSIGN(auto copy, AllocateBuffer(other_buffer->size()));
         memcpy(copy->mutable_data(), other_buffer->data(), other_buffer->size());
         CopyBitmap(src, offset, copy_length, copy->mutable_data(), dest_offset);
 
@@ -808,15 +802,13 @@ TEST(BitUtilTests, TestCopyAndInvertBitmapPreAllocated) {
   std::vector<int64_t> lengths = {kBufferSize * 8 - 4, kBufferSize * 8};
   std::vector<int64_t> offsets = {0, 12, 16, 32, 37, 63, 64, 128};
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(kBufferSize, &buffer));
+  ASSERT_OK_AND_ASSIGN(auto buffer, AllocateBuffer(kBufferSize));
   memset(buffer->mutable_data(), 0, kBufferSize);
   random_bytes(kBufferSize, 0, buffer->mutable_data());
   const uint8_t* src = buffer->data();
 
-  std::shared_ptr<Buffer> other_buffer;
   // Add 16 byte padding on both sides
-  ASSERT_OK(AllocateBuffer(kBufferSize + 32, &other_buffer));
+  ASSERT_OK_AND_ASSIGN(auto other_buffer, AllocateBuffer(kBufferSize + 32));
   memset(other_buffer->mutable_data(), 0, kBufferSize + 32);
   random_bytes(kBufferSize + 32, 0, other_buffer->mutable_data());
   const uint8_t* other = other_buffer->data();
@@ -826,8 +818,7 @@ TEST(BitUtilTests, TestCopyAndInvertBitmapPreAllocated) {
       for (int64_t dest_offset : offsets) {
         const int64_t copy_length = num_bits - offset;
 
-        std::shared_ptr<Buffer> copy;
-        ASSERT_OK(AllocateBuffer(other_buffer->size(), &copy));
+        ASSERT_OK_AND_ASSIGN(auto copy, AllocateBuffer(other_buffer->size()));
         memcpy(copy->mutable_data(), other_buffer->data(), other_buffer->size());
         InvertBitmap(src, offset, copy_length, copy->mutable_data(), dest_offset);
 
@@ -920,12 +911,10 @@ TEST(BitUtil, CoveringBytes) {
 }
 
 TEST(BitUtil, TrailingBits) {
-  EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 0), 0);
-  EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 1), 1);
-  EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 64),
-            BOOST_BINARY(1 1 1 1 1 1 1 1));
-  EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 100),
-            BOOST_BINARY(1 1 1 1 1 1 1 1));
+  EXPECT_EQ(BitUtil::TrailingBits(0xFF, 0), 0);
+  EXPECT_EQ(BitUtil::TrailingBits(0xFF, 1), 1);
+  EXPECT_EQ(BitUtil::TrailingBits(0xFF, 64), 0xFF);
+  EXPECT_EQ(BitUtil::TrailingBits(0xFF, 100), 0xFF);
   EXPECT_EQ(BitUtil::TrailingBits(0, 1), 0);
   EXPECT_EQ(BitUtil::TrailingBits(0, 64), 0);
   EXPECT_EQ(BitUtil::TrailingBits(1LL << 63, 0), 0);
@@ -1138,15 +1127,16 @@ TEST(Bitmap, ShiftingWordsOptimization) {
 
     for (int seed = 0; seed < 64; ++seed) {
       random_bytes(sizeof(word), seed, bytes);
+      uint64_t native_word = BitUtil::FromLittleEndian(word);
 
       // bits are accessible through simple bit shifting of the word
       for (size_t i = 0; i < kBitWidth; ++i) {
-        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((word >> i) & 1));
+        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((native_word >> i) & 1));
       }
 
-      // bit offset can therefore be accomodated by shifting the word
+      // bit offset can therefore be accommodated by shifting the word
       for (size_t offset = 0; offset < (kBitWidth * 3) / 4; ++offset) {
-        uint64_t shifted_word = word >> offset;
+        uint64_t shifted_word = arrow::BitUtil::ToLittleEndian(native_word >> offset);
         auto shifted_bytes = reinterpret_cast<uint8_t*>(&shifted_word);
         ASSERT_TRUE(
             internal::BitmapEquals(bytes, offset, shifted_bytes, 0, kBitWidth - offset));
@@ -1162,20 +1152,23 @@ TEST(Bitmap, ShiftingWordsOptimization) {
 
     for (int seed = 0; seed < 64; ++seed) {
       random_bytes(sizeof(words), seed, bytes);
+      uint64_t native_words0 = BitUtil::FromLittleEndian(words[0]);
+      uint64_t native_words1 = BitUtil::FromLittleEndian(words[1]);
 
       // bits are accessible through simple bit shifting of a word
       for (size_t i = 0; i < kBitWidth; ++i) {
-        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((words[0] >> i) & 1));
+        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((native_words0 >> i) & 1));
       }
       for (size_t i = 0; i < kBitWidth; ++i) {
-        ASSERT_EQ(BitUtil::GetBit(bytes, i + kBitWidth), bool((words[1] >> i) & 1));
+        ASSERT_EQ(BitUtil::GetBit(bytes, i + kBitWidth), bool((native_words1 >> i) & 1));
       }
 
-      // bit offset can therefore be accomodated by shifting the word
+      // bit offset can therefore be accommodated by shifting the word
       for (size_t offset = 1; offset < (kBitWidth * 3) / 4; offset += 3) {
         uint64_t shifted_words[2];
-        shifted_words[0] = words[0] >> offset | (words[1] << (kBitWidth - offset));
-        shifted_words[1] = words[1] >> offset;
+        shifted_words[0] = arrow::BitUtil::ToLittleEndian(
+            native_words0 >> offset | (native_words1 << (kBitWidth - offset)));
+        shifted_words[1] = arrow::BitUtil::ToLittleEndian(native_words1 >> offset);
         auto shifted_bytes = reinterpret_cast<uint8_t*>(shifted_words);
 
         // from offset to unshifted word boundary
@@ -1210,7 +1203,7 @@ TEST(Bitmap, VisitWords) {
   constexpr int64_t nbytes = 1 << 10;
   std::shared_ptr<Buffer> buffer, actual_buffer;
   for (std::shared_ptr<Buffer>* b : {&buffer, &actual_buffer}) {
-    ASSERT_OK(AllocateBuffer(nbytes, b));
+    ASSERT_OK_AND_ASSIGN(*b, AllocateBuffer(nbytes));
     memset((*b)->mutable_data(), 0, nbytes);
   }
   random_bytes(nbytes, 0, buffer->mutable_data());
@@ -1239,8 +1232,7 @@ TEST(Bitmap, VisitPartialWords) {
 
   auto buffer = Buffer::Wrap(words, 2);
   Bitmap bitmap(buffer, 0, nbits);
-  std::shared_ptr<Buffer> storage;
-  ASSERT_OK(AllocateBuffer(nbytes, &storage));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> storage, AllocateBuffer(nbytes));
 
   // words partially outside the buffer are not accessible, but they are loaded bitwise
   auto first_byte_was_missing = Bitmap(SliceBuffer(buffer, 1), 0, nbits - 8);
@@ -1252,12 +1244,22 @@ TEST(Bitmap, VisitPartialWords) {
 
 #endif  // ARROW_VALGRIND
 
+TEST(Bitmap, ToString) {
+  uint8_t bitmap[8] = {0xAC, 0xCA, 0, 0, 0, 0, 0, 0};
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/34).ToString(),
+            "00110101 01010011 00000000 00000000 00");
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/16).ToString(),
+            "00110101 01010011");
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/11).ToString(), "00110101 010");
+  EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 3, /*length=*/8).ToString(), "10101010");
+}
+
 // compute bitwise AND of bitmaps using word-wise visit
 TEST(Bitmap, VisitWordsAnd) {
   constexpr int64_t nbytes = 1 << 10;
   std::shared_ptr<Buffer> buffer, actual_buffer, expected_buffer;
   for (std::shared_ptr<Buffer>* b : {&buffer, &actual_buffer, &expected_buffer}) {
-    ASSERT_OK(AllocateBuffer(nbytes, b));
+    ASSERT_OK_AND_ASSIGN(*b, AllocateBuffer(nbytes));
     memset((*b)->mutable_data(), 0, nbytes);
   }
   random_bytes(nbytes, 0, buffer->mutable_data());

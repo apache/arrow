@@ -65,6 +65,9 @@ class ARROW_EXPORT RecordBatch {
   /// Create a struct array whose child arrays are the record batch's columns.
   /// Note that the record batch's top-level field metadata cannot be reflected
   /// in the resulting struct array.
+  Result<std::shared_ptr<Array>> ToStructArray() const;
+
+  ARROW_DEPRECATED("Use Result-returning version")
   Status ToStructArray(std::shared_ptr<Array>* out) const;
 
   /// \brief Construct record batch from struct array
@@ -72,12 +75,19 @@ class ARROW_EXPORT RecordBatch {
   /// This constructs a record batch using the child arrays of the given
   /// array, which must be a struct array.  Note that the struct array's own
   /// null bitmap is not reflected in the resulting record batch.
+  static Result<std::shared_ptr<RecordBatch>> FromStructArray(
+      const std::shared_ptr<Array>& array);
+
+  ARROW_DEPRECATED("Use Result-returning version")
   static Status FromStructArray(const std::shared_ptr<Array>& array,
                                 std::shared_ptr<RecordBatch>* out);
 
   /// \brief Determine if two record batches are exactly equal
+  ///
+  /// \param[in] other the RecordBatch to compare with
+  /// \param[in] check_metadata if true, check that Schema metadata is the same
   /// \return true if batches are equal
-  bool Equals(const RecordBatch& other) const;
+  bool Equals(const RecordBatch& other, bool check_metadata = false) const;
 
   /// \brief Determine if two record batches are approximately equal
   bool ApproxEquals(const RecordBatch& other) const;
@@ -112,10 +122,14 @@ class ARROW_EXPORT RecordBatch {
   /// \param[in] i field index, which will be boundschecked
   /// \param[in] field field to be added
   /// \param[in] column column to be added
-  /// \param[out] out record batch with column added
-  virtual Status AddColumn(int i, const std::shared_ptr<Field>& field,
-                           const std::shared_ptr<Array>& column,
-                           std::shared_ptr<RecordBatch>* out) const = 0;
+  virtual Result<std::shared_ptr<RecordBatch>> AddColumn(
+      int i, const std::shared_ptr<Field>& field,
+      const std::shared_ptr<Array>& column) const = 0;
+
+  ARROW_DEPRECATED("Use Result-returning version")
+  Status AddColumn(int i, const std::shared_ptr<Field>& field,
+                   const std::shared_ptr<Array>& column,
+                   std::shared_ptr<RecordBatch>* out) const;
 
   /// \brief Add new nullable column to the record batch, producing a new
   /// RecordBatch.
@@ -125,16 +139,20 @@ class ARROW_EXPORT RecordBatch {
   /// \param[in] i field index, which will be boundschecked
   /// \param[in] field_name name of field to be added
   /// \param[in] column column to be added
-  /// \param[out] out record batch with column added
-  virtual Status AddColumn(int i, const std::string& field_name,
-                           const std::shared_ptr<Array>& column,
-                           std::shared_ptr<RecordBatch>* out) const;
+  virtual Result<std::shared_ptr<RecordBatch>> AddColumn(
+      int i, std::string field_name, const std::shared_ptr<Array>& column) const;
+
+  ARROW_DEPRECATED("Use Result-returning version")
+  Status AddColumn(int i, std::string field_name, const std::shared_ptr<Array>& column,
+                   std::shared_ptr<RecordBatch>* out) const;
 
   /// \brief Remove column from the record batch, producing a new RecordBatch
   ///
   /// \param[in] i field index, does boundscheck
-  /// \param[out] out record batch with column removed
-  virtual Status RemoveColumn(int i, std::shared_ptr<RecordBatch>* out) const = 0;
+  virtual Result<std::shared_ptr<RecordBatch>> RemoveColumn(int i) const = 0;
+
+  ARROW_DEPRECATED("Use Result-returning version")
+  Status RemoveColumn(int i, std::shared_ptr<RecordBatch>* out) const;
 
   virtual std::shared_ptr<RecordBatch> ReplaceSchemaMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const = 0;
@@ -158,6 +176,9 @@ class ARROW_EXPORT RecordBatch {
   /// \param[in] length the number of elements to slice from offset
   /// \return new record batch
   virtual std::shared_ptr<RecordBatch> Slice(int64_t offset, int64_t length) const = 0;
+
+  /// \return PrettyPrint representation suitable for debugging
+  std::string ToString() const;
 
   /// \brief Perform cheap validation checks to determine obvious inconsistencies
   /// within the record batch's schema and internal data.
@@ -212,17 +233,25 @@ class ARROW_EXPORT RecordBatchReader {
 
   /// \brief Read all batches and concatenate as arrow::Table
   Status ReadAll(std::shared_ptr<Table>* table);
+
+  /// \brief Create a RecordBatchReader from a vector of RecordBatch.
+  ///
+  /// \param[in] batches the vector of RecordBatch to read from
+  /// \param[in] schema schema to conform to. Will be inferred from the first
+  ///            element if not provided.
+  static Result<std::shared_ptr<RecordBatchReader>> Make(
+      std::vector<std::shared_ptr<RecordBatch>> batches,
+      std::shared_ptr<Schema> schema = NULLPTR);
 };
 
-/// \brief Create a RecordBatchReader from a vector of RecordBatch.
-///
-/// \param[in] batches the vector of RecordBatch to read from
-/// \param[in] schema schema to conform to. Will be inferred from the first
-///            element if not provided.
-/// \param[out] out output pointer to store the RecordBatchReader to.
-/// \returns Status
+ARROW_DEPRECATED("Use RecordBatchReader::Make")
+ARROW_EXPORT Result<std::shared_ptr<RecordBatchReader>> MakeRecordBatchReader(
+    std::vector<std::shared_ptr<RecordBatch>> batches,
+    std::shared_ptr<Schema> schema = NULLPTR);
+
+ARROW_DEPRECATED("Use RecordBatchReader::Make")
 ARROW_EXPORT Status MakeRecordBatchReader(
-    const std::vector<std::shared_ptr<RecordBatch>>& batches,
-    std::shared_ptr<Schema> schema, std::shared_ptr<RecordBatchReader>* out);
+    std::vector<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema,
+    std::shared_ptr<RecordBatchReader>* out);
 
 }  // namespace arrow

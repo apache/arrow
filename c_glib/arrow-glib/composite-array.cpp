@@ -187,7 +187,7 @@ garrow_large_list_array_class_init(GArrowLargeListArrayClass *klass)
  *
  * Returns: A newly created #GArrowLargeListArray.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 GArrowLargeListArray *
 garrow_large_list_array_new(GArrowDataType *data_type,
@@ -219,7 +219,7 @@ garrow_large_list_array_new(GArrowDataType *data_type,
  *
  * Returns: (transfer full): The data type of value in each list.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 GArrowDataType *
 garrow_large_list_array_get_value_type(GArrowLargeListArray *array)
@@ -238,7 +238,7 @@ garrow_large_list_array_get_value_type(GArrowLargeListArray *array)
  *
  * Returns: (transfer full): The @i-th list.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 GArrowArray *
 garrow_large_list_array_get_value(GArrowLargeListArray *array,
@@ -360,14 +360,13 @@ garrow_struct_array_flatten(GArrowStructArray *array, GError **error)
     std::static_pointer_cast<arrow::StructArray>(arrow_array);
 
   auto memory_pool = arrow::default_memory_pool();
-  arrow::ArrayVector arrow_arrays;
-  auto status = arrow_struct_array->Flatten(memory_pool, &arrow_arrays);
-  if (!garrow_error_check(error, status, "[struct-array][flatten]")) {
+  auto arrow_arrays = arrow_struct_array->Flatten(memory_pool);
+  if (!garrow::check(error, arrow_arrays, "[struct-array][flatten]")) {
     return NULL;
   }
 
   GList *arrays = NULL;
-  for (auto arrow_array : arrow_arrays) {
+  for (auto arrow_array : *arrow_arrays) {
     auto array = garrow_array_new_raw(&arrow_array);
     arrays = g_list_prepend(arrays, array);
   }
@@ -400,7 +399,7 @@ garrow_map_array_class_init(GArrowMapArrayClass *klass)
  * Returns: (nullable): A newly created #GArrowMapArray
  *   or %NULL on error.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowMapArray *
 garrow_map_array_new(GArrowArray *offsets,
@@ -411,15 +410,13 @@ garrow_map_array_new(GArrowArray *offsets,
   const auto arrow_offsets = garrow_array_get_raw(offsets);
   const auto arrow_keys = garrow_array_get_raw(keys);
   const auto arrow_items = garrow_array_get_raw(items);
-  std::shared_ptr<arrow::Array> arrow_array;
   auto arrow_memory_pool = arrow::default_memory_pool();
-  auto status = arrow::MapArray::FromArrays(arrow_offsets,
-                                            arrow_keys,
-                                            arrow_items,
-                                            arrow_memory_pool,
-                                            &arrow_array);
-  if (garrow::check(error, status, "[map-array][new]")) {
-    return GARROW_MAP_ARRAY(garrow_array_new_raw(&arrow_array));
+  auto arrow_array = arrow::MapArray::FromArrays(arrow_offsets,
+                                                 arrow_keys,
+                                                 arrow_items,
+                                                 arrow_memory_pool);
+  if (garrow::check(error, arrow_array, "[map-array][new]")) {
+    return GARROW_MAP_ARRAY(garrow_array_new_raw(&(*arrow_array)));
   } else {
     return NULL;
   }
@@ -431,7 +428,7 @@ garrow_map_array_new(GArrowArray *offsets,
  *
  * Returns: (transfer full): The Array containing key values.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowArray *
 garrow_map_array_get_keys(GArrowMapArray *array)
@@ -449,7 +446,7 @@ garrow_map_array_get_keys(GArrowMapArray *array)
  *
  * Returns: (transfer full): The items Array containing item values.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 GArrowArray *
 garrow_map_array_get_items(GArrowMapArray *array)
@@ -543,12 +540,10 @@ garrow_sparse_union_array_new(GArrowInt8Array *type_ids,
     auto *field = GARROW_ARRAY(node->data);
     arrow_fields.push_back(garrow_array_get_raw(field));
   }
-  std::shared_ptr<arrow::Array> arrow_union_array;
-  auto status = arrow::UnionArray::MakeSparse(*arrow_type_ids,
-                                              arrow_fields,
-                                              &arrow_union_array);
-  if (garrow_error_check(error, status, "[sparse-union-array][new]")) {
-    return GARROW_SPARSE_UNION_ARRAY(garrow_array_new_raw(&arrow_union_array));
+  auto arrow_union_array = arrow::UnionArray::MakeSparse(*arrow_type_ids,
+                                                         arrow_fields);
+  if (garrow::check(error, arrow_union_array, "[sparse-union-array][new]")) {
+    return GARROW_SPARSE_UNION_ARRAY(garrow_array_new_raw(&(*arrow_union_array)));
   } else {
     return NULL;
   }
@@ -586,16 +581,11 @@ garrow_sparse_union_array_new_data_type(GArrowSparseUnionDataType *data_type,
     auto *field = GARROW_ARRAY(node->data);
     arrow_fields.push_back(garrow_array_get_raw(field));
   }
-  std::shared_ptr<arrow::Array> arrow_union_array;
-  auto status = arrow::UnionArray::MakeSparse(*arrow_type_ids,
-                                              arrow_fields,
-                                              arrow_field_names,
-                                              arrow_union_data_type->type_codes(),
-                                              &arrow_union_array);
-  if (garrow_error_check(error,
-                         status,
-                         "[sparse-union-array][new][data-type]")) {
-    return GARROW_SPARSE_UNION_ARRAY(garrow_array_new_raw(&arrow_union_array));
+  auto arrow_union_array = arrow::UnionArray::MakeSparse(
+    *arrow_type_ids, arrow_fields, arrow_field_names,
+    arrow_union_data_type->type_codes());
+  if (garrow::check(error, arrow_union_array, "[sparse-union-array][new][data-type]")) {
+    return GARROW_SPARSE_UNION_ARRAY(garrow_array_new_raw(&(*arrow_union_array)));
   } else {
     return NULL;
   }
@@ -643,13 +633,11 @@ garrow_dense_union_array_new(GArrowInt8Array *type_ids,
     auto *field = GARROW_ARRAY(node->data);
     arrow_fields.push_back(garrow_array_get_raw(field));
   }
-  std::shared_ptr<arrow::Array> arrow_union_array;
-  auto status = arrow::UnionArray::MakeDense(*arrow_type_ids,
-                                             *arrow_value_offsets,
-                                             arrow_fields,
-                                             &arrow_union_array);
-  if (garrow_error_check(error, status, "[dense-union-array][new]")) {
-    return GARROW_DENSE_UNION_ARRAY(garrow_array_new_raw(&arrow_union_array));
+  auto arrow_union_array = arrow::UnionArray::MakeDense(*arrow_type_ids,
+                                                        *arrow_value_offsets,
+                                                        arrow_fields);
+  if (garrow::check(error, arrow_union_array, "[dense-union-array][new]")) {
+    return GARROW_DENSE_UNION_ARRAY(garrow_array_new_raw(&(*arrow_union_array)));
   } else {
     return NULL;
   }
@@ -691,15 +679,11 @@ garrow_dense_union_array_new_data_type(GArrowDenseUnionDataType *data_type,
     auto *field = GARROW_ARRAY(node->data);
     arrow_fields.push_back(garrow_array_get_raw(field));
   }
-  std::shared_ptr<arrow::Array> arrow_union_array;
-  auto status = arrow::UnionArray::MakeDense(*arrow_type_ids,
-                                             *arrow_value_offsets,
-                                             arrow_fields,
-                                             arrow_field_names,
-                                             arrow_union_data_type->type_codes(),
-                                             &arrow_union_array);
-  if (garrow_error_check(error, status, "[dense-union-array][new][data-type]")) {
-    return GARROW_DENSE_UNION_ARRAY(garrow_array_new_raw(&arrow_union_array));
+  auto arrow_union_array = arrow::UnionArray::MakeDense(
+    *arrow_type_ids, *arrow_value_offsets, arrow_fields, arrow_field_names,
+    arrow_union_data_type->type_codes());
+  if (garrow::check(error, arrow_union_array, "[dense-union-array][new][data-type]")) {
+    return GARROW_DENSE_UNION_ARRAY(garrow_array_new_raw(&(*arrow_union_array)));
   } else {
     return NULL;
   }
@@ -741,14 +725,11 @@ garrow_dictionary_array_new(GArrowDataType *data_type,
   const auto arrow_data_type = garrow_data_type_get_raw(data_type);
   const auto arrow_indices = garrow_array_get_raw(indices);
   const auto arrow_dictionary = garrow_array_get_raw(dictionary);
-  std::shared_ptr<arrow::Array> arrow_dictionary_array;
-  auto status = arrow::DictionaryArray::FromArrays(arrow_data_type,
-                                                   arrow_indices,
-                                                   arrow_dictionary,
-                                                   &arrow_dictionary_array);
-  if (garrow_error_check(error, status, "[dictionary-array][new]")) {
+  auto arrow_dictionary_array = arrow::DictionaryArray::FromArrays(
+    arrow_data_type, arrow_indices, arrow_dictionary);
+  if (garrow::check(error, arrow_dictionary_array, "[dictionary-array][new]")) {
     auto arrow_array =
-      std::static_pointer_cast<arrow::Array>(arrow_dictionary_array);
+      std::static_pointer_cast<arrow::Array>(*arrow_dictionary_array);
     return GARROW_DICTIONARY_ARRAY(garrow_array_new_raw(&arrow_array));
   } else {
     return NULL;

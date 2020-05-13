@@ -33,7 +33,7 @@
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/parsing.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 
@@ -180,12 +180,11 @@ static constexpr int64_t kPowersOfTen[kInt64DecimalDigits + 1] = {1LL,
 // the appropriate power of 10 necessary to add source parsed as uint64 and
 // then adds the parsed value of source.
 static inline void ShiftAndAdd(const char* data, size_t length, Decimal128* out) {
-  internal::StringConverter<Int64Type> converter;
   for (size_t posn = 0; posn < length;) {
     const size_t group_size = std::min(kInt64DecimalDigits, length - posn);
     const int64_t multiple = kPowersOfTen[group_size];
     int64_t chunk = 0;
-    ARROW_CHECK(converter(data + posn, group_size, &chunk));
+    ARROW_CHECK(internal::ParseValue<Int64Type>(data + posn, group_size, &chunk));
 
     *out *= multiple;
     *out += chunk;
@@ -275,8 +274,7 @@ bool ParseDecimalComponents(const char* s, size_t size, DecimalComponents* out) 
       ++pos;
     }
     out->has_exponent = true;
-    internal::StringConverter<Int32Type> exponent_converter;
-    return exponent_converter(s + pos, size - pos, &(out->exponent));
+    return internal::ParseValue<Int32Type>(s + pos, size - pos, &(out->exponent));
   }
   return pos == size;
 }
@@ -359,18 +357,6 @@ Result<Decimal128> Decimal128::FromString(const std::string& s) {
 
 Result<Decimal128> Decimal128::FromString(const char* s) {
   return FromString(util::string_view(s));
-}
-
-Status Decimal128::FromString(const util::string_view& s, Decimal128* out) {
-  return FromString(s, out, nullptr, nullptr);
-}
-
-Status Decimal128::FromString(const std::string& s, Decimal128* out) {
-  return FromString(s, out, nullptr, nullptr);
-}
-
-Status Decimal128::FromString(const char* s, Decimal128* out) {
-  return FromString(s, out, nullptr, nullptr);
 }
 
 // Helper function used by Decimal128::FromBigEndian

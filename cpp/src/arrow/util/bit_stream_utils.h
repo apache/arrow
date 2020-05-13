@@ -17,8 +17,7 @@
 
 // From Apache Impala (incubating) as of 2016-01-29
 
-#ifndef ARROW_UTIL_BIT_STREAM_UTILS_H
-#define ARROW_UTIL_BIT_STREAM_UTILS_H
+#pragma once
 
 #include <string.h>
 #include <algorithm>
@@ -64,6 +63,7 @@ class BitWriter {
   /// Writes v to the next aligned byte using num_bytes. If T is larger than
   /// num_bytes, the extra high-order bytes will be ignored. Returns false if
   /// there was not enough space.
+  /// Assume the v is stored in buffer_ as a litte-endian format
   template <typename T>
   bool PutAligned(T v, int num_bytes);
 
@@ -108,6 +108,7 @@ class BitReader {
       : buffer_(buffer), max_bytes_(buffer_len), byte_offset_(0), bit_offset_(0) {
     int num_bytes = std::min(8, max_bytes_ - byte_offset_);
     memcpy(&buffered_values_, buffer_ + byte_offset_, num_bytes);
+    buffered_values_ = arrow::BitUtil::FromLittleEndian(buffered_values_);
   }
 
   BitReader()
@@ -124,6 +125,7 @@ class BitReader {
     bit_offset_ = 0;
     int num_bytes = std::min(8, max_bytes_ - byte_offset_);
     memcpy(&buffered_values_, buffer_ + byte_offset_, num_bytes);
+    buffered_values_ = arrow::BitUtil::FromLittleEndian(buffered_values_);
   }
 
   /// Gets the next value from the buffer.  Returns true if 'v' could be read or false if
@@ -140,6 +142,7 @@ class BitReader {
   /// 'num_bytes'. The value is assumed to be byte-aligned so the stream will
   /// be advanced to the start of the next byte before 'v' is read. Returns
   /// false if there are not enough bytes left.
+  /// Assume the v was stored in buffer_ as a litte-endian format
   template <typename T>
   bool GetAligned(int num_bytes, T* v);
 
@@ -186,6 +189,7 @@ inline bool BitWriter::PutValue(uint64_t v, int num_bits) {
 
   if (ARROW_PREDICT_FALSE(bit_offset_ >= 64)) {
     // Flush buffered_values_ and write out bits of v that did not fit
+    buffered_values_ = arrow::BitUtil::ToLittleEndian(buffered_values_);
     memcpy(buffer_ + byte_offset_, &buffered_values_, 8);
     buffered_values_ = 0;
     byte_offset_ += 8;
@@ -199,7 +203,8 @@ inline bool BitWriter::PutValue(uint64_t v, int num_bits) {
 inline void BitWriter::Flush(bool align) {
   int num_bytes = static_cast<int>(BitUtil::BytesForBits(bit_offset_));
   DCHECK_LE(byte_offset_ + num_bytes, max_bytes_);
-  memcpy(buffer_ + byte_offset_, &buffered_values_, num_bytes);
+  auto buffered_values = arrow::BitUtil::ToLittleEndian(buffered_values_);
+  memcpy(buffer_ + byte_offset_, &buffered_values, num_bytes);
 
   if (align) {
     buffered_values_ = 0;
@@ -221,6 +226,7 @@ template <typename T>
 inline bool BitWriter::PutAligned(T val, int num_bytes) {
   uint8_t* ptr = GetNextBytePtr(num_bytes);
   if (ptr == NULL) return false;
+  val = arrow::BitUtil::ToLittleEndian(val);
   memcpy(ptr, &val, num_bytes);
   return true;
 }
@@ -250,6 +256,7 @@ inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
     } else {
       memcpy(buffered_values, buffer + *byte_offset, bytes_remaining);
     }
+    *buffered_values = arrow::BitUtil::FromLittleEndian(*buffered_values);
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4800 4805)
@@ -336,6 +343,7 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   } else {
     memcpy(&buffered_values, buffer + byte_offset, bytes_remaining);
   }
+  buffered_values = arrow::BitUtil::FromLittleEndian(buffered_values);
 
   for (; i < batch_size; ++i) {
     detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
@@ -363,6 +371,7 @@ inline bool BitReader::GetAligned(int num_bytes, T* v) {
   // Advance byte_offset to next unread byte and read num_bytes
   byte_offset_ += bytes_read;
   memcpy(v, buffer_ + byte_offset_, num_bytes);
+  *v = arrow::BitUtil::FromLittleEndian(*v);
   byte_offset_ += num_bytes;
 
   // Reset buffered_values_
@@ -373,6 +382,7 @@ inline bool BitReader::GetAligned(int num_bytes, T* v) {
   } else {
     memcpy(&buffered_values_, buffer_ + byte_offset_, bytes_remaining);
   }
+  buffered_values_ = arrow::BitUtil::FromLittleEndian(buffered_values_);
   return true;
 }
 
@@ -419,5 +429,3 @@ inline bool BitReader::GetZigZagVlqInt(int32_t* v) {
 
 }  // namespace BitUtil
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_BIT_STREAM_UTILS_H

@@ -38,11 +38,12 @@ use crate::buffer::Buffer;
 #[cfg(feature = "simd")]
 use crate::buffer::MutableBuffer;
 use crate::compute::util::apply_bin_op_to_option_bitmap;
-#[cfg(feature = "simd")]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
 use crate::compute::util::simd_load_set_invalid;
 use crate::datatypes;
 use crate::datatypes::ToByteSlice;
 use crate::error::{ArrowError, Result};
+use crate::util::bit_util;
 
 /// Helper function to perform math lambda function on values from two arrays. If either
 /// left or right value is null then the output value is also null, so `1 + null` is
@@ -69,8 +70,20 @@ where
     )?;
 
     let mut values = Vec::with_capacity(left.len());
-    for i in 0..left.len() {
-        values.push(op(left.value(i), right.value(i))?);
+    if let Some(b) = &null_bit_buffer {
+        for i in 0..left.len() {
+            unsafe {
+                if bit_util::get_bit_raw(b.raw_data(), i) {
+                    values.push(op(left.value(i), right.value(i))?);
+                } else {
+                    values.push(T::default_value())
+                }
+            }
+        }
+    } else {
+        for i in 0..left.len() {
+            values.push(op(left.value(i), right.value(i))?);
+        }
     }
 
     let data = ArrayData::new(
@@ -123,7 +136,7 @@ where
 
         let result_slice: &mut [T::Native] = unsafe {
             from_raw_parts_mut(
-                (result.data_mut().as_mut_ptr() as *mut T::Native).offset(i as isize),
+                (result.data_mut().as_mut_ptr() as *mut T::Native).add(i),
                 lanes,
             )
         };
@@ -186,14 +199,14 @@ where
 
         let result_slice: &mut [T::Native] = unsafe {
             from_raw_parts_mut(
-                (result.data_mut().as_mut_ptr() as *mut T::Native).offset(i as isize),
+                (result.data_mut().as_mut_ptr() as *mut T::Native).add(i),
                 lanes,
             )
         };
         T::write(simd_result, result_slice);
     }
 
-    let null_bit_buffer = bitmap.and_then(|b| Some(b.bits));
+    let null_bit_buffer = bitmap.map(|b| b.bits);
 
     let data = ArrayData::new(
         T::get_data_type(),

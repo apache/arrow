@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.UInt2ReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -28,8 +29,6 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * UInt2Vector implements a fixed width (2 bytes) vector of
@@ -80,7 +79,7 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
    * @return value stored at the index.
    */
   public static char get(final ArrowBuf buffer, final int index) {
-    return buffer.getChar(index * TYPE_WIDTH);
+    return buffer.getChar((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -93,7 +92,7 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
     if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
-    return valueBuffer.getChar(index * TYPE_WIDTH);
+    return valueBuffer.getChar((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -109,7 +108,7 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
       return;
     }
     holder.isSet = 1;
-    holder.value = valueBuffer.getChar(index * TYPE_WIDTH);
+    holder.value = valueBuffer.getChar((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -122,7 +121,7 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
     if (isSet(index) == 0) {
       return null;
     } else {
-      return valueBuffer.getChar(index * TYPE_WIDTH);
+      return valueBuffer.getChar((long) index * TYPE_WIDTH);
     }
   }
 
@@ -135,11 +134,11 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
 
 
   private void setValue(int index, int value) {
-    valueBuffer.setChar(index * TYPE_WIDTH, value);
+    valueBuffer.setChar((long) index * TYPE_WIDTH, value);
   }
 
   private void setValue(int index, char value) {
-    valueBuffer.setChar(index * TYPE_WIDTH, value);
+    valueBuffer.setChar((long) index * TYPE_WIDTH, value);
   }
 
   /**

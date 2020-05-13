@@ -503,7 +503,10 @@ class TestConvertMetadata:
 
             table_subset = table.remove_column(1)
             result = table_subset.to_pandas()
-            tm.assert_frame_equal(result, df[['a']])
+            expected = df[['a']]
+            if isinstance(df.index, pd.DatetimeIndex):
+                df.index.freq = None
+            tm.assert_frame_equal(result, expected)
 
             table_subset2 = table_subset.remove_column(1)
             result = table_subset2.to_pandas()
@@ -1365,6 +1368,13 @@ class TestConvertDateTimeLikeTypes:
                 table.to_pandas(safe=False)
                 table.column('a').to_pandas(safe=False)
 
+    def test_timestamp_to_pandas_empty_chunked(self):
+        # ARROW-7907 table with chunked array with 0 chunks
+        table = pa.table({'a': pa.chunked_array([], type=pa.timestamp('us'))})
+        result = table.to_pandas()
+        expected = pd.DataFrame({'a': pd.Series([], dtype="datetime64[ns]")})
+        tm.assert_frame_equal(result, expected)
+
     @pytest.mark.parametrize('dtype', [pa.date32(), pa.date64()])
     def test_numpy_datetime64_day_unit(self, dtype):
         datetime64_d = np.array([
@@ -1938,6 +1948,23 @@ class TestConvertListTypes:
         ])
 
         _check_pandas_roundtrip(df, expected_schema=expected_schema)
+
+    def test_fixed_size_list(self):
+        # ARROW-7365
+        fixed_ty = pa.list_(pa.int64(), list_size=4)
+        variable_ty = pa.list_(pa.int64())
+
+        data = [[0, 1, 2, 3], None, [4, 5, 6, 7], [8, 9, 10, 11]]
+        fixed_arr = pa.array(data, type=fixed_ty)
+        variable_arr = pa.array(data, type=variable_ty)
+
+        result = fixed_arr.to_pandas()
+        expected = variable_arr.to_pandas()
+
+        for left, right in zip(result, expected):
+            if left is None:
+                assert right is None
+            npt.assert_array_equal(left, right)
 
     def test_infer_numpy_array(self):
         data = OrderedDict([
@@ -2595,13 +2622,16 @@ def test_roundtrip_with_bytes_unicode(columns):
     assert table1.schema.metadata == table2.schema.metadata
 
 
-def _check_serialize_components_roundtrip(df):
+def _check_serialize_components_roundtrip(pd_obj):
     ctx = pa.default_serialization_context()
 
-    components = ctx.serialize(df).to_components()
+    components = ctx.serialize(pd_obj).to_components()
     deserialized = ctx.deserialize_components(components)
 
-    tm.assert_frame_equal(df, deserialized)
+    if isinstance(pd_obj, pd.DataFrame):
+        tm.assert_frame_equal(pd_obj, deserialized)
+    else:
+        tm.assert_series_equal(pd_obj, deserialized)
 
 
 @pytest.mark.skipif(LooseVersion(np.__version__) >= '0.16',
@@ -2611,6 +2641,15 @@ def test_serialize_deserialize_pandas():
     # BlockManager
     df = _fully_loaded_dataframe_example()
     _check_serialize_components_roundtrip(df)
+
+
+def test_serialize_deserialize_empty_pandas():
+    # ARROW-7996, serialize and deserialize empty pandas objects
+    df = pd.DataFrame({'col1': [], 'col2': [], 'col3': []})
+    _check_serialize_components_roundtrip(df)
+
+    series = pd.Series([], dtype=np.float32, name='col')
+    _check_serialize_components_roundtrip(series)
 
 
 def _pytime_from_micros(val):
@@ -2639,8 +2678,8 @@ def test_convert_unsupported_type_error_message():
 
     df = pd.DataFrame({'a': [A(), A()]})
 
-    expected_msg = 'Conversion failed for column a with type object'
-    with pytest.raises(ValueError, match=expected_msg):
+    msg = 'Conversion failed for column a with type object'
+    with pytest.raises(ValueError, match=msg):
         pa.Table.from_pandas(df)
 
     # period unsupported for pandas <= 0.25
@@ -2649,8 +2688,8 @@ def test_convert_unsupported_type_error_message():
             'a': pd.period_range('2000-01-01', periods=20),
         })
 
-        expected_msg = 'Conversion failed for column a with type period'
-        with pytest.raises(TypeError, match=expected_msg):
+        msg = 'Conversion failed for column a with type (period|object)'
+        with pytest.raises((TypeError, ValueError), match=msg):
             pa.Table.from_pandas(df)
 
 
@@ -3524,7 +3563,7 @@ def test_array_protocol_pandas_extension_types(monkeypatch):
     # ARROW-7022 - ensure protocol works for Period / Interval extension dtypes
 
     if LooseVersion(pd.__version__) < '0.24.0':
-        pytest.skip(reason='Period/IntervalArray only introduced in 0.24')
+        pytest.skip('Period/IntervalArray only introduced in 0.24')
 
     storage = pa.array([1, 2, 3], type=pa.int64())
     expected = pa.ExtensionArray.from_storage(DummyExtensionType(), storage)
@@ -3618,18 +3657,18 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     # converting extension type to linked pandas ExtensionDtype/Array
     import pandas.core.internals as _int
 
+    if LooseVersion(pd.__version__) < "0.24.0":
+        pytest.skip("ExtensionDtype introduced in pandas 0.24")
+
     storage = pa.array([1, 2, 3, 4], pa.int64())
     arr = pa.ExtensionArray.from_storage(MyCustomIntegerType(), storage)
     table = pa.table({'a': arr})
 
-    # TODO TEMP use our monkeypatched method for all pandas versions because
-    #   latest pandas release / master fails to cast extension type to int64
-    #   type (see ARROW-7857)
-    # if LooseVersion(pd.__version__) < "0.26.0.dev":
-    # ensure pandas Int64Dtype has the protocol method (for older pandas)
-    monkeypatch.setattr(
-        pd.Int64Dtype, '__from_arrow__', _Int64Dtype__from_arrow__,
-        raising=False)
+    if LooseVersion(pd.__version__) < "0.26.0.dev":
+        # ensure pandas Int64Dtype has the protocol method (for older pandas)
+        monkeypatch.setattr(
+            pd.Int64Dtype, '__from_arrow__', _Int64Dtype__from_arrow__,
+            raising=False)
 
     # extension type points to Int64Dtype, which knows how to create a
     # pandas ExtensionArray
@@ -3640,11 +3679,9 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
 
     # monkeypatch pandas Int64Dtype to *not* have the protocol method
     # (remove the version added above and the actual version for recent pandas)
-    # TODO TEMP see above
-    # if LooseVersion(pd.__version__) < "0.26.0.dev":
-    monkeypatch.delattr(pd.Int64Dtype, "__from_arrow__")
-    # else:
-    if LooseVersion(pd.__version__) >= "0.26.0.dev":
+    if LooseVersion(pd.__version__) < "0.26.0.dev":
+        monkeypatch.delattr(pd.Int64Dtype, "__from_arrow__")
+    else:
         monkeypatch.delattr(
             pd.core.arrays.integer._IntegerDtype, "__from_arrow__",
             raising=False)

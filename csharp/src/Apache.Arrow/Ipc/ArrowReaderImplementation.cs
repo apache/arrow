@@ -122,10 +122,10 @@ namespace Apache.Arrow.Ipc
             }
 
             var recordBatchEnumerator = new RecordBatchEnumerator(in recordBatchMessage);
-
+            var schemaFieldIndex = 0;
             do
             {
-                var field = schema.GetFieldByIndex(recordBatchEnumerator.CurrentNodeIndex);
+                var field = schema.GetFieldByIndex(schemaFieldIndex++);
                 var fieldNode = recordBatchEnumerator.CurrentNode;
 
                 var arrayData = field.DataType.IsFixedPrimitive()
@@ -216,8 +216,8 @@ namespace Apache.Arrow.Ipc
             var children = new ArrayData[childrenCount];
             for (var index = 0; index < childrenCount; index++)
             {
-                Flatbuf.FieldNode childFieldNode = recordBatchEnumerator.CurrentNode;
                 recordBatchEnumerator.MoveNextNode();
+                Flatbuf.FieldNode childFieldNode = recordBatchEnumerator.CurrentNode;
 
                 var childField = type.Children[index];
                 var child = childField.DataType.IsFixedPrimitive()

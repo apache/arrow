@@ -41,7 +41,7 @@ RWINLIB="../windows/$(ls windows/ | grep ^arrow-)"
 OPENSSL_LIBS="-lcrypto -lcrypt32"
 
 PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_DS_STATIC -DARROW_R_WITH_ARROW"
-PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '"-L${RWINLIB}/lib"'$(R_ARCH) '"-lparquet -larrow_dataset -larrow -lthrift -lsnappy -lboost_regex-mt-s -lboost_system-mt-s -lz -lzstd -llz4 ${OPENSSL_LIBS} -lws2_32"
+PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '"-L${RWINLIB}/lib"'$(R_ARCH) '"-lparquet -larrow_dataset -larrow -lthrift -lsnappy -lz -lzstd -llz4 ${OPENSSL_LIBS} -lws2_32"
 
 # Set any user-defined CXXFLAGS
 if [ "$ARROW_R_CXXFLAGS" ]; then

@@ -21,12 +21,12 @@ on:
   push:
     paths:
       - '.github/workflows/csharp.yml'
-      - 'ci/**'
+      - 'ci/scripts/csharp_*'
       - 'csharp/**'
   pull_request:
     paths:
       - '.github/workflows/csharp.yml'
-      - 'ci/**'
+      - 'ci/scripts/csharp_*'
       - 'csharp/**'
 
 jobs:
@@ -34,6 +34,7 @@ jobs:
   ubuntu:
     name: AMD64 Ubuntu 18.04 C# ${{ matrix.dotnet }}
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -44,9 +45,15 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Install Source Link
+        shell: bash
+        run: dotnet tool install --global sourcelink
       - name: Build
         shell: bash
         run: ci/scripts/csharp_build.sh $(pwd)
@@ -57,6 +64,7 @@ jobs:
   windows:
     name: AMD64 Windows 2019 18.04 C# ${{ matrix.dotnet }}
     runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -67,9 +75,14 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Install Source Link
+        run: dotnet tool install --global sourcelink
       - name: Build
         shell: bash
         run: ci/scripts/csharp_build.sh $(pwd)
@@ -80,7 +93,7 @@ jobs:
   macos:
     name: AMD64 MacOS 10.15 C# ${{ matrix.dotnet }}
     runs-on: macos-latest
-    if: github.event_name == 'push'
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -91,9 +104,15 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Install Source Link
+        shell: bash
+        run: dotnet tool install --global sourcelink
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Build
         shell: bash
         run: ci/scripts/csharp_build.sh $(pwd)

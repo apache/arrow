@@ -21,19 +21,29 @@ on:
   push:
     paths:
       - '.github/workflows/go.yml'
-      - 'ci/**'
+      - 'ci/docker/*_go.dockerfile'
+      - 'ci/scripts/go_*'
       - 'go/**'
   pull_request:
     paths:
       - '.github/workflows/go.yml'
-      - 'ci/**'
+      - 'ci/docker/*_go.dockerfile'
+      - 'ci/docker/**'
+      - 'ci/scripts/go_*'
       - 'go/**'
+
+env:
+  DOCKER_BUILDKIT: 0
+  COMPOSE_DOCKER_CLI_BUILD: 1
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
 
-  debian:
+  docker:
     name: AMD64 Debian 10 Go ${{ matrix.go }}
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -42,27 +52,30 @@ jobs:
       GO: ${{ matrix.go }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
-      - name: Docker Pull
-        run: docker-compose pull --ignore-pull-failures debian-go
-      - name: Docker Build
-        run: docker-compose build debian-go
-      - name: Docker Run
-        run: docker-compose run debian-go
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        run: ci/scripts/util_cleanup.sh
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        run: archery docker run debian-go
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push debian-go
+        run: archery docker push debian-go
 
   windows:
     name: AMD64 Windows 2019 Go ${{ matrix.go }}
     runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -73,9 +86,12 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh .
@@ -86,7 +102,7 @@ jobs:
   macos:
     name: AMD64 MacOS 10.15 Go ${{ matrix.go }}
     runs-on: macos-latest
-    if: github.event_name == 'push'
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -97,9 +113,12 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh .

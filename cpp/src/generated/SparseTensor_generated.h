@@ -15,10 +15,16 @@ namespace arrow {
 namespace flatbuf {
 
 struct SparseTensorIndexCOO;
+struct SparseTensorIndexCOOBuilder;
 
 struct SparseMatrixIndexCSX;
+struct SparseMatrixIndexCSXBuilder;
+
+struct SparseTensorIndexCSF;
+struct SparseTensorIndexCSFBuilder;
 
 struct SparseTensor;
+struct SparseTensorBuilder;
 
 enum class SparseMatrixCompressedAxis : int16_t {
   Row = 0,
@@ -36,7 +42,7 @@ inline const SparseMatrixCompressedAxis (&EnumValuesSparseMatrixCompressedAxis()
 }
 
 inline const char * const *EnumNamesSparseMatrixCompressedAxis() {
-  static const char * const names[] = {
+  static const char * const names[3] = {
     "Row",
     "Column",
     nullptr
@@ -45,7 +51,7 @@ inline const char * const *EnumNamesSparseMatrixCompressedAxis() {
 }
 
 inline const char *EnumNameSparseMatrixCompressedAxis(SparseMatrixCompressedAxis e) {
-  if (e < SparseMatrixCompressedAxis::Row || e > SparseMatrixCompressedAxis::Column) return "";
+  if (flatbuffers::IsOutRange(e, SparseMatrixCompressedAxis::Row, SparseMatrixCompressedAxis::Column)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesSparseMatrixCompressedAxis()[index];
 }
@@ -54,31 +60,34 @@ enum class SparseTensorIndex : uint8_t {
   NONE = 0,
   SparseTensorIndexCOO = 1,
   SparseMatrixIndexCSX = 2,
+  SparseTensorIndexCSF = 3,
   MIN = NONE,
-  MAX = SparseMatrixIndexCSX
+  MAX = SparseTensorIndexCSF
 };
 
-inline const SparseTensorIndex (&EnumValuesSparseTensorIndex())[3] {
+inline const SparseTensorIndex (&EnumValuesSparseTensorIndex())[4] {
   static const SparseTensorIndex values[] = {
     SparseTensorIndex::NONE,
     SparseTensorIndex::SparseTensorIndexCOO,
-    SparseTensorIndex::SparseMatrixIndexCSX
+    SparseTensorIndex::SparseMatrixIndexCSX,
+    SparseTensorIndex::SparseTensorIndexCSF
   };
   return values;
 }
 
 inline const char * const *EnumNamesSparseTensorIndex() {
-  static const char * const names[] = {
+  static const char * const names[5] = {
     "NONE",
     "SparseTensorIndexCOO",
     "SparseMatrixIndexCSX",
+    "SparseTensorIndexCSF",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameSparseTensorIndex(SparseTensorIndex e) {
-  if (e < SparseTensorIndex::NONE || e > SparseTensorIndex::SparseMatrixIndexCSX) return "";
+  if (flatbuffers::IsOutRange(e, SparseTensorIndex::NONE, SparseTensorIndex::SparseTensorIndexCSF)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesSparseTensorIndex()[index];
 }
@@ -87,12 +96,16 @@ template<typename T> struct SparseTensorIndexTraits {
   static const SparseTensorIndex enum_value = SparseTensorIndex::NONE;
 };
 
-template<> struct SparseTensorIndexTraits<SparseTensorIndexCOO> {
+template<> struct SparseTensorIndexTraits<org::apache::arrow::flatbuf::SparseTensorIndexCOO> {
   static const SparseTensorIndex enum_value = SparseTensorIndex::SparseTensorIndexCOO;
 };
 
-template<> struct SparseTensorIndexTraits<SparseMatrixIndexCSX> {
+template<> struct SparseTensorIndexTraits<org::apache::arrow::flatbuf::SparseMatrixIndexCSX> {
   static const SparseTensorIndex enum_value = SparseTensorIndex::SparseMatrixIndexCSX;
+};
+
+template<> struct SparseTensorIndexTraits<org::apache::arrow::flatbuf::SparseTensorIndexCSF> {
+  static const SparseTensorIndex enum_value = SparseTensorIndex::SparseTensorIndexCSF;
 };
 
 bool VerifySparseTensorIndex(flatbuffers::Verifier &verifier, const void *obj, SparseTensorIndex type);
@@ -129,14 +142,15 @@ bool VerifySparseTensorIndexVector(flatbuffers::Verifier &verifier, const flatbu
 ///
 /// Note that the indices are sorted in lexicographical order.
 struct SparseTensorIndexCOO FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SparseTensorIndexCOOBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_INDICESTYPE = 4,
     VT_INDICESSTRIDES = 6,
     VT_INDICESBUFFER = 8
   };
   /// The type of values in indicesBuffer
-  const Int *indicesType() const {
-    return GetPointer<const Int *>(VT_INDICESTYPE);
+  const org::apache::arrow::flatbuf::Int *indicesType() const {
+    return GetPointer<const org::apache::arrow::flatbuf::Int *>(VT_INDICESTYPE);
   }
   /// Non-negative byte offsets to advance one value cell along each dimension
   /// If omitted, default to row-major order (C-like).
@@ -144,8 +158,8 @@ struct SparseTensorIndexCOO FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
     return GetPointer<const flatbuffers::Vector<int64_t> *>(VT_INDICESSTRIDES);
   }
   /// The location and size of the indices matrix's data
-  const Buffer *indicesBuffer() const {
-    return GetStruct<const Buffer *>(VT_INDICESBUFFER);
+  const org::apache::arrow::flatbuf::Buffer *indicesBuffer() const {
+    return GetStruct<const org::apache::arrow::flatbuf::Buffer *>(VT_INDICESBUFFER);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -153,21 +167,22 @@ struct SparseTensorIndexCOO FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
            verifier.VerifyTable(indicesType()) &&
            VerifyOffset(verifier, VT_INDICESSTRIDES) &&
            verifier.VerifyVector(indicesStrides()) &&
-           VerifyFieldRequired<Buffer>(verifier, VT_INDICESBUFFER) &&
+           VerifyFieldRequired<org::apache::arrow::flatbuf::Buffer>(verifier, VT_INDICESBUFFER) &&
            verifier.EndTable();
   }
 };
 
 struct SparseTensorIndexCOOBuilder {
+  typedef SparseTensorIndexCOO Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_indicesType(flatbuffers::Offset<Int> indicesType) {
+  void add_indicesType(flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indicesType) {
     fbb_.AddOffset(SparseTensorIndexCOO::VT_INDICESTYPE, indicesType);
   }
   void add_indicesStrides(flatbuffers::Offset<flatbuffers::Vector<int64_t>> indicesStrides) {
     fbb_.AddOffset(SparseTensorIndexCOO::VT_INDICESSTRIDES, indicesStrides);
   }
-  void add_indicesBuffer(const Buffer *indicesBuffer) {
+  void add_indicesBuffer(const org::apache::arrow::flatbuf::Buffer *indicesBuffer) {
     fbb_.AddStruct(SparseTensorIndexCOO::VT_INDICESBUFFER, indicesBuffer);
   }
   explicit SparseTensorIndexCOOBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -186,9 +201,9 @@ struct SparseTensorIndexCOOBuilder {
 
 inline flatbuffers::Offset<SparseTensorIndexCOO> CreateSparseTensorIndexCOO(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<Int> indicesType = 0,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indicesType = 0,
     flatbuffers::Offset<flatbuffers::Vector<int64_t>> indicesStrides = 0,
-    const Buffer *indicesBuffer = 0) {
+    const org::apache::arrow::flatbuf::Buffer *indicesBuffer = 0) {
   SparseTensorIndexCOOBuilder builder_(_fbb);
   builder_.add_indicesBuffer(indicesBuffer);
   builder_.add_indicesStrides(indicesStrides);
@@ -198,9 +213,9 @@ inline flatbuffers::Offset<SparseTensorIndexCOO> CreateSparseTensorIndexCOO(
 
 inline flatbuffers::Offset<SparseTensorIndexCOO> CreateSparseTensorIndexCOODirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<Int> indicesType = 0,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indicesType = 0,
     const std::vector<int64_t> *indicesStrides = nullptr,
-    const Buffer *indicesBuffer = 0) {
+    const org::apache::arrow::flatbuf::Buffer *indicesBuffer = 0) {
   auto indicesStrides__ = indicesStrides ? _fbb.CreateVector<int64_t>(*indicesStrides) : 0;
   return org::apache::arrow::flatbuf::CreateSparseTensorIndexCOO(
       _fbb,
@@ -211,6 +226,7 @@ inline flatbuffers::Offset<SparseTensorIndexCOO> CreateSparseTensorIndexCOODirec
 
 /// Compressed Sparse format, that is matrix-specific.
 struct SparseMatrixIndexCSX FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SparseMatrixIndexCSXBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_COMPRESSEDAXIS = 4,
     VT_INDPTRTYPE = 6,
@@ -219,12 +235,12 @@ struct SparseMatrixIndexCSX FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
     VT_INDICESBUFFER = 12
   };
   /// Which axis, row or column, is compressed
-  SparseMatrixCompressedAxis compressedAxis() const {
-    return static_cast<SparseMatrixCompressedAxis>(GetField<int16_t>(VT_COMPRESSEDAXIS, 0));
+  org::apache::arrow::flatbuf::SparseMatrixCompressedAxis compressedAxis() const {
+    return static_cast<org::apache::arrow::flatbuf::SparseMatrixCompressedAxis>(GetField<int16_t>(VT_COMPRESSEDAXIS, 0));
   }
   /// The type of values in indptrBuffer
-  const Int *indptrType() const {
-    return GetPointer<const Int *>(VT_INDPTRTYPE);
+  const org::apache::arrow::flatbuf::Int *indptrType() const {
+    return GetPointer<const org::apache::arrow::flatbuf::Int *>(VT_INDPTRTYPE);
   }
   /// indptrBuffer stores the location and size of indptr array that
   /// represents the range of the rows.
@@ -248,12 +264,12 @@ struct SparseMatrixIndexCSX FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
   /// And the indptr of X is:
   ///
   ///   indptr(X) = [0, 2, 3, 5, 5, 8, 10].
-  const Buffer *indptrBuffer() const {
-    return GetStruct<const Buffer *>(VT_INDPTRBUFFER);
+  const org::apache::arrow::flatbuf::Buffer *indptrBuffer() const {
+    return GetStruct<const org::apache::arrow::flatbuf::Buffer *>(VT_INDPTRBUFFER);
   }
   /// The type of values in indicesBuffer
-  const Int *indicesType() const {
-    return GetPointer<const Int *>(VT_INDICESTYPE);
+  const org::apache::arrow::flatbuf::Int *indicesType() const {
+    return GetPointer<const org::apache::arrow::flatbuf::Int *>(VT_INDICESTYPE);
   }
   /// indicesBuffer stores the location and size of the array that
   /// contains the column indices of the corresponding non-zero values.
@@ -264,38 +280,39 @@ struct SparseMatrixIndexCSX FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
   ///   indices(X) = [1, 2, 2, 1, 3, 0, 2, 3, 1].
   ///
   /// Note that the indices are sorted in lexicographical order for each row.
-  const Buffer *indicesBuffer() const {
-    return GetStruct<const Buffer *>(VT_INDICESBUFFER);
+  const org::apache::arrow::flatbuf::Buffer *indicesBuffer() const {
+    return GetStruct<const org::apache::arrow::flatbuf::Buffer *>(VT_INDICESBUFFER);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int16_t>(verifier, VT_COMPRESSEDAXIS) &&
            VerifyOffsetRequired(verifier, VT_INDPTRTYPE) &&
            verifier.VerifyTable(indptrType()) &&
-           VerifyFieldRequired<Buffer>(verifier, VT_INDPTRBUFFER) &&
+           VerifyFieldRequired<org::apache::arrow::flatbuf::Buffer>(verifier, VT_INDPTRBUFFER) &&
            VerifyOffsetRequired(verifier, VT_INDICESTYPE) &&
            verifier.VerifyTable(indicesType()) &&
-           VerifyFieldRequired<Buffer>(verifier, VT_INDICESBUFFER) &&
+           VerifyFieldRequired<org::apache::arrow::flatbuf::Buffer>(verifier, VT_INDICESBUFFER) &&
            verifier.EndTable();
   }
 };
 
 struct SparseMatrixIndexCSXBuilder {
+  typedef SparseMatrixIndexCSX Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_compressedAxis(SparseMatrixCompressedAxis compressedAxis) {
+  void add_compressedAxis(org::apache::arrow::flatbuf::SparseMatrixCompressedAxis compressedAxis) {
     fbb_.AddElement<int16_t>(SparseMatrixIndexCSX::VT_COMPRESSEDAXIS, static_cast<int16_t>(compressedAxis), 0);
   }
-  void add_indptrType(flatbuffers::Offset<Int> indptrType) {
+  void add_indptrType(flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indptrType) {
     fbb_.AddOffset(SparseMatrixIndexCSX::VT_INDPTRTYPE, indptrType);
   }
-  void add_indptrBuffer(const Buffer *indptrBuffer) {
+  void add_indptrBuffer(const org::apache::arrow::flatbuf::Buffer *indptrBuffer) {
     fbb_.AddStruct(SparseMatrixIndexCSX::VT_INDPTRBUFFER, indptrBuffer);
   }
-  void add_indicesType(flatbuffers::Offset<Int> indicesType) {
+  void add_indicesType(flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indicesType) {
     fbb_.AddOffset(SparseMatrixIndexCSX::VT_INDICESTYPE, indicesType);
   }
-  void add_indicesBuffer(const Buffer *indicesBuffer) {
+  void add_indicesBuffer(const org::apache::arrow::flatbuf::Buffer *indicesBuffer) {
     fbb_.AddStruct(SparseMatrixIndexCSX::VT_INDICESBUFFER, indicesBuffer);
   }
   explicit SparseMatrixIndexCSXBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -316,11 +333,11 @@ struct SparseMatrixIndexCSXBuilder {
 
 inline flatbuffers::Offset<SparseMatrixIndexCSX> CreateSparseMatrixIndexCSX(
     flatbuffers::FlatBufferBuilder &_fbb,
-    SparseMatrixCompressedAxis compressedAxis = SparseMatrixCompressedAxis::Row,
-    flatbuffers::Offset<Int> indptrType = 0,
-    const Buffer *indptrBuffer = 0,
-    flatbuffers::Offset<Int> indicesType = 0,
-    const Buffer *indicesBuffer = 0) {
+    org::apache::arrow::flatbuf::SparseMatrixCompressedAxis compressedAxis = org::apache::arrow::flatbuf::SparseMatrixCompressedAxis::Row,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indptrType = 0,
+    const org::apache::arrow::flatbuf::Buffer *indptrBuffer = 0,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indicesType = 0,
+    const org::apache::arrow::flatbuf::Buffer *indicesBuffer = 0) {
   SparseMatrixIndexCSXBuilder builder_(_fbb);
   builder_.add_indicesBuffer(indicesBuffer);
   builder_.add_indicesType(indicesType);
@@ -330,7 +347,182 @@ inline flatbuffers::Offset<SparseMatrixIndexCSX> CreateSparseMatrixIndexCSX(
   return builder_.Finish();
 }
 
+/// Compressed Sparse Fiber (CSF) sparse tensor index.
+struct SparseTensorIndexCSF FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SparseTensorIndexCSFBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_INDPTRTYPE = 4,
+    VT_INDPTRBUFFERS = 6,
+    VT_INDICESTYPE = 8,
+    VT_INDICESBUFFERS = 10,
+    VT_AXISORDER = 12
+  };
+  /// CSF is a generalization of compressed sparse row (CSR) index.
+  /// See [smith2017knl]: http://shaden.io/pub-files/smith2017knl.pdf
+  ///
+  /// CSF index recursively compresses each dimension of a tensor into a set
+  /// of prefix trees. Each path from a root to leaf forms one tensor
+  /// non-zero index. CSF is implemented with two arrays of buffers and one
+  /// arrays of integers.
+  ///
+  /// For example, let X be a 2x3x4x5 tensor and let it have the following
+  /// 8 non-zero values:
+  ///
+  ///   X[0, 0, 0, 1] := 1
+  ///   X[0, 0, 0, 2] := 2
+  ///   X[0, 1, 0, 0] := 3
+  ///   X[0, 1, 0, 2] := 4
+  ///   X[0, 1, 1, 0] := 5
+  ///   X[1, 1, 1, 0] := 6
+  ///   X[1, 1, 1, 1] := 7
+  ///   X[1, 1, 1, 2] := 8
+  ///
+  /// As a prefix tree this would be represented as:
+  ///
+  ///         0          1
+  ///        / \         |
+  ///       0   1        1
+  ///      /   / \       |
+  ///     0   0   1      1
+  ///    /|  /|   |    /| |
+  ///   1 2 0 2   0   0 1 2
+  /// The type of values in indptrBuffers
+  const org::apache::arrow::flatbuf::Int *indptrType() const {
+    return GetPointer<const org::apache::arrow::flatbuf::Int *>(VT_INDPTRTYPE);
+  }
+  /// indptrBuffers stores the sparsity structure.
+  /// Each two consecutive dimensions in a tensor correspond to a buffer in
+  /// indptrBuffers. A pair of consecutive values at indptrBuffers[dim][i]
+  /// and indptrBuffers[dim][i + 1] signify a range of nodes in
+  /// indicesBuffers[dim + 1] who are children of indicesBuffers[dim][i] node.
+  ///
+  /// For example, the indptrBuffers for the above X is:
+  ///
+  ///   indptrBuffer(X) = [
+  ///                       [0, 2, 3],
+  ///                       [0, 1, 3, 4],
+  ///                       [0, 2, 4, 5, 8]
+  ///                     ].
+  ///
+  const flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *> *indptrBuffers() const {
+    return GetPointer<const flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *> *>(VT_INDPTRBUFFERS);
+  }
+  /// The type of values in indicesBuffers
+  const org::apache::arrow::flatbuf::Int *indicesType() const {
+    return GetPointer<const org::apache::arrow::flatbuf::Int *>(VT_INDICESTYPE);
+  }
+  /// indicesBuffers stores values of nodes.
+  /// Each tensor dimension corresponds to a buffer in indicesBuffers.
+  /// For example, the indicesBuffers for the above X is:
+  ///
+  ///   indicesBuffer(X) = [
+  ///                        [0, 1],
+  ///                        [0, 1, 1],
+  ///                        [0, 0, 1, 1],
+  ///                        [1, 2, 0, 2, 0, 0, 1, 2]
+  ///                      ].
+  ///
+  const flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *> *indicesBuffers() const {
+    return GetPointer<const flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *> *>(VT_INDICESBUFFERS);
+  }
+  /// axisOrder stores the sequence in which dimensions were traversed to
+  /// produce the prefix tree.
+  /// For example, the axisOrder for the above X is:
+  ///
+  ///   axisOrder(X) = [0, 1, 2, 3].
+  ///
+  const flatbuffers::Vector<int32_t> *axisOrder() const {
+    return GetPointer<const flatbuffers::Vector<int32_t> *>(VT_AXISORDER);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffsetRequired(verifier, VT_INDPTRTYPE) &&
+           verifier.VerifyTable(indptrType()) &&
+           VerifyOffsetRequired(verifier, VT_INDPTRBUFFERS) &&
+           verifier.VerifyVector(indptrBuffers()) &&
+           VerifyOffsetRequired(verifier, VT_INDICESTYPE) &&
+           verifier.VerifyTable(indicesType()) &&
+           VerifyOffsetRequired(verifier, VT_INDICESBUFFERS) &&
+           verifier.VerifyVector(indicesBuffers()) &&
+           VerifyOffsetRequired(verifier, VT_AXISORDER) &&
+           verifier.VerifyVector(axisOrder()) &&
+           verifier.EndTable();
+  }
+};
+
+struct SparseTensorIndexCSFBuilder {
+  typedef SparseTensorIndexCSF Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_indptrType(flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indptrType) {
+    fbb_.AddOffset(SparseTensorIndexCSF::VT_INDPTRTYPE, indptrType);
+  }
+  void add_indptrBuffers(flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *>> indptrBuffers) {
+    fbb_.AddOffset(SparseTensorIndexCSF::VT_INDPTRBUFFERS, indptrBuffers);
+  }
+  void add_indicesType(flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indicesType) {
+    fbb_.AddOffset(SparseTensorIndexCSF::VT_INDICESTYPE, indicesType);
+  }
+  void add_indicesBuffers(flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *>> indicesBuffers) {
+    fbb_.AddOffset(SparseTensorIndexCSF::VT_INDICESBUFFERS, indicesBuffers);
+  }
+  void add_axisOrder(flatbuffers::Offset<flatbuffers::Vector<int32_t>> axisOrder) {
+    fbb_.AddOffset(SparseTensorIndexCSF::VT_AXISORDER, axisOrder);
+  }
+  explicit SparseTensorIndexCSFBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  SparseTensorIndexCSFBuilder &operator=(const SparseTensorIndexCSFBuilder &);
+  flatbuffers::Offset<SparseTensorIndexCSF> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<SparseTensorIndexCSF>(end);
+    fbb_.Required(o, SparseTensorIndexCSF::VT_INDPTRTYPE);
+    fbb_.Required(o, SparseTensorIndexCSF::VT_INDPTRBUFFERS);
+    fbb_.Required(o, SparseTensorIndexCSF::VT_INDICESTYPE);
+    fbb_.Required(o, SparseTensorIndexCSF::VT_INDICESBUFFERS);
+    fbb_.Required(o, SparseTensorIndexCSF::VT_AXISORDER);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<SparseTensorIndexCSF> CreateSparseTensorIndexCSF(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indptrType = 0,
+    flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *>> indptrBuffers = 0,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indicesType = 0,
+    flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *>> indicesBuffers = 0,
+    flatbuffers::Offset<flatbuffers::Vector<int32_t>> axisOrder = 0) {
+  SparseTensorIndexCSFBuilder builder_(_fbb);
+  builder_.add_axisOrder(axisOrder);
+  builder_.add_indicesBuffers(indicesBuffers);
+  builder_.add_indicesType(indicesType);
+  builder_.add_indptrBuffers(indptrBuffers);
+  builder_.add_indptrType(indptrType);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<SparseTensorIndexCSF> CreateSparseTensorIndexCSFDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indptrType = 0,
+    const std::vector<org::apache::arrow::flatbuf::Buffer> *indptrBuffers = nullptr,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indicesType = 0,
+    const std::vector<org::apache::arrow::flatbuf::Buffer> *indicesBuffers = nullptr,
+    const std::vector<int32_t> *axisOrder = nullptr) {
+  auto indptrBuffers__ = indptrBuffers ? _fbb.CreateVectorOfStructs<org::apache::arrow::flatbuf::Buffer>(*indptrBuffers) : 0;
+  auto indicesBuffers__ = indicesBuffers ? _fbb.CreateVectorOfStructs<org::apache::arrow::flatbuf::Buffer>(*indicesBuffers) : 0;
+  auto axisOrder__ = axisOrder ? _fbb.CreateVector<int32_t>(*axisOrder) : 0;
+  return org::apache::arrow::flatbuf::CreateSparseTensorIndexCSF(
+      _fbb,
+      indptrType,
+      indptrBuffers__,
+      indicesType,
+      indicesBuffers__,
+      axisOrder__);
+}
+
 struct SparseTensor FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SparseTensorBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TYPE_TYPE = 4,
     VT_TYPE = 6,
@@ -340,8 +532,8 @@ struct SparseTensor FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_SPARSEINDEX = 14,
     VT_DATA = 16
   };
-  Type type_type() const {
-    return static_cast<Type>(GetField<uint8_t>(VT_TYPE_TYPE, 0));
+  org::apache::arrow::flatbuf::Type type_type() const {
+    return static_cast<org::apache::arrow::flatbuf::Type>(GetField<uint8_t>(VT_TYPE_TYPE, 0));
   }
   /// The type of data contained in a value cell.
   /// Currently only fixed-width value types are supported,
@@ -350,94 +542,97 @@ struct SparseTensor FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return GetPointer<const void *>(VT_TYPE);
   }
   template<typename T> const T *type_as() const;
-  const Null *type_as_Null() const {
-    return type_type() == Type::Null ? static_cast<const Null *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::Null *type_as_Null() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::Null ? static_cast<const org::apache::arrow::flatbuf::Null *>(type()) : nullptr;
   }
-  const Int *type_as_Int() const {
-    return type_type() == Type::Int ? static_cast<const Int *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::Int *type_as_Int() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::Int ? static_cast<const org::apache::arrow::flatbuf::Int *>(type()) : nullptr;
   }
-  const FloatingPoint *type_as_FloatingPoint() const {
-    return type_type() == Type::FloatingPoint ? static_cast<const FloatingPoint *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::FloatingPoint *type_as_FloatingPoint() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::FloatingPoint ? static_cast<const org::apache::arrow::flatbuf::FloatingPoint *>(type()) : nullptr;
   }
-  const Binary *type_as_Binary() const {
-    return type_type() == Type::Binary ? static_cast<const Binary *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::Binary *type_as_Binary() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::Binary ? static_cast<const org::apache::arrow::flatbuf::Binary *>(type()) : nullptr;
   }
-  const Utf8 *type_as_Utf8() const {
-    return type_type() == Type::Utf8 ? static_cast<const Utf8 *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::Utf8 *type_as_Utf8() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::Utf8 ? static_cast<const org::apache::arrow::flatbuf::Utf8 *>(type()) : nullptr;
   }
-  const Bool *type_as_Bool() const {
-    return type_type() == Type::Bool ? static_cast<const Bool *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::Bool *type_as_Bool() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::Bool ? static_cast<const org::apache::arrow::flatbuf::Bool *>(type()) : nullptr;
   }
-  const Decimal *type_as_Decimal() const {
-    return type_type() == Type::Decimal ? static_cast<const Decimal *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::Decimal *type_as_Decimal() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::Decimal ? static_cast<const org::apache::arrow::flatbuf::Decimal *>(type()) : nullptr;
   }
-  const Date *type_as_Date() const {
-    return type_type() == Type::Date ? static_cast<const Date *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::Date *type_as_Date() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::Date ? static_cast<const org::apache::arrow::flatbuf::Date *>(type()) : nullptr;
   }
-  const Time *type_as_Time() const {
-    return type_type() == Type::Time ? static_cast<const Time *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::Time *type_as_Time() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::Time ? static_cast<const org::apache::arrow::flatbuf::Time *>(type()) : nullptr;
   }
-  const Timestamp *type_as_Timestamp() const {
-    return type_type() == Type::Timestamp ? static_cast<const Timestamp *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::Timestamp *type_as_Timestamp() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::Timestamp ? static_cast<const org::apache::arrow::flatbuf::Timestamp *>(type()) : nullptr;
   }
-  const Interval *type_as_Interval() const {
-    return type_type() == Type::Interval ? static_cast<const Interval *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::Interval *type_as_Interval() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::Interval ? static_cast<const org::apache::arrow::flatbuf::Interval *>(type()) : nullptr;
   }
-  const List *type_as_List() const {
-    return type_type() == Type::List ? static_cast<const List *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::List *type_as_List() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::List ? static_cast<const org::apache::arrow::flatbuf::List *>(type()) : nullptr;
   }
-  const Struct_ *type_as_Struct_() const {
-    return type_type() == Type::Struct_ ? static_cast<const Struct_ *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::Struct_ *type_as_Struct_() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::Struct_ ? static_cast<const org::apache::arrow::flatbuf::Struct_ *>(type()) : nullptr;
   }
-  const Union *type_as_Union() const {
-    return type_type() == Type::Union ? static_cast<const Union *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::Union *type_as_Union() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::Union ? static_cast<const org::apache::arrow::flatbuf::Union *>(type()) : nullptr;
   }
-  const FixedSizeBinary *type_as_FixedSizeBinary() const {
-    return type_type() == Type::FixedSizeBinary ? static_cast<const FixedSizeBinary *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::FixedSizeBinary *type_as_FixedSizeBinary() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::FixedSizeBinary ? static_cast<const org::apache::arrow::flatbuf::FixedSizeBinary *>(type()) : nullptr;
   }
-  const FixedSizeList *type_as_FixedSizeList() const {
-    return type_type() == Type::FixedSizeList ? static_cast<const FixedSizeList *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::FixedSizeList *type_as_FixedSizeList() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::FixedSizeList ? static_cast<const org::apache::arrow::flatbuf::FixedSizeList *>(type()) : nullptr;
   }
-  const Map *type_as_Map() const {
-    return type_type() == Type::Map ? static_cast<const Map *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::Map *type_as_Map() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::Map ? static_cast<const org::apache::arrow::flatbuf::Map *>(type()) : nullptr;
   }
-  const Duration *type_as_Duration() const {
-    return type_type() == Type::Duration ? static_cast<const Duration *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::Duration *type_as_Duration() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::Duration ? static_cast<const org::apache::arrow::flatbuf::Duration *>(type()) : nullptr;
   }
-  const LargeBinary *type_as_LargeBinary() const {
-    return type_type() == Type::LargeBinary ? static_cast<const LargeBinary *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::LargeBinary *type_as_LargeBinary() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::LargeBinary ? static_cast<const org::apache::arrow::flatbuf::LargeBinary *>(type()) : nullptr;
   }
-  const LargeUtf8 *type_as_LargeUtf8() const {
-    return type_type() == Type::LargeUtf8 ? static_cast<const LargeUtf8 *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::LargeUtf8 *type_as_LargeUtf8() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::LargeUtf8 ? static_cast<const org::apache::arrow::flatbuf::LargeUtf8 *>(type()) : nullptr;
   }
-  const LargeList *type_as_LargeList() const {
-    return type_type() == Type::LargeList ? static_cast<const LargeList *>(type()) : nullptr;
+  const org::apache::arrow::flatbuf::LargeList *type_as_LargeList() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::LargeList ? static_cast<const org::apache::arrow::flatbuf::LargeList *>(type()) : nullptr;
   }
   /// The dimensions of the tensor, optionally named.
-  const flatbuffers::Vector<flatbuffers::Offset<TensorDim>> *shape() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<TensorDim>> *>(VT_SHAPE);
+  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>> *shape() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>> *>(VT_SHAPE);
   }
   /// The number of non-zero values in a sparse tensor.
   int64_t non_zero_length() const {
     return GetField<int64_t>(VT_NON_ZERO_LENGTH, 0);
   }
-  SparseTensorIndex sparseIndex_type() const {
-    return static_cast<SparseTensorIndex>(GetField<uint8_t>(VT_SPARSEINDEX_TYPE, 0));
+  org::apache::arrow::flatbuf::SparseTensorIndex sparseIndex_type() const {
+    return static_cast<org::apache::arrow::flatbuf::SparseTensorIndex>(GetField<uint8_t>(VT_SPARSEINDEX_TYPE, 0));
   }
   /// Sparse tensor index
   const void *sparseIndex() const {
     return GetPointer<const void *>(VT_SPARSEINDEX);
   }
   template<typename T> const T *sparseIndex_as() const;
-  const SparseTensorIndexCOO *sparseIndex_as_SparseTensorIndexCOO() const {
-    return sparseIndex_type() == SparseTensorIndex::SparseTensorIndexCOO ? static_cast<const SparseTensorIndexCOO *>(sparseIndex()) : nullptr;
+  const org::apache::arrow::flatbuf::SparseTensorIndexCOO *sparseIndex_as_SparseTensorIndexCOO() const {
+    return sparseIndex_type() == org::apache::arrow::flatbuf::SparseTensorIndex::SparseTensorIndexCOO ? static_cast<const org::apache::arrow::flatbuf::SparseTensorIndexCOO *>(sparseIndex()) : nullptr;
   }
-  const SparseMatrixIndexCSX *sparseIndex_as_SparseMatrixIndexCSX() const {
-    return sparseIndex_type() == SparseTensorIndex::SparseMatrixIndexCSX ? static_cast<const SparseMatrixIndexCSX *>(sparseIndex()) : nullptr;
+  const org::apache::arrow::flatbuf::SparseMatrixIndexCSX *sparseIndex_as_SparseMatrixIndexCSX() const {
+    return sparseIndex_type() == org::apache::arrow::flatbuf::SparseTensorIndex::SparseMatrixIndexCSX ? static_cast<const org::apache::arrow::flatbuf::SparseMatrixIndexCSX *>(sparseIndex()) : nullptr;
+  }
+  const org::apache::arrow::flatbuf::SparseTensorIndexCSF *sparseIndex_as_SparseTensorIndexCSF() const {
+    return sparseIndex_type() == org::apache::arrow::flatbuf::SparseTensorIndex::SparseTensorIndexCSF ? static_cast<const org::apache::arrow::flatbuf::SparseTensorIndexCSF *>(sparseIndex()) : nullptr;
   }
   /// The location and size of the tensor's data
-  const Buffer *data() const {
-    return GetStruct<const Buffer *>(VT_DATA);
+  const org::apache::arrow::flatbuf::Buffer *data() const {
+    return GetStruct<const org::apache::arrow::flatbuf::Buffer *>(VT_DATA);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -451,125 +646,130 @@ struct SparseTensor FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint8_t>(verifier, VT_SPARSEINDEX_TYPE) &&
            VerifyOffsetRequired(verifier, VT_SPARSEINDEX) &&
            VerifySparseTensorIndex(verifier, sparseIndex(), sparseIndex_type()) &&
-           VerifyFieldRequired<Buffer>(verifier, VT_DATA) &&
+           VerifyFieldRequired<org::apache::arrow::flatbuf::Buffer>(verifier, VT_DATA) &&
            verifier.EndTable();
   }
 };
 
-template<> inline const Null *SparseTensor::type_as<Null>() const {
+template<> inline const org::apache::arrow::flatbuf::Null *SparseTensor::type_as<org::apache::arrow::flatbuf::Null>() const {
   return type_as_Null();
 }
 
-template<> inline const Int *SparseTensor::type_as<Int>() const {
+template<> inline const org::apache::arrow::flatbuf::Int *SparseTensor::type_as<org::apache::arrow::flatbuf::Int>() const {
   return type_as_Int();
 }
 
-template<> inline const FloatingPoint *SparseTensor::type_as<FloatingPoint>() const {
+template<> inline const org::apache::arrow::flatbuf::FloatingPoint *SparseTensor::type_as<org::apache::arrow::flatbuf::FloatingPoint>() const {
   return type_as_FloatingPoint();
 }
 
-template<> inline const Binary *SparseTensor::type_as<Binary>() const {
+template<> inline const org::apache::arrow::flatbuf::Binary *SparseTensor::type_as<org::apache::arrow::flatbuf::Binary>() const {
   return type_as_Binary();
 }
 
-template<> inline const Utf8 *SparseTensor::type_as<Utf8>() const {
+template<> inline const org::apache::arrow::flatbuf::Utf8 *SparseTensor::type_as<org::apache::arrow::flatbuf::Utf8>() const {
   return type_as_Utf8();
 }
 
-template<> inline const Bool *SparseTensor::type_as<Bool>() const {
+template<> inline const org::apache::arrow::flatbuf::Bool *SparseTensor::type_as<org::apache::arrow::flatbuf::Bool>() const {
   return type_as_Bool();
 }
 
-template<> inline const Decimal *SparseTensor::type_as<Decimal>() const {
+template<> inline const org::apache::arrow::flatbuf::Decimal *SparseTensor::type_as<org::apache::arrow::flatbuf::Decimal>() const {
   return type_as_Decimal();
 }
 
-template<> inline const Date *SparseTensor::type_as<Date>() const {
+template<> inline const org::apache::arrow::flatbuf::Date *SparseTensor::type_as<org::apache::arrow::flatbuf::Date>() const {
   return type_as_Date();
 }
 
-template<> inline const Time *SparseTensor::type_as<Time>() const {
+template<> inline const org::apache::arrow::flatbuf::Time *SparseTensor::type_as<org::apache::arrow::flatbuf::Time>() const {
   return type_as_Time();
 }
 
-template<> inline const Timestamp *SparseTensor::type_as<Timestamp>() const {
+template<> inline const org::apache::arrow::flatbuf::Timestamp *SparseTensor::type_as<org::apache::arrow::flatbuf::Timestamp>() const {
   return type_as_Timestamp();
 }
 
-template<> inline const Interval *SparseTensor::type_as<Interval>() const {
+template<> inline const org::apache::arrow::flatbuf::Interval *SparseTensor::type_as<org::apache::arrow::flatbuf::Interval>() const {
   return type_as_Interval();
 }
 
-template<> inline const List *SparseTensor::type_as<List>() const {
+template<> inline const org::apache::arrow::flatbuf::List *SparseTensor::type_as<org::apache::arrow::flatbuf::List>() const {
   return type_as_List();
 }
 
-template<> inline const Struct_ *SparseTensor::type_as<Struct_>() const {
+template<> inline const org::apache::arrow::flatbuf::Struct_ *SparseTensor::type_as<org::apache::arrow::flatbuf::Struct_>() const {
   return type_as_Struct_();
 }
 
-template<> inline const Union *SparseTensor::type_as<Union>() const {
+template<> inline const org::apache::arrow::flatbuf::Union *SparseTensor::type_as<org::apache::arrow::flatbuf::Union>() const {
   return type_as_Union();
 }
 
-template<> inline const FixedSizeBinary *SparseTensor::type_as<FixedSizeBinary>() const {
+template<> inline const org::apache::arrow::flatbuf::FixedSizeBinary *SparseTensor::type_as<org::apache::arrow::flatbuf::FixedSizeBinary>() const {
   return type_as_FixedSizeBinary();
 }
 
-template<> inline const FixedSizeList *SparseTensor::type_as<FixedSizeList>() const {
+template<> inline const org::apache::arrow::flatbuf::FixedSizeList *SparseTensor::type_as<org::apache::arrow::flatbuf::FixedSizeList>() const {
   return type_as_FixedSizeList();
 }
 
-template<> inline const Map *SparseTensor::type_as<Map>() const {
+template<> inline const org::apache::arrow::flatbuf::Map *SparseTensor::type_as<org::apache::arrow::flatbuf::Map>() const {
   return type_as_Map();
 }
 
-template<> inline const Duration *SparseTensor::type_as<Duration>() const {
+template<> inline const org::apache::arrow::flatbuf::Duration *SparseTensor::type_as<org::apache::arrow::flatbuf::Duration>() const {
   return type_as_Duration();
 }
 
-template<> inline const LargeBinary *SparseTensor::type_as<LargeBinary>() const {
+template<> inline const org::apache::arrow::flatbuf::LargeBinary *SparseTensor::type_as<org::apache::arrow::flatbuf::LargeBinary>() const {
   return type_as_LargeBinary();
 }
 
-template<> inline const LargeUtf8 *SparseTensor::type_as<LargeUtf8>() const {
+template<> inline const org::apache::arrow::flatbuf::LargeUtf8 *SparseTensor::type_as<org::apache::arrow::flatbuf::LargeUtf8>() const {
   return type_as_LargeUtf8();
 }
 
-template<> inline const LargeList *SparseTensor::type_as<LargeList>() const {
+template<> inline const org::apache::arrow::flatbuf::LargeList *SparseTensor::type_as<org::apache::arrow::flatbuf::LargeList>() const {
   return type_as_LargeList();
 }
 
-template<> inline const SparseTensorIndexCOO *SparseTensor::sparseIndex_as<SparseTensorIndexCOO>() const {
+template<> inline const org::apache::arrow::flatbuf::SparseTensorIndexCOO *SparseTensor::sparseIndex_as<org::apache::arrow::flatbuf::SparseTensorIndexCOO>() const {
   return sparseIndex_as_SparseTensorIndexCOO();
 }
 
-template<> inline const SparseMatrixIndexCSX *SparseTensor::sparseIndex_as<SparseMatrixIndexCSX>() const {
+template<> inline const org::apache::arrow::flatbuf::SparseMatrixIndexCSX *SparseTensor::sparseIndex_as<org::apache::arrow::flatbuf::SparseMatrixIndexCSX>() const {
   return sparseIndex_as_SparseMatrixIndexCSX();
 }
 
+template<> inline const org::apache::arrow::flatbuf::SparseTensorIndexCSF *SparseTensor::sparseIndex_as<org::apache::arrow::flatbuf::SparseTensorIndexCSF>() const {
+  return sparseIndex_as_SparseTensorIndexCSF();
+}
+
 struct SparseTensorBuilder {
+  typedef SparseTensor Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_type_type(Type type_type) {
+  void add_type_type(org::apache::arrow::flatbuf::Type type_type) {
     fbb_.AddElement<uint8_t>(SparseTensor::VT_TYPE_TYPE, static_cast<uint8_t>(type_type), 0);
   }
   void add_type(flatbuffers::Offset<void> type) {
     fbb_.AddOffset(SparseTensor::VT_TYPE, type);
   }
-  void add_shape(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<TensorDim>>> shape) {
+  void add_shape(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>>> shape) {
     fbb_.AddOffset(SparseTensor::VT_SHAPE, shape);
   }
   void add_non_zero_length(int64_t non_zero_length) {
     fbb_.AddElement<int64_t>(SparseTensor::VT_NON_ZERO_LENGTH, non_zero_length, 0);
   }
-  void add_sparseIndex_type(SparseTensorIndex sparseIndex_type) {
+  void add_sparseIndex_type(org::apache::arrow::flatbuf::SparseTensorIndex sparseIndex_type) {
     fbb_.AddElement<uint8_t>(SparseTensor::VT_SPARSEINDEX_TYPE, static_cast<uint8_t>(sparseIndex_type), 0);
   }
   void add_sparseIndex(flatbuffers::Offset<void> sparseIndex) {
     fbb_.AddOffset(SparseTensor::VT_SPARSEINDEX, sparseIndex);
   }
-  void add_data(const Buffer *data) {
+  void add_data(const org::apache::arrow::flatbuf::Buffer *data) {
     fbb_.AddStruct(SparseTensor::VT_DATA, data);
   }
   explicit SparseTensorBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -590,13 +790,13 @@ struct SparseTensorBuilder {
 
 inline flatbuffers::Offset<SparseTensor> CreateSparseTensor(
     flatbuffers::FlatBufferBuilder &_fbb,
-    Type type_type = Type::NONE,
+    org::apache::arrow::flatbuf::Type type_type = org::apache::arrow::flatbuf::Type::NONE,
     flatbuffers::Offset<void> type = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<TensorDim>>> shape = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>>> shape = 0,
     int64_t non_zero_length = 0,
-    SparseTensorIndex sparseIndex_type = SparseTensorIndex::NONE,
+    org::apache::arrow::flatbuf::SparseTensorIndex sparseIndex_type = org::apache::arrow::flatbuf::SparseTensorIndex::NONE,
     flatbuffers::Offset<void> sparseIndex = 0,
-    const Buffer *data = 0) {
+    const org::apache::arrow::flatbuf::Buffer *data = 0) {
   SparseTensorBuilder builder_(_fbb);
   builder_.add_non_zero_length(non_zero_length);
   builder_.add_data(data);
@@ -610,14 +810,14 @@ inline flatbuffers::Offset<SparseTensor> CreateSparseTensor(
 
 inline flatbuffers::Offset<SparseTensor> CreateSparseTensorDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    Type type_type = Type::NONE,
+    org::apache::arrow::flatbuf::Type type_type = org::apache::arrow::flatbuf::Type::NONE,
     flatbuffers::Offset<void> type = 0,
-    const std::vector<flatbuffers::Offset<TensorDim>> *shape = nullptr,
+    const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>> *shape = nullptr,
     int64_t non_zero_length = 0,
-    SparseTensorIndex sparseIndex_type = SparseTensorIndex::NONE,
+    org::apache::arrow::flatbuf::SparseTensorIndex sparseIndex_type = org::apache::arrow::flatbuf::SparseTensorIndex::NONE,
     flatbuffers::Offset<void> sparseIndex = 0,
-    const Buffer *data = 0) {
-  auto shape__ = shape ? _fbb.CreateVector<flatbuffers::Offset<TensorDim>>(*shape) : 0;
+    const org::apache::arrow::flatbuf::Buffer *data = 0) {
+  auto shape__ = shape ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>>(*shape) : 0;
   return org::apache::arrow::flatbuf::CreateSparseTensor(
       _fbb,
       type_type,
@@ -635,14 +835,18 @@ inline bool VerifySparseTensorIndex(flatbuffers::Verifier &verifier, const void 
       return true;
     }
     case SparseTensorIndex::SparseTensorIndexCOO: {
-      auto ptr = reinterpret_cast<const SparseTensorIndexCOO *>(obj);
+      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::SparseTensorIndexCOO *>(obj);
       return verifier.VerifyTable(ptr);
     }
     case SparseTensorIndex::SparseMatrixIndexCSX: {
-      auto ptr = reinterpret_cast<const SparseMatrixIndexCSX *>(obj);
+      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::SparseMatrixIndexCSX *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    default: return false;
+    case SparseTensorIndex::SparseTensorIndexCSF: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::SparseTensorIndexCSF *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    default: return true;
   }
 }
 

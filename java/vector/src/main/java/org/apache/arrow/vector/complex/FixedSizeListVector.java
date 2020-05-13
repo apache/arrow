@@ -29,6 +29,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
@@ -57,8 +58,6 @@ import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 import org.apache.arrow.vector.util.TransferPair;
-
-import io.netty.buffer.ArrowBuf;
 
 /** A ListVector where every list value is of the same size. */
 public class FixedSizeListVector extends BaseValueVector implements BaseListVector, PromotableVector {
@@ -590,10 +589,8 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
 
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      Preconditions.checkArgument(startIndex >= 0 && startIndex < valueCount,
-          "Invalid startIndex: %s", startIndex);
-      Preconditions.checkArgument(startIndex + length <= valueCount,
-          "Invalid length: %s", length);
+      Preconditions.checkArgument(startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
+          "Invalid parameters startIndex: %s, length: %s for valueCount: %s", startIndex, length, valueCount);
       final int startPoint = listSize * startIndex;
       final int sliceLength = listSize * length;
       to.clear();

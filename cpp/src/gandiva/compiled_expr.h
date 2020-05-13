@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_COMPILED_EXPR_H
-#define GANDIVA_COMPILED_EXPR_H
+#pragma once
 
 #include <vector>
 #include "gandiva/llvm_includes.h"
@@ -70,5 +69,3 @@ class CompiledExpr {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_COMPILED_EXPR_H

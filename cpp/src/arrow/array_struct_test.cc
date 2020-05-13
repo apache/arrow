@@ -51,7 +51,7 @@ void ValidateBasicStructArray(const StructArray* result,
   auto char_arr = std::dynamic_pointer_cast<Int8Array>(list_char_arr->values());
   auto int32_arr = std::dynamic_pointer_cast<Int32Array>(result->field(1));
 
-  ASSERT_EQ(nullptr, result->GetFieldByName("non-existing"));
+  ASSERT_EQ(nullptr, result->GetFieldByName("nonexistent"));
   ASSERT_TRUE(list_char_arr->Equals(result->GetFieldByName("list")));
   ASSERT_TRUE(int32_arr->Equals(result->GetFieldByName("int")));
 
@@ -193,6 +193,24 @@ TEST(StructArray, Validate) {
   // Offset > child length
   arr = std::make_shared<StructArray>(type, 0, children, nullptr, 0, /*offset=*/3);
   ASSERT_RAISES(Invalid, arr->ValidateFull());
+}
+
+/// ARROW-7740: Flattening a slice shouldn't affect the parent array.
+TEST(StructArray, FlattenOfSlice) {
+  auto a = ArrayFromJSON(int32(), "[4, 5]");
+  auto type = struct_({field("a", int32())});
+  auto children = std::vector<std::shared_ptr<Array>>{a};
+
+  auto arr = std::make_shared<StructArray>(type, 2, children);
+  ASSERT_OK(arr->ValidateFull());
+
+  auto slice = internal::checked_pointer_cast<StructArray>(arr->Slice(0, 1));
+  ASSERT_OK(slice->ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(auto flattened, slice->Flatten(default_memory_pool()));
+
+  ASSERT_OK(slice->ValidateFull());
+  ASSERT_OK(arr->ValidateFull());
 }
 
 // ----------------------------------------------------------------------------------

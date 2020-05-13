@@ -43,14 +43,6 @@ struct data {
 }  // namespace r
 }  // namespace arrow
 
-#define STOP_IF_NOT(TEST, MSG)    \
-  do {                            \
-    if (!(TEST)) Rcpp::stop(MSG); \
-  } while (0)
-
-#define STOP_IF_NOT_OK(status) StopIfNotOk(status)
-#define VALUE_OR_STOP(result) ValueOrStop(result)
-
 template <typename T>
 struct NoDelete {
   inline void operator()(T* ptr) {}
@@ -203,6 +195,7 @@ inline std::shared_ptr<T> extract(SEXP x) {
 #include <arrow/dataset/api.h>
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/filesystem/localfs.h>
+#include <arrow/filesystem/s3fs.h>
 #include <arrow/io/compressed.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
@@ -212,8 +205,10 @@ inline std::shared_ptr<T> extract(SEXP x) {
 #include <arrow/json/reader.h>
 #include <arrow/result.h>
 #include <arrow/type.h>
+#include <arrow/type_fwd.h>
 #include <arrow/util/checked_cast.h>
 #include <arrow/util/compression.h>
+#include <arrow/util/iterator.h>
 #include <arrow/util/ubsan.h>
 #include <arrow/visitor_inline.h>
 #include <parquet/arrow/reader.h>
@@ -241,16 +236,16 @@ namespace fs = ::arrow::fs;
 
 namespace arrow {
 
-template <typename R>
-auto ValueOrStop(R&& result) -> decltype(std::forward<R>(result).ValueOrDie()) {
-  STOP_IF_NOT_OK(result.status());
-  return std::forward<R>(result).ValueOrDie();
-}
-
 static inline void StopIfNotOk(const Status& status) {
   if (!(status.ok())) {
     Rcpp::stop(status.ToString());
   }
+}
+
+template <typename R>
+auto ValueOrStop(R&& result) -> decltype(std::forward<R>(result).ValueOrDie()) {
+  StopIfNotOk(result.status());
+  return std::forward<R>(result).ValueOrDie();
 }
 
 namespace r {

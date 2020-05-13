@@ -315,6 +315,7 @@ class RowGroupRecordBatchReader : public ::arrow::RecordBatchReader {
     if (!reader->manifest_.GetFieldIndices(column_indices, &field_indices)) {
       return Status::Invalid("Invalid column index");
     }
+
     std::vector<std::unique_ptr<ColumnReaderImpl>> field_readers(field_indices.size());
     std::vector<std::shared_ptr<Field>> fields;
 
@@ -551,12 +552,12 @@ class PARQUET_NO_EXPORT StructReader : public ColumnReaderImpl {
 
 Status StructReader::DefLevelsToNullArray(std::shared_ptr<Buffer>* null_bitmap_out,
                                           int64_t* null_count_out) {
-  std::shared_ptr<Buffer> null_bitmap;
   auto null_count = 0;
   const int16_t* def_levels_data;
   int64_t def_levels_length;
   RETURN_NOT_OK(GetDefLevels(&def_levels_data, &def_levels_length));
-  RETURN_NOT_OK(AllocateEmptyBitmap(ctx_->pool, def_levels_length, &null_bitmap));
+  ARROW_ASSIGN_OR_RAISE(auto null_bitmap,
+                        AllocateEmptyBitmap(def_levels_length, ctx_->pool));
   uint8_t* null_bitmap_ptr = null_bitmap->mutable_data();
   for (int64_t i = 0; i < def_levels_length; i++) {
     if (def_levels_data[i] < struct_def_level_) {
@@ -597,7 +598,7 @@ Status StructReader::GetDefLevels(const int16_t** data, int64_t* length) {
     }
     RETURN_NOT_OK(children_[child_index]->GetDefLevels(&child_def_levels, &child_length));
     auto size = child_length * sizeof(int16_t);
-    RETURN_NOT_OK(AllocateResizableBuffer(ctx_->pool, size, &def_levels_buffer_));
+    ARROW_ASSIGN_OR_RAISE(def_levels_buffer_, AllocateResizableBuffer(size, ctx_->pool));
     // Initialize with the minimal def level
     std::memset(def_levels_buffer_->mutable_data(), -1, size);
     result_levels = reinterpret_cast<int16_t*>(def_levels_buffer_->mutable_data());
@@ -704,6 +705,9 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>&
 
   auto type_id = field.field->type()->id();
   if (field.children.size() == 0) {
+    if (!field.is_leaf()) {
+      return Status::Invalid("Parquet non-leaf node has no children");
+    }
     std::unique_ptr<FileColumnIterator> input(
         ctx->iterator_factory(field.column_index, ctx->reader));
     out->reset(new LeafReader(ctx, field.field, std::move(input)));
@@ -770,6 +774,15 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_group_in
   for (auto row_group_index : row_group_indices) {
     RETURN_NOT_OK(BoundsCheckRowGroup(row_group_index));
   }
+
+  if (reader_properties_.pre_buffer()) {
+    // PARQUET-1698/PARQUET-1820: pre-buffer row groups/column chunks if enabled
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
+    reader_->PreBuffer(row_group_indices, column_indices,
+                       reader_properties_.cache_options());
+    END_PARQUET_CATCH_EXCEPTIONS
+  }
+
   return RowGroupRecordBatchReader::Make(row_group_indices, column_indices, this,
                                          reader_properties_.batch_size(), out);
 }
@@ -780,7 +793,7 @@ Status FileReaderImpl::GetColumn(int i, FileColumnIteratorFactory iterator_facto
   auto ctx = std::make_shared<ReaderContext>();
   ctx->reader = reader_.get();
   ctx->pool = pool_;
-  ctx->iterator_factory = AllRowGroupsFactory();
+  ctx->iterator_factory = iterator_factory;
   ctx->filter_leaves = false;
   std::unique_ptr<ColumnReaderImpl> result;
   RETURN_NOT_OK(GetReader(manifest_.schema_fields[i], ctx, &result));
@@ -798,6 +811,11 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
   std::vector<int> field_indices;
   if (!manifest_.GetFieldIndices(indices, &field_indices)) {
     return Status::Invalid("Invalid column index");
+  }
+
+  // PARQUET-1698/PARQUET-1820: pre-buffer row groups/column chunks if enabled
+  if (reader_properties_.pre_buffer()) {
+    parquet_reader()->PreBuffer(row_groups, indices, reader_properties_.cache_options());
   }
 
   int num_fields = static_cast<int>(field_indices.size());
@@ -906,24 +924,6 @@ Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool*
   FileReaderBuilder builder;
   RETURN_NOT_OK(builder.Open(std::move(file)));
   return builder.memory_pool(pool)->Build(reader);
-}
-
-Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool* pool,
-                const ReaderProperties& props, std::shared_ptr<FileMetaData> metadata,
-                std::unique_ptr<FileReader>* reader) {
-  // Deprecated since 0.15.0
-  FileReaderBuilder builder;
-  RETURN_NOT_OK(builder.Open(std::move(file), props, std::move(metadata)));
-  return builder.memory_pool(pool)->Build(reader);
-}
-
-Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool* pool,
-                const ArrowReaderProperties& properties,
-                std::unique_ptr<FileReader>* reader) {
-  // Deprecated since 0.15.0
-  FileReaderBuilder builder;
-  RETURN_NOT_OK(builder.Open(std::move(file)));
-  return builder.memory_pool(pool)->properties(properties)->Build(reader);
 }
 
 namespace internal {

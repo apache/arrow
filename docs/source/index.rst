@@ -53,10 +53,10 @@ such topics as:
 
    cpp/index
    python/index
-   `Java <https://arrow.apache.org/docs/java/>`_
-   `C GLib <https://arrow.apache.org/docs/c_glib/>`_
-   `JavaScript <https://arrow.apache.org/docs/js/>`_
-   `R <https://arrow.apache.org/docs/r/>`_
+   Java <https://arrow.apache.org/docs/java/>
+   C GLib <https://arrow.apache.org/docs/c_glib/>
+   JavaScript <https://arrow.apache.org/docs/js/>
+   R <https://arrow.apache.org/docs/r/>
 
 .. _toc.development:
 
@@ -69,5 +69,6 @@ such topics as:
    developers/python
    developers/integration
    developers/crossbow
+   developers/docker
    developers/benchmarks
    developers/documentation

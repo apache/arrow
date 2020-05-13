@@ -69,7 +69,9 @@ elif [ -d "/host/tmp/debian.${platform}" ]; then
 else
   run cp -rp "/host/tmp/debian" debian
 fi
-# export DEB_BUILD_OPTIONS=noopt
+DEB_BUILD_OPTIONS="parallel=$(nproc)"
+# DEB_BUILD_OPTIONS="${DEB_BUILD_OPTIONS} noopt"
+export DEB_BUILD_OPTIONS
 if [ "${DEBUG:-no}" = "yes" ]; then
   run debuild -us -uc
 else
@@ -81,6 +83,10 @@ repositories="/host/repositories"
 package_initial=$(echo "${PACKAGE}" | sed -e 's/\(.\).*/\1/')
 pool_dir="${repositories}/${distribution}/pool/${code_name}/${component}/${package_initial}/${PACKAGE}"
 run mkdir -p "${pool_dir}/"
-run cp *.tar.* *.dsc *.deb "${pool_dir}/"
+run cp \
+  *.*deb \
+  *.dsc \
+  *.tar.* \
+  "${pool_dir}/"
 
 run chown -R "$(stat --format "%u:%g" "${repositories}")" "${repositories}"

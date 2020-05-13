@@ -17,8 +17,7 @@
 
 // Compressed stream implementations
 
-#ifndef ARROW_IO_COMPRESSED_H
-#define ARROW_IO_COMPRESSED_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -48,14 +47,6 @@ class ARROW_EXPORT CompressedOutputStream : public OutputStream {
   static Result<std::shared_ptr<CompressedOutputStream>> Make(
       util::Codec* codec, const std::shared_ptr<OutputStream>& raw,
       MemoryPool* pool = default_memory_pool());
-
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Make(util::Codec* codec, const std::shared_ptr<OutputStream>& raw,
-                     std::shared_ptr<CompressedOutputStream>* out);
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Make(MemoryPool* pool, util::Codec* codec,
-                     const std::shared_ptr<OutputStream>& raw,
-                     std::shared_ptr<CompressedOutputStream>* out);
 
   // OutputStream interface
 
@@ -95,14 +86,6 @@ class ARROW_EXPORT CompressedInputStream
       util::Codec* codec, const std::shared_ptr<InputStream>& raw,
       MemoryPool* pool = default_memory_pool());
 
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Make(util::Codec* codec, const std::shared_ptr<InputStream>& raw,
-                     std::shared_ptr<CompressedInputStream>* out);
-  ARROW_DEPRECATED("Use Result-returning overload")
-  static Status Make(MemoryPool* pool, util::Codec* codec,
-                     const std::shared_ptr<InputStream>& raw,
-                     std::shared_ptr<CompressedInputStream>* out);
-
   // InputStream interface
 
   bool closed() const override;
@@ -130,5 +113,3 @@ class ARROW_EXPORT CompressedInputStream
 
 }  // namespace io
 }  // namespace arrow
-
-#endif  // ARROW_IO_COMPRESSED_H

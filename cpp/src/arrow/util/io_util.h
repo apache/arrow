@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_IO_UTIL_H
-#define ARROW_UTIL_IO_UTIL_H
+#pragma once
 
 #ifndef _WIN32
 #define ARROW_HAVE_SIGACTION 1
@@ -161,14 +160,13 @@ Result<bool> CreateDirTree(const PlatformFilename& dir_path);
 /// Return whether the directory existed.
 ARROW_EXPORT
 Result<bool> DeleteDirContents(const PlatformFilename& dir_path,
-                               bool allow_non_existent = true);
+                               bool allow_not_found = true);
 
 /// Delete a directory tree if it exists.
 ///
 /// Return whether the directory existed.
 ARROW_EXPORT
-Result<bool> DeleteDirTree(const PlatformFilename& dir_path,
-                           bool allow_non_existent = true);
+Result<bool> DeleteDirTree(const PlatformFilename& dir_path, bool allow_not_found = true);
 
 // Non-recursively list the contents of the given directory.
 // The returned names are the children's base names, not including dir_path.
@@ -179,8 +177,7 @@ Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path);
 ///
 /// Return whether the file existed.
 ARROW_EXPORT
-Result<bool> DeleteFile(const PlatformFilename& file_path,
-                        bool allow_non_existent = true);
+Result<bool> DeleteFile(const PlatformFilename& file_path, bool allow_not_found = true);
 
 /// Return whether a file exists.
 ARROW_EXPORT
@@ -226,6 +223,9 @@ struct Pipe {
 
 ARROW_EXPORT
 Result<Pipe> CreatePipe();
+
+ARROW_EXPORT
+int64_t GetPageSize();
 
 ARROW_EXPORT
 Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
@@ -347,5 +347,3 @@ Result<SignalHandler> SetSignalHandler(int signum, const SignalHandler& handler)
 
 }  // namespace internal
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_IO_UTIL_H

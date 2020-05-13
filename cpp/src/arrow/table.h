@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/record_batch.h"
@@ -42,8 +43,8 @@ class ARROW_EXPORT ChunkedArray {
   explicit ChunkedArray(ArrayVector chunks);
 
   /// \brief Construct a chunked array from a single Array
-  explicit ChunkedArray(const std::shared_ptr<Array>& chunk)
-      : ChunkedArray(ArrayVector({chunk})) {}
+  explicit ChunkedArray(std::shared_ptr<Array> chunk)
+      : ChunkedArray(ArrayVector{std::move(chunk)}) {}
 
   /// \brief Construct a chunked array from a vector of arrays and a data type
   ///
@@ -81,12 +82,18 @@ class ARROW_EXPORT ChunkedArray {
   /// for each struct field
   ///
   /// \param[in] pool The pool for buffer allocations, if any
-  /// \param[out] out The resulting vector of arrays
+  Result<std::vector<std::shared_ptr<ChunkedArray>>> Flatten(
+      MemoryPool* pool = default_memory_pool()) const;
+
+  ARROW_DEPRECATED("Use Result-returning version")
   Status Flatten(MemoryPool* pool, std::vector<std::shared_ptr<ChunkedArray>>* out) const;
 
   /// Construct a zero-copy view of this chunked array with the given
   /// type. Calls Array::View on each constituent chunk. Always succeeds if
   /// there are zero chunks
+  Result<std::shared_ptr<ChunkedArray>> View(const std::shared_ptr<DataType>& type) const;
+
+  ARROW_DEPRECATED("Use Result-returning version")
   Status View(const std::shared_ptr<DataType>& type,
               std::shared_ptr<ChunkedArray>* out) const;
 
@@ -99,6 +106,9 @@ class ARROW_EXPORT ChunkedArray {
   bool Equals(const ChunkedArray& other) const;
   /// \brief Determine if two chunked arrays are equal.
   bool Equals(const std::shared_ptr<ChunkedArray>& other) const;
+
+  /// \return PrettyPrint representation suitable for debugging
+  std::string ToString() const;
 
   /// \brief Perform cheap validation checks to determine obvious inconsistencies
   /// within the chunk array's internal data.
@@ -213,28 +223,38 @@ class ARROW_EXPORT Table {
   virtual ~Table() = default;
 
   /// \brief Construct a Table from schema and columns
+  ///
   /// If columns is zero-length, the table's number of rows is zero
-  /// \param schema The table schema (column types)
-  /// \param columns The table's columns as chunked arrays
-  /// \param num_rows number of rows in table, -1 (default) to infer from columns
-  static std::shared_ptr<Table> Make(
-      const std::shared_ptr<Schema>& schema,
-      const std::vector<std::shared_ptr<ChunkedArray>>& columns, int64_t num_rows = -1);
+  ///
+  /// \param[in] schema The table schema (column types)
+  /// \param[in] columns The table's columns as chunked arrays
+  /// \param[in] num_rows number of rows in table, -1 (default) to infer from columns
+  static std::shared_ptr<Table> Make(std::shared_ptr<Schema> schema,
+                                     std::vector<std::shared_ptr<ChunkedArray>> columns,
+                                     int64_t num_rows = -1);
 
   /// \brief Construct a Table from schema and arrays
-  /// \param schema The table schema (column types)
-  /// \param arrays The table's columns as arrays
-  /// \param num_rows number of rows in table, -1 (default) to infer from columns
-  static std::shared_ptr<Table> Make(const std::shared_ptr<Schema>& schema,
+  ///
+  /// \param[in] schema The table schema (column types)
+  /// \param[in] arrays The table's columns as arrays
+  /// \param[in] num_rows number of rows in table, -1 (default) to infer from columns
+  static std::shared_ptr<Table> Make(std::shared_ptr<Schema> schema,
                                      const std::vector<std::shared_ptr<Array>>& arrays,
                                      int64_t num_rows = -1);
+
+  /// \brief Construct a Table from a RecordBatchReader.
+  ///
+  /// \param[in] reader the arrow::Schema for each batch
+  static Result<std::shared_ptr<Table>> FromRecordBatchReader(RecordBatchReader* reader);
 
   /// \brief Construct a Table from RecordBatches, using schema supplied by the first
   /// RecordBatch.
   ///
   /// \param[in] batches a std::vector of record batches
-  /// \param[out] table the returned table
-  /// \return Status Returns Status::Invalid if there is some problem
+  static Result<std::shared_ptr<Table>> FromRecordBatches(
+      const std::vector<std::shared_ptr<RecordBatch>>& batches);
+
+  ARROW_DEPRECATED("Use Result-returning version")
   static Status FromRecordBatches(
       const std::vector<std::shared_ptr<RecordBatch>>& batches,
       std::shared_ptr<Table>* table);
@@ -244,10 +264,13 @@ class ARROW_EXPORT Table {
   ///
   /// \param[in] schema the arrow::Schema for each batch
   /// \param[in] batches a std::vector of record batches
-  /// \param[out] table the returned table
-  /// \return Status
+  static Result<std::shared_ptr<Table>> FromRecordBatches(
+      std::shared_ptr<Schema> schema,
+      const std::vector<std::shared_ptr<RecordBatch>>& batches);
+
+  ARROW_DEPRECATED("Use Result-returning version")
   static Status FromRecordBatches(
-      const std::shared_ptr<Schema>& schema,
+      std::shared_ptr<Schema> schema,
       const std::vector<std::shared_ptr<RecordBatch>>& batches,
       std::shared_ptr<Table>* table);
 
@@ -255,8 +278,10 @@ class ARROW_EXPORT Table {
   /// for each field of the StructArray.
   ///
   /// \param[in] array a chunked StructArray
-  /// \param[out] table the returned table
-  /// \return Status
+  static Result<std::shared_ptr<Table>> FromChunkedStructArray(
+      const std::shared_ptr<ChunkedArray>& array);
+
+  ARROW_DEPRECATED("Use Result-returning version")
   static Status FromChunkedStructArray(const std::shared_ptr<ChunkedArray>& array,
                                        std::shared_ptr<Table>* table);
 
@@ -298,22 +323,39 @@ class ARROW_EXPORT Table {
   }
 
   /// \brief Remove column from the table, producing a new Table
-  virtual Status RemoveColumn(int i, std::shared_ptr<Table>* out) const = 0;
+  virtual Result<std::shared_ptr<Table>> RemoveColumn(int i) const = 0;
+
+  ARROW_DEPRECATED("Use Result-returning version")
+  Status RemoveColumn(int i, std::shared_ptr<Table>* out) const;
 
   /// \brief Add column to the table, producing a new Table
-  virtual Status AddColumn(int i, std::shared_ptr<Field> field_arg,
-                           std::shared_ptr<ChunkedArray> column,
-                           std::shared_ptr<Table>* out) const = 0;
+  virtual Result<std::shared_ptr<Table>> AddColumn(
+      int i, std::shared_ptr<Field> field_arg,
+      std::shared_ptr<ChunkedArray> column) const = 0;
+
+  ARROW_DEPRECATED("Use Result-returning version")
+  Status AddColumn(int i, std::shared_ptr<Field> field_arg,
+                   std::shared_ptr<ChunkedArray> column,
+                   std::shared_ptr<Table>* out) const;
 
   /// \brief Replace a column in the table, producing a new Table
-  virtual Status SetColumn(int i, std::shared_ptr<Field> field_arg,
-                           std::shared_ptr<ChunkedArray> column,
-                           std::shared_ptr<Table>* out) const = 0;
+  virtual Result<std::shared_ptr<Table>> SetColumn(
+      int i, std::shared_ptr<Field> field_arg,
+      std::shared_ptr<ChunkedArray> column) const = 0;
+
+  ARROW_DEPRECATED("Use Result-returning version")
+  Status SetColumn(int i, std::shared_ptr<Field> field_arg,
+                   std::shared_ptr<ChunkedArray> column,
+                   std::shared_ptr<Table>* out) const;
 
   /// \brief Return names of all columns
   std::vector<std::string> ColumnNames() const;
 
   /// \brief Rename columns with provided names
+  Result<std::shared_ptr<Table>> RenameColumns(
+      const std::vector<std::string>& names) const;
+
+  ARROW_DEPRECATED("Use Result-returning version")
   Status RenameColumns(const std::vector<std::string>& names,
                        std::shared_ptr<Table>* out) const;
 
@@ -329,8 +371,14 @@ class ARROW_EXPORT Table {
   /// struct type will be flattened into multiple columns
   ///
   /// \param[in] pool The pool for buffer allocations, if any
-  /// \param[out] out The returned table
-  virtual Status Flatten(MemoryPool* pool, std::shared_ptr<Table>* out) const = 0;
+  virtual Result<std::shared_ptr<Table>> Flatten(
+      MemoryPool* pool = default_memory_pool()) const = 0;
+
+  ARROW_DEPRECATED("Use Result-returning version")
+  Status Flatten(MemoryPool* pool, std::shared_ptr<Table>* out) const;
+
+  /// \return PrettyPrint representation suitable for debugging
+  std::string ToString() const;
 
   /// \brief Perform cheap validation checks to determine obvious inconsistencies
   /// within the table's schema and internal data.
@@ -360,7 +408,7 @@ class ARROW_EXPORT Table {
   ///
   /// Two tables can be equal only if they have equal schemas.
   /// However, they may be equal even if they have different chunkings.
-  bool Equals(const Table& other, bool check_metadata = true) const;
+  bool Equals(const Table& other, bool check_metadata = false) const;
 
   /// \brief Make a new table by combining the chunks this table has.
   ///
@@ -368,7 +416,10 @@ class ARROW_EXPORT Table {
   /// concatenated into zero or one chunk.
   ///
   /// \param[in] pool The pool for buffer allocations
-  /// \param[out] out The table with chunks combined
+  Result<std::shared_ptr<Table>> CombineChunks(
+      MemoryPool* pool = default_memory_pool()) const;
+
+  ARROW_DEPRECATED("Use Result-returning version")
   Status CombineChunks(MemoryPool* pool, std::shared_ptr<Table>* out) const;
 
  protected:

@@ -549,6 +549,9 @@ std::unique_ptr<Node> Unflatten(const format::SchemaElement* elements, int lengt
 }
 
 std::shared_ptr<SchemaDescriptor> FromParquet(const std::vector<SchemaElement>& schema) {
+  if (schema.empty()) {
+    throw ParquetException("Empty file schema (no root)");
+  }
   std::unique_ptr<Node> root = Unflatten(&schema[0], static_cast<int>(schema.size()));
   std::shared_ptr<SchemaDescriptor> descr = std::make_shared<SchemaDescriptor>();
   descr->Init(std::shared_ptr<GroupNode>(static_cast<GroupNode*>(root.release())));

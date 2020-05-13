@@ -15,7 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Example server implementation for integration testing purposes
+// Server for integration testing.
+
+// Integration testing covers files and scenarios. The former
+// validates that Arrow data survives a round-trip through a Flight
+// service. The latter tests specific features of Arrow Flight.
 
 #include <signal.h>
 #include <iostream>
@@ -33,12 +37,41 @@
 #include "arrow/flight/internal.h"
 #include "arrow/flight/server.h"
 #include "arrow/flight/server_auth.h"
+#include "arrow/flight/test_integration.h"
 #include "arrow/flight/test_util.h"
 
 DEFINE_int32(port, 31337, "Server port to listen on");
+DEFINE_string(scenario, "", "Integration test senario to run");
 
 namespace arrow {
 namespace flight {
+
+struct IntegrationDataset {
+  std::shared_ptr<Schema> schema;
+  std::vector<std::shared_ptr<RecordBatch>> chunks;
+};
+
+class RecordBatchListReader : public RecordBatchReader {
+ public:
+  explicit RecordBatchListReader(IntegrationDataset dataset)
+      : dataset_(dataset), current_(0) {}
+
+  std::shared_ptr<Schema> schema() const override { return dataset_.schema; }
+
+  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
+    if (current_ >= dataset_.chunks.size()) {
+      *batch = nullptr;
+      return Status::OK();
+    }
+    *batch = dataset_.chunks[current_];
+    current_++;
+    return Status::OK();
+  }
+
+ private:
+  IntegrationDataset dataset_;
+  uint64_t current_;
+};
 
 class FlightIntegrationTestServer : public FlightServerBase {
   Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
@@ -54,13 +87,18 @@ class FlightIntegrationTestServer : public FlightServerBase {
       }
       auto flight = data->second;
 
-      FlightEndpoint endpoint1({{request.path[0]}, {}});
+      Location server_location;
+      RETURN_NOT_OK(Location::ForGrpcTcp("127.0.0.1", port(), &server_location));
+      FlightEndpoint endpoint1({{request.path[0]}, {server_location}});
 
       FlightInfo::Data flight_data;
-      RETURN_NOT_OK(internal::SchemaToString(*flight->schema(), &flight_data.schema));
+      RETURN_NOT_OK(internal::SchemaToString(*flight.schema, &flight_data.schema));
       flight_data.descriptor = request;
       flight_data.endpoints = {endpoint1};
-      flight_data.total_records = flight->num_rows();
+      flight_data.total_records = 0;
+      for (const auto& chunk : flight.chunks) {
+        flight_data.total_records += chunk->num_rows();
+      }
       flight_data.total_bytes = -1;
       FlightInfo value(flight_data);
 
@@ -81,7 +119,7 @@ class FlightIntegrationTestServer : public FlightServerBase {
 
     *data_stream = std::unique_ptr<FlightDataStream>(
         new NumberingStream(std::unique_ptr<FlightDataStream>(new RecordBatchStream(
-            std::shared_ptr<RecordBatchReader>(new TableBatchReader(*flight))))));
+            std::shared_ptr<RecordBatchReader>(new RecordBatchListReader(flight))))));
 
     return Status::OK();
   }
@@ -99,45 +137,71 @@ class FlightIntegrationTestServer : public FlightServerBase {
 
     std::string key = descriptor.path[0];
 
-    std::vector<std::shared_ptr<arrow::RecordBatch>> retrieved_chunks;
+    IntegrationDataset dataset;
+    dataset.schema = reader->schema();
     arrow::flight::FlightStreamChunk chunk;
     while (true) {
       RETURN_NOT_OK(reader->Next(&chunk));
       if (chunk.data == nullptr) break;
-      retrieved_chunks.push_back(chunk.data);
+      RETURN_NOT_OK(chunk.data->ValidateFull());
+      dataset.chunks.push_back(chunk.data);
       if (chunk.app_metadata) {
         RETURN_NOT_OK(writer->WriteMetadata(*chunk.app_metadata));
       }
     }
-    std::shared_ptr<arrow::Table> retrieved_data;
-    RETURN_NOT_OK(arrow::Table::FromRecordBatches(reader->schema(), retrieved_chunks,
-                                                  &retrieved_data));
-    uploaded_chunks[key] = retrieved_data;
+    uploaded_chunks[key] = dataset;
     return Status::OK();
   }
 
-  std::unordered_map<std::string, std::shared_ptr<arrow::Table>> uploaded_chunks;
+  std::unordered_map<std::string, IntegrationDataset> uploaded_chunks;
+};
+
+class IntegrationTestScenario : public Scenario {
+ public:
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    server->reset(new FlightIntegrationTestServer());
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override {
+    ARROW_UNUSED(options);
+    return Status::NotImplemented("Not implemented, see test_integration_client.cc");
+  }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    ARROW_UNUSED(client);
+    return Status::NotImplemented("Not implemented, see test_integration_client.cc");
+  }
 };
 
 }  // namespace flight
 }  // namespace arrow
 
-std::unique_ptr<arrow::flight::FlightIntegrationTestServer> g_server;
+std::unique_ptr<arrow::flight::FlightServerBase> g_server;
 
 int main(int argc, char** argv) {
   gflags::SetUsageMessage("Integration testing server for Flight.");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  g_server.reset(new arrow::flight::FlightIntegrationTestServer);
+  std::shared_ptr<arrow::flight::Scenario> scenario;
+
+  if (!FLAGS_scenario.empty()) {
+    ARROW_CHECK_OK(arrow::flight::GetScenario(FLAGS_scenario, &scenario));
+  } else {
+    scenario = std::make_shared<arrow::flight::IntegrationTestScenario>();
+  }
   arrow::flight::Location location;
   ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));
   arrow::flight::FlightServerOptions options(location);
+
+  ARROW_CHECK_OK(scenario->MakeServer(&g_server, &options));
 
   ARROW_CHECK_OK(g_server->Init(options));
   // Exit with a clean error code (0) on SIGTERM
   ARROW_CHECK_OK(g_server->SetShutdownOnSignals({SIGTERM}));
 
-  std::cout << "Server listening on localhost:" << FLAGS_port << std::endl;
+  std::cout << "Server listening on localhost:" << g_server->port() << std::endl;
   ARROW_CHECK_OK(g_server->Serve());
   return 0;
 }

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_LOCAL_BITMAPS_HOLDER_H
-#define GANDIVA_LOCAL_BITMAPS_HOLDER_H
+#pragma once
 
 #include <memory>
 #include <utility>
@@ -49,7 +48,7 @@ class LocalBitMapsHolder {
   /// number of records in the current batch.
   int64_t num_records_;
 
-  /// A container of 'local_bitmaps_', each sized to accomodate 'num_records'.
+  /// A container of 'local_bitmaps_', each sized to accommodate 'num_records'.
   std::vector<std::unique_ptr<uint8_t[]>> local_bitmaps_vec_;
 
   /// An array of the local bitmaps.
@@ -84,5 +83,3 @@ inline LocalBitMapsHolder::LocalBitMapsHolder(int64_t num_records, int num_local
 }
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_LOCAL_BITMAPS_HOLDER_H

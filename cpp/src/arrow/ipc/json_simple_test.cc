@@ -491,14 +491,14 @@ TEST(TestList, IntegerList) {
   ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<Int32Type>({0}, &offsets);
   ArrayFromVector<Int64Type>({}, &values);
-  ASSERT_OK(ListArray::FromArrays(*offsets, *values, pool, &expected));
+  ASSERT_OK_AND_ASSIGN(expected, ListArray::FromArrays(*offsets, *values, pool));
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[[4, 5], [], [6]]", &actual));
   ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<Int32Type>({0, 2, 2, 3}, &offsets);
   ArrayFromVector<Int64Type>({4, 5, 6}, &values);
-  ASSERT_OK(ListArray::FromArrays(*offsets, *values, pool, &expected));
+  ASSERT_OK_AND_ASSIGN(expected, ListArray::FromArrays(*offsets, *values, pool));
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[[], [null], [6, null]]", &actual));
@@ -506,7 +506,7 @@ TEST(TestList, IntegerList) {
   ArrayFromVector<Int32Type>({0, 0, 1, 3}, &offsets);
   auto is_valid = std::vector<bool>{false, true, false};
   ArrayFromVector<Int64Type>(is_valid, {0, 6, 0}, &values);
-  ASSERT_OK(ListArray::FromArrays(*offsets, *values, pool, &expected));
+  ASSERT_OK_AND_ASSIGN(expected, ListArray::FromArrays(*offsets, *values, pool));
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[null, [], null]", &actual));
@@ -541,14 +541,14 @@ TEST(TestList, NullList) {
   ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<Int32Type>({0}, &offsets);
   values = std::make_shared<NullArray>(0);
-  ASSERT_OK(ListArray::FromArrays(*offsets, *values, pool, &expected));
+  ASSERT_OK_AND_ASSIGN(expected, ListArray::FromArrays(*offsets, *values, pool));
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[[], [null], [null, null]]", &actual));
   ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<Int32Type>({0, 0, 1, 3}, &offsets);
   values = std::make_shared<NullArray>(3);
-  ASSERT_OK(ListArray::FromArrays(*offsets, *values, pool, &expected));
+  ASSERT_OK_AND_ASSIGN(expected, ListArray::FromArrays(*offsets, *values, pool));
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[null, [], null]", &actual));
@@ -574,9 +574,9 @@ TEST(TestList, IntegerListList) {
   ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<Int32Type>({0, 1, 3, 6}, &offsets);
   ArrayFromVector<UInt8Type>({4, 5, 6, 7, 8, 9}, &values);
-  ASSERT_OK(ListArray::FromArrays(*offsets, *values, pool, &nested));
+  ASSERT_OK_AND_ASSIGN(nested, ListArray::FromArrays(*offsets, *values, pool));
   ArrayFromVector<Int32Type>({0, 2, 3}, &offsets);
-  ASSERT_OK(ListArray::FromArrays(*offsets, *nested, pool, &expected));
+  ASSERT_OK_AND_ASSIGN(expected, ListArray::FromArrays(*offsets, *nested, pool));
   ASSERT_EQ(actual->length(), 2);
   AssertArraysEqual(*expected, *actual);
 
@@ -584,9 +584,9 @@ TEST(TestList, IntegerListList) {
   ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<Int32Type>({0, 0, 1, 1, 3, 6}, &offsets);
   ArrayFromVector<UInt8Type>({4, 5, 6, 7, 8, 9}, &values);
-  ASSERT_OK(ListArray::FromArrays(*offsets, *values, pool, &nested));
+  ASSERT_OK_AND_ASSIGN(nested, ListArray::FromArrays(*offsets, *values, pool));
   ArrayFromVector<Int32Type>({0, 0, 1, 4, 5}, &offsets);
-  ASSERT_OK(ListArray::FromArrays(*offsets, *nested, pool, &expected));
+  ASSERT_OK_AND_ASSIGN(expected, ListArray::FromArrays(*offsets, *nested, pool));
   ASSERT_EQ(actual->length(), 4);
   AssertArraysEqual(*expected, *actual);
 
@@ -617,7 +617,7 @@ TEST(TestLargeList, Basics) {
   ArrayFromVector<Int64Type>({0, 0, 1, 3}, &offsets);
   auto is_valid = std::vector<bool>{false, true, false};
   ArrayFromVector<Int16Type>(is_valid, {0, 6, 0}, &values);
-  ASSERT_OK(LargeListArray::FromArrays(*offsets, *values, pool, &expected));
+  ASSERT_OK_AND_ASSIGN(expected, LargeListArray::FromArrays(*offsets, *values, pool));
   AssertArraysEqual(*expected, *actual);
 }
 
@@ -1001,10 +1001,9 @@ TEST(TestDenseUnion, Basics) {
   auto expected_a = ArrayFromJSON(int8(), "[122, null]");
   auto expected_b = ArrayFromJSON(boolean(), "[true, false]");
 
-  std::shared_ptr<Array> expected;
-  ASSERT_OK(UnionArray::MakeDense(*expected_types, *expected_offsets,
-                                  {expected_a, expected_b}, {"a", "b"}, {4, 8},
-                                  &expected));
+  ASSERT_OK_AND_ASSIGN(
+      auto expected, UnionArray::MakeDense(*expected_types, *expected_offsets,
+                                           {expected_a, expected_b}, {"a", "b"}, {4, 8}));
 
   ASSERT_ARRAYS_EQUAL(*expected, *array);
 
@@ -1025,9 +1024,9 @@ TEST(TestSparseUnion, Basics) {
   auto expected_a = ArrayFromJSON(int8(), "[122, null, null, null, null]");
   auto expected_b = ArrayFromJSON(boolean(), "[null, true, null, null, false]");
 
-  std::shared_ptr<Array> expected;
-  ASSERT_OK(UnionArray::MakeSparse(*expected_types, {expected_a, expected_b}, {"a", "b"},
-                                   {4, 8}, &expected));
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       UnionArray::MakeSparse(*expected_types, {expected_a, expected_b},
+                                              {"a", "b"}, {4, 8}));
 
   ASSERT_ARRAYS_EQUAL(*expected, *array);
 }
@@ -1049,13 +1048,13 @@ TEST(TestDenseUnion, ListOfUnion) {
   auto expected_a = ArrayFromJSON(int8(), "[122, null]");
   auto expected_b = ArrayFromJSON(boolean(), "[true, false]");
 
-  std::shared_ptr<Array> expected_values, expected;
-  ASSERT_OK(UnionArray::MakeDense(*expected_types, *expected_offsets,
-                                  {expected_a, expected_b}, {"a", "b"}, {4, 8},
-                                  &expected_values));
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_values,
+      UnionArray::MakeDense(*expected_types, *expected_offsets, {expected_a, expected_b},
+                            {"a", "b"}, {4, 8}));
   auto expected_list_offsets = ArrayFromJSON(int32(), "[0, 2, 5]");
-  ASSERT_OK(ListArray::FromArrays(*expected_list_offsets, *expected_values,
-                                  default_memory_pool(), &expected));
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       ListArray::FromArrays(*expected_list_offsets, *expected_values));
 
   ASSERT_ARRAYS_EQUAL(*expected, *array);
 
@@ -1082,12 +1081,12 @@ TEST(TestSparseUnion, ListOfUnion) {
   auto expected_a = ArrayFromJSON(int8(), "[122, null, null, null, null]");
   auto expected_b = ArrayFromJSON(boolean(), "[null, true, null, null, false]");
 
-  std::shared_ptr<Array> expected_values, expected;
-  ASSERT_OK(UnionArray::MakeSparse(*expected_types, {expected_a, expected_b}, {"a", "b"},
-                                   {4, 8}, &expected_values));
+  ASSERT_OK_AND_ASSIGN(auto expected_values,
+                       UnionArray::MakeSparse(*expected_types, {expected_a, expected_b},
+                                              {"a", "b"}, {4, 8}));
   auto expected_list_offsets = ArrayFromJSON(int32(), "[0, 2, 5]");
-  ASSERT_OK(ListArray::FromArrays(*expected_list_offsets, *expected_values,
-                                  default_memory_pool(), &expected));
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       ListArray::FromArrays(*expected_list_offsets, *expected_values));
 
   ASSERT_ARRAYS_EQUAL(*expected, *array);
 }
@@ -1119,9 +1118,10 @@ TEST(TestDenseUnion, UnionOfStructs) {
     ])"),
                                  ArrayFromJSON(fields[2]->type(), "[]")};
 
-  std::shared_ptr<Array> expected;
-  ASSERT_OK(UnionArray::MakeDense(*expected_types, *expected_offsets, expected_fields,
-                                  {"ab", "wtf", "q"}, {0, 23, 47}, &expected));
+  ASSERT_OK_AND_ASSIGN(
+      auto expected,
+      UnionArray::MakeDense(*expected_types, *expected_offsets, expected_fields,
+                            {"ab", "wtf", "q"}, {0, 23, 47}));
 
   ASSERT_ARRAYS_EQUAL(*expected, *array);
 
@@ -1166,9 +1166,9 @@ TEST(TestSparseUnion, UnionOfStructs) {
     ])"),
       ArrayFromJSON(fields[2]->type(), "[null, null, null, null, null]")};
 
-  std::shared_ptr<Array> expected;
-  ASSERT_OK(UnionArray::MakeSparse(*expected_types, expected_fields, {"ab", "wtf", "q"},
-                                   {0, 23, 47}, &expected));
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       UnionArray::MakeSparse(*expected_types, expected_fields,
+                                              {"ab", "wtf", "q"}, {0, 23, 47}));
 
   ASSERT_ARRAYS_EQUAL(*expected, *array);
 }
@@ -1179,10 +1179,14 @@ TEST(TestDenseUnion, Errors) {
   std::shared_ptr<DataType> type = union_({field_a, field_b}, {4, 8}, UnionMode::DENSE);
   std::shared_ptr<Array> array;
 
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"\"]", &array));
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0, 8]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"not a valid type_id\"]", &array));
+  ASSERT_RAISES(Invalid,
+                ArrayFromJSON(type, "[[0, 99]]", &array));  // 0 is not one of {4, 8}
+  ASSERT_RAISES(Invalid,
+                ArrayFromJSON(type, "[[4, \"\"]]", &array));  // "" is not a valid int8()
+
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"not a pair\"]", &array));
   ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0]]", &array));
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[4, \"\"]]", &array));
   ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[8, true, 1]]", &array));
 }
 
@@ -1192,11 +1196,35 @@ TEST(TestSparseUnion, Errors) {
   std::shared_ptr<DataType> type = union_({field_a, field_b}, {4, 8}, UnionMode::SPARSE);
   std::shared_ptr<Array> array;
 
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"\"]", &array));
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0, 8]]", &array));
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"not a valid type_id\"]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0, 99]]", &array));
   ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[4, \"\"]]", &array));
+
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"not a pair\"]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0]]", &array));
   ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[8, true, 1]]", &array));
+}
+
+TEST(TestDictionary, Basics) {
+  auto type = dictionary(int32(), utf8());
+  auto array =
+      DictArrayFromJSON(type, "[null, 2, 1, 0]", R"(["whiskey", "tango", "foxtrot"])");
+
+  auto expected_indices = ArrayFromJSON(int32(), "[null, 2, 1, 0]");
+  auto expected_dictionary = ArrayFromJSON(utf8(), R"(["whiskey", "tango", "foxtrot"])");
+
+  ASSERT_ARRAYS_EQUAL(DictionaryArray(type, expected_indices, expected_dictionary),
+                      *array);
+}
+
+TEST(TestDictionary, Errors) {
+  auto type = dictionary(int32(), utf8());
+  std::shared_ptr<Array> array;
+
+  ASSERT_RAISES(Invalid,
+                DictArrayFromJSON(type, "[\"not a valid index\"]", "[\"\"]", &array));
+  ASSERT_RAISES(Invalid, DictArrayFromJSON(type, "[0, 1]", "[1]",
+                                           &array));  // dict value isn't string
 }
 
 }  // namespace json

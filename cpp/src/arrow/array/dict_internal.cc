@@ -64,14 +64,13 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
     }
     const ArrayType& values = checked_cast<const ArrayType&>(dictionary);
     if (out != nullptr) {
-      std::shared_ptr<Buffer> result;
-      RETURN_NOT_OK(
-          AllocateBuffer(pool_, dictionary.length() * sizeof(int32_t), &result));
+      ARROW_ASSIGN_OR_RAISE(auto result,
+                            AllocateBuffer(dictionary.length() * sizeof(int32_t), pool_));
       auto result_raw = reinterpret_cast<int32_t*>(result->mutable_data());
       for (int64_t i = 0; i < values.length(); ++i) {
         RETURN_NOT_OK(memo_table_.GetOrInsert(values.GetView(i), &result_raw[i]));
       }
-      *out = result;
+      *out = std::move(result);
     } else {
       for (int64_t i = 0; i < values.length(); ++i) {
         int32_t unused_memo_index;
@@ -135,18 +134,24 @@ struct MakeUnifier {
   }
 };
 
-Status DictionaryUnifier::Make(MemoryPool* pool, std::shared_ptr<DataType> value_type,
-                               std::unique_ptr<DictionaryUnifier>* out) {
+Result<std::unique_ptr<DictionaryUnifier>> DictionaryUnifier::Make(
+    std::shared_ptr<DataType> value_type, MemoryPool* pool) {
   MakeUnifier maker(pool, value_type);
   RETURN_NOT_OK(VisitTypeInline(*value_type, &maker));
-  *out = std::move(maker.result);
-  return Status::OK();
+  return std::move(maker.result);
+}
+
+Status DictionaryUnifier::Make(MemoryPool* pool, std::shared_ptr<DataType> value_type,
+                               std::unique_ptr<DictionaryUnifier>* out) {
+  return Make(value_type, pool).Value(out);
 }
 
 // ----------------------------------------------------------------------
 // DictionaryArray transposition
 
-static bool IsTrivialTransposition(const int32_t* transpose_map,
+namespace {
+
+inline bool IsTrivialTransposition(const int32_t* transpose_map,
                                    int64_t input_dict_size) {
   for (int64_t i = 0; i < input_dict_size; ++i) {
     if (transpose_map[i] != i) {
@@ -157,23 +162,22 @@ static bool IsTrivialTransposition(const int32_t* transpose_map,
 }
 
 template <typename InType, typename OutType>
-static Status TransposeDictIndices(MemoryPool* pool, const ArrayData& in_data,
-                                   const int32_t* transpose_map,
-                                   const std::shared_ptr<ArrayData>& out_data,
-                                   std::shared_ptr<Array>* out) {
+Result<std::shared_ptr<Array>> TransposeDictIndices(
+    MemoryPool* pool, const ArrayData& in_data, const int32_t* transpose_map,
+    const std::shared_ptr<ArrayData>& out_data) {
   using in_c_type = typename InType::c_type;
   using out_c_type = typename OutType::c_type;
   internal::TransposeInts(in_data.GetValues<in_c_type>(1),
                           out_data->GetMutableValues<out_c_type>(1), in_data.length,
                           transpose_map);
-  *out = MakeArray(out_data);
-  return Status::OK();
+  return MakeArray(out_data);
 }
 
-Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                                  const std::shared_ptr<Array>& dictionary,
-                                  const int32_t* transpose_map,
-                                  std::shared_ptr<Array>* out) const {
+}  // namespace
+
+Result<std::shared_ptr<Array>> DictionaryArray::Transpose(
+    const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& dictionary,
+    const int32_t* transpose_map, MemoryPool* pool) const {
   if (type->id() != Type::DICTIONARY) {
     return Status::TypeError("Expected dictionary type");
   }
@@ -193,14 +197,13 @@ Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataTy
         ArrayData::Make(type, data_->length, {data_->buffers[0], data_->buffers[1]},
                         data_->null_count, data_->offset);
     out_data->dictionary = dictionary;
-    *out = MakeArray(out_data);
-    return Status::OK();
+    return MakeArray(out_data);
   }
 
   // Default path: compute a buffer of transposed indices.
-  std::shared_ptr<Buffer> out_buffer;
-  RETURN_NOT_OK(AllocateBuffer(
-      pool, data_->length * out_index_type.bit_width() * CHAR_BIT, &out_buffer));
+  ARROW_ASSIGN_OR_RAISE(
+      auto out_buffer,
+      AllocateBuffer(data_->length * out_index_type.bit_width() * CHAR_BIT, pool));
 
   // Shift null buffer if the original offset is non-zero
   std::shared_ptr<Buffer> null_bitmap;
@@ -211,14 +214,14 @@ Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataTy
     null_bitmap = data_->buffers[0];
   }
 
-  auto out_data =
-      ArrayData::Make(type, data_->length, {null_bitmap, out_buffer}, data_->null_count);
+  auto out_data = ArrayData::Make(
+      type, data_->length, {null_bitmap, std::move(out_buffer)}, data_->null_count);
   out_data->dictionary = dictionary;
 
-#define TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, OUT_INDEX_TYPE)    \
-  case OUT_INDEX_TYPE::type_id:                                 \
-    return TransposeDictIndices<IN_INDEX_TYPE, OUT_INDEX_TYPE>( \
-        pool, *data_, transpose_map, out_data, out);
+#define TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, OUT_INDEX_TYPE)                 \
+  case OUT_INDEX_TYPE::type_id:                                              \
+    return TransposeDictIndices<IN_INDEX_TYPE, OUT_INDEX_TYPE>(pool, *data_, \
+                                                               transpose_map, out_data);
 
 #define TRANSPOSE_IN_CASE(IN_INDEX_TYPE)                        \
   case IN_INDEX_TYPE::type_id:                                  \
@@ -241,6 +244,13 @@ Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataTy
   }
 #undef TRANSPOSE_IN_CASE
 #undef TRANSPOSE_IN_OUT_CASE
+}
+
+Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                                  const std::shared_ptr<Array>& dictionary,
+                                  const int32_t* transpose_map,
+                                  std::shared_ptr<Array>* out) const {
+  return Transpose(type, dictionary, transpose_map, pool).Value(out);
 }
 
 }  // namespace arrow

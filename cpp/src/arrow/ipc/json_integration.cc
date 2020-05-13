@@ -18,19 +18,24 @@
 #include "arrow/ipc/json_integration.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 
-#include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/io/file.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/json_internal.h"
-#include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
+
+#include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 
 using std::size_t;
 

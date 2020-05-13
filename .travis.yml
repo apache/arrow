@@ -1,0 +1,103 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+dist: bionic
+
+language: minimal
+
+cache:
+  directories:
+    - $TRAVIS_BUILD_DIR/.docker
+
+addons:
+  apt:
+    packages:
+      - python3-pip
+
+services:
+  - docker
+
+jobs:
+  include:
+    - name: "C++ on ARM"
+      os: linux
+      arch: arm64
+      env:
+        ARCH: arm64v8
+        ARROW_CI_MODULES: "CPP"
+        DOCKER_IMAGE_ID: ubuntu-cpp
+        UBUNTU: "20.04"
+    - name: "C++ on s390x"
+      os: linux
+      arch: s390x
+      env:
+        ARCH: s390x
+        ARROW_CI_MODULES: "CPP"
+        ARROW_FLIGHT: "OFF"
+        ARROW_GANDIVA: "OFF"
+        ARROW_PARQUET: "OFF"
+        PARQUET_BUILD_EXAMPLES: "OFF"
+        PARQUET_BUILD_EXECUTABLES: "OFF"
+        DOCKER_IMAGE_ID: ubuntu-cpp
+        UBUNTU: "20.04"
+  allow_failures:
+    - arch: s390x
+
+env:
+  DOCKER_BUILDKIT: 0
+  COMPOSE_DOCKER_CLI_BUILD: 1
+  ARROW_ENABLE_TIMING_TESTS: "OFF"
+
+before_install:
+  - eval "$(python ci/detect-changes.py)"
+  - |
+    arrow_ci_affected=no
+    for arrow_ci_module in ${ARROW_CI_MODULES}; do
+      arrow_ci_affected_variable=ARROW_CI_${arrow_ci_module}_AFFECTED
+      if [ "$(eval "echo \$${arrow_ci_affected_variable}")" = "1" ]; then
+        arrow_ci_affected=yes
+      fi
+    done
+    if [ "${arrow_ci_affected}" = "no" ]; then
+      travis_terminate 0
+    fi
+
+install:
+  - pip3 install -e dev/archery[docker]
+
+script:
+  - sudo sysctl -w kernel.core_pattern="core.%e.%p"
+  # This isn't allowed on Travis CI:
+  #   /home/travis/.travis/functions: line 109: ulimit: core file size: cannot modify limit: Operation not permitted
+  - |
+    ulimit -c unlimited || :
+  - |
+    archery docker run \
+      -e ARROW_FLIGHT=${ARROW_FLIGHT:-OFF} \
+      -e ARROW_GANDIVA=${ARROW_GANDIVA:-ON} \
+      -e ARROW_PARQUET=${ARROW_PARQUET:-ON} \
+      -e PARQUET_BUILD_EXAMPLES=${PARQUET_BUILD_EXAMPLES:-ON} \
+      -e PARQUET_BUILD_EXECUTABLES=${PARQUET_BUILD_EXECUTABLES:-ON} \
+      --volume ${PWD}/build:/build \
+      ${DOCKER_IMAGE_ID}
+
+after_success:
+  - |
+    if [ "${TRAVIS_EVENT_TYPE}" = "push" -a \
+         "${TRAVIS_REPO_SLUG}" = "apache/arrow" ]; then
+      archery docker push ${DOCKER_IMAGE_ID} || :
+    fi

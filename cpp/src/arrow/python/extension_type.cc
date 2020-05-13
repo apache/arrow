@@ -133,9 +133,8 @@ std::string PyExtensionType::Serialize() const {
   return serialized_;
 }
 
-Status PyExtensionType::Deserialize(std::shared_ptr<DataType> storage_type,
-                                    const std::string& serialized_data,
-                                    std::shared_ptr<DataType>* out) const {
+Result<std::shared_ptr<DataType>> PyExtensionType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized_data) const {
   PyAcquireGIL lock;
 
   if (import_pyarrow()) {
@@ -145,7 +144,7 @@ Status PyExtensionType::Deserialize(std::shared_ptr<DataType> storage_type,
   if (!res) {
     return ConvertPyError();
   }
-  return unwrap_data_type(res.obj(), out);
+  return unwrap_data_type(res.obj());
 }
 
 PyObject* PyExtensionType::GetInstance() const {

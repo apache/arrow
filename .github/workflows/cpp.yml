@@ -21,83 +21,81 @@ on:
   push:
     paths:
       - '.github/workflows/cpp.yml'
-      - 'ci/**'
+      - 'ci/docker/**'
+      - 'ci/scripts/util_*'
+      - 'ci/scripts/msys_*'
+      - 'ci/scripts/cpp_*'
       - 'cpp/**'
+      - 'format/Flight.proto'
   pull_request:
     paths:
       - '.github/workflows/cpp.yml'
-      - 'ci/**'
+      - 'ci/docker/**'
+      - 'ci/scripts/util_*'
+      - 'ci/scripts/msys_*'
+      - 'ci/scripts/cpp_*'
       - 'cpp/**'
+      - 'format/Flight.proto'
 
 env:
+  DOCKER_BUILDKIT: 0
+  COMPOSE_DOCKER_CLI_BUILD: 1
   ARROW_ENABLE_TIMING_TESTS: OFF
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
 
-  conda:
-    name: AMD64 Conda C++
+  docker:
+    name: ${{ matrix.title }}
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v1
-        with:
-          submodules: true
-      - name: Docker Pull
-        shell: bash
-        run: docker-compose pull --ignore-pull-failures conda-cpp
-      - name: Docker Build
-        shell: bash
-        run: docker-compose build conda-cpp
-      - name: Docker Run
-        shell: bash
-        run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
-          docker-compose run conda-cpp
-      - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
-        continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push conda-cpp
-
-  ubuntu-sanitizer:
-    name: AMD64 Ubuntu ${{ matrix.ubuntu }} C++ ASAN UBSAN
-    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
-        ubuntu: [18.04]
-    env:
-      UBUNTU: ${{ matrix.ubuntu }}
+        image:
+          - conda-cpp
+          - ubuntu-cpp-sanitizer
+        include:
+          - image: conda-cpp
+            title: AMD64 Conda C++
+          - image: ubuntu-cpp-sanitizer
+            title: AMD64 Ubuntu 18.04 C++ ASAN UBSAN
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
-      - name: Docker Pull
-        shell: bash
-        run: docker-compose pull --ignore-pull-failures ubuntu-cpp-sanitizer
-      - name: Docker Build
-        shell: bash
-        run: docker-compose build ubuntu-cpp-sanitizer
-      - name: Docker Run
-        shell: bash
-        run: docker-compose run ubuntu-cpp-sanitizer
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
+        with:
+          path: .docker
+          key: ${{ matrix.image }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ${{ matrix.image }}-
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run ${{ matrix.image }}
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push ubuntu-cpp-sanitizer
+        run: archery docker push ${{ matrix.image }}
 
   macos:
     name: AMD64 MacOS 10.15 C++
     runs-on: macos-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
     env:
@@ -124,9 +122,12 @@ jobs:
       Protobuf_SOURCE: BUNDLED
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Install Dependencies
         shell: bash
         run: brew bundle --file=cpp/Brewfile
@@ -149,6 +150,7 @@ jobs:
   windows:
     name: AMD64 ${{ matrix.name }} C++
     runs-on: ${{ matrix.os }}
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -182,8 +184,7 @@ jobs:
       ARROW_BUILD_STATIC: OFF
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
-      BOOST_ROOT: C:\local\boost_1_67_0
-      BOOST_LIBRARYDIR: C:\local\boost_1_67_0\lib64-msvc-14.1\
+      NPROC: 2
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -196,14 +197,19 @@ jobs:
       - name: Installed Packages
         run: choco list -l
       - name: Install Dependencies
-        run: choco install -y --no-progress openssl boost-msvc-14.1
+        run: choco install -y --no-progress openssl
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Build
         shell: bash
-        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+        run: |
+          export BOOST_ROOT=$BOOST_ROOT_1_72_0
+          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
         run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
@@ -211,6 +217,7 @@ jobs:
   windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} C++
     runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
@@ -245,6 +252,7 @@ jobs:
         -DBoost_NO_BOOST_CMAKE=ON
       CMAKE_GENERATOR: MSYS Makefiles
       CMAKE_UNITY_BUILD: ON
+      NPROC: 2
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -256,9 +264,11 @@ jobs:
             /f
       - name: Checkout Arrow
         uses: actions/checkout@v2
-      - name: Checkout submodules
-        run: |
-          git submodule update --init --force --recursive --depth 1
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
       - name: Bootstrap MSYS2
         run: |
           ci\scripts\msys2_bootstrap.ps1 ${{ matrix.mingw-n-bits }}

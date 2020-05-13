@@ -21,7 +21,8 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
+
 import io.netty.util.internal.PlatformDependent;
 
 /**
@@ -73,7 +74,7 @@ public class DecimalUtility {
    */
   public static byte[] getByteArrayFromArrowBuf(ArrowBuf bytebuf, int index) {
     final byte[] value = new byte[DECIMAL_BYTE_LENGTH];
-    final int startIndex = index * DECIMAL_BYTE_LENGTH;
+    final long startIndex = (long) index * DECIMAL_BYTE_LENGTH;
     bytebuf.getBytes(startIndex, value, 0, DECIMAL_BYTE_LENGTH);
     return value;
   }
@@ -127,7 +128,7 @@ public class DecimalUtility {
    * Write the given long to the ArrowBuf at the given value index.
    */
   public static void writeLongToArrowBuf(long value, ArrowBuf bytebuf, int index) {
-    final long addressOfValue = bytebuf.memoryAddress() + index * DECIMAL_BYTE_LENGTH;
+    final long addressOfValue = bytebuf.memoryAddress() + (long) index * DECIMAL_BYTE_LENGTH;
     PlatformDependent.putLong(addressOfValue, value);
     final long padValue = Long.signum(value) == -1 ? -1L : 0L;
     PlatformDependent.putLong(addressOfValue + Long.BYTES, padValue);
@@ -143,7 +144,7 @@ public class DecimalUtility {
   }
 
   private static void writeByteArrayToArrowBufHelper(byte[] bytes, ArrowBuf bytebuf, int index) {
-    final int startIndex = index * DECIMAL_BYTE_LENGTH;
+    final long startIndex = (long) index * DECIMAL_BYTE_LENGTH;
     if (bytes.length > DECIMAL_BYTE_LENGTH) {
       throw new UnsupportedOperationException("Decimal size greater than 16 bytes");
     }

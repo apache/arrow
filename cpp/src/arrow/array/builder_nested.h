@@ -162,7 +162,7 @@ class BaseListBuilder : public ArrayBuilder {
 /// To use this class, you must append values to the child array builder and use
 /// the Append function to delimit each distinct list value (once the values
 /// have been appended to the child array) or use the bulk API to append
-/// a sequence of offests and null values.
+/// a sequence of offsets and null values.
 ///
 /// A note on types.  Per arrow/type.h all types in the c++ implementation are
 /// logical so even though this class always builds list array, this can
@@ -203,7 +203,7 @@ class ARROW_EXPORT LargeListBuilder : public BaseListBuilder<LargeListType> {
 ///
 /// To use this class, you must append values to the key and item array builders
 /// and use the Append function to delimit each distinct map (once the keys and items
-/// have been appended) or use the bulk API to append a sequence of offests and null
+/// have been appended) or use the bulk API to append a sequence of offsets and null
 /// maps.
 ///
 /// Key uniqueness and ordering are not validated.

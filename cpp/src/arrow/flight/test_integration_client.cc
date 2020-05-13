@@ -34,153 +34,188 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"
+#include "arrow/flight/test_integration.h"
 #include "arrow/flight/test_util.h"
 
 DEFINE_string(host, "localhost", "Server port to connect to");
 DEFINE_int32(port, 31337, "Server port to connect to");
 DEFINE_string(path, "", "Resource path to request");
+DEFINE_string(scenario, "", "Integration test scenario to run");
 
-/// \brief Helper to read a MetadataRecordBatchReader into a Table.
-arrow::Status ReadToTable(arrow::flight::MetadataRecordBatchReader& reader,
-                          std::shared_ptr<arrow::Table>* retrieved_data) {
-  // For integration testing, we expect the server numbers the
-  // batches, to test the application metadata part of the spec.
-  std::vector<std::shared_ptr<arrow::RecordBatch>> retrieved_chunks;
-  arrow::flight::FlightStreamChunk chunk;
-  int counter = 0;
-  while (true) {
-    RETURN_NOT_OK(reader.Next(&chunk));
-    if (!chunk.data) break;
-    retrieved_chunks.push_back(chunk.data);
-    if (std::to_string(counter) != chunk.app_metadata->ToString()) {
-      return arrow::Status::Invalid(
-          "Expected metadata value: " + std::to_string(counter) +
-          " but got: " + chunk.app_metadata->ToString());
-    }
-    counter++;
-  }
-  return arrow::Table::FromRecordBatches(reader.schema(), retrieved_chunks,
-                                         retrieved_data);
-}
+namespace arrow {
+namespace flight {
 
-/// \brief Helper to read a JsonReader into a Table.
-arrow::Status ReadToTable(std::unique_ptr<arrow::ipc::internal::json::JsonReader>& reader,
-                          std::shared_ptr<arrow::Table>* retrieved_data) {
-  std::vector<std::shared_ptr<arrow::RecordBatch>> retrieved_chunks;
-  std::shared_ptr<arrow::RecordBatch> chunk;
+/// \brief Helper to read all batches from a JsonReader
+Status ReadBatches(std::unique_ptr<ipc::internal::json::JsonReader>& reader,
+                   std::vector<std::shared_ptr<RecordBatch>>* chunks) {
+  std::shared_ptr<RecordBatch> chunk;
   for (int i = 0; i < reader->num_record_batches(); i++) {
     RETURN_NOT_OK(reader->ReadRecordBatch(i, &chunk));
-    retrieved_chunks.push_back(chunk);
+    RETURN_NOT_OK(chunk->ValidateFull());
+    chunks->push_back(chunk);
   }
-  return arrow::Table::FromRecordBatches(reader->schema(), retrieved_chunks,
-                                         retrieved_data);
+  return Status::OK();
 }
 
-/// \brief Upload the contents of a RecordBatchReader to a Flight
-/// server, validating the application metadata on the side.
-arrow::Status UploadReaderToFlight(arrow::RecordBatchReader* reader,
-                                   arrow::flight::FlightStreamWriter& writer,
-                                   arrow::flight::FlightMetadataReader& metadata_reader) {
+/// \brief Upload the a list of batches to a Flight server, validating
+/// the application metadata on the side.
+Status UploadBatchesToFlight(const std::vector<std::shared_ptr<RecordBatch>>& chunks,
+                             FlightStreamWriter& writer,
+                             FlightMetadataReader& metadata_reader) {
   int counter = 0;
-  while (true) {
-    std::shared_ptr<arrow::RecordBatch> chunk;
-    RETURN_NOT_OK(reader->ReadNext(&chunk));
-    if (chunk == nullptr) break;
-    std::shared_ptr<arrow::Buffer> metadata =
-        arrow::Buffer::FromString(std::to_string(counter));
+  for (const auto& chunk : chunks) {
+    std::shared_ptr<Buffer> metadata = Buffer::FromString(std::to_string(counter));
     RETURN_NOT_OK(writer.WriteWithMetadata(*chunk, metadata));
     // Wait for the server to ack the result
-    std::shared_ptr<arrow::Buffer> ack_metadata;
+    std::shared_ptr<Buffer> ack_metadata;
     RETURN_NOT_OK(metadata_reader.ReadMetadata(&ack_metadata));
     if (!ack_metadata->Equals(*metadata)) {
-      return arrow::Status::Invalid("Expected metadata value: " + metadata->ToString() +
-                                    " but got: " + ack_metadata->ToString());
+      return Status::Invalid("Expected metadata value: " + metadata->ToString() +
+                             " but got: " + ack_metadata->ToString());
     }
     counter++;
   }
   return writer.Close();
 }
 
-/// \brief Helper to read a flight into a Table.
-arrow::Status ConsumeFlightLocation(const arrow::flight::Location& location,
-                                    const arrow::flight::Ticket& ticket,
-                                    const std::shared_ptr<arrow::Schema>& schema,
-                                    std::shared_ptr<arrow::Table>* retrieved_data) {
-  std::unique_ptr<arrow::flight::FlightClient> read_client;
-  RETURN_NOT_OK(arrow::flight::FlightClient::Connect(location, &read_client));
+/// \brief Retrieve the given Flight and compare to the original expected batches.
+Status ConsumeFlightLocation(
+    const Location& location, const Ticket& ticket,
+    const std::vector<std::shared_ptr<RecordBatch>>& retrieved_data) {
+  std::unique_ptr<FlightClient> read_client;
+  RETURN_NOT_OK(FlightClient::Connect(location, &read_client));
 
-  std::unique_ptr<arrow::flight::FlightStreamReader> stream;
+  std::unique_ptr<FlightStreamReader> stream;
   RETURN_NOT_OK(read_client->DoGet(ticket, &stream));
 
-  return ReadToTable(*stream, retrieved_data);
+  int counter = 0;
+  const int expected = static_cast<int>(retrieved_data.size());
+  for (const auto& original_batch : retrieved_data) {
+    FlightStreamChunk chunk;
+    RETURN_NOT_OK(stream->Next(&chunk));
+    if (chunk.data == nullptr) {
+      return Status::Invalid("Got fewer batches than expected, received so far: ",
+                             counter, " expected ", expected);
+    }
+
+    if (!original_batch->Equals(*chunk.data)) {
+      return Status::Invalid("Batch ", counter, " does not match");
+    }
+
+    const auto st = chunk.data->ValidateFull();
+    if (!st.ok()) {
+      return Status::Invalid("Batch ", counter, " is not valid: ", st.ToString());
+    }
+
+    if (std::to_string(counter) != chunk.app_metadata->ToString()) {
+      return Status::Invalid("Expected metadata value: " + std::to_string(counter) +
+                             " but got: " + chunk.app_metadata->ToString());
+    }
+    counter++;
+  }
+
+  FlightStreamChunk chunk;
+  RETURN_NOT_OK(stream->Next(&chunk));
+  if (chunk.data != nullptr) {
+    return Status::Invalid("Got more batches than the expected ", expected);
+  }
+
+  return Status::OK();
 }
+
+class IntegrationTestScenario : public flight::Scenario {
+ public:
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    ARROW_UNUSED(server);
+    ARROW_UNUSED(options);
+    return Status::NotImplemented("Not implemented, see test_integration_server.cc");
+  }
+
+  Status MakeClient(FlightClientOptions* options) override {
+    ARROW_UNUSED(options);
+    return Status::OK();
+  }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    // Make sure the required extension types are registered.
+    ExtensionTypeGuard uuid_ext_guard(uuid());
+    ExtensionTypeGuard dict_ext_guard(dict_extension_type());
+
+    FlightDescriptor descr{FlightDescriptor::PATH, "", {FLAGS_path}};
+
+    // 1. Put the data to the server.
+    std::unique_ptr<ipc::internal::json::JsonReader> reader;
+    std::cout << "Opening JSON file '" << FLAGS_path << "'" << std::endl;
+    auto in_file = *io::ReadableFile::Open(FLAGS_path);
+    ABORT_NOT_OK(
+        ipc::internal::json::JsonReader::Open(default_memory_pool(), in_file, &reader));
+
+    std::shared_ptr<Schema> original_schema = reader->schema();
+    std::vector<std::shared_ptr<RecordBatch>> original_data;
+    ABORT_NOT_OK(ReadBatches(reader, &original_data));
+
+    std::unique_ptr<FlightStreamWriter> write_stream;
+    std::unique_ptr<FlightMetadataReader> metadata_reader;
+    ABORT_NOT_OK(client->DoPut(descr, original_schema, &write_stream, &metadata_reader));
+    ABORT_NOT_OK(UploadBatchesToFlight(original_data, *write_stream, *metadata_reader));
+
+    // 2. Get the ticket for the data.
+    std::unique_ptr<FlightInfo> info;
+    ABORT_NOT_OK(client->GetFlightInfo(descr, &info));
+
+    std::shared_ptr<Schema> schema;
+    ipc::DictionaryMemo dict_memo;
+    ABORT_NOT_OK(info->GetSchema(&dict_memo, &schema));
+
+    if (info->endpoints().size() == 0) {
+      std::cerr << "No endpoints returned from Flight server." << std::endl;
+      return Status::IOError("No endpoints returned from Flight server.");
+    }
+
+    for (const FlightEndpoint& endpoint : info->endpoints()) {
+      const auto& ticket = endpoint.ticket;
+
+      auto locations = endpoint.locations;
+      if (locations.size() == 0) {
+        return Status::IOError("No locations returned from Flight server.");
+      }
+
+      for (const auto& location : locations) {
+        std::cout << "Verifying location " << location.ToString() << std::endl;
+        // 3. Stream data from the server, comparing individual batches.
+        ABORT_NOT_OK(ConsumeFlightLocation(location, ticket, original_data));
+      }
+    }
+    return Status::OK();
+  }
+};
+
+}  // namespace flight
+}  // namespace arrow
 
 int main(int argc, char** argv) {
   gflags::SetUsageMessage("Integration testing client for Flight.");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
+  std::shared_ptr<arrow::flight::Scenario> scenario;
+  if (!FLAGS_scenario.empty()) {
+    ARROW_CHECK_OK(arrow::flight::GetScenario(FLAGS_scenario, &scenario));
+  } else {
+    scenario = std::make_shared<arrow::flight::IntegrationTestScenario>();
+  }
 
+  arrow::flight::FlightClientOptions options;
   std::unique_ptr<arrow::flight::FlightClient> client;
+
+  ABORT_NOT_OK(scenario->MakeClient(&options));
+
   arrow::flight::Location location;
   ABORT_NOT_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_host, FLAGS_port, &location));
-  ABORT_NOT_OK(arrow::flight::FlightClient::Connect(location, &client));
-
-  arrow::flight::FlightDescriptor descr{
-      arrow::flight::FlightDescriptor::PATH, "", {FLAGS_path}};
-
-  // 1. Put the data to the server.
-  std::unique_ptr<arrow::ipc::internal::json::JsonReader> reader;
-  std::cout << "Opening JSON file '" << FLAGS_path << "'" << std::endl;
-  auto in_file = *arrow::io::ReadableFile::Open(FLAGS_path);
-  ABORT_NOT_OK(arrow::ipc::internal::json::JsonReader::Open(arrow::default_memory_pool(),
-                                                            in_file, &reader));
-
-  std::shared_ptr<arrow::Table> original_data;
-  ABORT_NOT_OK(ReadToTable(reader, &original_data));
-
-  std::unique_ptr<arrow::flight::FlightStreamWriter> write_stream;
-  std::unique_ptr<arrow::flight::FlightMetadataReader> metadata_reader;
-  ABORT_NOT_OK(client->DoPut(descr, reader->schema(), &write_stream, &metadata_reader));
-  std::unique_ptr<arrow::RecordBatchReader> table_reader(
-      new arrow::TableBatchReader(*original_data));
-  ABORT_NOT_OK(UploadReaderToFlight(table_reader.get(), *write_stream, *metadata_reader));
-
-  // 2. Get the ticket for the data.
-  std::unique_ptr<arrow::flight::FlightInfo> info;
-  ABORT_NOT_OK(client->GetFlightInfo(descr, &info));
-
-  std::shared_ptr<arrow::Schema> schema;
-  arrow::ipc::DictionaryMemo dict_memo;
-  ABORT_NOT_OK(info->GetSchema(&dict_memo, &schema));
-
-  if (info->endpoints().size() == 0) {
-    std::cerr << "No endpoints returned from Flight server." << std::endl;
-    return -1;
-  }
-
-  for (const arrow::flight::FlightEndpoint& endpoint : info->endpoints()) {
-    const auto& ticket = endpoint.ticket;
-
-    auto locations = endpoint.locations;
-    if (locations.size() == 0) {
-      locations = {location};
-    }
-
-    for (const auto location : locations) {
-      std::cout << "Verifying location " << location.ToString() << std::endl;
-      // 3. Download the data from the server.
-      std::shared_ptr<arrow::Table> retrieved_data;
-      ABORT_NOT_OK(ConsumeFlightLocation(location, ticket, schema, &retrieved_data));
-
-      // 4. Validate that the data is equal.
-      if (!original_data->Equals(*retrieved_data)) {
-        std::cerr << "Data does not match!" << std::endl;
-        return 1;
-      }
-    }
-  }
+  ABORT_NOT_OK(arrow::flight::FlightClient::Connect(location, options, &client));
   return 0;
 }

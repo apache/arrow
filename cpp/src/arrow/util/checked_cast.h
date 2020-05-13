@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_CAST_H
-#define ARROW_CAST_H
+#pragma once
 
 #include <memory>
 #include <type_traits>
@@ -41,7 +40,7 @@ inline OutputType checked_cast(InputType&& value) {
 
 template <class T, class U>
 std::shared_ptr<T> checked_pointer_cast(const std::shared_ptr<U>& r) noexcept {
-#ifndef NDEBUG
+#ifdef NDEBUG
   return std::static_pointer_cast<T>(r);
 #else
   return std::dynamic_pointer_cast<T>(r);
@@ -50,7 +49,7 @@ std::shared_ptr<T> checked_pointer_cast(const std::shared_ptr<U>& r) noexcept {
 
 template <class T, class U>
 std::unique_ptr<T> checked_pointer_cast(std::unique_ptr<U> r) noexcept {
-#ifndef NDEBUG
+#ifdef NDEBUG
   return std::unique_ptr<T>(static_cast<T*>(r.release()));
 #else
   return std::unique_ptr<T>(dynamic_cast<T*>(r.release()));
@@ -59,5 +58,3 @@ std::unique_ptr<T> checked_pointer_cast(std::unique_ptr<U> r) noexcept {
 
 }  // namespace internal
 }  // namespace arrow
-
-#endif  // ARROW_CAST_H

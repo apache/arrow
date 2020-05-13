@@ -18,20 +18,17 @@
 @echo on
 
 @rem create conda environment for compiling
-conda update --yes --quiet conda
-
-conda create -n wheel-build -q -y -c conda-forge ^
+call conda create -n wheel-build -q -y -c conda-forge ^
     --file=%ARROW_SRC%\ci\conda_env_cpp.yml ^
     --file=%ARROW_SRC%\ci\conda_env_gandiva.yml ^
-    python=%PYTHON_VERSION% ^
-    numpy=%NUMPY_VERSION% ^
-    || exit /B
+    "vs2015_runtime<14.16" ^
+    python=%PYTHON_VERSION% || exit /B
 
 call conda.bat activate wheel-build
 
 @rem Cannot use conda_env_python.yml here because conda-forge has
 @rem ceased providing up-to-date packages for Python 3.5
-pip install -r %ARROW_SRC%\python\requirements-wheel.txt
+pip install -r %ARROW_SRC%\python\requirements-wheel-build.txt
 
 set ARROW_HOME=%CONDA_PREFIX%\Library
 set PARQUET_HOME=%CONDA_PREFIX%\Library
@@ -65,6 +62,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=ON ^
       -DARROW_GANDIVA=ON ^
+      -DARROW_MIMAllOC=ON ^
       -DZSTD_SOURCE=BUNDLED ^
       .. || exit /B
 cmake --build . --target install --config Release || exit /B
@@ -88,19 +86,20 @@ call conda.bat deactivate
 
 set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
 
-@rem test the wheel
-@rem TODO For maximum reliability, we should test in a plain virtualenv instead.
-conda create -n wheel-test -c conda-forge -q -y ^
-    --file %ARROW_SRC%\ci\conda_env_python.yml ^
-    python=%PYTHON_VERSION% ^
-    numpy=%NUMPY_VERSION% || exit /B
-call conda.bat activate wheel-test
+@rem install the test dependencies
+%PYTHON_INTERPRETER% -m pip install -r %ARROW_SRC%\python\requirements-wheel-test.txt || exit /B
 
-@rem install the built wheel
-pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B
+@rem install the produced wheel in a non-conda environment
+%PYTHON_INTERPRETER% -m pip install --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B
 
 @rem test the imports
-python -c "import pyarrow; import pyarrow.parquet; import pyarrow.flight; import pyarrow.dataset; import pyarrow.gandiva;" || exit /B
+%PYTHON_INTERPRETER% -c "import pyarrow" || exit /B
+%PYTHON_INTERPRETER% -c "import pyarrow.parquet" || exit /B
+%PYTHON_INTERPRETER% -c "import pyarrow.flight" || exit /B
+%PYTHON_INTERPRETER% -c "import pyarrow.gandiva" || exit /B
+%PYTHON_INTERPRETER% -c "import pyarrow.dataset" || exit /B
 
-@rem run the python tests
-pytest -rs --pyargs pyarrow || exit /B
+@rem run the python tests, but disable the cython because there is a linking
+@rem issue on python 3.8
+set PYARROW_TEST_CYTHON=OFF
+%PYTHON_INTERPRETER% -m pytest -rs --pyargs pyarrow || exit /B

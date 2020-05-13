@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// This API is EXPERIMENTAL.
+
 #pragma once
 
 #include <memory>
@@ -48,22 +50,25 @@ class Fragment;
 using FragmentIterator = Iterator<std::shared_ptr<Fragment>>;
 using FragmentVector = std::vector<std::shared_ptr<Fragment>>;
 
+class FileSource;
 class FileFormat;
 class FileFragment;
+class FileSystemDataset;
+
+class CsvFileFormat;
+
+class IpcFileFormat;
+
+class ParquetFileFormat;
+class ParquetFileFragment;
 
 class Expression;
 using ExpressionVector = std::vector<std::shared_ptr<Expression>>;
-
-class ComparisonExpression;
-class InExpression;
-class IsValidExpression;
-class AndExpression;
-class OrExpression;
-class NotExpression;
-class CastExpression;
-class ScalarExpression;
-class FieldReferenceExpression;
 class ExpressionEvaluator;
+
+/// forward declared to facilitate scalar(true) as a default for Expression parameters
+ARROW_DS_EXPORT
+std::shared_ptr<Expression> scalar(bool);
 
 class Partitioning;
 class PartitioningFactory;
@@ -82,6 +87,9 @@ using ScanTaskVector = std::vector<std::shared_ptr<ScanTask>>;
 using ScanTaskIterator = Iterator<std::shared_ptr<ScanTask>>;
 
 class RecordBatchProjector;
+
+class WriteTask;
+class WritePlan;
 
 }  // namespace dataset
 }  // namespace arrow

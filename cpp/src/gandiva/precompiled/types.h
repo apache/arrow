@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PRECOMPILED_TYPES_H
-#define PRECOMPILED_TYPES_H
+#pragma once
 
 #include <cstdint>
 
@@ -35,6 +34,7 @@ using gdv_uint64 = uint64_t;
 using gdv_float32 = float;
 using gdv_float64 = double;
 using gdv_date64 = int64_t;
+using gdv_date32 = int32_t;
 using gdv_time32 = int32_t;
 using gdv_timestamp = int64_t;
 using gdv_utf8 = char*;
@@ -100,9 +100,9 @@ gdv_int64 add_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 date_add_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_timestamp add_date64_int64(gdv_date64, gdv_int64);
 
-gdv_int64 date_sub_int32_timestamp(gdv_int32, gdv_timestamp);
-gdv_int64 subtract_int32_timestamp(gdv_int32, gdv_timestamp);
-gdv_int64 date_diff_int64_timestamp(gdv_int64, gdv_timestamp);
+gdv_int64 date_sub_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 subtract_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 date_diff_timestamp_int64(gdv_timestamp, gdv_int64);
 
 bool is_distinct_from_timestamp_timestamp(gdv_int64, bool, gdv_int64, bool);
 bool is_not_distinct_from_int32_int32(gdv_int32, bool, gdv_int32, bool);
@@ -168,6 +168,12 @@ gdv_int32 utf8_length(gdv_int64 context, const char* data, gdv_int32 data_len);
 
 gdv_date64 castDATE_utf8(int64_t execution_context, const char* input, gdv_int32 length);
 
+gdv_date64 castDATE_int64(gdv_int64 date);
+
+gdv_date64 castDATE_date32(gdv_date32 date);
+
+gdv_date32 castDATE_int32(gdv_int32 date);
+
 gdv_timestamp castTIMESTAMP_utf8(int64_t execution_context, const char* input,
                                  gdv_int32 length);
 gdv_timestamp castTIMESTAMP_date64(gdv_date64);
@@ -217,5 +223,3 @@ const char* capture_utf8_utf8(gdv_int64 context, const char* source_string,
                               const char* pattern_string, gdv_int32 pattern_len,
                               bool pattern_validity, gdv_int32* out_len);
 }  // extern "C"
-
-#endif  // PRECOMPILED_TYPES_H

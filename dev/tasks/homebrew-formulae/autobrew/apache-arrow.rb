@@ -19,7 +19,7 @@
 class ApacheArrow < Formula
   desc "Columnar in-memory analytics layer designed to accelerate big data"
   homepage "https://arrow.apache.org/"
-  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-0.16.0.9000/apache-arrow-0.16.0.9000.tar.gz"
+  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-0.17.0.9000/apache-arrow-0.17.0.9000.tar.gz"
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
   head "https://github.com/apache/arrow.git"
 
@@ -31,7 +31,6 @@ class ApacheArrow < Formula
 
   # NOTE: if you add something here, be sure to add to PKG_LIBS in r/tools/autobrew
   depends_on "cmake" => :build
-  depends_on "boost"
   depends_on "lz4"
   depends_on "snappy"
   depends_on "thrift"
@@ -55,6 +54,7 @@ class ApacheArrow < Formula
       -DARROW_WITH_ZLIB=ON
       -DARROW_WITH_SNAPPY=ON
       -DARROW_BUILD_UTILITIES=ON
+      -DCMAKE_UNITY_BUILD=ON
       -DPARQUET_BUILD_EXECUTABLES=ON
       -DLZ4_HOME=#{Formula["lz4"].prefix}
       -DTHRIFT_HOME=#{Formula["thrift"].prefix}
@@ -76,7 +76,7 @@ class ApacheArrow < Formula
         return 0;
       }
     EOS
-    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", "-larrow", "-lparquet", "-lthrift", "-llz4", "-lboost_system", "-lboost_regex", "-lsnappy", "-o", "test"
+    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", "-larrow", "-lparquet", "-lthrift", "-llz4", "-lsnappy", "-o", "test"
     system "./test"
   end
 end

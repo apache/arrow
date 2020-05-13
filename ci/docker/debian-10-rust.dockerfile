@@ -35,7 +35,7 @@ RUN wget -q -O - https://github.com/google/flatbuffers/archive/v${flatbuffers}.t
 
 # sadly cargo doesn't have a command to fetch and build the
 # dependencies without building the library itself
-ARG rust=nightly-2019-11-14
+ARG rust=nightly-2020-04-22
 RUN rustup default ${rust}
 RUN rustup component add rustfmt --toolchain ${rust}-x86_64-unknown-linux-gnu
 

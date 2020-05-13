@@ -226,6 +226,68 @@ data type from above would look like::
 
 Also the storage type does not need to be fixed but can be parametrized.
 
+Custom extension array class
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+By default, all arrays with an extension type are constructed or deserialized into
+a built-in :class:`ExtensionArray` object. Nevertheless, one could want to subclass
+:class:`ExtensionArray` in order to add some custom logic specific to the extension
+type. Arrow allows to do so by adding a special method ``__arrow_ext_class__`` to the
+definition of the extension type.
+
+For instance, let us consider the example from the `Numpy Quickstart <https://docs.scipy.org/doc/numpy-1.13.0/user/quickstart.html>`_ of points in 3D space.
+We can store these as a fixed-size list, where we wish to be able to extract
+the data as a 2-D Numpy array ``(N, 3)`` without any copy::
+
+    class Point3DArray(pa.ExtensionArray):
+        def to_numpy_array(self):
+            return arr.storage.flatten().to_numpy().reshape((-1, 3))
+
+
+    class Point3DType(pa.PyExtensionType):
+        def __init__(self):
+            pa.PyExtensionType.__init__(self, pa.list_(pa.float32(), 3))
+
+        def __reduce__(self):
+            return Point3DType, ()
+
+        def __arrow_ext_class__(self):
+            return Point3DArray
+
+Arrays built using this extension type now have the expected custom array class::
+
+    >>> storage = pa.array([[1, 2, 3], [4, 5, 6]], pa.list_(pa.float32(), 3))
+    >>> arr = pa.ExtensionArray.from_storage(Point3DType(), storage)
+    >>> arr
+    <__main__.Point3DArray object at 0x7f40dea80670>
+    [
+        [
+            1,
+            2,
+            3
+        ],
+        [
+            4,
+            5,
+            6
+        ]
+    ]
+
+The additional methods in the extension class are then available to the user::
+
+    >>> arr.to_numpy_array()
+    array([[1., 2., 3.],
+       [4., 5., 6.]], dtype=float32)
+
+
+This array can be sent over IPC, received in another Python process, and the custom
+extension array class will be preserved (as long as the definitions of the classes above
+are available).
+
+The same ``__arrow_ext_class__`` specialization can be used with custom types defined
+by subclassing :class:`ExtensionType`.
+
+
 Conversion to pandas
 ~~~~~~~~~~~~~~~~~~~~
 

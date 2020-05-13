@@ -84,9 +84,6 @@ ADD scripts/build_glog.sh /
 RUN /build_glog.sh
 ENV GLOG_HOME /usr
 
-
+ARG llvm
 ADD scripts/build_llvm.sh /
-RUN /build_llvm.sh
-
-ADD scripts/build_clang.sh /
-RUN /build_clang.sh
+RUN /build_llvm.sh ${llvm}

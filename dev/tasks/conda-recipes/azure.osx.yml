@@ -1,7 +1,7 @@
 jobs:
 - job: osx
   pool:
-    vmImage: macOS-10.13
+    vmImage: macOS-10.14
   timeoutInMinutes: 360
   variables:
     CONFIG: {{ config }}
@@ -73,15 +73,12 @@ jobs:
   # (don't know why).
   # The tag upload took 43 minutes because of this scan, so use an
   # alternative upload script.
-  - task: CondaEnvironment@1
-    inputs:
-      packageSpecs: 'click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz'
-      installOptions: '-c conda-forge'
-      updateConda: false
   - script: |
+      source activate base
+      conda install -y click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz
       python arrow/dev/tasks/crossbow.py \
         --queue-path . \
-        --queue-remote {{ queue.remote_url }} \
+        --queue-remote {{ queue_remote_url }} \
         upload-artifacts \
         --sha {{ task.branch }} \
         --tag {{ task.tag }} \
@@ -89,3 +86,13 @@ jobs:
     env:
       CROSSBOW_GITHUB_TOKEN: $(CROSSBOW_GITHUB_TOKEN)
     displayName: Upload packages as a GitHub release
+
+  {% if arrow.branch == 'master' %}
+  # Upload to custom anaconda channel
+  - script: |
+      source activate base
+      conda install -y anaconda-client
+      anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload --force build_artifacts/osx-64/*.tar.bz2
+    displayName: Upload packages to Anaconda
+    workingDirectory: arrow/dev/tasks/conda-recipes
+  {% endif %}

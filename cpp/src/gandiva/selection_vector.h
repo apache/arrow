@@ -15,15 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_SELECTION_VECTOR__H
-#define GANDIVA_SELECTION_VECTOR__H
+#pragma once
 
 #include <memory>
 
 #include "arrow/status.h"
 
+#include "arrow/util/logging.h"
 #include "gandiva/arrow.h"
-#include "gandiva/logging.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {
@@ -84,7 +83,7 @@ class GANDIVA_EXPORT SelectionVector {
   /// \brief make selection vector with int16 type records.
   ///
   /// \param[in] max_slots max number of slots
-  /// \param[in] buffer buffer sized to accomodate max_slots
+  /// \param[in] buffer buffer sized to accommodate max_slots
   /// \param[out] selection_vector selection vector backed by 'buffer'
   static Status MakeInt16(int64_t max_slots, std::shared_ptr<arrow::Buffer> buffer,
                           std::shared_ptr<SelectionVector>* selection_vector);
@@ -108,7 +107,7 @@ class GANDIVA_EXPORT SelectionVector {
   /// \brief make selection vector with int32 type records.
   ///
   /// \param[in] max_slots max number of slots
-  /// \param[in] buffer buffer sized to accomodate max_slots
+  /// \param[in] buffer buffer sized to accommodate max_slots
   /// \param[out] selection_vector selection vector backed by 'buffer'
   static Status MakeInt32(int64_t max_slots, std::shared_ptr<arrow::Buffer> buffer,
                           std::shared_ptr<SelectionVector>* selection_vector);
@@ -134,7 +133,7 @@ class GANDIVA_EXPORT SelectionVector {
   /// \brief make selection vector with int64 type records.
   ///
   /// \param[in] max_slots max number of slots
-  /// \param[in] buffer buffer sized to accomodate max_slots
+  /// \param[in] buffer buffer sized to accommodate max_slots
   /// \param[out] selection_vector selection vector backed by 'buffer'
   static Status MakeInt64(int64_t max_slots, std::shared_ptr<arrow::Buffer> buffer,
                           std::shared_ptr<SelectionVector>* selection_vector);
@@ -150,5 +149,3 @@ class GANDIVA_EXPORT SelectionVector {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_SELECTION_VECTOR__H

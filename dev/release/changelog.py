@@ -28,6 +28,7 @@ from datetime import datetime
 from io import StringIO
 import locale
 import os
+import re
 import sys
 
 import jira.client
@@ -39,11 +40,16 @@ JIRA_PASSWORD = os.environ["APACHE_JIRA_PASSWORD"]
 
 JIRA_API_BASE = "https://issues.apache.org/jira"
 
-asf_jira = jira.client.JIRA({'server': JIRA_API_BASE},
+asf_jira = jira.client.JIRA(options={'server': JIRA_API_BASE},
                             basic_auth=(JIRA_USERNAME, JIRA_PASSWORD))
 
 
 locale.setlocale(locale.LC_ALL, 'en_US.utf-8')
+
+
+release_dir = os.path.realpath(os.path.dirname(__file__))
+ARROW_ROOT_DEFAULT = os.path.join(release_dir, '..', '..')
+ARROW_ROOT = os.environ.get("ARROW_ROOT", ARROW_ROOT_DEFAULT)
 
 
 def get_issues_for_version(version):
@@ -54,6 +60,55 @@ def get_issues_for_version(version):
            "ORDER BY issuetype DESC").format(version)
 
     return asf_jira.search_issues(jql, maxResults=9999)
+
+
+def get_last_major_version(current_version):
+    # TODO: This doesn't work for generating a changelog for the _first_ major
+    # release, but we probably don't care
+    major_versions = [
+        v for v in asf_jira.project('ARROW').versions
+        if v.name[0].isdigit() and v.name.split('.')[-1] == '0'
+    ]
+
+    # Sort the versions
+    def sort_version(x):
+        major, minor, patch = x.name.split('.')
+        return int(major), int(minor)
+
+    major_versions.sort(key=sort_version)
+
+    # Find index of version being released
+    current_version_index = ([x.name for x in major_versions]
+                             .index(current_version))
+
+    return major_versions[current_version_index - 1]
+
+
+def get_jiras_from_git_changelog(current_version):
+    # We use this to get the resolved PARQUET JIRAs
+    from subprocess import check_output
+
+    last_major_version = get_last_major_version(current_version)
+
+    # Path to .git directory
+    git_dir = os.path.join(ARROW_ROOT, '.git')
+
+    cmd = ['git', '--git-dir', git_dir, 'log', '--pretty=format:%s',
+           'apache-arrow-{}..apache-arrow-{}'.format(last_major_version,
+                                                     current_version)]
+    output = check_output(cmd).decode('utf-8')
+
+    resolved_jiras = []
+    regex = re.compile(r'[a-zA-Z]+-[0-9]+')
+    for desc in output.splitlines():
+        maybe_jira = desc.split(':')[0]
+
+        # Sometimes people forget the colon
+        maybe_jira = maybe_jira.split(' ')[0]
+        if regex.match(maybe_jira):
+            resolved_jiras.append(maybe_jira)
+
+    return resolved_jiras
 
 
 LINK_TEMPLATE = '[{0}](https://issues.apache.org/jira/browse/{0})'
@@ -118,8 +173,29 @@ def format_changelog_website(issues, out):
         out.write('\n')
 
 
+def get_resolved_parquet_issues(version):
+    git_resolved_jiras = set(get_jiras_from_git_changelog(version))
+
+    # We don't assume that resolved Parquet issues are found in a single Fix
+    # Version, so for now we query them all and then select only the ones that
+    # are found in the git log
+    jql = ("project=PARQUET "
+           "AND component='parquet-cpp' "
+           "AND status = Resolved "
+           "AND resolution in (Fixed, Done) "
+           "ORDER BY issuetype DESC")
+
+    all_issues = asf_jira.search_issues(jql, maxResults=9999)
+    return [issue for issue in all_issues if issue.key in git_resolved_jiras]
+
+
 def get_changelog(version, for_website=False):
     issues_for_version = get_issues_for_version(version)
+
+    # Infer resolved Parquet issues, since these can only really be known by
+    # looking at the git log
+    parquet_issues = get_resolved_parquet_issues(version)
+    issues_for_version.extend(parquet_issues)
 
     buf = StringIO()
 
@@ -163,6 +239,7 @@ if __name__ == '__main__':
     for_website = len(sys.argv) > 2 and sys.argv[2] == '1'
 
     version = sys.argv[1]
+
     if len(sys.argv) > 3:
         changelog_path = sys.argv[3]
         append_changelog(version, changelog_path)

@@ -17,6 +17,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -79,6 +80,20 @@ TYPED_TEST(TestNumericScalar, Basics) {
 
   auto dyn_null_value = MakeNullScalar(expected_type);
   ASSERT_EQ(*null_value, *dyn_null_value);
+}
+
+TYPED_TEST(TestNumericScalar, Hashing) {
+  using T = typename TypeParam::c_type;
+  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+
+  std::unordered_set<std::shared_ptr<Scalar>, Scalar::Hash, Scalar::PtrsEqual> set;
+  for (T i = 0; i < 10; ++i) {
+    set.emplace(std::make_shared<ScalarType>(i));
+  }
+
+  for (T i = 0; i < 10; ++i) {
+    ASSERT_FALSE(set.emplace(std::make_shared<ScalarType>(i)).second);
+  }
 }
 
 TYPED_TEST(TestNumericScalar, MakeScalar) {

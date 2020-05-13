@@ -205,7 +205,7 @@ garrow_chunked_array_get_value_type(GArrowChunkedArray *chunked_array)
  *
  * Returns: The total number of rows in the chunked array.
  *
- * Deprecated: 1.0.0: Use garrow_chunked_array_get_n_rows() instead.
+ * Deprecated: 0.15.0: Use garrow_chunked_array_get_n_rows() instead.
  */
 guint64
 garrow_chunked_array_get_length(GArrowChunkedArray *chunked_array)
@@ -219,7 +219,7 @@ garrow_chunked_array_get_length(GArrowChunkedArray *chunked_array)
  *
  * Returns: The total number of rows in the chunked array.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 guint64
 garrow_chunked_array_get_n_rows(GArrowChunkedArray *chunked_array)
@@ -328,13 +328,7 @@ gchar *
 garrow_chunked_array_to_string(GArrowChunkedArray *chunked_array, GError **error)
 {
   const auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
-  std::stringstream sink;
-  auto status = arrow::PrettyPrint(*arrow_chunked_array, 0, &sink);
-  if (garrow_error_check(error, status, "[chunked-array][to-string]")) {
-    return g_strdup(sink.str().c_str());
-  } else {
-    return NULL;
-  }
+  return g_strdup(arrow_chunked_array->ToString().c_str());
 }
 
 G_END_DECLS

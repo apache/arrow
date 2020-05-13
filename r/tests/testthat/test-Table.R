@@ -26,41 +26,30 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   tab <- Table$create(!!!tbl)
 
   tf <- tempfile()
+  on.exit(unlink(tf))
   write_arrow(tab, tf)
 
   bytes <- write_arrow(tab, raw())
 
-  tab1 <- read_table(tf)
-  tab2 <- read_table(normalizePath(tf))
+  tab1 <- read_arrow(tf, as_data_frame = FALSE)
+  tab2 <- read_feather(normalizePath(tf), as_data_frame = FALSE)
 
   readable_file <- ReadableFile$create(tf)
-  file_reader1 <- RecordBatchFileReader$create(readable_file)
-  tab3 <- read_table(file_reader1)
+  tab3 <- read_arrow(readable_file, as_data_frame = FALSE)
   readable_file$close()
 
   mmap_file <- mmap_open(tf)
-  file_reader2 <- RecordBatchFileReader$create(mmap_file)
-  tab4 <- read_table(file_reader2)
+  # check for deprecation message
+  expect_deprecated(
+    tab4 <- read_table(mmap_file),
+    "read_arrow"
+  )
   mmap_file$close()
-
-  tab5 <- read_table(bytes)
-
-  stream_reader <- RecordBatchStreamReader$create(bytes)
-  tab6 <- read_table(stream_reader)
-
-  file_reader <- RecordBatchFileReader$create(tf)
-  tab7 <- read_table(file_reader)
 
   expect_equal(tab, tab1)
   expect_equal(tab, tab2)
   expect_equal(tab, tab3)
   expect_equal(tab, tab4)
-  expect_equal(tab, tab5)
-  expect_equal(tab, tab6)
-  expect_equal(tab, tab7)
-
-  unlink(tf)
-
 })
 
 test_that("Table cast (ARROW-3741)", {
@@ -299,7 +288,7 @@ test_that("==.Table", {
 test_that("Table$Equals(check_metadata)", {
   tab1 <- Table$create(x = 1:2, y = c("a", "b"))
   tab2 <- Table$create(x = 1:2, y = c("a", "b"),
-    schema = tab1$schema$WithMetadata(list(some="metadata")))
+                       schema = tab1$schema$WithMetadata(list(some="metadata")))
 
   expect_is(tab1, "Table")
   expect_is(tab2, "Table")
@@ -307,12 +296,12 @@ test_that("Table$Equals(check_metadata)", {
   expect_true(tab2$schema$HasMetadata)
   expect_match(tab2$schema$metadata, "some: metadata", fixed = TRUE)
 
-  expect_false(tab1 == tab2)
-  expect_false(tab1$Equals(tab2))
-  expect_true(tab1$Equals(tab2, check_metadata = FALSE))
+  expect_true(tab1 == tab2)
+  expect_true(tab1$Equals(tab2))
+  expect_false(tab1$Equals(tab2, check_metadata = TRUE))
 
-  expect_failure(expect_equal(tab1, tab2)) # expect_equal does check_metadata
-  expect_equivalent(tab1, tab2)            # expect_equivalent does not
+  expect_failure(expect_equal(tab1, tab2))  # expect_equal has check_metadata=TRUE
+  expect_equivalent(tab1, tab2)  # expect_equivalent has check_metadata=FALSE
 
   expect_false(tab1$Equals(24)) # Not a Table
 })

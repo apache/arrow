@@ -79,15 +79,6 @@ FileInfo <- R6Class("FileInfo",
   )
 )
 
-#' @include arrow-package.R
-#' @title FileSystem entry info (Deprecated. Use FileInfo instead.)
-#' @usage NULL
-#' @format NULL
-#'
-#' @rdname FileStats
-#' @export
-FileStats <- FileInfo
-
 #' @title file selector
 #' @format NULL
 #'
@@ -100,7 +91,7 @@ FileStats <- FileInfo
 #'
 #' - `base_dir`: The directory in which to select files. If the path exists but
 #'    doesn't point to a directory, this should be an error.
-#' - `allow_non_existent`: The behavior if `base_dir` doesn't exist in the
+#' - `allow_not_found`: The behavior if `base_dir` doesn't exist in the
 #'    filesystem. If `FALSE`, an error is returned.  If `TRUE`, an empty
 #'    selection is returned
 #' - `recursive`: Whether to recurse into subdirectories.
@@ -111,15 +102,15 @@ FileSelector <- R6Class("FileSelector",
   inherit = ArrowObject,
   active = list(
     base_dir = function() fs___FileSelector__base_dir(self),
-    allow_non_existent = function() fs___FileSelector__allow_non_existent(self),
+    allow_not_found = function() fs___FileSelector__allow_not_found(self),
     recursive = function() fs___FileSelector__recursive(self)
   )
 )
 
-FileSelector$create <- function(base_dir, allow_non_existent = FALSE, recursive = FALSE) {
+FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = FALSE) {
   shared_ptr(
     FileSelector,
-    fs___FileSelector__create(clean_path_rel(base_dir), allow_non_existent, recursive)
+    fs___FileSelector__create(clean_path_rel(base_dir), allow_not_found, recursive)
   )
 }
 
@@ -139,7 +130,7 @@ FileSelector$create <- function(base_dir, allow_non_existent = FALSE, recursive 
 #'
 #' @section Methods:
 #'
-#' - `$GetTargetInfos(x)`: `x` may be a [FileSelector][FileSelector] or a character
+#' - `$GetFileInfo(x)`: `x` may be a [FileSelector][FileSelector] or a character
 #'    vector of paths. Returns a list of [FileInfo][FileInfo]
 #' - `$CreateDir(path, recursive = TRUE)`: Create a directory and subdirectories.
 #' - `$DeleteDir(path)`: Delete a directory and its contents, recursively.
@@ -175,7 +166,19 @@ FileSelector$create <- function(base_dir, allow_non_existent = FALSE, recursive 
 #' @export
 FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
   public = list(
-    GetTargetInfos = function(x) {
+    ..dispatch = function() {
+      type_name <- self$type_name
+      if (type_name == "local") {
+        shared_ptr(LocalFileSystem, self$pointer())
+      } else if (type_name == "s3") {
+        shared_ptr(S3FileSystem, self$pointer())
+      } else if (type_name == "subtree") {
+        shared_ptr(SubTreeFileSystem, self$pointer())
+      } else {
+        self
+      }
+    },
+    GetFileInfo = function(x) {
       if (inherits(x, "FileSelector")) {
         map(
           fs___FileSystem__GetTargetInfos_FileSelector(self, x),
@@ -189,7 +192,7 @@ FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
           class = FileInfo
         )
       } else {
-        abort("incompatible type for FileSystem$GetTargetInfos()")
+        abort("incompatible type for FileSystem$GetFileInfo()")
       }
     },
 
@@ -233,8 +236,16 @@ FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
     OpenAppendStream = function(path) {
       shared_ptr(OutputStream, fs___FileSystem__OpenAppendStream(self, clean_path_rel(path)))
     }
+  ),
+  active = list(
+    type_name = function() fs___FileSystem__type_name(self)
   )
 )
+FileSystem$from_uri <- function(uri) {
+  out <- fs___FileSystemFromUri(uri)
+  out$fs <- shared_ptr(FileSystem, out$fs)$..dispatch()
+  out
+}
 
 #' @usage NULL
 #' @format NULL
@@ -245,6 +256,19 @@ LocalFileSystem$create <- function() {
   shared_ptr(LocalFileSystem, fs___LocalFileSystem__create())
 }
 
+#' @usage NULL
+#' @format NULL
+#' @rdname FileSystem
+#' @export
+S3FileSystem <- R6Class("S3FileSystem", inherit = FileSystem)
+S3FileSystem$create <- function() {
+  fs___EnsureS3Initialized()
+  shared_ptr(S3FileSystem, fs___S3FileSystem__create())
+}
+
+arrow_with_s3 <- function() {
+  .Call(`_s3_available`)
+}
 
 #' @usage NULL
 #' @format NULL

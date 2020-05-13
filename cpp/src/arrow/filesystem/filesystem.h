@@ -50,9 +50,9 @@ using TimePoint =
     std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
 
 /// \brief FileSystem entry type
-enum class ARROW_EXPORT FileType : int8_t {
-  /// Entry does not exist
-  NonExistent,
+enum class FileType : int8_t {
+  /// Entry is not found
+  NotFound,
   /// Entry exists but its type is unknown
   ///
   /// This can designate a special file such as a Unix socket or character
@@ -144,9 +144,9 @@ struct ARROW_EXPORT FileSelector {
   /// The directory in which to select files.
   /// If the path exists but doesn't point to a directory, this should be an error.
   std::string base_dir;
-  /// The behavior if `base_dir` doesn't exist in the filesystem.  If false,
+  /// The behavior if `base_dir` isn't found in the filesystem.  If false,
   /// an error is returned.  If true, an empty selection is returned.
-  bool allow_non_existent = false;
+  bool allow_not_found = false;
   /// Whether to recurse into subdirectories.
   bool recursive = false;
   /// The maximum number of subdirectories to recurse into.
@@ -156,28 +156,40 @@ struct ARROW_EXPORT FileSelector {
 };
 
 /// \brief Abstract file system API
-class ARROW_EXPORT FileSystem {
+class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> {
  public:
   virtual ~FileSystem();
 
   virtual std::string type_name() const = 0;
 
+  /// Normalize path for the given filesystem
+  ///
+  /// The default implementation of this method is a no-op, but subclasses
+  /// may allow normalizing irregular path forms (such as Windows local paths).
+  virtual Result<std::string> NormalizePath(std::string path);
+
+  virtual bool Equals(const FileSystem& other) const = 0;
+
+  virtual bool Equals(const std::shared_ptr<FileSystem>& other) const {
+    return Equals(*other);
+  }
+
   /// Get info for the given target.
   ///
   /// Any symlink is automatically dereferenced, recursively.
-  /// A non-existing or unreachable file returns an Ok status and
-  /// has a FileType of value NonExistent.  An error status indicates
+  /// A nonexistent or unreachable file returns an Ok status and
+  /// has a FileType of value NotFound.  An error status indicates
   /// a truly exceptional condition (low-level I/O error, etc.).
-  virtual Result<FileInfo> GetTargetInfo(const std::string& path) = 0;
+  virtual Result<FileInfo> GetFileInfo(const std::string& path) = 0;
   /// Same, for many targets at once.
-  virtual Result<std::vector<FileInfo>> GetTargetInfos(
+  virtual Result<std::vector<FileInfo>> GetFileInfo(
       const std::vector<std::string>& paths);
   /// Same, according to a selector.
   ///
   /// The selector's base directory will not be part of the results, even if
   /// it exists.
-  /// If it doesn't exist, see `FileSelector::allow_non_existent`.
-  virtual Result<std::vector<FileInfo>> GetTargetInfos(const FileSelector& select) = 0;
+  /// If it doesn't exist, see `FileSelector::allow_not_found`.
+  virtual Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) = 0;
 
   /// Create a directory and subdirectories.
   ///
@@ -246,18 +258,24 @@ class ARROW_EXPORT FileSystem {
 /// "escape" the subtree and access other parts of the underlying filesystem.
 class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
  public:
+  // This constructor may abort if base_path is invalid.
   explicit SubTreeFileSystem(const std::string& base_path,
                              std::shared_ptr<FileSystem> base_fs);
   ~SubTreeFileSystem() override;
 
   std::string type_name() const override { return "subtree"; }
+  std::string base_path() const { return base_path_; }
+  std::shared_ptr<FileSystem> base_fs() const { return base_fs_; }
+
+  Result<std::string> NormalizePath(std::string path) override;
+
+  bool Equals(const FileSystem& other) const override;
 
   /// \cond FALSE
-  using FileSystem::GetTargetInfo;
-  using FileSystem::GetTargetInfos;
+  using FileSystem::GetFileInfo;
   /// \endcond
-  Result<FileInfo> GetTargetInfo(const std::string& path) override;
-  Result<std::vector<FileInfo>> GetTargetInfos(const FileSelector& select) override;
+  Result<FileInfo> GetFileInfo(const std::string& path) override;
+  Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
@@ -280,13 +298,18 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
       const std::string& path) override;
 
  protected:
+  SubTreeFileSystem() {}
+
   const std::string base_path_;
   std::shared_ptr<FileSystem> base_fs_;
 
   std::string PrependBase(const std::string& s) const;
   Status PrependBaseNonEmpty(std::string* s) const;
-  Status StripBase(const std::string& s, std::string* out) const;
+  Result<std::string> StripBase(const std::string& s) const;
   Status FixInfo(FileInfo* info) const;
+
+  static Result<std::string> NormalizeBasePath(
+      std::string base_path, const std::shared_ptr<FileSystem>& base_fs);
 };
 
 /// \brief A FileSystem implementation that delegates to another
@@ -300,11 +323,11 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
                  int32_t seed);
 
   std::string type_name() const override { return "slow"; }
+  bool Equals(const FileSystem& other) const override;
 
-  using FileSystem::GetTargetInfo;
-  using FileSystem::GetTargetInfos;
-  Result<FileInfo> GetTargetInfo(const std::string& path) override;
-  Result<std::vector<FileInfo>> GetTargetInfos(const FileSelector& select) override;
+  using FileSystem::GetFileInfo;
+  Result<FileInfo> GetFileInfo(const std::string& path) override;
+  Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 

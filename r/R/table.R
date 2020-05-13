@@ -69,7 +69,7 @@
 #' - `$Take(i)`: return an `Table` with rows at positions given by
 #'    integers `i`. If `i` is an Arrow `Array` or `ChunkedArray`, it will be
 #'    coerced to an R vector before taking.
-#' - `$Filter(i)`: return an `Table` with rows at positions where logical
+#' - `$Filter(i, keep_na = TRUE)`: return an `Table` with rows at positions where logical
 #'    vector or Arrow boolean-type `(Chunked)Array` `i` is `TRUE`.
 #' - `$serialize(output_stream, ...)`: Write the table to the given
 #'    [OutputStream]
@@ -150,19 +150,27 @@ Table <- R6Class("Table", inherit = ArrowObject,
       assert_is(i, "Array")
       shared_ptr(Table, Table__Take(self, i))
     },
-    Filter = function(i) {
+    Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
       if (inherits(i, "ChunkedArray")) {
-        return(shared_ptr(Table, Table__FilterChunked(self, i)))
+        return(shared_ptr(Table, Table__FilterChunked(self, i, keep_na)))
       }
       assert_is(i, "Array")
-      shared_ptr(Table, Table__Filter(self, i))
+      shared_ptr(Table, Table__Filter(self, i, keep_na))
     },
 
-    Equals = function(other, check_metadata = TRUE, ...) {
+    Equals = function(other, check_metadata = FALSE, ...) {
       inherits(other, "Table") && Table__Equals(self, other, isTRUE(check_metadata))
+    },
+
+    Validate = function() {
+      Table__Validate(self)
+    },
+
+    ValidateFull = function() {
+      Table__ValidateFull(self)
     }
   ),
 
@@ -175,7 +183,7 @@ Table <- R6Class("Table", inherit = ArrowObject,
   )
 )
 
-Table$create <- function(..., schema = NULL){
+Table$create <- function(..., schema = NULL) {
   dots <- list2(...)
   # making sure there are always names
   if (is.null(names(dots))) {
@@ -186,7 +194,7 @@ Table$create <- function(..., schema = NULL){
 }
 
 #' @export
-as.data.frame.Table <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
+as.data.frame.Table <- function(x, row.names = NULL, optional = FALSE, ...) {
   Table__to_dataframe(x, use_threads = option_use_threads())
 }
 

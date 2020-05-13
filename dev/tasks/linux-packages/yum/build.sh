@@ -48,6 +48,10 @@ case "${architecture}" in
     ;;
 esac
 
+cd
+
+run mkdir -p /build/rpmbuild
+run ln -fs /build/rpmbuild ./
 if [ -x /usr/bin/rpmdev-setuptree ]; then
   rm -rf .rpmmacros
   run rpmdev-setuptree
@@ -55,11 +59,11 @@ else
   run cat <<EOM > ~/.rpmmacros
 %_topdir ${HOME}/rpmbuild
 EOM
-  run mkdir -p ~/rpmbuild/SOURCES
-  run mkdir -p ~/rpmbuild/SPECS
-  run mkdir -p ~/rpmbuild/BUILD
-  run mkdir -p ~/rpmbuild/RPMS
-  run mkdir -p ~/rpmbuild/SRPMS
+  run mkdir -p rpmbuild/SOURCES
+  run mkdir -p rpmbuild/SPECS
+  run mkdir -p rpmbuild/BUILD
+  run mkdir -p rpmbuild/RPMS
+  run mkdir -p rpmbuild/SRPMS
 fi
 
 repositories="/host/repositories"
@@ -70,8 +74,6 @@ run mkdir -p "${rpm_dir}" "${srpm_dir}"
 
 # for debug
 # rpmbuild_options="$rpmbuild_options --define 'optflags -O0 -g3'"
-
-cd
 
 if [ -n "${SOURCE_ARCHIVE}" ]; then
   case "${RELEASE}" in

@@ -32,11 +32,11 @@ class ARROW_EXPORT DayTimeIntervalBuilder : public NumericBuilder<DayTimeInterva
  public:
   using DayMilliseconds = DayTimeIntervalType::DayMilliseconds;
 
-  explicit DayTimeIntervalBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+  explicit DayTimeIntervalBuilder(MemoryPool* pool = default_memory_pool())
       : DayTimeIntervalBuilder(day_time_interval(), pool) {}
 
   explicit DayTimeIntervalBuilder(std::shared_ptr<DataType> type,
-                                  MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+                                  MemoryPool* pool = default_memory_pool())
       : NumericBuilder<DayTimeIntervalType>(type, pool) {}
 };
 

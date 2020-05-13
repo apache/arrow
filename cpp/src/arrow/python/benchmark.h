@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_BENCHMARK_H
-#define ARROW_PYTHON_BENCHMARK_H
+#pragma once
 
 #include "arrow/python/platform.h"
 
@@ -35,5 +34,3 @@ void Benchmark_PandasObjectIsNull(PyObject* list);
 }  // namespace benchmark
 }  // namespace py
 }  // namespace arrow
-
-#endif  // ARROW_PYTHON_BENCHMARK_H

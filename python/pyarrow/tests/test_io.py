@@ -376,7 +376,7 @@ def test_buffer_from_numpy():
     assert buf.is_cpu
     assert buf.is_mutable
     assert buf.to_pybytes() == arr.tobytes()
-    # F-contiguous; note strides informations is lost
+    # F-contiguous; note strides information is lost
     buf = pa.py_buffer(arr.T)
     assert buf.is_cpu
     assert buf.is_mutable

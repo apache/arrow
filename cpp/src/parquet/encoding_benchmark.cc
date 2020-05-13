@@ -24,6 +24,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/util/byte_stream_split.h"
 
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
@@ -197,6 +198,139 @@ static void BM_PlainDecodingFloat(benchmark::State& state) {
 }
 
 BENCHMARK(BM_PlainDecodingFloat)->Range(MIN_RANGE, MAX_RANGE);
+
+template <typename T, typename DecodeFunc>
+static void BM_ByteStreamSplitDecode(benchmark::State& state, DecodeFunc&& decode_func) {
+  std::vector<T> values(state.range(0), 64.0);
+  const uint8_t* values_raw = reinterpret_cast<const uint8_t*>(values.data());
+  std::vector<T> output(state.range(0), 0);
+
+  for (auto _ : state) {
+    decode_func(values_raw, static_cast<int64_t>(values.size()),
+                static_cast<int64_t>(values.size()), output.data());
+    benchmark::ClobberMemory();
+  }
+  state.SetBytesProcessed(state.iterations() * values.size() * sizeof(T));
+}
+
+template <typename T, typename EncodeFunc>
+static void BM_ByteStreamSplitEncode(benchmark::State& state, EncodeFunc&& encode_func) {
+  std::vector<T> values(state.range(0), 64.0);
+  const uint8_t* values_raw = reinterpret_cast<const uint8_t*>(values.data());
+  std::vector<uint8_t> output(state.range(0) * sizeof(T), 0);
+
+  for (auto _ : state) {
+    encode_func(values_raw, values.size(), output.data());
+    benchmark::ClobberMemory();
+  }
+  state.SetBytesProcessed(state.iterations() * values.size() * sizeof(T));
+}
+
+static void BM_ByteStreamSplitDecode_Float_Scalar(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<float>(
+      state, arrow::util::internal::ByteStreamSplitDecodeScalar<float>);
+}
+
+static void BM_ByteStreamSplitDecode_Double_Scalar(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<double>(
+      state, arrow::util::internal::ByteStreamSplitDecodeScalar<double>);
+}
+
+static void BM_ByteStreamSplitEncode_Float_Scalar(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<float>(
+      state, arrow::util::internal::ByteStreamSplitEncodeScalar<float>);
+}
+
+static void BM_ByteStreamSplitEncode_Double_Scalar(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<double>(
+      state, arrow::util::internal::ByteStreamSplitEncodeScalar<double>);
+}
+
+BENCHMARK(BM_ByteStreamSplitDecode_Float_Scalar)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitDecode_Double_Scalar)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Float_Scalar)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Double_Scalar)->Range(MIN_RANGE, MAX_RANGE);
+
+#if defined(ARROW_HAVE_SSE4_2)
+static void BM_ByteStreamSplitDecode_Float_Sse2(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<float>(
+      state, arrow::util::internal::ByteStreamSplitDecodeSse2<float>);
+}
+
+static void BM_ByteStreamSplitDecode_Double_Sse2(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<double>(
+      state, arrow::util::internal::ByteStreamSplitDecodeSse2<double>);
+}
+
+static void BM_ByteStreamSplitEncode_Float_Sse2(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<float>(
+      state, arrow::util::internal::ByteStreamSplitEncodeSse2<float>);
+}
+
+static void BM_ByteStreamSplitEncode_Double_Sse2(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<double>(
+      state, arrow::util::internal::ByteStreamSplitEncodeSse2<double>);
+}
+
+BENCHMARK(BM_ByteStreamSplitDecode_Float_Sse2)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitDecode_Double_Sse2)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Float_Sse2)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Double_Sse2)->Range(MIN_RANGE, MAX_RANGE);
+#endif
+
+#if defined(ARROW_HAVE_AVX2)
+static void BM_ByteStreamSplitDecode_Float_Avx2(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<float>(
+      state, arrow::util::internal::ByteStreamSplitDecodeAvx2<float>);
+}
+
+static void BM_ByteStreamSplitDecode_Double_Avx2(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<double>(
+      state, arrow::util::internal::ByteStreamSplitDecodeAvx2<double>);
+}
+
+static void BM_ByteStreamSplitEncode_Float_Avx2(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<float>(
+      state, arrow::util::internal::ByteStreamSplitEncodeAvx2<float>);
+}
+
+static void BM_ByteStreamSplitEncode_Double_Avx2(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<double>(
+      state, arrow::util::internal::ByteStreamSplitEncodeAvx2<double>);
+}
+
+BENCHMARK(BM_ByteStreamSplitDecode_Float_Avx2)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitDecode_Double_Avx2)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Float_Avx2)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Double_Avx2)->Range(MIN_RANGE, MAX_RANGE);
+#endif
+
+#if defined(ARROW_HAVE_AVX512)
+static void BM_ByteStreamSplitDecode_Float_Avx512(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<float>(
+      state, arrow::util::internal::ByteStreamSplitDecodeAvx512<float>);
+}
+
+static void BM_ByteStreamSplitDecode_Double_Avx512(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<double>(
+      state, arrow::util::internal::ByteStreamSplitDecodeAvx512<double>);
+}
+
+static void BM_ByteStreamSplitEncode_Float_Avx512(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<float>(
+      state, arrow::util::internal::ByteStreamSplitEncodeAvx512<float>);
+}
+
+static void BM_ByteStreamSplitEncode_Double_Avx512(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<double>(
+      state, arrow::util::internal::ByteStreamSplitEncodeAvx512<double>);
+}
+
+BENCHMARK(BM_ByteStreamSplitDecode_Float_Avx512)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitDecode_Double_Avx512)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Float_Avx512)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Double_Avx512)->Range(MIN_RANGE, MAX_RANGE);
+#endif
 
 template <typename Type>
 static void DecodeDict(std::vector<typename Type::c_type>& values,

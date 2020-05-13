@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef TIME_CONSTANTS_H
-#define TIME_CONSTANTS_H
+#pragma once
 
 #define MILLIS_IN_SEC (1000)
 #define MILLIS_IN_MIN (60 * MILLIS_IN_SEC)
@@ -29,5 +28,3 @@
 #define MILLIS_TO_HOUR(millis) ((millis) / MILLIS_IN_HOUR)
 #define MILLIS_TO_DAY(millis) ((millis) / MILLIS_IN_DAY)
 #define MILLIS_TO_WEEK(millis) ((millis) / MILLIS_IN_WEEK)
-
-#endif  // TIME_CONSTANTS_H

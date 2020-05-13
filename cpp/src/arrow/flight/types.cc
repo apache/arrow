@@ -45,6 +45,12 @@ std::string FlightStatusDetail::ToString() const { return CodeAsString(); }
 
 FlightStatusCode FlightStatusDetail::code() const { return code_; }
 
+std::string FlightStatusDetail::extra_info() const { return extra_info_; }
+
+void FlightStatusDetail::set_extra_info(std::string extra_info) {
+  extra_info_ = std::move(extra_info);
+}
+
 std::string FlightStatusDetail::CodeAsString() const {
   switch (code()) {
     case FlightStatusCode::Internal:
@@ -75,6 +81,13 @@ std::shared_ptr<FlightStatusDetail> FlightStatusDetail::UnwrapStatus(
 Status MakeFlightError(FlightStatusCode code, const std::string& message) {
   StatusCode arrow_code = arrow::StatusCode::IOError;
   return arrow::Status(arrow_code, message, std::make_shared<FlightStatusDetail>(code));
+}
+
+Status MakeFlightError(FlightStatusCode code, const std::string& message,
+                       const std::string& extra_info) {
+  StatusCode arrow_code = arrow::StatusCode::IOError;
+  return arrow::Status(arrow_code, message,
+                       std::make_shared<FlightStatusDetail>(code, extra_info));
 }
 
 bool FlightDescriptor::Equals(const FlightDescriptor& other) const {
@@ -121,8 +134,7 @@ std::string FlightDescriptor::ToString() const {
 Status SchemaResult::GetSchema(ipc::DictionaryMemo* dictionary_memo,
                                std::shared_ptr<Schema>* out) const {
   io::BufferReader schema_reader(raw_schema_);
-  RETURN_NOT_OK(ipc::ReadSchema(&schema_reader, dictionary_memo, out));
-  return Status::OK();
+  return ipc::ReadSchema(&schema_reader, dictionary_memo).Value(out);
 }
 
 Status FlightDescriptor::SerializeToString(std::string* out) const {
@@ -171,7 +183,7 @@ Status FlightInfo::GetSchema(ipc::DictionaryMemo* dictionary_memo,
     return Status::OK();
   }
   io::BufferReader schema_reader(data_.schema);
-  RETURN_NOT_OK(ipc::ReadSchema(&schema_reader, dictionary_memo, &schema_));
+  RETURN_NOT_OK(ipc::ReadSchema(&schema_reader, dictionary_memo).Value(&schema_));
   reconstructed_schema_ = true;
   *out = schema_;
   return Status::OK();
@@ -256,7 +268,7 @@ Status MetadataRecordBatchReader::ReadAll(
 Status MetadataRecordBatchReader::ReadAll(std::shared_ptr<Table>* table) {
   std::vector<std::shared_ptr<RecordBatch>> batches;
   RETURN_NOT_OK(ReadAll(&batches));
-  return Table::FromRecordBatches(schema(), batches, table);
+  return Table::FromRecordBatches(schema(), std::move(batches)).Value(table);
 }
 
 SimpleFlightListing::SimpleFlightListing(const std::vector<FlightInfo>& flights)

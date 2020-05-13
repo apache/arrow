@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_IO_HDFS
-#define ARROW_IO_HDFS
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -38,6 +37,34 @@ namespace io {
 
 class HdfsReadableFile;
 class HdfsOutputStream;
+
+/// DEPRECATED.  Use the FileSystem API in arrow::fs instead.
+struct ObjectType {
+  enum type { FILE, DIRECTORY };
+};
+
+/// DEPRECATED.  Use the FileSystem API in arrow::fs instead.
+struct ARROW_EXPORT FileStatistics {
+  /// Size of file, -1 if finding length is unsupported
+  int64_t size;
+  ObjectType::type kind;
+};
+
+class ARROW_EXPORT FileSystem {
+ public:
+  virtual ~FileSystem() = default;
+
+  virtual Status MakeDirectory(const std::string& path) = 0;
+
+  virtual Status DeleteDirectory(const std::string& path) = 0;
+
+  virtual Status GetChildren(const std::string& path,
+                             std::vector<std::string>* listing) = 0;
+
+  virtual Status Rename(const std::string& src, const std::string& dst) = 0;
+
+  virtual Status Stat(const std::string& path, FileStatistics* stat) = 0;
+};
 
 struct HdfsPathInfo {
   ObjectType::type kind;
@@ -171,15 +198,6 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   Status OpenWritable(const std::string& path, bool append,
                       std::shared_ptr<HdfsOutputStream>* file);
 
-  ARROW_DEPRECATED("Use OpenWritable")
-  Status OpenWriteable(const std::string& path, bool append, int32_t buffer_size,
-                       int16_t replication, int64_t default_block_size,
-                       std::shared_ptr<HdfsOutputStream>* file);
-
-  ARROW_DEPRECATED("Use OpenWritable")
-  Status OpenWriteable(const std::string& path, bool append,
-                       std::shared_ptr<HdfsOutputStream>* file);
-
  private:
   friend class HdfsReadableFile;
   friend class HdfsOutputStream;
@@ -256,5 +274,3 @@ Status ARROW_EXPORT HaveLibHdfs();
 
 }  // namespace io
 }  // namespace arrow
-
-#endif  // ARROW_IO_HDFS

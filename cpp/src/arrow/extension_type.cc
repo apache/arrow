@@ -43,6 +43,12 @@ std::string ExtensionType::ToString() const {
   return ss.str();
 }
 
+Status ExtensionType::Deserialize(std::shared_ptr<DataType> storage_type,
+                                  const std::string& serialized_data,
+                                  std::shared_ptr<DataType>* out) const {
+  return Deserialize(std::move(storage_type), serialized_data).Value(out);
+}
+
 ExtensionArray::ExtensionArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
 
 ExtensionArray::ExtensionArray(const std::shared_ptr<DataType>& type,

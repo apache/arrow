@@ -29,7 +29,7 @@
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
 # LD_LIBRARY_PATH.
 #
-# To reuse build artifacts between runs set TMPDIR environment variable to
+# To reuse build artifacts between runs set ARROW_TMPDIR environment variable to
 # a directory where the temporary files should be placed to, note that this
 # directory is not cleaned up automatically.
 
@@ -127,7 +127,9 @@ test_binary() {
   local download_dir=binaries
   mkdir -p ${download_dir}
 
-  python $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER --dest=${download_dir}
+  python $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+         --dest=${download_dir}
+
   verify_dir_artifact_signatures ${download_dir}
 }
 
@@ -141,11 +143,16 @@ test_apt() {
                 "ubuntu:bionic" \
                 "arm64v8/ubuntu:bionic" \
                 "ubuntu:eoan" \
-                "arm64v8/ubuntu:eoan"; do \
+                "arm64v8/ubuntu:eoan" \
+                "ubuntu:focal" \
+                "arm64v8/ubuntu:focal"; do \
     # We can't build some arm64 binaries by Crossbow for now.
     if [ "${target}" = "arm64v8/debian:stretch" ]; then continue; fi
     if [ "${target}" = "arm64v8/debian:buster" ]; then continue; fi
+    if [ "${target}" = "arm64v8/ubuntu:xenial" ]; then continue; fi
+    if [ "${target}" = "arm64v8/ubuntu:bionic" ]; then continue; fi
     if [ "${target}" = "arm64v8/ubuntu:eoan" ]; then continue; fi
+    if [ "${target}" = "arm64v8/ubuntu:focal" ]; then continue; fi
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
@@ -174,6 +181,7 @@ test_yum() {
                 "centos:8" \
                 "arm64v8/centos:8"; do
     # We can't build some arm64 binaries by Crossbow for now.
+    if [ "${target}" = "arm64v8/centos:7" ]; then continue; fi
     if [ "${target}" = "arm64v8/centos:8" ]; then continue; fi
     case "${target}" in
       arm64v8/*)
@@ -200,19 +208,19 @@ test_yum() {
 setup_tempdir() {
   cleanup() {
     if [ "${TEST_SUCCESS}" = "yes" ]; then
-      rm -fr "${TMPDIR}"
+      rm -fr "${ARROW_TMPDIR}"
     else
-      echo "Failed to verify release candidate. See ${TMPDIR} for details."
+      echo "Failed to verify release candidate. See ${ARROW_TMPDIR} for details."
     fi
   }
 
-  if [ -z "${TMPDIR}" ]; then
-    # clean up automatically if TMPDIR is not defined
-    TMPDIR=$(mktemp -d -t "$1.XXXXX")
+  if [ -z "${ARROW_TMPDIR}" ]; then
+    # clean up automatically if ARROW_TMPDIR is not defined
+    ARROW_TMPDIR=$(mktemp -d -t "$1.XXXXX")
     trap cleanup EXIT
   else
     # don't clean up automatically
-    mkdir -p "${TMPDIR}"
+    mkdir -p "${ARROW_TMPDIR}"
   fi
 }
 
@@ -274,6 +282,7 @@ ${ARROW_CMAKE_OPTIONS:-}
 -DARROW_PARQUET=ON
 -DARROW_DATASET=ON
 -DPARQUET_REQUIRE_ENCRYPTION=ON
+-DARROW_VERBOSE_THIRDPARTY_BUILD=ON
 -DARROW_WITH_BZ2=ON
 -DARROW_WITH_ZLIB=ON
 -DARROW_WITH_ZSTD=ON
@@ -360,7 +369,7 @@ test_csharp() {
 test_python() {
   pushd python
 
-  pip install -r requirements.txt -r requirements-test.txt
+  pip install -r requirements-build.txt -r requirements-test.txt
 
   export PYARROW_WITH_DATASET=1
   export PYARROW_WITH_GANDIVA=1
@@ -411,12 +420,12 @@ test_glib() {
 test_js() {
   pushd js
 
-  export NVM_DIR="`pwd`/.nvm"
-  mkdir -p $NVM_DIR
-  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
-  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-  nvm install node
+  # export NVM_DIR="`pwd`/.nvm"
+  # mkdir -p $NVM_DIR
+  # curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
+  # [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+  #
+  # nvm install node
 
   npm install
   # clean, lint, and build JS source
@@ -453,10 +462,31 @@ test_ruby() {
 }
 
 test_go() {
+  local VERSION=1.14.1
+  local ARCH=amd64
+
+  if [ "$(uname)" == "Darwin" ]; then
+    local OS=darwin
+  else
+    local OS=linux
+  fi
+
+  local GO_ARCHIVE=go$VERSION.$OS-$ARCH.tar.gz
+  wget https://dl.google.com/go/$GO_ARCHIVE
+
+  mkdir -p local-go
+  tar -xzf $GO_ARCHIVE -C local-go
+  rm -f $GO_ARCHIVE
+
+  export GOROOT=`pwd`/local-go/go
+  export GOPATH=`pwd`/local-go/gopath
+  export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+
   pushd go/arrow
 
   go get -v ./...
   go test ./...
+  go clean -modcache
 
   popd
 }
@@ -536,8 +566,8 @@ clone_testing_repositories() {
 }
 
 test_source_distribution() {
-  export ARROW_HOME=$TMPDIR/install
-  export PARQUET_HOME=$TMPDIR/install
+  export ARROW_HOME=$ARROW_TMPDIR/install
+  export PARQUET_HOME=$ARROW_TMPDIR/install
   export LD_LIBRARY_PATH=$ARROW_HOME/lib:${LD_LIBRARY_PATH:-}
   export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig:${PKG_CONFIG_PATH:-}
 
@@ -618,16 +648,15 @@ test_linux_wheels() {
     local env=_verify_wheel-${py_arch}
     conda create -yq -n ${env} python=${py_arch//[mu]/}
     conda activate ${env}
+    pip install -U pip
 
     for ml_spec in ${manylinuxes}; do
       # check the mandatory and optional imports
       pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux${ml_spec}_x86_64.whl
       check_python_imports py_arch
 
-      # install test requirements
+      # install test requirements and execute the tests
       pip install -r ${ARROW_DIR}/python/requirements-test.txt
-
-      # execute the python unit tests
       pytest --pyargs pyarrow
     done
 
@@ -642,6 +671,7 @@ test_macos_wheels() {
     local env=_verify_wheel-${py_arch}
     conda create -yq -n ${env} python=${py_arch//m/}
     conda activate ${env}
+    pip install -U pip
 
     macos_suffix=macosx
     case "${py_arch}" in
@@ -657,10 +687,8 @@ test_macos_wheels() {
     pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[m.]/}-cp${py_arch//./}-${macos_suffix}.whl
     check_python_imports py_arch
 
-    # install test requirements
+    # install test requirements and execute the tests
     pip install -r ${ARROW_DIR}/python/requirements-test.txt
-
-    # execute the python unit tests
     pytest --pyargs pyarrow
 
     conda deactivate
@@ -678,9 +706,6 @@ test_wheels() {
   else
     local filter_regex=.*manylinux.*
   fi
-
-  conda create -yq -n py3-base python=3.7
-  conda activate py3-base
 
   python $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
          --regex=${filter_regex} \
@@ -702,8 +727,19 @@ test_wheels() {
 # By default test all functionalities.
 # To deactivate one test, deactivate the test and all of its dependents
 # To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
+
+if [ "${ARTIFACT}" == "source" ]; then
+  : ${TEST_SOURCE:=1}
+elif [ "${ARTIFACT}" == "wheels" ]; then
+  TEST_WHEELS=1
+else
+  TEST_BINARY_DISTRIBUTIONS=1
+fi
+: ${TEST_SOURCE:=0}
+: ${TEST_WHEELS:=0}
+: ${TEST_BINARY_DISTRIBUTIONS:=0}
+
 : ${TEST_DEFAULT:=1}
-: ${TEST_SOURCE:=${TEST_DEFAULT}}
 : ${TEST_JAVA:=${TEST_DEFAULT}}
 : ${TEST_CPP:=${TEST_DEFAULT}}
 : ${TEST_CSHARP:=${TEST_DEFAULT}}
@@ -714,9 +750,14 @@ test_wheels() {
 : ${TEST_GO:=${TEST_DEFAULT}}
 : ${TEST_RUST:=${TEST_DEFAULT}}
 : ${TEST_INTEGRATION:=${TEST_DEFAULT}}
-: ${TEST_BINARY:=${TEST_DEFAULT}}
-: ${TEST_APT:=${TEST_DEFAULT}}
-: ${TEST_YUM:=${TEST_DEFAULT}}
+if [ ${TEST_BINARY_DISTRIBUTIONS} -gt 0 ]; then
+  TEST_BINARY_DISTRIBUTIONS_DEFAULT=${TEST_DEFAULT}
+else
+  TEST_BINARY_DISTRIBUTIONS_DEFAULT=0
+fi
+: ${TEST_BINARY:=${TEST_BINARY_DISTRIBUTIONS_DEFAULT}}
+: ${TEST_APT:=${TEST_BINARY_DISTRIBUTIONS_DEFAULT}}
+: ${TEST_YUM:=${TEST_BINARY_DISTRIBUTIONS_DEFAULT}}
 
 # For selective Integration testing, set TEST_DEFAULT=0 TEST_INTEGRATION_X=1 TEST_INTEGRATION_Y=1
 : ${TEST_INTEGRATION_CPP:=${TEST_INTEGRATION}}
@@ -732,6 +773,8 @@ TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
 TEST_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
 TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
 
+NEED_MINICONDA=$((${TEST_CPP} + ${TEST_WHEELS} + ${TEST_BINARY} + ${TEST_INTEGRATION}))
+
 : ${TEST_ARCHIVE:=apache-arrow-${VERSION}.tar.gz}
 case "${TEST_ARCHIVE}" in
   /*)
@@ -744,11 +787,13 @@ esac
 TEST_SUCCESS=no
 
 setup_tempdir "arrow-${VERSION}"
-echo "Working in sandbox ${TMPDIR}"
-cd ${TMPDIR}
+echo "Working in sandbox ${ARROW_TMPDIR}"
+cd ${ARROW_TMPDIR}
 
-setup_miniconda
-echo "Using miniconda environment ${MINICONDA}"
+if [ ${NEED_MINICONDA} -gt 0 ]; then
+  setup_miniconda
+  echo "Using miniconda environment ${MINICONDA}"
+fi
 
 if [ "${ARTIFACT}" == "source" ]; then
   dist_name="apache-arrow-${VERSION}"
@@ -759,7 +804,7 @@ if [ "${ARTIFACT}" == "source" ]; then
   else
     mkdir -p ${dist_name}
     if [ ! -f ${TEST_ARCHIVE} ]; then
-      echo "${TEST_ARCHIVE} not found, did you mean to pass TEST_SOURCE=1?"
+      echo "${TEST_ARCHIVE} not found"
       exit 1
     fi
     tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1

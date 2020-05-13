@@ -27,7 +27,7 @@ using Rcpp::String;
 // [[arrow::export]]
 std::shared_ptr<ds::ScannerBuilder> dataset___Dataset__NewScan(
     const std::shared_ptr<ds::Dataset>& ds) {
-  return VALUE_OR_STOP(ds->NewScan());
+  return ValueOrStop(ds->NewScan());
 }
 
 // [[arrow::export]]
@@ -42,9 +42,16 @@ std::string dataset___Dataset__type_name(const std::shared_ptr<ds::Dataset>& dat
 }
 
 // [[arrow::export]]
+std::shared_ptr<ds::Dataset> dataset___Dataset__ReplaceSchema(
+    const std::shared_ptr<ds::Dataset>& dataset,
+    const std::shared_ptr<arrow::Schema>& schm) {
+  return ValueOrStop(dataset->ReplaceSchema(schm));
+}
+
+// [[arrow::export]]
 std::shared_ptr<ds::UnionDataset> dataset___UnionDataset__create(
     const ds::DatasetVector& datasets, const std::shared_ptr<arrow::Schema>& schm) {
-  return VALUE_OR_STOP(ds::UnionDataset::Make(schm, datasets));
+  return ValueOrStop(ds::UnionDataset::Make(schm, datasets));
 }
 
 // [[arrow::export]]
@@ -69,27 +76,35 @@ std::vector<std::string> dataset___FileSystemDataset__files(
 
 // [[arrow::export]]
 std::shared_ptr<ds::Dataset> dataset___DatasetFactory__Finish1(
-    const std::shared_ptr<ds::DatasetFactory>& factory) {
-  return VALUE_OR_STOP(factory->Finish());
+    const std::shared_ptr<ds::DatasetFactory>& factory, bool unify_schemas) {
+  ds::FinishOptions opts;
+  if (unify_schemas) {
+    opts.inspect_options.fragments = ds::InspectOptions::kInspectAllFragments;
+  }
+  return ValueOrStop(factory->Finish(opts));
 }
 
 // [[arrow::export]]
 std::shared_ptr<ds::Dataset> dataset___DatasetFactory__Finish2(
     const std::shared_ptr<ds::DatasetFactory>& factory,
     const std::shared_ptr<arrow::Schema>& schema) {
-  return VALUE_OR_STOP(factory->Finish(schema));
+  return ValueOrStop(factory->Finish(schema));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Schema> dataset___DatasetFactory__Inspect(
-    const std::shared_ptr<ds::DatasetFactory>& factory) {
-  return VALUE_OR_STOP(factory->Inspect());
+    const std::shared_ptr<ds::DatasetFactory>& factory, bool unify_schemas) {
+  ds::InspectOptions opts;
+  if (unify_schemas) {
+    opts.fragments = ds::InspectOptions::kInspectAllFragments;
+  }
+  return ValueOrStop(factory->Inspect(opts));
 }
 
 // [[arrow::export]]
 std::shared_ptr<ds::DatasetFactory> dataset___UnionDatasetFactory__Make(
     const std::vector<std::shared_ptr<ds::DatasetFactory>>& children) {
-  return VALUE_OR_STOP(ds::UnionDatasetFactory::Make(children));
+  return ValueOrStop(ds::UnionDatasetFactory::Make(children));
 }
 
 // [[arrow::export]]
@@ -104,8 +119,7 @@ std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make2(
     options.partitioning = partitioning;
   }
 
-  return VALUE_OR_STOP(
-      ds::FileSystemDatasetFactory::Make(fs, *selector, format, options));
+  return ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, *selector, format, options));
 }
 
 // [[arrow::export]]
@@ -128,8 +142,7 @@ std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make3(
     options.partitioning = factory;
   }
 
-  return VALUE_OR_STOP(
-      ds::FileSystemDatasetFactory::Make(fs, *selector, format, options));
+  return ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, *selector, format, options));
 }
 
 // FileFormat, ParquetFileFormat, IpcFileFormat
@@ -159,6 +172,14 @@ std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(
 // [[arrow::export]]
 std::shared_ptr<ds::IpcFileFormat> dataset___IpcFileFormat__Make() {
   return std::make_shared<ds::IpcFileFormat>();
+}
+
+// [[arrow::export]]
+std::shared_ptr<ds::CsvFileFormat> dataset___CsvFileFormat__Make(
+    const std::shared_ptr<arrow::csv::ParseOptions>& parse_options) {
+  auto format = std::make_shared<ds::CsvFileFormat>();
+  format->parse_options = *parse_options;
+  return format;
 }
 
 // DirectoryPartitioning, HivePartitioning
@@ -191,7 +212,7 @@ std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory
 // [[arrow::export]]
 void dataset___ScannerBuilder__Project(const std::shared_ptr<ds::ScannerBuilder>& sb,
                                        const std::vector<std::string>& cols) {
-  STOP_IF_NOT_OK(sb->Project(cols));
+  StopIfNotOk(sb->Project(cols));
 }
 
 // [[arrow::export]]
@@ -199,20 +220,20 @@ void dataset___ScannerBuilder__Filter(const std::shared_ptr<ds::ScannerBuilder>&
                                       const std::shared_ptr<ds::Expression>& expr) {
   // Expressions converted from R's expressions are typed with R's native type,
   // i.e. double, int64_t and bool.
-  auto cast_filter = VALUE_OR_STOP(InsertImplicitCasts(*expr, *sb->schema()));
-  STOP_IF_NOT_OK(sb->Filter(cast_filter));
+  auto cast_filter = ValueOrStop(InsertImplicitCasts(*expr, *sb->schema()));
+  StopIfNotOk(sb->Filter(cast_filter));
 }
 
 // [[arrow::export]]
 void dataset___ScannerBuilder__UseThreads(const std::shared_ptr<ds::ScannerBuilder>& sb,
                                           bool threads) {
-  STOP_IF_NOT_OK(sb->UseThreads(threads));
+  StopIfNotOk(sb->UseThreads(threads));
 }
 
 // [[arrow::export]]
 void dataset___ScannerBuilder__BatchSize(const std::shared_ptr<ds::ScannerBuilder>& sb,
                                          int64_t batch_size) {
-  STOP_IF_NOT_OK(sb->BatchSize(batch_size));
+  StopIfNotOk(sb->BatchSize(batch_size));
 }
 
 // [[arrow::export]]
@@ -224,13 +245,41 @@ std::shared_ptr<arrow::Schema> dataset___ScannerBuilder__schema(
 // [[arrow::export]]
 std::shared_ptr<ds::Scanner> dataset___ScannerBuilder__Finish(
     const std::shared_ptr<ds::ScannerBuilder>& sb) {
-  return VALUE_OR_STOP(sb->Finish());
+  return ValueOrStop(sb->Finish());
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(
     const std::shared_ptr<ds::Scanner>& scanner) {
-  return VALUE_OR_STOP(scanner->ToTable());
+  return ValueOrStop(scanner->ToTable());
+}
+
+// [[arrow::export]]
+std::vector<std::shared_ptr<ds::ScanTask>> dataset___Scanner__Scan(
+    const std::shared_ptr<ds::Scanner>& scanner) {
+  auto it = ValueOrStop(scanner->Scan());
+  std::vector<std::shared_ptr<ds::ScanTask>> out;
+  std::shared_ptr<ds::ScanTask> scan_task;
+  // TODO(npr): can this iteration be parallelized?
+  for (auto st : it) {
+    scan_task = ValueOrStop(st);
+    out.push_back(scan_task);
+  }
+  return out;
+}
+
+// [[arrow::export]]
+std::vector<std::shared_ptr<arrow::RecordBatch>> dataset___ScanTask__get_batches(
+    const std::shared_ptr<ds::ScanTask>& scan_task) {
+  arrow::RecordBatchIterator rbi;
+  rbi = ValueOrStop(scan_task->Execute());
+  std::vector<std::shared_ptr<arrow::RecordBatch>> out;
+  std::shared_ptr<arrow::RecordBatch> batch;
+  for (auto b : rbi) {
+    batch = ValueOrStop(b);
+    out.push_back(batch);
+  }
+  return out;
 }
 
 #endif

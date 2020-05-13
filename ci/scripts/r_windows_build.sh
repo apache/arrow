@@ -17,9 +17,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -x
+set -ex
 
-pacman --sync --noconfirm ccache
+: ${ARROW_HOME:=$(pwd)}
+# Make sure it is absolute and exported
+export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
+
+# ccache may be broken on MinGW.
+# pacman --sync --noconfirm ccache
 
 wget https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf
 cp -f pacman.conf /etc/pacman.conf
@@ -36,11 +41,13 @@ rm -f /mingw32/lib/*.dll.a
 rm -f /mingw64/lib/*.dll.a
 export PKG_CONFIG="/${MINGW_PREFIX}/bin/pkg-config --static"
 
-cp ci/scripts/PKGBUILD .
+cp $ARROW_HOME/ci/scripts/PKGBUILD .
 export PKGEXT='.pkg.tar.xz' # pacman default changed to .zst in 2020, but keep the old ext for compat
-unset BOOST_ROOT
 printenv
 makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --cleanbuild
+
+VERSION=$(grep Version $ARROW_HOME/r/DESCRIPTION | cut -d " " -f 2)
+DST_DIR="arrow-$VERSION"
 
 # Collect the build artifacts and make the shape of zip file that rwinlib expects
 ls
@@ -53,9 +60,6 @@ MSYS_LIB_DIR="D:/a/_temp/msys/msys64"
 
 ls $MSYS_LIB_DIR/mingw64/lib/
 ls $MSYS_LIB_DIR/mingw32/lib/
-
-VERSION=$(grep Version ../r/DESCRIPTION | cut -d " " -f 2)
-DST_DIR="arrow-$VERSION"
 
 # Untar the two builds we made
 ls | xargs -n 1 tar -xJf
@@ -77,8 +81,8 @@ mv mingw64/lib/*.a $DST_DIR/lib-4.9.3/x64
 mv mingw32/lib/*.a $DST_DIR/lib-4.9.3/i386
 
 # These are from https://dl.bintray.com/rtools/backports/
-cp $MSYS_LIB_DIR/mingw64/lib/lib{thrift,snappy,boost*}.a $DST_DIR/lib-4.9.3/x64
-cp $MSYS_LIB_DIR/mingw32/lib/lib{thrift,snappy,boost*}.a $DST_DIR/lib-4.9.3/i386
+cp $MSYS_LIB_DIR/mingw64/lib/lib{thrift,snappy}.a $DST_DIR/lib-4.9.3/x64
+cp $MSYS_LIB_DIR/mingw32/lib/lib{thrift,snappy}.a $DST_DIR/lib-4.9.3/i386
 
 # These are from https://dl.bintray.com/rtools/mingw{32,64}/
 cp $MSYS_LIB_DIR/mingw64/lib/lib{zstd,lz4,crypto}.a $DST_DIR/lib/x64

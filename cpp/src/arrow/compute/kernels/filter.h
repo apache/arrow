@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include <utility>
 
 #include "arrow/compute/kernel.h"
 #include "arrow/record_batch.h"
@@ -32,120 +33,42 @@ namespace compute {
 
 class FunctionContext;
 
-/// \brief Filter an array with a boolean selection filter
+struct FilterOptions {
+  /// Configure the action taken when a slot of the selection mask is null
+  enum NullSelectionBehavior {
+    /// the corresponding filtered value will be removed in the output
+    DROP,
+    /// the corresponding filtered value will be null in the output
+    EMIT_NULL,
+  };
+
+  NullSelectionBehavior null_selection_behavior = DROP;
+};
+
+/// \brief Filter with a boolean selection filter
 ///
-/// The output array will be populated with values from the input at positions
-/// where the selection filter is not 0. Nulls in the filter will result in nulls
-/// in the output.
+/// The output will be populated with values from the input at positions
+/// where the selection filter is not 0. Nulls in the filter will be handled
+/// based on options.null_selection_behavior.
 ///
 /// For example given values = ["a", "b", "c", null, "e", "f"] and
 /// filter = [0, 1, 1, 0, null, 1], the output will be
-/// = ["b", "c", null, "f"]
+/// (null_selection_behavior == DROP)      = ["b", "c", "f"]
+/// (null_selection_behavior == EMIT_NULL) = ["b", "c", null, "f"]
 ///
 /// \param[in] ctx the FunctionContext
 /// \param[in] values array to filter
 /// \param[in] filter indicates which values should be filtered out
+/// \param[in] options configures null_selection_behavior
 /// \param[out] out resulting array
 ARROW_EXPORT
-Status Filter(FunctionContext* ctx, const Array& values, const Array& filter,
-              std::shared_ptr<Array>* out);
-
-/// \brief Filter a chunked array with a boolean selection filter
-///
-/// The output chunked array will be populated with values from the input at positions
-/// where the selection filter is not 0. Nulls in the filter will result in nulls
-/// in the output.
-///
-/// For example given values = ["a", "b", "c", null, "e", "f"] and
-/// filter = [0, 1, 1, 0, null, 1], the output will be
-/// = ["b", "c", null, "f"]
-///
-/// \param[in] ctx the FunctionContext
-/// \param[in] values chunked array to filter
-/// \param[in] filter indicates which values should be filtered out
-/// \param[out] out resulting chunked array
-/// NOTE: Experimental API
-ARROW_EXPORT
-Status Filter(FunctionContext* ctx, const ChunkedArray& values, const Array& filter,
-              std::shared_ptr<ChunkedArray>* out);
-
-/// \brief Filter a chunked array with a boolean selection filter
-///
-/// The output chunked array will be populated with values from the input at positions
-/// where the selection filter is not 0. Nulls in the filter will result in nulls
-/// in the output.
-///
-/// For example given values = ["a", "b", "c", null, "e", "f"] and
-/// filter = [0, 1, 1, 0, null, 1], the output will be
-/// = ["b", "c", null, "f"]
-///
-/// \param[in] ctx the FunctionContext
-/// \param[in] values chunked array to filter
-/// \param[in] filter indicates which values should be filtered out
-/// \param[out] out resulting chunked array
-/// NOTE: Experimental API
-ARROW_EXPORT
-Status Filter(FunctionContext* ctx, const ChunkedArray& values,
-              const ChunkedArray& filter, std::shared_ptr<ChunkedArray>* out);
-
-/// \brief Filter a record batch with a boolean selection filter
-///
-/// The output record batch's columns will be populated with values from corresponding
-/// columns of the input at positions where the selection filter is not 0. Nulls in the
-/// filter will result in nulls in the output.
-///
-/// \param[in] ctx the FunctionContext
-/// \param[in] batch record batch to filter
-/// \param[in] filter indicates which values should be filtered out
-/// \param[out] out resulting record batch
-/// NOTE: Experimental API
-ARROW_EXPORT
-Status Filter(FunctionContext* ctx, const RecordBatch& batch, const Array& filter,
-              std::shared_ptr<RecordBatch>* out);
-
-/// \brief Filter a table with a boolean selection filter
-///
-/// The output table's columns will be populated with values from corresponding
-/// columns of the input at positions where the selection filter is not 0. Nulls in the
-/// filter will result in nulls in each column of the output.
-///
-/// \param[in] ctx the FunctionContext
-/// \param[in] table table to filter
-/// \param[in] filter indicates which values should be filtered out
-/// \param[out] out resulting table
-/// NOTE: Experimental API
-ARROW_EXPORT
-Status Filter(FunctionContext* ctx, const Table& table, const Array& filter,
-              std::shared_ptr<Table>* out);
-
-/// \brief Filter a table with a boolean selection filter
-///
-/// The output record batch's columns will be populated with values from corresponding
-/// columns of the input at positions where the selection filter is not 0. Nulls in the
-/// filter will result in nulls in the output.
-///
-/// \param[in] ctx the FunctionContext
-/// \param[in] table record batch to filter
-/// \param[in] filter indicates which values should be filtered out
-/// \param[out] out resulting record batch
-/// NOTE: Experimental API
-ARROW_EXPORT
-Status Filter(FunctionContext* ctx, const Table& table, const ChunkedArray& filter,
-              std::shared_ptr<Table>* out);
-
-/// \brief Filter an array with a boolean selection filter
-///
-/// \param[in] ctx the FunctionContext
-/// \param[in] values datum to filter
-/// \param[in] filter indicates which values should be filtered out
-/// \param[out] out resulting datum
-ARROW_EXPORT
-Status Filter(FunctionContext* ctx, const Datum& values, const Datum& filter, Datum* out);
+Status Filter(FunctionContext* ctx, const Datum& values, const Datum& filter,
+              FilterOptions options, Datum* out);
 
 /// \brief BinaryKernel implementing Filter operation
 class ARROW_EXPORT FilterKernel : public BinaryKernel {
  public:
-  explicit FilterKernel(const std::shared_ptr<DataType>& type) : type_(type) {}
+  const FilterOptions& options() const { return options_; }
 
   /// \brief BinaryKernel interface
   ///
@@ -160,8 +83,9 @@ class ARROW_EXPORT FilterKernel : public BinaryKernel {
   ///
   /// \param[in] value_type constructed FilterKernel will support filtering
   ///            values of this type
+  /// \param[in] options configures null_selection_behavior
   /// \param[out] out created kernel
-  static Status Make(const std::shared_ptr<DataType>& value_type,
+  static Status Make(std::shared_ptr<DataType> value_type, FilterOptions options,
                      std::unique_ptr<FilterKernel>* out);
 
   /// \brief single-array implementation
@@ -170,7 +94,11 @@ class ARROW_EXPORT FilterKernel : public BinaryKernel {
                         std::shared_ptr<Array>* out) = 0;
 
  protected:
+  explicit FilterKernel(std::shared_ptr<DataType> type, FilterOptions options)
+      : type_(std::move(type)), options_(options) {}
+
   std::shared_ptr<DataType> type_;
+  FilterOptions options_;
 };
 
 }  // namespace compute

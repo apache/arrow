@@ -80,6 +80,7 @@ tbl <- tibble::tibble(
   int = 1:10,
   dbl = as.numeric(1:10),
   lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+  false = logical(10),
   chr = letters[1:10],
   fct = factor(letters[1:10])
 )
@@ -98,7 +99,7 @@ test_that("basic select/filter/collect", {
   expect_identical(collect(batch), tbl)
 })
 
-test_that("More complex select/filter", {
+test_that("filter() on is.na()", {
   expect_dplyr_equal(
     input %>%
       filter(is.na(lgl)) %>%
@@ -108,19 +109,38 @@ test_that("More complex select/filter", {
   )
 })
 
-# ARROW-7360
-# test_that("filtering with expression", {
-#   char_sym <- "b"
-#   expect_dplyr_equal(
-#     input %>%
-#       filter(chr == char_sym) %>%
-#       select(string = chr, int) %>%
-#       collect(),
-#     tbl
-#   )
-# })
+test_that("filter() with NAs in selection", {
+  expect_dplyr_equal(
+    input %>%
+      filter(lgl) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+})
 
-test_that("filter() on is.na()", {
+test_that("Filter returning an empty Table should not segfault (ARROW-8354)", {
+  expect_dplyr_equal(
+    input %>%
+      filter(false) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("filtering with expression", {
+  char_sym <- "b"
+  expect_dplyr_equal(
+    input %>%
+      filter(chr == char_sym) %>%
+      select(string = chr, int) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("More complex select/filter", {
   expect_dplyr_equal(
     input %>%
       filter(dbl > 2, chr == "d" | chr == "f") %>%
@@ -166,6 +186,7 @@ test_that("filter environment scope", {
 })
 
 test_that("Filtering on a column that doesn't exist errors correctly", {
+  skip("Error handling in filter() needs to be internationalized")
   expect_error(
     batch %>% filter(not_a_col == 42) %>% collect(),
     "object 'not_a_col' not found"
@@ -207,6 +228,7 @@ test_that("mutate", {
 })
 
 test_that("transmute", {
+  skip("TODO: reimplement transmute (with dplyr 1.0, it no longer just works via mutate)")
   expect_dplyr_equal(
     input %>%
       select(int, chr) %>%

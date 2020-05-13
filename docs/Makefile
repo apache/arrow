@@ -20,7 +20,11 @@
 #
 
 # You can set these variables from the command line.
-SPHINXOPTS    = -j8 -W
+
+# Do not fail the build if there are warnings
+# SPHINXOPTS    = -j8 -W
+SPHINXOPTS    = -j8
+
 SPHINXBUILD   = sphinx-build
 PAPER         =
 BUILDDIR      = _build

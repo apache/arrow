@@ -1,11 +1,8 @@
 # arrow
 
 [![cran](https://www.r-pkg.org/badges/version-last-release/arrow)](https://cran.r-project.org/package=arrow)
+[![CI](https://github.com/apache/arrow/workflows/R/badge.svg?event=push)](https://github.com/apache/arrow/actions?query=workflow%3AR+branch%3Amaster+event%3Apush)
 [![conda-forge](https://img.shields.io/conda/vn/conda-forge/r-arrow.svg)](https://anaconda.org/conda-forge/r-arrow)
-[![Nightly macOS Build
-Status](https://travis-ci.org/ursa-labs/arrow-r-nightly.png?branch=master)](https://travis-ci.org/ursa-labs/arrow-r-nightly)
-[![Nightly Windows Build
-Status](https://ci.appveyor.com/api/projects/status/ume8udm5r26u2c9l/branch/master?svg=true)](https://ci.appveyor.com/project/nealrichardson/arrow-r-nightly-yxl55/branch/master)
 [![codecov](https://codecov.io/gh/ursa-labs/arrow-r-nightly/branch/master/graph/badge.svg)](https://codecov.io/gh/ursa-labs/arrow-r-nightly)
 
 [Apache Arrow](https://arrow.apache.org/) is a cross-language
@@ -26,22 +23,28 @@ access to Arrow memory and messages.
 
 Install the latest release of `arrow` from CRAN with
 
-``` r
+```r
 install.packages("arrow")
 ```
 
-Installing a released version of the `arrow` package should require no
+Conda users on Linux and macOS can install `arrow` from conda-forge with
+
+```
+conda install -c conda-forge --strict-channel-priority r-arrow
+```
+
+Installing a released version of the `arrow` package requires no
 additional system dependencies. For macOS and Windows, CRAN hosts binary
 packages that contain the Arrow C++ library. On Linux, source package
-installation will download necessary C++ dependencies if you set the
-environment variable `LIBARROW_DOWNLOAD=true`.
+installation will also build necessary C++ dependencies. For a faster,
+more complete installation, set the environment variable `NOT_CRAN=true`.
 See `vignette("install", package = "arrow")` for details.
 
 If you install the `arrow` package from source and the C++ library is
 not found, the R package functions will notify you that Arrow is not
 available. Call
 
-``` r
+```r
 arrow::install_arrow()
 ```
 
@@ -55,13 +58,9 @@ source("https://raw.githubusercontent.com/apache/arrow/master/r/R/install-arrow.
 install_arrow()
 ```
 
-Conda users on Linux and macOS can install `arrow` from conda-forge with
-
-    conda install -c conda-forge r-arrow
-
 ## Installing a development version
 
-Binary R packages for macOS and Windows are built daily and hosted at
+Development versions of the package (binary and source) are built daily and hosted at
 <https://dl.bintray.com/ursalabs/arrow-r/>. To install from there:
 
 ``` r
@@ -92,16 +91,11 @@ brew install apache-arrow
 brew install apache-arrow --HEAD
 ```
 
-On Windows, you can download a .zip file with the arrow dependencies
-from the [rwinlib](https://github.com/rwinlib/arrow/releases) project,
+On Windows, you can download a .zip file with the arrow dependencies from the
+[nightly bintray repository](https://dl.bintray.com/ursalabs/arrow-r/libarrow/bin/windows-35/),
 and then set the `RWINLIB_LOCAL` environment variable to point to that
-zip file before installing the `arrow` R package. That project contains
-released versions of the C++ library; for a development version, Windows
-users may be able to find a binary by going to the [Apache Arrow
-project’s
-Appveyor](https://ci.appveyor.com/project/ApacheSoftwareFoundation/arrow),
-selecting an R job from a recent build, and downloading the
-`build\arrow-*.zip` file from the “Artifacts” tab.
+zip file before installing the `arrow` R package. Version numbers in that
+repository correspond to dates, and you will likely want the most recent.
 
 If you need to alter both the Arrow C++ library and the R package code,
 or if you can’t get a binary version of the latest C++ library
@@ -168,7 +162,7 @@ generation.
 The codegen.R script has these additional dependencies:
 
 ``` r
-remotes::install_github("romainfrancois/decor")
+remotes::install_github("nealrichardson/decor")
 install.packages("glue")
 ```
 
@@ -180,11 +174,11 @@ Fix any style issues before committing with
 
     ./lint.sh --fix
 
-The lint script requires Python 3 and `clang-format-7`. If the command
+The lint script requires Python 3 and `clang-format-8`. If the command
 isn’t found, you can explicitly provide the path to it like
-`CLANG_FORMAT=$(which clang-format-7) ./lint.sh`. On macOS, you can get
+`CLANG_FORMAT=$(which clang-format-8) ./lint.sh`. On macOS, you can get
 this by installing LLVM via Homebrew and running the script as
-`CLANG_FORMAT=$(brew --prefix llvm@7)/bin/clang-format ./lint.sh`
+`CLANG_FORMAT=$(brew --prefix llvm@8)/bin/clang-format ./lint.sh`
 
 ### Useful functions
 

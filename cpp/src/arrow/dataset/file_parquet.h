@@ -15,12 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// This API is EXPERIMENTAL.
+
 #pragma once
 
 #include <memory>
 #include <string>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
@@ -47,6 +50,13 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   /// memory_pool will be ignored.
   explicit ParquetFileFormat(const parquet::ReaderProperties& reader_properties);
 
+  std::string type_name() const override { return "parquet"; }
+
+  bool splittable() const override { return true; }
+
+  // Note: the default values are exposed in the python bindings and documented
+  //       in the docstrings, if any of the default values gets changed please
+  //       update there as well.
   struct ReaderOptions {
     /// \defgroup parquet-file-format-reader-properties properties which correspond to
     /// members of parquet::ReaderProperties.
@@ -73,10 +83,6 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
     /// @}
   } reader_options;
 
-  std::string type_name() const override { return "parquet"; }
-
-  bool splittable() const override { return true; }
-
   Result<bool> IsSupported(const FileSource& source) const override;
 
   /// \brief Return the schema of the file if possible.
@@ -86,6 +92,57 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   Result<ScanTaskIterator> ScanFile(const FileSource& source,
                                     std::shared_ptr<ScanOptions> options,
                                     std::shared_ptr<ScanContext> context) const override;
+
+  /// \brief Open a file for scanning, restricted to the specified row groups.
+  Result<ScanTaskIterator> ScanFile(const FileSource& source,
+                                    std::shared_ptr<ScanOptions> options,
+                                    std::shared_ptr<ScanContext> context,
+                                    const std::vector<int>& row_groups) const;
+
+  using FileFormat::MakeFragment;
+
+  Result<std::shared_ptr<FileFragment>> MakeFragment(
+      FileSource source, std::shared_ptr<Expression> partition_expression) override;
+
+  /// \brief Create a Fragment, restricted to the specified row groups.
+  Result<std::shared_ptr<FileFragment>> MakeFragment(
+      FileSource source, std::shared_ptr<Expression> partition_expression,
+      std::vector<int> row_groups);
+
+  /// \brief Split a ParquetFileFragment into a Fragment for each row group.
+  ///
+  /// \param[in] fragment to split
+  /// \param[in] filter expression that will ignore RowGroup that can't satisfy
+  ///            the filter.
+  ///
+  /// \return An iterator of fragment.
+  Result<FragmentIterator> GetRowGroupFragments(
+      const ParquetFileFragment& fragment,
+      std::shared_ptr<Expression> filter = scalar(true));
+};
+
+class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
+ public:
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
+                                std::shared_ptr<ScanContext> context) override;
+
+  /// \brief The row groups viewed by this Fragment. This may be empty which signifies all
+  /// row groups are selected.
+  const std::vector<int>& row_groups() const { return row_groups_; }
+
+ private:
+  ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
+                      std::shared_ptr<Expression> partition_expression,
+                      std::vector<int> row_groups)
+      : FileFragment(std::move(source), std::move(format),
+                     std::move(partition_expression)),
+        row_groups_(std::move(row_groups)) {}
+
+  const ParquetFileFormat& parquet_format() const;
+
+  std::vector<int> row_groups_;
+
+  friend class ParquetFileFormat;
 };
 
 }  // namespace dataset

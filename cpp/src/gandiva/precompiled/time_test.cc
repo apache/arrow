@@ -52,6 +52,8 @@ TEST(TestTime, TestCastDate) {
   EXPECT_EQ(castDATE_utf8(context_ptr, "71-1-1", 6), 31536000000);
   EXPECT_EQ(castDATE_utf8(context_ptr, "71-45-1", 7), 0);
   EXPECT_EQ(castDATE_utf8(context_ptr, "71-12-XX", 8), 0);
+
+  EXPECT_EQ(castDATE_date32(1), 86400000);
 }
 
 TEST(TestTime, TestCastTimestamp) {
@@ -278,19 +280,19 @@ TEST(TestTime, TimeStampAdd) {
             StringToTimestamp("2000-03-02 00:00:00"));
 
   // date_sub
-  EXPECT_EQ(date_sub_int32_timestamp(7, StringToTimestamp("2000-05-01 00:00:00")),
+  EXPECT_EQ(date_sub_timestamp_int32(StringToTimestamp("2000-05-01 00:00:00"), 7),
             StringToTimestamp("2000-04-24 00:00:00"));
 
-  EXPECT_EQ(subtract_int32_timestamp(-7, StringToTimestamp("2000-05-01 00:00:00")),
+  EXPECT_EQ(subtract_timestamp_int32(StringToTimestamp("2000-05-01 00:00:00"), -7),
             StringToTimestamp("2000-05-08 00:00:00"));
 
-  EXPECT_EQ(date_diff_int64_timestamp(365, StringToTimestamp("2000-05-01 00:00:00")),
+  EXPECT_EQ(date_diff_timestamp_int64(StringToTimestamp("2000-05-01 00:00:00"), 365),
             StringToTimestamp("1999-05-02 00:00:00"));
 
-  EXPECT_EQ(date_diff_int64_timestamp(1, StringToTimestamp("2000-03-01 00:00:00")),
+  EXPECT_EQ(date_diff_timestamp_int64(StringToTimestamp("2000-03-01 00:00:00"), 1),
             StringToTimestamp("2000-02-29 00:00:00"));
 
-  EXPECT_EQ(date_diff_int64_timestamp(365, StringToTimestamp("2000-02-29 00:00:00")),
+  EXPECT_EQ(date_diff_timestamp_int64(StringToTimestamp("2000-02-29 00:00:00"), 365),
             StringToTimestamp("1999-03-01 00:00:00"));
 }
 
@@ -650,7 +652,7 @@ TEST(TestTime, castVarcharTimestamp) {
   out = castVARCHAR_timestamp_int64(context_ptr, ts, 0L, &out_len);
   EXPECT_EQ(std::string(out, out_len), "");
 
-  ts = StringToTimestamp("2-05-01 0:0:4");
+  ts = StringToTimestamp("2-5-1 00:00:04");
   out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
   EXPECT_EQ(std::string(out, out_len), "0002-05-01 00:00:04.000");
 }

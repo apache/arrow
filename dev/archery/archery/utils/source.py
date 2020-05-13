@@ -16,8 +16,14 @@
 # under the License.
 
 import os
+from pathlib import Path
+import subprocess
 
 from .git import git
+
+
+class InvalidArrowSource(Exception):
+    pass
 
 
 class ArrowSources:
@@ -39,49 +45,53 @@ class ArrowSources:
         ----------
         path : src
         """
-        assert isinstance(path, str) and ArrowSources.valid(path)
+        path = Path(path)
+        # validate by checking a specific path in the arrow source tree
+        if not (path / 'cpp' / 'CMakeLists.txt').exists():
+            raise InvalidArrowSource(
+                "No Arrow C++ sources found in {}.".format(path)
+            )
         self.path = path
 
     @property
     def archery(self):
         """ Returns the archery directory of an Arrow sources. """
-        return os.path.join(self.dev, "archery")
+        return self.dev / "archery"
 
     @property
     def cpp(self):
         """ Returns the cpp directory of an Arrow sources. """
-        return os.path.join(self.path, "cpp")
+        return self.path / "cpp"
 
     @property
     def dev(self):
         """ Returns the dev directory of an Arrow sources. """
-        return os.path.join(self.path, "dev")
+        return self.path / "dev"
 
     @property
     def python(self):
         """ Returns the python directory of an Arrow sources. """
-        return os.path.join(self.path, "python")
+        return self.path / "python"
 
     @property
     def pyarrow(self):
         """ Returns the python/pyarrow directory of an Arrow sources. """
-        return os.path.join(self.python, "pyarrow")
+        return self.python / "pyarrow"
 
     @property
     def r(self):
         """ Returns the r directory of an Arrow sources. """
-        return os.path.join(self.path, "r")
+        return self.path / "r"
 
     @property
     def rust(self):
         """ Returns the rust directory of an Arrow sources. """
-        return os.path.join(self.path, "rust")
+        return self.path / "rust"
 
     @property
     def git_backed(self):
         """ Indicate if the sources are backed by git. """
-        git_path = os.path.join(self.path, ".git")
-        return os.path.exists(git_path)
+        return (self.path / ".git").exists()
 
     @property
     def git_dirty(self):
@@ -91,10 +101,11 @@ class ArrowSources:
     def archive(self, path, dereference=False, compressor=None, revision=None):
         """ Saves a git archive at path. """
         if not self.git_backed:
-            raise ValueError(f"{self} is not backed by git")
+            raise ValueError("{} is not backed by git".format(self))
 
         rev = revision if revision else "HEAD"
-        archive = git.archive("--prefix=apache-arrow/", rev, git_dir=self.path)
+        archive = git.archive("--prefix=apache-arrow/", rev,
+                              git_dir=self.path)
 
         # TODO(fsaintjacques): fix dereference for
 
@@ -124,7 +135,7 @@ class ArrowSources:
                     Path to checkout the local clone.
         """
         if not self.git_backed:
-            raise ValueError(f"{self} is not backed by git")
+            raise ValueError("{} is not backed by git".format(self))
 
         if revision == ArrowSources.WORKSPACE:
             return self, False
@@ -142,17 +153,6 @@ class ArrowSources:
         git.checkout(original_revision, git_dir=clone_dir)
 
         return ArrowSources(clone_dir), True
-
-    @staticmethod
-    def valid(src):
-        """ Indicate if current sources are valid. """
-        if isinstance(src, ArrowSources):
-            return True
-        if isinstance(src, str):
-            cpp_path = os.path.join(src, "cpp")
-            cmake_path = os.path.join(cpp_path, "CMakeLists.txt")
-            return os.path.exists(cmake_path)
-        return False
 
     @staticmethod
     def find(path=None):
@@ -177,17 +177,30 @@ class ArrowSources:
         env = os.environ.get("ARROW_SRC")
 
         # Implicit via cwd
-        cwd = os.getcwd()
+        cwd = Path.cwd()
 
         # Implicit via current file
-        this_dir = os.path.dirname(os.path.realpath(__file__))
-        this = os.path.join(this_dir, "..", "..", "..", "..")
+        this = Path(__file__).parents[4]
 
-        for p in [path, env, cwd, this]:
-            if ArrowSources.valid(p):
+        # Implicit via git repository (if archery is installed system wide)
+        try:
+            repo = git.repository_root(git_dir=cwd)
+        except subprocess.CalledProcessError:
+            # We're not inside a git repository.
+            repo = None
+
+        paths = list(filter(None, [path, env, cwd, this, repo]))
+        for p in paths:
+            try:
                 return ArrowSources(p)
+            except InvalidArrowSource:
+                pass
 
-        return None
+        searched_paths = "\n".join([" - {}".format(p) for p in paths])
+        raise InvalidArrowSource(
+            "Unable to locate Arrow's source directory. "
+            "Searched paths are:\n{}".format(searched_paths)
+        )
 
     def __repr__(self):
-        return f"{self.path}"
+        return self.path

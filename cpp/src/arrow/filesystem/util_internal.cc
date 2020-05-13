@@ -32,9 +32,8 @@ TimePoint CurrentTimePoint() {
 
 Status CopyStream(const std::shared_ptr<io::InputStream>& src,
                   const std::shared_ptr<io::OutputStream>& dest, int64_t chunk_size) {
-  std::shared_ptr<Buffer> chunk;
+  ARROW_ASSIGN_OR_RAISE(auto chunk, AllocateBuffer(chunk_size));
 
-  RETURN_NOT_OK(AllocateBuffer(chunk_size, &chunk));
   while (true) {
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
                           src->Read(chunk_size, chunk->mutable_data()));

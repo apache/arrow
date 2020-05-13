@@ -23,9 +23,11 @@
 
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/chunked-array.hpp>
+#include <arrow-glib/enums.h>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/field.hpp>
 #include <arrow-glib/internal-index.hpp>
+#include <arrow-glib/output-stream.hpp>
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
@@ -36,10 +38,16 @@ G_BEGIN_DECLS
 
 /**
  * SECTION: table
+ * @section_id: GArrowTable
+ * @title: GArrowTable
  * @short_description: Table class
+ * @include: arrow-glib/arrow-glib.h
  *
  * #GArrowTable is a class for table. Table has zero or more
  * #GArrowChunkedArrays and zero or more records.
+ *
+ * #GArrowFeatherWriteProperties is a class to customize how to write
+ * Feather data.
  */
 
 typedef struct GArrowTablePrivate_ {
@@ -61,13 +69,13 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowTable,
        GARROW_TABLE(obj)))
 
 static void
-garrow_table_dispose(GObject *object)
+garrow_table_finalize(GObject *object)
 {
   auto priv = GARROW_TABLE_GET_PRIVATE(object);
 
   priv->table.~shared_ptr();
 
-  G_OBJECT_CLASS(garrow_table_parent_class)->dispose(object);
+  G_OBJECT_CLASS(garrow_table_parent_class)->finalize(object);
 }
 
 static void
@@ -117,13 +125,13 @@ garrow_table_class_init(GArrowTableClass *klass)
 
   gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose      = garrow_table_dispose;
+  gobject_class->finalize     = garrow_table_finalize;
   gobject_class->set_property = garrow_table_set_property;
   gobject_class->get_property = garrow_table_get_property;
 
   spec = g_param_spec_pointer("table",
                               "Table",
-                              "The raw std::shared<arrow::Table> *",
+                              "The raw std::shared_ptr<arrow::Table> *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_TABLE, spec);
@@ -195,7 +203,8 @@ garrow_table_new_values(GArrowSchema *schema,
   }
 
   if (!arrow_chunked_arrays.empty()) {
-    auto arrow_table = arrow::Table::Make(arrow_schema, arrow_chunked_arrays);
+    auto arrow_table = arrow::Table::Make(arrow_schema,
+                                          std::move(arrow_chunked_arrays));
     auto status = arrow_table->Validate();
     if (garrow_error_check(error, status, context)) {
       return garrow_table_new_raw(&arrow_table);
@@ -203,7 +212,7 @@ garrow_table_new_values(GArrowSchema *schema,
       return NULL;
     }
   } else if (!arrow_arrays.empty()) {
-    auto arrow_table = arrow::Table::Make(arrow_schema, arrow_arrays);
+    auto arrow_table = arrow::Table::Make(arrow_schema, std::move(arrow_arrays));
     auto status = arrow_table->Validate();
     if (garrow_error_check(error, status, context)) {
       return garrow_table_new_raw(&arrow_table);
@@ -211,12 +220,10 @@ garrow_table_new_values(GArrowSchema *schema,
       return NULL;
     }
   } else {
-    std::shared_ptr<arrow::Table> arrow_table;
-    auto status = arrow::Table::FromRecordBatches(arrow_schema,
-                                                  arrow_record_batches,
-                                                  &arrow_table);
-    if (garrow_error_check(error, status, context)) {
-      return garrow_table_new_raw(&arrow_table);
+    auto maybe_table = arrow::Table::FromRecordBatches(
+      arrow_schema, std::move(arrow_record_batches));
+    if (garrow::check(error, maybe_table, context)) {
+      return garrow_table_new_raw(&(*maybe_table));
     } else {
       return NULL;
     }
@@ -233,7 +240,7 @@ garrow_table_new_values(GArrowSchema *schema,
  *
  * Returns: (nullable): A newly created #GArrowTable or %NULL on error.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 GArrowTable *
 garrow_table_new_chunked_arrays(GArrowSchema *schema,
@@ -314,12 +321,10 @@ garrow_table_new_record_batches(GArrowSchema *schema,
     arrow_record_batches.push_back(arrow_record_batch);
   }
 
-  std::shared_ptr<arrow::Table> arrow_table;
-  auto status = arrow::Table::FromRecordBatches(arrow_schema,
-                                                arrow_record_batches,
-                                                &arrow_table);
-  if (garrow_error_check(error, status, "[table][new][record-batches]")) {
-    return garrow_table_new_raw(&arrow_table);
+  auto maybe_table = arrow::Table::FromRecordBatches(arrow_schema,
+                                                     arrow_record_batches);
+  if (garrow::check(error, maybe_table, "[table][new][record-batches]")) {
+    return garrow_table_new_raw(&(*maybe_table));
   } else {
     return NULL;
   }
@@ -352,7 +357,7 @@ garrow_table_equal(GArrowTable *table, GArrowTable *other_table)
  * Returns: %TRUE if both of them have the same data, %FALSE
  *   otherwise.
  *
- * Since: 1.0.0
+ * Since: 0.17.0
  */
 gboolean
 garrow_table_equal_metadata(GArrowTable *table,
@@ -387,7 +392,7 @@ garrow_table_get_schema(GArrowTable *table)
  *
  * Returns: (nullable) (transfer full): The i-th column's data in the table.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 GArrowChunkedArray *
 garrow_table_get_column_data(GArrowTable *table,
@@ -438,7 +443,7 @@ garrow_table_get_n_rows(GArrowTable *table)
  * Returns: (nullable) (transfer full): The newly allocated
  *   #GArrowTable that has a new column or %NULL on error.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 GArrowTable *
 garrow_table_add_column(GArrowTable *table,
@@ -450,13 +455,11 @@ garrow_table_add_column(GArrowTable *table,
   const auto arrow_table = garrow_table_get_raw(table);
   const auto arrow_field = garrow_field_get_raw(field);
   const auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
-  std::shared_ptr<arrow::Table> arrow_new_table;
-  auto status = arrow_table->AddColumn(i,
-                                       arrow_field,
-                                       arrow_chunked_array,
-                                       &arrow_new_table);
-  if (garrow_error_check(error, status, "[table][add-column]")) {
-    return garrow_table_new_raw(&arrow_new_table);
+  auto maybe_new_table = arrow_table->AddColumn(i,
+                                                arrow_field,
+                                                arrow_chunked_array);
+  if (garrow::check(error, maybe_new_table, "[table][add-column]")) {
+    return garrow_table_new_raw(&(*maybe_new_table));
   } else {
     return NULL;
   }
@@ -479,10 +482,9 @@ garrow_table_remove_column(GArrowTable *table,
                            GError **error)
 {
   const auto arrow_table = garrow_table_get_raw(table);
-  std::shared_ptr<arrow::Table> arrow_new_table;
-  auto status = arrow_table->RemoveColumn(i, &arrow_new_table);
-  if (garrow_error_check(error, status, "[table][remove-column]")) {
-    return garrow_table_new_raw(&arrow_new_table);
+  auto maybe_new_table = arrow_table->RemoveColumn(i);
+  if (garrow::check(error, maybe_new_table, "[table][remove-column]")) {
+    return garrow_table_new_raw(&(*maybe_new_table));
   } else {
     return NULL;
   }
@@ -500,7 +502,7 @@ garrow_table_remove_column(GArrowTable *table,
  * #GArrowTable that has @column as the @i-th column or %NULL on
  * error.
  *
- * Since: 1.0.0
+ * Since: 0.15.0
  */
 GArrowTable *
 garrow_table_replace_column(GArrowTable *table,
@@ -512,13 +514,11 @@ garrow_table_replace_column(GArrowTable *table,
   const auto arrow_table = garrow_table_get_raw(table);
   const auto arrow_field = garrow_field_get_raw(field);
   const auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
-  std::shared_ptr<arrow::Table> arrow_new_table;
-  auto status = arrow_table->SetColumn(i,
-                                       arrow_field,
-                                       arrow_chunked_array,
-                                       &arrow_new_table);
-  if (garrow_error_check(error, status, "[table][replace-column]")) {
-    return garrow_table_new_raw(&arrow_new_table);
+  auto maybe_new_table = arrow_table->SetColumn(i,
+                                                arrow_field,
+                                                arrow_chunked_array);
+  if (garrow::check(error, maybe_new_table, "[table][replace-column]")) {
+    return garrow_table_new_raw(&(*maybe_new_table));
   } else {
     return NULL;
   }
@@ -541,13 +541,7 @@ gchar *
 garrow_table_to_string(GArrowTable *table, GError **error)
 {
   const auto arrow_table = garrow_table_get_raw(table);
-  std::stringstream sink;
-  auto status = arrow::PrettyPrint(*arrow_table, 0, &sink);
-  if (garrow_error_check(error, status, "[table][to-string]")) {
-    return g_strdup(sink.str().c_str());
-  } else {
-    return NULL;
-  }
+  return g_strdup(arrow_table->ToString().c_str());
 }
 
 /**
@@ -614,7 +608,7 @@ garrow_table_slice(GArrowTable *table,
  * Returns: (nullable) (transfer full): The #GArrowTable with
  *   chunks combined, or %NULL on error.
  *
- * Since: 1.0.0
+ * Since: 0.16.0
  */
 GArrowTable *
 garrow_table_combine_chunks(GArrowTable *table,
@@ -622,14 +616,173 @@ garrow_table_combine_chunks(GArrowTable *table,
 {
   const auto arrow_table = garrow_table_get_raw(table);
 
-  std::shared_ptr<arrow::Table> arrow_combined_table;
-  auto status = arrow_table->CombineChunks(arrow::default_memory_pool(),
-                                           &arrow_combined_table);
-  if (garrow_error_check(error, status, "[table][combine-chunks]")) {
-    return garrow_table_new_raw(&arrow_combined_table);
+  auto maybe_new_table = arrow_table->CombineChunks();
+  if (garrow::check(error, maybe_new_table, "[table][combine-chunks]")) {
+    return garrow_table_new_raw(&(*maybe_new_table));
   } else {
     return NULL;
   }
+}
+
+
+typedef struct GArrowFeatherWritePropertiesPrivate_ {
+  arrow::ipc::feather::WriteProperties properties;
+} GArrowFeatherWritePropertiesPrivate;
+
+enum {
+  PROP_VERSION = 1,
+  PROP_CHUNK_SIZE,
+  PROP_COMPRESSION,
+  PROP_COMPRESSION_LEVEL,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowFeatherWriteProperties,
+                           garrow_feather_write_properties,
+                           G_TYPE_OBJECT)
+
+#define GARROW_FEATHER_WRITE_PROPERTIES_GET_PRIVATE(obj)        \
+  static_cast<GArrowFeatherWritePropertiesPrivate *>(           \
+    garrow_feather_write_properties_get_instance_private(       \
+      GARROW_FEATHER_WRITE_PROPERTIES(obj)))
+
+static void
+garrow_feather_write_properties_finalize(GObject *object)
+{
+  auto priv = GARROW_FEATHER_WRITE_PROPERTIES_GET_PRIVATE(object);
+
+  priv->properties.~WriteProperties();
+
+  G_OBJECT_CLASS(garrow_feather_write_properties_parent_class)->finalize(object);
+}
+
+static void
+garrow_feather_write_properties_set_property(GObject *object,
+                                             guint prop_id,
+                                             const GValue *value,
+                                             GParamSpec *pspec)
+{
+  auto priv = GARROW_FEATHER_WRITE_PROPERTIES_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_COMPRESSION:
+    priv->properties.compression =
+      static_cast<arrow::Compression::type>(g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_feather_write_properties_get_property(GObject *object,
+                                             guint prop_id,
+                                             GValue *value,
+                                             GParamSpec *pspec)
+{
+  auto priv = GARROW_FEATHER_WRITE_PROPERTIES_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_COMPRESSION:
+    g_value_set_enum(value, priv->properties.compression);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_feather_write_properties_init(GArrowFeatherWriteProperties *object)
+{
+  auto priv = GARROW_FEATHER_WRITE_PROPERTIES_GET_PRIVATE(object);
+  new(&priv->properties) arrow::ipc::feather::WriteProperties;
+  priv->properties = arrow::ipc::feather::WriteProperties::Defaults();
+}
+
+static void
+garrow_feather_write_properties_class_init(GArrowFeatherWritePropertiesClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->finalize = garrow_feather_write_properties_finalize;
+  gobject_class->set_property = garrow_feather_write_properties_set_property;
+  gobject_class->get_property = garrow_feather_write_properties_get_property;
+
+  auto properties = arrow::ipc::feather::WriteProperties::Defaults();
+  GParamSpec *spec;
+  // TODO: version
+  // TODO: chunk_size
+
+  /**
+   * GArrowFeatherWriteProperties:compression:
+   *
+   * Compression type to use. Only
+   * %GARROW_COMPRESSION_TYPE_UNCOMPRESSED,
+   * %GARROW_COMPRESSION_TYPE_LZ4 and %GARROW_COMPRESSION_TYPE_ZSTD
+   * are supported. The default compression is
+   * %GARROW_COMPRESSION_TYPE_LZ4 if Apache Arrow C++ is built with
+   * support for it, otherwise %GARROW_COMPRESSION_TYPE_UNCOMPRESSED.
+   * %GARROW_COMPRESSION_TYPE_UNCOMPRESSED is set as the object
+   * default here.
+   *
+   * Since: 0.17.0
+   */
+  spec = g_param_spec_enum("compression",
+                           "Compression",
+                           "The compression type to use",
+                           GARROW_TYPE_COMPRESSION_TYPE,
+                           properties.compression,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_COMPRESSION, spec);
+  // TODO: compression_level
+}
+
+/**
+ * garrow_feather_write_properties_new:
+ *
+ * Returns: A newly created #GArrowFeatherWriteProperties.
+ *
+ * Since: 0.17.0
+ */
+GArrowFeatherWriteProperties *
+garrow_feather_write_properties_new(void)
+{
+  auto properties = g_object_new(GARROW_TYPE_FEATHER_WRITE_PROPERTIES, NULL);
+  return GARROW_FEATHER_WRITE_PROPERTIES(properties);
+}
+
+/**
+ * garrow_table_write_as_feather:
+ * @table: A #GArrowTable.
+ * @sink: The output.
+ * @properties: (nullable): The properties for this write.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Writes the @table as Feather format data to the @sink.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.17.0
+ */
+gboolean
+garrow_table_write_as_feather(GArrowTable *table,
+                              GArrowOutputStream *sink,
+                              GArrowFeatherWriteProperties *properties,
+                              GError **error)
+{
+  auto arrow_table = garrow_table_get_raw(table);
+  auto arrow_sink = garrow_output_stream_get_raw(sink);
+  arrow::Status status;
+  if (properties) {
+    auto arrow_properties = garrow_feather_write_properties_get_raw(properties);
+    status = arrow::ipc::feather::WriteTable(*arrow_table,
+                                             arrow_sink.get(),
+                                             *arrow_properties);
+  } else {
+    status = arrow::ipc::feather::WriteTable(*arrow_table, arrow_sink.get());
+  }
+  return garrow::check(error, status, "[feather-write-file]");
 }
 
 G_END_DECLS
@@ -648,4 +801,11 @@ garrow_table_get_raw(GArrowTable *table)
 {
   auto priv = GARROW_TABLE_GET_PRIVATE(table);
   return priv->table;
+}
+
+arrow::ipc::feather::WriteProperties *
+garrow_feather_write_properties_get_raw(GArrowFeatherWriteProperties *properties)
+{
+  auto priv = GARROW_FEATHER_WRITE_PROPERTIES_GET_PRIVATE(properties);
+  return &(priv->properties);
 }

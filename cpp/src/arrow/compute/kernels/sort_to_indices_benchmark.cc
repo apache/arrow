@@ -36,6 +36,7 @@ static void SortToIndicesBenchmark(benchmark::State& state,
     ABORT_NOT_OK(SortToIndices(&ctx, *values, &out));
     benchmark::DoNotOptimize(out);
   }
+  state.SetItemsProcessed(state.iterations() * values->length());
 }
 
 static void SortToIndicesInt64Count(benchmark::State& state) {

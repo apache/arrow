@@ -12,18 +12,25 @@ namespace feather {
 namespace fbs {
 
 struct PrimitiveArray;
+struct PrimitiveArrayBuilder;
 
 struct CategoryMetadata;
+struct CategoryMetadataBuilder;
 
 struct TimestampMetadata;
+struct TimestampMetadataBuilder;
 
 struct DateMetadata;
+struct DateMetadataBuilder;
 
 struct TimeMetadata;
+struct TimeMetadataBuilder;
 
 struct Column;
+struct ColumnBuilder;
 
 struct CTable;
+struct CTableBuilder;
 
 /// Feather is an experimental serialization format implemented using
 /// techniques from Apache Arrow. It was created as a proof-of-concept of an
@@ -81,7 +88,7 @@ inline const Type (&EnumValuesType())[19] {
 }
 
 inline const char * const *EnumNamesType() {
-  static const char * const names[] = {
+  static const char * const names[20] = {
     "BOOL",
     "INT8",
     "INT16",
@@ -107,19 +114,19 @@ inline const char * const *EnumNamesType() {
 }
 
 inline const char *EnumNameType(Type e) {
-  if (e < Type::BOOL || e > Type::LARGE_BINARY) return "";
+  if (flatbuffers::IsOutRange(e, Type::BOOL, Type::LARGE_BINARY)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesType()[index];
 }
 
 enum class Encoding : int8_t {
-  PLAIN = 0  /// Data is stored dictionary-encoded
+  PLAIN = 0,
+  /// Data is stored dictionary-encoded
   /// dictionary size: <INT32 Dictionary size>
   /// dictionary data: <TYPE primitive array>
   /// dictionary index: <INT32 primitive array>
   ///
   /// TODO: do we care about storing the index values in a smaller typeclass
-,
   DICTIONARY = 1,
   MIN = PLAIN,
   MAX = DICTIONARY
@@ -134,7 +141,7 @@ inline const Encoding (&EnumValuesEncoding())[2] {
 }
 
 inline const char * const *EnumNamesEncoding() {
-  static const char * const names[] = {
+  static const char * const names[3] = {
     "PLAIN",
     "DICTIONARY",
     nullptr
@@ -143,7 +150,7 @@ inline const char * const *EnumNamesEncoding() {
 }
 
 inline const char *EnumNameEncoding(Encoding e) {
-  if (e < Encoding::PLAIN || e > Encoding::DICTIONARY) return "";
+  if (flatbuffers::IsOutRange(e, Encoding::PLAIN, Encoding::DICTIONARY)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesEncoding()[index];
 }
@@ -168,7 +175,7 @@ inline const TimeUnit (&EnumValuesTimeUnit())[4] {
 }
 
 inline const char * const *EnumNamesTimeUnit() {
-  static const char * const names[] = {
+  static const char * const names[5] = {
     "SECOND",
     "MILLISECOND",
     "MICROSECOND",
@@ -179,7 +186,7 @@ inline const char * const *EnumNamesTimeUnit() {
 }
 
 inline const char *EnumNameTimeUnit(TimeUnit e) {
-  if (e < TimeUnit::SECOND || e > TimeUnit::NANOSECOND) return "";
+  if (flatbuffers::IsOutRange(e, TimeUnit::SECOND, TimeUnit::NANOSECOND)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesTimeUnit()[index];
 }
@@ -206,7 +213,7 @@ inline const TypeMetadata (&EnumValuesTypeMetadata())[5] {
 }
 
 inline const char * const *EnumNamesTypeMetadata() {
-  static const char * const names[] = {
+  static const char * const names[6] = {
     "NONE",
     "CategoryMetadata",
     "TimestampMetadata",
@@ -218,7 +225,7 @@ inline const char * const *EnumNamesTypeMetadata() {
 }
 
 inline const char *EnumNameTypeMetadata(TypeMetadata e) {
-  if (e < TypeMetadata::NONE || e > TypeMetadata::TimeMetadata) return "";
+  if (flatbuffers::IsOutRange(e, TypeMetadata::NONE, TypeMetadata::TimeMetadata)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesTypeMetadata()[index];
 }
@@ -227,19 +234,19 @@ template<typename T> struct TypeMetadataTraits {
   static const TypeMetadata enum_value = TypeMetadata::NONE;
 };
 
-template<> struct TypeMetadataTraits<CategoryMetadata> {
+template<> struct TypeMetadataTraits<arrow::ipc::feather::fbs::CategoryMetadata> {
   static const TypeMetadata enum_value = TypeMetadata::CategoryMetadata;
 };
 
-template<> struct TypeMetadataTraits<TimestampMetadata> {
+template<> struct TypeMetadataTraits<arrow::ipc::feather::fbs::TimestampMetadata> {
   static const TypeMetadata enum_value = TypeMetadata::TimestampMetadata;
 };
 
-template<> struct TypeMetadataTraits<DateMetadata> {
+template<> struct TypeMetadataTraits<arrow::ipc::feather::fbs::DateMetadata> {
   static const TypeMetadata enum_value = TypeMetadata::DateMetadata;
 };
 
-template<> struct TypeMetadataTraits<TimeMetadata> {
+template<> struct TypeMetadataTraits<arrow::ipc::feather::fbs::TimeMetadata> {
   static const TypeMetadata enum_value = TypeMetadata::TimeMetadata;
 };
 
@@ -247,6 +254,7 @@ bool VerifyTypeMetadata(flatbuffers::Verifier &verifier, const void *obj, TypeMe
 bool VerifyTypeMetadataVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
 struct PrimitiveArray FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef PrimitiveArrayBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TYPE = 4,
     VT_ENCODING = 6,
@@ -255,11 +263,11 @@ struct PrimitiveArray FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_NULL_COUNT = 12,
     VT_TOTAL_BYTES = 14
   };
-  Type type() const {
-    return static_cast<Type>(GetField<int8_t>(VT_TYPE, 0));
+  arrow::ipc::feather::fbs::Type type() const {
+    return static_cast<arrow::ipc::feather::fbs::Type>(GetField<int8_t>(VT_TYPE, 0));
   }
-  Encoding encoding() const {
-    return static_cast<Encoding>(GetField<int8_t>(VT_ENCODING, 0));
+  arrow::ipc::feather::fbs::Encoding encoding() const {
+    return static_cast<arrow::ipc::feather::fbs::Encoding>(GetField<int8_t>(VT_ENCODING, 0));
   }
   /// Relative memory offset of the start of the array data excluding the size
   /// of the metadata
@@ -291,12 +299,13 @@ struct PrimitiveArray FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct PrimitiveArrayBuilder {
+  typedef PrimitiveArray Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_type(Type type) {
+  void add_type(arrow::ipc::feather::fbs::Type type) {
     fbb_.AddElement<int8_t>(PrimitiveArray::VT_TYPE, static_cast<int8_t>(type), 0);
   }
-  void add_encoding(Encoding encoding) {
+  void add_encoding(arrow::ipc::feather::fbs::Encoding encoding) {
     fbb_.AddElement<int8_t>(PrimitiveArray::VT_ENCODING, static_cast<int8_t>(encoding), 0);
   }
   void add_offset(int64_t offset) {
@@ -325,8 +334,8 @@ struct PrimitiveArrayBuilder {
 
 inline flatbuffers::Offset<PrimitiveArray> CreatePrimitiveArray(
     flatbuffers::FlatBufferBuilder &_fbb,
-    Type type = Type::BOOL,
-    Encoding encoding = Encoding::PLAIN,
+    arrow::ipc::feather::fbs::Type type = arrow::ipc::feather::fbs::Type::BOOL,
+    arrow::ipc::feather::fbs::Encoding encoding = arrow::ipc::feather::fbs::Encoding::PLAIN,
     int64_t offset = 0,
     int64_t length = 0,
     int64_t null_count = 0,
@@ -342,14 +351,15 @@ inline flatbuffers::Offset<PrimitiveArray> CreatePrimitiveArray(
 }
 
 struct CategoryMetadata FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef CategoryMetadataBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_LEVELS = 4,
     VT_ORDERED = 6
   };
   /// The category codes are presumed to be integers that are valid indexes into
   /// the levels array
-  const PrimitiveArray *levels() const {
-    return GetPointer<const PrimitiveArray *>(VT_LEVELS);
+  const arrow::ipc::feather::fbs::PrimitiveArray *levels() const {
+    return GetPointer<const arrow::ipc::feather::fbs::PrimitiveArray *>(VT_LEVELS);
   }
   bool ordered() const {
     return GetField<uint8_t>(VT_ORDERED, 0) != 0;
@@ -364,9 +374,10 @@ struct CategoryMetadata FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct CategoryMetadataBuilder {
+  typedef CategoryMetadata Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_levels(flatbuffers::Offset<PrimitiveArray> levels) {
+  void add_levels(flatbuffers::Offset<arrow::ipc::feather::fbs::PrimitiveArray> levels) {
     fbb_.AddOffset(CategoryMetadata::VT_LEVELS, levels);
   }
   void add_ordered(bool ordered) {
@@ -386,7 +397,7 @@ struct CategoryMetadataBuilder {
 
 inline flatbuffers::Offset<CategoryMetadata> CreateCategoryMetadata(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<PrimitiveArray> levels = 0,
+    flatbuffers::Offset<arrow::ipc::feather::fbs::PrimitiveArray> levels = 0,
     bool ordered = false) {
   CategoryMetadataBuilder builder_(_fbb);
   builder_.add_levels(levels);
@@ -395,12 +406,13 @@ inline flatbuffers::Offset<CategoryMetadata> CreateCategoryMetadata(
 }
 
 struct TimestampMetadata FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef TimestampMetadataBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_UNIT = 4,
     VT_TIMEZONE = 6
   };
-  TimeUnit unit() const {
-    return static_cast<TimeUnit>(GetField<int8_t>(VT_UNIT, 0));
+  arrow::ipc::feather::fbs::TimeUnit unit() const {
+    return static_cast<arrow::ipc::feather::fbs::TimeUnit>(GetField<int8_t>(VT_UNIT, 0));
   }
   /// Timestamp data is assumed to be UTC, but the time zone is stored here for
   /// presentation as localized
@@ -417,9 +429,10 @@ struct TimestampMetadata FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct TimestampMetadataBuilder {
+  typedef TimestampMetadata Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_unit(TimeUnit unit) {
+  void add_unit(arrow::ipc::feather::fbs::TimeUnit unit) {
     fbb_.AddElement<int8_t>(TimestampMetadata::VT_UNIT, static_cast<int8_t>(unit), 0);
   }
   void add_timezone(flatbuffers::Offset<flatbuffers::String> timezone) {
@@ -439,7 +452,7 @@ struct TimestampMetadataBuilder {
 
 inline flatbuffers::Offset<TimestampMetadata> CreateTimestampMetadata(
     flatbuffers::FlatBufferBuilder &_fbb,
-    TimeUnit unit = TimeUnit::SECOND,
+    arrow::ipc::feather::fbs::TimeUnit unit = arrow::ipc::feather::fbs::TimeUnit::SECOND,
     flatbuffers::Offset<flatbuffers::String> timezone = 0) {
   TimestampMetadataBuilder builder_(_fbb);
   builder_.add_timezone(timezone);
@@ -449,7 +462,7 @@ inline flatbuffers::Offset<TimestampMetadata> CreateTimestampMetadata(
 
 inline flatbuffers::Offset<TimestampMetadata> CreateTimestampMetadataDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    TimeUnit unit = TimeUnit::SECOND,
+    arrow::ipc::feather::fbs::TimeUnit unit = arrow::ipc::feather::fbs::TimeUnit::SECOND,
     const char *timezone = nullptr) {
   auto timezone__ = timezone ? _fbb.CreateString(timezone) : 0;
   return arrow::ipc::feather::fbs::CreateTimestampMetadata(
@@ -459,6 +472,7 @@ inline flatbuffers::Offset<TimestampMetadata> CreateTimestampMetadataDirect(
 }
 
 struct DateMetadata FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef DateMetadataBuilder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            verifier.EndTable();
@@ -466,6 +480,7 @@ struct DateMetadata FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct DateMetadataBuilder {
+  typedef DateMetadata Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   explicit DateMetadataBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -487,11 +502,12 @@ inline flatbuffers::Offset<DateMetadata> CreateDateMetadata(
 }
 
 struct TimeMetadata FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef TimeMetadataBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_UNIT = 4
   };
-  TimeUnit unit() const {
-    return static_cast<TimeUnit>(GetField<int8_t>(VT_UNIT, 0));
+  arrow::ipc::feather::fbs::TimeUnit unit() const {
+    return static_cast<arrow::ipc::feather::fbs::TimeUnit>(GetField<int8_t>(VT_UNIT, 0));
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -501,9 +517,10 @@ struct TimeMetadata FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct TimeMetadataBuilder {
+  typedef TimeMetadata Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_unit(TimeUnit unit) {
+  void add_unit(arrow::ipc::feather::fbs::TimeUnit unit) {
     fbb_.AddElement<int8_t>(TimeMetadata::VT_UNIT, static_cast<int8_t>(unit), 0);
   }
   explicit TimeMetadataBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -520,13 +537,14 @@ struct TimeMetadataBuilder {
 
 inline flatbuffers::Offset<TimeMetadata> CreateTimeMetadata(
     flatbuffers::FlatBufferBuilder &_fbb,
-    TimeUnit unit = TimeUnit::SECOND) {
+    arrow::ipc::feather::fbs::TimeUnit unit = arrow::ipc::feather::fbs::TimeUnit::SECOND) {
   TimeMetadataBuilder builder_(_fbb);
   builder_.add_unit(unit);
   return builder_.Finish();
 }
 
 struct Column FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ColumnBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_NAME = 4,
     VT_VALUES = 6,
@@ -537,27 +555,27 @@ struct Column FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const flatbuffers::String *name() const {
     return GetPointer<const flatbuffers::String *>(VT_NAME);
   }
-  const PrimitiveArray *values() const {
-    return GetPointer<const PrimitiveArray *>(VT_VALUES);
+  const arrow::ipc::feather::fbs::PrimitiveArray *values() const {
+    return GetPointer<const arrow::ipc::feather::fbs::PrimitiveArray *>(VT_VALUES);
   }
-  TypeMetadata metadata_type() const {
-    return static_cast<TypeMetadata>(GetField<uint8_t>(VT_METADATA_TYPE, 0));
+  arrow::ipc::feather::fbs::TypeMetadata metadata_type() const {
+    return static_cast<arrow::ipc::feather::fbs::TypeMetadata>(GetField<uint8_t>(VT_METADATA_TYPE, 0));
   }
   const void *metadata() const {
     return GetPointer<const void *>(VT_METADATA);
   }
   template<typename T> const T *metadata_as() const;
-  const CategoryMetadata *metadata_as_CategoryMetadata() const {
-    return metadata_type() == TypeMetadata::CategoryMetadata ? static_cast<const CategoryMetadata *>(metadata()) : nullptr;
+  const arrow::ipc::feather::fbs::CategoryMetadata *metadata_as_CategoryMetadata() const {
+    return metadata_type() == arrow::ipc::feather::fbs::TypeMetadata::CategoryMetadata ? static_cast<const arrow::ipc::feather::fbs::CategoryMetadata *>(metadata()) : nullptr;
   }
-  const TimestampMetadata *metadata_as_TimestampMetadata() const {
-    return metadata_type() == TypeMetadata::TimestampMetadata ? static_cast<const TimestampMetadata *>(metadata()) : nullptr;
+  const arrow::ipc::feather::fbs::TimestampMetadata *metadata_as_TimestampMetadata() const {
+    return metadata_type() == arrow::ipc::feather::fbs::TypeMetadata::TimestampMetadata ? static_cast<const arrow::ipc::feather::fbs::TimestampMetadata *>(metadata()) : nullptr;
   }
-  const DateMetadata *metadata_as_DateMetadata() const {
-    return metadata_type() == TypeMetadata::DateMetadata ? static_cast<const DateMetadata *>(metadata()) : nullptr;
+  const arrow::ipc::feather::fbs::DateMetadata *metadata_as_DateMetadata() const {
+    return metadata_type() == arrow::ipc::feather::fbs::TypeMetadata::DateMetadata ? static_cast<const arrow::ipc::feather::fbs::DateMetadata *>(metadata()) : nullptr;
   }
-  const TimeMetadata *metadata_as_TimeMetadata() const {
-    return metadata_type() == TypeMetadata::TimeMetadata ? static_cast<const TimeMetadata *>(metadata()) : nullptr;
+  const arrow::ipc::feather::fbs::TimeMetadata *metadata_as_TimeMetadata() const {
+    return metadata_type() == arrow::ipc::feather::fbs::TypeMetadata::TimeMetadata ? static_cast<const arrow::ipc::feather::fbs::TimeMetadata *>(metadata()) : nullptr;
   }
   /// This should (probably) be JSON
   const flatbuffers::String *user_metadata() const {
@@ -578,32 +596,33 @@ struct Column FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-template<> inline const CategoryMetadata *Column::metadata_as<CategoryMetadata>() const {
+template<> inline const arrow::ipc::feather::fbs::CategoryMetadata *Column::metadata_as<arrow::ipc::feather::fbs::CategoryMetadata>() const {
   return metadata_as_CategoryMetadata();
 }
 
-template<> inline const TimestampMetadata *Column::metadata_as<TimestampMetadata>() const {
+template<> inline const arrow::ipc::feather::fbs::TimestampMetadata *Column::metadata_as<arrow::ipc::feather::fbs::TimestampMetadata>() const {
   return metadata_as_TimestampMetadata();
 }
 
-template<> inline const DateMetadata *Column::metadata_as<DateMetadata>() const {
+template<> inline const arrow::ipc::feather::fbs::DateMetadata *Column::metadata_as<arrow::ipc::feather::fbs::DateMetadata>() const {
   return metadata_as_DateMetadata();
 }
 
-template<> inline const TimeMetadata *Column::metadata_as<TimeMetadata>() const {
+template<> inline const arrow::ipc::feather::fbs::TimeMetadata *Column::metadata_as<arrow::ipc::feather::fbs::TimeMetadata>() const {
   return metadata_as_TimeMetadata();
 }
 
 struct ColumnBuilder {
+  typedef Column Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_name(flatbuffers::Offset<flatbuffers::String> name) {
     fbb_.AddOffset(Column::VT_NAME, name);
   }
-  void add_values(flatbuffers::Offset<PrimitiveArray> values) {
+  void add_values(flatbuffers::Offset<arrow::ipc::feather::fbs::PrimitiveArray> values) {
     fbb_.AddOffset(Column::VT_VALUES, values);
   }
-  void add_metadata_type(TypeMetadata metadata_type) {
+  void add_metadata_type(arrow::ipc::feather::fbs::TypeMetadata metadata_type) {
     fbb_.AddElement<uint8_t>(Column::VT_METADATA_TYPE, static_cast<uint8_t>(metadata_type), 0);
   }
   void add_metadata(flatbuffers::Offset<void> metadata) {
@@ -627,8 +646,8 @@ struct ColumnBuilder {
 inline flatbuffers::Offset<Column> CreateColumn(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> name = 0,
-    flatbuffers::Offset<PrimitiveArray> values = 0,
-    TypeMetadata metadata_type = TypeMetadata::NONE,
+    flatbuffers::Offset<arrow::ipc::feather::fbs::PrimitiveArray> values = 0,
+    arrow::ipc::feather::fbs::TypeMetadata metadata_type = arrow::ipc::feather::fbs::TypeMetadata::NONE,
     flatbuffers::Offset<void> metadata = 0,
     flatbuffers::Offset<flatbuffers::String> user_metadata = 0) {
   ColumnBuilder builder_(_fbb);
@@ -643,8 +662,8 @@ inline flatbuffers::Offset<Column> CreateColumn(
 inline flatbuffers::Offset<Column> CreateColumnDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *name = nullptr,
-    flatbuffers::Offset<PrimitiveArray> values = 0,
-    TypeMetadata metadata_type = TypeMetadata::NONE,
+    flatbuffers::Offset<arrow::ipc::feather::fbs::PrimitiveArray> values = 0,
+    arrow::ipc::feather::fbs::TypeMetadata metadata_type = arrow::ipc::feather::fbs::TypeMetadata::NONE,
     flatbuffers::Offset<void> metadata = 0,
     const char *user_metadata = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
@@ -659,6 +678,7 @@ inline flatbuffers::Offset<Column> CreateColumnDirect(
 }
 
 struct CTable FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef CTableBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_DESCRIPTION = 4,
     VT_NUM_ROWS = 6,
@@ -673,10 +693,13 @@ struct CTable FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int64_t num_rows() const {
     return GetField<int64_t>(VT_NUM_ROWS, 0);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<Column>> *columns() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<Column>> *>(VT_COLUMNS);
+  const flatbuffers::Vector<flatbuffers::Offset<arrow::ipc::feather::fbs::Column>> *columns() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<arrow::ipc::feather::fbs::Column>> *>(VT_COLUMNS);
   }
   /// Version number of the Feather format
+  ///
+  /// Internal versions 0, 1, and 2: Implemented in Apache Arrow <= 0.16.0 and
+  /// wesm/feather. Uses "custom" metadata defined in this file.
   int32_t version() const {
     return GetField<int32_t>(VT_VERSION, 0);
   }
@@ -700,6 +723,7 @@ struct CTable FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct CTableBuilder {
+  typedef CTable Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_description(flatbuffers::Offset<flatbuffers::String> description) {
@@ -708,7 +732,7 @@ struct CTableBuilder {
   void add_num_rows(int64_t num_rows) {
     fbb_.AddElement<int64_t>(CTable::VT_NUM_ROWS, num_rows, 0);
   }
-  void add_columns(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Column>>> columns) {
+  void add_columns(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<arrow::ipc::feather::fbs::Column>>> columns) {
     fbb_.AddOffset(CTable::VT_COLUMNS, columns);
   }
   void add_version(int32_t version) {
@@ -733,7 +757,7 @@ inline flatbuffers::Offset<CTable> CreateCTable(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> description = 0,
     int64_t num_rows = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<Column>>> columns = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<arrow::ipc::feather::fbs::Column>>> columns = 0,
     int32_t version = 0,
     flatbuffers::Offset<flatbuffers::String> metadata = 0) {
   CTableBuilder builder_(_fbb);
@@ -749,11 +773,11 @@ inline flatbuffers::Offset<CTable> CreateCTableDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *description = nullptr,
     int64_t num_rows = 0,
-    const std::vector<flatbuffers::Offset<Column>> *columns = nullptr,
+    const std::vector<flatbuffers::Offset<arrow::ipc::feather::fbs::Column>> *columns = nullptr,
     int32_t version = 0,
     const char *metadata = nullptr) {
   auto description__ = description ? _fbb.CreateString(description) : 0;
-  auto columns__ = columns ? _fbb.CreateVector<flatbuffers::Offset<Column>>(*columns) : 0;
+  auto columns__ = columns ? _fbb.CreateVector<flatbuffers::Offset<arrow::ipc::feather::fbs::Column>>(*columns) : 0;
   auto metadata__ = metadata ? _fbb.CreateString(metadata) : 0;
   return arrow::ipc::feather::fbs::CreateCTable(
       _fbb,
@@ -770,22 +794,22 @@ inline bool VerifyTypeMetadata(flatbuffers::Verifier &verifier, const void *obj,
       return true;
     }
     case TypeMetadata::CategoryMetadata: {
-      auto ptr = reinterpret_cast<const CategoryMetadata *>(obj);
+      auto ptr = reinterpret_cast<const arrow::ipc::feather::fbs::CategoryMetadata *>(obj);
       return verifier.VerifyTable(ptr);
     }
     case TypeMetadata::TimestampMetadata: {
-      auto ptr = reinterpret_cast<const TimestampMetadata *>(obj);
+      auto ptr = reinterpret_cast<const arrow::ipc::feather::fbs::TimestampMetadata *>(obj);
       return verifier.VerifyTable(ptr);
     }
     case TypeMetadata::DateMetadata: {
-      auto ptr = reinterpret_cast<const DateMetadata *>(obj);
+      auto ptr = reinterpret_cast<const arrow::ipc::feather::fbs::DateMetadata *>(obj);
       return verifier.VerifyTable(ptr);
     }
     case TypeMetadata::TimeMetadata: {
-      auto ptr = reinterpret_cast<const TimeMetadata *>(obj);
+      auto ptr = reinterpret_cast<const arrow::ipc::feather::fbs::TimeMetadata *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    default: return false;
+    default: return true;
   }
 }
 

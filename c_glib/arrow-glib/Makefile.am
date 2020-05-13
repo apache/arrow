@@ -79,6 +79,7 @@ libarrow_glib_la_headers +=			\
 	writable-file.h
 
 libarrow_glib_la_headers +=			\
+	ipc-options.h				\
 	metadata-version.h			\
 	reader.h				\
 	writer.h
@@ -134,6 +135,7 @@ libarrow_glib_la_sources +=			\
 	writable-file.cpp
 
 libarrow_glib_la_sources +=			\
+	ipc-options.cpp				\
 	metadata-version.cpp			\
 	reader.cpp				\
 	writer.cpp
@@ -180,6 +182,7 @@ libarrow_glib_la_cpp_headers +=			\
 	writable-file.hpp
 
 libarrow_glib_la_cpp_headers +=			\
+	ipc-options.hpp				\
 	metadata-version.hpp			\
 	reader.hpp				\
 	writer.hpp

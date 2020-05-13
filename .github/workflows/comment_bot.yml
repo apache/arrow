@@ -25,9 +25,9 @@ on:
       - edited
 
 jobs:
-
-  listen:
+  crossbow:
     name: Listen!
+    if: startsWith(github.event.comment.body, '@github-actions crossbow')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Arrow
@@ -44,7 +44,7 @@ jobs:
       - name: Instal Archery and Crossbow dependencies
         run: |
           conda install -y --file arrow/ci/conda_env_crossbow.txt pygithub
-          pip install -e arrow/dev/archery
+          pip install -e arrow/dev/archery[bot]
       - name: Handle Github comment event
         env:
           ARROW_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -54,4 +54,95 @@ jobs:
             --event-name ${{ github.event_name }} \
             --event-payload ${{ github.event_path }}
 
+  autotune:
+    name: "Fix all the things"
+    if: startsWith(github.event.comment.body, '@github-actions autotune')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: r-lib/actions/pr-fetch@master
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: See what is different
+        run: |
+          set -ex
+          git remote add upstream https://github.com/apache/arrow
+          git fetch upstream
+          changed() {
+            git diff --name-only HEAD^..upstream/master | grep -e "$1" >/dev/null 2>&1
+          }
+          if changed '^r/.*\.R$'; then
+            echo "::set-env name=R_DOCS::true"
+          fi
+          if changed 'cmake' || changed 'CMake'; then
+            echo "::set-env name=CMAKE_FORMAT::true"
+          fi
+          if changed '^cpp/src'; then
+            echo "::set-env name=CLANG_FORMAT_CPP::true"
+          fi
+          if changed '^r/src'; then
+            echo "::set-env name=CLANG_FORMAT_R::true"
+          fi
+      - name: Run cmake_format
+        if: false
+        # TODO: make this work https://issues.apache.org/jira/browse/ARROW-8489
+        # if: env.CMAKE_FORMAT == 'true' || endsWith(github.event.comment.body, 'everything')
+        run: |
+          python3 -m pip install -r dev/archery/requirements-lint.txt
+          python3 run-cmake-format.py
+      - name: Run clang-format on cpp
+        if: env.CLANG_FORMAT_CPP == 'true' || endsWith(github.event.comment.body, 'everything')
+        run: |
+          . .env # To get the clang version we use
+          cpp/build-support/run_clang_format.py \
+              --clang_format_binary=clang-format-${CLANG_TOOLS} \
+              --exclude_glob=cpp/build-support/lint_exclusions.txt \
+              --source_dir=cpp/src --quiet --fix
+      - name: Run clang-format on r
+        if: env.CLANG_FORMAT_R == 'true' || endsWith(github.event.comment.body, 'everything')
+        run: |
+          . .env # To get the clang version we use
+          cpp/build-support/run_clang_format.py \
+              --clang_format_binary=clang-format-${CLANG_TOOLS} \
+              --exclude_glob=cpp/build-support/lint_exclusions.txt \
+              --source_dir=r/src --quiet --fix
+      - uses: r-lib/actions/setup-r@v1
+        if: env.R_DOCS == 'true' || endsWith(github.event.comment.body, 'everything')
+      - name: Update R docs
+        if: env.R_DOCS == 'true' || endsWith(github.event.comment.body, 'everything')
+        shell: Rscript {0}
+        run: |
+          source("ci/etc/rprofile")
+          install.packages(c("remotes", "roxygen2"))
+          remotes::install_deps("r")
+          roxygen2::roxygenize("r")
+      - name: Commit results
+        run: |
+          git config user.name "$(git log -1 --pretty=format:%an)"
+          git config user.email "$(git log -1 --pretty=format:%ae)"
+          git commit -a -m 'Autoformat/render all the things [automated commit]' || echo "No changes to commit"
+      - uses: r-lib/actions/pr-push@master
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+  rebase:
+    name: "Rebase"
+    if: startsWith(github.event.comment.body, '@github-actions rebase')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: r-lib/actions/pr-fetch@master
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Rebase on ${{ github.repository }} master
+        run: |
+          set -ex
+          git config user.name "$(git log -1 --pretty=format:%an)"
+          git config user.email "$(git log -1 --pretty=format:%ae)"
+          git remote add upstream https://github.com/${{ github.repository }}
+          git fetch --unshallow upstream master
+          git rebase upstream/master
+      - uses: r-lib/actions/pr-push@master
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          args: "--force"

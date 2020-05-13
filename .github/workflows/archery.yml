@@ -15,35 +15,50 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Archery
+name: Archery & Crossbow
 
 on:
   push:
     paths:
       - '.github/workflows/archery.yml'
       - 'dev/archery/**'
+      - 'dev/tasks/**'
+      - 'docker-compose.yml'
   pull_request:
     paths:
       - '.github/workflows/archery.yml'
       - 'dev/archery/**'
+      - 'dev/tasks/**'
+      - 'docker-compose.yml'
 
 jobs:
 
-  archery:
-    name: Archery Unittests
+  test:
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    name: Archery Unittests and Crossbow Check Config
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        run: ci/scripts/util_cleanup.sh
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
-          python-version: '3.7'
-      - name: Install
+          python-version: '3.5'
+      - name: Install Archery, Crossbow- and Test Dependencies
         working-directory: dev/archery
-        run: pip install pytest responses ruamel.yaml -e .
-      - name: Test
+        run: pip install pytest responses toolz jinja2 -e .[all]
+      - name: Archery Unittests
         working-directory: dev/archery
         run: pytest -v archery
+      - name: Archery Docker Validation
+        run: archery docker
+      - name: Crossbow Check Config
+        working-directory: dev/tasks
+        run: python crossbow.py check-config

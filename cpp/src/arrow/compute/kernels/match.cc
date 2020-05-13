@@ -273,7 +273,7 @@ Status Match(FunctionContext* ctx, const Datum& haystack, const Datum& needles,
   RETURN_NOT_OK(GetMatchKernel(ctx, haystack.type(), needles, &kernel));
   RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, kernel.get(), haystack, &outputs));
 
-  *out = detail::WrapDatumsLike(haystack, outputs);
+  *out = detail::WrapDatumsLike(haystack, kernel->out_type(), outputs);
   return Status::OK();
 }
 

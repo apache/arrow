@@ -17,7 +17,19 @@
 
 # flake8: noqa
 
+"""
+PyArrow is the python implementation of Apache Arrow.
 
+Apache Arrow is a cross-language development platform for in-memory data.
+It specifies a standardized language-independent columnar memory format for
+flat and hierarchical data, organized for efficient analytic operations on
+modern hardware. It also provides computational libraries and zero-copy
+streaming messaging and interprocess communication.
+
+For more information see the official page at https://arrow.apache.org
+"""
+
+import gc as _gc
 import os as _os
 import sys as _sys
 
@@ -45,6 +57,14 @@ except ImportError:
 
 import pyarrow.compat as compat
 
+# ARROW-8684: Disable GC while initializing Cython extension module,
+# to workaround Cython bug in https://github.com/cython/cython/issues/3603
+_gc_enabled = _gc.isenabled()
+_gc.disable()
+import pyarrow.lib as _lib
+if _gc_enabled:
+    _gc.enable()
+
 from pyarrow.lib import cpu_count, set_cpu_count
 from pyarrow.lib import (null, bool_,
                          int8, int16, int32, int64,
@@ -66,12 +86,15 @@ from pyarrow.lib import (null, bool_,
                          PyExtensionType, UnknownExtensionType,
                          register_extension_type, unregister_extension_type,
                          DictionaryMemo,
+                         KeyValueMetadata,
                          Field,
                          Schema,
                          schema,
+                         unify_schemas,
                          Array, Tensor,
                          array, chunked_array, record_batch, table,
                          SparseCOOTensor, SparseCSRMatrix, SparseCSCMatrix,
+                         SparseCSFTensor,
                          infer_type, from_numpy_dtype,
                          NullArray,
                          NumericArray, IntegerArray, FloatingPointArray,
@@ -149,15 +172,7 @@ from pyarrow.filesystem import FileSystem, LocalFileSystem
 from pyarrow.hdfs import HadoopFileSystem
 import pyarrow.hdfs as hdfs
 
-from pyarrow.ipc import (Message, MessageReader,
-                         RecordBatchFileReader, RecordBatchFileWriter,
-                         RecordBatchStreamReader, RecordBatchStreamWriter,
-                         read_message, read_record_batch, read_schema,
-                         read_tensor, write_tensor,
-                         get_record_batch_size, get_tensor_size,
-                         open_stream,
-                         open_file,
-                         serialize_pandas, deserialize_pandas)
+from pyarrow.ipc import serialize_pandas, deserialize_pandas
 import pyarrow.ipc as ipc
 
 
@@ -188,6 +203,41 @@ def _plasma_store_entry_point():
 # Deprecations
 
 from pyarrow.util import _deprecate_api  # noqa
+
+read_message = _deprecate_api("read_message", "ipc.read_message",
+                              ipc.read_message, "0.17.0")
+
+read_record_batch = _deprecate_api("read_record_batch",
+                                   "ipc.read_record_batch",
+                                   ipc.read_record_batch, "0.17.0")
+
+read_schema = _deprecate_api("read_schema", "ipc.read_schema",
+                             ipc.read_schema, "0.17.0")
+
+read_tensor = _deprecate_api("read_tensor", "ipc.read_tensor",
+                             ipc.read_tensor, "0.17.0")
+
+write_tensor = _deprecate_api("write_tensor", "ipc.write_tensor",
+                             ipc.write_tensor, "0.17.0")
+
+get_record_batch_size = _deprecate_api("get_record_batch_size",
+                                       "ipc.get_record_batch_size",
+                                       ipc.get_record_batch_size, "0.17.0")
+
+get_tensor_size = _deprecate_api("get_tensor_size",
+                                 "ipc.get_tensor_size",
+                                 ipc.get_tensor_size, "0.17.0")
+
+open_stream = _deprecate_api("open_stream", "ipc.open_stream",
+                             ipc.open_stream, "0.17.0")
+
+open_file = _deprecate_api("open_file", "ipc.open_file", ipc.open_file,
+                           "0.17.0")
+
+# TODO: Deprecate these somehow in the pyarrow namespace
+from pyarrow.ipc import (Message, MessageReader,
+                         RecordBatchFileReader, RecordBatchFileWriter,
+                         RecordBatchStreamReader, RecordBatchStreamWriter)
 
 # ----------------------------------------------------------------------
 # Returning absolute path to the pyarrow include directory (if bundled, e.g. in

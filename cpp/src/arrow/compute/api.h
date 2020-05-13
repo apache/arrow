@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_COMPUTE_API_H
-#define ARROW_COMPUTE_API_H
+#pragma once
 
 #include "arrow/compute/context.h"  // IWYU pragma: export
 #include "arrow/compute/kernel.h"   // IWYU pragma: export
@@ -33,5 +32,3 @@
 #include "arrow/compute/kernels/sort_to_indices.h"  // IWYU pragma: export
 #include "arrow/compute/kernels/sum.h"              // IWYU pragma: export
 #include "arrow/compute/kernels/take.h"             // IWYU pragma: export
-
-#endif  // ARROW_COMPUTE_API_H

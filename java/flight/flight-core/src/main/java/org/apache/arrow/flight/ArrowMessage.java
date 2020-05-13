@@ -31,6 +31,7 @@ import org.apache.arrow.flight.grpc.AddWritableBuffer;
 import org.apache.arrow.flight.grpc.GetReadableBuffer;
 import org.apache.arrow.flight.impl.Flight.FlightData;
 import org.apache.arrow.flight.impl.Flight.FlightDescriptor;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
@@ -52,7 +53,6 @@ import io.grpc.Drainable;
 import io.grpc.MethodDescriptor;
 import io.grpc.MethodDescriptor.Marshaller;
 import io.grpc.protobuf.ProtoUtils;
-import io.netty.buffer.ArrowBuf;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.CompositeByteBuf;
@@ -291,7 +291,7 @@ class ArrowMessage implements AutoCloseable {
 
       Preconditions.checkArgument(getMessageType() == HeaderType.RECORD_BATCH ||
           getMessageType() == HeaderType.DICTIONARY_BATCH);
-      Preconditions.checkArgument(!bufs.isEmpty());
+      // There may be no buffers in the case that we write only a null array
       Preconditions.checkArgument(descriptor == null, "Descriptor should only be included in the schema message.");
 
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -326,7 +326,8 @@ class ArrowMessage implements AutoCloseable {
 
       ArrowBuf initialBuf = allocator.buffer(baos.size());
       initialBuf.writeBytes(baos.toByteArray());
-      final CompositeByteBuf bb = new CompositeByteBuf(allocator.getAsByteBufAllocator(), true, bufs.size() + 1,
+      final CompositeByteBuf bb = new CompositeByteBuf(allocator.getAsByteBufAllocator(), true,
+          Math.max(2, bufs.size() + 1),
           ImmutableList.<ByteBuf>builder().add(initialBuf.asNettyBuffer()).addAll(allBufs).build());
       final ByteBufInputStream is = new DrainableByteBufInputStream(bb);
       return is;

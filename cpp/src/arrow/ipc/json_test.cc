@@ -33,18 +33,187 @@
 #include "arrow/ipc/test_common.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace ipc {
 namespace internal {
 namespace json {
 
 using namespace ::arrow::ipc::test;  // NOLINT
+
+static const char* json_example1 = R"example(
+{
+  "schema": {
+    "fields": [
+      {
+        "name": "foo",
+        "type": {"name": "int", "isSigned": true, "bitWidth": 32},
+        "nullable": true, "children": []
+      },
+      {
+        "name": "bar",
+        "type": {"name": "floatingpoint", "precision": "DOUBLE"},
+        "nullable": true, "children": []
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "foo",
+          "count": 5,
+          "DATA": [1, 2, 3, 4, 5],
+          "VALIDITY": [1, 0, 1, 1, 1]
+        },
+        {
+          "name": "bar",
+          "count": 5,
+          "DATA": [1.0, 2.0, 3.0, 4.0, 5.0],
+          "VALIDITY": [1, 0, 0, 1, 1]
+        }
+      ]
+    }
+  ]
+}
+)example";
+
+static const char* json_example2 = R"example(
+{
+  "schema": {
+    "fields": [
+      {
+        "name": "uuids",
+        "type" : {
+           "name" : "fixedsizebinary",
+           "byteWidth" : 16
+        },
+        "nullable": true,
+        "children" : [],
+        "metadata" : [
+           {"key": "ARROW:extension:name", "value": "uuid"},
+           {"key": "ARROW:extension:metadata", "value": "uuid-serialized"}
+        ]
+      },
+      {
+        "name": "things",
+        "type" : {
+           "name" : "null"
+        },
+        "nullable": true,
+        "children" : [],
+        "metadata" : [
+           {"key": "ARROW:extension:name", "value": "!doesn't exist!"},
+           {"key": "ARROW:extension:metadata", "value": ""},
+           {"key": "ARROW:integration:allow_unregistered_extension", "value": "true"}
+        ]
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 2,
+      "columns": [
+        {
+          "name": "uuids",
+          "count": 2,
+          "DATA": ["30313233343536373839616263646566",
+                   "00000000000000000000000000000000"],
+          "VALIDITY": [1, 0]
+        },
+        {
+          "name": "things",
+          "count": 2
+        }
+      ]
+    }
+  ]
+}
+)example";
+
+static const char* json_example3 = R"example(
+{
+  "schema": {
+    "fields": [
+      {
+        "name": "dict-extensions",
+        "type" : {
+           "name" : "utf8"
+        },
+        "nullable": true,
+        "children" : [],
+        "dictionary": {
+          "id": 0,
+          "indexType": {
+            "name": "int",
+            "isSigned": true,
+            "bitWidth": 8
+          },
+          "isOrdered": false
+        },
+        "metadata" : [
+           {"key": "ARROW:extension:name", "value": "dict-extension"},
+           {"key": "ARROW:extension:metadata", "value": "dict-extension-serialized"}
+        ]
+      }
+    ]
+  },
+  "dictionaries": [
+    {
+      "id": 0,
+      "data": {
+        "count": 10,
+        "columns": [
+          {
+            "name": "DICT0",
+            "count": 3,
+            "VALIDITY": [
+              1,
+              1,
+              1
+            ],
+            "OFFSET": [
+              0,
+              3,
+              6,
+              10
+            ],
+            "DATA": [
+              "foo",
+              "bar",
+              "quux"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "batches": [
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "dict-extensions",
+          "count": 5,
+          "DATA": [2, 0, 1, 1, 2],
+          "VALIDITY": [1, 1, 0, 1, 1]
+        }
+      ]
+    }
+  ]
+}
+)example";
 
 void TestSchemaRoundTrip(const Schema& schema) {
   rj::StringBuffer sb;
@@ -329,58 +498,8 @@ TEST(TestJsonFileReadWrite, BasicRoundTrip) {
   }
 }
 
-TEST(TestJsonFileReadWrite, MinimalFormatExample) {
-  static const char* example = R"example(
-{
-  "schema": {
-    "fields": [
-      {
-        "name": "foo",
-        "type": {"name": "int", "isSigned": true, "bitWidth": 32},
-        "nullable": true, "children": [],
-        "typeLayout": {
-          "vectors": [
-            {"type": "VALIDITY", "typeBitWidth": 1},
-            {"type": "DATA", "typeBitWidth": 32}
-          ]
-        }
-      },
-      {
-        "name": "bar",
-        "type": {"name": "floatingpoint", "precision": "DOUBLE"},
-        "nullable": true, "children": [],
-        "typeLayout": {
-          "vectors": [
-            {"type": "VALIDITY", "typeBitWidth": 1},
-            {"type": "DATA", "typeBitWidth": 64}
-          ]
-        }
-      }
-    ]
-  },
-  "batches": [
-    {
-      "count": 5,
-      "columns": [
-        {
-          "name": "foo",
-          "count": 5,
-          "DATA": [1, 2, 3, 4, 5],
-          "VALIDITY": [1, 0, 1, 1, 1]
-        },
-        {
-          "name": "bar",
-          "count": 5,
-          "DATA": [1.0, 2.0, 3.0, 4.0, 5.0],
-          "VALIDITY": [1, 0, 0, 1, 1]
-        }
-      ]
-    }
-  ]
-}
-)example";
-
-  auto buffer = Buffer::Wrap(example, strlen(example));
+TEST(TestJsonFileReadWrite, JsonExample1) {
+  auto buffer = Buffer::Wrap(json_example1, strlen(json_example1));
 
   std::unique_ptr<JsonReader> reader;
   ASSERT_OK(JsonReader::Open(buffer, &reader));
@@ -406,13 +525,68 @@ TEST(TestJsonFileReadWrite, MinimalFormatExample) {
   ASSERT_TRUE(batch->column(1)->Equals(bar));
 }
 
-#define BATCH_CASES()                                                              \
-  ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch,                     \
-                    &MakeFixedSizeListRecordBatch, &MakeNonNullRecordBatch,        \
-                    &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,             \
-                    &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion, \
-                    &MakeDates, &MakeTimestamps, &MakeTimes, &MakeFWBinary,        \
-                    &MakeDecimal, &MakeDictionary, &MakeIntervals)
+TEST(TestJsonFileReadWrite, JsonExample2) {
+  // Example 2: two extension types (one registered, one unregistered)
+  auto uuid_type = uuid();
+  auto buffer = Buffer::Wrap(json_example2, strlen(json_example2));
+
+  std::unique_ptr<JsonReader> reader;
+  {
+    ExtensionTypeGuard ext_guard(uuid_type);
+
+    ASSERT_OK(JsonReader::Open(buffer, &reader));
+    // The second field is an unregistered extension and will be read as
+    // its underlying storage.
+    Schema ex_schema({field("uuids", uuid_type), field("things", null())});
+
+    AssertSchemaEqual(ex_schema, *reader->schema());
+    ASSERT_EQ(1, reader->num_record_batches());
+
+    std::shared_ptr<RecordBatch> batch;
+    ASSERT_OK(reader->ReadRecordBatch(0, &batch));
+
+    auto storage_array =
+        ArrayFromJSON(fixed_size_binary(16), R"(["0123456789abcdef", null])");
+    AssertArraysEqual(*batch->column(0), UuidArray(uuid_type, storage_array));
+
+    AssertArraysEqual(*batch->column(1), NullArray(2));
+  }
+
+  // Should fail now that the Uuid extension is unregistered
+  ASSERT_RAISES(KeyError, JsonReader::Open(buffer, &reader));
+}
+
+TEST(TestJsonFileReadWrite, JsonExample3) {
+  // Example 3: An extension type with a dictionary storage type
+  auto dict_ext_type = std::make_shared<DictExtensionType>();
+  auto buffer = Buffer::Wrap(json_example3, strlen(json_example3));
+
+  ExtensionTypeGuard ext_guard(dict_ext_type);
+
+  std::unique_ptr<JsonReader> reader;
+  ASSERT_OK(JsonReader::Open(buffer, &reader));
+  Schema ex_schema({field("dict-extensions", dict_ext_type)});
+
+  AssertSchemaEqual(ex_schema, *reader->schema());
+  ASSERT_EQ(1, reader->num_record_batches());
+
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(reader->ReadRecordBatch(0, &batch));
+
+  auto storage_array = std::make_shared<DictionaryArray>(
+      dict_ext_type->storage_type(), ArrayFromJSON(int8(), "[2, 0, null, 1, 2]"),
+      ArrayFromJSON(utf8(), R"(["foo", "bar", "quux"])"));
+  AssertArraysEqual(*batch->column(0), ExtensionArray(dict_ext_type, storage_array),
+                    /*verbose=*/true);
+}
+
+#define BATCH_CASES()                                                             \
+  ::testing::Values(                                                              \
+      &MakeIntRecordBatch, &MakeListRecordBatch, &MakeFixedSizeListRecordBatch,   \
+      &MakeNonNullRecordBatch, &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, \
+      &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion, &MakeDates,  \
+      &MakeTimestamps, &MakeTimes, &MakeFWBinary, &MakeDecimal, &MakeDictionary,  \
+      &MakeIntervals, &MakeUuid, &MakeDictExtension)
 
 class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {
  public:
@@ -421,6 +595,9 @@ class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {
 };
 
 void CheckRoundtrip(const RecordBatch& batch) {
+  ExtensionTypeGuard uuid_ext_guard(uuid());
+  ExtensionTypeGuard dict_ext_guard(dict_extension_type());
+
   TestSchemaRoundTrip(*batch.schema());
 
   std::unique_ptr<JsonWriter> writer;

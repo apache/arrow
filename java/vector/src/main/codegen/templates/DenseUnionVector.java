@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.util.DataSizeRoundingUtil;
@@ -35,7 +35,8 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
 
-import javax.lang.model.type.UnionType;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/DenseUnionVector.java" />
@@ -46,7 +47,6 @@ import javax.lang.model.type.UnionType;
 package org.apache.arrow.vector.complex;
 
 <#include "/@includes/vv_imports.ftl" />
-import io.netty.buffer.ArrowBuf;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -155,7 +155,12 @@ public class DenseUnionVector implements FieldVector {
 
   @Override
   public void initializeChildrenFromFields(List<Field> children) {
-    internalStruct.initializeChildrenFromFields(children);
+    for (Field field : children) {
+      byte typeId = registerNewTypeId(field);
+      FieldVector vector = (FieldVector) internalStruct.add(field.getName(), field.getFieldType());
+      vector.initializeChildrenFromFields(field.getChildren());
+      childVectors[typeId] = vector;
+    }
   }
 
   @Override
@@ -516,12 +521,15 @@ public class DenseUnionVector implements FieldVector {
 
   @Override
   public Field getField() {
-    List<org.apache.arrow.vector.types.pojo.Field> childFields = new ArrayList<>();
-    List<FieldVector> children = internalStruct.getChildren();
-    int[] typeIds = new int[children.size()];
-    for (ValueVector v : children) {
-      typeIds[childFields.size()] = v.getMinorType().ordinal();
-      childFields.add(v.getField());
+    int childCount = (int) Arrays.stream(typeFields).filter(field -> field != null).count();
+    List<org.apache.arrow.vector.types.pojo.Field> childFields = new ArrayList<>(childCount);
+    int[] typeIds = new int[childCount];
+    for (int i = 0; i < typeFields.length; i++) {
+      if (typeFields[i] != null) {
+        int curIdx = childFields.size();
+        typeIds[curIdx] = i;
+        childFields.add(typeFields[i]);
+      }
     }
 
     FieldType fieldType;
@@ -605,6 +613,8 @@ public class DenseUnionVector implements FieldVector {
       for (int i = 0; i < nextTypeId; i++) {
         ValueVector srcVec = internalStruct.getVectorById(i);
         ValueVector dstVec = to.internalStruct.getVectorById(i);
+        to.typeFields[i] = typeFields[i];
+        to.childVectors[i] = dstVec;
         internalTransferPairs[i] = srcVec.makeTransferPair(dstVec);
       }
     }

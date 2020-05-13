@@ -26,7 +26,7 @@
 GArrowFileInfo *
 garrow_file_info_new_raw(const arrow::fs::FileInfo &arrow_file_info);
 
-arrow::fs::FileInfo &
+arrow::fs::FileInfo *
 garrow_file_info_get_raw(GArrowFileInfo *file_info);
 
 std::shared_ptr<arrow::fs::FileSystem>

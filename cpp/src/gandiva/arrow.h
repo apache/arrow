@@ -15,18 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_EXPR_ARROW_H
-#define GANDIVA_EXPR_ARROW_H
+#pragma once
 
 #include <memory>
 #include <vector>
 
-#include <arrow/array.h>
-#include <arrow/builder.h>
-#include <arrow/pretty_print.h>
-#include <arrow/record_batch.h>
-#include <arrow/status.h>
-#include <arrow/type.h>
+#include "arrow/array.h"         // IWYU pragma: export
+#include "arrow/builder.h"       // IWYU pragma: export
+#include "arrow/pretty_print.h"  // IWYU pragma: export
+#include "arrow/record_batch.h"  // IWYU pragma: export
+#include "arrow/status.h"        // IWYU pragma: export
+#include "arrow/type.h"          // IWYU pragma: export
 
 namespace gandiva {
 
@@ -63,5 +62,3 @@ static inline bool is_decimal_128(DataTypePtr type) {
   }
 }
 }  // namespace gandiva
-
-#endif  // GANDIVA_EXPR_ARROW_H

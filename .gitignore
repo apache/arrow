@@ -77,3 +77,6 @@ site/
 # macOS
 cpp/Brewfile.lock.json
 .DS_Store
+
+# docker volumes used for caching
+.docker

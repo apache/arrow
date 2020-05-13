@@ -30,11 +30,13 @@ test_that("reading a known Parquet file to tibble", {
 test_that("simple int column roundtrip", {
   df <- tibble::tibble(x = 1:5)
   pq_tmp_file <- tempfile() # You can specify the .parquet here but that's probably not necessary
-  on.exit(unlink(pq_tmp_file))
 
   write_parquet(df, pq_tmp_file)
   df_read <- read_parquet(pq_tmp_file)
   expect_equivalent(df, df_read)
+  # Make sure file connection is cleaned up
+  expect_error(file.remove(pq_tmp_file), NA)
+  expect_false(file.exists(pq_tmp_file))
 })
 
 test_that("read_parquet() supports col_select", {

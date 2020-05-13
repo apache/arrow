@@ -367,7 +367,7 @@ func baseArrayEqual(left, right Interface) bool {
 		return false
 	case left.NullN() != right.NullN():
 		return false
-	case !arrow.TypeEquals(left.DataType(), right.DataType()): // We do not check for metadata as in the C++ implementation.
+	case !arrow.TypeEqual(left.DataType(), right.DataType()): // We do not check for metadata as in the C++ implementation.
 		return false
 	case !validityBitmapEqual(left, right):
 		return false

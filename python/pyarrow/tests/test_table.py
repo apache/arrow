@@ -316,7 +316,8 @@ def test_recordbatch_basics():
         batch[2]
 
     # Schema passed explicitly
-    schema = pa.schema([pa.field('c0', pa.int16()),
+    schema = pa.schema([pa.field('c0', pa.int16(),
+                                 metadata={'key': 'value'}),
                         pa.field('c1', pa.int32())],
                        metadata={b'foo': b'bar'})
     batch = pa.record_batch(data, schema=schema)
@@ -324,6 +325,53 @@ def test_recordbatch_basics():
     # schema as first positional argument
     batch = pa.record_batch(data, schema)
     assert batch.schema == schema
+    assert str(batch) == """pyarrow.RecordBatch
+c0: int16
+c1: int32"""
+
+    assert batch.to_string(show_metadata=True) == """\
+pyarrow.RecordBatch
+c0: int16
+  -- field metadata --
+  key: 'value'
+c1: int32
+-- schema metadata --
+foo: 'bar'"""
+
+
+def test_recordbatch_equals():
+    data1 = [
+        pa.array(range(5), type='int16'),
+        pa.array([-10, -5, 0, None, 10], type='int32')
+    ]
+    data2 = [
+        pa.array(['a', 'b', 'c']),
+        pa.array([['d'], ['e'], ['f']]),
+    ]
+    column_names = ['c0', 'c1']
+
+    batch = pa.record_batch(data1, column_names)
+    assert batch == pa.record_batch(data1, column_names)
+    assert batch.equals(pa.record_batch(data1, column_names))
+
+    assert batch != pa.record_batch(data2, column_names)
+    assert not batch.equals(pa.record_batch(data2, column_names))
+
+    batch_meta = pa.record_batch(data1, names=column_names,
+                                 metadata={'key': 'value'})
+    assert batch_meta.equals(batch)
+    assert not batch_meta.equals(batch, check_metadata=True)
+
+
+def test_recordbatch_take():
+    batch = pa.record_batch(
+        [pa.array([1, 2, 3, None, 5]),
+         pa.array(['a', 'b', 'c', 'd', 'e'])],
+        ['f1', 'f2'])
+    assert batch.take(pa.array([2, 3])).equals(batch.slice(2, 2))
+    assert batch.take(pa.array([2, None])).equals(
+        pa.record_batch([pa.array([3, None]), pa.array(['c', None])],
+                        ['f1', 'f2']))
 
 
 def test_recordbatch_column_sets_private_name():
@@ -682,7 +730,8 @@ def test_table_select_column():
 
     assert table.column('a').equals(table.column(0))
 
-    with pytest.raises(KeyError):
+    with pytest.raises(KeyError,
+                       match='Field "d" does not exist in table schema'):
         table.column('d')
 
     with pytest.raises(TypeError):
@@ -690,6 +739,17 @@ def test_table_select_column():
 
     with pytest.raises(IndexError):
         table.column(4)
+
+
+def test_table_column_with_duplicates():
+    # ARROW-8209
+    table = pa.table([pa.array([1, 2, 3]),
+                      pa.array([4, 5, 6]),
+                      pa.array([7, 8, 9])], names=['a', 'b', 'a'])
+
+    with pytest.raises(KeyError,
+                       match='Field "a" exists 2 times in table schema'):
+        table.column('a')
 
 
 def test_table_add_column():
@@ -1278,6 +1338,29 @@ def test_factory_functions_invalid_input():
         pa.record_batch("invalid input")
 
 
+def test_table_repr_to_string():
+    # Schema passed explicitly
+    schema = pa.schema([pa.field('c0', pa.int16(),
+                                 metadata={'key': 'value'}),
+                        pa.field('c1', pa.int32())],
+                       metadata={b'foo': b'bar'})
+
+    tab = pa.table([pa.array([1, 2, 3, 4], type='int16'),
+                    pa.array([1, 2, 3, 4], type='int32')], schema=schema)
+    assert str(tab) == """pyarrow.Table
+c0: int16
+c1: int32"""
+
+    assert tab.to_string(show_metadata=True) == """\
+pyarrow.Table
+c0: int16
+  -- field metadata --
+  key: 'value'
+c1: int32
+-- schema metadata --
+foo: 'bar'"""
+
+
 def test_table_function_unicode_schema():
     col_a = "äääh"
     col_b = "öööf"
@@ -1290,3 +1373,40 @@ def test_table_function_unicode_schema():
     result = pa.table(d, schema=schema)
     assert result[0].chunk(0).equals(pa.array([1, 2, 3], type='int32'))
     assert result[1].chunk(0).equals(pa.array(['a', 'b', 'c'], type='string'))
+
+
+def test_table_take_vanilla_functionality():
+    table = pa.table(
+        [pa.array([1, 2, 3, None, 5]),
+         pa.array(['a', 'b', 'c', 'd', 'e'])],
+        ['f1', 'f2'])
+
+    assert table.take(pa.array([2, 3])).equals(table.slice(2, 2))
+
+
+def test_table_take_null_index():
+    table = pa.table(
+        [pa.array([1, 2, 3, None, 5]),
+         pa.array(['a', 'b', 'c', 'd', 'e'])],
+        ['f1', 'f2'])
+
+    result_with_null_index = pa.table(
+        [pa.array([1, None]),
+         pa.array(['a', None])],
+        ['f1', 'f2'])
+
+    assert table.take(pa.array([0, None])).equals(result_with_null_index)
+
+
+def test_table_take_non_consecutive():
+    table = pa.table(
+        [pa.array([1, 2, 3, None, 5]),
+         pa.array(['a', 'b', 'c', 'd', 'e'])],
+        ['f1', 'f2'])
+
+    result_non_consecutive = pa.table(
+        [pa.array([2, None]),
+         pa.array(['b', 'd'])],
+        ['f1', 'f2'])
+
+    assert table.take(pa.array([1, 3])).equals(result_non_consecutive)

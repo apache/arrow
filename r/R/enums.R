@@ -42,12 +42,35 @@ DateUnit <- enum("DateUnit", DAY = 0L, MILLI = 1L)
 #' @rdname enums
 #' @export
 Type <- enum("Type::type",
-  "NA" = 0L, BOOL = 1L, UINT8 = 2L, INT8 = 3L, UINT16 = 4L, INT16 = 5L,
-  UINT32 = 6L, INT32 = 7L, UINT64 = 8L, INT64 = 9L,
-  HALF_FLOAT = 10L, FLOAT = 11L, DOUBLE = 12L, STRING = 13L,
-  BINARY = 14L, FIXED_SIZE_BINARY = 15L, DATE32 = 16L, DATE64 = 17L, TIMESTAMP = 18L,
-  TIME32 = 19L, TIME64 = 20L, INTERVAL = 21L, DECIMAL = 22L, LIST = 23L, STRUCT = 24L,
-  UNION = 25L, DICTIONARY = 26L, MAP = 27L
+  "NA" = 0L,
+  BOOL = 1L,
+  UINT8 = 2L,
+  INT8 = 3L,
+  UINT16 = 4L,
+  INT16 = 5L,
+  UINT32 = 6L,
+  INT32 = 7L,
+  UINT64 = 8L,
+  INT64 = 9L,
+  HALF_FLOAT = 10L,
+  FLOAT = 11L,
+  DOUBLE = 12L,
+  STRING = 13L,
+  BINARY = 14L,
+  FIXED_SIZE_BINARY = 15L,
+  DATE32 = 16L,
+  DATE64 = 17L,
+  TIMESTAMP = 18L,
+  TIME32 = 19L,
+  TIME64 = 20L,
+  INTERVAL_MONTHS = 21L,
+  INTERVAL_DAY_TIME = 22L,
+  DECIMAL = 23L,
+  LIST = 24L,
+  STRUCT = 25L,
+  UNION = 26L,
+  DICTIONARY = 27L,
+  MAP = 28L
 )
 
 #' @rdname enums
@@ -57,7 +80,7 @@ StatusCode <- enum("StatusCode",
   Invalid = 4L, IOError = 5L, CapacityError = 6L, IndexError = 7L,
   UnknownError = 9L, NotImplemented = 10L, SerializationError = 11L,
   PythonError = 12L, RError = 13L,
-  PlasmaObjectExists = 20L, PlasmaObjectNonexistent = 21L,
+  PlasmaObjectExists = 20L, PlasmaObjectNotFound = 21L,
   PlasmaStoreFull = 22L, PlasmaObjectAlreadySealed = 23L
 )
 
@@ -76,13 +99,14 @@ MessageType <- enum("Message::Type",
 #' @rdname enums
 #' @export
 CompressionType <- enum("Compression::type",
-  UNCOMPRESSED = 0L, SNAPPY = 1L, GZIP = 2L, BROTLI = 3L, ZSTD = 4L, LZ4 = 5L, LZO = 6L, BZ2 = 7L
+  UNCOMPRESSED = 0L, SNAPPY = 1L, GZIP = 2L, BROTLI = 3L, ZSTD = 4L, LZ4 = 5L,
+  LZ4_FRAME = 6L, LZO = 7L, BZ2 = 8L
 )
 
 #' @export
 #' @rdname enums
 FileType <- enum("FileType",
-  NonExistent = 0L, Unknown = 1L, File = 2L, Directory = 3L
+  NotFound = 0L, Unknown = 1L, File = 2L, Directory = 3L
 )
 
 #' @export

@@ -162,6 +162,16 @@ class TestLocalFS : public LocalFSTestMixin {
     fs_ = std::make_shared<SubTreeFileSystem>(local_path_, local_fs_);
   }
 
+  std::string UriFromAbsolutePath(const std::string& path) {
+#ifdef _WIN32
+    // Path is supposed to start with "X:/..."
+    return "file:///" + path;
+#else
+    // Path is supposed to start with "/..."
+    return "file://" + path;
+#endif
+  }
+
   template <typename FileSystemFromUriFunc>
   void CheckFileSystemFromUriFunc(const std::string& uri,
                                   FileSystemFromUriFunc&& fs_from_uri) {
@@ -229,6 +239,8 @@ class TestLocalFS : public LocalFSTestMixin {
     ASSERT_EQ(size, expected_size);
   }
 
+  static void CheckNormalizePath(const std::shared_ptr<FileSystem>& fs) {}
+
  protected:
   PathFormatter path_formatter_;
   std::shared_ptr<LocalFileSystem> local_fs_;
@@ -251,16 +263,51 @@ TYPED_TEST(TestLocalFS, CorrectPathExists) {
   this->CheckConcreteFile(this->temp_dir_->path().ToString() + "abc", data_size);
 }
 
+TYPED_TEST(TestLocalFS, NormalizePath) {
+#ifdef _WIN32
+  ASSERT_OK_AND_EQ("AB/CD", this->local_fs_->NormalizePath("AB\\CD"));
+  ASSERT_OK_AND_EQ("/AB/CD", this->local_fs_->NormalizePath("\\AB\\CD"));
+  ASSERT_OK_AND_EQ("C:DE/fgh", this->local_fs_->NormalizePath("C:DE\\fgh"));
+  ASSERT_OK_AND_EQ("C:/DE/fgh", this->local_fs_->NormalizePath("C:\\DE\\fgh"));
+  ASSERT_OK_AND_EQ("//some/share/AB",
+                   this->local_fs_->NormalizePath("\\\\some\\share\\AB"));
+#else
+  ASSERT_OK_AND_EQ("AB\\CD", this->local_fs_->NormalizePath("AB\\CD"));
+#endif
+}
+
+TYPED_TEST(TestLocalFS, NormalizePathThroughSubtreeFS) {
+#ifdef _WIN32
+  ASSERT_OK_AND_EQ("AB/CD", this->fs_->NormalizePath("AB\\CD"));
+#else
+  ASSERT_OK_AND_EQ("AB\\CD", this->fs_->NormalizePath("AB\\CD"));
+#endif
+}
+
 TYPED_TEST(TestLocalFS, FileSystemFromUriFile) {
   // Concrete test with actual file
-  const auto uri_string = "file:" + this->local_path_;
+  const auto uri_string = this->UriFromAbsolutePath(this->local_path_);
   this->TestFileSystemFromUri(uri_string);
   this->TestFileSystemFromUriOrPath(uri_string);
 
   // Variations
-  this->TestLocalUri("file:foo/bar", "foo/bar");
   this->TestLocalUri("file:/foo/bar", "/foo/bar");
-  this->TestLocalUri("file:foo:bar", "foo:bar");
+  this->TestLocalUri("file:///foo/bar", "/foo/bar");
+#ifdef _WIN32
+  this->TestLocalUri("file:/C:/foo/bar", "C:/foo/bar");
+  this->TestLocalUri("file:///C:/foo/bar", "C:/foo/bar");
+#endif
+
+  // Non-empty authority
+#ifdef _WIN32
+  this->TestLocalUri("file://server/share/foo/bar", "//server/share/foo/bar");
+#else
+  this->TestInvalidUri("file://server/share/foo/bar");
+#endif
+
+  // Relative paths
+  this->TestInvalidUri("file:");
+  this->TestInvalidUri("file:foo/bar");
 }
 
 TYPED_TEST(TestLocalFS, FileSystemFromUriNoScheme) {
@@ -278,20 +325,6 @@ TYPED_TEST(TestLocalFS, FileSystemFromUriNoScheme) {
   // Relative paths
   this->TestInvalidUriOrPath("C:foo/bar");
   this->TestInvalidUriOrPath("foo/bar");
-}
-
-TYPED_TEST(TestLocalFS, FileSystemFromUriFileBackslashes) {
-  const auto uri_string = ToBackslashes("file:" + this->local_path_);
-#ifdef _WIN32
-  this->TestFileSystemFromUriOrPath(uri_string);
-
-  // Variations
-  this->TestLocalUri("file:" + this->path_formatter_("C:foo\\bar"), "C:foo/bar");
-  this->TestLocalUri("file:" + this->path_formatter_("C:\\foo\\bar"), "C:/foo/bar");
-  this->TestLocalUri("file:" + this->path_formatter_("C:bar\\"), "C:bar/");
-#else
-  this->TestInvalidUri(uri_string);
-#endif
 }
 
 TYPED_TEST(TestLocalFS, FileSystemFromUriNoSchemeBackslashes) {
@@ -316,11 +349,11 @@ TYPED_TEST(TestLocalFS, DirectoryMTime) {
   TimePoint t2 = CurrentTimePoint();
 
   std::vector<FileInfo> infos;
-  ASSERT_OK_AND_ASSIGN(infos, this->fs_->GetTargetInfos({"AB", "AB/CD/EF", "xxx"}));
+  ASSERT_OK_AND_ASSIGN(infos, this->fs_->GetFileInfo({"AB", "AB/CD/EF", "xxx"}));
   ASSERT_EQ(infos.size(), 3);
   AssertFileInfo(infos[0], "AB", FileType::Directory);
   AssertFileInfo(infos[1], "AB/CD/EF", FileType::Directory);
-  AssertFileInfo(infos[2], "xxx", FileType::NonExistent);
+  AssertFileInfo(infos[2], "xxx", FileType::NotFound);
 
   // NOTE: creating AB/CD updates AB's modification time, but creating
   // AB/CD/EF doesn't.  So AB/CD/EF's modification time should always be
@@ -339,11 +372,11 @@ TYPED_TEST(TestLocalFS, FileMTime) {
   TimePoint t2 = CurrentTimePoint();
 
   std::vector<FileInfo> infos;
-  ASSERT_OK_AND_ASSIGN(infos, this->fs_->GetTargetInfos({"AB", "AB/CD/ab", "xxx"}));
+  ASSERT_OK_AND_ASSIGN(infos, this->fs_->GetFileInfo({"AB", "AB/CD/ab", "xxx"}));
   ASSERT_EQ(infos.size(), 3);
   AssertFileInfo(infos[0], "AB", FileType::Directory);
   AssertFileInfo(infos[1], "AB/CD/ab", FileType::File, 4);
-  AssertFileInfo(infos[2], "xxx", FileType::NonExistent);
+  AssertFileInfo(infos[2], "xxx", FileType::NotFound);
 
   AssertDurationBetween(infos[1].mtime() - infos[0].mtime(), 0, kTimeSlack);
   AssertDurationBetween(infos[0].mtime() - t1, -kTimeSlack, kTimeSlack);

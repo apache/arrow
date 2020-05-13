@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_GPU_CUDA_ARROW_IPC_H
-#define ARROW_GPU_CUDA_ARROW_IPC_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -100,5 +99,3 @@ Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
 
 }  // namespace cuda
 }  // namespace arrow
-
-#endif  // ARROW_GPU_CUDA_ARROW_IPC_H

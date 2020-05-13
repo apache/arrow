@@ -32,6 +32,7 @@
 #include "arrow/io/slow.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/uri.h"
@@ -53,8 +54,8 @@ using internal::ToSlashes;
 
 std::string ToString(FileType ftype) {
   switch (ftype) {
-    case FileType::NonExistent:
-      return "non-existent";
+    case FileType::NotFound:
+      return "not-found";
     case FileType::Unknown:
       return "unknown";
     case FileType::File:
@@ -75,7 +76,7 @@ ARROW_EXPORT std::ostream& operator<<(std::ostream& os, FileType ftype) {
     break;
 
   switch (ftype) {
-    FILE_TYPE_CASE(NonExistent)
+    FILE_TYPE_CASE(NotFound)
     FILE_TYPE_CASE(Unknown)
     FILE_TYPE_CASE(File)
     FILE_TYPE_CASE(Directory)
@@ -115,12 +116,14 @@ std::string FileInfo::extension() const {
 
 FileSystem::~FileSystem() {}
 
-Result<std::vector<FileInfo>> FileSystem::GetTargetInfos(
+Result<std::string> FileSystem::NormalizePath(std::string path) { return path; }
+
+Result<std::vector<FileInfo>> FileSystem::GetFileInfo(
     const std::vector<std::string>& paths) {
   std::vector<FileInfo> res;
   res.reserve(paths.size());
   for (const auto& path : paths) {
-    ARROW_ASSIGN_OR_RAISE(FileInfo info, GetTargetInfo(path));
+    ARROW_ASSIGN_OR_RAISE(FileInfo info, GetFileInfo(path));
     res.push_back(std::move(info));
   }
   return res;
@@ -137,14 +140,28 @@ Status FileSystem::DeleteFiles(const std::vector<std::string>& paths) {
 //////////////////////////////////////////////////////////////////////////
 // SubTreeFileSystem implementation
 
-// FIXME EnsureTrailingSlash works on abstract paths... but we will be
-// passing a concrete path, e.g. "C:" on Windows.
-
 SubTreeFileSystem::SubTreeFileSystem(const std::string& base_path,
                                      std::shared_ptr<FileSystem> base_fs)
-    : base_path_(EnsureTrailingSlash(base_path)), base_fs_(base_fs) {}
+    : base_path_(NormalizeBasePath(base_path, base_fs).ValueOrDie()), base_fs_(base_fs) {}
 
 SubTreeFileSystem::~SubTreeFileSystem() {}
+
+Result<std::string> SubTreeFileSystem::NormalizeBasePath(
+    std::string base_path, const std::shared_ptr<FileSystem>& base_fs) {
+  ARROW_ASSIGN_OR_RAISE(base_path, base_fs->NormalizePath(std::move(base_path)));
+  return EnsureTrailingSlash(std::move(base_path));
+}
+
+bool SubTreeFileSystem::Equals(const FileSystem& other) const {
+  if (this == &other) {
+    return true;
+  }
+  if (other.type_name() != type_name()) {
+    return false;
+  }
+  const auto& subfs = ::arrow::internal::checked_cast<const SubTreeFileSystem&>(other);
+  return base_path_ == subfs.base_path_ && base_fs_->Equals(subfs.base_fs_);
+}
 
 std::string SubTreeFileSystem::PrependBase(const std::string& s) const {
   if (s.empty()) {
@@ -163,12 +180,11 @@ Status SubTreeFileSystem::PrependBaseNonEmpty(std::string* s) const {
   }
 }
 
-Status SubTreeFileSystem::StripBase(const std::string& s, std::string* out) const {
+Result<std::string> SubTreeFileSystem::StripBase(const std::string& s) const {
   auto len = base_path_.length();
   // Note base_path_ ends with a slash (if not empty)
   if (s.length() >= len && s.substr(0, len) == base_path_) {
-    *out = s.substr(len);
-    return Status::OK();
+    return s.substr(len);
   } else {
     return Status::UnknownError("Underlying filesystem returned path '", s,
                                 "', which is not a subpath of '", base_path_, "'");
@@ -176,23 +192,26 @@ Status SubTreeFileSystem::StripBase(const std::string& s, std::string* out) cons
 }
 
 Status SubTreeFileSystem::FixInfo(FileInfo* info) const {
-  std::string fixed_path;
-  RETURN_NOT_OK(StripBase(info->path(), &fixed_path));
-  info->set_path(fixed_path);
+  ARROW_ASSIGN_OR_RAISE(auto fixed_path, StripBase(info->path()));
+  info->set_path(std::move(fixed_path));
   return Status::OK();
 }
 
-Result<FileInfo> SubTreeFileSystem::GetTargetInfo(const std::string& path) {
-  ARROW_ASSIGN_OR_RAISE(FileInfo info, base_fs_->GetTargetInfo(PrependBase(path)));
+Result<std::string> SubTreeFileSystem::NormalizePath(std::string path) {
+  ARROW_ASSIGN_OR_RAISE(auto normalized, base_fs_->NormalizePath(PrependBase(path)));
+  return StripBase(std::move(normalized));
+}
+
+Result<FileInfo> SubTreeFileSystem::GetFileInfo(const std::string& path) {
+  ARROW_ASSIGN_OR_RAISE(FileInfo info, base_fs_->GetFileInfo(PrependBase(path)));
   RETURN_NOT_OK(FixInfo(&info));
   return info;
 }
 
-Result<std::vector<FileInfo>> SubTreeFileSystem::GetTargetInfos(
-    const FileSelector& select) {
+Result<std::vector<FileInfo>> SubTreeFileSystem::GetFileInfo(const FileSelector& select) {
   auto selector = select;
   selector.base_dir = PrependBase(selector.base_dir);
-  ARROW_ASSIGN_OR_RAISE(auto infos, base_fs_->GetTargetInfos(selector));
+  ARROW_ASSIGN_OR_RAISE(auto infos, base_fs_->GetFileInfo(selector));
   for (auto& info : infos) {
     RETURN_NOT_OK(FixInfo(&info));
   }
@@ -281,15 +300,16 @@ SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
                                double average_latency, int32_t seed)
     : base_fs_(base_fs), latencies_(io::LatencyGenerator::Make(average_latency, seed)) {}
 
-Result<FileInfo> SlowFileSystem::GetTargetInfo(const std::string& path) {
+bool SlowFileSystem::Equals(const FileSystem& other) const { return this == &other; }
+
+Result<FileInfo> SlowFileSystem::GetFileInfo(const std::string& path) {
   latencies_->Sleep();
-  return base_fs_->GetTargetInfo(path);
+  return base_fs_->GetFileInfo(path);
 }
 
-Result<std::vector<FileInfo>> SlowFileSystem::GetTargetInfos(
-    const FileSelector& selector) {
+Result<std::vector<FileInfo>> SlowFileSystem::GetFileInfo(const FileSelector& selector) {
   latencies_->Sleep();
-  return base_fs_->GetTargetInfos(selector);
+  return base_fs_->GetFileInfo(selector);
 }
 
 Status SlowFileSystem::CreateDir(const std::string& path, bool recursive) {
@@ -351,71 +371,52 @@ Result<std::shared_ptr<io::OutputStream>> SlowFileSystem::OpenAppendStream(
 
 namespace {
 
-struct FileSystemUri {
+Result<Uri> ParseFileSystemUri(const std::string& uri_string) {
   Uri uri;
-  std::string scheme;
-  std::string path;
-  bool is_local = false;
-};
-
-Result<FileSystemUri> ParseFileSystemUri(const std::string& uri_string) {
-  FileSystemUri fsuri;
-  auto status = fsuri.uri.Parse(uri_string);
+  auto status = uri.Parse(uri_string);
   if (!status.ok()) {
 #ifdef _WIN32
     // Could be a "file:..." URI with backslashes instead of regular slashes.
-    RETURN_NOT_OK(fsuri.uri.Parse(ToSlashes(uri_string)));
-    if (fsuri.uri.scheme() != "file") {
+    RETURN_NOT_OK(uri.Parse(ToSlashes(uri_string)));
+    if (uri.scheme() != "file") {
       return status;
     }
 #else
     return status;
 #endif
   }
-  fsuri.scheme = fsuri.uri.scheme();
-  fsuri.path = fsuri.uri.path();
-  if (fsuri.scheme == "file") {
-    fsuri.is_local = true;
-  }
-  return std::move(fsuri);
+  return std::move(uri);
 }
 
-Result<FileSystemUri> ParseFileSystemUriOrPath(const std::string& uri_string) {
-  if (internal::DetectAbsolutePath(uri_string)) {
-    FileSystemUri fsuri;
-    fsuri.path = uri_string;
-    fsuri.is_local = true;
-    return std::move(fsuri);
-  }
-  return ParseFileSystemUri(uri_string);
-}
-
-Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const FileSystemUri& fsuri,
+Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
                                                           const std::string& uri_string,
                                                           std::string* out_path) {
-  if (out_path != nullptr) {
-    *out_path = fsuri.path;
-  }
-  if (fsuri.is_local) {
-    // Normalize path separators
+  const auto scheme = uri.scheme();
+
+  if (scheme == "file") {
+    std::string path;
+    ARROW_ASSIGN_OR_RAISE(auto options, LocalFileSystemOptions::FromUri(uri, &path));
     if (out_path != nullptr) {
-      *out_path = ToSlashes(*out_path);
+      *out_path = path;
     }
-    return std::make_shared<LocalFileSystem>();
+    return std::make_shared<LocalFileSystem>(options);
   }
-  if (fsuri.scheme == "hdfs" || fsuri.scheme == "viewfs") {
+  if (scheme == "hdfs" || scheme == "viewfs") {
 #ifdef ARROW_HDFS
-    ARROW_ASSIGN_OR_RAISE(auto options, HdfsOptions::FromUri(fsuri.uri));
+    ARROW_ASSIGN_OR_RAISE(auto options, HdfsOptions::FromUri(uri));
+    if (out_path != nullptr) {
+      *out_path = uri.path();
+    }
     ARROW_ASSIGN_OR_RAISE(auto hdfs, HadoopFileSystem::Make(options));
     return hdfs;
 #else
     return Status::NotImplemented("Got HDFS URI but Arrow compiled without HDFS support");
 #endif
   }
-  if (fsuri.scheme == "s3") {
+  if (scheme == "s3") {
 #ifdef ARROW_S3
     RETURN_NOT_OK(EnsureS3Initialized());
-    ARROW_ASSIGN_OR_RAISE(auto options, S3Options::FromUri(fsuri.uri, out_path));
+    ARROW_ASSIGN_OR_RAISE(auto options, S3Options::FromUri(uri, out_path));
     ARROW_ASSIGN_OR_RAISE(auto s3fs, S3FileSystem::Make(options));
     return s3fs;
 #else
@@ -423,13 +424,12 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const FileSystemUri& f
 #endif
   }
 
-  // Other filesystems below do not have an absolute / relative path distinction,
-  // normalize path by removing leading slash.
-  // XXX perhaps each filesystem should have a path normalization method?
-  if (out_path != nullptr) {
-    *out_path = std::string(RemoveLeadingSlash(*out_path));
-  }
-  if (fsuri.scheme == "mock") {
+  if (scheme == "mock") {
+    // MockFileSystem does not have an absolute / relative path distinction,
+    // normalize path by removing leading slash.
+    if (out_path != nullptr) {
+      *out_path = std::string(RemoveLeadingSlash(uri.path()));
+    }
     return std::make_shared<internal::MockFileSystem>(internal::CurrentTimePoint());
   }
 
@@ -446,12 +446,14 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_str
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(const std::string& uri_string,
                                                             std::string* out_path) {
-  ARROW_ASSIGN_OR_RAISE(auto fsuri, ParseFileSystemUriOrPath(uri_string));
-  auto maybe_fs = FileSystemFromUriReal(fsuri, uri_string, out_path);
-  if (maybe_fs.ok()) {
-    return maybe_fs;
+  if (internal::DetectAbsolutePath(uri_string)) {
+    // Normalize path separators
+    if (out_path != nullptr) {
+      *out_path = ToSlashes(uri_string);
+    }
+    return std::make_shared<LocalFileSystem>();
   }
-  return Status::Invalid("Expected URI or absolute local path, got '", uri_string, "'");
+  return FileSystemFromUri(uri_string, out_path);
 }
 
 Status FileSystemFromUri(const std::string& uri, std::shared_ptr<FileSystem>* out_fs,

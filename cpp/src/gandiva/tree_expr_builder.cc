@@ -70,10 +70,7 @@ NodePtr TreeExprBuilder::MakeNull(DataTypePtr data_type) {
       return std::make_shared<LiteralNode>(data_type, LiteralHolder((int8_t)0), true);
     case arrow::Type::INT16:
       return std::make_shared<LiteralNode>(data_type, LiteralHolder((int16_t)0), true);
-    case arrow::Type::INT32:
       return std::make_shared<LiteralNode>(data_type, LiteralHolder((int32_t)0), true);
-    case arrow::Type::INT64:
-      return std::make_shared<LiteralNode>(data_type, LiteralHolder((int64_t)0), true);
     case arrow::Type::UINT8:
       return std::make_shared<LiteralNode>(data_type, LiteralHolder((uint8_t)0), true);
     case arrow::Type::UINT16:
@@ -91,13 +88,16 @@ NodePtr TreeExprBuilder::MakeNull(DataTypePtr data_type) {
     case arrow::Type::STRING:
     case arrow::Type::BINARY:
       return std::make_shared<LiteralNode>(data_type, LiteralHolder(empty), true);
-    case arrow::Type::DATE64:
-      return std::make_shared<LiteralNode>(data_type, LiteralHolder((int64_t)0), true);
+    case arrow::Type::INT32:
+    case arrow::Type::DATE32:
     case arrow::Type::TIME32:
+    case arrow::Type::INTERVAL_MONTHS:
       return std::make_shared<LiteralNode>(data_type, LiteralHolder((int32_t)0), true);
+    case arrow::Type::INT64:
+    case arrow::Type::DATE64:
     case arrow::Type::TIME64:
-      return std::make_shared<LiteralNode>(data_type, LiteralHolder((int64_t)0), true);
     case arrow::Type::TIMESTAMP:
+    case arrow::Type::INTERVAL_DAY_TIME:
       return std::make_shared<LiteralNode>(data_type, LiteralHolder((int64_t)0), true);
     case arrow::Type::DECIMAL: {
       std::shared_ptr<arrow::DecimalType> decimal_type =

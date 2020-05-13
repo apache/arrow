@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -27,16 +30,12 @@
 #include <thread>
 #include <vector>
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
+#include "arrow/flight/api.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/make_unique.h"
-
-#include "arrow/flight/api.h"
 
 #ifdef GRPCPP_GRPCPP_H
 #error "gRPC headers should not be in public API"
@@ -258,6 +257,24 @@ TEST(TestFlight, RoundtripStatus) {
       MakeFlightError(FlightStatusCode::Unavailable, "Test message"));
   ASSERT_NE(nullptr, detail);
   ASSERT_EQ(FlightStatusCode::Unavailable, detail->code());
+
+  Status status = internal::FromGrpcStatus(
+      internal::ToGrpcStatus(Status::NotImplemented("Sentinel")));
+  ASSERT_TRUE(status.IsNotImplemented());
+  ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
+
+  status = internal::FromGrpcStatus(internal::ToGrpcStatus(Status::Invalid("Sentinel")));
+  ASSERT_TRUE(status.IsInvalid());
+  ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
+
+  status = internal::FromGrpcStatus(internal::ToGrpcStatus(Status::KeyError("Sentinel")));
+  ASSERT_TRUE(status.IsKeyError());
+  ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
+
+  status =
+      internal::FromGrpcStatus(internal::ToGrpcStatus(Status::AlreadyExists("Sentinel")));
+  ASSERT_TRUE(status.IsAlreadyExists());
+  ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
 }
 
 TEST(TestFlight, GetPort) {
@@ -373,8 +390,7 @@ class TestFlightClient : public ::testing::Test {
 class AuthTestServer : public FlightServerBase {
   Status DoAction(const ServerCallContext& context, const Action& action,
                   std::unique_ptr<ResultStream>* result) override {
-    std::shared_ptr<Buffer> buf;
-    RETURN_NOT_OK(Buffer::FromString(context.peer_identity(), &buf));
+    auto buf = Buffer::FromString(context.peer_identity());
     *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
     return Status::OK();
   }
@@ -383,8 +399,7 @@ class AuthTestServer : public FlightServerBase {
 class TlsTestServer : public FlightServerBase {
   Status DoAction(const ServerCallContext& context, const Action& action,
                   std::unique_ptr<ResultStream>* result) override {
-    std::shared_ptr<Buffer> buf;
-    RETURN_NOT_OK(Buffer::FromString("Hello, world!", &buf));
+    auto buf = Buffer::FromString("Hello, world!");
     *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
     return Status::OK();
   }
@@ -700,13 +715,25 @@ class ReportContextTestServer : public FlightServerBase {
     std::shared_ptr<Buffer> buf;
     const ServerMiddleware* middleware = context.GetMiddleware("tracing");
     if (middleware == nullptr || middleware->name() != "TracingServerMiddleware") {
-      RETURN_NOT_OK(Buffer::FromString("", &buf));
+      buf = Buffer::FromString("");
     } else {
-      RETURN_NOT_OK(Buffer::FromString(
-          ((const TracingServerMiddleware*)middleware)->span_id, &buf));
+      buf = Buffer::FromString(((const TracingServerMiddleware*)middleware)->span_id);
     }
     *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
     return Status::OK();
+  }
+};
+
+class ErrorMiddlewareServer : public FlightServerBase {
+  Status DoAction(const ServerCallContext& context, const Action& action,
+                  std::unique_ptr<ResultStream>* result) override {
+    std::string msg = "error_message";
+    auto buf = Buffer::FromString("");
+
+    std::shared_ptr<FlightStatusDetail> flightStatusDetail(
+        new FlightStatusDetail(FlightStatusCode::Failed, msg));
+    *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
+    return Status(StatusCode::ExecutionError, "test failed", flightStatusDetail);
   }
 };
 
@@ -840,6 +867,37 @@ class TestPropagatingMiddleware : public ::testing::Test {
   std::shared_ptr<PropagatingClientMiddlewareFactory> client_middleware_;
 };
 
+class TestErrorMiddleware : public ::testing::Test {
+ public:
+  void SetUp() {
+    ASSERT_OK(MakeServer<ErrorMiddlewareServer>(
+        &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
+        [](FlightClientOptions* options) { return Status::OK(); }));
+  }
+
+  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+
+ protected:
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<FlightServerBase> server_;
+};
+
+TEST_F(TestErrorMiddleware, TestMetadata) {
+  Action action;
+  std::unique_ptr<ResultStream> stream;
+
+  // Run action1
+  action.type = "action1";
+
+  action.body = Buffer::FromString("action1-content");
+  Status s = client_->DoAction(action, &stream);
+  ASSERT_FALSE(s.ok());
+  std::shared_ptr<FlightStatusDetail> flightStatusDetail =
+      FlightStatusDetail::UnwrapStatus(s);
+  ASSERT_TRUE(flightStatusDetail);
+  ASSERT_EQ(flightStatusDetail->extra_info(), "error_message");
+}
+
 TEST_F(TestFlightClient, ListFlights) {
   std::unique_ptr<FlightListing> listing;
   ASSERT_OK(client_->ListFlights(&listing));
@@ -944,7 +1002,7 @@ TEST_F(TestFlightClient, DoAction) {
   action.type = "action1";
 
   const std::string action1_value = "action1-content";
-  ASSERT_OK(Buffer::FromString(action1_value, &action.body));
+  action.body = Buffer::FromString(action1_value);
   ASSERT_OK(client_->DoAction(action, &stream));
 
   for (int i = 0; i < 3; ++i) {
@@ -963,6 +1021,13 @@ TEST_F(TestFlightClient, DoAction) {
 
   ASSERT_OK(stream->Next(&result));
   ASSERT_EQ(nullptr, result);
+}
+
+TEST_F(TestFlightClient, RoundTripStatus) {
+  const auto descr = FlightDescriptor::Command("status-outofmemory");
+  std::unique_ptr<FlightInfo> info;
+  const auto status = client_->GetFlightInfo(descr, &info);
+  ASSERT_RAISES(OutOfMemory, status);
 }
 
 TEST_F(TestFlightClient, Issue5095) {
@@ -1401,8 +1466,7 @@ TEST_F(TestPropagatingMiddleware, Propagate) {
   client_middleware_->Reset();
 
   action.type = "action1";
-  const std::string action1_value = "action1-content";
-  ASSERT_OK(Buffer::FromString(action1_value, &action.body));
+  action.body = Buffer::FromString("action1-content");
   ASSERT_OK(client_->DoAction(action, &stream));
 
   ASSERT_OK(stream->Next(&result));

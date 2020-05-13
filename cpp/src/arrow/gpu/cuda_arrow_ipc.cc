@@ -72,9 +72,8 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
 
   // Zero-copy read on device memory
   ipc::DictionaryMemo unused_memo;
-  std::shared_ptr<RecordBatch> batch;
-  RETURN_NOT_OK(ipc::ReadRecordBatch(*message, schema, &unused_memo, &batch));
-  return batch;
+  return ipc::ReadRecordBatch(*message, schema, &unused_memo,
+                              ipc::IpcReadOptions::Defaults());
 }
 
 Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,

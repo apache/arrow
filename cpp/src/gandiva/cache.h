@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_MODULE_CACHE_H
-#define GANDIVA_MODULE_CACHE_H
+#pragma once
 
 #include <mutex>
 
@@ -29,11 +28,11 @@ class Cache {
  public:
   explicit Cache(size_t capacity = CACHE_SIZE) : cache_(capacity) {}
   ValueType GetModule(KeyType cache_key) {
-    boost::optional<ValueType> result;
+    arrow::util::optional<ValueType> result;
     mtx_.lock();
     result = cache_.get(cache_key);
     mtx_.unlock();
-    return result != boost::none ? *result : nullptr;
+    return result != arrow::util::nullopt ? *result : nullptr;
   }
 
   void PutModule(KeyType cache_key, ValueType module) {
@@ -48,4 +47,3 @@ class Cache {
   std::mutex mtx_;
 };
 }  // namespace gandiva
-#endif  // GANDIVA_MODULE_CACHE_H

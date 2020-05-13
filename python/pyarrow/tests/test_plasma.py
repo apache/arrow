@@ -367,15 +367,15 @@ class TestPlasmaClient:
         # Write an arrow object.
         object_id = random_object_id()
         tensor = pa.Tensor.from_numpy(data)
-        data_size = pa.get_tensor_size(tensor)
+        data_size = pa.ipc.get_tensor_size(tensor)
         buf = self.plasma_client.create(object_id, data_size)
         stream = pa.FixedSizeBufferWriter(buf)
-        pa.write_tensor(tensor, stream)
+        pa.ipc.write_tensor(tensor, stream)
         self.plasma_client.seal(object_id)
         # Read the arrow object.
         [tensor] = self.plasma_client.get_buffers([object_id])
         reader = pa.BufferReader(tensor)
-        array = pa.read_tensor(reader).to_numpy()
+        array = pa.ipc.read_tensor(reader).to_numpy()
         # Assert that they are equal.
         np.testing.assert_equal(data, array)
 
@@ -408,7 +408,7 @@ class TestPlasmaClient:
         reader = pa.RecordBatchStreamReader(pa.BufferReader(data))
         result = reader.read_next_batch().to_pandas()
 
-        pd.util.testing.assert_frame_equal(df, result)
+        pd.testing.assert_frame_equal(df, result)
 
     def test_pickle_object_ids(self):
         # This can be used for sharing object IDs between processes.

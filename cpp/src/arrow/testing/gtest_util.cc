@@ -46,13 +46,17 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
 
-template <typename T>
-void AssertTsEqual(const T& expected, const T& actual) {
-  if (!expected.Equals(actual)) {
+using internal::checked_cast;
+using internal::checked_pointer_cast;
+
+template <typename T, typename... ExtraArgs>
+void AssertTsEqual(const T& expected, const T& actual, ExtraArgs... args) {
+  if (!expected.Equals(actual, args...)) {
     std::stringstream pp_expected;
     std::stringstream pp_actual;
     ::arrow::PrettyPrintOptions options(/*indent=*/2);
@@ -78,8 +82,9 @@ void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose)
   }
 }
 
-void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual) {
-  AssertTsEqual(expected, actual);
+void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual,
+                        bool check_metadata) {
+  AssertTsEqual(expected, actual, check_metadata);
 }
 
 void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
@@ -131,10 +136,8 @@ void AssertFingerprintablesEqual(const T& left, const T& right, bool check_metad
       << "' should have compared equal";
   auto lfp = left.fingerprint();
   auto rfp = right.fingerprint();
-  // All types tested in this file should implement fingerprinting
-  ASSERT_NE(lfp, "") << "fingerprint for '" << left.ToString() << "' should not be empty";
-  ASSERT_NE(rfp, "") << "fingerprint for '" << right.ToString()
-                     << "' should not be empty";
+  // Note: all types tested in this file should implement fingerprinting,
+  // except extension types.
   if (check_metadata) {
     lfp += left.metadata_fingerprint();
     rfp += right.metadata_fingerprint();
@@ -160,17 +163,17 @@ void AssertFingerprintablesNotEqual(const T& left, const T& right, bool check_me
       << "' should have compared unequal";
   auto lfp = left.fingerprint();
   auto rfp = right.fingerprint();
-  // All types tested in this file should implement fingerprinting
-  ASSERT_NE(lfp, "") << "fingerprint for '" << left.ToString() << "' should not be empty";
-  ASSERT_NE(rfp, "") << "fingerprint for '" << right.ToString()
-                     << "' should not be empty";
-  if (check_metadata) {
-    lfp += left.metadata_fingerprint();
-    rfp += right.metadata_fingerprint();
+  // Note: all types tested in this file should implement fingerprinting,
+  // except extension types.
+  if (lfp != "" && rfp != "") {
+    if (check_metadata) {
+      lfp += left.metadata_fingerprint();
+      rfp += right.metadata_fingerprint();
+    }
+    ASSERT_NE(lfp, rfp) << "Fingerprints for " << types_plural << " '" << left.ToString()
+                        << "' and '" << right.ToString()
+                        << "' should have compared unequal";
   }
-  ASSERT_NE(lfp, rfp) << "Fingerprints for " << types_plural << " '" << left.ToString()
-                      << "' and '" << right.ToString()
-                      << "' should have compared unequal";
 }
 
 template <typename T>
@@ -218,6 +221,15 @@ std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
   return out;
 }
 
+std::shared_ptr<Array> DictArrayFromJSON(const std::shared_ptr<DataType>& type,
+                                         util::string_view indices_json,
+                                         util::string_view dictionary_json) {
+  std::shared_ptr<Array> out;
+  ABORT_NOT_OK(
+      ipc::internal::json::DictArrayFromJSON(type, indices_json, dictionary_json, &out));
+  return out;
+}
+
 std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
                                                    const std::vector<std::string>& json) {
   ArrayVector out_chunks;
@@ -229,15 +241,12 @@ std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataTyp
 
 std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& schema,
                                                  util::string_view json) {
-  // Parses as a StructArray
+  // Parse as a StructArray
   auto struct_type = struct_(schema->fields());
   std::shared_ptr<Array> struct_array = ArrayFromJSON(struct_type, json);
 
-  // Converts StructArray to RecordBatch
-  std::shared_ptr<RecordBatch> record_batch;
-  ABORT_NOT_OK(RecordBatch::FromStructArray(struct_array, &record_batch));
-
-  return record_batch;
+  // Convert StructArray to RecordBatch
+  return *RecordBatch::FromStructArray(struct_array);
 }
 
 std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
@@ -246,10 +255,7 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
   for (const std::string& batch_json : json) {
     batches.push_back(RecordBatchFromJSON(schema, batch_json));
   }
-  std::shared_ptr<Table> table;
-  ABORT_NOT_OK(Table::FromRecordBatches(schema, batches, &table));
-
-  return table;
+  return *Table::FromRecordBatches(schema, std::move(batches));
 }
 
 void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chunk_layout,
@@ -258,9 +264,8 @@ void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chu
 
   if (combine_chunks) {
     auto pool = default_memory_pool();
-    std::shared_ptr<Table> new_expected, new_actual;
-    ASSERT_OK(expected.CombineChunks(pool, &new_expected));
-    ASSERT_OK(actual.CombineChunks(pool, &new_actual));
+    ASSERT_OK_AND_ASSIGN(auto new_expected, expected.CombineChunks(pool));
+    ASSERT_OK_AND_ASSIGN(auto new_actual, actual.CombineChunks(pool));
 
     AssertTablesEqual(*new_expected, *new_actual, false, false);
     return;
@@ -302,8 +307,8 @@ void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chu
 void CompareBatch(const RecordBatch& left, const RecordBatch& right,
                   bool compare_metadata) {
   if (!left.schema()->Equals(*right.schema(), compare_metadata)) {
-    FAIL() << "Left schema: " << left.schema()->ToString()
-           << "\nRight schema: " << right.schema()->ToString();
+    FAIL() << "Left schema: " << left.schema()->ToString(compare_metadata)
+           << "\nRight schema: " << right.schema()->ToString(compare_metadata);
   }
   ASSERT_EQ(left.num_columns(), right.num_columns())
       << left.schema()->ToString() << " result: " << right.schema()->ToString();
@@ -381,36 +386,83 @@ void SleepFor(double seconds) {
 ///////////////////////////////////////////////////////////////////////////
 // Extension types
 
-bool UUIDType::ExtensionEquals(const ExtensionType& other) const {
-  const auto& other_ext = static_cast<const ExtensionType&>(other);
-  if (other_ext.extension_name() != this->extension_name()) {
-    return false;
-  }
-  return true;
+bool UuidType::ExtensionEquals(const ExtensionType& other) const {
+  return (other.extension_name() == this->extension_name());
 }
 
-std::shared_ptr<Array> UUIDType::MakeArray(std::shared_ptr<ArrayData> data) const {
+std::shared_ptr<Array> UuidType::MakeArray(std::shared_ptr<ArrayData> data) const {
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
   DCHECK_EQ("uuid", static_cast<const ExtensionType&>(*data->type).extension_name());
-  return std::make_shared<UUIDArray>(data);
+  return std::make_shared<UuidArray>(data);
 }
 
-Status UUIDType::Deserialize(std::shared_ptr<DataType> storage_type,
-                             const std::string& serialized,
-                             std::shared_ptr<DataType>* out) const {
-  if (serialized != "uuid-type-unique-code") {
-    return Status::Invalid("Type identifier did not match");
+Result<std::shared_ptr<DataType>> UuidType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
+  if (serialized != "uuid-serialized") {
+    return Status::Invalid("Type identifier did not match: '", serialized, "'");
   }
   if (!storage_type->Equals(*fixed_size_binary(16))) {
-    return Status::Invalid("Invalid storage type for UUIDType");
+    return Status::Invalid("Invalid storage type for UuidType: ",
+                           storage_type->ToString());
   }
-  *out = std::make_shared<UUIDType>();
-  return Status::OK();
+  return std::make_shared<UuidType>();
 }
 
-std::shared_ptr<DataType> uuid() { return std::make_shared<UUIDType>(); }
+bool SmallintType::ExtensionEquals(const ExtensionType& other) const {
+  return (other.extension_name() == this->extension_name());
+}
 
-std::shared_ptr<Array> ExampleUUID() {
+std::shared_ptr<Array> SmallintType::MakeArray(std::shared_ptr<ArrayData> data) const {
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK_EQ("smallint", static_cast<const ExtensionType&>(*data->type).extension_name());
+  return std::make_shared<SmallintArray>(data);
+}
+
+Result<std::shared_ptr<DataType>> SmallintType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
+  if (serialized != "smallint") {
+    return Status::Invalid("Type identifier did not match: '", serialized, "'");
+  }
+  if (!storage_type->Equals(*int16())) {
+    return Status::Invalid("Invalid storage type for SmallintType: ",
+                           storage_type->ToString());
+  }
+  return std::make_shared<SmallintType>();
+}
+
+bool DictExtensionType::ExtensionEquals(const ExtensionType& other) const {
+  return (other.extension_name() == this->extension_name());
+}
+
+std::shared_ptr<Array> DictExtensionType::MakeArray(
+    std::shared_ptr<ArrayData> data) const {
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK(ExtensionEquals(checked_cast<const ExtensionType&>(*data->type)));
+  // No need for a specific ExtensionArray derived class
+  return std::make_shared<ExtensionArray>(data);
+}
+
+Result<std::shared_ptr<DataType>> DictExtensionType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
+  if (serialized != "dict-extension-serialized") {
+    return Status::Invalid("Type identifier did not match: '", serialized, "'");
+  }
+  if (!storage_type->Equals(*storage_type_)) {
+    return Status::Invalid("Invalid storage type for DictExtensionType: ",
+                           storage_type->ToString());
+  }
+  return std::make_shared<DictExtensionType>();
+}
+
+std::shared_ptr<DataType> uuid() { return std::make_shared<UuidType>(); }
+
+std::shared_ptr<DataType> smallint() { return std::make_shared<SmallintType>(); }
+
+std::shared_ptr<DataType> dict_extension_type() {
+  return std::make_shared<DictExtensionType>();
+}
+
+std::shared_ptr<Array> ExampleUuid() {
   auto storage_type = fixed_size_binary(16);
   auto ext_type = uuid();
 
@@ -421,6 +473,30 @@ std::shared_ptr<Array> ExampleUUID() {
   auto ext_data = arr->data()->Copy();
   ext_data->type = ext_type;
   return MakeArray(ext_data);
+}
+
+std::shared_ptr<Array> ExampleSmallint() {
+  auto storage_type = int16();
+  auto ext_type = smallint();
+  auto arr = ArrayFromJSON(storage_type, "[-32768, null, 1, 2, 3, 4, 32767]");
+  auto ext_data = arr->data()->Copy();
+  ext_data->type = ext_type;
+  return MakeArray(ext_data);
+}
+
+ExtensionTypeGuard::ExtensionTypeGuard(const std::shared_ptr<DataType>& type) {
+  ARROW_CHECK_EQ(type->id(), Type::EXTENSION);
+  auto ext_type = checked_pointer_cast<ExtensionType>(type);
+
+  ARROW_CHECK_OK(RegisterExtensionType(ext_type));
+  extension_name_ = ext_type->extension_name();
+  DCHECK(!extension_name_.empty());
+}
+
+ExtensionTypeGuard::~ExtensionTypeGuard() {
+  if (!extension_name_.empty()) {
+    ARROW_CHECK_OK(UnregisterExtensionType(extension_name_));
+  }
 }
 
 }  // namespace arrow

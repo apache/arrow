@@ -17,12 +17,12 @@
 
 
 import ast
+from copy import deepcopy
 from itertools import zip_longest
 import json
 import operator
 import re
 import warnings
-from copy import deepcopy
 
 import numpy as np
 
@@ -512,6 +512,8 @@ def dataframe_to_types(df, preserve_index, columns=None):
         values = c.values
         if _pandas_api.is_categorical(values):
             type_ = pa.array(c, from_pandas=True).type
+        elif _pandas_api.is_extension_array_dtype(values):
+            type_ = pa.array(c.head(0), from_pandas=True).type
         else:
             values, type_ = get_datetimetz_type(values, c.dtype, None)
             type_ = pa.lib._ndarray_to_arrow_type(values, type_)

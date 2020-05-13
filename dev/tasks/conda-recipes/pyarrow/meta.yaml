@@ -12,7 +12,7 @@ build:
 
 requirements:
   build:
-    - cmake
+    - cmake 3.16.*
     - ninja
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
@@ -28,8 +28,7 @@ requirements:
     - setuptools_scm
 
   run:
-    - {{ pin_compatible('arrow-cpp') }}
-    - {{ pin_compatible('numpy', lower_bound='1.14') }}
+    - {{ pin_compatible('numpy', lower_bound='1.16') }}
     - boost-cpp
     - futures  # [py==27]
     - glog

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_TYPES_H
-#define PARQUET_TYPES_H
+#pragma once
 
 #include <algorithm>
 #include <cstdint>
@@ -24,6 +23,9 @@
 #include <memory>
 #include <sstream>
 #include <string>
+
+#include "arrow/util/int_util.h"
+#include "arrow/util/string_view.h"
 
 #include "parquet/platform.h"
 
@@ -572,11 +574,14 @@ static inline void Int96SetNanoSeconds(parquet::Int96& i96, int64_t nanoseconds)
 }
 
 static inline int64_t Int96GetNanoSeconds(const parquet::Int96& i96) {
-  int64_t days_since_epoch = i96.value[2] - kJulianToUnixEpochDays;
-  int64_t nanoseconds = 0;
+  // We do the computations in the unsigned domain to avoid unsigned behaviour
+  // on overflow.
+  uint64_t days_since_epoch =
+      i96.value[2] - static_cast<uint64_t>(kJulianToUnixEpochDays);
+  uint64_t nanoseconds = 0;
 
-  memcpy(&nanoseconds, &i96.value, sizeof(int64_t));
-  return days_since_epoch * kNanosecondsPerDay + nanoseconds;
+  memcpy(&nanoseconds, &i96.value, sizeof(uint64_t));
+  return static_cast<int64_t>(days_since_epoch * kNanosecondsPerDay + nanoseconds);
 }
 
 static inline std::string Int96ToString(const Int96& a) {
@@ -687,11 +692,7 @@ PARQUET_EXPORT std::string ConvertedTypeToString(ConvertedType::type t);
 PARQUET_EXPORT std::string TypeToString(Type::type t);
 
 PARQUET_EXPORT std::string FormatStatValue(Type::type parquet_type,
-                                           const std::string& val);
-
-/// \deprecated Since 1.5.0
-ARROW_DEPRECATED("Use std::string instead of char* as input")
-PARQUET_EXPORT std::string FormatStatValue(Type::type parquet_type, const char* val);
+                                           ::arrow::util::string_view val);
 
 PARQUET_EXPORT int GetTypeByteSize(Type::type t);
 
@@ -710,5 +711,3 @@ int32_t DecimalSize(int32_t precision);
 
 }  // namespace internal
 }  // namespace parquet
-
-#endif  // PARQUET_TYPES_H

@@ -88,10 +88,10 @@ std::shared_ptr<Array> RandomArrayGenerator::Boolean(int64_t size, double probab
   GenOpt null_gen(seed(), 0, 1, null_probability);
 
   int64_t null_count = 0;
-  ABORT_NOT_OK(AllocateEmptyBitmap(size, &buffers[0]));
+  buffers[0] = *AllocateEmptyBitmap(size);
   null_gen.GenerateBitmap(buffers[0]->mutable_data(), size, &null_count);
 
-  ABORT_NOT_OK(AllocateEmptyBitmap(size, &buffers[1]));
+  buffers[1] = *AllocateEmptyBitmap(size);
   value_gen.GenerateBitmap(buffers[1]->mutable_data(), size, nullptr);
 
   auto array_data = ArrayData::Make(arrow::boolean(), size, buffers, null_count);
@@ -106,10 +106,10 @@ static std::shared_ptr<NumericArray<ArrowType>> GenerateNumericArray(int64_t siz
   BufferVector buffers{2};
 
   int64_t null_count = 0;
-  ABORT_NOT_OK(AllocateEmptyBitmap(size, &buffers[0]));
+  buffers[0] = *AllocateEmptyBitmap(size);
   options.GenerateBitmap(buffers[0]->mutable_data(), size, &null_count);
 
-  ABORT_NOT_OK(AllocateBuffer(sizeof(CType) * size, &buffers[1]))
+  buffers[1] = *AllocateBuffer(sizeof(CType) * size);
   options.GenerateData(buffers[1]->mutable_data(), size);
 
   auto array_data = ArrayData::Make(type, size, buffers, null_count);
@@ -208,8 +208,7 @@ std::shared_ptr<Array> RandomArrayGenerator::BinaryWithRepeats(int64_t size,
   auto strings =
       StringWithRepeats(size, unique, min_length, max_length, null_probability);
   std::shared_ptr<Array> out;
-  ABORT_NOT_OK(strings->View(binary(), &out));
-  return out;
+  return *strings->View(binary());
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::StringWithRepeats(int64_t size,
@@ -248,7 +247,7 @@ std::shared_ptr<Array> RandomArrayGenerator::Offsets(int64_t size, int32_t first
 
   BufferVector buffers{2};
 
-  ABORT_NOT_OK(AllocateBuffer(sizeof(int32_t) * size, &buffers[1]));
+  buffers[1] = *AllocateBuffer(sizeof(int32_t) * size);
   auto data = reinterpret_cast<int32_t*>(buffers[1]->mutable_data());
   options.GenerateTypedData(data, size);
   // Ensure offsets are in increasing order

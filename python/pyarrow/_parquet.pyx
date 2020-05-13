@@ -1207,8 +1207,10 @@ cdef class ParquetWriter:
         object allow_truncated_timestamps
         object compression
         object compression_level
+        object data_page_version
         object version
         object write_statistics
+        object writer_engine_version
         int row_group_size
         int64_t data_page_size
 
@@ -1221,7 +1223,9 @@ cdef class ParquetWriter:
                   data_page_size=None,
                   allow_truncated_timestamps=False,
                   compression_level=None,
-                  use_byte_stream_split=False):
+                  use_byte_stream_split=False,
+                  writer_engine_version=None,
+                  data_page_version=None):
         cdef:
             shared_ptr[WriterProperties] properties
             c_string c_where
@@ -1247,8 +1251,11 @@ cdef class ParquetWriter:
         self.coerce_timestamps = coerce_timestamps
         self.allow_truncated_timestamps = allow_truncated_timestamps
         self.use_byte_stream_split = use_byte_stream_split
+        self.writer_engine_version = writer_engine_version
+        self.data_page_version = data_page_version
 
         cdef WriterProperties.Builder properties_builder
+        self._set_data_page_version(&properties_builder)
         self._set_version(&properties_builder)
         self._set_compression_props(&properties_builder)
         self._set_dictionary_props(&properties_builder)
@@ -1269,6 +1276,7 @@ cdef class ParquetWriter:
         self._set_int96_support(&arrow_properties_builder)
         self._set_coerce_timestamps(&arrow_properties_builder)
         self._set_allow_truncated_timestamps(&arrow_properties_builder)
+        self._set_writer_engine_version(&arrow_properties_builder)
 
         arrow_properties = arrow_properties_builder.build()
 
@@ -1302,6 +1310,14 @@ cdef class ParquetWriter:
         else:
             props.disallow_truncated_timestamps()
 
+    cdef int _set_writer_engine_version(
+            self, ArrowWriterProperties.Builder* props) except -1:
+        if self.writer_engine_version == "V1":
+            props.set_engine_version(ArrowWriterEngineVersion.V1)
+        elif self.writer_engine_version != "V2":
+            raise ValueError("Unsupported Writer Engine Version: {0}"
+                             .format(self.writer_engine_version))
+
     cdef int _set_version(self, WriterProperties.Builder* props) except -1:
         if self.version is not None:
             if self.version == "1.0":
@@ -1312,7 +1328,19 @@ cdef class ParquetWriter:
                 raise ValueError("Unsupported Parquet format version: {0}"
                                  .format(self.version))
 
-    cdef void _set_compression_props(self, WriterProperties.Builder* props):
+    cdef int _set_data_page_version(self, WriterProperties.Builder* props) \
+            except -1:
+        if self.data_page_version is not None:
+            if self.data_page_version == "1.0":
+                props.data_page_version(ParquetDataPageVersion_V1)
+            elif self.data_page_version == "2.0":
+                props.data_page_version(ParquetDataPageVersion_V2)
+            else:
+                raise ValueError("Unsupported Parquet data page version: {0}"
+                                 .format(self.data_page_version))
+
+    cdef void _set_compression_props(self, WriterProperties.Builder* props) \
+            except *:
         if isinstance(self.compression, basestring):
             check_compression_name(self.compression)
             props.compression(compression_from_name(self.compression))
@@ -1325,9 +1353,10 @@ cdef class ParquetWriter:
             props.compression_level(self.compression_level)
         elif self.compression_level is not None:
             for column, level in self.compression_level.iteritems():
-                props.compression_level(column, level)
+                props.compression_level(tobytes(column), level)
 
-    cdef void _set_dictionary_props(self, WriterProperties.Builder* props):
+    cdef void _set_dictionary_props(self, WriterProperties.Builder* props) \
+            except *:
         if isinstance(self.use_dictionary, bool):
             if self.use_dictionary:
                 props.enable_dictionary()
@@ -1337,18 +1366,20 @@ cdef class ParquetWriter:
             # Deactivate dictionary encoding by default
             props.disable_dictionary()
             for column in self.use_dictionary:
-                props.enable_dictionary(column)
+                props.enable_dictionary(tobytes(column))
 
     cdef void _set_byte_stream_split_props(
-            self, WriterProperties.Builder* props):
+            self, WriterProperties.Builder* props) except *:
         if isinstance(self.use_byte_stream_split, bool):
             if self.use_byte_stream_split:
                 props.encoding(ParquetEncoding_BYTE_STREAM_SPLIT)
         elif self.use_byte_stream_split is not None:
             for column in self.use_byte_stream_split:
-                props.encoding(column, ParquetEncoding_BYTE_STREAM_SPLIT)
+                props.encoding(tobytes(column),
+                               ParquetEncoding_BYTE_STREAM_SPLIT)
 
-    cdef void _set_statistics_props(self, WriterProperties.Builder* props):
+    cdef void _set_statistics_props(self, WriterProperties.Builder* props) \
+            except *:
         if isinstance(self.write_statistics, bool):
             if self.write_statistics:
                 props.enable_statistics()

@@ -426,7 +426,8 @@ class ScalarMemoTable : public MemoTable {
   }
 
   Status GetOrInsert(const Scalar& value, int32_t* out_memo_index) {
-    return GetOrInsert(value, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
+    return GetOrInsert(
+        value, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
   }
 
   int32_t GetNull() const { return null_index_; }
@@ -535,7 +536,8 @@ class SmallScalarMemoTable : public MemoTable {
   }
 
   Status GetOrInsert(const Scalar value, int32_t* out_memo_index) {
-    return GetOrInsert(value, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
+    return GetOrInsert(
+        value, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
   }
 
   int32_t GetNull() const { return value_to_index_[cardinality]; }
@@ -648,7 +650,8 @@ class BinaryMemoTable : public MemoTable {
 
   Status GetOrInsert(const void* data, builder_offset_type length,
                      int32_t* out_memo_index) {
-    return GetOrInsert(data, length, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
+    return GetOrInsert(
+        data, length, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
   }
 
   Status GetOrInsert(const util::string_view& value, int32_t* out_memo_index) {
@@ -865,6 +868,48 @@ static inline Status ComputeNullBitmap(MemoryPool* pool, const MemoTableType& me
 
   return Status::OK();
 }
+
+// ----------------------------------------------------------------------
+// BEGIN Hash utilities from Boost
+
+namespace detail {
+
+#if defined(_MSC_VER)
+#define ARROW_HASH_ROTL32(x, r) _rotl(x, r)
+#else
+#define ARROW_HASH_ROTL32(x, r) (x << r) | (x >> (32 - r))
+#endif
+
+template <typename SizeT>
+inline void hash_combine_impl(SizeT& seed, SizeT value) {
+  seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
+
+inline void hash_combine_impl(uint32_t& h1, uint32_t k1) {
+  const uint32_t c1 = 0xcc9e2d51;
+  const uint32_t c2 = 0x1b873593;
+
+  k1 *= c1;
+  k1 = ARROW_HASH_ROTL32(k1, 15);
+  k1 *= c2;
+
+  h1 ^= k1;
+  h1 = ARROW_HASH_ROTL32(h1, 13);
+  h1 = h1 * 5 + 0xe6546b64;
+}
+
+#undef ARROW_HASH_ROTL32
+
+}  // namespace detail
+
+template <class T>
+inline void hash_combine(std::size_t& seed, T const& v) {
+  std::hash<T> hasher;
+  return ::arrow::internal::detail::hash_combine_impl(seed, hasher(v));
+}
+
+// END Hash utilities from Boost
+// ----------------------------------------------------------------------
 
 }  // namespace internal
 }  // namespace arrow

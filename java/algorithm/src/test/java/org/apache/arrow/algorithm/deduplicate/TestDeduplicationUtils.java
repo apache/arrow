@@ -20,6 +20,7 @@ package org.apache.arrow.algorithm.deduplicate;
 import static org.junit.Assert.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.DataSizeRoundingUtil;
@@ -29,8 +30,6 @@ import org.apache.arrow.vector.VarCharVector;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Test cases for {@link DeduplicationUtils}.

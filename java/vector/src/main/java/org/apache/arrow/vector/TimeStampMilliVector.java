@@ -116,7 +116,7 @@ public final class TimeStampMilliVector extends TimeStampVector {
       return;
     }
     holder.isSet = 1;
-    holder.value = valueBuffer.getLong(index * TYPE_WIDTH);
+    holder.value = valueBuffer.getLong((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -129,7 +129,7 @@ public final class TimeStampMilliVector extends TimeStampVector {
     if (isSet(index) == 0) {
       return null;
     } else {
-      final long millis = valueBuffer.getLong(index * TYPE_WIDTH);
+      final long millis = valueBuffer.getLong((long) index * TYPE_WIDTH);
       return DateUtility.getLocalDateTimeFromEpochMilli(millis);
     }
   }

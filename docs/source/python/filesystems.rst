@@ -51,7 +51,7 @@ the ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` environment variables),
 here is how you can read contents from a S3 bucket::
 
    >>> from pyarrow import fs
-   >>> s3 = fs.S3FileSystem(fs.S3Options(region='eu-west-3'))
+   >>> s3 = fs.S3FileSystem(region='eu-west-3')
 
    # List all contents in a bucket, recursively
    >>> s3.get_target_stats(fs.FileSelector('my-test-bucket', recursive=True))

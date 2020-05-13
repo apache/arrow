@@ -65,6 +65,8 @@ namespace arrow {
   ACTION(Timestamp);                            \
   ACTION(Time32);                               \
   ACTION(Time64);                               \
+  ACTION(MonthInterval);                        \
+  ACTION(DayTimeInterval);                      \
   ACTION(Decimal128);                           \
   ACTION(List);                                 \
   ACTION(LargeList);                            \
@@ -83,16 +85,6 @@ template <typename VISITOR>
 inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
   switch (type.id()) {
     ARROW_GENERATE_FOR_ALL_TYPES(TYPE_VISIT_INLINE);
-    case Type::INTERVAL: {
-      const auto& interval_type = dynamic_cast<const IntervalType&>(type);
-      if (interval_type.interval_type() == IntervalType::MONTHS) {
-        return visitor->Visit(internal::checked_cast<const MonthIntervalType&>(type));
-      }
-      if (interval_type.interval_type() == IntervalType::DAY_TIME) {
-        return visitor->Visit(internal::checked_cast<const DayTimeIntervalType&>(type));
-      }
-      break;
-    }
     default:
       break;
   }
@@ -111,17 +103,6 @@ template <typename VISITOR>
 inline Status VisitArrayInline(const Array& array, VISITOR* visitor) {
   switch (array.type_id()) {
     ARROW_GENERATE_FOR_ALL_TYPES(ARRAY_VISIT_INLINE);
-    case Type::INTERVAL: {
-      const auto& interval_type = dynamic_cast<const IntervalType&>(*array.type());
-      if (interval_type.interval_type() == IntervalType::MONTHS) {
-        return visitor->Visit(internal::checked_cast<const MonthIntervalArray&>(array));
-      }
-      if (interval_type.interval_type() == IntervalType::DAY_TIME) {
-        return visitor->Visit(internal::checked_cast<const DayTimeIntervalArray&>(array));
-      }
-      break;
-    }
-
     default:
       break;
   }
@@ -454,17 +435,6 @@ template <typename VISITOR>
 inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor) {
   switch (scalar.type->id()) {
     ARROW_GENERATE_FOR_ALL_TYPES(SCALAR_VISIT_INLINE);
-    case Type::INTERVAL: {
-      const auto& interval_type =
-          internal::checked_cast<const IntervalType&>(*scalar.type);
-      if (interval_type.interval_type() == IntervalType::MONTHS) {
-        return visitor->Visit(internal::checked_cast<const MonthIntervalScalar&>(scalar));
-      }
-      if (interval_type.interval_type() == IntervalType::DAY_TIME) {
-        return visitor->Visit(
-            internal::checked_cast<const DayTimeIntervalScalar&>(scalar));
-      }
-    }
     default:
       break;
   }
@@ -473,5 +443,46 @@ inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor) {
 }
 
 #undef TYPE_VISIT_INLINE
+
+// Visit a null bitmap, in order, without overhead.
+//
+// The given `VisitFunc` should be a callable with either of these signatures:
+// - void(bool is_valid)
+// - Status(bool is_valid)
+
+template <typename VisitFunc>
+typename internal::call_traits::enable_if_return<VisitFunc, Status>::type
+VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
+                      int64_t num_values, int64_t null_count, VisitFunc&& func) {
+  if (null_count != 0) {
+    internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
+    for (int i = 0; i < num_values; ++i) {
+      RETURN_NOT_OK(func(bit_reader.IsSet()));
+      bit_reader.Next();
+    }
+  } else {
+    for (int i = 0; i < num_values; ++i) {
+      RETURN_NOT_OK(func(true));
+    }
+  }
+  return Status::OK();
+}
+
+template <typename VisitFunc>
+typename internal::call_traits::enable_if_return<VisitFunc, void>::type
+VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
+                      int64_t num_values, int64_t null_count, VisitFunc&& func) {
+  if (null_count != 0) {
+    internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
+    for (int64_t i = 0; i < num_values; ++i) {
+      func(bit_reader.IsSet());
+      bit_reader.Next();
+    }
+  } else {
+    for (int64_t i = 0; i < num_values; ++i) {
+      func(true);
+    }
+  }
+}
 
 }  // namespace arrow

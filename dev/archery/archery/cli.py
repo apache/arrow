@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -30,9 +29,8 @@ from .lang.cpp import CppCMakeDefinition, CppConfiguration
 from .utils.codec import JsonEncoder
 from .utils.lint import linter, python_numpydoc, LintValidationException
 from .utils.logger import logger, ctx as log_ctx
-from .utils.source import ArrowSources
+from .utils.source import ArrowSources, InvalidArrowSource
 from .utils.tmpdir import tmpdir
-from .bot import CommentBot, actions
 
 # Set default logging to INFO in command line.
 logging.basicConfig(level=logging.INFO)
@@ -90,11 +88,10 @@ def archery(ctx, debug, pdb, quiet):
 
 def validate_arrow_sources(ctx, param, src):
     """ Ensure a directory contains Arrow cpp sources. """
-    if isinstance(src, str):
-        if not ArrowSources.valid(src):
-            raise click.BadParameter(f"No Arrow C++ sources found in {src}.")
-        src = ArrowSources(src)
-    return src
+    try:
+        return ArrowSources.find(src)
+    except InvalidArrowSource as e:
+        raise click.BadParameter(str(e))
 
 
 build_dir_type = click.Path(dir_okay=True, file_okay=False, resolve_path=True)
@@ -125,7 +122,7 @@ def _apply_options(cmd, options):
 
 
 @archery.command(short_help="Initialize an Arrow C++ build")
-@click.option("--src", metavar="<arrow_src>", default=ArrowSources.find(),
+@click.option("--src", metavar="<arrow_src>", default=None,
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
 # toolchain
@@ -134,36 +131,85 @@ def _apply_options(cmd, options):
               help="CMake's CMAKE_BUILD_TYPE")
 @click.option("--warn-level", default="production", type=warn_level_type,
               help="Controls compiler warnings -W(no-)error.")
-# components
-@click.option("--with-tests", default=True, type=BOOL,
-              help="Build with tests.")
-@click.option("--with-benchmarks", default=False, type=BOOL,
-              help="Build with benchmarks.")
-@click.option("--with-examples", default=False, type=BOOL,
-              help="Build with examples.")
-@click.option("--with-python", default=False, type=BOOL,
-              help="Build with python extension.")
-@click.option("--with-parquet", default=False, type=BOOL,
-              help="Build with parquet file support.")
-@click.option("--with-gandiva", default=False, type=BOOL,
-              help="Build with Gandiva expression compiler support.")
-@click.option("--with-plasma", default=False, type=BOOL,
-              help="Build with Plasma object store support.")
-@click.option("--with-flight", default=False, type=BOOL,
-              help="Build with Flight rpc support.")
-@click.option("--with-compute", default=True, type=BOOL,
-              help="Build with compute kernels support.")
-@click.option("--with-dataset", default=False, type=BOOL,
-              help="Build with dataset support.")
-@click.option("--use-sanitizers", default=False, type=BOOL,
-              help="Toggles ARROW_USE_*SAN sanitizers.")
-@click.option("--with-fuzzing", default=False, type=BOOL,
-              help="Toggles ARROW_FUZZING.")
 @click.option("--use-gold-linker", default=True, type=BOOL,
               help="Toggles ARROW_USE_LD_GOLD option.")
+# Tests and benchmarks
+@click.option("--with-tests", default=True, type=BOOL,
+              help="Build with tests.")
+@click.option("--with-benchmarks", default=None, type=BOOL,
+              help="Build with benchmarks.")
+@click.option("--with-examples", default=None, type=BOOL,
+              help="Build with examples.")
+@click.option("--with-integration", default=None, type=BOOL,
+              help="Build with integration test executables.")
+# Static checks
+@click.option("--use-asan", default=None, type=BOOL,
+              help="Toggle ARROW_USE_ASAN sanitizer.")
+@click.option("--use-tsan", default=None, type=BOOL,
+              help="Toggle ARROW_USE_TSAN sanitizer.")
+@click.option("--use-ubsan", default=None, type=BOOL,
+              help="Toggle ARROW_USE_UBSAN sanitizer.")
+@click.option("--with-fuzzing", default=None, type=BOOL,
+              help="Toggle ARROW_FUZZING.")
+# Components
+@click.option("--with-compute", default=None, type=BOOL,
+              help="Build the Arrow compute module.")
+@click.option("--with-csv", default=None, type=BOOL,
+              help="Build the Arrow CSV parser module.")
+@click.option("--with-cuda", default=None, type=BOOL,
+              help="Build the Arrow CUDA extensions.")
+@click.option("--with-dataset", default=None, type=BOOL,
+              help="Build the Arrow dataset module.")
+@click.option("--with-filesystem", default=None, type=BOOL,
+              help="Build the Arrow filesystem layer.")
+@click.option("--with-flight", default=None, type=BOOL,
+              help="Build with Flight rpc support.")
+@click.option("--with-gandiva", default=None, type=BOOL,
+              help="Build with Gandiva expression compiler support.")
+@click.option("--with-hdfs", default=None, type=BOOL,
+              help="Build the Arrow HDFS bridge.")
+@click.option("--with-hiveserver2", default=None, type=BOOL,
+              help="Build the HiveServer2 client and arrow adapater.")
+@click.option("--with-ipc", default=None, type=BOOL,
+              help="Build the Arrow IPC extensions.")
+@click.option("--with-json", default=None, type=BOOL,
+              help="Build the Arrow JSON parser module.")
+@click.option("--with-jni", default=None, type=BOOL,
+              help="Build the Arrow JNI lib.")
+@click.option("--with-mimalloc", default=None, type=BOOL,
+              help="Build the Arrow mimalloc based allocator.")
+@click.option("--with-parquet", default=None, type=BOOL,
+              help="Build with Parquet file support.")
+@click.option("--with-plasma", default=None, type=BOOL,
+              help="Build with Plasma object store support.")
+@click.option("--with-python", default=None, type=BOOL,
+              help="Build the Arrow CPython extesions.")
+@click.option("--with-r", default=None, type=BOOL,
+              help="Build the Arrow R extensions. This is not a CMake option, "
+              "it will toggle required options")
+@click.option("--with-s3", default=None, type=BOOL,
+              help="Build Arrow with S3 support.")
+# Compressions
+@click.option("--with-brotli", default=None, type=BOOL,
+              help="Build Arrow with brotli compression.")
+@click.option("--with-bz2", default=None, type=BOOL,
+              help="Build Arrow with bz2 compression.")
+@click.option("--with-lz4", default=None, type=BOOL,
+              help="Build Arrow with lz4 compression.")
+@click.option("--with-snappy", default=None, type=BOOL,
+              help="Build Arrow with snappy compression.")
+@click.option("--with-zlib", default=None, type=BOOL,
+              help="Build Arrow with zlib compression.")
+@click.option("--with-zstd", default=None, type=BOOL,
+              help="Build Arrow with zstd compression.")
+# CMake extra feature
 @click.option("--cmake-extras", type=str, multiple=True,
               help="Extra flags/options to pass to cmake invocation. "
               "Can be stacked")
+@click.option("--install-prefix", type=str,
+              help="Destination directory where files are installed. Expand to"
+              "CMAKE_INSTALL_PREFIX. Defaults to to $CONDA_PREFIX if the"
+              "variable exists.")
 # misc
 @click.option("-f", "--force", type=BOOL, is_flag=True, default=False,
               help="Delete existing build directory if found.")
@@ -185,9 +231,9 @@ def build(ctx, src, build_dir, force, targets, **kwargs):
     Examples:
 
     \b
-    # Initialize build with clang7 and avx2 support in directory `clang7-build`
+    # Initialize build with clang8 and avx2 support in directory `clang8-build`
     \b
-    archery build --cc=clang-7 --cxx=clang++-7 --cxx-flags=-mavx2 clang7-build
+    archery build --cc=clang-8 --cxx=clang++-8 --cxx-flags=-mavx2 clang8-build
 
     \b
     # Builds and run test
@@ -235,7 +281,7 @@ def decorate_lint_command(cmd):
 
 
 @archery.command(short_help="Check Arrow source tree for errors")
-@click.option("--src", metavar="<arrow_src>", default=ArrowSources.find(),
+@click.option("--src", metavar="<arrow_src>", default=None,
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
 @click.option("--fix", is_flag=True, type=BOOL, default=False,
@@ -263,7 +309,7 @@ def lint(ctx, src, fix, iwyu_all, **checks):
 
 @archery.command(short_help="Lint python docstring with NumpyDoc")
 @click.argument('symbols', nargs=-1)
-@click.option("--src", metavar="<arrow_src>", default=ArrowSources.find(),
+@click.option("--src", metavar="<arrow_src>", default=None,
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
 @click.option("--whitelist", "-w", help="Allow only these rules")
@@ -303,8 +349,7 @@ def benchmark(ctx):
 def benchmark_common_options(cmd):
     options = [
         click.option("--src", metavar="<arrow_src>", show_default=True,
-                     default=ArrowSources.find(),
-                     callback=validate_arrow_sources,
+                     default=None, callback=validate_arrow_sources,
                      help="Specify Arrow source directory"),
         click.option("--preserve", type=BOOL, default=False, show_default=True,
                      is_flag=True,
@@ -343,10 +388,10 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
     """ List benchmark suite.
     """
     with tmpdir(preserve=preserve) as root:
-        logger.debug(f"Running benchmark {rev_or_path}")
+        logger.debug("Running benchmark {}".format(rev_or_path))
 
         conf = CppBenchmarkRunner.default_configuration(
-                cmake_extras=cmake_extras, **kwargs)
+            cmake_extras=cmake_extras, **kwargs)
 
         runner_base = BenchmarkRunner.from_rev_or_path(
             src, root, rev_or_path, conf)
@@ -396,10 +441,10 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
     archery benchmark run --output=run.json
     """
     with tmpdir(preserve=preserve) as root:
-        logger.debug(f"Running benchmark {rev_or_path}")
+        logger.debug("Running benchmark {}".format(rev_or_path))
 
         conf = CppBenchmarkRunner.default_configuration(
-                cmake_extras=cmake_extras, **kwargs)
+            cmake_extras=cmake_extras, **kwargs)
 
         runner_base = BenchmarkRunner.from_rev_or_path(
             src, root, rev_or_path, conf,
@@ -422,7 +467,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
 def benchmark_diff(ctx, src, preserve, output, cmake_extras,
                    suite_filter, benchmark_filter,
                    threshold, contender, baseline, **kwargs):
-    """ Compare (diff) benchmark runs.
+    """Compare (diff) benchmark runs.
 
     This command acts like git-diff but for benchmark results.
 
@@ -457,7 +502,7 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
     archery benchmark diff master "$LAST"
 
     \b
-    # Compare g++7 (contender) with clang++-7 (baseline) builds
+    # Compare g++7 (contender) with clang++-8 (baseline) builds
     \b
     archery build --with-benchmarks=true \\
             --cxx-flags=-ftree-vectorize \\
@@ -465,9 +510,9 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
     \b
     archery build --with-benchmarks=true \\
             --cxx-flags=-flax-vector-conversions \\
-            --cc=clang-7 --cxx=clang++-7 clang7-build
+            --cc=clang-8 --cxx=clang++-8 clang8-build
     \b
-    archery benchmark diff gcc7-build clang7-build
+    archery benchmark diff gcc7-build clang8-build
 
     \b
     # Compare default targets but scoped to the suites matching
@@ -493,11 +538,11 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
     archery --quiet benchmark diff WORKSPACE run.json > result.json
     """
     with tmpdir(preserve=preserve) as root:
-        logger.debug(f"Comparing {contender} (contender) with "
-                     f"{baseline} (baseline)")
+        logger.debug("Comparing {} (contender) with {} (baseline)"
+                     .format(contender, baseline))
 
         conf = CppBenchmarkRunner.default_configuration(
-                cmake_extras=cmake_extras, **kwargs)
+            cmake_extras=cmake_extras, **kwargs)
 
         runner_cont = BenchmarkRunner.from_rev_or_path(
             src, root, contender, conf,
@@ -551,7 +596,7 @@ def _set_default(opt, default):
 @click.option('stop_on_error', '-x', '--stop-on-error',
               is_flag=True, default=False,
               help='Stop on first error')
-@click.option('--gold_dirs', multiple=True,
+@click.option('--gold-dirs', multiple=True,
               help="gold integration test file paths")
 @click.option('-k', '--match',
               help=("Substring for test names to include in run, "
@@ -601,10 +646,147 @@ def integration(with_all=False, random_seed=12345, **args):
 @click.option('--crossbow-token', '-ct', envvar='CROSSBOW_GITHUB_TOKEN',
               help='OAuth token for pushing to the crossow repository')
 def trigger_bot(event_name, event_payload, arrow_token, crossbow_token):
+    from .bot import CommentBot, actions
+
     event_payload = json.loads(event_payload.read())
 
     bot = CommentBot(name='github-actions', handler=actions, token=arrow_token)
     bot.handle(event_name, event_payload)
+
+
+@archery.group('docker')
+@click.option("--src", metavar="<arrow_src>", default=None,
+              callback=validate_arrow_sources,
+              help="Specify Arrow source directory.")
+@click.pass_obj
+def docker_compose(obj, src):
+    """Interact with docker-compose based builds."""
+    from .docker import DockerCompose
+
+    config_path = src.path / 'docker-compose.yml'
+    if not config_path.exists():
+        raise click.ClickException(
+            "Docker compose configuration cannot be found in directory {}, "
+            "try to pass the arrow source directory explicitly.".format(src)
+        )
+
+    # take the docker-compose parameters like PYTHON, PANDAS, UBUNTU from the
+    # environment variables to keep the usage similar to docker-compose
+    obj['compose'] = DockerCompose(config_path, params=os.environ)
+    obj['compose'].validate()
+
+
+@docker_compose.command('run')
+@click.argument('image')
+@click.argument('command', required=False, default=None)
+@click.option('--env', '-e', multiple=True,
+              help="Set environment variable within the container")
+@click.option('--force-pull/--no-pull', default=True,
+              help="Whether to force pull the image and its ancestor images")
+@click.option('--force-build/--no-build', default=True,
+              help="Whether to force build the image and its ancestor images")
+@click.option('--use-cache/--no-cache', default=True,
+              help="Whether to use cache when building the image and its "
+                   "ancestor images")
+@click.option('--use-leaf-cache/--no-leaf-cache', default=True,
+              help="Whether to use cache when building only the (leaf) image "
+                   "passed as the argument. To disable caching for both the "
+                   "image and its ancestors use --no-cache option.")
+@click.option('--dry-run/--execute', default=False,
+              help="Display the docker-compose commands instead of executing "
+                   "them.")
+@click.option('--volume', '-v', multiple=True,
+              help="Set volume within the container")
+@click.pass_obj
+def docker_compose_run(obj, image, command, env, force_pull, force_build,
+                       use_cache, use_leaf_cache, dry_run, volume):
+    """Execute docker-compose builds.
+
+    To see the available builds run `archery docker list`.
+
+    Examples:
+
+    # execute a single build
+    archery docker run conda-python
+
+    # execute the builds but disable the image pulling
+    archery docker run --no-cache conda-python
+
+    # pass a docker-compose parameter, like the python version
+    PYTHON=3.8 archery docker run conda-python
+
+    # disable the cache only for the leaf image
+    PANDAS=master archery docker run --no-leaf-cache conda-python-pandas
+
+    # entirely skip building the image
+    archery docker run --no-pull --no-build conda-python
+
+    # pass runtime parameters via docker environment variables
+    archery docker run -e CMAKE_BUILD_TYPE=release ubuntu-cpp
+
+    # set a volume
+    archery docker run -v $PWD/build:/build ubuntu-cpp
+
+    # starting an interactive bash session for debugging
+    archery docker run ubuntu-cpp bash
+    """
+    from .docker import UndefinedImage
+
+    compose = obj['compose']
+
+    if dry_run:
+        from types import MethodType
+
+        def _print_command(self, *args, **kwargs):
+            params = ['{}={}'.format(k, v) for k, v in self.params.items()]
+            command = ' '.join(params + ['docker-compose'] + list(args))
+            click.echo(command)
+
+        compose._execute = MethodType(_print_command, compose)
+
+    env = dict(kv.split('=') for kv in env)
+    try:
+        compose.run(
+            image,
+            command=command,
+            env=env,
+            force_pull=force_pull,
+            force_build=force_build,
+            use_cache=use_cache,
+            use_leaf_cache=use_leaf_cache,
+            volumes=volume
+        )
+    except UndefinedImage as e:
+        raise click.ClickException(
+            "There is no service/image defined in docker-compose.yml with "
+            "name: {}".format(str(e))
+        )
+    except RuntimeError as e:
+        raise click.ClickException(str(e))
+
+
+@docker_compose.command('push')
+@click.argument('image')
+@click.option('--user', '-u', required=True, envvar='ARCHERY_DOCKER_USER',
+              help='Docker repository username')
+@click.option('--password', '-p', required=True,
+              envvar='ARCHERY_DOCKER_PASSWORD',
+              help='Docker repository password')
+@click.pass_obj
+def docker_compose_push(obj, image, user, password):
+    """Push the generated docker-compose image."""
+    compose = obj['compose']
+    compose.push(image, user=user, password=password)
+
+
+@docker_compose.command('images')
+@click.pass_obj
+def docker_compose_images(obj):
+    """List the available docker-compose images."""
+    compose = obj['compose']
+    click.echo('Available images:')
+    for image in compose.images():
+        click.echo(' - {}'.format(image))
 
 
 if __name__ == "__main__":

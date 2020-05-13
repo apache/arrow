@@ -117,6 +117,22 @@ class DiffTest : public ::testing::Test {
     ASSERT_ARRAYS_EQUAL(*ArrayFromJSON(int64(), run_lengths_json), *run_lengths_);
   }
 
+  void BaseAndTargetFromRandomFilter(std::shared_ptr<Array> values,
+                                     double filter_probability) {
+    compute::Datum out_datum, base_filter, target_filter;
+    do {
+      base_filter = this->rng_.Boolean(values->length(), filter_probability, 0.0);
+      target_filter = this->rng_.Boolean(values->length(), filter_probability, 0.0);
+    } while (base_filter.Equals(target_filter));
+
+    ASSERT_OK(compute::Filter(&ctx_, values, base_filter, {}, &out_datum));
+    base_ = out_datum.make_array();
+
+    ASSERT_OK(compute::Filter(&ctx_, values, target_filter, {}, &out_datum));
+    target_ = out_datum.make_array();
+  }
+
+  compute::FunctionContext ctx_;
   random::RandomArrayGenerator rng_;
   std::shared_ptr<StructArray> edits_;
   std::shared_ptr<Array> base_, target_;
@@ -210,15 +226,10 @@ TYPED_TEST(DiffTestWithNumeric, Basics) {
 }
 
 TEST_F(DiffTest, CompareRandomInt64) {
-  compute::FunctionContext ctx;
   for (auto null_probability : {0.0, 0.25}) {
     auto values = this->rng_.Int64(1 << 10, 0, 127, null_probability);
     for (const double filter_probability : {0.99, 0.75, 0.5}) {
-      auto filter_1 = this->rng_.Boolean(values->length(), filter_probability, 0.0);
-      auto filter_2 = this->rng_.Boolean(values->length(), filter_probability, 0.0);
-
-      ASSERT_OK(compute::Filter(&ctx, *values, *filter_1, &this->base_));
-      ASSERT_OK(compute::Filter(&ctx, *values, *filter_2, &this->target_));
+      this->BaseAndTargetFromRandomFilter(values, filter_probability);
 
       std::stringstream formatted;
       this->DoDiffAndFormat(&formatted);
@@ -231,15 +242,10 @@ TEST_F(DiffTest, CompareRandomInt64) {
 }
 
 TEST_F(DiffTest, CompareRandomStrings) {
-  compute::FunctionContext ctx;
   for (auto null_probability : {0.0, 0.25}) {
     auto values = this->rng_.StringWithRepeats(1 << 10, 1 << 8, 0, 32, null_probability);
     for (const double filter_probability : {0.99, 0.75, 0.5}) {
-      auto filter_1 = this->rng_.Boolean(values->length(), filter_probability, 0.0);
-      auto filter_2 = this->rng_.Boolean(values->length(), filter_probability, 0.0);
-
-      ASSERT_OK(compute::Filter(&ctx, *values, *filter_1, &this->base_));
-      ASSERT_OK(compute::Filter(&ctx, *values, *filter_2, &this->target_));
+      this->BaseAndTargetFromRandomFilter(values, filter_probability);
 
       std::stringstream formatted;
       this->DoDiffAndFormat(&formatted);
@@ -560,15 +566,16 @@ TEST_F(DiffTest, DictionaryDiffFormatter) {
   // differing indices
   auto base_dict = ArrayFromJSON(utf8(), R"(["a", "b", "c"])");
   auto base_indices = ArrayFromJSON(int8(), "[0, 1, 2, 2, 0, 1]");
-  ASSERT_OK(
-      DictionaryArray::FromArrays(dictionary(base_indices->type(), base_dict->type()),
-                                  base_indices, base_dict, &base_));
+  ASSERT_OK_AND_ASSIGN(base_, DictionaryArray::FromArrays(
+                                  dictionary(base_indices->type(), base_dict->type()),
+                                  base_indices, base_dict));
 
   auto target_dict = base_dict;
   auto target_indices = ArrayFromJSON(int8(), "[0, 1, 2, 2, 1, 1]");
-  ASSERT_OK(
+  ASSERT_OK_AND_ASSIGN(
+      target_,
       DictionaryArray::FromArrays(dictionary(target_indices->type(), target_dict->type()),
-                                  target_indices, target_dict, &target_));
+                                  target_indices, target_dict));
 
   base_->Equals(*target_, EqualOptions().diff_sink(&formatted));
   auto formatted_expected_indices = R"(# Dictionary arrays differed
@@ -584,9 +591,10 @@ TEST_F(DiffTest, DictionaryDiffFormatter) {
   // differing dictionaries
   target_dict = ArrayFromJSON(utf8(), R"(["b", "c", "a"])");
   target_indices = base_indices;
-  ASSERT_OK(
+  ASSERT_OK_AND_ASSIGN(
+      target_,
       DictionaryArray::FromArrays(dictionary(target_indices->type(), target_dict->type()),
-                                  target_indices, target_dict, &target_));
+                                  target_indices, target_dict));
 
   formatted.str("");
   base_->Equals(*target_, EqualOptions().diff_sink(&formatted));
@@ -614,21 +622,15 @@ TEST_F(DiffTest, CompareRandomStruct) {
     auto int32_values = this->rng_.Int32(length, 0, 127, null_probability);
     auto utf8_values = this->rng_.String(length, 0, 16, null_probability);
     for (const double filter_probability : {0.9999, 0.75}) {
-      std::shared_ptr<Array> int32_base, int32_target, utf8_base, utf8_target;
-      ASSERT_OK(compute::Filter(&ctx, *int32_values,
-                                *this->rng_.Boolean(length, filter_probability, 0.0),
-                                &int32_base));
-      ASSERT_OK(compute::Filter(&ctx, *utf8_values,
-                                *this->rng_.Boolean(length, filter_probability, 0.0),
-                                &utf8_base));
-      MakeSameLength(&int32_base, &utf8_base);
+      this->BaseAndTargetFromRandomFilter(int32_values, filter_probability);
+      auto int32_base = this->base_;
+      auto int32_target = this->base_;
 
-      ASSERT_OK(compute::Filter(&ctx, *int32_values,
-                                *this->rng_.Boolean(length, filter_probability, 0.0),
-                                &int32_target));
-      ASSERT_OK(compute::Filter(&ctx, *utf8_values,
-                                *this->rng_.Boolean(length, filter_probability, 0.0),
-                                &utf8_target));
+      this->BaseAndTargetFromRandomFilter(utf8_values, filter_probability);
+      auto utf8_base = this->base_;
+      auto utf8_target = this->base_;
+
+      MakeSameLength(&int32_base, &utf8_base);
       MakeSameLength(&int32_target, &utf8_target);
 
       auto type = struct_({field("i", int32()), field("s", utf8())});

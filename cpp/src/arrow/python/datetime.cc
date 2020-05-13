@@ -257,13 +257,6 @@ Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit, PyObject** ou
   return Status::OK();
 }
 
-Status PyDateTime_from_TimePoint(TimePoint val, PyObject** out) {
-  auto nanos = val.time_since_epoch();
-  auto micros = std::chrono::duration_cast<std::chrono::microseconds>(nanos);
-  RETURN_NOT_OK(PyDateTime_from_int(micros.count(), TimeUnit::MICRO, out));
-  return Status::OK();
-}
-
 int64_t PyDate_to_days(PyDateTime_Date* pydate) {
   return get_days_from_date(PyDateTime_GET_YEAR(pydate), PyDateTime_GET_MONTH(pydate),
                             PyDateTime_GET_DAY(pydate));

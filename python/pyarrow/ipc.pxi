@@ -78,7 +78,7 @@ cdef class Message:
         cdef:
             int64_t output_length = 0
             COutputStream* out
-            CIpcOptions options
+            CIpcWriteOptions options
 
         options.alignment = alignment
         out = sink.get_output_stream().get()
@@ -107,7 +107,7 @@ cdef class Message:
 
     def __repr__(self):
         if self.message == nullptr:
-            return """pyarrow.Message(unitialized)"""
+            return """pyarrow.Message(uninitialized)"""
 
         metadata_len = self.metadata.size
         body = self.body
@@ -155,13 +155,17 @@ cdef class MessageReader:
 
     def read_next_message(self):
         """
-        Read next Message from the stream. Raises StopIteration at end of
-        stream
+        Read next Message from the stream.
+
+        Raises
+        ------
+        StopIteration : at end of stream
         """
         cdef Message result = Message.__new__(Message)
 
         with nogil:
-            check_status(self.reader.get().ReadNextMessage(&result.message))
+            result.message = move(GetResultValue(self.reader.get()
+                                                 .ReadNextMessage()))
 
         if result.message.get() == NULL:
             raise StopIteration
@@ -182,7 +186,7 @@ cdef class _CRecordBatchWriter:
 
     def write(self, table_or_batch):
         """
-        Write RecordBatch or Table to stream
+        Write RecordBatch or Table to stream.
 
         Parameters
         ----------
@@ -197,7 +201,7 @@ cdef class _CRecordBatchWriter:
 
     def write_batch(self, RecordBatch batch):
         """
-        Write RecordBatch to stream
+        Write RecordBatch to stream.
 
         Parameters
         ----------
@@ -209,15 +213,14 @@ cdef class _CRecordBatchWriter:
 
     def write_table(self, Table table, max_chunksize=None, **kwargs):
         """
-        Write Table to stream in (contiguous) RecordBatch objects, with maximum
-        chunk size
+        Write Table to stream in (contiguous) RecordBatch objects.
 
         Parameters
         ----------
         table : Table
         max_chunksize : int, default None
             Maximum size for RecordBatch chunks. Individual chunks may be
-            smaller depending on the chunk layout of individual columns
+            smaller depending on the chunk layout of individual columns.
         """
         cdef:
             # max_chunksize must be > 0 to have any impact
@@ -239,7 +242,7 @@ cdef class _CRecordBatchWriter:
 
     def close(self):
         """
-        Close stream and write end-of-stream 0 marker
+        Close stream and write end-of-stream 0 marker.
         """
         with nogil:
             check_status(self.writer.get().Close())
@@ -254,7 +257,7 @@ cdef class _CRecordBatchWriter:
 cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
     cdef:
         shared_ptr[COutputStream] sink
-        CIpcOptions options
+        CIpcWriteOptions options
         bint closed
 
     def __cinit__(self):
@@ -272,8 +275,8 @@ cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
         get_writer(sink, &self.sink)
         with nogil:
             self.writer = GetResultValue(
-                CRecordBatchStreamWriter.Open(
-                    self.sink.get(), schema.sp_schema, self.options))
+                NewStreamWriter(self.sink.get(), schema.sp_schema,
+                                self.options))
 
 
 cdef _get_input_stream(object source, shared_ptr[CInputStream]* out):
@@ -307,8 +310,12 @@ cdef class _CRecordBatchReader:
 
     def read_next_batch(self):
         """
-        Read next RecordBatch from the stream. Raises StopIteration at end of
-        stream
+        Read next RecordBatch from the stream.
+
+        Raises
+        ------
+        StopIteration:
+            At end of stream.
         """
         cdef shared_ptr[CRecordBatch] batch
 
@@ -322,7 +329,7 @@ cdef class _CRecordBatchReader:
 
     def read_all(self):
         """
-        Read all record batches as a pyarrow.Table
+        Read all record batches as a pyarrow.Table.
         """
         cdef shared_ptr[CTable] table
         with nogil:
@@ -339,6 +346,7 @@ cdef class _CRecordBatchReader:
 cdef class _RecordBatchStreamReader(_CRecordBatchReader):
     cdef:
         shared_ptr[CInputStream] in_stream
+        CIpcReadOptions options
 
     cdef readonly:
         Schema schema
@@ -349,8 +357,8 @@ cdef class _RecordBatchStreamReader(_CRecordBatchReader):
     def _open(self, source):
         _get_input_stream(source, &self.in_stream)
         with nogil:
-            check_status(CRecordBatchStreamReader.Open(
-                self.in_stream.get(), &self.reader))
+            self.reader = GetResultValue(CRecordBatchStreamReader.Open(
+                self.in_stream.get(), self.options))
 
         self.schema = pyarrow_wrap_schema(self.reader.get().schema())
 
@@ -362,14 +370,14 @@ cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
         get_writer(sink, &self.sink)
         with nogil:
             self.writer = GetResultValue(
-                CRecordBatchFileWriter.Open(
-                    self.sink.get(), schema.sp_schema, self.options))
+                NewFileWriter(self.sink.get(), schema.sp_schema, self.options))
 
 
 cdef class _RecordBatchFileReader:
     cdef:
         shared_ptr[CRecordBatchFileReader] reader
         shared_ptr[CRandomAccessFile] file
+        CIpcReadOptions options
 
     cdef readonly:
         Schema schema
@@ -391,12 +399,14 @@ cdef class _RecordBatchFileReader:
 
         with nogil:
             if offset != 0:
-                check_status(
+                self.reader = GetResultValue(
                     CRecordBatchFileReader.Open2(self.file.get(), offset,
-                                                 &self.reader))
+                                                 self.options))
+
             else:
-                check_status(
-                    CRecordBatchFileReader.Open(self.file.get(), &self.reader))
+                self.reader = GetResultValue(
+                    CRecordBatchFileReader.Open(self.file.get(),
+                                                self.options))
 
         self.schema = pyarrow_wrap_schema(self.reader.get().schema())
 
@@ -411,7 +421,7 @@ cdef class _RecordBatchFileReader:
             raise ValueError('Batch number {0} out of range'.format(i))
 
         with nogil:
-            check_status(self.reader.get().ReadRecordBatch(i, &batch))
+            batch = GetResultValue(self.reader.get().ReadRecordBatch(i))
 
         return pyarrow_wrap_batch(batch)
 
@@ -433,9 +443,10 @@ cdef class _RecordBatchFileReader:
         batches.resize(nbatches)
         with nogil:
             for i in range(nbatches):
-                check_status(self.reader.get().ReadRecordBatch(i, &batches[i]))
-            check_status(CTable.FromRecordBatches(self.schema.sp_schema,
-                                                  batches, &table))
+                batches[i] = GetResultValue(self.reader.get()
+                                            .ReadRecordBatch(i))
+            table = GetResultValue(
+                CTable.FromRecordBatches(self.schema.sp_schema, move(batches)))
 
         return pyarrow_wrap_table(table)
 
@@ -448,7 +459,7 @@ cdef class _RecordBatchFileReader:
 
 def get_tensor_size(Tensor tensor):
     """
-    Return total size of serialized Tensor including metadata and padding
+    Return total size of serialized Tensor including metadata and padding.
     """
     cdef int64_t size
     with nogil:
@@ -458,7 +469,7 @@ def get_tensor_size(Tensor tensor):
 
 def get_record_batch_size(RecordBatch batch):
     """
-    Return total size of serialized RecordBatch including metadata and padding
+    Return total size of serialized RecordBatch including metadata and padding.
     """
     cdef int64_t size
     with nogil:
@@ -468,7 +479,7 @@ def get_record_batch_size(RecordBatch batch):
 
 def write_tensor(Tensor tensor, NativeFile dest):
     """
-    Write pyarrow.Tensor to pyarrow.NativeFile object its current position
+    Write pyarrow.Tensor to pyarrow.NativeFile object its current position.
 
     Parameters
     ----------
@@ -594,7 +605,7 @@ def read_schema(obj, DictionaryMemo dictionary_memo=None):
         arg_dict_memo = &temp_memo
 
     with nogil:
-        check_status(ReadSchema(cpp_file.get(), arg_dict_memo, &result))
+        result = GetResultValue(ReadSchema(cpp_file.get(), arg_dict_memo))
 
     return pyarrow_wrap_schema(result)
 
@@ -634,8 +645,10 @@ def read_record_batch(obj, Schema schema,
         arg_dict_memo = &temp_memo
 
     with nogil:
-        check_status(ReadRecordBatch(deref(message.message.get()),
-                                     schema.sp_schema,
-                                     arg_dict_memo, &result))
+        result = GetResultValue(
+            ReadRecordBatch(deref(message.message.get()),
+                            schema.sp_schema,
+                            arg_dict_memo,
+                            CIpcReadOptions.Defaults()))
 
     return pyarrow_wrap_batch(result)
