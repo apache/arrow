@@ -351,10 +351,10 @@ struct BoundMethod<Self, R(A...)> {
   //   });
   // }
 
-  template <typename A0>
-  Result<R> operator()(A0&& a0) const {
+  template <typename A_ = void>
+  Result<R> operator()() const {
     return SafeCallIntoPython([&]() -> Result<R> {
-      R out = unbound_(reinterpret_cast<Self*>(self_.obj()), std::forward<A0>(a0));
+      R out = unbound_(reinterpret_cast<Self*>(self_.obj()));
       RETURN_IF_PYERROR();
       return out;
     });
