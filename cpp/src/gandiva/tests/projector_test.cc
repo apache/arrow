@@ -745,20 +745,9 @@ TEST_F(TestProjector, TestCapture) {
   // Create a row-batch with some sample data
   int num_records = 3;
   auto array_source_string = MakeArrowArrayUtf8(
-      {"107.173.176.148 - - [13/Dec/2015:05:11:56 +0100] \"GET /apache-log/access.log "
-       "HTTP/1.1\" 200 97106 \"http://www.test.com/\" \"Mozilla/5.0 (Windows "
-       "NT "
-       "6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Iron/29.0.1600.1 "
-       "Chrome/29.0.1600.1 Safari/537.36\" \"-\"",
-       "157.55.39.8 - - [13/Dec/2015:04:55:12 +0100] \"GET / HTTP/1.1\" 200 10479 \"-\" "
-       "\"Mozilla/5.0 (iPhone; CPU iPhone OS 7_0 like Mac OS X) AppleWebKit/537.51.1 "
-       "(KHTML, like Gecko) Version/7.0 Mobile/11A465 Safari/9537.53 (compatible; "
-       "bingbot/2.0;  https://www.example.com/bingbot.htm)\" \"-\"",
-       "10.1.1.140 - - [01/Aug/2014:09:36:58 -0700] \"GET "
-       "/~latrina/aug/themes/ComBeta/images/ara_rgprxu.png HTTP/1.1\" 304 - "
-       "\"http://webdev:2000/~latrina/aug/index.php/articles/news/10\" \"Mozilla/5.0 "
-       "(Macintosh; U; PPC Mac OS X Mach-O; en-US; sl:1.7.7) Gecko/00010100 "
-       "Firefox/1.0.3\""},
+      {"GET /apache-log/access.log HTTP/1.1 200 97106 http://www.test.com/",
+       "GET / HTTP/1.1 200 10479 https://www.example.com/bingbot.htm",
+       "GET HTTP/1.1 304 - http://webdev:2000/~latrina/aug/index.php/articles"},
       {true, true, true});
   std::string pattern_string = "(?P<website>http://[0-9a-zA-Z\\./\\-\\_\\~]*)";
   auto array_pattern_string = MakeArrowArrayUtf8(
