@@ -735,9 +735,6 @@ TEST_F(TestProjector, TestCapture) {
   auto field_pattern_string = field("pattern_string", arrow::utf8());
   auto schema = arrow::schema({field_source_string, field_pattern_string});
 
-  auto node_source_string = TreeExprBuilder::MakeField(field_source_string);
-  auto node_pattern_string = TreeExprBuilder::MakeField(field_pattern_string);
-
   auto field_ret = field("ret", arrow::utf8());
   auto cap_expr = TreeExprBuilder::MakeExpression(
       "capture", {field_source_string, field_pattern_string}, field_ret);
