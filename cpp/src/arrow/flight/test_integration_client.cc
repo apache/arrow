@@ -217,5 +217,6 @@ int main(int argc, char** argv) {
   arrow::flight::Location location;
   ABORT_NOT_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_host, FLAGS_port, &location));
   ABORT_NOT_OK(arrow::flight::FlightClient::Connect(location, options, &client));
+  ABORT_NOT_OK(scenario->RunClient(std::move(client)));
   return 0;
 }
