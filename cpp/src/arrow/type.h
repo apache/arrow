@@ -1412,7 +1412,7 @@ class ARROW_EXPORT DictionaryUnifier {
 ///
 /// Represents a path to a nested field using indices of child fields.
 /// For example, given indices {5, 9, 3} the field would be retrieved with
-/// schema->field(5)->type()->child(9)->type()->child(3)
+/// schema->field(5)->type()->field(9)->type()->field(3)
 ///
 /// Attempting to retrieve a child field using a FieldPath which is not valid for
 /// a given schema will raise an error. Invalid FieldPaths include:
