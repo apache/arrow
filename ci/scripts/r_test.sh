@@ -60,7 +60,7 @@ ${R_BIN} -e "as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
   }"
 
 AFTER=$(ls -alh ~/)
-if [ "$BEFORE" != "$AFTER" ]; then
+if [ "$NOT_CRAN" != "true" ] && [ "$BEFORE" != "$AFTER" ]; then
   ls -alh ~/.cmake/packages
   exit 1
 fi

@@ -1655,6 +1655,15 @@ tasks:
       r_tag: 3.6-centos6
       not_cran: "TRUE"
 
+  test-r-rstudio-r-base-3.6-centos8:
+    ci: azure
+    template: r/azure.linux.yml
+    params:
+      r_org: rstudio
+      r_image: r-base
+      r_tag: 3.6-centos8
+      not_cran: "TRUE"
+
   test-r-rstudio-r-base-3.6-opensuse15:
     ci: azure
     template: r/azure.linux.yml
@@ -1670,24 +1679,15 @@ tasks:
     params:
       r_org: rstudio
       r_image: r-base
-      r_tag: 3.6-opensuse24
+      r_tag: 3.6-opensuse42
       not_cran: "TRUE"
 
-  test-ubuntu-18.04-r-3.6:
-    ci: azure
-    template: docker-tests/azure.linux.yml
-    params:
-      env:
-        UBUNTU: 18.04
-        R: 3.6
-      run: ubuntu-r
-
-  test-conda-r-3.6:
+  test-conda-r-4.0:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        R: 3.6
+        R: 4.0
       run: conda-r
 
   test-ubuntu-18.04-r-sanitizer:
