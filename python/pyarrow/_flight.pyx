@@ -539,7 +539,6 @@ cdef class Location:
             CLocation.ForGrpcTls(c_host, c_port, &result.location))
         return result
 
-
     @staticmethod
     def for_grpc_unix(path):
         """Create a Location for a domain socket-based gRPC service."""
@@ -932,8 +931,8 @@ cdef class FlightClient:
     cdef:
         unique_ptr[CFlightClient] client
 
-    def __init__(self, location, tls_root_certs=None, cert_chain=None, private_key=None,
-                override_hostname=None, middleware=None):
+    def __init__(self, location, tls_root_certs=None, cert_chain=None,
+                 private_key=None, override_hostname=None, middleware=None):
         if isinstance(location, (bytes, str)):
             location = Location(location)
         elif isinstance(location, tuple):
@@ -945,10 +944,11 @@ cdef class FlightClient:
         elif not isinstance(location, Location):
             raise TypeError('`location` argument must be a string, tuple or a '
                             'Location instance')
-        self.init(location, tls_root_certs, cert_chain, private_key, override_hostname, middleware)
+        self.init(location, tls_root_certs, cert_chain, private_key,
+                  override_hostname, middleware)
 
-    cdef init(self, Location location, tls_root_certs, cert_chain, private_key, override_hostname,
-              middleware):
+    cdef init(self, Location location, tls_root_certs, cert_chain,
+              private_key, override_hostname, middleware):
         cdef:
             int c_port = 0
             CLocation c_location = Location.unwrap(location)
@@ -1001,13 +1001,14 @@ cdef class FlightClient:
                 break
 
     @classmethod
-    def connect(cls, location, tls_root_certs=None,cert_chain=None, private_key=None,
-                 override_hostname=None):
+    def connect(cls, location, tls_root_certs=None, cert_chain=None,
+                private_key=None, override_hostname=None):
         warnings.warn("The 'FlightClient.connect' method is deprecated, use "
                       "FlightClient constructor or pyarrow.flight.connect "
                       "function instead")
-        return FlightClient(location, tls_root_certs=tls_root_certs, cert_chain=None,
-                             private_key=None, override_hostname=override_hostname)
+        return FlightClient(location, tls_root_certs=tls_root_certs,
+                            cert_chain=cert_chain, private_key=private_key,
+                            override_hostname=override_hostname)
 
     def authenticate(self, auth_handler, options: FlightCallOptions = None):
         """Authenticate to the server.
@@ -2146,7 +2147,8 @@ cdef class FlightServerBase:
     tls_certificates : list optional, default None
         A list of (certificate, key) pairs.
     verify_client : boolean optional, default False
-        To be used when the mutual TLS requires the client to be validated with client certificates
+        If True, then enable mutual TLS: require the client to present
+        a client certificate, and validate the certificate.
     middleware : list optional, default None
         A dictionary of :class:`ServerMiddlewareFactory` items. The
         keys are used to retrieve the middleware instance during calls
@@ -2158,7 +2160,7 @@ cdef class FlightServerBase:
         unique_ptr[PyFlightServer] server
 
     def __init__(self, location=None, auth_handler=None,
-                 tls_certificates=None,verify_client=None, middleware=None):
+                 tls_certificates=None, verify_client=None, middleware=None):
         if isinstance(location, (bytes, str)):
             location = Location(location)
         elif isinstance(location, (tuple, type(None))):
@@ -2172,7 +2174,8 @@ cdef class FlightServerBase:
         elif not isinstance(location, Location):
             raise TypeError('`location` argument must be a string, tuple or a '
                             'Location instance')
-        self.init(location, auth_handler, tls_certificates, verify_client, middleware)
+        self.init(location, auth_handler, tls_certificates, verify_client,
+                  middleware)
 
     cdef init(self, Location location, ServerAuthHandler auth_handler,
               list tls_certificates, bool verify_client, dict middleware):
@@ -2199,7 +2202,7 @@ cdef class FlightServerBase:
                 c_cert.pem_cert = tobytes(cert)
                 c_cert.pem_key = tobytes(key)
                 c_options.get().tls_certificates.push_back(c_cert)
-            
+
         if middleware:
             py_middleware = _ServerMiddlewareFactoryWrapper(middleware)
             c_middleware.first = CPyServerMiddlewareName
@@ -2300,8 +2303,8 @@ cdef class FlightServerBase:
         self.wait()
 
 
-def connect(location, tls_root_certs=None,cert_chain=None, private_key=None, override_hostname=None,
-            middleware=None):
+def connect(location, tls_root_certs=None, cert_chain=None, private_key=None,
+            override_hostname=None, middleware=None):
     """
     Connect to the Flight server
     Parameters
@@ -2312,7 +2315,9 @@ def connect(location, tls_root_certs=None,cert_chain=None, private_key=None, ove
     tls_root_certs : bytes or None
         PEM-encoded
     cert_chain: str or None
+        If provided, enables TLS mutual authentication.
     private_key: str or None
+        If provided, enables TLS mutual authentication.
     override_hostname : str or None
         Override the hostname checked by TLS. Insecure, use with caution.
     middleware : list or None
@@ -2321,6 +2326,7 @@ def connect(location, tls_root_certs=None,cert_chain=None, private_key=None, ove
     -------
     client : FlightClient
     """
-    return FlightClient(location, tls_root_certs=tls_root_certs, cert_chain = cert_chain,
-                        private_key=private_key, override_hostname=override_hostname,
+    return FlightClient(location, tls_root_certs=tls_root_certs,
+                        cert_chain=cert_chain, private_key=private_key,
+                        override_hostname=override_hostname,
                         middleware=middleware)

@@ -269,7 +269,6 @@ extern const char* kSchemeGrpcUnix;
 ARROW_FLIGHT_EXPORT
 extern const char* kSchemeGrpcTls;
 
-
 /// \brief A host location (a URI)
 struct ARROW_FLIGHT_EXPORT Location {
  public:
@@ -292,7 +291,6 @@ struct ARROW_FLIGHT_EXPORT Location {
   /// \param[in] port The port
   /// \param[out] location The resulting location
   static Status ForGrpcTls(const std::string& host, const int port, Location* location);
-
 
   /// \brief Initialize a location for a domain socket-based Flight
   /// service
