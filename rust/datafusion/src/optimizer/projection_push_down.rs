@@ -157,6 +157,21 @@ impl ProjectionPushDown {
                     projection: Some(projection),
                 })
             }
+            LogicalPlan::CsvScan {
+                path,
+                schema,
+                projection,
+                ..
+            } => {
+                //TODO refactor TableScan code from above so it can be re-used here
+                unimplemented!()
+            }
+            LogicalPlan::ParquetScan {
+                path, projection, ..
+            } => {
+                //TODO refactor TableScan code from above so it can be re-used here
+                unimplemented!()
+            }
             LogicalPlan::Limit { expr, input, .. } => {
                 // Note that limit expressions are scalar values so there is no need to
                 // rewrite them but we do need to optimize the input to the limit plan

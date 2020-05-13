@@ -525,6 +525,28 @@ pub enum LogicalPlan {
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
     },
+    /// A table scan against a Parquet data source
+    ParquetScan {
+        /// The path to the files
+        path: String,
+        /// Optional column indices to use as a projection
+        projection: Option<Vec<usize>>,
+        /// The projected schema
+        projected_schema: Arc<Schema>,
+    },
+    /// A table scan against a CSV data source
+    CsvScan {
+        /// The path to the files
+        path: String,
+        /// The underlying table schema
+        schema: Arc<Schema>,
+        /// Whether the CSV file(s) have a header containing column names
+        has_header: bool,
+        /// Optional column indices to use as a projection
+        projection: Option<Vec<usize>>,
+        /// The projected schema
+        projected_schema: Arc<Schema>,
+    },
     /// An empty relation with an empty schema
     EmptyRelation {
         /// The schema description
@@ -559,6 +581,12 @@ impl LogicalPlan {
     pub fn schema(&self) -> &Box<Schema> {
         match self {
             LogicalPlan::EmptyRelation { schema } => &schema,
+            LogicalPlan::CsvScan {
+                projected_schema, ..
+            } => &projected_schema,
+            LogicalPlan::ParquetScan {
+                projected_schema, ..
+            } => &projected_schema,
             LogicalPlan::TableScan {
                 projected_schema, ..
             } => &projected_schema,
@@ -587,6 +615,16 @@ impl LogicalPlan {
                 ref projection,
                 ..
             } => write!(f, "TableScan: {} projection={:?}", table_name, projection),
+            LogicalPlan::CsvScan {
+                ref path,
+                ref projection,
+                ..
+            } => write!(f, "CsvScan: {} projection={:?}", path, projection),
+            LogicalPlan::ParquetScan {
+                ref path,
+                ref projection,
+                ..
+            } => write!(f, "ParquetScan: {} projection={:?}", path, projection),
             LogicalPlan::Projection {
                 ref expr,
                 ref input,
@@ -726,6 +764,20 @@ impl LogicalPlanBuilder {
         Self::from(&LogicalPlan::EmptyRelation {
             schema: Box::new(Schema::empty()),
         })
+    }
+
+    /// Scan a CSV data source
+    pub fn scan_csv(
+        path: &str,
+        schema: &Schema,
+        projection: Option<Vec<usize>>,
+    ) -> Result<Self> {
+        unimplemented!()
+    }
+
+    /// Scan a Parquet data source
+    pub fn scan_parquet(path: &str, projection: Option<Vec<usize>>) -> Result<Self> {
+        unimplemented!()
     }
 
     /// Scan a data source
