@@ -185,6 +185,7 @@ class ARROW_PYTHON_EXPORT OwnedRef {
 class ARROW_PYTHON_EXPORT OwnedRefNoGIL : public OwnedRef {
  public:
   using OwnedRef::OwnedRef;
+  OwnedRefNoGIL() = default;
   OwnedRefNoGIL(OwnedRefNoGIL&& other) = default;
   OwnedRefNoGIL& operator=(OwnedRefNoGIL&& other) = default;
 
