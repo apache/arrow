@@ -43,8 +43,8 @@ DST_DIR="arrow-$VERSION"
 
 # Collect the build artifacts and make the shape of zip file that rwinlib expects
 ls
-mkdir build
-cp mingw* build
+mkdir -p build
+mv mingw* build
 cd build
 
 # This may vary by system/CI provider
@@ -55,7 +55,7 @@ ls $MSYS_LIB_DIR/mingw32/lib/
 
 # Untar the two builds we made
 ls | xargs -n 1 tar -xJf
-mkdir $DST_DIR
+mkdir -p $DST_DIR
 # Grab the headers from one, either one is fine
 mv mingw64/include $DST_DIR
 
