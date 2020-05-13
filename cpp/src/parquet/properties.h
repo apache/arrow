@@ -615,11 +615,17 @@ class PARQUET_EXPORT ArrowReaderProperties {
 
   ::arrow::io::CacheOptions cache_options() const { return cache_options_; }
 
+  /// Set execution context for read coalescing.
+  void set_async_context(::arrow::io::AsyncContext ctx) { async_context_ = ctx; }
+
+  ::arrow::io::AsyncContext async_context() const { return async_context_; }
+
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
   int64_t batch_size_;
   bool pre_buffer_;
+  ::arrow::io::AsyncContext async_context_;
   ::arrow::io::CacheOptions cache_options_;
 };
 

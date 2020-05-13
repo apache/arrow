@@ -40,9 +40,14 @@
 
 namespace arrow {
 
+using internal::Executor;
 using internal::ThreadPool;
 
 namespace io {
+
+AsyncContext::AsyncContext() : AsyncContext(internal::GetIOThreadPool()) {}
+
+AsyncContext::AsyncContext(Executor* executor) : executor(executor) {}
 
 FileInterface::~FileInterface() = default;
 
@@ -115,12 +120,12 @@ Result<std::shared_ptr<Buffer>> RandomAccessFile::ReadAt(int64_t position,
 }
 
 // Default ReadAsync() implementation: simply issue the read on one of the IO threads
-Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(int64_t position,
+Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(const AsyncContext& ctx,
+                                                            int64_t position,
                                                             int64_t nbytes) {
-  auto pool = internal::GetIOThreadPool();
   auto self = shared_from_this();
-  auto maybe_fut =
-      pool->Submit([self, position, nbytes] { return self->ReadAt(position, nbytes); });
+  auto maybe_fut = ctx.executor->Submit(
+      [self, position, nbytes] { return self->ReadAt(position, nbytes); });
   if (!maybe_fut.ok()) {
     return Future<std::shared_ptr<Buffer>>::MakeFinished(maybe_fut.status());
   }
