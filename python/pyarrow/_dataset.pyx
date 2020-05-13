@@ -76,27 +76,15 @@ cdef class FileSource:
                                                move(c_filesystem)))
 
         else:
-            c_open = BindMethod[CCustomOpen](wrap_python_file(file, mode='r'),
-                                             &FileSource._custom_open)
-            self.wrapped = CMakeFileSource(move(c_open))
-
-    @staticmethod
-    cdef shared_ptr[CRandomAccessFile] _custom_open(NativeFile file) except *:
-        return file.get_random_access_file()
+            c_open = BindMethod[CCustomOpen](
+                wrap_python_file(file, mode='r'),
+                &NativeFile.get_random_access_file)
+            self.wrapped.reset(new CFileSource(move(c_open)))
 
     @staticmethod
     def from_uri(uri):
         filesystem, path = FileSystem.from_uri(uri)
         return FileSource(path, filesystem)
-
-    @staticmethod
-    def test():
-        cdef CStatus s
-        try:
-            raise IndexError("yo")
-        except Exception:
-            s = CheckPyError()
-            print(frombytes(s.message()))
 
     cdef CFileSource unwrap(self) nogil:
         return deref(self.wrapped)

@@ -39,12 +39,12 @@ namespace py {
 // Convert current Python error to a Status.  The Python error state is cleared
 // and can be restored with RestorePyError().
 ARROW_PYTHON_EXPORT Status ConvertPyError(StatusCode code = StatusCode::UnknownError);
-// Same as ConvertPyError(), but returns Status::OK() if no Python error is set.
-ARROW_PYTHON_EXPORT Status PassPyError();
 // Query whether the given Status is a Python error (as wrapped by ConvertPyError()).
 ARROW_PYTHON_EXPORT bool IsPyError(const Status& status);
 // Restore a Python error wrapped in a Status.
 ARROW_PYTHON_EXPORT void RestorePyError(const Status& status);
+// Convert a Python Exception to a Status.
+ARROW_PYTHON_EXPORT Status ExceptionToStatus(PyObject* exc_value);
 
 // Catch a pending Python exception and return the corresponding Status.
 // If no exception is pending, Status::OK() is returned.
@@ -138,7 +138,7 @@ auto SafeCallIntoPython(Function&& func) -> decltype(func()) {
 // goes out of scope.
 class ARROW_PYTHON_EXPORT OwnedRef {
  public:
-  OwnedRef() : obj_(NULLPTR) {}
+  OwnedRef() = default;
   OwnedRef(OwnedRef&& other) : OwnedRef(other.detach()) {}
   explicit OwnedRef(PyObject* obj) : obj_(obj) {}
 
@@ -154,14 +154,17 @@ class ARROW_PYTHON_EXPORT OwnedRef {
     obj_ = obj;
   }
 
-  void incref() { Py_XINCREF(obj_); }
-
   void reset() { reset(NULLPTR); }
 
   PyObject* detach() {
     PyObject* result = obj_;
     obj_ = NULLPTR;
     return result;
+  }
+
+  PyObject* incref() const {
+    Py_XINCREF(obj_);
+    return obj_;
   }
 
   PyObject* obj() const { return obj_; }
@@ -173,7 +176,7 @@ class ARROW_PYTHON_EXPORT OwnedRef {
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(OwnedRef);
 
-  PyObject* obj_;
+  PyObject* obj_ = NULLPTR;
 };
 
 // Same as OwnedRef, but ensures the GIL is taken when it goes out of scope.
@@ -181,9 +184,14 @@ class ARROW_PYTHON_EXPORT OwnedRef {
 // (e.g. if it is released in the middle of a function for performance reasons)
 class ARROW_PYTHON_EXPORT OwnedRefNoGIL : public OwnedRef {
  public:
-  OwnedRefNoGIL() : OwnedRef() {}
-  OwnedRefNoGIL(OwnedRefNoGIL&& other) : OwnedRef(other.detach()) {}
-  explicit OwnedRefNoGIL(PyObject* obj) : OwnedRef(obj) {}
+  using OwnedRef::OwnedRef;
+  OwnedRefNoGIL(OwnedRefNoGIL&& other) = default;
+  OwnedRefNoGIL& operator=(OwnedRefNoGIL&& other) = default;
+
+  PyObject* incref() const {
+    PyAcquireGIL lock;
+    return OwnedRef::incref();
+  }
 
   ~OwnedRefNoGIL() {
     PyAcquireGIL lock;
@@ -314,25 +322,50 @@ struct BoundMethod<Self, R(A...)> {
   using Unbound = R(Self*, A...);
 
   BoundMethod(void* self, Unbound* unbound)
-      : self_(new OwnedRefNoGIL(reinterpret_cast<PyObject*>(self))), unbound_(unbound) {
-    self_->incref();
+      : self_(reinterpret_cast<PyObject*>(self)), unbound_(unbound) {
+    self_.incref();
+  }
+
+  BoundMethod(BoundMethod&&) = default;
+  BoundMethod& operator=(BoundMethod&&) = default;
+
+  // copy construction is required by std::function
+  BoundMethod(const BoundMethod& other)
+      : self_(other.self_.incref()), unbound_(other.unbound_) {}
+
+  BoundMethod& operator=(const BoundMethod& other) {
+    self_.reset(other.self_.incref());
+    unbound_ = other.unbound_;
+    return *this;
   }
 
   Result<R> operator()(A... args) const {
     return SafeCallIntoPython([=]() -> Result<R> {
-      R out = unbound_(reinterpret_cast<Self*>(self_->obj()), static_cast<A>(args)...);
+      R out = unbound_(reinterpret_cast<Self*>(self_.obj()), static_cast<A>(args)...);
       RETURN_IF_PYERROR();
       return out;
     });
   }
 
-  std::shared_ptr<OwnedRefNoGIL> self_;
+  OwnedRefNoGIL self_;
   Unbound* unbound_;
 };
 
 template <typename Fn, typename R, typename Self, typename... A>
+std::function<Fn> BindMethod(void* self, R (&unbound)(Self* self, A...)) {
+  BoundMethod<Self, R(A...)> bound{self, &unbound};
+  return std::function<Fn>(std::move(bound));
+}
+
+template <typename Fn, typename R, typename Self, typename... A>
 std::function<Fn> BindMethod(void* self, R (*unbound)(Self* self, A...)) {
   BoundMethod<Self, R(A...)> bound{self, unbound};
+  return std::function<Fn>(std::move(bound));
+}
+
+template <typename Fn, typename R, typename Self, typename... A>
+std::function<Fn> BindMethod(void* self, R (**unbound)(Self* self, A...)) {
+  BoundMethod<Self, R(A...)> bound{self, *unbound};
   return std::function<Fn>(std::move(bound));
 }
 

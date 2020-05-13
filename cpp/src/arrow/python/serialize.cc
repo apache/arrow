@@ -371,7 +371,7 @@ Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* el
                                       ": handler not registered");
   } else {
     *result = PyObject_CallMethodObjArgs(context, method_name, elem, NULL);
-    return PassPyError();
+    return CheckPyError();
   }
 }
 

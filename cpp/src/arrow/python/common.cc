@@ -86,6 +86,19 @@ StatusCode MapPyError(PyObject* exc_type) {
 // PythonErrorDetail indicates a Python exception was raised.
 class PythonErrorDetail : public StatusDetail {
  public:
+  PythonErrorDetail() {
+    PyErr_Fetch(exc_type_.ref(), exc_value_.ref(), exc_traceback_.ref());
+    NormalizeAndCheck();
+  }
+
+  explicit PythonErrorDetail(PyObject* exc_value)
+      : exc_type_(PyObject_Type(exc_value)),
+        exc_value_(exc_value),
+        exc_traceback_(PyException_GetTraceback(exc_value)) {
+    exc_value_.incref();
+    NormalizeAndCheck();
+  }
+
   const char* type_id() const override { return kErrorDetailTypeId; }
 
   std::string ToString() const override {
@@ -96,42 +109,38 @@ class PythonErrorDetail : public StatusDetail {
   }
 
   void RestorePyError() const {
-    Py_INCREF(exc_type_.obj());
-    Py_INCREF(exc_value_.obj());
-    Py_INCREF(exc_traceback_.obj());
-    PyErr_Restore(exc_type_.obj(), exc_value_.obj(), exc_traceback_.obj());
+    PyErr_Restore(exc_type_.incref(), exc_value_.incref(), exc_traceback_.incref());
   }
 
   PyObject* exc_type() const { return exc_type_.obj(); }
 
   PyObject* exc_value() const { return exc_value_.obj(); }
 
-  static std::shared_ptr<PythonErrorDetail> FromPyError() {
-    PyObject* exc_type = nullptr;
-    PyObject* exc_value = nullptr;
-    PyObject* exc_traceback = nullptr;
-
-    PyErr_Fetch(&exc_type, &exc_value, &exc_traceback);
-    PyErr_NormalizeException(&exc_type, &exc_value, &exc_traceback);
-    ARROW_CHECK(exc_type)
-        << "PythonErrorDetail::FromPyError called without a Python error set";
-    DCHECK(PyType_Check(exc_type));
-    DCHECK(exc_value);  // Ensured by PyErr_NormalizeException, double-check
-    if (exc_traceback == nullptr) {
-      // Needed by PyErr_Restore()
-      Py_INCREF(Py_None);
-      exc_traceback = Py_None;
+  Status ToStatus(StatusCode code = StatusCode::UnknownError) && {
+    if (code == StatusCode::UnknownError) {
+      code = MapPyError(exc_type());
     }
 
-    std::shared_ptr<PythonErrorDetail> detail(new PythonErrorDetail);
-    detail->exc_type_.reset(exc_type);
-    detail->exc_value_.reset(exc_value);
-    detail->exc_traceback_.reset(exc_traceback);
-    return detail;
+    std::string message;
+    RETURN_NOT_OK(internal::PyObject_StdStringStr(exc_value(), &message));
+
+    auto detail = std::make_shared<PythonErrorDetail>(std::move(*this));
+    return Status(code, std::move(message), std::move(detail));
   }
 
  protected:
-  PythonErrorDetail() = default;
+  void NormalizeAndCheck() {
+    PyErr_NormalizeException(exc_type_.ref(), exc_value_.ref(), exc_traceback_.ref());
+    ARROW_CHECK(exc_type_)
+        << "PythonErrorDetail::NormalizeAndCheck called without a Python error set";
+    DCHECK(PyType_Check(exc_type()));
+    DCHECK(exc_value_);  // Ensured by PyErr_NormalizeException, double-check
+    if (!exc_traceback_) {
+      // Needed by PyErr_Restore()
+      exc_traceback_.reset(Py_None);
+      exc_traceback_.incref();
+    }
+  }
 
   OwnedRefNoGIL exc_type_, exc_value_, exc_traceback_;
 };
@@ -141,23 +150,10 @@ class PythonErrorDetail : public StatusDetail {
 // ----------------------------------------------------------------------
 // Python exception <-> Status
 
-Status ConvertPyError(StatusCode code) {
-  auto detail = PythonErrorDetail::FromPyError();
-  if (code == StatusCode::UnknownError) {
-    code = MapPyError(detail->exc_type());
-  }
+Status ConvertPyError(StatusCode code) { return PythonErrorDetail().ToStatus(code); }
 
-  std::string message;
-  RETURN_NOT_OK(internal::PyObject_StdStringStr(detail->exc_value(), &message));
-  return Status(code, message, detail);
-}
-
-Status PassPyError() {
-  if (PyErr_Occurred()) {
-    return ConvertPyError();
-  }
-  return Status::OK();
-}
+//
+// Same as ConvertPyError(), but ARROW_PYTHON_EXPORT Status PassPyError();
 
 bool IsPyError(const Status& status) {
   if (status.ok()) {
@@ -172,6 +168,10 @@ void RestorePyError(const Status& status) {
   ARROW_CHECK(IsPyError(status));
   const auto& detail = checked_cast<const PythonErrorDetail&>(*status.detail());
   detail.RestorePyError();
+}
+
+Status ExceptionToStatus(PyObject* exc_value) {
+  return PythonErrorDetail(exc_value).ToStatus();
 }
 
 // ----------------------------------------------------------------------

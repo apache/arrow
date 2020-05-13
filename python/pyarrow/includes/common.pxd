@@ -127,6 +127,7 @@ cdef extern from "arrow/result.h" namespace "arrow" nogil:
 
 cdef extern from "arrow/python/common.h" namespace "arrow::py" nogil:
     T GetResultValue[T](CResult[T]) except *
+    CStatus ExceptionToStatus(Exception)
 
     cdef function[F] BindMethod[F](object self, void* unbound)
 
