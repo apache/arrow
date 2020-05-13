@@ -647,7 +647,13 @@ thread_local std::atomic<FlightServerBase::Impl*>
 #endif
 
 FlightServerOptions::FlightServerOptions(const Location& location_)
-    : location(location_), auth_handler(nullptr) {}
+    : location(location_),
+      auth_handler(nullptr),
+      tls_certificates(),
+      verify_client(false),
+      root_certificates(),
+      middleware(),
+      builder_hook(nullptr) {}
 
 FlightServerOptions::~FlightServerOptions() = default;
 

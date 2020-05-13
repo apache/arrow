@@ -2179,7 +2179,7 @@ cdef class FlightServerBase:
             raise TypeError('`location` argument must be a string, tuple or a '
                             'Location instance')
         self.init(location, auth_handler, tls_certificates, verify_client,
-                  tobytes(root_certificates), middleware)
+                  tobytes(root_certificates or b""), middleware)
 
     cdef init(self, Location location, ServerAuthHandler auth_handler,
               list tls_certificates, c_bool verify_client,
