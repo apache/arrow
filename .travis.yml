@@ -47,11 +47,13 @@ jobs:
       env:
         ARCH: s390x
         ARROW_CI_MODULES: "CPP"
-        ARROW_FLIGHT: "OFF"
         ARROW_GANDIVA: "OFF"
         ARROW_PARQUET: "OFF"
         PARQUET_BUILD_EXAMPLES: "OFF"
         PARQUET_BUILD_EXECUTABLES: "OFF"
+        cares_SOURCE: "BUNDLED"
+        Protobuf_SOURCE: "BUNDLED"
+        gRPC_SOURCE: "BUNDLED"
         DOCKER_IMAGE_ID: ubuntu-cpp
         UBUNTU: "20.04"
   allow_failures:
@@ -87,11 +89,13 @@ script:
     ulimit -c unlimited || :
   - |
     archery docker run \
-      -e ARROW_FLIGHT=${ARROW_FLIGHT:-OFF} \
       -e ARROW_GANDIVA=${ARROW_GANDIVA:-ON} \
       -e ARROW_PARQUET=${ARROW_PARQUET:-ON} \
       -e PARQUET_BUILD_EXAMPLES=${PARQUET_BUILD_EXAMPLES:-ON} \
       -e PARQUET_BUILD_EXECUTABLES=${PARQUET_BUILD_EXECUTABLES:-ON} \
+      -e cares_SOURCE=${cares_SOURCE:-AUTO} \
+      -e gRPC_SOURCE=${gRPC_SOURCE:-AUTO} \
+      -e Protobuf_SOURCE=${Protobuf_SOURCE:-AUTO} \
       --volume ${PWD}/build:/build \
       ${DOCKER_IMAGE_ID}
 
