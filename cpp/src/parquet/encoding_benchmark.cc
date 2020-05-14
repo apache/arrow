@@ -25,6 +25,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/util/byte_stream_split.h"
+#include "arrow/util/cpu_info.h"
 
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
@@ -198,6 +199,153 @@ static void BM_PlainDecodingFloat(benchmark::State& state) {
 }
 
 BENCHMARK(BM_PlainDecodingFloat)->Range(MIN_RANGE, MAX_RANGE);
+
+static void BM_PlainSpacedArgs(benchmark::internal::Benchmark* bench) {
+  static const auto BM_kPlainSpacedSize =
+      arrow::internal::CpuInfo::GetInstance()->CacheSize(
+          arrow::internal::CpuInfo::L1_CACHE);
+
+  bench->Args({/*size*/ BM_kPlainSpacedSize, /*null_percentage=*/1});
+  bench->Args({/*size*/ BM_kPlainSpacedSize, /*null_percentage=*/10});
+  bench->Args({/*size*/ BM_kPlainSpacedSize, /*null_percentage=*/50});
+}
+
+static void BM_PlainEncodingSpacedBoolean(benchmark::State& state) {
+  const auto num_values = state.range(0);
+  const double null_percent = static_cast<double>(state.range(1)) / 100.0;
+
+  const auto values = new bool[num_values];
+  auto rand = ::arrow::random::RandomArrayGenerator(1923);
+  const auto array = rand.Boolean(num_values, 0.5, null_percent);
+  const auto valid_bits = array->null_bitmap_data();
+
+  auto encoder = MakeTypedEncoder<BooleanType>(Encoding::PLAIN);
+
+  for (auto _ : state) {
+    encoder->PutSpaced(values, num_values, valid_bits, 0);
+    encoder->FlushValues();
+  }
+  state.SetBytesProcessed(state.iterations() * num_values * sizeof(bool));
+
+  delete[] values;
+}
+BENCHMARK(BM_PlainEncodingSpacedBoolean)->Apply(BM_PlainSpacedArgs);
+
+template <typename ParquetType>
+static void BM_PlainEncodingSpaced(benchmark::State& state) {
+  using ArrowType = typename EncodingTraits<ParquetType>::ArrowType;
+  using ArrayType = typename arrow::TypeTraits<ArrowType>::ArrayType;
+  using CType = typename ParquetType::c_type;
+
+  const auto num_values = state.range(0);
+  const double null_percent = static_cast<double>(state.range(1)) / 100.0;
+
+  auto rand = ::arrow::random::RandomArrayGenerator(1923);
+  const auto array = rand.Numeric<ArrowType>(num_values, -100, 100, null_percent);
+  const auto valid_bits = array->null_bitmap_data();
+  const auto array_actual = arrow::internal::checked_pointer_cast<ArrayType>(array);
+
+  auto encoder = MakeTypedEncoder<ParquetType>(Encoding::PLAIN);
+
+  for (auto _ : state) {
+    encoder->PutSpaced(array_actual->raw_values(), num_values, valid_bits, 0);
+    encoder->FlushValues();
+  }
+  state.SetBytesProcessed(state.iterations() * num_values * sizeof(CType));
+}
+
+static void BM_PlainEncodingSpacedInt32(benchmark::State& state) {
+  BM_PlainEncodingSpaced<Int32Type>(state);
+}
+BENCHMARK(BM_PlainEncodingSpacedInt32)->Apply(BM_PlainSpacedArgs);
+
+static void BM_PlainEncodingSpacedInt64(benchmark::State& state) {
+  BM_PlainEncodingSpaced<Int64Type>(state);
+}
+BENCHMARK(BM_PlainEncodingSpacedInt64)->Apply(BM_PlainSpacedArgs);
+
+static void BM_PlainEncodingSpacedFloat(benchmark::State& state) {
+  BM_PlainEncodingSpaced<FloatType>(state);
+}
+BENCHMARK(BM_PlainEncodingSpacedFloat)->Apply(BM_PlainSpacedArgs);
+
+static void BM_PlainEncodingSpacedDouble(benchmark::State& state) {
+  BM_PlainEncodingSpaced<DoubleType>(state);
+}
+BENCHMARK(BM_PlainEncodingSpacedDouble)->Apply(BM_PlainSpacedArgs);
+
+static void BM_PlainDecodingSpacedBoolean(benchmark::State& state) {
+  const auto num_values = state.range(0);
+  const double null_percent = static_cast<double>(state.range(1)) / 100.0;
+
+  const auto values = new bool[num_values];
+  auto rand = ::arrow::random::RandomArrayGenerator(1923);
+  const auto array = rand.Boolean(num_values, 0.5, null_percent);
+  const auto null_count = array->null_count();
+  const auto valid_bits = array->null_bitmap_data();
+
+  auto encoder = MakeTypedEncoder<BooleanType>(Encoding::PLAIN);
+  encoder->PutSpaced(values, num_values, valid_bits, 0);
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<BooleanType>(Encoding::PLAIN);
+  for (auto _ : state) {
+    decoder->SetData(num_values - null_count, buf->data(), buf->size());
+    decoder->DecodeSpaced(values, num_values, null_count, valid_bits, 0);
+  }
+  state.SetBytesProcessed(state.iterations() * num_values * sizeof(bool));
+
+  delete[] values;
+}
+BENCHMARK(BM_PlainDecodingSpacedBoolean)->Apply(BM_PlainSpacedArgs);
+
+template <typename ParquetType>
+static void BM_PlainDecodingSpaced(benchmark::State& state) {
+  using ArrowType = typename EncodingTraits<ParquetType>::ArrowType;
+  using ArrayType = typename arrow::TypeTraits<ArrowType>::ArrayType;
+  using CType = typename ParquetType::c_type;
+
+  const auto num_values = state.range(0);
+  const double null_percent = static_cast<double>(state.range(1)) / 100.0;
+
+  auto rand = ::arrow::random::RandomArrayGenerator(1923);
+  const auto array = rand.Numeric<ArrowType>(num_values, -100, 100, null_percent);
+  const auto valid_bits = array->null_bitmap_data();
+  const auto null_count = array->null_count();
+  const auto array_actual = arrow::internal::checked_pointer_cast<ArrayType>(array);
+
+  auto encoder = MakeTypedEncoder<ParquetType>(Encoding::PLAIN);
+  encoder->PutSpaced(array_actual->raw_values(), num_values, valid_bits, 0);
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<ParquetType>(Encoding::PLAIN);
+  std::vector<CType> decode_values(num_values);
+  for (auto _ : state) {
+    decoder->SetData(num_values - null_count, buf->data(), buf->size());
+    decoder->DecodeSpaced(decode_values.data(), num_values, null_count, valid_bits, 0);
+  }
+  state.SetBytesProcessed(state.iterations() * num_values * sizeof(CType));
+}
+
+static void BM_PlainDecodingSpacedInt32(benchmark::State& state) {
+  BM_PlainDecodingSpaced<Int32Type>(state);
+}
+BENCHMARK(BM_PlainDecodingSpacedInt32)->Apply(BM_PlainSpacedArgs);
+
+static void BM_PlainDecodingSpacedInt64(benchmark::State& state) {
+  BM_PlainDecodingSpaced<Int64Type>(state);
+}
+BENCHMARK(BM_PlainDecodingSpacedInt64)->Apply(BM_PlainSpacedArgs);
+
+static void BM_PlainDecodingSpacedFloat(benchmark::State& state) {
+  BM_PlainDecodingSpaced<FloatType>(state);
+}
+BENCHMARK(BM_PlainDecodingSpacedFloat)->Apply(BM_PlainSpacedArgs);
+
+static void BM_PlainDecodingSpacedDouble(benchmark::State& state) {
+  BM_PlainDecodingSpaced<DoubleType>(state);
+}
+BENCHMARK(BM_PlainDecodingSpacedDouble)->Apply(BM_PlainSpacedArgs);
 
 template <typename T, typename DecodeFunc>
 static void BM_ByteStreamSplitDecode(benchmark::State& state, DecodeFunc&& decode_func) {
