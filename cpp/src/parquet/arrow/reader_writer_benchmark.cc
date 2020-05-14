@@ -267,7 +267,8 @@ BENCHMARK_TEMPLATE2(BM_ReadColumn, false, BooleanType)
     ->Args({kAlternatingOrNa, 0})
     ->Args({1, 20});
 BENCHMARK_TEMPLATE2(BM_ReadColumn, true, BooleanType)
-    ->Ranges({{kAlternatingOrNa, 0}, {0, 10}});
+    ->Args({kAlternatingOrNa, 1})
+    ->Args({5, 10});
 
 static void BM_ReadIndividualRowGroups(::benchmark::State& state) {
   std::vector<int64_t> values(BENCHMARK_SIZE, 128);
