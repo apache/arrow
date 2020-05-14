@@ -50,9 +50,9 @@ cdef class FileSource:
 
     cdef:
         # XXX why is shared_ptr necessary here? CFileSource shouldn't need it
-        shared_ptr[CFileSource] wrapped
+        CFileSource wrapped
 
-    def __init__(self, file, FileSystem filesystem=None):
+    def __cinit__(self, file, FileSystem filesystem=None):
         cdef:
             shared_ptr[CFileSystem] c_filesystem
             c_string c_path
@@ -64,7 +64,7 @@ cdef class FileSource:
 
         elif isinstance(file, Buffer):
             c_buffer = pyarrow_unwrap_buffer(file)
-            self.wrapped.reset(new CFileSource(move(c_buffer)))
+            self.wrapped = CFileSource(move(c_buffer))
 
         elif _is_path_like(file):
             if filesystem is None:
@@ -72,14 +72,13 @@ cdef class FileSource:
                                  "a path without a FileSystem")
             c_filesystem = filesystem.unwrap()
             c_path = tobytes(_stringify_path(file))
-            self.wrapped.reset(new CFileSource(move(c_path),
-                                               move(c_filesystem)))
+            self.wrapped = CFileSource(move(c_path), move(c_filesystem))
 
         else:
             c_open = BindMethod[CCustomOpen](
                 wrap_python_file(file, mode='r'),
                 &NativeFile.get_random_access_file)
-            self.wrapped.reset(new CFileSource(move(c_open)))
+            self.wrapped = CFileSource(move(c_open))
 
     @staticmethod
     def from_uri(uri):
@@ -87,7 +86,7 @@ cdef class FileSource:
         return FileSource(path, filesystem)
 
     cdef CFileSource unwrap(self) nogil:
-        return deref(self.wrapped)
+        return self.wrapped
 
 
 cdef class Expression:
