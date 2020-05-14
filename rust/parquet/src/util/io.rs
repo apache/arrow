@@ -133,11 +133,10 @@ pub struct FileSink<W: ParquetWriter> {
 impl<W: ParquetWriter> FileSink<W> {
     /// Creates new file sink.
     /// Position is set to whatever position file has.
-    pub fn new(buf: &W) -> Self {
-        let mut owned_buf = buf.try_clone().unwrap();
-        let pos = owned_buf.seek(SeekFrom::Current(0)).unwrap();
+    pub fn new(mut buf: W) -> Self {
+        let pos = buf.seek(SeekFrom::Current(0)).unwrap();
         Self {
-            buf: BufWriter::new(owned_buf),
+            buf: BufWriter::new(buf),
             pos,
         }
     }
@@ -242,15 +241,18 @@ mod tests {
         let mut file = get_temp_file("file_sink_test", &[b'a', b'b', b'c']);
         file.seek(SeekFrom::Current(3)).unwrap();
 
-        // Write into sink
-        let mut sink = FileSink::new(&file);
-        assert_eq!(sink.pos(), 3);
+        let sink_pos = {
+            // Write into sink
+            let mut sink = FileSink::new(&mut file);
+            assert_eq!(sink.pos(), 3);
 
-        sink.write_all(&[b'd', b'e', b'f', b'g']).unwrap();
-        assert_eq!(sink.pos(), 7);
+            sink.write_all(&[b'd', b'e', b'f', b'g']).unwrap();
+            assert_eq!(sink.pos(), 7);
 
-        sink.flush().unwrap();
-        assert_eq!(sink.pos(), file.seek(SeekFrom::Current(0)).unwrap());
+            sink.flush().unwrap();
+            sink.pos()
+        };
+        assert_eq!(sink_pos, file.seek(SeekFrom::Current(0)).unwrap());
 
         // Read data using file chunk
         let mut res = vec![0u8; 7];

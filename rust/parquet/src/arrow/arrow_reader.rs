@@ -506,16 +506,20 @@ mod tests {
         let mut writer = SerializedFileWriter::new(file, schema, writer_props)?;
 
         for v in values {
-            let mut row_group_writer = writer.next_row_group()?;
-            let mut column_writer = row_group_writer
-                .next_column()?
-                .expect("Column writer is none!");
+            let row_group_metadata = {
+                let mut row_group_writer = writer.next_row_group()?;
+                let mut column_writer = row_group_writer
+                    .next_column()?
+                    .expect("Column writer is none!");
 
-            get_typed_column_writer_mut::<T>(&mut column_writer)
-                .write_batch(v, None, None)?;
+                get_typed_column_writer_mut::<T>(&mut column_writer)
+                    .write_batch(v, None, None)?;
 
-            row_group_writer.close_column(column_writer)?;
-            writer.close_row_group(row_group_writer)?
+                let column_metadata = column_writer.close().unwrap();
+                row_group_writer.close_column(column_metadata)?;
+                row_group_writer.close()?
+            };
+            writer.close_row_group(row_group_metadata)?
         }
 
         writer.close()

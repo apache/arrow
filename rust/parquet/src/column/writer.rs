@@ -38,15 +38,36 @@ use crate::util::bit_util::FromBytes;
 use crate::util::memory::{ByteBufferPtr, MemTracker};
 
 /// Column writer for a Parquet type.
-pub enum ColumnWriter {
-    BoolColumnWriter(ColumnWriterImpl<BoolType>),
-    Int32ColumnWriter(ColumnWriterImpl<Int32Type>),
-    Int64ColumnWriter(ColumnWriterImpl<Int64Type>),
-    Int96ColumnWriter(ColumnWriterImpl<Int96Type>),
-    FloatColumnWriter(ColumnWriterImpl<FloatType>),
-    DoubleColumnWriter(ColumnWriterImpl<DoubleType>),
-    ByteArrayColumnWriter(ColumnWriterImpl<ByteArrayType>),
-    FixedLenByteArrayColumnWriter(ColumnWriterImpl<FixedLenByteArrayType>),
+pub enum ColumnWriter<'a> {
+    BoolColumnWriter(ColumnWriterImpl<'a, BoolType>),
+    Int32ColumnWriter(ColumnWriterImpl<'a, Int32Type>),
+    Int64ColumnWriter(ColumnWriterImpl<'a, Int64Type>),
+    Int96ColumnWriter(ColumnWriterImpl<'a, Int96Type>),
+    FloatColumnWriter(ColumnWriterImpl<'a, FloatType>),
+    DoubleColumnWriter(ColumnWriterImpl<'a, DoubleType>),
+    ByteArrayColumnWriter(ColumnWriterImpl<'a, ByteArrayType>),
+    FixedLenByteArrayColumnWriter(ColumnWriterImpl<'a, FixedLenByteArrayType>),
+}
+
+pub struct ColumnMetadata {
+    pub bytes_written: u64,
+    pub rows_written: u64,
+    pub metadata: ColumnChunkMetaData,
+}
+
+impl ColumnWriter<'_> {
+    pub fn close(self) -> Result<ColumnMetadata> {
+        match self {
+            ColumnWriter::BoolColumnWriter(typed) => typed.close(),
+            ColumnWriter::Int32ColumnWriter(typed) => typed.close(),
+            ColumnWriter::Int64ColumnWriter(typed) => typed.close(),
+            ColumnWriter::Int96ColumnWriter(typed) => typed.close(),
+            ColumnWriter::FloatColumnWriter(typed) => typed.close(),
+            ColumnWriter::DoubleColumnWriter(typed) => typed.close(),
+            ColumnWriter::ByteArrayColumnWriter(typed) => typed.close(),
+            ColumnWriter::FixedLenByteArrayColumnWriter(typed) => typed.close(),
+        }
+    }
 }
 
 pub enum Level {
@@ -75,11 +96,11 @@ macro_rules! gen_stats_section {
 }
 
 /// Gets a specific column writer corresponding to column descriptor `descr`.
-pub fn get_column_writer(
+pub fn get_column_writer<'a>(
     descr: ColumnDescPtr,
     props: WriterPropertiesPtr,
-    page_writer: Box<PageWriter>,
-) -> ColumnWriter {
+    page_writer: Box<PageWriter + 'a>,
+) -> ColumnWriter<'a> {
     match descr.physical_type() {
         Type::BOOLEAN => ColumnWriter::BoolColumnWriter(ColumnWriterImpl::new(
             descr,
@@ -138,9 +159,9 @@ pub fn get_typed_column_writer<T: DataType>(
 }
 
 /// Similar to `get_typed_column_writer` but returns a reference.
-pub fn get_typed_column_writer_ref<T: DataType>(
-    col_writer: &ColumnWriter,
-) -> &ColumnWriterImpl<T> {
+pub fn get_typed_column_writer_ref<'a, 'b, T: DataType>(
+    col_writer: &'a ColumnWriter<'b>,
+) -> &'a ColumnWriterImpl<'b, T> {
     T::get_column_writer_ref(col_writer).unwrap_or_else(|| {
         panic!(
             "Failed to convert column writer into a typed column writer for `{}` type",
@@ -150,9 +171,9 @@ pub fn get_typed_column_writer_ref<T: DataType>(
 }
 
 /// Similar to `get_typed_column_writer` but returns a reference.
-pub fn get_typed_column_writer_mut<T: DataType>(
-    col_writer: &mut ColumnWriter,
-) -> &mut ColumnWriterImpl<T> {
+pub fn get_typed_column_writer_mut<'a, 'b, T: DataType>(
+    col_writer: &'a mut ColumnWriter<'b>,
+) -> &'a mut ColumnWriterImpl<'b, T> {
     T::get_column_writer_mut(col_writer).unwrap_or_else(|| {
         panic!(
             "Failed to convert column writer into a typed column writer for `{}` type",
@@ -162,11 +183,11 @@ pub fn get_typed_column_writer_mut<T: DataType>(
 }
 
 /// Typed column writer for a primitive column.
-pub struct ColumnWriterImpl<T: DataType> {
+pub struct ColumnWriterImpl<'a, T: DataType> {
     // Column writer properties
     descr: ColumnDescPtr,
     props: WriterPropertiesPtr,
-    page_writer: Box<PageWriter>,
+    page_writer: Box<PageWriter + 'a>,
     has_dictionary: bool,
     dict_encoder: Option<DictEncoder<T>>,
     encoder: Box<Encoder<T>>,
@@ -198,11 +219,11 @@ pub struct ColumnWriterImpl<T: DataType> {
     data_pages: VecDeque<CompressedPage>,
 }
 
-impl<T: DataType> ColumnWriterImpl<T> {
+impl<'a, T: DataType> ColumnWriterImpl<'a, T> {
     pub fn new(
         descr: ColumnDescPtr,
         props: WriterPropertiesPtr,
-        page_writer: Box<PageWriter>,
+        page_writer: Box<PageWriter + 'a>,
     ) -> Self {
         let codec = props.compression(descr.path());
         let compressor = create_codec(codec).unwrap();
@@ -413,7 +434,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
 
     /// Finalises writes and closes the column writer.
     /// Returns total bytes written, total rows written and column chunk metadata.
-    pub fn close(mut self) -> Result<(u64, u64, ColumnChunkMetaData)> {
+    pub fn close(mut self) -> Result<ColumnMetadata> {
         if self.dict_encoder.is_some() {
             self.write_dictionary_page()?;
         }
@@ -422,7 +443,11 @@ impl<T: DataType> ColumnWriterImpl<T> {
         self.dict_encoder = None;
         self.page_writer.close()?;
 
-        Ok((self.total_bytes_written, self.total_rows_written, metadata))
+        Ok(ColumnMetadata {
+            bytes_written: self.total_bytes_written,
+            rows_written: self.total_rows_written,
+            metadata,
+        })
     }
 
     /// Writes mini batch of values, definition and repetition levels.
@@ -898,7 +923,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
 
     /// Returns reference to the underlying page writer.
     /// This method is intended to use in tests only.
-    fn get_page_writer_ref(&self) -> &Box<PageWriter> {
+    fn get_page_writer_ref(&self) -> &Box<PageWriter + '_> {
         &self.page_writer
     }
 
@@ -983,7 +1008,7 @@ trait EncodingWriteSupport {
 }
 
 // Basic implementation, always falls back to PLAIN and supports dictionary.
-impl<T: DataType> EncodingWriteSupport for ColumnWriterImpl<T> {
+impl<T: DataType> EncodingWriteSupport for ColumnWriterImpl<'_, T> {
     default fn fallback_encoding(_props: &WriterProperties) -> Encoding {
         Encoding::PLAIN
     }
@@ -993,7 +1018,7 @@ impl<T: DataType> EncodingWriteSupport for ColumnWriterImpl<T> {
     }
 }
 
-impl EncodingWriteSupport for ColumnWriterImpl<BoolType> {
+impl EncodingWriteSupport for ColumnWriterImpl<'_, BoolType> {
     fn fallback_encoding(props: &WriterProperties) -> Encoding {
         match props.writer_version() {
             WriterVersion::PARQUET_1_0 => Encoding::PLAIN,
@@ -1008,7 +1033,7 @@ impl EncodingWriteSupport for ColumnWriterImpl<BoolType> {
     }
 }
 
-impl EncodingWriteSupport for ColumnWriterImpl<Int32Type> {
+impl EncodingWriteSupport for ColumnWriterImpl<'_, Int32Type> {
     fn fallback_encoding(props: &WriterProperties) -> Encoding {
         match props.writer_version() {
             WriterVersion::PARQUET_1_0 => Encoding::PLAIN,
@@ -1017,7 +1042,7 @@ impl EncodingWriteSupport for ColumnWriterImpl<Int32Type> {
     }
 }
 
-impl EncodingWriteSupport for ColumnWriterImpl<Int64Type> {
+impl EncodingWriteSupport for ColumnWriterImpl<'_, Int64Type> {
     fn fallback_encoding(props: &WriterProperties) -> Encoding {
         match props.writer_version() {
             WriterVersion::PARQUET_1_0 => Encoding::PLAIN,
@@ -1026,7 +1051,7 @@ impl EncodingWriteSupport for ColumnWriterImpl<Int64Type> {
     }
 }
 
-impl EncodingWriteSupport for ColumnWriterImpl<ByteArrayType> {
+impl EncodingWriteSupport for ColumnWriterImpl<'_, ByteArrayType> {
     fn fallback_encoding(props: &WriterProperties) -> Encoding {
         match props.writer_version() {
             WriterVersion::PARQUET_1_0 => Encoding::PLAIN,
@@ -1035,7 +1060,7 @@ impl EncodingWriteSupport for ColumnWriterImpl<ByteArrayType> {
     }
 }
 
-impl EncodingWriteSupport for ColumnWriterImpl<FixedLenByteArrayType> {
+impl EncodingWriteSupport for ColumnWriterImpl<'_, FixedLenByteArrayType> {
     fn fallback_encoding(props: &WriterProperties) -> Encoding {
         match props.writer_version() {
             WriterVersion::PARQUET_1_0 => Encoding::PLAIN,
@@ -1178,7 +1203,11 @@ mod tests {
             .write_batch(&[true, false, true, false], None, None)
             .unwrap();
 
-        let (bytes_written, rows_written, metadata) = writer.close().unwrap();
+        let ColumnMetadata {
+            bytes_written,
+            rows_written,
+            metadata,
+        } = writer.close().unwrap();
         // PlainEncoder uses bit writer to write boolean values, which all fit into 1
         // byte.
         assert_eq!(bytes_written, 1);
@@ -1451,7 +1480,11 @@ mod tests {
         let mut writer = get_test_column_writer::<Int32Type>(page_writer, 0, 0, props);
         writer.write_batch(&[1, 2, 3, 4], None, None).unwrap();
 
-        let (bytes_written, rows_written, metadata) = writer.close().unwrap();
+        let ColumnMetadata {
+            bytes_written,
+            rows_written,
+            metadata,
+        } = writer.close().unwrap();
         assert_eq!(bytes_written, 20);
         assert_eq!(rows_written, 4);
         assert_eq!(
@@ -1688,7 +1721,7 @@ mod tests {
         let data = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         let mut writer = get_test_column_writer::<Int32Type>(page_writer, 0, 0, props);
         writer.write_batch(data, None, None).unwrap();
-        let (bytes_written, _, _) = writer.close().unwrap();
+        let ColumnMetadata { bytes_written, .. } = writer.close().unwrap();
 
         // Read pages and check the sequence
         let source = FileSource::new(&file, 0, bytes_written as usize);
@@ -1800,7 +1833,11 @@ mod tests {
 
         let values_written = writer.write_batch(values, def_levels, rep_levels).unwrap();
         assert_eq!(values_written, values.len());
-        let (bytes_written, rows_written, column_metadata) = writer.close().unwrap();
+        let ColumnMetadata {
+            bytes_written,
+            rows_written,
+            metadata: column_metadata,
+        } = writer.close().unwrap();
 
         let source = FileSource::new(&file, 0, bytes_written as usize);
         let page_reader = Box::new(
@@ -1866,8 +1903,8 @@ mod tests {
         let props = Rc::new(props);
         let mut writer = get_test_column_writer::<T>(page_writer, 0, 0, props);
         writer.write_batch(values, None, None).unwrap();
-        let (_, _, metadata) = writer.close().unwrap();
-        metadata
+        let column_metadata = writer.close().unwrap();
+        column_metadata.metadata
     }
 
     // Function to use in tests for EncodingWriteSupport. This checks that dictionary
@@ -1906,12 +1943,12 @@ mod tests {
     }
 
     /// Returns column writer.
-    fn get_test_column_writer<T: DataType>(
-        page_writer: Box<PageWriter>,
+    fn get_test_column_writer<'a, T: DataType>(
+        page_writer: Box<PageWriter + 'a>,
         max_def_level: i16,
         max_rep_level: i16,
         props: WriterPropertiesPtr,
-    ) -> ColumnWriterImpl<T> {
+    ) -> ColumnWriterImpl<'a, T> {
         let descr = Rc::new(get_test_column_descr::<T>(max_def_level, max_rep_level));
         let column_writer = get_column_writer(descr, props, page_writer);
         get_typed_column_writer::<T>(column_writer)

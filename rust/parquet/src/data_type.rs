@@ -449,15 +449,15 @@ pub trait DataType: 'static {
     where
         Self: Sized;
 
-    fn get_column_writer_ref(
-        column_writer: &ColumnWriter,
-    ) -> Option<&ColumnWriterImpl<Self>>
+    fn get_column_writer_ref<'a, 'b>(
+        column_writer: &'a ColumnWriter<'b>,
+    ) -> Option<&'a ColumnWriterImpl<'b, Self>>
     where
         Self: Sized;
 
-    fn get_column_writer_mut(
-        column_writer: &mut ColumnWriter,
-    ) -> Option<&mut ColumnWriterImpl<Self>>
+    fn get_column_writer_mut<'a, 'b>(
+        column_writer: &'a mut ColumnWriter<'b>,
+    ) -> Option<&'a mut ColumnWriterImpl<'b, Self>>
     where
         Self: Sized;
 }
@@ -502,26 +502,26 @@ macro_rules! make_type {
             }
 
             fn get_column_writer(
-                column_writer: ColumnWriter,
-            ) -> Option<ColumnWriterImpl<Self>> {
+                column_writer: ColumnWriter<'_>,
+            ) -> Option<ColumnWriterImpl<'_, Self>> {
                 match column_writer {
                     ColumnWriter::$writer_ident(w) => Some(w),
                     _ => None,
                 }
             }
 
-            fn get_column_writer_ref(
-                column_writer: &ColumnWriter,
-            ) -> Option<&ColumnWriterImpl<Self>> {
+            fn get_column_writer_ref<'a, 'b>(
+                column_writer: &'a ColumnWriter<'b>,
+            ) -> Option<&'a ColumnWriterImpl<'b, Self>> {
                 match column_writer {
                     ColumnWriter::$writer_ident(w) => Some(w),
                     _ => None,
                 }
             }
 
-            fn get_column_writer_mut(
-                column_writer: &mut ColumnWriter,
-            ) -> Option<&mut ColumnWriterImpl<Self>> {
+            fn get_column_writer_mut<'a, 'b>(
+                column_writer: &'a mut ColumnWriter<'b>,
+            ) -> Option<&'a mut ColumnWriterImpl<'b, Self>> {
                 match column_writer {
                     ColumnWriter::$writer_ident(w) => Some(w),
                     _ => None,
