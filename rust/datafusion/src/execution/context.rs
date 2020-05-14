@@ -238,7 +238,7 @@ impl ExecutionContext {
                     schema_name: "".to_string(),
                     table_name: table_name.to_string(),
                     table_schema: Box::new(schema.to_owned()),
-                    projected_schema: Box::new(schema.to_owned()),
+                    projected_schema: Box::new(schema),
                     projection: None,
                 };
                 Ok(Arc::new(TableImpl::new(
