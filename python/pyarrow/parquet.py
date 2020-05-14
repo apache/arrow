@@ -1447,8 +1447,12 @@ class _ParquetDatasetV2:
         metadata = self._dataset.schema.metadata
         if columns is not None and use_pandas_metadata:
             if metadata and b'pandas' in metadata:
-                index_columns = set(_get_pandas_index_columns(metadata))
-                columns = columns + list(index_columns - set(columns))
+                # RangeIndex can be represented as dict instead of column name
+                index_columns = [
+                    col for col in _get_pandas_index_columns(metadata)
+                    if not isinstance(col, dict)
+                ]
+                columns = columns + list(set(index_columns) - set(columns))
 
         table = self._dataset.to_table(
             columns=columns, filter=self._filter_expression,

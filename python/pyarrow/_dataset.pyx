@@ -630,6 +630,9 @@ cdef class Fragment:
         shared_ptr[CFragment] wrapped
         CFragment* fragment
 
+    def __init__(self):
+        _forbid_instantiation(self.__class__)
+
     cdef void init(self, const shared_ptr[CFragment]& sp):
         self.wrapped = sp
         self.fragment = sp.get()

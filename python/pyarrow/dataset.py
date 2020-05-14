@@ -649,7 +649,8 @@ def dataset(source, schema=None, format=None, filesystem=None,
     # TODO(kszucs): support InMemoryDataset for a table input
     if _is_path_like(source):
         return _filesystem_dataset(source, **kwargs)
-    elif isinstance(source, (io.BytesIO, FileSource)):
+    elif isinstance(
+            source, (io.BytesIO, FileSource, pa.NativeFile, pa.Buffer)):
         return _filesystem_dataset(FileSource(source), **kwargs)
     elif isinstance(source, (tuple, list)):
         if all(_is_path_like(elem) for elem in source):
