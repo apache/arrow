@@ -57,7 +57,10 @@ ls $MSYS_LIB_DIR/mingw32/lib/
 ls *.xz | xargs -n 1 tar -xJf
 mkdir -p $DST_DIR
 # Grab the headers from one, either one is fine
-mv mingw64/include $DST_DIR
+# (if we're building twice to combine old and new toolchains, this may already exist)
+if [ ! -d $DST_DIR/include ]; then
+  mv mingw64/include $DST_DIR
+fi
 
 # Make the rest of the directory structure
 # lib-4.9.3 is for libraries compiled with gcc 4.9 (Rtools 3.5)
