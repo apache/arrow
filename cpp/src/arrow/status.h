@@ -83,6 +83,7 @@ enum class StatusCode : char {
   IOError = 5,
   CapacityError = 6,
   IndexError = 7,
+  Cancelled = 8,
   UnknownError = 9,
   NotImplemented = 10,
   SerializationError = 11,
@@ -204,6 +205,12 @@ class ARROW_MUST_USE_TYPE ARROW_EXPORT Status : public util::EqualityComparable<
     return Status::FromArgs(StatusCode::Invalid, std::forward<Args>(args)...);
   }
 
+  /// Return an error status for cancelled operation
+  template <typename... Args>
+  static Status Cancelled(Args&&... args) {
+    return Status::FromArgs(StatusCode::Cancelled, std::forward<Args>(args)...);
+  }
+
   /// Return an error status when an index is out of bounds
   template <typename... Args>
   static Status IndexError(Args&&... args) {
@@ -263,6 +270,8 @@ class ARROW_MUST_USE_TYPE ARROW_EXPORT Status : public util::EqualityComparable<
   bool IsKeyError() const { return code() == StatusCode::KeyError; }
   /// Return true iff the status indicates invalid data.
   bool IsInvalid() const { return code() == StatusCode::Invalid; }
+  /// Return true iff the status indicates a cancelled operation.
+  bool IsCancelled() const { return code() == StatusCode::Cancelled; }
   /// Return true iff the status indicates an IO-related failure.
   bool IsIOError() const { return code() == StatusCode::IOError; }
   /// Return true iff the status indicates a container reaching capacity limits.

@@ -115,7 +115,7 @@ class ARROW_EXPORT Executor {
             typename FutureType = typename ::arrow::detail::ContinueFuture::ForSignature<
                 Function && (Args && ...)>>
   Result<FutureType> Submit(TaskHints hints, Function&& func, Args&&... args) {
-    auto future = FutureType::Make();
+    auto future = FutureType::MakeCancellable();
 
     auto task = std::bind(::arrow::detail::ContinueFuture{}, future,
                           std::forward<Function>(func), std::forward<Args>(args)...);
@@ -141,7 +141,8 @@ class ARROW_EXPORT Executor {
   Executor() = default;
 
   // Subclassing API
-  virtual Status SpawnReal(TaskHints hints, FnOnce<void()> task) = 0;
+  virtual Status SpawnReal(TaskHints hints, FnOnce<void()> task,
+                           StopToken* = NULLPTR) = 0;
 };
 
 // An Executor implementation spawning tasks in FIFO manner on a fixed-size
@@ -192,7 +193,7 @@ class ARROW_EXPORT ThreadPool : public Executor {
 
   ThreadPool();
 
-  Status SpawnReal(TaskHints hints, FnOnce<void()> task) override;
+  Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken* = NULLPTR) override;
 
   // Collect finished worker threads, making sure the OS threads have exited
   void CollectFinishedWorkersUnlocked();

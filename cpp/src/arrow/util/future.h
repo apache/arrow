@@ -27,6 +27,7 @@
 
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/cancel.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/optional.h"
@@ -130,7 +131,7 @@ struct ContinueFuture::ForReturnImpl<Future<T>> {
 }  // namespace detail
 
 /// A Future's execution or completion status
-enum class FutureState : int8_t { PENDING, SUCCESS, FAILURE };
+enum class FutureState : int8_t { PENDING, SUCCESS, FAILURE, CANCEL };
 
 inline bool IsFutureFinished(FutureState state) { return state != FutureState::PENDING; }
 
@@ -142,12 +143,11 @@ class ARROW_EXPORT FutureImpl {
 
   FutureState state() { return state_.load(); }
 
-  static std::unique_ptr<FutureImpl> Make();
+  static std::unique_ptr<FutureImpl> Make(bool cancellable);
   static std::unique_ptr<FutureImpl> MakeFinished(FutureState state);
 
   // Future API
-  void MarkFinished();
-  void MarkFailed();
+  void MarkFinished(FutureState state);
   void Wait();
   bool Wait(double seconds);
 
@@ -167,6 +167,7 @@ class ARROW_EXPORT FutureImpl {
   Storage result_{NULLPTR, NULLPTR};
 
   std::vector<Callback> callbacks_;
+  util::optional<StopToken> stop_token_;
 };
 
 // An object that waits on multiple futures at once.  Only one waiter
@@ -248,6 +249,7 @@ class ARROW_MUST_USE_TYPE Future {
   // of being able to presize a vector of Futures.
   Future() = default;
 
+  // -----------------------------------------------------------------------
   // Consumer API
 
   bool is_valid() const { return impl_ != NULLPTR; }
@@ -319,6 +321,22 @@ class ARROW_MUST_USE_TYPE Future {
     return impl_->Wait(seconds);
   }
 
+  template <typename... CancelArgs>
+  bool Cancel(CancelArgs&&... args) {
+    auto& stop_token = impl_->stop_token_;
+    if (stop_token) {
+      stop_token->RequestStop(std::forward<CancelArgs>(args)...);
+      SetResult(stop_token->Poll());
+      impl_->MarkFinished(FutureState::CANCEL);
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  bool is_cancellable() const { return impl_->stop_token_.has_value(); }
+
+  // -----------------------------------------------------------------------
   // Producer API
 
   /// \brief Producer API: mark Future finished
@@ -341,18 +359,22 @@ class ARROW_MUST_USE_TYPE Future {
   /// to memory leaks (for example, see Loop).
   static Future Make() {
     Future fut;
-    fut.impl_ = FutureImpl::Make();
+    fut.impl_ = FutureImpl::Make(/*cancellable=*/false);
+    return fut;
+  }
+
+  static Future MakeCancellable() {
+    Future fut;
+    fut.impl_ = FutureImpl::Make(/*cancellable=*/true);
     return fut;
   }
 
   /// \brief Producer API: instantiate a finished Future
   static Future MakeFinished(Result<ValueType> res) {
+    const auto state =
+        ARROW_PREDICT_TRUE(res.ok()) ? FutureState::SUCCESS : FutureState::FAILURE;
     Future fut;
-    if (ARROW_PREDICT_TRUE(res.ok())) {
-      fut.impl_ = FutureImpl::MakeFinished(FutureState::SUCCESS);
-    } else {
-      fut.impl_ = FutureImpl::MakeFinished(FutureState::FAILURE);
-    }
+    fut.impl_ = FutureImpl::MakeFinished(state);
     fut.SetResult(std::move(res));
     return fut;
   }
@@ -493,6 +515,14 @@ class ARROW_MUST_USE_TYPE Future {
     });
   }
 
+  StopToken* stop_token() {
+    if (impl_->stop_token_.has_value()) {
+      return &*impl_->stop_token_;
+    } else {
+      return NULLPTR;
+    }
+  }
+
  protected:
   template <typename OnComplete>
   struct Callback {
@@ -515,13 +545,15 @@ class ARROW_MUST_USE_TYPE Future {
   }
 
   void DoMarkFinished(Result<ValueType> res) {
-    SetResult(std::move(res));
-
-    if (ARROW_PREDICT_TRUE(GetResult()->ok())) {
-      impl_->MarkFinished();
-    } else {
-      impl_->MarkFailed();
+    if (ARROW_PREDICT_FALSE(impl_->state() == FutureState::CANCEL)) {
+      // The consumer cancelled the future, but the producer didn't notice
+      // before finishing its task => ignore producer result.
+      return;
     }
+    SetResult(std::move(res));
+    const auto state = ARROW_PREDICT_TRUE(GetResult()->ok()) ? FutureState::SUCCESS
+                                                             : FutureState::FAILURE;
+    impl_->MarkFinished(state);
   }
 
   void CheckValid() const {

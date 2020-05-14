@@ -225,9 +225,7 @@ class ConcreteFutureImpl : public FutureImpl {
     waiter_ = nullptr;
   }
 
-  void DoMarkFinished() { DoMarkFinishedOrFailed(FutureState::SUCCESS); }
-
-  void DoMarkFailed() { DoMarkFinishedOrFailed(FutureState::FAILURE); }
+  void DoMarkFinished(FutureState state) { DoMarkFinishedOrFailed(state); }
 
   void AddCallback(Callback callback) {
     std::unique_lock<std::mutex> lock(mutex_);
@@ -304,14 +302,18 @@ ConcreteFutureImpl* GetConcreteFuture(FutureImpl* future) {
 
 }  // namespace
 
-std::unique_ptr<FutureImpl> FutureImpl::Make() {
-  return std::unique_ptr<FutureImpl>(new ConcreteFutureImpl());
+std::unique_ptr<FutureImpl> FutureImpl::Make(bool cancellable) {
+  auto ptr = new ConcreteFutureImpl();
+  if (cancellable) {
+    ptr->stop_token_.emplace();
+  }
+  return std::unique_ptr<FutureImpl>(ptr);
 }
 
 std::unique_ptr<FutureImpl> FutureImpl::MakeFinished(FutureState state) {
-  std::unique_ptr<ConcreteFutureImpl> ptr(new ConcreteFutureImpl());
+  auto ptr = new ConcreteFutureImpl();
   ptr->state_ = state;
-  return std::move(ptr);
+  return std::unique_ptr<FutureImpl>(ptr);
 }
 
 FutureImpl::FutureImpl() : state_(FutureState::PENDING) {}
@@ -328,9 +330,9 @@ void FutureImpl::Wait() { GetConcreteFuture(this)->DoWait(); }
 
 bool FutureImpl::Wait(double seconds) { return GetConcreteFuture(this)->DoWait(seconds); }
 
-void FutureImpl::MarkFinished() { GetConcreteFuture(this)->DoMarkFinished(); }
-
-void FutureImpl::MarkFailed() { GetConcreteFuture(this)->DoMarkFailed(); }
+void FutureImpl::MarkFinished(FutureState state) {
+  GetConcreteFuture(this)->DoMarkFinished(state);
+}
 
 void FutureImpl::AddCallback(Callback callback) {
   GetConcreteFuture(this)->AddCallback(std::move(callback));

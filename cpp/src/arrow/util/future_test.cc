@@ -146,6 +146,13 @@ void AssertFailed(const Future<T>& fut) {
   }
 }
 
+// Assert the future is cancelled *now*
+template <typename T>
+void AssertCancelled(const Future<T>& fut) {
+  ASSERT_EQ(fut.state(), FutureState::CANCEL);
+  ASSERT_FALSE(fut.status().ok());
+}
+
 template <typename T>
 struct IteratorResults {
   std::vector<T> values;
@@ -984,6 +991,35 @@ TEST(FutureCompletionTest, FutureVoid) {
                          [](const Status& s) { return Future<>::MakeFinished(s); });
     fut.MarkFinished(Status::IOError("xxx"));
     AssertFailed(fut2);
+  }
+}
+
+TEST(FutureSyncTest, Cancellation) {
+  {
+    auto fut = Future<>::Make();
+    ASSERT_FALSE(fut.is_cancellable());
+    ASSERT_EQ(fut.stop_token(), nullptr);
+    ASSERT_FALSE(fut.Cancel());
+    AssertNotFinished(fut);
+    fut.MarkFinished();
+    AssertSuccessful(fut);
+  }
+  {
+    auto fut = Future<>::MakeCancellable();
+    ASSERT_TRUE(fut.is_cancellable());
+    StopToken* stop_token = fut.stop_token();
+    ASSERT_NE(stop_token, nullptr);
+    const Status error = Status::Cancelled("charabia");
+    ASSERT_TRUE(fut.Cancel(error));
+    AssertCancelled(fut);
+    ASSERT_EQ(fut.status(), error);
+    // The producer may still try to set another status, it will be ignored
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertCancelled(fut);
+    ASSERT_EQ(fut.status(), error);
+    fut.MarkFinished(Status::OK());
+    AssertCancelled(fut);
+    ASSERT_EQ(fut.status(), error);
   }
 }
 

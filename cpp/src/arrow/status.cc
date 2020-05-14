@@ -68,6 +68,9 @@ std::string Status::CodeAsString(StatusCode code) {
     case StatusCode::Invalid:
       type = "Invalid";
       break;
+    case StatusCode::Cancelled:
+      type = "Cancelled";
+      break;
     case StatusCode::IOError:
       type = "IOError";
       break;
