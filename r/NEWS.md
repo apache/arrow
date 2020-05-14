@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# arrow 0.17.0.9000
+# arrow 0.17.1
 
 * Updates for compatibility with `dplyr` 1.0
 
