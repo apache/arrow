@@ -481,6 +481,13 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                     path: "rust/integration-testing/Cargo.toml",
+                     hunks: [
+                       ["-version = \"#{@release_version}\"",
+                        "+version = \"#{@next_snapshot_version}\""],
+                     ],
+                   },
+                   {
                      path: "rust/parquet/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@release_version}\"",
