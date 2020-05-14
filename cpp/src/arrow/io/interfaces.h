@@ -24,6 +24,7 @@
 
 #include "arrow/io/type_fwd.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/cancel.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/type_fwd.h"
@@ -56,17 +57,28 @@ struct ReadRange {
 /// multiple sources and must distinguish tasks associated with this IOContext).
 struct ARROW_EXPORT IOContext {
   // No specified executor: will use a global IO thread pool
-  IOContext() : IOContext(default_memory_pool()) {}
+  IOContext() : IOContext(default_memory_pool(), StopToken::Unstoppable()) {}
 
-  // No specified executor: will use a global IO thread pool
-  explicit IOContext(MemoryPool* pool);
+  explicit IOContext(StopToken stop_token)
+      : IOContext(default_memory_pool(), std::move(stop_token)) {}
+
+  explicit IOContext(MemoryPool* pool, StopToken stop_token = StopToken::Unstoppable());
 
   explicit IOContext(MemoryPool* pool, ::arrow::internal::Executor* executor,
+                     StopToken stop_token = StopToken::Unstoppable(),
                      int64_t external_id = -1)
-      : pool_(pool), executor_(executor), external_id_(external_id) {}
+      : pool_(pool),
+        executor_(executor),
+        external_id_(external_id),
+        stop_token_(std::move(stop_token)) {}
 
-  explicit IOContext(::arrow::internal::Executor* executor, int64_t external_id = -1)
-      : pool_(default_memory_pool()), executor_(executor), external_id_(external_id) {}
+  explicit IOContext(::arrow::internal::Executor* executor,
+                     StopToken stop_token = StopToken::Unstoppable(),
+                     int64_t external_id = -1)
+      : pool_(default_memory_pool()),
+        executor_(executor),
+        external_id_(external_id),
+        stop_token_(std::move(stop_token)) {}
 
   MemoryPool* pool() const { return pool_; }
 
@@ -75,10 +87,13 @@ struct ARROW_EXPORT IOContext {
   // An application-specific ID, forwarded to executor task submissions
   int64_t external_id() const { return external_id_; }
 
+  StopToken stop_token() const { return stop_token_; }
+
  private:
   MemoryPool* pool_;
   ::arrow::internal::Executor* executor_;
   int64_t external_id_;
+  StopToken stop_token_;
 };
 
 struct ARROW_DEPRECATED("renamed to IOContext in 4.0.0") AsyncContext : public IOContext {

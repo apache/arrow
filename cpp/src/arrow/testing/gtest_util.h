@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -472,6 +473,10 @@ inline void BitmapFromVector(const std::vector<T>& is_valid,
 ARROW_TESTING_EXPORT
 void SleepFor(double seconds);
 
+// Wait until predicate is true or timeout in seconds expires.
+ARROW_TESTING_EXPORT
+void BusyWait(double seconds, std::function<bool()> predicate);
+
 template <typename T>
 std::vector<T> IteratorToVector(Iterator<T> iterator) {
   EXPECT_OK_AND_ASSIGN(auto out, iterator.ToVector());
@@ -502,6 +507,23 @@ class ARROW_TESTING_EXPORT EnvVarGuard {
   const std::string name_;
   std::string old_value_;
   bool was_set_;
+};
+
+namespace internal {
+class SignalHandler;
+}
+
+class ARROW_TESTING_EXPORT SignalHandlerGuard {
+ public:
+  typedef void (*Callback)(int);
+
+  SignalHandlerGuard(int signum, Callback cb);
+  SignalHandlerGuard(int signum, const internal::SignalHandler& handler);
+  ~SignalHandlerGuard();
+
+ protected:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 #ifndef ARROW_LARGE_MEMORY_TESTS
