@@ -53,6 +53,12 @@ if [ -f "tools/apache-arrow.rb" ]; then
   # $ cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
   # before R CMD build or INSTALL (assuming a local checkout of the apache/arrow repository)
   cp tools/autobrew .
+  if [ "$FORCE_AUTOBREW" != "false" ]; then
+    # It is possible to turn off forced autobrew if the formula is included,
+    # but most likely you shouldn't because the included formula will reference
+    # the C++ library at the version that matches the R package.
+    FORCE_AUTOBREW="true"
+  fi
 fi
 
 if [ "$FORCE_AUTOBREW" = "true" ]; then
