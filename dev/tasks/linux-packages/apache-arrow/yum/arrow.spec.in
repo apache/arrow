@@ -713,6 +713,9 @@ Documentation for Apache Parquet GLib.
 %endif
 
 %changelog
+* Thu May 14 2020 Krisztián Szűcs <szucs.krisztian@gmail.com> - 0.17.1-1
+- New upstream release.
+
 * Thu Apr 16 2020 Krisztián Szűcs <szucs.krisztian@gmail.com> - 0.17.0-1
 - New upstream release.
 
