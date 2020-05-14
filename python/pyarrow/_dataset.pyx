@@ -273,16 +273,18 @@ cdef class Dataset:
 
     @staticmethod
     cdef wrap(const shared_ptr[CDataset]& sp):
-        cdef Dataset self
+        type_name = frombytes(sp.get().type_name())
 
-        typ = frombytes(sp.get().type_name())
-        if typ == 'union':
-            self = UnionDataset.__new__(UnionDataset)
-        elif typ == 'filesystem':
-            self = FileSystemDataset.__new__(FileSystemDataset)
-        else:
-            raise TypeError(typ)
+        classes = {
+            'union': UnionDataset,
+            'filesystem': FileSystemDataset,
+        }
 
+        class_ = classes.get(type_name, None)
+        if class_ is None:
+            raise TypeError(type_name)
+
+        cdef Dataset self = class_.__new__(class_)
         self.init(sp)
         return self
 
@@ -577,18 +579,19 @@ cdef class FileFormat:
 
     @staticmethod
     cdef wrap(const shared_ptr[CFileFormat]& sp):
-        cdef FileFormat self
+        type_name = frombytes(sp.get().type_name())
 
-        typ = frombytes(sp.get().type_name())
-        if typ == 'parquet':
-            self = ParquetFileFormat.__new__(ParquetFileFormat)
-        elif typ == 'ipc':
-            self = IpcFileFormat.__new__(IpcFileFormat)
-        elif typ == 'csv':
-            self = CsvFileFormat.__new__(CsvFileFormat)
-        else:
-            raise TypeError(typ)
+        classes = {
+            'ipc': IpcFileFormat,
+            'csv': CsvFileFormat,
+            'parquet': ParquetFileFormat,
+        }
 
+        class_ = classes.get(type_name, None)
+        if class_ is None:
+            raise TypeError(type_name)
+
+        cdef FileFormat self = class_.__new__(class_)
         self.init(sp)
         return self
 
@@ -639,20 +642,21 @@ cdef class Fragment:
 
     @staticmethod
     cdef wrap(const shared_ptr[CFragment]& sp):
-        # there's no discriminant in Fragment, so we can't downcast
-        # to FileFragment for the path property
-        cdef Fragment self = Fragment()
+        type_name = frombytes(sp.get().type_name())
 
-        typ = frombytes(sp.get().type_name())
-        if typ == 'ipc':
-            # IpcFileFormat does not have a corresponding subclass
-            # of FileFragment
-            self = FileFragment.__new__(FileFragment)
-        elif typ == 'parquet':
-            self = ParquetFileFragment.__new__(ParquetFileFragment)
-        else:
-            self = Fragment()
+        classes = {
+            # IpcFileFormat and CsvFileFormat do not have corresponding
+            # subclasses of FileFragment
+            'ipc': FileFragment,
+            'csv': FileFragment,
+            'parquet': ParquetFileFragment,
+        }
 
+        class_ = classes.get(type_name, None)
+        if class_ is None:
+            class_ = Fragment
+
+        cdef Fragment self = class_.__new__(class_)
         self.init(sp)
         return self
 
@@ -1056,16 +1060,18 @@ cdef class Partitioning:
 
     @staticmethod
     cdef wrap(const shared_ptr[CPartitioning]& sp):
-        cdef Partitioning self
+        type_name = frombytes(sp.get().type_name())
 
-        typ = frombytes(sp.get().type_name())
-        if typ == 'schema':
-            self = DirectoryPartitioning.__new__(DirectoryPartitioning)
-        elif typ == 'hive':
-            self = HivePartitioning.__new__(HivePartitioning)
-        else:
-            raise TypeError(typ)
+        classes = {
+            'schema': DirectoryPartitioning,
+            'hive': HivePartitioning,
+        }
 
+        class_ = classes.get(type_name, None)
+        if class_ is None:
+            raise TypeError(type_name)
+
+        cdef Partitioning self = class_.__new__(class_)
         self.init(sp)
         return self
 
