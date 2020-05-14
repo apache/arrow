@@ -17,6 +17,34 @@
   under the License.
 -->
 
+# Apache Arrow 0.17.1 (14 May 2020)
+
+## Bug
+
+* ARROW-8503 - [Packaging][deb] Can't build apache-arrow-archive-keyring for RC
+* ARROW-8505 - [Release][C#] "sourcelink test" is failed by Apache.Arrow.AssemblyInfo.cs
+* ARROW-8584 - [Packaging][C++] Protobuf link error in deb builds
+* ARROW-8608 - [C++] Update vendored mpark/variant.h to  latest to fix NVCC compilation issues
+* ARROW-8609 - [C++] ORC JNI bridge crashed on null arrow buffer
+* ARROW-8641 - [Python] Regression in feather: no longer supports permutation in column selection
+* ARROW-8657 - [Python][C++][Parquet] Forward compatibility issue from 0.16 to 0.17 when using version='2.0'
+* ARROW-8684 - [Python] "SystemError: Bad call flags in \_PyMethodDef\_RawFastCallDict" in Python 3.7.7 on macOS when using pyarrow wheel
+* ARROW-8694 - [Python][Parquet] parquet.read\_schema() fails when loading wide table created from Pandas DataFrame
+* ARROW-8704 - [C++] Fix Parquet crash on invalid input (OSS-Fuzz)
+* ARROW-8706 - [C++][Parquet] Tracking JIRA for PARQUET-1857 (unencrypted INT16\_MAX Parquet row group limit)
+* ARROW-8728 - [C++]  Bitmap operation may cause buffer overflow
+* ARROW-8741 - [Python][Packaging] Keep VS2015 with for the windows wheels
+* ARROW-8750 - [Python] pyarrow.feather.write\_feather does not default to lz4 compression if it's available
+* PARQUET-1857 - [C++][Parquet] ParquetFileReader unable to read files with more than 32767 row groups
+
+## Improvement
+
+* ARROW-8501 - [Packaging][RPM] Upgrade devtoolset to 8 on CentOS 6
+* ARROW-8549 - [R] Assorted post-0.17 release cleanups
+* ARROW-8699 - [R] Fix automatic r\_to\_py conversion
+* ARROW-8758 - [R] Updates for compatibility with dplyr 1.0
+* ARROW-8786 - [Packaging][rpm] Use bundled zstd in the CentOS 8 build
+
 # Apache Arrow 0.17.0 (16 April 2020)
 
 ## Bug
