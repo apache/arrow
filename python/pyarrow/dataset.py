@@ -317,6 +317,15 @@ def _ensure_multiple_sources(paths, filesystem=None):
     return filesystem, paths
 
 
+def _is_native_file_wrappable(source):
+    import io
+    return isinstance(source, (FileSource,
+                               io.BytesIO,
+                               pa.NativeFile,
+                               pa.Buffer,
+                               ))
+
+
 def _ensure_single_source(path, filesystem=None):
     """
     Treat path as either a recursively traversable directory or a single file.
@@ -414,7 +423,11 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
     partitioning = _ensure_partitioning(partitioning)
 
     if isinstance(source, (list, tuple)):
-        fs, paths_or_selector = _ensure_multiple_sources(source, filesystem)
+        if all(_is_path_like(elem) for elem in source):
+            fs, paths_or_selector = _ensure_multiple_sources(source,
+                                                             filesystem)
+        else:
+            fs, paths_or_selector = _MockFileSystem(), source
     elif isinstance(source, FileSource):
         # filesystem will be ignored
         fs, paths_or_selector = _MockFileSystem(), [source]
@@ -644,16 +657,16 @@ def dataset(source, schema=None, format=None, filesystem=None,
         selector_ignore_prefixes=ignore_prefixes
     )
 
-    import io
-
     # TODO(kszucs): support InMemoryDataset for a table input
     if _is_path_like(source):
         return _filesystem_dataset(source, **kwargs)
-    elif isinstance(
-            source, (io.BytesIO, FileSource, pa.NativeFile, pa.Buffer)):
+    elif _is_native_file_wrappable(source):
         return _filesystem_dataset(FileSource(source), **kwargs)
     elif isinstance(source, (tuple, list)):
         if all(_is_path_like(elem) for elem in source):
+            return _filesystem_dataset(source, **kwargs)
+        elif all(_is_native_file_wrappable(elem) for elem in source):
+            source = [FileSource(elem) for elem in source]
             return _filesystem_dataset(source, **kwargs)
         elif all(isinstance(elem, Dataset) for elem in source):
             return _union_dataset(source, **kwargs)
