@@ -15,11 +15,28 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[workspace]
-members = [
-        "arrow",
-        "parquet",
-        "datafusion",
-        "arrow-flight",
-        "integration-testing",
-]
+[package]
+name = "arrow-integration-testing"
+description = "Binaries used in the Arrow integration tests"
+version = "0.18.0-SNAPSHOT"
+homepage = "https://github.com/apache/arrow"
+repository = "https://github.com/apache/arrow"
+authors = ["Apache Arrow <dev@arrow.apache.org>"]
+license = "Apache-2.0"
+edition = "2018"
+
+[dependencies]
+arrow = { path = "../arrow" }
+clap = "2.33"
+
+[[bin]]
+name = "arrow-file-to-stream"
+path = "src/bin/arrow-file-to-stream.rs"
+
+[[bin]]
+name = "arrow-stream-to-file"
+path = "src/bin/arrow-stream-to-file.rs"
+
+[[bin]]
+name = "arrow-json-integration-test"
+path = "src/bin/arrow-json-integration-test.rs"
