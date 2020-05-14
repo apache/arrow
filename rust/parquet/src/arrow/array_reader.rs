@@ -1341,7 +1341,7 @@ mod tests {
             ComplexObjectArrayReader::<ByteArrayType, Utf8Converter>::new(
                 Box::new(page_iterator),
                 column_desc.clone(),
-                converter
+                converter,
             )
             .unwrap();
 
