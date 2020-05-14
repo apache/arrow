@@ -1427,6 +1427,7 @@ tasks:
 
   nuget:
     ci: github
+    platform: linux
     template: nuget-packages/github.linux.yml
     params:
       run: ubuntu-csharp
