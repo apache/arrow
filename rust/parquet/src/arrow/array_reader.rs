@@ -1336,10 +1336,12 @@ mod tests {
         let page_iterator =
             InMemoryPageIterator::new(schema.clone(), column_desc.clone(), pages);
 
+        let converter = Utf8Converter::new(Utf8ArrayConverter {});
         let mut array_reader =
             ComplexObjectArrayReader::<ByteArrayType, Utf8Converter>::new(
                 Box::new(page_iterator),
                 column_desc.clone(),
+                converter
             )
             .unwrap();
 
