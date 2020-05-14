@@ -647,7 +647,13 @@ thread_local std::atomic<FlightServerBase::Impl*>
 #endif
 
 FlightServerOptions::FlightServerOptions(const Location& location_)
-    : location(location_), auth_handler(nullptr) {}
+    : location(location_),
+      auth_handler(nullptr),
+      tls_certificates(),
+      verify_client(false),
+      root_certificates(),
+      middleware(),
+      builder_hook(nullptr) {}
 
 FlightServerOptions::~FlightServerOptions() = default;
 
@@ -674,6 +680,13 @@ Status FlightServerBase::Init(const FlightServerOptions& options) {
       grpc::SslServerCredentialsOptions ssl_options;
       for (const auto& pair : options.tls_certificates) {
         ssl_options.pem_key_cert_pairs.push_back({pair.pem_key, pair.pem_cert});
+      }
+      if (options.verify_client) {
+        ssl_options.client_certificate_request =
+            GRPC_SSL_REQUEST_AND_REQUIRE_CLIENT_CERTIFICATE_AND_VERIFY;
+      }
+      if (!options.root_certificates.empty()) {
+        ssl_options.pem_root_certs = options.root_certificates;
       }
       creds = grpc::SslServerCredentials(ssl_options);
     } else {

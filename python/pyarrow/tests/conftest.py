@@ -168,12 +168,13 @@ def pytest_addoption(parser):
                              .format(name.upper(), value))
 
     for group in groups:
-        for flag, envvar in [('--{}', 'PYARROW_TEST_{}'),
-                             ('--enable-{}', 'PYARROW_TEST_ENABLE_{}')]:
-            default = bool_env(envvar.format(group), defaults[group])
-            parser.addoption(flag.format(group),
-                             action='store_true', default=default,
-                             help=('Enable the {} test group'.format(group)))
+        default = bool_env('PYARROW_TEST_{}'.format(group), defaults[group])
+        parser.addoption('--enable-{}'.format(group),
+                         action='store_true', default=default,
+                         help=('Enable the {} test group'.format(group)))
+        parser.addoption('--disable-{}'.format(group),
+                         action='store_true', default=False,
+                         help=('Disable the {} test group'.format(group)))
 
 
 class PyArrowConfig:
@@ -199,11 +200,11 @@ def pytest_configure(config):
             "markers", mark,
         )
 
-        flag = '--{}'.format(mark)
         enable_flag = '--enable-{}'.format(mark)
+        disable_flag = '--disable-{}'.format(mark)
 
-        is_enabled = (config.getoption(flag) or
-                      config.getoption(enable_flag))
+        is_enabled = (config.getoption(enable_flag) and not
+                      config.getoption(disable_flag))
         config.pyarrow.is_enabled[mark] = is_enabled
 
 

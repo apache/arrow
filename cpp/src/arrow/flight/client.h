@@ -67,6 +67,10 @@ class ARROW_FLIGHT_EXPORT FlightClientOptions {
   std::string tls_root_certs;
   /// \brief Override the hostname checked by TLS. Use with caution.
   std::string override_hostname;
+  /// \brief The client certificate to use if using Mutual TLS
+  std::string cert_chain;
+  /// \brief The private key associated with the client certificate for Mutual TLS
+  std::string private_key;
   /// \brief A list of client middleware to apply.
   std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware;
 };

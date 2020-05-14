@@ -29,6 +29,7 @@ import warnings
 
 from cython.operator cimport dereference as deref
 from cython.operator cimport postincrement
+from libcpp cimport bool as c_bool
 
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.lib cimport *
@@ -918,6 +919,10 @@ cdef class FlightClient:
         a tuple of (host, port) pair, or a Location instance.
     tls_root_certs : bytes or None
         PEM-encoded
+    cert_chain: bytes or None
+        Client certificate if using mutual TLS
+    private_key: bytes or None
+        Client private key for cert_chain is using mutual TLS
     override_hostname : str or None
         Override the hostname checked by TLS. Insecure, use with caution.
     middleware : list optional, default None
@@ -926,8 +931,8 @@ cdef class FlightClient:
     cdef:
         unique_ptr[CFlightClient] client
 
-    def __init__(self, location, tls_root_certs=None, override_hostname=None,
-                 middleware=None):
+    def __init__(self, location, tls_root_certs=None, cert_chain=None,
+                 private_key=None, override_hostname=None, middleware=None):
         if isinstance(location, (bytes, str)):
             location = Location(location)
         elif isinstance(location, tuple):
@@ -939,10 +944,11 @@ cdef class FlightClient:
         elif not isinstance(location, Location):
             raise TypeError('`location` argument must be a string, tuple or a '
                             'Location instance')
-        self.init(location, tls_root_certs, override_hostname, middleware)
+        self.init(location, tls_root_certs, cert_chain, private_key,
+                  override_hostname, middleware)
 
-    cdef init(self, Location location, tls_root_certs, override_hostname,
-              middleware):
+    cdef init(self, Location location, tls_root_certs, cert_chain,
+              private_key, override_hostname, middleware):
         cdef:
             int c_port = 0
             CLocation c_location = Location.unwrap(location)
@@ -952,6 +958,10 @@ cdef class FlightClient:
 
         if tls_root_certs:
             c_options.tls_root_certs = tobytes(tls_root_certs)
+        if cert_chain:
+            c_options.cert_chain = tobytes(cert_chain)
+        if private_key:
+            c_options.private_key = tobytes(private_key)
         if override_hostname:
             c_options.override_hostname = tobytes(override_hostname)
         if middleware:
@@ -991,11 +1001,13 @@ cdef class FlightClient:
                 break
 
     @classmethod
-    def connect(cls, location, tls_root_certs=None, override_hostname=None):
+    def connect(cls, location, tls_root_certs=None, cert_chain=None,
+                private_key=None, override_hostname=None):
         warnings.warn("The 'FlightClient.connect' method is deprecated, use "
                       "FlightClient constructor or pyarrow.flight.connect "
                       "function instead")
         return FlightClient(location, tls_root_certs=tls_root_certs,
+                            cert_chain=cert_chain, private_key=private_key,
                             override_hostname=override_hostname)
 
     def authenticate(self, auth_handler, options: FlightCallOptions = None):
@@ -2134,6 +2146,12 @@ cdef class FlightServerBase:
         An authentication mechanism to use. May be None.
     tls_certificates : list optional, default None
         A list of (certificate, key) pairs.
+    verify_client : boolean optional, default False
+        If True, then enable mutual TLS: require the client to present
+        a client certificate, and validate the certificate.
+    root_certificates : bytes optional, default None
+        If enabling mutual TLS, this specifies the PEM-encoded root
+        certificate used to validate client certificates.
     middleware : list optional, default None
         A dictionary of :class:`ServerMiddlewareFactory` items. The
         keys are used to retrieve the middleware instance during calls
@@ -2145,7 +2163,8 @@ cdef class FlightServerBase:
         unique_ptr[PyFlightServer] server
 
     def __init__(self, location=None, auth_handler=None,
-                 tls_certificates=None, middleware=None):
+                 tls_certificates=None, verify_client=None,
+                 root_certificates=None, middleware=None):
         if isinstance(location, (bytes, str)):
             location = Location(location)
         elif isinstance(location, (tuple, type(None))):
@@ -2159,10 +2178,12 @@ cdef class FlightServerBase:
         elif not isinstance(location, Location):
             raise TypeError('`location` argument must be a string, tuple or a '
                             'Location instance')
-        self.init(location, auth_handler, tls_certificates, middleware)
+        self.init(location, auth_handler, tls_certificates, verify_client,
+                  tobytes(root_certificates or b""), middleware)
 
     cdef init(self, Location location, ServerAuthHandler auth_handler,
-              list tls_certificates, dict middleware):
+              list tls_certificates, c_bool verify_client,
+              bytes root_certificates, dict middleware):
         cdef:
             PyFlightServerVtable vtable = PyFlightServerVtable()
             PyFlightServer* c_server
@@ -2173,6 +2194,9 @@ cdef class FlightServerBase:
             pair[c_string, shared_ptr[CServerMiddlewareFactory]] c_middleware
 
         c_options.reset(new CFlightServerOptions(Location.unwrap(location)))
+        # mTLS configuration
+        c_options.get().verify_client = verify_client
+        c_options.get().root_certificates = root_certificates
 
         if auth_handler:
             if not isinstance(auth_handler, ServerAuthHandler):
@@ -2287,11 +2311,10 @@ cdef class FlightServerBase:
         self.wait()
 
 
-def connect(location, tls_root_certs=None, override_hostname=None,
-            middleware=None):
+def connect(location, tls_root_certs=None, cert_chain=None, private_key=None,
+            override_hostname=None, middleware=None):
     """
     Connect to the Flight server
-
     Parameters
     ----------
     location : str, tuple or Location
@@ -2299,15 +2322,19 @@ def connect(location, tls_root_certs=None, override_hostname=None,
         a tuple of (host, port) pair, or a Location instance.
     tls_root_certs : bytes or None
         PEM-encoded
+    cert_chain: str or None
+        If provided, enables TLS mutual authentication.
+    private_key: str or None
+        If provided, enables TLS mutual authentication.
     override_hostname : str or None
         Override the hostname checked by TLS. Insecure, use with caution.
     middleware : list or None
         A list of ClientMiddlewareFactory instances to apply.
-
     Returns
     -------
     client : FlightClient
     """
     return FlightClient(location, tls_root_certs=tls_root_certs,
+                        cert_chain=cert_chain, private_key=private_key,
                         override_hostname=override_hostname,
                         middleware=middleware)

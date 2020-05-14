@@ -23,12 +23,11 @@
 
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace internal {
-
-class ThreadPool;
 
 // TODO Simplify this.  Subgroups don't seem necessary.
 
@@ -73,7 +72,7 @@ class ARROW_EXPORT TaskGroup : public std::enable_shared_from_this<TaskGroup> {
   virtual std::shared_ptr<TaskGroup> MakeSubGroup() = 0;
 
   static std::shared_ptr<TaskGroup> MakeSerial();
-  static std::shared_ptr<TaskGroup> MakeThreaded(internal::ThreadPool*);
+  static std::shared_ptr<TaskGroup> MakeThreaded(internal::Executor*);
 
   virtual ~TaskGroup() = default;
 

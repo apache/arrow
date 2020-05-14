@@ -64,11 +64,13 @@ build() {
 
   # This is the difference between rtools-packages and rtools-backports
   # Remove this when submitting to rtools-packages
-  export CC="/C/Rtools${MINGW_PREFIX/mingw/mingw_}/bin/gcc"
-  export CXX="/C/Rtools${MINGW_PREFIX/mingw/mingw_}/bin/g++"
-  export PATH="/C/Rtools${MINGW_PREFIX/mingw/mingw_}/bin:$PATH"
-  export CPPFLAGS="-I${MINGW_PREFIX}/include"
-  export LIBS="-L${MINGW_PREFIX}/libs"
+  if [ "$RTOOLS_VERSION" = "35" ]; then
+    export CC="/C/Rtools${MINGW_PREFIX/mingw/mingw_}/bin/gcc"
+    export CXX="/C/Rtools${MINGW_PREFIX/mingw/mingw_}/bin/g++"
+    export PATH="/C/Rtools${MINGW_PREFIX/mingw/mingw_}/bin:$PATH"
+    export CPPFLAGS="-I${MINGW_PREFIX}/include"
+    export LIBS="-L${MINGW_PREFIX}/libs"
+  fi
 
   MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
     ${MINGW_PREFIX}/bin/cmake.exe \

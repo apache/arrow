@@ -1474,8 +1474,10 @@ cdef CCompressionType _ensure_compression(str name) except *:
         return CCompressionType_BZ2
     elif uppercase == 'BROTLI':
         return CCompressionType_BROTLI
-    elif uppercase == 'LZ4':
+    elif uppercase == 'LZ4' or uppercase == 'LZ4_FRAME':
         return CCompressionType_LZ4_FRAME
+    elif uppercase == 'LZ4_RAW':
+        return CCompressionType_LZ4
     elif uppercase == 'ZSTD':
         return CCompressionType_ZSTD
     elif uppercase == 'SNAPPY':
@@ -1491,8 +1493,9 @@ cdef class Codec:
     Parameters
     ----------
     compression : str
-        Type of compression codec to initialize, valid values are: gzip, bz2,
-        brotli, lz4, zstd and snappy.
+        Type of compression codec to initialize, valid values are: 'gzip',
+        'bz2', 'brotli', 'lz4' (or 'lz4_frame'), 'lz4_raw', 'zstd' and
+        'snappy'.
 
     Raises
     ------
@@ -1676,7 +1679,7 @@ def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
     buf : pyarrow.Buffer, bytes, or other object supporting buffer protocol
     codec : str, default 'lz4'
         Compression codec.
-        Supported types: {'brotli, 'gzip', 'lz4', 'snappy', 'zstd'}
+        Supported types: {'brotli, 'gzip', 'lz4', 'lz4_raw', 'snappy', 'zstd'}
     asbytes : bool, default False
         Return result as Python bytes object, otherwise Buffer.
     memory_pool : MemoryPool, default None
@@ -1704,7 +1707,7 @@ def decompress(object buf, decompressed_size=None, codec='lz4',
         the uncompressed buffer size.
     codec : str, default 'lz4'
         Compression codec.
-        Supported types: {'brotli, 'gzip', 'lz4', 'snappy', 'zstd'}
+        Supported types: {'brotli, 'gzip', 'lz4', 'lz4_raw', 'snappy', 'zstd'}
     asbytes : bool, default False
         Return result as Python bytes object, otherwise Buffer.
     memory_pool : MemoryPool, default None

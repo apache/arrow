@@ -19,8 +19,8 @@
 import os
 
 from pyarrow.pandas_compat import _pandas_api  # noqa
-from pyarrow.lib import FeatherError  # noqa
-from pyarrow.lib import Table, concat_tables, schema
+from pyarrow.lib import (Codec, FeatherError, Table,  # noqa
+                         concat_tables, schema)
 import pyarrow.lib as ext
 
 
@@ -112,6 +112,9 @@ def check_chunked_overflow(name, col):
                          "Feather format".format(name, str(col.type)))
 
 
+_FEATHER_SUPPORTED_CODECS = {'lz4', 'zstd', 'uncompressed'}
+
+
 def write_feather(df, dest, compression=None, compression_level=None,
                   chunksize=None, version=2):
     """
@@ -165,11 +168,14 @@ def write_feather(df, dest, compression=None, compression_level=None,
         if chunksize is not None:
             raise ValueError("Feather V1 files do not support chunksize "
                              "option")
-
-    supported_compression_options = (None, 'lz4', 'zstd', 'uncompressed')
-    if compression not in supported_compression_options:
-        raise ValueError('compression="{}" not supported, must be one of {}'
-                         .format(compression, supported_compression_options))
+    else:
+        if compression is None and Codec.is_available('lz4_frame'):
+            compression = 'lz4'
+        elif (compression is not None and
+              compression not in _FEATHER_SUPPORTED_CODECS):
+            raise ValueError('compression="{}" not supported, must be '
+                             'one of {}'.format(compression,
+                                                _FEATHER_SUPPORTED_CODECS))
 
     try:
         ext.write_feather(table, dest, compression=compression,
