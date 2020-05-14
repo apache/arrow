@@ -25,7 +25,6 @@ use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
 use arrow::datatypes::{Field, Schema};
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 
 /// Projection Push Down optimizer rule ensures that only referenced columns are
 /// loaded into memory
@@ -154,7 +153,7 @@ impl ProjectionPushDown {
                     schema_name: schema_name.to_string(),
                     table_name: table_name.to_string(),
                     table_schema: table_schema.clone(),
-                    projected_schema: Arc::new(projected_schema),
+                    projected_schema: Box::new(projected_schema),
                     projection: Some(projection),
                 })
             }
@@ -195,7 +194,7 @@ impl ProjectionPushDown {
     fn rewrite_expr(&self, expr: &Expr, mapping: &HashMap<usize, usize>) -> Result<Expr> {
         match expr {
             Expr::Alias(expr, name) => Ok(Expr::Alias(
-                Arc::new(self.rewrite_expr(expr, mapping)?),
+                Box::new(self.rewrite_expr(expr, mapping)?),
                 name.clone(),
             )),
             Expr::Column(i) => Ok(Expr::Column(self.new_index(mapping, i)?)),
@@ -203,22 +202,22 @@ impl ProjectionPushDown {
                 "Columns need to be resolved before this rule can run".to_owned(),
             )),
             Expr::Literal(_) => Ok(expr.clone()),
-            Expr::Not(e) => Ok(Expr::Not(Arc::new(self.rewrite_expr(e, mapping)?))),
-            Expr::IsNull(e) => Ok(Expr::IsNull(Arc::new(self.rewrite_expr(e, mapping)?))),
+            Expr::Not(e) => Ok(Expr::Not(Box::new(self.rewrite_expr(e, mapping)?))),
+            Expr::IsNull(e) => Ok(Expr::IsNull(Box::new(self.rewrite_expr(e, mapping)?))),
             Expr::IsNotNull(e) => {
-                Ok(Expr::IsNotNull(Arc::new(self.rewrite_expr(e, mapping)?)))
+                Ok(Expr::IsNotNull(Box::new(self.rewrite_expr(e, mapping)?)))
             }
             Expr::BinaryExpr { left, op, right } => Ok(Expr::BinaryExpr {
-                left: Arc::new(self.rewrite_expr(left, mapping)?),
+                left: Box::new(self.rewrite_expr(left, mapping)?),
                 op: op.clone(),
-                right: Arc::new(self.rewrite_expr(right, mapping)?),
+                right: Box::new(self.rewrite_expr(right, mapping)?),
             }),
             Expr::Cast { expr, data_type } => Ok(Expr::Cast {
-                expr: Arc::new(self.rewrite_expr(expr, mapping)?),
+                expr: Box::new(self.rewrite_expr(expr, mapping)?),
                 data_type: data_type.clone(),
             }),
             Expr::Sort { expr, asc } => Ok(Expr::Sort {
-                expr: Arc::new(self.rewrite_expr(expr, mapping)?),
+                expr: Box::new(self.rewrite_expr(expr, mapping)?),
                 asc: *asc,
             }),
             Expr::AggregateFunction {
@@ -263,7 +262,6 @@ mod tests {
     use crate::logicalplan::ScalarValue;
     use crate::test::*;
     use arrow::datatypes::DataType;
-    use std::sync::Arc;
 
     #[test]
     fn aggregate_no_group_by() -> Result<()> {
@@ -321,7 +319,7 @@ mod tests {
 
         let projection = LogicalPlanBuilder::from(&table_scan)
             .project(vec![Cast {
-                expr: Arc::new(Column(2)),
+                expr: Box::new(Column(2)),
                 data_type: DataType::Float64,
             }])?
             .build()?;

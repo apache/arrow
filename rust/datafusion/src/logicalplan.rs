@@ -22,7 +22,6 @@
 //! physical query plans and executed.
 
 use std::fmt;
-use std::sync::Arc;
 
 use arrow::datatypes::{DataType, Field, Schema};
 
@@ -180,7 +179,7 @@ impl ScalarValue {
 #[derive(Clone, PartialEq)]
 pub enum Expr {
     /// An aliased expression
-    Alias(Arc<Expr>, String),
+    Alias(Box<Expr>, String),
     /// index into a value within the row or complex value
     Column(usize),
     /// Reference to column by name
@@ -190,29 +189,29 @@ pub enum Expr {
     /// binary expression e.g. "age > 21"
     BinaryExpr {
         /// Left-hand side of the expression
-        left: Arc<Expr>,
+        left: Box<Expr>,
         /// The comparison operator
         op: Operator,
         /// Right-hand side of the expression
-        right: Arc<Expr>,
+        right: Box<Expr>,
     },
     /// unary NOT
-    Not(Arc<Expr>),
+    Not(Box<Expr>),
     /// unary IS NOT NULL
-    IsNotNull(Arc<Expr>),
+    IsNotNull(Box<Expr>),
     /// unary IS NULL
-    IsNull(Arc<Expr>),
+    IsNull(Box<Expr>),
     /// cast a value to a different type
     Cast {
         /// The expression being cast
-        expr: Arc<Expr>,
+        expr: Box<Expr>,
         /// The `DataType` the expression will yield
         data_type: DataType,
     },
     /// sort expression
     Sort {
         /// The expression to sort on
-        expr: Arc<Expr>,
+        expr: Box<Expr>,
         /// The direction of the sort
         asc: bool,
     },
@@ -285,7 +284,7 @@ impl Expr {
             Ok(self.clone())
         } else if can_coerce_from(cast_to_type, &this_type) {
             Ok(Expr::Cast {
-                expr: Arc::new(self.clone()),
+                expr: Box::new(self.clone()),
                 data_type: cast_to_type.clone(),
             })
         } else {
@@ -299,65 +298,65 @@ impl Expr {
     /// Equal
     pub fn eq(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
-            left: Arc::new(self.clone()),
+            left: Box::new(self.clone()),
             op: Operator::Eq,
-            right: Arc::new(other.clone()),
+            right: Box::new(other.clone()),
         }
     }
 
     /// Not equal
     pub fn not_eq(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
-            left: Arc::new(self.clone()),
+            left: Box::new(self.clone()),
             op: Operator::NotEq,
-            right: Arc::new(other.clone()),
+            right: Box::new(other.clone()),
         }
     }
 
     /// Greater than
     pub fn gt(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
-            left: Arc::new(self.clone()),
+            left: Box::new(self.clone()),
             op: Operator::Gt,
-            right: Arc::new(other.clone()),
+            right: Box::new(other.clone()),
         }
     }
 
     /// Greater than or equal to
     pub fn gt_eq(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
-            left: Arc::new(self.clone()),
+            left: Box::new(self.clone()),
             op: Operator::GtEq,
-            right: Arc::new(other.clone()),
+            right: Box::new(other.clone()),
         }
     }
 
     /// Less than
     pub fn lt(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
-            left: Arc::new(self.clone()),
+            left: Box::new(self.clone()),
             op: Operator::Lt,
-            right: Arc::new(other.clone()),
+            right: Box::new(other.clone()),
         }
     }
 
     /// Less than or equal to
     pub fn lt_eq(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
-            left: Arc::new(self.clone()),
+            left: Box::new(self.clone()),
             op: Operator::LtEq,
-            right: Arc::new(other.clone()),
+            right: Box::new(other.clone()),
         }
     }
 
     /// Not
     pub fn not(&self) -> Expr {
-        Expr::Not(Arc::new(self.clone()))
+        Expr::Not(Box::new(self.clone()))
     }
 
     /// Alias
     pub fn alias(&self, name: &str) -> Expr {
-        Expr::Alias(Arc::new(self.clone()), name.to_owned())
+        Expr::Alias(Box::new(self.clone()), name.to_owned())
     }
 }
 
@@ -482,36 +481,36 @@ pub enum LogicalPlan {
         /// The list of expressions
         expr: Vec<Expr>,
         /// The incoming logic plan
-        input: Arc<LogicalPlan>,
+        input: Box<LogicalPlan>,
         /// The schema description
-        schema: Arc<Schema>,
+        schema: Box<Schema>,
     },
     /// A Selection (essentially a WHERE clause with a predicate expression)
     Selection {
         /// The expression
         expr: Expr,
         /// The incoming logic plan
-        input: Arc<LogicalPlan>,
+        input: Box<LogicalPlan>,
     },
     /// Represents a list of aggregate expressions with optional grouping expressions
     Aggregate {
         /// The incoming logic plan
-        input: Arc<LogicalPlan>,
+        input: Box<LogicalPlan>,
         /// Grouping expressions
         group_expr: Vec<Expr>,
         /// Aggregate expressions
         aggr_expr: Vec<Expr>,
         /// The schema description
-        schema: Arc<Schema>,
+        schema: Box<Schema>,
     },
     /// Represents a list of sort expressions to be applied to a relation
     Sort {
         /// The sort expressions
         expr: Vec<Expr>,
         /// The incoming logic plan
-        input: Arc<LogicalPlan>,
+        input: Box<LogicalPlan>,
         /// The schema description
-        schema: Arc<Schema>,
+        schema: Box<Schema>,
     },
     /// A table scan against a table that has been registered on a context
     TableScan {
@@ -520,30 +519,30 @@ pub enum LogicalPlan {
         /// The name of the table
         table_name: String,
         /// The underlying table schema
-        table_schema: Arc<Schema>,
+        table_schema: Box<Schema>,
         /// The projected schema
-        projected_schema: Arc<Schema>,
+        projected_schema: Box<Schema>,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
     },
     /// An empty relation with an empty schema
     EmptyRelation {
         /// The schema description
-        schema: Arc<Schema>,
+        schema: Box<Schema>,
     },
     /// Represents the maximum number of records to return
     Limit {
         /// The expression
         expr: Expr,
         /// The logical plan
-        input: Arc<LogicalPlan>,
+        input: Box<LogicalPlan>,
         /// The schema description
-        schema: Arc<Schema>,
+        schema: Box<Schema>,
     },
     /// Represents a create external table expression.
     CreateExternalTable {
         /// The table schema
-        schema: Arc<Schema>,
+        schema: Box<Schema>,
         /// The table name
         name: String,
         /// The physical location
@@ -557,7 +556,7 @@ pub enum LogicalPlan {
 
 impl LogicalPlan {
     /// Get a reference to the logical plan's schema
-    pub fn schema(&self) -> &Arc<Schema> {
+    pub fn schema(&self) -> &Box<Schema> {
         match self {
             LogicalPlan::EmptyRelation { schema } => &schema,
             LogicalPlan::TableScan {
@@ -725,7 +724,7 @@ impl LogicalPlanBuilder {
     /// Create an empty relation
     pub fn empty() -> Self {
         Self::from(&LogicalPlan::EmptyRelation {
-            schema: Arc::new(Schema::empty()),
+            schema: Box::new(Schema::empty()),
         })
     }
 
@@ -742,8 +741,8 @@ impl LogicalPlanBuilder {
         Ok(Self::from(&LogicalPlan::TableScan {
             schema_name: schema_name.to_owned(),
             table_name: table_name.to_owned(),
-            table_schema: Arc::new(table_schema.clone()),
-            projected_schema: Arc::new(
+            table_schema: Box::new(table_schema.clone()),
+            projected_schema: Box::new(
                 projected_schema.or(Some(table_schema.clone())).unwrap(),
             ),
             projection,
@@ -774,8 +773,8 @@ impl LogicalPlanBuilder {
 
         Ok(Self::from(&LogicalPlan::Projection {
             expr: projected_expr,
-            input: Arc::new(self.plan.clone()),
-            schema: Arc::new(schema),
+            input: Box::new(self.plan.clone()),
+            schema: Box::new(schema),
         }))
     }
 
@@ -783,7 +782,7 @@ impl LogicalPlanBuilder {
     pub fn filter(&self, expr: Expr) -> Result<Self> {
         Ok(Self::from(&LogicalPlan::Selection {
             expr,
-            input: Arc::new(self.plan.clone()),
+            input: Box::new(self.plan.clone()),
         }))
     }
 
@@ -791,7 +790,7 @@ impl LogicalPlanBuilder {
     pub fn limit(&self, expr: Expr) -> Result<Self> {
         Ok(Self::from(&LogicalPlan::Limit {
             expr,
-            input: Arc::new(self.plan.clone()),
+            input: Box::new(self.plan.clone()),
             schema: self.plan.schema().clone(),
         }))
     }
@@ -800,7 +799,7 @@ impl LogicalPlanBuilder {
     pub fn sort(&self, expr: Vec<Expr>) -> Result<Self> {
         Ok(Self::from(&LogicalPlan::Sort {
             expr,
-            input: Arc::new(self.plan.clone()),
+            input: Box::new(self.plan.clone()),
             schema: self.plan.schema().clone(),
         }))
     }
@@ -814,10 +813,10 @@ impl LogicalPlanBuilder {
             Schema::new(utils::exprlist_to_fields(&all_fields, self.plan.schema())?);
 
         Ok(Self::from(&LogicalPlan::Aggregate {
-            input: Arc::new(self.plan.clone()),
+            input: Box::new(self.plan.clone()),
             group_expr,
             aggr_expr,
-            schema: Arc::new(aggr_schema),
+            schema: Box::new(aggr_schema),
         }))
     }
 
@@ -830,28 +829,6 @@ impl LogicalPlanBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::thread;
-
-    #[test]
-    fn logical_plan_can_be_shared_between_threads() -> Result<()> {
-        let plan = LogicalPlanBuilder::scan(
-            "default",
-            "employee.csv",
-            &employee_schema(),
-            Some(vec![0, 3]),
-        )?
-        .filter(col("id").eq(&lit_str("CO")))?
-        .project(vec![col("id")])?
-        .build()?;
-
-        // prove that a plan can be passed to a thread
-        let plan1 = plan.clone();
-        thread::spawn(move || {
-            println!("plan: {:?}", plan1);
-        });
-
-        Ok(())
-    }
 
     #[test]
     fn plan_builder_simple() -> Result<()> {

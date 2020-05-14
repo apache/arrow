@@ -144,7 +144,7 @@ impl ExecutionContext {
                 header_row,
                 location,
             } => {
-                let schema = Arc::new(self.build_schema(columns)?);
+                let schema = Box::new(self.build_schema(columns)?);
 
                 Ok(LogicalPlan::CreateExternalTable {
                     schema,
@@ -233,11 +233,12 @@ impl ExecutionContext {
     pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn Table>> {
         match self.datasources.get(table_name) {
             Some(provider) => {
+                let schema = provider.schema().as_ref().clone();
                 let table_scan = LogicalPlan::TableScan {
                     schema_name: "".to_string(),
                     table_name: table_name.to_string(),
-                    table_schema: provider.schema().clone(),
-                    projected_schema: provider.schema().clone(),
+                    table_schema: Box::new(schema.to_owned()),
+                    projected_schema: Box::new(schema),
                     projection: None,
                 };
                 Ok(Arc::new(TableImpl::new(
@@ -859,13 +860,13 @@ mod tests {
 
     #[test]
     fn scalar_udf() -> Result<()> {
-        let schema = Arc::new(Schema::new(vec![
+        let schema = Schema::new(vec![
             Field::new("a", DataType::Int32, false),
             Field::new("b", DataType::Int32, false),
-        ]));
+        ]);
 
         let batch = RecordBatch::try_new(
-            schema.clone(),
+            Arc::new(schema.clone()),
             vec![
                 Arc::new(Int32Array::from(vec![1, 10, 10, 100])),
                 Arc::new(Int32Array::from(vec![2, 12, 12, 120])),
@@ -874,7 +875,7 @@ mod tests {
 
         let mut ctx = ExecutionContext::new();
 
-        let provider = MemTable::new(schema, vec![batch])?;
+        let provider = MemTable::new(Arc::new(schema), vec![batch])?;
         ctx.register_table("t", Box::new(provider));
 
         let myfunc: ScalarUdf = |args: &[ArrayRef]| {

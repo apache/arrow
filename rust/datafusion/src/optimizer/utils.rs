@@ -250,21 +250,20 @@ mod tests {
     use crate::logicalplan::Expr;
     use arrow::datatypes::DataType;
     use std::collections::HashSet;
-    use std::sync::Arc;
 
     #[test]
     fn test_collect_expr() -> Result<()> {
         let mut accum: HashSet<usize> = HashSet::new();
         expr_to_column_indices(
             &Expr::Cast {
-                expr: Arc::new(Expr::Column(3)),
+                expr: Box::new(Expr::Column(3)),
                 data_type: DataType::Float64,
             },
             &mut accum,
         )?;
         expr_to_column_indices(
             &Expr::Cast {
-                expr: Arc::new(Expr::Column(3)),
+                expr: Box::new(Expr::Column(3)),
                 data_type: DataType::Float64,
             },
             &mut accum,
