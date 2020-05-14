@@ -138,6 +138,11 @@ class ARROW_EXPORT BasicDecimal128 {
   /// - If 'round' is false, the right-most digits are simply dropped.
   BasicDecimal128 ReduceScaleBy(int32_t reduce_by, bool round = true) const;
 
+  /// \brief Whether this number fits in the given precision
+  ///
+  /// Return true if the number of significant digits is less or equal to `precision`.
+  bool FitsInPrecision(int32_t precision) const;
+
   // returns 1 for positive and zero decimal values, -1 for negative decimal values.
   inline int64_t Sign() const { return 1 | (high_bits_ >> 63); }
 

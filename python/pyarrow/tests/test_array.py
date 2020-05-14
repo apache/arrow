@@ -1164,9 +1164,9 @@ def test_decimal_to_decimal():
     )
     assert result.equals(expected)
 
-    # TODO FIXME
-    # this should fail but decimal overflow is not implemented
-    result = arr.cast(pa.decimal128(1, 2))
+    with pytest.raises(pa.ArrowInvalid,
+                       match='Decimal value does not fit in precision'):
+        result = arr.cast(pa.decimal128(5, 2))
 
 
 def test_safe_cast_nan_to_int_raises():

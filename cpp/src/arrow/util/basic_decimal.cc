@@ -169,6 +169,12 @@ BasicDecimal128 BasicDecimal128::Abs(const BasicDecimal128& in) {
   return result.Abs();
 }
 
+bool BasicDecimal128::FitsInPrecision(int32_t precision) const {
+  DCHECK_GT(precision, 0);
+  DCHECK_LE(precision, 38);
+  return BasicDecimal128::Abs(*this) < ScaleMultipliers[precision];
+}
+
 BasicDecimal128& BasicDecimal128::operator+=(const BasicDecimal128& right) {
   const uint64_t sum = low_bits_ + right.low_bits_;
   high_bits_ = SafeSignedAdd<int64_t>(high_bits_, right.high_bits_);
@@ -633,7 +639,11 @@ static bool RescaleWouldCauseDataLoss(const BasicDecimal128& value, int32_t delt
 DecimalStatus BasicDecimal128::Rescale(int32_t original_scale, int32_t new_scale,
                                        BasicDecimal128* out) const {
   DCHECK_NE(out, nullptr);
-  DCHECK_NE(original_scale, new_scale);
+
+  if (original_scale == new_scale) {
+    *out = *this;
+    return DecimalStatus::kSuccess;
+  }
 
   const int32_t delta_scale = new_scale - original_scale;
   const int32_t abs_delta_scale = std::abs(delta_scale);

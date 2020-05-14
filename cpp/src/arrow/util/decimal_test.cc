@@ -676,4 +676,26 @@ TEST(Decimal128Test, ReduceScaleAndRound) {
   ASSERT_EQ(-1238, out);
 }
 
+TEST(Decimal128Test, FitsInPrecision) {
+  ASSERT_TRUE(Decimal128("0").FitsInPrecision(1));
+  ASSERT_TRUE(Decimal128("9").FitsInPrecision(1));
+  ASSERT_TRUE(Decimal128("-9").FitsInPrecision(1));
+  ASSERT_FALSE(Decimal128("10").FitsInPrecision(1));
+  ASSERT_FALSE(Decimal128("-10").FitsInPrecision(1));
+
+  ASSERT_TRUE(Decimal128("0").FitsInPrecision(2));
+  ASSERT_TRUE(Decimal128("10").FitsInPrecision(2));
+  ASSERT_TRUE(Decimal128("-10").FitsInPrecision(2));
+  ASSERT_TRUE(Decimal128("99").FitsInPrecision(2));
+  ASSERT_TRUE(Decimal128("-99").FitsInPrecision(2));
+  ASSERT_FALSE(Decimal128("100").FitsInPrecision(2));
+  ASSERT_FALSE(Decimal128("-100").FitsInPrecision(2));
+
+  ASSERT_TRUE(Decimal128("99999999999999999999999999999999999999").FitsInPrecision(38));
+  ASSERT_TRUE(Decimal128("-99999999999999999999999999999999999999").FitsInPrecision(38));
+  ASSERT_FALSE(Decimal128("100000000000000000000000000000000000000").FitsInPrecision(38));
+  ASSERT_FALSE(
+      Decimal128("-100000000000000000000000000000000000000").FitsInPrecision(38));
+}
+
 }  // namespace arrow
