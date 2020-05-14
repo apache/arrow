@@ -721,12 +721,14 @@ where
         let values_data = values_arr.data();
 
         // check that values_data length is multiple of len
-        assert!(
-            values_data.len() / len == self.list_len as usize,
-            "Values of FixedSizeList must have equal lengths, values have length {} and list has {}",
-            values_data.len(),
-            len
-        );
+        if values_data.len() > 0 {
+            assert!(
+                values_data.len() / len == self.list_len as usize,
+                "Values of FixedSizeList must have equal lengths, values have length {} and list has {}",
+                values_data.len(),
+                len
+            );
+        }
 
         let null_bit_buffer = self.bitmap_builder.finish();
         let data = ArrayData::builder(DataType::FixedSizeList(
@@ -1833,6 +1835,16 @@ mod tests {
         builder.append(true).unwrap();
         arr = builder.finish();
         assert_eq!(1, arr.len());
+        assert_eq!(0, builder.len());
+    }
+
+    #[test]
+    fn test_fixed_size_list_array_builder_empty() {
+        let values_builder = Int32Array::builder(5);
+        let mut builder = FixedSizeListBuilder::new(values_builder, 3);
+
+        let arr = builder.finish();
+        assert_eq!(0, arr.len());
         assert_eq!(0, builder.len());
     }
 
