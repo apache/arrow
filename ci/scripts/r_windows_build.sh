@@ -43,8 +43,8 @@ DST_DIR="arrow-$VERSION"
 
 # Collect the build artifacts and make the shape of zip file that rwinlib expects
 ls
-mkdir build
-cp mingw* build
+mkdir -p build
+mv mingw* build
 cd build
 
 # This may vary by system/CI provider
@@ -54,10 +54,13 @@ ls $MSYS_LIB_DIR/mingw64/lib/
 ls $MSYS_LIB_DIR/mingw32/lib/
 
 # Untar the two builds we made
-ls | xargs -n 1 tar -xJf
-mkdir $DST_DIR
+ls *.xz | xargs -n 1 tar -xJf
+mkdir -p $DST_DIR
 # Grab the headers from one, either one is fine
-mv mingw64/include $DST_DIR
+# (if we're building twice to combine old and new toolchains, this may already exist)
+if [ ! -d $DST_DIR/include ]; then
+  mv mingw64/include $DST_DIR
+fi
 
 # Make the rest of the directory structure
 # lib-4.9.3 is for libraries compiled with gcc 4.9 (Rtools 3.5)

@@ -182,8 +182,10 @@ jobs:
           r-version: '3.6'
           Ncpus: 2
       - name: Build Arrow C++
-        run: |
-          C:\rtools40\usr\bin\bash --login -c "export RTOOLS_VERSION=${{ matrix.rtools }} && cd /d/a/arrow/arrow && ci/scripts/r_windows_build.sh"
+        shell: bash
+        env:
+          RTOOLS_VERSION: ${{ matrix.rtools }}
+        run: ci/scripts/r_windows_build.sh
       - uses: actions/upload-artifact@v1
         with:
           name: Rtools ${{ matrix.rtools }} Arrow C++
