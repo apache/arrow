@@ -16,7 +16,8 @@
 
 os: osx
 # CRAN builds on macOS 10.13, so make sure that's what we're testing
-osx_image: xcode9.4language: r
+osx_image: xcode9.4
+language: r
 cache: packages
 r: {{ r_version }}
 fortran: false
