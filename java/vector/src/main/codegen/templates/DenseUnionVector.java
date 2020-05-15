@@ -150,7 +150,7 @@ public class DenseUnionVector implements FieldVector {
 
   @Override
   public MinorType getMinorType() {
-    return MinorType.UNION;
+    return MinorType.DENSEUNION;
   }
 
   @Override
@@ -268,6 +268,8 @@ public class DenseUnionVector implements FieldVector {
 
   @Override
   public ArrowBuf getOffsetBuffer() { return offsetBuffer; }
+
+  public ArrowBuf getTypeBuffer() { return typeBuffer; }
 
   @Override
   public ArrowBuf getDataBuffer() { throw new UnsupportedOperationException(); }
@@ -685,7 +687,6 @@ public class DenseUnionVector implements FieldVector {
           typeStarts[typeId] = offsetBuffer.getInt(i * OFFSET_WIDTH);
         }
       }
-      to.setValueCount(length);
 
       // transfer vector values
       for (int i = 0; i < nextTypeId; i++) {
@@ -694,6 +695,8 @@ public class DenseUnionVector implements FieldVector {
           to.childVectors[i] = internalTransferPairs[i].getTo();
         }
       }
+
+      to.setValueCount(length);
     }
 
     @Override
@@ -816,7 +819,20 @@ public class DenseUnionVector implements FieldVector {
       reallocTypeBuffer();
       reallocOffsetBuffer();
     }
-    internalStruct.setValueCount(valueCount);
+    setChildVectorValueCounts();
+  }
+
+  private void setChildVectorValueCounts() {
+    int [] counts = new int[nextTypeId];
+    for (int i = 0; i < this.valueCount; i++) {
+      if (!isNull(i)) {
+        byte typeId = getTypeId(i);
+        counts[typeId] += 1;
+      }
+    }
+    for (int i = 0; i < nextTypeId; i++) {
+      childVectors[i].setValueCount(counts[i]);
+    }
   }
 
   public void setSafe(int index, DenseUnionHolder holder) {
