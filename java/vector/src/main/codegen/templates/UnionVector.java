@@ -29,7 +29,6 @@ import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
-import org.apache.arrow.vector.util.ValueVectorUtility;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/UnionVector.java" />

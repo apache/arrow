@@ -552,6 +552,7 @@ public class ValueVectorDataPopulator {
    * Populate values for {@link ListVector}.
    */
   public static void setVector(ListVector vector, List<Integer>... values) {
+    vector.allocateNewSafe();
     Types.MinorType type = Types.MinorType.INT;
     vector.addOrGetVector(FieldType.nullable(type.getType()));
 
@@ -567,7 +568,7 @@ public class ValueVectorDataPopulator {
       } else {
         BitVectorHelper.setBit(vector.getValidityBuffer(), i);
         for (int value : values[i]) {
-          dataVector.set(curPos, value);
+          dataVector.setSafe(curPos, value);
           curPos += 1;
         }
       }
@@ -582,6 +583,7 @@ public class ValueVectorDataPopulator {
    * Populate values for {@link FixedSizeListVector}.
    */
   public static void setVector(FixedSizeListVector vector, List<Integer>... values) {
+    vector.allocateNewSafe();
     for (int i = 0; i < values.length; i++) {
       if (values[i] != null) {
         assertEquals(vector.getListSize(), values[i].size());
@@ -602,7 +604,7 @@ public class ValueVectorDataPopulator {
       } else {
         BitVectorHelper.setBit(vector.getValidityBuffer(), i);
         for (int value : values[i]) {
-          dataVector.set(curPos, value);
+          dataVector.setSafe(curPos, value);
           curPos += 1;
         }
       }
