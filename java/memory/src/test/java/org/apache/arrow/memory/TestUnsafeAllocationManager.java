@@ -58,7 +58,7 @@ public class TestUnsafeAllocationManager {
       assertTrue(buffer.getReferenceManager() instanceof BufferLedger);
       BufferLedger bufferLedger = (BufferLedger) buffer.getReferenceManager();
 
-      // make sure we are using netty allocation manager
+      // make sure we are using unsafe allocation manager
       AllocationManager allocMgr = bufferLedger.getAllocationManager();
       assertTrue(allocMgr instanceof UnsafeAllocationManager);
       UnsafeAllocationManager unsafeMgr = (UnsafeAllocationManager) allocMgr;
