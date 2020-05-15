@@ -563,6 +563,23 @@ impl MutableBuffer {
             )
         }
     }
+
+    /// Writes a byte slice to the underlying buffer and updates the `len`, i.e. the
+    /// number array elements in the buffer.  Also, converts the `io::Result`
+    /// required by the `Write` trait to the Arrow `Result` type.
+    pub fn write_bytes(&mut self, bytes: &[u8], len_added: usize) -> Result<()> {
+        let write_result = self.write(bytes);
+        // `io::Result` has many options one of which we use, so pattern matching is
+        // overkill here
+        if write_result.is_err() {
+            Err(ArrowError::IoError(
+                "Could not write to Buffer, not big enough".to_string(),
+            ))
+        } else {
+            self.len += len_added;
+            Ok(())
+        }
+    }
 }
 
 impl Drop for MutableBuffer {

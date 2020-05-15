@@ -33,6 +33,29 @@ use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
 
+///  Converts a `MutableBuffer` to a `BufferBuilder<T>`.
+///
+/// `slots` is the number of array slots currently represented in the `MutableBuffer`.
+pub(crate) fn mutable_buffer_to_builder<T: ArrowPrimitiveType>(
+    mutable_buffer: MutableBuffer,
+    slots: usize,
+) -> BufferBuilder<T> {
+    BufferBuilder::<T> {
+        buffer: mutable_buffer,
+        len: slots,
+        _marker: PhantomData,
+    }
+}
+
+///  Converts a `BufferBuilder<T>` into it's underlying `MutableBuffer`.
+///
+/// `From` is not implemented because associated type bounds are unstable.
+pub(crate) fn builder_to_mutable_buffer<T: ArrowPrimitiveType>(
+    builder: BufferBuilder<T>,
+) -> MutableBuffer {
+    builder.buffer
+}
+
 /// Builder for creating a [`Buffer`](crate::buffer::Buffer) object.
 ///
 /// This builder is implemented for primitive types and creates a
