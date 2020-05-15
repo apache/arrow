@@ -17,6 +17,7 @@
 
 package org.apache.arrow.vector.util;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BufferLayout;
 import org.apache.arrow.vector.FieldVector;
@@ -24,8 +25,6 @@ import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.validate.ValidateVectorVisitor;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Utility methods for {@link ValueVector}.
