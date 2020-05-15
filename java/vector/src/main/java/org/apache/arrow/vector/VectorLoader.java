@@ -52,12 +52,12 @@ public class VectorLoader {
    * @param recordBatch the batch to load
    */
   public void load(ArrowRecordBatch recordBatch) {
+    root.setRowCount(recordBatch.getLength());
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
     Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
     for (FieldVector fieldVector : root.getFieldVectors()) {
       loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes);
     }
-    root.setRowCount(recordBatch.getLength());
     if (nodes.hasNext() || buffers.hasNext()) {
       throw new IllegalArgumentException("not all nodes and buffers were consumed. nodes: " +
           Collections2.toList(nodes).toString() + " buffers: " + Collections2.toList(buffers).toString());
