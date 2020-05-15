@@ -255,7 +255,7 @@ public class JdbcAdapterBenchmarks {
     @Setup(Level.Trial)
     public void prepareState() throws Exception {
       allocator = new RootAllocator(Integer.MAX_VALUE);
-      config = new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(1024).build();
+      config = new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(VALUE_COUNT).build();
       Class.forName(DRIVER);
       conn = DriverManager.getConnection(URL);
 
