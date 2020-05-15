@@ -769,15 +769,36 @@ impl LogicalPlanBuilder {
     /// Scan a CSV data source
     pub fn scan_csv(
         path: &str,
+        has_header: bool,
         schema: &Schema,
         projection: Option<Vec<usize>>,
     ) -> Result<Self> {
-        unimplemented!()
+        let projected_schema = projection.clone().map(|p| {
+            Schema::new(p.iter().map(|i| table_schema.field(*i).clone()).collect())
+        });
+        Ok(Self::from(&LogicalPlan::CsvScan {
+            path: path.to_owned(),
+            schema: Arc::new(schema.to_owned()),
+            has_header,
+            projection,
+            projected_schema: Arc::new(
+                projected_schema.or(Some(table_schema.clone())).unwrap(),
+            )
+        }))
     }
 
     /// Scan a Parquet data source
     pub fn scan_parquet(path: &str, projection: Option<Vec<usize>>) -> Result<Self> {
-        unimplemented!()
+        let projected_schema = projection.clone().map(|p| {
+            Schema::new(p.iter().map(|i| table_schema.field(*i).clone()).collect())
+        });
+        Ok(Self::from(&LogicalPlan::ParquetScan {
+            path: path.to_owned(),
+            projection,
+            projected_schema: Arc::new(
+                projected_schema.or(Some(table_schema.clone())).unwrap(),
+            )
+        }))
     }
 
     /// Scan a data source
