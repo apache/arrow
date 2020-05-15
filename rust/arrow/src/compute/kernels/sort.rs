@@ -32,6 +32,8 @@ use TimeUnit::*;
 /// while preserving the order of the nulls.
 ///
 /// Returns an `ArrowError::ComputeError(String)` if the array type is either unsupported by `sort_to_indices` or `take`.
+///
+/// Null float values (e.g. f64::NAN) are sorted with non-null values, and are ordered higher than other values.
 pub fn sort(values: &ArrayRef, options: Option<SortOptions>) -> Result<ArrayRef> {
     let indices = sort_to_indices(values, options)?;
     take(values, &indices, None)
@@ -149,9 +151,13 @@ where
         .collect::<Vec<(u32, T::Native)>>();
     let mut nulls = null_indices;
     if !options.descending {
-        valids.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        valids.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or_else(|| Ordering::Greater));
     } else {
-        valids.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap().reverse());
+        valids.sort_by(|a, b| {
+            a.1.partial_cmp(&b.1)
+                .unwrap_or_else(|| Ordering::Greater)
+                .reverse()
+        });
         nulls.reverse();
     }
     // collect the order of valid tuples
@@ -718,12 +724,12 @@ mod tests {
             vec![None, None, Some(2.0), Some(0.0), Some(0.0), Some(-1.0)],
         );
         test_sort_primitive_arrays::<Float64Type>(
-            vec![None, Some(0.0), Some(2.0), Some(-1.0), Some(0.0), None],
+            vec![None, Some(0.0), Some(2.0), Some(-1.0), Some(f64::NAN), None],
             Some(SortOptions {
                 descending: true,
                 nulls_first: true,
             }),
-            vec![None, None, Some(2.0), Some(0.0), Some(0.0), Some(-1.0)],
+            vec![None, None, Some(f64::NAN), Some(2.0), Some(0.0), Some(-1.0)],
         );
 
         // int8 nulls first
@@ -768,12 +774,12 @@ mod tests {
             vec![None, None, Some(-1.0), Some(0.0), Some(0.0), Some(2.0)],
         );
         test_sort_primitive_arrays::<Float64Type>(
-            vec![None, Some(0.0), Some(2.0), Some(-1.0), Some(0.0), None],
+            vec![None, Some(0.0), Some(2.0), Some(-1.0), Some(f64::NAN), None],
             Some(SortOptions {
                 descending: false,
                 nulls_first: true,
             }),
-            vec![None, None, Some(-1.0), Some(0.0), Some(0.0), Some(2.0)],
+            vec![None, None, Some(-1.0), Some(0.0), Some(2.0), Some(f64::NAN)],
         );
     }
 
