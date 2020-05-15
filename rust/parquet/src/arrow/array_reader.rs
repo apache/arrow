@@ -25,11 +25,12 @@ use std::sync::Arc;
 use std::vec::Vec;
 
 use arrow::array::{
-    ArrayDataBuilder, ArrayDataRef, ArrayRef, BooleanBufferBuilder, BufferBuilderTrait,
-    Int16BufferBuilder, StructArray,
+    Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef, BinaryArray,
+    BinaryBuilder, BooleanBufferBuilder, BufferBuilderTrait, FixedSizeBinaryArray,
+    FixedSizeBinaryBuilder, Int16BufferBuilder, ListArray, ListBuilder, PrimitiveArray,
+    PrimitiveBuilder, StringArray, StringBuilder, StructArray,
 };
 use arrow::buffer::{Buffer, MutableBuffer};
-use arrow::datatypes::{DataType as ArrowType, Field, IntervalUnit, TimeUnit};
 
 use crate::arrow::converter::{
     BinaryArrayConverter, BinaryConverter, BoolConverter, BooleanArrayConverter,
@@ -54,13 +55,6 @@ use crate::schema::types::{
     ColumnDescPtr, ColumnDescriptor, ColumnPath, SchemaDescPtr, Type, TypePtr,
 };
 use crate::schema::visitor::TypeVisitor;
-use arrow::array::{
-    Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef, BinaryArray,
-    BinaryBuilder, BooleanBufferBuilder, BufferBuilderTrait, FixedSizeBinaryArray,
-    FixedSizeBinaryBuilder, Int16BufferBuilder, ListArray, ListBuilder, PrimitiveArray,
-    PrimitiveBuilder, StringArray, StringBuilder, StructArray,
-};
-use arrow::buffer::{Buffer, MutableBuffer};
 use arrow::datatypes::{
     BooleanType as ArrowBooleanType, DataType as ArrowType,
     Date32Type as ArrowDate32Type, Date64Type as ArrowDate64Type,
@@ -74,8 +68,8 @@ use arrow::datatypes::{
     Time32MillisecondType as ArrowTime32MillisecondType,
     Time32SecondType as ArrowTime32SecondType,
     Time64MicrosecondType as ArrowTime64MicrosecondType,
-    Time64NanosecondType as ArrowTime64NanosecondType, TimeUnit as ArrowTimeUnit,
-    TimestampMicrosecondType as ArrowTimestampMicrosecondType,
+    Time64NanosecondType as ArrowTime64NanosecondType, TimeUnit,
+    TimeUnit as ArrowTimeUnit, TimestampMicrosecondType as ArrowTimestampMicrosecondType,
     TimestampMillisecondType as ArrowTimestampMillisecondType,
     TimestampNanosecondType as ArrowTimestampNanosecondType,
     TimestampSecondType as ArrowTimestampSecondType, ToByteSlice,
