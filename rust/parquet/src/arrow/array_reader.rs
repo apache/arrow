@@ -1079,22 +1079,16 @@ mod tests {
             ",
                 $physical_type, $logical_type_str
             );
-            eprintln!("1");
             let schema = parse_message_type(&message_type)
                 .map(|t| Rc::new(SchemaDescriptor::new(Rc::new(t))))
                 .unwrap();
 
-            eprintln!("2");
             let column_desc = schema.column(0);
-            eprintln!("3");
 
             // Construct page iterator
             {
-                eprintln!("4");
                 let mut data = Vec::new();
-                eprintln!("5");
                 let mut page_lists = Vec::new();
-                eprintln!("6");
                 make_column_chuncks::<$arrow_parquet_type>(
                     column_desc.clone(),
                     Encoding::PLAIN,
@@ -1108,29 +1102,24 @@ mod tests {
                     true,
                     2,
                 );
-                eprintln!("7");
                 let page_iterator = InMemoryPageIterator::new(
                     schema.clone(),
                     column_desc.clone(),
                     page_lists,
                 );
-                eprintln!("8");
                 let mut array_reader = PrimitiveArrayReader::<$arrow_parquet_type>::new(
                     Box::new(page_iterator),
                     column_desc.clone(),
                 )
                 .unwrap();
-                eprintln!("9");
 
                 let array = array_reader.next_batch(50).unwrap();
 
-                eprintln!("10");
                 let array = array
                     .as_any()
                     .downcast_ref::<PrimitiveArray<$result_arrow_type>>()
                     .unwrap();
 
-                eprintln!("11");
                 assert_eq!(
                     &PrimitiveArray::<$result_arrow_type>::from(
                         data[0..50]
