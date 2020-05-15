@@ -848,7 +848,7 @@ impl DataType {
                             Some(8) => Ok(DataType::Int8),
                             Some(16) => Ok(DataType::Int16),
                             Some(32) => Ok(DataType::Int32),
-                            Some(64) => Ok(DataType::Int32),
+                            Some(64) => Ok(DataType::Int64),
                             _ => Err(ArrowError::ParseError(
                                 "int bitWidth missing or invalid".to_string(),
                             )),
