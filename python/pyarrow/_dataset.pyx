@@ -280,12 +280,15 @@ cdef class Dataset:
         -------
         fragments : iterator of Fragment
         """
-        cdef CFragmentIterator c_fragments
+        cdef:
+            shared_ptr[CExpression] c_filter
+            CFragmentIterator c_iterator
 
-        if filter is None or filter.expr == nullptr:
+        if filter is None:
             c_fragments = self.dataset.GetFragments()
         else:
-            c_fragments = self.dataset.GetFragments(filter.unwrap())
+            c_filter = _insert_implicit_casts(filter, self.schema)
+            c_fragments = self.dataset.GetFragments(c_filter)
 
         for maybe_fragment in c_fragments:
             yield Fragment.wrap(GetResultValue(move(maybe_fragment)))
