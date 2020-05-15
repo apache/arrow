@@ -80,44 +80,102 @@ identify_os <- function(os = Sys.getenv("LIBARROW_BINARY", Sys.getenv("LIBARROW_
     return(os)
   }
 
-  if (nzchar(Sys.which("lsb_release"))) {
-    distro <- tolower(system("lsb_release -is", intern = TRUE))
-    os_version <- system("lsb_release -rs", intern = TRUE)
-    # In the future, we may be able to do some mapping of distro-versions to
-    # versions we built for, since there's no way we'll build for everything.
-    os <- paste0(distro, "-", os_version)
-  } else if (file.exists("/etc/os-release")) {
-    os_release <- readLines("/etc/os-release")
-    vals <- sub("^.*=(.*)$", "\\1", os_release)
-    names(vals) <- sub("^(.*)=.*$", "\\1", os_release)
-    distro <- gsub('"', '', vals["ID"])
-    os_version <- "unknown" # default value
-    if ("VERSION_ID" %in% names(vals)) {
-      if (distro == "ubuntu") {
-        # Keep major.minor version
-        version_regex <- '^"?([0-9]+\\.[0-9]+).*"?.*$'
-      } else {
-        # Only major version number
-        version_regex <- '^"?([0-9]+).*"?.*$'
-      }
-      os_version <- sub(version_regex, "\\1", vals["VERSION_ID"])
-    } else if ("PRETTY_NAME" %in% names(vals) && grepl("bullseye", vals["PRETTY_NAME"])) {
-      # debian unstable doesn't include a number but we can map from pretty name
-      os_version <- "11"
-    }
-    os <- paste0(distro, "-", os_version)
-  } else if (file.exists("/etc/system-release")) {
-    # Something like "CentOS Linux release 7.7.1908 (Core)"
-    system_release <- tolower(utils::head(readLines("/etc/system-release"), 1))
-    # Extract from that the distro and the major version number
-    os <- sub("^([a-z]+) .* ([0-9]+).*$", "\\1-\\2", system_release)
-  } else {
+  linux <- distro()
+  if (is.null(linux)) {
     cat("*** Unable to identify current OS/version\n")
-    os <- NULL
+    return(NULL)
+  }
+  paste(linux$id, linux$short_version, sep = "-")
+}
+
+#### start distro ####
+
+distro <- function() {
+  out <- lsb_release()
+  if (is.null(out)) {
+    out <- os_release()
+    if (is.null(out)) {
+      out <- system_release()
+    }
+  }
+  if (is.null(out)) {
+    return(NULL)
   }
 
-  os
+  out$id <- tolower(out$id)
+  if (grepl("bullseye", out$codename)) {
+    # debian unstable doesn't include a number but we can map from pretty name
+    out$short_version <- "11"
+  } else if (out$id == "ubuntu") {
+    # Keep major.minor version
+    out$short_version <- sub('^"?([0-9]+\\.[0-9]+).*"?.*$', "\\1", out$version)
+  } else {
+    # Only major version number
+    out$short_version <- sub('^"?([0-9]+).*"?.*$', "\\1", out$version)
+  }
+  out
 }
+
+lsb_release <- function() {
+  if (have_lsb_release()) {
+    list(
+      id = call_lsb("-is"),
+      version = call_lsb("-rs"),
+      codename = call_lsb("-cs")
+    )
+  } else {
+    NULL
+  }
+}
+
+have_lsb_release <- function() nzchar(Sys.which("lsb_release"))
+call_lsb <- function(args) system(paste("lsb_release", args), intern = TRUE)
+
+os_release <- function() {
+  rel_data <- read_os_release()
+  if (!is.null(rel_data)) {
+    vals <- as.list(sub('^.*="?(.*?)"?$', "\\1", rel_data))
+    names(vals) <- sub("^(.*)=.*$", "\\1", rel_data)
+
+    out <- list(
+      id = vals[["ID"]],
+      version = vals[["VERSION_ID"]]
+    )
+    if ("VERSION_CODENAME" %in% names(vals)) {
+      out$codename <- vals[["VERSION_CODENAME"]]
+    } else {
+      # This probably isn't right, maybe could extract codename from pretty name?
+      out$codename = vals[["PRETTY_NAME"]]
+    }
+    out
+  } else {
+    NULL
+  }
+}
+
+read_os_release <- function() {
+  if (file.exists("/etc/os-release")) {
+    readLines("/etc/os-release")
+  }
+}
+
+system_release <- function() {
+  rel_data <- read_system_release()
+  if (!is.null(rel_data)) {
+    # Something like "CentOS Linux release 7.7.1908 (Core)"
+    list(
+      id = sub("^([a-zA-Z]+) .* ([0-9.]+).*$", "\\1", rel_data),
+      version = sub("^([a-zA-Z]+) .* ([0-9.]+).*$", "\\2", rel_data),
+      codename = NA
+    )
+  } else {
+    NULL
+  }
+}
+
+read_system_release <- function() utils::head(readLines("/etc/system-release"), 1)
+
+#### end distro ####
 
 find_available_binary <- function(os) {
   # Download a csv that maps one to the other, columns "actual" and "use_this"
