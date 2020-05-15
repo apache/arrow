@@ -610,7 +610,7 @@ class BinaryTask
               $stderr.puts(build_download_error_message(url, response))
               return
             else
-              raise
+              raise build_download_error_message(url, response)
             end
           end
         end
