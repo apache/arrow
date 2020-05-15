@@ -102,51 +102,8 @@ impl ProjectionPushDown {
                 projection,
                 ..
             } => {
-                if projection.is_some() {
-                    return Err(ExecutionError::General(
-                        "Cannot run projection push-down rule more than once".to_string(),
-                    ));
-                }
-
-                // once we reach the table scan, we can use the accumulated set of column
-                // indexes as the projection in the table scan
-                let mut projection: Vec<usize> = Vec::with_capacity(accum.len());
-                accum.iter().for_each(|i| projection.push(*i));
-
-                // Ensure that we are reading at least one column from the table in case the query
-                // does not reference any columns directly such as "SELECT COUNT(1) FROM table"
-                if projection.is_empty() {
-                    projection.push(0);
-                }
-
-                // sort the projection otherwise we get non-deterministic behavior
-                projection.sort();
-
-                // create the projected schema
-                let mut projected_fields: Vec<Field> =
-                    Vec::with_capacity(projection.len());
-                for i in &projection {
-                    projected_fields.push(table_schema.fields()[*i].clone());
-                }
-
-                let projected_schema = Schema::new(projected_fields);
-
-                // now that the table scan is returning a different schema we need to
-                // create a mapping from the original column index to the
-                // new column index so that we can rewrite expressions as
-                // we walk back up the tree
-
-                if mapping.len() != 0 {
-                    return Err(ExecutionError::InternalError(
-                        "illegal state".to_string(),
-                    ));
-                }
-
-                for i in 0..table_schema.fields().len() {
-                    if let Some(n) = projection.iter().position(|v| *v == i) {
-                        mapping.insert(i, n);
-                    }
-                }
+                let (projection, projected_schema) =
+                    get_projected_schema(&table_schema, projection, accum, mapping)?;
 
                 // return the table scan with projection
                 Ok(LogicalPlan::TableScan {
@@ -155,6 +112,40 @@ impl ProjectionPushDown {
                     table_schema: table_schema.clone(),
                     projected_schema: Box::new(projected_schema),
                     projection: Some(projection),
+                })
+            }
+            LogicalPlan::CsvScan {
+                path,
+                has_header,
+                schema,
+                projection,
+                ..
+            } => {
+                let (projection, projected_schema) =
+                    get_projected_schema(&schema, projection, accum, mapping)?;
+
+                Ok(LogicalPlan::CsvScan {
+                    path: path.to_owned(),
+                    has_header: *has_header,
+                    schema: schema.clone(),
+                    projection: Some(projection),
+                    projected_schema: Box::new(projected_schema),
+                })
+            }
+            LogicalPlan::ParquetScan {
+                path,
+                schema,
+                projection,
+                ..
+            } => {
+                let (projection, projected_schema) =
+                    get_projected_schema(&schema, projection, accum, mapping)?;
+
+                Ok(LogicalPlan::ParquetScan {
+                    path: path.to_owned(),
+                    schema: schema.clone(),
+                    projection: Some(projection),
+                    projected_schema: Box::new(projected_schema),
                 })
             }
             LogicalPlan::Limit { expr, input, .. } => {
@@ -252,6 +243,56 @@ impl ProjectionPushDown {
             )),
         }
     }
+}
+
+fn get_projected_schema(
+    table_schema: &Schema,
+    projection: &Option<Vec<usize>>,
+    accum: &HashSet<usize>,
+    mapping: &mut HashMap<usize, usize>,
+) -> Result<(Vec<usize>, Schema)> {
+    if projection.is_some() {
+        return Err(ExecutionError::General(
+            "Cannot run projection push-down rule more than once".to_string(),
+        ));
+    }
+
+    // once we reach the table scan, we can use the accumulated set of column
+    // indexes as the projection in the table scan
+    let mut projection: Vec<usize> = Vec::with_capacity(accum.len());
+    accum.iter().for_each(|i| projection.push(*i));
+
+    // Ensure that we are reading at least one column from the table in case the query
+    // does not reference any columns directly such as "SELECT COUNT(1) FROM table"
+    if projection.is_empty() {
+        projection.push(0);
+    }
+
+    // sort the projection otherwise we get non-deterministic behavior
+    projection.sort();
+
+    // create the projected schema
+    let mut projected_fields: Vec<Field> = Vec::with_capacity(projection.len());
+    for i in &projection {
+        projected_fields.push(table_schema.fields()[*i].clone());
+    }
+
+    // now that the table scan is returning a different schema we need to
+    // create a mapping from the original column index to the
+    // new column index so that we can rewrite expressions as
+    // we walk back up the tree
+
+    if mapping.len() != 0 {
+        return Err(ExecutionError::InternalError("illegal state".to_string()));
+    }
+
+    for i in 0..table_schema.fields().len() {
+        if let Some(n) = projection.iter().position(|v| *v == i) {
+            mapping.insert(i, n);
+        }
+    }
+
+    Ok((projection, Schema::new(projected_fields)))
 }
 
 #[cfg(test)]
