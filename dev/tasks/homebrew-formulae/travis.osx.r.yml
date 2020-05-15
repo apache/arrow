@@ -42,6 +42,9 @@ before_install:
 - cd arrow/r
 # Put the formula inside r/ so that it's included in the package build
 - cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
+# Pin the current commit in the formula to test so that we're not always pulling from master
+- sed -i.bak -E -e 's@https://github.com/apache/arrow.git"$@{{ arrow.remote }}", :revision => "'"$(git rev-list -n 1 HEAD)"'"@' tools/apache-arrow.rb
+- rm -f tools/apache-arrow.rb.bak
 # Hack for old macOS (10.11)
 # See https://travis-ci.community/t/library-developer-commandlinetools-sdks-macosx-sdk-missing-on-el-capitain/3213/3
 - sed -i.bak 's/-isysroot /-I/g' $(R RHOME)/etc/Makeconf
