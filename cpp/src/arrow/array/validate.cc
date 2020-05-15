@@ -121,7 +121,7 @@ struct ValidateArrayVisitor {
                                " != ", array.length(), ")");
       }
 
-      auto it_type = struct_type.child(i)->type();
+      auto it_type = struct_type.field(i)->type();
       if (!it->type()->Equals(it_type)) {
         return Status::Invalid("Struct child array #", i,
                                " does not match type field: ", it->type()->ToString(),
@@ -142,7 +142,7 @@ struct ValidateArrayVisitor {
     // Validate fields
     for (int i = 0; i < array.num_fields(); ++i) {
       if (union_type.mode() == UnionMode::SPARSE) {
-        // array.child() may crash due to an assertion in ArrayData::Slice(),
+        // array.field() may crash due to an assertion in ArrayData::Slice(),
         // so check invariants before
         const auto& child_data = *array.data()->child_data[i];
         if (child_data.length < array.offset()) {
@@ -152,14 +152,14 @@ struct ValidateArrayVisitor {
         }
       }
 
-      auto it = array.child(i);
+      auto it = array.field(i);
       if (union_type.mode() == UnionMode::SPARSE && it->length() != array.length()) {
         return Status::Invalid("Sparse union child array #", i,
                                " has length different from union array (", it->length(),
                                " != ", array.length(), ")");
       }
 
-      auto it_type = union_type.child(i)->type();
+      auto it_type = union_type.field(i)->type();
       if (!it->type()->Equals(it_type)) {
         return Status::Invalid("Union child array #", i,
                                " does not match type field: ", it->type()->ToString(),
@@ -338,8 +338,8 @@ Status ValidateArray(const Array& array) {
   }
 
   if (type.id() != Type::EXTENSION) {
-    if (data.child_data.size() != static_cast<size_t>(type.num_children())) {
-      return Status::Invalid("Expected ", type.num_children(),
+    if (data.child_data.size() != static_cast<size_t>(type.num_fields())) {
+      return Status::Invalid("Expected ", type.num_fields(),
                              " child arrays in array "
                              "of type ",
                              type.ToString(), ", got ", data.child_data.size());
@@ -427,8 +427,8 @@ struct ValidateArrayDataVisitor {
       // Map logical type id to child length
       std::vector<int64_t> child_lengths(256);
       const auto& type_codes_map = array.union_type()->type_codes();
-      for (int child_id = 0; child_id < array.type()->num_children(); ++child_id) {
-        child_lengths[type_codes_map[child_id]] = array.child(child_id)->length();
+      for (int child_id = 0; child_id < array.type()->num_fields(); ++child_id) {
+        child_lengths[type_codes_map[child_id]] = array.field(child_id)->length();
       }
 
       // Check offsets

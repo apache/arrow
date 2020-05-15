@@ -1469,7 +1469,7 @@ struct DeserializeImpl {
   }
 
   static Result<ExpressionType::type> GetExpressionType(const StructArray& array) {
-    if (array.struct_type()->num_children() < 1) {
+    if (array.struct_type()->num_fields() < 1) {
       return Status::Invalid("StructArray didn't contain ExpressionType member");
     }
 

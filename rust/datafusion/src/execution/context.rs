@@ -33,6 +33,7 @@ use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
+use crate::execution::physical_plan::csv::CsvExec;
 use crate::execution::physical_plan::datasource::DatasourceExec;
 use crate::execution::physical_plan::expressions::{
     Alias, Avg, BinaryExpr, CastExpr, Column, Count, Literal, Max, Min, Sum,
@@ -41,6 +42,7 @@ use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
 use crate::execution::physical_plan::limit::LimitExec;
 use crate::execution::physical_plan::math_expressions::register_math_functions;
 use crate::execution::physical_plan::merge::MergeExec;
+use crate::execution::physical_plan::parquet::ParquetExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
 use crate::execution::physical_plan::selection::SelectionExec;
 use crate::execution::physical_plan::udf::{ScalarFunction, ScalarFunctionExpr};
@@ -144,7 +146,7 @@ impl ExecutionContext {
                 header_row,
                 location,
             } => {
-                let schema = Arc::new(self.build_schema(columns)?);
+                let schema = Box::new(self.build_schema(columns)?);
 
                 Ok(LogicalPlan::CreateExternalTable {
                     schema,
@@ -233,11 +235,12 @@ impl ExecutionContext {
     pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn Table>> {
         match self.datasources.get(table_name) {
             Some(provider) => {
+                let schema = provider.schema().as_ref().clone();
                 let table_scan = LogicalPlan::TableScan {
                     schema_name: "".to_string(),
                     table_name: table_name.to_string(),
-                    table_schema: provider.schema().clone(),
-                    projected_schema: provider.schema().clone(),
+                    table_schema: Box::new(schema.to_owned()),
+                    projected_schema: Box::new(schema),
                     projection: None,
                 };
                 Ok(Arc::new(TableImpl::new(
@@ -296,6 +299,26 @@ impl ExecutionContext {
                     table_name
                 ))),
             },
+            LogicalPlan::CsvScan {
+                path,
+                schema,
+                has_header,
+                projection,
+                ..
+            } => Ok(Arc::new(CsvExec::try_new(
+                path,
+                Arc::new(schema.as_ref().to_owned()),
+                *has_header,
+                projection.to_owned(),
+                batch_size,
+            )?)),
+            LogicalPlan::ParquetScan {
+                path, projection, ..
+            } => Ok(Arc::new(ParquetExec::try_new(
+                path,
+                projection.to_owned(),
+                batch_size,
+            )?)),
             LogicalPlan::Projection { input, expr, .. } => {
                 let input = self.create_physical_plan(input, batch_size)?;
                 let input_schema = input.as_ref().schema().clone();
@@ -859,13 +882,13 @@ mod tests {
 
     #[test]
     fn scalar_udf() -> Result<()> {
-        let schema = Arc::new(Schema::new(vec![
+        let schema = Schema::new(vec![
             Field::new("a", DataType::Int32, false),
             Field::new("b", DataType::Int32, false),
-        ]));
+        ]);
 
         let batch = RecordBatch::try_new(
-            schema.clone(),
+            Arc::new(schema.clone()),
             vec![
                 Arc::new(Int32Array::from(vec![1, 10, 10, 100])),
                 Arc::new(Int32Array::from(vec![2, 12, 12, 120])),
@@ -874,10 +897,10 @@ mod tests {
 
         let mut ctx = ExecutionContext::new();
 
-        let provider = MemTable::new(schema, vec![batch])?;
+        let provider = MemTable::new(Arc::new(schema), vec![batch])?;
         ctx.register_table("t", Box::new(provider));
 
-        let myfunc: ScalarUdf = |args: &Vec<ArrayRef>| {
+        let myfunc: ScalarUdf = |args: &[ArrayRef]| {
             let l = &args[0]
                 .as_any()
                 .downcast_ref::<Int32Array>()

@@ -233,14 +233,50 @@ def test_forwarding_env_variables(arrow_compose_path):
         with assert_compose_calls(compose, expected_calls, env=expected_env):
             assert os.environ['MY_CUSTOM_VAR_A'] == 'a'
             assert os.environ['MY_CUSTOM_VAR_B'] == 'b'
+            compose.pull('conda-cpp')
             compose.build('conda-cpp')
+
+
+def test_compose_pull(arrow_compose_path):
+    compose = DockerCompose(arrow_compose_path)
+
+    expected_calls = [
+        "pull --ignore-pull-failures conda-cpp",
+    ]
+    with assert_compose_calls(compose, expected_calls):
+        compose.pull('conda-cpp')
+
+    expected_calls = [
+        "pull --ignore-pull-failures conda-cpp",
+        "pull --ignore-pull-failures conda-python",
+        "pull --ignore-pull-failures conda-python-pandas"
+    ]
+    with assert_compose_calls(compose, expected_calls):
+        compose.pull('conda-python-pandas')
+
+    expected_calls = [
+        "pull --ignore-pull-failures conda-cpp",
+        "pull --ignore-pull-failures conda-python",
+    ]
+    with assert_compose_calls(compose, expected_calls):
+        compose.pull('conda-python-pandas', pull_leaf=False)
+
+
+def test_compose_pull_params(arrow_compose_path):
+    expected_calls = [
+        "pull --ignore-pull-failures conda-cpp",
+        "pull --ignore-pull-failures conda-python",
+    ]
+    compose = DockerCompose(arrow_compose_path, params=dict(UBUNTU='18.04'))
+    expected_env = PartialEnv(PYTHON='3.6', PANDAS='latest')
+    with assert_compose_calls(compose, expected_calls, env=expected_env):
+        compose.pull('conda-python-pandas', pull_leaf=False)
 
 
 def test_compose_build(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path)
 
     expected_calls = [
-        "pull --ignore-pull-failures conda-cpp",
         "build conda-cpp",
     ]
     with assert_compose_calls(compose, expected_calls):
@@ -250,12 +286,9 @@ def test_compose_build(arrow_compose_path):
         "build --no-cache conda-cpp"
     ]
     with assert_compose_calls(compose, expected_calls):
-        compose.build('conda-cpp', cache=False)
+        compose.build('conda-cpp', use_cache=False)
 
     expected_calls = [
-        "pull --ignore-pull-failures conda-cpp",
-        "pull --ignore-pull-failures conda-python",
-        "pull --ignore-pull-failures conda-python-pandas",
         "build conda-cpp",
         "build conda-python",
         "build conda-python-pandas"
@@ -269,22 +302,20 @@ def test_compose_build(arrow_compose_path):
         "build --no-cache conda-python-pandas",
     ]
     with assert_compose_calls(compose, expected_calls):
-        compose.build('conda-python-pandas', cache=False)
+        compose.build('conda-python-pandas', use_cache=False)
 
     expected_calls = [
-        "pull --ignore-pull-failures conda-cpp",
-        "pull --ignore-pull-failures conda-python",
         "build conda-cpp",
         "build conda-python",
         "build --no-cache conda-python-pandas",
     ]
     with assert_compose_calls(compose, expected_calls):
-        compose.build('conda-python-pandas', cache=True, cache_leaf=False)
+        compose.build('conda-python-pandas', use_cache=True,
+                      use_leaf_cache=False)
 
 
 def test_compose_build_params(arrow_compose_path):
     expected_calls = [
-        "pull --ignore-pull-failures ubuntu-cpp",
         "build ubuntu-cpp",
     ]
 
@@ -306,18 +337,7 @@ def test_compose_build_params(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path, params=dict(UBUNTU='18.04'))
     expected_env = PartialEnv(PYTHON='3.6', PANDAS='latest')
     with assert_compose_calls(compose, expected_calls, env=expected_env):
-        compose.build('conda-python-pandas', cache=False)
-
-    compose = DockerCompose(arrow_compose_path, params=dict(PANDAS='0.25.3'))
-    expected_env = PartialEnv(PYTHON='3.6', PANDAS='0.25.3')
-    with assert_compose_calls(compose, expected_calls, env=expected_env):
-        compose.build('conda-python-pandas', cache=False)
-
-    compose = DockerCompose(arrow_compose_path,
-                            params=dict(PYTHON='3.8', PANDAS='master'))
-    expected_env = PartialEnv(PYTHON='3.8', PANDAS='master')
-    with assert_compose_calls(compose, expected_calls, env=expected_env):
-        compose.build('conda-python-pandas', cache=False)
+        compose.build('conda-python-pandas', use_cache=False)
 
 
 def test_compose_run(arrow_compose_path):
@@ -363,6 +383,68 @@ def test_compose_run(arrow_compose_path):
             ("CONTAINER_ENV_VAR_B", "b")
         ])
         compose.run('conda-python', env=env)
+
+    expected_calls = [
+        (
+            "run --rm --volume /host/build:/build "
+            "--volume /host/ccache:/ccache:delegated conda-python"
+        )
+    ]
+    compose = DockerCompose(arrow_compose_path)
+    with assert_compose_calls(compose, expected_calls):
+        volumes = ("/host/build:/build", "/host/ccache:/ccache:delegated")
+        compose.run('conda-python', volumes=volumes)
+
+
+def test_compose_run_force_pull_and_build(arrow_compose_path):
+    compose = DockerCompose(arrow_compose_path)
+
+    expected_calls = [
+        "pull --ignore-pull-failures conda-cpp",
+        "run --rm conda-cpp"
+    ]
+    with assert_compose_calls(compose, expected_calls):
+        compose.run('conda-cpp', force_pull=True)
+
+    expected_calls = [
+        "build conda-cpp",
+        "run --rm conda-cpp"
+    ]
+    with assert_compose_calls(compose, expected_calls):
+        compose.run('conda-cpp', force_build=True)
+
+    expected_calls = [
+        "pull --ignore-pull-failures conda-cpp",
+        "build conda-cpp",
+        "run --rm conda-cpp"
+    ]
+    with assert_compose_calls(compose, expected_calls):
+        compose.run('conda-cpp', force_pull=True, force_build=True)
+
+    expected_calls = [
+        "pull --ignore-pull-failures conda-cpp",
+        "pull --ignore-pull-failures conda-python",
+        "pull --ignore-pull-failures conda-python-pandas",
+        "build conda-cpp",
+        "build conda-python",
+        "build conda-python-pandas",
+        "run --rm conda-python-pandas bash"
+    ]
+    with assert_compose_calls(compose, expected_calls):
+        compose.run('conda-python-pandas', command='bash', force_build=True,
+                    force_pull=True)
+
+    expected_calls = [
+        "pull --ignore-pull-failures conda-cpp",
+        "pull --ignore-pull-failures conda-python",
+        "build conda-cpp",
+        "build conda-python",
+        "build --no-cache conda-python-pandas",
+        "run --rm conda-python-pandas bash"
+    ]
+    with assert_compose_calls(compose, expected_calls):
+        compose.run('conda-python-pandas', command='bash', force_build=True,
+                    force_pull=True, use_leaf_cache=False)
 
 
 def test_compose_push(arrow_compose_path):

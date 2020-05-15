@@ -658,7 +658,7 @@ inline Status ConvertStruct(const PandasOptions& options, const ChunkedArray& da
         RETURN_IF_PYERROR();
         for (int32_t field_idx = 0; field_idx < num_fields; ++field_idx) {
           OwnedRef field_value;
-          auto name = array_type->child(static_cast<int>(field_idx))->name();
+          auto name = array_type->field(static_cast<int>(field_idx))->name();
           if (!arr->field(static_cast<int>(field_idx))->IsNull(i)) {
             // Value exists in child array, obtain it
             auto array = reinterpret_cast<PyArrayObject*>(fields_data[field_idx].obj());

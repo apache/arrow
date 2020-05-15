@@ -70,6 +70,7 @@ import org.apache.arrow.vector.complex.impl.BitWriterImpl;
 import org.apache.arrow.vector.complex.impl.DateDayWriterImpl;
 import org.apache.arrow.vector.complex.impl.DateMilliWriterImpl;
 import org.apache.arrow.vector.complex.impl.DecimalWriterImpl;
+import org.apache.arrow.vector.complex.impl.DenseUnionWriter;
 import org.apache.arrow.vector.complex.impl.DurationWriterImpl;
 import org.apache.arrow.vector.complex.impl.FixedSizeBinaryWriterImpl;
 import org.apache.arrow.vector.complex.impl.Float4WriterImpl;
@@ -600,19 +601,30 @@ public class Types {
           throw new UnsupportedOperationException("Dictionary encoding not supported for complex " +
               "types");
         }
-        ArrowType.Union unionType = (Union) field.getFieldType().getType();
-        if (unionType.getMode() == Sparse) {
-          return new UnionVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
-        } else if (unionType.getMode() == Dense) {
-          return new DenseUnionVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
-        } else {
-          throw new IllegalArgumentException("Illegal mode: " + unionType.getMode());
-        }
+        return new UnionVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
       }
 
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new UnionWriter((UnionVector) vector);
+      }
+    },
+    DENSEUNION(new Union(Dense, null)) {
+      @Override
+      public FieldVector getNewVector(
+          Field field,
+          BufferAllocator allocator,
+          CallBack schemaChangeCallback) {
+        if (field.getFieldType().getDictionary() != null) {
+          throw new UnsupportedOperationException("Dictionary encoding not supported for complex " +
+              "types");
+        }
+        return new DenseUnionVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new DenseUnionWriter((DenseUnionVector) vector);
       }
     },
     MAP(null) {

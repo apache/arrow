@@ -24,9 +24,10 @@
 
 namespace arrow {
 namespace internal {
+namespace detail {
 
-struct StringToFloatConverter::Impl {
-  Impl()
+struct StringToFloatConverterImpl {
+  StringToFloatConverterImpl()
       : main_converter_(flags_, main_junk_value_, main_junk_value_, "inf", "nan"),
         fallback_converter_(flags_, fallback_junk_value_, fallback_junk_value_, "inf",
                             "nan") {}
@@ -43,23 +44,18 @@ struct StringToFloatConverter::Impl {
   util::double_conversion::StringToDoubleConverter fallback_converter_;
 };
 
-constexpr int StringToFloatConverter::Impl::flags_;
-constexpr double StringToFloatConverter::Impl::main_junk_value_;
-constexpr double StringToFloatConverter::Impl::fallback_junk_value_;
+static const StringToFloatConverterImpl g_string_to_float;
 
-StringToFloatConverter::StringToFloatConverter() : impl_(new Impl()) {}
-
-StringToFloatConverter::~StringToFloatConverter() {}
-
-bool StringToFloatConverter::StringToFloat(const char* s, size_t length, float* out) {
+bool StringToFloat(const char* s, size_t length, float* out) {
   int processed_length;
   float v;
-  v = impl_->main_converter_.StringToFloat(s, static_cast<int>(length),
-                                           &processed_length);
-  if (ARROW_PREDICT_FALSE(v == static_cast<float>(impl_->main_junk_value_))) {
-    v = impl_->fallback_converter_.StringToFloat(s, static_cast<int>(length),
-                                                 &processed_length);
-    if (ARROW_PREDICT_FALSE(v == static_cast<float>(impl_->fallback_junk_value_))) {
+  v = g_string_to_float.main_converter_.StringToFloat(s, static_cast<int>(length),
+                                                      &processed_length);
+  if (ARROW_PREDICT_FALSE(v == static_cast<float>(g_string_to_float.main_junk_value_))) {
+    v = g_string_to_float.fallback_converter_.StringToFloat(s, static_cast<int>(length),
+                                                            &processed_length);
+    if (ARROW_PREDICT_FALSE(v ==
+                            static_cast<float>(g_string_to_float.fallback_junk_value_))) {
       return false;
     }
   }
@@ -67,21 +63,23 @@ bool StringToFloatConverter::StringToFloat(const char* s, size_t length, float* 
   return true;
 }
 
-bool StringToFloatConverter::StringToFloat(const char* s, size_t length, double* out) {
+bool StringToFloat(const char* s, size_t length, double* out) {
   int processed_length;
   double v;
-  v = impl_->main_converter_.StringToDouble(s, static_cast<int>(length),
-                                            &processed_length);
-  if (ARROW_PREDICT_FALSE(v == impl_->main_junk_value_)) {
-    v = impl_->fallback_converter_.StringToDouble(s, static_cast<int>(length),
-                                                  &processed_length);
-    if (ARROW_PREDICT_FALSE(v == impl_->fallback_junk_value_)) {
+  v = g_string_to_float.main_converter_.StringToDouble(s, static_cast<int>(length),
+                                                       &processed_length);
+  if (ARROW_PREDICT_FALSE(v == g_string_to_float.main_junk_value_)) {
+    v = g_string_to_float.fallback_converter_.StringToDouble(s, static_cast<int>(length),
+                                                             &processed_length);
+    if (ARROW_PREDICT_FALSE(v == g_string_to_float.fallback_junk_value_)) {
       return false;
     }
   }
   *out = v;
   return true;
 }
+
+}  // namespace detail
 
 // ----------------------------------------------------------------------
 // strptime-like parsing

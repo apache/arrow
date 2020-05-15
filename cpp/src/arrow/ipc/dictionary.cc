@@ -148,9 +148,9 @@ struct DictionaryCollector {
   DictionaryMemo* dictionary_memo_;
 
   Status WalkChildren(const DataType& type, const Array& array) {
-    for (int i = 0; i < type.num_children(); ++i) {
+    for (int i = 0; i < type.num_fields(); ++i) {
       auto boxed_child = MakeArray(array.data()->child_data[i]);
-      RETURN_NOT_OK(Visit(type.child(i), boxed_child.get()));
+      RETURN_NOT_OK(Visit(type.field(i), boxed_child.get()));
     }
     return Status::OK();
   }

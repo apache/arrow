@@ -233,3 +233,4 @@ r/vignettes/*.Rmd
 ruby/red-arrow/.yardopts
 rust/arrow/test/data/*.csv
 rust/rust-toolchain
+rust/arrow-flight/src/arrow.flight.protocol.rs

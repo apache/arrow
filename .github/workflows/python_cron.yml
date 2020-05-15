@@ -55,38 +55,47 @@ jobs:
           - conda-python-3.7-hdfs-2.9.2
         include:
           - name: debian-10-python-3
+            cache: debian-10-python-3
             image: debian-python
             title: AMD64 Debian 10 Python 3
             debian: 10
           - name: fedora-30-python-3
+            cache: fedora-30-python-3
             image: fedora-python
             title: AMD64 Fedora 30 Python 3
             fedora: 30
           - name: ubuntu-18.04-python-3
+            cache: ubuntu-18.04-python-3
             image: ubuntu-python
             title: AMD64 Ubuntu 18.04 Python 3
             ubuntu: 18.04
           - name: conda-python-3.7-dask-latest
+            cache: conda-python-3.7
             image: conda-python-dask
             title: AMD64 Conda Python 3.7 Dask latest
             dask: latest
           - name: conda-python-3.7-turbodbc-latest
+            cache: conda-python-3.7
             image: conda-python-turbodbc
             title: AMD64 Conda Python 3.7 Turbodbc latest
             turbodbc: latest
           - name: conda-python-3.7-kartothek-latest
+            cache: conda-python-3.7
             image: conda-python-kartothek
             title: AMD64 Conda Python 3.7 Kartothek latest
             kartothek: latest
           - name: conda-python-3.7-pandas-0.24
+            cache: conda-python-3.7
             image: conda-python-pandas
             title: AMD64 Conda Python 3.7 Pandas 0.24
             pandas: 0.24
           - name: conda-python-3.7-pandas-master
-            image: --no-cache-leaf conda-python-pandas
+            cache: conda-python-3.7
+            image: --no-leaf-cache conda-python-pandas
             title: AMD64 Conda Python 3.7 Pandas master
             pandas: master
           - name: conda-python-3.7-hdfs-2.9.2
+            cache: conda-python-3.7
             image: conda-python-hdfs
             title: AMD64 Conda Python 3.7 HDFS 2.9.2
             hdfs: 2.9.2
@@ -110,6 +119,12 @@ jobs:
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space
         run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
+        with:
+          path: .docker
+          key: ${{ matrix.cache }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ${{ matrix.cache }}-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:

@@ -239,7 +239,6 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
             const_iterator operator++()
             bint operator==(const_iterator)
             bint operator!=(const_iterator)
-
         const_iterator cbegin()
         const_iterator cend()
 
@@ -265,11 +264,15 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CLocation location
         unique_ptr[CServerAuthHandler] auth_handler
         vector[CCertKeyPair] tls_certificates
+        c_bool verify_client
+        c_string root_certificates
         vector[pair[c_string, shared_ptr[CServerMiddlewareFactory]]] middleware
 
     cdef cppclass CFlightClientOptions" arrow::flight::FlightClientOptions":
         CFlightClientOptions()
         c_string tls_root_certs
+        c_string cert_chain
+        c_string private_key
         c_string override_hostname
         vector[shared_ptr[CClientMiddlewareFactory]] middleware
 

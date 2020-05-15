@@ -731,7 +731,7 @@ Status NumPyConverter::Visit(const StructType& type) {
       return Status::TypeError("Expected struct array");
     }
 
-    for (auto field : type.children()) {
+    for (auto field : type.fields()) {
       PyObject* tup = PyDict_GetItemString(dtype_->fields, field->name().c_str());
       if (tup == NULL) {
         return Status::TypeError("Missing field '", field->name(), "' in struct array");

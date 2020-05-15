@@ -138,6 +138,7 @@ class PARQUET_EXPORT ParquetFileReader {
   /// only one row group at a time may be useful.
   void PreBuffer(const std::vector<int>& row_groups,
                  const std::vector<int>& column_indices,
+                 const ::arrow::io::AsyncContext& ctx,
                  const ::arrow::io::CacheOptions& options);
 
  private:

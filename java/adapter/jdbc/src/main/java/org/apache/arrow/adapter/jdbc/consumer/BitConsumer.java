@@ -55,7 +55,9 @@ public class BitConsumer {
     public void consume(ResultSet resultSet) throws SQLException {
       boolean value = resultSet.getBoolean(columnIndexInResultSet);
       if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, value ? 1 : 0);
+        // for fixed width vectors, we have allocated enough memory proactively,
+        // so there is no need to call the setSafe method here.
+        vector.set(currentIndex, value ? 1 : 0);
       }
       currentIndex++;
     }
@@ -76,7 +78,9 @@ public class BitConsumer {
     @Override
     public void consume(ResultSet resultSet) throws SQLException {
       boolean value = resultSet.getBoolean(columnIndexInResultSet);
-      vector.setSafe(currentIndex, value ? 1 : 0);
+      // for fixed width vectors, we have allocated enough memory proactively,
+      // so there is no need to call the setSafe method here.
+      vector.set(currentIndex, value ? 1 : 0);
       currentIndex++;
     }
   }

@@ -256,6 +256,11 @@ Regardless, if the C++ library fails to compile,
 please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues)
 so that we can attempt to improve the script.
 
+## Known installation issues
+
+* On CentOS, if you are using a more modern `devtoolset`, you may need to set
+the environment variables `CC=/usr/bin/gcc CXX=/usr/bin/g++`.
+
 ## Summary of build environment variables
 
 By default, these are all unset. All boolean variables are case-insensitive.

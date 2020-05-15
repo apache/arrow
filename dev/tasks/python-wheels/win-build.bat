@@ -18,11 +18,10 @@
 @echo on
 
 @rem create conda environment for compiling
-call conda update --yes --quiet conda
-
 call conda create -n wheel-build -q -y -c conda-forge ^
     --file=%ARROW_SRC%\ci\conda_env_cpp.yml ^
     --file=%ARROW_SRC%\ci\conda_env_gandiva.yml ^
+    "vs2015_runtime<14.16" ^
     python=%PYTHON_VERSION% || exit /B
 
 call conda.bat activate wheel-build
@@ -63,6 +62,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=ON ^
       -DARROW_GANDIVA=ON ^
+      -DARROW_MIMAllOC=ON ^
       -DZSTD_SOURCE=BUNDLED ^
       .. || exit /B
 cmake --build . --target install --config Release || exit /B
@@ -86,17 +86,20 @@ call conda.bat deactivate
 
 set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
 
-@rem test the wheel
-@rem TODO For maximum reliability, we should test in a plain virtualenv instead.
-call conda create -n wheel-test -c conda-forge -q -y python=%PYTHON_VERSION% || exit /B
-call conda.bat activate wheel-test
+@rem install the test dependencies
+%PYTHON_INTERPRETER% -m pip install -r %ARROW_SRC%\python\requirements-wheel-test.txt || exit /B
 
-@rem install the built wheel
-pip install -r %ARROW_SRC%\python\requirements-wheel-test.txt || exit /B
-pip install --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B
+@rem install the produced wheel in a non-conda environment
+%PYTHON_INTERPRETER% -m pip install --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B
 
 @rem test the imports
-python -c "import pyarrow; import pyarrow.parquet; import pyarrow.flight; import pyarrow.dataset; import pyarrow.gandiva;" || exit /B
+%PYTHON_INTERPRETER% -c "import pyarrow" || exit /B
+%PYTHON_INTERPRETER% -c "import pyarrow.parquet" || exit /B
+%PYTHON_INTERPRETER% -c "import pyarrow.flight" || exit /B
+%PYTHON_INTERPRETER% -c "import pyarrow.gandiva" || exit /B
+%PYTHON_INTERPRETER% -c "import pyarrow.dataset" || exit /B
 
-@rem run the python tests
-pytest -rs --pyargs pyarrow || exit /B
+@rem run the python tests, but disable the cython because there is a linking
+@rem issue on python 3.8
+set PYARROW_TEST_CYTHON=OFF
+%PYTHON_INTERPRETER% -m pytest -rs --pyargs pyarrow || exit /B

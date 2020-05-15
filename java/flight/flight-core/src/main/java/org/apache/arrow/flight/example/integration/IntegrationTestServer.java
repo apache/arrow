@@ -17,8 +17,9 @@
 
 package org.apache.arrow.flight.example.integration;
 
+import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
-import org.apache.arrow.flight.example.ExampleFlightServer;
+import org.apache.arrow.flight.example.InMemoryStore;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -38,30 +39,42 @@ class IntegrationTestServer {
   private IntegrationTestServer() {
     options = new Options();
     options.addOption("port", true, "The port to serve on.");
+    options.addOption("scenario", true, "The integration test scenario.");
   }
 
   private void run(String[] args) throws Exception {
     CommandLineParser parser = new DefaultParser();
     CommandLine cmd = parser.parse(options, args, false);
     final int port = Integer.parseInt(cmd.getOptionValue("port", "31337"));
+    final Location location = Location.forGrpcInsecure("localhost", port);
 
     final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-    final ExampleFlightServer efs = new ExampleFlightServer(allocator, Location.forGrpcInsecure("localhost", port));
-    efs.start();
-    efs.getStore().setLocation(Location.forGrpcInsecure("localhost", efs.getPort()));
+    final FlightServer.Builder builder = FlightServer.builder().allocator(allocator).location(location);
+
+    final FlightServer server;
+    if (cmd.hasOption("scenario")) {
+      final Scenario scenario = Scenarios.getScenario(cmd.getOptionValue("scenario"));
+      scenario.buildServer(builder);
+      server = builder.producer(scenario.producer(allocator, location)).build();
+      server.start();
+    } else {
+      final InMemoryStore store = new InMemoryStore(allocator, location);
+      server = FlightServer.builder(allocator, location, store).build().start();
+      store.setLocation(Location.forGrpcInsecure("localhost", server.getPort()));
+    }
     // Print out message for integration test script
-    System.out.println("Server listening on localhost:" + efs.getPort());
+    System.out.println("Server listening on localhost:" + server.getPort());
 
     Runtime.getRuntime().addShutdownHook(new Thread(() -> {
       try {
         System.out.println("\nExiting...");
-        AutoCloseables.close(efs, allocator);
+        AutoCloseables.close(server, allocator);
       } catch (Exception e) {
         e.printStackTrace();
       }
     }));
 
-    efs.awaitTermination();
+    server.awaitTermination();
   }
 
   public static void main(String[] args) {

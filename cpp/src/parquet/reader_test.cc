@@ -105,6 +105,17 @@ TEST_F(TestAllTypesPlain, TestBatchRead) {
   ASSERT_FALSE(col->HasNext());
 }
 
+TEST_F(TestAllTypesPlain, RowGroupColumnBoundchecking) {
+  // Part of PARQUET-1857
+  ASSERT_THROW(reader_->RowGroup(reader_->metadata()->num_row_groups()),
+               ParquetException);
+
+  auto row_group = reader_->RowGroup(0);
+  ASSERT_THROW(row_group->Column(row_group->metadata()->num_columns()), ParquetException);
+  ASSERT_THROW(row_group->GetColumnPageReader(row_group->metadata()->num_columns()),
+               ParquetException);
+}
+
 TEST_F(TestAllTypesPlain, TestFlatScannerInt32) {
   std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
 

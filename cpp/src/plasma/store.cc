@@ -123,11 +123,6 @@ PlasmaStore::PlasmaStore(EventLoop* loop, std::string directory, bool hugepages_
       external_store_(external_store) {
   store_info_.directory = directory;
   store_info_.hugepages_enabled = hugepages_enabled;
-#ifdef PLASMA_CUDA
-  auto maybe_manager = CudaDeviceManager::Instance();
-  DCHECK_OK(maybe_manager.status());
-  manager_ = *maybe_manager;
-#endif
 }
 
 // TODO(pcm): Get rid of this destructor by using RAII to clean up data.
@@ -207,11 +202,16 @@ uint8_t* PlasmaStore::AllocateMemory(size_t size, bool evict_if_full, int* fd,
 }
 
 #ifdef PLASMA_CUDA
+arrow::Result<std::shared_ptr<CudaContext>> PlasmaStore::GetCudaContext(int device_num) {
+  DCHECK_NE(device_num, 0);
+  ARROW_ASSIGN_OR_RAISE(auto manager, CudaDeviceManager::Instance());
+  return manager->GetContext(device_num - 1);
+}
+
 Status PlasmaStore::AllocateCudaMemory(
     int device_num, int64_t size, uint8_t** out_pointer,
     std::shared_ptr<CudaIpcMemHandle>* out_ipc_handle) {
-  DCHECK_NE(device_num, 0);
-  ARROW_ASSIGN_OR_RAISE(auto context, manager_->GetContext(device_num - 1));
+  ARROW_ASSIGN_OR_RAISE(auto context, GetCudaContext(device_num));
   ARROW_ASSIGN_OR_RAISE(auto cuda_buffer, context->Allocate(static_cast<int64_t>(size)));
   *out_pointer = reinterpret_cast<uint8_t*>(cuda_buffer->address());
   // The IPC handle will keep the buffer memory alive
@@ -219,7 +219,7 @@ Status PlasmaStore::AllocateCudaMemory(
 }
 
 Status PlasmaStore::FreeCudaMemory(int device_num, int64_t size, uint8_t* pointer) {
-  ARROW_ASSIGN_OR_RAISE(auto context, manager_->GetContext(device_num - 1));
+  ARROW_ASSIGN_OR_RAISE(auto context, GetCudaContext(device_num));
   RETURN_NOT_OK(context->Free(pointer, size));
   return Status::OK();
 }

@@ -182,7 +182,8 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override;
 
   // Synchronous ReadAsync override
-  Future<std::shared_ptr<Buffer>> ReadAsync(int64_t position, int64_t nbytes) override;
+  Future<std::shared_ptr<Buffer>> ReadAsync(const AsyncContext&, int64_t position,
+                                            int64_t nbytes) override;
 
   bool supports_zero_copy() const override;
 

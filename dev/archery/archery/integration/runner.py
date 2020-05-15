@@ -26,6 +26,7 @@ import sys
 import tempfile
 import traceback
 
+from .scenario import Scenario
 from .tester_cpp import CPPTester
 from .tester_go import GoTester
 from .tester_java import JavaTester
@@ -49,10 +50,11 @@ class Outcome:
 
 class IntegrationRunner(object):
 
-    def __init__(self, json_files, testers, tempdir=None, debug=False,
-                 stop_on_error=True, gold_dirs=None, serial=False,
-                 match=None, **unused_kwargs):
+    def __init__(self, json_files, flight_scenarios, testers, tempdir=None,
+                 debug=False, stop_on_error=True, gold_dirs=None,
+                 serial=False, match=None, **unused_kwargs):
         self.json_files = json_files
+        self.flight_scenarios = flight_scenarios
         self.testers = testers
         self.temp_dir = tempdir or tempfile.mkdtemp()
         self.debug = debug
@@ -251,7 +253,8 @@ class IntegrationRunner(object):
         log('##########################################################')
 
         case_runner = partial(self._run_flight_test_case, producer, consumer)
-        self._run_test_cases(producer, consumer, case_runner, self.json_files)
+        self._run_test_cases(producer, consumer, case_runner,
+                             self.json_files + self.flight_scenarios)
 
     def _run_flight_test_case(self, producer, consumer, test_case):
         """
@@ -259,9 +262,8 @@ class IntegrationRunner(object):
         """
         outcome = Outcome()
 
-        json_path = test_case.path
         log('=' * 58)
-        log('Testing file {0}'.format(json_path))
+        log('Testing file {0}'.format(test_case.name))
         log('=' * 58)
 
         if producer.name in test_case.skip:
@@ -280,10 +282,17 @@ class IntegrationRunner(object):
 
         else:
             try:
-                with producer.flight_server() as port:
+                if isinstance(test_case, Scenario):
+                    server = producer.flight_server(test_case.name)
+                    client_args = {'scenario_name': test_case.name}
+                else:
+                    server = producer.flight_server()
+                    client_args = {'json_path': test_case.path}
+
+                with server as port:
                     # Have the client upload the file, then download and
                     # compare
-                    consumer.flight_request(port, json_path)
+                    consumer.flight_request(port, **client_args)
             except Exception:
                 traceback.print_exc(file=printer.stdout)
                 outcome.failure = Failure(test_case, producer, consumer,
@@ -328,7 +337,14 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
     )
     json_files = static_json_files + generated_json_files
 
-    runner = IntegrationRunner(json_files, testers, **kwargs)
+    # Additional integration test cases for Arrow Flight.
+    flight_scenarios = [
+        Scenario(
+            "auth:basic_proto",
+            description="Authenticate using the BasicAuth protobuf."),
+    ]
+
+    runner = IntegrationRunner(json_files, flight_scenarios, testers, **kwargs)
     runner.run()
     if run_flight:
         runner.run_flight()

@@ -66,6 +66,12 @@ jobs:
       - name: Free Up Disk Space
         shell: bash
         run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
+        with:
+          path: .docker
+          key: maven-${{ hashFiles('java/**') }}
+          restore-keys: maven-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:

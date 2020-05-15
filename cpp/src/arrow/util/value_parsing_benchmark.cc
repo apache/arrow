@@ -107,13 +107,12 @@ static std::vector<c_float> MakeFloats(int32_t num_items) {
 template <typename ARROW_TYPE, typename C_TYPE = typename ARROW_TYPE::c_type>
 static void IntegerParsing(benchmark::State& state) {  // NOLINT non-const reference
   auto strings = MakeIntStrings<C_TYPE>(1000);
-  StringConverter<ARROW_TYPE> converter;
 
   while (state.KeepRunning()) {
     C_TYPE total = 0;
     for (const auto& s : strings) {
       C_TYPE value;
-      if (!converter(s.data(), s.length(), &value)) {
+      if (!ParseValue<ARROW_TYPE>(s.data(), s.length(), &value)) {
         std::cerr << "Conversion failed for '" << s << "'";
         std::abort();
       }
@@ -127,13 +126,12 @@ static void IntegerParsing(benchmark::State& state) {  // NOLINT non-const refer
 template <typename ARROW_TYPE, typename C_TYPE = typename ARROW_TYPE::c_type>
 static void FloatParsing(benchmark::State& state) {  // NOLINT non-const reference
   auto strings = MakeFloatStrings(1000);
-  StringConverter<ARROW_TYPE> converter;
 
   while (state.KeepRunning()) {
     C_TYPE total = 0;
     for (const auto& s : strings) {
       C_TYPE value;
-      if (!converter(s.data(), s.length(), &value)) {
+      if (!ParseValue<ARROW_TYPE>(s.data(), s.length(), &value)) {
         std::cerr << "Conversion failed for '" << s << "'";
         std::abort();
       }

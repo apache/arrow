@@ -577,7 +577,7 @@ class BitmapOp : public TestBase {
     std::shared_ptr<Buffer> left, right, out;
     int64_t length;
 
-    for (int64_t left_offset : {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120}) {
+    for (int64_t left_offset : {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120, 65536}) {
       BitmapFromVector(left_bits, left_offset, &left, &length);
       for (int64_t right_offset : {left_offset, left_offset + 8, left_offset + 40}) {
         BitmapFromVector(right_bits, right_offset, &right, &length);
@@ -604,7 +604,7 @@ class BitmapOp : public TestBase {
                      const std::vector<int>& result_bits) {
     std::shared_ptr<Buffer> left, right, out;
     int64_t length;
-    auto offset_values = {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120};
+    auto offset_values = {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120, 65536};
 
     for (int64_t left_offset : offset_values) {
       BitmapFromVector(left_bits, left_offset, &left, &length);
@@ -659,6 +659,33 @@ TEST_F(BitmapOp, Xor) {
 
   TestAligned(op, left, right, result);
   TestUnaligned(op, left, right, result);
+}
+
+TEST_F(BitmapOp, RandomXor) {
+  const int kBitCount = 1000;
+  uint8_t buffer[kBitCount * 2] = {0};
+
+  random_bytes(kBitCount * 2, 0, buffer);
+
+  std::vector<int> left(kBitCount);
+  std::vector<int> right(kBitCount);
+  std::vector<int> result(kBitCount);
+
+  for (int i = 0; i < kBitCount; ++i) {
+    left[i] = buffer[i] & 1;
+    right[i] = buffer[i + kBitCount] & 1;
+    result[i] = left[i] ^ right[i];
+  }
+
+  BitmapXorOp op;
+  for (int i = 0; i < 3; ++i) {
+    TestAligned(op, left, right, result);
+    TestUnaligned(op, left, right, result);
+
+    left.resize(left.size() * 5 / 11);
+    right.resize(left.size());
+    result.resize(left.size());
+  }
 }
 
 static inline int64_t SlowCountBits(const uint8_t* data, int64_t bit_offset,
@@ -1127,15 +1154,16 @@ TEST(Bitmap, ShiftingWordsOptimization) {
 
     for (int seed = 0; seed < 64; ++seed) {
       random_bytes(sizeof(word), seed, bytes);
+      uint64_t native_word = BitUtil::FromLittleEndian(word);
 
       // bits are accessible through simple bit shifting of the word
       for (size_t i = 0; i < kBitWidth; ++i) {
-        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((word >> i) & 1));
+        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((native_word >> i) & 1));
       }
 
       // bit offset can therefore be accommodated by shifting the word
       for (size_t offset = 0; offset < (kBitWidth * 3) / 4; ++offset) {
-        uint64_t shifted_word = word >> offset;
+        uint64_t shifted_word = arrow::BitUtil::ToLittleEndian(native_word >> offset);
         auto shifted_bytes = reinterpret_cast<uint8_t*>(&shifted_word);
         ASSERT_TRUE(
             internal::BitmapEquals(bytes, offset, shifted_bytes, 0, kBitWidth - offset));
@@ -1151,20 +1179,23 @@ TEST(Bitmap, ShiftingWordsOptimization) {
 
     for (int seed = 0; seed < 64; ++seed) {
       random_bytes(sizeof(words), seed, bytes);
+      uint64_t native_words0 = BitUtil::FromLittleEndian(words[0]);
+      uint64_t native_words1 = BitUtil::FromLittleEndian(words[1]);
 
       // bits are accessible through simple bit shifting of a word
       for (size_t i = 0; i < kBitWidth; ++i) {
-        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((words[0] >> i) & 1));
+        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((native_words0 >> i) & 1));
       }
       for (size_t i = 0; i < kBitWidth; ++i) {
-        ASSERT_EQ(BitUtil::GetBit(bytes, i + kBitWidth), bool((words[1] >> i) & 1));
+        ASSERT_EQ(BitUtil::GetBit(bytes, i + kBitWidth), bool((native_words1 >> i) & 1));
       }
 
       // bit offset can therefore be accommodated by shifting the word
       for (size_t offset = 1; offset < (kBitWidth * 3) / 4; offset += 3) {
         uint64_t shifted_words[2];
-        shifted_words[0] = words[0] >> offset | (words[1] << (kBitWidth - offset));
-        shifted_words[1] = words[1] >> offset;
+        shifted_words[0] = arrow::BitUtil::ToLittleEndian(
+            native_words0 >> offset | (native_words1 << (kBitWidth - offset)));
+        shifted_words[1] = arrow::BitUtil::ToLittleEndian(native_words1 >> offset);
         auto shifted_bytes = reinterpret_cast<uint8_t*>(shifted_words);
 
         // from offset to unshifted word boundary
@@ -1241,8 +1272,7 @@ TEST(Bitmap, VisitPartialWords) {
 #endif  // ARROW_VALGRIND
 
 TEST(Bitmap, ToString) {
-  uint64_t bitmap_value = 0xCAAC;
-  uint8_t* bitmap = reinterpret_cast<uint8_t*>(&bitmap_value);
+  uint8_t bitmap[8] = {0xAC, 0xCA, 0, 0, 0, 0, 0, 0};
   EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/34).ToString(),
             "00110101 01010011 00000000 00000000 00");
   EXPECT_EQ(Bitmap(bitmap, /*bit_offset*/ 0, /*length=*/16).ToString(),

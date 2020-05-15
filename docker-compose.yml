@@ -22,8 +22,8 @@
 # defaults are set in .env file.
 #
 # Example:
-# $ ARCH=arm64v8 docker-compose build ubuntu-bionic-cpp
-# $ ARCH=arm64v8 docker-compose run ubuntu-bionic-cpp
+# $ ARCH=arm64v8 docker-compose build ubuntu-cpp
+# $ ARCH=arm64v8 docker-compose run ubuntu-cpp
 #
 #
 # Coredumps
@@ -55,29 +55,12 @@
 
 version: '3.5'
 
-volumes:
-  # Named volumes must be predefined, so in order to use other architecture,
-  # like ARM64v8 with debian 10, then the appropriate parametrized volume name
-  # must be added the list below: arm64v8-debian-10-cache
-  amd64-conda-cache:
-  amd64-cuda-9.1-cache:
-  amd64-cuda-10.0-cache:
-  amd64-cuda-10.1-cache:
-  amd64-debian-9-cache:
-  amd64-debian-10-cache:
-  amd64-fedora-30-cache:
-  amd64-ubuntu-14.04-cache:
-  amd64-ubuntu-16.04-cache:
-  amd64-ubuntu-18.04-cache:
-  amd64-ubuntu-20.04-cache:
-  maven-cache:
-
 x-ccache: &ccache
   CCACHE_COMPILERCHECK: content
   CCACHE_COMPRESS: 1
-  CCACHE_COMPRESSLEVEL: 5
+  CCACHE_COMPRESSLEVEL: 6
   CCACHE_MAXSIZE: 500M
-  CCACHE_DIR: /build/ccache
+  CCACHE_DIR: /ccache
 
 x-hierarchy:
   # This section is used by the archery tool to enable building nested images,
@@ -180,7 +163,7 @@ services:
       ARROW_BUILD_BENCHMARKS: "ON"
     volumes: &conda-volumes
       - .:/arrow:delegated
-      - ${ARCH}-conda-cache:/build:delegated
+      - .docker/${ARCH}-conda-ccache:/ccache:delegated
     command: &cpp-conda-command
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"]
@@ -237,7 +220,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &cuda-volumes
       - .:/arrow:delegated
-      - ${ARCH}-cuda-${CUDA}-cache:/build:delegated
+      - .docker/${ARCH}-cuda-${CUDA}-ccache:/ccache:delegated
     command: &cpp-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -266,7 +249,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &debian-volumes
       - .:/arrow:delegated
-      - ${ARCH}-debian-${DEBIAN}-cache:/build:delegated
+      - .docker/${ARCH}-debian-${DEBIAN}-ccache:/ccache:delegated
     command: *cpp-command
 
   ubuntu-cpp:
@@ -274,7 +257,7 @@ services:
     #   docker-compose build ubuntu-cpp
     #   docker-compose run --rm ubuntu-cpp
     # Parameters:
-    #   ARCH: amd64, arm64v8, ...
+    #   ARCH: amd64, arm64v8, s390x, ...
     #   UBUNTU: 16.04, 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
@@ -293,7 +276,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
-      - ${ARCH}-ubuntu-${UBUNTU}-cache:/build:delegated
+      - .docker/${ARCH}-ubuntu-${UBUNTU}-ccache:/ccache:delegated
     command: *cpp-command
 
   ubuntu-cpp-sanitizer:
@@ -353,7 +336,7 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
     volumes: &fedora-volumes
       - .:/arrow:delegated
-      - ${ARCH}-fedora-${FEDORA}-cache:/build:delegated
+      - .docker/${ARCH}-fedora-${FEDORA}-ccache:/ccache:delegated
     command: *cpp-command
 
   ############################### C GLib ######################################
@@ -776,12 +759,14 @@ services:
         llvm: ${LLVM}
     shm_size: *shm-size
     environment:
+      <<: *ccache
       PYARROW_PARALLEL: 3
       PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
       UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux1:/io:delegated
+      - .docker/centos-python-manylinux1-ccache:/ccache:delegated
     command: &manylinux-command /io/build_arrow.sh
 
   centos-python-manylinux2010:
@@ -795,12 +780,14 @@ services:
         llvm: ${LLVM}
     shm_size: *shm-size
     environment:
+      <<: *ccache
       PYARROW_PARALLEL: 3
       PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
       UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux201x:/io:delegated
+      - .docker/centos-python-manylinux2010-ccache:/ccache:delegated
     command: *manylinux-command
 
   centos-python-manylinux2014:
@@ -814,12 +801,14 @@ services:
         llvm: ${LLVM}
     shm_size: *shm-size
     environment:
+      <<: *ccache
       PYARROW_PARALLEL: 3
       PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
       UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux201x:/io:delegated
+      - .docker/centos-python-manylinux2014-ccache:/ccache:delegated
     command: *manylinux-command
 
   ################################## R ########################################
@@ -999,8 +988,8 @@ services:
 
   ubuntu-csharp:
     # Usage:
-    #   docker-compose build debian-csharp
-    #   docker-compose run debian-csharp
+    #   docker-compose build ubuntu-csharp
+    #   docker-compose run ubuntu-csharp
     image: ${REPO}:${ARCH}-ubuntu-18.04-csharp-${DOTNET}
     build:
       context: .
@@ -1015,7 +1004,8 @@ services:
     command: &csharp-command >
       /bin/bash -c "
         /arrow/ci/scripts/csharp_build.sh /arrow &&
-        /arrow/ci/scripts/csharp_test.sh /arrow"
+        /arrow/ci/scripts/csharp_test.sh /arrow &&
+        /arrow/ci/scripts/csharp_pack.sh /arrow"
 
   ################################ Java #######################################
 
@@ -1036,7 +1026,7 @@ services:
     shm_size: *shm-size
     volumes: &java-volumes
       - .:/arrow:delegated
-      - maven-cache:/root/.m2:delegated
+      - .docker/maven-cache:/root/.m2:delegated
     command: &java-command >
       /bin/bash -c "
         /arrow/ci/scripts/java_build.sh /arrow /build &&
@@ -1062,8 +1052,8 @@ services:
       <<: *ccache
     volumes:
       - .:/arrow:delegated
-      - maven-cache:/root/.m2:delegated
-      - ${ARCH}-debian-9-cache:/build:delegated
+      - .docker/maven-cache:/root/.m2:delegated
+      - .docker/${ARCH}-debian-9-ccache:/ccache:delegated
     command:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -1250,8 +1240,8 @@ services:
     shm_size: *shm-size
     volumes: &conda-maven-volumes
       - .:/arrow:delegated
-      - maven-cache:/root/.m2:delegated
-      - ${ARCH}-conda-cache:/build:delegated
+      - .docker/maven-cache:/root/.m2:delegated
+      - .docker/${ARCH}-conda-ccache:/ccache:delegated
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&

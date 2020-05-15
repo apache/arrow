@@ -243,7 +243,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
                     .iter()
                     .map(|e| {
                         Ok(Expr::Sort {
-                            expr: Arc::new(
+                            expr: Box::new(
                                 self.sql_to_rex(&e.expr, &input_schema).unwrap(),
                             ),
                             asc: e.asc,
@@ -273,7 +273,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
             }
 
             ASTNode::SQLAliasedExpr(ref expr, ref alias) => Ok(Alias(
-                Arc::new(self.sql_to_rex(&expr, schema)?),
+                Box::new(self.sql_to_rex(&expr, schema)?),
                 alias.to_owned(),
             )),
 
@@ -294,16 +294,16 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 ref expr,
                 ref data_type,
             } => Ok(Expr::Cast {
-                expr: Arc::new(self.sql_to_rex(&expr, schema)?),
+                expr: Box::new(self.sql_to_rex(&expr, schema)?),
                 data_type: convert_data_type(data_type)?,
             }),
 
             ASTNode::SQLIsNull(ref expr) => {
-                Ok(Expr::IsNull(Arc::new(self.sql_to_rex(expr, schema)?)))
+                Ok(Expr::IsNull(Box::new(self.sql_to_rex(expr, schema)?)))
             }
 
             ASTNode::SQLIsNotNull(ref expr) => {
-                Ok(Expr::IsNotNull(Arc::new(self.sql_to_rex(expr, schema)?)))
+                Ok(Expr::IsNotNull(Box::new(self.sql_to_rex(expr, schema)?)))
             }
 
             ASTNode::SQLUnary {
@@ -311,7 +311,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 ref expr,
             } => match *operator {
                 SQLOperator::Not => {
-                    Ok(Expr::Not(Arc::new(self.sql_to_rex(expr, schema)?)))
+                    Ok(Expr::Not(Box::new(self.sql_to_rex(expr, schema)?)))
                 }
                 _ => Err(ExecutionError::InternalError(format!(
                     "SQL binary operator cannot be interpreted as a unary operator"
@@ -347,15 +347,15 @@ impl<S: SchemaProvider> SqlToRel<S> {
                         "SQL unary operator \"NOT\" cannot be interpreted as a binary operator"
                     ))),
                     _ => Ok(Expr::BinaryExpr {
-                        left: Arc::new(self.sql_to_rex(&left, &schema)?),
+                        left: Box::new(self.sql_to_rex(&left, &schema)?),
                         op: operator,
-                        right: Arc::new(self.sql_to_rex(&right, &schema)?),
+                        right: Box::new(self.sql_to_rex(&right, &schema)?),
                     })
                 }
             }
 
             //            &ASTNode::SQLOrderBy { ref expr, asc } => Ok(Expr::Sort {
-            //                expr: Arc::new(self.sql_to_rex(&expr, &schema)?),
+            //                expr: Box::new(self.sql_to_rex(&expr, &schema)?),
             //                asc,
             //            }),
             ASTNode::SQLFunction { ref id, ref args } => {

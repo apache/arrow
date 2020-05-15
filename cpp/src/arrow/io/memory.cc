@@ -299,7 +299,8 @@ Result<util::string_view> BufferReader::DoPeek(int64_t nbytes) {
 
 bool BufferReader::supports_zero_copy() const { return true; }
 
-Future<std::shared_ptr<Buffer>> BufferReader::ReadAsync(int64_t position,
+Future<std::shared_ptr<Buffer>> BufferReader::ReadAsync(const AsyncContext&,
+                                                        int64_t position,
                                                         int64_t nbytes) {
   return Future<std::shared_ptr<Buffer>>::MakeFinished(DoReadAt(position, nbytes));
 }

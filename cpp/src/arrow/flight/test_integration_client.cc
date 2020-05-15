@@ -39,11 +39,13 @@
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"
+#include "arrow/flight/test_integration.h"
 #include "arrow/flight/test_util.h"
 
 DEFINE_string(host, "localhost", "Server port to connect to");
 DEFINE_int32(port, 31337, "Server port to connect to");
 DEFINE_string(path, "", "Resource path to request");
+DEFINE_string(scenario, "", "Integration test scenario to run");
 
 namespace arrow {
 namespace flight {
@@ -126,63 +128,73 @@ Status ConsumeFlightLocation(
   return Status::OK();
 }
 
-int RunIntegrationClient() {
-  // Make sure the required extension types are registered.
-  ExtensionTypeGuard uuid_ext_guard(uuid());
-  ExtensionTypeGuard dict_ext_guard(dict_extension_type());
-
-  std::unique_ptr<FlightClient> client;
-  Location location;
-  ABORT_NOT_OK(Location::ForGrpcTcp(FLAGS_host, FLAGS_port, &location));
-  ABORT_NOT_OK(FlightClient::Connect(location, &client));
-
-  FlightDescriptor descr{FlightDescriptor::PATH, "", {FLAGS_path}};
-
-  // 1. Put the data to the server.
-  std::unique_ptr<ipc::internal::json::JsonReader> reader;
-  std::cout << "Opening JSON file '" << FLAGS_path << "'" << std::endl;
-  auto in_file = *io::ReadableFile::Open(FLAGS_path);
-  ABORT_NOT_OK(
-      ipc::internal::json::JsonReader::Open(default_memory_pool(), in_file, &reader));
-
-  std::shared_ptr<Schema> original_schema = reader->schema();
-  std::vector<std::shared_ptr<RecordBatch>> original_data;
-  ABORT_NOT_OK(ReadBatches(reader, &original_data));
-
-  std::unique_ptr<FlightStreamWriter> write_stream;
-  std::unique_ptr<FlightMetadataReader> metadata_reader;
-  ABORT_NOT_OK(client->DoPut(descr, original_schema, &write_stream, &metadata_reader));
-  ABORT_NOT_OK(UploadBatchesToFlight(original_data, *write_stream, *metadata_reader));
-
-  // 2. Get the ticket for the data.
-  std::unique_ptr<FlightInfo> info;
-  ABORT_NOT_OK(client->GetFlightInfo(descr, &info));
-
-  std::shared_ptr<Schema> schema;
-  ipc::DictionaryMemo dict_memo;
-  ABORT_NOT_OK(info->GetSchema(&dict_memo, &schema));
-
-  if (info->endpoints().size() == 0) {
-    std::cerr << "No endpoints returned from Flight server." << std::endl;
-    return -1;
+class IntegrationTestScenario : public flight::Scenario {
+ public:
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    ARROW_UNUSED(server);
+    ARROW_UNUSED(options);
+    return Status::NotImplemented("Not implemented, see test_integration_server.cc");
   }
 
-  for (const FlightEndpoint& endpoint : info->endpoints()) {
-    const auto& ticket = endpoint.ticket;
-
-    auto locations = endpoint.locations;
-    if (locations.size() == 0) {
-      locations = {location};
-    }
-
-    for (const auto& location : locations) {
-      std::cout << "Verifying location " << location.ToString() << std::endl;
-      // 3. Stream data from the server, comparing individual batches.
-      ABORT_NOT_OK(ConsumeFlightLocation(location, ticket, original_data));
-    }
+  Status MakeClient(FlightClientOptions* options) override {
+    ARROW_UNUSED(options);
+    return Status::OK();
   }
-  return 0;
-}
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    // Make sure the required extension types are registered.
+    ExtensionTypeGuard uuid_ext_guard(uuid());
+    ExtensionTypeGuard dict_ext_guard(dict_extension_type());
+
+    FlightDescriptor descr{FlightDescriptor::PATH, "", {FLAGS_path}};
+
+    // 1. Put the data to the server.
+    std::unique_ptr<ipc::internal::json::JsonReader> reader;
+    std::cout << "Opening JSON file '" << FLAGS_path << "'" << std::endl;
+    auto in_file = *io::ReadableFile::Open(FLAGS_path);
+    ABORT_NOT_OK(
+        ipc::internal::json::JsonReader::Open(default_memory_pool(), in_file, &reader));
+
+    std::shared_ptr<Schema> original_schema = reader->schema();
+    std::vector<std::shared_ptr<RecordBatch>> original_data;
+    ABORT_NOT_OK(ReadBatches(reader, &original_data));
+
+    std::unique_ptr<FlightStreamWriter> write_stream;
+    std::unique_ptr<FlightMetadataReader> metadata_reader;
+    ABORT_NOT_OK(client->DoPut(descr, original_schema, &write_stream, &metadata_reader));
+    ABORT_NOT_OK(UploadBatchesToFlight(original_data, *write_stream, *metadata_reader));
+
+    // 2. Get the ticket for the data.
+    std::unique_ptr<FlightInfo> info;
+    ABORT_NOT_OK(client->GetFlightInfo(descr, &info));
+
+    std::shared_ptr<Schema> schema;
+    ipc::DictionaryMemo dict_memo;
+    ABORT_NOT_OK(info->GetSchema(&dict_memo, &schema));
+
+    if (info->endpoints().size() == 0) {
+      std::cerr << "No endpoints returned from Flight server." << std::endl;
+      return Status::IOError("No endpoints returned from Flight server.");
+    }
+
+    for (const FlightEndpoint& endpoint : info->endpoints()) {
+      const auto& ticket = endpoint.ticket;
+
+      auto locations = endpoint.locations;
+      if (locations.size() == 0) {
+        return Status::IOError("No locations returned from Flight server.");
+      }
+
+      for (const auto& location : locations) {
+        std::cout << "Verifying location " << location.ToString() << std::endl;
+        // 3. Stream data from the server, comparing individual batches.
+        ABORT_NOT_OK(ConsumeFlightLocation(location, ticket, original_data));
+      }
+    }
+    return Status::OK();
+  }
+};
 
 }  // namespace flight
 }  // namespace arrow
@@ -190,5 +202,21 @@ int RunIntegrationClient() {
 int main(int argc, char** argv) {
   gflags::SetUsageMessage("Integration testing client for Flight.");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
-  return arrow::flight::RunIntegrationClient();
+  std::shared_ptr<arrow::flight::Scenario> scenario;
+  if (!FLAGS_scenario.empty()) {
+    ARROW_CHECK_OK(arrow::flight::GetScenario(FLAGS_scenario, &scenario));
+  } else {
+    scenario = std::make_shared<arrow::flight::IntegrationTestScenario>();
+  }
+
+  arrow::flight::FlightClientOptions options;
+  std::unique_ptr<arrow::flight::FlightClient> client;
+
+  ABORT_NOT_OK(scenario->MakeClient(&options));
+
+  arrow::flight::Location location;
+  ABORT_NOT_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_host, FLAGS_port, &location));
+  ABORT_NOT_OK(arrow::flight::FlightClient::Connect(location, options, &client));
+  ABORT_NOT_OK(scenario->RunClient(std::move(client)));
+  return 0;
 }

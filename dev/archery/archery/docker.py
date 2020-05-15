@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -138,35 +137,47 @@ class DockerCompose(Command):
                 )
             )
 
-    def build(self, image, cache=True, cache_leaf=True, params=None):
+    def pull(self, image, pull_leaf=True):
         self._validate_image(image)
 
-        if cache:
-            # pull
-            for ancestor in self.nodes[image]:
-                self._execute('pull', '--ignore-pull-failures', ancestor)
-            if cache_leaf:
-                self._execute('pull', '--ignore-pull-failures', image)
-            # build
-            for ancestor in self.nodes[image]:
+        for ancestor in self.nodes[image]:
+            self._execute('pull', '--ignore-pull-failures', ancestor)
+
+        if pull_leaf:
+            self._execute('pull', '--ignore-pull-failures', image)
+
+    def build(self, image, use_cache=True, use_leaf_cache=True):
+        self._validate_image(image)
+
+        for ancestor in self.nodes[image]:
+            if use_cache:
                 self._execute('build', ancestor)
-            if cache_leaf:
-                self._execute('build', image)
             else:
-                self._execute('build', '--no-cache', image)
-        else:
-            # build
-            for ancestor in self.nodes[image]:
                 self._execute('build', '--no-cache', ancestor)
+
+        if use_cache and use_leaf_cache:
+            self._execute('build', image)
+        else:
             self._execute('build', '--no-cache', image)
 
-    def run(self, image, command=None, env=None, params=None):
+    def run(self, image, command=None, env=None, force_pull=False,
+            force_build=False, use_cache=True, use_leaf_cache=True,
+            volumes=None):
         self._validate_image(image)
+
+        if force_pull:
+            self.pull(image, pull_leaf=use_leaf_cache)
+        if force_build:
+            self.build(image, use_cache=use_cache,
+                       use_leaf_cache=use_leaf_cache)
 
         args = []
         if env is not None:
             for k, v in env.items():
                 args.extend(['-e', '{}={}'.format(k, v)])
+        if volumes is not None:
+            for volume in volumes:
+                args.extend(['--volume', volume])
 
         args.append(image)
         if command is not None:

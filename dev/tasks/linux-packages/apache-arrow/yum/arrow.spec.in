@@ -45,6 +45,7 @@
 %define use_meson (%{_centos_ver} >= 8)
 
 %define have_rapidjson (%{_centos_ver} == 7)
+%define have_zstd (%{_centos_ver} < 8)
 
 Name:		@PACKAGE@
 Version:	@VERSION@
@@ -70,7 +71,9 @@ BuildRequires:	git
 %if %{_centos_ver} >= 7
 BuildRequires:	glog-devel
 %endif
+%if %{have_zstd}
 BuildRequires:	libzstd-devel
+%endif
 BuildRequires:	lz4-devel
 BuildRequires:	pkgconfig
 BuildRequires:	python%{python_version}-devel
@@ -219,7 +222,9 @@ Requires:	brotli
 Requires:	gflags
 Requires:	glog
 %endif
+%if %{have_zstd}
 Requires:	libzstd
+%endif
 Requires:	lz4
 %if %{_centos_ver} >= 8
 Requires:	re2

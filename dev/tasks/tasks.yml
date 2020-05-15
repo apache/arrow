@@ -107,6 +107,7 @@ groups:
     # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
     - homebrew-cpp
     - homebrew-r-autobrew
+    - nuget
     - test-*
     - wheel-*
 
@@ -416,8 +417,9 @@ tasks:
     ci: appveyor
     template: python-wheels/appveyor.yml
     params:
-      script: win-build-3.5.bat
+      script: win-build.bat
       python_version: 3.5
+      python_interpreter: C:\Python35-x64\python.exe
     artifacts:
       - pyarrow-{no_rc_version}-cp35-cp35m-win_amd64.whl
 
@@ -427,6 +429,7 @@ tasks:
     params:
       script: win-build.bat
       python_version: 3.6
+      python_interpreter: C:\Python36-x64\python.exe
     artifacts:
       - pyarrow-{no_rc_version}-cp36-cp36m-win_amd64.whl
 
@@ -436,6 +439,7 @@ tasks:
     params:
       script: win-build.bat
       python_version: 3.7
+      python_interpreter: C:\Python37-x64\python.exe
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-win_amd64.whl
 
@@ -445,6 +449,7 @@ tasks:
     params:
       script: win-build.bat
       python_version: 3.8
+      python_interpreter: C:\Python38-x64\python.exe
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-win_amd64.whl
 
@@ -1283,6 +1288,17 @@ tasks:
     artifacts:
       - arrow-gandiva-{no_rc_version}-SNAPSHOT.jar
 
+  ############################## NuGet packages ###############################
+
+  nuget:
+    ci: github
+    template: nuget-packages/github.linux.yml
+    params:
+      run: ubuntu-csharp
+    artifacts:
+      - Apache.Arrow.{no_rc_version}.nupkg
+      - Apache.Arrow.{no_rc_version}.snupkg
+
   ########################### Release verification ############################
 
   verify-rc-binaries-binary:
@@ -1639,6 +1655,15 @@ tasks:
       r_tag: 3.6-centos6
       not_cran: "TRUE"
 
+  test-r-rstudio-r-base-3.6-centos8:
+    ci: azure
+    template: r/azure.linux.yml
+    params:
+      r_org: rstudio
+      r_image: r-base
+      r_tag: 3.6-centos8
+      not_cran: "TRUE"
+
   test-r-rstudio-r-base-3.6-opensuse15:
     ci: azure
     template: r/azure.linux.yml
@@ -1654,24 +1679,15 @@ tasks:
     params:
       r_org: rstudio
       r_image: r-base
-      r_tag: 3.6-opensuse24
+      r_tag: 3.6-opensuse42
       not_cran: "TRUE"
 
-  test-ubuntu-18.04-r-3.6:
-    ci: azure
-    template: docker-tests/azure.linux.yml
-    params:
-      env:
-        UBUNTU: 18.04
-        R: 3.6
-      run: ubuntu-r
-
-  test-conda-r-3.6:
+  test-conda-r-4.0:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        R: 3.6
+        R: 4.0
       run: conda-r
 
   test-ubuntu-18.04-r-sanitizer:
@@ -1706,7 +1722,7 @@ tasks:
         PYTHON: 3.7
         PANDAS: latest
       # use the latest pandas release, so prevent reusing any cached layers
-      run: --no-cache-leaf conda-python-pandas
+      run: --no-leaf-cache conda-python-pandas
 
   test-conda-python-3.8-pandas-latest:
     ci: github
@@ -1716,7 +1732,7 @@ tasks:
         PYTHON: 3.8
         PANDAS: latest
       # use the latest pandas release, so prevent reusing any cached layers
-      run: --no-cache-leaf conda-python-pandas
+      run: --no-leaf-cache conda-python-pandas
 
   test-conda-python-3.7-pandas-master:
     ci: github
@@ -1726,7 +1742,7 @@ tasks:
         PYTHON: 3.7
         PANDAS: master
       # use the master branch of pandas, so prevent reusing any cached layers
-      run: --no-cache-leaf conda-python-pandas
+      run: --no-leaf-cache conda-python-pandas
 
   test-conda-python-3.6-pandas-0.23:
     ci: github
@@ -1745,7 +1761,7 @@ tasks:
         PYTHON: 3.7
         DASK: latest
       # use the latest dask release, so prevent reusing any cached layers
-      run: --no-cache-leaf conda-python-dask
+      run: --no-leaf-cache conda-python-dask
 
   test-conda-python-3.8-dask-master:
     ci: github
@@ -1755,7 +1771,7 @@ tasks:
         PYTHON: 3.8
         DASK: master
       # use the master branch of dask, so prevent reusing any cached layers
-      run: --no-cache-leaf conda-python-dask
+      run: --no-leaf-cache conda-python-dask
 
   test-conda-python-3.8-jpype:
     ci: github
@@ -1773,7 +1789,7 @@ tasks:
         PYTHON: 3.7
         TURBODBC: latest
       # use the latest turbodbc release, so prevent reusing any cached layers
-      run: --no-cache-leaf conda-python-turbodbc
+      run: --no-leaf-cache conda-python-turbodbc
 
   test-conda-python-3.7-turbodbc-master:
     ci: github
@@ -1783,7 +1799,7 @@ tasks:
         PYTHON: 3.7
         TURBODBC: master
       # use the master branch of dask, so prevent reusing any cached layers
-      run: --no-cache-leaf conda-python-turbodbc
+      run: --no-leaf-cache conda-python-turbodbc
 
   test-conda-python-3.7-kartothek-latest:
     ci: github
@@ -1792,7 +1808,7 @@ tasks:
       env:
         PYTHON: 3.7
         KARTOTHEK: latest
-      run: --no-cache-leaf conda-python-kartothek
+      run: --no-leaf-cache conda-python-kartothek
 
   test-conda-python-3.7-kartothek-master:
     ci: github
@@ -1802,7 +1818,7 @@ tasks:
         PYTHON: 3.7
         KARTOTHEK: master
       # use the master branch of kartothek, so prevent reusing any layers
-      run: --no-cache-leaf conda-python-kartothek
+      run: --no-leaf-cache conda-python-kartothek
 
   test-conda-python-3.7-hdfs-2.9.2:
     ci: github
@@ -1821,7 +1837,7 @@ tasks:
         PYTHON: 3.7
         SPARK: master
       # use the master branch of spark, so prevent reusing any layers
-      run: --no-cache-leaf conda-python-spark
+      run: --no-leaf-cache conda-python-spark
 
   # Remove the "skipped-" prefix in ARROW-8475
   skipped-test-conda-cpp-hiveserver2:

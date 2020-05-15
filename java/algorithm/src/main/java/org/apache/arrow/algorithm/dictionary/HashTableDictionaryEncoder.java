@@ -30,7 +30,8 @@ import org.apache.arrow.vector.ElementAddressableVector;
  * @param <E> encoded vector type.
  * @param <D> decoded vector type, which is also the dictionary type.
  */
-public class HashTableDictionaryEncoder<E extends BaseIntVector, D extends ElementAddressableVector> {
+public class HashTableDictionaryEncoder<E extends BaseIntVector, D extends ElementAddressableVector>
+    implements DictionaryEncoder<E, D> {
 
   /**
    * The dictionary for encoding/decoding.
@@ -125,6 +126,7 @@ public class HashTableDictionaryEncoder<E extends BaseIntVector, D extends Eleme
    * @param input  the input vector.
    * @param output the output vector.
    **/
+  @Override
   public void encode(D input, E output) {
     for (int i = 0; i < input.getValueCount(); i++) {
       if (!encodeNull && input.isNull(i)) {
