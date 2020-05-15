@@ -305,7 +305,7 @@ const PromotionGraph* GetPromotionGraph() {
           return list(value_field->WithType(Infer(value_field)));
         }
         case Kind::kObject: {
-          auto fields = unexpected_field->type()->children();
+          auto fields = unexpected_field->type()->fields();
           for (auto& field : fields) {
             field = field->WithType(Infer(field));
           }

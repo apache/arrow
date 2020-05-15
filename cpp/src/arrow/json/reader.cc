@@ -210,7 +210,7 @@ Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
   for (int i = 0; i < converted->num_fields(); ++i) {
     columns[i] = converted->field(i);
   }
-  *out = RecordBatch::Make(schema(converted->type()->children()), converted->length(),
+  *out = RecordBatch::Make(schema(converted->type()->fields()), converted->length(),
                            std::move(columns));
   return Status::OK();
 }

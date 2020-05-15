@@ -231,12 +231,12 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int8_t type,
 Status GetPythonTypes(const UnionArray& data, std::vector<int8_t>* result) {
   ARROW_CHECK(result != nullptr);
   auto type = data.type();
-  for (int i = 0; i < type->num_children(); ++i) {
+  for (int i = 0; i < type->num_fields(); ++i) {
     int8_t tag = 0;
-    const std::string& data = type->child(i)->name();
+    const std::string& data = type->field(i)->name();
     if (!ParseValue<Int8Type>(data.c_str(), data.size(), &tag)) {
       return Status::SerializationError("Cannot convert string: \"",
-                                        type->child(i)->name(), "\" to int8_t");
+                                        type->field(i)->name(), "\" to int8_t");
     }
     result->push_back(tag);
   }
@@ -264,7 +264,7 @@ Status DeserializeSequence(PyObject* context, const Array& array, int64_t start_
       const int64_t offset = value_offsets[i];
       const uint8_t type = type_codes[i];
       PyObject* value;
-      RETURN_NOT_OK(GetValue(context, *data.child(type), offset, python_types[type], base,
+      RETURN_NOT_OK(GetValue(context, *data.field(type), offset, python_types[type], base,
                              blobs, &value));
       RETURN_NOT_OK(set_item(result.obj(), i - start_idx, value));
     }

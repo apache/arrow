@@ -158,7 +158,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     }
 
     case Type::STRUCT: {
-      const std::vector<std::shared_ptr<Field>>& fields = type->children();
+      const std::vector<std::shared_ptr<Field>>& fields = type->fields();
       std::vector<std::shared_ptr<ArrayBuilder>> field_builders;
 
       for (const auto& it : fields) {
@@ -172,7 +172,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
 
     case Type::UNION: {
       const auto& union_type = internal::checked_cast<const UnionType&>(*type);
-      const std::vector<std::shared_ptr<Field>>& fields = type->children();
+      const std::vector<std::shared_ptr<Field>>& fields = type->fields();
       std::vector<std::shared_ptr<ArrayBuilder>> field_builders;
 
       for (const auto& it : fields) {

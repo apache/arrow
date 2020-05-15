@@ -2657,7 +2657,7 @@ TEST_F(TestNestedSchemaRead, ReadIntoTableFull) {
   ASSERT_OK_NO_THROW(reader_->ReadTable(&table));
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 2);
-  ASSERT_EQ(table->schema()->field(0)->type()->num_children(), 2);
+  ASSERT_EQ(table->schema()->field(0)->type()->num_fields(), 2);
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
   auto struct_field_array =
@@ -2692,7 +2692,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_EQ(table->num_columns(), 2);
   ASSERT_EQ(table->schema()->field(0)->name(), "group1");
   ASSERT_EQ(table->schema()->field(1)->name(), "leaf3");
-  ASSERT_EQ(table->schema()->field(0)->type()->num_children(), 1);
+  ASSERT_EQ(table->schema()->field(0)->type()->num_fields(), 1);
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
   // columns: {group1.leaf1, leaf3}
@@ -2701,7 +2701,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_EQ(table->num_columns(), 2);
   ASSERT_EQ(table->schema()->field(0)->name(), "group1");
   ASSERT_EQ(table->schema()->field(1)->name(), "leaf3");
-  ASSERT_EQ(table->schema()->field(0)->type()->num_children(), 1);
+  ASSERT_EQ(table->schema()->field(0)->type()->num_fields(), 1);
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
   // columns: {group1.leaf1, group1.leaf2}
@@ -2709,7 +2709,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 1);
   ASSERT_EQ(table->schema()->field(0)->name(), "group1");
-  ASSERT_EQ(table->schema()->field(0)->type()->num_children(), 2);
+  ASSERT_EQ(table->schema()->field(0)->type()->num_fields(), 2);
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
   // columns: {leaf3}
@@ -2717,7 +2717,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 1);
   ASSERT_EQ(table->schema()->field(0)->name(), "leaf3");
-  ASSERT_EQ(table->schema()->field(0)->type()->num_children(), 0);
+  ASSERT_EQ(table->schema()->field(0)->type()->num_fields(), 0);
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
   // Test with different ordering
@@ -2726,7 +2726,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_EQ(table->num_columns(), 2);
   ASSERT_EQ(table->schema()->field(0)->name(), "leaf3");
   ASSERT_EQ(table->schema()->field(1)->name(), "group1");
-  ASSERT_EQ(table->schema()->field(1)->type()->num_children(), 1);
+  ASSERT_EQ(table->schema()->field(1)->type()->num_fields(), 1);
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 }
 

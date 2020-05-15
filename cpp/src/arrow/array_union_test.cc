@@ -122,15 +122,15 @@ class TestUnionArrayFactories : public ::testing::Test {
     for (int64_t i = 0; i < type_ids.length(); ++i) {
       ASSERT_EQ(array.child_id(i), type_ids.Value(i));
     }
-    ASSERT_EQ(nullptr, array.child(-1));
-    ASSERT_EQ(nullptr, array.child(static_cast<int>(type_ids.length())));
+    ASSERT_EQ(nullptr, array.field(-1));
+    ASSERT_EQ(nullptr, array.field(static_cast<int>(type_ids.length())));
   }
 
   void CheckFieldNames(const UnionArray& array, const std::vector<std::string>& names) {
     const auto& type = checked_cast<const UnionType&>(*array.type());
-    ASSERT_EQ(type.num_children(), names.size());
-    for (int i = 0; i < type.num_children(); ++i) {
-      ASSERT_EQ(type.child(i)->name(), names[i]);
+    ASSERT_EQ(type.num_fields(), names.size());
+    for (int i = 0; i < type.num_fields(); ++i) {
+      ASSERT_EQ(type.field(i)->name(), names[i]);
     }
   }
 

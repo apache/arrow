@@ -601,7 +601,7 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
 
   Status Init() override {
     std::vector<std::shared_ptr<ArrayBuilder>> child_builders;
-    for (const auto& field : type_->children()) {
+    for (const auto& field : type_->fields()) {
       std::shared_ptr<Converter> child_converter;
       RETURN_NOT_OK(GetConverter(field->type(), &child_converter));
       child_converters_.push_back(child_converter);
@@ -628,7 +628,7 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
     }
     if (json_obj.IsArray()) {
       auto size = json_obj.Size();
-      auto expected_size = static_cast<uint32_t>(type_->num_children());
+      auto expected_size = static_cast<uint32_t>(type_->num_fields());
       if (size != expected_size) {
         return Status::Invalid("Expected array of size ", expected_size,
                                ", got array of size ", size);
@@ -640,9 +640,9 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
     }
     if (json_obj.IsObject()) {
       auto remaining = json_obj.MemberCount();
-      auto num_children = type_->num_children();
+      auto num_children = type_->num_fields();
       for (int32_t i = 0; i < num_children; ++i) {
-        const auto& field = type_->child(i);
+        const auto& field = type_->field(i);
         auto it = json_obj.FindMember(field->name());
         if (it != json_obj.MemberEnd()) {
           --remaining;
@@ -684,7 +684,7 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
       type_id_to_child_num_[type_id] = child_i++;
     }
     std::vector<std::shared_ptr<ArrayBuilder>> child_builders;
-    for (const auto& field : type_->children()) {
+    for (const auto& field : type_->fields()) {
       std::shared_ptr<Converter> child_converter;
       RETURN_NOT_OK(GetConverter(field->type(), &child_converter));
       child_converters_.push_back(child_converter);

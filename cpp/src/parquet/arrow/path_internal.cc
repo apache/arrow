@@ -757,7 +757,7 @@ class PathBuilder {
   Status Visit(const ::arrow::DictionaryArray& array) {
     // Only currently handle DictionaryArray where the dictionary is a
     // primitive type
-    if (array.dict_type()->value_type()->num_children() > 0) {
+    if (array.dict_type()->value_type()->num_fields() > 0) {
       return Status::NotImplemented(
           "Writing DictionaryArray with nested dictionary "
           "type not yet supported");
@@ -806,7 +806,7 @@ class PathBuilder {
     MaybeAddNullable(array);
     PathInfo info_backup = info_;
     for (int x = 0; x < array.num_fields(); x++) {
-      nullable_in_parent_ = array.type()->child(x)->nullable();
+      nullable_in_parent_ = array.type()->field(x)->nullable();
       RETURN_NOT_OK(VisitInline(*array.field(x)));
       info_ = info_backup;
     }

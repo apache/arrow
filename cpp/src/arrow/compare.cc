@@ -257,14 +257,14 @@ class RangeEqualsVisitor {
       // TODO(wesm): really we should be comparing stretches of non-null data
       // rather than looking at one value at a time.
       if (union_mode == UnionMode::SPARSE) {
-        if (!left.child(child_num)->RangeEquals(i, i + 1, o_i, right.child(child_num))) {
+        if (!left.field(child_num)->RangeEquals(i, i + 1, o_i, right.field(child_num))) {
           return false;
         }
       } else {
         const int32_t offset = left.raw_value_offsets()[i];
         const int32_t o_offset = right.raw_value_offsets()[o_i];
-        if (!left.child(child_num)->RangeEquals(offset, offset + 1, o_offset,
-                                                right.child(child_num))) {
+        if (!left.field(child_num)->RangeEquals(offset, offset + 1, o_offset,
+                                                right.field(child_num))) {
           return false;
         }
       }
@@ -710,13 +710,13 @@ class TypeEqualsVisitor {
       : right_(right), check_metadata_(check_metadata), result_(false) {}
 
   Status VisitChildren(const DataType& left) {
-    if (left.num_children() != right_.num_children()) {
+    if (left.num_fields() != right_.num_fields()) {
       result_ = false;
       return Status::OK();
     }
 
-    for (int i = 0; i < left.num_children(); ++i) {
-      if (!left.child(i)->Equals(right_.child(i), check_metadata_)) {
+    for (int i = 0; i < left.num_fields(); ++i) {
+      if (!left.field(i)->Equals(right_.field(i), check_metadata_)) {
         result_ = false;
         return Status::OK();
       }
@@ -793,7 +793,7 @@ class TypeEqualsVisitor {
     }
 
     result_ = std::equal(
-        left.children().begin(), left.children().end(), right.children().begin(),
+        left.fields().begin(), left.fields().end(), right.fields().begin(),
         [this](const std::shared_ptr<Field>& l, const std::shared_ptr<Field>& r) {
           return l->Equals(r, check_metadata_);
         });

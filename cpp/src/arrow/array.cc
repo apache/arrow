@@ -568,7 +568,7 @@ MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
                    const std::shared_ptr<Array>& items,
                    const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
                    int64_t offset) {
-  auto pair_data = ArrayData::Make(type->children()[0]->type(), keys->data()->length,
+  auto pair_data = ArrayData::Make(type->fields()[0]->type(), keys->data()->length,
                                    {nullptr}, {keys->data(), items->data()}, 0, offset);
   auto map_data = ArrayData::Make(type, length, {null_bitmap, offsets}, {pair_data},
                                   null_count, offset);
@@ -1074,7 +1074,9 @@ Result<std::shared_ptr<Array>> UnionArray::MakeSparse(
   return std::make_shared<UnionArray>(internal_data);
 }
 
-std::shared_ptr<Array> UnionArray::child(int i) const {
+std::shared_ptr<Array> UnionArray::child(int i) const { return field(i); }
+
+std::shared_ptr<Array> UnionArray::field(int i) const {
   if (i < 0 ||
       static_cast<decltype(boxed_fields_)::size_type>(i) >= boxed_fields_.size()) {
     return nullptr;
@@ -1243,7 +1245,7 @@ namespace {
 void AccumulateLayouts(const std::shared_ptr<DataType>& type,
                        std::vector<DataTypeLayout>* layouts) {
   layouts->push_back(type->layout());
-  for (const auto& child : type->children()) {
+  for (const auto& child : type->fields()) {
     AccumulateLayouts(child->type(), layouts);
   }
 }
@@ -1406,7 +1408,7 @@ struct ViewDataImpl {
     out_data->dictionary = dictionary;
 
     // Process children recursively, depth-first
-    for (const auto& child_field : out_type->children()) {
+    for (const auto& child_field : out_type->fields()) {
       std::shared_ptr<ArrayData> child_data;
       RETURN_NOT_OK(MakeDataView(child_field, &child_data));
       out_data->child_data.push_back(std::move(child_data));
@@ -1534,7 +1536,7 @@ class NullArrayFactory {
     }
 
     Status Visit(const StructType& type) {
-      for (const auto& child : type.children()) {
+      for (const auto& child : type.fields()) {
         RETURN_NOT_OK(MaxOf(GetBufferLength(child->type(), length_)));
       }
       return Status::OK();
@@ -1547,7 +1549,7 @@ class NullArrayFactory {
         // offsets
         RETURN_NOT_OK(MaxOf(sizeof(int32_t) * length_));
       }
-      for (const auto& child : type.children()) {
+      for (const auto& child : type.fields()) {
         RETURN_NOT_OK(MaxOf(GetBufferLength(child->type(), length_)));
       }
       return Status::OK();
@@ -1600,7 +1602,7 @@ class NullArrayFactory {
     if (buffer_ == nullptr) {
       RETURN_NOT_OK(CreateBuffer());
     }
-    std::vector<std::shared_ptr<ArrayData>> child_data(type_->num_children());
+    std::vector<std::shared_ptr<ArrayData>> child_data(type_->num_fields());
     out_ = ArrayData::Make(type_, length_, {buffer_}, child_data, length_, 0);
     RETURN_NOT_OK(VisitTypeInline(*type_, this));
     return out_;
@@ -1633,7 +1635,7 @@ class NullArrayFactory {
   }
 
   Status Visit(const StructType& type) {
-    for (int i = 0; i < type_->num_children(); ++i) {
+    for (int i = 0; i < type_->num_fields(); ++i) {
       ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(i, length_));
     }
     return Status::OK();
@@ -1646,7 +1648,7 @@ class NullArrayFactory {
       out_->buffers = {buffer_, buffer_, nullptr};
     }
 
-    for (int i = 0; i < type_->num_children(); ++i) {
+    for (int i = 0; i < type_->num_fields(); ++i) {
       ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(i, length_));
     }
     return Status::OK();
@@ -1663,7 +1665,7 @@ class NullArrayFactory {
   }
 
   Result<std::shared_ptr<ArrayData>> CreateChild(int i, int64_t length) {
-    NullArrayFactory child_factory(pool_, type_->child(i)->type(), length);
+    NullArrayFactory child_factory(pool_, type_->field(i)->type(), length);
     child_factory.buffer_ = buffer_;
     return child_factory.Create();
   }
