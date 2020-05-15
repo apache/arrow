@@ -27,13 +27,13 @@ RUN \
   apt install -y -V ${quiet} \
     apt-utils \
     createrepo \
-    locales \
     devscripts \
     gpg \
+    locales \
     openssh-server \
+    rake \
     rpm \
     ruby \
-    rake \
     sudo && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*
