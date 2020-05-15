@@ -25,6 +25,8 @@ use std::fmt;
 
 use arrow::datatypes::{DataType, Field, Schema};
 
+use crate::datasource::parquet::ParquetTable;
+use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::optimizer::utils;
 use crate::sql::parser::FileType;
@@ -518,34 +520,36 @@ pub enum LogicalPlan {
         schema_name: String,
         /// The name of the table
         table_name: String,
-        /// The underlying table schema
+        /// The schema of the CSV file(s)
         table_schema: Box<Schema>,
-        /// The projected schema
-        projected_schema: Box<Schema>,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
+        /// The projected schema
+        projected_schema: Box<Schema>,
     },
     /// A table scan against a Parquet data source
     ParquetScan {
         /// The path to the files
         path: String,
+        /// The schema of the Parquet file(s)
+        schema: Box<Schema>,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
         /// The projected schema
-        projected_schema: Arc<Schema>,
+        projected_schema: Box<Schema>,
     },
     /// A table scan against a CSV data source
     CsvScan {
         /// The path to the files
         path: String,
         /// The underlying table schema
-        schema: Arc<Schema>,
+        schema: Box<Schema>,
         /// Whether the CSV file(s) have a header containing column names
         has_header: bool,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
         /// The projected schema
-        projected_schema: Arc<Schema>,
+        projected_schema: Box<Schema>,
     },
     /// An empty relation with an empty schema
     EmptyRelation {
@@ -773,31 +777,35 @@ impl LogicalPlanBuilder {
         schema: &Schema,
         projection: Option<Vec<usize>>,
     ) -> Result<Self> {
-        let projected_schema = projection.clone().map(|p| {
-            Schema::new(p.iter().map(|i| table_schema.field(*i).clone()).collect())
-        });
+        let projected_schema = projection
+            .clone()
+            .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()));
         Ok(Self::from(&LogicalPlan::CsvScan {
             path: path.to_owned(),
-            schema: Arc::new(schema.to_owned()),
+            schema: Box::new(schema.to_owned()),
             has_header,
             projection,
-            projected_schema: Arc::new(
-                projected_schema.or(Some(table_schema.clone())).unwrap(),
-            )
+            projected_schema: Box::new(
+                projected_schema.or(Some(schema.clone())).unwrap(),
+            ),
         }))
     }
 
     /// Scan a Parquet data source
     pub fn scan_parquet(path: &str, projection: Option<Vec<usize>>) -> Result<Self> {
-        let projected_schema = projection.clone().map(|p| {
-            Schema::new(p.iter().map(|i| table_schema.field(*i).clone()).collect())
-        });
+        let p = ParquetTable::try_new(path)?;
+        let schema = p.schema().as_ref().to_owned();
+        println!("{:?}", schema);
+        let projected_schema = projection
+            .clone()
+            .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()));
         Ok(Self::from(&LogicalPlan::ParquetScan {
             path: path.to_owned(),
+            schema: Box::new(schema.clone()),
             projection,
-            projected_schema: Arc::new(
-                projected_schema.or(Some(table_schema.clone())).unwrap(),
-            )
+            projected_schema: Box::new(
+                projected_schema.or(Some(schema.clone())).unwrap(),
+            ),
         }))
     }
 
@@ -918,6 +926,27 @@ mod tests {
         let expected = "Projection: #id\
         \n  Selection: #state Eq Utf8(\"CO\")\
         \n    TableScan: employee.csv projection=Some([0, 3])";
+
+        assert_eq!(expected, format!("{:?}", plan));
+
+        Ok(())
+    }
+
+    #[test]
+    fn plan_builder_csv() -> Result<()> {
+        let plan = LogicalPlanBuilder::scan_csv(
+            "employee.csv",
+            true,
+            &employee_schema(),
+            Some(vec![0, 3]),
+        )?
+        .filter(col("state").eq(&lit_str("CO")))?
+        .project(vec![col("id")])?
+        .build()?;
+
+        let expected = "Projection: #id\
+        \n  Selection: #state Eq Utf8(\"CO\")\
+        \n    CsvScan: employee.csv projection=Some([0, 3])";
 
         assert_eq!(expected, format!("{:?}", plan));
 

@@ -307,7 +307,7 @@ impl ExecutionContext {
                 ..
             } => Ok(Arc::new(CsvExec::try_new(
                 path,
-                schema.clone(),
+                Arc::new(schema.as_ref().to_owned()),
                 *has_header,
                 projection.to_owned(),
                 batch_size,
