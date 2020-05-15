@@ -196,6 +196,7 @@ set(ARROW_SRCS
     util/utf8.cc
     util/value_parsing.cc
     vendored/base64.cpp
+    vendored/datetime/ios.mm
     vendored/datetime/tz.cpp
     vendored/double-conversion/bignum.cc
     vendored/double-conversion/double-conversion.cc
