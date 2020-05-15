@@ -379,10 +379,7 @@ impl ParquetTypeConverter<'_> {
             PhysicalType::FLOAT => Ok(DataType::Float32),
             PhysicalType::DOUBLE => Ok(DataType::Float64),
             PhysicalType::BYTE_ARRAY => self.from_byte_array(),
-            other => Err(ArrowError(format!(
-                "Unable to convert parquet physical type {}",
-                other
-            ))),
+            PhysicalType::FIXED_LEN_BYTE_ARRAY => self.from_fixed_len_byte_array(),
         }
     }
 
@@ -421,6 +418,21 @@ impl ParquetTypeConverter<'_> {
                 other
             ))),
         }
+    }
+
+    fn from_fixed_len_byte_array(&self) -> Result<DataType> {
+        let byte_width = match self.schema {
+            Type::PrimitiveType {
+                ref type_length, ..
+            } => *type_length,
+            _ => {
+                return Err(ArrowError(format!(
+                    "Expected a physical type, not a group type"
+                )))
+            }
+        };
+
+        Ok(DataType::FixedSizeBinary(byte_width))
     }
 
     fn from_byte_array(&self) -> Result<DataType> {
@@ -578,6 +590,28 @@ mod tests {
             Field::new("string", DataType::Utf8, true),
         ];
 
+        assert_eq!(&arrow_fields, converted_arrow_schema.fields());
+    }
+
+    #[test]
+    fn test_byte_array_fields() {
+        let message_type = "
+        message test_schema {
+            REQUIRED BYTE_ARRAY binary;
+            REQUIRED FIXED_LEN_BYTE_ARRAY (20) fixed_binary;
+        }
+        ";
+
+        let parquet_group_type = parse_message_type(message_type).unwrap();
+
+        let parquet_schema = SchemaDescriptor::new(Rc::new(parquet_group_type));
+        let converted_arrow_schema =
+            parquet_to_arrow_schema(&parquet_schema, &None).unwrap();
+
+        let arrow_fields = vec![
+            Field::new("binary", DataType::Binary, false),
+            Field::new("fixed_binary", DataType::FixedSizeBinary(20), false),
+        ];
         assert_eq!(&arrow_fields, converted_arrow_schema.fields());
     }
 
