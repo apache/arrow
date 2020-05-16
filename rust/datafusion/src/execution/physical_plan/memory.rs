@@ -147,11 +147,13 @@ impl BatchIterator for MemoryIterator {
             self.index += 1;
             let batch = &self.data[self.index - 1];
             // apply projection
-            let batch = match &self.projection {
-                Some(p) => unimplemented!(),
-                None => batch,
-            };
-            Ok(Some(batch.clone()))
+            match &self.projection {
+                Some(columns) => Ok(Some(RecordBatch::try_new(
+                    self.schema.clone(),
+                    columns.iter().map(|i| batch.column(*i).clone()).collect(),
+                )?)),
+                None => Ok(Some(batch.clone())),
+            }
         } else {
             Ok(None)
         }
