@@ -798,7 +798,12 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
     i += data_->offset;
     return static_cast<int32_t>(list_size_ * i);
   }
+#ifdef WIN32
   int32_t value_length(__attribute__((unused)) int64_t i = 0) const { return list_size_; }
+#else
+  int32_t value_length(int64_t i = 0) const { return list_size_; }
+#endif
+
   std::shared_ptr<Array> value_slice(int64_t i) const {
     return values_->Slice(value_offset(i), value_length(i));
   }
