@@ -129,7 +129,7 @@ public class WriteChannel implements AutoCloseable {
   public void write(ArrowBuf buffer) throws IOException {
     long bytesWritten = 0;
     while (bytesWritten < buffer.readableBytes()) {
-      int bytesToWrite = (int)Math.min(Integer.MAX_VALUE, buffer.readableBytes() - bytesWritten);
+      int bytesToWrite = (int) Math.min(Integer.MAX_VALUE, buffer.readableBytes() - bytesWritten);
       ByteBuffer nioBuffer = buffer.nioBuffer(buffer.readerIndex() + bytesWritten,
            bytesToWrite);
       write(nioBuffer);

@@ -85,8 +85,8 @@ public class TestValueVector {
   private static final byte[] STR5 = "EEE5".getBytes(utf8Charset);
   private static final byte[] STR6 = "FFFFF6".getBytes(utf8Charset);
   private static final int MAX_VALUE_COUNT =
-      (int)(Integer.getInteger("arrow.vector.max_allocation_bytes", Integer.MAX_VALUE) / 7);
-  private static final int MAX_VALUE_COUNT_8BYTE = (int)(MAX_VALUE_COUNT / 2);
+      (int) (Integer.getInteger("arrow.vector.max_allocation_bytes", Integer.MAX_VALUE) / 7);
+  private static final int MAX_VALUE_COUNT_8BYTE = (int) (MAX_VALUE_COUNT / 2);
 
   @After
   public void terminate() throws Exception {
@@ -985,7 +985,7 @@ public class TestValueVector {
       double baseValue = 100.375;
 
       for (int i = 0; i < initialCapacity; i++) {
-        vector.setSafe(i, baseValue + (double)i);
+        vector.setSafe(i, baseValue + (double) i);
       }
 
       /* the above setSafe calls should not have triggered a realloc as
@@ -995,35 +995,35 @@ public class TestValueVector {
 
       for (int i = 0; i < initialCapacity; i++) {
         double value = vector.get(i);
-        assertEquals(baseValue + (double)i, value, 0);
+        assertEquals(baseValue + (double) i, value, 0);
       }
 
       /* this should trigger a realloc */
-      vector.setSafe(initialCapacity, baseValue + (double)initialCapacity);
+      vector.setSafe(initialCapacity, baseValue + (double) initialCapacity);
       assertTrue(vector.getValueCapacity() >= initialCapacity * 2);
       int capacityAfterRealloc1 = vector.getValueCapacity();
 
       for (int i = initialCapacity + 1; i < capacityAfterRealloc1; i++) {
-        vector.setSafe(i, baseValue + (double)i);
+        vector.setSafe(i, baseValue + (double) i);
       }
 
       for (int i = 0; i < capacityAfterRealloc1; i++) {
         double value = vector.get(i);
-        assertEquals(baseValue + (double)i, value, 0);
+        assertEquals(baseValue + (double) i, value, 0);
       }
 
       /* this should trigger a realloc */
-      vector.setSafe(capacityAfterRealloc1, baseValue + (double)(capacityAfterRealloc1));
+      vector.setSafe(capacityAfterRealloc1, baseValue + (double) (capacityAfterRealloc1));
       assertTrue(vector.getValueCapacity() >= initialCapacity * 4);
       int capacityAfterRealloc2 = vector.getValueCapacity();
 
       for (int i = capacityAfterRealloc1 + 1; i < capacityAfterRealloc2; i++) {
-        vector.setSafe(i, baseValue + (double)i);
+        vector.setSafe(i, baseValue + (double) i);
       }
 
       for (int i = 0; i < capacityAfterRealloc2; i++) {
         double value = vector.get(i);
-        assertEquals(baseValue + (double)i, value, 0);
+        assertEquals(baseValue + (double) i, value, 0);
       }
 
       /* at this point we are working with a 128KB buffer data for this
@@ -1033,7 +1033,7 @@ public class TestValueVector {
       TransferPair transferPair = vector.getTransferPair(allocator);
       transferPair.transfer();
 
-      Float8Vector toVector = (Float8Vector)transferPair.getTo();
+      Float8Vector toVector = (Float8Vector) transferPair.getTo();
 
       /* now let's realloc the toVector */
       toVector.reAlloc();
@@ -1041,7 +1041,7 @@ public class TestValueVector {
 
       for (int i = 0; i < toVector.getValueCapacity(); i++) {
         if (i < capacityAfterRealloc2) {
-          assertEquals(baseValue + (double)i, toVector.get(i), 0);
+          assertEquals(baseValue + (double) i, toVector.get(i), 0);
         } else {
           assertTrue(toVector.isNull(i));
         }
@@ -1064,7 +1064,7 @@ public class TestValueVector {
       double baseValue = 100.375;
 
       for (int i = 0; i < initialCapacity; i++) {
-        vector.setSafe(i, baseValue + (double)i);
+        vector.setSafe(i, baseValue + (double) i);
       }
 
       /* the above setSafe calls should not have triggered a realloc as
@@ -1074,35 +1074,35 @@ public class TestValueVector {
 
       for (int i = 0; i < initialCapacity; i++) {
         double value = vector.get(i);
-        assertEquals(baseValue + (double)i, value, 0);
+        assertEquals(baseValue + (double) i, value, 0);
       }
 
       /* this should trigger a realloc */
-      vector.setSafe(initialCapacity, baseValue + (double)initialCapacity);
+      vector.setSafe(initialCapacity, baseValue + (double) initialCapacity);
       assertTrue(vector.getValueCapacity() >= initialCapacity * 2);
       int capacityAfterRealloc1 = vector.getValueCapacity();
 
       for (int i = initialCapacity + 1; i < capacityAfterRealloc1; i++) {
-        vector.setSafe(i, baseValue + (double)i);
+        vector.setSafe(i, baseValue + (double) i);
       }
 
       for (int i = 0; i < capacityAfterRealloc1; i++) {
         double value = vector.get(i);
-        assertEquals(baseValue + (double)i, value, 0);
+        assertEquals(baseValue + (double) i, value, 0);
       }
 
       /* this should trigger a realloc */
-      vector.setSafe(capacityAfterRealloc1, baseValue + (double)(capacityAfterRealloc1));
+      vector.setSafe(capacityAfterRealloc1, baseValue + (double) (capacityAfterRealloc1));
       assertTrue(vector.getValueCapacity() >= initialCapacity * 4);
       int capacityAfterRealloc2 = vector.getValueCapacity();
 
       for (int i = capacityAfterRealloc1 + 1; i < capacityAfterRealloc2; i++) {
-        vector.setSafe(i, baseValue + (double)i);
+        vector.setSafe(i, baseValue + (double) i);
       }
 
       for (int i = 0; i < capacityAfterRealloc2; i++) {
         double value = vector.get(i);
-        assertEquals(baseValue + (double)i, value, 0);
+        assertEquals(baseValue + (double) i, value, 0);
       }
 
       /* at this point we are working with a 128KB buffer data for this
@@ -1112,13 +1112,13 @@ public class TestValueVector {
       TransferPair transferPair = vector.getTransferPair(allocator);
       transferPair.transfer();
 
-      Float8Vector toVector = (Float8Vector)transferPair.getTo();
+      Float8Vector toVector = (Float8Vector) transferPair.getTo();
 
       /* check toVector contents before realloc */
       for (int i = 0; i < toVector.getValueCapacity(); i++) {
         assertFalse("unexpected null value at index: " + i, toVector.isNull(i));
         double value = toVector.get(i);
-        assertEquals("unexpected value at index: " + i, baseValue + (double)i, value, 0);
+        assertEquals("unexpected value at index: " + i, baseValue + (double) i, value, 0);
       }
 
       /* now let's realloc the toVector and check contents again */
@@ -1129,7 +1129,7 @@ public class TestValueVector {
         if (i < capacityAfterRealloc2) {
           assertFalse("unexpected null value at index: " + i, toVector.isNull(i));
           double value = toVector.get(i);
-          assertEquals("unexpected value at index: " + i, baseValue + (double)i, value, 0);
+          assertEquals("unexpected value at index: " + i, baseValue + (double) i, value, 0);
         } else {
           assertTrue("unexpected non-null value at index: " + i, toVector.isNull(i));
         }
@@ -1223,7 +1223,7 @@ public class TestValueVector {
 
       TransferPair transferPair = vector.getTransferPair(allocator);
       transferPair.transfer();
-      VarCharVector toVector = (VarCharVector)transferPair.getTo();
+      VarCharVector toVector = (VarCharVector) transferPair.getTo();
       valueCapacity = toVector.getValueCapacity();
 
       for (int i = 0; i < valueCapacity; i++) {
@@ -1312,7 +1312,7 @@ public class TestValueVector {
 
       TransferPair transferPair = vector.getTransferPair(allocator);
       transferPair.transfer();
-      IntVector toVector = (IntVector)transferPair.getTo();
+      IntVector toVector = (IntVector) transferPair.getTo();
       /* value capacity of source and target vectors should be same after
        * the transfer.
        */
@@ -1971,12 +1971,12 @@ public class TestValueVector {
       vector.setInitialCapacity(defaultCapacity, 0.1);
       vector.allocateNew();
       assertEquals(defaultCapacity, vector.getValueCapacity());
-      assertEquals(BaseAllocator.nextPowerOfTwo((int)(defaultCapacity * 0.1)), vector.getDataBuffer().capacity());
+      assertEquals(BaseAllocator.nextPowerOfTwo((int) (defaultCapacity * 0.1)), vector.getDataBuffer().capacity());
 
       vector.setInitialCapacity(defaultCapacity, 0.01);
       vector.allocateNew();
       assertEquals(defaultCapacity, vector.getValueCapacity());
-      assertEquals(BaseAllocator.nextPowerOfTwo((int)(defaultCapacity * 0.01)), vector.getDataBuffer().capacity());
+      assertEquals(BaseAllocator.nextPowerOfTwo((int) (defaultCapacity * 0.01)), vector.getDataBuffer().capacity());
 
       vector.setInitialCapacity(5, 0.01);
       vector.allocateNew();

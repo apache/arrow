@@ -98,7 +98,7 @@ public class TestValidateVectorVisitor {
   public void testListVector() {
     try (final ListVector vector = ListVector.empty("v", allocator)) {
       validate(vector);
-      setVector(vector, Arrays.asList(1,2,3), Arrays.asList(4, 5));
+      setVector(vector, Arrays.asList(1, 2, 3), Arrays.asList(4, 5));
       validate(vector);
 
       vector.getDataVector().setValueCount(3);
@@ -113,7 +113,7 @@ public class TestValidateVectorVisitor {
   public void testFixedSizeListVector() {
     try (final FixedSizeListVector vector = FixedSizeListVector.empty("v", 3, allocator)) {
       validate(vector);
-      setVector(vector, Arrays.asList(1,2,3), Arrays.asList(4, 5, 6));
+      setVector(vector, Arrays.asList(1, 2, 3), Arrays.asList(4, 5, 6));
       validate(vector);
 
       vector.getDataVector().setValueCount(3);
