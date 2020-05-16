@@ -15,9 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import contextlib
 import os
-import subprocess
 
 from .tester import Tester
 from .util import run_cmd, ARROW_ROOT_DEFAULT, log
