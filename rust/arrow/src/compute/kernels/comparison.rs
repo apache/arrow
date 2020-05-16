@@ -198,10 +198,6 @@ pub fn gt_eq_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArra
     compare_op!(left, right, |a, b| a >= b)
 }
 
-use crate::buffer::MutableBuffer;
-use std::mem;
-use std::io::Write;
-
 /// Helper function to perform boolean lambda function on values from two arrays using
 /// SIMD.
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
@@ -214,6 +210,10 @@ where
     T: ArrowNumericType,
     F: Fn(T::Simd, T::Simd) -> T::SimdMask,
 {
+    use crate::buffer::MutableBuffer;
+    use std::mem;
+    use std::io::Write;
+
     let len = left.len();
     if len != right.len() {
         return Err(ArrowError::ComputeError(
