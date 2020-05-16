@@ -29,7 +29,7 @@ pub const ALIGNMENT: usize = 64;
 /// Be careful to not write anything to this pointer in any scenario.
 /// If you use allocation methods shown here you won't have any problems.
 const BYPASS_PTR: NonNull<u8> =
-    unsafe { NonNull::new_unchecked(0xFFFFFFFFFFFFFFFE as *mut u8) };
+    unsafe { NonNull::new_unchecked(ALIGNMENT as *mut u8) };
 
 pub fn allocate_aligned(size: usize) -> *mut u8 {
     unsafe {
@@ -37,7 +37,7 @@ pub fn allocate_aligned(size: usize) -> *mut u8 {
             // In a perfect world, there is no need to request zero size allocation.
             // Currently, passing zero sized layout to alloc is UB.
             // This will dodge allocator api for any type.
-            BYPASS_PTR.as_mut()
+            BYPASS_PTR.as_ptr()
         } else {
             let layout = Layout::from_size_align_unchecked(size, ALIGNMENT);
             std::alloc::alloc_zeroed(layout)
@@ -46,13 +46,13 @@ pub fn allocate_aligned(size: usize) -> *mut u8 {
 }
 
 pub unsafe fn free_aligned(ptr: *mut u8, size: usize) {
-    if size != 0x00 && ptr != BYPASS_PTR.as_mut() {
+    if size != 0x00 && ptr != BYPASS_PTR.as_ptr() {
         std::alloc::dealloc(ptr, Layout::from_size_align_unchecked(size, ALIGNMENT));
     }
 }
 
 pub unsafe fn reallocate(ptr: *mut u8, old_size: usize, new_size: usize) -> *mut u8 {
-    if ptr == BYPASS_PTR.as_mut() {
+    if ptr == BYPASS_PTR.as_ptr() {
         allocate_aligned(new_size)
     } else {
         let new_ptr = std::alloc::realloc(
@@ -80,13 +80,22 @@ extern "C" {
 /// Check if the pointer `p` is aligned to offset `a`.
 pub fn is_aligned<T>(p: *const T, a: usize) -> bool {
     let a_minus_one = a.wrapping_sub(1);
+    dbg!(a_minus_one);
+    dbg!(p as usize);
     let pmoda = p as usize & a_minus_one;
+    dbg!(pmoda);
     pmoda == 0
 }
 
+// /// Check if the pointer `p` is aligned to offset `a`.
+// pub fn is_aligned<T>(p: *const T, a: usize) -> bool {
+//     p.align_offset(a) == 0
+// }
+
 pub fn is_ptr_aligned<T>(p: *const T) -> bool {
     let alignment = align_of::<T>();
-    is_aligned(p, alignment)
+    dbg!(&alignment);
+    p.align_offset(alignment) == 0
 }
 
 #[cfg(test)]
