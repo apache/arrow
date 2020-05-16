@@ -15,12 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[workspace]
-members = [
-        "arrow",
-        "parquet",
-        "datafusion",
-        "arrow-flight",
-        "integration-testing",
-	"benchmarks",
-]
+[package]
+name = "arrow-benchmarks"
+description = "Apache Arrow Benchmarks"
+version = "0.18.0-SNAPSHOT"
+edition = "2018"
+authors = ["Apache Arrow <dev@arrow.apache.org>"]
+homepage = "https://github.com/apache/arrow"
+repository = "https://github.com/apache/arrow"
+license = "Apache-2.0"
+
+[dependencies]
+arrow = { path = "../arrow" }
+datafusion = { path = "../datafusion" }
+
+structopt = { version = "0.3", default-features = false }
