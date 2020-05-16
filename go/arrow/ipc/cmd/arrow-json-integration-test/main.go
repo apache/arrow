@@ -205,11 +205,11 @@ func validate(arrowName, jsonName string, verbose bool) error {
 	for i := 0; i < arr.NumRecords(); i++ {
 		arec, err := arr.Read()
 		if err != nil {
-			return xerrors.Errorf("schema: %s\n208 could not read record %d from ARROW file: %w", arr.Schema(), i, err)
+			return xerrors.Errorf("could not read record %d from ARROW file: %w", i, err)
 		}
 		jrec, err := jrr.Read()
 		if err != nil {
-			return xerrors.Errorf("212 could not read record %d from JSON file: %w", i, err)
+			return xerrors.Errorf("could not read record %d from JSON file: %w", i, err)
 		}
 		if !array.RecordApproxEqual(jrec, arec) {
 			return xerrors.Errorf("record batch %d did not match\nJSON:\n%v\nARROW:\n%v\n",
