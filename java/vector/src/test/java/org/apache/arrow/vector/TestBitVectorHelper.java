@@ -34,7 +34,7 @@ public class TestBitVectorHelper {
   public void testGetNullCount() throws Exception {
     // test case 1, 1 null value for 0b110
     ArrowBuf validityBuffer = new ArrowBuf(
-        ReferenceManager.NO_OP, null,3, new PooledByteBufAllocatorL().empty.memoryAddress(), true);
+        ReferenceManager.NO_OP, null, 3, new PooledByteBufAllocatorL().empty.memoryAddress(), true);
     // we set validity buffer to be 0b10110, but only have 3 items with 1st item is null
     validityBuffer.setByte(0, 0b10110);
 
@@ -44,7 +44,7 @@ public class TestBitVectorHelper {
 
     // test case 2, no null value for 0xFF
     validityBuffer = new ArrowBuf(
-        ReferenceManager.NO_OP, null,8, new PooledByteBufAllocatorL().empty.memoryAddress(), true);
+        ReferenceManager.NO_OP, null, 8, new PooledByteBufAllocatorL().empty.memoryAddress(), true);
     validityBuffer.setByte(0, 0xFF);
 
     count = BitVectorHelper.getNullCount(validityBuffer, 8);
@@ -60,7 +60,7 @@ public class TestBitVectorHelper {
 
     // test case 4, validity buffer has multiple bytes, 11 items
     validityBuffer = new ArrowBuf(
-        ReferenceManager.NO_OP, null,11, new PooledByteBufAllocatorL().empty.memoryAddress(), true);
+        ReferenceManager.NO_OP, null, 11, new PooledByteBufAllocatorL().empty.memoryAddress(), true);
     validityBuffer.setByte(0, 0b10101010);
     validityBuffer.setByte(1, 0b01010101);
 

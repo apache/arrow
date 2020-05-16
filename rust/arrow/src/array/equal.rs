@@ -143,6 +143,18 @@ impl PartialEq for StringArray {
     }
 }
 
+impl PartialEq for FixedSizeBinaryArray {
+    fn eq(&self, other: &Self) -> bool {
+        self.equals(other)
+    }
+}
+
+impl PartialEq for BinaryArray {
+    fn eq(&self, other: &Self) -> bool {
+        self.equals(other)
+    }
+}
+
 impl ArrayEqual for ListArray {
     fn equals(&self, other: &dyn Array) -> bool {
         if !base_equal(&self.data(), &other.data()) {
@@ -691,6 +703,26 @@ impl ArrayEqual for StructArray {
     }
 }
 
+impl ArrayEqual for UnionArray {
+    fn equals(&self, _other: &dyn Array) -> bool {
+        unimplemented!(
+            "Added to allow UnionArray to implement the Array trait: see ARROW-8576"
+        )
+    }
+
+    fn range_equals(
+        &self,
+        _other: &dyn Array,
+        _start_idx: usize,
+        _end_idx: usize,
+        _other_start_idx: usize,
+    ) -> bool {
+        unimplemented!(
+            "Added to allow UnionArray to implement the Array trait: see ARROW-8576"
+        )
+    }
+}
+
 // Compare if the common basic fields between the two arrays are equal
 fn base_equal(this: &ArrayDataRef, other: &ArrayDataRef) -> bool {
     if this.data_type() != other.data_type() {
@@ -1036,6 +1068,14 @@ impl PartialEq<FixedSizeBinaryArray> for Value {
             Value::Array(json_array) => arrow.equals_json_values(&json_array),
             _ => false,
         }
+    }
+}
+
+impl JsonEqual for UnionArray {
+    fn equals_json(&self, _json: &[&Value]) -> bool {
+        unimplemented!(
+            "Added to allow UnionArray to implement the Array trait: see ARROW-8547"
+        )
     }
 }
 

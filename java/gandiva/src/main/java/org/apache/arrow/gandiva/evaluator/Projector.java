@@ -258,7 +258,7 @@ public class Projector {
         hasVariableWidthColumns = true;
 
         // save vector to allow for resizing.
-        resizableVectors[outColumnIdx] = (BaseVariableWidthVector)valueVector;
+        resizableVectors[outColumnIdx] = (BaseVariableWidthVector) valueVector;
       }
       outAddrs[idx] = valueVector.getDataBuffer().memoryAddress();
       outSizes[idx++] = valueVector.getDataBuffer().capacity();

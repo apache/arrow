@@ -355,16 +355,26 @@ public class JdbcToArrowUtils {
     try {
       compositeConsumer = new CompositeJdbcConsumer(consumers);
       int readRowCount = 0;
-      while (rs.next()) {
-        compositeConsumer.consume(rs);
-        readRowCount++;
+      if (config.getTargetBatchSize() == JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE) {
+        while (rs.next()) {
+          ArrowVectorIterator.ensureCapacity(root, readRowCount + 1);
+          compositeConsumer.consume(rs);
+          readRowCount++;
+        }
+      } else {
+        while (rs.next() && readRowCount < config.getTargetBatchSize()) {
+          compositeConsumer.consume(rs);
+          readRowCount++;
+        }
       }
+
       root.setRowCount(readRowCount);
     } catch (Exception e) {
       // error occurs and clean up resources.
       if (compositeConsumer != null) {
         compositeConsumer.close();
       }
+      throw e;
     }
   }
 
@@ -417,7 +427,7 @@ public class JdbcToArrowUtils {
           throw new IllegalArgumentException("Column " + columnIndex + " is an array of unknown type.");
         }
         JdbcConsumer delegate = getConsumer(resultSet, JDBC_ARRAY_VALUE_COLUMN,
-            fieldInfo.getJdbcType(), ((ListVector)vector).getDataVector(), config);
+            fieldInfo.getJdbcType(), ((ListVector) vector).getDataVector(), config);
         return ArrayConsumer.createConsumer((ListVector) vector, delegate, columnIndex, nullable);
       case Types.CLOB:
         return ClobConsumer.createConsumer((VarCharVector) vector, columnIndex, nullable);

@@ -364,7 +364,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
         for (int i = 0; i < count; i++) {
           parser.nextToken();
-          buf.writeInt((int)parser.getLongValue());
+          buf.writeInt((int) parser.getLongValue());
         }
 
         return buf;

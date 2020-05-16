@@ -362,7 +362,7 @@ class ArrayPrinter : public PrettyPrinter {
     std::vector<std::shared_ptr<Array>> children;
     children.reserve(array.num_fields());
     for (int i = 0; i < array.num_fields(); ++i) {
-      children.emplace_back(array.child(i));
+      children.emplace_back(array.field(i));
     }
     return PrintChildren(children, 0, array.length() + array.offset());
   }
@@ -622,7 +622,7 @@ Status SchemaPrinter::PrintType(const DataType& type, bool nullable) {
   if (!nullable) {
     Write(" not null");
   }
-  for (int i = 0; i < type.num_children(); ++i) {
+  for (int i = 0; i < type.num_fields(); ++i) {
     Newline();
 
     std::stringstream ss;
@@ -630,7 +630,7 @@ Status SchemaPrinter::PrintType(const DataType& type, bool nullable) {
 
     indent_ += options_.indent_size;
     WriteIndented(ss.str());
-    RETURN_NOT_OK(PrintField(*type.child(i)));
+    RETURN_NOT_OK(PrintField(*type.field(i)));
     indent_ -= options_.indent_size;
   }
   return Status::OK();

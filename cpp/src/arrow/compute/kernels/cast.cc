@@ -882,7 +882,7 @@ class FromNullCastKernel : public CastKernelBase {
       // Append nulls to all child builders too
       for (int i = 0; i < struct_builder.num_fields(); ++i) {
         NullBuilderVisitor visitor = {length_, struct_builder.field_builder(i)};
-        RETURN_NOT_OK(VisitTypeInline(*type.child(i)->type(), &visitor));
+        RETURN_NOT_OK(VisitTypeInline(*type.field(i)->type(), &visitor));
       }
       return Status::OK();
     }

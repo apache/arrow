@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeStampSecTZReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -115,7 +117,7 @@ public final class TimeStampSecTZVector extends TimeStampVector {
    * @param index   position of element
    */
   public void get(int index, NullableTimeStampSecTZHolder holder) {
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       holder.isSet = 0;
       return;
     }

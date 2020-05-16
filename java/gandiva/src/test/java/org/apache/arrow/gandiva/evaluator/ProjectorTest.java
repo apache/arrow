@@ -1182,7 +1182,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     Field c1 = Field.nullable("c1", int32);
 
     TreeNode inExpr =
-            TreeBuilder.makeInExpressionInt32(c1, Sets.newHashSet(1,2,3,4,5,15,16));
+            TreeBuilder.makeInExpressionInt32(c1, Sets.newHashSet(1, 2, 3, 4, 5, 15, 16));
     ExpressionTree expr = TreeBuilder.makeExpression(inExpr, Field.nullable("result", boolType));
     Schema schema = new Schema(Lists.newArrayList(c1));
     Projector eval = Projector.make(schema, Lists.newArrayList(expr));
@@ -1246,7 +1246,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
             new ArrowRecordBatch(
                     numRows,
                     Lists.newArrayList(fieldNode, fieldNode),
-                    Lists.newArrayList(c1Validity, dataBufsX.get(0),dataBufsX.get(1), c2Validity));
+                    Lists.newArrayList(c1Validity, dataBufsX.get(0), dataBufsX.get(1), c2Validity));
 
     BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
     bitVector.allocateNew(numRows);

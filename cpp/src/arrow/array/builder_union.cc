@@ -65,7 +65,7 @@ BasicUnionBuilder::BasicUnionBuilder(
       static_cast<decltype(type_id_to_children_)::size_type>(UnionType::kMaxTypeCode));
 
   for (size_t i = 0; i < children.size(); ++i) {
-    child_fields_[i] = union_type.child(static_cast<int>(i));
+    child_fields_[i] = union_type.field(static_cast<int>(i));
 
     auto type_id = union_type.type_codes()[i];
     type_id_to_children_[type_id] = children[i].get();

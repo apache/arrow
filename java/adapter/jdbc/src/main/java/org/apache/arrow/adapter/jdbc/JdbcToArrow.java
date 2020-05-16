@@ -220,6 +220,9 @@ public class JdbcToArrow {
 
     VectorSchemaRoot root = VectorSchemaRoot.create(
         JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData(), config), config.getAllocator());
+    if (config.getTargetBatchSize() != JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE) {
+      ArrowVectorIterator.preAllocate(root, config);
+    }
     JdbcToArrowUtils.jdbcToArrowVectors(resultSet, root, config);
     return root;
   }

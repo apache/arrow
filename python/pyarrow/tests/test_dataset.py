@@ -605,6 +605,22 @@ def test_fragments(tempdir):
     assert result.column_names == ['f1', 'f2', 'part']
 
 
+@pytest.mark.pandas
+@pytest.mark.parquet
+def test_fragments_implicit_cast(tempdir):
+    # ARROW-8693
+    import pyarrow.parquet as pq
+
+    table = pa.table([range(8), [1] * 4 + [2] * 4], names=['col', 'part'])
+    path = str(tempdir / "test_parquet_dataset")
+    pq.write_to_dataset(table, path, partition_cols=["part"])
+
+    part = ds.partitioning(pa.schema([('part', 'int8')]), flavor="hive")
+    dataset = ds.dataset(path, format="parquet", partitioning=part)
+    fragments = dataset.get_fragments(filter=ds.field("part") >= 2)
+    assert len(list(fragments)) == 1
+
+
 @pytest.mark.skip(reason="ARROW-8318")
 @pytest.mark.pandas
 @pytest.mark.parquet

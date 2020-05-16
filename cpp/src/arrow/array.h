@@ -1278,8 +1278,14 @@ class ARROW_EXPORT UnionArray : public Array {
   // Return the given field as an individual array.
   // For sparse unions, the returned array has its offset, length and null
   // count adjusted.
-  // For dense unions, the returned array is unchanged.
+  ARROW_DEPRECATED("Use field(pos)")
   std::shared_ptr<Array> child(int pos) const;
+
+  /// \brief Return the given field as an individual array.
+  ///
+  /// For sparse unions, the returned array has its offset, length and null
+  /// count adjusted.
+  std::shared_ptr<Array> field(int pos) const;
 
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);

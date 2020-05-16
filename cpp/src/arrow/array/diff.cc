@@ -588,7 +588,7 @@ class MakeFormatterImpl {
             continue;
           }
           ++printed;
-          *os << struct_array.struct_type()->child(i)->name() << ": ";
+          *os << struct_array.struct_type()->field(i)->name() << ": ";
           field_formatters_[i](*struct_array.field(i), index, os);
         }
         *os << "}";
@@ -597,9 +597,9 @@ class MakeFormatterImpl {
       std::vector<Formatter> field_formatters_;
     };
 
-    std::vector<Formatter> field_formatters(t.num_children());
-    for (int i = 0; i < t.num_children(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(field_formatters[i], MakeFormatter(*t.child(i)->type()));
+    std::vector<Formatter> field_formatters(t.num_fields());
+    for (int i = 0; i < t.num_fields(); ++i) {
+      ARROW_ASSIGN_OR_RAISE(field_formatters[i], MakeFormatter(*t.field(i)->type()));
     }
 
     impl_ = StructImpl(std::move(field_formatters));
@@ -613,7 +613,7 @@ class MakeFormatterImpl {
       void DoFormat(const UnionArray& array, int64_t index, int64_t child_index,
                     std::ostream* os) {
         auto type_code = array.raw_type_codes()[index];
-        const auto& child = *array.child(array.child_id(index));
+        const auto& child = *array.field(array.child_id(index));
 
         *os << "{" << static_cast<int16_t>(type_code) << ": ";
         if (child.IsNull(child_index)) {
@@ -646,10 +646,10 @@ class MakeFormatterImpl {
     };
 
     std::vector<Formatter> field_formatters(t.max_type_code() + 1);
-    for (int i = 0; i < t.num_children(); ++i) {
+    for (int i = 0; i < t.num_fields(); ++i) {
       auto type_id = t.type_codes()[i];
       ARROW_ASSIGN_OR_RAISE(field_formatters[type_id],
-                            MakeFormatter(*t.child(i)->type()));
+                            MakeFormatter(*t.field(i)->type()));
     }
 
     if (t.mode() == UnionMode::SPARSE) {

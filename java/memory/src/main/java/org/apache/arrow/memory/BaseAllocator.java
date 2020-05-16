@@ -763,7 +763,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
      */
     @Value.Default
     AllocationManager.Factory getAllocationManagerFactory() {
-      return NettyAllocationManager.FACTORY;
+      return DefaultAllocationManagerOption.DEFAULT_ALLOCATION_MANAGER_FACTORY;
     }
 
     /**

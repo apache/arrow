@@ -442,17 +442,17 @@ class TakerImpl<IndexSequence, StructType> : public Taker<IndexSequence> {
   using Taker<IndexSequence>::Taker;
 
   Status Init() override {
-    children_.resize(this->type_->num_children());
-    for (int i = 0; i < this->type_->num_children(); ++i) {
+    children_.resize(this->type_->num_fields());
+    for (int i = 0; i < this->type_->num_fields(); ++i) {
       RETURN_NOT_OK(
-          Taker<IndexSequence>::Make(this->type_->child(i)->type(), &children_[i]));
+          Taker<IndexSequence>::Make(this->type_->field(i)->type(), &children_[i]));
     }
     return Status::OK();
   }
 
   Status SetContext(FunctionContext* ctx) override {
     null_bitmap_builder_.reset(new TypedBufferBuilder<bool>(ctx->memory_pool()));
-    for (int i = 0; i < this->type_->num_children(); ++i) {
+    for (int i = 0; i < this->type_->num_fields(); ++i) {
       RETURN_NOT_OK(children_[i]->SetContext(ctx));
     }
     return Status::OK();
@@ -471,7 +471,7 @@ class TakerImpl<IndexSequence, StructType> : public Taker<IndexSequence> {
     indices.set_never_out_of_bounds();
 
     const auto& struct_array = checked_cast<const StructArray&>(values);
-    for (int i = 0; i < this->type_->num_children(); ++i) {
+    for (int i = 0; i < this->type_->num_fields(); ++i) {
       RETURN_NOT_OK(children_[i]->Take(*struct_array.field(i), indices));
     }
     return Status::OK();
@@ -483,8 +483,8 @@ class TakerImpl<IndexSequence, StructType> : public Taker<IndexSequence> {
     std::shared_ptr<Buffer> null_bitmap;
     RETURN_NOT_OK(null_bitmap_builder_->Finish(&null_bitmap));
 
-    ArrayVector fields(this->type_->num_children());
-    for (int i = 0; i < this->type_->num_children(); ++i) {
+    ArrayVector fields(this->type_->num_fields());
+    for (int i = 0; i < this->type_->num_fields(); ++i) {
       RETURN_NOT_OK(children_[i]->Finish(&fields[i]));
     }
 
@@ -507,19 +507,19 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
     union_type_ = checked_cast<const UnionType*>(this->type_.get());
 
     if (union_type_->mode() == UnionMode::SPARSE) {
-      sparse_children_.resize(this->type_->num_children());
+      sparse_children_.resize(this->type_->num_fields());
     } else {
-      dense_children_.resize(this->type_->num_children());
+      dense_children_.resize(this->type_->num_fields());
       child_length_.resize(union_type_->max_type_code() + 1);
     }
 
-    for (int i = 0; i < this->type_->num_children(); ++i) {
+    for (int i = 0; i < this->type_->num_fields(); ++i) {
       if (union_type_->mode() == UnionMode::SPARSE) {
-        RETURN_NOT_OK(Taker<IndexSequence>::Make(this->type_->child(i)->type(),
+        RETURN_NOT_OK(Taker<IndexSequence>::Make(this->type_->field(i)->type(),
                                                  &sparse_children_[i]));
       } else {
         RETURN_NOT_OK(Taker<ArrayIndexSequence<Int32Type>>::Make(
-            this->type_->child(i)->type(), &dense_children_[i]));
+            this->type_->field(i)->type(), &dense_children_[i]));
       }
     }
 
@@ -536,7 +536,7 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
       std::fill(child_length_.begin(), child_length_.end(), 0);
     }
 
-    for (int i = 0; i < this->type_->num_children(); ++i) {
+    for (int i = 0; i < this->type_->num_fields(); ++i) {
       if (union_type_->mode() == UnionMode::SPARSE) {
         RETURN_NOT_OK(sparse_children_[i]->SetContext(ctx));
       } else {
@@ -564,8 +564,8 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
       // bounds checking was done while appending to the null bitmap
       indices.set_never_out_of_bounds();
 
-      for (int i = 0; i < this->type_->num_children(); ++i) {
-        RETURN_NOT_OK(sparse_children_[i]->Take(*union_array.child(i), indices));
+      for (int i = 0; i < this->type_->num_fields(); ++i) {
+        RETURN_NOT_OK(sparse_children_[i]->Take(*union_array.field(i), indices));
       }
     } else {
       // Gathering from the offsets into child arrays is a bit tricky.
@@ -616,7 +616,7 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
 
       // Take from each child at those offsets
       int64_t taken_offset_begin = 0;
-      for (int i = 0; i < this->type_->num_children(); ++i) {
+      for (int i = 0; i < this->type_->num_fields(); ++i) {
         auto type_code = union_type_->type_codes()[i];
         auto length = child_counts[type_code];
         Int32Array taken_offsets(length, SliceBuffer(child_offsets_storage,
@@ -624,7 +624,7 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
                                                      sizeof(int32_t) * length));
         ArrayIndexSequence<Int32Type> child_indices(taken_offsets);
         child_indices.set_never_out_of_bounds();
-        RETURN_NOT_OK(dense_children_[i]->Take(*union_array.child(i), child_indices));
+        RETURN_NOT_OK(dense_children_[i]->Take(*union_array.field(i), child_indices));
         taken_offset_begin += length;
       }
     }
@@ -644,8 +644,8 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
       RETURN_NOT_OK(offset_builder_->Finish(&offsets));
     }
 
-    ArrayVector fields(this->type_->num_children());
-    for (int i = 0; i < this->type_->num_children(); ++i) {
+    ArrayVector fields(this->type_->num_fields());
+    for (int i = 0; i < this->type_->num_fields(); ++i) {
       if (union_type_->mode() == UnionMode::SPARSE) {
         RETURN_NOT_OK(sparse_children_[i]->Finish(&fields[i]));
       } else {

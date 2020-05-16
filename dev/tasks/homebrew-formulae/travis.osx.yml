@@ -31,6 +31,9 @@ before_script:
 - git clone --no-checkout {{ arrow.remote }} arrow
 - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
 - if [ $CROSSBOW_USE_COMMIT_ID = true ]; then git -C arrow checkout {{ arrow.head }}; else git -C arrow checkout FETCH_HEAD; fi
+# Pin the current commit in the formula to test so that we're not always pulling from master
+- sed -i.bak -E -e 's@https://github.com/apache/arrow.git"$@{{ arrow.remote }}", :revision => "{{ arrow.head }}"@' $ARROW_FORMULA
+- rm -f $ARROW_FORMULA.bak
 - brew update
 - brew uninstall --ignore-dependencies boost
 - brew --version

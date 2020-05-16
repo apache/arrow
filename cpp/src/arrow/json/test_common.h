@@ -105,7 +105,7 @@ struct GenerateImpl {
     return OK(writer.EndArray(size));
   }
 
-  Status Visit(const StructType& t) { return Generate(t.children(), e, &writer); }
+  Status Visit(const StructType& t) { return Generate(t.fields(), e, &writer); }
 
   Status Visit(const DayTimeIntervalType& t) { return NotImplemented(t); }
 

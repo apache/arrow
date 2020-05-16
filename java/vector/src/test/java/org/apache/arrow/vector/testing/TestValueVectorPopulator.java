@@ -209,7 +209,7 @@ public class TestValueVectorPopulator {
       }
       vector1.setValueCount(10);
 
-      setVector(vector2,null, "test1".getBytes(), null, "test3".getBytes(), null, "test5".getBytes(), null,
+      setVector(vector2, null, "test1".getBytes(), null, "test3".getBytes(), null, "test5".getBytes(), null,
           "test7".getBytes(), null, "test9".getBytes());
       assertTrue(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
@@ -288,8 +288,8 @@ public class TestValueVectorPopulator {
       }
       vector1.setValueCount(10);
 
-      ValueVectorDataPopulator.setVector(vector2, null, (short)1, null, (short)3, null, (short)5,
-          null, (short)7, null, (short)9);
+      ValueVectorDataPopulator.setVector(vector2, null, (short) 1, null, (short) 3, null, (short) 5,
+          null, (short) 7, null, (short) 9);
       assertTrue(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
   }
@@ -480,7 +480,7 @@ public class TestValueVectorPopulator {
         }
       }
       vector1.setValueCount(10);
-      setVector(vector2, null, (byte)1, null, (byte)3, null, (byte)5, null, (byte)7, null, (byte)9);
+      setVector(vector2, null, (byte) 1, null, (byte) 3, null, (byte) 5, null, (byte) 7, null, (byte) 9);
       assertTrue(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
   }
@@ -499,7 +499,7 @@ public class TestValueVectorPopulator {
         }
       }
       vector1.setValueCount(10);
-      setVector(vector2, null, (byte)1, null, (byte)3, null, (byte)5, null, (byte)7, null, (byte)9);
+      setVector(vector2, null, (byte) 1, null, (byte) 3, null, (byte) 5, null, (byte) 7, null, (byte) 9);
       assertTrue(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
   }
@@ -518,7 +518,7 @@ public class TestValueVectorPopulator {
         }
       }
       vector1.setValueCount(10);
-      setVector(vector2, null, (char)1, null, (char)3, null, (char)5, null, (char)7, null, (char)9);
+      setVector(vector2, null, (char) 1, null, (char) 3, null, (char) 5, null, (char) 7, null, (char) 9);
       assertTrue(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
   }

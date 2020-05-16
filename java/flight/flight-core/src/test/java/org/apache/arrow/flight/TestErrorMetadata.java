@@ -48,12 +48,12 @@ public class TestErrorMetadata {
              FlightTestUtil.getStartedServer(
                (location) -> FlightServer.builder(allocator, location, new TestFlightProducer(perf)).build());
           final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
-      FlightStream stream = client.getStream(new Ticket("abs".getBytes()));
-      stream.next();
-      Assert.fail();
-    } catch (FlightRuntimeException fre) {
+      final CallStatus flightStatus = FlightTestUtil.assertCode(FlightStatusCode.CANCELLED, () -> {
+        FlightStream stream = client.getStream(new Ticket("abs".getBytes()));
+        stream.next();
+      });
       PerfOuterClass.Perf newPerf = null;
-      ErrorFlightMetadata metadata = fre.status().metadata();
+      ErrorFlightMetadata metadata = flightStatus.metadata();
       Assert.assertNotNull(metadata);
       Assert.assertEquals(2, metadata.keys().size());
       Assert.assertTrue(metadata.containsKey("grpc-status-details-bin"));

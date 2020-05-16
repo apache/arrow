@@ -106,9 +106,9 @@ Status StructToNode(const std::shared_ptr<::arrow::StructType>& type,
                     const std::string& name, bool nullable,
                     const WriterProperties& properties,
                     const ArrowWriterProperties& arrow_properties, NodePtr* out) {
-  std::vector<NodePtr> children(type->num_children());
-  for (int i = 0; i < type->num_children(); i++) {
-    RETURN_NOT_OK(FieldToNode(type->child(i)->name(), type->child(i), properties,
+  std::vector<NodePtr> children(type->num_fields());
+  for (int i = 0; i < type->num_fields(); i++) {
+    RETURN_NOT_OK(FieldToNode(type->field(i)->name(), type->field(i), properties,
                               arrow_properties, &children[i]));
   }
 

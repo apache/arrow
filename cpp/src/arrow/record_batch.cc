@@ -190,7 +190,7 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::FromStructArray(
     return Status::Invalid("Cannot construct record batch from array of type ",
                            *array->type());
   }
-  return Make(arrow::schema(array->type()->children()), array->length(),
+  return Make(arrow::schema(array->type()->fields()), array->length(),
               array->data()->child_data);
 }
 

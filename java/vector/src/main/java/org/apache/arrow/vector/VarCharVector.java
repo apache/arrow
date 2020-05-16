@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.VarCharReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -104,7 +106,7 @@ public final class VarCharVector extends BaseVariableWidthVector {
    */
   public byte[] get(int index) {
     assert index >= 0;
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       return null;
     }
     final int startOffset = getStartOffset(index);

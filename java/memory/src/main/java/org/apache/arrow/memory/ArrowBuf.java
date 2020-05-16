@@ -472,7 +472,7 @@ public final class ArrowBuf implements AutoCloseable {
    * @param value value to write
    */
   public void setShort(long index, int value) {
-    setShort(index, (short)value);
+    setShort(index, (short) value);
   }
 
   /**
@@ -609,7 +609,7 @@ public final class ArrowBuf implements AutoCloseable {
    */
   public void writeByte(int value) {
     ensureWritable(1);
-    MemoryUtil.UNSAFE.putByte(addr(writerIndex), (byte)value);
+    MemoryUtil.UNSAFE.putByte(addr(writerIndex), (byte) value);
     ++writerIndex;
   }
 
@@ -941,7 +941,7 @@ public final class ArrowBuf implements AutoCloseable {
       // address srcAddress into dst ArrowBuf starting at address
       // dstAddress
       final long srcAddress = addr(index);
-      final long dstAddress = dst.memoryAddress() + (long)dstIndex;
+      final long dstAddress = dst.memoryAddress() + (long) dstIndex;
       MemoryUtil.UNSAFE.copyMemory(null, srcAddress, null, dstAddress, length);
     }
   }

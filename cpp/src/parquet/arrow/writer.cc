@@ -72,13 +72,13 @@ namespace arrow {
 namespace {
 
 int CalculateLeafCount(const DataType& type) {
-  if (type.num_children() == 0) {
+  if (type.num_fields() == 0) {
     // Primitive type.
     return 1;
   }
 
   int num_leaves = 0;
-  for (std::shared_ptr<Field> field : type.children()) {
+  for (std::shared_ptr<Field> field : type.fields()) {
     num_leaves += CalculateLeafCount(*(field->type()));
   }
   return num_leaves;
@@ -121,7 +121,7 @@ class LevelBuilder {
   Status Visit(const DictionaryArray& array) {
     // Only currently handle DictionaryArray where the dictionary is a
     // primitive type
-    if (array.dict_type()->value_type()->num_children() > 0) {
+    if (array.dict_type()->value_type()->num_fields() > 0) {
       return Status::NotImplemented(
           "Writing DictionaryArray with nested dictionary "
           "type not yet supported");
@@ -168,7 +168,7 @@ class LevelBuilder {
     const SchemaField* current_field = schema_field_;
     while (current_field != nullptr) {
       nullable_.push_front(current_field->field->nullable());
-      if (current_field->field->type()->num_children() > 1) {
+      if (current_field->field->type()->num_fields() > 1) {
         return Status::NotImplemented(
             "Fields with more than one child are not supported.");
       } else {
@@ -330,10 +330,10 @@ Status LevelBuilder::VisitInline(const Array& array) {
 
 Status GetLeafType(const ::arrow::DataType& type, ::arrow::Type::type* leaf_type) {
   if (type.id() == ::arrow::Type::LIST || type.id() == ::arrow::Type::STRUCT) {
-    if (type.num_children() != 1) {
+    if (type.num_fields() != 1) {
       return Status::Invalid("Nested column branch had multiple children: ", type);
     }
-    return GetLeafType(*type.child(0)->type(), leaf_type);
+    return GetLeafType(*type.field(0)->type(), leaf_type);
   } else {
     *leaf_type = type.id();
     return Status::OK();

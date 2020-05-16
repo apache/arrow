@@ -80,6 +80,18 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     validate(iterator);
   }
 
+  @Test
+  public void testJdbcToArrowValuesNoLimit() throws SQLException, IOException {
+
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
+        Calendar.getInstance()).setTargetBatchSize(JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE).build();
+
+    ArrowVectorIterator iterator =
+        JdbcToArrow.sqlToArrowVectorIterator(conn.createStatement().executeQuery(table.getQuery()), config);
+
+    validate(iterator);
+  }
+
   private void validate(ArrowVectorIterator iterator) throws SQLException, IOException {
 
     List<BigIntVector> bigIntVectors = new ArrayList<>();

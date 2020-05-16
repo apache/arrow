@@ -33,6 +33,7 @@ use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
+use crate::execution::physical_plan::csv::CsvExec;
 use crate::execution::physical_plan::datasource::DatasourceExec;
 use crate::execution::physical_plan::expressions::{
     Alias, Avg, BinaryExpr, CastExpr, Column, Count, Literal, Max, Min, Sum,
@@ -41,6 +42,7 @@ use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
 use crate::execution::physical_plan::limit::LimitExec;
 use crate::execution::physical_plan::math_expressions::register_math_functions;
 use crate::execution::physical_plan::merge::MergeExec;
+use crate::execution::physical_plan::parquet::ParquetExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
 use crate::execution::physical_plan::selection::SelectionExec;
 use crate::execution::physical_plan::udf::{ScalarFunction, ScalarFunctionExpr};
@@ -297,6 +299,26 @@ impl ExecutionContext {
                     table_name
                 ))),
             },
+            LogicalPlan::CsvScan {
+                path,
+                schema,
+                has_header,
+                projection,
+                ..
+            } => Ok(Arc::new(CsvExec::try_new(
+                path,
+                Arc::new(schema.as_ref().to_owned()),
+                *has_header,
+                projection.to_owned(),
+                batch_size,
+            )?)),
+            LogicalPlan::ParquetScan {
+                path, projection, ..
+            } => Ok(Arc::new(ParquetExec::try_new(
+                path,
+                projection.to_owned(),
+                batch_size,
+            )?)),
             LogicalPlan::Projection { input, expr, .. } => {
                 let input = self.create_physical_plan(input, batch_size)?;
                 let input_schema = input.as_ref().schema().clone();

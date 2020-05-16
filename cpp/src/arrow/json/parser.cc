@@ -442,7 +442,7 @@ class RawBuilderSet {
         RETURN_NOT_OK(MakeBuilder<Kind::kObject>(leading_nulls, builder));
         const auto& struct_type = static_cast<const StructType&>(t);
 
-        for (const auto& f : struct_type.children()) {
+        for (const auto& f : struct_type.fields()) {
           BuilderPtr field_builder;
           RETURN_NOT_OK(MakeBuilder(*f->type(), leading_nulls, &field_builder));
           field_builder.nullable = f->nullable();

@@ -222,7 +222,7 @@ public class ArrowRecordBatch implements ArrowMessage {
 
       long readableBytes = buffer.readableBytes();
       while (readableBytes > 0) {
-        int nextRead = (int)Math.min(readableBytes, Integer.MAX_VALUE);
+        int nextRead = (int) Math.min(readableBytes, Integer.MAX_VALUE);
         ByteBuffer nioBuffer =
             buffer.nioBuffer(buffer.readerIndex(), nextRead);
         readableBytes -= nextRead;

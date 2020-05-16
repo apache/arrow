@@ -66,7 +66,7 @@ public class BitVectorHelperBenchmarks {
       allocator = new RootAllocator(ALLOCATOR_CAPACITY);
       validityBuffer = allocator.buffer(VALIDITY_BUFFER_CAPACITY / 8);
 
-      for (int i = 0;i < VALIDITY_BUFFER_CAPACITY; i++) {
+      for (int i = 0; i < VALIDITY_BUFFER_CAPACITY; i++) {
         if (i % 7 == 0) {
           BitVectorHelper.setBit(validityBuffer, i);
         } else {
