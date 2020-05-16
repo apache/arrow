@@ -31,7 +31,8 @@ class RustTester(Tester):
 
     EXE_PATH = os.path.join(ARROW_ROOT_DEFAULT, 'rust/target/debug')
 
-    RUST_INTEGRATION_EXE = os.path.join(EXE_PATH, 'arrow-json-integration-test')
+    RUST_INTEGRATION_EXE = os.path.join(EXE_PATH,
+                                        'arrow-json-integration-test')
     STREAM_TO_FILE = os.path.join(EXE_PATH, 'arrow-stream-to-file')
     FILE_TO_STREAM = os.path.join(EXE_PATH, 'arrow-file-to-stream')
 
