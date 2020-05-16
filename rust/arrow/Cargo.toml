@@ -51,7 +51,6 @@ flatbuffers = "0.6"
 hex = "0.4"
 arrow-flight = { path = "../arrow-flight", optional = true }
 prettytable-rs = "0.8.0"
-clap = "2.33.0"
 
 [features]
 simd = ["packed_simd"]
