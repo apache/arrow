@@ -520,6 +520,7 @@ where
     /// Gets the value of a single lane in a SIMD mask
     fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool;
 
+    /// Gets the bitmask for a SimdMask as a byte slice and passes it to the closure used as the action parameter
     fn bitmask<T>(mask: &Self::SimdMask, action: T) where T: FnMut(&[u8]);
 
     /// Sets the value of a single lane of a SIMD mask
