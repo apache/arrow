@@ -260,6 +260,8 @@ impl Expr {
                 ref right,
                 ref op,
             } => match op {
+                Operator::Not => Ok(DataType::Boolean),
+                Operator::Like | Operator::NotLike => Ok(DataType::Boolean),
                 Operator::Eq | Operator::NotEq => Ok(DataType::Boolean),
                 Operator::Lt | Operator::LtEq => Ok(DataType::Boolean),
                 Operator::Gt | Operator::GtEq => Ok(DataType::Boolean),
