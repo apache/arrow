@@ -20,17 +20,12 @@
 
 namespace gandiva {
 
-#define DATE_EXTRACTION_FNS(name)                               \
-  DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Millennium, {}),  \
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Century, {}), \
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Decade, {}),  \
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Year, {}),    \
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Quarter, {}), \
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Month, {}),   \
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Week, {}),    \
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Day, {}),     \
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Hour, {}),    \
-      DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Minute, {}),  \
+#define DATE_EXTRACTION_TRUNCATION_FNS(name, INNER)                              \
+  DATE_TYPES(INNER, name##Millennium, {}), DATE_TYPES(INNER, name##Century, {}), \
+      DATE_TYPES(INNER, name##Decade, {}), DATE_TYPES(INNER, name##Year, {}),    \
+      DATE_TYPES(INNER, name##Quarter, {}), DATE_TYPES(INNER, name##Month, {}),  \
+      DATE_TYPES(INNER, name##Week, {}), DATE_TYPES(INNER, name##Day, {}),       \
+      DATE_TYPES(INNER, name##Hour, {}), DATE_TYPES(INNER, name##Minute, {}),    \
       DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Second, {})
 
 #define TIME_EXTRACTION_FNS(name)                              \
@@ -40,8 +35,8 @@ namespace gandiva {
 
 std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
   static std::vector<NativeFunction> date_time_fn_registry_ = {
-      DATE_EXTRACTION_FNS(extract),
-      DATE_EXTRACTION_FNS(date_trunc_),
+      DATE_EXTRACTION_TRUNCATION_FNS(extract, EXTRACT_SAFE_NULL_IF_NULL),
+      DATE_EXTRACTION_TRUNCATION_FNS(date_trunc_, TRUNCATE_SAFE_NULL_IF_NULL),
 
       DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDoy, {}),
       DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDow, {}),
