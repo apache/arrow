@@ -237,15 +237,19 @@ where
         let simd_left = T::load(left.value_slice(i, lanes));
         let simd_right = T::load(right.value_slice(i, lanes));
         let simd_result = op(simd_left, simd_right);
-        T::bitmask(&simd_result, |b| { result.write(b); });
-        }
+        T::bitmask(&simd_result, |b| {
+            result.write(b).unwrap();
+        });
+    }
 
     if rem > 0 {
         let simd_left = T::load(left.value_slice(len - rem, lanes));
         let simd_right = T::load(right.value_slice(len - rem, lanes));
         let simd_result = op(simd_left, simd_right);
         let rem_buffer_size = (rem as f32 / 8f32).ceil() as usize;
-        T::bitmask(&simd_result, |b| { result.write(&b[0..rem_buffer_size]); });
+        T::bitmask(&simd_result, |b| {
+            result.write(&b[0..rem_buffer_size]).unwrap();
+        });
     }
 
     let data = ArrayData::new(
