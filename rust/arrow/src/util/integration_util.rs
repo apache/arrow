@@ -317,7 +317,7 @@ impl ArrowJsonBatch {
     }
 
     pub fn from_batch(batch: &RecordBatch) -> ArrowJsonBatch {
-        let mut json_batch = ArrowJsonBatch{
+        let mut json_batch = ArrowJsonBatch {
             count: batch.num_rows(),
             columns: Vec::with_capacity(batch.num_columns()),
         };
@@ -333,36 +333,36 @@ impl ArrowJsonBatch {
                     for i in 0..col.len() {
                         if col.is_null(i) {
                             validity.push(1);
-                            data.push(Int8Type::default_value().into_json_value().unwrap());
+                            data.push(
+                                Int8Type::default_value().into_json_value().unwrap(),
+                            );
                         } else {
                             validity.push(0);
                             data.push(col.value(i).into_json_value().unwrap());
                         }
                     }
 
-                    ArrowJsonColumn{
+                    ArrowJsonColumn {
                         name: field.name().clone(),
                         count: col.len(),
                         validity,
                         data: Some(data),
                         offset: None,
-                        children: None
-                    }
-                },
-                _ => {
-                    ArrowJsonColumn{
-                        name: field.name().clone(),
-                        count: col.len(),
-                        validity: vec![],
-                        data: None,
-                        offset: None,
                         children: None,
                     }
+                }
+                _ => ArrowJsonColumn {
+                    name: field.name().clone(),
+                    count: col.len(),
+                    validity: vec![],
+                    data: None,
+                    offset: None,
+                    children: None,
                 },
             };
 
             json_batch.columns.push(json_col);
-        };
+        }
 
         json_batch
     }
