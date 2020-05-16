@@ -114,6 +114,22 @@ impl ProjectionPushDown {
                     projection: Some(projection),
                 })
             }
+            LogicalPlan::InMemoryScan {
+                data,
+                schema,
+                projection,
+                ..
+            } => {
+                let (projection, projected_schema) =
+                    get_projected_schema(&schema, projection, accum, mapping)?;
+
+                Ok(LogicalPlan::InMemoryScan {
+                    data: data.clone(),
+                    schema: schema.clone(),
+                    projection: Some(projection),
+                    projected_schema: Box::new(projected_schema),
+                })
+            }
             LogicalPlan::CsvScan {
                 path,
                 has_header,
