@@ -24,13 +24,13 @@ use crate::execution::physical_plan::{BatchIterator, ExecutionPlan, Partition};
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
-/// Execution plan for scanning a Memory file
+/// Execution plan for reading in-memory batches of data
 pub struct MemoryExec {
-    /// The data to query
+    /// The partitions to query
     partitions: Vec<Vec<RecordBatch>>,
-    /// Schema representing the Memory files after the optional projection is applied
+    /// Schema representing the data after the optional projection is applied
     schema: Arc<Schema>,
-    /// Optional projection for which columns to load
+    /// Optional projection
     projection: Option<Vec<usize>>,
 }
 
@@ -72,17 +72,18 @@ impl MemoryExec {
     }
 }
 
-/// Memory Partition
+/// Memory partition
 struct MemoryPartition {
     /// Vector of record batches
     data: Vec<RecordBatch>,
     /// Schema representing the data
     schema: Arc<Schema>,
-    /// Optional projection for which columns to load
+    /// Optional projection
     projection: Option<Vec<usize>>,
 }
 
 impl MemoryPartition {
+    /// Create a new in-memory partition
     fn new(
         data: Vec<RecordBatch>,
         schema: Arc<Schema>,
@@ -120,7 +121,7 @@ struct MemoryIterator {
 }
 
 impl MemoryIterator {
-    /// Create an iterator for a Memory file
+    /// Create an iterator for a vector of record batches
     pub fn try_new(
         data: Vec<RecordBatch>,
         schema: Arc<Schema>,
