@@ -530,8 +530,8 @@ pub enum LogicalPlan {
     },
     /// A table scan against a vector of record batches
     InMemoryScan {
-        /// Vector of record batches
-        data: Vec<RecordBatch>,
+        /// Record batch partitions
+        data: Vec<Vec<RecordBatch>>,
         /// The schema of the record batches
         schema: Box<Schema>,
         /// Optional column indices to use as a projection
