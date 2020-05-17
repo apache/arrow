@@ -1489,24 +1489,24 @@ def get_generated_json_files(tempdir=None, flight=False):
         .skip_category('Go'),  # TODO(ARROW-7901)
 
         generate_decimal_case()
-        .skip_category('Go') # TODO(ARROW-7948): Decimal + Go
+        .skip_category('Go')  # TODO(ARROW-7948): Decimal + Go
         .skip_category('Rust'),
 
         generate_datetime_case(),
 
         generate_interval_case()
-        .skip_category('JS') # TODO(ARROW-5239): Intervals + JS
+        .skip_category('JS')  # TODO(ARROW-5239): Intervals + JS
         .skip_category('Rust'),
 
         generate_map_case()
-        .skip_category('Go') # TODO(ARROW-5620): Map + Go
+        .skip_category('Go')  # TODO(ARROW-5620): Map + Go
         .skip_category('Rust'),
 
         generate_nested_case()
         .skip_category('Rust'),
 
         generate_recursive_nested_case()
-        .skip_category('Go') # TODO(ARROW-8453)
+        .skip_category('Go')  # TODO(ARROW-8453)
         .skip_category('Rust'),
 
         generate_nested_large_offsets_case()
@@ -1534,7 +1534,7 @@ def get_generated_json_files(tempdir=None, flight=False):
         .skip_category('Rust'),
 
         generate_dictionary_case()
-        .skip_category('Go') # TODO(ARROW-3039, ARROW-5267): Dictionaries in GO
+        .skip_category('Go')  # TODO(ARROW-3039, ARROW-5267): Dictionaries in GO
         .skip_category('Rust'),
 
         # TODO(ARROW-7902)
