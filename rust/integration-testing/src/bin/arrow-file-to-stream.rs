@@ -15,6 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
-fn main() {
-    panic!("not implemented");
+use std::env;
+use std::fs::File;
+use std::io::{self, BufReader, BufWriter};
+
+use arrow::error::Result;
+use arrow::ipc::reader::FileReader;
+use arrow::ipc::writer::StreamWriter;
+
+fn main() -> Result<()> {
+    let filename = env::args().next().unwrap();
+    eprintln!("Reading from Arrow file {}", filename);
+    let f = File::open(filename)?;
+    let reader = BufReader::new(f);
+    let mut reader = FileReader::try_new(reader)?;
+    let schema = reader.schema();
+
+    let writer = BufWriter::new(io::stdout());
+    let mut writer = StreamWriter::try_new(writer, &schema)?;
+    while let Some(batch) = reader.next()? {
+        println!("got batch OK");
+        writer.write(&batch)?;
+    }
+    writer.finish()?;
+
+    Ok(())
 }
