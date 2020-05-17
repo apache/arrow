@@ -57,7 +57,7 @@ use self::csv_crate::{StringRecord, StringRecordsIntoIter};
 
 lazy_static! {
     static ref DECIMAL_RE: Regex = Regex::new(r"^-?(\d+\.\d+)$").unwrap();
-    static ref INTEGER_RE: Regex = Regex::new(r"^-?(\d*.)$").unwrap();
+    static ref INTEGER_RE: Regex = Regex::new(r"^-?(\d+)$").unwrap();
     static ref BOOLEAN_RE: Regex = RegexBuilder::new(r"^(true)$|^(false)$")
         .case_insensitive(true)
         .build()
@@ -767,5 +767,15 @@ mod tests {
             ),
             Ok(_) => panic!("should have failed"),
         }
+    }
+
+    #[test]
+    fn test_infer_field_schema() {
+        assert_eq!(infer_field_schema("A"), DataType::Utf8);
+        assert_eq!(infer_field_schema("\"123\""), DataType::Utf8);
+        assert_eq!(infer_field_schema("10"), DataType::Int64);
+        assert_eq!(infer_field_schema("10.2"), DataType::Float64);
+        assert_eq!(infer_field_schema("true"), DataType::Boolean);
+        assert_eq!(infer_field_schema("false"), DataType::Boolean);
     }
 }
