@@ -24,8 +24,12 @@ use arrow::ipc::reader::FileReader;
 use arrow::ipc::writer::StreamWriter;
 
 fn main() -> Result<()> {
-    let filename = env::args().next().unwrap();
+    let args: Vec<String> = env::args().collect();
+    eprintln!("Rust: arrow-file-to-stream; args={:?}", args);
+
+    let filename = &args[0];
     eprintln!("Reading from Arrow file {}", filename);
+
     let f = File::open(filename)?;
     let reader = BufReader::new(f);
     let mut reader = FileReader::try_new(reader)?;
@@ -33,8 +37,8 @@ fn main() -> Result<()> {
 
     let writer = BufWriter::new(io::stdout());
     let mut writer = StreamWriter::try_new(writer, &schema)?;
+
     while let Some(batch) = reader.next()? {
-        println!("got batch OK");
         writer.write(&batch)?;
     }
     writer.finish()?;
