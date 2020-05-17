@@ -1533,8 +1533,9 @@ def get_generated_json_files(tempdir=None, flight=False):
         .skip_category('JS')
         .skip_category('Rust'),
 
+        # TODO(ARROW-3039, ARROW-5267): Dictionaries in GO
         generate_dictionary_case()
-        .skip_category('Go')  # TODO(ARROW-3039, ARROW-5267): Dictionaries in GO
+        .skip_category('Go')
         .skip_category('Rust'),
 
         # TODO(ARROW-7902)
