@@ -36,7 +36,7 @@
 //!
 //! let file = File::open("test/data/uk_cities.csv").unwrap();
 //!
-//! let mut csv = csv::Reader::new(file, Arc::new(schema), false, 1024, None);
+//! let mut csv = csv::Reader::new(file, Arc::new(schema), false, None, 1024, None);
 //! let batch = csv.next().unwrap().unwrap();
 //! ```
 
@@ -87,19 +87,19 @@ fn infer_field_schema(string: &str) -> DataType {
 /// with `max_read_records` controlling the maximum number of records to read.
 ///
 /// If `max_read_records` is not set, the whole file is read to infer its schema.
-fn infer_file_schema<R: Read + Seek>(
+pub fn infer_file_schema<R: Read + Seek>(
     reader: &mut BufReader<R>,
     delimiter: u8,
     max_read_records: Option<usize>,
-    has_headers: bool,
+    has_header: bool,
 ) -> Result<Schema> {
     let mut csv_reader = csv::ReaderBuilder::new()
         .delimiter(delimiter)
         .from_reader(reader);
 
     // get or create header names
-    // when has_headers is false, creates default column names with column_ prefix
-    let headers: Vec<String> = if has_headers {
+    // when has_header is false, creates default column names with column_ prefix
+    let headers: Vec<String> = if has_header {
         let headers = &csv_reader.headers()?.clone();
         headers.iter().map(|s| s.to_string()).collect()
     } else {
@@ -199,6 +199,7 @@ impl<R: Read> Reader<R> {
         reader: R,
         schema: Arc<Schema>,
         has_headers: bool,
+        delimiter: Option<u8>,
         batch_size: usize,
         projection: Option<Vec<usize>>,
     ) -> Self {
@@ -206,6 +207,7 @@ impl<R: Read> Reader<R> {
             BufReader::new(reader),
             schema,
             has_headers,
+            delimiter,
             batch_size,
             projection,
         )
@@ -234,12 +236,21 @@ impl<R: Read> Reader<R> {
         buf_reader: BufReader<R>,
         schema: Arc<Schema>,
         has_headers: bool,
+        delimiter: Option<u8>,
         batch_size: usize,
         projection: Option<Vec<usize>>,
     ) -> Self {
-        let csv_reader = csv::ReaderBuilder::new()
-            .has_headers(has_headers)
-            .from_reader(buf_reader);
+        let mut reader_builder = csv_crate::ReaderBuilder::new();
+        reader_builder.has_headers(has_headers);
+
+        match delimiter {
+            Some(c) => {
+                reader_builder.delimiter(c);
+            }
+            _ => (),
+        }
+
+        let csv_reader = reader_builder.from_reader(buf_reader);
         let record_iter = csv_reader.into_records();
         Self {
             schema,
@@ -369,8 +380,9 @@ impl<R: Read> Reader<R> {
                         Err(_) => {
                             // TODO: we should surface the underlying error here.
                             return Err(ArrowError::ParseError(format!(
-                                "Error while parsing value {} at line {}",
+                                "Error while parsing value {} for column {} at line {}",
                                 s,
+                                col_idx,
                                 self.line_number + row_index
                             )));
                         }
@@ -492,12 +504,13 @@ impl ReaderBuilder {
     pub fn build<R: Read + Seek>(self, reader: R) -> Result<Reader<R>> {
         // check if schema should be inferred
         let mut buf_reader = BufReader::new(reader);
+        let delimiter = self.delimiter.unwrap_or(b',');
         let schema = match self.schema {
             Some(schema) => schema,
             None => {
                 let inferred_schema = infer_file_schema(
                     &mut buf_reader,
-                    self.delimiter.unwrap_or(b','),
+                    delimiter,
                     self.max_records,
                     self.has_headers,
                 )?;
@@ -505,8 +518,8 @@ impl ReaderBuilder {
                 Arc::new(inferred_schema)
             }
         };
-        let csv_reader = csv::ReaderBuilder::new()
-            .delimiter(self.delimiter.unwrap_or(b','))
+        let csv_reader = csv_crate::ReaderBuilder::new()
+            .delimiter(delimiter)
             .has_headers(self.has_headers)
             .from_reader(buf_reader);
         let record_iter = csv_reader.into_records();
@@ -540,7 +553,8 @@ mod tests {
 
         let file = File::open("test/data/uk_cities.csv").unwrap();
 
-        let mut csv = Reader::new(file, Arc::new(schema.clone()), false, 1024, None);
+        let mut csv =
+            Reader::new(file, Arc::new(schema.clone()), false, None, 1024, None);
         assert_eq!(Arc::new(schema), csv.schema());
         let batch = csv.next().unwrap().unwrap();
         assert_eq!(37, batch.num_rows());
@@ -582,6 +596,7 @@ mod tests {
             BufReader::new(both_files),
             Arc::new(schema),
             true,
+            None,
             1024,
             None,
         );
@@ -673,7 +688,8 @@ mod tests {
 
         let file = File::open("test/data/uk_cities.csv").unwrap();
 
-        let mut csv = Reader::new(file, Arc::new(schema), false, 1024, Some(vec![0, 1]));
+        let mut csv =
+            Reader::new(file, Arc::new(schema), false, None, 1024, Some(vec![0, 1]));
         let projected_schema = Arc::new(Schema::new(vec![
             Field::new("city", DataType::Utf8, false),
             Field::new("lat", DataType::Float64, false),
@@ -695,7 +711,7 @@ mod tests {
 
         let file = File::open("test/data/null_test.csv").unwrap();
 
-        let mut csv = Reader::new(file, Arc::new(schema), true, 1024, None);
+        let mut csv = Reader::new(file, Arc::new(schema), true, None, 1024, None);
         let batch = csv.next().unwrap().unwrap();
 
         assert_eq!(false, batch.column(1).is_null(0));
@@ -762,7 +778,7 @@ mod tests {
         let mut csv = builder.build(file).unwrap();
         match csv.next() {
             Err(e) => assert_eq!(
-                "ParseError(\"Error while parsing value 4.x4 at line 4\")",
+                "ParseError(\"Error while parsing value 4.x4 for column 1 at line 4\")",
                 format!("{:?}", e)
             ),
             Ok(_) => panic!("should have failed"),

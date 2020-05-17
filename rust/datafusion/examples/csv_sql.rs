@@ -52,6 +52,7 @@ fn main() -> Result<()> {
         &format!("{}/csv/aggregate_test_100.csv", testdata),
         &schema,
         true,
+        None,
     );
 
     let sql = "SELECT c1, MIN(c12), MAX(c12) FROM aggregate_test_100 WHERE c11 > 0.1 AND c11 < 0.9 GROUP BY c1";

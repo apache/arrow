@@ -99,7 +99,7 @@ impl ExecutionContext {
                 ref header_row,
             } => match file_type {
                 FileType::CSV => {
-                    self.register_csv(name, location, schema, *header_row);
+                    self.register_csv(name, location, schema, *header_row, None);
                     Ok(vec![])
                 }
                 FileType::Parquet => {
@@ -215,8 +215,12 @@ impl ExecutionContext {
         filename: &str,
         schema: &Schema,
         has_header: bool,
+        delimiter: Option<u8>,
     ) {
-        self.register_table(name, Box::new(CsvFile::new(filename, schema, has_header)));
+        self.register_table(
+            name,
+            Box::new(CsvFile::new(filename, schema, has_header, delimiter)),
+        );
     }
 
     /// Register a Parquet file as a table so that it can be queried from SQL
@@ -303,12 +307,14 @@ impl ExecutionContext {
                 path,
                 schema,
                 has_header,
+                delimiter,
                 projection,
                 ..
             } => Ok(Arc::new(CsvExec::try_new(
                 path,
-                Arc::new(schema.as_ref().to_owned()),
+                Some(Arc::new(schema.as_ref().to_owned())),
                 *has_header,
+                *delimiter,
                 projection.to_owned(),
                 batch_size,
             )?)),
@@ -853,11 +859,35 @@ mod tests {
         ]));
 
         // register each partition as well as the top level dir
-        ctx.register_csv("part0", &format!("{}/part-0.csv", out_dir), &schema, true);
-        ctx.register_csv("part1", &format!("{}/part-1.csv", out_dir), &schema, true);
-        ctx.register_csv("part2", &format!("{}/part-2.csv", out_dir), &schema, true);
-        ctx.register_csv("part3", &format!("{}/part-3.csv", out_dir), &schema, true);
-        ctx.register_csv("allparts", &out_dir, &schema, true);
+        ctx.register_csv(
+            "part0",
+            &format!("{}/part-0.csv", out_dir),
+            &schema,
+            true,
+            None,
+        );
+        ctx.register_csv(
+            "part1",
+            &format!("{}/part-1.csv", out_dir),
+            &schema,
+            true,
+            None,
+        );
+        ctx.register_csv(
+            "part2",
+            &format!("{}/part-2.csv", out_dir),
+            &schema,
+            true,
+            None,
+        );
+        ctx.register_csv(
+            "part3",
+            &format!("{}/part-3.csv", out_dir),
+            &schema,
+            true,
+            None,
+        );
+        ctx.register_csv("allparts", &out_dir, &schema, true, None);
 
         let part0 = collect(&mut ctx, "SELECT c1, c2 FROM part0")?;
         let part1 = collect(&mut ctx, "SELECT c1, c2 FROM part1")?;
@@ -1020,7 +1050,13 @@ mod tests {
         }
 
         // register csv file with the execution context
-        ctx.register_csv("test", tmp_dir.path().to_str().unwrap(), &schema, true);
+        ctx.register_csv(
+            "test",
+            tmp_dir.path().to_str().unwrap(),
+            &schema,
+            true,
+            None,
+        );
 
         Ok(ctx)
     }

@@ -18,9 +18,10 @@
 //! Execution plan for reading CSV files
 
 use std::fs::File;
+use std::io::BufReader;
 use std::sync::{Arc, Mutex};
 
-use crate::error::Result;
+use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::{BatchIterator, ExecutionPlan, Partition};
 use arrow::csv;
@@ -35,6 +36,8 @@ pub struct CsvExec {
     schema: Arc<Schema>,
     /// Does the CSV file have a header?
     has_header: bool,
+    /// An optional column delimiter. Defaults to `b','`
+    delimiter: Option<u8>,
     /// Optional projection for which columns to load
     projection: Option<Vec<usize>>,
     /// Batch size
@@ -58,6 +61,7 @@ impl ExecutionPlan for CsvExec {
                     &filename,
                     self.schema.clone(),
                     self.has_header,
+                    self.delimiter,
                     self.projection.clone(),
                     self.batch_size,
                 )) as Arc<dyn Partition>
@@ -71,15 +75,35 @@ impl CsvExec {
     /// Create a new execution plan for reading a set of CSV files
     pub fn try_new(
         path: &str,
-        schema: Arc<Schema>,
+        schema: Option<Arc<Schema>>,
         has_header: bool,
+        delimiter: Option<u8>,
         projection: Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Self> {
+        let schema = match schema {
+            Some(s) => s,
+            None => {
+                let mut filenames: Vec<String> = vec![];
+                common::build_file_list(path, &mut filenames, ".csv")?;
+                if filenames.is_empty() {
+                    return Err(ExecutionError::General("No files found".to_string()));
+                }
+
+                let f = File::open(&filenames[0])?;
+                Arc::new(csv::infer_file_schema(
+                    &mut BufReader::new(f),
+                    delimiter.unwrap_or(b','),
+                    Some(1000),
+                    has_header,
+                )?)
+            }
+        };
         Ok(Self {
             path: path.to_string(),
             schema,
             has_header,
+            delimiter,
             projection,
             batch_size,
         })
@@ -94,6 +118,8 @@ struct CsvPartition {
     schema: Arc<Schema>,
     /// Does the CSV file have a header?
     has_header: bool,
+    /// An optional column delimiter. Defaults to `b','`
+    delimiter: Option<u8>,
     /// Optional projection for which columns to load
     projection: Option<Vec<usize>>,
     /// Batch size
@@ -105,6 +131,7 @@ impl CsvPartition {
         path: &str,
         schema: Arc<Schema>,
         has_header: bool,
+        delimiter: Option<u8>,
         projection: Option<Vec<usize>>,
         batch_size: usize,
     ) -> Self {
@@ -112,6 +139,7 @@ impl CsvPartition {
             path: path.to_string(),
             schema,
             has_header,
+            delimiter,
             projection,
             batch_size,
         }
@@ -125,6 +153,7 @@ impl Partition for CsvPartition {
             &self.path,
             self.schema.clone(),
             self.has_header,
+            self.delimiter,
             &self.projection,
             self.batch_size,
         )?)))
@@ -143,6 +172,7 @@ impl CsvIterator {
         filename: &str,
         schema: Arc<Schema>,
         has_header: bool,
+        delimiter: Option<u8>,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Self> {
@@ -151,6 +181,7 @@ impl CsvIterator {
             file,
             schema.clone(),
             has_header,
+            delimiter,
             batch_size,
             projection.clone(),
         );

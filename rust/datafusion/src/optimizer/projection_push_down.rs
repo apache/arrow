@@ -117,6 +117,7 @@ impl ProjectionPushDown {
             LogicalPlan::CsvScan {
                 path,
                 has_header,
+                delimiter,
                 schema,
                 projection,
                 ..
@@ -128,6 +129,7 @@ impl ProjectionPushDown {
                     path: path.to_owned(),
                     has_header: *has_header,
                     schema: schema.clone(),
+                    delimiter: *delimiter,
                     projection: Some(projection),
                     projected_schema: Box::new(projected_schema),
                 })

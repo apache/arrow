@@ -63,6 +63,7 @@ fn create_context() -> ExecutionContext {
         &format!("{}/csv/aggregate_test_100.csv", testdata),
         &schema,
         true,
+        None,
     );
 
     let mem_table = MemTable::load(&csv).unwrap();
