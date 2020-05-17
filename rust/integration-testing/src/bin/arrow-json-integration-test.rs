@@ -26,9 +26,11 @@ use arrow::array::{
     UInt16Builder, UInt32Builder, UInt64Builder, UInt8Builder,
 };
 use arrow::datatypes::{DataType, Schema};
+use arrow::error::{ArrowError, Result};
 use arrow::ipc::reader::FileReader;
 use arrow::ipc::writer::FileWriter;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
+
 use hex::decode;
 use std::env;
 use std::fs::File;
@@ -81,40 +83,23 @@ fn main() {
     }
 }
 
-fn json_to_arrow(
-    json_name: &str,
-    arrow_name: &str,
-    _verbose: bool,
-) -> Result<(), String> {
-    let json_file = File::open(json_name).unwrap();
-    let reader = BufReader::new(json_file);
+fn json_to_arrow(json_name: &str, arrow_name: &str, _verbose: bool) -> Result<()> {
+    let (schema, batches) = read_json_file(json_name)?;
 
-    let arrow_json: Value = serde_json::from_reader(reader).unwrap();
-
-    let schema = Arc::new(Schema::from(&arrow_json["schema"]).unwrap());
-
-    let mut batches = vec![];
-
-    for b in arrow_json["batches"].as_array().unwrap() {
-        let json_batch: ArrowJsonBatch = serde_json::from_value(b.clone()).unwrap();
-        let batch = record_batch_from_json(schema.clone(), json_batch)?;
-        batches.push(batch);
-    }
-
-    let arrow_file = File::create(arrow_name).unwrap();
-    let mut writer = FileWriter::try_new(arrow_file, schema.as_ref()).unwrap();
+    let arrow_file = File::create(arrow_name)?;
+    let mut writer = FileWriter::try_new(arrow_file, &schema)?;
 
     for b in batches {
-        writer.write(&b).unwrap();
+        writer.write(&b)?;
     }
 
     Ok(())
 }
 
 fn record_batch_from_json(
-    schema: Arc<Schema>,
+    schema: &Schema,
     json_batch: ArrowJsonBatch,
-) -> Result<RecordBatch, String> {
+) -> Result<RecordBatch> {
     let mut columns = vec![];
 
     for (field, json_col) in schema.fields().iter().zip(json_batch.columns) {
@@ -312,21 +297,22 @@ fn record_batch_from_json(
                 }
                 Arc::new(b.finish())
             }
-            t => return Err(format!("data type {:?} not supported", t)),
+            t => {
+                return Err(ArrowError::JsonError(format!(
+                    "data type {:?} not supported",
+                    t
+                )))
+            }
         };
         columns.push(col);
     }
 
-    RecordBatch::try_new(schema, columns).map_err(|e| e.to_string())
+    RecordBatch::try_new(Arc::new(schema.clone()), columns)
 }
 
-fn arrow_to_json(
-    arrow_name: &str,
-    json_name: &str,
-    _verbose: bool,
-) -> Result<(), String> {
-    let arrow_file = File::open(arrow_name).unwrap();
-    let mut reader = FileReader::try_new(arrow_file).unwrap();
+fn arrow_to_json(arrow_name: &str, json_name: &str, _verbose: bool) -> Result<()> {
+    let arrow_file = File::open(arrow_name)?;
+    let mut reader = FileReader::try_new(arrow_file)?;
 
     let mut fields = vec![];
     for f in reader.schema().fields() {
@@ -345,12 +331,57 @@ fn arrow_to_json(
         dictionaries: None,
     };
 
-    let json_file = File::create(json_name).unwrap();
+    let json_file = File::create(json_name)?;
     serde_json::to_writer(&json_file, &arrow_json).unwrap();
 
     Ok(())
 }
 
-fn validate(_arrow_name: &str, _json_name: &str, _verbose: bool) -> Result<(), String> {
-    panic!("validate not implemented");
+fn validate(arrow_name: &str, json_name: &str, _verbose: bool) -> Result<()> {
+    // open JSON file
+    let (json_schema, json_batches) = read_json_file(json_name)?;
+
+    // open Arrow file
+    let arrow_file = File::open(arrow_name)?;
+    let mut arrow_reader = FileReader::try_new(arrow_file)?;
+    let arrow_schema = arrow_reader.schema().as_ref().to_owned();
+
+    // compare schemas
+    assert!(json_schema == arrow_schema);
+
+    for json_batch in &json_batches {
+        if let Some(arrow_batch) = arrow_reader.next_batch()? {
+            // compare batches
+            assert!(arrow_batch.num_columns() == json_batch.num_columns());
+            assert!(arrow_batch.num_rows() == json_batch.num_rows());
+
+        // TODO compare in more detail
+        } else {
+            return Err(ArrowError::ComputeError(
+                "no more arrow batches left".to_owned(),
+            ));
+        }
+    }
+
+    if let Some(_) = arrow_reader.next_batch()? {
+        return Err(ArrowError::ComputeError(
+            "no more json batches left".to_owned(),
+        ));
+    }
+
+    Ok(())
+}
+
+fn read_json_file(json_name: &str) -> Result<(Schema, Vec<RecordBatch>)> {
+    let json_file = File::open(json_name)?;
+    let reader = BufReader::new(json_file);
+    let arrow_json: Value = serde_json::from_reader(reader).unwrap();
+    let schema = Schema::from(&arrow_json["schema"])?;
+    let mut batches = vec![];
+    for b in arrow_json["batches"].as_array().unwrap() {
+        let json_batch: ArrowJsonBatch = serde_json::from_value(b.clone()).unwrap();
+        let batch = record_batch_from_json(&schema, json_batch)?;
+        batches.push(batch);
+    }
+    Ok((schema, batches))
 }
