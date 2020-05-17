@@ -23,6 +23,7 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.Charset;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -1417,6 +1418,82 @@ public class ProjectorTest extends BaseEvaluatorTest {
       for (int j = 0; j < numRows; j++) {
         assertFalse(bigIntVector.isNull(j));
         assertEquals(expected[j], bigIntVector.get(j));
+      }
+    }
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+  }
+
+  @Test
+  public void testDateTrunc() throws Exception {
+    ArrowType date64 = new ArrowType.Date(DateUnit.MILLISECOND);
+    Field dateField = Field.nullable("date", date64);
+
+    TreeNode dateNode = TreeBuilder.makeField(dateField);
+
+    List<TreeNode> dateArgs = Lists.newArrayList(dateNode);
+    TreeNode dateToYear = TreeBuilder.makeFunction("date_trunc_Year", dateArgs, date64);
+    TreeNode dateToMonth = TreeBuilder.makeFunction("date_trunc_Month", dateArgs, date64);
+
+    Field resultField = Field.nullable("result", date64);
+    List<ExpressionTree> exprs =
+            Lists.newArrayList(
+                    TreeBuilder.makeExpression(dateToYear, resultField),
+                    TreeBuilder.makeExpression(dateToMonth, resultField));
+
+    Schema schema = new Schema(Lists.newArrayList(dateField));
+    Projector eval = Projector.make(schema, exprs);
+
+    int numRows = 4;
+    byte[] validity = new byte[]{(byte) 255};
+    String[] values = new String[]{
+        "2007-01-01T01:00:00.00Z",
+        "2007-03-05T03:40:00.00Z",
+        "2008-05-31T13:55:00.00Z",
+        "2000-06-30T23:20:00.00Z",
+    };
+    String[] expYearFromDate = new String[]{
+        "2007-01-01T00:00:00.00Z",
+        "2007-01-01T00:00:00.00Z",
+        "2008-01-01T00:00:00.00Z",
+        "2000-01-01T00:00:00.00Z",
+    };
+    String[] expMonthFromDate = new String[]{
+        "2007-01-01T00:00:00.00Z",
+        "2007-03-01T00:00:00.00Z",
+        "2008-05-01T00:00:00.00Z",
+        "2000-06-01T00:00:00.00Z",
+    };
+
+    String[][] expValues = new String[][]{ expYearFromDate, expMonthFromDate};
+
+    ArrowBuf bufValidity = buf(validity);
+    ArrowBuf millisData = stringToMillis(values);
+
+    ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
+    ArrowRecordBatch batch =
+            new ArrowRecordBatch(
+                    numRows,
+                    Lists.newArrayList(fieldNode),
+                    Lists.newArrayList(bufValidity, millisData));
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    for (int i = 0; i < exprs.size(); i++) {
+      BigIntVector bigIntVector = new BigIntVector(EMPTY_SCHEMA_PATH, allocator);
+      bigIntVector.allocateNew(numRows);
+      output.add(bigIntVector);
+    }
+    eval.evaluate(batch, output);
+    eval.close();
+
+    for (int i = 0; i < output.size(); i++) {
+      String[] expected = expValues[i];
+      BigIntVector bigIntVector = (BigIntVector) output.get(i);
+
+      for (int j = 0; j < numRows; j++) {
+        assertFalse(bigIntVector.isNull(j));
+        assertEquals(Instant.parse(expected[j]).toEpochMilli(), bigIntVector.get(j));
       }
     }
 
