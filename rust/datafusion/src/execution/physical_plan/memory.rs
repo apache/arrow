@@ -90,7 +90,7 @@ impl MemoryPartition {
         projection: Option<Vec<usize>>,
     ) -> Self {
         Self {
-            data: data.clone(),
+            data,
             schema,
             projection,
         }
