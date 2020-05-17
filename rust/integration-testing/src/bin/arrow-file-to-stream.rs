@@ -27,7 +27,7 @@ fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
     eprintln!("Rust: arrow-file-to-stream; args={:?}", args);
 
-    let filename = &args[0];
+    let filename = &args[1];
     eprintln!("Reading from Arrow file {}", filename);
 
     let f = File::open(filename)?;
