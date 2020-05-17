@@ -1,6 +1,6 @@
 #include "benchmark/benchmark.h"
 
-#include "parquet/column_reader.h"
+#include "parquet/level_conversion.h"
 
 constexpr int64_t kLevelCount = 2048;
 // Def level indicating the element is missing from the leaf
