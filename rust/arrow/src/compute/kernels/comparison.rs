@@ -211,8 +211,8 @@ where
     F: Fn(T::Simd, T::Simd) -> T::SimdMask,
 {
     use crate::buffer::MutableBuffer;
-    use std::mem;
     use std::io::Write;
+    use std::mem;
 
     let len = left.len();
     if len != right.len() {
