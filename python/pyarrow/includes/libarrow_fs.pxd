@@ -132,6 +132,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
         @staticmethod
         CS3Options Defaults()
+
         @staticmethod
         CS3Options FromAccessKey(const c_string& access_key,
                                  const c_string& secret_key)
@@ -150,6 +151,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         int32_t buffer_size
         int16_t replication
         int64_t default_block_size
+
         @staticmethod
         CResult[CHdfsOptions] FromUriString "FromUri"(
             const c_string& uri_string)

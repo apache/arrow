@@ -134,7 +134,7 @@ def assert_equal(obj1, obj2):
         assert obj1.equals(obj2)
     else:
         assert type(obj1) == type(obj2) and obj1 == obj2, \
-                "Objects {} and {} are different.".format(obj1, obj2)
+            "Objects {} and {} are different.".format(obj1, obj2)
 
 
 PRIMITIVE_OBJECTS = [
@@ -832,7 +832,7 @@ def test_pyarrow_objects_serialization(large_buffer):
     # or it will affect 'test_total_bytes_allocated'.
     pyarrow_objects = [
         pa.array([1, 2, 3, 4]), pa.array(['1', 'never U+1F631', '',
-                                         "233 * U+1F600"]),
+                                          "233 * U+1F600"]),
         pa.array([1, None, 2, 3]),
         pa.Tensor.from_numpy(np.random.rand(2, 3, 4)),
         pa.RecordBatch.from_arrays(
@@ -841,7 +841,7 @@ def test_pyarrow_objects_serialization(large_buffer):
             ['a', 'b']),
         pa.Table.from_arrays([pa.array([1, None, 2, 3]),
                               pa.array(['1', 'never U+1F631', '',
-                                       "233 * u1F600"])],
+                                        "233 * u1F600"])],
                              ['a', 'b'])
     ]
     for obj in pyarrow_objects:

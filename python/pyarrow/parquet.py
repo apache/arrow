@@ -93,9 +93,9 @@ def _check_filters(filters, check_null_strings=True):
             for conjunction in filters:
                 for col, op, val in conjunction:
                     if (
-                        isinstance(val, list)
-                        and all(_check_contains_null(v) for v in val)
-                        or _check_contains_null(val)
+                        isinstance(val, list) and
+                        all(_check_contains_null(v) for v in val) or
+                        _check_contains_null(val)
                     ):
                         raise NotImplementedError(
                             "Null-terminated binary strings are not supported "
@@ -192,6 +192,7 @@ class ParquetFile:
         If positive, perform read buffering when deserializing individual
         column chunks. Otherwise IO calls are unbuffered.
     """
+
     def __init__(self, source, metadata=None, common_metadata=None,
                  read_dictionary=None, memory_map=False, buffer_size=0):
         self.reader = ParquetReader()
@@ -619,6 +620,7 @@ class ParquetDatasetPiece:
     row_group : int, default None
         Row group to load. By default, reads all row groups.
     """
+
     def __init__(self, path, open_file_func=partial(open, mode='rb'),
                  file_options=None, row_group=None, partition_keys=None):
         self.path = _stringify_path(path)
@@ -1366,6 +1368,7 @@ class _ParquetDatasetV2:
     """
     ParquetDataset shim using the Dataset API under the hood.
     """
+
     def __init__(self, path_or_paths, filesystem=None, filters=None,
                  partitioning="hive", read_dictionary=None, buffer_size=None,
                  memory_map=False, **kwargs):

@@ -1194,6 +1194,7 @@ cdef class CompressedInputStream(NativeFile):
     compression : str
         The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd").
     """
+
     def __init__(self, NativeFile stream, str compression not None):
         cdef:
             Codec codec = Codec(compression)

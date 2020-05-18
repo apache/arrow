@@ -30,6 +30,7 @@ cdef class NullType(Scalar):
     Singleton for null array elements.
     """
     # TODO rename this NullValue?
+
     def __cinit__(self):
         global NA
         if NA is not None:

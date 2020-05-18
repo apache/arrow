@@ -1460,8 +1460,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CCastOptions" arrow::compute::CastOptions":
         CCastOptions()
         CCastOptions(c_bool safe)
+
         @staticmethod
         CCastOptions Safe()
+
         @staticmethod
         CCastOptions Unsafe()
         c_bool allow_int_overflow

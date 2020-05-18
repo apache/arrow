@@ -281,8 +281,8 @@ class build_ext(_build_ext):
 
             # Do the build
             print("-- Running cmake --build for pyarrow")
-            self.spawn(['cmake', '--build', '.', '--config', self.build_type]
-                       + build_tool_args)
+            self.spawn(['cmake', '--build', '.', '--config', self.build_type] +
+                       build_tool_args)
             print("-- Finished cmake --build for pyarrow")
 
             if self.inplace:
@@ -513,8 +513,8 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
 default_version = '0.18.0-SNAPSHOT'
-if (not os.path.exists('../.git')
-        and not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
+if (not os.path.exists('../.git') and
+        not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     if os.path.exists('PKG-INFO'):
         # We're probably in a Python sdist, setuptools_scm will handle fine
         pass

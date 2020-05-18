@@ -17,6 +17,7 @@
 
 import gzip
 import os
+from pathlib import Path
 
 import click
 
@@ -26,7 +27,7 @@ from .git import git
 from .logger import logger
 from ..lang.cpp import CppCMakeDefinition, CppConfiguration
 from ..lang.rust import Cargo
-from ..lang.python import Flake8, NumpyDoc
+from ..lang.python import Autopep8, Flake8, NumpyDoc
 from .rat import Rat, exclusion_from_globs
 from .tmpdir import tmpdir
 
@@ -106,16 +107,61 @@ def cmake_linter(src, fix=False):
     yield LintResult.from_cmd(cmake_format("--check"))
 
 
-def python_linter(src):
-    """Run flake8 linter on python/pyarrow, and dev/. """
-    logger.info("Running Python linters")
-    flake8 = Flake8()
+def python_linter(src, fix=False):
+    """Run Python linters on python/pyarrow, python/examples, setup.py
+    and dev/. """
+    setup_py = os.path.join(src.python, "setup.py")
+    setup_cfg = os.path.join(src.python, "setup.cfg")
 
-    if not flake8.available:
-        logger.error("Python linter requested but flake8 binary not found.")
+    logger.info("Running Python formatter (autopep8)")
+
+    autopep8 = Autopep8()
+    if not autopep8.available:
+        logger.error(
+            "Python formatter requested but autopep8 binary not found. "
+            "Please run `pip install -r dev/archery/requirements-lint.txt`")
         return
 
-    setup_py = os.path.join(src.python, "setup.py")
+    # Gather files for autopep8
+    patterns = ["python/pyarrow/**/*.py",
+                "python/pyarrow/**/*.pyx",
+                "python/pyarrow/**/*.pxd",
+                "python/pyarrow/**/*.pxi",
+                "python/examples/**/*.py",
+                "dev/archery/**/*.py",
+                ]
+    files = [setup_py]
+    for pattern in patterns:
+        files += list(map(str, Path(src.path).glob(pattern)))
+
+    args = ['--global-config', setup_cfg, '--ignore-local-config']
+    if fix:
+        args += ['-j0', '--in-place']
+        args += sorted(files)
+        yield LintResult.from_cmd(autopep8(*args))
+    else:
+        # XXX `-j0` doesn't work well with `--exit-code`, so instead
+        # we capture the diff and check whether it's empty
+        # (https://github.com/hhatto/autopep8/issues/543)
+        args += ['-j0', '--diff']
+        args += sorted(files)
+        diff = autopep8.run_captured(*args)
+        if diff:
+            print(diff.decode('utf8'))
+            yield LintResult(success=False)
+        else:
+            yield LintResult(success=True)
+
+    # Run flake8 after autopep8 (the latter may have modified some files)
+    logger.info("Running Python linter (flake8)")
+
+    flake8 = Flake8()
+    if not flake8.available:
+        logger.error(
+            "Python linter requested but flake8 binary not found. "
+            "Please run `pip install -r dev/archery/requirements-lint.txt`")
+        return
+
     yield LintResult.from_cmd(flake8(setup_py, src.pyarrow,
                                      os.path.join(src.python, "examples"),
                                      src.dev, check=False))
@@ -291,7 +337,7 @@ def docker_linter(src):
 
 def linter(src, fix=False, *, clang_format=False, cpplint=False,
            clang_tidy=False, iwyu=False, iwyu_all=False,
-           flake8=False, numpydoc=False, cmake_format=False, rat=False,
+           python=False, numpydoc=False, cmake_format=False, rat=False,
            r=False, rust=False, docker=False):
     """Run all linters."""
     with tmpdir(prefix="arrow-lint-") as root:
@@ -311,8 +357,8 @@ def linter(src, fix=False, *, clang_format=False, cpplint=False,
                                       iwyu_all=iwyu_all,
                                       fix=fix))
 
-        if flake8:
-            results.extend(python_linter(src))
+        if python:
+            results.extend(python_linter(src, fix=fix))
 
         if numpydoc:
             results.extend(python_numpydoc())
