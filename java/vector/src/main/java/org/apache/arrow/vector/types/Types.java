@@ -63,6 +63,7 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
@@ -101,6 +102,7 @@ import org.apache.arrow.vector.complex.impl.UInt1WriterImpl;
 import org.apache.arrow.vector.complex.impl.UInt2WriterImpl;
 import org.apache.arrow.vector.complex.impl.UInt4WriterImpl;
 import org.apache.arrow.vector.complex.impl.UInt8WriterImpl;
+import org.apache.arrow.vector.complex.impl.UnionLargeListWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.impl.UnionWriter;
 import org.apache.arrow.vector.complex.impl.VarBinaryWriterImpl;
@@ -610,6 +612,17 @@ public class Types {
         return new UnionListWriter((ListVector) vector);
       }
     },
+    LARGELIST(ArrowType.LargeList.INSTANCE) {
+      @Override
+      public FieldVector getNewVector(Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new LargeListVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new UnionLargeListWriter((LargeListVector) vector);
+      }
+    },
     FIXED_SIZE_LIST(null) {
       @Override
       public FieldVector getNewVector(
@@ -815,6 +828,11 @@ public class Types {
       @Override
       public MinorType visit(Map type) {
         return MinorType.MAP;
+      }
+
+      @Override
+      public MinorType visit(ArrowType.LargeList type) {
+        return MinorType.LARGELIST;
       }
 
       @Override

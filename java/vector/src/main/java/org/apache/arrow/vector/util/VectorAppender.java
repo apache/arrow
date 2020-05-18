@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector.util;
 
+import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
+
 import java.util.HashSet;
 
 import org.apache.arrow.util.Preconditions;
@@ -30,6 +32,7 @@ import org.apache.arrow.vector.compare.TypeEqualsVisitor;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -141,14 +144,14 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
   @Override
   public ValueVector visit(ListVector deltaVector, Void value) {
     Preconditions.checkArgument(typeVisitor.equals(deltaVector),
-            "The targetVector to append must have the same type as the targetVector being appended");
+          "The targetVector to append must have the same type as the targetVector being appended");
 
     int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
 
     int targetListSize = targetVector.getOffsetBuffer().getInt(
-            (long) targetVector.getValueCount() * ListVector.OFFSET_WIDTH);
+          (long) targetVector.getValueCount() * ListVector.OFFSET_WIDTH);
     int deltaListSize = deltaVector.getOffsetBuffer().getInt(
-            (long) deltaVector.getValueCount() * ListVector.OFFSET_WIDTH);
+          (long) deltaVector.getValueCount() * ListVector.OFFSET_WIDTH);
 
     ListVector targetListVector = (ListVector) targetVector;
 
@@ -163,21 +166,73 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     // append validity buffer
     BitVectorHelper.concatBits(
-            targetVector.getValidityBuffer(), targetVector.getValueCount(),
-            deltaVector.getValidityBuffer(), deltaVector.getValueCount(), targetVector.getValidityBuffer());
+          targetVector.getValidityBuffer(), targetVector.getValueCount(),
+          deltaVector.getValidityBuffer(), deltaVector.getValueCount(), targetVector.getValidityBuffer());
 
     // append offset buffer
     PlatformDependent.copyMemory(deltaVector.getOffsetBuffer().memoryAddress() + ListVector.OFFSET_WIDTH,
-            targetVector.getOffsetBuffer().memoryAddress() + (targetVector.getValueCount() + 1) *
-                    ListVector.OFFSET_WIDTH,
-            (long) deltaVector.getValueCount() * ListVector.OFFSET_WIDTH);
+          targetVector.getOffsetBuffer().memoryAddress() + (targetVector.getValueCount() + 1) *
+              ListVector.OFFSET_WIDTH,
+          (long) deltaVector.getValueCount() * ListVector.OFFSET_WIDTH);
 
     // increase each offset from the second buffer
     for (int i = 0; i < deltaVector.getValueCount(); i++) {
       int oldOffset = targetVector.getOffsetBuffer().getInt(
           (long) (targetVector.getValueCount() + 1 + i) * ListVector.OFFSET_WIDTH);
       targetVector.getOffsetBuffer().setInt((long) (targetVector.getValueCount() + 1 + i) * ListVector.OFFSET_WIDTH,
-              oldOffset + targetListSize);
+            oldOffset + targetListSize);
+    }
+    targetListVector.setLastSet(newValueCount - 1);
+
+    // append underlying vectors
+    VectorAppender innerAppender = new VectorAppender(targetListVector.getDataVector());
+    deltaVector.getDataVector().accept(innerAppender, null);
+
+    targetVector.setValueCount(newValueCount);
+    return targetVector;
+  }
+
+  @Override
+  public ValueVector visit(LargeListVector deltaVector, Void value) {
+    Preconditions.checkArgument(typeVisitor.equals(deltaVector),
+            "The targetVector to append must have the same type as the targetVector being appended");
+
+    int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
+
+    long targetListSize = targetVector.getOffsetBuffer().getLong(
+            (long) targetVector.getValueCount() * LargeListVector.OFFSET_WIDTH);
+    long deltaListSize = deltaVector.getOffsetBuffer().getLong(
+            (long) deltaVector.getValueCount() * LargeListVector.OFFSET_WIDTH);
+
+    ListVector targetListVector = (ListVector) targetVector;
+
+    // make sure the underlying vector has value count set
+    // todo recheck these casts when int64 vectors are supported
+    targetListVector.getDataVector().setValueCount(checkedCastToInt(targetListSize));
+    deltaVector.getDataVector().setValueCount(checkedCastToInt(deltaListSize));
+
+    // make sure there is enough capacity
+    while (targetVector.getValueCapacity() < newValueCount) {
+      targetVector.reAlloc();
+    }
+
+    // append validity buffer
+    BitVectorHelper.concatBits(
+            targetVector.getValidityBuffer(), targetVector.getValueCount(),
+            deltaVector.getValidityBuffer(), deltaVector.getValueCount(), targetVector.getValidityBuffer());
+
+    // append offset buffer
+    PlatformDependent.copyMemory(deltaVector.getOffsetBuffer().memoryAddress() + ListVector.OFFSET_WIDTH,
+            targetVector.getOffsetBuffer().memoryAddress() + (targetVector.getValueCount() + 1) *
+                    LargeListVector.OFFSET_WIDTH,
+            (long) deltaVector.getValueCount() * ListVector.OFFSET_WIDTH);
+
+    // increase each offset from the second buffer
+    for (int i = 0; i < deltaVector.getValueCount(); i++) {
+      long oldOffset = targetVector.getOffsetBuffer().getLong(
+          (long) (targetVector.getValueCount() + 1 + i) * LargeListVector.OFFSET_WIDTH);
+      targetVector.getOffsetBuffer().setLong((long) (targetVector.getValueCount() + 1 + i) *
+          LargeListVector.OFFSET_WIDTH, oldOffset + targetListSize);
     }
     targetListVector.setLastSet(newValueCount - 1);
 

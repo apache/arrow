@@ -27,6 +27,7 @@ import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -90,6 +91,11 @@ public class TypeEqualsVisitor implements VectorVisitor<Boolean, Void> {
 
   @Override
   public Boolean visit(FixedSizeListVector left, Void value) {
+    return compareField(left.getField(), right.getField());
+  }
+
+  @Override
+  public Boolean visit(LargeListVector left, Void value) {
     return compareField(left.getField(), right.getField());
   }
 
