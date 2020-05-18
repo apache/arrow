@@ -46,6 +46,7 @@ namespace arrow {
 
 class ColumnChunkReader;
 class ColumnReader;
+struct SchemaManifest;
 class RowGroupReader;
 
 /// \brief Arrow read adapter class for deserializing Parquet files as Arrow row batches.
@@ -212,6 +213,8 @@ class PARQUET_EXPORT FileReader {
   virtual void set_use_threads(bool use_threads) = 0;
 
   virtual const ArrowReaderProperties& properties() const = 0;
+
+  virtual const SchemaManifest& manifest() const = 0;
 
   virtual ~FileReader() = default;
 };

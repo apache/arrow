@@ -758,6 +758,42 @@ cdef class FileFragment(Fragment):
         return FileFormat.wrap(self.file_fragment.format())
 
 
+cdef class RowGroupInfo:
+    """A wrapper class for RowGroup information"""
+
+    cdef:
+        CRowGroupInfo info
+
+    def __init__(self, int id):
+        cdef CRowGroupInfo info = CRowGroupInfo(id)
+        self.init(info)
+
+    cdef void init(self, CRowGroupInfo info):
+        self.info = info
+
+    @staticmethod
+    cdef wrap(CRowGroupInfo info):
+        cdef RowGroupInfo self = RowGroupInfo.__new__(RowGroupInfo)
+        self.init(info)
+        return self
+
+    @property
+    def id(self):
+        return self.info.id()
+
+    @property
+    def num_rows(self):
+        return self.info.num_rows()
+
+    def __eq__(self, other):
+        if not isinstance(other, RowGroupInfo):
+            return False
+        cdef:
+            RowGroupInfo row_group = other
+            CRowGroupInfo c_info = row_group.info
+        return self.info.Equals(c_info)
+
+
 cdef class ParquetFileFragment(FileFragment):
     """A Fragment representing a parquet file."""
 
@@ -770,10 +806,12 @@ cdef class ParquetFileFragment(FileFragment):
 
     @property
     def row_groups(self):
-        row_groups = set(self.parquet_file_fragment.row_groups())
-        if len(row_groups) != 0:
-            return row_groups
-        return None
+        cdef:
+            vector[CRowGroupInfo] c_row_groups
+        c_row_groups = self.parquet_file_fragment.row_groups()
+        if c_row_groups.empty():
+            return None
+        return [RowGroupInfo.wrap(row_group) for row_group in c_row_groups]
 
     def split_by_row_group(self, Expression predicate=None):
         """

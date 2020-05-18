@@ -41,6 +41,7 @@ from pyarrow._dataset import (  # noqa
     ParquetReadOptions,
     Partitioning,
     PartitioningFactory,
+    RowGroupInfo,
     Scanner,
     ScanTask,
     UnionDataset,

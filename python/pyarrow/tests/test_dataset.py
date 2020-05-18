@@ -254,7 +254,7 @@ def test_filesystem_dataset(mockfs):
         assert len(row_group_fragments) == 1
         assert isinstance(fragment, ds.ParquetFileFragment)
         assert row_group_fragments[0].path == path
-        assert row_group_fragments[0].row_groups == {0}
+        assert row_group_fragments[0].row_groups == [ds.RowGroupInfo(0)]
 
     fragments = list(dataset.get_fragments(filter=ds.field("const") == 0))
     assert len(fragments) == 2
@@ -552,7 +552,7 @@ def test_make_fragment(multisourcefs):
             assert f.path == path
             assert isinstance(f.filesystem, type(multisourcefs))
         assert fragment.row_groups is None
-        assert row_group_fragment.row_groups == {0}
+        assert row_group_fragment.row_groups == [ds.RowGroupInfo(0)]
 
 
 def _create_dataset_for_fragments(tempdir, chunk_size=None):
@@ -621,18 +621,19 @@ def test_fragments_implicit_cast(tempdir):
     assert len(list(fragments)) == 1
 
 
-@pytest.mark.skip(reason="ARROW-8318")
 @pytest.mark.pandas
 @pytest.mark.parquet
 def test_fragments_reconstruct(tempdir):
     table, dataset = _create_dataset_for_fragments(tempdir)
 
-    def assert_yields_projected(fragment, row_slice, schema):
-        actual = fragment.to_table(schema=schema)
-        assert actual.schema == schema.schema
+    def assert_yields_projected(fragment, row_slice,
+                                columns=None, filter=None):
+        actual = fragment.to_table(
+                schema=table.schema, columns=columns, filter=filter)
+        column_names = columns if columns else table.column_names
+        assert actual.column_names == column_names
 
-        names = schema.names
-        expected = table.slice(*row_slice).to_pandas()[[*names]]
+        expected = table.slice(*row_slice).to_pandas()[[*column_names]]
         assert actual.equals(pa.Table.from_pandas(expected))
 
     fragment = list(dataset.get_fragments())[0]
@@ -640,41 +641,40 @@ def test_fragments_reconstruct(tempdir):
 
     # manually re-construct a fragment, with explicit schema
     new_fragment = parquet_format.make_fragment(
-        fragment.path, fragment.filesystem,
-        partition_expression=fragment.partition_expression)
+            fragment.path, fragment.filesystem,
+            partition_expression=fragment.partition_expression)
     assert new_fragment.to_table().equals(fragment.to_table())
-    assert_yields_projected(new_fragment, (0, 4), table.column_names)
+    assert_yields_projected(new_fragment, (0, 4))
 
     # filter / column projection, inspected schema
     new_fragment = parquet_format.make_fragment(
-        fragment.path, fragment.filesystem,
-        columns=['f1'], filter=ds.field('f1') < 2,
-        partition_expression=fragment.partition_expression)
-    assert_yields_projected(new_fragment, (0, 2), ['f1'])
+            fragment.path, fragment.filesystem,
+            partition_expression=fragment.partition_expression)
+    assert_yields_projected(new_fragment, (0, 2), filter=ds.field('f1') < 2)
 
     # filter requiring cast / column projection, inspected schema
     new_fragment = parquet_format.make_fragment(
-        fragment.path, fragment.filesystem,
-        columns=['f1'], filter=ds.field('f1') < 2.0,
-        partition_expression=fragment.partition_expression)
-    assert_yields_projected(new_fragment, (0, 2), ['f1'])
+            fragment.path, fragment.filesystem,
+            partition_expression=fragment.partition_expression)
+    assert_yields_projected(new_fragment, (0, 2),
+                            columns=['f1'], filter=ds.field('f1') < 2.0)
 
-    # filter on the partition column, explicit schema
+    # filter on the partition column
     new_fragment = parquet_format.make_fragment(
-        fragment.path, fragment.filesystem, schema=dataset.schema,
-        filter=ds.field('part') == 'a',
-        partition_expression=fragment.partition_expression)
-    assert_yields_projected(new_fragment, (0, 4), table.column_names)
+            fragment.path, fragment.filesystem,
+            partition_expression=fragment.partition_expression)
+    assert_yields_projected(new_fragment, (0, 4),
+                            filter=ds.field('part') == 'a')
 
-    # filter on the partition column, inspected schema
+    # Fragments don't contain the partition's columns if not provided to the
+    # `to_table(schema=...)` method.
     with pytest.raises(ValueError, match="Field named 'part' not found"):
         new_fragment = parquet_format.make_fragment(
-            fragment.path, fragment.filesystem,
-            filter=ds.field('part') == 'a',
-            partition_expression=fragment.partition_expression)
+                fragment.path, fragment.filesystem,
+                partition_expression=fragment.partition_expression)
+        new_fragment.to_table(filter=ds.field('part') == 'a')
 
 
-@pytest.mark.skip(reason="ARROW-8318")
 @pytest.mark.pandas
 @pytest.mark.parquet
 def test_fragments_parquet_row_groups(tempdir):
@@ -691,13 +691,12 @@ def test_fragments_parquet_row_groups(tempdir):
     assert result.equals(table.slice(0, 2))
 
     fragment = list(dataset.get_fragments(filter=ds.field('f1') < 1))[0]
-    row_group_fragments = list(fragment.split_by_row_group())
+    row_group_fragments = list(fragment.split_by_row_group(ds.field('f1') < 1))
     assert len(row_group_fragments) == 1
     result = row_group_fragments[0].to_table(filter=ds.field('f1') < 1)
     assert len(result) == 1
 
 
-@pytest.mark.skip(reason="ARROW-8318")
 @pytest.mark.pandas
 @pytest.mark.parquet
 def test_fragments_parquet_row_groups_reconstruct(tempdir):
@@ -720,7 +719,7 @@ def test_fragments_parquet_row_groups_reconstruct(tempdir):
         fragment.path, fragment.filesystem,
         partition_expression=fragment.partition_expression,
         row_groups={1})
-    result = new_fragment.to_table(columns=['f1', 'part'],
+    result = new_fragment.to_table(schema=table.schema, columns=['f1', 'part'],
                                    filter=ds.field('f1') < 3, )
     assert result.column_names == ['f1', 'part']
     assert len(result) == 1
@@ -730,7 +729,7 @@ def test_fragments_parquet_row_groups_reconstruct(tempdir):
         fragment.path, fragment.filesystem,
         partition_expression=fragment.partition_expression,
         row_groups={2})
-    with pytest.raises(IndexError, match="trying to scan row group 2"):
+    with pytest.raises(IndexError, match="Trying to scan row group 2"):
         new_fragment.to_table()
 
 

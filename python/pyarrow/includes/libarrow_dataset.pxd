@@ -209,9 +209,18 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const CFileSource& source() const
         const shared_ptr[CFileFormat]& format() const
 
+    cdef cppclass CRowGroupInfo "arrow::dataset::RowGroupInfo":
+        CRowGroupInfo()
+        CRowGroupInfo(int id)
+        CRowGroupInfo(
+            int id, int64_t n_rows, shared_ptr[CExpression] statistics)
+        int id() const
+        int64_t num_rows() const
+        bint Equals(const CRowGroupInfo& other)
+
     cdef cppclass CParquetFileFragment "arrow::dataset::ParquetFileFragment"(
             CFileFragment):
-        const vector[int]& row_groups() const
+        const vector[CRowGroupInfo]& row_groups() const
         CResult[vector[shared_ptr[CFragment]]] SplitByRowGroup(
             shared_ptr[CExpression] predicate)
 
