@@ -17,6 +17,8 @@
 
 //! DataFusion error types
 
+use std::error;
+use std::fmt::{Display, Formatter};
 use std::io::Error;
 use std::result;
 
@@ -87,3 +89,33 @@ impl From<ParserError> for ExecutionError {
         ExecutionError::ParserError(e)
     }
 }
+
+impl Display for ExecutionError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            ExecutionError::ArrowError(ref desc) => write!(f, "Arrow error: {}", desc),
+            ExecutionError::ParquetError(ref desc) => {
+                write!(f, "Parquet error: {}", desc)
+            }
+            ExecutionError::IoError(ref desc) => write!(f, "IO error: {}", desc),
+            ExecutionError::ParserError(ref desc) => {
+                write!(f, "Parser error: {:?}", desc)
+            }
+            ExecutionError::General(ref desc) => write!(f, "General error: {}", desc),
+            ExecutionError::InvalidColumn(ref desc) => {
+                write!(f, "Invalid column error: {}", desc)
+            }
+            ExecutionError::NotImplemented(ref desc) => {
+                write!(f, "NotImplemented: {}", desc)
+            }
+            ExecutionError::InternalError(ref desc) => {
+                write!(f, "Internal error: {}", desc)
+            }
+            ExecutionError::ExecutionError(ref desc) => {
+                write!(f, "Execution error: {}", desc)
+            }
+        }
+    }
+}
+
+impl error::Error for ExecutionError {}
