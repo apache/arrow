@@ -56,7 +56,8 @@ TEST(FileSource, PathBased) {
   ASSERT_EQ(Compression::GZIP, source2.compression());
 
   // Test copy constructor and comparison
-  FileSource source3 = source1;
+  FileSource source3;
+  source3 = source1;
   ASSERT_EQ(source1.path(), source3.path());
   ASSERT_EQ(source1.filesystem(), source3.filesystem());
 }
@@ -74,7 +75,8 @@ TEST(FileSource, BufferBased) {
   ASSERT_TRUE(source2.buffer()->Equals(*buf));
   ASSERT_EQ(Compression::LZ4, source2.compression());
 
-  FileSource source3 = source1;
+  FileSource source3;
+  source3 = source1;
   ASSERT_EQ(source1.buffer(), source3.buffer());
 }
 

@@ -306,15 +306,12 @@ class ARROW_MUST_USE_TYPE ARROW_EXPORT Status : public util::EqualityComparable<
   std::string message() const { return ok() ? "" : state_->msg; }
 
   /// \brief Return the status detail attached to this message.
-  const std::shared_ptr<StatusDetail>& detail() const& {
+  const std::shared_ptr<StatusDetail>& detail() const {
     if (state_ == NULLPTR) {
-      static std::shared_ptr<StatusDetail> no_detail;
+      static std::shared_ptr<StatusDetail> no_detail = NULLPTR;
       return no_detail;
     }
     return state_->detail;
-  }
-  std::shared_ptr<StatusDetail> detail() && {
-    return state_ == NULLPTR ? NULLPTR : std::move(state_->detail);
   }
 
   /// \brief Return a new Status copying the existing status, but
