@@ -91,6 +91,7 @@ import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.JsonStringArrayList;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
@@ -737,6 +738,7 @@ public class AvroToArrowUtils {
     int valueCount = 0;
     try {
       while (true) {
+        ValueVectorUtility.ensureCapacity(root, valueCount + 1);
         compositeConsumer.consume(decoder);
         valueCount++;
       }

@@ -25,10 +25,9 @@ import java.util.Iterator;
 import org.apache.arrow.adapter.jdbc.consumer.CompositeJdbcConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.BaseFixedWidthVector;
-import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 
 /**
  * VectorSchemaRoot iterator for partially converting JDBC data.
@@ -96,7 +95,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       int readRowCount = 0;
       if (targetBatchSize == JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE) {
         while (resultSet.next()) {
-          ensureCapacity(root, readRowCount + 1);
+          ValueVectorUtility.ensureCapacity(root, readRowCount + 1);
           compositeConsumer.consume(resultSet);
           readRowCount++;
         }
@@ -120,7 +119,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
     try {
       root = VectorSchemaRoot.create(schema, config.getAllocator());
       if (config.getTargetBatchSize() != JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE) {
-        preAllocate(root, config);
+        ValueVectorUtility.preAllocate(root, config.getTargetBatchSize());
       }
     } catch (Exception e) {
       if (root != null) {
@@ -129,25 +128,6 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       throw new RuntimeException("Error occurred while creating schema root.", e);
     }
     return root;
-  }
-
-  static void preAllocate(VectorSchemaRoot root, JdbcToArrowConfig config) {
-    int targetSize = config.getTargetBatchSize();
-    for (ValueVector vector : root.getFieldVectors()) {
-      if (vector instanceof BaseFixedWidthVector) {
-        ((BaseFixedWidthVector) vector).allocateNew(targetSize);
-      }
-    }
-  }
-
-  static void ensureCapacity(VectorSchemaRoot root, int targetCapacity) {
-    for (ValueVector vector : root.getFieldVectors()) {
-      if (vector instanceof BaseFixedWidthVector) {
-        while (vector.getValueCapacity() < targetCapacity) {
-          vector.reAlloc();
-        }
-      }
-    }
   }
 
   // Loads the next schema root or null if no more rows are available.
