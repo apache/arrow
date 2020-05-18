@@ -21,16 +21,26 @@ on:
   push:
     paths:
       - '.github/workflows/ruby.yml'
-      - 'ci/**'
-      - 'cpp/**'
+      - 'ci/docker/**'
+      - 'ci/scripts/c_glib_*'
+      - 'ci/scripts/cpp_*'
+      - 'ci/scripts/msys2_*'
+      - 'ci/scripts/ruby_*'
+      - 'ci/scripts/util_*'
       - 'c_glib/**'
+      - 'cpp/**'
       - 'ruby/**'
   pull_request:
     paths:
       - '.github/workflows/ruby.yml'
-      - 'ci/**'
-      - 'cpp/**'
+      - 'ci/docker/**'
+      - 'ci/scripts/c_glib_*'
+      - 'ci/scripts/cpp_*'
+      - 'ci/scripts/msys2_*'
+      - 'ci/scripts/ruby_*'
+      - 'ci/scripts/util_*'
       - 'c_glib/**'
+      - 'cpp/**'
       - 'ruby/**'
 
 env:
