@@ -128,15 +128,17 @@ services:
     #   docker-compose run --rm windows-cpp
     # Parameters:
     #   ARCH: amd64
-    image: amd64-windows-${WINDOWS}-vs${VISUAL_STUDIO}-cpp
+    image: ${REPO}:amd64-windows-${WINDOWS}-vs${VISUAL_STUDIO}-cpp
     build:
       context: .
       dockerfile: ci/docker/windows-${WINDOWS}-vs${VISUAL_STUDIO}-cpp.dockerfile
       cache_from:
         - amd64-windows-${WINDOWS}-vs${VISUAL_STUDIO}-cpp
-    volumes:
-      - .:/c/arrow
-    entrypoint: ["/bin/bash", "-c", "-l"]
+    # volumes:
+    #   - type: bind
+    #     source: "C:/Users/kszucs/Workspace/arrow"
+    #     target: "C:/arrow"
+    entrypoint: ["bash", "-c", "-l"]
     command:
       ["/c/arrow/ci/scripts/cpp_build.sh /c/arrow /c/build &&
         /c/arrow/ci/scripts/cpp_test.sh /c/arrow /c/build"]
