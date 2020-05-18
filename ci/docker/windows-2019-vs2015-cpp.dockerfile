@@ -40,6 +40,9 @@ RUN vcpkg install rapidjson
 RUN vcpkg install gflags
 RUN vcpkg install boost-filesystem
 
+RUN choco install -y python
+RUN choco install -y wget
+
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=OFF \
@@ -62,3 +65,4 @@ ENV ARROW_BUILD_TESTS=ON \
 
 # ENTRYPOINT [ "bash", "-c" ]
 # CMD "/c/arrow/ci/scripts/cpp_build.sh /c/arrow /c/build && /c/arrow/ci/scripts/cpp_test.sh /c/arrow /c/build"
+# cmake -DCMAKE_TOOLCHAIN_FILE=/c/vcpkg/scripts/buildsystems/vcpkg.cmake -G "Visual Studio 14 2015 Win64" -DARROW_BUILD_TESTS=ON ../arrow/cpp
