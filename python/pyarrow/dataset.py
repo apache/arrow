@@ -320,7 +320,7 @@ def _ensure_multiple_sources(paths, filesystem=None):
 def _is_native_file_wrappable(source):
     import io
     return isinstance(source, (FileSource,
-                               io.BytesIO,
+                               io.BufferedIOBase,
                                pa.NativeFile,
                                pa.Buffer,
                                ))

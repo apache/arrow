@@ -16,9 +16,11 @@
 # under the License.
 
 import contextlib
+import io
 import os
 import pathlib
 import pickle
+import sys
 
 import numpy as np
 import pytest
@@ -1541,10 +1543,8 @@ def test_parquet_dataset_factory_partitioned(tempdir):
 
 
 def test_file_source_refcount():
-    from io import BytesIO
-    from sys import getrefcount
-    f = BytesIO()
-    rc0 = getrefcount(f)
+    f = io.BytesIO()
+    rc0 = sys.getrefcount(f)
     src = ds.FileSource(f)
     del src
-    assert getrefcount(f) == rc0
+    assert sys.getrefcount(f) == rc0

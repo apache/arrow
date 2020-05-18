@@ -298,7 +298,9 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
   ///
   /// \return The stored non-OK status object, or an OK status if this object
   ///         has a value.
-  Status status() const { return status_; }
+  Status& status() & { return status_; }
+  const Status& status() const& { return status_; }
+  Status&& status() && { return std::move(status_); }
 
   /// Gets the stored `T` value.
   ///

@@ -31,6 +31,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 namespace py {
 
@@ -55,7 +56,6 @@ MemoryPool* get_memory_pool() {
 // PythonErrorDetail
 
 namespace {
-
 const char kErrorDetailTypeId[] = "arrow::py::PythonErrorDetail";
 
 // Try to match the Python exception type with an appropriate Status code
@@ -86,93 +86,104 @@ StatusCode MapPyError(PyObject* exc_type) {
 // PythonErrorDetail indicates a Python exception was raised.
 class PythonErrorDetail : public StatusDetail {
  public:
-  PythonErrorDetail() {
-    PyErr_Fetch(exc_type_.ref(), exc_value_.ref(), exc_traceback_.ref());
-    NormalizeAndCheck();
-  }
-
-  explicit PythonErrorDetail(PyObject* exc_value)
-      : exc_type_(PyObject_Type(exc_value)),
-        exc_value_(exc_value),
-        exc_traceback_(PyException_GetTraceback(exc_value)) {
-    exc_value_.incref();
-    NormalizeAndCheck();
-  }
+  explicit PythonErrorDetail(PyError error) : error_(std::move(error)) {}
 
   const char* type_id() const override { return kErrorDetailTypeId; }
 
   std::string ToString() const override {
     // This is simple enough not to need the GIL
-    const auto ty = reinterpret_cast<const PyTypeObject*>(exc_type_.obj());
+    const auto type = reinterpret_cast<const PyTypeObject*>(error_.type.obj());
+
     // XXX Should we also print traceback?
-    return std::string("Python exception: ") + ty->tp_name;
+    return std::string("Python exception: ") + type->tp_name;
   }
 
-  void RestorePyError() const {
-    PyErr_Restore(exc_type_.incref(), exc_value_.incref(), exc_traceback_.incref());
-  }
-
-  PyObject* exc_type() const { return exc_type_.obj(); }
-
-  PyObject* exc_value() const { return exc_value_.obj(); }
-
-  Status ToStatus(StatusCode code = StatusCode::UnknownError) && {
-    if (code == StatusCode::UnknownError) {
-      code = MapPyError(exc_type());
-    }
-
-    std::string message;
-    RETURN_NOT_OK(internal::PyObject_StdStringStr(exc_value(), &message));
-
-    auto detail = std::make_shared<PythonErrorDetail>(std::move(*this));
-    return Status(code, std::move(message), std::move(detail));
-  }
-
- protected:
-  void NormalizeAndCheck() {
-    PyErr_NormalizeException(exc_type_.ref(), exc_value_.ref(), exc_traceback_.ref());
-    ARROW_CHECK(exc_type_)
-        << "PythonErrorDetail::NormalizeAndCheck called without a Python error set";
-    DCHECK(PyType_Check(exc_type()));
-    DCHECK(exc_value_);  // Ensured by PyErr_NormalizeException, double-check
-    if (!exc_traceback_) {
-      // Needed by PyErr_Restore()
-      exc_traceback_.reset(Py_None);
-      exc_traceback_.incref();
-    }
-  }
-
-  OwnedRefNoGIL exc_type_, exc_value_, exc_traceback_;
+  PyError error_;
 };
 
 }  // namespace
 
 // ----------------------------------------------------------------------
-// Python exception <-> Status
+// PyError
 
-Status ConvertPyError(StatusCode code) { return PythonErrorDetail().ToStatus(code); }
+PyError::PyError(PyObject* e) : exception(e) {
+  ARROW_CHECK(exception);
+  exception.incref();
+  type.reset(PyObject_Type(exception.obj()));
+  traceback.reset(PyException_GetTraceback(exception.obj()));
+  Normalize();
+}
 
-//
-// Same as ConvertPyError(), but ARROW_PYTHON_EXPORT Status PassPyError();
+PyError PyError::Fetch() {
+  PyError out;
+  PyErr_Fetch(out.type.ref(), out.exception.ref(), out.traceback.ref());
+  if (out) {
+    out.Normalize();
+  }
+  return out;
+}
+
+void PyError::Restore() && {
+  if (exception) {
+    PyErr_Restore(type.detach(), exception.detach(), traceback.detach());
+  }
+}
+
+PyError::operator bool() const { return exception; }
+
+void PyError::SetContext(PyError context) {
+  ARROW_CHECK(*this);
+  PyException_SetContext(exception.obj(), nullptr);
+  PyException_SetContext(exception.obj(), context.exception.detach());
+}
+
+Status PyError::ToStatus(StatusCode code) && {
+  if (!exception) {
+    return Status::OK();
+  }
+
+  if (code == StatusCode::UnknownError) {
+    code = MapPyError(type.obj());
+  }
+
+  std::string message;
+  RETURN_NOT_OK(internal::PyObject_StdStringStr(exception.obj(), &message));
+
+  auto detail = std::make_shared<PythonErrorDetail>(std::move(*this));
+  return Status(code, std::move(message), std::move(detail));
+}
+
+PyError PyError::Get(Status status) {
+  ARROW_CHECK(IsPyError(status));
+  auto detail = checked_pointer_cast<PythonErrorDetail>(std::move(status).detail());
+  return std::move(detail->error_);
+}
+
+void PyError::Normalize() {
+  PyErr_NormalizeException(type.ref(), exception.ref(), traceback.ref());
+  DCHECK(PyType_Check(type.obj()));
+  DCHECK(exception);  // Ensured by PyErr_NormalizeException, double-check
+  if (!traceback) {
+    // Needed by PyErr_Restore()
+    traceback.reset(Py_None);
+    traceback.incref();
+  }
+}
+
+Status ConvertPyError(StatusCode code) { return PyError::Fetch().ToStatus(code); }
 
 bool IsPyError(const Status& status) {
   if (status.ok()) {
     return false;
   }
-  auto detail = status.detail();
+  const auto& detail = status.detail();
   bool result = detail != nullptr && detail->type_id() == kErrorDetailTypeId;
   return result;
 }
 
-void RestorePyError(const Status& status) {
-  ARROW_CHECK(IsPyError(status));
-  const auto& detail = checked_cast<const PythonErrorDetail&>(*status.detail());
-  detail.RestorePyError();
-}
+void RestorePyError(Status status) { PyError::Get(std::move(status)).Restore(); }
 
-Status ExceptionToStatus(PyObject* exc_value) {
-  return PythonErrorDetail(exc_value).ToStatus();
-}
+Status ExceptionToStatus(PyObject* exception) { return PyError(exception).ToStatus(); }
 
 // ----------------------------------------------------------------------
 // PyBuffer

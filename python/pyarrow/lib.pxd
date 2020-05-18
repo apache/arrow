@@ -578,8 +578,8 @@ cdef get_input_stream(object source, c_bool use_memory_map,
                       shared_ptr[CInputStream]* reader)
 cdef get_reader(object source, c_bool use_memory_map,
                 shared_ptr[CRandomAccessFile]* reader)
-cdef NativeFile wrap_python_file(object source, str mode)
 cdef get_writer(object source, shared_ptr[COutputStream]* writer)
+cdef NativeFile get_native_file(object source, c_bool use_memory_map)
 
 # Default is allow_none=False
 cpdef DataType ensure_type(object type, bint allow_none=*)

@@ -49,7 +49,6 @@ ctypedef CResult[shared_ptr[CRandomAccessFile]] CCustomOpen()
 cdef class FileSource:
 
     cdef:
-        # XXX why is shared_ptr necessary here? CFileSource shouldn't need it
         CFileSource wrapped
 
     def __cinit__(self, file, FileSystem filesystem=None):
@@ -74,11 +73,18 @@ cdef class FileSource:
             c_path = tobytes(_stringify_path(file))
             self.wrapped = CFileSource(move(c_path), move(c_filesystem))
 
-        else:
-            c_open = BindMethod[CCustomOpen](
-                wrap_python_file(file, mode='r'),
-                &NativeFile.get_random_access_file)
+        elif hasattr(file, 'read'):
+            # Optimistically hope this is file-like
+            c_open = BindMethod[CCustomOpen](file, &FileSource._custom_open)
             self.wrapped = CFileSource(move(c_open))
+
+        else:
+            raise TypeError("cannot construct a FileSource "
+                            "from " + str(file))
+
+    @staticmethod
+    cdef shared_ptr[CRandomAccessFile] _custom_open(object file) except +:
+        return get_native_file(file, False).get_random_access_file()
 
     @staticmethod
     def from_uri(uri):
