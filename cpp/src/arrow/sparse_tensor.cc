@@ -17,6 +17,7 @@
 
 #include "arrow/sparse_tensor.h"
 #include "arrow/tensor/converter.h"
+#include "arrow/tensor/util.h"
 
 #include <algorithm>
 #include <functional>
@@ -32,21 +33,6 @@
 namespace arrow {
 
 class MemoryPool;
-
-namespace {
-
-static char const* ordinal_suffixes[] = {"th", "st", "nd", "rd"};
-
-template <typename Int>
-char const* ordinal_suffix(Int n) {
-  n %= 10;
-  if (1 <= n && n <= 3) {
-    return ordinal_suffixes[n];
-  }
-  return ordinal_suffixes[0];
-}
-
-}  // namespace
 
 // ----------------------------------------------------------------------
 // SparseIndex
@@ -111,6 +97,9 @@ Status MakeSparseTensorFromTensor(const Tensor& tensor,
     case SparseTensorFormat::COO:
       return MakeSparseCOOTensorFromTensor(tensor, index_value_type, pool,
                                            out_sparse_index, out_data);
+    case SparseTensorFormat::SplitCOO:
+      return MakeSparseSplitCOOTensorFromTensor(tensor, index_value_type, pool,
+                                                out_sparse_index, out_data);
     case SparseTensorFormat::CSR:
       return MakeSparseCSXMatrixFromTensor(SparseMatrixCompressedAxis::ROW, tensor,
                                            index_value_type, pool, out_sparse_index,
@@ -345,7 +334,8 @@ inline Status CheckSparseSplitCOOIndexValidity(
     const auto& fw_type = internal::checked_cast<const FixedWidthType&>(*types[i]);
     const int64_t least_size = non_zero_length * (fw_type.bit_width() / CHAR_BIT);
     if (least_size > buffers[i]->size()) {
-      return Status::Invalid("The ", i, ordinal_suffix(i), " buffer size is too short");
+      return Status::Invalid("The ", i, internal::ordinal_suffix(i),
+                             " buffer size is too short");
     }
   }
 
@@ -388,13 +378,13 @@ Status SparseSplitCOOIndex::CheckValidity() const {
     if (shape.size() != 1) {
       return Status::Invalid(
           "all the index tensors in a SparseSplitCOOIndex must be 1-dimensional, ",
-          "but the ", i, ordinal_suffix(i), " tensor is not");
+          "but the ", i, internal::ordinal_suffix(i), " tensor is not");
     }
     if (shape[0] != non_zero_length) {
       return Status::Invalid(
           "all the index tensors are the same length, "
           "but the ",
-          i, ordinal_suffix(i), " tensor is not");
+          i, internal::ordinal_suffix(i), " tensor is not");
     }
   }
 

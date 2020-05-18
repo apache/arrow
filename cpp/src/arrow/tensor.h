@@ -75,6 +75,10 @@ Status ValidateTensorParameters(const std::shared_ptr<DataType>& type,
 
 class ARROW_EXPORT Tensor {
  public:
+  /// \brief Increment tensor's index
+  static void IncrementIndex(std::vector<int64_t>& index,
+                             const std::vector<int64_t>& shape);
+
   /// \brief Create a Tensor with full parameters
   ///
   /// This factory function will return Status::Invalid when the parameters are
@@ -149,6 +153,9 @@ class ARROW_EXPORT Tensor {
   /// Compute the number of non-zero values in the tensor
   ARROW_DEPRECATED("Use Result-returning version")
   Status CountNonZero(int64_t* result) const { return CountNonZero().Value(result); }
+
+  /// Collect indices of non-zero values in the tensor
+  Result<std::vector<std::vector<int64_t>>> NonZeroIndices() const;
 
   /// Return the offset of the given index on the given strides
   static int64_t CalculateValueOffset(const std::vector<int64_t>& strides,

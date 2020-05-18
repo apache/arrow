@@ -655,6 +655,8 @@ class SparseTensorImpl : public SparseTensor {
         data, tensor.shape(), tensor.dim_names_);
   }
 
+  // \brief Create a sparse tensor from a dense tensor with the auto-detection of
+  // the minimal size of the index value type
   static inline Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> Make(
       const Tensor& tensor, MemoryPool* pool = default_memory_pool()) {
     return Make(tensor, int64(), pool);

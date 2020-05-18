@@ -168,7 +168,20 @@ Status ValidateTensorParameters(const std::shared_ptr<DataType>& type,
 
 }  // namespace internal
 
-/// Constructor with strides and dimension names
+inline void Tensor::IncrementIndex(std::vector<int64_t>& index,
+                                   const std::vector<int64_t>& shape) {
+  const int64_t ndim = shape.size();
+  ++index[ndim - 1];
+  if (index[ndim - 1] == shape[ndim - 1]) {
+    int64_t d = ndim - 1;
+    while (d > 0 && index[d] == shape[d]) {
+      index[d] = 0;
+      ++index[d - 1];
+      --d;
+    }
+  }
+}
+
 Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
                const std::vector<int64_t>& shape, const std::vector<int64_t>& strides,
                const std::vector<std::string>& dim_names)
@@ -180,6 +193,7 @@ Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buff
   }
 }
 
+/// Constructor with strides and dimension names
 Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
                const std::vector<int64_t>& shape, const std::vector<int64_t>& strides)
     : Tensor(type, data, shape, strides, {}) {}
@@ -277,12 +291,56 @@ struct NonZeroCounter {
   int64_t result;
 };
 
+template <typename TYPE>
+inline void TensorCollectNonZeroIndices(const Tensor& tensor,
+                                        std::vector<std::vector<int64_t>>* out_indices) {
+  using c_type = typename TYPE::c_type;
+  constexpr c_type zero = c_type(0);
+  std::vector<std::vector<int64_t>> non_zero_indices;
+  std::vector<int64_t> index(tensor.ndim(), 0);
+  const auto& shape = tensor.shape();
+  while (index != shape) {
+    if (tensor.Value<TYPE>(index) != zero) {
+      non_zero_indices.push_back(index);
+    }
+    Tensor::IncrementIndex(index, shape);
+  }
+  *out_indices = std::move(non_zero_indices);
+}
+
+struct NonZeroIndicesCollector {
+  NonZeroIndicesCollector(const Tensor& tensor,
+                          std::vector<std::vector<int64_t>>* non_zero_indices)
+      : tensor_(tensor), non_zero_indices_(non_zero_indices) {}
+
+  template <typename TYPE>
+  enable_if_number<TYPE, Status> Visit(const TYPE& type) {
+    TensorCollectNonZeroIndices<TYPE>(tensor_, non_zero_indices_);
+    return Status::OK();
+  }
+
+  Status Visit(const DataType& type) {
+    ARROW_CHECK(!is_tensor_supported(type.id()));
+    return Status::NotImplemented("Tensor of ", type.ToString(), " is not implemented");
+  }
+
+  const Tensor& tensor_;
+  std::vector<std::vector<int64_t>>* non_zero_indices_;
+};
+
 }  // namespace
 
 Result<int64_t> Tensor::CountNonZero() const {
   NonZeroCounter counter(*this);
   RETURN_NOT_OK(VisitTypeInline(*type(), &counter));
   return counter.result;
+}
+
+Result<std::vector<std::vector<int64_t>>> Tensor::NonZeroIndices() const {
+  std::vector<std::vector<int64_t>> non_zero_indices;
+  NonZeroIndicesCollector collector(*this, &non_zero_indices);
+  RETURN_NOT_OK(VisitTypeInline(*type(), &collector));
+  return std::move(non_zero_indices);
 }
 
 }  // namespace arrow

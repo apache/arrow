@@ -160,6 +160,7 @@ set(ARROW_SRCS
     tensor/coo_converter.cc
     tensor/csf_converter.cc
     tensor/csx_converter.cc
+    tensor/split_coo_converter.cc
     type.cc
     visitor.cc
     c/bridge.cc

@@ -756,6 +756,70 @@ TEST(TestSparseCOOTensorForUInt64Index, Make) {
 }
 
 //-----------------------------------------------------------------------------
+// SparseSplitCOOTensor
+
+template <typename IndexValueType, typename ValueType = Int64Type>
+class TestSparseSplitCOOTensorBase : public TestSparseTensorBase<ValueType> {
+ public:
+  using c_value_type = typename ValueType::c_type;
+
+  void SetUp() {
+    shape_ = {2, 3, 4};
+    dim_names_ = {"foo", "bar", "baz"};
+
+    // Dense representation:
+    // [
+    //   [
+    //     1 0 2 0
+    //     0 3 0 4
+    //     5 0 6 0
+    //   ],
+    //   [
+    //      0 11  0 12
+    //     13  0 14  0
+    //      0 15  0 16
+    //   ]
+    // ]
+    dense_values_ = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                     0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+    auto dense_data = Buffer::Wrap(dense_values_);
+    NumericTensor<ValueType> dense_tensor(dense_data, shape_, {}, dim_names_);
+    ASSERT_OK_AND_ASSIGN(sparse_tensor_from_dense_,
+                         SparseSplitCOOTensor::Make(
+                             dense_tensor, TypeTraits<IndexValueType>::type_singleton()));
+  }
+
+ protected:
+  using TestSparseTensorBase<ValueType>::shape_;
+  using TestSparseTensorBase<ValueType>::dim_names_;
+  std::vector<c_value_type> dense_values_;
+  std::shared_ptr<SparseSplitCOOTensor> sparse_tensor_from_dense_;
+};
+
+class TestSparseSplitCOOTensor : public TestSparseSplitCOOTensorBase<Int64Type> {};
+
+TEST_F(TestSparseSplitCOOTensor, CreationEmptyTensor) {
+  SparseSplitCOOTensor st1(int64(), this->shape_);
+  SparseSplitCOOTensor st2(int64(), this->shape_, this->dim_names_);
+
+  ASSERT_EQ(0, st1.non_zero_length());
+  ASSERT_EQ(0, st2.non_zero_length());
+
+  ASSERT_EQ(24, st1.size());
+  ASSERT_EQ(24, st2.size());
+
+  ASSERT_EQ(std::vector<std::string>({"foo", "bar", "baz"}), st2.dim_names());
+  ASSERT_EQ("foo", st2.dim_name(0));
+  ASSERT_EQ("bar", st2.dim_name(1));
+  ASSERT_EQ("baz", st2.dim_name(2));
+
+  ASSERT_EQ(std::vector<std::string>({}), st1.dim_names());
+  ASSERT_EQ("", st1.dim_name(0));
+  ASSERT_EQ("", st1.dim_name(1));
+  ASSERT_EQ("", st1.dim_name(2));
+}
+
+//-----------------------------------------------------------------------------
 // SparseCSRMatrix
 
 template <typename IndexValueType>
