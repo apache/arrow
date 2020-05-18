@@ -143,6 +143,27 @@ services:
       ["/c/arrow/ci/scripts/cpp_build.sh /c/arrow /c/build &&
         /c/arrow/ci/scripts/cpp_test.sh /c/arrow /c/build"]
 
+  windows-conda-cpp:
+    # Usage:
+    #   docker-compose build windows-cpp
+    #   docker-compose run --rm windows-cpp
+    # Parameters:
+    #   ARCH: amd64
+    image: ${REPO}:amd64-windows-${WINDOWS}-vs${VISUAL_STUDIO}-conda-cpp
+    build:
+      context: .
+      dockerfile: ci/docker/windows-${WINDOWS}-vs${VISUAL_STUDIO}-conda-cpp.dockerfile
+      cache_from:
+        - ${REPO}:amd64-windows-${WINDOWS}-vs${VISUAL_STUDIO}-conda-cpp
+    # volumes:
+    #   - type: bind
+    #     source: "C:/Users/kszucs/Workspace/arrow"
+    #     target: "C:/arrow"
+    entrypoint: ["bash", "-c", "-l"]
+    command:
+      ["/c/arrow/ci/scripts/cpp_build.sh /c/arrow /c/build &&
+        /c/arrow/ci/scripts/cpp_test.sh /c/arrow /c/build"]
+
   ################################# C++ #######################################
   # Release build:
   #   docker-compose run -e ARROW_BUILD_TYPE=release conda-cpp|debian-cpp|...
