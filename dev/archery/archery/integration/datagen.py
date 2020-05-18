@@ -24,8 +24,7 @@ import tempfile
 
 import numpy as np
 
-from .util import (frombytes, tobytes, random_bytes, random_utf8,
-                   SKIP_ARROW, SKIP_FLIGHT)
+from .util import frombytes, tobytes, random_bytes, random_utf8
 
 
 def metadata_key_values(pairs):
@@ -1539,9 +1538,9 @@ def get_generated_json_files(tempdir=None, flight=False):
         .skip_category('Rust'),
 
         generate_nested_dictionary_case()
-            .skip_category('Go')
-            .skip_category('Java')  # TODO(ARROW-7779)
-            .skip_category('JS'),
+        .skip_category('Go')
+        .skip_category('Java')  # TODO(ARROW-7779)
+        .skip_category('JS'),
 
         generate_extension_case().skip_category('Go')
                                  .skip_category('Java')  # TODO(ARROW-8485)
