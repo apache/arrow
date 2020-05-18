@@ -83,7 +83,11 @@ fn main() {
     }
 }
 
-fn json_to_arrow(json_name: &str, arrow_name: &str, _verbose: bool) -> Result<()> {
+fn json_to_arrow(json_name: &str, arrow_name: &str, verbose: bool) -> Result<()> {
+    if verbose {
+        println!("Converting {} to {}", json_name, arrow_name);
+    }
+
     let (schema, batches) = read_json_file(json_name)?;
 
     let arrow_file = File::create(arrow_name)?;
@@ -310,7 +314,11 @@ fn record_batch_from_json(
     RecordBatch::try_new(Arc::new(schema.clone()), columns)
 }
 
-fn arrow_to_json(arrow_name: &str, json_name: &str, _verbose: bool) -> Result<()> {
+fn arrow_to_json(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
+    if verbose {
+        println!("Converting {} to {}", arrow_name, json_name);
+    }
+
     let arrow_file = File::open(arrow_name)?;
     let mut reader = FileReader::try_new(arrow_file)?;
 
@@ -337,7 +345,11 @@ fn arrow_to_json(arrow_name: &str, json_name: &str, _verbose: bool) -> Result<()
     Ok(())
 }
 
-fn validate(arrow_name: &str, json_name: &str, _verbose: bool) -> Result<()> {
+fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
+    if verbose {
+        println!("Validating {} and {}", arrow_name, json_name);
+    }
+
     // open JSON file
     let (json_schema, json_batches) = read_json_file(json_name)?;
 

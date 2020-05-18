@@ -1488,42 +1488,55 @@ def get_generated_json_files(tempdir=None, flight=False):
         .skip_category('JS')   # TODO(ARROW-7900)
         .skip_category('Go'),  # TODO(ARROW-7901)
 
-        # TODO(ARROW-7948): Decimal + Go
-        generate_decimal_case().skip_category('Go'),
+        generate_decimal_case()
+        .skip_category('Go')  # TODO(ARROW-7948): Decimal + Go
+        .skip_category('Rust'),
 
         generate_datetime_case(),
 
-        # TODO(ARROW-5239): Intervals + JS
-        generate_interval_case().skip_category('JS'),
+        generate_interval_case()
+        .skip_category('JS')  # TODO(ARROW-5239): Intervals + JS
+        .skip_category('Rust'),
 
-        # TODO(ARROW-5620): Map + Go
-        generate_map_case().skip_category('Go'),
+        generate_map_case()
+        .skip_category('Go')  # TODO(ARROW-5620): Map + Go
+        .skip_category('Rust'),
 
-        generate_nested_case(),
+        generate_nested_case()
+        .skip_category('Rust'),
 
-        # TODO(ARROW-8453)
-        generate_recursive_nested_case().skip_category('Go'),
+        generate_recursive_nested_case()
+        .skip_category('Go')  # TODO(ARROW-8453)
+        .skip_category('Rust'),
 
         generate_nested_large_offsets_case()
         .skip_category('Go')
         .skip_category('Java')  # TODO(ARROW-6111)
-        .skip_category('JS'),
+        .skip_category('JS')
+        .skip_category('Rust'),
 
         generate_unions_case()
         .skip_category('Go')
         .skip_category('Java')  # TODO(ARROW-1692)
-        .skip_category('JS'),
+        .skip_category('JS')
+        .skip_category('Rust'),
 
-        generate_custom_metadata_case().skip_category('Go')
-                                       .skip_category('Java')
-                                       .skip_category('JS'),
+        generate_custom_metadata_case()
+        .skip_category('Go')
+        .skip_category('Java')
+        .skip_category('JS')
+        .skip_category('Rust'),
 
-        generate_duplicate_fieldnames_case().skip_category('Go')
-                                            .skip_category('Java')
-                                            .skip_category('JS'),
+        generate_duplicate_fieldnames_case()
+        .skip_category('Go')
+        .skip_category('Java')
+        .skip_category('JS')
+        .skip_category('Rust'),
 
         # TODO(ARROW-3039, ARROW-5267): Dictionaries in GO
-        generate_dictionary_case().skip_category('Go'),
+        generate_dictionary_case()
+        .skip_category('Go')
+        .skip_category('Rust'),
 
         # TODO(ARROW-7902)
         generate_nested_dictionary_case().skip_category(SKIP_ARROW)
@@ -1531,7 +1544,8 @@ def get_generated_json_files(tempdir=None, flight=False):
 
         generate_extension_case().skip_category('Go')
                                  .skip_category('Java')  # TODO(ARROW-8485)
-                                 .skip_category('JS'),
+                                 .skip_category('JS')
+                                 .skip_category('Rust'),
     ]
 
     if flight:

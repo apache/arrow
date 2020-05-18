@@ -15,6 +15,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
-fn main() {
-    panic!("not implemented");
+use std::io::BufWriter;
+use std::io::{self, BufReader};
+
+use arrow::error::Result;
+use arrow::ipc::reader::StreamReader;
+use arrow::ipc::writer::FileWriter;
+
+fn main() -> Result<()> {
+    eprintln!("Rust: arrow-stream-to-file");
+
+    let reader = BufReader::new(io::stdin());
+    let mut arrow_stream_reader = StreamReader::try_new(reader)?;
+    let schema = arrow_stream_reader.schema();
+
+    let writer = BufWriter::new(io::stdout());
+    let mut writer = FileWriter::try_new(writer, &schema)?;
+
+    while let Some(batch) = arrow_stream_reader.next()? {
+        writer.write(&batch)?;
+    }
+    writer.finish()?;
+
+    Ok(())
 }
