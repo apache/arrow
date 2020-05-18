@@ -971,6 +971,50 @@ public class TestListVector {
     }
   }
 
+  @Test
+  public void testSetValueCount() {
+    try (final ListVector vector = ListVector.empty("list", allocator)) {
+      BigIntVector bigIntVector =
+              (BigIntVector) vector.addOrGetVector(FieldType.nullable(MinorType.BIGINT.getType())).getVector();
+      vector.setInitialCapacity(12);
+      vector.allocateNew();
+
+      vector.startNewValue(0);
+      bigIntVector.setSafe(0, 1);
+      bigIntVector.setSafe(1, 2);
+      bigIntVector.setSafe(2, 3);
+      bigIntVector.setSafe(3, 4);
+      vector.endValue(0, 4);
+      vector.startNewValue(1);
+      bigIntVector.setSafe(4, 5);
+      bigIntVector.setSafe(5, 6);
+      bigIntVector.setSafe(6, 7);
+      bigIntVector.setSafe(7, 8);
+      vector.endValue(1, 4);
+      vector.startNewValue(2);
+      bigIntVector.setSafe(8, 9);
+      bigIntVector.setSafe(9, 10);
+      bigIntVector.setSafe(10, 11);
+      bigIntVector.setSafe(11, 12);
+      vector.endValue(2, 4);
+
+      // valueCount < lastSet
+      vector.setValueCount(1);
+      assertEquals(4, vector.getInnerValueCount());
+
+      vector.setValueCount(2);
+      assertEquals(8, vector.getInnerValueCount());
+
+      // valueCount = lastSet
+      vector.setValueCount(3);
+      assertEquals(12, vector.getInnerValueCount());
+
+      // valueCount > lastSet
+      vector.setValueCount(5);
+      assertEquals(12, vector.getInnerValueCount());
+    }
+  }
+
   private void writeIntValues(UnionListWriter writer, int[] values) {
     writer.startList();
     for (int v: values) {

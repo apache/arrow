@@ -844,7 +844,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     }
     /* valueCount for the data vector is the current end offset */
     final int childValueCount = (valueCount == 0) ? 0 :
-            offsetBuffer.getInt((lastSet + 1) * OFFSET_WIDTH);
+            offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
     /* set the value count of data vector and this will take care of
      * checking whether data buffer needs to be reallocated.
      */
