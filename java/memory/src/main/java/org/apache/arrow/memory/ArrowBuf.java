@@ -1245,6 +1245,6 @@ public final class ArrowBuf implements AutoCloseable {
    * Create an empty ArrowBuf with length.
    */
   public static ArrowBuf empty(long length) {
-    return new ArrowBuf(ReferenceManager.NO_OP, null,length, new PooledByteBufAllocatorL().empty.memoryAddress());
+    return new ArrowBuf(ReferenceManager.NO_OP, null, length, new PooledByteBufAllocatorL().empty.memoryAddress());
   }
 }
