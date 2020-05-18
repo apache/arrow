@@ -995,7 +995,24 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
   Status WriteDictionaries(const RecordBatch& batch) {
     RETURN_NOT_OK(CollectDictionaries(batch, dictionary_memo_));
 
-    for (auto& pair : dictionary_memo_->id_to_dictionary()) {
+    using DictEntry = std::pair<int64_t, std::shared_ptr<Array>>;
+
+    // Gather all collected dictionaries and sort them by ascending id.
+    // This ensures that, in the case of nested dictionaries,
+    // inner dictionaries are emitted before outer dictionaries.
+    // XXX This shouldn't be required.  On the IPC write path, the
+    // DictionaryMemo only needs to store a vector of dictionaries
+    // (by-id lookups are only needed on the IPC read path).
+    const auto& id_to_dict = dictionary_memo_->id_to_dictionary();
+    std::vector<DictEntry> dict_entries(id_to_dict.size());
+    std::copy(id_to_dict.begin(), id_to_dict.end(), dict_entries.begin());
+
+    const auto compare_entries = [](const DictEntry& l, const DictEntry& r) {
+      return l.first < r.first;
+    };
+    std::sort(dict_entries.begin(), dict_entries.end(), compare_entries);
+
+    for (const auto& pair : dict_entries) {
       internal::IpcPayload payload;
       int64_t dictionary_id = pair.first;
       const auto& dictionary = pair.second;

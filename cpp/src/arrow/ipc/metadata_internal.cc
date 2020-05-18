@@ -660,6 +660,10 @@ class FieldToFlatbufferVisitor {
           checked_cast<const ExtensionType&>(*storage_type).storage_type().get();
     }
     if (storage_type->id() == Type::DICTIONARY) {
+      // Note we're emitting the dictionary encoding after potentially
+      // emitting any nested dictionaries in VisitType() above,
+      // so the outer dictionaries will naturally get an id larger than any
+      // inner dictionaries.
       RETURN_NOT_OK(GetDictionaryEncoding(
           fbb_, field, checked_cast<const DictionaryType&>(*storage_type),
           dictionary_memo_, &dictionary));
