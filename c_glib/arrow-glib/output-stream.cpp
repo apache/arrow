@@ -358,7 +358,8 @@ namespace garrow {
   class GIOOutputStream : public arrow::io::OutputStream {
   public:
     GIOOutputStream(GOutputStream *output_stream) :
-      output_stream_(output_stream) {
+      output_stream_(output_stream),
+      position_(0) {
       g_object_ref(output_stream_);
     }
 
@@ -386,15 +387,11 @@ namespace garrow {
     }
 
     arrow::Result<int64_t> Tell() const override {
-      if (!G_IS_SEEKABLE(output_stream_)) {
-        std::string message("[gio-output-stream][tell] "
-                            "not seekable output stream: <");
-        message += G_OBJECT_CLASS_NAME(G_OBJECT_GET_CLASS(output_stream_));
-        message += ">";
-        return arrow::Status::NotImplemented(message);
+      if (G_IS_SEEKABLE(output_stream_)) {
+        return g_seekable_tell(G_SEEKABLE(output_stream_));
+      } else {
+        return position_;
       }
-
-      return g_seekable_tell(G_SEEKABLE(output_stream_));
     }
 
     arrow::Status Write(const void *data,
@@ -408,6 +405,7 @@ namespace garrow {
                                                  NULL,
                                                  &error);
       if (successed) {
+        position_ += n_written_bytes;
         return arrow::Status::OK();
       } else {
         std::stringstream message("[gio-output-stream][write]");
@@ -432,6 +430,7 @@ namespace garrow {
 
   private:
     GOutputStream *output_stream_;
+    int64_t position_;
   };
 };
 
