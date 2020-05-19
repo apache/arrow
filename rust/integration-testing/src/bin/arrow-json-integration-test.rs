@@ -103,16 +103,21 @@ fn record_batch_from_json(
     let mut columns = vec![];
 
     for (field, json_col) in schema.fields().iter().zip(json_batch.columns) {
-        if json_col.data.is_none() {
-            //columns.push(Arc::new(vec![]));
-            continue;
-        }
+        // if json_col.data.is_none() {
+        //     //columns.push(Arc::new(vec![]));
+        //     continue;
+        // }
 
         let col: ArrayRef = match field.data_type() {
+            DataType::Null => unimplemented!(),
             DataType::Boolean => {
                 let mut b = BooleanBuilder::new(json_col.count);
-                for (is_valid, value) in
-                    json_col.validity.iter().zip(json_col.data.unwrap())
+                for (is_valid, value) in json_col
+                    .validity
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .zip(json_col.data.unwrap())
                 {
                     match is_valid {
                         1 => b.append_value(value.as_bool().unwrap()),
@@ -124,8 +129,12 @@ fn record_batch_from_json(
             }
             DataType::Int8 => {
                 let mut b = Int8Builder::new(json_col.count);
-                for (is_valid, value) in
-                    json_col.validity.iter().zip(json_col.data.unwrap())
+                for (is_valid, value) in json_col
+                    .validity
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .zip(json_col.data.unwrap())
                 {
                     match is_valid {
                         1 => b.append_value(value.as_i64().unwrap() as i8),
@@ -137,8 +146,12 @@ fn record_batch_from_json(
             }
             DataType::Int16 => {
                 let mut b = Int16Builder::new(json_col.count);
-                for (is_valid, value) in
-                    json_col.validity.iter().zip(json_col.data.unwrap())
+                for (is_valid, value) in json_col
+                    .validity
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .zip(json_col.data.unwrap())
                 {
                     match is_valid {
                         1 => b.append_value(value.as_i64().unwrap() as i16),
@@ -150,8 +163,12 @@ fn record_batch_from_json(
             }
             DataType::Int32 => {
                 let mut b = Int32Builder::new(json_col.count);
-                for (is_valid, value) in
-                    json_col.validity.iter().zip(json_col.data.unwrap())
+                for (is_valid, value) in json_col
+                    .validity
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .zip(json_col.data.unwrap())
                 {
                     match is_valid {
                         1 => b.append_value(value.as_i64().unwrap() as i32),
@@ -163,8 +180,12 @@ fn record_batch_from_json(
             }
             DataType::Int64 => {
                 let mut b = Int64Builder::new(json_col.count);
-                for (is_valid, value) in
-                    json_col.validity.iter().zip(json_col.data.unwrap())
+                for (is_valid, value) in json_col
+                    .validity
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .zip(json_col.data.unwrap())
                 {
                     match is_valid {
                         1 => b.append_value(value.as_i64().unwrap()),
@@ -176,8 +197,12 @@ fn record_batch_from_json(
             }
             DataType::UInt8 => {
                 let mut b = UInt8Builder::new(json_col.count);
-                for (is_valid, value) in
-                    json_col.validity.iter().zip(json_col.data.unwrap())
+                for (is_valid, value) in json_col
+                    .validity
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .zip(json_col.data.unwrap())
                 {
                     match is_valid {
                         1 => b.append_value(value.as_u64().unwrap() as u8),
@@ -189,8 +214,12 @@ fn record_batch_from_json(
             }
             DataType::UInt16 => {
                 let mut b = UInt16Builder::new(json_col.count);
-                for (is_valid, value) in
-                    json_col.validity.iter().zip(json_col.data.unwrap())
+                for (is_valid, value) in json_col
+                    .validity
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .zip(json_col.data.unwrap())
                 {
                     match is_valid {
                         1 => b.append_value(value.as_u64().unwrap() as u16),
@@ -202,8 +231,12 @@ fn record_batch_from_json(
             }
             DataType::UInt32 => {
                 let mut b = UInt32Builder::new(json_col.count);
-                for (is_valid, value) in
-                    json_col.validity.iter().zip(json_col.data.unwrap())
+                for (is_valid, value) in json_col
+                    .validity
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .zip(json_col.data.unwrap())
                 {
                     match is_valid {
                         1 => b.append_value(value.as_u64().unwrap() as u32),
@@ -215,8 +248,12 @@ fn record_batch_from_json(
             }
             DataType::UInt64 => {
                 let mut b = UInt64Builder::new(json_col.count);
-                for (is_valid, value) in
-                    json_col.validity.iter().zip(json_col.data.unwrap())
+                for (is_valid, value) in json_col
+                    .validity
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .zip(json_col.data.unwrap())
                 {
                     match is_valid {
                         1 => b.append_value(value.as_u64().unwrap()),
@@ -228,8 +265,12 @@ fn record_batch_from_json(
             }
             DataType::Float32 => {
                 let mut b = Float32Builder::new(json_col.count);
-                for (is_valid, value) in
-                    json_col.validity.iter().zip(json_col.data.unwrap())
+                for (is_valid, value) in json_col
+                    .validity
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .zip(json_col.data.unwrap())
                 {
                     match is_valid {
                         1 => b.append_value(value.as_f64().unwrap() as f32),
@@ -241,8 +282,12 @@ fn record_batch_from_json(
             }
             DataType::Float64 => {
                 let mut b = Float64Builder::new(json_col.count);
-                for (is_valid, value) in
-                    json_col.validity.iter().zip(json_col.data.unwrap())
+                for (is_valid, value) in json_col
+                    .validity
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .zip(json_col.data.unwrap())
                 {
                     match is_valid {
                         1 => b.append_value(value.as_f64().unwrap()),
@@ -254,8 +299,12 @@ fn record_batch_from_json(
             }
             DataType::Binary => {
                 let mut b = BinaryBuilder::new(json_col.count);
-                for (is_valid, value) in
-                    json_col.validity.iter().zip(json_col.data.unwrap())
+                for (is_valid, value) in json_col
+                    .validity
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .zip(json_col.data.unwrap())
                 {
                     match is_valid {
                         1 => {
@@ -270,8 +319,12 @@ fn record_batch_from_json(
             }
             DataType::Utf8 => {
                 let mut b = StringBuilder::new(json_col.count);
-                for (is_valid, value) in
-                    json_col.validity.iter().zip(json_col.data.unwrap())
+                for (is_valid, value) in json_col
+                    .validity
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .zip(json_col.data.unwrap())
                 {
                     match is_valid {
                         1 => b.append_value(value.as_str().unwrap()),
@@ -283,8 +336,12 @@ fn record_batch_from_json(
             }
             DataType::FixedSizeBinary(len) => {
                 let mut b = FixedSizeBinaryBuilder::new(json_col.count, *len);
-                for (is_valid, value) in
-                    json_col.validity.iter().zip(json_col.data.unwrap())
+                for (is_valid, value) in json_col
+                    .validity
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .zip(json_col.data.unwrap())
                 {
                     match is_valid {
                         1 => {

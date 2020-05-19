@@ -417,6 +417,7 @@ impl FieldData {
     /// where `T` satisfies the bound `ArrowPrimitiveType`.
     fn append_null_dynamic(&mut self) -> Result<()> {
         match self.data_type {
+            DataType::Null => unimplemented!(),
             DataType::Boolean => self.append_null::<BooleanType>()?,
             DataType::Int8 => self.append_null::<Int8Type>()?,
             DataType::Int16 => self.append_null::<Int16Type>()?,
