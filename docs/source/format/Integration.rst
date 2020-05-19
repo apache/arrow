@@ -32,33 +32,8 @@ Our strategy for integration testing between Arrow implementations is:
 Running integration tests
 -------------------------
 
-The integration test data generator and runner uses ``archery``, a Python script
-that requires Python 3.6 or higher. You can create a standalone Python
-distribution and environment for running the tests by using
-`miniconda <https://conda.io/miniconda.html>`_. On Linux this is:
-
-.. code-block:: shell
-
-   MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
-   wget -O miniconda.sh $MINICONDA_URL
-   bash miniconda.sh -b -p miniconda
-   export PATH=`pwd`/miniconda/bin:$PATH
-
-   conda create -n arrow-integration python=3.6 nomkl numpy six
-   conda activate arrow-integration
-
-
-If you are on macOS, instead use the URL:
-
-.. code-block:: shell
-
-   MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
-
-Once you have Python, you can install archery
-
-.. code-block:: shell
-
-   pip install -e dev/archery
+The integration test data generator and runner are implemented inside
+the :ref:`Archery <archery>` utility.
 
 The integration tests are run using the ``archery integration`` command.
 
@@ -101,7 +76,7 @@ docker-compose. You may also run the docker-compose job locally, or at least
 refer to it if you have questions about how to build other languages or enable
 certain tests.
 
-See :ref:`integration` for more information about the project's
+See :ref:`docker-builds` for more information about the project's
 ``docker-compose`` configuration.
 
 JSON test data format

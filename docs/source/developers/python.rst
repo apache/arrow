@@ -18,9 +18,9 @@
 .. currentmodule:: pyarrow
 .. _python-development:
 
-******************
+==================
 Python Development
-******************
+==================
 
 This page provides general Python development guidelines and source build
 instructions for all platforms.
@@ -29,22 +29,18 @@ Coding Style
 ============
 
 We follow a similar PEP8-like coding style to the `pandas project
-<https://github.com/pandas-dev/pandas>`_.
-
-The code must pass ``flake8`` (available from pip or conda) or it will fail the
-build. Check for style errors before submitting your pull request with:
+<https://github.com/pandas-dev/pandas>`_.  To check style issues, use the
+:ref:`Archery <archery>` subcommand ``lint``:
 
 .. code-block:: shell
 
-   flake8 .
-   flake8 --config=.flake8.cython .
+   archery lint --python
 
-The package ``autopep8`` (also available from pip or conda) can automatically
-fix many of the errors reported by ``flake8``:
+Some of the issues can be automatically fixed by passing the ``--fix`` option:
 
 .. code-block:: shell
 
-   autopep8 --in-place --global-config=.flake8.cython pyarrow/table.pxi
+   archery lint --python --fix
 
 Unit Testing
 ============
@@ -55,9 +51,7 @@ like so:
 
 .. code-block:: shell
 
-   pushd arrow/python
    pytest pyarrow
-   popd
 
 Package requirements to run the unit tests are found in
 ``requirements-test.txt`` and can be installed if needed with ``pip install -r
