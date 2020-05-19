@@ -100,6 +100,10 @@ class StrptimeTimestampParser : public TimestampParser {
                                   /*allow_trailing_chars=*/false, out_unit, out);
   }
 
+  const char* kind() const override { return "strptime"; }
+
+  const char* detail() const override { return format_.c_str(); }
+
  private:
   std::string format_;
 };
@@ -112,9 +116,13 @@ class ISO8601Parser : public TimestampParser {
                   int64_t* out) const override {
     return ParseTimestampISO8601(s, length, out_unit, out);
   }
+
+  const char* kind() const override { return "iso8601"; }
 };
 
 }  // namespace internal
+
+const char* TimestampParser::detail() const { return ""; }
 
 std::shared_ptr<TimestampParser> TimestampParser::MakeStrptime(std::string format) {
   return std::make_shared<internal::StrptimeTimestampParser>(std::move(format));
