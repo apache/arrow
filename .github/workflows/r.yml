@@ -155,6 +155,8 @@ jobs:
       _R_CHECK_TESTS_NLINES_: 0
     steps:
       - run: git config --global core.autocrlf false
+      - name: Uninstall system MinGW
+        run: choco uninstall mingw
       - name: Checkout Arrow
         uses: actions/checkout@v2
         with:
