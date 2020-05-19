@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import ast
 import base64
 import os
 import struct
@@ -213,7 +214,7 @@ class EchoStreamFlightServer(EchoFlightServer):
 
     def do_action(self, context, action):
         if action.type == "who-am-i":
-            return iter([flight.Result(context.peer_identity())])
+            return [context.peer_identity()]
         raise NotImplementedError
 
 
@@ -305,7 +306,7 @@ class SlowFlightServer(FlightServerBase):
 
     def do_action(self, context, action):
         time.sleep(0.5)
-        return iter([])
+        return []
 
     @staticmethod
     def slow_stream():
@@ -514,8 +515,17 @@ class HeaderFlightServer(FlightServerBase):
     def do_action(self, context, action):
         middleware = context.get_middleware("test")
         if middleware:
-            return iter([flight.Result(middleware.special_value.encode())])
-        return iter([flight.Result(b"")])
+            return [middleware.special_value.encode()]
+        return [b""]
+
+
+class MultiHeaderFlightServer(FlightServerBase):
+    """Test sending/receiving multiple (binary-valued) headers."""
+
+    def do_action(self, context, action):
+        middleware = context.get_middleware("test")
+        headers = repr(middleware.client_headers).encode("utf-8")
+        return [headers]
 
 
 class SelectiveAuthServerMiddlewareFactory(ServerMiddlewareFactory):
@@ -571,6 +581,55 @@ class RecordingClientMiddlewareFactory(ClientMiddlewareFactory):
     def start_call(self, info):
         self.methods.append(info.method)
         return None
+
+
+class MultiHeaderClientMiddlewareFactory(ClientMiddlewareFactory):
+    """Test sending/receiving multiple (binary-valued) headers."""
+
+    def __init__(self):
+        # Read in test_middleware_multi_header below.
+        # The middleware instance will update this value.
+        self.last_headers = {}
+
+    def start_call(self, info):
+        return MultiHeaderClientMiddleware(self)
+
+
+class MultiHeaderClientMiddleware(ClientMiddleware):
+    """Test sending/receiving multiple (binary-valued) headers."""
+
+    EXPECTED = {
+        "x-text": ["foo", "bar"],
+        "x-binary-bin": [b"\x00", b"\x01"],
+    }
+
+    def __init__(self, factory):
+        self.factory = factory
+
+    def sending_headers(self):
+        return self.EXPECTED
+
+    def received_headers(self, headers):
+        # Let the test code know what the last set of headers we
+        # received were.
+        self.factory.last_headers = headers
+
+
+class MultiHeaderServerMiddlewareFactory(ServerMiddlewareFactory):
+    """Test sending/receiving multiple (binary-valued) headers."""
+
+    def start_call(self, info, headers):
+        return MultiHeaderServerMiddleware(headers)
+
+
+class MultiHeaderServerMiddleware(ServerMiddleware):
+    """Test sending/receiving multiple (binary-valued) headers."""
+
+    def __init__(self, client_headers):
+        self.client_headers = client_headers
+
+    def sending_headers(self):
+        return MultiHeaderClientMiddleware.EXPECTED
 
 
 def test_flight_server_location_argument():
@@ -711,11 +770,11 @@ class ConvenienceServer(FlightServerBase):
 
     def do_action(self, context, action):
         if action.type == 'simple-action':
-            return iter(self.simple_action_results)
+            return self.simple_action_results
         elif action.type == 'echo':
-            return iter([action.body])
+            return [action.body]
         elif action.type == 'bad-action':
-            return iter(['foo'])
+            return ['foo']
         elif action.type == 'arrow-exception':
             raise pa.ArrowMemoryError()
 
@@ -1352,3 +1411,20 @@ def test_doexchange_transform():
             writer.done_writing()
             table = reader.read_all()
         assert expected == table
+
+
+def test_middleware_multi_header():
+    """Test sending/receiving multiple (binary-valued) headers."""
+    with MultiHeaderFlightServer(middleware={
+            "test": MultiHeaderServerMiddlewareFactory(),
+    }) as server:
+        headers = MultiHeaderClientMiddlewareFactory()
+        client = FlightClient(('localhost', server.port), middleware=[headers])
+        response = next(client.do_action(flight.Action(b"", b"")))
+        # The server echoes the headers it got back to us.
+        raw_headers = response.body.to_pybytes().decode("utf-8")
+        client_headers = ast.literal_eval(raw_headers)
+        # Don't directly compare; gRPC may add headers like User-Agent.
+        for header, values in MultiHeaderClientMiddleware.EXPECTED.items():
+            assert client_headers.get(header) == values
+            assert headers.last_headers.get(header) == values
