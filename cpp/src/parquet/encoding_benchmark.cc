@@ -25,7 +25,6 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/util/byte_stream_split.h"
-#include "arrow/util/cpu_info.h"
 
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
@@ -216,15 +215,13 @@ struct BM_SpacedEncodingTraits<BooleanType> {
 };
 
 static void BM_PlainSpacedArgs(benchmark::internal::Benchmark* bench) {
-  static const auto BM_kPlainSpacedSize =
-      arrow::internal::CpuInfo::GetInstance()->CacheSize(
-          arrow::internal::CpuInfo::L1_CACHE);
+  constexpr auto kPlainSpacedSize = 32 * 1024;  // 32k
 
-  bench->Args({/*size*/ BM_kPlainSpacedSize, /*null_percentage=*/1});
-  bench->Args({/*size*/ BM_kPlainSpacedSize, /*null_percentage=*/10});
-  bench->Args({/*size*/ BM_kPlainSpacedSize, /*null_percentage=*/50});
-  bench->Args({/*size*/ BM_kPlainSpacedSize, /*null_percentage=*/90});
-  bench->Args({/*size*/ BM_kPlainSpacedSize, /*null_percentage=*/99});
+  bench->Args({/*size*/ kPlainSpacedSize, /*null_percentage=*/1});
+  bench->Args({/*size*/ kPlainSpacedSize, /*null_percentage=*/10});
+  bench->Args({/*size*/ kPlainSpacedSize, /*null_percentage=*/50});
+  bench->Args({/*size*/ kPlainSpacedSize, /*null_percentage=*/90});
+  bench->Args({/*size*/ kPlainSpacedSize, /*null_percentage=*/99});
 }
 
 template <typename ParquetType>
