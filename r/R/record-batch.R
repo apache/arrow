@@ -251,7 +251,7 @@ as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...
 }
 
 #' @export
-as.list.RecordBatch <- function(x) as.list(as.data.frame(x))
+as.list.RecordBatch <- function(x, ...) as.list(as.data.frame(x, ...))
 
 #' @export
 row.names.RecordBatch <- function(x) as.character(seq_len(nrow(x)))
