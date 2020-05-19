@@ -25,7 +25,7 @@ from .logger import logger, ctx
 
 def default_bin(name, default):
     assert(default)
-    env_name = "ARCHERY_%s_BIN".format(default.upper())
+    env_name = "ARCHERY_{0}_BIN".format(default.upper())
     return name if name else os.environ.get(env_name, default)
 
 

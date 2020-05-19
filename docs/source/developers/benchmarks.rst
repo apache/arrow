@@ -17,30 +17,14 @@
 
 .. _benchmarks:
 
-**********
+==========
 Benchmarks
-**********
+==========
 
-Archery
-=======
+Setup
+=====
 
-``archery`` is a python library and command line utility made to interact with
-Arrow's sources. The main feature is the benchmarking process.
-
-Installation
-~~~~~~~~~~~~
-
-The simplest way to install archery is with pip from the top-level directory.
-It is recommended to use the ``-e,--editable`` flag so that pip don't copy
-the module files but uses the actual sources.
-
-.. code-block:: shell
-
-  pip install -e dev/archery
-  archery --help
-
-  # optional: enable bash/zsh autocompletion
-  eval "$(_ARCHERY_COMPLETE=source archery)"
+First install the :ref:`Archery <archery>` utility to run the benchmark suite.
 
 Running the benchmark suite
 ===========================

@@ -36,7 +36,7 @@ class Rat(Jar):
 
     @capture_stdout(strip=False)
     def run_report(self, archive_path, **kwargs):
-        return self.run("--xml",  archive_path, **kwargs)
+        return self.run("--xml", archive_path, **kwargs)
 
     def report(self, archive_path, **kwargs):
         return RatReport(self.run_report(archive_path, **kwargs))

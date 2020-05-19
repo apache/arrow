@@ -96,6 +96,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CScanOptions "arrow::dataset::ScanOptions":
         CRecordBatchProjector projector
+
         @staticmethod
         shared_ptr[CScanOptions] Make(shared_ptr[CSchema] schema)
 
@@ -260,6 +261,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CDirectoryPartitioning \
             "arrow::dataset::DirectoryPartitioning"(CPartitioning):
         CDirectoryPartitioning(shared_ptr[CSchema] schema)
+
         @staticmethod
         shared_ptr[CPartitioningFactory] MakeFactory(
             vector[c_string] field_names)
@@ -267,6 +269,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CHivePartitioning \
             "arrow::dataset::HivePartitioning"(CPartitioning):
         CHivePartitioning(shared_ptr[CSchema] schema)
+
         @staticmethod
         shared_ptr[CPartitioningFactory] MakeFactory()
 
@@ -302,6 +305,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             shared_ptr[CFileFormat] format,
             CFileSystemFactoryOptions options
         )
+
         @staticmethod
         CResult[shared_ptr[CDatasetFactory]] MakeFromSelector "Make"(
             shared_ptr[CFileSystem] filesystem,

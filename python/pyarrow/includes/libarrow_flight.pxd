@@ -66,6 +66,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         c_string cmd
         vector[c_string] path
         CStatus SerializeToString(c_string* out)
+
         @staticmethod
         CStatus Deserialize(const c_string& serialized,
                             CFlightDescriptor* out)
@@ -76,6 +77,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         c_string ticket
         bint operator==(CTicket)
         CStatus SerializeToString(c_string* out)
+
         @staticmethod
         CStatus Deserialize(const c_string& serialized, CTicket* out)
 
@@ -90,10 +92,13 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
         @staticmethod
         CStatus Parse(c_string& uri_string, CLocation* location)
+
         @staticmethod
         CStatus ForGrpcTcp(c_string& host, int port, CLocation* location)
+
         @staticmethod
         CStatus ForGrpcTls(c_string& host, int port, CLocation* location)
+
         @staticmethod
         CStatus ForGrpcUnix(c_string& path, CLocation* location)
 
@@ -113,6 +118,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CFlightDescriptor& descriptor()
         const vector[CFlightEndpoint]& endpoints()
         CStatus SerializeToString(c_string* out)
+
         @staticmethod
         CStatus Deserialize(const c_string& serialized,
                             unique_ptr[CFlightInfo]* out)
@@ -327,6 +333,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass FlightStatusDetail" arrow::flight::FlightStatusDetail":
         CFlightStatusCode code()
         c_string extra_info()
+
         @staticmethod
         shared_ptr[FlightStatusDetail] UnwrapStatus(const CStatus& status)
 
