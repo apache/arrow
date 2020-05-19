@@ -120,7 +120,7 @@ std::shared_ptr<::arrow::Table> TableFromVector(
     const std::vector<typename ParquetType::c_type>& vec, bool nullable,
     int64_t null_percentage = kAlternatingOrNa) {
   if (!nullable) {
-    DCHECK(null_percentage = kAlternatingOrNa);
+    ARROW_CHECK_EQ(null_percentage, kAlternatingOrNa);
   }
   std::shared_ptr<::arrow::DataType> type = std::make_shared<ArrowType<ParquetType>>();
   NumericBuilder<ArrowType<ParquetType>> builder;
