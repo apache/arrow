@@ -187,8 +187,6 @@ jobs:
             /t REG_DWORD `
             /d 1 `
             /f
-      - name: Uninstall system MinGW
-        run: choco uninstall mingw
       - name: Checkout Arrow
         uses: actions/checkout@v2
         with:

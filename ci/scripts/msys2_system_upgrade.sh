@@ -22,5 +22,5 @@ set -eux
 pacman \
   --noconfirm \
   --sync \
-  -uu \
+  # -uu \
   -yy
