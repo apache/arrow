@@ -208,6 +208,8 @@ static void BM_PlainSpacedArgs(benchmark::internal::Benchmark* bench) {
   bench->Args({/*size*/ BM_kPlainSpacedSize, /*null_percentage=*/1});
   bench->Args({/*size*/ BM_kPlainSpacedSize, /*null_percentage=*/10});
   bench->Args({/*size*/ BM_kPlainSpacedSize, /*null_percentage=*/50});
+  bench->Args({/*size*/ BM_kPlainSpacedSize, /*null_percentage=*/90});
+  bench->Args({/*size*/ BM_kPlainSpacedSize, /*null_percentage=*/99});
 }
 
 static void BM_PlainEncodingSpacedBoolean(benchmark::State& state) {
@@ -253,16 +255,6 @@ static void BM_PlainEncodingSpaced(benchmark::State& state) {
   }
   state.SetBytesProcessed(state.iterations() * num_values * sizeof(CType));
 }
-
-static void BM_PlainEncodingSpacedInt32(benchmark::State& state) {
-  BM_PlainEncodingSpaced<Int32Type>(state);
-}
-BENCHMARK(BM_PlainEncodingSpacedInt32)->Apply(BM_PlainSpacedArgs);
-
-static void BM_PlainEncodingSpacedInt64(benchmark::State& state) {
-  BM_PlainEncodingSpaced<Int64Type>(state);
-}
-BENCHMARK(BM_PlainEncodingSpacedInt64)->Apply(BM_PlainSpacedArgs);
 
 static void BM_PlainEncodingSpacedFloat(benchmark::State& state) {
   BM_PlainEncodingSpaced<FloatType>(state);
@@ -326,16 +318,6 @@ static void BM_PlainDecodingSpaced(benchmark::State& state) {
   }
   state.SetBytesProcessed(state.iterations() * num_values * sizeof(CType));
 }
-
-static void BM_PlainDecodingSpacedInt32(benchmark::State& state) {
-  BM_PlainDecodingSpaced<Int32Type>(state);
-}
-BENCHMARK(BM_PlainDecodingSpacedInt32)->Apply(BM_PlainSpacedArgs);
-
-static void BM_PlainDecodingSpacedInt64(benchmark::State& state) {
-  BM_PlainDecodingSpaced<Int64Type>(state);
-}
-BENCHMARK(BM_PlainDecodingSpacedInt64)->Apply(BM_PlainSpacedArgs);
 
 static void BM_PlainDecodingSpacedFloat(benchmark::State& state) {
   BM_PlainDecodingSpaced<FloatType>(state);
