@@ -128,10 +128,34 @@ public class TestArrowBuf {
 
   @Test
   public void testEmptyArrowBuf() {
-    ArrowBuf buf = new ArrowBuf(ReferenceManager.NO_OP, null, 3, new PooledByteBufAllocatorL().empty.memoryAddress());
+    ArrowBuf buf = new ArrowBuf(ReferenceManager.NO_OP, null,
+        1024, new PooledByteBufAllocatorL().empty.memoryAddress());
+
+    buf.getReferenceManager().retain();
     buf.getReferenceManager().retain(8);
-    assertEquals(3, buf.capacity());
+    assertEquals(1024, buf.capacity());
     assertEquals(1, buf.getReferenceManager().getRefCount());
+    assertEquals(0, buf.getActualMemoryConsumed());
+
+    for (int i = 0; i < 10; i++) {
+      buf.setByte(i, i);
+    }
+    assertEquals(0, buf.getActualMemoryConsumed());
+    assertEquals(0, buf.getReferenceManager().getSize());
+    assertEquals(0, buf.getReferenceManager().getAccountedSize());
+    assertEquals(false, buf.getReferenceManager().release());
+    assertEquals(false, buf.getReferenceManager().release(2));
+    assertEquals(0, buf.getReferenceManager().getAllocator().getLimit());
+    assertEquals(buf, buf.getReferenceManager().transferOwnership(buf, allocator).getTransferredBuffer());
+    assertEquals(0, buf.readerIndex());
+    assertEquals(0, buf.writerIndex());
+    assertEquals(1, buf.refCnt());
+
+    ArrowBuf derive = buf.getReferenceManager().deriveBuffer(buf, 0, 100);
+    assertEquals(derive, buf);
+    assertEquals(1, buf.refCnt());
+    assertEquals(1, derive.refCnt());
+
     buf.close();
 
     ArrowBuf buf2 = ArrowBuf.empty(10);
