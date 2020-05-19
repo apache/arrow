@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/kernels/codegen.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 
 #include <cstdint>
 #include <memory>
@@ -48,7 +48,7 @@ std::vector<std::shared_ptr<DataType>> g_floating_types;
 std::vector<std::shared_ptr<DataType>> g_numeric_types;
 std::vector<std::shared_ptr<DataType>> g_base_binary_types;
 std::vector<std::shared_ptr<DataType>> g_temporal_types;
-std::vector<std::shared_ptr<DataType>> g_non_parametric_types;
+std::vector<std::shared_ptr<DataType>> g_primitive_types;
 static std::once_flag codegen_static_initialized;
 
 static void InitStaticData() {
@@ -94,11 +94,15 @@ static void InitStaticData() {
   g_base_binary_types.push_back(large_binary());
   g_base_binary_types.push_back(large_utf8());
 
-  // Non-parametric, non-nested types
-  g_non_parametric_types.push_back(boolean());
-  Extend(g_numeric_types, &g_non_parametric_types);
-  Extend(g_temporal_types, &g_non_parametric_types);
-  Extend(g_base_binary_types, &g_non_parametric_types);
+  // Non-parametric, non-nested types. This also DOES NOT include
+  //
+  // * Decimal
+  // * Fixed Size Binary
+  g_primitive_types.push_back(null());
+  g_primitive_types.push_back(boolean());
+  Extend(g_numeric_types, &g_primitive_types);
+  Extend(g_temporal_types, &g_primitive_types);
+  Extend(g_base_binary_types, &g_primitive_types);
 }
 
 const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes() {
@@ -136,9 +140,9 @@ const std::vector<std::shared_ptr<DataType>>& TemporalTypes() {
   return g_temporal_types;
 }
 
-const std::vector<std::shared_ptr<DataType>>& NonParametricTypes() {
+const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes() {
   std::call_once(codegen_static_initialized, InitStaticData);
-  return g_non_parametric_types;
+  return g_primitive_types;
 }
 
 Result<ValueDescr> FirstType(const std::vector<ValueDescr>& descrs) {

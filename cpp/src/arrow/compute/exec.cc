@@ -187,6 +187,21 @@ bool ExecBatchIterator::Next(ExecBatch* batch) {
   return true;
 }
 
+bool ArrayHasNulls(const ArrayData& data) {
+  // As discovered in ARROW-8863 (and not only for that reason)
+  // ArrayData::null_count can -1 even when buffers[0] is nullptr. So we check
+  // for both cases (nullptr means no nulls, or null_count already computed)
+  if (data.type->id() == Type::NA) {
+    return true;
+  } else if (data.buffers[0] == nullptr) {
+    return false;
+  } else {
+    // Do not count the bits if they haven't been counted already
+    const int64_t known_null_count = data.null_count.load();
+    return known_null_count == kUnknownNullCount || known_null_count > 0;
+  }
+}
+
 // Null propagation implementation that deals both with preallocated bitmaps
 // and maybe-to-be allocated bitmaps
 //
@@ -206,9 +221,7 @@ class NullPropagator {
     // all be value-like
     for (const Datum& val : batch_.values) {
       if (val.kind() == Datum::ARRAY) {
-        // Do not count the bits if they haven't been counted already
-        const int64_t known_null_count = val.array()->null_count.load();
-        if (known_null_count == kUnknownNullCount || known_null_count > 0) {
+        if (ArrayHasNulls(*val.array())) {
           values_with_nulls_.push_back(&val);
         }
       } else if (!val.scalar()->is_valid) {
@@ -318,6 +331,9 @@ class NullPropagator {
     RETURN_NOT_OK(EnsureAllocated());
 
     auto Accumulate = [&](const ArrayData& left, const ArrayData& right) {
+      // This is a precondition of reaching this code path
+      DCHECK(left.buffers[0]);
+      DCHECK(right.buffers[0]);
       internal::BitmapAnd(left.buffers[0]->data(), left.offset, right.buffers[0]->data(),
                           right.offset, output_->length, output_->offset,
                           output_->buffers[0]->mutable_data());
@@ -442,6 +458,13 @@ class FunctionExecutorImpl : public FunctionExecutor {
     return Status::OK();
   }
 
+  // This is overridden by the VectorExecutor
+  virtual Status SetupArgIteration(const std::vector<Datum>& args) {
+    ARROW_ASSIGN_OR_RAISE(batch_iterator_,
+                          ExecBatchIterator::Make(args, exec_ctx_->exec_chunksize()));
+    return Status::OK();
+  }
+
   Status BindArgs(const std::vector<Datum>& args) {
     std::vector<ValueDescr> arg_descrs;
     RETURN_NOT_OK(GetValueDescriptors(args, &arg_descrs));
@@ -451,13 +474,27 @@ class FunctionExecutorImpl : public FunctionExecutor {
     ARROW_ASSIGN_OR_RAISE(output_descr_,
                           kernel_->signature->out_type().Resolve(arg_descrs));
 
-    ARROW_ASSIGN_OR_RAISE(batch_iterator_,
-                          ExecBatchIterator::Make(args, exec_ctx_->exec_chunksize()));
+    return SetupArgIteration(args);
+  }
 
-    return Status::OK();
+  Result<std::shared_ptr<ArrayData>> PrepareOutput(int64_t length) {
+    auto out = std::make_shared<ArrayData>(output_descr_.type, length);
+    out->buffers.resize(output_num_buffers_);
+
+    if (validity_preallocated_) {
+      ARROW_ASSIGN_OR_RAISE(out->buffers[0], kernel_ctx_.AllocateBitmap(length));
+    }
+    if (data_preallocated_) {
+      const auto& fw_type = checked_cast<const FixedWidthType&>(*out->type);
+      ARROW_ASSIGN_OR_RAISE(
+          out->buffers[1], AllocateDataBuffer(&kernel_ctx_, length, fw_type.bit_width()));
+    }
+    return out;
   }
 
   ValueDescr output_descr() const override { return output_descr_; }
+
+  // Not all of these members are used for every executor type
 
   ExecContext* exec_ctx_;
   KernelContext kernel_ctx_;
@@ -467,15 +504,39 @@ class FunctionExecutorImpl : public FunctionExecutor {
   std::unique_ptr<KernelState> state_;
   ValueDescr output_descr_;
   const FunctionOptions* options_;
+
+  int output_num_buffers_;
+
+  // If true, then the kernel writes into a preallocated data buffer
+  bool data_preallocated_ = false;
+
+  // If true, then memory is preallocated for the validity bitmap with the same
+  // strategy as the data buffer(s).
+  bool validity_preallocated_ = false;
 };
 
-// Executor for SCALAR and VECTOR functions
-template <typename FunctionType>
-class ArrayExecutor : public FunctionExecutorImpl<FunctionType> {
+class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
  public:
-  using BASE = FunctionExecutorImpl<FunctionType>;
+  using FunctionType = ScalarFunction;
+  static constexpr Function::Kind function_kind = Function::SCALAR;
+  using BASE = FunctionExecutorImpl<ScalarFunction>;
   using BASE::BASE;
 
+  Status Execute(const std::vector<Datum>& args, ExecListener* listener) override {
+    RETURN_NOT_OK(PrepareExecute(args));
+    ExecBatch batch;
+    while (batch_iterator_->Next(&batch)) {
+      RETURN_NOT_OK(ExecuteBatch(batch, listener));
+    }
+    if (preallocate_contiguous_) {
+      // If we preallocated one big chunk, since the kernel execution is
+      // completed, we can now emit it
+      RETURN_NOT_OK(listener->OnResult(std::move(preallocated_)));
+    }
+    return Status::OK();
+  }
+
+ protected:
   Status ExecuteBatch(const ExecBatch& batch, ExecListener* listener) {
     Datum out;
     RETURN_NOT_OK(PrepareNextOutput(batch, &out));
@@ -499,33 +560,17 @@ class ArrayExecutor : public FunctionExecutorImpl<FunctionType> {
     this->Reset();
     RETURN_NOT_OK(this->BindArgs(args));
     RETURN_NOT_OK(this->InitState());
-    output_num_buffers_ = static_cast<int>(output_descr_.type->layout().buffers.size());
 
-    // If the executor is configured to produce a single large Array output for
-    // kernels supporting preallocation, then we do so up front and then
-    // iterate over slices of that large array. Otherwise, we preallocate prior
-    // to processing each batch emitted from the ExecBatchIterator
     if (output_descr_.shape == ValueDescr::ARRAY) {
+      // If the executor is configured to produce a single large Array output for
+      // kernels supporting preallocation, then we do so up front and then
+      // iterate over slices of that large array. Otherwise, we preallocate prior
+      // to processing each batch emitted from the ExecBatchIterator
       RETURN_NOT_OK(SetupPreallocation(batch_iterator_->length()));
     }
     return Status::OK();
   }
 
-  Status Execute(const std::vector<Datum>& args, ExecListener* listener) override {
-    RETURN_NOT_OK(PrepareExecute(args));
-    ExecBatch batch;
-    while (batch_iterator_->Next(&batch)) {
-      RETURN_NOT_OK(ExecuteBatch(batch, listener));
-    }
-    if (preallocate_contiguous_) {
-      // If we preallocated one big chunk, since the kernel execution is
-      // completed, we can now emit it
-      RETURN_NOT_OK(listener->OnResult(std::move(preallocated_)));
-    }
-    return Status::OK();
-  }
-
- protected:
   // We must accommodate two different modes of execution for preallocated
   // execution
   //
@@ -566,30 +611,16 @@ class ArrayExecutor : public FunctionExecutorImpl<FunctionType> {
         ARROW_ASSIGN_OR_RAISE(out->value, PrepareOutput(batch.length));
       }
     }
-    // XXX: Scalar outputs are the responsibility of the kernel?
+    // Scalar outputs are the responsibility of the kernel
     return Status::OK();
   }
 
-  Result<std::shared_ptr<ArrayData>> PrepareOutput(int64_t length) {
-    auto out = std::make_shared<ArrayData>(output_descr_.type, length);
-    out->buffers.resize(output_num_buffers_);
-
-    const auto& fw_type = checked_cast<const FixedWidthType&>(*out->type);
-    if (validity_preallocated_) {
-      ARROW_ASSIGN_OR_RAISE(out->buffers[0], kernel_ctx_.AllocateBitmap(length));
-    }
-    if (data_preallocated_) {
-      ARROW_ASSIGN_OR_RAISE(
-          out->buffers[1], AllocateDataBuffer(&kernel_ctx_, length, fw_type.bit_width()));
-    }
-    return out;
-  }
-
   Status SetupPreallocation(int64_t total_length) {
+    output_num_buffers_ = static_cast<int>(output_descr_.type->layout().buffers.size());
+
     // Decide if we need to preallocate memory for this kernel
     data_preallocated_ = ((kernel_->mem_allocation == MemAllocation::PREALLOCATE) &&
                           CanPreallocate(*output_descr_.type));
-
     validity_preallocated_ =
         (kernel_->null_handling != NullHandling::COMPUTED_NO_PREALLOCATE &&
          kernel_->null_handling != NullHandling::OUTPUT_NOT_NULL);
@@ -613,25 +644,6 @@ class ArrayExecutor : public FunctionExecutorImpl<FunctionType> {
     return Status::OK();
   }
 
-  // Lift protected members so we don't have to use this->
-  using BASE::batch_iterator_;
-  using BASE::exec_ctx_;
-  using BASE::func_;
-  using BASE::kernel_;
-  using BASE::kernel_ctx_;
-  using BASE::options_;
-  using BASE::output_descr_;
-  using BASE::state_;
-
-  int output_num_buffers_;
-
-  // If true, then the kernel writes into a preallocated data buffer
-  bool data_preallocated_ = false;
-
-  // If true, then memory is preallocated for the validity bitmap with the same
-  // strategy as the data buffer(s).
-  bool validity_preallocated_ = false;
-
   // If true, and the kernel and output type supports preallocation (for both
   // the validity and data buffers), then we allocate one big array and then
   // iterate through it while executing the kernel in chunks
@@ -641,20 +653,110 @@ class ArrayExecutor : public FunctionExecutorImpl<FunctionType> {
   std::shared_ptr<ArrayData> preallocated_;
 };
 
-class ScalarExecutor : public ArrayExecutor<ScalarFunction> {
- public:
-  using FunctionType = ScalarFunction;
-  static constexpr Function::Kind function_kind = Function::SCALAR;
-  using BASE = ArrayExecutor<ScalarFunction>;
-  using BASE::BASE;
-};
+Status PackBatchNoChunks(const std::vector<Datum>& args, ExecBatch* out) {
+  int64_t length = 0;
+  for (size_t i = 0; i < args.size(); ++i) {
+    switch (args[i].kind()) {
+      case Datum::SCALAR:
+      case Datum::ARRAY:
+        length = std::max(args[i].length(), length);
+        break;
+      case Datum::CHUNKED_ARRAY:
+        return Status::Invalid("Kernel does not support chunked array arguments");
+      default:
+        DCHECK(false);
+        break;
+    }
+  }
+  out->length = length;
+  out->values = args;
+  return Status::OK();
+}
 
-class VectorExecutor : public ArrayExecutor<VectorFunction> {
+class VectorExecutor : public FunctionExecutorImpl<VectorFunction> {
  public:
   using FunctionType = VectorFunction;
   static constexpr Function::Kind function_kind = Function::VECTOR;
-  using BASE = ArrayExecutor<VectorFunction>;
+  using BASE = FunctionExecutorImpl<VectorFunction>;
   using BASE::BASE;
+
+  Status Execute(const std::vector<Datum>& args, ExecListener* listener) override {
+    RETURN_NOT_OK(PrepareExecute(args));
+    ExecBatch batch;
+    if (kernel_->can_execute_chunkwise) {
+      while (batch_iterator_->Next(&batch)) {
+        RETURN_NOT_OK(ExecuteBatch(batch, listener));
+      }
+    } else {
+      RETURN_NOT_OK(PackBatchNoChunks(args, &batch));
+      RETURN_NOT_OK(ExecuteBatch(batch, listener));
+    }
+    return Finalize(listener);
+  }
+
+ protected:
+  Status ExecuteBatch(const ExecBatch& batch, ExecListener* listener) {
+    Datum out;
+    if (output_descr_.shape == ValueDescr::ARRAY) {
+      // We preallocate (maybe) only for the output of processing the current
+      // batch
+      ARROW_ASSIGN_OR_RAISE(out.value, PrepareOutput(batch.length));
+    }
+
+    if (kernel_->null_handling == NullHandling::INTERSECTION &&
+        output_descr_.shape == ValueDescr::ARRAY) {
+      RETURN_NOT_OK(PropagateNulls(&kernel_ctx_, batch, out.mutable_array()));
+    }
+    kernel_->exec(&kernel_ctx_, batch, &out);
+    CTX_RETURN_IF_ERROR(&kernel_ctx_);
+    if (!kernel_->finalize) {
+      // If there is no result finalizer (e.g. for hash-based functions, we can
+      // emit the processed batch right away rather than waiting
+      RETURN_NOT_OK(listener->OnResult(std::move(out)));
+    } else {
+      results_.emplace_back(std::move(out));
+    }
+    return Status::OK();
+  }
+
+  Status Finalize(ExecListener* listener) {
+    if (kernel_->finalize) {
+      // Intermediate results require post-processing after the execution is
+      // completed (possibly involving some accumulated state)
+      for (const auto& result : results_) {
+        Datum finalized_result;
+        kernel_->finalize(&kernel_ctx_, result, &finalized_result);
+        CTX_RETURN_IF_ERROR(&kernel_ctx_);
+        RETURN_NOT_OK(listener->OnResult(std::move(finalized_result)));
+      }
+    }
+    return Status::OK();
+  }
+
+  Status SetupArgIteration(const std::vector<Datum>& args) override {
+    if (kernel_->can_execute_chunkwise) {
+      ARROW_ASSIGN_OR_RAISE(batch_iterator_,
+                            ExecBatchIterator::Make(args, exec_ctx_->exec_chunksize()));
+    }
+    return Status::OK();
+  }
+
+  Status PrepareExecute(const std::vector<Datum>& args) {
+    this->Reset();
+    RETURN_NOT_OK(this->BindArgs(args));
+    RETURN_NOT_OK(this->InitState());
+    output_num_buffers_ = static_cast<int>(output_descr_.type->layout().buffers.size());
+
+    // Decide if we need to preallocate memory for this kernel
+    data_preallocated_ = ((kernel_->mem_allocation == MemAllocation::PREALLOCATE) &&
+                          CanPreallocate(*output_descr_.type));
+    validity_preallocated_ =
+        (kernel_->null_handling != NullHandling::COMPUTED_NO_PREALLOCATE &&
+         kernel_->null_handling != NullHandling::OUTPUT_NOT_NULL);
+    return Status::OK();
+  }
+
+  std::vector<Datum> results_;
 };
 
 class ScalarAggExecutor : public FunctionExecutorImpl<ScalarAggregateFunction> {
@@ -727,7 +829,8 @@ Result<std::unique_ptr<FunctionExecutor>> FunctionExecutor::Make(
 Status CheckAllValues(const std::vector<Datum>& values) {
   for (const auto& value : values) {
     if (!value.is_value()) {
-      return Status::Invalid("Datum contained non-scalar/array type");
+      return Status::Invalid("Tried executing kernel with unsupported argument type: ",
+                             value.ToString());
     }
   }
   return Status::OK();
@@ -784,7 +887,12 @@ std::shared_ptr<ChunkedArray> ToChunkedArray(const std::vector<Datum>& values,
                                              const std::shared_ptr<DataType>& type) {
   std::vector<std::shared_ptr<Array>> arrays;
   for (const auto& val : values) {
-    arrays.emplace_back(val.make_array());
+    auto boxed = val.make_array();
+    if (boxed->length() == 0) {
+      // Skip empty chunks
+      continue;
+    }
+    arrays.emplace_back(std::move(boxed));
   }
   return std::make_shared<ChunkedArray>(arrays, type);
 }

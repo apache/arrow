@@ -73,9 +73,9 @@ Result<const KernelType*> DispatchExactImpl(const Function& func,
       return &kernel;
     }
   }
-  return Status::KeyError("Function ", func.name(),
-                          " has no kernel exactly matching input types ",
-                          FormatArgTypes(values));
+  return Status::NotImplemented("Function ", func.name(),
+                                " has no kernel matching input types ",
+                                FormatArgTypes(values));
 }
 
 Status ScalarFunction::AddKernel(std::vector<InputType> in_types, OutputType out_type,

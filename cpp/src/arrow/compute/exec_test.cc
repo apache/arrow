@@ -698,7 +698,7 @@ TEST_F(TestExecScalarFunction, ArgumentValidation) {
 
   // Cannot do scalar
   args = {Datum(std::make_shared<Int32Scalar>(5))};
-  ASSERT_RAISES(KeyError, ExecScalarFunction(exec_ctx_.get(), "copy", args));
+  ASSERT_RAISES(NotImplemented, ExecScalarFunction(exec_ctx_.get(), "copy", args));
 }
 
 TEST_F(TestExecScalarFunction, PreallocationCases) {

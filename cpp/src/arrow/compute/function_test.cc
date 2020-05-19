@@ -134,7 +134,7 @@ void CheckAddDispatch(FunctionType* func) {
   ASSERT_TRUE(kernel->signature->Equals(expected_sig));
 
   // No kernel available
-  ASSERT_RAISES(KeyError, func->DispatchExact({utf8(), utf8()}));
+  ASSERT_RAISES(NotImplemented, func->DispatchExact({utf8(), utf8()}));
 
   // Wrong arity
   ASSERT_RAISES(Invalid, func->DispatchExact({}));
@@ -172,7 +172,7 @@ TEST(ArrayFunction, Varargs) {
 
   // No dispatch possible because args incompatible
   args[2] = int32();
-  ASSERT_RAISES(KeyError, va_func.DispatchExact(args));
+  ASSERT_RAISES(NotImplemented, va_func.DispatchExact(args));
 }
 
 TEST(ScalarAggregateFunction, Basics) {
@@ -226,7 +226,7 @@ TEST(ScalarAggregateFunction, DispatchExact) {
 
   // We declared that only arrays are accepted
   dispatch_args[0] = {ValueDescr::Scalar(int8())};
-  ASSERT_RAISES(KeyError, func.DispatchExact(dispatch_args));
+  ASSERT_RAISES(NotImplemented, func.DispatchExact(dispatch_args));
 
   // Didn't qualify the float64() kernel so this actually dispatches (even
   // though that may not be what you want)

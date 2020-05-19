@@ -21,7 +21,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/builder.h"
 #include "arrow/compute/kernels/common.h"
-#include "arrow/compute/kernels/vector_selection.h"
+#include "arrow/compute/kernels/vector_selection_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 
@@ -74,8 +74,9 @@ class FilterIndexSequence {
   int64_t index_ = 0, out_length_ = -1;
 };
 
-static int64_t OutputSize(FilterOptions::NullSelectionBehavior null_selection,
-                          const BooleanArray& filter) {
+int64_t FilterOutputSize(FilterOptions::NullSelectionBehavior null_selection,
+                         const Array& arr) {
+  const auto& filter = checked_cast<const BooleanArray&>(arr);
   // TODO(bkietz) this can be optimized. Use Bitmap::VisitWords
   int64_t size = 0;
   if (null_selection == FilterOptions::EMIT_NULL) {
@@ -95,12 +96,12 @@ static int64_t OutputSize(FilterOptions::NullSelectionBehavior null_selection,
 }
 
 struct FilterState : public KernelState {
-  FilterState(const FilterOptions& options) : options(options) {}
+  explicit FilterState(const FilterOptions& options) : options(options) {}
   FilterOptions options;
 };
 
 std::unique_ptr<KernelState> InitFilter(KernelContext*, const Kernel&,
-                                      const FunctionOptions* options) {
+                                        const FunctionOptions* options) {
   auto filter_options = static_cast<const FilterOptions*>(options);
   return std::unique_ptr<KernelState>(new FilterState{*filter_options});
 }
@@ -114,7 +115,7 @@ struct FilterFunctor {
     using IS = FilterIndexSequence<NullSelection>;
     ArrayType values(batch[0].array());
     BooleanArray filter(batch[1].array());
-    const int64_t output_size = OutputSize(NullSelection, filter);
+    const int64_t output_size = FilterOutputSize(NullSelection, filter);
     std::shared_ptr<Array> result;
     CTX_RETURN_IF_ERROR(ctx, Select(ctx, values, IS(filter, output_size), &result));
     out->value = result->data();
@@ -131,7 +132,6 @@ struct FilterFunctor {
 };
 
 struct FilterKernelVisitor {
-
   template <typename Type>
   Status Visit(const Type&) {
     this->result = FilterFunctor<Type>::Exec;

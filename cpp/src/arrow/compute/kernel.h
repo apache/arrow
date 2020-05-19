@@ -120,7 +120,7 @@ class ARROW_EXPORT InputType {
 
   InputType(std::shared_ptr<DataType> type,
             ValueDescr::Shape shape = ValueDescr::ANY)  // NOLINT implicit construction
-      : kind_(EXACT_TYPE), shape_(shape), type_(std::move(type)) {}
+      : kind_(EXACT_TYPE), shape_(shape), type_(std::move(type)), type_id_(type_->id()) {}
 
   InputType(const ValueDescr& descr)  // NOLINT implicit construction
       : InputType(descr.type, descr.shape) {}
@@ -201,13 +201,13 @@ class ARROW_EXPORT InputType {
 
   Kind kind_;
 
-  ValueDescr::Shape shape_;
+  ValueDescr::Shape shape_ = ValueDescr::ANY;
 
   // For EXACT_TYPE ArgKind
   std::shared_ptr<DataType> type_;
 
   // For SAME_TYPE_ID ArgKind
-  Type::type type_id_;
+  Type::type type_id_ = Type::NA;
 };
 
 /// \brief Container to capture both exact and input-dependent output types
@@ -230,7 +230,7 @@ class ARROW_EXPORT OutputType {
   using Resolver = std::function<Result<ValueDescr>(const std::vector<ValueDescr>&)>;
 
   OutputType(std::shared_ptr<DataType> type)  // NOLINT implicit construction
-      : kind_(FIXED), type_(std::move(type)), shape_(ValueDescr::ANY) {}
+      : kind_(FIXED), type_(std::move(type)) {}
 
   /// For outputting a particular type and shape
   OutputType(ValueDescr descr);  // NOLINT implicit construction
@@ -239,6 +239,7 @@ class ARROW_EXPORT OutputType {
 
   OutputType(const OutputType& other) {
     this->kind_ = other.kind_;
+    this->shape_ = other.shape_;
     this->type_ = other.type_;
     this->resolver_ = other.resolver_;
   }
@@ -246,6 +247,7 @@ class ARROW_EXPORT OutputType {
   OutputType(OutputType&& other) {
     this->kind_ = other.kind_;
     this->type_ = std::move(other.type_);
+    this->shape_ = other.shape_;
     this->resolver_ = other.resolver_;
   }
 
@@ -278,7 +280,7 @@ class ARROW_EXPORT OutputType {
   // For FIXED resolution
   std::shared_ptr<DataType> type_;
 
-  ValueDescr::Shape shape_;
+  ValueDescr::Shape shape_ = ValueDescr::ANY;
 
   // For COMPUTED resolution
   Resolver resolver_;
@@ -433,8 +435,8 @@ struct ScalarKernel : public ArrayKernel {
   MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE;
 };
 
-// Finalize returns Datum to permit multiple return values
-using VectorFinalize = std::function<void(KernelContext*, std::vector<Datum>*)>;
+// Convert intermediate result into finalized result
+using VectorFinalize = std::function<void(KernelContext*, const Datum&, Datum*)>;
 
 struct VectorKernel : public ArrayKernel {
   VectorKernel() {}
@@ -452,12 +454,17 @@ struct VectorKernel : public ArrayKernel {
 
   VectorFinalize finalize;
 
-  // Since vector kernels generally are implemented rather differently from
-  // scalar/elementwise kernels (and they may not even yield arrays of the same
-  // size), so we make the developer opt-in to any memory preallocation rather
-  // than having to turn it off.
+  /// Since vector kernels generally are implemented rather differently from
+  /// scalar/elementwise kernels (and they may not even yield arrays of the same
+  /// size), so we make the developer opt-in to any memory preallocation rather
+  /// than having to turn it off.
   NullHandling::type null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   MemAllocation::type mem_allocation = MemAllocation::NO_PREALLOCATE;
+
+  /// Some vector kernels can do chunkwise execution using ExecBatchIterator,
+  /// in some cases accumulating some state. Other kernels (like Take) need to
+  /// be passed whole arrays and don't work on ChunkedArray inputs
+  bool can_execute_chunkwise = true;
 };
 
 using ScalarAggregateConsume = std::function<void(KernelContext*, const ExecBatch&)>;

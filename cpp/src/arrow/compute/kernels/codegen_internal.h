@@ -192,8 +192,6 @@ struct ScalarPrimitiveExec {
     using OUT = typename OutType::c_type;
     using ARG0 = typename Arg0Type::c_type;
 
-    // No support for selection vectors yet implemented
-    DCHECK_EQ(nullptr, batch.selection_vector);
     if (batch[0].kind() == Datum::SCALAR) {
       ctx->SetStatus(Status::NotImplemented("NYI"));
     } else {
@@ -211,9 +209,6 @@ struct ScalarPrimitiveExec {
     using OUT = typename OutType::c_type;
     using ARG0 = typename Arg0Type::c_type;
     using ARG1 = typename Arg1Type::c_type;
-
-    // No support for selection vectors yet implemented
-    DCHECK_EQ(nullptr, batch.selection_vector);
 
     if (batch[0].kind() == Datum::SCALAR || batch[1].kind() == Datum::SCALAR) {
       ctx->SetStatus(Status::NotImplemented("NYI"));
@@ -319,8 +314,8 @@ using ScalarBinaryEqualTypes = ScalarBinary<OutType, ArgType, ArgType, Op, Flipp
 
 struct ScalarNumericEqualTypes {
   template <typename Op>
-  static ArrayKernelExec Unary(const DataType& in_type) {
-    switch (in_type.id()) {
+  static ArrayKernelExec Unary(const DataType& type) {
+    switch (type.id()) {
       case Type::INT8:
         return ScalarPrimitiveExec::Unary<Op, Int8Type, Int8Type>;
       case Type::UINT8:
@@ -348,8 +343,8 @@ struct ScalarNumericEqualTypes {
   }
 
   template <typename Op>
-  static ArrayKernelExec Binary(const DataType& in_type) {
-    switch (in_type.id()) {
+  static ArrayKernelExec Binary(const DataType& type) {
+    switch (type.id()) {
       case Type::INT8:
         return ScalarPrimitiveExec::Binary<Op, Int8Type, Int8Type, Int8Type>;
       case Type::UINT8:
@@ -379,8 +374,8 @@ struct ScalarNumericEqualTypes {
 
 template <template <typename...> class Generator,
           typename Type0, typename... Args>
-ArrayKernelExec Numeric(const DataType& in_type) {
-  switch (in_type.id()) {
+ArrayKernelExec Numeric(const DataType& type) {
+  switch (type.id()) {
     case Type::INT8:
       return Generator<Type0, Int8Type, Args...>::Exec;
     case Type::UINT8:
@@ -397,6 +392,10 @@ ArrayKernelExec Numeric(const DataType& in_type) {
       return Generator<Type0, Int64Type, Args...>::Exec;
     case Type::UINT64:
       return Generator<Type0, UInt64Type, Args...>::Exec;
+    case Type::FLOAT:
+      return Generator<Type0, FloatType, Args...>::Exec;
+    case Type::DOUBLE:
+      return Generator<Type0, DoubleType, Args...>::Exec;
     default:
       DCHECK(false);
       return ExecFail;
@@ -445,8 +444,8 @@ ArrayKernelExec Integer(const DataType& type) {
 
 template <template <typename...> class Generator,
           typename Type0, typename... Args>
-ArrayKernelExec BaseBinary(const DataType& in_type) {
-  switch (in_type.id()) {
+ArrayKernelExec BaseBinary(const DataType& type) {
+  switch (type.id()) {
     case Type::BINARY:
       return Generator<Type0, BinaryType, Args...>::Exec;
     case Type::STRING:
@@ -463,8 +462,8 @@ ArrayKernelExec BaseBinary(const DataType& in_type) {
 
 template <template <typename...> class Generator,
           typename Type0, typename... Args>
-ArrayKernelExec Temporal(const DataType& in_type) {
-  switch (in_type.id()) {
+ArrayKernelExec Temporal(const DataType& type) {
+  switch (type.id()) {
     case Type::DATE32:
       return Generator<Type0, Date32Type, Args...>::Exec;
     case Type::DATE64:

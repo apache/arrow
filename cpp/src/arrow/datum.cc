@@ -170,8 +170,35 @@ static std::string FormatValueDescr(const ValueDescr& descr) {
 std::string ValueDescr::ToString() const { return FormatValueDescr(*this); }
 
 std::string Datum::ToString() const {
-  // TODO: Formatting for other values
-  return FormatValueDescr(this->descr());
+  switch (this->kind()) {
+    case Datum::NONE:
+      return "nullptr";
+    case Datum::SCALAR:
+      return "Scalar";
+    case Datum::ARRAY:
+      return "Array";
+    case Datum::CHUNKED_ARRAY:
+      return "ChunkedArray";
+    case Datum::RECORD_BATCH:
+      return "RecordBatch";
+    case Datum::TABLE:
+      return "Table";
+    case Datum::COLLECTION: {
+      std::stringstream ss;
+      ss << "Collection(";
+      const auto& values = this->collection();
+      for (size_t i = 0; i < values.size(); ++i) {
+        if (i > 0) {
+          ss << ", ";
+        }
+        ss << values[i].ToString();
+      }
+      return ss.str();
+    }
+    default:
+      DCHECK(false);
+      break;
+  }
 }
 
 ValueDescr::Shape GetBroadcastShape(const std::vector<ValueDescr>& args) {

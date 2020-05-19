@@ -20,7 +20,7 @@
 
 #include "arrow/builder.h"
 #include "arrow/compute/kernels/common.h"
-#include "arrow/compute/kernels/vector_selection.h"
+#include "arrow/compute/kernels/vector_selection_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 
@@ -29,7 +29,7 @@ namespace compute {
 namespace internal {
 
 struct TakeState : public KernelState {
-  TakeState(const TakeOptions& options) : options(options) {}
+  explicit TakeState(const TakeOptions& options) : options(options) {}
   TakeOptions options;
 };
 
@@ -85,13 +85,14 @@ void RegisterVectorTake(FunctionRegistry* registry) {
   base.init = InitTake;
   base.mem_allocation = MemAllocation::NO_PREALLOCATE;
   base.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  base.can_execute_chunkwise = false;
 
   auto take = std::make_shared<VectorFunction>("take", /*arity=*/2);
 
   OutputType out_ty(FirstType);
   for (const auto& value_ty : PrimitiveTypes()) {
     InputType arg0_ty = InputType::Array(value_ty);
-    for (const auto& index_ty : SignedIntTypes()) {
+    for (const auto& index_ty : IntTypes()) {
       base.signature =
           KernelSignature::Make({arg0_ty, InputType::Array(index_ty)}, out_ty);
       DCHECK_OK(GetTakeKernel(*value_ty, *index_ty, &base.exec));
@@ -101,7 +102,7 @@ void RegisterVectorTake(FunctionRegistry* registry) {
 
   for (const auto& value_ty : g_dummy_parametric_types) {
     InputType arg0_ty = InputType::Array(value_ty->id());
-    for (const auto& index_ty : SignedIntTypes()) {
+    for (const auto& index_ty : IntTypes()) {
       base.signature =
           KernelSignature::Make({arg0_ty, InputType::Array(index_ty)}, out_ty);
       DCHECK_OK(GetTakeKernel(*value_ty, *index_ty, &base.exec));

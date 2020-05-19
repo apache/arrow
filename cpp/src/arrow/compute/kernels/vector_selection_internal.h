@@ -17,6 +17,9 @@
 
 #include <algorithm>
 #include <limits>
+#include <memory>
+#include <utility>
+#include <vector>
 
 #include "arrow/builder.h"
 #include "arrow/compute/kernels/common.h"
@@ -754,6 +757,9 @@ Status Taker<IndexSequence>::Make(const std::shared_ptr<DataType>& type,
   return VisitTypeInline(*type, &visitor);
 }
 
+int64_t FilterOutputSize(FilterOptions::NullSelectionBehavior null_selection,
+                         const Array& filter);
+
 template <typename IndexSequence>
 Status Select(KernelContext* ctx, const Array& values, IndexSequence sequence,
               std::shared_ptr<Array>* out) {
@@ -767,9 +773,15 @@ Status Select(KernelContext* ctx, const Array& values, IndexSequence sequence,
 // Construct dummy parametric types so that we can get VisitTypeInline to
 // work above
 static DataTypeVector g_dummy_parametric_types = {
-  fixed_size_binary(0),        list(null()),       struct_({}),       decimal(12, 2),
-  dictionary(int32(), null()), fixed_size_list(field("dummy", null()), 0),
-  large_list(null())};
+    decimal(12, 2),
+    fixed_size_binary(0),
+    list(null()),
+    large_list(null()),
+    fixed_size_list(field("dummy", null()), 0),
+    struct_({}),
+    union_({}),
+    dictionary(int32(), null()),
+    map(null(), null())};
 
 }  // namespace internal
 }  // namespace compute

@@ -237,7 +237,7 @@ TEST(OutputType, Constructors) {
   // ToString
 
   // ty1 was copied to ty3
-  ASSERT_EQ("int8", ty3.ToString());
+  ASSERT_EQ("any[int8]", ty3.ToString());
   ASSERT_EQ("computed", ty2.ToString());
 }
 
@@ -416,7 +416,8 @@ TEST(KernelSignature, ToString) {
                                      InputType(Type::DECIMAL, ValueDescr::ARRAY),
                                      InputType(utf8())};
   KernelSignature sig(in_types, utf8());
-  ASSERT_EQ("(scalar[int8], array[decimal*], any[string]) -> string", sig.ToString());
+  ASSERT_EQ("(scalar[int8], array[decimal*], any[string]) -> any[string]",
+            sig.ToString());
 
   OutputType out_type(
       [](const std::vector<ValueDescr>& args) { return Status::Invalid("NYI"); });
@@ -426,7 +427,7 @@ TEST(KernelSignature, ToString) {
 
 TEST(KernelSignature, VarargsToString) {
   KernelSignature sig({int8()}, utf8(), /*is_varargs=*/true);
-  ASSERT_EQ("varargs[any[int8]] -> string", sig.ToString());
+  ASSERT_EQ("varargs[any[int8]] -> any[string]", sig.ToString());
 }
 
 }  // namespace compute

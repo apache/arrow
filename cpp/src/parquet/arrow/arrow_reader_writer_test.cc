@@ -23,7 +23,6 @@
 
 #include "gtest/gtest.h"
 
-#include <arrow/compute/api.h>
 #include <cstdint>
 #include <functional>
 #include <iostream>

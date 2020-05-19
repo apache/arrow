@@ -18,9 +18,12 @@
 #include "arrow/compute/api_vector.h"
 
 #include <memory>
+#include <utility>
+#include <vector>
 
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/kernels/vector_selection_internal.h"
 #include "arrow/compute/options.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
@@ -43,11 +46,6 @@ Result<std::shared_ptr<Array>> SortToIndices(const Array& values, ExecContext* c
   ARROW_ASSIGN_OR_RAISE(Datum result,
                         ExecVectorFunction(ctx, "sort_indices", {Datum(values)}));
   return result.make_array();
-}
-
-Result<Datum> Filter(const Datum& values, const Datum& filter, FilterOptions options,
-                     ExecContext* ctx) {
-  return ExecVectorFunction(ctx, "take", {values, filter}, &options);
 }
 
 Result<Datum> Take(const Datum& values, const Datum& indices, const TakeOptions& options,
@@ -117,6 +115,62 @@ Result<std::shared_ptr<Array>> ValueCounts(const Datum& value, ExecContext* ctx)
   //     std::vector<std::shared_ptr<Array>>{uniques, MakeArray(value_counts.array())});
   // return Status::OK();
   return Status::NotImplemented("NYI");
+}
+
+// ----------------------------------------------------------------------
+// Filter with conveniences to filter RecordBatch, Table
+
+Result<std::shared_ptr<RecordBatch>> FilterRecordBatch(const RecordBatch& batch,
+                                                       const Datum& filter,
+                                                       FilterOptions options,
+                                                       ExecContext* ctx) {
+  if (!filter.is_array()) {
+    return Status::Invalid("Cannot filter a RecordBatch with a filter of kind ",
+                           filter.kind());
+  }
+
+  // TODO: Rewrite this to convert to selection vector and use Take
+  std::vector<std::shared_ptr<Array>> columns(batch.num_columns());
+  for (int i = 0; i < batch.num_columns(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(Datum out,
+                          Filter(batch.column(i)->data(), filter, options, ctx));
+    columns[i] = out.make_array();
+  }
+
+  int64_t out_length;
+  if (columns.size() == 0) {
+    out_length =
+        internal::FilterOutputSize(options.null_selection_behavior, *filter.make_array());
+  } else {
+    out_length = columns[0]->length();
+  }
+  return RecordBatch::Make(batch.schema(), out_length, columns);
+}
+
+Result<std::shared_ptr<Table>> FilterTable(const Table& table, const Datum& filter,
+                                           FilterOptions options, ExecContext* ctx) {
+  auto new_columns = table.columns();
+  for (auto& column : new_columns) {
+    ARROW_ASSIGN_OR_RAISE(Datum out_column, Filter(column, filter, options, ctx));
+    column = out_column.chunked_array();
+  }
+  return Table::Make(table.schema(), std::move(new_columns));
+}
+
+Result<Datum> Filter(const Datum& values, const Datum& filter, FilterOptions options,
+                     ExecContext* ctx) {
+  if (values.kind() == Datum::RECORD_BATCH) {
+    auto values_batch = values.record_batch();
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> out_batch,
+                          FilterRecordBatch(*values_batch, filter, options, ctx));
+    return Datum(out_batch);
+  } else if (values.kind() == Datum::TABLE) {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> out_table,
+                          FilterTable(*values.table(), filter, options, ctx));
+    return Datum(out_table);
+  } else {
+    return ExecVectorFunction(ctx, "filter", {values, filter}, &options);
+  }
 }
 
 // ----------------------------------------------------------------------
@@ -214,57 +268,6 @@ Result<std::shared_ptr<Table>> Take(const Table& table, const ChunkedArray& indi
   }
   return Table::Make(table.schema(), columns);
 }
-
-// ----------------------------------------------------------------------
-// Filter invocation conveniences
-
-// Status FilterRecordBatch(KernelContext* ctx, const RecordBatch& batch,
-//                          const Array& filter, FilterOptions options,
-//                          std::shared_ptr<RecordBatch>* out) {
-//   RETURN_NOT_OK(CheckFilterType(filter.type()));
-//   const auto& filter_array = checked_cast<const BooleanArray&>(filter);
-//   std::vector<std::unique_ptr<FilterKernel>> kernels(batch.num_columns());
-//   for (int i = 0; i < batch.num_columns(); ++i) {
-//     RETURN_NOT_OK(
-//         FilterKernel::Make(batch.schema()->field(i)->type(), options, &kernels[i]));
-//   }
-//   std::vector<std::shared_ptr<Array>> columns(batch.num_columns());
-//   auto out_length = OutputSize(options, filter_array);
-//   for (int i = 0; i < batch.num_columns(); ++i) {
-//     RETURN_NOT_OK(
-//         kernels[i]->Filter(ctx, *batch.column(i), filter_array, out_length,
-//         &columns[i]));
-//   }
-//   *out = RecordBatch::Make(batch.schema(), out_length, columns);
-//   return Status::OK();
-// }
-
-// Status Filter(KernelContext* ctx, const Datum& values, const Datum& filter,
-//               FilterOptions options, Datum* out) {
-//   if (values.kind() == Datum::RECORD_BATCH) {
-//     if (!filter.is_array()) {
-//       return Status::Invalid("Cannot filter a RecordBatch with a filter of kind ",
-//                              filter.kind());
-//     }
-//     auto values_batch = values.record_batch();
-//     auto filter_array = filter.make_array();
-//     std::shared_ptr<RecordBatch> out_batch;
-//     RETURN_NOT_OK(
-//         FilterRecordBatch(ctx, *values_batch, *filter_array, options, &out_batch));
-//     *out = std::move(out_batch);
-//     return Status::OK();
-//   }
-//   if (values.kind() == Datum::TABLE) {
-//     auto values_table = values.table();
-//     std::shared_ptr<Table> out_table;
-//     RETURN_NOT_OK(FilterTable(ctx, *values_table, filter, options, &out_table));
-//     *out = std::move(out_table);
-//     return Status::OK();
-//   }
-//   std::unique_ptr<FilterKernel> kernel;
-//   RETURN_NOT_OK(FilterKernel::Make(values.type(), options, &kernel));
-//   return kernel->Call(ctx, values, filter, out);
-// }
 
 }  // namespace compute
 }  // namespace arrow

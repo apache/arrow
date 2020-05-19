@@ -21,7 +21,6 @@
 #include <vector>
 
 #include "arrow/compute/api.h"
-#include "arrow/compute/kernel.h"
 #include "arrow/compute/test_util.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
@@ -48,7 +47,7 @@ std::shared_ptr<Array> CoalesceNullToFalse(std::shared_ptr<Array> filter) {
 }
 
 template <typename ArrowType>
-class TestFilterKernel : public TestBase {
+class TestFilterKernel : public ::testing::Test {
  protected:
   TestFilterKernel() {
     emit_null_.null_selection_behavior = FilterOptions::EMIT_NULL;
@@ -267,8 +266,8 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
     CType c_fifty = 50;
     auto fifty = std::make_shared<ScalarType>(c_fifty);
     for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-      ASSERT_OK_AND_ASSIGN(Datum selection,
-                           arrow::compute::Compare(array, fifty, CompareOptions(op)));
+      ASSERT_OK_AND_ASSIGN(Datum selection, arrow::compute::Compare(array, Datum(fifty),
+                                                                    CompareOptions(op)));
       ASSERT_OK_AND_ASSIGN(Datum filtered, arrow::compute::Filter(array, selection, {}));
       auto filtered_array = filtered.make_array();
       ASSERT_OK(filtered_array->ValidateFull());
@@ -315,10 +314,12 @@ TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
     CType c_fifty = 50, c_hundred = 100;
     auto fifty = std::make_shared<ScalarType>(c_fifty);
     auto hundred = std::make_shared<ScalarType>(c_hundred);
-    ASSERT_OK_AND_ASSIGN(Datum greater_than_fifty,
-                         arrow::compute::Compare(array, fifty, CompareOptions(GREATER)));
-    ASSERT_OK_AND_ASSIGN(Datum less_than_hundred,
-                         arrow::compute::Compare(array, hundred, CompareOptions(LESS)));
+    ASSERT_OK_AND_ASSIGN(
+        Datum greater_than_fifty,
+        arrow::compute::Compare(array, Datum(fifty), CompareOptions(GREATER)));
+    ASSERT_OK_AND_ASSIGN(
+        Datum less_than_hundred,
+        arrow::compute::Compare(array, Datum(hundred), CompareOptions(LESS)));
     ASSERT_OK_AND_ASSIGN(Datum selection,
                          arrow::compute::And(greater_than_fifty, less_than_hundred));
     ASSERT_OK_AND_ASSIGN(Datum filtered, arrow::compute::Filter(array, selection, {}));

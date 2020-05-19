@@ -327,8 +327,8 @@ if(ARROW_COMPUTE)
               compute/function.cc
               compute/kernel.cc
               compute/registry.cc
-              compute/kernels/codegen.cc
               compute/kernels/aggregate_basic.cc
+              compute/kernels/codegen_internal.cc
               compute/kernels/scalar_arithmetic.cc
               compute/kernels/scalar_boolean.cc
               compute/kernels/scalar_compare.cc
