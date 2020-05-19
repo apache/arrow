@@ -27,7 +27,7 @@ if [ "$RTOOLS_VERSION" = "35" ]; then
   # Use rtools-backports if building with rtools35
   curl https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf > /etc/pacman.conf
   pacman --noconfirm -Scc
-  pacman --noconfirm -Syyu
+  pacman --noconfirm -Syy
   # lib-4.9.3 is for libraries compiled with gcc 4.9 (Rtools 3.5)
   RWINLIB_LIB_DIR="lib-4.9.3"
 else
