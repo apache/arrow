@@ -29,8 +29,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/compute/api_eager.h"
-#include "arrow/compute/kernel.h"
+#include "arrow/compute/api.h"
 #include "arrow/compute/test_util.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"

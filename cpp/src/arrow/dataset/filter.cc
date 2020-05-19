@@ -28,7 +28,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
-#include "arrow/compute/api_eager.h"
+#include "arrow/compute/api.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"

@@ -46,5 +46,6 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 }  // namespace arrow

@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-#include "arrow/compute/api_eager.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/test_util.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"

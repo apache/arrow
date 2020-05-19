@@ -264,12 +264,12 @@ template <template <typename...> class ExecTemplate>
 struct SortingKernels {
   static void Add(VectorKernel base, VectorFunction* func) {
     for (const auto& ty : codegen::NumericTypes()) {
-      base.signature = KernelSignature::Make({ty}, uint64());
+      base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
       base.exec = codegen::NumericSetReturn<ExecTemplate, UInt64Type>(*ty);
       DCHECK_OK(func->AddKernel(base));
     }
     for (const auto& ty : codegen::BaseBinaryTypes()) {
-      base.signature = KernelSignature::Make({ty}, uint64());
+      base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
       base.exec = codegen::BaseBinarySetReturn<ExecTemplate, UInt64Type>(*ty);
       DCHECK_OK(func->AddKernel(base));
     }

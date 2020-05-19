@@ -1,7 +1,7 @@
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
-// regarding copyright ownership.  The ASF licenses this file
+// returnGegarding copyright ownership.  The ASF licenses this file
 // to you under the Apache License, Version 2.0 (the
 // "License"); you may not use this file except in compliance
 // with the License.  You may obtain a copy of the License at
@@ -15,28 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
 #include <algorithm>
 #include <limits>
-#include <memory>
-#include <type_traits>
-#include <utility>
-#include <vector>
 
+#include "arrow/array/concatenate.h"
 #include "arrow/builder.h"
-#include "arrow/compute/kernel.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/bit_util.h"
-#include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/compute/kernels/common.h"
+#include "arrow/record_batch.h"
+#include "arrow/result.h"
 
 namespace arrow {
 namespace compute {
-
-using internal::checked_cast;
-using internal::checked_pointer_cast;
 
 template <typename T, typename R = void>
 using enable_if_not_base_binary =
@@ -130,9 +119,9 @@ class Taker {
   // must be called once after construction before any other methods are called
   virtual Status Init() { return Status::OK(); }
 
-  // reset this Taker and set FunctionContext for taking an array
-  // must be called each time the FunctionContext may have changed
-  virtual Status SetContext(FunctionContext* ctx) = 0;
+  // reset this Taker and set KernelContext for taking an array
+  // must be called each time the KernelContext may have changed
+  virtual Status SetContext(KernelContext* ctx) = 0;
 
   // gather elements from an array at the provided indices
   virtual Status Take(const Array& values, IndexSequence indices) = 0;
@@ -247,7 +236,7 @@ class TakerImpl : public Taker<IndexSequence> {
 
   using Taker<IndexSequence>::Taker;
 
-  Status SetContext(FunctionContext* ctx) override {
+  Status SetContext(KernelContext* ctx) override {
     return this->MakeBuilder(ctx->memory_pool(), &builder_);
   }
 
@@ -277,7 +266,7 @@ class TakerImpl<IndexSequence, NullType> : public Taker<IndexSequence> {
  public:
   using Taker<IndexSequence>::Taker;
 
-  Status SetContext(FunctionContext*) override { return Status::OK(); }
+  Status SetContext(KernelContext*) override { return Status::OK(); }
 
   Status Take(const Array& values, IndexSequence indices) override {
     DCHECK(this->type_->Equals(values.type()));
@@ -313,7 +302,7 @@ class ListTakerImpl : public Taker<IndexSequence> {
     return Taker<RangeIndexSequence>::Make(list_type.value_type(), &value_taker_);
   }
 
-  Status SetContext(FunctionContext* ctx) override {
+  Status SetContext(KernelContext* ctx) override {
     auto pool = ctx->memory_pool();
     null_bitmap_builder_.reset(new TypedBufferBuilder<bool>(pool));
     offset_builder_.reset(new TypedBufferBuilder<offset_type>(pool));
@@ -392,7 +381,7 @@ class TakerImpl<IndexSequence, FixedSizeListType> : public Taker<IndexSequence> 
     return Taker<RangeIndexSequence>::Make(list_type.value_type(), &value_taker_);
   }
 
-  Status SetContext(FunctionContext* ctx) override {
+  Status SetContext(KernelContext* ctx) override {
     auto pool = ctx->memory_pool();
     null_bitmap_builder_.reset(new TypedBufferBuilder<bool>(pool));
     return value_taker_->SetContext(ctx);
@@ -450,7 +439,7 @@ class TakerImpl<IndexSequence, StructType> : public Taker<IndexSequence> {
     return Status::OK();
   }
 
-  Status SetContext(FunctionContext* ctx) override {
+  Status SetContext(KernelContext* ctx) override {
     null_bitmap_builder_.reset(new TypedBufferBuilder<bool>(ctx->memory_pool()));
     for (int i = 0; i < this->type_->num_fields(); ++i) {
       RETURN_NOT_OK(children_[i]->SetContext(ctx));
@@ -526,7 +515,7 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
     return Status::OK();
   }
 
-  Status SetContext(FunctionContext* ctx) override {
+  Status SetContext(KernelContext* ctx) override {
     pool_ = ctx->memory_pool();
     null_bitmap_builder_.reset(new TypedBufferBuilder<bool>(pool_));
     type_code_builder_.reset(new TypedBufferBuilder<int8_t>(pool_));
@@ -684,7 +673,7 @@ class TakerImpl<IndexSequence, DictionaryType> : public Taker<IndexSequence> {
     return Taker<IndexSequence>::Make(dict_type.index_type(), &index_taker_);
   }
 
-  Status SetContext(FunctionContext* ctx) override {
+  Status SetContext(KernelContext* ctx) override {
     dictionary_ = nullptr;
     return index_taker_->SetContext(ctx);
   }
@@ -725,7 +714,7 @@ class TakerImpl<IndexSequence, ExtensionType> : public Taker<IndexSequence> {
     return Taker<IndexSequence>::Make(ext_type.storage_type(), &storage_taker_);
   }
 
-  Status SetContext(FunctionContext* ctx) override {
+  Status SetContext(KernelContext* ctx) override {
     return storage_taker_->SetContext(ctx);
   }
 
@@ -765,5 +754,256 @@ Status Taker<IndexSequence>::Make(const std::shared_ptr<DataType>& type,
   return VisitTypeInline(*type, &visitor);
 }
 
+// ----------------------------------------------------------------------
+// Filter implementation
+
+// IndexSequence which yields the indices of positions in a BooleanArray
+// which are either null or true
+template <FilterOptions::NullSelectionBehavior NullSelectionBehavior>
+class FilterIndexSequence {
+ public:
+  // constexpr so we'll never instantiate bounds checking
+  constexpr bool never_out_of_bounds() const { return true; }
+  void set_never_out_of_bounds() {}
+
+  constexpr FilterIndexSequence() = default;
+
+  FilterIndexSequence(const BooleanArray& filter, int64_t out_length)
+      : filter_(&filter), out_length_(out_length) {}
+
+  std::pair<int64_t, bool> Next() {
+    if (NullSelectionBehavior == FilterOptions::DROP) {
+      // skip until an index is found at which the filter is true
+      while (filter_->IsNull(index_) || !filter_->Value(index_)) {
+        ++index_;
+      }
+      return std::make_pair(index_++, true);
+    }
+
+    // skip until an index is found at which the filter is either null or true
+    while (filter_->IsValid(index_) && !filter_->Value(index_)) {
+      ++index_;
+    }
+    bool is_valid = filter_->IsValid(index_);
+    return std::make_pair(index_++, is_valid);
+  }
+
+  int64_t length() const { return out_length_; }
+
+  int64_t null_count() const {
+    if (NullSelectionBehavior == FilterOptions::DROP) {
+      return 0;
+    }
+    return filter_->null_count();
+  }
+
+ private:
+  const BooleanArray* filter_ = nullptr;
+  int64_t index_ = 0, out_length_ = -1;
+};
+
+static int64_t OutputSize(FilterOptions options, const BooleanArray& filter) {
+  // TODO(bkietz) this can be optimized. Use Bitmap::VisitWords
+  int64_t size = 0;
+  if (options.null_selection_behavior == FilterOptions::EMIT_NULL) {
+    for (auto i = 0; i < filter.length(); ++i) {
+      if (filter.IsNull(i) || filter.Value(i)) {
+        ++size;
+      }
+    }
+  } else {
+    for (auto i = 0; i < filter.length(); ++i) {
+      if (filter.IsValid(i) && filter.Value(i)) {
+        ++size;
+      }
+    }
+  }
+  return size;
+}
+
+// ----------------------------------------------------------------------
+// Take implementation
+
+
+template <typename ValueType, typename IndexType>
+struct FilterFunctor {
+  using ValueArrayType = typename TypeTraits<ValueType>::ArrayType;
+
+  template <typename IS>
+  static void ExecWith(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    std::shared_ptr<Array> arg0 = batch[0].make_array();
+    std::shared_ptr<Array> arg1 = batch[1].make_array();
+
+    std::unique_ptr<Taker<IS>> taker;
+    CTX_RETURN_IF_ERROR(ctx, Taker<IS>::Make(arg0->type(), &taker));
+
+
+    RETURN_NOT_OK(taker_->SetContext(ctx));
+    RETURN_NOT_OK(taker_->Take(values, IndexSequence(filter, out_length)));
+    return taker_->Finish(out);
+
+    CTX_RETURN_IF_ERROR(ctx, taker->SetContext(ctx));
+    CTX_RETURN_IF_ERROR(ctx, taker->Take(*arg0, IS(*arg1)));
+
+    std::shared_ptr<Array> result;
+    CTX_RETURN_IF_ERROR(ctx, taker_->Finish(*result));
+    out->value = result;
+
+    for (size_t i = 0; i < value_chunks.size(); ++i) {
+      auto filter_chunk = checked_pointer_cast<BooleanArray>(filter_chunks[i]);
+      RETURN_NOT_OK(this->Filter(ctx, *value_chunks[i], *filter_chunk,
+                                 OutputSize(options_, *filter_chunk), &value_chunks[i]));
+    }
+
+    if (values.is_array() && filter.is_array()) {
+      *out = std::move(value_chunks[0]);
+    } else {
+      // drop empty chunks
+      value_chunks.erase(
+          std::remove_if(value_chunks.begin(), value_chunks.end(),
+                         [](const std::shared_ptr<Array>& a) { return a->length() == 0; }),
+          value_chunks.end());
+
+      *out = std::make_shared<ChunkedArray>(std::move(value_chunks), values.type());
+    }
+  }
+
+  Status Filter(KernelContext* ctx, const Array& values, const BooleanArray& filter,
+                int64_t out_length, std::shared_ptr<Array>* out) override {
+  }
+
+
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (options.null_selection_behavior == FilterOptions::EMIT_NULL) {
+      ExecWith<FilterIndexSequence<FilterOptions::EMIT_NULL>>(ctx, batch, out);
+    } else {
+      ExecWith<FilterIndexSequence<FilterOptions::DROP>>(ctx, batch, out);
+    }
+  }
+};
+
+template <typename ValueType, typename IndexType>
+struct TakeFunctor {
+  using ValueArrayType = typename TypeTraits<ValueType>::ArrayType;
+  using IndexArrayType = typename TypeTraits<IndexType>::ArrayType;
+  using IS = ArrayIndexSequence<IndexType>;
+
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    std::shared_ptr<Array> arg0 = batch[0].make_array();
+    std::shared_ptr<Array> arg1 = batch[1].make_array();
+    std::unique_ptr<Taker<IS>> taker;
+
+    CTX_RETURN_IF_ERROR(ctx, Taker<IS>::Make(arg0.type(), &taker));
+    CTX_RETURN_IF_ERROR(ctx, taker->SetContext(ctx));
+    CTX_RETURN_IF_ERROR(ctx, taker->Take(*arg0, IS(*arg1)));
+
+    std::shared_ptr<Array> result;
+    CTX_RETURN_IF_ERROR(ctx, taker_->Finish(*result));
+    out->value = result;
+  }
+};
+
+template <template <typename...> class Functor,
+          typename ValueType>
+struct IndexDispatch {
+  ArrayKernelExec GetKernel(const DataType& index_type) {
+    switch (index_type.id()) {
+      case Type::INT8:
+        return Functor<ValueType, Int8Type>::Exec;
+      case Type::INT16:
+        return Functor<ValueType, Int16Type>::Exec;
+      case Type::INT32:
+        return Functor<ValueType, Int32Type>::Exec;
+      case Type::INT64:
+        return Functor<ValueType, Int64Type>::Exec;
+      case Type::UINT8:
+        return Functor<ValueType, UInt8Type>::Exec;
+      case Type::UINT16:
+        return Functor<ValueType, UInt16Type>::Exec;
+      case Type::UINT32:
+        return Functor<ValueType, UInt32Type>::Exec;
+      case Type::UINT64:
+        return Functor<ValueType, UInt64Type>::Exec;
+      default:
+        DCHECK(false) << "Index type not supported";
+        return ExecFail;
+    }
+  }
+};
+
+struct TakeVisitor {
+  TakeVisitor(const DataType& value_type, const DataType& index_type)
+      : value_type(value_type), index_type(index_type) {}
+
+  Status Visit(const T&) {
+    this->result = IndexDispatch<T>::GetKernel(index_type);
+    return Status::OK();
+  }
+
+  Status Create() { return VisitTypeInline(value_type, this); }
+
+  const DataType& value_type;
+  const DataType& index_type;
+  ArrayKernelExec result;
+};
+
+Status GetTakeKernel(const DataType& value_type, const DataType& index_type,
+                     ArrayKernelExec* exec) {
+  TakeVisitor visitor(value_type, index_type);
+  RETURN_NOT_OK(visitor.Create());
+  *exec = visitor.result;
+  return Status::OK();
+}
+
+namespace internal {
+
+static DataTypeVector g_take_index_types = {int8(), int16(), int32(), int64()};
+
+Result<ValueDescr> FirstType(const std::vector<ValueDescr>& descrs) { return descrs[0]; }
+
+void RegisterTakeFunctions(FunctionRegistry* registry) {
+  VectorKernel base;
+  base.init = TakeInit;
+  base.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  base.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+
+  auto take = std::make_shared<VectorFunction>("take", /*arity=*/1);
+
+  DataTypeVector exact_types;
+  codegen::Extend({boolean()}, &exact_types);
+  codegen::Extend(NumericTypes(), &exact_types);
+  codegen::Extend(TemporalTypes(), &exact_types);
+  codegen::Extend(BaseBinaryTypes(), &exact_types);
+
+  OutputType out_sig_type(FirstType);
+  for (const auto& value_ty : types) {
+    InputType arg0_ty = InputType::Array(value_ty);
+    for (const auto& index_ty : g_take_index_types) {
+      base.signature =
+          KernelSignature::Make({arg0_ty, InputType::Array(index_ty)}, out_sig_type);
+      base.exec = GetTakeKernel(*value_ty, *index_ty);
+      DCHECK_OK(take->AddKernel(base));
+    }
+  }
+
+  // Construct dummy parametric types so that we can get VisitTypeInline to
+  // work above
+  DataTypeVector parametric_types = {
+      fixed_size_binary(0),        list(null()),       struct_({}),       decimal(12, 2),
+      dictionary(int32(), null()), fixed_size_list(0), large_list(null())};
+  OutputType out_sig_type(FirstType);
+  for (const auto& value_ty : parametric_types) {
+    InputType arg0_ty = InputType::Array(value_ty->id());
+    for (const auto& index_ty : g_take_index_types) {
+      base.signature =
+          KernelSignature::Make({arg0_ty, InputType::Array(index_ty)}, out_sig_type);
+      base.exec = GetTakeKernel(*value_ty, *index_ty);
+      DCHECK_OK(take->AddKernel(base));
+    }
+  }
+  DCHECK_OK(registry->AddFunction(std::move(take)));
+}
+
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

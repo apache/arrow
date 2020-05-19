@@ -43,7 +43,7 @@
 #include "arrow/util/utf8.h"
 #include "arrow/visitor_inline.h"
 
-#include "arrow/compute/api_eager.h"
+#include "arrow/compute/api_scalar.h"
 
 #include "arrow/python/common.h"
 #include "arrow/python/config.h"

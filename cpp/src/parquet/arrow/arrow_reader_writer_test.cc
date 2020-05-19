@@ -31,7 +31,7 @@
 #include <vector>
 
 #include "arrow/api.h"
-#include "arrow/compute/api_eager.h"
+#include "arrow/compute/api.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"

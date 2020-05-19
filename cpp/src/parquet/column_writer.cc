@@ -28,7 +28,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer_builder.h"
-#include "arrow/compute/api_eager.h"
+#include "arrow/compute/api.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"

@@ -30,6 +30,14 @@
 namespace arrow {
 namespace compute {
 
+#define CTX_RETURN_IF_ERROR(CTX, STATUS)        \
+  do {                                          \
+    if (ARROW_PREDICT_FALSE(!STATUS.ok()))      \
+      (CTX)->SetStatus(STATUS);                 \
+      return;                                   \
+    }                                           \
+  } while (0)
+
 // A kernel that exposes Call methods that handles iteration over ArrayData
 // inputs itself
 //
@@ -197,6 +205,13 @@ void ExecFail(KernelContext* ctx, const ExecBatch& batch, Datum* out);
 // are all the same
 
 namespace codegen {
+
+template <typename T>
+void Extend(const std::vector<T>& values, std::vector<T>* out) {
+  for (const auto& t : values) {
+    out->push_back(t);
+  }
+}
 
 const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes();
 const std::vector<std::shared_ptr<DataType>>& SignedIntTypes();

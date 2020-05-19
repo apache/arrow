@@ -84,6 +84,8 @@ class ARROW_EXPORT KernelContext {
   /// \brief Common state related to function execution
   ExecContext* exec_context() { return exec_ctx_; }
 
+  MemoryPool* memory_pool() { return exec_ctx_->memory_pool(); }
+
  private:
   ExecContext* exec_ctx_;
   Status status_;
