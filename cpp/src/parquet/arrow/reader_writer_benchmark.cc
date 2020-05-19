@@ -126,7 +126,7 @@ std::shared_ptr<::arrow::Table> TableFromVector(
   NumericBuilder<ArrowType<ParquetType>> builder;
   if (nullable) {
     // Note true values select index 1 of sample_values
-    auto valid_bytes = RandomVector<uint8_t>(/*true_percengate=*/null_percentage,
+    auto valid_bytes = RandomVector<uint8_t>(/*true_percentage=*/null_percentage,
                                              BENCHMARK_SIZE, /*sample_values=*/{1, 0});
     EXIT_NOT_OK(builder.AppendValues(vec.data(), vec.size(), valid_bytes.data()));
   } else {
