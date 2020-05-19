@@ -1107,8 +1107,13 @@ impl JsonEqual for UnionArray {
 }
 
 impl JsonEqual for NullArray {
-    fn equals_json(&self, _json: &[&Value]) -> bool {
-        unimplemented!("JsonEqual for NullArray not yet supported")
+    fn equals_json(&self, json: &[&Value]) -> bool {
+        if self.len() != json.len() {
+            return false;
+        }
+
+        // all JSON values must be nulls
+        json.iter().all(|&v| v == &JNull)
     }
 }
 

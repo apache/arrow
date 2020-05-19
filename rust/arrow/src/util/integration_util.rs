@@ -125,7 +125,10 @@ impl ArrowJsonBatch {
                 }
                 let json_array: Vec<Value> = json_from_col(&col, field.data_type());
                 match field.data_type() {
-                    DataType::Null => unimplemented!(),
+                    DataType::Null => {
+                        let arr = arr.as_any().downcast_ref::<NullArray>().unwrap();
+                        arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                    }
                     DataType::Boolean => {
                         let arr = arr.as_any().downcast_ref::<BooleanArray>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
