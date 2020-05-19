@@ -101,6 +101,14 @@ test_that("RecordBatch", {
   expect_error(batch$RemoveColumn("one"), class = "Rcpp::not_compatible")
 })
 
+test_that("RecordBatch S3 methods", {
+  tab <- RecordBatch$create(iris)
+  for (f in c("dim", "nrow", "ncol", "dimnames", "colnames", "row.names", "as.list")) {
+    fun <- get(f)
+    expect_identical(fun(tab), fun(iris), info = f)
+  }
+})
+
 test_that("RecordBatch$Slice", {
   batch3 <- batch$Slice(5)
   expect_data_frame(batch3, tbl[6:10,])

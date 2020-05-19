@@ -199,9 +199,16 @@ as.data.frame.Table <- function(x, row.names = NULL, optional = FALSE, ...) {
 }
 
 #' @export
-dim.Table <- function(x) {
-  c(x$num_rows, x$num_columns)
-}
+as.list.Table <- as.list.RecordBatch
+
+#' @export
+row.names.Table <- row.names.RecordBatch
+
+#' @export
+dimnames.Table <- dimnames.RecordBatch
+
+#' @export
+dim.Table <- function(x) c(x$num_rows, x$num_columns)
 
 #' @export
 names.Table <- function(x) x$ColumnNames()
