@@ -615,6 +615,7 @@ mod tests {
                 Field::new("float16", DataType::Float16, true),
                 Field::new("float32", DataType::Float32, false),
                 Field::new("float64", DataType::Float64, true),
+                Field::new("null", DataType::Null, false),
                 Field::new("bool", DataType::Boolean, false),
                 Field::new("date32", DataType::Date32(DateUnit::Day), false),
                 Field::new("date64", DataType::Date64(DateUnit::Millisecond), true),
