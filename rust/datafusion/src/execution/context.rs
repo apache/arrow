@@ -41,6 +41,7 @@ use crate::execution::physical_plan::expressions::{
 use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
 use crate::execution::physical_plan::limit::LimitExec;
 use crate::execution::physical_plan::math_expressions::register_math_functions;
+use crate::execution::physical_plan::memory::MemoryExec;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::parquet::ParquetExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
@@ -299,6 +300,16 @@ impl ExecutionContext {
                     table_name
                 ))),
             },
+            LogicalPlan::InMemoryScan {
+                data,
+                schema,
+                projection,
+                ..
+            } => Ok(Arc::new(MemoryExec::try_new(
+                data,
+                Arc::new(schema.as_ref().to_owned()),
+                projection.to_owned(),
+            )?)),
             LogicalPlan::CsvScan {
                 path,
                 schema,
@@ -897,7 +908,7 @@ mod tests {
 
         let mut ctx = ExecutionContext::new();
 
-        let provider = MemTable::new(Arc::new(schema), vec![batch])?;
+        let provider = MemTable::new(Arc::new(schema), vec![vec![batch]])?;
         ctx.register_table("t", Box::new(provider));
 
         let myfunc: ScalarUdf = |args: &[ArrayRef]| {

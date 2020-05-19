@@ -30,6 +30,7 @@ use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::optimizer::utils;
 use crate::sql::parser::FileType;
+use arrow::record_batch::RecordBatch;
 
 /// Enumeration of supported function types (Scalar and Aggregate)
 #[derive(Debug, Clone)]
@@ -529,6 +530,17 @@ pub enum LogicalPlan {
         /// The projected schema
         projected_schema: Box<Schema>,
     },
+    /// A table scan against a vector of record batches
+    InMemoryScan {
+        /// Record batch partitions
+        data: Vec<Vec<RecordBatch>>,
+        /// The schema of the record batches
+        schema: Box<Schema>,
+        /// Optional column indices to use as a projection
+        projection: Option<Vec<usize>>,
+        /// The projected schema
+        projected_schema: Box<Schema>,
+    },
     /// A table scan against a Parquet data source
     ParquetScan {
         /// The path to the files
@@ -587,6 +599,9 @@ impl LogicalPlan {
     pub fn schema(&self) -> &Box<Schema> {
         match self {
             LogicalPlan::EmptyRelation { schema } => &schema,
+            LogicalPlan::InMemoryScan {
+                projected_schema, ..
+            } => &projected_schema,
             LogicalPlan::CsvScan {
                 projected_schema, ..
             } => &projected_schema,
@@ -621,6 +636,9 @@ impl LogicalPlan {
                 ref projection,
                 ..
             } => write!(f, "TableScan: {} projection={:?}", table_name, projection),
+            LogicalPlan::InMemoryScan { ref projection, .. } => {
+                write!(f, "InMemoryScan: projection={:?}", projection)
+            }
             LogicalPlan::CsvScan {
                 ref path,
                 ref projection,
