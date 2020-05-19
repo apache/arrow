@@ -2329,9 +2329,9 @@ mod tests {
     #[test]
     fn test_string_dictionary_builder_with_existing_dictionary() {
         let mut dictionary_builder = StringBuilder::new(3);
-        dictionary_builder.append_null();
-        dictionary_builder.append_value("def");
-        dictionary_builder.append_value("abc");
+        dictionary_builder.append_null().unwrap();
+        dictionary_builder.append_value("def").unwrap();
+        dictionary_builder.append_value("abc").unwrap();
 
         let dictionary = dictionary_builder.finish();
 
@@ -2368,7 +2368,7 @@ mod tests {
     #[test]
     fn test_string_dictionary_builder_with_reserved_null_value() {
         let mut dictionary_builder = StringBuilder::new(1);
-        dictionary_builder.append_null();
+        dictionary_builder.append_null().unwrap();
 
         let dictionary = dictionary_builder.finish();
 
