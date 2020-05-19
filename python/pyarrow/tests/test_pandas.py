@@ -40,7 +40,7 @@ import pyarrow as pa
 try:
     from pyarrow import parquet as pq
 except ImportError:
-    pq = None
+    pass
 
 try:
     import pandas as pd
@@ -3950,7 +3950,7 @@ def test_metadata_compat_missing_field_name():
     tm.assert_frame_equal(result, expected, check_like=True)
 
 
-@pytest.mark.skipif(pq is None, reason="Parquet not available")
+@pytest.mark.parquet
 def test_timestamp_as_object():
     # Timestamps can be stored as Parquet and reloaded into Pandas with no loss
     # of information if the timestamp_as_object option is True.
