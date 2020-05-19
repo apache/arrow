@@ -192,10 +192,12 @@ class SchemaWriter {
 
     if (type->id() == Type::DICTIONARY) {
       const auto& dict_type = checked_cast<const DictionaryType&>(*type);
+      // Ensure we visit child fields first so that, in the case of nested
+      // dictionaries, inner dictionaries get a smaller id than outer dictionaries.
+      RETURN_NOT_OK(WriteChildren(dict_type.value_type()->fields()));
       int64_t dictionary_id = -1;
       RETURN_NOT_OK(dictionary_memo_->GetOrAssignId(field, &dictionary_id));
       RETURN_NOT_OK(WriteDictionaryMetadata(dictionary_id, dict_type));
-      RETURN_NOT_OK(WriteChildren(dict_type.value_type()->fields()));
     } else {
       RETURN_NOT_OK(WriteChildren(type->fields()));
     }
