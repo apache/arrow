@@ -201,7 +201,11 @@ static void BM_PlainDecodingFloat(benchmark::State& state) {
 BENCHMARK(BM_PlainDecodingFloat)->Range(MIN_RANGE, MAX_RANGE);
 
 template <typename ParquetType>
-struct BM_SpacedEncodingTraits;
+struct BM_SpacedEncodingTraits {
+  using ArrowType = typename EncodingTraits<ParquetType>::ArrowType;
+  using ArrayType = typename arrow::TypeTraits<ArrowType>::ArrayType;
+  using CType = typename ParquetType::c_type;
+};
 
 template <>
 struct BM_SpacedEncodingTraits<BooleanType> {
@@ -209,20 +213,6 @@ struct BM_SpacedEncodingTraits<BooleanType> {
   using ArrowType = ::arrow::UInt8Type;
   using ArrayType = ::arrow::UInt8Array;
   using CType = bool;
-};
-
-template <>
-struct BM_SpacedEncodingTraits<FloatType> {
-  using ArrowType = typename EncodingTraits<FloatType>::ArrowType;
-  using ArrayType = typename arrow::TypeTraits<ArrowType>::ArrayType;
-  using CType = typename FloatType::c_type;
-};
-
-template <>
-struct BM_SpacedEncodingTraits<DoubleType> {
-  using ArrowType = typename EncodingTraits<DoubleType>::ArrowType;
-  using ArrayType = typename arrow::TypeTraits<ArrowType>::ArrayType;
-  using CType = typename DoubleType::c_type;
 };
 
 static void BM_PlainSpacedArgs(benchmark::internal::Benchmark* bench) {
@@ -244,19 +234,22 @@ static void BM_PlainEncodingSpaced(benchmark::State& state) {
   using CType = typename BM_SpacedEncodingTraits<ParquetType>::CType;
 
   const auto num_values = state.range(0);
-  const double null_percent = static_cast<double>(state.range(1)) / 100.0;
+  const auto null_percent = static_cast<double>(state.range(1)) / 100.0;
 
   auto rand = ::arrow::random::RandomArrayGenerator(1923);
   const auto array = rand.Numeric<ArrowType>(num_values, -100, 100, null_percent);
   const auto valid_bits = array->null_bitmap_data();
   const auto array_actual = arrow::internal::checked_pointer_cast<ArrayType>(array);
+  const auto raw_values = array_actual->raw_values();
+  // Guarantee the type cast between raw_values and input of PutSpaced.
+  static_assert(sizeof(CType) == sizeof(*raw_values));
+  // Cast only happens for BooleanType as it use UInt8 for the array data to match a bool*
+  // input to PutSpaced.
+  const auto src = reinterpret_cast<const CType*>(raw_values);
 
   auto encoder = MakeTypedEncoder<ParquetType>(Encoding::PLAIN);
   for (auto _ : state) {
-    // Cast only happens for special BooleanType as it use UInt8 for the array data to
-    // match a bool* input to PutSpaced.
-    encoder->PutSpaced(reinterpret_cast<const CType*>(array_actual->raw_values()),
-                       num_values, valid_bits, 0);
+    encoder->PutSpaced(src, num_values, valid_bits, 0);
     encoder->FlushValues();
   }
   state.SetBytesProcessed(state.iterations() * num_values * sizeof(CType));
@@ -284,19 +277,22 @@ static void BM_PlainDecodingSpaced(benchmark::State& state) {
   using CType = typename BM_SpacedEncodingTraits<ParquetType>::CType;
 
   const auto num_values = state.range(0);
-  const double null_percent = static_cast<double>(state.range(1)) / 100.0;
+  const auto null_percent = static_cast<double>(state.range(1)) / 100.0;
 
   auto rand = ::arrow::random::RandomArrayGenerator(1923);
   const auto array = rand.Numeric<ArrowType>(num_values, -100, 100, null_percent);
   const auto valid_bits = array->null_bitmap_data();
   const auto null_count = array->null_count();
   const auto array_actual = arrow::internal::checked_pointer_cast<ArrayType>(array);
+  const auto raw_values = array_actual->raw_values();
+  // Guarantee the type cast between raw_values and input of PutSpaced.
+  static_assert(sizeof(CType) == sizeof(*raw_values));
+  // Cast only happens for BooleanType as it use UInt8 for the array data to match a bool*
+  // input to PutSpaced.
+  const auto src = reinterpret_cast<const CType*>(raw_values);
 
   auto encoder = MakeTypedEncoder<ParquetType>(Encoding::PLAIN);
-  // Cast only happens for special BooleanType as it use UInt8 for the array data to match
-  // a bool* input to PutSpaced.
-  encoder->PutSpaced(reinterpret_cast<const CType*>(array_actual->raw_values()),
-                     num_values, valid_bits, 0);
+  encoder->PutSpaced(src, num_values, valid_bits, 0);
   std::shared_ptr<Buffer> buf = encoder->FlushValues();
 
   auto decoder = MakeTypedDecoder<ParquetType>(Encoding::PLAIN);
