@@ -30,6 +30,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_ops.h"
 
 namespace arrow {
 namespace internal {
