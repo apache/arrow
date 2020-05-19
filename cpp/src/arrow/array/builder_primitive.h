@@ -66,10 +66,10 @@ class NumericBuilder : public ArrayBuilder {
   template <typename T1 = T>
   explicit NumericBuilder(
       enable_if_parameter_free<T1, MemoryPool*> pool = default_memory_pool())
-      : ArrayBuilder(pool), type_(TypeTraits<T>::type_singleton()) {}
+      : ArrayBuilder(pool), type_(TypeTraits<T>::type_singleton()), data_builder_(pool) {}
 
   NumericBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : ArrayBuilder(pool), type_(type) {}
+      : ArrayBuilder(pool), type_(type), data_builder_(pool) {}
 
   /// Append a single scalar and increase the size if necessary.
   Status Append(const value_type val) {
