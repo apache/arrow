@@ -17,7 +17,7 @@
 
 use std::env;
 use std::fs::File;
-use std::io::{self, BufReader, BufWriter};
+use std::io::{self, BufReader};
 
 use arrow::error::Result;
 use arrow::ipc::reader::FileReader;
@@ -25,7 +25,7 @@ use arrow::ipc::writer::StreamWriter;
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
-    eprintln!("Rust: arrow-file-to-stream; args={:?}", args);
+    eprintln!("{:?}", args);
 
     let filename = &args[1];
     eprintln!("Reading from Arrow file {}", filename);
@@ -35,13 +35,14 @@ fn main() -> Result<()> {
     let mut reader = FileReader::try_new(reader)?;
     let schema = reader.schema();
 
-    let writer = BufWriter::new(io::stdout());
-    let mut writer = StreamWriter::try_new(writer, &schema)?;
+    let mut writer = StreamWriter::try_new(io::stdout(), &schema)?;
 
     while let Some(batch) = reader.next()? {
         writer.write(&batch)?;
     }
     writer.finish()?;
+
+    eprintln!("Completed without error");
 
     Ok(())
 }

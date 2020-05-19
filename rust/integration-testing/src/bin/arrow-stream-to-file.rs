@@ -15,27 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::io::BufWriter;
-use std::io::{self, BufReader};
+use std::env;
+use std::io;
 
 use arrow::error::Result;
 use arrow::ipc::reader::StreamReader;
 use arrow::ipc::writer::FileWriter;
 
 fn main() -> Result<()> {
-    eprintln!("Rust: arrow-stream-to-file");
+    let args: Vec<String> = env::args().collect();
+    eprintln!("{:?}", args);
 
-    let reader = BufReader::new(io::stdin());
-    let mut arrow_stream_reader = StreamReader::try_new(reader)?;
+    let mut arrow_stream_reader = StreamReader::try_new(io::stdin())?;
     let schema = arrow_stream_reader.schema();
 
-    let writer = BufWriter::new(io::stdout());
-    let mut writer = FileWriter::try_new(writer, &schema)?;
+    let mut writer = FileWriter::try_new(io::stdout(), &schema)?;
 
     while let Some(batch) = arrow_stream_reader.next()? {
         writer.write(&batch)?;
     }
     writer.finish()?;
+
+    eprintln!("Completed without error");
 
     Ok(())
 }
