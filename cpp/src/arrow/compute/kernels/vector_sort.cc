@@ -21,50 +21,63 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/builder.h"
-#include "arrow/compute/kernel.h"
-#include "arrow/type_traits.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/compute/kernels/common.h"
 
 namespace arrow {
-
-class Array;
-
 namespace compute {
 
-/// \brief UnaryKernel implementing SortToIndices operation
-class ARROW_EXPORT SortToIndicesKernel : public UnaryKernel {
- protected:
-  std::shared_ptr<DataType> type_;
+namespace {
 
- public:
-  /// \brief UnaryKernel interface
-  ///
-  /// delegates to subclasses via SortToIndices()
-  Status Call(FunctionContext* ctx, const Datum& values, Datum* offsets) override = 0;
+// ----------------------------------------------------------------------
+// partition_indices implementation
 
-  /// \brief output type of this kernel
-  std::shared_ptr<DataType> out_type() const override { return uint64(); }
-
-  /// \brief single-array implementation
-  virtual Status SortToIndices(FunctionContext* ctx, const std::shared_ptr<Array>& values,
-                               std::shared_ptr<Array>* offsets) = 0;
-
-  /// \brief factory for SortToIndicesKernel
-  ///
-  /// \param[in] value_type constructed SortToIndicesKernel will support sorting
-  ///            values of this type
-  /// \param[out] out created kernel
-  static Status Make(const std::shared_ptr<DataType>& value_type,
-                     std::unique_ptr<SortToIndicesKernel>* out);
+// We need to preserve the options
+struct PartitionIndicesState : public KernelState {
+  explicit PartitionIndicesState(int64_t pivot) : pivot(pivot) {}
+  int64_t pivot;
 };
+
+template <typename OutType, typename InType>
+struct PartitionIndices {
+  using ArrayType = typename TypeTraits<InType>::ArrayType;
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    ArrayType arr(batch[0].array());
+
+    int64_t pivot = checked_cast<const PartitionIndicesState&>(*ctx->state()).pivot;
+    if (pivot > arr.length()) {
+      ctx->SetStatus(Status::IndexError("NthToIndices index out of bound"));
+      return;
+    }
+    ArrayData* out_arr = out->mutable_array();
+    uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
+    uint64_t* out_end = out_begin + arr.length();
+    std::iota(out_begin, out_end, 0);
+    if (pivot == arr.length()) {
+      return;
+    }
+    uint64_t* nulls_begin = out_end;
+    if (arr.null_count()) {
+      nulls_begin = std::stable_partition(
+          out_begin, out_end, [&arr](uint64_t ind) { return !arr.IsNull(ind); });
+    }
+    auto nth_begin = out_begin + pivot;
+    if (nth_begin < nulls_begin) {
+      std::nth_element(out_begin, nth_begin, nulls_begin,
+                       [&arr](uint64_t left, uint64_t right) {
+                         return arr.GetView(left) < arr.GetView(right);
+                       });
+    }
+  }
+};
+
+}  // namespace
 
 template <typename ArrowType>
 class CompareSorter {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
  public:
-  void Sort(int64_t* indices_begin, int64_t* indices_end, const ArrayType& values) {
+  void Sort(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values) {
     std::iota(indices_begin, indices_end, 0);
 
     auto nulls_begin = indices_end;
@@ -96,7 +109,7 @@ class CountSorter {
     value_range_ = static_cast<uint32_t>(max - min) + 1;
   }
 
-  void Sort(int64_t* indices_begin, int64_t* indices_end, const ArrayType& values) {
+  void Sort(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values) {
     // 32bit counter performs much better than 64bit one
     if (values.length() < (1LL << 32)) {
       SortInternal<uint32_t>(indices_begin, indices_end, values);
@@ -110,7 +123,7 @@ class CountSorter {
   uint32_t value_range_{0};
 
   template <typename CounterType>
-  void SortInternal(int64_t* indices_begin, int64_t* indices_end,
+  void SortInternal(uint64_t* indices_begin, uint64_t* indices_end,
                     const ArrayType& values) {
     const uint32_t value_range = value_range_;
 
@@ -151,7 +164,7 @@ class CountOrCompareSorter {
   using c_type = typename ArrowType::c_type;
 
  public:
-  void Sort(int64_t* indices_begin, int64_t* indices_end, const ArrayType& values) {
+  void Sort(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values) {
     if (values.length() >= countsort_min_len_ && values.length() > values.null_count()) {
       c_type min{std::numeric_limits<c_type>::max()};
       c_type max{std::numeric_limits<c_type>::min()};
@@ -193,123 +206,93 @@ class CountOrCompareSorter {
   static const uint32_t countsort_max_range_ = 4096;
 };
 
-template <typename ArrowType, typename Sorter>
-class SortToIndicesKernelImpl : public SortToIndicesKernel {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+template <typename Type, typename Enable = void>
+struct Sorter;
 
- public:
-  explicit SortToIndicesKernelImpl(Sorter sorter) : sorter_(sorter) {}
+template <>
+struct Sorter<UInt8Type> {
+  CountSorter<UInt8Type> impl;
+  Sorter() : impl(0, 255) {}
+};
 
-  Status SortToIndices(FunctionContext* ctx, const std::shared_ptr<Array>& values,
-                       std::shared_ptr<Array>* offsets) {
-    return SortToIndicesImpl(ctx, std::static_pointer_cast<ArrayType>(values), offsets);
-  }
+template <>
+struct Sorter<Int8Type> {
+  CountSorter<Int8Type> impl;
+  Sorter() : impl(-128, 127) {}
+};
 
-  Status Call(FunctionContext* ctx, const Datum& values, Datum* offsets) {
-    if (!values.is_array()) {
-      return Status::Invalid("SortToIndicesKernel expects array values");
-    }
-    auto values_array = values.make_array();
-    std::shared_ptr<Array> offsets_array;
-    RETURN_NOT_OK(this->SortToIndices(ctx, values_array, &offsets_array));
-    *offsets = offsets_array;
-    return Status::OK();
-  }
+template <typename Type>
+struct Sorter<Type, enable_if_t<is_integer_type<Type>::value &&
+                                (sizeof(typename Type::c_type) > 1)>> {
+  CountOrCompareSorter<Type> impl;
+};
 
-  std::shared_ptr<DataType> out_type() const { return type_; }
+template <typename Type>
+struct Sorter<Type, enable_if_t<is_floating_type<Type>::value ||
+                                is_base_binary_type<Type>::value>> {
+  CompareSorter<Type> impl;
+};
 
- private:
-  Sorter sorter_;
+template <typename OutType, typename InType>
+struct SortIndices {
+  using ArrayType = typename TypeTraits<InType>::ArrayType;
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    ArrayType arr(batch[0].array());
+    ArrayData* out_arr = out->mutable_array();
+    uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
+    uint64_t* out_end = out_begin + arr.length();
 
-  Status SortToIndicesImpl(FunctionContext* ctx, const std::shared_ptr<ArrayType>& values,
-                           std::shared_ptr<Array>* offsets) {
-    int64_t buf_size = values->length() * sizeof(uint64_t);
-    ARROW_ASSIGN_OR_RAISE(auto indices_buf, AllocateBuffer(buf_size, ctx->memory_pool()));
-
-    int64_t* indices_begin = reinterpret_cast<int64_t*>(indices_buf->mutable_data());
-    int64_t* indices_end = indices_begin + values->length();
-
-    sorter_.Sort(indices_begin, indices_end, *values.get());
-    *offsets = std::make_shared<UInt64Array>(values->length(), std::move(indices_buf));
-    return Status::OK();
+    Sorter<InType> sorter;
+    sorter.impl.Sort(out_begin, out_end, arr);
   }
 };
 
-template <typename ArrowType, typename Sorter = CompareSorter<ArrowType>>
-static SortToIndicesKernelImpl<ArrowType, Sorter>* MakeCompareKernel() {
-  return new SortToIndicesKernelImpl<ArrowType, Sorter>(Sorter());
+namespace internal {
+
+// Sort indices kernels implemented for
+//
+// * Number types
+// * Base binary types
+
+std::unique_ptr<KernelState> InitPartitionIndices(KernelContext*, const Kernel&,
+                                                  const FunctionOptions* options) {
+  int64_t pivot = static_cast<const PartitionOptions*>(options)->pivot;
+  return std::unique_ptr<KernelState>(new PartitionIndicesState(pivot));
 }
 
-template <typename ArrowType, typename Sorter = CountSorter<ArrowType>>
-static SortToIndicesKernelImpl<ArrowType, Sorter>* MakeCountKernel(int min, int max) {
-  return new SortToIndicesKernelImpl<ArrowType, Sorter>(Sorter(min, max));
-}
-
-template <typename ArrowType, typename Sorter = CountOrCompareSorter<ArrowType>>
-static SortToIndicesKernelImpl<ArrowType, Sorter>* MakeCountOrCompareKernel() {
-  return new SortToIndicesKernelImpl<ArrowType, Sorter>(Sorter());
-}
-
-Status SortToIndicesKernel::Make(const std::shared_ptr<DataType>& value_type,
-                                 std::unique_ptr<SortToIndicesKernel>* out) {
-  SortToIndicesKernel* kernel;
-  switch (value_type->id()) {
-    case Type::UINT8:
-      kernel = MakeCountKernel<UInt8Type>(0, 255);
-      break;
-    case Type::INT8:
-      kernel = MakeCountKernel<Int8Type>(-128, 127);
-      break;
-    case Type::UINT16:
-      kernel = MakeCountOrCompareKernel<UInt16Type>();
-      break;
-    case Type::INT16:
-      kernel = MakeCountOrCompareKernel<Int16Type>();
-      break;
-    case Type::UINT32:
-      kernel = MakeCountOrCompareKernel<UInt32Type>();
-      break;
-    case Type::INT32:
-      kernel = MakeCountOrCompareKernel<Int32Type>();
-      break;
-    case Type::UINT64:
-      kernel = MakeCountOrCompareKernel<UInt64Type>();
-      break;
-    case Type::INT64:
-      kernel = MakeCountOrCompareKernel<Int64Type>();
-      break;
-    case Type::FLOAT:
-      kernel = MakeCompareKernel<FloatType>();
-      break;
-    case Type::DOUBLE:
-      kernel = MakeCompareKernel<DoubleType>();
-      break;
-    case Type::BINARY:
-      kernel = MakeCompareKernel<BinaryType>();
-      break;
-    case Type::STRING:
-      kernel = MakeCompareKernel<StringType>();
-      break;
-    default:
-      return Status::NotImplemented("Sorting of ", *value_type, " arrays");
+template <template <typename...> class ExecTemplate>
+struct SortingKernels {
+  static void Add(VectorKernel base, VectorFunction* func) {
+    for (const auto& ty : codegen::NumericTypes()) {
+      base.signature = KernelSignature::Make({ty}, uint64());
+      base.exec = codegen::NumericSetReturn<ExecTemplate, UInt64Type>(*ty);
+      DCHECK_OK(func->AddKernel(base));
+    }
+    for (const auto& ty : codegen::BaseBinaryTypes()) {
+      base.signature = KernelSignature::Make({ty}, uint64());
+      base.exec = codegen::BaseBinarySetReturn<ExecTemplate, UInt64Type>(*ty);
+      DCHECK_OK(func->AddKernel(base));
+    }
   }
-  out->reset(kernel);
-  return Status::OK();
+};
+
+void RegisterVectorSortFunctions(FunctionRegistry* registry) {
+  // The kernel outputs into preallocated memory and is never null
+  VectorKernel base;
+  base.mem_allocation = MemAllocation::PREALLOCATE;
+  base.null_handling = NullHandling::OUTPUT_NOT_NULL;
+
+  auto sort_indices = std::make_shared<VectorFunction>("sort_indices", /*arity=*/1);
+  SortingKernels<SortIndices>::Add(base, sort_indices.get());
+  DCHECK_OK(registry->AddFunction(std::move(sort_indices)));
+
+  // partition_indices has a parameter so needs its init function
+  auto part_indices = std::make_shared<VectorFunction>("partition_indices", /*arity=*/1);
+  base.init = InitPartitionIndices;
+  SortingKernels<PartitionIndices>::Add(base, part_indices.get());
+  DCHECK_OK(registry->AddFunction(std::move(part_indices)));
 }
 
-static Status SortToIndices(FunctionContext* ctx, const Datum& values, Datum* offsets) {
-  std::unique_ptr<SortToIndicesKernel> kernel;
-  RETURN_NOT_OK(SortToIndicesKernel::Make(values.type(), &kernel));
-  return kernel->Call(ctx, values, offsets);
-}
-
-Status SortToIndices(FunctionContext* ctx, const Array& values,
-                     std::shared_ptr<Array>* offsets) {
-  Datum offsets_datum;
-  RETURN_NOT_OK(SortToIndices(ctx, Datum(values.data()), &offsets_datum));
-  *offsets = offsets_datum.make_array();
-  return Status::OK();
-}
-
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

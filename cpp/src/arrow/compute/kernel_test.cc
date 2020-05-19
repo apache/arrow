@@ -281,6 +281,9 @@ TEST(OutputType, ResolveDescr) {
   OutputType ty1(d1);
   OutputType ty2(d2);
 
+  ASSERT_EQ(ValueDescr::SCALAR, ty1.shape());
+  ASSERT_EQ(ValueDescr::ARRAY, ty2.shape());
+
   {
     ASSERT_OK_AND_ASSIGN(ValueDescr descr, ty1.Resolve({}));
     ASSERT_EQ(d1, descr);

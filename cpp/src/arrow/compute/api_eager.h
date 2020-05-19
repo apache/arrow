@@ -194,14 +194,8 @@ Result<Datum> Match(const Datum& haystack, std::shared_ptr<Array> needles,
 /// \param[in] ctx the function execution context, optional
 /// \return offsets indices that would partition an array
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> PartitionIndices(const Array& values, int64_t n,
-                                                ExecContext* ctx = NULLPTR);
-
-ARROW_DEPRECATED("Deprecated in 1.0.0. Use PartitionIndices")
 Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
-                                            ExecContext* ctx = NULLPTR) {
-  return PartitionIndices(values, n, ctx);
-}
+                                            ExecContext* ctx = NULLPTR);
 
 /// \brief Returns the indices that would sort an array.
 ///
@@ -305,13 +299,13 @@ Result<Datum> Sum(const Datum& value, ExecContext* ctx = NULLPTR);
 
 /// \brief Calculate the min / max of a numeric array
 ///
-/// This function returns both the min and max as a collection. The resulting
-/// datum thus consists of two scalar datums: {Datum(min), Datum(max)}
+/// This function returns both the min and max as a struct scalar, with type
+/// struct<min: T, max: T>, where T is ht einput type
 ///
 /// \param[in] value input datum, expecting Array or ChunkedArray
 /// \param[in] options see MinMaxOptions for more information
 /// \param[in] ctx the function execution context, optional
-/// \return resulting datum containing a {min, max} collection
+/// \return resulting datum as a struct<min: T, max: T> scalar
 ///
 /// \since 1.0.0
 /// \note API not yet finalized

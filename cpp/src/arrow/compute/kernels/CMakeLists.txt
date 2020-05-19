@@ -32,9 +32,7 @@ add_arrow_benchmark(scalar_compare_benchmark PREFIX "arrow-compute")
 # ----------------------------------------------------------------------
 # Vector kernels
 
-add_arrow_compute_test(vector_test
-                       SOURCES
-                       vector_partition_test.cc)
+add_arrow_compute_test(vector_test SOURCES vector_sort_test.cc)
 
 # add_arrow_compute_test(hash_test)
 

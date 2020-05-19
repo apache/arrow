@@ -34,7 +34,6 @@ void RegisterSetLookupFunctions(FunctionRegistry* registry);
 // Vector functions
 void RegisterVectorFilterFunctions(FunctionRegistry* registry);
 void RegisterVectorHashFunctions(FunctionRegistry* registry);
-void RegisterVectorPartitionFunctions(FunctionRegistry* registry);
 void RegisterVectorSortFunctions(FunctionRegistry* registry);
 void RegisterVectorTakeFunctions(FunctionRegistry* registry);
 

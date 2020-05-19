@@ -125,10 +125,9 @@ Result<Datum> Sum(const Datum& value, ExecContext* ctx) {
   return ExecScalarAggregateFunction(ctx, "sum", {value});
 }
 
-// Result<Datum> MinMax(const Datum& value, const MinMaxOptions& options,
-//                      ExecContext* ctx) {
-//   return ExecScalarAggregateFunction(ctx, "minmax", {value});
-// }
+Result<Datum> MinMax(const Datum& value, const MinMaxOptions& options, ExecContext* ctx) {
+  return ExecScalarAggregateFunction(ctx, "minmax", {value}, &options);
+}
 
 // ----------------------------------------------------------------------
 // Vector functions
@@ -197,11 +196,17 @@ Result<std::shared_ptr<Array>> ValueCounts(const Datum& value, ExecContext* ctx)
   return Status::NotImplemented("NYI");
 }
 
-Result<std::shared_ptr<Array>> PartitionIndices(const Array& values, int64_t n,
-                                                ExecContext* ctx) {
+Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
+                                            ExecContext* ctx) {
   PartitionOptions options(/*pivot=*/n);
   ARROW_ASSIGN_OR_RAISE(Datum result, ExecVectorFunction(ctx, "partition_indices",
                                                          {Datum(values)}, &options));
+  return result.make_array();
+}
+
+Result<std::shared_ptr<Array>> SortToIndices(const Array& values, ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(Datum result,
+                        ExecVectorFunction(ctx, "sort_indices", {Datum(values)}));
   return result.make_array();
 }
 

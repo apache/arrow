@@ -110,7 +110,7 @@ static void CreateBuiltInRegistry() {
   RegisterBasicAggregateFunctions(g_registry.get());
 
   // Vector functions
-  RegisterVectorPartitionFunctions(g_registry.get());
+  RegisterVectorSortFunctions(g_registry.get());
 }
 
 }  // namespace internal

@@ -228,7 +228,7 @@ class ARROW_EXPORT OutputType {
   using Resolver = std::function<Result<ValueDescr>(const std::vector<ValueDescr>&)>;
 
   OutputType(std::shared_ptr<DataType> type)  // NOLINT implicit construction
-      : kind_(FIXED), type_(std::move(type)) {}
+      : kind_(FIXED), type_(std::move(type)), shape_(ValueDescr::ANY) {}
 
   /// For outputting a particular type and shape
   OutputType(ValueDescr descr);  // NOLINT implicit construction
@@ -266,11 +266,17 @@ class ARROW_EXPORT OutputType {
   /// fixed/invariant or computed by a "user"-defined resolver
   ResolveKind kind() const { return kind_; }
 
+  /// \brief If the shape is ANY, then Resolve will compute the shape based on
+  /// the input arguments
+  ValueDescr::Shape shape() const { return shape_; }
+
  private:
   ResolveKind kind_;
 
   // For FIXED resolution
   std::shared_ptr<DataType> type_;
+
+  ValueDescr::Shape shape_;
 
   // For COMPUTED resolution
   Resolver resolver_;

@@ -331,12 +331,11 @@ if(ARROW_COMPUTE)
               compute/kernels/scalar_boolean.cc
               compute/kernels/scalar_compare.cc
               compute/kernels/scalar_set_lookup.cc
-              compute/kernels/vector_partition.cc
+              compute/kernels/vector_sort.cc
               # compute/kernels/scalar_cast.cc
-              # compute/kernels/filter.cc
-              # compute/kernels/take.cc
-              # compute/kernels/hash.cc
-              # compute/kernels/sort_to_indices.cc
+              # compute/kernels/vector_filter.cc
+              # compute/kernels/vector_take.cc
+              # compute/kernels/vector_hash.cc
        )
 endif()
 

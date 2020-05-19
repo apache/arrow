@@ -174,15 +174,17 @@ Type::type InputType::type_id() const {
 // ----------------------------------------------------------------------
 // OutputType
 
-OutputType::Resolver ResolveAs(ValueDescr descr) {
-  return [descr](const std::vector<ValueDescr>&) { return descr; };
+OutputType::OutputType(ValueDescr descr) : OutputType(descr.type) {
+  shape_ = descr.shape;
 }
-
-OutputType::OutputType(ValueDescr descr) : resolver_(ResolveAs(descr)) {}
 
 Result<ValueDescr> OutputType::Resolve(const std::vector<ValueDescr>& args) const {
   if (kind_ == OutputType::FIXED) {
-    return ValueDescr(type_, GetBroadcastShape(args));
+    ValueDescr::Shape out_shape = shape_;
+    if (out_shape == ValueDescr::ANY) {
+      out_shape = GetBroadcastShape(args);
+    }
+    return ValueDescr(type_, out_shape);
   } else {
     return resolver_(args);
   }
@@ -200,7 +202,7 @@ const OutputType::Resolver& OutputType::resolver() const {
 
 std::string OutputType::ToString() const {
   if (kind_ == OutputType::FIXED) {
-    return type_->ToString();
+    return ValueDescr(type_, shape_).ToString();
   } else {
     return "computed";
   }

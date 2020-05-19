@@ -319,6 +319,156 @@ std::unique_ptr<KernelState> MeanInit(KernelContext* ctx, const Kernel& kernel,
   return visitor.Create();
 }
 
+// ----------------------------------------------------------------------
+// MinMax implementation
+
+template <typename ArrowType, typename Enable = void>
+struct MinMaxState {};
+
+template <typename ArrowType>
+struct MinMaxState<ArrowType, enable_if_integer<ArrowType>> {
+  using ThisType = MinMaxState<ArrowType>;
+  using T = typename ArrowType::c_type;
+
+  ThisType& operator+=(const ThisType& rhs) {
+    this->has_nulls |= rhs.has_nulls;
+    this->min = std::min(this->min, rhs.min);
+    this->max = std::max(this->max, rhs.max);
+    return *this;
+  }
+
+  void MergeOne(T value) {
+    this->min = std::min(this->min, value);
+    this->max = std::max(this->max, value);
+  }
+
+  T min = std::numeric_limits<T>::max();
+  T max = std::numeric_limits<T>::min();
+  bool has_nulls = false;
+};
+
+template <typename ArrowType>
+struct MinMaxState<ArrowType, enable_if_floating_point<ArrowType>> {
+  using ThisType = MinMaxState<ArrowType>;
+  using T = typename ArrowType::c_type;
+
+  ThisType& operator+=(const ThisType& rhs) {
+    this->has_nulls |= rhs.has_nulls;
+    this->min = std::fmin(this->min, rhs.min);
+    this->max = std::fmax(this->max, rhs.max);
+    return *this;
+  }
+
+  void MergeOne(T value) {
+    this->min = std::fmin(this->min, value);
+    this->max = std::fmax(this->max, value);
+  }
+
+  T min = std::numeric_limits<T>::infinity();
+  T max = -std::numeric_limits<T>::infinity();
+  bool has_nulls = false;
+};
+
+template <typename ArrowType>
+struct MinMaxImpl : public ScalarAggregator {
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+  using ThisType = MinMaxImpl<ArrowType>;
+  using StateType = MinMaxState<ArrowType>;
+
+  MinMaxImpl(const std::shared_ptr<DataType>& out_type, const MinMaxOptions& options)
+      : out_type(out_type), options(options) {}
+
+  void Consume(KernelContext*, const ExecBatch& batch) override {
+    StateType local;
+
+    ArrayType arr(batch[0].array());
+
+    local.has_nulls = arr.null_count() > 0;
+    if (local.has_nulls && options.null_handling == MinMaxOptions::OUTPUT_NULL) {
+      this->state = local;
+      return;
+    }
+
+    const auto values = arr.raw_values();
+    if (arr.null_count() > 0) {
+      internal::BitmapReader reader(arr.null_bitmap_data(), arr.offset(), arr.length());
+      for (int64_t i = 0; i < arr.length(); i++) {
+        if (reader.IsSet()) {
+          local.MergeOne(values[i]);
+        }
+        reader.Next();
+      }
+    } else {
+      for (int64_t i = 0; i < arr.length(); i++) {
+        local.MergeOne(values[i]);
+      }
+    }
+    this->state = local;
+  }
+
+  void MergeFrom(KernelContext*, const KernelState& src) override {
+    const auto& other = checked_cast<const ThisType&>(src);
+    this->state += other.state;
+  }
+
+  void Finalize(KernelContext*, Datum* out) override {
+    using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
+
+    std::vector<std::shared_ptr<Scalar>> values;
+    if (state.has_nulls && options.null_handling == MinMaxOptions::OUTPUT_NULL) {
+      // (null, null)
+      values = {std::make_shared<ScalarType>(), std::make_shared<ScalarType>()};
+    } else {
+      values = {std::make_shared<ScalarType>(state.min),
+                std::make_shared<ScalarType>(state.max)};
+    }
+    out->value = std::make_shared<StructScalar>(std::move(values), this->out_type);
+  }
+
+  std::shared_ptr<DataType> out_type;
+  MinMaxOptions options;
+  MinMaxState<ArrowType> state;
+};
+
+struct MinMaxInitState {
+  std::unique_ptr<KernelState> state;
+  KernelContext* ctx;
+  const DataType& in_type;
+  const std::shared_ptr<DataType>& out_type;
+  const MinMaxOptions& options;
+
+  MinMaxInitState(KernelContext* ctx, const DataType& in_type,
+                  const std::shared_ptr<DataType>& out_type, const MinMaxOptions& options)
+      : ctx(ctx), in_type(in_type), out_type(out_type), options(options) {}
+
+  Status Visit(const DataType&) {
+    return Status::NotImplemented("No min/max implemented");
+  }
+
+  Status Visit(const HalfFloatType&) {
+    return Status::NotImplemented("No sum implemented");
+  }
+
+  template <typename Type>
+  enable_if_number<Type, Status> Visit(const Type&) {
+    state.reset(new MinMaxImpl<Type>(out_type, options));
+    return Status::OK();
+  }
+
+  std::unique_ptr<KernelState> Create() {
+    ctx->SetStatus(VisitTypeInline(in_type, this));
+    return std::move(state);
+  }
+};
+
+std::unique_ptr<KernelState> MinMaxInit(KernelContext* ctx, const Kernel& kernel,
+                                        const FunctionOptions* options) {
+  MinMaxInitState visitor(ctx, *kernel.signature->in_types()[0].type(),
+                          kernel.signature->out_type().type(),
+                          static_cast<const MinMaxOptions&>(*options));
+  return visitor.Create();
+}
+
 }  // namespace
 
 namespace internal {
@@ -333,7 +483,18 @@ void AddBasicAggKernels(KernelInit init,
                         const std::vector<std::shared_ptr<DataType>>& types,
                         std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func) {
   for (const auto& ty : types) {
-    // array[T] -> scalar[T]
+    // array[InT] -> scalar[OutT]
+    auto sig = KernelSignature::Make({InputType::Array(ty)}, ValueDescr::Scalar(out_ty));
+    AddAggKernel(std::move(sig), init, func);
+  }
+}
+
+void AddMinMaxKernels(KernelInit init,
+                      const std::vector<std::shared_ptr<DataType>>& types,
+                      ScalarAggregateFunction* func) {
+  for (const auto& ty : types) {
+    // array[T] -> scalar[struct<min: T, max: T>]
+    auto out_ty = struct_({field("min", ty), field("max", ty)});
     auto sig = KernelSignature::Make({InputType::Array(ty)}, ValueDescr::Scalar(out_ty));
     AddAggKernel(std::move(sig), init, func);
   }
@@ -355,9 +516,11 @@ void RegisterBasicAggregateFunctions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>("mean", /*arity=*/1);
-  AddBasicAggKernels(MeanInit, codegen::SignedIntTypes(), float64(), func.get());
-  AddBasicAggKernels(MeanInit, codegen::UnsignedIntTypes(), float64(), func.get());
-  AddBasicAggKernels(MeanInit, codegen::FloatingPointTypes(), float64(), func.get());
+  AddBasicAggKernels(MeanInit, codegen::NumericTypes(), float64(), func.get());
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+
+  func = std::make_shared<ScalarAggregateFunction>("minmax", /*arity=*/1);
+  AddMinMaxKernels(MinMaxInit, codegen::NumericTypes(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
