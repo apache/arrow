@@ -3950,10 +3950,9 @@ def test_metadata_compat_missing_field_name():
     tm.assert_frame_equal(result, expected, check_like=True)
 
 
-@pytest.mark.parquet
-def test_timestamp_as_object():
-    # Timestamps can be stored as Parquet and reloaded into Pandas with no loss
-    # of information if the timestamp_as_object option is True.
+def make_df_with_timestamps():
+    # Some of the milliseconds timestamps deliberately don't fit in the range
+    # that is possible with nanosecond timestamps.
     df = pd.DataFrame({
         'dateTimeMs': [
             np.datetime64('0001-01-01 00:00', 'ms'),
@@ -3968,8 +3967,31 @@ def test_timestamp_as_object():
             np.datetime64('2050-05-03 15:42', 'ns'),
         ],
     })
+    # Not part of what we're testing, just ensuring that the inputs are what we
+    # expect.
+    assert (df.dateTimeMs.dtype, df.dateTimeNs.dtype) == (
+        np.dtype("O"), np.dtype("<M8[ns]")
+    )
+    return df
+
+
+@pytest.mark.parquet
+def test_timestamp_as_object_parquet(tempdir):
+    # Timestamps can be stored as Parquet and reloaded into Pandas with no loss
+    # of information if the timestamp_as_object option is True.
+    df = make_df_with_timestamps()
     table = pa.Table.from_pandas(df)
-    pq.write_table(table, 'timeseries.parquet', version="2.0")
-    result = pq.read_table('timeseries.parquet')
+    filename = tempdir / "timestamps_from_pandas.parquet"
+    pq.write_table(table, filename, version="2.0")
+    result = pq.read_table(filename)
     df2 = result.to_pandas(timestamp_as_object=True)
+    tm.assert_frame_equal(df, df2, check_like=True)
+
+
+def test_timestamp_as_object():
+    # Timestamps can be converted Arrow and reloaded into Pandas with no loss
+    # of information if the timestamp_as_object option is True.
+    df = make_df_with_timestamps()
+    table = pa.Table.from_pandas(df)
+    df2 = table.to_pandas(timestamp_as_object=True)
     tm.assert_frame_equal(df, df2, check_like=True)
