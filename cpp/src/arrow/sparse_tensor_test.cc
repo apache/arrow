@@ -375,7 +375,7 @@ TEST_F(TestSparseCOOTensor, CreationFromNumericTensor1D) {
   NumericTensor<Int64Type> dense_vector(dense_data, dense_shape);
 
   std::shared_ptr<SparseCOOTensor> st;
-  ASSERT_OK_AND_ASSIGN(st, SparseCOOTensor::Make(dense_vector));
+  ASSERT_OK_AND_ASSIGN(st, SparseCOOTensor::Make(dense_vector, int64()));
 
   ASSERT_EQ(12, st->non_zero_length());
   ASSERT_TRUE(st->is_mutable());
@@ -401,7 +401,7 @@ TEST_F(TestSparseCOOTensor, CreationFromTensor) {
   Tensor tensor(int64(), buffer, this->shape_, {}, this->dim_names_);
 
   std::shared_ptr<SparseCOOTensor> st;
-  ASSERT_OK_AND_ASSIGN(st, SparseCOOTensor::Make(tensor));
+  ASSERT_OK_AND_ASSIGN(st, SparseCOOTensor::Make(tensor, int64()));
 
   ASSERT_EQ(12, st->non_zero_length());
   ASSERT_TRUE(st->is_mutable());
@@ -426,7 +426,7 @@ TEST_F(TestSparseCOOTensor, CreationFromNonContiguousTensor) {
   Tensor tensor(int64(), buffer, this->shape_, strides);
 
   std::shared_ptr<SparseCOOTensor> st;
-  ASSERT_OK_AND_ASSIGN(st, SparseCOOTensor::Make(tensor));
+  ASSERT_OK_AND_ASSIGN(st, SparseCOOTensor::Make(tensor, int64()));
 
   ASSERT_EQ(12, st->non_zero_length());
   ASSERT_TRUE(st->is_mutable());
@@ -445,7 +445,7 @@ TEST_F(TestSparseCOOTensor, TestToTensor) {
   Tensor tensor(int64(), buffer, shape, {}, this->dim_names_);
 
   std::shared_ptr<SparseCOOTensor> sparse_tensor;
-  ASSERT_OK_AND_ASSIGN(sparse_tensor, SparseCOOTensor::Make(tensor));
+  ASSERT_OK_AND_ASSIGN(sparse_tensor, SparseCOOTensor::Make(tensor, int64()));
 
   ASSERT_EQ(5, sparse_tensor->non_zero_length());
   ASSERT_TRUE(sparse_tensor->is_mutable());
@@ -487,9 +487,9 @@ TYPED_TEST_P(TestIntegerSparseCOOTensorEquality, TestEquality) {
   static_assert(is_integer_type<ValueType>::value, "Integer type is required");
 
   std::shared_ptr<SparseCOOTensor> st1, st2, st3;
-  ASSERT_OK_AND_ASSIGN(st1, SparseCOOTensor::Make(*this->tensor1_));
-  ASSERT_OK_AND_ASSIGN(st2, SparseCOOTensor::Make(*this->tensor2_));
-  ASSERT_OK_AND_ASSIGN(st3, SparseCOOTensor::Make(*this->tensor1_));
+  ASSERT_OK_AND_ASSIGN(st1, SparseCOOTensor::Make(*this->tensor1_, int64()));
+  ASSERT_OK_AND_ASSIGN(st2, SparseCOOTensor::Make(*this->tensor2_, int64()));
+  ASSERT_OK_AND_ASSIGN(st3, SparseCOOTensor::Make(*this->tensor1_, int64()));
 
   ASSERT_TRUE(st1->Equals(*st1));
   ASSERT_FALSE(st1->Equals(*st2));
@@ -522,9 +522,9 @@ TYPED_TEST_P(TestFloatingSparseCOOTensorEquality, TestEquality) {
   static_assert(is_floating_type<ValueType>::value, "Float type is required");
 
   std::shared_ptr<SparseCOOTensor> st1, st2, st3;
-  ASSERT_OK_AND_ASSIGN(st1, SparseCOOTensor::Make(*this->tensor1_));
-  ASSERT_OK_AND_ASSIGN(st2, SparseCOOTensor::Make(*this->tensor2_));
-  ASSERT_OK_AND_ASSIGN(st3, SparseCOOTensor::Make(*this->tensor1_));
+  ASSERT_OK_AND_ASSIGN(st1, SparseCOOTensor::Make(*this->tensor1_, int64()));
+  ASSERT_OK_AND_ASSIGN(st2, SparseCOOTensor::Make(*this->tensor2_, int64()));
+  ASSERT_OK_AND_ASSIGN(st3, SparseCOOTensor::Make(*this->tensor1_, int64()));
 
   ASSERT_TRUE(st1->Equals(*st1));
   ASSERT_FALSE(st1->Equals(*st2));
@@ -536,7 +536,7 @@ TYPED_TEST_P(TestFloatingSparseCOOTensorEquality, TestEquality) {
   EXPECT_TRUE(std::isnan(this->tensor2_->Value({1, 0, 1})));
 
   std::shared_ptr<SparseCOOTensor> st4;
-  ASSERT_OK_AND_ASSIGN(st4, SparseCOOTensor::Make(*this->tensor2_));
+  ASSERT_OK_AND_ASSIGN(st4, SparseCOOTensor::Make(*this->tensor2_, int64()));
   EXPECT_FALSE(st4->Equals(*st4));                                  // same object
   EXPECT_TRUE(st4->Equals(*st4, EqualOptions().nans_equal(true)));  // same object
 
@@ -544,7 +544,7 @@ TYPED_TEST_P(TestFloatingSparseCOOTensorEquality, TestEquality) {
   std::shared_ptr<SparseCOOTensor> st5;
   std::shared_ptr<Buffer> buffer5 = Buffer::Wrap(values5);
   NumericTensor<ValueType> tensor5(buffer5, this->shape_);
-  ASSERT_OK_AND_ASSIGN(st5, SparseCOOTensor::Make(tensor5));
+  ASSERT_OK_AND_ASSIGN(st5, SparseCOOTensor::Make(tensor5, int64()));
   EXPECT_FALSE(st4->Equals(*st5));                                  // different memory
   EXPECT_TRUE(st4->Equals(*st5, EqualOptions().nans_equal(true)));  // different memory
 }
@@ -876,7 +876,7 @@ TEST_F(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
   NumericTensor<Int64Type> tensor(buffer, this->shape_);
 
   std::shared_ptr<SparseCSRMatrix> st1;
-  ASSERT_OK_AND_ASSIGN(st1, SparseCSRMatrix::Make(tensor));
+  ASSERT_OK_AND_ASSIGN(st1, SparseCSRMatrix::Make(tensor, int64()));
 
   auto st2 = this->sparse_tensor_from_dense_;
 
@@ -928,7 +928,7 @@ TEST_F(TestSparseCSRMatrix, CreationFromNonContiguousTensor) {
   Tensor tensor(int64(), buffer, this->shape_, strides);
 
   std::shared_ptr<SparseCSRMatrix> st;
-  ASSERT_OK_AND_ASSIGN(st, SparseCSRMatrix::Make(tensor));
+  ASSERT_OK_AND_ASSIGN(st, SparseCSRMatrix::Make(tensor, int64()));
 
   ASSERT_EQ(12, st->non_zero_length());
   ASSERT_TRUE(st->is_mutable());
@@ -967,7 +967,7 @@ TEST_F(TestSparseCSRMatrix, TestToTensor) {
   Tensor tensor(int64(), buffer, shape, {}, this->dim_names_);
 
   std::shared_ptr<SparseCSRMatrix> sparse_tensor;
-  ASSERT_OK_AND_ASSIGN(sparse_tensor, SparseCSRMatrix::Make(tensor));
+  ASSERT_OK_AND_ASSIGN(sparse_tensor, SparseCSRMatrix::Make(tensor, int64()));
 
   ASSERT_EQ(7, sparse_tensor->non_zero_length());
   ASSERT_TRUE(sparse_tensor->is_mutable());
@@ -1010,9 +1010,9 @@ TYPED_TEST_P(TestIntegerSparseCSRMatrixEquality, TestEquality) {
   static_assert(is_integer_type<ValueType>::value, "Integer type is required");
 
   std::shared_ptr<SparseCSRMatrix> st1, st2, st3;
-  ASSERT_OK_AND_ASSIGN(st1, SparseCSRMatrix::Make(*this->tensor1_));
-  ASSERT_OK_AND_ASSIGN(st2, SparseCSRMatrix::Make(*this->tensor2_));
-  ASSERT_OK_AND_ASSIGN(st3, SparseCSRMatrix::Make(*this->tensor1_));
+  ASSERT_OK_AND_ASSIGN(st1, SparseCSRMatrix::Make(*this->tensor1_, int64()));
+  ASSERT_OK_AND_ASSIGN(st2, SparseCSRMatrix::Make(*this->tensor2_, int64()));
+  ASSERT_OK_AND_ASSIGN(st3, SparseCSRMatrix::Make(*this->tensor1_, int64()));
 
   ASSERT_TRUE(st1->Equals(*st1));
   ASSERT_FALSE(st1->Equals(*st2));
@@ -1045,9 +1045,9 @@ TYPED_TEST_P(TestFloatingSparseCSRMatrixEquality, TestEquality) {
   static_assert(is_floating_type<ValueType>::value, "Float type is required");
 
   std::shared_ptr<SparseCSRMatrix> st1, st2, st3;
-  ASSERT_OK_AND_ASSIGN(st1, SparseCSRMatrix::Make(*this->tensor1_));
-  ASSERT_OK_AND_ASSIGN(st2, SparseCSRMatrix::Make(*this->tensor2_));
-  ASSERT_OK_AND_ASSIGN(st3, SparseCSRMatrix::Make(*this->tensor1_));
+  ASSERT_OK_AND_ASSIGN(st1, SparseCSRMatrix::Make(*this->tensor1_, int64()));
+  ASSERT_OK_AND_ASSIGN(st2, SparseCSRMatrix::Make(*this->tensor2_, int64()));
+  ASSERT_OK_AND_ASSIGN(st3, SparseCSRMatrix::Make(*this->tensor1_, int64()));
 
   ASSERT_TRUE(st1->Equals(*st1));
   ASSERT_FALSE(st1->Equals(*st2));
@@ -1059,7 +1059,7 @@ TYPED_TEST_P(TestFloatingSparseCSRMatrixEquality, TestEquality) {
   EXPECT_TRUE(std::isnan(this->tensor2_->Value({3, 1})));
 
   std::shared_ptr<SparseCSRMatrix> st4;
-  ASSERT_OK_AND_ASSIGN(st4, SparseCSRMatrix::Make(*this->tensor2_));
+  ASSERT_OK_AND_ASSIGN(st4, SparseCSRMatrix::Make(*this->tensor2_, int64()));
   EXPECT_FALSE(st4->Equals(*st4));                                  // same object
   EXPECT_TRUE(st4->Equals(*st4, EqualOptions().nans_equal(true)));  // same object
 
@@ -1067,7 +1067,7 @@ TYPED_TEST_P(TestFloatingSparseCSRMatrixEquality, TestEquality) {
   std::shared_ptr<SparseCSRMatrix> st5;
   std::shared_ptr<Buffer> buffer5 = Buffer::Wrap(values5);
   NumericTensor<ValueType> tensor5(buffer5, this->shape_);
-  ASSERT_OK_AND_ASSIGN(st5, SparseCSRMatrix::Make(tensor5));
+  ASSERT_OK_AND_ASSIGN(st5, SparseCSRMatrix::Make(tensor5, int64()));
   EXPECT_FALSE(st4->Equals(*st5));                                  // different memory
   EXPECT_TRUE(st4->Equals(*st5, EqualOptions().nans_equal(true)));  // different memory
 }
@@ -1214,7 +1214,7 @@ TEST_F(TestSparseCSCMatrix, CreationFromNumericTensor2D) {
   NumericTensor<Int64Type> tensor(buffer, this->shape_);
 
   std::shared_ptr<SparseCSCMatrix> st1;
-  ASSERT_OK_AND_ASSIGN(st1, SparseCSCMatrix::Make(tensor));
+  ASSERT_OK_AND_ASSIGN(st1, SparseCSCMatrix::Make(tensor, int64()));
 
   auto st2 = this->sparse_tensor_from_dense_;
 
@@ -1266,7 +1266,7 @@ TEST_F(TestSparseCSCMatrix, CreationFromNonContiguousTensor) {
   Tensor tensor(int64(), buffer, this->shape_, strides);
 
   std::shared_ptr<SparseCSCMatrix> st;
-  ASSERT_OK_AND_ASSIGN(st, SparseCSCMatrix::Make(tensor));
+  ASSERT_OK_AND_ASSIGN(st, SparseCSCMatrix::Make(tensor, int64()));
 
   ASSERT_EQ(12, st->non_zero_length());
   ASSERT_TRUE(st->is_mutable());
@@ -1305,7 +1305,7 @@ TEST_F(TestSparseCSCMatrix, TestToTensor) {
   Tensor tensor(int64(), buffer, shape, {}, this->dim_names_);
 
   std::shared_ptr<SparseCSCMatrix> sparse_tensor;
-  ASSERT_OK_AND_ASSIGN(sparse_tensor, SparseCSCMatrix::Make(tensor));
+  ASSERT_OK_AND_ASSIGN(sparse_tensor, SparseCSCMatrix::Make(tensor, int64()));
 
   ASSERT_EQ(7, sparse_tensor->non_zero_length());
   ASSERT_TRUE(sparse_tensor->is_mutable());
@@ -1348,9 +1348,9 @@ TYPED_TEST_P(TestIntegerSparseCSCMatrixEquality, TestEquality) {
   static_assert(is_integer_type<ValueType>::value, "Integer type is required");
 
   std::shared_ptr<SparseCSCMatrix> st1, st2, st3;
-  ASSERT_OK_AND_ASSIGN(st1, SparseCSCMatrix::Make(*this->tensor1_));
-  ASSERT_OK_AND_ASSIGN(st2, SparseCSCMatrix::Make(*this->tensor2_));
-  ASSERT_OK_AND_ASSIGN(st3, SparseCSCMatrix::Make(*this->tensor1_));
+  ASSERT_OK_AND_ASSIGN(st1, SparseCSCMatrix::Make(*this->tensor1_, int64()));
+  ASSERT_OK_AND_ASSIGN(st2, SparseCSCMatrix::Make(*this->tensor2_, int64()));
+  ASSERT_OK_AND_ASSIGN(st3, SparseCSCMatrix::Make(*this->tensor1_, int64()));
 
   ASSERT_TRUE(st1->Equals(*st1));
   ASSERT_FALSE(st1->Equals(*st2));
@@ -1383,9 +1383,9 @@ TYPED_TEST_P(TestFloatingSparseCSCMatrixEquality, TestEquality) {
   static_assert(is_floating_type<ValueType>::value, "Float type is required");
 
   std::shared_ptr<SparseCSCMatrix> st1, st2, st3;
-  ASSERT_OK_AND_ASSIGN(st1, SparseCSCMatrix::Make(*this->tensor1_));
-  ASSERT_OK_AND_ASSIGN(st2, SparseCSCMatrix::Make(*this->tensor2_));
-  ASSERT_OK_AND_ASSIGN(st3, SparseCSCMatrix::Make(*this->tensor1_));
+  ASSERT_OK_AND_ASSIGN(st1, SparseCSCMatrix::Make(*this->tensor1_, int64()));
+  ASSERT_OK_AND_ASSIGN(st2, SparseCSCMatrix::Make(*this->tensor2_, int64()));
+  ASSERT_OK_AND_ASSIGN(st3, SparseCSCMatrix::Make(*this->tensor1_, int64()));
 
   ASSERT_TRUE(st1->Equals(*st1));
   ASSERT_FALSE(st1->Equals(*st2));
@@ -1397,7 +1397,7 @@ TYPED_TEST_P(TestFloatingSparseCSCMatrixEquality, TestEquality) {
   EXPECT_TRUE(std::isnan(this->tensor2_->Value({3, 1})));
 
   std::shared_ptr<SparseCSCMatrix> st4;
-  ASSERT_OK_AND_ASSIGN(st4, SparseCSCMatrix::Make(*this->tensor2_));
+  ASSERT_OK_AND_ASSIGN(st4, SparseCSCMatrix::Make(*this->tensor2_, int64()));
   EXPECT_FALSE(st4->Equals(*st4));                                  // same object
   EXPECT_TRUE(st4->Equals(*st4, EqualOptions().nans_equal(true)));  // same object
 
@@ -1405,7 +1405,7 @@ TYPED_TEST_P(TestFloatingSparseCSCMatrixEquality, TestEquality) {
   std::shared_ptr<SparseCSCMatrix> st5;
   std::shared_ptr<Buffer> buffer5 = Buffer::Wrap(values5);
   NumericTensor<ValueType> tensor5(buffer5, this->shape_);
-  ASSERT_OK_AND_ASSIGN(st5, SparseCSCMatrix::Make(tensor5));
+  ASSERT_OK_AND_ASSIGN(st5, SparseCSCMatrix::Make(tensor5, int64()));
   EXPECT_FALSE(st4->Equals(*st5));                                  // different memory
   EXPECT_TRUE(st4->Equals(*st5, EqualOptions().nans_equal(true)));  // different memory
 }
@@ -1472,9 +1472,9 @@ TYPED_TEST_P(TestIntegerSparseCSFTensorEquality, TestEquality) {
   static_assert(is_integer_type<ValueType>::value, "Integer type is required");
 
   std::shared_ptr<SparseCSFTensor> st1, st2, st3;
-  ASSERT_OK_AND_ASSIGN(st1, SparseCSFTensor::Make(*this->tensor1_));
-  ASSERT_OK_AND_ASSIGN(st2, SparseCSFTensor::Make(*this->tensor2_));
-  ASSERT_OK_AND_ASSIGN(st3, SparseCSFTensor::Make(*this->tensor1_));
+  ASSERT_OK_AND_ASSIGN(st1, SparseCSFTensor::Make(*this->tensor1_, int64()));
+  ASSERT_OK_AND_ASSIGN(st2, SparseCSFTensor::Make(*this->tensor2_, int64()));
+  ASSERT_OK_AND_ASSIGN(st3, SparseCSFTensor::Make(*this->tensor1_, int64()));
 
   ASSERT_TRUE(st1->Equals(*st1));
   ASSERT_FALSE(st1->Equals(*st2));
@@ -1507,9 +1507,9 @@ TYPED_TEST_P(TestFloatingSparseCSFTensorEquality, TestEquality) {
   static_assert(is_floating_type<ValueType>::value, "Floating type is required");
 
   std::shared_ptr<SparseCSFTensor> st1, st2, st3;
-  ASSERT_OK_AND_ASSIGN(st1, SparseCSFTensor::Make(*this->tensor1_));
-  ASSERT_OK_AND_ASSIGN(st2, SparseCSFTensor::Make(*this->tensor2_));
-  ASSERT_OK_AND_ASSIGN(st3, SparseCSFTensor::Make(*this->tensor1_));
+  ASSERT_OK_AND_ASSIGN(st1, SparseCSFTensor::Make(*this->tensor1_, int64()));
+  ASSERT_OK_AND_ASSIGN(st2, SparseCSFTensor::Make(*this->tensor2_, int64()));
+  ASSERT_OK_AND_ASSIGN(st3, SparseCSFTensor::Make(*this->tensor1_, int64()));
 
   ASSERT_TRUE(st1->Equals(*st1));
   ASSERT_FALSE(st1->Equals(*st2));
@@ -1521,7 +1521,7 @@ TYPED_TEST_P(TestFloatingSparseCSFTensorEquality, TestEquality) {
   EXPECT_TRUE(std::isnan(this->tensor2_->Value({1, 1, 1, 1})));
 
   std::shared_ptr<SparseCSFTensor> st4;
-  ASSERT_OK_AND_ASSIGN(st4, SparseCSFTensor::Make(*this->tensor2_));
+  ASSERT_OK_AND_ASSIGN(st4, SparseCSFTensor::Make(*this->tensor2_, int64()));
   EXPECT_FALSE(st4->Equals(*st4));                                  // same object
   EXPECT_TRUE(st4->Equals(*st4, EqualOptions().nans_equal(true)));  // same object
 
@@ -1531,7 +1531,7 @@ TYPED_TEST_P(TestFloatingSparseCSFTensorEquality, TestEquality) {
   std::shared_ptr<SparseCSFTensor> st5;
   std::shared_ptr<Buffer> buffer5 = Buffer::Wrap(values5, sizeof(values5));
   NumericTensor<ValueType> tensor5(buffer5, this->shape_);
-  ASSERT_OK_AND_ASSIGN(st5, SparseCSFTensor::Make(tensor5));
+  ASSERT_OK_AND_ASSIGN(st5, SparseCSFTensor::Make(tensor5, int64()));
   EXPECT_FALSE(st4->Equals(*st5));                                  // different memory
   EXPECT_TRUE(st4->Equals(*st5, EqualOptions().nans_equal(true)));  // different memory
 }
