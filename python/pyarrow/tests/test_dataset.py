@@ -629,7 +629,7 @@ def test_fragments_reconstruct(tempdir):
     def assert_yields_projected(fragment, row_slice,
                                 columns=None, filter=None):
         actual = fragment.to_table(
-                schema=table.schema, columns=columns, filter=filter)
+            schema=table.schema, columns=columns, filter=filter)
         column_names = columns if columns else table.column_names
         assert actual.column_names == column_names
 
@@ -641,28 +641,28 @@ def test_fragments_reconstruct(tempdir):
 
     # manually re-construct a fragment, with explicit schema
     new_fragment = parquet_format.make_fragment(
-            fragment.path, fragment.filesystem,
-            partition_expression=fragment.partition_expression)
+        fragment.path, fragment.filesystem,
+        partition_expression=fragment.partition_expression)
     assert new_fragment.to_table().equals(fragment.to_table())
     assert_yields_projected(new_fragment, (0, 4))
 
     # filter / column projection, inspected schema
     new_fragment = parquet_format.make_fragment(
-            fragment.path, fragment.filesystem,
-            partition_expression=fragment.partition_expression)
+        fragment.path, fragment.filesystem,
+        partition_expression=fragment.partition_expression)
     assert_yields_projected(new_fragment, (0, 2), filter=ds.field('f1') < 2)
 
     # filter requiring cast / column projection, inspected schema
     new_fragment = parquet_format.make_fragment(
-            fragment.path, fragment.filesystem,
-            partition_expression=fragment.partition_expression)
+        fragment.path, fragment.filesystem,
+        partition_expression=fragment.partition_expression)
     assert_yields_projected(new_fragment, (0, 2),
                             columns=['f1'], filter=ds.field('f1') < 2.0)
 
     # filter on the partition column
     new_fragment = parquet_format.make_fragment(
-            fragment.path, fragment.filesystem,
-            partition_expression=fragment.partition_expression)
+        fragment.path, fragment.filesystem,
+        partition_expression=fragment.partition_expression)
     assert_yields_projected(new_fragment, (0, 4),
                             filter=ds.field('part') == 'a')
 
@@ -670,8 +670,8 @@ def test_fragments_reconstruct(tempdir):
     # `to_table(schema=...)` method.
     with pytest.raises(ValueError, match="Field named 'part' not found"):
         new_fragment = parquet_format.make_fragment(
-                fragment.path, fragment.filesystem,
-                partition_expression=fragment.partition_expression)
+            fragment.path, fragment.filesystem,
+            partition_expression=fragment.partition_expression)
         new_fragment.to_table(filter=ds.field('part') == 'a')
 
 
@@ -1440,3 +1440,105 @@ def test_feather_format(tempdir):
     write_feather(table, str(basedir / "data1.feather"), version=1)
     with pytest.raises(ValueError):
         ds.dataset(basedir, format="feather").to_table()
+
+
+def _create_parquet_dataset_simple(root_path):
+    import pyarrow.parquet as pq
+
+    metadata_collector = []
+
+    for i in range(4):
+        table = pa.table({'f1': [i] * 10, 'f2': np.random.randn(10)})
+        pq.write_to_dataset(
+            table, str(root_path), metadata_collector=metadata_collector
+        )
+
+    # write _metadata file
+    pq.write_metadata(
+        table.schema, str(root_path / '_metadata'),
+        metadata_collector=metadata_collector
+    )
+    return table
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas  # write_to_dataset currently requires pandas
+def test_parquet_dataset_factory(tempdir):
+    root_path = tempdir / "test_parquet_dataset"
+    table = _create_parquet_dataset_simple(root_path)
+
+    dataset = ds.parquet_dataset(str(root_path / '_metadata'))
+    assert dataset.schema.equals(table.schema)
+    assert len(dataset.files) == 4
+    result = dataset.to_table()
+    assert result.num_rows == 40
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_parquet_dataset_factory_invalid(tempdir):
+    root_path = tempdir / "test_parquet_dataset"
+    table = _create_parquet_dataset_simple(root_path)
+    # remove one of the files
+    list(root_path.glob("*.parquet"))[0].unlink()
+
+    dataset = ds.parquet_dataset(str(root_path / '_metadata'))
+    assert dataset.schema.equals(table.schema)
+    assert len(dataset.files) == 4
+    # TODO this segfaults with
+    # terminate called after throwing an instance of 'std::system_error'
+    #     what():  Invalid argument
+    # with pytest.raises(ValueError):
+    #     dataset.to_table()
+
+
+def _create_metadata_file(root_path):
+    # create _metadata file from existing parquet dataset
+    import pyarrow.parquet as pq
+
+    parquet_paths = list(sorted(root_path.rglob("*.parquet")))
+    schema = pq.ParquetFile(parquet_paths[0]).schema.to_arrow_schema()
+
+    metadata_collector = []
+    for path in parquet_paths:
+        metadata = pq.ParquetFile(path).metadata
+        metadata.set_file_path(str(path.relative_to(root_path)))
+        metadata_collector.append(metadata)
+
+    metadata_path = root_path / "_metadata"
+    pq.write_metadata(
+        schema, metadata_path, metadata_collector=metadata_collector
+    )
+
+
+def _create_parquet_dataset_partitioned(root_path):
+    import pyarrow.parquet as pq
+
+    table = pa.table({
+        'f1': range(20), 'f2': np.random.randn(20),
+        'part': np.repeat(['a', 'b'], 10)}
+    )
+    pq.write_to_dataset(table, str(root_path), partition_cols=['part'])
+    _create_metadata_file(root_path)
+    return table
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_parquet_dataset_factory_partitioned(tempdir):
+    # TODO support for specifying partitioning scheme
+
+    root_path = tempdir / "test_parquet_dataset"
+    table = _create_parquet_dataset_partitioned(root_path)
+
+    dataset = ds.parquet_dataset(str(root_path / '_metadata'))
+    # TODO partition column not yet included
+    # assert dataset.schema.equals(table.schema)
+    assert len(dataset.files) == 2
+    result = dataset.to_table()
+    assert result.num_rows == 20
+
+    # the partitioned dataset does not preserve order
+    result = result.to_pandas().sort_values("f1").reset_index(drop=True)
+    expected = table.to_pandas().drop(columns=["part"])
+    pd.testing.assert_frame_equal(result, expected)

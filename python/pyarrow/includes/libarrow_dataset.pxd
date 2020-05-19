@@ -330,6 +330,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             shared_ptr[CFileSystem] filesystem,
             shared_ptr[CParquetFileFormat] format
         )
+
         @staticmethod
         CResult[shared_ptr[CDatasetFactory]] MakeFromMetaDataSource "Make"(
             const CFileSource& metadata_path,
