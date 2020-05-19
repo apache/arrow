@@ -198,7 +198,7 @@ impl<R: Read> Reader<R> {
     pub fn new(
         reader: R,
         schema: Arc<Schema>,
-        has_headers: bool,
+        has_header: bool,
         delimiter: Option<u8>,
         batch_size: usize,
         projection: Option<Vec<usize>>,
@@ -206,7 +206,7 @@ impl<R: Read> Reader<R> {
         Self::from_buf_reader(
             BufReader::new(reader),
             schema,
-            has_headers,
+            has_header,
             delimiter,
             batch_size,
             projection,
@@ -235,13 +235,13 @@ impl<R: Read> Reader<R> {
     pub fn from_buf_reader(
         buf_reader: BufReader<R>,
         schema: Arc<Schema>,
-        has_headers: bool,
+        has_header: bool,
         delimiter: Option<u8>,
         batch_size: usize,
         projection: Option<Vec<usize>>,
     ) -> Self {
         let mut reader_builder = csv_crate::ReaderBuilder::new();
-        reader_builder.has_headers(has_headers);
+        reader_builder.has_headers(has_header);
 
         match delimiter {
             Some(c) => {
@@ -257,7 +257,7 @@ impl<R: Read> Reader<R> {
             projection,
             record_iter,
             batch_size,
-            line_number: if has_headers { 1 } else { 0 },
+            line_number: if has_header { 1 } else { 0 },
         }
     }
 
@@ -406,7 +406,7 @@ pub struct ReaderBuilder {
     ///
     /// If schema inference is run on a file with no headers, default column names
     /// are created.
-    has_headers: bool,
+    has_header: bool,
     /// An optional column delimiter. Defaults to `b','`
     delimiter: Option<u8>,
     /// Optional maximum number of records to read during schema inference
@@ -425,7 +425,7 @@ impl Default for ReaderBuilder {
     fn default() -> ReaderBuilder {
         ReaderBuilder {
             schema: None,
-            has_headers: false,
+            has_header: false,
             delimiter: None,
             max_records: None,
             batch_size: 1024,
@@ -469,8 +469,8 @@ impl ReaderBuilder {
     }
 
     /// Set whether the CSV file has headers
-    pub fn has_headers(mut self, has_headers: bool) -> Self {
-        self.has_headers = has_headers;
+    pub fn has_header(mut self, has_header: bool) -> Self {
+        self.has_header = has_header;
         self
     }
 
@@ -512,7 +512,7 @@ impl ReaderBuilder {
                     &mut buf_reader,
                     delimiter,
                     self.max_records,
-                    self.has_headers,
+                    self.has_header,
                 )?;
 
                 Arc::new(inferred_schema)
@@ -520,7 +520,7 @@ impl ReaderBuilder {
         };
         let csv_reader = csv_crate::ReaderBuilder::new()
             .delimiter(delimiter)
-            .has_headers(self.has_headers)
+            .has_headers(self.has_header)
             .from_reader(buf_reader);
         let record_iter = csv_reader.into_records();
         Ok(Reader {
@@ -528,7 +528,7 @@ impl ReaderBuilder {
             projection: self.projection.clone(),
             record_iter,
             batch_size: self.batch_size,
-            line_number: if self.has_headers { 1 } else { 0 },
+            line_number: if self.has_header { 1 } else { 0 },
         })
     }
 }
@@ -609,7 +609,7 @@ mod tests {
     fn test_csv_with_schema_inference() {
         let file = File::open("test/data/uk_cities_with_headers.csv").unwrap();
 
-        let builder = ReaderBuilder::new().has_headers(true).infer_schema(None);
+        let builder = ReaderBuilder::new().has_header(true).infer_schema(None);
 
         let mut csv = builder.build(file).unwrap();
         let expected_schema = Schema::new(vec![
@@ -727,7 +727,7 @@ mod tests {
 
         let builder = ReaderBuilder::new()
             .infer_schema(None)
-            .has_headers(true)
+            .has_header(true)
             .with_delimiter(b'|')
             .with_batch_size(512)
             .with_projection(vec![0, 1, 2, 3]);
@@ -770,7 +770,7 @@ mod tests {
 
         let builder = ReaderBuilder::new()
             .with_schema(Arc::new(schema))
-            .has_headers(true)
+            .has_header(true)
             .with_delimiter(b'|')
             .with_batch_size(512)
             .with_projection(vec![0, 1, 2, 3]);
