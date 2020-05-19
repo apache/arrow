@@ -500,7 +500,7 @@ void AddMinMaxKernels(KernelInit init,
   }
 }
 
-void RegisterBasicAggregateFunctions(FunctionRegistry* registry) {
+void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarAggregateFunction>("count", /*arity=*/1);
 
   /// Takes any array input, outputs int64 scalar
@@ -510,17 +510,17 @@ void RegisterBasicAggregateFunctions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>("sum", /*arity=*/1);
-  AddBasicAggKernels(SumInit, codegen::SignedIntTypes(), int64(), func.get());
-  AddBasicAggKernels(SumInit, codegen::UnsignedIntTypes(), uint64(), func.get());
-  AddBasicAggKernels(SumInit, codegen::FloatingPointTypes(), float64(), func.get());
+  AddBasicAggKernels(SumInit, SignedIntTypes(), int64(), func.get());
+  AddBasicAggKernels(SumInit, UnsignedIntTypes(), uint64(), func.get());
+  AddBasicAggKernels(SumInit, FloatingPointTypes(), float64(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>("mean", /*arity=*/1);
-  AddBasicAggKernels(MeanInit, codegen::NumericTypes(), float64(), func.get());
+  AddBasicAggKernels(MeanInit, NumericTypes(), float64(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>("minmax", /*arity=*/1);
-  AddMinMaxKernels(MinMaxInit, codegen::NumericTypes(), func.get());
+  AddMinMaxKernels(MinMaxInit, NumericTypes(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 

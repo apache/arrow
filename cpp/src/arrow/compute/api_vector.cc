@@ -29,7 +29,31 @@ namespace arrow {
 namespace compute {
 
 // ----------------------------------------------------------------------
-// Vector functions
+// Direct exec interface to kernels
+
+Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
+                                            ExecContext* ctx) {
+  PartitionOptions options(/*pivot=*/n);
+  ARROW_ASSIGN_OR_RAISE(Datum result, ExecVectorFunction(ctx, "partition_indices",
+                                                         {Datum(values)}, &options));
+  return result.make_array();
+}
+
+Result<std::shared_ptr<Array>> SortToIndices(const Array& values, ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(Datum result,
+                        ExecVectorFunction(ctx, "sort_indices", {Datum(values)}));
+  return result.make_array();
+}
+
+Result<Datum> Filter(const Datum& values, const Datum& filter, FilterOptions options,
+                     ExecContext* ctx) {
+  return ExecVectorFunction(ctx, "take", {values, filter}, &options);
+}
+
+Result<Datum> Take(const Datum& values, const Datum& indices, const TakeOptions& options,
+                   ExecContext* ctx) {
+  return ExecVectorFunction(ctx, "take", {values, indices}, &options);
+}
 
 namespace {
 
@@ -95,24 +119,8 @@ Result<std::shared_ptr<Array>> ValueCounts(const Datum& value, ExecContext* ctx)
   return Status::NotImplemented("NYI");
 }
 
-Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
-                                            ExecContext* ctx) {
-  PartitionOptions options(/*pivot=*/n);
-  ARROW_ASSIGN_OR_RAISE(Datum result, ExecVectorFunction(ctx, "partition_indices",
-                                                         {Datum(values)}, &options));
-  return result.make_array();
-}
-
-Result<std::shared_ptr<Array>> SortToIndices(const Array& values, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result,
-                        ExecVectorFunction(ctx, "sort_indices", {Datum(values)}));
-  return result.make_array();
-}
-
-Result<Datum> Take(const Datum& values, const Datum& indices, const TakeOptions& options,
-                   ExecContext* ctx) {
-  return ExecVectorFunction(ctx, "take", {values, indices}, &options);
-}
+// ----------------------------------------------------------------------
+// Take invocation conveniences
 
 Result<std::shared_ptr<Array>> Take(const Array& values, const Array& indices,
                                     const TakeOptions& options, ExecContext* ctx) {
@@ -207,6 +215,9 @@ Result<std::shared_ptr<Table>> Take(const Table& table, const ChunkedArray& indi
   return Table::Make(table.schema(), columns);
 }
 
+// ----------------------------------------------------------------------
+// Filter invocation conveniences
+
 // Status FilterRecordBatch(KernelContext* ctx, const RecordBatch& batch,
 //                          const Array& filter, FilterOptions options,
 //                          std::shared_ptr<RecordBatch>* out) {
@@ -254,11 +265,6 @@ Result<std::shared_ptr<Table>> Take(const Table& table, const ChunkedArray& indi
 //   RETURN_NOT_OK(FilterKernel::Make(values.type(), options, &kernel));
 //   return kernel->Call(ctx, values, filter, out);
 // }
-
-Result<Datum> Filter(const Datum& values, const Datum& filter, FilterOptions options,
-                     ExecContext* context) {
-  return Status::NotImplemented("NYI");
-}
 
 }  // namespace compute
 }  // namespace arrow

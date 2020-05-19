@@ -32,9 +32,9 @@ namespace codegen {
 template <typename Op>
 void MakeBinaryFunction(std::string name, FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>(name, /*arity=*/2);
-  for (const std::shared_ptr<DataType>& ty : codegen::NumericTypes()) {
+  for (const std::shared_ptr<DataType>& ty : NumericTypes()) {
     DCHECK_OK(func->AddKernel({InputType::Array(ty), InputType::Array(ty)}, ty,
-                              NumericEqualTypes::MakeBinary<Op>(*ty)));
+                              ScalarNumericEqualTypes::Binary<Op>(*ty)));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
@@ -43,7 +43,7 @@ void MakeBinaryFunction(std::string name, FunctionRegistry* registry) {
 
 namespace internal {
 
-void RegisterArithmeticFunctions(FunctionRegistry* registry) {
+void RegisterScalarArithmetic(FunctionRegistry* registry) {
   codegen::MakeBinaryFunction<Add>("add", registry);
 }
 

@@ -164,7 +164,9 @@ void MakeFunction(std::string name, int arity, ArrayKernelExec exec,
 
 namespace internal {
 
-void RegisterBooleanFunctions(FunctionRegistry* registry) {
+using codegen::SimpleExec;
+
+void RegisterScalarBoolean(FunctionRegistry* registry) {
   // These functions can write into sliced output bitmaps
   MakeFunction("invert", 1, SimpleExec::Unary<Invert>, registry);
   MakeFunction("and", 2, SimpleExec::Binary<And>, registry);

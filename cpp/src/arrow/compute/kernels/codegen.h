@@ -30,12 +30,13 @@
 namespace arrow {
 namespace compute {
 
-#define CTX_RETURN_IF_ERROR(CTX, STATUS)        \
-  do {                                          \
-    if (ARROW_PREDICT_FALSE(!STATUS.ok()))      \
-      (CTX)->SetStatus(STATUS);                 \
-      return;                                   \
-    }                                           \
+#define CTX_RETURN_IF_ERROR(CTX, S)                             \
+  do {                                                          \
+    ::arrow::Status _s = ::arrow::internal::GenericToStatus(S); \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) {                        \
+      (CTX)->SetStatus(_s);                                     \
+      return;                                                   \
+    }                                                           \
   } while (0)
 
 // A kernel that exposes Call methods that handles iteration over ArrayData
@@ -120,6 +121,42 @@ struct GetValueType<
 };
 
 // ----------------------------------------------------------------------
+// Generate an array kernel given template classes
+
+void ExecFail(KernelContext* ctx, const ExecBatch& batch, Datum* out);
+
+void BinaryExecFlipped(KernelContext* ctx, ArrayKernelExec exec,
+                       const ExecBatch& batch, Datum* out);
+
+// ----------------------------------------------------------------------
+// Boolean data utilities
+
+// ----------------------------------------------------------------------
+// Template kernel exec function generators
+
+template <typename T>
+void Extend(const std::vector<T>& values, std::vector<T>* out) {
+  for (const auto& t : values) {
+    out->push_back(t);
+  }
+}
+
+const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes();
+const std::vector<std::shared_ptr<DataType>>& SignedIntTypes();
+const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes();
+const std::vector<std::shared_ptr<DataType>>& IntTypes();
+const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes();
+
+// Number types without boolean
+const std::vector<std::shared_ptr<DataType>>& NumericTypes();
+
+// Temporal types including time and timestamps for each unit
+const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
+
+// Integer, floating point, base binary, and temporal
+const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
+
+namespace codegen {
 
 struct SimpleExec {
   // Operator must implement
@@ -192,34 +229,6 @@ struct ScalarPrimitiveExec {
   }
 };
 
-// ----------------------------------------------------------------------
-// Generate an array kernel given template classes
-
-void ExecFail(KernelContext* ctx, const ExecBatch& batch, Datum* out);
-
-// ----------------------------------------------------------------------
-// Boolean data utilities
-
-// ----------------------------------------------------------------------
-// Code generator for numeric-type kernels where the input and output types
-// are all the same
-
-namespace codegen {
-
-template <typename T>
-void Extend(const std::vector<T>& values, std::vector<T>* out) {
-  for (const auto& t : values) {
-    out->push_back(t);
-  }
-}
-
-const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes();
-const std::vector<std::shared_ptr<DataType>>& SignedIntTypes();
-const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes();
-const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes();
-const std::vector<std::shared_ptr<DataType>>& NumericTypes();
-const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
-
 template <typename Type, typename Enable = void>
 struct OutputAdapter;
 
@@ -254,9 +263,6 @@ struct OutputAdapter<Type, enable_if_base_binary<Type>> {
     ctx->SetStatus(Status::NotImplemented("NYI"));
   }
 };
-
-void BinaryExecFlipped(KernelContext* ctx, ArrayKernelExec exec,
-                       const ExecBatch& batch, Datum* out);
 
 // A binary kernel that outputs boolean values.
 template <typename OutType, typename Arg0Type, typename Arg1Type, typename Op,
@@ -311,9 +317,9 @@ template <typename OutType, typename ArgType, typename Op,
           typename FlippedOp = Op>
 using ScalarBinaryEqualTypes = ScalarBinary<OutType, ArgType, ArgType, Op, FlippedOp>;
 
-struct NumericEqualTypes {
+struct ScalarNumericEqualTypes {
   template <typename Op>
-  static ArrayKernelExec MakeUnary(const DataType& in_type) {
+  static ArrayKernelExec Unary(const DataType& in_type) {
     switch (in_type.id()) {
       case Type::INT8:
         return ScalarPrimitiveExec::Unary<Op, Int8Type, Int8Type>;
@@ -342,7 +348,7 @@ struct NumericEqualTypes {
   }
 
   template <typename Op>
-  static ArrayKernelExec MakeBinary(const DataType& in_type) {
+  static ArrayKernelExec Binary(const DataType& in_type) {
     switch (in_type.id()) {
       case Type::INT8:
         return ScalarPrimitiveExec::Binary<Op, Int8Type, Int8Type, Int8Type>;
@@ -372,29 +378,25 @@ struct NumericEqualTypes {
 };
 
 template <template <typename...> class Generator,
-          typename OutType, typename... Args>
-ArrayKernelExec NumericSetReturn(const DataType& in_type) {
+          typename Type0, typename... Args>
+ArrayKernelExec Numeric(const DataType& in_type) {
   switch (in_type.id()) {
     case Type::INT8:
-      return Generator<OutType, Int8Type, Args...>::Exec;
+      return Generator<Type0, Int8Type, Args...>::Exec;
     case Type::UINT8:
-      return Generator<OutType, UInt8Type, Args...>::Exec;
+      return Generator<Type0, UInt8Type, Args...>::Exec;
     case Type::INT16:
-      return Generator<OutType, Int16Type, Args...>::Exec;
+      return Generator<Type0, Int16Type, Args...>::Exec;
     case Type::UINT16:
-      return Generator<OutType, UInt16Type, Args...>::Exec;
+      return Generator<Type0, UInt16Type, Args...>::Exec;
     case Type::INT32:
-      return Generator<OutType, Int32Type, Args...>::Exec;
+      return Generator<Type0, Int32Type, Args...>::Exec;
     case Type::UINT32:
-      return Generator<OutType, UInt32Type, Args...>::Exec;
+      return Generator<Type0, UInt32Type, Args...>::Exec;
     case Type::INT64:
-      return Generator<OutType, Int64Type, Args...>::Exec;
+      return Generator<Type0, Int64Type, Args...>::Exec;
     case Type::UINT64:
-      return Generator<OutType, UInt64Type, Args...>::Exec;
-    case Type::FLOAT:
-      return Generator<OutType, FloatType, Args...>::Exec;
-    case Type::DOUBLE:
-      return Generator<OutType, DoubleType, Args...>::Exec;
+      return Generator<Type0, UInt64Type, Args...>::Exec;
     default:
       DCHECK(false);
       return ExecFail;
@@ -402,17 +404,57 @@ ArrayKernelExec NumericSetReturn(const DataType& in_type) {
 }
 
 template <template <typename...> class Generator,
-          typename OutType, typename... Args>
-ArrayKernelExec BaseBinarySetReturn(const DataType& in_type) {
+          typename Type0, typename... Args>
+ArrayKernelExec FloatingPoint(const DataType& type) {
+  switch (type.id()) {
+    case Type::FLOAT:
+      return Generator<Type0, FloatType, Args...>::Exec;
+    case Type::DOUBLE:
+      return Generator<Type0, DoubleType, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
+template <template <typename...> class Generator,
+          typename Type0, typename... Args>
+ArrayKernelExec Integer(const DataType& type) {
+  switch (type.id()) {
+    case Type::INT8:
+      return Generator<Type0, Int8Type, Args...>::Exec;
+    case Type::INT16:
+      return Generator<Type0, Int16Type, Args...>::Exec;
+    case Type::INT32:
+      return Generator<Type0, Int32Type, Args...>::Exec;
+    case Type::INT64:
+      return Generator<Type0, Int64Type, Args...>::Exec;
+    case Type::UINT8:
+      return Generator<Type0, UInt8Type, Args...>::Exec;
+    case Type::UINT16:
+      return Generator<Type0, UInt16Type, Args...>::Exec;
+    case Type::UINT32:
+      return Generator<Type0, UInt32Type, Args...>::Exec;
+    case Type::UINT64:
+      return Generator<Type0, UInt64Type, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
+template <template <typename...> class Generator,
+          typename Type0, typename... Args>
+ArrayKernelExec BaseBinary(const DataType& in_type) {
   switch (in_type.id()) {
     case Type::BINARY:
-      return Generator<OutType, BinaryType, Args...>::Exec;
+      return Generator<Type0, BinaryType, Args...>::Exec;
     case Type::STRING:
-      return Generator<OutType, StringType, Args...>::Exec;
+      return Generator<Type0, StringType, Args...>::Exec;
     case Type::LARGE_BINARY:
-      return Generator<OutType, LargeBinaryType, Args...>::Exec;
+      return Generator<Type0, LargeBinaryType, Args...>::Exec;
     case Type::LARGE_STRING:
-      return Generator<OutType, LargeStringType, Args...>::Exec;
+      return Generator<Type0, LargeStringType, Args...>::Exec;
     default:
       DCHECK(false);
       return ExecFail;
@@ -420,19 +462,19 @@ ArrayKernelExec BaseBinarySetReturn(const DataType& in_type) {
 }
 
 template <template <typename...> class Generator,
-          typename OutType, typename... Args>
-ArrayKernelExec TemporalSetReturn(const DataType& in_type) {
+          typename Type0, typename... Args>
+ArrayKernelExec Temporal(const DataType& in_type) {
   switch (in_type.id()) {
     case Type::DATE32:
-      return Generator<OutType, Date32Type, Args...>::Exec;
+      return Generator<Type0, Date32Type, Args...>::Exec;
     case Type::DATE64:
-      return Generator<OutType, Date64Type, Args...>::Exec;
+      return Generator<Type0, Date64Type, Args...>::Exec;
     case Type::TIME32:
-      return Generator<OutType, Time32Type, Args...>::Exec;
+      return Generator<Type0, Time32Type, Args...>::Exec;
     case Type::TIME64:
-      return Generator<OutType, Time64Type, Args...>::Exec;
+      return Generator<Type0, Time64Type, Args...>::Exec;
     case Type::TIMESTAMP:
-      return Generator<OutType, TimestampType, Args...>::Exec;
+      return Generator<Type0, TimestampType, Args...>::Exec;
     default:
       DCHECK(false);
       return ExecFail;
@@ -440,5 +482,11 @@ ArrayKernelExec TemporalSetReturn(const DataType& in_type) {
 }
 
 }  // namespace codegen
+
+// ----------------------------------------------------------------------
+// Reusable type resolvers
+
+Result<ValueDescr> FirstType(const std::vector<ValueDescr>& descrs);
+
 }  // namespace compute
 }  // namespace arrow

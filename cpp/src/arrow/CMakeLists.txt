@@ -327,14 +327,15 @@ if(ARROW_COMPUTE)
               compute/function.cc
               compute/kernel.cc
               compute/registry.cc
-              compute/kernels/codegen_internal.cc
+              compute/kernels/codegen.cc
               compute/kernels/aggregate_basic.cc
               compute/kernels/scalar_arithmetic.cc
               compute/kernels/scalar_boolean.cc
               compute/kernels/scalar_compare.cc
+              compute/kernels/vector_filter.cc
               compute/kernels/scalar_set_lookup.cc
               compute/kernels/vector_sort.cc
-              compute/kernels/vector_selection.cc
+              compute/kernels/vector_take.cc
               # compute/kernels/scalar_cast.cc
               # compute/kernels/vector_hash.cc
        )

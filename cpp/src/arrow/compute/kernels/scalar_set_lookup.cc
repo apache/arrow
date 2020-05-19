@@ -280,7 +280,7 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
 
 namespace internal {
 
-void RegisterSetLookupFunctions(FunctionRegistry* registry) {
+void RegisterScalarSetLookup(FunctionRegistry* registry) {
   // IsIn always writes into preallocated memory
   {
     ScalarKernel isin_base;

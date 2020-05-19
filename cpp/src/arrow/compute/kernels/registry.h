@@ -26,19 +26,19 @@ namespace compute {
 namespace internal {
 
 // Built-in scalar / elementwise functions
-void RegisterArithmeticFunctions(FunctionRegistry* registry);
-void RegisterBooleanFunctions(FunctionRegistry* registry);
-void RegisterComparisonFunctions(FunctionRegistry* registry);
-void RegisterSetLookupFunctions(FunctionRegistry* registry);
+void RegisterScalarArithmetic(FunctionRegistry* registry);
+void RegisterScalarBoolean(FunctionRegistry* registry);
+void RegisterScalarComparison(FunctionRegistry* registry);
+void RegisterScalarSetLookup(FunctionRegistry* registry);
 
 // Vector functions
-void RegisterVectorFilterFunctions(FunctionRegistry* registry);
-void RegisterVectorHashFunctions(FunctionRegistry* registry);
-void RegisterVectorSortFunctions(FunctionRegistry* registry);
-void RegisterVectorTakeFunctions(FunctionRegistry* registry);
+void RegisterVectorFilter(FunctionRegistry* registry);
+void RegisterVectorHash(FunctionRegistry* registry);
+void RegisterVectorSort(FunctionRegistry* registry);
+void RegisterVectorTake(FunctionRegistry* registry);
 
 // Aggregate functions
-void RegisterBasicAggregateFunctions(FunctionRegistry* registry);
+void RegisterScalarAggregateBasic(FunctionRegistry* registry);
 
 }  // namespace internal
 }  // namespace compute

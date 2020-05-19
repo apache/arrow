@@ -109,7 +109,7 @@ struct ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   bool skip_nulls;
 };
 
-struct FilterOptions {
+struct FilterOptions : public FunctionOptions {
   /// Configure the action taken when a slot of the selection mask is null
   enum NullSelectionBehavior {
     /// the corresponding filtered value will be removed in the output

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/compute/kernels/codegen.h"
 
 #include <cstdint>
 #include <memory>
@@ -31,8 +31,6 @@ namespace compute {
 void ExecFail(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   ctx->SetStatus(Status::NotImplemented("This kernel is malformed"));
 }
-
-namespace codegen {
 
 void BinaryExecFlipped(KernelContext* ctx, ArrayKernelExec exec,
                        const ExecBatch& batch, Datum* out) {
@@ -50,6 +48,7 @@ std::vector<std::shared_ptr<DataType>> g_floating_types;
 std::vector<std::shared_ptr<DataType>> g_numeric_types;
 std::vector<std::shared_ptr<DataType>> g_base_binary_types;
 std::vector<std::shared_ptr<DataType>> g_temporal_types;
+std::vector<std::shared_ptr<DataType>> g_non_parametric_types;
 static std::once_flag codegen_static_initialized;
 
 static void InitStaticData() {
@@ -66,30 +65,16 @@ static void InitStaticData() {
   g_unsigned_int_types.push_back(uint64());
 
   // All int types
-  g_int_types.push_back(int8());
-  g_int_types.push_back(int16());
-  g_int_types.push_back(int32());
-  g_int_types.push_back(int64());
-  g_int_types.push_back(uint8());
-  g_int_types.push_back(uint16());
-  g_int_types.push_back(uint32());
-  g_int_types.push_back(uint64());
+  Extend(g_unsigned_int_types, &g_int_types);
+  Extend(g_signed_int_types, &g_int_types);
 
   // Floating point types
   g_floating_types.push_back(float32());
   g_floating_types.push_back(float64());
 
   // Numeric types
-  g_numeric_types.push_back(uint8());
-  g_numeric_types.push_back(uint16());
-  g_numeric_types.push_back(uint32());
-  g_numeric_types.push_back(uint64());
-  g_numeric_types.push_back(int8());
-  g_numeric_types.push_back(int16());
-  g_numeric_types.push_back(int32());
-  g_numeric_types.push_back(int64());
-  g_numeric_types.push_back(float32());
-  g_numeric_types.push_back(float64());
+  Extend(g_int_types, &g_numeric_types);
+  Extend(g_floating_types, &g_numeric_types);
 
   // Temporal types
   g_temporal_types.push_back(date32());
@@ -108,6 +93,12 @@ static void InitStaticData() {
   g_base_binary_types.push_back(utf8());
   g_base_binary_types.push_back(large_binary());
   g_base_binary_types.push_back(large_utf8());
+
+  // Non-parametric, non-nested types
+  g_non_parametric_types.push_back(boolean());
+  Extend(g_numeric_types, &g_non_parametric_types);
+  Extend(g_temporal_types, &g_non_parametric_types);
+  Extend(g_base_binary_types, &g_non_parametric_types);
 }
 
 const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes() {
@@ -125,6 +116,11 @@ const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes() {
   return g_unsigned_int_types;
 }
 
+const std::vector<std::shared_ptr<DataType>>& IntTypes() {
+  std::call_once(codegen_static_initialized, InitStaticData);
+  return g_int_types;
+}
+
 const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes() {
   std::call_once(codegen_static_initialized, InitStaticData);
   return g_floating_types;
@@ -140,6 +136,14 @@ const std::vector<std::shared_ptr<DataType>>& TemporalTypes() {
   return g_temporal_types;
 }
 
-}  // namespace codegen
+const std::vector<std::shared_ptr<DataType>>& NonParametricTypes() {
+  std::call_once(codegen_static_initialized, InitStaticData);
+  return g_non_parametric_types;
+}
+
+Result<ValueDescr> FirstType(const std::vector<ValueDescr>& descrs) {
+  return descrs[0];
+}
+
 }  // namespace compute
 }  // namespace arrow

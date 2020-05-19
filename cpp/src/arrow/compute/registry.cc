@@ -101,16 +101,18 @@ static void CreateBuiltInRegistry() {
   g_registry = FunctionRegistry::Make();
 
   // Scalar functions
-  RegisterArithmeticFunctions(g_registry.get());
-  RegisterBooleanFunctions(g_registry.get());
-  RegisterComparisonFunctions(g_registry.get());
-  RegisterSetLookupFunctions(g_registry.get());
+  RegisterScalarArithmetic(g_registry.get());
+  RegisterScalarBoolean(g_registry.get());
+  RegisterScalarComparison(g_registry.get());
+  RegisterScalarSetLookup(g_registry.get());
 
   // Aggregate functions
-  RegisterBasicAggregateFunctions(g_registry.get());
+  RegisterScalarAggregateBasic(g_registry.get());
 
   // Vector functions
-  RegisterVectorSortFunctions(g_registry.get());
+  RegisterVectorFilter(g_registry.get());
+  RegisterVectorSort(g_registry.get());
+  RegisterVectorTake(g_registry.get());
 }
 
 }  // namespace internal

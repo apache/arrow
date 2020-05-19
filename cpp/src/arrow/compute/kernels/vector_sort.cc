@@ -261,35 +261,33 @@ std::unique_ptr<KernelState> InitPartitionIndices(KernelContext*, const Kernel&,
 }
 
 template <template <typename...> class ExecTemplate>
-struct SortingKernels {
-  static void Add(VectorKernel base, VectorFunction* func) {
-    for (const auto& ty : codegen::NumericTypes()) {
-      base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
-      base.exec = codegen::NumericSetReturn<ExecTemplate, UInt64Type>(*ty);
-      DCHECK_OK(func->AddKernel(base));
-    }
-    for (const auto& ty : codegen::BaseBinaryTypes()) {
-      base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
-      base.exec = codegen::BaseBinarySetReturn<ExecTemplate, UInt64Type>(*ty);
-      DCHECK_OK(func->AddKernel(base));
-    }
+void AddSortingKernels(VectorKernel base, VectorFunction* func) {
+  for (const auto& ty : NumericTypes()) {
+    base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
+    base.exec = codegen::Numeric<ExecTemplate, UInt64Type>(*ty);
+    DCHECK_OK(func->AddKernel(base));
   }
-};
+  for (const auto& ty : BaseBinaryTypes()) {
+    base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
+    base.exec = codegen::BaseBinary<ExecTemplate, UInt64Type>(*ty);
+    DCHECK_OK(func->AddKernel(base));
+  }
+}
 
-void RegisterVectorSortFunctions(FunctionRegistry* registry) {
+void RegisterVectorSort(FunctionRegistry* registry) {
   // The kernel outputs into preallocated memory and is never null
   VectorKernel base;
   base.mem_allocation = MemAllocation::PREALLOCATE;
   base.null_handling = NullHandling::OUTPUT_NOT_NULL;
 
   auto sort_indices = std::make_shared<VectorFunction>("sort_indices", /*arity=*/1);
-  SortingKernels<SortIndices>::Add(base, sort_indices.get());
+  AddSortingKernels<SortIndices>(base, sort_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(sort_indices)));
 
   // partition_indices has a parameter so needs its init function
   auto part_indices = std::make_shared<VectorFunction>("partition_indices", /*arity=*/1);
   base.init = InitPartitionIndices;
-  SortingKernels<PartitionIndices>::Add(base, part_indices.get());
+  AddSortingKernels<PartitionIndices>(base, part_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(part_indices)));
 }
 

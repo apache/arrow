@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <limits>
 
-#include "arrow/array/concatenate.h"
 #include "arrow/builder.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/record_batch.h"
@@ -26,6 +25,7 @@
 
 namespace arrow {
 namespace compute {
+namespace internal {
 
 template <typename T, typename R = void>
 using enable_if_not_base_binary =
@@ -754,255 +754,22 @@ Status Taker<IndexSequence>::Make(const std::shared_ptr<DataType>& type,
   return VisitTypeInline(*type, &visitor);
 }
 
-// ----------------------------------------------------------------------
-// Filter implementation
-
-// IndexSequence which yields the indices of positions in a BooleanArray
-// which are either null or true
-template <FilterOptions::NullSelectionBehavior NullSelectionBehavior>
-class FilterIndexSequence {
- public:
-  // constexpr so we'll never instantiate bounds checking
-  constexpr bool never_out_of_bounds() const { return true; }
-  void set_never_out_of_bounds() {}
-
-  constexpr FilterIndexSequence() = default;
-
-  FilterIndexSequence(const BooleanArray& filter, int64_t out_length)
-      : filter_(&filter), out_length_(out_length) {}
-
-  std::pair<int64_t, bool> Next() {
-    if (NullSelectionBehavior == FilterOptions::DROP) {
-      // skip until an index is found at which the filter is true
-      while (filter_->IsNull(index_) || !filter_->Value(index_)) {
-        ++index_;
-      }
-      return std::make_pair(index_++, true);
-    }
-
-    // skip until an index is found at which the filter is either null or true
-    while (filter_->IsValid(index_) && !filter_->Value(index_)) {
-      ++index_;
-    }
-    bool is_valid = filter_->IsValid(index_);
-    return std::make_pair(index_++, is_valid);
-  }
-
-  int64_t length() const { return out_length_; }
-
-  int64_t null_count() const {
-    if (NullSelectionBehavior == FilterOptions::DROP) {
-      return 0;
-    }
-    return filter_->null_count();
-  }
-
- private:
-  const BooleanArray* filter_ = nullptr;
-  int64_t index_ = 0, out_length_ = -1;
-};
-
-static int64_t OutputSize(FilterOptions options, const BooleanArray& filter) {
-  // TODO(bkietz) this can be optimized. Use Bitmap::VisitWords
-  int64_t size = 0;
-  if (options.null_selection_behavior == FilterOptions::EMIT_NULL) {
-    for (auto i = 0; i < filter.length(); ++i) {
-      if (filter.IsNull(i) || filter.Value(i)) {
-        ++size;
-      }
-    }
-  } else {
-    for (auto i = 0; i < filter.length(); ++i) {
-      if (filter.IsValid(i) && filter.Value(i)) {
-        ++size;
-      }
-    }
-  }
-  return size;
+template <typename IndexSequence>
+Status Select(KernelContext* ctx, const Array& values, IndexSequence sequence,
+              std::shared_ptr<Array>* out) {
+  std::unique_ptr<Taker<IndexSequence>> taker;
+  RETURN_NOT_OK(Taker<IndexSequence>::Make(values.type(), &taker));
+  RETURN_NOT_OK(taker->SetContext(ctx));
+  RETURN_NOT_OK(taker->Take(values, std::move(sequence)));
+  return taker->Finish(out);
 }
 
-// ----------------------------------------------------------------------
-// Take implementation
-
-
-template <typename ValueType, typename IndexType>
-struct FilterFunctor {
-  using ValueArrayType = typename TypeTraits<ValueType>::ArrayType;
-
-  template <typename IS>
-  static void ExecWith(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    std::shared_ptr<Array> arg0 = batch[0].make_array();
-    std::shared_ptr<Array> arg1 = batch[1].make_array();
-
-    std::unique_ptr<Taker<IS>> taker;
-    CTX_RETURN_IF_ERROR(ctx, Taker<IS>::Make(arg0->type(), &taker));
-
-
-    RETURN_NOT_OK(taker_->SetContext(ctx));
-    RETURN_NOT_OK(taker_->Take(values, IndexSequence(filter, out_length)));
-    return taker_->Finish(out);
-
-    CTX_RETURN_IF_ERROR(ctx, taker->SetContext(ctx));
-    CTX_RETURN_IF_ERROR(ctx, taker->Take(*arg0, IS(*arg1)));
-
-    std::shared_ptr<Array> result;
-    CTX_RETURN_IF_ERROR(ctx, taker_->Finish(*result));
-    out->value = result;
-
-    for (size_t i = 0; i < value_chunks.size(); ++i) {
-      auto filter_chunk = checked_pointer_cast<BooleanArray>(filter_chunks[i]);
-      RETURN_NOT_OK(this->Filter(ctx, *value_chunks[i], *filter_chunk,
-                                 OutputSize(options_, *filter_chunk), &value_chunks[i]));
-    }
-
-    if (values.is_array() && filter.is_array()) {
-      *out = std::move(value_chunks[0]);
-    } else {
-      // drop empty chunks
-      value_chunks.erase(
-          std::remove_if(value_chunks.begin(), value_chunks.end(),
-                         [](const std::shared_ptr<Array>& a) { return a->length() == 0; }),
-          value_chunks.end());
-
-      *out = std::make_shared<ChunkedArray>(std::move(value_chunks), values.type());
-    }
-  }
-
-  Status Filter(KernelContext* ctx, const Array& values, const BooleanArray& filter,
-                int64_t out_length, std::shared_ptr<Array>* out) override {
-  }
-
-
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    if (options.null_selection_behavior == FilterOptions::EMIT_NULL) {
-      ExecWith<FilterIndexSequence<FilterOptions::EMIT_NULL>>(ctx, batch, out);
-    } else {
-      ExecWith<FilterIndexSequence<FilterOptions::DROP>>(ctx, batch, out);
-    }
-  }
-};
-
-template <typename ValueType, typename IndexType>
-struct TakeFunctor {
-  using ValueArrayType = typename TypeTraits<ValueType>::ArrayType;
-  using IndexArrayType = typename TypeTraits<IndexType>::ArrayType;
-  using IS = ArrayIndexSequence<IndexType>;
-
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    std::shared_ptr<Array> arg0 = batch[0].make_array();
-    std::shared_ptr<Array> arg1 = batch[1].make_array();
-    std::unique_ptr<Taker<IS>> taker;
-
-    CTX_RETURN_IF_ERROR(ctx, Taker<IS>::Make(arg0.type(), &taker));
-    CTX_RETURN_IF_ERROR(ctx, taker->SetContext(ctx));
-    CTX_RETURN_IF_ERROR(ctx, taker->Take(*arg0, IS(*arg1)));
-
-    std::shared_ptr<Array> result;
-    CTX_RETURN_IF_ERROR(ctx, taker_->Finish(*result));
-    out->value = result;
-  }
-};
-
-template <template <typename...> class Functor,
-          typename ValueType>
-struct IndexDispatch {
-  ArrayKernelExec GetKernel(const DataType& index_type) {
-    switch (index_type.id()) {
-      case Type::INT8:
-        return Functor<ValueType, Int8Type>::Exec;
-      case Type::INT16:
-        return Functor<ValueType, Int16Type>::Exec;
-      case Type::INT32:
-        return Functor<ValueType, Int32Type>::Exec;
-      case Type::INT64:
-        return Functor<ValueType, Int64Type>::Exec;
-      case Type::UINT8:
-        return Functor<ValueType, UInt8Type>::Exec;
-      case Type::UINT16:
-        return Functor<ValueType, UInt16Type>::Exec;
-      case Type::UINT32:
-        return Functor<ValueType, UInt32Type>::Exec;
-      case Type::UINT64:
-        return Functor<ValueType, UInt64Type>::Exec;
-      default:
-        DCHECK(false) << "Index type not supported";
-        return ExecFail;
-    }
-  }
-};
-
-struct TakeVisitor {
-  TakeVisitor(const DataType& value_type, const DataType& index_type)
-      : value_type(value_type), index_type(index_type) {}
-
-  Status Visit(const T&) {
-    this->result = IndexDispatch<T>::GetKernel(index_type);
-    return Status::OK();
-  }
-
-  Status Create() { return VisitTypeInline(value_type, this); }
-
-  const DataType& value_type;
-  const DataType& index_type;
-  ArrayKernelExec result;
-};
-
-Status GetTakeKernel(const DataType& value_type, const DataType& index_type,
-                     ArrayKernelExec* exec) {
-  TakeVisitor visitor(value_type, index_type);
-  RETURN_NOT_OK(visitor.Create());
-  *exec = visitor.result;
-  return Status::OK();
-}
-
-namespace internal {
-
-static DataTypeVector g_take_index_types = {int8(), int16(), int32(), int64()};
-
-Result<ValueDescr> FirstType(const std::vector<ValueDescr>& descrs) { return descrs[0]; }
-
-void RegisterTakeFunctions(FunctionRegistry* registry) {
-  VectorKernel base;
-  base.init = TakeInit;
-  base.mem_allocation = MemAllocation::NO_PREALLOCATE;
-  base.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-
-  auto take = std::make_shared<VectorFunction>("take", /*arity=*/1);
-
-  DataTypeVector exact_types;
-  codegen::Extend({boolean()}, &exact_types);
-  codegen::Extend(NumericTypes(), &exact_types);
-  codegen::Extend(TemporalTypes(), &exact_types);
-  codegen::Extend(BaseBinaryTypes(), &exact_types);
-
-  OutputType out_sig_type(FirstType);
-  for (const auto& value_ty : types) {
-    InputType arg0_ty = InputType::Array(value_ty);
-    for (const auto& index_ty : g_take_index_types) {
-      base.signature =
-          KernelSignature::Make({arg0_ty, InputType::Array(index_ty)}, out_sig_type);
-      base.exec = GetTakeKernel(*value_ty, *index_ty);
-      DCHECK_OK(take->AddKernel(base));
-    }
-  }
-
-  // Construct dummy parametric types so that we can get VisitTypeInline to
-  // work above
-  DataTypeVector parametric_types = {
-      fixed_size_binary(0),        list(null()),       struct_({}),       decimal(12, 2),
-      dictionary(int32(), null()), fixed_size_list(0), large_list(null())};
-  OutputType out_sig_type(FirstType);
-  for (const auto& value_ty : parametric_types) {
-    InputType arg0_ty = InputType::Array(value_ty->id());
-    for (const auto& index_ty : g_take_index_types) {
-      base.signature =
-          KernelSignature::Make({arg0_ty, InputType::Array(index_ty)}, out_sig_type);
-      base.exec = GetTakeKernel(*value_ty, *index_ty);
-      DCHECK_OK(take->AddKernel(base));
-    }
-  }
-  DCHECK_OK(registry->AddFunction(std::move(take)));
-}
+// Construct dummy parametric types so that we can get VisitTypeInline to
+// work above
+static DataTypeVector g_dummy_parametric_types = {
+  fixed_size_binary(0),        list(null()),       struct_({}),       decimal(12, 2),
+  dictionary(int32(), null()), fixed_size_list(field("dummy", null()), 0),
+  large_list(null())};
 
 }  // namespace internal
 }  // namespace compute
