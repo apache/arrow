@@ -466,6 +466,40 @@ mod tests {
     }
 
     #[test]
+    fn test_write_null_file() {
+        let schema = Schema::new(vec![Field::new("nulls", DataType::Null, true)]);
+        let array1 = NullArray::new(32);
+        let batch = RecordBatch::try_new(
+            Arc::new(schema.clone()),
+            vec![Arc::new(array1) as ArrayRef],
+        )
+        .unwrap();
+        {
+            let file = File::create("target/debug/testdata/nulls.arrow_file").unwrap();
+            let mut writer = FileWriter::try_new(file, &schema).unwrap();
+
+            writer.write(&batch).unwrap();
+            // this is inside a block to test the implicit finishing of the file on `Drop`
+        }
+
+        {
+            let file = File::open("target/debug/testdata/nulls.arrow_file").unwrap();
+            let mut reader = FileReader::try_new(file).unwrap();
+            while let Ok(Some(read_batch)) = reader.next() {
+                read_batch
+                    .columns()
+                    .iter()
+                    .zip(batch.columns())
+                    .for_each(|(a, b)| {
+                        assert_eq!(a.data_type(), b.data_type());
+                        assert_eq!(a.len(), b.len());
+                        assert_eq!(a.null_count(), b.null_count());
+                    });
+            }
+        }
+    }
+
+    #[test]
     fn read_and_rewrite_generated_files() {
         let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
         // the test is repetitive, thus we can read all supported files at once

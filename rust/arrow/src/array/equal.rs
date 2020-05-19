@@ -723,6 +723,33 @@ impl ArrayEqual for UnionArray {
     }
 }
 
+impl ArrayEqual for NullArray {
+    fn equals(&self, other: &dyn Array) -> bool {
+        if other.data_type() != &DataType::Null {
+            return false;
+        }
+
+        if self.len() != other.len() {
+            return false;
+        }
+        if self.null_count() != other.null_count() {
+            return false;
+        }
+
+        true
+    }
+
+    fn range_equals(
+        &self,
+        _other: &dyn Array,
+        _start_idx: usize,
+        _end_idx: usize,
+        _other_start_idx: usize,
+    ) -> bool {
+        unimplemented!("Range comparison for null array not yet supported")
+    }
+}
+
 // Compare if the common basic fields between the two arrays are equal
 fn base_equal(this: &ArrayDataRef, other: &ArrayDataRef) -> bool {
     if this.data_type() != other.data_type() {
@@ -1076,6 +1103,12 @@ impl JsonEqual for UnionArray {
         unimplemented!(
             "Added to allow UnionArray to implement the Array trait: see ARROW-8547"
         )
+    }
+}
+
+impl JsonEqual for NullArray {
+    fn equals_json(&self, _json: &[&Value]) -> bool {
+        unimplemented!("JsonEqual for NullArray not yet supported")
     }
 }
 

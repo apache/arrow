@@ -188,6 +188,17 @@ fn create_array(
                 value_array,
             )
         }
+        Null => {
+            let length = nodes[node_index].length() as usize;
+            let data = ArrayData::builder(data_type.clone())
+                .len(length)
+                .null_count(length)
+                .offset(0)
+                .build();
+            node_index += 1;
+            // no buffer increases
+            make_array(data)
+        }
         _ => {
             let array = create_primitive_array(
                 &nodes[node_index],
