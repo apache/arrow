@@ -28,8 +28,7 @@ pub const ALIGNMENT: usize = 64;
 /// As you can see this is global and lives as long as the program lives.
 /// Be careful to not write anything to this pointer in any scenario.
 /// If you use allocation methods shown here you won't have any problems.
-const BYPASS_PTR: NonNull<u8> =
-    unsafe { NonNull::new_unchecked(ALIGNMENT as *mut u8) };
+const BYPASS_PTR: NonNull<u8> = unsafe { NonNull::new_unchecked(ALIGNMENT as *mut u8) };
 
 pub fn allocate_aligned(size: usize) -> *mut u8 {
     unsafe {
@@ -80,22 +79,12 @@ extern "C" {
 /// Check if the pointer `p` is aligned to offset `a`.
 pub fn is_aligned<T>(p: *const T, a: usize) -> bool {
     let a_minus_one = a.wrapping_sub(1);
-    dbg!(a_minus_one);
-    dbg!(p as usize);
     let pmoda = p as usize & a_minus_one;
-    dbg!(pmoda);
     pmoda == 0
 }
 
-// /// Check if the pointer `p` is aligned to offset `a`.
-// pub fn is_aligned<T>(p: *const T, a: usize) -> bool {
-//     p.align_offset(a) == 0
-// }
-
 pub fn is_ptr_aligned<T>(p: *const T) -> bool {
-    let alignment = align_of::<T>();
-    dbg!(&alignment);
-    p.align_offset(alignment) == 0
+    p.align_offset(align_of::<T>()) == 0
 }
 
 #[cfg(test)]
