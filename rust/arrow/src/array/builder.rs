@@ -1334,6 +1334,35 @@ where
             map: HashMap::new(),
         }
     }
+
+    pub fn new_with_dictionary(
+        keys_builder: PrimitiveBuilder<K>,
+        dictionary_values: &StringArray,
+    ) -> Result<Self> {
+        let mut values_builder = StringBuilder::with_capacity(
+            dictionary_values.len(),
+            dictionary_values.value_data().len(),
+        );
+        let mut map: HashMap<Box<[u8]>, K::Native> = HashMap::new();
+        for i in 0..dictionary_values.len() {
+            if dictionary_values.is_valid(i) {
+                let value = dictionary_values.value(i);
+                map.insert(
+                    value.as_bytes().into(),
+                    K::Native::from_usize(i)
+                        .ok_or(ArrowError::DictionaryKeyOverflowError)?,
+                );
+                values_builder.append_value(value)?;
+            } else {
+                values_builder.append_null()?;
+            }
+        }
+        Ok(Self {
+            keys_builder,
+            values_builder,
+            map,
+        })
+    }
 }
 
 impl<K> ArrayBuilder for StringDictionaryBuilder<K>
@@ -1384,7 +1413,7 @@ where
                 .ok_or(ArrowError::DictionaryKeyOverflowError)?;
             self.values_builder.append_value(value)?;
             self.keys_builder.append_value(key as K::Native)?;
-            self.map.insert(value.as_bytes().into(), key);
+            self.map.insert(Box::from(value.as_bytes()), key);
             Ok(key)
         }
     }
@@ -2295,6 +2324,77 @@ mod tests {
         assert_eq!(aks, vec![Some(0), None, Some(1), Some(1), Some(0)]);
         assert_eq!(ava.value(0), "abc");
         assert_eq!(ava.value(1), "def");
+    }
+
+    #[test]
+    fn test_string_dictionary_builder_with_existing_dictionary() {
+        let mut dictionary_builder = StringBuilder::new(3);
+        dictionary_builder.append_null();
+        dictionary_builder.append_value("def");
+        dictionary_builder.append_value("abc");
+
+        let dictionary = dictionary_builder.finish();
+
+        assert_eq!(dictionary.is_valid(0), false);
+        assert_eq!(dictionary.value(1), "def");
+        assert_eq!(dictionary.value(2), "abc");
+
+        let key_builder = PrimitiveBuilder::<Int8Type>::new(6);
+        let mut builder =
+            StringDictionaryBuilder::new_with_dictionary(key_builder, &dictionary)
+                .unwrap();
+        builder.append("abc").unwrap();
+        builder.append_null().unwrap();
+        builder.append("def").unwrap();
+        builder.append("def").unwrap();
+        builder.append("abc").unwrap();
+        builder.append("ghi").unwrap();
+        let array = builder.finish();
+
+        // Keys are strongly typed.
+        let aks: Vec<_> = array.keys().collect();
+
+        // Values are polymorphic and so require a downcast.
+        let av = array.values();
+        let ava: &StringArray = av.as_any().downcast_ref::<StringArray>().unwrap();
+
+        assert_eq!(aks, vec![Some(2), None, Some(1), Some(1), Some(2), Some(3)]);
+        assert_eq!(ava.is_valid(0), false);
+        assert_eq!(ava.value(1), "def");
+        assert_eq!(ava.value(2), "abc");
+        assert_eq!(ava.value(3), "ghi");
+    }
+
+    #[test]
+    fn test_string_dictionary_builder_with_reserved_null_value() {
+        let mut dictionary_builder = StringBuilder::new(1);
+        dictionary_builder.append_null();
+
+        let dictionary = dictionary_builder.finish();
+
+        assert_eq!(dictionary.is_valid(0), false);
+
+        let key_builder = PrimitiveBuilder::<Int16Type>::new(4);
+        let mut builder =
+            StringDictionaryBuilder::new_with_dictionary(key_builder, &dictionary)
+                .unwrap();
+        builder.append("abc").unwrap();
+        builder.append_null().unwrap();
+        builder.append("def").unwrap();
+        builder.append("abc").unwrap();
+        let array = builder.finish();
+
+        assert_eq!(array.is_null(1), true);
+        assert_eq!(array.is_valid(1), false);
+
+        let keys: Int16Array = array.data().into();
+
+        assert_eq!(keys.value(0), 1);
+        assert_eq!(keys.is_null(1), true);
+        // zero initialization is currently guaranteed by Buffer allocation and resizing
+        assert_eq!(keys.value(1), 0);
+        assert_eq!(keys.value(2), 2);
+        assert_eq!(keys.value(3), 1);
     }
 
     #[test]
