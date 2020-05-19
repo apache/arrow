@@ -43,6 +43,57 @@ static inline void CheckSparseIndexFormatType(SparseTensorFormat::type expected,
 }
 
 //-----------------------------------------------------------------------------
+// SparseTensor
+
+template <typename ValueType>
+class TestSparseTensorBase : public ::testing::Test {
+ protected:
+  std::vector<int64_t> shape_;
+  std::vector<std::string> dim_names_;
+};
+
+static inline void ExpectMinimumIndexDataTypes(
+    const std::vector<std::shared_ptr<DataType>>& expected_types,
+    const std::vector<int64_t>& shape) {
+  std::vector<std::shared_ptr<DataType>> actual_types;
+  ASSERT_OK_AND_ASSIGN(actual_types, SparseTensor::DetectMinimumIndexDataTypes(shape));
+  for (size_t i = 0; i < expected_types.size(); ++i) {
+    EXPECT_TRUE(expected_types[i]->Equals(*actual_types[i]))
+        << expected_types[i]->ToString() << " == " << actual_types[i]->ToString();
+  }
+}
+
+TEST(TestSparseTensor, DetectMinimumIndexDataType) {
+  // Multiple dimension shape
+  ExpectMinimumIndexDataTypes({int8(), uint8(), int16()}, {100, 200, 300});
+
+  // Numeric limits
+  ExpectMinimumIndexDataTypes({int8()}, {0});
+  ExpectMinimumIndexDataTypes({int8()}, {std::numeric_limits<int8_t>::max()});
+  ExpectMinimumIndexDataTypes(
+      {uint8()}, {static_cast<uint8_t>(std::numeric_limits<int8_t>::max()) + 1});
+  ExpectMinimumIndexDataTypes({uint8()}, {std::numeric_limits<uint8_t>::max()});
+  ExpectMinimumIndexDataTypes(
+      {int16()}, {static_cast<int16_t>(std::numeric_limits<uint8_t>::max()) + 1});
+  ExpectMinimumIndexDataTypes({int16()}, {std::numeric_limits<int16_t>::max()});
+  ExpectMinimumIndexDataTypes(
+      {uint16()}, {static_cast<uint16_t>(std::numeric_limits<int16_t>::max()) + 1});
+  ExpectMinimumIndexDataTypes({uint16()}, {std::numeric_limits<uint16_t>::max()});
+  ExpectMinimumIndexDataTypes(
+      {int32()}, {static_cast<int32_t>(std::numeric_limits<uint16_t>::max()) + 1});
+  ExpectMinimumIndexDataTypes({int32()}, {std::numeric_limits<int32_t>::max()});
+  ExpectMinimumIndexDataTypes(
+      {uint32()}, {static_cast<uint32_t>(std::numeric_limits<int32_t>::max()) + 1});
+  ExpectMinimumIndexDataTypes({uint32()}, {std::numeric_limits<uint32_t>::max()});
+  ExpectMinimumIndexDataTypes(
+      {int64()}, {static_cast<int64_t>(std::numeric_limits<uint32_t>::max()) + 1});
+  ExpectMinimumIndexDataTypes({int64()}, {std::numeric_limits<int64_t>::max()});
+
+  // Errors
+  ASSERT_RAISES(Invalid, SparseTensor::DetectMinimumIndexDataTypes({-1}));
+}
+
+//-----------------------------------------------------------------------------
 // SparseCOOIndex
 
 static inline void AssertCOOIndex(const std::shared_ptr<Tensor>& sidx, const int64_t nth,
@@ -255,13 +306,6 @@ TEST(TestSparseCSCIndex, Make) {
   ASSERT_RAISES(Invalid, SparseCSCIndex::Make(int32(), indptr_shape, {1, 2}, indptr_data,
                                               indices_data));
 }
-
-template <typename ValueType>
-class TestSparseTensorBase : public ::testing::Test {
- protected:
-  std::vector<int64_t> shape_;
-  std::vector<std::string> dim_names_;
-};
 
 //-----------------------------------------------------------------------------
 // SparseCOOTensor

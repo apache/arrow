@@ -509,6 +509,10 @@ class ARROW_EXPORT SparseCSFIndex : public internal::SparseIndexBase<SparseCSFIn
 /// \brief EXPERIMENTAL: The base class of sparse tensor container
 class ARROW_EXPORT SparseTensor {
  public:
+  /// \brief Automatic detection of index data types for the given shape
+  static Result<std::vector<std::shared_ptr<DataType>>> DetectMinimumIndexDataTypes(
+      const std::vector<int64_t>& shape);
+
   virtual ~SparseTensor() = default;
 
   SparseTensorFormat::type format_id() const { return sparse_index_->format_id(); }

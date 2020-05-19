@@ -541,6 +541,36 @@ bool SparseCSFIndex::Equals(const SparseCSFIndex& other) const {
 // ----------------------------------------------------------------------
 // SparseTensor
 
+Result<std::vector<std::shared_ptr<DataType>>> SparseTensor::DetectMinimumIndexDataTypes(
+    const std::vector<int64_t>& shape) {
+  std::vector<std::shared_ptr<DataType>> types;
+  types.reserve(shape.size());
+  for (auto n : shape) {
+    if (n < 0 || n > std::numeric_limits<int64_t>::max()) {
+      return Status::Invalid("Invalid value in shape");
+    }
+
+    decltype(types)::value_type type;
+    if (0 <= n && n <= std::numeric_limits<int8_t>::max()) {
+      type = int8();
+    } else if (n <= std::numeric_limits<uint8_t>::max()) {
+      type = uint8();
+    } else if (n <= std::numeric_limits<int16_t>::max()) {
+      type = int16();
+    } else if (n <= std::numeric_limits<uint16_t>::max()) {
+      type = uint16();
+    } else if (n <= std::numeric_limits<int32_t>::max()) {
+      type = int32();
+    } else if (n <= std::numeric_limits<uint32_t>::max()) {
+      type = uint32();
+    } else {
+      type = int64();
+    }
+    types.push_back(type);
+  }
+  return types;
+}
+
 // Constructor with all attributes
 SparseTensor::SparseTensor(const std::shared_ptr<DataType>& type,
                            const std::shared_ptr<Buffer>& data,
