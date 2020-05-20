@@ -59,8 +59,10 @@ Result<std::shared_ptr<Buffer>> KernelContext::AllocateBitmap(int64_t num_bits) 
   // Some utility methods access the last byte before it might be
   // initialized this makes valgrind/asan unhappy, so we proactively
   // zero it.
-  ZeroLastByte(result.get());
-  result->ZeroPadding();
+  if (nbytes > 0) {
+    ZeroLastByte(result.get());
+    result->ZeroPadding();
+  }
   return result;
 }
 
