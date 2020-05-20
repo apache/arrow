@@ -56,7 +56,7 @@ fn nyc() -> Result<()> {
     ]);
 
     let mut ctx = ExecutionContext::new();
-    ctx.register_csv("tripdata", "file.csv", &schema, true);
+    ctx.register_csv("tripdata", "file.csv", &schema, true, None);
 
     let logical_plan = ctx.create_logical_plan(
         "SELECT passenger_count, MIN(fare_amount), MAX(fare_amount) \
@@ -442,7 +442,7 @@ fn register_csv(
     filename: &str,
     schema: &Arc<Schema>,
 ) {
-    ctx.register_csv(name, filename, &schema, true);
+    ctx.register_csv(name, filename, &schema, true, None);
 }
 
 fn register_alltypes_parquet(ctx: &mut ExecutionContext) {

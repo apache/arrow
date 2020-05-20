@@ -37,10 +37,11 @@ use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
 
-fn main() {
+fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
-    println!("{:?}", args);
-    let matches = App::new("rust arrow-json-integrationtest")
+    eprintln!("{:?}", args);
+
+    let matches = App::new("rust arrow-json-integration-test")
         .arg(Arg::with_name("integration")
             .long("integration"))
         .arg(Arg::with_name("arrow")
@@ -68,24 +69,19 @@ fn main() {
         .value_of("json")
         .expect("must provide path to json file");
     let mode = matches.value_of("mode").unwrap();
-    let verbose = matches.value_of("verbose").is_some();
+    let verbose = true; //matches.value_of("verbose").is_some();
 
-    let res = match mode {
+    match mode {
         "JSON_TO_ARROW" => json_to_arrow(json_file, arrow_file, verbose),
         "ARROW_TO_JSON" => arrow_to_json(arrow_file, json_file, verbose),
         "VALIDATE" => validate(arrow_file, json_file, verbose),
         _ => panic!(format!("mode {} not supported", mode)),
-    };
-
-    match res {
-        Ok(_) => (),
-        Err(e) => eprint!("error: {}", e),
     }
 }
 
 fn json_to_arrow(json_name: &str, arrow_name: &str, verbose: bool) -> Result<()> {
     if verbose {
-        println!("Converting {} to {}", json_name, arrow_name);
+        eprintln!("Converting {} to {}", json_name, arrow_name);
     }
 
     let (schema, batches) = read_json_file(json_name)?;
@@ -316,7 +312,7 @@ fn record_batch_from_json(
 
 fn arrow_to_json(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
     if verbose {
-        println!("Converting {} to {}", arrow_name, json_name);
+        eprintln!("Converting {} to {}", arrow_name, json_name);
     }
 
     let arrow_file = File::open(arrow_name)?;
@@ -347,7 +343,7 @@ fn arrow_to_json(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()>
 
 fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
     if verbose {
-        println!("Validating {} and {}", arrow_name, json_name);
+        eprintln!("Validating {} and {}", arrow_name, json_name);
     }
 
     // open JSON file
@@ -367,7 +363,11 @@ fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
             assert!(arrow_batch.num_columns() == json_batch.num_columns());
             assert!(arrow_batch.num_rows() == json_batch.num_rows());
 
-        // TODO compare in more detail
+            // TODO compare in more detail
+            eprintln!(
+                "Basic validation of {} and {} PASSES",
+                arrow_name, json_name
+            );
         } else {
             return Err(ArrowError::ComputeError(
                 "no more arrow batches left".to_owned(),

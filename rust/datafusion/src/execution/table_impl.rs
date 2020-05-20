@@ -267,6 +267,7 @@ mod tests {
             &format!("{}/csv/aggregate_test_100.csv", testdata),
             &schema,
             true,
+            None,
         );
     }
 }

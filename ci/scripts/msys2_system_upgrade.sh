@@ -19,6 +19,13 @@
 
 set -eux
 
+# Ensure using the latest pacman
+pacman \
+  --noconfirm \
+  --sync \
+  -yy \
+  pacman
+
 pacman \
   --noconfirm \
   --sync \

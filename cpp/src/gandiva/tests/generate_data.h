@@ -129,4 +129,28 @@ class FastUtf8DataGenerator : public DataGenerator<std::string> {
   char cur_char_;
 };
 
+class Utf8IntDataGenerator : public DataGenerator<std::string> {
+ public:
+  Utf8IntDataGenerator() {}
+
+  std::string GenerateData() { return std::to_string(random_.next()); }
+
+ private:
+  Random random_;
+};
+
+class Utf8FloatDataGenerator : public DataGenerator<std::string> {
+ public:
+  Utf8FloatDataGenerator() {}
+
+  std::string GenerateData() {
+    return std::to_string(
+        static_cast<float>(random_.next()) /
+        static_cast<float>(RAND_MAX / 100));  // random float between 0.0 to 100.0
+  }
+
+ private:
+  Random random_;
+};
+
 }  // namespace gandiva

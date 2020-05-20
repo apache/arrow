@@ -180,6 +180,50 @@ static void TimedTestFilterLike(benchmark::State& state) {
   ASSERT_TRUE(status.ok());
 }
 
+static void TimedTestCastFloatFromString(benchmark::State& state) {
+  auto field_a = field("a", utf8());
+  auto schema = arrow::schema({field_a});
+  auto pool = arrow::default_memory_pool();
+
+  auto field_result = field("res", arrow::float64());
+
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto fn = TreeExprBuilder::MakeFunction("castFLOAT8", {node_a}, arrow::float64());
+  auto expr = TreeExprBuilder::MakeExpression(fn, field_result);
+
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+
+  Utf8FloatDataGenerator data_generator;
+  ProjectEvaluator evaluator(projector);
+
+  Status status = TimedEvaluate<arrow::StringType, std::string>(
+      schema, evaluator, data_generator, pool, 1 * MILLION, 16 * THOUSAND, state);
+  ASSERT_TRUE(status.ok());
+}
+
+static void TimedTestCastIntFromString(benchmark::State& state) {
+  auto field_a = field("a", utf8());
+  auto schema = arrow::schema({field_a});
+  auto pool = arrow::default_memory_pool();
+
+  auto field_result = field("res", int32());
+
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto fn = TreeExprBuilder::MakeFunction("castINT", {node_a}, int32());
+  auto expr = TreeExprBuilder::MakeExpression(fn, field_result);
+
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+
+  Utf8IntDataGenerator data_generator;
+  ProjectEvaluator evaluator(projector);
+
+  Status status = TimedEvaluate<arrow::StringType, std::string>(
+      schema, evaluator, data_generator, pool, 1 * MILLION, 16 * THOUSAND, state);
+  ASSERT_TRUE(status.ok());
+}
+
 static void TimedTestAllocs(benchmark::State& state) {
   // schema for input fields
   auto field_a = field("a", arrow::utf8());
@@ -395,6 +439,8 @@ BENCHMARK(TimedTestBigNested)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestExtractYear)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestFilterAdd2)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestFilterLike)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestCastFloatFromString)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestCastIntFromString)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestAllocs)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestMultiOr)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestInExpr)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
