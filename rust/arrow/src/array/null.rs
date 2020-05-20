@@ -19,7 +19,9 @@ use std::any::Any;
 use std::fmt;
 
 use crate::array::{Array, ArrayData, ArrayDataRef};
+use crate::buffer::MutableBuffer;
 use crate::datatypes::*;
+use crate::util::bit_util;
 
 /// Array where all elements are nulls
 pub struct NullArray {
@@ -29,9 +31,12 @@ pub struct NullArray {
 impl NullArray {
     /// Create a new null array of the specified length
     pub fn new(length: usize) -> Self {
+        let num_bytes = bit_util::ceil(length, 8);
+        let null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
         let array_data = ArrayData::builder(DataType::Null)
             .len(length)
             .null_count(length)
+            .null_bit_buffer(null_buf.freeze())
             .build();
         NullArray::from(array_data)
     }
@@ -78,5 +83,16 @@ mod tests {
 
         assert_eq!(array1.len(), 32);
         assert_eq!(array1.null_count(), 32);
+        assert_eq!(array1.is_valid(0), false);
+    }
+
+    #[test]
+    fn test_null_array_slice() {
+        let array1 = NullArray::new(32);
+
+        let array2 = array1.slice(8, 16);
+        assert_eq!(array2.len(), 16);
+        assert_eq!(array2.null_count(), 16);
+        assert_eq!(array2.offset(), 8);
     }
 }

@@ -1117,6 +1117,24 @@ impl JsonEqual for NullArray {
     }
 }
 
+impl PartialEq<NullArray> for Value {
+    fn eq(&self, arrow: &NullArray) -> bool {
+        match self {
+            Value::Array(json_array) => arrow.equals_json_values(&json_array),
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<Value> for NullArray {
+    fn eq(&self, json: &Value) -> bool {
+        match json {
+            Value::Array(json_array) => self.equals_json_values(&json_array),
+            _ => false,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1468,6 +1486,30 @@ mod tests {
 
         assert!(a.equals(&b));
         assert!(b.equals(&a));
+    }
+
+    #[test]
+    fn test_null_equal() {
+        let a = NullArray::new(12);
+        let b = NullArray::new(12);
+        assert!(a.equals(&b));
+        assert!(b.equals(&a));
+
+        let b = NullArray::new(10);
+        assert!(!a.equals(&b));
+        assert!(!b.equals(&a));
+
+        // Test the case where offset != 0
+
+        let a_slice = a.slice(2, 3);
+        let b_slice = b.slice(1, 3);
+        assert!(a_slice.equals(&*b_slice));
+        assert!(b_slice.equals(&*a_slice));
+
+        let a_slice = a.slice(5, 4);
+        let b_slice = b.slice(3, 3);
+        assert!(!a_slice.equals(&*b_slice));
+        assert!(!b_slice.equals(&*a_slice));
     }
 
     fn create_list_array<'a, U: AsRef<[i32]>, T: AsRef<[Option<U>]>>(
@@ -2118,5 +2160,34 @@ mod tests {
         }
 
         Ok(builder.finish())
+    }
+
+    #[test]
+    fn test_null_json_equal() {
+        // Test equaled array
+        let arrow_array = NullArray::new(4);
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                null, null, null, null
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.eq(&json_array));
+        assert!(json_array.eq(&arrow_array));
+
+        // Test unequaled array
+        let arrow_array = NullArray::new(2);
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                null, null, null
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
     }
 }
