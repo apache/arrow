@@ -5517,7 +5517,7 @@ RcppExport SEXP _arrow_Schema__HasMetadata(SEXP schema_sexp){
 
 // schema.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::string Schema__metadata(const std::shared_ptr<arrow::Schema>& schema);
+Rcpp::List Schema__metadata(const std::shared_ptr<arrow::Schema>& schema);
 RcppExport SEXP _arrow_Schema__metadata(SEXP schema_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);

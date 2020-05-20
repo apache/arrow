@@ -73,7 +73,17 @@ Schema <- R6Class("Schema",
     field = function(i) shared_ptr(Field, Schema__field(self, i)),
     GetFieldByName = function(x) shared_ptr(Field, Schema__GetFieldByName(self, x)),
     serialize = function() Schema__serialize(self),
-    WithMetadata = function(metadata = list()) {
+    WithMetadata = function(metadata = NULL) {
+      if (is.null(metadata)) {
+        # NULL to remove metadata, so equivalent to setting an empty list
+        metadata <- empty_named_list()
+      }
+      if (is.null(names(metadata))) {
+        stop(
+          "Key-value metadata must be a named list or character vector",
+          call. = FALSE
+        )
+      }
       # metadata must be a named character vector
       metadata <- map_chr(metadata, as.character)
       shared_ptr(Schema, Schema__WithMetadata(self, metadata))
@@ -87,11 +97,16 @@ Schema <- R6Class("Schema",
     num_fields = function() Schema__num_fields(self),
     fields = function() map(Schema__fields(self), shared_ptr, class = Field),
     HasMetadata = function() Schema__HasMetadata(self),
-    metadata = function() {
-      if (self$HasMetadata) {
+    metadata = function(new) {
+      if (missing(new)) {
         Schema__metadata(self)
       } else {
-        NULL
+        # Set the metadata
+        out <- self$WithMetadata(new)
+        # $WithMetadata returns a new object but we're modifying in place,
+        # so swap in that new C++ object pointer into our R6 object
+        self$set_pointer(out$pointer())
+        self
       }
     }
   )

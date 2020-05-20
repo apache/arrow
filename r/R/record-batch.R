@@ -83,8 +83,7 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
       inherits(other, "RecordBatch") && RecordBatch__Equals(self, other, isTRUE(check_metadata))
     },
     GetColumnByName = function(name) {
-      assert_is(name, "character")
-      assert_that(length(name) == 1)
+      assert_that(is.string(name))
       shared_ptr(Array, RecordBatch__GetColumnByName(self, name))
     },
     select = function(spec) {
@@ -231,8 +230,7 @@ names.RecordBatch <- function(x) x$names()
 
 #' @export
 `$.RecordBatch` <- function(x, name, ...) {
-  assert_is(name, "character")
-  assert_that(length(name) == 1L)
+  assert_that(is.string(name))
   if (name %in% ls(x)) {
     get(name, x)
   } else {

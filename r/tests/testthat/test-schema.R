@@ -39,8 +39,26 @@ test_that("Schema print method", {
   )
 })
 
-test_that("Schema $metadata when there is none", {
-  expect_null(schema(b = double())$metadata)
+test_that("Schema metadata", {
+  s <- schema(b = double())
+  expect_equivalent(s$metadata, list())
+  expect_false(s$HasMetadata)
+  s$metadata <- list(test = TRUE)
+  expect_identical(s$metadata, list(test = "TRUE"))
+  expect_true(s$HasMetadata)
+  s$metadata$foo <- 42
+  expect_identical(s$metadata, list(test = "TRUE", foo = "42"))
+  expect_true(s$HasMetadata)
+  s$metadata$foo <- NULL
+  expect_identical(s$metadata, list(test = "TRUE"))
+  expect_true(s$HasMetadata)
+  s$metadata <- NULL
+  expect_equivalent(s$metadata, list())
+  expect_false(s$HasMetadata)
+  expect_error(
+    s$metadata <- 4,
+    "Key-value metadata must be a named list or character vector"
+  )
 })
 
 test_that("Schema $GetFieldByName", {

@@ -307,7 +307,7 @@ test_that("Table$Equals(check_metadata)", {
   expect_is(tab2, "Table")
   expect_false(tab1$schema$HasMetadata)
   expect_true(tab2$schema$HasMetadata)
-  expect_match(tab2$schema$metadata, "some: metadata", fixed = TRUE)
+  expect_identical(tab2$schema$metadata, list(some = "metadata"))
 
   expect_true(tab1 == tab2)
   expect_true(tab1$Equals(tab2))
