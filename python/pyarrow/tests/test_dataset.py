@@ -1485,11 +1485,8 @@ def test_parquet_dataset_factory_invalid(tempdir):
     dataset = ds.parquet_dataset(str(root_path / '_metadata'))
     assert dataset.schema.equals(table.schema)
     assert len(dataset.files) == 4
-    # TODO this segfaults with
-    # terminate called after throwing an instance of 'std::system_error'
-    #     what():  Invalid argument
-    # with pytest.raises(ValueError):
-    #     dataset.to_table()
+    with pytest.raises(FileNotFoundError):
+        dataset.to_table()
 
 
 def _create_metadata_file(root_path):
