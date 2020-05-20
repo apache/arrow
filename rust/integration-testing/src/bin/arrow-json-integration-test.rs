@@ -407,7 +407,19 @@ fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
     let arrow_schema = arrow_reader.schema().as_ref().to_owned();
 
     // compare schemas
-    assert!(json_schema == arrow_schema);
+    if json_schema != arrow_schema {
+        return Err(ArrowError::ComputeError(format!(
+            "Schemas do not match. JSON: {:?}. Arrow: {:?}",
+            json_schema, arrow_schema
+        )));
+    }
+
+    if verbose {
+        eprintln!(
+            "Schemas match. JSON file has {} batches.",
+            json_batches.len()
+        );
+    }
 
     for json_batch in &json_batches {
         if let Some(arrow_batch) = arrow_reader.next_batch()? {
