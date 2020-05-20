@@ -422,8 +422,8 @@ pub struct ReaderBuilder {
 }
 
 impl Default for ReaderBuilder {
-    fn default() -> ReaderBuilder {
-        ReaderBuilder {
+    fn default() -> Self {
+        Self {
             schema: None,
             has_header: false,
             delimiter: None,

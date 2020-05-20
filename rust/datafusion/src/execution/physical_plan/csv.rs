@@ -28,6 +28,34 @@ use arrow::csv;
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
+/// CSV file read option
+#[derive(Copy, Clone)]
+pub struct CsvReadOptions<'a> {
+    /// Does the CSV file have a header?
+    ///
+    /// If schema inference is run on a file with no headers, default column names
+    /// are created.
+    pub has_header: bool,
+    /// An optional column delimiter. Defaults to `b','`.
+    pub delimiter: Option<u8>,
+    /// An optional schema representing the CSV files. If None, CSV reader will try to infer it
+    /// based on data in file.
+    pub schema: Option<&'a Schema>,
+    /// number of rows to read from CSV files for schema inference if needed. Defaults to 1000.
+    pub schema_infer_read_records: Option<usize>,
+}
+
+impl Default for CsvReadOptions<'_> {
+    fn default() -> Self {
+        Self {
+            has_header: true,
+            schema: None,
+            schema_infer_read_records: Some(1000),
+            delimiter: Some(b','),
+        }
+    }
+}
+
 /// Execution plan for scanning a CSV file
 pub struct CsvExec {
     /// Path to directory containing partitioned CSV files with the same schema
@@ -42,6 +70,48 @@ pub struct CsvExec {
     projection: Option<Vec<usize>>,
     /// Batch size
     batch_size: usize,
+}
+
+impl CsvExec {
+    /// Create a new execution plan for reading a set of CSV files
+    pub fn try_new(
+        path: &str,
+        options: CsvReadOptions,
+        projection: Option<Vec<usize>>,
+        batch_size: usize,
+    ) -> Result<Self> {
+        let schema = Arc::new(match options.schema {
+            Some(s) => s.clone(),
+            None => CsvExec::try_infer_schema(path, &options)?,
+        });
+
+        Ok(Self {
+            path: path.to_string(),
+            schema: schema,
+            has_header: options.has_header,
+            delimiter: options.delimiter,
+            projection,
+            batch_size,
+        })
+    }
+
+    /// Infer schema for given CSV dataset
+    pub fn try_infer_schema(path: &str, options: &CsvReadOptions) -> Result<Schema> {
+        let mut filenames: Vec<String> = vec![];
+        common::build_file_list(path, &mut filenames, ".csv")?;
+        if filenames.is_empty() {
+            return Err(ExecutionError::General("No files found".to_string()));
+        }
+
+        let f = File::open(&filenames[0])?;
+
+        Ok(csv::infer_file_schema(
+            &mut BufReader::new(f),
+            options.delimiter.unwrap_or(b','),
+            options.schema_infer_read_records,
+            options.has_header,
+        )?)
+    }
 }
 
 impl ExecutionPlan for CsvExec {
@@ -68,45 +138,6 @@ impl ExecutionPlan for CsvExec {
             })
             .collect();
         Ok(partitions)
-    }
-}
-
-impl CsvExec {
-    /// Create a new execution plan for reading a set of CSV files
-    pub fn try_new(
-        path: &str,
-        schema: Option<Arc<Schema>>,
-        has_header: bool,
-        delimiter: Option<u8>,
-        projection: Option<Vec<usize>>,
-        batch_size: usize,
-    ) -> Result<Self> {
-        let schema = match schema {
-            Some(s) => s,
-            None => {
-                let mut filenames: Vec<String> = vec![];
-                common::build_file_list(path, &mut filenames, ".csv")?;
-                if filenames.is_empty() {
-                    return Err(ExecutionError::General("No files found".to_string()));
-                }
-
-                let f = File::open(&filenames[0])?;
-                Arc::new(csv::infer_file_schema(
-                    &mut BufReader::new(f),
-                    delimiter.unwrap_or(b','),
-                    Some(1000),
-                    has_header,
-                )?)
-            }
-        };
-        Ok(Self {
-            path: path.to_string(),
-            schema,
-            has_header,
-            delimiter,
-            projection,
-            batch_size,
-        })
     }
 }
 

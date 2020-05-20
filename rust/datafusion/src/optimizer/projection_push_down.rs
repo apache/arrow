@@ -178,13 +178,13 @@ impl ProjectionPushDown {
                 name,
                 location,
                 file_type,
-                header_row,
+                has_header,
             } => Ok(LogicalPlan::CreateExternalTable {
                 schema: schema.clone(),
                 name: name.to_string(),
                 location: location.to_string(),
                 file_type: file_type.clone(),
-                header_row: *header_row,
+                has_header: *has_header,
             }),
         }
     }

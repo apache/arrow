@@ -18,6 +18,7 @@
 //! ExecutionContext contains methods for registering data sources and executing queries
 
 use std::collections::HashMap;
+use std::default::Default;
 use std::fs;
 use std::path::Path;
 use std::string::String;
@@ -33,7 +34,7 @@ use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
-use crate::execution::physical_plan::csv::CsvExec;
+use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::execution::physical_plan::datasource::DatasourceExec;
 use crate::execution::physical_plan::expressions::{
     Alias, Avg, BinaryExpr, CastExpr, Column, Count, Literal, Max, Min, Sum,
@@ -97,10 +98,18 @@ impl ExecutionContext {
                 ref name,
                 ref location,
                 ref file_type,
-                ref header_row,
+                ref has_header,
             } => match file_type {
                 FileType::CSV => {
-                    self.register_csv(name, location, schema, *header_row, None);
+                    self.register_csv(
+                        name,
+                        location,
+                        CsvReadOptions {
+                            schema: Some(&schema),
+                            has_header: *has_header,
+                            ..Default::default()
+                        },
+                    )?;
                     Ok(vec![])
                 }
                 FileType::Parquet => {
@@ -144,7 +153,7 @@ impl ExecutionContext {
                 name,
                 columns,
                 file_type,
-                header_row,
+                has_header,
                 location,
             } => {
                 let schema = Box::new(self.build_schema(columns)?);
@@ -154,7 +163,7 @@ impl ExecutionContext {
                     name,
                     location,
                     file_type,
-                    header_row,
+                    has_header,
                 })
             }
         }
@@ -214,14 +223,10 @@ impl ExecutionContext {
         &mut self,
         name: &str,
         filename: &str,
-        schema: &Schema,
-        has_header: bool,
-        delimiter: Option<u8>,
-    ) {
-        self.register_table(
-            name,
-            Box::new(CsvFile::new(filename, schema, has_header, delimiter)),
-        );
+        options: CsvReadOptions,
+    ) -> Result<()> {
+        self.register_table(name, Box::new(CsvFile::try_new(filename, options)?));
+        Ok(())
     }
 
     /// Register a Parquet file as a table so that it can be queried from SQL
@@ -323,9 +328,12 @@ impl ExecutionContext {
                 ..
             } => Ok(Arc::new(CsvExec::try_new(
                 path,
-                Some(Arc::new(schema.as_ref().to_owned())),
-                *has_header,
-                *delimiter,
+                CsvReadOptions {
+                    schema: Some(schema.as_ref()),
+                    delimiter: *delimiter,
+                    has_header: *has_header,
+                    ..Default::default()
+                },
                 projection.to_owned(),
                 batch_size,
             )?)),
@@ -870,35 +878,15 @@ mod tests {
         ]));
 
         // register each partition as well as the top level dir
-        ctx.register_csv(
-            "part0",
-            &format!("{}/part-0.csv", out_dir),
-            &schema,
-            true,
-            None,
-        );
-        ctx.register_csv(
-            "part1",
-            &format!("{}/part-1.csv", out_dir),
-            &schema,
-            true,
-            None,
-        );
-        ctx.register_csv(
-            "part2",
-            &format!("{}/part-2.csv", out_dir),
-            &schema,
-            true,
-            None,
-        );
-        ctx.register_csv(
-            "part3",
-            &format!("{}/part-3.csv", out_dir),
-            &schema,
-            true,
-            None,
-        );
-        ctx.register_csv("allparts", &out_dir, &schema, true, None);
+        let csv_read_option = CsvReadOptions {
+            schema: Some(&schema),
+            ..Default::default()
+        };
+        ctx.register_csv("part0", &format!("{}/part-0.csv", out_dir), csv_read_option)?;
+        ctx.register_csv("part1", &format!("{}/part-1.csv", out_dir), csv_read_option)?;
+        ctx.register_csv("part2", &format!("{}/part-2.csv", out_dir), csv_read_option)?;
+        ctx.register_csv("part3", &format!("{}/part-3.csv", out_dir), csv_read_option)?;
+        ctx.register_csv("allparts", &out_dir, csv_read_option)?;
 
         let part0 = collect(&mut ctx, "SELECT c1, c2 FROM part0")?;
         let part1 = collect(&mut ctx, "SELECT c1, c2 FROM part1")?;
@@ -1064,10 +1052,11 @@ mod tests {
         ctx.register_csv(
             "test",
             tmp_dir.path().to_str().unwrap(),
-            &schema,
-            true,
-            None,
-        );
+            CsvReadOptions {
+                schema: Some(&schema),
+                ..Default::default()
+            },
+        )?;
 
         Ok(ctx)
     }

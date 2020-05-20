@@ -57,8 +57,8 @@ pub enum DFASTNode {
         columns: Vec<SQLColumnDef>,
         /// File type (Parquet, NDJSON, CSV)
         file_type: FileType,
-        /// Header row?
-        header_row: bool,
+        /// CSV Header row?
+        has_header: bool,
         /// Path to file
         location: String,
     },
@@ -162,18 +162,18 @@ impl DFParser {
                         }
                     }
 
-                    let mut headers = true;
+                    let mut has_header = true;
                     let file_type: FileType = if self
                         .parser
                         .parse_keywords(vec!["STORED", "AS", "CSV"])
                     {
                         if self.parser.parse_keywords(vec!["WITH", "HEADER", "ROW"]) {
-                            headers = true;
+                            has_header = true;
                         } else if self
                             .parser
                             .parse_keywords(vec!["WITHOUT", "HEADER", "ROW"])
                         {
-                            headers = false;
+                            has_header = false;
                         }
                         FileType::CSV
                     } else if self.parser.parse_keywords(vec!["STORED", "AS", "NDJSON"]) {
@@ -199,7 +199,7 @@ impl DFParser {
                         name: id,
                         columns,
                         file_type,
-                        header_row: headers,
+                        has_header,
                         location,
                     })
                 }
