@@ -30,6 +30,7 @@ use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::ipc;
 use crate::record_batch::RecordBatch;
+use crate::util::bit_util;
 
 pub struct FileWriter<W: Write> {
     /// The object to write to
@@ -349,8 +350,9 @@ fn write_array_data(
     let null_buffer = match array_data.null_buffer() {
         None => {
             // create a buffer and fill it with valid bits
-            let buffer = MutableBuffer::new(num_rows);
-            let buffer = buffer.with_bitset(num_rows, true);
+            let num_bytes = bit_util::ceil(num_rows, 8);
+            let buffer = MutableBuffer::new(num_bytes);
+            let buffer = buffer.with_bitset(num_bytes, true);
             buffer.freeze()
         }
         Some(buffer) => buffer.clone(),

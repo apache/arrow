@@ -15,6 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Contains the `NullArray` type.
+//!
+//! A `NullArray` is a simplified array where all values are null.
+//! Although the [specification](https://arrow.apache.org/docs/format/Columnar.html#null-layout)
+//! allows for not allocating any memory buffers, the Rust implementation allocates null buffers
+//! to ensure consistency of null checks.
+//!
+//! # Example: Create an array
+//!
+//! ```
+//! use arrow::array::{Array, NullArray};
+//!
+//! # fn main() -> arrow::error::Result<()> {
+//! let array = NullArray::new(10);
+//!
+//! assert_eq!(array.len(), 10);
+//! assert_eq!(array.null_count(), 10);
+//!
+//! # Ok(())
+//! # }
+//! ```
+
 use std::any::Any;
 use std::fmt;
 
@@ -23,7 +45,7 @@ use crate::buffer::MutableBuffer;
 use crate::datatypes::*;
 use crate::util::bit_util;
 
-/// Array where all elements are nulls
+/// An Array where all elements are nulls
 pub struct NullArray {
     data: ArrayDataRef,
 }
@@ -62,6 +84,10 @@ impl From<ArrayDataRef> for NullArray {
             data.buffers().len(),
             0,
             "NullArray data should contain 0 buffers"
+        );
+        assert!(
+            data.null_buffer().is_some(),
+            "NullArray data should contain a null buffer"
         );
         Self { data }
     }
