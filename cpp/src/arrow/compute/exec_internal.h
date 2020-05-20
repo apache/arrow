@@ -68,7 +68,6 @@ class ARROW_EXPORT ExecBatchIterator {
   int64_t position_;
   int64_t length_;
   int64_t max_chunksize_;
-  bool finished_;
 };
 
 // "Push" / listener API like IPC reader so that consumers can receive

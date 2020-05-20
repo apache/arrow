@@ -79,8 +79,7 @@ ExecBatchIterator::ExecBatchIterator(std::vector<Datum> args, int64_t length,
     : args_(std::move(args)),
       position_(0),
       length_(length),
-      max_chunksize_(max_chunksize),
-      finished_(false) {
+      max_chunksize_(max_chunksize) {
   chunk_indexes_.resize(args_.size(), 0);
   chunk_positions_.resize(args_.size(), 0);
 }
@@ -123,7 +122,9 @@ Result<std::unique_ptr<ExecBatchIterator>> ExecBatchIterator::Make(
 }
 
 bool ExecBatchIterator::Next(ExecBatch* batch) {
-  if (finished_) return false;
+  if (position_ == length_) {
+    return false;
+  }
 
   // Determine how large the common contiguous "slice" of all the arguments is
   int64_t iteration_size = std::min(length_ - position_, max_chunksize_);
@@ -162,22 +163,13 @@ bool ExecBatchIterator::Next(ExecBatch* batch) {
       batch->values[i] = args_[i].array()->Slice(position_, iteration_size);
     } else {
       const ChunkedArray& carr = *args_[i].chunked_array();
-      if (carr.num_chunks() > 0) {
-        const auto& chunk = carr.chunk(chunk_indexes_[i]);
-        batch->values[i] = chunk->data()->Slice(chunk_positions_[i], iteration_size);
-      } else {
-        // Degenerate case of a ChunkedArray with zero chunks
-        DCHECK_EQ(0, length_);
-        batch->values[i] = ArrayData::Make(carr.type(), 0);
-      }
+      const auto& chunk = carr.chunk(chunk_indexes_[i]);
+      batch->values[i] = chunk->data()->Slice(chunk_positions_[i], iteration_size);
       chunk_positions_[i] += iteration_size;
     }
   }
   position_ += iteration_size;
   DCHECK_LE(position_, length_);
-  if (position_ == length_) {
-    finished_ = true;
-  }
   return true;
 }
 

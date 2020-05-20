@@ -46,8 +46,9 @@ struct FunctionOptions;
 class FunctionRegistry;
 
 // It seems like 64K might be a good default chunksize to use for execution
-// based on the experience of other query processing systems, so using this for
-// now.
+// based on the experience of other query processing systems. The current
+// default is not to chunk contiguous arrays, though, but this may change in
+// the future once parallel execution is implemented
 static constexpr int64_t kDefaultExecChunksize = UINT16_MAX;
 
 /// \brief Context for expression-global variables and options used by
