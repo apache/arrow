@@ -195,13 +195,15 @@ RecordBatch$from_message <- function(obj, schema) {
 record_batch <- RecordBatch$create
 
 #' @export
-names.RecordBatch <- function(x) {
-  x$names()
-}
+names.RecordBatch <- function(x) x$names()
 
 #' @importFrom methods as
 #' @export
 `[.RecordBatch` <- function(x, i, j, ..., drop = FALSE) {
+  if (nargs() == 2L) {
+    # List-like column extraction (x[i])
+    return(x[, i])
+  }
   if (!missing(j)) {
     # Selecting columns is cheaper than filtering rows, so do it first.
     # That way, if we're filtering too, we have fewer arrays to filter/slice/take
@@ -247,6 +249,15 @@ dim.RecordBatch <- function(x) {
 as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...) {
   RecordBatch__to_dataframe(x, use_threads = option_use_threads())
 }
+
+#' @export
+as.list.RecordBatch <- function(x, ...) as.list(as.data.frame(x, ...))
+
+#' @export
+row.names.RecordBatch <- function(x) as.character(seq_len(nrow(x)))
+
+#' @export
+dimnames.RecordBatch <- function(x) list(row.names(x), names(x))
 
 #' @export
 head.RecordBatch <- head.Array
