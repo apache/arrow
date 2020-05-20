@@ -100,9 +100,8 @@ struct FilterState : public KernelState {
   FilterOptions options;
 };
 
-std::unique_ptr<KernelState> InitFilter(KernelContext*, const Kernel&,
-                                        const FunctionOptions* options) {
-  auto filter_options = static_cast<const FilterOptions*>(options);
+std::unique_ptr<KernelState> InitFilter(KernelContext*, const KernelInitArgs& args) {
+  auto filter_options = static_cast<const FilterOptions*>(args.options);
   return std::unique_ptr<KernelState>(new FilterState{*filter_options});
 }
 
@@ -152,8 +151,6 @@ Status GetFilterKernel(const DataType& type, ArrayKernelExec* exec) {
 void RegisterVectorFilter(FunctionRegistry* registry) {
   VectorKernel base;
   base.init = InitFilter;
-  base.mem_allocation = MemAllocation::NO_PREALLOCATE;
-  base.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
 
   auto filter = std::make_shared<VectorFunction>("filter", /*arity=*/2);
   OutputType out_ty(FirstType);

@@ -147,29 +147,13 @@ struct ExecBatch {
   }
 };
 
-/// \brief Convenience method for invoking a scalar (elementwise) array
-/// function, including handling iteration on ChunkedArray inputs
+/// \brief One-shot invoker for all types of functions. Does kernel dispatch,
+/// argument checking, iteration of ChunkedArray inputs, and wrapping of
+/// outputs
 ARROW_EXPORT
-Result<Datum> ExecScalarFunction(ExecContext* ctx, const std::string& func_name,
-                                 const std::vector<Datum>& args,
-                                 const FunctionOptions* options = NULLPTR);
-
-/// \brief Convenience method for invoking a vector array function, including
-/// handling iteration on ChunkedArray inputs. Compared with a scalar function,
-/// vector functions may require post-processing of chunked outputs if the
-/// results are dependent on the whole data passed (e.g. with hash table
-/// functions)
-ARROW_EXPORT
-Result<Datum> ExecVectorFunction(ExecContext* ctx, const std::string& func_name,
-                                 const std::vector<Datum>& args,
-                                 const FunctionOptions* options = NULLPTR);
-
-/// \brief Convenience method for invoking a scalar aggregate function,
-/// including handling iteration on ChunkedArray inputs
-ARROW_EXPORT
-Result<Datum> ExecScalarAggregateFunction(ExecContext* ctx, const std::string& func_name,
-                                          const std::vector<Datum>& args,
-                                          const FunctionOptions* options = NULLPTR);
+Result<Datum> CallFunction(ExecContext* ctx, const std::string& func_name,
+                           const std::vector<Datum>& args,
+                           const FunctionOptions* options = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

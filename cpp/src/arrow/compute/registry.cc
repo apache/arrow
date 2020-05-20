@@ -111,6 +111,7 @@ static void CreateBuiltInRegistry() {
 
   // Vector functions
   RegisterVectorFilter(g_registry.get());
+  RegisterVectorHash(g_registry.get());
   RegisterVectorSort(g_registry.get());
   RegisterVectorTake(g_registry.get());
 }

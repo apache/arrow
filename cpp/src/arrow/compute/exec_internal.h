@@ -101,6 +101,9 @@ class ARROW_EXPORT FunctionExecutor {
 
   virtual ValueDescr output_descr() const = 0;
 
+  virtual Datum WrapResults(const std::vector<Datum>& args,
+                            const std::vector<Datum>& outputs) = 0;
+
   static Result<std::unique_ptr<FunctionExecutor>> Make(ExecContext* ctx,
                                                         const Function* func,
                                                         const FunctionOptions* options);

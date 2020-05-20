@@ -373,8 +373,15 @@ struct MemAllocation {
 
 struct Kernel;
 
-using KernelInit = std::function<std::unique_ptr<KernelState>(
-    KernelContext*, const Kernel&, const FunctionOptions*)>;
+struct KernelInitArgs {
+  const Kernel* kernel;
+  const std::vector<ValueDescr>& inputs;
+  const FunctionOptions* options;
+};
+
+// Kernel initializer (context, argument descriptors, options)
+using KernelInit =
+    std::function<std::unique_ptr<KernelState>(KernelContext*, const KernelInitArgs&)>;
 
 /// \brief Base type for kernels. Contains the function signature and
 /// optionally the state initialization function, along with some common
@@ -435,8 +442,8 @@ struct ScalarKernel : public ArrayKernel {
   MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE;
 };
 
-// Convert intermediate result into finalized result
-using VectorFinalize = std::function<void(KernelContext*, const Datum&, Datum*)>;
+// Convert intermediate results into finalized results. Mutates input argument
+using VectorFinalize = std::function<void(KernelContext*, std::vector<Datum>*)>;
 
 struct VectorKernel : public ArrayKernel {
   VectorKernel() {}
@@ -465,6 +472,16 @@ struct VectorKernel : public ArrayKernel {
   /// in some cases accumulating some state. Other kernels (like Take) need to
   /// be passed whole arrays and don't work on ChunkedArray inputs
   bool can_execute_chunkwise = true;
+
+  /// Some kernels (like unique and value_counts) yield non-chunked output from
+  /// chunked-array inputs. This option controls how the results are boxed when
+  /// returned from ExecVectorFunction
+  ///
+  /// true -> ChunkedArray
+  /// false -> Array
+  ///
+  /// TODO: Where is a better place to deal with this issue?
+  bool output_chunked = true;
 };
 
 using ScalarAggregateConsume = std::function<void(KernelContext*, const ExecBatch&)>;

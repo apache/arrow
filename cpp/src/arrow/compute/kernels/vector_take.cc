@@ -33,10 +33,9 @@ struct TakeState : public KernelState {
   TakeOptions options;
 };
 
-std::unique_ptr<KernelState> InitTake(KernelContext*, const Kernel&,
-                                      const FunctionOptions* options) {
+std::unique_ptr<KernelState> InitTake(KernelContext*, const KernelInitArgs& args) {
   // NOTE: TakeOptions are currently unused, but we pass it through anyway
-  auto take_options = static_cast<const TakeOptions*>(options);
+  auto take_options = static_cast<const TakeOptions*>(args.options);
   return std::unique_ptr<KernelState>(new TakeState{*take_options});
 }
 
@@ -83,8 +82,6 @@ Status GetTakeKernel(const DataType& value_type, const DataType& index_type,
 void RegisterVectorTake(FunctionRegistry* registry) {
   VectorKernel base;
   base.init = InitTake;
-  base.mem_allocation = MemAllocation::NO_PREALLOCATE;
-  base.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   base.can_execute_chunkwise = false;
 
   auto take = std::make_shared<VectorFunction>("take", /*arity=*/2);

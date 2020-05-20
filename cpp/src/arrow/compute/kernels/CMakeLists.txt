@@ -32,28 +32,18 @@ add_arrow_benchmark(scalar_compare_benchmark PREFIX "arrow-compute")
 # ----------------------------------------------------------------------
 # Vector kernels
 
-add_arrow_compute_test(vector_test SOURCES
-  vector_filter_test.cc
-  vector_take_test.cc
-  vector_sort_test.cc)
+add_arrow_compute_test(vector_test
+                       SOURCES
+                       vector_filter_test.cc
+                       vector_hash_test.cc
+                       vector_take_test.cc
+                       vector_sort_test.cc)
 
-# add_arrow_compute_test(hash_test)
-
-# add_arrow_benchmark(hash_benchmark PREFIX "arrow-compute")
-
-# Single-array sorting
-
-# add_arrow_compute_test(sort_to_indices_test)
-# add_arrow_benchmark(sort_to_indices_benchmark PREFIX "arrow-compute")
-# add_arrow_benchmark(nth_to_indices_benchmark PREFIX "arrow-compute")
-
-# Array value selection
-
-# add_arrow_compute_test(filter_test)
-# add_arrow_compute_test(take_test)
-
-# add_arrow_benchmark(filter_benchmark PREFIX "arrow-compute")a
-# add_arrow_benchmark(take_benchmark PREFIX "arrow-compute")
+# add_arrow_benchmark(vector_hash_benchmark PREFIX "arrow-compute")
+# add_arrow_benchmark(vector_sort_benchmark PREFIX "arrow-compute")
+# add_arrow_benchmark(vector_partition_benchmark PREFIX "arrow-compute")
+# add_arrow_benchmark(vector_filter_benchmark PREFIX "arrow-compute")a
+# add_arrow_benchmark(vector_take_benchmark PREFIX "arrow-compute")
 
 # ----------------------------------------------------------------------
 # Aggregate kernels

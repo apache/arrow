@@ -254,9 +254,9 @@ namespace internal {
 // * Number types
 // * Base binary types
 
-std::unique_ptr<KernelState> InitPartitionIndices(KernelContext*, const Kernel&,
-                                                  const FunctionOptions* options) {
-  int64_t pivot = static_cast<const PartitionOptions*>(options)->pivot;
+std::unique_ptr<KernelState> InitPartitionIndices(KernelContext*,
+                                                  const KernelInitArgs& args) {
+  int64_t pivot = static_cast<const PartitionOptions*>(args.options)->pivot;
   return std::unique_ptr<KernelState>(new PartitionIndicesState(pivot));
 }
 

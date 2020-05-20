@@ -333,11 +333,11 @@ if(ARROW_COMPUTE)
               compute/kernels/scalar_boolean.cc
               compute/kernels/scalar_compare.cc
               compute/kernels/vector_filter.cc
+              compute/kernels/vector_hash.cc
               compute/kernels/scalar_set_lookup.cc
               compute/kernels/vector_sort.cc
               compute/kernels/vector_take.cc
               # compute/kernels/scalar_cast.cc
-              # compute/kernels/vector_hash.cc
        )
 endif()
 

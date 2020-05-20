@@ -128,7 +128,7 @@ void CheckDictEncode(const std::shared_ptr<Array>& input,
   auto type = dictionary(expected_indices->type(), expected_values->type());
   DictionaryArray expected(type, expected_indices, expected_values);
 
-  ARROW_ASSIGN_OR_RAISE(Datum datum_out, DictionaryEncode(input));
+  ASSERT_OK_AND_ASSIGN(Datum datum_out, DictionaryEncode(input));
   std::shared_ptr<Array> result = MakeArray(datum_out.array());
   ASSERT_OK(result->ValidateFull());
 
@@ -149,10 +149,10 @@ void CheckDictEncode(const std::shared_ptr<DataType>& type,
   return CheckDictEncode(input, ex_dict, ex_indices);
 }
 
-class TestHashKernel : public TestBase {};
+class TestHashKernel : public ::testing::Test {};
 
 template <typename Type>
-class TestHashKernelPrimitive : public TestBase {};
+class TestHashKernelPrimitive : public ::testing::Test {};
 
 typedef ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
                          UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType,

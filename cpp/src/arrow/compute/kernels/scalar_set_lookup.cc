@@ -100,9 +100,9 @@ struct InitStateVisitor {
   }
 };
 
-std::unique_ptr<KernelState> InitSetLookup(KernelContext* ctx, const Kernel&,
-                                           const FunctionOptions* options) {
-  InitStateVisitor visitor{ctx, static_cast<const SetLookupOptions*>(options)};
+std::unique_ptr<KernelState> InitSetLookup(KernelContext* ctx,
+                                           const KernelInitArgs& args) {
+  InitStateVisitor visitor{ctx, static_cast<const SetLookupOptions*>(args.options)};
   std::unique_ptr<KernelState> result;
   ctx->SetStatus(visitor.GetResult(&result));
   return result;

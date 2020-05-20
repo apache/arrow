@@ -436,6 +436,29 @@ class DatumAccumulator : public ExecListener {
   std::vector<Datum> values_;
 };
 
+std::shared_ptr<ChunkedArray> ToChunkedArray(const std::vector<Datum>& values,
+                                             const std::shared_ptr<DataType>& type) {
+  std::vector<std::shared_ptr<Array>> arrays;
+  for (const auto& val : values) {
+    auto boxed = val.make_array();
+    if (boxed->length() == 0) {
+      // Skip empty chunks
+      continue;
+    }
+    arrays.emplace_back(std::move(boxed));
+  }
+  return std::make_shared<ChunkedArray>(arrays, type);
+}
+
+bool HaveChunkedArray(const std::vector<Datum>& values) {
+  for (const auto& value : values) {
+    if (value.kind() == Datum::CHUNKED_ARRAY) {
+      return true;
+    }
+  }
+  return false;
+}
+
 template <typename FunctionType>
 class FunctionExecutorImpl : public FunctionExecutor {
  public:
@@ -451,7 +474,8 @@ class FunctionExecutorImpl : public FunctionExecutor {
   Status InitState() {
     // Some kernels require initialization of an opaque state object
     if (kernel_->init) {
-      state_ = kernel_->init(&kernel_ctx_, *kernel_, options_);
+      KernelInitArgs init_args{kernel_, input_descrs_, options_};
+      state_ = kernel_->init(&kernel_ctx_, init_args);
       CTX_RETURN_IF_ERROR(&kernel_ctx_);
       kernel_ctx_.SetState(state_.get());
     }
@@ -466,13 +490,12 @@ class FunctionExecutorImpl : public FunctionExecutor {
   }
 
   Status BindArgs(const std::vector<Datum>& args) {
-    std::vector<ValueDescr> arg_descrs;
-    RETURN_NOT_OK(GetValueDescriptors(args, &arg_descrs));
-    ARROW_ASSIGN_OR_RAISE(kernel_, func_->DispatchExact(arg_descrs));
+    RETURN_NOT_OK(GetValueDescriptors(args, &input_descrs_));
+    ARROW_ASSIGN_OR_RAISE(kernel_, func_->DispatchExact(input_descrs_));
 
     // Resolve the output descriptor for this kernel
     ARROW_ASSIGN_OR_RAISE(output_descr_,
-                          kernel_->signature->out_type().Resolve(arg_descrs));
+                          kernel_->signature->out_type().Resolve(input_descrs_));
 
     return SetupArgIteration(args);
   }
@@ -502,6 +525,7 @@ class FunctionExecutorImpl : public FunctionExecutor {
   const KernelType* kernel_;
   std::unique_ptr<ExecBatchIterator> batch_iterator_;
   std::unique_ptr<KernelState> state_;
+  std::vector<ValueDescr> input_descrs_;
   ValueDescr output_descr_;
   const FunctionOptions* options_;
 
@@ -534,6 +558,33 @@ class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
       RETURN_NOT_OK(listener->OnResult(std::move(preallocated_)));
     }
     return Status::OK();
+  }
+
+  Datum WrapResults(const std::vector<Datum>& inputs,
+                    const std::vector<Datum>& outputs) override {
+    if (output_descr_.shape == ValueDescr::SCALAR) {
+      DCHECK_GT(outputs.size(), 0);
+      if (outputs.size() == 1) {
+        // Return as SCALAR
+        return outputs[0];
+      } else {
+        // Return as COLLECTION
+        return outputs;
+      }
+    } else {
+      // If execution yielded multiple chunks (because large arrays were split
+      // based on the ExecContext parameters, then the result is a ChunkedArray
+      if (HaveChunkedArray(inputs) || outputs.size() > 1) {
+        return ToChunkedArray(outputs, output_descr_.type);
+      } else if (outputs.size() == 1) {
+        // Outputs have just one element
+        return outputs[0];
+      } else {
+        // XXX: In the case where no outputs are omitted, is returning a 0-length
+        // array always the correct move?
+        return MakeArrayOfNull(output_descr_.type, /*length=*/0).ValueOrDie();
+      }
+    }
   }
 
  protected:
@@ -694,8 +745,32 @@ class VectorExecutor : public FunctionExecutorImpl<VectorFunction> {
     return Finalize(listener);
   }
 
+  Datum WrapResults(const std::vector<Datum>& inputs,
+                    const std::vector<Datum>& outputs) override {
+    // If execution yielded multiple chunks (because large arrays were split
+    // based on the ExecContext parameters, then the result is a ChunkedArray
+    if (kernel_->output_chunked) {
+      if (HaveChunkedArray(inputs) || outputs.size() > 1) {
+        return ToChunkedArray(outputs, output_descr_.type);
+      } else if (outputs.size() == 1) {
+        // Outputs have just one element
+        return outputs[0];
+      } else {
+        // XXX: In the case where no outputs are omitted, is returning a 0-length
+        // array always the correct move?
+        return MakeArrayOfNull(output_descr_.type, /*length=*/0).ValueOrDie();
+      }
+    } else {
+      return outputs[0];
+    }
+  }
+
  protected:
   Status ExecuteBatch(const ExecBatch& batch, ExecListener* listener) {
+    if (batch.length == 0) {
+      // Skip empty batches. This should only happen with zero-length inputs
+      return Status::OK();
+    }
     Datum out;
     if (output_descr_.shape == ValueDescr::ARRAY) {
       // We preallocate (maybe) only for the output of processing the current
@@ -723,11 +798,10 @@ class VectorExecutor : public FunctionExecutorImpl<VectorFunction> {
     if (kernel_->finalize) {
       // Intermediate results require post-processing after the execution is
       // completed (possibly involving some accumulated state)
+      kernel_->finalize(&kernel_ctx_, &results_);
+      CTX_RETURN_IF_ERROR(&kernel_ctx_);
       for (const auto& result : results_) {
-        Datum finalized_result;
-        kernel_->finalize(&kernel_ctx_, result, &finalized_result);
-        CTX_RETURN_IF_ERROR(&kernel_ctx_);
-        RETURN_NOT_OK(listener->OnResult(std::move(finalized_result)));
+        RETURN_NOT_OK(listener->OnResult(result));
       }
     }
     return Status::OK();
@@ -764,19 +838,7 @@ class ScalarAggExecutor : public FunctionExecutorImpl<ScalarAggregateFunction> {
   using FunctionType = ScalarAggregateFunction;
   static constexpr Function::Kind function_kind = Function::SCALAR_AGGREGATE;
   using BASE = FunctionExecutorImpl<ScalarAggregateFunction>;
-
-  Status Consume(const ExecBatch& batch) {
-    auto batch_state = kernel_->init(&kernel_ctx_, *kernel_, options_);
-    KernelContext batch_ctx(exec_ctx_);
-    batch_ctx.SetState(batch_state.get());
-
-    kernel_->consume(&batch_ctx, batch);
-    CTX_RETURN_IF_ERROR(&batch_ctx);
-
-    kernel_->merge(&kernel_ctx_, *batch_state, state_.get());
-    CTX_RETURN_IF_ERROR(&kernel_ctx_);
-    return Status::OK();
-  }
+  using BASE::BASE;
 
   Status Execute(const std::vector<Datum>& args, ExecListener* listener) override {
     RETURN_NOT_OK(BindArgs(args));
@@ -800,8 +862,28 @@ class ScalarAggExecutor : public FunctionExecutorImpl<ScalarAggregateFunction> {
     return Status::OK();
   }
 
+  Datum WrapResults(const std::vector<Datum>&,
+                    const std::vector<Datum>& outputs) override {
+    DCHECK_EQ(1, outputs.size());
+    return outputs[0];
+  }
+
  private:
-  using BASE::BASE;
+  Status Consume(const ExecBatch& batch) {
+    KernelInitArgs init_args{kernel_, input_descrs_, options_};
+    auto batch_state = kernel_->init(&kernel_ctx_, init_args);
+    CTX_RETURN_IF_ERROR(&kernel_ctx_);
+
+    KernelContext batch_ctx(exec_ctx_);
+    batch_ctx.SetState(batch_state.get());
+
+    kernel_->consume(&batch_ctx, batch);
+    CTX_RETURN_IF_ERROR(&batch_ctx);
+
+    kernel_->merge(&kernel_ctx_, *batch_state, state_.get());
+    CTX_RETURN_IF_ERROR(&kernel_ctx_);
+    return Status::OK();
+  }
 };
 
 template <typename ExecutorType,
@@ -836,26 +918,6 @@ Status CheckAllValues(const std::vector<Datum>& values) {
   return Status::OK();
 }
 
-Status ExecuteFunction(ExecContext* ctx, const std::string& func_name,
-                       const std::vector<Datum>& args, const FunctionOptions* options,
-                       ValueDescr* out_descr, ExecListener* listener) {
-  if (ctx == nullptr) {
-    ExecContext default_ctx;
-    return ExecuteFunction(&default_ctx, func_name, args, options, out_descr, listener);
-  }
-
-  // type-check Datum arguments here. Really we'd like to avoid this as much as
-  // possible
-  RETURN_NOT_OK(CheckAllValues(args));
-
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<const Function> func,
-                        ctx->func_registry()->GetFunction(func_name));
-  ARROW_ASSIGN_OR_RAISE(auto executor, FunctionExecutor::Make(ctx, func.get(), options));
-  RETURN_NOT_OK(executor->Execute(args, listener));
-  *out_descr = executor->output_descr();
-  return Status::OK();
-}
-
 }  // namespace detail
 
 ExecContext::ExecContext(MemoryPool* pool, FunctionRegistry* func_registry)
@@ -881,86 +943,25 @@ Result<std::shared_ptr<SelectionVector>> SelectionVector::FromMask(const Array& 
   return Status::NotImplemented("FromMask");
 }
 
-namespace {
-
-std::shared_ptr<ChunkedArray> ToChunkedArray(const std::vector<Datum>& values,
-                                             const std::shared_ptr<DataType>& type) {
-  std::vector<std::shared_ptr<Array>> arrays;
-  for (const auto& val : values) {
-    auto boxed = val.make_array();
-    if (boxed->length() == 0) {
-      // Skip empty chunks
-      continue;
-    }
-    arrays.emplace_back(std::move(boxed));
+Result<Datum> CallFunction(ExecContext* ctx, const std::string& func_name,
+                           const std::vector<Datum>& args,
+                           const FunctionOptions* options) {
+  if (ctx == nullptr) {
+    ExecContext default_ctx;
+    return CallFunction(&default_ctx, func_name, args, options);
   }
-  return std::make_shared<ChunkedArray>(arrays, type);
-}
 
-bool HaveChunkedArray(const std::vector<Datum>& values) {
-  for (const auto& value : values) {
-    if (value.kind() == Datum::CHUNKED_ARRAY) {
-      return true;
-    }
-  }
-  return false;
-}
+  // type-check Datum arguments here. Really we'd like to avoid this as much as
+  // possible
+  RETURN_NOT_OK(detail::CheckAllValues(args));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<const Function> func,
+                        ctx->func_registry()->GetFunction(func_name));
+  ARROW_ASSIGN_OR_RAISE(auto executor,
+                        detail::FunctionExecutor::Make(ctx, func.get(), options));
 
-Datum WrapArrayResults(const std::vector<Datum>& input_args,
-                       const std::vector<Datum>& results,
-                       const ValueDescr& output_descr) {
-  DCHECK_GT(results.size(), 0);
-  if (output_descr.shape == ValueDescr::SCALAR) {
-    if (results.size() == 1) {
-      // Return as SCALAR
-      return results[0];
-    } else {
-      // Return as COLLECTION
-      return results;
-    }
-  } else {
-    // If execution yielded multiple chunks (because large arrays were split
-    // based on the ExecContext parameters, then the result is a ChunkedArray
-    if (HaveChunkedArray(input_args) || results.size() > 1) {
-      return ToChunkedArray(results, output_descr.type);
-    } else {
-      // Results have just one element
-      return results[0];
-    }
-  }
-}
-
-}  // namespace
-
-Result<Datum> ExecScalarFunction(ExecContext* ctx, const std::string& func_name,
-                                 const std::vector<Datum>& args,
-                                 const FunctionOptions* options) {
   auto listener = std::make_shared<detail::DatumAccumulator>();
-  ValueDescr out_descr;
-  RETURN_NOT_OK(
-      detail::ExecuteFunction(ctx, func_name, args, options, &out_descr, listener.get()));
-  return WrapArrayResults(args, listener->values(), out_descr);
-}
-
-Result<Datum> ExecVectorFunction(ExecContext* ctx, const std::string& func_name,
-                                 const std::vector<Datum>& args,
-                                 const FunctionOptions* options) {
-  auto listener = std::make_shared<detail::DatumAccumulator>();
-  ValueDescr out_descr;
-  RETURN_NOT_OK(
-      detail::ExecuteFunction(ctx, func_name, args, options, &out_descr, listener.get()));
-  return WrapArrayResults(args, listener->values(), out_descr);
-}
-
-Result<Datum> ExecScalarAggregateFunction(ExecContext* ctx, const std::string& func_name,
-                                          const std::vector<Datum>& args,
-                                          const FunctionOptions* options) {
-  auto listener = std::make_shared<detail::DatumAccumulator>();
-  ValueDescr unused;
-  RETURN_NOT_OK(
-      detail::ExecuteFunction(ctx, func_name, args, options, &unused, listener.get()));
-  DCHECK_EQ(1, listener->values().size());
-  return listener->values()[0];
+  RETURN_NOT_OK(executor->Execute(args, listener.get()));
+  return executor->WrapResults(args, listener->values());
 }
 
 }  // namespace compute

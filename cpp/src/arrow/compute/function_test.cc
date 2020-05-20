@@ -184,8 +184,7 @@ TEST(ScalarAggregateFunction, Basics) {
   ASSERT_EQ(Function::SCALAR_AGGREGATE, func.kind());
 }
 
-std::unique_ptr<KernelState> NoopInit(KernelContext*, const Kernel&,
-                                      const FunctionOptions*) {
+std::unique_ptr<KernelState> NoopInit(KernelContext*, const KernelInitArgs&) {
   return nullptr;
 }
 

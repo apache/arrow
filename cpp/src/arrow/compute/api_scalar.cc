@@ -28,12 +28,12 @@ namespace compute {
 
 #define SCALAR_EAGER_UNARY(NAME, REGISTRY_NAME)              \
   Result<Datum> NAME(const Datum& value, ExecContext* ctx) { \
-    return ExecScalarFunction(ctx, REGISTRY_NAME, {value});  \
+    return CallFunction(ctx, REGISTRY_NAME, {value});        \
   }
 
 #define SCALAR_EAGER_BINARY(NAME, REGISTRY_NAME)                                \
   Result<Datum> NAME(const Datum& left, const Datum& right, ExecContext* ctx) { \
-    return ExecScalarFunction(ctx, REGISTRY_NAME, {left, right});               \
+    return CallFunction(ctx, REGISTRY_NAME, {left, right});                     \
   }
 
 // ----------------------------------------------------------------------
@@ -54,7 +54,7 @@ static Result<Datum> ExecSetLookup(const std::string& func_name, const Datum& da
     return Status::Invalid(ss.str());
   }
   SetLookupOptions options(std::move(value_set), !add_nulls_to_hash_table);
-  return ExecScalarFunction(ctx, func_name, {data}, &options);
+  return CallFunction(ctx, func_name, {data}, &options);
 }
 
 Result<Datum> IsIn(const Datum& values, std::shared_ptr<Array> value_set,
@@ -107,7 +107,7 @@ Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions opti
       DCHECK(false);
       break;
   }
-  return ExecScalarFunction(ctx, func_name, {left, right}, &options);
+  return CallFunction(ctx, func_name, {left, right}, &options);
 }
 
 }  // namespace compute

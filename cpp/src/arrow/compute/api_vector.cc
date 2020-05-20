@@ -37,60 +37,28 @@ namespace compute {
 Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
                                             ExecContext* ctx) {
   PartitionOptions options(/*pivot=*/n);
-  ARROW_ASSIGN_OR_RAISE(Datum result, ExecVectorFunction(ctx, "partition_indices",
-                                                         {Datum(values)}, &options));
+  ARROW_ASSIGN_OR_RAISE(
+      Datum result, CallFunction(ctx, "partition_indices", {Datum(values)}, &options));
   return result.make_array();
 }
 
 Result<std::shared_ptr<Array>> SortToIndices(const Array& values, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result,
-                        ExecVectorFunction(ctx, "sort_indices", {Datum(values)}));
+  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction(ctx, "sort_indices", {Datum(values)}));
   return result.make_array();
 }
 
 Result<Datum> Take(const Datum& values, const Datum& indices, const TakeOptions& options,
                    ExecContext* ctx) {
-  return ExecVectorFunction(ctx, "take", {values, indices}, &options);
+  return CallFunction(ctx, "take", {values, indices}, &options);
 }
 
-namespace {
-
-// Status InvokeHash(FunctionContext* ctx, HashKernel* func, const Datum& value,
-//                   std::vector<Datum>* kernel_outputs,
-//                   std::shared_ptr<Array>* dictionary) {
-//   RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, func, value, kernel_outputs));
-//   std::shared_ptr<ArrayData> dict_data;
-//   RETURN_NOT_OK(func->GetDictionary(&dict_data));
-//   *dictionary = MakeArray(dict_data);
-//   return Status::OK();
-// }
-
-}  // namespace
-
 Result<std::shared_ptr<Array>> Unique(const Datum& value, ExecContext* ctx) {
-  // std::unique_ptr<HashKernel> func;
-  // RETURN_NOT_OK(GetUniqueKernel(ctx, value.type(), &func));
-  // std::vector<Datum> dummy_outputs;
-  // return InvokeHash(ctx, func.get(), value, &dummy_outputs, out);
-  return Status::NotImplemented("NYI");
+  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction(ctx, "unique", {value}));
+  return result.make_array();
 }
 
 Result<Datum> DictionaryEncode(const Datum& value, ExecContext* ctx) {
-  // std::unique_ptr<HashKernel> func;
-  // RETURN_NOT_OK(GetDictionaryEncodeKernel(ctx, value.type(), &func));
-  // std::shared_ptr<Array> dict;
-  // std::vector<Datum> indices_outputs;
-  // RETURN_NOT_OK(InvokeHash(ctx, func.get(), value, &indices_outputs, &dict));
-  // auto dict_type = dictionary(func->out_type(), dict->type());
-  // // Wrap indices in dictionary arrays for result
-  // std::vector<std::shared_ptr<Array>> dict_chunks;
-  // for (const Datum& datum : indices_outputs) {
-  //   dict_chunks.emplace_back(
-  //       std::make_shared<DictionaryArray>(dict_type, datum.make_array(), dict));
-  // }
-  // *out = detail::WrapArraysLike(value, dict_type, dict_chunks);
-  // return Status::OK();
-  return Status::NotImplemented("NYI");
+  return CallFunction(ctx, "dict_encode", {value});
 }
 
 const char kValuesFieldName[] = "values";
@@ -99,22 +67,8 @@ const int32_t kValuesFieldIndex = 0;
 const int32_t kCountsFieldIndex = 1;
 
 Result<std::shared_ptr<Array>> ValueCounts(const Datum& value, ExecContext* ctx) {
-  // std::unique_ptr<HashKernel> func;
-  // RETURN_NOT_OK(GetValueCountsKernel(ctx, value.type(), &func));
-  // // Calls return nothing for counts.
-  // std::vector<Datum> unused_output;
-  // std::shared_ptr<Array> uniques;
-  // RETURN_NOT_OK(InvokeHash(ctx, func.get(), value, &unused_output, &uniques));
-  // Datum value_counts;
-  // RETURN_NOT_OK(func->FlushFinal(&value_counts));
-  // auto data_type = std::make_shared<StructType>(std::vector<std::shared_ptr<Field>>{
-  //     std::make_shared<Field>(kValuesFieldName, uniques->type()),
-  //     std::make_shared<Field>(kCountsFieldName, int64())});
-  // *counts = std::make_shared<StructArray>(
-  //     data_type, uniques->length(),
-  //     std::vector<std::shared_ptr<Array>>{uniques, MakeArray(value_counts.array())});
-  // return Status::OK();
-  return Status::NotImplemented("NYI");
+  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction(ctx, "value_counts", {value}));
+  return result.make_array();
 }
 
 // ----------------------------------------------------------------------
@@ -169,7 +123,7 @@ Result<Datum> Filter(const Datum& values, const Datum& filter, FilterOptions opt
                           FilterTable(*values.table(), filter, options, ctx));
     return Datum(out_table);
   } else {
-    return ExecVectorFunction(ctx, "filter", {values, filter}, &options);
+    return CallFunction(ctx, "filter", {values, filter}, &options);
   }
 }
 

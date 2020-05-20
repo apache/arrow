@@ -81,10 +81,9 @@ struct CountImpl : public ScalarAggregator {
   int64_t nulls = 0;
 };
 
-std::unique_ptr<KernelState> CountInit(KernelContext*, const Kernel&,
-                                       const FunctionOptions* options) {
+std::unique_ptr<KernelState> CountInit(KernelContext*, const KernelInitArgs& args) {
   return std::unique_ptr<KernelState>(
-      new CountImpl(static_cast<const CountOptions&>(*options)));
+      new CountImpl(static_cast<const CountOptions&>(*args.options)));
 }
 
 // ----------------------------------------------------------------------
@@ -305,17 +304,13 @@ struct SumLikeInit {
   }
 };
 
-std::unique_ptr<KernelState> SumInit(KernelContext* ctx, const Kernel& kernel,
-                                     const FunctionOptions*) {
-  const DataType& input_type = *kernel.signature->in_types()[0].type();
-  SumLikeInit<SumImpl> visitor(ctx, input_type);
+std::unique_ptr<KernelState> SumInit(KernelContext* ctx, const KernelInitArgs& args) {
+  SumLikeInit<SumImpl> visitor(ctx, *args.inputs[0].type);
   return visitor.Create();
 }
 
-std::unique_ptr<KernelState> MeanInit(KernelContext* ctx, const Kernel& kernel,
-                                      const FunctionOptions*) {
-  const DataType& input_type = *kernel.signature->in_types()[0].type();
-  SumLikeInit<MeanImpl> visitor(ctx, input_type);
+std::unique_ptr<KernelState> MeanInit(KernelContext* ctx, const KernelInitArgs& args) {
+  SumLikeInit<MeanImpl> visitor(ctx, *args.inputs[0].type);
   return visitor.Create();
 }
 
@@ -461,11 +456,10 @@ struct MinMaxInitState {
   }
 };
 
-std::unique_ptr<KernelState> MinMaxInit(KernelContext* ctx, const Kernel& kernel,
-                                        const FunctionOptions* options) {
-  MinMaxInitState visitor(ctx, *kernel.signature->in_types()[0].type(),
-                          kernel.signature->out_type().type(),
-                          static_cast<const MinMaxOptions&>(*options));
+std::unique_ptr<KernelState> MinMaxInit(KernelContext* ctx, const KernelInitArgs& args) {
+  MinMaxInitState visitor(ctx, *args.inputs[0].type,
+                          args.kernel->signature->out_type().type(),
+                          static_cast<const MinMaxOptions&>(*args.options));
   return visitor.Create();
 }
 

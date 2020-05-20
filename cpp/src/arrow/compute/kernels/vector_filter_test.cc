@@ -194,7 +194,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, FilterNumeric) {
 
 TYPED_TEST(TestFilterKernelWithNumeric, FilterRandomNumeric) {
   auto rand = random::RandomArrayGenerator(kSeed);
-  for (size_t i = 3; i < 13; i++) {
+  for (size_t i = 3; i < 10; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
     for (auto null_probability : {0.0, 0.01, 0.25, 1.0}) {
       for (auto filter_probability : {0.0, 0.1, 0.5, 1.0}) {
@@ -258,7 +258,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
   using CType = typename TypeTraits<TypeParam>::CType;
 
   auto rand = random::RandomArrayGenerator(kSeed);
-  for (size_t i = 3; i < 13; i++) {
+  for (size_t i = 3; i < 10; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
     // TODO(bkietz) rewrite with some nulls
     auto array =
@@ -282,7 +282,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareArrayAndFilterRandomNumeric) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
 
   auto rand = random::RandomArrayGenerator(kSeed);
-  for (size_t i = 3; i < 13; i++) {
+  for (size_t i = 3; i < 10; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
     auto lhs = checked_pointer_cast<ArrayType>(
         rand.Numeric<TypeParam>(length, 0, 100, /*null_probability=*/0.0));
@@ -307,7 +307,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
   using CType = typename TypeTraits<TypeParam>::CType;
 
   auto rand = random::RandomArrayGenerator(kSeed);
-  for (size_t i = 3; i < 13; i++) {
+  for (size_t i = 3; i < 10; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
     auto array = checked_pointer_cast<ArrayType>(
         rand.Numeric<TypeParam>(length, 0, 100, /*null_probability=*/0.0));

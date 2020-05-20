@@ -26,40 +26,21 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"
 #include "arrow/array/dict_internal.h"
-#include "arrow/buffer.h"
 #include "arrow/builder.h"
-#include "arrow/compute/exec.h"
-#include "arrow/compute/kernel.h"
-#include "arrow/type.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/compute/api_vector.h"
+#include "arrow/compute/kernels/common.h"
 #include "arrow/util/hashing.h"
-#include "arrow/util/logging.h"
-#include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
-#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
 class MemoryPool;
 
-using internal::checked_cast;
 using internal::DictionaryTraits;
-using internal::HashTraits;
 
 namespace compute {
 
 namespace {
-
-#define CHECK_IMPLEMENTED(KERNEL, FUNCNAME, TYPE)                                       \
-  if (!KERNEL) {                                                                        \
-    return Status::NotImplemented(FUNCNAME, " not implemented for ", type->ToString()); \
-  }
-
-// ----------------------------------------------------------------------
-// Unique implementation
 
 class ActionBase {
  public:
@@ -71,9 +52,15 @@ class ActionBase {
   MemoryPool* pool_;
 };
 
+// ----------------------------------------------------------------------
+// Unique
+
 class UniqueAction final : public ActionBase {
  public:
   using ActionBase::ActionBase;
+
+  static constexpr bool with_error_status = false;
+  static constexpr bool with_memo_visit_null = true;
 
   Status Reset() { return Status::OK(); }
 
@@ -93,17 +80,18 @@ class UniqueAction final : public ActionBase {
 
   Status Flush(Datum* out) { return Status::OK(); }
 
-  std::shared_ptr<DataType> out_type() const { return type_; }
-
   Status FlushFinal(Datum* out) { return Status::OK(); }
 };
 
 // ----------------------------------------------------------------------
-// Count values implementation (see HashKernel for description of methods)
+// Count values
 
 class ValueCountsAction final : ActionBase {
  public:
   using ActionBase::ActionBase;
+
+  static constexpr bool with_error_status = true;
+  static constexpr bool with_memo_visit_null = true;
 
   ValueCountsAction(const std::shared_ptr<DataType>& type, MemoryPool* pool)
       : ActionBase(type, pool), count_builder_(pool) {}
@@ -121,8 +109,6 @@ class ValueCountsAction final : ActionBase {
   // Don't do anything on flush because we don't want to finalize the builder
   // or incur the cost of memory copies.
   Status Flush(Datum* out) { return Status::OK(); }
-
-  std::shared_ptr<DataType> out_type() const { return type_; }
 
   // Return the counts corresponding the MemoTable keys.
   Status FlushFinal(Datum* out) {
@@ -168,11 +154,14 @@ class ValueCountsAction final : ActionBase {
 };
 
 // ----------------------------------------------------------------------
-// Dictionary encode implementation (see HashKernel for description of methods)
+// Dictionary encode implementation
 
 class DictEncodeAction final : public ActionBase {
  public:
   using ActionBase::ActionBase;
+
+  static constexpr bool with_error_status = false;
+  static constexpr bool with_memo_visit_null = false;
 
   DictEncodeAction(const std::shared_ptr<DataType>& type, MemoryPool* pool)
       : ActionBase(type, pool), indices_builder_(pool) {}
@@ -211,25 +200,19 @@ class DictEncodeAction final : public ActionBase {
     return Status::OK();
   }
 
-  std::shared_ptr<DataType> out_type() const { return int32(); }
   Status FlushFinal(Datum* out) { return Status::OK(); }
 
  private:
   Int32Builder indices_builder_;
 };
 
-/// \brief Invoke hash table kernel on input array, returning any output
-/// values. Implementations should be thread-safe
-///
-/// This interface is implemented below using visitor pattern on "Action"
-/// implementations.  It is not consolidate to keep the contract clearer.
-class HashKernel : public UnaryKernel {
+class HashKernel : public KernelState {
  public:
   // Reset for another run.
   virtual Status Reset() = 0;
   // Prepare the Action for the given input (e.g. reserve appropriately sized
   // data structures) and visit the given input with Action.
-  virtual Status Append(FunctionContext* ctx, const ArrayData& input) = 0;
+  virtual Status Append(KernelContext* ctx, const ArrayData& input) = 0;
   // Flush out accumulated results from the last invocation of Call.
   virtual Status Flush(Datum* out) = 0;
   // Flush out accumulated results across all invocations of Call. The kernel
@@ -244,13 +227,7 @@ class HashKernel : public UnaryKernel {
 
 class HashKernelImpl : public HashKernel {
  public:
-  Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
-    DCHECK_EQ(Datum::ARRAY, input.kind());
-    RETURN_NOT_OK(Append(ctx, *input.array()));
-    return Flush(out);
-  }
-
-  Status Append(FunctionContext* ctx, const ArrayData& input) override {
+  Status Append(KernelContext* ctx, const ArrayData& input) override {
     std::lock_guard<std::mutex> guard(lock_);
     return Append(input);
   }
@@ -265,8 +242,9 @@ class HashKernelImpl : public HashKernel {
 // Base class for all "regular" hash kernel implementations
 // (NullType has a separate implementation)
 
-template <typename Type, typename Scalar, typename Action, bool with_error_status = false,
-          bool with_memo_visit_null = true>
+template <typename Type, typename Scalar, typename Action,
+          bool with_error_status = Action::with_error_status,
+          bool with_memo_visit_null = Action::with_memo_visit_null>
 class RegularHashKernelImpl : public HashKernelImpl {
  public:
   RegularHashKernelImpl(const std::shared_ptr<DataType>& type, MemoryPool* pool)
@@ -354,10 +332,8 @@ class RegularHashKernelImpl : public HashKernelImpl {
     return VisitArrayDataInline<Type>(arr, std::move(process_value));
   }
 
-  std::shared_ptr<DataType> out_type() const override { return action_.out_type(); }
-
  protected:
-  using MemoTable = typename HashTraits<Type>::MemoTableType;
+  using MemoTable = typename internal::HashTraits<Type>::MemoTableType;
 
   MemoryPool* pool_;
   std::shared_ptr<DataType> type_;
@@ -398,8 +374,6 @@ class NullHashKernelImpl : public HashKernelImpl {
     return Status::OK();
   }
 
-  std::shared_ptr<DataType> out_type() const override { return action_.out_type(); }
-
  protected:
   MemoryPool* pool_;
   std::shared_ptr<DataType> type_;
@@ -409,136 +383,160 @@ class NullHashKernelImpl : public HashKernelImpl {
 // ----------------------------------------------------------------------
 // Kernel wrapper for generic hash table kernels
 
-template <typename Type, typename Action, bool with_error_status,
-          bool with_memo_visit_null, typename Enable = void>
+template <typename Type, typename Action, typename Enable = void>
 struct HashKernelTraits {};
 
-template <typename Type, typename Action, bool with_error_status,
-          bool with_memo_visit_null>
-struct HashKernelTraits<Type, Action, with_error_status, with_memo_visit_null,
-                        enable_if_null<Type>> {
+template <typename Type, typename Action>
+struct HashKernelTraits<Type, Action, enable_if_null<Type>> {
   using HashKernelImpl = NullHashKernelImpl<Action>;
 };
 
-template <typename Type, typename Action, bool with_error_status,
-          bool with_memo_visit_null>
-struct HashKernelTraits<Type, Action, with_error_status, with_memo_visit_null,
-                        enable_if_has_c_type<Type>> {
-  using HashKernelImpl = RegularHashKernelImpl<Type, typename Type::c_type, Action,
-                                               with_error_status, with_memo_visit_null>;
+template <typename Type, typename Action>
+struct HashKernelTraits<Type, Action, enable_if_has_c_type<Type>> {
+  using HashKernelImpl = RegularHashKernelImpl<Type, typename Type::c_type, Action>;
 };
 
-template <typename Type, typename Action, bool with_error_status,
-          bool with_memo_visit_null>
-struct HashKernelTraits<Type, Action, with_error_status, with_memo_visit_null,
-                        enable_if_has_string_view<Type>> {
-  using HashKernelImpl = RegularHashKernelImpl<Type, util::string_view, Action,
-                                               with_error_status, with_memo_visit_null>;
+template <typename Type, typename Action>
+struct HashKernelTraits<Type, Action, enable_if_has_string_view<Type>> {
+  using HashKernelImpl = RegularHashKernelImpl<Type, util::string_view, Action>;
 };
+
+template <typename T, typename R = void>
+using enable_if_can_hash =
+    enable_if_t<is_null_type<T>::value || has_c_type<T>::value ||
+                    is_base_binary_type<T>::value || is_fixed_size_binary_type<T>::value,
+                R>;
+
+template <typename Type, typename Action>
+struct HashInitFunctor {
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using HashKernelType = typename HashKernelTraits<Type, Action>::HashKernelImpl;
+
+  static std::unique_ptr<KernelState> Init(KernelContext* ctx,
+                                           const KernelInitArgs& args) {
+    auto result = std::unique_ptr<HashKernel>(
+        new HashKernelType(args.inputs[0].type, ctx->memory_pool()));
+    ctx->SetStatus(result->Reset());
+    return std::move(result);
+  }
+};
+
+template <typename Action>
+struct HashInitVisitor {
+  VectorKernel* out;
+
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("Hashing not available for ", type.ToString());
+  }
+
+  template <typename Type>
+  enable_if_can_hash<Type, Status> Visit(const Type&) {
+    out->init = HashInitFunctor<Type, Action>::Init;
+    return Status::OK();
+  }
+};
+
+void HashExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  auto hash_impl = checked_cast<HashKernel*>(ctx->state());
+  CTX_RETURN_IF_ERROR(ctx, hash_impl->Append(ctx, *batch[0].array()));
+  CTX_RETURN_IF_ERROR(ctx, hash_impl->Flush(out));
+}
+
+void UniqueFinalize(KernelContext* ctx, std::vector<Datum>* out) {
+  auto hash_impl = checked_cast<HashKernel*>(ctx->state());
+  std::shared_ptr<ArrayData> uniques;
+  CTX_RETURN_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
+  *out = {Datum(uniques)};
+}
+
+void DictEncodeFinalize(KernelContext* ctx, std::vector<Datum>* out) {
+  auto hash_impl = checked_cast<HashKernel*>(ctx->state());
+  std::shared_ptr<ArrayData> uniques;
+  CTX_RETURN_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
+  auto dict_type = dictionary(int32(), uniques->type);
+  auto dict = MakeArray(uniques);
+  for (size_t i = 0; i < out->size(); ++i) {
+    (*out)[i] =
+        std::make_shared<DictionaryArray>(dict_type, (*out)[i].make_array(), dict);
+  }
+}
+
+void ValueCountsFinalize(KernelContext* ctx, std::vector<Datum>* out) {
+  auto hash_impl = checked_cast<HashKernel*>(ctx->state());
+  std::shared_ptr<ArrayData> uniques;
+  CTX_RETURN_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
+
+  Datum value_counts;
+  CTX_RETURN_IF_ERROR(ctx, hash_impl->FlushFinal(&value_counts));
+  auto data_type =
+      struct_({field(kValuesFieldName, uniques->type), field(kCountsFieldName, int64())});
+  ArrayVector children = {MakeArray(uniques), value_counts.make_array()};
+  auto result = std::make_shared<StructArray>(data_type, uniques->length, children);
+  *out = {Datum(result)};
+}
+
+Result<ValueDescr> DictEncodeOutput(const std::vector<ValueDescr>& descrs) {
+  return ValueDescr::Array(dictionary(int32(), descrs[0].type));
+}
+
+Result<ValueDescr> ValueCountsOutput(const std::vector<ValueDescr>& descrs) {
+  return ValueDescr::Array(struct_(
+      {field(kValuesFieldName, descrs[0].type), field(kCountsFieldName, int64())}));
+}
+
+template <typename Action>
+void AddKernel(VectorFunction* func, VectorKernel kernel,
+               const std::shared_ptr<DataType>& type) {
+  HashInitVisitor<Action> visitor{&kernel};
+  DCHECK_OK(VisitTypeInline(*type, &visitor));
+  DCHECK_OK(func->AddKernel(std::move(kernel)));
+}
+
+template <typename Action>
+void AddHashKernels(VectorFunction* func, VectorKernel base,
+                    OutputType::Resolver out_resolver) {
+  OutputType out_ty(out_resolver);
+  for (const auto& ty : PrimitiveTypes()) {
+    base.signature = KernelSignature::Make({InputType::Array(ty)}, out_ty);
+    AddKernel<Action>(func, base, ty);
+  }
+
+  base.signature =
+      KernelSignature::Make({InputType::Array(Type::FIXED_SIZE_BINARY)}, out_ty);
+  AddKernel<Action>(func, base, /*dummy=*/fixed_size_binary(0));
+
+  base.signature = KernelSignature::Make({InputType::Array(Type::DECIMAL)}, out_ty);
+  AddKernel<Action>(func, base, /*dummy*/ decimal(12, 2));
+}
 
 }  // namespace
 
-#define PROCESS_SUPPORTED_HASH_TYPES(PROCESS) \
-  PROCESS(NullType)                           \
-  PROCESS(BooleanType)                        \
-  PROCESS(UInt8Type)                          \
-  PROCESS(Int8Type)                           \
-  PROCESS(UInt16Type)                         \
-  PROCESS(Int16Type)                          \
-  PROCESS(UInt32Type)                         \
-  PROCESS(Int32Type)                          \
-  PROCESS(UInt64Type)                         \
-  PROCESS(Int64Type)                          \
-  PROCESS(FloatType)                          \
-  PROCESS(DoubleType)                         \
-  PROCESS(Date32Type)                         \
-  PROCESS(Date64Type)                         \
-  PROCESS(Time32Type)                         \
-  PROCESS(Time64Type)                         \
-  PROCESS(TimestampType)                      \
-  PROCESS(BinaryType)                         \
-  PROCESS(LargeBinaryType)                    \
-  PROCESS(StringType)                         \
-  PROCESS(LargeStringType)                    \
-  PROCESS(FixedSizeBinaryType)                \
-  PROCESS(Decimal128Type)
+namespace internal {
 
-Status GetUniqueKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
-                       std::unique_ptr<HashKernel>* out) {
-  std::unique_ptr<HashKernel> kernel;
-  switch (type->id()) {
-#define PROCESS(InType)                                                               \
-  case InType::type_id:                                                               \
-    kernel.reset(                                                                     \
-        new                                                                           \
-        typename HashKernelTraits<InType, UniqueAction, false, true>::HashKernelImpl( \
-            type, ctx->memory_pool()));                                               \
-    break;
+void RegisterVectorHash(FunctionRegistry* registry) {
+  VectorKernel base;
+  base.exec = HashExec;
 
-    PROCESS_SUPPORTED_HASH_TYPES(PROCESS)
-#undef PROCESS
-    default:
-      break;
-  }
+  // Unique and ValueCounts output unchunked arrays
 
-  CHECK_IMPLEMENTED(kernel, "unique", type);
-  RETURN_NOT_OK(kernel->Reset());
-  *out = std::move(kernel);
-  return Status::OK();
+  base.finalize = UniqueFinalize;
+  base.output_chunked = false;
+  auto unique = std::make_shared<VectorFunction>("unique", /*arity=*/1);
+  AddHashKernels<UniqueAction>(unique.get(), base, /*output_type=*/FirstType);
+  DCHECK_OK(registry->AddFunction(std::move(unique)));
+
+  base.finalize = ValueCountsFinalize;
+  auto value_counts = std::make_shared<VectorFunction>("value_counts", /*arity=*/1);
+  AddHashKernels<ValueCountsAction>(value_counts.get(), base, ValueCountsOutput);
+  DCHECK_OK(registry->AddFunction(std::move(value_counts)));
+
+  base.finalize = DictEncodeFinalize;
+  base.output_chunked = true;
+  auto dict_encode = std::make_shared<VectorFunction>("dict_encode", /*arity=*/1);
+  AddHashKernels<DictEncodeAction>(dict_encode.get(), base, DictEncodeOutput);
+  DCHECK_OK(registry->AddFunction(std::move(dict_encode)));
 }
 
-Status GetDictionaryEncodeKernel(FunctionContext* ctx,
-                                 const std::shared_ptr<DataType>& type,
-                                 std::unique_ptr<HashKernel>* out) {
-  std::unique_ptr<HashKernel> kernel;
-
-  switch (type->id()) {
-#define PROCESS(InType)                                                                  \
-  case InType::type_id:                                                                  \
-    kernel.reset(                                                                        \
-        new typename HashKernelTraits<InType, DictEncodeAction, false,                   \
-                                      false>::HashKernelImpl(type, ctx->memory_pool())); \
-    break;
-
-    PROCESS_SUPPORTED_HASH_TYPES(PROCESS)
-#undef PROCESS
-    default:
-      break;
-  }
-
-#undef DICTIONARY_ENCODE_CASE
-
-  CHECK_IMPLEMENTED(kernel, "dictionary-encode", type);
-  RETURN_NOT_OK(kernel->Reset());
-  *out = std::move(kernel);
-  return Status::OK();
-}
-
-Status GetValueCountsKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
-                            std::unique_ptr<HashKernel>* out) {
-  std::unique_ptr<HashKernel> kernel;
-
-  switch (type->id()) {
-#define PROCESS(InType)                                                                 \
-  case InType::type_id:                                                                 \
-    kernel.reset(                                                                       \
-        new typename HashKernelTraits<InType, ValueCountsAction, true,                  \
-                                      true>::HashKernelImpl(type, ctx->memory_pool())); \
-    break;
-
-    PROCESS_SUPPORTED_HASH_TYPES(PROCESS)
-#undef PROCESS
-    default:
-      break;
-  }
-
-  CHECK_IMPLEMENTED(kernel, "count-values", type);
-  RETURN_NOT_OK(kernel->Reset());
-  *out = std::move(kernel);
-  return Status::OK();
-}
-
-#undef PROCESS_SUPPORTED_HASH_TYPES
-
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

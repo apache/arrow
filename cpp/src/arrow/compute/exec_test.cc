@@ -592,9 +592,8 @@ struct ExampleState : public KernelState {
   explicit ExampleState(std::shared_ptr<Scalar> value) : value(std::move(value)) {}
 };
 
-std::unique_ptr<KernelState> InitStateful(KernelContext*, const Kernel&,
-                                          const FunctionOptions* options) {
-  auto func_options = static_cast<const ExampleOptions*>(options);
+std::unique_ptr<KernelState> InitStateful(KernelContext*, const KernelInitArgs& args) {
+  auto func_options = static_cast<const ExampleOptions*>(args.options);
   return std::unique_ptr<KernelState>(new ExampleState{func_options->value});
 }
 
@@ -618,7 +617,7 @@ void ExecAddInt32(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   out->value = std::make_shared<Int32Scalar>(arg0.value + arg1.value);
 }
 
-class TestExecScalarFunction : public TestComputeInternals {
+class TestCallScalarFunction : public TestComputeInternals {
  public:
   void SetUp() {
     TestComputeInternals::SetUp();
@@ -684,24 +683,24 @@ class TestExecScalarFunction : public TestComputeInternals {
   }
 };
 
-TEST_F(TestExecScalarFunction, ArgumentValidation) {
+TEST_F(TestCallScalarFunction, ArgumentValidation) {
   // Copy accepts only a single array argument
   Datum d1(GetInt32Array(10));
 
   // Too many args
   std::vector<Datum> args = {d1, d1};
-  ASSERT_RAISES(Invalid, ExecScalarFunction(exec_ctx_.get(), "copy", args));
+  ASSERT_RAISES(Invalid, CallFunction(exec_ctx_.get(), "copy", args));
 
   // Too few
   args = {};
-  ASSERT_RAISES(Invalid, ExecScalarFunction(exec_ctx_.get(), "copy", args));
+  ASSERT_RAISES(Invalid, CallFunction(exec_ctx_.get(), "copy", args));
 
   // Cannot do scalar
   args = {Datum(std::make_shared<Int32Scalar>(5))};
-  ASSERT_RAISES(NotImplemented, ExecScalarFunction(exec_ctx_.get(), "copy", args));
+  ASSERT_RAISES(NotImplemented, CallFunction(exec_ctx_.get(), "copy", args));
 }
 
-TEST_F(TestExecScalarFunction, PreallocationCases) {
+TEST_F(TestCallScalarFunction, PreallocationCases) {
   double null_prob = 0.2;
 
   auto arr = GetUInt8Array(50, null_prob);
@@ -712,8 +711,7 @@ TEST_F(TestExecScalarFunction, PreallocationCases) {
     // The default should be a single array output
     {
       std::vector<Datum> args = {Datum(arr)};
-      ASSERT_OK_AND_ASSIGN(Datum result,
-                           ExecScalarFunction(exec_ctx_.get(), func_name, args));
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
       ASSERT_EQ(Datum::ARRAY, result.kind());
       AssertArraysEqual(*arr, *result.make_array());
     }
@@ -723,8 +721,7 @@ TEST_F(TestExecScalarFunction, PreallocationCases) {
     {
       std::vector<Datum> args = {Datum(arr)};
       exec_ctx_->set_exec_chunksize(8);
-      ASSERT_OK_AND_ASSIGN(Datum result,
-                           ExecScalarFunction(exec_ctx_.get(), func_name, args));
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
       AssertArraysEqual(*arr, *result.make_array());
     }
 
@@ -734,8 +731,7 @@ TEST_F(TestExecScalarFunction, PreallocationCases) {
     {
       std::vector<Datum> args = {Datum(arr)};
       exec_ctx_->set_exec_chunksize(12);
-      ASSERT_OK_AND_ASSIGN(Datum result,
-                           ExecScalarFunction(exec_ctx_.get(), func_name, args));
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
       AssertArraysEqual(*arr, *result.make_array());
     }
 
@@ -744,8 +740,7 @@ TEST_F(TestExecScalarFunction, PreallocationCases) {
       auto carr = std::shared_ptr<ChunkedArray>(
           new ChunkedArray({arr->Slice(0, 15), arr->Slice(15)}));
       std::vector<Datum> args = {Datum(carr)};
-      ASSERT_OK_AND_ASSIGN(Datum result,
-                           ExecScalarFunction(exec_ctx_.get(), func_name, args));
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
       std::shared_ptr<ChunkedArray> actual = result.chunked_array();
       ASSERT_EQ(1, actual->num_chunks());
       AssertChunkedEquivalent(*carr, *actual);
@@ -756,8 +751,7 @@ TEST_F(TestExecScalarFunction, PreallocationCases) {
       std::vector<Datum> args = {Datum(arr)};
       exec_ctx_->set_preallocate_contiguous(false);
       exec_ctx_->set_exec_chunksize(20);
-      ASSERT_OK_AND_ASSIGN(Datum result,
-                           ExecScalarFunction(exec_ctx_.get(), func_name, args));
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
       ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
       const ChunkedArray& carr = *result.chunked_array();
       ASSERT_EQ(3, carr.num_chunks());
@@ -771,7 +765,7 @@ TEST_F(TestExecScalarFunction, PreallocationCases) {
   CheckFunction("copy_computed_bitmap");
 }
 
-TEST_F(TestExecScalarFunction, BasicNonStandardCases) {
+TEST_F(TestCallScalarFunction, BasicNonStandardCases) {
   // Test a handful of cases
   //
   // * Validity bitmap computed by kernel rather than using PropagateNulls
@@ -789,16 +783,14 @@ TEST_F(TestExecScalarFunction, BasicNonStandardCases) {
     // The default should be a single array output
     {
       exec_ctx_->set_exec_chunksize(-1);
-      ASSERT_OK_AND_ASSIGN(Datum result,
-                           ExecScalarFunction(exec_ctx_.get(), func_name, args));
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
       AssertArraysEqual(*arr, *result.make_array(), true);
     }
 
     // Split execution into 3 chunks
     {
       exec_ctx_->set_exec_chunksize(40);
-      ASSERT_OK_AND_ASSIGN(Datum result,
-                           ExecScalarFunction(exec_ctx_.get(), func_name, args));
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
       ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
       const ChunkedArray& carr = *result.chunked_array();
       ASSERT_EQ(3, carr.num_chunks());
@@ -812,7 +804,7 @@ TEST_F(TestExecScalarFunction, BasicNonStandardCases) {
   CheckFunction("nopre_validity_or_data");
 }
 
-TEST_F(TestExecScalarFunction, StatefulKernel) {
+TEST_F(TestCallScalarFunction, StatefulKernel) {
   auto input = ArrayFromJSON(int32(), "[1, 2, 3, null, 5]");
   auto multiplier = std::make_shared<Int32Scalar>(2);
   auto expected = ArrayFromJSON(int32(), "[2, 4, 6, null, 10]");
@@ -820,15 +812,15 @@ TEST_F(TestExecScalarFunction, StatefulKernel) {
   ExampleOptions options(multiplier);
   std::vector<Datum> args = {Datum(input)};
   ASSERT_OK_AND_ASSIGN(Datum result,
-                       ExecScalarFunction(exec_ctx_.get(), "stateful", args, &options));
+                       CallFunction(exec_ctx_.get(), "stateful", args, &options));
   AssertArraysEqual(*expected, *result.make_array());
 }
 
-TEST_F(TestExecScalarFunction, ScalarFunction) {
+TEST_F(TestCallScalarFunction, ScalarFunction) {
   std::vector<Datum> args = {Datum(std::make_shared<Int32Scalar>(5)),
                              Datum(std::make_shared<Int32Scalar>(7))};
   ASSERT_OK_AND_ASSIGN(Datum result,
-                       ExecScalarFunction(exec_ctx_.get(), "scalar_add_int32", args));
+                       CallFunction(exec_ctx_.get(), "scalar_add_int32", args));
   ASSERT_EQ(Datum::SCALAR, result.kind());
 
   auto expected = std::make_shared<Int32Scalar>(12);
