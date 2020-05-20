@@ -349,81 +349,55 @@ Status DecompressBuffers(Compression::type compression, const IpcReadOptions& op
   std::unique_ptr<util::Codec> codec;
   ARROW_ASSIGN_OR_RAISE(codec, util::Codec::Create(compression));
 
-  auto DecompressOne = [&](int i) {
+  auto DecompressOneBuffer = [&](std::shared_ptr<Buffer>* buf) {
+    if ((*buf) == nullptr) {
+      return Status::OK();
+    }
+    if ((*buf)->size() == 0) {
+      return Status::OK();
+    }
+    if ((*buf)->size() < 8) {
+      return Status::Invalid(
+          "Likely corrupted message, compressed buffers "
+          "are larger than 8 bytes by construction");
+    }
+    const uint8_t* data = (*buf)->data();
+    int64_t compressed_size = (*buf)->size() - sizeof(int64_t);
+    int64_t uncompressed_size =
+        BitUtil::FromLittleEndian(util::SafeLoadAs<int64_t>(data));
+
+    ARROW_ASSIGN_OR_RAISE(auto uncompressed,
+                          AllocateBuffer(uncompressed_size, options.memory_pool));
+
+    int64_t actual_decompressed;
+    ARROW_ASSIGN_OR_RAISE(
+        actual_decompressed,
+        codec->Decompress(compressed_size, data + sizeof(int64_t), uncompressed_size,
+                          uncompressed->mutable_data()));
+    if (actual_decompressed != uncompressed_size) {
+      return Status::Invalid("Failed to fully decompress buffer, expected ",
+                             uncompressed_size, " bytes but decompressed ",
+                             actual_decompressed);
+    }
+    *buf = std::move(uncompressed);
+    return Status::OK();
+  };
+
+  auto DecompressOneField = [&](int i) {
     ArrayData* arr = (*fields)[i].get();
     for (size_t i = 0; i < arr->buffers.size(); ++i) {
-      if (arr->buffers[i] == nullptr) {
-        continue;
-      }
-      if (arr->buffers[i]->size() == 0) {
-        continue;
-      }
-      if (arr->buffers[i]->size() < 8) {
-        return Status::Invalid(
-            "Likely corrupted message, compressed buffers "
-            "are larger than 8 bytes by construction");
-      }
-      const uint8_t* data = arr->buffers[i]->data();
-      int64_t compressed_size = arr->buffers[i]->size() - sizeof(int64_t);
-      int64_t uncompressed_size =
-          BitUtil::FromLittleEndian(util::SafeLoadAs<int64_t>(data));
-
-      ARROW_ASSIGN_OR_RAISE(auto uncompressed,
-                            AllocateBuffer(uncompressed_size, options.memory_pool));
-
-      int64_t actual_decompressed;
-      ARROW_ASSIGN_OR_RAISE(
-          actual_decompressed,
-          codec->Decompress(compressed_size, data + sizeof(int64_t), uncompressed_size,
-                            uncompressed->mutable_data()));
-      if (actual_decompressed != uncompressed_size) {
-        return Status::Invalid("Failed to fully decompress buffer, expected ",
-                               uncompressed_size, " bytes but decompressed ",
-                               actual_decompressed);
-      }
-      arr->buffers[i] = std::move(uncompressed);
+      ARROW_RETURN_NOT_OK(DecompressOneBuffer(&arr->buffers[i]));
     }
-    for (size_t j = 0; j < arr->child_data.size(); ++j) {
-      for (size_t i = 0; i < arr->child_data[j]->buffers.size(); ++i) {
-        if (arr->child_data[j]->buffers[i] == nullptr) {
-          continue;
-        }
-        if (arr->child_data[j]->buffers[i]->size() == 0) {
-          continue;
-        }
-        if (arr->child_data[j]->buffers[i]->size() < 8) {
-          return Status::Invalid(
-              "Likely corrupted message, compressed buffers "
-              "are larger than 8 bytes by construction");
-        }
-        const uint8_t* data = arr->child_data[j]->buffers[i]->data();
-        int64_t compressed_size =
-            arr->child_data[j]->buffers[i]->size() - sizeof(int64_t);
-        int64_t uncompressed_size =
-            BitUtil::FromLittleEndian(util::SafeLoadAs<int64_t>(data));
-
-        ARROW_ASSIGN_OR_RAISE(auto uncompressed,
-                              AllocateBuffer(uncompressed_size, options.memory_pool));
-
-        int64_t actual_decompressed;
-        ARROW_ASSIGN_OR_RAISE(
-            actual_decompressed,
-            codec->Decompress(compressed_size, data + sizeof(int64_t), uncompressed_size,
-                              uncompressed->mutable_data()));
-        if (actual_decompressed != uncompressed_size) {
-          return Status::Invalid("Failed to fully decompress buffer, expected ",
-                                 uncompressed_size, " bytes but decompressed ",
-                                 actual_decompressed);
-        }
-        arr->child_data[j]->buffers[i] = std::move(uncompressed);
+    for (size_t i = 0; i < arr->child_data.size(); ++i) {
+      for (size_t j = 0; j < arr->child_data[i]->buffers.size(); ++j) {
+        ARROW_RETURN_NOT_OK(DecompressOneBuffer(&arr->child_data[i]->buffers[j]));
       }
     }
-
     return Status::OK();
   };
 
   return ::arrow::internal::OptionalParallelFor(
-      options.use_threads, static_cast<int>(fields->size()), DecompressOne);
+      options.use_threads, static_cast<int>(fields->size()), DecompressOneField);
 }
 
 Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
