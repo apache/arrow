@@ -57,6 +57,8 @@ use crate::error::{ArrowError, Result};
 /// [the physical memory layout of Apache Arrow](https://arrow.apache.org/docs/format/Columnar.html#physical-memory-layout).
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum DataType {
+    /// Null type
+    Null,
     /// A boolean datatype representing the values `true` and `false`.
     Boolean,
     /// A signed 8-bit integer.
@@ -763,6 +765,7 @@ impl DataType {
     fn from(json: &Value) -> Result<DataType> {
         match *json {
             Value::Object(ref map) => match map.get("name") {
+                Some(s) if s == "null" => Ok(DataType::Null),
                 Some(s) if s == "bool" => Ok(DataType::Boolean),
                 Some(s) if s == "binary" => Ok(DataType::Binary),
                 Some(s) if s == "utf8" => Ok(DataType::Utf8),
@@ -925,6 +928,7 @@ impl DataType {
     /// Generate a JSON representation of the data type
     pub fn to_json(&self) -> Value {
         match self {
+            DataType::Null => json!({"name": "null"}),
             DataType::Boolean => json!({"name": "bool"}),
             DataType::Int8 => json!({"name": "int", "bitWidth": 8, "isSigned": true}),
             DataType::Int16 => json!({"name": "int", "bitWidth": 16, "isSigned": true}),

@@ -142,6 +142,7 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
     };
     // create type from field
     match field.data_type() {
+        DataType::Null => Err(ArrowError("Null arrays not supported".to_string())),
         DataType::Boolean => Type::primitive_type_builder(name, PhysicalType::BOOLEAN)
             .with_repetition(repetition)
             .build(),
