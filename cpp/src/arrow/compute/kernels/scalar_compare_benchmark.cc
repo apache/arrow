@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "arrow/compute/benchmark_util.h"
-#include "arrow/compute/kernel.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -41,7 +41,7 @@ static void CompareArrayScalarKernel(benchmark::State& state) {
   CompareOptions ge{GREATER_EQUAL};
 
   for (auto _ : state) {
-    ABORT_NOT_OK(Compare(array, int64_t(0), ge).status());
+    ABORT_NOT_OK(Compare(array, Datum(int64_t(0)), ge).status());
   }
 
   state.counters["size"] = static_cast<double>(memory_size);
