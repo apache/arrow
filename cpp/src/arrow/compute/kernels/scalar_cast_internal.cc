@@ -37,7 +37,8 @@ void CastFromExtension(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 
   // TODO: Finish implementing this
 
-  // KERNEL_ABORT_IF_ERROR(ctx, cast_func->Execute(*batch[0]->array(), out->mutable_array()));
+  // KERNEL_ABORT_IF_ERROR(ctx, cast_func->Execute(*batch[0]->array(),
+  // out->mutable_array()));
 }
 
 std::unique_ptr<KernelState> CastInit(KernelContext* ctx, const KernelInitArgs& args) {

@@ -40,10 +40,10 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/test_util.h"
-#include "arrow/compute/util_internal.h"
 
 namespace arrow {
 namespace compute {
@@ -1238,104 +1238,6 @@ TEST_F(TestCast, DateTimeZeroCopy) {
   CheckZeroCopy(*arr, duration(TimeUnit::MILLI));
 }
 
-TEST_F(TestCast, PreallocatedMemory) {
-  CastOptions options;
-  options.allow_int_overflow = false;
-
-  std::vector<bool> is_valid = {true, false, true, true, true};
-
-  const int64_t length = 5;
-
-  std::shared_ptr<Array> arr;
-  std::vector<int32_t> v1 = {0, 70000, 2000, 1000, 0};
-  std::vector<int64_t> e1 = {0, 70000, 2000, 1000, 0};
-  ArrayFromVector<Int32Type, int32_t>(int32(), is_valid, v1, &arr);
-
-  auto out_type = int64();
-
-  std::unique_ptr<UnaryKernel> kernel;
-  ASSERT_OK(GetCastFunction(*int32(), out_type, options, &kernel));
-
-  auto out_data = ArrayData::Make(out_type, length);
-
-  ASSERT_OK_AND_ASSIGN(auto out_values, AllocateBuffer(length * sizeof(int64_t)));
-
-  out_data->buffers.push_back(arr->data()->buffers[0]);
-  out_data->buffers.push_back(out_values);
-
-  // TODO
-  Datum out(out_data);
-  ASSERT_OK(kernel->Call(&this->ctx_, arr, &out));
-
-  // Buffer address unchanged
-  ASSERT_EQ(out_values.get(), out_data->buffers[1].get());
-
-  std::shared_ptr<Array> result = MakeArray(out_data);
-  std::shared_ptr<Array> expected;
-  ArrayFromVector<Int64Type, int64_t>(int64(), is_valid, e1, &expected);
-
-  ASSERT_ARRAYS_EQUAL(*expected, *result);
-}
-
-template <typename InType, typename InT, typename OutType, typename OutT>
-void CheckOffsetOutputCase(const std::shared_ptr<DataType>& in_type,
-                           const std::vector<InT>& in_values,
-                           const std::shared_ptr<DataType>& out_type,
-                           const std::vector<OutT>& out_values) {
-  using OutTraits = TypeTraits<OutType>;
-
-  CastOptions options;
-
-  const int64_t length = static_cast<int64_t>(in_values.size());
-
-  std::shared_ptr<Array> arr, expected;
-  ArrayFromVector<InType, InT>(in_type, in_values, &arr);
-  ArrayFromVector<OutType, OutT>(out_type, out_values, &expected);
-
-  ASSERT_OK_AND_ASSIGN(auto out_buffer,
-                       AllocateBuffer(OutTraits::bytes_required(length)));
-
-  std::unique_ptr<UnaryKernel> kernel;
-  ASSERT_OK(GetCastFunction(*in_type, out_type, options, &kernel));
-
-  const int64_t first_half = length / 2;
-
-  auto out_data = ArrayData::Make(out_type, length, {nullptr, out_buffer});
-  auto out_second_data = out_data->Copy();
-  out_second_data->offset = first_half;
-
-  Datum out_first(out_data);
-  Datum out_second(out_second_data);
-
-  // Cast each bit
-  ASSERT_OK(kernel->Call(ctx, arr->Slice(0, first_half), &out_first));
-  ASSERT_OK(kernel->Call(ctx, arr->Slice(first_half), &out_second));
-
-  std::shared_ptr<Array> result = MakeArray(out_data);
-
-  ASSERT_ARRAYS_EQUAL(*expected, *result);
-}
-
-TEST_F(TestCast, OffsetOutputBuffer) {
-  // ARROW-1735
-  std::vector<int32_t> v1 = {0, 10000, 2000, 1000, 0};
-  std::vector<int64_t> e1 = {0, 10000, 2000, 1000, 0};
-
-  auto in_type = int32();
-  auto out_type = int64();
-  CheckOffsetOutputCase<Int32Type, int32_t, Int64Type, int64_t>(in_type, v1, out_type,
-                                                                e1);
-
-  std::vector<bool> e2 = {false, true, true, true, false};
-
-  out_type = boolean();
-  CheckOffsetOutputCase<Int32Type, int32_t, BooleanType, bool>(in_type, v1, boolean(),
-                                                               e2);
-
-  std::vector<int16_t> e3 = {0, 10000, 2000, 1000, 0};
-  CheckOffsetOutputCase<Int32Type, int32_t, Int16Type, int16_t>(in_type, v1, int16(), e3);
-}
-
 TEST_F(TestCast, StringToBoolean) {
   CastOptions options;
 
@@ -1560,7 +1462,7 @@ TYPED_TEST(TestNullCast, FromNull) {
 
   NullArray arr(length);
 
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result, Cast(&this->ctx_, arr, out_type));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result, Cast(arr, out_type));
   ASSERT_OK(result->ValidateFull());
 
   ASSERT_TRUE(result->type()->Equals(*out_type));
@@ -1600,12 +1502,13 @@ TYPED_TEST(TestDictionaryCast, NoNulls) {
     return;
   }
 
+  CastOptions options;
   std::shared_ptr<Array> plain_array =
       TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(10, 0);
   ASSERT_EQ(plain_array->null_count(), 0);
 
   // Dict-encode the plain array
-  ASSERT_OK_AND_ASSIGN(Datum encoded, DictionaryEncode(&this->ctx_, plain_array->data()));
+  ASSERT_OK_AND_ASSIGN(Datum encoded, DictionaryEncode(plain_array->data()));
 
   // Make a new dict array with nullptr bitmap buffer
   auto data = encoded.array()->Copy();
@@ -1614,7 +1517,7 @@ TYPED_TEST(TestDictionaryCast, NoNulls) {
   std::shared_ptr<Array> dict_array = std::make_shared<DictionaryArray>(data);
   ASSERT_OK(dict_array->ValidateFull());
 
-  this->CheckPass(*dict_array, *plain_array, plain_array->type());
+  this->CheckPass(*dict_array, *plain_array, plain_array->type(), options);
 }
 
 TYPED_TEST(TestDictionaryCast, OutTypeError) {
@@ -1624,25 +1527,11 @@ TYPED_TEST(TestDictionaryCast, OutTypeError) {
   auto in_type = dictionary(int32(), plain_array->type());
   // Test an output type that's not the plain input type but still part of TestTypes.
   auto out_type = (plain_array->type()->id() == Type::INT8) ? binary() : int8();
-  std::unique_ptr<UnaryKernel> kernel;
-  ASSERT_RAISES(NotImplemented,
-                GetCastFunction(*in_type, out_type, CastOptions(), &kernel));
+  ASSERT_RAISES(NotImplemented, GetCastFunction(in_type, out_type));
   // Test an output type that's not part of TestTypes.
   out_type = list(in_type);
-  ASSERT_RAISES(NotImplemented,
-                GetCastFunction(*in_type, out_type, CastOptions(), &kernel));
+  ASSERT_RAISES(NotImplemented, GetCastFunction(in_type, out_type));
 }
-
-/*TYPED_TEST(TestDictionaryCast, Reverse) {
-  CastOptions options;
-  std::shared_ptr<Array> plain_array =
-      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(10, 2);
-
-  std::shared_ptr<Array> dict_array;
-  ASSERT_OK(EncodeArrayToDictionary(*plain_array, this->pool_, &dict_array));
-
-  this->CheckPass(*plain_array, *dict_array, dict_array->type(), options);
-}*/
 
 std::shared_ptr<Array> SmallintArrayFromJSON(const std::string& json_data) {
   auto arr = ArrayFromJSON(int16(), json_data);

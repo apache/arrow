@@ -22,6 +22,7 @@
 
 #include <memory>
 
+#include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/options.h"
 #include "arrow/datum.h"

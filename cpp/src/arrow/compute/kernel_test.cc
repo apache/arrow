@@ -249,13 +249,13 @@ TEST(OutputType, Resolve) {
   ASSERT_OK_AND_ASSIGN(ValueDescr descr, ty1.Resolve(nullptr, {}));
   ASSERT_EQ(ValueDescr::Scalar(int32()), descr);
 
-  ASSERT_OK_AND_ASSIGN(descr, ty1.Resolve(nullptr,
-                                          {ValueDescr(int8(), ValueDescr::SCALAR)}));
+  ASSERT_OK_AND_ASSIGN(descr,
+                       ty1.Resolve(nullptr, {ValueDescr(int8(), ValueDescr::SCALAR)}));
   ASSERT_EQ(ValueDescr::Scalar(int32()), descr);
 
-  ASSERT_OK_AND_ASSIGN(descr, ty1.Resolve(nullptr,
-                                          {ValueDescr(int8(), ValueDescr::SCALAR),
-                                           ValueDescr(int8(), ValueDescr::ARRAY)}));
+  ASSERT_OK_AND_ASSIGN(descr,
+                       ty1.Resolve(nullptr, {ValueDescr(int8(), ValueDescr::SCALAR),
+                                             ValueDescr(int8(), ValueDescr::ARRAY)}));
   ASSERT_EQ(ValueDescr::Array(int32()), descr);
 
   OutputType ty2([](KernelContext*, const std::vector<ValueDescr>& args) {
@@ -423,10 +423,9 @@ TEST(KernelSignature, ToString) {
   ASSERT_EQ("(scalar[int8], array[decimal*], any[string]) -> any[string]",
             sig.ToString());
 
-  OutputType out_type(
-      [](KernelContext*, const std::vector<ValueDescr>& args) {
-        return Status::Invalid("NYI");
-      });
+  OutputType out_type([](KernelContext*, const std::vector<ValueDescr>& args) {
+    return Status::Invalid("NYI");
+  });
   KernelSignature sig2({int8(), Type::DECIMAL}, out_type);
   ASSERT_EQ("(any[int8], any[decimal*]) -> computed", sig2.ToString());
 }

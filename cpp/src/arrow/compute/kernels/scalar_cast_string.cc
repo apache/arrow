@@ -17,8 +17,22 @@
 
 // Implementation of casting to integer or floating point types
 
+#include <utility>
+#include <vector>
+
+#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/scalar_cast_internal.h"
+#include "arrow/util/formatting.h"
+#include "arrow/util/utf8.h"
+
 namespace arrow {
+
+using internal::StringFormatter;
+using util::InitializeUTF8;
+using util::ValidateUTF8;
+
 namespace compute {
+namespace internal {
 
 // ----------------------------------------------------------------------
 // Number / Boolean to String
@@ -27,20 +41,19 @@ template <typename I, typename O>
 struct CastFunctor<O, I,
                    enable_if_t<is_string_like_type<O>::value &&
                                (is_number_type<I>::value || is_boolean_type<I>::value)>> {
-  void operator()(KernelContext* ctx, const CastOptions& options, const ArrayData& input,
-                  ArrayData* output) {
-    ctx->SetStatus(Convert(ctx, options, input, output));
+  using value_type = typename TypeTraits<I>::CType;
+  using BuilderType = typename TypeTraits<O>::BuilderType;
+  using FormatterType = StringFormatter<I>;
+
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const ArrayData& input = *batch[0].array();
+    ArrayData* output = out->mutable_array();
+    ctx->SetStatus(Convert(ctx, input, output));
   }
 
-  Status Convert(KernelContext* ctx, const CastOptions& options, const ArrayData& input,
-                 ArrayData* output) {
-    using value_type = typename TypeTraits<I>::CType;
-    using BuilderType = typename TypeTraits<O>::BuilderType;
-    using FormatterType = typename internal::StringFormatter<I>;
-
+  static Status Convert(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
     FormatterType formatter(input.type);
     BuilderType builder(input.type, ctx->memory_pool());
-
     auto convert_value = [&](util::optional<value_type> v) {
       if (v.has_value()) {
         return formatter(*v, [&](util::string_view v) { return builder.Append(v); });
@@ -67,30 +80,34 @@ struct CastFunctor<O, I,
 #pragma warning(disable : 4101)
 #endif
 
+struct Utf8Validator {
+  Status VisitNull() { return Status::OK(); }
+
+  Status VisitValue(util::string_view str) {
+    if (ARROW_PREDICT_FALSE(!ValidateUTF8(str))) {
+      return Status::Invalid("Invalid UTF8 payload");
+    }
+    return Status::OK();
+  }
+};
+
 template <typename I, typename O>
 struct BinaryToStringSameWidthCastFunctor {
-  void operator()(KernelContext* ctx, const CastOptions& options, const ArrayData& input,
-                  ArrayData* output) {
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const CastOptions& options = static_cast<const CastState&>(*ctx->state()).options;
     if (!options.allow_invalid_utf8) {
-      util::InitializeUTF8();
+      InitializeUTF8();
+      const ArrayData& input = *batch[0].array();
 
       ArrayDataVisitor<I> visitor;
-      Status st = visitor.Visit(input, this);
+      Utf8Validator validator;
+      Status st = visitor.Visit(input, &validator);
       if (!st.ok()) {
         ctx->SetStatus(st);
         return;
       }
     }
-    ZeroCopyData(input, output);
-  }
-
-  Status VisitNull() { return Status::OK(); }
-
-  Status VisitValue(util::string_view str) {
-    if (ARROW_PREDICT_FALSE(!arrow::util::ValidateUTF8(str))) {
-      return Status::Invalid("Invalid UTF8 payload");
-    }
-    return Status::OK();
+    ZeroCopyCastExec(ctx, batch, out);
   }
 };
 
@@ -106,5 +123,38 @@ struct CastFunctor<LargeStringType, LargeBinaryType>
 #pragma warning(pop)
 #endif
 
+// String casts available
+//
+// * Numbers and boolean to String / LargeString
+// * Binary / LargeBinary to String / LargeString with UTF8 validation
+
+template <typename OutType>
+void AddNumberToStringCasts(std::shared_ptr<DataType> out_ty, CastFunction* func) {
+  DCHECK_OK(func->AddKernel(Type::BOOL, {boolean()}, out_ty,
+                            CastFunctor<OutType, BooleanType>::Exec));
+
+  for (const std::shared_ptr<DataType>& in_ty : NumericTypes()) {
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty,
+                              codegen::Numeric<CastFunctor, OutType>(*in_ty)));
+  }
+}
+
+std::vector<std::shared_ptr<CastFunction>> GetStringCasts() {
+  auto cast_string = std::make_shared<CastFunction>("cast_string", Type::STRING);
+  AddNumberToStringCasts<StringType>(utf8(), cast_string.get());
+  DCHECK_OK(cast_string->AddKernel(Type::BINARY, {binary()}, utf8(),
+                                   CastFunctor<StringType, BinaryType>::Exec));
+
+  auto cast_large_string =
+      std::make_shared<CastFunction>("cast_large_string", Type::LARGE_STRING);
+  AddNumberToStringCasts<LargeStringType>(large_utf8(), cast_large_string.get());
+  DCHECK_OK(
+      cast_large_string->AddKernel(Type::LARGE_BINARY, {large_binary()}, large_utf8(),
+                                   CastFunctor<LargeStringType, LargeBinaryType>::Exec));
+
+  return {cast_string, cast_large_string};
+}
+
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

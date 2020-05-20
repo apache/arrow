@@ -60,8 +60,7 @@ class CastFunction : public ScalarFunction {
 
 ARROW_EXPORT
 Result<std::shared_ptr<const CastFunction>> GetCastFunction(
-    const std::shared_ptr<DataType>& from_type,
-    const std::shared_ptr<DataType>& to_type);
+    const std::shared_ptr<DataType>& from_type, const std::shared_ptr<DataType>& to_type);
 
 /// \brief Return true if a cast function is defined
 ARROW_EXPORT

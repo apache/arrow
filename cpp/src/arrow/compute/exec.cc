@@ -484,7 +484,7 @@ class FunctionExecutorImpl : public FunctionExecutor {
 
     // Resolve the output descriptor for this kernel
     ARROW_ASSIGN_OR_RAISE(output_descr_, kernel_->signature->out_type().Resolve(
-        &kernel_ctx_, input_descrs_));
+                                             &kernel_ctx_, input_descrs_));
 
     return SetupArgIteration(args);
   }

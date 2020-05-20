@@ -46,6 +46,7 @@ void AddCastFunctions(const std::vector<std::shared_ptr<CastFunction>>& funcs) {
 void InitCastTable() {
   AddCastFunctions(GetBooleanCasts());
   AddCastFunctions(GetNumericCasts());
+  AddCastFunctions(GetStringCasts());
   AddCastFunctions(GetTemporalCasts());
 }
 
@@ -94,14 +95,19 @@ bool CastFunction::CanCastTo(const DataType& out_type) const {
   return impl_->in_types.find(out_type.id()) != impl_->in_types.end();
 }
 
-Result<std::shared_ptr<Array>> Cast(const Array& value, std::shared_ptr<DataType> to_type,
-                                    const CastOptions& options, ExecContext* context) {
-  return Status::NotImplemented("NYI");
+Result<Datum> Cast(const Datum& value, std::shared_ptr<DataType> to_type,
+                   const CastOptions& options, ExecContext* ctx) {
+  CastOptions options_with_to_type;
+  options_with_to_type.to_type = to_type;
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<const CastFunction> cast_func,
+                        GetCastFunction(value.type(), to_type));
+  return cast_func->Execute({Datum(value)}, &options_with_to_type, ctx);
 }
 
-Result<Datum> Cast(const Datum& value, std::shared_ptr<DataType> to_type,
-                   const CastOptions& options, ExecContext* context) {
-  return Status::NotImplemented("NYI");
+Result<std::shared_ptr<Array>> Cast(const Array& value, std::shared_ptr<DataType> to_type,
+                                    const CastOptions& options, ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(Datum result, Cast(Datum(value), to_type, options, ctx));
+  return result.make_array();
 }
 
 Result<std::shared_ptr<const CastFunction>> GetCastFunction(

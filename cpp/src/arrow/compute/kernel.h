@@ -92,13 +92,13 @@ class ARROW_EXPORT KernelContext {
   KernelState* state_;
 };
 
-#define ARROW_CTX_RETURN_IF_ERROR(CTX)              \
-  do {                                              \
-    if (ARROW_PREDICT_FALSE((CTX)->HasError())) {   \
-      Status s = (CTX)->status();                   \
-      (CTX)->ResetStatus();                         \
-      return s;                                     \
-    }                                               \
+#define ARROW_CTX_RETURN_IF_ERROR(CTX)            \
+  do {                                            \
+    if (ARROW_PREDICT_FALSE((CTX)->HasError())) { \
+      Status s = (CTX)->status();                 \
+      (CTX)->ResetStatus();                       \
+      return s;                                   \
+    }                                             \
   } while (0)
 
 /// A standard function taking zero or more Array/Scalar values and returning
@@ -238,7 +238,7 @@ class ARROW_EXPORT OutputType {
   /// that SHOULD be performed one or more layers above. May make use of kernel
   /// state to know what type to output
   using Resolver =
-    std::function<Result<ValueDescr>(KernelContext*, const std::vector<ValueDescr>&)>;
+      std::function<Result<ValueDescr>(KernelContext*, const std::vector<ValueDescr>&)>;
 
   OutputType(std::shared_ptr<DataType> type)  // NOLINT implicit construction
       : kind_(FIXED), type_(std::move(type)) {}

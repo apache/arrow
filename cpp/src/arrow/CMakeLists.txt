@@ -335,6 +335,7 @@ if(ARROW_COMPUTE)
               compute/kernels/scalar_cast_boolean.cc
               compute/kernels/scalar_cast_internal.cc
               compute/kernels/scalar_cast_numeric.cc
+              compute/kernels/scalar_cast_string.cc
               compute/kernels/scalar_cast_temporal.cc
               compute/kernels/scalar_compare.cc
               compute/kernels/scalar_set_lookup.cc
