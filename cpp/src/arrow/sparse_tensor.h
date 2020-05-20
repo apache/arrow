@@ -603,6 +603,12 @@ Status MakeSparseTensorFromTensor(const Tensor& tensor,
                                   std::shared_ptr<SparseIndex>* out_sparse_index,
                                   std::shared_ptr<Buffer>* out_data);
 
+ARROW_EXPORT
+Status MakeSparseTensorFromTensor(
+    const Tensor& tensor, SparseTensorFormat::type sparse_format_id,
+    const std::vector<std::shared_ptr<DataType>>& index_value_types, MemoryPool* pool,
+    std::shared_ptr<SparseIndex>* out_sparse_index, std::shared_ptr<Buffer>* out_data);
+
 }  // namespace internal
 
 /// \brief EXPERIMENTAL: Concrete sparse tensor implementation classes with sparse index
@@ -664,6 +670,25 @@ class SparseTensorImpl : public SparseTensor {
   static inline Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> Make(
       const Tensor& tensor, MemoryPool* pool = default_memory_pool()) {
     return Make(tensor, int64(), pool);
+  }
+
+  /// \brief Create a sparse tensor from a dense tensor with
+  /// different index data types for each dimension
+  ///
+  /// The dense tensor is re-encoded as a sparse index and a physical
+  /// data buffer for the non-zero value.
+  static inline Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> Make(
+      const Tensor& tensor,
+      const std::vector<std::shared_ptr<DataType>>& index_value_types,
+      MemoryPool* pool = default_memory_pool()) {
+    std::shared_ptr<SparseIndex> sparse_index;
+    std::shared_ptr<Buffer> data;
+    ARROW_RETURN_NOT_OK(internal::MakeSparseTensorFromTensor(
+        tensor, SparseIndexType::format_id, index_value_types, pool, &sparse_index,
+        &data));
+    return std::make_shared<SparseTensorImpl<SparseIndexType>>(
+        internal::checked_pointer_cast<SparseIndexType>(sparse_index), tensor.type(),
+        data, tensor.shape(), tensor.dim_names_);
   }
 
  private:

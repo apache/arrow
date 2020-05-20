@@ -461,6 +461,13 @@ TEST_F(TestSparseCOOTensor, CreationFromTensor) {
   ASSERT_TRUE(si->is_canonical());
 }
 
+TEST_F(TestSparseCOOTensor, CreationFromTensorWithDifferentIndexValueType) {
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(this->dense_values_);
+  Tensor tensor(int64(), buffer, this->shape_, {}, this->dim_names_);
+
+  ASSERT_RAISES(Invalid, SparseCOOTensor::Make(tensor, {int16(), int32(), int64()}));
+}
+
 TEST_F(TestSparseCOOTensor, CreationFromNonContiguousTensor) {
   std::vector<int64_t> values = {1,  0, 0, 0, 2,  0, 0, 0, 0, 0, 3,  0, 0, 0, 4,  0,
                                  5,  0, 0, 0, 6,  0, 0, 0, 0, 0, 11, 0, 0, 0, 12, 0,
@@ -863,6 +870,61 @@ TEST_F(TestSparseSplitCOOTensor, CreationEmptyTensor) {
   ASSERT_EQ("", st1.dim_name(2));
 }
 
+TEST_F(TestSparseSplitCOOTensor, CreationFromTensor) {
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(this->dense_values_);
+  Tensor tensor(int64(), buffer, this->shape_, {}, this->dim_names_);
+
+  std::shared_ptr<SparseSplitCOOTensor> st;
+  ASSERT_OK_AND_ASSIGN(st, SparseSplitCOOTensor::Make(tensor, int64()));
+
+  ASSERT_EQ(12, st->non_zero_length());
+  ASSERT_TRUE(st->is_mutable());
+
+  ASSERT_EQ(std::vector<std::string>({"foo", "bar", "baz"}), st->dim_names());
+  ASSERT_EQ("foo", st->dim_name(0));
+  ASSERT_EQ("bar", st->dim_name(1));
+  ASSERT_EQ("baz", st->dim_name(2));
+
+  ASSERT_TRUE(st->Equals(*this->sparse_tensor_from_dense_));
+}
+
+TEST_F(TestSparseSplitCOOTensor, CreationFromTensorWithDifferentIndexValueType) {
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(this->dense_values_);
+  Tensor tensor(int64(), buffer, this->shape_, {}, this->dim_names_);
+
+  std::shared_ptr<SparseSplitCOOTensor> st;
+  ASSERT_OK_AND_ASSIGN(st,
+                       SparseSplitCOOTensor::Make(tensor, {int16(), int32(), int64()}));
+
+  ASSERT_EQ(12, st->non_zero_length());
+  ASSERT_TRUE(st->is_mutable());
+
+  ASSERT_EQ(std::vector<std::string>({"foo", "bar", "baz"}), st->dim_names());
+  ASSERT_EQ("foo", st->dim_name(0));
+  ASSERT_EQ("bar", st->dim_name(1));
+  ASSERT_EQ("baz", st->dim_name(2));
+
+  auto si_actual =
+      internal::checked_pointer_cast<SparseSplitCOOIndex>(st->sparse_index());
+  auto si_expected = internal::checked_pointer_cast<SparseSplitCOOIndex>(
+      this->sparse_tensor_from_dense_->sparse_index());
+
+  const auto non_zero_length = st->non_zero_length();
+  ASSERT_EQ(non_zero_length, this->sparse_tensor_from_dense_->non_zero_length());
+
+  for (int64_t i = 0; i < non_zero_length; ++i) {
+    EXPECT_EQ(si_actual->indices()[0]->Value<Int16Type>({i}),
+              si_expected->indices()[0]->Value<Int64Type>({i}));
+    EXPECT_EQ(si_actual->indices()[1]->Value<Int32Type>({i}),
+              si_expected->indices()[1]->Value<Int64Type>({i}));
+    EXPECT_EQ(si_actual->indices()[2]->Value<Int64Type>({i}),
+              si_expected->indices()[2]->Value<Int64Type>({i}));
+  }
+
+  EXPECT_EQ(0, std::memcmp(st->raw_data(), this->sparse_tensor_from_dense_->raw_data(),
+                           non_zero_length * sizeof(int64_t)));
+}
+
 //-----------------------------------------------------------------------------
 // SparseCSRMatrix
 
@@ -961,6 +1023,13 @@ TEST_F(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
 
   ASSERT_EQ(12, indices_values.size());
   ASSERT_EQ(std::vector<int64_t>({0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3}), indices_values);
+}
+
+TEST_F(TestSparseCSRMatrix, CreationFromTensorWithDifferentIndexValueType) {
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(this->dense_values_);
+  Tensor tensor(int64(), buffer, this->shape_, {}, this->dim_names_);
+
+  ASSERT_RAISES(Invalid, SparseCSRMatrix::Make(tensor, {int16(), int64()}));
 }
 
 TEST_F(TestSparseCSRMatrix, CreationFromNonContiguousTensor) {
@@ -1301,6 +1370,13 @@ TEST_F(TestSparseCSCMatrix, CreationFromNumericTensor2D) {
   ASSERT_EQ(std::vector<int64_t>({0, 2, 4, 1, 3, 5, 0, 2, 4, 1, 3, 5}), indices_values);
 }
 
+TEST_F(TestSparseCSCMatrix, CreationFromTensorWithDifferentIndexValueType) {
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(this->dense_values_);
+  Tensor tensor(int64(), buffer, this->shape_, {}, this->dim_names_);
+
+  ASSERT_RAISES(Invalid, SparseCSCMatrix::Make(tensor, {int16(), int64()}));
+}
+
 TEST_F(TestSparseCSCMatrix, CreationFromNonContiguousTensor) {
   std::vector<int64_t> values = {1,  0, 0, 0, 2,  0, 0, 0, 0, 0, 3,  0, 0, 0, 4,  0,
                                  5,  0, 0, 0, 6,  0, 0, 0, 0, 0, 11, 0, 0, 0, 12, 0,
@@ -1634,6 +1710,15 @@ TEST_F(TestSparseCSFTensor, CreationFromZeroTensor) {
 
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t, st_zero->ToTensor());
   ASSERT_TRUE(t->Equals(*t_zero));
+}
+
+TEST_F(TestSparseCSFTensor, CreationFromTensorWithDifferentIndexValueType) {
+  std::shared_ptr<Buffer> buffer =
+      Buffer::Wrap(this->dense_values_, sizeof(dense_values_));
+  Tensor tensor(int64(), buffer, this->shape_, {}, this->dim_names_);
+
+  ASSERT_RAISES(Invalid,
+                SparseCSFTensor::Make(tensor, {int8(), int16(), int32(), int64()}));
 }
 
 template <typename IndexValueType>

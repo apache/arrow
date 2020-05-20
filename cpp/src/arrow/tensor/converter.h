@@ -38,6 +38,16 @@ Status MakeSparseCOOTensorFromTensor(const Tensor& tensor,
                                      std::shared_ptr<SparseIndex>* out_sparse_index,
                                      std::shared_ptr<Buffer>* out_data);
 
+Status MakeSparseSplitCOOTensorFromTensor(
+    const Tensor& tensor, const std::vector<std::shared_ptr<DataType>>& index_value_types,
+    MemoryPool* pool, std::shared_ptr<SparseIndex>* out_sparse_index,
+    std::shared_ptr<Buffer>* out_data);
+
+Status MakeSparseSplitCOOTensorFromTensor(
+    const Tensor& tensor, const std::shared_ptr<DataType>& index_value_type,
+    MemoryPool* pool, std::shared_ptr<SparseIndex>* out_sparse_index,
+    std::shared_ptr<Buffer>* out_data);
+
 Status MakeSparseCSXMatrixFromTensor(SparseMatrixCompressedAxis axis,
                                      const Tensor& tensor,
                                      const std::shared_ptr<DataType>& index_value_type,
@@ -53,11 +63,6 @@ Status MakeSparseCSFTensorFromTensor(const Tensor& tensor,
 
 Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCOOTensor(
     MemoryPool* pool, const SparseCOOTensor* sparse_tensor);
-
-Status MakeSparseSplitCOOTensorFromTensor(
-    const Tensor& tensor, const std::shared_ptr<DataType>& index_value_type,
-    MemoryPool* pool, std::shared_ptr<SparseIndex>* out_sparse_index,
-    std::shared_ptr<Buffer>* out_data);
 
 Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSRMatrix(
     MemoryPool* pool, const SparseCSRMatrix* sparse_tensor);
