@@ -22,8 +22,8 @@ use arrow::util::integration_util::{ArrowJson, ArrowJsonBatch, ArrowJsonSchema};
 
 use arrow::array::{
     ArrayRef, BinaryBuilder, BooleanBuilder, FixedSizeBinaryBuilder, Float32Builder,
-    Float64Builder, Int16Builder, Int32Builder, Int64Builder, Int8Builder, StringBuilder,
-    UInt16Builder, UInt32Builder, UInt64Builder, UInt8Builder,
+    Float64Builder, Int16Builder, Int32Builder, Int64Builder, Int8Builder, NullArray,
+    StringBuilder, UInt16Builder, UInt32Builder, UInt64Builder, UInt8Builder,
 };
 use arrow::datatypes::{DataType, Schema};
 use arrow::error::{ArrowError, Result};
@@ -109,7 +109,7 @@ fn record_batch_from_json(
         // }
 
         let col: ArrayRef = match field.data_type() {
-            DataType::Null => unimplemented!(),
+            DataType::Null => Arc::new(NullArray::new(json_col.count)),
             DataType::Boolean => {
                 let mut b = BooleanBuilder::new(json_col.count);
                 for (is_valid, value) in json_col
