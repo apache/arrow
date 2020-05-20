@@ -74,18 +74,7 @@ Schema <- R6Class("Schema",
     GetFieldByName = function(x) shared_ptr(Field, Schema__GetFieldByName(self, x)),
     serialize = function() Schema__serialize(self),
     WithMetadata = function(metadata = NULL) {
-      if (is.null(metadata)) {
-        # NULL to remove metadata, so equivalent to setting an empty list
-        metadata <- empty_named_list()
-      }
-      if (is.null(names(metadata))) {
-        stop(
-          "Key-value metadata must be a named list or character vector",
-          call. = FALSE
-        )
-      }
-      # metadata must be a named character vector
-      metadata <- map_chr(metadata, as.character)
+      metadata <- prepare_key_value_metadata(metadata)
       shared_ptr(Schema, Schema__WithMetadata(self, metadata))
     },
     Equals = function(other, check_metadata = FALSE, ...) {
@@ -112,6 +101,22 @@ Schema <- R6Class("Schema",
   )
 )
 Schema$create <- function(...) shared_ptr(Schema, schema_(.fields(list2(...))))
+
+prepare_key_value_metadata <- function(metadata) {
+  # key-value-metadata must be a named character vector;
+  # this function validates and coerces
+  if (is.null(metadata)) {
+    # NULL to remove metadata, so equivalent to setting an empty list
+    metadata <- empty_named_list()
+  }
+  if (is.null(names(metadata))) {
+    stop(
+      "Key-value metadata must be a named list or character vector",
+      call. = FALSE
+    )
+  }
+  map_chr(metadata, as.character)
+}
 
 print_schema_fields <- function(s) {
   # Alternative to Schema__ToString that doesn't print metadata

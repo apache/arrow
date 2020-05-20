@@ -319,6 +319,19 @@ test_that("Table$Equals(check_metadata)", {
   expect_false(tab1$Equals(24)) # Not a Table
 })
 
+test_that("Table metadata", {
+  tab <- Table$create(x = 1:2, y = c("a", "b"))
+  expect_equivalent(tab$metadata, list())
+  tab$metadata <- list(test = TRUE)
+  expect_identical(tab$metadata, list(test = "TRUE"))
+  tab$metadata$foo <- 42
+  expect_identical(tab$metadata, list(test = "TRUE", foo = "42"))
+  tab$metadata$foo <- NULL
+  expect_identical(tab$metadata, list(test = "TRUE"))
+  tab$metadata <- NULL
+  expect_equivalent(tab$metadata, list())
+})
+
 test_that("Table handles null type (ARROW-7064)", {
   tab <- Table$create(a = 1:10, n = vctrs::unspecified(10))
   expect_equal(tab$schema,  schema(a = int32(), n = null()))

@@ -140,6 +140,20 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
     num_columns = function() RecordBatch__num_columns(self),
     num_rows = function() RecordBatch__num_rows(self),
     schema = function() shared_ptr(Schema, RecordBatch__schema(self)),
+    metadata = function(new) {
+      if (missing(new)) {
+        # Get the metadata (from the schema)
+        self$schema$metadata
+      } else {
+        # Set the metadata
+        new <- prepare_key_value_metadata(new)
+        out <- RecordBatch__ReplaceSchemaMetadata(self, new)
+        # ReplaceSchemaMetadata returns a new object but we're modifying in place,
+        # so swap in that new C++ object pointer into our R6 object
+        self$set_pointer(out)
+        self
+      }
+    },
     columns = function() map(RecordBatch__columns(self), shared_ptr, Array)
   )
 )

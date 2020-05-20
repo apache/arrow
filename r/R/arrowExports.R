@@ -1256,6 +1256,10 @@ RecordBatch__schema <- function(x){
     .Call(`_arrow_RecordBatch__schema` , x)
 }
 
+RecordBatch__ReplaceSchemaMetadata <- function(x, metadata){
+    .Call(`_arrow_RecordBatch__ReplaceSchemaMetadata` , x, metadata)
+}
+
 RecordBatch__columns <- function(batch){
     .Call(`_arrow_RecordBatch__columns` , batch)
 }
@@ -1442,6 +1446,10 @@ Table__num_rows <- function(x){
 
 Table__schema <- function(x){
     .Call(`_arrow_Table__schema` , x)
+}
+
+Table__ReplaceSchemaMetadata <- function(x, metadata){
+    .Call(`_arrow_Table__ReplaceSchemaMetadata` , x, metadata)
 }
 
 Table__column <- function(table, i){
