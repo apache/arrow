@@ -167,6 +167,9 @@ impl<'a> OptimizerRule for TypeCoercionRule<'a> {
                 )?
                 .build(),
             LogicalPlan::TableScan { .. } => Ok(plan.clone()),
+            LogicalPlan::InMemoryScan { .. } => Ok(plan.clone()),
+            LogicalPlan::ParquetScan { .. } => Ok(plan.clone()),
+            LogicalPlan::CsvScan { .. } => Ok(plan.clone()),
             LogicalPlan::EmptyRelation { .. } => Ok(plan.clone()),
             LogicalPlan::Limit { .. } => Ok(plan.clone()),
             LogicalPlan::CreateExternalTable { .. } => Ok(plan.clone()),
