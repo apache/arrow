@@ -23,6 +23,9 @@ source_dir=${1}/cpp
 build_dir=${2}/cpp
 with_docs=${3:-false}
 
+echo $source_dir
+echo $build_dir
+
 : ${ARROW_USE_CCACHE:=OFF}
 
 # TODO(kszucs): consider to move these to CMake
@@ -44,6 +47,10 @@ fi
 mkdir -p ${build_dir}
 pushd ${build_dir}
 
+# TODO(kszucs) enable it explicitly in the unix builds
+# ARROW_DATASET
+# ARROW_JEMALLOC
+
 cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DARROW_BOOST_USE_SHARED=${ARROW_BOOST_USE_SHARED:-ON} \
       -DARROW_BUILD_BENCHMARKS=${ARROW_BUILD_BENCHMARKS:-OFF} \
@@ -58,7 +65,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DARROW_CSV=${ARROW_CSV:-ON} \
       -DARROW_CUDA=${ARROW_CUDA:-OFF} \
       -DARROW_CXXFLAGS=${ARROW_CXXFLAGS:-} \
-      -DARROW_DATASET=${ARROW_DATASET:-ON} \
+      -DARROW_DATASET=${ARROW_DATASET:-OFF} \
       -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-AUTO} \
       -DARROW_EXTRA_ERROR_CONTEXT=${ARROW_EXTRA_ERROR_CONTEXT:-OFF} \
       -DARROW_ENABLE_TIMING_TESTS=${ARROW_ENABLE_TIMING_TESTS:-ON} \
@@ -71,7 +78,8 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DARROW_HDFS=${ARROW_HDFS:-ON} \
       -DARROW_HIVESERVER2=${ARROW_HIVESERVER2:-OFF} \
       -DARROW_INSTALL_NAME_RPATH=${ARROW_INSTALL_NAME_RPATH:-ON} \
-      -DARROW_JEMALLOC=${ARROW_JEMALLOC:-ON} \
+      -DARROW_JEMALLOC=${ARROW_JEMALLOC:-OFF} \
+      -DARROW_MIMALLOC=${ARROW_MIMALLOC:-OFF} \
       -DARROW_JNI=${ARROW_JNI:-OFF} \
       -DARROW_JSON=${ARROW_JSON:-ON} \
       -DARROW_LARGE_MEMORY_TESTS=${ARROW_LARGE_MEMORY_TESTS:-OFF} \
@@ -109,6 +117,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DCMAKE_CXX_FLAGS=${CXXFLAGS:-} \
       -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR:-lib} \
       -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}} \
+      -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE:-} \
       -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
       -Dgflags_SOURCE=${gflags_SOURCE:-} \
       -DgRPC_SOURCE=${gRPC_SOURCE:-} \
@@ -127,7 +136,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       ${CMAKE_ARGS} \
       ${source_dir}
 
-time cmake --build . --target install
+time cmake --build . --config ${ARROW_BUILD_TYPE:-debug} --target install
 
 popd
 

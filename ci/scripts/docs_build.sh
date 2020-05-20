@@ -31,7 +31,7 @@ export CXXFLAGS="-DARROW_NO_DEPRECATED_API"
 sphinx-build -b html ${arrow_dir}/docs/source ${build_dir}
 
 # C++ - original doxygen
-# rsync -a ${arrow_dir}/cpp/apidoc/ ${build_dir}/cpp
+rsync -a ${arrow_dir}/cpp/apidoc/ ${build_dir}/cpp
 
 # R
 rsync -a ${arrow_dir}/r/docs/ ${build_dir}/r

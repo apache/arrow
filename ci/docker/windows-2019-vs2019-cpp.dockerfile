@@ -5,8 +5,8 @@ SHELL ["powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass", "-Command"]
 RUN (iex ((new-object net.webclient).DownloadString('https://chocolatey.org/install.ps1')))
 SHELL ["cmd", "/S", "/C"]
 
-# Install VS 2017
-ADD https://aka.ms/vs/15/release/vs_community.exe /
+# Install VS 2019
+ADD https://aka.ms/vs/16/release/vs_community.exe /
 RUN vs_community.exe --quiet --norestart --wait --nocache \
         --includeRecommended \
         --add Microsoft.VisualStudio.Workload.NativeDesktop
@@ -14,7 +14,6 @@ RUN vs_community.exe --quiet --norestart --wait --nocache \
 # Install Git, unix tools and CMake
 RUN choco install -y git --params "/GitAndUnixToolsOnPath"
 RUN choco install -y cmake --installargs 'ADD_CMAKE_TO_PATH=System'
-# RUN choco install -y gzip wget
 
 # Install vcpkg
 RUN git clone --branch 2020.04 https://github.com/Microsoft/vcpkg && \
@@ -24,10 +23,9 @@ RUN git clone --branch 2020.04 https://github.com/Microsoft/vcpkg && \
 
 # Configure vcpkg and install dependencies
 ENV VCPKG_DEFAULT_TRIPLET=x64-windows \
-    VCPKG_PLATFORM_TOOLSET=v141
-
-# Additional settings to consider
-# VCPKG_LIBRARY_LINKAGE=dynamic
+    VCPKG_PLATFORM_TOOLSET=v142
+#  \
+# VCPKG_LIBRARY_LINKAGE=dynamic \
 # VCPKG_CRT_LINKAGE=dynamic
 
 # Install C++ dependencies
@@ -47,20 +45,23 @@ RUN vcpkg install --clean-after-build \
         thrift \
         zstd
 
-ENV \
-    ARROW_BUILD_STATIC=OFF \
-    ARROW_BUILD_TESTS=ON \
-    ARROW_BUILD_TYPE=debug \
-    ARROW_DEPENDENCY_SOURCE=SYSTEM \
+ENV ARROW_BUILD_TESTS=ON \
     ARROW_HOME=/usr \
+    ARROW_BUILD_STATIC=OFF \
+    ARROW_BUILD_TYPE=debug \
     ARROW_VERBOSE_THIRDPARTY_BUILD=ON \
-    CMAKE_GENERATOR="Visual Studio 15 2017 Win64" \
+    ARROW_DEPENDENCY_SOURCE=SYSTEM \
     CMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake" \
-    ARROW_WITH_ZSTD=OFF \
-    ARROW_WITH_SNAPPY=ON \
-    ARROW_WITH_BROTLI=ON
+    CMAKE_GENERATOR="Visual Studio 15 2017 Win64"
 
-RUN ["bash", "-c", "/c/arrow/ci/scripts/cpp_build.sh /c/arrow /c/build && /c/arrow/ci/scripts/cpp_test.sh /c/arrow /c/build"]
+ADD https://github.com/lucasg/Dependencies/releases/download/v1.10/Dependencies_x64_Release.zip /
+
+#     ARROW_WITH_BZ2=ON \
+#     ARROW_WITH_LZ4=ON \
+#     ARROW_WITH_ZLIB=ON \
+#     ARROW_WITH_ZSTD=ON \
+
+#     ARROW_WITH_SNAPPY=OFF \
 
 # arrow/ci/scripts/cpp_build.sh /c/arrow /c/build2
 
@@ -74,7 +75,11 @@ RUN ["bash", "-c", "/c/arrow/ci/scripts/cpp_build.sh /c/arrow /c/build && /c/arr
 #     ARROW_S3=OFF \
 #     ARROW_JEMALLOC=OFF \
 #     ARROW_WITH_BROTLI=OFF \
+#     ARROW_WITH_BZ2=ON \
+#     ARROW_WITH_LZ4=ON \
 #     ARROW_WITH_SNAPPY=OFF \
+#     ARROW_WITH_ZLIB=ON \
+#     ARROW_WITH_ZSTD=ON \
 #     ARROW_BUILD_STATIC=OFF \
 #     PARQUET_BUILD_EXECUTABLES=ON \
 #     PARQUET_BUILD_EXAMPLES=ON \
@@ -86,6 +91,23 @@ RUN ["bash", "-c", "/c/arrow/ci/scripts/cpp_build.sh /c/arrow /c/build && /c/arr
 # refreshenv
 # RUN C:\"Program Files (x86)"\"Microsoft Visual Studio"\2017\Community\VC\Auxiliary\Build\vcvarsall.bat x64
 # C:\"Program Files (x86)"\"Microsoft Visual Studio"\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat x64
+
+
+# cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake" -DARROW_BUILD_TESTS=ON -DARROW_BUILD_STATIC=OFF C:\arrow\cpp
+
+
+# # MUUUUUUUUUUUUUUUUUUUKODIK
+# cmake -G "Visual Studio 15 2017 Win64" \
+#     -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake" \
+#     -DARROW_BUILD_TESTS=ON \
+#     -DARROW_BUILD_STATIC=OFF \
+#     -DCMAKE_BUILD_TYPE=debug \
+#     -DARROW_DEPENDENCY_SOURCE=SYSTEM \
+#     -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
+#     C:\arrow\cpp
+
+# cmake --build . --config debug
+
 
 # TODO: have both debug and release builds
 # TODO: have static build
