@@ -239,7 +239,7 @@ static void BM_PlainEncodingSpaced(benchmark::State& state) {
   const auto array_actual = arrow::internal::checked_pointer_cast<ArrayType>(array);
   const auto raw_values = array_actual->raw_values();
   // Guarantee the type cast between raw_values and input of PutSpaced.
-  static_assert(sizeof(CType) == sizeof(*raw_values));
+  static_assert(sizeof(CType) == sizeof(*raw_values), "Type mismatch");
   // Cast only happens for BooleanType as it use UInt8 for the array data to match a bool*
   // input to PutSpaced.
   const auto src = reinterpret_cast<const CType*>(raw_values);
@@ -283,7 +283,7 @@ static void BM_PlainDecodingSpaced(benchmark::State& state) {
   const auto array_actual = arrow::internal::checked_pointer_cast<ArrayType>(array);
   const auto raw_values = array_actual->raw_values();
   // Guarantee the type cast between raw_values and input of PutSpaced.
-  static_assert(sizeof(CType) == sizeof(*raw_values));
+  static_assert(sizeof(CType) == sizeof(*raw_values), "Type mismatch");
   // Cast only happens for BooleanType as it use UInt8 for the array data to match a bool*
   // input to PutSpaced.
   const auto src = reinterpret_cast<const CType*>(raw_values);
