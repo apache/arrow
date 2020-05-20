@@ -55,6 +55,19 @@ template <typename T, typename R = void>
 using enable_if_has_c_type_not_boolean = enable_if_t<has_c_type<T>::value &&
                                                      !is_boolean_type<T>::value, R>;
 
+template <typename T, typename Enable = void>
+struct CodegenTraits;
+
+template <typename T>
+struct CodegenTraits<T, enable_if_has_c_type<T>> {
+  using value_type = typename T::c_type;
+};
+
+template <typename T>
+struct CodegenTraits<T, enable_if_base_binary<T>> {
+  using value_type = util::string_view;
+};
+
 template <typename Type, typename Enable = void>
 struct ArrayIterator;
 
@@ -259,16 +272,48 @@ struct OutputAdapter<Type, enable_if_base_binary<Type>> {
   }
 };
 
-// A binary kernel that outputs boolean values.
+template <typename OutType, typename Arg0Type, typename Op>
+struct ScalarUnary {
+  using OutScalar = typename TypeTraits<OutType>::ScalarType;
+
+  using OUT = typename CodegenTraits<OutType>::value_type;
+  using ARG0 = typename CodegenTraits<Arg0Type>::value_type;
+
+  static void Array(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    ArrayIterator<Arg0Type> arg0(*batch[0].array());
+    OutputAdapter<OutType>::Write(ctx, out, [&]() -> OUT {
+        return Op::template Call<OUT, ARG0>(ctx, arg0());
+    });
+  }
+
+  static void Scalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    ARG0 arg0 = UnboxScalar<Arg0Type>::Unbox(batch[0]);
+    out->value = std::make_shared<OutScalar>(Op::template Call<OUT, ARG0>(ctx, arg0));
+  }
+
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].kind() == Datum::ARRAY) {
+      return Array(ctx, batch, out);
+    } else {
+      return Scalar(ctx, batch, out);
+    }
+  }
+};
+
 template <typename OutType, typename Arg0Type, typename Arg1Type, typename Op,
           typename FlippedOp = Op>
 struct ScalarBinary {
   using OutScalarType = typename TypeTraits<OutType>::ScalarType;
+
+  using OUT = typename CodegenTraits<OutType>::value_type;
+  using ARG0 = typename CodegenTraits<Arg0Type>::value_type;
+  using ARG1 = typename CodegenTraits<Arg1Type>::value_type;
+
   template <typename ChosenOp>
   static void ArrayArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ArrayIterator<Arg0Type> arg0(*batch[0].array());
     ArrayIterator<Arg1Type> arg1(*batch[1].array());
-    OutputAdapter<OutType>::Write(ctx, out, [&]() -> bool {
+    OutputAdapter<OutType>::Write(ctx, out, [&]() -> OUT {
         return ChosenOp::template Call(ctx, arg0(), arg1());
     });
   }
@@ -277,7 +322,7 @@ struct ScalarBinary {
   static void ArrayScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ArrayIterator<Arg0Type> arg0(*batch[0].array());
     auto arg1 = UnboxScalar<Arg1Type>::Unbox(batch[1]);
-    OutputAdapter<OutType>::Write(ctx, out, [&]() -> bool {
+    OutputAdapter<OutType>::Write(ctx, out, [&]() -> OUT {
         return ChosenOp::template Call(ctx, arg0(), arg1);
     });
   }

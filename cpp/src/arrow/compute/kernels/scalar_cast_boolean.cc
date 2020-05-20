@@ -17,66 +17,53 @@
 
 // Cast types to boolean
 
+#include "arrow/compute/kernels/common.h"
+#include "arrow/util/value_parsing.h"
+
 namespace arrow {
 namespace compute {
+namespace codegen {
 
 struct IsNonZero {
-  template <typename InType, typename OutType>
-  static OutType Call(FunctionContext*, InType val) {
+  template <typename OUT, typename ARG0>
+  static OUT Call(KernelContext*, ARG0 val) {
     return val != 0;
   }
 };
 
 struct ParseBooleanString {
-  template <typename OutType = bool>
-  static OutType Call(FunctionContext* ctx, util::string_view val) {
-    internal::StringConverter<BooleanType> converter;
+  template <typename OUT, typename ARG0>
+  static OUT Call(KernelContext* ctx, ARG0 val) {
+    bool result;
+    if (ARROW_PREDICT_FALSE(!::arrow::internal::ParseValue<BooleanType>(
+            val.data(), val.size(), &result))) {
+      ctx->SetStatus(Status::Invalid("Failed to parse value: ", val));
+    }
+    return result;
   }
 };
 
-void RegisterBooleanCasts(FunctionRegistry* registry) {
-  ScalarDispatcher dispatcher("cast_boolean", /*num_args=*/1);
-  auto out_type = boolean();
-  for (const auto& in_type : kNumberTypes) {
-    auto func = codegen::MakePrimitiveUnary<BooleanType, IsNonZero>(in_type));
-    dispatcher.Add(ScalarKernel({in_type}, out_type, func));
+void AddBooleanCasts(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>("cast_boolean", /*arity=*/1);
+  for (const auto& ty : NumericTypes()) {
+    auto exec = codegen::Numeric<ScalarUnary, BooleanType, IsNonZero>(*ty);
+    DCHECK_OK(func->AddKernel({ty}, boolean(), exec));
   }
+  for (const auto& ty : BaseBinaryTypes()) {
+    auto exec = codegen::BaseBinary<ScalarUnary, BooleanType, ParseBooleanString>(*ty);
+    DCHECK_OK(func->AddKernel({ty}, boolean(), exec));
+  }
+  DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
-// String to Boolean
-template <typename I>
-struct CastFunctor<BooleanType, I, enable_if_t<is_string_like_type<I>::value>> {
-  void operator()(FunctionContext* ctx, const CastOptions& options,
-                  const ArrayData& input, ArrayData* output) {
-    typename TypeTraits<I>::ArrayType input_array(input.Copy());
-    internal::FirstTimeBitmapWriter writer(output->buffers[1]->mutable_data(),
-                                           output->offset, input.length);
+}  // namespace codegen
 
-    for (int64_t i = 0; i < input.length; ++i) {
-      if (input_array.IsNull(i)) {
-        writer.Next();
-        continue;
-      }
+namespace internal {
 
-      bool value;
-      auto str = input_array.GetView(i);
-      if (!converter(str.data(), str.length(), &value)) {
-        ctx->SetStatus(Status::Invalid("Failed to cast String '",
-                                       input_array.GetString(i), "' into ",
-                                       output->type->ToString()));
-        return;
-      }
+void RegisterScalarCastBoolean(FunctionRegistry* registry) {
+  codegen::AddBooleanCasts(registry);
+}
 
-      if (value) {
-        writer.Set();
-      } else {
-        writer.Clear();
-      }
-      writer.Next();
-    }
-    writer.Finish();
-  }
-};
-
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

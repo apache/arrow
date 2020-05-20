@@ -331,6 +331,7 @@ if(ARROW_COMPUTE)
               compute/kernels/codegen_internal.cc
               compute/kernels/scalar_arithmetic.cc
               compute/kernels/scalar_boolean.cc
+              compute/kernels/scalar_cast_boolean.cc
               compute/kernels/scalar_compare.cc
               compute/kernels/vector_filter.cc
               compute/kernels/vector_hash.cc

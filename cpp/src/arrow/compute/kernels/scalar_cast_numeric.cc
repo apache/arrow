@@ -21,30 +21,6 @@ namespace arrow {
 namespace compute {
 
 // ----------------------------------------------------------------------
-// Boolean to other things
-
-// Cast from Boolean to other numbers
-template <typename T>
-struct CastFunctor<T, BooleanType, enable_if_number<T>> {
-  void operator()(FunctionContext* ctx, const CastOptions& options,
-                  const ArrayData& input, ArrayData* output) {
-    using c_type = typename T::c_type;
-    constexpr auto kOne = static_cast<c_type>(1);
-    constexpr auto kZero = static_cast<c_type>(0);
-
-    if (input.length == 0) return;
-
-    internal::BitmapReader bit_reader(input.buffers[1]->data(), input.offset,
-                                      input.length);
-    auto out = output->GetMutableValues<c_type>(1);
-    for (int64_t i = 0; i < input.length; ++i) {
-      *out++ = bit_reader.IsSet() ? kOne : kZero;
-      bit_reader.Next();
-    }
-  }
-};
-
-// ----------------------------------------------------------------------
 // Integers and Floating Point
 
 // Conversions pairs (<O, I>) are partitioned in 4 type traits:
@@ -167,53 +143,6 @@ constexpr RET_TYPE(is_integral_signed_to_unsigned) SafeMaximum() {
 
 #undef RET_TYPE
 
-template <typename O, typename I>
-struct CastFunctor<O, I,
-                   enable_if_t<is_number_downcast<O, I>::value ||
-                               is_integral_signed_to_unsigned<O, I>::value ||
-                               is_integral_unsigned_to_signed<O, I>::value>> {
-  void operator()(FunctionContext* ctx, const CastOptions& options,
-                  const ArrayData& input, ArrayData* output) {
-    using in_type = typename I::c_type;
-    using out_type = typename O::c_type;
-
-    auto in_offset = input.offset;
-
-    const in_type* in_data = input.GetValues<in_type>(1);
-    auto out_data = output->GetMutableValues<out_type>(1);
-
-    if (!options.allow_int_overflow) {
-      constexpr in_type kMax = SafeMaximum<O, I>();
-      constexpr in_type kMin = SafeMinimum<O, I>();
-
-      // Null count may be -1 if the input array had been sliced
-      if (input.null_count != 0) {
-        internal::BitmapReader is_valid_reader(input.buffers[0]->data(), in_offset,
-                                               input.length);
-        for (int64_t i = 0; i < input.length; ++i) {
-          if (ARROW_PREDICT_FALSE(is_valid_reader.IsSet() &&
-                                  (*in_data > kMax || *in_data < kMin))) {
-            ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
-          }
-          *out_data++ = static_cast<out_type>(*in_data++);
-          is_valid_reader.Next();
-        }
-      } else {
-        for (int64_t i = 0; i < input.length; ++i) {
-          if (ARROW_PREDICT_FALSE(*in_data > kMax || *in_data < kMin)) {
-            ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
-          }
-          *out_data++ = static_cast<out_type>(*in_data++);
-        }
-      }
-    } else {
-      for (int64_t i = 0; i < input.length; ++i) {
-        *out_data++ = static_cast<out_type>(*in_data++);
-      }
-    }
-  }
-};
-
 // Float to Integer or Integer to Float
 template <typename O, typename I, typename Enable = void>
 struct is_float_truncate {
@@ -226,52 +155,6 @@ struct is_float_truncate<
     enable_if_t<(is_integer_type<O>::value && is_floating_type<I>::value) ||
                 (is_integer_type<I>::value && is_floating_type<O>::value)>> {
   static constexpr bool value = true;
-};
-
-template <typename O, typename I>
-struct CastFunctor<O, I, enable_if_t<is_float_truncate<O, I>::value>> {
-  ARROW_DISABLE_UBSAN("float-cast-overflow")
-  void operator()(FunctionContext* ctx, const CastOptions& options,
-                  const ArrayData& input, ArrayData* output) {
-    using in_type = typename I::c_type;
-    using out_type = typename O::c_type;
-
-    auto in_offset = input.offset;
-    const in_type* in_data = input.GetValues<in_type>(1);
-    auto out_data = output->GetMutableValues<out_type>(1);
-
-    if (options.allow_float_truncate) {
-      // unsafe cast
-      for (int64_t i = 0; i < input.length; ++i) {
-        *out_data++ = static_cast<out_type>(*in_data++);
-      }
-    } else {
-      // safe cast
-      if (input.null_count != 0) {
-        internal::BitmapReader is_valid_reader(input.buffers[0]->data(), in_offset,
-                                               input.length);
-        for (int64_t i = 0; i < input.length; ++i) {
-          auto out_value = static_cast<out_type>(*in_data);
-          if (ARROW_PREDICT_FALSE(is_valid_reader.IsSet() &&
-                                  static_cast<in_type>(out_value) != *in_data)) {
-            ctx->SetStatus(Status::Invalid("Floating point value truncated"));
-          }
-          *out_data++ = out_value;
-          in_data++;
-          is_valid_reader.Next();
-        }
-      } else {
-        for (int64_t i = 0; i < input.length; ++i) {
-          auto out_value = static_cast<out_type>(*in_data);
-          if (ARROW_PREDICT_FALSE(static_cast<in_type>(out_value) != *in_data)) {
-            ctx->SetStatus(Status::Invalid("Floating point value truncated"));
-          }
-          *out_data++ = out_value;
-          in_data++;
-        }
-      }
-    }
-  }
 };
 
 // Leftover of Number combinations that are safe to cast.
@@ -292,25 +175,81 @@ struct is_safe_numeric_cast<
       (sizeof(O_T) >= sizeof(I_T)) && (!std::is_same<O, I>::value);
 };
 
+// ----------------------------------------------------------------------
+// Possible integer truncation
+
+struct IntegerDowncastNoOverflow {
+  template <typename OutT, typename InT>
+  OutT Call(KernelContext ctx, InT val) {
+    constexpr InT kMax = SafeMaximum<OutT, InT>();
+    constexpr InT kMin = SafeMinimum<OutT, InT>();
+    if (ARROW_PREDICT_FALSE(val > kMax || val < kMin)) {
+      ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
+    }
+    return static_cast<OutT>(val);
+  }
+};
+
+struct StaticCast {
+  ARROW_DISABLE_UBSAN("float-cast-overflow")
+  template <typename OutT, typename InT>
+  OutT Call(KernelContext ctx, InT val) {
+    return static_cast<out_type>(val);
+  }
+};
+
+template <typename O, typename I>
+struct CastFunctor<O, I,
+                   enable_if_t<is_number_downcast<O, I>::value ||
+                               is_integral_signed_to_unsigned<O, I>::value ||
+                               is_integral_unsigned_to_signed<O, I>::value>> {
+  using in_type = typename I::c_type;
+  using out_type = typename O::c_type;
+  out_type Call(KernelContext ctx, in_type val) {
+    if (!options.allow_int_overflow) {
+      // TODO
+    } else {
+      return static_cast<out_type>(val);
+    }
+  }
+};
+
+template <typename O, typename I>
+struct CastFunctor<O, I, enable_if_t<is_float_truncate<O, I>::value>> {
+  using in_type = typename I::c_type;
+  using out_type = typename O::c_type;
+
+  ARROW_DISABLE_UBSAN("float-cast-overflow")
+  out_type Call(KernelContext ctx, in_type val) {
+    if (options.allow_float_truncate) {
+      // unsafe cast
+      return static_cast<out_type>(*in_data++);
+    } else {
+      // safe cast
+      auto out_value = static_cast<out_type>(*in_data);
+      if (ARROW_PREDICT_FALSE(static_cast<in_type>(out_value) != *in_data)) {
+        ctx->SetStatus(Status::Invalid("Floating point value truncated"));
+      }
+      return out_value;
+    }
+  }
+};
+
 template <typename O, typename I>
 struct CastFunctor<
     O, I,
     enable_if_t<is_safe_numeric_cast<O, I>::value && !is_float_truncate<O, I>::value &&
                 !is_number_downcast<O, I>::value>> {
-  void operator()(FunctionContext* ctx, const CastOptions& options,
-                  const ArrayData& input, ArrayData* output) {
-    using in_type = typename I::c_type;
-    using out_type = typename O::c_type;
+  using in_type = typename I::c_type;
+  using out_type = typename O::c_type;
 
-    const in_type* in_data = input.GetValues<in_type>(1);
-    auto out_data = output->GetMutableValues<out_type>(1);
-    for (int64_t i = 0; i < input.length; ++i) {
-      // Due to various checks done via type-trait, the cast is safe and bear
-      // no truncation.
-      *out_data++ = static_cast<out_type>(*in_data++);
-    }
+  out_type Call(KernelContext ctx, in_type val) {
+    // Due to various checks done via type-trait, the cast is safe and bear
+    // no truncation.
+    return static_cast<out_type>(*in_data++);
   }
 };
+
 // ----------------------------------------------------------------------
 // Decimals
 
@@ -318,9 +257,12 @@ struct CastFunctor<
 
 template <typename O>
 struct CastFunctor<O, Decimal128Type, enable_if_t<is_integer_type<O>::value>> {
+  using OUT = typename O::c_type;
+
+  static OUT Call(KernelContext* ctx, Decimal128 val) {}
+
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    using out_type = typename O::c_type;
     const auto& in_type_inst = checked_cast<const Decimal128Type&>(*input.type);
     auto in_scale = in_type_inst.scale();
 
@@ -393,31 +335,30 @@ struct CastFunctor<O, Decimal128Type, enable_if_t<is_integer_type<O>::value>> {
 };
 
 // ----------------------------------------------------------------------
+// Boolean to other things
+
+struct BooleanToNumber {
+  template <typename OUT, typename ARG0>
+  static OUT Call(KernelContext*, ARG0 val) {
+    constexpr auto kOne = static_cast<OUT>(1);
+    constexpr auto kZero = static_cast<OUT>(0);
+    return val ? kOne : kZero;
+  }
+};
+
+// ----------------------------------------------------------------------
 // String to Number
 
-template <typename I, typename O>
-struct CastFunctor<
-    O, I, enable_if_t<is_string_like_type<I>::value && is_number_type<O>::value>> {
-  void operator()(FunctionContext* ctx, const CastOptions& options,
-                  const ArrayData& input, ArrayData* output) {
-    using out_type = typename O::c_type;
-
-    typename TypeTraits<I>::ArrayType input_array(input.Copy());
-    auto out_data = output->GetMutableValues<out_type>(1);
-    internal::StringConverter<O> converter;
-
-    for (int64_t i = 0; i < input.length; ++i, ++out_data) {
-      if (input_array.IsNull(i)) {
-        continue;
-      }
-
-      auto str = input_array.GetView(i);
-      if (!converter(str.data(), str.length(), out_data)) {
-        ctx->SetStatus(Status::Invalid("Failed to cast String '", str, "' into ",
-                                       output->type->ToString()));
-        return;
-      }
+template <typename ArrowType>
+struct StringToNumber {
+  template <typename OUT, typename ARG0>
+  static OUT Call(KernelContext*, ARG0 val) {
+    OUT result;
+    if (ARROW_PREDICT_FALSE(
+            !::arrow::internal::ParseValue<ArrowType>(val.data(), val.size(), &result))) {
+      ctx->SetStatus(Status::Invalid("Failed to parse string: ", val));
     }
+    return result;
   }
 };
 
