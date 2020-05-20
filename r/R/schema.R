@@ -47,8 +47,9 @@
 #' - `$fields`: returns the list of `Field`s in the `Schema`, suitable for
 #'   iterating over
 #' - `$HasMetadata`: logical: does this `Schema` have extra metadata?
-#' - `$metadata`: returns the extra metadata, if present, else `NULL`
-#'
+#' - `$metadata`: returns the key-value metadata as a named list.
+#'    Modify or replace by assigning in (`sch$metadata <- new_metadata`).
+#'    All list elements are coerced to string.
 #' @rdname Schema
 #' @name Schema
 #' @examples
