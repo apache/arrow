@@ -22,6 +22,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.arrow.flatbuf.Footer;
 import org.apache.arrow.memory.BufferAllocator;
@@ -110,6 +111,16 @@ public class ArrowFileReader extends ArrowReader {
       ArrowDictionaryBatch dictionaryBatch = readDictionary();
       loadDictionary(dictionaryBatch);
     }
+  }
+
+  /**
+   * Get custom metadata.
+   */
+  public Map<String, String> getMetaData() {
+    if (footer != null) {
+      return footer.getMetaData();
+    }
+    return null;
   }
 
   /**

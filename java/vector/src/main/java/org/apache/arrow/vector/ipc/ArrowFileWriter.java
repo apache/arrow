@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.arrow.util.VisibleForTesting;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -45,8 +46,16 @@ public class ArrowFileWriter extends ArrowWriter {
   private final List<ArrowBlock> dictionaryBlocks = new ArrayList<>();
   private final List<ArrowBlock> recordBlocks = new ArrayList<>();
 
+  private Map<String, String> metaData;
+
   public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
     super(root, provider, out);
+  }
+
+  public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
+      Map<String, String> metaData) {
+    super(root, provider, out);
+    this.metaData = metaData;
   }
 
   public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
@@ -81,7 +90,7 @@ public class ArrowFileWriter extends ArrowWriter {
     out.writeIntLittleEndian(0);
 
     long footerStart = out.getCurrentPosition();
-    out.write(new ArrowFooter(schema, dictionaryBlocks, recordBlocks), false);
+    out.write(new ArrowFooter(schema, dictionaryBlocks, recordBlocks, metaData), false);
     int footerLength = (int) (out.getCurrentPosition() - footerStart);
     if (footerLength <= 0) {
       throw new InvalidArrowFileException("invalid footer");
