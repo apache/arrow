@@ -1335,6 +1335,29 @@ where
         }
     }
 
+    /// Creates a new `StringDictionaryBuilder` from a keys builder and a dictionary initialized with the given values.
+    /// The indices of those dictionary values are used as keys.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use arrow::datatypes::Int16Type;
+    /// use arrow::array::{StringArray, StringDictionaryBuilder, PrimitiveBuilder};
+    /// use std::convert::TryFrom;
+    ///
+    /// let dictionary_values = StringArray::try_from(vec![None, Some("abc"), Some("def")]).unwrap();
+    ///
+    /// let mut builder = StringDictionaryBuilder::new_with_dictionary(PrimitiveBuilder::<Int16Type>::new(3), &dictionary_values).unwrap();
+    /// builder.append("def").unwrap();
+    /// builder.append_null().unwrap();
+    /// builder.append("abc").unwrap();
+    ///
+    /// let dictionary_array = builder.finish();
+    ///
+    /// let keys: Vec<Option<i16>> = dictionary_array.keys().collect();
+    ///
+    ///  assert_eq!(keys, vec![Some(2), None, Some(1)]);
+    /// ```
     pub fn new_with_dictionary(
         keys_builder: PrimitiveBuilder<K>,
         dictionary_values: &StringArray,
@@ -1436,6 +1459,7 @@ mod tests {
 
     use crate::array::Array;
     use crate::bitmap::Bitmap;
+    use std::convert::TryFrom;
 
     #[test]
     fn test_builder_i32_empty() {
@@ -2328,16 +2352,8 @@ mod tests {
 
     #[test]
     fn test_string_dictionary_builder_with_existing_dictionary() {
-        let mut dictionary_builder = StringBuilder::new(3);
-        dictionary_builder.append_null().unwrap();
-        dictionary_builder.append_value("def").unwrap();
-        dictionary_builder.append_value("abc").unwrap();
-
-        let dictionary = dictionary_builder.finish();
-
-        assert_eq!(dictionary.is_valid(0), false);
-        assert_eq!(dictionary.value(1), "def");
-        assert_eq!(dictionary.value(2), "abc");
+        let dictionary =
+            StringArray::try_from(vec![None, Some("def"), Some("abc")]).unwrap();
 
         let key_builder = PrimitiveBuilder::<Int8Type>::new(6);
         let mut builder =
@@ -2367,12 +2383,7 @@ mod tests {
 
     #[test]
     fn test_string_dictionary_builder_with_reserved_null_value() {
-        let mut dictionary_builder = StringBuilder::new(1);
-        dictionary_builder.append_null().unwrap();
-
-        let dictionary = dictionary_builder.finish();
-
-        assert_eq!(dictionary.is_valid(0), false);
+        let dictionary = StringArray::try_from(vec![None]).unwrap();
 
         let key_builder = PrimitiveBuilder::<Int16Type>::new(4);
         let mut builder =
