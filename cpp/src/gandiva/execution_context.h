@@ -19,13 +19,16 @@
 
 #include <memory>
 #include <string>
-#include "arrow/util/parsing.h"
+#include "arrow/util/value_parsing.h"
 #include "gandiva/simple_arena.h"
 
 namespace gandiva {
 
 /// Execution context during llvm evaluation
 class ExecutionContext {
+  using FloatConverter = arrow::internal::StringConverter<arrow::FloatType>;
+  using DoubleConverter = arrow::internal::StringConverter<arrow::DoubleType>;
+
  public:
   explicit ExecutionContext(arrow::MemoryPool* pool = arrow::default_memory_pool())
       : arena_(pool) {}
@@ -48,21 +51,16 @@ class ExecutionContext {
   }
 
   bool parse_float(const char* data, int32_t len, float* val) {
-    return float_converter_(data, len, val);
+    return FloatConverter::Convert(data, len, val);
   }
 
   bool parse_double(const char* data, int32_t len, double* val) {
-    return double_converter_(data, len, val);
+    return DoubleConverter::Convert(data, len, val);
   }
 
  private:
   std::string error_msg_;
   SimpleArena arena_;
-
-  // Keeping float_converters as part of execution context since they have non-trivial
-  // construction cost
-  arrow::internal::StringConverter<arrow::FloatType> float_converter_;
-  arrow::internal::StringConverter<arrow::DoubleType> double_converter_;
 };
 
 }  // namespace gandiva
