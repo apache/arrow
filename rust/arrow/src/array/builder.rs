@@ -1436,7 +1436,7 @@ where
                 .ok_or(ArrowError::DictionaryKeyOverflowError)?;
             self.values_builder.append_value(value)?;
             self.keys_builder.append_value(key as K::Native)?;
-            self.map.insert(Box::from(value.as_bytes()), key);
+            self.map.insert(value.as_bytes().into(), key);
             Ok(key)
         }
     }
