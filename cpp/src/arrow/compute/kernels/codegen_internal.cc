@@ -145,7 +145,7 @@ const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes() {
   return g_primitive_types;
 }
 
-Result<ValueDescr> FirstType(const std::vector<ValueDescr>& descrs) {
+Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& descrs) {
   return descrs[0];
 }
 

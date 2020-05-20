@@ -27,12 +27,12 @@ template <typename I, typename O>
 struct CastFunctor<O, I,
                    enable_if_t<is_string_like_type<O>::value &&
                                (is_number_type<I>::value || is_boolean_type<I>::value)>> {
-  void operator()(FunctionContext* ctx, const CastOptions& options,
-                  const ArrayData& input, ArrayData* output) {
+  void operator()(KernelContext* ctx, const CastOptions& options, const ArrayData& input,
+                  ArrayData* output) {
     ctx->SetStatus(Convert(ctx, options, input, output));
   }
 
-  Status Convert(FunctionContext* ctx, const CastOptions& options, const ArrayData& input,
+  Status Convert(KernelContext* ctx, const CastOptions& options, const ArrayData& input,
                  ArrayData* output) {
     using value_type = typename TypeTraits<I>::CType;
     using BuilderType = typename TypeTraits<O>::BuilderType;
@@ -69,8 +69,8 @@ struct CastFunctor<O, I,
 
 template <typename I, typename O>
 struct BinaryToStringSameWidthCastFunctor {
-  void operator()(FunctionContext* ctx, const CastOptions& options,
-                  const ArrayData& input, ArrayData* output) {
+  void operator()(KernelContext* ctx, const CastOptions& options, const ArrayData& input,
+                  ArrayData* output) {
     if (!options.allow_invalid_utf8) {
       util::InitializeUTF8();
 

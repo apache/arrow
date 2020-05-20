@@ -17,12 +17,14 @@
 
 // Cast types to boolean
 
+#include "arrow/compute/cast_internal.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
 namespace compute {
-namespace codegen {
+namespace internal {
 
 struct IsNonZero {
   template <typename OUT, typename ARG0>
@@ -43,25 +45,20 @@ struct ParseBooleanString {
   }
 };
 
-void AddBooleanCasts(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("cast_boolean", /*arity=*/1);
+std::vector<std::shared_ptr<CastFunction>> GetBooleanCasts() {
+  auto func = std::make_shared<CastFunction>("cast_boolean", Type::BOOL);
+  AddCommonCasts<BooleanType>(boolean(), func.get());
+
   for (const auto& ty : NumericTypes()) {
-    auto exec = codegen::Numeric<ScalarUnary, BooleanType, IsNonZero>(*ty);
-    DCHECK_OK(func->AddKernel({ty}, boolean(), exec));
+    auto exec = codegen::Numeric<codegen::ScalarUnary, BooleanType, IsNonZero>(*ty);
+    DCHECK_OK(func->AddKernel(ty->id(), {ty}, boolean(), exec));
   }
   for (const auto& ty : BaseBinaryTypes()) {
-    auto exec = codegen::BaseBinary<ScalarUnary, BooleanType, ParseBooleanString>(*ty);
-    DCHECK_OK(func->AddKernel({ty}, boolean(), exec));
+    auto exec =
+        codegen::BaseBinary<codegen::ScalarUnary, BooleanType, ParseBooleanString>(*ty);
+    DCHECK_OK(func->AddKernel(ty->id(), {ty}, boolean(), exec));
   }
-  DCHECK_OK(registry->AddFunction(std::move(func)));
-}
-
-}  // namespace codegen
-
-namespace internal {
-
-void RegisterScalarCastBoolean(FunctionRegistry* registry) {
-  codegen::AddBooleanCasts(registry);
+  return {func};
 }
 
 }  // namespace internal

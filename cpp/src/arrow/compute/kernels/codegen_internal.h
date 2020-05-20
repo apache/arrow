@@ -25,19 +25,40 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
+
+using internal::BitmapReader;
+using internal::GenerateBitsUnrolled;
+
 namespace compute {
 
-#define CTX_RETURN_IF_ERROR(CTX, S)                             \
-  do {                                                          \
-    ::arrow::Status _s = ::arrow::internal::GenericToStatus(S); \
-    if (ARROW_PREDICT_FALSE(!_s.ok())) {                        \
-      (CTX)->SetStatus(_s);                                     \
-      return;                                                   \
-    }                                                           \
+#ifdef ARROW_EXTRA_ERROR_CONTEXT
+
+#define KERNEL_ABORT_IF_ERROR(ctx, expr)                \
+  do {                                                  \
+    Status _st = (expr);                                \
+    if (ARROW_PREDICT_FALSE(!_st.ok())) {               \
+      _st.AddContextLine(__FILE__, __LINE__, #expr);    \
+      ctx->SetStatus(_st);                              \
+      return;                                           \
+    }                                                   \
   } while (0)
+
+#else
+
+#define KERNEL_ABORT_IF_ERROR(ctx, expr)        \
+  do {                                          \
+    Status _st = (expr);                        \
+    if (ARROW_PREDICT_FALSE(!_st.ok())) {       \
+      ctx->SetStatus(_st);                      \
+      return;                                   \
+    }                                           \
+  } while (0)
+
+#endif  // ARROW_EXTRA_ERROR_CONTEXT
 
 // A kernel that exposes Call methods that handles iteration over ArrayData
 // inputs itself
@@ -81,7 +102,7 @@ struct ArrayIterator<Type, enable_if_has_c_type_not_boolean<Type>> {
 
 template <typename Type>
 struct ArrayIterator<Type, enable_if_boolean<Type>> {
-  internal::BitmapReader reader;
+  BitmapReader reader;
   ArrayIterator(const ArrayData& data)
       : reader(data.buffers[1]->data(), data.offset, data.length) {}
   bool operator()() {
@@ -246,8 +267,8 @@ struct OutputAdapter<Type, enable_if_boolean<Type>> {
   static void Write(KernelContext*, Datum* out, Generator&& generator) {
     ArrayData* out_arr = out->mutable_array();
     auto out_bitmap = out_arr->buffers[1]->mutable_data();
-    internal::GenerateBitsUnrolled(out_bitmap, out_arr->offset, out_arr->length,
-                                   std::forward<Generator>(generator));
+    GenerateBitsUnrolled(out_bitmap, out_arr->offset, out_arr->length,
+                         std::forward<Generator>(generator));
   }
 };
 
@@ -287,11 +308,57 @@ struct ScalarUnary {
   }
 
   static void Scalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    ARG0 arg0 = UnboxScalar<Arg0Type>::Unbox(batch[0]);
-    out->value = std::make_shared<OutScalar>(Op::template Call<OUT, ARG0>(ctx, arg0));
+    if (batch[0].scalar()->is_valid) {
+      ARG0 arg0 = UnboxScalar<Arg0Type>::Unbox(batch[0]);
+      out->value = std::make_shared<OutScalar>(Op::template Call<OUT, ARG0>(ctx, arg0));
+    } else {
+      out->value = MakeNullScalar(batch[0].type());
+    }
   }
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].kind() == Datum::ARRAY) {
+      return Array(ctx, batch, out);
+    } else {
+      return Scalar(ctx, batch, out);
+    }
+  }
+};
+
+// Applies a scalar operation with state on the null-null values of a single
+// array
+template <typename OutType, typename Arg0Type, typename Op>
+struct ScalarUnaryNotNullStateful {
+  using OutScalar = typename TypeTraits<OutType>::ScalarType;
+  using OUT = typename CodegenTraits<OutType>::value_type;
+  using ARG0 = typename CodegenTraits<Arg0Type>::value_type;
+
+  Op op;
+
+  ScalarUnaryNotNullStateful(Op op) : op(std::move(op)) {}
+
+  void Array(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    ArrayData* out_arr = out->mutable_array();
+    auto out_data = out_arr->GetMutableValues<OUT>(kPrimitiveData);
+    VisitArrayDataInline(*batch[0].array(), [&](util::optional<ARG0> v) {
+        if (v.has_value()) {
+          *out_data = this->op.template Call<OUT, ARG0>(ctx, *v);
+        }
+        ++out_data;
+      });
+  }
+
+  void Scalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].scalar()->is_valid) {
+      ARG0 arg0 = UnboxScalar<Arg0Type>::Unbox(batch[0]);
+      out->value = std::make_shared<OutScalar>(
+          this->op.template Call<OUT, ARG0>(ctx, arg0));
+    } else {
+      out->value = MakeNullScalar(batch[0].type());
+    }
+  }
+
+  void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].kind() == Datum::ARRAY) {
       return Array(ctx, batch, out);
     } else {
@@ -530,7 +597,7 @@ ArrayKernelExec Temporal(const DataType& type) {
 // ----------------------------------------------------------------------
 // Reusable type resolvers
 
-Result<ValueDescr> FirstType(const std::vector<ValueDescr>& descrs);
+Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& descrs);
 
 }  // namespace compute
 }  // namespace arrow

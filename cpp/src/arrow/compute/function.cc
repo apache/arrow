@@ -21,6 +21,8 @@
 #include <memory>
 #include <sstream>
 
+#include "arrow/compute/exec_internal.h"
+
 namespace arrow {
 
 struct ValueDescr;
@@ -76,6 +78,22 @@ Result<const KernelType*> DispatchExactImpl(const Function& func,
   return Status::NotImplemented("Function ", func.name(),
                                 " has no kernel matching input types ",
                                 FormatArgTypes(values));
+}
+
+Result<Datum> Function::Execute(const std::vector<Datum>& args,
+                                const FunctionOptions* options, ExecContext* ctx) const {
+  if (ctx == nullptr) {
+    ExecContext default_ctx;
+    return Execute(args, options, &default_ctx);
+  }
+  // type-check Datum arguments here. Really we'd like to avoid this as much as
+  // possible
+  RETURN_NOT_OK(detail::CheckAllValues(args));
+  ARROW_ASSIGN_OR_RAISE(auto executor,
+                        detail::FunctionExecutor::Make(ctx, this, options));
+  auto listener = std::make_shared<detail::DatumAccumulator>();
+  RETURN_NOT_OK(executor->Execute(args, listener.get()));
+  return executor->WrapResults(args, listener->values());
 }
 
 Status ScalarFunction::AddKernel(std::vector<InputType> in_types, OutputType out_type,

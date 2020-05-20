@@ -33,41 +33,6 @@ namespace compute {
 class ExecContext;
 
 // ----------------------------------------------------------------------
-// Convenience invocation APIs for a number of kernels
-
-/// \brief Cast from one array type to another
-/// \param[in] value array to cast
-/// \param[in] to_type type to cast to
-/// \param[in] options casting options
-/// \param[in] context the function execution context, optional
-/// \return the resulting array
-///
-/// \since 1.0.0
-/// \note API not yet finalized
-ARROW_EXPORT
-Result<std::shared_ptr<Array>> Cast(const Array& value, std::shared_ptr<DataType> to_type,
-                                    const CastOptions& options = CastOptions::Safe(),
-                                    ExecContext* context = NULLPTR);
-
-/// \brief Cast from one value to another
-/// \param[in] value datum to cast
-/// \param[in] to_type type to cast to
-/// \param[in] options casting options
-/// \param[in] context the function execution context, optional
-/// \return the resulting datum
-///
-/// \since 1.0.0
-/// \note API not yet finalized
-ARROW_EXPORT
-Result<Datum> Cast(const Datum& value, std::shared_ptr<DataType> to_type,
-                   const CastOptions& options = CastOptions::Safe(),
-                   ExecContext* context = NULLPTR);
-
-/// \brief Return true if a cast function is defined
-ARROW_EXPORT
-bool CanCast(const DataType& from_type, const DataType& to_type);
-
-// ----------------------------------------------------------------------
 
 /// \brief Add two values together. Array values must be the same length. If a
 /// value is null in either addend, the result is null

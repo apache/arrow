@@ -92,6 +92,11 @@ class ARROW_EXPORT Function {
   /// \brief Returns the number of registered kernels for this function
   virtual int num_kernels() const = 0;
 
+  /// \brief Convenience for invoking a function with kernel dispatch and
+  /// memory allocation details taken care of
+  Result<Datum> Execute(const std::vector<Datum>& args, const FunctionOptions* options,
+                        ExecContext* ctx = NULLPTR) const;
+
  protected:
   Function(std::string name, Function::Kind kind, const FunctionArity& arity)
       : name_(std::move(name)), kind_(kind), arity_(arity) {}
@@ -136,7 +141,7 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
   /// fixed-width types, and default null handling (intersect validity bitmaps
   /// of inputs)
   Status AddKernel(std::vector<InputType> in_types, OutputType out_type,
-                   ArrayKernelExec func, KernelInit init = NULLPTR);
+                   ArrayKernelExec exec, KernelInit init = NULLPTR);
 
   /// \brief Add a kernel (function implementation). Returns error if fails
   /// to match the other parameters of the function
@@ -164,7 +169,7 @@ class ARROW_EXPORT VectorFunction : public detail::FunctionImpl<VectorKernel> {
   /// fixed-width types, and default null handling (intersect validity bitmaps
   /// of inputs)
   Status AddKernel(std::vector<InputType> in_types, OutputType out_type,
-                   ArrayKernelExec func, KernelInit init = NULLPTR);
+                   ArrayKernelExec exec, KernelInit init = NULLPTR);
 
   /// \brief Add a kernel (function implementation). Returns error if fails
   /// to match the other parameters of the function

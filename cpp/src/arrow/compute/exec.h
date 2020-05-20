@@ -60,7 +60,7 @@ class ARROW_EXPORT ExecContext {
 
   MemoryPool* memory_pool() const { return pool_; }
 
-  internal::CpuInfo* cpu_info() const;
+  ::arrow::internal::CpuInfo* cpu_info() const;
 
   FunctionRegistry* func_registry() const { return func_registry_; }
 

@@ -49,7 +49,7 @@ struct TakeFunctor {
     ValueArrayType values(batch[0].array());
     IndexArrayType indices(batch[1].array());
     std::shared_ptr<Array> result;
-    CTX_RETURN_IF_ERROR(ctx, Select(ctx, values, IS(indices), &result));
+    KERNEL_ABORT_IF_ERROR(ctx, Select(ctx, values, IS(indices), &result));
     out->value = result->data();
   }
 };

@@ -27,7 +27,7 @@ class ListCastKernel : public CastKernelBase {
                  std::shared_ptr<DataType> out_type)
       : CastKernelBase(std::move(out_type)), child_caster_(std::move(child_caster)) {}
 
-  Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
+  Status Call(KernelContext* ctx, const Datum& input, Datum* out) override {
     DCHECK_EQ(Datum::ARRAY, input.kind());
 
     const ArrayData& in_data = *input.array();

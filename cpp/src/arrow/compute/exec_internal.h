@@ -34,16 +34,6 @@ namespace compute {
 
 class Function;
 
-// \brief Make a copy of the buffers into a destination array without carrying
-// the type.
-static inline void ZeroCopyData(const ArrayData& input, ArrayData* output) {
-  output->length = input.length;
-  output->SetNullCount(input.null_count);
-  output->buffers = input.buffers;
-  output->offset = input.offset;
-  output->child_data = input.child_data;
-}
-
 namespace detail {
 
 /// \brief Break std::vector<Datum> into a sequence of ExecBatch for kernel
@@ -88,8 +78,25 @@ class ARROW_EXPORT ExecListener {
  public:
   virtual ~ExecListener() = default;
 
-  virtual Status OnResult(Datum value);
+  virtual Status OnResult(Datum) { return Status::NotImplemented("OnResult"); }
 };
+
+class DatumAccumulator : public ExecListener {
+ public:
+  DatumAccumulator() {}
+
+  Status OnResult(Datum value) override {
+    values_.emplace_back(value);
+    return Status::OK();
+  }
+
+  std::vector<Datum> values() const { return values_; }
+
+ private:
+  std::vector<Datum> values_;
+};
+
+Status CheckAllValues(const std::vector<Datum>& values);
 
 class ARROW_EXPORT FunctionExecutor {
  public:

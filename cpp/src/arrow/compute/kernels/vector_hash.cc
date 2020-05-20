@@ -37,6 +37,7 @@ namespace arrow {
 class MemoryPool;
 
 using internal::DictionaryTraits;
+using internal::HashTraits;
 
 namespace compute {
 
@@ -333,7 +334,7 @@ class RegularHashKernelImpl : public HashKernelImpl {
   }
 
  protected:
-  using MemoTable = typename internal::HashTraits<Type>::MemoTableType;
+  using MemoTable = typename HashTraits<Type>::MemoTableType;
 
   MemoryPool* pool_;
   std::shared_ptr<DataType> type_;
@@ -438,21 +439,21 @@ struct HashInitVisitor {
 
 void HashExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   auto hash_impl = checked_cast<HashKernel*>(ctx->state());
-  CTX_RETURN_IF_ERROR(ctx, hash_impl->Append(ctx, *batch[0].array()));
-  CTX_RETURN_IF_ERROR(ctx, hash_impl->Flush(out));
+  KERNEL_ABORT_IF_ERROR(ctx, hash_impl->Append(ctx, *batch[0].array()));
+  KERNEL_ABORT_IF_ERROR(ctx, hash_impl->Flush(out));
 }
 
 void UniqueFinalize(KernelContext* ctx, std::vector<Datum>* out) {
   auto hash_impl = checked_cast<HashKernel*>(ctx->state());
   std::shared_ptr<ArrayData> uniques;
-  CTX_RETURN_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
+  KERNEL_ABORT_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
   *out = {Datum(uniques)};
 }
 
 void DictEncodeFinalize(KernelContext* ctx, std::vector<Datum>* out) {
   auto hash_impl = checked_cast<HashKernel*>(ctx->state());
   std::shared_ptr<ArrayData> uniques;
-  CTX_RETURN_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
+  KERNEL_ABORT_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
   auto dict_type = dictionary(int32(), uniques->type);
   auto dict = MakeArray(uniques);
   for (size_t i = 0; i < out->size(); ++i) {
@@ -464,10 +465,10 @@ void DictEncodeFinalize(KernelContext* ctx, std::vector<Datum>* out) {
 void ValueCountsFinalize(KernelContext* ctx, std::vector<Datum>* out) {
   auto hash_impl = checked_cast<HashKernel*>(ctx->state());
   std::shared_ptr<ArrayData> uniques;
-  CTX_RETURN_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
+  KERNEL_ABORT_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
 
   Datum value_counts;
-  CTX_RETURN_IF_ERROR(ctx, hash_impl->FlushFinal(&value_counts));
+  KERNEL_ABORT_IF_ERROR(ctx, hash_impl->FlushFinal(&value_counts));
   auto data_type =
       struct_({field(kValuesFieldName, uniques->type), field(kCountsFieldName, int64())});
   ArrayVector children = {MakeArray(uniques), value_counts.make_array()};
@@ -475,11 +476,11 @@ void ValueCountsFinalize(KernelContext* ctx, std::vector<Datum>* out) {
   *out = {Datum(result)};
 }
 
-Result<ValueDescr> DictEncodeOutput(const std::vector<ValueDescr>& descrs) {
+ValueDescr DictEncodeOutput(KernelContext*, const std::vector<ValueDescr>& descrs) {
   return ValueDescr::Array(dictionary(int32(), descrs[0].type));
 }
 
-Result<ValueDescr> ValueCountsOutput(const std::vector<ValueDescr>& descrs) {
+ValueDescr ValueCountsOutput(KernelContext*, const std::vector<ValueDescr>& descrs) {
   return ValueDescr::Array(struct_(
       {field(kValuesFieldName, descrs[0].type), field(kCountsFieldName, int64())}));
 }

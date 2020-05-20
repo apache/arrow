@@ -1218,7 +1218,7 @@ struct TreeEvaluator::Impl {
 
 Result<Datum> TreeEvaluator::Evaluate(const Expression& expr, const RecordBatch& batch,
                                       MemoryPool* pool) const {
-  return VisitExpression(expr, Impl{this, batch, compute::FunctionContext{pool}});
+  return VisitExpression(expr, Impl{this, batch, compute::ExecContext{pool}});
 }
 
 Result<std::shared_ptr<RecordBatch>> TreeEvaluator::Filter(

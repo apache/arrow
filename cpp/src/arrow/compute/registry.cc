@@ -23,7 +23,7 @@
 #include <unordered_map>
 
 #include "arrow/compute/function.h"
-#include "arrow/compute/kernels/registry.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
@@ -105,6 +105,7 @@ static void CreateBuiltInRegistry() {
   RegisterScalarBoolean(g_registry.get());
   RegisterScalarComparison(g_registry.get());
   RegisterScalarSetLookup(g_registry.get());
+  RegisterScalarCasts(g_registry.get());
 
   // Aggregate functions
   RegisterScalarAggregateBasic(g_registry.get());

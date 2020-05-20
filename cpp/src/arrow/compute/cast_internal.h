@@ -15,32 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Internal APIs for adding kernels to the central registry
-
 #pragma once
 
-#include "arrow/status.h"
+#include <memory>
+#include <vector>
+
+#include "arrow/compute/cast.h"  // IWYU pragma: keep
 
 namespace arrow {
 namespace compute {
 namespace internal {
 
-// Built-in scalar / elementwise functions
-void RegisterScalarArithmetic(FunctionRegistry* registry);
-void RegisterScalarBoolean(FunctionRegistry* registry);
-void RegisterScalarComparison(FunctionRegistry* registry);
-void RegisterScalarSetLookup(FunctionRegistry* registry);
-
-void RegisterScalarCastBoolean(FunctionRegistry* registry);
-
-// Vector functions
-void RegisterVectorFilter(FunctionRegistry* registry);
-void RegisterVectorHash(FunctionRegistry* registry);
-void RegisterVectorSort(FunctionRegistry* registry);
-void RegisterVectorTake(FunctionRegistry* registry);
-
-// Aggregate functions
-void RegisterScalarAggregateBasic(FunctionRegistry* registry);
+// See scalar_cast_*.cc for these
+std::vector<std::shared_ptr<CastFunction>> GetBooleanCasts();
+std::vector<std::shared_ptr<CastFunction>> GetNumericCasts();
+std::vector<std::shared_ptr<CastFunction>> GetTemporalCasts();
+std::vector<std::shared_ptr<CastFunction>> GetStringCasts();
+std::vector<std::shared_ptr<CastFunction>> GetNestedCasts();
 
 }  // namespace internal
 }  // namespace compute

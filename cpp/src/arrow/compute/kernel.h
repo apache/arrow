@@ -92,6 +92,15 @@ class ARROW_EXPORT KernelContext {
   KernelState* state_;
 };
 
+#define ARROW_CTX_RETURN_IF_ERROR(CTX)              \
+  do {                                              \
+    if (ARROW_PREDICT_FALSE((CTX)->HasError())) {   \
+      Status s = (CTX)->status();                   \
+      (CTX)->ResetStatus();                         \
+      return s;                                     \
+    }                                               \
+  } while (0)
+
 /// A standard function taking zero or more Array/Scalar values and returning
 /// Array/Scalar output. May be used for SCALAR and VECTOR kernel kinds. Should
 /// write into pre-allocated memory except in cases when a builder
@@ -226,8 +235,10 @@ class ARROW_EXPORT OutputType {
 
   /// Type resolution function. Given input types and shapes, return output
   /// type and shape. This function SHOULD _not_ be used to check for arity,
-  /// that SHOULD be performed one or more layers above.
-  using Resolver = std::function<Result<ValueDescr>(const std::vector<ValueDescr>&)>;
+  /// that SHOULD be performed one or more layers above. May make use of kernel
+  /// state to know what type to output
+  using Resolver =
+    std::function<Result<ValueDescr>(KernelContext*, const std::vector<ValueDescr>&)>;
 
   OutputType(std::shared_ptr<DataType> type)  // NOLINT implicit construction
       : kind_(FIXED), type_(std::move(type)) {}
@@ -252,8 +263,10 @@ class ARROW_EXPORT OutputType {
   }
 
   /// \brief Return the shape and type of the expected output value of the
-  /// kernel given the value descriptors (shapes and types)
-  Result<ValueDescr> Resolve(const std::vector<ValueDescr>& args) const;
+  /// kernel given the value descriptors (shapes and types). The resolver may
+  /// make use of state information kept in the KernelContext
+  Result<ValueDescr> Resolve(KernelContext* ctx,
+                             const std::vector<ValueDescr>& args) const;
 
   /// \brief The value type for the FIXED kind rule
   const std::shared_ptr<DataType>& type() const;

@@ -323,6 +323,7 @@ if(ARROW_COMPUTE)
               compute/api_aggregate.cc
               compute/api_scalar.cc
               compute/api_vector.cc
+              compute/cast.cc
               compute/exec.cc
               compute/function.cc
               compute/kernel.cc
@@ -332,14 +333,15 @@ if(ARROW_COMPUTE)
               compute/kernels/scalar_arithmetic.cc
               compute/kernels/scalar_boolean.cc
               compute/kernels/scalar_cast_boolean.cc
+              compute/kernels/scalar_cast_internal.cc
+              compute/kernels/scalar_cast_numeric.cc
+              compute/kernels/scalar_cast_temporal.cc
               compute/kernels/scalar_compare.cc
+              compute/kernels/scalar_set_lookup.cc
               compute/kernels/vector_filter.cc
               compute/kernels/vector_hash.cc
-              compute/kernels/scalar_set_lookup.cc
               compute/kernels/vector_sort.cc
-              compute/kernels/vector_take.cc
-              # compute/kernels/scalar_cast.cc
-       )
+              compute/kernels/vector_take.cc)
 endif()
 
 if(ARROW_FILESYSTEM)

@@ -205,13 +205,14 @@ TEST(OutputType, Constructors) {
   ASSERT_EQ(OutputType::FIXED, ty1.kind());
   AssertTypeEqual(*int8(), *ty1.type());
 
-  auto DummyResolver = [](const std::vector<ValueDescr>& args) {
+  auto DummyResolver = [](KernelContext*,
+                          const std::vector<ValueDescr>& args) -> Result<ValueDescr> {
     return ValueDescr(int32(), GetBroadcastShape(args));
   };
   OutputType ty2(DummyResolver);
   ASSERT_EQ(OutputType::COMPUTED, ty2.kind());
 
-  ASSERT_OK_AND_ASSIGN(ValueDescr out_descr2, ty2.Resolve({}));
+  ASSERT_OK_AND_ASSIGN(ValueDescr out_descr2, ty2.Resolve(nullptr, {}));
   ASSERT_EQ(ValueDescr::Scalar(int32()), out_descr2);
 
   // Copy constructor
@@ -221,7 +222,7 @@ TEST(OutputType, Constructors) {
 
   OutputType ty4 = ty2;
   ASSERT_EQ(OutputType::COMPUTED, ty4.kind());
-  ASSERT_OK_AND_ASSIGN(ValueDescr out_descr4, ty4.Resolve({}));
+  ASSERT_OK_AND_ASSIGN(ValueDescr out_descr4, ty4.Resolve(nullptr, {}));
   ASSERT_EQ(ValueDescr::Scalar(int32()), out_descr4);
 
   // Move constructor
@@ -231,7 +232,7 @@ TEST(OutputType, Constructors) {
 
   OutputType ty6 = std::move(ty4);
   ASSERT_EQ(OutputType::COMPUTED, ty6.kind());
-  ASSERT_OK_AND_ASSIGN(ValueDescr out_descr6, ty6.Resolve({}));
+  ASSERT_OK_AND_ASSIGN(ValueDescr out_descr6, ty6.Resolve(nullptr, {}));
   ASSERT_EQ(ValueDescr::Scalar(int32()), out_descr6);
 
   // ToString
@@ -245,33 +246,36 @@ TEST(OutputType, Resolve) {
   // Check shape promotion rules for FIXED kind
   OutputType ty1(int32());
 
-  ASSERT_OK_AND_ASSIGN(ValueDescr descr, ty1.Resolve({}));
+  ASSERT_OK_AND_ASSIGN(ValueDescr descr, ty1.Resolve(nullptr, {}));
   ASSERT_EQ(ValueDescr::Scalar(int32()), descr);
 
-  ASSERT_OK_AND_ASSIGN(descr, ty1.Resolve({ValueDescr(int8(), ValueDescr::SCALAR)}));
+  ASSERT_OK_AND_ASSIGN(descr, ty1.Resolve(nullptr,
+                                          {ValueDescr(int8(), ValueDescr::SCALAR)}));
   ASSERT_EQ(ValueDescr::Scalar(int32()), descr);
 
-  ASSERT_OK_AND_ASSIGN(descr, ty1.Resolve({ValueDescr(int8(), ValueDescr::SCALAR),
+  ASSERT_OK_AND_ASSIGN(descr, ty1.Resolve(nullptr,
+                                          {ValueDescr(int8(), ValueDescr::SCALAR),
                                            ValueDescr(int8(), ValueDescr::ARRAY)}));
   ASSERT_EQ(ValueDescr::Array(int32()), descr);
 
-  OutputType ty2([](const std::vector<ValueDescr>& args) -> Result<ValueDescr> {
+  OutputType ty2([](KernelContext*, const std::vector<ValueDescr>& args) {
     return ValueDescr(args[0].type, GetBroadcastShape(args));
   });
 
-  ASSERT_OK_AND_ASSIGN(descr, ty2.Resolve({ValueDescr::Array(utf8())}));
+  ASSERT_OK_AND_ASSIGN(descr, ty2.Resolve(nullptr, {ValueDescr::Array(utf8())}));
   ASSERT_EQ(ValueDescr::Array(utf8()), descr);
 
   // Type resolver that returns an error
-  OutputType ty3([](const std::vector<ValueDescr>& args) -> Result<ValueDescr> {
-    // NB: checking the value types versus the function arity should be
-    // validated elsewhere, so this is just for illustration purposes
-    if (args.size() == 0) {
-      return Status::Invalid("Need at least one argument");
-    }
-    return ValueDescr(args[0]);
-  });
-  ASSERT_RAISES(Invalid, ty3.Resolve({}));
+  OutputType ty3(
+      [](KernelContext* ctx, const std::vector<ValueDescr>& args) -> Result<ValueDescr> {
+        // NB: checking the value types versus the function arity should be
+        // validated elsewhere, so this is just for illustration purposes
+        if (args.size() == 0) {
+          return Status::Invalid("Need at least one argument");
+        }
+        return ValueDescr(args[0]);
+      });
+  ASSERT_RAISES(Invalid, ty3.Resolve(nullptr, {}));
 }
 
 TEST(OutputType, ResolveDescr) {
@@ -285,12 +289,12 @@ TEST(OutputType, ResolveDescr) {
   ASSERT_EQ(ValueDescr::ARRAY, ty2.shape());
 
   {
-    ASSERT_OK_AND_ASSIGN(ValueDescr descr, ty1.Resolve({}));
+    ASSERT_OK_AND_ASSIGN(ValueDescr descr, ty1.Resolve(nullptr, {}));
     ASSERT_EQ(d1, descr);
   }
 
   {
-    ASSERT_OK_AND_ASSIGN(ValueDescr descr, ty2.Resolve({}));
+    ASSERT_OK_AND_ASSIGN(ValueDescr descr, ty2.Resolve(nullptr, {}));
     ASSERT_EQ(d2, descr);
   }
 }
@@ -420,7 +424,9 @@ TEST(KernelSignature, ToString) {
             sig.ToString());
 
   OutputType out_type(
-      [](const std::vector<ValueDescr>& args) { return Status::Invalid("NYI"); });
+      [](KernelContext*, const std::vector<ValueDescr>& args) {
+        return Status::Invalid("NYI");
+      });
   KernelSignature sig2({int8(), Type::DECIMAL}, out_type);
   ASSERT_EQ("(any[int8], any[decimal*]) -> computed", sig2.ToString());
 }

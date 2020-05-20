@@ -116,7 +116,7 @@ struct FilterFunctor {
     BooleanArray filter(batch[1].array());
     const int64_t output_size = FilterOutputSize(NullSelection, filter);
     std::shared_ptr<Array> result;
-    CTX_RETURN_IF_ERROR(ctx, Select(ctx, values, IS(filter, output_size), &result));
+    KERNEL_ABORT_IF_ERROR(ctx, Select(ctx, values, IS(filter, output_size), &result));
     out->value = result->data();
   }
 

@@ -38,18 +38,12 @@
 
 namespace arrow {
 
+using internal::BitmapAnd;
 using internal::checked_cast;
+using internal::CopyBitmap;
+using internal::CpuInfo;
 
 namespace compute {
-
-#define CTX_RETURN_IF_ERROR(CTX)                  \
-  do {                                            \
-    if (ARROW_PREDICT_FALSE((CTX)->HasError())) { \
-      Status s = (CTX)->status();                 \
-      (CTX)->ResetStatus();                       \
-      return s;                                   \
-    }                                             \
-  } while (0)
 
 namespace {
 
@@ -298,8 +292,7 @@ class NullPropagator {
     output_->null_count = arr.null_count.load();
 
     if (bitmap_preallocated_) {
-      internal::CopyBitmap(arr_bitmap->data(), arr.offset, arr.length, bitmap_,
-                           output_->offset);
+      CopyBitmap(arr_bitmap->data(), arr.offset, arr.length, bitmap_, output_->offset);
     } else {
       // Two cases when memory was not pre-allocated:
       //
@@ -317,8 +310,8 @@ class NullPropagator {
             SliceBuffer(arr_bitmap, arr.offset / 8, BitUtil::BytesForBits(arr.length));
       } else {
         RETURN_NOT_OK(EnsureAllocated());
-        internal::CopyBitmap(arr_bitmap->data(), arr.offset, arr.length, bitmap_,
-                             /*dst_offset=*/0);
+        CopyBitmap(arr_bitmap->data(), arr.offset, arr.length, bitmap_,
+                   /*dst_offset=*/0);
       }
     }
     return Status::OK();
@@ -334,9 +327,9 @@ class NullPropagator {
       // This is a precondition of reaching this code path
       DCHECK(left.buffers[0]);
       DCHECK(right.buffers[0]);
-      internal::BitmapAnd(left.buffers[0]->data(), left.offset, right.buffers[0]->data(),
-                          right.offset, output_->length, output_->offset,
-                          output_->buffers[0]->mutable_data());
+      BitmapAnd(left.buffers[0]->data(), left.offset, right.buffers[0]->data(),
+                right.offset, output_->length, output_->offset,
+                output_->buffers[0]->mutable_data());
     };
 
     DCHECK_GT(values_with_nulls_.size(), 1);
@@ -419,23 +412,6 @@ Status PropagateNulls(KernelContext* ctx, const ExecBatch& batch, ArrayData* out
   return propagator.Execute();
 }
 
-Status ExecListener::OnResult(Datum) { return Status::NotImplemented("OnResult"); }
-
-class DatumAccumulator : public ExecListener {
- public:
-  DatumAccumulator() {}
-
-  Status OnResult(Datum value) override {
-    values_.emplace_back(value);
-    return Status::OK();
-  }
-
-  std::vector<Datum> values() const { return values_; }
-
- private:
-  std::vector<Datum> values_;
-};
-
 std::shared_ptr<ChunkedArray> ToChunkedArray(const std::vector<Datum>& values,
                                              const std::shared_ptr<DataType>& type) {
   std::vector<std::shared_ptr<Array>> arrays;
@@ -459,6 +435,16 @@ bool HaveChunkedArray(const std::vector<Datum>& values) {
   return false;
 }
 
+Status CheckAllValues(const std::vector<Datum>& values) {
+  for (const auto& value : values) {
+    if (!value.is_value()) {
+      return Status::Invalid("Tried executing function with non-value type: ",
+                             value.ToString());
+    }
+  }
+  return Status::OK();
+}
+
 template <typename FunctionType>
 class FunctionExecutorImpl : public FunctionExecutor {
  public:
@@ -476,7 +462,7 @@ class FunctionExecutorImpl : public FunctionExecutor {
     if (kernel_->init) {
       KernelInitArgs init_args{kernel_, input_descrs_, options_};
       state_ = kernel_->init(&kernel_ctx_, init_args);
-      CTX_RETURN_IF_ERROR(&kernel_ctx_);
+      ARROW_CTX_RETURN_IF_ERROR(&kernel_ctx_);
       kernel_ctx_.SetState(state_.get());
     }
     return Status::OK();
@@ -493,9 +479,12 @@ class FunctionExecutorImpl : public FunctionExecutor {
     RETURN_NOT_OK(GetValueDescriptors(args, &input_descrs_));
     ARROW_ASSIGN_OR_RAISE(kernel_, func_->DispatchExact(input_descrs_));
 
+    // Initialize kernel state, since type resolution may depend on this state
+    RETURN_NOT_OK(this->InitState());
+
     // Resolve the output descriptor for this kernel
-    ARROW_ASSIGN_OR_RAISE(output_descr_,
-                          kernel_->signature->out_type().Resolve(input_descrs_));
+    ARROW_ASSIGN_OR_RAISE(output_descr_, kernel_->signature->out_type().Resolve(
+        &kernel_ctx_, input_descrs_));
 
     return SetupArgIteration(args);
   }
@@ -598,7 +587,7 @@ class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
     }
 
     kernel_->exec(&kernel_ctx_, batch, &out);
-    CTX_RETURN_IF_ERROR(&kernel_ctx_);
+    ARROW_CTX_RETURN_IF_ERROR(&kernel_ctx_);
     if (!preallocate_contiguous_) {
       // If we are producing chunked output rather than one big array, then
       // emit each chunk as soon as it's available
@@ -610,7 +599,6 @@ class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
   Status PrepareExecute(const std::vector<Datum>& args) {
     this->Reset();
     RETURN_NOT_OK(this->BindArgs(args));
-    RETURN_NOT_OK(this->InitState());
 
     if (output_descr_.shape == ValueDescr::ARRAY) {
       // If the executor is configured to produce a single large Array output for
@@ -783,7 +771,7 @@ class VectorExecutor : public FunctionExecutorImpl<VectorFunction> {
       RETURN_NOT_OK(PropagateNulls(&kernel_ctx_, batch, out.mutable_array()));
     }
     kernel_->exec(&kernel_ctx_, batch, &out);
-    CTX_RETURN_IF_ERROR(&kernel_ctx_);
+    ARROW_CTX_RETURN_IF_ERROR(&kernel_ctx_);
     if (!kernel_->finalize) {
       // If there is no result finalizer (e.g. for hash-based functions, we can
       // emit the processed batch right away rather than waiting
@@ -799,7 +787,7 @@ class VectorExecutor : public FunctionExecutorImpl<VectorFunction> {
       // Intermediate results require post-processing after the execution is
       // completed (possibly involving some accumulated state)
       kernel_->finalize(&kernel_ctx_, &results_);
-      CTX_RETURN_IF_ERROR(&kernel_ctx_);
+      ARROW_CTX_RETURN_IF_ERROR(&kernel_ctx_);
       for (const auto& result : results_) {
         RETURN_NOT_OK(listener->OnResult(result));
       }
@@ -818,7 +806,6 @@ class VectorExecutor : public FunctionExecutorImpl<VectorFunction> {
   Status PrepareExecute(const std::vector<Datum>& args) {
     this->Reset();
     RETURN_NOT_OK(this->BindArgs(args));
-    RETURN_NOT_OK(this->InitState());
     output_num_buffers_ = static_cast<int>(output_descr_.type->layout().buffers.size());
 
     // Decide if we need to preallocate memory for this kernel
@@ -843,10 +830,6 @@ class ScalarAggExecutor : public FunctionExecutorImpl<ScalarAggregateFunction> {
   Status Execute(const std::vector<Datum>& args, ExecListener* listener) override {
     RETURN_NOT_OK(BindArgs(args));
 
-    // This is the global/total state for the aggregation. Batches are
-    // aggregated independently and then merged into the state
-    RETURN_NOT_OK(InitState());
-
     ExecBatch batch;
     while (batch_iterator_->Next(&batch)) {
       // TODO: implement parallelism
@@ -857,7 +840,7 @@ class ScalarAggExecutor : public FunctionExecutorImpl<ScalarAggregateFunction> {
 
     Datum out;
     kernel_->finalize(&kernel_ctx_, &out);
-    CTX_RETURN_IF_ERROR(&kernel_ctx_);
+    ARROW_CTX_RETURN_IF_ERROR(&kernel_ctx_);
     RETURN_NOT_OK(listener->OnResult(std::move(out)));
     return Status::OK();
   }
@@ -872,16 +855,16 @@ class ScalarAggExecutor : public FunctionExecutorImpl<ScalarAggregateFunction> {
   Status Consume(const ExecBatch& batch) {
     KernelInitArgs init_args{kernel_, input_descrs_, options_};
     auto batch_state = kernel_->init(&kernel_ctx_, init_args);
-    CTX_RETURN_IF_ERROR(&kernel_ctx_);
+    ARROW_CTX_RETURN_IF_ERROR(&kernel_ctx_);
 
     KernelContext batch_ctx(exec_ctx_);
     batch_ctx.SetState(batch_state.get());
 
     kernel_->consume(&batch_ctx, batch);
-    CTX_RETURN_IF_ERROR(&batch_ctx);
+    ARROW_CTX_RETURN_IF_ERROR(&batch_ctx);
 
     kernel_->merge(&kernel_ctx_, *batch_state, state_.get());
-    CTX_RETURN_IF_ERROR(&kernel_ctx_);
+    ARROW_CTX_RETURN_IF_ERROR(&kernel_ctx_);
     return Status::OK();
   }
 };
@@ -908,16 +891,6 @@ Result<std::unique_ptr<FunctionExecutor>> FunctionExecutor::Make(
   }
 }
 
-Status CheckAllValues(const std::vector<Datum>& values) {
-  for (const auto& value : values) {
-    if (!value.is_value()) {
-      return Status::Invalid("Tried executing kernel with unsupported argument type: ",
-                             value.ToString());
-    }
-  }
-  return Status::OK();
-}
-
 }  // namespace detail
 
 ExecContext::ExecContext(MemoryPool* pool, FunctionRegistry* func_registry)
@@ -925,9 +898,7 @@ ExecContext::ExecContext(MemoryPool* pool, FunctionRegistry* func_registry)
   this->func_registry_ = func_registry == nullptr ? GetFunctionRegistry() : func_registry;
 }
 
-internal::CpuInfo* ExecContext::cpu_info() const {
-  return internal::CpuInfo::GetInstance();
-}
+CpuInfo* ExecContext::cpu_info() const { return CpuInfo::GetInstance(); }
 
 // ----------------------------------------------------------------------
 // SelectionVector
@@ -950,18 +921,9 @@ Result<Datum> CallFunction(ExecContext* ctx, const std::string& func_name,
     ExecContext default_ctx;
     return CallFunction(&default_ctx, func_name, args, options);
   }
-
-  // type-check Datum arguments here. Really we'd like to avoid this as much as
-  // possible
-  RETURN_NOT_OK(detail::CheckAllValues(args));
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<const Function> func,
                         ctx->func_registry()->GetFunction(func_name));
-  ARROW_ASSIGN_OR_RAISE(auto executor,
-                        detail::FunctionExecutor::Make(ctx, func.get(), options));
-
-  auto listener = std::make_shared<detail::DatumAccumulator>();
-  RETURN_NOT_OK(executor->Execute(args, listener.get()));
-  return executor->WrapResults(args, listener->values());
+  return func->Execute(args, options, ctx);
 }
 
 }  // namespace compute

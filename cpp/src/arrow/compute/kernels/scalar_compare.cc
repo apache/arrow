@@ -24,39 +24,6 @@ using internal::checked_pointer_cast;
 using util::string_view;
 
 namespace compute {
-namespace codegen {
-
-// Currently implemented types for comparison
-// * Boolean
-// * Temporal
-// * BaseBinary
-
-template <typename Op, typename FlippedOp = Op>
-void MakeCompareFunction(std::string name, FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>(name, /*arity=*/2);
-
-  auto out_ty = boolean();
-  DCHECK_OK(func->AddKernel(
-      {boolean(), boolean()}, out_ty,
-      ScalarBinary<BooleanType, BooleanType, BooleanType, Op, FlippedOp>::Exec));
-
-  for (const std::shared_ptr<DataType>& ty : NumericTypes()) {
-    auto exec = Numeric<ScalarBinaryEqualTypes, BooleanType, Op, FlippedOp>(*ty);
-    DCHECK_OK(func->AddKernel({ty, ty}, out_ty, exec));
-  }
-  for (const std::shared_ptr<DataType>& ty : TemporalTypes()) {
-    auto exec = Temporal<ScalarBinaryEqualTypes, BooleanType, Op, FlippedOp>(*ty);
-    DCHECK_OK(func->AddKernel({ty, ty}, out_ty, exec));
-  }
-  for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
-    auto exec = BaseBinary<ScalarBinaryEqualTypes, BooleanType, Op, FlippedOp>(*ty);
-    DCHECK_OK(func->AddKernel({ty, ty}, out_ty, exec));
-  }
-  DCHECK_OK(registry->AddFunction(std::move(func)));
-}
-
-}  // namespace codegen
-
 namespace internal {
 
 struct Equal {
@@ -101,13 +68,43 @@ struct LessEqual {
   }
 };
 
+template <typename Op, typename FlippedOp = Op>
+void MakeCompareFunction(std::string name, FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>(name, /*arity=*/2);
+
+  auto out_ty = boolean();
+  DCHECK_OK(func->AddKernel(
+      {boolean(), boolean()}, out_ty,
+      codegen::ScalarBinary<BooleanType, BooleanType, BooleanType, Op, FlippedOp>::Exec));
+
+  for (const std::shared_ptr<DataType>& ty : NumericTypes()) {
+    auto exec =
+        codegen::Numeric<codegen::ScalarBinaryEqualTypes, BooleanType, Op, FlippedOp>(
+            *ty);
+    DCHECK_OK(func->AddKernel({ty, ty}, out_ty, exec));
+  }
+  for (const std::shared_ptr<DataType>& ty : TemporalTypes()) {
+    auto exec =
+        codegen::Temporal<codegen::ScalarBinaryEqualTypes, BooleanType, Op, FlippedOp>(
+            *ty);
+    DCHECK_OK(func->AddKernel({ty, ty}, out_ty, exec));
+  }
+  for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
+    auto exec =
+        codegen::BaseBinary<codegen::ScalarBinaryEqualTypes, BooleanType, Op, FlippedOp>(
+            *ty);
+    DCHECK_OK(func->AddKernel({ty, ty}, out_ty, exec));
+  }
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
 void RegisterScalarComparison(FunctionRegistry* registry) {
-  codegen::MakeCompareFunction<Equal>("==", registry);
-  codegen::MakeCompareFunction<NotEqual>("!=", registry);
-  codegen::MakeCompareFunction<Less, Greater>("<", registry);
-  codegen::MakeCompareFunction<LessEqual, GreaterEqual>("<=", registry);
-  codegen::MakeCompareFunction<Greater, Less>(">", registry);
-  codegen::MakeCompareFunction<GreaterEqual, LessEqual>(">=", registry);
+  MakeCompareFunction<Equal>("==", registry);
+  MakeCompareFunction<NotEqual>("!=", registry);
+  MakeCompareFunction<Less, Greater>("<", registry);
+  MakeCompareFunction<LessEqual, GreaterEqual>("<=", registry);
+  MakeCompareFunction<Greater, Less>(">", registry);
+  MakeCompareFunction<GreaterEqual, LessEqual>(">=", registry);
 }
 
 }  // namespace internal

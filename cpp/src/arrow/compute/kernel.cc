@@ -180,7 +180,8 @@ OutputType::OutputType(ValueDescr descr) : OutputType(descr.type) {
   shape_ = descr.shape;
 }
 
-Result<ValueDescr> OutputType::Resolve(const std::vector<ValueDescr>& args) const {
+Result<ValueDescr> OutputType::Resolve(KernelContext* ctx,
+                                       const std::vector<ValueDescr>& args) const {
   if (kind_ == OutputType::FIXED) {
     ValueDescr::Shape out_shape = shape_;
     if (out_shape == ValueDescr::ANY) {
@@ -188,7 +189,7 @@ Result<ValueDescr> OutputType::Resolve(const std::vector<ValueDescr>& args) cons
     }
     return ValueDescr(type_, out_shape);
   } else {
-    return resolver_(args);
+    return resolver_(ctx, args);
   }
 }
 

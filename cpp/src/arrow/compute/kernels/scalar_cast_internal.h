@@ -18,45 +18,35 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
-#ifdef ARROW_EXTRA_ERROR_CONTEXT
-
-#define FUNC_RETURN_NOT_OK(expr)                     \
-  do {                                               \
-    Status _st = (expr);                             \
-    if (ARROW_PREDICT_FALSE(!_st.ok())) {            \
-      _st.AddContextLine(__FILE__, __LINE__, #expr); \
-      ctx->SetStatus(_st);                           \
-      return;                                        \
-    }                                                \
-  } while (0)
-
-#else
-
-#define FUNC_RETURN_NOT_OK(expr)          \
-  do {                                    \
-    Status _st = (expr);                  \
-    if (ARROW_PREDICT_FALSE(!_st.ok())) { \
-      ctx->SetStatus(_st);                \
-      return;                             \
-    }                                     \
-  } while (0)
-
-#endif  // ARROW_EXTRA_ERROR_CONTEXT
+#include "arrow/builder.h"
+#include "arrow/compute/cast.h"
+#include "arrow/compute/kernels/common.h"
 
 namespace arrow {
 
 using internal::checked_cast;
-using internal::CopyBitmap;
 
 namespace compute {
+namespace internal {
+
+struct CastState : public KernelState {
+  CastState(const CastOptions& options) : options(options) {}
+  CastOptions options;
+};
 
 template <typename OutType, typename InType, typename Enable = void>
 struct CastFunctor {};
 
-typedef std::function<void(FunctionContext*, const CastOptions& options, const ArrayData&,
-                           ArrayData*)>
-    CastFunction;
+// No-op functor for identity casts
+template <typename O, typename I>
+struct CastFunctor<
+    O, I, enable_if_t<std::is_same<O, I>::value && is_parameter_free_type<I>::value>> {
+  static void Exec(KernelContext*, const ExecBatch&, Datum*) {}
+};
+
+void CastFromExtension(KernelContext* ctx, const ExecBatch& batch, Datum* out);
 
 // ----------------------------------------------------------------------
 // Dictionary to other things
@@ -69,7 +59,7 @@ template <typename T, typename IndexType>
 struct FromDictVisitor<T, IndexType, enable_if_fixed_size_binary<T>> {
   using ArrayType = typename TypeTraits<T>::ArrayType;
 
-  FromDictVisitor(FunctionContext* ctx, const ArrayType& dictionary, ArrayData* output)
+  FromDictVisitor(KernelContext* ctx, const ArrayType& dictionary, ArrayData* output)
       : dictionary_(dictionary),
         byte_width_(dictionary.byte_width()),
         out_(output->buffers[1]->mutable_data() + byte_width_ * output->offset) {}
@@ -101,7 +91,7 @@ template <typename T, typename IndexType>
 struct FromDictVisitor<T, IndexType, enable_if_base_binary<T>> {
   using ArrayType = typename TypeTraits<T>::ArrayType;
 
-  FromDictVisitor(FunctionContext* ctx, const ArrayType& dictionary, ArrayData* output)
+  FromDictVisitor(KernelContext* ctx, const ArrayType& dictionary, ArrayData* output)
       : ctx_(ctx), dictionary_(dictionary), output_(output) {}
 
   Status Init() {
@@ -127,7 +117,7 @@ struct FromDictVisitor<T, IndexType, enable_if_base_binary<T>> {
     return Status::OK();
   }
 
-  FunctionContext* ctx_;
+  KernelContext* ctx_;
   const ArrayType& dictionary_;
   ArrayData* output_;
   std::unique_ptr<ArrayBuilder> builder_;
@@ -142,7 +132,7 @@ struct FromDictVisitor<
 
   using value_type = typename T::c_type;
 
-  FromDictVisitor(FunctionContext* ctx, const ArrayType& dictionary, ArrayData* output)
+  FromDictVisitor(KernelContext* ctx, const ArrayType& dictionary, ArrayData* output)
       : dictionary_(dictionary), out_(output->GetMutableValues<value_type>(1)) {}
 
   Status Init() { return Status::OK(); }
@@ -168,21 +158,23 @@ struct FromDictUnpackHelper {
   using ArrayType = typename TypeTraits<T>::ArrayType;
 
   template <typename IndexType>
-  Status Unpack(FunctionContext* ctx, const ArrayData& indices,
-                const ArrayType& dictionary, ArrayData* output) {
+  void Unpack(KernelContext* ctx, const ArrayData& indices, const ArrayType& dictionary,
+              ArrayData* output) {
     FromDictVisitor<T, IndexType> visitor{ctx, dictionary, output};
-    RETURN_NOT_OK(visitor.Init());
-    RETURN_NOT_OK(ArrayDataVisitor<IndexType>::Visit(indices, &visitor));
-    return visitor.Finish();
+    KERNEL_ABORT_IF_ERROR(ctx, visitor.Init());
+    KERNEL_ABORT_IF_ERROR(ctx, ArrayDataVisitor<IndexType>::Visit(indices, &visitor));
+    KERNEL_ABORT_IF_ERROR(ctx, visitor.Finish());
   }
 };
 
 // Dispatch dictionary casts to UnpackHelper
 template <typename T>
-struct CastFunctor<T, DictionaryType> {
-  void operator()(FunctionContext* ctx, const CastOptions& options,
-                  const ArrayData& input, ArrayData* output) {
-    using ArrayType = typename TypeTraits<T>::ArrayType;
+struct FromDictionaryCast {
+  using ArrayType = typename TypeTraits<T>::ArrayType;
+
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const ArrayData& input = *batch[0].array();
+    ArrayData* output = out->mutable_array();
 
     const DictionaryType& type = checked_cast<const DictionaryType&>(*input.type);
     const Array& dictionary = *input.dictionary;
@@ -195,28 +187,92 @@ struct CastFunctor<T, DictionaryType> {
     FromDictUnpackHelper<T> unpack_helper;
     switch (type.index_type()->id()) {
       case Type::INT8:
-        FUNC_RETURN_NOT_OK(unpack_helper.template Unpack<Int8Type>(
-            ctx, input, static_cast<const ArrayType&>(dictionary), output));
+        unpack_helper.template Unpack<Int8Type>(
+            ctx, input, static_cast<const ArrayType&>(dictionary), output);
         break;
       case Type::INT16:
-        FUNC_RETURN_NOT_OK(unpack_helper.template Unpack<Int16Type>(
-            ctx, input, static_cast<const ArrayType&>(dictionary), output));
+        unpack_helper.template Unpack<Int16Type>(
+            ctx, input, static_cast<const ArrayType&>(dictionary), output);
         break;
       case Type::INT32:
-        FUNC_RETURN_NOT_OK(unpack_helper.template Unpack<Int32Type>(
-            ctx, input, static_cast<const ArrayType&>(dictionary), output));
+        unpack_helper.template Unpack<Int32Type>(
+            ctx, input, static_cast<const ArrayType&>(dictionary), output);
         break;
       case Type::INT64:
-        FUNC_RETURN_NOT_OK(unpack_helper.template Unpack<Int64Type>(
-            ctx, input, static_cast<const ArrayType&>(dictionary), output));
+        unpack_helper.template Unpack<Int64Type>(
+            ctx, input, static_cast<const ArrayType&>(dictionary), output);
         break;
       default:
         ctx->SetStatus(
             Status::TypeError("Invalid index type: ", type.index_type()->ToString()));
-        return;
+        break;
     }
   }
 };
 
+template <>
+struct FromDictionaryCast<NullType> {
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    ArrayData* output = out->mutable_array();
+    output->buffers = {nullptr};
+    output->null_count = batch.length;
+  }
+};
+
+template <>
+struct FromDictionaryCast<BooleanType> {
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {}
+};
+
+template <typename T>
+struct FromNullCast {
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    ArrayData* output = out->mutable_array();
+    std::shared_ptr<Array> nulls;
+    Status s = MakeArrayOfNull(output->type, batch.length).Value(&nulls);
+    KERNEL_ABORT_IF_ERROR(ctx, s);
+    out->value = nulls->data();
+  }
+};
+
+// Adds a cast function where the functor is defined and the input and output
+// types have a type_singleton
+template <typename InType, typename OutType>
+void AddSimpleCast(InputType in_ty, OutputType out_ty, CastFunction* func) {
+  DCHECK_OK(func->AddKernel(InType::type_id, {in_ty}, out_ty,
+                            CastFunctor<OutType, InType>::Exec));
+}
+
+void ZeroCopyCastExec(KernelContext* ctx, const ExecBatch& batch, Datum* out);
+
+void AddZeroCopyCast(const std::shared_ptr<DataType>& in_type,
+                     const std::shared_ptr<DataType>& out_type, CastFunction* func);
+
+std::unique_ptr<KernelState> CastInit(KernelContext* ctx, const KernelInitArgs& args);
+
+// OutputType::Resolver that returns a descr with the shape of the input
+// argument and the type from CastOptions
+Result<ValueDescr> ResolveOutputFromOptions(KernelContext* ctx,
+                                            const std::vector<ValueDescr>& args);
+
+template <typename OutType>
+void AddCommonCasts(OutputType out_ty, CastFunction* func) {
+  // From null to this type
+  DCHECK_OK(func->AddKernel(Type::NA, {InputType::Array(null())}, out_ty,
+                            FromNullCast<OutType>::Exec));
+
+  // From dictionary to this type
+  if (OutType::type_id != Type::BOOL) {
+    // Dictionary unpacking not implemented for boolean
+    DCHECK_OK(func->AddKernel(Type::DICTIONARY, {InputType::Array(Type::DICTIONARY)},
+                              out_ty, FromDictionaryCast<OutType>::Exec));
+  }
+
+  // From extension type to this type
+  DCHECK_OK(func->AddKernel(Type::EXTENSION, {InputType::Array(Type::EXTENSION)}, out_ty,
+                            CastFromExtension));
+}
+
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow
