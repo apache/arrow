@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/parsing.h"
+#include "arrow/util/value_parsing.h"
 
 extern "C" {
 
@@ -239,8 +239,7 @@ DIV_FLOAT(float64)
   gdv_##OUT_TYPE cast##TYPE_NAME##_utf8(int64_t context, const char* data,          \
                                         int32_t len) {                              \
     gdv_##OUT_TYPE val;                                                             \
-    arrow::internal::StringConverter<ARROW_TYPE> converter_;                        \
-    if (!converter_(data, len, &val)) {                                             \
+    if (!arrow::internal::StringConverter<ARROW_TYPE>::Convert(data, len, &val)) {  \
       gdv_fn_context_set_error_msg(context,                                         \
                                    "Failed parsing the string to required format"); \
     }                                                                               \

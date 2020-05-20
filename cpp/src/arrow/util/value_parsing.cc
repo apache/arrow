@@ -24,7 +24,8 @@
 
 namespace arrow {
 namespace internal {
-namespace detail {
+
+namespace {
 
 struct StringToFloatConverterImpl {
   StringToFloatConverterImpl()
@@ -45,6 +46,8 @@ struct StringToFloatConverterImpl {
 };
 
 static const StringToFloatConverterImpl g_string_to_float;
+
+}  // namespace
 
 bool StringToFloat(const char* s, size_t length, float* out) {
   int processed_length;
@@ -78,8 +81,6 @@ bool StringToFloat(const char* s, size_t length, double* out) {
   *out = v;
   return true;
 }
-
-}  // namespace detail
 
 // ----------------------------------------------------------------------
 // strptime-like parsing
