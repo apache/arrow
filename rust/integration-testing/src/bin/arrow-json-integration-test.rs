@@ -103,11 +103,6 @@ fn record_batch_from_json(
     let mut columns = vec![];
 
     for (field, json_col) in schema.fields().iter().zip(json_batch.columns) {
-        // if json_col.data.is_none() {
-        //     //columns.push(Arc::new(vec![]));
-        //     continue;
-        // }
-
         let col: ArrayRef = match field.data_type() {
             DataType::Null => Arc::new(NullArray::new(json_col.count)),
             DataType::Boolean => {
