@@ -85,6 +85,8 @@ struct TaskHints {
   int64_t io_size = -1;
   // The approximate CPU cost in number of instructions
   int64_t cpu_cost = -1;
+  // An application-specific ID
+  int64_t external_id = -1;
 };
 
 class ARROW_EXPORT Executor {

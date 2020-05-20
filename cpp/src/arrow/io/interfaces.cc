@@ -127,6 +127,7 @@ Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(const AsyncContext& 
   auto self = shared_from_this();
   TaskHints hints;
   hints.io_size = nbytes;
+  hints.external_id = ctx.external_id;
   auto maybe_fut = ctx.executor->Submit(std::move(hints), [self, position, nbytes] {
     return self->ReadAt(position, nbytes);
   });
