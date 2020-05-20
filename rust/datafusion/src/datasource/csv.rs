@@ -36,16 +36,53 @@ pub struct CsvFile {
     filename: String,
     schema: Arc<Schema>,
     has_header: bool,
+    delimiter: Option<u8>,
 }
 
 impl CsvFile {
     #[allow(missing_docs)]
-    pub fn new(filename: &str, schema: &Schema, has_header: bool) -> Self {
+    pub fn new(
+        filename: &str,
+        schema: &Schema,
+        has_header: bool,
+        delimiter: Option<u8>,
+    ) -> Self {
         Self {
             filename: String::from(filename),
             schema: Arc::new(schema.clone()),
             has_header,
+            delimiter,
         }
+    }
+
+    /// Attempt to initialize a new `CsvFile` from a file path
+    pub fn try_new(
+        filename: &str,
+        schema: Option<&Schema>,
+        has_header: bool,
+        delimiter: Option<u8>,
+    ) -> Result<Self> {
+        let schema = match schema {
+            Some(s) => Arc::new(s.clone()),
+            None => {
+                let schema_infer_batch_size = 1024;
+                let csv_exec = CsvExec::try_new(
+                    filename,
+                    None,
+                    has_header,
+                    delimiter,
+                    None,
+                    schema_infer_batch_size,
+                )?;
+                csv_exec.schema()
+            }
+        };
+        Ok(Self {
+            filename: String::from(filename),
+            schema: schema,
+            has_header,
+            delimiter,
+        })
     }
 }
 
@@ -61,8 +98,9 @@ impl TableProvider for CsvFile {
     ) -> Result<Vec<ScanResult>> {
         let exec = CsvExec::try_new(
             &self.filename,
-            self.schema.clone(),
+            Some(self.schema.clone()),
             self.has_header,
+            self.delimiter,
             projection.clone(),
             batch_size,
         )?;
@@ -88,6 +126,7 @@ impl CsvBatchIterator {
         filename: &str,
         schema: Arc<Schema>,
         has_header: bool,
+        delimiter: Option<u8>,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Self> {
@@ -96,6 +135,7 @@ impl CsvBatchIterator {
             file,
             schema.clone(),
             has_header,
+            delimiter,
             batch_size,
             projection.clone(),
         );
