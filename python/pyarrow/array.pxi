@@ -376,19 +376,6 @@ cdef Py_ssize_t _normalize_index(Py_ssize_t index,
     return index
 
 
-cdef class _FunctionContext:
-    cdef:
-        unique_ptr[CFunctionContext] ctx
-
-    def __cinit__(self):
-        self.ctx.reset(new CFunctionContext(c_default_memory_pool()))
-
-cdef _FunctionContext _global_ctx = _FunctionContext()
-
-cdef CFunctionContext* _context() nogil:
-    return _global_ctx.ctx.get()
-
-
 cdef wrap_datum(const CDatum& datum):
     if datum.kind() == DatumType_ARRAY:
         return pyarrow_wrap_array(MakeArray(datum.array()))
@@ -705,9 +692,7 @@ cdef class Array(_PandasConvertible):
             shared_ptr[CArray] result
 
         with nogil:
-            check_status(Cast(_context(), self.ap[0], type.sp_type,
-                              options, &result))
-
+            result = GetResultValue(Cast(self.ap[0], type.sp_type, options))
         return pyarrow_wrap_array(result)
 
     def view(self, object target_type):
@@ -736,10 +721,8 @@ cdef class Array(_PandasConvertible):
         Sum the values in a numerical array.
         """
         cdef CDatum out
-
         with nogil:
-            check_status(Sum(_context(), CDatum(self.sp_array), &out))
-
+            out = GetResultValue(Sum(CDatum(self.sp_array)))
         return wrap_datum(out)
 
     def unique(self):
@@ -749,7 +732,7 @@ cdef class Array(_PandasConvertible):
         cdef shared_ptr[CArray] result
 
         with nogil:
-            check_status(Unique(_context(), CDatum(self.sp_array), &result))
+            result = GetResultValue(Unique(CDatum(self.sp_array)))
 
         return pyarrow_wrap_array(result)
 
@@ -760,9 +743,7 @@ cdef class Array(_PandasConvertible):
         cdef CDatum out
 
         with nogil:
-            check_status(DictionaryEncode(_context(), CDatum(self.sp_array),
-                                          &out))
-
+            out = GetResultValue(DictionaryEncode(CDatum(self.sp_array)))
         return wrap_datum(out)
 
     def value_counts(self):
@@ -776,8 +757,7 @@ cdef class Array(_PandasConvertible):
         cdef shared_ptr[CArray] result
 
         with nogil:
-            check_status(ValueCounts(_context(), CDatum(self.sp_array),
-                                     &result))
+            result = GetResultValue(ValueCounts(CDatum(self.sp_array)))
         return pyarrow_wrap_array(result)
 
     @staticmethod
@@ -1040,8 +1020,8 @@ cdef class Array(_PandasConvertible):
         c_indices = asarray(indices)
 
         with nogil:
-            check_status(Take(_context(), CDatum(self.sp_array),
-                              CDatum(c_indices.sp_array), options, &out))
+            out = GetResultValue(Take(CDatum(self.sp_array),
+                                      CDatum(c_indices.sp_array), options))
 
         return wrap_datum(out)
 
@@ -1091,8 +1071,8 @@ cdef class Array(_PandasConvertible):
         options = _convert_filter_option(null_selection_behavior)
 
         with nogil:
-            check_status(FilterKernel(_context(), CDatum(self.sp_array),
-                                      CDatum(mask.sp_array), options, &out))
+            out = GetResultValue(FilterKernel(CDatum(self.sp_array),
+                                              CDatum(mask.sp_array), options))
 
         return wrap_datum(out)
 

@@ -546,6 +546,12 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
   functions.push_back(GetCastToInteger<UInt32Type>("cast_uint32"));
   functions.push_back(GetCastToInteger<UInt64Type>("cast_uint64"));
 
+  // HalfFloat is a bit brain-damaged for now
+  auto cast_half_float =
+      std::make_shared<CastFunction>("cast_half_float", Type::HALF_FLOAT);
+  AddCommonCasts<HalfFloatType>(float16(), cast_half_float.get());
+  functions.push_back(cast_half_float);
+
   functions.push_back(GetCastToFloating<FloatType>("cast_float"));
   functions.push_back(GetCastToFloating<DoubleType>("cast_double"));
 

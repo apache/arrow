@@ -172,9 +172,12 @@ struct FromDictionaryCast {
     const Array& dictionary = *input.dictionary;
     const DataType& values_type = *dictionary.type();
 
-    // Check if values and output type match
-    DCHECK(values_type.Equals(*output->type))
-        << "Dictionary type: " << values_type << " target type: " << (*output->type);
+    // ARROW-7077
+    if (!values_type.Equals(*output->type)) {
+      ctx->SetStatus(Status::Invalid("Cannot unpack dictionary of type ", type.ToString(),
+                                     " to type ", output->type->ToString()));
+      return;
+    }
 
     FromDictUnpackHelper<T> unpack_helper;
     switch (type.index_type()->id()) {
@@ -237,8 +240,7 @@ void AddSimpleCast(InputType in_ty, OutputType out_ty, CastFunction* func) {
 
 void ZeroCopyCastExec(KernelContext* ctx, const ExecBatch& batch, Datum* out);
 
-void AddZeroCopyCast(InputType in_type, const std::shared_ptr<DataType>& out_type,
-                     CastFunction* func);
+void AddZeroCopyCast(InputType in_type, OutputType out_type, CastFunction* func);
 
 // OutputType::Resolver that returns a descr with the shape of the input
 // argument and the type from CastOptions
@@ -252,7 +254,8 @@ struct MaybeAddFromDictionary {
 
 template <typename T>
 struct MaybeAddFromDictionary<
-    T, enable_if_t<!is_boolean_type<T>::value && !is_nested_type<T>::value>> {
+    T, enable_if_t<!is_boolean_type<T>::value && !is_nested_type<T>::value &&
+                   !std::is_same<DictionaryType, T>::value>> {
   static void Add(const OutputType& out_ty, CastFunction* func) {
     // Dictionary unpacking not implemented for boolean or nested types
     DCHECK_OK(func->AddKernel(Type::DICTIONARY, {InputType::Array(Type::DICTIONARY)},

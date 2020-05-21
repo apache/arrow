@@ -134,7 +134,8 @@ struct CastFunctor<
     const auto& in_type = checked_cast<const I&>(*batch[0].type());
     const auto& out_type = checked_cast<const O&>(*output->type);
 
-    DCHECK_NE(in_type.unit(), out_type.unit()) << "Do not cast equal types";
+    // The units may be equal if the time zones are different. We might go to
+    // lengths to make this zero copy in the future but we leave it for now
 
     auto conversion = util::kTimestampConversionTable[static_cast<int>(in_type.unit())]
                                                      [static_cast<int>(out_type.unit())];
@@ -344,10 +345,7 @@ std::shared_ptr<CastFunction> GetDurationCast() {
   auto nanos = duration(TimeUnit::NANO);
 
   // Same integer representation
-  AddZeroCopyCast(/*in_type=*/int64(), /*out_type=*/seconds, func.get());
-  AddZeroCopyCast(int64(), millis, func.get());
-  AddZeroCopyCast(int64(), micros, func.get());
-  AddZeroCopyCast(int64(), nanos, func.get());
+  AddZeroCopyCast(/*in_type=*/int64(), kOutputTargetType, func.get());
 
   // Between durations
   AddCrossUnitCast<DurationType>(func.get());
@@ -359,12 +357,8 @@ std::shared_ptr<CastFunction> GetTime32Cast() {
   auto func = std::make_shared<CastFunction>("cast_time32", Type::TIME32);
   AddCommonCasts<Date32Type>(kOutputTargetType, func.get());
 
-  auto seconds = time32(TimeUnit::SECOND);
-  auto millis = time32(TimeUnit::MILLI);
-
   // Zero copy when the unit is the same or same integer representation
-  AddZeroCopyCast(int32(), seconds, func.get());
-  AddZeroCopyCast(int32(), millis, func.get());
+  AddZeroCopyCast(/*in_type=*/int32(), kOutputTargetType, func.get());
 
   // time64 -> time32
   AddSimpleCast<Time64Type, Time32Type>(InputType(Type::TIME64), kOutputTargetType,
@@ -380,12 +374,8 @@ std::shared_ptr<CastFunction> GetTime64Cast() {
   auto func = std::make_shared<CastFunction>("cast_time64", Type::TIME64);
   AddCommonCasts<Time64Type>(kOutputTargetType, func.get());
 
-  auto micros = time64(TimeUnit::MICRO);
-  auto nanos = time64(TimeUnit::NANO);
-
   // Zero copy when the unit is the same or same integer representation
-  AddZeroCopyCast(int64(), micros, func.get());
-  AddZeroCopyCast(int64(), nanos, func.get());
+  AddZeroCopyCast(/*in_type=*/int64(), kOutputTargetType, func.get());
 
   // time32 -> time64
   AddSimpleCast<Time32Type, Time64Type>(InputType(Type::TIME32), kOutputTargetType,
@@ -402,11 +392,7 @@ std::shared_ptr<CastFunction> GetTimestampCast() {
   AddCommonCasts<TimestampType>(kOutputTargetType, func.get());
 
   // Same integer representation
-  AddZeroCopyCast(/*in_type=*/int64(), /*out_type=*/timestamp(TimeUnit::SECOND),
-                  func.get());
-  AddZeroCopyCast(int64(), timestamp(TimeUnit::MILLI), func.get());
-  AddZeroCopyCast(int64(), timestamp(TimeUnit::MICRO), func.get());
-  AddZeroCopyCast(int64(), timestamp(TimeUnit::NANO), func.get());
+  AddZeroCopyCast(/*in_type=*/int64(), kOutputTargetType, func.get());
 
   // From date types
   // TODO: ARROW-8876, these casts are not implemented

@@ -63,8 +63,7 @@ void ZeroCopyCastExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   }
 }
 
-void AddZeroCopyCast(InputType in_type, const std::shared_ptr<DataType>& out_type,
-                     CastFunction* func) {
+void AddZeroCopyCast(InputType in_type, OutputType out_type, CastFunction* func) {
   auto sig = KernelSignature::Make({in_type}, out_type);
   ScalarKernel kernel;
   kernel.exec = ZeroCopyCastExec;

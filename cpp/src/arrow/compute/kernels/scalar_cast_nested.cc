@@ -76,7 +76,16 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
   AddCommonCasts<LargeListType>(kOutputTargetType, cast_large_list.get());
   AddListCast<LargeListType>(cast_large_list.get());
 
-  return {cast_list, cast_large_list};
+  // FSL is a bit incomplete at the moment
+  auto cast_fsl =
+      std::make_shared<CastFunction>("cast_fixed_size_list", Type::FIXED_SIZE_LIST);
+  AddCommonCasts<FixedSizeListType>(kOutputTargetType, cast_fsl.get());
+
+  // So is struct
+  auto cast_struct = std::make_shared<CastFunction>("cast_struct", Type::STRUCT);
+  AddCommonCasts<StructType>(kOutputTargetType, cast_struct.get());
+
+  return {cast_list, cast_large_list, cast_fsl, cast_struct};
 }
 
 }  // namespace internal

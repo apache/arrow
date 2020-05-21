@@ -129,8 +129,9 @@ Result<const ScalarKernel*> CastFunction::DispatchExact(
   }
 
   if (candidate_kernels.size() == 0) {
-    return Status::Invalid("Function ", this->name(),
-                           " has no kernel matching input type ", values[0].ToString());
+    return Status::NotImplemented("Function ", this->name(),
+                                  " has no kernel matching input type ",
+                                  values[0].ToString());
   } else if (candidate_kernels.size() == 1) {
     // One match, return it
     return candidate_kernels[0];
@@ -173,7 +174,8 @@ Result<std::shared_ptr<const CastFunction>> GetCastFunction(
   internal::EnsureInitCastTable();
   auto it = internal::g_cast_table.find(static_cast<int>(to_type->id()));
   if (it == internal::g_cast_table.end()) {
-    return Status::Invalid("No cast function available to cast to ", to_type->ToString());
+    return Status::NotImplemented("No cast function available to cast to ",
+                                  to_type->ToString());
   }
   return it->second;
 }

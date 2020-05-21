@@ -260,8 +260,8 @@ cdef class ChunkedArray(_PandasConvertible):
             CDatum out
 
         with nogil:
-            check_status(Cast(_context(), CDatum(self.sp_chunked_array),
-                              type.sp_type, options, &out))
+            out = GetResultValue(Cast(CDatum(self.sp_chunked_array),
+                                      type.sp_type, options))
 
         return pyarrow_wrap_chunked_array(out.chunked_array())
 
@@ -275,12 +275,9 @@ cdef class ChunkedArray(_PandasConvertible):
             Same chunking as the input, all chunks share a common dictionary.
         """
         cdef CDatum out
-
         with nogil:
-            check_status(
-                DictionaryEncode(_context(), CDatum(self.sp_chunked_array),
-                                 &out))
-
+            out = GetResultValue(
+                DictionaryEncode(CDatum(self.sp_chunked_array)))
         return wrap_datum(out)
 
     def flatten(self, MemoryPool memory_pool=None):
@@ -317,8 +314,7 @@ cdef class ChunkedArray(_PandasConvertible):
         cdef shared_ptr[CArray] result
 
         with nogil:
-            check_status(
-                Unique(_context(), CDatum(self.sp_chunked_array), &result))
+            result = GetResultValue(Unique(CDatum(self.sp_chunked_array)))
 
         return pyarrow_wrap_array(result)
 
@@ -333,8 +329,7 @@ cdef class ChunkedArray(_PandasConvertible):
         cdef shared_ptr[CArray] result
 
         with nogil:
-            check_status(ValueCounts(_context(), CDatum(self.sp_chunked_array),
-                                     &result))
+            result = GetResultValue(ValueCounts(CDatum(self.sp_chunked_array)))
         return pyarrow_wrap_array(result)
 
     def slice(self, offset=0, length=None):
@@ -415,9 +410,9 @@ cdef class ChunkedArray(_PandasConvertible):
             filter = CDatum((<ChunkedArray> mask).sp_chunked_array)
 
         with nogil:
-            check_status(
-                FilterKernel(_context(), CDatum(self.sp_chunked_array),
-                             filter, options, &out))
+            out = GetResultValue(
+                FilterKernel(CDatum(self.sp_chunked_array),
+                             filter, options))
 
         return wrap_datum(out)
 
@@ -447,8 +442,8 @@ cdef class ChunkedArray(_PandasConvertible):
         c_indices = asarray(indices)
 
         with nogil:
-            check_status(Take(_context(), deref(self.sp_chunked_array),
-                              deref(c_indices.sp_array), options, &out))
+            out = GetResultValue(Take(deref(self.sp_chunked_array),
+                                      deref(c_indices.sp_array), options))
 
         return pyarrow_wrap_chunked_array(out)
 
@@ -880,9 +875,9 @@ cdef class RecordBatch(_PandasConvertible):
         options = _convert_filter_option(null_selection_behavior)
 
         with nogil:
-            check_status(
-                FilterKernel(_context(), CDatum(self.sp_batch),
-                             CDatum(mask.sp_array), options, &out)
+            out = GetResultValue(
+                FilterKernel(CDatum(self.sp_batch),
+                             CDatum(mask.sp_array), options)
             )
 
         return wrap_datum(out)
@@ -941,8 +936,8 @@ cdef class RecordBatch(_PandasConvertible):
         c_indices = asarray(indices)
 
         with nogil:
-            check_status(Take(_context(), deref(this_batch),
-                              deref(c_indices.sp_array), options, &out))
+            out = GetResultValue(Take(deref(this_batch),
+                                      deref(c_indices.sp_array), options))
 
         return pyarrow_wrap_batch(out)
 
@@ -1306,9 +1301,9 @@ cdef class Table(_PandasConvertible):
             filter = CDatum((<ChunkedArray> mask).sp_chunked_array)
 
         with nogil:
-            check_status(
-                FilterKernel(_context(), CDatum(self.sp_table),
-                             filter, options, &out)
+            out = GetResultValue(
+                FilterKernel(CDatum(self.sp_table),
+                             filter, options)
             )
 
         return wrap_datum(out)
@@ -1339,8 +1334,8 @@ cdef class Table(_PandasConvertible):
         c_indices = asarray(indices)
 
         with nogil:
-            check_status(Take(_context(), deref(self.table),
-                              deref(c_indices.sp_array), options, &out))
+            out = GetResultValue(Take(deref(self.table),
+                                      deref(c_indices.sp_array), options))
 
         return pyarrow_wrap_table(out)
 

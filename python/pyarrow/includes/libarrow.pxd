@@ -1453,9 +1453,9 @@ cdef extern from "arrow/json/reader.h" namespace "arrow::json" nogil:
 
 cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
-    cdef cppclass CFunctionContext" arrow::compute::FunctionContext":
-        CFunctionContext()
-        CFunctionContext(CMemoryPool* pool)
+    cdef cppclass CExecContext" arrow::compute::ExecContext":
+        CExecContext()
+        CExecContext(CMemoryPool* pool)
 
     cdef cppclass CCastOptions" arrow::compute::CastOptions":
         CCastOptions()
@@ -1485,16 +1485,16 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CFilterOptions" arrow::compute::FilterOptions":
         CFilterNullSelectionBehavior null_selection_behavior
 
-    enum DatumType" arrow::compute::Datum::type":
-        DatumType_NONE" arrow::compute::Datum::NONE"
-        DatumType_SCALAR" arrow::compute::Datum::SCALAR"
-        DatumType_ARRAY" arrow::compute::Datum::ARRAY"
-        DatumType_CHUNKED_ARRAY" arrow::compute::Datum::CHUNKED_ARRAY"
-        DatumType_RECORD_BATCH" arrow::compute::Datum::RECORD_BATCH"
-        DatumType_TABLE" arrow::compute::Datum::TABLE"
-        DatumType_COLLECTION" arrow::compute::Datum::COLLECTION"
+    enum DatumType" arrow::Datum::type":
+        DatumType_NONE" arrow::Datum::NONE"
+        DatumType_SCALAR" arrow::Datum::SCALAR"
+        DatumType_ARRAY" arrow::Datum::ARRAY"
+        DatumType_CHUNKED_ARRAY" arrow::Datum::CHUNKED_ARRAY"
+        DatumType_RECORD_BATCH" arrow::Datum::RECORD_BATCH"
+        DatumType_TABLE" arrow::Datum::TABLE"
+        DatumType_COLLECTION" arrow::Datum::COLLECTION"
 
-    cdef cppclass CDatum" arrow::compute::Datum":
+    cdef cppclass CDatum" arrow::Datum":
         CDatum()
         CDatum(const shared_ptr[CArray]& value)
         CDatum(const shared_ptr[CChunkedArray]& value)
@@ -1509,43 +1509,39 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         shared_ptr[CTable] table()
         shared_ptr[CScalar] scalar()
 
-    CStatus Cast(CFunctionContext* context, const CArray& array,
-                 const shared_ptr[CDataType]& to_type,
-                 const CCastOptions& options,
-                 shared_ptr[CArray]* out)
+    CResult[shared_ptr[CArray]] Cast" arrow::compute::Cast"(
+        const CArray& array,
+        const shared_ptr[CDataType]& to_type,
+        const CCastOptions& options)
 
-    CStatus Cast(CFunctionContext* context, const CDatum& value,
-                 const shared_ptr[CDataType]& to_type,
-                 const CCastOptions& options, CDatum* out)
+    CResult[CDatum] Cast(const CDatum& value,
+                         const shared_ptr[CDataType]& to_type,
+                         const CCastOptions& options)
 
-    CStatus Unique(CFunctionContext* context, const CDatum& value,
-                   shared_ptr[CArray]* out)
+    CResult[shared_ptr[CArray]] Unique(const CDatum& value)
 
-    CStatus DictionaryEncode(CFunctionContext* context, const CDatum& value,
-                             CDatum* out)
+    CResult[CDatum] DictionaryEncode(CDatum& value)
 
-    CStatus ValueCounts(CFunctionContext* context, const CDatum& value,
-                        shared_ptr[CArray]* out)
+    CResult[shared_ptr[CArray]] ValueCounts(const CDatum& value)
 
-    CStatus Sum(CFunctionContext* context, const CDatum& value, CDatum* out)
+    CResult[CDatum] Sum(const CDatum& value)
 
-    CStatus Take(CFunctionContext* context, const CDatum& values,
-                 const CDatum& indices, const CTakeOptions& options,
-                 CDatum* out)
-    CStatus Take(CFunctionContext* context, const CChunkedArray& values,
-                 const CArray& indices, const CTakeOptions& options,
-                 shared_ptr[CChunkedArray]* out)
-    CStatus Take(CFunctionContext* context, const CRecordBatch& batch,
-                 const CArray& indices, const CTakeOptions& options,
-                 shared_ptr[CRecordBatch]* out)
-    CStatus Take(CFunctionContext* context, const CTable& table,
-                 const CArray& indices, const CTakeOptions& options,
-                 shared_ptr[CTable]* out)
+    CResult[CDatum] Take(const CDatum& values, const CDatum& indices,
+                         const CTakeOptions& options)
+
+    CResult[shared_ptr[CChunkedArray]] Take(const CChunkedArray& values,
+                                            const CArray& indices,
+                                            const CTakeOptions& options)
+    CResult[shared_ptr[CRecordBatch]] Take(const CRecordBatch& batch,
+                                           const CArray& indices,
+                                           const CTakeOptions& options)
+    CResult[shared_ptr[CTable]] Take(const CTable& table,
+                                     const CArray& indices,
+                                     const CTakeOptions& options)
 
     # Filter clashes with gandiva.pyx::Filter
-    CStatus FilterKernel" arrow::compute::Filter"(
-        CFunctionContext* ctx, const CDatum& values,
-        const CDatum& filter, CFilterOptions options, CDatum* out)
+    CResult[CDatum] FilterKernel" arrow::compute::Filter"(
+        const CDatum& values, const CDatum& filter, CFilterOptions options)
 
     enum CCompareOperator "arrow::compute::CompareOperator":
         CCompareOperator_EQUAL "arrow::compute::CompareOperator::EQUAL"

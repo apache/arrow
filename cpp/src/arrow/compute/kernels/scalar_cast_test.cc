@@ -1216,7 +1216,7 @@ TEST_F(TestCast, UnsupportedTarget) {
   std::shared_ptr<Array> arr;
   ArrayFromVector<Int32Type, int32_t>(int32(), is_valid, v1, &arr);
 
-  ASSERT_RAISES(Invalid, Cast(*arr, list(utf8())));
+  ASSERT_RAISES(NotImplemented, Cast(*arr, list(utf8())));
 }
 
 TEST_F(TestCast, DateTimeZeroCopy) {
@@ -1322,8 +1322,8 @@ TEST_F(TestCast, ListToPrimitive) {
   auto from_int = ArrayFromJSON(list(int8()), "[[1, 2], [3, 4]]");
   auto from_binary = ArrayFromJSON(list(binary()), "[[\"1\", \"2\"], [\"3\", \"4\"]]");
 
-  ASSERT_RAISES(Invalid, Cast(*from_int, uint8()));
-  ASSERT_RAISES(Invalid, Cast(*from_binary, utf8()));
+  ASSERT_RAISES(NotImplemented, Cast(*from_int, uint8()));
+  ASSERT_RAISES(NotImplemented, Cast(*from_binary, utf8()));
 }
 
 TEST_F(TestCast, ListToList) {
@@ -1530,7 +1530,7 @@ TYPED_TEST(TestDictionaryCast, DISABLED_OutTypeError) {
   auto out_type = (plain_array->type()->id() == Type::INT8) ? binary() : int8();
   // Test an output type that's not part of TestTypes.
   out_type = list(in_type);
-  ASSERT_RAISES(Invalid, GetCastFunction(out_type));
+  ASSERT_RAISES(NotImplemented, GetCastFunction(out_type));
 }
 
 std::shared_ptr<Array> SmallintArrayFromJSON(const std::string& json_data) {

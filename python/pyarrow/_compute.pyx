@@ -20,18 +20,18 @@
 from pyarrow.lib cimport (
     Array,
     wrap_datum,
-    _context,
     check_status,
     ChunkedArray
 )
 from pyarrow.includes.libarrow cimport CDatum, Sum
+from pyarrow.includes.common cimport *
 
 
 cdef _sum_array(array: Array):
     cdef CDatum out
 
     with nogil:
-        check_status(Sum(_context(), CDatum(array.sp_array), &out))
+        out = GetResultValue(Sum(CDatum(array.sp_array)))
 
     return wrap_datum(out)
 
@@ -40,7 +40,7 @@ cdef _sum_chunked_array(array: ChunkedArray):
     cdef CDatum out
 
     with nogil:
-        check_status(Sum(_context(), CDatum(array.sp_chunked_array), &out))
+        out = GetResultValue(Sum(CDatum(array.sp_chunked_array)))
 
     return wrap_datum(out)
 
