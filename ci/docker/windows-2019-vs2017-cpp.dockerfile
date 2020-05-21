@@ -17,6 +17,7 @@ RUN choco install -y cmake --installargs 'ADD_CMAKE_TO_PATH=System'
 # RUN choco install -y gzip wget
 
 # Install vcpkg
+# Todo(kszucs): no need to call integrate
 RUN git clone --branch 2020.04 https://github.com/Microsoft/vcpkg && \
     vcpkg\bootstrap-vcpkg.bat && \
     vcpkg\vcpkg.exe integrate install && \
@@ -47,21 +48,34 @@ RUN vcpkg install --clean-after-build \
         thrift \
         zstd
 
+RUN choco install -y wget gzip
+RUN wget https://github.com/lucasg/Dependencies/releases/download/v1.10/Dependencies_x64_Release.zip
+RUN unzip Dependencies_x64_Release.zip -d Dependencies
+
+RUN vcpkg install boost-process
+
+# TODO(kszucs): enable dataset
 ENV \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=ON \
     ARROW_BUILD_TYPE=debug \
+    ARROW_COMPUTE=ON \
+    ARROW_CSV=ON \
+    ARROW_DATASET=OFF \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
+    ARROW_FILESYSTEM=ON \
+    ARROW_HDFS=ON \
     ARROW_HOME=/usr \
-    ARROW_VERBOSE_THIRDPARTY_BUILD=ON \
-    CMAKE_GENERATOR="Visual Studio 15 2017 Win64" \
-    CMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake" \
-    ARROW_WITH_ZSTD=OFF \
-    ARROW_WITH_SNAPPY=ON \
-    ARROW_WITH_BROTLI=ON \
     ARROW_PARQUET=ON \
-    ARROW_DATASET=ON \
-    ARROW_HDFS=ON
+    ARROW_VERBOSE_THIRDPARTY_BUILD=ON \
+    ARROW_WITH_BROTLI=ON \
+    ARROW_WITH_SNAPPY=ON \
+    ARROW_WITH_ZSTD=ON \
+    ARROW_WITH_LZ4=OFF \
+    ARROW_FLIGHT=ON \
+    CMAKE_GENERATOR="Visual Studio 15 2017 Win64" \
+    CMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake"
+
 
 # RUN ["bash", "-c", "/c/arrow/ci/scripts/cpp_build.sh /c/arrow /c/build && /c/arrow/ci/scripts/cpp_test.sh /c/arrow /c/build"]
 
@@ -73,17 +87,11 @@ ENV \
 #     ARROW_FLIGHT=OFF \
 #     ARROW_GANDIVA=OFF \
 #     ARROW_ORC=ON \
-#     ARROW_PARQUET=OFF \
 #     ARROW_S3=OFF \
-#     ARROW_JEMALLOC=OFF \
-#     ARROW_WITH_BROTLI=OFF \
-#     ARROW_WITH_SNAPPY=OFF \
 #     ARROW_BUILD_STATIC=OFF \
 #     PARQUET_BUILD_EXECUTABLES=ON \
 #     PARQUET_BUILD_EXAMPLES=ON \
 #     CMAKE_BUILD_TYPE="Release" \
-#     CMAKE_GENERATOR="Visual Studio 15 2017 Win64" \
-#     CMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake" \
 #     CXXFLAGS="//MD"
 
 # refreshenv

@@ -15,18 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if(MSVC AND NOT DEFINED ZSTD_MSVC_STATIC_LIB_SUFFIX)
-  set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static")
+if(MSVC)
+  if(NOT DEFINED ZSTD_MSVC_STATIC_LIB_SUFFIX)
+    set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static")
+  endif()
+  if(CMAKE_BUILD_TYPE STREQUAL "DEBUG")
+    set(ZSTD_LIB_NAME_DEBUG_SUFFIX d)
+  endif()
 endif()
 
-set(ZSTD_STATIC_LIB_SUFFIX "${ZSTD_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+set(ZSTD_STATIC_LIB_SUFFIX "${ZSTD_MSVC_STATIC_LIB_SUFFIX}${ZSTD_LIB_NAME_DEBUG_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
 set(ZSTD_STATIC_LIB_NAME ${CMAKE_STATIC_LIBRARY_PREFIX}zstd${ZSTD_STATIC_LIB_SUFFIX})
 
 # First, find via if specified ZTD_ROOT
 if(ZSTD_ROOT)
   message(STATUS "Using ZSTD_ROOT: ${ZSTD_ROOT}")
   find_library(ZSTD_LIB
-               NAMES zstd "${ZSTD_STATIC_LIB_NAME}" "lib${ZSTD_STATIC_LIB_NAME}"
+               NAMES zstd${ZSTD_LIB_NAME_DEBUG_SUFFIX} "${ZSTD_STATIC_LIB_NAME}" "lib${ZSTD_STATIC_LIB_NAME}"
                      "${CMAKE_SHARED_LIBRARY_PREFIX}zstd${CMAKE_SHARED_LIBRARY_SUFFIX}"
                PATHS ${ZSTD_ROOT}
                PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
@@ -51,7 +56,7 @@ else()
     # Third, check all other CMake paths
   else()
     find_library(ZSTD_LIB
-                 NAMES zstd "${ZSTD_STATIC_LIB_NAME}" "lib${ZSTD_STATIC_LIB_NAME}"
+                 NAMES zstd${ZSTD_LIB_NAME_DEBUG_SUFFIX} "${ZSTD_STATIC_LIB_NAME}" "lib${ZSTD_STATIC_LIB_NAME}"
                        "${CMAKE_SHARED_LIBRARY_PREFIX}zstd${CMAKE_SHARED_LIBRARY_SUFFIX}"
                  PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
     find_path(ZSTD_INCLUDE_DIR NAMES zstd.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
