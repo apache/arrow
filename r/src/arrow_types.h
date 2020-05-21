@@ -38,7 +38,7 @@ inline constexpr Rbyte default_value<RAWSXP>() {
 }  // namespace Rcpp
 
 #if defined(ARROW_R_WITH_ARROW)
-#include <arrow/buffer.h> // for RBuffer definition below
+#include <arrow/buffer.h>  // for RBuffer definition below
 #include <arrow/result.h>
 #include <arrow/type_fwd.h>
 // Do we need ubsan always there?

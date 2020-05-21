@@ -23,8 +23,8 @@
 #include <arrow/io/memory.h>
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
-#include <arrow/util/key_value_metadata.h>
 #include <arrow/type.h>
+#include <arrow/util/key_value_metadata.h>
 
 // [[arrow::export]]
 int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x) {
