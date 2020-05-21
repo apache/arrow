@@ -297,3 +297,17 @@ jobs:
           $build_dir = "$(cygpath --unix "$(Get-Location)\build")"
           $ErrorActionPreference = "Continue"
           bash ci\scripts\cpp_test.sh "${source_dir}" "${build_dir}"
+
+  windows-docker:
+    name: AMD64 ${{ matrix.name }} Docker C++
+    runs-on: windows-latest
+    # if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    - name: Setup Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.8
+    - name: Setup Archery
+      run: pip install -e dev/archery[docker]
+    - name: Execute Docker Build
+      run: |
+        archery docker run windows-cpp
