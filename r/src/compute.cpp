@@ -35,10 +35,7 @@ std::shared_ptr<arrow::Array> Array__cast(
     const std::shared_ptr<arrow::Array>& array,
     const std::shared_ptr<arrow::DataType>& target_type,
     const std::shared_ptr<arrow::compute::CastOptions>& options) {
-  std::shared_ptr<arrow::Array> out;
-  arrow::compute::FunctionContext context;
-  StopIfNotOk(arrow::compute::Cast(&context, *array, target_type, *options, &out));
-  return out;
+  return ValueOrStop(arrow::compute::Cast(*array, target_type, *options));
 }
 
 // [[arrow::export]]
@@ -46,10 +43,8 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__cast(
     const std::shared_ptr<arrow::ChunkedArray>& chunked_array,
     const std::shared_ptr<arrow::DataType>& target_type,
     const std::shared_ptr<arrow::compute::CastOptions>& options) {
-  arrow::compute::Datum value(chunked_array);
-  arrow::compute::Datum out;
-  arrow::compute::FunctionContext context;
-  StopIfNotOk(arrow::compute::Cast(&context, value, target_type, *options, &out));
+  arrow::Datum value(chunked_array);
+  arrow::Datum out = ValueOrStop(arrow::compute::Cast(value, target_type, *options));
   return out.chunked_array();
 }
 
@@ -86,95 +81,67 @@ std::shared_ptr<arrow::Table> Table__cast(
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__Take(const std::shared_ptr<arrow::Array>& values,
                                           const std::shared_ptr<arrow::Array>& indices) {
-  std::shared_ptr<arrow::Array> out;
-  arrow::compute::FunctionContext context;
   arrow::compute::TakeOptions options;
-  StopIfNotOk(arrow::compute::Take(&context, *values, *indices, options, &out));
-  return out;
+  return ValueOrStop(arrow::compute::Take(*values, *indices, options));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> Array__TakeChunked(
     const std::shared_ptr<arrow::Array>& values,
     const std::shared_ptr<arrow::ChunkedArray>& indices) {
-  std::shared_ptr<arrow::ChunkedArray> out;
-  arrow::compute::FunctionContext context;
   arrow::compute::TakeOptions options;
-
-  StopIfNotOk(arrow::compute::Take(&context, *values, *indices, options, &out));
-  return out;
+  return ValueOrStop(arrow::compute::Take(*values, *indices, options));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Take(
     const std::shared_ptr<arrow::RecordBatch>& batch,
     const std::shared_ptr<arrow::Array>& indices) {
-  std::shared_ptr<arrow::RecordBatch> out;
-  arrow::compute::FunctionContext context;
   arrow::compute::TakeOptions options;
-  StopIfNotOk(arrow::compute::Take(&context, *batch, *indices, options, &out));
-  return out;
+  return ValueOrStop(arrow::compute::Take(*batch, *indices, options));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Take(
     const std::shared_ptr<arrow::ChunkedArray>& values,
     const std::shared_ptr<arrow::Array>& indices) {
-  std::shared_ptr<arrow::ChunkedArray> out;
-  arrow::compute::FunctionContext context;
   arrow::compute::TakeOptions options;
-
-  StopIfNotOk(arrow::compute::Take(&context, *values, *indices, options, &out));
-  return out;
+  return ValueOrStop(arrow::compute::Take(*values, *indices, options));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__TakeChunked(
     const std::shared_ptr<arrow::ChunkedArray>& values,
     const std::shared_ptr<arrow::ChunkedArray>& indices) {
-  std::shared_ptr<arrow::ChunkedArray> out;
-  arrow::compute::FunctionContext context;
   arrow::compute::TakeOptions options;
-
-  StopIfNotOk(arrow::compute::Take(&context, *values, *indices, options, &out));
-  return out;
+  return ValueOrStop(arrow::compute::Take(*values, *indices, options));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__Take(const std::shared_ptr<arrow::Table>& table,
                                           const std::shared_ptr<arrow::Array>& indices) {
-  std::shared_ptr<arrow::Table> out;
-  arrow::compute::FunctionContext context;
   arrow::compute::TakeOptions options;
-
-  StopIfNotOk(arrow::compute::Take(&context, *table, *indices, options, &out));
-  return out;
+  return ValueOrStop(arrow::compute::Take(*table, *indices, options));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__TakeChunked(
     const std::shared_ptr<arrow::Table>& table,
     const std::shared_ptr<arrow::ChunkedArray>& indices) {
-  std::shared_ptr<arrow::Table> out;
-  arrow::compute::FunctionContext context;
   arrow::compute::TakeOptions options;
-
-  StopIfNotOk(arrow::compute::Take(&context, *table, *indices, options, &out));
-  return out;
+  return ValueOrStop(arrow::compute::Take(*table, *indices, options));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__Filter(const std::shared_ptr<arrow::Array>& values,
                                             const std::shared_ptr<arrow::Array>& filter,
                                             bool keep_na) {
-  arrow::compute::FunctionContext context;
-  arrow::compute::Datum out;
   // Use the EMIT_NULL filter option to match R's behavior in [
   arrow::compute::FilterOptions options;
   if (keep_na) {
     options.null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
   }
-  StopIfNotOk(arrow::compute::Filter(&context, values, filter, {}, &out));
+  arrow::Datum out = ValueOrStop(arrow::compute::Filter(values, filter, options));
   return out.make_array();
 }
 
@@ -182,14 +149,12 @@ std::shared_ptr<arrow::Array> Array__Filter(const std::shared_ptr<arrow::Array>&
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Filter(
     const std::shared_ptr<arrow::RecordBatch>& batch,
     const std::shared_ptr<arrow::Array>& filter, bool keep_na) {
-  arrow::compute::FunctionContext context;
-  arrow::compute::Datum out;
   // Use the EMIT_NULL filter option to match R's behavior in [
   arrow::compute::FilterOptions options;
   if (keep_na) {
     options.null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
   }
-  StopIfNotOk(arrow::compute::Filter(&context, batch, filter, options, &out));
+  arrow::Datum out = ValueOrStop(arrow::compute::Filter(batch, filter, options));
   return out.record_batch();
 }
 
@@ -197,14 +162,12 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__Filter(
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Filter(
     const std::shared_ptr<arrow::ChunkedArray>& values,
     const std::shared_ptr<arrow::Array>& filter, bool keep_na) {
-  arrow::compute::FunctionContext context;
-  arrow::compute::Datum out;
   // Use the EMIT_NULL filter option to match R's behavior in [
   arrow::compute::FilterOptions options;
   if (keep_na) {
     options.null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
   }
-  StopIfNotOk(arrow::compute::Filter(&context, values, filter, options, &out));
+  arrow::Datum out = ValueOrStop(arrow::compute::Filter(values, filter, options));
   return out.chunked_array();
 }
 
@@ -212,14 +175,12 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Filter(
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__FilterChunked(
     const std::shared_ptr<arrow::ChunkedArray>& values,
     const std::shared_ptr<arrow::ChunkedArray>& filter, bool keep_na) {
-  arrow::compute::FunctionContext context;
-  arrow::compute::Datum out;
   // Use the EMIT_NULL filter option to match R's behavior in [
   arrow::compute::FilterOptions options;
   if (keep_na) {
     options.null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
   }
-  StopIfNotOk(arrow::compute::Filter(&context, values, filter, options, &out));
+  arrow::Datum out = ValueOrStop(arrow::compute::Filter(values, filter, options));
   return out.chunked_array();
 }
 
@@ -227,14 +188,12 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__FilterChunked(
 std::shared_ptr<arrow::Table> Table__Filter(const std::shared_ptr<arrow::Table>& table,
                                             const std::shared_ptr<arrow::Array>& filter,
                                             bool keep_na) {
-  arrow::compute::FunctionContext context;
-  arrow::compute::Datum out;
   // Use the EMIT_NULL filter option to match R's behavior in [
   arrow::compute::FilterOptions options;
   if (keep_na) {
     options.null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
   }
-  StopIfNotOk(arrow::compute::Filter(&context, table, filter, options, &out));
+  arrow::Datum out = ValueOrStop(arrow::compute::Filter(table, filter, options));
   std::shared_ptr<arrow::Table> tab = out.table();
   if (tab->num_rows() == 0) {
     // Slight hack: if there are no rows in the result, instead do a 0-length
@@ -249,14 +208,12 @@ std::shared_ptr<arrow::Table> Table__Filter(const std::shared_ptr<arrow::Table>&
 std::shared_ptr<arrow::Table> Table__FilterChunked(
     const std::shared_ptr<arrow::Table>& table,
     const std::shared_ptr<arrow::ChunkedArray>& filter, bool keep_na) {
-  arrow::compute::FunctionContext context;
-  arrow::compute::Datum out;
   // Use the EMIT_NULL filter option to match R's behavior in [
   arrow::compute::FilterOptions options;
   if (keep_na) {
     options.null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
   }
-  StopIfNotOk(arrow::compute::Filter(&context, table, filter, options, &out));
+  arrow::Datum out = ValueOrStop(arrow::compute::Filter(table, filter, options));
   std::shared_ptr<arrow::Table> tab = out.table();
   if (tab->num_rows() == 0) {
     // Slight hack: if there are no rows in the result, instead do a 0-length
