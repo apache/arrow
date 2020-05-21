@@ -393,6 +393,7 @@ impl<R: Read> Reader<R> {
             })
             .map(|field| {
                 match field.data_type().clone() {
+                    DataType::Null => unimplemented!(),
                     DataType::Boolean => self.build_boolean_array(rows, field.name()),
                     DataType::Float64 => {
                         self.build_primitive_array::<Float64Type>(rows, field.name())
@@ -440,6 +441,7 @@ impl<R: Read> Reader<R> {
                         DataType::UInt64 => self.build_list_array::<UInt64Type>(rows, field.name()),
                         DataType::Float32 => self.build_list_array::<Float32Type>(rows, field.name()),
                         DataType::Float64 => self.build_list_array::<Float64Type>(rows, field.name()),
+                        DataType::Null => unimplemented!(),
                         DataType::Boolean => self.build_boolean_list_array(rows, field.name()),
                         DataType::Utf8 => {
                             let values_builder = StringBuilder::new(rows.len() * 5);

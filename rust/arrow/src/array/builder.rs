@@ -1084,6 +1084,7 @@ impl StructBuilder {
 
     fn from_field(f: Field, capacity: usize) -> Box<ArrayBuilder> {
         match f.data_type() {
+            DataType::Null => unimplemented!(),
             DataType::Boolean => Box::new(BooleanBuilder::new(capacity)),
             DataType::Int8 => Box::new(Int8Builder::new(capacity)),
             DataType::Int16 => Box::new(Int16Builder::new(capacity)),
