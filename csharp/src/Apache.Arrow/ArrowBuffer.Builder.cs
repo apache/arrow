@@ -160,6 +160,10 @@ namespace Apache.Arrow
             /// Resize the buffer to a given size.
             /// </summary>
             /// <remarks>
+            /// Note that if the required capacity is larger than the current length of the populated buffer so far,
+            /// the buffer's contents in the new, expanded region are undefined.
+            /// </remarks>
+            /// <remarks>
             /// Note that if the required capacity is smaller than the current length of the populated buffer so far,
             /// the buffer will be truncated and items at the end of the buffer will be lost.
             /// </remarks>

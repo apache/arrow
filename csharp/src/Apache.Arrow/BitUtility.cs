@@ -73,23 +73,64 @@ namespace Apache.Arrow
         /// </summary>
         /// <param name="data">Span to count bits</param>
         /// <param name="offset">Bit offset to start counting from</param>
-        /// <returns>Count of set (one) bits/returns>
-        public static int CountBits(ReadOnlySpan<byte> data, int offset)
-        {
-            var start = (offset / 8);
-            var startBit = offset % 8;
+        /// <returns>Count of set (one) bits</returns>
+        public static int CountBits(ReadOnlySpan<byte> data, int offset) =>
+            CountBits(data, offset, data.Length * 8 - offset);
 
-            if (startBit < 0) return 0;
-            if (startBit == 0) return CountBits(data);
+        /// <summary>
+        /// Counts the number of set bits in a span of bytes starting
+        /// at a specific bit offset, and limiting to a certain number of bits
+        /// in the span.
+        /// </summary>
+        /// <param name="data">Span to count bits.</param>
+        /// <param name="offset">Bit offset to start counting from.</param>
+        /// <param name="length">Maximum of bits in the span to consider.</param>
+        /// <returns>Count of set (one) bits</returns>
+        public static int CountBits(ReadOnlySpan<byte> data, int offset, int length)
+        {
+            var startByteIndex = offset / 8;
+            var startBitOffset = offset % 8;
+            var endByteIndex = (offset + length - 1) / 8;
+            var endBitOffset = (offset + length - 1) % 8;
+            if (startBitOffset < 0)
+                return 0;
 
             var count = 0;
-
-            count += CountBits(data.Slice(start + 1));
-
-            for (var i = startBit; i < 8; i++)
+            if (startByteIndex == endByteIndex)
             {
-                if (GetBit(data.Slice(start, 1), i))
-                    count++;
+                // Range starts and ends within the same byte.
+                var slice = data.Slice(startByteIndex, 1);
+                for (var i = startBitOffset; i <= endBitOffset; i++)
+                    count += GetBit(slice, i) ? 1 : 0;
+
+                return count;
+            }
+
+            // If the starting index and ending index are not byte-aligned,
+            // we'll need to count bits the slow way.  If they are
+            // byte-aligned, and for all other bytes in the 'middle', we
+            // can use a faster byte-aligned count.
+            var fullByteStartIndex = startBitOffset == 0 ? startByteIndex : startByteIndex + 1;
+            var fullByteEndIndex = endBitOffset == 7 ? endByteIndex : endByteIndex - 1;
+
+            if (startBitOffset != 0)
+            {
+                var slice = data.Slice(startByteIndex, 1);
+                for (var i = startBitOffset; i <= 7; i++)
+                    count += GetBit(slice, i) ? 1 : 0;
+            }
+
+            if (fullByteEndIndex >= fullByteStartIndex)
+            {
+                count += CountBits(data.Slice(
+                    fullByteStartIndex, fullByteEndIndex - fullByteStartIndex + 1));
+            }
+
+            if (endBitOffset != 7)
+            {
+                var slice = data.Slice(endByteIndex, 1);
+                for (var i = 0; i <= endBitOffset; i++)
+                    count += GetBit(slice, i) ? 1 : 0;
             }
 
             return count;

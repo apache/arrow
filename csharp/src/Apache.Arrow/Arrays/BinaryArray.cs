@@ -58,7 +58,7 @@ namespace Apache.Arrow
             protected ArrowBuffer.Builder<byte> ValueBuffer { get; }
             protected ArrowBuffer.BitmapBuilder ValidityBuffer { get; }
             protected int Offset { get; set; }
-            protected int NullCount => this.ValidityBuffer.CountUnsetBits();
+            protected int NullCount => this.ValidityBuffer.NumUnsetBits;
 
             protected BuilderBase(IArrowType dataType)
             {

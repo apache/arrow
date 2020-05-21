@@ -51,6 +51,16 @@ namespace Apache.Arrow
             public Span<byte> Span => Memory.Span;
 
             /// <summary>
+            /// Gets the number of set bits (i.e. set to 1).
+            /// </summary>
+            public int NumSetBits { get; private set; }
+
+            /// <summary>
+            /// Gets the number of unset bits (i.e. set to 0).
+            /// </summary>
+            public int NumUnsetBits => Length - NumSetBits;
+
+            /// <summary>
             /// Creates an instance of the <see cref="BitmapBuilder"/> class.
             /// </summary>
             /// <param name="capacity">Number of bits of initial capacity to reserve.</param>
@@ -58,7 +68,6 @@ namespace Apache.Arrow
             {
                 Memory = new byte[BitUtility.ByteCount(capacity)];
                 Capacity = capacity;
-                Length = 0;
             }
 
             /// <summary>
@@ -76,6 +85,7 @@ namespace Apache.Arrow
 
                 BitUtility.SetBit(Span, Length, value);
                 Length++;
+                NumSetBits += value ? 1 : 0;
                 return this;
             }
 
@@ -98,18 +108,6 @@ namespace Apache.Arrow
             }
 
             /// <summary>
-            /// Count the number of set bits (i.e. set to 1).
-            /// </summary>
-            /// <returns>Returns the number of set bits.</returns>
-            public int CountSetBits() => BitUtility.CountBits(this.Span);
-
-            /// <summary>
-            /// Count the number of unset bits (i.e. set to 0).
-            /// </summary>
-            /// <returns>Returns the number of unset bits.</returns>
-            public int CountUnsetBits() => this.Length - this.CountSetBits();
-
-            /// <summary>
             /// Toggle the bit at a particular index.
             /// </summary>
             /// <param name="index">Index of bit to toggle.</param>
@@ -118,6 +116,7 @@ namespace Apache.Arrow
             {
                 CheckIndex(index);
                 BitUtility.ToggleBit(Span, index);
+                NumSetBits = BitUtility.CountBits(Span, 0, Length);
                 return this;
             }
 
@@ -130,6 +129,7 @@ namespace Apache.Arrow
             {
                 CheckIndex(index);
                 BitUtility.SetBit(Span, index);
+                NumSetBits = BitUtility.CountBits(Span, 0, Length);
                 return this;
             }
 
@@ -143,6 +143,7 @@ namespace Apache.Arrow
             {
                 CheckIndex(index);
                 BitUtility.SetBit(Span, index, value);
+                NumSetBits = BitUtility.CountBits(Span, 0, Length);
                 return this;
             }
 
@@ -183,6 +184,10 @@ namespace Apache.Arrow
             /// Resize the buffer to a given size.
             /// </summary>
             /// <remarks>
+            /// Note that if the required capacity is larger than the current length of the populated buffer so far,
+            /// the buffer's contents in the new, expanded region are undefined.
+            /// </remarks>
+            /// <remarks>
             /// Note that if the required capacity is smaller than the current length of the populated buffer so far,
             /// the buffer will be truncated and items at the end of the buffer will be lost.
             /// </remarks>
@@ -197,6 +202,8 @@ namespace Apache.Arrow
                 EnsureCapacity(capacity);
                 Length = capacity;
 
+                NumSetBits = BitUtility.CountBits(Span, 0, Length);
+
                 return this;
             }
 
@@ -208,6 +215,7 @@ namespace Apache.Arrow
             {
                 Span.Fill(default);
                 Length = 0;
+                NumSetBits = 0;
                 return this;
             }
 
