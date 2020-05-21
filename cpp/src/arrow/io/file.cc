@@ -26,6 +26,7 @@
 #undef Realloc
 #undef Free
 #else
+#include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>  // IWYU pragma: keep
 #endif
@@ -56,6 +57,9 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
+
+using internal::IOErrorFromErrno;
+
 namespace io {
 
 class OSFile {
@@ -262,6 +266,27 @@ class ReadableFile::ReadableFileImpl : public OSFile {
     return std::move(buffer);
   }
 
+  Status WillNeed(const std::vector<ReadRange>& ranges) {
+    RETURN_NOT_OK(CheckClosed());
+    for (const auto& range : ranges) {
+      RETURN_NOT_OK(internal::ValidateRange(range.offset, range.length));
+#if defined(POSIX_FADV_WILLNEED)
+      if (posix_fadvise(fd_, range.offset, range.length, POSIX_FADV_WILLNEED)) {
+        return IOErrorFromErrno(errno, "posix_fadvise failed");
+      }
+#elif defined(F_RDADVISE)  // macOS, BSD?
+      struct {
+        off_t ra_offset;
+        int ra_count;
+      } radvisory{range.offset, static_cast<int>(range.length)};
+      if (radvisory.ra_count > 0 && fcntl(fd_, F_RDADVISE, &radvisory) == -1) {
+        return IOErrorFromErrno(errno, "fcntl(fd, F_RDADVISE, ...) failed");
+      }
+#endif
+    }
+    return Status::OK();
+  }
+
  private:
   MemoryPool* pool_;
 };
@@ -286,6 +311,10 @@ Result<std::shared_ptr<ReadableFile>> ReadableFile::Open(int fd, MemoryPool* poo
 Status ReadableFile::DoClose() { return impl_->Close(); }
 
 bool ReadableFile::closed() const { return !impl_->is_open(); }
+
+Status ReadableFile::WillNeed(const std::vector<ReadRange>& ranges) {
+  return impl_->WillNeed(ranges);
+}
 
 Result<int64_t> ReadableFile::DoTell() const { return impl_->Tell(); }
 
@@ -636,6 +665,9 @@ Result<std::shared_ptr<Buffer>> MemoryMappedFile::ReadAt(int64_t position,
 
   ARROW_ASSIGN_OR_RAISE(
       nbytes, internal::ValidateReadRange(position, nbytes, memory_map_->size()));
+  // Arrange to page data in
+  RETURN_NOT_OK(::arrow::internal::MemoryAdviseWillNeed(
+      {{memory_map_->data() + position, static_cast<size_t>(nbytes)}}));
   return memory_map_->Slice(position, nbytes);
 }
 
@@ -644,6 +676,7 @@ Result<int64_t> MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes, void*
   auto guard_resize = memory_map_->writable()
                           ? std::unique_lock<std::mutex>(memory_map_->resize_lock())
                           : std::unique_lock<std::mutex>();
+
   ARROW_ASSIGN_OR_RAISE(
       nbytes, internal::ValidateReadRange(position, nbytes, memory_map_->size()));
   if (nbytes > 0) {
@@ -670,6 +703,27 @@ Future<std::shared_ptr<Buffer>> MemoryMappedFile::ReadAsync(const AsyncContext&,
                                                             int64_t position,
                                                             int64_t nbytes) {
   return Future<std::shared_ptr<Buffer>>::MakeFinished(ReadAt(position, nbytes));
+}
+
+Status MemoryMappedFile::WillNeed(const std::vector<ReadRange>& ranges) {
+  using ::arrow::internal::MemoryRegion;
+
+  RETURN_NOT_OK(memory_map_->CheckClosed());
+  auto guard_resize = memory_map_->writable()
+                          ? std::unique_lock<std::mutex>(memory_map_->resize_lock())
+                          : std::unique_lock<std::mutex>();
+
+  std::vector<MemoryRegion> regions(ranges.size());
+  for (size_t i = 0; i < ranges.size(); ++i) {
+    const auto& range = ranges[i];
+    ARROW_ASSIGN_OR_RAISE(
+        auto size,
+        internal::ValidateReadRange(range.offset, range.length, memory_map_->size()));
+    DCHECK_NE(memory_map_->data(), nullptr);
+    regions[i] = {const_cast<uint8_t*>(memory_map_->data() + range.offset),
+                  static_cast<size_t>(size)};
+  }
+  return ::arrow::internal::MemoryAdviseWillNeed(regions);
 }
 
 bool MemoryMappedFile::supports_zero_copy() const { return true; }

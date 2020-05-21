@@ -45,6 +45,14 @@ std::shared_ptr<arrow::Schema> Table__schema(const std::shared_ptr<arrow::Table>
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__ReplaceSchemaMetadata(
+    const std::shared_ptr<arrow::Table>& x, Rcpp::CharacterVector metadata) {
+  auto kv = std::shared_ptr<arrow::KeyValueMetadata>(new arrow::KeyValueMetadata(
+      metadata.names(), Rcpp::as<std::vector<std::string>>(metadata)));
+  return x->ReplaceSchemaMetadata(kv);
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> Table__column(
     const std::shared_ptr<arrow::Table>& table, int i) {
   arrow::r::validate_index(i, table->num_columns());

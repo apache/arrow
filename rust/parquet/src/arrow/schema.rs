@@ -142,6 +142,7 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
     };
     // create type from field
     match field.data_type() {
+        DataType::Null => Err(ArrowError("Null arrays not supported".to_string())),
         DataType::Boolean => Type::primitive_type_builder(name, PhysicalType::BOOLEAN)
             .with_repetition(repetition)
             .build(),
@@ -262,6 +263,7 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
                 .with_repetition(repetition)
                 .build()
         }
+        DataType::Union(_) => unimplemented!("See ARROW-8817."),
         DataType::Dictionary(_, ref value) => {
             // Dictionary encoding not handled at the schema level
             let dict_field = Field::new(name, *value.clone(), field.is_nullable());

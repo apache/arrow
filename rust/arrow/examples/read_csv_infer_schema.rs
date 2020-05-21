@@ -25,7 +25,7 @@ use std::fs::File;
 fn main() -> Result<()> {
     let file = File::open("test/data/uk_cities_with_headers.csv").unwrap();
     let builder = csv::ReaderBuilder::new()
-        .has_headers(true)
+        .has_header(true)
         .infer_schema(Some(100));
     let mut csv = builder.build(file).unwrap();
     let batch = csv.next().unwrap().unwrap();

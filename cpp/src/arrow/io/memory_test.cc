@@ -255,6 +255,26 @@ TEST(TestBufferReader, RetainParentReference) {
   ASSERT_EQ(0, std::memcmp(slice2->data(), data.c_str() + 4, 6));
 }
 
+TEST(TestBufferReader, WillNeed) {
+  {
+    std::string data = "data123456";
+    BufferReader reader(std::make_shared<Buffer>(data));
+
+    ASSERT_OK(reader.WillNeed({}));
+    ASSERT_OK(reader.WillNeed({{0, 4}, {4, 6}}));
+    ASSERT_OK(reader.WillNeed({{10, 0}}));
+    ASSERT_RAISES(IOError, reader.WillNeed({{11, 1}}));  // Out of bounds
+  }
+  {
+    std::string data = "data123456";
+    BufferReader reader(reinterpret_cast<const uint8_t*>(data.data()),
+                        static_cast<int64_t>(data.size()));
+
+    ASSERT_OK(reader.WillNeed({{0, 4}, {4, 6}}));
+    ASSERT_RAISES(IOError, reader.WillNeed({{11, 1}}));  // Out of bounds
+  }
+}
+
 TEST(TestRandomAccessFile, GetStream) {
   std::string data = "data1data2data3data4data5";
 

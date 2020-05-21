@@ -194,6 +194,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
     }
 
     match field.type_type() {
+        ipc::Type::Null => DataType::Null,
         ipc::Type::Bool => DataType::Boolean,
         ipc::Type::Int => {
             let int = field.type_as_int().unwrap();
@@ -330,6 +331,11 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
     // An empty field list is thus returned for primitive types
     let empty_fields: Vec<WIPOffset<ipc::Field>> = vec![];
     match data_type {
+        Null => (
+            ipc::Type::Null,
+            ipc::NullBuilder::new(fbb).finish().as_union_value(),
+            None,
+        ),
         Boolean => {
             let children = fbb.create_vector(&empty_fields[..]);
             (
@@ -610,6 +616,7 @@ mod tests {
                 Field::new("float16", DataType::Float16, true),
                 Field::new("float32", DataType::Float32, false),
                 Field::new("float64", DataType::Float64, true),
+                Field::new("null", DataType::Null, false),
                 Field::new("bool", DataType::Boolean, false),
                 Field::new("date32", DataType::Date32(DateUnit::Day), false),
                 Field::new("date64", DataType::Date64(DateUnit::Millisecond), true),

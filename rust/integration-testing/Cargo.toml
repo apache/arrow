@@ -28,6 +28,10 @@ edition = "2018"
 [dependencies]
 arrow = { path = "../arrow" }
 clap = "2.33"
+serde = { version = "1.0", features = ["rc"] }
+serde_derive = "1.0"
+serde_json = { version = "1.0", features = ["preserve_order"] }
+hex = "0.4"
 
 [[bin]]
 name = "arrow-file-to-stream"

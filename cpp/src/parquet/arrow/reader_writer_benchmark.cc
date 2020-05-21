@@ -18,6 +18,7 @@
 #include "benchmark/benchmark.h"
 
 #include <iostream>
+#include <random>
 
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/writer.h"
@@ -28,6 +29,7 @@
 #include "parquet/platform.h"
 
 #include "arrow/api.h"
+#include "arrow/util/logging.h"
 
 using arrow::BooleanBuilder;
 using arrow::NumericBuilder;
@@ -95,15 +97,37 @@ void SetBytesProcessed(::benchmark::State& state) {
   state.SetBytesProcessed(bytes_processed);
 }
 
+constexpr int64_t kAlternatingOrNa = -1;
+
+template <typename T>
+std::vector<T> RandomVector(int64_t true_percentage, int64_t vector_size,
+                            const std::array<T, 2>& sample_values) {
+  std::vector<T> values(BENCHMARK_SIZE, {});
+  if (true_percentage == kAlternatingOrNa) {
+    int n = {0};
+    std::generate(values.begin(), values.end(), [&n] { return n++ % 2; });
+  } else {
+    std::default_random_engine rng(500);
+    double true_probability = static_cast<double>(true_percentage) / 100.0;
+    std::bernoulli_distribution dist(true_probability);
+    std::generate(values.begin(), values.end(), [&] { return sample_values[dist(rng)]; });
+  }
+  return values;
+}
+
 template <typename ParquetType>
 std::shared_ptr<::arrow::Table> TableFromVector(
-    const std::vector<typename ParquetType::c_type>& vec, bool nullable) {
+    const std::vector<typename ParquetType::c_type>& vec, bool nullable,
+    int64_t null_percentage = kAlternatingOrNa) {
+  if (!nullable) {
+    ARROW_CHECK_EQ(null_percentage, kAlternatingOrNa);
+  }
   std::shared_ptr<::arrow::DataType> type = std::make_shared<ArrowType<ParquetType>>();
   NumericBuilder<ArrowType<ParquetType>> builder;
   if (nullable) {
-    std::vector<uint8_t> valid_bytes(BENCHMARK_SIZE, 0);
-    int n = {0};
-    std::generate(valid_bytes.begin(), valid_bytes.end(), [&n] { return n++ % 2; });
+    // Note true values select index 1 of sample_values
+    auto valid_bytes = RandomVector<uint8_t>(/*true_percentage=*/null_percentage,
+                                             BENCHMARK_SIZE, /*sample_values=*/{1, 0});
     EXIT_NOT_OK(builder.AppendValues(vec.data(), vec.size(), valid_bytes.data()));
   } else {
     EXIT_NOT_OK(builder.AppendValues(vec.data(), vec.size(), nullptr));
@@ -118,13 +142,12 @@ std::shared_ptr<::arrow::Table> TableFromVector(
 
 template <>
 std::shared_ptr<::arrow::Table> TableFromVector<BooleanType>(const std::vector<bool>& vec,
-                                                             bool nullable) {
+                                                             bool nullable,
+                                                             int64_t null_percentage) {
   BooleanBuilder builder;
   if (nullable) {
-    std::vector<bool> valid_bytes(BENCHMARK_SIZE, 0);
-    int n = {0};
-    std::generate(valid_bytes.begin(), valid_bytes.end(),
-                  [&n] { return (n++ % 2) != 0; });
+    auto valid_bytes = RandomVector<bool>(/*true_percentage=*/null_percentage,
+                                          BENCHMARK_SIZE, {true, false});
     EXIT_NOT_OK(builder.AppendValues(vec, valid_bytes));
   } else {
     EXIT_NOT_OK(builder.AppendValues(vec));
@@ -141,7 +164,7 @@ std::shared_ptr<::arrow::Table> TableFromVector<BooleanType>(const std::vector<b
 template <bool nullable, typename ParquetType>
 static void BM_WriteColumn(::benchmark::State& state) {
   using T = typename ParquetType::c_type;
-  std::vector<T> values(BENCHMARK_SIZE, static_cast<T>(128));
+  std::vector<T> values(BENCHMARK_SIZE, 128);
   std::shared_ptr<::arrow::Table> table = TableFromVector<ParquetType>(values, nullable);
 
   while (state.KeepRunning()) {
@@ -164,12 +187,25 @@ BENCHMARK_TEMPLATE2(BM_WriteColumn, true, DoubleType);
 BENCHMARK_TEMPLATE2(BM_WriteColumn, false, BooleanType);
 BENCHMARK_TEMPLATE2(BM_WriteColumn, true, BooleanType);
 
+template <typename T>
+struct Examples {
+  static constexpr std::array<T, 2> values() { return {127, 128}; }
+};
+
+template <>
+struct Examples<bool> {
+  static constexpr std::array<bool, 2> values() { return {false, true}; }
+};
+
 template <bool nullable, typename ParquetType>
 static void BM_ReadColumn(::benchmark::State& state) {
   using T = typename ParquetType::c_type;
 
-  std::vector<T> values(BENCHMARK_SIZE, static_cast<T>(128));
-  std::shared_ptr<::arrow::Table> table = TableFromVector<ParquetType>(values, nullable);
+  auto values = RandomVector<T>(/*percentage=*/state.range(1), BENCHMARK_SIZE,
+                                Examples<T>::values());
+
+  std::shared_ptr<::arrow::Table> table =
+      TableFromVector<ParquetType>(values, nullable, state.range(0));
   auto output = CreateOutputStream();
   EXIT_NOT_OK(WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE));
 
@@ -187,17 +223,62 @@ static void BM_ReadColumn(::benchmark::State& state) {
   SetBytesProcessed<nullable, ParquetType>(state);
 }
 
-BENCHMARK_TEMPLATE2(BM_ReadColumn, false, Int32Type);
-BENCHMARK_TEMPLATE2(BM_ReadColumn, true, Int32Type);
+// There are two parameters here that cover different data distributions.
+// null_percentage governs distribution and therefore runs of null values.
+// first_value_percentage governs distribution of values (we select from 1 of 2)
+// so when 0 or 100 RLE is triggered all the time.  When a value in the range (0, 100)
+// there will be some percentage of RLE encoded values and some percentage of literal
+// encoded values (RLE is much less likely with percentages close to 50).
+BENCHMARK_TEMPLATE2(BM_ReadColumn, false, Int32Type)
+    ->Args({/*null_percentage=*/kAlternatingOrNa, 1})
+    ->Args({/*null_percentage=*/kAlternatingOrNa, 10})
+    ->Args({/*null_percentage=*/kAlternatingOrNa, 50});
 
-BENCHMARK_TEMPLATE2(BM_ReadColumn, false, Int64Type);
-BENCHMARK_TEMPLATE2(BM_ReadColumn, true, Int64Type);
+BENCHMARK_TEMPLATE2(BM_ReadColumn, true, Int32Type)
+    ->Args({/*null_percentage=*/kAlternatingOrNa, /*first_value_percentage=*/0})
+    ->Args({/*null_percentage=*/1, /*first_value_percentage=*/1})
+    ->Args({/*null_percentage=*/10, /*first_value_percentage=*/10})
+    ->Args({/*null_percentage=*/25, /*first_value_percentage=*/5})
+    ->Args({/*null_percentage=*/50, /*first_value_percentage=*/50})
+    ->Args({/*null_percentage=*/50, /*first_value_percentage=*/0})
+    ->Args({/*null_percentage=*/99, /*first_value_percentage=*/50})
+    ->Args({/*null_percentage=*/99, /*first_value_percentage=*/0});
 
-BENCHMARK_TEMPLATE2(BM_ReadColumn, false, DoubleType);
-BENCHMARK_TEMPLATE2(BM_ReadColumn, true, DoubleType);
+BENCHMARK_TEMPLATE2(BM_ReadColumn, false, Int64Type)
+    ->Args({/*null_percentage=*/kAlternatingOrNa, 1})
+    ->Args({/*null_percentage=*/kAlternatingOrNa, 10})
+    ->Args({/*null_percentage=*/kAlternatingOrNa, 50});
+BENCHMARK_TEMPLATE2(BM_ReadColumn, true, Int64Type)
+    ->Args({/*null_percentage=*/kAlternatingOrNa, /*first_value_percentage=*/0})
+    ->Args({/*null_percentage=*/1, /*first_value_percentage=*/1})
+    ->Args({/*null_percentage=*/5, /*first_value_percentage=*/5})
+    ->Args({/*null_percentage=*/10, /*first_value_percentage=*/5})
+    ->Args({/*null_percentage=*/25, /*first_value_percentage=*/10})
+    ->Args({/*null_percentage=*/30, /*first_value_percentage=*/10})
+    ->Args({/*null_percentage=*/35, /*first_value_percentage=*/10})
+    ->Args({/*null_percentage=*/45, /*first_value_percentage=*/25})
+    ->Args({/*null_percentage=*/50, /*first_value_percentage=*/50})
+    ->Args({/*null_percentage=*/50, /*first_value_percentage=*/1})
+    ->Args({/*null_percentage=*/75, /*first_value_percentage=*/1})
+    ->Args({/*null_percentage=*/99, /*first_value_percentage=*/50})
+    ->Args({/*null_percentage=*/99, /*first_value_percentage=*/0});
 
-BENCHMARK_TEMPLATE2(BM_ReadColumn, false, BooleanType);
-BENCHMARK_TEMPLATE2(BM_ReadColumn, true, BooleanType);
+BENCHMARK_TEMPLATE2(BM_ReadColumn, false, DoubleType)
+    ->Args({kAlternatingOrNa, 0})
+    ->Args({kAlternatingOrNa, 20});
+// Less coverage because int64_t should be pretty good representation for nullability and
+// repeating values.
+BENCHMARK_TEMPLATE2(BM_ReadColumn, true, DoubleType)
+    ->Args({/*null_percentage=*/kAlternatingOrNa, /*first_value_percentage=*/0})
+    ->Args({/*null_percentage=*/10, /*first_value_percentage=*/50})
+    ->Args({/*null_percentage=*/25, /*first_value_percentage=*/25});
+
+BENCHMARK_TEMPLATE2(BM_ReadColumn, false, BooleanType)
+    ->Args({kAlternatingOrNa, 0})
+    ->Args({1, 20});
+BENCHMARK_TEMPLATE2(BM_ReadColumn, true, BooleanType)
+    ->Args({kAlternatingOrNa, 1})
+    ->Args({5, 10});
 
 static void BM_ReadIndividualRowGroups(::benchmark::State& state) {
   std::vector<int64_t> values(BENCHMARK_SIZE, 128);

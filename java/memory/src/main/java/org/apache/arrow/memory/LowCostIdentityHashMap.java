@@ -124,7 +124,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
     Preconditions.checkNotNull(key);
 
     int index = findIndex(key, elementData);
-    return (elementData[index] == null) ? false : ((V)elementData[index]).getKey() == key;
+    return (elementData[index] == null) ? false : ((V) elementData[index]).getKey() == key;
   }
 
   /**
@@ -158,7 +158,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
     int index = findIndex(key, elementData);
 
     return (elementData[index] == null) ? null :
-      (((V)elementData[index]).getKey() == key) ? (V)elementData[index] : null;
+      (((V) elementData[index]).getKey() == key) ? (V) elementData[index] : null;
   }
 
   /**
@@ -171,7 +171,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
     int index = getModuloHash(key, length);
     int last = (index + length - 1) % length;
     while (index != last) {
-      if ((array[index] == null) || ((V)array[index]).getKey() == key) {
+      if ((array[index] == null) || ((V) array[index]).getKey() == key) {
         /*
          * Found the key, or the next empty spot (which means key is not
          * in the table)
@@ -203,7 +203,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
     int index = findIndex(key, elementData);
 
     // if the key doesn't exist in the table
-    if (elementData[index] == null || ((V)elementData[index]).getKey() != key) {
+    if (elementData[index] == null || ((V) elementData[index]).getKey() != key) {
       if (++size > threshold) {
         rehash();
         index = findIndex(key, elementData);
@@ -228,7 +228,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
     }
     Object[] newData = newElementArray(newlength);
     for (int i = 0; i < elementData.length; i++) {
-      Object key = (elementData[i] == null) ? null : ((V)elementData[i]).getKey();
+      Object key = (elementData[i] == null) ? null : ((V) elementData[i]).getKey();
       if (key != null) {
         // if not empty
         int index = findIndex(key, newData);
@@ -261,7 +261,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
     Object object;
     index = next = findIndex(key, elementData);
 
-    if (elementData[index] == null || ((V)elementData[index]).getKey() != key) {
+    if (elementData[index] == null || ((V) elementData[index]).getKey() != key) {
       return null;
     }
 
@@ -281,7 +281,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
         break;
       }
 
-      hash = getModuloHash(((V)object).getKey(), length);
+      hash = getModuloHash(((V) object).getKey(), length);
       hashedOk = hash > index;
       if (next < index) {
         hashedOk = hashedOk || (hash <= next);
@@ -328,7 +328,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   public V getNextValue() {
     for (int i = 0; i < elementData.length; i++) {
       if (elementData[i] != null) {
-        return (V)elementData[i];
+        return (V) elementData[i];
       }
     }
     return null;

@@ -234,7 +234,7 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             "ef": ["ij", "mn"],
             "gh": ["kl", "op"],
-            }
+        }
 
         opts.skip_rows = 3
         table = self.read_bytes(rows, read_options=opts)
@@ -242,7 +242,7 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             "mn": [],
             "op": [],
-            }
+        }
 
         opts.skip_rows = 4
         with pytest.raises(pa.ArrowInvalid):
@@ -257,7 +257,7 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             "ij": ["mn"],
             "kl": ["op"],
-            }
+        }
 
     def test_header_column_names(self):
         rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
@@ -269,7 +269,7 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             "x": ["ab", "ef", "ij", "mn"],
             "y": ["cd", "gh", "kl", "op"],
-            }
+        }
 
         opts.skip_rows = 3
         table = self.read_bytes(rows, read_options=opts)
@@ -277,7 +277,7 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             "x": ["mn"],
             "y": ["op"],
-            }
+        }
 
         opts.skip_rows = 4
         table = self.read_bytes(rows, read_options=opts)
@@ -285,7 +285,7 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             "x": [],
             "y": [],
-            }
+        }
 
         opts.skip_rows = 5
         with pytest.raises(pa.ArrowInvalid):
@@ -308,7 +308,7 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             "x": ["ij", "mn"],
             "y": ["kl", "op"],
-            }
+        }
 
     def test_header_autogenerate_column_names(self):
         rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
@@ -320,7 +320,7 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             "f0": ["ab", "ef", "ij", "mn"],
             "f1": ["cd", "gh", "kl", "op"],
-            }
+        }
 
         opts.skip_rows = 3
         table = self.read_bytes(rows, read_options=opts)
@@ -328,7 +328,7 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             "f0": ["mn"],
             "f1": ["op"],
-            }
+        }
 
         # Not enough rows, impossible to infer number of columns
         opts.skip_rows = 4
@@ -344,7 +344,7 @@ class BaseTestCSVRead:
         self.check_names(table, ["ab"])
         assert table.to_pydict() == {
             "ab": ["ef", "ij", "mn"],
-            }
+        }
 
         # Order of include_columns is respected, regardless of CSV order
         convert_options.include_columns = ['cd', 'ab']
@@ -355,7 +355,7 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             "cd": ["gh", "kl", "op"],
             "ab": ["ef", "ij", "mn"],
-            }
+        }
 
         # Include a column not in the CSV file => raises by default
         convert_options.include_columns = ['xx', 'ab', 'yy']
@@ -381,7 +381,7 @@ class BaseTestCSVRead:
             "xx": [None, None, None],
             "ab": ["ef", "ij", "mn"],
             "yy": [None, None, None],
-            }
+        }
 
         # Combining with `column_names`
         read_options.column_names = ["xx", "yy"]
@@ -394,7 +394,7 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             "yy": ["cd", "gh", "kl", "op"],
             "cd": [None, None, None, None],
-            }
+        }
 
         # And with `column_types` as well
         convert_options.column_types = {"yy": pa.binary(),
@@ -407,7 +407,7 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             "yy": [b"cd", b"gh", b"kl", b"op"],
             "cd": [None, None, None, None],
-            }
+        }
 
     def test_simple_ints(self):
         # Infer integer columns
@@ -421,7 +421,7 @@ class BaseTestCSVRead:
             'a': [1, 4],
             'b': [2, 5],
             'c': [3, 6],
-            }
+        }
 
     def test_simple_varied(self):
         # Infer various kinds of data
@@ -437,7 +437,7 @@ class BaseTestCSVRead:
             'b': [2, -5],
             'c': ["3", "foo"],
             'd': [False, True],
-            }
+        }
 
     def test_simple_nulls(self):
         # Infer various kinds of data, with nulls
@@ -460,7 +460,7 @@ class BaseTestCSVRead:
             'd': [None, None, None],
             'e': [b"3", b"nan", b"\xff"],
             'f': [None, True, False],
-            }
+        }
 
     def test_simple_timestamps(self):
         # Infer a timestamp column
@@ -472,7 +472,7 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             'a': [1970, 1989],
             'b': [datetime(1970, 1, 1), datetime(1989, 7, 14)],
-            }
+        }
 
     def test_auto_dict_encode(self):
         opts = ConvertOptions(auto_dict_encode=True)
@@ -483,7 +483,7 @@ class BaseTestCSVRead:
         expected = {
             'a': ["ab", "cdé", "cdé", "ab"],
             'b': [1, 2, 3, 4],
-            }
+        }
         assert table.schema == schema
         assert table.to_pydict() == expected
 
@@ -518,7 +518,7 @@ class BaseTestCSVRead:
         expected = {
             'a': [b"ab", b"cd\xff", b"ab"],
             'b': [1, 2, 3],
-            }
+        }
         assert table.schema == schema
         assert table.to_pydict() == expected
 
@@ -537,7 +537,7 @@ class BaseTestCSVRead:
             'b': ["Xxx", "#N/A"],
             'c': ["1", ""],
             'd': [2, None],
-            }
+        }
 
         opts = ConvertOptions(null_values=['Xxx', 'Zzz'],
                               strings_can_be_null=True)
@@ -547,7 +547,7 @@ class BaseTestCSVRead:
             'b': [None, "#N/A"],
             'c': ["1", ""],
             'd': [2, None],
-            }
+        }
 
         opts = ConvertOptions(null_values=[])
         rows = b"a,b\n#N/A,\n"
@@ -558,7 +558,7 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             'a': ["#N/A"],
             'b': [""],
-            }
+        }
 
     def test_custom_bools(self):
         # Infer booleans with custom values
@@ -579,7 +579,7 @@ class BaseTestCSVRead:
             'a': ["True", "False", "True", "False", "N/A"],
             'b': [True, False, True, False, None],
             'c': ["t", "f", "yes", "no", "N/A"],
-            }
+        }
 
     def test_column_types(self):
         # Ask for specific column types in ConvertOptions
@@ -601,7 +601,7 @@ class BaseTestCSVRead:
             'c': ["3", "6"],
             'd': [True, False],
             'e': [Decimal("1.00"), Decimal("0.00")]
-            }
+        }
         assert table.schema == schema
         assert table.to_pydict() == expected
         # Pass column_types as schema
@@ -636,7 +636,7 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             'x': [b'a', b'c', b'e'],
             'y': ['b', 'd', 'f'],
-            }
+        }
 
     def test_no_ending_newline(self):
         # No \n after last line
@@ -646,7 +646,7 @@ class BaseTestCSVRead:
             'a': [1, 4],
             'b': [2, 5],
             'c': [3, 6],
-            }
+        }
 
     def test_trivial(self):
         # A bit pointless, but at least it shouldn't crash
@@ -660,20 +660,20 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             'a': [1, 3],
             'b': [2, 4],
-            }
+        }
         parse_options = ParseOptions(ignore_empty_lines=False)
         table = self.read_bytes(rows, parse_options=parse_options)
         assert table.to_pydict() == {
             'a': [None, 1, None, 3],
             'b': [None, 2, None, 4],
-            }
+        }
         read_options = ReadOptions(skip_rows=2)
         table = self.read_bytes(rows, parse_options=parse_options,
                                 read_options=read_options)
         assert table.to_pydict() == {
             '1': [None, 3],
             '2': [None, 4],
-            }
+        }
 
     def test_invalid_csv(self):
         # Various CSV errors
@@ -693,13 +693,13 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             'a;b': ['de'],
             'c': ['fg;eh'],
-            }
+        }
         opts = ParseOptions(delimiter=';')
         table = self.read_bytes(rows, parse_options=opts)
         assert table.to_pydict() == {
             'a': ['de,fg'],
             'b,c': ['eh'],
-            }
+        }
 
     def test_small_random_csv(self):
         csv, expected = make_random_csv(num_cols=2, num_rows=10)
@@ -1082,7 +1082,7 @@ class TestGZipCSVRead(BaseTestCompressedCSVRead, unittest.TestCase):
         assert table.to_pydict() == {
             'ab': ['ef', 'ij', 'mn'],
             'cd': ['gh', 'kl', 'op'],
-            }
+        }
 
 
 class TestBZ2CSVRead(BaseTestCompressedCSVRead, unittest.TestCase):

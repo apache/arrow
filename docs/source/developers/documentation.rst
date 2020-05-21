@@ -89,11 +89,15 @@ you made.
 Building with Docker
 --------------------
 
-You can use Archery to build the documentation within a docker container.
-For installation and usage see `Running Docker Builds`_ section.
+You can use :ref:`Archery <archery>` to build the documentation within a
+Docker container.
 
 .. code-block:: shell
 
   archery docker run ubuntu-docs
 
 The final output is located under ``docs/_build/html``.
+
+.. seealso::
+
+   :ref:`docker_builds`.

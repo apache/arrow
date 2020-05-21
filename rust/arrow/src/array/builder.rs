@@ -1862,6 +1862,16 @@ mod tests {
     }
 
     #[test]
+    fn test_fixed_size_list_array_builder_empty() {
+        let values_builder = Int32Array::builder(5);
+        let mut builder = FixedSizeListBuilder::new(values_builder, 3);
+
+        let arr = builder.finish();
+        assert_eq!(0, arr.len());
+        assert_eq!(0, builder.len());
+    }
+
+    #[test]
     fn test_fixed_size_list_array_builder_finish() {
         let values_builder = Int32Array::builder(5);
         let mut builder = FixedSizeListBuilder::new(values_builder, 3);

@@ -427,7 +427,7 @@ public class JdbcToArrowUtils {
           throw new IllegalArgumentException("Column " + columnIndex + " is an array of unknown type.");
         }
         JdbcConsumer delegate = getConsumer(resultSet, JDBC_ARRAY_VALUE_COLUMN,
-            fieldInfo.getJdbcType(), ((ListVector)vector).getDataVector(), config);
+            fieldInfo.getJdbcType(), ((ListVector) vector).getDataVector(), config);
         return ArrayConsumer.createConsumer((ListVector) vector, delegate, columnIndex, nullable);
       case Types.CLOB:
         return ClobConsumer.createConsumer((VarCharVector) vector, columnIndex, nullable);

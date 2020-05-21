@@ -36,7 +36,7 @@ use crate::error::{ArrowError, Result};
 /// serialization and computation functions, possibly incremental.  
 /// See also [CSV reader](crate::csv::Reader) and
 /// [JSON reader](crate::json::Reader).
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RecordBatch {
     schema: Arc<Schema>,
     columns: Vec<Arc<Array>>,

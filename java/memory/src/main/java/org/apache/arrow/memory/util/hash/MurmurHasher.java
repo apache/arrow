@@ -143,7 +143,7 @@ public class MurmurHasher implements ArrowBufHasher {
    * @return the finalized hash code.
    */
   public static int finalizeHashCode(int hashCode, long length) {
-    hashCode = hashCode ^ (int)length;
+    hashCode = hashCode ^ (int) length;
 
     hashCode = hashCode ^ (hashCode >>> 16);
     hashCode = hashCode * 0x85ebca6b;

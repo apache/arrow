@@ -30,15 +30,18 @@ except ImportError:
 
 from collections.abc import Iterable, Mapping, Sequence
 
+
 def guid():
     from uuid import uuid4
     return uuid4().hex
+
 
 def tobytes(o):
     if isinstance(o, str):
         return o.encode('utf8')
     else:
         return o
+
 
 def frombytes(o, *, safe=False):
     if safe:
@@ -59,6 +62,7 @@ try:
     import cloudpickle as pickle
 except ImportError:
     pickle = builtin_pickle
+
 
 def encode_file_path(path):
     if isinstance(path, str):
@@ -120,9 +124,9 @@ except ImportError:
 
         names, formats, offsets = zip(*fields)
         # names may be (title, names) tuples
-        nametups = (n  if isinstance(n, tuple) else (None, n) for n in names)
+        nametups = (n if isinstance(n, tuple) else (None, n) for n in names)
         titles, names = zip(*nametups)
         return np.dtype({'names': names, 'formats': formats, 'titles': titles,
-                            'offsets': offsets, 'itemsize': offset})
+                         'offsets': offsets, 'itemsize': offset})
 
 __all__ = []

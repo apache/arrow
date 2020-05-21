@@ -154,6 +154,7 @@ cdef class KeyValueMetadata(_Metadata):
         const CKeyValueMetadata* metadata
 
     cdef void init(self, const shared_ptr[const CKeyValueMetadata]& wrapped)
+
     @staticmethod
     cdef wrap(const shared_ptr[const CKeyValueMetadata]& sp)
     cdef inline shared_ptr[const CKeyValueMetadata] unwrap(self) nogil

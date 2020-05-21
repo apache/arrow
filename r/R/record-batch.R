@@ -71,6 +71,9 @@
 #' - `$num_columns`
 #' - `$num_rows`
 #' - `$schema`
+#' - `$metadata`: Returns the key-value metadata of the `Schema` as a named list.
+#'    Modify or replace by assigning in (`batch$metadata <- new_metadata`).
+#'    All list elements are coerced to string.
 #' - `$columns`: Returns a list of `Array`s
 #' @rdname RecordBatch
 #' @name RecordBatch
@@ -83,8 +86,7 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
       inherits(other, "RecordBatch") && RecordBatch__Equals(self, other, isTRUE(check_metadata))
     },
     GetColumnByName = function(name) {
-      assert_is(name, "character")
-      assert_that(length(name) == 1)
+      assert_that(is.string(name))
       shared_ptr(Array, RecordBatch__GetColumnByName(self, name))
     },
     select = function(spec) {
@@ -141,6 +143,20 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
     num_columns = function() RecordBatch__num_columns(self),
     num_rows = function() RecordBatch__num_rows(self),
     schema = function() shared_ptr(Schema, RecordBatch__schema(self)),
+    metadata = function(new) {
+      if (missing(new)) {
+        # Get the metadata (from the schema)
+        self$schema$metadata
+      } else {
+        # Set the metadata
+        new <- prepare_key_value_metadata(new)
+        out <- RecordBatch__ReplaceSchemaMetadata(self, new)
+        # ReplaceSchemaMetadata returns a new object but we're modifying in place,
+        # so swap in that new C++ object pointer into our R6 object
+        self$set_pointer(out)
+        self
+      }
+    },
     columns = function() map(RecordBatch__columns(self), shared_ptr, Array)
   )
 )
@@ -195,13 +211,15 @@ RecordBatch$from_message <- function(obj, schema) {
 record_batch <- RecordBatch$create
 
 #' @export
-names.RecordBatch <- function(x) {
-  x$names()
-}
+names.RecordBatch <- function(x) x$names()
 
 #' @importFrom methods as
 #' @export
 `[.RecordBatch` <- function(x, i, j, ..., drop = FALSE) {
+  if (nargs() == 2L) {
+    # List-like column extraction (x[i])
+    return(x[, i])
+  }
   if (!missing(j)) {
     # Selecting columns is cheaper than filtering rows, so do it first.
     # That way, if we're filtering too, we have fewer arrays to filter/slice/take
@@ -229,8 +247,7 @@ names.RecordBatch <- function(x) {
 
 #' @export
 `$.RecordBatch` <- function(x, name, ...) {
-  assert_is(name, "character")
-  assert_that(length(name) == 1L)
+  assert_that(is.string(name))
   if (name %in% ls(x)) {
     get(name, x)
   } else {
@@ -247,6 +264,15 @@ dim.RecordBatch <- function(x) {
 as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...) {
   RecordBatch__to_dataframe(x, use_threads = option_use_threads())
 }
+
+#' @export
+as.list.RecordBatch <- function(x, ...) as.list(as.data.frame(x, ...))
+
+#' @export
+row.names.RecordBatch <- function(x) as.character(seq_len(nrow(x)))
+
+#' @export
+dimnames.RecordBatch <- function(x) list(row.names(x), names(x))
 
 #' @export
 head.RecordBatch <- head.Array

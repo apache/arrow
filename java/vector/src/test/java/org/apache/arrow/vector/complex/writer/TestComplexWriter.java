@@ -1031,9 +1031,9 @@ public class TestComplexWriter {
         singleStructWriter.start();
 
         intWriter.writeInt(intValue + i);
-        bigIntWriter.writeBigInt(bigIntValue + (long)i);
-        float4Writer.writeFloat4(float4Value + (float)i);
-        float8Writer.writeFloat8(float8Value + (double)i);
+        bigIntWriter.writeBigInt(bigIntValue + (long) i);
+        float4Writer.writeFloat4(float4Value + (float) i);
+        float8Writer.writeFloat8(float8Value + (double) i);
 
         listWriter.setPosition(i);
         listWriter.startList();
@@ -1046,10 +1046,10 @@ public class TestComplexWriter {
         singleStructWriter.end();
       }
 
-      IntVector intVector = (IntVector)parent.getChild("intField");
-      BigIntVector bigIntVector = (BigIntVector)parent.getChild("bigIntField");
-      Float4Vector float4Vector = (Float4Vector)parent.getChild("float4Field");
-      Float8Vector float8Vector = (Float8Vector)parent.getChild("float8Field");
+      IntVector intVector = (IntVector) parent.getChild("intField");
+      BigIntVector bigIntVector = (BigIntVector) parent.getChild("bigIntField");
+      Float4Vector float4Vector = (Float4Vector) parent.getChild("float4Field");
+      Float8Vector float8Vector = (Float8Vector) parent.getChild("float8Field");
 
       int capacity = singleStructWriter.getValueCapacity();
       assertTrue(capacity >= initialCapacity && capacity < initialCapacity * 2);
@@ -1068,7 +1068,7 @@ public class TestComplexWriter {
       BigIntReader bigIntReader = singleStructReader.reader("bigIntField");
       Float4Reader float4Reader = singleStructReader.reader("float4Field");
       Float8Reader float8Reader = singleStructReader.reader("float8Field");
-      UnionListReader listReader = (UnionListReader)singleStructReader.reader("listField");
+      UnionListReader listReader = (UnionListReader) singleStructReader.reader("listField");
 
       for (int i = 0; i < initialCapacity; i++) {
         intReader.setPosition(i);
@@ -1078,9 +1078,9 @@ public class TestComplexWriter {
         listReader.setPosition(i);
 
         assertEquals(intValue + i, intReader.readInteger().intValue());
-        assertEquals(bigIntValue + (long)i, bigIntReader.readLong().longValue());
-        assertEquals(float4Value + (float)i, float4Reader.readFloat().floatValue(), 0);
-        assertEquals(float8Value + (double)i, float8Reader.readDouble().doubleValue(), 0);
+        assertEquals(bigIntValue + (long) i, bigIntReader.readLong().longValue());
+        assertEquals(float4Value + (float) i, float4Reader.readFloat().floatValue(), 0);
+        assertEquals(float8Value + (double) i, float8Reader.readDouble().doubleValue(), 0);
 
         for (int j = 0; j < 4; j++) {
           listReader.next();

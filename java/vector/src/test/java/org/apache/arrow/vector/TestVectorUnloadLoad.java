@@ -219,7 +219,7 @@ public class TestVectorUnloadLoad {
 
         buf2.setInt(j * 4, j);
       }
-      buf1.writerIndex((int)Math.ceil(count / 8));
+      buf1.writerIndex((int) Math.ceil(count / 8));
       buf2.writerIndex(count * 4);
     }
 
@@ -290,7 +290,7 @@ public class TestVectorUnloadLoad {
         FieldVector vector = field.createVector(originalVectorsAllocator);
         vector.allocateNew();
         sources.add(vector);
-        IntVector intVector = (IntVector)vector;
+        IntVector intVector = (IntVector) vector;
         for (int i = 0; i < count; i++) {
           intVector.set(i, i);
         }

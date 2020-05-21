@@ -91,7 +91,8 @@ following checks:
   compiler warnings with ``-DBUILD_WARNING_LEVEL=CHECKIN``. Note that
   there are classes of warnings (such as ``-Wdocumentation``, see more
   on this below) that are not caught by ``gcc``.
-* Passes various C++ (and others) style checks, checked with ``archery lint``
+* Passes various C++ (and others) style checks, checked with the ``lint``
+  subcommand to :ref:`Archery <archery>`.
 * CMake files pass style checks, can be fixed by running
   ``run-cmake-format.py`` from the root of the repository. This requires Python
   3 and `cmake_format <https://github.com/cheshirekow/cmake_format>`_ (note:
@@ -113,9 +114,6 @@ target that is executable from the root of the repository:
 .. code-block:: shell
 
    docker-compose run lint
-
-See :ref:`integration` for more information about the project's
-``docker-compose`` configuration.
 
 Cleaning includes with include-what-you-use (IWYU)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
