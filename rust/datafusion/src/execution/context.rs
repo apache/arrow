@@ -18,7 +18,6 @@
 //! ExecutionContext contains methods for registering data sources and executing queries
 
 use std::collections::HashMap;
-use std::default::Default;
 use std::fs;
 use std::path::Path;
 use std::string::String;
@@ -104,11 +103,9 @@ impl ExecutionContext {
                     self.register_csv(
                         name,
                         location,
-                        CsvReadOptions {
-                            schema: Some(&schema),
-                            has_header: *has_header,
-                            ..Default::default()
-                        },
+                        CsvReadOptions::new()
+                            .schema(&schema)
+                            .has_header(*has_header),
                     )?;
                     Ok(vec![])
                 }
@@ -328,12 +325,10 @@ impl ExecutionContext {
                 ..
             } => Ok(Arc::new(CsvExec::try_new(
                 path,
-                CsvReadOptions {
-                    schema: Some(schema.as_ref()),
-                    delimiter: *delimiter,
-                    has_header: *has_header,
-                    ..Default::default()
-                },
+                CsvReadOptions::new()
+                    .schema(schema.as_ref())
+                    .delimiter_option(*delimiter)
+                    .has_header(*has_header),
                 projection.to_owned(),
                 batch_size,
             )?)),
@@ -1049,7 +1044,7 @@ mod tests {
         ctx.register_csv(
             "test",
             tmp_dir.path().to_str().unwrap(),
-            CsvReadOptions::default().schema(&schema),
+            CsvReadOptions::new().schema(&schema),
         )?;
 
         Ok(ctx)

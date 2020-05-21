@@ -52,25 +52,10 @@ pub struct CsvFile {
     filename: String,
     schema: Arc<Schema>,
     has_header: bool,
-    delimiter: Option<u8>,
+    delimiter: u8,
 }
 
 impl CsvFile {
-    #[allow(missing_docs)]
-    pub fn new(
-        filename: &str,
-        schema: &Schema,
-        has_header: bool,
-        delimiter: Option<u8>,
-    ) -> Self {
-        Self {
-            filename: String::from(filename),
-            schema: Arc::new(schema.clone()),
-            has_header,
-            delimiter,
-        }
-    }
-
     /// Attempt to initialize a new `CsvFile` from a file path
     pub fn try_new(filename: &str, options: CsvReadOptions) -> Result<Self> {
         let schema = Arc::new(match options.schema {
@@ -99,12 +84,10 @@ impl TableProvider for CsvFile {
     ) -> Result<Vec<ScanResult>> {
         let exec = CsvExec::try_new(
             &self.filename,
-            CsvReadOptions {
-                schema: Some(&self.schema),
-                has_header: self.has_header,
-                delimiter: self.delimiter,
-                ..Default::default()
-            },
+            CsvReadOptions::new()
+                .schema(&self.schema)
+                .has_header(self.has_header)
+                .delimiter(self.delimiter),
             projection.clone(),
             batch_size,
         )?;

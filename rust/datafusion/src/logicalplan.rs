@@ -823,7 +823,7 @@ impl LogicalPlanBuilder {
             path: path.to_owned(),
             schema: Box::new(schema),
             has_header: has_header,
-            delimiter: delimiter,
+            delimiter: Some(delimiter),
             projection,
             projected_schema,
         }))
