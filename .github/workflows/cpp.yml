@@ -303,14 +303,18 @@ jobs:
     runs-on: windows-latest
     # if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
-    - name: Setup Python
-      uses: actions/setup-python@v1
-      with:
-        python-version: 3.8
-    - name: Setup Archery
-      shell: bash
-      run: pip install dev/archery[docker]
-    - name: Execute Docker Build
-      shell: bash
-      run: |
-        archery docker run windows-cpp
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        shell: bash
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        shell: bash
+        run: |
+          archery docker run windows-cpp
