@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "arrow/io/concurrency.h"
 #include "arrow/io/interfaces.h"
@@ -161,6 +162,7 @@ class ARROW_EXPORT BufferReader
   // Synchronous ReadAsync override
   Future<std::shared_ptr<Buffer>> ReadAsync(const AsyncContext&, int64_t position,
                                             int64_t nbytes) override;
+  Status WillNeed(const std::vector<ReadRange>& ranges) override;
 
  protected:
   friend RandomAccessFileConcurrencyWrapper<BufferReader>;

@@ -171,7 +171,8 @@ Status ReadRangeCache::Cache(std::vector<ReadRange> ranges) {
   }
 
   impl_->AddEntries(std::move(entries));
-  return Status::OK();
+  // Prefetch immediately, regardless of executor availability, if possible
+  return impl_->file->WillNeed(ranges);
 }
 
 Result<std::shared_ptr<Buffer>> ReadRangeCache::Read(ReadRange range) {
