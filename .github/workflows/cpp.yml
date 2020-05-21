@@ -302,6 +302,7 @@ jobs:
     name: AMD64 ${{ matrix.name }} Docker C++
     runs-on: windows-latest
     # if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    steps:
     - name: Setup Python
       uses: actions/setup-python@v1
       with:
