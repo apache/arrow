@@ -257,7 +257,7 @@ struct ParseTimestamp {
   explicit ParseTimestamp(TimeUnit::type unit) : unit(unit) {}
 
   template <typename OUT, typename ARG0>
-  OUT Call(KernelContext* ctx, ARG0 val) {
+  OUT Call(KernelContext* ctx, ARG0 val) const {
     ParseTimestampContext parse_ctx{this->unit};
     OUT result;
     if (ARROW_PREDICT_FALSE(
@@ -273,8 +273,7 @@ struct ParseTimestamp {
 template <typename I>
 struct CastFunctor<TimestampType, I, enable_if_t<is_base_binary_type<I>::value>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
-    const auto& out_type = checked_cast<const TimestampType&>(*options.to_type);
+    const auto& out_type = checked_cast<const TimestampType&>(*out->type());
     codegen::ScalarUnaryNotNullStateful<TimestampType, I, ParseTimestamp> kernel(
         ParseTimestamp(out_type.unit()));
     return kernel.Exec(ctx, batch, out);
@@ -283,7 +282,7 @@ struct CastFunctor<TimestampType, I, enable_if_t<is_base_binary_type<I>::value>>
 
 /// You will see some of these kernels with
 ///
-/// ResolveOutputFromOptions
+/// kOutputTargetType
 ///
 /// for their output type resolution. This is somewhat of an eyesore but the
 /// easiest initial way to get the requested cast type including the TimeUnit
@@ -415,6 +414,12 @@ std::shared_ptr<CastFunction> GetTimestampCast() {
   //                                          kOutputTargetType, func.get());
   // AddSimpleCast<Date64Type, TimestampType>(InputType(Type::DATE64),
   //                                          kOutputTargetType, func.get());
+
+  // string -> timestamp
+  AddSimpleCast<StringType, TimestampType>(utf8(), kOutputTargetType, func.get());
+  // large_string -> timestamp
+  AddSimpleCast<LargeStringType, TimestampType>(large_utf8(), kOutputTargetType,
+                                                func.get());
 
   // From one timestamp to another
   AddCrossUnitCast<TimestampType>(func.get());

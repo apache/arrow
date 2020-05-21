@@ -32,11 +32,11 @@ struct CastState : public KernelState {
   CastOptions options;
 };
 
-// See scalar_cast_*.cc for these
+// See kernels/scalar_cast_*.cc for these
 std::vector<std::shared_ptr<CastFunction>> GetBooleanCasts();
 std::vector<std::shared_ptr<CastFunction>> GetNumericCasts();
 std::vector<std::shared_ptr<CastFunction>> GetTemporalCasts();
-std::vector<std::shared_ptr<CastFunction>> GetStringCasts();
+std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts();
 std::vector<std::shared_ptr<CastFunction>> GetNestedCasts();
 
 }  // namespace internal

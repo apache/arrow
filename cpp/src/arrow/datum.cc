@@ -197,7 +197,7 @@ std::string Datum::ToString() const {
     }
     default:
       DCHECK(false);
-      break;
+      return "";
   }
 }
 

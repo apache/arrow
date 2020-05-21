@@ -60,7 +60,11 @@ Result<std::shared_ptr<Buffer>> AllocateDataBuffer(KernelContext* ctx, int64_t l
   return Status::OK();
 }
 
-bool CanPreallocate(const DataType& type) { return is_fixed_width(type.id()); }
+bool CanPreallocate(const DataType& type) {
+  // There are currently cases where NullType is the output type, so we disable
+  // any preallocation logic when this occurs
+  return is_fixed_width(type.id()) && type.id() != Type::NA;
+}
 
 Status GetValueDescriptors(const std::vector<Datum>& args,
                            std::vector<ValueDescr>* descrs) {
@@ -641,8 +645,13 @@ class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
         // batch
         ARROW_ASSIGN_OR_RAISE(out->value, PrepareOutput(batch.length));
       }
+    } else {
+      // For scalar outputs, we set a null scalar of the correct type to
+      // communicate the output type to the kernel if needed
+      //
+      // XXX: Is there some way to avoid this step?
+      out->value = MakeNullScalar(output_descr_.type);
     }
-    // Scalar outputs are the responsibility of the kernel
     return Status::OK();
   }
 
@@ -667,8 +676,6 @@ class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
         (exec_ctx_->preallocate_contiguous() && kernel_->can_write_into_slices &&
          data_preallocated_ && validity_preallocated_);
     if (preallocate_contiguous_) {
-      // TODO: Are there contiguous preallocation scenarios that are NOT
-      // primitive (2-buffer)?
       DCHECK_EQ(2, output_num_buffers_);
       ARROW_ASSIGN_OR_RAISE(preallocated_, PrepareOutput(total_length));
     }
@@ -880,6 +887,9 @@ Result<std::unique_ptr<FunctionExecutor>> FunctionExecutor::Make(
       return MakeExecutor<detail::VectorExecutor>(ctx, func, options);
     case Function::SCALAR_AGGREGATE:
       return MakeExecutor<detail::ScalarAggExecutor>(ctx, func, options);
+    default:
+      DCHECK(false);
+      return nullptr;
   }
 }
 

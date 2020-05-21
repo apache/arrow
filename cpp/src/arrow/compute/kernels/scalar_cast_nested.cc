@@ -17,48 +17,68 @@
 
 // Implementation of casting to (or between) list types
 
+#include <utility>
+#include <vector>
+
+#include "arrow/compute/cast.h"
+#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/scalar_cast_internal.h"
+
 namespace arrow {
 namespace compute {
+namespace internal {
 
-template <typename TypeClass>
-class ListCastKernel : public CastKernelBase {
- public:
-  ListCastKernel(std::unique_ptr<UnaryKernel> child_caster,
-                 std::shared_ptr<DataType> out_type)
-      : CastKernelBase(std::move(out_type)), child_caster_(std::move(child_caster)) {}
+template <typename Type>
+void CastListExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
 
-  Status Call(KernelContext* ctx, const Datum& input, Datum* out) override {
-    DCHECK_EQ(Datum::ARRAY, input.kind());
+  const ArrayData& input = *batch[0].array();
+  ArrayData* result = out->mutable_array();
 
-    const ArrayData& in_data = *input.array();
-    DCHECK_EQ(TypeClass::type_id, in_data.type->id());
-    ArrayData* result;
-
-    if (in_data.offset != 0) {
-      return Status::NotImplemented(
-          "Casting sliced lists (non-zero offset) not yet implemented");
-    }
-
-    if (out->kind() == Datum::NONE) {
-      out->value = ArrayData::Make(out_type_, in_data.length);
-    }
-
-    result = out->array().get();
-
-    // Copy buffers from parent
-    result->buffers = in_data.buffers;
-
-    Datum casted_child;
-    RETURN_NOT_OK(InvokeWithAllocation(ctx, child_caster_.get(), in_data.child_data[0],
-                                       &casted_child));
-    DCHECK_EQ(Datum::ARRAY, casted_child.kind());
-    result->child_data.push_back(casted_child.array());
-    return Status::OK();
+  if (input.offset != 0) {
+    ctx->SetStatus(Status::NotImplemented(
+        "Casting sliced lists (non-zero offset) not yet implemented"));
+    return;
   }
+  // Copy buffers from parent
+  result->buffers = input.buffers;
 
- private:
-  std::unique_ptr<UnaryKernel> child_caster_;
-};
+  auto child_type = checked_cast<const Type&>(*result->type).value_type();
 
+  Datum casted_child;
+  KERNEL_ABORT_IF_ERROR(
+      ctx, Cast(Datum(input.child_data[0]), child_type, options, ctx->exec_context())
+               .Value(&casted_child));
+  DCHECK_EQ(Datum::ARRAY, casted_child.kind());
+  result->child_data.push_back(casted_child.array());
+}
+
+OutputType kOutputTargetType(ResolveOutputFromOptions);
+
+template <typename Type>
+void AddListCast(CastFunction* func) {
+  ScalarKernel kernel;
+  kernel.exec = CastListExec<Type>;
+  kernel.signature = KernelSignature::Make({InputType(Type::type_id)}, kOutputTargetType);
+  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  DCHECK_OK(func->AddKernel(Type::type_id, std::move(kernel)));
+}
+
+std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
+  // We use the list<T> from the CastOptions when resolving the output type
+
+  auto cast_list = std::make_shared<CastFunction>("cast_list", Type::LIST);
+  AddCommonCasts<ListType>(kOutputTargetType, cast_list.get());
+  AddListCast<ListType>(cast_list.get());
+
+  auto cast_large_list =
+      std::make_shared<CastFunction>("cast_large_list", Type::LARGE_LIST);
+  AddCommonCasts<LargeListType>(kOutputTargetType, cast_large_list.get());
+  AddListCast<LargeListType>(cast_large_list.get());
+
+  return {cast_list, cast_large_list};
+}
+
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

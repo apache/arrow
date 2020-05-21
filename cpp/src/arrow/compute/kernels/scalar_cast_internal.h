@@ -105,11 +105,7 @@ struct FromDictVisitor<T, IndexType, enable_if_base_binary<T>> {
   Status Finish() {
     std::shared_ptr<Array> plain_array;
     RETURN_NOT_OK(binary_builder_->Finish(&plain_array));
-    // Copy all buffer except the valid bitmap
-    DCHECK_EQ(output_->buffers.size(), 1);
-    for (size_t i = 1; i < plain_array->data()->buffers.size(); i++) {
-      output_->buffers.push_back(plain_array->data()->buffers[i]);
-    }
+    output_->buffers = plain_array->data()->buffers;
     return Status::OK();
   }
 
@@ -249,6 +245,21 @@ void AddZeroCopyCast(InputType in_type, const std::shared_ptr<DataType>& out_typ
 Result<ValueDescr> ResolveOutputFromOptions(KernelContext* ctx,
                                             const std::vector<ValueDescr>& args);
 
+template <typename T, typename Enable = void>
+struct MaybeAddFromDictionary {
+  static void Add(const OutputType& out_ty, CastFunction* func) {}
+};
+
+template <typename T>
+struct MaybeAddFromDictionary<
+    T, enable_if_t<!is_boolean_type<T>::value && !is_nested_type<T>::value>> {
+  static void Add(const OutputType& out_ty, CastFunction* func) {
+    // Dictionary unpacking not implemented for boolean or nested types
+    DCHECK_OK(func->AddKernel(Type::DICTIONARY, {InputType::Array(Type::DICTIONARY)},
+                              out_ty, FromDictionaryCast<T>::Exec));
+  }
+};
+
 template <typename OutType>
 void AddCommonCasts(OutputType out_ty, CastFunction* func) {
   // From null to this type
@@ -256,15 +267,12 @@ void AddCommonCasts(OutputType out_ty, CastFunction* func) {
                             FromNullCast<OutType>::Exec));
 
   // From dictionary to this type
-  if (OutType::type_id != Type::BOOL) {
-    // Dictionary unpacking not implemented for boolean
-    DCHECK_OK(func->AddKernel(Type::DICTIONARY, {InputType::Array(Type::DICTIONARY)},
-                              out_ty, FromDictionaryCast<OutType>::Exec));
-  }
+  MaybeAddFromDictionary<OutType>::Add(out_ty, func);
 
   // From extension type to this type
   DCHECK_OK(func->AddKernel(Type::EXTENSION, {InputType::Array(Type::EXTENSION)}, out_ty,
-                            CastFromExtension));
+                            CastFromExtension, NullHandling::COMPUTED_NO_PREALLOCATE,
+                            MemAllocation::NO_PREALLOCATE));
 }
 
 }  // namespace internal

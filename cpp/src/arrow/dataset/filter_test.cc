@@ -176,15 +176,13 @@ class FilterTest : public ::testing::Test {
   void AssertFilter(const Expression& expr, std::vector<std::shared_ptr<Field>> fields,
                     const std::string& batch_json) {
     std::shared_ptr<BooleanArray> expected_mask;
-    auto mask_res =
-        DoFilter(expr, std::move(fields), std::move(batch_json), &expected_mask);
-    ASSERT_OK(mask_res.status());
 
-    auto mask = std::move(mask_res).ValueOrDie();
+    ASSERT_OK_AND_ASSIGN(Datum mask, DoFilter(expr, std::move(fields),
+                                              std::move(batch_json), &expected_mask));
     ASSERT_TRUE(mask.type()->Equals(null()) || mask.type()->Equals(boolean()));
 
     if (mask.is_array()) {
-      ASSERT_ARRAYS_EQUAL(*expected_mask, *mask.make_array());
+      AssertArraysEqual(*expected_mask, *mask.make_array(), /*verbose=*/true);
       return;
     }
 

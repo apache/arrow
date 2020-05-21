@@ -45,13 +45,13 @@ class TestBooleanKernel : public TestBase {
     ASSERT_EQ(Datum::ARRAY, result.kind());
     std::shared_ptr<Array> result_array = result.make_array();
     ASSERT_OK(result_array->ValidateFull());
-    ASSERT_ARRAYS_EQUAL(*expected, *result_array);
+    AssertArraysEqual(*expected, *result_array, /*verbose=*/true);
 
     ASSERT_OK_AND_ASSIGN(result, kernel(right, left, &ctx_));
     ASSERT_EQ(Datum::ARRAY, result.kind());
     result_array = result.make_array();
     ASSERT_OK(result_array->ValidateFull());
-    ASSERT_ARRAYS_EQUAL(*expected, *result_array);
+    AssertArraysEqual(*expected, *result_array, /*verbose=*/true);
   }
 
   void TestChunkedArrayBinary(const BinaryKernelFunc& kernel,

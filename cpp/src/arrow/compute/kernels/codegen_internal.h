@@ -312,7 +312,8 @@ struct ScalarUnary {
   static void Scalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].scalar()->is_valid) {
       ARG0 arg0 = UnboxScalar<Arg0Type>::Unbox(batch[0]);
-      out->value = std::make_shared<OutScalar>(Op::template Call<OUT, ARG0>(ctx, arg0));
+      out->value = std::make_shared<OutScalar>(Op::template Call<OUT, ARG0>(ctx, arg0),
+                                               out->type());
     } else {
       out->value = MakeNullScalar(batch[0].type());
     }
@@ -386,7 +387,8 @@ struct ScalarUnaryNotNullStateful {
     if (batch[0].scalar()->is_valid) {
       ARG0 arg0 = UnboxScalar<Arg0Type>::Unbox(batch[0]);
       out->value = std::make_shared<OutScalar>(
-          this->op.template Call<OUT, ARG0>(ctx, arg0));
+          this->op.template Call<OUT, ARG0>(ctx, arg0),
+          out->type());
     } else {
       out->value = MakeNullScalar(batch[0].type());
     }

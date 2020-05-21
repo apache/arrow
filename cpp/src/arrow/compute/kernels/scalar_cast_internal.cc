@@ -25,22 +25,18 @@ namespace compute {
 namespace internal {
 
 void CastFromExtension(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  // const CastOptions& options = checked_cast<const CastState*>(ctx->state())->options;
+  const CastOptions& options = checked_cast<const CastState*>(ctx->state())->options;
 
   const DataType& in_type = *batch[0].type();
   const auto storage_type = checked_cast<const ExtensionType&>(in_type).storage_type();
 
-  std::shared_ptr<const CastFunction> cast_func;
-  Status s = GetCastFunction(out->type()).Value(&cast_func);
-  if (!s.ok()) {
-    ctx->SetStatus(s);
-    return;
-  }
+  ExtensionArray extension(batch[0].array());
 
-  // TODO: Finish implementing this
-
-  // KERNEL_ABORT_IF_ERROR(ctx, cast_func->Execute(*batch[0]->array(),
-  // out->mutable_array()));
+  Datum casted_storage;
+  KERNEL_ABORT_IF_ERROR(
+      ctx, Cast(*extension.storage(), out->type(), options, ctx->exec_context())
+               .Value(&casted_storage));
+  out->value = casted_storage.array();
 }
 
 Result<ValueDescr> ResolveOutputFromOptions(KernelContext* ctx,

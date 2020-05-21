@@ -36,19 +36,20 @@ namespace compute {
 
 namespace internal {
 
-std::unordered_map<Type::type, std::shared_ptr<const CastFunction>> g_cast_table;
+std::unordered_map<int, std::shared_ptr<const CastFunction>> g_cast_table;
 static std::once_flag cast_table_initialized;
 
 void AddCastFunctions(const std::vector<std::shared_ptr<CastFunction>>& funcs) {
   for (const auto& func : funcs) {
-    g_cast_table[func->out_type_id()] = func;
+    g_cast_table[static_cast<int>(func->out_type_id())] = func;
   }
 }
 
 void InitCastTable() {
   AddCastFunctions(GetBooleanCasts());
+  AddCastFunctions(GetBinaryLikeCasts());
+  AddCastFunctions(GetNestedCasts());
   AddCastFunctions(GetNumericCasts());
-  AddCastFunctions(GetStringCasts());
   AddCastFunctions(GetTemporalCasts());
 }
 
@@ -65,7 +66,7 @@ void RegisterScalarCasts(FunctionRegistry* registry) {
 
 struct CastFunction::CastFunctionImpl {
   Type::type out_type;
-  std::unordered_set<Type::type> in_types;
+  std::unordered_set<int> in_types;
 };
 
 CastFunction::CastFunction(std::string name, Type::type out_type)
@@ -91,7 +92,7 @@ Status CastFunction::AddKernel(Type::type in_type_id, ScalarKernel kernel) {
   // We use the same KernelInit for every cast
   kernel.init = CastInit;
   RETURN_NOT_OK(ScalarFunction::AddKernel(kernel));
-  impl_->in_types.insert(in_type_id);
+  impl_->in_types.insert(static_cast<int>(in_type_id));
   return Status::OK();
 }
 
@@ -108,7 +109,7 @@ Status CastFunction::AddKernel(Type::type in_type_id, std::vector<InputType> in_
 }
 
 bool CastFunction::CanCastTo(const DataType& out_type) const {
-  return impl_->in_types.find(out_type.id()) != impl_->in_types.end();
+  return impl_->in_types.find(static_cast<int>(out_type.id())) != impl_->in_types.end();
 }
 
 Result<const ScalarKernel*> CastFunction::DispatchExact(
@@ -128,9 +129,8 @@ Result<const ScalarKernel*> CastFunction::DispatchExact(
   }
 
   if (candidate_kernels.size() == 0) {
-    return Status::NotImplemented("Function ", this->name(),
-                                  " has no kernel matching input type ",
-                                  values[0].ToString());
+    return Status::Invalid("Function ", this->name(),
+                           " has no kernel matching input type ", values[0].ToString());
   } else if (candidate_kernels.size() == 1) {
     // One match, return it
     return candidate_kernels[0];
@@ -171,17 +171,16 @@ Result<std::shared_ptr<Array>> Cast(const Array& value, std::shared_ptr<DataType
 Result<std::shared_ptr<const CastFunction>> GetCastFunction(
     const std::shared_ptr<DataType>& to_type) {
   internal::EnsureInitCastTable();
-  auto it = internal::g_cast_table.find(to_type->id());
+  auto it = internal::g_cast_table.find(static_cast<int>(to_type->id()));
   if (it == internal::g_cast_table.end()) {
-    return Status::NotImplemented("No cast function available to cast to ",
-                                  to_type->ToString());
+    return Status::Invalid("No cast function available to cast to ", to_type->ToString());
   }
   return it->second;
 }
 
 bool CanCast(const DataType& from_type, const DataType& to_type) {
   // TODO
-  auto it = internal::g_cast_table.find(from_type.id());
+  auto it = internal::g_cast_table.find(static_cast<int>(from_type.id()));
   if (it == internal::g_cast_table.end()) {
     return false;
   }

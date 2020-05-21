@@ -501,18 +501,28 @@ std::shared_ptr<CastFunction> GetCastToFloating(std::string name) {
 }
 
 std::shared_ptr<CastFunction> GetCastToDecimal() {
+  OutputType sig_out_ty(ResolveOutputFromOptions);
+
   // Cast to decimal
   auto func = std::make_shared<CastFunction>("cast_decimal", Type::DECIMAL);
-  auto exec = CastFunctor<Decimal128Type, Decimal128Type>::Exec;
+  AddCommonCasts<Decimal128Type>(sig_out_ty, func.get());
 
+  auto exec = CastFunctor<Decimal128Type, Decimal128Type>::Exec;
   // We resolve the output type of this kernel from the CastOptions
-  DCHECK_OK(func->AddKernel(Type::DECIMAL, {InputType::Array(Type::DECIMAL)},
-                            OutputType(ResolveOutputFromOptions), exec));
+  DCHECK_OK(func->AddKernel(Type::DECIMAL, {InputType::Array(Type::DECIMAL)}, sig_out_ty,
+                            exec));
   return func;
 }
 
 std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
   std::vector<std::shared_ptr<CastFunction>> functions;
+
+  // Make a cast to null that does not do much. Not sure why we need to be able
+  // to cast from dict<null> -> null but there are unit tests for it
+  auto cast_null = std::make_shared<CastFunction>("cast_null", Type::NA);
+  DCHECK_OK(cast_null->AddKernel(Type::DICTIONARY, {InputType::Array(Type::DICTIONARY)},
+                                 null(), FromDictionaryCast<NullType>::Exec));
+  functions.push_back(cast_null);
 
   functions.push_back(GetCastToInteger<Int8Type>("cast_int8"));
   functions.push_back(GetCastToInteger<Int16Type>("cast_int16"));

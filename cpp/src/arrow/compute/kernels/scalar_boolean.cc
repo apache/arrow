@@ -100,6 +100,7 @@ struct KleeneAnd {
   static void Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
                    ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
+      BitUtil::SetBitsTo(out->buffers[0]->mutable_data(), out->offset, out->length, true);
       return And::Call(ctx, left, right, out);
     }
     auto compute_word = [](uint64_t left_true, uint64_t left_false, uint64_t right_true,
@@ -125,6 +126,7 @@ struct KleeneOr {
   static void Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
                    ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
+      BitUtil::SetBitsTo(out->buffers[0]->mutable_data(), out->offset, out->length, true);
       return Or::Call(ctx, left, right, out);
     }
     static auto compute_word = [](uint64_t left_true, uint64_t left_false,
@@ -148,12 +150,14 @@ struct Xor {
 };
 
 void MakeFunction(std::string name, int arity, ArrayKernelExec exec,
-                  FunctionRegistry* registry, bool can_write_into_slices = true) {
+                  FunctionRegistry* registry, bool can_write_into_slices = true,
+                  NullHandling::type null_handling = NullHandling::INTERSECTION) {
   auto func = std::make_shared<ScalarFunction>(name, arity);
 
   // Scalar arguments not yet supported
   std::vector<InputType> in_types(arity, InputType::Array(boolean()));
   ScalarKernel kernel(std::move(in_types), boolean(), exec);
+  kernel.null_handling = null_handling;
   kernel.can_write_into_slices = can_write_into_slices;
 
   DCHECK_OK(func->AddKernel(kernel));
@@ -175,9 +179,9 @@ void RegisterScalarBoolean(FunctionRegistry* registry) {
 
   // The Kleene logic kernels cannot write into sliced output bitmaps
   MakeFunction("and_kleene", 2, SimpleExec::Binary<KleeneAnd>, registry,
-               /*can_write_into_slices=*/false);
+               /*can_write_into_slices=*/false, NullHandling::COMPUTED_PREALLOCATE);
   MakeFunction("or_kleene", 2, SimpleExec::Binary<KleeneOr>, registry,
-               /*can_write_into_slices=*/false);
+               /*can_write_into_slices=*/false, NullHandling::COMPUTED_PREALLOCATE);
 }
 
 }  // namespace internal
