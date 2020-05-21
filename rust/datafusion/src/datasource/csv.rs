@@ -28,7 +28,7 @@
 //! let testdata = std::env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
 //! let csvdata = CsvFile::try_new(
 //!     &format!("{}/csv/aggregate_test_100.csv", testdata),
-//!     CsvReadOptions::default(),
+//!     CsvReadOptions::new().delimiter(b'|'),
 //! ).unwrap();
 //! let schema = csvdata.schema();
 //! ```

@@ -60,10 +60,7 @@ fn nyc() -> Result<()> {
     ctx.register_csv(
         "tripdata",
         "file.csv",
-        CsvReadOptions {
-            schema: Some(&schema),
-            ..Default::default()
-        },
+        CsvReadOptions::new().schema(&schema),
     )?;
 
     let logical_plan = ctx.create_logical_plan(
@@ -455,10 +452,7 @@ fn register_aggregate_csv(ctx: &mut ExecutionContext) -> Result<()> {
     ctx.register_csv(
         "aggregate_test_100",
         &format!("{}/csv/aggregate_test_100.csv", testdata),
-        CsvReadOptions {
-            schema: Some(&schema),
-            ..Default::default()
-        },
+        CsvReadOptions::new().schema(&schema),
     )?;
     Ok(())
 }

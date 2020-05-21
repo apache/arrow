@@ -150,15 +150,8 @@ mod tests {
         let partitions = 4;
         let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
 
-        let csv = CsvExec::try_new(
-            &path,
-            CsvReadOptions {
-                schema: Some(&schema),
-                ..Default::default()
-            },
-            None,
-            1024,
-        )?;
+        let csv =
+            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
 
         let projection = ProjectionExec::try_new(
             vec![Arc::new(Column::new(0, &schema.as_ref().field(0).name()))],

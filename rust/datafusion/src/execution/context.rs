@@ -878,10 +878,7 @@ mod tests {
         ]));
 
         // register each partition as well as the top level dir
-        let csv_read_option = CsvReadOptions {
-            schema: Some(&schema),
-            ..Default::default()
-        };
+        let csv_read_option = CsvReadOptions::new().schema(&schema);
         ctx.register_csv("part0", &format!("{}/part-0.csv", out_dir), csv_read_option)?;
         ctx.register_csv("part1", &format!("{}/part-1.csv", out_dir), csv_read_option)?;
         ctx.register_csv("part2", &format!("{}/part-2.csv", out_dir), csv_read_option)?;
@@ -1052,10 +1049,7 @@ mod tests {
         ctx.register_csv(
             "test",
             tmp_dir.path().to_str().unwrap(),
-            CsvReadOptions {
-                schema: Some(&schema),
-                ..Default::default()
-            },
+            CsvReadOptions::default().schema(&schema),
         )?;
 
         Ok(ctx)

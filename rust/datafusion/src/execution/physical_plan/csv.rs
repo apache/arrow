@@ -45,6 +45,32 @@ pub struct CsvReadOptions<'a> {
     pub schema_infer_read_records: Option<usize>,
 }
 
+impl<'a> CsvReadOptions<'a> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn has_header(mut self, has_header: bool) -> Self {
+        self.has_header = has_header;
+        self
+    }
+
+    pub fn delimiter(mut self, delimiter: u8) -> Self {
+        self.delimiter = Some(delimiter);
+        self
+    }
+
+    pub fn schema(mut self, schema: &'a Schema) -> Self {
+        self.schema = Some(schema);
+        self
+    }
+
+    pub fn schema_infer_read_records(mut self, read_records: usize) -> Self {
+        self.schema_infer_read_records = Some(read_records);
+        self
+    }
+}
+
 impl Default for CsvReadOptions<'_> {
     fn default() -> Self {
         Self {

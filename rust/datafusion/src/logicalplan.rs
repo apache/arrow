@@ -973,10 +973,7 @@ mod tests {
     fn plan_builder_csv() -> Result<()> {
         let plan = LogicalPlanBuilder::scan_csv(
             "employee.csv",
-            CsvReadOptions {
-                schema: Some(&employee_schema()),
-                ..Default::default()
-            },
+            CsvReadOptions::new().schema(&employee_schema()),
             Some(vec![0, 3]),
         )?
         .filter(col("state").eq(&lit_str("CO")))?
