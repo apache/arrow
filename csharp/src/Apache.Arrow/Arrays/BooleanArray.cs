@@ -24,17 +24,17 @@ namespace Apache.Arrow
     {
         public class Builder : IArrowArrayBuilder<bool, BooleanArray, Builder>
         {
-            private ArrowBuffer.BitPackedBuilder ValueBuffer { get; }
-            private ArrowBuffer.BitPackedBuilder ValidityBuffer { get; }
+            private ArrowBuffer.BitmapBuilder ValueBuffer { get; }
+            private ArrowBuffer.BitmapBuilder ValidityBuffer { get; }
 
-            public int Length => ValueBuffer.BitCount;
-            public int Capacity => ValueBuffer.BitCapacity;
+            public int Length => ValueBuffer.Length;
+            public int Capacity => ValueBuffer.Capacity;
             public int NullCount => ValidityBuffer.CountUnsetBits();
 
             public Builder()
             {
-                ValueBuffer = new ArrowBuffer.BitPackedBuilder();
-                ValidityBuffer = new ArrowBuffer.BitPackedBuilder();
+                ValueBuffer = new ArrowBuffer.BitmapBuilder();
+                ValidityBuffer = new ArrowBuffer.BitmapBuilder();
             }
 
             public Builder Append(bool value)

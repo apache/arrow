@@ -105,7 +105,7 @@ namespace Apache.Arrow
     {
         protected TBuilder Instance => this as TBuilder;
         protected ArrowBuffer.Builder<T> ValueBuffer { get; }
-        protected ArrowBuffer.BitPackedBuilder ValidityBuffer { get; }
+        protected ArrowBuffer.BitmapBuilder ValidityBuffer { get; }
 
         public int Length => ValueBuffer.Length;
         protected int NullCount => ValidityBuffer.CountUnsetBits();
@@ -113,7 +113,7 @@ namespace Apache.Arrow
         internal PrimitiveArrayBuilder()
         {
             ValueBuffer = new ArrowBuffer.Builder<T>();
-            ValidityBuffer = new ArrowBuffer.BitPackedBuilder();
+            ValidityBuffer = new ArrowBuffer.BitmapBuilder();
         }
 
         public TBuilder Resize(int length)

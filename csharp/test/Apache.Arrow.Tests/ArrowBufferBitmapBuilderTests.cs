@@ -20,10 +20,10 @@ namespace Apache.Arrow.Tests
     using Xunit;
 
     /// <summary>
-    /// The <see cref="ArrowBufferBitPackedBuilderTests"/> class provides unit tests for the
-    /// <see cref="ArrowBuffer.BitPackedBuilder"/> class.
+    /// The <see cref="ArrowBufferBitmapBuilderTests"/> class provides unit tests for the
+    /// <see cref="ArrowBuffer.BitmapBuilder"/> class.
     /// </summary>
-    public class ArrowBufferBitPackedBuilderTests
+    public class ArrowBufferBitmapBuilderTests
     {
         public class Build
         {
@@ -36,7 +36,7 @@ namespace Apache.Arrow.Tests
             public void AppendedRangeBitPacks(bool[] contents, byte[] expectedBytes)
             {
                 // Arrange
-                var builder = new ArrowBuffer.BitPackedBuilder();
+                var builder = new ArrowBuffer.BitmapBuilder();
                 builder.AppendRange(contents);
 
                 // Act
@@ -55,7 +55,7 @@ namespace Apache.Arrow.Tests
             public void ClearingSetsBitCountToZero(int numBitsBeforeClear)
             {
                 // Arrange
-                var builder = new ArrowBuffer.BitPackedBuilder();
+                var builder = new ArrowBuffer.BitmapBuilder();
                 var data = Enumerable.Repeat(true, numBitsBeforeClear).Select(x => x).ToArray();
                 builder.AppendRange(data);
 
@@ -63,7 +63,7 @@ namespace Apache.Arrow.Tests
                 builder.Clear();
 
                 // Assert
-                Assert.Equal(0, builder.BitCount);
+                Assert.Equal(0, builder.Length);
             }
 
             [Theory]
@@ -76,7 +76,7 @@ namespace Apache.Arrow.Tests
                 int numBitsBeforeClear, int numBitsAfterClear, byte[] expectedBytes)
             {
                 // Arrange
-                var builder = new ArrowBuffer.BitPackedBuilder();
+                var builder = new ArrowBuffer.BitmapBuilder();
                 var preData = Enumerable.Repeat(true, numBitsBeforeClear).Select(x => x).ToArray();
                 var postData = Enumerable.Repeat(true, numBitsAfterClear).Select(x => x).ToArray();
                 builder.AppendRange(preData);
@@ -87,7 +87,7 @@ namespace Apache.Arrow.Tests
                 var buf = builder.Build();
 
                 // Assert
-                Assert.Equal(numBitsAfterClear, builder.BitCount);
+                Assert.Equal(numBitsAfterClear, builder.Length);
                 AssertBuffer(expectedBytes, buf);
             }
         }
@@ -103,7 +103,7 @@ namespace Apache.Arrow.Tests
             public void CountAsExpected(bool[] bits, int expectedCount)
             {
                 // Arrange
-                var builder = new ArrowBuffer.BitPackedBuilder();
+                var builder = new ArrowBuffer.BitmapBuilder();
                 if (bits.Any())
                 {
                     builder.AppendRange(bits);
@@ -128,7 +128,7 @@ namespace Apache.Arrow.Tests
             public void CountAsExpected(bool[] bits, int expectedCount)
             {
                 // Arrange
-                var builder = new ArrowBuffer.BitPackedBuilder();
+                var builder = new ArrowBuffer.BitmapBuilder();
                 if (bits.Any())
                 {
                     builder.AppendRange(bits);
@@ -147,22 +147,22 @@ namespace Apache.Arrow.Tests
             [Fact]
             public void LengthHasExpectedValueAfterResize()
             {
-                var builder = new ArrowBuffer.BitPackedBuilder();
+                var builder = new ArrowBuffer.BitmapBuilder();
                 builder.Resize(16);
 
-                Assert.True(builder.BitCapacity >= 16);
-                Assert.Equal(16, builder.BitCount);
+                Assert.True(builder.Capacity >= 16);
+                Assert.Equal(16, builder.Length);
             }
 
             [Fact]
             public void NegativeLengthResizesToZero()
             {
-                var builder = new ArrowBuffer.BitPackedBuilder();
+                var builder = new ArrowBuffer.BitmapBuilder();
                 builder.Append(false);
                 builder.Append(true);
                 builder.Resize(-1);
 
-                Assert.Equal(0, builder.BitCount);
+                Assert.Equal(0, builder.Length);
             }
         }
 
@@ -176,21 +176,21 @@ namespace Apache.Arrow.Tests
             public void CapacityIncreased(int initialCapacity, int numBitsToAppend, int additionalCapacity)
             {
                 // Arrange
-                var builder = new ArrowBuffer.BitPackedBuilder(initialCapacity);
+                var builder = new ArrowBuffer.BitmapBuilder(initialCapacity);
                 builder.AppendRange(Enumerable.Repeat(true, numBitsToAppend));
 
                 // Act
                 builder.Reserve(additionalCapacity);
 
                 // Assert
-                Assert.True(builder.BitCapacity >= numBitsToAppend + additionalCapacity);
+                Assert.True(builder.Capacity >= numBitsToAppend + additionalCapacity);
             }
 
             [Fact]
             public void NegtativeCapacityThrows()
             {
                 // Arrange
-                var builder = new ArrowBuffer.BitPackedBuilder();
+                var builder = new ArrowBuffer.BitmapBuilder();
 
                 // Act/Assert
                 Assert.Throws<ArgumentOutOfRangeException>(() => builder.Reserve(-1));
@@ -219,7 +219,7 @@ namespace Apache.Arrow.Tests
             public void OverloadWithNoValueParameterSetsAsExpected(bool[] bits, int indexToSet, byte[] expectedBytes)
             {
                 // Arrange
-                var builder = new ArrowBuffer.BitPackedBuilder();
+                var builder = new ArrowBuffer.BitmapBuilder();
                 builder.AppendRange(bits);
 
                 // Act
@@ -267,7 +267,7 @@ namespace Apache.Arrow.Tests
                 bool[] bits, int indexToSet, bool valueToSet, byte[] expectedBytes)
             {
                 // Arrange
-                var builder = new ArrowBuffer.BitPackedBuilder();
+                var builder = new ArrowBuffer.BitmapBuilder();
                 builder.AppendRange(bits);
 
                 // Act
@@ -287,7 +287,7 @@ namespace Apache.Arrow.Tests
             public void BadIndexThrows(int numBitsToAppend, int indexToSet)
             {
                 // Arrange
-                var builder = new ArrowBuffer.BitPackedBuilder();
+                var builder = new ArrowBuffer.BitmapBuilder();
                 var bits = Enumerable.Repeat(true, numBitsToAppend);
                 builder.AppendRange(bits);
 
@@ -319,7 +319,7 @@ namespace Apache.Arrow.Tests
             public void SwapsAsExpected(bool[] bits, int firstIndex, int secondIndex, byte[] expectedBytes)
             {
                 // Arrange
-                var builder = new ArrowBuffer.BitPackedBuilder();
+                var builder = new ArrowBuffer.BitmapBuilder();
                 builder.AppendRange(bits);
 
                 // Act
@@ -348,7 +348,7 @@ namespace Apache.Arrow.Tests
             public void BadIndicesThrows(int numBitsToAppend, int firstIndex, int secondIndex)
             {
                 // Arrange
-                var builder = new ArrowBuffer.BitPackedBuilder();
+                var builder = new ArrowBuffer.BitmapBuilder();
                 var bits = Enumerable.Repeat(true, numBitsToAppend);
                 builder.AppendRange(bits);
 
@@ -379,7 +379,7 @@ namespace Apache.Arrow.Tests
             public void TogglesAsExpected(bool[] bits, int indexToToggle, byte[] expectedBytes)
             {
                 // Arrange
-                var builder = new ArrowBuffer.BitPackedBuilder();
+                var builder = new ArrowBuffer.BitmapBuilder();
                 builder.AppendRange(bits);
 
                 // Act
@@ -399,7 +399,7 @@ namespace Apache.Arrow.Tests
             public void BadIndexThrows(int numBitsToAppend, int indexToToggle)
             {
                 // Arrange
-                var builder = new ArrowBuffer.BitPackedBuilder();
+                var builder = new ArrowBuffer.BitmapBuilder();
                 var bits = Enumerable.Repeat(true, numBitsToAppend);
                 builder.AppendRange(bits);
 

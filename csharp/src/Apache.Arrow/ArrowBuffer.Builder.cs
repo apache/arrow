@@ -28,7 +28,7 @@ namespace Apache.Arrow
         /// </summary>
         /// <remarks>
         /// Note that <see cref="bool"/> is not supported as a generic type argument for this class.  Please use
-        /// <see cref="BitPackedBuilder"/> instead.
+        /// <see cref="BitmapBuilder"/> instead.
         /// </remarks>
         /// <typeparam name="T">Value-type of item to build into a buffer.</typeparam>
         public class Builder<T>
@@ -39,7 +39,7 @@ namespace Apache.Arrow
             private readonly int _size;
 
             /// <summary>
-            /// Gets the number of items of current capacity.
+            /// Gets the number of items that can be contained in the memory allocated by the current instance.
             /// </summary>
             public int Capacity => Memory.Length / _size;
 
@@ -74,9 +74,9 @@ namespace Apache.Arrow
                 // indicate that such a template type is not supported.
                 if (typeof(T) == typeof(bool))
                 {
-                    throw new ArgumentException(
+                    throw new NotSupportedException(
                         $"An instance of {nameof(Builder<T>)} cannot be instantiated, as `bool` is not an " +
-                        $"appropriate generic type to use with this class - please use {nameof(BitPackedBuilder)} " +
+                        $"appropriate generic type to use with this class - please use {nameof(BitmapBuilder)} " +
                         $"instead");
                 }
 
@@ -172,7 +172,7 @@ namespace Apache.Arrow
             {
                 capacity = capacity < 0 ? 0 : capacity;
                 EnsureCapacity(capacity);
-                Length = Math.Max(0, capacity);
+                Length = capacity;
 
                 return this;
             }
@@ -192,7 +192,7 @@ namespace Apache.Arrow
             /// Build an Arrow buffer from the appended contents so far.
             /// </summary>
             /// <param name="allocator">Optional memory allocator.</param>
-            /// <returns>Returns the builder (for fluent-style composition).</returns>
+            /// <returns>Returns an <see cref="ArrowBuffer"/> object.</returns>
             public ArrowBuffer Build(MemoryAllocator allocator = default)
             {
                 int currentBytesLength = Length * _size;

@@ -13,32 +13,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using Apache.Arrow.Memory;
+
 namespace Apache.Arrow
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Diagnostics;
-    using Apache.Arrow.Memory;
-
     public partial struct ArrowBuffer
     {
         /// <summary>
-        /// The <see cref="ArrowBuffer.BitPackedBuilder"/> class is a complement to <see cref="ArrowBuffer.Builder{T}"/>
+        /// The <see cref="BitmapBuilder"/> class is a complement to <see cref="ArrowBuffer.Builder{T}"/>
         /// and is designed for boolean fields, which are efficiently bit-packed into byte-aligned memory.
         /// </summary>
-        public class BitPackedBuilder
+        public class BitmapBuilder
         {
-            private const int DefaultBitCapacity = 8;
+            private const int DefaultBitCapacity = 64;
 
             /// <summary>
-            /// Gets the number of bits of current capacity.
+            /// Gets the number of bits that can be contained in the memory allocated by the current instance.
             /// </summary>
-            public int BitCapacity { get; private set; }
+            public int Capacity { get; private set; }
 
             /// <summary>
             /// Gets the number of bits currently appended.
             /// </summary>
-            public int BitCount { get; private set; }
+            public int Length { get; private set; }
 
             /// <summary>
             /// Gets the raw byte memory underpinning the builder.
@@ -51,45 +51,44 @@ namespace Apache.Arrow
             public Span<byte> Span => Memory.Span;
 
             /// <summary>
-            /// Creates an instance of the <see cref="BitPackedBuilder"/> class.
+            /// Creates an instance of the <see cref="BitmapBuilder"/> class.
             /// </summary>
-            /// <param name="bitCapacity">Number of bits of initial capacity to reserve.</param>
-            public BitPackedBuilder(int bitCapacity = DefaultBitCapacity)
+            /// <param name="capacity">Number of bits of initial capacity to reserve.</param>
+            public BitmapBuilder(int capacity = DefaultBitCapacity)
             {
-                Memory = new byte[BitUtility.ByteCount(bitCapacity)];
-                BitCapacity = bitCapacity;
-                BitCount = 0;
+                Memory = new byte[BitUtility.ByteCount(capacity)];
+                Capacity = capacity;
+                Length = 0;
             }
 
             /// <summary>
             /// Append a single bit.
             /// </summary>
-            /// <param name="bit">Bit to append.</param>
+            /// <param name="value">Bit to append.</param>
             /// <returns>Returns the builder (for fluent-style composition).</returns>
-            public BitPackedBuilder Append(bool bit)
+            public BitmapBuilder Append(bool value)
             {
-                if (BitCount % 8 == 0)
+                if (Length % 8 == 0)
                 {
                     // Append a new byte to the buffer when needed.
                     EnsureAdditionalCapacity(1);
-                    Span[BitCount / 8] = 0;
                 }
 
-                BitUtility.SetBit(Span, BitCount, bit);
-                BitCount++;
+                BitUtility.SetBit(Span, Length, value);
+                Length++;
                 return this;
             }
 
             /// <summary>
             /// Append multiple bits.
             /// </summary>
-            /// <param name="bits">Bits to append.</param>
+            /// <param name="values">Bits to append.</param>
             /// <returns>Returns the builder (for fluent-style composition).</returns>
-            public BitPackedBuilder AppendRange(IEnumerable<bool> bits)
+            public BitmapBuilder AppendRange(IEnumerable<bool> values)
             {
-                if (bits != null)
+                if (values != null)
                 {
-                    foreach (var v in bits)
+                    foreach (var v in values)
                     {
                         Append(v);
                     }
@@ -108,14 +107,14 @@ namespace Apache.Arrow
             /// Count the number of unset bits (i.e. set to 0).
             /// </summary>
             /// <returns>Returns the number of unset bits.</returns>
-            public int CountUnsetBits() => this.BitCount - this.CountSetBits();
+            public int CountUnsetBits() => this.Length - this.CountSetBits();
 
             /// <summary>
             /// Toggle the bit at a particular index.
             /// </summary>
             /// <param name="index">Index of bit to toggle.</param>
             /// <returns>Returns the builder (for fluent-style composition).</returns>
-            public BitPackedBuilder Toggle(int index)
+            public BitmapBuilder Toggle(int index)
             {
                 CheckIndex(index);
                 BitUtility.ToggleBit(Span, index);
@@ -127,7 +126,7 @@ namespace Apache.Arrow
             /// </summary>
             /// <param name="index">Index of bit to set.</param>
             /// <returns>Returns the builder (for fluent-style composition).</returns>
-            public BitPackedBuilder Set(int index)
+            public BitmapBuilder Set(int index)
             {
                 CheckIndex(index);
                 BitUtility.SetBit(Span, index);
@@ -140,7 +139,7 @@ namespace Apache.Arrow
             /// <param name="index">Index of bit to set/unset.</param>
             /// <param name="value">Value of bit.</param>
             /// <returns>Returns the builder (for fluent-style composition).</returns>
-            public BitPackedBuilder Set(int index, bool value)
+            public BitmapBuilder Set(int index, bool value)
             {
                 CheckIndex(index);
                 BitUtility.SetBit(Span, index, value);
@@ -153,7 +152,7 @@ namespace Apache.Arrow
             /// <param name="i">First index.</param>
             /// <param name="j">Second index.</param>
             /// <returns>Returns the builder (for fluent-style composition).</returns>
-            public BitPackedBuilder Swap(int i, int j)
+            public BitmapBuilder Swap(int i, int j)
             {
                 CheckIndex(i);
                 CheckIndex(j);
@@ -167,16 +166,16 @@ namespace Apache.Arrow
             /// <summary>
             /// Reserve a given number of bits' additional capacity.
             /// </summary>
-            /// <param name="bitAdditionalCapacity">Number of bits of required additional capacity.</param>
+            /// <param name="additionalCapacity">Number of bits of required additional capacity.</param>
             /// <returns>Returns the builder (for fluent-style composition).</returns>
-            public BitPackedBuilder Reserve(int bitAdditionalCapacity)
+            public BitmapBuilder Reserve(int additionalCapacity)
             {
-                if (bitAdditionalCapacity < 0)
+                if (additionalCapacity < 0)
                 {
-                    throw new ArgumentOutOfRangeException(nameof(bitAdditionalCapacity));
+                    throw new ArgumentOutOfRangeException(nameof(additionalCapacity));
                 }
 
-                EnsureAdditionalCapacity(bitAdditionalCapacity);
+                EnsureAdditionalCapacity(additionalCapacity);
                 return this;
             }
 
@@ -190,13 +189,13 @@ namespace Apache.Arrow
             /// <remarks>
             /// Note also that a negative capacity will result in the buffer being resized to zero.
             /// </remarks>
-            /// <param name="bitCapacity">Number of bits of required capacity.</param>
+            /// <param name="capacity">Number of bits of required capacity.</param>
             /// <returns>Returns the builder (for fluent-style composition).</returns>
-            public BitPackedBuilder Resize(int bitCapacity)
+            public BitmapBuilder Resize(int capacity)
             {
-                bitCapacity = bitCapacity < 0 ? 0 : bitCapacity;
-                EnsureCapacity(bitCapacity);
-                BitCount = Math.Max(0, bitCapacity);
+                capacity = capacity < 0 ? 0 : capacity;
+                EnsureCapacity(capacity);
+                Length = capacity;
 
                 return this;
             }
@@ -205,10 +204,10 @@ namespace Apache.Arrow
             /// Clear all contents appended so far.
             /// </summary>
             /// <returns>Returns the builder (for fluent-style composition).</returns>
-            public BitPackedBuilder Clear()
+            public BitmapBuilder Clear()
             {
                 Span.Fill(default);
-                BitCount = 0;
+                Length = 0;
                 return this;
             }
 
@@ -216,7 +215,7 @@ namespace Apache.Arrow
             /// Build an Arrow buffer from the appended contents so far.
             /// </summary>
             /// <param name="allocator">Optional memory allocator.</param>
-            /// <returns>Returns the builder (for fluent-style composition).</returns>
+            /// <returns>Returns an <see cref="ArrowBuffer"/> object.</returns>
             public ArrowBuffer Build(MemoryAllocator allocator = default)
             {
                 var bufferLength = checked((int)BitUtility.RoundUpToMultipleOf64(Memory.Length));
@@ -228,7 +227,7 @@ namespace Apache.Arrow
 
             private void CheckIndex(int index)
             {
-                if (index < 0 || index >= BitCount)
+                if (index < 0 || index >= Length)
                 {
                     throw new ArgumentOutOfRangeException(nameof(index));
                 }
@@ -236,19 +235,19 @@ namespace Apache.Arrow
 
             private void EnsureAdditionalCapacity(int additionalCapacity)
             {
-                EnsureCapacity(checked(BitCount + additionalCapacity));
+                EnsureCapacity(checked(Length + additionalCapacity));
             }
 
             private void EnsureCapacity(int requiredCapacity)
             {
-                if (requiredCapacity > BitCapacity)
+                if (requiredCapacity > Capacity)
                 {
                     // TODO: specifiable growth strategy
                     // Double the length of the in-memory array, or use the byte count of the capacity, whichever is
                     // greater.
                     var byteCount = Math.Max(BitUtility.ByteCount(requiredCapacity), Memory.Length * 2);
                     Reallocate(byteCount);
-                    BitCapacity = byteCount * 8;
+                    Capacity = byteCount * 8;
                 }
             }
 

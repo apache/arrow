@@ -56,7 +56,7 @@ namespace Apache.Arrow
             protected TBuilder Instance => this as TBuilder;
             protected ArrowBuffer.Builder<int> ValueOffsets { get; }
             protected ArrowBuffer.Builder<byte> ValueBuffer { get; }
-            protected ArrowBuffer.BitPackedBuilder ValidityBuffer { get; }
+            protected ArrowBuffer.BitmapBuilder ValidityBuffer { get; }
             protected int Offset { get; set; }
             protected int NullCount => this.ValidityBuffer.CountUnsetBits();
 
@@ -65,7 +65,7 @@ namespace Apache.Arrow
                 DataType = dataType;
                 ValueOffsets = new ArrowBuffer.Builder<int>();
                 ValueBuffer = new ArrowBuffer.Builder<byte>();
-                ValidityBuffer = new ArrowBuffer.BitPackedBuilder();
+                ValidityBuffer = new ArrowBuffer.BitmapBuilder();
             }
 
             protected abstract TArray Build(ArrayData data);

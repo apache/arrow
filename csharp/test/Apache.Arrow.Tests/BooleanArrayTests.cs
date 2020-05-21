@@ -14,12 +14,11 @@
 // limitations under the License.
 
 using System;
+using System.Linq;
 using Xunit;
 
 namespace Apache.Arrow.Tests
 {
-    using System.Linq;
-
     public class BooleanArrayTests
     {
         public class Builder

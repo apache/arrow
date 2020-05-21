@@ -29,7 +29,7 @@ namespace Apache.Arrow
 
             private ArrowBuffer.Builder<int> ValueOffsetsBufferBuilder { get; }
 
-            private ArrowBuffer.BitPackedBuilder ValidityBufferBuilder { get; }
+            private ArrowBuffer.BitmapBuilder ValidityBufferBuilder { get; }
 
             public int NullCount { get; protected set; }
 
@@ -47,7 +47,7 @@ namespace Apache.Arrow
             {
                 ValueBuilder = ArrowArrayBuilderFactory.Build(dataType.ValueDataType);
                 ValueOffsetsBufferBuilder = new ArrowBuffer.Builder<int>();
-                ValidityBufferBuilder = new ArrowBuffer.BitPackedBuilder();
+                ValidityBufferBuilder = new ArrowBuffer.BitmapBuilder();
                 DataType = dataType;
             }
 
