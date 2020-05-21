@@ -308,7 +308,9 @@ jobs:
       with:
         python-version: 3.8
     - name: Setup Archery
+      shell: bash
       run: pip install -e dev/archery[docker]
     - name: Execute Docker Build
+      shell: bash
       run: |
         archery docker run windows-cpp
