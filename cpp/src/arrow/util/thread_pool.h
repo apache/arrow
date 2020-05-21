@@ -76,6 +76,19 @@ struct ExecutorResultTraits<Result<T>> {
 
 }  // namespace detail
 
+// Hints about a task that may be used by an Executor.
+// They are ignored by the provided ThreadPool implementation.
+struct TaskHints {
+  // The lower, the more urgent
+  int32_t priority = 0;
+  // The IO transfer size in bytes
+  int64_t io_size = -1;
+  // The approximate CPU cost in number of instructions
+  int64_t cpu_cost = -1;
+  // An application-specific ID
+  int64_t external_id = -1;
+};
+
 class ARROW_EXPORT Executor {
  public:
   virtual ~Executor();
@@ -83,7 +96,12 @@ class ARROW_EXPORT Executor {
   // Spawn a fire-and-forget task.
   template <typename Function>
   Status Spawn(Function&& func) {
-    return SpawnReal(std::forward<Function>(func));
+    return SpawnReal(TaskHints{}, std::forward<Function>(func));
+  }
+
+  template <typename Function>
+  Status Spawn(TaskHints hints, Function&& func) {
+    return SpawnReal(std::move(hints), std::forward<Function>(func));
   }
 
   // Submit a callable and arguments for execution.  Return a future that
@@ -95,6 +113,15 @@ class ARROW_EXPORT Executor {
       typename RT = typename detail::ExecutorResultTraits<FunctionRetType>,
       typename ValueType = typename RT::ValueType>
   Result<Future<ValueType>> Submit(Function&& func, Args&&... args) {
+    return Submit(TaskHints{}, std::forward<Function>(func), std::forward<Args>(args)...);
+  }
+
+  template <
+      typename Function, typename... Args,
+      typename FunctionRetType = typename std::result_of<Function && (Args && ...)>::type,
+      typename RT = typename detail::ExecutorResultTraits<FunctionRetType>,
+      typename ValueType = typename RT::ValueType>
+  Result<Future<ValueType>> Submit(TaskHints hints, Function&& func, Args&&... args) {
     auto bound_func =
         std::bind(std::forward<Function>(func), std::forward<Args>(args)...);
     using BoundFuncType = decltype(bound_func);
@@ -106,7 +133,7 @@ class ARROW_EXPORT Executor {
       void operator()() { future.ExecuteAndMarkFinished(std::move(bound_func)); }
     };
     auto future = Future<ValueType>::Make();
-    ARROW_RETURN_NOT_OK(SpawnReal(Task{std::move(bound_func), future}));
+    ARROW_RETURN_NOT_OK(SpawnReal(std::move(hints), Task{std::move(bound_func), future}));
     return future;
   }
 
@@ -133,7 +160,7 @@ class ARROW_EXPORT Executor {
   Executor() = default;
 
   // Subclassing API
-  virtual Status SpawnReal(std::function<void()> task) = 0;
+  virtual Status SpawnReal(TaskHints hints, std::function<void()> task) = 0;
 };
 
 // An Executor implementation spawning tasks in FIFO manner on a fixed-size
@@ -180,7 +207,7 @@ class ARROW_EXPORT ThreadPool : public Executor {
 
   ThreadPool();
 
-  Status SpawnReal(std::function<void()> task) override;
+  Status SpawnReal(TaskHints hints, std::function<void()> task) override;
 
   // Collect finished worker threads, making sure the OS threads have exited
   void CollectFinishedWorkersUnlocked();

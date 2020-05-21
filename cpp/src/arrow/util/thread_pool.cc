@@ -228,7 +228,7 @@ void ThreadPool::LaunchWorkersUnlocked(int threads) {
   }
 }
 
-Status ThreadPool::SpawnReal(std::function<void()> task) {
+Status ThreadPool::SpawnReal(TaskHints hints, std::function<void()> task) {
   {
     ProtectAgainstFork();
     std::lock_guard<std::mutex> lock(state_->mutex_);

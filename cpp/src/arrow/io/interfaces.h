@@ -51,6 +51,8 @@ struct ReadRange {
 // EXPERIMENTAL
 struct ARROW_EXPORT AsyncContext {
   ::arrow::internal::Executor* executor;
+  // An application-specific ID, forwarded to executor task submissions
+  int64_t external_id = -1;
 
   // Set `executor` to a global IO-specific thread pool.
   AsyncContext();

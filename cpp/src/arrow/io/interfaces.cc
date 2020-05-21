@@ -41,6 +41,7 @@
 namespace arrow {
 
 using internal::Executor;
+using internal::TaskHints;
 using internal::ThreadPool;
 
 namespace io {
@@ -124,8 +125,12 @@ Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(const AsyncContext& 
                                                             int64_t position,
                                                             int64_t nbytes) {
   auto self = shared_from_this();
-  auto maybe_fut = ctx.executor->Submit(
-      [self, position, nbytes] { return self->ReadAt(position, nbytes); });
+  TaskHints hints;
+  hints.io_size = nbytes;
+  hints.external_id = ctx.external_id;
+  auto maybe_fut = ctx.executor->Submit(std::move(hints), [self, position, nbytes] {
+    return self->ReadAt(position, nbytes);
+  });
   if (!maybe_fut.ok()) {
     return Future<std::shared_ptr<Buffer>>::MakeFinished(maybe_fut.status());
   }
