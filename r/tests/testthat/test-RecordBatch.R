@@ -158,7 +158,7 @@ test_that("[[ and $ on RecordBatch", {
   expect_error(batch[[c(4, 3)]], class = "Rcpp::not_compatible")
   expect_error(batch[[NA]], "'i' must be character or numeric, not logical")
   expect_error(batch[[NULL]], "'i' must be character or numeric, not NULL")
-  expect_error(batch[[c("asdf", "jkl;")]], 'length(name) not equal to 1', fixed = TRUE)
+  expect_error(batch[[c("asdf", "jkl;")]], 'name is not a string', fixed = TRUE)
 })
 
 test_that("head and tail on RecordBatch", {
@@ -355,7 +355,7 @@ test_that("RecordBatch$Equals(check_metadata)", {
   expect_is(rb2, "RecordBatch")
   expect_false(rb1$schema$HasMetadata)
   expect_true(rb2$schema$HasMetadata)
-  expect_match(rb2$schema$metadata, "some: metadata", fixed = TRUE)
+  expect_identical(rb2$schema$metadata, list(some = "metadata"))
 
   expect_true(rb1 == rb2)
   expect_true(rb1$Equals(rb2))
@@ -365,4 +365,17 @@ test_that("RecordBatch$Equals(check_metadata)", {
   expect_equivalent(rb1, rb2)  # expect_equivalent has check_metadata=FALSE
 
   expect_false(rb1$Equals(24)) # Not a RecordBatch
+})
+
+test_that("RecordBatch metadata", {
+  rb <- RecordBatch$create(x = 1:2, y = c("a", "b"))
+  expect_equivalent(rb$metadata, list())
+  rb$metadata <- list(test = TRUE)
+  expect_identical(rb$metadata, list(test = "TRUE"))
+  rb$metadata$foo <- 42
+  expect_identical(rb$metadata, list(test = "TRUE", foo = "42"))
+  rb$metadata$foo <- NULL
+  expect_identical(rb$metadata, list(test = "TRUE"))
+  rb$metadata <- NULL
+  expect_equivalent(rb$metadata, list())
 })

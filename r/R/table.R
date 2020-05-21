@@ -80,7 +80,9 @@
 #' - `$num_columns`
 #' - `$num_rows`
 #' - `$schema`
-#' - `$metadata`: Returns the key-value metadata of the `Schema`
+#' - `$metadata`: Returns the key-value metadata of the `Schema` as a named list.
+#'    Modify or replace by assigning in (`tab$metadata <- new_metadata`).
+#'    All list elements are coerced to string.
 #' - `$columns`: Returns a list of `ChunkedArray`s
 #' @rdname Table
 #' @name Table
@@ -178,7 +180,20 @@ Table <- R6Class("Table", inherit = ArrowObject,
     num_columns = function() Table__num_columns(self),
     num_rows = function() Table__num_rows(self),
     schema = function() shared_ptr(Schema, Table__schema(self)),
-    metadata = function() self$schema$metadata,
+    metadata = function(new) {
+      if (missing(new)) {
+        # Get the metadata (from the schema)
+        self$schema$metadata
+      } else {
+        # Set the metadata
+        new <- prepare_key_value_metadata(new)
+        out <- Table__ReplaceSchemaMetadata(self, new)
+        # ReplaceSchemaMetadata returns a new object but we're modifying in place,
+        # so swap in that new C++ object pointer into our R6 object
+        self$set_pointer(out)
+        self
+      }
+    },
     columns = function() map(Table__columns(self), shared_ptr, class = ChunkedArray)
   )
 )

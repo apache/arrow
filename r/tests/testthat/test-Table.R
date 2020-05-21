@@ -307,7 +307,7 @@ test_that("Table$Equals(check_metadata)", {
   expect_is(tab2, "Table")
   expect_false(tab1$schema$HasMetadata)
   expect_true(tab2$schema$HasMetadata)
-  expect_match(tab2$schema$metadata, "some: metadata", fixed = TRUE)
+  expect_identical(tab2$schema$metadata, list(some = "metadata"))
 
   expect_true(tab1 == tab2)
   expect_true(tab1$Equals(tab2))
@@ -317,6 +317,19 @@ test_that("Table$Equals(check_metadata)", {
   expect_equivalent(tab1, tab2)  # expect_equivalent has check_metadata=FALSE
 
   expect_false(tab1$Equals(24)) # Not a Table
+})
+
+test_that("Table metadata", {
+  tab <- Table$create(x = 1:2, y = c("a", "b"))
+  expect_equivalent(tab$metadata, list())
+  tab$metadata <- list(test = TRUE)
+  expect_identical(tab$metadata, list(test = "TRUE"))
+  tab$metadata$foo <- 42
+  expect_identical(tab$metadata, list(test = "TRUE", foo = "42"))
+  tab$metadata$foo <- NULL
+  expect_identical(tab$metadata, list(test = "TRUE"))
+  tab$metadata <- NULL
+  expect_equivalent(tab$metadata, list())
 })
 
 test_that("Table handles null type (ARROW-7064)", {
