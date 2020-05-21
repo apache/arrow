@@ -1009,8 +1009,8 @@ TEST(TestDenseUnion, Basics) {
 
   // ensure that the array is as dense as we expect
   ASSERT_TRUE(array->value_offsets()->Equals(*expected_offsets->data()->buffers[1]));
-  ASSERT_ARRAYS_EQUAL(*expected_a, *array->child(0));
-  ASSERT_ARRAYS_EQUAL(*expected_b, *array->child(1));
+  ASSERT_ARRAYS_EQUAL(*expected_a, *array->field(0));
+  ASSERT_ARRAYS_EQUAL(*expected_b, *array->field(1));
 }
 
 TEST(TestSparseUnion, Basics) {
@@ -1062,8 +1062,8 @@ TEST(TestDenseUnion, ListOfUnion) {
   auto array_values = checked_pointer_cast<UnionArray>(array->values());
   ASSERT_TRUE(array_values->value_offsets()->Equals(
       *checked_pointer_cast<UnionArray>(expected_values)->value_offsets()));
-  ASSERT_ARRAYS_EQUAL(*expected_a, *array_values->child(0));
-  ASSERT_ARRAYS_EQUAL(*expected_b, *array_values->child(1));
+  ASSERT_ARRAYS_EQUAL(*expected_a, *array_values->field(0));
+  ASSERT_ARRAYS_EQUAL(*expected_b, *array_values->field(1));
 }
 
 TEST(TestSparseUnion, ListOfUnion) {
@@ -1127,9 +1127,9 @@ TEST(TestDenseUnion, UnionOfStructs) {
 
   // ensure that the array is as dense as we expect
   ASSERT_TRUE(array->value_offsets()->Equals(*expected_offsets->data()->buffers[1]));
-  for (int i = 0; i < type->num_children(); ++i) {
-    ASSERT_ARRAYS_EQUAL(*checked_cast<const UnionArray&>(*expected).child(i),
-                        *array->child(i));
+  for (int i = 0; i < type->num_fields(); ++i) {
+    ASSERT_ARRAYS_EQUAL(*checked_cast<const UnionArray&>(*expected).field(i),
+                        *array->field(i));
   }
 }
 

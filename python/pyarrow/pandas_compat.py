@@ -363,8 +363,8 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
     index_column_names = []
     for i, index_level in enumerate(index_levels):
         name = _index_level_name(index_level, i, column_names)
-        if (isinstance(index_level, _pandas_api.pd.RangeIndex)
-                and preserve_index is None):
+        if (isinstance(index_level, _pandas_api.pd.RangeIndex) and
+                preserve_index is None):
             descr = _get_range_index_descriptor(index_level)
         else:
             columns_to_convert.append(index_level)
@@ -773,8 +773,8 @@ def table_to_blockmanager(options, table, categories=None,
 # dataframe (complex not included since not supported by Arrow)
 _pandas_supported_numpy_types = {
     str(np.dtype(typ))
-    for typ in (np.sctypes['int'] + np.sctypes['uint'] + np.sctypes['float']
-                + ['object', 'bool'])
+    for typ in (np.sctypes['int'] + np.sctypes['uint'] + np.sctypes['float'] +
+                ['object', 'bool'])
 }
 
 

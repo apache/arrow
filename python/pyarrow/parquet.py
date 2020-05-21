@@ -18,7 +18,7 @@
 
 from collections import defaultdict
 from concurrent import futures
-from functools import partial
+from functools import partial, reduce
 
 import json
 import numpy as np
@@ -93,9 +93,9 @@ def _check_filters(filters, check_null_strings=True):
             for conjunction in filters:
                 for col, op, val in conjunction:
                     if (
-                        isinstance(val, list)
-                        and all(_check_contains_null(v) for v in val)
-                        or _check_contains_null(val)
+                        isinstance(val, list) and
+                        all(_check_contains_null(v) for v in val) or
+                        _check_contains_null(val)
                     ):
                         raise NotImplementedError(
                             "Null-terminated binary strings are not supported "
@@ -154,27 +154,17 @@ def _filters_to_expression(filters):
                 '"{0}" is not a valid operator in predicates.'.format(
                     (col, op, val)))
 
-    or_exprs = []
+    disjunction_members = []
 
     for conjunction in filters:
-        and_exprs = []
-        for col, op, val in conjunction:
-            and_exprs.append(convert_single_predicate(col, op, val))
+        conjunction_members = [
+            convert_single_predicate(col, op, val)
+            for col, op, val in conjunction
+        ]
 
-        expr = and_exprs[0]
-        if len(and_exprs) > 1:
-            for and_expr in and_exprs[1:]:
-                expr = ds.AndExpression(expr, and_expr)
+        disjunction_members.append(reduce(operator.and_, conjunction_members))
 
-        or_exprs.append(expr)
-
-    expr = or_exprs[0]
-    if len(or_exprs) > 1:
-        expr = ds.OrExpression(*or_exprs)
-        for or_expr in or_exprs[1:]:
-            expr = ds.OrExpression(expr, or_expr)
-
-    return expr
+    return reduce(operator.or_, disjunction_members)
 
 
 # ----------------------------------------------------------------------
@@ -202,6 +192,7 @@ class ParquetFile:
         If positive, perform read buffering when deserializing individual
         column chunks. Otherwise IO calls are unbuffered.
     """
+
     def __init__(self, source, metadata=None, common_metadata=None,
                  read_dictionary=None, memory_map=False, buffer_size=0):
         self.reader = ParquetReader()
@@ -432,7 +423,15 @@ def _sanitize_table(table, new_schema, flavor):
 
 
 _parquet_writer_arg_docs = """version : {"1.0", "2.0"}, default "1.0"
-    The Parquet format version, defaults to 1.0.
+    Determine which Parquet logical types are available for use, whether the
+    reduced set from the Parquet 1.x.x format or the expanded logical types
+    added in format version 2.0.0 and after. Note that files written with
+    version='2.0' may not be readable in all Parquet implementations, so
+    version='1.0' is likely the choice that maximizes file compatibility. Some
+    features, such as lossless storage of nanosecond timestamps as INT64
+    physical storage, are only available with version='2.0'. The Parquet 2.0.0
+    format version also introduced a new serialized data page format; this can
+    be enabled separately using the data_page_version option.
 use_dictionary : bool or list
     Specify if we should use dictionary encoding in general or only for
     some columns.
@@ -481,6 +480,10 @@ writer_engine_version: str, default "V2"
     all nested types. V1 is legacy and will be removed in a future release.
     Setting the environment variable ARROW_PARQUET_WRITER_ENGINE will
     override the default.
+data_page_version : {"1.0", "2.0"}, default "1.0"
+    The serialized Parquet data page format version to write, defaults to
+    1.0. This does not impact the file schema logical types and Arrow to
+    Parquet type casting behavior; for that use the "version" option.
 """
 
 
@@ -511,6 +514,7 @@ schema : arrow Schema
                  compression_level=None,
                  use_byte_stream_split=False,
                  writer_engine_version=None,
+                 data_page_version='1.0',
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -549,6 +553,7 @@ schema : arrow Schema
             compression_level=compression_level,
             use_byte_stream_split=use_byte_stream_split,
             writer_engine_version=engine_version,
+            data_page_version=data_page_version,
             **options)
         self.is_open = True
 
@@ -615,6 +620,7 @@ class ParquetDatasetPiece:
     row_group : int, default None
         Row group to load. By default, reads all row groups.
     """
+
     def __init__(self, path, open_file_func=partial(open, mode='rb'),
                  file_options=None, row_group=None, partition_keys=None):
         self.path = _stringify_path(path)
@@ -722,8 +728,6 @@ class ParquetDatasetPiece:
             # value as indicated. The distinct categories of the partition have
             # been computed in the ParquetManifest
             for i, (name, index) in enumerate(self.partition_keys):
-                if columns is not None and name not in columns:
-                    continue
                 # The partition code is the same for all values in this piece
                 indices = np.full(len(table), index, dtype='i4')
 
@@ -1364,6 +1368,7 @@ class _ParquetDatasetV2:
     """
     ParquetDataset shim using the Dataset API under the hood.
     """
+
     def __init__(self, path_or_paths, filesystem=None, filters=None,
                  partitioning="hive", read_dictionary=None, buffer_size=None,
                  memory_map=False, **kwargs):
@@ -1418,7 +1423,9 @@ class _ParquetDatasetV2:
         Parameters
         ----------
         columns : List[str]
-            Names of columns to read from the dataset.
+            Names of columns to read from the dataset. The partition fields
+            are not automatically included (in contrast to when setting
+            ``use_legacy_dataset=True``).
         use_threads : bool, default True
             Perform multi-threaded column reads.
         use_pandas_metadata : bool, default False
@@ -1586,6 +1593,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 filesystem=None,
                 compression_level=None,
                 use_byte_stream_split=False,
+                data_page_version='1.0',
                 **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
@@ -1604,6 +1612,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 use_deprecated_int96_timestamps=use_int96,
                 compression_level=compression_level,
                 use_byte_stream_split=use_byte_stream_split,
+                data_page_version=data_page_version,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:

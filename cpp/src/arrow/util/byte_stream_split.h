@@ -17,15 +17,11 @@
 
 #pragma once
 
-#include "arrow/util/sse_util.h"
+#include "arrow/util/simd.h"
 #include "arrow/util/ubsan.h"
 
 #include <stdint.h>
 #include <algorithm>
-
-#ifdef ARROW_HAVE_AVX2
-#include <immintrin.h>
-#endif  // ARROW_HAVE_AVX2
 
 #ifdef ARROW_HAVE_SSE4_2
 // Enable the SIMD for ByteStreamSplit Encoder/Decoder

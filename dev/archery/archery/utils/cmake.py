@@ -79,7 +79,7 @@ class CMakeDefinition:
     def arguments(self):
         """" Return the arguments to cmake invocation. """
         arguments = [
-            f"-G{self.generator}",
+            "-G{}".format(self.generator),
         ] + self.definitions + [
             self.source
         ]
@@ -99,9 +99,13 @@ class CMakeDefinition:
         if os.path.exists(build_dir):
             # Extra safety to ensure we're deleting a build folder.
             if not CMakeBuild.is_build_dir(build_dir):
-                raise FileExistsError(f"{build_dir} is not a cmake build")
+                raise FileExistsError(
+                    "{} is not a cmake build".format(build_dir)
+                )
             if not force:
-                raise FileExistsError(f"{build_dir} exists use force=True")
+                raise FileExistsError(
+                    "{} exists use force=True".format(build_dir)
+                )
             rmtree(build_dir)
 
         os.mkdir(build_dir)
@@ -112,7 +116,7 @@ class CMakeDefinition:
                           **kwargs)
 
     def __repr__(self):
-        return f"CMakeDefinition[source={self.source}]"
+        return "CMakeDefinition[source={}]".format(self.source)
 
 
 CMAKE_BUILD_TYPE_RE = re.compile("CMAKE_BUILD_TYPE:STRING=([a-zA-Z]+)")
@@ -190,7 +194,7 @@ class CMakeBuild(CMake):
         be lost. Only build_type is recovered.
         """
         if not CMakeBuild.is_build_dir(path):
-            raise ValueError(f"Not a valid CMakeBuild path: {path}")
+            raise ValueError("Not a valid CMakeBuild path: {}".format(path))
 
         build_type = None
         # Infer build_type by looking at CMakeCache.txt and looking for a magic

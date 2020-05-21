@@ -20,12 +20,11 @@ package org.apache.arrow.vector.util;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.Assert;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 
 public class DecimalUtilityTest {
   private static final BigInteger MAX_BIG_INT = java.math.BigInteger.valueOf(10).pow(38)

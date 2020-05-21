@@ -539,6 +539,17 @@ TEST_F(TestCudaBufferReader, Basics) {
   ASSERT_EQ(0, std::memcmp(stack_buffer, host_data + 980, tmp->size()));
 }
 
+TEST_F(TestCudaBufferReader, WillNeed) {
+  std::shared_ptr<CudaBuffer> device_buffer;
+
+  const int64_t size = 1000;
+  ASSERT_OK_AND_ASSIGN(device_buffer, context_->Allocate(size));
+
+  CudaBufferReader reader(device_buffer);
+
+  ASSERT_OK(reader.WillNeed({{0, size}}));
+}
+
 // ------------------------------------------------------------------------
 // Test Cuda IPC
 

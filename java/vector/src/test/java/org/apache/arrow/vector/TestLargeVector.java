@@ -20,13 +20,12 @@ package org.apache.arrow.vector;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 
-import io.netty.buffer.ArrowBuf;
-
 /**
- * Integration test for a vector with a large (more than 2GB) {@link io.netty.buffer.ArrowBuf} as
+ * Integration test for a vector with a large (more than 2GB) {@link org.apache.arrow.memory.ArrowBuf} as
  * the data buffer.
  * To run this test, please make sure there is at least 4GB free memory in the system.
  * <p>

@@ -32,8 +32,6 @@ import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
 import org.immutables.value.Value;
 
-import io.netty.buffer.ArrowBuf;
-
 /**
  * A base-class that implements all functionality of {@linkplain BufferAllocator}s.
  *
@@ -765,7 +763,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
      */
     @Value.Default
     AllocationManager.Factory getAllocationManagerFactory() {
-      return NettyAllocationManager.FACTORY;
+      return DefaultAllocationManagerOption.DEFAULT_ALLOCATION_MANAGER_FACTORY;
     }
 
     /**

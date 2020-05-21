@@ -40,6 +40,14 @@ std::shared_ptr<arrow::Schema> RecordBatch__schema(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::RecordBatch> RecordBatch__ReplaceSchemaMetadata(
+    const std::shared_ptr<arrow::RecordBatch>& x, Rcpp::CharacterVector metadata) {
+  auto kv = std::shared_ptr<arrow::KeyValueMetadata>(new arrow::KeyValueMetadata(
+      metadata.names(), Rcpp::as<std::vector<std::string>>(metadata)));
+  return x->ReplaceSchemaMetadata(kv);
+}
+
+// [[arrow::export]]
 arrow::ArrayVector RecordBatch__columns(
     const std::shared_ptr<arrow::RecordBatch>& batch) {
   auto nc = batch->num_columns();

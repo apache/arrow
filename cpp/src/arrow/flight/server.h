@@ -121,7 +121,10 @@ class ARROW_FLIGHT_EXPORT FlightServerOptions {
   std::shared_ptr<ServerAuthHandler> auth_handler;
   /// \brief A list of TLS certificate+key pairs to use.
   std::vector<CertKeyPair> tls_certificates;
-
+  /// \brief Enable mTLS and require that the client present a certificate.
+  bool verify_client;
+  /// \brief If using mTLS, the PEM-encoded root certificate to use.
+  std::string root_certificates;
   /// \brief A list of server middleware to apply, along with a key to
   /// identify them by.
   ///

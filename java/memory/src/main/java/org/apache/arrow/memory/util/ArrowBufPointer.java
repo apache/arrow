@@ -17,14 +17,13 @@
 
 package org.apache.arrow.memory.util;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
 import org.apache.arrow.util.Preconditions;
 
-import io.netty.buffer.ArrowBuf;
-
 /**
- * Pointer to a memory region within an {@link io.netty.buffer.ArrowBuf}.
+ * Pointer to a memory region within an {@link ArrowBuf}.
  * It will be used as the basis for calculating hash code within a vector, and equality determination.
  */
 public final class ArrowBufPointer {

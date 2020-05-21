@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/io/interfaces.h"
@@ -81,11 +82,12 @@ class ARROW_EXPORT ReadRangeCache {
   static constexpr int64_t kDefaultRangeSizeLimit = 32 * 1024 * 1024;
 
   /// Construct a read cache with default
-  explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file)
-      : ReadRangeCache(file, CacheOptions::Defaults()) {}
+  explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file, AsyncContext ctx)
+      : ReadRangeCache(file, std::move(ctx), CacheOptions::Defaults()) {}
 
   /// Construct a read cache with given options
-  explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file, CacheOptions options);
+  explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file, AsyncContext ctx,
+                          CacheOptions options);
   ~ReadRangeCache();
 
   /// \brief Cache the given ranges in the background.

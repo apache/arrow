@@ -396,6 +396,12 @@ option was enabled on write).
      the partition keys.
    - General performance improvement and bug fixes.
 
+   It also has the following changes in behaviour:
+
+   - The partition keys need to be explicitly included in the ``columns``
+     keyword when you want to include them in the result while reading a
+     subset of the columns
+
    In the future, this will be turned on by default. The new implementation
    does not yet cover all existing ParquetDataset features (e.g. specifying
    the ``metadata``, or the ``pieces`` property API). Feedback is very welcome.

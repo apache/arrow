@@ -70,7 +70,7 @@ class Cache:
         """
         def download(path):
             """ Tiny wrapper that download a file and save as key. """
-            logger.debug(f"Downloading {url} as {path}")
+            logger.debug("Downloading {} as {}".format(url, path))
             conn = urlopen(url)
             # Ensure the download is completed before writing to disks.
             content = conn.read()

@@ -17,5 +17,5 @@
 
 #pragma once
 
-#include "arrow/vendored/datetime/date.h"
-#include "arrow/vendored/datetime/tz.h"
+#include "arrow/vendored/datetime/date.h"  // IWYU pragma: export
+#include "arrow/vendored/datetime/tz.h"    // IWYU pragma: export

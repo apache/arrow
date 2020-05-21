@@ -667,7 +667,7 @@ enum GroupByScalar {
 
 /// Create a Vec<GroupByScalar> that can be used as a map key
 fn create_key(
-    group_by_keys: &Vec<ArrayRef>,
+    group_by_keys: &[ArrayRef],
     row: usize,
     vec: &mut Vec<GroupByScalar>,
 ) -> Result<()> {
@@ -736,7 +736,7 @@ mod tests {
         let partitions = 4;
         let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
 
-        let csv = CsvExec::try_new(&path, schema.clone(), true, None, 1024)?;
+        let csv = CsvExec::try_new(&path, Some(schema.clone()), true, None, None, 1024)?;
 
         let group_expr: Vec<Arc<dyn PhysicalExpr>> = vec![col(1, schema.as_ref())];
 

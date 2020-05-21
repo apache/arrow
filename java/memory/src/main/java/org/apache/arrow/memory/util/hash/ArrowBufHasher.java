@@ -17,7 +17,7 @@
 
 package org.apache.arrow.memory.util.hash;
 
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
 
 /**
  * Utility for calculating the hash code for a consecutive memory region.

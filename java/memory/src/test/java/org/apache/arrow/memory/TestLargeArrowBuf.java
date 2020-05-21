@@ -19,10 +19,8 @@ package org.apache.arrow.memory;
 
 import static org.junit.Assert.assertEquals;
 
-import io.netty.buffer.ArrowBuf;
-
 /**
- * Integration test for large (more than 2GB) {@link io.netty.buffer.ArrowBuf}.
+ * Integration test for large (more than 2GB) {@link org.apache.arrow.memory.ArrowBuf}.
  * To run this test, please make sure there is at least 4GB memory in the system.
  * <p>
  *   Please note that this is not a standard test case, so please run it by manually invoking the

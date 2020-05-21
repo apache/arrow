@@ -43,3 +43,5 @@ assert_is_list_of <- function(object, class) {
 is_list_of <- function(object, class) {
   is.list(object) && all(map_lgl(object, ~inherits(., class)))
 }
+
+empty_named_list <- function() structure(list(), .Names = character(0))

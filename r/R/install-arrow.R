@@ -64,6 +64,15 @@ install_arrow <- function(nightly = FALSE,
         LIBARRWOW_MINIMAL = minimal,
         ARROW_USE_PKG_CONFIG = use_system
       )
+      if (isTRUE(binary)) {
+        # Unless otherwise directed, don't consider newer source packages when
+        # options(pkgType) == "both" (default on win/mac)
+        opts <- options(
+          install.packages.check.source = "no",
+          install.packages.compile.from.source = "never"
+        )
+        on.exit(options(opts))
+      }
       install.packages("arrow", repos = arrow_repos(repos, nightly), ...)
     }
     if ("arrow" %in% loadedNamespaces()) {

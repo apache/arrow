@@ -210,8 +210,8 @@ TEST(TestBufferReader, ReadAsync) {
 
   BufferReader reader(std::make_shared<Buffer>(data));
 
-  auto fut1 = reader.ReadAsync(2, 6);
-  auto fut2 = reader.ReadAsync(1, 4);
+  auto fut1 = reader.ReadAsync({}, 2, 6);
+  auto fut2 = reader.ReadAsync({}, 1, 4);
   ASSERT_EQ(fut1.state(), FutureState::SUCCESS);
   ASSERT_EQ(fut2.state(), FutureState::SUCCESS);
   ASSERT_OK_AND_ASSIGN(auto buf, fut1.result());
@@ -230,8 +230,8 @@ TEST(TestBufferReader, InvalidReads) {
   ASSERT_RAISES(Invalid, reader.ReadAt(-1, 1, buffer));
   ASSERT_RAISES(Invalid, reader.ReadAt(1, -1, buffer));
 
-  ASSERT_RAISES(Invalid, reader.ReadAsync(-1, 1).result());
-  ASSERT_RAISES(Invalid, reader.ReadAsync(1, -1).result());
+  ASSERT_RAISES(Invalid, reader.ReadAsync({}, -1, 1).result());
+  ASSERT_RAISES(Invalid, reader.ReadAsync({}, 1, -1).result());
 }
 
 TEST(TestBufferReader, RetainParentReference) {
@@ -253,6 +253,26 @@ TEST(TestBufferReader, RetainParentReference) {
 
   ASSERT_EQ(0, std::memcmp(slice1->data(), data.c_str(), 4));
   ASSERT_EQ(0, std::memcmp(slice2->data(), data.c_str() + 4, 6));
+}
+
+TEST(TestBufferReader, WillNeed) {
+  {
+    std::string data = "data123456";
+    BufferReader reader(std::make_shared<Buffer>(data));
+
+    ASSERT_OK(reader.WillNeed({}));
+    ASSERT_OK(reader.WillNeed({{0, 4}, {4, 6}}));
+    ASSERT_OK(reader.WillNeed({{10, 0}}));
+    ASSERT_RAISES(IOError, reader.WillNeed({{11, 1}}));  // Out of bounds
+  }
+  {
+    std::string data = "data123456";
+    BufferReader reader(reinterpret_cast<const uint8_t*>(data.data()),
+                        static_cast<int64_t>(data.size()));
+
+    ASSERT_OK(reader.WillNeed({{0, 4}, {4, 6}}));
+    ASSERT_RAISES(IOError, reader.WillNeed({{11, 1}}));  // Out of bounds
+  }
 }
 
 TEST(TestRandomAccessFile, GetStream) {
@@ -458,7 +478,7 @@ TEST(RangeReadCache, Basics) {
   CacheOptions options = CacheOptions::Defaults();
   options.hole_size_limit = 2;
   options.range_size_limit = 10;
-  internal::ReadRangeCache cache(file, options);
+  internal::ReadRangeCache cache(file, {}, options);
 
   ASSERT_OK(cache.Cache({{1, 2}, {3, 2}, {8, 2}, {20, 2}, {25, 0}}));
   ASSERT_OK(cache.Cache({{10, 4}, {14, 0}, {15, 4}}));

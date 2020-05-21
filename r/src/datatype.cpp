@@ -158,12 +158,12 @@ bool DataType__Equals(const std::shared_ptr<arrow::DataType>& lhs,
 
 // [[arrow::export]]
 int DataType__num_children(const std::shared_ptr<arrow::DataType>& type) {
-  return type->num_children();
+  return type->num_fields();
 }
 
 // [[arrow::export]]
 List DataType__children_pointer(const std::shared_ptr<arrow::DataType>& type) {
-  return List(type->children().begin(), type->children().end());
+  return List(type->fields().begin(), type->fields().end());
 }
 
 // [[arrow::export]]

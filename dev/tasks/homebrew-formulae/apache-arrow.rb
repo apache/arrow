@@ -5,6 +5,7 @@ class ApacheArrow < Formula
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
   head "https://github.com/apache/arrow.git"
 
+  depends_on "boost" => :build
   depends_on "cmake" => :build
   depends_on "brotli"
   depends_on "glog"

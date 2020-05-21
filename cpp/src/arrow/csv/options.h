@@ -28,6 +28,7 @@
 namespace arrow {
 
 class DataType;
+class TimestampParser;
 
 namespace csv {
 
@@ -99,6 +100,13 @@ struct ARROW_EXPORT ConvertOptions {
   /// or null by default)
   /// This option is ignored if `include_columns` is empty.
   bool include_missing_columns = false;
+
+  /// User-defined timestamp parsers, using the virtual parser interface in
+  /// arrow/util/value_parsing.h. More than one parser can be specified, and
+  /// the CSV conversion logic will try parsing values starting from the
+  /// beginning of this vector. If no parsers are specified, we use the default
+  /// built-in ISO-8601 parser
+  std::vector<std::shared_ptr<TimestampParser>> timestamp_parsers;
 
   /// Create conversion options with default values, including conventional
   /// values for `null_values`, `true_values` and `false_values`

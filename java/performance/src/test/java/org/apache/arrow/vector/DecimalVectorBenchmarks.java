@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -34,8 +35,6 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Benchmarks for {@link DecimalVector}.

@@ -369,8 +369,8 @@ TEST_F(TestReadableFile, ReadAsync) {
   MakeTestFile();
   OpenFile();
 
-  auto fut1 = file_->ReadAsync(1, 10);
-  auto fut2 = file_->ReadAsync(0, 4);
+  auto fut1 = file_->ReadAsync({}, 1, 10);
+  auto fut2 = file_->ReadAsync({}, 0, 4);
   ASSERT_OK_AND_ASSIGN(auto buf1, fut1.result());
   ASSERT_OK_AND_ASSIGN(auto buf2, fut2.result());
   AssertBufferEqual(*buf1, "estdata");
@@ -388,6 +388,17 @@ TEST_F(TestReadableFile, SeekingRequired) {
   ASSERT_OK(file_->Seek(0));
   ASSERT_OK_AND_ASSIGN(buffer, file_->Read(4));
   AssertBufferEqual(*buffer, "test");
+}
+
+TEST_F(TestReadableFile, WillNeed) {
+  MakeTestFile();
+  OpenFile();
+
+  ASSERT_OK(file_->WillNeed({}));
+  ASSERT_OK(file_->WillNeed({{0, 3}, {4, 6}}));
+  ASSERT_OK(file_->WillNeed({{10, 0}}));
+
+  ASSERT_RAISES(Invalid, file_->WillNeed({{-1, -1}}));
 }
 
 TEST_F(TestReadableFile, NonexistentFile) {
@@ -634,8 +645,8 @@ TEST_F(TestMemoryMappedFile, ReadAsync) {
   ASSERT_OK_AND_ASSIGN(auto mmap, InitMemoryMap(buffer_size, path));
   ASSERT_OK(mmap->Write(buffer.data(), buffer_size));
 
-  auto fut1 = mmap->ReadAsync(1, 1000);
-  auto fut2 = mmap->ReadAsync(3, 4);
+  auto fut1 = mmap->ReadAsync({}, 1, 1000);
+  auto fut2 = mmap->ReadAsync({}, 3, 4);
   ASSERT_EQ(fut1.state(), FutureState::SUCCESS);
   ASSERT_EQ(fut2.state(), FutureState::SUCCESS);
   ASSERT_OK_AND_ASSIGN(auto buf1, fut1.result());
@@ -643,6 +654,21 @@ TEST_F(TestMemoryMappedFile, ReadAsync) {
 
   AssertBufferEqual(*buf1, Buffer(buffer.data() + 1, 1000));
   AssertBufferEqual(*buf2, Buffer(buffer.data() + 3, 4));
+}
+
+TEST_F(TestMemoryMappedFile, WillNeed) {
+  const int64_t buffer_size = 1024;
+  std::vector<uint8_t> buffer(buffer_size);
+  random_bytes(1024, 0, buffer.data());
+
+  std::string path = "io-memory-map-will-need-test";
+  ASSERT_OK_AND_ASSIGN(auto mmap, InitMemoryMap(buffer_size, path));
+  ASSERT_OK(mmap->Write(buffer.data(), buffer_size));
+
+  ASSERT_OK(mmap->WillNeed({}));
+  ASSERT_OK(mmap->WillNeed({{0, 4}, {100, 924}}));
+  ASSERT_OK(mmap->WillNeed({{1024, 0}}));
+  ASSERT_RAISES(IOError, mmap->WillNeed({{1025, 1}}));  // Out of bounds
 }
 
 TEST_F(TestMemoryMappedFile, InvalidReads) {

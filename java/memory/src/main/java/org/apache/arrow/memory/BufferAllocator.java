@@ -19,7 +19,6 @@ package org.apache.arrow.memory;
 
 import java.util.Collection;
 
-import io.netty.buffer.ArrowBuf;
 import io.netty.buffer.ByteBufAllocator;
 
 /**

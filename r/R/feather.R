@@ -143,7 +143,7 @@ write_feather <- function(x,
 #' df <- read_feather(tf, col_select = starts_with("Sepal"))
 #' }
 read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
-  if (is.string(file)) {
+  if (!inherits(file, "InputStream")) {
     file <- make_readable_file(file)
     on.exit(file$close())
   }
@@ -178,8 +178,7 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
 #' The `FeatherReader$create()` factory method instantiates the object and
 #' takes the following arguments:
 #'
-#' - `file` A character file name, raw vector, or Arrow file connection object
-#'    (e.g. `RandomAccessFile`).
+#' - `file` an Arrow file connection object inheriting from `RandomAccessFile`.
 #' - `mmap` Logical: whether to memory-map the file (default `TRUE`)
 #' - `...` Additional arguments, currently ignored
 #'
@@ -205,6 +204,6 @@ FeatherReader <- R6Class("FeatherReader", inherit = ArrowObject,
 )
 
 FeatherReader$create <- function(file, mmap = TRUE, ...) {
-  file <- make_readable_file(file, mmap)
+  assert_is(file, "RandomAccessFile")
   shared_ptr(FeatherReader, ipc___feather___Reader__Open(file))
 }

@@ -1101,3 +1101,22 @@ def test_extra_info():
             assert e.extra_info is not None
             ei = e.extra_info
             assert ei == b'this is an error message'
+
+
+@pytest.mark.requires_testing_data
+def test_mtls():
+    """Test mutual TLS (mTLS) with gRPC."""
+    certs = example_tls_certs()
+    table = simple_ints_table()
+
+    with ConstantFlightServer(
+            tls_certificates=[certs["certificates"][0]],
+            verify_client=True,
+            root_certificates=certs["root_cert"]) as s:
+        client = FlightClient(
+            ('localhost', s.port),
+            tls_root_certs=certs["root_cert"],
+            cert_chain=certs["certificates"][0].cert,
+            private_key=certs["certificates"][0].key)
+        data = client.do_get(flight.Ticket(b'ints')).read_all()
+        assert data.equals(table)

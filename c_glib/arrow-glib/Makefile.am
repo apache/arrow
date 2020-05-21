@@ -182,6 +182,7 @@ libarrow_glib_la_cpp_headers +=			\
 	writable-file.hpp
 
 libarrow_glib_la_cpp_headers +=			\
+	ipc-options.hpp				\
 	metadata-version.hpp			\
 	reader.hpp				\
 	writer.hpp

@@ -100,6 +100,7 @@ cdef class DataType:
 
     Each data type is an *instance* of this class.
     """
+
     def __cinit__(self):
         pass
 
@@ -215,6 +216,7 @@ cdef class DictionaryMemo:
     """
     Tracking container for dictionary-encoded fields.
     """
+
     def __cinit__(self):
         self.sp_memo.reset(new CDictionaryMemo())
         self.memo = self.sp_memo.get()
@@ -966,6 +968,7 @@ cdef class Field:
     -----
     Do not use this class's constructor directly; use pyarrow.field
     """
+
     def __cinit__(self):
         pass
 

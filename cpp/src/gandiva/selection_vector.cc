@@ -49,7 +49,7 @@ Status SelectionVector::PopulateFromBitMap(const uint8_t* bitmap, int64_t bitmap
   int64_t selection_idx = 0;
   const uint64_t* bitmap_64 = reinterpret_cast<const uint64_t*>(bitmap);
   for (int64_t bitmap_idx = 0; bitmap_idx < bitmap_size / 8; ++bitmap_idx) {
-    uint64_t current_word = bitmap_64[bitmap_idx];
+    uint64_t current_word = arrow::BitUtil::ToLittleEndian(bitmap_64[bitmap_idx]);
 
     while (current_word != 0) {
 #if defined(_MSC_VER)

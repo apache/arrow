@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// This API is EXPERIMENTAL.
+
 #pragma once
 
 #include <memory>
@@ -29,15 +31,10 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/memory_pool.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/type_fwd.h"
 
 namespace arrow {
-
-class Table;
-
-namespace internal {
-class TaskGroup;
-}
-
 namespace dataset {
 
 /// \brief Shared state for a Scan operation
@@ -65,7 +62,7 @@ class ARROW_DS_EXPORT ScanOptions {
   std::shared_ptr<ScanOptions> ReplaceSchema(std::shared_ptr<Schema> schema) const;
 
   // Filter
-  std::shared_ptr<Expression> filter;
+  std::shared_ptr<Expression> filter = scalar(true);
 
   // Evaluator for Filter
   std::shared_ptr<ExpressionEvaluator> evaluator;

@@ -65,10 +65,12 @@ test_that("Table cast (ARROW-3741)", {
   expect_equal(tab2$column(1L)$type, int64())
 })
 
-test_that("Table dim() and nrow() (ARROW-3816)", {
-  tab <- Table$create(x = 1:10, y  = 1:10)
-  expect_equal(dim(tab), c(10L, 2L))
-  expect_equal(nrow(tab), 10L)
+test_that("Table S3 methods", {
+  tab <- Table$create(iris)
+  for (f in c("dim", "nrow", "ncol", "dimnames", "colnames", "row.names", "as.list")) {
+    fun <- get(f)
+    expect_identical(fun(tab), fun(iris), info = f)
+  }
 })
 
 test_that("Table $column and $field", {
@@ -128,10 +130,21 @@ test_that("[, [[, $ for Table", {
   expect_vector(tab[[4]], tbl$chr)
   expect_null(tab$qwerty)
   expect_null(tab[["asdf"]])
+  # List-like column slicing
+  expect_data_frame(tab[2:4], tbl[2:4])
+  expect_data_frame(tab[c(1, 0)], tbl[c(1, 0)])
+
   expect_error(tab[[c(4, 3)]], class = "Rcpp::not_compatible")
   expect_error(tab[[NA]], "'i' must be character or numeric, not logical")
   expect_error(tab[[NULL]], "'i' must be character or numeric, not NULL")
   expect_error(tab[[c("asdf", "jkl;")]], 'length(name) not equal to 1', fixed = TRUE)
+  expect_error(tab[-3], "Selections can't have negative value") # From tidyselect
+  expect_error(tab[-3:3], "Selections can't have negative value") # From tidyselect
+  expect_error(tab[1000]) # This is caught in vctrs, assert more specifically when it stabilizes
+  expect_error(tab[1:1000]) # same as ^
+
+  skip("Table with 0 cols doesn't know how many rows it should have")
+  expect_data_frame(tab[0], tbl[0])
 })
 
 test_that("Table$Slice", {
@@ -294,7 +307,7 @@ test_that("Table$Equals(check_metadata)", {
   expect_is(tab2, "Table")
   expect_false(tab1$schema$HasMetadata)
   expect_true(tab2$schema$HasMetadata)
-  expect_match(tab2$schema$metadata, "some: metadata", fixed = TRUE)
+  expect_identical(tab2$schema$metadata, list(some = "metadata"))
 
   expect_true(tab1 == tab2)
   expect_true(tab1$Equals(tab2))
@@ -304,6 +317,19 @@ test_that("Table$Equals(check_metadata)", {
   expect_equivalent(tab1, tab2)  # expect_equivalent has check_metadata=FALSE
 
   expect_false(tab1$Equals(24)) # Not a Table
+})
+
+test_that("Table metadata", {
+  tab <- Table$create(x = 1:2, y = c("a", "b"))
+  expect_equivalent(tab$metadata, list())
+  tab$metadata <- list(test = TRUE)
+  expect_identical(tab$metadata, list(test = "TRUE"))
+  tab$metadata$foo <- 42
+  expect_identical(tab$metadata, list(test = "TRUE", foo = "42"))
+  tab$metadata$foo <- NULL
+  expect_identical(tab$metadata, list(test = "TRUE"))
+  tab$metadata <- NULL
+  expect_equivalent(tab$metadata, list())
 })
 
 test_that("Table handles null type (ARROW-7064)", {

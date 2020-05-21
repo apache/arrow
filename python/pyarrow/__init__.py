@@ -29,6 +29,7 @@ streaming messaging and interprocess communication.
 For more information see the official page at https://arrow.apache.org
 """
 
+import gc as _gc
 import os as _os
 import sys as _sys
 
@@ -39,6 +40,7 @@ except ImportError:
     try:
         import setuptools_scm
         # Code duplicated from setup.py to avoid a dependency on each other
+
         def parse_git(root, **kwargs):
             """
             Parse function for setuptools_scm that ignores tags for non-C++
@@ -55,6 +57,14 @@ except ImportError:
 
 
 import pyarrow.compat as compat
+
+# ARROW-8684: Disable GC while initializing Cython extension module,
+# to workaround Cython bug in https://github.com/cython/cython/issues/3603
+_gc_enabled = _gc.isenabled()
+_gc.disable()
+import pyarrow.lib as _lib
+if _gc_enabled:
+    _gc.enable()
 
 from pyarrow.lib import cpu_count, set_cpu_count
 from pyarrow.lib import (null, bool_,
@@ -177,6 +187,7 @@ import pyarrow.types as types
 
 # Entry point for starting the plasma store
 
+
 def _plasma_store_entry_point():
     """Entry point for starting the plasma store.
 
@@ -192,6 +203,7 @@ def _plasma_store_entry_point():
 
 # ----------------------------------------------------------------------
 # Deprecations
+
 
 from pyarrow.util import _deprecate_api  # noqa
 
@@ -209,7 +221,7 @@ read_tensor = _deprecate_api("read_tensor", "ipc.read_tensor",
                              ipc.read_tensor, "0.17.0")
 
 write_tensor = _deprecate_api("write_tensor", "ipc.write_tensor",
-                             ipc.write_tensor, "0.17.0")
+                              ipc.write_tensor, "0.17.0")
 
 get_record_batch_size = _deprecate_api("get_record_batch_size",
                                        "ipc.get_record_batch_size",
@@ -233,6 +245,7 @@ from pyarrow.ipc import (Message, MessageReader,
 # ----------------------------------------------------------------------
 # Returning absolute path to the pyarrow include directory (if bundled, e.g. in
 # wheels)
+
 
 def get_include():
     """

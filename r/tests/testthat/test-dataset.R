@@ -505,7 +505,7 @@ test_that("Dataset and query print methods", {
     ),
     fixed = TRUE
   )
-  expect_is(ds$metadata, "character")
+  expect_is(ds$metadata, "list")
   q <- select(ds, string = chr, lgl, integer = int)
   expect_output(
     print(q),
@@ -543,7 +543,7 @@ expect_scan_result <- function(ds, schm) {
   expect_equal(sb$schema, schm)
 
   sb$Project(c("chr", "lgl"))
-  sb$Filter(FieldExpression$create("dbl") == 8)
+  sb$Filter(Expression$field_ref("dbl") == 8)
   scn <- sb$Finish()
   expect_is(scn, "Scanner")
 

@@ -24,14 +24,13 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.flatbuf.RecordBatch;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.flatbuffers.FlatBufferBuilder;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * POJO representation of a RecordBatch IPC message (https://arrow.apache.org/docs/format/IPC.html).
@@ -223,7 +222,7 @@ public class ArrowRecordBatch implements ArrowMessage {
 
       long readableBytes = buffer.readableBytes();
       while (readableBytes > 0) {
-        int nextRead = (int)Math.min(readableBytes, Integer.MAX_VALUE);
+        int nextRead = (int) Math.min(readableBytes, Integer.MAX_VALUE);
         ByteBuffer nioBuffer =
             buffer.nioBuffer(buffer.readerIndex(), nextRead);
         readableBytes -= nextRead;

@@ -733,6 +733,19 @@ class Target(Serializable):
         self.remote = remote
         self.version = version
         self.no_rc_version = re.sub(r'-rc\d+\Z', '', version)
+        # Semantic Versioning 1.0.0: https://semver.org/spec/v1.0.0.html
+        #
+        # > A pre-release version number MAY be denoted by appending an
+        # > arbitrary string immediately following the patch version and a
+        # > dash. The string MUST be comprised of only alphanumerics plus
+        # > dash [0-9A-Za-z-].
+        #
+        # Example:
+        #
+        #   '0.16.1.dev10' ->
+        #   '0.16.1-dev10'
+        self.no_rc_semver_version = \
+            re.sub(r'\.(dev\d+)\Z', r'-\1', self.no_rc_version)
 
     @classmethod
     def from_repo(cls, repo, head=None, branch=None, remote=None, version=None,
@@ -769,11 +782,9 @@ class Task(Serializable):
     submitting the job to a queue.
     """
 
-    def __init__(self, platform, ci, template, artifacts=None, params=None):
-        assert platform in {'win', 'osx', 'linux'}
+    def __init__(self, ci, template, artifacts=None, params=None):
         assert ci in {'circle', 'travis', 'appveyor', 'azure', 'github'}
         self.ci = ci
-        self.platform = platform
         self.template = template
         self.artifacts = artifacts or []
         self.params = params or {}
@@ -1014,7 +1025,8 @@ class Job(Serializable):
         # instantiate the tasks
         tasks = {}
         versions = {'version': target.version,
-                    'no_rc_version': target.no_rc_version}
+                    'no_rc_version': target.no_rc_version,
+                    'no_rc_semver_version': target.no_rc_semver_version}
         for task_name, task in task_definitions.items():
             artifacts = task.pop('artifacts', None) or []  # because of yaml
             artifacts = [fn.format(**versions) for fn in artifacts]
@@ -1435,7 +1447,7 @@ yaml.register_class(Target)
 
 
 # define default paths
-DEFAULT_CONFIG_PATH = CWD / 'tasks.yml'
+DEFAULT_CONFIG_PATH = str(CWD / 'tasks.yml')
 DEFAULT_ARROW_PATH = CWD.parents[1]
 DEFAULT_QUEUE_PATH = CWD.parents[2] / 'crossbow'
 

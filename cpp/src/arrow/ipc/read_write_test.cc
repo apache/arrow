@@ -42,6 +42,7 @@
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -275,11 +276,23 @@ TEST_F(TestSchemaMetadata, KeyValueMetadata) {
                     &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion,      \
                     &MakeDictionary, &MakeDates, &MakeTimestamps, &MakeTimes,           \
                     &MakeFWBinary, &MakeNull, &MakeDecimal, &MakeBooleanBatch,          \
-                    &MakeIntervals)
+                    &MakeIntervals, &MakeUuid, &MakeDictExtension)
 
 static int g_file_number = 0;
 
-class IpcTestFixture : public io::MemoryMapFixture {
+class ExtensionTypesMixin {
+ public:
+  ExtensionTypesMixin() {
+    // Register the extension types required to ensure roundtripping
+    ext_guards_.emplace_back(uuid());
+    ext_guards_.emplace_back(dict_extension_type());
+  }
+
+ protected:
+  std::vector<ExtensionTypeGuard> ext_guards_;
+};
+
+class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
  public:
   void SetUp() { options_ = IpcWriteOptions::Defaults(); }
 
@@ -649,7 +662,7 @@ void TestGetRecordBatchSize(const IpcWriteOptions& options,
   int64_t size = -1;
   ASSERT_OK(WriteRecordBatch(*batch, 0, &mock, &mock_metadata_length, &mock_body_length,
                              options));
-  ASSERT_OK(GetRecordBatchSize(*batch, &size));
+  ASSERT_OK(GetRecordBatchSize(*batch, options, &size));
   ASSERT_EQ(mock.GetExtentBytesWritten(), size);
 }
 
@@ -945,7 +958,7 @@ struct StreamDecoderLargeChunksWriterHelper : public StreamDecoderWriterHelper {
 // Parameterized mixin with tests for stream / file writer
 
 template <class WriterHelperType>
-class ReaderWriterMixin {
+class ReaderWriterMixin : public ExtensionTypesMixin {
  public:
   using WriterHelper = WriterHelperType;
 
@@ -1027,6 +1040,24 @@ class ReaderWriterMixin {
     IpcReadOptions options = IpcReadOptions::Defaults();
 
     options.included_fields = {1, 3};
+
+    {
+      WriterHelper writer_helper;
+      BatchVector out_batches;
+      std::shared_ptr<Schema> out_schema;
+      ASSERT_OK(RoundTripHelper(writer_helper, {batch}, IpcWriteOptions::Defaults(),
+                                options, &out_batches, &out_schema));
+
+      auto ex_schema = schema({field("a1", utf8()), field("a3", utf8())},
+                              key_value_metadata({"key1"}, {"value1"}));
+      AssertSchemaEqual(*ex_schema, *out_schema);
+
+      auto ex_batch = RecordBatch::Make(ex_schema, a0->length(), {a1, a3});
+      AssertBatchesEqual(*ex_batch, *out_batches[0], /*check_metadata=*/true);
+    }
+
+    // Duplicated or unordered indices are normalized when reading
+    options.included_fields = {3, 1, 1};
 
     {
       WriterHelper writer_helper;

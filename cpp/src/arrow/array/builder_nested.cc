@@ -134,7 +134,7 @@ FixedSizeListBuilder::FixedSizeListBuilder(
     MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& value_builder,
     const std::shared_ptr<DataType>& type)
     : ArrayBuilder(pool),
-      value_field_(type->child(0)),
+      value_field_(type->field(0)),
       list_size_(
           internal::checked_cast<const FixedSizeListType*>(type.get())->list_size()),
       value_builder_(value_builder) {}
@@ -238,10 +238,10 @@ Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 }
 
 std::shared_ptr<DataType> StructBuilder::type() const {
-  DCHECK_EQ(type_->children().size(), children_.size());
+  DCHECK_EQ(type_->fields().size(), children_.size());
   std::vector<std::shared_ptr<Field>> fields(children_.size());
   for (int i = 0; i < static_cast<int>(fields.size()); ++i) {
-    fields[i] = type_->child(i)->WithType(children_[i]->type());
+    fields[i] = type_->field(i)->WithType(children_[i]->type());
   }
   return struct_(std::move(fields));
 }

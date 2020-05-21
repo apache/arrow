@@ -34,8 +34,7 @@ namespace arrow {
 namespace dataset {
 
 ScanOptions::ScanOptions(std::shared_ptr<Schema> schema)
-    : filter(scalar(true)),
-      evaluator(ExpressionEvaluator::Null()),
+    : evaluator(ExpressionEvaluator::Null()),
       projector(RecordBatchProjector(std::move(schema))) {}
 
 std::shared_ptr<ScanOptions> ScanOptions::ReplaceSchema(

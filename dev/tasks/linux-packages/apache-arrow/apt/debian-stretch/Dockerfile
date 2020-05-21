@@ -52,7 +52,6 @@ RUN \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     build-essential \
-    clang-${LLVM} \
     cmake \
     devscripts \
     fakeroot \
@@ -72,7 +71,6 @@ RUN \
     libsnappy-dev \
     libssl-dev \
     libzstd-dev \
-    llvm-${LLVM}-dev \
     lsb-release \
     ninja-build \
     pkg-config \
@@ -90,6 +88,11 @@ RUN \
     libgmock-dev \
     libgtest-dev \
     rapidjson-dev && \
+  if [ "$(dpkg --print-architecture)" != "arm64" ]; then \
+    apt install -y -V ${quiet} \
+      clang-${LLVM} \
+      llvm-${LLVM}-dev; \
+  fi && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V -t stretch-backports ${quiet} nvidia-cuda-toolkit; \
   fi && \

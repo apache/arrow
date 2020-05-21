@@ -36,7 +36,6 @@ PKG_LIBS="-larrow_dataset -lparquet -larrow"
 
 # Make some env vars case-insensitive
 ARROW_R_DEV=`echo $ARROW_R_DEV | tr '[:upper:]' '[:lower:]'`
-LOCAL_AUTOBREW=`echo $LOCAL_AUTOBREW | tr '[:upper:]' '[:lower:]'`
 FORCE_AUTOBREW=`echo $FORCE_AUTOBREW | tr '[:upper:]' '[:lower:]'`
 ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
 
@@ -49,15 +48,20 @@ if [ "$ARROW_R_DEV" = "true" ]; then
   ${R_HOME}/bin/Rscript data-raw/codegen.R
 fi
 
-if [ "$LOCAL_AUTOBREW" = "true" ]; then
-  # LOCAL_AUTOBREW means use the script in tools/
-  # If you want to use a local apache-arrow.rb formula, do:
+if [ -f "tools/apache-arrow.rb" ]; then
+  # If you want to use a local apache-arrow.rb formula, do
   # $ cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
-  # before R CMD build (assuming a local checkout of the apache/arrow repository)
-  # FORCE_AUTOBREW without LOCAL_AUTOBREW means to pull from jeroen.github.io
+  # before R CMD build or INSTALL (assuming a local checkout of the apache/arrow repository)
   cp tools/autobrew .
-  cp tools/apache-arrow.rb .
-  FORCE_AUTOBREW="true"
+  if [ "$FORCE_AUTOBREW" != "false" ]; then
+    # It is possible to turn off forced autobrew if the formula is included,
+    # but most likely you shouldn't because the included formula will reference
+    # the C++ library at the version that matches the R package.
+    FORCE_AUTOBREW="true"
+  fi
+fi
+
+if [ "$FORCE_AUTOBREW" = "true" ]; then
   ARROW_USE_PKG_CONFIG="false"
 fi
 

@@ -33,6 +33,7 @@ import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Collections2;
@@ -89,8 +90,6 @@ import org.junit.Before;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.netty.buffer.ArrowBuf;
-
 /**
  * Helps testing the file formats.
  */
@@ -133,11 +132,11 @@ public class BaseFileTest {
       uint1Writer.setPosition(i);
       // TODO: Fix add safe write methods on uint methods.
       uint1Writer.setPosition(i);
-      uint1Writer.writeUInt1((byte)uint1Values[i % uint1Values.length] );
+      uint1Writer.writeUInt1((byte) uint1Values[i % uint1Values.length] );
       uint2Writer.setPosition(i);
-      uint2Writer.writeUInt2((char)uint2Values[i % uint2Values.length] );
+      uint2Writer.writeUInt2((char) uint2Values[i % uint2Values.length] );
       uint4Writer.setPosition(i);
-      uint4Writer.writeUInt4((int)uint4Values[i % uint4Values.length] );
+      uint4Writer.writeUInt4((int) uint4Values[i % uint4Values.length] );
       uint8Writer.setPosition(i);
       uint8Writer.writeUInt8(uint8Values[i % uint8Values.length].longValue());
       bigIntWriter.setPosition(i);
@@ -152,14 +151,14 @@ public class BaseFileTest {
   protected void validateContent(int count, VectorSchemaRoot root) {
     for (int i = 0; i < count; i++) {
       Assert.assertEquals(i, root.getVector("int").getObject(i));
-      Assert.assertEquals((Short)uint1Values[i % uint1Values.length],
-          ((UInt1Vector)root.getVector("uint1")).getObjectNoOverflow(i));
-      Assert.assertEquals("Failed for index: " + i, (Character)uint2Values[i % uint2Values.length],
-          (Character)((UInt2Vector)root.getVector("uint2")).get(i));
-      Assert.assertEquals("Failed for index: " + i, (Long)uint4Values[i % uint4Values.length],
-          ((UInt4Vector)root.getVector("uint4")).getObjectNoOverflow(i));
+      Assert.assertEquals((Short) uint1Values[i % uint1Values.length],
+          ((UInt1Vector) root.getVector("uint1")).getObjectNoOverflow(i));
+      Assert.assertEquals("Failed for index: " + i, (Character) uint2Values[i % uint2Values.length],
+          (Character) ((UInt2Vector) root.getVector("uint2")).get(i));
+      Assert.assertEquals("Failed for index: " + i, (Long) uint4Values[i % uint4Values.length],
+          ((UInt4Vector) root.getVector("uint4")).getObjectNoOverflow(i));
       Assert.assertEquals("Failed for index: " + i, uint8Values[i % uint8Values.length],
-          ((UInt8Vector)root.getVector("uint8")).getObjectNoOverflow(i));
+          ((UInt8Vector) root.getVector("uint8")).getObjectNoOverflow(i));
       Assert.assertEquals(Long.valueOf(i), root.getVector("bigInt").getObject(i));
       Assert.assertEquals(i == 0 ? Float.NaN : i, root.getVector("float").getObject(i));
     }

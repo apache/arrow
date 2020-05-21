@@ -31,6 +31,7 @@ package org.apache.arrow.vector.complex.writer;
 @SuppressWarnings("unused")
 public interface BaseWriter extends AutoCloseable, Positionable {
   int getValueCapacity();
+  void writeNull();
 
   public interface StructWriter extends BaseWriter {
 

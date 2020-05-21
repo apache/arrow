@@ -87,7 +87,20 @@ def _check_pandas_roundtrip(df, expected=None, path=None,
     assert_frame_equal(result, expected)
 
 
-def _assert_error_on_write(df, exc, path=None):
+def _check_arrow_roundtrip(table, path=None):
+    if path is None:
+        path = random_path()
+
+    TEST_FILES.append(path)
+    write_feather(table, path)
+    if not os.path.exists(path):
+        raise Exception('file not written')
+
+    result = read_table(path)
+    assert result.equals(table)
+
+
+def _assert_error_on_write(df, exc, path=None, version=2):
     # check that we are raising the exception
     # on writing
 
@@ -97,7 +110,7 @@ def _assert_error_on_write(df, exc, path=None):
     TEST_FILES.append(path)
 
     def f():
-        write_feather(df, path)
+        write_feather(df, path, version=version)
 
     pytest.raises(exc, f)
 
@@ -535,13 +548,20 @@ def test_sparse_dataframe(version):
 
 
 @pytest.mark.pandas
-def test_duplicate_columns():
+def test_duplicate_columns_pandas():
 
     # https://github.com/wesm/feather/issues/53
     # not currently able to handle duplicate columns
     df = pd.DataFrame(np.arange(12).reshape(4, 3),
                       columns=list('aaa')).copy()
     _assert_error_on_write(df, ValueError)
+
+
+def test_duplicate_columns():
+    # only works for version 2
+    table = pa.table([[1, 2, 3], [4, 5, 6], [7, 8, 9]], names=['a', 'a', 'b'])
+    _check_arrow_roundtrip(table)
+    _assert_error_on_write(table, ValueError, version=1)
 
 
 @pytest.mark.pandas
@@ -617,6 +637,26 @@ def test_v2_compression_options():
         write_feather(df, buf, compression='snappy')
 
 
+def test_v2_lz4_default_compression():
+    # ARROW-8750: Make sure that the compression=None option selects lz4 if
+    # it's available
+    if not pa.Codec.is_available('lz4_frame'):
+        pytest.skip("LZ4 compression support is not built in C++")
+
+    # some highly compressible data
+    t = pa.table([np.repeat(0, 100000)], names=['f0'])
+
+    buf = io.BytesIO()
+    write_feather(t, buf)
+    default_result = buf.getvalue()
+
+    buf = io.BytesIO()
+    write_feather(t, buf, compression='uncompressed')
+    uncompressed_result = buf.getvalue()
+
+    assert len(default_result) < len(uncompressed_result)
+
+
 def test_v1_unsupported_types():
     table = pa.table([pa.array([[1, 2, 3], [], None])], names=['f0'])
 
@@ -665,3 +705,51 @@ def test_feather_without_pandas(tempdir, version):
     write_feather(table, str(tempdir / "data.feather"), version=version)
     result = read_table(str(tempdir / "data.feather"))
     assert result.equals(table)
+
+
+@pytest.mark.pandas
+def test_read_column_selection(version):
+    # ARROW-8641
+    df = pd.DataFrame(np.arange(12).reshape(4, 3), columns=['a', 'b', 'c'])
+
+    # select columns as string names or integer indices
+    _check_pandas_roundtrip(
+        df, columns=['a', 'c'], expected=df[['a', 'c']], version=version)
+    _check_pandas_roundtrip(
+        df, columns=[0, 2], expected=df[['a', 'c']], version=version)
+
+    # different order is followed
+    _check_pandas_roundtrip(
+        df, columns=['b', 'a'], expected=df[['b', 'a']], version=version)
+    _check_pandas_roundtrip(
+        df, columns=[1, 0], expected=df[['b', 'a']], version=version)
+
+
+def test_read_column_duplicated_selection(tempdir, version):
+    # duplicated columns in the column selection
+    table = pa.table([[1, 2, 3], [4, 5, 6], [7, 8, 9]], names=['a', 'b', 'c'])
+    path = str(tempdir / "data.feather")
+    write_feather(table, path, version=version)
+
+    for col_selection in [['a', 'b', 'a'], [0, 1, 0]]:
+        result = read_table(path, columns=col_selection)
+        assert result.column_names == ['a', 'b', 'a']
+
+
+def test_read_column_duplicated_in_file(tempdir):
+    # duplicated columns in feather file (only works for feather v2)
+    table = pa.table([[1, 2, 3], [4, 5, 6], [7, 8, 9]], names=['a', 'b', 'a'])
+    path = str(tempdir / "data.feather")
+    write_feather(table, path, version=2)
+
+    # no selection works fine
+    result = read_table(path)
+    assert result.equals(table)
+
+    # selection with indices works
+    result = read_table(path, columns=[0, 2])
+    assert result.column_names == ['a', 'a']
+
+    # selection with column names errors
+    with pytest.raises(ValueError):
+        read_table(path, columns=['a', 'b'])

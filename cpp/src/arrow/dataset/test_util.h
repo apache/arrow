@@ -292,15 +292,28 @@ struct MakeFileSystemDatasetMixin {
   void MakeDataset(const std::vector<fs::FileInfo>& infos,
                    std::shared_ptr<Expression> root_partition = scalar(true),
                    ExpressionVector partitions = {}) {
+    auto n_fragments = infos.size();
     if (partitions.empty()) {
-      partitions.resize(infos.size(), scalar(true));
+      partitions.resize(n_fragments, scalar(true));
     }
 
     MakeFileSystem(infos);
     auto format = std::make_shared<DummyFileFormat>();
-    ASSERT_OK_AND_ASSIGN(
-        dataset_, FileSystemDataset::Make(schema({}), root_partition, format, fs_, infos,
-                                          partitions));
+
+    std::vector<std::shared_ptr<FileFragment>> fragments;
+    for (size_t i = 0; i < n_fragments; i++) {
+      const auto& info = infos[i];
+      if (!info.IsFile()) {
+        continue;
+      }
+
+      ASSERT_OK_AND_ASSIGN(auto fragment,
+                           format->MakeFragment({info.path(), fs_}, partitions[i]));
+      fragments.push_back(std::move(fragment));
+    }
+
+    ASSERT_OK_AND_ASSIGN(dataset_, FileSystemDataset::Make(schema({}), root_partition,
+                                                           format, std::move(fragments)));
   }
 
   void MakeDatasetFromPathlist(const std::string& pathlist,

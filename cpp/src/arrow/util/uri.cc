@@ -21,8 +21,8 @@
 #include <sstream>
 #include <vector>
 
-#include "arrow/util/parsing.h"
 #include "arrow/util/string_view.h"
+#include "arrow/util/value_parsing.h"
 #include "arrow/vendored/uriparser/Uri.h"
 
 namespace arrow {
@@ -255,9 +255,8 @@ Status Uri::Parse(const std::string& uri_string) {
   // Parse port number
   auto port_text = TextRangeToView(impl_->uri_.portText);
   if (port_text.size()) {
-    StringConverter<UInt16Type> port_converter;
     uint16_t port_num;
-    if (!port_converter(port_text.data(), port_text.size(), &port_num)) {
+    if (!ParseValue<UInt16Type>(port_text.data(), port_text.size(), &port_num)) {
       return Status::Invalid("Invalid port number '", port_text, "' in URI '", uri_string,
                              "'");
     }

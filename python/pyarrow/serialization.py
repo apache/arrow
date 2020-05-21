@@ -150,8 +150,8 @@ def _register_custom_pandas_handlers(context):
     )
 
     def _serialize_pandas_dataframe(obj):
-        if (pdcompat._pandas_api.has_sparse
-                and isinstance(obj, pd.SparseDataFrame)):
+        if (pdcompat._pandas_api.has_sparse and
+                isinstance(obj, pd.SparseDataFrame)):
             raise NotImplementedError(
                 sparse_type_error_msg.format('SparseDataFrame')
             )
@@ -162,8 +162,8 @@ def _register_custom_pandas_handlers(context):
         return pdcompat.serialized_dict_to_dataframe(data)
 
     def _serialize_pandas_series(obj):
-        if (pdcompat._pandas_api.has_sparse
-                and isinstance(obj, pd.SparseSeries)):
+        if (pdcompat._pandas_api.has_sparse and
+                isinstance(obj, pd.SparseSeries)):
             raise NotImplementedError(
                 sparse_type_error_msg.format('SparseSeries')
             )
@@ -302,7 +302,7 @@ def _register_collections_serialization_handlers(serialization_context):
 def _register_scipy_handlers(serialization_context):
     try:
         from scipy.sparse import (csr_matrix, csc_matrix, coo_matrix,
-                                  isspmatrix_coo,  isspmatrix_csr,
+                                  isspmatrix_coo, isspmatrix_csr,
                                   isspmatrix_csc, isspmatrix)
 
         def _serialize_scipy_sparse(obj):
@@ -320,7 +320,7 @@ def _register_scipy_handlers(serialization_context):
 
             else:
                 raise NotImplementedError(
-                        "Serialization of {} is not supported.".format(obj[0]))
+                    "Serialization of {} is not supported.".format(obj[0]))
 
         def _deserialize_scipy_sparse(data):
             if data[0] == 'coo':

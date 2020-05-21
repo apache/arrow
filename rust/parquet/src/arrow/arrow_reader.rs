@@ -204,9 +204,13 @@ impl ParquetRecordBatchReader {
 #[cfg(test)]
 mod tests {
     use crate::arrow::arrow_reader::{ArrowReader, ParquetFileArrowReader};
-    use crate::arrow::converter::{Converter, FromConverter, Utf8ArrayConverter};
+    use crate::arrow::converter::{
+        Converter, FixedSizeArrayConverter, FromConverter, Utf8ArrayConverter,
+    };
     use crate::column::writer::get_typed_column_writer_mut;
-    use crate::data_type::{BoolType, ByteArray, ByteArrayType, DataType, Int32Type};
+    use crate::data_type::{
+        BoolType, ByteArray, ByteArrayType, DataType, FixedLenByteArrayType, Int32Type,
+    };
     use crate::errors::Result;
     use crate::file::properties::WriterProperties;
     use crate::file::reader::{FileReader, SerializedFileReader};
@@ -214,8 +218,11 @@ mod tests {
     use crate::schema::parser::parse_message_type;
     use crate::schema::types::TypePtr;
     use crate::util::test_common::{get_temp_filename, RandGen};
-    use arrow::array::{Array, BooleanArray, StringArray, StructArray};
+    use arrow::array::{
+        Array, BooleanArray, FixedSizeBinaryArray, StringArray, StructArray,
+    };
     use arrow::record_batch::RecordBatchReader;
+    use rand::RngCore;
     use serde_json::Value::Array as JArray;
     use std::cmp::min;
     use std::convert::TryFrom;
@@ -274,12 +281,40 @@ mod tests {
         }
         ";
 
+        let converter = FromConverter::new();
         single_column_reader_test::<
             BoolType,
             BooleanArray,
             FromConverter<Vec<Option<bool>>, BooleanArray>,
             BoolType,
-        >(2, 100, 2, message_type, 15, 50);
+        >(2, 100, 2, message_type, 15, 50, converter);
+    }
+
+    struct RandFixedLenGen {}
+
+    impl RandGen<FixedLenByteArrayType> for RandFixedLenGen {
+        fn gen(len: i32) -> ByteArray {
+            let mut v = vec![0u8; len as usize];
+            rand::thread_rng().fill_bytes(&mut v);
+            v.into()
+        }
+    }
+
+    #[test]
+    fn test_fixed_length_binary_column_reader() {
+        let message_type = "
+        message test_schema {
+          REQUIRED FIXED_LEN_BYTE_ARRAY (20) leaf;
+        }
+        ";
+
+        let converter = FixedSizeArrayConverter::new(20);
+        single_column_reader_test::<
+            FixedLenByteArrayType,
+            FixedSizeBinaryArray,
+            FixedSizeArrayConverter,
+            RandFixedLenGen,
+        >(2, 100, 20, message_type, 15, 50, converter);
     }
 
     struct RandUtf8Gen {}
@@ -298,12 +333,13 @@ mod tests {
         }
         ";
 
+        let converter = Utf8ArrayConverter {};
         single_column_reader_test::<
             ByteArrayType,
             StringArray,
             Utf8ArrayConverter,
             RandUtf8Gen,
-        >(2, 100, 2, message_type, 15, 50);
+        >(2, 100, 2, message_type, 15, 50, converter);
     }
 
     fn single_column_reader_test<T, A, C, G>(
@@ -313,6 +349,7 @@ mod tests {
         message_type: &str,
         record_batch_size: usize,
         num_iterations: usize,
+        converter: C,
     ) where
         T: DataType,
         G: RandGen<T>,
@@ -357,7 +394,7 @@ mod tests {
                 data.extend_from_slice(&expected_data[start..end]);
 
                 assert_eq!(
-                    &C::convert(data).unwrap(),
+                    &converter.convert(data).unwrap(),
                     batch
                         .unwrap()
                         .column(0)

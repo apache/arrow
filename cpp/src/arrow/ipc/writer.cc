@@ -174,7 +174,8 @@ class RecordBatchSerializer {
     ARROW_ASSIGN_OR_RAISE(actual_length,
                           codec->Compress(buffer.size(), buffer.data(), maximum_length,
                                           result->mutable_data() + sizeof(int64_t)));
-    *reinterpret_cast<int64_t*>(result->mutable_data()) = buffer.size();
+    *reinterpret_cast<int64_t*>(result->mutable_data()) =
+        BitUtil::ToLittleEndian(buffer.size());
     *out = SliceBuffer(std::move(result), /*offset=*/0, actual_length + sizeof(int64_t));
     return Status::OK();
   }
@@ -467,8 +468,8 @@ class RecordBatchSerializer {
       out_->body_buffers.emplace_back(value_offsets);
 
       // Visit children and slice accordingly
-      for (int i = 0; i < type.num_children(); ++i) {
-        std::shared_ptr<Array> child = array.child(i);
+      for (int i = 0; i < type.num_fields(); ++i) {
+        std::shared_ptr<Array> child = array.field(i);
 
         // TODO: ARROW-809, for sliced unions, tricky to know how much to
         // truncate the children. For now, we are truncating the children to be
@@ -489,8 +490,8 @@ class RecordBatchSerializer {
       }
     } else {
       for (int i = 0; i < array.num_fields(); ++i) {
-        // Sparse union, slicing is done for us by child()
-        RETURN_NOT_OK(VisitArray(*array.child(i)));
+        // Sparse union, slicing is done for us by field()
+        RETURN_NOT_OK(VisitArray(*array.field(i)));
       }
     }
     ++max_recursion_depth_;
@@ -867,8 +868,12 @@ Result<std::unique_ptr<Message>> GetSparseTensorMessage(const SparseTensor& spar
 }
 
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
+  return GetRecordBatchSize(batch, IpcWriteOptions::Defaults(), size);
+}
+
+Status GetRecordBatchSize(const RecordBatch& batch, const IpcWriteOptions& options,
+                          int64_t* size) {
   // emulates the behavior of Write without actually writing
-  auto options = IpcWriteOptions::Defaults();
   int32_t metadata_length = 0;
   int64_t body_length = 0;
   io::MockOutputStream dst;
@@ -1198,12 +1203,12 @@ Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
 
 Result<std::shared_ptr<Buffer>> SerializeRecordBatch(const RecordBatch& batch,
                                                      std::shared_ptr<MemoryManager> mm) {
+  auto options = IpcWriteOptions::Defaults();
   int64_t size = 0;
-  RETURN_NOT_OK(GetRecordBatchSize(batch, &size));
+  RETURN_NOT_OK(GetRecordBatchSize(batch, options, &size));
   ARROW_ASSIGN_OR_RAISE(auto buffer, mm->AllocateBuffer(size));
   ARROW_ASSIGN_OR_RAISE(auto writer, Buffer::GetWriter(buffer));
 
-  IpcWriteOptions options;
   // XXX Should we have a helper function for getting a MemoryPool
   // for any MemoryManager (not only CPU)?
   if (mm->is_cpu()) {
@@ -1217,7 +1222,7 @@ Result<std::shared_ptr<Buffer>> SerializeRecordBatch(const RecordBatch& batch,
 Result<std::shared_ptr<Buffer>> SerializeRecordBatch(const RecordBatch& batch,
                                                      const IpcWriteOptions& options) {
   int64_t size = 0;
-  RETURN_NOT_OK(GetRecordBatchSize(batch, &size));
+  RETURN_NOT_OK(GetRecordBatchSize(batch, options, &size));
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer,
                         AllocateBuffer(size, options.memory_pool));
 

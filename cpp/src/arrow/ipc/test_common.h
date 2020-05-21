@@ -136,6 +136,12 @@ Status MakeDecimal(std::shared_ptr<RecordBatch>* out);
 ARROW_EXPORT
 Status MakeNull(std::shared_ptr<RecordBatch>* out);
 
+ARROW_EXPORT
+Status MakeUuid(std::shared_ptr<RecordBatch>* out);
+
+ARROW_EXPORT
+Status MakeDictExtension(std::shared_ptr<RecordBatch>* out);
+
 }  // namespace test
 }  // namespace ipc
 }  // namespace arrow

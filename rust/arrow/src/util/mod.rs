@@ -16,7 +16,7 @@
 // under the License.
 
 pub mod bit_util;
-pub(crate) mod integration_util;
+pub mod integration_util;
 pub mod pretty;
 pub mod string_writer;
 pub mod test_util;

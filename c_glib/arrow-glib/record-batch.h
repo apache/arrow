@@ -20,6 +20,7 @@
 #pragma once
 
 #include <arrow-glib/array.h>
+#include <arrow-glib/ipc-options.h>
 #include <arrow-glib/schema.h>
 
 G_BEGIN_DECLS
@@ -70,6 +71,11 @@ GArrowRecordBatch *garrow_record_batch_add_column(GArrowRecordBatch *record_batc
 GArrowRecordBatch *garrow_record_batch_remove_column(GArrowRecordBatch *record_batch,
                                                      guint i,
                                                      GError **error);
+GARROW_AVAILABLE_IN_1_0
+GArrowBuffer *
+garrow_record_batch_serialize(GArrowRecordBatch *record_batch,
+                              GArrowWriteOptions *options,
+                              GError **error);
 
 
 #define GARROW_TYPE_RECORD_BATCH_ITERATOR       \
@@ -99,7 +105,7 @@ garrow_record_batch_iterator_equal(GArrowRecordBatchIterator *iterator,
                                    GArrowRecordBatchIterator *other_iterator);
 
 GARROW_AVAILABLE_IN_0_17
-GList*
+GList *
 garrow_record_batch_iterator_to_list(GArrowRecordBatchIterator *iterator,
                                      GError **error);
 

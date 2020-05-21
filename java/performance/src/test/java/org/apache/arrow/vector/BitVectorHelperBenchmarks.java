@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import java.util.concurrent.TimeUnit;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
@@ -35,8 +36,6 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Benchmarks for {@link BitVectorHelper}.
@@ -67,7 +66,7 @@ public class BitVectorHelperBenchmarks {
       allocator = new RootAllocator(ALLOCATOR_CAPACITY);
       validityBuffer = allocator.buffer(VALIDITY_BUFFER_CAPACITY / 8);
 
-      for (int i = 0;i < VALIDITY_BUFFER_CAPACITY; i++) {
+      for (int i = 0; i < VALIDITY_BUFFER_CAPACITY; i++) {
         if (i % 7 == 0) {
           BitVectorHelper.setBit(validityBuffer, i);
         } else {

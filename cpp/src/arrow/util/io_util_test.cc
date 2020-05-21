@@ -17,11 +17,13 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <limits>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/windows_compatibility.h"
 #include "arrow/util/windows_fixup.h"
@@ -55,6 +57,36 @@ TEST(ErrnoFromStatus, Basics) {
   ASSERT_EQ(ErrnoFromStatus(st), EPERM);
   st = IOErrorFromErrno(6789, "foo");
   ASSERT_EQ(ErrnoFromStatus(st), 6789);
+}
+
+TEST(GetPageSize, Basics) {
+  const auto page_size = GetPageSize();
+  ASSERT_GE(page_size, 4096);
+  // It's a power of 2
+  ASSERT_EQ((page_size - 1) & page_size, 0);
+}
+
+TEST(MemoryAdviseWillNeed, Basics) {
+  ASSERT_OK_AND_ASSIGN(auto buf1, AllocateBuffer(8192));
+  ASSERT_OK_AND_ASSIGN(auto buf2, AllocateBuffer(1024 * 1024));
+
+  const auto addr1 = buf1->mutable_data();
+  const auto size1 = static_cast<size_t>(buf1->size());
+  const auto addr2 = buf2->mutable_data();
+  const auto size2 = static_cast<size_t>(buf2->size());
+
+  ASSERT_OK(MemoryAdviseWillNeed({}));
+  ASSERT_OK(MemoryAdviseWillNeed({{addr1, size1}, {addr2, size2}}));
+  ASSERT_OK(MemoryAdviseWillNeed({{addr1 + 1, size1 - 1}, {addr2 + 4095, size2 - 4095}}));
+  ASSERT_OK(MemoryAdviseWillNeed({{addr1, 13}, {addr2, 1}}));
+  ASSERT_OK(MemoryAdviseWillNeed({{addr1, 0}, {addr2 + 1, 0}}));
+
+  // Should probably fail
+  // (but on Windows, MemoryAdviseWillNeed can be a no-op)
+#ifndef _WIN32
+  ASSERT_RAISES(IOError,
+                MemoryAdviseWillNeed({{nullptr, std::numeric_limits<size_t>::max()}}));
+#endif
 }
 
 #if _WIN32

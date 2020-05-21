@@ -28,7 +28,7 @@ class FeatherTest < Test::Unit::TestCase
     @output = Tempfile.new(["red-arrow", ".feather"])
     begin
       yield(@output)
-    rescue
+    ensure
       @output.close!
     end
   end

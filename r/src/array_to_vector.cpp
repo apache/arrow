@@ -372,7 +372,7 @@ class Converter_Struct : public Converter {
     Rcpp::CharacterVector colnames(nf);
     for (int i = 0; i < nf; i++) {
       out[i] = converters[i]->Allocate(n);
-      colnames[i] = type->child(i)->name();
+      colnames[i] = type->field(i)->name();
     }
     IntegerVector rn(2);
     rn[0] = NA_INTEGER;

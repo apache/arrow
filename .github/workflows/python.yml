@@ -34,138 +34,86 @@ on:
 env:
   DOCKER_BUILDKIT: 0
   COMPOSE_DOCKER_CLI_BUILD: 1
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
 
-  ubuntu:
-    name: AMD64 Ubuntu 16.04 Python 3.5
-    runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    env:
-      UBUNTU: 16.04
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        shell: bash
-        run: ci/scripts/util_cleanup.sh
-      - name: Docker Pull
-        shell: bash
-        run: |
-          docker-compose pull --ignore-pull-failures ubuntu-cpp
-          docker-compose pull --ignore-pull-failures ubuntu-python
-      - name: Docker Build
-        shell: bash
-        run: |
-          docker-compose build ubuntu-cpp
-          docker-compose build ubuntu-python
-      - name: Docker Run
-        shell: bash
-        run: docker-compose run ubuntu-python
-      - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
-        continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push ubuntu-python
-
-  conda-nopandas:
-    name: AMD64 Conda Python ${{ matrix.python }} Without Pandas
+  docker:
+    name: ${{ matrix.title }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
-        python: [3.8]
+        name:
+          - ubuntu-16.04-python-3
+          - conda-python-3.8-nopandas
+          - conda-python-3.6-pandas-0.23
+          - conda-python-3.6-pandas-latest
+          - centos-python-3.6-manylinux1
+        include:
+          - name: ubuntu-16.04-python-3
+            cache: ubuntu-16.04-python-3
+            image: ubuntu-python
+            # this image always builds with python 3.5
+            title: AMD64 Ubuntu 16.04 Python 3.5
+            ubuntu: 16.04
+          - name: conda-python-3.8-nopandas
+            cache: conda-python-3.8
+            image: conda-python
+            title: AMD64 Conda Python 3.8 Without Pandas
+            python: 3.8
+          - name: conda-python-3.6-pandas-0.23
+            cache: conda-python-3.6
+            image: conda-python-pandas
+            title: AMD64 Conda Python 3.6 Pandas 0.23
+            python: 3.6
+            pandas: 0.23
+          - name: conda-python-3.6-pandas-latest
+            cache: conda-python-3.6
+            image: conda-python-pandas
+            title: AMD64 Conda Python 3.6 Pandas latest
+            python: 3.6
+            pandas: latest
+          - name: centos-python-3.6-manylinux1
+            cache: manylinux1
+            image: --force-pull --no-build centos-python-manylinux1
+            title: AMD64 CentOS 5.11 Python 3.6 manylinux1
     env:
-      PYTHON: ${{ matrix.python }}
+      PYTHON: ${{ matrix.python || 3.7 }}
+      UBUNTU: ${{ matrix.ubuntu || 18.04 }}
+      PANDAS: ${{ matrix.pandas || 'latest' }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
       - name: Fetch Submodules and Tags
-        shell: bash
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space
-        shell: bash
         run: ci/scripts/util_cleanup.sh
-      - name: Docker Pull
-        shell: bash
-        run: |
-          docker-compose pull --ignore-pull-failures conda-cpp
-          docker-compose pull --ignore-pull-failures conda-python
-      - name: Docker Build
-        shell: bash
-        run: |
-          docker-compose build conda-cpp
-          docker-compose build conda-python
-      - name: Docker Run
-        shell: bash
-        run: docker-compose run conda-python
-      - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
-        continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push conda-python
-
-  conda-pandas:
-    name: AMD64 Conda Python ${{ matrix.python }} Pandas ${{ matrix.pandas }}
-    runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    strategy:
-      fail-fast: false
-      matrix:
-        python: [3.6]
-        pandas: ["latest", "0.23"]
-    env:
-      PYTHON: ${{ matrix.python }}
-      PANDAS: ${{ matrix.pandas }}
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v2
+      - name: Cache Docker Volumes
+        uses: actions/cache@v1
         with:
-          fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        shell: bash
-        run: ci/scripts/util_cleanup.sh
-      - name: Docker Pull
-        shell: bash
+          path: .docker
+          key: ${{ matrix.cache }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ${{ matrix.cache }}-
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
         run: |
-          docker-compose pull --ignore-pull-failures conda-cpp
-          docker-compose pull --ignore-pull-failures conda-python
-          docker-compose pull --ignore-pull-failures conda-python-pandas
-      - name: Docker Build
-        shell: bash
-        run: |
-          docker-compose build conda-cpp
-          docker-compose build conda-python
-          docker-compose build conda-python-pandas
-      - name: Docker Run
-        shell: bash
-        run: |
-          docker-compose run conda-python-pandas
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run ${{ matrix.image }}
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        shell: bash
-        run: |
-          docker login -u ${{ secrets.DOCKERHUB_USER }} \
-                       -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push conda-python-pandas
+        run: archery docker push ${{ matrix.image }}
 
   macos:
     name: AMD64 MacOS 10.15 Python 3.7
@@ -212,28 +160,3 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
-
-  manylinux1:
-    name: AMD64 CentOS 5.11 Python 3.6 manylinux1
-    runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        shell: bash
-        run: ci/scripts/util_cleanup.sh
-      - name: Docker Pull
-        shell: bash
-        run: docker-compose pull centos-python-manylinux1
-      - name: Docker Run
-        shell: bash
-        run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
-          docker-compose run centos-python-manylinux1

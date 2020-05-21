@@ -26,8 +26,8 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/parsing.h"
 #include "arrow/util/string_view.h"
+#include "arrow/util/value_parsing.h"
 
 #include "arrow/json/rapidjson_defs.h"
 
@@ -39,6 +39,9 @@
 namespace rj = arrow::rapidjson;
 
 namespace arrow {
+
+using internal::ParseValue;
+
 namespace ipc {
 namespace internal {
 namespace json {
@@ -319,7 +322,7 @@ class DecimalConverter final : public ConcreteConverter<DecimalConverter> {
 class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
  public:
   explicit TimestampConverter(const std::shared_ptr<DataType>& type)
-      : from_string_(type) {
+      : parse_ctx_{checked_cast<const TimestampType&>(*type).unit()} {
     this->type_ = type;
     builder_ = std::make_shared<TimestampBuilder>(type, default_memory_pool());
   }
@@ -335,7 +338,7 @@ class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
       RETURN_NOT_OK(ConvertNumber<Int64Type>(json_obj, *this->type_, &value));
     } else if (json_obj.IsString()) {
       auto view = util::string_view(json_obj.GetString(), json_obj.GetStringLength());
-      if (!from_string_(view.data(), view.size(), &value)) {
+      if (!ParseValue<TimestampType>(view.data(), view.size(), &value, &parse_ctx_)) {
         return Status::Invalid("couldn't parse timestamp from ", view);
       }
     } else {
@@ -347,7 +350,7 @@ class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
   std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
 
  private:
-  ::arrow::internal::StringConverter<TimestampType> from_string_;
+  ::arrow::internal::ParseTimestampContext parse_ctx_;
   std::shared_ptr<TimestampBuilder> builder_;
 };
 
@@ -598,7 +601,7 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
 
   Status Init() override {
     std::vector<std::shared_ptr<ArrayBuilder>> child_builders;
-    for (const auto& field : type_->children()) {
+    for (const auto& field : type_->fields()) {
       std::shared_ptr<Converter> child_converter;
       RETURN_NOT_OK(GetConverter(field->type(), &child_converter));
       child_converters_.push_back(child_converter);
@@ -625,7 +628,7 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
     }
     if (json_obj.IsArray()) {
       auto size = json_obj.Size();
-      auto expected_size = static_cast<uint32_t>(type_->num_children());
+      auto expected_size = static_cast<uint32_t>(type_->num_fields());
       if (size != expected_size) {
         return Status::Invalid("Expected array of size ", expected_size,
                                ", got array of size ", size);
@@ -637,9 +640,9 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
     }
     if (json_obj.IsObject()) {
       auto remaining = json_obj.MemberCount();
-      auto num_children = type_->num_children();
+      auto num_children = type_->num_fields();
       for (int32_t i = 0; i < num_children; ++i) {
-        const auto& field = type_->child(i);
+        const auto& field = type_->field(i);
         auto it = json_obj.FindMember(field->name());
         if (it != json_obj.MemberEnd()) {
           --remaining;
@@ -681,7 +684,7 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
       type_id_to_child_num_[type_id] = child_i++;
     }
     std::vector<std::shared_ptr<ArrayBuilder>> child_builders;
-    for (const auto& field : type_->children()) {
+    for (const auto& field : type_->fields()) {
       std::shared_ptr<Converter> child_converter;
       RETURN_NOT_OK(GetConverter(field->type(), &child_converter));
       child_converters_.push_back(child_converter);

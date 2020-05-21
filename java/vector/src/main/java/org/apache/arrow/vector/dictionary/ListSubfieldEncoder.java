@@ -81,7 +81,7 @@ public class ListSubfieldEncoder {
 
     FieldType indexFieldType = new FieldType(vector.getField().isNullable(),
         dictionary.getEncoding().getIndexType(), dictionary.getEncoding(), vector.getField().getMetadata());
-    Field valueField = new Field(vector.getField().getName(), indexFieldType,null);
+    Field valueField = new Field(vector.getField().getName(), indexFieldType, null);
 
     // clone list vector and initialize data vector
     BaseListVector encoded = cloneVector(vector);

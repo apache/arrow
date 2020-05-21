@@ -29,6 +29,8 @@ elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "armv7")
   set(ARROW_CPU_FLAG "armv7")
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc")
   set(ARROW_CPU_FLAG "ppc")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "s390x")
+  set(ARROW_CPU_FLAG "s390x")
 endif()
 # Check architecture specific compiler flags
 if(ARROW_CPU_FLAG STREQUAL "x86")
@@ -305,7 +307,7 @@ if(BUILD_WARNING_FLAGS)
 endif(BUILD_WARNING_FLAGS)
 
 # Only enable additional instruction sets if they are supported
-if(ARROW_CPU_FLAG STREQUAL "x86" AND ARROW_USE_SIMD)
+if(ARROW_CPU_FLAG STREQUAL "x86")
   if(ARROW_SIMD_LEVEL STREQUAL "AVX512")
     if(NOT CXX_SUPPORTS_AVX512)
       message(FATAL_ERROR "AVX512 required but compiler doesn't support it.")
@@ -327,7 +329,7 @@ if(ARROW_CPU_FLAG STREQUAL "x86" AND ARROW_USE_SIMD)
   endif()
 endif()
 
-if(ARROW_CPU_FLAG STREQUAL "ppc" AND ARROW_USE_SIMD)
+if(ARROW_CPU_FLAG STREQUAL "ppc")
   if(CXX_SUPPORTS_ALTIVEC AND ARROW_ALTIVEC)
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_ALTIVEC_FLAG}")
   endif()
@@ -342,9 +344,7 @@ if(ARROW_CPU_FLAG STREQUAL "armv8")
   endif()
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_ARMV8_ARCH_FLAG}")
 
-  if(ARROW_USE_SIMD)
-    add_definitions(-DARROW_HAVE_NEON)
-  endif()
+  add_definitions(-DARROW_HAVE_NEON)
 
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
      AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "5.4")

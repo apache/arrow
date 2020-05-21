@@ -17,10 +17,10 @@
 
 #![allow(bare_trait_objects)]
 
+use arrow::util::pretty;
 use clap::{crate_version, App, Arg};
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
-use datafusion::utils;
 use rustyline::Editor;
 use std::env;
 use std::path::Path;
@@ -116,7 +116,7 @@ fn exec_and_print(
         return Ok(());
     }
 
-    utils::print_batches(&results)?;
+    pretty::print_batches(&results)?;
 
     let row_count: usize = results.iter().map(|b| b.num_rows()).sum();
 

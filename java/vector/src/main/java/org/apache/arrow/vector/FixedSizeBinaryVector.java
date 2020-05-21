@@ -17,6 +17,9 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.impl.FixedSizeBinaryReaderImpl;
@@ -28,8 +31,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeBinary;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * FixedSizeBinaryVector implements a fixed width vector of
@@ -113,7 +114,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    */
   public byte[] get(int index) {
     assert index >= 0;
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       return null;
     }
     final byte[] dst = new byte[byteWidth];

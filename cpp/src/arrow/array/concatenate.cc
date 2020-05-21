@@ -217,7 +217,7 @@ class ConcatenateImpl {
   }
 
   Status Visit(const StructType& s) {
-    for (int i = 0; i < s.num_children(); ++i) {
+    for (int i = 0; i < s.num_fields(); ++i) {
       RETURN_NOT_OK(
           ConcatenateImpl(ChildData(i), pool_).Concatenate(out_.child_data[i].get()));
     }

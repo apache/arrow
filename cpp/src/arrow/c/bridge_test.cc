@@ -324,8 +324,8 @@ TEST_F(TestSchemaExport, Struct) {
              {ARROW_FLAG_NULLABLE, 0, ARROW_FLAG_NULLABLE});
 
   // With metadata
-  auto f0 = type->child(0);
-  auto f1 = type->child(1)->WithMetadata(
+  auto f0 = type->field(0);
+  auto f1 = type->field(1)->WithMetadata(
       key_value_metadata(kMetadataKeys1, kMetadataValues1));
   type = struct_({f0, f1});
   TestNested(type, {"+s", "c", "u"}, {"", "a", "b"},

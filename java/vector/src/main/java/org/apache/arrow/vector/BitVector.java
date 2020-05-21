@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
@@ -33,8 +34,6 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * BitVector implements a fixed width (1 bit) vector of
@@ -80,7 +79,7 @@ public final class BitVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public BitVector(Field field, BufferAllocator allocator) {
-    super(field, allocator,0);
+    super(field, allocator, 0);
     reader = new BitReaderImpl(BitVector.this);
   }
 

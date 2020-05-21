@@ -179,7 +179,6 @@ set(ARROW_SRCS
     util/logging.cc
     util/key_value_metadata.cc
     util/memory.cc
-    util/parsing.cc
     util/string.cc
     util/string_builder.cc
     util/task_group.cc
@@ -188,6 +187,7 @@ set(ARROW_SRCS
     util/trie.cc
     util/uri.cc
     util/utf8.cc
+    util/value_parsing.cc
     vendored/base64.cpp
     vendored/datetime/tz.cpp
     vendored/double-conversion/bignum.cc
@@ -200,6 +200,7 @@ set(ARROW_SRCS
     vendored/double-conversion/strtod.cc)
 
 set(ARROW_C_SRCS
+    vendored/musl/strptime.c
     vendored/uriparser/UriCommon.c
     vendored/uriparser/UriCompare.c
     vendored/uriparser/UriEscape.c

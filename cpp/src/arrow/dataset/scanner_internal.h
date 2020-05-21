@@ -61,13 +61,12 @@ class FilterAndProjectScanTask : public ScanTask {
       : ScanTask(task->options(), task->context()),
         task_(std::move(task)),
         partition_(std::move(partition)),
-        filter_(NULLPTR),
+        filter_(options()->filter->Assume(partition_)),
         projector_(options()->projector) {}
 
   Result<RecordBatchIterator> Execute() override {
     ARROW_ASSIGN_OR_RAISE(auto it, task_->Execute());
 
-    filter_ = options()->filter->Assume(partition_);
     auto filter_it =
         FilterRecordBatch(std::move(it), *options_->evaluator, *filter_, context_->pool);
 
@@ -100,8 +99,7 @@ inline ScanTaskIterator GetScanTaskIterator(FragmentIterator fragments,
     // wrapping the ScanTask with a FilterAndProjectScanTask
     auto wrap_scan_task =
         [partition](std::shared_ptr<ScanTask> task) -> std::shared_ptr<ScanTask> {
-      return std::make_shared<FilterAndProjectScanTask>(std::move(task),
-                                                        std::move(partition));
+      return std::make_shared<FilterAndProjectScanTask>(std::move(task), partition);
     };
 
     return MakeMapIterator(wrap_scan_task, std::move(scan_task_it));

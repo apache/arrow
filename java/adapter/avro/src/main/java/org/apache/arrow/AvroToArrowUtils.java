@@ -753,7 +753,7 @@ public class AvroToArrowUtils {
 
   private static Map<String, String> getMetaData(Schema schema) {
     Map<String, String> metadata = new HashMap<>();
-    schema.getObjectProps().forEach((k,v) -> metadata.put(k, v.toString()));
+    schema.getObjectProps().forEach((k, v) -> metadata.put(k, v.toString()));
     return metadata;
   }
 

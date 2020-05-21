@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
@@ -43,8 +44,6 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
-
-import io.netty.buffer.ArrowBuf;
 
 /** Base class for Vectors that contain repeated values. */
 public abstract class BaseRepeatedValueVector extends BaseValueVector implements RepeatedValueVector, BaseListVector {
@@ -122,7 +121,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
 
     long newAllocationSize = baseSize * 2L;
     newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
-    newAllocationSize = Math.min(newAllocationSize, (long)(OFFSET_WIDTH) * Integer.MAX_VALUE);
+    newAllocationSize = Math.min(newAllocationSize, (long) (OFFSET_WIDTH) * Integer.MAX_VALUE);
     assert newAllocationSize >= 1;
 
     if (newAllocationSize > MAX_ALLOCATION_SIZE || newAllocationSize <= baseSize) {
@@ -189,10 +188,10 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
 
     offsetAllocationSizeInBytes = (numRecords + 1) * OFFSET_WIDTH;
 
-    int innerValueCapacity = Math.max((int)(numRecords * density), 1);
+    int innerValueCapacity = Math.max((int) (numRecords * density), 1);
 
     if (vector instanceof DensityAwareVector) {
-      ((DensityAwareVector)vector).setInitialCapacity(innerValueCapacity, density);
+      ((DensityAwareVector) vector).setInitialCapacity(innerValueCapacity, density);
     } else {
       vector.setInitialCapacity(innerValueCapacity);
     }

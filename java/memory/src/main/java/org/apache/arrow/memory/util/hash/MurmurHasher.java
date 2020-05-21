@@ -20,7 +20,7 @@ package org.apache.arrow.memory.util.hash;
 import static io.netty.util.internal.PlatformDependent.getByte;
 import static io.netty.util.internal.PlatformDependent.getInt;
 
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
 
 /**
  * Implementation of the Murmur hashing algorithm.
@@ -143,7 +143,7 @@ public class MurmurHasher implements ArrowBufHasher {
    * @return the finalized hash code.
    */
   public static int finalizeHashCode(int hashCode, long length) {
-    hashCode = hashCode ^ (int)length;
+    hashCode = hashCode ^ (int) length;
 
     hashCode = hashCode ^ (hashCode >>> 16);
     hashCode = hashCode * 0x85ebca6b;

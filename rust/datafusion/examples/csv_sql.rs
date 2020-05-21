@@ -16,10 +16,10 @@
 // under the License.
 
 use arrow::datatypes::{DataType, Field, Schema};
+use arrow::util::pretty;
 
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
-use datafusion::utils;
 
 /// This example demonstrates executing a simple query against an Arrow data source (CSV) and
 /// fetching results
@@ -52,6 +52,7 @@ fn main() -> Result<()> {
         &format!("{}/csv/aggregate_test_100.csv", testdata),
         &schema,
         true,
+        None,
     );
 
     let sql = "SELECT c1, MIN(c12), MAX(c12) FROM aggregate_test_100 WHERE c11 > 0.1 AND c11 < 0.9 GROUP BY c1";
@@ -65,7 +66,7 @@ fn main() -> Result<()> {
     let results = ctx.collect(plan.as_ref())?;
 
     // print the results
-    utils::print_batches(&results)?;
+    pretty::print_batches(&results)?;
 
     Ok(())
 }

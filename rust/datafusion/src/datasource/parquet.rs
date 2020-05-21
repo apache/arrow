@@ -25,7 +25,7 @@ use arrow::datatypes::*;
 use crate::datasource::{ScanResult, TableProvider};
 use crate::error::Result;
 use crate::execution::physical_plan::parquet::ParquetExec;
-use crate::execution::physical_plan::{common, ExecutionPlan};
+use crate::execution::physical_plan::ExecutionPlan;
 
 /// Table-based representation of a `ParquetFile`
 pub struct ParquetTable {
@@ -58,9 +58,6 @@ impl TableProvider for ParquetTable {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Vec<ScanResult>> {
-        let mut filenames: Vec<String> = vec![];
-        common::build_file_list(&self.path, &mut filenames, ".parquet")?;
-
         let parquet_exec =
             ParquetExec::try_new(&self.path, projection.clone(), batch_size)?;
 

@@ -53,7 +53,7 @@ RUN apt-get update -y -q && \
 # and use pre-built binaries where possible
 RUN printf "\
     options(Ncpus = parallel::detectCores(), \
-            repos = 'https://demo.rstudiopm.com/all/__linux__/bionic/latest', \
+            repos = 'https://packagemanager.rstudio.com/cran/__linux__/bionic/latest', \
             HTTPUserAgent = sprintf(\
                 'R/%%s R (%%s)', getRversion(), \
                 paste(getRversion(), R.version\$platform, R.version\$arch, R.version\$os)))\n" \

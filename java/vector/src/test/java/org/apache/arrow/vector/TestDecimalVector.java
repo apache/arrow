@@ -24,13 +24,12 @@ import static org.junit.Assert.fail;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 
 public class TestDecimalVector {
 
@@ -331,7 +330,7 @@ public class TestDecimalVector {
             new ArrowType.Decimal(5, 2), allocator);
          ArrowBuf buf = allocator.buffer(9);) {
       BigDecimal [] expectedValues = new BigDecimal[] {BigDecimal.valueOf(705.32), BigDecimal
-              .valueOf(-705.32),BigDecimal.valueOf(705.32)};
+              .valueOf(-705.32), BigDecimal.valueOf(705.32)};
       verifyWritingArrowBufWithBigEndianBytes(decimalVector, buf, expectedValues, 3);
     }
 

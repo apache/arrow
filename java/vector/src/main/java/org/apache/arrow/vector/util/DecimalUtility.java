@@ -21,7 +21,8 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
+
 import io.netty.util.internal.PlatformDependent;
 
 /**
@@ -31,8 +32,8 @@ public class DecimalUtility {
   private DecimalUtility() {}
 
   public static final int DECIMAL_BYTE_LENGTH = 16;
-  public static final byte [] zeroes = new byte[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-  public static final byte [] minus_one = new byte[] {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+  public static final byte [] zeroes = new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  public static final byte [] minus_one = new byte[] {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 
   /**
    * Read an ArrowType.Decimal at the given value index in the ArrowBuf and convert to a BigDecimal

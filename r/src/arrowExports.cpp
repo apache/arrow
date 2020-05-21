@@ -2604,7 +2604,7 @@ RcppExport SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
+std::shared_ptr<ds::Expression> dataset___expr__equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
@@ -2620,7 +2620,7 @@ RcppExport SEXP _arrow_dataset___expr__equal(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__not_equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
+std::shared_ptr<ds::Expression> dataset___expr__not_equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__not_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
@@ -2636,7 +2636,7 @@ RcppExport SEXP _arrow_dataset___expr__not_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__greater(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
+std::shared_ptr<ds::Expression> dataset___expr__greater(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__greater(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
@@ -2652,7 +2652,7 @@ RcppExport SEXP _arrow_dataset___expr__greater(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__greater_equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
+std::shared_ptr<ds::Expression> dataset___expr__greater_equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__greater_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
@@ -2668,7 +2668,7 @@ RcppExport SEXP _arrow_dataset___expr__greater_equal(SEXP lhs_sexp, SEXP rhs_sex
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__less(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
+std::shared_ptr<ds::Expression> dataset___expr__less(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__less(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
@@ -2684,7 +2684,7 @@ RcppExport SEXP _arrow_dataset___expr__less(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ComparisonExpression> dataset___expr__less_equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
+std::shared_ptr<ds::Expression> dataset___expr__less_equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__less_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
@@ -2700,7 +2700,7 @@ RcppExport SEXP _arrow_dataset___expr__less_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::InExpression> dataset___expr__in(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<arrow::Array>& rhs);
+std::shared_ptr<ds::Expression> dataset___expr__in(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<arrow::Array>& rhs);
 RcppExport SEXP _arrow_dataset___expr__in(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
@@ -2716,7 +2716,7 @@ RcppExport SEXP _arrow_dataset___expr__in(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::AndExpression> dataset___expr__and(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
+std::shared_ptr<ds::Expression> dataset___expr__and(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__and(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
@@ -2732,7 +2732,7 @@ RcppExport SEXP _arrow_dataset___expr__and(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::OrExpression> dataset___expr__or(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
+std::shared_ptr<ds::Expression> dataset___expr__or(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 RcppExport SEXP _arrow_dataset___expr__or(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
@@ -2748,7 +2748,7 @@ RcppExport SEXP _arrow_dataset___expr__or(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::NotExpression> dataset___expr__not(const std::shared_ptr<ds::Expression>& lhs);
+std::shared_ptr<ds::Expression> dataset___expr__not(const std::shared_ptr<ds::Expression>& lhs);
 RcppExport SEXP _arrow_dataset___expr__not(SEXP lhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
@@ -2763,7 +2763,7 @@ RcppExport SEXP _arrow_dataset___expr__not(SEXP lhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::IsValidExpression> dataset___expr__is_valid(const std::shared_ptr<ds::Expression>& lhs);
+std::shared_ptr<ds::Expression> dataset___expr__is_valid(const std::shared_ptr<ds::Expression>& lhs);
 RcppExport SEXP _arrow_dataset___expr__is_valid(SEXP lhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
@@ -2778,7 +2778,7 @@ RcppExport SEXP _arrow_dataset___expr__is_valid(SEXP lhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ScalarExpression> dataset___expr__scalar(SEXP x);
+std::shared_ptr<ds::Expression> dataset___expr__scalar(SEXP x);
 RcppExport SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<SEXP>::type x(x_sexp);
@@ -4923,6 +4923,22 @@ RcppExport SEXP _arrow_RecordBatch__schema(SEXP x_sexp){
 
 // recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::RecordBatch> RecordBatch__ReplaceSchemaMetadata(const std::shared_ptr<arrow::RecordBatch>& x, Rcpp::CharacterVector metadata);
+RcppExport SEXP _arrow_RecordBatch__ReplaceSchemaMetadata(SEXP x_sexp, SEXP metadata_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<Rcpp::CharacterVector>::type metadata(metadata_sexp);
+	return Rcpp::wrap(RecordBatch__ReplaceSchemaMetadata(x, metadata));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_RecordBatch__ReplaceSchemaMetadata(SEXP x_sexp, SEXP metadata_sexp){
+	Rf_error("Cannot call RecordBatch__ReplaceSchemaMetadata(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// recordbatch.cpp
+#if defined(ARROW_R_WITH_ARROW)
 arrow::ArrayVector RecordBatch__columns(const std::shared_ptr<arrow::RecordBatch>& batch);
 RcppExport SEXP _arrow_RecordBatch__columns(SEXP batch_sexp){
 BEGIN_RCPP
@@ -5517,7 +5533,7 @@ RcppExport SEXP _arrow_Schema__HasMetadata(SEXP schema_sexp){
 
 // schema.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::string Schema__metadata(const std::shared_ptr<arrow::Schema>& schema);
+Rcpp::List Schema__metadata(const std::shared_ptr<arrow::Schema>& schema);
 RcppExport SEXP _arrow_Schema__metadata(SEXP schema_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
@@ -5650,6 +5666,22 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_Table__schema(SEXP x_sexp){
 	Rf_error("Cannot call Table__schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// table.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> Table__ReplaceSchemaMetadata(const std::shared_ptr<arrow::Table>& x, Rcpp::CharacterVector metadata);
+RcppExport SEXP _arrow_Table__ReplaceSchemaMetadata(SEXP x_sexp, SEXP metadata_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<Rcpp::CharacterVector>::type metadata(metadata_sexp);
+	return Rcpp::wrap(Table__ReplaceSchemaMetadata(x, metadata));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Table__ReplaceSchemaMetadata(SEXP x_sexp, SEXP metadata_sexp){
+	Rf_error("Cannot call Table__ReplaceSchemaMetadata(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -6211,6 +6243,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1}, 
 		{ "_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1}, 
 		{ "_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1}, 
+		{ "_arrow_RecordBatch__ReplaceSchemaMetadata", (DL_FUNC) &_arrow_RecordBatch__ReplaceSchemaMetadata, 2}, 
 		{ "_arrow_RecordBatch__columns", (DL_FUNC) &_arrow_RecordBatch__columns, 1}, 
 		{ "_arrow_RecordBatch__column", (DL_FUNC) &_arrow_RecordBatch__column, 2}, 
 		{ "_arrow_RecordBatch__GetColumnByName", (DL_FUNC) &_arrow_RecordBatch__GetColumnByName, 2}, 
@@ -6258,6 +6291,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__num_columns", (DL_FUNC) &_arrow_Table__num_columns, 1}, 
 		{ "_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1}, 
 		{ "_arrow_Table__schema", (DL_FUNC) &_arrow_Table__schema, 1}, 
+		{ "_arrow_Table__ReplaceSchemaMetadata", (DL_FUNC) &_arrow_Table__ReplaceSchemaMetadata, 2}, 
 		{ "_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2}, 
 		{ "_arrow_Table__field", (DL_FUNC) &_arrow_Table__field, 2}, 
 		{ "_arrow_Table__columns", (DL_FUNC) &_arrow_Table__columns, 1}, 

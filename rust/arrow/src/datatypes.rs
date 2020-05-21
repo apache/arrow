@@ -57,6 +57,8 @@ use crate::error::{ArrowError, Result};
 /// [the physical memory layout of Apache Arrow](https://arrow.apache.org/docs/format/Columnar.html#physical-memory-layout).
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum DataType {
+    /// Null type
+    Null,
     /// A boolean datatype representing the values `true` and `false`.
     Boolean,
     /// A signed 8-bit integer.
@@ -122,6 +124,8 @@ pub enum DataType {
     FixedSizeList(Box<DataType>, i32),
     /// A nested datatype that contains a number of sub-fields.
     Struct(Vec<Field>),
+    /// A nested datatype that can represent slots of differing types.
+    Union(Vec<Field>),
     /// A dictionary array where each element is a single value indexed by an integer key.
     /// This is mostly used to represent strings or a limited set of primitive types as integers.
     Dictionary(Box<DataType>, Box<DataType>),
@@ -520,6 +524,11 @@ where
     /// Gets the value of a single lane in a SIMD mask
     fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool;
 
+    /// Gets the bitmask for a SimdMask as a byte slice and passes it to the closure used as the action parameter
+    fn bitmask<T>(mask: &Self::SimdMask, action: T)
+    where
+        T: FnMut(&[u8]);
+
     /// Sets the value of a single lane of a SIMD mask
     fn mask_set(mask: Self::SimdMask, idx: usize, value: bool) -> Self::SimdMask;
 
@@ -590,6 +599,13 @@ macro_rules! make_numeric_type {
 
             fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool {
                 unsafe { mask.extract_unchecked(idx) }
+            }
+
+            fn bitmask<T>(mask: &Self::SimdMask, mut action: T)
+            where
+                T: FnMut(&[u8]),
+            {
+                action(mask.bitmask().to_byte_slice());
             }
 
             fn mask_set(mask: Self::SimdMask, idx: usize, value: bool) -> Self::SimdMask {
@@ -749,6 +765,7 @@ impl DataType {
     fn from(json: &Value) -> Result<DataType> {
         match *json {
             Value::Object(ref map) => match map.get("name") {
+                Some(s) if s == "null" => Ok(DataType::Null),
                 Some(s) if s == "bool" => Ok(DataType::Boolean),
                 Some(s) if s == "binary" => Ok(DataType::Binary),
                 Some(s) if s == "utf8" => Ok(DataType::Utf8),
@@ -848,7 +865,7 @@ impl DataType {
                             Some(8) => Ok(DataType::Int8),
                             Some(16) => Ok(DataType::Int16),
                             Some(32) => Ok(DataType::Int32),
-                            Some(64) => Ok(DataType::Int32),
+                            Some(64) => Ok(DataType::Int64),
                             _ => Err(ArrowError::ParseError(
                                 "int bitWidth missing or invalid".to_string(),
                             )),
@@ -911,6 +928,7 @@ impl DataType {
     /// Generate a JSON representation of the data type
     pub fn to_json(&self) -> Value {
         match self {
+            DataType::Null => json!({"name": "null"}),
             DataType::Boolean => json!({"name": "bool"}),
             DataType::Int8 => json!({"name": "int", "bitWidth": 8, "isSigned": true}),
             DataType::Int16 => json!({"name": "int", "bitWidth": 16, "isSigned": true}),
@@ -929,6 +947,7 @@ impl DataType {
                 json!({"name": "fixedsizebinary", "byteWidth": byte_width})
             }
             DataType::Struct(_) => json!({"name": "struct"}),
+            DataType::Union(_) => json!({"name": "union"}),
             DataType::List(_) => json!({ "name": "list"}),
             DataType::FixedSizeList(_, length) => {
                 json!({"name":"fixedsizelist", "listSize": length})

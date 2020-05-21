@@ -21,12 +21,12 @@ import static io.netty.util.internal.PlatformDependent.getByte;
 import static io.netty.util.internal.PlatformDependent.getInt;
 import static io.netty.util.internal.PlatformDependent.getLong;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 
-import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
 
 /**

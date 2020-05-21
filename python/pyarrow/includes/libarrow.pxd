@@ -1460,8 +1460,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CCastOptions" arrow::compute::CastOptions":
         CCastOptions()
         CCastOptions(c_bool safe)
+
         @staticmethod
         CCastOptions Safe()
+
         @staticmethod
         CCastOptions Unsafe()
         c_bool allow_int_overflow
@@ -1845,6 +1847,12 @@ cdef extern from 'arrow/util/iterator.h' namespace 'arrow' nogil:
     cdef cppclass CIterator" arrow::Iterator"[T]:
         CResult[T] Next()
         CStatus Visit[Visitor](Visitor&& visitor)
+        cppclass RangeIterator:
+            CResult[T] operator*()
+            RangeIterator& operator++()
+            bint operator!=(RangeIterator) const
+        RangeIterator begin()
+        RangeIterator end()
 
 cdef extern from 'arrow/util/thread_pool.h' namespace 'arrow' nogil:
     int GetCpuThreadPoolCapacity()

@@ -23,15 +23,10 @@
 
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-namespace internal {
-
-class TaskGroup;
-
-}  // namespace internal
-
 namespace csv {
 
 class BlockParser;
