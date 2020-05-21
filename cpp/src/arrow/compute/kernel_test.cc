@@ -52,6 +52,7 @@ TEST(InputType, Constructors) {
   ASSERT_EQ(InputType::EXACT_TYPE, ty1.kind());
   ASSERT_EQ(ValueDescr::ANY, ty1.shape());
   AssertTypeEqual(*int8(), *ty1.type());
+  ASSERT_EQ(Type::INT8, ty1.type_id());
 
   InputType ty1_implicit = int8();
   ASSERT_TRUE(ty1.Equals(ty1_implicit));
@@ -65,6 +66,7 @@ TEST(InputType, Constructors) {
   // Same type id constructor
   InputType ty2 = Type::DECIMAL;
   ASSERT_EQ(InputType::SAME_TYPE_ID, ty2.kind());
+  ASSERT_EQ(Type::DECIMAL, ty2.type_id());
 
   InputType ty2_array(Type::DECIMAL, ValueDescr::ARRAY);
   ASSERT_EQ(ValueDescr::ARRAY, ty2_array.shape());

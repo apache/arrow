@@ -22,6 +22,7 @@
 
 #include "arrow/builder.h"
 #include "arrow/compute/cast.h"
+#include "arrow/compute/cast_internal.h"
 #include "arrow/compute/kernels/common.h"
 
 namespace arrow {
@@ -30,11 +31,6 @@ using internal::checked_cast;
 
 namespace compute {
 namespace internal {
-
-struct CastState : public KernelState {
-  CastState(const CastOptions& options) : options(options) {}
-  CastOptions options;
-};
 
 template <typename OutType, typename InType, typename Enable = void>
 struct CastFunctor {};
@@ -245,10 +241,8 @@ void AddSimpleCast(InputType in_ty, OutputType out_ty, CastFunction* func) {
 
 void ZeroCopyCastExec(KernelContext* ctx, const ExecBatch& batch, Datum* out);
 
-void AddZeroCopyCast(const std::shared_ptr<DataType>& in_type,
-                     const std::shared_ptr<DataType>& out_type, CastFunction* func);
-
-std::unique_ptr<KernelState> CastInit(KernelContext* ctx, const KernelInitArgs& args);
+void AddZeroCopyCast(InputType in_type, const std::shared_ptr<DataType>& out_type,
+                     CastFunction* func);
 
 // OutputType::Resolver that returns a descr with the shape of the input
 // argument and the type from CastOptions

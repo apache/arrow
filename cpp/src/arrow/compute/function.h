@@ -150,7 +150,8 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
   /// \brief Return the first kernel that can execute the function given the
   /// exact argument types (without implicit type casts or scalar->array
   /// promotions)
-  Result<const ScalarKernel*> DispatchExact(const std::vector<ValueDescr>& values) const;
+  virtual Result<const ScalarKernel*> DispatchExact(
+      const std::vector<ValueDescr>& values) const;
 };
 
 /// \brief A function that executes general array operations that may yield

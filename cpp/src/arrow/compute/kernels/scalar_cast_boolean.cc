@@ -23,6 +23,9 @@
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
+
+using internal::ParseValue;
+
 namespace compute {
 namespace internal {
 
@@ -36,9 +39,8 @@ struct IsNonZero {
 struct ParseBooleanString {
   template <typename OUT, typename ARG0>
   static OUT Call(KernelContext* ctx, ARG0 val) {
-    bool result;
-    if (ARROW_PREDICT_FALSE(!::arrow::internal::ParseValue<BooleanType>(
-            val.data(), val.size(), &result))) {
+    bool result = false;
+    if (ARROW_PREDICT_FALSE(!ParseValue<BooleanType>(val.data(), val.size(), &result))) {
       ctx->SetStatus(Status::Invalid("Failed to parse value: ", val));
     }
     return result;
@@ -55,7 +57,8 @@ std::vector<std::shared_ptr<CastFunction>> GetBooleanCasts() {
   }
   for (const auto& ty : BaseBinaryTypes()) {
     auto exec =
-        codegen::BaseBinary<codegen::ScalarUnary, BooleanType, ParseBooleanString>(*ty);
+        codegen::BaseBinary<codegen::ScalarUnaryNotNull, BooleanType, ParseBooleanString>(
+            *ty);
     DCHECK_OK(func->AddKernel(ty->id(), {ty}, boolean(), exec));
   }
   return {func};

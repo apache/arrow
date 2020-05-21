@@ -27,7 +27,6 @@ namespace internal {
 // Built-in scalar / elementwise functions
 void RegisterScalarArithmetic(FunctionRegistry* registry);
 void RegisterScalarBoolean(FunctionRegistry* registry);
-void RegisterScalarCasts(FunctionRegistry* registry);
 void RegisterScalarComparison(FunctionRegistry* registry);
 void RegisterScalarSetLookup(FunctionRegistry* registry);
 

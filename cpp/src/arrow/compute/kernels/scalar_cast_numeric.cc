@@ -193,7 +193,7 @@ struct IntegerDowncastNoOverflow {
   static constexpr InT kMin = SafeMinimum<O, I>();
 
   template <typename OutT, typename InT>
-  static OutT Call(KernelContext* ctx, InT val) {
+  OutT Call(KernelContext* ctx, InT val) const {
     if (ARROW_PREDICT_FALSE(val > kMax || val < kMin)) {
       ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
     }
@@ -215,9 +215,10 @@ struct CastFunctor<O, I,
                                is_integral_signed_to_unsigned<O, I>::value ||
                                is_integral_unsigned_to_signed<O, I>::value>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const auto& options = static_cast<const CastState*>(ctx->state())->options;
+    const auto& options = checked_cast<const CastState*>(ctx->state())->options;
     if (!options.allow_int_overflow) {
-      codegen::ScalarUnary<O, I, IntegerDowncastNoOverflow<O, I>>::Exec(ctx, batch, out);
+      codegen::ScalarUnaryNotNull<O, I, IntegerDowncastNoOverflow<O, I>>::Exec(ctx, batch,
+                                                                               out);
     } else {
       codegen::ScalarUnary<O, I, StaticCast>::Exec(ctx, batch, out);
     }
@@ -229,7 +230,8 @@ struct CastFunctor<O, I,
 
 struct FloatToIntegerNoTruncate {
   template <typename OutT, typename InT>
-  static OutT Call(KernelContext* ctx, InT val) {
+  ARROW_DISABLE_UBSAN("float-cast-overflow")
+  OutT Call(KernelContext* ctx, InT val) const {
     auto out_value = static_cast<OutT>(val);
     if (ARROW_PREDICT_FALSE(static_cast<InT>(out_value) != val)) {
       ctx->SetStatus(Status::Invalid("Floating point value truncated"));
@@ -242,11 +244,11 @@ template <typename O, typename I>
 struct CastFunctor<O, I, enable_if_t<is_float_truncate<O, I>::value>> {
   ARROW_DISABLE_UBSAN("float-cast-overflow")
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const auto& options = static_cast<const CastState*>(ctx->state())->options;
+    const auto& options = checked_cast<const CastState*>(ctx->state())->options;
     if (options.allow_float_truncate) {
       codegen::ScalarUnary<O, I, StaticCast>::Exec(ctx, batch, out);
     } else {
-      codegen::ScalarUnary<O, I, FloatToIntegerNoTruncate>::Exec(ctx, batch, out);
+      codegen::ScalarUnaryNotNull<O, I, FloatToIntegerNoTruncate>::Exec(ctx, batch, out);
     }
   }
 };
@@ -288,8 +290,8 @@ struct CastFunctor<O, BooleanType, enable_if_number<O>> {
 template <typename OutType>
 struct ParseString {
   template <typename OUT, typename ARG0>
-  static OUT Call(KernelContext* ctx, ARG0 val) {
-    OUT result;
+  OUT Call(KernelContext* ctx, ARG0 val) const {
+    OUT result = OUT(0);
     if (ARROW_PREDICT_FALSE(!ParseValue<OutType>(val.data(), val.size(), &result))) {
       ctx->SetStatus(Status::Invalid("Failed to parse string: ", val));
     }
@@ -300,7 +302,7 @@ struct ParseString {
 template <typename O, typename I>
 struct CastFunctor<O, I, enable_if_base_binary<I>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    codegen::ScalarUnary<O, I, ParseString<O>>::Exec(ctx, batch, out);
+    codegen::ScalarUnaryNotNull<O, I, ParseString<O>>::Exec(ctx, batch, out);
   }
 };
 
@@ -312,7 +314,7 @@ struct CastFunctor<O, Decimal128Type, enable_if_t<is_integer_type<O>::value>> {
   using out_type = typename O::c_type;
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const auto& options = static_cast<const CastState*>(ctx->state())->options;
+    const auto& options = checked_cast<const CastState*>(ctx->state())->options;
 
     const ArrayData& input = *batch[0].array();
     ArrayData* output = out->mutable_array();
@@ -391,7 +393,7 @@ struct CastFunctor<O, Decimal128Type, enable_if_t<is_integer_type<O>::value>> {
 template <>
 struct CastFunctor<Decimal128Type, Decimal128Type> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const auto& options = static_cast<const CastState*>(ctx->state())->options;
+    const auto& options = checked_cast<const CastState*>(ctx->state())->options;
     const ArrayData& input = *batch[0].array();
     ArrayData* output = out->mutable_array();
     auto out_data = output->GetMutableValues<uint8_t>(1);
@@ -456,20 +458,20 @@ void AddPrimitiveNumberCasts(const std::shared_ptr<DataType>& out_ty,
                              CastFunction* func) {
   AddCommonCasts<OutType>(out_ty, func);
 
-  // Cast from boolean
-  DCHECK_OK(func->AddKernel(out_ty->id(), {boolean()}, out_ty,
+  // Cast from boolean to number
+  DCHECK_OK(func->AddKernel(Type::BOOL, {boolean()}, out_ty,
                             CastFunctor<OutType, BooleanType>::Exec));
 
   // Cast from other numbers
   for (const std::shared_ptr<DataType>& in_ty : NumericTypes()) {
     auto exec = codegen::Numeric<CastFunctor, OutType>(*in_ty);
-    DCHECK_OK(func->AddKernel(out_ty->id(), {in_ty}, out_ty, exec));
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, exec));
   }
 
   // Cast from other strings
   for (const std::shared_ptr<DataType>& in_ty : BaseBinaryTypes()) {
     auto exec = codegen::BaseBinary<CastFunctor, OutType>(*in_ty);
-    DCHECK_OK(func->AddKernel(out_ty->id(), {in_ty}, out_ty, exec));
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, exec));
   }
 }
 
@@ -483,7 +485,7 @@ std::shared_ptr<CastFunction> GetCastToInteger(std::string name) {
 
   // From decimal to integer
   // TODO: Refactor to support casting decimal scalars to integer
-  DCHECK_OK(func->AddKernel(out_ty->id(), {InputType::Array(Type::DECIMAL)}, out_ty,
+  DCHECK_OK(func->AddKernel(Type::DECIMAL, {InputType::Array(Type::DECIMAL)}, out_ty,
                             CastFunctor<OutType, Decimal128Type>::Exec));
   return func;
 }
@@ -502,8 +504,10 @@ std::shared_ptr<CastFunction> GetCastToDecimal() {
   // Cast to decimal
   auto func = std::make_shared<CastFunction>("cast_decimal", Type::DECIMAL);
   auto exec = CastFunctor<Decimal128Type, Decimal128Type>::Exec;
+
+  // We resolve the output type of this kernel from the CastOptions
   DCHECK_OK(func->AddKernel(Type::DECIMAL, {InputType::Array(Type::DECIMAL)},
-                            OutputType(FirstType), exec));
+                            OutputType(ResolveOutputFromOptions), exec));
   return func;
 }
 
@@ -512,8 +516,21 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
 
   functions.push_back(GetCastToInteger<Int8Type>("cast_int8"));
   functions.push_back(GetCastToInteger<Int16Type>("cast_int16"));
-  functions.push_back(GetCastToInteger<Int32Type>("cast_int32"));
-  functions.push_back(GetCastToInteger<Int64Type>("cast_int64"));
+
+  auto cast_int32 = GetCastToInteger<Int32Type>("cast_int32");
+  // Convert DATE32 or TIME32 to INT32 zero copy
+  AddZeroCopyCast(date32(), int32(), cast_int32.get());
+  AddZeroCopyCast(Type::TIME32, int32(), cast_int32.get());
+  functions.push_back(cast_int32);
+
+  auto cast_int64 = GetCastToInteger<Int64Type>("cast_int64");
+  // Convert DATE64, DURATION, TIMESTAMP, TIME64 to INT64 zero copy
+  AddZeroCopyCast(Type::DATE64, int64(), cast_int64.get());
+  AddZeroCopyCast(Type::DURATION, int64(), cast_int64.get());
+  AddZeroCopyCast(Type::TIMESTAMP, int64(), cast_int64.get());
+  AddZeroCopyCast(Type::TIME64, int64(), cast_int64.get());
+  functions.push_back(cast_int64);
+
   functions.push_back(GetCastToInteger<UInt8Type>("cast_uint8"));
   functions.push_back(GetCastToInteger<UInt16Type>("cast_uint16"));
   functions.push_back(GetCastToInteger<UInt32Type>("cast_uint32"));

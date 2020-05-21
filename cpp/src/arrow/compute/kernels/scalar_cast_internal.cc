@@ -15,21 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/kernels/scalar_cast_internal.h"
+#include <utility>
+
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/scalar_cast_internal.h"
 
 namespace arrow {
 namespace compute {
 namespace internal {
 
 void CastFromExtension(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  // const CastOptions& options = static_cast<const CastState*>(ctx->state())->options;
+  // const CastOptions& options = checked_cast<const CastState*>(ctx->state())->options;
 
   const DataType& in_type = *batch[0].type();
   const auto storage_type = checked_cast<const ExtensionType&>(in_type).storage_type();
 
   std::shared_ptr<const CastFunction> cast_func;
-  Status s = GetCastFunction(storage_type, out->type()).Value(&cast_func);
+  Status s = GetCastFunction(out->type()).Value(&cast_func);
   if (!s.ok()) {
     ctx->SetStatus(s);
     return;
@@ -41,18 +43,9 @@ void CastFromExtension(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // out->mutable_array()));
 }
 
-std::unique_ptr<KernelState> CastInit(KernelContext* ctx, const KernelInitArgs& args) {
-  // NOTE: TakeOptions are currently unused, but we pass it through anyway
-  auto cast_options = static_cast<const CastOptions*>(args.options);
-
-  // Ensure that the requested type to cast to was attached to the options
-  DCHECK(cast_options->to_type);
-  return std::unique_ptr<KernelState>(new CastState(*cast_options));
-}
-
 Result<ValueDescr> ResolveOutputFromOptions(KernelContext* ctx,
                                             const std::vector<ValueDescr>& args) {
-  const CastOptions& options = static_cast<const CastState&>(*ctx->state()).options;
+  const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
   return ValueDescr(options.to_type, args[0].shape);
 }
 
@@ -74,20 +67,15 @@ void ZeroCopyCastExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   }
 }
 
-void AddZeroCopyCast(const std::shared_ptr<DataType>& in_type,
-                     const std::shared_ptr<DataType>& out_type, CastFunction* func) {
+void AddZeroCopyCast(InputType in_type, const std::shared_ptr<DataType>& out_type,
+                     CastFunction* func) {
   auto sig = KernelSignature::Make({in_type}, out_type);
-
   ScalarKernel kernel;
-  kernel.init = CastInit;
   kernel.exec = ZeroCopyCastExec;
   kernel.signature = sig;
-
-  // Turn off memory allocation
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
-
-  DCHECK_OK(func->AddKernel(in_type->id(), std::move(kernel)));
+  DCHECK_OK(func->AddKernel(in_type.type_id(), std::move(kernel)));
 }
 
 }  // namespace internal

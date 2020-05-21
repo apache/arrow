@@ -105,7 +105,6 @@ static void CreateBuiltInRegistry() {
   RegisterScalarBoolean(g_registry.get());
   RegisterScalarComparison(g_registry.get());
   RegisterScalarSetLookup(g_registry.get());
-  RegisterScalarCasts(g_registry.get());
 
   // Aggregate functions
   RegisterScalarAggregateBasic(g_registry.get());

@@ -512,20 +512,26 @@ TEST_F(TestExecBatchIterator, ChunkedArrays) {
   CheckIteration(args, /*chunksize=*/30, {15, 5, 10});
 }
 
-TEST_F(TestExecBatchIterator, ZeroLengthCases) {
+TEST_F(TestExecBatchIterator, ZeroLengthInputs) {
   auto carr = std::shared_ptr<ChunkedArray>(new ChunkedArray({}, int32()));
+
+  auto CheckArgs = [&](const std::vector<Datum>& args) {
+    auto iterator = ExecBatchIterator::Make(args).ValueOrDie();
+    ExecBatch batch;
+    ASSERT_FALSE(iterator->Next(&batch));
+  };
 
   // Zero-length ChunkedArray with zero chunks
   std::vector<Datum> args = {Datum(carr)};
-  CheckIteration(args, /*chunksize=*/10, {0});
+  CheckArgs(args);
 
   // Zero-length array
   args = {Datum(GetInt32Array(0))};
-  CheckIteration(args, /*chunksize=*/10, {0});
+  CheckArgs(args);
 
   // ChunkedArray with single empty chunk
   args = {Datum(GetInt32Chunked({0}))};
-  CheckIteration(args, /*chunksize=*/10, {0});
+  CheckArgs(args);
 }
 
 // ----------------------------------------------------------------------

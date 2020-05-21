@@ -67,7 +67,7 @@ class TestCast : public TestBase {
                  const std::shared_ptr<DataType>& out_type, const CastOptions& options) {
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result, Cast(input, out_type, options));
     ASSERT_OK(result->ValidateFull());
-    ASSERT_ARRAYS_EQUAL(expected, *result);
+    AssertArraysEqual(expected, *result, /*verbose=*/true);
   }
 
   template <typename InType, typename I_TYPE>
@@ -1527,10 +1527,10 @@ TYPED_TEST(TestDictionaryCast, OutTypeError) {
   auto in_type = dictionary(int32(), plain_array->type());
   // Test an output type that's not the plain input type but still part of TestTypes.
   auto out_type = (plain_array->type()->id() == Type::INT8) ? binary() : int8();
-  ASSERT_RAISES(NotImplemented, GetCastFunction(in_type, out_type));
+  ASSERT_RAISES(NotImplemented, GetCastFunction(out_type));
   // Test an output type that's not part of TestTypes.
   out_type = list(in_type);
-  ASSERT_RAISES(NotImplemented, GetCastFunction(in_type, out_type));
+  ASSERT_RAISES(NotImplemented, GetCastFunction(out_type));
 }
 
 std::shared_ptr<Array> SmallintArrayFromJSON(const std::string& json_data) {

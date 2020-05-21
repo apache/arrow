@@ -94,7 +94,7 @@ struct Utf8Validator {
 template <typename I, typename O>
 struct BinaryToStringSameWidthCastFunctor {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const CastOptions& options = static_cast<const CastState&>(*ctx->state()).options;
+    const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
     if (!options.allow_invalid_utf8) {
       InitializeUTF8();
       const ArrayData& input = *batch[0].array();
@@ -107,6 +107,8 @@ struct BinaryToStringSameWidthCastFunctor {
         return;
       }
     }
+    // It's OK to call this because base binary types do not preallocate
+    // anything
     ZeroCopyCastExec(ctx, batch, out);
   }
 };
@@ -131,11 +133,13 @@ struct CastFunctor<LargeStringType, LargeBinaryType>
 template <typename OutType>
 void AddNumberToStringCasts(std::shared_ptr<DataType> out_ty, CastFunction* func) {
   DCHECK_OK(func->AddKernel(Type::BOOL, {boolean()}, out_ty,
-                            CastFunctor<OutType, BooleanType>::Exec));
+                            CastFunctor<OutType, BooleanType>::Exec,
+                            NullHandling::COMPUTED_NO_PREALLOCATE));
 
   for (const std::shared_ptr<DataType>& in_ty : NumericTypes()) {
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty,
-                              codegen::Numeric<CastFunctor, OutType>(*in_ty)));
+                              codegen::Numeric<CastFunctor, OutType>(*in_ty),
+                              NullHandling::COMPUTED_NO_PREALLOCATE));
   }
 }
 
@@ -143,14 +147,16 @@ std::vector<std::shared_ptr<CastFunction>> GetStringCasts() {
   auto cast_string = std::make_shared<CastFunction>("cast_string", Type::STRING);
   AddNumberToStringCasts<StringType>(utf8(), cast_string.get());
   DCHECK_OK(cast_string->AddKernel(Type::BINARY, {binary()}, utf8(),
-                                   CastFunctor<StringType, BinaryType>::Exec));
+                                   CastFunctor<StringType, BinaryType>::Exec,
+                                   NullHandling::COMPUTED_NO_PREALLOCATE));
 
   auto cast_large_string =
       std::make_shared<CastFunction>("cast_large_string", Type::LARGE_STRING);
   AddNumberToStringCasts<LargeStringType>(large_utf8(), cast_large_string.get());
   DCHECK_OK(
       cast_large_string->AddKernel(Type::LARGE_BINARY, {large_binary()}, large_utf8(),
-                                   CastFunctor<LargeStringType, LargeBinaryType>::Exec));
+                                   CastFunctor<LargeStringType, LargeBinaryType>::Exec,
+                                   NullHandling::COMPUTED_NO_PREALLOCATE));
 
   return {cast_string, cast_large_string};
 }

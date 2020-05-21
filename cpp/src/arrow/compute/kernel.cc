@@ -169,8 +169,15 @@ const std::shared_ptr<DataType>& InputType::type() const {
 }
 
 Type::type InputType::type_id() const {
-  DCHECK_EQ(InputType::SAME_TYPE_ID, kind_);
-  return type_id_;
+  switch (kind_) {
+    case InputType::EXACT_TYPE:
+      return type_->id();
+    case InputType::SAME_TYPE_ID:
+      return type_id_;
+    default:
+      DCHECK(false);
+      return Type::NA;
+  }
 }
 
 // ----------------------------------------------------------------------

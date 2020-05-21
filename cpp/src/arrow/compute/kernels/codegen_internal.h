@@ -27,10 +27,12 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
 using internal::BitmapReader;
+using internal::FirstTimeBitmapWriter;
 using internal::GenerateBitsUnrolled;
 
 namespace compute {
@@ -329,24 +331,56 @@ struct ScalarUnary {
 // array
 template <typename OutType, typename Arg0Type, typename Op>
 struct ScalarUnaryNotNullStateful {
+  using ThisType = ScalarUnaryNotNullStateful<OutType, Arg0Type, Op>;
   using OutScalar = typename TypeTraits<OutType>::ScalarType;
   using OUT = typename CodegenTraits<OutType>::value_type;
   using ARG0 = typename CodegenTraits<Arg0Type>::value_type;
 
   Op op;
-
   ScalarUnaryNotNullStateful(Op op) : op(std::move(op)) {}
 
-  void Array(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    ArrayData* out_arr = out->mutable_array();
-    auto out_data = out_arr->GetMutableValues<OUT>(kPrimitiveData);
-    VisitArrayDataInline(*batch[0].array(), [&](util::optional<ARG0> v) {
-        if (v.has_value()) {
-          *out_data = this->op.template Call<OUT, ARG0>(ctx, *v);
-        }
-        ++out_data;
-      });
-  }
+  template <typename Type, typename Enable = void>
+  struct ArrayExec {
+    static void Exec(const ThisType& functor, KernelContext* ctx, const ExecBatch& batch,
+                     Datum* out) {
+      DCHECK(false);
+    }
+  };
+
+  template <typename Type>
+  struct ArrayExec<Type, enable_if_t<has_c_type<Type>::value &&
+                                     !is_boolean_type<Type>::value>> {
+    static void Exec(const ThisType& functor, KernelContext* ctx, const ExecBatch& batch,
+                     Datum* out) {
+      ArrayData* out_arr = out->mutable_array();
+      auto out_data = out_arr->GetMutableValues<OUT>(kPrimitiveData);
+      VisitArrayDataInline<Arg0Type>(*batch[0].array(), [&](util::optional<ARG0> v) {
+          if (v.has_value()) {
+            *out_data = functor.op.template Call<OUT, ARG0>(ctx, *v);
+          }
+          ++out_data;
+        });
+    }
+  };
+
+  template <typename Type>
+  struct ArrayExec<Type, enable_if_t<is_boolean_type<Type>::value>> {
+    static void Exec(const ThisType& functor, KernelContext* ctx, const ExecBatch& batch,
+                     Datum* out) {
+      ArrayData* out_arr = out->mutable_array();
+      FirstTimeBitmapWriter out_writer(out_arr->buffers[1]->mutable_data(),
+                                       out_arr->offset, out_arr->length);
+      VisitArrayDataInline<Arg0Type>(*batch[0].array(), [&](util::optional<ARG0> v) {
+          if (v.has_value()) {
+            if (functor.op.template Call<OUT, ARG0>(ctx, *v)) {
+              out_writer.Set();
+            }
+          }
+          out_writer.Next();
+        });
+      out_writer.Finish();
+    }
+  };
 
   void Scalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].scalar()->is_valid) {
@@ -360,10 +394,19 @@ struct ScalarUnaryNotNullStateful {
 
   void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].kind() == Datum::ARRAY) {
-      return Array(ctx, batch, out);
+      ArrayExec<OutType>::Exec(*this, ctx, batch, out);
     } else {
       return Scalar(ctx, batch, out);
     }
+  }
+};
+
+template <typename OutType, typename Arg0Type, typename Op>
+struct ScalarUnaryNotNull {
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // Seed kernel with dummy state
+    ScalarUnaryNotNullStateful<OutType, Arg0Type, Op> kernel({});
+    return kernel.Exec(ctx, batch, out);
   }
 };
 

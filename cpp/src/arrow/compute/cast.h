@@ -32,13 +32,8 @@ namespace compute {
 
 class ExecContext;
 
-class Caster {
- public:
-  virtual ~Caster() = default;
-
-  virtual Status Cast(const ArrayData& input, ArrayData* output) = 0;
-};
-
+// Cast functions are _not_ registered in the FunctionRegistry, though they use
+// the same execution machinery
 class CastFunction : public ScalarFunction {
  public:
   CastFunction(std::string name, Type::type out_type);
@@ -47,11 +42,18 @@ class CastFunction : public ScalarFunction {
   Type::type out_type_id() const;
 
   Status AddKernel(Type::type in_type_id, std::vector<InputType> in_types,
-                   OutputType out_type, ArrayKernelExec exec, KernelInit init = NULLPTR);
+                   OutputType out_type, ArrayKernelExec exec,
+                   NullHandling::type = NullHandling::INTERSECTION,
+                   MemAllocation::type = MemAllocation::PREALLOCATE);
 
+  // Note, this function toggles off memory allocation and sets the init
+  // function to CastInit
   Status AddKernel(Type::type in_type_id, ScalarKernel kernel);
 
   bool CanCastTo(const DataType& out_type) const;
+
+  Result<const ScalarKernel*> DispatchExact(
+      const std::vector<ValueDescr>& values) const override;
 
  private:
   struct CastFunctionImpl;
@@ -60,7 +62,7 @@ class CastFunction : public ScalarFunction {
 
 ARROW_EXPORT
 Result<std::shared_ptr<const CastFunction>> GetCastFunction(
-    const std::shared_ptr<DataType>& from_type, const std::shared_ptr<DataType>& to_type);
+    const std::shared_ptr<DataType>& to_type);
 
 /// \brief Return true if a cast function is defined
 ARROW_EXPORT

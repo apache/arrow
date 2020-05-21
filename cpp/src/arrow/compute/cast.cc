@@ -27,6 +27,8 @@
 
 #include "arrow/compute/cast_internal.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/kernel.h"
+#include "arrow/compute/options.h"
 #include "arrow/compute/registry.h"
 
 namespace arrow {
@@ -76,31 +78,87 @@ CastFunction::~CastFunction() {}
 
 Type::type CastFunction::out_type_id() const { return impl_->out_type; }
 
-Status CastFunction::AddKernel(Type::type in_type_id, std::vector<InputType> in_types,
-                               OutputType out_type, ArrayKernelExec exec,
-                               KernelInit init) {
-  RETURN_NOT_OK(
-      ScalarFunction::AddKernel(std::move(in_types), std::move(out_type), exec, init));
+std::unique_ptr<KernelState> CastInit(KernelContext* ctx, const KernelInitArgs& args) {
+  // NOTE: TakeOptions are currently unused, but we pass it through anyway
+  auto cast_options = static_cast<const CastOptions*>(args.options);
+
+  // Ensure that the requested type to cast to was attached to the options
+  DCHECK(cast_options->to_type);
+  return std::unique_ptr<KernelState>(new internal::CastState(*cast_options));
+}
+
+Status CastFunction::AddKernel(Type::type in_type_id, ScalarKernel kernel) {
+  // We use the same KernelInit for every cast
+  kernel.init = CastInit;
+  RETURN_NOT_OK(ScalarFunction::AddKernel(kernel));
   impl_->in_types.insert(in_type_id);
   return Status::OK();
 }
 
-Status CastFunction::AddKernel(Type::type in_type_id, ScalarKernel kernel) {
-  RETURN_NOT_OK(ScalarFunction::AddKernel(kernel));
-  impl_->in_types.insert(in_type_id);
-  return Status::OK();
+Status CastFunction::AddKernel(Type::type in_type_id, std::vector<InputType> in_types,
+                               OutputType out_type, ArrayKernelExec exec,
+                               NullHandling::type null_handling,
+                               MemAllocation::type mem_allocation) {
+  ScalarKernel kernel;
+  kernel.signature = KernelSignature::Make(std::move(in_types), std::move(out_type));
+  kernel.exec = exec;
+  kernel.null_handling = null_handling;
+  kernel.mem_allocation = mem_allocation;
+  return AddKernel(in_type_id, std::move(kernel));
 }
 
 bool CastFunction::CanCastTo(const DataType& out_type) const {
   return impl_->in_types.find(out_type.id()) != impl_->in_types.end();
 }
 
+Result<const ScalarKernel*> CastFunction::DispatchExact(
+    const std::vector<ValueDescr>& values) const {
+  const int passed_num_args = static_cast<int>(values.size());
+
+  // Validate arity
+  if (passed_num_args != 1) {
+    return Status::Invalid("Cast sunctions accept 1 argument but passed ",
+                           passed_num_args);
+  }
+  std::vector<const ScalarKernel*> candidate_kernels;
+  for (const auto& kernel : kernels_) {
+    if (kernel.signature->MatchesInputs(values)) {
+      candidate_kernels.push_back(&kernel);
+    }
+  }
+
+  if (candidate_kernels.size() == 0) {
+    return Status::NotImplemented("Function ", this->name(),
+                                  " has no kernel matching input type ",
+                                  values[0].ToString());
+  } else if (candidate_kernels.size() == 1) {
+    // One match, return it
+    return candidate_kernels[0];
+  } else {
+    // Now we are in a casting scenario where we may have both a EXACT_TYPE and
+    // a SAME_TYPE_ID. So we will see if there is an exact match among the
+    // candidate kernels and if not we will just return the first one
+    for (auto kernel : candidate_kernels) {
+      const InputType& arg0 = kernel->signature->in_types()[0];
+      if (arg0.kind() == InputType::EXACT_TYPE) {
+        // Bingo. Return it
+        return kernel;
+      }
+    }
+    // We didn't find an exact match. So just return some kernel that matches
+    return candidate_kernels[0];
+  }
+}
+
 Result<Datum> Cast(const Datum& value, std::shared_ptr<DataType> to_type,
                    const CastOptions& options, ExecContext* ctx) {
-  CastOptions options_with_to_type;
+  if (value.type()->Equals(*to_type)) {
+    return value;
+  }
+  CastOptions options_with_to_type = options;
   options_with_to_type.to_type = to_type;
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<const CastFunction> cast_func,
-                        GetCastFunction(value.type(), to_type));
+                        GetCastFunction(to_type));
   return cast_func->Execute({Datum(value)}, &options_with_to_type, ctx);
 }
 
@@ -111,12 +169,12 @@ Result<std::shared_ptr<Array>> Cast(const Array& value, std::shared_ptr<DataType
 }
 
 Result<std::shared_ptr<const CastFunction>> GetCastFunction(
-    const std::shared_ptr<DataType>& from_type,
     const std::shared_ptr<DataType>& to_type) {
-  auto it = internal::g_cast_table.find(from_type->id());
+  internal::EnsureInitCastTable();
+  auto it = internal::g_cast_table.find(to_type->id());
   if (it == internal::g_cast_table.end()) {
-    return Status::NotImplemented("No cast implemented from ", from_type->ToString(),
-                                  " to ", to_type->ToString());
+    return Status::NotImplemented("No cast function available to cast to ",
+                                  to_type->ToString());
   }
   return it->second;
 }
