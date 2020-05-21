@@ -43,11 +43,6 @@ struct data {
 }  // namespace r
 }  // namespace arrow
 
-template <typename T>
-struct NoDelete {
-  inline void operator()(T* ptr) {}
-};
-
 namespace Rcpp {
 namespace internal {
 
@@ -92,6 +87,22 @@ class ConstReferenceVectorSmartPtrInputParameter {
 };
 
 namespace traits {
+
+template <typename T>
+struct input_parameter<const std::shared_ptr<T>&> {
+  typedef typename Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>> type;
+};
+
+template <typename T>
+struct input_parameter<const std::unique_ptr<T>&> {
+  typedef typename Rcpp::ConstReferenceSmartPtrInputParameter<std::unique_ptr<T>> type;
+};
+
+template <typename T>
+struct input_parameter<const std::vector<std::shared_ptr<T>>&> {
+  typedef typename Rcpp::ConstReferenceVectorSmartPtrInputParameter<std::shared_ptr<T>>
+      type;
+};
 
 struct wrap_type_shared_ptr_tag {};
 struct wrap_type_unique_ptr_tag {};
@@ -160,91 +171,36 @@ inline constexpr Rbyte default_value<RAWSXP>() {
 
 }  // namespace Rcpp
 
-namespace arrow {
-namespace r {
-
-template <typename T>
-inline std::shared_ptr<T> extract(SEXP x) {
-  return Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>>(x);
-}
-
-}  // namespace r
-}  // namespace arrow
-
 #if defined(ARROW_R_WITH_ARROW)
-#include <arrow/buffer.h> // for RBuffer definition below
-#include <arrow/result.h>
+#include <arrow/csv/reader.h>
+#include <arrow/dataset/api.h>
+#include <arrow/filesystem/filesystem.h>
+#include <arrow/filesystem/localfs.h>
+#include <arrow/io/compressed.h>
+#include <arrow/io/type_fwd.h>
+#include <arrow/ipc/feather.h>
+#include <arrow/ipc/reader.h>
+#include <arrow/ipc/writer.h>
+#include <arrow/json/reader.h>
 #include <arrow/type_fwd.h>
-// Do we need ubsan always there?
-#include <arrow/util/ubsan.h>
+#include <parquet/arrow/reader.h>
+#include <parquet/arrow/writer.h>
 
+RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
+RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)
+RCPP_EXPOSED_ENUM_NODECL(arrow::TimeUnit::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::StatusCode)
+RCPP_EXPOSED_ENUM_NODECL(arrow::io::FileMode::type)
+RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::Message::Type)
+RCPP_EXPOSED_ENUM_NODECL(arrow::Compression::type)
+RCPP_EXPOSED_ENUM_NODECL(arrow::fs::FileType)
+RCPP_EXPOSED_ENUM_NODECL(parquet::ParquetVersion::type)
 
-SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
-SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
-std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP type);
-std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP, SEXP);
-std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl);
+namespace ds = ::arrow::dataset;
+namespace fs = ::arrow::fs;
 
-namespace arrow {
+#endif
 
-static inline void StopIfNotOk(const Status& status) {
-  if (!(status.ok())) {
-    Rcpp::stop(status.ToString());
-  }
-}
-
-template <typename R>
-auto ValueOrStop(R&& result) -> decltype(std::forward<R>(result).ValueOrDie()) {
-  StopIfNotOk(result.status());
-  return std::forward<R>(result).ValueOrDie();
-}
-
-namespace r {
-
-Status count_fields(SEXP lst, int* out);
-
-std::shared_ptr<arrow::Array> Array__from_vector(
-    SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred);
-
-template <typename T>
-std::vector<std::shared_ptr<T>> List_to_shared_ptr_vector(SEXP x) {
-  std::vector<std::shared_ptr<T>> vec;
-  R_xlen_t n = Rf_xlength(x);
-  for (R_xlen_t i = 0; i < n; i++) {
-    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>> ptr(VECTOR_ELT(x, i));
-    vec.push_back(ptr);
-  }
-  return vec;
-}
-
-void inspect(SEXP obj);
-
-// the integer64 sentinel
-constexpr int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
-
-template <int RTYPE, typename Vec = Rcpp::Vector<RTYPE>>
-class RBuffer : public MutableBuffer {
- public:
-  explicit RBuffer(Vec vec)
-      : MutableBuffer(reinterpret_cast<uint8_t*>(vec.begin()),
-                      vec.size() * sizeof(typename Vec::stored_type)),
-        vec_(vec) {}
-
- private:
-  // vec_ holds the memory
-  Vec vec_;
-};
-
-std::shared_ptr<arrow::DataType> InferArrowTypeFromFactor(SEXP);
-
-void validate_slice_offset(int offset, int len);
-
-void validate_slice_length(int length, int available);
-
-void validate_index(int i, int len);
-
-}  // namespace r
-}  // namespace arrow
-
+#if defined(ARROW_R_WITH_S3)
+#include <arrow/filesystem/s3fs.h>
 #endif

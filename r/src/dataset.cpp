@@ -19,6 +19,13 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
+#include <arrow/dataset/api.h>
+#include <arrow/filesystem/filesystem.h>
+#include <arrow/util/iterator.h>
+
+namespace ds = ::arrow::dataset;
+namespace fs = ::arrow::fs;
+
 using Rcpp::CharacterVector;
 using Rcpp::String;
 

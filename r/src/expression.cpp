@@ -19,6 +19,9 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
+#include <arrow/dataset/api.h>
+namespace ds = ::arrow::dataset;
+
 // [[arrow::export]]
 std::shared_ptr<ds::Expression> dataset___expr__field_ref(std::string name) {
   return ds::field_ref(std::move(name));
