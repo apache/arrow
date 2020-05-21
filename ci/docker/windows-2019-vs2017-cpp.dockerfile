@@ -63,7 +63,7 @@ ENV \
     ARROW_DATASET=ON \
     ARROW_HDFS=ON
 
-RUN ["bash", "-c", "/c/arrow/ci/scripts/cpp_build.sh /c/arrow /c/build && /c/arrow/ci/scripts/cpp_test.sh /c/arrow /c/build"]
+# RUN ["bash", "-c", "/c/arrow/ci/scripts/cpp_build.sh /c/arrow /c/build && /c/arrow/ci/scripts/cpp_test.sh /c/arrow /c/build"]
 
 # arrow/ci/scripts/cpp_build.sh /c/arrow /c/build2
 

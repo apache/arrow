@@ -309,7 +309,7 @@ jobs:
         python-version: 3.8
     - name: Setup Archery
       shell: bash
-      run: pip install -e dev/archery[docker]
+      run: pip install dev/archery[docker]
     - name: Execute Docker Build
       shell: bash
       run: |
