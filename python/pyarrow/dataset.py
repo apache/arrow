@@ -475,8 +475,6 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None):
     """
     from pyarrow.fs import LocalFileSystem
 
-    metadata_path = _stringify_path(metadata_path)
-
     if format is None:
         format = ParquetFileFormat()
     elif not isinstance(format, ParquetFileFormat):
@@ -486,6 +484,8 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None):
         filesystem = LocalFileSystem()
     else:
         filesystem, _ = _ensure_filesystem(filesystem)
+
+    metadata_path = _normalize_path(filesystem, _stringify_path(metadata_path))
 
     factory = ParquetDatasetFactory(metadata_path, filesystem, format)
     return factory.finish(schema)

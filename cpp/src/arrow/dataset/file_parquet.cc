@@ -560,7 +560,7 @@ static Result<std::string> FileFromRowGroup(const std::string& base_path,
       }
     }
 
-    return fs::internal::ConcatAbstractPath(base_path, path);
+    return fs::internal::JoinAbstractPath(std::vector<std::string>{base_path, path});
   } catch (const ::parquet::ParquetException& e) {
     return Status::Invalid("Extracting file path from RowGroup failed. Parquet threw:",
                            e.what());
@@ -585,6 +585,8 @@ ParquetDatasetFactory::CollectParquetFragments(
     for (int i = 0; i < metadata.num_row_groups(); i++) {
       auto row_group = metadata.RowGroup(i);
       ARROW_ASSIGN_OR_RAISE(auto path, FileFromRowGroup(base_path_, *row_group));
+      // Normalizing path is required for Windows.
+      ARROW_ASSIGN_OR_RAISE(path, filesystem_->NormalizePath(std::move(path)));
       auto stats = RowGroupStatisticsAsExpression(*row_group, manifest);
       auto num_rows = row_group->num_rows();
 

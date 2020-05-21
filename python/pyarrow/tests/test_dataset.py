@@ -1477,11 +1477,10 @@ def test_parquet_dataset_factory(tempdir):
 @pytest.mark.parquet
 @pytest.mark.pandas
 def test_parquet_dataset_factory_invalid(tempdir):
-    root_path = tempdir / "test_parquet_dataset"
+    root_path = tempdir / "test_parquet_dataset_invalid"
     metadata_path, table = _create_parquet_dataset_simple(root_path)
     # remove one of the files
     list(root_path.glob("*.parquet"))[0].unlink()
-
     dataset = ds.parquet_dataset(metadata_path)
     assert dataset.schema.equals(table.schema)
     assert len(dataset.files) == 4
@@ -1525,7 +1524,7 @@ def _create_parquet_dataset_partitioned(root_path):
 def test_parquet_dataset_factory_partitioned(tempdir):
     # TODO support for specifying partitioning scheme
 
-    root_path = tempdir / "test_parquet_dataset"
+    root_path = tempdir / "test_parquet_dataset_factory_partitioned"
     metadata_path, table = _create_parquet_dataset_partitioned(root_path)
 
     dataset = ds.parquet_dataset(metadata_path)
