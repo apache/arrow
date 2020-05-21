@@ -58,7 +58,8 @@ ENV \
     CMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake" \
     ARROW_WITH_ZSTD=OFF \
     ARROW_WITH_SNAPPY=ON \
-    ARROW_WITH_BROTLI=ON
+    ARROW_WITH_BROTLI=ON \
+    ARROW_PARQUET=ON
 
 RUN ["bash", "-c", "/c/arrow/ci/scripts/cpp_build.sh /c/arrow /c/build && /c/arrow/ci/scripts/cpp_test.sh /c/arrow /c/build"]
 
@@ -86,6 +87,5 @@ RUN ["bash", "-c", "/c/arrow/ci/scripts/cpp_build.sh /c/arrow /c/build && /c/arr
 # refreshenv
 # RUN C:\"Program Files (x86)"\"Microsoft Visual Studio"\2017\Community\VC\Auxiliary\Build\vcvarsall.bat x64
 # C:\"Program Files (x86)"\"Microsoft Visual Studio"\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat x64
-
 # TODO: have both debug and release builds
 # TODO: have static build
