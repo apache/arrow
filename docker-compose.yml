@@ -119,6 +119,8 @@ x-hierarchy:
   # helper services
   - impala
   - postgres
+  - windows-cpp
+  - windows-conda-cpp
 
 services:
 
