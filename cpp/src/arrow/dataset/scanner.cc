@@ -195,9 +195,9 @@ Result<std::shared_ptr<Table>> Scanner::ToTable() {
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, Scan());
   auto task_group = scan_context_->TaskGroup();
 
-  /// Wraps the state in a shared_ptr to ensure that a failing ScanTask don't
-  /// invalidate the concurrent running tasks because Finish() early returns
-  /// and the mutex/batches may got out of scope.
+  /// Wraps the state in a shared_ptr to ensure that failing ScanTasks don't
+  /// invalidate concurrently running tasks when Finish() early returns
+  /// and the mutex/batches fail out of scope.
   auto state = std::make_shared<TableAssemblyState>();
 
   size_t scan_task_id = 0;

@@ -51,7 +51,7 @@ class ParquetScanTask : public ScanTask {
                   std::shared_ptr<ScanOptions> options,
                   std::shared_ptr<ScanContext> context)
       : ScanTask(std::move(options), std::move(context)),
-        row_group_(row_group),
+        row_group_(std::move(row_group)),
         column_projection_(std::move(column_projection)),
         reader_(std::move(reader)) {}
 
@@ -161,7 +161,8 @@ static std::shared_ptr<Expression> ColumnChunkStatisticsAsExpression(
 static std::shared_ptr<Expression> RowGroupStatisticsAsExpression(
     const parquet::RowGroupMetaData& metadata, const SchemaManifest& manifest) {
   const auto& fields = manifest.schema_fields;
-  ExpressionVector expressions{fields.size()};
+  ExpressionVector expressions;
+  expressions.reserve(fields.size());
   for (const auto& field : fields) {
     expressions.emplace_back(ColumnChunkStatisticsAsExpression(field, metadata));
   }
@@ -198,9 +199,9 @@ class ParquetScanTaskIterator {
                                                 const ScanOptions& options) {
     auto manifest = reader.manifest();
     // Checks if the field is needed in either the projection or the filter.
-    auto fields_name = options.MaterializedFields();
-    std::unordered_set<std::string> materialized_fields{fields_name.cbegin(),
-                                                        fields_name.cend()};
+    auto field_names = options.MaterializedFields();
+    std::unordered_set<std::string> materialized_fields{field_names.cbegin(),
+                                                        field_names.cend()};
     auto should_materialize_column = [&materialized_fields](const std::string& f) {
       return materialized_fields.find(f) != materialized_fields.end();
     };
@@ -316,58 +317,56 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
   return ScanFile(source, std::move(options), std::move(context), {});
 }
 
+static inline bool RowGroupInfosAreComplete(const std::vector<RowGroupInfo>& infos) {
+  return !infos.empty() &&
+         std::all_of(infos.cbegin(), infos.cend(),
+                     [](const RowGroupInfo& i) { return i.HasStatistics(); });
+}
+
 static inline std::vector<RowGroupInfo> FilterRowGroups(
     std::vector<RowGroupInfo> row_groups, const Expression& predicate) {
-  // Keep the index of the last valid entry.
-  size_t idx = 0;
-  for (size_t i = 0; i < row_groups.size(); i++) {
-    const auto& info = row_groups[i];
-    if (info.Satisfy(predicate)) {
-      row_groups[idx++] = info;
-    }
-  }
-  row_groups.resize(idx);
+  auto filter = [&predicate](const RowGroupInfo& info) {
+    return !info.Satisfy(predicate);
+  };
+  auto end = std::remove_if(row_groups.begin(), row_groups.end(), filter);
+  row_groups.erase(end, row_groups.end());
   return row_groups;
 }
 
-static inline Result<std::vector<RowGroupInfo>> AugmentAndFilter(
-    std::vector<RowGroupInfo> row_groups, const Expression& predicate,
-    parquet::arrow::FileReader* reader) {
+static inline Result<std::vector<RowGroupInfo>> AugmentRowGroups(
+    std::vector<RowGroupInfo> row_groups, parquet::arrow::FileReader* reader) {
   auto metadata = reader->parquet_reader()->metadata();
   auto manifest = reader->manifest();
   auto num_row_groups = metadata->num_row_groups();
-
-  // Augment a RowGroup with statistics if missing.
-  auto augment = [&](RowGroupInfo& info) {
-    auto id = info.id();
-    if (!info.HasStatistics() && id < num_row_groups) {
-      auto row_group = metadata->RowGroup(info.id());
-      info.set_num_rows(row_group->num_rows());
-      info.set_statistics(RowGroupStatisticsAsExpression(*row_group, manifest));
-    }
-  };
 
   if (row_groups.empty()) {
     row_groups = RowGroupInfo::FromCount(num_row_groups);
   }
 
-  for (auto& row_group : row_groups) {
-    augment(row_group);
-  }
+  // Augment a RowGroup with statistics if missing.
+  auto augment = [&](RowGroupInfo& info) {
+    if (!info.HasStatistics() && info.id() < num_row_groups) {
+      auto row_group = metadata->RowGroup(info.id());
+      info.set_num_rows(row_group->num_rows());
+      info.set_statistics(RowGroupStatisticsAsExpression(*row_group, manifest));
+    }
+  };
+  std::for_each(row_groups.begin(), row_groups.end(), augment);
 
-  return FilterRowGroups(std::move(row_groups), predicate);
+  return row_groups;
 }
 
 Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
     const FileSource& source, std::shared_ptr<ScanOptions> options,
     std::shared_ptr<ScanContext> context, std::vector<RowGroupInfo> row_groups) const {
+  bool row_groups_are_complete = RowGroupInfosAreComplete(row_groups);
   // The following block is required to avoid any IO if all RowGroups are
   // excluded due to prior statistics knowledge.
-  if (!row_groups.empty()) {
+  if (row_groups_are_complete) {
     // Apply a pre-filtering if the user requested an explicit sub-set of
     // row-groups. In the case where a RowGroup doesn't have statistics
     // metdata, it will not be excluded.
-    row_groups = FilterRowGroups(row_groups, *options->filter);
+    row_groups = FilterRowGroups(std::move(row_groups), *options->filter);
     if (row_groups.empty()) {
       return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
     }
@@ -386,8 +385,11 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
     }
   }
 
-  ARROW_ASSIGN_OR_RAISE(row_groups,
-                        AugmentAndFilter(row_groups, *options->filter, reader.get()));
+  if (!row_groups_are_complete) {
+    ARROW_ASSIGN_OR_RAISE(row_groups,
+                          AugmentRowGroups(std::move(row_groups), reader.get()));
+    row_groups = FilterRowGroups(std::move(row_groups), *options->filter);
+  }
 
   if (row_groups.empty()) {
     return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
@@ -455,7 +457,8 @@ ParquetFileFragment::ParquetFileFragment(FileSource source,
                                          std::vector<RowGroupInfo> row_groups)
     : FileFragment(std::move(source), std::move(format), std::move(partition_expression)),
       row_groups_(std::move(row_groups)),
-      parquet_format_(internal::checked_cast<ParquetFileFormat&>(*format_)) {}
+      parquet_format_(internal::checked_cast<ParquetFileFormat&>(*format_)),
+      has_complete_metadata_(RowGroupInfosAreComplete(row_groups_)) {}
 
 Result<ScanTaskIterator> ParquetFileFragment::Scan(std::shared_ptr<ScanOptions> options,
                                                    std::shared_ptr<ScanContext> context) {
@@ -465,12 +468,18 @@ Result<ScanTaskIterator> ParquetFileFragment::Scan(std::shared_ptr<ScanOptions> 
 
 Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(
     const std::shared_ptr<Expression>& predicate) {
-  ARROW_ASSIGN_OR_RAISE(auto reader, parquet_format_.GetReader(source_));
-  ARROW_ASSIGN_OR_RAISE(auto row_groups,
-                        AugmentAndFilter(row_groups_, *predicate, reader.get()));
+  std::vector<RowGroupInfo> row_groups;
+  if (HasCompleteMetadata()) {
+    row_groups = FilterRowGroups(row_groups_, *predicate);
+  } else {
+    ARROW_ASSIGN_OR_RAISE(auto reader, parquet_format_.GetReader(source_));
+    ARROW_ASSIGN_OR_RAISE(row_groups, AugmentRowGroups(row_groups_, reader.get()));
+    row_groups = FilterRowGroups(std::move(row_groups), *predicate);
+  }
 
   FragmentVector fragments;
-  for (auto row_group : row_groups) {
+  fragments.reserve(row_groups.size());
+  for (auto&& row_group : row_groups) {
     ARROW_ASSIGN_OR_RAISE(auto fragment,
                           parquet_format_.MakeFragment(source_, partition_expression(),
                                                        {std::move(row_group)}));
@@ -527,27 +536,34 @@ static Result<std::string> FileFromRowGroup(const std::string& base_path,
   try {
     auto n_columns = row_group.num_columns();
     if (n_columns == 0) {
-      return Status::Invalid("RowGroup must have a least one columns to extract path");
+      return Status::Invalid(
+          "Extracting file path from RowGroup failed. RowGroup must have a least one "
+          "columns to extract path");
     }
 
     auto first_column = row_group.ColumnChunk(0);
     auto path = first_column->file_path();
     if (path == "") {
-      return Status::Invalid("Got empty file path");
+      return Status::Invalid(
+          "Extracting file path from RowGroup failed. The column chunks "
+          "file path should be set, but got an empty file path.");
     }
 
     for (int i = 1; i < n_columns; i++) {
       auto column = row_group.ColumnChunk(i);
       auto column_path = column->file_path();
       if (column_path != path) {
-        return Status::Invalid("Path '", column_path, "' not equal to path '", path,
-                               ", for ColumnChunk at index ", i);
+        return Status::Invalid("Extracting file path from RowGroup failed. Path '",
+                               column_path, "' not equal to path '", path,
+                               ", for ColumnChunk at index ", i,
+                               "; ColumnChunks in a RowGroup must have the same path.");
       }
     }
 
     return fs::internal::ConcatAbstractPath(base_path, path);
   } catch (const ::parquet::ParquetException& e) {
-    return Status::Invalid("Could not infer file path from RowGroup :", e.what());
+    return Status::Invalid("Extracting file path from RowGroup failed. Parquet threw:",
+                           e.what());
   }
 }
 
@@ -558,10 +574,11 @@ ParquetDatasetFactory::CollectParquetFragments(
   try {
     auto n_columns = metadata.num_columns();
     if (n_columns == 0) {
-      return Status::Invalid("ParquetDatasetFactory at least one column");
+      return Status::Invalid(
+          "ParquetDatasetFactory must contain a schema with at least one column");
     }
 
-    std::unordered_map<std::string, std::vector<RowGroupInfo>> paths_and_row_group_size;
+    std::unordered_map<std::string, std::vector<RowGroupInfo>> path_to_row_group_infos;
 
     ARROW_ASSIGN_OR_RAISE(auto manifest, GetSchemaManifest(metadata, properties));
 
@@ -575,7 +592,7 @@ ParquetDatasetFactory::CollectParquetFragments(
       // assumed that the RowGroup of a file are ordered exactly like in
       // the metadata file.
       auto elem_and_inserted =
-          paths_and_row_group_size.insert({path, {{0, num_rows, stats}}});
+          path_to_row_group_infos.insert({path, {{0, num_rows, stats}}});
       if (!elem_and_inserted.second) {
         auto& path_and_count = *elem_and_inserted.first;
         auto& row_groups = path_and_count.second;
@@ -585,7 +602,8 @@ ParquetDatasetFactory::CollectParquetFragments(
     }
 
     std::vector<std::shared_ptr<FileFragment>> fragments;
-    for (const auto& elem : paths_and_row_group_size) {
+    fragments.reserve(path_to_row_group_infos.size());
+    for (auto&& elem : path_to_row_group_infos) {
       ARROW_ASSIGN_OR_RAISE(auto fragment,
                             format_->MakeFragment({std::move(elem.first), filesystem_},
                                                   scalar(true), std::move(elem.second)));
@@ -607,7 +625,8 @@ Result<std::shared_ptr<Dataset>> ParquetDatasetFactory::Finish(FinishOptions opt
 
   auto properties = MakeArrowReaderProperties(*format_, *metadata_);
   ARROW_ASSIGN_OR_RAISE(auto fragments, CollectParquetFragments(*metadata_, properties));
-  return FileSystemDataset::Make(std::move(schema), scalar(true), format_, fragments);
+  return FileSystemDataset::Make(std::move(schema), scalar(true), format_,
+                                 std::move(fragments));
 }
 
 }  // namespace dataset

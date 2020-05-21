@@ -1453,21 +1453,21 @@ def _create_parquet_dataset_simple(root_path):
             table, str(root_path), metadata_collector=metadata_collector
         )
 
+    metadata_path = str(root_path / '_metadata')
     # write _metadata file
     pq.write_metadata(
-        table.schema, str(root_path / '_metadata'),
+        table.schema, metadata_path,
         metadata_collector=metadata_collector
     )
-    return table
+    return metadata_path, table
 
 
 @pytest.mark.parquet
 @pytest.mark.pandas  # write_to_dataset currently requires pandas
 def test_parquet_dataset_factory(tempdir):
     root_path = tempdir / "test_parquet_dataset"
-    table = _create_parquet_dataset_simple(root_path)
-
-    dataset = ds.parquet_dataset(str(root_path / '_metadata'))
+    metadata_path, table = _create_parquet_dataset_simple(root_path)
+    dataset = ds.parquet_dataset(metadata_path)
     assert dataset.schema.equals(table.schema)
     assert len(dataset.files) == 4
     result = dataset.to_table()
@@ -1478,11 +1478,11 @@ def test_parquet_dataset_factory(tempdir):
 @pytest.mark.pandas
 def test_parquet_dataset_factory_invalid(tempdir):
     root_path = tempdir / "test_parquet_dataset"
-    table = _create_parquet_dataset_simple(root_path)
+    metadata_path, table = _create_parquet_dataset_simple(root_path)
     # remove one of the files
     list(root_path.glob("*.parquet"))[0].unlink()
 
-    dataset = ds.parquet_dataset(str(root_path / '_metadata'))
+    dataset = ds.parquet_dataset(metadata_path)
     assert dataset.schema.equals(table.schema)
     assert len(dataset.files) == 4
     with pytest.raises(FileNotFoundError):
@@ -1506,6 +1506,7 @@ def _create_metadata_file(root_path):
     pq.write_metadata(
         schema, metadata_path, metadata_collector=metadata_collector
     )
+    return metadata_path
 
 
 def _create_parquet_dataset_partitioned(root_path):
@@ -1516,8 +1517,7 @@ def _create_parquet_dataset_partitioned(root_path):
         'part': np.repeat(['a', 'b'], 10)}
     )
     pq.write_to_dataset(table, str(root_path), partition_cols=['part'])
-    _create_metadata_file(root_path)
-    return table
+    return _create_metadata_file(root_path), table
 
 
 @pytest.mark.parquet
@@ -1526,9 +1526,9 @@ def test_parquet_dataset_factory_partitioned(tempdir):
     # TODO support for specifying partitioning scheme
 
     root_path = tempdir / "test_parquet_dataset"
-    table = _create_parquet_dataset_partitioned(root_path)
+    metadata_path, table = _create_parquet_dataset_partitioned(root_path)
 
-    dataset = ds.parquet_dataset(str(root_path / '_metadata'))
+    dataset = ds.parquet_dataset(metadata_path)
     # TODO partition column not yet included
     # assert dataset.schema.equals(table.schema)
     assert len(dataset.files) == 2

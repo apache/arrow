@@ -475,8 +475,7 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None):
     """
     from pyarrow.fs import LocalFileSystem
 
-    if not isinstance(metadata_path, str):
-        raise ValueError("metadata_path argument must be a string")
+    metadata_path = _stringify_path(metadata_path)
 
     if format is None:
         format = ParquetFileFormat()

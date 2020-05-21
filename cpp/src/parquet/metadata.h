@@ -261,7 +261,7 @@ class PARQUET_EXPORT FileMetaData {
   /// \brief Set a path to all ColumnChunk for all RowGroups.
   ///
   /// Commonly used by systems (Dask, Spark) who generates an metadata-only
-  /// parquet file. The path are usually relative to said index file.
+  /// parquet file. The path is usually relative to said index file.
   ///
   /// \param[in] path to set.
   void set_file_path(const std::string& path);
@@ -271,7 +271,7 @@ class PARQUET_EXPORT FileMetaData {
   /// The schema of the input FileMetaData must be equal to the
   /// schema of this object.
   ///
-  /// This is used by systems who creates an aggregate metadata only file by
+  /// This is used by systems who creates an aggregate metadata-only file by
   /// concatenating the row groups of multiple files. This newly created
   /// metadata file acts as an index of all available row groups.
   ///

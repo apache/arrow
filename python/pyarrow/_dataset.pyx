@@ -815,7 +815,7 @@ cdef class ParquetFileFragment(FileFragment):
 
     def split_by_row_group(self, Expression predicate=None):
         """
-        Split the fragment in multiple fragments.
+        Split the fragment into multiple fragments.
 
         Yield a Fragment wrapping each row group in this ParquetFileFragment.
         Row groups will be excluded whose metadata contradicts the optional
@@ -828,7 +828,7 @@ cdef class ParquetFileFragment(FileFragment):
 
         Returns
         -------
-        A generator of Fragment.
+        A list of Fragment.
         """
         cdef:
             vector[shared_ptr[CFragment]] c_fragments
@@ -841,9 +841,7 @@ cdef class ParquetFileFragment(FileFragment):
             c_fragments = move(GetResultValue(
                 self.parquet_file_fragment.SplitByRowGroup(move(c_predicate))))
 
-        for c_fragment in c_fragments:
-            yield Fragment.wrap(c_fragment)
-
+        return [Fragment.wrap(c_fragment) for c_fragment in c_fragments]
 
 cdef class ParquetReadOptions:
     """
@@ -1500,7 +1498,7 @@ cdef class ParquetDatasetFactory(DatasetFactory):
 
     Parameters
     ----------
-    metadata_path: str
+    metadata_path : str
         Path to the `_metadata` parquet metadata-only file generated with
         `pyarrow.parquet.write_metadata`.
     filesystem : pyarrow.fs.FileSystem

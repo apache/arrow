@@ -146,7 +146,7 @@ class ARROW_DS_EXPORT RowGroupInfo : public util::EqualityComparable<RowGroupInf
 
   /// \brief Return the RowGroup's number of rows.
   ///
-  /// If statistics are not provided, return 0.
+  /// If statistics are not provided, return -1.
   int64_t num_rows() const { return num_rows_; }
   void set_num_rows(int64_t num_rows) { num_rows_ = num_rows; }
 
@@ -161,7 +161,8 @@ class ARROW_DS_EXPORT RowGroupInfo : public util::EqualityComparable<RowGroupInf
 
   /// \brief Indicate if the RowGroup's statistics satisfy the predicate.
   ///
-  /// If the RowGroup was not initialized with statistics, it is deemd
+  /// This will return true if the RowGroup was not initialized with statistics
+  /// (rather than silently reading metadata for a complete check).
   bool Satisfy(const Expression& predicate) const;
 
   /// \brief Indicate if the other RowGroup points to the same RowGroup.
@@ -176,10 +177,11 @@ class ARROW_DS_EXPORT RowGroupInfo : public util::EqualityComparable<RowGroupInf
 /// \brief A FileFragment with parquet logic.
 ///
 /// ParquetFileFragment provides a lazy (with respect to IO) interface to
-/// scan parquet files. Any heavy IO calls is deferred in the Scan() method.
+/// scan parquet files. Any heavy IO calls are deferred to the Scan() method.
 ///
 /// The caller can provide an optional list of selected RowGroups to limit the
-/// number of scanned RowGroups, or control parallelism partitioning.
+/// number of scanned RowGroups, or to partition the scans across multiple
+/// threads.
 ///
 /// It can also attach optional statistics with each RowGroups, providing
 /// pushdown predicate benefits before invoking any heavy IO. This can induce
@@ -195,6 +197,12 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   /// represents all RowGroups in the parquet file.
   const std::vector<RowGroupInfo>& row_groups() const { return row_groups_; }
 
+  /// \brief Indicate if the attached statistics are complete.
+  ///
+  /// The statistics are complete if the provided RowGroups (see `row_groups()`)
+  /// is not empty / and all RowGroup return true on `RowGroup::HasStatistics()`.
+  bool HasCompleteMetadata() const { return has_complete_metadata_; }
+
  private:
   ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
                       std::shared_ptr<Expression> partition_expression,
@@ -202,6 +210,7 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
 
   std::vector<RowGroupInfo> row_groups_;
   ParquetFileFormat& parquet_format_;
+  bool has_complete_metadata_;
 
   friend class ParquetFileFormat;
 };
@@ -209,7 +218,8 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
 /// \brief Create FileSystemDataset from custom `_metadata` cache file.
 ///
 /// Dask and other systems will generate a cache metadata file by concatenating
-/// the RowGroupMetaData of multiple parquet files in a single parquet file.
+/// the RowGroupMetaData of multiple parquet files into a single parquet file
+/// that only contains metadata and no ColumnChunk data.
 ///
 /// ParquetDatasetFactory creates a FileSystemDataset composed of
 /// ParquetFileFragment where each fragment is pre-populated with the exact

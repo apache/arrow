@@ -1762,7 +1762,7 @@ def write_metadata(schema, where, metadata_collector=None, **kwargs):
 
     Write a dataset and collect metadata information.
 
-    >>> metadata_collector=[]
+    >>> metadata_collector = []
     >>> write_to_dataset(
     ...     table, root_path,
     ...     metadata_collector=metadata_collector, **writer_kwargs)
