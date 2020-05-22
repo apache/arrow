@@ -70,7 +70,7 @@ struct LessEqual {
 
 template <typename Op, typename FlippedOp = Op>
 void MakeCompareFunction(std::string name, FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>(name, /*arity=*/2);
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Binary());
 
   auto out_ty = boolean();
   DCHECK_OK(func->AddKernel(

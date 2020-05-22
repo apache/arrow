@@ -227,7 +227,7 @@ KernelSignature::KernelSignature(std::vector<InputType> in_types, OutputType out
       out_type_(std::move(out_type)),
       is_varargs_(is_varargs),
       hash_code_(0) {
-  // Varargs sigs must have only a single input type to use for argument validation
+  // VarArgs sigs must have only a single input type to use for argument validation
   DCHECK(!is_varargs || (is_varargs && (in_types_.size() == 1)));
 }
 

@@ -42,14 +42,14 @@ class ExecContext;
 struct ARROW_EXPORT FunctionOptions {};
 
 /// \brief Contains the number of required arguments for the function
-struct ARROW_EXPORT FunctionArity {
-  static FunctionArity Nullary() { return FunctionArity(0, false); }
-  static FunctionArity Unary() { return FunctionArity(1, false); }
-  static FunctionArity Binary() { return FunctionArity(2, false); }
-  static FunctionArity Ternary() { return FunctionArity(3, false); }
-  static FunctionArity Varargs(int min_args = 1) { return FunctionArity(min_args, true); }
+struct ARROW_EXPORT Arity {
+  static Arity Nullary() { return Arity(0, false); }
+  static Arity Unary() { return Arity(1, false); }
+  static Arity Binary() { return Arity(2, false); }
+  static Arity Ternary() { return Arity(3, false); }
+  static Arity VarArgs(int min_args = 1) { return Arity(min_args, true); }
 
-  FunctionArity(int num_args, bool is_varargs = false)  // NOLINT implicit conversion
+  Arity(int num_args, bool is_varargs = false)  // NOLINT implicit conversion
       : num_args(num_args), is_varargs(is_varargs) {}
 
   /// The number of required arguments (or the minimum number for varargs
@@ -92,7 +92,7 @@ class ARROW_EXPORT Function {
   Function::Kind kind() const { return kind_; }
 
   /// \brief Contains the number of arguments the function requires
-  const FunctionArity& arity() const { return arity_; }
+  const Arity& arity() const { return arity_; }
 
   /// \brief Returns the number of registered kernels for this function
   virtual int num_kernels() const = 0;
@@ -103,11 +103,11 @@ class ARROW_EXPORT Function {
                         ExecContext* ctx = NULLPTR) const;
 
  protected:
-  Function(std::string name, Function::Kind kind, const FunctionArity& arity)
+  Function(std::string name, Function::Kind kind, const Arity& arity)
       : name_(std::move(name)), kind_(kind), arity_(arity) {}
   std::string name_;
   Function::Kind kind_;
-  FunctionArity arity_;
+  Arity arity_;
 };
 
 namespace detail {
@@ -121,7 +121,7 @@ class FunctionImpl : public Function {
   int num_kernels() const override { return static_cast<int>(kernels_.size()); }
 
  protected:
-  FunctionImpl(std::string name, Function::Kind kind, const FunctionArity& arity)
+  FunctionImpl(std::string name, Function::Kind kind, const Arity& arity)
       : Function(std::move(name), kind, arity) {}
 
   std::vector<KernelType> kernels_;
@@ -138,7 +138,7 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
  public:
   using KernelType = ScalarKernel;
 
-  ScalarFunction(std::string name, const FunctionArity& arity)
+  ScalarFunction(std::string name, const Arity& arity)
       : detail::FunctionImpl<ScalarKernel>(std::move(name), Function::SCALAR, arity) {}
 
   /// \brief Add a simple kernel (function implementation) with given
@@ -169,7 +169,7 @@ class ARROW_EXPORT VectorFunction : public detail::FunctionImpl<VectorKernel> {
  public:
   using KernelType = VectorKernel;
 
-  VectorFunction(std::string name, const FunctionArity& arity)
+  VectorFunction(std::string name, const Arity& arity)
       : detail::FunctionImpl<VectorKernel>(std::move(name), Function::VECTOR, arity) {}
 
   /// \brief Add a simple kernel (function implementation) with given
@@ -194,7 +194,7 @@ class ARROW_EXPORT ScalarAggregateFunction
  public:
   using KernelType = ScalarAggregateKernel;
 
-  ScalarAggregateFunction(std::string name, const FunctionArity& arity)
+  ScalarAggregateFunction(std::string name, const Arity& arity)
       : detail::FunctionImpl<ScalarAggregateKernel>(std::move(name),
                                                     Function::SCALAR_AGGREGATE, arity) {}
 

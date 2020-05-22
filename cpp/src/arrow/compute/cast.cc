@@ -59,7 +59,7 @@ struct CastFunction::CastFunctionImpl {
 };
 
 CastFunction::CastFunction(std::string name, Type::type out_type)
-    : ScalarFunction(std::move(name), /*arity=*/1) {
+    : ScalarFunction(std::move(name), Arity::Unary()) {
   impl_.reset(new CastFunctionImpl());
   impl_->out_type = out_type;
 }

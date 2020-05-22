@@ -84,7 +84,7 @@ void RegisterVectorTake(FunctionRegistry* registry) {
   base.init = InitTake;
   base.can_execute_chunkwise = false;
 
-  auto take = std::make_shared<VectorFunction>("take", /*arity=*/2);
+  auto take = std::make_shared<VectorFunction>("take", Arity::Binary());
 
   OutputType out_ty(FirstType);
   for (const auto& value_ty : PrimitiveTypes()) {

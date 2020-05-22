@@ -33,32 +33,32 @@ namespace compute {
 
 struct ExecBatch;
 
-TEST(FunctionArity, Basics) {
-  auto nullary = FunctionArity::Nullary();
+TEST(Arity, Basics) {
+  auto nullary = Arity::Nullary();
   ASSERT_EQ(0, nullary.num_args);
   ASSERT_FALSE(nullary.is_varargs);
 
-  auto unary = FunctionArity::Unary();
+  auto unary = Arity::Unary();
   ASSERT_EQ(1, unary.num_args);
 
-  auto binary = FunctionArity::Binary();
+  auto binary = Arity::Binary();
   ASSERT_EQ(2, binary.num_args);
 
-  auto ternary = FunctionArity::Ternary();
+  auto ternary = Arity::Ternary();
   ASSERT_EQ(3, ternary.num_args);
 
-  auto varargs = FunctionArity::Varargs();
+  auto varargs = Arity::VarArgs();
   ASSERT_EQ(1, varargs.num_args);
   ASSERT_TRUE(varargs.is_varargs);
 
-  auto varargs2 = FunctionArity::Varargs(2);
+  auto varargs2 = Arity::VarArgs(2);
   ASSERT_EQ(2, varargs2.num_args);
   ASSERT_TRUE(varargs2.is_varargs);
 }
 
 TEST(ScalarFunction, Basics) {
   ScalarFunction func("scalar_test", 2);
-  ScalarFunction varargs_func("varargs_test", FunctionArity::Varargs(1));
+  ScalarFunction varargs_func("varargs_test", Arity::VarArgs(1));
 
   ASSERT_EQ("scalar_test", func.name());
   ASSERT_EQ(2, func.arity().num_args);
@@ -73,7 +73,7 @@ TEST(ScalarFunction, Basics) {
 
 TEST(VectorFunction, Basics) {
   VectorFunction func("vector_test", 2);
-  VectorFunction varargs_func("varargs_test", FunctionArity::Varargs(1));
+  VectorFunction varargs_func("varargs_test", Arity::VarArgs(1));
 
   ASSERT_EQ("vector_test", func.name());
   ASSERT_EQ(2, func.arity().num_args);
@@ -146,8 +146,8 @@ TEST(ScalarVectorFunction, DispatchExact) {
   CheckAddDispatch(&func2);
 }
 
-TEST(ArrayFunction, Varargs) {
-  ScalarFunction va_func("va_test", FunctionArity::Varargs(1));
+TEST(ArrayFunction, VarArgs) {
+  ScalarFunction va_func("va_test", Arity::VarArgs(1));
 
   std::vector<InputType> va_args = {int8()};
 
@@ -156,7 +156,7 @@ TEST(ArrayFunction, Varargs) {
   // No input type passed
   ASSERT_RAISES(Invalid, va_func.AddKernel({}, int8(), ExecNYI));
 
-  // Varargs function expect a single input type
+  // VarArgs function expect a single input type
   ASSERT_RAISES(Invalid, va_func.AddKernel({int8(), int8()}, int8(), ExecNYI));
 
   // Invalid sig

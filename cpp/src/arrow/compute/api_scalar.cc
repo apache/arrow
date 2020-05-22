@@ -103,9 +103,6 @@ Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions opti
     case CompareOperator::LESS_EQUAL:
       func_name = "<=";
       break;
-    default:
-      DCHECK(false);
-      break;
   }
   return CallFunction(ctx, func_name, {left, right}, &options);
 }

@@ -287,7 +287,7 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
     ScalarKernel isin_base;
     isin_base.init = InitSetLookup;
     isin_base.exec = ExecIsIn;
-    auto isin = std::make_shared<ScalarFunction>("isin", /*arity=*/1);
+    auto isin = std::make_shared<ScalarFunction>("isin", Arity::Unary());
 
     codegen::AddBasicSetLookupKernels(isin_base, /*output_type=*/boolean(), isin.get());
 
@@ -304,7 +304,7 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
     match_base.exec = ExecMatch;
     match_base.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
     match_base.mem_allocation = MemAllocation::NO_PREALLOCATE;
-    auto match = std::make_shared<ScalarFunction>("match", /*arity=*/1);
+    auto match = std::make_shared<ScalarFunction>("match", Arity::Unary());
     codegen::AddBasicSetLookupKernels(match_base, /*output_type=*/int32(), match.get());
 
     match_base.signature = KernelSignature::Make({InputType::Array(null())}, int32());

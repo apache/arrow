@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -46,8 +47,9 @@ class ARROW_EXPORT ExecBatchIterator {
   /// \param[in] max_chunksize the maximum length of each ExecBatch. Depending
   /// on the chunk layout of ChunkedArray. Default of -1 means no maximum, so
   /// as greedy as possible
-  static Result<std::unique_ptr<ExecBatchIterator>> Make(std::vector<Datum> args,
-                                                         int64_t max_chunksize = -1);
+  static Result<std::unique_ptr<ExecBatchIterator>> Make(
+      std::vector<Datum> args,
+      int64_t max_chunksize = std::numeric_limits<int64_t>::max());
 
   /// \brief Compute the next batch. Always returns at least one batch. Return
   /// false if the iterator is exhausted
@@ -95,6 +97,9 @@ class DatumAccumulator : public ExecListener {
   std::vector<Datum> values_;
 };
 
+/// \brief Check that each Datum is of a "value" type, which means either
+/// SCALAR, ARRAY, or CHUNKED_ARRAY. If there are chunked inputs, then these
+/// inputs will be split into non-chunked ExecBatch values for execution
 Status CheckAllValues(const std::vector<Datum>& values);
 
 class ARROW_EXPORT FunctionExecutor {

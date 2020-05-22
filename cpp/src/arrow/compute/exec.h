@@ -95,7 +95,7 @@ class ARROW_EXPORT ExecContext {
   // TODO: At some point we might want the limit the size of contiguous
   // preallocations (for example, merging small ChunkedArray chunks until
   // reaching some desired size)
-  void set_preallocate_contiguous(bool preallocate = true) {
+  void set_preallocate_contiguous(bool preallocate) {
     preallocate_contiguous_ = preallocate;
   }
 
@@ -112,7 +112,18 @@ class ARROW_EXPORT ExecContext {
 // TODO: Consider standardizing on uint16 selection vectors and only use them
 // when we can ensure that each value is 64K length or smaller
 
-/// \brief Container for a int32 selection
+/// \brief Container for an array of value selection indices that were
+/// materialized from a filter.
+///
+/// Columnar query engines (see e.g. [1]) have found that rather than
+/// materializing filtered data, the filter can instead be converted to an
+/// array of the "on" indices and then "fusing" these indices in operator
+/// implementations. This is especially relevant for aggregations but also
+/// applies to scalar operations.
+///
+/// We are not yet using this so this is mostly a placeholder for now.
+///
+/// [1]: http://cidrdb.org/cidr2005/papers/P19.pdf
 class ARROW_EXPORT SelectionVector {
  public:
   explicit SelectionVector(std::shared_ptr<ArrayData> data);
@@ -120,7 +131,7 @@ class ARROW_EXPORT SelectionVector {
   explicit SelectionVector(const Array& arr);
 
   /// \brief Create SelectionVector from boolean mask
-  static Result<std::shared_ptr<SelectionVector>> FromMask(const Array& arr);
+  static Result<std::shared_ptr<SelectionVector>> FromMask(const BooleanArray& arr);
 
   const int32_t* indices() const { return indices_; }
   int32_t length() const;
@@ -130,6 +141,10 @@ class ARROW_EXPORT SelectionVector {
   const int32_t* indices_;
 };
 
+/// \brief A unit of work for kernel execution. It contains a collection of
+/// Array and Scalar values and an optional SelectionVector indicating that
+/// there is an unmaterialized filter that either must be materialized, or (if
+/// the kernel supports it) pushed down into the kernel implementation.
 struct ExecBatch {
   ExecBatch() {}
   ExecBatch(std::vector<Datum> values, int64_t length)

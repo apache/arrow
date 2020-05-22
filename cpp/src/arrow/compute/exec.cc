@@ -123,11 +123,6 @@ Result<std::unique_ptr<ExecBatchIterator>> ExecBatchIterator::Make(
     }
   }
 
-  // No maximum was indicated
-  if (max_chunksize < 1) {
-    max_chunksize = length;
-  }
-
   return std::unique_ptr<ExecBatchIterator>(
       new ExecBatchIterator(std::move(args), length, max_chunksize));
 }
@@ -924,7 +919,8 @@ SelectionVector::SelectionVector(const Array& arr) : SelectionVector(arr.data())
 
 int32_t SelectionVector::length() const { return static_cast<int32_t>(data_->length); }
 
-Result<std::shared_ptr<SelectionVector>> SelectionVector::FromMask(const Array& arr) {
+Result<std::shared_ptr<SelectionVector>> SelectionVector::FromMask(
+    const BooleanArray& arr) {
   return Status::NotImplemented("FromMask");
 }
 

@@ -152,7 +152,7 @@ void RegisterVectorFilter(FunctionRegistry* registry) {
   VectorKernel base;
   base.init = InitFilter;
 
-  auto filter = std::make_shared<VectorFunction>("filter", /*arity=*/2);
+  auto filter = std::make_shared<VectorFunction>("filter", Arity::Binary());
   OutputType out_ty(FirstType);
   InputType arg1_ty = InputType::Array(boolean());
   for (const auto& value_ty : PrimitiveTypes()) {

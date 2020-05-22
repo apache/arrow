@@ -522,18 +522,18 @@ void RegisterVectorHash(FunctionRegistry* registry) {
 
   base.finalize = UniqueFinalize;
   base.output_chunked = false;
-  auto unique = std::make_shared<VectorFunction>("unique", /*arity=*/1);
+  auto unique = std::make_shared<VectorFunction>("unique", Arity::Unary());
   AddHashKernels<UniqueAction>(unique.get(), base, /*output_type=*/FirstType);
   DCHECK_OK(registry->AddFunction(std::move(unique)));
 
   base.finalize = ValueCountsFinalize;
-  auto value_counts = std::make_shared<VectorFunction>("value_counts", /*arity=*/1);
+  auto value_counts = std::make_shared<VectorFunction>("value_counts", Arity::Unary());
   AddHashKernels<ValueCountsAction>(value_counts.get(), base, ValueCountsOutput);
   DCHECK_OK(registry->AddFunction(std::move(value_counts)));
 
   base.finalize = DictEncodeFinalize;
   base.output_chunked = true;
-  auto dict_encode = std::make_shared<VectorFunction>("dict_encode", /*arity=*/1);
+  auto dict_encode = std::make_shared<VectorFunction>("dict_encode", Arity::Unary());
   AddHashKernels<DictEncodeAction>(dict_encode.get(), base, DictEncodeOutput);
   DCHECK_OK(registry->AddFunction(std::move(dict_encode)));
 }

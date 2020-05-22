@@ -350,7 +350,7 @@ TEST(KernelSignature, Equals) {
   ASSERT_NE(sig6, sig7);
 }
 
-TEST(KernelSignature, VarargsEquals) {
+TEST(KernelSignature, VarArgsEquals) {
   KernelSignature sig1({int8()}, utf8(), /*is_varargs=*/true);
   KernelSignature sig2({int8()}, utf8(), /*is_varargs=*/true);
   KernelSignature sig3({int8()}, utf8());
@@ -405,7 +405,7 @@ TEST(KernelSignature, MatchesInputs) {
       sig3.MatchesInputs({ValueDescr::Array(int8()), ValueDescr::Array(int32())}));
 }
 
-TEST(KernelSignature, VarargsMatchesInputs) {
+TEST(KernelSignature, VarArgsMatchesInputs) {
   KernelSignature sig({int8()}, utf8(), /*is_varargs=*/true);
 
   std::vector<ValueDescr> args = {int8()};
@@ -432,7 +432,7 @@ TEST(KernelSignature, ToString) {
   ASSERT_EQ("(any[int8], any[decimal*]) -> computed", sig2.ToString());
 }
 
-TEST(KernelSignature, VarargsToString) {
+TEST(KernelSignature, VarArgsToString) {
   KernelSignature sig({int8()}, utf8(), /*is_varargs=*/true);
   ASSERT_EQ("varargs[any[int8]] -> any[string]", sig.ToString());
 }

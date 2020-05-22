@@ -281,12 +281,13 @@ void RegisterVectorSort(FunctionRegistry* registry) {
   base.mem_allocation = MemAllocation::PREALLOCATE;
   base.null_handling = NullHandling::OUTPUT_NOT_NULL;
 
-  auto sort_indices = std::make_shared<VectorFunction>("sort_indices", /*arity=*/1);
+  auto sort_indices = std::make_shared<VectorFunction>("sort_indices", Arity::Unary());
   AddSortingKernels<SortIndices>(base, sort_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(sort_indices)));
 
   // partition_indices has a parameter so needs its init function
-  auto part_indices = std::make_shared<VectorFunction>("partition_indices", /*arity=*/1);
+  auto part_indices =
+      std::make_shared<VectorFunction>("partition_indices", Arity::Unary());
   base.init = InitPartitionIndices;
   AddSortingKernels<PartitionIndices>(base, part_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(part_indices)));

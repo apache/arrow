@@ -31,7 +31,7 @@ namespace codegen {
 
 template <typename Op>
 void MakeBinaryFunction(std::string name, FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>(name, /*arity=*/2);
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Binary());
   for (const std::shared_ptr<DataType>& ty : NumericTypes()) {
     DCHECK_OK(func->AddKernel({InputType::Array(ty), InputType::Array(ty)}, ty,
                               ScalarNumericEqualTypes::Binary<Op>(*ty)));

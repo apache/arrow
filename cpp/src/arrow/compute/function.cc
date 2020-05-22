@@ -28,10 +28,10 @@
 namespace arrow {
 namespace compute {
 
-static Status CheckArity(const std::vector<InputType>& args, const FunctionArity& arity) {
+static Status CheckArity(const std::vector<InputType>& args, const Arity& arity) {
   const int passed_num_args = static_cast<int>(args.size());
   if (arity.is_varargs && passed_num_args < arity.num_args) {
-    return Status::Invalid("Varargs function needs at least ", arity.num_args,
+    return Status::Invalid("VarArgs function needs at least ", arity.num_args,
                            " arguments but kernel accepts only ", passed_num_args);
   } else if (!arity.is_varargs && passed_num_args != arity.num_args) {
     return Status::Invalid("Function accepts ", arity.num_args,
@@ -61,9 +61,9 @@ Result<const KernelType*> DispatchExactImpl(const Function& func,
   const int passed_num_args = static_cast<int>(values.size());
 
   // Validate arity
-  const FunctionArity arity = func.arity();
+  const Arity arity = func.arity();
   if (arity.is_varargs && passed_num_args < arity.num_args) {
-    return Status::Invalid("Varargs function needs at least ", arity.num_args,
+    return Status::Invalid("VarArgs function needs at least ", arity.num_args,
                            " arguments but passed only ", passed_num_args);
   } else if (!arity.is_varargs && passed_num_args != arity.num_args) {
     return Status::Invalid("Function accepts ", arity.num_args, " arguments but passed ",
@@ -100,7 +100,7 @@ Status ScalarFunction::AddKernel(std::vector<InputType> in_types, OutputType out
   RETURN_NOT_OK(CheckArity(in_types, arity_));
 
   if (arity_.is_varargs && in_types.size() != 1) {
-    return Status::Invalid("Varargs signatures must have exactly one input type");
+    return Status::Invalid("VarArgs signatures must have exactly one input type");
   }
   auto sig =
       KernelSignature::Make(std::move(in_types), std::move(out_type), arity_.is_varargs);
@@ -127,7 +127,7 @@ Status VectorFunction::AddKernel(std::vector<InputType> in_types, OutputType out
   RETURN_NOT_OK(CheckArity(in_types, arity_));
 
   if (arity_.is_varargs && in_types.size() != 1) {
-    return Status::Invalid("Varargs signatures must have exactly one input type");
+    return Status::Invalid("VarArgs signatures must have exactly one input type");
   }
   auto sig =
       KernelSignature::Make(std::move(in_types), std::move(out_type), arity_.is_varargs);
