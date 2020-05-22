@@ -1356,18 +1356,17 @@ where
     ///
     /// let keys: Vec<Option<i16>> = dictionary_array.keys().collect();
     ///
-    ///  assert_eq!(keys, vec![Some(2), None, Some(1)]);
+    /// assert_eq!(keys, vec![Some(2), None, Some(1)]);
     /// ```
     pub fn new_with_dictionary(
         keys_builder: PrimitiveBuilder<K>,
         dictionary_values: &StringArray,
     ) -> Result<Self> {
-        let mut values_builder = StringBuilder::with_capacity(
-            dictionary_values.len(),
-            dictionary_values.value_data().len(),
-        );
-        let mut map: HashMap<Box<[u8]>, K::Native> = HashMap::new();
-        for i in 0..dictionary_values.len() {
+        let dict_len = dictionary_values.len();
+        let mut values_builder =
+            StringBuilder::with_capacity(dict_len, dictionary_values.value_data().len());
+        let mut map: HashMap<Box<[u8]>, K::Native> = HashMap::with_capacity(dict_len);
+        for i in 0..dict_len {
             if dictionary_values.is_valid(i) {
                 let value = dictionary_values.value(i);
                 map.insert(
