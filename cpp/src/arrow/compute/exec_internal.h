@@ -35,6 +35,8 @@ namespace compute {
 
 class Function;
 
+static constexpr int64_t kDefaultMaxChunksize = std::numeric_limits<int64_t>::max();
+
 namespace detail {
 
 /// \brief Break std::vector<Datum> into a sequence of ExecBatch for kernel
@@ -45,11 +47,9 @@ class ARROW_EXPORT ExecBatchIterator {
   ///
   /// \param[in] args the Datum argument, must be all array-like or scalar
   /// \param[in] max_chunksize the maximum length of each ExecBatch. Depending
-  /// on the chunk layout of ChunkedArray. Default of -1 means no maximum, so
-  /// as greedy as possible
+  /// on the chunk layout of ChunkedArray.
   static Result<std::unique_ptr<ExecBatchIterator>> Make(
-      std::vector<Datum> args,
-      int64_t max_chunksize = std::numeric_limits<int64_t>::max());
+      std::vector<Datum> args, int64_t max_chunksize = kDefaultMaxChunksize);
 
   /// \brief Compute the next batch. Always returns at least one batch. Return
   /// false if the iterator is exhausted

@@ -21,6 +21,7 @@
 #pragma once
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -104,7 +105,7 @@ class ARROW_EXPORT ExecContext {
  private:
   MemoryPool* pool_;
   FunctionRegistry* func_registry_;
-  int64_t exec_chunksize_ = -1;
+  int64_t exec_chunksize_ = std::numeric_limits<int64_t>::max();
   bool preallocate_contiguous_ = true;
   bool use_threads_ = true;
 };

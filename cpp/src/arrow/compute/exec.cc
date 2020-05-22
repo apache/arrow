@@ -123,6 +123,8 @@ Result<std::unique_ptr<ExecBatchIterator>> ExecBatchIterator::Make(
     }
   }
 
+  max_chunksize = std::min(length, max_chunksize);
+
   return std::unique_ptr<ExecBatchIterator>(
       new ExecBatchIterator(std::move(args), length, max_chunksize));
 }

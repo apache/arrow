@@ -53,9 +53,7 @@ TEST(ExecContext, BasicWorkings) {
     ExecContext ctx;
     ASSERT_EQ(GetFunctionRegistry(), ctx.func_registry());
     ASSERT_EQ(default_memory_pool(), ctx.memory_pool());
-
-    // No default chunksize right now
-    ASSERT_EQ(-1, ctx.exec_chunksize());
+    ASSERT_EQ(std::numeric_limits<int64_t>::max(), ctx.exec_chunksize());
 
     ASSERT_TRUE(ctx.use_threads());
     ASSERT_EQ(internal::CpuInfo::GetInstance(), ctx.cpu_info());
@@ -410,7 +408,8 @@ TEST_F(TestPropagateNulls, NullOutputTypeNoop) {
 
 class TestExecBatchIterator : public TestComputeInternals {
  public:
-  void SetupIterator(std::vector<Datum> args, int64_t max_chunksize = -1) {
+  void SetupIterator(std::vector<Datum> args,
+                     int64_t max_chunksize = kDefaultMaxChunksize) {
     ASSERT_OK_AND_ASSIGN(iterator_,
                          ExecBatchIterator::Make(std::move(args), max_chunksize));
   }
@@ -789,7 +788,7 @@ TEST_F(TestCallScalarFunction, BasicNonStandardCases) {
 
     // The default should be a single array output
     {
-      exec_ctx_->set_exec_chunksize(-1);
+      exec_ctx_->set_exec_chunksize(kDefaultMaxChunksize);
       ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
       AssertArraysEqual(*arr, *result.make_array(), true);
     }
