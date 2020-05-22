@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "arrow_rcpp.h"
+#include "./arrow_rcpp.h"
 
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/csv/reader.h>
