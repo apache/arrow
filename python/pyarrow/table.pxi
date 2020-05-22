@@ -887,7 +887,7 @@ cdef class RecordBatch(_PandasConvertible):
 
         return wrap_datum(out)
 
-    def equals(self, RecordBatch other, bint check_metadata=False):
+    def equals(self, object other, bint check_metadata=False):
         """
         Check if contents of two record batches are equal.
 
@@ -904,8 +904,11 @@ cdef class RecordBatch(_PandasConvertible):
         """
         cdef:
             CRecordBatch* this_batch = self.batch
-            CRecordBatch* other_batch = other.batch
+            shared_ptr[CRecordBatch] other_batch = pyarrow_unwrap_batch(other)
             c_bool result
+
+        if not other_batch:
+            return False
 
         with nogil:
             result = this_batch.Equals(deref(other_batch), check_metadata)
