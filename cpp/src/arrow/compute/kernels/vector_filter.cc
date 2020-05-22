@@ -1,7 +1,7 @@
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
-// returnGegarding copyright ownership.  The ASF licenses this file
+// regarding copyright ownership.  The ASF licenses this file
 // to you under the Apache License, Version 2.0 (the
 // "License"); you may not use this file except in compliance
 // with the License.  You may obtain a copy of the License at
@@ -20,6 +20,7 @@
 
 #include "arrow/array/concatenate.h"
 #include "arrow/builder.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/vector_selection_internal.h"
 #include "arrow/record_batch.h"
@@ -153,20 +154,21 @@ void RegisterVectorFilter(FunctionRegistry* registry) {
   base.init = InitFilter;
 
   auto filter = std::make_shared<VectorFunction>("filter", Arity::Binary());
+  InputType filter_ty = InputType::Array(boolean());
   OutputType out_ty(FirstType);
-  InputType arg1_ty = InputType::Array(boolean());
-  for (const auto& value_ty : PrimitiveTypes()) {
-    InputType arg0_ty = InputType::Array(value_ty);
-    base.signature = KernelSignature::Make({arg0_ty, arg1_ty}, out_ty);
-    DCHECK_OK(GetFilterKernel(*value_ty, &base.exec));
-    DCHECK_OK(filter->AddKernel(base));
-  }
 
-  for (const auto& value_ty : g_dummy_parametric_types) {
-    InputType arg0_ty = InputType::Array(value_ty->id());
-    base.signature = KernelSignature::Make({arg0_ty, arg1_ty}, out_ty);
-    DCHECK_OK(GetFilterKernel(*value_ty, &base.exec));
+  auto AddKernel = [&](InputType in_ty, const DataType& example_type) {
+    base.signature = KernelSignature::Make({in_ty, filter_ty}, out_ty);
+    DCHECK_OK(GetFilterKernel(example_type, &base.exec));
     DCHECK_OK(filter->AddKernel(base));
+  };
+
+  for (const auto& value_ty : PrimitiveTypes()) {
+    AddKernel(InputType::Array(value_ty), *value_ty);
+  }
+  // Other types where we may only on the DataType::id
+  for (const auto& value_ty : g_dummy_parametric_types) {
+    AddKernel(InputType::Array(value_ty->id()), *value_ty);
   }
   DCHECK_OK(registry->AddFunction(std::move(filter)));
 }

@@ -1,7 +1,7 @@
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
-// returnGegarding copyright ownership.  The ASF licenses this file
+// regarding copyright ownership.  The ASF licenses this file
 // to you under the Apache License, Version 2.0 (the
 // "License"); you may not use this file except in compliance
 // with the License.  You may obtain a copy of the License at
@@ -85,25 +85,24 @@ void RegisterVectorTake(FunctionRegistry* registry) {
   base.can_execute_chunkwise = false;
 
   auto take = std::make_shared<VectorFunction>("take", Arity::Binary());
-
   OutputType out_ty(FirstType);
+
+  auto AddKernel = [&](InputType value_ty, const DataType& example_value_ty,
+                       const std::shared_ptr<DataType>& index_ty) {
+    base.signature =
+        KernelSignature::Make({value_ty, InputType::Array(index_ty)}, out_ty);
+    DCHECK_OK(GetTakeKernel(example_value_ty, *index_ty, &base.exec));
+    DCHECK_OK(take->AddKernel(base));
+  };
+
   for (const auto& value_ty : PrimitiveTypes()) {
-    InputType arg0_ty = InputType::Array(value_ty);
     for (const auto& index_ty : IntTypes()) {
-      base.signature =
-          KernelSignature::Make({arg0_ty, InputType::Array(index_ty)}, out_ty);
-      DCHECK_OK(GetTakeKernel(*value_ty, *index_ty, &base.exec));
-      DCHECK_OK(take->AddKernel(base));
+      AddKernel(InputType::Array(value_ty), *value_ty, index_ty);
     }
   }
-
   for (const auto& value_ty : g_dummy_parametric_types) {
-    InputType arg0_ty = InputType::Array(value_ty->id());
     for (const auto& index_ty : IntTypes()) {
-      base.signature =
-          KernelSignature::Make({arg0_ty, InputType::Array(index_ty)}, out_ty);
-      DCHECK_OK(GetTakeKernel(*value_ty, *index_ty, &base.exec));
-      DCHECK_OK(take->AddKernel(base));
+      AddKernel(InputType::Array(value_ty->id()), *value_ty, index_ty);
     }
   }
   DCHECK_OK(registry->AddFunction(std::move(take)));
