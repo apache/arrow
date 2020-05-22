@@ -9,7 +9,8 @@
   License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
   OF ANY KIND, either express or implied. See the License for the specific
   language governing permissions and limitations under the License. -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>org.apache.arrow</groupId>
@@ -205,5 +206,38 @@
   </build>
 
 
+  <profiles>
+    <profile>
+      <!-- This profile turns on integration testing. It activates the failsafe plugin and will run any tests
+      with the 'IT' prefix. This should be run in a separate CI build or on developers machines as it potentially
+      uses quite a bit of memory. Activate the tests by adding -Pintegration-tests to your maven command line -->
+      <id>integration-tests</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <configuration>
+              <forkedProcessTimeoutInSeconds>3600</forkedProcessTimeoutInSeconds>
+              <systemPropertyVariables>
+                <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
+                <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
+                <user.timezone>UTC</user.timezone>
+              </systemPropertyVariables>
+              <argLine></argLine>
+            </configuration>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>integration-test</goal>
+                  <goal>verify</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 
 </project>
