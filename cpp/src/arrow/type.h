@@ -161,13 +161,6 @@ struct Type {
   };
 };
 
-namespace internal {
-
-ARROW_EXPORT
-std::string ToString(Type::type id);
-
-}  // namespace internal
-
 namespace detail {
 
 class ARROW_EXPORT Fingerprintable {
@@ -1879,5 +1872,15 @@ ARROW_EXPORT
 Result<std::shared_ptr<Schema>> UnifySchemas(
     const std::vector<std::shared_ptr<Schema>>& schemas,
     Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults());
+
+namespace internal {
+
+ARROW_EXPORT
+std::string ToString(Type::type id);
+
+ARROW_EXPORT
+std::string ToString(TimeUnit::type unit);
+
+}  // namespace internal
 
 }  // namespace arrow

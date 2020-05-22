@@ -529,16 +529,16 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
 
   auto cast_int32 = GetCastToInteger<Int32Type>("cast_int32");
   // Convert DATE32 or TIME32 to INT32 zero copy
-  AddZeroCopyCast(date32(), int32(), cast_int32.get());
-  AddZeroCopyCast(Type::TIME32, int32(), cast_int32.get());
+  AddZeroCopyCast(Type::DATE32, date32(), int32(), cast_int32.get());
+  AddZeroCopyCast(Type::TIME32, InputType(Type::TIME32), int32(), cast_int32.get());
   functions.push_back(cast_int32);
 
   auto cast_int64 = GetCastToInteger<Int64Type>("cast_int64");
   // Convert DATE64, DURATION, TIMESTAMP, TIME64 to INT64 zero copy
-  AddZeroCopyCast(Type::DATE64, int64(), cast_int64.get());
-  AddZeroCopyCast(Type::DURATION, int64(), cast_int64.get());
-  AddZeroCopyCast(Type::TIMESTAMP, int64(), cast_int64.get());
-  AddZeroCopyCast(Type::TIME64, int64(), cast_int64.get());
+  AddZeroCopyCast(Type::DATE64, InputType(Type::DATE64), int64(), cast_int64.get());
+  AddZeroCopyCast(Type::DURATION, InputType(Type::DURATION), int64(), cast_int64.get());
+  AddZeroCopyCast(Type::TIMESTAMP, InputType(Type::TIMESTAMP), int64(), cast_int64.get());
+  AddZeroCopyCast(Type::TIME64, InputType(Type::TIME64), int64(), cast_int64.get());
   functions.push_back(cast_int64);
 
   functions.push_back(GetCastToInteger<UInt8Type>("cast_uint8"));

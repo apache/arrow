@@ -31,6 +31,40 @@ namespace arrow {
 namespace compute {
 
 // ----------------------------------------------------------------------
+// TypeMatcher
+
+TEST(TypeMatcher, SameTypeId) {
+  std::shared_ptr<TypeMatcher> matcher = match::SameTypeId(Type::DECIMAL);
+  ASSERT_TRUE(matcher->Matches(*decimal(12, 2)));
+  ASSERT_FALSE(matcher->Matches(*int8()));
+
+  ASSERT_EQ("Type::DECIMAL", matcher->ToString());
+
+  ASSERT_TRUE(matcher->Equals(*matcher));
+  ASSERT_TRUE(matcher->Equals(*match::SameTypeId(Type::DECIMAL)));
+  ASSERT_FALSE(matcher->Equals(*match::SameTypeId(Type::TIMESTAMP)));
+}
+
+TEST(TypeMatcher, TimestampUnit) {
+  std::shared_ptr<TypeMatcher> matcher = match::TimestampUnit(TimeUnit::MILLI);
+
+  ASSERT_TRUE(matcher->Matches(*timestamp(TimeUnit::MILLI)));
+  ASSERT_TRUE(matcher->Matches(*timestamp(TimeUnit::MILLI, "utc")));
+  ASSERT_FALSE(matcher->Matches(*timestamp(TimeUnit::SECOND)));
+
+  // Check ToString representation
+  ASSERT_EQ("timestamp(s)", match::TimestampUnit(TimeUnit::SECOND)->ToString());
+  ASSERT_EQ("timestamp(ms)", match::TimestampUnit(TimeUnit::MILLI)->ToString());
+  ASSERT_EQ("timestamp(us)", match::TimestampUnit(TimeUnit::MICRO)->ToString());
+  ASSERT_EQ("timestamp(ns)", match::TimestampUnit(TimeUnit::NANO)->ToString());
+
+  // Equals implementation
+  ASSERT_TRUE(matcher->Equals(*matcher));
+  ASSERT_TRUE(matcher->Equals(*match::TimestampUnit(TimeUnit::MILLI)));
+  ASSERT_FALSE(matcher->Equals(*match::TimestampUnit(TimeUnit::MICRO)));
+}
+
+// ----------------------------------------------------------------------
 // InputType
 
 TEST(InputType, AnyTypeConstructor) {
@@ -52,7 +86,6 @@ TEST(InputType, Constructors) {
   ASSERT_EQ(InputType::EXACT_TYPE, ty1.kind());
   ASSERT_EQ(ValueDescr::ANY, ty1.shape());
   AssertTypeEqual(*int8(), *ty1.type());
-  ASSERT_EQ(Type::INT8, ty1.type_id());
 
   InputType ty1_implicit = int8();
   ASSERT_TRUE(ty1.Equals(ty1_implicit));
@@ -64,9 +97,11 @@ TEST(InputType, Constructors) {
   ASSERT_EQ(ValueDescr::SCALAR, ty1_scalar.shape());
 
   // Same type id constructor
-  InputType ty2 = Type::DECIMAL;
-  ASSERT_EQ(InputType::SAME_TYPE_ID, ty2.kind());
-  ASSERT_EQ(Type::DECIMAL, ty2.type_id());
+  InputType ty2(Type::DECIMAL);
+  ASSERT_EQ(InputType::USE_TYPE_MATCHER, ty2.kind());
+  ASSERT_EQ("any[Type::DECIMAL]", ty2.ToString());
+  ASSERT_TRUE(ty2.type_matcher().Matches(*decimal(12, 2)));
+  ASSERT_FALSE(ty2.type_matcher().Matches(*int16()));
 
   InputType ty2_array(Type::DECIMAL, ValueDescr::ARRAY);
   ASSERT_EQ(ValueDescr::ARRAY, ty2_array.shape());
@@ -75,7 +110,7 @@ TEST(InputType, Constructors) {
   ASSERT_EQ(ValueDescr::SCALAR, ty2_scalar.shape());
 
   // Implicit construction in a vector
-  std::vector<InputType> types = {int8(), Type::DECIMAL};
+  std::vector<InputType> types = {int8(), InputType(Type::DECIMAL)};
   ASSERT_TRUE(types[0].Equals(ty1));
   ASSERT_TRUE(types[1].Equals(ty2));
 
@@ -96,9 +131,12 @@ TEST(InputType, Constructors) {
   ASSERT_EQ("array[int8]", ty1_array.ToString());
   ASSERT_EQ("scalar[int8]", ty1_scalar.ToString());
 
-  ASSERT_EQ("any[decimal*]", ty2.ToString());
-  ASSERT_EQ("array[decimal*]", ty2_array.ToString());
-  ASSERT_EQ("scalar[decimal*]", ty2_scalar.ToString());
+  ASSERT_EQ("any[Type::DECIMAL]", ty2.ToString());
+  ASSERT_EQ("array[Type::DECIMAL]", ty2_array.ToString());
+  ASSERT_EQ("scalar[Type::DECIMAL]", ty2_scalar.ToString());
+
+  InputType ty7(match::TimestampUnit(TimeUnit::MICRO));
+  ASSERT_EQ("any[timestamp(us)]", ty7.ToString());
 }
 
 TEST(InputType, Equals) {
@@ -110,8 +148,8 @@ TEST(InputType, Equals) {
   InputType t4(int8(), ValueDescr::ARRAY);
   InputType t4_i32(int32(), ValueDescr::ARRAY);
 
-  InputType t5 = Type::DECIMAL;
-  InputType t6 = Type::DECIMAL;
+  InputType t5(Type::DECIMAL);
+  InputType t6(Type::DECIMAL);
   InputType t7(Type::DECIMAL, ValueDescr::SCALAR);
   InputType t7_i32(Type::INT32, ValueDescr::SCALAR);
   InputType t8(Type::DECIMAL, ValueDescr::SCALAR);
@@ -161,7 +199,7 @@ TEST(InputType, Hash) {
   InputType t0_array(ValueDescr::ARRAY);
 
   InputType t1 = int8();
-  InputType t2 = Type::DECIMAL;
+  InputType t2(Type::DECIMAL);
 
   // These checks try to determine first of all whether Hash always returns the
   // same value, and whether the elements of the type are all incorporated into
@@ -187,7 +225,7 @@ TEST(InputType, Matches) {
   ASSERT_TRUE(ty1.Matches(ValueDescr::Any(int8())));
   ASSERT_FALSE(ty1.Matches(ValueDescr::Any(int16())));
 
-  InputType ty2 = Type::DECIMAL;
+  InputType ty2(Type::DECIMAL);
   ASSERT_TRUE(ty2.Matches(ValueDescr::Scalar(decimal(12, 2))));
   ASSERT_TRUE(ty2.Matches(ValueDescr::Array(decimal(12, 2))));
   ASSERT_FALSE(ty2.Matches(ValueDescr::Any(float64())));
@@ -380,7 +418,7 @@ TEST(KernelSignature, MatchesInputs) {
   ASSERT_FALSE(sig1.MatchesInputs({int8()}));
 
   // (any[int8], any[decimal]) -> boolean
-  KernelSignature sig2({int8(), Type::DECIMAL}, boolean());
+  KernelSignature sig2({int8(), InputType(Type::DECIMAL)}, boolean());
 
   ASSERT_FALSE(sig2.MatchesInputs({}));
   ASSERT_FALSE(sig2.MatchesInputs({int8()}));
@@ -422,14 +460,14 @@ TEST(KernelSignature, ToString) {
                                      InputType(Type::DECIMAL, ValueDescr::ARRAY),
                                      InputType(utf8())};
   KernelSignature sig(in_types, utf8());
-  ASSERT_EQ("(scalar[int8], array[decimal*], any[string]) -> any[string]",
+  ASSERT_EQ("(scalar[int8], array[Type::DECIMAL], any[string]) -> any[string]",
             sig.ToString());
 
   OutputType out_type([](KernelContext*, const std::vector<ValueDescr>& args) {
     return Status::Invalid("NYI");
   });
-  KernelSignature sig2({int8(), Type::DECIMAL}, out_type);
-  ASSERT_EQ("(any[int8], any[decimal*]) -> computed", sig2.ToString());
+  KernelSignature sig2({int8(), InputType(Type::DECIMAL)}, out_type);
+  ASSERT_EQ("(any[int8], any[Type::DECIMAL]) -> computed", sig2.ToString());
 }
 
 TEST(KernelSignature, VarArgsToString) {

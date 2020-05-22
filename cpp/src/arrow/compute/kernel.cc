@@ -26,12 +26,14 @@
 #include "arrow/compute/exec.h"
 #include "arrow/result.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
 
+using internal::checked_cast;
 using internal::hash_combine;
 
 static constexpr uint64_t kHashSeed = 0;
@@ -77,17 +79,92 @@ void KernelContext::SetStatus(const Status& status) {
 void KernelContext::ResetStatus() { status_ = Status::OK(); }
 
 // ----------------------------------------------------------------------
+// Some basic TypeMatcher implementations
+
+namespace match {
+
+class SameTypeIdMatcher : public TypeMatcher {
+ public:
+  explicit SameTypeIdMatcher(Type::type accepted_id) : accepted_id_(accepted_id) {}
+
+  bool Matches(const DataType& type) const override { return type.id() == accepted_id_; }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << "Type::" << ::arrow::internal::ToString(accepted_id_);
+    return ss.str();
+  }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+
+    auto casted = dynamic_cast<const SameTypeIdMatcher*>(&other);
+    if (casted == nullptr) {
+      return false;
+    }
+    return this->accepted_id_ == casted->accepted_id_;
+  }
+
+ private:
+  Type::type accepted_id_;
+};
+
+std::shared_ptr<TypeMatcher> SameTypeId(Type::type type_id) {
+  return std::make_shared<SameTypeIdMatcher>(type_id);
+}
+
+class TimestampUnitMatcher : public TypeMatcher {
+ public:
+  explicit TimestampUnitMatcher(TimeUnit::type accepted_unit)
+      : accepted_unit_(accepted_unit) {}
+
+  bool Matches(const DataType& type) const override {
+    if (type.id() != Type::TIMESTAMP) {
+      return false;
+    }
+    const auto& ts_type = checked_cast<const TimestampType&>(type);
+    return ts_type.unit() == accepted_unit_;
+  }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    auto casted = dynamic_cast<const TimestampUnitMatcher*>(&other);
+    if (casted == nullptr) {
+      return false;
+    }
+    return this->accepted_unit_ == casted->accepted_unit_;
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << "timestamp(" << ::arrow::internal::ToString(accepted_unit_) << ")";
+    return ss.str();
+  }
+
+ private:
+  TimeUnit::type accepted_unit_;
+};
+
+std::shared_ptr<TypeMatcher> TimestampUnit(TimeUnit::type unit) {
+  return std::make_shared<TimestampUnitMatcher>(unit);
+}
+
+}  // namespace match
+
+// ----------------------------------------------------------------------
 // InputType
 
 uint64_t InputType::Hash() const {
   uint64_t result = kHashSeed;
   hash_combine(result, static_cast<int>(shape_));
+  hash_combine(result, static_cast<int>(kind_));
   switch (kind_) {
     case InputType::EXACT_TYPE:
       hash_combine(result, type_->Hash());
-      break;
-    case InputType::SAME_TYPE_ID:
-      hash_combine(result, static_cast<int>(type_id_));
       break;
     default:
       break;
@@ -116,10 +193,8 @@ std::string InputType::ToString() const {
     case InputType::EXACT_TYPE:
       ss << type_->ToString();
       break;
-    case InputType::SAME_TYPE_ID: {
-      // Indicate that the parameters for the type are unspecified. TODO: don't
-      // show this for types without parameters, like Type::INT32
-      ss << ::arrow::internal::ToString(type_id_) << "*";
+    case InputType::USE_TYPE_MATCHER: {
+      ss << type_matcher_->ToString();
     } break;
     default:
       DCHECK(false);
@@ -139,8 +214,8 @@ bool InputType::Equals(const InputType& other) const {
   switch (kind_) {
     case InputType::EXACT_TYPE:
       return type_->Equals(*other.type_);
-    case InputType::SAME_TYPE_ID:
-      return type_id_ == other.type_id_;
+    case InputType::USE_TYPE_MATCHER:
+      return type_matcher_->Equals(*other.type_matcher_);
     default:
       return false;
   }
@@ -153,8 +228,8 @@ bool InputType::Matches(const ValueDescr& descr) const {
   switch (kind_) {
     case InputType::EXACT_TYPE:
       return type_->Equals(*descr.type);
-    case InputType::SAME_TYPE_ID:
-      return type_id_ == descr.type->id();
+    case InputType::USE_TYPE_MATCHER:
+      return type_matcher_->Matches(*descr.type);
     default:
       // ANY_TYPE
       return true;
@@ -168,16 +243,9 @@ const std::shared_ptr<DataType>& InputType::type() const {
   return type_;
 }
 
-Type::type InputType::type_id() const {
-  switch (kind_) {
-    case InputType::EXACT_TYPE:
-      return type_->id();
-    case InputType::SAME_TYPE_ID:
-      return type_id_;
-    default:
-      DCHECK(false);
-      return Type::NA;
-  }
+const TypeMatcher& InputType::type_matcher() const {
+  DCHECK_EQ(InputType::USE_TYPE_MATCHER, kind_);
+  return *type_matcher_;
 }
 
 // ----------------------------------------------------------------------

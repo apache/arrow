@@ -92,74 +92,90 @@ namespace internal {
 std::string ToString(Type::type id) {
   switch (id) {
     case Type::NA:
-      return "null";
+      return "NA";
     case Type::BOOL:
-      return "bool";
+      return "BOOL";
     case Type::UINT8:
-      return "uint8";
+      return "UINT8";
     case Type::INT8:
-      return "int8";
+      return "INT8";
     case Type::UINT16:
-      return "uint16";
+      return "UINT16";
     case Type::INT16:
-      return "int16";
+      return "INT16";
     case Type::UINT32:
-      return "uint32";
+      return "UINT32";
     case Type::INT32:
-      return "int32";
+      return "INT32";
     case Type::UINT64:
-      return "uint64";
+      return "UINT64";
     case Type::INT64:
-      return "int64";
+      return "INT64";
     case Type::HALF_FLOAT:
-      return "half_float";
+      return "HALF_FLOAT";
     case Type::FLOAT:
-      return "float";
+      return "FLOAT";
     case Type::DOUBLE:
-      return "double";
+      return "DOUBLE";
     case Type::STRING:
-      return "utf8";
+      return "UTF8";
     case Type::BINARY:
-      return "binary";
+      return "BINARY";
     case Type::FIXED_SIZE_BINARY:
-      return "fixed_size_binary";
+      return "FIXED_SIZE_BINARY";
     case Type::DATE64:
-      return "date64";
+      return "DATE64";
     case Type::TIMESTAMP:
-      return "timestamp";
+      return "TIMESTAMP";
     case Type::TIME32:
-      return "time32";
+      return "TIME32";
     case Type::TIME64:
-      return "time64";
+      return "TIME64";
     case Type::INTERVAL_MONTHS:
-      return "interval_months";
+      return "INTERVAL_MONTHS";
     case Type::INTERVAL_DAY_TIME:
-      return "interval_day_time";
+      return "INTERVAL_DAY_TIME";
     case Type::DECIMAL:
-      return "decimal";
+      return "DECIMAL";
     case Type::LIST:
-      return "list";
+      return "LIST";
     case Type::STRUCT:
-      return "struct";
+      return "STRUCT";
     case Type::UNION:
-      return "union";
+      return "UNION";
     case Type::DICTIONARY:
-      return "dictionary";
+      return "DICTIONARY";
     case Type::MAP:
-      return "map";
+      return "MAP";
     case Type::EXTENSION:
-      return "extension";
+      return "EXTENSION";
     case Type::FIXED_SIZE_LIST:
-      return "fixed_size_list";
+      return "FIXED_SIZE_LIST";
     case Type::DURATION:
-      return "duration";
+      return "DURATION";
     case Type::LARGE_BINARY:
-      return "large_binary";
+      return "LARGE_BINARY";
     case Type::LARGE_LIST:
-      return "large_list";
+      return "LARGE_LIST";
     default:
       DCHECK(false) << "Should not be able to reach here";
       return "unknown";
+  }
+}
+
+std::string ToString(TimeUnit::type unit) {
+  switch (unit) {
+    case TimeUnit::SECOND:
+      return "s";
+    case TimeUnit::MILLI:
+      return "ms";
+    case TimeUnit::MICRO:
+      return "us";
+    case TimeUnit::NANO:
+      return "ns";
+    default:
+      DCHECK(false);
+      return "";
   }
 }
 

@@ -63,14 +63,15 @@ void ZeroCopyCastExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   }
 }
 
-void AddZeroCopyCast(InputType in_type, OutputType out_type, CastFunction* func) {
+void AddZeroCopyCast(Type::type in_type_id, InputType in_type, OutputType out_type,
+                     CastFunction* func) {
   auto sig = KernelSignature::Make({in_type}, out_type);
   ScalarKernel kernel;
   kernel.exec = ZeroCopyCastExec;
   kernel.signature = sig;
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
-  DCHECK_OK(func->AddKernel(in_type.type_id(), std::move(kernel)));
+  DCHECK_OK(func->AddKernel(in_type_id, std::move(kernel)));
 }
 
 }  // namespace internal

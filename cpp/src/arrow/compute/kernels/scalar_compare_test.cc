@@ -239,7 +239,7 @@ void ValidateCompare(CompareOptions options, const Datum& lhs, const Datum& rhs)
 }
 
 template <typename ArrowType>
-class TestNumericCompareKernel : public TestBase {};
+class TestNumericCompareKernel : public ::testing::Test {};
 
 TYPED_TEST_SUITE(TestNumericCompareKernel, NumericArrowTypes);
 TYPED_TEST(TestNumericCompareKernel, SimpleCompareArrayScalar) {
@@ -416,7 +416,37 @@ TYPED_TEST(TestNumericCompareKernel, RandomCompareArrayArray) {
   }
 }
 
-class TestStringCompareKernel : public TestBase {};
+TEST(TestCompareTimestamps, Basics) {
+  const char* example1_json = R"(["1970-01-01","2000-02-29","1900-02-28"])";
+  const char* example2_json = R"(["1970-01-02","2000-02-01","1900-02-28"])";
+
+  auto CheckArrayCase = [&](std::shared_ptr<DataType> type, CompareOperator op,
+                            const char* expected_json) {
+    auto lhs = ArrayFromJSON(type, example1_json);
+    auto rhs = ArrayFromJSON(type, example2_json);
+    auto expected = ArrayFromJSON(boolean(), expected_json);
+    ASSERT_OK_AND_ASSIGN(Datum result, Compare(lhs, rhs, CompareOptions(op)));
+    AssertArraysEqual(*expected, *result.make_array(), /*verbose=*/true);
+  };
+
+  auto seconds = timestamp(TimeUnit::SECOND);
+  auto millis = timestamp(TimeUnit::MILLI);
+  auto micros = timestamp(TimeUnit::MICRO);
+  auto nanos = timestamp(TimeUnit::NANO);
+
+  CheckArrayCase(seconds, CompareOperator::EQUAL, "[false, false, true]");
+  CheckArrayCase(seconds, CompareOperator::NOT_EQUAL, "[true, true, false]");
+  CheckArrayCase(seconds, CompareOperator::LESS, "[true, false, false]");
+  CheckArrayCase(seconds, CompareOperator::LESS_EQUAL, "[true, false, true]");
+  CheckArrayCase(seconds, CompareOperator::GREATER, "[false, true, false]");
+  CheckArrayCase(seconds, CompareOperator::GREATER_EQUAL, "[false, true, true]");
+
+  // Check that comparisons with tz-aware timestamps work fine
+  auto seconds_utc = timestamp(TimeUnit::SECOND, "utc");
+  CheckArrayCase(seconds_utc, CompareOperator::EQUAL, "[false, false, true]");
+}
+
+class TestStringCompareKernel : public ::testing::Test {};
 
 TEST_F(TestStringCompareKernel, SimpleCompareArrayScalar) {
   Datum one(std::make_shared<StringScalar>("one"));

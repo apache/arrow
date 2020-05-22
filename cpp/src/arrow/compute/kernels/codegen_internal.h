@@ -479,6 +479,21 @@ using ScalarBinaryEqualTypes = ScalarBinary<OutType, ArgType, ArgType, Op, Flipp
 // corresponding template that generate's the kernel's Exec function to be
 // instantiated
 
+namespace detail {
+
+// Convenience so we can pass DataType or Type::type into these kernel selectors
+struct GetTypeId {
+  Type::type id;
+  GetTypeId(const std::shared_ptr<DataType>& type)  // NOLINT implicit construction
+      : id(type->id()) {}
+  GetTypeId(const DataType& type)  // NOLINT implicit construction
+      : id(type.id()) {}
+  GetTypeId(Type::type id)  // NOLINT implicit construction
+      : id(id) {}
+};
+
+}  // namespace detail
+
 // Generate a kernel given a functor of type
 //
 // struct OPERATOR_NAME {
@@ -488,8 +503,8 @@ using ScalarBinaryEqualTypes = ScalarBinary<OutType, ArgType, ArgType, Op, Flipp
 //   }
 // };
 template <typename Op>
-ArrayKernelExec NumericEqualTypesUnary(const DataType& type) {
-  switch (type.id()) {
+ArrayKernelExec NumericEqualTypesUnary(detail::GetTypeId get_id) {
+  switch (get_id.id) {
     case Type::INT8:
       return ScalarPrimitiveExecUnary<Op, Int8Type, Int8Type>;
     case Type::UINT8:
@@ -525,8 +540,8 @@ ArrayKernelExec NumericEqualTypesUnary(const DataType& type) {
 //   }
 // };
 template <typename Op>
-ArrayKernelExec NumericEqualTypesBinary(const DataType& type) {
-  switch (type.id()) {
+ArrayKernelExec NumericEqualTypesBinary(detail::GetTypeId get_id) {
+  switch (get_id.id) {
     case Type::INT8:
       return ScalarPrimitiveExecBinary<Op, Int8Type, Int8Type, Int8Type>;
     case Type::UINT8:
@@ -567,8 +582,8 @@ ArrayKernelExec NumericEqualTypesBinary(const DataType& type) {
 // types
 template <template <typename...> class Generator,
           typename Type0, typename... Args>
-ArrayKernelExec Numeric(const DataType& type) {
-  switch (type.id()) {
+ArrayKernelExec Numeric(detail::GetTypeId get_id) {
+  switch (get_id.id) {
     case Type::INT8:
       return Generator<Type0, Int8Type, Args...>::Exec;
     case Type::UINT8:
@@ -600,8 +615,8 @@ ArrayKernelExec Numeric(const DataType& type) {
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator,
           typename Type0, typename... Args>
-ArrayKernelExec FloatingPoint(const DataType& type) {
-  switch (type.id()) {
+ArrayKernelExec FloatingPoint(detail::GetTypeId get_id) {
+  switch (get_id.id) {
     case Type::FLOAT:
       return Generator<Type0, FloatType, Args...>::Exec;
     case Type::DOUBLE:
@@ -617,8 +632,8 @@ ArrayKernelExec FloatingPoint(const DataType& type) {
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator,
           typename Type0, typename... Args>
-ArrayKernelExec Integer(const DataType& type) {
-  switch (type.id()) {
+ArrayKernelExec Integer(detail::GetTypeId get_id) {
+  switch (get_id.id) {
     case Type::INT8:
       return Generator<Type0, Int8Type, Args...>::Exec;
     case Type::INT16:
@@ -646,8 +661,8 @@ ArrayKernelExec Integer(const DataType& type) {
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator,
           typename Type0, typename... Args>
-ArrayKernelExec BaseBinary(const DataType& type) {
-  switch (type.id()) {
+ArrayKernelExec BaseBinary(detail::GetTypeId get_id) {
+  switch (get_id.id) {
     case Type::BINARY:
       return Generator<Type0, BinaryType, Args...>::Exec;
     case Type::STRING:
@@ -667,12 +682,14 @@ ArrayKernelExec BaseBinary(const DataType& type) {
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator,
           typename Type0, typename... Args>
-ArrayKernelExec Temporal(const DataType& type) {
-  switch (type.id()) {
+ArrayKernelExec Temporal(detail::GetTypeId get_id) {
+  switch (get_id.id) {
     case Type::DATE32:
       return Generator<Type0, Date32Type, Args...>::Exec;
     case Type::DATE64:
       return Generator<Type0, Date64Type, Args...>::Exec;
+    case Type::DURATION:
+      return Generator<Type0, DurationType, Args...>::Exec;
     case Type::TIME32:
       return Generator<Type0, Time32Type, Args...>::Exec;
     case Type::TIME64:

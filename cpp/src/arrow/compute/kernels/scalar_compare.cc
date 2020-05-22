@@ -68,33 +68,52 @@ struct LessEqual {
   }
 };
 
+template <typename InType, typename Op, typename FlippedOp>
+void AddCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
+  ArrayKernelExec exec =
+      codegen::ScalarBinaryEqualTypes<BooleanType, InType, Op, FlippedOp>::Exec;
+  DCHECK_OK(func->AddKernel({ty, ty}, boolean(), exec));
+}
+
+template <typename Op, typename FlippedOp>
+void AddTimestampComparisons(ScalarFunction* func) {
+  ArrayKernelExec exec =
+      codegen::ScalarBinaryEqualTypes<BooleanType, TimestampType, Op, FlippedOp>::Exec;
+  for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO}) {
+    InputType in_type(match::TimestampUnit(unit));
+    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), exec));
+  }
+}
+
 template <typename Op, typename FlippedOp = Op>
 void MakeCompareFunction(std::string name, FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Binary());
 
-  auto out_ty = boolean();
   DCHECK_OK(func->AddKernel(
-      {boolean(), boolean()}, out_ty,
+      {boolean(), boolean()}, boolean(),
       codegen::ScalarBinary<BooleanType, BooleanType, BooleanType, Op, FlippedOp>::Exec));
 
   for (const std::shared_ptr<DataType>& ty : NumericTypes()) {
     auto exec =
         codegen::Numeric<codegen::ScalarBinaryEqualTypes, BooleanType, Op, FlippedOp>(
             *ty);
-    DCHECK_OK(func->AddKernel({ty, ty}, out_ty, exec));
-  }
-  for (const std::shared_ptr<DataType>& ty : TemporalTypes()) {
-    auto exec =
-        codegen::Temporal<codegen::ScalarBinaryEqualTypes, BooleanType, Op, FlippedOp>(
-            *ty);
-    DCHECK_OK(func->AddKernel({ty, ty}, out_ty, exec));
+    DCHECK_OK(func->AddKernel({ty, ty}, boolean(), exec));
   }
   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
     auto exec =
         codegen::BaseBinary<codegen::ScalarBinaryEqualTypes, BooleanType, Op, FlippedOp>(
             *ty);
-    DCHECK_OK(func->AddKernel({ty, ty}, out_ty, exec));
+    DCHECK_OK(func->AddKernel({ty, ty}, boolean(), exec));
   }
+
+  // Temporal types requires some care because cross-unit comparisons with
+  // everything but DATE32 and DATE64 are not implemented yet
+  AddCompare<Date32Type, Op, FlippedOp>(date32(), func.get());
+  AddCompare<Date64Type, Op, FlippedOp>(date64(), func.get());
+  AddTimestampComparisons<Op, FlippedOp>(func.get());
+
+  // TODO: Leave time32, time64, and duration for follow up work
+
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 

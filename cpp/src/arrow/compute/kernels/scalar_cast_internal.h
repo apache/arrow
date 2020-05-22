@@ -240,7 +240,8 @@ void AddSimpleCast(InputType in_ty, OutputType out_ty, CastFunction* func) {
 
 void ZeroCopyCastExec(KernelContext* ctx, const ExecBatch& batch, Datum* out);
 
-void AddZeroCopyCast(InputType in_type, OutputType out_type, CastFunction* func);
+void AddZeroCopyCast(Type::type in_type_id, InputType in_type, OutputType out_type,
+                     CastFunction* func);
 
 // OutputType::Resolver that returns a descr with the shape of the input
 // argument and the type from CastOptions

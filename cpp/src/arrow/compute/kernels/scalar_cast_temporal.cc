@@ -304,8 +304,8 @@ std::shared_ptr<CastFunction> GetDate32Cast() {
   auto out_ty = date32();
   AddCommonCasts<Date32Type>(out_ty, func.get());
 
-  // int64 -> date64
-  AddZeroCopyCast(int32(), date32(), func.get());
+  // int32 -> date32
+  AddZeroCopyCast(Type::INT32, int32(), date32(), func.get());
 
   // date64 -> date32
   AddSimpleCast<Date64Type, Date32Type>(date64(), date32(), func.get());
@@ -322,7 +322,7 @@ std::shared_ptr<CastFunction> GetDate64Cast() {
   AddCommonCasts<Date64Type>(out_ty, func.get());
 
   // int64 -> date64
-  AddZeroCopyCast(int64(), date64(), func.get());
+  AddZeroCopyCast(Type::INT64, int64(), date64(), func.get());
 
   // date32 -> date64
   AddSimpleCast<Date32Type, Date64Type>(date32(), date64(), func.get());
@@ -344,7 +344,7 @@ std::shared_ptr<CastFunction> GetDurationCast() {
   auto nanos = duration(TimeUnit::NANO);
 
   // Same integer representation
-  AddZeroCopyCast(/*in_type=*/int64(), kOutputTargetType, func.get());
+  AddZeroCopyCast(Type::INT64, /*in_type=*/int64(), kOutputTargetType, func.get());
 
   // Between durations
   AddCrossUnitCast<DurationType>(func.get());
@@ -357,7 +357,7 @@ std::shared_ptr<CastFunction> GetTime32Cast() {
   AddCommonCasts<Date32Type>(kOutputTargetType, func.get());
 
   // Zero copy when the unit is the same or same integer representation
-  AddZeroCopyCast(/*in_type=*/int32(), kOutputTargetType, func.get());
+  AddZeroCopyCast(Type::INT32, /*in_type=*/int32(), kOutputTargetType, func.get());
 
   // time64 -> time32
   AddSimpleCast<Time64Type, Time32Type>(InputType(Type::TIME64), kOutputTargetType,
@@ -374,7 +374,7 @@ std::shared_ptr<CastFunction> GetTime64Cast() {
   AddCommonCasts<Time64Type>(kOutputTargetType, func.get());
 
   // Zero copy when the unit is the same or same integer representation
-  AddZeroCopyCast(/*in_type=*/int64(), kOutputTargetType, func.get());
+  AddZeroCopyCast(Type::INT64, /*in_type=*/int64(), kOutputTargetType, func.get());
 
   // time32 -> time64
   AddSimpleCast<Time32Type, Time64Type>(InputType(Type::TIME32), kOutputTargetType,
@@ -391,7 +391,7 @@ std::shared_ptr<CastFunction> GetTimestampCast() {
   AddCommonCasts<TimestampType>(kOutputTargetType, func.get());
 
   // Same integer representation
-  AddZeroCopyCast(/*in_type=*/int64(), kOutputTargetType, func.get());
+  AddZeroCopyCast(Type::INT64, /*in_type=*/int64(), kOutputTargetType, func.get());
 
   // From date types
   // TODO: ARROW-8876, these casts are not implemented

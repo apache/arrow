@@ -108,6 +108,34 @@ class ARROW_EXPORT KernelContext {
 /// (e.g. StringBuilder) must be employed
 using ArrayKernelExec = std::function<void(KernelContext*, const ExecBatch&, Datum*)>;
 
+/// \brief An abstract type-checking interface to permit customizable
+/// validation rules. This is for scenarios where the acceptance is not an
+/// exact type instance along with its unit.
+struct TypeMatcher {
+  virtual ~TypeMatcher() = default;
+
+  /// \brief Return true if this matcher accepts the data type
+  virtual bool Matches(const DataType& type) const = 0;
+
+  /// \brief A human-interpretable string representation of what the type
+  /// matcher checks for, usable when printing KernelSignature or formatting
+  /// error messages.
+  virtual std::string ToString() const = 0;
+
+  virtual bool Equals(const TypeMatcher& other) const = 0;
+};
+
+namespace match {
+
+/// \brief Match any DataType instance having the same DataType::id
+std::shared_ptr<TypeMatcher> SameTypeId(Type::type type_id);
+
+/// \brief Match any TimestampType instance having the same unit, but the time
+/// zones can be different
+std::shared_ptr<TypeMatcher> TimestampUnit(TimeUnit::type unit);
+
+}  // namespace match
+
 /// \brief A container to express what kernel argument input types are accepted
 class ARROW_EXPORT InputType {
  public:
@@ -120,9 +148,8 @@ class ARROW_EXPORT InputType {
     /// or same nested child types
     EXACT_TYPE,
 
-    /// Any type having the indicated Type::type id. For example, accept
-    /// any Type::LIST or any Type::TIMESTAMP
-    SAME_TYPE_ID,
+    /// Uses an TypeMatcher implementation to check the type
+    USE_TYPE_MATCHER
   };
 
   InputType(ValueDescr::Shape shape = ValueDescr::ANY)  // NOLINT implicit construction
@@ -130,14 +157,17 @@ class ARROW_EXPORT InputType {
 
   InputType(std::shared_ptr<DataType> type,
             ValueDescr::Shape shape = ValueDescr::ANY)  // NOLINT implicit construction
-      : kind_(EXACT_TYPE), shape_(shape), type_(std::move(type)), type_id_(type_->id()) {}
+      : kind_(EXACT_TYPE), shape_(shape), type_(std::move(type)) {}
 
   InputType(const ValueDescr& descr)  // NOLINT implicit construction
       : InputType(descr.type, descr.shape) {}
 
-  InputType(Type::type type_id,
-            ValueDescr::Shape shape = ValueDescr::ANY)  // NOLINT implicit construction
-      : kind_(SAME_TYPE_ID), shape_(shape), type_id_(type_id) {}
+  InputType(std::shared_ptr<TypeMatcher> type_matcher,
+            ValueDescr::Shape shape = ValueDescr::ANY)
+      : kind_(USE_TYPE_MATCHER), shape_(shape), type_matcher_(std::move(type_matcher)) {}
+
+  explicit InputType(Type::type type_id, ValueDescr::Shape shape = ValueDescr::ANY)
+      : InputType(match::SameTypeId(type_id), shape) {}
 
   InputType(const InputType& other) { CopyInto(other); }
 
@@ -186,38 +216,38 @@ class ARROW_EXPORT InputType {
 
   ValueDescr::Shape shape() const { return shape_; }
 
-  /// \brief For ArgKind::EXACT_TYPE, the exact type that this InputType must
+  /// \brief For InputType::EXACT_TYPE, the exact type that this InputType must
   /// match. Otherwise this function should not be used
   const std::shared_ptr<DataType>& type() const;
 
-  /// \brief For ArgKind::SAME_TYPE_ID, the Type::type that this InputType must
+  /// \brief For InputType::, the Type::type that this InputType must
   /// match, Otherwise this function should not be used
-  Type::type type_id() const;
+  const TypeMatcher& type_matcher() const;
 
  private:
   void CopyInto(const InputType& other) {
     this->kind_ = other.kind_;
     this->shape_ = other.shape_;
     this->type_ = other.type_;
-    this->type_id_ = other.type_id_;
+    this->type_matcher_ = other.type_matcher_;
   }
 
   void MoveInto(InputType&& other) {
     this->kind_ = other.kind_;
     this->shape_ = other.shape_;
     this->type_ = std::move(other.type_);
-    this->type_id_ = other.type_id_;
+    this->type_matcher_ = std::move(other.type_matcher_);
   }
 
   Kind kind_;
 
   ValueDescr::Shape shape_ = ValueDescr::ANY;
 
-  // For EXACT_TYPE ArgKind
+  // For EXACT_TYPE Kind
   std::shared_ptr<DataType> type_;
 
-  // For SAME_TYPE_ID ArgKind
-  Type::type type_id_ = Type::NA;
+  // For USE_TYPE_MATCHER Kind
+  std::shared_ptr<TypeMatcher> type_matcher_;
 };
 
 /// \brief Container to capture both exact and input-dependent output types
