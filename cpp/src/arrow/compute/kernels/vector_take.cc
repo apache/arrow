@@ -100,7 +100,7 @@ void RegisterVectorTake(FunctionRegistry* registry) {
       AddKernel(InputType::Array(value_ty), *value_ty, index_ty);
     }
   }
-  for (const auto& value_ty : g_dummy_parametric_types) {
+  for (const auto& value_ty : ExampleParametricTypes()) {
     for (const auto& index_ty : IntTypes()) {
       AddKernel(InputType::Array(value_ty->id()), *value_ty, index_ty);
     }

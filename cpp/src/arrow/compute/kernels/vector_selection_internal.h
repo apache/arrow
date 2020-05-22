@@ -771,22 +771,6 @@ Status Select(KernelContext* ctx, const Array& values, IndexSequence sequence,
   return taker->Finish(out);
 }
 
-// Construct dummy parametric types so that we can get VisitTypeInline to
-// work above
-static DataTypeVector g_dummy_parametric_types = {
-    decimal(12, 2),
-    timestamp(TimeUnit::SECOND),
-    time32(TimeUnit::SECOND),
-    time64(TimeUnit::MICRO),
-    fixed_size_binary(0),
-    list(null()),
-    large_list(null()),
-    fixed_size_list(field("dummy", null()), 0),
-    struct_({}),
-    union_({}),
-    dictionary(int32(), null()),
-    map(null(), null())};
-
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Implementation of casting to integer or floating point types
+// Implementation of casting to integer, floating point, or decimal types
 
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"

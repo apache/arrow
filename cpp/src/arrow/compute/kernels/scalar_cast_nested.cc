@@ -53,7 +53,7 @@ void CastListExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   result->child_data.push_back(casted_child.array());
 }
 
-OutputType kOutputTargetType(ResolveOutputFromOptions);
+static OutputType kOutputTargetType(ResolveOutputFromOptions);
 
 template <typename Type>
 void AddListCast(CastFunction* func) {

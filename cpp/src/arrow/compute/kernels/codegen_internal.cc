@@ -135,6 +135,27 @@ const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes() {
   return g_primitive_types;
 }
 
+const std::vector<std::shared_ptr<DataType>>& ExampleParametricTypes() {
+  static DataTypeVector example_parametric_types = {
+    decimal(12, 2),
+    duration(TimeUnit::SECOND),
+    timestamp(TimeUnit::SECOND),
+    time32(TimeUnit::SECOND),
+    time64(TimeUnit::MICRO),
+    fixed_size_binary(0),
+    list(null()),
+    large_list(null()),
+    fixed_size_list(field("dummy", null()), 0),
+    struct_({}),
+    union_({}),
+    dictionary(int32(), null()),
+    map(null(), null())};
+  return example_parametric_types;
+}
+
+// Construct dummy parametric types so that we can get VisitTypeInline to
+// work above
+
 Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& descrs) {
   return descrs[0];
 }

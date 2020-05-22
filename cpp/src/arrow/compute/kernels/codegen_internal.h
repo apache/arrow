@@ -150,13 +150,32 @@ void BinaryExecFlipped(KernelContext* ctx, ArrayKernelExec exec,
                        const ExecBatch& batch, Datum* out);
 
 // ----------------------------------------------------------------------
-// Template kernel exec function generators
+// Helpers for iterating over common DataType instances for adding kernels to
+// functions
 
 const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes();
 const std::vector<std::shared_ptr<DataType>>& SignedIntTypes();
 const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes();
 const std::vector<std::shared_ptr<DataType>>& IntTypes();
 const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes();
+
+// Returns a vector of example instances of parametric types such as
+//
+// * Decimal
+// * Timestamp (requiring unit)
+// * Time32 (requiring unit)
+// * Time64 (requiring unit)
+// * Duration (requiring unit)
+// * List, LargeList, FixedSizeList
+// * Struct
+// * Union
+// * Dictionary
+// * Map
+//
+// Generally kernels will use the "FirstType" OutputType::Resolver above for
+// the OutputType of the kernel's signature and match::SameTypeId for the
+// corresponding InputType
+const std::vector<std::shared_ptr<DataType>>& ExampleParametricTypes();
 
 // Number types without boolean
 const std::vector<std::shared_ptr<DataType>>& NumericTypes();
@@ -166,6 +185,10 @@ const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
 
 // Integer, floating point, base binary, and temporal
 const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
+
+// ----------------------------------------------------------------------
+// Template functions and utilities for generating ArrayKernelExec functions
+// for kernels given functors providing the right kind of template / prototype
 
 namespace codegen {
 
@@ -247,6 +270,10 @@ void ScalarPrimitiveExecBinary(KernelContext* ctx, const ExecBatch& batch, Datum
   }
 }
 
+// OutputAdapter allows passing an inlineable lambda that provides a sequence
+// of output values to write into output memory. Boolean and primitive outputs
+// are currently implemented, and the validity bitmap is presumed to be handled
+// at a higher level, so this writes into every output slot, null or not.
 template <typename Type, typename Enable = void>
 struct OutputAdapter;
 
@@ -287,7 +314,17 @@ struct OutputAdapter<Type, enable_if_base_binary<Type>> {
 // templates
 //
 // This template executes the operator even on the data behind null values,
-// therefore it is generally only suitable for operators that cannot fail.
+// therefore it is generally only suitable for operators that are safe to apply
+// even on the null slot values.
+//
+// The "Op" functor should have the form
+//
+// struct Op {
+//   template <typename OUT, typename ARG0>
+//   static OUT Call(KernelContext* ctx, ARG0 val) {
+//     // implementation
+//   }
+// };
 template <typename OutType, typename Arg0Type, typename Op>
 struct ScalarUnary {
   using OutScalar = typename TypeTraits<OutType>::ScalarType;
@@ -413,7 +450,17 @@ struct ScalarUnaryNotNull {
 // templates
 //
 // This template executes the operator even on the data behind null values,
-// therefore it is generally only suitable for operators that cannot fail.
+// therefore it is generally only suitable for operators that are safe to apply
+// even on the null slot values.
+//
+// The "Op" functor should have the form
+//
+// struct Op {
+//   template <typename OUT, typename ARG0, typename ARG1>
+//   static OUT Call(KernelContext* ctx, ARG0 arg0, ARG1 arg1) {
+//     // implementation
+//   }
+// };
 template <typename OutType, typename Arg0Type, typename Arg1Type, typename Op,
           typename FlippedOp = Op>
 struct ScalarBinary {
@@ -703,6 +750,5 @@ ArrayKernelExec Temporal(detail::GetTypeId get_id) {
 }
 
 }  // namespace codegen
-
 }  // namespace compute
 }  // namespace arrow

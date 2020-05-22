@@ -167,7 +167,7 @@ void RegisterVectorFilter(FunctionRegistry* registry) {
     AddKernel(InputType::Array(value_ty), *value_ty);
   }
   // Other types where we may only on the DataType::id
-  for (const auto& value_ty : g_dummy_parametric_types) {
+  for (const auto& value_ty : ExampleParametricTypes()) {
     AddKernel(InputType::Array(value_ty->id()), *value_ty);
   }
   DCHECK_OK(registry->AddFunction(std::move(filter)));
