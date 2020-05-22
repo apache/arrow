@@ -45,11 +45,10 @@ class ARROW_EXPORT FunctionRegistry {
 
   /// \brief Add a new kernel to the registry. Returns Status::KeyError if a
   /// kernel with the same name is already registered
-  Status AddFunction(std::shared_ptr<const Function> function,
-                     bool allow_overwrite = false);
+  Status AddFunction(std::shared_ptr<Function> function, bool allow_overwrite = false);
 
   /// \brief Retrieve a kernel by name from the registry
-  Result<std::shared_ptr<const Function>> GetFunction(const std::string& name) const;
+  Result<std::shared_ptr<Function>> GetFunction(const std::string& name) const;
 
   /// \brief Return vector of all entry names in the registry. Helpful for
   /// displaying a manifest of available kernels

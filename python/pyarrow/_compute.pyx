@@ -21,28 +21,97 @@ from pyarrow.lib cimport (
     Array,
     wrap_datum,
     check_status,
-    ChunkedArray
+    ChunkedArray,
+    ScalarValue
 )
-from pyarrow.includes.libarrow cimport CDatum, Sum
+from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.common cimport *
 
-
-cdef _sum_array(array: Array):
-    cdef CDatum out
-
-    with nogil:
-        out = GetResultValue(Sum(CDatum(array.sp_array)))
-
-    return wrap_datum(out)
+from pyarrow.compat import frombytes, tobytes
 
 
-cdef _sum_chunked_array(array: ChunkedArray):
-    cdef CDatum out
+cdef wrap_function(const shared_ptr[CFunction]& sp_func):
+    if sp_func.get() == NULL:
+        raise ValueError('Function was NULL')
 
-    with nogil:
-        out = GetResultValue(Sum(CDatum(array.sp_chunked_array)))
+    cdef Function func = Function.__new__(Function)
+    func.init(sp_func)
+    return func
 
-    return wrap_datum(out)
+
+
+cdef class Function:
+    """
+    The base class for all Arrow arrays.
+    """
+    cdef:
+        shared_ptr[CFunction] sp_func
+        const CFunction* func
+
+    def __init__(self):
+        raise TypeError("Do not call {}'s constructor directly"
+                        .format(self.__class__.__name__))
+
+    cdef void init(self, const shared_ptr[CFunction]& sp_func) except *:
+        self.sp_func = sp_func
+        self.func = sp_func.get()
+
+    @property
+    def num_kernels(self):
+        return self.func.num_kernels()
+
+    def call(self, args):
+        cdef:
+            const CFunctionOptions* c_options = NULL
+            vector[CDatum] c_args
+            CDatum result
+
+        _pack_compute_args(args, &c_args)
+
+        with nogil:
+            result = GetResultValue(self.func.Execute(c_args, c_options))
+
+        return wrap_datum(result)
+
+
+cdef _pack_compute_args(object values, vector[CDatum]* out):
+    for val in values:
+        if isinstance(val, Array):
+            out.push_back(CDatum((<Array> val).sp_array))
+        elif isinstance(val, ChunkedArray):
+            out.push_back(CDatum((<ChunkedArray> val).sp_chunked_array))
+        elif isinstance(val, ScalarValue):
+            out.push_back(CDatum((<ScalarValue> val).sp_scalar))
+        else:
+            raise TypeError(type(val))
+
+
+cdef class FunctionRegistry:
+    cdef:
+        CFunctionRegistry* registry
+
+    def __init__(self):
+        self.registry = GetFunctionRegistry()
+
+    def list_functions(self):
+        cdef vector[c_string] names = self.registry.GetFunctionNames()
+        return [frombytes(name) for name in names]
+
+    def get_function(self, name):
+        cdef:
+            c_string c_name = tobytes(name)
+            shared_ptr[CFunction] func
+        with nogil:
+            func = GetResultValue(self.registry.GetFunction(c_name))
+        return wrap_function(func)
+
+
+cdef FunctionRegistry _global_func_registry = FunctionRegistry()
+
+
+def call_function(name, args):
+    func = _global_func_registry.get_function(name)
+    return func.call(args)
 
 
 def sum(array):
@@ -57,12 +126,4 @@ def sum(array):
     -------
     sum : pyarrow.Scalar
     """
-    if isinstance(array, Array):
-        return _sum_array(array)
-    elif isinstance(array, ChunkedArray):
-        return _sum_chunked_array(array)
-    else:
-        raise ValueError(
-            "Only pyarrow.Array and pyarrow.ChunkedArray supported as"
-            " an input, passed {}".format(type(array))
-        )
+    return call_function('sum', [array])

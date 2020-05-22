@@ -1457,7 +1457,66 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CExecContext()
         CExecContext(CMemoryPool* pool)
 
-    cdef cppclass CCastOptions" arrow::compute::CastOptions":
+    cdef cppclass CKernelSignature" arrow::compute::KernelSignature":
+        c_string ToString() const
+
+    cdef cppclass CKernel" arrow::compute::Kernel":
+        shared_ptr[CKernelSignature] signature
+
+    cdef cppclass CArrayKernel" arrow::compute::ArrayKernel"(CKernel):
+        pass
+
+    cdef cppclass CScalarKernel" arrow::compute::ScalarKernel"(CArrayKernel):
+        pass
+
+    cdef cppclass CVectorKernel" arrow::compute::VectorKernel"(CArrayKernel):
+        pass
+
+    cdef cppclass CScalarAggregateKernel \
+            " arrow::compute::ScalarAggregateKernel"(CKernel):
+        pass
+
+    cdef cppclass CArity" arrow::compute::Arity":
+        int num_args
+        c_bool is_varargs
+
+    enum FunctionKind" arrow::compute::Function::Kind":
+        FunctionKind_SCALAR" arrow::compute::Function::SCALAR"
+        FunctionKind_VECTOR" arrow::compute::Function::VECTOR"
+        FunctionKind_SCALAR_AGGREGATE \
+            " arrow::compute::Function::SCALAR_AGGREGATE"
+
+    cdef cppclass CFunctionOptions" arrow::compute::FunctionOptions":
+        pass
+
+    cdef cppclass CFunction" arrow::compute::Function":
+        const c_string& name() const
+        FunctionKind kind() const
+        const CArity& arity() const
+        int num_kernels() const
+        CResult[CDatum] Execute(const vector[CDatum]& args,
+                                const CFunctionOptions* options)
+
+    cdef cppclass CScalarFunction" arrow::compute::ScalarFunction"(CFunction):
+        pass
+
+    cdef cppclass CVectorFunction" arrow::compute::VectorFunction"(CFunction):
+        pass
+
+    cdef cppclass CScalarAggregateFunction\
+            " arrow::compute::ScalarAggregateFunctionVectorFunction"\
+            (CFunction):
+        pass
+
+    cdef cppclass CFunctionRegistry" arrow::compute::FunctionRegistry":
+        CResult[shared_ptr[CFunction]] GetFunction(
+            const c_string& name) const
+        vector[c_string] GetFunctionNames() const
+        int num_functions() const
+
+    CFunctionRegistry* GetFunctionRegistry()
+
+    cdef cppclass CCastOptions" arrow::compute::CastOptions"(CFunctionOptions):
         CCastOptions()
         CCastOptions(c_bool safe)
 
@@ -1472,7 +1531,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool allow_float_truncate
         c_bool allow_invalid_utf8
 
-    cdef cppclass CTakeOptions" arrow::compute::TakeOptions":
+    cdef cppclass CTakeOptions" arrow::compute::TakeOptions"(CFunctionOptions):
         pass
 
     enum CFilterNullSelectionBehavior \
@@ -1482,7 +1541,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CFilterNullSelectionBehavior_EMIT_NULL \
             "arrow::compute::FilterOptions::EMIT_NULL"
 
-    cdef cppclass CFilterOptions" arrow::compute::FilterOptions":
+    cdef cppclass CFilterOptions \
+            " arrow::compute::FilterOptions"(CFunctionOptions):
         CFilterNullSelectionBehavior null_selection_behavior
 
     enum DatumType" arrow::Datum::type":
@@ -1498,6 +1558,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CDatum()
         CDatum(const shared_ptr[CArray]& value)
         CDatum(const shared_ptr[CChunkedArray]& value)
+        CDatum(const shared_ptr[CScalar]& value)
         CDatum(const shared_ptr[CRecordBatch]& value)
         CDatum(const shared_ptr[CTable]& value)
 

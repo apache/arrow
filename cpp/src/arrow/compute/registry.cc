@@ -32,7 +32,7 @@ namespace compute {
 
 class FunctionRegistry::FunctionRegistryImpl {
  public:
-  Status AddFunction(std::shared_ptr<const Function> function, bool allow_overwrite) {
+  Status AddFunction(std::shared_ptr<Function> function, bool allow_overwrite) {
     std::lock_guard<std::mutex> mutation_guard(lock_);
 
     const std::string& name = function->name();
@@ -44,7 +44,7 @@ class FunctionRegistry::FunctionRegistryImpl {
     return Status::OK();
   }
 
-  Result<std::shared_ptr<const Function>> GetFunction(const std::string& name) const {
+  Result<std::shared_ptr<Function>> GetFunction(const std::string& name) const {
     auto it = name_to_function_.find(name);
     if (it == name_to_function_.end()) {
       return Status::KeyError("No function registered with name: ", name);
@@ -65,7 +65,7 @@ class FunctionRegistry::FunctionRegistryImpl {
 
  private:
   std::mutex lock_;
-  std::unordered_map<std::string, std::shared_ptr<const Function>> name_to_function_;
+  std::unordered_map<std::string, std::shared_ptr<Function>> name_to_function_;
 };
 
 std::unique_ptr<FunctionRegistry> FunctionRegistry::Make() {
@@ -76,12 +76,12 @@ FunctionRegistry::FunctionRegistry() { impl_.reset(new FunctionRegistryImpl()); 
 
 FunctionRegistry::~FunctionRegistry() {}
 
-Status FunctionRegistry::AddFunction(std::shared_ptr<const Function> function,
+Status FunctionRegistry::AddFunction(std::shared_ptr<Function> function,
                                      bool allow_overwrite) {
   return impl_->AddFunction(std::move(function), allow_overwrite);
 }
 
-Result<std::shared_ptr<const Function>> FunctionRegistry::GetFunction(
+Result<std::shared_ptr<Function>> FunctionRegistry::GetFunction(
     const std::string& name) const {
   return impl_->GetFunction(name);
 }
