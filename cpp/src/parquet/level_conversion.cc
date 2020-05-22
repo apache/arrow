@@ -43,7 +43,7 @@ inline void CheckLevelRange(const int16_t* levels, int64_t num_levels,
   }
 }
 
-#if !defined(ARROW_HAVE_BMI2)
+#if !defined(ARROW_HAVE_AVX512)
 
 inline void DefinitionLevelsToBitmapScalar(
     const int16_t* def_levels, int64_t num_def_levels, const int16_t max_definition_level,
@@ -147,7 +147,11 @@ void DefinitionLevelsToBitmapLittleEndian(
     const int16_t max_repetition_level, int64_t* values_read, int64_t* null_count,
     uint8_t* valid_bits, int64_t valid_bits_offset) {
   if (max_repetition_level > 0) {
-#if defined(ARROW_HAVE_BMI2)
+// This is a short term hack to prevent using the pext BMI2 instructions
+// on non-intel platforms where performance is subpar.
+// In the medium term we will hopefully be able to runtime dispatch
+// to use this on intel only platforms that support pext.
+#if defined(ARROW_HAVE_AVX512)
     // BMI2 is required for efficient bit extraction.
     DefinitionLevelsToBitmapSimd</*has_repeated_parent=*/true>(
         def_levels, num_def_levels, max_definition_level, values_read, null_count,
