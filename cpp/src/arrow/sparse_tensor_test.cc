@@ -925,6 +925,84 @@ TEST_F(TestSparseSplitCOOTensor, CreationFromTensorWithDifferentIndexValueType) 
                            non_zero_length * sizeof(int64_t)));
 }
 
+template <typename ValueType>
+class TestSparseSplitCOOTensorEquality : public TestSparseTensorBase<ValueType> {
+ public:
+  void SetUp() {
+    shape_ = {2, 3, 4};
+    values1_ = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+    values2_ = {1, 0, 2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                0, 0, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+    auto buffer1 = Buffer::Wrap(values1_);
+    auto buffer2 = Buffer::Wrap(values2_);
+    ASSERT_OK_AND_ASSIGN(tensor1_, NumericTensor<ValueType>::Make(buffer1, this->shape_));
+    ASSERT_OK_AND_ASSIGN(tensor2_, NumericTensor<ValueType>::Make(buffer2, this->shape_));
+  }
+
+ protected:
+  using TestSparseTensorBase<ValueType>::shape_;
+  std::vector<typename ValueType::c_type> values1_;
+  std::vector<typename ValueType::c_type> values2_;
+  std::shared_ptr<NumericTensor<ValueType>> tensor1_;
+  std::shared_ptr<NumericTensor<ValueType>> tensor2_;
+};
+
+TYPED_TEST_SUITE_P(TestSparseSplitCOOTensorEquality);
+
+TYPED_TEST_P(TestSparseSplitCOOTensorEquality, TestEquality) {
+  std::shared_ptr<SparseSplitCOOTensor> st1, st2, st3;
+  ASSERT_OK_AND_ASSIGN(st1, SparseSplitCOOTensor::Make(*this->tensor1_, int64()));
+  ASSERT_OK_AND_ASSIGN(st2, SparseSplitCOOTensor::Make(*this->tensor2_, int64()));
+  ASSERT_OK_AND_ASSIGN(st3, SparseSplitCOOTensor::Make(*this->tensor1_, int64()));
+
+  EXPECT_TRUE(st1->Equals(*st1));
+  EXPECT_FALSE(st1->Equals(*st2));
+  EXPECT_TRUE(st1->Equals(*st3));
+}
+
+REGISTER_TYPED_TEST_SUITE_P(TestSparseSplitCOOTensorEquality, TestEquality);
+
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt8, TestSparseSplitCOOTensorEquality, Int8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8, TestSparseSplitCOOTensorEquality, UInt8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt16, TestSparseSplitCOOTensorEquality, Int16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt16, TestSparseSplitCOOTensorEquality, UInt16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt32, TestSparseSplitCOOTensorEquality, Int32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestSparseSplitCOOTensorEquality, UInt32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestSparseSplitCOOTensorEquality, Int64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestSparseSplitCOOTensorEquality, UInt64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestFloat32, TestSparseSplitCOOTensorEquality, FloatType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestFloat64, TestSparseSplitCOOTensorEquality, DoubleType);
+
+template <typename ValueType>
+class TestFloatingSparseSplitCOOTensorEquality
+    : public TestSparseSplitCOOTensorEquality<ValueType> {};
+
+TYPED_TEST_SUITE_P(TestFloatingSparseSplitCOOTensorEquality);
+
+TYPED_TEST_P(TestFloatingSparseSplitCOOTensorEquality, TestEqualityWithNaNs) {
+  using ValueType = TypeParam;
+  static_assert(is_floating_type<ValueType>::value, "Float type is required");
+
+  using c_value_type = typename ValueType::c_type;
+  const c_value_type nan_value = static_cast<c_value_type>(NAN);
+
+  this->values2_[13] = nan_value;
+  ASSERT_TRUE(std::isnan(this->tensor2_->Value({1, 0, 1})));
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseSplitCOOTensor> st4,
+                       SparseSplitCOOTensor::Make(*this->tensor2_, int64()));
+  EXPECT_FALSE(st4->Equals(*st4));                                  // same object
+  EXPECT_TRUE(st4->Equals(*st4, EqualOptions().nans_equal(true)));  // same object
+
+  std::vector<c_value_type> values5 = this->values2_;
+  NumericTensor<ValueType> tensor5(Buffer::Wrap(values5), this->shape_);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseSplitCOOTensor> st5,
+                       SparseSplitCOOTensor::Make(tensor5, int64()));
+  EXPECT_FALSE(st4->Equals(*st5));                                  // different memory
+  EXPECT_TRUE(st4->Equals(*st5, EqualOptions().nans_equal(true)));  // different memory
+}
+
 //-----------------------------------------------------------------------------
 // SparseCSRMatrix
 
