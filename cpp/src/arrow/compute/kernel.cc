@@ -36,7 +36,7 @@ namespace arrow {
 using internal::checked_cast;
 using internal::hash_combine;
 
-static constexpr uint64_t kHashSeed = 0;
+static constexpr size_t kHashSeed = 0;
 
 namespace compute {
 
