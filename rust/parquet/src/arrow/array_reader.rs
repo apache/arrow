@@ -609,21 +609,27 @@ where
 {
     let mut leaves = HashMap::<*const Type, usize>::new();
 
+    let mut filtered_fields: Vec<Rc<Type>> = Vec::new();
+
     for c in column_indices {
         let column = parquet_schema.column(c).self_type() as *const Type;
         leaves.insert(column, c);
+
+        let root = parquet_schema.get_column_root_ptr(c);
+        filtered_fields.push(root);
     }
 
     if leaves.is_empty() {
         return Err(general_err!("Can't build array reader without columns!"));
     }
 
-    ArrayReaderBuilder::new(
-        Rc::new(parquet_schema.root_schema().clone()),
-        Rc::new(leaves),
-        file_reader,
-    )
-    .build_array_reader()
+    let proj = Type::GroupType {
+        basic_info: parquet_schema.root_schema().get_basic_info().clone(),
+        fields: filtered_fields,
+    };
+
+    ArrayReaderBuilder::new(Rc::new(proj), Rc::new(leaves), file_reader)
+        .build_array_reader()
 }
 
 /// Used to build array reader.
