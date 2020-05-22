@@ -30,6 +30,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
@@ -47,7 +48,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-public class TestValidateVectorVisitor {
+public class TestValidateVector {
 
   private BufferAllocator allocator;
 
@@ -74,9 +75,9 @@ public class TestValidateVectorVisitor {
       validate(vector);
 
       vector.getDataBuffer().capacity(0);
-      IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
           () -> validate(vector));
-      assertTrue(e.getMessage().contains("Buffer #1 too small in vector of type"));
+      assertTrue(e.getMessage().contains("No enough capacity for fixed width data buffer"));
     }
   }
 
@@ -88,9 +89,23 @@ public class TestValidateVectorVisitor {
       validate(vector);
 
       vector.getDataBuffer().capacity(0);
-      IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
           () -> validate(vector));
-      assertTrue(e.getMessage().contains("Buffer #2 too small in vector of type"));
+      assertTrue(e.getMessage().contains("No enough capacity for data buffer"));
+    }
+  }
+
+  @Test
+  public void testBaseLargeVariableWidthVector() {
+    try (final LargeVarCharVector vector = new LargeVarCharVector("v", allocator)) {
+      validate(vector);
+      setVector(vector, STR1, STR2, null, STR3);
+      validate(vector);
+
+      vector.getDataBuffer().capacity(0);
+      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+          () -> validate(vector));
+      assertTrue(e.getMessage().contains("No enough capacity for data buffer"));
     }
   }
 
@@ -102,9 +117,9 @@ public class TestValidateVectorVisitor {
       validate(vector);
 
       vector.getDataVector().setValueCount(3);
-      IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
           () -> validate(vector));
-      assertEquals("Length spanned by list offsets (5) larger than data vector valueCount (length 3)",
+      assertEquals("Inner vector does not contain enough elements.",
           e.getMessage());
     }
   }
@@ -117,9 +132,9 @@ public class TestValidateVectorVisitor {
       validate(vector);
 
       vector.getDataVector().setValueCount(3);
-      IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
           () -> validate(vector));
-      assertEquals("data vector valueCount invalid, expect 6, actual is: 3",
+      assertEquals("Inner vector does not contain enough elements.",
           e.getMessage());
     }
   }
@@ -143,17 +158,17 @@ public class TestValidateVectorVisitor {
       writer.setValueCount(5);
 
       vector.getChild("f0").setValueCount(2);
-      IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
           () -> validate(vector));
-      assertTrue(e.getMessage().contains("valueCount is not equals with struct vector"));
+      assertTrue(e.getMessage().contains("Struct vector length not equal to child vector length"));
 
       vector.getChild("f0").setValueCount(5);
       validate(vector);
 
       vector.getChild("f0").getDataBuffer().capacity(0);
-      IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class,
+      ValidateUtility.ValidateException e2 = assertThrows(ValidateUtility.ValidateException.class,
           () -> validate(vector));
-      assertTrue(e2.getMessage().contains("valueBuffer is null or capacity is 0"));
+      assertTrue(e2.getMessage().contains("No enough capacity for fixed width data buffer"));
     }
   }
 
@@ -179,17 +194,17 @@ public class TestValidateVectorVisitor {
       validate(vector);
 
       vector.getChildrenFromFields().get(0).setValueCount(1);
-      IllegalArgumentException e1 = assertThrows(IllegalArgumentException.class,
+      ValidateUtility.ValidateException e1 = assertThrows(ValidateUtility.ValidateException.class,
           () -> validate(vector));
-      assertTrue(e1.getMessage().contains("valueCount is not equals with union vector"));
+      assertTrue(e1.getMessage().contains("Union vector length not equal to child vector length"));
 
       vector.getChildrenFromFields().get(0).setValueCount(2);
       validate(vector);
 
       vector.getChildrenFromFields().get(0).getDataBuffer().capacity(0);
-      IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class,
+      ValidateUtility.ValidateException e2 = assertThrows(ValidateUtility.ValidateException.class,
           () -> validate(vector));
-      assertTrue(e2.getMessage().contains("valueBuffer is null or capacity is 0"));
+      assertTrue(e2.getMessage().contains("No enough capacity for fixed width data buffer"));
     }
   }
 
@@ -218,9 +233,9 @@ public class TestValidateVectorVisitor {
       validate(vector);
 
       vector.getChildrenFromFields().get(0).getDataBuffer().capacity(0);
-      IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
           () -> validate(vector));
-      assertTrue(e.getMessage().contains("valueBuffer is null or capacity is 0"));
+      assertTrue(e.getMessage().contains("No enough capacity for fixed width data buffer"));
     }
   }
 
