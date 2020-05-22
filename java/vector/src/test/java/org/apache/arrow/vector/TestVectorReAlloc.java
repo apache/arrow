@@ -24,9 +24,18 @@ import java.nio.charset.StandardCharsets;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.DataSizeRoundingUtil;
+import org.apache.arrow.vector.complex.DenseUnionVector;
+import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.complex.impl.NullableStructWriter;
+import org.apache.arrow.vector.complex.impl.UnionFixedSizeListWriter;
+import org.apache.arrow.vector.complex.impl.UnionListWriter;
+import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Assert;
@@ -246,6 +255,141 @@ public class TestVectorReAlloc {
       for (int i = 0; i < 1024; ++i) {
         vector.clear(); // clear vector.
         vector.setSafe(0, "hello world".getBytes());
+      }
+
+      // should be deterministic, and not cause a run-away increase in capacity.
+      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+    }
+  }
+
+  @Test
+  public void testRepeatedValueVectorClearAndSet() throws Exception {
+    try (final ListVector vector = new ListVector("", allocator, FieldType.nullable(MinorType.INT.getType()), null)) {
+      vector.allocateNewSafe(); // Initial allocation
+      UnionListWriter writer = vector.getWriter();
+
+      vector.clear(); // clear vector.
+      writer.setPosition(0); // optional
+      writer.startList();
+      writer.writeInt(0);
+      writer.endList();
+      int savedValueCapacity = vector.getValueCapacity();
+
+      for (int i = 0; i < 1024; ++i) {
+        vector.clear(); // clear vector.
+        writer.setPosition(0); // optional
+        writer.startList();
+        writer.writeInt(i);
+        writer.endList();
+      }
+
+      // should be deterministic, and not cause a run-away increase in capacity.
+      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+    }
+  }
+
+  @Test
+  public void testStructVectorClearAndSet() throws Exception {
+    try (final StructVector vector = StructVector.empty("v", allocator)) {
+      vector.allocateNewSafe(); // Initial allocation
+
+      NullableStructWriter writer = vector.getWriter();
+
+      vector.clear(); // clear vector.
+      writer.setPosition(0); // optional
+      writer.start();
+      writer.integer("int").writeInt(0);
+      writer.end();
+      int savedValueCapacity = vector.getValueCapacity();
+
+      for (int i = 0; i < 1024; ++i) {
+        vector.clear(); // clear vector.
+        writer.setPosition(0); // optional
+        writer.start();
+        writer.integer("int").writeInt(i);
+        writer.end();
+      }
+
+      // should be deterministic, and not cause a run-away increase in capacity.
+      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+    }
+  }
+
+  @Test
+  public void testFixedSizeListVectorClearAndSet() {
+    try (final FixedSizeListVector vector = new FixedSizeListVector("", allocator,
+        FieldType.nullable(new ArrowType.FixedSizeList(2)), null)) {
+      vector.allocateNewSafe(); // Initial allocation
+      UnionFixedSizeListWriter writer = vector.getWriter();
+
+      vector.clear(); // clear vector.
+      writer.setPosition(0); // optional
+      writer.startList();
+      writer.writeInt(0);
+      writer.writeInt(1);
+      writer.endList();
+      int savedValueCapacity = vector.getValueCapacity();
+
+      for (int i = 0; i < 1024; ++i) {
+        vector.clear(); // clear vector.
+        writer.setPosition(0); // optional
+        writer.startList();
+        writer.writeInt(i);
+        writer.writeInt(i + 1);
+        writer.endList();
+      }
+
+      // should be deterministic, and not cause a run-away increase in capacity.
+      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+    }
+  }
+
+  @Test
+  public void testUnionVectorClearAndSet() {
+    try (final UnionVector vector = new UnionVector("", allocator, null)) {
+      vector.allocateNewSafe(); // Initial allocation
+
+      NullableIntHolder holder = new NullableIntHolder();
+      holder.isSet = 1;
+      holder.value = 1;
+
+      vector.clear(); // clear vector.
+      vector.setType(0, MinorType.INT);
+      vector.setSafe(0, holder);
+      int savedValueCapacity = vector.getValueCapacity();
+
+      for (int i = 0; i < 1024; ++i) {
+        vector.clear(); // clear vector.
+        vector.setType(0, MinorType.INT);
+        vector.setSafe(0, holder);
+      }
+
+      // should be deterministic, and not cause a run-away increase in capacity.
+      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+    }
+  }
+
+  @Test
+  public void testDenseUnionVectorClearAndSet() {
+    try (final DenseUnionVector vector = new DenseUnionVector("", allocator, null, null)) {
+      vector.allocateNewSafe(); // Initial allocation
+
+      NullableIntHolder holder = new NullableIntHolder();
+      holder.isSet = 1;
+      holder.value = 1;
+
+      byte intTypeId = vector.registerNewTypeId(Field.nullable("", MinorType.INT.getType()));
+
+      vector.clear();
+      vector.setTypeId(0, intTypeId);
+      vector.setSafe(0, holder);
+
+      int savedValueCapacity = vector.getValueCapacity();
+
+      for (int i = 0; i < 1024; ++i) {
+        vector.clear();
+        vector.setTypeId(0, intTypeId);
+        vector.setSafe(0, holder);
       }
 
       // should be deterministic, and not cause a run-away increase in capacity.
