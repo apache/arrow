@@ -325,13 +325,14 @@ public class UnionVector implements FieldVector {
 
   private void reallocTypeBuffer() {
     final long currentBufferCapacity = typeBuffer.capacity();
-    long baseSize  = typeBufferAllocationSizeInBytes;
-
-    if (baseSize < currentBufferCapacity) {
-      baseSize = currentBufferCapacity;
+    long newAllocationSize = currentBufferCapacity * 2;
+    if (newAllocationSize == 0) {
+      if (typeBufferAllocationSizeInBytes > 0) {
+        newAllocationSize = typeBufferAllocationSizeInBytes;
+      } else {
+        newAllocationSize = BaseValueVector.INITIAL_VALUE_ALLOCATION * TYPE_WIDTH * 2;
+      }
     }
-
-    long newAllocationSize = baseSize * 2L;
     newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
     assert newAllocationSize >= 1;
 
