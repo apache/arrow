@@ -45,27 +45,29 @@ SCALAR_EAGER_BINARY(Add, "add")
 // Set-related operations
 
 static Result<Datum> ExecSetLookup(const std::string& func_name, const Datum& data,
-                                   std::shared_ptr<Array> value_set,
-                                   bool add_nulls_to_hash_table, ExecContext* ctx) {
-  if (value_set->length() > 0 && !data.type()->Equals(value_set->type())) {
+                                   const Datum& value_set, bool add_nulls_to_hash_table,
+                                   ExecContext* ctx) {
+  if (!value_set.is_arraylike()) {
+    return Status::Invalid("Set lookup value set must be Array or ChunkedArray");
+  }
+
+  if (value_set.length() > 0 && !data.type()->Equals(value_set.type())) {
     std::stringstream ss;
     ss << "Array type didn't match type of values set: " << data.type()->ToString()
-       << " vs " << value_set->type()->ToString();
+       << " vs " << value_set.type()->ToString();
     return Status::Invalid(ss.str());
   }
-  SetLookupOptions options(std::move(value_set), !add_nulls_to_hash_table);
+  SetLookupOptions options(value_set, !add_nulls_to_hash_table);
   return CallFunction(ctx, func_name, {data}, &options);
 }
 
-Result<Datum> IsIn(const Datum& values, std::shared_ptr<Array> value_set,
-                   ExecContext* ctx) {
-  return ExecSetLookup("isin", values, std::move(value_set),
+Result<Datum> IsIn(const Datum& values, const Datum& value_set, ExecContext* ctx) {
+  return ExecSetLookup("isin", values, value_set,
                        /*add_nulls_to_hash_table=*/false, ctx);
 }
 
-Result<Datum> Match(const Datum& values, std::shared_ptr<Array> value_set,
-                    ExecContext* ctx) {
-  return ExecSetLookup("match", values, std::move(value_set),
+Result<Datum> Match(const Datum& values, const Datum& value_set, ExecContext* ctx) {
+  return ExecSetLookup("match", values, value_set,
                        /*add_nulls_to_hash_table=*/true, ctx);
 }
 

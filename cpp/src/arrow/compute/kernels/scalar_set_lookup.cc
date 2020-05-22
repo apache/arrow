@@ -38,11 +38,11 @@ using enable_if_supports_set_lookup =
 
 template <typename Type>
 struct SetLookupState : public KernelState {
-  explicit SetLookupState(MemoryPool* pool) : lookup_table(pool, 0) {}
+  explicit SetLookupState(MemoryPool* pool)
+      : lookup_table(pool, 0), lookup_null_count(0) {}
 
   Status Init(const SetLookupOptions& options) {
     using T = typename GetValueType<Type>::T;
-    this->lookup_null_count = options.value_set->null_count();
     auto insert_value = [&](util::optional<T> v) {
       if (v.has_value()) {
         int32_t unused_memo_index;
@@ -52,7 +52,18 @@ struct SetLookupState : public KernelState {
       }
       return Status::OK();
     };
-    return VisitArrayDataInline<Type>(*options.value_set->data(), insert_value);
+    if (options.value_set.kind() == Datum::ARRAY) {
+      const std::shared_ptr<ArrayData>& value_set = options.value_set.array();
+      this->lookup_null_count += value_set->GetNullCount();
+      return VisitArrayDataInline<Type>(*value_set, insert_value);
+    } else {
+      const ChunkedArray& value_set = *options.value_set.chunked_array();
+      for (const std::shared_ptr<Array>& chunk : value_set.chunks()) {
+        this->lookup_null_count += chunk->null_count();
+        RETURN_NOT_OK(VisitArrayDataInline<Type>(*chunk->data(), insert_value));
+      }
+      return Status::OK();
+    }
   }
 
   using MemoTable = typename HashTraits<Type>::MemoTableType;
@@ -66,7 +77,7 @@ struct SetLookupState<NullType> : public KernelState {
   explicit SetLookupState(MemoryPool*) {}
 
   Status Init(const SetLookupOptions& options) {
-    this->lookup_null_count = options.value_set->null_count();
+    this->lookup_null_count = options.value_set.null_count();
     return Status::OK();
   }
 
@@ -96,7 +107,7 @@ struct InitStateVisitor {
     return Init<Type>();
   }
   Status GetResult(std::unique_ptr<KernelState>* out) {
-    RETURN_NOT_OK(VisitTypeInline(*options->value_set->type(), this));
+    RETURN_NOT_OK(VisitTypeInline(*options->value_set.type(), this));
     *out = std::move(result);
     return Status::OK();
   }

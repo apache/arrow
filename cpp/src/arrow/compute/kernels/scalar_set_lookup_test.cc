@@ -367,7 +367,35 @@ TEST_F(TestIsInKernel, IsInDecimal) {
                                         member_set, {true, false, true, true}, expected,
                                         {});
 }
+TEST_F(TestIsInKernel, IsInChunkedArrayInvoke) {
+  std::vector<std::string> values1 = {"foo", "bar", "foo"};
+  std::vector<std::string> values2 = {"bar", "baz", "quuux", "foo"};
+  std::vector<std::string> values3 = {"foo", "bar", "foo"};
+  std::vector<std::string> values4 = {"bar", "baz", "barr", "foo"};
 
+  auto type = utf8();
+  auto a1 = _MakeArray<StringType, std::string>(type, values1, {});
+  auto a2 = _MakeArray<StringType, std::string>(type, values2, {true, true, true, false});
+  auto a3 = _MakeArray<StringType, std::string>(type, values3, {});
+  auto a4 = _MakeArray<StringType, std::string>(type, values4, {});
+
+  ArrayVector array1 = {a1, a2};
+  auto carr = std::make_shared<ChunkedArray>(array1);
+  ArrayVector array2 = {a3, a4};
+  auto member_set = std::make_shared<ChunkedArray>(array2);
+
+  auto i1 = _MakeArray<BooleanType, bool>(boolean(), {true, true, true}, {});
+  auto i2 = _MakeArray<BooleanType, bool>(boolean(), {true, true, false, false},
+                                          {true, true, true, false});
+
+  ArrayVector expected = {i1, i2};
+  auto expected_carr = std::make_shared<ChunkedArray>(expected);
+
+  ASSERT_OK_AND_ASSIGN(Datum encoded_out, IsIn(carr, member_set));
+  ASSERT_EQ(Datum::CHUNKED_ARRAY, encoded_out.kind());
+
+  AssertChunkedEqual(*expected_carr, *encoded_out.chunked_array());
+}
 // ----------------------------------------------------------------------
 // Match tests
 
@@ -670,6 +698,36 @@ TEST_F(TestMatchKernel, MatchDecimal) {
              /* haystack= */ R"(["12", null, "11", "12"])",
              /* needles= */ R"(["12", null, "11", "12"])",
              /* expected= */ R"([0, 1, 2, 0])");
+}
+
+TEST_F(TestMatchKernel, MatchChunkedArrayInvoke) {
+  std::vector<std::string> values1 = {"foo", "bar", "foo"};
+  std::vector<std::string> values2 = {"bar", "baz", "quuux", "foo"};
+  std::vector<std::string> values3 = {"foo", "bar", "foo"};
+  std::vector<std::string> values4 = {"bar", "baz", "barr", "foo"};
+
+  auto type = utf8();
+  auto a1 = _MakeArray<StringType, std::string>(type, values1, {});
+  auto a2 = _MakeArray<StringType, std::string>(type, values2, {true, true, true, false});
+  auto a3 = _MakeArray<StringType, std::string>(type, values3, {});
+  auto a4 = _MakeArray<StringType, std::string>(type, values4, {});
+
+  ArrayVector array1 = {a1, a2};
+  auto carr = std::make_shared<ChunkedArray>(array1);
+  ArrayVector array2 = {a3, a4};
+  auto member_set = std::make_shared<ChunkedArray>(array2);
+
+  auto i1 = _MakeArray<Int32Type, int32_t>(int32(), {0, 1, 0}, {});
+  auto i2 =
+      _MakeArray<Int32Type, int32_t>(int32(), {1, 2, 2, 2}, {true, true, false, false});
+
+  ArrayVector expected = {i1, i2};
+  auto expected_carr = std::make_shared<ChunkedArray>(expected);
+
+  ASSERT_OK_AND_ASSIGN(Datum encoded_out, Match(carr, Datum(member_set)));
+  ASSERT_EQ(Datum::CHUNKED_ARRAY, encoded_out.kind());
+
+  AssertChunkedEqual(*expected_carr, *encoded_out.chunked_array());
 }
 
 }  // namespace compute

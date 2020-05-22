@@ -156,10 +156,10 @@ Result<Datum> Xor(const Datum& left, const Datum& right, ExecContext* ctx = NULL
 
 /// For set lookup operations like IsIn, Match
 struct ARROW_EXPORT SetLookupOptions : public FunctionOptions {
-  explicit SetLookupOptions(std::shared_ptr<Array> value_set, bool skip_nulls)
+  explicit SetLookupOptions(Datum value_set, bool skip_nulls)
       : value_set(std::move(value_set)), skip_nulls(skip_nulls) {}
 
-  std::shared_ptr<Array> value_set;
+  Datum value_set;
   bool skip_nulls;
 };
 
@@ -170,38 +170,38 @@ struct ARROW_EXPORT SetLookupOptions : public FunctionOptions {
 /// it returns true, else returns null.
 ///
 /// \param[in] values array-like input to look up in value_set
-/// \param[in] value_set Array input
+/// \param[in] value_set either Array or ChunkedArray
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> IsIn(const Datum& values, std::shared_ptr<Array> value_set,
+Result<Datum> IsIn(const Datum& values, const Datum& value_set,
                    ExecContext* ctx = NULLPTR);
 
-/// \brief Match examines each slot in the haystack against a needles array.
-/// If the value is not found in needles, null will be output.
-/// If found, the index of occurrence within needles (ignoring duplicates)
+/// \brief Match examines each slot in the values against a value_set array.
+/// If the value is not found in value_set, null will be output.
+/// If found, the index of occurrence within value_set (ignoring duplicates)
 /// will be output.
 ///
-/// For example given haystack = [99, 42, 3, null] and
-/// needles = [3, 3, 99], the output will be = [1, null, 0, null]
+/// For example given values = [99, 42, 3, null] and
+/// value_set = [3, 3, 99], the output will be = [1, null, 0, null]
 ///
-/// Note: Null in the haystack is considered to match
-/// a null in the needles array. For example given
-/// haystack = [99, 42, 3, null] and needles = [3, 99, null],
+/// Note: Null in the values is considered to match
+/// a null in the value_set array. For example given
+/// values = [99, 42, 3, null] and value_set = [3, 99, null],
 /// the output will be = [1, null, 0, 2]
 ///
-/// \param[in] haystack array-like input
-/// \param[in] needles Array input
+/// \param[in] values array-like input
+/// \param[in] value_set either Array or ChunkedArray
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Match(const Datum& haystack, std::shared_ptr<Array> needles,
+Result<Datum> Match(const Datum& values, const Datum& value_set,
                     ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
