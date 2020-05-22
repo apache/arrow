@@ -18,7 +18,6 @@
 #include "arrow/compute/cast.h"
 
 #include <mutex>
-#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -26,10 +25,7 @@
 #include <vector>
 
 #include "arrow/compute/cast_internal.h"
-#include "arrow/compute/exec.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/options.h"
-#include "arrow/compute/registry.h"
 
 namespace arrow {
 namespace compute {
@@ -55,13 +51,6 @@ void InitCastTable() {
 
 void EnsureInitCastTable() { std::call_once(cast_table_initialized, InitCastTable); }
 
-void RegisterScalarCasts(FunctionRegistry* registry) {
-  EnsureInitCastTable();
-  for (auto it : g_cast_table) {
-    DCHECK_OK(registry->AddFunction(it.second));
-  }
-}
-
 }  // namespace internal
 
 struct CastFunction::CastFunctionImpl {
@@ -80,9 +69,7 @@ CastFunction::~CastFunction() {}
 Type::type CastFunction::out_type_id() const { return impl_->out_type; }
 
 std::unique_ptr<KernelState> CastInit(KernelContext* ctx, const KernelInitArgs& args) {
-  // NOTE: TakeOptions are currently unused, but we pass it through anyway
   auto cast_options = static_cast<const CastOptions*>(args.options);
-
   // Ensure that the requested type to cast to was attached to the options
   DCHECK(cast_options->to_type);
   return std::unique_ptr<KernelState>(new internal::CastState(*cast_options));

@@ -23,6 +23,7 @@
 #include "arrow/compute/api_aggregate.h"  // IWYU pragma: export
 #include "arrow/compute/api_scalar.h"     // IWYU pragma: export
 #include "arrow/compute/api_vector.h"     // IWYU pragma: export
+#include "arrow/compute/cast.h"           // IWYU pragma: export
 #include "arrow/compute/exec.h"           // IWYU pragma: export
 #include "arrow/compute/function.h"       // IWYU pragma: export
 #include "arrow/compute/kernel.h"         // IWYU pragma: export

@@ -17,6 +17,7 @@
 
 #include "arrow/compute/kernels/codegen_internal.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -35,9 +36,7 @@ void ExecFail(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 void BinaryExecFlipped(KernelContext* ctx, ArrayKernelExec exec,
                        const ExecBatch& batch, Datum* out) {
   ExecBatch flipped_batch = batch;
-  Datum tmp = flipped_batch.values[0];
-  flipped_batch.values[0] = flipped_batch.values[1];
-  flipped_batch.values[1] = tmp;
+  std::swap(flipped_batch.values[0], flipped_batch.values[1]);
   exec(ctx, flipped_batch, out);
 }
 
@@ -53,53 +52,37 @@ static std::once_flag codegen_static_initialized;
 
 static void InitStaticData() {
   // Signed int types
-  g_signed_int_types.push_back(int8());
-  g_signed_int_types.push_back(int16());
-  g_signed_int_types.push_back(int32());
-  g_signed_int_types.push_back(int64());
+  g_signed_int_types = {int8(), int16(), int32(), int64()};
 
   // Unsigned int types
-  g_unsigned_int_types.push_back(uint8());
-  g_unsigned_int_types.push_back(uint16());
-  g_unsigned_int_types.push_back(uint32());
-  g_unsigned_int_types.push_back(uint64());
+  g_unsigned_int_types = {uint8(), uint16(), uint32(), uint64()};
 
   // All int types
   Extend(g_unsigned_int_types, &g_int_types);
   Extend(g_signed_int_types, &g_int_types);
 
   // Floating point types
-  g_floating_types.push_back(float32());
-  g_floating_types.push_back(float64());
+  g_floating_types = {float32(), float64()};
 
   // Numeric types
   Extend(g_int_types, &g_numeric_types);
   Extend(g_floating_types, &g_numeric_types);
 
   // Temporal types
-  g_temporal_types.push_back(date32());
-  g_temporal_types.push_back(date64());
-  g_temporal_types.push_back(time32(TimeUnit::SECOND));
-  g_temporal_types.push_back(time32(TimeUnit::MILLI));
-  g_temporal_types.push_back(time64(TimeUnit::MICRO));
-  g_temporal_types.push_back(time64(TimeUnit::NANO));
-  g_temporal_types.push_back(timestamp(TimeUnit::SECOND));
-  g_temporal_types.push_back(timestamp(TimeUnit::MILLI));
-  g_temporal_types.push_back(timestamp(TimeUnit::MICRO));
-  g_temporal_types.push_back(timestamp(TimeUnit::NANO));
+  g_temporal_types = {date32(), date64(), time32(TimeUnit::SECOND),
+                      time32(TimeUnit::MILLI), time64(TimeUnit::MICRO),
+                      time64(TimeUnit::NANO), timestamp(TimeUnit::SECOND),
+                      timestamp(TimeUnit::MILLI), timestamp(TimeUnit::MICRO),
+                      timestamp(TimeUnit::NANO)};
 
   // Base binary types (without FixedSizeBinary)
-  g_base_binary_types.push_back(binary());
-  g_base_binary_types.push_back(utf8());
-  g_base_binary_types.push_back(large_binary());
-  g_base_binary_types.push_back(large_utf8());
+  g_base_binary_types = {binary(), utf8(), large_binary(), large_utf8()};
 
   // Non-parametric, non-nested types. This also DOES NOT include
   //
   // * Decimal
   // * Fixed Size Binary
-  g_primitive_types.push_back(null());
-  g_primitive_types.push_back(boolean());
+  g_primitive_types = {null(), boolean()};
   Extend(g_numeric_types, &g_primitive_types);
   Extend(g_temporal_types, &g_primitive_types);
   Extend(g_base_binary_types, &g_primitive_types);

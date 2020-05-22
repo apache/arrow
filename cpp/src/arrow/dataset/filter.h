@@ -25,7 +25,8 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/compute/options.h"
+#include "arrow/compute/api_scalar.h"
+#include "arrow/compute/cast.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/datum.h"

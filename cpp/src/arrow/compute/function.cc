@@ -21,12 +21,11 @@
 #include <memory>
 #include <sstream>
 
+#include "arrow/compute/exec.h"
 #include "arrow/compute/exec_internal.h"
+#include "arrow/datum.h"
 
 namespace arrow {
-
-struct ValueDescr;
-
 namespace compute {
 
 static Status CheckArity(const std::vector<InputType>& args, const FunctionArity& arity) {

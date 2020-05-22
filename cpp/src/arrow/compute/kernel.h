@@ -32,12 +32,13 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class Buffer;
-struct Datum;
+class MemoryPool;
 
 namespace compute {
 
@@ -348,6 +349,9 @@ class ARROW_EXPORT KernelSignature {
   mutable int64_t hash_code_;
 };
 
+/// \brief A function may contain multiple variants of a kernel for a given
+/// type combination for different SIMD levels. Based on the active system's
+/// CPU info or the user's preferences, we can elect to use one over the other.
 struct SimdLevel {
   enum type { NONE, SSE4_2, AVX, AVX2, AVX512, NEON };
 };
@@ -419,6 +423,8 @@ struct Kernel {
   // require single-threaded execution.
   bool parallelizable = true;
 
+  /// \brief What level of SIMD instruction support in the host CPU is required
+  /// to use the function
   SimdLevel::type simd_level = SimdLevel::NONE;
 };
 
@@ -435,8 +441,9 @@ struct ArrayKernel : public Kernel {
               KernelInit init = NULLPTR)
       : Kernel(std::move(in_types), std::move(out_type), init), exec(exec) {}
 
-  /// \brief Perform a single invocation of this kernel. In general, this
-  /// function must
+  /// \brief Perform a single invocation of this kernel. Depending on the
+  /// implementation, it may only write into preallocated memory, while in some
+  /// cases it will allocate its own memory.
   ArrayKernelExec exec;
 
   /// \brief Writing execution results into larger contiguous allocations

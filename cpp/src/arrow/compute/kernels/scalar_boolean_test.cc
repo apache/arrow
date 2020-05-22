@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdint>
 #include <functional>
 #include <memory>
 #include <utility>
@@ -23,12 +22,10 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/compute/api_scalar.h"
+#include "arrow/compute/test_util.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
-
-#include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernel.h"
-#include "arrow/compute/test_util.h"
 
 namespace arrow {
 namespace compute {

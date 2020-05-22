@@ -17,10 +17,6 @@
 
 #include "arrow/compute/api_aggregate.h"
 
-#include <sstream>
-#include <string>
-#include <utility>
-
 #include "arrow/compute/exec.h"
 
 namespace arrow {

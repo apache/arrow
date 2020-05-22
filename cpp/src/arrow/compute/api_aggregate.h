@@ -20,18 +20,41 @@
 
 #pragma once
 
-#include <memory>
-
-#include "arrow/compute/exec.h"
-#include "arrow/compute/options.h"
+#include "arrow/compute/function.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
+#include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class Array;
+
 namespace compute {
+
+class ExecContext;
 
 // ----------------------------------------------------------------------
 // Aggregate functions
+
+/// \class CountOptions
+///
+/// The user control the Count kernel behavior with this class. By default, the
+/// it will count all non-null values.
+struct ARROW_EXPORT CountOptions : public FunctionOptions {
+  enum mode {
+    // Count all non-null values.
+    COUNT_ALL = 0,
+    // Count all null values.
+    COUNT_NULL,
+  };
+
+  explicit CountOptions(enum mode count_mode) : count_mode(count_mode) {}
+
+  static CountOptions Defaults() { return CountOptions(COUNT_ALL); }
+
+  enum mode count_mode = COUNT_ALL;
+};
 
 /// \brief Count non-null (or null) values in an array.
 ///
@@ -67,6 +90,25 @@ Result<Datum> Mean(const Datum& value, ExecContext* ctx = NULLPTR);
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Sum(const Datum& value, ExecContext* ctx = NULLPTR);
+
+/// \class MinMaxOptions
+///
+/// The user can control the MinMax kernel behavior with this class. By default,
+/// it will skip null if there is a null value present.
+struct ARROW_EXPORT MinMaxOptions : public FunctionOptions {
+  enum mode {
+    /// skip null values
+    SKIP = 0,
+    /// any nulls will result in null output
+    OUTPUT_NULL
+  };
+
+  explicit MinMaxOptions(enum mode null_handling = SKIP) : null_handling(null_handling) {}
+
+  static MinMaxOptions Defaults() { return MinMaxOptions{}; }
+
+  enum mode null_handling = SKIP;
+};
 
 /// \brief Calculate the min / max of a numeric array
 ///

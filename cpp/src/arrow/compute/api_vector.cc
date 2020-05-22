@@ -24,7 +24,6 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernels/vector_selection_internal.h"
-#include "arrow/compute/options.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 

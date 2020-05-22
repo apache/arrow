@@ -115,11 +115,6 @@ class ARROW_EXPORT FunctionExecutor {
                                                         const FunctionOptions* options);
 };
 
-ARROW_EXPORT
-Status ExecuteFunction(ExecContext* ctx, const std::string& func_name,
-                       const std::vector<Datum>& args, const FunctionOptions* options,
-                       ValueDescr* out_descr, ExecListener* listener);
-
 /// \brief Populate validity bitmap with the intersection of the nullity of the
 /// arguments. If a preallocated bitmap is not provided, then one will be
 /// allocated if needed (in some cases a bitmap can be zero-copied from the

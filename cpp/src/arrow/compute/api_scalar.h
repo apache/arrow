@@ -21,17 +21,20 @@
 #pragma once
 
 #include <memory>
+#include <utility>
 
-#include "arrow/compute/cast.h"
-#include "arrow/compute/exec.h"
-#include "arrow/compute/options.h"
+#include "arrow/compute/exec.h"  // IWYU pragma: keep
+#include "arrow/compute/function.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
+#include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
-namespace compute {
 
-class ExecContext;
+class Array;
+
+namespace compute {
 
 // ----------------------------------------------------------------------
 
@@ -44,6 +47,21 @@ class ExecContext;
 /// \return the elementwise addition of the values
 ARROW_EXPORT
 Result<Datum> Add(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+
+enum CompareOperator {
+  EQUAL,
+  NOT_EQUAL,
+  GREATER,
+  GREATER_EQUAL,
+  LESS,
+  LESS_EQUAL,
+};
+
+struct CompareOptions : public FunctionOptions {
+  explicit CompareOptions(CompareOperator op) : op(op) {}
+
+  enum CompareOperator op;
+};
 
 /// \brief Compare a numeric array with a scalar.
 ///
@@ -135,6 +153,15 @@ Result<Datum> KleeneOr(const Datum& left, const Datum& right, ExecContext* ctx =
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Xor(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+
+/// For set lookup operations like IsIn, Match
+struct ARROW_EXPORT SetLookupOptions : public FunctionOptions {
+  explicit SetLookupOptions(std::shared_ptr<Array> value_set, bool skip_nulls)
+      : value_set(std::move(value_set)), skip_nulls(skip_nulls) {}
+
+  std::shared_ptr<Array> value_set;
+  bool skip_nulls;
+};
 
 /// \brief IsIn returns true for each element of `values` that is contained in
 /// `value_set`

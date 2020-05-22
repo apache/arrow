@@ -33,7 +33,7 @@ void CastFromExtension(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   ExtensionArray extension(batch[0].array());
 
   Datum casted_storage;
-  KERNEL_ABORT_IF_ERROR(
+  KERNEL_RETURN_IF_ERROR(
       ctx, Cast(*extension.storage(), out->type(), options, ctx->exec_context())
                .Value(&casted_storage));
   out->value = casted_storage.array();

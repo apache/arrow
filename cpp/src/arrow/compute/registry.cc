@@ -21,11 +21,11 @@
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+#include <utility>
 
 #include "arrow/compute/function.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {
@@ -92,34 +92,33 @@ std::vector<std::string> FunctionRegistry::GetFunctionNames() const {
 
 int FunctionRegistry::num_functions() const { return impl_->num_functions(); }
 
-static std::unique_ptr<FunctionRegistry> g_registry;
-static std::once_flag func_registry_initialized;
-
 namespace internal {
 
-static void CreateBuiltInRegistry() {
-  g_registry = FunctionRegistry::Make();
+static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
+  auto registry = FunctionRegistry::Make();
 
   // Scalar functions
-  RegisterScalarArithmetic(g_registry.get());
-  RegisterScalarBoolean(g_registry.get());
-  RegisterScalarComparison(g_registry.get());
-  RegisterScalarSetLookup(g_registry.get());
+  RegisterScalarArithmetic(registry.get());
+  RegisterScalarBoolean(registry.get());
+  RegisterScalarComparison(registry.get());
+  RegisterScalarSetLookup(registry.get());
 
   // Aggregate functions
-  RegisterScalarAggregateBasic(g_registry.get());
+  RegisterScalarAggregateBasic(registry.get());
 
   // Vector functions
-  RegisterVectorFilter(g_registry.get());
-  RegisterVectorHash(g_registry.get());
-  RegisterVectorSort(g_registry.get());
-  RegisterVectorTake(g_registry.get());
+  RegisterVectorFilter(registry.get());
+  RegisterVectorHash(registry.get());
+  RegisterVectorSort(registry.get());
+  RegisterVectorTake(registry.get());
+
+  return registry;
 }
 
 }  // namespace internal
 
 FunctionRegistry* GetFunctionRegistry() {
-  std::call_once(func_registry_initialized, internal::CreateBuiltInRegistry);
+  static auto g_registry = internal::CreateBuiltInRegistry();
   return g_registry.get();
 }
 

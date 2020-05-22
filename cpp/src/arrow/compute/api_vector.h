@@ -19,7 +19,7 @@
 
 #include <memory>
 
-#include "arrow/compute/options.h"
+#include "arrow/compute/function.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 
@@ -27,6 +27,20 @@ namespace arrow {
 namespace compute {
 
 class ExecContext;
+
+struct FilterOptions : public FunctionOptions {
+  /// Configure the action taken when a slot of the selection mask is null
+  enum NullSelectionBehavior {
+    /// the corresponding filtered value will be removed in the output
+    DROP,
+    /// the corresponding filtered value will be null in the output
+    EMIT_NULL,
+  };
+
+  static FilterOptions Defaults() { return FilterOptions{}; }
+
+  NullSelectionBehavior null_selection_behavior = DROP;
+};
 
 /// \brief Filter with a boolean selection filter
 ///
@@ -48,6 +62,10 @@ ARROW_EXPORT
 Result<Datum> Filter(const Datum& values, const Datum& filter,
                      FilterOptions options = FilterOptions::Defaults(),
                      ExecContext* context = NULLPTR);
+
+struct ARROW_EXPORT TakeOptions : public FunctionOptions {
+  static TakeOptions Defaults() { return TakeOptions{}; }
+};
 
 /// \brief Take from an array of values at indices in another array
 ///
@@ -200,6 +218,11 @@ ARROW_EXPORT
 Result<std::shared_ptr<Table>> Take(const Table& table, const ChunkedArray& indices,
                                     const TakeOptions& options = TakeOptions::Defaults(),
                                     ExecContext* context = NULLPTR);
+
+struct PartitionOptions : public FunctionOptions {
+  explicit PartitionOptions(int64_t pivot) : pivot(pivot) {}
+  int64_t pivot;
+};
 
 /// \brief Returns indices that partition an array around n-th
 /// sorted element.

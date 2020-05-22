@@ -153,9 +153,9 @@ struct FromDictUnpackHelper {
   void Unpack(KernelContext* ctx, const ArrayData& indices, const ArrayType& dictionary,
               ArrayData* output) {
     FromDictVisitor<T, IndexType> visitor{ctx, dictionary, output};
-    KERNEL_ABORT_IF_ERROR(ctx, visitor.Init());
-    KERNEL_ABORT_IF_ERROR(ctx, ArrayDataVisitor<IndexType>::Visit(indices, &visitor));
-    KERNEL_ABORT_IF_ERROR(ctx, visitor.Finish());
+    KERNEL_RETURN_IF_ERROR(ctx, visitor.Init());
+    KERNEL_RETURN_IF_ERROR(ctx, ArrayDataVisitor<IndexType>::Visit(indices, &visitor));
+    KERNEL_RETURN_IF_ERROR(ctx, visitor.Finish());
   }
 };
 
@@ -225,7 +225,7 @@ struct FromNullCast {
     ArrayData* output = out->mutable_array();
     std::shared_ptr<Array> nulls;
     Status s = MakeArrayOfNull(output->type, batch.length).Value(&nulls);
-    KERNEL_ABORT_IF_ERROR(ctx, s);
+    KERNEL_RETURN_IF_ERROR(ctx, s);
     out->value = nulls->data();
   }
 };

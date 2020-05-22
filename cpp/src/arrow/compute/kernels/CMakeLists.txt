@@ -26,8 +26,6 @@ add_arrow_compute_test(scalar_test
                        scalar_compare_test.cc
                        scalar_set_lookup_test.cc)
 
-# add_arrow_compute_test(cast_test)
-
 add_arrow_benchmark(scalar_compare_benchmark PREFIX "arrow-compute")
 
 # ----------------------------------------------------------------------
@@ -40,11 +38,11 @@ add_arrow_compute_test(vector_test
                        vector_take_test.cc
                        vector_sort_test.cc)
 
-# add_arrow_benchmark(vector_hash_benchmark PREFIX "arrow-compute")
-# add_arrow_benchmark(vector_sort_benchmark PREFIX "arrow-compute")
-# add_arrow_benchmark(vector_partition_benchmark PREFIX "arrow-compute")
-# add_arrow_benchmark(vector_filter_benchmark PREFIX "arrow-compute")a
-# add_arrow_benchmark(vector_take_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(vector_hash_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(vector_sort_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(vector_partition_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(vector_filter_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(vector_take_benchmark PREFIX "arrow-compute")
 
 # ----------------------------------------------------------------------
 # Aggregate kernels
@@ -52,4 +50,4 @@ add_arrow_compute_test(vector_test
 # Aggregates
 
 add_arrow_compute_test(aggregate_test)
-# add_arrow_benchmark(aggregate_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(aggregate_benchmark PREFIX "arrow-compute")

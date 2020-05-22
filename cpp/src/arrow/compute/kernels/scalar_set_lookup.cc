@@ -18,6 +18,7 @@
 #include <algorithm>
 
 #include "arrow/builder.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/optional.h"

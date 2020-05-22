@@ -21,16 +21,58 @@
 #include <string>
 #include <vector>
 
-#include "arrow/compute/exec.h"
 #include "arrow/compute/function.h"
-#include "arrow/compute/options.h"
+#include "arrow/compute/kernel.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class Array;
+
 namespace compute {
 
 class ExecContext;
+
+struct ARROW_EXPORT CastOptions : public FunctionOptions {
+  CastOptions()
+      : allow_int_overflow(false),
+        allow_time_truncate(false),
+        allow_time_overflow(false),
+        allow_decimal_truncate(false),
+        allow_float_truncate(false),
+        allow_invalid_utf8(false) {}
+
+  explicit CastOptions(bool safe)
+      : allow_int_overflow(!safe),
+        allow_time_truncate(!safe),
+        allow_time_overflow(!safe),
+        allow_decimal_truncate(!safe),
+        allow_float_truncate(!safe),
+        allow_invalid_utf8(!safe) {}
+
+  static CastOptions Safe() { return CastOptions(true); }
+
+  static CastOptions Unsafe() { return CastOptions(false); }
+
+  // Type being casted to. May be passed separate to eager function
+  // compute::Cast
+  std::shared_ptr<DataType> to_type;
+
+  bool allow_int_overflow;
+  bool allow_time_truncate;
+  bool allow_time_overflow;
+  bool allow_decimal_truncate;
+  bool allow_float_truncate;
+  // Indicate if conversions from Binary/FixedSizeBinary to string must
+  // validate the utf8 payload.
+  bool allow_invalid_utf8;
+};
 
 // Cast functions are _not_ registered in the FunctionRegistry, though they use
 // the same execution machinery

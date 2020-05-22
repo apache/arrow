@@ -15,18 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>
-#include <cstdint>
-#include <cstdio>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
 
-#include "arrow/array.h"
 #include "arrow/compute/function.h"
-#include "arrow/compute/kernel.h"
 #include "arrow/compute/registry.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"

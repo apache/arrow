@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cstring>
 #include <memory>
 #include <vector>
 
 #include <gtest/gtest.h>
 
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 
@@ -30,14 +30,16 @@
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/options.h"
 #include "arrow/compute/registry.h"
-#include "arrow/compute/test_util.h"
 #include "arrow/memory_pool.h"
-#include "arrow/pretty_print.h"
+#include "arrow/scalar.h"
+#include "arrow/status.h"
+#include "arrow/table.h"
+#include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -79,7 +81,6 @@ TEST(SelectionVector, Basics) {
   auto sel_vector = std::make_shared<SelectionVector>(*indices);
 
   ASSERT_EQ(indices->length(), sel_vector->length());
-  ASSERT_EQ(3, sel_vector->index(1));
   ASSERT_EQ(3, sel_vector->indices()[1]);
 }
 

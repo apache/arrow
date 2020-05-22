@@ -23,8 +23,6 @@ namespace compute {
 
 namespace {
 
-enum class ResolveNull { KLEENE_LOGIC, PROPAGATE };
-
 enum BitmapIndex { LEFT_VALID, LEFT_DATA, RIGHT_VALID, RIGHT_DATA };
 
 template <typename ComputeWord>
@@ -168,19 +166,17 @@ void MakeFunction(std::string name, int arity, ArrayKernelExec exec,
 
 namespace internal {
 
-using codegen::SimpleExec;
-
 void RegisterScalarBoolean(FunctionRegistry* registry) {
   // These functions can write into sliced output bitmaps
-  MakeFunction("invert", 1, SimpleExec::Unary<Invert>, registry);
-  MakeFunction("and", 2, SimpleExec::Binary<And>, registry);
-  MakeFunction("or", 2, SimpleExec::Binary<Or>, registry);
-  MakeFunction("xor", 2, SimpleExec::Binary<Xor>, registry);
+  MakeFunction("invert", 1, codegen::SimpleUnary<Invert>, registry);
+  MakeFunction("and", 2, codegen::SimpleBinary<And>, registry);
+  MakeFunction("or", 2, codegen::SimpleBinary<Or>, registry);
+  MakeFunction("xor", 2, codegen::SimpleBinary<Xor>, registry);
 
   // The Kleene logic kernels cannot write into sliced output bitmaps
-  MakeFunction("and_kleene", 2, SimpleExec::Binary<KleeneAnd>, registry,
+  MakeFunction("and_kleene", 2, codegen::SimpleBinary<KleeneAnd>, registry,
                /*can_write_into_slices=*/false, NullHandling::COMPUTED_PREALLOCATE);
-  MakeFunction("or_kleene", 2, SimpleExec::Binary<KleeneOr>, registry,
+  MakeFunction("or_kleene", 2, codegen::SimpleBinary<KleeneOr>, registry,
                /*can_write_into_slices=*/false, NullHandling::COMPUTED_PREALLOCATE);
 }
 

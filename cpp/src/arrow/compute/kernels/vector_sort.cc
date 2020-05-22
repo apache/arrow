@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
 
 namespace arrow {

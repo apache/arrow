@@ -26,7 +26,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/result.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/hashing.h"
+#include "arrow/util/hash_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 

@@ -25,16 +25,21 @@
 #include <vector>
 
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/options.h"  // IWYU pragma: keep
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
+struct Datum;
 struct ValueDescr;
 
 namespace compute {
+
+class ExecContext;
+
+struct ARROW_EXPORT FunctionOptions {};
 
 /// \brief Contains the number of required arguments for the function
 struct ARROW_EXPORT FunctionArity {
@@ -150,6 +155,8 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
   /// \brief Return the first kernel that can execute the function given the
   /// exact argument types (without implicit type casts or scalar->array
   /// promotions)
+  ///
+  /// This function is overridden in CastFunction
   virtual Result<const ScalarKernel*> DispatchExact(
       const std::vector<ValueDescr>& values) const;
 };

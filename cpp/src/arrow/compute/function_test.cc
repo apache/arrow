@@ -23,18 +23,15 @@
 
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/datum.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 
 namespace arrow {
-
-struct Datum;
-
 namespace compute {
 
-class ExecContext;
-struct FunctionOptions;
+struct ExecBatch;
 
 TEST(FunctionArity, Basics) {
   auto nullary = FunctionArity::Nullary();

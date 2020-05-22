@@ -439,21 +439,21 @@ struct HashInitVisitor {
 
 void HashExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   auto hash_impl = checked_cast<HashKernel*>(ctx->state());
-  KERNEL_ABORT_IF_ERROR(ctx, hash_impl->Append(ctx, *batch[0].array()));
-  KERNEL_ABORT_IF_ERROR(ctx, hash_impl->Flush(out));
+  KERNEL_RETURN_IF_ERROR(ctx, hash_impl->Append(ctx, *batch[0].array()));
+  KERNEL_RETURN_IF_ERROR(ctx, hash_impl->Flush(out));
 }
 
 void UniqueFinalize(KernelContext* ctx, std::vector<Datum>* out) {
   auto hash_impl = checked_cast<HashKernel*>(ctx->state());
   std::shared_ptr<ArrayData> uniques;
-  KERNEL_ABORT_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
+  KERNEL_RETURN_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
   *out = {Datum(uniques)};
 }
 
 void DictEncodeFinalize(KernelContext* ctx, std::vector<Datum>* out) {
   auto hash_impl = checked_cast<HashKernel*>(ctx->state());
   std::shared_ptr<ArrayData> uniques;
-  KERNEL_ABORT_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
+  KERNEL_RETURN_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
   auto dict_type = dictionary(int32(), uniques->type);
   auto dict = MakeArray(uniques);
   for (size_t i = 0; i < out->size(); ++i) {
@@ -465,10 +465,10 @@ void DictEncodeFinalize(KernelContext* ctx, std::vector<Datum>* out) {
 void ValueCountsFinalize(KernelContext* ctx, std::vector<Datum>* out) {
   auto hash_impl = checked_cast<HashKernel*>(ctx->state());
   std::shared_ptr<ArrayData> uniques;
-  KERNEL_ABORT_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
+  KERNEL_RETURN_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
 
   Datum value_counts;
-  KERNEL_ABORT_IF_ERROR(ctx, hash_impl->FlushFinal(&value_counts));
+  KERNEL_RETURN_IF_ERROR(ctx, hash_impl->FlushFinal(&value_counts));
   auto data_type =
       struct_({field(kValuesFieldName, uniques->type), field(kCountsFieldName, int64())});
   ArrayVector children = {MakeArray(uniques), value_counts.make_array()};

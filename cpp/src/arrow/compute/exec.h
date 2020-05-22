@@ -27,12 +27,16 @@
 #include <vector>
 
 #include "arrow/datum.h"
-#include "arrow/memory_pool.h"
-#include "arrow/status.h"
+#include "arrow/result.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class Array;
+struct ArrayData;
+class MemoryPool;
 
 namespace internal {
 
@@ -113,14 +117,13 @@ class ARROW_EXPORT SelectionVector {
  public:
   explicit SelectionVector(std::shared_ptr<ArrayData> data);
 
-  explicit SelectionVector(const Array& arr) : SelectionVector(arr.data()) {}
+  explicit SelectionVector(const Array& arr);
 
   /// \brief Create SelectionVector from boolean mask
   static Result<std::shared_ptr<SelectionVector>> FromMask(const Array& arr);
 
-  int32_t index(int i) const { return indices_[i]; }
   const int32_t* indices() const { return indices_; }
-  int32_t length() const { return static_cast<int32_t>(data_->length); }
+  int32_t length() const;
 
  private:
   std::shared_ptr<ArrayData> data_;

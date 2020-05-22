@@ -18,19 +18,24 @@
 #include "arrow/compute/exec.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <utility>
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
@@ -42,6 +47,8 @@ using internal::BitmapAnd;
 using internal::checked_cast;
 using internal::CopyBitmap;
 using internal::CpuInfo;
+
+class MemoryPool;
 
 namespace compute {
 
@@ -755,7 +762,8 @@ class VectorExecutor : public FunctionExecutorImpl<VectorFunction> {
  protected:
   Status ExecuteBatch(const ExecBatch& batch, ExecListener* listener) {
     if (batch.length == 0) {
-      // Skip empty batches. This should only happen with zero-length inputs
+      // Skip empty batches. This may only happen when not using
+      // ExecBatchIterator
       return Status::OK();
     }
     Datum out;
@@ -911,6 +919,10 @@ SelectionVector::SelectionVector(std::shared_ptr<ArrayData> data)
   DCHECK_EQ(0, data_->GetNullCount());
   indices_ = data_->GetValues<int32_t>(1);
 }
+
+SelectionVector::SelectionVector(const Array& arr) : SelectionVector(arr.data()) {}
+
+int32_t SelectionVector::length() const { return static_cast<int32_t>(data_->length); }
 
 Result<std::shared_ptr<SelectionVector>> SelectionVector::FromMask(const Array& arr) {
   return Status::NotImplemented("FromMask");

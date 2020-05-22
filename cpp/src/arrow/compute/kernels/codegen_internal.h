@@ -39,19 +39,19 @@ namespace compute {
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
-#define KERNEL_ABORT_IF_ERROR(ctx, expr)                \
-  do {                                                  \
-    Status _st = (expr);                                \
-    if (ARROW_PREDICT_FALSE(!_st.ok())) {               \
-      _st.AddContextLine(__FILE__, __LINE__, #expr);    \
-      ctx->SetStatus(_st);                              \
-      return;                                           \
-    }                                                   \
+#define KERNEL_RETURN_IF_ERROR(ctx, expr)             \
+  do {                                                \
+    Status _st = (expr);                              \
+    if (ARROW_PREDICT_FALSE(!_st.ok())) {             \
+      _st.AddContextLine(__FILE__, __LINE__, #expr);  \
+      ctx->SetStatus(_st);                            \
+      return;                                         \
+    }                                                 \
   } while (0)
 
 #else
 
-#define KERNEL_ABORT_IF_ERROR(ctx, expr)        \
+#define KERNEL_RETURN_IF_ERROR(ctx, expr)       \
   do {                                          \
     Status _st = (expr);                        \
     if (ARROW_PREDICT_FALSE(!_st.ok())) {       \
@@ -77,19 +77,6 @@ constexpr int kBinaryData = 2;
 template <typename T, typename R = void>
 using enable_if_has_c_type_not_boolean = enable_if_t<has_c_type<T>::value &&
                                                      !is_boolean_type<T>::value, R>;
-
-template <typename T, typename Enable = void>
-struct CodegenTraits;
-
-template <typename T>
-struct CodegenTraits<T, enable_if_has_c_type<T>> {
-  using value_type = typename T::c_type;
-};
-
-template <typename T>
-struct CodegenTraits<T, enable_if_base_binary<T>> {
-  using value_type = util::string_view;
-};
 
 template <typename Type, typename Enable = void>
 struct ArrayIterator;
@@ -157,15 +144,17 @@ struct GetValueType<
 };
 
 // ----------------------------------------------------------------------
+// Reusable type resolvers
+
+Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& descrs);
+
+// ----------------------------------------------------------------------
 // Generate an array kernel given template classes
 
 void ExecFail(KernelContext* ctx, const ExecBatch& batch, Datum* out);
 
 void BinaryExecFlipped(KernelContext* ctx, ArrayKernelExec exec,
                        const ExecBatch& batch, Datum* out);
-
-// ----------------------------------------------------------------------
-// Boolean data utilities
 
 // ----------------------------------------------------------------------
 // Template kernel exec function generators
@@ -194,33 +183,47 @@ const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
 
 namespace codegen {
 
-struct SimpleExec {
-  // Operator must implement
-  //
-  // static void Call(KernelContext*, const ArrayData& in, ArrayData* out)
-  template <typename Operator>
-  static void Unary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    if (batch[0].kind() == Datum::SCALAR) {
-      ctx->SetStatus(Status::NotImplemented("NYI"));
-    } else if (batch.length > 0) {
-      Operator::Call(ctx, *batch[0].array(), out->mutable_array());
-    }
+// Generate an ArrayKernelExec given a functor that handles all of its own
+// iteration, etc.
+//
+// Operator must implement
+//
+// static void Call(KernelContext*, const ArrayData& in, ArrayData* out)
+template <typename Operator>
+void SimpleUnary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  if (batch[0].kind() == Datum::SCALAR) {
+    ctx->SetStatus(Status::NotImplemented("NYI"));
+  } else if (batch.length > 0) {
+    Operator::Call(ctx, *batch[0].array(), out->mutable_array());
   }
+}
 
-  // Operator must implement
-  //
-  // static void Call(KernelContext*, const ArrayData& arg0, const ArrayData& arg1,
-  //                  ArrayData* out)
-  template <typename Operator>
-  static void Binary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    if (batch[0].kind() == Datum::SCALAR || batch[1].kind() == Datum::SCALAR) {
-      ctx->SetStatus(Status::NotImplemented("NYI"));
-    } else if (batch.length > 0) {
-      Operator::Call(ctx, *batch[0].array(), *batch[1].array(), out->mutable_array());
-    }
+// Generate an ArrayKernelExec given a functor that handles all of its own
+// iteration, etc.
+//
+// Operator must implement
+//
+// static void Call(KernelContext*, const ArrayData& arg0, const ArrayData& arg1,
+//                  ArrayData* out)
+template <typename Operator>
+void SimpleBinary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  if (batch[0].kind() == Datum::SCALAR || batch[1].kind() == Datum::SCALAR) {
+    ctx->SetStatus(Status::NotImplemented("NYI"));
+  } else if (batch.length > 0) {
+    Operator::Call(ctx, *batch[0].array(), *batch[1].array(), out->mutable_array());
   }
-};
+}
 
+// A ArrayKernelExec-creation template that iterates over primitive non-boolean
+// inputs and writes into non-boolean primitive outputs.
+//
+// It may be possible to create a more generic template that can deal with any
+// input writing to any output, but we will need to write benchmarks to
+// investigate that on all compiler targets to ensure that the additional
+// template abstractions do not incur performance overhead. This template
+// provides a reference point for performance when there are no templates
+// dealing with value iteration.
+//
 // TODO: Run benchmarks to determine if OutputAdapter is a zero-cost abstraction
 struct ScalarPrimitiveExec {
   template <typename Op, typename OutType, typename Arg0Type>
@@ -295,12 +298,18 @@ struct OutputAdapter<Type, enable_if_base_binary<Type>> {
   }
 };
 
+// A kernel exec generator for unary functions that addresses both array and
+// scalar inputs and dispatches input iteration and output writing to other
+// templates
+//
+// This template executes the operator even on the data behind null values,
+// therefore it is generally only suitable for operators that cannot fail.
 template <typename OutType, typename Arg0Type, typename Op>
 struct ScalarUnary {
   using OutScalar = typename TypeTraits<OutType>::ScalarType;
 
-  using OUT = typename CodegenTraits<OutType>::value_type;
-  using ARG0 = typename CodegenTraits<Arg0Type>::value_type;
+  using OUT = typename GetValueType<OutType>::T;
+  using ARG0 = typename GetValueType<Arg0Type>::T;
 
   static void Array(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ArrayIterator<Arg0Type> arg0(*batch[0].array());
@@ -328,14 +337,14 @@ struct ScalarUnary {
   }
 };
 
-// Applies a scalar operation with state on the null-null values of a single
-// array
+// An alternative to ScalarUnary that Applies a scalar operation with state on
+// only the not-null values of a single array
 template <typename OutType, typename Arg0Type, typename Op>
 struct ScalarUnaryNotNullStateful {
   using ThisType = ScalarUnaryNotNullStateful<OutType, Arg0Type, Op>;
   using OutScalar = typename TypeTraits<OutType>::ScalarType;
-  using OUT = typename CodegenTraits<OutType>::value_type;
-  using ARG0 = typename CodegenTraits<Arg0Type>::value_type;
+  using OUT = typename GetValueType<OutType>::T;
+  using ARG0 = typename GetValueType<Arg0Type>::T;
 
   Op op;
   ScalarUnaryNotNullStateful(Op op) : op(std::move(op)) {}
@@ -403,6 +412,9 @@ struct ScalarUnaryNotNullStateful {
   }
 };
 
+// An alternative to ScalarUnary that Applies a scalar operation on only the
+// not-null values of a single array. The operator is not stateful; if the
+// operator requires some initialization use ScalarUnaryNotNullStateful
 template <typename OutType, typename Arg0Type, typename Op>
 struct ScalarUnaryNotNull {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -412,14 +424,20 @@ struct ScalarUnaryNotNull {
   }
 };
 
+// A kernel exec generator for binary functions that addresses both array and
+// scalar inputs and dispatches input iteration and output writing to other
+// templates
+//
+// This template executes the operator even on the data behind null values,
+// therefore it is generally only suitable for operators that cannot fail.
 template <typename OutType, typename Arg0Type, typename Arg1Type, typename Op,
           typename FlippedOp = Op>
 struct ScalarBinary {
   using OutScalarType = typename TypeTraits<OutType>::ScalarType;
 
-  using OUT = typename CodegenTraits<OutType>::value_type;
-  using ARG0 = typename CodegenTraits<Arg0Type>::value_type;
-  using ARG1 = typename CodegenTraits<Arg1Type>::value_type;
+  using OUT = typename GetValueType<OutType>::T;
+  using ARG0 = typename GetValueType<Arg0Type>::T;
+  using ARG1 = typename GetValueType<Arg1Type>::T;
 
   template <typename ChosenOp>
   static void ArrayArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -465,11 +483,28 @@ struct ScalarBinary {
   }
 };
 
+// A kernel exec generator for binary kernels where both input types are the
+// same
 template <typename OutType, typename ArgType, typename Op,
           typename FlippedOp = Op>
 using ScalarBinaryEqualTypes = ScalarBinary<OutType, ArgType, ArgType, Op, FlippedOp>;
 
+// ----------------------------------------------------------------------
+// Dynamic kernel selectors. These functors allow a kernel implementation to be
+// selected given a arrow::DataType instance. Using these functors triggers the
+// corresponding template that generate's the kernel's Exec function to be
+// instantiated
+
 struct ScalarNumericEqualTypes {
+
+  // Generate a kernel given a functor of type
+  //
+  // struct OPERATOR_NAME {
+  //   template <typename OUT, typename ARG0>
+  //   static OUT Call(KernelContext*, ARG0 val) {
+  //     // IMPLEMENTATION
+  //   }
+  // };
   template <typename Op>
   static ArrayKernelExec Unary(const DataType& type) {
     switch (type.id()) {
@@ -499,6 +534,14 @@ struct ScalarNumericEqualTypes {
     }
   }
 
+  // Generate a kernel given a functor of type
+  //
+  // struct OPERATOR_NAME {
+  //   template <typename OUT, typename ARG0, typename ARG1>
+  //   static OUT Call(KernelContext*, ARG0 left, ARG1 right) {
+  //     // IMPLEMENTATION
+  //   }
+  // };
   template <typename Op>
   static ArrayKernelExec Binary(const DataType& type) {
     switch (type.id()) {
@@ -529,6 +572,18 @@ struct ScalarNumericEqualTypes {
   }
 };
 
+// Generate a kernel given a templated functor. This template effectively
+// "curries" the first type argument. The functor must be of the form:
+//
+// template <typename Type0, typename Type1, Args...>
+// struct FUNCTOR {
+//   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+//     // IMPLEMENTATION
+//   }
+// };
+//
+// This function will generate exec functions where Type1 is one of the numeric
+// types
 template <template <typename...> class Generator,
           typename Type0, typename... Args>
 ArrayKernelExec Numeric(const DataType& type) {
@@ -559,6 +614,9 @@ ArrayKernelExec Numeric(const DataType& type) {
   }
 }
 
+// Generate a kernel given a templated functor for floating point types
+//
+// See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator,
           typename Type0, typename... Args>
 ArrayKernelExec FloatingPoint(const DataType& type) {
@@ -573,6 +631,9 @@ ArrayKernelExec FloatingPoint(const DataType& type) {
   }
 }
 
+// Generate a kernel given a templated functor for integer types
+//
+// See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator,
           typename Type0, typename... Args>
 ArrayKernelExec Integer(const DataType& type) {
@@ -599,6 +660,9 @@ ArrayKernelExec Integer(const DataType& type) {
   }
 }
 
+// Generate a kernel given a templated functor for base binary types
+//
+// See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator,
           typename Type0, typename... Args>
 ArrayKernelExec BaseBinary(const DataType& type) {
@@ -617,6 +681,9 @@ ArrayKernelExec BaseBinary(const DataType& type) {
   }
 }
 
+// Generate a kernel given a templated functor for temporal types
+//
+// See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator,
           typename Type0, typename... Args>
 ArrayKernelExec Temporal(const DataType& type) {
@@ -638,11 +705,6 @@ ArrayKernelExec Temporal(const DataType& type) {
 }
 
 }  // namespace codegen
-
-// ----------------------------------------------------------------------
-// Reusable type resolvers
-
-Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& descrs);
 
 }  // namespace compute
 }  // namespace arrow

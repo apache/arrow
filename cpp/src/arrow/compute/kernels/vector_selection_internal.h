@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/builder.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"

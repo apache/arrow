@@ -46,7 +46,7 @@ void CastListExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   auto child_type = checked_cast<const Type&>(*result->type).value_type();
 
   Datum casted_child;
-  KERNEL_ABORT_IF_ERROR(
+  KERNEL_RETURN_IF_ERROR(
       ctx, Cast(Datum(input.child_data[0]), child_type, options, ctx->exec_context())
                .Value(&casted_child));
   DCHECK_EQ(Datum::ARRAY, casted_child.kind());
