@@ -198,7 +198,7 @@ class ARROW_EXPORT InputType {
   bool operator!=(const InputType& other) const { return !(*this == other); }
 
   /// \brief Return hash code
-  uint64_t Hash() const;
+  size_t Hash() const;
 
   /// \brief Render a human-readable string representation
   std::string ToString() const;
@@ -359,7 +359,7 @@ class ARROW_EXPORT KernelSignature {
   bool operator!=(const KernelSignature& other) const { return !(*this == other); }
 
   /// \brief Compute a hash code for the signature
-  uint64_t Hash() const;
+  size_t Hash() const;
 
   const std::vector<InputType>& in_types() const { return in_types_; }
 

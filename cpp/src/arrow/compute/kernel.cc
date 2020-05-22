@@ -158,8 +158,8 @@ std::shared_ptr<TypeMatcher> TimestampUnit(TimeUnit::type unit) {
 // ----------------------------------------------------------------------
 // InputType
 
-uint64_t InputType::Hash() const {
-  uint64_t result = kHashSeed;
+size_t InputType::Hash() const {
+  size_t result = kHashSeed;
   hash_combine(result, static_cast<int>(shape_));
   hash_combine(result, static_cast<int>(kind_));
   switch (kind_) {
@@ -341,11 +341,11 @@ bool KernelSignature::MatchesInputs(const std::vector<ValueDescr>& args) const {
   return true;
 }
 
-uint64_t KernelSignature::Hash() const {
+size_t KernelSignature::Hash() const {
   if (hash_code_ != 0) {
     return hash_code_;
   }
-  uint64_t result = kHashSeed;
+  size_t result = kHashSeed;
   for (const auto& in_type : in_types_) {
     hash_combine(result, in_type.Hash());
   }
