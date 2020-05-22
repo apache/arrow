@@ -52,11 +52,11 @@ std::vector<std::shared_ptr<CastFunction>> GetBooleanCasts() {
   AddCommonCasts<BooleanType>(boolean(), func.get());
 
   for (const auto& ty : NumericTypes()) {
-    auto exec = codegen::Numeric<codegen::ScalarUnary, BooleanType, IsNonZero>(*ty);
+    ArrayKernelExec exec = codegen::Numeric<codegen::ScalarUnary, BooleanType, IsNonZero>(*ty);
     DCHECK_OK(func->AddKernel(ty->id(), {ty}, boolean(), exec));
   }
   for (const auto& ty : BaseBinaryTypes()) {
-    auto exec =
+    ArrayKernelExec exec =
         codegen::BaseBinary<codegen::ScalarUnaryNotNull, BooleanType, ParseBooleanString>(
             *ty);
     DCHECK_OK(func->AddKernel(ty->id(), {ty}, boolean(), exec));

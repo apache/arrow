@@ -27,7 +27,6 @@
 
 namespace arrow {
 
-using internal::BitmapReader;
 using internal::ParseTimestampContext;
 using internal::ParseValue;
 

@@ -28,7 +28,6 @@ enum BitmapIndex { LEFT_VALID, LEFT_DATA, RIGHT_VALID, RIGHT_DATA };
 template <typename ComputeWord>
 void ComputeKleene(ComputeWord&& compute_word, KernelContext* ctx, const ArrayData& left,
                    const ArrayData& right, ArrayData* out) {
-  using internal::Bitmap;
   DCHECK(left.null_count != 0 || right.null_count != 0);
 
   Bitmap bitmaps[4];
@@ -80,7 +79,7 @@ struct Invert {
   }
 
   static void Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
-    internal::InvertBitmap(in.buffers[1]->data(), in.offset, in.length,
+    ::arrow::internal::InvertBitmap(in.buffers[1]->data(), in.offset, in.length,
                            out->buffers[1]->mutable_data(), out->offset);
   }
 };
@@ -88,7 +87,7 @@ struct Invert {
 struct And {
   static void Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
                    ArrayData* out) {
-    internal::BitmapAnd(left.buffers[1]->data(), left.offset, right.buffers[1]->data(),
+    ::arrow::internal::BitmapAnd(left.buffers[1]->data(), left.offset, right.buffers[1]->data(),
                         right.offset, right.length, out->offset,
                         out->buffers[1]->mutable_data());
   }
@@ -114,7 +113,7 @@ struct KleeneAnd {
 struct Or {
   static void Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
                    ArrayData* out) {
-    internal::BitmapOr(left.buffers[1]->data(), left.offset, right.buffers[1]->data(),
+    ::arrow::internal::BitmapOr(left.buffers[1]->data(), left.offset, right.buffers[1]->data(),
                        right.offset, right.length, out->offset,
                        out->buffers[1]->mutable_data());
   }
@@ -141,7 +140,7 @@ struct KleeneOr {
 struct Xor {
   static void Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
                    ArrayData* out) {
-    internal::BitmapXor(left.buffers[1]->data(), left.offset, right.buffers[1]->data(),
+    ::arrow::internal::BitmapXor(left.buffers[1]->data(), left.offset, right.buffers[1]->data(),
                         right.offset, right.length, out->offset,
                         out->buffers[1]->mutable_data());
   }

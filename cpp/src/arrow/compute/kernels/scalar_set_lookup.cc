@@ -26,6 +26,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::HashTraits;
 
 namespace compute {
 
@@ -54,7 +55,7 @@ struct SetLookupState : public KernelState {
     return VisitArrayDataInline<Type>(*options.value_set->data(), insert_value);
   }
 
-  using MemoTable = typename internal::HashTraits<Type>::MemoTableType;
+  using MemoTable = typename HashTraits<Type>::MemoTableType;
   MemoTable lookup_table;
   int64_t lookup_null_count;
   int64_t null_index = -1;
@@ -221,8 +222,8 @@ struct IsInVisitor {
       BitUtil::SetBitsTo(output->buffers[0]->mutable_data(), output->offset,
                          output->length, true);
     }
-    internal::FirstTimeBitmapWriter writer(output->buffers[1]->mutable_data(),
-                                           output->offset, output->length);
+    FirstTimeBitmapWriter writer(output->buffers[1]->mutable_data(),
+                                 output->offset, output->length);
     auto lookup_value = [&](util::optional<T> v) {
       if (!v.has_value() || state.lookup_table.Get(*v) != -1) {
         writer.Set();

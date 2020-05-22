@@ -119,7 +119,7 @@ std::string InputType::ToString() const {
     case InputType::SAME_TYPE_ID: {
       // Indicate that the parameters for the type are unspecified. TODO: don't
       // show this for types without parameters, like Type::INT32
-      ss << internal::ToString(type_id_) << "*";
+      ss << ::arrow::internal::ToString(type_id_) << "*";
     } break;
     default:
       DCHECK(false);

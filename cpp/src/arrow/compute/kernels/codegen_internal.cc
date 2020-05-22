@@ -50,6 +50,13 @@ std::vector<std::shared_ptr<DataType>> g_temporal_types;
 std::vector<std::shared_ptr<DataType>> g_primitive_types;
 static std::once_flag codegen_static_initialized;
 
+template <typename T>
+void Extend(const std::vector<T>& values, std::vector<T>* out) {
+  for (const auto& t : values) {
+    out->push_back(t);
+  }
+}
+
 static void InitStaticData() {
   // Signed int types
   g_signed_int_types = {int8(), int16(), int32(), int64()};

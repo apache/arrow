@@ -147,8 +147,8 @@ struct SumState {
   ThisType ConsumeTiny(const ArrayType& array) const {
     ThisType local;
 
-    internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
-                                  array.length());
+    BitmapReader reader(array.null_bitmap_data(), array.offset(),
+                        array.length());
     const auto values = array.raw_values();
     for (int64_t i = 0; i < array.length(); i++) {
       if (reader.IsSet()) {
@@ -387,7 +387,7 @@ struct MinMaxImpl : public ScalarAggregator {
 
     const auto values = arr.raw_values();
     if (arr.null_count() > 0) {
-      internal::BitmapReader reader(arr.null_bitmap_data(), arr.offset(), arr.length());
+      BitmapReader reader(arr.null_bitmap_data(), arr.offset(), arr.length());
       for (int64_t i = 0; i < arr.length(); i++) {
         if (reader.IsSet()) {
           local.MergeOne(values[i]);

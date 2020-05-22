@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -61,15 +63,6 @@ namespace compute {
   } while (0)
 
 #endif  // ARROW_EXTRA_ERROR_CONTEXT
-
-// A kernel that exposes Call methods that handles iteration over ArrayData
-// inputs itself
-//
-
-constexpr int kValidity = 0;
-constexpr int kBinaryOffsets = 1;
-constexpr int kPrimitiveData = 1;
-constexpr int kBinaryData = 2;
 
 // ----------------------------------------------------------------------
 // Iteration / value access utilities
@@ -159,13 +152,6 @@ void BinaryExecFlipped(KernelContext* ctx, ArrayKernelExec exec,
 // ----------------------------------------------------------------------
 // Template kernel exec function generators
 
-template <typename T>
-void Extend(const std::vector<T>& values, std::vector<T>* out) {
-  for (const auto& t : values) {
-    out->push_back(t);
-  }
-}
-
 const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes();
 const std::vector<std::shared_ptr<DataType>>& SignedIntTypes();
 const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes();
@@ -225,43 +211,41 @@ void SimpleBinary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 // dealing with value iteration.
 //
 // TODO: Run benchmarks to determine if OutputAdapter is a zero-cost abstraction
-struct ScalarPrimitiveExec {
-  template <typename Op, typename OutType, typename Arg0Type>
-  static void Unary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    using OUT = typename OutType::c_type;
-    using ARG0 = typename Arg0Type::c_type;
+template <typename Op, typename OutType, typename Arg0Type>
+void ScalarPrimitiveExecUnary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  using OUT = typename OutType::c_type;
+  using ARG0 = typename Arg0Type::c_type;
 
-    if (batch[0].kind() == Datum::SCALAR) {
-      ctx->SetStatus(Status::NotImplemented("NYI"));
-    } else {
-      ArrayData* out_arr = out->mutable_array();
-      auto out_data = out_arr->GetMutableValues<OUT>(kPrimitiveData);
-      auto arg0_data = batch[0].array()->GetValues<ARG0>(kPrimitiveData);
-      for (int64_t i = 0; i < batch.length; ++i) {
-        *out_data++ = Op::template Call<OUT, ARG0>(ctx, *arg0_data++);
-      }
+  if (batch[0].kind() == Datum::SCALAR) {
+    ctx->SetStatus(Status::NotImplemented("NYI"));
+  } else {
+    ArrayData* out_arr = out->mutable_array();
+    auto out_data = out_arr->GetMutableValues<OUT>(1);
+    auto arg0_data = batch[0].array()->GetValues<ARG0>(1);
+    for (int64_t i = 0; i < batch.length; ++i) {
+      *out_data++ = Op::template Call<OUT, ARG0>(ctx, *arg0_data++);
     }
   }
+}
 
-  template <typename Op, typename OutType, typename Arg0Type, typename Arg1Type>
-  static void Binary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    using OUT = typename OutType::c_type;
-    using ARG0 = typename Arg0Type::c_type;
-    using ARG1 = typename Arg1Type::c_type;
+template <typename Op, typename OutType, typename Arg0Type, typename Arg1Type>
+void ScalarPrimitiveExecBinary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  using OUT = typename OutType::c_type;
+  using ARG0 = typename Arg0Type::c_type;
+  using ARG1 = typename Arg1Type::c_type;
 
-    if (batch[0].kind() == Datum::SCALAR || batch[1].kind() == Datum::SCALAR) {
-      ctx->SetStatus(Status::NotImplemented("NYI"));
-    } else {
-      ArrayData* out_arr = out->mutable_array();
-      auto out_data = out_arr->GetMutableValues<OUT>(kPrimitiveData);
-      auto arg0_data = batch[0].array()->GetValues<ARG0>(kPrimitiveData);
-      auto arg1_data = batch[1].array()->GetValues<ARG1>(kPrimitiveData);
-      for (int64_t i = 0; i < batch.length; ++i) {
-        *out_data++ = Op::template Call<OUT, ARG0, ARG1>(ctx, *arg0_data++, *arg1_data++);
-      }
+  if (batch[0].kind() == Datum::SCALAR || batch[1].kind() == Datum::SCALAR) {
+    ctx->SetStatus(Status::NotImplemented("NYI"));
+  } else {
+    ArrayData* out_arr = out->mutable_array();
+    auto out_data = out_arr->GetMutableValues<OUT>(1);
+    auto arg0_data = batch[0].array()->GetValues<ARG0>(1);
+    auto arg1_data = batch[1].array()->GetValues<ARG1>(1);
+    for (int64_t i = 0; i < batch.length; ++i) {
+      *out_data++ = Op::template Call<OUT, ARG0, ARG1>(ctx, *arg0_data++, *arg1_data++);
     }
   }
-};
+}
 
 template <typename Type, typename Enable = void>
 struct OutputAdapter;
@@ -282,7 +266,7 @@ struct OutputAdapter<Type, enable_if_has_c_type_not_boolean<Type>> {
   template <typename Generator>
   static void Write(KernelContext*, Datum* out, Generator&& generator) {
     ArrayData* out_arr = out->mutable_array();
-    auto out_data = out_arr->GetMutableValues<typename Type::c_type>(kPrimitiveData);
+    auto out_data = out_arr->GetMutableValues<typename Type::c_type>(1);
     // TODO: Is this as fast as a more explicitly inlined function?
     for (int64_t i = 0 ; i < out_arr->length; ++i) {
       *out_data++ = generator();
@@ -363,7 +347,7 @@ struct ScalarUnaryNotNullStateful {
     static void Exec(const ThisType& functor, KernelContext* ctx, const ExecBatch& batch,
                      Datum* out) {
       ArrayData* out_arr = out->mutable_array();
-      auto out_data = out_arr->GetMutableValues<OUT>(kPrimitiveData);
+      auto out_data = out_arr->GetMutableValues<OUT>(1);
       VisitArrayDataInline<Arg0Type>(*batch[0].array(), [&](util::optional<ARG0> v) {
           if (v.has_value()) {
             *out_data = functor.op.template Call<OUT, ARG0>(ctx, *v);
@@ -495,82 +479,79 @@ using ScalarBinaryEqualTypes = ScalarBinary<OutType, ArgType, ArgType, Op, Flipp
 // corresponding template that generate's the kernel's Exec function to be
 // instantiated
 
-struct ScalarNumericEqualTypes {
-
-  // Generate a kernel given a functor of type
-  //
-  // struct OPERATOR_NAME {
-  //   template <typename OUT, typename ARG0>
-  //   static OUT Call(KernelContext*, ARG0 val) {
-  //     // IMPLEMENTATION
-  //   }
-  // };
-  template <typename Op>
-  static ArrayKernelExec Unary(const DataType& type) {
-    switch (type.id()) {
-      case Type::INT8:
-        return ScalarPrimitiveExec::Unary<Op, Int8Type, Int8Type>;
-      case Type::UINT8:
-        return ScalarPrimitiveExec::Unary<Op, UInt8Type, UInt8Type>;
-      case Type::INT16:
-        return ScalarPrimitiveExec::Unary<Op, Int16Type, Int16Type>;
-      case Type::UINT16:
-        return ScalarPrimitiveExec::Unary<Op, UInt16Type, UInt16Type>;
-      case Type::INT32:
-        return ScalarPrimitiveExec::Unary<Op, Int32Type, Int32Type>;
-      case Type::UINT32:
-        return ScalarPrimitiveExec::Unary<Op, UInt32Type, UInt32Type>;
-      case Type::INT64:
-        return ScalarPrimitiveExec::Unary<Op, Int64Type, Int64Type>;
-      case Type::UINT64:
-        return ScalarPrimitiveExec::Unary<Op, UInt64Type, UInt64Type>;
-      case Type::FLOAT:
-        return ScalarPrimitiveExec::Unary<Op, FloatType, FloatType>;
-      case Type::DOUBLE:
-        return ScalarPrimitiveExec::Unary<Op, DoubleType, DoubleType>;
-      default:
-        DCHECK(false);
-        return ExecFail;
-    }
+// Generate a kernel given a functor of type
+//
+// struct OPERATOR_NAME {
+//   template <typename OUT, typename ARG0>
+//   static OUT Call(KernelContext*, ARG0 val) {
+//     // IMPLEMENTATION
+//   }
+// };
+template <typename Op>
+ArrayKernelExec NumericEqualTypesUnary(const DataType& type) {
+  switch (type.id()) {
+    case Type::INT8:
+      return ScalarPrimitiveExecUnary<Op, Int8Type, Int8Type>;
+    case Type::UINT8:
+      return ScalarPrimitiveExecUnary<Op, UInt8Type, UInt8Type>;
+    case Type::INT16:
+      return ScalarPrimitiveExecUnary<Op, Int16Type, Int16Type>;
+    case Type::UINT16:
+      return ScalarPrimitiveExecUnary<Op, UInt16Type, UInt16Type>;
+    case Type::INT32:
+      return ScalarPrimitiveExecUnary<Op, Int32Type, Int32Type>;
+    case Type::UINT32:
+      return ScalarPrimitiveExecUnary<Op, UInt32Type, UInt32Type>;
+    case Type::INT64:
+      return ScalarPrimitiveExecUnary<Op, Int64Type, Int64Type>;
+    case Type::UINT64:
+      return ScalarPrimitiveExecUnary<Op, UInt64Type, UInt64Type>;
+    case Type::FLOAT:
+      return ScalarPrimitiveExecUnary<Op, FloatType, FloatType>;
+    case Type::DOUBLE:
+      return ScalarPrimitiveExecUnary<Op, DoubleType, DoubleType>;
+    default:
+      DCHECK(false);
+      return ExecFail;
   }
+}
 
-  // Generate a kernel given a functor of type
-  //
-  // struct OPERATOR_NAME {
-  //   template <typename OUT, typename ARG0, typename ARG1>
-  //   static OUT Call(KernelContext*, ARG0 left, ARG1 right) {
-  //     // IMPLEMENTATION
-  //   }
-  // };
-  template <typename Op>
-  static ArrayKernelExec Binary(const DataType& type) {
-    switch (type.id()) {
-      case Type::INT8:
-        return ScalarPrimitiveExec::Binary<Op, Int8Type, Int8Type, Int8Type>;
-      case Type::UINT8:
-        return ScalarPrimitiveExec::Binary<Op, UInt8Type, UInt8Type, UInt8Type>;
-      case Type::INT16:
-        return ScalarPrimitiveExec::Binary<Op, Int16Type, Int16Type, Int16Type>;
-      case Type::UINT16:
-        return ScalarPrimitiveExec::Binary<Op, UInt16Type, UInt16Type, UInt16Type>;
-      case Type::INT32:
-        return ScalarPrimitiveExec::Binary<Op, Int32Type, Int32Type, Int32Type>;
-      case Type::UINT32:
-        return ScalarPrimitiveExec::Binary<Op, UInt32Type, UInt32Type, UInt32Type>;
-      case Type::INT64:
-        return ScalarPrimitiveExec::Binary<Op, Int64Type, Int64Type, Int64Type>;
-      case Type::UINT64:
-        return ScalarPrimitiveExec::Binary<Op, UInt64Type, UInt64Type, UInt64Type>;
-      case Type::FLOAT:
-        return ScalarPrimitiveExec::Binary<Op, FloatType, FloatType, FloatType>;
-      case Type::DOUBLE:
-        return ScalarPrimitiveExec::Binary<Op, DoubleType, DoubleType, DoubleType>;
-      default:
-        DCHECK(false);
-        return ExecFail;
-    }
+// Generate a kernel given a functor of type
+//
+// struct OPERATOR_NAME {
+//   template <typename OUT, typename ARG0, typename ARG1>
+//   static OUT Call(KernelContext*, ARG0 left, ARG1 right) {
+//     // IMPLEMENTATION
+//   }
+// };
+template <typename Op>
+ArrayKernelExec NumericEqualTypesBinary(const DataType& type) {
+  switch (type.id()) {
+    case Type::INT8:
+      return ScalarPrimitiveExecBinary<Op, Int8Type, Int8Type, Int8Type>;
+    case Type::UINT8:
+      return ScalarPrimitiveExecBinary<Op, UInt8Type, UInt8Type, UInt8Type>;
+    case Type::INT16:
+      return ScalarPrimitiveExecBinary<Op, Int16Type, Int16Type, Int16Type>;
+    case Type::UINT16:
+      return ScalarPrimitiveExecBinary<Op, UInt16Type, UInt16Type, UInt16Type>;
+    case Type::INT32:
+      return ScalarPrimitiveExecBinary<Op, Int32Type, Int32Type, Int32Type>;
+    case Type::UINT32:
+      return ScalarPrimitiveExecBinary<Op, UInt32Type, UInt32Type, UInt32Type>;
+    case Type::INT64:
+      return ScalarPrimitiveExecBinary<Op, Int64Type, Int64Type, Int64Type>;
+    case Type::UINT64:
+      return ScalarPrimitiveExecBinary<Op, UInt64Type, UInt64Type, UInt64Type>;
+    case Type::FLOAT:
+      return ScalarPrimitiveExecBinary<Op, FloatType, FloatType, FloatType>;
+    case Type::DOUBLE:
+      return ScalarPrimitiveExecBinary<Op, DoubleType, DoubleType, DoubleType>;
+    default:
+      DCHECK(false);
+      return ExecFail;
   }
-};
+}
 
 // Generate a kernel given a templated functor. This template effectively
 // "curries" the first type argument. The functor must be of the form:
