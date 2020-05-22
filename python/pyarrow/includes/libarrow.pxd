@@ -1498,15 +1498,15 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
                                 const CFunctionOptions* options)
 
     cdef cppclass CScalarFunction" arrow::compute::ScalarFunction"(CFunction):
-        pass
+        vector[const CScalarKernel*] kernels() const
 
     cdef cppclass CVectorFunction" arrow::compute::VectorFunction"(CFunction):
-        pass
+        vector[const CVectorKernel*] kernels() const
 
     cdef cppclass CScalarAggregateFunction\
-            " arrow::compute::ScalarAggregateFunctionVectorFunction"\
+            " arrow::compute::ScalarAggregateFunction"\
             (CFunction):
-        pass
+        vector[const CScalarAggregateKernel*] kernels() const
 
     cdef cppclass CFunctionRegistry" arrow::compute::FunctionRegistry":
         CResult[shared_ptr[CFunction]] GetFunction(

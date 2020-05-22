@@ -17,5 +17,9 @@
 
 
 from pyarrow._compute import (  # noqa
+    Function,
+    FunctionRegistry,
+    function_registry,
+    call_function,
     sum
 )

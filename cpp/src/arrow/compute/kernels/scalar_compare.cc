@@ -118,12 +118,12 @@ void MakeCompareFunction(std::string name, FunctionRegistry* registry) {
 }
 
 void RegisterScalarComparison(FunctionRegistry* registry) {
-  MakeCompareFunction<Equal>("==", registry);
-  MakeCompareFunction<NotEqual>("!=", registry);
-  MakeCompareFunction<Less, Greater>("<", registry);
-  MakeCompareFunction<LessEqual, GreaterEqual>("<=", registry);
-  MakeCompareFunction<Greater, Less>(">", registry);
-  MakeCompareFunction<GreaterEqual, LessEqual>(">=", registry);
+  MakeCompareFunction<Equal>("equals", registry);
+  MakeCompareFunction<NotEqual>("not_equals", registry);
+  MakeCompareFunction<Less, Greater>("less", registry);
+  MakeCompareFunction<LessEqual, GreaterEqual>("less_equal", registry);
+  MakeCompareFunction<Greater, Less>("greater", registry);
+  MakeCompareFunction<GreaterEqual, LessEqual>("greater_equal", registry);
 }
 
 }  // namespace internal

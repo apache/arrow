@@ -115,8 +115,14 @@ namespace detail {
 template <typename KernelType>
 class FunctionImpl : public Function {
  public:
-  /// \brief Return vector of all available kernels for this function
-  const std::vector<KernelType>& kernels() const { return kernels_; }
+  /// \brief Return pointers to current-available kernels for inspection
+  std::vector<const KernelType*> kernels() const {
+    std::vector<const KernelType*> result;
+    for (const auto& kernel : kernels_) {
+      result.push_back(&kernel);
+    }
+    return result;
+  }
 
   int num_kernels() const override { return static_cast<int>(kernels_.size()); }
 

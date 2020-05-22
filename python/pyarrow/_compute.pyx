@@ -30,22 +30,114 @@ from pyarrow.includes.common cimport *
 from pyarrow.compat import frombytes, tobytes
 
 
-cdef wrap_function(const shared_ptr[CFunction]& sp_func):
-    if sp_func.get() == NULL:
-        raise ValueError('Function was NULL')
-
-    cdef Function func = Function.__new__(Function)
+cdef wrap_scalar_function(const shared_ptr[CFunction]& sp_func):
+    cdef ScalarFunction func = ScalarFunction.__new__(ScalarFunction)
     func.init(sp_func)
     return func
 
 
+cdef wrap_vector_function(const shared_ptr[CFunction]& sp_func):
+    cdef VectorFunction func = VectorFunction.__new__(VectorFunction)
+    func.init(sp_func)
+    return func
+
+
+cdef wrap_scalar_aggregate_function(const shared_ptr[CFunction]& sp_func):
+    cdef ScalarAggregateFunction func = (
+        ScalarAggregateFunction.__new__(ScalarAggregateFunction)
+    )
+    func.init(sp_func)
+    return func
+
+
+cdef wrap_function(const shared_ptr[CFunction]& sp_func):
+    if sp_func.get() == NULL:
+        raise ValueError('Function was NULL')
+
+    cdef FunctionKind c_kind = sp_func.get().kind()
+    if c_kind == FunctionKind_SCALAR:
+        return wrap_scalar_function(sp_func)
+    elif c_kind == FunctionKind_VECTOR:
+        return wrap_vector_function(sp_func)
+    elif c_kind == FunctionKind_SCALAR_AGGREGATE:
+        return wrap_scalar_aggregate_function(sp_func)
+    else:
+        raise NotImplementedError("Unknown Function::Kind")
+
+
+cdef wrap_scalar_kernel(const CScalarKernel* c_kernel):
+    if c_kernel == NULL:
+        raise ValueError('Kernel was NULL')
+    cdef ScalarKernel kernel = ScalarKernel.__new__(ScalarKernel)
+    kernel.init(c_kernel)
+    return kernel
+
+
+cdef wrap_vector_kernel(const CVectorKernel* c_kernel):
+    if c_kernel == NULL:
+        raise ValueError('Kernel was NULL')
+    cdef VectorKernel kernel = VectorKernel.__new__(VectorKernel)
+    kernel.init(c_kernel)
+    return kernel
+
+
+cdef wrap_scalar_aggregate_kernel(const CScalarAggregateKernel* c_kernel):
+    if c_kernel == NULL:
+        raise ValueError('Kernel was NULL')
+    cdef ScalarAggregateKernel kernel = (
+        ScalarAggregateKernel.__new__(ScalarAggregateKernel)
+    )
+    kernel.init(c_kernel)
+    return kernel
+
+
+cdef class Kernel:
+
+    def __init__(self):
+        raise TypeError("Do not call {}'s constructor directly"
+                        .format(self.__class__.__name__))
+
+
+cdef class ScalarKernel(Kernel):
+    cdef:
+        const CScalarKernel* kernel
+
+    cdef void init(self, const CScalarKernel* kernel) except *:
+        self.kernel = kernel
+
+    def __repr__(self):
+        return ("ScalarKernel<{}>"
+                .format(frombytes(self.kernel.signature.get().ToString())))
+
+
+cdef class VectorKernel(Kernel):
+    cdef:
+        const CVectorKernel* kernel
+
+    cdef void init(self, const CVectorKernel* kernel) except *:
+        self.kernel = kernel
+
+    def __repr__(self):
+        return ("VectorKernel<{}>"
+                .format(frombytes(self.kernel.signature.get().ToString())))
+
+
+cdef class ScalarAggregateKernel(Kernel):
+    cdef:
+        const CScalarAggregateKernel* kernel
+
+    cdef void init(self, const CScalarAggregateKernel* kernel) except *:
+        self.kernel = kernel
+
+    def __repr__(self):
+        return ("ScalarAggregateKernel<{}>"
+                .format(frombytes(self.kernel.signature.get().ToString())))
+
+
 cdef class Function:
-    """
-    The base class for all Arrow arrays.
-    """
     cdef:
         shared_ptr[CFunction] sp_func
-        const CFunction* func
+        CFunction* base_func
 
     def __init__(self):
         raise TypeError("Do not call {}'s constructor directly"
@@ -53,11 +145,29 @@ cdef class Function:
 
     cdef void init(self, const shared_ptr[CFunction]& sp_func) except *:
         self.sp_func = sp_func
-        self.func = sp_func.get()
+        self.base_func = sp_func.get()
+
+    def __repr__(self):
+        return """arrow.compute.Function
+kind: {}
+num_kernels: {}
+""".format(self.kind, self.num_kernels)
+
+    @property
+    def kind(self):
+        cdef FunctionKind c_kind = self.base_func.kind()
+        if c_kind == FunctionKind_SCALAR:
+            return 'scalar'
+        elif c_kind == FunctionKind_VECTOR:
+            return 'vector'
+        elif c_kind == FunctionKind_SCALAR_AGGREGATE:
+            return 'scalar_aggregate'
+        else:
+            raise NotImplementedError("Unknown Function::Kind")
 
     @property
     def num_kernels(self):
-        return self.func.num_kernels()
+        return self.base_func.num_kernels()
 
     def call(self, args):
         cdef:
@@ -68,9 +178,50 @@ cdef class Function:
         _pack_compute_args(args, &c_args)
 
         with nogil:
-            result = GetResultValue(self.func.Execute(c_args, c_options))
+            result = GetResultValue(self.base_func.Execute(c_args, c_options))
 
         return wrap_datum(result)
+
+
+cdef class ScalarFunction(Function):
+    cdef:
+        const CScalarFunction* func
+
+    cdef void init(self, const shared_ptr[CFunction]& sp_func) except *:
+        Function.init(self, sp_func)
+        self.func = <const CScalarFunction*> sp_func.get()
+
+    def list_kernels(self):
+        cdef vector[const CScalarKernel*] kernels = self.func.kernels()
+        return [wrap_scalar_kernel(k) for k in kernels]
+
+
+cdef class VectorFunction(Function):
+    cdef:
+        const CVectorFunction* func
+
+    cdef void init(self, const shared_ptr[CFunction]& sp_func) except *:
+        Function.init(self, sp_func)
+        self.func = <const CVectorFunction*> sp_func.get()
+
+    def list_kernels(self):
+        cdef vector[const CVectorKernel*] kernels = self.func.kernels()
+        return [wrap_vector_kernel(k) for k in kernels]
+
+
+cdef class ScalarAggregateFunction(Function):
+    cdef:
+        const CScalarAggregateFunction* func
+
+    cdef void init(self, const shared_ptr[CFunction]& sp_func) except *:
+        Function.init(self, sp_func)
+        self.func = <const CScalarAggregateFunction*> sp_func.get()
+
+    def list_kernels(self):
+        cdef vector[const CScalarAggregateKernel*] kernels = (
+            self.func.kernels()
+        )
+        return [wrap_scalar_aggregate_kernel(k) for k in kernels]
 
 
 cdef _pack_compute_args(object values, vector[CDatum]* out):
@@ -106,6 +257,10 @@ cdef class FunctionRegistry:
 
 
 cdef FunctionRegistry _global_func_registry = FunctionRegistry()
+
+
+def function_registry():
+    return _global_func_registry
 
 
 def call_function(name, args):

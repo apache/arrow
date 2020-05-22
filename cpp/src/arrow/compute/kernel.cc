@@ -280,7 +280,7 @@ const OutputType::Resolver& OutputType::resolver() const {
 
 std::string OutputType::ToString() const {
   if (kind_ == OutputType::FIXED) {
-    return ValueDescr(type_, shape_).ToString();
+    return type_->ToString();
   } else {
     return "computed";
   }
