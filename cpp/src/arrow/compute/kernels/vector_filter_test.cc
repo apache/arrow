@@ -33,8 +33,6 @@ namespace compute {
 using internal::checked_pointer_cast;
 using util::string_view;
 
-constexpr auto kSeed = 0x0ff1ce;
-
 std::shared_ptr<Array> CoalesceNullToFalse(std::shared_ptr<Array> filter) {
   if (filter->null_count() == 0) {
     return filter;
@@ -193,7 +191,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, FilterNumeric) {
 }
 
 TYPED_TEST(TestFilterKernelWithNumeric, FilterRandomNumeric) {
-  auto rand = random::RandomArrayGenerator(kSeed);
+  auto rand = random::RandomArrayGenerator(kRandomSeed);
   for (size_t i = 3; i < 10; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
     for (auto null_probability : {0.0, 0.01, 0.25, 1.0}) {
@@ -257,7 +255,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
   using CType = typename TypeTraits<TypeParam>::CType;
 
-  auto rand = random::RandomArrayGenerator(kSeed);
+  auto rand = random::RandomArrayGenerator(kRandomSeed);
   for (size_t i = 3; i < 10; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
     // TODO(bkietz) rewrite with some nulls
@@ -281,7 +279,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
 TYPED_TEST(TestFilterKernelWithNumeric, CompareArrayAndFilterRandomNumeric) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
 
-  auto rand = random::RandomArrayGenerator(kSeed);
+  auto rand = random::RandomArrayGenerator(kRandomSeed);
   for (size_t i = 3; i < 10; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
     auto lhs = checked_pointer_cast<ArrayType>(
@@ -306,7 +304,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
   using CType = typename TypeTraits<TypeParam>::CType;
 
-  auto rand = random::RandomArrayGenerator(kSeed);
+  auto rand = random::RandomArrayGenerator(kRandomSeed);
   for (size_t i = 3; i < 10; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
     auto array = checked_pointer_cast<ArrayType>(

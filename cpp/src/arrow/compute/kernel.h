@@ -329,7 +329,7 @@ class ARROW_EXPORT KernelSignature {
   bool operator!=(const KernelSignature& other) const { return !(*this == other); }
 
   /// \brief Compute a hash code for the signature
-  int64_t Hash() const;
+  uint64_t Hash() const;
 
   const std::vector<InputType>& in_types() const { return in_types_; }
 
@@ -346,7 +346,7 @@ class ARROW_EXPORT KernelSignature {
   bool is_varargs_;
 
   // For caching the hash code after it's computed the first time
-  mutable int64_t hash_code_;
+  mutable uint64_t hash_code_;
 };
 
 /// \brief A function may contain multiple variants of a kernel for a given

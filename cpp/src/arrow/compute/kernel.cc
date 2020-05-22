@@ -34,7 +34,7 @@ namespace arrow {
 
 using internal::hash_combine;
 
-static constexpr size_t kHashSeed = 0;
+static constexpr uint64_t kHashSeed = 0;
 
 namespace compute {
 
@@ -79,8 +79,8 @@ void KernelContext::ResetStatus() { status_ = Status::OK(); }
 // ----------------------------------------------------------------------
 // InputType
 
-size_t InputType::Hash() const {
-  size_t result = kHashSeed;
+uint64_t InputType::Hash() const {
+  uint64_t result = kHashSeed;
   hash_combine(result, static_cast<int>(shape_));
   switch (kind_) {
     case InputType::EXACT_TYPE:
@@ -273,11 +273,11 @@ bool KernelSignature::MatchesInputs(const std::vector<ValueDescr>& args) const {
   return true;
 }
 
-int64_t KernelSignature::Hash() const {
+uint64_t KernelSignature::Hash() const {
   if (hash_code_ != 0) {
     return hash_code_;
   }
-  size_t result = kHashSeed;
+  uint64_t result = kHashSeed;
   for (const auto& in_type : in_types_) {
     hash_combine(result, in_type.Hash());
   }

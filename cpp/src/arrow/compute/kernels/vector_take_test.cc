@@ -35,8 +35,6 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 using util::string_view;
 
-constexpr auto kSeed = 0x0ff1ce;
-
 void AssertTakeArrays(const std::shared_ptr<Array>& values,
                       const std::shared_ptr<Array>& indices,
                       const std::shared_ptr<Array>& expected) {
@@ -153,7 +151,7 @@ TYPED_TEST(TestTakeKernelWithNumeric, TakeNumeric) {
 }
 
 TYPED_TEST(TestTakeKernelWithNumeric, TakeRandomNumeric) {
-  auto rand = random::RandomArrayGenerator(kSeed);
+  auto rand = random::RandomArrayGenerator(kRandomSeed);
   for (size_t i = 3; i < 8; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
     for (size_t j = 0; j < 13; j++) {
@@ -167,9 +165,6 @@ TYPED_TEST(TestTakeKernelWithNumeric, TakeRandomNumeric) {
     }
   }
 }
-
-using StringTypes =
-    ::testing::Types<BinaryType, StringType, LargeBinaryType, LargeStringType>;
 
 template <typename TypeClass>
 class TestTakeKernelWithString : public TestTakeKernel<TypeClass> {
@@ -199,7 +194,7 @@ class TestTakeKernelWithString : public TestTakeKernel<TypeClass> {
   }
 };
 
-TYPED_TEST_SUITE(TestTakeKernelWithString, StringTypes);
+TYPED_TEST_SUITE(TestTakeKernelWithString, TestingStringTypes);
 
 TYPED_TEST(TestTakeKernelWithString, TakeString) {
   this->AssertTake(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["a", "b", "a"])");
@@ -496,7 +491,7 @@ class TestPermutationsWithTake : public TestBase {
 };
 
 TEST_F(TestPermutationsWithTake, InvertPermutation) {
-  for (int seed : {0, kSeed, kSeed * 2 - 1}) {
+  for (auto seed : std::vector<random::SeedType>({0, kRandomSeed, kRandomSeed * 2 - 1})) {
     std::default_random_engine gen(seed);
     for (int16_t length = 0; length < 1 << 10; ++length) {
       auto identity = Identity(length);

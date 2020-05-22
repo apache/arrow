@@ -154,7 +154,9 @@ struct ExecBatch {
   std::vector<Datum> values;
   std::shared_ptr<SelectionVector> selection_vector;
   int64_t length;
-  const Datum& operator[](int i) const { return values[i]; }
+
+  template <typename index_type>
+  inline const Datum& operator[](index_type i) const { return values[i]; }
 
   int num_values() const { return static_cast<int>(values.size()); }
 

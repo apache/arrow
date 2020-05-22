@@ -51,9 +51,6 @@ using internal::checked_cast;
 
 namespace compute {
 
-using StringTypes =
-    ::testing::Types<StringType, LargeStringType, BinaryType, LargeBinaryType>;
-
 // ----------------------------------------------------------------------
 // Dictionary tests
 
@@ -361,7 +358,7 @@ class TestHashKernelBinaryTypes : public TestHashKernel {
   }
 };
 
-TYPED_TEST_SUITE(TestHashKernelBinaryTypes, StringTypes);
+TYPED_TEST_SUITE(TestHashKernelBinaryTypes, TestingStringTypes);
 
 TYPED_TEST(TestHashKernelBinaryTypes, ZeroChunks) {
   auto type = this->type();

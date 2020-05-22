@@ -27,6 +27,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 
@@ -80,6 +81,11 @@ struct DatumEqual<Type, enable_if_integer<Type>> {
     }
   }
 };
+
+using TestingStringTypes =
+    ::testing::Types<StringType, LargeStringType, BinaryType, LargeBinaryType>;
+
+static constexpr random::SeedType kRandomSeed = 0x0ff1ce;
 
 }  // namespace compute
 }  // namespace arrow
