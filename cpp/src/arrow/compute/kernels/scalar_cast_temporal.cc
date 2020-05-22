@@ -280,17 +280,6 @@ struct CastFunctor<TimestampType, I, enable_if_t<is_base_binary_type<I>::value>>
   }
 };
 
-/// You will see some of these kernels with
-///
-/// kOutputTargetType
-///
-/// for their output type resolution. This is somewhat of an eyesore but the
-/// easiest initial way to get the requested cast type including the TimeUnit
-/// to the kernel (which is needed to compute the output) was through
-/// CastOptions
-
-static OutputType kOutputTargetType(ResolveOutputFromOptions);
-
 template <typename Type>
 void AddCrossUnitCast(CastFunction* func) {
   ScalarKernel kernel;

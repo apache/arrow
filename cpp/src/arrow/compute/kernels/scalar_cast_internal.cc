@@ -45,6 +45,17 @@ Result<ValueDescr> ResolveOutputFromOptions(KernelContext* ctx,
   return ValueDescr(options.to_type, args[0].shape);
 }
 
+/// You will see some of kernels with
+///
+/// kOutputTargetType
+///
+/// for their output type resolution. This is somewhat of an eyesore but the
+/// easiest initial way to get the requested cast type including the TimeUnit
+/// to the kernel (which is needed to compute the output) was through
+/// CastOptions
+
+OutputType kOutputTargetType(ResolveOutputFromOptions);
+
 void ZeroCopyCastExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (batch[0].kind() == Datum::ARRAY) {
     // Make a copy of the buffers into a destination array without carrying

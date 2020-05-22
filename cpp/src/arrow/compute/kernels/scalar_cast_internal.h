@@ -248,6 +248,8 @@ void AddZeroCopyCast(Type::type in_type_id, InputType in_type, OutputType out_ty
 Result<ValueDescr> ResolveOutputFromOptions(KernelContext* ctx,
                                             const std::vector<ValueDescr>& args);
 
+ARROW_EXPORT extern OutputType kOutputTargetType;
+
 template <typename T, typename Enable = void>
 struct MaybeAddFromDictionary {
   static void Add(const OutputType& out_ty, CastFunction* func) {}
