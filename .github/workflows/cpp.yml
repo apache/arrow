@@ -299,9 +299,16 @@ jobs:
           bash ci\scripts\cpp_test.sh "${source_dir}" "${build_dir}"
 
   windows-docker:
-    name: AMD64 ${{ matrix.name }} Docker C++
+    name: AMD64 Windows 2019 Visual Studio ${{ matrix.vs }} C++
     runs-on: windows-latest
     # if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        vs:
+          - 2015
+          - 2017
+          - 2019
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -317,4 +324,4 @@ jobs:
       - name: Execute Docker Build
         shell: bash
         run: |
-          archery docker run windows-cpp
+          VISUAL_STUDIO=2019 archery docker run windows-cpp
