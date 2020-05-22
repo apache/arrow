@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "arrow_rcpp.h"
+#include "./arrow_rcpp.h"
 
 template <typename T>
 struct NoDelete {
@@ -38,11 +38,15 @@ inline constexpr Rbyte default_value<RAWSXP>() {
 }  // namespace Rcpp
 
 #if defined(ARROW_R_WITH_ARROW)
+
 #include <arrow/buffer.h>  // for RBuffer definition below
 #include <arrow/result.h>
 #include <arrow/type_fwd.h>
-// Do we need ubsan always there?
-#include <arrow/util/ubsan.h>
+
+#include <limits>
+#include <memory>
+#include <utility>
+#include <vector>
 
 RCPP_EXPOSED_ENUM_NODECL(arrow::StatusCode)
 
