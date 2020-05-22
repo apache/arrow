@@ -39,7 +39,6 @@ cdef wrap_function(const shared_ptr[CFunction]& sp_func):
     return func
 
 
-
 cdef class Function:
     """
     The base class for all Arrow arrays.

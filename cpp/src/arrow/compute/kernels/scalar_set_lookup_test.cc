@@ -394,7 +394,7 @@ TEST_F(TestIsInKernel, IsInChunkedArrayInvoke) {
   ASSERT_OK_AND_ASSIGN(Datum encoded_out, IsIn(carr, member_set));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, encoded_out.kind());
 
-  AssertChunkedEqual(*expected_carr, *encoded_out.chunked_array());
+  AssertChunkedEquivalent(*expected_carr, *encoded_out.chunked_array());
 }
 // ----------------------------------------------------------------------
 // Match tests
@@ -727,7 +727,7 @@ TEST_F(TestMatchKernel, MatchChunkedArrayInvoke) {
   ASSERT_OK_AND_ASSIGN(Datum encoded_out, Match(carr, Datum(member_set)));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, encoded_out.kind());
 
-  AssertChunkedEqual(*expected_carr, *encoded_out.chunked_array());
+  AssertChunkedEquivalent(*expected_carr, *encoded_out.chunked_array());
 }
 
 }  // namespace compute
