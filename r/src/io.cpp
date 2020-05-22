@@ -20,6 +20,10 @@
 using Rcpp::RawVector_;
 
 #if defined(ARROW_R_WITH_ARROW)
+#include <arrow/io/file.h>
+#include <arrow/io/memory.h>
+
+RCPP_EXPOSED_ENUM_NODECL(arrow::io::FileMode::type)
 
 // ------ arrow::io::Readable
 

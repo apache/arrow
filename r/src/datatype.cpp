@@ -23,6 +23,11 @@ using Rcpp::stop;
 using Rcpp::wrap;
 
 #if defined(ARROW_R_WITH_ARROW)
+#include <arrow/type.h>
+
+RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
+RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)
+RCPP_EXPOSED_ENUM_NODECL(arrow::TimeUnit::type)
 
 // [[arrow::export]]
 bool shared_ptr_is_null(SEXP xp) {

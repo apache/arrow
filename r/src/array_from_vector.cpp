@@ -20,6 +20,11 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
+#include <arrow/array.h>
+#include <arrow/builder.h>
+#include <arrow/table.h>
+// This says "Private header, not to be exported"
+#include <arrow/visitor_inline.h>
 
 using arrow::internal::checked_cast;
 
