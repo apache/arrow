@@ -147,8 +147,7 @@ struct SumState {
   ThisType ConsumeTiny(const ArrayType& array) const {
     ThisType local;
 
-    BitmapReader reader(array.null_bitmap_data(), array.offset(),
-                        array.length());
+    BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
     const auto values = array.raw_values();
     for (int64_t i = 0; i < array.length(); i++) {
       if (reader.IsSet()) {

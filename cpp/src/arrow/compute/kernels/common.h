@@ -46,8 +46,8 @@ namespace arrow {
 
 using internal::Bitmap;
 using internal::BitmapReader;
-using internal::FirstTimeBitmapWriter;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using internal::FirstTimeBitmapWriter;
 
 }  // namespace arrow

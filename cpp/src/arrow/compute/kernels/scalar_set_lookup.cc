@@ -222,8 +222,8 @@ struct IsInVisitor {
       BitUtil::SetBitsTo(output->buffers[0]->mutable_data(), output->offset,
                          output->length, true);
     }
-    FirstTimeBitmapWriter writer(output->buffers[1]->mutable_data(),
-                                 output->offset, output->length);
+    FirstTimeBitmapWriter writer(output->buffers[1]->mutable_data(), output->offset,
+                                 output->length);
     auto lookup_value = [&](util::optional<T> v) {
       if (!v.has_value() || state.lookup_table.Get(*v) != -1) {
         writer.Set();

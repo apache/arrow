@@ -296,8 +296,7 @@ static void BM_PlainDecodingSpaced(benchmark::State& state) {
   std::vector<uint8_t> decode_values(num_values * sizeof(CType));
   auto decode_buf = reinterpret_cast<CType*>(decode_values.data());
   for (auto _ : state) {
-    decoder->SetData(num_values - null_count, buf->data(),
-                     static_cast<int>(buf->size()));
+    decoder->SetData(num_values - null_count, buf->data(), static_cast<int>(buf->size()));
     decoder->DecodeSpaced(decode_buf, num_values, null_count, valid_bits, 0);
   }
   state.SetBytesProcessed(state.iterations() * num_values * sizeof(CType));

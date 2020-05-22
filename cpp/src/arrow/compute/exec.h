@@ -156,7 +156,9 @@ struct ExecBatch {
   int64_t length;
 
   template <typename index_type>
-  inline const Datum& operator[](index_type i) const { return values[i]; }
+  inline const Datum& operator[](index_type i) const {
+    return values[i];
+  }
 
   int num_values() const { return static_cast<int>(values.size()); }
 

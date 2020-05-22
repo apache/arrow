@@ -80,16 +80,16 @@ struct Invert {
 
   static void Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
     ::arrow::internal::InvertBitmap(in.buffers[1]->data(), in.offset, in.length,
-                           out->buffers[1]->mutable_data(), out->offset);
+                                    out->buffers[1]->mutable_data(), out->offset);
   }
 };
 
 struct And {
   static void Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
                    ArrayData* out) {
-    ::arrow::internal::BitmapAnd(left.buffers[1]->data(), left.offset, right.buffers[1]->data(),
-                        right.offset, right.length, out->offset,
-                        out->buffers[1]->mutable_data());
+    ::arrow::internal::BitmapAnd(left.buffers[1]->data(), left.offset,
+                                 right.buffers[1]->data(), right.offset, right.length,
+                                 out->offset, out->buffers[1]->mutable_data());
   }
 };
 
@@ -113,9 +113,9 @@ struct KleeneAnd {
 struct Or {
   static void Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
                    ArrayData* out) {
-    ::arrow::internal::BitmapOr(left.buffers[1]->data(), left.offset, right.buffers[1]->data(),
-                       right.offset, right.length, out->offset,
-                       out->buffers[1]->mutable_data());
+    ::arrow::internal::BitmapOr(left.buffers[1]->data(), left.offset,
+                                right.buffers[1]->data(), right.offset, right.length,
+                                out->offset, out->buffers[1]->mutable_data());
   }
 };
 
@@ -140,9 +140,9 @@ struct KleeneOr {
 struct Xor {
   static void Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
                    ArrayData* out) {
-    ::arrow::internal::BitmapXor(left.buffers[1]->data(), left.offset, right.buffers[1]->data(),
-                        right.offset, right.length, out->offset,
-                        out->buffers[1]->mutable_data());
+    ::arrow::internal::BitmapXor(left.buffers[1]->data(), left.offset,
+                                 right.buffers[1]->data(), right.offset, right.length,
+                                 out->offset, out->buffers[1]->mutable_data());
   }
 };
 
