@@ -40,18 +40,19 @@ import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Integration test for reading/writing {@link org.apache.arrow.vector.VectorSchemaRoot} with
  * large (more than 2GB) buffers by {@link ArrowReader} and {@link ArrowWriter}..
  * To run this test, please make sure there is at least 8GB free memory, and 8GB
  * free.disk space in the system.
- * <p>
- * Please note that this is not a standard test case, so please run it by manually invoking the
- * main method.
- * </p>
  */
-public class TestIPCWithLargeArrowBuffers {
+public class ITTestIPCWithLargeArrowBuffers {
+
+  private static final Logger logger = LoggerFactory.getLogger(ITTestIPCWithLargeArrowBuffers.class);
 
   // 4GB buffer size
   static final long BUFFER_SIZE = 4 * 1024 * 1024 * 1024L;
@@ -74,7 +75,7 @@ public class TestIPCWithLargeArrowBuffers {
 
   static final Field ENCODED_VECTOR_FIELD = new Field("encoded vector", ENCODED_FIELD_TYPE, null);
 
-  static void testWriteLargeArrowData(boolean streamMode) throws IOException {
+  private void testWriteLargeArrowData(boolean streamMode) throws IOException {
     // simulate encoding big int as int
     try (RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
          BigIntVector dictVector = new BigIntVector("dic vector", allocator);
@@ -93,7 +94,7 @@ public class TestIPCWithLargeArrowBuffers {
       }
       dictVector.setValueCount(DICTIONARY_VECTOR_SIZE);
       assertTrue(dictVector.getDataBuffer().capacity() > Integer.MAX_VALUE);
-      System.out.println("Populating dictionary vector finished");
+      logger.trace("Populating dictionary vector finished");
 
       // populate the encoded vector
       encodedVector.allocateNew(ENCODED_VECTOR_SIZE);
@@ -102,7 +103,7 @@ public class TestIPCWithLargeArrowBuffers {
       }
       encodedVector.setValueCount(ENCODED_VECTOR_SIZE);
       assertTrue(encodedVector.getDataBuffer().capacity() > Integer.MAX_VALUE);
-      System.out.println("Populating encoded vector finished");
+      logger.trace("Populating encoded vector finished");
 
       // build vector schema root and write data.
       try (VectorSchemaRoot root =
@@ -114,14 +115,14 @@ public class TestIPCWithLargeArrowBuffers {
         writer.start();
         writer.writeBatch();
         writer.end();
-        System.out.println("Writing data finished");
+        logger.trace("Writing data finished");
       }
     }
 
     assertTrue(new File(FILE_NAME).exists());
   }
 
-  static void testReadLargeArrowData(boolean streamMode) throws IOException {
+  private void testReadLargeArrowData(boolean streamMode) throws IOException {
     try (RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
          FileInputStream in = new FileInputStream(FILE_NAME);
          ArrowReader reader = streamMode ?
@@ -132,7 +133,7 @@ public class TestIPCWithLargeArrowBuffers {
       Schema readSchema = reader.getVectorSchemaRoot().getSchema();
       assertEquals(1, readSchema.getFields().size());
       assertEquals(ENCODED_VECTOR_FIELD, readSchema.getFields().get(0));
-      System.out.println("Verifying schema finished");
+      logger.trace("Verifying schema finished");
 
       // verify vector schema root
       assertTrue(reader.loadNextBatch());
@@ -146,7 +147,7 @@ public class TestIPCWithLargeArrowBuffers {
       for (int i = 0; i < ENCODED_VECTOR_SIZE; i++) {
         assertEquals(i % DICTIONARY_VECTOR_SIZE, encodedVector.get(i));
       }
-      System.out.println("Verifying encoded vector finished");
+      logger.trace("Verifying encoded vector finished");
 
       // verify dictionary
       Map<Long, Dictionary> dictVectors = reader.getDictionaryVectors();
@@ -160,7 +161,7 @@ public class TestIPCWithLargeArrowBuffers {
       for (int i = 0; i < DICTIONARY_VECTOR_SIZE; i++) {
         assertEquals(i, dictVector.get(i));
       }
-      System.out.println("Verifying dictionary vector finished");
+      logger.trace("Verifying dictionary vector finished");
 
       // ensure no more data available
       assertFalse(reader.loadNextBatch());
@@ -171,15 +172,16 @@ public class TestIPCWithLargeArrowBuffers {
     }
   }
 
-  public static void main(String[] args) throws IOException {
-    System.out.println("Start testing reading/writing large arrow stream data");
+  @Test
+  public void testIPC() throws IOException {
+    logger.trace("Start testing reading/writing large arrow stream data");
     testWriteLargeArrowData(true);
     testReadLargeArrowData(true);
-    System.out.println("Finish testing reading/writing large arrow stream data");
+    logger.trace("Finish testing reading/writing large arrow stream data");
 
-    System.out.println("Start testing reading/writing large arrow file data");
+    logger.trace("Start testing reading/writing large arrow file data");
     testWriteLargeArrowData(false);
     testReadLargeArrowData(false);
-    System.out.println("Finish testing reading/writing large arrow file data");
+    logger.trace("Finish testing reading/writing large arrow file data");
   }
 }
