@@ -69,6 +69,7 @@ import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
+import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -756,28 +757,19 @@ public class TestArrowReaderWriter {
 
   @Test
   public void testCustomMetaData() throws IOException {
-    DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
-    provider.put(dictionary1);
 
-    VarCharVector vector1 = newVarCharVector("varchar1", allocator);
-    vector1.allocateNewSafe();
-    vector1.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-    vector1.set(1, "bar".getBytes(StandardCharsets.UTF_8));
-    vector1.set(3, "baz".getBytes(StandardCharsets.UTF_8));
-    vector1.set(4, "bar".getBytes(StandardCharsets.UTF_8));
-    vector1.set(5, "baz".getBytes(StandardCharsets.UTF_8));
-    vector1.setValueCount(6);
-    FieldVector encodedVector1 = (FieldVector) DictionaryEncoder.encode(vector1, dictionary1);
-    vector1.close();
+    VarCharVector vector = newVarCharVector("varchar1", allocator);
+    vector.allocateNewSafe();
+    ValueVectorDataPopulator.setVector(vector, "foo", "bar", "baz");
 
-    List<Field> fields = Arrays.asList(encodedVector1.getField());
-    List<FieldVector> vectors = Collections2.asImmutableList(encodedVector1);
+    List<Field> fields = Arrays.asList(vector.getField());
+    List<FieldVector> vectors = Collections2.asImmutableList(vector);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("key1", "value1");
     metadata.put("key2", "value2");
-    try (VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, encodedVector1.getValueCount());
+    try (VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, vector.getValueCount());
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        ArrowFileWriter writer = new ArrowFileWriter(root, provider, newChannel(out), metadata);) {
+        ArrowFileWriter writer = new ArrowFileWriter(root, null, newChannel(out), metadata);) {
 
       writer.start();
       writer.writeBatch();
@@ -788,7 +780,7 @@ public class TestArrowReaderWriter {
           ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
         Schema readSchema = reader.getVectorSchemaRoot().getSchema();
         assertEquals(root.getSchema(), readSchema);
-        assertEquals(1, reader.getDictionaryBlocks().size());
+        assertEquals(0, reader.getDictionaryBlocks().size());
         assertEquals(1, reader.getRecordBlocks().size());
 
         reader.loadNextBatch();
