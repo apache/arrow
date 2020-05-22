@@ -88,22 +88,22 @@ Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions opti
   std::string func_name;
   switch (options.op) {
     case CompareOperator::EQUAL:
-      func_name = "==";
+      func_name = "equal";
       break;
     case CompareOperator::NOT_EQUAL:
-      func_name = "!=";
+      func_name = "not_equal";
       break;
     case CompareOperator::GREATER:
-      func_name = ">";
+      func_name = "greater";
       break;
     case CompareOperator::GREATER_EQUAL:
-      func_name = ">=";
+      func_name = "greater_equal";
       break;
     case CompareOperator::LESS:
-      func_name = "<";
+      func_name = "less";
       break;
     case CompareOperator::LESS_EQUAL:
-      func_name = "<=";
+      func_name = "less_equal";
       break;
   }
   return CallFunction(ctx, func_name, {left, right}, &options);

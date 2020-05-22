@@ -203,7 +203,7 @@ TEST(ScalarAggregateFunction, DispatchExact) {
 
   ASSERT_EQ(2, func.num_kernels());
   ASSERT_EQ(2, func.kernels().size());
-  ASSERT_TRUE(func.kernels()[1].signature->Equals(*kernel.signature));
+  ASSERT_TRUE(func.kernels()[1]->signature->Equals(*kernel.signature));
 
   // Invalid arity
   in_args = {};
@@ -217,7 +217,7 @@ TEST(ScalarAggregateFunction, DispatchExact) {
   std::vector<ValueDescr> dispatch_args = {ValueDescr::Array(int8())};
   ASSERT_OK_AND_ASSIGN(const ScalarAggregateKernel* selected_kernel,
                        func.DispatchExact(dispatch_args));
-  ASSERT_EQ(&func.kernels()[0], selected_kernel);
+  ASSERT_EQ(func.kernels()[0], selected_kernel);
   ASSERT_TRUE(selected_kernel->signature->MatchesInputs(dispatch_args));
 
   // We declared that only arrays are accepted
