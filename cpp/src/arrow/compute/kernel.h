@@ -128,11 +128,11 @@ struct TypeMatcher {
 namespace match {
 
 /// \brief Match any DataType instance having the same DataType::id
-std::shared_ptr<TypeMatcher> SameTypeId(Type::type type_id);
+ARROW_EXPORT std::shared_ptr<TypeMatcher> SameTypeId(Type::type type_id);
 
 /// \brief Match any TimestampType instance having the same unit, but the time
 /// zones can be different
-std::shared_ptr<TypeMatcher> TimestampUnit(TimeUnit::type unit);
+ARROW_EXPORT std::shared_ptr<TypeMatcher> TimestampUnit(TimeUnit::type unit);
 
 }  // namespace match
 
