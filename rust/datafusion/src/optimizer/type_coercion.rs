@@ -285,6 +285,6 @@ mod tests {
 
         let expr2 = rule.rewrite_expr(&expr, &schema).unwrap();
 
-        assert_eq!(expected, format!("{:?}", expr2));
+        assert_eq!(format!("{:?}", expr2), expected);
     }
 }
