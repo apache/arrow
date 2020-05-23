@@ -187,7 +187,8 @@ mod tests {
     use crate::execution::context::ExecutionContext;
     use crate::execution::physical_plan::csv::CsvReadOptions;
     use crate::logicalplan::Expr::*;
-    use crate::logicalplan::{col, can_coerce_from, Operator};
+    use crate::logicalplan::{col, can_coerce_from, cast_supported, Operator};
+    use crate::logicalplan::{, Operator};
     use crate::optimizer::utils::get_supertype;
     use crate::test::arrow_testdata_path;
     use arrow::datatypes::DataType::*;
@@ -225,8 +226,8 @@ mod tests {
                         // swapping from and to should result in same supertype
                         assert_eq!(t, get_supertype(to_type, from_type)?);
                         // both from and to types should be coercable to the supertype
-                        assert!(can_coerce_from(&t, &from_type));
-                        assert!(can_coerce_from(&t, &to_type));
+                        assert!(cast_supported(&t, &from_type));
+                        assert!(cast_supported(&t, &to_type));
                     }
                     Err(_) => assert!(get_supertype(to_type, from_type).is_err()),
                 }
@@ -274,20 +275,6 @@ mod tests {
             DataType::Float32,
             DataType::Int32,
             "#0 Plus CAST(#1 AS Float32)",
-        );
-    }
-
-    #[test]
-    fn test_add_u32_i64() {
-        binary_cast_test(
-            DataType::UInt32,
-            DataType::Int64,
-            "CAST(#0 AS Int64) Plus #1",
-        );
-        binary_cast_test(
-            DataType::Int64,
-            DataType::UInt32,
-            "#0 Plus CAST(#1 AS Int64)",
         );
     }
 

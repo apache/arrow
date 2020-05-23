@@ -288,14 +288,14 @@ impl Expr {
         let this_type = self.get_type(schema)?;
         if this_type == *cast_to_type {
             Ok(self.clone())
-        } else if can_coerce_from(cast_to_type, &this_type) {
+        } else if cast_supported(cast_to_type, &this_type) {
             Ok(Expr::Cast {
                 expr: Box::new(self.clone()),
                 data_type: cast_to_type.clone(),
             })
         } else {
             Err(ExecutionError::General(format!(
-                "Cannot automatically convert {:?} to {:?}",
+                "Cannot cast from {:?} to {:?}",
                 this_type, cast_to_type
             )))
         }
@@ -723,7 +723,7 @@ impl fmt::Debug for LogicalPlan {
 }
 
 /// Verify a given type cast can be performed
-pub fn can_coerce_from(type_into: &DataType, type_from: &DataType) -> bool {
+pub fn cast_supported(type_into: &DataType, type_from: &DataType) -> bool {
     use self::DataType::*;
 
     if type_from == type_into {
@@ -737,17 +737,14 @@ pub fn can_coerce_from(type_into: &DataType, type_from: &DataType) -> bool {
         },
         Int16 => match type_from {
             Int8 | Int16 => true,
-            UInt8 => true,
             _ => false,
         },
         Int32 => match type_from {
             Int8 | Int16 | Int32 => true,
-            UInt8 | UInt16 => true,
             _ => false,
         },
         Int64 => match type_from {
             Int8 | Int16 | Int32 | Int64 => true,
-            UInt8 | UInt16 | UInt32 => true,
             _ => false,
         },
         UInt8 => match type_from {
@@ -755,17 +752,14 @@ pub fn can_coerce_from(type_into: &DataType, type_from: &DataType) -> bool {
             _ => false,
         },
         UInt16 => match type_from {
-            Int8 => true,
             UInt8 | UInt16 => true,
             _ => false,
         },
         UInt32 => match type_from {
-            Int8 | Int16 => true,
             UInt8 | UInt16 | UInt32 => true,
             _ => false,
         },
         UInt64 => match type_from {
-            Int8 | Int16 | Int32 => true,
             UInt8 | UInt16 | UInt32 | UInt64 => true,
             _ => false,
         },

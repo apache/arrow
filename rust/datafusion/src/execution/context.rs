@@ -658,7 +658,7 @@ mod tests {
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
 
         let logical_plan =
-            ctx.create_logical_plan("SELECT c1, c2 FROM test WHERE c1 > 0 AND c1 < 3")?;
+            ctx.create_logical_plan("SELECT c1, c2 FROM test WHERE CAST(c1 AS double) > 0 AND CAST(c1 AS double) < 3")?;
         let logical_plan = ctx.optimize(&logical_plan)?;
 
         let physical_plan = ctx.create_physical_plan(&logical_plan, 1024)?;
