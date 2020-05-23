@@ -274,11 +274,7 @@ cdef class ChunkedArray(_PandasConvertible):
         pyarrow.ChunkedArray
             Same chunking as the input, all chunks share a common dictionary.
         """
-        cdef CDatum out
-        with nogil:
-            out = GetResultValue(
-                DictionaryEncode(CDatum(self.sp_chunked_array)))
-        return wrap_datum(out)
+        return _pc().call_function('dictionary_encode', [self])
 
     def flatten(self, MemoryPool memory_pool=None):
         """
@@ -311,12 +307,7 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         pyarrow.Array
         """
-        cdef shared_ptr[CArray] result
-
-        with nogil:
-            result = GetResultValue(Unique(CDatum(self.sp_chunked_array)))
-
-        return pyarrow_wrap_array(result)
+        return _pc().call_function('unique', [self])
 
     def value_counts(self):
         """
@@ -326,11 +317,7 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         An array of  <input type "Values", int64_t "Counts"> structs
         """
-        cdef shared_ptr[CArray] result
-
-        with nogil:
-            result = GetResultValue(ValueCounts(CDatum(self.sp_chunked_array)))
-        return pyarrow_wrap_array(result)
+        return _pc().call_function('value_counts', [self])
 
     def slice(self, offset=0, length=None):
         """

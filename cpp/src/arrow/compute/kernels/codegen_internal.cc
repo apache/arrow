@@ -89,9 +89,11 @@ static void InitStaticData() {
   //
   // * Decimal
   // * Fixed Size Binary
-  g_primitive_types = {null(), boolean()};
+  // * Time32
+  // * Time64
+  // * Timestamp
+  g_primitive_types = {null(), boolean(), date32(), date64()};
   Extend(g_numeric_types, &g_primitive_types);
-  Extend(g_temporal_types, &g_primitive_types);
   Extend(g_base_binary_types, &g_primitive_types);
 }
 

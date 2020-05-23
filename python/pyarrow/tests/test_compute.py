@@ -93,7 +93,7 @@ def test_sum_chunked_array(arrow_type):
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)
 def test_take(ty, values):
     arr = pa.array(values, type=ty)
-    for indices_type in [pa.uint8(), pa.int64()]:
+    for indices_type in [pa.int8(), pa.int64()]:
         indices = pa.array([0, 4, 2, None], type=indices_type)
         result = arr.take(indices)
         result.validate()

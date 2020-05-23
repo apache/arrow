@@ -720,31 +720,19 @@ cdef class Array(_PandasConvertible):
         """
         Sum the values in a numerical array.
         """
-        cdef CDatum out
-        with nogil:
-            out = GetResultValue(Sum(CDatum(self.sp_array)))
-        return wrap_datum(out)
+        return _pc().call_function('sum', [self])
 
     def unique(self):
         """
         Compute distinct elements in array.
         """
-        cdef shared_ptr[CArray] result
-
-        with nogil:
-            result = GetResultValue(Unique(CDatum(self.sp_array)))
-
-        return pyarrow_wrap_array(result)
+        return _pc().call_function('unique', [self])
 
     def dictionary_encode(self):
         """
         Compute dictionary-encoded representation of array.
         """
-        cdef CDatum out
-
-        with nogil:
-            out = GetResultValue(DictionaryEncode(CDatum(self.sp_array)))
-        return wrap_datum(out)
+        return _pc().call_function('dictionary_encode', [self])
 
     def value_counts(self):
         """
@@ -754,11 +742,7 @@ cdef class Array(_PandasConvertible):
         -------
         An array of  <input type "Values", int64_t "Counts"> structs
         """
-        cdef shared_ptr[CArray] result
-
-        with nogil:
-            result = GetResultValue(ValueCounts(CDatum(self.sp_array)))
-        return pyarrow_wrap_array(result)
+        return _pc().call_function('value_counts', [self])
 
     @staticmethod
     def from_pandas(obj, mask=None, type=None, bint safe=True,
@@ -1012,18 +996,7 @@ cdef class Array(_PandasConvertible):
           null
         ]
         """
-        cdef:
-            cdef CTakeOptions options
-            cdef CDatum out
-            cdef Array c_indices
-
-        c_indices = asarray(indices)
-
-        with nogil:
-            out = GetResultValue(Take(CDatum(self.sp_array),
-                                      CDatum(c_indices.sp_array), options))
-
-        return wrap_datum(out)
+        return _pc().call_function('take', [self, asarray(indices)])
 
     def filter(self, Array mask, null_selection_behavior='drop'):
         """

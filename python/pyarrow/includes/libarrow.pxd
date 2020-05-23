@@ -1579,14 +1579,6 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
                          const shared_ptr[CDataType]& to_type,
                          const CCastOptions& options)
 
-    CResult[shared_ptr[CArray]] Unique(const CDatum& value)
-
-    CResult[CDatum] DictionaryEncode(CDatum& value)
-
-    CResult[shared_ptr[CArray]] ValueCounts(const CDatum& value)
-
-    CResult[CDatum] Sum(const CDatum& value)
-
     CResult[CDatum] Take(const CDatum& values, const CDatum& indices,
                          const CTakeOptions& options)
 
@@ -1603,16 +1595,6 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     # Filter clashes with gandiva.pyx::Filter
     CResult[CDatum] FilterKernel" arrow::compute::Filter"(
         const CDatum& values, const CDatum& filter, CFilterOptions options)
-
-    enum CCompareOperator "arrow::compute::CompareOperator":
-        CCompareOperator_EQUAL "arrow::compute::CompareOperator::EQUAL"
-        CCompareOperator_NOT_EQUAL "arrow::compute::CompareOperator::NOT_EQUAL"
-        CCompareOperator_GREATER "arrow::compute::CompareOperator::GREATER"
-        CCompareOperator_GREATER_EQUAL \
-            "arrow::compute::CompareOperator::GREATER_EQUAL"
-        CCompareOperator_LESS "arrow::compute::CompareOperator::LESS"
-        CCompareOperator_LESS_EQUAL \
-            "arrow::compute::CompareOperator::LESS_EQUAL"
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":

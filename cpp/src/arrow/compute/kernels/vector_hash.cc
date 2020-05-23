@@ -502,12 +502,14 @@ void AddHashKernels(VectorFunction* func, VectorKernel base,
     AddKernel<Action>(func, base, ty);
   }
 
-  base.signature =
-      KernelSignature::Make({InputType::Array(Type::FIXED_SIZE_BINARY)}, out_ty);
-  AddKernel<Action>(func, base, /*dummy=*/fixed_size_binary(0));
-
-  base.signature = KernelSignature::Make({InputType::Array(Type::DECIMAL)}, out_ty);
-  AddKernel<Action>(func, base, /*dummy*/ decimal(12, 2));
+  // Example parametric types that we want to match only on Type::type
+  auto parametric_types = {time32(TimeUnit::SECOND), time64(TimeUnit::MICRO),
+                           timestamp(TimeUnit::SECOND), fixed_size_binary(0),
+                           decimal(12, 2)};
+  for (const auto& ty : parametric_types) {
+    base.signature = KernelSignature::Make({InputType::Array(ty->id())}, out_ty);
+    AddKernel<Action>(func, base, /*dummy=*/ty);
+  }
 }
 
 }  // namespace
@@ -533,7 +535,8 @@ void RegisterVectorHash(FunctionRegistry* registry) {
 
   base.finalize = DictEncodeFinalize;
   base.output_chunked = true;
-  auto dict_encode = std::make_shared<VectorFunction>("dict_encode", Arity::Unary());
+  auto dict_encode =
+      std::make_shared<VectorFunction>("dictionary_encode", Arity::Unary());
   AddHashKernels<DictEncodeAction>(dict_encode.get(), base, DictEncodeOutput);
   DCHECK_OK(registry->AddFunction(std::move(dict_encode)));
 }

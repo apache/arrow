@@ -60,7 +60,7 @@ struct TakeKernelVisitor {
 
   template <typename Type>
   Status Visit(const Type&) {
-    this->result = codegen::Integer<TakeFunctor, Type>(index_type);
+    this->result = codegen::Integer<TakeFunctor, Type>(index_type.id());
     return Status::OK();
   }
 

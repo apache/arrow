@@ -703,6 +703,28 @@ ArrayKernelExec Integer(detail::GetTypeId get_id) {
   }
 }
 
+
+// Generate a kernel given a templated functor for integer types
+//
+// See "Numeric" above for description of the generator functor
+template <template <typename...> class Generator,
+          typename Type0, typename... Args>
+ArrayKernelExec SignedInteger(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::INT8:
+      return Generator<Type0, Int8Type, Args...>::Exec;
+    case Type::INT16:
+      return Generator<Type0, Int16Type, Args...>::Exec;
+    case Type::INT32:
+      return Generator<Type0, Int32Type, Args...>::Exec;
+    case Type::INT64:
+      return Generator<Type0, Int64Type, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
 // Generate a kernel given a templated functor for base binary types
 //
 // See "Numeric" above for description of the generator functor
