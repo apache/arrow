@@ -712,7 +712,7 @@ TEST_F(TestCallScalarFunction, ArgumentValidation) {
 TEST_F(TestCallScalarFunction, PreallocationCases) {
   double null_prob = 0.2;
 
-  auto arr = GetUInt8Array(50, null_prob);
+  auto arr = GetUInt8Array(1000, null_prob);
 
   auto CheckFunction = [&](std::string func_name) {
     ResetContexts();
@@ -729,7 +729,7 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
     // of the kernel, but still the output is onee array
     {
       std::vector<Datum> args = {Datum(arr)};
-      exec_ctx_->set_exec_chunksize(8);
+      exec_ctx_->set_exec_chunksize(80);
       ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
       AssertArraysEqual(*arr, *result.make_array());
     }
@@ -739,7 +739,7 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
     // Chunksize not multiple of 8
     {
       std::vector<Datum> args = {Datum(arr)};
-      exec_ctx_->set_exec_chunksize(12);
+      exec_ctx_->set_exec_chunksize(111);
       ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
       AssertArraysEqual(*arr, *result.make_array());
     }
@@ -747,7 +747,7 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
     // Input is chunked, output has one big chunk
     {
       auto carr = std::shared_ptr<ChunkedArray>(
-          new ChunkedArray({arr->Slice(0, 15), arr->Slice(15)}));
+          new ChunkedArray({arr->Slice(0, 100), arr->Slice(100)}));
       std::vector<Datum> args = {Datum(carr)};
       ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
       std::shared_ptr<ChunkedArray> actual = result.chunked_array();
@@ -759,14 +759,14 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
     {
       std::vector<Datum> args = {Datum(arr)};
       exec_ctx_->set_preallocate_contiguous(false);
-      exec_ctx_->set_exec_chunksize(20);
+      exec_ctx_->set_exec_chunksize(400);
       ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
       ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
       const ChunkedArray& carr = *result.chunked_array();
       ASSERT_EQ(3, carr.num_chunks());
-      AssertArraysEqual(*arr->Slice(0, 20), *carr.chunk(0));
-      AssertArraysEqual(*arr->Slice(20, 20), *carr.chunk(1));
-      AssertArraysEqual(*arr->Slice(40), *carr.chunk(2));
+      AssertArraysEqual(*arr->Slice(0, 400), *carr.chunk(0));
+      AssertArraysEqual(*arr->Slice(400, 400), *carr.chunk(1));
+      AssertArraysEqual(*arr->Slice(800), *carr.chunk(2));
     }
   };
 
@@ -783,7 +783,7 @@ TEST_F(TestCallScalarFunction, BasicNonStandardCases) {
 
   double null_prob = 0.2;
 
-  auto arr = GetUInt8Array(10000, null_prob);
+  auto arr = GetUInt8Array(1000, null_prob);
   std::vector<Datum> args = {Datum(arr)};
 
   auto CheckFunction = [&](std::string func_name) {
@@ -798,14 +798,14 @@ TEST_F(TestCallScalarFunction, BasicNonStandardCases) {
 
     // Split execution into 3 chunks
     {
-      exec_ctx_->set_exec_chunksize(4000);
+      exec_ctx_->set_exec_chunksize(400);
       ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
       ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
       const ChunkedArray& carr = *result.chunked_array();
       ASSERT_EQ(3, carr.num_chunks());
-      AssertArraysEqual(*arr->Slice(0, 4000), *carr.chunk(0));
-      AssertArraysEqual(*arr->Slice(4000, 4000), *carr.chunk(1));
-      AssertArraysEqual(*arr->Slice(8000), *carr.chunk(2));
+      AssertArraysEqual(*arr->Slice(0, 400), *carr.chunk(0));
+      AssertArraysEqual(*arr->Slice(400, 400), *carr.chunk(1));
+      AssertArraysEqual(*arr->Slice(800), *carr.chunk(2));
     }
   };
 
