@@ -555,9 +555,12 @@ void ExecComputedBitmap(KernelContext* ctx, const ExecBatch& batch, Datum* out) 
   const ArrayData& arg0 = *batch[0].array();
   ArrayData* out_arr = out->mutable_array();
 
-  DCHECK(!internal::BitmapEquals(arg0.buffers[0]->data(), arg0.offset,
-                                 out_arr->buffers[0]->data(), out_arr->offset,
-                                 batch.length));
+  if (internal::CountSetBits(arg0.buffers[0]->data(), arg0.offset, batch.length) > 0) {
+    // Check that the bitmap has not been already copied over
+    DCHECK(!internal::BitmapEquals(arg0.buffers[0]->data(), arg0.offset,
+                                   out_arr->buffers[0]->data(), out_arr->offset,
+                                   batch.length));
+  }
   internal::CopyBitmap(arg0.buffers[0]->data(), arg0.offset, batch.length,
                        out_arr->buffers[0]->mutable_data(), out_arr->offset);
   ExecCopy(ctx, batch, out);
@@ -780,7 +783,7 @@ TEST_F(TestCallScalarFunction, BasicNonStandardCases) {
 
   double null_prob = 0.2;
 
-  auto arr = GetUInt8Array(100, null_prob);
+  auto arr = GetUInt8Array(10000, null_prob);
   std::vector<Datum> args = {Datum(arr)};
 
   auto CheckFunction = [&](std::string func_name) {
@@ -795,14 +798,14 @@ TEST_F(TestCallScalarFunction, BasicNonStandardCases) {
 
     // Split execution into 3 chunks
     {
-      exec_ctx_->set_exec_chunksize(40);
+      exec_ctx_->set_exec_chunksize(4000);
       ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
       ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
       const ChunkedArray& carr = *result.chunked_array();
       ASSERT_EQ(3, carr.num_chunks());
-      AssertArraysEqual(*arr->Slice(0, 40), *carr.chunk(0));
-      AssertArraysEqual(*arr->Slice(40, 40), *carr.chunk(1));
-      AssertArraysEqual(*arr->Slice(80), *carr.chunk(2));
+      AssertArraysEqual(*arr->Slice(0, 4000), *carr.chunk(0));
+      AssertArraysEqual(*arr->Slice(4000, 4000), *carr.chunk(1));
+      AssertArraysEqual(*arr->Slice(8000), *carr.chunk(2));
     }
   };
 
