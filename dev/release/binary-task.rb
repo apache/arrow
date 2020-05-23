@@ -579,7 +579,10 @@ class BinaryTask
       url = URI("https://dl.bintray.com/#{@repository}/#{path}")
       begin
         download_url(url, output_path)
-      rescue SocketError, SystemCallError, Timeout::Error => error
+      rescue OpenSSL::OpenSSLError,
+             SocketError,
+             SystemCallError,
+             Timeout::Error => error
         n_retries += 1
         if n_retries <= max_n_retries
           $stderr.puts
@@ -764,7 +767,10 @@ class BinaryTask
             $stderr.puts(error)
           end
         end
-      rescue SocketError, SystemCallError, Timeout::Error => error
+      rescue OpenSSL::OpenSSLError,
+             SocketError,
+             SystemCallError,
+             Timeout::Error => error
         n_retries += 1
         if n_retries <= max_n_retries
           $stderr.puts
