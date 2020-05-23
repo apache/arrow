@@ -15,35 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class BufferTest < Test::Unit::TestCase
-  sub_test_case(".new") do
-    test("GC") do
-      data = "Hello"
-      data_id = data.object_id
-      _buffer = Arrow::Buffer.new(data)
-      data = nil
-      GC.start
-      assert_equal("Hello", ObjectSpace._id2ref(data_id))
-    end
-  end
+module Arrow
+  class Buffer
+    alias_method :initialize_raw, :initialize
+    private :initialize_raw
 
-  sub_test_case("instance methods") do
-    def setup
-      @buffer = Arrow::Buffer.new("Hello")
-    end
-
-    sub_test_case("#==") do
-      test("Arrow::Buffer") do
-        assert do
-          @buffer == @buffer
-        end
-      end
-
-      test("not Arrow::Buffer") do
-        assert do
-          not (@buffer == 29)
-        end
-      end
+    def initialize(data)
+      @data = data
+      initialize_raw(data)
     end
   end
 end
