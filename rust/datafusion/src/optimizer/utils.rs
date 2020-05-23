@@ -175,6 +175,7 @@ pub fn get_supertype(l: &DataType, r: &DataType) -> Result<DataType> {
         Int16 => match r {
             Int8 => Some(l.clone()),
             Int32 | Int64 => Some(r.clone()),
+            UInt8 => Some(l.clone()),
             UInt32 | UInt64 => Some(r.clone()),
             Float32 | Float64 => Some(r.clone()),
             _ => None,
@@ -182,6 +183,7 @@ pub fn get_supertype(l: &DataType, r: &DataType) -> Result<DataType> {
         Int32 => match r {
             Int8 | Int16 => Some(l.clone()),
             Int64 => Some(r.clone()),
+            UInt8 | UInt16 => Some(l.clone()),
             UInt64 => Some(r.clone()),
             Float32 | Float64 => Some(r.clone()),
             _ => None,

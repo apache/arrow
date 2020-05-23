@@ -725,6 +725,11 @@ impl fmt::Debug for LogicalPlan {
 /// Verify a given type cast can be performed
 pub fn can_coerce_from(type_into: &DataType, type_from: &DataType) -> bool {
     use self::DataType::*;
+
+    if type_from == type_into {
+        return true;
+    }
+
     match type_into {
         Int8 => match type_from {
             Int8 => true,
