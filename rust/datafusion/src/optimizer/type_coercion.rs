@@ -187,8 +187,7 @@ mod tests {
     use crate::execution::context::ExecutionContext;
     use crate::execution::physical_plan::csv::CsvReadOptions;
     use crate::logicalplan::Expr::*;
-    use crate::logicalplan::{col, can_coerce_from, cast_supported, Operator};
-    use crate::logicalplan::{, Operator};
+    use crate::logicalplan::{cast_supported, col, Operator};
     use crate::optimizer::utils::get_supertype;
     use crate::test::arrow_testdata_path;
     use arrow::datatypes::DataType::*;
@@ -211,6 +210,9 @@ mod tests {
         assert!(
             format!("{:?}", plan).starts_with("Selection: CAST(#c7 AS Float64) Lt #c12")
         );
+
+        Ok(())
+    }
 
     #[test]
     fn test_type_matrix() -> Result<()> {
