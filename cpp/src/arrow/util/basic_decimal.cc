@@ -126,12 +126,14 @@ static constexpr auto kCarryBit = static_cast<uint64_t>(1) << static_cast<uint64
 static constexpr BasicDecimal128 kMaxValue =
     BasicDecimal128(5421010862427522170LL, 687399551400673280ULL - 1);
 
+#if ARROW_LITTLE_ENDIAN
 BasicDecimal128::BasicDecimal128(const uint8_t* bytes)
     : BasicDecimal128(
-#if ARROW_LITTLE_ENDIAN
           reinterpret_cast<const int64_t*>(bytes)[1],
           reinterpret_cast<const uint64_t*>(bytes)[0]) {}
 #else
+BasicDecimal128::BasicDecimal128(const uint8_t* bytes)
+    : BasicDecimal128(
           reinterpret_cast<const int64_t*>(bytes)[0],
           reinterpret_cast<const uint64_t*>(bytes)[1]) {}
 #endif
