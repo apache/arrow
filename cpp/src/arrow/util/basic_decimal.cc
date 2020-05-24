@@ -128,14 +128,12 @@ static constexpr BasicDecimal128 kMaxValue =
 
 #if ARROW_LITTLE_ENDIAN
 BasicDecimal128::BasicDecimal128(const uint8_t* bytes)
-    : BasicDecimal128(
-          reinterpret_cast<const int64_t*>(bytes)[1],
-          reinterpret_cast<const uint64_t*>(bytes)[0]) {}
+    : BasicDecimal128(reinterpret_cast<const int64_t*>(bytes)[1],
+                      reinterpret_cast<const uint64_t*>(bytes)[0]) {}
 #else
 BasicDecimal128::BasicDecimal128(const uint8_t* bytes)
-    : BasicDecimal128(
-          reinterpret_cast<const int64_t*>(bytes)[0],
-          reinterpret_cast<const uint64_t*>(bytes)[1]) {}
+    : BasicDecimal128(reinterpret_cast<const int64_t*>(bytes)[0],
+                      reinterpret_cast<const uint64_t*>(bytes)[1]) {}
 #endif
 
 std::array<uint8_t, 16> BasicDecimal128::ToBytes() const {
