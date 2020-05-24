@@ -20,7 +20,6 @@
 
 #include "arrow/flight/server.h"
 
-#include <signal.h>
 #include <atomic>
 #include <cstdint>
 #include <memory>
@@ -880,9 +879,7 @@ class RecordBatchStream::RecordBatchStreamImpl {
 
   Status CollectDictionaries(const RecordBatch& batch) {
     RETURN_NOT_OK(ipc::CollectDictionaries(batch, &dictionary_memo_));
-    for (auto& pair : dictionary_memo_.id_to_dictionary()) {
-      dictionaries_.push_back({pair.first, pair.second});
-    }
+    dictionaries_ = dictionary_memo_.dictionaries();
     return Status::OK();
   }
 

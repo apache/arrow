@@ -192,10 +192,12 @@ class SchemaWriter {
 
     if (type->id() == Type::DICTIONARY) {
       const auto& dict_type = checked_cast<const DictionaryType&>(*type);
+      // Ensure we visit child fields first so that, in the case of nested
+      // dictionaries, inner dictionaries get a smaller id than outer dictionaries.
+      RETURN_NOT_OK(WriteChildren(dict_type.value_type()->fields()));
       int64_t dictionary_id = -1;
       RETURN_NOT_OK(dictionary_memo_->GetOrAssignId(field, &dictionary_id));
       RETURN_NOT_OK(WriteDictionaryMetadata(dictionary_id, dict_type));
-      RETURN_NOT_OK(WriteChildren(dict_type.value_type()->fields()));
     } else {
       RETURN_NOT_OK(WriteChildren(type->fields()));
     }
@@ -1639,13 +1641,11 @@ static Status ReadDictionary(const RjObject& obj, MemoryPool* pool,
   RETURN_NOT_OK(dictionary_memo->GetDictionaryType(id, &value_type));
   auto value_field = ::arrow::field("dummy", value_type);
 
-  // We need placeholder schema and dictionary memo to read the record
-  // batch, because the dictionary is embedded in a record batch with
-  // a single column
+  // We need a placeholder schema to read the record, because the dictionary
+  // is embedded in a record batch with a single column.
   std::shared_ptr<RecordBatch> batch;
-  DictionaryMemo dummy_memo;
   RETURN_NOT_OK(ReadRecordBatch(it_data->value, ::arrow::schema({value_field}),
-                                &dummy_memo, pool, &batch));
+                                dictionary_memo, pool, &batch));
 
   if (batch->num_columns() != 1) {
     return Status::Invalid("Dictionary record batch must only contain one field");

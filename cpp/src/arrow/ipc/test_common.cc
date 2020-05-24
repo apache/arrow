@@ -589,6 +589,32 @@ Status MakeDictionaryFlat(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
+Status MakeNestedDictionary(std::shared_ptr<RecordBatch>* out) {
+  const int64_t length = 7;
+
+  auto inner_dict_values = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"baz\"]");
+  ARROW_ASSIGN_OR_RAISE(auto inner_dict,
+                        DictionaryArray::FromArrays(
+                            dictionary(int8(), inner_dict_values->type()),
+                            /*indices=*/ArrayFromJSON(int8(), "[0, 1, 2, null, 2, 1, 0]"),
+                            /*dictionary=*/inner_dict_values));
+
+  ARROW_ASSIGN_OR_RAISE(auto outer_dict_values,
+                        ListArray::FromArrays(
+                            /*offsets=*/*ArrayFromJSON(int32(), "[0, 3, 3, 6, 7]"),
+                            /*values=*/*inner_dict));
+  ARROW_ASSIGN_OR_RAISE(
+      auto outer_dict, DictionaryArray::FromArrays(
+                           dictionary(int32(), outer_dict_values->type()),
+                           /*indices=*/ArrayFromJSON(int32(), "[0, 1, 3, 3, null, 3, 2]"),
+                           /*dictionary=*/outer_dict_values));
+  DCHECK_EQ(outer_dict->length(), length);
+
+  auto schema = ::arrow::schema({field("f0", outer_dict->type())});
+  *out = RecordBatch::Make(schema, length, {outer_dict});
+  return Status::OK();
+}
+
 Status MakeDates(std::shared_ptr<RecordBatch>* out) {
   std::vector<bool> is_valid = {true, true, true, false, true, true, true};
   auto f0 = field("f0", date32());

@@ -995,7 +995,7 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
   Status WriteDictionaries(const RecordBatch& batch) {
     RETURN_NOT_OK(CollectDictionaries(batch, dictionary_memo_));
 
-    for (auto& pair : dictionary_memo_->id_to_dictionary()) {
+    for (const auto& pair : dictionary_memo_->dictionaries()) {
       internal::IpcPayload payload;
       int64_t dictionary_id = pair.first;
       const auto& dictionary = pair.second;
