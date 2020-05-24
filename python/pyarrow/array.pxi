@@ -481,23 +481,6 @@ def _restore_array(data):
     return pyarrow_wrap_array(MakeArray(ad))
 
 
-cdef CFilterOptions _convert_filter_option(object null_selection_behavior):
-    cdef CFilterOptions options
-
-    if null_selection_behavior == 'drop':
-        options.null_selection_behavior = \
-            CFilterNullSelectionBehavior_DROP
-    elif null_selection_behavior == 'emit_null':
-        options.null_selection_behavior = \
-            CFilterNullSelectionBehavior_EMIT_NULL
-    else:
-        raise ValueError(
-            '"{}" is not a valid null_selection_behavior'.format(
-                null_selection_behavior)
-        )
-    return options
-
-
 cdef class _PandasConvertible:
 
     def to_pandas(
@@ -1037,17 +1020,9 @@ cdef class Array(_PandasConvertible):
           "e"
         ]
         """
-        cdef:
-            CDatum out
-            CFilterOptions options
-
-        options = _convert_filter_option(null_selection_behavior)
-
-        with nogil:
-            out = GetResultValue(FilterKernel(CDatum(self.sp_array),
-                                              CDatum(mask.sp_array), options))
-
-        return wrap_datum(out)
+        pc = _pc()
+        options = pc.FilterOptions(null_selection_behavior)
+        return pc.call_function('filter', [self, mask], options)
 
     def _to_pandas(self, options, **kwargs):
         return _array_like_to_pandas(self, options)

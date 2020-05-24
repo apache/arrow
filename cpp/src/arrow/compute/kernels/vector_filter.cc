@@ -97,13 +97,18 @@ int64_t FilterOutputSize(FilterOptions::NullSelectionBehavior null_selection,
 }
 
 struct FilterState : public KernelState {
-  explicit FilterState(const FilterOptions& options) : options(options) {}
+  explicit FilterState(FilterOptions options) : options(std::move(options)) {}
   FilterOptions options;
 };
 
 std::unique_ptr<KernelState> InitFilter(KernelContext*, const KernelInitArgs& args) {
-  auto filter_options = static_cast<const FilterOptions*>(args.options);
-  return std::unique_ptr<KernelState>(new FilterState{*filter_options});
+  FilterOptions options;
+  if (args.options == nullptr) {
+    options = FilterOptions::Defaults();
+  } else {
+    options = *static_cast<const FilterOptions*>(args.options);
+  }
+  return std::unique_ptr<KernelState>(new FilterState(std::move(options)));
 }
 
 template <typename ValueType>

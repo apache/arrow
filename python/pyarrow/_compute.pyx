@@ -169,13 +169,16 @@ num_kernels: {}
     def num_kernels(self):
         return self.base_func.num_kernels()
 
-    def call(self, args):
+    def call(self, args, options=None):
         cdef:
             const CFunctionOptions* c_options = NULL
             vector[CDatum] c_args
             CDatum result
 
         _pack_compute_args(args, &c_args)
+
+        if isinstance(options, FunctionOptions):
+            c_options = (<FunctionOptions> options).options()
 
         with nogil:
             result = GetResultValue(self.base_func.Execute(c_args, c_options))
@@ -263,21 +266,53 @@ def function_registry():
     return _global_func_registry
 
 
-def call_function(name, args):
+def call_function(name, args, options=None):
     func = _global_func_registry.get_function(name)
-    return func.call(args)
+    return func.call(args, options=options)
 
 
-def sum(array):
-    """
-    Sum the values in a numerical (chunked) array.
+cdef class FunctionOptions:
 
-    Parameters
-    ----------
-    array : pyarrow.Array or pyarrow.ChunkedArray
+    cdef const CFunctionOptions* options(self) except NULL:
+        raise NotImplementedError("Unimplemented base options")
 
-    Returns
-    -------
-    sum : pyarrow.Scalar
-    """
-    return call_function('sum', [array])
+
+cdef class CastOptions(FunctionOptions):
+    cdef:
+        CCastOptions cast_options
+
+    @staticmethod
+    def safe():
+        cdef CastOptions options = CastOptions()
+        options.cast_options = CCastOptions.Safe()
+
+    @staticmethod
+    def unsafe():
+        cdef CastOptions options = CastOptions()
+        options.cast_options = CCastOptions.Unsafe()
+
+    cdef const CFunctionOptions* options(self) except NULL:
+        return &self.cast_options
+
+
+cdef class FilterOptions(FunctionOptions):
+    cdef:
+        CFilterOptions filter_options
+
+    def __init__(self, null_selection_behavior='drop'):
+        if null_selection_behavior == 'drop':
+            self.filter_options.null_selection_behavior = (
+                CFilterNullSelectionBehavior_DROP
+            )
+        elif null_selection_behavior == 'emit_null':
+            self.filter_options.null_selection_behavior = (
+                CFilterNullSelectionBehavior_EMIT_NULL
+            )
+        else:
+            raise ValueError(
+                '"{}" is not a valid null_selection_behavior'.format(
+                    null_selection_behavior)
+            )
+
+    cdef const CFunctionOptions* options(self) except NULL:
+        return &self.filter_options

@@ -480,6 +480,25 @@ cdef class ChunkedArray(_PandasConvertible):
         return result
 
 
+# TODO: ARROW-8916, delete this once there is a Function registered for
+# filtering types other than Array, ChunkedArray
+cdef CFilterOptions _convert_filter_option(object null_selection_behavior):
+    cdef CFilterOptions options
+
+    if null_selection_behavior == 'drop':
+        options.null_selection_behavior = \
+            CFilterNullSelectionBehavior_DROP
+    elif null_selection_behavior == 'emit_null':
+        options.null_selection_behavior = \
+            CFilterNullSelectionBehavior_EMIT_NULL
+    else:
+        raise ValueError(
+            '"{}" is not a valid null_selection_behavior'.format(
+                null_selection_behavior)
+        )
+    return options
+
+
 def chunked_array(arrays, type=None):
     """
     Construct chunked array from list of array-like objects

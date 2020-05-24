@@ -17,9 +17,24 @@
 
 
 from pyarrow._compute import (  # noqa
+    FilterOptions,
     Function,
     FunctionRegistry,
     function_registry,
-    call_function,
-    sum
+    call_function
 )
+
+
+def sum(array):
+    """
+    Sum the values in a numerical (chunked) array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+
+    Returns
+    -------
+    sum : pyarrow.Scalar
+    """
+    return call_function('sum', [array])
