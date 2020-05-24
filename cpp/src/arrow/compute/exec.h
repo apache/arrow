@@ -175,9 +175,13 @@ struct ExecBatch {
 /// argument checking, iteration of ChunkedArray inputs, and wrapping of
 /// outputs
 ARROW_EXPORT
-Result<Datum> CallFunction(ExecContext* ctx, const std::string& func_name,
-                           const std::vector<Datum>& args,
-                           const FunctionOptions* options = NULLPTR);
+Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum>& args,
+                           const FunctionOptions* options, ExecContext* ctx = NULLPTR);
+
+/// \brief Variant of CallFunction for functions not requiring options
+ARROW_EXPORT
+Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum>& args,
+                           ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow
