@@ -28,6 +28,7 @@ from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.compat import frombytes, tobytes
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
 from pyarrow._csv cimport ParseOptions
+from pyarrow._compute cimport CastOptions
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):

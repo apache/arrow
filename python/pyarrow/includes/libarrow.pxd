@@ -1525,6 +1525,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
         @staticmethod
         CCastOptions Unsafe()
+        shared_ptr[CDataType] to_type
         c_bool allow_int_overflow
         c_bool allow_time_truncate
         c_bool allow_time_overflow
@@ -1569,15 +1570,6 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         shared_ptr[CRecordBatch] record_batch()
         shared_ptr[CTable] table()
         shared_ptr[CScalar] scalar()
-
-    CResult[shared_ptr[CArray]] Cast" arrow::compute::Cast"(
-        const CArray& array,
-        const shared_ptr[CDataType]& to_type,
-        const CCastOptions& options)
-
-    CResult[CDatum] Cast(const CDatum& value,
-                         const shared_ptr[CDataType]& to_type,
-                         const CCastOptions& options)
 
     CResult[CDatum] Take(const CDatum& values, const CDatum& indices,
                          const CTakeOptions& options)

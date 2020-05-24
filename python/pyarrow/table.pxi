@@ -238,32 +238,13 @@ cdef class ChunkedArray(_PandasConvertible):
             return values
         return values.astype(dtype)
 
-    def cast(self, object target_type, bint safe=True):
+    def cast(self, object target_type, safe=True):
         """
-        Cast values to another data type
+        Cast array values to another data type
 
-        Parameters
-        ----------
-        target_type : DataType
-            Type to cast to
-        safe : bool, default True
-            Check for overflows or other unsafe conversions
-
-        Returns
-        -------
-        casted : ChunkedArray
+        See pyarrow.compute.cast for usage
         """
-        cdef:
-            CCastOptions options = CCastOptions(safe)
-            DataType type = ensure_type(target_type)
-            shared_ptr[CArray] result
-            CDatum out
-
-        with nogil:
-            out = GetResultValue(Cast(CDatum(self.sp_chunked_array),
-                                      type.sp_type, options))
-
-        return pyarrow_wrap_chunked_array(out.chunked_array())
+        return _pc().cast(self, target_type, safe=safe)
 
     def dictionary_encode(self):
         """
