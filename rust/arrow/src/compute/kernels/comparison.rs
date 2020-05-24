@@ -68,11 +68,10 @@ macro_rules! compare_op {
 
 macro_rules! compare_op_scalar {
     ($left: expr, $right:expr, $op:expr) => {{
-        let null_bit_buffer = apply_bin_op_to_option_bitmap(
-            $left.data().null_bitmap(),
-            &None,
-            |a, b| a & b,
-        )?;
+        let null_bit_buffer =
+            apply_bin_op_to_option_bitmap($left.data().null_bitmap(), &None, |a, b| {
+                a & b
+            })?;
 
         let mut result = BooleanBufferBuilder::new($left.len());
         for i in 0..$left.len() {
@@ -319,11 +318,8 @@ where
     use std::mem;
 
     let len = left.len();
-    let null_bit_buffer = apply_bin_op_to_option_bitmap(
-        left.data().null_bitmap(),
-        &None,
-        |a, b| a & b,
-    )?;
+    let null_bit_buffer =
+        apply_bin_op_to_option_bitmap(left.data().null_bitmap(), &None, |a, b| a & b)?;
 
     let lanes = T::lanes();
     let mut result = MutableBuffer::new(left.len() * mem::size_of::<bool>());
@@ -436,7 +432,7 @@ where
     compare_op!(left, right, |a, b| a < b)
 }
 
-/// Perform `left < right` operation on an array and a scalar value. 
+/// Perform `left < right` operation on an array and a scalar value.
 /// Null values are less than non-null values.
 pub fn lt_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<BooleanArray>
 where
@@ -471,12 +467,9 @@ where
     compare_op!(left, right, |a, b| a <= b)
 }
 
-/// Perform `left <= right` operation on an array and a scalar value. 
+/// Perform `left <= right` operation on an array and a scalar value.
 /// Null values are less than non-null values.
-pub fn lt_eq_scalar<T>(
-    left: &PrimitiveArray<T>,
-    right: T::Native,
-) -> Result<BooleanArray>
+pub fn lt_eq_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
 {
@@ -506,7 +499,7 @@ where
     compare_op!(left, right, |a, b| a > b)
 }
 
-/// Perform `left > right` operation on an array and a scalar value. 
+/// Perform `left > right` operation on an array and a scalar value.
 /// Non-null values are greater than null values.
 pub fn gt_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<BooleanArray>
 where
@@ -541,12 +534,9 @@ where
     compare_op!(left, right, |a, b| a >= b)
 }
 
-/// Perform `left >= right` operation on an array and a scalar value. 
+/// Perform `left >= right` operation on an array and a scalar value.
 /// Non-null values are greater than null values.
-pub fn gt_eq_scalar<T>(
-    left: &PrimitiveArray<T>,
-    right: T::Native,
-) -> Result<BooleanArray>
+pub fn gt_eq_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
 {
