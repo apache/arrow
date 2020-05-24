@@ -26,19 +26,19 @@ namespace compute {
 // Scalar aggregates
 
 Result<Datum> Count(const Datum& value, CountOptions options, ExecContext* ctx) {
-  return CallFunction(ctx, "count", {value}, &options);
+  return CallFunction("count", {value}, &options, ctx);
 }
 
 Result<Datum> Mean(const Datum& value, ExecContext* ctx) {
-  return CallFunction(ctx, "mean", {value});
+  return CallFunction("mean", {value}, ctx);
 }
 
 Result<Datum> Sum(const Datum& value, ExecContext* ctx) {
-  return CallFunction(ctx, "sum", {value});
+  return CallFunction("sum", {value}, ctx);
 }
 
 Result<Datum> MinMax(const Datum& value, const MinMaxOptions& options, ExecContext* ctx) {
-  return CallFunction(ctx, "minmax", {value}, &options);
+  return CallFunction("minmax", {value}, &options, ctx);
 }
 
 }  // namespace compute

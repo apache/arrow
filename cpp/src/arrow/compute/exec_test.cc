@@ -94,13 +94,12 @@ void AssertValidityZeroExtraBits(const ArrayData& arr) {
 class TestComputeInternals : public ::testing::Test {
  public:
   void SetUp() {
-    registry_ = FunctionRegistry::Make();
     rng_.reset(new random::RandomArrayGenerator(/*seed=*/0));
     ResetContexts();
   }
 
   void ResetContexts() {
-    exec_ctx_.reset(new ExecContext(default_memory_pool(), registry_.get()));
+    exec_ctx_.reset(new ExecContext(default_memory_pool()));
     ctx_.reset(new KernelContext(exec_ctx_.get()));
   }
 
@@ -127,7 +126,6 @@ class TestComputeInternals : public ::testing::Test {
  protected:
   std::unique_ptr<ExecContext> exec_ctx_;
   std::unique_ptr<KernelContext> ctx_;
-  std::unique_ptr<FunctionRegistry> registry_;
   std::unique_ptr<random::RandomArrayGenerator> rng_;
 };
 
@@ -627,40 +625,49 @@ void ExecAddInt32(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 }
 
 class TestCallScalarFunction : public TestComputeInternals {
- public:
+ protected:
+  static bool initialized_;
+
   void SetUp() {
     TestComputeInternals::SetUp();
 
-    AddCopyFunctions();
-    AddNoPreallocateFunctions();
-    AddStatefulFunction();
-    AddScalarFunction();
+    if (!initialized_) {
+      initialized_ = true;
+      AddCopyFunctions();
+      AddNoPreallocateFunctions();
+      AddStatefulFunction();
+      AddScalarFunction();
+    }
   }
 
   void AddCopyFunctions() {
+    auto registry = GetFunctionRegistry();
+
     // This function simply copies memory from the input argument into the
     // (preallocated) output
-    auto func = std::make_shared<ScalarFunction>("copy", 1);
+    auto func = std::make_shared<ScalarFunction>("test_copy", 1);
 
     // Add a few kernels. Our implementation only accepts arrays
     ASSERT_OK(func->AddKernel({InputType::Array(uint8())}, uint8(), ExecCopy));
     ASSERT_OK(func->AddKernel({InputType::Array(int32())}, int32(), ExecCopy));
     ASSERT_OK(func->AddKernel({InputType::Array(float64())}, float64(), ExecCopy));
-    ASSERT_OK(registry_->AddFunction(func));
+    ASSERT_OK(registry->AddFunction(func));
 
     // A version which doesn't want the executor to call PropagateNulls
-    auto func2 = std::make_shared<ScalarFunction>("copy_computed_bitmap", 1);
+    auto func2 = std::make_shared<ScalarFunction>("test_copy_computed_bitmap", 1);
     ScalarKernel kernel({InputType::Array(uint8())}, uint8(), ExecComputedBitmap);
     kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
     ASSERT_OK(func2->AddKernel(kernel));
-    ASSERT_OK(registry_->AddFunction(func2));
+    ASSERT_OK(registry->AddFunction(func2));
   }
 
   void AddNoPreallocateFunctions() {
+    auto registry = GetFunctionRegistry();
+
     // A function that allocates its own output memory. We have cases for both
     // non-preallocated data and non-preallocated validity bitmap
-    auto f1 = std::make_shared<ScalarFunction>("nopre_data", 1);
-    auto f2 = std::make_shared<ScalarFunction>("nopre_validity_or_data", 1);
+    auto f1 = std::make_shared<ScalarFunction>("test_nopre_data", 1);
+    auto f2 = std::make_shared<ScalarFunction>("test_nopre_validity_or_data", 1);
 
     ScalarKernel kernel({InputType::Array(uint8())}, uint8(), ExecNoPreallocatedData);
     kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
@@ -670,27 +677,33 @@ class TestCallScalarFunction : public TestComputeInternals {
     kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
     ASSERT_OK(f2->AddKernel(kernel));
 
-    ASSERT_OK(registry_->AddFunction(f1));
-    ASSERT_OK(registry_->AddFunction(f2));
+    ASSERT_OK(registry->AddFunction(f1));
+    ASSERT_OK(registry->AddFunction(f2));
   }
 
   void AddStatefulFunction() {
+    auto registry = GetFunctionRegistry();
+
     // This function's behavior depends on a static parameter that is made
     // available to the kernel's execution function through its Options object
-    auto func = std::make_shared<ScalarFunction>("stateful", 1);
+    auto func = std::make_shared<ScalarFunction>("test_stateful", 1);
 
     ScalarKernel kernel({InputType::Array(int32())}, int32(), ExecStateful, InitStateful);
     ASSERT_OK(func->AddKernel(kernel));
-    ASSERT_OK(registry_->AddFunction(func));
+    ASSERT_OK(registry->AddFunction(func));
   }
 
   void AddScalarFunction() {
-    auto func = std::make_shared<ScalarFunction>("scalar_add_int32", 2);
+    auto registry = GetFunctionRegistry();
+
+    auto func = std::make_shared<ScalarFunction>("test_scalar_add_int32", 2);
     ASSERT_OK(func->AddKernel({InputType::Scalar(int32()), InputType::Scalar(int32())},
                               int32(), ExecAddInt32));
-    ASSERT_OK(registry_->AddFunction(func));
+    ASSERT_OK(registry->AddFunction(func));
   }
 };
+
+bool TestCallScalarFunction::initialized_ = false;
 
 TEST_F(TestCallScalarFunction, ArgumentValidation) {
   // Copy accepts only a single array argument
@@ -698,15 +711,15 @@ TEST_F(TestCallScalarFunction, ArgumentValidation) {
 
   // Too many args
   std::vector<Datum> args = {d1, d1};
-  ASSERT_RAISES(Invalid, CallFunction(exec_ctx_.get(), "copy", args));
+  ASSERT_RAISES(Invalid, CallFunction("test_copy", args));
 
   // Too few
   args = {};
-  ASSERT_RAISES(Invalid, CallFunction(exec_ctx_.get(), "copy", args));
+  ASSERT_RAISES(Invalid, CallFunction("test_copy", args));
 
   // Cannot do scalar
   args = {Datum(std::make_shared<Int32Scalar>(5))};
-  ASSERT_RAISES(NotImplemented, CallFunction(exec_ctx_.get(), "copy", args));
+  ASSERT_RAISES(NotImplemented, CallFunction("test_copy", args));
 }
 
 TEST_F(TestCallScalarFunction, PreallocationCases) {
@@ -720,7 +733,7 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
     // The default should be a single array output
     {
       std::vector<Datum> args = {Datum(arr)};
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args));
       ASSERT_EQ(Datum::ARRAY, result.kind());
       AssertArraysEqual(*arr, *result.make_array());
     }
@@ -730,7 +743,7 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
     {
       std::vector<Datum> args = {Datum(arr)};
       exec_ctx_->set_exec_chunksize(80);
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
       AssertArraysEqual(*arr, *result.make_array());
     }
 
@@ -740,7 +753,7 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
     {
       std::vector<Datum> args = {Datum(arr)};
       exec_ctx_->set_exec_chunksize(111);
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
       AssertArraysEqual(*arr, *result.make_array());
     }
 
@@ -749,7 +762,7 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
       auto carr = std::shared_ptr<ChunkedArray>(
           new ChunkedArray({arr->Slice(0, 100), arr->Slice(100)}));
       std::vector<Datum> args = {Datum(carr)};
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
       std::shared_ptr<ChunkedArray> actual = result.chunked_array();
       ASSERT_EQ(1, actual->num_chunks());
       AssertChunkedEquivalent(*carr, *actual);
@@ -760,7 +773,7 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
       std::vector<Datum> args = {Datum(arr)};
       exec_ctx_->set_preallocate_contiguous(false);
       exec_ctx_->set_exec_chunksize(400);
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
       ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
       const ChunkedArray& carr = *result.chunked_array();
       ASSERT_EQ(3, carr.num_chunks());
@@ -770,8 +783,8 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
     }
   };
 
-  CheckFunction("copy");
-  CheckFunction("copy_computed_bitmap");
+  CheckFunction("test_copy");
+  CheckFunction("test_copy_computed_bitmap");
 }
 
 TEST_F(TestCallScalarFunction, BasicNonStandardCases) {
@@ -791,15 +804,14 @@ TEST_F(TestCallScalarFunction, BasicNonStandardCases) {
 
     // The default should be a single array output
     {
-      exec_ctx_->set_exec_chunksize(kDefaultMaxChunksize);
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args));
       AssertArraysEqual(*arr, *result.make_array(), true);
     }
 
     // Split execution into 3 chunks
     {
       exec_ctx_->set_exec_chunksize(400);
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(exec_ctx_.get(), func_name, args));
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
       ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
       const ChunkedArray& carr = *result.chunked_array();
       ASSERT_EQ(3, carr.num_chunks());
@@ -809,8 +821,8 @@ TEST_F(TestCallScalarFunction, BasicNonStandardCases) {
     }
   };
 
-  CheckFunction("nopre_data");
-  CheckFunction("nopre_validity_or_data");
+  CheckFunction("test_nopre_data");
+  CheckFunction("test_nopre_validity_or_data");
 }
 
 TEST_F(TestCallScalarFunction, StatefulKernel) {
@@ -820,16 +832,14 @@ TEST_F(TestCallScalarFunction, StatefulKernel) {
 
   ExampleOptions options(multiplier);
   std::vector<Datum> args = {Datum(input)};
-  ASSERT_OK_AND_ASSIGN(Datum result,
-                       CallFunction(exec_ctx_.get(), "stateful", args, &options));
+  ASSERT_OK_AND_ASSIGN(Datum result, CallFunction("test_stateful", args, &options));
   AssertArraysEqual(*expected, *result.make_array());
 }
 
 TEST_F(TestCallScalarFunction, ScalarFunction) {
   std::vector<Datum> args = {Datum(std::make_shared<Int32Scalar>(5)),
                              Datum(std::make_shared<Int32Scalar>(7))};
-  ASSERT_OK_AND_ASSIGN(Datum result,
-                       CallFunction(exec_ctx_.get(), "scalar_add_int32", args));
+  ASSERT_OK_AND_ASSIGN(Datum result, CallFunction("test_scalar_add_int32", args));
   ASSERT_EQ(Datum::SCALAR, result.kind());
 
   auto expected = std::make_shared<Int32Scalar>(12);

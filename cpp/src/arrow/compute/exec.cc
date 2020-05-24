@@ -926,16 +926,20 @@ Result<std::shared_ptr<SelectionVector>> SelectionVector::FromMask(
   return Status::NotImplemented("FromMask");
 }
 
-Result<Datum> CallFunction(ExecContext* ctx, const std::string& func_name,
-                           const std::vector<Datum>& args,
-                           const FunctionOptions* options) {
+Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum>& args,
+                           const FunctionOptions* options, ExecContext* ctx) {
   if (ctx == nullptr) {
     ExecContext default_ctx;
-    return CallFunction(&default_ctx, func_name, args, options);
+    return CallFunction(func_name, args, options, &default_ctx);
   }
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<const Function> func,
                         ctx->func_registry()->GetFunction(func_name));
   return func->Execute(args, options, ctx);
+}
+
+Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum>& args,
+                           ExecContext* ctx) {
+  return CallFunction(func_name, args, /*options=*/nullptr, ctx);
 }
 
 }  // namespace compute

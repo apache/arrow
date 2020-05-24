@@ -64,6 +64,5 @@ add_arrow_compute_test(internals_test
                        exec_test.cc
                        kernel_test.cc
                        registry_test.cc)
-add_arrow_compute_test(exec_test)
 
 add_subdirectory(kernels)

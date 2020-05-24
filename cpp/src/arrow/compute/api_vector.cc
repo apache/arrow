@@ -37,27 +37,27 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
                                             ExecContext* ctx) {
   PartitionOptions options(/*pivot=*/n);
   ARROW_ASSIGN_OR_RAISE(
-      Datum result, CallFunction(ctx, "partition_indices", {Datum(values)}, &options));
+      Datum result, CallFunction("partition_indices", {Datum(values)}, &options, ctx));
   return result.make_array();
 }
 
 Result<std::shared_ptr<Array>> SortToIndices(const Array& values, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction(ctx, "sort_indices", {Datum(values)}));
+  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("sort_indices", {Datum(values)}, ctx));
   return result.make_array();
 }
 
 Result<Datum> Take(const Datum& values, const Datum& indices, const TakeOptions& options,
                    ExecContext* ctx) {
-  return CallFunction(ctx, "take", {values, indices}, &options);
+  return CallFunction("take", {values, indices}, &options, ctx);
 }
 
 Result<std::shared_ptr<Array>> Unique(const Datum& value, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction(ctx, "unique", {value}));
+  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("unique", {value}, ctx));
   return result.make_array();
 }
 
 Result<Datum> DictionaryEncode(const Datum& value, ExecContext* ctx) {
-  return CallFunction(ctx, "dictionary_encode", {value});
+  return CallFunction("dictionary_encode", {value}, ctx);
 }
 
 const char kValuesFieldName[] = "values";
@@ -66,7 +66,7 @@ const int32_t kValuesFieldIndex = 0;
 const int32_t kCountsFieldIndex = 1;
 
 Result<std::shared_ptr<Array>> ValueCounts(const Datum& value, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction(ctx, "value_counts", {value}));
+  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("value_counts", {value}, ctx));
   return result.make_array();
 }
 
@@ -122,7 +122,7 @@ Result<Datum> Filter(const Datum& values, const Datum& filter, FilterOptions opt
                           FilterTable(*values.table(), filter, options, ctx));
     return Datum(out_table);
   } else {
-    return CallFunction(ctx, "filter", {values, filter}, &options);
+    return CallFunction("filter", {values, filter}, &options, ctx);
   }
 }
 
