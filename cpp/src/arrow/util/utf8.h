@@ -190,12 +190,15 @@ inline bool ValidateAsciiSw(const uint8_t* data, int64_t len) {
     orall = !((or1 | or2) & 0x8080808080808080ULL) - 1;
   }
 
-  while (len--) orall |= *data++;
+  while (len--) {
+    orall |= *data++;
+  }
 
-  if (orall < 0x80)
+  if (orall < 0x80) {
     return true;
-  else
+  } else {
     return false;
+  }
 }
 
 #ifdef ARROW_HAVE_NEON
@@ -217,7 +220,9 @@ inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
     }
 
     or1 = vorrq_u8(or1, or2);
-    if (vmaxvq_u8(or1) >= 0x80) return false;
+    if (vmaxvq_u8(or1) >= 0x80) {
+      return false;
+    }
   }
 
   return ValidateAsciiSw(data, len);
@@ -243,7 +248,9 @@ inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
     }
 
     or1 = _mm_or_si128(or1, or2);
-    if (_mm_movemask_epi8(_mm_cmplt_epi8(or1, _mm_set1_epi8(0)))) return false;
+    if (_mm_movemask_epi8(_mm_cmplt_epi8(or1, _mm_set1_epi8(0)))) {
+      return false;
+    }
   }
 
   return ValidateAsciiSw(data, len);
