@@ -501,7 +501,8 @@ where
     Self::Simd: Add<Output = Self::Simd>
         + Sub<Output = Self::Simd>
         + Mul<Output = Self::Simd>
-        + Div<Output = Self::Simd>,
+        + Div<Output = Self::Simd>
+        + Copy,
 {
     /// Defines the SIMD type that should be used for this numeric type
     type Simd;

@@ -66,6 +66,32 @@ macro_rules! compare_op {
     }};
 }
 
+macro_rules! compare_op_scalar {
+    ($left: expr, $right:expr, $op:expr) => {{
+        let null_bit_buffer = apply_bin_op_to_option_bitmap(
+            $left.data().null_bitmap(),
+            &None,
+            |a, b| a & b,
+        )?;
+
+        let mut result = BooleanBufferBuilder::new($left.len());
+        for i in 0..$left.len() {
+            result.append($op($left.value(i), $right))?;
+        }
+
+        let data = ArrayData::new(
+            DataType::Boolean,
+            $left.len(),
+            None,
+            null_bit_buffer,
+            $left.offset(),
+            vec![result.finish()],
+            vec![],
+        );
+        Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+    }};
+}
+
 pub fn no_simd_compare_op<T, F>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
@@ -76,6 +102,18 @@ where
     F: Fn(T::Native, T::Native) -> bool,
 {
     compare_op!(left, right, op)
+}
+
+pub fn no_simd_compare_op_scalar<T, F>(
+    left: &PrimitiveArray<T>,
+    right: T::Native,
+    op: F,
+) -> Result<BooleanArray>
+where
+    T: ArrowNumericType,
+    F: Fn(T::Native, T::Native) -> bool,
+{
+    compare_op_scalar!(left, right, op)
 }
 
 pub fn like_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
@@ -264,6 +302,64 @@ where
     Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
 }
 
+/// Helper function to perform boolean lambda function on values from an array and a scalar value using
+/// SIMD.
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+fn simd_compare_op_scalar<T, F>(
+    left: &PrimitiveArray<T>,
+    right: T::Native,
+    op: F,
+) -> Result<BooleanArray>
+where
+    T: ArrowNumericType,
+    F: Fn(T::Simd, T::Simd) -> T::SimdMask,
+{
+    use crate::buffer::MutableBuffer;
+    use std::io::Write;
+    use std::mem;
+
+    let len = left.len();
+    let null_bit_buffer = apply_bin_op_to_option_bitmap(
+        left.data().null_bitmap(),
+        &None,
+        |a, b| a & b,
+    )?;
+
+    let lanes = T::lanes();
+    let mut result = MutableBuffer::new(left.len() * mem::size_of::<bool>());
+    let simd_right = T::init(right);
+
+    let rem = len % lanes;
+
+    for i in (0..len - rem).step_by(lanes) {
+        let simd_left = T::load(left.value_slice(i, lanes));
+        let simd_result = op(simd_left, simd_right);
+        T::bitmask(&simd_result, |b| {
+            result.write(b).unwrap();
+        });
+    }
+
+    if rem > 0 {
+        let simd_left = T::load(left.value_slice(len - rem, lanes));
+        let simd_result = op(simd_left, simd_right);
+        let rem_buffer_size = (rem as f32 / 8f32).ceil() as usize;
+        T::bitmask(&simd_result, |b| {
+            result.write(&b[0..rem_buffer_size]).unwrap();
+        });
+    }
+
+    let data = ArrayData::new(
+        DataType::Boolean,
+        left.len(),
+        None,
+        null_bit_buffer,
+        left.offset(),
+        vec![result.freeze()],
+        vec![],
+    );
+    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+}
+
 /// Perform `left == right` operation on two arrays.
 pub fn eq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
 where
@@ -277,6 +373,21 @@ where
         not(feature = "simd")
     ))]
     compare_op!(left, right, |a, b| a == b)
+}
+
+/// Perform `left == right` operation on an array and a scalar value.
+pub fn eq_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<BooleanArray>
+where
+    T: ArrowNumericType,
+{
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    return simd_compare_op_scalar(left, right, T::eq);
+
+    #[cfg(any(
+        not(any(target_arch = "x86", target_arch = "x86_64")),
+        not(feature = "simd")
+    ))]
+    compare_op_scalar!(left, right, |a, b| a == b)
 }
 
 /// Perform `left != right` operation on two arrays.
@@ -294,6 +405,21 @@ where
     compare_op!(left, right, |a, b| a != b)
 }
 
+/// Perform `left != right` operation on an array and a scalar value.
+pub fn neq_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<BooleanArray>
+where
+    T: ArrowNumericType,
+{
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    return simd_compare_op_scalar(left, right, T::ne);
+
+    #[cfg(any(
+        not(any(target_arch = "x86", target_arch = "x86_64")),
+        not(feature = "simd")
+    ))]
+    compare_op_scalar!(left, right, |a, b| a != b)
+}
+
 /// Perform `left < right` operation on two arrays. Null values are less than non-null
 /// values.
 pub fn lt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
@@ -308,6 +434,22 @@ where
         not(feature = "simd")
     ))]
     compare_op!(left, right, |a, b| a < b)
+}
+
+/// Perform `left < right` operation on an array and a scalar value. 
+/// Null values are less than non-null values.
+pub fn lt_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<BooleanArray>
+where
+    T: ArrowNumericType,
+{
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    return simd_compare_op_scalar(left, right, T::lt);
+
+    #[cfg(any(
+        not(any(target_arch = "x86", target_arch = "x86_64")),
+        not(feature = "simd")
+    ))]
+    compare_op_scalar!(left, right, |a, b| a < b)
 }
 
 /// Perform `left <= right` operation on two arrays. Null values are less than non-null
@@ -329,6 +471,25 @@ where
     compare_op!(left, right, |a, b| a <= b)
 }
 
+/// Perform `left <= right` operation on an array and a scalar value. 
+/// Null values are less than non-null values.
+pub fn lt_eq_scalar<T>(
+    left: &PrimitiveArray<T>,
+    right: T::Native,
+) -> Result<BooleanArray>
+where
+    T: ArrowNumericType,
+{
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    return simd_compare_op_scalar(left, right, T::le);
+
+    #[cfg(any(
+        not(any(target_arch = "x86", target_arch = "x86_64")),
+        not(feature = "simd")
+    ))]
+    compare_op_scalar!(left, right, |a, b| a <= b)
+}
+
 /// Perform `left > right` operation on two arrays. Non-null values are greater than null
 /// values.
 pub fn gt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<BooleanArray>
@@ -343,6 +504,22 @@ where
         not(feature = "simd")
     ))]
     compare_op!(left, right, |a, b| a > b)
+}
+
+/// Perform `left > right` operation on an array and a scalar value. 
+/// Non-null values are greater than null values.
+pub fn gt_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<BooleanArray>
+where
+    T: ArrowNumericType,
+{
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    return simd_compare_op_scalar(left, right, T::gt);
+
+    #[cfg(any(
+        not(any(target_arch = "x86", target_arch = "x86_64")),
+        not(feature = "simd")
+    ))]
+    compare_op_scalar!(left, right, |a, b| a > b)
 }
 
 /// Perform `left >= right` operation on two arrays. Non-null values are greater than null
@@ -364,6 +541,25 @@ where
     compare_op!(left, right, |a, b| a >= b)
 }
 
+/// Perform `left >= right` operation on an array and a scalar value. 
+/// Non-null values are greater than null values.
+pub fn gt_eq_scalar<T>(
+    left: &PrimitiveArray<T>,
+    right: T::Native,
+) -> Result<BooleanArray>
+where
+    T: ArrowNumericType,
+{
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    return simd_compare_op_scalar(left, right, T::ge);
+
+    #[cfg(any(
+        not(any(target_arch = "x86", target_arch = "x86_64")),
+        not(feature = "simd")
+    ))]
+    compare_op_scalar!(left, right, |a, b| a >= b)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -375,6 +571,17 @@ mod tests {
         let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
         let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
         let c = eq(&a, &b).unwrap();
+        assert_eq!(false, c.value(0));
+        assert_eq!(false, c.value(1));
+        assert_eq!(true, c.value(2));
+        assert_eq!(false, c.value(3));
+        assert_eq!(false, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_eq_scalar() {
+        let a = Int32Array::from(vec![6, 7, 8, 9, 10]);
+        let c = eq_scalar(&a, 8).unwrap();
         assert_eq!(false, c.value(0));
         assert_eq!(false, c.value(1));
         assert_eq!(true, c.value(2));
@@ -395,6 +602,17 @@ mod tests {
     }
 
     #[test]
+    fn test_primitive_array_neq_scalar() {
+        let a = Int32Array::from(vec![6, 7, 8, 9, 10]);
+        let c = neq_scalar(&a, 8).unwrap();
+        assert_eq!(true, c.value(0));
+        assert_eq!(true, c.value(1));
+        assert_eq!(false, c.value(2));
+        assert_eq!(true, c.value(3));
+        assert_eq!(true, c.value(4));
+    }
+
+    #[test]
     fn test_primitive_array_lt() {
         let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
         let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
@@ -407,11 +625,31 @@ mod tests {
     }
 
     #[test]
+    fn test_primitive_array_lt_scalar() {
+        let a = Int32Array::from(vec![6, 7, 8, 9, 10]);
+        let c = lt_scalar(&a, 8).unwrap();
+        assert_eq!(true, c.value(0));
+        assert_eq!(true, c.value(1));
+        assert_eq!(false, c.value(2));
+        assert_eq!(false, c.value(3));
+        assert_eq!(false, c.value(4));
+    }
+
+    #[test]
     fn test_primitive_array_lt_nulls() {
         let a = Int32Array::from(vec![None, None, Some(1)]);
         let b = Int32Array::from(vec![None, Some(1), None]);
         let c = lt(&a, &b).unwrap();
         assert_eq!(false, c.value(0));
+        assert_eq!(true, c.value(1));
+        assert_eq!(false, c.value(2));
+    }
+
+    #[test]
+    fn test_primitive_array_lt_scalar_nulls() {
+        let a = Int32Array::from(vec![None, Some(1), Some(2)]);
+        let c = lt_scalar(&a, 2).unwrap();
+        assert_eq!(true, c.value(0));
         assert_eq!(true, c.value(1));
         assert_eq!(false, c.value(2));
     }
@@ -429,10 +667,30 @@ mod tests {
     }
 
     #[test]
+    fn test_primitive_array_lt_eq_scalar() {
+        let a = Int32Array::from(vec![6, 7, 8, 9, 10]);
+        let c = lt_eq_scalar(&a, 8).unwrap();
+        assert_eq!(true, c.value(0));
+        assert_eq!(true, c.value(1));
+        assert_eq!(true, c.value(2));
+        assert_eq!(false, c.value(3));
+        assert_eq!(false, c.value(4));
+    }
+
+    #[test]
     fn test_primitive_array_lt_eq_nulls() {
         let a = Int32Array::from(vec![None, None, Some(1)]);
         let b = Int32Array::from(vec![None, Some(1), None]);
         let c = lt_eq(&a, &b).unwrap();
+        assert_eq!(true, c.value(0));
+        assert_eq!(true, c.value(1));
+        assert_eq!(false, c.value(2));
+    }
+
+    #[test]
+    fn test_primitive_array_lt_eq_scalar_nulls() {
+        let a = Int32Array::from(vec![None, Some(1), Some(2)]);
+        let c = lt_eq_scalar(&a, 1).unwrap();
         assert_eq!(true, c.value(0));
         assert_eq!(true, c.value(1));
         assert_eq!(false, c.value(2));
@@ -451,10 +709,30 @@ mod tests {
     }
 
     #[test]
+    fn test_primitive_array_gt_scalar() {
+        let a = Int32Array::from(vec![6, 7, 8, 9, 10]);
+        let c = gt_scalar(&a, 8).unwrap();
+        assert_eq!(false, c.value(0));
+        assert_eq!(false, c.value(1));
+        assert_eq!(false, c.value(2));
+        assert_eq!(true, c.value(3));
+        assert_eq!(true, c.value(4));
+    }
+
+    #[test]
     fn test_primitive_array_gt_nulls() {
         let a = Int32Array::from(vec![None, None, Some(1)]);
         let b = Int32Array::from(vec![None, Some(1), None]);
         let c = gt(&a, &b).unwrap();
+        assert_eq!(false, c.value(0));
+        assert_eq!(false, c.value(1));
+        assert_eq!(true, c.value(2));
+    }
+
+    #[test]
+    fn test_primitive_array_gt_scalar_nulls() {
+        let a = Int32Array::from(vec![None, Some(1), Some(2)]);
+        let c = gt_scalar(&a, 1).unwrap();
         assert_eq!(false, c.value(0));
         assert_eq!(false, c.value(1));
         assert_eq!(true, c.value(2));
@@ -473,12 +751,32 @@ mod tests {
     }
 
     #[test]
+    fn test_primitive_array_gt_eq_scalar() {
+        let a = Int32Array::from(vec![6, 7, 8, 9, 10]);
+        let c = gt_eq_scalar(&a, 8).unwrap();
+        assert_eq!(false, c.value(0));
+        assert_eq!(false, c.value(1));
+        assert_eq!(true, c.value(2));
+        assert_eq!(true, c.value(3));
+        assert_eq!(true, c.value(4));
+    }
+
+    #[test]
     fn test_primitive_array_gt_eq_nulls() {
         let a = Int32Array::from(vec![None, None, Some(1)]);
         let b = Int32Array::from(vec![None, Some(1), None]);
         let c = gt_eq(&a, &b).unwrap();
         assert_eq!(true, c.value(0));
         assert_eq!(false, c.value(1));
+        assert_eq!(true, c.value(2));
+    }
+
+    #[test]
+    fn test_primitive_array_gt_eq_scalar_nulls() {
+        let a = Int32Array::from(vec![None, Some(1), Some(2)]);
+        let c = gt_eq_scalar(&a, 1).unwrap();
+        assert_eq!(false, c.value(0));
+        assert_eq!(true, c.value(1));
         assert_eq!(true, c.value(2));
     }
 
