@@ -35,6 +35,7 @@ class Schema;
 namespace ipc {
 
 class Message;
+class DictionaryMemo;
 
 }  // namespace ipc
 
@@ -59,8 +60,8 @@ Result<std::shared_ptr<CudaBuffer>> SerializeRecordBatch(const RecordBatch& batc
 /// \return RecordBatch or Status
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
-    const std::shared_ptr<Schema>& schema, const std::shared_ptr<CudaBuffer>& buffer,
-    MemoryPool* pool = default_memory_pool());
+    const std::shared_ptr<Schema>& schema, const ipc::DictionaryMemo* dictionary_memo,
+    const std::shared_ptr<CudaBuffer>& buffer, MemoryPool* pool = default_memory_pool());
 
 /// @}
 

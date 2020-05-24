@@ -922,7 +922,8 @@ def read_message(object source, pool=None):
     return result
 
 
-def read_record_batch(object buffer, object schema, pool=None):
+def read_record_batch(object buffer, object schema, *,
+                      DictionaryMemo dictionary_memo=None, pool=None):
     """Construct RecordBatch referencing IPC message located on CUDA device.
 
     While the metadata is copied to host memory for deserialization,
@@ -934,6 +935,9 @@ def read_record_batch(object buffer, object schema, pool=None):
       Device buffer containing the complete IPC message
     schema : Schema
       The schema for the record batch
+    dictionary_memo : DictionaryMemo, optional
+        If message contains dictionaries, must pass a populated
+        DictionaryMemo
     pool : MemoryPool (optional)
       Pool to allocate metadata from
 
@@ -943,12 +947,22 @@ def read_record_batch(object buffer, object schema, pool=None):
       Reconstructed record batch, with device pointers
 
     """
-    cdef shared_ptr[CSchema] schema_ = pyarrow_unwrap_schema(schema)
-    cdef shared_ptr[CCudaBuffer] buffer_ = pyarrow_unwrap_cudabuffer(buffer)
-    cdef CMemoryPool* pool_ = maybe_unbox_memory_pool(pool)
-    cdef shared_ptr[CRecordBatch] batch
+    cdef:
+        shared_ptr[CSchema] schema_ = pyarrow_unwrap_schema(schema)
+        shared_ptr[CCudaBuffer] buffer_ = pyarrow_unwrap_cudabuffer(buffer)
+        CDictionaryMemo temp_memo
+        CDictionaryMemo* arg_dict_memo
+        CMemoryPool* pool_ = maybe_unbox_memory_pool(pool)
+        shared_ptr[CRecordBatch] batch
+
+    if dictionary_memo is not None:
+        arg_dict_memo = dictionary_memo.memo
+    else:
+        arg_dict_memo = &temp_memo
+
     with nogil:
-        batch = GetResultValue(CudaReadRecordBatch(schema_, buffer_, pool_))
+        batch = GetResultValue(CudaReadRecordBatch(
+            schema_, arg_dict_memo, buffer_, pool_))
     return pyarrow_wrap_batch(batch)
 
 
