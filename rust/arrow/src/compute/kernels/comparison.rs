@@ -215,24 +215,48 @@ pub fn eq_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> 
     compare_op!(left, right, |a, b| a == b)
 }
 
+pub fn eq_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
+    compare_op_scalar!(left, right, |a, b| a == b)
+}
+
 pub fn neq_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
     compare_op!(left, right, |a, b| a != b)
+}
+
+pub fn neq_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
+    compare_op_scalar!(left, right, |a, b| a != b)
 }
 
 pub fn lt_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
     compare_op!(left, right, |a, b| a < b)
 }
 
+pub fn lt_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
+    compare_op_scalar!(left, right, |a, b| a < b)
+}
+
 pub fn lt_eq_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
     compare_op!(left, right, |a, b| a <= b)
+}
+
+pub fn lt_eq_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
+    compare_op_scalar!(left, right, |a, b| a <= b)
 }
 
 pub fn gt_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
     compare_op!(left, right, |a, b| a > b)
 }
 
+pub fn gt_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
+    compare_op_scalar!(left, right, |a, b| a > b)
+}
+
 pub fn gt_eq_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
     compare_op!(left, right, |a, b| a >= b)
+}
+
+pub fn gt_eq_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
+    compare_op_scalar!(left, right, |a, b| a >= b)
 }
 
 /// Helper function to perform boolean lambda function on values from two arrays using
@@ -805,6 +829,29 @@ mod tests {
         };
     }
 
+    macro_rules! test_utf8_scalar {
+        ($test_name:ident, $left:expr, $right:expr, $op:expr, $expected:expr) => {
+            #[test]
+            fn $test_name() {
+                let left = StringArray::from($left);
+                let res = $op(&left, $right).unwrap();
+                let expected = $expected;
+                assert_eq!(expected.len(), res.len());
+                for i in 0..res.len() {
+                    let v = res.value(i);
+                    assert_eq!(
+                        v,
+                        expected[i],
+                        "unexpected result when comparing {} at position {} to {} ",
+                        left.value(i),
+                        i,
+                        $right
+                    );
+                }
+            }
+        };
+    }
+
     test_utf8!(
         test_utf8_array_like,
         vec!["arrow", "arrow", "arrow", "arrow"],
@@ -819,6 +866,7 @@ mod tests {
         nlike_utf8,
         vec![false, false, false, true]
     );
+
     test_utf8!(
         test_utf8_array_eq,
         vec!["arrow", "arrow", "arrow", "arrow"],
@@ -826,13 +874,29 @@ mod tests {
         eq_utf8,
         vec![true, false, false, false]
     );
+    test_utf8_scalar!(
+        test_utf8_array_eq_scalar,
+        vec!["arrow", "parquet", "datafusion", "flight"],
+        "arrow",
+        eq_utf8_scalar,
+        vec![true, false, false, false]
+    );
+
     test_utf8!(
-        test_utf8_array_new,
+        test_utf8_array_neq,
         vec!["arrow", "arrow", "arrow", "arrow"],
         vec!["arrow", "parquet", "datafusion", "flight"],
         neq_utf8,
         vec![false, true, true, true]
     );
+    test_utf8_scalar!(
+        test_utf8_array_neq_scalar,
+        vec!["arrow", "parquet", "datafusion", "flight"],
+        "arrow",
+        neq_utf8_scalar,
+        vec![false, true, true, true]
+    );
+
     test_utf8!(
         test_utf8_array_lt,
         vec!["arrow", "datafusion", "flight", "parquet"],
@@ -840,6 +904,14 @@ mod tests {
         lt_utf8,
         vec![true, true, false, false]
     );
+    test_utf8_scalar!(
+        test_utf8_array_lt_scalar,
+        vec!["arrow", "datafusion", "flight", "parquet"],
+        "flight",
+        lt_utf8_scalar,
+        vec![true, true, false, false]
+    );
+
     test_utf8!(
         test_utf8_array_lt_eq,
         vec!["arrow", "datafusion", "flight", "parquet"],
@@ -847,6 +919,14 @@ mod tests {
         lt_eq_utf8,
         vec![true, true, true, false]
     );
+    test_utf8_scalar!(
+        test_utf8_array_lt_eq_scalar,
+        vec!["arrow", "datafusion", "flight", "parquet"],
+        "flight",
+        lt_eq_utf8_scalar,
+        vec![true, true, true, false]
+    );
+
     test_utf8!(
         test_utf8_array_gt,
         vec!["arrow", "datafusion", "flight", "parquet"],
@@ -854,11 +934,26 @@ mod tests {
         gt_utf8,
         vec![false, false, false, true]
     );
+    test_utf8_scalar!(
+        test_utf8_array_gt_scalar,
+        vec!["arrow", "datafusion", "flight", "parquet"],
+        "flight",
+        gt_utf8_scalar,
+        vec![false, false, false, true]
+    );
+
     test_utf8!(
         test_utf8_array_gt_eq,
         vec!["arrow", "datafusion", "flight", "parquet"],
         vec!["flight", "flight", "flight", "flight"],
         gt_eq_utf8,
+        vec![false, false, true, true]
+    );
+    test_utf8_scalar!(
+        test_utf8_array_gt_eq_scalar,
+        vec!["arrow", "datafusion", "flight", "parquet"],
+        "flight",
+        gt_eq_utf8_scalar,
         vec![false, false, true, true]
     );
 }
