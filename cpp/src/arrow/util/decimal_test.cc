@@ -387,28 +387,36 @@ TEST(Decimal128Test, TestFromBigEndian) {
                         127 /* 01111111 */}) {
     Decimal128 value(start);
     for (int ii = 0; ii < 16; ++ii) {
-      auto little_endian = value.ToBytes();
-      std::reverse(little_endian.begin(), little_endian.end());
+      auto native_endian = value.ToBytes();
+#if ARROW_LITTLE_ENDIAN
+      std::reverse(native_endian.begin(), native_endian.end());
+#endif
       // Limit the number of bytes we are passing to make
       // sure that it works correctly. That's why all of the
       // 'start' values don't have a 1 in the most significant
       // bit place
       ASSERT_OK_AND_EQ(value,
-                       Decimal128::FromBigEndian(little_endian.data() + 15 - ii, ii + 1));
+                       Decimal128::FromBigEndian(native_endian.data() + 15 - ii, ii + 1));
 
-      // Negate it and convert to big endian
+      // Negate it
       auto negated = -value;
-      little_endian = negated.ToBytes();
-      std::reverse(little_endian.begin(), little_endian.end());
+      native_endian = negated.ToBytes();
+#if ARROW_LITTLE_ENDIAN
+      // convert to big endian
+      std::reverse(native_endian.begin(), native_endian.end());
+#endif
       // The sign bit is looked up in the MSB
       ASSERT_OK_AND_EQ(negated,
-                       Decimal128::FromBigEndian(little_endian.data() + 15 - ii, ii + 1));
+                       Decimal128::FromBigEndian(native_endian.data() + 15 - ii, ii + 1));
 
-      // Take the complement and convert to big endian
+      // Take the complement
       auto complement = ~value;
-      little_endian = complement.ToBytes();
-      std::reverse(little_endian.begin(), little_endian.end());
-      ASSERT_OK_AND_EQ(complement, Decimal128::FromBigEndian(little_endian.data(), 16));
+      native_endian = complement.ToBytes();
+#if ARROW_LITTLE_ENDIAN
+      // convert to big endian
+      std::reverse(native_endian.begin(), native_endian.end());
+#endif
+      ASSERT_OK_AND_EQ(complement, Decimal128::FromBigEndian(native_endian.data(), 16));
 
       value <<= 8;
       value += Decimal128(start);
