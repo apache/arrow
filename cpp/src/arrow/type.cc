@@ -35,6 +35,7 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
@@ -86,7 +87,102 @@ constexpr Type::type DurationType::type_id;
 
 constexpr Type::type DictionaryType::type_id;
 
+namespace internal {
+
+std::string ToString(Type::type id) {
+  switch (id) {
+    case Type::NA:
+      return "NA";
+    case Type::BOOL:
+      return "BOOL";
+    case Type::UINT8:
+      return "UINT8";
+    case Type::INT8:
+      return "INT8";
+    case Type::UINT16:
+      return "UINT16";
+    case Type::INT16:
+      return "INT16";
+    case Type::UINT32:
+      return "UINT32";
+    case Type::INT32:
+      return "INT32";
+    case Type::UINT64:
+      return "UINT64";
+    case Type::INT64:
+      return "INT64";
+    case Type::HALF_FLOAT:
+      return "HALF_FLOAT";
+    case Type::FLOAT:
+      return "FLOAT";
+    case Type::DOUBLE:
+      return "DOUBLE";
+    case Type::STRING:
+      return "UTF8";
+    case Type::BINARY:
+      return "BINARY";
+    case Type::FIXED_SIZE_BINARY:
+      return "FIXED_SIZE_BINARY";
+    case Type::DATE64:
+      return "DATE64";
+    case Type::TIMESTAMP:
+      return "TIMESTAMP";
+    case Type::TIME32:
+      return "TIME32";
+    case Type::TIME64:
+      return "TIME64";
+    case Type::INTERVAL_MONTHS:
+      return "INTERVAL_MONTHS";
+    case Type::INTERVAL_DAY_TIME:
+      return "INTERVAL_DAY_TIME";
+    case Type::DECIMAL:
+      return "DECIMAL";
+    case Type::LIST:
+      return "LIST";
+    case Type::STRUCT:
+      return "STRUCT";
+    case Type::UNION:
+      return "UNION";
+    case Type::DICTIONARY:
+      return "DICTIONARY";
+    case Type::MAP:
+      return "MAP";
+    case Type::EXTENSION:
+      return "EXTENSION";
+    case Type::FIXED_SIZE_LIST:
+      return "FIXED_SIZE_LIST";
+    case Type::DURATION:
+      return "DURATION";
+    case Type::LARGE_BINARY:
+      return "LARGE_BINARY";
+    case Type::LARGE_LIST:
+      return "LARGE_LIST";
+    default:
+      DCHECK(false) << "Should not be able to reach here";
+      return "unknown";
+  }
+}
+
+std::string ToString(TimeUnit::type unit) {
+  switch (unit) {
+    case TimeUnit::SECOND:
+      return "s";
+    case TimeUnit::MILLI:
+      return "ms";
+    case TimeUnit::MICRO:
+      return "us";
+    case TimeUnit::NANO:
+      return "ns";
+    default:
+      DCHECK(false);
+      return "";
+  }
+}
+
+}  // namespace internal
+
 namespace {
+
 using internal::checked_cast;
 
 // Merges `existing` and `other` if one of them is of NullType, otherwise
@@ -246,6 +342,13 @@ bool DataType::Equals(const std::shared_ptr<DataType>& other) const {
     return false;
   }
   return Equals(*other.get());
+}
+
+size_t DataType::Hash() const {
+  static constexpr size_t kHashSeed = 0;
+  size_t result = kHashSeed;
+  internal::hash_combine(result, this->ComputeFingerprint());
+  return result;
 }
 
 std::ostream& operator<<(std::ostream& os, const DataType& type) {

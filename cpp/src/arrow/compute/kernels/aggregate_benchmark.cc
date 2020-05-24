@@ -20,10 +20,8 @@
 #include <vector>
 
 #include "arrow/builder.h"
+#include "arrow/compute/api.h"
 #include "arrow/compute/benchmark_util.h"
-#include "arrow/compute/context.h"
-#include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/sum.h"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -314,11 +312,8 @@ static void SumKernel(benchmark::State& state) {
   auto array = std::static_pointer_cast<NumericArray<Int64Type>>(
       rand.Int64(array_size, -100, 100, null_percent));
 
-  FunctionContext ctx;
   for (auto _ : state) {
-    Datum out;
-    ABORT_NOT_OK(Sum(&ctx, Datum(array), &out));
-    benchmark::DoNotOptimize(out);
+    ABORT_NOT_OK(Sum(array).status());
   }
 
   state.counters["size"] = static_cast<double>(state.range(0));

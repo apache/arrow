@@ -28,7 +28,6 @@ cdef extern from "Python.h":
     int PySlice_Check(object)
 
 
-cdef CFunctionContext* _context() nogil
 cdef int check_status(const CStatus& status) nogil except -1
 
 cdef class Message:

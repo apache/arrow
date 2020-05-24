@@ -230,7 +230,7 @@ static void BM_PlainEncodingSpaced(benchmark::State& state) {
   using ArrayType = typename BM_SpacedEncodingTraits<ParquetType>::ArrayType;
   using CType = typename BM_SpacedEncodingTraits<ParquetType>::CType;
 
-  const auto num_values = state.range(0);
+  const int num_values = static_cast<int>(state.range(0));
   const auto null_percent = static_cast<double>(state.range(1)) / 100.0;
 
   auto rand = ::arrow::random::RandomArrayGenerator(1923);
@@ -273,13 +273,13 @@ static void BM_PlainDecodingSpaced(benchmark::State& state) {
   using ArrayType = typename BM_SpacedEncodingTraits<ParquetType>::ArrayType;
   using CType = typename BM_SpacedEncodingTraits<ParquetType>::CType;
 
-  const auto num_values = state.range(0);
+  const int num_values = static_cast<int>(state.range(0));
   const auto null_percent = static_cast<double>(state.range(1)) / 100.0;
 
   auto rand = ::arrow::random::RandomArrayGenerator(1923);
   const auto array = rand.Numeric<ArrowType>(num_values, -100, 100, null_percent);
   const auto valid_bits = array->null_bitmap_data();
-  const auto null_count = array->null_count();
+  const int null_count = static_cast<int>(array->null_count());
   const auto array_actual = arrow::internal::checked_pointer_cast<ArrayType>(array);
   const auto raw_values = array_actual->raw_values();
   // Guarantee the type cast between raw_values and input of PutSpaced.
@@ -296,7 +296,7 @@ static void BM_PlainDecodingSpaced(benchmark::State& state) {
   std::vector<uint8_t> decode_values(num_values * sizeof(CType));
   auto decode_buf = reinterpret_cast<CType*>(decode_values.data());
   for (auto _ : state) {
-    decoder->SetData(num_values - null_count, buf->data(), buf->size());
+    decoder->SetData(num_values - null_count, buf->data(), static_cast<int>(buf->size()));
     decoder->DecodeSpaced(decode_buf, num_values, null_count, valid_bits, 0);
   }
   state.SetBytesProcessed(state.iterations() * num_values * sizeof(CType));

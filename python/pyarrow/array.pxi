@@ -376,19 +376,6 @@ cdef Py_ssize_t _normalize_index(Py_ssize_t index,
     return index
 
 
-cdef class _FunctionContext:
-    cdef:
-        unique_ptr[CFunctionContext] ctx
-
-    def __cinit__(self):
-        self.ctx.reset(new CFunctionContext(c_default_memory_pool()))
-
-cdef _FunctionContext _global_ctx = _FunctionContext()
-
-cdef CFunctionContext* _context() nogil:
-    return _global_ctx.ctx.get()
-
-
 cdef wrap_datum(const CDatum& datum):
     if datum.kind() == DatumType_ARRAY:
         return pyarrow_wrap_array(MakeArray(datum.array()))
@@ -492,23 +479,6 @@ def _restore_array(data):
     """
     cdef shared_ptr[CArrayData] ad = _reconstruct_array_data(data)
     return pyarrow_wrap_array(MakeArray(ad))
-
-
-cdef CFilterOptions _convert_filter_option(object null_selection_behavior):
-    cdef CFilterOptions options
-
-    if null_selection_behavior == 'drop':
-        options.null_selection_behavior = \
-            CFilterNullSelectionBehavior_DROP
-    elif null_selection_behavior == 'emit_null':
-        options.null_selection_behavior = \
-            CFilterNullSelectionBehavior_EMIT_NULL
-    else:
-        raise ValueError(
-            '"{}" is not a valid null_selection_behavior'.format(
-                null_selection_behavior)
-        )
-    return options
 
 
 cdef class _PandasConvertible:
@@ -705,9 +675,7 @@ cdef class Array(_PandasConvertible):
             shared_ptr[CArray] result
 
         with nogil:
-            check_status(Cast(_context(), self.ap[0], type.sp_type,
-                              options, &result))
-
+            result = GetResultValue(Cast(self.ap[0], type.sp_type, options))
         return pyarrow_wrap_array(result)
 
     def view(self, object target_type):
@@ -735,35 +703,19 @@ cdef class Array(_PandasConvertible):
         """
         Sum the values in a numerical array.
         """
-        cdef CDatum out
-
-        with nogil:
-            check_status(Sum(_context(), CDatum(self.sp_array), &out))
-
-        return wrap_datum(out)
+        return _pc().call_function('sum', [self])
 
     def unique(self):
         """
         Compute distinct elements in array.
         """
-        cdef shared_ptr[CArray] result
-
-        with nogil:
-            check_status(Unique(_context(), CDatum(self.sp_array), &result))
-
-        return pyarrow_wrap_array(result)
+        return _pc().call_function('unique', [self])
 
     def dictionary_encode(self):
         """
         Compute dictionary-encoded representation of array.
         """
-        cdef CDatum out
-
-        with nogil:
-            check_status(DictionaryEncode(_context(), CDatum(self.sp_array),
-                                          &out))
-
-        return wrap_datum(out)
+        return _pc().call_function('dictionary_encode', [self])
 
     def value_counts(self):
         """
@@ -773,12 +725,7 @@ cdef class Array(_PandasConvertible):
         -------
         An array of  <input type "Values", int64_t "Counts"> structs
         """
-        cdef shared_ptr[CArray] result
-
-        with nogil:
-            check_status(ValueCounts(_context(), CDatum(self.sp_array),
-                                     &result))
-        return pyarrow_wrap_array(result)
+        return _pc().call_function('value_counts', [self])
 
     @staticmethod
     def from_pandas(obj, mask=None, type=None, bint safe=True,
@@ -1032,18 +979,7 @@ cdef class Array(_PandasConvertible):
           null
         ]
         """
-        cdef:
-            cdef CTakeOptions options
-            cdef CDatum out
-            cdef Array c_indices
-
-        c_indices = asarray(indices)
-
-        with nogil:
-            check_status(Take(_context(), CDatum(self.sp_array),
-                              CDatum(c_indices.sp_array), options, &out))
-
-        return wrap_datum(out)
+        return _pc().call_function('take', [self, asarray(indices)])
 
     def filter(self, Array mask, null_selection_behavior='drop'):
         """
@@ -1084,17 +1020,9 @@ cdef class Array(_PandasConvertible):
           "e"
         ]
         """
-        cdef:
-            CDatum out
-            CFilterOptions options
-
-        options = _convert_filter_option(null_selection_behavior)
-
-        with nogil:
-            check_status(FilterKernel(_context(), CDatum(self.sp_array),
-                                      CDatum(mask.sp_array), options, &out))
-
-        return wrap_datum(out)
+        pc = _pc()
+        options = pc.FilterOptions(null_selection_behavior)
+        return pc.call_function('filter', [self, mask], options)
 
     def _to_pandas(self, options, **kwargs):
         return _array_like_to_pandas(self, options)

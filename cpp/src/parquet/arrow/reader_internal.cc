@@ -29,7 +29,7 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
-#include "arrow/compute/kernel.h"
+#include "arrow/datum.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
@@ -57,6 +57,7 @@ using arrow::Array;
 using arrow::BooleanArray;
 using arrow::ChunkedArray;
 using arrow::DataType;
+using arrow::Datum;
 using arrow::Field;
 using arrow::Int32Array;
 using arrow::ListArray;
@@ -66,7 +67,6 @@ using arrow::Status;
 using arrow::StructArray;
 using arrow::Table;
 using arrow::TimestampArray;
-using arrow::compute::Datum;
 
 using ::arrow::BitUtil::FromBigEndian;
 using ::arrow::internal::checked_cast;

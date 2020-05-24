@@ -457,6 +457,7 @@ Let's configure, build and install the Arrow C++ libraries:
    pushd arrow\cpp\build
    cmake -G "%PYARROW_CMAKE_GENERATOR%" ^
        -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
+       -DCMAKE_UNITY_BUILD=ON ^
        -DARROW_CXXFLAGS="/WX /MP" ^
        -DARROW_WITH_LZ4=on ^
        -DARROW_WITH_SNAPPY=on ^

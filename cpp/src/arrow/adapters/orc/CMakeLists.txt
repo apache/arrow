@@ -44,7 +44,7 @@ elseif(NOT MSVC)
   set(ORC_MIN_TEST_LIBS ${ORC_MIN_TEST_LIBS} pthread ${CMAKE_DL_LIBS})
 endif()
 
-set(ORC_STATIC_TEST_LINK_LIBS ${ORC_MIN_TEST_LIBS} ${ARROW_LIBRARIES_FOR_STATIC_TESTS}
+set(ORC_STATIC_TEST_LINK_LIBS ${ARROW_LIBRARIES_FOR_STATIC_TESTS} ${ORC_MIN_TEST_LIBS}
                               orc::liborc)
 
 add_arrow_test(adapter_test

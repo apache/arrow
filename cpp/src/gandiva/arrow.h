@@ -29,29 +29,22 @@
 
 namespace gandiva {
 
-using ArrayPtr = std::shared_ptr<arrow::Array>;
+using arrow::ArrayDataVector;
+using arrow::DataTypeVector;
+using arrow::FieldVector;
+using arrow::Result;
+using arrow::Status;
+using arrow::StatusCode;
 
+using ArrayPtr = std::shared_ptr<arrow::Array>;
+using ArrayDataPtr = std::shared_ptr<arrow::ArrayData>;
 using DataTypePtr = std::shared_ptr<arrow::DataType>;
-using DataTypeVector = std::vector<DataTypePtr>;
+using FieldPtr = std::shared_ptr<arrow::Field>;
+using RecordBatchPtr = std::shared_ptr<arrow::RecordBatch>;
+using SchemaPtr = std::shared_ptr<arrow::Schema>;
 
 using Decimal128TypePtr = std::shared_ptr<arrow::Decimal128Type>;
 using Decimal128TypeVector = std::vector<Decimal128TypePtr>;
-
-using FieldPtr = std::shared_ptr<arrow::Field>;
-using FieldVector = std::vector<FieldPtr>;
-
-using RecordBatchPtr = std::shared_ptr<arrow::RecordBatch>;
-
-using SchemaPtr = std::shared_ptr<arrow::Schema>;
-
-using ArrayDataPtr = std::shared_ptr<arrow::ArrayData>;
-using ArrayDataVector = std::vector<ArrayDataPtr>;
-
-using Status = arrow::Status;
-using StatusCode = arrow::StatusCode;
-
-template <typename T>
-using Result = arrow::Result<T>;
 
 static inline bool is_decimal_128(DataTypePtr type) {
   if (type->id() == arrow::Type::DECIMAL) {

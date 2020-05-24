@@ -271,6 +271,9 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   /// \brief A string representation of the type, including any children
   virtual std::string ToString() const = 0;
 
+  /// \brief Return hash value (excluding metadata in child fields)
+  size_t Hash() const;
+
   /// \brief A string name of the type, omitting any child fields
   ///
   /// \note Experimental API
@@ -1869,5 +1872,15 @@ ARROW_EXPORT
 Result<std::shared_ptr<Schema>> UnifySchemas(
     const std::vector<std::shared_ptr<Schema>>& schemas,
     Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults());
+
+namespace internal {
+
+ARROW_EXPORT
+std::string ToString(Type::type id);
+
+ARROW_EXPORT
+std::string ToString(TimeUnit::type unit);
+
+}  // namespace internal
 
 }  // namespace arrow

@@ -1453,11 +1453,70 @@ cdef extern from "arrow/json/reader.h" namespace "arrow::json" nogil:
 
 cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
-    cdef cppclass CFunctionContext" arrow::compute::FunctionContext":
-        CFunctionContext()
-        CFunctionContext(CMemoryPool* pool)
+    cdef cppclass CExecContext" arrow::compute::ExecContext":
+        CExecContext()
+        CExecContext(CMemoryPool* pool)
 
-    cdef cppclass CCastOptions" arrow::compute::CastOptions":
+    cdef cppclass CKernelSignature" arrow::compute::KernelSignature":
+        c_string ToString() const
+
+    cdef cppclass CKernel" arrow::compute::Kernel":
+        shared_ptr[CKernelSignature] signature
+
+    cdef cppclass CArrayKernel" arrow::compute::ArrayKernel"(CKernel):
+        pass
+
+    cdef cppclass CScalarKernel" arrow::compute::ScalarKernel"(CArrayKernel):
+        pass
+
+    cdef cppclass CVectorKernel" arrow::compute::VectorKernel"(CArrayKernel):
+        pass
+
+    cdef cppclass CScalarAggregateKernel \
+            " arrow::compute::ScalarAggregateKernel"(CKernel):
+        pass
+
+    cdef cppclass CArity" arrow::compute::Arity":
+        int num_args
+        c_bool is_varargs
+
+    enum FunctionKind" arrow::compute::Function::Kind":
+        FunctionKind_SCALAR" arrow::compute::Function::SCALAR"
+        FunctionKind_VECTOR" arrow::compute::Function::VECTOR"
+        FunctionKind_SCALAR_AGGREGATE \
+            " arrow::compute::Function::SCALAR_AGGREGATE"
+
+    cdef cppclass CFunctionOptions" arrow::compute::FunctionOptions":
+        pass
+
+    cdef cppclass CFunction" arrow::compute::Function":
+        const c_string& name() const
+        FunctionKind kind() const
+        const CArity& arity() const
+        int num_kernels() const
+        CResult[CDatum] Execute(const vector[CDatum]& args,
+                                const CFunctionOptions* options)
+
+    cdef cppclass CScalarFunction" arrow::compute::ScalarFunction"(CFunction):
+        vector[const CScalarKernel*] kernels() const
+
+    cdef cppclass CVectorFunction" arrow::compute::VectorFunction"(CFunction):
+        vector[const CVectorKernel*] kernels() const
+
+    cdef cppclass CScalarAggregateFunction\
+            " arrow::compute::ScalarAggregateFunction"\
+            (CFunction):
+        vector[const CScalarAggregateKernel*] kernels() const
+
+    cdef cppclass CFunctionRegistry" arrow::compute::FunctionRegistry":
+        CResult[shared_ptr[CFunction]] GetFunction(
+            const c_string& name) const
+        vector[c_string] GetFunctionNames() const
+        int num_functions() const
+
+    CFunctionRegistry* GetFunctionRegistry()
+
+    cdef cppclass CCastOptions" arrow::compute::CastOptions"(CFunctionOptions):
         CCastOptions()
         CCastOptions(c_bool safe)
 
@@ -1472,7 +1531,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool allow_float_truncate
         c_bool allow_invalid_utf8
 
-    cdef cppclass CTakeOptions" arrow::compute::TakeOptions":
+    cdef cppclass CTakeOptions" arrow::compute::TakeOptions"(CFunctionOptions):
         pass
 
     enum CFilterNullSelectionBehavior \
@@ -1482,22 +1541,24 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CFilterNullSelectionBehavior_EMIT_NULL \
             "arrow::compute::FilterOptions::EMIT_NULL"
 
-    cdef cppclass CFilterOptions" arrow::compute::FilterOptions":
+    cdef cppclass CFilterOptions \
+            " arrow::compute::FilterOptions"(CFunctionOptions):
         CFilterNullSelectionBehavior null_selection_behavior
 
-    enum DatumType" arrow::compute::Datum::type":
-        DatumType_NONE" arrow::compute::Datum::NONE"
-        DatumType_SCALAR" arrow::compute::Datum::SCALAR"
-        DatumType_ARRAY" arrow::compute::Datum::ARRAY"
-        DatumType_CHUNKED_ARRAY" arrow::compute::Datum::CHUNKED_ARRAY"
-        DatumType_RECORD_BATCH" arrow::compute::Datum::RECORD_BATCH"
-        DatumType_TABLE" arrow::compute::Datum::TABLE"
-        DatumType_COLLECTION" arrow::compute::Datum::COLLECTION"
+    enum DatumType" arrow::Datum::type":
+        DatumType_NONE" arrow::Datum::NONE"
+        DatumType_SCALAR" arrow::Datum::SCALAR"
+        DatumType_ARRAY" arrow::Datum::ARRAY"
+        DatumType_CHUNKED_ARRAY" arrow::Datum::CHUNKED_ARRAY"
+        DatumType_RECORD_BATCH" arrow::Datum::RECORD_BATCH"
+        DatumType_TABLE" arrow::Datum::TABLE"
+        DatumType_COLLECTION" arrow::Datum::COLLECTION"
 
-    cdef cppclass CDatum" arrow::compute::Datum":
+    cdef cppclass CDatum" arrow::Datum":
         CDatum()
         CDatum(const shared_ptr[CArray]& value)
         CDatum(const shared_ptr[CChunkedArray]& value)
+        CDatum(const shared_ptr[CScalar]& value)
         CDatum(const shared_ptr[CRecordBatch]& value)
         CDatum(const shared_ptr[CTable]& value)
 
@@ -1509,53 +1570,31 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         shared_ptr[CTable] table()
         shared_ptr[CScalar] scalar()
 
-    CStatus Cast(CFunctionContext* context, const CArray& array,
-                 const shared_ptr[CDataType]& to_type,
-                 const CCastOptions& options,
-                 shared_ptr[CArray]* out)
+    CResult[shared_ptr[CArray]] Cast" arrow::compute::Cast"(
+        const CArray& array,
+        const shared_ptr[CDataType]& to_type,
+        const CCastOptions& options)
 
-    CStatus Cast(CFunctionContext* context, const CDatum& value,
-                 const shared_ptr[CDataType]& to_type,
-                 const CCastOptions& options, CDatum* out)
+    CResult[CDatum] Cast(const CDatum& value,
+                         const shared_ptr[CDataType]& to_type,
+                         const CCastOptions& options)
 
-    CStatus Unique(CFunctionContext* context, const CDatum& value,
-                   shared_ptr[CArray]* out)
+    CResult[CDatum] Take(const CDatum& values, const CDatum& indices,
+                         const CTakeOptions& options)
 
-    CStatus DictionaryEncode(CFunctionContext* context, const CDatum& value,
-                             CDatum* out)
-
-    CStatus ValueCounts(CFunctionContext* context, const CDatum& value,
-                        shared_ptr[CArray]* out)
-
-    CStatus Sum(CFunctionContext* context, const CDatum& value, CDatum* out)
-
-    CStatus Take(CFunctionContext* context, const CDatum& values,
-                 const CDatum& indices, const CTakeOptions& options,
-                 CDatum* out)
-    CStatus Take(CFunctionContext* context, const CChunkedArray& values,
-                 const CArray& indices, const CTakeOptions& options,
-                 shared_ptr[CChunkedArray]* out)
-    CStatus Take(CFunctionContext* context, const CRecordBatch& batch,
-                 const CArray& indices, const CTakeOptions& options,
-                 shared_ptr[CRecordBatch]* out)
-    CStatus Take(CFunctionContext* context, const CTable& table,
-                 const CArray& indices, const CTakeOptions& options,
-                 shared_ptr[CTable]* out)
+    CResult[shared_ptr[CChunkedArray]] Take(const CChunkedArray& values,
+                                            const CArray& indices,
+                                            const CTakeOptions& options)
+    CResult[shared_ptr[CRecordBatch]] Take(const CRecordBatch& batch,
+                                           const CArray& indices,
+                                           const CTakeOptions& options)
+    CResult[shared_ptr[CTable]] Take(const CTable& table,
+                                     const CArray& indices,
+                                     const CTakeOptions& options)
 
     # Filter clashes with gandiva.pyx::Filter
-    CStatus FilterKernel" arrow::compute::Filter"(
-        CFunctionContext* ctx, const CDatum& values,
-        const CDatum& filter, CFilterOptions options, CDatum* out)
-
-    enum CCompareOperator "arrow::compute::CompareOperator":
-        CCompareOperator_EQUAL "arrow::compute::CompareOperator::EQUAL"
-        CCompareOperator_NOT_EQUAL "arrow::compute::CompareOperator::NOT_EQUAL"
-        CCompareOperator_GREATER "arrow::compute::CompareOperator::GREATER"
-        CCompareOperator_GREATER_EQUAL \
-            "arrow::compute::CompareOperator::GREATER_EQUAL"
-        CCompareOperator_LESS "arrow::compute::CompareOperator::LESS"
-        CCompareOperator_LESS_EQUAL \
-            "arrow::compute::CompareOperator::LESS_EQUAL"
+    CResult[CDatum] FilterKernel" arrow::compute::Filter"(
+        const CDatum& values, const CDatum& filter, CFilterOptions options)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":

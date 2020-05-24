@@ -158,12 +158,7 @@ class Array;
 class ChunkedArray;
 class RecordBatch;
 class Table;
-
-namespace compute {
 struct Datum;
-}
-
-using Datum = compute::Datum;
 
 #define ASSERT_ARRAYS_EQUAL(lhs, rhs) AssertArraysEqual((lhs), (rhs))
 #define ASSERT_BATCHES_EQUAL(lhs, rhs) AssertBatchesEqual((lhs), (rhs))
@@ -179,6 +174,9 @@ ARROW_EXPORT void AssertChunkedEqual(const ChunkedArray& expected,
                                      const ChunkedArray& actual);
 ARROW_EXPORT void AssertChunkedEqual(const ChunkedArray& actual,
                                      const ArrayVector& expected);
+// Like ChunkedEqual, but permits different chunk layout
+ARROW_EXPORT void AssertChunkedEquivalent(const ChunkedArray& expected,
+                                          const ChunkedArray& actual);
 ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer,
                                     const std::vector<uint8_t>& expected);
 ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const std::string& expected);

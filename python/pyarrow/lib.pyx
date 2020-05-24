@@ -99,6 +99,12 @@ Type_DICTIONARY = _Type_DICTIONARY
 UnionMode_SPARSE = _UnionMode_SPARSE
 UnionMode_DENSE = _UnionMode_DENSE
 
+
+def _pc():
+    import pyarrow.compute as pc
+    return pc
+
+
 # pandas API shim
 include "pandas-shim.pxi"
 
