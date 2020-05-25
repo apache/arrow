@@ -305,10 +305,26 @@ class PARQUET_EXPORT FileMetaData {
 
   const std::shared_ptr<const KeyValueMetadata>& key_value_metadata() const;
 
-  // Set file_path ColumnChunk fields to a particular value
+  /// \brief Set a path to all ColumnChunk for all RowGroups.
+  ///
+  /// Commonly used by systems (Dask, Spark) who generates an metadata-only
+  /// parquet file. The path is usually relative to said index file.
+  ///
+  /// \param[in] path to set.
   void set_file_path(const std::string& path);
 
-  // Merge row-group metadata from "other" FileMetaData object
+  /// \brief Merge row groups from another metadata file into this one.
+  ///
+  /// The schema of the input FileMetaData must be equal to the
+  /// schema of this object.
+  ///
+  /// This is used by systems who creates an aggregate metadata-only file by
+  /// concatenating the row groups of multiple files. This newly created
+  /// metadata file acts as an index of all available row groups.
+  ///
+  /// \param[in] other FileMetaData to merge the row groups from.
+  ///
+  /// \throws ParquetException if schemas are not equal.
   void AppendRowGroups(const FileMetaData& other);
 
  private:

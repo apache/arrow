@@ -15,11 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdlib>
-#include <iostream>
-
 #include <arrow/api.h>
-
 #include <arrow/dataset/dataset.h>
 #include <arrow/dataset/discovery.h>
 #include <arrow/dataset/file_base.h>
@@ -27,6 +23,10 @@
 #include <arrow/dataset/filter.h>
 #include <arrow/dataset/scanner.h>
 #include <arrow/filesystem/filesystem.h>
+#include <arrow/filesystem/path_util.h>
+
+#include <cstdlib>
+#include <iostream>
 
 using arrow::field;
 using arrow::int16;
@@ -73,12 +73,12 @@ std::shared_ptr<fs::FileSystem> GetFileSystemFromUri(const std::string& uri,
   return fs::FileSystemFromUri(uri, path).ValueOrDie();
 }
 
-std::shared_ptr<ds::Dataset> GetDatasetFromPath(std::shared_ptr<fs::FileSystem> fs,
-                                                std::shared_ptr<ds::FileFormat> format,
-                                                std::string path) {
+std::shared_ptr<ds::Dataset> GetDatasetFromDirectory(
+    std::shared_ptr<fs::FileSystem> fs, std::shared_ptr<ds::ParquetFileFormat> format,
+    std::string dir) {
   // Find all files under `path`
   fs::FileSelector s;
-  s.base_dir = path;
+  s.base_dir = dir;
   s.recursive = true;
 
   ds::FileSystemFactoryOptions options;
@@ -95,6 +95,50 @@ std::shared_ptr<ds::Dataset> GetDatasetFromPath(std::shared_ptr<fs::FileSystem> 
   auto dataset = ds::UnionDataset::Make(std::move(schema), std::move(children));
 
   return dataset.ValueOrDie();
+}
+
+std::shared_ptr<ds::Dataset> GetParquetDatasetFromMetadata(
+    std::shared_ptr<fs::FileSystem> fs, std::shared_ptr<ds::ParquetFileFormat> format,
+    std::string metadata_path) {
+  auto factory = ds::ParquetDatasetFactory::Make(metadata_path, fs, format).ValueOrDie();
+  return factory->Finish().ValueOrDie();
+}
+
+std::shared_ptr<ds::Dataset> GetDatasetFromFile(
+    std::shared_ptr<fs::FileSystem> fs, std::shared_ptr<ds::ParquetFileFormat> format,
+    std::string file) {
+  ds::FileSystemFactoryOptions options;
+  // The factory will try to build a child dataset.
+  auto factory = ds::FileSystemDatasetFactory::Make(fs, {file}, format, options).ValueOrDie();
+
+  // Try to infer a common schema for all files.
+  auto schema = factory->Inspect(conf.inspect_options).ValueOrDie();
+  // Caller can optionally decide another schema as long as it is compatible
+  // with the previous one, e.g. `factory->Finish(compatible_schema)`.
+  auto child = factory->Finish(conf.finish_options).ValueOrDie();
+
+  ds::DatasetVector children{conf.repeat, child};
+  auto dataset = ds::UnionDataset::Make(std::move(schema), std::move(children));
+
+  return dataset.ValueOrDie();
+}
+
+std::shared_ptr<ds::Dataset> GetDatasetFromPath(
+    std::shared_ptr<fs::FileSystem> fs, std::shared_ptr<ds::ParquetFileFormat> format,
+    std::string path) {
+  auto info = fs->GetFileInfo(path).ValueOrDie();
+  if (info.IsDirectory()) {
+    return GetDatasetFromDirectory(fs, format, path);
+  }
+
+  auto dirname_basename = arrow::fs::internal::GetAbstractPathParent(path);
+  auto basename = dirname_basename.second;
+
+  if (basename == "_metadata") {
+    return GetParquetDatasetFromMetadata(fs, format, path);
+  }
+
+  return GetDatasetFromFile(fs, format, path);
 }
 
 std::shared_ptr<ds::Scanner> GetScannerFromDataset(std::shared_ptr<ds::Dataset> dataset,

@@ -758,6 +758,42 @@ cdef class FileFragment(Fragment):
         return FileFormat.wrap(self.file_fragment.format())
 
 
+cdef class RowGroupInfo:
+    """A wrapper class for RowGroup information"""
+
+    cdef:
+        CRowGroupInfo info
+
+    def __init__(self, int id):
+        cdef CRowGroupInfo info = CRowGroupInfo(id)
+        self.init(info)
+
+    cdef void init(self, CRowGroupInfo info):
+        self.info = info
+
+    @staticmethod
+    cdef wrap(CRowGroupInfo info):
+        cdef RowGroupInfo self = RowGroupInfo.__new__(RowGroupInfo)
+        self.init(info)
+        return self
+
+    @property
+    def id(self):
+        return self.info.id()
+
+    @property
+    def num_rows(self):
+        return self.info.num_rows()
+
+    def __eq__(self, other):
+        if not isinstance(other, RowGroupInfo):
+            return False
+        cdef:
+            RowGroupInfo row_group = other
+            CRowGroupInfo c_info = row_group.info
+        return self.info.Equals(c_info)
+
+
 cdef class ParquetFileFragment(FileFragment):
     """A Fragment representing a parquet file."""
 
@@ -770,32 +806,42 @@ cdef class ParquetFileFragment(FileFragment):
 
     @property
     def row_groups(self):
-        row_groups = set(self.parquet_file_fragment.row_groups())
-        if len(row_groups) != 0:
-            return row_groups
-        return None
+        cdef:
+            vector[CRowGroupInfo] c_row_groups
+        c_row_groups = self.parquet_file_fragment.row_groups()
+        if c_row_groups.empty():
+            return None
+        return [RowGroupInfo.wrap(row_group) for row_group in c_row_groups]
 
-    def get_row_group_fragments(self, Expression extra_filter=None):
+    def split_by_row_group(self, Expression predicate=None):
         """
+        Split the fragment into multiple fragments.
+
         Yield a Fragment wrapping each row group in this ParquetFileFragment.
-        Row groups will be excluded whose metadata contradicts the either the
-        filter provided on construction of this Fragment or the extra_filter
-        argument.
+        Row groups will be excluded whose metadata contradicts the optional
+        predicate.
+
+        Parameters
+        ----------
+        predicate : Expression, default None
+            Exclude RowGroups whose statistics contradicts the predicate.
+
+        Returns
+        -------
+        A list of Fragment.
         """
         cdef:
-            CParquetFileFormat* c_format
-            CFragmentIterator c_fragments
-            shared_ptr[CExpression] c_extra_filter
+            vector[shared_ptr[CFragment]] c_fragments
+            shared_ptr[CExpression] c_predicate
+            shared_ptr[CFragment] c_fragment
 
         schema = self.physical_schema
-        c_extra_filter = _insert_implicit_casts(extra_filter, schema)
-        c_format = <CParquetFileFormat*> self.file_fragment.format().get()
-        c_fragments = move(GetResultValue(c_format.GetRowGroupFragments(deref(
-            self.parquet_file_fragment), move(c_extra_filter))))
+        c_predicate = _insert_implicit_casts(predicate, schema)
+        with nogil:
+            c_fragments = move(GetResultValue(
+                self.parquet_file_fragment.SplitByRowGroup(move(c_predicate))))
 
-        for maybe_fragment in c_fragments:
-            yield Fragment.wrap(GetResultValue(move(maybe_fragment)))
-
+        return [Fragment.wrap(c_fragment) for c_fragment in c_fragments]
 
 cdef class ParquetReadOptions:
     """
@@ -1444,6 +1490,47 @@ cdef class UnionDatasetFactory(DatasetFactory):
     cdef init(self, const shared_ptr[CDatasetFactory]& sp):
         DatasetFactory.init(self, sp)
         self.union_factory = <CUnionDatasetFactory*> sp.get()
+
+
+cdef class ParquetDatasetFactory(DatasetFactory):
+    """
+    Create a ParquetDatasetFactory from a Parquet `_metadata` file.
+
+    Parameters
+    ----------
+    metadata_path : str
+        Path to the `_metadata` parquet metadata-only file generated with
+        `pyarrow.parquet.write_metadata`.
+    filesystem : pyarrow.fs.FileSystem
+        Filesystem to read the metadata_path from, and subsequent parquet
+        files.
+    format : ParquetFileFormat
+        Parquet format options.
+    """
+
+    cdef:
+        CParquetDatasetFactory* parquet_factory
+
+    def __init__(self, metadata_path, FileSystem filesystem not None,
+                 FileFormat format not None):
+        cdef:
+            c_string path
+            shared_ptr[CFileSystem] c_filesystem
+            shared_ptr[CParquetFileFormat] c_format
+            CResult[shared_ptr[CDatasetFactory]] result
+
+        c_path = tobytes(metadata_path)
+        c_filesystem = filesystem.unwrap()
+        c_format = static_pointer_cast[CParquetFileFormat, CFileFormat](
+            format.unwrap())
+
+        result = CParquetDatasetFactory.MakeFromMetaDataPath(
+            c_path, c_filesystem, c_format)
+        self.init(GetResultValue(result))
+
+    cdef init(self, shared_ptr[CDatasetFactory]& sp):
+        DatasetFactory.init(self, sp)
+        self.parquet_factory = <CParquetDatasetFactory*> sp.get()
 
 
 cdef class ScanTask:

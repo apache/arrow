@@ -1742,32 +1742,52 @@ def write_to_dataset(table, root_path, partition_cols=None,
             metadata_collector[-1].set_file_path(outfile)
 
 
-def write_metadata(schema, where, version='1.0',
-                   use_deprecated_int96_timestamps=False,
-                   coerce_timestamps=None):
+def write_metadata(schema, where, metadata_collector=None, **kwargs):
     """
-    Write metadata-only Parquet file from schema.
+    Write metadata-only Parquet file from schema. This can be used with
+    `write_to_dataset` to generate `_common_metadata` and `_metadata` sidecar
+    files.
 
     Parameters
     ----------
     schema : pyarrow.Schema
     where: string or pyarrow.NativeFile
-    version : {"1.0", "2.0"}, default "1.0"
-        The Parquet format version, defaults to 1.0.
-    use_deprecated_int96_timestamps : bool, default False
-        Write nanosecond resolution timestamps to INT96 Parquet format.
-    coerce_timestamps : str, default None
-        Cast timestamps a particular resolution.
-        Valid values: {None, 'ms', 'us'}.
-    filesystem : FileSystem, default None
-        If nothing passed, paths assumed to be found in the local on-disk
-        filesystem.
+    metadata_collector:
+    **kwargs : dict,
+        Additional kwargs for ParquetWriter class. See docstring for
+        `ParquetWriter` for more information.
+
+    Examples
+    --------
+
+    Write a dataset and collect metadata information.
+
+    >>> metadata_collector = []
+    >>> write_to_dataset(
+    ...     table, root_path,
+    ...     metadata_collector=metadata_collector, **writer_kwargs)
+
+    Write the `_common_metadata` parquet file without row groups statistics.
+
+    >>> write_metadata(
+    ...     table.schema, root_path / '_common_metadata', **writer_kwargs)
+
+    Write the `_metadata` parquet file with row groups statistics.
+
+    >>> write_metadata(
+    ...     table.schema, root_path / '_metadata',
+    ...     metadata_collector=metadata_collector, **writer_kwargs)
     """
-    writer = ParquetWriter(
-        where, schema, version=version,
-        use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
-        coerce_timestamps=coerce_timestamps)
+    writer = ParquetWriter(where, schema, **kwargs)
     writer.close()
+
+    if metadata_collector is not None:
+        # ParquetWriter doesn't expose the metadata until it's written. Write
+        # it and read it again.
+        metadata = read_metadata(where)
+        for m in metadata_collector:
+            metadata.append_row_groups(m)
+        metadata.write_metadata_file(where)
 
 
 def read_metadata(where, memory_map=False):

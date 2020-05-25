@@ -200,6 +200,10 @@ class ARROW_DS_EXPORT Expression {
   ///
   /// This behaves like IsSatisfiable, but it simplifies the current expression
   /// with the given `other` information.
+  bool IsSatisfiableWith(const Expression& other) const {
+    return Assume(other)->IsSatisfiable();
+  }
+
   bool IsSatisfiableWith(const std::shared_ptr<Expression>& other) const {
     return Assume(other)->IsSatisfiable();
   }
