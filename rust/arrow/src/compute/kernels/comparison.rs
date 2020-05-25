@@ -68,11 +68,7 @@ macro_rules! compare_op {
 
 macro_rules! compare_op_scalar {
     ($left: expr, $right:expr, $op:expr) => {{
-        let null_bit_buffer =
-            apply_bin_op_to_option_bitmap($left.data().null_bitmap(), &None, |a, b| {
-                a & b
-            })?;
-
+        let null_bit_buffer = $left.data().null_buffer().cloned();
         let mut result = BooleanBufferBuilder::new($left.len());
         for i in 0..$left.len() {
             result.append($op($left.value(i), $right))?;
@@ -342,9 +338,7 @@ where
     use std::mem;
 
     let len = left.len();
-    let null_bit_buffer =
-        apply_bin_op_to_option_bitmap(left.data().null_bitmap(), &None, |a, b| a & b)?;
-
+    let null_bit_buffer = left.data().null_buffer().cloned();
     let lanes = T::lanes();
     let mut result = MutableBuffer::new(left.len() * mem::size_of::<bool>());
     let simd_right = T::init(right);
