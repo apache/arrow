@@ -172,7 +172,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         readToken(START_ARRAY);
         {
           for (Field field : root.getSchema().getFields()) {
-            FieldVector vector = root.getVector(field.getName());
+            FieldVector vector = root.getVector(field);
             readFromJsonIntoVector(field, vector);
           }
         }
@@ -202,7 +202,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         readToken(START_ARRAY);
         {
           for (Field field : schema.getFields()) {
-            FieldVector vector = recordBatch.getVector(field.getName());
+            FieldVector vector = recordBatch.getVector(field);
             readFromJsonIntoVector(field, vector);
           }
         }
