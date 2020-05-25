@@ -527,9 +527,9 @@ struct Kernel {
   /// set up any options or state relevant for execution. May be nullptr
   KernelInit init;
 
-  /// \brief \brief Indicates whether execution can benefit from
-  /// parallelization (splitting large chunks into smaller chunks and using
-  /// multiple threads). Some kernels may not support parallel execution at
+  /// \brief Indicates whether execution can benefit from parallelization
+  /// (splitting large chunks into smaller chunks and using multiple
+  /// threads). Some kernels may not support parallel execution at
   /// all. Synchronization and concurrency-related issues are currently the
   /// responsibility of the Kernel's implementation.
   bool parallelizable = true;
