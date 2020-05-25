@@ -96,7 +96,7 @@ impl<'a> CsvReadOptions<'a> {
 pub struct CsvExec {
     /// Path to directory containing partitioned CSV files with the same schema
     path: String,
-    /// Schema representing the CSV files after the optional projection is applied
+    /// Schema representing the CSV file
     schema: Arc<Schema>,
     /// Does the CSV file have a header?
     has_header: bool,
@@ -104,6 +104,8 @@ pub struct CsvExec {
     delimiter: Option<u8>,
     /// Optional projection for which columns to load
     projection: Option<Vec<usize>>,
+    /// Schema after the projection has been applied
+    projected_schema: Arc<Schema>,
     /// Batch size
     batch_size: usize,
 }
@@ -116,17 +118,23 @@ impl CsvExec {
         projection: Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Self> {
-        let schema = Arc::new(match options.schema {
+        let schema = match options.schema {
             Some(s) => s.clone(),
             None => CsvExec::try_infer_schema(path, &options)?,
-        });
+        };
+
+        let projected_schema = match &projection {
+            None => schema.clone(),
+            Some(p) => Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()),
+        };
 
         Ok(Self {
             path: path.to_string(),
-            schema: schema,
+            schema: Arc::new(schema),
             has_header: options.has_header,
             delimiter: Some(options.delimiter),
             projection,
+            projected_schema: Arc::new(projected_schema),
             batch_size,
         })
     }
@@ -153,7 +161,7 @@ impl CsvExec {
 impl ExecutionPlan for CsvExec {
     /// Get the schema for this execution plan
     fn schema(&self) -> Arc<Schema> {
-        self.schema.clone()
+        self.projected_schema.clone()
     }
 
     /// Get the partitions for this execution plan. Each partition can be executed in parallel.
@@ -266,5 +274,63 @@ impl BatchIterator for CsvIterator {
     /// Get the next RecordBatch
     fn next(&mut self) -> Result<Option<RecordBatch>> {
         Ok(self.reader.next()?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test::{aggr_test_schema, arrow_testdata_path};
+
+    #[test]
+    fn csv_exec_with_projection() -> Result<()> {
+        let schema = aggr_test_schema();
+        let testdata = arrow_testdata_path();
+        let filename = "aggregate_test_100.csv";
+        let path = format!("{}/csv/{}", testdata, filename);
+        let csv = CsvExec::try_new(
+            &path,
+            CsvReadOptions::new().schema(&schema),
+            Some(vec![0, 2, 4]),
+            1024,
+        )?;
+        assert_eq!(13, csv.schema.fields().len());
+        assert_eq!(3, csv.projected_schema.fields().len());
+        assert_eq!(3, csv.schema().fields().len());
+        let partitions = csv.partitions()?;
+        let results = partitions[0].execute()?;
+        let mut it = results.lock().unwrap();
+        let batch = it.next()?.unwrap();
+        assert_eq!(3, batch.num_columns());
+        let batch_schema = batch.schema();
+        assert_eq!(3, batch_schema.fields().len());
+        assert_eq!("c1", batch_schema.field(0).name());
+        assert_eq!("c3", batch_schema.field(1).name());
+        assert_eq!("c5", batch_schema.field(2).name());
+        Ok(())
+    }
+
+    #[test]
+    fn csv_exec_without_projection() -> Result<()> {
+        let schema = aggr_test_schema();
+        let testdata = arrow_testdata_path();
+        let filename = "aggregate_test_100.csv";
+        let path = format!("{}/csv/{}", testdata, filename);
+        let csv =
+            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
+        assert_eq!(13, csv.schema.fields().len());
+        assert_eq!(13, csv.projected_schema.fields().len());
+        assert_eq!(13, csv.schema().fields().len());
+        let partitions = csv.partitions()?;
+        let results = partitions[0].execute()?;
+        let mut it = results.lock().unwrap();
+        let batch = it.next()?.unwrap();
+        assert_eq!(13, batch.num_columns());
+        let batch_schema = batch.schema();
+        assert_eq!(13, batch_schema.fields().len());
+        assert_eq!("c1", batch_schema.field(0).name());
+        assert_eq!("c2", batch_schema.field(1).name());
+        assert_eq!("c3", batch_schema.field(2).name());
+        Ok(())
     }
 }
