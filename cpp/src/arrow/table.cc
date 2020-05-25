@@ -111,9 +111,9 @@ std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length
   }
 
   ArrayVector new_chunks;
-  if (offset_equals_length || (length == 0 && num_chunks() > 0)) {
+  if (num_chunks() > 0 && (offset_equals_length || length == 0)) {
     // Special case the zero-length slice to make sure there is at least 1 Array
-    // in the result
+    // in the result. When there are zero chunks we return zero chunks
     new_chunks.push_back(chunk(std::min(curr_chunk, num_chunks() - 1))->Slice(0, 0));
   } else {
     while (curr_chunk < num_chunks() && length > 0) {

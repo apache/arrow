@@ -965,6 +965,18 @@ def test_cast_list_to_primitive():
         arr.cast(pa.binary())
 
 
+def test_slice_chunked_array_zero_chunks():
+    # ARROW-8911
+    arr = pa.chunked_array([], type='int8')
+    assert arr.num_chunks == 0
+
+    result = arr[:]
+    assert result.equals(arr)
+
+    # Do not crash
+    arr[:5]
+
+
 def test_cast_chunked_array():
     arrays = [pa.array([1, 2, 3]), pa.array([4, 5, 6])]
     carr = pa.chunked_array(arrays)
