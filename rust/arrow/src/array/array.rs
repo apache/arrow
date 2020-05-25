@@ -81,7 +81,7 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// Returns a borrowed & reference-counted pointer to the underlying data of this array.
     fn data_ref(&self) -> &ArrayDataRef;
 
-    /// Returns a reference to the [`DataType`](crate::datatype::DataType) of this array.
+    /// Returns a reference to the [`DataType`](crate::datatypes::DataType) of this array.
     ///
     /// # Example:
     ///
