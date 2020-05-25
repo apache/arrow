@@ -1548,7 +1548,6 @@ def get_generated_json_files(tempdir=None, flight=False):
 
         generate_unions_case()
         .skip_category('Go')
-        .skip_category('Java')  # TODO(ARROW-1692)
         .skip_category('JS')
         .skip_category('Rust'),
 

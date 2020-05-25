@@ -2798,36 +2798,36 @@ public class TestValueVector {
     }
 
     try (final UnionVector vector = UnionVector.empty("v", allocator)) {
-      assertEquals(1, vector.getValidityBuffer().refCnt());
-      assertEquals(0, vector.getValidityBuffer().capacity());
+      assertEquals(1, vector.getTypeBuffer().refCnt());
+      assertEquals(0, vector.getTypeBuffer().capacity());
 
       vector.setValueCount(10);
       vector.allocateNewSafe();
-      assertEquals(1, vector.getValidityBuffer().refCnt());
-      assertEquals(4096, vector.getValidityBuffer().capacity());
+      assertEquals(1, vector.getTypeBuffer().refCnt());
+      assertEquals(4096, vector.getTypeBuffer().capacity());
 
       vector.close();
-      assertEquals(1, vector.getValidityBuffer().refCnt());
-      assertEquals(0, vector.getValidityBuffer().capacity());
+      assertEquals(1, vector.getTypeBuffer().refCnt());
+      assertEquals(0, vector.getTypeBuffer().capacity());
     }
 
     try (final DenseUnionVector vector = DenseUnionVector.empty("v", allocator)) {
-      assertEquals(1, vector.getValidityBuffer().refCnt());
+      assertEquals(1, vector.getTypeBuffer().refCnt());
       assertEquals(1, vector.getOffsetBuffer().refCnt());
-      assertEquals(0, vector.getValidityBuffer().capacity());
+      assertEquals(0, vector.getTypeBuffer().capacity());
       assertEquals(0, vector.getOffsetBuffer().capacity());
 
       vector.setValueCount(valueCount);
       vector.allocateNew();
-      assertEquals(1, vector.getValidityBuffer().refCnt());
+      assertEquals(1, vector.getTypeBuffer().refCnt());
       assertEquals(1, vector.getOffsetBuffer().refCnt());
-      assertEquals(0, vector.getValidityBuffer().capacity());
+      assertEquals(4096, vector.getTypeBuffer().capacity());
       assertEquals(16384, vector.getOffsetBuffer().capacity());
 
       vector.close();
-      assertEquals(1, vector.getValidityBuffer().refCnt());
+      assertEquals(1, vector.getTypeBuffer().refCnt());
       assertEquals(1, vector.getOffsetBuffer().refCnt());
-      assertEquals(0, vector.getValidityBuffer().capacity());
+      assertEquals(0, vector.getTypeBuffer().capacity());
       assertEquals(0, vector.getOffsetBuffer().capacity());
     }
   }

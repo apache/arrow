@@ -219,11 +219,18 @@ public class JsonFileWriter implements AutoCloseable {
         BufferType bufferType = vectorTypes.get(v);
         ArrowBuf vectorBuffer = vectorBuffers.get(v);
         generator.writeArrayFieldStart(bufferType.getName());
-        final int bufferValueCount = (bufferType.equals(OFFSET)) ? valueCount + 1 : valueCount;
+        final int bufferValueCount = (bufferType.equals(OFFSET) && vector.getMinorType() != MinorType.DENSEUNION) ?
+            valueCount + 1 : valueCount;
         for (int i = 0; i < bufferValueCount; i++) {
           if (bufferType.equals(DATA) && (vector.getMinorType() == MinorType.VARCHAR ||
                   vector.getMinorType() == MinorType.VARBINARY)) {
             writeValueToGenerator(bufferType, vectorBuffer, vectorBuffers.get(v - 1), vector, i);
+          } else if (bufferType.equals(OFFSET) && vector.getValueCount() == 0 &&
+              (vector.getMinorType() == MinorType.VARBINARY || vector.getMinorType() == MinorType.VARCHAR)) {
+            ArrowBuf vectorBufferTmp = vector.getAllocator().buffer(4);
+            vectorBufferTmp.setInt(0, 0);
+            writeValueToGenerator(bufferType, vectorBufferTmp, null, vector, i);
+            vectorBufferTmp.release();
           } else {
             writeValueToGenerator(bufferType, vectorBuffer, null, vector, i);
           }
@@ -353,7 +360,7 @@ public class JsonFileWriter implements AutoCloseable {
         case VARBINARY: {
           Preconditions.checkNotNull(offsetBuffer);
           String hexString = Hex.encodeHexString(BaseVariableWidthVector.get(buffer,
-                  offsetBuffer, index));
+              offsetBuffer, index));
           generator.writeObject(hexString);
           break;
         }

@@ -223,10 +223,7 @@ public class NullVector implements FieldVector {
 
   @Override
   public boolean isNull(int index) {
-    if (index < valueCount) {
-      return true;
-    }
-    throw new IndexOutOfBoundsException();
+    return true;
   }
 
   @Override
