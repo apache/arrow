@@ -1335,7 +1335,8 @@ where
         }
     }
 
-    /// Creates a new `StringDictionaryBuilder` from a keys builder and a dictionary initialized with the given values.
+    /// Creates a new `StringDictionaryBuilder` from a keys builder and a dictionary
+    /// which is initialized with the given values.
     /// The indices of those dictionary values are used as keys.
     ///
     /// # Example
