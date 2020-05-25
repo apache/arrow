@@ -376,7 +376,7 @@ class ARROW_EXPORT OutputType {
 /// \brief Holds the input types and output type of the kernel.
 ///
 /// VarArgs functions should pass a single input type to be used to validate
-/// the the input types of a function invocation.
+/// the input types of a function invocation.
 class ARROW_EXPORT KernelSignature {
  public:
   KernelSignature(std::vector<InputType> in_types, OutputType out_type,
@@ -388,7 +388,7 @@ class ARROW_EXPORT KernelSignature {
                                                bool is_varargs = false);
 
   /// \brief Return true if the signature if compatible with the list of input
-  /// value descriptorsl
+  /// value descriptors.
   bool MatchesInputs(const std::vector<ValueDescr>& descriptors) const;
 
   /// \brief Returns true if the input types of each signature are
@@ -450,7 +450,7 @@ struct NullHandling {
     /// so the kernel should ensure to completely populate the bitmap.
     COMPUTED_PREALLOCATE,
 
-    /// Kernel allocates and set the validity bitmap of the output.
+    /// Kernel allocates and sets the validity bitmap of the output.
     COMPUTED_NO_PREALLOCATE,
 
     /// Kernel output is never null and a validity bitmap does not need to be

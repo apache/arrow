@@ -77,7 +77,7 @@ class ARROW_EXPORT ExecContext {
 
   // \brief Set maximum length unit of work for kernel execution. Larger
   // contiguous array inputs will be split into smaller chunks, and, if
-  // possible and enable, processed in parallel. The default chunksize is
+  // possible and enabled, processed in parallel. The default chunksize is
   // INT64_MAX, so contiguous arrays are not split.
   void set_exec_chunksize(int64_t chunksize) { exec_chunksize_ = chunksize; }
 
@@ -164,7 +164,7 @@ class ARROW_EXPORT SelectionVector {
 /// represented by Scalar values rather than having to be converted into arrays
 /// with repeated values.
 ///
-/// TOOD: Datum uses arrow/util/variant.h which may be a bit heavier-weight
+/// TODO: Datum uses arrow/util/variant.h which may be a bit heavier-weight
 /// than is desirable for this class. Microbenchmarks would help determine for
 /// sure. See ARROW-8928.
 struct ExecBatch {
