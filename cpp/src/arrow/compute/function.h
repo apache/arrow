@@ -16,7 +16,7 @@
 // under the License.
 
 // NOTE: API is EXPERIMENTAL and will change without going through a
-// deprecation cycle
+// deprecation cycle.
 
 #pragma once
 
@@ -39,33 +39,48 @@ namespace compute {
 
 class ExecContext;
 
+/// \brief Base class for specifying options configuring a function's behavior,
+/// such as error handling.
 struct ARROW_EXPORT FunctionOptions {};
 
-/// \brief Contains the number of required arguments for the function
+/// \brief Contains the number of required arguments for the function.
+///
+/// Naming conventions taken from https://en.wikipedia.org/wiki/Arity.
 struct ARROW_EXPORT Arity {
+  /// \brief A function taking no arguments
   static Arity Nullary() { return Arity(0, false); }
+
+  /// \brief A function taking 1 argument
   static Arity Unary() { return Arity(1, false); }
+
+  /// \brief A function taking 2 arguments
   static Arity Binary() { return Arity(2, false); }
+
+  /// \brief A function taking 3 arguments
   static Arity Ternary() { return Arity(3, false); }
+
+  /// \brief A function taking a variable number of arguments
   static Arity VarArgs(int min_args = 1) { return Arity(min_args, true); }
 
-  Arity(int num_args, bool is_varargs = false)  // NOLINT implicit conversion
+  explicit Arity(int num_args, bool is_varargs = false)
       : num_args(num_args), is_varargs(is_varargs) {}
 
   /// The number of required arguments (or the minimum number for varargs
-  /// functions)
+  /// functions).
   int num_args;
 
-  /// If true, then the num_args is the minimum number of required arguments
+  /// If true, then the num_args is the minimum number of required arguments.
   bool is_varargs = false;
 };
 
-/// \brief Base class for function containers that are capable of dispatch to
-/// kernel implementations
+/// \brief Base class for compute functions. Function implementations contain a
+/// collection of "kernels" which are implementations of the function for
+/// specific argument types. Selecting a viable kernel for executing a function
+/// is referred to as "dispatching".
 class ARROW_EXPORT Function {
  public:
   /// \brief The kind of function, which indicates in what contexts it is
-  /// valid for use
+  /// valid for use.
   enum Kind {
     /// A function that performs scalar data operations on whole arrays of
     /// data. Can generally process Array or Scalar values. The size of the
@@ -84,23 +99,25 @@ class ARROW_EXPORT Function {
 
   virtual ~Function() = default;
 
-  /// \brief The name of the kernel. The registry enforces uniqueness of names
+  /// \brief The name of the kernel. The registry enforces uniqueness of names.
   const std::string& name() const { return name_; }
 
   /// \brief The kind of kernel, which indicates in what contexts it is valid
-  /// for use
+  /// for use.
   Function::Kind kind() const { return kind_; }
 
-  /// \brief Contains the number of arguments the function requires
+  /// \brief Contains the number of arguments the function requires, or if the
+  /// function accepts variable numbers of arguments.
   const Arity& arity() const { return arity_; }
 
-  /// \brief Returns the number of registered kernels for this function
+  /// \brief Returns the number of registered kernels for this function.
   virtual int num_kernels() const = 0;
 
-  /// \brief Convenience for invoking a function with kernel dispatch and
-  /// memory allocation details taken care of
+  /// \brief Execute the function eagerly with the passed input arguments with
+  /// kernel dispatch, batch iteration, and memory allocation details taken
+  /// care of.
   ///
-  /// This function can be overridden in subclasses
+  /// This function can be overridden in subclasses.
   virtual Result<Datum> Execute(const std::vector<Datum>& args,
                                 const FunctionOptions* options,
                                 ExecContext* ctx = NULLPTR) const;
@@ -150,22 +167,20 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
   ScalarFunction(std::string name, const Arity& arity)
       : detail::FunctionImpl<ScalarKernel>(std::move(name), Function::SCALAR, arity) {}
 
-  /// \brief Add a simple kernel (function implementation) with given
-  /// input/output types, no required state initialization, preallocation for
-  /// fixed-width types, and default null handling (intersect validity bitmaps
-  /// of inputs)
+  /// \brief Add a kernel with given input/output types, no required state
+  /// initialization, preallocation for fixed-width types, and default null
+  /// handling (intersect validity bitmaps of inputs).
   Status AddKernel(std::vector<InputType> in_types, OutputType out_type,
                    ArrayKernelExec exec, KernelInit init = NULLPTR);
 
-  /// \brief Add a kernel (function implementation). Returns error if fails
-  /// to match the other parameters of the function
+  /// \brief Add a kernel (function implementation). Returns error if the
+  /// kernel's signature does not match the function's arity.
   Status AddKernel(ScalarKernel kernel);
 
-  /// \brief Return the first kernel that can execute the function given the
-  /// exact argument types (without implicit type casts or scalar->array
-  /// promotions)
+  /// \brief Return a kernel that can execute the function given the exact
+  /// argument types (without implicit type casts or scalar->array promotions).
   ///
-  /// This function is overridden in CastFunction
+  /// NB: This function is overridden in CastFunction.
   virtual Result<const ScalarKernel*> DispatchExact(
       const std::vector<ValueDescr>& values) const;
 };
@@ -173,7 +188,7 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
 /// \brief A function that executes general array operations that may yield
 /// outputs of different sizes or have results that depend on the whole array
 /// contents. These functions roughly correspond to the functions found in
-/// non-SQL array languages like APL and its derivatives
+/// non-SQL array languages like APL and its derivatives.
 class ARROW_EXPORT VectorFunction : public detail::FunctionImpl<VectorKernel> {
  public:
   using KernelType = VectorKernel;
@@ -181,20 +196,18 @@ class ARROW_EXPORT VectorFunction : public detail::FunctionImpl<VectorKernel> {
   VectorFunction(std::string name, const Arity& arity)
       : detail::FunctionImpl<VectorKernel>(std::move(name), Function::VECTOR, arity) {}
 
-  /// \brief Add a simple kernel (function implementation) with given
-  /// input/output types, no required state initialization, preallocation for
-  /// fixed-width types, and default null handling (intersect validity bitmaps
-  /// of inputs)
+  /// \brief Add a simple kernel with given input/output types, no required
+  /// state initialization, no data preallocation, and no preallocation of the
+  /// validity bitmap.
   Status AddKernel(std::vector<InputType> in_types, OutputType out_type,
                    ArrayKernelExec exec, KernelInit init = NULLPTR);
 
-  /// \brief Add a kernel (function implementation). Returns error if fails
-  /// to match the other parameters of the function
+  /// \brief Add a kernel (function implementation). Returns error if the
+  /// kernel's signature does not match the function's arity.
   Status AddKernel(VectorKernel kernel);
 
-  /// \brief Return the first kernel that can execute the function given the
-  /// exact argument types (without implicit type casts or scalar->array
-  /// promotions)
+  /// \brief Return a kernel that can execute the function given the exact
+  /// argument types (without implicit type casts or scalar->array promotions)
   Result<const VectorKernel*> DispatchExact(const std::vector<ValueDescr>& values) const;
 };
 
@@ -207,10 +220,12 @@ class ARROW_EXPORT ScalarAggregateFunction
       : detail::FunctionImpl<ScalarAggregateKernel>(std::move(name),
                                                     Function::SCALAR_AGGREGATE, arity) {}
 
-  /// \brief Add a kernel (function implementation). Returns error if fails
-  /// to match the other parameters of the function
+  /// \brief Add a kernel (function implementation). Returns error if the
+  /// kernel's signature does not match the function's arity.
   Status AddKernel(ScalarAggregateKernel kernel);
 
+  /// \brief Return a kernel that can execute the function given the exact
+  /// argument types (without implicit type casts or scalar->array promotions)
   Result<const ScalarAggregateKernel*> DispatchExact(
       const std::vector<ValueDescr>& values) const;
 };

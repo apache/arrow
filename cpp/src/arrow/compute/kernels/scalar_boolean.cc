@@ -149,7 +149,7 @@ struct Xor {
 void MakeFunction(std::string name, int arity, ArrayKernelExec exec,
                   FunctionRegistry* registry, bool can_write_into_slices = true,
                   NullHandling::type null_handling = NullHandling::INTERSECTION) {
-  auto func = std::make_shared<ScalarFunction>(name, arity);
+  auto func = std::make_shared<ScalarFunction>(name, Arity(arity));
 
   // Scalar arguments not yet supported
   std::vector<InputType> in_types(arity, InputType::Array(boolean()));
