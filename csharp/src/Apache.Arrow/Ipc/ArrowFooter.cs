@@ -68,9 +68,9 @@ namespace Apache.Arrow.Ipc
 
         private static IEnumerable<Block> GetDictionaries(Flatbuf.Footer footer)
         {
-            for (var i = 0; i < footer.DictionariesLength; i++)
+            for (int i = 0; i < footer.DictionariesLength; i++)
             {
-                var block = footer.Dictionaries(i);
+                Flatbuf.Block? block = footer.Dictionaries(i);
 
                 if (block.HasValue)
                 {
@@ -81,9 +81,9 @@ namespace Apache.Arrow.Ipc
 
         private static IEnumerable<Block> GetRecordBatches(Flatbuf.Footer footer)
         {
-            for (var i = 0; i < footer.RecordBatchesLength; i++)
+            for (int i = 0; i < footer.RecordBatchesLength; i++)
             {
-                var block = footer.RecordBatches(i);
+                Flatbuf.Block? block = footer.RecordBatches(i);
 
                 if (block.HasValue)
                 {

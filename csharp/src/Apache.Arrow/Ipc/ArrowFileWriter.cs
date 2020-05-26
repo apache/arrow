@@ -124,34 +124,34 @@ namespace Apache.Arrow.Ipc
         {
             Builder.Clear();
 
-            var offset = BaseStream.Position;
+            long offset = BaseStream.Position;
 
             // Serialize the schema
 
-            var schemaOffset = SerializeSchema(schema);
+            FlatBuffers.Offset<Flatbuf.Schema> schemaOffset = SerializeSchema(schema);
 
             // Serialize all record batches
 
             Flatbuf.Footer.StartRecordBatchesVector(Builder, RecordBatchBlocks.Count);
 
-            foreach (var recordBatch in RecordBatchBlocks)
+            foreach (Block recordBatch in RecordBatchBlocks)
             {
                 Flatbuf.Block.CreateBlock(
                     Builder, recordBatch.Offset, recordBatch.MetadataLength, recordBatch.BodyLength);
             }
 
-            var recordBatchesVectorOffset = Builder.EndVector();
+            FlatBuffers.VectorOffset recordBatchesVectorOffset = Builder.EndVector();
 
             // Serialize all dictionaries
             // NOTE: Currently unsupported.
 
             Flatbuf.Footer.StartDictionariesVector(Builder, 0);
 
-            var dictionaryBatchesOffset = Builder.EndVector();
+            FlatBuffers.VectorOffset dictionaryBatchesOffset = Builder.EndVector();
 
             // Serialize and write the footer flatbuffer
 
-            var footerOffset = Flatbuf.Footer.CreateFooter(Builder, CurrentMetadataVersion,
+            FlatBuffers.Offset<Flatbuf.Footer> footerOffset = Flatbuf.Footer.CreateFooter(Builder, CurrentMetadataVersion,
                 schemaOffset, dictionaryBatchesOffset, recordBatchesVectorOffset);
 
             Builder.Finish(footerOffset.Value);

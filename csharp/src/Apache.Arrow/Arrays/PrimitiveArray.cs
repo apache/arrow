@@ -44,12 +44,12 @@ namespace Apache.Arrow
 
         public IList<T?> ToList(bool includeNulls = false)
         {
-            var span = Values;
+            ReadOnlySpan<T> span = Values;
             var list = new List<T?>(span.Length);
 
-            for (var i = 0; i < span.Length; i++)
+            for (int i = 0; i < span.Length; i++)
             {
-                var value = GetValue(i);
+                T? value = GetValue(i);
 
                 if (value.HasValue)
                 {

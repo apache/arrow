@@ -46,8 +46,8 @@ namespace Apache.Arrow.Ipc
         protected static T ReadMessage<T>(ByteBuffer bb)
             where T : struct, IFlatbufferObject
         {
-            var returnType = typeof(T);
-            var msg = Flatbuf.Message.GetRootAsMessage(bb);
+            Type returnType = typeof(T);
+            Flatbuf.Message msg = Flatbuf.Message.GetRootAsMessage(bb);
 
             if (MatchEnum(msg.HeaderType, returnType))
             {
@@ -92,7 +92,7 @@ namespace Apache.Arrow.Ipc
                     Debug.WriteLine("Dictionaries are not yet supported.");
                     break;
                 case Flatbuf.MessageHeader.RecordBatch:
-                    var rb = message.Header<Flatbuf.RecordBatch>().Value;
+                    Flatbuf.RecordBatch rb = message.Header<Flatbuf.RecordBatch>().Value;
                     List<IArrowArray> arrays = BuildArrays(Schema, bodyByteBuffer, rb);
                     return new RecordBatch(Schema, memoryOwner, arrays, (int)rb.Length);
                 default:
@@ -122,13 +122,13 @@ namespace Apache.Arrow.Ipc
             }
 
             var recordBatchEnumerator = new RecordBatchEnumerator(in recordBatchMessage);
-            var schemaFieldIndex = 0;
+            int schemaFieldIndex = 0;
             do
             {
-                var field = schema.GetFieldByIndex(schemaFieldIndex++);
-                var fieldNode = recordBatchEnumerator.CurrentNode;
+                Field field = schema.GetFieldByIndex(schemaFieldIndex++);
+                Flatbuf.FieldNode fieldNode = recordBatchEnumerator.CurrentNode;
 
-                var arrayData = field.DataType.IsFixedPrimitive()
+                ArrayData arrayData = field.DataType.IsFixedPrimitive()
                     ? LoadPrimitiveField(ref recordBatchEnumerator, field, in fieldNode, messageBuffer)
                     : LoadVariableField(ref recordBatchEnumerator, field, in fieldNode, messageBuffer);
 
@@ -152,8 +152,8 @@ namespace Apache.Arrow.Ipc
             recordBatchEnumerator.MoveNextBuffer();
 
 
-            var fieldLength = (int)fieldNode.Length;
-            var fieldNullCount = (int)fieldNode.NullCount;
+            int fieldLength = (int)fieldNode.Length;
+            int fieldNullCount = (int)fieldNode.NullCount;
 
             if (fieldLength < 0)
             {
@@ -165,8 +165,8 @@ namespace Apache.Arrow.Ipc
                 throw new InvalidDataException("Null count length must be >= 0"); // TODO:Localize exception message
             }
 
-            var arrowBuff = new[] { nullArrowBuffer, valueArrowBuffer };
-            var children = GetChildren(ref recordBatchEnumerator, field, bodyData);
+            ArrowBuffer[] arrowBuff = new[] { nullArrowBuffer, valueArrowBuffer };
+            ArrayData[] children = GetChildren(ref recordBatchEnumerator, field, bodyData);
 
             return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children);
         }
@@ -186,8 +186,8 @@ namespace Apache.Arrow.Ipc
             ArrowBuffer valueArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer);
             recordBatchEnumerator.MoveNextBuffer();
 
-            var fieldLength = (int)fieldNode.Length;
-            var fieldNullCount = (int)fieldNode.NullCount;
+            int fieldLength = (int)fieldNode.Length;
+            int fieldNullCount = (int)fieldNode.NullCount;
 
             if (fieldLength < 0)
             {
@@ -199,8 +199,8 @@ namespace Apache.Arrow.Ipc
                 throw new InvalidDataException("Null count length must be >= 0"); //TODO: Localize exception message
             }
 
-            var arrowBuff = new[] { nullArrowBuffer, offsetArrowBuffer, valueArrowBuffer };
-            var children = GetChildren(ref recordBatchEnumerator, field, bodyData);
+            ArrowBuffer[] arrowBuff = new[] { nullArrowBuffer, offsetArrowBuffer, valueArrowBuffer };
+            ArrayData[] children = GetChildren(ref recordBatchEnumerator, field, bodyData);
 
             return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children);
         }
@@ -212,15 +212,15 @@ namespace Apache.Arrow.Ipc
         {
             if (!(field.DataType is NestedType type)) return null;
 
-            var childrenCount = type.Children.Count;
+            int childrenCount = type.Children.Count;
             var children = new ArrayData[childrenCount];
-            for (var index = 0; index < childrenCount; index++)
+            for (int index = 0; index < childrenCount; index++)
             {
                 recordBatchEnumerator.MoveNextNode();
                 Flatbuf.FieldNode childFieldNode = recordBatchEnumerator.CurrentNode;
 
-                var childField = type.Children[index];
-                var child = childField.DataType.IsFixedPrimitive()
+                Field childField = type.Children[index];
+                ArrayData child = childField.DataType.IsFixedPrimitive()
                     ? LoadPrimitiveField(ref recordBatchEnumerator, childField, in childFieldNode, bodyData)
                     : LoadVariableField(ref recordBatchEnumerator, childField, in childFieldNode, bodyData);
 

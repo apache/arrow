@@ -76,7 +76,7 @@ namespace Apache.Arrow
             {
                 ValueOffsets.Append(Offset);
 
-                var validityBuffer = NullCount > 0
+                ArrowBuffer validityBuffer = NullCount > 0
                                         ? ValidityBuffer.Build(allocator).ValueBuffer
                                         : ArrowBuffer.Empty;
 
@@ -114,14 +114,14 @@ namespace Apache.Arrow
 
             public TBuilder AppendRange(IEnumerable<byte[]> values)
             {
-                foreach (var arr in values)
+                foreach (byte[] arr in values)
                 {
                     if (arr == null)
                     {
                         AppendNull();
                         continue;
                     }
-                    var len = ValueBuffer.Length;
+                    int len = ValueBuffer.Length;
                     ValueOffsets.Append(Offset);
                     ValueBuffer.Append(arr);
                     ValidityBuffer.Append(true);
@@ -137,9 +137,9 @@ namespace Apache.Arrow
                 {
                     return AppendNull();
                 }
-                var len = ValueBuffer.Length;
+                int len = ValueBuffer.Length;
                 ValueBuffer.AppendRange(values);
-                var valOffset = ValueBuffer.Length - len;
+                int valOffset = ValueBuffer.Length - len;
                 ValueOffsets.Append(Offset);
                 Offset += valOffset;
                 ValidityBuffer.Append(true);
@@ -225,7 +225,7 @@ namespace Apache.Arrow
                 return 0;
             }
 
-            var offsets = ValueOffsets;
+            ReadOnlySpan<int> offsets = ValueOffsets;
             return offsets[index + 1] - offsets[index];
         }
 
