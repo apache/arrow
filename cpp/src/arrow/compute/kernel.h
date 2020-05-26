@@ -440,9 +440,12 @@ struct SimdLevel {
 struct NullHandling {
   enum type {
     /// Compute the output validity bitmap by intersecting the validity bitmaps
-    /// of the arguments. Kernel generally need not touch the bitmap
-    /// thereafter, but a kernel's exec function is permitted to alter the
-    /// bitmap after the null intersection is computed if it needs to.
+    /// of the arguments using bitwise-and operations. This means that values
+    /// in the output are valid/non-null only if the corresponding values in
+    /// all input arguments were valid/non-null. Kernel generally need not
+    /// touch the bitmap thereafter, but a kernel's exec function is permitted
+    /// to alter the bitmap after the null intersection is computed if it needs
+    /// to.
     INTERSECTION,
 
     /// Kernel expects a pre-allocated buffer to write the result bitmap
@@ -470,7 +473,7 @@ struct MemAllocation {
     // so vector kernels yielding differently sized output should not use this.
     //
     // It is valid for the data to not be preallocated but the validity bitmap
-    // is (or is computed using the intersection method).
+    // is (or is computed using the intersection/bitwise-and method).
     //
     // For variable-size output types like BinaryType or StringType, or for
     // nested types, this option has no effect.
