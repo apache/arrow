@@ -806,24 +806,6 @@ ArrayKernelExec BaseBinary(detail::GetTypeId get_id) {
   }
 }
 
-// Generate a kernel given a templated functor for string types
-//
-// See "Numeric" above for description of the generator functor
-template <template <typename...> class Generator,
-          typename Type0, typename... Args>
-ArrayKernelExec String(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-      return Generator<Type0, BinaryType, Args...>::Exec;
-    case Type::STRING:
-      return Generator<Type0, StringType, Args...>::Exec;
-    case Type::LARGE_STRING:
-      return Generator<Type0, LargeStringType, Args...>::Exec;
-    default:
-      DCHECK(false);
-      return ExecFail;
-  }
-}
-
 // Generate a kernel given a templated functor for temporal types
 //
 // See "Numeric" above for description of the generator functor
