@@ -246,6 +246,49 @@ bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right
   }
 
   // Unaligned slow case
+  left += left_offset / 8;
+  right += right_offset / 8;
+  left_offset %= 8;
+  right_offset %= 8;
+
+  // process in 64 bits
+  int64_t nwords = bit_length / 64;
+  if (nwords > 1) {
+    bit_length -= (nwords - 1) * 64;
+
+    uint64_t left_word0 = BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(left));
+    uint64_t right_word0 = BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(right));
+
+    do {
+      left += 8;
+      const uint64_t left_word1 =
+          BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(left));
+      uint64_t left_word = left_word0;
+      if (left_offset) {
+        left_word >>= left_offset;
+        left_word |= left_word1 << (64 - left_offset);
+      }
+      left_word0 = left_word1;
+
+      right += 8;
+      const uint64_t right_word1 =
+          BitUtil::ToLittleEndian(util::SafeLoadAs<uint64_t>(right));
+      uint64_t right_word = right_word0;
+      if (right_offset) {
+        right_word >>= right_offset;
+        right_word |= right_word1 << (64 - right_offset);
+      }
+      right_word0 = right_word1;
+
+      if (left_word != right_word) {
+        return false;
+      }
+
+      --nwords;
+    } while (nwords > 1);
+  }
+
+  // process in bit
   for (int64_t i = 0; i < bit_length; ++i) {
     if (BitUtil::GetBit(left, left_offset + i) !=
         BitUtil::GetBit(right, right_offset + i)) {
