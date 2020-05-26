@@ -2785,8 +2785,8 @@ public class TestValueVector {
       vector.allocateNewSafe();
       assertEquals(1, vector.getValidityBuffer().refCnt());
       assertEquals(1, vector.getOffsetBuffer().refCnt());
-      assertEquals(1024, vector.getValidityBuffer().capacity());
-      assertEquals(32768, vector.getOffsetBuffer().capacity());
+      assertEquals(512, vector.getValidityBuffer().capacity());
+      assertEquals(16384, vector.getOffsetBuffer().capacity());
 
       vector.close();
       assertEquals(1, vector.getValidityBuffer().refCnt());
@@ -2802,7 +2802,7 @@ public class TestValueVector {
       vector.setValueCount(10);
       vector.allocateNewSafe();
       assertEquals(1, vector.getValidityBuffer().refCnt());
-      assertEquals(1024, vector.getValidityBuffer().capacity());
+      assertEquals(512, vector.getValidityBuffer().capacity());
 
       vector.close();
       assertEquals(1, vector.getValidityBuffer().refCnt());
@@ -2816,7 +2816,7 @@ public class TestValueVector {
       vector.setValueCount(valueCount);
       vector.allocateNewSafe();
       assertEquals(1, vector.getValidityBuffer().refCnt());
-      assertEquals(1024, vector.getValidityBuffer().capacity());
+      assertEquals(512, vector.getValidityBuffer().capacity());
 
       vector.close();
       assertEquals(1, vector.getValidityBuffer().refCnt());
@@ -2830,7 +2830,7 @@ public class TestValueVector {
       vector.setValueCount(10);
       vector.allocateNewSafe();
       assertEquals(1, vector.getValidityBuffer().refCnt());
-      assertEquals(8192, vector.getValidityBuffer().capacity());
+      assertEquals(4096, vector.getValidityBuffer().capacity());
 
       vector.close();
       assertEquals(1, vector.getValidityBuffer().refCnt());
@@ -2848,7 +2848,7 @@ public class TestValueVector {
       assertEquals(1, vector.getValidityBuffer().refCnt());
       assertEquals(1, vector.getOffsetBuffer().refCnt());
       assertEquals(0, vector.getValidityBuffer().capacity());
-      assertEquals(32768, vector.getOffsetBuffer().capacity());
+      assertEquals(16384, vector.getOffsetBuffer().capacity());
 
       vector.close();
       assertEquals(1, vector.getValidityBuffer().refCnt());
