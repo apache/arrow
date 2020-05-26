@@ -850,7 +850,7 @@ class ScalarEqualsVisitor {
   template <typename T>
   typename std::enable_if<std::is_base_of<BaseBinaryScalar, T>::value, Status>::type
   Visit(const T& left) {
-    const auto& right = checked_cast<const BinaryScalar&>(right_);
+    const auto& right = checked_cast<const BaseBinaryScalar&>(right_);
     result_ = internal::SharedPtrEquals(left.value, right.value);
     return Status::OK();
   }

@@ -267,6 +267,7 @@ struct TypeTraits<StringType> {
   using ArrayType = StringArray;
   using BuilderType = StringBuilder;
   using ScalarType = StringScalar;
+  using OffsetType = Int32Type;
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return utf8(); }
 };
@@ -276,6 +277,7 @@ struct TypeTraits<LargeStringType> {
   using ArrayType = LargeStringArray;
   using BuilderType = LargeStringBuilder;
   using ScalarType = LargeStringScalar;
+  using OffsetType = Int64Type;
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return large_utf8(); }
 };

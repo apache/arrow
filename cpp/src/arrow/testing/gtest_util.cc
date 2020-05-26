@@ -82,6 +82,22 @@ void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose)
   }
 }
 
+void AssertScalarsEqual(const Scalar& expected, const Scalar& actual, bool verbose) {
+  std::stringstream diff;
+  // ARROW-8956, ScalarEquals returns false when both are null
+  if (!expected.is_valid && !actual.is_valid) {
+    // We consider both being null to be equal in this function
+    return;
+  }
+  if (!expected.Equals(actual)) {
+    if (verbose) {
+      diff << "Expected:\n" << expected.ToString();
+      diff << "\nActual:\n" << actual.ToString();
+    }
+    FAIL() << diff.str();
+  }
+}
+
 void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual,
                         bool check_metadata) {
   AssertTsEqual(expected, actual, check_metadata);

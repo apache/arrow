@@ -102,6 +102,11 @@ const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes() {
   return g_base_binary_types;
 }
 
+const std::vector<std::shared_ptr<DataType>>& StringTypes() {
+  static DataTypeVector types = {utf8(), large_utf8()};
+  return types;
+}
+
 const std::vector<std::shared_ptr<DataType>>& SignedIntTypes() {
   std::call_once(codegen_static_initialized, InitStaticData);
   return g_signed_int_types;
