@@ -105,12 +105,18 @@ public class MapWithOrdinalImpl<K, V> implements MapWithOrdinal<K, V> {
     public V remove(Object key) {
       final Entry<Integer, V> oldPair = primary.remove(key);
       if (oldPair != null) {
-        final int lastOrdinal = secondary.size();
+        final int lastOrdinal = secondary.size() - 1;
         final V last = secondary.get(lastOrdinal);
         // normalize mappings so that all numbers until primary.size() is assigned
         // swap the last element with the deleted one
         secondary.put(oldPair.getKey(), last);
-        primary.put((K) key, new AbstractMap.SimpleImmutableEntry<>(oldPair.getKey(), last));
+        secondary.remove(lastOrdinal);
+        primary.entrySet()
+            .stream()
+            .filter(e -> e.getValue().getValue().equals(last))
+            .map(Entry::getKey)
+            .findFirst()
+            .ifPresent(lastKey -> primary.put(lastKey, new AbstractMap.SimpleImmutableEntry<>(oldPair.getKey(), last)));
       }
       return oldPair == null ? null : oldPair.getValue();
     }
