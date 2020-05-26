@@ -37,6 +37,6 @@ public class AvroLongConsumer extends BaseAvroConsumer<BigIntVector> {
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    vector.setSafe(currentIndex++, decoder.readLong());
+    vector.set(currentIndex++, decoder.readLong());
   }
 }

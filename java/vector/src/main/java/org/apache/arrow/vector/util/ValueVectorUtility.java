@@ -19,10 +19,12 @@ package org.apache.arrow.vector.util;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BufferLayout;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.validate.ValidateVectorVisitor;
 
@@ -126,6 +128,31 @@ public class ValueVectorUtility {
 
     ValidateVectorVisitor visitor = new ValidateVectorVisitor();
     vector.accept(visitor, null);
+  }
+
+
+  /**
+   * Pre allocate memory for BaseFixedWidthVector.
+   */
+  public static void preAllocate(VectorSchemaRoot root, int targetSize) {
+    for (ValueVector vector : root.getFieldVectors()) {
+      if (vector instanceof BaseFixedWidthVector) {
+        ((BaseFixedWidthVector) vector).allocateNew(targetSize);
+      }
+    }
+  }
+
+  /**
+   * Ensure capacity for BaseFixedWidthVector.
+   */
+  public static void ensureCapacity(VectorSchemaRoot root, int targetCapacity) {
+    for (ValueVector vector : root.getFieldVectors()) {
+      if (vector instanceof BaseFixedWidthVector) {
+        while (vector.getValueCapacity() < targetCapacity) {
+          vector.reAlloc();
+        }
+      }
+    }
   }
 
 }

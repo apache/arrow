@@ -38,6 +38,6 @@ public class AvroTimestampMillisConsumer extends BaseAvroConsumer<TimeStampMilli
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    vector.setSafe(currentIndex++, decoder.readLong());
+    vector.set(currentIndex++, decoder.readLong());
   }
 }

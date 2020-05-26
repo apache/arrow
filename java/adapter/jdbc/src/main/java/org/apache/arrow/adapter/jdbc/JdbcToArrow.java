@@ -28,6 +28,7 @@ import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 
 /**
  * Utility class to convert JDBC objects to columnar Arrow format objects.
@@ -221,7 +222,7 @@ public class JdbcToArrow {
     VectorSchemaRoot root = VectorSchemaRoot.create(
         JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData(), config), config.getAllocator());
     if (config.getTargetBatchSize() != JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE) {
-      ArrowVectorIterator.preAllocate(root, config);
+      ValueVectorUtility.preAllocate(root, config.getTargetBatchSize());
     }
     JdbcToArrowUtils.jdbcToArrowVectors(resultSet, root, config);
     return root;
