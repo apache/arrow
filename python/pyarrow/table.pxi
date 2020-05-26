@@ -1144,6 +1144,28 @@ cdef class Table(_PandasConvertible):
         """
         return _pc().take(self, indices)
 
+    def select(self, object columns):
+        """
+        Select columns of the Table.
+
+        Returns a new Table with the specified columns, and metadata
+        preserved.
+
+        Parameters
+        ----------
+        columns : list-like
+            The column names or integer indices to select.
+
+        Returns
+        -------
+        Table
+
+        """
+        new_columns = [self.column(c) for c in columns]
+        new_fields = [self.schema.field(c) for c in columns]
+        new_schema = schema(new_fields, metadata=self.schema.metadata)
+        return Table.from_arrays(new_columns, schema=new_schema)
+
     def replace_schema_metadata(self, metadata=None):
         """
         EXPERIMENTAL: Create shallow copy of table by replacing schema

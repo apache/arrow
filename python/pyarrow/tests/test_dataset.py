@@ -758,8 +758,8 @@ def test_fragments_reconstruct(tempdir):
         column_names = columns if columns else table.column_names
         assert actual.column_names == column_names
 
-        expected = table.slice(*row_slice).to_pandas()[[*column_names]]
-        assert actual.equals(pa.Table.from_pandas(expected))
+        expected = table.slice(*row_slice).select(column_names)
+        assert actual.equals(expected)
 
     fragment = list(dataset.get_fragments())[0]
     parquet_format = fragment.format
