@@ -238,3 +238,52 @@ def test_filter_errors():
         with pytest.raises(pa.ArrowInvalid,
                            match="must all be the same length"):
             obj.filter(mask)
+
+
+def test_compare_array():
+
+    arr1 = pa.array([1, 2, 3, 4, None])
+    arr2 = pa.array([1, 1, 4, None, 4])
+
+    result = arr1 == arr2
+    assert result.equals(pa.array([True, False, False, None, None]))
+
+    result = arr1 != arr2
+    assert result.equals(pa.array([False, True, True, None, None]))
+
+    result = arr1 < arr2
+    assert result.equals(pa.array([False, False, True, None, None]))
+
+    result = arr1 <= arr2
+    assert result.equals(pa.array([True, False, True, None, None]))
+
+    result = arr1 > arr2
+    assert result.equals(pa.array([False, True, False, None, None]))
+
+    result = arr1 >= arr2
+    assert result.equals(pa.array([True, True, False, None, None]))
+
+
+def test_compare_scalar():
+
+    arr = pa.array([1, 2, 3, None])
+    # TODO this is a hacky way to construct a scalar ..
+    scalar = pa.array([2]).sum()
+
+    result = arr == scalar
+    assert result.equals(pa.array([False, True, False, None]))
+
+    result = arr != scalar
+    assert result.equals(pa.array([True, False, True, None]))
+
+    result = arr < scalar
+    assert result.equals(pa.array([True, False, False, None]))
+
+    result = arr <= scalar
+    assert result.equals(pa.array([True, True, False, None]))
+
+    result = arr > scalar
+    assert result.equals(pa.array([False, False, True, None]))
+
+    result = arr >= scalar
+    assert result.equals(pa.array([False, True, True, None]))
