@@ -46,6 +46,9 @@ namespace dataset {
 class Dataset;
 using DatasetVector = std::vector<std::shared_ptr<Dataset>>;
 
+class UnionDataset;
+class DatasetFactory;
+
 class Fragment;
 using FragmentIterator = Iterator<std::shared_ptr<Fragment>>;
 using FragmentVector = std::vector<std::shared_ptr<Fragment>>;

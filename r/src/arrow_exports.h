@@ -22,11 +22,11 @@
 #include "./arrow_rcpp.h"
 
 #if defined(ARROW_R_WITH_ARROW)
+#include <arrow/compute/cast.h>
 #include <arrow/csv/reader.h>
-#include <arrow/dataset/api.h>
+#include <arrow/dataset/type_fwd.h>
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/filesystem/localfs.h>
-#include <arrow/io/compressed.h>
 #include <arrow/io/type_fwd.h>
 #include <arrow/ipc/feather.h>
 #include <arrow/ipc/reader.h>

@@ -29,10 +29,16 @@ class Seekable;
 class Writable;
 class Readable;
 class OutputStream;
+class FileOutputStream;
 class InputStream;
+class ReadableFile;
 class RandomAccessFile;
+class MemoryMappedFile;
 class WritableFile;
 class ReadWriteFileInterface;
+
+class CompressedInputStream;
+class CompressedOutputStream;
 
 }  // namespace io
 }  // namespace arrow
