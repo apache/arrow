@@ -36,6 +36,7 @@ struct AsciiLength {
 };
 
 struct AsciiUpper {
+  // XXX: the Scalar codegen path passes template arguments that are unused
   template <typename... Ignored>
   static std::string Call(KernelContext*, const util::string_view& val) {
     std::string result = val.to_string();
