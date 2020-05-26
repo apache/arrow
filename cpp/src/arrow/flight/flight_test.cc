@@ -425,7 +425,11 @@ class MetadataTestServer : public FlightServerBase {
   Status DoGet(const ServerCallContext& context, const Ticket& request,
                std::unique_ptr<FlightDataStream>* data_stream) override {
     BatchVector batches;
-    RETURN_NOT_OK(ExampleIntBatches(&batches));
+    if (request.ticket == "dicts") {
+      RETURN_NOT_OK(ExampleDictBatches(&batches));
+    } else {
+      RETURN_NOT_OK(ExampleIntBatches(&batches));
+    }
     std::shared_ptr<RecordBatchReader> batch_reader =
         std::make_shared<BatchIterator>(batches[0]->schema(), batches);
 
@@ -985,6 +989,238 @@ TEST_F(TestFlightClient, DoGetDicts) {
   CheckDoGet(descr, expected_batches, check_endpoints);
 }
 
+TEST_F(TestFlightClient, DoExchange) {
+  auto descr = FlightDescriptor::Command("counter");
+  BatchVector batches;
+  auto a1 = ArrayFromJSON(int32(), "[4, 5, 6, null]");
+  auto schema = arrow::schema({field("f1", a1->type())});
+  batches.push_back(RecordBatch::Make(schema, a1->length(), {a1}));
+  std::unique_ptr<FlightStreamReader> reader;
+  std::unique_ptr<FlightStreamWriter> writer;
+  ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+  ASSERT_OK(writer->Begin(schema));
+  for (const auto& batch : batches) {
+    ASSERT_OK(writer->WriteRecordBatch(*batch));
+  }
+  ASSERT_OK(writer->DoneWriting());
+  FlightStreamChunk chunk;
+  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_NE(nullptr, chunk.app_metadata);
+  ASSERT_EQ(nullptr, chunk.data);
+  ASSERT_EQ("1", chunk.app_metadata->ToString());
+  ASSERT_OK_AND_ASSIGN(auto server_schema, reader->GetSchema());
+  AssertSchemaEqual(schema, server_schema);
+  for (const auto& batch : batches) {
+    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_BATCHES_EQUAL(*batch, *chunk.data);
+  }
+  ASSERT_OK(writer->Close());
+}
+
+// Test pure-metadata DoExchange to ensure nothing blocks waiting for
+// schema messages
+TEST_F(TestFlightClient, DoExchangeNoData) {
+  auto descr = FlightDescriptor::Command("counter");
+  std::unique_ptr<FlightStreamReader> reader;
+  std::unique_ptr<FlightStreamWriter> writer;
+  ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+  ASSERT_OK(writer->DoneWriting());
+  FlightStreamChunk chunk;
+  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_EQ(nullptr, chunk.data);
+  ASSERT_NE(nullptr, chunk.app_metadata);
+  ASSERT_EQ("0", chunk.app_metadata->ToString());
+  ASSERT_OK(writer->Close());
+}
+
+// Test sending a schema without any data, as this hits an edge case
+// in the client-side writer.
+TEST_F(TestFlightClient, DoExchangeWriteOnlySchema) {
+  auto descr = FlightDescriptor::Command("counter");
+  std::unique_ptr<FlightStreamReader> reader;
+  std::unique_ptr<FlightStreamWriter> writer;
+  ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+  auto schema = arrow::schema({field("f1", arrow::int32())});
+  ASSERT_OK(writer->Begin(schema));
+  ASSERT_OK(writer->WriteMetadata(Buffer::FromString("foo")));
+  ASSERT_OK(writer->DoneWriting());
+  FlightStreamChunk chunk;
+  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_EQ(nullptr, chunk.data);
+  ASSERT_NE(nullptr, chunk.app_metadata);
+  ASSERT_EQ("0", chunk.app_metadata->ToString());
+  ASSERT_OK(writer->Close());
+}
+
+// Emulate DoGet
+TEST_F(TestFlightClient, DoExchangeGet) {
+  auto descr = FlightDescriptor::Command("get");
+  std::unique_ptr<FlightStreamReader> reader;
+  std::unique_ptr<FlightStreamWriter> writer;
+  ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+  ASSERT_OK_AND_ASSIGN(auto server_schema, reader->GetSchema());
+  AssertSchemaEqual(*ExampleIntSchema(), *server_schema);
+  BatchVector batches;
+  ASSERT_OK(ExampleIntBatches(&batches));
+  FlightStreamChunk chunk;
+  for (const auto& batch : batches) {
+    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_NE(nullptr, chunk.data);
+    AssertBatchesEqual(*batch, *chunk.data);
+  }
+  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_EQ(nullptr, chunk.data);
+  ASSERT_EQ(nullptr, chunk.app_metadata);
+  ASSERT_OK(writer->Close());
+}
+
+// Emulate DoPut
+TEST_F(TestFlightClient, DoExchangePut) {
+  auto descr = FlightDescriptor::Command("put");
+  std::unique_ptr<FlightStreamReader> reader;
+  std::unique_ptr<FlightStreamWriter> writer;
+  ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+  ASSERT_OK(writer->Begin(ExampleIntSchema()));
+  BatchVector batches;
+  ASSERT_OK(ExampleIntBatches(&batches));
+  for (const auto& batch : batches) {
+    ASSERT_OK(writer->WriteRecordBatch(*batch));
+  }
+  ASSERT_OK(writer->DoneWriting());
+  FlightStreamChunk chunk;
+  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_NE(nullptr, chunk.app_metadata);
+  AssertBufferEqual(*chunk.app_metadata, "done");
+  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_EQ(nullptr, chunk.data);
+  ASSERT_EQ(nullptr, chunk.app_metadata);
+  ASSERT_OK(writer->Close());
+}
+
+// Test the echo server
+TEST_F(TestFlightClient, DoExchangeEcho) {
+  auto descr = FlightDescriptor::Command("echo");
+  std::unique_ptr<FlightStreamReader> reader;
+  std::unique_ptr<FlightStreamWriter> writer;
+  ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+  ASSERT_OK(writer->Begin(ExampleIntSchema()));
+  BatchVector batches;
+  FlightStreamChunk chunk;
+  ASSERT_OK(ExampleIntBatches(&batches));
+  for (const auto& batch : batches) {
+    ASSERT_OK(writer->WriteRecordBatch(*batch));
+    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_NE(nullptr, chunk.data);
+    ASSERT_EQ(nullptr, chunk.app_metadata);
+    AssertBatchesEqual(*batch, *chunk.data);
+  }
+  for (int i = 0; i < 10; i++) {
+    const auto buf = Buffer::FromString(std::to_string(i));
+    ASSERT_OK(writer->WriteMetadata(buf));
+    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_EQ(nullptr, chunk.data);
+    ASSERT_NE(nullptr, chunk.app_metadata);
+    AssertBufferEqual(*buf, *chunk.app_metadata);
+  }
+  int index = 0;
+  for (const auto& batch : batches) {
+    const auto buf = Buffer::FromString(std::to_string(index));
+    ASSERT_OK(writer->WriteWithMetadata(*batch, buf));
+    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_NE(nullptr, chunk.data);
+    ASSERT_NE(nullptr, chunk.app_metadata);
+    AssertBatchesEqual(*batch, *chunk.data);
+    AssertBufferEqual(*buf, *chunk.app_metadata);
+    index++;
+  }
+  ASSERT_OK(writer->DoneWriting());
+  ASSERT_OK(reader->Next(&chunk));
+  ASSERT_EQ(nullptr, chunk.data);
+  ASSERT_EQ(nullptr, chunk.app_metadata);
+  ASSERT_OK(writer->Close());
+}
+
+// Test interleaved reading/writing
+TEST_F(TestFlightClient, DoExchangeTotal) {
+  auto descr = FlightDescriptor::Command("total");
+  std::unique_ptr<FlightStreamReader> reader;
+  std::unique_ptr<FlightStreamWriter> writer;
+  {
+    auto a1 = ArrayFromJSON(arrow::int32(), "[4, 5, 6, null]");
+    auto schema = arrow::schema({field("f1", a1->type())});
+    // XXX: as noted in flight/client.cc, Begin() is lazy and the
+    // schema message won't be written until some data is also
+    // written. There's also timing issues; hence we check each status
+    // here.
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Field is not INT64: f1"), ([&]() {
+          RETURN_NOT_OK(client_->DoExchange(descr, &writer, &reader));
+          RETURN_NOT_OK(writer->Begin(schema));
+          auto batch = RecordBatch::Make(schema, /* num_rows */ 4, {a1});
+          RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
+          return writer->Close();
+        })());
+  }
+  {
+    auto a1 = ArrayFromJSON(arrow::int64(), "[1, 2, null, 3]");
+    auto a2 = ArrayFromJSON(arrow::int64(), "[null, 4, 5, 6]");
+    auto schema = arrow::schema({field("f1", a1->type()), field("f2", a2->type())});
+    ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+    ASSERT_OK(writer->Begin(schema));
+    auto batch = RecordBatch::Make(schema, /* num_rows */ 4, {a1, a2});
+    FlightStreamChunk chunk;
+    ASSERT_OK(writer->WriteRecordBatch(*batch));
+    ASSERT_OK_AND_ASSIGN(auto server_schema, reader->GetSchema());
+    AssertSchemaEqual(*schema, *server_schema);
+
+    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_NE(nullptr, chunk.data);
+    auto expected1 = RecordBatch::Make(
+        schema, /* num_rows */ 1,
+        {ArrayFromJSON(arrow::int64(), "[6]"), ArrayFromJSON(arrow::int64(), "[15]")});
+    AssertBatchesEqual(*expected1, *chunk.data);
+
+    ASSERT_OK(writer->WriteRecordBatch(*batch));
+    ASSERT_OK(reader->Next(&chunk));
+    ASSERT_NE(nullptr, chunk.data);
+    auto expected2 = RecordBatch::Make(
+        schema, /* num_rows */ 1,
+        {ArrayFromJSON(arrow::int64(), "[12]"), ArrayFromJSON(arrow::int64(), "[30]")});
+    AssertBatchesEqual(*expected2, *chunk.data);
+
+    ASSERT_OK(writer->Close());
+  }
+}
+
+// Ensure server errors get propagated no matter what we try
+TEST_F(TestFlightClient, DoExchangeError) {
+  auto descr = FlightDescriptor::Command("error");
+  std::unique_ptr<FlightStreamReader> reader;
+  std::unique_ptr<FlightStreamWriter> writer;
+  {
+    ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+    auto status = writer->Close();
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        NotImplemented, ::testing::HasSubstr("Expected error"), writer->Close());
+  }
+  {
+    ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+    FlightStreamChunk chunk;
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        NotImplemented, ::testing::HasSubstr("Expected error"), reader->Next(&chunk));
+  }
+  {
+    ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        NotImplemented, ::testing::HasSubstr("Expected error"), reader->GetSchema());
+  }
+  // writer->Begin isn't tested here because, as noted in client.cc,
+  // OpenRecordBatchWriter lazily writes the initial message - hence
+  // Begin() won't fail. Additionally, it appears gRPC may buffer
+  // writes - a write won't immediately fail even when the server
+  // immediately fails.
+}
+
 TEST_F(TestFlightClient, ListActions) {
   std::vector<ActionType> actions;
   ASSERT_OK(client_->ListActions(&actions));
@@ -1381,6 +1617,31 @@ TEST_F(TestMetadata, DoGet) {
   ASSERT_EQ(nullptr, chunk.data);
 }
 
+// Test dictionaries. This tests a corner case in the reader:
+// dictionary batches come in between the schema and the first record
+// batch, so the server must take care to read application metadata
+// from the record batch, and not one of the dictionary batches.
+TEST_F(TestMetadata, DoGetDictionaries) {
+  Ticket ticket{"dicts"};
+  std::unique_ptr<FlightStreamReader> stream;
+  ASSERT_OK(client_->DoGet(ticket, &stream));
+
+  BatchVector expected_batches;
+  ASSERT_OK(ExampleDictBatches(&expected_batches));
+
+  FlightStreamChunk chunk;
+  auto num_batches = static_cast<int>(expected_batches.size());
+  for (int i = 0; i < num_batches; ++i) {
+    ASSERT_OK(stream->Next(&chunk));
+    ASSERT_NE(nullptr, chunk.data);
+    ASSERT_NE(nullptr, chunk.app_metadata);
+    ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk.data);
+    ASSERT_EQ(std::to_string(i), chunk.app_metadata->ToString());
+  }
+  ASSERT_OK(stream->Next(&chunk));
+  ASSERT_EQ(nullptr, chunk.data);
+}
+
 TEST_F(TestMetadata, DoPut) {
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
@@ -1400,6 +1661,31 @@ TEST_F(TestMetadata, DoPut) {
   // This eventually calls grpc::ClientReaderWriter::Finish which can
   // hang if there are unread messages. So make sure our wrapper
   // around this doesn't hang (because it drains any unread messages)
+  ASSERT_OK(writer->Close());
+}
+
+// Test DoPut() with dictionaries. This tests a corner case in the
+// server-side reader; see DoGetDictionaries above.
+TEST_F(TestMetadata, DoPutDictionaries) {
+  std::unique_ptr<FlightStreamWriter> writer;
+  std::unique_ptr<FlightMetadataReader> reader;
+  BatchVector expected_batches;
+  ASSERT_OK(ExampleDictBatches(&expected_batches));
+  // ARROW-8749: don't get the schema via ExampleDictSchema because
+  // DictionaryMemo uses field addresses to determine whether it's
+  // seen a field before. Hence, if we use a schema that is different
+  // (identity-wise) than the schema of the first batch we write,
+  // we'll end up generating a duplicate set of dictionaries that
+  // confuses the reader.
+  ASSERT_OK(client_->DoPut(FlightDescriptor{}, expected_batches[0]->schema(), &writer,
+                           &reader));
+  std::shared_ptr<RecordBatch> chunk;
+  std::shared_ptr<Buffer> metadata;
+  auto num_batches = static_cast<int>(expected_batches.size());
+  for (int i = 0; i < num_batches; ++i) {
+    ASSERT_OK(writer->WriteWithMetadata(*expected_batches[i],
+                                        Buffer::FromString(std::to_string(i))));
+  }
   ASSERT_OK(writer->Close());
 }
 
