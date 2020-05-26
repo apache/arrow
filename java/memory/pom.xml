@@ -61,6 +61,7 @@
               <systemPropertyVariables>
                 <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
                 <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
+                <arrow.memory.debug.allocator>false</arrow.memory.debug.allocator>
                 <user.timezone>UTC</user.timezone>
               </systemPropertyVariables>
               <argLine></argLine>
