@@ -1071,22 +1071,6 @@ RcppExport SEXP _arrow_Table__cast(SEXP table_sexp, SEXP schema_sexp, SEXP optio
 
 // compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Array> Array__Take(const std::shared_ptr<arrow::Array>& values, const std::shared_ptr<arrow::Array>& indices);
-RcppExport SEXP _arrow_Array__Take(SEXP values_sexp, SEXP indices_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type values(values_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type indices(indices_sexp);
-	return Rcpp::wrap(Array__Take(values, indices));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Array__Take(SEXP values_sexp, SEXP indices_sexp){
-	Rf_error("Cannot call Array__Take(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// compute.cpp
-#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ChunkedArray> Array__TakeChunked(const std::shared_ptr<arrow::Array>& values, const std::shared_ptr<arrow::ChunkedArray>& indices);
 RcppExport SEXP _arrow_Array__TakeChunked(SEXP values_sexp, SEXP indices_sexp){
 BEGIN_RCPP
@@ -1183,23 +1167,6 @@ RcppExport SEXP _arrow_Table__TakeChunked(SEXP table_sexp, SEXP indices_sexp){
 
 // compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Array> Array__Filter(const std::shared_ptr<arrow::Array>& values, const std::shared_ptr<arrow::Array>& filter, bool keep_na);
-RcppExport SEXP _arrow_Array__Filter(SEXP values_sexp, SEXP filter_sexp, SEXP keep_na_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type values(values_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type filter(filter_sexp);
-	Rcpp::traits::input_parameter<bool>::type keep_na(keep_na_sexp);
-	return Rcpp::wrap(Array__Filter(values, filter, keep_na));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Array__Filter(SEXP values_sexp, SEXP filter_sexp, SEXP keep_na_sexp){
-	Rf_error("Cannot call Array__Filter(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// compute.cpp
-#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Filter(const std::shared_ptr<arrow::RecordBatch>& batch, const std::shared_ptr<arrow::Array>& filter, bool keep_na);
 RcppExport SEXP _arrow_RecordBatch__Filter(SEXP batch_sexp, SEXP filter_sexp, SEXP keep_na_sexp){
 BEGIN_RCPP
@@ -1280,6 +1247,23 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_Table__FilterChunked(SEXP table_sexp, SEXP filter_sexp, SEXP keep_na_sexp){
 	Rf_error("Cannot call Table__FilterChunked(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// compute.cpp
+#if defined(ARROW_R_WITH_ARROW)
+SEXP compute__CallFunction(std::string func_name, List_ args, List_ options);
+RcppExport SEXP _arrow_compute__CallFunction(SEXP func_name_sexp, SEXP args_sexp, SEXP options_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<std::string>::type func_name(func_name_sexp);
+	Rcpp::traits::input_parameter<List_>::type args(args_sexp);
+	Rcpp::traits::input_parameter<List_>::type options(options_sexp);
+	return Rcpp::wrap(compute__CallFunction(func_name, args, options));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_compute__CallFunction(SEXP func_name_sexp, SEXP args_sexp, SEXP options_sexp){
+	Rf_error("Cannot call compute__CallFunction(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -5997,19 +5981,18 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ChunkedArray__cast", (DL_FUNC) &_arrow_ChunkedArray__cast, 3}, 
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
-		{ "_arrow_Array__Take", (DL_FUNC) &_arrow_Array__Take, 2}, 
 		{ "_arrow_Array__TakeChunked", (DL_FUNC) &_arrow_Array__TakeChunked, 2}, 
 		{ "_arrow_RecordBatch__Take", (DL_FUNC) &_arrow_RecordBatch__Take, 2}, 
 		{ "_arrow_ChunkedArray__Take", (DL_FUNC) &_arrow_ChunkedArray__Take, 2}, 
 		{ "_arrow_ChunkedArray__TakeChunked", (DL_FUNC) &_arrow_ChunkedArray__TakeChunked, 2}, 
 		{ "_arrow_Table__Take", (DL_FUNC) &_arrow_Table__Take, 2}, 
 		{ "_arrow_Table__TakeChunked", (DL_FUNC) &_arrow_Table__TakeChunked, 2}, 
-		{ "_arrow_Array__Filter", (DL_FUNC) &_arrow_Array__Filter, 3}, 
 		{ "_arrow_RecordBatch__Filter", (DL_FUNC) &_arrow_RecordBatch__Filter, 3}, 
 		{ "_arrow_ChunkedArray__Filter", (DL_FUNC) &_arrow_ChunkedArray__Filter, 3}, 
 		{ "_arrow_ChunkedArray__FilterChunked", (DL_FUNC) &_arrow_ChunkedArray__FilterChunked, 3}, 
 		{ "_arrow_Table__Filter", (DL_FUNC) &_arrow_Table__Filter, 3}, 
 		{ "_arrow_Table__FilterChunked", (DL_FUNC) &_arrow_Table__FilterChunked, 3}, 
+		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 
 		{ "_arrow_csv___ConvertOptions__initialize", (DL_FUNC) &_arrow_csv___ConvertOptions__initialize, 1}, 
