@@ -20,6 +20,7 @@ import decimal
 import json
 import multiprocessing as mp
 import sys
+from datetime import datetime
 
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta
@@ -3989,10 +3990,22 @@ def test_timestamp_as_object_parquet(tempdir):
     tm.assert_frame_equal(df, df2, check_like=True)
 
 
-def test_timestamp_as_object():
-    # Timestamps can be converted Arrow and reloaded into Pandas with no loss
-    # of information if the timestamp_as_object option is True.
+def test_timestamp_as_object_out_of_range():
+    # Out of range timestamps can be converted Arrow and reloaded into Pandas
+    # with no loss of information if the timestamp_as_object option is True.
     df = make_df_with_timestamps()
     table = pa.Table.from_pandas(df)
     df2 = table.to_pandas(timestamp_as_object=True)
     tm.assert_frame_equal(df, df2, check_like=True)
+
+
+@pytest.mark.parametrize("resolution", ["s", "ms", "us"])
+def test_timestamp_as_object_explicit_type(resolution):
+    # Timestamps can be converted Arrow and reloaded into Pandas with no loss
+    # of information if the timestamp_as_object option is True.
+    dt = datetime(1553, 1, 1)
+    arr = pa.array([dt], type=pa.timestamp(resolution))
+    result = arr.to_pandas(timestamp_as_object=True)
+    assert result.dtype == object
+    assert isinstance(result[0], datetime)
+    assert result[0] == dt
