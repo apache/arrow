@@ -51,7 +51,9 @@
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/Linker/Linker.h>
+#include <llvm/MC/SubtargetFeature.h>
 #include <llvm/Support/DynamicLibrary.h>
+#include <llvm/Support/TargetRegistry.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Transforms/IPO.h>
@@ -150,6 +152,28 @@ Status Engine::Make(const std::shared_ptr<Configuration>& conf,
   return Status::OK();
 }
 
+static void setDataLayout(llvm::Module* module) {
+  auto targetTriple = llvm::sys::getDefaultTargetTriple();
+  std::string errorMessage;
+  auto target = llvm::TargetRegistry::lookupTarget(targetTriple, errorMessage);
+  if (!target) {
+    return;
+  }
+
+  std::string cpu(llvm::sys::getHostCPUName());
+  llvm::SubtargetFeatures features;
+  llvm::StringMap<bool> hostFeatures;
+
+  if (llvm::sys::getHostCPUFeatures(hostFeatures))
+    for (auto &f : hostFeatures)
+      features.AddFeature(f.first(), f.second);
+
+  std::unique_ptr<llvm::TargetMachine> machine(target->createTargetMachine(
+      targetTriple, cpu, features.getString(), {}, {}));
+
+  module->setDataLayout(machine->createDataLayout());
+}
+
 // Handling for pre-compiled IR libraries.
 Status Engine::LoadPreCompiledIR() {
   auto bitcode = llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledBitcode),
@@ -177,6 +201,9 @@ Status Engine::LoadPreCompiledIR() {
     return Status::CodeGenError(stream.str());
   }
   std::unique_ptr<llvm::Module> ir_module = move(module_or_error.get());
+
+  // set dataLayout
+  setDataLayout(ir_module.get());
 
   ARROW_RETURN_IF(llvm::verifyModule(*ir_module, &llvm::errs()),
                   Status::CodeGenError("verify of IR Module failed"));
