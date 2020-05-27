@@ -23,8 +23,6 @@
 
 # pip requirements for all cpythons
 # NOTE: pip has GPG signatures; could download and verify independently.
-# pip requirements for all cpythons
-# NOTE: pip has GPG signatures; could download and verify independently.
 pip==20.1.1 \
     --hash=sha256:b27c4dedae8c41aa59108f2fa38bf78e0890e590545bc8ece7cdceb4ba60f6e4 \
     --hash=sha256:27f8dc29387dd83249e06e681ce087e6061826582198a425085e0bf4c1cf3a55
