@@ -1384,6 +1384,10 @@ Scalar__ToString <- function(s){
     .Call(`_arrow_Scalar__ToString` , s)
 }
 
+Scalar__CastTo <- function(s, t){
+    .Call(`_arrow_Scalar__CastTo` , s, t)
+}
+
 Scalar__as_vector <- function(scalar){
     .Call(`_arrow_Scalar__as_vector` , scalar)
 }

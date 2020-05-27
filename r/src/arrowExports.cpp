@@ -5425,6 +5425,22 @@ RcppExport SEXP _arrow_Scalar__ToString(SEXP s_sexp){
 
 // scalar.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Scalar> Scalar__CastTo(const std::shared_ptr<arrow::Scalar>& s, const std::shared_ptr<arrow::DataType>& t);
+RcppExport SEXP _arrow_Scalar__CastTo(SEXP s_sexp, SEXP t_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Scalar>&>::type s(s_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type t(t_sexp);
+	return Rcpp::wrap(Scalar__CastTo(s, t));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Scalar__CastTo(SEXP s_sexp, SEXP t_sexp){
+	Rf_error("Cannot call Scalar__CastTo(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// scalar.cpp
+#if defined(ARROW_R_WITH_ARROW)
 SEXP Scalar__as_vector(const std::shared_ptr<arrow::Scalar>& scalar);
 RcppExport SEXP _arrow_Scalar__as_vector(SEXP scalar_sexp){
 BEGIN_RCPP
@@ -6334,6 +6350,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 3}, 
 		{ "_arrow_Scalar__create", (DL_FUNC) &_arrow_Scalar__create, 1}, 
 		{ "_arrow_Scalar__ToString", (DL_FUNC) &_arrow_Scalar__ToString, 1}, 
+		{ "_arrow_Scalar__CastTo", (DL_FUNC) &_arrow_Scalar__CastTo, 2}, 
 		{ "_arrow_Scalar__as_vector", (DL_FUNC) &_arrow_Scalar__as_vector, 1}, 
 		{ "_arrow_Scalar__is_valid", (DL_FUNC) &_arrow_Scalar__is_valid, 1}, 
 		{ "_arrow_Scalar__type", (DL_FUNC) &_arrow_Scalar__type, 1}, 

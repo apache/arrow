@@ -28,6 +28,9 @@
 Scalar <- R6Class("Scalar", inherit = ArrowObject,
   public = list(
     ToString = function() Scalar__ToString(self),
+    cast = function(target_type) {
+      Scalar$create(Scalar__CastTo(self, as_type(target_type)))
+    },
     as_vector = function() Scalar__as_vector(self)
   ),
   active = list(
@@ -44,7 +47,7 @@ Scalar$create <- function(x) {
 }
 
 #' @export
-length.Scalar <- function(x) 1
+length.Scalar <- function(x) 1L
 
 #' @export
 is.na.Scalar <- function(x) !x$is_valid

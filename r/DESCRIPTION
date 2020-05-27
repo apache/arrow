@@ -85,7 +85,7 @@ Collate:
     'record-batch-writer.R'
     'reexports-bit64.R'
     'reexports-tidyselect.R'
-    'schema.R'
     'scalar.R'
+    'schema.R'
     'struct.R'
     'util.R'

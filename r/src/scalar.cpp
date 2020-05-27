@@ -83,16 +83,21 @@ std::shared_ptr<arrow::Scalar> Scalar__create(SEXP x) {
       return std::make_shared<arrow::StringScalar>(CHAR(STRING_ELT(x, 0)));
 
     default:
-      Rcpp::stop(
-          tfm::format("R object of type %s not supported", Rf_type2char(TYPEOF(x))));
+      break;
   }
 
-  return nullptr;
+  Rcpp::stop(tfm::format("R object of type %s not supported", Rf_type2char(TYPEOF(x))));
 }
 
 // [[arrow::export]]
 std::string Scalar__ToString(const std::shared_ptr<arrow::Scalar>& s) {
   return s->ToString();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Scalar> Scalar__CastTo(const std::shared_ptr<arrow::Scalar>& s,
+                                              const std::shared_ptr<arrow::DataType>& t) {
+  return ValueOrStop(s->CastTo(t));
 }
 
 // [[arrow::export]]
