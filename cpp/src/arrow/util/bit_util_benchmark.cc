@@ -374,7 +374,7 @@ BENCHMARK(ReferenceNaiveBitmapReader)->Arg(kBufferSize);
 BENCHMARK(BitmapReader)->Arg(kBufferSize);
 BENCHMARK(VisitBits)->Arg(kBufferSize);
 BENCHMARK(VisitBitsUnrolled)->Arg(kBufferSize);
-BENCHMARK(SetBitsTo)->Arg(2)->Arg(128)->Arg(1024);
+BENCHMARK(SetBitsTo)->Arg(2)->Arg(1 << 4)->Arg(1 << 10)->Arg(1 << 17);
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 static void ReferenceNaiveBitmapWriter(benchmark::State& state) {
