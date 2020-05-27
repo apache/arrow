@@ -151,6 +151,8 @@ if(CMAKE_HOST_WIN32)
   if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     set(PYTHON_LIBRARY
       "${PYTHON_PREFIX}/libs/Python${PYTHON_LIBRARY_SUFFIX}.lib")
+    set(PYTHON_DEBUG_LIBRARY
+      "${PYTHON_PREFIX}/libs/Python${PYTHON_LIBRARY_SUFFIX}_d.lib")
   else()
     find_library(PYTHON_LIBRARY
         NAMES "python${PYTHON_LIBRARY_SUFFIX}"
@@ -246,7 +248,7 @@ FUNCTION(PYTHON_ADD_MODULE _NAME )
       SET_TARGET_PROPERTIES(${_NAME} PROPERTIES LINK_FLAGS
                           "-undefined dynamic_lookup")
     ELSEIF(MSVC)
-      target_link_libraries(${_NAME} ${PYTHON_LIBRARIES})
+      target_link_libraries(${_NAME} ${PYTHON_LIBRARIES} $<$<CONFIG:Debug>:${PYTHON_DEBUG_LIBRARIES}> $<$<CONFIG:Release>:${PYTHON_LIBRARIES}>)
     ELSE()
       # In general, we should not link against libpython as we do not embed the
       # Python interpreter. The python binary itself can then define where the

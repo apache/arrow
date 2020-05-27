@@ -25,6 +25,7 @@
 
 # Need CMake 3.15 or later for Python3_FIND_STRATEGY
 if(${CMAKE_VERSION} VERSION_LESS "3.15.0")
+  set(ARROW_USE_DEPRECATED_FIND_PYTHONLIBS ON)
   # Use deprecated Python- and NumPy-finding code
   if(Python3Alt_FIND_REQUIRED)
     find_package(PythonLibsNew REQUIRED)

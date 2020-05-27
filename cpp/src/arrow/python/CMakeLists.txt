@@ -60,7 +60,11 @@ endif()
 
 set(ARROW_PYTHON_SHARED_LINK_LIBS arrow_shared)
 if(WIN32)
-  list(APPEND ARROW_PYTHON_SHARED_LINK_LIBS ${PYTHON_LIBRARIES} ${PYTHON_OTHER_LIBS})
+  if(ARROW_USE_DEPRECATED_FIND_PYTHONLIBS)
+    list(APPEND ARROW_PYTHON_SHARED_LINK_LIBS $<$<CONFIG:Debug>:${PYTHON_DEBUG_LIBRARIES}> $<$<CONFIG:Release>:${PYTHON_LIBRARIES}>)
+  else()
+    list(APPEND ARROW_PYTHON_SHARED_LINK_LIBS ${PYTHON_OTHER_LIBS})
+  endif()
 endif()
 
 set(ARROW_PYTHON_INCLUDES ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
@@ -86,6 +90,10 @@ add_arrow_lib(arrow_python
               ${PYTHON_OTHER_LIBS}
               EXTRA_INCLUDES
               "${ARROW_PYTHON_INCLUDES}")
+
+if(WIN32 AND TARGET arrow_python_shared AND NOT ARROW_USE_DEPRECATED_FIND_PYTHONLIBS)
+  target_link_libraries(arrow_python_shared LINK_PUBLIC ${PYTHON_LIBRARIES})
+endif()
 
 add_dependencies(arrow_python ${ARROW_PYTHON_LIBRARIES})
 
