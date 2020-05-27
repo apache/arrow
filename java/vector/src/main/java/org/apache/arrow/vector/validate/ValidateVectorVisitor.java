@@ -21,6 +21,7 @@ import java.util.List;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BaseFixedWidthVector;
+import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullVector;
@@ -87,6 +88,11 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
             " dataBuffer capacity %s", dataExtent, vector.getValueCount()));
       }
     }
+    return null;
+  }
+
+  @Override
+  public Void visit(BaseLargeVariableWidthVector left, Void value) {
     return null;
   }
 

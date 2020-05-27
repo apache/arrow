@@ -1476,7 +1476,6 @@ def get_generated_json_files(tempdir=None, flight=False):
 
         generate_primitive_large_offsets_case([17, 20])
         .skip_category('Go')
-        .skip_category('Java')  # TODO(ARROW-6110)
         .skip_category('JS'),
 
         generate_null_case([10, 0])

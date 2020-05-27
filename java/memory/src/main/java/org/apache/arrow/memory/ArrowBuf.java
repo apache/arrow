@@ -916,7 +916,7 @@ public final class ArrowBuf implements AutoCloseable {
    *              dst ArrowBuf has access to)
    * @param length length of data to copy
    */
-  public void getBytes(long index, ArrowBuf dst, int dstIndex, int length) {
+  public void getBytes(long index, ArrowBuf dst, long dstIndex, int length) {
     // bound check for this ArrowBuf where the data will be copied from
     checkIndex(index, length);
     // bound check for this ArrowBuf where the data will be copied into
