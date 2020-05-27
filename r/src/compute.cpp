@@ -253,7 +253,6 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(std::strin
   } else {
     return nullptr;
   }
-  // TODO: make sure the correct destructor is called?
 }
 
 // [[arrow::export]]
