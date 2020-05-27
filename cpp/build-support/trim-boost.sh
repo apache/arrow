@@ -41,6 +41,8 @@ BOOST_LIBS="$BOOST_LIBS regex.hpp"
 BOOST_LIBS="$BOOST_LIBS multiprecision/cpp_int.hpp"
 # These are for Thrift when Thrift_SOURCE=BUNDLED
 BOOST_LIBS="$BOOST_LIBS algorithm/string.hpp locale.hpp noncopyable.hpp numeric/conversion/cast.hpp scope_exit.hpp scoped_array.hpp shared_array.hpp tokenizer.hpp version.hpp"
+#These are for flight
+BOOST_LIBS="$BOOST_LIBS process.hpp process asio fusion"
 
 if [ ! -d ${BOOST_FILE} ]; then
   curl -L "${BOOST_URL}" > ${BOOST_FILE}.tar.gz
