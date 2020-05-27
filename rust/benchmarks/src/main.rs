@@ -27,6 +27,7 @@ use arrow::util::pretty;
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
 
+use datafusion::execution::physical_plan::csv::CsvReadOptions;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -62,7 +63,11 @@ fn main() -> Result<()> {
     let path = opt.path.to_str().unwrap();
 
     match opt.file_format.as_str() {
-        "csv" => ctx.register_csv("tripdata", path, &nyctaxi_schema(), true),
+        "csv" => {
+            let schema = nyctaxi_schema();
+            let options = CsvReadOptions::new().schema(&schema).has_header(true);
+            ctx.register_csv("tripdata", path, options)?
+        }
         "parquet" => ctx.register_parquet("tripdata", path)?,
         other => {
             println!("Invalid file format '{}'", other);
