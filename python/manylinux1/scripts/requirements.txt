@@ -23,12 +23,14 @@
 
 # pip requirements for all cpythons
 # NOTE: pip has GPG signatures; could download and verify independently.
-pip==19.0.3 \
-    --hash=sha256:6e6f197a1abfb45118dbb878b5c859a0edbdd33fd250100bc015b67fded4b9f2 \
-    --hash=sha256:bd812612bbd8ba84159d9ddc0266b7fbce712fc9bc98c82dee5750546ec8ec64
-wheel==0.31.1 \
-    --hash=sha256:80044e51ec5bbf6c894ba0bc48d26a8c20a9ba629f4ca19ea26ecfcf87685f5f \
-    --hash=sha256:0a2e54558a0628f2145d2fc822137e322412115173e8a2ddbe1c9024338ae83c
-setuptools==40.7.3 \
-    --hash=sha256:4f4acaf06d617dccfd3fbbc9fbd83cf4749759a1fa2bdf589206a3278e0d537a \
-    --hash=sha256:702fdd31cb10a65a94beba1a7d89219a58d2587a349e0a1b7827b133e99ca430
+# pip requirements for all cpythons
+# NOTE: pip has GPG signatures; could download and verify independently.
+pip==20.1.1 \
+    --hash=sha256:b27c4dedae8c41aa59108f2fa38bf78e0890e590545bc8ece7cdceb4ba60f6e4 \
+    --hash=sha256:27f8dc29387dd83249e06e681ce087e6061826582198a425085e0bf4c1cf3a55
+wheel==0.34.2 \
+    --hash=sha256:df277cb51e61359aba502208d680f90c0493adec6f0e848af94948778aed386e \
+    --hash=sha256:8788e9155fe14f54164c1b9eb0a319d98ef02c160725587ad60f14ddc57b6f96
+setuptools==46.4.0 \
+    --hash=sha256:d05c2c47bbef97fd58632b63dd2b83426db38af18f65c180b2423fea4b67e6b8 \
+    --hash=sha256:4334fc63121aafb1cc98fd5ae5dd47ea8ad4a38ad638b47af03a686deb14ef5b
