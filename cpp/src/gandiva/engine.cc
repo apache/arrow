@@ -165,7 +165,7 @@ static void setDataLayout(llvm::Module* module) {
   llvm::StringMap<bool> hostFeatures;
 
   if (llvm::sys::getHostCPUFeatures(hostFeatures))
-    for (auto &f : hostFeatures) features.AddFeature(f.first(), f.second);
+    for (auto& f : hostFeatures) features.AddFeature(f.first(), f.second);
 
   std::unique_ptr<llvm::TargetMachine> machine(
       target->createTargetMachine(targetTriple, cpu, features.getString(), {}, {}));
