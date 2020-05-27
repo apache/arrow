@@ -1376,6 +1376,26 @@ ipc___RecordBatchStreamWriter__Open <- function(stream, schema, use_legacy_forma
     .Call(`_arrow_ipc___RecordBatchStreamWriter__Open` , stream, schema, use_legacy_format)
 }
 
+Scalar__create <- function(x){
+    .Call(`_arrow_Scalar__create` , x)
+}
+
+Scalar__ToString <- function(s){
+    .Call(`_arrow_Scalar__ToString` , s)
+}
+
+Scalar__as_vector <- function(scalar){
+    .Call(`_arrow_Scalar__as_vector` , scalar)
+}
+
+Scalar__is_valid <- function(s){
+    .Call(`_arrow_Scalar__is_valid` , s)
+}
+
+Scalar__type <- function(s){
+    .Call(`_arrow_Scalar__type` , s)
+}
+
 schema_ <- function(fields){
     .Call(`_arrow_schema_` , fields)
 }

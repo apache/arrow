@@ -206,60 +206,91 @@ std::shared_ptr<arrow::Table> Table__FilterChunked(
   return tab;
 }
 
-arrow::Datum to_datum(SEXP x) {
-  // TODO: this is repetitive, can we DRY it out?
-  if (Rf_inherits(x, "ArrowObject") && Rf_inherits(x, "Array")) {
-    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Array>> obj(x);
-    return static_cast<std::shared_ptr<arrow::Array>>(obj);
-  } else if (Rf_inherits(x, "ArrowObject") && Rf_inherits(x, "ChunkedArray")) {
-    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::ChunkedArray>> obj(x);
-    return static_cast<std::shared_ptr<arrow::ChunkedArray>>(obj);
-  } else if (Rf_inherits(x, "ArrowObject") && Rf_inherits(x, "RecordBatch")) {
-    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::RecordBatch>> obj(x);
-    return static_cast<std::shared_ptr<arrow::RecordBatch>>(obj);
-  } else if (Rf_inherits(x, "ArrowObject") && Rf_inherits(x, "Table")) {
-    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Table>> obj(x);
-    return static_cast<std::shared_ptr<arrow::Table>>(obj);
-  } else {
-    // TODO: scalar?
-    // This assumes that R objects have already been converted to Arrow objects;
-    // that seems right but should we do the wrapping here too/instead?
-    Rcpp::stop("to_datum: Not implemented");
+template <typename T>
+std::shared_ptr<T> MaybeUnbox(const char* class_name, SEXP x) {
+  if (Rf_inherits(x, "ArrowObject") && Rf_inherits(x, class_name)) {
+    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>> obj(x);
+    return static_cast<std::shared_ptr<T>>(obj);
   }
+  return nullptr;
+}
+
+arrow::Datum to_datum(SEXP x) {
+  if (auto array = MaybeUnbox<arrow::Array>("Array", x)) {
+    return array;
+  }
+
+  if (auto chunked_array = MaybeUnbox<arrow::ChunkedArray>("ChunkedArray", x)) {
+    return chunked_array;
+  }
+
+  if (auto batch = MaybeUnbox<arrow::RecordBatch>("RecordBatch", x)) {
+    return batch;
+  }
+
+  if (auto table = MaybeUnbox<arrow::Table>("Table", x)) {
+    return table;
+  }
+
+  if (auto scalar = MaybeUnbox<arrow::Scalar>("Scalar", x)) {
+    return scalar;
+  }
+
+  // This assumes that R objects have already been converted to Arrow objects;
+  // that seems right but should we do the wrapping here too/instead?
+  Rcpp::stop("to_datum: Not implemented for type %s", Rf_type2char(TYPEOF(x)));
 }
 
 SEXP from_datum(arrow::Datum datum) {
-  if (datum.is_array()) {
-    return Rcpp::wrap(datum.make_array());
-  } else if (datum.is_arraylike()) {
-    return Rcpp::wrap(datum.chunked_array());
-  } else {
-    // TODO: the other datum types
-    Rcpp::stop("from_datum: Not implemented");
+  switch (datum.kind()) {
+    case arrow::Datum::SCALAR:
+      return Rcpp::wrap(datum.scalar());
+
+    case arrow::Datum::ARRAY:
+      return Rcpp::wrap(datum.make_array());
+
+    case arrow::Datum::CHUNKED_ARRAY:
+      return Rcpp::wrap(datum.chunked_array());
+
+    case arrow::Datum::RECORD_BATCH:
+      return Rcpp::wrap(datum.record_batch());
+
+    case arrow::Datum::TABLE:
+      return Rcpp::wrap(datum.table());
+
+    default:
+      break;
   }
+
+  auto str = datum.ToString();
+  Rcpp::stop("from_datum: Not implemented for Datum %s", str.c_str());
 }
 
-std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(std::string func_name,
-    List_ options) {
+std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
+    std::string func_name, List_ options) {
   if (func_name == "filter") {
-    auto out = std::make_shared<arrow::compute::FilterOptions>(arrow::compute::FilterOptions::Defaults());
+    auto out = std::make_shared<arrow::compute::FilterOptions>(
+        arrow::compute::FilterOptions::Defaults());
     if (!Rf_isNull(options["keep_na"]) && options["keep_na"]) {
       out->null_selection_behavior = arrow::compute::FilterOptions::EMIT_NULL;
     }
     return out;
-  } else if (func_name == "take") {
-    auto out = std::make_shared<arrow::compute::TakeOptions>(arrow::compute::TakeOptions::Defaults());
-    return out;
-  } else {
-    return nullptr;
   }
+
+  if (func_name == "take") {
+    auto out = std::make_shared<arrow::compute::TakeOptions>(
+        arrow::compute::TakeOptions::Defaults());
+    return out;
+  }
+
+  return nullptr;
 }
 
 // [[arrow::export]]
 SEXP compute__CallFunction(std::string func_name, List_ args, List_ options) {
   auto opts = make_compute_options(func_name, options);
   std::vector<arrow::Datum> datum_args;
-  for (auto arg:args) {
+  for (auto arg : args) {
     datum_args.push_back(to_datum(arg));
   }
   auto out = ValueOrStop(arrow::compute::CallFunction(func_name, datum_args, opts.get()));
