@@ -179,8 +179,8 @@ class IntegerField(PrimitiveField):
         return self.generate_range(size, lower_bound, upper_bound, name=name)
 
     def generate_range(self, size, lower, upper, name=None):
-        values = [int(x) for x in
-                  np.random.randint(lower, upper, size=size)]
+        values = list(map(str if self.bit_width == 64 else int,
+                          np.random.randint(lower, upper, size=size)))
 
         is_valid = self._make_is_valid(size)
 
@@ -1540,9 +1540,10 @@ def get_generated_json_files(tempdir=None, flight=False):
         .skip_category('Java')  # TODO(ARROW-7779)
         .skip_category('JS'),
 
-        generate_extension_case().skip_category('Go')
-                                 .skip_category('JS')
-                                 .skip_category('Rust'),
+        generate_extension_case()
+        .skip_category('Go')
+        .skip_category('JS')
+        .skip_category('Rust'),
     ]
 
     if flight:
