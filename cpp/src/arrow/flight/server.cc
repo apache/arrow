@@ -278,7 +278,7 @@ class DoExchangeMessageWriter : public FlightMessageWriter {
  public:
   explicit DoExchangeMessageWriter(
       grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* stream)
-      : stream_(stream), ipc_options_(ipc::IpcOptions::Defaults()) {}
+      : stream_(stream), ipc_options_(::arrow::ipc::IpcWriteOptions::Defaults()) {}
 
   Status Begin(const std::shared_ptr<Schema>& schema) override {
     if (started_) {
@@ -352,7 +352,7 @@ class DoExchangeMessageWriter : public FlightMessageWriter {
   }
 
   grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* stream_;
-  ipc::IpcOptions ipc_options_;
+  ::arrow::ipc::IpcWriteOptions ipc_options_;
   ipc::DictionaryMemo dictionary_memo_;
   bool started_ = false;
   bool dictionaries_written_ = false;

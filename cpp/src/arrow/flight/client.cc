@@ -408,7 +408,7 @@ class GrpcIpcMessageReader : public ipc::MessageReader {
       return stream_->Finish(result.status());
     }
     *app_metadata_ = std::move(data->app_metadata);
-    return std::move(result);
+    return result;
   }
 
  private:
