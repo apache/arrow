@@ -622,61 +622,13 @@ cdef class Array(_PandasConvertible):
             result = self.ap.Diff(deref(other.ap))
         return frombytes(result)
 
-    def cast(self, object target_type, bint safe=True):
+    def cast(self, object target_type, safe=True):
         """
-        Cast array values to another data type.
+        Cast array values to another data type
 
-        Example
-        -------
-
-        >>> from datetime import datetime
-        >>> import pyarrow as pa
-        >>> arr = pa.array([datetime(2010, 1, 1), datetime(2015, 1, 1)])
-        >>> arr.type
-        TimestampType(timestamp[us])
-
-        You can use ``pyarrow.DataType`` objects to specify the target type:
-
-        >>> arr.cast(pa.timestamp('ms'))
-        <pyarrow.lib.TimestampArray object at 0x10420eb88>
-        [
-          1262304000000,
-          1420070400000
-        ]
-        >>> arr.cast(pa.timestamp('ms')).type
-        TimestampType(timestamp[ms])
-
-        Alternatively, it is also supported to use the string aliases for these
-        types:
-
-        >>> arr.cast('timestamp[ms]')
-        <pyarrow.lib.TimestampArray object at 0x10420eb88>
-        [
-          1262304000000,
-          1420070400000
-        ]
-        >>> arr.cast('timestamp[ms]').type
-        TimestampType(timestamp[ms])
-
-        Parameters
-        ----------
-        target_type : DataType
-            Type to cast to
-        safe : bool, default True
-            Check for overflows or other unsafe conversions
-
-        Returns
-        -------
-        casted : Array
+        See pyarrow.compute.cast for usage
         """
-        cdef:
-            CCastOptions options = CCastOptions(safe)
-            DataType type = ensure_type(target_type)
-            shared_ptr[CArray] result
-
-        with nogil:
-            result = GetResultValue(Cast(self.ap[0], type.sp_type, options))
-        return pyarrow_wrap_array(result)
+        return _pc().cast(self, target_type, safe=safe)
 
     def view(self, object target_type):
         """

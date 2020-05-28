@@ -950,7 +950,7 @@ def test_cast_none():
     # ARROW-3735: Ensure that calling cast(None) doesn't segfault.
     arr = pa.array([1, 2, 3])
 
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         arr.cast(None)
 
 

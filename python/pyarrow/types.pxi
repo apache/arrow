@@ -2509,7 +2509,7 @@ def type_for_alias(name):
     return alias()
 
 
-cdef DataType ensure_type(object ty, c_bool allow_none=False):
+cpdef DataType ensure_type(object ty, bint allow_none=False):
     if allow_none and ty is None:
         return None
     elif isinstance(ty, DataType):

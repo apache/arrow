@@ -99,8 +99,11 @@ class ARROW_EXPORT Function {
 
   /// \brief Convenience for invoking a function with kernel dispatch and
   /// memory allocation details taken care of
-  Result<Datum> Execute(const std::vector<Datum>& args, const FunctionOptions* options,
-                        ExecContext* ctx = NULLPTR) const;
+  ///
+  /// This function can be overridden in subclasses
+  virtual Result<Datum> Execute(const std::vector<Datum>& args,
+                                const FunctionOptions* options,
+                                ExecContext* ctx = NULLPTR) const;
 
  protected:
   Function(std::string name, Function::Kind kind, const Arity& arity)

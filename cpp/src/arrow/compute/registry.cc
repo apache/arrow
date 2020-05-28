@@ -100,6 +100,7 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   // Scalar functions
   RegisterScalarArithmetic(registry.get());
   RegisterScalarBoolean(registry.get());
+  RegisterScalarCast(registry.get());
   RegisterScalarComparison(registry.get());
   RegisterScalarSetLookup(registry.get());
 
