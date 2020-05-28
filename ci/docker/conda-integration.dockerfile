@@ -34,6 +34,8 @@ RUN conda install -q \
         openjdk=${jdk} && \
     conda clean --all
 
+RUN conda install -c conda-forge rust
+
 ENV GOROOT=/opt/go \
     GOBIN=/opt/go/bin \
     GOPATH=/go \
