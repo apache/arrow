@@ -212,7 +212,8 @@ int main(int argc, char** argv) {
     scenario = std::make_shared<arrow::flight::IntegrationTestScenario>();
   }
 
-  arrow::flight::FlightClientOptions options;
+  arrow::flight::FlightClientOptions options =
+      arrow::flight::FlightClientOptions::Defaults();
   std::unique_ptr<arrow::flight::FlightClient> client;
 
   ABORT_NOT_OK(scenario->MakeClient(&options));
