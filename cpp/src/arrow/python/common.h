@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <functional>
 #include <memory>
 #include <utility>
 
@@ -42,9 +41,7 @@ ARROW_PYTHON_EXPORT Status ConvertPyError(StatusCode code = StatusCode::UnknownE
 // Query whether the given Status is a Python error (as wrapped by ConvertPyError()).
 ARROW_PYTHON_EXPORT bool IsPyError(const Status& status);
 // Restore a Python error wrapped in a Status.
-ARROW_PYTHON_EXPORT void RestorePyError(Status status);
-// Convert a Python Exception to a Status.
-ARROW_PYTHON_EXPORT Status ExceptionToStatus(PyObject* exception);
+ARROW_PYTHON_EXPORT void RestorePyError(const Status& status);
 
 // Catch a pending Python exception and return the corresponding Status.
 // If no exception is pending, Status::OK() is returned.
@@ -115,11 +112,30 @@ class ARROW_PYTHON_EXPORT PyReleaseGIL {
   ARROW_DISALLOW_COPY_AND_ASSIGN(PyReleaseGIL);
 };
 
+// A helper to call safely into the Python interpreter from arbitrary C++ code.
+// The GIL is acquired, and the current thread's error status is preserved.
+template <typename Function>
+auto SafeCallIntoPython(Function&& func) -> decltype(func()) {
+  PyAcquireGIL lock;
+  PyObject* exc_type;
+  PyObject* exc_value;
+  PyObject* exc_traceback;
+  PyErr_Fetch(&exc_type, &exc_value, &exc_traceback);
+  auto maybe_status = std::forward<Function>(func)();
+  // If the return Status is a "Python error", the current Python error status
+  // describes the error and shouldn't be clobbered.
+  if (!IsPyError(::arrow::internal::GenericToStatus(maybe_status)) &&
+      exc_type != NULLPTR) {
+    PyErr_Restore(exc_type, exc_value, exc_traceback);
+  }
+  return maybe_status;
+}
+
 // A RAII primitive that DECREFs the underlying PyObject* when it
 // goes out of scope.
 class ARROW_PYTHON_EXPORT OwnedRef {
  public:
-  OwnedRef() = default;
+  OwnedRef() : obj_(NULLPTR) {}
   OwnedRef(OwnedRef&& other) : OwnedRef(other.detach()) {}
   explicit OwnedRef(PyObject* obj) : obj_(obj) {}
 
@@ -143,11 +159,6 @@ class ARROW_PYTHON_EXPORT OwnedRef {
     return result;
   }
 
-  PyObject* incref() const {
-    Py_XINCREF(obj_);
-    return obj_;
-  }
-
   PyObject* obj() const { return obj_; }
 
   PyObject** ref() { return &obj_; }
@@ -157,7 +168,7 @@ class ARROW_PYTHON_EXPORT OwnedRef {
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(OwnedRef);
 
-  PyObject* obj_ = NULLPTR;
+  PyObject* obj_;
 };
 
 // Same as OwnedRef, but ensures the GIL is taken when it goes out of scope.
@@ -165,62 +176,14 @@ class ARROW_PYTHON_EXPORT OwnedRef {
 // (e.g. if it is released in the middle of a function for performance reasons)
 class ARROW_PYTHON_EXPORT OwnedRefNoGIL : public OwnedRef {
  public:
-  using OwnedRef::OwnedRef;
-  OwnedRefNoGIL() = default;
-  OwnedRefNoGIL(OwnedRefNoGIL&& other) = default;
-  OwnedRefNoGIL& operator=(OwnedRefNoGIL&& other) = default;
-
-  PyObject* incref() const {
-    PyAcquireGIL lock;
-    return OwnedRef::incref();
-  }
+  OwnedRefNoGIL() : OwnedRef() {}
+  OwnedRefNoGIL(OwnedRefNoGIL&& other) : OwnedRef(other.detach()) {}
+  explicit OwnedRefNoGIL(PyObject* obj) : OwnedRef(obj) {}
 
   ~OwnedRefNoGIL() {
     PyAcquireGIL lock;
     reset();
   }
-};
-
-// A holder for Fetched exceptions
-class ARROW_PYTHON_EXPORT PyError {
- public:
-  OwnedRefNoGIL type, exception, traceback;
-
-  // Construct a PyError wrapping no exception
-  PyError() = default;
-
-  // Construct a PyError wrapping an exception object.
-  // Beware: this exception will be Restored in the
-  // destructor by default.
-  explicit PyError(PyObject* exception);
-
-  PyError(PyError&&) = default;
-  PyError& operator=(PyError&&) = default;
-
-  ~PyError() { std::move(*this).Restore(); }
-
-  // Fetch the current Python error state into a PyError.
-  static PyError Fetch();
-
-  // Restore the Python error state stored in this PyError.
-  // No-op if this PyError does not wrap an exception.
-  void Restore() &&;
-
-  // Returns true if PyError wraps an exception
-  explicit operator bool() const;
-
-  // Set this error's __context__
-  void SetContext(PyError);
-
-  // Convert this error to a Status.
-  // This PyError can be recovered from the Status using Get()
-  Status ToStatus(StatusCode code = StatusCode::UnknownError) &&;
-
-  // Retrieve the PyError wrapped in a Status
-  static PyError Get(Status status);
-
- private:
-  void Normalize();
 };
 
 // A temporary conversion of a Python object to a bytes area.
@@ -336,94 +299,6 @@ static inline PyObject* cpp_PyObject_CallMethod(PyObject* obj, const char* metho
                                                 const char* argspec, ArgTypes... args) {
   return PyObject_CallMethod(obj, const_cast<char*>(method_name),
                              const_cast<char*>(argspec), args...);
-}
-
-// A helper to call safely into the Python interpreter from arbitrary C++ code.
-// The GIL is acquired, and the current thread's error status is preserved.
-template <typename Function>
-auto SafeCallIntoPython(Function&& func) -> decltype(func()) {
-  PyAcquireGIL lock;
-  auto fetched_error = PyError::Fetch();
-
-  auto result = std::forward<Function>(func)();
-
-  if (IsPyError(::arrow::internal::GenericToStatus(result)) && fetched_error) {
-    // The return Status is a "Python error" which arose while evaluating func(),
-    // in the context of fetched_error.
-    auto status = ::arrow::internal::GenericToStatus(std::move(result));
-    auto wrapped_error = PyError::Get(std::move(status));
-    wrapped_error.SetContext(std::move(fetched_error));
-    result = std::move(wrapped_error).ToStatus();
-    // This also prevents fetched_error.~PyError from restoring and clobbering result
-  }
-
-  return result;
-}
-
-template <typename Self, typename Fn>
-struct BoundMethod;
-
-template <typename Self, typename R, typename... A>
-struct BoundMethod<Self, R(A...)> {
-  using Unbound = R(Self*, A...);
-
-  BoundMethod(void* self, Unbound* unbound)
-      : self_(reinterpret_cast<PyObject*>(self)), unbound_(unbound) {
-    self_.incref();
-  }
-
-  BoundMethod(BoundMethod&&) = default;
-  BoundMethod& operator=(BoundMethod&&) = default;
-
-  // copy construction is required by std::function
-  BoundMethod(const BoundMethod& other)
-      : self_(other.self_.incref()), unbound_(other.unbound_) {}
-
-  BoundMethod& operator=(const BoundMethod& other) {
-    self_.reset(other.self_.incref());
-    unbound_ = other.unbound_;
-    return *this;
-  }
-
-  Result<R> operator()(A... a) const {
-    // TODO(bkietz) inlining SafeCallIntoPython is necessary since GCC 4.8 can't pass a
-    // parameter pack through a [&] lambda capture
-    PyAcquireGIL lock;
-    auto fetched_error = PyError::Fetch();
-
-    R out = unbound_(reinterpret_cast<Self*>(self_.obj()), std::forward<A>(a)...);
-    auto wrapped_error = PyError::Fetch();
-
-    if (wrapped_error) {
-      if (fetched_error) {
-        wrapped_error.SetContext(std::move(fetched_error));
-      }
-      return std::move(wrapped_error).ToStatus();
-    }
-
-    return out;
-  }
-
-  OwnedRefNoGIL self_;
-  Unbound* unbound_;
-};
-
-template <typename Fn, typename R, typename Self, typename... A>
-std::function<Fn> BindMethod(void* self, R (&unbound)(Self* self, A...)) {
-  BoundMethod<Self, R(A...)> bound{self, &unbound};
-  return std::function<Fn>(std::move(bound));
-}
-
-template <typename Fn, typename R, typename Self, typename... A>
-std::function<Fn> BindMethod(void* self, R (*unbound)(Self* self, A...)) {
-  BoundMethod<Self, R(A...)> bound{self, unbound};
-  return std::function<Fn>(std::move(bound));
-}
-
-template <typename Fn, typename R, typename Self, typename... A>
-std::function<Fn> BindMethod(void* self, R (**unbound)(Self* self, A...)) {
-  BoundMethod<Self, R(A...)> bound{self, *unbound};
-  return std::function<Fn>(std::move(bound));
 }
 
 }  // namespace py

@@ -55,7 +55,7 @@ cdef class FileSource:
         cdef:
             shared_ptr[CFileSystem] c_filesystem
             c_string c_path
-            function[CCustomOpen] c_open
+            shared_ptr[CRandomAccessFile] c_file
             shared_ptr[CBuffer] c_buffer
 
         if isinstance(file, FileSource):
@@ -75,16 +75,12 @@ cdef class FileSource:
 
         elif hasattr(file, 'read'):
             # Optimistically hope this is file-like
-            c_open = BindMethod[CCustomOpen](file, &FileSource._custom_open)
-            self.wrapped = CFileSource(move(c_open))
+            c_file = get_native_file(file, False).get_random_access_file()
+            self.wrapped = CFileSource(move(c_file))
 
         else:
             raise TypeError("cannot construct a FileSource "
                             "from " + str(file))
-
-    @staticmethod
-    cdef shared_ptr[CRandomAccessFile] _custom_open(object file) except +:
-        return get_native_file(file, False).get_random_access_file()
 
     @staticmethod
     def from_uri(uri):

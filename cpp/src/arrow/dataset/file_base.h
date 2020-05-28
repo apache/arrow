@@ -64,6 +64,10 @@ class ARROW_DS_EXPORT FileSource {
       : impl_(std::bind(std::move(open_with_compression), compression)),
         compression_(compression) {}
 
+  explicit FileSource(std::shared_ptr<io::RandomAccessFile> file,
+                      Compression::type compression = Compression::UNCOMPRESSED)
+      : impl_([=] { return ToResult(file); }), compression_(compression) {}
+
   FileSource() : impl_(CustomOpen{&InvalidOpen}) {}
 
   /// \brief Return the type of raw compression on the file, if any

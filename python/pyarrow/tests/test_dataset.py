@@ -1540,11 +1540,3 @@ def test_parquet_dataset_factory_partitioned(tempdir):
     result = result.to_pandas().sort_values("f1").reset_index(drop=True)
     expected = table.to_pandas().drop(columns=["part"])
     pd.testing.assert_frame_equal(result, expected)
-
-
-def test_file_source_refcount():
-    f = io.BytesIO()
-    rc0 = sys.getrefcount(f)
-    src = ds.FileSource(f)
-    del src
-    assert sys.getrefcount(f) == rc0

@@ -25,7 +25,6 @@ from libcpp.utility cimport pair
 from libcpp.vector cimport vector
 from libcpp.unordered_map cimport unordered_map
 from libcpp.unordered_set cimport unordered_set
-from libcpp.functional cimport function
 
 from cpython cimport PyObject
 from cpython.datetime cimport PyDateTime_DateTime
@@ -127,9 +126,6 @@ cdef extern from "arrow/result.h" namespace "arrow" nogil:
 
 cdef extern from "arrow/python/common.h" namespace "arrow::py" nogil:
     T GetResultValue[T](CResult[T]) except *
-    CStatus ExceptionToStatus(Exception)
-
-    cdef function[F] BindMethod[F](object self, void* unbound)
 
 
 cdef inline object PyObject_to_object(PyObject* o):
