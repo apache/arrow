@@ -153,8 +153,8 @@ Status Engine::Make(const std::shared_ptr<Configuration>& conf,
 }
 
 // This method was modified from its original version for a part of MLIR
-// Original source:
-// from https://github.com/llvm/llvm-project/blob/9f2ce5b915a505a5488a5cf91bb0a8efa9ddfff7/mlir/lib/ExecutionEngine/ExecutionEngine.cpp
+// Original source from
+// https://github.com/llvm/llvm-project/blob/9f2ce5b915a505a5488a5cf91bb0a8efa9ddfff7/mlir/lib/ExecutionEngine/ExecutionEngine.cpp
 // The original copyright notice follows.
 
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -185,7 +185,7 @@ static void SetDataLayout(llvm::Module* module) {
   module->setDataLayout(machine->createDataLayout());
 }
 // end of the mofified method from MLIR
-  
+
 // Handling for pre-compiled IR libraries.
 Status Engine::LoadPreCompiledIR() {
   auto bitcode = llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledBitcode),
