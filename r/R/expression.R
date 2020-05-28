@@ -83,8 +83,7 @@ Expression$field_ref <- function(name) {
   shared_ptr(Expression, dataset___expr__field_ref(name))
 }
 Expression$scalar <- function(x) {
-  stopifnot(vec_size(x) == 1L || is.null(x))
-  shared_ptr(Expression, dataset___expr__scalar(x))
+  shared_ptr(Expression, dataset___expr__scalar(Scalar$create(x)))
 }
 Expression$compare <- function(OP, e1, e2) {
   comp_func <- comparison_function_map[[OP]]

@@ -2762,10 +2762,10 @@ RcppExport SEXP _arrow_dataset___expr__is_valid(SEXP lhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::Expression> dataset___expr__scalar(SEXP x);
+std::shared_ptr<ds::Expression> dataset___expr__scalar(const std::shared_ptr<arrow::Scalar>& x);
 RcppExport SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<SEXP>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Scalar>&>::type x(x_sexp);
 	return Rcpp::wrap(dataset___expr__scalar(x));
 END_RCPP
 }
@@ -5395,16 +5395,17 @@ RcppExport SEXP _arrow_ipc___RecordBatchStreamWriter__Open(SEXP stream_sexp, SEX
 
 // scalar.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Scalar> Scalar__create(SEXP x);
-RcppExport SEXP _arrow_Scalar__create(SEXP x_sexp){
+std::shared_ptr<arrow::Scalar> Array__GetScalar(const std::shared_ptr<arrow::Array>& x, int64_t i);
+RcppExport SEXP _arrow_Array__GetScalar(SEXP x_sexp, SEXP i_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<SEXP>::type x(x_sexp);
-	return Rcpp::wrap(Scalar__create(x));
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<int64_t>::type i(i_sexp);
+	return Rcpp::wrap(Array__GetScalar(x, i));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_Scalar__create(SEXP x_sexp){
-	Rf_error("Cannot call Scalar__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_Array__GetScalar(SEXP x_sexp, SEXP i_sexp){
+	Rf_error("Cannot call Array__GetScalar(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -6348,7 +6349,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___RecordBatchWriter__Close", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__Close, 1}, 
 		{ "_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 3}, 
 		{ "_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 3}, 
-		{ "_arrow_Scalar__create", (DL_FUNC) &_arrow_Scalar__create, 1}, 
+		{ "_arrow_Array__GetScalar", (DL_FUNC) &_arrow_Array__GetScalar, 2}, 
 		{ "_arrow_Scalar__ToString", (DL_FUNC) &_arrow_Scalar__ToString, 1}, 
 		{ "_arrow_Scalar__CastTo", (DL_FUNC) &_arrow_Scalar__CastTo, 2}, 
 		{ "_arrow_Scalar__as_vector", (DL_FUNC) &_arrow_Scalar__as_vector, 1}, 

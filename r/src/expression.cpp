@@ -103,10 +103,9 @@ std::shared_ptr<ds::Expression> dataset___expr__is_valid(
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__scalar(SEXP x) {
-  // defined in scalar.cpp
-  std::shared_ptr<arrow::Scalar> Scalar__create(SEXP x);
-  return ds::scalar(Scalar__create(x));
+std::shared_ptr<ds::Expression> dataset___expr__scalar(
+    const std::shared_ptr<arrow::Scalar>& x) {
+  return ds::scalar(x);
 }
 
 // [[arrow::export]]

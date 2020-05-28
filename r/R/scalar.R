@@ -15,17 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrowExports.R
+#' @include arrow-package.R
 
-#' Arrow scalars
+#' @title Arrow scalars
+#' @usage NULL
+#' @format NULL
+#' @docType class
 #'
-#' @description
-#' `Scalar`s are used to store a singular value of an arrow `DataType`
+#' @description A `Scalar` holds a single value of an Arrow type.
 #'
 #' @name Scalar
 #' @rdname Scalar
 #' @export
 Scalar <- R6Class("Scalar", inherit = ArrowObject,
+  # TODO: document the methods
   public = list(
     ToString = function() Scalar__ToString(self),
     cast = function(target_type) {
@@ -38,10 +41,15 @@ Scalar <- R6Class("Scalar", inherit = ArrowObject,
     type = function() DataType$create(Scalar__type(self))
   )
 )
-Scalar$create <- function(x) {
-  # TODO: it would probably be best if an explicit type could be provided
+Scalar$create <- function(x, type = NULL) {
   if (!inherits(x, "externalptr")) {
-    x <- Scalar__create(x)
+    if (is.null(x)) {
+      x <- vctrs::unspecified(1)
+    } else if (length(x) != 1 && !is.data.frame(x)) {
+      # Wrap in a list type
+      x <- list(x)
+    }
+    x <- Array__GetScalar(Array$create(x, type = type), 0)
   }
   shared_ptr(Scalar, x)
 }

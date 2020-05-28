@@ -1376,8 +1376,8 @@ ipc___RecordBatchStreamWriter__Open <- function(stream, schema, use_legacy_forma
     .Call(`_arrow_ipc___RecordBatchStreamWriter__Open` , stream, schema, use_legacy_format)
 }
 
-Scalar__create <- function(x){
-    .Call(`_arrow_Scalar__create` , x)
+Array__GetScalar <- function(x, i){
+    .Call(`_arrow_Array__GetScalar` , x, i)
 }
 
 Scalar__ToString <- function(s){
