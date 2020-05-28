@@ -57,7 +57,7 @@ TEST(Arity, Basics) {
 }
 
 TEST(ScalarFunction, Basics) {
-  ScalarFunction func("scalar_test", 2);
+  ScalarFunction func("scalar_test", Arity::Binary());
   ScalarFunction varargs_func("varargs_test", Arity::VarArgs(1));
 
   ASSERT_EQ("scalar_test", func.name());
@@ -72,7 +72,7 @@ TEST(ScalarFunction, Basics) {
 }
 
 TEST(VectorFunction, Basics) {
-  VectorFunction func("vector_test", 2);
+  VectorFunction func("vector_test", Arity::Binary());
   VectorFunction varargs_func("varargs_test", Arity::VarArgs(1));
 
   ASSERT_EQ("vector_test", func.name());
@@ -139,8 +139,8 @@ void CheckAddDispatch(FunctionType* func) {
 }
 
 TEST(ScalarVectorFunction, DispatchExact) {
-  ScalarFunction func1("scalar_test", 2);
-  VectorFunction func2("vector_test", 2);
+  ScalarFunction func1("scalar_test", Arity::Binary());
+  VectorFunction func2("vector_test", Arity::Binary());
 
   CheckAddDispatch(&func1);
   CheckAddDispatch(&func2);
@@ -173,7 +173,7 @@ TEST(ArrayFunction, VarArgs) {
 }
 
 TEST(ScalarAggregateFunction, Basics) {
-  ScalarAggregateFunction func("agg_test", 1);
+  ScalarAggregateFunction func("agg_test", Arity::Unary());
 
   ASSERT_EQ("agg_test", func.name());
   ASSERT_EQ(1, func.arity().num_args);
@@ -190,7 +190,7 @@ void NoopMerge(KernelContext*, const KernelState&, KernelState*) {}
 void NoopFinalize(KernelContext*, Datum*) {}
 
 TEST(ScalarAggregateFunction, DispatchExact) {
-  ScalarAggregateFunction func("agg_test", 1);
+  ScalarAggregateFunction func("agg_test", Arity::Unary());
 
   std::vector<InputType> in_args = {ValueDescr::Array(int8())};
   ScalarAggregateKernel kernel(std::move(in_args), int64(), NoopInit, NoopConsume,

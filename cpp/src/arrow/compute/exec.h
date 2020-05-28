@@ -60,29 +60,38 @@ static constexpr int64_t kDefaultExecChunksize = UINT16_MAX;
 /// function evaluation
 class ARROW_EXPORT ExecContext {
  public:
-  // If no function registry passed, the default is used
+  // If no function registry passed, the default is used.
   explicit ExecContext(MemoryPool* pool = default_memory_pool(),
                        FunctionRegistry* func_registry = NULLPTR);
 
+  /// \brief The MemoryPool used for allocations, default is
+  /// default_memory_pool().
   MemoryPool* memory_pool() const { return pool_; }
 
   ::arrow::internal::CpuInfo* cpu_info() const;
 
+  /// \brief The FunctionRegistry for looking up functions by name and
+  /// selecting kernels for execution. Defaults to the library-global function
+  /// registry provided by GetFunctionRegistry.
   FunctionRegistry* func_registry() const { return func_registry_; }
 
-  // \brief Set maximum length unit of work for kernel execution. Larger inputs
-  // will be split into smaller chunks, and, if desired, processed in
-  // parallel. Set to -1 for no limit
+  // \brief Set maximum length unit of work for kernel execution. Larger
+  // contiguous array inputs will be split into smaller chunks, and, if
+  // possible and enabled, processed in parallel. The default chunksize is
+  // INT64_MAX, so contiguous arrays are not split.
   void set_exec_chunksize(int64_t chunksize) { exec_chunksize_ = chunksize; }
 
-  // \brief Maximum length unit of work for kernel execution.
+  // \brief Maximum length for ExecBatch data chunks processed by
+  // kernels. Contiguous array inputs with longer length will be split into
+  // smaller chunks.
   int64_t exec_chunksize() const { return exec_chunksize_; }
 
-  /// \brief Set whether to use multiple threads for function execution
+  /// \brief Set whether to use multiple threads for function execution. This
+  /// is not yet used.
   void set_use_threads(bool use_threads = true) { use_threads_ = use_threads; }
 
   /// \brief If true, then utilize multiple threads where relevant for function
-  /// execution
+  /// execution. This is not yet used.
   bool use_threads() const { return use_threads_; }
 
   // Set the preallocation strategy for kernel execution as it relates to
@@ -94,12 +103,15 @@ class ARROW_EXPORT ExecContext {
   // chunk of execution
   //
   // TODO: At some point we might want the limit the size of contiguous
-  // preallocations (for example, merging small ChunkedArray chunks until
-  // reaching some desired size)
+  // preallocations. For example, even if the exec_chunksize is 64K or less, we
+  // might limit contiguous allocations to 1M records, say.
   void set_preallocate_contiguous(bool preallocate) {
     preallocate_contiguous_ = preallocate;
   }
 
+  /// \brief If contiguous preallocations should be used when doing chunked
+  /// execution as specified by exec_chunksize(). See
+  /// set_preallocate_contiguous() for more information.
   bool preallocate_contiguous() const { return preallocate_contiguous_; }
 
  private:
@@ -146,22 +158,53 @@ class ARROW_EXPORT SelectionVector {
 /// Array and Scalar values and an optional SelectionVector indicating that
 /// there is an unmaterialized filter that either must be materialized, or (if
 /// the kernel supports it) pushed down into the kernel implementation.
+///
+/// ExecBatch is semantically similar to RecordBatch in that in a SQL context
+/// it represents a collection of records, but constant "columns" are
+/// represented by Scalar values rather than having to be converted into arrays
+/// with repeated values.
+///
+/// TODO: Datum uses arrow/util/variant.h which may be a bit heavier-weight
+/// than is desirable for this class. Microbenchmarks would help determine for
+/// sure. See ARROW-8928.
 struct ExecBatch {
   ExecBatch() {}
   ExecBatch(std::vector<Datum> values, int64_t length)
       : values(std::move(values)), length(length) {}
 
+  /// The values representing positional arguments to be passed to a kernel's
+  /// exec function for processing.
   std::vector<Datum> values;
+
+  /// A deferred filter represented as an array of indices into the values.
+  ///
+  /// For example, the filter [true, true, false, true] would be represented as
+  /// the selection vector [0, 1, 3]. When the selection vector is set,
+  /// ExecBatch::length is equal to the length of this array.
   std::shared_ptr<SelectionVector> selection_vector;
+
+  /// The semantic length of the ExecBatch. When the values are all scalars,
+  /// the length should be set to 1, otherwise the length is taken from the
+  /// array values, except when there is a selection vector. When there is a
+  /// selection vector set, the length of the batch is the length of the
+  /// selection.
+  ///
+  /// If the array values are of length 0 then the length is 0 regardless of
+  /// whether any values are Scalar. In general ExecBatch objects are produced
+  /// by ExecBatchIterator which by design does not yield length-0 batches.
   int64_t length;
 
+  /// \brief Return the value at the i-th index
   template <typename index_type>
   inline const Datum& operator[](index_type i) const {
     return values[i];
   }
 
+  /// \brief A convenience for the number of values / arguments.
   int num_values() const { return static_cast<int>(values.size()); }
 
+  /// \brief A convenience for returning the ValueDescr objects (types and
+  /// shapes) from the batch.
   std::vector<ValueDescr> GetDescriptors() const {
     std::vector<ValueDescr> result;
     for (const auto& value : this->values) {
@@ -178,7 +221,7 @@ ARROW_EXPORT
 Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum>& args,
                            const FunctionOptions* options, ExecContext* ctx = NULLPTR);
 
-/// \brief Variant of CallFunction for functions not requiring options
+/// \brief Variant of CallFunction for functions not requiring options.
 ARROW_EXPORT
 Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum>& args,
                            ExecContext* ctx = NULLPTR);
