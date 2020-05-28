@@ -740,7 +740,7 @@ public class TestArrowFile extends BaseFileTest {
     int numBlocksWritten = 0;
 
     try (IntVector vector = new IntVector("foo", allocator);) {
-      Schema schema = new Schema(Collections.singletonList(vector.getField()), null);
+      Schema schema = new Schema(Collections.singletonList(vector.getField()));
       try (FileOutputStream fileOutputStream = new FileOutputStream(file);
            VectorSchemaRoot root =
               new VectorSchemaRoot(schema, Collections.singletonList((FieldVector) vector), vector.getValueCount());
