@@ -240,50 +240,76 @@ def test_filter_errors():
             obj.filter(mask)
 
 
-def test_compare_array():
+@pytest.mark.parametrize("typ", ["array", "chunked_array"])
+def test_compare_array(typ):
+    if typ == "array":
+        def con(values): return pa.array(values)
+    else:
+        def con(values): return pa.chunked_array([values])
 
-    arr1 = pa.array([1, 2, 3, 4, None])
-    arr2 = pa.array([1, 1, 4, None, 4])
+    arr1 = con([1, 2, 3, 4, None])
+    arr2 = con([1, 1, 4, None, 4])
 
     result = arr1 == arr2
-    assert result.equals(pa.array([True, False, False, None, None]))
+    assert result.equals(con([True, False, False, None, None]))
 
     result = arr1 != arr2
-    assert result.equals(pa.array([False, True, True, None, None]))
+    assert result.equals(con([False, True, True, None, None]))
 
     result = arr1 < arr2
-    assert result.equals(pa.array([False, False, True, None, None]))
+    assert result.equals(con([False, False, True, None, None]))
 
     result = arr1 <= arr2
-    assert result.equals(pa.array([True, False, True, None, None]))
+    assert result.equals(con([True, False, True, None, None]))
 
     result = arr1 > arr2
-    assert result.equals(pa.array([False, True, False, None, None]))
+    assert result.equals(con([False, True, False, None, None]))
 
     result = arr1 >= arr2
-    assert result.equals(pa.array([True, True, False, None, None]))
+    assert result.equals(con([True, True, False, None, None]))
 
 
-def test_compare_scalar():
+@pytest.mark.parametrize("typ", ["array", "chunked_array"])
+def test_compare_scalar(typ):
+    if typ == "array":
+        def con(values): return pa.array(values)
+    else:
+        def con(values): return pa.chunked_array([values])
 
-    arr = pa.array([1, 2, 3, None])
+    arr = con([1, 2, 3, None])
     # TODO this is a hacky way to construct a scalar ..
     scalar = pa.array([2]).sum()
 
     result = arr == scalar
-    assert result.equals(pa.array([False, True, False, None]))
+    assert result.equals(con([False, True, False, None]))
 
     result = arr != scalar
-    assert result.equals(pa.array([True, False, True, None]))
+    assert result.equals(con([True, False, True, None]))
 
     result = arr < scalar
-    assert result.equals(pa.array([True, False, False, None]))
+    assert result.equals(con([True, False, False, None]))
 
     result = arr <= scalar
-    assert result.equals(pa.array([True, True, False, None]))
+    assert result.equals(con([True, True, False, None]))
 
     result = arr > scalar
-    assert result.equals(pa.array([False, False, True, None]))
+    assert result.equals(con([False, False, True, None]))
 
     result = arr >= scalar
-    assert result.equals(pa.array([False, True, True, None]))
+    assert result.equals(con([False, True, True, None]))
+
+
+def test_compare_chunked_array_mixed():
+
+    arr = pa.array([1, 2, 3, 4, None])
+    arr_chunked = pa.chunked_array([[1, 2, 3], [4, None]])
+    arr_chunked2 = pa.chunked_array([[1, 2], [3, 4, None]])
+
+    expected = pa.chunked_array([[True, True, True, True, None]])
+
+    for result in [
+        arr == arr_chunked,
+        arr_chunked == arr,
+        arr_chunked == arr_chunked2,
+    ]:
+        assert result.equals(expected)
