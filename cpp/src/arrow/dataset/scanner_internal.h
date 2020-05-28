@@ -45,7 +45,7 @@ inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
                                               MemoryPool* pool) {
   return MakeMaybeMapIterator(
       [=](std::shared_ptr<RecordBatch> in) {
-        // The RecordBatchProjector is shared accross ScanTasks of the same
+        // The RecordBatchProjector is shared across ScanTasks of the same
         // Fragment. The resize operation of missing columns is not thread safe.
         // Ensure that each ScanTask gets his own projector.
         RecordBatchProjector local_projector{*projector};

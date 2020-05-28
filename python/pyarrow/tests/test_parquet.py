@@ -652,7 +652,7 @@ def test_pandas_can_write_nested_data(tempdir):
         "agg_col": [
             {"page_type": 1},
             {"record_type": 1},
-            {"non_consectutive_home": 0},
+            {"non_consecutive_home": 0},
         ],
         "uid_first": "1001"
     }

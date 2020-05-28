@@ -1271,7 +1271,7 @@ def test_union_dataset_from_other_datasets(tempdir, multisourcefs):
     expected_schema = pa.schema([
         ('month', pa.int32()),
         ('color', pa.string()),
-        ('unkown', pa.string())  # fill with nulls
+        ('unknown', pa.string())  # fill with nulls
     ])
     assembled = ds.dataset([child1, child3], schema=expected_schema)
     assert assembled.to_table().schema.equals(expected_schema)

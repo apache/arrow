@@ -32,7 +32,7 @@ endif()
 
 # Flag to enable clang undefined behavior sanitizer
 # We explicitly don't enable all of the sanitizer flags:
-# - disable 'vptr' because of RTTI issues accross shared libraries (?)
+# - disable 'vptr' because of RTTI issues across shared libraries (?)
 # - disable 'alignment' because unaligned access is really OK on Nehalem and we do it
 #   all over the place.
 # - disable 'function' because it appears to give a false positive https://github.com/google/sanitizers/issues/911
