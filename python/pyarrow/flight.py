@@ -37,6 +37,7 @@ from pyarrow._flight import (  # noqa
     FlightUnauthenticatedError,
     FlightUnauthorizedError,
     FlightUnavailableError,
+    FlightWriteSizeExceededError,
     GeneratorStream,
     Location,
     Ticket,

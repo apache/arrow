@@ -70,6 +70,14 @@ cdef int check_flight_status(const CStatus& status) nogil except -1:
             elif detail.get().code() == CFlightStatusUnavailable:
                 raise FlightUnavailableError(message, detail_msg)
 
+    size_detail = FlightWriteSizeStatusDetail.UnwrapStatus(status)
+    if size_detail:
+        with gil:
+            message = frombytes(status.message())
+            raise FlightWriteSizeExceededError(
+                message,
+                size_detail.get().limit(), size_detail.get().actual())
+
     return check_status(status)
 
 
@@ -176,6 +184,16 @@ cdef class FlightUnavailableError(FlightError, ArrowException):
     cdef CStatus to_status(self):
         return MakeFlightError(CFlightStatusUnavailable, tobytes(str(self)),
                                self.extra_info)
+
+
+class FlightWriteSizeExceededError(OSError, ArrowException):
+    """A write operation exceeded the client-configured limit."""
+
+    def __init__(self, message, limit, actual):
+        super().__init__(message)
+        self.limit = limit
+        self.actual = actual
+
 
 cdef class Action:
     """An action executable on a Flight service."""
@@ -847,6 +865,23 @@ cdef class FlightStreamReader(MetadataRecordBatchReader):
 cdef class FlightStreamWriter(_CRecordBatchWriter):
     """A RecordBatchWriter that also allows writing application metadata."""
 
+    def write_batch(self, RecordBatch batch):
+        """
+        Write RecordBatch to stream.
+
+        Parameters
+        ----------
+        batch : RecordBatch
+        """
+        # Override superclass method to use check_flight_status so we
+        # can generate FlightWriteSizeExceededError. We don't do this
+        # for write_table as callers who intend to handle the error
+        # and retry with a smaller batch should be working with
+        # individual batches to have control.
+        with nogil:
+            check_flight_status(
+                self.writer.get().WriteRecordBatch(deref(batch.batch)))
+
     def write_with_metadata(self, RecordBatch batch, buf):
         """Write a RecordBatch along with Flight metadata.
 
@@ -927,12 +962,19 @@ cdef class FlightClient:
         Override the hostname checked by TLS. Insecure, use with caution.
     middleware : list optional, default None
         A list of ClientMiddlewareFactory instances.
+    write_size_limit_bytes : int optional, default None
+        A soft limit on the size of a data payload sent to the
+        server. Enabled if positive. If enabled, writing a record
+        batch that (when serialized) exceeds this limit will raise an
+        exception; the client can retry the write with a smaller
+        batch.
     """
     cdef:
         unique_ptr[CFlightClient] client
 
     def __init__(self, location, tls_root_certs=None, cert_chain=None,
-                 private_key=None, override_hostname=None, middleware=None):
+                 private_key=None, override_hostname=None, middleware=None,
+                 write_size_limit_bytes=None):
         if isinstance(location, (bytes, str)):
             location = Location(location)
         elif isinstance(location, tuple):
@@ -945,10 +987,11 @@ cdef class FlightClient:
             raise TypeError('`location` argument must be a string, tuple or a '
                             'Location instance')
         self.init(location, tls_root_certs, cert_chain, private_key,
-                  override_hostname, middleware)
+                  override_hostname, middleware, write_size_limit_bytes)
 
     cdef init(self, Location location, tls_root_certs, cert_chain,
-              private_key, override_hostname, middleware):
+              private_key, override_hostname, middleware,
+              write_size_limit_bytes):
         cdef:
             int c_port = 0
             CLocation c_location = Location.unwrap(location)
@@ -970,6 +1013,10 @@ cdef class FlightClient:
                     <shared_ptr[CClientMiddlewareFactory]>
                     make_shared[CPyClientMiddlewareFactory](
                         <PyObject*> factory, start_call))
+        if write_size_limit_bytes is not None:
+            c_options.write_size_limit_bytes = write_size_limit_bytes
+        else:
+            c_options.write_size_limit_bytes = 0
 
         with nogil:
             check_flight_status(CFlightClient.Connect(c_location, c_options,
