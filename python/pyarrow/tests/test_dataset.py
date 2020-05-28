@@ -16,11 +16,9 @@
 # under the License.
 
 import contextlib
-import io
 import os
 import pathlib
 import pickle
-import sys
 
 import numpy as np
 import pytest
