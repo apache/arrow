@@ -280,7 +280,7 @@ Status InferringColumnDecoder::UpdateType() {
 Result<std::shared_ptr<Array>> InferringColumnDecoder::RunInference(
     const std::shared_ptr<BlockParser>& parser) {
   while (true) {
-    // (noone else should be updating converter_ concurrently)
+    // (no one else should be updating converter_ concurrently)
     auto maybe_array = converter_->Convert(*parser, col_index_);
 
     std::unique_lock<std::mutex> lock(mutex_);

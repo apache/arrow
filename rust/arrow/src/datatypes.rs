@@ -19,7 +19,7 @@
 //!
 //! The most important things you might be looking for are:
 //!  * [`Schema`](crate::datatypes::Schema) to describe a schema.
-//!  * [`Field`](crate::datatypes::Field) to describe one field withing a schema.
+//!  * [`Field`](crate::datatypes::Field) to describe one field within a schema.
 //!  * [`DataType`](crate::datatypes::DataType) to describe the type of a field.
 
 use std::collections::HashMap;
