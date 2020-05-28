@@ -247,6 +247,9 @@ impl<S: SchemaProvider> SqlToRel<S> {
                                 self.sql_to_rex(&e.expr, &input_schema).unwrap(),
                             ),
                             asc: e.asc,
+                            // TODO: use nulls_first from sqlparser after a new version has been
+                            // released
+                            nulls_first: true, // by default nulls first to be consistent with spark
                         })
                     })
                     .collect();
@@ -618,7 +621,7 @@ mod tests {
     #[test]
     fn select_order_by() {
         let sql = "SELECT id FROM person ORDER BY id";
-        let expected = "Sort: #0 ASC\
+        let expected = "Sort: #0 ASC NULLS FIRST\
                         \n  Projection: #0\
                         \n    TableScan: person projection=None";
         quick_test(sql, expected);
@@ -627,7 +630,7 @@ mod tests {
     #[test]
     fn select_order_by_desc() {
         let sql = "SELECT id FROM person ORDER BY id DESC";
-        let expected = "Sort: #0 DESC\
+        let expected = "Sort: #0 DESC NULLS FIRST\
                         \n  Projection: #0\
                         \n    TableScan: person projection=None";
         quick_test(sql, expected);

@@ -75,10 +75,9 @@ impl ExecutionPlan for ProjectionExec {
             .partitions()?
             .iter()
             .map(|p| {
-                let expr = self.expr.clone();
                 let projection: Arc<dyn Partition> = Arc::new(ProjectionPartition {
                     schema: self.schema.clone(),
-                    expr,
+                    expr: self.expr.clone(),
                     input: p.clone() as Arc<dyn Partition>,
                 });
 

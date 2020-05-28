@@ -338,16 +338,16 @@ fn slice_data(data: ArrayDataRef, mut offset: usize, length: usize) -> ArrayData
 /// ----------------------------------------------------------------------------
 /// Implementations of different array types
 
-struct RawPtrBox<T> {
+pub struct RawPtrBox<T> {
     inner: *const T,
 }
 
 impl<T> RawPtrBox<T> {
-    fn new(inner: *const T) -> Self {
+    pub fn new(inner: *const T) -> Self {
         Self { inner }
     }
 
-    fn get(&self) -> *const T {
+    pub fn get(&self) -> *const T {
         self.inner
     }
 }

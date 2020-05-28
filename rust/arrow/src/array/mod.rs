@@ -96,6 +96,7 @@ use crate::datatypes::*;
 
 pub use self::array::Array;
 pub use self::array::ArrayRef;
+pub(crate) use self::array::RawPtrBox;
 pub use self::data::ArrayData;
 pub use self::data::ArrayDataBuilder;
 pub use self::data::ArrayDataRef;

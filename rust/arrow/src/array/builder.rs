@@ -299,7 +299,7 @@ impl<T: ArrowPrimitiveType> BufferBuilder<T> {
     /// Writes a byte slice to the underlying buffer and updates the `len`, i.e. the
     /// number array elements in the builder.  Also, converts the `io::Result`
     /// required by the `Write` trait to the Arrow `Result` type.
-    fn write_bytes(&mut self, bytes: &[u8], len_added: usize) -> Result<()> {
+    pub(crate) fn write_bytes(&mut self, bytes: &[u8], len_added: usize) -> Result<()> {
         let write_result = self.buffer.write(bytes);
         // `io::Result` has many options one of which we use, so pattern matching is
         // overkill here
