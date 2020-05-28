@@ -179,7 +179,7 @@ class IntegerField(PrimitiveField):
         return self.generate_range(size, lower_bound, upper_bound, name=name)
 
     def generate_range(self, size, lower, upper, name=None):
-        values = list(map(str if self.bit_width == 64 else int,
+        values = list(map(int if self.bit_width < 64 else str,
                           np.random.randint(lower, upper, size=size)))
 
         is_valid = self._make_is_valid(size)

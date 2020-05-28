@@ -1201,7 +1201,7 @@ func date32ToJSON(arr *array.Date32) []interface{} {
 func date64FromJSON(vs []interface{}) []arrow.Date64 {
 	o := make([]arrow.Date64, len(vs))
 	for i, v := range vs {
-		vv, err := v.(json.Number).Int64()
+		vv, err := strconv.ParseInt(v.(string), 10, 64)
 		if err != nil {
 			panic(err)
 		}
@@ -1213,7 +1213,7 @@ func date64FromJSON(vs []interface{}) []arrow.Date64 {
 func date64ToJSON(arr *array.Date64) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
-		o[i] = int64(arr.Value(i))
+		o[i] = string(arr.Value(i))
 	}
 	return o
 }
@@ -1241,7 +1241,7 @@ func time32ToJSON(arr *array.Time32) []interface{} {
 func time64FromJSON(vs []interface{}) []arrow.Time64 {
 	o := make([]arrow.Time64, len(vs))
 	for i, v := range vs {
-		vv, err := v.(json.Number).Int64()
+		vv, err := strconv.ParseInt(v.(string), 10, 64)
 		if err != nil {
 			panic(err)
 		}
@@ -1253,7 +1253,7 @@ func time64FromJSON(vs []interface{}) []arrow.Time64 {
 func time64ToJSON(arr *array.Time64) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
-		o[i] = int64(arr.Value(i))
+		o[i] = string(arr.Value(i))
 	}
 	return o
 }
@@ -1261,7 +1261,7 @@ func time64ToJSON(arr *array.Time64) []interface{} {
 func timestampFromJSON(vs []interface{}) []arrow.Timestamp {
 	o := make([]arrow.Timestamp, len(vs))
 	for i, v := range vs {
-		vv, err := v.(json.Number).Int64()
+		vv, err := strconv.ParseInt(v.(string), 10, 64)
 		if err != nil {
 			panic(err)
 		}
@@ -1273,7 +1273,7 @@ func timestampFromJSON(vs []interface{}) []arrow.Timestamp {
 func timestampToJSON(arr *array.Timestamp) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
-		o[i] = int64(arr.Value(i))
+		o[i] = string(arr.Value(i))
 	}
 	return o
 }
@@ -1326,7 +1326,7 @@ func daytimeintervalToJSON(arr *array.DayTimeInterval) []interface{} {
 func durationFromJSON(vs []interface{}) []arrow.Duration {
 	o := make([]arrow.Duration, len(vs))
 	for i, v := range vs {
-		vv, err := v.(json.Number).Int64()
+		vv, err := strconv.ParseInt(v.(string), 10, 64)
 		if err != nil {
 			panic(err)
 		}
@@ -1338,7 +1338,7 @@ func durationFromJSON(vs []interface{}) []arrow.Duration {
 func durationToJSON(arr *array.Duration) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
-		o[i] = arr.Value(i)
+		o[i] = string(arr.Value(i))
 	}
 	return o
 }
