@@ -152,27 +152,40 @@ Status Engine::Make(const std::shared_ptr<Configuration>& conf,
   return Status::OK();
 }
 
-static void setDataLayout(llvm::Module* module) {
-  auto targetTriple = llvm::sys::getDefaultTargetTriple();
-  std::string errorMessage;
-  auto target = llvm::TargetRegistry::lookupTarget(targetTriple, errorMessage);
+// This method was modified from its original version for a part of MLIR
+// Original source:
+// from https://github.com/llvm/llvm-project/blob/9f2ce5b915a505a5488a5cf91bb0a8efa9ddfff7/mlir/lib/ExecutionEngine/ExecutionEngine.cpp
+// The original copyright notice follows.
+
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+static void SetDataLayout(llvm::Module* module) {
+  auto target_triple = llvm::sys::getDefaultTargetTriple();
+  std::string error_message;
+  auto target = llvm::TargetRegistry::lookupTarget(target_triple, error_message);
   if (!target) {
     return;
   }
 
   std::string cpu(llvm::sys::getHostCPUName());
   llvm::SubtargetFeatures features;
-  llvm::StringMap<bool> hostFeatures;
+  llvm::StringMap<bool> host_features;
 
-  if (llvm::sys::getHostCPUFeatures(hostFeatures))
-    for (auto& f : hostFeatures) features.AddFeature(f.first(), f.second);
+  if (llvm::sys::getHostCPUFeatures(host_features)) {
+    for (auto& f : host_features) {
+      features.AddFeature(f.first(), f.second);
+    }
+  }
 
   std::unique_ptr<llvm::TargetMachine> machine(
-      target->createTargetMachine(targetTriple, cpu, features.getString(), {}, {}));
+      target->createTargetMachine(target_triple, cpu, features.getString(), {}, {}));
 
   module->setDataLayout(machine->createDataLayout());
 }
-
+// end of the mofified method from MLIR
+  
 // Handling for pre-compiled IR libraries.
 Status Engine::LoadPreCompiledIR() {
   auto bitcode = llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledBitcode),
@@ -202,7 +215,7 @@ Status Engine::LoadPreCompiledIR() {
   std::unique_ptr<llvm::Module> ir_module = move(module_or_error.get());
 
   // set dataLayout
-  setDataLayout(ir_module.get());
+  SetDataLayout(ir_module.get());
 
   ARROW_RETURN_IF(llvm::verifyModule(*ir_module, &llvm::errs()),
                   Status::CodeGenError("verify of IR Module failed"));
