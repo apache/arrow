@@ -29,7 +29,7 @@ namespace Apache.Arrow
 
             public int Length => ValueBuffer.Length;
             public int Capacity => ValueBuffer.Capacity;
-            public int NullCount => ValidityBuffer.NumUnsetBits;
+            public int NullCount => ValidityBuffer.UnsetBitCount;
 
             public Builder()
             {

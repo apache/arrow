@@ -122,8 +122,8 @@ namespace Apache.Arrow
 
             if (fullByteEndIndex >= fullByteStartIndex)
             {
-                count += CountBits(data.Slice(
-                    fullByteStartIndex, fullByteEndIndex - fullByteStartIndex + 1));
+                var slice = data.Slice(fullByteStartIndex, fullByteEndIndex - fullByteStartIndex + 1);
+                count += CountBits(slice);
             }
 
             if (endBitOffset != 7)

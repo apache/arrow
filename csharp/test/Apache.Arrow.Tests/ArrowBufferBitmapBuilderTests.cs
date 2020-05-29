@@ -36,8 +36,8 @@ namespace Apache.Arrow.Tests
                 bool[] initialContents,
                 bool valueToAppend,
                 int expectedLength,
-                int expectedNumSetBits,
-                int expectedNumUnsetBits)
+                int expectedSetBitCount,
+                int expectedUnsetBitCount)
             {
                 // Arrange
                 var builder = new ArrowBuffer.BitmapBuilder();
@@ -50,8 +50,8 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(builder, actualReturnValue);
                 Assert.Equal(expectedLength, builder.Length);
                 Assert.True(builder.Capacity >= expectedLength);
-                Assert.Equal(expectedNumSetBits, builder.NumSetBits);
-                Assert.Equal(expectedNumUnsetBits, builder.NumUnsetBits);
+                Assert.Equal(expectedSetBitCount, builder.SetBitCount);
+                Assert.Equal(expectedUnsetBitCount, builder.UnsetBitCount);
             }
 
             [Theory]
@@ -73,8 +73,8 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(builder, actualReturnValue);
                 Assert.Equal(1, builder.Length);
                 Assert.True(builder.Capacity >= 1);
-                Assert.Equal(valueToAppend ? 1 : 0, builder.NumSetBits);
-                Assert.Equal(valueToAppend ? 0 : 1, builder.NumUnsetBits);
+                Assert.Equal(valueToAppend ? 1 : 0, builder.SetBitCount);
+                Assert.Equal(valueToAppend ? 0 : 1, builder.UnsetBitCount);
             }
 
             [Fact]
@@ -106,8 +106,8 @@ namespace Apache.Arrow.Tests
                 bool[] initialContents,
                 bool[] toAppend,
                 int expectedLength,
-                int expectedNumSetBits,
-                int expectedNumUnsetBits)
+                int expectedSetBitCount,
+                int expectedUnsetBitCount)
             {
                 // Arrange
                 var builder = new ArrowBuffer.BitmapBuilder();
@@ -120,8 +120,8 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(builder, actualReturnValue);
                 Assert.Equal(expectedLength, builder.Length);
                 Assert.True(builder.Capacity >= expectedLength);
-                Assert.Equal(expectedNumSetBits, builder.NumSetBits);
-                Assert.Equal(expectedNumUnsetBits, builder.NumUnsetBits);
+                Assert.Equal(expectedSetBitCount, builder.SetBitCount);
+                Assert.Equal(expectedUnsetBitCount, builder.UnsetBitCount);
             }
         }
 
@@ -177,7 +177,7 @@ namespace Apache.Arrow.Tests
             [InlineData(new[] { true, true, true, true}, 2, 2, 0)]
             [InlineData(new[] { true, true, true, true}, 0, 0, 0)]
             public void LengthHasExpectedValueAfterResize(
-                bool[] bits, int newSize, int expectedNumSetBits, int expectedNumUnsetBits)
+                bool[] bits, int newSize, int expectedSetBitCount, int expectedUnsetBitCount)
             {
                 // Arrange
                 var builder = new ArrowBuffer.BitmapBuilder();
@@ -190,8 +190,8 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(builder, actualReturnValue);
                 Assert.True(builder.Capacity >= newSize);
                 Assert.Equal(newSize, builder.Length);
-                Assert.Equal(expectedNumSetBits, builder.NumSetBits);
-                Assert.Equal(expectedNumUnsetBits, builder.NumUnsetBits);
+                Assert.Equal(expectedSetBitCount, builder.SetBitCount);
+                Assert.Equal(expectedUnsetBitCount, builder.UnsetBitCount);
             }
 
             [Fact]
@@ -248,20 +248,26 @@ namespace Apache.Arrow.Tests
             [InlineData(
                 new[] { true, false, true, false, true, false, true, false, true, false},
                 2,
-                new byte[] { 0b01010101, 0b00000001 })]
+                new byte[] { 0b01010101, 0b00000001 },
+                5, 5)]
             [InlineData(
                 new[] { true, false, true, false, true, false, true, false, true, false},
                 3,
-                new byte[] { 0b01011101, 0b00000001 })]
+                new byte[] { 0b01011101, 0b00000001 },
+                6, 4)]
             [InlineData(
                 new[] { true, false, true, false, true, false, true, false, true, false},
                 8,
-                new byte[] { 0b01010101, 0b00000001 })]
+                new byte[] { 0b01010101, 0b00000001 },
+                5, 5)]
             [InlineData(
                 new[] { true, false, true, false, true, false, true, false, true, false},
                 9,
-                new byte[] { 0b01010101, 0b00000011 })]
-            public void OverloadWithNoValueParameterSetsAsExpected(bool[] bits, int indexToSet, byte[] expectedBytes)
+                new byte[] { 0b01010101, 0b00000011 },
+                6, 4)]
+            public void OverloadWithNoValueParameterSetsAsExpected(
+                bool[] bits, int indexToSet, byte[] expectedBytes,
+                int expectedSetBitCount, int expectedUnsetBitCount)
             {
                 // Arrange
                 var builder = new ArrowBuffer.BitmapBuilder();
@@ -272,6 +278,8 @@ namespace Apache.Arrow.Tests
 
                 // Assert
                 Assert.Equal(builder, actualReturnValue);
+                Assert.Equal(expectedSetBitCount, builder.SetBitCount);
+                Assert.Equal(expectedUnsetBitCount, builder.UnsetBitCount);
                 var buf = builder.Build();
                 AssertBuffer(expectedBytes, buf);
             }
@@ -280,37 +288,46 @@ namespace Apache.Arrow.Tests
             [InlineData(
                 new[] { true, false, true, false, true, false, true, false, true, false},
                 2, true,
-                new byte[] { 0b01010101, 0b00000001 })]
+                new byte[] { 0b01010101, 0b00000001 },
+                5, 5)]
             [InlineData(
                 new[] { true, false, true, false, true, false, true, false, true, false},
                 2, false,
-                new byte[] { 0b01010001, 0b00000001 })]
+                new byte[] { 0b01010001, 0b00000001 },
+                4, 6)]
             [InlineData(
                 new[] { true, false, true, false, true, false, true, false, true, false},
                 3, true,
-                new byte[] { 0b01011101, 0b00000001 })]
+                new byte[] { 0b01011101, 0b00000001 },
+                6, 4)]
             [InlineData(
                 new[] { true, false, true, false, true, false, true, false, true, false},
                 3, false,
-                new byte[] { 0b01010101, 0b00000001 })]
+                new byte[] { 0b01010101, 0b00000001 },
+                5, 5)]
             [InlineData(
                 new[] { true, false, true, false, true, false, true, false, true, false},
                 8, true,
-                new byte[] { 0b01010101, 0b00000001 })]
+                new byte[] { 0b01010101, 0b00000001 },
+                5, 5)]
             [InlineData(
                 new[] { true, false, true, false, true, false, true, false, true, false},
                 8, false,
-                new byte[] { 0b01010101, 0b00000000 })]
+                new byte[] { 0b01010101, 0b00000000 },
+                4, 6)]
             [InlineData(
                 new[] { true, false, true, false, true, false, true, false, true, false},
                 9, true,
-                new byte[] { 0b01010101, 0b00000011 })]
+                new byte[] { 0b01010101, 0b00000011 },
+                6, 4)]
             [InlineData(
                 new[] { true, false, true, false, true, false, true, false, true, false},
                 9, false,
-                new byte[] { 0b01010101, 0b00000001 })]
+                new byte[] { 0b01010101, 0b00000001 },
+                5, 5)]
             public void OverloadWithValueParameterSetsAsExpected(
-                bool[] bits, int indexToSet, bool valueToSet, byte[] expectedBytes)
+                bool[] bits, int indexToSet, bool valueToSet, byte[] expectedBytes,
+                int expectedSetBitCount, int expectedUnsetBitCount)
             {
                 // Arrange
                 var builder = new ArrowBuffer.BitmapBuilder();
@@ -321,6 +338,8 @@ namespace Apache.Arrow.Tests
 
                 // Assert
                 Assert.Equal(builder, actualReturnValue);
+                Assert.Equal(expectedSetBitCount, builder.SetBitCount);
+                Assert.Equal(expectedUnsetBitCount, builder.UnsetBitCount);
                 var buf = builder.Build();
                 AssertBuffer(expectedBytes, buf);
             }
@@ -411,20 +430,26 @@ namespace Apache.Arrow.Tests
             [InlineData(
                 new[] { true, false, true, false, true, false, true, false, true, false},
                 2,
-                new byte[] { 0b01010001, 0b00000001 })]
+                new byte[] { 0b01010001, 0b00000001 },
+                4, 6)]
             [InlineData(
                 new[] { true, false, true, false, true, false, true, false, true, false},
                 3,
-                new byte[] { 0b01011101, 0b00000001 })]
+                new byte[] { 0b01011101, 0b00000001 },
+                6, 4)]
             [InlineData(
                 new[] { true, false, true, false, true, false, true, false, true, false},
                 8,
-                new byte[] { 0b01010101, 0b00000000 })]
+                new byte[] { 0b01010101, 0b00000000 },
+                4, 6)]
             [InlineData(
                 new[] { true, false, true, false, true, false, true, false, true, false},
                 9,
-                new byte[] { 0b01010101, 0b00000011 })]
-            public void TogglesAsExpected(bool[] bits, int indexToToggle, byte[] expectedBytes)
+                new byte[] { 0b01010101, 0b00000011 },
+                6, 4)]
+            public void TogglesAsExpected(
+                bool[] bits, int indexToToggle, byte[] expectedBytes,
+                int expectedSetBitCount, int expectedUnsetBitCount)
             {
                 // Arrange
                 var builder = new ArrowBuffer.BitmapBuilder();
@@ -435,6 +460,8 @@ namespace Apache.Arrow.Tests
 
                 // Assert
                 Assert.Equal(builder, actualReturnValue);
+                Assert.Equal(expectedSetBitCount, builder.SetBitCount);
+                Assert.Equal(expectedUnsetBitCount, builder.UnsetBitCount);
                 var buf = builder.Build();
                 AssertBuffer(expectedBytes, buf);
             }
@@ -460,7 +487,7 @@ namespace Apache.Arrow.Tests
         private static void AssertBuffer(byte[] expectedBytes, ArrowBuffer buf)
         {
             Assert.True(buf.Length >= expectedBytes.Length);
-            for (var i = 0; i < expectedBytes.Length; i++)
+            for (int i = 0; i < expectedBytes.Length; i++)
             {
                 Assert.Equal(expectedBytes[i], buf.Span[i]);
             }

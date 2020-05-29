@@ -53,12 +53,12 @@ namespace Apache.Arrow
             /// <summary>
             /// Gets the number of set bits (i.e. set to 1).
             /// </summary>
-            public int NumSetBits { get; private set; }
+            public int SetBitCount { get; private set; }
 
             /// <summary>
             /// Gets the number of unset bits (i.e. set to 0).
             /// </summary>
-            public int NumUnsetBits => Length - NumSetBits;
+            public int UnsetBitCount => Length - SetBitCount;
 
             /// <summary>
             /// Creates an instance of the <see cref="BitmapBuilder"/> class.
@@ -85,7 +85,7 @@ namespace Apache.Arrow
 
                 BitUtility.SetBit(Span, Length, value);
                 Length++;
-                NumSetBits += value ? 1 : 0;
+                SetBitCount += value ? 1 : 0;
                 return this;
             }
 
@@ -115,8 +115,9 @@ namespace Apache.Arrow
             public BitmapBuilder Toggle(int index)
             {
                 CheckIndex(index);
+                bool priorValue = BitUtility.GetBit(Span, index);
+                SetBitCount += priorValue ? -1 : 1;
                 BitUtility.ToggleBit(Span, index);
-                NumSetBits = BitUtility.CountBits(Span, 0, Length);
                 return this;
             }
 
@@ -128,8 +129,9 @@ namespace Apache.Arrow
             public BitmapBuilder Set(int index)
             {
                 CheckIndex(index);
+                bool priorValue = BitUtility.GetBit(Span, index);
+                SetBitCount += priorValue ? 0 : 1;
                 BitUtility.SetBit(Span, index);
-                NumSetBits = BitUtility.CountBits(Span, 0, Length);
                 return this;
             }
 
@@ -142,8 +144,10 @@ namespace Apache.Arrow
             public BitmapBuilder Set(int index, bool value)
             {
                 CheckIndex(index);
+                bool priorValue = BitUtility.GetBit(Span, index);
+                SetBitCount -= priorValue ? 1 : 0;
+                SetBitCount += value ? 1 : 0;
                 BitUtility.SetBit(Span, index, value);
-                NumSetBits = BitUtility.CountBits(Span, 0, Length);
                 return this;
             }
 
@@ -202,7 +206,7 @@ namespace Apache.Arrow
                 EnsureCapacity(capacity);
                 Length = capacity;
 
-                NumSetBits = BitUtility.CountBits(Span, 0, Length);
+                SetBitCount = BitUtility.CountBits(Span, 0, Length);
 
                 return this;
             }
@@ -215,7 +219,7 @@ namespace Apache.Arrow
             {
                 Span.Fill(default);
                 Length = 0;
-                NumSetBits = 0;
+                SetBitCount = 0;
                 return this;
             }
 
